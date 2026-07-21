@@ -1869,7 +1869,10 @@ class ProfileFieldsManager {
 						</tbody>
 					</table>
 				<?php else : ?>
-					<p class="bn-pf-empty"><?php esc_html_e( 'No fields yet. Click "Add Field" to create the first field in this group.', 'buddynext' ); ?></p>
+					<div class="bn-empty">
+					<p class="bn-empty__title"><?php esc_html_e( 'No fields yet', 'buddynext' ); ?></p>
+					<p class="bn-empty__sub"><?php esc_html_e( 'Click "Add Field" to create the first field in this group.', 'buddynext' ); ?></p>
+				</div>
 				<?php endif; ?>
 
 				<!-- Add field panel (hidden until toggled) -->

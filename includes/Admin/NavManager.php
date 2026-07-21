@@ -119,14 +119,8 @@ class NavManager extends AdminPageBase {
 		add_action( 'admin_post_bn_save_nav', array( $this, 'handle_save_nav' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
-		// Primary action lives in the standardized AdminHub sub-header. The button
-		// sits outside #bn-nav-form, so it carries the HTML5 `form` attribute to
-		// still submit that form.
-		$save_action = sprintf(
-			'<button type="submit" form="bn-nav-form" class="bn-btn" data-variant="primary" data-size="md">%s</button>',
-			esc_html__( 'Save Changes', 'buddynext' )
-		);
-
+		// S6: this form saves via the standard bottom .bn-save-bar (rendered at
+		// the end of #bn-nav-form), not a per-tab header button.
 		AdminHub::register_tab(
 			'settings',
 			'navigation',
@@ -136,7 +130,6 @@ class NavManager extends AdminPageBase {
 				'group'    => __( 'Advanced', 'buddynext' ),
 				'layout'   => 'wide', // List-detail editor needs edge-to-edge room.
 				'subtitle' => $this->get_subtitle(),
-				'action'   => $save_action,
 			)
 		);
 
@@ -340,7 +333,7 @@ class NavManager extends AdminPageBase {
 		}
 		check_admin_referer( 'bn_save_hub_pages' );
 
-		$pages_url = admin_url( 'admin.php?page=buddynext&tab=pages' );
+		$pages_url = AdminHub::tab_url( 'settings', 'pages' );
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each field sanitized below.
 		$raw       = (array) wp_unslash( $_POST['bn_hub'] ?? array() );
 		$catalogue = $this->page_hub_catalogue();
@@ -1104,6 +1097,8 @@ class NavManager extends AdminPageBase {
 
 			</div><!-- /.bn-three-panel -->
 
+			<?php $this->render_save_bar(); ?>
+
 		</form>
 		<?php
 	}
@@ -1594,7 +1589,7 @@ class NavManager extends AdminPageBase {
 					printf(
 						/* translators: %s: link to the Pages & URLs tab. */
 						wp_kses_post( __( 'This hub\'s URL slug and backing WordPress page are managed in the %s tab.', 'buddynext' ) ),
-						'<a href="' . esc_url( admin_url( 'admin.php?page=buddynext&tab=pages' ) ) . '">' . esc_html__( 'Pages &amp; URLs', 'buddynext' ) . '</a>'
+						'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'pages' ) ) . '">' . esc_html__( 'Pages &amp; URLs', 'buddynext' ) . '</a>'
 					);
 					?>
 				</span>
@@ -1969,7 +1964,7 @@ class NavManager extends AdminPageBase {
 		}
 
 		wp_safe_redirect(
-			add_query_arg( 'bn_notice', 'saved', admin_url( 'admin.php?page=buddynext&tab=navigation' ) )
+			AdminHub::tab_url( 'settings', 'navigation', array( 'bn_notice' => 'saved' ) )
 		);
 		exit;
 	}

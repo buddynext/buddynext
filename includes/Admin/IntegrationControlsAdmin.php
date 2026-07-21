@@ -35,7 +35,7 @@ class IntegrationControlsAdmin {
 		\BuddyNext\Admin\AdminHub::register_tab(
 			'settings',
 			'integration-controls',
-			__( 'Integration Display', 'buddynext' ),
+			__( 'Integration Settings', 'buddynext' ),
 			array( $this, 'render_page' ),
 			array( 'group' => __( 'Integrations', 'buddynext' ) )
 		);
@@ -61,7 +61,7 @@ class IntegrationControlsAdmin {
 		printf(
 			/* translators: 1: link to the Integrations tab, 2: link to the Features tab. */
 			esc_html__( 'Choose where enabled integrations appear; install and enable them under %1$s and %2$s.', 'buddynext' ),
-			'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) ) . '">' . esc_html__( 'Integrations', 'buddynext' ) . '</a>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+			'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) ) . '">' . esc_html__( 'Add-ons', 'buddynext' ) . '</a>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
 			'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'features' ) ) . '">' . esc_html__( 'Features', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
 		);
 		echo '</p>';

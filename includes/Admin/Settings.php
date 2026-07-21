@@ -93,7 +93,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'notifications' => __( 'Notifications', 'buddynext' ),
 			'email'         => __( 'Email', 'buddynext' ),
 			'moderation'    => __( 'Controls', 'buddynext' ),
-			'integrations'  => __( 'Integrations', 'buddynext' ),
+			'integrations'  => __( 'Add-ons', 'buddynext' ),
 			'privacy'       => __( 'Privacy & Data', 'buddynext' ),
 			'webhooks'      => __( 'Webhooks', 'buddynext' ),
 		);
@@ -253,15 +253,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		\BuddyNext\Core\RecommendedDefaults::apply();
 		update_option( 'buddynext_recommended_dismissed', '1' );
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'           => 'buddynext',
-					'bn_recommended' => 'applied',
-				),
-				admin_url( 'admin.php' )
-			)
-		);
+		wp_safe_redirect( AdminHub::tab_url( 'settings', 'general', array( 'bn_recommended' => 'applied' ) ) );
 		exit;
 	}
 
@@ -278,15 +270,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		update_option( 'buddynext_recommended_dismissed', '1' );
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'           => 'buddynext',
-					'bn_recommended' => 'dismissed',
-				),
-				admin_url( 'admin.php' )
-			)
-		);
+		wp_safe_redirect( AdminHub::tab_url( 'settings', 'general', array( 'bn_recommended' => 'dismissed' ) ) );
 		exit;
 	}
 
@@ -2061,7 +2045,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	protected function render_content(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'general' ) );
-		$base_url   = admin_url( 'admin.php?page=buddynext' );
+		// Settings moved off the top-level `buddynext` slug (now the Get Started
+		// Home) to its own section slug; resolve it through the map so this base
+		// URL follows the section rather than hard-coding the old landing slug.
+		$base_url = admin_url( 'admin.php?page=' . AdminHub::section_slug( 'settings' ) );
 
 		$tabs = array(
 			'general'       => __( 'General', 'buddynext' ),
@@ -2072,7 +2059,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'notifications' => __( 'Notifications', 'buddynext' ),
 			'email'         => __( 'Email', 'buddynext' ),
 			'moderation'    => __( 'Moderation', 'buddynext' ),
-			'integrations'  => __( 'Integrations', 'buddynext' ),
+			'integrations'  => __( 'Add-ons', 'buddynext' ),
 			'privacy'       => __( 'Privacy & Data', 'buddynext' ),
 			'webhooks'      => __( 'Webhooks', 'buddynext' ),
 		);
@@ -2169,19 +2156,37 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'integrations' => __( 'Power-user integrations', 'buddynext' ),
 		);
 
-		echo '<p class="bn-field-hint">';
-		printf(
-			/* translators: %s: link to the Integration Display tab. */
-			esc_html__( 'Turn integrations on or off here; control where they appear under %s.', 'buddynext' ),
-			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Display', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
-		);
-		echo '</p>';
-
-		$this->open_section( __( 'Features', 'buddynext' ) );
+		// S5: the page H1 + subhead already say "Features" / "Pick which features
+		// your community uses" — an empty title suppresses the card header, and
+		// the intro keeps only the one sentence the subhead does not carry.
+		$this->open_section( '' );
 
 		echo '<p class="bn-field-hint bn-a-flush-top">' .
-			esc_html__( 'Pick which features your community uses. Core features always run. You can enable or disable everything else from this tab — changes apply immediately on save.', 'buddynext' ) .
+			esc_html__( 'You can enable or disable everything except core features from this tab - changes apply immediately on save.', 'buddynext' ) .
 			'</p>';
+
+		// Search box: this tab lists many toggles across several groups, so let the
+		// owner jump straight to one. Filtering is client-side (assets/js/admin/
+		// settings.js) over the feature rows; groups with no match hide, and an
+		// empty-result note shows.
+		echo '<div class="bn-feature-search" data-bn-feature-search>';
+		printf(
+			'<input type="search" class="bn-feature-search__input" data-bn-feature-search-input placeholder="%s" aria-label="%s" autocomplete="off">',
+			esc_attr__( 'Search features...', 'buddynext' ),
+			esc_attr__( 'Search features', 'buddynext' )
+		);
+		echo '<p class="bn-feature-search__empty" data-bn-feature-search-empty hidden>' . esc_html__( 'No features match your search.', 'buddynext' ) . '</p>';
+		echo '</div>';
+
+		// Scoped note: the "Power-user integrations" group below turns connected
+		// apps on/off; where they appear is a separate concern on Integration Settings.
+		echo '<p class="bn-field-hint">';
+		printf(
+			/* translators: %s: link to the Integration Settings tab. */
+			esc_html__( 'The Power-user integrations group below turns connected apps on or off; control where they appear under %s.', 'buddynext' ),
+			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Settings', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+		);
+		echo '</p>';
 
 		foreach ( $groups as $group_key => $features ) {
 			$group_label = $group_labels[ $group_key ] ?? ucfirst( (string) $group_key );
@@ -2376,13 +2381,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				__( 'Restricted is recommended: a hard gate costs you sign-ups, because confirmation emails land in spam folders more often than you would like.', 'buddynext' )
 			);
 		} else {
-			$bn_features_url = add_query_arg(
-				array(
-					'page' => 'buddynext',
-					'tab'  => 'features',
-				),
-				admin_url( 'admin.php' )
-			);
+			$bn_features_url = AdminHub::tab_url( 'settings', 'features' );
 			echo '<p class="bn-field-hint">' . wp_kses_post(
 				sprintf(
 					/* translators: %s: link to the Features settings tab */
@@ -2853,6 +2852,71 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		</p>
 
 		<?php
+		// Recommended themes. BuddyNext's full experience (dark-mode bridge,
+		// community chrome, tested layouts) needs a purpose-built theme; other
+		// themes can work but often need custom styling. Framed as a strong
+		// suggestion the owner can dismiss, never a hard requirement.
+		$bn_theme_recommended = array( 'buddyx', 'buddyx-pro', 'reign', 'reign-theme' );
+		$bn_active_template   = strtolower( (string) get_template() );
+		$bn_themes            = array(
+			array(
+				'label'   => 'BuddyX',
+				'why'     => __( 'Free community theme built for BuddyNext - dark mode and chrome tuned to match.', 'buddynext' ),
+				'active'  => in_array( $bn_active_template, array( 'buddyx' ), true ),
+				'install' => admin_url( 'theme-install.php?search=buddyx' ),
+				'store'   => 'https://wbcomdesigns.com/downloads/buddyx-theme/',
+				'tier'    => __( 'Free', 'buddynext' ),
+			),
+			array(
+				'label'  => 'BuddyX Pro',
+				'why'    => __( 'Premium BuddyX with deeper layout, header, and community controls.', 'buddynext' ),
+				'active' => in_array( $bn_active_template, array( 'buddyx-pro' ), true ),
+				'store'  => 'https://buddyxtheme.com/',
+				'tier'   => __( 'Premium', 'buddynext' ),
+			),
+			array(
+				'label'  => 'Reign',
+				'why'    => __( 'Premium multi-purpose community theme with rich BuddyNext layouts.', 'buddynext' ),
+				'active' => in_array( $bn_active_template, array( 'reign', 'reign-theme' ), true ),
+				'store'  => 'https://wbcomdesigns.com/downloads/reign-theme/',
+				'tier'   => __( 'Premium', 'buddynext' ),
+			),
+		);
+		?>
+		<div class="bn-fam-header bn-fam-header--themes">
+			<div class="bn-fam-header__body">
+				<h2 class="bn-fam-header__title"><?php esc_html_e( 'Recommended themes', 'buddynext' ); ?></h2>
+				<p class="bn-fam-header__desc">
+					<?php esc_html_e( 'The full BuddyNext experience - dark mode, community chrome, and layouts tested on every surface - needs a purpose-built theme, and not every theme offers dark mode. Other themes can work but often need custom styling.', 'buddynext' ); ?>
+				</p>
+			</div>
+		</div>
+
+		<div class="bn-companion-grid">
+			<?php foreach ( $bn_themes as $bn_t ) : ?>
+			<div class="bn-companion-card" data-status="<?php echo $bn_t['active'] ? 'active' : 'not_installed'; ?>">
+				<div class="bn-companion-card__head">
+					<h3 class="bn-companion-card__title"><?php echo esc_html( (string) $bn_t['label'] ); ?></h3>
+					<?php if ( $bn_t['active'] ) : ?>
+						<span class="bn-companion-badge bn-companion-badge--success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
+					<?php else : ?>
+						<span class="bn-companion-badge bn-companion-badge--muted"><?php echo esc_html( (string) $bn_t['tier'] ); ?></span>
+					<?php endif; ?>
+				</div>
+
+				<p class="bn-companion-card__why"><?php echo esc_html( (string) $bn_t['why'] ); ?></p>
+
+				<div class="bn-companion-card__actions">
+					<?php if ( ! $bn_t['active'] && ! empty( $bn_t['install'] ) && $can_install ) : ?>
+						<a href="<?php echo esc_url( (string) $bn_t['install'] ); ?>" class="bn-addon-row__action"><?php esc_html_e( 'Install free', 'buddynext' ); ?></a>
+					<?php endif; ?>
+					<a href="<?php echo esc_url( (string) $bn_t['store'] ); ?>" class="bn-addon-row__action bn-addon-row__action--ghost" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Learn more', 'buddynext' ); ?></a>
+				</div>
+			</div>
+			<?php endforeach; ?>
+		</div>
+
+		<?php
 		// The companion installer behaviour lives in assets/js/admin/settings.js
 		// (initCompanions), wired to the data-* attributes on [data-bn-companions]
 		// above. No inline script - see the UX-audit F2 rule.
@@ -2997,7 +3061,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				<tbody data-bn-webhook-tbody>
 				<?php if ( empty( $webhooks ) ) : ?>
 					<tr data-bn-webhook-empty>
-						<td colspan="5"><?php esc_html_e( 'No webhooks registered yet.', 'buddynext' ); ?></td>
+						<td colspan="5">
+							<div class="bn-empty">
+								<p class="bn-empty__title"><?php esc_html_e( 'No webhooks registered yet', 'buddynext' ); ?></p>
+								<p class="bn-empty__sub"><?php esc_html_e( 'Add an endpoint below to start receiving events.', 'buddynext' ); ?></p>
+							</div>
+						</td>
 					</tr>
 				<?php else : ?>
 					<?php
@@ -3025,25 +3094,27 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							</td>
 							<td><?php echo esc_html( (string) ( $hook['created_at'] ?? '' ) ); ?></td>
 							<td>
-								<button type="button"
-									class="bn-btn"
-									data-variant="ghost"
-									data-size="sm"
-									data-bn-webhook-test="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
-								><?php esc_html_e( 'Send test', 'buddynext' ); ?></button>
-								<button type="button"
-									class="bn-btn"
-									data-variant="ghost"
-									data-size="sm"
-									data-bn-webhook-log="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
-									aria-expanded="false"
-								><?php esc_html_e( 'View log', 'buddynext' ); ?></button>
-								<button type="button"
-									class="bn-btn"
-									data-variant="ghost"
-									data-size="sm"
-									data-bn-webhook-remove="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
-								><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+								<div class="bn-row-actions">
+									<button type="button"
+										class="bn-btn"
+										data-variant="secondary"
+										data-size="sm"
+										data-bn-webhook-test="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
+									><?php esc_html_e( 'Send test', 'buddynext' ); ?></button>
+									<button type="button"
+										class="bn-btn"
+										data-variant="secondary"
+										data-size="sm"
+										data-bn-webhook-log="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
+										aria-expanded="false"
+									><?php esc_html_e( 'View log', 'buddynext' ); ?></button>
+									<button type="button"
+										class="bn-btn"
+										data-variant="danger"
+										data-size="sm"
+										data-bn-webhook-remove="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
+									><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+								</div>
 							</td>
 						</tr>
 						<tr class="bn-webhook-log-row" data-bn-webhook-log-row="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>" hidden>

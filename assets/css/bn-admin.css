@@ -148,7 +148,6 @@
 	--bn-a-focus-ring:        0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 22%, transparent);
 
 	/* -- Card / dropdown min-widths -------------------------------------- */
-	--bn-a-stat-card-min-w:   140px;
 	--bn-a-dropdown-min-w:    140px;
 
 	/* -- Drag handle dimensions ------------------------------------------ */
@@ -442,7 +441,11 @@
 }
 
 .bn-ss-body {
-	padding: var(--bn-a-s5);
+	/* Sides + bottom keep the card's s5 gutter; top is tighter so the first row
+	   binds to the section header instead of floating below an empty gap. The
+	   first field's own top padding (e.g. .bn-toggle-row) supplies the rest, so
+	   header-to-first-field reads consistent with the spacing between fields. */
+	padding: var(--bn-a-s2) var(--bn-a-s5) var(--bn-a-s5);
 }
 
 /* Section-body intro paragraph. Shared by every admin tab that opens a
@@ -685,10 +688,11 @@ select.bn-text-input {
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: var(--bn-a-s4);
-	/* 16px band (was 12px): stacked toggle groups read denser than form-field
-	   rows; Learnomy's 16px row rhythm is the reference (card 10056978256). */
+	/* 16px vertical band. Rows separate by this padding rhythm alone - no divider
+	   line - so a toggle row reads the same as a select/input field in the same
+	   section. (Some sections mix the two; a per-row divider appeared only under
+	   toggles, never under fields, which read as an inconsistent stray line.) */
 	padding: var(--bn-a-s4) 0;
-	border-bottom: 1px solid var(--bn-a-border-soft);
 }
 
 /* Toggle-row copy column + nested sub-tab group (Integration Display cards). */
@@ -722,36 +726,21 @@ select.bn-text-input {
 	color: var(--bn-a-text-3);
 }
 
-.bn-int-subtab-group .bn-toggle-row:last-child {
-	border-bottom: 0;
+/* Descriptor-driven option rows (AdminPageBase::render_sections) wrap EVERY control in
+   a `<div class="bn-opt" id="…">` anchor (command-palette deep links). Give the WRAPPER
+   the row's vertical rhythm so every row separates identically - a toggle reads the same
+   as a select/input field, and a section that mixes the two spaces the same as an
+   all-toggle or all-field one. The inner control's own vertical padding/margin is zeroed
+   inside the wrapper so it is not double-counted. Rows OUTSIDE a wrapper (e.g. the
+   Integration Display sub-tab cards) keep the base .bn-toggle-row padding. */
+.bn-opt {
+	padding: var(--bn-a-s3) 0;
 }
-
-.bn-toggle-row:last-child {
-	border-bottom: none;
+.bn-opt > .bn-toggle-row {
+	padding-top: 0;
+	padding-bottom: 0;
 }
-
-/* Descriptor-driven option rows (AdminPageBase::render_sections) wrap EVERY row in a
-   `<div class="bn-opt" id="…">` anchor so the command palette can deep-link a single
-   control. That wrapper is the row's only child, which means the row above always
-   matched `.bn-toggle-row:last-child` / `.bn-field:last-child` - not just the last one.
-   Every toggle lost its divider and every field lost its bottom margin, so the hint of
-   one field ran straight into the next field's label.
-   The wrapper is a layout-transparent anchor, so the "last row" reset belongs to IT:
-   restore the row chrome inside a wrapper, and reset only on the wrapper that really is
-   last in the section card. */
-.bn-opt > .bn-toggle-row:last-child {
-	border-bottom: 1px solid var(--bn-a-border-soft);
-}
-
-.bn-opt:last-child > .bn-toggle-row:last-child {
-	border-bottom: none;
-}
-
-.bn-opt > .bn-field:last-child {
-	margin-bottom: var(--bn-a-s4);
-}
-
-.bn-opt:last-child > .bn-field:last-child {
+.bn-opt > .bn-field {
 	margin-bottom: 0;
 }
 
@@ -842,46 +831,8 @@ select.bn-text-input {
 	margin-inline-end: auto;
 }
 
-/* --------------------------------------------------------------------------
-   Stats cards
-   -------------------------------------------------------------------------- */
-
-.bn-stats-row {
-	display: flex;
-	gap: var(--bn-a-s4);
-	margin-bottom: var(--bn-a-s6);
-	flex-wrap: wrap;
-}
-
-.bn-stat-card {
-	background: var(--bn-a-bg);
-	border: 1px solid var(--bn-a-border);
-	border-radius: var(--bn-a-r-md);
-	padding: var(--bn-a-s4) var(--bn-a-s5);
-	flex: 1;
-	min-width: var(--bn-a-stat-card-min-w);
-}
-
-.bn-stat-label {
-	font-size: var(--bn-a-text-xs);
-	font-weight: var(--bn-a-fw-bold);
-	color: var(--bn-a-text-3);
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin-bottom: var(--bn-a-s1);
-}
-
-.bn-stat-val {
-	font-size: var(--bn-a-text-2xl);
-	font-weight: var(--bn-a-fw-extrabold);
-	color: var(--bn-a-text-1);
-	line-height: 1.1;
-	letter-spacing: var(--bn-a-ls-stat);
-}
-
-.bn-stat-danger {
-	color: var(--bn-a-red);
-}
+/* Legacy .bn-stats-row / .bn-stat-card component removed — every stat surface
+   now renders the shared .bn-stat-grid > .bn-stat tiles (bn-base.css). */
 
 /* --------------------------------------------------------------------------
    Data table
@@ -959,6 +910,158 @@ table.bn-table tr:hover td {
 }
 
 /* --------------------------------------------------------------------------
+   S3 — Wide-table actions column never clips
+   --------------------------------------------------------------------------
+   A list table wider than the admin content area lives inside a horizontal
+   scroll wrapper — Members/Spaces use .bn-table-wrap__scroll, the Pro
+   Subscriptions table uses .bn-table-scroll. When it scrolls, the last column
+   (the row's actions: View / Revoke / Manage) would slide out of sight and the
+   owner loses the control the row exists for. Pin the last column to the
+   inline-end edge so it stays put while the data columns scroll under it.
+
+   Scoped to those two scroll wrappers ONLY. Every table inside them has its
+   actions in the last column (audited 2026-07-21: Members, Spaces,
+   Subscriptions), so pinning the last cell is safe. Tables that are NOT
+   scroll-wrapped — Email-log, Reports, Moderation:Log — are untouched, so a
+   data-bearing last column is never pinned.
+
+   A pinned cell needs an opaque background or the scrolling cells show through
+   it. The two wrappers carry different table primitives, so their row fills
+   differ: a .bn-table row sits on the card surface, a WP-core .widefat row on
+   the table's own canvas fill (the zebra is stripped in S8 below). Match each.
+
+   Admin tables get `overflow: hidden` (the card-corner clip on
+   `.bn-admin-hub__content table:not(.form-table)`, and WP-core .widefat adds
+   its own). That makes the table its own scroll container, so a sticky cell
+   pins to the never-scrolling table box instead of the wrapper and the pin
+   does nothing. Clear it inside the scroll wrappers — the wrapper already does
+   the clipping — so the wrapper stays the horizontal scroll context. The
+   `.bn-admin-hub__content` prefix is only there to outweigh that clip rule. */
+.bn-admin-hub__content .bn-table-wrap__scroll > table:not(.form-table),
+.bn-admin-hub__content .bn-table-scroll > table:not(.form-table) {
+	overflow: visible;
+}
+
+.bn-table-wrap__scroll .bn-table th:last-child,
+.bn-table-wrap__scroll .bn-table td:last-child {
+	position: sticky;
+	inset-inline-end: 0;
+	text-align: end;
+}
+
+.bn-table-wrap__scroll .bn-table th:last-child {
+	background: var(--bn-a-bg-subtle);
+	z-index: 2;
+}
+
+.bn-table-wrap__scroll .bn-table td:last-child {
+	background: var(--bn-surface);
+	z-index: 1;
+}
+
+.bn-table-wrap__scroll .bn-table tr:hover td:last-child {
+	background: var(--bn-a-bg-hover);
+}
+
+.bn-table-scroll table th:last-child,
+.bn-table-scroll table td:last-child {
+	position: sticky;
+	inset-inline-end: 0;
+	text-align: end;
+}
+
+.bn-table-scroll table th:last-child {
+	background: var(--bn-a-bg-subtle);
+	z-index: 2;
+}
+
+.bn-table-scroll table td:last-child {
+	background: var(--bn-a-bg);
+	z-index: 1;
+}
+
+/* --------------------------------------------------------------------------
+   S8 — One row style: no zebra striping
+   --------------------------------------------------------------------------
+   BN's own .bn-table uses a plain row + a light bottom divider. WP-core list
+   tables (.widefat.striped) rendered by Email-log, Reports, Moderation:Log /
+   Bulk and Subscriptions ship alternating-row striping instead, so the admin
+   showed two different table looks. Drop the WP stripe (it lives on the odd
+   <tr>) and restore the same light divider so every admin table reads the
+   same. Scoped to the admin hub; this sheet only loads in wp-admin.
+
+   Target only the striped <tr> (WP core puts the stripe fill there, not on the
+   cells). Leaving the td/th untouched lets the S3 pinned-column background win
+   on odd rows too — otherwise a transparent last cell would let the scrolling
+   data show through the pinned actions on every other row. */
+.bn-admin-hub .striped > tbody > tr:nth-child(odd) {
+	background-color: transparent;
+}
+
+.bn-admin-hub .widefat tbody td,
+.bn-admin-hub .widefat tbody th {
+	border-bottom: 1px solid var(--bn-a-border-soft);
+}
+
+.bn-admin-hub .widefat tbody tr:last-child td,
+.bn-admin-hub .widefat tbody tr:last-child th {
+	border-bottom: none;
+}
+
+/* --------------------------------------------------------------------------
+   S4 — Shared empty state (.bn-empty)
+   --------------------------------------------------------------------------
+   ONE empty-state look for every "No X yet" message in the admin: a centered,
+   muted block that sits in the card body — not a bare sentence left-aligned
+   under the first column. Works as a <div> wrapping copy or as a standalone
+   <p class="bn-empty">, and supports an optional title + sub line:
+     <div class="bn-empty">
+       <p class="bn-empty__title">No webhooks yet</p>
+       <p class="bn-empty__sub">Add one to start receiving events.</p>
+     </div>
+   The .bn-empty__icon primitive (48px, dimmed) is shared from bn-base.css.
+   Callers are swept onto the title/sub structure in a later wave; existing
+   single-<p> blocks already centre correctly under this rule. */
+.bn-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	gap: var(--bn-a-s1);
+	padding: var(--bn-a-s8) var(--bn-a-s4);
+	color: var(--bn-a-text-3);
+	font-size: var(--bn-a-text-sm);
+}
+
+.bn-empty > p {
+	margin: 0;
+	max-width: 42ch;
+}
+
+.bn-empty__title {
+	font-size: var(--bn-a-text-md);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-2);
+}
+
+.bn-empty__sub {
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-3);
+}
+
+/* --------------------------------------------------------------------------
+   B5 — Wrapping filter chips (.bn-segment--wrap)
+   --------------------------------------------------------------------------
+   A .bn-segment holding a data-driven number of filter chips (e.g. the
+   Email Log event-type filter) wraps to new lines instead of clipping at
+   the card edge. Wrapping is preferred over horizontal scroll for filters. */
+.bn-segment--wrap {
+	flex-wrap: wrap;
+	max-width: 100%;
+}
+
+/* --------------------------------------------------------------------------
    Badges
    -------------------------------------------------------------------------- */
 
@@ -978,9 +1081,14 @@ table.bn-table tr:hover td {
 }
 
 /* The <form> is a carrier for the nonce, not a layout box. Without this it forms its own
-   line box and the gap applies to the wrapper rather than to the button inside it. */
+   line box and the gap applies to the wrapper rather than to the button inside it. The
+   internal gap only matters for the rare form that carries a visible control beside its
+   button (e.g. Subscriptions' day-count input + Extend); single-button forms are
+   unaffected. */
 .bn-row-actions__form {
 	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
 	margin: 0;
 }
 
@@ -989,7 +1097,6 @@ table.bn-table tr:hover td {
    which inherited into every descendant and would force a wrapping status/hint sentence
    onto one overflowing line. Scope it to the controls that actually need it. */
 .bn-row-actions > .bn-btn,
-.bn-row-actions > .bn-action-link,
 .bn-row-actions__form > .bn-btn {
 	white-space: nowrap;
 }
@@ -1154,6 +1261,12 @@ table.bn-table tr:hover td {
 	border: 1px solid var(--bn-a-border);
 	border-radius: var(--bn-a-r-lg);
 	background: var(--bn-a-bg);
+}
+
+/* The Recommended themes block follows the companion section on the Integrations
+   tab; give it a clear top gap so the two read as distinct sections. */
+.bn-fam-header--themes {
+	margin-block-start: 28px;
 }
 
 .bn-fam-header__mark {
@@ -1457,11 +1570,43 @@ button.bn-btn-danger:hover {
 	filter: brightness(0.94);
 }
 
+/* S9 — One secondary/outline button color (gray, not blue).
+   BN's own outline button (.bn-btn / .bn-btn-secondary) is a gray outline. A
+   WP-core <button class="button"> renders with the admin accent as its text +
+   border (a blue outline), so utility actions still using the WP class —
+   Automod "Test phrase", Moderation:Bulk "Filter" — read as a different,
+   louder button than everything around them. Neutralize the WP-core secondary
+   button inside the hub to the same gray outline as .bn-btn-secondary. Primary
+   (.button-primary, re-skinned to the BN accent in bn-admin-hub.css), the red
+   link-delete, and bare link buttons (.button-link) are left alone. */
+.bn-admin-hub .button:not(.button-primary):not(.button-link):not(.button-link-delete) {
+	background: var(--bn-a-bg);
+	border-color: var(--bn-a-border);
+	color: var(--bn-a-text-1);
+}
+
+.bn-admin-hub .button:not(.button-primary):not(.button-link):not(.button-link-delete):hover,
+.bn-admin-hub .button:not(.button-primary):not(.button-link):not(.button-link-delete):focus {
+	background: var(--bn-a-bg-subtle);
+	border-color: var(--bn-a-text-3);
+	color: var(--bn-a-text-1);
+}
+
 .bn-toolbar {
 	display: flex;
 	align-items: center;
 	gap: var(--bn-a-s2);
 	flex-wrap: wrap;
+}
+
+/* C4 — One bulk-actions select width. The select is content-sized by default,
+   so a short option list (Members: Suspend/Unsuspend) rendered a stubby
+   control while longer lists (Spaces, Moderation:Bulk) stretched wide. Every
+   .bn-bulk-bar select gets the same fixed width so the bulk toolbar reads
+   identically on all list screens. */
+.bn-admin-hub .bn-bulk-bar select {
+	width: 240px;
+	max-width: 100%;
 }
 
 /* --------------------------------------------------------------------------
@@ -1682,27 +1827,6 @@ button.bn-btn-danger:hover {
 }
 
 /* --------------------------------------------------------------------------
-   Row actions
-   The .bn-row-actions cluster itself is defined ONCE, further up this file
-   (next to .bn-row-actions__form). A second definition lived here and silently
-   re-declared the primitive - same gap, but it also forced `white-space: nowrap`
-   on the whole cluster, so any consumer that put wrapping text (a live status
-   line) beside its buttons got one overflowing line. Only the link variant
-   belongs here.
-   -------------------------------------------------------------------------- */
-
-.bn-action-link {
-	font-size: var(--bn-a-text-sm);
-	font-weight: var(--bn-a-fw-medium);
-	color: var(--bn-a-brand);
-	text-decoration: none;
-}
-
-.bn-action-link:hover {
-	text-decoration: underline;
-}
-
-/* --------------------------------------------------------------------------
    More menu dropdown
    -------------------------------------------------------------------------- */
 
@@ -1816,10 +1940,6 @@ button.bn-btn-danger:hover {
 		border-bottom: 1px solid var(--bn-a-border);
 		flex: 1 1 auto;
 		text-align: center;
-	}
-
-	.bn-stats-row {
-		flex-direction: column;
 	}
 
 	.bn-table-header {
@@ -1998,6 +2118,30 @@ button.bn-btn-danger:hover {
  * Features tab — Settings → Features
  * Site-owner control catalogue driven by FeatureRegistry::by_group().
  * ════════════════════════════════════════════════════════════════════════ */
+.bn-feature-search {
+	margin: var(--bn-s3) 0 var(--bn-s4);
+}
+.bn-feature-search__input {
+	width: 100%;
+	max-width: 360px;
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+.bn-feature-search__input:focus {
+	border-color: var(--bn-accent);
+	outline: none;
+	box-shadow: 0 0 0 1px var(--bn-accent);
+}
+.bn-feature-search__empty {
+	margin: var(--bn-s3) 0 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+
 .bn-feature-group {
 	font-family: var(--bn-font-display);
 	font-size: var(--bn-text-md);
@@ -2278,23 +2422,10 @@ button.bn-btn-danger:hover {
 .bn-roles-table select { min-width: 200px; }
 
 /* ── Insights (Growth section + dashboard widget) ───────────────────────── */
-.bn-insights-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-	gap: 12px;
-}
-.bn-insight-card {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	padding: 16px;
-	border: 1px solid var(--bn-line, #e2e8f0);
-	border-radius: 8px;
-	background: var(--bn-surface, #fff);
-}
-.bn-insight-value { font-size: 28px; font-weight: 700; line-height: 1.1; color: var(--bn-ink, #0f172a); }
-.bn-insight-label { font-size: 13px; color: var(--bn-ink-2, #475569); }
-.bn-insight-sub { font-size: 12px; color: var(--bn-success, #16a34a); }
+/* The Insights stat tiles render via the shared stat-strip template part
+   (.bn-stat-grid > .bn-stat, styled in bn-base.css) — the old .bn-insight-*
+   card component is retired. Only the signup spark strip and the wp-admin
+   dashboard widget keep page-specific rules. */
 .bn-spark {
 	display: flex;
 	align-items: flex-end;

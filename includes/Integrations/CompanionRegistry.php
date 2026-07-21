@@ -133,6 +133,20 @@ final class CompanionRegistry {
 					'store_url' => 'https://wbcomdesigns.com/downloads/wb-listora/',
 					'unlocks'   => __( 'Member listings surfaced in the feed + on profiles.', 'buddynext' ),
 				),
+				'eventonomy'      => array(
+					'label'     => 'Eventonomy',
+					'why'       => __( 'Events, RSVPs, and calendars - members create and attend events.', 'buddynext' ),
+					'detect'    => static fn(): bool => defined( 'EVENTONOMY_VERSION' ),
+					// Free-download credentials mirror Eventonomy's own EDD-SL preset
+					// (eventonomy.php: EVENTONOMY_EDD_ITEM_ID + EVENTONOMY_FREE_LICENSE_KEY).
+					'free'      => array(
+						'item_id'  => 1666307,
+						'key'      => 'eventonomyfree7a9c2e5d1f8b4c6a3e0d9b2f7c1a8e44',
+						'basename' => 'eventonomy/eventonomy.php',
+					),
+					'store_url' => 'https://wbcomdesigns.com/downloads/eventonomy/',
+					'unlocks'   => __( 'Events as activity cards in the feed + attending events on member profiles.', 'buddynext' ),
+				),
 			)
 		);
 	}

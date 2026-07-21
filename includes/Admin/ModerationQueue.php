@@ -34,21 +34,6 @@ use BuddyNext\Moderation\ModerationService;
 class ModerationQueue {
 
 	/**
-	 * Human labels for report reasons.
-	 *
-	 * @var array<string,string>
-	 */
-	private const REASON_LABELS = array(
-		'spam'           => 'Spam',
-		'harassment'     => 'Harassment',
-		'misinformation' => 'Misinformation',
-		'inappropriate'  => 'Inappropriate',
-		'fake'           => 'Fake / scam',
-		'impersonation'  => 'Impersonation',
-		'other'          => 'Other',
-	);
-
-	/**
 	 * Register hooks + the three moderation tabs.
 	 *
 	 * @return void
@@ -218,7 +203,7 @@ class ModerationQueue {
 			<label class="screen-reader-text" for="bn-mod-reason"><?php esc_html_e( 'Filter by reason', 'buddynext' ); ?></label>
 			<select name="mod_reason" id="bn-mod-reason">
 				<option value=""><?php esc_html_e( 'All reasons', 'buddynext' ); ?></option>
-				<?php foreach ( self::REASON_LABELS as $bn_key => $bn_label ) : ?>
+				<?php foreach ( \BuddyNext\Moderation\ModerationService::reason_labels() as $bn_key => $bn_label ) : ?>
 					<option value="<?php echo esc_attr( $bn_key ); ?>" <?php selected( $reason, $bn_key ); ?>><?php echo esc_html( $bn_label ); ?></option>
 				<?php endforeach; ?>
 			</select>
@@ -330,6 +315,7 @@ class ModerationQueue {
 			<td><?php echo esc_html( '' !== $space ? $space : __( 'Main feed', 'buddynext' ) ); ?></td>
 			<td><?php echo esc_html( $this->ago( (string) ( $row['created_at'] ?? '' ) ) ); ?></td>
 			<td>
+				<div class="bn-row-actions">
 				<?php
 				$this->action_form(
 					'bn_mod_premod_action',
@@ -352,6 +338,7 @@ class ModerationQueue {
 					__( 'Reject and delete this post?', 'buddynext' )
 				);
 				?>
+				</div>
 			</td>
 		</tr>
 		<?php
@@ -398,7 +385,7 @@ class ModerationQueue {
 				$bn_reasons = ( ! empty( $report['reasons'] ) && is_array( $report['reasons'] ) ) ? $report['reasons'] : array( $reason );
 				$bn_labels  = array_map(
 					static function ( $r ) {
-						return self::REASON_LABELS[ $r ] ?? ucfirst( (string) $r );
+						return \BuddyNext\Moderation\ModerationService::reason_label( (string) $r );
 					},
 					$bn_reasons
 				);
@@ -430,7 +417,7 @@ class ModerationQueue {
 			</td>
 			<td><?php echo esc_html( $this->ago( (string) ( $report['created_at'] ?? '' ) ) ); ?></td>
 			<td>
-				<div class="bn-mod-actions">
+				<div class="bn-row-actions">
 					<?php
 					$this->report_button( $report_id, 'dismiss', __( 'Dismiss', 'buddynext' ), 'secondary' );
 					$this->report_button( $report_id, 'resolve', __( 'Resolve', 'buddynext' ), 'secondary' );
@@ -564,7 +551,7 @@ class ModerationQueue {
 								<td><?php echo esc_html( (string) $a['message'] ); ?></td>
 								<td><?php echo esc_html( $this->ago( (string) ( $a['created_at'] ?? '' ) ) ); ?></td>
 								<td>
-									<div class="bn-mod-actions">
+									<div class="bn-row-actions">
 										<?php
 										$this->appeal_button( (int) $a['id'], 'approved', __( 'Approve', 'buddynext' ), 'primary' );
 										$this->appeal_button( (int) $a['id'], 'denied', __( 'Deny', 'buddynext' ), 'secondary' );
@@ -608,7 +595,9 @@ class ModerationQueue {
 			</div>
 			<div class="bn-ss-body">
 				<?php if ( empty( $items ) ) : ?>
-					<p><?php esc_html_e( 'No moderator actions have been recorded yet.', 'buddynext' ); ?></p>
+					<div class="bn-empty">
+						<p class="bn-empty__title"><?php esc_html_e( 'No moderator actions have been recorded yet', 'buddynext' ); ?></p>
+					</div>
 				<?php else : ?>
 				<table class="widefat striped">
 					<thead>
@@ -957,7 +946,7 @@ class ModerationQueue {
 			$data_variant = 'danger';
 		}
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-mod-action-form"
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form"
 			<?php
 			// Declarative confirm via the shared bn-admin-dialogs modal (enqueued on
 			// every buddynext-* admin page); replaces the native browser confirm().
@@ -969,7 +958,7 @@ class ModerationQueue {
 			<?php foreach ( $fields as $name => $value ) : ?>
 				<input type="hidden" name="<?php echo esc_attr( (string) $name ); ?>" value="<?php echo esc_attr( (string) $value ); ?>">
 			<?php endforeach; ?>
-			<button type="submit" class="bn-btn" data-variant="<?php echo esc_attr( $data_variant ); ?>"><?php echo esc_html( $label ); ?></button>
+			<button type="submit" class="bn-btn" data-variant="<?php echo esc_attr( $data_variant ); ?>" data-size="sm"><?php echo esc_html( $label ); ?></button>
 		</form>
 		<?php
 	}

@@ -868,7 +868,7 @@ class EmailEditor {
 						<button
 							type="button"
 							class="bn-btn"
-							data-variant="ghost"
+							data-variant="secondary"
 							data-size="sm"
 							data-bn-open-modal="bn-email-modal-reset"
 						>
@@ -877,7 +877,7 @@ class EmailEditor {
 						<button
 							type="button"
 							class="bn-btn"
-							data-variant="ghost"
+							data-variant="secondary"
 							data-size="sm"
 							data-bn-open-modal="bn-email-modal-test"
 						>

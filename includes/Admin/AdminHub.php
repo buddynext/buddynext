@@ -45,11 +45,19 @@ class AdminHub {
 	 */
 	private static function default_sections(): array {
 		return array(
-			'settings'      => array(
+			// Get Started owns the top-level `buddynext` slug so a fresh install
+			// lands on orientation (welcome + checklist + demo) instead of the
+			// Settings form. Settings keeps all its tabs at its own slug below.
+			'get-started'   => array(
 				'slug'  => 'buddynext',
+				'label' => __( 'Get Started', 'buddynext' ),
+				'icon'  => 'sparkles',
+				'top'   => true,
+			),
+			'settings'      => array(
+				'slug'  => 'buddynext-settings',
 				'label' => __( 'Settings', 'buddynext' ),
 				'icon'  => 'settings',
-				'top'   => true,
 			),
 			'platform'      => array(
 				'slug'  => 'buddynext-platform',
@@ -725,6 +733,10 @@ class AdminHub {
 	 *  - `action`   string    Pre-built, already-escaped HTML for the sub-header's right side
 	 *                         (e.g. an Export CSV form/button). Printed verbatim — the screen
 	 *                         that supplies it is responsible for escaping every value inside.
+	 *                         Variant convention (C6): create/primary actions (Add Label,
+	 *                         Upgrade) use `.bn-btn` with `data-variant="primary"`;
+	 *                         utility/export actions (Export CSV, Publish Overdue Posts Now)
+	 *                         use `data-variant="secondary"`. Both use `data-size="sm"`.
 	 *
 	 * Back-compat: passing a capability string as the 5th arg still works.
 	 *
@@ -804,49 +816,57 @@ class AdminHub {
 				'bn_admin_hub_default_icon_map',
 				array(
 					// Settings section.
-					'general'       => 'settings',
-					'features'      => 'sparkles',
-					'registration'  => 'user',
-					'social'        => 'globe',
-					'spaces'        => 'grid',
-					'notifications' => 'bell',
-					'email'         => 'mail',
-					'moderation'    => 'shield',
-					'integrations'  => 'code',
-					'privacy'       => 'lock',
-					'appearance'    => 'palette',
-					'tools'         => 'cpu',
-					'roles'         => 'award',
-					'webhooks'      => 'share',
-					'navigation'    => 'list',
-					'templates'     => 'mail',
-					'reactions'     => 'smile',
-					'push'          => 'bell',
-					'push-prefs'    => 'bell',
-					'realtime'      => 'zap',
-					'white-label'   => 'palette',
+					'general'              => 'settings',
+					'features'             => 'sparkles',
+					'registration'         => 'user',
+					'social'               => 'globe',
+					'spaces'               => 'grid',
+					'notifications'        => 'bell',
+					'email'                => 'mail',
+					'email-log'            => 'mail',
+					'moderation'           => 'shield',
+					'integrations'         => 'code',
+					'integration-controls' => 'eye',
+					'privacy'              => 'lock',
+					'appearance'           => 'palette',
+					'tools'                => 'cpu',
+					'roles'                => 'award',
+					'webhooks'             => 'share',
+					'navigation'           => 'list',
+					'pages'                => 'link',
+					'announcements'        => 'megaphone',
+					'templates'            => 'mail',
+					'reactions'            => 'smile',
+					'push'                 => 'bell',
+					'push-prefs'           => 'bell',
+					'realtime'             => 'zap',
+					'white-label'          => 'palette',
 					// Members section.
-					'directory'     => 'users',
-					'labels'        => 'hash',
+					'directory'            => 'users',
+					'labels'               => 'hash',
 					// Moderation section.
-					'rules'         => 'shield',
-					'ai'            => 'sparkles',
-					'bulk'          => 'check-double',
-					'reports'       => 'flag',
-					'suspensions'   => 'ban',
-					'appeals'       => 'message-circle',
+					'rules'                => 'shield',
+					'ai'                   => 'sparkles',
+					'bulk'                 => 'check-double',
+					'reports'              => 'flag',
+					'suspensions'          => 'ban',
+					'appeals'              => 'message-circle',
+					'pending'              => 'clock',
+					'log'                  => 'file-text',
 					// Engagement / Campaigns section.
-					'analytics'     => 'bar-chart',
-					'insights'      => 'trending',
-					'broadcasts'    => 'megaphone',
-					'drip'          => 'mail',
-					'scheduled'     => 'clock',
-					'ai-feed'       => 'sparkles',
+					'analytics'            => 'bar-chart',
+					'insights'             => 'trending',
+					'broadcasts'           => 'megaphone',
+					'drip'                 => 'mail',
+					'scheduled'            => 'clock',
+					'ai-feed'              => 'sparkles',
 					// Monetization section.
-					'tiers'         => 'crown',
-					'subscriptions' => 'crown',
-					'paywall'       => 'lock',
-					'stripe'        => 'crown',
+					'tiers'                => 'crown',
+					'subscriptions'        => 'crown',
+					'payments'             => 'store',
+					'license'              => 'award',
+					'paywall'              => 'lock',
+					'stripe'               => 'crown',
 				)
 			);
 		}
@@ -965,6 +985,27 @@ class AdminHub {
 				esc_url( self::tab_url( 'settings', 'license' ) ),
 			);
 		}
+
+		// Integrations lives as a tab inside the Platform section; surface it as a
+		// direct WP submenu quick-link too so owners can jump straight to the
+		// companion apps and recommended themes. Resolve the owning section from the
+		// tab map (owner request) so the link follows the tab if it moves sections.
+		$bn_int_section = '';
+		foreach ( self::$tabs as $bn_section_key => $bn_section_tabs ) {
+			if ( isset( $bn_section_tabs['integrations'] ) ) {
+				$bn_int_section = (string) $bn_section_key;
+				break;
+			}
+		}
+		if ( '' !== $bn_int_section ) {
+			global $submenu;
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- appending a deep-link entry, not overriding core state.
+			$submenu[ self::TOP_SLUG ][] = array(
+				esc_html__( 'Add-ons', 'buddynext' ),
+				'manage_options',
+				esc_url( self::tab_url( $bn_int_section, 'integrations' ) ),
+			);
+		}
 	}
 
 	// ── Render ───────────────────────────────────────────────────────────────
@@ -1017,7 +1058,6 @@ class AdminHub {
 		echo '<div class="bn-admin-hub__shell">';
 		$this->render_nav_panel( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__content">';
-		SetupChecklist::maybe_render( $page );
 		$this->render_header( (string) $active['label'] );
 		$this->render_subhead( $active );
 		$main_classes = 'bn-admin-hub__main ' . ( $is_wide ? 'bn-admin-hub__main--wide' : 'bn-admin-hub__main--full' );

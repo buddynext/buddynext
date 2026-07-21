@@ -98,15 +98,13 @@ class AnnouncementsAdmin {
 		$featured_id = (int) get_option( self::FEATURED_OPTION, 0 );
 		$now         = time();
 		?>
+		<?php // S5: no card header — its title would only repeat the page H1 ("Announcements"). ?>
 		<div class="bn-settings-section">
-			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php esc_html_e( 'Announcements', 'buddynext' ); ?></span>
-			</div>
-
 			<?php if ( empty( $rows ) ) : ?>
-				<p class="bn-field-hint">
-					<?php esc_html_e( 'No announcements yet. Post one from the feed composer (choose the Announcement type) and it will appear here.', 'buddynext' ); ?>
-				</p>
+				<div class="bn-empty">
+					<p class="bn-empty__title"><?php esc_html_e( 'No announcements yet', 'buddynext' ); ?></p>
+					<p class="bn-empty__sub"><?php esc_html_e( 'Post one from the feed composer (choose the Announcement type) and it will appear here.', 'buddynext' ); ?></p>
+				</div>
 			<?php else : ?>
 				<table class="widefat striped bn-announcements-table">
 					<thead>
@@ -139,16 +137,18 @@ class AnnouncementsAdmin {
 								</td>
 								<td><span class="bn-badge" data-tone="<?php echo esc_attr( $status['tone'] ); ?>"><?php echo esc_html( $status['label'] ); ?></span></td>
 								<td>
-									<?php
-									// Feature/unfeature only makes sense for a live site-wide announcement.
-									if ( $is_site && 'active' === $status['key'] ) {
-										$this->action_button( $id, $is_feat ? 'unfeature' : 'feature', $is_feat ? __( 'Unfeature', 'buddynext' ) : __( 'Feature', 'buddynext' ) );
-									}
-									if ( 'expired' !== $status['key'] ) {
-										$this->action_button( $id, 'end', __( 'End now', 'buddynext' ) );
-									}
-									$this->action_button( $id, 'delete', __( 'Delete', 'buddynext' ), true );
-									?>
+									<div class="bn-row-actions">
+										<?php
+										// Feature/unfeature only makes sense for a live site-wide announcement.
+										if ( $is_site && 'active' === $status['key'] ) {
+											$this->action_button( $id, $is_feat ? 'unfeature' : 'feature', $is_feat ? __( 'Unfeature', 'buddynext' ) : __( 'Feature', 'buddynext' ) );
+										}
+										if ( 'expired' !== $status['key'] ) {
+											$this->action_button( $id, 'end', __( 'End now', 'buddynext' ) );
+										}
+										$this->action_button( $id, 'delete', __( 'Delete', 'buddynext' ), true );
+										?>
+									</div>
 								</td>
 							</tr>
 						<?php endforeach; ?>
@@ -210,12 +210,21 @@ class AnnouncementsAdmin {
 	 */
 	private function action_button( int $post_id, string $do, string $label, bool $destructive = false ): void {
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-inline-form"<?php echo $destructive ? ' onsubmit="return confirm(\'' . esc_js( __( 'Delete this announcement permanently?', 'buddynext' ) ) . '\');"' : ''; ?>>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form">
 			<?php wp_nonce_field( 'buddynext_announcement_action' ); ?>
 			<input type="hidden" name="action" value="buddynext_announcement_action">
 			<input type="hidden" name="do" value="<?php echo esc_attr( $do ); ?>">
 			<input type="hidden" name="post_id" value="<?php echo esc_attr( (string) $post_id ); ?>">
-			<button type="submit" class="button button-small<?php echo $destructive ? ' button-link-delete' : ''; ?>"><?php echo esc_html( $label ); ?></button>
+			<button type="submit"
+				class="bn-btn"
+				data-variant="<?php echo $destructive ? 'danger' : 'secondary'; ?>"
+				data-size="sm"
+				<?php if ( $destructive ) : ?>
+				data-bn-confirm="<?php esc_attr_e( 'Delete this announcement permanently?', 'buddynext' ); ?>"
+				data-bn-confirm-tone="danger"
+				data-bn-confirm-ok="<?php esc_attr_e( 'Delete', 'buddynext' ); ?>"
+				<?php endif; ?>
+			><?php echo esc_html( $label ); ?></button>
 		</form>
 		<?php
 	}

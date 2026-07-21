@@ -94,6 +94,61 @@ class DemoAdmin {
 	}
 
 	/**
+	 * Compact demo-data promo for the admin landing.
+	 *
+	 * The full seed/remove UI lives on Platform -> Tools, which a first-time owner
+	 * never opens - so a fresh install is an empty ghost town with the one action
+	 * that would populate it hidden three levels deep. This surfaces the demo
+	 * control right on the landing in BOTH states: a one-click "Load a demo
+	 * community" when empty, and a "Remove demo data" once seeded (so the owner
+	 * can clear the sample content from the same place they added it, without
+	 * hunting through Platform -> Tools). Reuses the same bn_demo_seed /
+	 * bn_demo_cleanup handlers + nonces as render_section().
+	 *
+	 * @return void
+	 */
+	public function render_promo(): void {
+		$service = new DemoDataService();
+		$seeded  = $service->is_seeded();
+
+		$title  = $seeded
+			? __( 'Demo data is active', 'buddynext' )
+			: __( 'See your community with demo data', 'buddynext' );
+		$sub    = $seeded ? '' : __( 'Not sure what a live community looks like on your site? Add realistic sample members, spaces, and posts in one click - then remove it all any time.', 'buddynext' );
+		$action = $seeded ? 'bn_demo_cleanup' : 'bn_demo_seed';
+		$label  = $seeded ? __( 'Remove demo data', 'buddynext' ) : __( 'Load a demo community', 'buddynext' );
+
+		if ( $seeded ) {
+			$summary = $service->summary();
+			$sub     = sprintf(
+				/* translators: 1: members, 2: spaces, 3: posts */
+				__( 'Sample content is loaded: %1$d members, %2$d spaces, %3$d posts. Remove it any time - your real content is never touched.', 'buddynext' ),
+				$summary['users'],
+				$summary['spaces'],
+				$summary['posts']
+			);
+		}
+		?>
+		<div class="bn-setup-card bn-demo-promo">
+			<div class="bn-setup-card__head">
+				<div class="bn-setup-card__heading">
+					<h2 class="bn-setup-card__title"><?php echo esc_html( $title ); ?></h2>
+					<p class="bn-setup-card__sub"><?php echo esc_html( $sub ); ?></p>
+				</div>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-demo-promo__form"
+					<?php if ( $seeded ) : ?>
+					data-bn-confirm="<?php echo esc_attr__( 'Remove all demo data? This cannot be undone.', 'buddynext' ); ?>" data-bn-confirm-tone="danger"
+					<?php endif; ?>>
+					<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
+					<?php wp_nonce_field( $action ); ?>
+					<button type="submit" class="bn-btn" data-variant="<?php echo $seeded ? 'danger' : 'primary'; ?>"><?php echo esc_html( $label ); ?></button>
+				</form>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Handle the seed button.
 	 *
 	 * @return void
@@ -134,16 +189,7 @@ class DemoAdmin {
 	 * @return void
 	 */
 	private function redirect_back( string $status ): void {
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'    => 'buddynext',
-					'tab'     => 'tools',
-					'bn_demo' => $status,
-				),
-				admin_url( 'admin.php' )
-			)
-		);
+		wp_safe_redirect( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'tools', array( 'bn_demo' => $status ) ) );
 		exit;
 	}
 }

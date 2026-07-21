@@ -396,6 +396,55 @@
 		} );
 	}
 
+	// ─── Features tab search ──────────────────────────────────────────────
+	// Client-side filter over the feature toggles on the Features tab. Matches
+	// the query against each row's label; a group (its `.bn-feature-group`
+	// heading + adjacent `.bn-feature-grid`) hides when none of its rows match,
+	// and an empty-result note shows when nothing matches at all.
+	function initFeatureSearch() {
+		var wrap = document.querySelector( '[data-bn-feature-search]' );
+		if ( ! wrap ) {
+			return;
+		}
+		var input = wrap.querySelector( '[data-bn-feature-search-input]' );
+		var empty = wrap.querySelector( '[data-bn-feature-search-empty]' );
+		if ( ! input ) {
+			return;
+		}
+
+		var grids = document.querySelectorAll( '.bn-feature-grid' );
+
+		var apply = function () {
+			var q = ( input.value || '' ).trim().toLowerCase();
+			var total = 0;
+
+			grids.forEach( function ( grid ) {
+				var visible = 0;
+				grid.querySelectorAll( '.bn-feature-row' ).forEach( function ( row ) {
+					var label = row.querySelector( '.bn-feature-row__label' );
+					var txt   = ( label ? label.textContent : row.textContent ) || '';
+					var hit   = q === '' || txt.toLowerCase().indexOf( q ) !== -1;
+					row.hidden = ! hit;
+					if ( hit ) { visible++; }
+				} );
+				total += visible;
+
+				// Hide the grid and its preceding group heading when empty.
+				grid.hidden = visible === 0;
+				var heading = grid.previousElementSibling;
+				if ( heading && heading.classList.contains( 'bn-feature-group' ) ) {
+					heading.hidden = visible === 0;
+				}
+			} );
+
+			if ( empty ) {
+				empty.hidden = ! ( q !== '' && total === 0 );
+			}
+		};
+
+		input.addEventListener( 'input', apply );
+	}
+
 	if ( document.readyState === 'loading' ) {
 		document.addEventListener( 'DOMContentLoaded', function () {
 			initSettingsSearch();
@@ -404,6 +453,7 @@
 			initCompanions();
 			initColorFields();
 			initSecretFields();
+			initFeatureSearch();
 		} );
 	} else {
 		initSettingsSearch();
@@ -412,5 +462,6 @@
 		initCompanions();
 		initColorFields();
 		initSecretFields();
+		initFeatureSearch();
 	}
 } )();

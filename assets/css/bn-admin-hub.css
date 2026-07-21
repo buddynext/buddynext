@@ -515,41 +515,17 @@
 	align-items: start;
 }
 .bn-admin-hub__panel {
+	/* Sticky rail, but no inner scroll: sections are collapsible (only the active
+	   one is open by default), so the nav stays short and follows the normal page
+	   scroll rather than showing its own scrollbar in the gutter. */
 	position: sticky;
 	top: var(--bn-s8, 32px);
 	align-self: start;
-	max-height: calc( 100vh - 60px );
-	overflow-y: auto;
 	padding: var(--bn-s2, 8px);
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg, 12px);
 	box-shadow: var(--bn-shadow-xs, 0 1px 2px rgba( 0, 0, 0, 0.04 ));
-	/* Reserve the scrollbar's space so revealing it on hover never shifts the
-	   nav text sideways. */
-	scrollbar-gutter: stable;
-}
-/* The nav (≈18 links across 5 groups) is taller than most laptop viewports, so
-   the sticky panel scrolls on its own to keep every item reachable. Keep that
-   scrollbar subtle — transparent until the panel is hovered/focused — so there
-   is no permanent grey track in the gutter (Linear/Notion-style overlay). */
-.bn-admin-hub__panel {
-	scrollbar-width: thin;
-	scrollbar-color: transparent transparent;
-}
-.bn-admin-hub__panel:hover,
-.bn-admin-hub__panel:focus-within {
-	scrollbar-color: var(--bn-line) transparent;
-}
-.bn-admin-hub__panel::-webkit-scrollbar { width: 8px; }
-.bn-admin-hub__panel::-webkit-scrollbar-track { background: transparent; }
-.bn-admin-hub__panel::-webkit-scrollbar-thumb {
-	background: transparent;
-	border-radius: var(--bn-r-full, 9999px);
-}
-.bn-admin-hub__panel:hover::-webkit-scrollbar-thumb,
-.bn-admin-hub__panel:focus-within::-webkit-scrollbar-thumb {
-	background: var(--bn-line);
 }
 .bn-hub-nav-group { margin-bottom: var(--bn-s2, 8px); }
 .bn-hub-nav-group:last-child { margin-bottom: 0; }
@@ -903,6 +879,35 @@
 	background: var(--bn-a-bg);
 }
 
+/* A step's action cluster: the primary CTA plus an optional muted opt-out
+   (the theme step's "Keep my theme"), so the recommendation never traps an
+   owner who runs another theme. */
+.bn-setup-step__actions {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	flex-shrink: 0;
+}
+
+.bn-setup-step__ack {
+	margin: 0;
+}
+
+.bn-setup-step__ack-btn {
+	background: none;
+	border: none;
+	padding: 5px var(--bn-a-s2);
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-2);
+	cursor: pointer;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.bn-setup-step__ack-btn:hover {
+	color: var(--bn-a-text-1);
+}
+
 .bn-setup-step__status {
 	flex-shrink: 0;
 	font-size: var(--bn-a-text-xs);
@@ -918,5 +923,72 @@
 	.bn-setup-step__cta,
 	.bn-setup-step__status {
 		margin-inline-start: calc(22px + var(--bn-a-s3));
+	}
+}
+
+/* ── Get Started (Home) theme recommendation ─────────────────────────────── */
+.bn-home-theme__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-a-s2);
+	margin-top: var(--bn-a-s3);
+}
+
+/* ── Get Started (Home) orientation grid ─────────────────────────────────── */
+.bn-home-links {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: var(--bn-a-s3);
+}
+
+.bn-home-link {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-a-s3);
+	padding: var(--bn-a-s4);
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md, 10px);
+	box-shadow: var(--bn-a-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
+	text-decoration: none;
+	color: inherit;
+	transition: border-color var(--bn-a-transition, 0.15s ease), box-shadow var(--bn-a-transition, 0.15s ease);
+}
+
+.bn-home-link:hover,
+.bn-home-link:focus {
+	border-color: var(--bn-a-brand);
+	box-shadow: var(--bn-a-shadow-md, 0 2px 8px rgba(0, 0, 0, 0.1));
+}
+
+.bn-home-link__icon {
+	flex: 0 0 auto;
+	width: 22px;
+	height: 22px;
+	color: var(--bn-a-brand);
+}
+
+.bn-home-link__body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.bn-home-link__title {
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-1);
+}
+
+.bn-home-link__desc {
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+	line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+	.bn-home-links {
+		grid-template-columns: 1fr;
 	}
 }

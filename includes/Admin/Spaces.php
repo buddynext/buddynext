@@ -356,7 +356,10 @@ class Spaces extends AdminPageBase {
 						<?php if ( empty( $spaces ) ) : ?>
 							<tr>
 								<td colspan="8">
-									<p class="description"><?php esc_html_e( 'No spaces found.', 'buddynext' ); ?></p>
+									<div class="bn-empty">
+										<p class="bn-empty__title"><?php esc_html_e( 'No spaces found', 'buddynext' ); ?></p>
+										<p class="bn-empty__sub"><?php esc_html_e( 'Try a different search or type filter.', 'buddynext' ); ?></p>
+									</div>
 								</td>
 							</tr>
 						<?php else : ?>
@@ -364,10 +367,15 @@ class Spaces extends AdminPageBase {
 								<?php
 								// created_at is stored in UTC; convert to the site timezone
 								// for display (mysql2date would print the raw UTC value).
-								$owner    = get_userdata( $space['owner_id'] );
-								$created  = get_date_from_gmt( (string) $space['created_at'], (string) get_option( 'date_format' ) );
-								$type_key = sanitize_key( (string) $space['type'] );
-								$tone     = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( $type_key );
+								$owner   = get_userdata( $space['owner_id'] );
+								$created = get_date_from_gmt( (string) $space['created_at'], (string) get_option( 'date_format' ) );
+								// Unknown/empty type values fall back to the registry's
+								// 'open' definition, so tone AND label stay consistent -
+								// never a coloured pill with no text (B4).
+								$type_key      = sanitize_key( (string) $space['type'] );
+								$bn_type_reg   = \BuddyNext\Spaces\SpaceTypeRegistry::instance();
+								$tone          = $bn_type_reg->tone( $type_key );
+								$bn_type_label = $bn_type_reg->label( $type_key );
 								?>
 								<tr>
 									<td class="bn-table__cb" data-align="center">
@@ -412,7 +420,7 @@ class Spaces extends AdminPageBase {
 									</td>
 									<td>
 										<span class="bn-badge" data-tone="<?php echo esc_attr( $tone ); ?>">
-											<?php echo esc_html( ucfirst( $type_key ) ); ?>
+											<?php echo esc_html( $bn_type_label ); ?>
 										</span>
 									</td>
 									<td><?php echo esc_html( (string) $space['member_count'] ); ?></td>
@@ -439,7 +447,7 @@ class Spaces extends AdminPageBase {
 									<td>
 										<div class="bn-row-actions">
 											<a href="<?php echo esc_url( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ); ?>"
-													class="bn-btn" data-variant="ghost" data-size="sm" target="_blank" rel="noopener">
+													class="bn-btn" data-variant="secondary" data-size="sm" target="_blank" rel="noopener">
 												<?php esc_html_e( 'View', 'buddynext' ); ?>
 											</a>
 											<?php // Manage links to the space's own settings screen — site admins pass its manage-settings capability, so this is the admin edit surface (rename, type, category, cover, who-can-post, transfer ownership). ?>
@@ -447,19 +455,24 @@ class Spaces extends AdminPageBase {
 													class="bn-btn" data-variant="secondary" data-size="sm">
 												<?php esc_html_e( 'Manage', 'buddynext' ); ?>
 											</a>
-											<?php // Archive / Unarchive — a non-destructive way to retire a space without deleting its content. ?>
-											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+											<?php
+											// Archive retires a live space (destructive-adjacent, so it wears the
+											// solid danger style like Delete); Unarchive restores one, so it stays
+											// a plain secondary action.
+											$bn_space_archived = ! empty( $space['is_archived'] );
+											?>
+											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form">
 												<?php wp_nonce_field( 'bn_archive_space' ); ?>
 												<input type="hidden" name="action" value="bn_archive_space">
 												<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
-												<input type="hidden" name="archive" value="<?php echo empty( $space['is_archived'] ) ? '1' : '0'; ?>">
-												<button type="submit" class="bn-btn" data-variant="ghost" data-size="sm">
-													<?php echo empty( $space['is_archived'] ) ? esc_html__( 'Archive', 'buddynext' ) : esc_html__( 'Unarchive', 'buddynext' ); ?>
+												<input type="hidden" name="archive" value="<?php echo $bn_space_archived ? '0' : '1'; ?>">
+												<button type="submit" class="bn-btn" data-variant="<?php echo $bn_space_archived ? 'secondary' : 'danger'; ?>" data-size="sm">
+													<?php echo $bn_space_archived ? esc_html__( 'Unarchive', 'buddynext' ) : esc_html__( 'Archive', 'buddynext' ); ?>
 												</button>
 											</form>
 											<form method="post"
 													action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-													class="bn-delete-space-form">
+													class="bn-row-actions__form bn-delete-space-form">
 												<?php wp_nonce_field( 'bn_delete_space' ); ?>
 												<input type="hidden" name="action" value="bn_delete_space">
 												<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
@@ -570,7 +583,14 @@ class Spaces extends AdminPageBase {
 					</thead>
 					<tbody>
 						<?php if ( empty( $cats ) ) : ?>
-							<tr><td colspan="6"><p class="description"><?php esc_html_e( 'No categories yet. Create one below.', 'buddynext' ); ?></p></td></tr>
+							<tr>
+							<td colspan="6">
+								<div class="bn-empty">
+									<p class="bn-empty__title"><?php esc_html_e( 'No categories yet', 'buddynext' ); ?></p>
+									<p class="bn-empty__sub"><?php esc_html_e( 'Create one below.', 'buddynext' ); ?></p>
+								</div>
+							</td>
+						</tr>
 						<?php else : ?>
 							<?php foreach ( $cats as $cat ) : ?>
 								<tr>
@@ -594,10 +614,11 @@ class Spaces extends AdminPageBase {
 									</td>
 									<td><?php echo esc_html( (string) $cat['sort_order'] ); ?></td>
 									<td>
-										<a class="bn-btn" data-variant="ghost" data-size="sm"
+										<div class="bn-row-actions">
+										<a class="bn-btn" data-variant="secondary" data-size="sm"
 											href="<?php echo esc_url( add_query_arg( 'edit_cat', (int) $cat['id'] ) . '#bn-cat-form' ); ?>"
 										><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
-										<form method="post" class="bn-cat-delete-form" data-bn-cat-delete-form
+										<form method="post" class="bn-row-actions__form bn-cat-delete-form" data-bn-cat-delete-form
 											action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 											<?php wp_nonce_field( 'bn_delete_space_category' ); ?>
 											<input type="hidden" name="action" value="bn_delete_space_category">
@@ -612,6 +633,7 @@ class Spaces extends AdminPageBase {
 												data-bn-confirm-cancel="<?php esc_attr_e( 'Cancel', 'buddynext' ); ?>"
 											><?php esc_html_e( 'Delete', 'buddynext' ); ?></button>
 										</form>
+										</div>
 									</td>
 								</tr>
 							<?php endforeach; ?>
