@@ -2853,6 +2853,70 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		</p>
 
 		<?php
+		// Recommended themes. BuddyNext runs on any theme; these are purpose-built
+		// for it (dark-mode bridge, community chrome, tested layouts). Framed as a
+		// suggestion, never a requirement - most owners run another theme.
+		$bn_theme_recommended = array( 'buddyx', 'buddyx-pro', 'reign', 'reign-theme' );
+		$bn_active_template   = strtolower( (string) get_template() );
+		$bn_themes            = array(
+			array(
+				'label'   => 'BuddyX',
+				'why'     => __( 'Free community theme built for BuddyNext - dark mode and chrome tuned to match.', 'buddynext' ),
+				'active'  => in_array( $bn_active_template, array( 'buddyx' ), true ),
+				'install' => admin_url( 'theme-install.php?search=buddyx' ),
+				'store'   => 'https://wbcomdesigns.com/downloads/buddyx-theme/',
+				'tier'    => __( 'Free', 'buddynext' ),
+			),
+			array(
+				'label'  => 'BuddyX Pro',
+				'why'    => __( 'Premium BuddyX with deeper layout, header, and community controls.', 'buddynext' ),
+				'active' => in_array( $bn_active_template, array( 'buddyx-pro' ), true ),
+				'store'  => 'https://wbcomdesigns.com/downloads/buddyx-pro-theme/',
+				'tier'   => __( 'Premium', 'buddynext' ),
+			),
+			array(
+				'label'  => 'Reign',
+				'why'    => __( 'Premium multi-purpose community theme with rich BuddyNext layouts.', 'buddynext' ),
+				'active' => in_array( $bn_active_template, array( 'reign', 'reign-theme' ), true ),
+				'store'  => 'https://wbcomdesigns.com/downloads/reign-theme/',
+				'tier'   => __( 'Premium', 'buddynext' ),
+			),
+		);
+		?>
+		<div class="bn-fam-header bn-fam-header--themes">
+			<div class="bn-fam-header__body">
+				<h2 class="bn-fam-header__title"><?php esc_html_e( 'Recommended themes', 'buddynext' ); ?></h2>
+				<p class="bn-fam-header__desc">
+					<?php esc_html_e( 'BuddyNext works with any theme. For the deepest fit - dark mode, community chrome, and layouts tested against every surface - these themes are purpose-built for it.', 'buddynext' ); ?>
+				</p>
+			</div>
+		</div>
+
+		<div class="bn-companion-grid">
+			<?php foreach ( $bn_themes as $bn_t ) : ?>
+			<div class="bn-companion-card" data-status="<?php echo $bn_t['active'] ? 'active' : 'not_installed'; ?>">
+				<div class="bn-companion-card__head">
+					<h3 class="bn-companion-card__title"><?php echo esc_html( (string) $bn_t['label'] ); ?></h3>
+					<?php if ( $bn_t['active'] ) : ?>
+						<span class="bn-companion-badge bn-companion-badge--success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
+					<?php else : ?>
+						<span class="bn-companion-badge bn-companion-badge--muted"><?php echo esc_html( (string) $bn_t['tier'] ); ?></span>
+					<?php endif; ?>
+				</div>
+
+				<p class="bn-companion-card__why"><?php echo esc_html( (string) $bn_t['why'] ); ?></p>
+
+				<div class="bn-companion-card__actions">
+					<?php if ( ! $bn_t['active'] && ! empty( $bn_t['install'] ) && $can_install ) : ?>
+						<a href="<?php echo esc_url( (string) $bn_t['install'] ); ?>" class="bn-addon-row__action"><?php esc_html_e( 'Install free', 'buddynext' ); ?></a>
+					<?php endif; ?>
+					<a href="<?php echo esc_url( (string) $bn_t['store'] ); ?>" class="bn-addon-row__action bn-addon-row__action--ghost" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Learn more', 'buddynext' ); ?></a>
+				</div>
+			</div>
+			<?php endforeach; ?>
+		</div>
+
+		<?php
 		// The companion installer behaviour lives in assets/js/admin/settings.js
 		// (initCompanions), wired to the data-* attributes on [data-bn-companions]
 		// above. No inline script - see the UX-audit F2 rule.

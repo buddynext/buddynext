@@ -1156,6 +1156,12 @@ table.bn-table tr:hover td {
 	background: var(--bn-a-bg);
 }
 
+/* The Recommended themes block follows the companion section on the Integrations
+   tab; give it a clear top gap so the two read as distinct sections. */
+.bn-fam-header--themes {
+	margin-block-start: 28px;
+}
+
 .bn-fam-header__mark {
 	flex: 0 0 auto;
 	width: 52px;
