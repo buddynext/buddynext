@@ -8,16 +8,36 @@ These are the rules the code in this repo is held to — read before changing an
 | What | Where |
 |---|---|
 | Plugin code | `includes/` (PHP) · `templates/` · `assets/` · `blocks/` |
-| Public documentation — usage guides, developer guide, REST API | `docs/website/` |
+| Customer documentation — usage guides, developer guide | `docs/website/` (tracked) |
+| Public REST catalogue — generated OpenAPI | `docs/api/` (tracked) |
 | Tests | `tests/` (mirrors `includes/`) |
 | Quality tooling | `bin/` · `.githooks/` |
 | Third-party runtime code (committed, ships in the zip) | `libs/` |
 
-`docs/` carries customer-facing documentation only — `docs/website/` (guides +
-developer guide), `docs/api/` (generated OpenAPI) and `docs/standards/` (public
-engineering standards). Product planning, QA and audit material is maintained in
-the Pro repo's private `free-internal/` shelf and is intentionally never committed
-here.
+### This repository is PUBLIC — internal material never lands here
+
+**`buddynext` is the public, customer-facing repo. `docs/website/` and `docs/api/`
+are the only tracked documentation.** Everything internal — the manifest, audit
+evidence, QA journeys, plans, specs, standards — lives on the private shelf in the
+Pro repo at `buddynext-pro/free-internal/`, including the material that describes
+*Free*:
+
+| Internal artifact for Free | Real location |
+|---|---|
+| Manifest (manifest-first source of truth) | `buddynext-pro/free-internal/audit/manifest.json` |
+| Audit index, cert oracles/ledger, journeys | `buddynext-pro/free-internal/audit/` |
+| Plans, specs, QA docs, engineering standards | `buddynext-pro/free-internal/docs/` |
+
+`.gitignore` enforces this with an allowlist — `/audit/` and `/docs/*` are ignored
+except `!/docs/website/` and `!/docs/api/`. `audit/` and `docs/standards/` may exist
+in your working copy so local tooling resolves them; **they are deliberately
+untracked and must stay that way.**
+
+**Do not "fix" the absence of `audit/manifest.json` in this repo.** It is absent by
+design, not by oversight — committing one would leak the internal surface inventory
+publicly. If tooling (`/wp-plugin-onboard`, a manifest refresh) generates artifacts
+here, leave them untracked and regenerate the canonical copy on the private shelf.
+Never add an exception to the allowlist to make a tool happy.
 
 ---
 
