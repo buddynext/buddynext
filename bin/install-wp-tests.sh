@@ -120,17 +120,40 @@ fi
 # Create the test database (drop and recreate for a clean slate)
 # ---------------------------------------------------------------------------
 
+# The mysql CLI does not accept a host:port pair in --host; it needs --host and
+# --port separately. WordPress's DB layer DOES accept host:port, which is why
+# wp-tests-config.php can keep the combined form while this call cannot. Passing
+# the combined form here makes mysql fail to resolve the host, and because the
+# call used to end in `2>/dev/null || true` it failed SILENTLY — the script still
+# printed "WordPress test suite installed" while the database did not exist, and
+# the failure only surfaced later as a confusing bootstrap error.
 EXTRA_ARGS=()
 if [ "$DB_HOST" != "localhost" ]; then
-	EXTRA_ARGS+=( "--host=${DB_HOST}" )
+	case "$DB_HOST" in
+		*:*)
+			EXTRA_ARGS+=( "--host=${DB_HOST%%:*}" "--port=${DB_HOST##*:}" "--protocol=TCP" )
+			;;
+		*)
+			EXTRA_ARGS+=( "--host=${DB_HOST}" )
+			;;
+	esac
 fi
 
-mysql \
+if mysql \
 	"${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" \
 	--user="$DB_USER" \
 	--password="$DB_PASS" \
 	--execute="DROP DATABASE IF EXISTS \`${DB_NAME}\`; CREATE DATABASE \`${DB_NAME}\`;" \
-	2>/dev/null || true
+	2>/dev/null
+then
+	:
+else
+	echo "ERROR: could not create database '${DB_NAME}' on '${DB_HOST}'." >&2
+	echo "  Is the MySQL server running and reachable? For the Docker setup:" >&2
+	echo "    docker start buddynext-test-mysql" >&2
+	echo "  The test suite files were installed, but PHPUnit will fail without the DB." >&2
+	exit 1
+fi
 
 echo "WordPress test suite installed."
 echo "  WP core:   ${WP_CORE_DIR}"

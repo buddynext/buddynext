@@ -461,10 +461,34 @@ Every `assets/css/bn-{feature}.css` file follows this order:
 Write the failing test FIRST, then the implementation, then make it pass.
 
 ```
+vendor/bin/phpunit                                    # whole suite
 vendor/bin/phpunit tests/[Area]/[ClassTest].php --testdox
 ```
 
 Never mark a task complete unless tests pass.
+
+**First-time setup (per machine).** The suite needs a MySQL server and the
+WordPress test library; without them PHPUnit dies in `tests/bootstrap.php`
+rather than reporting a failure.
+
+```bash
+# 1. MySQL on port 13306 (shared with Pro; start it if the container exists).
+docker run -d --name buddynext-test-mysql -e MYSQL_ROOT_PASSWORD=root -p 13306:3306 mysql:8.0
+# already created once? -> docker start buddynext-test-mysql
+
+# 2. WP test library + test database. The mysql CLI must be on PATH; Local
+#    bundles one at ~/Library/Application Support/Local/lightning-services/mysql-*/bin/*/bin.
+bash bin/install-wp-tests.sh buddynext_tests root root 127.0.0.1:13306 latest
+```
+
+This creates `/tmp/wordpress-tests-lib` (Free) and the `buddynext_tests`
+database; `/tmp/wordpress` holds WP core and is shared with Pro, which uses its
+own `/tmp/wordpress-tests-lib-pro` + `buddynextpro_tests`. `phpunit.xml.dist`
+already exports `WP_TESTS_DIR`, so no env var is needed afterwards.
+
+If `/tmp/wordpress-tests-lib` exists but lacks `includes/functions.php`, a
+previous run half-installed it — move the directory aside and re-run, because
+the installer skips the download whenever the directory is present.
 
 ### 3. Premium UX — Non-Negotiable
 
