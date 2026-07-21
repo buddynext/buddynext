@@ -94,6 +94,41 @@ class DemoAdmin {
 	}
 
 	/**
+	 * Compact demo-data promo for the admin landing.
+	 *
+	 * The full seed/remove UI lives on Platform -> Tools, which a first-time owner
+	 * never opens - so a fresh install is an empty ghost town with the one action
+	 * that would populate it hidden three levels deep. This surfaces a one-click
+	 * "Load a demo community" affordance right on the landing. Shown only until
+	 * demo data exists; once seeded, Tools owns removal (no landing clutter).
+	 * Reuses the same bn_demo_seed handler + nonce as render_section().
+	 *
+	 * @return void
+	 */
+	public function render_promo(): void {
+		if ( ( new DemoDataService() )->is_seeded() ) {
+			return;
+		}
+		?>
+		<div class="bn-setup-card bn-demo-promo">
+			<div class="bn-setup-card__head">
+				<div class="bn-setup-card__heading">
+					<h2 class="bn-setup-card__title"><?php esc_html_e( 'See your community with demo data', 'buddynext' ); ?></h2>
+					<p class="bn-setup-card__sub">
+						<?php esc_html_e( 'Not sure what a live community looks like on your site? Add realistic sample members, spaces, and posts in one click - then remove it all any time from Platform - Tools.', 'buddynext' ); ?>
+					</p>
+				</div>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-demo-promo__form">
+					<input type="hidden" name="action" value="bn_demo_seed">
+					<?php wp_nonce_field( 'bn_demo_seed' ); ?>
+					<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Load a demo community', 'buddynext' ); ?></button>
+				</form>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Handle the seed button.
 	 *
 	 * @return void
