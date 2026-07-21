@@ -949,6 +949,147 @@ table.bn-table tr:hover td {
 }
 
 /* --------------------------------------------------------------------------
+   S3 — Wide-table actions column never clips
+   --------------------------------------------------------------------------
+   A list table wider than the admin content area lives inside a horizontal
+   scroll wrapper — Members/Spaces use .bn-table-wrap__scroll, the Pro
+   Subscriptions table uses .bn-table-scroll. When it scrolls, the last column
+   (the row's actions: View / Revoke / Manage) would slide out of sight and the
+   owner loses the control the row exists for. Pin the last column to the
+   inline-end edge so it stays put while the data columns scroll under it.
+
+   Scoped to those two scroll wrappers ONLY. Every table inside them has its
+   actions in the last column (audited 2026-07-21: Members, Spaces,
+   Subscriptions), so pinning the last cell is safe. Tables that are NOT
+   scroll-wrapped — Email-log, Reports, Moderation:Log — are untouched, so a
+   data-bearing last column is never pinned.
+
+   A pinned cell needs an opaque background or the scrolling cells show through
+   it. The two wrappers carry different table primitives, so their row fills
+   differ: a .bn-table row sits on the card surface, a WP-core .widefat row on
+   the table's own canvas fill (the zebra is stripped in S8 below). Match each.
+
+   Admin tables get `overflow: hidden` (the card-corner clip on
+   `.bn-admin-hub__content table:not(.form-table)`, and WP-core .widefat adds
+   its own). That makes the table its own scroll container, so a sticky cell
+   pins to the never-scrolling table box instead of the wrapper and the pin
+   does nothing. Clear it inside the scroll wrappers — the wrapper already does
+   the clipping — so the wrapper stays the horizontal scroll context. The
+   `.bn-admin-hub__content` prefix is only there to outweigh that clip rule. */
+.bn-admin-hub__content .bn-table-wrap__scroll > table:not(.form-table),
+.bn-admin-hub__content .bn-table-scroll > table:not(.form-table) {
+	overflow: visible;
+}
+
+.bn-table-wrap__scroll .bn-table th:last-child,
+.bn-table-wrap__scroll .bn-table td:last-child {
+	position: sticky;
+	inset-inline-end: 0;
+	text-align: end;
+}
+
+.bn-table-wrap__scroll .bn-table th:last-child {
+	background: var(--bn-a-bg-subtle);
+	z-index: 2;
+}
+
+.bn-table-wrap__scroll .bn-table td:last-child {
+	background: var(--bn-surface);
+	z-index: 1;
+}
+
+.bn-table-wrap__scroll .bn-table tr:hover td:last-child {
+	background: var(--bn-a-bg-hover);
+}
+
+.bn-table-scroll table th:last-child,
+.bn-table-scroll table td:last-child {
+	position: sticky;
+	inset-inline-end: 0;
+	text-align: end;
+}
+
+.bn-table-scroll table th:last-child {
+	background: var(--bn-a-bg-subtle);
+	z-index: 2;
+}
+
+.bn-table-scroll table td:last-child {
+	background: var(--bn-a-bg);
+	z-index: 1;
+}
+
+/* --------------------------------------------------------------------------
+   S8 — One row style: no zebra striping
+   --------------------------------------------------------------------------
+   BN's own .bn-table uses a plain row + a light bottom divider. WP-core list
+   tables (.widefat.striped) rendered by Email-log, Reports, Moderation:Log /
+   Bulk and Subscriptions ship alternating-row striping instead, so the admin
+   showed two different table looks. Drop the WP stripe (it lives on the odd
+   <tr>) and restore the same light divider so every admin table reads the
+   same. Scoped to the admin hub; this sheet only loads in wp-admin.
+
+   Target only the striped <tr> (WP core puts the stripe fill there, not on the
+   cells). Leaving the td/th untouched lets the S3 pinned-column background win
+   on odd rows too — otherwise a transparent last cell would let the scrolling
+   data show through the pinned actions on every other row. */
+.bn-admin-hub .striped > tbody > tr:nth-child(odd) {
+	background-color: transparent;
+}
+
+.bn-admin-hub .widefat tbody td,
+.bn-admin-hub .widefat tbody th {
+	border-bottom: 1px solid var(--bn-a-border-soft);
+}
+
+.bn-admin-hub .widefat tbody tr:last-child td,
+.bn-admin-hub .widefat tbody tr:last-child th {
+	border-bottom: none;
+}
+
+/* --------------------------------------------------------------------------
+   S4 — Shared empty state (.bn-empty)
+   --------------------------------------------------------------------------
+   ONE empty-state look for every "No X yet" message in the admin: a centered,
+   muted block that sits in the card body — not a bare sentence left-aligned
+   under the first column. Works as a <div> wrapping copy or as a standalone
+   <p class="bn-empty">, and supports an optional title + sub line:
+     <div class="bn-empty">
+       <p class="bn-empty__title">No webhooks yet</p>
+       <p class="bn-empty__sub">Add one to start receiving events.</p>
+     </div>
+   The .bn-empty__icon primitive (48px, dimmed) is shared from bn-base.css.
+   Callers are swept onto the title/sub structure in a later wave; existing
+   single-<p> blocks already centre correctly under this rule. */
+.bn-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	gap: var(--bn-a-s1);
+	padding: var(--bn-a-s8) var(--bn-a-s4);
+	color: var(--bn-a-text-3);
+	font-size: var(--bn-a-text-sm);
+}
+
+.bn-empty > p {
+	margin: 0;
+	max-width: 42ch;
+}
+
+.bn-empty__title {
+	font-size: var(--bn-a-text-md);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-2);
+}
+
+.bn-empty__sub {
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-3);
+}
+
+/* --------------------------------------------------------------------------
    Badges
    -------------------------------------------------------------------------- */
 
@@ -1451,6 +1592,28 @@ button.bn-btn-danger:hover {
 	background: var(--bn-a-red);
 	border-color: var(--bn-a-red);
 	filter: brightness(0.94);
+}
+
+/* S9 — One secondary/outline button color (gray, not blue).
+   BN's own outline button (.bn-btn / .bn-btn-secondary) is a gray outline. A
+   WP-core <button class="button"> renders with the admin accent as its text +
+   border (a blue outline), so utility actions still using the WP class —
+   Automod "Test phrase", Moderation:Bulk "Filter" — read as a different,
+   louder button than everything around them. Neutralize the WP-core secondary
+   button inside the hub to the same gray outline as .bn-btn-secondary. Primary
+   (.button-primary, re-skinned to the BN accent in bn-admin-hub.css), the red
+   link-delete, and bare link buttons (.button-link) are left alone. */
+.bn-admin-hub .button:not(.button-primary):not(.button-link):not(.button-link-delete) {
+	background: var(--bn-a-bg);
+	border-color: var(--bn-a-border);
+	color: var(--bn-a-text-1);
+}
+
+.bn-admin-hub .button:not(.button-primary):not(.button-link):not(.button-link-delete):hover,
+.bn-admin-hub .button:not(.button-primary):not(.button-link):not(.button-link-delete):focus {
+	background: var(--bn-a-bg-subtle);
+	border-color: var(--bn-a-text-3);
+	color: var(--bn-a-text-1);
 }
 
 .bn-toolbar {
