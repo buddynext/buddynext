@@ -13,9 +13,11 @@ These are the rules the code in this repo is held to — read before changing an
 | Quality tooling | `bin/` · `.githooks/` |
 | Third-party runtime code (committed, ships in the zip) | `libs/` |
 
-`docs/website/` is the only documentation this repo carries; product planning, QA
-and audit material is maintained separately and is intentionally not part of the
-public repository.
+`docs/` carries customer-facing documentation only — `docs/website/` (guides +
+developer guide), `docs/api/` (generated OpenAPI) and `docs/standards/` (public
+engineering standards). Product planning, QA and audit material is maintained in
+the Pro repo's private `free-internal/` shelf and is intentionally never committed
+here.
 
 ---
 
@@ -153,15 +155,25 @@ wp_register_ability( 'buddynext-post-in-feed', [ 'label' => 'Post in Feed' ] );
 | `bn_activity_log` | Core |
 | `bn_follows`, `bn_connections`, `bn_blocks` | Social Graph |
 | `bn_posts`, `bn_poll_options`, `bn_poll_votes`, `bn_bookmarks`, `bn_shares` | Activity Feed |
-| `bn_profile_fields`, `bn_profile_values` | Profiles |
+| `bn_profile_groups`, `bn_profile_fields`, `bn_profile_values` | Profiles |
+| `bn_member_types`, `bn_member_type_assignments` | Member Types |
+| `bn_presence` | Presence / last-active |
 | `bn_search_index` | Search |
-| `bn_spaces`, `bn_space_members`, `bn_space_categories` | Spaces |
+| `bn_spaces`, `bn_space_members`, `bn_space_categories`, `bn_space_meta`, `bn_space_bans` | Spaces |
 | `bn_notifications`, `bn_notification_prefs` | Notifications |
 | `bn_email_templates`, `bn_email_log` | Email |
 | `bn_reactions`, `bn_comments` | Reactions + Comments |
 | `bn_hashtags`, `bn_post_hashtags`, `bn_hashtag_follows` | Hashtags |
-| `bn_reports`, `bn_mod_log`, `bn_user_strikes` | Moderation |
-| `bn_verify_tokens` | Auth |
+| `bn_reports`, `bn_mod_log`, `bn_user_strikes`, `bn_user_suspensions`, `bn_appeals` | Moderation |
+| `bn_verify_tokens`, `bn_invites` | Auth + Invites |
+| `bn_outbound_webhooks`, `bn_outbound_webhook_log`, `bn_webhook_log` | Outbound Webhooks |
+
+The authoritative list is the `CREATE TABLE` statements in `includes/Core/Installer.php`
+— regenerate this table from there rather than appending by hand:
+
+```bash
+grep -oE "CREATE TABLE [^ ]*bn_[a-z_]+" includes/Core/Installer.php | sed 's/.*bn_/bn_/' | sort -u
+```
 
 DM tables live in WPMediaVerse (`mvs_conversations`, `mvs_messages`, …) — BuddyNext
 is the UI layer only for DM.
@@ -262,7 +274,9 @@ includes/Feed/PostController.php           →  tests/Feed/PostControllerTest.ph
 includes/SocialGraph/FollowController.php  →  tests/SocialGraph/FollowControllerTest.php
 ```
 
-`tests/REST/` must stay empty. All controller tests live in the controller's domain folder.
+**No per-controller tests in `tests/REST/`** — a controller's test lives in its own
+domain folder. `tests/REST/` is reserved for cross-cutting REST infrastructure that
+belongs to no single domain (today: `BaseRestControllerTest.php`, `DeclaredParamsTest.php`).
 
 ### File Naming Conventions
 
@@ -303,8 +317,10 @@ BuddyNext follows the host theme). Verify dark via the real theme toggle, not a
 hand-set attribute.
 
 Bare-named aliases (`--bg`, `--text-1`, `--s4`…) exist only for back-compat —
-always author with the `--bn-*` names. `bin/ux-audit.sh` (gate F3) rejects raw
-hex/px and non-`--bn-` token use.
+always author with the `--bn-*` names. `bin/ux-audit.sh` flags raw hex/px and
+off-prefix token use. Note it derives the expected prefix from the plugin folder
+name (`PREFIX="${PREFIX:-...cut -c1-3}"` → `bud`), so run it as
+`PREFIX=bn bin/ux-audit.sh` until that default is fixed.
 
 ---
 
@@ -314,21 +330,24 @@ hex/px and non-`--bn-` token use.
 
 **The golden rule: never write a hardcoded px, hex, or font-family value in any CSS file.**
 
+Author with the `--bn-*` names in every new rule. The bare names are back-compat
+aliases only (see Design System Tokens above) — never author with them.
+
 | What you need | How to write it |
 |---------------|-----------------|
-| Font size | `var(--text-sm)`, `var(--text-base)` |
-| Font weight | `var(--fw-semibold)`, `var(--fw-bold)` |
-| Line height | `var(--leading-body)`, `var(--leading-normal)` |
-| Letter spacing | `var(--ls-tight)`, `var(--ls-normal)` |
-| Colors | `var(--bg)`, `var(--text-1)`, `var(--brand)` |
-| Spacing | `var(--s1)` through `var(--s16)` (4px grid) |
-| Border radius | `var(--r-sm)` through `var(--r-full)` |
-| Font family | `var(--font-body)` or `var(--font-display)` |
+| Font size | `var(--bn-text-sm)`, `var(--bn-text-base)` |
+| Font weight | `var(--bn-fw-semibold)`, `var(--bn-fw-bold)` |
+| Line height | `var(--bn-leading-body)`, `var(--bn-leading-normal)` |
+| Letter spacing | `var(--bn-ls-tight)`, `var(--bn-ls-normal)` |
+| Colors | `var(--bn-bg)`, `var(--bn-ink)`, `var(--bn-accent)` |
+| Spacing | `var(--bn-s1)` through `var(--bn-s16)` (4px grid) |
+| Border radius | `var(--bn-r-sm)` through `var(--bn-r-full)` |
+| Font family | `var(--bn-font-body)` or `var(--bn-font-display)` |
 
 **Where tokens come from:**
-- `TokenService` (`includes/Theme/TokenService.php`) injects all `--text-*`, `--fw-*`, `--leading-*`, `--ls-*`, `--bg`, `--text-1`, `--brand`, `--s*`, `--r-*` tokens via `wp_add_inline_style('bn-base')`.
-- `theme.json` registers the preset slugs so block themes can override via child theme.
-- `bn-base.css` defines `--bn-text-*` as **aliases** to the global tokens: `--bn-text-base: var(--text-base)`.
+- `assets/css/bn-base.css` holds the **canonical** definitions — `--bn-text-base: calc(15px * var(--bn-text-scale))` and the rest of the `--bn-*` families.
+- The same file then declares the bare names as **aliases pointing back at them** — `--text-base: var(--bn-text-base)`. The direction is `--bn-*` → bare, never the reverse.
+- `TokenService` (`includes/Theme/TokenService.php`) injects the runtime-computed values (accent ramp from `--bn-hue`, surfaces, ink, theme fonts) onto the `bn-base` handle via `wp_add_inline_style()`.
 
 **CSS `:root` blocks — allowed vs forbidden:**
 
@@ -339,9 +358,16 @@ hex/px and non-`--bn-` token use.
   --bn-transition: 0.14s ease;
 }
 
-/* ALLOWED — aliasing global tokens for a local shorthand */
+/* ALLOWED — deriving a local value from a global token */
 :root {
-  --bn-text-base: var(--text-base); /* alias, not hardcode */
+  --bn-card-pad: var(--bn-s4); /* derived, not hardcoded */
+}
+
+/* FORBIDDEN — re-pointing a canonical --bn-* token at its own back-compat
+   alias. bn-base.css already defines --bn-text-base and derives --text-base
+   FROM it; this inverts the direction and makes the definition circular. */
+:root {
+  --bn-text-base: var(--text-base); /* never */
 }
 
 /* FORBIDDEN — hardcoded typography/color/spacing */
@@ -353,7 +379,7 @@ hex/px and non-`--bn-` token use.
 ```
 
 **Font loading** — Inter and Plus Jakarta Sans are loaded in `AssetService`. Never
-import from Google Fonts inside a CSS file. The `--font-body` / `--font-display`
+import from Google Fonts inside a CSS file. The `--bn-font-body` / `--bn-font-display`
 tokens carry the full stack including system-font fallbacks.
 
 ### CSS File Structure
