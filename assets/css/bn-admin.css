@@ -148,7 +148,6 @@
 	--bn-a-focus-ring:        0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 22%, transparent);
 
 	/* -- Card / dropdown min-widths -------------------------------------- */
-	--bn-a-stat-card-min-w:   140px;
 	--bn-a-dropdown-min-w:    140px;
 
 	/* -- Drag handle dimensions ------------------------------------------ */
@@ -832,46 +831,8 @@ select.bn-text-input {
 	margin-inline-end: auto;
 }
 
-/* --------------------------------------------------------------------------
-   Stats cards
-   -------------------------------------------------------------------------- */
-
-.bn-stats-row {
-	display: flex;
-	gap: var(--bn-a-s4);
-	margin-bottom: var(--bn-a-s6);
-	flex-wrap: wrap;
-}
-
-.bn-stat-card {
-	background: var(--bn-a-bg);
-	border: 1px solid var(--bn-a-border);
-	border-radius: var(--bn-a-r-md);
-	padding: var(--bn-a-s4) var(--bn-a-s5);
-	flex: 1;
-	min-width: var(--bn-a-stat-card-min-w);
-}
-
-.bn-stat-label {
-	font-size: var(--bn-a-text-xs);
-	font-weight: var(--bn-a-fw-bold);
-	color: var(--bn-a-text-3);
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin-bottom: var(--bn-a-s1);
-}
-
-.bn-stat-val {
-	font-size: var(--bn-a-text-2xl);
-	font-weight: var(--bn-a-fw-extrabold);
-	color: var(--bn-a-text-1);
-	line-height: 1.1;
-	letter-spacing: var(--bn-a-ls-stat);
-}
-
-.bn-stat-danger {
-	color: var(--bn-a-red);
-}
+/* Legacy .bn-stats-row / .bn-stat-card component removed — every stat surface
+   now renders the shared .bn-stat-grid > .bn-stat tiles (bn-base.css). */
 
 /* --------------------------------------------------------------------------
    Data table
@@ -1109,9 +1070,14 @@ table.bn-table tr:hover td {
 }
 
 /* The <form> is a carrier for the nonce, not a layout box. Without this it forms its own
-   line box and the gap applies to the wrapper rather than to the button inside it. */
+   line box and the gap applies to the wrapper rather than to the button inside it. The
+   internal gap only matters for the rare form that carries a visible control beside its
+   button (e.g. Subscriptions' day-count input + Extend); single-button forms are
+   unaffected. */
 .bn-row-actions__form {
 	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
 	margin: 0;
 }
 
@@ -1120,7 +1086,6 @@ table.bn-table tr:hover td {
    which inherited into every descendant and would force a wrapping status/hint sentence
    onto one overflowing line. Scope it to the controls that actually need it. */
 .bn-row-actions > .bn-btn,
-.bn-row-actions > .bn-action-link,
 .bn-row-actions__form > .bn-btn {
 	white-space: nowrap;
 }
@@ -1841,27 +1806,6 @@ button.bn-btn-danger:hover {
 }
 
 /* --------------------------------------------------------------------------
-   Row actions
-   The .bn-row-actions cluster itself is defined ONCE, further up this file
-   (next to .bn-row-actions__form). A second definition lived here and silently
-   re-declared the primitive - same gap, but it also forced `white-space: nowrap`
-   on the whole cluster, so any consumer that put wrapping text (a live status
-   line) beside its buttons got one overflowing line. Only the link variant
-   belongs here.
-   -------------------------------------------------------------------------- */
-
-.bn-action-link {
-	font-size: var(--bn-a-text-sm);
-	font-weight: var(--bn-a-fw-medium);
-	color: var(--bn-a-brand);
-	text-decoration: none;
-}
-
-.bn-action-link:hover {
-	text-decoration: underline;
-}
-
-/* --------------------------------------------------------------------------
    More menu dropdown
    -------------------------------------------------------------------------- */
 
@@ -1975,10 +1919,6 @@ button.bn-btn-danger:hover {
 		border-bottom: 1px solid var(--bn-a-border);
 		flex: 1 1 auto;
 		text-align: center;
-	}
-
-	.bn-stats-row {
-		flex-direction: column;
 	}
 
 	.bn-table-header {
@@ -2461,23 +2401,10 @@ button.bn-btn-danger:hover {
 .bn-roles-table select { min-width: 200px; }
 
 /* ── Insights (Growth section + dashboard widget) ───────────────────────── */
-.bn-insights-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-	gap: 12px;
-}
-.bn-insight-card {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	padding: 16px;
-	border: 1px solid var(--bn-line, #e2e8f0);
-	border-radius: 8px;
-	background: var(--bn-surface, #fff);
-}
-.bn-insight-value { font-size: 28px; font-weight: 700; line-height: 1.1; color: var(--bn-ink, #0f172a); }
-.bn-insight-label { font-size: 13px; color: var(--bn-ink-2, #475569); }
-.bn-insight-sub { font-size: 12px; color: var(--bn-success, #16a34a); }
+/* The Insights stat tiles render via the shared stat-strip template part
+   (.bn-stat-grid > .bn-stat, styled in bn-base.css) — the old .bn-insight-*
+   card component is retired. Only the signup spark strip and the wp-admin
+   dashboard widget keep page-specific rules. */
 .bn-spark {
 	display: flex;
 	align-items: flex-end;

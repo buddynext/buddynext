@@ -3086,25 +3086,27 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							</td>
 							<td><?php echo esc_html( (string) ( $hook['created_at'] ?? '' ) ); ?></td>
 							<td>
-								<button type="button"
-									class="bn-btn"
-									data-variant="ghost"
-									data-size="sm"
-									data-bn-webhook-test="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
-								><?php esc_html_e( 'Send test', 'buddynext' ); ?></button>
-								<button type="button"
-									class="bn-btn"
-									data-variant="ghost"
-									data-size="sm"
-									data-bn-webhook-log="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
-									aria-expanded="false"
-								><?php esc_html_e( 'View log', 'buddynext' ); ?></button>
-								<button type="button"
-									class="bn-btn"
-									data-variant="ghost"
-									data-size="sm"
-									data-bn-webhook-remove="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
-								><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+								<div class="bn-row-actions">
+									<button type="button"
+										class="bn-btn"
+										data-variant="secondary"
+										data-size="sm"
+										data-bn-webhook-test="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
+									><?php esc_html_e( 'Send test', 'buddynext' ); ?></button>
+									<button type="button"
+										class="bn-btn"
+										data-variant="secondary"
+										data-size="sm"
+										data-bn-webhook-log="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
+										aria-expanded="false"
+									><?php esc_html_e( 'View log', 'buddynext' ); ?></button>
+									<button type="button"
+										class="bn-btn"
+										data-variant="danger"
+										data-size="sm"
+										data-bn-webhook-remove="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
+									><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+								</div>
 							</td>
 						</tr>
 						<tr class="bn-webhook-log-row" data-bn-webhook-log-row="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>" hidden>

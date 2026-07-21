@@ -69,18 +69,58 @@ class Insights {
 				<span class="bn-ss-title"><?php esc_html_e( 'At a glance', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
-				<div class="bn-insights-grid">
-					<?php
-					$this->card( __( 'Members', 'buddynext' ), $m['members_total'], sprintf( /* translators: %d: count */ __( '+%d this week', 'buddynext' ), $m['members_new_7d'] ) );
-					$this->card( __( 'Active (30 days)', 'buddynext' ), $m['members_active_30d'], $this->percent_label( $m['members_active_30d'], $m['members_total'] ) );
-					$this->card( __( 'Posts', 'buddynext' ), $m['posts_total'], sprintf( /* translators: %d: count */ __( '+%d this week', 'buddynext' ), $m['posts_7d'] ) );
-					$this->card( __( 'Spaces', 'buddynext' ), $m['spaces_total'], '' );
-					$this->card( __( 'Comments', 'buddynext' ), $m['comments_total'], '' );
-					$this->card( __( 'Reactions', 'buddynext' ), $m['reactions_total'], '' );
-					$this->card( __( 'Connections', 'buddynext' ), $m['connections_total'], '' );
-					$this->card( __( 'Follows', 'buddynext' ), $m['follows_total'], '' );
-					?>
-				</div>
+				<?php
+				// One stat-tile component everywhere: the shared stat-strip part
+				// (`.bn-stat-grid > .bn-stat`) also renders the Members / Spaces
+				// directory tiles and the Pro analytics strip, so Insights tiles
+				// look identical to every other admin stat surface.
+				buddynext_get_template(
+					'parts/stat-strip.php',
+					array(
+						'stats' => array(
+							array(
+								'label' => __( 'Members', 'buddynext' ),
+								'value' => number_format_i18n( $m['members_total'] ),
+								/* translators: %d: count */
+								'delta' => sprintf( __( '+%d this week', 'buddynext' ), $m['members_new_7d'] ),
+								'trend' => $m['members_new_7d'] > 0 ? 'up' : 'flat',
+							),
+							array(
+								'label' => __( 'Active (30 days)', 'buddynext' ),
+								'value' => number_format_i18n( $m['members_active_30d'] ),
+								'delta' => $this->percent_label( $m['members_active_30d'], $m['members_total'] ),
+							),
+							array(
+								'label' => __( 'Posts', 'buddynext' ),
+								'value' => number_format_i18n( $m['posts_total'] ),
+								/* translators: %d: count */
+								'delta' => sprintf( __( '+%d this week', 'buddynext' ), $m['posts_7d'] ),
+								'trend' => $m['posts_7d'] > 0 ? 'up' : 'flat',
+							),
+							array(
+								'label' => __( 'Spaces', 'buddynext' ),
+								'value' => number_format_i18n( $m['spaces_total'] ),
+							),
+							array(
+								'label' => __( 'Comments', 'buddynext' ),
+								'value' => number_format_i18n( $m['comments_total'] ),
+							),
+							array(
+								'label' => __( 'Reactions', 'buddynext' ),
+								'value' => number_format_i18n( $m['reactions_total'] ),
+							),
+							array(
+								'label' => __( 'Connections', 'buddynext' ),
+								'value' => number_format_i18n( $m['connections_total'] ),
+							),
+							array(
+								'label' => __( 'Follows', 'buddynext' ),
+								'value' => number_format_i18n( $m['follows_total'] ),
+							),
+						),
+					)
+				);
+				?>
 			</div>
 		</div>
 
@@ -208,26 +248,6 @@ class Insights {
 	}
 
 	// ── Render helpers ──────────────────────────────────────────────────────
-
-	/**
-	 * Render one stat card.
-	 *
-	 * @param string $label Card label.
-	 * @param int    $value Big number.
-	 * @param string $sub   Optional sub-line.
-	 * @return void
-	 */
-	private function card( string $label, int $value, string $sub ): void {
-		?>
-		<div class="bn-insight-card">
-			<span class="bn-insight-value"><?php echo esc_html( number_format_i18n( $value ) ); ?></span>
-			<span class="bn-insight-label"><?php echo esc_html( $label ); ?></span>
-			<?php if ( '' !== $sub ) : ?>
-				<span class="bn-insight-sub"><?php echo esc_html( $sub ); ?></span>
-			<?php endif; ?>
-		</div>
-		<?php
-	}
 
 	/**
 	 * Render the 14-day signup bar strip (pure CSS, no chart library).

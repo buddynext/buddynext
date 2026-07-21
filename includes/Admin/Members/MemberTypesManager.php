@@ -255,7 +255,7 @@ class MemberTypesManager {
 									);
 									?>
 												"
-										class="bn-action-link"><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
+										class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
 									<div class="bn-more-menu">
 										<button class="bn-more-btn" type="button" aria-label="<?php esc_attr_e( 'More actions', 'buddynext' ); ?>"><?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
 										<div class="bn-more-dropdown">

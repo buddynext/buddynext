@@ -439,7 +439,7 @@ class Spaces extends AdminPageBase {
 									<td>
 										<div class="bn-row-actions">
 											<a href="<?php echo esc_url( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ); ?>"
-													class="bn-btn" data-variant="ghost" data-size="sm" target="_blank" rel="noopener">
+													class="bn-btn" data-variant="secondary" data-size="sm" target="_blank" rel="noopener">
 												<?php esc_html_e( 'View', 'buddynext' ); ?>
 											</a>
 											<?php // Manage links to the space's own settings screen — site admins pass its manage-settings capability, so this is the admin edit surface (rename, type, category, cover, who-can-post, transfer ownership). ?>
@@ -447,19 +447,24 @@ class Spaces extends AdminPageBase {
 													class="bn-btn" data-variant="secondary" data-size="sm">
 												<?php esc_html_e( 'Manage', 'buddynext' ); ?>
 											</a>
-											<?php // Archive / Unarchive — a non-destructive way to retire a space without deleting its content. ?>
-											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+											<?php
+											// Archive retires a live space (destructive-adjacent, so it wears the
+											// solid danger style like Delete); Unarchive restores one, so it stays
+											// a plain secondary action.
+											$bn_space_archived = ! empty( $space['is_archived'] );
+											?>
+											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form">
 												<?php wp_nonce_field( 'bn_archive_space' ); ?>
 												<input type="hidden" name="action" value="bn_archive_space">
 												<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
-												<input type="hidden" name="archive" value="<?php echo empty( $space['is_archived'] ) ? '1' : '0'; ?>">
-												<button type="submit" class="bn-btn" data-variant="ghost" data-size="sm">
-													<?php echo empty( $space['is_archived'] ) ? esc_html__( 'Archive', 'buddynext' ) : esc_html__( 'Unarchive', 'buddynext' ); ?>
+												<input type="hidden" name="archive" value="<?php echo $bn_space_archived ? '0' : '1'; ?>">
+												<button type="submit" class="bn-btn" data-variant="<?php echo $bn_space_archived ? 'secondary' : 'danger'; ?>" data-size="sm">
+													<?php echo $bn_space_archived ? esc_html__( 'Unarchive', 'buddynext' ) : esc_html__( 'Archive', 'buddynext' ); ?>
 												</button>
 											</form>
 											<form method="post"
 													action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-													class="bn-delete-space-form">
+													class="bn-row-actions__form bn-delete-space-form">
 												<?php wp_nonce_field( 'bn_delete_space' ); ?>
 												<input type="hidden" name="action" value="bn_delete_space">
 												<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
@@ -594,10 +599,11 @@ class Spaces extends AdminPageBase {
 									</td>
 									<td><?php echo esc_html( (string) $cat['sort_order'] ); ?></td>
 									<td>
-										<a class="bn-btn" data-variant="ghost" data-size="sm"
+										<div class="bn-row-actions">
+										<a class="bn-btn" data-variant="secondary" data-size="sm"
 											href="<?php echo esc_url( add_query_arg( 'edit_cat', (int) $cat['id'] ) . '#bn-cat-form' ); ?>"
 										><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
-										<form method="post" class="bn-cat-delete-form" data-bn-cat-delete-form
+										<form method="post" class="bn-row-actions__form bn-cat-delete-form" data-bn-cat-delete-form
 											action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 											<?php wp_nonce_field( 'bn_delete_space_category' ); ?>
 											<input type="hidden" name="action" value="bn_delete_space_category">
@@ -612,6 +618,7 @@ class Spaces extends AdminPageBase {
 												data-bn-confirm-cancel="<?php esc_attr_e( 'Cancel', 'buddynext' ); ?>"
 											><?php esc_html_e( 'Delete', 'buddynext' ); ?></button>
 										</form>
+										</div>
 									</td>
 								</tr>
 							<?php endforeach; ?>

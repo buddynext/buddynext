@@ -330,6 +330,7 @@ class ModerationQueue {
 			<td><?php echo esc_html( '' !== $space ? $space : __( 'Main feed', 'buddynext' ) ); ?></td>
 			<td><?php echo esc_html( $this->ago( (string) ( $row['created_at'] ?? '' ) ) ); ?></td>
 			<td>
+				<div class="bn-row-actions">
 				<?php
 				$this->action_form(
 					'bn_mod_premod_action',
@@ -352,6 +353,7 @@ class ModerationQueue {
 					__( 'Reject and delete this post?', 'buddynext' )
 				);
 				?>
+				</div>
 			</td>
 		</tr>
 		<?php
@@ -430,7 +432,7 @@ class ModerationQueue {
 			</td>
 			<td><?php echo esc_html( $this->ago( (string) ( $report['created_at'] ?? '' ) ) ); ?></td>
 			<td>
-				<div class="bn-mod-actions">
+				<div class="bn-row-actions">
 					<?php
 					$this->report_button( $report_id, 'dismiss', __( 'Dismiss', 'buddynext' ), 'secondary' );
 					$this->report_button( $report_id, 'resolve', __( 'Resolve', 'buddynext' ), 'secondary' );
@@ -564,7 +566,7 @@ class ModerationQueue {
 								<td><?php echo esc_html( (string) $a['message'] ); ?></td>
 								<td><?php echo esc_html( $this->ago( (string) ( $a['created_at'] ?? '' ) ) ); ?></td>
 								<td>
-									<div class="bn-mod-actions">
+									<div class="bn-row-actions">
 										<?php
 										$this->appeal_button( (int) $a['id'], 'approved', __( 'Approve', 'buddynext' ), 'primary' );
 										$this->appeal_button( (int) $a['id'], 'denied', __( 'Deny', 'buddynext' ), 'secondary' );
@@ -957,7 +959,7 @@ class ModerationQueue {
 			$data_variant = 'danger';
 		}
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-mod-action-form"
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form"
 			<?php
 			// Declarative confirm via the shared bn-admin-dialogs modal (enqueued on
 			// every buddynext-* admin page); replaces the native browser confirm().
@@ -969,7 +971,7 @@ class ModerationQueue {
 			<?php foreach ( $fields as $name => $value ) : ?>
 				<input type="hidden" name="<?php echo esc_attr( (string) $name ); ?>" value="<?php echo esc_attr( (string) $value ); ?>">
 			<?php endforeach; ?>
-			<button type="submit" class="bn-btn" data-variant="<?php echo esc_attr( $data_variant ); ?>"><?php echo esc_html( $label ); ?></button>
+			<button type="submit" class="bn-btn" data-variant="<?php echo esc_attr( $data_variant ); ?>" data-size="sm"><?php echo esc_html( $label ); ?></button>
 		</form>
 		<?php
 	}
