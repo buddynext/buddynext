@@ -2,7 +2,7 @@
   "info": {
     "title": "BuddyNext REST API (Free + Pro)",
     "description": "The complete REST surface of BuddyNext: the Free plugin under `buddynext/v1` and BuddyNext Pro under `buddynext-pro/v1` (membership, payments, AI, analytics, email, push, moderation). Generated from the live route registry by bin/gen-openapi.php; do not hand-edit. The narrative reference lives in the Developer Guide.",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "contact": {
       "name": "Wbcom Designs",
       "url": "https://wbcomdesigns.com"
