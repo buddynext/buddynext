@@ -115,6 +115,28 @@
 	background: var(--bn-surface);
 }
 
+/*
+ * Rail flex discipline — the chrome holds its size, only the list flexes.
+ *
+ * The thread pane already works this way (.bn-dm-composer is flex-shrink: 0 and
+ * .bn-dm-pane__body is flex: 1 + overflow-y: auto); the rail was never given the
+ * same treatment, so under height pressure the browser was free to shrink the
+ * header, search, tab strip and footer instead of the one region designed to
+ * scroll. .bn-dm-rail__tabs is the worst affected because .bn-tabs sets overflow
+ * for horizontal tab scrolling, and a flex item whose overflow is not `visible`
+ * loses the automatic min-height floor — so it can shrink to 1px and leave its
+ * border-bottom rendering as a stray hairline with its 44px tabs spilling out.
+ *
+ * Naming the four chrome rows explicitly (rather than a blanket `> *`) keeps
+ * .bn-dm-rail__list free to be the single flexible, scrolling child.
+ */
+.bn-dm-rail__head,
+.bn-dm-rail__search,
+.bn-dm-rail__tabs,
+.bn-dm-rail__foot {
+	flex-shrink: 0;
+}
+
 .bn-dm-rail__head {
 	/* Group the "Messages" heading and its unread count together on the left
 	   instead of inheriting .bn-split__rail-head's space-between, which shoved
@@ -1436,11 +1458,54 @@
 		flex-direction: column;
 	}
 
+	/*
+	 * Restore the HEIGHT contract the grid provided for free.
+	 *
+	 * As a grid item each pane stretched to fill its row, which is what let
+	 * .bn-dm-rail__list (flex: 1) take the slack and scroll. Switching the
+	 * container to a flex column above kept the width behaviour but silently
+	 * dropped that stretch: a flex item in a column sizes to CONTENT unless
+	 * told otherwise. Only width was re-declared here, so the panes collapsed —
+	 * the rail rendered 220px inside a 560px container, __list shrank to 16px,
+	 * and __tabs (which has overflow, so no min-height: auto floor) collapsed to
+	 * 1px while its three 44px tabs overflowed and overlapped the footer.
+	 *
+	 * Exactly one pane is visible at a time on mobile (the other is display:none),
+	 * so the visible one simply takes the whole container. min-height: 0 is what
+	 * lets it shrink below content height, which is what makes the inner
+	 * overflow-y: auto regions scroll instead of pushing the pane taller.
+	 */
 	.bn-split.bn-dm .bn-dm-rail,
 	.bn-split.bn-dm .bn-dm-thread {
 		width: 100%;
 		max-width: 100%;
 		min-width: 0;
+		flex: 1;
+		min-height: 0;
+	}
+
+	/*
+	 * Opt the DM rail out of the STACKED-split mobile treatment.
+	 *
+	 * bn-base.css gives every .bn-split__rail a `max-height: 220px` plus a
+	 * `border-bottom` at this breakpoint. That is right for the stacked pattern
+	 * it was written for — .bn-split collapses to `grid-template-columns: 1fr`,
+	 * the rail sits ABOVE the main pane, the cap stops a long list pushing the
+	 * content off-screen, and the border divides the two stacked panes.
+	 *
+	 * DM is not that pattern. It is a SWAP layout: the container is overridden to
+	 * a flex column above and exactly one pane is ever visible (the other is
+	 * display:none). So:
+	 *   - the cap has to go. max-height beats flex-grow, so while it applied the
+	 *     rail was pinned to 220px inside a 560px container no matter what flex
+	 *     said — that is what starved __list to 16px and collapsed __tabs to 1px.
+	 *   - the border-bottom has to go. Nothing is stacked beneath it, so it drew
+	 *     a divider under the whole rail with only background below — one of the
+	 *     stray hairlines that made this surface look unfinished.
+	 */
+	.bn-split.bn-dm .bn-dm-rail {
+		max-height: none;
+		border-bottom: 0;
 	}
 
 	/* List view (no conversation open): show the rail, hide the empty thread. */
