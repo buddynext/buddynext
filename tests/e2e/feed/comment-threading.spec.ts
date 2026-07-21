@@ -3,6 +3,8 @@ import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
 
 /**
+ * J-121-comment-threading.
+ *
  * Wave-2 A4: threaded comment UI — Reply / Like / Edit / Delete.
  *
  * Each test soft-skips when no posts exist on the seeded environment;

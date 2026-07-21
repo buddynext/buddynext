@@ -159,6 +159,24 @@ else
 	note "bin/check-erasure.py missing"
 fi
 
+# 3b-iii. Journey tags — BLOCKING, and green as of this commit.
+#
+# A spec that names no journey is invisible to coverage reporting: it proves no catalogued
+# journey and appears as no gap. Five specs sat in that state until 2026-07-21 — all passing,
+# none counted. This gate only checks that an id is DECLARED; it cannot check the id exists,
+# because the journey catalogue is internal and lives in the pro repo. The matching gate
+# there (bin/check-journey-coverage.py) reconciles both directions.
+section "Journey tags"
+if [ -f bin/check-journey-tags.py ]; then
+	if python3 bin/check-journey-tags.py; then
+		:
+	else
+		fail "a Playwright spec declares no journey id — add it to the spec's docblock"
+	fi
+else
+	note "bin/check-journey-tags.py missing"
+fi
+
 # 3c. Cache conformance — ADVISORY until the cache backlog is cleared, then make it blocking.
 #
 # This gate existed and was called by NOTHING, while a plan doc claimed it was wired. An

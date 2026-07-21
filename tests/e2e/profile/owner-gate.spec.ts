@@ -2,6 +2,8 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { urls } from '../_fixtures/selectors';
 
 /**
+ * J-124-profile-owner-gate.
+ *
  * Regression spec for A1 — the owner-only profile actions (Edit Profile link +
  * the cover-edit pencil) must NOT render on other members' profiles, even for
  * admin viewers, since the edit link unconditionally targets the viewer's own

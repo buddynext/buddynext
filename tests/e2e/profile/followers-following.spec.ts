@@ -2,6 +2,8 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { urls } from '../_fixtures/selectors';
 
 /**
+ * J-123-followers-following-lists.
+ *
  * Smoke spec for the followers + following list surfaces.
  *
  * The pages don't need to have any actual followers — what matters is that
