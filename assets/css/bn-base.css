@@ -990,6 +990,28 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 		position: relative;
 		transition: color 0.15s ease;
 	}
+	/*
+	 * Tab icons need an explicit size, exactly as the centre FAB already has.
+	 *
+	 * .bn-icon (the class IconService::render() puts on every SVG) is sized
+	 * `width/height: 1em`, so an icon inherits whatever font-size its container
+	 * sets. Here that container sets `font-size: 10px` — which is the LABEL
+	 * size, correct for the caption underneath — so the four tab icons were
+	 * rendering at 10x10px against the FAB's 24x24px. That is a 2.4x mismatch in
+	 * the same bar, and 10px is far below the ~24px platform standard for a
+	 * bottom tab bar (iOS 24-28, Material 24).
+	 *
+	 * The FAB was never affected only because it hard-codes its own 24px below.
+	 * Sizing the icon here rather than raising the item's font-size keeps the
+	 * 10px label intact — the label is correct, the icon simply must not be tied
+	 * to it.
+	 */
+	.bn-mobile-nav__item .bn-icon,
+	.bn-mobile-nav__item > svg {
+		width: 24px;
+		height: 24px;
+		flex-shrink: 0;
+	}
 	.bn-mobile-nav__item[aria-current="page"] { color: var(--brand); }
 	.bn-mobile-nav__item[aria-current="page"] svg { stroke: var(--brand); }
 	/* Centred by arithmetic, not by an offset: a fixed-width slot between two

@@ -531,8 +531,56 @@ body.admin-bar .bn-app__rail {
 	.bn-app__rail {
 		display: none;
 	}
+	/*
+	 * Clear the fixed bottom nav on the DOCUMENT, not on our own wrapper.
+	 *
+	 * This clearance used to sit on .bn-app__main. That reserves space inside
+	 * the plugin's column only, but .bn-mobile-nav is `position: fixed` — it
+	 * overlaps whatever occupies the bottom of the VIEWPORT, and the theme's
+	 * get_header()/get_footer() output renders outside .bn-app entirely (see
+	 * templates/shell/hub-shell.php). So on any theme with a visible footer the
+	 * bar sat on top of the copyright line: measured a 53px overlap at 390px on
+	 * Reign, with .bn-app__main carrying 88px of clearance and the footer 0.
+	 *
+	 * Padding the body instead extends the scroll area past everything the page
+	 * renders — our content AND the theme's footer — so nothing is permanently
+	 * obscured. Scoped with :has(.bn-app) so a page without the BuddyNext shell
+	 * (and therefore without the bar) keeps its own spacing; :has() is already
+	 * used elsewhere in this file and in bn-base.css.
+	 *
+	 * Deliberately NOT kept on .bn-app__main as well — two stacked clearances
+	 * would reserve 176px and leave a dead gap above the footer.
+	 */
 	.bn-app__main {
 		padding-bottom: var(--bn-mobile-nav-clearance); /* clear .bn-mobile-nav bottom bar */
+	}
+
+	/*
+	 * ...and clear it for the THEME'S footer too, which is the half that was
+	 * missing. The rule above reserves space inside the plugin's own column, but
+	 * .bn-mobile-nav is `position: fixed` — it overlays whatever sits at the
+	 * bottom of the VIEWPORT, and get_header()/get_footer() render outside
+	 * .bn-app entirely (templates/shell/hub-shell.php). On Reign at 390px the
+	 * bar sat squarely on the copyright line.
+	 *
+	 * Padding `body` does NOT work and was tried first: the theme sets
+	 * `body { height: 100vh; box-sizing: border-box }`, so body padding is
+	 * absorbed inside that fixed box and never extends the document. body's own
+	 * last child is a zero-height <script>, so `> *:last-child` is no use
+	 * either. The footer's own box is what has to grow.
+	 *
+	 * The footer belongs to the theme, so this matches on the conventional
+	 * markup rather than one theme's class: a direct <footer>, a <footer> one
+	 * level down (body > .site > footer — Reign/BuddyX), and the two class names
+	 * WordPress themes overwhelmingly use. A theme that matches none of these
+	 * still keeps the .bn-app__main clearance above, so its own content is never
+	 * obscured — only its footer would be.
+	 */
+	body:has(.bn-app) > footer,
+	body:has(.bn-app) > * > footer,
+	body:has(.bn-app) .site-footer,
+	body:has(.bn-app) #colophon {
+		padding-bottom: var(--bn-mobile-nav-clearance);
 	}
 
 	/*
@@ -553,9 +601,9 @@ body.admin-bar .bn-app__rail {
 	 * surface loses its gutter.
 	 *
 	 * The .bn-app selector is doubled deliberately. The outer 15px is not ours —
-	 * it comes from the host theme, which gutters every grid cell:
-	 *     .wb-grid > :not(.no-gutter) { padding-left: 15px; padding-right: 15px }
-	 * (Reign/BuddyX main.min.css). .bn-app is a direct .wb-grid child, and that
+	 * it comes from the host theme, whose `.wb-grid > :not(.no-gutter)` rule
+	 * gives every grid cell 15px of horizontal padding (Reign/BuddyX
+	 * main.min.css). .bn-app is a direct .wb-grid child, and that
 	 * selector scores the same 0-2-0 as a plain `.bn-app[data-bn-hub]`, so with
 	 * equal specificity the later-loading theme sheet wins. Repeating the class
 	 * lifts us to 0-3-0 and settles it by the cascade's own rules — no
