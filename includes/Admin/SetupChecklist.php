@@ -99,7 +99,7 @@ final class SetupChecklist {
 				'label'     => __( 'Community pages created', 'buddynext' ),
 				'desc'      => __( 'The feed, members and spaces pages your community lives on.', 'buddynext' ),
 				'done'      => absint( get_option( 'buddynext_page_activity' ) ) > 0,
-				'cta'       => admin_url( 'admin.php?page=buddynext&tab=pages' ),
+				'cta'       => AdminHub::tab_url( 'settings', 'pages' ),
 				'cta_label' => __( 'Review pages', 'buddynext' ),
 				'icon'      => 'link',
 			),
@@ -108,7 +108,7 @@ final class SetupChecklist {
 				'label'     => __( 'Choose your features', 'buddynext' ),
 				'desc'      => __( 'Turn the parts of the community you want on or off.', 'buddynext' ),
 				'done'      => false !== get_option( 'buddynext_features', false ),
-				'cta'       => admin_url( 'admin.php?page=buddynext&tab=features' ),
+				'cta'       => AdminHub::tab_url( 'settings', 'features' ),
 				'cta_label' => __( 'Set features', 'buddynext' ),
 				'icon'      => 'sparkles',
 			),
@@ -144,7 +144,7 @@ final class SetupChecklist {
 				'label'     => __( 'Brand it', 'buddynext' ),
 				'desc'      => __( 'Set your accent colour so the community feels like yours.', 'buddynext' ),
 				'done'      => false !== get_option( 'buddynext_brand_color', false ),
-				'cta'       => admin_url( 'admin.php?page=buddynext&tab=appearance' ),
+				'cta'       => AdminHub::tab_url( 'settings', 'appearance' ),
 				'cta_label' => __( 'Customise', 'buddynext' ),
 				'icon'      => 'palette',
 			),
@@ -155,29 +155,12 @@ final class SetupChecklist {
 					: __( 'Pick a community theme', 'buddynext' ),
 				'desc'      => self::using_recommended_theme()
 					? __( 'You are on a theme built for BuddyNext - dark mode and community chrome are tuned to match.', 'buddynext' )
-					: __( 'BuddyNext works with any theme. For the deepest fit - dark mode, community chrome, tested layouts - BuddyX (free), BuddyX Pro, or Reign are built for it.', 'buddynext' ),
+					: __( 'The full BuddyNext experience - dark mode, community chrome, and layouts tested on every surface - needs a purpose-built theme, and not every theme offers dark mode. Start with BuddyX (free), or step up to BuddyX Pro or Reign.', 'buddynext' ),
 				'done'      => self::using_recommended_theme() || (bool) get_option( self::OPT_THEME_ACK, false ),
 				'cta'       => admin_url( 'theme-install.php?search=buddyx' ),
 				'cta_label' => __( 'Get BuddyX (free)', 'buddynext' ),
 				'icon'      => 'layout',
-				// Three ways to get a purpose-built theme: BuddyX one-click installs
-				// from wp.org; BuddyX Pro and Reign are premium (link out to store).
-				'links'     => array(
-					array(
-						'label' => __( 'BuddyX (free)', 'buddynext' ),
-						'url'   => admin_url( 'theme-install.php?search=buddyx' ),
-					),
-					array(
-						'label'    => __( 'BuddyX Pro', 'buddynext' ),
-						'url'      => 'https://wbcomdesigns.com/downloads/buddyx-pro-theme/',
-						'external' => true,
-					),
-					array(
-						'label'    => __( 'Reign', 'buddynext' ),
-						'url'      => 'https://wbcomdesigns.com/downloads/reign-theme/',
-						'external' => true,
-					),
-				),
+				'links'     => self::theme_links(),
 				// Marks this step as ack-dismissible ("Keep my theme"), so owners on
 				// another theme can complete the checklist without switching.
 				'dismiss'   => 'theme_tip',
@@ -188,11 +171,40 @@ final class SetupChecklist {
 	/**
 	 * True when the active theme (or its parent) is one built for BuddyNext.
 	 *
+	 * Public so other landing surfaces (the Get Started Home theme card) read the
+	 * same source of truth instead of re-deriving "is this a community theme".
+	 *
 	 * @return bool
 	 */
-	private static function using_recommended_theme(): bool {
+	public static function using_recommended_theme(): bool {
 		return in_array( strtolower( (string) get_template() ), self::RECOMMENDED_THEMES, true )
 			|| in_array( strtolower( (string) get_stylesheet() ), self::RECOMMENDED_THEMES, true );
+	}
+
+	/**
+	 * The recommended-theme links - the single source shared by the checklist's
+	 * theme step and the Get Started Home theme card. BuddyX installs in one click
+	 * from wp.org; BuddyX Pro and Reign are premium (link out to the store).
+	 *
+	 * @return array<int, array{label:string, url:string, external?:bool}>
+	 */
+	public static function theme_links(): array {
+		return array(
+			array(
+				'label' => __( 'BuddyX (free)', 'buddynext' ),
+				'url'   => admin_url( 'theme-install.php?search=buddyx' ),
+			),
+			array(
+				'label'    => __( 'BuddyX Pro', 'buddynext' ),
+				'url'      => 'https://wbcomdesigns.com/downloads/buddyx-pro-theme/',
+				'external' => true,
+			),
+			array(
+				'label'    => __( 'Reign', 'buddynext' ),
+				'url'      => 'https://wbcomdesigns.com/downloads/reign-theme/',
+				'external' => true,
+			),
+		);
 	}
 
 	/**

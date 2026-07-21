@@ -340,7 +340,7 @@ class NavManager extends AdminPageBase {
 		}
 		check_admin_referer( 'bn_save_hub_pages' );
 
-		$pages_url = admin_url( 'admin.php?page=buddynext&tab=pages' );
+		$pages_url = AdminHub::tab_url( 'settings', 'pages' );
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each field sanitized below.
 		$raw       = (array) wp_unslash( $_POST['bn_hub'] ?? array() );
 		$catalogue = $this->page_hub_catalogue();
@@ -1594,7 +1594,7 @@ class NavManager extends AdminPageBase {
 					printf(
 						/* translators: %s: link to the Pages & URLs tab. */
 						wp_kses_post( __( 'This hub\'s URL slug and backing WordPress page are managed in the %s tab.', 'buddynext' ) ),
-						'<a href="' . esc_url( admin_url( 'admin.php?page=buddynext&tab=pages' ) ) . '">' . esc_html__( 'Pages &amp; URLs', 'buddynext' ) . '</a>'
+						'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'pages' ) ) . '">' . esc_html__( 'Pages &amp; URLs', 'buddynext' ) . '</a>'
 					);
 					?>
 				</span>
@@ -1969,7 +1969,7 @@ class NavManager extends AdminPageBase {
 		}
 
 		wp_safe_redirect(
-			add_query_arg( 'bn_notice', 'saved', admin_url( 'admin.php?page=buddynext&tab=navigation' ) )
+			AdminHub::tab_url( 'settings', 'navigation', array( 'bn_notice' => 'saved' ) )
 		);
 		exit;
 	}

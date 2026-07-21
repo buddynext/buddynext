@@ -45,11 +45,19 @@ class AdminHub {
 	 */
 	private static function default_sections(): array {
 		return array(
-			'settings'      => array(
+			// Get Started owns the top-level `buddynext` slug so a fresh install
+			// lands on orientation (welcome + checklist + demo) instead of the
+			// Settings form. Settings keeps all its tabs at its own slug below.
+			'get-started'   => array(
 				'slug'  => 'buddynext',
+				'label' => __( 'Get Started', 'buddynext' ),
+				'icon'  => 'sparkles',
+				'top'   => true,
+			),
+			'settings'      => array(
+				'slug'  => 'buddynext-settings',
 				'label' => __( 'Settings', 'buddynext' ),
 				'icon'  => 'settings',
-				'top'   => true,
 			),
 			'platform'      => array(
 				'slug'  => 'buddynext-platform',
@@ -1038,12 +1046,6 @@ class AdminHub {
 		echo '<div class="bn-admin-hub__shell">';
 		$this->render_nav_panel( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__content">';
-		SetupChecklist::maybe_render( $page );
-		// Surface the otherwise-buried demo installer on the landing so a fresh,
-		// empty community can be populated in one click (only shows until seeded).
-		if ( self::TOP_SLUG === $page ) {
-			( new \BuddyNext\Demo\DemoAdmin() )->render_promo();
-		}
 		$this->render_header( (string) $active['label'] );
 		$this->render_subhead( $active );
 		$main_classes = 'bn-admin-hub__main ' . ( $is_wide ? 'bn-admin-hub__main--wide' : 'bn-admin-hub__main--full' );

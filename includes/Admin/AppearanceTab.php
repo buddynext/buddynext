@@ -95,7 +95,7 @@ class AppearanceTab {
 					</select>
 					<p class="bn-av-section-desc bn-a-gap-top-sm">
 						<?php esc_html_e( 'Accent colour is set under', 'buddynext' ); ?>
-						<a href="<?php echo esc_url( admin_url( 'admin.php?page=buddynext&tab=general' ) ); ?>"><?php esc_html_e( 'General → Brand Color', 'buddynext' ); ?></a>.
+						<a href="<?php echo esc_url( AdminHub::tab_url( 'settings', 'general' ) ); ?>"><?php esc_html_e( 'General → Brand Color', 'buddynext' ); ?></a>.
 					</p>
 				</div>
 			</div>
@@ -150,16 +150,12 @@ class AppearanceTab {
 			update_option( 'buddynext_logo_url', $logo_url );
 		}
 
-		$redirect_args = array(
-			'page'          => 'buddynext',
-			'tab'           => 'appearance',
-			'bn_appearance' => '1',
-		);
+		$redirect_extra = array( 'bn_appearance' => '1' );
 		if ( '' !== $logo_error ) {
-			$redirect_args['bn_error'] = $logo_error;
+			$redirect_extra['bn_error'] = $logo_error;
 		}
 
-		wp_safe_redirect( add_query_arg( $redirect_args, admin_url( 'admin.php' ) ) );
+		wp_safe_redirect( AdminHub::tab_url( 'settings', 'appearance', $redirect_extra ) );
 		exit;
 	}
 }

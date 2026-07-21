@@ -253,15 +253,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		\BuddyNext\Core\RecommendedDefaults::apply();
 		update_option( 'buddynext_recommended_dismissed', '1' );
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'           => 'buddynext',
-					'bn_recommended' => 'applied',
-				),
-				admin_url( 'admin.php' )
-			)
-		);
+		wp_safe_redirect( AdminHub::tab_url( 'settings', 'general', array( 'bn_recommended' => 'applied' ) ) );
 		exit;
 	}
 
@@ -278,15 +270,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		update_option( 'buddynext_recommended_dismissed', '1' );
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'           => 'buddynext',
-					'bn_recommended' => 'dismissed',
-				),
-				admin_url( 'admin.php' )
-			)
-		);
+		wp_safe_redirect( AdminHub::tab_url( 'settings', 'general', array( 'bn_recommended' => 'dismissed' ) ) );
 		exit;
 	}
 
@@ -2061,7 +2045,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	protected function render_content(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'general' ) );
-		$base_url   = admin_url( 'admin.php?page=buddynext' );
+		// Settings moved off the top-level `buddynext` slug (now the Get Started
+		// Home) to its own section slug; resolve it through the map so this base
+		// URL follows the section rather than hard-coding the old landing slug.
+		$base_url = admin_url( 'admin.php?page=' . AdminHub::section_slug( 'settings' ) );
 
 		$tabs = array(
 			'general'       => __( 'General', 'buddynext' ),
@@ -2391,13 +2378,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				__( 'Restricted is recommended: a hard gate costs you sign-ups, because confirmation emails land in spam folders more often than you would like.', 'buddynext' )
 			);
 		} else {
-			$bn_features_url = add_query_arg(
-				array(
-					'page' => 'buddynext',
-					'tab'  => 'features',
-				),
-				admin_url( 'admin.php' )
-			);
+			$bn_features_url = AdminHub::tab_url( 'settings', 'features' );
 			echo '<p class="bn-field-hint">' . wp_kses_post(
 				sprintf(
 					/* translators: %s: link to the Features settings tab */
@@ -2868,9 +2849,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		</p>
 
 		<?php
-		// Recommended themes. BuddyNext runs on any theme; these are purpose-built
-		// for it (dark-mode bridge, community chrome, tested layouts). Framed as a
-		// suggestion, never a requirement - most owners run another theme.
+		// Recommended themes. BuddyNext's full experience (dark-mode bridge,
+		// community chrome, tested layouts) needs a purpose-built theme; other
+		// themes can work but often need custom styling. Framed as a strong
+		// suggestion the owner can dismiss, never a hard requirement.
 		$bn_theme_recommended = array( 'buddyx', 'buddyx-pro', 'reign', 'reign-theme' );
 		$bn_active_template   = strtolower( (string) get_template() );
 		$bn_themes            = array(
@@ -2902,7 +2884,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			<div class="bn-fam-header__body">
 				<h2 class="bn-fam-header__title"><?php esc_html_e( 'Recommended themes', 'buddynext' ); ?></h2>
 				<p class="bn-fam-header__desc">
-					<?php esc_html_e( 'BuddyNext works with any theme. For the deepest fit - dark mode, community chrome, and layouts tested against every surface - these themes are purpose-built for it.', 'buddynext' ); ?>
+					<?php esc_html_e( 'The full BuddyNext experience - dark mode, community chrome, and layouts tested on every surface - needs a purpose-built theme, and not every theme offers dark mode. Other themes can work but often need custom styling.', 'buddynext' ); ?>
 				</p>
 			</div>
 		</div>

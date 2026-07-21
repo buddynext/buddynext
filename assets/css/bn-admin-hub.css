@@ -949,3 +949,70 @@
 		margin-inline-start: calc(22px + var(--bn-a-s3));
 	}
 }
+
+/* ── Get Started (Home) theme recommendation ─────────────────────────────── */
+.bn-home-theme__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-a-s2);
+	margin-top: var(--bn-a-s3);
+}
+
+/* ── Get Started (Home) orientation grid ─────────────────────────────────── */
+.bn-home-links {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: var(--bn-a-s3);
+}
+
+.bn-home-link {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-a-s3);
+	padding: var(--bn-a-s4);
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md, 10px);
+	box-shadow: var(--bn-a-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
+	text-decoration: none;
+	color: inherit;
+	transition: border-color var(--bn-a-transition, 0.15s ease), box-shadow var(--bn-a-transition, 0.15s ease);
+}
+
+.bn-home-link:hover,
+.bn-home-link:focus {
+	border-color: var(--bn-a-brand);
+	box-shadow: var(--bn-a-shadow-md, 0 2px 8px rgba(0, 0, 0, 0.1));
+}
+
+.bn-home-link__icon {
+	flex: 0 0 auto;
+	width: 22px;
+	height: 22px;
+	color: var(--bn-a-brand);
+}
+
+.bn-home-link__body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.bn-home-link__title {
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-1);
+}
+
+.bn-home-link__desc {
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+	line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+	.bn-home-links {
+		grid-template-columns: 1fr;
+	}
+}
