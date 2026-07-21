@@ -2169,19 +2169,34 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'integrations' => __( 'Power-user integrations', 'buddynext' ),
 		);
 
-		echo '<p class="bn-field-hint">';
-		printf(
-			/* translators: %s: link to the Integration Display tab. */
-			esc_html__( 'Turn integrations on or off here; control where they appear under %s.', 'buddynext' ),
-			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Settings', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
-		);
-		echo '</p>';
-
 		$this->open_section( __( 'Features', 'buddynext' ) );
 
 		echo '<p class="bn-field-hint bn-a-flush-top">' .
-			esc_html__( 'Pick which features your community uses. Core features always run. You can enable or disable everything else from this tab — changes apply immediately on save.', 'buddynext' ) .
+			esc_html__( 'Pick which features your community uses. Core features always run. You can enable or disable everything else from this tab - changes apply immediately on save.', 'buddynext' ) .
 			'</p>';
+
+		// Search box: this tab lists many toggles across several groups, so let the
+		// owner jump straight to one. Filtering is client-side (assets/js/admin/
+		// settings.js) over the feature rows; groups with no match hide, and an
+		// empty-result note shows.
+		echo '<div class="bn-feature-search" data-bn-feature-search>';
+		printf(
+			'<input type="search" class="bn-feature-search__input" data-bn-feature-search-input placeholder="%s" aria-label="%s" autocomplete="off">',
+			esc_attr__( 'Search features...', 'buddynext' ),
+			esc_attr__( 'Search features', 'buddynext' )
+		);
+		echo '<p class="bn-feature-search__empty" data-bn-feature-search-empty hidden>' . esc_html__( 'No features match your search.', 'buddynext' ) . '</p>';
+		echo '</div>';
+
+		// Scoped note: the "Power-user integrations" group below turns connected
+		// apps on/off; where they appear is a separate concern on Integration Settings.
+		echo '<p class="bn-field-hint">';
+		printf(
+			/* translators: %s: link to the Integration Settings tab. */
+			esc_html__( 'The Power-user integrations group below turns connected apps on or off; control where they appear under %s.', 'buddynext' ),
+			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Settings', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+		);
+		echo '</p>';
 
 		foreach ( $groups as $group_key => $features ) {
 			$group_label = $group_labels[ $group_key ] ?? ucfirst( (string) $group_key );

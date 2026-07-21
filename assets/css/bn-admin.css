@@ -2004,6 +2004,30 @@ button.bn-btn-danger:hover {
  * Features tab — Settings → Features
  * Site-owner control catalogue driven by FeatureRegistry::by_group().
  * ════════════════════════════════════════════════════════════════════════ */
+.bn-feature-search {
+	margin: var(--bn-s3) 0 var(--bn-s4);
+}
+.bn-feature-search__input {
+	width: 100%;
+	max-width: 360px;
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+.bn-feature-search__input:focus {
+	border-color: var(--bn-accent);
+	outline: none;
+	box-shadow: 0 0 0 1px var(--bn-accent);
+}
+.bn-feature-search__empty {
+	margin: var(--bn-s3) 0 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+
 .bn-feature-group {
 	font-family: var(--bn-font-display);
 	font-size: var(--bn-text-md);
