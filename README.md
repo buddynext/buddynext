@@ -7,7 +7,7 @@
 <p align="center"><strong>The community operating system for WordPress.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.4-2563eb" alt="Version 1.0.4">
+  <img src="https://img.shields.io/badge/version-1.0.9-2563eb" alt="Version 1.0.9">
   <img src="https://img.shields.io/badge/WordPress-6.9%2B-21759b" alt="WordPress 6.9+">
   <img src="https://img.shields.io/badge/PHP-8.1--8.4-777bb4" alt="PHP 8.1 to 8.4">
   <img src="https://img.shields.io/badge/license-GPLv2%2B-4c9a2a" alt="License GPLv2+">
@@ -92,6 +92,7 @@ BuddyNext is the social layer. Each companion plugin owns its own domain and sur
 | [WPMediaVerse](https://wbcomdesigns.com/downloads/mediaverse/) | Direct messaging and rich media galleries | Free |
 | [Jetonomy](https://wbcomdesigns.com/downloads/jetonomy/) | Forum-style threaded discussions and Q&A | Free |
 | [WB Gamification](https://wbcomdesigns.com/downloads/wordpress-gamification-plugin/) | Points, badges, levels, and leaderboards | Free |
+| [Eventonomy](https://wbcomdesigns.com/downloads/eventonomy/) | Events, calendars, and RSVPs | Free |
 | [WP Career Board](https://wbcomdesigns.com/downloads/wp-career-board/) | Job listings and applicant management | Pro |
 | [Learnomy](https://wbcomdesigns.com/downloads/learnomy/) | Courses, lessons, and certificates | Pro |
 | [Listora](https://wbcomdesigns.com/downloads/listora/) | Business directory and listings | Pro |
