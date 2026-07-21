@@ -196,7 +196,7 @@ final class SetupChecklist {
 			),
 			array(
 				'label'    => __( 'BuddyX Pro', 'buddynext' ),
-				'url'      => 'https://wbcomdesigns.com/downloads/buddyx-pro-theme/',
+				'url'      => 'https://buddyxtheme.com/',
 				'external' => true,
 			),
 			array(

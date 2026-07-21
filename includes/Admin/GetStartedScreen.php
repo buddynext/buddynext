@@ -99,26 +99,34 @@ class GetStartedScreen {
 	 * Theme recommendation card.
 	 *
 	 * BuddyNext's full experience - dark mode, community chrome, tested layouts -
-	 * depends on a purpose-built theme, and not every theme offers dark mode, so a
-	 * first-time owner on a generic theme sees off layouts and blames BuddyNext.
-	 * This surfaces the recommendation persistently on the Home (unlike the setup
-	 * checklist step, which self-hides once dismissed). Shown only while the owner
-	 * is NOT already on a community theme - it reads the same recommended-theme
-	 * source (SetupChecklist) so there is one list to maintain.
+	 * depends on a purpose-built theme, and not every theme offers dark mode. This
+	 * is a persistent suggestion on the Home (unlike the setup checklist step, which
+	 * self-hides once dismissed) and stays visible even ON a community theme so the
+	 * owner always has the upgrade path to BuddyX Pro or Reign. Only the copy adapts
+	 * to the active theme; it reads the same recommended-theme source (SetupChecklist)
+	 * so there is one list to maintain.
 	 *
 	 * @return void
 	 */
 	private function render_theme_card(): void {
-		if ( SetupChecklist::using_recommended_theme() ) {
-			return;
-		}
+		$on_recommended = SetupChecklist::using_recommended_theme();
 		?>
 		<div class="bn-setup-card bn-home-theme">
 			<div class="bn-setup-card__head">
 				<div class="bn-setup-card__heading">
-					<h2 class="bn-setup-card__title"><?php esc_html_e( 'Get a community-ready theme', 'buddynext' ); ?></h2>
+					<h2 class="bn-setup-card__title">
+						<?php
+						echo $on_recommended
+							? esc_html__( 'Explore premium community themes', 'buddynext' )
+							: esc_html__( 'Get a community-ready theme', 'buddynext' );
+						?>
+					</h2>
 					<p class="bn-setup-card__sub">
-						<?php esc_html_e( 'The full BuddyNext experience - dark mode, community chrome, and layouts tested on every surface - needs a purpose-built theme, and not every theme offers dark mode. Start with BuddyX (free), or step up to BuddyX Pro or Reign.', 'buddynext' ); ?>
+						<?php
+						echo $on_recommended
+							? esc_html__( 'You are on a community theme - nicely done. BuddyX Pro and Reign build on it with deeper layouts, headers, and community controls.', 'buddynext' )
+							: esc_html__( 'The full BuddyNext experience - dark mode, community chrome, and layouts tested on every surface - needs a purpose-built theme, and not every theme offers dark mode. Start with BuddyX (free), or step up to BuddyX Pro or Reign.', 'buddynext' );
+						?>
 					</p>
 				</div>
 			</div>

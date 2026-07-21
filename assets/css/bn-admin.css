@@ -442,7 +442,11 @@
 }
 
 .bn-ss-body {
-	padding: var(--bn-a-s5);
+	/* Sides + bottom keep the card's s5 gutter; top is tighter so the first row
+	   binds to the section header instead of floating below an empty gap. The
+	   first field's own top padding (e.g. .bn-toggle-row) supplies the rest, so
+	   header-to-first-field reads consistent with the spacing between fields. */
+	padding: var(--bn-a-s2) var(--bn-a-s5) var(--bn-a-s5);
 }
 
 /* Section-body intro paragraph. Shared by every admin tab that opens a
@@ -685,10 +689,11 @@ select.bn-text-input {
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: var(--bn-a-s4);
-	/* 16px band (was 12px): stacked toggle groups read denser than form-field
-	   rows; Learnomy's 16px row rhythm is the reference (card 10056978256). */
+	/* 16px vertical band. Rows separate by this padding rhythm alone - no divider
+	   line - so a toggle row reads the same as a select/input field in the same
+	   section. (Some sections mix the two; a per-row divider appeared only under
+	   toggles, never under fields, which read as an inconsistent stray line.) */
 	padding: var(--bn-a-s4) 0;
-	border-bottom: 1px solid var(--bn-a-border-soft);
 }
 
 /* Toggle-row copy column + nested sub-tab group (Integration Display cards). */
@@ -722,36 +727,21 @@ select.bn-text-input {
 	color: var(--bn-a-text-3);
 }
 
-.bn-int-subtab-group .bn-toggle-row:last-child {
-	border-bottom: 0;
+/* Descriptor-driven option rows (AdminPageBase::render_sections) wrap EVERY control in
+   a `<div class="bn-opt" id="…">` anchor (command-palette deep links). Give the WRAPPER
+   the row's vertical rhythm so every row separates identically - a toggle reads the same
+   as a select/input field, and a section that mixes the two spaces the same as an
+   all-toggle or all-field one. The inner control's own vertical padding/margin is zeroed
+   inside the wrapper so it is not double-counted. Rows OUTSIDE a wrapper (e.g. the
+   Integration Display sub-tab cards) keep the base .bn-toggle-row padding. */
+.bn-opt {
+	padding: var(--bn-a-s3) 0;
 }
-
-.bn-toggle-row:last-child {
-	border-bottom: none;
+.bn-opt > .bn-toggle-row {
+	padding-top: 0;
+	padding-bottom: 0;
 }
-
-/* Descriptor-driven option rows (AdminPageBase::render_sections) wrap EVERY row in a
-   `<div class="bn-opt" id="…">` anchor so the command palette can deep-link a single
-   control. That wrapper is the row's only child, which means the row above always
-   matched `.bn-toggle-row:last-child` / `.bn-field:last-child` - not just the last one.
-   Every toggle lost its divider and every field lost its bottom margin, so the hint of
-   one field ran straight into the next field's label.
-   The wrapper is a layout-transparent anchor, so the "last row" reset belongs to IT:
-   restore the row chrome inside a wrapper, and reset only on the wrapper that really is
-   last in the section card. */
-.bn-opt > .bn-toggle-row:last-child {
-	border-bottom: 1px solid var(--bn-a-border-soft);
-}
-
-.bn-opt:last-child > .bn-toggle-row:last-child {
-	border-bottom: none;
-}
-
-.bn-opt > .bn-field:last-child {
-	margin-bottom: var(--bn-a-s4);
-}
-
-.bn-opt:last-child > .bn-field:last-child {
+.bn-opt > .bn-field {
 	margin-bottom: 0;
 }
 

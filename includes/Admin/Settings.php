@@ -2868,7 +2868,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				'label'  => 'BuddyX Pro',
 				'why'    => __( 'Premium BuddyX with deeper layout, header, and community controls.', 'buddynext' ),
 				'active' => in_array( $bn_active_template, array( 'buddyx-pro' ), true ),
-				'store'  => 'https://wbcomdesigns.com/downloads/buddyx-pro-theme/',
+				'store'  => 'https://buddyxtheme.com/',
 				'tier'   => __( 'Premium', 'buddynext' ),
 			),
 			array(
