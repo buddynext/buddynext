@@ -530,6 +530,24 @@
 	background-image: linear-gradient(135deg, var(--bn-accent-100), var(--bn-surface));
 }
 
+/*
+ * An uploaded space icon must take the container's rounding.
+ *
+ * templates/parts/space-hero.php renders the icon as a bare <img> inside the
+ * emblem. The emblem is rounded (--bn-r-lg) but does not clip (no overflow
+ * hidden — the box-shadow needs to escape), so the image kept hard square
+ * corners inside a rounded, bordered box. `border-radius: inherit` is the
+ * pattern .bn-sd-card__emblem img already uses on the directory cards, so the
+ * icon rounds identically in both places and follows the token if it changes.
+ */
+.bn-sh-hero__emblem img,
+.bn-sh-avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: inherit;
+}
+
 .bn-sh-hero__emblem svg {
 	width: 36px;
 	height: 36px;
@@ -1343,6 +1361,20 @@ a.bn-sh-statpill:focus-visible {
 	align-items: flex-end;
 	gap: var(--bn-s4);
 	flex-wrap: wrap;
+	/*
+	 * Paint above the cover.
+	 *
+	 * .bn-sh-avatar is pulled up into the cover by a negative margin, but
+	 * .bn-sh-cover is `position: relative` while this row was static — and a
+	 * positioned element paints above non-positioned content regardless of DOM
+	 * order. So the cover image covered the avatar's top ~13px: hit-testing at
+	 * the avatar's top-centre returned the cover <img>, not the avatar.
+	 *
+	 * Making this row positioned puts it in the same paint tier as the cover,
+	 * where it wins on DOM order (it comes after). No z-index needed — adding
+	 * one here would start a ladder every sibling then has to join.
+	 */
+	position: relative;
 }
 
 .bn-sh-avatar {
