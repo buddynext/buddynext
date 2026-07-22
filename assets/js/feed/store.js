@@ -1831,6 +1831,47 @@ store( 'buddynext/post-card', {
 				form.appendChild( schedRow );
 			}
 
+			// Link preview — offer REMOVAL only.
+			//
+			// The edit form was a bare textarea, so a preview attached to the wrong
+			// link (or one whose remote page had since changed) was permanent unless
+			// the author deleted the whole post. This shows the existing card with a
+			// dismiss control, matching Facebook's edit dialog.
+			//
+			// Removal only, on purpose: Facebook withdrew the ability to EDIT a
+			// preview's headline and description because it let a post misrepresent
+			// what it linked to. Taking the card off misrepresents nothing, so that
+			// is the whole feature. To change a preview, edit the URL and post again.
+			const previewEl = card.querySelector( '.bn-post-card__link-preview' );
+			let removePreview = false;
+			if ( previewEl ) {
+				const previewRow = document.createElement( 'div' );
+				previewRow.className = 'bn-post-card__edit-preview';
+
+				const previewLabel = document.createElement( 'span' );
+				previewLabel.className = 'bn-post-card__edit-preview-label';
+				previewLabel.textContent = t( 'linkPreviewAttached', 'Link preview attached' );
+
+				const removeBtn = document.createElement( 'button' );
+				removeBtn.type = 'button';
+				removeBtn.className = 'bn-btn';
+				removeBtn.dataset.variant = 'ghost';
+				removeBtn.dataset.size = 'sm';
+				removeBtn.textContent = t( 'removeLinkPreview', 'Remove link preview' );
+
+				removeBtn.addEventListener( 'click', () => {
+					removePreview = true;
+					// Show the consequence immediately; the card is only really gone
+					// once Save succeeds, and Cancel restores it via teardown().
+					previewEl.hidden = true;
+					previewRow.hidden = true;
+				} );
+
+				previewRow.appendChild( previewLabel );
+				previewRow.appendChild( removeBtn );
+				form.appendChild( previewRow );
+			}
+
 			const bar = document.createElement( 'div' );
 			bar.className = 'bn-post-card__edit-actions';
 
@@ -1860,7 +1901,16 @@ store( 'buddynext/post-card', {
 				form.remove();
 				contentEl.hidden = false;
 			};
-			cancelBtn.addEventListener( 'click', teardown );
+
+			cancelBtn.addEventListener( 'click', () => {
+				// Hiding the preview is only a preview of the consequence — nothing
+				// was saved, so cancelling has to put it back.
+				if ( previewEl && removePreview ) {
+					previewEl.hidden = false;
+					removePreview    = false;
+				}
+				teardown();
+			} );
 
 			saveBtn.addEventListener( 'click', async () => {
 				const next = ta.value.trim();
@@ -1869,6 +1919,9 @@ store( 'buddynext/post-card', {
 					return;
 				}
 				const payload = { content: next };
+				if ( removePreview ) {
+					payload.remove_link_preview = true;
+				}
 				if ( schedInput ) {
 					const when = toUtcSqlDatetime( schedInput.value );
 					if ( ! when ) {
@@ -1896,6 +1949,11 @@ store( 'buddynext/post-card', {
 					// Reflect the saved text immediately (line breaks preserved). Full
 					// mention/hashtag formatting re-applies on the next page load.
 					contentEl.textContent = next;
+					// The server has cleared link_url/link_meta, so drop the card for
+					// real rather than leaving it hidden until the next page load.
+					if ( previewEl && removePreview ) {
+						previewEl.remove();
+					}
 					if ( ! card.querySelector( '.bn-post-card__edited' ) ) {
 						const mark = document.createElement( 'span' );
 						mark.className = 'bn-post-card__edited';

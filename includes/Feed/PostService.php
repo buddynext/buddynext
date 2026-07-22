@@ -1238,6 +1238,28 @@ class PostService {
 			$fields['content'] = $data['content'];
 			$formats[]         = '%s';
 		}
+
+		// REMOVE the link preview — deliberately remove-only, never edit.
+		//
+		// An author could attach a link preview when composing but had no way to
+		// take it off afterwards: the edit form offered a bare textarea, so a
+		// preview attached to the wrong link, or one whose remote page had since
+		// changed, was permanent short of deleting the whole post.
+		//
+		// The flag clears both columns rather than accepting a caller-supplied
+		// url/title/description, and that restriction is the point. Facebook
+		// withdrew link-preview EDITING precisely because a rewritten headline
+		// lets a post misrepresent what it links to; letting an edit rewrite the
+		// title/desc/thumb here would rebuild that hole. Removing is safe —
+		// nothing is misrepresented by showing less — so removal is all we allow.
+		// A member who wants a different preview edits the URL in the body and
+		// posts again, which re-scrapes it honestly.
+		if ( ! empty( $data['remove_link_preview'] ) ) {
+			$fields['link_url']  = '';
+			$formats[]           = '%s';
+			$fields['link_meta'] = null;
+			$formats[]           = '%s';
+		}
 		// RESCHEDULE. The author could edit a scheduled post's words and nothing else — the date
 		// they first picked was final, on every layer: update() never persisted scheduled_at,
 		// the REST route never read it, and the edit UI never offered it.

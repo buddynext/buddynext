@@ -792,6 +792,8 @@ class AssetService {
 					'postContentEmpty'        => __( 'Post content cannot be empty.', 'buddynext' ),
 					'postUpdated'             => __( 'Post updated', 'buddynext' ),
 					'postUpdateFailed'        => __( 'Could not update the post. Try again.', 'buddynext' ),
+					'linkPreviewAttached'     => __( 'Link preview attached', 'buddynext' ),
+					'removeLinkPreview'       => __( 'Remove link preview', 'buddynext' ),
 					'postPinned'              => __( 'Post pinned', 'buddynext' ),
 					'postUnpinned'            => __( 'Post unpinned', 'buddynext' ),
 					'postPinFailed'           => __( 'Could not pin this post. Try again.', 'buddynext' ),
