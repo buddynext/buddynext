@@ -160,9 +160,42 @@ class CoreRegistration {
 		$core_open    = (bool) get_option( 'users_can_register', false );
 		$bn_wants_off = ( 'closed' === $mode );
 
-		$explain = $bn_wants_off
-			? __( 'BuddyNext registration is set to Closed, but WordPress still allows anyone to register. New accounts can still be created.', 'buddynext' )
-			: __( 'WordPress registration is switched off, so every signup is being refused — even though BuddyNext shows registration as open. Members trying to join are being turned away.', 'buddynext' );
+		// Say what is actually broken, in the owner's own mode.
+		//
+		// The old copy had one message for every not-closed mode: "even though
+		// BuddyNext shows registration as open". An owner running Invite Only or
+		// Admin Approval has NOT set registration to open, so the notice read as a
+		// mistake and got dismissed — while their invitations kept failing. A
+		// customer did exactly that and asked whether the warning was a bug
+		// (Zoho #41016).
+		//
+		// It is not a bug. Every mode except Closed still creates the account
+		// through WordPress's own signup, so RegistrationPolicy::check_access()
+		// refuses on `! users_can_register` BEFORE it ever looks at the invite —
+		// a valid invitee gets "Registration is closed on this community." The
+		// warning has to keep firing here; it just has to explain the right thing.
+		if ( $bn_wants_off ) {
+			$explain = __( 'BuddyNext registration is set to Closed, but WordPress still allows anyone to register. New accounts can still be created.', 'buddynext' );
+		} elseif ( 'invite' === $mode ) {
+			$explain = __( 'Invite Only still needs WordPress registration switched on: an invited person creates their account through the normal signup form. With it off, every invitation fails with "Registration is closed on this community" — your invites are not working. Your community stays private either way, because only people holding a valid invitation can get through.', 'buddynext' );
+		} elseif ( 'approval' === $mode ) {
+			$explain = __( 'Admin Approval still needs WordPress registration switched on: a request is created through the normal signup form and then waits for your review. With it off, nobody can even submit a request. Your community stays gated either way, because you approve every account.', 'buddynext' );
+		} else {
+			$explain = __( 'WordPress registration is switched off, so every signup is being refused — even though BuddyNext shows registration as open. Members trying to join are being turned away.', 'buddynext' );
+		}
+
+		// Lead with the consequence, not the mechanism. "Your settings disagree"
+		// invites the owner to decide we are wrong; "your invitations are not
+		// working" is the thing they actually care about.
+		if ( $bn_wants_off ) {
+			$headline = __( 'BuddyNext: accounts can still be created.', 'buddynext' );
+		} elseif ( 'invite' === $mode ) {
+			$headline = __( 'BuddyNext: your invitations are not working.', 'buddynext' );
+		} elseif ( 'approval' === $mode ) {
+			$headline = __( 'BuddyNext: nobody can request an account.', 'buddynext' );
+		} else {
+			$headline = __( 'BuddyNext: every signup is being refused.', 'buddynext' );
+		}
 
 		$action = $bn_wants_off
 			? __( 'Turn WordPress registration off', 'buddynext' )
@@ -170,7 +203,7 @@ class CoreRegistration {
 		?>
 		<div class="notice notice-error is-dismissible">
 			<p>
-				<strong><?php esc_html_e( 'BuddyNext: your registration settings disagree.', 'buddynext' ); ?></strong>
+				<strong><?php echo esc_html( $headline ); ?></strong>
 				<?php echo esc_html( $explain ); ?>
 			</p>
 			<p>
