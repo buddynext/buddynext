@@ -1674,3 +1674,103 @@
 .bn-type-create-form {
 	max-width: 940px;
 }
+
+/* ── Inline setting alert ──────────────────────────────────────────────────
+ * A warning that sits INSIDE a settings panel, beside the control it concerns.
+ *
+ * Deliberately not the plain .bn-notice treatment, which paints every word red:
+ * three lines of solid red prose reads as documentation, not as a thing to act
+ * on. Here the tinted panel and the icon carry the severity, the title is the
+ * only emphasised text, and the body sits in normal admin ink so it can be READ.
+ * The action is a real button on the right, where the eye lands last.
+ */
+.bn-alert {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-a-s3);
+	padding: var(--bn-a-s4);
+	margin-bottom: var(--bn-a-s5);
+	border-radius: var(--bn-a-r-md);
+	background: var(--bn-a-red-bg);
+	border: 1px solid transparent;
+	border-inline-start: 3px solid var(--bn-a-red);
+}
+
+.bn-alert__icon {
+	flex-shrink: 0;
+	display: flex;
+	color: var(--bn-a-red);
+	margin-block-start: 1px;
+}
+
+.bn-alert__icon svg {
+	width: 18px;
+	height: 18px;
+	stroke: currentColor;
+	fill: none;
+}
+
+.bn-alert__body {
+	flex: 1;
+	min-width: 0;
+}
+
+.bn-alert__title {
+	margin: 0;
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-1);
+	line-height: 1.4;
+}
+
+.bn-alert__text {
+	margin: var(--bn-a-s1) 0 0;
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-normal);
+	color: var(--bn-a-text-2);
+	line-height: 1.5;
+}
+
+/* The diagnostic pair. Useful when it is needed, invisible when it is not —
+   so it must never compete with the sentence above it. */
+.bn-alert__meta {
+	margin: var(--bn-a-s2) 0 0;
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-normal);
+	color: var(--bn-a-text-3);
+}
+
+.bn-alert__meta code {
+	padding: 1px 5px;
+	border-radius: var(--bn-a-r-sm);
+	/* Subtle, not the dark code-block treatment: these are two values being
+	   reported, and at full code contrast they out-shout the sentence above. */
+	background: var(--bn-a-bg-subtle);
+	border: 1px solid var(--bn-a-border-soft);
+	color: var(--bn-a-text-2);
+	font-size: var(--bn-a-text-xs);
+}
+
+.bn-alert__action {
+	flex-shrink: 0;
+	align-self: center;
+}
+
+@media (max-width: 782px) {
+	/* Stack so neither the sentence nor the button gets squeezed into a column
+	   too narrow to read or tap. */
+	.bn-alert {
+		flex-wrap: wrap;
+	}
+
+	.bn-alert__action {
+		flex-basis: 100%;
+		align-self: stretch;
+		margin-block-start: var(--bn-a-s3);
+	}
+
+	.bn-alert__action .button {
+		width: 100%;
+		text-align: center;
+	}
+}

@@ -115,11 +115,12 @@ class CoreRegistration {
 			return;
 		}
 		?>
-		<div class="bn-notice bn-notice-error">
-			<p>
-				<strong><?php esc_html_e( 'Terms consent is switched on, but no Terms page is set.', 'buddynext' ); ?></strong>
-				<?php esc_html_e( 'Members would be asked to agree to a document that does not exist, so consent is NOT being collected or enforced. Choose a Terms page below, or switch the consent requirement off.', 'buddynext' ); ?>
-			</p>
+		<div class="bn-alert">
+			<span class="bn-alert__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
+			<div class="bn-alert__body">
+				<p class="bn-alert__title"><?php esc_html_e( 'Consent is on, but no Terms page is set', 'buddynext' ); ?></p>
+				<p class="bn-alert__text"><?php esc_html_e( 'Members would agree to a document that does not exist, so consent is not being collected. Choose a Terms page below, or switch this off.', 'buddynext' ); ?></p>
+			</div>
 		</div>
 		<?php
 	}
@@ -195,7 +196,7 @@ class CoreRegistration {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @return array{headline:string,explain:string,mode:string,core_open:bool,action:string}|null
+	 * @return array{headline:string,title:string,summary:string,explain:string,mode:string,core_open:bool,action:string}|null
 	 */
 	public static function desync_state(): ?array {
 		if ( ! self::is_desynced() ) {
@@ -220,8 +221,32 @@ class CoreRegistration {
 			$explain  = __( 'WordPress registration is switched off, so every signup is being refused — even though BuddyNext shows registration as open. Members trying to join are being turned away.', 'buddynext' );
 		}
 
+		// The inline warning is read IN CONTEXT, with the mode selector directly
+		// below it. It needs the consequence and the fix, not the full lesson —
+		// three lines of prose inside a settings panel reads as documentation and
+		// gets skimmed past. The long form stays for the global notice, which is
+		// met cold on an unrelated screen.
+		if ( $bn_wants_off ) {
+			$title   = __( 'Accounts can still be created', 'buddynext' );
+			$summary = __( 'WordPress still lets anyone register, so accounts can still be created.', 'buddynext' );
+		} elseif ( 'invite' === $mode ) {
+			$title   = __( 'Your invitations are not working', 'buddynext' );
+			$summary = __( 'Invite Only needs WordPress registration switched on. With it off, every invitation is refused - your community stays private either way.', 'buddynext' );
+		} elseif ( 'approval' === $mode ) {
+			$title   = __( 'Nobody can request an account', 'buddynext' );
+			$summary = __( 'Admin Approval needs WordPress registration switched on. With it off, nobody can even submit a request.', 'buddynext' );
+		} else {
+			$title   = __( 'Every signup is being refused', 'buddynext' );
+			$summary = __( 'WordPress registration is off, so every signup is being refused.', 'buddynext' );
+		}
+
 		return array(
 			'headline'  => $headline,
+			// Sentence-case, no "BuddyNext:" prefix and no trailing stop: this is a
+			// heading inside our own panel, where the prefix is noise and the eye
+			// wants the problem first.
+			'title'     => $title,
+			'summary'   => $summary,
 			'explain'   => $explain,
 			'mode'      => $mode,
 			'core_open' => $core_open,
@@ -292,32 +317,30 @@ class CoreRegistration {
 		if ( null === $state ) {
 			return;
 		}
+
 		?>
-		<div class="bn-notice bn-notice-error">
-			<p>
-				<strong><?php echo esc_html( $state['headline'] ); ?></strong>
-				<?php echo esc_html( $state['explain'] ); ?>
-			</p>
-			<p>
-				<?php
-				// Say where the other half of the setting lives. It is NOT on this
-				// screen — users_can_register is WordPress core's, under
-				// Settings > General — so an owner told only "switch it on" has
-				// nowhere to go from here.
-				printf(
-					/* translators: 1: registration mode, 2: on/off, 3: link to WordPress Settings > General. */
-					esc_html__( 'BuddyNext mode: %1$s. WordPress "Anyone can register": %2$s — that switch lives in %3$s.', 'buddynext' ),
-					'<code>' . esc_html( $state['mode'] ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
-					'<code>' . esc_html( $state['core_open'] ? __( 'on', 'buddynext' ) : __( 'off', 'buddynext' ) ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
-					'<a href="' . esc_url( admin_url( 'options-general.php' ) ) . '">' . esc_html__( 'Settings > General', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
-				);
-				?>
-			</p>
-			<p>
+		<div class="bn-alert">
+			<span class="bn-alert__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
+			<div class="bn-alert__body">
+				<p class="bn-alert__title"><?php echo esc_html( $state['title'] ); ?></p>
+				<p class="bn-alert__text"><?php echo esc_html( $state['summary'] ); ?></p>
+				<p class="bn-alert__meta">
+					<?php
+					printf(
+						/* translators: 1: registration mode, 2: on/off, 3: link to WordPress Settings > General. */
+						esc_html__( 'Mode %1$s - WordPress "Anyone can register" is %2$s, in %3$s', 'buddynext' ),
+						'<code>' . esc_html( $state['mode'] ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+						'<code>' . esc_html( $state['core_open'] ? __( 'on', 'buddynext' ) : __( 'off', 'buddynext' ) ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+						'<a href="' . esc_url( admin_url( 'options-general.php' ) ) . '">' . esc_html__( 'Settings > General', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+					);
+					?>
+				</p>
+			</div>
+			<span class="bn-alert__action">
 				<a class="button button-primary" href="<?php echo esc_url( self::reconcile_url() ); ?>">
 					<?php echo esc_html( $state['action'] ); ?>
 				</a>
-			</p>
+			</span>
 		</div>
 		<?php
 	}

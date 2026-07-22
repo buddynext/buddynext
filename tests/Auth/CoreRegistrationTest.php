@@ -120,7 +120,9 @@ class CoreRegistrationTest extends \WP_UnitTestCase {
 		$html = (string) ob_get_clean();
 
 		$this->assertStringContainsString( 'invitations are not working', $html );
-		$this->assertStringContainsString( 'bn-notice', $html, 'Must use the in-hub notice primitive, not .notice (which is cleared).' );
+		$this->assertStringContainsString( 'bn-alert', $html, 'Must use the in-panel alert, not .notice (which AdminHub clears).' );
+		$this->assertStringContainsString( 'bn-alert__icon', $html, 'Severity is carried by an icon, not by colouring every word.' );
+		$this->assertStringContainsString( '<svg', $html, 'The icon must actually render.' );
 		$this->assertStringContainsString(
 			'options-general.php',
 			$html,
@@ -159,10 +161,26 @@ class CoreRegistrationTest extends \WP_UnitTestCase {
 			return html_entity_decode( wp_strip_all_tags( $html ), ENT_QUOTES, 'UTF-8' );
 		};
 
-		foreach ( array( $state['headline'], $state['explain'] ) as $copy ) {
-			$this->assertStringContainsString( $copy, $plain( $inline ) );
-			$this->assertStringContainsString( $copy, $plain( $global ) );
-		}
+		// Each surface uses its own length of copy from the SAME state, so they
+		// cannot describe different problems.
+		$this->assertStringContainsString( $state['title'], $plain( $inline ) );
+		$this->assertStringContainsString( $state['summary'], $plain( $inline ) );
+		$this->assertStringContainsString( $state['headline'], $plain( $global ) );
+		$this->assertStringContainsString( $state['explain'], $plain( $global ) );
+
+		// And the inline one stays SHORT. Three lines of prose inside a settings
+		// panel reads as documentation and gets skimmed past, which is how this
+		// warning became invisible in the first place.
+		$this->assertLessThan(
+			strlen( $state['explain'] ),
+			strlen( $state['summary'] ),
+			'The inline summary must be shorter than the full explanation.'
+		);
+		$this->assertStringNotContainsString(
+			$state['explain'],
+			$plain( $inline ),
+			'The long explanation belongs to the global notice, not the panel.'
+		);
 	}
 
 	/**
