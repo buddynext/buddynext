@@ -70,6 +70,7 @@ Mobile polish across messages and navigation, plus fixes for profile fields, acc
 * Fix      - Line breaks in a bio were lost, so a multi-line bio ran together on the profile.
 * Fix      - The poll form kept its options and end date after posting, so the next post inherited them.
 * Fix      - A space icon was clipped by the cover image on the settings page and showed square corners on the space page.
+* Fix      - The profile photo edit button drifted away from the photo on phones and tablets, and the photo was too small for its own controls.
 * Compat   - Ships in lockstep with BuddyNext Pro 1.1.0. Install and test both together.
 
 = 1.0.9 - July 2026 =

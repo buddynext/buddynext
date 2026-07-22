@@ -843,8 +843,16 @@
 	}
 }
 
+/* The wrap is the positioning context for the edit/remove controls, which anchor
+   to its inline edges. As a grid item it defaults to justify-self: stretch, so
+   every layout that collapses .bn-pf-head to a single column (the 720px container
+   query and the 1024/768px media queries) stretched the wrap to the full column
+   width and carried the controls away from the avatar. Pin it to its own content
+   so the controls stay on the avatar at every width; in the desktop
+   "auto 1fr auto" grid the column is already content-sized, so this is a no-op. */
 .bn-pf-avatar-wrap {
 	position: relative;
+	justify-self: start;
 	margin-block-start: calc(var(--bn-s12) * -1);
 }
 .bn-pf-avatar-wrap .bn-avatar[data-size="2xl"] {
@@ -1692,6 +1700,22 @@ a.bn-space-row:hover .bn-space-name {
 .bn-pf-task__cta:hover { text-decoration: underline; }
 
 /* ── Profile view — responsive ────────────────────────────────────────── */
+/* The avatar's overlay controls (edit pencil, remove) grow to the 44px touch
+   floor under bn-base.css's tap-target rule, so the avatar must grow with them
+   — under the SAME condition, or the two sizings drift apart. They previously
+   did: the avatar shrank to 80px at 640px while the controls grew to 44px, so
+   the pair needed 88px on an 80px photo and overlapped; between 641-768px they
+   sat exactly edge-to-edge. 112px restores roughly the desktop ratio (32/96)
+   and keeps them clear. Mainstream social sizes mobile avatars up, not down,
+   for exactly this reason. Keep this media condition in sync with the
+   tap-target block in bn-base.css. */
+@media (pointer: coarse), (max-width: 768px) {
+	.bn-pf-avatar-wrap .bn-avatar[data-size="2xl"] {
+		width: 112px;
+		height: 112px;
+	}
+}
+
 /* WCAG 1.4.10 reflow: the desktop header is a rigid "avatar | 1fr identity |
    actions" grid. Because the actions column is auto-sized (Follow/Connect/
    Message/Share/More can be ~370px wide), between ~770px and 1024px — the band
@@ -1729,10 +1753,6 @@ a.bn-space-row:hover .bn-space-name {
 	   top corners still align with the hero card. */
 	.bn-pf-cover { height: 140px; border-radius: var(--bn-r-md) var(--bn-r-md) 0 0; }
 	.bn-pf-avatar-wrap { margin-block-start: calc(var(--bn-s8) * -1); }
-	.bn-pf-avatar-wrap .bn-avatar[data-size="2xl"] {
-		width: 80px;
-		height: 80px;
-	}
 	.bn-pf-name { font-size: var(--bn-text-xl); }
 	.bn-pf-actions {
 		width: 100%;
