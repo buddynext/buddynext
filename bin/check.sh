@@ -110,6 +110,18 @@ else
 	note "bin/check-rest-boundary.sh missing"
 fi
 
+# 3a. Icon set conformance — Lucide-style, no baked-in sizes
+section "Icon set"
+if [ -x bin/check-icons.sh ]; then
+	if bin/check-icons.sh; then
+		:
+	else
+		fail "icon set does not conform — see assets/icons/"
+	fi
+else
+	note "bin/check-icons.sh missing"
+fi
+
 # 3b. Route URLs — no hand-rolled home_url() paths outside PageRouter
 section "Route URLs (PageRouter only)"
 if [ -x bin/check-route-urls.sh ]; then

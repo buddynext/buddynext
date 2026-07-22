@@ -510,7 +510,9 @@ up at large-community scale.
   - Templates: `buddynext_icon( 'icon-name' )` — echoes inline SVG
   - PHP classes: `echo \BuddyNext\Core\IconService::render( 'icon-name' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped`
   - JS status hints: CSS class-based coloured text — no emoji in `textContent`
-- **Adding new icons:** drop a Lucide-style SVG (no width/height, `stroke="currentColor"`, `viewBox="0 0 24 24"`) into `assets/icons/<slug>.svg`.
+- **Adding new icons:** drop a Lucide-style SVG (no width/height, `stroke="currentColor"`, `viewBox="0 0 24 24"`) into `assets/icons/<slug>.svg`. `bin/check-icons.sh` enforces this.
+- **"No width/height" means the ROOT `<svg>` tag only.** `<rect width="20" height="14">` is required geometry and is correct. A `grep width=` across the file matches that geometry and reports every rect-based icon as broken — it produced a false "11 icons violate the standard" that nearly triggered a rewrite of 11 healthy files. Check the opening tag, or just run the script.
+- **Brand marks are exempt** (`discord`, `facebook`, `github`, `google`): they are filled logos, not line icons, and keep the grid their brand is drawn on — Google's "G" is a 48-box asset.
 - **102 icons already exist** in `assets/icons/` — check before creating one.
 - `IconService::render()` returns `wp_kses()`-sanitized markup — always safe to echo.
 
@@ -575,6 +577,7 @@ Run from the repo root. All of these must pass before a commit.
 | Unit tests | `vendor/bin/phpunit` |
 | UX audit — token + primitive compliance, inline style/script, no `alert()`/`confirm()` | `bin/ux-audit.sh` |
 | REST boundary — 100% REST frontend, no admin-ajax | `bin/check-rest-boundary.sh` |
+| Icon set — Lucide-style, no baked-in sizes, well-formed | `bin/check-icons.sh` |
 
 **PWA / service workers cannot be tested on the local site.** A worker only runs
 in a secure context, and plain-HTTP `buddynext.local` is not one — `'serviceWorker'
