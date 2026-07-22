@@ -61,6 +61,8 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 Mobile polish across messages and navigation, plus fixes for profile fields, account deletion and post editing.
 
 * New      - A link preview can be removed while editing a post.
+* New      - The app config endpoint reports each installed integration with its on/off state and version, so a mobile client can hide a module the site does not run.
+* Dev      - Integrations can declare their plugin version when registering on the buddynext_integrations filter.
 * Improve  - Messages runs edge-to-edge on phones, and the message field takes the full width with emoji, attachment and send on the line below.
 * Fix      - The mobile conversation list filled only part of the screen, which hid the All, Unread and Requests tabs and stopped the list scrolling.
 * Fix      - Mobile navigation icons rendered far smaller than the centre button.

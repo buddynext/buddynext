@@ -10,9 +10,16 @@
  * ZERO core edits — the same dogfood seam the Nav API uses.
  *
  * An integration declares: a short stable key, a label, whether it contributes
- * nav and/or activity, and (for aggregating surfaces like the Pro Portfolio) its
- * sub-tabs. The owner's per-integration / per-sub-tab toggles are read through
- * the helper, never the raw option, so keys never drift.
+ * nav and/or activity, its installed version, and (for aggregating surfaces like
+ * the Pro Portfolio) its sub-tabs. The owner's per-integration / per-sub-tab
+ * toggles are read through the helper, never the raw option, so keys never drift.
+ *
+ * `version` is declared BY the integration, not looked up by core. Each partner
+ * names its version constant differently — MVS_VERSION, WB_GAM_VERSION,
+ * WB_LISTORA_VERSION — and a central lookup table of those names would rot the
+ * moment one of them is renamed, silently reporting "not installed" for a plugin
+ * that is running. The entry is registered by the code that already knows the
+ * constant, so the knowledge lives with its owner.
  *
  * @package BuddyNext\Integrations
  */
@@ -64,6 +71,9 @@ final class IntegrationRegistry {
 		 * Each integration (in-house or third-party) adds ONE entry keyed by a short
 		 * stable slug. Register only when the integration's plugin is active.
 		 *
+		 * Entry keys: `label`, `version` (the partner plugin's own version constant,
+		 * or omit when unknown), `has_nav`, `has_feed`, `has_search`, `subtabs`.
+		 *
 		 * @param array<string,array<string,mixed>> $items Entries keyed by integration key.
 		 */
 		$raw = (array) apply_filters( 'buddynext_integrations', array() );
@@ -81,9 +91,15 @@ final class IntegrationRegistry {
 					$subtabs[ $sub_key ] = (string) $sub_label;
 				}
 			}
+			// Installed version of the partner plugin, as declared by the entry.
+			// Null when the integration did not declare one — an honest "unknown",
+			// never a guess. Clients must treat null as "cannot version-gate".
+			$version = isset( $entry['version'] ) ? trim( (string) $entry['version'] ) : '';
+
 			$out[ $key ] = array(
 				'key'        => $key,
 				'label'      => isset( $entry['label'] ) && '' !== (string) $entry['label'] ? (string) $entry['label'] : ucfirst( $key ),
+				'version'    => '' !== $version ? sanitize_text_field( $version ) : null,
 				'has_nav'    => ! empty( $entry['has_nav'] ),
 				'has_feed'   => ! empty( $entry['has_feed'] ),
 				// Whether this integration writes into the search index. Only integrations

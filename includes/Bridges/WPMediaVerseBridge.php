@@ -631,6 +631,7 @@ class WPMediaVerseBridge {
 		if ( MediaClient::available() ) {
 			$items['media'] = array(
 				'label'    => __( 'Media', 'buddynext' ),
+				'version'  => defined( 'MVS_VERSION' ) ? MVS_VERSION : null,
 				'has_nav'  => true,
 				'has_feed' => true,
 				'subtabs'  => array(

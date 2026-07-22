@@ -1426,6 +1426,7 @@ class JetonomyBridge {
 		if ( class_exists( 'Jetonomy\Jetonomy' ) ) {
 			$items['jetonomy'] = array(
 				'label'      => __( 'Jetonomy', 'buddynext' ),
+				'version'    => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
 				'has_nav'    => true,
 				'has_feed'   => true,
 				'has_search' => true,

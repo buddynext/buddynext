@@ -275,9 +275,9 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 	 * Integration bridges are NOT reported in the features payload.
 	 *
 	 * Bridges gate on the Integrations toggle, not the Features tab, so they are
-	 * not FeatureRegistry entries and never appear in /app/config features. (The
-	 * app detects a bridge by its own Integrations config / routes, not a feature
-	 * flag.)
+	 * not FeatureRegistry entries and never appear in /app/config features. The app
+	 * reads them from the sibling `integrations` block instead, which carries the
+	 * owner's nav toggle and the partner's version.
 	 *
 	 * @return void
 	 */
@@ -365,5 +365,149 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 	 */
 	public function test_limits_expose_the_viewer_state_ceiling(): void {
 		$this->assertSame( 100, $this->get_config()['limits']['viewer_state_max_ids'] );
+	}
+
+	/**
+	 * Register one integration for the duration of a test.
+	 *
+	 * @param string      $key     Integration key.
+	 * @param string|null $version Declared version, or null to declare none.
+	 * @return void
+	 */
+	private function register_integration( string $key, ?string $version ): void {
+		add_filter(
+			'buddynext_integrations',
+			static function ( array $items ) use ( $key, $version ): array {
+				$items[ $key ] = array(
+					'label'    => ucfirst( $key ),
+					'version'  => $version,
+					'has_nav'  => true,
+					'has_feed' => true,
+				);
+				return $items;
+			}
+		);
+		\BuddyNext\Integrations\IntegrationRegistry::instance()->reset();
+	}
+
+	/**
+	 * Undo integration registration so the next test starts clean.
+	 *
+	 * @return void
+	 */
+	private function reset_integrations(): void {
+		remove_all_filters( 'buddynext_integrations' );
+		\BuddyNext\Integrations\IntegrationRegistry::instance()->reset();
+	}
+
+	/**
+	 * A registered integration is projected as {enabled, version}.
+	 *
+	 * @return void
+	 */
+	public function test_integrations_expose_enabled_and_version(): void {
+		$this->register_integration( 'testkit', '2.3.4' );
+
+		$integrations = $this->get_config()['integrations'];
+
+		$this->assertArrayHasKey( 'testkit', $integrations );
+		$this->assertTrue( $integrations['testkit']['enabled'] );
+		$this->assertSame( '2.3.4', $integrations['testkit']['version'] );
+
+		$this->reset_integrations();
+	}
+
+	/**
+	 * An integration that declares no version reports null, never a guess.
+	 *
+	 * Core cannot look the version up — partners name their constants differently —
+	 * so "unknown" has to be representable. A client reading null must fall back to
+	 * not version-gating rather than assuming a floor.
+	 *
+	 * @return void
+	 */
+	public function test_integration_without_a_declared_version_reports_null(): void {
+		$this->register_integration( 'testkit', null );
+
+		$this->assertNull( $this->get_config()['integrations']['testkit']['version'] );
+
+		$this->reset_integrations();
+	}
+
+	/**
+	 * The owner's nav toggle is what `enabled` reports.
+	 *
+	 * @return void
+	 */
+	public function test_integration_enabled_follows_the_owner_nav_toggle(): void {
+		$this->register_integration( 'testkit', '1.0.0' );
+
+		update_option( 'buddynext_integration_testkit_nav', '0' );
+		$this->assertFalse(
+			$this->get_config()['integrations']['testkit']['enabled'],
+			'Turning the nav toggle off must close the module gate.'
+		);
+
+		update_option( 'buddynext_integration_testkit_nav', '1' );
+		$this->assertTrue( $this->get_config()['integrations']['testkit']['enabled'] );
+
+		delete_option( 'buddynext_integration_testkit_nav' );
+		$this->reset_integrations();
+	}
+
+	/**
+	 * The feed toggle must NOT close the nav gate.
+	 *
+	 * These are separate owner switches. Folding them together would mean an owner
+	 * who only wanted to stop a partner posting activity cards would silently lose
+	 * the module's tab as well.
+	 *
+	 * @return void
+	 */
+	public function test_feed_toggle_does_not_close_the_nav_gate(): void {
+		$this->register_integration( 'testkit', '1.0.0' );
+
+		update_option( 'buddynext_integration_testkit_feed', '0' );
+
+		$this->assertTrue(
+			$this->get_config()['integrations']['testkit']['enabled'],
+			'enabled reports the nav aspect only — the feed switch is a different control.'
+		);
+
+		delete_option( 'buddynext_integration_testkit_feed' );
+		$this->reset_integrations();
+	}
+
+	/**
+	 * An integration whose plugin is not active is ABSENT, not present-and-false.
+	 *
+	 * Registration is gated on the partner being active, and the registry is an
+	 * open filter — core cannot enumerate a fixed key list without hardcoding one,
+	 * which would rot and would shut out third-party integrations. So a client must
+	 * read an absent key exactly as it reads enabled:false. This test pins that
+	 * contract, because a client that distinguishes them would break the moment a
+	 * customer deactivates a plugin.
+	 *
+	 * @return void
+	 */
+	public function test_inactive_integration_is_absent_rather_than_disabled(): void {
+		$this->reset_integrations();
+
+		$this->assertArrayNotHasKey( 'testkit', $this->get_config()['integrations'] );
+	}
+
+	/**
+	 * `features` keeps its map<string,bool> shape.
+	 *
+	 * This is the reason integrations got their own block rather than widening
+	 * features: a client already parsing features as booleans must not meet an
+	 * object there.
+	 *
+	 * @return void
+	 */
+	public function test_features_payload_remains_a_flat_bool_map(): void {
+		foreach ( $this->get_config()['features'] as $slug => $value ) {
+			$this->assertIsBool( $value, "Feature {$slug} must be a bool, not a structure." );
+		}
 	}
 }
