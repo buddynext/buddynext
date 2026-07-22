@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Comments;
 
 use WP_Error;
+use BuddyNext\Profile\Handle;
 use BuddyNext\Core\RateLimiter;
 use BuddyNext\Moderation\InteractionGuard;
 use BuddyNext\Moderation\ModerationService;
@@ -264,7 +265,7 @@ class CommentService {
 		// the post the comment is on, so the existing bn.mention listener
 		// (object_id = post id) resolves correctly with no signature change.
 		if ( 'post' === $object_type ) {
-			preg_match_all( '/@([a-zA-Z0-9_-]+)/u', $content, $bn_mention_matches );
+			preg_match_all( Handle::mention_regex(), $content, $bn_mention_matches );
 			$bn_notified = array();
 			foreach ( $bn_mention_matches[1] as $bn_raw_username ) {
 				$bn_username = sanitize_user( $bn_raw_username, true );

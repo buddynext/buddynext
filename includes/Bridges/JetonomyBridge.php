@@ -22,6 +22,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+use BuddyNext\Profile\Handle;
 use BuddyNext\Search\SearchService;
 use BuddyNext\Feed\IntegrationActivity;
 use BuddyNext\Feed\PostService;
@@ -202,7 +203,7 @@ class JetonomyBridge {
 		// get_user_by('login') per match was an N+1 (and fired a duplicate
 		// notification when the same user was mentioned twice). number caps a
 		// pathological mention flood.
-		preg_match_all( '/@([a-zA-Z0-9_-]+)/', $content, $matches );
+		preg_match_all( Handle::mention_regex(), $content, $matches );
 		$mention_logins = array();
 		foreach ( $matches[1] as $raw_username ) {
 			$username = sanitize_user( (string) $raw_username, true );

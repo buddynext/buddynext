@@ -14,6 +14,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin;
 
+use BuddyNext\Profile\Handle;
 use BuddyNext\Admin\Members\MemberDisplay;
 
 /**
@@ -255,6 +256,12 @@ class Members extends AdminPageBase {
 			$members[] = array(
 				'id'               => $user->ID,
 				'login'            => $user->user_login,
+				// The mentionable handle is user_nicename, NOT user_login: mentions
+				// resolve get_user_by('slug'), and the two differ whenever a login
+				// held a space, a capital or an email ("Brendan Smith" ->
+				// "brendan-smith"). Showing the login here handed the owner a handle
+				// that does not work when typed.
+				'handle'           => $user->user_nicename,
 				'email'            => $user->user_email,
 				'display'          => $user->display_name,
 				'registered'       => $user->user_registered,
@@ -426,7 +433,7 @@ class Members extends AdminPageBase {
 			array(
 				'orderby' => 'registered',
 				'order'   => 'ASC',
-				'fields'  => array( 'ID', 'user_login', 'user_email', 'user_registered' ),
+				'fields'  => array( 'ID', 'user_login', 'user_nicename', 'user_email', 'user_registered' ),
 			)
 		);
 
@@ -927,7 +934,75 @@ class Members extends AdminPageBase {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Warn the owner when members exist that nobody can mention.
+	 *
+	 * A `user_nicename` holding characters the mention parsers stop at — an email
+	 * address, typically, written straight into the column by a migration — makes
+	 * that member silently unmentionable. Their profile still loads, so nothing
+	 * looks broken; the fault only surfaces when somebody reports that a member
+	 * "does not come up". This is the only place the owner can find out without
+	 * being told.
+	 *
+	 * Counted with one COUNT(*), and cached: the condition changes only when users
+	 * are imported, so re-scanning on every render would tax a large roster for an
+	 * answer that is almost always zero. SQL narrows to candidates and PHP decides,
+	 * because a MySQL character range answers to collation while the parsers run
+	 * PCRE — the two can disagree, and PCRE is the one that matters.
+	 *
+	 * @return void
+	 */
+	private function render_unmentionable_handles_notice(): void {
+		$count = get_transient( 'bn_unmentionable_handles' );
+
+		if ( false === $count ) {
+			global $wpdb;
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$candidates = (array) $wpdb->get_col(
+				"SELECT user_nicename FROM {$wpdb->users} WHERE user_nicename REGEXP '[^a-zA-Z0-9_-]' LIMIT 500"
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			$count = 0;
+			foreach ( $candidates as $nicename ) {
+				if ( ! Handle::is_safe( (string) $nicename ) ) {
+					++$count;
+				}
+			}
+
+			set_transient( 'bn_unmentionable_handles', $count, 12 * HOUR_IN_SECONDS );
+		}
+
+		if ( (int) $count < 1 ) {
+			return;
+		}
+
+		printf(
+			'<div class="bn-notice bn-notice-error">%s</div>',
+			esc_html(
+				sprintf(
+					/* translators: %d: number of members. */
+					_n(
+						'%d member cannot be mentioned: their handle contains characters mentions do not support, usually from an import. Run "wp buddynext handles check" to review, then "wp buddynext handles repair --yes" to fix. Their profile address will change.',
+						'%d members cannot be mentioned: their handles contain characters mentions do not support, usually from an import. Run "wp buddynext handles check" to review, then "wp buddynext handles repair --yes" to fix. Their profile addresses will change.',
+						(int) $count,
+						'buddynext'
+					),
+					(int) $count
+				)
+			)
+		);
+	}
+
+	/**
+	 * The members roster tab.
+	 *
+	 * @return void
+	 */
 	private function render_members_tab(): void {
+		$this->render_unmentionable_handles_notice();
+
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$page = max( 1, absint( wp_unslash( $_GET['paged'] ?? 1 ) ) );
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -1167,7 +1242,7 @@ class Members extends AdminPageBase {
 										</div>
 										<div class="bn-member-info">
 											<div class="bn-member-name"><?php echo esc_html( $member['display'] ); ?></div>
-											<div class="bn-member-username">@<?php echo esc_html( $member['login'] ); ?></div>
+											<div class="bn-member-username">@<?php echo esc_html( $member['handle'] ); ?></div>
 										</div>
 									</div>
 								</td>

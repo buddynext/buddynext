@@ -73,6 +73,9 @@ Mobile polish across messages and navigation, plus fixes for profile fields, acc
 * Fix      - The poll form kept its options and end date after posting, so the next post inherited them.
 * Fix      - A space icon was clipped by the cover image on the settings page and showed square corners on the space page.
 * Fix      - The profile photo edit button drifted away from the photo on phones and tablets, and the photo was too small for its own controls.
+* Fix      - Members whose profile address was imported with an email in it could not be mentioned, and did not appear in the mention suggestions. Run "wp buddynext handles check" to find them.
+* Fix      - The admin member list showed each member's username where their mentionable handle belongs; the two differ when a username contains a space, a capital or an email.
+* Dev      - Added "wp buddynext handles check" and "wp buddynext handles repair" to report and normalise imported profile addresses. Repair reports only unless --yes is passed.
 * Compat   - Ships in lockstep with BuddyNext Pro 1.1.0. Install and test both together.
 
 = 1.0.9 - July 2026 =

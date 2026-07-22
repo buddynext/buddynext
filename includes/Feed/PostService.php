@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Feed;
 
 use WP_Error;
+use BuddyNext\Profile\Handle;
 use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Moderation\ModerationService;
 
@@ -456,7 +457,7 @@ class PostService {
 		// Parse @username mentions and fire buddynext_user_mentioned for each.
 		$content = (string) ( $data['content'] ?? '' );
 		if ( '' !== $content ) {
-			preg_match_all( '/@([a-zA-Z0-9_-]+)/u', $content, $mention_matches );
+			preg_match_all( Handle::mention_regex(), $content, $mention_matches );
 			foreach ( $mention_matches[1] as $raw_username ) {
 				$username       = sanitize_user( (string) $raw_username, true );
 				$mentioned_user = get_user_by( 'login', $username );

@@ -4221,12 +4221,20 @@ function attachMentionHashtagTypeahead( textarea ) {
 		}
 	};
 
+	// Where a handle ends. Injected from \BuddyNext\Profile\Handle::CHARSET so this
+	// walk and the PHP mention parsers share ONE definition — a local copy that
+	// drifted would let the composer offer a mention the server cannot resolve.
+	// The literal is only a fallback for a page that rendered without state.
+	const handleChars = new RegExp(
+		'[' + ( ( feedStore.state && feedStore.state.handleCharset ) || 'a-zA-Z0-9_-' ) + ']'
+	);
+
 	textarea.addEventListener( 'input', () => {
 		const value = textarea.value;
 		const cursorPos = textarea.selectionStart;
 		// Walk back from the cursor to find an unterminated @ or # token.
 		let i = cursorPos - 1;
-		while ( i >= 0 && /[a-zA-Z0-9_-]/.test( value[ i ] ) ) { i--; }
+		while ( i >= 0 && handleChars.test( value[ i ] ) ) { i--; }
 		// Token-detection runs synchronously so the dropdown closes instantly when
 		// there is no active token; only the network search is debounced.
 		const bail = () => { clearTimeout( suggestTimer ); closeDropdown(); };

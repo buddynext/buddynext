@@ -690,12 +690,18 @@ class AssetService {
 				// Canonical hub URLs for client-side navigation. Resolved through
 				// PageRouter so renamed hub slugs (buddynext_slug_*) are honoured —
 				// the store must never hand-roll '/activity/...' paths.
-				'urls' => array(
+				'urls'          => array(
 					'search'      => \BuddyNext\Core\PageRouter::search_url(),
 					'hashtagBase' => \BuddyNext\Core\PageRouter::activity_url() . 'hashtag/',
 					'people'      => \BuddyNext\Core\PageRouter::people_url(),
 					'spaces'      => \BuddyNext\Core\PageRouter::spaces_url(),
 				),
+				// Where a handle ends, per \BuddyNext\Profile\Handle — the same
+				// definition the PHP mention parsers use. The composer typeahead
+				// walks this set backwards from the cursor to find the token, so a
+				// JS copy that drifted from PHP would offer the member a mention
+				// the server then failed to resolve.
+				'handleCharset' => \BuddyNext\Profile\Handle::CHARSET,
 				// Scheduling speaks the SITE's timezone, not the browser's. A <input
 				// type="datetime-local"> is browser-local by nature, so the store needs the
 				// site's offset to translate both ways. Without it an author in IST picks
@@ -704,11 +710,11 @@ class AssetService {
 				//
 				// Seconds offset for the target instant, so DST is handled: a fixed offset
 				// would drift by an hour for any site scheduling across a DST boundary.
-				'tz'   => array(
+				'tz'            => array(
 					'offset' => (int) ( timezone_offset_get( wp_timezone(), new \DateTime( 'now', new \DateTimeZone( 'UTC' ) ) ) ),
 					'label'  => wp_timezone()->getName(),
 				),
-				'i18n' => array(
+				'i18n'          => array(
 					// Reschedule control on the post-card edit form.
 					'scheduledFor'            => __( 'Scheduled for', 'buddynext' ),
 					/* translators: %s: the site's timezone, e.g. "Asia/Kolkata" or "+00:00". */
