@@ -1518,6 +1518,12 @@
 }
 
 .bn-av-style-icon svg {
+	/* Icons ship without width/height (house rule) so the consumer decides the
+	   size. These previously carried width="36" inline; the dimension moved here
+	   when they became buddynext_icon() calls. Without it an SVG with only a
+	   viewBox falls back to the replaced-element default and blows up the card. */
+	width: 36px;
+	height: 36px;
 	color: var(--bn-a-text-3);
 }
 

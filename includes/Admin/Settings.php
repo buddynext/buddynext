@@ -2777,7 +2777,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				</p>
 				<a class="bn-fam-header__link" href="https://wbcomdesigns.com/downloads/" target="_blank" rel="noopener noreferrer">
 					<?php esc_html_e( 'Explore the full Wbcom family', 'buddynext' ); ?>
-					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+					<?php buddynext_icon( 'arrow-right' ); ?>
 				</a>
 			</div>
 		</div>
@@ -2831,7 +2831,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 				<?php if ( 'active' === $bn_status && '' !== $bn_unlocks ) : ?>
 					<p class="bn-companion-card__unlocks">
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+						<?php buddynext_icon( 'check' ); ?>
 						<?php echo esc_html( $bn_unlocks ); ?>
 					</p>
 				<?php endif; ?>
