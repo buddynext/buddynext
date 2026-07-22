@@ -459,8 +459,12 @@ class PostService {
 		if ( '' !== $content ) {
 			preg_match_all( Handle::mention_regex(), $content, $mention_matches );
 			foreach ( $mention_matches[1] as $raw_username ) {
-				$username       = sanitize_user( (string) $raw_username, true );
-				$mentioned_user = get_user_by( 'login', $username );
+				// Resolved as a HANDLE, not a login. The handle is what every
+				// surface shows and what the typeahead inserts; resolving by login
+				// missed every member whose login differs from their nicename (a
+				// space, a capital, a dot, an email, or a custom slug), so the
+				// mention linked correctly and the member was never notified.
+				$mentioned_user = Handle::resolve( (string) $raw_username );
 				if ( $mentioned_user instanceof \WP_User && $mentioned_user->ID !== $user_id
 					&& $this->mention_allowed( $user_id, (int) $mentioned_user->ID ) ) {
 					/**

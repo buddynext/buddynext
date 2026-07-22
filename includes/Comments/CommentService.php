@@ -268,12 +268,13 @@ class CommentService {
 			preg_match_all( Handle::mention_regex(), $content, $bn_mention_matches );
 			$bn_notified = array();
 			foreach ( $bn_mention_matches[1] as $bn_raw_username ) {
-				$bn_username = sanitize_user( $bn_raw_username, true );
+				$bn_username = (string) $bn_raw_username;
 				if ( '' === $bn_username || isset( $bn_notified[ $bn_username ] ) ) {
 					continue;
 				}
 				$bn_notified[ $bn_username ] = true;
-				$bn_mentioned                = get_user_by( 'login', $bn_username );
+				// Resolved as a HANDLE, not a login — see PostService for why.
+				$bn_mentioned = Handle::resolve( $bn_username );
 				if ( $bn_mentioned instanceof \WP_User && $bn_mentioned->ID !== $user_id
 					&& $this->mention_allowed( $user_id, (int) $bn_mentioned->ID ) ) {
 					/** This action is documented in includes/Feed/PostService.php */

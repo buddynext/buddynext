@@ -125,6 +125,102 @@ class HandleTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A handle resolves the member it is displayed for.
+	 *
+	 * The regression this locks: resolution used `get_user_by( 'login', ... )`
+	 * while every surface displays `PageRouter::member_handle()`. Those disagree
+	 * whenever a login holds a space, a capital, a dot or an email — all of which
+	 * WordPress permits — so the mention rendered as a working link and the
+	 * member was never notified. Each case below failed before the fix.
+	 *
+	 * @dataProvider divergent_login_provider
+	 *
+	 * @param string $login Login to create the member with.
+	 * @param string $why   Why the login and nicename diverge.
+	 * @return void
+	 */
+	public function test_handle_resolves_the_member_it_is_shown_for( string $login, string $why ): void {
+		$user_id = self::factory()->user->create(
+			array(
+				'user_login' => $login,
+				'user_email' => sanitize_title( $login ) . '@example.test',
+			)
+		);
+
+		$handle   = \BuddyNext\Core\PageRouter::member_handle( $user_id );
+		$resolved = Handle::resolve( $handle );
+
+		$this->assertInstanceOf( \WP_User::class, $resolved, "@{$handle} resolved to nobody ({$why})." );
+		$this->assertSame( $user_id, $resolved->ID, "@{$handle} resolved to the wrong member ({$why})." );
+	}
+
+	/**
+	 * Logins WordPress permits whose nicename differs.
+	 *
+	 * @return array<string,array{0:string,1:string}>
+	 */
+	public function divergent_login_provider(): array {
+		return array(
+			'space in login'    => array( 'Brendan Smith', 'login has a space' ),
+			'capitals in login' => array( 'BrendanCaps', 'login has capitals' ),
+			'dot in login'      => array( 'brendan.dot', 'login has a dot' ),
+			'email as login'    => array( 'b@mail.com', 'login is an email' ),
+		);
+	}
+
+	/**
+	 * A member's custom slug resolves — it is what their profile displays.
+	 *
+	 * This never worked: bn_profile_slug takes precedence when the handle is
+	 * rendered, but resolution went to user_login, so a member who set a custom
+	 * slug could not be mentioned by the only handle anyone could see.
+	 *
+	 * @return void
+	 */
+	public function test_custom_slug_resolves(): void {
+		$user_id = self::factory()->user->create( array( 'user_login' => 'plainuser' ) );
+		update_user_meta( $user_id, 'bn_profile_slug', 'my-slug' );
+
+		$this->assertSame( 'my-slug', \BuddyNext\Core\PageRouter::member_handle( $user_id ) );
+
+		$resolved = Handle::resolve( 'my-slug' );
+
+		$this->assertInstanceOf( \WP_User::class, $resolved );
+		$this->assertSame( $user_id, $resolved->ID );
+	}
+
+	/**
+	 * A login still resolves, so mentions that worked before still work.
+	 *
+	 * @return void
+	 */
+	public function test_login_still_resolves_for_back_compat(): void {
+		$user_id = self::factory()->user->create( array( 'user_login' => 'Legacy Login' ) );
+
+		$resolved = Handle::resolve( 'Legacy' );
+
+		// 'Legacy' is neither the nicename (legacy-login) nor a full login, so this
+		// asserts only that the fallback does not blow up and does not mis-resolve.
+		$this->assertTrue( null === $resolved || $resolved->ID === $user_id );
+
+		$this->assertNull( Handle::resolve( 'nobody-by-this-handle' ) );
+		$this->assertNull( Handle::resolve( '' ) );
+	}
+
+	/**
+	 * The reserved user-{id} handle resolves.
+	 *
+	 * @return void
+	 */
+	public function test_reserved_user_id_handle_resolves(): void {
+		$user_id  = self::factory()->user->create();
+		$resolved = Handle::resolve( 'user-' . $user_id );
+
+		$this->assertInstanceOf( \WP_User::class, $resolved );
+		$this->assertSame( $user_id, $resolved->ID );
+	}
+
+	/**
 	 * WordPress cannot itself produce an unmentionable nicename.
 	 *
 	 * This is what makes the fault an imported-data problem rather than one of

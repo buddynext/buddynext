@@ -93,6 +93,90 @@ final class Handle {
 	 * @param string $handle Handle to repair, without a leading `@`.
 	 * @return string A safe handle, or '' when none can be derived.
 	 */
+	/**
+	 * The member a handle refers to, or null.
+	 *
+	 * The exact inverse of {@see \BuddyNext\Core\PageRouter::member_handle()}, and
+	 * it has to be: that method decides the handle every surface DISPLAYS and the
+	 * typeahead OFFERS, so anything resolving a typed handle must ask the same
+	 * question in reverse. The three mention parsers each used
+	 * `get_user_by( 'login', ... )` instead, which silently disagrees whenever a
+	 * login differs from a nicename — a space, a capital, a dot, an email, or any
+	 * member with a custom slug. WordPress permits all of those in a login.
+	 *
+	 * The failure was invisible: the linkifier resolves through PageRouter and so
+	 * produced a WORKING profile link, while the notification lookup found nobody
+	 * and the mentioned member was simply never told.
+	 *
+	 * Order mirrors PageRouter::resolve_user() — custom slug, reserved user-{id},
+	 * then nicename — with a final user_login attempt so any mention that resolved
+	 * before this change still resolves.
+	 *
+	 * @param string $handle Handle as typed, without a leading `@`.
+	 * @return \WP_User|null
+	 */
+	public static function resolve( string $handle ): ?\WP_User {
+		if ( '' === $handle ) {
+			return null;
+		}
+
+		// 1. Custom slug set by the member — takes precedence exactly as it does
+		// when the handle is rendered.
+		// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		$by_meta = get_users(
+			array(
+				'meta_key'   => 'bn_profile_slug',
+				'meta_value' => $handle,
+				'number'     => 1,
+			)
+		);
+		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		if ( ! empty( $by_meta ) && $by_meta[0] instanceof \WP_User ) {
+			return $by_meta[0];
+		}
+
+		// 2. Reserved "user-{id}" pattern.
+		if ( 1 === preg_match( '/\Auser-(\d+)\z/', $handle, $m ) ) {
+			$by_id = get_user_by( 'ID', (int) $m[1] );
+			if ( $by_id instanceof \WP_User ) {
+				return $by_id;
+			}
+		}
+
+		// 3. user_nicename — what member_handle() falls back to.
+		$by_slug = get_user_by( 'slug', $handle );
+		if ( $by_slug instanceof \WP_User ) {
+			return $by_slug;
+		}
+
+		// 4. user_login, so a mention that worked before this change still does.
+		// Never reached for a handle any BuddyNext surface displayed.
+		$login = sanitize_user( $handle, true );
+		if ( '' === $login ) {
+			return null;
+		}
+
+		$by_login = get_user_by( 'login', $login );
+
+		return $by_login instanceof \WP_User ? $by_login : null;
+	}
+
+	/**
+	 * The mentionable form of a handle.
+	 *
+	 * `sanitize_title()` is the same function core runs on every nicename it
+	 * writes, so a repaired handle is indistinguishable from one WordPress would
+	 * have made itself — which is the point: the repair returns the row to the
+	 * standard rather than layering a BuddyNext-specific override on top of it.
+	 *
+	 * Returns an empty string when nothing usable survives (a handle of only
+	 * foreign characters) — callers must treat that as "cannot repair
+	 * automatically" rather than writing an empty nicename, which would break the
+	 * member's profile URL entirely.
+	 *
+	 * @param string $handle Handle to repair, without a leading `@`.
+	 * @return string A safe handle, or '' when none can be derived.
+	 */
 	public static function make_safe( string $handle ): string {
 		$safe = (string) preg_replace(
 			'/[^' . self::CHARSET . ']/',

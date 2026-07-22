@@ -1255,9 +1255,13 @@ function buddynext_format_content( string $content ): string {
 	// Replace @username with a link to the member profile. Built from the
 	// configurable People hub base (never a hardcoded /members/) so mention
 	// links survive renamed hub slugs.
+	// The pattern is \BuddyNext\Profile\Handle's, not a local copy: this pass and
+	// the parsers that raise mention NOTIFICATIONS must agree on where a handle
+	// ends, or a member sees themselves linked in a post they were never told
+	// about — or is notified about a mention that renders as plain text.
 	$bn_people_base = \BuddyNext\Core\PageRouter::people_url();
 	$escaped        = preg_replace_callback(
-		'/@([a-zA-Z0-9_-]+)/u',
+		\BuddyNext\Profile\Handle::mention_regex(),
 		static function ( array $m ) use ( $bn_people_base ): string {
 			$url = $bn_people_base . rawurlencode( $m[1] ) . '/';
 			return '<a href="' . esc_url( $url ) . '" class="bn-mention">@' . esc_html( $m[1] ) . '</a>';

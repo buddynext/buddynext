@@ -204,22 +204,30 @@ class JetonomyBridge {
 		// notification when the same user was mentioned twice). number caps a
 		// pathological mention flood.
 		preg_match_all( Handle::mention_regex(), $content, $matches );
-		$mention_logins = array();
+
+		// Resolved as HANDLES, not logins — see PostService for why. This costs a
+		// lookup per DISTINCT handle rather than one login__in query, which is the
+		// price of resolving the same way the handle is displayed: a custom slug
+		// lives in usermeta and cannot be answered by a users-table IN(). The 100
+		// cap that bounded the old query is kept as a cap on distinct handles, so
+		// a pathological mention flood still cannot fan out.
+		$mention_handles = array();
 		foreach ( $matches[1] as $raw_username ) {
-			$username = sanitize_user( (string) $raw_username, true );
+			$username = (string) $raw_username;
 			if ( '' !== $username ) {
-				$mention_logins[ $username ] = true;
+				$mention_handles[ $username ] = true;
 			}
 		}
 
-		if ( ! empty( $mention_logins ) ) {
-			$mentioned_ids = get_users(
-				array(
-					'login__in' => array_keys( $mention_logins ),
-					'fields'    => 'ID',
-					'number'    => 100,
-				)
-			);
+		if ( ! empty( $mention_handles ) ) {
+			$mentioned_ids = array();
+			foreach ( array_slice( array_keys( $mention_handles ), 0, 100 ) as $handle ) {
+				$user = Handle::resolve( $handle );
+				if ( $user instanceof \WP_User ) {
+					$mentioned_ids[] = (int) $user->ID;
+				}
+			}
+
 			foreach ( $mentioned_ids as $mentioned_id ) {
 				/**
 				 * Fires when a user is @mentioned in a Jetonomy forum post.

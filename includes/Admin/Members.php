@@ -261,7 +261,7 @@ class Members extends AdminPageBase {
 				// held a space, a capital or an email ("Brendan Smith" ->
 				// "brendan-smith"). Showing the login here handed the owner a handle
 				// that does not work when typed.
-				'handle'           => $user->user_nicename,
+				'handle'           => \BuddyNext\Core\PageRouter::member_handle( (int) $user->ID ),
 				'email'            => $user->user_email,
 				'display'          => $user->display_name,
 				'registered'       => $user->user_registered,
