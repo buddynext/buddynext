@@ -183,9 +183,50 @@ const STATIC_ASSETS = [
   '/',
 ];
 
+// A Response whose .redirected is true can NEVER be replayed for a navigation:
+// respondWith() rejects it with "a redirected response was used for a request
+// whose redirect mode is not follow", and the navigation fails outright — the
+// browser shows a network error instead of the site.
+//
+// That is not hypothetical. cache.addAll() fetches with redirect mode "follow",
+// so on any site with a canonical-host rule (www <-> apex) or http -> https in
+// front of "/", the precached copy of "/" came back redirected and was stored.
+// Cache-first then replayed it for every navigation and took the whole site
+// down for anyone who had the worker installed (Zoho #41005).
+//
+// Rebuilding the Response from its body clears the flag while keeping the
+// content, so offline still works on those sites instead of being sacrificed.
+async function bnCacheable(response) {
+  if (!response || !response.ok) {
+    return null;
+  }
+  if (!response.redirected) {
+    return response;
+  }
+  const body = await response.blob();
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Deliberately not cache.addAll(): it stores whatever it gets, redirect
+      // and all, and one failed asset rejects the whole install.
+      await Promise.all(STATIC_ASSETS.map(async (asset) => {
+        try {
+          const cacheable = await bnCacheable(await fetch(asset, { redirect: 'follow' }));
+          if (cacheable) {
+            await cache.put(asset, cacheable);
+          }
+        } catch (e) {
+          // Precaching is best-effort; a missing asset must not block install.
+        }
+      }));
+    })
   );
   self.skipWaiting();
 });
@@ -212,10 +253,32 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for everything else.
+  // Navigations always go to the network first.
+  //
+  // Serving a page cache-first meant a stale copy of "/" could be handed back
+  // before the network was ever consulted, and — until the install handler was
+  // fixed above — that copy could be a redirected response, which fails the
+  // navigation outright. Network-first also matches what a member expects from
+  // a feed: current content, with the cache only as an offline fallback.
+  //
+  // The `cached.redirected` guard is what heals a browser that ALREADY has a
+  // poisoned entry from an earlier version: a new worker cannot reach into the
+  // old cache before activate() purges it, and a member sitting on a broken
+  // site is exactly who needs this to recover.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(async () => {
+        const cached = await caches.match(event.request);
+        return (cached && !cached.redirected) ? cached : Response.error();
+      })
+    );
+    return;
+  }
+
+  // Cache-first for static sub-resources.
   event.respondWith(
     caches.match(event.request).then(
-      (cached) => cached || fetch(event.request)
+      (cached) => (cached && !cached.redirected) ? cached : fetch(event.request)
     )
   );
 });

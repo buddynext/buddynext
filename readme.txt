@@ -56,6 +56,22 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
+= 1.1.0 - July 2026 =
+
+Mobile polish across messages and navigation, plus fixes for profile fields, account deletion and post editing.
+
+* New      - A link preview can be removed while editing a post.
+* Improve  - Messages runs edge-to-edge on phones, and the message field takes the full width with emoji, attachment and send on the line below.
+* Fix      - The mobile conversation list filled only part of the screen, which hid the All, Unread and Requests tabs and stopped the list scrolling.
+* Fix      - Mobile navigation icons rendered far smaller than the centre button.
+* Fix      - The mobile navigation bar covered the theme footer and copyright line.
+* Fix      - Editing a choice profile field could replace its options with the word "Array" and discard its advanced settings.
+* Fix      - Delete account showed an error and never deleted the account.
+* Fix      - Line breaks in a bio were lost, so a multi-line bio ran together on the profile.
+* Fix      - The poll form kept its options and end date after posting, so the next post inherited them.
+* Fix      - A space icon was clipped by the cover image on the settings page and showed square corners on the space page.
+* Compat   - Ships in lockstep with BuddyNext Pro 1.1.0. Install and test both together.
+
 = 1.0.9 - July 2026 =
 
 A redesigned admin with a Get Started home, sidebar widgets curated per surface, a profile About tab that renders any field, and the mobile app bootstrap endpoint.
