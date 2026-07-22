@@ -77,6 +77,10 @@ Mobile polish across messages and navigation, plus fixes for profile fields, acc
 * Fix      - Members whose profile address was imported with an email in it could not be mentioned, and did not appear in the mention suggestions. Run "wp buddynext handles check" to find them.
 * Fix      - The admin member list and member edit screen showed each member's username where their public profile address belongs; the two differ when a username contains a space or a dot, and for members using a custom profile address.
 * Dev      - Added "wp buddynext handles check" and "wp buddynext handles repair" to report and normalise imported profile addresses. Repair reports only unless --yes is passed.
+* New      - Losing your connection now shows a branded offline page with a retry, in your community's colours, instead of the browser's error screen.
+* Improve  - The app now works offline as a app should: BuddyNext's styling is stored on the device, so an offline page looks like your community rather than an unstyled list of links.
+* Improve  - Stylesheets, scripts and images are cached as they are used, capped so they cannot fill a member's device, and cleared automatically when the plugin updates.
+* Security - Pages and API responses are never stored on the device, so nothing personal can be shown to whoever opens the browser next.
 * Compat   - Ships in lockstep with BuddyNext Pro 1.1.0. Install and test both together.
 
 = 1.0.9 - July 2026 =

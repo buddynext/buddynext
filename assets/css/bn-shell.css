@@ -848,3 +848,82 @@ body.admin-bar .bn-app__rail {
 	background: var(--bn-canvas);
 	color: var(--bn-ink);
 }
+
+/* ── Offline fallback page ─────────────────────────────────────────────────
+ * Served by the service worker when a navigation cannot reach the network.
+ * It ships in the precached shell alongside bn-base.css, so it is styled even
+ * with no connection — which is the whole point: losing signal should read as a
+ * moment in the product, not as the site being broken.
+ *
+ * Tokens only, and no dependency on the app shell's DOM: this page renders
+ * standalone, without the header, rail or nav around it.
+ */
+.bn-offline-body {
+	margin: 0;
+	background: var(--bn-bg);
+	color: var(--bn-ink);
+	font-family: var(--bn-font-body);
+}
+
+.bn-offline {
+	min-height: 100vh;
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s6);
+	text-align: center;
+}
+
+.bn-offline__site {
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	letter-spacing: var(--bn-ls-wide, 0.04em);
+	text-transform: uppercase;
+	color: var(--bn-ink-3);
+}
+
+.bn-offline__title {
+	margin: 0;
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-2xl);
+	font-weight: var(--bn-fw-bold);
+	line-height: var(--bn-leading-tight);
+	color: var(--bn-ink);
+}
+
+.bn-offline__text {
+	margin: 0;
+	max-width: 42ch;
+	font-size: var(--bn-text-base);
+	line-height: var(--bn-leading-body);
+	color: var(--bn-ink-2);
+}
+
+.bn-offline__actions {
+	margin: var(--bn-s2) 0 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	justify-content: center;
+}
+
+@media (max-width: 640px) {
+	.bn-offline {
+		padding: var(--bn-s4);
+	}
+
+	.bn-offline__title {
+		font-size: var(--bn-text-xl);
+	}
+
+	/* Stack the actions so each stays a full-width touch target rather than two
+	   narrow buttons sharing a phone-width row. */
+	.bn-offline__actions {
+		flex-direction: column;
+		align-self: stretch;
+	}
+}
