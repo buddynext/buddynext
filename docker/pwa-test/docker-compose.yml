@@ -19,6 +19,12 @@ services:
     environment:
       SITE_HOST: ${SITE_HOST:-buddynext.local}
       PROXY_PORT: ${PROXY_PORT:-8080}
+      # What the site's absolute URLs are rewritten to. Defaults to the loopback
+      # origin; tunnel mode passes the public https:// hostname instead.
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://127.0.0.1:8080}
+      # Same value with slashes escaped, for the JSON-encoded URLs inline scripts
+      # carry. Computed by bin/pwa-origin.sh.
+      PUBLIC_ORIGIN_ESCAPED: ${PUBLIC_ORIGIN_ESCAPED:-http:\/\/127.0.0.1:8080}
     volumes:
       - ./nginx.conf:/etc/nginx/templates/default.conf.template:ro
     extra_hosts:

@@ -55,6 +55,49 @@ gzipped body.
 The container is published on `127.0.0.1` only. It forwards to a local dev site
 with no authentication in front of it and must not be reachable from the network.
 
+
+## Testing on a real phone: `tunnel` mode
+
+```bash
+bin/pwa-origin.sh tunnel      # public https:// URL via cloudflared
+```
+
+Loopback mode only works on the machine running it. A tunnel gives a **real TLS
+certificate on a public hostname**, which is the only way to test the parts that
+plain loopback cannot reach: the install prompt, "Add to home screen", and offline
+behaviour with a phone in airplane mode. It also lets QA test from their own
+device.
+
+**This makes the dev site public.** `wp-admin` and every member page are reachable
+by anyone with the link. Stop it the moment the test is done — the command prints
+the exact `kill` line.
+
+### Why the tunnel points at the proxy, not at the site
+
+Pointing cloudflared straight at the site looks simpler and does not work. Both
+routes were tried:
+
+- `--url http://buddynext.local` — cloudflared cannot resolve it. Its DNS resolver
+  fails to initialise (`lookup region1.v2.argotunnel.com: i/o timeout`) and never
+  reads `/etc/hosts`.
+- `--url http://127.0.0.1:80 --http-host-header buddynext.local` — connects, but
+  WordPress emits its stored `home`/`siteurl`, so the very first navigation
+  redirects to `https://buddynext.local/activity/explore/` and leaves the tunnel
+  for a host the tester cannot resolve.
+
+A mu-plugin filtering `home`/`siteurl` from the incoming `Host` header does not
+rescue it either: **Local routes by virtual host**, so a request carrying the
+tunnel hostname 404s before WordPress loads. The Host header has to say
+`buddynext.local` for the site to answer at all — which is precisely what the
+proxy does while rewriting the response body to the public origin.
+
+### Cloudflare quick tunnels are unreliable
+
+Account-less quick tunnels have no uptime guarantee and were flaky here: several
+runs registered a connection and then timed out on every request. If the URL does
+not answer within ~30s, stop and start it again. For anything routine, use a named
+tunnel tied to a Cloudflare account, or test on real HTTPS staging.
+
 ## Testing offline
 
 Register the worker by loading a page normally — **let the site register it
