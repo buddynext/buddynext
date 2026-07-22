@@ -576,6 +576,20 @@ Run from the repo root. All of these must pass before a commit.
 | UX audit — token + primitive compliance, inline style/script, no `alert()`/`confirm()` | `bin/ux-audit.sh` |
 | REST boundary — 100% REST frontend, no admin-ajax | `bin/check-rest-boundary.sh` |
 
+**PWA / service workers cannot be tested on the local site.** A worker only runs
+in a secure context, and plain-HTTP `buddynext.local` is not one — `'serviceWorker'
+in navigator` is literally `false` there, so every PWA check silently passes by
+doing nothing. Local's HTTPS is self-signed and automation refuses it. Proxy the
+site onto `127.0.0.1`, which IS a secure context whatever the scheme:
+
+```bash
+bin/pwa-origin.sh up          # http://127.0.0.1:8080/
+bin/pwa-origin.sh stop        # simulate going offline
+```
+
+See `docker/pwa-test/README.md`. This gap is why a worker that precached one URL
+reached production: it had been "tested locally" many times, against nothing.
+
 **Pre-commit hook (one-time per clone):**
 
 ```bash
