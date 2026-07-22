@@ -92,4 +92,161 @@ class CoreRegistrationTest extends \WP_UnitTestCase {
 		$this->assertTrue( $errors->has_errors() );
 		$this->assertNotEmpty( $errors->get_error_message( 'bn_reg_closed' ) );
 	}
+
+	/**
+	 * The desync warning survives on BuddyNext's OWN screens.
+	 *
+	 * AdminHub clears admin_notices on every BuddyNext screen so third-party setup
+	 * nags do not crowd the settings UI. remove_all_actions() cannot tell a foreign
+	 * nag from one of ours, so this warning vanished on the exact screen that owns
+	 * the setting — and the Setup Checklist links the owner there, so the guidance
+	 * disappeared at the moment they acted on it.
+	 *
+	 * The inline renderer is what fixes that without touching the suppression. If
+	 * this fails, the owner is back to configuring invite-only with no warning.
+	 *
+	 * @return void
+	 */
+	public function test_desync_warning_renders_inline_for_the_settings_panel(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		update_option( 'buddynext_reg_mode', 'invite' );
+		update_option( 'users_can_register', '0' );
+
+		$this->assertTrue( CoreRegistration::is_desynced(), 'Fixture must actually be desynced.' );
+
+		ob_start();
+		CoreRegistration::render_desync_inline();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'invitations are not working', $html );
+		$this->assertStringContainsString( 'bn-notice', $html, 'Must use the in-hub notice primitive, not .notice (which is cleared).' );
+		$this->assertStringContainsString(
+			'options-general.php',
+			$html,
+			'Must say where users_can_register lives — it is core\'s, not on this screen.'
+		);
+	}
+
+	/**
+	 * The inline and global warnings say the SAME thing.
+	 *
+	 * They are rendered from one source for exactly this reason: an owner meeting
+	 * two different explanations of one problem is worse off than meeting none.
+	 *
+	 * @return void
+	 */
+	public function test_inline_and_global_desync_warnings_share_one_source(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		update_option( 'buddynext_reg_mode', 'invite' );
+		update_option( 'users_can_register', '0' );
+
+		$state = CoreRegistration::desync_state();
+		$this->assertIsArray( $state );
+
+		ob_start();
+		CoreRegistration::render_desync_inline();
+		$inline = (string) ob_get_clean();
+
+		ob_start();
+		( new CoreRegistration() )->render_desync_notice();
+		$global = (string) ob_get_clean();
+
+		// Both are escaped output, so entities have to be decoded before the copy
+		// can be compared against its own source string.
+		$plain = static function ( string $html ): string {
+			return html_entity_decode( wp_strip_all_tags( $html ), ENT_QUOTES, 'UTF-8' );
+		};
+
+		foreach ( array( $state['headline'], $state['explain'] ) as $copy ) {
+			$this->assertStringContainsString( $copy, $plain( $inline ) );
+			$this->assertStringContainsString( $copy, $plain( $global ) );
+		}
+	}
+
+	/**
+	 * Nothing is rendered when the settings agree.
+	 *
+	 * @return void
+	 */
+	public function test_no_desync_warning_when_settings_agree(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		update_option( 'buddynext_reg_mode', 'invite' );
+		update_option( 'users_can_register', '1' );
+
+		$this->assertNull( CoreRegistration::desync_state() );
+
+		ob_start();
+		CoreRegistration::render_desync_inline();
+		$this->assertSame( '', trim( (string) ob_get_clean() ) );
+	}
+
+	/**
+	 * A member without manage_options is never shown owner configuration warnings.
+	 *
+	 * @return void
+	 */
+	public function test_desync_warning_is_owner_only(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+
+		update_option( 'buddynext_reg_mode', 'invite' );
+		update_option( 'users_can_register', '0' );
+
+		ob_start();
+		CoreRegistration::render_desync_inline();
+		$this->assertSame( '', trim( (string) ob_get_clean() ) );
+	}
+
+	/**
+	 * The registration panel actually CALLS the inline renderers.
+	 *
+	 * The renderers passing their own tests proves nothing if nobody invokes them —
+	 * which is exactly the shape of the original bug: working code that no screen
+	 * reached. Asserted against the source because the panel is a private method
+	 * on an admin class that needs a full screen context to render.
+	 *
+	 * @return void
+	 */
+	public function test_registration_panel_wires_both_inline_warnings(): void {
+		$settings = file_get_contents( BUDDYNEXT_DIR . 'includes/Admin/Settings.php' );
+
+		$this->assertIsString( $settings );
+
+		$panel = substr( $settings, (int) strpos( $settings, 'private function render_tab_registration' ) );
+		$panel = substr( $panel, 0, (int) strpos( $panel, 'private function render_tab_' , 10 ) );
+
+		$this->assertStringContainsString( 'render_desync_inline', $panel, 'The registration panel must render the desync warning.' );
+		$this->assertStringContainsString( 'render_terms_inline', $panel, 'The registration panel must render the consent warning.' );
+	}
+
+	/**
+	 * The consent warning renders inline, and does NOT link to the screen it is on.
+	 *
+	 * The global version's button pointed at the registration tab — the very screen
+	 * where the notice is suppressed — so following it made the message disappear.
+	 * Inline, the setting is right there, so a link would send the owner in a circle.
+	 *
+	 * @return void
+	 */
+	public function test_terms_warning_renders_inline_without_a_circular_link(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		update_option( 'buddynext_require_terms', true );
+		update_option( 'buddynext_terms_page_id', 0 );
+
+		$this->assertTrue( CoreRegistration::has_terms_gap() );
+
+		ob_start();
+		CoreRegistration::render_terms_inline();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'no Terms page is set', $html );
+		$this->assertStringNotContainsString( 'tab=registration', $html, 'Must not link back to the screen it is rendered on.' );
+
+		// Resolved once a page is chosen.
+		update_option( 'buddynext_terms_page_id', 99 );
+		$this->assertFalse( CoreRegistration::has_terms_gap() );
+	}
 }
