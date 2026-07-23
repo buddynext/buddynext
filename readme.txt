@@ -83,7 +83,9 @@ Mobile polish across messages and navigation, plus fixes for profile fields, acc
 * Improve  - The app now works offline as a app should: BuddyNext's styling is stored on the device, so an offline page looks like your community rather than an unstyled list of links.
 * Improve  - Stylesheets, scripts and images are cached as they are used, capped so they cannot fill a member's device, and cleared automatically when the plugin updates.
 * Security - Pages and API responses are never stored on the device, so nothing personal can be shown to whoever opens the browser next.
+* Fix      - A reaction on a message now appears for the other person live, instead of only after they reload the conversation.
 * Compat   - Ships in lockstep with BuddyNext Pro 1.1.0. Install and test both together.
+* Compat   - The live-reaction fix needs WPMediaVerse 2.2.0, which adds the message-reaction updates to the messaging poll.
 
 = 1.0.9 - July 2026 =
 

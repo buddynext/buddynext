@@ -571,7 +571,7 @@ function applyReaction( ctx, msgEl, slug ) {
 			chip.classList.add( 'is-mine' );
 			chip.setAttribute( 'aria-pressed', 'true' );
 		} else {
-			chip = buildReactionChip( msgEl, slug );
+			chip = buildReactionChip( msgEl, slug, 1, true );
 			if ( chip ) {
 				box.appendChild( chip );
 			}
@@ -589,29 +589,73 @@ function applyReaction( ctx, msgEl, slug ) {
 }
 
 /**
- * Build a "mine" reaction chip, cloning the glyph from this message's picker.
+ * Build a reaction chip, cloning the glyph from this message's picker.
  *
- * @param {HTMLElement} msgEl The .bn-dm-msg element.
- * @param {string}      slug  Reaction slug.
+ * @param {HTMLElement} msgEl  The .bn-dm-msg element.
+ * @param {string}      slug   Reaction slug.
+ * @param {number}      count  Chip count (default 1).
+ * @param {boolean}     isMine Whether the viewer is among the reactors.
  * @return {HTMLElement|null} The chip, or null if the glyph is unavailable.
  */
-function buildReactionChip( msgEl, slug ) {
+function buildReactionChip( msgEl, slug, count, isMine ) {
+	const n   = count > 0 ? count : 1;
 	const opt = msgEl.querySelector( '.bn-dm-msg__react-opt[data-slug="' + slug + '"]' );
 	const btn = document.createElement( 'button' );
 	btn.type = 'button';
-	btn.className = 'bn-dm-msg__reaction is-mine';
+	btn.className = 'bn-dm-msg__reaction' + ( isMine ? ' is-mine' : '' );
 	btn.dataset.bnAction = 'react-toggle';
 	btn.dataset.slug = slug;
-	btn.setAttribute( 'aria-pressed', 'true' );
-	btn.setAttribute( 'aria-label', slug.charAt( 0 ).toUpperCase() + slug.slice( 1 ) + ' (1)' );
+	btn.setAttribute( 'aria-pressed', isMine ? 'true' : 'false' );
+	btn.setAttribute( 'aria-label', slug.charAt( 0 ).toUpperCase() + slug.slice( 1 ) + ' (' + n + ')' );
 	if ( opt && opt.firstElementChild ) {
 		btn.appendChild( opt.firstElementChild.cloneNode( true ) );
 	}
-	const count = document.createElement( 'span' );
-	count.className = 'bn-dm-msg__reaction-count';
-	count.textContent = '1';
-	btn.appendChild( count );
+	const countEl = document.createElement( 'span' );
+	countEl.className = 'bn-dm-msg__reaction-count';
+	countEl.textContent = String( n );
+	btn.appendChild( countEl );
 	return btn;
+}
+
+/**
+ * Rebuild a message's reaction chips from server data.
+ *
+ * Used when the OTHER participant reacts to an already-delivered message: the
+ * poll's reaction_updates carries the fresh reaction set for that message (a
+ * reaction never moves created_at, so it does not arrive as a new message).
+ * Without this the chip only appeared after a full reload (card 10122929662).
+ *
+ * The viewer's OWN in-flight optimistic changes are not clobbered: this runs on
+ * the poll, and applyReaction already reconciled the local chip before its REST
+ * call. The server set is authoritative for everyone else's reactions.
+ *
+ * @param {HTMLElement} msgEl     The .bn-dm-msg element.
+ * @param {Array}       reactions Server reactions: {emoji, count, user_ids}.
+ * @param {number}      myUserId  Current viewer id, to flag "mine".
+ * @return {void}
+ */
+function renderReactions( msgEl, reactions, myUserId ) {
+	const box = msgEl ? msgEl.querySelector( '.bn-dm-msg__reactions' ) : null;
+	if ( ! box ) {
+		return;
+	}
+
+	box.textContent = '';
+
+	( reactions || [] ).forEach( ( r ) => {
+		const slug = r.emoji || r.slug;
+		if ( ! slug ) {
+			return;
+		}
+		const ids    = Array.isArray( r.user_ids ) ? r.user_ids.map( ( x ) => parseInt( x, 10 ) ) : [];
+		const isMine = myUserId ? ids.indexOf( parseInt( myUserId, 10 ) ) !== -1 : false;
+		const chip   = buildReactionChip( msgEl, slug, parseInt( r.count, 10 ) || 1, isMine );
+		if ( chip ) {
+			box.appendChild( chip );
+		}
+	} );
+
+	box.hidden = ! box.querySelector( '.bn-dm-msg__reaction' );
 }
 
 const messagesStore = store( 'buddynext/messages', {
@@ -1894,6 +1938,22 @@ const messagesStore = store( 'buddynext/messages', {
 						( data.messages || [] ).forEach( ( m ) => {
 							if ( parseInt( m.conversation_id, 10 ) === convId ) {
 								appendMessage( m, ctx.userId );
+							}
+						} );
+						// A reaction on an already-delivered message does not arrive as
+						// a new message (it never moves created_at), so the server sends
+						// it separately. Re-render just that message's chips — this is
+						// what makes the other participant's reaction appear live
+						// instead of only after a reload.
+						( data.reaction_updates || [] ).forEach( ( u ) => {
+							if ( parseInt( u.conversation_id, 10 ) !== convId ) {
+								return;
+							}
+							const msgEl = threadEl
+								? threadEl.querySelector( '.bn-dm-msg[data-msg-id="' + parseInt( u.id, 10 ) + '"]' )
+								: null;
+							if ( msgEl ) {
+								renderReactions( msgEl, u.reactions, ctx.userId );
 							}
 						} );
 						if ( data.server_time ) {
