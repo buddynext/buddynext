@@ -858,11 +858,15 @@ class FieldType {
 				);
 
 			case 'date':
-				$ts = strtotime( (string) $value );
-				if ( false === $ts ) {
-					return esc_html( (string) $value );
-				}
-				return '<span class="bn-field-value bn-field-date">' . esc_html( date_i18n( (string) get_option( 'date_format', 'F j, Y' ), $ts ) ) . '</span>';
+				// The value arrives already in its "Display as" form (ProfileService::view_value
+				// formats every date mode through format_date). Re-parsing it here re-ran
+				// strtotime on strings like "1996" or "April 1996" and printed a wrong full date
+				// — the "Display as" setting looked ignored (card 10123106438). Present it as-is;
+				// pass a raw value through format_date so a direct caller still gets a real date.
+				$date = self::looks_like_raw_date( (string) $value )
+					? self::format_date( $field, (string) $value )
+					: (string) $value;
+				return '<span class="bn-field-value bn-field-date">' . esc_html( $date ) . '</span>';
 
 			case 'number':
 				return '<span class="bn-field-value bn-field-number">' . esc_html( (string) $value ) . '</span>';
@@ -1192,6 +1196,23 @@ class FieldType {
 		$mode    = (string) ( $options['display'] ?? 'date' );
 
 		return in_array( $mode, array( 'date', 'month_year', 'year', 'age' ), true ) ? $mode : 'date';
+	}
+
+	/**
+	 * Whether a value is still a raw stored date (the date input's Y-m-d), as
+	 * opposed to an already-formatted "Display as" string ("1996", "April 1996",
+	 * "30 years old", "April 21, 1996").
+	 *
+	 * The render_display() method normally receives values that view_value() has
+	 * already formatted, so it must NOT re-parse them. This guard lets a direct
+	 * caller that still holds a raw date get it formatted, without re-mangling the
+	 * formatted values the profile actually passes.
+	 *
+	 * @param string $value Value under test.
+	 * @return bool
+	 */
+	private static function looks_like_raw_date( string $value ): bool {
+		return 1 === preg_match( '/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2})?$/', trim( $value ) );
 	}
 
 	/**

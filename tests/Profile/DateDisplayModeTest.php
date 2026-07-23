@@ -257,4 +257,78 @@ class DateDisplayModeTest extends WP_UnitTestCase {
 			'The owner lost the raw date, so the edit form cannot prefill and they can never correct their own birthday.'
 		);
 	}
+
+	/**
+	 * render_display() presents the value view_value() already formatted, for every
+	 * mode, without re-parsing it.
+	 *
+	 * The bug (card 10123106438): render_display() re-ran strtotime()+date_i18n() on
+	 * the already-formatted value, so "1996" became "July 23, 1996" and "April 1996"
+	 * became "April 1, 1996" — the "Display as" setting looked ignored. This walks
+	 * the real About-tab path (view_value -> render_display) and asserts the result.
+	 *
+	 * @dataProvider display_mode_provider
+	 *
+	 * @param string $mode     Display-as mode.
+	 * @param string $expected Expected rendered text.
+	 * @return void
+	 */
+	public function test_render_display_presents_the_formatted_value_per_mode( string $mode, string $expected ): void {
+		$field = $this->date_field( $mode );
+
+		$view_value = $this->call_view_value( $field, '1996-04-21' );
+		$html       = \BuddyNext\Profile\FieldType::render_display( $field, $view_value );
+
+		$this->assertStringContainsString( 'bn-field-value bn-field-date', $html, 'Every mode must keep the field wrapper — age lost it before.' );
+		$this->assertSame( $expected, trim( wp_strip_all_tags( $html ) ), "Mode {$mode} rendered wrong." );
+	}
+
+	/**
+	 * The four modes and what a 1996-04-21 date should read as.
+	 *
+	 * @return array<string,array{0:string,1:string}>
+	 */
+	public function display_mode_provider(): array {
+		return array(
+			'year'       => array( 'year', '1996' ),
+			'month_year' => array( 'month_year', 'April 1996' ),
+			'date'       => array( 'date', 'April 21, 1996' ),
+		);
+	}
+
+	/**
+	 * A stray raw date reaching render_display directly is still formatted, so a
+	 * caller that holds the raw value is not left with a bare Y-m-d.
+	 *
+	 * @return void
+	 */
+	public function test_render_display_still_formats_a_raw_date_from_a_direct_caller(): void {
+		$html = \BuddyNext\Profile\FieldType::render_display( $this->date_field( 'year' ), '1996-04-21' );
+		$this->assertSame( '1996', trim( wp_strip_all_tags( $html ) ) );
+	}
+
+	/**
+	 * The exact regression: a pre-formatted reduced value never becomes a full date.
+	 *
+	 * @return void
+	 */
+	public function test_preformatted_value_is_not_reparsed_into_a_full_date(): void {
+		$html = trim( wp_strip_all_tags( \BuddyNext\Profile\FieldType::render_display( $this->date_field( 'year' ), '1996' ) ) );
+		$this->assertSame( '1996', $html );
+		$this->assertStringNotContainsString( ',', $html, 'A re-parsed "1996" would print a full "Month d, 1996".' );
+	}
+
+	/**
+	 * Call the private ProfileService::view_value the way the About tab does.
+	 *
+	 * @param array<string,mixed> $field Field.
+	 * @param string              $value Raw stored value.
+	 * @return mixed
+	 */
+	private function call_view_value( array $field, string $value ) {
+		$m = new \ReflectionMethod( \BuddyNext\Profile\ProfileService::class, 'view_value' );
+		$m->setAccessible( true );
+
+		return $m->invoke( null, $field, $value );
+	}
 }

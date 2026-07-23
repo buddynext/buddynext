@@ -73,6 +73,7 @@ Mobile polish across messages and navigation, plus fixes for profile fields, acc
 * Fix      - The poll form kept its options and end date after posting, so the next post inherited them.
 * Fix      - A space icon was clipped by the cover image on the settings page and showed square corners on the space page.
 * Fix      - The profile photo edit button drifted away from the photo on phones and tablets, and the photo was too small for its own controls.
+* Fix      - A Date profile field with a "Display as" option (Year only, Month and year, Age) showed a wrong full date on the profile instead of the chosen format.
 * Fix      - Mentioning a member did not always notify them. The mention still linked to their profile, so nothing looked wrong, but no notification was sent when the member's username differed from their profile address - a space, a dot or an email in the username, or any member using a custom profile address.
 * Fix      - Members whose profile address was imported with an email in it could not be mentioned, and did not appear in the mention suggestions. Run "wp buddynext handles check" to find them.
 * Fix      - Registration warnings were hidden on BuddyNext's own Registration & Login screen - the screen you are on when configuring it, and the one BuddyNext's setup checklist sends you to. They now appear beside the setting they concern, and point to where the WordPress switch actually lives.
