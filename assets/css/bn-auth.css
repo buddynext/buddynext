@@ -870,6 +870,53 @@ body.bn-hub-auth .bn-auth-page {
 }
 .bn-auth-link:hover { text-decoration: underline; }
 
+/* Choice-field groups on the registration form (radio / checkbox / member-type
+   single-select). The registration page loads only bn-auth.css (asset isolation),
+   so the .bn-field-*-group primitives that live in bn-profile.css were absent here
+   and a choice field configured with show_on_register rendered as an unstyled,
+   unspaced inline run of controls. These mirror the canonical bn-profile.css pills,
+   token-driven, so registration and profile edit match. */
+.bn-field-checkbox-group,
+.bn-field-radio-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	border: 0;
+	padding: 0;
+	margin: 0;
+	min-width: 0;
+}
+.bn-field-checkbox-group .bn-field-checkbox,
+.bn-field-radio-group .bn-field-radio {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-height: var(--bn-s10);
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+	transition: border-color 0.14s ease, background 0.14s ease;
+}
+.bn-field-checkbox-group .bn-field-checkbox:hover,
+.bn-field-radio-group .bn-field-radio:hover {
+	border-color: var(--bn-line-strong);
+}
+.bn-field-checkbox-group .bn-field-checkbox:has(input:checked),
+.bn-field-radio-group .bn-field-radio:has(input:checked) {
+	border-color: var(--bn-accent);
+	background: var(--bn-accent-50);
+	color: var(--bn-ink);
+}
+.bn-field-checkbox-group .bn-field-checkbox:has(input:focus-visible),
+.bn-field-radio-group .bn-field-radio:has(input:focus-visible) {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+}
+
 /* Field invalid outline */
 .bn-input[aria-invalid="true"] {
 	border-color: var(--bn-danger);

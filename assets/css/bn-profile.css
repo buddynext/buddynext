@@ -2163,6 +2163,31 @@ a.bn-space-row:hover .bn-space-name {
 	outline-offset: 2px;
 }
 
+/* Member-type field — the locked "public classification" state. Once a member has
+   a type it renders as a read-only badge (they cannot change it once set; only an
+   admin re-assigns), so the edit control is a badge + hint rather than an input.
+   The unclassified state reuses .bn-field-radio-group above (single self-select). */
+.bn-field-membertype.is-set {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex-wrap: wrap;
+}
+.bn-membertype-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: var(--bn-s1) var(--bn-s3);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-accent-50);
+	color: var(--bn-accent-700);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+}
+.bn-field-membertype .bn-field-hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
 .bn-ep-label {
 	font-size: var(--bn-text-sm);
 	font-weight: 600;

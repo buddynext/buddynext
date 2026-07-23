@@ -927,6 +927,17 @@ class ProfileService {
 				(string) ( $field['visibility'] ?? 'public' )
 			);
 
+			// Member type is assignment-backed, not a bn_profile_values field: the
+			// submitted slug drives the member-type ASSIGNMENT (usermeta bn_member_type
+			// + bn_member_type_assignments), which the directory filter and the future
+			// per-type layout / conditional-field pivot read. Set-once + self_select
+			// gating live in apply_member_type_selection(); writing a bn_profile_values
+			// row here would only create a second value that diverges from the truth.
+			if ( 'member_type' === $field_type ) {
+				$this->apply_member_type_selection( $user_id, $sanitized_val );
+				continue;
+			}
+
 			// Code-registered (virtual) field — id 0, no bn_profile_fields row. Its
 			// value lives in the bn_field_{key} usermeta that get_profile()'s virtual
 			// merge (and, for searchable fields, the directory mirror) reads — the same
@@ -1256,7 +1267,16 @@ class ProfileService {
 		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return (array) $cached;
+			$cached = (array) $cached;
+			// member_type is assignment-backed and must always reflect the LIVE
+			// classification — it is never stored in this per-viewer cache blob, it is
+			// re-applied on every return (cheap: get_user_type() reads usermeta cache).
+			// So a member self-selecting their type, or an admin re-assigning it, shows
+			// immediately without busting the whole profile cache.
+			if ( isset( $cached['groups'] ) && is_array( $cached['groups'] ) ) {
+				$this->apply_member_type_field_value( $cached['groups'], $profile_user_id, $viewer_id );
+			}
+			return $cached;
 		}
 
 		global $wpdb;
@@ -1550,6 +1570,11 @@ class ProfileService {
 
 		wp_cache_set( $cache_key, $profile, self::CACHE_GROUP, self::CACHE_TTL );
 
+		// Apply AFTER the cache set so the stored blob never carries a member type —
+		// it is injected fresh on every return (see the cached-path note above), so an
+		// assign/reassign is reflected without invalidating the profile cache.
+		$this->apply_member_type_field_value( $profile['groups'], $profile_user_id, $viewer_id );
+
 		return $profile;
 	}
 
@@ -1651,6 +1676,57 @@ class ProfileService {
 		}
 
 		return $output_groups;
+	}
+
+	/**
+	 * Back every `member_type` field with the LIVE assignment, not bn_profile_values.
+	 *
+	 * The member_type value is assignment-backed (usermeta bn_member_type + the
+	 * assignment table). Its bn_profile_values row is always empty, so the value merge
+	 * would render it as unclassified for everyone. This post-pass sets, per
+	 * member_type field: `value` = the type's display NAME (what the profile view
+	 * shows), and `value_raw` = the type SLUG for the OWNER only (what the edit form
+	 * feeds render_input, so a classified member sees the locked badge and an
+	 * unclassified one sees the self-select control). A non-owner never gets the raw
+	 * slug, exactly like every other field.
+	 *
+	 * @param array<int,array<string,mixed>> $groups          Assembled groups (by ref).
+	 * @param int                            $profile_user_id Whose profile.
+	 * @param int                            $viewer_id       Who is viewing.
+	 * @return void
+	 */
+	private function apply_member_type_field_value( array &$groups, int $profile_user_id, int $viewer_id ): void {
+		$service = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
+		if ( ! is_object( $service ) || ! method_exists( $service, 'get_user_type' ) ) {
+			return;
+		}
+		$has_member_type = false;
+		foreach ( $groups as $g ) {
+			foreach ( (array) ( $g['fields'] ?? array() ) as $f ) {
+				if ( is_array( $f ) && 'member_type' === (string) ( $f['type'] ?? '' ) ) {
+					$has_member_type = true;
+					break 2;
+				}
+			}
+		}
+		if ( ! $has_member_type ) {
+			return;
+		}
+
+		$type     = $service->get_user_type( $profile_user_id );
+		$slug     = is_array( $type ) ? (string) ( $type['slug'] ?? '' ) : '';
+		$name     = is_array( $type ) ? (string) ( $type['name'] ?? $slug ) : '';
+		$is_owner = ( $viewer_id === $profile_user_id );
+
+		foreach ( $groups as $gi => $group ) {
+			foreach ( (array) ( $group['fields'] ?? array() ) as $fi => $field ) {
+				if ( ! is_array( $field ) || 'member_type' !== (string) ( $field['type'] ?? '' ) ) {
+					continue;
+				}
+				$groups[ $gi ]['fields'][ $fi ]['value']     = $name;
+				$groups[ $gi ]['fields'][ $fi ]['value_raw'] = $is_owner ? $slug : null;
+			}
+		}
 	}
 
 	/**
@@ -3114,6 +3190,47 @@ class ProfileService {
 		// leave the uploads/bn-avatars/{user_id}/ files orphaned forever.
 		( new \BuddyNext\Media\ImageStorageService() )->delete( 'avatar', 'user', $user_id );
 		$this->bust_profile_cache( $user_id );
+	}
+
+	/**
+	 * Apply a member's self-service member-type pick to the ASSIGNMENT system.
+	 *
+	 * The single write path for the `member_type` USER field — profile edit AND
+	 * registration both funnel here through save_profile(). Deliberately strict,
+	 * because member type is a public classification and the pivot a member must not
+	 * be able to flip:
+	 *   - Empty pick → no-op (never clears an existing classification).
+	 *   - Member ALREADY has a type → no-op. Set-once: only an admin re-assigns
+	 *     (Members → Member Types, or the REST assign route). This is what keeps the
+	 *     future per-type layout / conditional-field pivot stable across a member's
+	 *     own profile edits.
+	 *   - The picked type must exist AND be self_select = 1. sanitize() already
+	 *     dropped anything else to '', but re-checking here means even a direct
+	 *     save_profile() caller cannot smuggle an admin-only type past the gate.
+	 * On a valid first pick, assign_type() write-throughs usermeta bn_member_type +
+	 * the assignment table (assigned_by = the member themselves).
+	 *
+	 * @param int    $user_id Member making the pick.
+	 * @param string $slug    Sanitised, self_select-validated member-type slug, or ''.
+	 * @return void
+	 */
+	private function apply_member_type_selection( int $user_id, string $slug ): void {
+		if ( '' === $slug ) {
+			return;
+		}
+		$service = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
+		if ( ! is_object( $service ) || ! method_exists( $service, 'assign_type' ) ) {
+			return;
+		}
+		// Set-once: a member's own edit never overrides an existing classification.
+		if ( method_exists( $service, 'get_user_type' ) && $service->get_user_type( $user_id ) ) {
+			return;
+		}
+		$type = method_exists( $service, 'get_by_slug' ) ? $service->get_by_slug( $slug ) : null;
+		if ( ! is_array( $type ) || empty( $type['self_select'] ) || empty( $type['id'] ) ) {
+			return;
+		}
+		$service->assign_type( $user_id, (int) $type['id'], $user_id );
 	}
 
 	/**

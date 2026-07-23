@@ -1396,6 +1396,14 @@ class ProfileFieldsManager {
 			$field_type_labels[ $slug ] = (string) $meta['label'];
 		}
 
+		// member_type_multiselect is a SPACE setting — "which member types may
+		// auto-join this space", a filter over a SET of types. A USER has exactly
+		// ONE type, offered as the single-select `member_type` type instead. Keep the
+		// multi-select out of the per-user field builder while leaving it a valid type
+		// for space fields (CoreSpaceFields). It stays in field_types() so any legacy
+		// field still validates; it is only absent from the new-field dropdown.
+		unset( $field_type_labels['member_type_multiselect'] );
+
 		/**
 		 * Filter the human-readable labels for profile field types shown in
 		 * the admin field builder.
