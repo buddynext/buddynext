@@ -191,6 +191,10 @@ if ( 'invite' === $bn_reg_mode ) {
 		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo wp_interactivity_data_wp_context(
 			array(
+				// The display name the visitor types (ask_name on). Bound via
+				// actions.setName and sent in the register payload; without this the
+				// server fell back to the email handle prefix for everyone.
+				'name'             => '',
 				'email'            => $bn_prefill_email,
 				// The invitation token, carried into POST /auth/register by the store.
 				// Without this the form submitted no token at all, so an invited member
@@ -389,6 +393,7 @@ if ( 'invite' === $bn_reg_mode ) {
 								autocomplete="name"
 								placeholder="<?php esc_attr_e( 'Jane Doe', 'buddynext' ); ?>"
 								aria-describedby="bn-signup-name-hint"
+								data-wp-on--input="actions.setName"
 								data-wp-bind--disabled="state.submitting" />
 							<span class="bn-auth-hint" id="bn-signup-name-hint">
 								<?php esc_html_e( 'This is how other members will see you.', 'buddynext' ); ?>

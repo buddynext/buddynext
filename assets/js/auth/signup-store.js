@@ -180,6 +180,15 @@ const signupStore = store( 'buddynext/auth-signup', {
 		},
 	},
 	actions: {
+		setName( event ) {
+			const c = ctx();
+			c.name = event && event.target ? String( event.target.value || '' ) : '';
+			if ( c.fieldErrors && c.fieldErrors.name ) {
+				const next = Object.assign( {}, c.fieldErrors );
+				delete next.name;
+				c.fieldErrors = next;
+			}
+		},
 		setEmail( event ) {
 			const c = ctx();
 			c.email = event && event.target ? String( event.target.value || '' ) : '';
@@ -275,6 +284,11 @@ const signupStore = store( 'buddynext/auth-signup', {
 			c.fieldErrors = {};
 			try {
 				const body = {
+					// The display name the visitor typed. The form used to render this
+					// field but never bind or send it, so the server always fell back to
+					// the email handle prefix — a member who entered "Club One" appeared
+					// as "my.test.account". Sent when the field is shown (ask_name on).
+					name:            c.name || '',
 					email:           c.email || '',
 					user_login:      c.userLogin || '',
 					password:        c.password || '',
