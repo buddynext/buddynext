@@ -2409,6 +2409,52 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink-2);
 	border: 1px solid var(--bn-line);
 }
+
+/* Choice-field groups (radio / checkbox / member-type single-select) — a shared
+   primitive, so it lives in bn-base.css (loaded on EVERY frontend page via
+   enqueue_global_tokens) rather than being copied into each feature sheet. This is
+   why a choice field styles identically on the profile-edit form (bn-profile.css)
+   and the registration form (bn-auth.css only) without either sheet re-declaring it. */
+.bn-field-checkbox-group,
+.bn-field-radio-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	border: 0;
+	padding: 0;
+	margin: 0;
+	min-width: 0;
+}
+.bn-field-checkbox-group .bn-field-checkbox,
+.bn-field-radio-group .bn-field-radio {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-height: var(--bn-s10);
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+	transition: border-color 0.14s ease, background 0.14s ease;
+}
+.bn-field-checkbox-group .bn-field-checkbox:hover,
+.bn-field-radio-group .bn-field-radio:hover {
+	border-color: var(--bn-line-strong);
+}
+.bn-field-checkbox-group .bn-field-checkbox:has(input:checked),
+.bn-field-radio-group .bn-field-radio:has(input:checked) {
+	border-color: var(--bn-accent);
+	background: var(--bn-accent-50);
+	color: var(--bn-ink);
+}
+.bn-field-checkbox-group .bn-field-checkbox:has(input:focus-visible),
+.bn-field-radio-group .bn-field-radio:has(input:focus-visible) {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+}
 .bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: var(--bn-paid); border-color: transparent; }
 
 /* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor
