@@ -111,11 +111,14 @@ class FollowService {
 	 * buddynext_user_followed — the relationship doesn't count as
 	 * "following" until the owner approves it.
 	 *
-	 * @param int $follower_id  ID of the user doing the following.
-	 * @param int $following_id ID of the user being followed.
+	 * @param int         $follower_id  ID of the user doing the following.
+	 * @param int         $following_id ID of the user being followed.
+	 * @param string|null $created_at   Optional backdated UTC timestamp (importer
+	 *                                  seam — see Core\Backdate). When null the
+	 *                                  column default applies, as before.
 	 * @return true|WP_Error True on success; WP_Error on self-follow attempt.
 	 */
-	public function follow( int $follower_id, int $following_id ): bool|WP_Error {
+	public function follow( int $follower_id, int $following_id, ?string $created_at = null ): bool|WP_Error {
 		if ( $follower_id === $following_id ) {
 			return new WP_Error(
 				'cannot_follow_self',
@@ -194,16 +197,32 @@ class FollowService {
 
 		$status = $this->is_private_account( $following_id ) ? 'pending' : 'approved';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_follows (follower_id, following_id, status)
-				 VALUES (%d, %d, %s)",
-				$follower_id,
-				$following_id,
-				$status
-			)
-		);
+		// Importer seam: only include created_at when a backdate was supplied —
+		// otherwise the column's DEFAULT CURRENT_TIMESTAMP applies, unchanged.
+		if ( null !== $created_at && '' !== $created_at ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_follows (follower_id, following_id, status, created_at)
+					 VALUES (%d, %d, %s, %s)",
+					$follower_id,
+					$following_id,
+					$status,
+					\BuddyNext\Core\Backdate::resolve( $created_at )
+				)
+			);
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_follows (follower_id, following_id, status)
+					 VALUES (%d, %d, %s)",
+					$follower_id,
+					$following_id,
+					$status
+				)
+			);
+		}
 		$inserted = $wpdb->rows_affected > 0;
 
 		$this->invalidate_follow_cache( $follower_id, $following_id );

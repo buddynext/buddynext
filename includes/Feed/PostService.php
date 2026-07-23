@@ -288,13 +288,10 @@ class PostService {
 		// demo seeder can set a post's time through the API instead of a raw UPDATE.
 		// Both are clamped to "now" (no future-dating here — scheduling uses
 		// scheduled_at) and last_activity_at is never earlier than created_at.
-		$bn_created_at = current_time( 'mysql', true );
-		if ( ! empty( $data['created_at'] ) ) {
-			$bn_cts = strtotime( (string) $data['created_at'] . ' UTC' );
-			if ( $bn_cts && $bn_cts <= time() ) {
-				$bn_created_at = gmdate( 'Y-m-d H:i:s', $bn_cts );
-			}
-		}
+		// This was the original importer seam; the logic now lives in
+		// Core\Backdate so the comment/space/connection/follow/reaction seams
+		// share one contract.
+		$bn_created_at    = \BuddyNext\Core\Backdate::resolve( isset( $data['created_at'] ) ? (string) $data['created_at'] : null );
 		$bn_last_activity = $bn_created_at;
 		if ( ! empty( $data['last_activity_at'] ) ) {
 			$bn_lts = strtotime( (string) $data['last_activity_at'] . ' UTC' );

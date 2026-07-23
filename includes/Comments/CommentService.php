@@ -43,14 +43,16 @@ class CommentService {
 	/**
 	 * Create a comment on an object.
 	 *
-	 * @param int      $user_id     Commenting user.
-	 * @param string   $object_type Object type (e.g. 'post').
-	 * @param int      $object_id   Object ID.
-	 * @param string   $content     Comment text.
-	 * @param int|null $parent_id   Parent comment ID for replies, or null.
+	 * @param int         $user_id     Commenting user.
+	 * @param string      $object_type Object type (e.g. 'post').
+	 * @param int         $object_id   Object ID.
+	 * @param string      $content     Comment text.
+	 * @param int|null    $parent_id   Parent comment ID for replies, or null.
+	 * @param string|null $created_at  Optional backdated UTC timestamp (importer
+	 *                                 seam — see Core\Backdate). Clamped to now.
 	 * @return int|WP_Error Inserted comment ID or WP_Error.
 	 */
-	public function create( int $user_id, string $object_type, int $object_id, string $content, ?int $parent_id = null ): int|WP_Error {
+	public function create( int $user_id, string $object_type, int $object_id, string $content, ?int $parent_id = null, ?string $created_at = null ): int|WP_Error {
 		$content = wp_kses_post( trim( $content ) );
 
 		if ( '' === $content ) {
@@ -231,7 +233,9 @@ class CommentService {
 				// Store in UTC instead of relying on the column's local-time
 				// DEFAULT CURRENT_TIMESTAMP, so relative times render correctly
 				// regardless of the MySQL/PHP timezone (see buddynext_time_ago()).
-				'created_at'  => current_time( 'mysql', true ),
+				// Backdate::resolve() returns now unless a valid past timestamp
+				// was supplied (importer seam).
+				'created_at'  => \BuddyNext\Core\Backdate::resolve( $created_at ),
 			),
 			array( '%d', '%s', '%d', '%d', '%s', '%s' )
 		);

@@ -399,15 +399,18 @@ class SpaceService {
 				'owner_id'     => $owner_id,
 				'member_count' => 1,
 				// UTC write so the "Created" date localizes correctly via
-				// buddynext_date_local() under any site timezone.
-				'created_at'   => current_time( 'mysql', true ),
+				// buddynext_date_local() under any site timezone. Backdate::resolve()
+				// returns now unless $data['created_at'] carries a valid past
+				// timestamp (importer seam — migrated groups keep their history).
+				'created_at'   => \BuddyNext\Core\Backdate::resolve( isset( $data['created_at'] ) ? (string) $data['created_at'] : null ),
 			),
 			array( '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d', '%s' )
 		);
 
 		$space_id = (int) $wpdb->insert_id;
 
-		// Auto-add owner as member.
+		// Auto-add owner as member. The owner's join backdates with the space —
+		// a migrated group's creator did not join it at migration time.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_space_members',
@@ -415,7 +418,7 @@ class SpaceService {
 				'space_id'  => $space_id,
 				'user_id'   => $owner_id,
 				'role'      => 'owner',
-				'joined_at' => current_time( 'mysql', true ),
+				'joined_at' => \BuddyNext\Core\Backdate::resolve( isset( $data['created_at'] ) ? (string) $data['created_at'] : null ),
 			),
 			array( '%d', '%d', '%s', '%s' )
 		);
