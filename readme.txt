@@ -77,6 +77,7 @@ Mobile polish across messages and navigation, plus fixes for profile fields, acc
 * Fix      - Members whose profile address was imported with an email in it could not be mentioned, and did not appear in the mention suggestions. Run "wp buddynext handles check" to find them.
 * Fix      - Registration warnings were hidden on BuddyNext's own Registration & Login screen - the screen you are on when configuring it, and the one BuddyNext's setup checklist sends you to. They now appear beside the setting they concern, and point to where the WordPress switch actually lives.
 * Fix      - The admin member list and member edit screen showed each member's username where their public profile address belongs; the two differ when a username contains a space or a dot, and for members using a custom profile address.
+* Improve  - Members with an imported profile address that breaks mentions can now be repaired with one click from BuddyNext > Members, not only from the command line.
 * Dev      - Added "wp buddynext handles check" and "wp buddynext handles repair" to report and normalise imported profile addresses. Repair reports only unless --yes is passed.
 * New      - Losing your connection now shows a branded offline page with a retry, in your community's colours, instead of the browser's error screen.
 * Improve  - The app now works offline as a app should: BuddyNext's styling is stored on the device, so an offline page looks like your community rather than an unstyled list of links.

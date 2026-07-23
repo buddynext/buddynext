@@ -33,11 +33,6 @@ use WP_CLI;
 class HandleCommand {
 
 	/**
-	 * Rows scanned per chunk. A community may hold many thousands of members.
-	 */
-	private const CHUNK = 500;
-
-	/**
 	 * List members whose handle cannot be mentioned.
 	 *
 	 * ## EXAMPLES
@@ -49,7 +44,7 @@ class HandleCommand {
 	 * @return void
 	 */
 	public function check( array $args, array $assoc_args ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found,Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- WP-CLI signature.
-		$rows = $this->unsafe_rows();
+		$rows = ( new HandleRepair() )->find_unsafe();
 
 		if ( empty( $rows ) ) {
 			WP_CLI::success( 'Every member handle can be mentioned.' );
@@ -109,158 +104,48 @@ class HandleCommand {
 	 * @return void
 	 */
 	public function repair( array $args, array $assoc_args ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- WP-CLI signature.
-		$dry_run = isset( $assoc_args['dry-run'] );
-		$rows    = $this->unsafe_rows();
+		// Dry-run unless the operator opts IN. This rewrites profile URLs, and an
+		// interactive prompt is not available in every context this runs in (cron,
+		// CI, a deploy hook), so the safe direction is the default one.
+		$dry_run = ! isset( $assoc_args['yes'] ) || isset( $assoc_args['dry-run'] );
 
-		if ( empty( $rows ) ) {
+		$repair = new HandleRepair();
+
+		if ( empty( $repair->find_unsafe( 1 ) ) ) {
 			WP_CLI::success( 'Every member handle can be mentioned. Nothing to repair.' );
 			return;
 		}
 
-		// Dry-run unless the operator opts IN. This rewrites profile URLs, and an
-		// interactive prompt is not available in every context this runs in (cron,
-		// CI, a deploy hook), so the safe direction is the default one.
-		if ( ! isset( $assoc_args['yes'] ) ) {
-			$dry_run = true;
-		}
+		$result = $repair->repair_all( $dry_run );
 
-		$repaired = 0;
-		$skipped  = 0;
-
-		foreach ( $rows as $row ) {
-			$user_id = (int) $row['ID'];
-			$current = (string) $row['user_nicename'];
-			$safe    = Handle::make_safe( $current );
-
-			// Nothing usable survived — an all-foreign handle. Writing an empty
-			// nicename would break the member's profile URL entirely, so this is
-			// reported for a human to name rather than guessed at.
-			if ( '' === $safe ) {
-				WP_CLI::warning( sprintf( 'User %d (%s): cannot derive a handle — set one by hand.', $user_id, $current ) );
-				++$skipped;
-				continue;
-			}
-
-			$safe = $this->unique_nicename( $safe, $user_id );
-
-			if ( $dry_run ) {
-				WP_CLI::log( sprintf( '  would repair %d: %s -> %s', $user_id, $current, $safe ) );
-				++$repaired;
-				continue;
-			}
-
-			// Through core's own API, not a direct write: wp_update_user runs the
-			// same sanitisation and cache invalidation core uses, so the row ends
-			// up indistinguishable from one WordPress wrote itself.
-			$result = wp_update_user(
-				array(
-					'ID'            => $user_id,
-					'user_nicename' => $safe,
+		foreach ( $result['changes'] as $change ) {
+			WP_CLI::log(
+				sprintf(
+					'  %s %d: %s -> %s',
+					$dry_run ? 'would repair' : 'repaired',
+					$change['id'],
+					$change['from'],
+					$change['to']
 				)
 			);
-
-			if ( is_wp_error( $result ) ) {
-				WP_CLI::warning( sprintf( 'User %d: %s', $user_id, $result->get_error_message() ) );
-				++$skipped;
-				continue;
-			}
-
-			WP_CLI::log( sprintf( '  repaired %d: %s -> %s', $user_id, $current, $safe ) );
-			++$repaired;
 		}
 
-		// The Members screen caches this count; a stale cache would keep warning
-		// about members that were just repaired.
-		if ( ! $dry_run ) {
-			delete_transient( 'bn_unmentionable_handles' );
+		foreach ( $result['skips'] as $skip ) {
+			WP_CLI::warning( sprintf( 'User %d (%s): cannot derive a handle - set one by hand.', $skip['id'], $skip['from'] ) );
 		}
 
 		$summary = sprintf(
 			'%s %d handle(s); %d skipped.',
 			$dry_run ? 'Would repair' : 'Repaired',
-			$repaired,
-			$skipped
+			$result['repaired'],
+			$result['skipped']
 		);
 
-		if ( $skipped > 0 ) {
+		if ( $result['skipped'] > 0 ) {
 			WP_CLI::warning( $summary );
 			return;
 		}
 
 		WP_CLI::success( $summary );
-	}
-
-	/**
-	 * Members whose nicename falls outside the handle contract.
-	 *
-	 * Filtered in PHP rather than by a SQL character class: collation decides what
-	 * a range like `a-z` means in MySQL, so a REGEXP here could disagree with the
-	 * PCRE the parsers actually run. The scan is chunked and reads two columns.
-	 *
-	 * @return array<int,array{ID:int,user_nicename:string}>
-	 */
-	private function unsafe_rows(): array {
-		global $wpdb;
-
-		$out     = array();
-		$offset  = 0;
-		$fetched = 0;
-
-		do {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$batch = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT ID, user_nicename FROM {$wpdb->users} ORDER BY ID ASC LIMIT %d OFFSET %d",
-					self::CHUNK,
-					$offset
-				),
-				ARRAY_A
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-			$batch = (array) $batch;
-
-			foreach ( $batch as $row ) {
-				if ( ! Handle::is_safe( (string) $row['user_nicename'] ) ) {
-					$out[] = array(
-						'ID'            => (int) $row['ID'],
-						'user_nicename' => (string) $row['user_nicename'],
-					);
-				}
-			}
-
-			$offset += self::CHUNK;
-			$fetched = count( $batch );
-		} while ( self::CHUNK === $fetched );
-
-		return $out;
-	}
-
-	/**
-	 * A nicename not already taken by a different user.
-	 *
-	 * Two imported handles can normalise onto the same string — `a.b@corp.com` and
-	 * `a-b@corp.com` both reduce to `abcorp-com`. Without this the second write
-	 * would collide, and core would silently suffix it in a way the operator never
-	 * saw reported.
-	 *
-	 * @param string $base    Candidate nicename.
-	 * @param int    $user_id User being repaired.
-	 * @return string A free nicename.
-	 */
-	private function unique_nicename( string $base, int $user_id ): string {
-		$candidate = $base;
-		$n         = 2;
-
-		while ( true ) {
-			$existing = get_user_by( 'slug', $candidate );
-
-			if ( ! $existing || (int) $existing->ID === $user_id ) {
-				return $candidate;
-			}
-
-			$candidate = $base . '-' . $n;
-			++$n;
-		}
 	}
 }

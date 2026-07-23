@@ -27,6 +27,11 @@ class Members extends AdminPageBase {
 	 */
 	private const DEFAULT_PER_PAGE = 20;
 
+	/**
+	 * The admin-post action for the one-click "repair unmentionable handles" button.
+	 */
+	private const ACTION_REPAIR_HANDLES = 'bn_repair_handles';
+
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -39,6 +44,7 @@ class Members extends AdminPageBase {
 		add_action( 'admin_post_bn_unsuspend_member', array( $this, 'handle_unsuspend' ) );
 		add_action( 'admin_post_bn_bulk_members', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_post_bn_save_member_profile', array( $this, 'handle_save_member_profile' ) );
+		add_action( 'admin_post_' . self::ACTION_REPAIR_HANDLES, array( $this, 'handle_repair_handles' ) );
 		// NB: the wp_login -> handle_last_login listener is wired unconditionally
 		// in Plugin::boot(), not here — register() only runs in admin, but logins
 		// happen in non-admin contexts (REST, wp-login.php, social login).
@@ -953,46 +959,126 @@ class Members extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_unmentionable_handles_notice(): void {
-		$count = get_transient( 'bn_unmentionable_handles' );
+		$count = ( new \BuddyNext\Profile\HandleRepair() )->count_unsafe();
 
-		if ( false === $count ) {
-			global $wpdb;
-
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$candidates = (array) $wpdb->get_col(
-				"SELECT user_nicename FROM {$wpdb->users} WHERE user_nicename REGEXP '[^a-zA-Z0-9_-]' LIMIT 500"
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-			$count = 0;
-			foreach ( $candidates as $nicename ) {
-				if ( ! Handle::is_safe( (string) $nicename ) ) {
-					++$count;
-				}
-			}
-
-			set_transient( 'bn_unmentionable_handles', $count, 12 * HOUR_IN_SECONDS );
-		}
-
-		if ( (int) $count < 1 ) {
+		if ( $count < 1 ) {
+			// A just-completed repair leaves a one-request success flag.
+			$this->maybe_render_repair_result();
 			return;
 		}
 
-		printf(
-			'<div class="bn-notice bn-notice-error">%s</div>',
-			esc_html(
-				sprintf(
-					/* translators: %d: number of members. */
-					_n(
-						'%d member cannot be mentioned: their handle contains characters mentions do not support, usually from an import. Run "wp buddynext handles check" to review, then "wp buddynext handles repair --yes" to fix. Their profile address will change.',
-						'%d members cannot be mentioned: their handles contain characters mentions do not support, usually from an import. Run "wp buddynext handles check" to review, then "wp buddynext handles repair --yes" to fix. Their profile addresses will change.',
-						(int) $count,
-						'buddynext'
-					),
-					(int) $count
-				)
-			)
+		$title = sprintf(
+			/* translators: %d: number of members. */
+			_n(
+				'%d member cannot be mentioned',
+				'%d members cannot be mentioned',
+				$count,
+				'buddynext'
+			),
+			$count
 		);
+
+		$repair_url = wp_nonce_url(
+			admin_url( 'admin-post.php?action=' . self::ACTION_REPAIR_HANDLES ),
+			self::ACTION_REPAIR_HANDLES
+		);
+		?>
+		<div class="bn-alert">
+			<span class="bn-alert__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
+			<div class="bn-alert__body">
+				<p class="bn-alert__title"><?php echo esc_html( $title ); ?></p>
+				<p class="bn-alert__text">
+					<?php esc_html_e( 'Their profile address contains characters that mentions do not support, usually from an import. Repairing normalises it to a mentionable form. The affected members\' profile addresses will change.', 'buddynext' ); ?>
+				</p>
+			</div>
+			<span class="bn-alert__action">
+				<a class="button button-primary" href="<?php echo esc_url( $repair_url ); ?>">
+					<?php esc_html_e( 'Repair handles', 'buddynext' ); ?>
+				</a>
+			</span>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Show the outcome of a just-completed repair, once.
+	 *
+	 * The handler stashes a short-lived flag and redirects here, so the owner sees
+	 * "repaired N" on the screen they clicked from rather than a silent reload.
+	 *
+	 * @return void
+	 */
+	private function maybe_render_repair_result(): void {
+		$result = get_transient( 'bn_handle_repair_result_' . get_current_user_id() );
+		if ( false === $result || ! is_array( $result ) ) {
+			return;
+		}
+
+		delete_transient( 'bn_handle_repair_result_' . get_current_user_id() );
+
+		$repaired = (int) ( $result['repaired'] ?? 0 );
+		$skipped  = (int) ( $result['skipped'] ?? 0 );
+
+		if ( $repaired < 1 && $skipped < 1 ) {
+			return;
+		}
+
+		$msg = sprintf(
+			/* translators: %d: number of members repaired. */
+			_n( 'Repaired %d member handle.', 'Repaired %d member handles.', $repaired, 'buddynext' ),
+			$repaired
+		);
+
+		if ( $skipped > 0 ) {
+			$msg .= ' ' . sprintf(
+				/* translators: %d: number of members skipped. */
+				_n(
+					'%d could not be repaired automatically and needs a handle set by hand.',
+					'%d could not be repaired automatically and need handles set by hand.',
+					$skipped,
+					'buddynext'
+				),
+				$skipped
+			);
+		}
+
+		printf(
+			'<div class="bn-notice %s">%s</div>',
+			esc_attr( $skipped > 0 ? 'bn-notice-error' : 'bn-notice-success' ),
+			esc_html( $msg )
+		);
+	}
+
+	/**
+	 * Handle the one-click "repair unmentionable handles" button.
+	 *
+	 * Shares HandleRepair with the WP-CLI command, so the button and
+	 * `wp buddynext handles repair` do exactly the same thing — this is the
+	 * owner-facing door for site owners who do not have shell access, which is
+	 * most of them.
+	 *
+	 * @return void
+	 */
+	public function handle_repair_handles(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'buddynext' ), '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( self::ACTION_REPAIR_HANDLES );
+
+		$result = ( new \BuddyNext\Profile\HandleRepair() )->repair_all();
+
+		set_transient(
+			'bn_handle_repair_result_' . get_current_user_id(),
+			array(
+				'repaired' => (int) $result['repaired'],
+				'skipped'  => (int) $result['skipped'],
+			),
+			MINUTE_IN_SECONDS
+		);
+
+		wp_safe_redirect( wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=buddynext-members' ) );
+		exit;
 	}
 
 	/**
