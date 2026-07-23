@@ -86,6 +86,7 @@ Mobile polish across messages and navigation, plus fixes for profile fields, acc
 * Fix      - A reaction on a message now appears for the other person live, instead of only after they reload the conversation.
 * Compat   - Ships in lockstep with BuddyNext Pro 1.1.0. Install and test both together.
 * Compat   - The live-reaction fix needs WPMediaVerse 2.2.0, which adds the message-reaction updates to the messaging poll.
+* Security - Marking the community private now also locks down the media/messaging REST API (WPMediaVerse), not only BuddyNext's own - closing a gap where media, tags and profiles stayed readable when logged out. Needs WPMediaVerse 2.2.0.
 
 = 1.0.9 - July 2026 =
 
