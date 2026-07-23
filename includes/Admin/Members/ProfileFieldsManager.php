@@ -164,6 +164,28 @@ class ProfileFieldsManager {
 	}
 
 	/**
+	 * Slugs of every registered field type whose descriptor flag is truthy.
+	 *
+	 * One scan of the type matrix, parameterised by flag — the single implementation
+	 * behind choice_types() / date_types() / searchable_capable_types(), which were
+	 * three copies of the same loop differing only by which boolean they read.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $flag Descriptor key to test (e.g. 'is_choice', 'is_date').
+	 * @return string[] Type slugs whose descriptor has that flag set.
+	 */
+	private static function types_with_flag( string $flag ): array {
+		$slugs = array();
+		foreach ( self::field_type_matrix() as $slug => $meta ) {
+			if ( ! empty( $meta[ $flag ] ) ) {
+				$slugs[] = $slug;
+			}
+		}
+		return $slugs;
+	}
+
+	/**
 	 * Slugs of field types that need an options editor (select/radio/multiselect).
 	 *
 	 * @since 1.0.0
@@ -171,13 +193,7 @@ class ProfileFieldsManager {
 	 * @return string[]
 	 */
 	private static function choice_types(): array {
-		$slugs = array();
-		foreach ( self::field_type_matrix() as $slug => $meta ) {
-			if ( ! empty( $meta['is_choice'] ) ) {
-				$slugs[] = $slug;
-			}
-		}
-		return $slugs;
+		return self::types_with_flag( 'is_choice' );
 	}
 
 	/**
@@ -193,13 +209,7 @@ class ProfileFieldsManager {
 	 * @return string[]
 	 */
 	private static function date_types(): array {
-		$slugs = self::DATE_TYPES;
-		foreach ( self::field_type_matrix() as $slug => $meta ) {
-			if ( ! empty( $meta['is_date'] ) && ! in_array( $slug, $slugs, true ) ) {
-				$slugs[] = $slug;
-			}
-		}
-		return $slugs;
+		return array_values( array_unique( array_merge( self::DATE_TYPES, self::types_with_flag( 'is_date' ) ) ) );
 	}
 
 	/**
@@ -210,13 +220,7 @@ class ProfileFieldsManager {
 	 * @return string[]
 	 */
 	private static function searchable_capable_types(): array {
-		$slugs = array();
-		foreach ( self::field_type_matrix() as $slug => $meta ) {
-			if ( ! empty( $meta['is_searchable_capable'] ) ) {
-				$slugs[] = $slug;
-			}
-		}
-		return $slugs;
+		return self::types_with_flag( 'is_searchable_capable' );
 	}
 
 	/**
