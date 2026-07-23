@@ -2808,6 +2808,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		do not use .bn-tabs (e.g. .bn-mod-filterbar__tabs) keep their own. */
 	overflow-x: auto;
 	scrollbar-width: none;
+	/* Lock touch scrolling to the horizontal axis. Without this, a horizontal
+		swipe that drifts slightly vertically let the page/container scroll
+		vertically mid-swipe (browser default touch-action: auto). pan-x is the
+		standard for a horizontal tab strip (Facebook / LinkedIn do the same);
+		overscroll-behavior-x stops the horizontal fling from chaining into the
+		browser's back/forward navigation swipe. */
+	touch-action: pan-x;
+	overscroll-behavior-x: contain;
 }
 .bn-tabs::-webkit-scrollbar { display: none; }
 .bn-tabs[data-density="compact"] { gap: 2px; }
@@ -3143,6 +3151,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	padding: var(--bn-s3) var(--bn-s4);
 	border-block-start: 1px solid var(--bn-line);
 	background: var(--bn-canvas);
+	/* This strip is the LAST child of the rounded .bn-pf-hero (.bn-card, radius
+		--bn-r-lg), which keeps overflow:visible so its More-Options dropdown is
+		not clipped. Because the hero can't clip, this opaque strip has to carry
+		the card's bottom radius itself — otherwise its square corners paint over
+		the hero's rounded bottom, and the bottom outline reads as square. */
+	border-end-start-radius: var(--bn-r-lg);
+	border-end-end-radius: var(--bn-r-lg);
 }
 .bn-pf-metricrow .bn-nav-metric + .bn-nav-metric::before {
 	content: "\00B7";
