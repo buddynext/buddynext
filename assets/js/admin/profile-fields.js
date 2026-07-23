@@ -23,8 +23,34 @@
 	// eslint-disable-next-line no-unused-vars
 	var __ = ( window.wp && window.wp.i18n && window.wp.i18n.__ ) ? window.wp.i18n.__ : function ( s ) { return s; };
 
+	// The field-type registry, localised by ProfileFieldsManager as
+	// `bnProfileFieldTypes` (slug => { isChoice, isDate, ... }). It is the single
+	// source of truth for which type reveals the Options textarea and which reveals
+	// the Date Format box, so add-on types registered through buddynext_field_types
+	// (Pro's multi_select_advanced, date_extended) are handled without a second
+	// hardcoded list here drifting out of sync with the PHP registry — the exact bug
+	// that hid those boxes for Pro types.
+	var FIELD_TYPES = ( window.bnProfileFieldTypes && 'object' === typeof window.bnProfileFieldTypes )
+		? window.bnProfileFieldTypes
+		: {};
+
+	// Fallback for the core types only, used if the registry failed to localise.
 	var CHOICE_TYPES = [ 'select', 'multiselect', 'radio', 'checkbox' ];
 	var DATE_TYPES   = [ 'date', 'daterange' ];
+
+	function isChoiceType( type ) {
+		if ( FIELD_TYPES[ type ] ) {
+			return !! FIELD_TYPES[ type ].isChoice;
+		}
+		return CHOICE_TYPES.indexOf( type ) >= 0;
+	}
+
+	function isDateType( type ) {
+		if ( FIELD_TYPES[ type ] ) {
+			return !! FIELD_TYPES[ type ].isDate;
+		}
+		return DATE_TYPES.indexOf( type ) >= 0;
+	}
 
 	function toggleAddPanel( panelId ) {
 		var el = document.getElementById( panelId );
@@ -64,10 +90,10 @@
 		var optWrap = document.getElementById( optWrapId );
 		var dateWrap = dateWrapId ? document.getElementById( dateWrapId ) : null;
 		if ( optWrap ) {
-			optWrap.style.display = CHOICE_TYPES.indexOf( type ) >= 0 ? 'block' : 'none';
+			optWrap.style.display = isChoiceType( type ) ? 'block' : 'none';
 		}
 		if ( dateWrap ) {
-			dateWrap.style.display = DATE_TYPES.indexOf( type ) >= 0 ? 'block' : 'none';
+			dateWrap.style.display = isDateType( type ) ? 'block' : 'none';
 		}
 	}
 

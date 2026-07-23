@@ -47,6 +47,7 @@ class ProfileFieldsManager {
 				$matrix[ $slug ] = array(
 					'label'                 => (string) ( $meta['label'] ?? ucfirst( $slug ) ),
 					'is_choice'             => ! empty( $meta['is_choice'] ),
+					'is_date'               => ! empty( $meta['is_date'] ),
 					'is_searchable_capable' => ! empty( $meta['is_searchable_capable'] ),
 					'value_kind'            => (string) ( $meta['value_kind'] ?? 'scalar' ),
 				);
@@ -180,6 +181,28 @@ class ProfileFieldsManager {
 	}
 
 	/**
+	 * Slugs of date-family field types (they show the "Date Format" options box).
+	 *
+	 * Registry-driven from is_date, unioned with the legacy DATE_TYPES baseline so
+	 * an add-on date type (Pro's date_extended) is recognised by the server exactly
+	 * as the client JS recognises it — no hardcoded list that drifts. This is what
+	 * lets a Pro date type reveal + persist its date-display setting like `date`.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return string[]
+	 */
+	private static function date_types(): array {
+		$slugs = self::DATE_TYPES;
+		foreach ( self::field_type_matrix() as $slug => $meta ) {
+			if ( ! empty( $meta['is_date'] ) && ! in_array( $slug, $slugs, true ) ) {
+				$slugs[] = $slug;
+			}
+		}
+		return $slugs;
+	}
+
+	/**
 	 * Slugs of field types that may be flagged as searchable in the directory.
 	 *
 	 * @since 1.0.0
@@ -282,6 +305,7 @@ class ProfileFieldsManager {
 		foreach ( $matrix as $slug => $meta ) {
 			$js_matrix[ $slug ] = array(
 				'isChoice'            => (bool) $meta['is_choice'],
+				'isDate'              => ! empty( $meta['is_date'] ),
 				'isSearchableCapable' => (bool) $meta['is_searchable_capable'],
 				'valueKind'           => (string) $meta['value_kind'],
 			);
@@ -414,7 +438,7 @@ class ProfileFieldsManager {
 		if ( in_array( $type, self::choice_types(), true ) ) {
 			$options_raw = sanitize_textarea_field( wp_unslash( $_POST['options'] ?? '' ) );
 			$parsed_opts = $this->parse_options_textarea( $options_raw );
-		} elseif ( in_array( $type, self::DATE_TYPES, true ) ) {
+		} elseif ( in_array( $type, self::date_types(), true ) ) {
 			$date_display = sanitize_key( wp_unslash( $_POST['date_display'] ?? 'date' ) );
 			$parsed_opts  = array( 'display' => in_array( $date_display, self::DATE_DISPLAY, true ) ? $date_display : 'date' );
 		} else {
@@ -1103,7 +1127,7 @@ class ProfileFieldsManager {
 		if ( in_array( $type, self::choice_types(), true ) ) {
 			$options_raw = sanitize_textarea_field( wp_unslash( $_POST['options'] ?? '' ) );
 			$parsed_opts = $this->parse_options_textarea( $options_raw );
-		} elseif ( in_array( $type, self::DATE_TYPES, true ) ) {
+		} elseif ( in_array( $type, self::date_types(), true ) ) {
 			$date_display = sanitize_key( wp_unslash( $_POST['date_display'] ?? 'date' ) );
 			$parsed_opts  = array( 'display' => in_array( $date_display, self::DATE_DISPLAY, true ) ? $date_display : 'date' );
 		} else {
@@ -1765,7 +1789,7 @@ class ProfileFieldsManager {
 							<?php
 							$edit_panel_id     = 'bn-ef-row-' . $fid;
 							$is_choice_type    = in_array( $field['type'], $choice_type_slugs, true );
-							$is_date_type      = in_array( $field['type'], self::DATE_TYPES, true );
+							$is_date_type      = in_array( $field['type'], self::date_types(), true );
 							$is_search_capable = in_array( $field['type'], $searchable_type_slugs, true );
 							$field_searchable  = ! empty( $field['is_searchable'] );
 							$opts_text         = $is_choice_type && ! empty( $field['options'] ) ? $this->options_to_textarea( (array) $field['options'] ) : '';

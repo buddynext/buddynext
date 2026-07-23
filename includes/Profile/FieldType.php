@@ -111,6 +111,7 @@ class FieldType {
 				'label'                 => __( 'Date', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
+				'is_date'               => true,
 				'is_searchable_capable' => false,
 			),
 			'boolean'                 => array(
@@ -214,6 +215,11 @@ class FieldType {
 				'label'                 => isset( $descriptor['label'] ) ? (string) $descriptor['label'] : ucfirst( $slug ),
 				'value_kind'            => in_array( $descriptor['value_kind'] ?? '', array( 'scalar', 'multi', 'bool' ), true ) ? (string) $descriptor['value_kind'] : 'scalar',
 				'is_choice'             => ! empty( $descriptor['is_choice'] ),
+				// A date-family type shows the "Date Format / Display As" options box.
+				// Registry-driven (like is_choice) so an add-on date type — e.g. Pro's
+				// date_extended — is recognised by the admin editor without editing a
+				// hardcoded list in two places (PHP + JS) that drift apart.
+				'is_date'               => ! empty( $descriptor['is_date'] ),
 				'is_searchable_capable' => ! empty( $descriptor['is_searchable_capable'] ),
 			);
 		}
