@@ -707,6 +707,7 @@ function buddynext_auth_panel_defaults(): array {
 		'buddynext_auth_panel_tagline' => '' !== trim( $tagline ) ? $tagline : __( 'Next-generation community for WordPress.', 'buddynext' ),
 		'buddynext_auth_panel_quote'   => __( 'Join the conversation, build real connections, and grow in a community that is truly yours.', 'buddynext' ),
 		'buddynext_auth_panel_image'   => BUDDYNEXT_URL . 'assets/images/auth-cover.svg',
+		'buddynext_signup_subtitle'    => __( 'Free forever. No credit card required.', 'buddynext' ),
 	);
 }
 

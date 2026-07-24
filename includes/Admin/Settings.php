@@ -1661,6 +1661,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'label' => __( 'Panel banner image URL', 'buddynext' ),
 						)
 					),
+					new Field(
+						array(
+							'key'   => 'buddynext_signup_subtitle',
+							'type'  => 'text',
+							'label' => __( 'Sign-up form subtitle', 'buddynext' ),
+							'hint'  => __( 'Shown under "Join the community" on the sign-up form.', 'buddynext' ),
+						)
+					),
 				)
 			),
 			new Section(
@@ -2446,6 +2454,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			__( 'Panel banner image URL', 'buddynext' ),
 			buddynext_auth_panel_value( 'buddynext_auth_panel_image' ),
 			__( 'A full-bleed banner image behind the panel. Defaults to the built-in network-textured gradient.', 'buddynext' )
+		);
+
+		$this->render_text_row(
+			'buddynext_signup_subtitle',
+			__( 'Sign-up form subtitle', 'buddynext' ),
+			buddynext_auth_panel_value( 'buddynext_signup_subtitle' ),
+			__( 'Shown under "Join the community" on the sign-up form. Reword it if joining your community is not free - for example when you only sell paid plans.', 'buddynext' )
 		);
 
 		$this->close_section();

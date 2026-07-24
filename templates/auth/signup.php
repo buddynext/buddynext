@@ -248,13 +248,17 @@ if ( 'invite' === $bn_reg_mode ) {
 				 * membership layer rewrites it when there is a paid plan intent, so the
 				 * screen never contradicts the plan summary printed a line below it.
 				 *
+				 * The default is owner-editable (Settings > Registration > Login &
+				 * Sign-up Panel > "Sign-up form subtitle") via buddynext_auth_panel_value();
+				 * the filter still runs last so plan-intent rewrites win.
+				 *
 				 * @since 1.0.8
 				 *
 				 * @param string $subtitle Default sub-heading.
 				 */
 				$bn_signup_sub = (string) apply_filters(
 					'buddynext_signup_subtitle',
-					__( 'Free forever. No credit card required.', 'buddynext' )
+					buddynext_auth_panel_value( 'buddynext_signup_subtitle' )
 				);
 				?>
 				<?php if ( '' !== $bn_signup_sub ) : ?>
