@@ -81,13 +81,6 @@
 @media (max-width: 768px) {
 	.bn-ob-form { padding: var(--bn-s5) var(--bn-s4); }
 }
-@media (max-width: 640px) {
-	/* Five labelled steps cannot fit a phone width: keep every numbered dot,
-	   show the label for the current step only. */
-	.bn-ob-stepper .bn-ob-stepper__label { display: none; }
-	.bn-ob-stepper .bn-stepper__item.is-active .bn-ob-stepper__label { display: inline; }
-
-}
 
 /* ── Form column inner sections ───────────────────────────────────────── */
 
@@ -112,17 +105,32 @@
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
-	/* An addon-appended sixth step can overflow the strip at ANY width (six
-	   full labels exceed even the desktop column): scroll instead of clipping
-	   (base .bn-stepper is plain flex), with the same touch behaviour the
-	   .bn-tabs strips use. A no-op while the steps fit; the onboarding store
-	   centers the active step on every transition. */
+	/* Belt-and-braces only: with the label-per-active-step rule below the
+	   strip fits every viewport, but if a future variant overflows it must
+	   scroll, never clip (base .bn-stepper is plain flex). The onboarding
+	   store centers the active step on every transition. */
 	overflow-x: auto;
 	scrollbar-width: none;
 	touch-action: pan-x;
 	overscroll-behavior-x: contain;
 }
 .bn-ob-stepper::-webkit-scrollbar { display: none; }
+
+/* The strip is a progress INDICATOR, not a table of contents: numbered dots
+   always, the label on the ACTIVE step only (owner decision, 2026-07-24).
+   Every step's full title renders directly beneath in the step head, and the
+   "Step X of Y" eyebrow keeps the count - so per-step labels added nothing
+   but width, and with an addon-appended sixth step the fully-labelled strip
+   could not fit ANY viewport without clipping or scrolling. */
+.bn-ob-stepper .bn-ob-stepper__label { display: none; }
+.bn-ob-stepper .bn-stepper__item.is-active .bn-ob-stepper__label { display: inline; }
+
+@media (max-width: 640px) {
+	/* Tighter rhythm so six dots + the longest active label ("Membership")
+	   fit a 390px viewport without scrolling. */
+	.bn-ob-stepper { gap: var(--bn-s1); }
+	.bn-ob-stepper .bn-stepper__bar { min-width: 8px; }
+}
 .bn-ob-stepper__label {
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold);
