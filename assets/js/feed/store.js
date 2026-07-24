@@ -911,8 +911,8 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 						body.appendChild( repliesEl );
 					}
 					repliesEl.appendChild( buildCommentNode( reply, currentUserId, postId, restUrl, nonce, cappedDepth + 1 ) );
-					replyTextarea.value = '';
-					replyForm.hidden    = true;
+					clearField( replyTextarea );
+					replyForm.hidden = true;
 					adjustCommentCount( postId, 1 );
 				} else {
 					const data = res.data || {};
@@ -2107,9 +2107,7 @@ store( 'buddynext/post-card', {
 						listEl.dataset.loaded = '1';
 						listEl.appendChild( buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 ) );
 					}
-					if ( inputEl ) {
-						inputEl.value = '';
-					}
+					clearField( inputEl );
 					adjustCommentCount( ctx.postId, 1 );
 					if ( window.bnToast ) { window.bnToast( t( 'commentAdded', 'Comment added' ) ); }
 				} else {
@@ -2240,6 +2238,29 @@ function autoResizeTextarea( el ) {
 	if ( ! el ) { return; }
 	el.style.height = 'auto';
 	el.style.height = el.scrollHeight + 'px';
+}
+
+/**
+ * Empty a field the way a member would — clear it AND fire `input`.
+ *
+ * Assigning `.value` in code changes a field SILENTLY: the browser fires no
+ * `input` event, so everything listening to it keeps rendering the old value.
+ * That is why the character counter still read "87 / 5000" under an empty
+ * composer after a successful post, and "37 / 1000" under an empty comment box —
+ * attachCharCounter only recomputes on `input`, and the reset paths set `.value`
+ * directly.
+ *
+ * Dispatching the event once here keeps every input-driven affordance (counter,
+ * typeahead, any future listener) in step, instead of each reset site having to
+ * remember to poke each one by hand.
+ *
+ * @param {HTMLTextAreaElement|HTMLInputElement|null} el Field to clear.
+ * @return {void}
+ */
+function clearField( el ) {
+	if ( ! el ) { return; }
+	el.value = '';
+	el.dispatchEvent( new Event( 'input', { bubbles: true } ) );
 }
 
 function maybeDetectLink( ctx ) {
@@ -3045,7 +3066,7 @@ store( 'buddynext/post-composer', {
 			setDraftStatus( ctx, '', false );
 			const textarea = document.querySelector( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' );
 			if ( textarea ) {
-				textarea.value = '';
+				clearField( textarea );
 				autoResizeTextarea( textarea );
 			}
 		},
@@ -3189,7 +3210,7 @@ store( 'buddynext/post-composer', {
 					ctx.content     = '';
 					ctx.hasDraft    = false;
 					setDraftStatus( ctx, '', false );
-					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { ta.value = ''; autoResizeTextarea( ta ); } );
+					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { clearField( ta ); autoResizeTextarea( ta ); } );
 
 					// The media was consumed into the post — clear the staged set and its
 					// previews WITHOUT deleting from the server (the post now owns them).
