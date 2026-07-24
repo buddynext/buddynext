@@ -13,6 +13,9 @@
  * @var array    $pinned_conversations Optional. Pinned conversation rows. Default [].
  * @var array    $recent_conversations Optional. Recent conversation rows. Default [].
  * @var int      $active_conv_id       Optional. Currently-active conversation ID. Default 0.
+ * @var bool     $active_conv_explicit Optional. True when the member asked for that
+ *                                     conversation, false when it was auto-opened as the
+ *                                     two-pane default. Default false.
  * @var string   $active_tab           Optional. Active tab (all|unread|requests). Default 'all'.
  * @var string   $list_search          Optional. Initial search input value. Default ''.
  * @var int      $unread_count         Optional. Total unread count. Default 0.
@@ -45,6 +48,7 @@ $args = array(
 	'pinned_conversations' => isset( $pinned_conversations ) ? (array) $pinned_conversations : array(),
 	'recent_conversations' => isset( $recent_conversations ) ? (array) $recent_conversations : array(),
 	'active_conv_id'       => isset( $active_conv_id ) ? (int) $active_conv_id : 0,
+	'active_conv_explicit' => ! empty( $active_conv_explicit ),
 	'active_tab'           => isset( $active_tab ) ? (string) $active_tab : 'all',
 	'list_search'          => isset( $list_search ) ? (string) $list_search : '',
 	'unread_count'         => isset( $unread_count ) ? (int) $unread_count : 0,
@@ -89,20 +93,27 @@ $bn_class   = trim(
 	)
 );
 
-$pinned        = (array) $args['pinned_conversations'];
-$recent        = (array) $args['recent_conversations'];
-$active_id     = (int) $args['active_conv_id'];
-$tab_active    = (string) $args['active_tab'];
-$search_val    = (string) $args['list_search'];
-$unread        = (int) $args['unread_count'];
-$req_count     = (int) $args['request_count'];
-$viewer_id     = (int) $args['current_user_id'];
-$compose       = (string) $args['compose_url'];
-$rail_tabs     = (array) $args['tabs'];
-$call_initials = $args['initials_fn'];
-$call_tone     = $args['tone_fn'];
-$call_relative = $args['relative_fn'];
-$call_online   = $args['online_fn'];
+$pinned    = (array) $args['pinned_conversations'];
+$recent    = (array) $args['recent_conversations'];
+$active_id = (int) $args['active_conv_id'];
+
+/*
+ * Whether the member actually asked for that conversation, as opposed to the two-pane
+ * page auto-opening the newest thread so the desktop layout is not half empty. Only an
+ * explicit open may travel in the filter-tab links below — see the tab URL for why.
+ */
+$bn_conv_explicit = (bool) $args['active_conv_explicit'];
+$tab_active       = (string) $args['active_tab'];
+$search_val       = (string) $args['list_search'];
+$unread           = (int) $args['unread_count'];
+$req_count        = (int) $args['request_count'];
+$viewer_id        = (int) $args['current_user_id'];
+$compose          = (string) $args['compose_url'];
+$rail_tabs        = (array) $args['tabs'];
+$call_initials    = $args['initials_fn'];
+$call_tone        = $args['tone_fn'];
+$call_relative    = $args['relative_fn'];
+$call_online      = $args['online_fn'];
 
 do_action( 'buddynext_part_dm_rail_before', $args );
 ?>
@@ -135,10 +146,28 @@ do_action( 'buddynext_part_dm_rail_before', $args );
 		<?php foreach ( $rail_tabs as $tab_key => $tab_label ) : ?>
 			<?php
 			$is_active_tab = $tab_key === $tab_active;
-			$tab_url       = add_query_arg(
+
+			/*
+			 * The filter tabs carry the open conversation so that switching filter on the
+			 * two-pane desktop layout keeps the thread you are reading. They used to carry
+			 * it even when nothing had been opened: /messages/ auto-opens the newest thread
+			 * to keep the desktop layout from looking half empty, so every tab link on a
+			 * plain visit read "?tab=unread&conversation=1".
+			 *
+			 * On mobile that URL is an explicit open, which flips the single pane to
+			 * is-thread-open — so tapping Unread or Requests hid the rail and showed a
+			 * message thread instead of the filtered list, with the tab marked active
+			 * behind the hidden rail.
+			 *
+			 * Only an explicit open travels now. That costs the desktop nothing (an
+			 * auto-opened default is re-selected on the next render anyway) and there is no
+			 * mobile case left to lose: once a thread really is open on mobile the rail,
+			 * and therefore these tabs, are not on screen to tap.
+			 */
+			$tab_url = add_query_arg(
 				array(
 					'tab'          => $tab_key,
-					'conversation' => $active_id > 0 ? $active_id : false,
+					'conversation' => ( $bn_conv_explicit && $active_id > 0 ) ? $active_id : false,
 				),
 				get_permalink()
 			);
