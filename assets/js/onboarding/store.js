@@ -33,6 +33,18 @@ function ctx() {
 	}
 }
 
+/* On phones a step is taller than the viewport, so the action row sits at a
+ * scroll offset the NEXT step does not reach — without this, advancing lands
+ * the member on blank canvas below the new step's content. */
+function scrollToStepTop() {
+	const form = document.querySelector( '.bn-ob-form' );
+	if ( form ) {
+		form.scrollIntoView( { block: 'start' } );
+	} else {
+		window.scrollTo( 0, 0 );
+	}
+}
+
 function toast( message, tone ) {
 	if ( typeof window.bnToast === 'function' ) {
 		window.bnToast( message, tone || 'info' );
@@ -138,6 +150,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			const total = c.totalSteps || 5;
 			if ( ( c.step || 1 ) < total ) {
 				c.step = ( c.step || 1 ) + 1;
+				scrollToStepTop();
 				// Persist step server-side (best-effort).
 				rest( c, 'me/onboarding/step', {
 					method: 'POST',
@@ -152,6 +165,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			const c = ctx();
 			if ( ( c.step || 1 ) > 1 ) {
 				c.step = c.step - 1;
+				scrollToStepTop();
 			}
 		},
 		skipStep() {
@@ -159,6 +173,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			const total = c.totalSteps || 5;
 			if ( ( c.step || 1 ) < total ) {
 				c.step = ( c.step || 1 ) + 1;
+				scrollToStepTop();
 				return;
 			}
 			// Last-step skip — finalize skip.
