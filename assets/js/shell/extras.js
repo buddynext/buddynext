@@ -709,4 +709,38 @@
 		window.addEventListener( 'resize', init, { passive: true } );
 		document.addEventListener( 'buddynext:navigated', init );
 	}() );
+
+	/*
+	 * Shell viewport fit — feed .bn-app the real chrome above it.
+	 *
+	 * .bn-app { min-height: calc(100dvh - var(--bn-shell-chrome)) } (bn-shell.css)
+	 * needs the exact height rendered above the shell: the host theme header + BN
+	 * toolbar, plus the WP admin bar only when an admin is logged in. That total
+	 * is not knowable in CSS (it varies by theme, and a subscriber has no admin
+	 * bar at all), so measure the shell's own top offset from the document top and
+	 * publish it as --bn-shell-chrome. Without this the shell reserves a full
+	 * viewport while sitting below the chrome, and short-content hubs show dead
+	 * canvas between the content and the footer (card 10124166442).
+	 *
+	 * scrollY is added so the value is correct even if the page is measured while
+	 * scrolled. Re-runs on resize (a theme's header height changes at its own
+	 * breakpoints) and after a client-side navigation.
+	 */
+	( function () {
+		var app = document.getElementById( 'bn-app' );
+		if ( ! app ) {
+			return;
+		}
+		function fitShell() {
+			var top = Math.round( app.getBoundingClientRect().top + window.scrollY );
+			app.style.setProperty( '--bn-shell-chrome', ( top > 0 ? top : 0 ) + 'px' );
+		}
+		if ( 'loading' === document.readyState ) {
+			document.addEventListener( 'DOMContentLoaded', fitShell );
+		} else {
+			fitShell();
+		}
+		window.addEventListener( 'resize', fitShell, { passive: true } );
+		document.addEventListener( 'buddynext:navigated', fitShell );
+	}() );
 }() );

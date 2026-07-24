@@ -72,8 +72,23 @@
 	max-width: 100vw;
 	display: flex;
 	flex-direction: column;
+	/*
+	 * The shell must fill the viewport BELOW the chrome it renders under, not the
+	 * whole viewport. .bn-app sits below the host theme header + BN toolbar (and
+	 * the admin bar when present) — a combined height that varies by theme and by
+	 * whether the user is logged in as an admin (bar) or a subscriber (no bar). A
+	 * raw 100dvh therefore overshoots by exactly that chrome height, and on a hub
+	 * with short content the surplus renders as dead canvas between the content
+	 * and the footer (card 10124166442, /notifications/ on a 1-item list).
+	 *
+	 * --bn-shell-chrome is the real top offset, measured per-load + on resize by
+	 * the shell (assets/js/shell/extras.js fitShell). The fallback below is the
+	 * pre-hydration value and matches the previous behaviour exactly: 0 here, and
+	 * the admin-bar heights in the rules below. Once measured it supersedes them
+	 * with the accurate offset for BOTH admin (with bar) and subscriber (without).
+	 */
 	min-height: 100vh;
-	min-height: 100dvh;
+	min-height: calc(100dvh - var(--bn-shell-chrome, 0px));
 	background: var(--bn-canvas);
 	color: var(--bn-ink, inherit);
 	box-sizing: border-box;
@@ -101,15 +116,19 @@ body.bn-page .site-main {
 	margin-top: 0;
 }
 
-/* Honour the WP admin bar when present (logged-in user). */
+/* Honour the WP admin bar when present (admin only — a subscriber has no bar).
+ * These are pre-hydration FALLBACKS: the var below carries the admin-bar height
+ * until fitShell measures the real offset (which already includes the bar), so
+ * once measured every rule resolves to the same accurate value — no double
+ * subtraction. */
 body.admin-bar .bn-app {
 	min-height: calc(100vh - 32px);
-	min-height: calc(100dvh - 32px);
+	min-height: calc(100dvh - var(--bn-shell-chrome, 32px));
 }
 @media screen and (max-width: 782px) {
 	body.admin-bar .bn-app {
 		min-height: calc(100vh - 46px);
-		min-height: calc(100dvh - 46px);
+		min-height: calc(100dvh - var(--bn-shell-chrome, 46px));
 	}
 }
 

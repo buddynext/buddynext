@@ -476,6 +476,21 @@ $initial_context = wp_json_encode(
 		</nav>
 	<?php endif; ?>
 
+	<?php
+	/*
+	 * End-of-list marker on the final page of a non-empty list — the same closure
+	 * the feed gives ("You've reached the end."). Without it a short single-page
+	 * list just stopped, leaving the tail of the hub reading as empty canvas rather
+	 * than a finished list (card 10124166442). On a multi-page list the "Next"
+	 * pager is the affordance, so this only appears once the last page is reached.
+	 */
+	?>
+	<?php if ( $has_any && $bn_paged >= $total_pages ) : ?>
+		<div class="bn-notifs-end" role="status">
+			<span class="bn-notifs-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
+		</div>
+	<?php endif; ?>
+
 	</div><!-- /.bn-notifs-main__content -->
 
 </div>

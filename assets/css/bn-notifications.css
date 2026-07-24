@@ -29,6 +29,26 @@
 	color: var(--bn-ink);
 }
 
+/* ── End-of-list marker ───────────────────────────────────────────────────
+ * Closes a non-empty list on its final page, mirroring the feed's .bn-feed-end
+ * so the two hubs read consistently — the finished list is capped rather than
+ * just stopping (card 10124166442). Sits naturally after the last group, the way
+ * every mainstream feed caps a list, not pinned to the bottom. */
+.bn-notifs-end {
+	text-align: center;
+	padding: var(--bn-s5) 0 var(--bn-s2);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-notifs-end__text {
+	display: inline-block;
+	padding: var(--bn-s2) var(--bn-s4);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+}
+
 /* ── Filter tabs - overflow/scrollbar inherited from base .bn-tabs ─────── */
 
 /* ── Group section ────────────────────────────────────────────────────── */
