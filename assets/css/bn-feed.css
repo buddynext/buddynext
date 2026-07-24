@@ -2793,9 +2793,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
-	/* No wrap: the datetime input (flex:1 + min-width:0) absorbs the row and
-	   shrinks instead, so the × clear button stays inline rather than wrapping
-	   to its own line. */
+	/* WRAPS, and the input carries a real flex-basis. The row used to be single-line with a
+	   non-shrinking label, which made it correct only while the label happened to be short:
+	   at 390px "Publish at (Asia/Kolkata)" already crushed the datetime input to 32px, and the
+	   longer announcement label pushed both the input and the × clear button entirely outside
+	   the row — unreachable, not merely cramped. A row whose correctness depends on the length
+	   of a translatable string is a bug in the row. The label now drops to its own line when it
+	   cannot share one, and the input keeps a usable width instead of absorbing the shortfall. */
+	flex-wrap: wrap;
 }
 .bn-composer__schedule-label {
 	display: inline-flex;
@@ -2804,11 +2809,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	font-size: var(--text-sm);
 	font-weight: 600;
 	color: var(--text-2);
-	flex-shrink: 0;
+	/* May shrink and wrap its own text; it no longer wins the row outright. */
+	min-width: 0;
 }
-.bn-composer__schedule-label svg { width: 16px; height: 16px; }
+.bn-composer__schedule-label svg { width: 16px; height: 16px; flex-shrink: 0; }
 .bn-composer__schedule-input {
-	flex: 1 1 auto;
+	/* Basis ~= the intrinsic width of a rendered "mm/dd/yyyy --:--", so the row wraps
+	   before the control becomes too narrow to read the value it holds. */
+	flex: 1 1 11rem;
 	min-width: 0;
 	background: var(--bg-subtle);
 	border: 1px solid var(--border);
