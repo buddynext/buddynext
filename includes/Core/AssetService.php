@@ -536,6 +536,18 @@ class AssetService {
 			if ( in_array( $id, $shell_dialog_consumers, true ) ) {
 				$deps[] = array( 'id' => '@buddynext/shell-dialog' );
 			}
+			// The feed paginates by letting the Interactivity Router swap its region
+			// (actions.loadMore) — the only supported way to add cards that are actually
+			// hydrated, since the API hydrates islands present at first paint and injected
+			// markup stays inert. Declared dynamic, exactly as @buddynext/navigate does, so
+			// the router is fetched on the first Load-more click rather than on every feed
+			// page view.
+			if ( '@buddynext/feed' === $id ) {
+				$deps[] = array(
+					'id'     => '@wordpress/interactivity-router',
+					'import' => 'dynamic',
+				);
+			}
 			wp_register_script_module(
 				$id,
 				$this->assets_url . 'js/' . $path . '.js',

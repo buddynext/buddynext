@@ -220,6 +220,31 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	// never toggled by any JS (dead markup) and was removed. If client-side filter
 	// fetching is added later, reintroduce the loading states wired to it.
 	?>
+	<?php
+	/*
+	 * Router region around the list + its "Load more" control.
+	 *
+	 * The Interactivity API hydrates islands present at first paint, so cards injected by
+	 * JS are inert — that is why every card past the first screen used to have dead React /
+	 * Comment / Share / Save controls. The core Interactivity Router is the one thing that
+	 * CAN hydrate: it fetches a URL and swaps a matching region, hydrating what it swapped.
+	 * So "Load more" fetches ?shown=N and the router replaces just this region — one PHP
+	 * renderer, no injected HTML, every card interactive.
+	 *
+	 * The composer, the filter tabs and the "N new posts" pill stay OUTSIDE the region so a
+	 * pagination swap never re-initialises them.
+	 *
+	 * Progressive enhancement: the region is inert markup on its own. With JS off, or the
+	 * router unavailable, or buddynext_feed_client_pagination filtered false, the Load-more
+	 * link below is a plain <a href> and the page simply loads. Plan:
+	 * free-internal/docs/plans/feed-hydrated-pagination-2026-07-24.md
+	 */
+	$bn_feed_client_pagination = (bool) apply_filters( 'buddynext_feed_client_pagination', true );
+	$bn_feed_region_attrs      = $bn_feed_client_pagination
+		? ' data-wp-interactive="buddynext/feed" data-wp-router-region="buddynext/feed"'
+		: '';
+	?>
+	<div class="bn-feed-region"<?php echo $bn_feed_region_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
 	<?php if ( ! empty( $feed_posts ) ) : ?>
 		<div class="bn-feed-list" role="feed" aria-label="<?php esc_attr_e( 'Home feed', 'buddynext' ); ?>">
 			<?php foreach ( $feed_posts as $home_post ) : ?>
@@ -259,11 +284,24 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 				);
 				?>
 				<div class="bn-load-more" id="bn-load-more">
+					<?php
+					/*
+					 * A real link first. When the router is available, actions.loadMore
+					 * intercepts the click and swaps the region in place (no page load,
+					 * scroll kept, cards hydrated). Without JS — or with the router
+					 * unavailable, or client pagination filtered off — this is an ordinary
+					 * link and the page loads. The href is identical either way, so the two
+					 * paths can never disagree about WHAT the next page is.
+					 */
+					?>
 					<a
 						href="<?php echo esc_url( $bn_more_url . '#bn-load-more' ); ?>"
 						class="bn-btn bn-load-more__btn"
 						data-variant="secondary"
 						rel="next"
+						<?php if ( $bn_feed_client_pagination ) : ?>
+							data-wp-on--click="actions.loadMore"
+						<?php endif; ?>
 					>
 						<?php esc_html_e( 'Load more', 'buddynext' ); ?>
 					</a>
@@ -322,6 +360,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			</a>
 		</div>
 	<?php endif; ?>
+	</div><!-- /.bn-feed-region -->
 
 	<?php
 	buddynext_get_template(

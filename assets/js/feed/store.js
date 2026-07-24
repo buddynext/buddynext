@@ -3860,6 +3860,83 @@ const feedStore = store( 'buddynext/feed', {
 		},
 	},
 	actions: {
+		/**
+		 * Load the next page of the feed WITHOUT a page load, and with every card alive.
+		 *
+		 * A post card is an Interactivity island, and the API only hydrates islands present
+		 * at first paint — so the old infinite scroll, which injected the next page's cards,
+		 * left every card past the first screen inert: React, Comment, Share and Save all
+		 * did nothing, silently, for the rest of the session.
+		 *
+		 * The Interactivity Router is the one thing that CAN hydrate: it fetches a URL and
+		 * swaps the matching data-wp-router-region, hydrating what it swapped. So this
+		 * follows the link's own href (?shown=N — the cumulative server render) and lets the
+		 * router replace the feed region. One PHP renderer, no injected HTML, no dead cards.
+		 *
+		 * Mirrors the shell's navigate action, including the modified-click bail-outs so a
+		 * middle-click or cmd-click still opens a normal tab. Any failure falls through to
+		 * the browser's own navigation, because the control is a real <a href> — the same
+		 * progressive-enhancement contract the rest of the shell uses.
+		 *
+		 * Plan: free-internal/docs/plans/feed-hydrated-pagination-2026-07-24.md
+		 *
+		 * @param {MouseEvent} event Click on the Load-more link.
+		 */
+		*loadMore( event ) {
+			const link = event && event.target ? event.target.closest( 'a[href]' ) : null;
+			if ( ! link || ! link.href ) {
+				return;
+			}
+			// Let the browser handle anything that is not a plain left-click, and anything
+			// pointing off-site — same rules as the shell navigate action.
+			if (
+				event.ctrlKey ||
+				event.metaKey ||
+				event.shiftKey ||
+				event.altKey ||
+				event.button !== 0 ||
+				link.target === '_blank' ||
+				link.origin !== window.location.origin
+			) {
+				return;
+			}
+
+			event.preventDefault();
+
+			// Drop the #bn-load-more fragment. It exists for the no-JS path, where a full
+			// page load would otherwise drop the member at the top of the feed; on the
+			// router path nothing moves, so honouring the anchor would yank them from where
+			// they were reading down to the button. Keeping position is the whole point.
+			const href = link.href.split( '#' )[ 0 ];
+
+			// Where the member is reading. A region swap is not a navigation, so nothing
+			// SHOULD move — but the swap replaces the focused Load-more button, and the
+			// browser scrolls the re-created element into view, which lands them at the
+			// bottom of the newly-loaded batch with 15 unseen cards above. Measured: 1200 ->
+			// 4165. Restore the offset so new posts simply appear below them, which is what
+			// continuous scrolling feels like everywhere else.
+			const scrollY = window.scrollY;
+
+			try {
+				const router = yield import( '@wordpress/interactivity-router' );
+				yield router.actions.navigate( href );
+
+				// After the swap, and again on the next frame: the router settles focus and
+				// the browser can adjust once more after layout.
+				window.scrollTo( 0, scrollY );
+				window.requestAnimationFrame( () => window.scrollTo( 0, scrollY ) );
+
+				// Same signal a shell navigation emits, so anything that re-initialises on
+				// navigation (nav chevrons, shell offsets) also runs after a feed swap.
+				document.dispatchEvent(
+					new CustomEvent( 'buddynext:navigated', { detail: { href } } )
+				);
+			} catch ( _e ) {
+				// Router unavailable or the swap failed — do what the link would have done.
+				window.location.href = href;
+			}
+		},
+
 		setFilter( event ) {
 			if ( event && event.preventDefault ) { event.preventDefault(); }
 			const ctx    = getContext();
