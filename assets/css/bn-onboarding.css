@@ -86,6 +86,7 @@
 	   show the label for the current step only. */
 	.bn-ob-stepper .bn-ob-stepper__label { display: none; }
 	.bn-ob-stepper .bn-stepper__item.is-active .bn-ob-stepper__label { display: inline; }
+
 }
 
 /* ── Form column inner sections ───────────────────────────────────────── */
@@ -111,7 +112,17 @@
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
+	/* An addon-appended sixth step can overflow the strip at ANY width (six
+	   full labels exceed even the desktop column): scroll instead of clipping
+	   (base .bn-stepper is plain flex), with the same touch behaviour the
+	   .bn-tabs strips use. A no-op while the steps fit; the onboarding store
+	   centers the active step on every transition. */
+	overflow-x: auto;
+	scrollbar-width: none;
+	touch-action: pan-x;
+	overscroll-behavior-x: contain;
 }
+.bn-ob-stepper::-webkit-scrollbar { display: none; }
 .bn-ob-stepper__label {
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold);

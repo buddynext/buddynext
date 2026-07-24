@@ -131,8 +131,39 @@ class OnboardingService {
 			'icon'  => 'bell',
 		);
 
+		/**
+		 * Filter the onboarding wizard's step list.
+		 *
+		 * Lets an addon append its own step(s) - e.g. Pro's membership plan
+		 * step. Appended entries render their section via the
+		 * `buddynext_onboarding_render_extra_steps` action in
+		 * templates/onboarding/index.php; the core steps above are the
+		 * template's own sections and must not be removed or reordered here
+		 * (their markup is position-bound). Entries missing key/label/icon,
+		 * or duplicating an existing key, are dropped.
+		 *
+		 * @since 1.1.0
+		 *
+		 * @param array<int, array{key:string, label:string, icon:string}> $steps Zero-indexed step list.
+		 */
+		$steps = (array) apply_filters( 'buddynext_onboarding_steps', $steps );
+
+		$seen  = array();
+		$clean = array();
+		foreach ( $steps as $step ) {
+			if ( ! is_array( $step ) ) {
+				continue;
+			}
+			$key = (string) ( $step['key'] ?? '' );
+			if ( '' === $key || isset( $seen[ $key ] ) || '' === (string) ( $step['label'] ?? '' ) || '' === (string) ( $step['icon'] ?? '' ) ) {
+				continue;
+			}
+			$seen[ $key ] = true;
+			$clean[]      = $step;
+		}
+
 		// 1-based positions — the template binds each section to its position.
-		return array_combine( range( 1, count( $steps ) ), $steps );
+		return array_combine( range( 1, count( $clean ) ), $clean );
 	}
 
 	/**
