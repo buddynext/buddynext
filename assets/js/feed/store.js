@@ -3937,6 +3937,51 @@ const feedStore = store( 'buddynext/feed', {
 			}
 		},
 
+		/**
+		 * Turn the Load-more control into continuous scroll.
+		 *
+		 * Bound with data-wp-init on the control, so it arrives with every region swap —
+		 * including the swapped-in copy, which is what keeps the behaviour going page after
+		 * page without re-registering anything by hand.
+		 *
+		 * Every mainstream network scrolls rather than asking you to click, so the click is
+		 * the fallback, not the design. The link stays real and keyboard-reachable: a member
+		 * on a keyboard, or with the observer unsupported, still has a focusable control.
+		 *
+		 * `rootMargin` starts the fetch a screen early so the next cards are usually there
+		 * before the reader arrives. A guard flag stops a second fetch while one is in
+		 * flight — the sentinel can stay intersecting across the swap.
+		 */
+		initLoadMore() {
+			const { ref } = getElement();
+			if ( ! ref || typeof window.IntersectionObserver !== 'function' ) {
+				return; // No observer support: the link still works as a click.
+			}
+			// Honour reduced-motion by leaving auto-advance off — an unexpected stream of
+			// new content is exactly the kind of motion that setting asks us not to start.
+			if ( window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) {
+				return;
+			}
+
+			let firing = false;
+			const observer = new window.IntersectionObserver(
+				( entries ) => {
+					if ( firing || ! entries.some( ( e ) => e.isIntersecting ) ) {
+						return;
+					}
+					if ( ! ref.isConnected ) {
+						observer.disconnect();
+						return;
+					}
+					firing = true;
+					observer.disconnect(); // The swap brings a fresh control with its own observer.
+					ref.click();
+				},
+				{ rootMargin: '600px 0px' }
+			);
+			observer.observe( ref );
+		},
+
 		setFilter( event ) {
 			if ( event && event.preventDefault ) { event.preventDefault(); }
 			const ctx    = getContext();

@@ -239,8 +239,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	 * link below is a plain <a href> and the page simply loads. Plan:
 	 * free-internal/docs/plans/feed-hydrated-pagination-2026-07-24.md
 	 */
-	$bn_feed_client_pagination = (bool) apply_filters( 'buddynext_feed_client_pagination', true );
-	$bn_feed_region_attrs      = $bn_feed_client_pagination
+	$bn_feed_region_attrs = (bool) apply_filters( 'buddynext_feed_client_pagination', true )
 		? ' data-wp-interactive="buddynext/feed" data-wp-router-region="buddynext/feed"'
 		: '';
 	?>
@@ -283,29 +282,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 					PageRouter::activity_url()
 				);
 				?>
-				<div class="bn-load-more" id="bn-load-more">
-					<?php
-					/*
-					 * A real link first. When the router is available, actions.loadMore
-					 * intercepts the click and swaps the region in place (no page load,
-					 * scroll kept, cards hydrated). Without JS — or with the router
-					 * unavailable, or client pagination filtered off — this is an ordinary
-					 * link and the page loads. The href is identical either way, so the two
-					 * paths can never disagree about WHAT the next page is.
-					 */
-					?>
-					<a
-						href="<?php echo esc_url( $bn_more_url . '#bn-load-more' ); ?>"
-						class="bn-btn bn-load-more__btn"
-						data-variant="secondary"
-						rel="next"
-						<?php if ( $bn_feed_client_pagination ) : ?>
-							data-wp-on--click="actions.loadMore"
-						<?php endif; ?>
-					>
-						<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-					</a>
-				</div>
+				<?php buddynext_get_template( 'parts/feed-load-more.php', array( 'more_url' => $bn_more_url ) ); ?>
 			<?php else : ?>
 				<div class="bn-feed-end" role="status">
 					<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>

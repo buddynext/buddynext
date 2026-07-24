@@ -59,17 +59,28 @@ $feed_svc->prime_viewer_state( (array) $bn_posts, $viewer_id );
 		}
 		?>
 		<?php if ( $has_more ) : ?>
-			<button
-				type="button"
-				class="bn-btn bn-load-more"
+			<?php
+			/*
+			 * This was a <button> carrying data-scope / data-cursor / data-per-page for a
+			 * handler that does not exist anywhere in the plugin — clicking it did nothing,
+			 * ever. A control that renders but is not wired is exactly what
+			 * "if it renders, it is real" forbids.
+			 *
+			 * A block embed is a WINDOW onto the feed, not a second feed: it is dropped into
+			 * an arbitrary page, and several of them can share one page, so a `shown`-style
+			 * grow-this-page control cannot address the right one. So it now says what it
+			 * actually does and sends the reader to the real feed, where pagination lives.
+			 */
+			?>
+			<a
+				href="<?php echo esc_url( 'explore' === $scope ? \BuddyNext\Core\PageRouter::explore_url() : \BuddyNext\Core\PageRouter::activity_url() ); ?>"
+				class="bn-btn bn-load-more__btn"
 				data-variant="ghost"
 				data-size="sm"
-				data-scope="<?php echo esc_attr( $scope ); ?>"
-				data-cursor="<?php echo esc_attr( $result['next_cursor'] ?? '' ); ?>"
-				data-per-page="<?php echo absint( $bn_per_page ); ?>"
 			>
-				<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-			</button>
+				<?php esc_html_e( 'See more in the feed', 'buddynext' ); ?>
+				<span aria-hidden="true">&rarr;</span>
+			</a>
 		<?php endif; ?>
 	<?php endif; ?>
 </div>
