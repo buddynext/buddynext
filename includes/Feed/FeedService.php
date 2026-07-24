@@ -256,6 +256,16 @@ class FeedService {
 	public const HOME_FILTERS = array( 'for-you', 'following', 'spaces', 'network' );
 
 	/**
+	 * How long a member's own new post stays floated to the top of their own feed.
+	 *
+	 * Long enough that the member sees the post they just wrote (the confirmation
+	 * every mainstream network gives), short enough that it is never a self-boost.
+	 *
+	 * @var int
+	 */
+	public const OWN_POST_FLOAT_MINUTES = 15;
+
+	/**
 	 * Return the home feed for the given user.
 	 *
 	 * @param int         $user_id  Viewing user ID.
@@ -372,6 +382,30 @@ class FeedService {
 			);
 
 			$bn_tiers = array();
+
+			/*
+			 * Your OWN post, just published, sits at the top of your own feed.
+			 *
+			 * You are not one of your own connections, so a post you just wrote fell
+			 * into the ELSE tier — below every connection's post and every
+			 * interest-space post. Measured on the model: a member's brand-new post
+			 * landed at position 18 of 30 in their own For-you feed, i.e. off-screen.
+			 * The member posts, looks at their feed, and cannot find it — which reads
+			 * as "my post failed", and is the single most common thing anyone does
+			 * here. Facebook, Instagram and LinkedIn all place your new post at the
+			 * top of your own feed; this is that behaviour, not a new idea.
+			 *
+			 * Scoped to a short window so it stays a POSTING confirmation rather than
+			 * a permanent self-boost: after the window the post ranks normally, so a
+			 * member's feed never turns into a wall of their own writing. created_at
+			 * is stored UTC, so the comparison uses UTC_TIMESTAMP().
+			 */
+			$bn_tiers[] = $wpdb->prepare(
+				'WHEN user_id = %d AND created_at > DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d MINUTE ) THEN 0',
+				$user_id,
+				self::OWN_POST_FLOAT_MINUTES
+			);
+
 			if ( ! empty( $bn_conn_ids ) ) {
 				$bn_tiers[] = 'WHEN user_id IN (' . implode( ',', $bn_conn_ids ) . ') THEN ' . count( $bn_tiers );
 			}

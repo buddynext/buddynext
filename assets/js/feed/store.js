@@ -211,22 +211,31 @@ let bnReactionScrollBound = false;
 // Returns false when there is no feed list on the page or no html, so the
 // caller can fall back to a full reload.
 function prependFeedCard( html ) {
-	if ( ! html || typeof html !== 'string' ) {
-		return false;
-	}
-	var listEl = document.querySelector( '.bn-feed-list' );
-	if ( ! listEl ) {
-		return false;
-	}
-	// DOMParser yields an inert document (scripts never execute); move each
-	// parsed node to the top of the live list before the current first child.
-	var doc   = new DOMParser().parseFromString( html, 'text/html' );
-	var nodes = Array.prototype.slice.call( doc.body.childNodes );
-	var first = listEl.firstChild;
-	for ( var i = 0; i < nodes.length; i++ ) {
-		listEl.insertBefore( nodes[ i ], first );
-	}
-	return true;
+	/*
+	 * DISABLED: a card inserted this way is DEAD.
+	 *
+	 * A post card is an Interactivity island (data-wp-interactive="buddynext/post-card").
+	 * The Interactivity API hydrates islands present at first paint; markup injected
+	 * afterwards is never hydrated, so every directive on the inserted card is inert. The
+	 * member saw their post appear and then found React, Comment, Share and Save all dead
+	 * until they refreshed the page (cards 10127252280 and 10127947165 — same root cause).
+	 * Verified in the browser with a clean single click: a server-rendered card opens its
+	 * comments, an injected one does not.
+	 *
+	 * There is no supported way to hydrate it from here. WordPress 7.0 exports no public
+	 * hydrate/init from @wordpress/interactivity; core's own router reaches for privateApis,
+	 * which a plugin must not depend on. The router itself is not an option either: it only
+	 * hydrates a swapped data-wp-router-region, and client navigation is off by default.
+	 *
+	 * So we refuse the insert and return false, which routes BOTH callers (composer submit
+	 * and repost) into the reload fallback they already carry. The member gets their post
+	 * from the server, fully hydrated, with every control working. A page load is a real
+	 * cost against the Facebook/LinkedIn bar — but a card whose every button is dead is a
+	 * much bigger one, and this is the honest behaviour until the feed renders its cards
+	 * through the Interactivity API itself (data-wp-each) rather than injecting server HTML.
+	 * That refactor is the actual fix; this keeps the product correct until it lands.
+	 */
+	return false;
 }
 
 function bnApplyFilters( hook, value, ...args ) {
