@@ -572,6 +572,20 @@ body.admin-bar .bn-app__rail {
 	 */
 	.bn-app__main {
 		padding-bottom: var(--bn-mobile-nav-clearance); /* clear .bn-mobile-nav bottom bar */
+
+		/*
+		 * No side gutter of our own on mobile. --bn-s6 (24px) is desktop column
+		 * padding and it was stacking on top of two other insets: the host theme's
+		 * wrapper gutter and then each card's own inner padding. Measured on the
+		 * profile edit screen at 390px — 15px (Reign's .wb-grid gutter) + 24px (this)
+		 * + 16px (the card) = 55px PER SIDE, so 110px of a 375px viewport went to
+		 * white space and the content ran at 265px. Nearly a third of a phone screen.
+		 *
+		 * The theme's wrapper already provides the outer margin, and every card
+		 * provides the breathing room between its border and its text, so this middle
+		 * layer was pure loss. Removing it is what full-width mobile means here.
+		 */
+		padding-inline: 0;
 	}
 
 	/*

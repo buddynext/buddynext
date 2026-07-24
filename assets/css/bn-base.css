@@ -1481,7 +1481,40 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 		padding-inline: var(--bn-s4);
 		inset-block-end: var( --bn-mobile-nav-h, calc( 60px + env( safe-area-inset-bottom, 0px ) ) );
 	}
-	.bn-ep-save-status { display: none; }
+
+	/* The status pill stays on mobile. It used to be hidden here for room, but it is
+	   the only thing that tells a member the save WORKED — "Saved just now" is the
+	   confirmation, and without it tapping Save produced no feedback at all beyond the
+	   button greying out. Measured at 390px on the busiest bar (profile edit, which
+	   also carries Cancel): 124px of pill + 204px of buttons inside 343px. */
+	.bn-ep-save-status {
+		/* Yields space to the buttons and ellipsises a long translation rather than
+		   pushing them off the bar. */
+		flex: 0 1 auto;
+		min-inline-size: 0;
+	}
+
+	.bn-ep-save-status span:not(.bn-ep-dirty-dot):not(.bn-ep-spinner) {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* The actions take the rest of the row instead of huddling at the right edge.
+	   A 204px cluster against a 343px bar left a third of the width dead, and on the
+	   preferences bar — which carries Save alone — most of the row was empty next to a
+	   small button. Full-width controls are the mobile norm and give bigger targets. */
+	.bn-ep-save-actions {
+		flex: 1 1 auto;
+		margin-inline-start: 0;
+	}
+
+	.bn-ep-save-actions > * {
+		flex: 1 1 auto;
+		justify-content: center;
+		/* Never shrink below a comfortable tap target, whatever the label. */
+		min-inline-size: 5.5rem;
+	}
 }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */

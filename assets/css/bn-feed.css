@@ -71,16 +71,21 @@
 	border-color: var(--bn-line-strong);
 }
 
-/* Announcement + pinned variants — subtle accent rails on the v2 single border. */
-.bn-post-card--announcement {
-	border-inline-start-width: 4px;
-	border-inline-start-color: var(--bn-accent);
-}
-
-.bn-post-card--pinned {
-	border-block-start-width: 3px;
-	border-block-start-color: var(--bn-warn);
-}
+/*
+ * Announcement + pinned variants carry NO coloured edge rail.
+ *
+ * They used to: a 4px accent border on the inline start, and a 3px warn border on the
+ * block start. Both were a second, weaker way of saying something the card already says
+ * in words — an announcement renders .bn-post-card__announcement-bar with a labelled
+ * badge on a tinted ground, and a pinned post renders .bn-post-card__pin-label. Two
+ * signals for one state, and the rail was the one a member cannot read.
+ *
+ * Neither Facebook nor LinkedIn marks a pinned or promoted post with a coloured card
+ * edge; they label it. The rail also broke the card's silhouette (a 4px stripe against
+ * 1px on the other three sides) and stole width from the text on a phone.
+ *
+ * Keep the state legible in the banner, not in the border.
+ */
 
 /* Announcement / pin banners — flush rows above the head. */
 .bn-post-card__announcement-bar {
