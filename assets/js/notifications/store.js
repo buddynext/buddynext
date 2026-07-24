@@ -83,6 +83,19 @@ function filterKeyForType( type ) {
  * @param {number} delta  Amount to add (use -1 when marking one read).
  * @param {string} [type] Raw notification type, to also move its type tab.
  */
+/**
+ * Total UNREAD notifications, as maintained for the filter-bar tabs.
+ *
+ * @param {Object} ctx Interactivity context.
+ * @return {number} Unread total, 0 when the context has no tab counts.
+ */
+function unreadTotal( ctx ) {
+	if ( ! ctx || ! ctx.tabCounts ) {
+		return 0;
+	}
+	return parseInt( ctx.tabCounts.unread, 10 ) || 0;
+}
+
 function adjustUnreadTabBadges( ctx, delta, type ) {
 	if ( ! ctx || ! ctx.tabCounts ) {
 		return;
@@ -125,6 +138,31 @@ const notificationsStore = store( 'buddynext/notifications', {
 		get badgeHidden() {
 			var ctx = getContext();
 			return ! ctx || ! ctx.unreadCount || ctx.unreadCount <= 0;
+		},
+		// The "N new" pill beside the page title. It counts UNREAD notifications,
+		// which is a different number from ctx.unreadCount — that one is the bell's
+		// UNSEEN count, seeded from unseen_count() and refreshed from
+		// GET /me/notifications/unread-count, which returns unseen by design
+		// (NotificationController::unread_count). Opening this page marks everything
+		// seen, so unseen is almost always 0 here: the pill was server-rendered as
+		// "25 new" from the unread total and then hydration replaced it with
+		// formatBadge(0) === '', leaving an empty accent-coloured blob next to the
+		// heading while the Unread tab correctly read 25.
+		//
+		// Reads tabCounts.unread rather than introducing another counter to keep in
+		// sync: markAllRead zeroes it and adjustUnreadTabBadges decrements it on
+		// every mark-read path already, so the pill tracks them for free.
+		get unreadTotalLabel() {
+			var n = unreadTotal( getContext() );
+			if ( n <= 0 ) {
+				return '';
+			}
+			// Same translated string the server renders, so the pill does not change
+			// its wording the instant the page hydrates.
+			return fmt( t( 'unreadBadge', '%s new' ), formatBadge( n ) );
+		},
+		get unreadTotalHidden() {
+			return unreadTotal( getContext() ) <= 0;
 		},
 		get hasError() {
 			var ctx = getContext();
@@ -321,6 +359,13 @@ const notificationsStore = store( 'buddynext/notifications', {
 			if ( wasUnread && ctx.unreadCount > 0 ) {
 				ctx.unreadCount = ctx.unreadCount - 1;
 			}
+			if ( wasUnread ) {
+				// markRead does this and dismiss did not, so dismissing an unread
+				// notification deleted it server-side while the Unread tab kept counting
+				// it — measured: 21 rows dismissed to 20, database at 20, tab still 21,
+				// and it stayed wrong until a reload.
+				adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
+			}
 
 			try {
 				var res = await restFetch( '/' + notifId, {
@@ -337,6 +382,9 @@ const notificationsStore = store( 'buddynext/notifications', {
 					parent.insertBefore( row, nextSibling );
 				}
 				ctx.unreadCount = previousUnread;
+				if ( wasUnread ) {
+					adjustUnreadTabBadges( ctx, 1, row.dataset.notifType );
+				}
 				toast( t( 'dismissFailed', 'Could not dismiss. Try again.' ), 'error' );
 				return;
 			}
