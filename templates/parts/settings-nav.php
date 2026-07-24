@@ -40,6 +40,8 @@ $bn_settings_tabs = (array) apply_filters( 'buddynext_settings_tabs', $bn_settin
 	<h1 class="bn-settings__title"><?php esc_html_e( 'Settings', 'buddynext' ); ?></h1>
 	<p class="bn-settings__sub"><?php esc_html_e( 'Manage your account, notifications, privacy, and appearance.', 'buddynext' ); ?></p>
 </header>
+<?php // .bn-navgroup opts the strip into the shared overflow chevrons (shell/extras.js), the cross-browser "more tabs" affordance - the CSS edge-fade alone is Chrome-only. ?>
+<div class="bn-navgroup">
 <nav class="bn-tabs bn-settings-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Settings sections', 'buddynext' ); ?>">
 	<?php
 	foreach ( $bn_settings_tabs as $bn_slug => $bn_label ) :
@@ -55,3 +57,4 @@ $bn_settings_tabs = (array) apply_filters( 'buddynext_settings_tabs', $bn_settin
 		</a>
 	<?php endforeach; ?>
 </nav>
+</div>
