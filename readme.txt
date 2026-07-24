@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,24 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.1.1 - July 2026 =
+
+Fixes for the activity feed, the post composer, notification preferences and Messages, plus a wider mobile layout across every screen.
+
+* Improve  - The feed loads the next posts as you scroll, on the main feed, Explore and Bookmarks alike, without a page reload and without losing your place.
+* Improve  - Community screens use the full width of a phone. Cards were running at about two thirds of the screen because three separate layers of spacing stacked up, and the width is now the same whichever theme is active.
+* Improve  - The save bar on Edit profile and Notification preferences spans the width of a phone screen and shows its status there, so saving is confirmed instead of silent.
+* Improve  - Announcement and pinned posts are marked by their label rather than a coloured card edge.
+* Fix      - Everything past the first screen of the feed was inert: React, Comment, Share and Save did nothing on any post loaded after the first page.
+* Fix      - Your own post now sits at the top of your feed for a few minutes after you publish it, instead of below every post from the people you follow.
+* Fix      - Notification preferences could not be saved on any screen size. The Save bar was rendered at the far end of the page rather than pinned, and on phones the email frequency options were clipped by the card so "Off" was cut in half.
+* Fix      - The count beside the Notifications heading went blank as the page finished loading, and dismissing an unread notification left the Unread tab still counting it.
+* Fix      - Tapping Unread or Requests in Messages on a phone opened a conversation instead of showing the filtered list.
+* Fix      - The announcement expiry and schedule fields in the post composer were pushed off the row on phones, so neither the date nor its clear button could be reached. Both now also name the site timezone they are read in.
+* Fix      - Toasts, cookie notices and save bars could sit underneath the mobile navigation bar; every bottom-pinned surface now clears it from a single measurement.
+* Fix      - The character counter in the composer kept the previous post's count after publishing.
+* Fix      - The feed tab strip gave no hint that more tabs exist beyond the screen edge, a desktop-only instruction showed on phones, and a placeholder was clipped.
 
 = 1.1.0 - July 2026 =
 
