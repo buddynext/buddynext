@@ -60,14 +60,18 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 Mobile polish across messages, navigation and onboarding, offline support, live message reactions, and a round of profile and signup fixes.
 
+* New      - The sign-up form subtitle is editable under Members > Registration & Login, so a paid-only community is not promised "Free forever".
 * New      - A link preview can be removed while editing a post.
 * New      - A Member type profile field can be shown on signup and profiles; the member's choice assigns their member type and is set once.
 * New      - Losing your connection now shows a branded offline page with a retry, in your community's colours, instead of the browser's error screen.
 * New      - The app config endpoint reports each installed integration with its on/off state and version, so a mobile client can hide a module the site does not run.
+* Improve  - The onboarding stepper shows numbered dots with the current step labelled, on every screen size, so six steps never clip or scroll.
 * Improve  - Messages runs edge-to-edge on phones, and the message field takes the full width with emoji, attachment and send on the line below.
 * Improve  - Members with an imported profile address that breaks mentions can now be repaired with one click from BuddyNext > Members, not only from the command line.
 * Improve  - The app now works offline as an app should: BuddyNext's styling is stored on the device, so an offline page looks like your community rather than an unstyled list of links.
 * Improve  - Stylesheets, scripts and images are cached as they are used, capped so they cannot fill a member's device, and cleared automatically when the plugin updates.
+* Fix      - Onboarding kept the previous step's scroll position on Continue, so on phones the next step opened on blank space.
+* Fix      - The settings tab strip gave no hint that more tabs exist beyond the screen edge; it now shows the same scroll chevrons as the main navigation on every browser.
 * Fix      - A reaction on a message now appears for the other person live, instead of only after they reload the conversation.
 * Fix      - Short pages like Notifications showed a large blank gap between the content and the footer on phones, and short lists now end with a clear end-of-list marker.
 * Fix      - The onboarding steps were clipped at the right edge on phones; every input and step indicator now fits, and the step icon and heading share one line.
@@ -92,6 +96,7 @@ Mobile polish across messages, navigation and onboarding, offline support, live 
 * Fix      - The admin member list and member edit screen showed each member's username where their public profile address belongs; the two differ when a username contains a space or a dot, and for members using a custom profile address.
 * Security - Pages and API responses are never stored on the device by the offline cache, so nothing personal can be shown to whoever opens the browser next.
 * Security - Marking the community private now also locks down the media/messaging REST API (WPMediaVerse), not only BuddyNext's own - closing a gap where media, tags and profiles stayed readable when logged out. Needs WPMediaVerse 2.2.0.
+* Dev      - Addons can append onboarding wizard steps via the buddynext_onboarding_steps filter and render them with the buddynext_onboarding_render_extra_steps action.
 * Dev      - Integrations can declare their plugin version when registering on the buddynext_integrations filter.
 * Dev      - Content services accept a historical created_at from importers, so a migrated community keeps its original comment, space, connection, follow and reaction dates.
 * Dev      - Added "wp buddynext handles check" and "wp buddynext handles repair" to report and normalise imported profile addresses. Repair reports only unless --yes is passed.
