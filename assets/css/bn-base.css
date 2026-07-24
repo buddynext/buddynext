@@ -660,6 +660,39 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	align-items: center;
 	pointer-events: none;
 }
+
+/*
+ * ── Bottom-anchored surfaces must clear the fixed mobile nav ────────────────
+ *
+ * .bn-mobile-nav is fixed across the bottom on phones, and every surface pinned
+ * near the bottom used to guess its way around it — the toast at 24px, the
+ * cookie bar at 16px, the edit-profile save bar at a hardcoded 52px. The nav
+ * declares no height (it is emergent: 44px tap targets + padding + iOS
+ * safe-area) and actually measures 60px at 390px, so those literals were wrong
+ * and the surfaces rendered ON the primary navigation. Measured before the fix:
+ * toast 755-820 against a nav starting at 785 — "Comment added" covered
+ * Feed / Spaces / Alerts / Profile for its whole lifetime.
+ *
+ * --bn-mobile-nav-h is the nav's measured height, published by
+ * assets/js/shell/extras.js (fitMobileNav) and re-measured on resize and after a
+ * client-side navigation. The literal in each var() is only the pre-hydration
+ * fallback. Scoped with :has(.bn-mobile-nav) so a surface without the bar (an
+ * embedded shortcode page, a hub with the bar disabled) keeps its tighter anchor.
+ *
+ * ADD ANY NEW BOTTOM-PINNED SURFACE TO THIS BLOCK — that is the whole point of
+ * it. The bug class here was five surfaces each solving the same problem
+ * differently, and three of them getting it wrong.
+ */
+@media (max-width: 768px) {
+	body:has(.bn-mobile-nav) .bn-toast-container,
+	body:has(.bn-mobile-nav) .bn-unsub-notice {
+		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+	}
+
+	body:has(.bn-mobile-nav) .bn-cookie-consent {
+		inset-block-end: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+	}
+}
 .bn-toast {
 	background: var(--text-1);
 	color: var(--bg);

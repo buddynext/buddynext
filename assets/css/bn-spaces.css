@@ -3008,6 +3008,19 @@ a.bn-sh-statpill:focus-visible {
 	display: none !important;
 }
 
+/* Clear the fixed mobile bottom nav, exactly as the Edit-Profile save bar does.
+   This bar sits at inset-block-end:0 z-180 while .bn-mobile-nav is fixed at the
+   bottom at z-9500 <=768px, so on a phone the nav painted straight over the
+   Save/Cancel buttons and a space owner could not save their settings at all.
+   The profile save bar had been fixed for this; this one was missed — the same
+   bug, one surface later. --bn-mobile-nav-h is the nav's measured height (see
+   the shared block in bn-base.css); the fallback is pre-hydration only. */
+@media (max-width: 768px) {
+	.bn-space-settings__savebar {
+		inset-block-end: var( --bn-mobile-nav-h, calc( 60px + env( safe-area-inset-bottom, 0px ) ) );
+	}
+}
+
 .bn-space-settings__savebar-inner {
 	max-width: 1080px;
 	margin-inline: auto;

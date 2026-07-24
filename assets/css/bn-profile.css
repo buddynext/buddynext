@@ -2647,11 +2647,17 @@ a.bn-space-row:hover .bn-space-name {
 /* The fixed mobile bottom nav (.bn-mobile-nav) is visible <=768px at z-index
    9500; the fixed save bar sits at bottom:0 z-180, so the nav covered its
    Save/Cancel buttons and mobile users could not save. Lift the save bar to sit
-   flush above the nav (its ~52px height + iOS safe-area) across the SAME
-   breakpoint the nav uses, so the buttons stay tappable. */
+   flush above the nav across the SAME breakpoint the nav uses.
+
+   The offset was a hardcoded `52px` — the nav's assumed height. It declares no
+   height (44px tap targets + padding + safe-area, emergent) and measures 60px at
+   390px, so the bar still ran 7px under the nav. --bn-mobile-nav-h is the nav's
+   MEASURED height, published by assets/js/shell/extras.js; the fallback below is
+   pre-hydration only and carries the safe-area inset the measurement already
+   includes. See the shared block in bn-base.css. */
 @media (max-width: 768px) {
 	.bn-ep-save-bar {
-		inset-block-end: calc(52px + env(safe-area-inset-bottom, 0px));
+		inset-block-end: var( --bn-mobile-nav-h, calc( 60px + env( safe-area-inset-bottom, 0px ) ) );
 	}
 }
 
