@@ -63,7 +63,10 @@ $empty_copy = array(
 	),
 	'unread'   => array(
 		'title' => __( 'No unread notifications', 'buddynext' ),
-		'sub'   => __( 'Everything has been read. Use the filters on the left to revisit older activity.', 'buddynext' ),
+		// Layout-agnostic on purpose: the filters are a sidebar on desktop but a
+		// tab strip above the list on mobile, so "on the left" was wrong on a
+		// phone. Every sibling variant here is already phrased without a position.
+		'sub'   => __( 'Everything has been read. Switch filters to revisit older activity.', 'buddynext' ),
 		'icon'  => 'check-circle',
 	),
 	'mention'  => array(

@@ -130,6 +130,8 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	<!-- Carries the .bn-tabs/.bn-tab primitive so it matches the Home/Explore row
 		and every other tab bar (font, focus ring, overflow scroll-fade); the
 		.bn-feed-filter-tab* classes + aria-current are kept for the feed-tabs JS. -->
+	<?php // .bn-navgroup opts the strip into the shared overflow chevrons (shell/extras.js), the cross-browser "more tabs" affordance - the CSS edge-fade alone is Chrome-only, so at 390px "Network" was clipped mid-word with no hint it was reachable. ?>
+	<div class="bn-navgroup">
 	<div class="bn-tabs bn-feed-filter-tabs"
 		role="tablist"
 		aria-label="<?php esc_attr_e( 'Filter home feed', 'buddynext' ); ?>"
@@ -183,6 +185,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			</a>
 		<?php endforeach; ?>
 	</div>
+	</div><!-- /.bn-navgroup -->
 
 	<?php
 	// NOTE: the home feed renders server-side and changes views via a full reload
