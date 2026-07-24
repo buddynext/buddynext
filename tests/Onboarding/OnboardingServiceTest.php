@@ -192,4 +192,44 @@ class OnboardingServiceTest extends \WP_UnitTestCase {
 		$this->service->finish( $this->user_id );
 		$this->assertSame( 1, $count );
 	}
+
+	public function test_step_list_filter_appends_and_renumbers(): void {
+		$filter = static function ( array $steps ): array {
+			$steps[] = array(
+				'key'   => 'plan',
+				'label' => 'Membership',
+				'icon'  => 'crown',
+			);
+			return $steps;
+		};
+		add_filter( 'buddynext_onboarding_steps', $filter );
+		$steps = $this->service->step_list();
+		remove_filter( 'buddynext_onboarding_steps', $filter );
+
+		$last = $steps[ count( $steps ) ];
+		$this->assertSame( 'plan', $last['key'] );
+		// Positions stay contiguous 1..N after the filter.
+		$this->assertSame( range( 1, count( $steps ) ), array_keys( $steps ) );
+	}
+
+	public function test_step_list_filter_drops_invalid_and_duplicate_entries(): void {
+		$filter = static function ( array $steps ): array {
+			$steps[] = array( 'label' => 'No key', 'icon' => 'x' );
+			$steps[] = array(
+				'key'   => 'profile', // Duplicates a core key.
+				'label' => 'Impostor',
+				'icon'  => 'user',
+			);
+			$steps[] = 'not-an-array';
+			return $steps;
+		};
+		add_filter( 'buddynext_onboarding_steps', $filter );
+		$steps = $this->service->step_list();
+		remove_filter( 'buddynext_onboarding_steps', $filter );
+
+		$keys = array_column( $steps, 'key' );
+		$this->assertSame( array_unique( $keys ), $keys );
+		$this->assertNotContains( 'Impostor', array_column( $steps, 'label' ) );
+		$this->assertSame( range( 1, count( $steps ) ), array_keys( $steps ) );
+	}
 }

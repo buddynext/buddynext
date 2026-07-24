@@ -712,18 +712,45 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 					data-wp-on--click="actions.prevStep">
 					<?php esc_html_e( 'Back', 'buddynext' ); ?>
 				</button>
-				<button class="bn-btn"
-					type="button"
-					data-variant="primary"
-					data-size="lg"
-					data-wp-bind--disabled="state.saving"
-					data-wp-on--click="actions.finish">
-					<span data-wp-bind--hidden="state.saving"><?php esc_html_e( 'Finish', 'buddynext' ); ?></span>
-					<span data-wp-bind--hidden="!state.saving"><?php esc_html_e( 'Saving…', 'buddynext' ); ?></span>
-				</button>
+				<?php if ( ( $step_pos['notifications'] ?? 0 ) === $total_steps ) : ?>
+					<button class="bn-btn"
+						type="button"
+						data-variant="primary"
+						data-size="lg"
+						data-wp-bind--disabled="state.saving"
+						data-wp-on--click="actions.finish">
+						<span data-wp-bind--hidden="state.saving"><?php esc_html_e( 'Finish', 'buddynext' ); ?></span>
+						<span data-wp-bind--hidden="!state.saving"><?php esc_html_e( 'Saving…', 'buddynext' ); ?></span>
+					</button>
+				<?php else : ?>
+					<?php // An addon appended a step after this one, so this is no longer the finish line. ?>
+					<button class="bn-btn"
+						type="button"
+						data-variant="primary"
+						data-size="lg"
+						data-wp-on--click="actions.nextStep">
+						<?php esc_html_e( 'Continue', 'buddynext' ); ?>
+					</button>
+				<?php endif; ?>
 			</div>
 
 		</section>
+
+		<?php
+		/**
+		 * Render sections for steps appended via the buddynext_onboarding_steps
+		 * filter. Each addon renders its own <section class="bn-ob-step"> bound
+		 * to its position (see $step_pos) with the same hidden/active bindings
+		 * the core sections use.
+		 *
+		 * @since 1.1.0
+		 *
+		 * @param array<int,array{key:string,label:string,icon:string}> $steps      Steps keyed 1..N.
+		 * @param array<string,int>                                     $step_pos   Step key => 1-based position.
+		 * @param int                                                   $ob_user_id Member being onboarded.
+		 */
+		do_action( 'buddynext_onboarding_render_extra_steps', $steps, $step_pos, $ob_user_id );
+		?>
 
 		<div class="bn-ob-error" role="alert" aria-live="polite"
 			data-wp-bind--hidden="!state.error"

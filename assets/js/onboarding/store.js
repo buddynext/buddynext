@@ -43,6 +43,19 @@ function scrollToStepTop() {
 	} else {
 		window.scrollTo( 0, 0 );
 	}
+	// Keep the active step's label visible in the (horizontally scrollable)
+	// stepper - on phones a six-step strip overflows and the last step's own
+	// label would otherwise sit clipped at the edge. Deferred a frame because
+	// the reactive .is-active class lands AFTER the action that called us;
+	// horizontal-only on the strip itself so it cannot fight the vertical
+	// scroll above.
+	requestAnimationFrame( function () {
+		const strip  = document.querySelector( '.bn-ob-stepper' );
+		const active = strip ? strip.querySelector( '.is-active' ) : null;
+		if ( strip && active ) {
+			strip.scrollLeft = Math.max( 0, active.offsetLeft - ( strip.clientWidth - active.offsetWidth ) / 2 );
+		}
+	} );
 }
 
 function toast( message, tone ) {
@@ -89,21 +102,28 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			const step  = c.step || 1;
 			return fmt( t( 'stepLabel', 'Step %1$s of %2$s' ), step, total );
 		},
+		/* Step 6 exists when an addon appends a step via the
+		   buddynext_onboarding_steps filter (e.g. Pro's membership plan step);
+		   the done-checks are uniform because with 6 steps the wizard really
+		   can move past step 5. */
 		get isStep1() { return ( ctx().step || 1 ) === 1; },
 		get isStep2() { return ( ctx().step || 1 ) === 2; },
 		get isStep3() { return ( ctx().step || 1 ) === 3; },
 		get isStep4() { return ( ctx().step || 1 ) === 4; },
 		get isStep5() { return ( ctx().step || 1 ) === 5; },
+		get isStep6() { return ( ctx().step || 1 ) === 6; },
 		get isStepActive1() { return ( ctx().step || 1 ) === 1; },
 		get isStepActive2() { return ( ctx().step || 1 ) === 2; },
 		get isStepActive3() { return ( ctx().step || 1 ) === 3; },
 		get isStepActive4() { return ( ctx().step || 1 ) === 4; },
 		get isStepActive5() { return ( ctx().step || 1 ) === 5; },
+		get isStepActive6() { return ( ctx().step || 1 ) === 6; },
 		get isStepDone1() { return ( ctx().step || 1 ) > 1; },
 		get isStepDone2() { return ( ctx().step || 1 ) > 2; },
 		get isStepDone3() { return ( ctx().step || 1 ) > 3; },
 		get isStepDone4() { return ( ctx().step || 1 ) > 4; },
-		get isStepDone5() { return false; },
+		get isStepDone5() { return ( ctx().step || 1 ) > 5; },
+		get isStepDone6() { return false; },
 		// Soft interests hint — visible until the member has picked at least
 		// three topics (never blocking; Continue works with any count).
 		get interestsHintVisible() {
