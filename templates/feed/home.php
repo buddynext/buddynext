@@ -35,7 +35,33 @@ use BuddyNext\Feed\FeedService;
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
 
-$bn_per_page = 15;
+$bn_page_size = 15;
+
+/*
+ * "Load more" GROWS this page instead of appending cards from JS.
+ *
+ * Infinite scroll used to fetch the next page and inject the server-rendered
+ * cards into the list. A post card is an Interactivity island, and the API only
+ * hydrates islands present at first paint — so every card past the first screen
+ * arrived inert: React, Comment, Share and Save did nothing, silently, for the
+ * rest of the session. Reported from the live feed and reproduced here with a
+ * clean single click.
+ *
+ * Rendering more posts server-side is the honest fix available today: the whole
+ * list is hydrated by the browser exactly like the first screen, so every
+ * control works. `shown` is the number of posts this page renders — clamped to
+ * whole pages and to BN_FEED_MAX_SHOWN so a crafted URL can never ask the feed
+ * for an unbounded render.
+ *
+ * This is interim. The end state is the feed rendering its cards THROUGH the
+ * Interactivity API (data-wp-each) so appended cards are interactive by
+ * construction, which is how the mainstream networks do it — at which point
+ * continuous scroll comes back without dead controls.
+ */
+$bn_max_shown = $bn_page_size * 6;
+$raw_shown    = isset( $_GET['shown'] ) ? absint( wp_unslash( $_GET['shown'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_shown     = max( $bn_page_size, min( $bn_max_shown, (int) ( ceil( $raw_shown / $bn_page_size ) * $bn_page_size ) ) );
+$bn_per_page  = $bn_shown;
 
 // The Spaces filter tab + its feed only make sense while the Spaces feature is
 // enabled; when the owner turns it off we drop the tab and treat a stale
@@ -213,30 +239,34 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 		</div>
 
 			<?php if ( $has_more && '' !== $next_cursor ) : ?>
-				<div
-					class="bn-load-more"
-					id="bn-infinite-trigger"
-					data-bn-infinite-feed="home"
-					data-bn-feed-target=".bn-feed-list"
-					data-next-cursor="<?php echo esc_attr( $next_cursor ); ?>"
-					data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed/home/page' ) ); ?>"
-					data-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
-					data-filter="<?php echo esc_attr( $bn_filter ); ?>"
-					data-per-page="<?php echo esc_attr( (string) $bn_per_page ); ?>"
-				>
-					<div class="bn-load-more__spinner" hidden aria-live="polite">
-						<span class="bn-skeleton bn-load-more__spinner-line"></span>
-						<span class="bn-load-more__spinner-text"><?php esc_html_e( 'Loading more posts…', 'buddynext' ); ?></span>
-					</div>
-					<noscript>
-						<a
-							href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $next_cursor ), PageRouter::activity_url() ) ); ?>"
-							class="bn-btn bn-load-more__btn"
-							data-variant="secondary"
-						>
-							<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-						</a>
-					</noscript>
+				<?php
+				/*
+				 * A real link, not a JS sentinel. The infinite-scroll trigger
+				 * (data-bn-infinite-feed) injected the next page's cards, which the
+				 * Interactivity API never hydrates — so everything past the first
+				 * screen had dead React / Comment / Share / Save controls. This
+				 * grows the SAME page server-side instead, so the posts already on
+				 * screen stay put and every new card is hydrated like the first
+				 * ones. The anchor returns the member to where they were reading
+				 * rather than to the top of the feed.
+				 */
+				$bn_more_url = add_query_arg(
+					array(
+						'shown'  => $bn_shown + $bn_page_size,
+						'filter' => $bn_filter,
+					),
+					PageRouter::activity_url()
+				);
+				?>
+				<div class="bn-load-more" id="bn-load-more">
+					<a
+						href="<?php echo esc_url( $bn_more_url . '#bn-load-more' ); ?>"
+						class="bn-btn bn-load-more__btn"
+						data-variant="secondary"
+						rel="next"
+					>
+						<?php esc_html_e( 'Load more', 'buddynext' ); ?>
+					</a>
 				</div>
 			<?php else : ?>
 				<div class="bn-feed-end" role="status">
