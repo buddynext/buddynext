@@ -45,14 +45,16 @@ class ReactionService {
 	 *
 	 * Uses INSERT IGNORE so duplicate reactions are silently skipped.
 	 *
-	 * @param int    $user_id     Reacting user.
-	 * @param string $object_type Object type (e.g. 'post', 'comment').
-	 * @param int    $object_id   Object ID.
-	 * @param string $emoji       Emoji identifier (e.g. 'like', 'heart').
+	 * @param int         $user_id     Reacting user.
+	 * @param string      $object_type Object type (e.g. 'post', 'comment').
+	 * @param int         $object_id   Object ID.
+	 * @param string      $emoji       Emoji identifier (e.g. 'like', 'heart').
+	 * @param string|null $created_at  Optional backdated UTC timestamp (importer
+	 *                                 seam — see Core\Backdate). Clamped to now.
 	 * @return true|WP_Error True on success; WP_Error(403) when the actor is
 	 *                       suspended or blocked from the object's author.
 	 */
-	public function react( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): bool|WP_Error {
+	public function react( int $user_id, string $object_type, int $object_id, string $emoji = 'like', ?string $created_at = null ): bool|WP_Error {
 		// Trust-&-Safety gate before any DB write: a suspended actor cannot
 		// react, and neither party of a block may react on the other's content.
 		$guard = InteractionGuard::check( $user_id, $object_type, $object_id );
@@ -77,7 +79,7 @@ class ReactionService {
 				sanitize_key( $object_type ),
 				$object_id,
 				$emoji,
-				current_time( 'mysql', true )
+				\BuddyNext\Core\Backdate::resolve( $created_at )
 			)
 		);
 

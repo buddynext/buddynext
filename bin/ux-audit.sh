@@ -1,13 +1,43 @@
 #!/usr/bin/env bash
 # UX Audit — scans a Wbcom plugin against ux-foundation rules.
 # Usage: ux-audit.sh [plugin_dir]   # defaults to $PWD
-#        PREFIX=jt ux-audit.sh ...  # override the plugin CSS prefix
+#        PREFIX=jt ux-audit.sh ...  # override the auto-detected CSS prefix
 
 set -uo pipefail
 
 PLUGIN_DIR="${1:-$PWD}"
 PLUGIN_NAME="$(basename "$PLUGIN_DIR")"
-PREFIX="${PREFIX:-$(echo "$PLUGIN_NAME" | cut -c1-3)}"
+
+# Detect the plugin's CSS custom-property prefix from the CSS itself: the most
+# frequently used `--xx-` token family IS the prefix (BuddyNext --bn- 9256 uses,
+# Jetonomy --jt- 7762). Falls back to the first three characters of the folder
+# name only when no CSS is found.
+#
+# That fallback used to be the ONLY derivation, and it was wrong for every
+# plugin whose folder name does not start with its prefix: `buddynext` yielded
+# `bud`, a token family that does not exist. Nothing detected it because no rule
+# consumes PREFIX — it is printed in the report header, so the audit advertised
+# itself as scoped to a prefix that was never real. A misleading header is a
+# false report even when the findings are correct.
+detect_css_prefix() {
+    local dir="$1" found
+    found="$(
+        find "$dir" -type f -name '*.css' \
+            -not -path "*/vendor/*" -not -path "*/node_modules/*" \
+            -not -path "*/dist/*" -not -path "*/build/*" -not -path "*/libs/*" \
+            -print0 2>/dev/null \
+        | xargs -0 grep -hoE -- '--[a-z][a-z0-9]{0,4}-' 2>/dev/null \
+        | sort | uniq -c | sort -rn | head -1 \
+        | sed -E 's/^[[:space:]]*[0-9]+[[:space:]]*--([a-z0-9]+)-$/\1/'
+    )"
+    if [ -n "$found" ]; then
+        printf '%s' "$found"
+    else
+        printf '%s' "$(echo "$PLUGIN_NAME" | cut -c1-3)"
+    fi
+}
+
+PREFIX="${PREFIX:-$(detect_css_prefix "$PLUGIN_DIR")}"
 
 # Skip vendored / built / tests / docs. docs/ holds the v2 design-prototype
 # HTML mockups (docs/v2 Plans/) — dev-only reference that never ships in the
@@ -30,7 +60,7 @@ violation() {
 
 echo "# UX Audit — $PLUGIN_NAME"
 echo
-echo "_Generated $(date -u +%Y-%m-%dT%H:%M:%SZ)_ — prefix: \`${PREFIX}\`"
+echo "_Generated $(date -u +%Y-%m-%dT%H:%M:%SZ)_ — detected CSS prefix: \`--${PREFIX}-\` (informational; no rule below is prefix-scoped)."
 echo
 echo "| Severity | Rule | Location | Snippet |"
 echo "|---|---|---|---|"

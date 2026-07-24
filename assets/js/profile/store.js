@@ -1183,6 +1183,15 @@ const profileStore = store( 'buddynext/profile', {
 		/* Delete the current member's own account after a confirm modal.
 		 * DELETE buddynext/v1/me/account (gated by the Privacy setting). */
 		deleteMyAccount: async function ( event ) {
+			// Capture the Interactivity context BEFORE the await, exactly as
+			// removeAvatar()/removeCover() do. getContext() is only valid in an
+			// action's synchronous portion; reading it after `await bnConfirm()`
+			// has resolved throws, and because that throw happens before
+			// restFetch() is ever called, the catch below fired and showed
+			// "Could not delete your account. Please try again." while NO DELETE
+			// request was sent. The account was never deleted and the member had
+			// no way to tell the difference from a server refusal.
+			var ctx = getContext();
 			var btn = event && event.target && event.target.closest( 'button' );
 
 			var ok = await bnConfirm( {
@@ -1197,7 +1206,7 @@ const profileStore = store( 'buddynext/profile', {
 			try {
 				var res  = await restFetch( '/me/account', {
 					method:       'DELETE',
-					nonce:        nonce(),
+					nonce:        ctx.restNonce,
 					toastOnError: false,
 				} );
 				var data = res.data || {};

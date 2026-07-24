@@ -57,6 +57,7 @@ class GamificationAchievements {
 			static function ( array $items ): array {
 				$items['gamification'] = array(
 					'label'    => __( 'Gamification', 'buddynext' ),
+					'version'  => defined( 'WB_GAM_VERSION' ) ? WB_GAM_VERSION : null,
 					'has_nav'  => true,
 					'has_feed' => true,
 				);

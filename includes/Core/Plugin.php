@@ -184,6 +184,12 @@ class Plugin {
 			// a deleted user); succession only guards deletions from now on.
 			\WP_CLI::add_command( 'buddynext repair-space-owners', \BuddyNext\Spaces\SpaceOwnerRepairCommand::class );
 
+			// Handles imported from another platform can hold characters mentions
+			// cannot parse (an email in user_nicename), leaving the member silently
+			// unmentionable. `check` reports them; `repair` normalises them to
+			// WordPress's own nicename rules.
+			\WP_CLI::add_command( 'buddynext handles', new \BuddyNext\Profile\HandleCommand() );
+
 			// QA fixtures — the ugly states the customer demo must never contain
 			// (expired invites, orphaned space owners, cancelled subscriptions,
 			// rows backdated past the retention windows) plus the big-site scale

@@ -629,7 +629,7 @@ class PageRouter {
 			if ( 'prefs' === $notif_section_for_title ) {
 				$hub_title = __( 'Notification preferences', 'buddynext' );
 			} elseif ( is_user_logged_in() ) {
-				$notif_user_id    = get_current_user_id();
+				$notif_user_id = get_current_user_id();
 				// Badge-family count (unseen), consistent with the bell/rail badges —
 				// this is 0 right after the list is marked seen above, not the raw
 				// unread total (which now persists in the Unread tab).

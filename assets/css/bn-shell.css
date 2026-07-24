@@ -72,8 +72,23 @@
 	max-width: 100vw;
 	display: flex;
 	flex-direction: column;
+	/*
+	 * The shell must fill the viewport BELOW the chrome it renders under, not the
+	 * whole viewport. .bn-app sits below the host theme header + BN toolbar (and
+	 * the admin bar when present) — a combined height that varies by theme and by
+	 * whether the user is logged in as an admin (bar) or a subscriber (no bar). A
+	 * raw 100dvh therefore overshoots by exactly that chrome height, and on a hub
+	 * with short content the surplus renders as dead canvas between the content
+	 * and the footer (card 10124166442, /notifications/ on a 1-item list).
+	 *
+	 * --bn-shell-chrome is the real top offset, measured per-load + on resize by
+	 * the shell (assets/js/shell/extras.js fitShell). The fallback below is the
+	 * pre-hydration value and matches the previous behaviour exactly: 0 here, and
+	 * the admin-bar heights in the rules below. Once measured it supersedes them
+	 * with the accurate offset for BOTH admin (with bar) and subscriber (without).
+	 */
 	min-height: 100vh;
-	min-height: 100dvh;
+	min-height: calc(100dvh - var(--bn-shell-chrome, 0px));
 	background: var(--bn-canvas);
 	color: var(--bn-ink, inherit);
 	box-sizing: border-box;
@@ -101,15 +116,19 @@ body.bn-page .site-main {
 	margin-top: 0;
 }
 
-/* Honour the WP admin bar when present (logged-in user). */
+/* Honour the WP admin bar when present (admin only — a subscriber has no bar).
+ * These are pre-hydration FALLBACKS: the var below carries the admin-bar height
+ * until fitShell measures the real offset (which already includes the bar), so
+ * once measured every rule resolves to the same accurate value — no double
+ * subtraction. */
 body.admin-bar .bn-app {
 	min-height: calc(100vh - 32px);
-	min-height: calc(100dvh - 32px);
+	min-height: calc(100dvh - var(--bn-shell-chrome, 32px));
 }
 @media screen and (max-width: 782px) {
 	body.admin-bar .bn-app {
 		min-height: calc(100vh - 46px);
-		min-height: calc(100dvh - 46px);
+		min-height: calc(100dvh - var(--bn-shell-chrome, 46px));
 	}
 }
 
@@ -531,8 +550,89 @@ body.admin-bar .bn-app__rail {
 	.bn-app__rail {
 		display: none;
 	}
+	/*
+	 * Clear the fixed bottom nav on the DOCUMENT, not on our own wrapper.
+	 *
+	 * This clearance used to sit on .bn-app__main. That reserves space inside
+	 * the plugin's column only, but .bn-mobile-nav is `position: fixed` — it
+	 * overlaps whatever occupies the bottom of the VIEWPORT, and the theme's
+	 * get_header()/get_footer() output renders outside .bn-app entirely (see
+	 * templates/shell/hub-shell.php). So on any theme with a visible footer the
+	 * bar sat on top of the copyright line: measured a 53px overlap at 390px on
+	 * Reign, with .bn-app__main carrying 88px of clearance and the footer 0.
+	 *
+	 * Padding the body instead extends the scroll area past everything the page
+	 * renders — our content AND the theme's footer — so nothing is permanently
+	 * obscured. Scoped with :has(.bn-app) so a page without the BuddyNext shell
+	 * (and therefore without the bar) keeps its own spacing; :has() is already
+	 * used elsewhere in this file and in bn-base.css.
+	 *
+	 * Deliberately NOT kept on .bn-app__main as well — two stacked clearances
+	 * would reserve 176px and leave a dead gap above the footer.
+	 */
 	.bn-app__main {
 		padding-bottom: var(--bn-mobile-nav-clearance); /* clear .bn-mobile-nav bottom bar */
+	}
+
+	/*
+	 * ...and clear it for the THEME'S footer too, which is the half that was
+	 * missing. The rule above reserves space inside the plugin's own column, but
+	 * .bn-mobile-nav is `position: fixed` — it overlays whatever sits at the
+	 * bottom of the VIEWPORT, and get_header()/get_footer() render outside
+	 * .bn-app entirely (templates/shell/hub-shell.php). On Reign at 390px the
+	 * bar sat squarely on the copyright line.
+	 *
+	 * Padding `body` does NOT work and was tried first: the theme sets
+	 * `body { height: 100vh; box-sizing: border-box }`, so body padding is
+	 * absorbed inside that fixed box and never extends the document. body's own
+	 * last child is a zero-height <script>, so `> *:last-child` is no use
+	 * either. The footer's own box is what has to grow.
+	 *
+	 * The footer belongs to the theme, so this matches on the conventional
+	 * markup rather than one theme's class: a direct <footer>, a <footer> one
+	 * level down (body > .site > footer — Reign/BuddyX), and the two class names
+	 * WordPress themes overwhelmingly use. A theme that matches none of these
+	 * still keeps the .bn-app__main clearance above, so its own content is never
+	 * obscured — only its footer would be.
+	 */
+	body:has(.bn-app) > footer,
+	body:has(.bn-app) > * > footer,
+	body:has(.bn-app) .site-footer,
+	body:has(.bn-app) #colophon {
+		padding-bottom: var(--bn-mobile-nav-clearance);
+	}
+
+	/*
+	 * Messages runs edge-to-edge on phones.
+	 *
+	 * The shell's horizontal gutters stack: .bn-app carries 15px and
+	 * .bn-app__main adds var(--bn-s6) (24px), so every hub is inset 39px per
+	 * side. On a 390px phone that is 78px — a FIFTH of the screen — and for a
+	 * card feed it is right: cards need breathing room against the canvas.
+	 *
+	 * Messages is not a card feed. It is a full-height, pane-based surface whose
+	 * children already own their padding (the composer, the rail rows, the
+	 * bubbles' own max-width), so the shell gutter is a second, redundant margin
+	 * that only steals width from message text and the compose field. Every
+	 * mainstream messenger is edge-to-edge on mobile for exactly this reason.
+	 *
+	 * Scoped to the hub via the shell's own data-bn-hub attribute, so no other
+	 * surface loses its gutter.
+	 *
+	 * The .bn-app selector is doubled deliberately. The outer 15px is not ours —
+	 * it comes from the host theme, whose `.wb-grid > :not(.no-gutter)` rule
+	 * gives every grid cell 15px of horizontal padding (Reign/BuddyX
+	 * main.min.css). .bn-app is a direct .wb-grid child, and that
+	 * selector scores the same 0-2-0 as a plain `.bn-app[data-bn-hub]`, so with
+	 * equal specificity the later-loading theme sheet wins. Repeating the class
+	 * lifts us to 0-3-0 and settles it by the cascade's own rules — no
+	 * !important, and no dependency on the theme's `.no-gutter` opt-out class,
+	 * which only exists in wb-grid themes and would silently do nothing
+	 * elsewhere.
+	 */
+	.bn-app.bn-app[data-bn-hub="messages"],
+	.bn-app.bn-app[data-bn-hub="messages"] .bn-app__main {
+		padding-inline: 0;
 	}
 }
 
@@ -766,4 +866,83 @@ body.admin-bar .bn-app__rail {
 .bn-rail__spaces-link:hover {
 	background: var(--bn-canvas);
 	color: var(--bn-ink);
+}
+
+/* ── Offline fallback page ─────────────────────────────────────────────────
+ * Served by the service worker when a navigation cannot reach the network.
+ * It ships in the precached shell alongside bn-base.css, so it is styled even
+ * with no connection — which is the whole point: losing signal should read as a
+ * moment in the product, not as the site being broken.
+ *
+ * Tokens only, and no dependency on the app shell's DOM: this page renders
+ * standalone, without the header, rail or nav around it.
+ */
+.bn-offline-body {
+	margin: 0;
+	background: var(--bn-bg);
+	color: var(--bn-ink);
+	font-family: var(--bn-font-body);
+}
+
+.bn-offline {
+	min-height: 100vh;
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s6);
+	text-align: center;
+}
+
+.bn-offline__site {
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	letter-spacing: var(--bn-ls-wide, 0.04em);
+	text-transform: uppercase;
+	color: var(--bn-ink-3);
+}
+
+.bn-offline__title {
+	margin: 0;
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-2xl);
+	font-weight: var(--bn-fw-bold);
+	line-height: var(--bn-leading-tight);
+	color: var(--bn-ink);
+}
+
+.bn-offline__text {
+	margin: 0;
+	max-width: 42ch;
+	font-size: var(--bn-text-base);
+	line-height: var(--bn-leading-body);
+	color: var(--bn-ink-2);
+}
+
+.bn-offline__actions {
+	margin: var(--bn-s2) 0 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	justify-content: center;
+}
+
+@media (max-width: 640px) {
+	.bn-offline {
+		padding: var(--bn-s4);
+	}
+
+	.bn-offline__title {
+		font-size: var(--bn-text-xl);
+	}
+
+	/* Stack the actions so each stays a full-width touch target rather than two
+	   narrow buttons sharing a phone-width row. */
+	.bn-offline__actions {
+		flex-direction: column;
+		align-self: stretch;
+	}
 }

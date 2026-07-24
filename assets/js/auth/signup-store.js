@@ -180,6 +180,15 @@ const signupStore = store( 'buddynext/auth-signup', {
 		},
 	},
 	actions: {
+		setName( event ) {
+			const c = ctx();
+			c.name = event && event.target ? String( event.target.value || '' ) : '';
+			if ( c.fieldErrors && c.fieldErrors.name ) {
+				const next = Object.assign( {}, c.fieldErrors );
+				delete next.name;
+				c.fieldErrors = next;
+			}
+		},
 		setEmail( event ) {
 			const c = ctx();
 			c.email = event && event.target ? String( event.target.value || '' ) : '';
@@ -275,6 +284,11 @@ const signupStore = store( 'buddynext/auth-signup', {
 			c.fieldErrors = {};
 			try {
 				const body = {
+					// The display name the visitor typed. The form used to render this
+					// field but never bind or send it, so the server always fell back to
+					// the email handle prefix — a member who entered "Club One" appeared
+					// as "my.test.account". Sent when the field is shown (ask_name on).
+					name:            c.name || '',
 					email:           c.email || '',
 					user_login:      c.userLogin || '',
 					password:        c.password || '',
@@ -305,7 +319,14 @@ const signupStore = store( 'buddynext/auth-signup', {
 					body:   body,
 				} );
 				const data = r.data;
-				if ( ! r.ok || ! ( data && data.success ) ) {
+				// An OK response with an unparseable body is a SUCCESS: by the time the
+				// response left the server the account and session cookie were already
+				// committed, and proxies (LiteSpeed among them) can strip the JSON
+				// content-type so data comes back null. Erroring here told the user
+				// "Could not create your account" while they were in fact registered
+				// and logged in. Only an explicit success:false on an OK response —
+				// or a non-OK status — is a failure.
+				if ( ! r.ok || ( data && ! data.success ) ) {
 					if ( data && data.data && data.data.fields ) {
 						c.fieldErrors = data.data.fields;
 					}
@@ -319,7 +340,7 @@ const signupStore = store( 'buddynext/auth-signup', {
 				// bounce this session-less user straight to a login they cannot pass —
 				// a dead end seconds after being told they were in. Show the real reason
 				// and stay put. Mirrors the social-completion branch below.
-				if ( data.pending ) {
+				if ( data && data.pending ) {
 					c.pendingMessage = data.message || t( 'awaitingApproval', 'Your account is awaiting administrator approval.' );
 					c.submitting = false;
 					c.error = '';
@@ -368,7 +389,9 @@ const signupStore = store( 'buddynext/auth-signup', {
 				} );
 				const data = r.data;
 
-				if ( ! r.ok || ! ( data && data.success ) ) {
+				// Same contract as submit(): an OK response with an unparseable body
+				// (proxy stripped the JSON content-type) is a success, not a failure.
+				if ( ! r.ok || ( data && ! data.success ) ) {
 					if ( data && data.data && data.data.fields ) {
 						c.fieldErrors = data.data.fields;
 					}
@@ -378,7 +401,7 @@ const signupStore = store( 'buddynext/auth-signup', {
 				}
 
 				// Admin-approval mode: the account exists but is held for review.
-				if ( data.pending ) {
+				if ( data && data.pending ) {
 					c.submitting = false;
 					c.error = '';
 					toast( data.message || t( 'awaitingApproval', 'Your account is awaiting administrator approval.' ), 'success' );

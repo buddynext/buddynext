@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.9
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,48 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.1.0 - July 2026 =
+
+Mobile polish across messages, navigation and onboarding, offline support, live message reactions, and a round of profile and signup fixes.
+
+* New      - A link preview can be removed while editing a post.
+* New      - A Member type profile field can be shown on signup and profiles; the member's choice assigns their member type and is set once.
+* New      - Losing your connection now shows a branded offline page with a retry, in your community's colours, instead of the browser's error screen.
+* New      - The app config endpoint reports each installed integration with its on/off state and version, so a mobile client can hide a module the site does not run.
+* Improve  - Messages runs edge-to-edge on phones, and the message field takes the full width with emoji, attachment and send on the line below.
+* Improve  - Members with an imported profile address that breaks mentions can now be repaired with one click from BuddyNext > Members, not only from the command line.
+* Improve  - The app now works offline as an app should: BuddyNext's styling is stored on the device, so an offline page looks like your community rather than an unstyled list of links.
+* Improve  - Stylesheets, scripts and images are cached as they are used, capped so they cannot fill a member's device, and cleared automatically when the plugin updates.
+* Fix      - A reaction on a message now appears for the other person live, instead of only after they reload the conversation.
+* Fix      - Short pages like Notifications showed a large blank gap between the content and the footer on phones, and short lists now end with a clear end-of-list marker.
+* Fix      - The onboarding steps were clipped at the right edge on phones; every input and step indicator now fits, and the step icon and heading share one line.
+* Fix      - The mobile conversation list filled only part of the screen, which hid the All, Unread and Requests tabs and stopped the list scrolling.
+* Fix      - Mobile navigation icons rendered far smaller than the centre button.
+* Fix      - The mobile navigation bar covered the theme footer and copyright line.
+* Fix      - Signing up behind a proxy that rewrote response headers reported a failure even though the account was created.
+* Fix      - Activating the plugin could save the site's URL rules without BuddyNext's own, leaving community pages on 404 until permalinks were re-saved.
+* Fix      - The signup form dropped the typed display name and used the email prefix instead.
+* Fix      - Editing a choice profile field could replace its options with the word "Array" and discard its advanced settings.
+* Fix      - The profile field editor hid the options and date settings when editing a Pro field type.
+* Fix      - Delete account showed an error and never deleted the account.
+* Fix      - Line breaks in a bio were lost, so a multi-line bio ran together on the profile.
+* Fix      - The poll form kept its options and end date after posting, so the next post inherited them.
+* Fix      - A space icon was clipped by the cover image on the settings page and showed square corners on the space page.
+* Fix      - The profile photo edit button drifted away from the photo on phones and tablets, and the photo was too small for its own controls.
+* Fix      - The profile header showed square bottom corners, and its tab strip drifted vertically on touch devices.
+* Fix      - A Date profile field with a "Display as" option (Year only, Month and year, Age) showed a wrong full date on the profile instead of the chosen format.
+* Fix      - Mentioning a member did not always notify them. The mention still linked to their profile, so nothing looked wrong, but no notification was sent when the member's username differed from their profile address - a space, a dot or an email in the username, or any member using a custom profile address.
+* Fix      - Members whose profile address was imported with an email in it could not be mentioned, and did not appear in the mention suggestions. Run "wp buddynext handles check" to find them.
+* Fix      - Registration warnings were hidden on BuddyNext's own Registration & Login screen - the screen you are on when configuring it, and the one BuddyNext's setup checklist sends you to. They now appear beside the setting they concern, and point to where the WordPress switch actually lives.
+* Fix      - The admin member list and member edit screen showed each member's username where their public profile address belongs; the two differ when a username contains a space or a dot, and for members using a custom profile address.
+* Security - Pages and API responses are never stored on the device by the offline cache, so nothing personal can be shown to whoever opens the browser next.
+* Security - Marking the community private now also locks down the media/messaging REST API (WPMediaVerse), not only BuddyNext's own - closing a gap where media, tags and profiles stayed readable when logged out. Needs WPMediaVerse 2.2.0.
+* Dev      - Integrations can declare their plugin version when registering on the buddynext_integrations filter.
+* Dev      - Content services accept a historical created_at from importers, so a migrated community keeps its original comment, space, connection, follow and reaction dates.
+* Dev      - Added "wp buddynext handles check" and "wp buddynext handles repair" to report and normalise imported profile addresses. Repair reports only unless --yes is passed.
+* Compat   - Ships in lockstep with BuddyNext Pro 1.1.0. Install and test both together.
+* Compat   - The live-reaction fix needs WPMediaVerse 2.2.0, which adds the message-reaction updates to the messaging poll.
 
 = 1.0.9 - July 2026 =
 

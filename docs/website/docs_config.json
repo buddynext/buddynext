@@ -10,12 +10,21 @@
         "getting-started/02-installation.md",
         "getting-started/03-admin-setup-wizard.md",
         "getting-started/04-admin-overview.md",
-        "getting-started/05-whats-new-in-1-0-3.md",
-        "getting-started/06-whats-new-in-1-0-4.md",
-        "getting-started/07-whats-new-in-1-0-7.md",
-        "getting-started/08-whats-new-in-1-0-8.md",
-        "getting-started/09-whats-new-in-1-0-9.md",
-        "getting-started/06-shortcodes-and-placement.md"
+        "getting-started/05-shortcodes-and-placement.md",
+        "getting-started/06-community-insights.md",
+        "getting-started/07-appearance-and-branding.md",
+        "getting-started/08-tools-and-maintenance.md"
+      ]
+    },
+    {
+      "slug": "whats-new-bnext",
+      "name": "What's New",
+      "docs": [
+        "whats-new/01-whats-new-in-1-0-3.md",
+        "whats-new/02-whats-new-in-1-0-4.md",
+        "whats-new/03-whats-new-in-1-0-7.md",
+        "whats-new/04-whats-new-in-1-0-8.md",
+        "whats-new/05-whats-new-in-1-0-9.md"
       ]
     },
     {
@@ -78,6 +87,7 @@
         "members/09-presence-online.md",
         "members/10-profile-media-and-albums.md",
         "members/11-interests.md",
+        "members/12-roles-and-permissions.md",
         "members/13-about-tab.md"
       ]
     },

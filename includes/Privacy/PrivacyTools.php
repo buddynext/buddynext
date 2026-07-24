@@ -401,7 +401,7 @@ class PrivacyTools implements ListenerInterface {
 		$args = array_fill( 0, max( 1, substr_count( $where, '%d' ) ), $user_id );
 		$args = array_merge( $args, array( $limit, $offset ) );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $table and $where are registry-owned constants, never input; every value IS bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $table and $where are registry-owned constants, never input; every value IS bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}{$table} WHERE " . $where . ' LIMIT %d OFFSET %d',
@@ -409,7 +409,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$redact = (array) ( self::export_redactions()[ $table ] ?? array() );
 		$items  = array();
@@ -540,14 +540,14 @@ class PrivacyTools implements ListenerInterface {
 
 		$args = array_fill( 0, max( 1, substr_count( $where, '%d' ) ), $user_id );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $table and $where are registry-owned constants, never input; the id IS bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $table and $where are registry-owned constants, never input; the id IS bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}{$table} WHERE " . $where,
 				...$args
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		return $count;
 	}
@@ -630,7 +630,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT v.field_id, v.value, f.label
@@ -642,7 +642,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		if ( empty( $rows ) ) {
 			return array();
@@ -683,7 +683,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT following_id, status, created_at FROM {$p}bn_follows WHERE follower_id = %d ORDER BY following_id ASC LIMIT %d OFFSET %d",
@@ -693,7 +693,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$items = array();
 		foreach ( (array) $rows as $i => $row ) {
@@ -738,7 +738,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT follower_id, status, created_at FROM {$p}bn_follows WHERE following_id = %d ORDER BY follower_id ASC LIMIT %d OFFSET %d",
@@ -748,7 +748,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$items = array();
 		foreach ( (array) $rows as $i => $row ) {
@@ -788,7 +788,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT requester_id, recipient_id, status, note, created_at FROM {$p}bn_connections WHERE requester_id = %d OR recipient_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
@@ -799,7 +799,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$items = array();
 		foreach ( $rows as $i => $row ) {
@@ -850,7 +850,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT blocked_id, type, created_at FROM {$p}bn_blocks WHERE blocker_id = %d ORDER BY blocked_id ASC LIMIT %d OFFSET %d",
@@ -860,7 +860,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$items = array();
 		foreach ( $rows as $i => $row ) {
@@ -900,7 +900,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT m.space_id, m.role, m.status, m.joined_at, s.name
@@ -915,7 +915,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$items = array();
 		foreach ( $rows as $i => $row ) {
@@ -960,7 +960,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT h.name, hf.created_at
@@ -975,7 +975,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		if ( empty( $rows ) ) {
 			return array();
@@ -1009,7 +1009,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT type, on_site, email_freq FROM {$p}bn_notification_prefs WHERE user_id = %d ORDER BY type",
@@ -1017,7 +1017,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		if ( empty( $rows ) ) {
 			return array();
@@ -1073,7 +1073,7 @@ class PrivacyTools implements ListenerInterface {
 		//
 		// Ordered by id, not created_at: two notifications can share a timestamp to the second, and
 		// an unstable sort makes LIMIT/OFFSET pages overlap and skip.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT type, object_type, object_id, is_read, created_at FROM {$p}bn_notifications WHERE recipient_id = %d ORDER BY id DESC LIMIT %d OFFSET %d",
@@ -1083,7 +1083,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$items = array();
 		foreach ( $rows as $i => $row ) {
@@ -1127,7 +1127,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, type, content, link_url, privacy, status, created_at FROM {$p}bn_posts WHERE user_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
@@ -1137,7 +1137,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$items = array();
 		foreach ( $rows as $row ) {
@@ -1189,7 +1189,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $p is $wpdb->prefix; all user input bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, object_type, object_id, content, is_deleted, created_at FROM {$p}bn_comments WHERE user_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
@@ -1199,7 +1199,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$items = array();
 		foreach ( $rows as $row ) {

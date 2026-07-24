@@ -166,35 +166,155 @@ class PwaService {
 	/**
 	 * Return the service worker JavaScript.
 	 *
-	 * The SW uses a cache-first strategy for static assets and a
-	 * network-first strategy for API and HTML responses.
+	 * Strategy, and why each part is the way it is:
+	 *
+	 * - The SHELL (BuddyNext's base CSS and the offline page) is precached, so a
+	 *   member who loses the network still sees something that looks like the
+	 *   community rather than an unstyled list of links. Precaching only "/" — as
+	 *   this did — left the one cached page rendering with 61 failed assets.
+	 * - STATIC sub-resources are cached as they are used, capped, so repeat views
+	 *   are fast and the offline page keeps its styling.
+	 * - NAVIGATIONS go to the network first and fall back to a real offline page.
+	 * - PAGE HTML IS DELIBERATELY NEVER CACHED. A community page is personalised;
+	 *   replaying a stored copy would show one member's feed, notifications or DMs
+	 *   to whoever opens the browser next, and would present stale content as if
+	 *   it were current. Mainstream social shows an offline notice rather than
+	 *   stale personalised content, and that is the behaviour chosen here.
+	 * - REST responses are never cached either, for the same reason.
 	 *
 	 * @return string JavaScript source.
 	 */
 	public function get_service_worker_script(): string {
-		$version    = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : '1.0.0';
-		$cache_name = 'buddynext-v' . $version;
+		$version     = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : '1.0.0';
+		$shell_cache = 'buddynext-shell-' . $version;
+		$asset_cache = 'buddynext-assets-' . $version;
+
+		// Path AND query. On a site without pretty permalinks rest_url() returns
+		// "/?rest_route=/buddynext/v1/pwa/offline", so taking PHP_URL_PATH alone
+		// collapsed the offline page to "/" — the worker would then precache the
+		// homepage and serve it as the offline fallback. Keep the query.
+		$offline_parts = (array) wp_parse_url( rest_url( self::REST_NAMESPACE . '/pwa/offline' ) );
+		$offline_url   = isset( $offline_parts['path'] ) ? (string) $offline_parts['path'] : '/';
+		if ( ! empty( $offline_parts['query'] ) ) {
+			$offline_url .= '?' . (string) $offline_parts['query'];
+		}
+
+		// Precached without a version query so the offline page can link the same
+		// bare URLs and be guaranteed a hit. Requests that DO carry ?ver= still
+		// match, via the ignoreSearch fallback in bnMatch().
+		$base  = defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL : '/';
+		$shell = array(
+			$offline_url,
+			$base . 'assets/css/bn-base.css',
+			$base . 'assets/css/bn-shell.css',
+			$base . 'assets/css/bn-fonts.css',
+			$base . 'assets/js/pwa/offline.js',
+		);
+
+		/**
+		 * Filters the URLs precached as the offline shell.
+		 *
+		 * Keep this small: every entry is downloaded on install, for every member.
+		 *
+		 * @since 1.1.0
+		 *
+		 * @param string[] $shell Absolute or root-relative URLs.
+		 */
+		$shell = (array) apply_filters( 'buddynext_pwa_shell_assets', $shell );
+		$shell = wp_json_encode( array_values( array_unique( array_filter( array_map( 'strval', $shell ) ) ) ) );
+
+		$offline_js = wp_json_encode( $offline_url );
 
 		return <<<JS
 'use strict';
 
-const CACHE_NAME = '{$cache_name}';
-const STATIC_ASSETS = [
-  '/',
-];
+const SHELL_CACHE = '{$shell_cache}';
+const ASSET_CACHE = '{$asset_cache}';
+const OFFLINE_URL = {$offline_js};
+const SHELL_ASSETS = {$shell};
+
+// Cap the runtime asset cache. A community with many themes, avatars and icon
+// sets can otherwise grow without limit on a member's device, and a phone that
+// is low on storage evicts the WHOLE origin — including the shell that makes
+// offline work at all. Trimmed oldest-first; cache.keys() is insertion-ordered.
+const ASSET_CACHE_LIMIT = 60;
+
+// A Response whose .redirected is true can NEVER be replayed for a navigation:
+// respondWith() rejects it with "a redirected response was used for a request
+// whose redirect mode is not follow", and the navigation fails outright — the
+// browser shows a network error instead of the site.
+//
+// That is not hypothetical. cache.addAll() fetches with redirect mode "follow",
+// so on any site with a canonical-host rule (www <-> apex) or http -> https in
+// front of a precached URL, the stored copy came back redirected. Cache-first
+// then replayed it for every navigation and took the whole site down for anyone
+// who had the worker installed (Zoho #41005).
+//
+// Rebuilding the Response from its body clears the flag while keeping the
+// content, so offline still works on those sites instead of being sacrificed.
+async function bnCacheable(response) {
+  if (!response || !response.ok) {
+    return null;
+  }
+  if (!response.redirected) {
+    return response;
+  }
+  const body = await response.blob();
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
+// Look up a cached entry, ignoring the ?ver= cache-buster on the second attempt.
+// The shell is precached without a version query, but the page requests these
+// files WITH one, so an exact-match-only lookup would miss every time and the
+// offline page would render unstyled — the exact failure this release fixes.
+async function bnMatch(request) {
+  const exact = await caches.match(request);
+  if (exact && !exact.redirected) {
+    return exact;
+  }
+  const loose = await caches.match(request, { ignoreSearch: true });
+  return (loose && !loose.redirected) ? loose : null;
+}
+
+async function bnTrim(cacheName, limit) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  for (let i = 0; i < keys.length - limit; i++) {
+    await cache.delete(keys[i]);
+  }
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(SHELL_CACHE).then(async (cache) => {
+      // Deliberately not cache.addAll(): it stores whatever it gets, redirect
+      // and all, and one failed asset rejects the whole install — which would
+      // leave a member with no offline page at all.
+      await Promise.all(SHELL_ASSETS.map(async (asset) => {
+        try {
+          const cacheable = await bnCacheable(await fetch(asset, { redirect: 'follow' }));
+          if (cacheable) {
+            await cache.put(asset, cacheable);
+          }
+        } catch (e) {
+          // Precaching is best-effort; a missing asset must not block install.
+        }
+      }));
+    })
   );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
+  const keep = [SHELL_CACHE, ASSET_CACHE];
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+        keys.filter((k) => keep.indexOf(k) === -1).map((k) => caches.delete(k))
       )
     )
   );
@@ -202,24 +322,149 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  const request = event.request;
 
-  // Network-first for REST API calls.
-  if (url.pathname.startsWith('/wp-json/')) {
+  // Only GET is cacheable, and only our own origin. Leaving everything else
+  // untouched means a POST, a cross-origin embed or an analytics beacon behaves
+  // exactly as it would with no worker installed.
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // wp-admin and the login screen must never be intercepted: they are
+  // authenticated, nonce-bearing, and a stale copy locks an owner out.
+  if (url.pathname.indexOf('/wp-admin') === 0 || url.pathname.indexOf('/wp-login') === 0) {
+    return;
+  }
+
+  // REST is member-specific data. Network only — no cache write, no cache read.
+  // Falling back to a stored copy here would show one member another's feed.
+  if (url.pathname.indexOf('/wp-json/') === 0) {
+    return;
+  }
+
+  // Navigations: network first, then the offline page. The rendered page itself
+  // is never stored (see the class docblock), so there is no stale or
+  // cross-member HTML to serve.
+  if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(request).catch(async () => {
+        const offline = await bnMatch(new Request(OFFLINE_URL));
+        return offline || Response.error();
+      })
     );
     return;
   }
 
-  // Cache-first for everything else.
+  // Static sub-resources: serve from cache, and refresh in the background so an
+  // updated file is picked up on the next view rather than pinned until the
+  // plugin version changes.
   event.respondWith(
-    caches.match(event.request).then(
-      (cached) => cached || fetch(event.request)
-    )
+    (async () => {
+      const cached = await bnMatch(request);
+
+      const network = fetch(request).then(async (response) => {
+        const cacheable = await bnCacheable(response.clone());
+        if (cacheable) {
+          const cache = await caches.open(ASSET_CACHE);
+          await cache.put(request, cacheable);
+          bnTrim(ASSET_CACHE, ASSET_CACHE_LIMIT);
+        }
+        return response;
+      }).catch(() => null);
+
+      if (cached) {
+        return cached;
+      }
+
+      const fresh = await network;
+      return fresh || Response.error();
+    })()
   );
 });
 JS;
+	}
+
+	/**
+	 * The offline fallback page.
+	 *
+	 * A real page rather than the browser's error screen: it carries the site
+	 * name, BuddyNext's own styling (the stylesheets beside it in the precached
+	 * shell) and a retry button, so losing signal reads as a moment in the
+	 * product rather than as the site being broken.
+	 *
+	 * Linked stylesheets are deliberately un-versioned so they match the shell
+	 * entries exactly and are guaranteed to resolve from cache while offline.
+	 *
+	 * @return string HTML document.
+	 */
+	public function get_offline_page(): string {
+		$base  = defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL : '/';
+		$name  = get_bloginfo( 'name' );
+		$title = __( 'You are offline', 'buddynext' );
+		$body  = __( 'This page is not available without a connection. Your community is waiting once you are back online.', 'buddynext' );
+		$retry = __( 'Try again', 'buddynext' );
+		$home  = __( 'Go to the community', 'buddynext' );
+
+		// Carry the site's colour choice so the offline page is not a white flash on
+		// a dark community. 'auto' is the default and resolves through the
+		// prefers-color-scheme block in bn-base.css, exactly as every other page does.
+		$theme = (string) get_option( 'buddynext_default_theme', 'auto' );
+		$theme = in_array( $theme, array( 'light', 'dark', 'auto' ), true ) ? $theme : 'auto';
+
+		// The <link> and <script> tags below are hand-written rather than enqueued,
+		// and WPCS is right to ask why. This document is served by the SERVICE
+		// WORKER from cache with no WordPress runtime present: there is no wp_head()
+		// to enqueue into. Routing it through the enqueue pipeline would also pull
+		// in the theme and every other plugin's assets, none of which are precached
+		// — reproducing the unstyled page this release exists to fix. The URLs are
+		// the exact ones precached in get_service_worker_script().
+		// phpcs:disable WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet, WordPress.WP.EnqueuedResources.NonEnqueuedScript
+		$html = sprintf(
+			'<!doctype html><html %1$s data-bn-theme="%11$s"><head><meta charset="%2$s">'
+			. '<meta name="viewport" content="width=device-width, initial-scale=1">'
+			. '<title>%3$s</title>'
+			. '<link rel="stylesheet" href="%4$sassets/css/bn-fonts.css">'
+			. '<link rel="stylesheet" href="%4$sassets/css/bn-base.css">'
+			. '<link rel="stylesheet" href="%4$sassets/css/bn-shell.css">'
+			. '</head><body class="bn-offline-body">'
+			. '<main class="bn-offline" role="main">'
+			. '<p class="bn-offline__site">%5$s</p>'
+			. '<h1 class="bn-offline__title">%3$s</h1>'
+			. '<p class="bn-offline__text">%6$s</p>'
+			. '<p class="bn-offline__actions">'
+			. '<button type="button" class="bn-btn" data-variant="primary" data-bn-offline-retry>%7$s</button>'
+			. '<a class="bn-btn" data-variant="ghost" href="%8$s">%9$s</a>'
+			. '</p></main>'
+			. '<script src="%10$sassets/js/pwa/offline.js"></script>'
+			. '</body></html>',
+			get_language_attributes(),
+			esc_attr( get_bloginfo( 'charset' ) ),
+			esc_html( $title ),
+			esc_url( $base ),
+			esc_html( $name ),
+			esc_html( $body ),
+			esc_html( $retry ),
+			esc_url( home_url( '/' ) ),
+			esc_html( $home ),
+			esc_url( $base ),
+			esc_attr( $theme )
+		);
+		// phpcs:enable WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet, WordPress.WP.EnqueuedResources.NonEnqueuedScript
+
+		/**
+		 * Filters the offline fallback page HTML.
+		 *
+		 * @since 1.1.0
+		 *
+		 * @param string $html Full HTML document.
+		 */
+		return (string) apply_filters( 'buddynext_pwa_offline_page', $html );
 	}
 
 	// ── REST routes ───────────────────────────────────────────────────────────
@@ -249,6 +494,16 @@ JS;
 			array(
 				'methods'             => \WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'rest_service_worker' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+
+		register_rest_route(
+			self::REST_NAMESPACE,
+			'/pwa/offline',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'rest_offline' ),
 				'permission_callback' => '__return_true',
 			)
 		);
@@ -326,6 +581,46 @@ JS;
 				}
 
 				echo $script; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JavaScript source, not HTML; escaping it is what broke this in the first place.
+
+				return true;
+			},
+			10,
+			3
+		);
+
+		return new \WP_REST_Response( null, 200 );
+	}
+
+	/**
+	 * Serve the offline fallback page as real HTML.
+	 *
+	 * Uses the same `rest_pre_serve_request` escape hatch as the worker: the REST
+	 * server would otherwise JSON-encode the document into a quoted string, and
+	 * the browser would cache and later display that string instead of a page.
+	 *
+	 * @param \WP_REST_Request $request The offline-page request.
+	 * @return \WP_REST_Response
+	 */
+	public function rest_offline( \WP_REST_Request $request ): \WP_REST_Response {
+		$html  = $this->get_offline_page();
+		$route = (string) $request->get_route();
+
+		add_filter(
+			'rest_pre_serve_request',
+			static function ( bool $served, $result, \WP_REST_Request $req ) use ( $html, $route ): bool {
+				if ( (string) $req->get_route() !== $route ) {
+					return $served;
+				}
+
+				if ( ! headers_sent() ) {
+					header( 'Content-Type: text/html; charset=utf-8' );
+					// Revalidate on every request: the page carries the site name and
+					// translated copy, both of which change without the plugin version
+					// changing. The service worker holds the offline-time copy.
+					header( 'Cache-Control: no-cache' );
+				}
+
+				echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a complete HTML document, escaped field-by-field in get_offline_page().
 
 				return true;
 			},

@@ -62,12 +62,15 @@ class ConnectionService {
 	 * Returns WP_Error if the requester tries to connect with themselves or
 	 * if any connection row (in any status) already exists for this pair.
 	 *
-	 * @param int    $requester_id ID of the user sending the request.
-	 * @param int    $recipient_id ID of the user receiving the request.
-	 * @param string $note         Optional note to attach to the request (max 280 chars).
+	 * @param int         $requester_id ID of the user sending the request.
+	 * @param int         $recipient_id ID of the user receiving the request.
+	 * @param string      $note         Optional note to attach to the request (max 280 chars).
+	 * @param string|null $created_at   Optional backdated UTC timestamp (importer
+	 *                                  seam — see Core\Backdate). When null the
+	 *                                  column default applies, as before.
 	 * @return true|WP_Error
 	 */
-	public function send_request( int $requester_id, int $recipient_id, string $note = '' ): bool|WP_Error {
+	public function send_request( int $requester_id, int $recipient_id, string $note = '', ?string $created_at = null ): bool|WP_Error {
 		if ( $requester_id === $recipient_id ) {
 			return new WP_Error(
 				'cannot_connect_self',
@@ -133,17 +136,23 @@ class ConnectionService {
 			);
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$inserted = $wpdb->insert(
-			$wpdb->prefix . 'bn_connections',
-			array(
-				'requester_id' => $requester_id,
-				'recipient_id' => $recipient_id,
-				'status'       => 'pending',
-				'note'         => $note,
-			),
-			array( '%d', '%d', '%s', '%s' )
+		$row     = array(
+			'requester_id' => $requester_id,
+			'recipient_id' => $recipient_id,
+			'status'       => 'pending',
+			'note'         => $note,
 		);
+		$formats = array( '%d', '%d', '%s', '%s' );
+
+		// Importer seam: only include created_at when a backdate was supplied —
+		// otherwise the column's DEFAULT CURRENT_TIMESTAMP applies, unchanged.
+		if ( null !== $created_at && '' !== $created_at ) {
+			$row['created_at'] = \BuddyNext\Core\Backdate::resolve( $created_at );
+			$formats[]         = '%s';
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$inserted = $wpdb->insert( $wpdb->prefix . 'bn_connections', $row, $formats );
 
 		// Surface a write failure instead of reporting success with a 0 id (which
 		// would also fire buddynext_connection_requested for a row that never

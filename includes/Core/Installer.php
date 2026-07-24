@@ -2757,6 +2757,13 @@ MUPLUGIN;
 			}
 		}
 
-		flush_rewrite_rules();
+		// Never flush here. On the activation request BuddyNext was not loaded at
+		// plugins_loaded, so PageRouter::register_rewrites() has not run — a direct
+		// flush would persist a rewrite_rules option WITHOUT any BuddyNext rule,
+		// 404ing every deep route until permalinks are manually resaved (and
+		// maybe_flush_rewrites() would not repair it because the stored router
+		// version still matches). Clearing the sentinel makes PageRouter perform
+		// the complete flush on the next normal request, after the rules exist.
+		delete_option( 'buddynext_router_version' );
 	}
 }

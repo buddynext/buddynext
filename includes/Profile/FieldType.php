@@ -111,6 +111,7 @@ class FieldType {
 				'label'                 => __( 'Date', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
+				'is_date'               => true,
 				'is_searchable_capable' => false,
 			),
 			'boolean'                 => array(
@@ -158,6 +159,22 @@ class FieldType {
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
+			// A single member type per user — the public classification a community
+			// segments members by (Student / Instructor, Buyer / Seller, …) and the
+			// pivot a future engine uses for per-type profile layouts + conditional
+			// fields. Unlike member_type_multiselect (a SPACE setting picking which
+			// types may auto-join), this is the USER's own one type. It is NOT a
+			// bn_profile_values field: it is a thin UI over the member-type ASSIGNMENT
+			// (MemberTypeService — usermeta bn_member_type + bn_member_type_assignments),
+			// which is the one source of truth the directory filter and the pivot read.
+			// See render_member_type_input() (set-once, self_select-gated) and
+			// ProfileService::apply_member_type_selection() (assign on save).
+			'member_type'             => array(
+				'label'                 => __( 'Member Type', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+			),
 			'color'                   => array(
 				'label'                 => __( 'Colour', 'buddynext' ),
 				'value_kind'            => 'scalar',
@@ -198,6 +215,11 @@ class FieldType {
 				'label'                 => isset( $descriptor['label'] ) ? (string) $descriptor['label'] : ucfirst( $slug ),
 				'value_kind'            => in_array( $descriptor['value_kind'] ?? '', array( 'scalar', 'multi', 'bool' ), true ) ? (string) $descriptor['value_kind'] : 'scalar',
 				'is_choice'             => ! empty( $descriptor['is_choice'] ),
+				// A date-family type shows the "Date Format / Display As" options box.
+				// Registry-driven (like is_choice) so an add-on date type — e.g. Pro's
+				// date_extended — is recognised by the admin editor without editing a
+				// hardcoded list in two places (PHP + JS) that drift apart.
+				'is_date'               => ! empty( $descriptor['is_date'] ),
 				'is_searchable_capable' => ! empty( $descriptor['is_searchable_capable'] ),
 			);
 		}
@@ -440,6 +462,41 @@ class FieldType {
 	}
 
 	/**
+	 * Member-type choices a member may pick for THEMSELVES (self_select = 1 only).
+	 *
+	 * Drives the single-select `member_type` USER field. Admin-only types
+	 * (self_select = 0) are pure classifications and never appear as a self-service
+	 * choice — the same gate MemberTypeController enforces on the REST assign route.
+	 * Keyed by slug => display name, resolved live from MemberTypeService.
+	 *
+	 * @return array<string,string> Self-selectable member-type slug => name.
+	 */
+	public static function member_type_self_select_options(): array {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return array();
+		}
+
+		$service = buddynext_service( 'member_types' );
+		if ( ! is_object( $service ) || ! method_exists( $service, 'get_all' ) ) {
+			return array();
+		}
+
+		$pairs = array();
+		foreach ( (array) $service->get_all() as $type ) {
+			if ( empty( $type['self_select'] ) ) {
+				continue;
+			}
+			$slug = isset( $type['slug'] ) ? (string) $type['slug'] : '';
+			if ( '' === $slug ) {
+				continue;
+			}
+			$pairs[ $slug ] = (string) ( $type['name'] ?? $slug );
+		}
+
+		return $pairs;
+	}
+
+	/**
 	 * Whether a type stores ONE bn_profile_values row per selected value
 	 * (entry_index 0..n) instead of a single scalar row.
 	 *
@@ -566,6 +623,9 @@ class FieldType {
 				}
 				return self::render_multiselect_input( $field, $value, $name, $id );
 
+			case 'member_type':
+				return self::render_member_type_input( $field, $value, $name, $id );
+
 			case 'boolean':
 				return sprintf(
 					'<label class="bn-field-checkbox"><input type="checkbox" id="%1$s" name="%2$s" value="1"%3$s /> <span>%4$s</span></label>',
@@ -690,6 +750,67 @@ class FieldType {
 				esc_attr( $name ),
 				esc_attr( $slug ),
 				checked( $slug, $selected, false ),
+				esc_html( $label )
+			);
+			++$i;
+		}
+		$html .= '</fieldset>';
+
+		return $html;
+	}
+
+	/**
+	 * Render the single-select member-type USER control.
+	 *
+	 * Member type is a public classification and the pivot a future engine uses for
+	 * per-type profile layouts + conditional fields, so a member must not change it
+	 * once set:
+	 *   - Already classified ($value non-empty) → a read-only badge, no control. The
+	 *     value is not re-submitted, so a save never disturbs an existing assignment;
+	 *     only an admin changes it (Members → Member Types).
+	 *   - Not yet classified → a single-select radio of ONLY self-selectable types
+	 *     (self_select = 1); the pick is assigned on save via assign_type().
+	 *   - No self-selectable types → an empty state (nothing a member could pick).
+	 *
+	 * $value is the member's current type SLUG, injected by ProfileService from the
+	 * live assignment (never a bn_profile_values row — see the type's registry note).
+	 *
+	 * @param array  $field Field definition (unused; kept for signature parity).
+	 * @param mixed  $value Current member-type slug, or '' when unclassified.
+	 * @param string $name  Form field name attribute.
+	 * @param string $id    Base id for the control.
+	 * @return string Escaped HTML.
+	 */
+	private static function render_member_type_input( array $field, $value, string $name, string $id ): string {
+		unset( $field );
+		$current = sanitize_key( (string) $value );
+
+		// Already classified — read-only badge, no editable control, nothing resubmitted.
+		if ( '' !== $current ) {
+			$all   = self::member_type_options();
+			$label = $all[ $current ] ?? $current;
+			return sprintf(
+				'<div class="bn-field-membertype is-set"><span class="bn-membertype-badge">%1$s</span> <span class="bn-field-hint">%2$s</span></div>',
+				esc_html( $label ),
+				esc_html__( 'Set by the community — contact an admin to change it.', 'buddynext' )
+			);
+		}
+
+		// Unclassified — offer only the types a member may self-assign.
+		$options = self::member_type_self_select_options();
+		if ( array() === $options ) {
+			return '<span class="bn-field-value">' . esc_html__( 'No member types are available to choose.', 'buddynext' ) . '</span>';
+		}
+
+		$html = '<fieldset class="bn-field-radio-group bn-field-membertype-choices">';
+		$i    = 0;
+		foreach ( $options as $slug => $label ) {
+			$opt_id = $id . '-' . (string) $i;
+			$html  .= sprintf(
+				'<label class="bn-field-radio" for="%1$s"><input type="radio" id="%1$s" name="%2$s" value="%3$s" /> <span>%4$s</span></label>',
+				esc_attr( $opt_id ),
+				esc_attr( $name ),
+				esc_attr( $slug ),
 				esc_html( $label )
 			);
 			++$i;
@@ -858,11 +979,15 @@ class FieldType {
 				);
 
 			case 'date':
-				$ts = strtotime( (string) $value );
-				if ( false === $ts ) {
-					return esc_html( (string) $value );
-				}
-				return '<span class="bn-field-value bn-field-date">' . esc_html( date_i18n( (string) get_option( 'date_format', 'F j, Y' ), $ts ) ) . '</span>';
+				// The value arrives already in its "Display as" form (ProfileService::view_value
+				// formats every date mode through format_date). Re-parsing it here re-ran
+				// strtotime on strings like "1996" or "April 1996" and printed a wrong full date
+				// — the "Display as" setting looked ignored (card 10123106438). Present it as-is;
+				// pass a raw value through format_date so a direct caller still gets a real date.
+				$date = self::looks_like_raw_date( (string) $value )
+					? self::format_date( $field, (string) $value )
+					: (string) $value;
+				return '<span class="bn-field-value bn-field-date">' . esc_html( $date ) . '</span>';
 
 			case 'number':
 				return '<span class="bn-field-value bn-field-number">' . esc_html( (string) $value ) . '</span>';
@@ -1119,6 +1244,18 @@ class FieldType {
 				}
 				return implode( ',', $valid );
 
+			case 'member_type':
+				// One self-selectable slug, validated against the LIVE self_select list.
+				// Anything else (empty, unknown, or an admin-only type a member should
+				// never see) sanitises to '' — apply_member_type_selection() then makes
+				// it a no-op, so a tampered value cannot self-assign a restricted type.
+				$slug = sanitize_key( (string) ( is_array( $raw ) ? '' : $raw ) );
+				if ( '' === $slug ) {
+					return '';
+				}
+				$options = self::member_type_self_select_options();
+				return isset( $options[ $slug ] ) ? $slug : '';
+
 			case 'text':
 			default:
 				return sanitize_text_field( (string) ( is_array( $raw ) ? '' : $raw ) );
@@ -1192,6 +1329,23 @@ class FieldType {
 		$mode    = (string) ( $options['display'] ?? 'date' );
 
 		return in_array( $mode, array( 'date', 'month_year', 'year', 'age' ), true ) ? $mode : 'date';
+	}
+
+	/**
+	 * Whether a value is still a raw stored date (the date input's Y-m-d), as
+	 * opposed to an already-formatted "Display as" string ("1996", "April 1996",
+	 * "30 years old", "April 21, 1996").
+	 *
+	 * The render_display() method normally receives values that view_value() has
+	 * already formatted, so it must NOT re-parse them. This guard lets a direct
+	 * caller that still holds a raw date get it formatted, without re-mangling the
+	 * formatted values the profile actually passes.
+	 *
+	 * @param string $value Value under test.
+	 * @return bool
+	 */
+	private static function looks_like_raw_date( string $value ): bool {
+		return 1 === preg_match( '/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2})?$/', trim( $value ) );
 	}
 
 	/**

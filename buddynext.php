@@ -3,7 +3,7 @@
  * Plugin Name: BuddyNext
  * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
- * Version:     1.0.9
+ * Version:     1.1.0
  * Author:      Wbcom Designs
  * Author URI:  https://wbcomdesigns.com
  * License:     GPLv2 or later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BUDDYNEXT_VERSION', '1.0.9' );
+define( 'BUDDYNEXT_VERSION', '1.1.0' );
 define( 'BUDDYNEXT_FILE', __FILE__ );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
@@ -752,6 +752,60 @@ function buddynext_get_template( string $relative, array $vars = array() ): void
 }
 
 /**
+ * Render a member bio for display.
+ *
+ * THE BIO CONTRACT — plain text plus line breaks. No HTML, no markdown.
+ *
+ * This mirrors the model platforms rather than inventing a format: LinkedIn's
+ * About supports line breaks and bullet characters but no bold/italic/links
+ * markup, and the Facebook and X bios are plain text. Markdown would need a
+ * parser, an allow-list decision, editor affordances to stop members seeing raw
+ * `**stars**`, and it would turn the bio into a link/SEO-spam surface — all
+ * complexity none of those platforms carry.
+ *
+ * The input side already matches: the bio is a plain <textarea> with no editor,
+ * and FieldType sanitises the `textarea` type with sanitize_textarea_field(),
+ * which strips every tag while keeping newlines. So no markup can be stored
+ * through the product's own path.
+ *
+ * The OUTPUT side did not match, which is what this centralises. Six templates
+ * rendered the bio three different ways, and `templates/parts/profile-hero.php`
+ * used wp_kses_post() — permitting links, images and embeds, advertising a
+ * capability the save path makes impossible. Not a live XSS while input is
+ * stripped, but the wrong tool and a latent hole if that ever changes. Escaping
+ * first and converting newlines afterwards is the whole job.
+ *
+ * Runs of blank lines collapse to a single break, matching LinkedIn's refusal to
+ * let a member push content down the page with whitespace.
+ *
+ * Full-text surfaces (profile hero, profile-header block, onboarding preview)
+ * use this. Truncated surfaces (member cards, the directory, search results)
+ * deliberately do NOT: they clamp to 12-18 words, where a <br> would break the
+ * one-line layout, so they keep esc_html( wp_trim_words( … ) ).
+ *
+ * @since 1.1.0
+ *
+ * @param string $bio Raw stored bio.
+ * @return string Escaped HTML, safe to echo without further escaping.
+ */
+function buddynext_bio_html( string $bio ): string {
+	$bio = trim( $bio );
+
+	if ( '' === $bio ) {
+		return '';
+	}
+
+	// Normalise CRLF/CR first so the blank-run collapse below sees one form.
+	$bio = str_replace( array( "\r\n", "\r" ), "\n", $bio );
+
+	// Two or more consecutive newlines collapse to one break.
+	$bio = (string) preg_replace( "/\n{2,}/", "\n", $bio );
+
+	// Escape BEFORE inserting <br>, so the tags we add are the only markup.
+	return nl2br( esc_html( $bio ), false );
+}
+
+/**
  * Resolve the cover image URL to show for a user.
  *
  * Priority:
@@ -1201,9 +1255,13 @@ function buddynext_format_content( string $content ): string {
 	// Replace @username with a link to the member profile. Built from the
 	// configurable People hub base (never a hardcoded /members/) so mention
 	// links survive renamed hub slugs.
+	// The pattern is \BuddyNext\Profile\Handle's, not a local copy: this pass and
+	// the parsers that raise mention NOTIFICATIONS must agree on where a handle
+	// ends, or a member sees themselves linked in a post they were never told
+	// about — or is notified about a mention that renders as plain text.
 	$bn_people_base = \BuddyNext\Core\PageRouter::people_url();
 	$escaped        = preg_replace_callback(
-		'/@([a-zA-Z0-9_-]+)/u',
+		\BuddyNext\Profile\Handle::mention_regex(),
 		static function ( array $m ) use ( $bn_people_base ): string {
 			$url = $bn_people_base . rawurlencode( $m[1] ) . '/';
 			return '<a href="' . esc_url( $url ) . '" class="bn-mention">@' . esc_html( $m[1] ) . '</a>';

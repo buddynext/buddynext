@@ -115,7 +115,7 @@ $sum_types   = static function ( array $types ) use ( $type_unread ): int {
 	return $sum;
 };
 
-$total_unread    = array_sum( array_map( 'intval', $type_unread ) );
+$total_unread = array_sum( array_map( 'intval', $type_unread ) );
 // Badge (bell / nav) = UNSEEN, distinct from the Unread TAB count above. By the
 // time this hub renders, the list has been marked seen (PageRouter), so this is
 // 0 here — keeping the mobile badge consistent with every other surface.
@@ -474,6 +474,21 @@ $initial_context = wp_json_encode(
 				</a>
 			<?php endif; ?>
 		</nav>
+	<?php endif; ?>
+
+	<?php
+	/*
+	 * End-of-list marker on the final page of a non-empty list — the same closure
+	 * the feed gives ("You've reached the end."). Without it a short single-page
+	 * list just stopped, leaving the tail of the hub reading as empty canvas rather
+	 * than a finished list (card 10124166442). On a multi-page list the "Next"
+	 * pager is the affordance, so this only appears once the last page is reached.
+	 */
+	?>
+	<?php if ( $has_any && $bn_paged >= $total_pages ) : ?>
+		<div class="bn-notifs-end" role="status">
+			<span class="bn-notifs-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
+		</div>
 	<?php endif; ?>
 
 	</div><!-- /.bn-notifs-main__content -->

@@ -8,14 +8,36 @@ These are the rules the code in this repo is held to — read before changing an
 | What | Where |
 |---|---|
 | Plugin code | `includes/` (PHP) · `templates/` · `assets/` · `blocks/` |
-| Public documentation — usage guides, developer guide, REST API | `docs/website/` |
+| Customer documentation — usage guides, developer guide | `docs/website/` (tracked) |
+| Public REST catalogue — generated OpenAPI | `docs/api/` (tracked) |
 | Tests | `tests/` (mirrors `includes/`) |
 | Quality tooling | `bin/` · `.githooks/` |
 | Third-party runtime code (committed, ships in the zip) | `libs/` |
 
-`docs/website/` is the only documentation this repo carries; product planning, QA
-and audit material is maintained separately and is intentionally not part of the
-public repository.
+### This repository is PUBLIC — internal material never lands here
+
+**`buddynext` is the public, customer-facing repo. `docs/website/` and `docs/api/`
+are the only tracked documentation.** Everything internal — the manifest, audit
+evidence, QA journeys, plans, specs, standards — lives on the private shelf in the
+Pro repo at `buddynext-pro/free-internal/`, including the material that describes
+*Free*:
+
+| Internal artifact for Free | Real location |
+|---|---|
+| Manifest (manifest-first source of truth) | `buddynext-pro/free-internal/audit/manifest.json` |
+| Audit index, cert oracles/ledger, journeys | `buddynext-pro/free-internal/audit/` |
+| Plans, specs, QA docs, engineering standards | `buddynext-pro/free-internal/docs/` |
+
+`.gitignore` enforces this with an allowlist — `/audit/` and `/docs/*` are ignored
+except `!/docs/website/` and `!/docs/api/`. `audit/` and `docs/standards/` may exist
+in your working copy so local tooling resolves them; **they are deliberately
+untracked and must stay that way.**
+
+**Do not "fix" the absence of `audit/manifest.json` in this repo.** It is absent by
+design, not by oversight — committing one would leak the internal surface inventory
+publicly. If tooling (`/wp-plugin-onboard`, a manifest refresh) generates artifacts
+here, leave them untracked and regenerate the canonical copy on the private shelf.
+Never add an exception to the allowlist to make a tool happy.
 
 ---
 
@@ -153,15 +175,25 @@ wp_register_ability( 'buddynext-post-in-feed', [ 'label' => 'Post in Feed' ] );
 | `bn_activity_log` | Core |
 | `bn_follows`, `bn_connections`, `bn_blocks` | Social Graph |
 | `bn_posts`, `bn_poll_options`, `bn_poll_votes`, `bn_bookmarks`, `bn_shares` | Activity Feed |
-| `bn_profile_fields`, `bn_profile_values` | Profiles |
+| `bn_profile_groups`, `bn_profile_fields`, `bn_profile_values` | Profiles |
+| `bn_member_types`, `bn_member_type_assignments` | Member Types |
+| `bn_presence` | Presence / last-active |
 | `bn_search_index` | Search |
-| `bn_spaces`, `bn_space_members`, `bn_space_categories` | Spaces |
+| `bn_spaces`, `bn_space_members`, `bn_space_categories`, `bn_space_meta`, `bn_space_bans` | Spaces |
 | `bn_notifications`, `bn_notification_prefs` | Notifications |
 | `bn_email_templates`, `bn_email_log` | Email |
 | `bn_reactions`, `bn_comments` | Reactions + Comments |
 | `bn_hashtags`, `bn_post_hashtags`, `bn_hashtag_follows` | Hashtags |
-| `bn_reports`, `bn_mod_log`, `bn_user_strikes` | Moderation |
-| `bn_verify_tokens` | Auth |
+| `bn_reports`, `bn_mod_log`, `bn_user_strikes`, `bn_user_suspensions`, `bn_appeals` | Moderation |
+| `bn_verify_tokens`, `bn_invites` | Auth + Invites |
+| `bn_outbound_webhooks`, `bn_outbound_webhook_log`, `bn_webhook_log` | Outbound Webhooks |
+
+The authoritative list is the `CREATE TABLE` statements in `includes/Core/Installer.php`
+— regenerate this table from there rather than appending by hand:
+
+```bash
+grep -oE "CREATE TABLE [^ ]*bn_[a-z_]+" includes/Core/Installer.php | sed 's/.*bn_/bn_/' | sort -u
+```
 
 DM tables live in WPMediaVerse (`mvs_conversations`, `mvs_messages`, …) — BuddyNext
 is the UI layer only for DM.
@@ -262,7 +294,9 @@ includes/Feed/PostController.php           →  tests/Feed/PostControllerTest.ph
 includes/SocialGraph/FollowController.php  →  tests/SocialGraph/FollowControllerTest.php
 ```
 
-`tests/REST/` must stay empty. All controller tests live in the controller's domain folder.
+**No per-controller tests in `tests/REST/`** — a controller's test lives in its own
+domain folder. `tests/REST/` is reserved for cross-cutting REST infrastructure that
+belongs to no single domain (today: `BaseRestControllerTest.php`, `DeclaredParamsTest.php`).
 
 ### File Naming Conventions
 
@@ -303,8 +337,9 @@ BuddyNext follows the host theme). Verify dark via the real theme toggle, not a
 hand-set attribute.
 
 Bare-named aliases (`--bg`, `--text-1`, `--s4`…) exist only for back-compat —
-always author with the `--bn-*` names. `bin/ux-audit.sh` (gate F3) rejects raw
-hex/px and non-`--bn-` token use.
+always author with the `--bn-*` names. `bin/ux-audit.sh` flags raw hex/px and
+off-prefix token use. It auto-detects the `--bn-` prefix from the CSS itself;
+`PREFIX=xx bin/ux-audit.sh` overrides that if you ever need to.
 
 ---
 
@@ -314,21 +349,24 @@ hex/px and non-`--bn-` token use.
 
 **The golden rule: never write a hardcoded px, hex, or font-family value in any CSS file.**
 
+Author with the `--bn-*` names in every new rule. The bare names are back-compat
+aliases only (see Design System Tokens above) — never author with them.
+
 | What you need | How to write it |
 |---------------|-----------------|
-| Font size | `var(--text-sm)`, `var(--text-base)` |
-| Font weight | `var(--fw-semibold)`, `var(--fw-bold)` |
-| Line height | `var(--leading-body)`, `var(--leading-normal)` |
-| Letter spacing | `var(--ls-tight)`, `var(--ls-normal)` |
-| Colors | `var(--bg)`, `var(--text-1)`, `var(--brand)` |
-| Spacing | `var(--s1)` through `var(--s16)` (4px grid) |
-| Border radius | `var(--r-sm)` through `var(--r-full)` |
-| Font family | `var(--font-body)` or `var(--font-display)` |
+| Font size | `var(--bn-text-sm)`, `var(--bn-text-base)` |
+| Font weight | `var(--bn-fw-semibold)`, `var(--bn-fw-bold)` |
+| Line height | `var(--bn-leading-body)`, `var(--bn-leading-normal)` |
+| Letter spacing | `var(--bn-ls-tight)`, `var(--bn-ls-normal)` |
+| Colors | `var(--bn-bg)`, `var(--bn-ink)`, `var(--bn-accent)` |
+| Spacing | `var(--bn-s1)` through `var(--bn-s16)` (4px grid) |
+| Border radius | `var(--bn-r-sm)` through `var(--bn-r-full)` |
+| Font family | `var(--bn-font-body)` or `var(--bn-font-display)` |
 
 **Where tokens come from:**
-- `TokenService` (`includes/Theme/TokenService.php`) injects all `--text-*`, `--fw-*`, `--leading-*`, `--ls-*`, `--bg`, `--text-1`, `--brand`, `--s*`, `--r-*` tokens via `wp_add_inline_style('bn-base')`.
-- `theme.json` registers the preset slugs so block themes can override via child theme.
-- `bn-base.css` defines `--bn-text-*` as **aliases** to the global tokens: `--bn-text-base: var(--text-base)`.
+- `assets/css/bn-base.css` holds the **canonical** definitions — `--bn-text-base: calc(15px * var(--bn-text-scale))` and the rest of the `--bn-*` families.
+- The same file then declares the bare names as **aliases pointing back at them** — `--text-base: var(--bn-text-base)`. The direction is `--bn-*` → bare, never the reverse.
+- `TokenService` (`includes/Theme/TokenService.php`) injects the runtime-computed values (accent ramp from `--bn-hue`, surfaces, ink, theme fonts) onto the `bn-base` handle via `wp_add_inline_style()`.
 
 **CSS `:root` blocks — allowed vs forbidden:**
 
@@ -339,9 +377,16 @@ hex/px and non-`--bn-` token use.
   --bn-transition: 0.14s ease;
 }
 
-/* ALLOWED — aliasing global tokens for a local shorthand */
+/* ALLOWED — deriving a local value from a global token */
 :root {
-  --bn-text-base: var(--text-base); /* alias, not hardcode */
+  --bn-card-pad: var(--bn-s4); /* derived, not hardcoded */
+}
+
+/* FORBIDDEN — re-pointing a canonical --bn-* token at its own back-compat
+   alias. bn-base.css already defines --bn-text-base and derives --text-base
+   FROM it; this inverts the direction and makes the definition circular. */
+:root {
+  --bn-text-base: var(--text-base); /* never */
 }
 
 /* FORBIDDEN — hardcoded typography/color/spacing */
@@ -353,7 +398,7 @@ hex/px and non-`--bn-` token use.
 ```
 
 **Font loading** — Inter and Plus Jakarta Sans are loaded in `AssetService`. Never
-import from Google Fonts inside a CSS file. The `--font-body` / `--font-display`
+import from Google Fonts inside a CSS file. The `--bn-font-body` / `--bn-font-display`
 tokens carry the full stack including system-font fallbacks.
 
 ### CSS File Structure
@@ -415,10 +460,34 @@ Every `assets/css/bn-{feature}.css` file follows this order:
 Write the failing test FIRST, then the implementation, then make it pass.
 
 ```
+vendor/bin/phpunit                                    # whole suite
 vendor/bin/phpunit tests/[Area]/[ClassTest].php --testdox
 ```
 
 Never mark a task complete unless tests pass.
+
+**First-time setup (per machine).** The suite needs a MySQL server and the
+WordPress test library; without them PHPUnit dies in `tests/bootstrap.php`
+rather than reporting a failure.
+
+```bash
+# 1. MySQL on port 13306 (shared with Pro; start it if the container exists).
+docker run -d --name buddynext-test-mysql -e MYSQL_ROOT_PASSWORD=root -p 13306:3306 mysql:8.0
+# already created once? -> docker start buddynext-test-mysql
+
+# 2. WP test library + test database. The mysql CLI must be on PATH; Local
+#    bundles one at ~/Library/Application Support/Local/lightning-services/mysql-*/bin/*/bin.
+bash bin/install-wp-tests.sh buddynext_tests root root 127.0.0.1:13306 latest
+```
+
+This creates `/tmp/wordpress-tests-lib` (Free) and the `buddynext_tests`
+database; `/tmp/wordpress` holds WP core and is shared with Pro, which uses its
+own `/tmp/wordpress-tests-lib-pro` + `buddynextpro_tests`. `phpunit.xml.dist`
+already exports `WP_TESTS_DIR`, so no env var is needed afterwards.
+
+If `/tmp/wordpress-tests-lib` exists but lacks `includes/functions.php`, a
+previous run half-installed it — move the directory aside and re-run, because
+the installer skips the download whenever the directory is present.
 
 ### 3. Premium UX — Non-Negotiable
 
@@ -441,7 +510,9 @@ up at large-community scale.
   - Templates: `buddynext_icon( 'icon-name' )` — echoes inline SVG
   - PHP classes: `echo \BuddyNext\Core\IconService::render( 'icon-name' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped`
   - JS status hints: CSS class-based coloured text — no emoji in `textContent`
-- **Adding new icons:** drop a Lucide-style SVG (no width/height, `stroke="currentColor"`, `viewBox="0 0 24 24"`) into `assets/icons/<slug>.svg`.
+- **Adding new icons:** drop a Lucide-style SVG (no width/height, `stroke="currentColor"`, `viewBox="0 0 24 24"`) into `assets/icons/<slug>.svg`. `bin/check-icons.sh` enforces this.
+- **"No width/height" means the ROOT `<svg>` tag only.** `<rect width="20" height="14">` is required geometry and is correct. A `grep width=` across the file matches that geometry and reports every rect-based icon as broken — it produced a false "11 icons violate the standard" that nearly triggered a rewrite of 11 healthy files. Check the opening tag, or just run the script.
+- **Brand marks are exempt** (`discord`, `facebook`, `github`, `google`): they are filled logos, not line icons, and keep the grid their brand is drawn on — Google's "G" is a 48-box asset.
 - **102 icons already exist** in `assets/icons/` — check before creating one.
 - `IconService::render()` returns `wp_kses()`-sanitized markup — always safe to echo.
 
@@ -506,6 +577,21 @@ Run from the repo root. All of these must pass before a commit.
 | Unit tests | `vendor/bin/phpunit` |
 | UX audit — token + primitive compliance, inline style/script, no `alert()`/`confirm()` | `bin/ux-audit.sh` |
 | REST boundary — 100% REST frontend, no admin-ajax | `bin/check-rest-boundary.sh` |
+| Icon set — Lucide-style, no baked-in sizes, well-formed | `bin/check-icons.sh` |
+
+**PWA / service workers cannot be tested on the local site.** A worker only runs
+in a secure context, and plain-HTTP `buddynext.local` is not one — `'serviceWorker'
+in navigator` is literally `false` there, so every PWA check silently passes by
+doing nothing. Local's HTTPS is self-signed and automation refuses it. Proxy the
+site onto `127.0.0.1`, which IS a secure context whatever the scheme:
+
+```bash
+bin/pwa-origin.sh up          # http://127.0.0.1:8080/
+bin/pwa-origin.sh stop        # simulate going offline
+```
+
+See `docker/pwa-test/README.md`. This gap is why a worker that precached one URL
+reached production: it had been "tested locally" many times, against nothing.
 
 **Pre-commit hook (one-time per clone):**
 

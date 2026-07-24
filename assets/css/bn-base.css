@@ -990,6 +990,28 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 		position: relative;
 		transition: color 0.15s ease;
 	}
+	/*
+	 * Tab icons need an explicit size, exactly as the centre FAB already has.
+	 *
+	 * .bn-icon (the class IconService::render() puts on every SVG) is sized
+	 * `width/height: 1em`, so an icon inherits whatever font-size its container
+	 * sets. Here that container sets `font-size: 10px` — which is the LABEL
+	 * size, correct for the caption underneath — so the four tab icons were
+	 * rendering at 10x10px against the FAB's 24x24px. That is a 2.4x mismatch in
+	 * the same bar, and 10px is far below the ~24px platform standard for a
+	 * bottom tab bar (iOS 24-28, Material 24).
+	 *
+	 * The FAB was never affected only because it hard-codes its own 24px below.
+	 * Sizing the icon here rather than raising the item's font-size keeps the
+	 * 10px label intact — the label is correct, the icon simply must not be tied
+	 * to it.
+	 */
+	.bn-mobile-nav__item .bn-icon,
+	.bn-mobile-nav__item > svg {
+		width: 24px;
+		height: 24px;
+		flex-shrink: 0;
+	}
 	.bn-mobile-nav__item[aria-current="page"] { color: var(--brand); }
 	.bn-mobile-nav__item[aria-current="page"] svg { stroke: var(--brand); }
 	/* Centred by arithmetic, not by an offset: a fixed-width slot between two
@@ -2387,6 +2409,52 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink-2);
 	border: 1px solid var(--bn-line);
 }
+
+/* Choice-field groups (radio / checkbox / member-type single-select) — a shared
+   primitive, so it lives in bn-base.css (loaded on EVERY frontend page via
+   enqueue_global_tokens) rather than being copied into each feature sheet. This is
+   why a choice field styles identically on the profile-edit form (bn-profile.css)
+   and the registration form (bn-auth.css only) without either sheet re-declaring it. */
+.bn-field-checkbox-group,
+.bn-field-radio-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	border: 0;
+	padding: 0;
+	margin: 0;
+	min-width: 0;
+}
+.bn-field-checkbox-group .bn-field-checkbox,
+.bn-field-radio-group .bn-field-radio {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-height: var(--bn-s10);
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+	transition: border-color 0.14s ease, background 0.14s ease;
+}
+.bn-field-checkbox-group .bn-field-checkbox:hover,
+.bn-field-radio-group .bn-field-radio:hover {
+	border-color: var(--bn-line-strong);
+}
+.bn-field-checkbox-group .bn-field-checkbox:has(input:checked),
+.bn-field-radio-group .bn-field-radio:has(input:checked) {
+	border-color: var(--bn-accent);
+	background: var(--bn-accent-50);
+	color: var(--bn-ink);
+}
+.bn-field-checkbox-group .bn-field-checkbox:has(input:focus-visible),
+.bn-field-radio-group .bn-field-radio:has(input:focus-visible) {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+}
 .bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: var(--bn-paid); border-color: transparent; }
 
 /* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor
@@ -2786,6 +2854,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		do not use .bn-tabs (e.g. .bn-mod-filterbar__tabs) keep their own. */
 	overflow-x: auto;
 	scrollbar-width: none;
+	/* Lock touch scrolling to the horizontal axis. Without this, a horizontal
+		swipe that drifts slightly vertically let the page/container scroll
+		vertically mid-swipe (browser default touch-action: auto). pan-x is the
+		standard for a horizontal tab strip (Facebook / LinkedIn do the same);
+		overscroll-behavior-x stops the horizontal fling from chaining into the
+		browser's back/forward navigation swipe. */
+	touch-action: pan-x;
+	overscroll-behavior-x: contain;
 }
 .bn-tabs::-webkit-scrollbar { display: none; }
 .bn-tabs[data-density="compact"] { gap: 2px; }
@@ -3121,6 +3197,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	padding: var(--bn-s3) var(--bn-s4);
 	border-block-start: 1px solid var(--bn-line);
 	background: var(--bn-canvas);
+	/* This strip is the LAST child of the rounded .bn-pf-hero (.bn-card, radius
+		--bn-r-lg), which keeps overflow:visible so its More-Options dropdown is
+		not clipped. Because the hero can't clip, this opaque strip has to carry
+		the card's bottom radius itself — otherwise its square corners paint over
+		the hero's rounded bottom, and the bottom outline reads as square. */
+	border-end-start-radius: var(--bn-r-lg);
+	border-end-end-radius: var(--bn-r-lg);
 }
 .bn-pf-metricrow .bn-nav-metric + .bn-nav-metric::before {
 	content: "\00B7";

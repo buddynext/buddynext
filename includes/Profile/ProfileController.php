@@ -699,8 +699,8 @@ class ProfileController extends BaseRestController {
 		// directory uses, so the two responses cannot drift. Null (present key,
 		// null value) when the member has no type — never absent, never a
 		// half-populated object.
-		$member_types             = buddynext_service( 'member_types' );
-		$profile['member_type']   = ( $member_types instanceof \BuddyNext\MemberTypes\MemberTypeService )
+		$member_types           = buddynext_service( 'member_types' );
+		$profile['member_type'] = ( $member_types instanceof \BuddyNext\MemberTypes\MemberTypeService )
 			? $member_types->badge_for( $profile_user_id )
 			: null;
 

@@ -843,8 +843,16 @@
 	}
 }
 
+/* The wrap is the positioning context for the edit/remove controls, which anchor
+   to its inline edges. As a grid item it defaults to justify-self: stretch, so
+   every layout that collapses .bn-pf-head to a single column (the 720px container
+   query and the 1024/768px media queries) stretched the wrap to the full column
+   width and carried the controls away from the avatar. Pin it to its own content
+   so the controls stay on the avatar at every width; in the desktop
+   "auto 1fr auto" grid the column is already content-sized, so this is a no-op. */
 .bn-pf-avatar-wrap {
 	position: relative;
+	justify-self: start;
 	margin-block-start: calc(var(--bn-s12) * -1);
 }
 .bn-pf-avatar-wrap .bn-avatar[data-size="2xl"] {
@@ -1692,6 +1700,22 @@ a.bn-space-row:hover .bn-space-name {
 .bn-pf-task__cta:hover { text-decoration: underline; }
 
 /* ── Profile view — responsive ────────────────────────────────────────── */
+/* The avatar's overlay controls (edit pencil, remove) grow to the 44px touch
+   floor under bn-base.css's tap-target rule, so the avatar must grow with them
+   — under the SAME condition, or the two sizings drift apart. They previously
+   did: the avatar shrank to 80px at 640px while the controls grew to 44px, so
+   the pair needed 88px on an 80px photo and overlapped; between 641-768px they
+   sat exactly edge-to-edge. 112px restores roughly the desktop ratio (32/96)
+   and keeps them clear. Mainstream social sizes mobile avatars up, not down,
+   for exactly this reason. Keep this media condition in sync with the
+   tap-target block in bn-base.css. */
+@media (pointer: coarse), (max-width: 768px) {
+	.bn-pf-avatar-wrap .bn-avatar[data-size="2xl"] {
+		width: 112px;
+		height: 112px;
+	}
+}
+
 /* WCAG 1.4.10 reflow: the desktop header is a rigid "avatar | 1fr identity |
    actions" grid. Because the actions column is auto-sized (Follow/Connect/
    Message/Share/More can be ~370px wide), between ~770px and 1024px — the band
@@ -1729,10 +1753,6 @@ a.bn-space-row:hover .bn-space-name {
 	   top corners still align with the hero card. */
 	.bn-pf-cover { height: 140px; border-radius: var(--bn-r-md) var(--bn-r-md) 0 0; }
 	.bn-pf-avatar-wrap { margin-block-start: calc(var(--bn-s8) * -1); }
-	.bn-pf-avatar-wrap .bn-avatar[data-size="2xl"] {
-		width: 80px;
-		height: 80px;
-	}
 	.bn-pf-name { font-size: var(--bn-text-xl); }
 	.bn-pf-actions {
 		width: 100%;
@@ -2102,45 +2122,34 @@ a.bn-space-row:hover .bn-space-name {
    groups render each option as a selectable chip that wraps naturally at any
    viewport. Scoped to the group fieldsets so the single boolean checkbox row
    keeps its plain look. */
-.bn-field-checkbox-group,
-.bn-field-radio-group {
+/* Choice-field groups (.bn-field-checkbox-group / .bn-field-radio-group and their
+   pills) moved to bn-base.css — they are a shared primitive used on the profile-edit
+   form AND the registration form, so they live in the always-loaded base sheet
+   rather than here. This comment is a signpost so the rules aren't re-added here. */
+
+/* Member-type field — the locked "public classification" state. Once a member has
+   a type it renders as a read-only badge (they cannot change it once set; only an
+   admin re-assigns), so the edit control is a badge + hint rather than an input.
+   The unclassified state reuses .bn-field-radio-group above (single self-select). */
+.bn-field-membertype.is-set {
 	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
 	flex-wrap: wrap;
-	gap: var(--bn-s2);
-	border: 0;
-	padding: 0;
-	margin: 0;
-	min-width: 0;
 }
-.bn-field-checkbox-group .bn-field-checkbox,
-.bn-field-radio-group .bn-field-radio {
+.bn-membertype-badge {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--bn-s2);
-	min-height: var(--bn-s10);
-	padding: var(--bn-s2) var(--bn-s4);
-	border: 1px solid var(--bn-line);
+	padding: var(--bn-s1) var(--bn-s3);
 	border-radius: var(--bn-r-full);
-	background: var(--bn-surface);
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-2);
-	cursor: pointer;
-	transition: border-color 0.14s ease, background 0.14s ease;
-}
-.bn-field-checkbox-group .bn-field-checkbox:hover,
-.bn-field-radio-group .bn-field-radio:hover {
-	border-color: var(--bn-line-strong);
-}
-.bn-field-checkbox-group .bn-field-checkbox:has(input:checked),
-.bn-field-radio-group .bn-field-radio:has(input:checked) {
-	border-color: var(--bn-accent);
 	background: var(--bn-accent-50);
-	color: var(--bn-ink);
+	color: var(--bn-accent-700);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
 }
-.bn-field-checkbox-group .bn-field-checkbox:has(input:focus-visible),
-.bn-field-radio-group .bn-field-radio:has(input:focus-visible) {
-	outline: 2px solid var(--bn-ring);
-	outline-offset: 2px;
+.bn-field-membertype .bn-field-hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
 }
 
 .bn-ep-label {

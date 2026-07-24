@@ -210,7 +210,8 @@ Top-level response keys:
 | `pro_active` | bool | Whether BuddyNext Pro is active on the site. |
 | `min_app_version` | string | Lowest app version this site will serve. Fails open - empty (the default) or unparseable means "no floor". |
 | `branding` | object | Pre-auth theming: `app_name`, `accent_color`, `logo_url`, `login_bg_url`, `color_scheme_default` (`auto`/`light`/`dark`). Empty values mean "use your own default". |
-| `features` | object | Feature flags keyed by slug, resolved through `FeatureRegistry` so the app sees the same answer the site does (mandatory tiers, unmet dependencies, and absent partner plugins already folded in). |
+| `features` | object | Feature flags keyed by slug, resolved through `FeatureRegistry` so the app sees the same answer the site does (mandatory tiers, unmet dependencies, and absent partner plugins already folded in). Always `map<string, bool>` - integrations live in their own key precisely so this shape stays flat. |
+| `integrations` | object | Installed integrations keyed by integration key, each `{ enabled: bool, version: string\|null }`. See below. |
 | `limits` | object | Server-side limits the app enforces locally: `connect_note_max_length`, `max_connections`, `max_following`, `viewer_state_max_ids`. |
 | `time` | object | The site's time contract: `site_timezone` (WP `timezone_string`), `gmt_offset` (hours, float), `server_utc` (UTC ISO-8601 with `Z`). The app renders in the site owner's WordPress timezone. |
 | `legal` | object | Links required for App Store review: `privacy_url`, `terms_url`, `eula_url`, `guidelines_url`, `abuse_contact`. Emitted empty rather than invented when the site has not set one. |
@@ -221,3 +222,32 @@ curl 'https://example.com/wp-json/buddynext/v1/app/config' \
 ```
 
 The `time.server_utc` field pairs with the timestamp contract above: the seam gives every row an absolute UTC instant, and `time` tells the app which timezone to format it in.
+
+### Gating a module: `integrations`
+
+`features` answers "is this BuddyNext feature on", and it cannot answer for a partner: Messages, Discussions, Jobs, Courses, Events and Listings are not BuddyNext features and have no key there. `integrations` answers for those, one entry per registered integration:
+
+```json
+"integrations": {
+  "media":        { "enabled": true, "version": "2.0.0" },
+  "jetonomy":     { "enabled": true, "version": "1.8.0" },
+  "gamification": { "enabled": true, "version": "1.6.4" },
+  "careerboard":  { "enabled": true, "version": "1.6.0" },
+  "learnomy":     { "enabled": true, "version": "1.7.0" },
+  "eventonomy":   { "enabled": true, "version": "1.1.0" },
+  "listora":      { "enabled": true, "version": "1.2.2" }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `enabled` | The owner's **nav** toggle for that integration (BuddyNext - Integrations). The nav aspect only: an owner who stops a partner posting activity cards (the `feed` toggle) keeps its tab. |
+| `version` | The partner plugin's own version, declared by the integration. `null` means the integration did not declare one - an honest "unknown", never a guess. Treat `null` as "cannot version-gate" rather than "too old". |
+
+Two rules the client must follow:
+
+**An absent key means not installed.** Only registered integrations appear, and an integration registers itself only while its plugin is active. The registry is an open filter - any third-party plugin can add an entry - so BuddyNext cannot emit a fixed key list without hardcoding one, which would both rot and shut out the third parties the filter exists to welcome. Deactivating a partner therefore *removes* its key rather than flipping `enabled` to `false`. Read absent and `enabled: false` identically: stay silent. They mean the same thing to a tab, so this needs no extra branch.
+
+**Do not hardcode the key list.** `media` is the key for WPMediaVerse (not `mediaverse`). Iterate what you receive.
+
+Adding a key here does not bump `contract_version` - it is additive, and a client that predates it simply sees no `integrations` object. Treat a missing block as "no integration information", not as "no integrations".

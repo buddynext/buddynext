@@ -74,17 +74,21 @@ fi
 # 2. WPCS
 section "WPCS (WordPress standard)"
 if [ -x vendor/bin/phpcs ]; then
+	# No --standard: let phpcs auto-discover the ruleset (a local phpcs.xml if one
+	# exists, otherwise the committed phpcs.xml.dist). Pinning --standard=phpcs.xml
+	# broke the moment the tracked phpcs.xml was removed, and before that it forced
+	# the local-override name even on clones that only had the .dist.
 	if [ "$STAGED" = 1 ]; then
 		if [ -n "$PHP_FILES" ]; then
 			# shellcheck disable=SC2086
-			if vendor/bin/phpcs --standard=phpcs.xml $PHP_FILES; then
+			if vendor/bin/phpcs $PHP_FILES; then
 				ok "staged PHP clean"
 			else
 				fail "staged PHP has WPCS issues"
 			fi
 		fi
 	else
-		if vendor/bin/phpcs --standard=phpcs.xml; then
+		if vendor/bin/phpcs; then
 			ok "all PHP clean"
 		else
 			fail "WPCS violations"
@@ -104,6 +108,18 @@ if [ -x bin/check-rest-boundary.sh ]; then
 	fi
 else
 	note "bin/check-rest-boundary.sh missing"
+fi
+
+# 3a. Icon set conformance — Lucide-style, no baked-in sizes
+section "Icon set"
+if [ -x bin/check-icons.sh ]; then
+	if bin/check-icons.sh; then
+		:
+	else
+		fail "icon set does not conform — see assets/icons/"
+	fi
+else
+	note "bin/check-icons.sh missing"
 fi
 
 # 3b. Route URLs — no hand-rolled home_url() paths outside PageRouter
@@ -157,6 +173,81 @@ if [ -f bin/check-erasure.py ]; then
 	fi
 else
 	note "bin/check-erasure.py missing"
+fi
+
+# 3b-iii. Journey tags — BLOCKING, and green as of this commit.
+#
+# A spec that names no journey is invisible to coverage reporting: it proves no catalogued
+# journey and appears as no gap. Five specs sat in that state until 2026-07-21 — all passing,
+# none counted. This gate only checks that an id is DECLARED; it cannot check the id exists,
+# because the journey catalogue is internal and lives in the pro repo. The matching gate
+# there (bin/check-journey-coverage.py) reconciles both directions.
+section "Journey tags"
+if [ -f bin/check-journey-tags.py ]; then
+	if python3 bin/check-journey-tags.py; then
+		:
+	else
+		fail "a Playwright spec declares no journey id — add it to the spec's docblock"
+	fi
+else
+	note "bin/check-journey-tags.py missing"
+fi
+
+# 3b-iv. Field-type registry (A1) — BLOCKING, green as of this commit.
+#
+# Pro registers profile field types at runtime via buddynext_field_types. Any consumer
+# that gates behaviour by field type (reveal Options/Date box, is-choice, is-date) must
+# read the localised registry, not a hardcoded list that omits the add-on types. That
+# drift shipped as four RFT cards in 1.0.x (Pro field's Options/Date box stayed hidden,
+# display setting never persisted) — invisible with Free-only fixtures because every core
+# type is in every hardcoded list. This is the static backstop the pixel pass can't be.
+section "Field-type registry (A1)"
+if [ -f bin/check-field-type-registry.py ]; then
+	if python3 bin/check-field-type-registry.py; then
+		:
+	else
+		fail "a field-type gate reads a hardcoded list instead of the buddynext_field_types registry"
+	fi
+else
+	note "bin/check-field-type-registry.py missing"
+fi
+
+# 3b-v. Emitted CSS class (A2) — BLOCKING, green as of this commit (baselined).
+#
+# An emitted design-system class must resolve to a CSS rule. Card 10123417821 shipped
+# class="bn-chip" where only .bn-field-chip is styled, so the selected values rendered
+# as unstyled inline text. This gate fires on the "styled-sibling near-miss" signature
+# (a barer class emitted while a more-qualified sibling IS styled) and fails only on NEW
+# ones beyond .a2-emitted-class-baseline.json. The full emitted-no-rule list is advisory:
+# bin/check-emitted-css-classes.py --report → audit/emitted-class-report.md.
+section "Emitted CSS class (A2)"
+if [ -f bin/check-emitted-css-classes.py ]; then
+	if python3 bin/check-emitted-css-classes.py; then
+		:
+	else
+		fail "a fully-unstyled element emits a class whose styled sibling exists — likely the wrong class"
+	fi
+else
+	note "bin/check-emitted-css-classes.py missing"
+fi
+
+# 3b-vi. Auth-form field wiring (A3) — BLOCKING, green as of this commit.
+#
+# Every user-editable control in templates/auth/*.php must be captured into the fetch
+# submit body — via data-bn-reg-field (collectRegFields) or a store binding
+# (data-wp-on--input/change, data-wp-bind--value). Card 10123540374: the signup name
+# input had neither, so the store never sent it and the server fell back to the email
+# handle prefix — the account was created with the wrong display_name, nothing errored,
+# and a "signup succeeded" journey passed. This gate catches that class statically.
+section "Auth-form field wiring (A3)"
+if [ -f bin/check-form-field-wiring.py ]; then
+	if python3 bin/check-form-field-wiring.py; then
+		:
+	else
+		fail "an editable auth-form control is not wired into the submit payload (card-10 class)"
+	fi
+else
+	note "bin/check-form-field-wiring.py missing"
 fi
 
 # 3c. Cache conformance — ADVISORY until the cache backlog is cleared, then make it blocking.

@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Comments;
 
 use WP_Error;
+use BuddyNext\Profile\Handle;
 use BuddyNext\Core\RateLimiter;
 use BuddyNext\Moderation\InteractionGuard;
 use BuddyNext\Moderation\ModerationService;
@@ -42,14 +43,16 @@ class CommentService {
 	/**
 	 * Create a comment on an object.
 	 *
-	 * @param int      $user_id     Commenting user.
-	 * @param string   $object_type Object type (e.g. 'post').
-	 * @param int      $object_id   Object ID.
-	 * @param string   $content     Comment text.
-	 * @param int|null $parent_id   Parent comment ID for replies, or null.
+	 * @param int         $user_id     Commenting user.
+	 * @param string      $object_type Object type (e.g. 'post').
+	 * @param int         $object_id   Object ID.
+	 * @param string      $content     Comment text.
+	 * @param int|null    $parent_id   Parent comment ID for replies, or null.
+	 * @param string|null $created_at  Optional backdated UTC timestamp (importer
+	 *                                 seam — see Core\Backdate). Clamped to now.
 	 * @return int|WP_Error Inserted comment ID or WP_Error.
 	 */
-	public function create( int $user_id, string $object_type, int $object_id, string $content, ?int $parent_id = null ): int|WP_Error {
+	public function create( int $user_id, string $object_type, int $object_id, string $content, ?int $parent_id = null, ?string $created_at = null ): int|WP_Error {
 		$content = wp_kses_post( trim( $content ) );
 
 		if ( '' === $content ) {
@@ -230,7 +233,9 @@ class CommentService {
 				// Store in UTC instead of relying on the column's local-time
 				// DEFAULT CURRENT_TIMESTAMP, so relative times render correctly
 				// regardless of the MySQL/PHP timezone (see buddynext_time_ago()).
-				'created_at'  => current_time( 'mysql', true ),
+				// Backdate::resolve() returns now unless a valid past timestamp
+				// was supplied (importer seam).
+				'created_at'  => \BuddyNext\Core\Backdate::resolve( $created_at ),
 			),
 			array( '%d', '%s', '%d', '%d', '%s', '%s' )
 		);
@@ -264,15 +269,16 @@ class CommentService {
 		// the post the comment is on, so the existing bn.mention listener
 		// (object_id = post id) resolves correctly with no signature change.
 		if ( 'post' === $object_type ) {
-			preg_match_all( '/@([a-zA-Z0-9_-]+)/u', $content, $bn_mention_matches );
+			preg_match_all( Handle::mention_regex(), $content, $bn_mention_matches );
 			$bn_notified = array();
 			foreach ( $bn_mention_matches[1] as $bn_raw_username ) {
-				$bn_username = sanitize_user( $bn_raw_username, true );
+				$bn_username = (string) $bn_raw_username;
 				if ( '' === $bn_username || isset( $bn_notified[ $bn_username ] ) ) {
 					continue;
 				}
 				$bn_notified[ $bn_username ] = true;
-				$bn_mentioned                = get_user_by( 'login', $bn_username );
+				// Resolved as a HANDLE, not a login — see PostService for why.
+				$bn_mentioned = Handle::resolve( $bn_username );
 				if ( $bn_mentioned instanceof \WP_User && $bn_mentioned->ID !== $user_id
 					&& $this->mention_allowed( $user_id, (int) $bn_mentioned->ID ) ) {
 					/** This action is documented in includes/Feed/PostService.php */
@@ -938,7 +944,7 @@ class CommentService {
 			// Ask for one more than we can keep, so an overflow is detectable rather than assumed.
 			$params = array_merge( array( $type, $object_id ), $frontier, array( $remaining + 1 ) );
 
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 			$level_rows = (array) $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT id, user_id, object_type, object_id, parent_id, content, created_at, updated_at, is_deleted, is_edited
@@ -951,7 +957,7 @@ class CommentService {
 				),
 				ARRAY_A
 			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 			if ( empty( $level_rows ) ) {
 				return $rows;

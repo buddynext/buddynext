@@ -1,0 +1,32 @@
+# Service-worker / PWA test origin.
+#
+#   SITE_HOST=buddynext.local docker compose up -d
+#   open http://127.0.0.1:8080/
+#
+# See README.md. The short version: a service worker only runs in a SECURE
+# CONTEXT, and a plain-HTTP .local host is not one — `'serviceWorker' in
+# navigator` is literally false there. 127.0.0.1 IS a secure context whatever the
+# scheme, so proxying the real site onto it makes the worker testable without
+# certificates.
+services:
+  pwa-origin:
+    image: nginx:alpine
+    container_name: buddynext-pwa-origin
+    # Bound to the loopback interface only: this proxy forwards to a local dev
+    # site with no auth in front of it and must not be reachable from the network.
+    ports:
+      - "127.0.0.1:${PROXY_PORT:-8080}:8080"
+    environment:
+      SITE_HOST: ${SITE_HOST:-buddynext.local}
+      PROXY_PORT: ${PROXY_PORT:-8080}
+      # What the site's absolute URLs are rewritten to. Defaults to the loopback
+      # origin; tunnel mode passes the public https:// hostname instead.
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://127.0.0.1:8080}
+      # Same value with slashes escaped, for the JSON-encoded URLs inline scripts
+      # carry. Computed by bin/pwa-origin.sh.
+      PUBLIC_ORIGIN_ESCAPED: ${PUBLIC_ORIGIN_ESCAPED:-http:\/\/127.0.0.1:8080}
+    volumes:
+      - ./nginx.conf:/etc/nginx/templates/default.conf.template:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

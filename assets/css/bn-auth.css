@@ -870,6 +870,11 @@ body.bn-hub-auth .bn-auth-page {
 }
 .bn-auth-link:hover { text-decoration: underline; }
 
+/* Choice-field groups (radio / checkbox / member-type single-select) that a field
+   with show_on_register renders here now come from the shared .bn-field-*-group
+   primitive in bn-base.css (loaded on every frontend page), so registration and
+   profile edit stay identical with a single definition — no per-sheet copy. */
+
 /* Field invalid outline */
 .bn-input[aria-invalid="true"] {
 	border-color: var(--bn-danger);

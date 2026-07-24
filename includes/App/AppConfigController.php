@@ -104,6 +104,7 @@ class AppConfigController {
 
 			'branding'         => $this->branding(),
 			'features'         => $this->features(),
+			'integrations'     => $this->integrations(),
 			'limits'           => $this->limits(),
 			'time'             => $this->time(),
 
@@ -192,6 +193,51 @@ class AppConfigController {
 		}
 
 		return $flags;
+	}
+
+	/**
+	 * Installed integrations, keyed by integration key.
+	 *
+	 * The app's module gate needs two facts per module — is it switched on, and is
+	 * the partner new enough — and `features` can answer neither: its catalogue is
+	 * BuddyNext's own features, so Messages, Discussions, Jobs, Courses, Events and
+	 * Listings have no key there at all. It is also `map<string,bool>`, so the
+	 * version cannot live in it without breaking that shape for clients already
+	 * parsing it. Hence a separate block rather than a wider `features`.
+	 *
+	 * This introduces NO new setting. `enabled` is the owner's existing per-
+	 * integration nav toggle from the Integrations screen, and `version` is the
+	 * partner's own constant. Both already exist; only the projection is new.
+	 *
+	 * Only REGISTERED integrations appear, because an integration registers itself
+	 * (and only while its plugin is active). Core cannot enumerate a fixed list
+	 * without hardcoding one, which would both rot and shut out third-party
+	 * integrations the open filter exists to welcome. A client must therefore read
+	 * an ABSENT key exactly as it reads `enabled: false` — not installed, so stay
+	 * silent. That is the same conclusion, so the gate needs no extra branch.
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	private function integrations(): array {
+		$out = array();
+
+		foreach ( buddynext_integrations() as $key => $entry ) {
+			$key = (string) $key;
+
+			$out[ $key ] = array(
+				// The nav aspect specifically: this gates whether the module is
+				// reachable in navigation, which is the question a tab is asking.
+				// Feed and search are separate owner switches and must not be
+				// folded in, or turning off a module's activity cards would also
+				// vanish its tab.
+				'enabled' => buddynext_integration_enabled( $key, 'nav' ),
+				// isset() is doing the null check too: the registry normalizes an
+				// undeclared version to null, and isset() is false for null.
+				'version' => isset( $entry['version'] ) ? (string) $entry['version'] : null,
+			);
+		}
+
+		return $out;
 	}
 
 	/**

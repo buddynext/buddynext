@@ -203,17 +203,17 @@ class AnnouncementsAdmin {
 	 * Render one action as a nonce-protected admin-post form button.
 	 *
 	 * @param int    $post_id     Announcement post ID.
-	 * @param string $do          Action key (feature|unfeature|end|delete).
+	 * @param string $action_key  Action key (feature|unfeature|end|delete).
 	 * @param string $label       Button label.
 	 * @param bool   $destructive Whether to style it as destructive + confirm.
 	 * @return void
 	 */
-	private function action_button( int $post_id, string $do, string $label, bool $destructive = false ): void {
+	private function action_button( int $post_id, string $action_key, string $label, bool $destructive = false ): void {
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form">
 			<?php wp_nonce_field( 'buddynext_announcement_action' ); ?>
 			<input type="hidden" name="action" value="buddynext_announcement_action">
-			<input type="hidden" name="do" value="<?php echo esc_attr( $do ); ?>">
+			<input type="hidden" name="do" value="<?php echo esc_attr( $action_key ); ?>">
 			<input type="hidden" name="post_id" value="<?php echo esc_attr( (string) $post_id ); ?>">
 			<button type="submit"
 				class="bn-btn"

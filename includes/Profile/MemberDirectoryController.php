@@ -290,7 +290,7 @@ class MemberDirectoryController extends BaseRestController {
 				'follower_count'          => '' === $follower_meta ? 0 : (int) $follower_meta,
 				'mutual_connection_count' => count( (array) ( $mutual[ $uid ] ?? array() ) ),
 			);
-			$items[] = $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either, $muted_set );
+			$items[]       = $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either, $muted_set );
 		}
 
 		return $items;

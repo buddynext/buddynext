@@ -87,19 +87,54 @@ class CoreRegistration {
 	 *
 	 * @since 1.0.8
 	 *
+	 * @return bool True when consent is demanded with no page behind it.
+	 */
+	public static function has_terms_gap(): bool {
+		// Only when the owner ASKED for consent and gave us nothing to point at.
+		if ( ! (bool) get_option( 'buddynext_require_terms', true ) ) {
+			return false;
+		}
+
+		return (int) get_option( 'buddynext_terms_page_id', 0 ) < 1;
+	}
+
+	/**
+	 * The same consent warning, rendered INSIDE the Registration panel.
+	 *
+	 * The global notice is cleared on BuddyNext screens along with every foreign
+	 * one — and its own button linked HERE, so following it made the message
+	 * disappear. Inline there is no button: the setting is on this screen, so it
+	 * says which control to set instead of sending the owner in a circle.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return void
+	 */
+	public static function render_terms_inline(): void {
+		if ( ! current_user_can( 'manage_options' ) || ! self::has_terms_gap() ) {
+			return;
+		}
+		?>
+		<div class="bn-alert">
+			<span class="bn-alert__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
+			<div class="bn-alert__body">
+				<p class="bn-alert__title"><?php esc_html_e( 'Consent is on, but no Terms page is set', 'buddynext' ); ?></p>
+				<p class="bn-alert__text"><?php esc_html_e( 'Members would agree to a document that does not exist, so consent is not being collected. Choose a Terms page below, or switch this off.', 'buddynext' ); ?></p>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * The consent warning as a global admin notice.
+	 *
+	 * Suppressed on BuddyNext's own screens by AdminHub, which is why
+	 * {@see self::render_terms_inline()} exists for the panel that owns the setting.
+	 *
 	 * @return void
 	 */
 	public function render_terms_notice(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		// Only when the owner ASKED for consent and gave us nothing to point at.
-		if ( ! (bool) get_option( 'buddynext_require_terms', true ) ) {
-			return;
-		}
-
-		if ( (int) get_option( 'buddynext_terms_page_id', 0 ) > 0 ) {
+		if ( ! current_user_can( 'manage_options' ) || ! self::has_terms_gap() ) {
 			return;
 		}
 		?>
@@ -151,41 +186,108 @@ class CoreRegistration {
 	 *
 	 * @return void
 	 */
-	public function render_desync_notice(): void {
-		if ( ! current_user_can( 'manage_options' ) || ! self::is_desynced() ) {
-			return;
+	/**
+	 * The desync warning's content, or null when the two settings agree.
+	 *
+	 * Extracted so the global notice and the inline panel warning cannot drift
+	 * apart. They MUST say the same thing: the inline copy exists precisely because
+	 * the global one is invisible on BuddyNext's own screens, and an owner reading
+	 * two different explanations of one problem is worse than reading none.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return array{headline:string,title:string,summary:string,explain:string,mode:string,core_open:bool,action:string}|null
+	 */
+	public static function desync_state(): ?array {
+		if ( ! self::is_desynced() ) {
+			return null;
 		}
 
 		$mode         = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
 		$core_open    = (bool) get_option( 'users_can_register', false );
 		$bn_wants_off = ( 'closed' === $mode );
 
-		$explain = $bn_wants_off
-			? __( 'BuddyNext registration is set to Closed, but WordPress still allows anyone to register. New accounts can still be created.', 'buddynext' )
-			: __( 'WordPress registration is switched off, so every signup is being refused — even though BuddyNext shows registration as open. Members trying to join are being turned away.', 'buddynext' );
+		if ( $bn_wants_off ) {
+			$headline = __( 'BuddyNext: accounts can still be created.', 'buddynext' );
+			$explain  = __( 'BuddyNext registration is set to Closed, but WordPress still allows anyone to register. New accounts can still be created.', 'buddynext' );
+		} elseif ( 'invite' === $mode ) {
+			$headline = __( 'BuddyNext: your invitations are not working.', 'buddynext' );
+			$explain  = __( 'Invite Only still needs WordPress registration switched on: an invited person creates their account through the normal signup form. With it off, every invitation fails with "Registration is closed on this community" — your invites are not working. Your community stays private either way, because only people holding a valid invitation can get through.', 'buddynext' );
+		} elseif ( 'approval' === $mode ) {
+			$headline = __( 'BuddyNext: nobody can request an account.', 'buddynext' );
+			$explain  = __( 'Admin Approval still needs WordPress registration switched on: a request is created through the normal signup form and then waits for your review. With it off, nobody can even submit a request. Your community stays gated either way, because you approve every account.', 'buddynext' );
+		} else {
+			$headline = __( 'BuddyNext: every signup is being refused.', 'buddynext' );
+			$explain  = __( 'WordPress registration is switched off, so every signup is being refused — even though BuddyNext shows registration as open. Members trying to join are being turned away.', 'buddynext' );
+		}
 
-		$action = $bn_wants_off
-			? __( 'Turn WordPress registration off', 'buddynext' )
-			: __( 'Turn WordPress registration on', 'buddynext' );
+		// The inline warning is read IN CONTEXT, with the mode selector directly
+		// below it. It needs the consequence and the fix, not the full lesson —
+		// three lines of prose inside a settings panel reads as documentation and
+		// gets skimmed past. The long form stays for the global notice, which is
+		// met cold on an unrelated screen.
+		if ( $bn_wants_off ) {
+			$title   = __( 'Accounts can still be created', 'buddynext' );
+			$summary = __( 'WordPress still lets anyone register, so accounts can still be created.', 'buddynext' );
+		} elseif ( 'invite' === $mode ) {
+			$title   = __( 'Your invitations are not working', 'buddynext' );
+			$summary = __( 'Invite Only needs WordPress registration switched on. With it off, every invitation is refused - your community stays private either way.', 'buddynext' );
+		} elseif ( 'approval' === $mode ) {
+			$title   = __( 'Nobody can request an account', 'buddynext' );
+			$summary = __( 'Admin Approval needs WordPress registration switched on. With it off, nobody can even submit a request.', 'buddynext' );
+		} else {
+			$title   = __( 'Every signup is being refused', 'buddynext' );
+			$summary = __( 'WordPress registration is off, so every signup is being refused.', 'buddynext' );
+		}
+
+		return array(
+			'headline'  => $headline,
+			// Sentence-case, no "BuddyNext:" prefix and no trailing stop: this is a
+			// heading inside our own panel, where the prefix is noise and the eye
+			// wants the problem first.
+			'title'     => $title,
+			'summary'   => $summary,
+			'explain'   => $explain,
+			'mode'      => $mode,
+			'core_open' => $core_open,
+			'action'    => $bn_wants_off
+				? __( 'Turn WordPress registration off', 'buddynext' )
+				: __( 'Turn WordPress registration on', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * The desync warning as a global admin notice.
+	 *
+	 * Content comes from {@see self::desync_state()} so this and the inline panel
+	 * warning cannot drift apart.
+	 *
+	 * @return void
+	 */
+	public function render_desync_notice(): void {
+		$state = current_user_can( 'manage_options' ) ? self::desync_state() : null;
+		if ( null === $state ) {
+			return;
+		}
 		?>
 		<div class="notice notice-error is-dismissible">
 			<p>
-				<strong><?php esc_html_e( 'BuddyNext: your registration settings disagree.', 'buddynext' ); ?></strong>
-				<?php echo esc_html( $explain ); ?>
+				<strong><?php echo esc_html( $state['headline'] ); ?></strong>
+				<?php echo esc_html( $state['explain'] ); ?>
 			</p>
 			<p>
 				<?php
 				printf(
 					/* translators: 1: BuddyNext registration mode, 2: WordPress "Anyone can register" state. */
 					esc_html__( 'BuddyNext mode: %1$s. WordPress "Anyone can register": %2$s.', 'buddynext' ),
-					'<code>' . esc_html( $mode ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
-					'<code>' . esc_html( $core_open ? __( 'on', 'buddynext' ) : __( 'off', 'buddynext' ) ) . '</code>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+					'<code>' . esc_html( $state['mode'] ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+					'<code>' . esc_html( $state['core_open'] ? __( 'on', 'buddynext' ) : __( 'off', 'buddynext' ) ) . '</code>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
 				);
 				?>
 			</p>
 			<p>
 				<a class="button button-primary" href="<?php echo esc_url( self::reconcile_url() ); ?>">
-					<?php echo esc_html( $action ); ?>
+					<?php echo esc_html( $state['action'] ); ?>
 				</a>
 			</p>
 		</div>
@@ -193,7 +295,58 @@ class CoreRegistration {
 	}
 
 	/**
-	 * Nonce-protected URL that reconciles WP's flag to BuddyNext's mode.
+	 * The same desync warning, rendered INSIDE the Registration panel.
+	 *
+	 * AdminHub clears `admin_notices` on every BuddyNext screen so third-party
+	 * setup nags do not crowd the settings UI — deliberate, and staying. But
+	 * `remove_all_actions()` cannot tell a foreign nag from one of ours, so this
+	 * warning vanished on the one screen where the owner is configuring the very
+	 * setting it is about. The Setup Checklist even links them here, so the
+	 * guidance disappeared at the moment they acted on it.
+	 *
+	 * Rendering it inline fixes that without touching the suppression: the warning
+	 * sits beside the control it concerns, which is better than a global banner
+	 * anyway.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return void
+	 */
+	public static function render_desync_inline(): void {
+		$state = current_user_can( 'manage_options' ) ? self::desync_state() : null;
+		if ( null === $state ) {
+			return;
+		}
+
+		?>
+		<div class="bn-alert">
+			<span class="bn-alert__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
+			<div class="bn-alert__body">
+				<p class="bn-alert__title"><?php echo esc_html( $state['title'] ); ?></p>
+				<p class="bn-alert__text"><?php echo esc_html( $state['summary'] ); ?></p>
+				<p class="bn-alert__meta">
+					<?php
+					printf(
+						/* translators: 1: registration mode, 2: on/off, 3: link to WordPress Settings > General. */
+						esc_html__( 'Mode %1$s - WordPress "Anyone can register" is %2$s, in %3$s', 'buddynext' ),
+						'<code>' . esc_html( $state['mode'] ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+						'<code>' . esc_html( $state['core_open'] ? __( 'on', 'buddynext' ) : __( 'off', 'buddynext' ) ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+						'<a href="' . esc_url( admin_url( 'options-general.php' ) ) . '">' . esc_html__( 'Settings > General', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+					);
+					?>
+				</p>
+			</div>
+			<span class="bn-alert__action">
+				<a class="button button-primary" href="<?php echo esc_url( self::reconcile_url() ); ?>">
+					<?php echo esc_html( $state['action'] ); ?>
+				</a>
+			</span>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Nonced URL for the one-click "make the two settings agree" action.
 	 *
 	 * @return string
 	 */

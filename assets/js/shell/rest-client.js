@@ -16,7 +16,9 @@
  *     and `X-WP-Nonce` for cookie-auth REST.
  *   - JSON-encodes plain-object bodies (FormData/Blob pass through untouched
  *     so the browser sets the multipart boundary for uploads).
- *   - Parses JSON responses when content-type matches; otherwise data is null.
+ *   - Parses JSON on every OK response, and on non-OK responses whose
+ *     content-type says JSON; otherwise data is null. (Proxies can strip the
+ *     header from successful responses — never let that read as a failure.)
  *   - On `403 rest_cookie_invalid_nonce`, GETs /auth/nonce once to refresh and
  *     retries. A 404 there (route not shipped) abandons the retry and returns
  *     the original 403 verbatim.
@@ -88,7 +90,11 @@ function parseBody( response ) {
 		response.headers && response.headers.get
 			? response.headers.get( 'content-type' ) || ''
 			: '';
-	if ( ct.indexOf( 'application/json' ) !== -1 ) {
+	// Attempt JSON on every OK response, not only when the header says JSON:
+	// reverse proxies / cache layers (LiteSpeed among them) are known to strip
+	// or mangle Content-Type on some proxied POST responses, which made a
+	// genuinely successful 200 parse as null and read as a failure upstream.
+	if ( response.ok || ct.indexOf( 'application/json' ) !== -1 ) {
 		return response.json().catch( () => null );
 	}
 	return Promise.resolve( null );

@@ -82,6 +82,16 @@ final class PrivateCommunity {
 	 */
 	public static function register(): void {
 		add_filter( 'rest_pre_dispatch', array( self::class, 'gate_rest' ), 10, 3 );
+
+		// Extend the same lockdown to MediaVerse's REST surface. The BN gate above
+		// only covers the buddynext(-pro)/v1 namespace, so mvs/v1 (media, DMs,
+		// tags, profiles) stayed readable logged-out on a private community. Rather
+		// than reach into another plugin's namespace, we drive MediaVerse's OWN
+		// gate through the filters it exposes — so this one setting seals both, and
+		// MediaVerse standalone (nobody setting these) is unaffected. Any other
+		// integration can adopt the same two-filter contract.
+		add_filter( 'mvs_rest_require_auth', array( self::class, 'is_enabled' ) );
+		add_filter( 'mvs_rest_can_access', array( self::class, 'can_access' ) );
 	}
 
 	/**

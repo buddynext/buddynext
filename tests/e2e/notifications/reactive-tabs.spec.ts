@@ -3,6 +3,8 @@ import { softSkip } from '../_fixtures/precondition';
 import { urls } from '../_fixtures/selectors';
 
 /**
+ * J-122-notification-reactive-tabs.
+ *
  * Reactive filter tabs (notifications completion Wave A5).
  *
  * Verifies that clicking a tab updates the visible content + URL without

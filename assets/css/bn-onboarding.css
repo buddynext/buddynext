@@ -32,11 +32,15 @@
 .bn-ob-shell {
 	min-height: 100vh;
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	/* minmax(0, …) drops the implicit min-content floor: without it the
+	   stepper's intrinsic width forces the form column wider than the
+	   viewport on small screens and the right edge gets clipped. */
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 .bn-ob-form {
 	background: var(--bn-surface);
 	min-height: 100vh;
+	min-width: 0;
 	padding: var(--bn-s6) var(--bn-s6);
 	display: flex;
 	flex-direction: column;
@@ -71,11 +75,17 @@
 }
 
 @media (max-width: 960px) {
-	.bn-ob-shell { grid-template-columns: 1fr; }
+	.bn-ob-shell { grid-template-columns: minmax(0, 1fr); }
 	.bn-ob-canvas { display: none; }
 }
 @media (max-width: 768px) {
 	.bn-ob-form { padding: var(--bn-s5) var(--bn-s4); }
+}
+@media (max-width: 640px) {
+	/* Five labelled steps cannot fit a phone width: keep every numbered dot,
+	   show the label for the current step only. */
+	.bn-ob-stepper .bn-ob-stepper__label { display: none; }
+	.bn-ob-stepper .bn-stepper__item.is-active .bn-ob-stepper__label { display: inline; }
 }
 
 /* ── Form column inner sections ───────────────────────────────────────── */
@@ -127,10 +137,14 @@
 }
 .bn-ob-step[hidden] { display: none; }
 .bn-ob-step__head {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: var(--bn-s2);
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: center;
+	column-gap: var(--bn-s3);
+	row-gap: var(--bn-s2);
+}
+.bn-ob-step__head .bn-ob-step__sub {
+	grid-column: 1 / -1;
 }
 .bn-ob-step__icon {
 	color: var(--bn-accent);

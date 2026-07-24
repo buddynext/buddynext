@@ -210,12 +210,7 @@ class AvatarSettings {
 						<input type="radio" name="bn_avatar_style" value="initials"
 							<?php checked( $style, 'initials' ); ?>>
 						<div class="bn-av-style-icon">
-							<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-								<circle cx="12" cy="12" r="10"/>
-								<path d="M8 12h8M12 8v8"/>
-								<circle cx="12" cy="8" r="1" fill="currentColor" stroke="none"/>
-								<path d="M9 16c0-1.657 1.343-3 3-3s3 1.343 3 3"/>
-							</svg>
+							<?php buddynext_icon( 'type' ); ?>
 						</div>
 						<div class="bn-av-style-label"><?php esc_html_e( 'Initials', 'buddynext' ); ?></div>
 						<div class="bn-av-style-desc"><?php esc_html_e( 'Coloured circle with member initials. No network request.', 'buddynext' ); ?></div>
@@ -224,11 +219,7 @@ class AvatarSettings {
 						<input type="radio" name="bn_avatar_style" value="default_image"
 							<?php checked( $style, 'default_image' ); ?>>
 						<div class="bn-av-style-icon">
-							<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-								<rect x="3" y="3" width="18" height="18" rx="2"/>
-								<circle cx="8.5" cy="8.5" r="1.5"/>
-								<polyline points="21 15 16 10 5 21"/>
-							</svg>
+							<?php buddynext_icon( 'image' ); ?>
 						</div>
 						<div class="bn-av-style-label"><?php esc_html_e( 'Default Image', 'buddynext' ); ?></div>
 						<div class="bn-av-style-desc"><?php esc_html_e( 'A single image you upload shown for all members without an avatar.', 'buddynext' ); ?></div>
@@ -237,11 +228,7 @@ class AvatarSettings {
 						<input type="radio" name="bn_avatar_style" value="gravatar"
 							<?php checked( $style, 'gravatar' ); ?>>
 						<div class="bn-av-style-icon">
-							<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-								<circle cx="12" cy="12" r="10"/>
-								<line x1="2" y1="12" x2="22" y2="12"/>
-								<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-							</svg>
+							<?php buddynext_icon( 'globe' ); ?>
 						</div>
 						<div class="bn-av-style-label"><?php esc_html_e( 'Gravatar', 'buddynext' ); ?></div>
 						<div class="bn-av-style-desc"><?php esc_html_e( 'Use WordPress / Gravatar as fallback. Custom uploads still override.', 'buddynext' ); ?></div>

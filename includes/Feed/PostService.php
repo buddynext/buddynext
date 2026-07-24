@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Feed;
 
 use WP_Error;
+use BuddyNext\Profile\Handle;
 use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Moderation\ModerationService;
 
@@ -287,13 +288,10 @@ class PostService {
 		// demo seeder can set a post's time through the API instead of a raw UPDATE.
 		// Both are clamped to "now" (no future-dating here — scheduling uses
 		// scheduled_at) and last_activity_at is never earlier than created_at.
-		$bn_created_at = current_time( 'mysql', true );
-		if ( ! empty( $data['created_at'] ) ) {
-			$bn_cts = strtotime( (string) $data['created_at'] . ' UTC' );
-			if ( $bn_cts && $bn_cts <= time() ) {
-				$bn_created_at = gmdate( 'Y-m-d H:i:s', $bn_cts );
-			}
-		}
+		// This was the original importer seam; the logic now lives in
+		// Core\Backdate so the comment/space/connection/follow/reaction seams
+		// share one contract.
+		$bn_created_at    = \BuddyNext\Core\Backdate::resolve( isset( $data['created_at'] ) ? (string) $data['created_at'] : null );
 		$bn_last_activity = $bn_created_at;
 		if ( ! empty( $data['last_activity_at'] ) ) {
 			$bn_lts = strtotime( (string) $data['last_activity_at'] . ' UTC' );
@@ -456,10 +454,14 @@ class PostService {
 		// Parse @username mentions and fire buddynext_user_mentioned for each.
 		$content = (string) ( $data['content'] ?? '' );
 		if ( '' !== $content ) {
-			preg_match_all( '/@([a-zA-Z0-9_-]+)/u', $content, $mention_matches );
+			preg_match_all( Handle::mention_regex(), $content, $mention_matches );
 			foreach ( $mention_matches[1] as $raw_username ) {
-				$username       = sanitize_user( (string) $raw_username, true );
-				$mentioned_user = get_user_by( 'login', $username );
+				// Resolved as a HANDLE, not a login. The handle is what every
+				// surface shows and what the typeahead inserts; resolving by login
+				// missed every member whose login differs from their nicename (a
+				// space, a capital, a dot, an email, or a custom slug), so the
+				// mention linked correctly and the member was never notified.
+				$mentioned_user = Handle::resolve( (string) $raw_username );
 				if ( $mentioned_user instanceof \WP_User && $mentioned_user->ID !== $user_id
 					&& $this->mention_allowed( $user_id, (int) $mentioned_user->ID ) ) {
 					/**
@@ -1237,6 +1239,28 @@ class PostService {
 		if ( isset( $data['content'] ) ) {
 			$fields['content'] = $data['content'];
 			$formats[]         = '%s';
+		}
+
+		// REMOVE the link preview — deliberately remove-only, never edit.
+		//
+		// An author could attach a link preview when composing but had no way to
+		// take it off afterwards: the edit form offered a bare textarea, so a
+		// preview attached to the wrong link, or one whose remote page had since
+		// changed, was permanent short of deleting the whole post.
+		//
+		// The flag clears both columns rather than accepting a caller-supplied
+		// url/title/description, and that restriction is the point. Facebook
+		// withdrew link-preview EDITING precisely because a rewritten headline
+		// lets a post misrepresent what it links to; letting an edit rewrite the
+		// title/desc/thumb here would rebuild that hole. Removing is safe —
+		// nothing is misrepresented by showing less — so removal is all we allow.
+		// A member who wants a different preview edits the URL in the body and
+		// posts again, which re-scrapes it honestly.
+		if ( ! empty( $data['remove_link_preview'] ) ) {
+			$fields['link_url']  = '';
+			$formats[]           = '%s';
+			$fields['link_meta'] = null;
+			$formats[]           = '%s';
 		}
 		// RESCHEDULE. The author could edit a scheduled post's words and nothing else — the date
 		// they first picked was final, on every layer: update() never persisted scheduled_at,

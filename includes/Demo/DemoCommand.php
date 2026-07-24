@@ -93,7 +93,7 @@ class DemoCommand {
 			$service->cleanup( $log );
 		}
 
-		$t = microtime( true );
+		$t       = microtime( true );
 		$summary = $service->scale( $members, $log );
 		\WP_CLI::success(
 			sprintf(

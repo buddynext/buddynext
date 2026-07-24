@@ -85,7 +85,8 @@ class MemberEditForm {
 			<div class="bn-member-hero-info">
 				<div class="bn-hero-name"><?php echo esc_html( $wp_user->display_name ); ?></div>
 				<div class="bn-hero-meta">
-					<span class="bn-hero-username">@<?php echo esc_html( $wp_user->user_login ); ?></span>
+					<?php // The PUBLIC handle (bn_profile_slug ?: user_nicename), never user_login: a login is a credential, and the two differ whenever it held a space, a dot or an email — so this showed the owner a handle that does not work when typed. ?>
+					<span class="bn-hero-username">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $wp_user->ID ) ); ?></span>
 					<span class="bn-hero-sep" aria-hidden="true">&middot;</span>
 					<span class="bn-hero-email"><?php echo esc_html( $wp_user->user_email ); ?></span>
 					<span class="bn-hero-sep" aria-hidden="true">&middot;</span>

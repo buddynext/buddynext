@@ -2,6 +2,8 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { urls } from '../_fixtures/selectors';
 
 /**
+ * J-76-composer-draft.
+ *
  * Wave-2 B: composer drafts persist across page reloads via localStorage.
  */
 test.describe('feed / composer drafts', () => {

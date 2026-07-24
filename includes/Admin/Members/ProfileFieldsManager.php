@@ -47,6 +47,7 @@ class ProfileFieldsManager {
 				$matrix[ $slug ] = array(
 					'label'                 => (string) ( $meta['label'] ?? ucfirst( $slug ) ),
 					'is_choice'             => ! empty( $meta['is_choice'] ),
+					'is_date'               => ! empty( $meta['is_date'] ),
 					'is_searchable_capable' => ! empty( $meta['is_searchable_capable'] ),
 					'value_kind'            => (string) ( $meta['value_kind'] ?? 'scalar' ),
 				);
@@ -163,6 +164,28 @@ class ProfileFieldsManager {
 	}
 
 	/**
+	 * Slugs of every registered field type whose descriptor flag is truthy.
+	 *
+	 * One scan of the type matrix, parameterised by flag — the single implementation
+	 * behind choice_types() / date_types() / searchable_capable_types(), which were
+	 * three copies of the same loop differing only by which boolean they read.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $flag Descriptor key to test (e.g. 'is_choice', 'is_date').
+	 * @return string[] Type slugs whose descriptor has that flag set.
+	 */
+	private static function types_with_flag( string $flag ): array {
+		$slugs = array();
+		foreach ( self::field_type_matrix() as $slug => $meta ) {
+			if ( ! empty( $meta[ $flag ] ) ) {
+				$slugs[] = $slug;
+			}
+		}
+		return $slugs;
+	}
+
+	/**
 	 * Slugs of field types that need an options editor (select/radio/multiselect).
 	 *
 	 * @since 1.0.0
@@ -170,13 +193,23 @@ class ProfileFieldsManager {
 	 * @return string[]
 	 */
 	private static function choice_types(): array {
-		$slugs = array();
-		foreach ( self::field_type_matrix() as $slug => $meta ) {
-			if ( ! empty( $meta['is_choice'] ) ) {
-				$slugs[] = $slug;
-			}
-		}
-		return $slugs;
+		return self::types_with_flag( 'is_choice' );
+	}
+
+	/**
+	 * Slugs of date-family field types (they show the "Date Format" options box).
+	 *
+	 * Registry-driven from is_date, unioned with the legacy DATE_TYPES baseline so
+	 * an add-on date type (Pro's date_extended) is recognised by the server exactly
+	 * as the client JS recognises it — no hardcoded list that drifts. This is what
+	 * lets a Pro date type reveal + persist its date-display setting like `date`.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return string[]
+	 */
+	private static function date_types(): array {
+		return array_values( array_unique( array_merge( self::DATE_TYPES, self::types_with_flag( 'is_date' ) ) ) );
 	}
 
 	/**
@@ -187,13 +220,7 @@ class ProfileFieldsManager {
 	 * @return string[]
 	 */
 	private static function searchable_capable_types(): array {
-		$slugs = array();
-		foreach ( self::field_type_matrix() as $slug => $meta ) {
-			if ( ! empty( $meta['is_searchable_capable'] ) ) {
-				$slugs[] = $slug;
-			}
-		}
-		return $slugs;
+		return self::types_with_flag( 'is_searchable_capable' );
 	}
 
 	/**
@@ -282,6 +309,7 @@ class ProfileFieldsManager {
 		foreach ( $matrix as $slug => $meta ) {
 			$js_matrix[ $slug ] = array(
 				'isChoice'            => (bool) $meta['is_choice'],
+				'isDate'              => ! empty( $meta['is_date'] ),
 				'isSearchableCapable' => (bool) $meta['is_searchable_capable'],
 				'valueKind'           => (string) $meta['value_kind'],
 			);
@@ -414,7 +442,7 @@ class ProfileFieldsManager {
 		if ( in_array( $type, self::choice_types(), true ) ) {
 			$options_raw = sanitize_textarea_field( wp_unslash( $_POST['options'] ?? '' ) );
 			$parsed_opts = $this->parse_options_textarea( $options_raw );
-		} elseif ( in_array( $type, self::DATE_TYPES, true ) ) {
+		} elseif ( in_array( $type, self::date_types(), true ) ) {
 			$date_display = sanitize_key( wp_unslash( $_POST['date_display'] ?? 'date' ) );
 			$parsed_opts  = array( 'display' => in_array( $date_display, self::DATE_DISPLAY, true ) ? $date_display : 'date' );
 		} else {
@@ -650,6 +678,66 @@ class ProfileFieldsManager {
 		);
 
 		return ! empty( $lines ) ? $lines : null;
+	}
+
+	/**
+	 * Render a field's stored options back into the editor textarea.
+	 *
+	 * The exact inverse of parse_options_textarea(): whatever this prints must
+	 * parse back to the same option list, so opening a field's edit panel and
+	 * pressing Save without touching anything is a no-op.
+	 *
+	 * It was previously `implode( "\n", (array) $field['options'] )`, which is
+	 * only correct while `options` holds the flat string list that
+	 * parse_options_textarea() returns. It does not, whenever a Pro advanced
+	 * field is in play: handle_create/handle_update array_merge() the core list
+	 * with sanitize_field_options()'s output, which is keyed by STRING
+	 * (`choices`, `trigger_value`, `min`, `max`, `unit`, …) and whose `choices`
+	 * entry is itself an array of value/label pairs. So the stored shape is
+	 * mixed:
+	 *
+	 *   { 0:"Red", 1:"Green", choices:[{value,label},…], trigger_value:"yes", unit:"kg" }
+	 *
+	 * Imploding that raised "Array to string conversion" and printed
+	 * `Red\nGreen\nArray\nyes\nkg`. Saving that back — even with no edit —
+	 * turned the field's options into ["Red","Green","Array","yes","kg"]:
+	 * three junk entries in the member-facing dropdown, and every Pro key
+	 * destroyed. That is why this is the inverse function and not a cast.
+	 *
+	 * Only the integer-keyed part is the core choice list; string keys are
+	 * Pro's config and belong to the Pro editor, not this textarea.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array<mixed> $options Stored `options` payload for the field.
+	 * @return string One option per line, ready for the textarea.
+	 */
+	private function options_to_textarea( array $options ): string {
+		$lines = array();
+
+		foreach ( $options as $key => $option ) {
+			// Pro's per-type configuration is string-keyed — skip it. Printing it
+			// here is what leaked "Array", the trigger value and the unit into the
+			// choice list.
+			if ( ! is_int( $key ) ) {
+				continue;
+			}
+
+			if ( is_scalar( $option ) ) {
+				$lines[] = (string) $option;
+				continue;
+			}
+
+			// Defensive: a legacy row storing value/label pairs in the integer
+			// range. Emit the VALUE only — parse_options_textarea() treats a whole
+			// line as the option string, so emitting "value|label" would store that
+			// literal text as the option and corrupt the field on the next save.
+			if ( is_array( $option ) && isset( $option['value'] ) && is_scalar( $option['value'] ) ) {
+				$lines[] = (string) $option['value'];
+			}
+		}
+
+		return implode( "\n", $lines );
 	}
 
 	/**
@@ -1043,7 +1131,7 @@ class ProfileFieldsManager {
 		if ( in_array( $type, self::choice_types(), true ) ) {
 			$options_raw = sanitize_textarea_field( wp_unslash( $_POST['options'] ?? '' ) );
 			$parsed_opts = $this->parse_options_textarea( $options_raw );
-		} elseif ( in_array( $type, self::DATE_TYPES, true ) ) {
+		} elseif ( in_array( $type, self::date_types(), true ) ) {
 			$date_display = sanitize_key( wp_unslash( $_POST['date_display'] ?? 'date' ) );
 			$parsed_opts  = array( 'display' => in_array( $date_display, self::DATE_DISPLAY, true ) ? $date_display : 'date' );
 		} else {
@@ -1335,6 +1423,14 @@ class ProfileFieldsManager {
 		foreach ( $type_matrix as $slug => $meta ) {
 			$field_type_labels[ $slug ] = (string) $meta['label'];
 		}
+
+		// member_type_multiselect is a SPACE setting — "which member types may
+		// auto-join this space", a filter over a SET of types. A USER has exactly
+		// ONE type, offered as the single-select `member_type` type instead. Keep the
+		// multi-select out of the per-user field builder while leaving it a valid type
+		// for space fields (CoreSpaceFields). It stays in field_types() so any legacy
+		// field still validates; it is only absent from the new-field dropdown.
+		unset( $field_type_labels['member_type_multiselect'] );
 
 		/**
 		 * Filter the human-readable labels for profile field types shown in
@@ -1697,10 +1793,10 @@ class ProfileFieldsManager {
 							<?php
 							$edit_panel_id     = 'bn-ef-row-' . $fid;
 							$is_choice_type    = in_array( $field['type'], $choice_type_slugs, true );
-							$is_date_type      = in_array( $field['type'], self::DATE_TYPES, true );
+							$is_date_type      = in_array( $field['type'], self::date_types(), true );
 							$is_search_capable = in_array( $field['type'], $searchable_type_slugs, true );
 							$field_searchable  = ! empty( $field['is_searchable'] );
-							$opts_text         = $is_choice_type && ! empty( $field['options'] ) ? implode( "\n", (array) $field['options'] ) : '';
+							$opts_text         = $is_choice_type && ! empty( $field['options'] ) ? $this->options_to_textarea( (array) $field['options'] ) : '';
 							$date_display_val  = ( $is_date_type && is_array( $field['options'] ) ) ? ( $field['options']['display'] ?? 'date' ) : 'date';
 							?>
 							<tr id="<?php echo esc_attr( $edit_panel_id ); ?>" style="display:none;">

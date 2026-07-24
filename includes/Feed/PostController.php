@@ -414,6 +414,12 @@ class PostController extends BaseRestController {
 			$data['scheduled_at'] = sanitize_text_field( (string) $request->get_param( 'scheduled_at' ) );
 		}
 
+		// Remove-only: a truthy flag clears the post's link preview. There is
+		// deliberately no parameter for setting a url/title/description — see the
+		// note in PostService::update().
+		if ( null !== $request->get_param( 'remove_link_preview' ) ) {
+			$data['remove_link_preview'] = (bool) $request->get_param( 'remove_link_preview' );
+		}
 		if ( null !== $request->get_param( 'content_warning' ) ) {
 			$data['content_warning'] = (bool) $request->get_param( 'content_warning' );
 		}

@@ -54,7 +54,7 @@ class StreakListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function register(): void {
-		// ( $post_id, $user_id, $type ) — take 2.
+		// Both hooks fire with post id then user id; we accept 2 args and ignore the rest.
 		add_action( 'buddynext_post_created', array( $this, 'bust_from_post' ), 10, 2 );
 		add_action( 'buddynext_post_deleted', array( $this, 'bust_from_post' ), 10, 2 );
 
