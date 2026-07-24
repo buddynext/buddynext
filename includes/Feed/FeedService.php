@@ -414,10 +414,11 @@ class FeedService {
 					. implode( ',', array_map( 'absint', $bn_interest_ids ) )
 					. ')) THEN ' . count( $bn_tiers );
 			}
-			if ( ! empty( $bn_tiers ) ) {
-				$default_order_by = 'CASE ' . implode( ' ', $bn_tiers )
-					. ' ELSE ' . count( $bn_tiers ) . ' END ASC, created_at DESC, id DESC';
-			}
+			// No emptiness guard: the own-post tier above is unconditional, so there is
+			// always at least one WHEN. The guard this replaces dated from when every
+			// tier was conditional on the member having connections or interests.
+			$default_order_by = 'CASE ' . implode( ' ', $bn_tiers )
+				. ' ELSE ' . count( $bn_tiers ) . ' END ASC, created_at DESC, id DESC';
 		}
 
 		$order_by = (string) apply_filters( 'buddynext_feed_order_by', $default_order_by, $user_id, $query_args );

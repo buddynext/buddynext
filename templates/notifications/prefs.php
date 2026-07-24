@@ -460,17 +460,17 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 		data-wp-bind--hidden="state.saveBarHidden">
 		<div class="bn-ep-save-bar-inner">
 			<div class="bn-ep-save-status bn-ep-save-status--dirty"
-				data-wp-bind--hidden="!(context.isDirty &amp;&amp; !context.isSaving)">
+				data-wp-bind--hidden="state.statusDirtyHidden">
 				<span class="bn-ep-dirty-dot" aria-hidden="true"></span>
 				<span><?php esc_html_e( 'Unsaved changes', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ep-save-status bn-ep-save-status--saving"
-				data-wp-bind--hidden="!context.isSaving">
+				data-wp-bind--hidden="state.statusSavingHidden">
 				<span class="bn-ep-spinner" aria-hidden="true"></span>
 				<span><?php esc_html_e( 'Saving...', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ep-save-status bn-ep-save-status--saved"
-				data-wp-bind--hidden="!(context.savedAt &amp;&amp; !context.isDirty &amp;&amp; !context.isSaving)">
+				data-wp-bind--hidden="state.statusSavedHidden">
 				<?php buddynext_icon( 'check' ); ?>
 				<span data-wp-text="state.statusLabel"><?php esc_html_e( 'Preferences saved', 'buddynext' ); ?></span>
 			</div>

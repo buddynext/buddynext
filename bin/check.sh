@@ -154,6 +154,27 @@ else
 	note "bin/check-hook-docs.py missing"
 fi
 
+# 3b-i-b. Interactivity directive paths — BLOCKING, and green as of this commit.
+#
+# A directive value is resolved as a PROPERTY PATH (optionally prefixed with one "!"), never
+# as JavaScript. `data-wp-bind--hidden="!(context.isDirty && !context.isSaving)"` therefore
+# resolves to undefined and negates to true: the element is hidden in every state, forever.
+#
+# Nothing else catches it. The page renders, the markup reads as intentional, no error is
+# logged, and both save bars shipped with dead status pills — notification preferences showed
+# a bar that never said why it had appeared, profile edit never showed "Unsaved changes".
+# They were found by measuring the DOM in a browser, not by review.
+section "Interactivity directive paths"
+if [ -f bin/check-directive-paths.py ]; then
+	if python3 bin/check-directive-paths.py; then
+		:
+	else
+		fail "a directive is bound to an expression — move the comparison into a computed getter"
+	fi
+else
+	note "bin/check-directive-paths.py missing"
+fi
+
 # 3b-ii. Erasure completeness — BLOCKING, and green as of this commit.
 #
 # Every bn_* table with a user-bearing column must be on MemberCleanupService::erase_map()

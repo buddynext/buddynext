@@ -1126,6 +1126,13 @@ const profileStore = store( 'buddynext/profile', {
 		get slugIsOk()         { return getContext().slugAvailable === true; },
 		get slugIsTaken()      { return getContext().slugAvailable === false; },
 		get slugSaveDisabled() { const c = getContext(); return ! c.slugAvailable || c.slugSaving; },
+		/* Same rule, applied to the save bar's "Unsaved changes" pill. It was bound to
+		 * `!(context.isDirty && !context.saving && !context.saved)`, which the API
+		 * resolved by stripping the "!", failing to resolve the rest as a path, and
+		 * negating undefined to true — so the pill was hidden permanently and the bar
+		 * never said why it had appeared. Its two siblings survived only because
+		 * `!context.saved` / `!context.saving` happen to be valid single paths. */
+		get saveDirtyHidden() { const c = getContext(); return ! ( c && c.isDirty && ! c.saving && ! c.saved ); },
 	},
 	callbacks: {
 		/* Init for the edit page: register the beforeunload guard once. */
