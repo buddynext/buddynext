@@ -58,7 +58,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 = 1.1.0 - July 2026 =
 
-Mobile polish across messages, navigation and onboarding, offline support, live message reactions, and a round of profile and signup fixes.
+Continuous scrolling in the activity feed, a wider mobile layout on every screen, offline support, live message reactions, and a round of feed, composer, notification, profile and signup fixes.
 
 * New      - The sign-up form subtitle is editable under Members > Registration & Login, so a paid-only community is not promised "Free forever".
 * New      - A link preview can be removed while editing a post.
@@ -70,6 +70,19 @@ Mobile polish across messages, navigation and onboarding, offline support, live 
 * Improve  - Members with an imported profile address that breaks mentions can now be repaired with one click from BuddyNext > Members, not only from the command line.
 * Improve  - The app now works offline as an app should: BuddyNext's styling is stored on the device, so an offline page looks like your community rather than an unstyled list of links.
 * Improve  - Stylesheets, scripts and images are cached as they are used, capped so they cannot fill a member's device, and cleared automatically when the plugin updates.
+* Improve  - The feed loads the next posts as you scroll, on the main feed, Explore and Bookmarks alike, without a page reload and without losing your place.
+* Improve  - Community screens use the full width of a phone. Cards were running at about two thirds of the screen because three separate layers of spacing stacked up, and the width is now the same whichever theme is active.
+* Improve  - The save bar on Edit profile and Notification preferences spans the width of a phone screen and shows its status there, so saving is confirmed instead of silent.
+* Improve  - Announcement and pinned posts are marked by their label rather than a coloured card edge.
+* Fix      - Everything past the first screen of the feed was inert: React, Comment, Share and Save did nothing on any post loaded after the first page.
+* Fix      - Your own post now sits at the top of your feed for a few minutes after you publish it, instead of below every post from the people you follow.
+* Fix      - Notification preferences could not be saved on any screen size. The Save bar was rendered at the far end of the page rather than pinned, and on phones the email frequency options were clipped by the card so "Off" was cut in half.
+* Fix      - The count beside the Notifications heading went blank as the page finished loading, and dismissing an unread notification left the Unread tab still counting it.
+* Fix      - Tapping Unread or Requests in Messages on a phone opened a conversation instead of showing the filtered list.
+* Fix      - The announcement expiry and schedule fields in the post composer were pushed off the row on phones, so neither the date nor its clear button could be reached. Both now also name the site timezone they are read in.
+* Fix      - Toasts, cookie notices and save bars could sit underneath the mobile navigation bar; every bottom-pinned surface now clears it from a single measurement.
+* Fix      - The character counter in the composer kept the previous post's count after publishing.
+* Fix      - The feed tab strip gave no hint that more tabs exist beyond the screen edge, a desktop-only instruction showed on phones, and a placeholder was clipped.
 * Fix      - Onboarding kept the previous step's scroll position on Continue, so on phones the next step opened on blank space.
 * Fix      - The settings tab strip gave no hint that more tabs exist beyond the screen edge; it now shows the same scroll chevrons as the main navigation on every browser.
 * Fix      - A reaction on a message now appears for the other person live, instead of only after they reload the conversation.

@@ -2586,44 +2586,9 @@ a.bn-space-row:hover .bn-space-name {
 	line-height: var(--bn-leading-snug);
 }
 
-/* ── Sticky save bar ──────────────────────────────────────────────────── */
-.bn-ep-save-bar {
-	position: fixed;
-	inset-block-end: 0;
-	inset-inline: 0;
-	background: var(--bn-surface);
-	border-block-start: 1px solid var(--bn-line);
-	box-shadow: var(--bn-shadow-sm);
-	padding-inline: var(--bn-s5);
-	min-height: 64px;
-	display: flex;
-	align-items: center;
-	z-index: 180;
-}
-.bn-ep-save-bar-inner {
-	max-width: 1080px;
-	margin-inline: auto;
-	width: 100%;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--bn-s3);
-}
-.bn-ep-save-status {
-	font-size: var(--bn-text-sm);
-	font-weight: 600;
-	color: var(--bn-success);
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s1);
-}
-.bn-ep-save-status svg { width: 14px; height: 14px; }
-.bn-ep-save-actions {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s2);
-	margin-inline-start: auto;
-}
+/* The sticky save bar (.bn-ep-save-bar and friends) now lives in bn-base.css.
+   Notification preferences reuses the same primitive but does not enqueue this
+   stylesheet, so defining it here left that page's bar unstyled and unpinned. */
 
 /* ── Delete modal helpers ─────────────────────────────────────────────── */
 .bn-ep-delete-backdrop[hidden] { display: none !important; }
@@ -2638,21 +2603,8 @@ a.bn-space-row:hover .bn-space-name {
 	.bn-ep-shell { padding: var(--bn-s4); }
 	.bn-ep-hero-head { grid-template-columns: 1fr; }
 	.bn-ep-grid { grid-template-columns: 1fr; }
-	.bn-ep-save-bar { padding-inline: var(--bn-s4); }
-	.bn-ep-save-status { display: none; }
 	.bn-ep-slug-field { flex-direction: column; align-items: stretch; }
 	.bn-ep-account-row { flex-direction: column; align-items: flex-start; gap: var(--bn-s2); }
-}
-
-/* The fixed mobile bottom nav (.bn-mobile-nav) is visible <=768px at z-index
-   9500; the fixed save bar sits at bottom:0 z-180, so the nav covered its
-   Save/Cancel buttons and mobile users could not save. Lift the save bar to sit
-   flush above the nav (its ~52px height + iOS safe-area) across the SAME
-   breakpoint the nav uses, so the buttons stay tappable. */
-@media (max-width: 768px) {
-	.bn-ep-save-bar {
-		inset-block-end: calc(52px + env(safe-area-inset-bottom, 0px));
-	}
 }
 
 /* Owner action bar removed — Edit profile / Share live in the hero action
@@ -2695,44 +2647,9 @@ a.bn-space-row:hover .bn-space-name {
 	border-color: var(--bn-danger) !important;
 	background-color: var(--bn-danger-50, rgba(220, 38, 38, 0.04));
 }
-.bn-ep-save-status[hidden] { display: none !important; }
-.bn-ep-save-status--dirty {
-	color: var(--bn-warning, #b45309);
-	font-weight: 600;
-	font-size: var(--bn-text-sm);
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s1);
-}
-.bn-ep-save-status--saving {
-	color: var(--bn-ink-2);
-	font-weight: 500;
-	font-size: var(--bn-text-sm);
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s1);
-}
-.bn-ep-dirty-dot {
-	display: inline-block;
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: var(--bn-warning, #f59e0b);
-	flex-shrink: 0;
-}
-.bn-ep-spinner {
-	display: inline-block;
-	width: 12px;
-	height: 12px;
-	border: 2px solid var(--bn-line);
-	border-top-color: var(--bn-accent);
-	border-radius: 50%;
-	animation: bn-spin 0.8s linear infinite;
-	flex-shrink: 0;
-}
-@keyframes bn-spin {
-	to { transform: rotate(360deg); }
-}
+/* The save-status pills, dirty dot and spinner moved to bn-base.css with the
+   save bar they belong to. The bn-spin keyframes removed with them were a
+   duplicate — bn-base.css has defined the same animation all along. */
 
 /* F7 - View page: social chip row + about-section cards + timeline + tag cloud. */
 .bn-pf-social-chips {

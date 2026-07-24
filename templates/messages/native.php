@@ -185,6 +185,9 @@ $bn_ctx = wp_json_encode(
 				'pinned_conversations' => $convs['pinned'],
 				'recent_conversations' => $convs['recent'],
 				'active_conv_id'       => $active_conv_id,
+				// Distinguishes a real open from the auto-opened default, so the rail's
+				// filter-tab links do not pin a conversation nobody asked for.
+				'active_conv_explicit' => $bn_explicit_conv,
 				'active_tab'           => $active_tab,
 				'unread_count'         => $convs['unread'],
 				'request_count'        => $convs['requests'],

@@ -35,7 +35,33 @@ use BuddyNext\Feed\FeedService;
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
 
-$bn_per_page = 15;
+$bn_page_size = 15;
+
+/*
+ * "Load more" GROWS this page instead of appending cards from JS.
+ *
+ * Infinite scroll used to fetch the next page and inject the server-rendered
+ * cards into the list. A post card is an Interactivity island, and the API only
+ * hydrates islands present at first paint — so every card past the first screen
+ * arrived inert: React, Comment, Share and Save did nothing, silently, for the
+ * rest of the session. Reported from the live feed and reproduced here with a
+ * clean single click.
+ *
+ * Rendering more posts server-side is the honest fix available today: the whole
+ * list is hydrated by the browser exactly like the first screen, so every
+ * control works. `shown` is the number of posts this page renders — clamped to
+ * whole pages and to BN_FEED_MAX_SHOWN so a crafted URL can never ask the feed
+ * for an unbounded render.
+ *
+ * This is interim. The end state is the feed rendering its cards THROUGH the
+ * Interactivity API (data-wp-each) so appended cards are interactive by
+ * construction, which is how the mainstream networks do it — at which point
+ * continuous scroll comes back without dead controls.
+ */
+$bn_max_shown = $bn_page_size * 6;
+$raw_shown    = isset( $_GET['shown'] ) ? absint( wp_unslash( $_GET['shown'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_shown     = max( $bn_page_size, min( $bn_max_shown, (int) ( ceil( $raw_shown / $bn_page_size ) * $bn_page_size ) ) );
+$bn_per_page  = $bn_shown;
 
 // The Spaces filter tab + its feed only make sense while the Spaces feature is
 // enabled; when the owner turns it off we drop the tab and treat a stale
@@ -130,6 +156,8 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	<!-- Carries the .bn-tabs/.bn-tab primitive so it matches the Home/Explore row
 		and every other tab bar (font, focus ring, overflow scroll-fade); the
 		.bn-feed-filter-tab* classes + aria-current are kept for the feed-tabs JS. -->
+	<?php // .bn-navgroup opts the strip into the shared overflow chevrons (shell/extras.js), the cross-browser "more tabs" affordance - the CSS edge-fade alone is Chrome-only, so at 390px "Network" was clipped mid-word with no hint it was reachable. ?>
+	<div class="bn-navgroup">
 	<div class="bn-tabs bn-feed-filter-tabs"
 		role="tablist"
 		aria-label="<?php esc_attr_e( 'Filter home feed', 'buddynext' ); ?>"
@@ -183,6 +211,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			</a>
 		<?php endforeach; ?>
 	</div>
+	</div><!-- /.bn-navgroup -->
 
 	<?php
 	// NOTE: the home feed renders server-side and changes views via a full reload
@@ -191,6 +220,30 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	// never toggled by any JS (dead markup) and was removed. If client-side filter
 	// fetching is added later, reintroduce the loading states wired to it.
 	?>
+	<?php
+	/*
+	 * Router region around the list + its "Load more" control.
+	 *
+	 * The Interactivity API hydrates islands present at first paint, so cards injected by
+	 * JS are inert — that is why every card past the first screen used to have dead React /
+	 * Comment / Share / Save controls. The core Interactivity Router is the one thing that
+	 * CAN hydrate: it fetches a URL and swaps a matching region, hydrating what it swapped.
+	 * So "Load more" fetches ?shown=N and the router replaces just this region — one PHP
+	 * renderer, no injected HTML, every card interactive.
+	 *
+	 * The composer, the filter tabs and the "N new posts" pill stay OUTSIDE the region so a
+	 * pagination swap never re-initialises them.
+	 *
+	 * Progressive enhancement: the region is inert markup on its own. With JS off, or the
+	 * router unavailable, or buddynext_feed_client_pagination filtered false, the Load-more
+	 * link below is a plain <a href> and the page simply loads. Plan:
+	 * free-internal/docs/plans/feed-hydrated-pagination-2026-07-24.md
+	 */
+	$bn_feed_region_attrs = (bool) apply_filters( 'buddynext_feed_client_pagination', true )
+		? ' data-wp-interactive="buddynext/feed" data-wp-router-region="buddynext/feed"'
+		: '';
+	?>
+	<div class="bn-feed-region"<?php echo $bn_feed_region_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
 	<?php if ( ! empty( $feed_posts ) ) : ?>
 		<div class="bn-feed-list" role="feed" aria-label="<?php esc_attr_e( 'Home feed', 'buddynext' ); ?>">
 			<?php foreach ( $feed_posts as $home_post ) : ?>
@@ -210,31 +263,26 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 		</div>
 
 			<?php if ( $has_more && '' !== $next_cursor ) : ?>
-				<div
-					class="bn-load-more"
-					id="bn-infinite-trigger"
-					data-bn-infinite-feed="home"
-					data-bn-feed-target=".bn-feed-list"
-					data-next-cursor="<?php echo esc_attr( $next_cursor ); ?>"
-					data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed/home/page' ) ); ?>"
-					data-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
-					data-filter="<?php echo esc_attr( $bn_filter ); ?>"
-					data-per-page="<?php echo esc_attr( (string) $bn_per_page ); ?>"
-				>
-					<div class="bn-load-more__spinner" hidden aria-live="polite">
-						<span class="bn-skeleton bn-load-more__spinner-line"></span>
-						<span class="bn-load-more__spinner-text"><?php esc_html_e( 'Loading more posts…', 'buddynext' ); ?></span>
-					</div>
-					<noscript>
-						<a
-							href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $next_cursor ), PageRouter::activity_url() ) ); ?>"
-							class="bn-btn bn-load-more__btn"
-							data-variant="secondary"
-						>
-							<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-						</a>
-					</noscript>
-				</div>
+				<?php
+				/*
+				 * A real link, not a JS sentinel. The infinite-scroll trigger
+				 * (data-bn-infinite-feed) injected the next page's cards, which the
+				 * Interactivity API never hydrates — so everything past the first
+				 * screen had dead React / Comment / Share / Save controls. This
+				 * grows the SAME page server-side instead, so the posts already on
+				 * screen stay put and every new card is hydrated like the first
+				 * ones. The anchor returns the member to where they were reading
+				 * rather than to the top of the feed.
+				 */
+				$bn_more_url = add_query_arg(
+					array(
+						'shown'  => $bn_shown + $bn_page_size,
+						'filter' => $bn_filter,
+					),
+					PageRouter::activity_url()
+				);
+				?>
+				<?php buddynext_get_template( 'parts/feed-load-more.php', array( 'more_url' => $bn_more_url ) ); ?>
 			<?php else : ?>
 				<div class="bn-feed-end" role="status">
 					<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
@@ -289,6 +337,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			</a>
 		</div>
 	<?php endif; ?>
+	</div><!-- /.bn-feed-region -->
 
 	<?php
 	buddynext_get_template(

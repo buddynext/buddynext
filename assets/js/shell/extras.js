@@ -735,12 +735,48 @@
 			var top = Math.round( app.getBoundingClientRect().top + window.scrollY );
 			app.style.setProperty( '--bn-shell-chrome', ( top > 0 ? top : 0 ) + 'px' );
 		}
-		if ( 'loading' === document.readyState ) {
-			document.addEventListener( 'DOMContentLoaded', fitShell );
-		} else {
-			fitShell();
+		/*
+		 * Publish the mobile nav's REAL height as --bn-mobile-nav-h.
+		 *
+		 * Every surface pinned near the bottom of the viewport has to clear the fixed
+		 * mobile nav, and until now each one guessed: the toast sat at 24px, the cookie
+		 * bar at 16px, the edit-profile save bar hardcoded `52px` with a comment calling
+		 * that "its ~52px height". The nav does not declare a height at all — it is
+		 * emergent (44px tap-target items + padding + env(safe-area-inset-bottom)) and
+		 * measures 60px on a 390px phone, so the 52px literal was already 8px short and
+		 * the save bar rendered underneath the nav.
+		 *
+		 * One measurement, published once, consumed by every bottom-anchored surface —
+		 * so a change to the nav's padding or an iOS safe-area inset can never again
+		 * leave one surface behind. Set on the root element so surfaces OUTSIDE .bn-app
+		 * (the toast container is appended to <body>) can read it too.
+		 */
+		function fitMobileNav() {
+			var nav = document.querySelector( '.bn-mobile-nav' );
+			var shown = nav && window.getComputedStyle( nav ).display !== 'none';
+
+			if ( shown ) {
+				document.documentElement.style.setProperty(
+					'--bn-mobile-nav-h',
+					Math.round( nav.getBoundingClientRect().height ) + 'px'
+				);
+			} else {
+				// Desktop, or a hub with the bar disabled — hand it back to the stylesheet.
+				document.documentElement.style.removeProperty( '--bn-mobile-nav-h' );
+			}
 		}
-		window.addEventListener( 'resize', fitShell, { passive: true } );
-		document.addEventListener( 'buddynext:navigated', fitShell );
+
+		function fitAll() {
+			fitShell();
+			fitMobileNav();
+		}
+
+		if ( 'loading' === document.readyState ) {
+			document.addEventListener( 'DOMContentLoaded', fitAll );
+		} else {
+			fitAll();
+		}
+		window.addEventListener( 'resize', fitAll, { passive: true } );
+		document.addEventListener( 'buddynext:navigated', fitAll );
 	}() );
 }() );

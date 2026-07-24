@@ -141,6 +141,29 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 			if ( ctx.savedAt )  { return fmt( t( 'statusSaved', 'Saved %s' ), formatSavedLabel( ctx.savedAt ) ); }
 			return '';
 		},
+		// Visibility of the three save-bar status pills.
+		//
+		// These used to be inline expressions in the template:
+		//   data-wp-bind--hidden="!(context.isDirty && !context.isSaving)"
+		// The Interactivity API resolves a directive value as a PATH, not as
+		// JavaScript. It strips the leading "!", fails to resolve the remainder as a
+		// path, gets undefined, and negates it to true — so all three pills carried
+		// `hidden` permanently, in every state and at every viewport. The save bar
+		// appeared with no word about why, and "Saving..." and "Saved" never showed at
+		// all. Valid single-path bindings on the same bar (state.saveBarHidden,
+		// !context.isDirty) reacted correctly throughout, which is what isolated these.
+		get statusDirtyHidden() {
+			var ctx = getContext();
+			return ! ( ctx && ctx.isDirty && ! ctx.isSaving );
+		},
+		get statusSavingHidden() {
+			var ctx = getContext();
+			return ! ( ctx && ctx.isSaving );
+		},
+		get statusSavedHidden() {
+			var ctx = getContext();
+			return ! ( ctx && ctx.savedAt && ! ctx.isDirty && ! ctx.isSaving );
+		},
 		// Per-row reactive state — the row provides prefType, the chip provides
 		// chipFreq. Bound via data-wp-bind so toggling, and especially Reset to
 		// defaults (which rebuilds ctx.prefs), re-renders the controls instead of

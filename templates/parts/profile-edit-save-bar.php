@@ -75,7 +75,7 @@ do_action( 'buddynext_part_profile_edit_save_bar_before', $args );
 			<span><?php esc_html_e( 'All changes saved', 'buddynext' ); ?></span>
 		</div>
 		<div class="bn-ep-save-status bn-ep-save-status--dirty"
-			data-wp-bind--hidden="!(context.isDirty &amp;&amp; !context.saving &amp;&amp; !context.saved)">
+			data-wp-bind--hidden="state.saveDirtyHidden">
 			<span class="bn-ep-dirty-dot" aria-hidden="true"></span>
 			<span><?php esc_html_e( 'Unsaved changes', 'buddynext' ); ?></span>
 		</div>

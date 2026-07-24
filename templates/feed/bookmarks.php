@@ -31,7 +31,21 @@ use BuddyNext\Feed\BookmarkService;
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
 
-$bn_bookmarks_per_page = 15;
+/*
+ * "Load more" grows this page (?shown=N) so the router can swap the list region in place
+ * and the posts already on screen stay put — the same pagination behaviour as the home feed
+ * and Explore, from the same shared control (parts/feed-load-more.php). Clamped to whole
+ * pages and to six pages so a crafted URL cannot ask for an unbounded render.
+ */
+$bn_bm_page_size = 15;
+$bn_bm_max_shown = $bn_bm_page_size * 6;
+$bn_bm_raw_shown = isset( $_GET['shown'] ) ? absint( wp_unslash( $_GET['shown'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_bm_shown     = max(
+	$bn_bm_page_size,
+	min( $bn_bm_max_shown, (int) ( ceil( $bn_bm_raw_shown / $bn_bm_page_size ) * $bn_bm_page_size ) )
+);
+
+$bn_bookmarks_per_page = $bn_bm_shown;
 
 // Cursor: opaque base64( "bookmark_created_at|post_id" ), decoded and validated
 // inside the service. bn_bookmarks has a composite (user_id, post_id) primary
@@ -77,6 +91,14 @@ $bn_bm_rest_nonce = wp_create_nonce( 'wp_rest' );
 		</p>
 	</header>
 
+	<?php
+	// Router region around the list + Load more, as on the home feed and Explore: the
+	// router hydrates what it swaps, so paginating never yields dead cards.
+	$bn_bm_region_attrs = (bool) apply_filters( 'buddynext_feed_client_pagination', true )
+		? ' data-wp-interactive="buddynext/feed" data-wp-router-region="buddynext/feed"'
+		: '';
+	?>
+	<div class="bn-feed-region"<?php echo $bn_bm_region_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
 	<?php if ( ! empty( $bn_visible_posts ) ) : ?>
 		<div class="bn-feed-list bn-bookmarks__list" role="feed" aria-label="<?php esc_attr_e( 'Bookmarked posts', 'buddynext' ); ?>">
 			<?php foreach ( $bn_visible_posts as $bn_bm_post ) : ?>
@@ -94,15 +116,17 @@ $bn_bm_rest_nonce = wp_create_nonce( 'wp_rest' );
 		</div>
 
 		<?php if ( $bn_bm_has_more && '' !== $bn_bm_next_cursor ) : ?>
-			<div class="bn-load-more">
-				<a
-					href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $bn_bm_next_cursor ), PageRouter::bookmarks_url() ) ); ?>"
-					class="bn-btn bn-load-more__btn"
-					data-variant="secondary"
-				>
-					<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-				</a>
-			</div>
+			<?php
+			buddynext_get_template(
+				'parts/feed-load-more.php',
+				array(
+					'more_url' => add_query_arg(
+						array( 'shown' => $bn_bm_shown + $bn_bm_page_size ),
+						PageRouter::bookmarks_url()
+					),
+				)
+			);
+			?>
 		<?php else : ?>
 			<div class="bn-feed-end" role="status">
 				<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
@@ -124,6 +148,7 @@ $bn_bm_rest_nonce = wp_create_nonce( 'wp_rest' );
 			</a>
 		</div>
 	<?php endif; ?>
+	</div><!-- /.bn-feed-region -->
 
 	<?php
 	buddynext_get_template(

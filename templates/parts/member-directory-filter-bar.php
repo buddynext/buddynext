@@ -153,7 +153,8 @@ do_action( 'buddynext_part_member_directory_filter_bar_before', $args );
 				class="bn-input bn-md-strip__search-input"
 				name="s"
 				value="<?php echo esc_attr( $bn_search ); ?>"
-				placeholder="<?php esc_attr_e( 'Search members by name or profile details…', 'buddynext' ); ?>"
+				<?php // Kept short so it does not clip mid-word at 390px (the old copy cut to "…or profile de"). The full label lives in the screen-reader span + aria-label above, so nothing is lost for assistive tech. ?>
+				placeholder="<?php esc_attr_e( 'Search by name or details…', 'buddynext' ); ?>"
 				aria-label="<?php esc_attr_e( 'Search members', 'buddynext' ); ?>"
 				data-wp-on--input="actions.handleSearchInput"
 			>

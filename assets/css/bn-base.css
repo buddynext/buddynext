@@ -660,6 +660,39 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	align-items: center;
 	pointer-events: none;
 }
+
+/*
+ * ── Bottom-anchored surfaces must clear the fixed mobile nav ────────────────
+ *
+ * .bn-mobile-nav is fixed across the bottom on phones, and every surface pinned
+ * near the bottom used to guess its way around it — the toast at 24px, the
+ * cookie bar at 16px, the edit-profile save bar at a hardcoded 52px. The nav
+ * declares no height (it is emergent: 44px tap targets + padding + iOS
+ * safe-area) and actually measures 60px at 390px, so those literals were wrong
+ * and the surfaces rendered ON the primary navigation. Measured before the fix:
+ * toast 755-820 against a nav starting at 785 — "Comment added" covered
+ * Feed / Spaces / Alerts / Profile for its whole lifetime.
+ *
+ * --bn-mobile-nav-h is the nav's measured height, published by
+ * assets/js/shell/extras.js (fitMobileNav) and re-measured on resize and after a
+ * client-side navigation. The literal in each var() is only the pre-hydration
+ * fallback. Scoped with :has(.bn-mobile-nav) so a surface without the bar (an
+ * embedded shortcode page, a hub with the bar disabled) keeps its tighter anchor.
+ *
+ * ADD ANY NEW BOTTOM-PINNED SURFACE TO THIS BLOCK — that is the whole point of
+ * it. The bug class here was five surfaces each solving the same problem
+ * differently, and three of them getting it wrong.
+ */
+@media (max-width: 768px) {
+	body:has(.bn-mobile-nav) .bn-toast-container,
+	body:has(.bn-mobile-nav) .bn-unsub-notice {
+		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+	}
+
+	body:has(.bn-mobile-nav) .bn-cookie-consent {
+		inset-block-end: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+	}
+}
 .bn-toast {
 	background: var(--text-1);
 	color: var(--bg);
@@ -1336,6 +1369,152 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 
 @keyframes bn-spin {
 	to { transform: rotate(360deg); }
+}
+
+/* ── Sticky save bar (.bn-ep-*) ──────────────────────────────────────────
+   The pinned "Unsaved changes / Save" bar shared by every long settings form.
+
+   It lived in bn-profile.css and was used from there by notification
+   preferences, whose own stylesheet documented the reuse in its header. But
+   bn-profile.css is not enqueued on that page, so NONE of these rules applied:
+   the bar fell back to position:static and dropped to the natural end of a
+   9,847px document, leaving "Save changes" 7,178px below the fold with the
+   status pill, dirty dot and spinner all unstyled. A member could change a
+   preference and never find the control that saves it.
+
+   A primitive used by more than one surface belongs on the stylesheet every
+   surface loads, so it lives here now and bn-profile.css no longer defines it.
+   The classes keep the .bn-ep- prefix: they are referenced from two templates
+   and renaming them is churn, not a fix. */
+
+.bn-ep-save-bar {
+	position: fixed;
+	inset-block-end: 0;
+	inset-inline: 0;
+	background: var(--bn-surface);
+	border-block-start: 1px solid var(--bn-line);
+	box-shadow: var(--bn-shadow-sm);
+	padding-inline: var(--bn-s5);
+	min-height: 64px;
+	display: flex;
+	align-items: center;
+	z-index: 180;
+}
+
+.bn-ep-save-bar-inner {
+	max-width: 1080px;
+	margin-inline: auto;
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+}
+
+.bn-ep-save-status {
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	color: var(--bn-success);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+.bn-ep-save-status svg { width: 14px; height: 14px; }
+
+.bn-ep-save-status[hidden] { display: none !important; }
+
+.bn-ep-save-status--dirty {
+	color: var(--bn-warning, #b45309);
+	font-weight: 600;
+	font-size: var(--bn-text-sm);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+.bn-ep-save-status--saving {
+	color: var(--bn-ink-2);
+	font-weight: 500;
+	font-size: var(--bn-text-sm);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+.bn-ep-save-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-inline-start: auto;
+}
+
+.bn-ep-dirty-dot {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--bn-warning, #f59e0b);
+	flex-shrink: 0;
+}
+
+.bn-ep-spinner {
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: 50%;
+	animation: bn-spin 0.8s linear infinite;
+	flex-shrink: 0;
+}
+
+/* The fixed mobile bottom nav (.bn-mobile-nav) is visible <=768px at z-index
+   9500; the save bar sits at bottom:0 z-180, so the nav covered its Save/Cancel
+   buttons and mobile members could not save. Lift the bar to sit flush above the
+   nav across the SAME breakpoint the nav uses. --bn-mobile-nav-h is the nav's
+   MEASURED height, published by assets/js/shell/extras.js; the fallback is
+   pre-hydration only and carries the safe-area inset the measurement already
+   includes. See the shared bottom-clearance block below. */
+@media (max-width: 768px) {
+	.bn-ep-save-bar {
+		padding-inline: var(--bn-s4);
+		inset-block-end: var( --bn-mobile-nav-h, calc( 60px + env( safe-area-inset-bottom, 0px ) ) );
+	}
+
+	/* The status pill stays on mobile. It used to be hidden here for room, but it is
+	   the only thing that tells a member the save WORKED — "Saved just now" is the
+	   confirmation, and without it tapping Save produced no feedback at all beyond the
+	   button greying out. Measured at 390px on the busiest bar (profile edit, which
+	   also carries Cancel): 124px of pill + 204px of buttons inside 343px. */
+	.bn-ep-save-status {
+		/* Yields space to the buttons and ellipsises a long translation rather than
+		   pushing them off the bar. */
+		flex: 0 1 auto;
+		min-inline-size: 0;
+	}
+
+	.bn-ep-save-status span:not(.bn-ep-dirty-dot):not(.bn-ep-spinner) {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* The actions take the rest of the row instead of huddling at the right edge.
+	   A 204px cluster against a 343px bar left a third of the width dead, and on the
+	   preferences bar — which carries Save alone — most of the row was empty next to a
+	   small button. Full-width controls are the mobile norm and give bigger targets. */
+	.bn-ep-save-actions {
+		flex: 1 1 auto;
+		margin-inline-start: 0;
+	}
+
+	.bn-ep-save-actions > * {
+		flex: 1 1 auto;
+		justify-content: center;
+		/* Never shrink below a comfortable tap target, whatever the label. */
+		min-inline-size: 5.5rem;
+	}
 }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */

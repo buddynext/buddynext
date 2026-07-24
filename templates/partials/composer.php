@@ -315,7 +315,23 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			data-wp-bind--hidden="state.isNotAnnouncement">
 			<label class="bn-composer__schedule-label" for="bn-composer-announce-expiry">
 				<?php buddynext_icon( 'megaphone' ); ?>
-				<span><?php esc_html_e( 'Announcement — auto-expire at (optional)', 'buddynext' ); ?></span>
+				<span>
+					<?php
+					// Same zone disclosure as the Publish-at field above: both inputs run through the
+					// store's toUtcSqlDatetime(), which reads the digits as SITE time and never consults
+					// the browser's zone. This field used to omit that, so identical behaviour was
+					// disclosed on one control and hidden on the other.
+					//
+					// The panel only renders once Announcement is toggled on, and the megaphone sits
+					// inside this very label, so re-stating "Announcement" bought nothing while making
+					// the label wider than the row it lives in.
+					printf(
+						/* translators: %s: the site's timezone, e.g. "Asia/Kolkata" or "+00:00". */
+						esc_html__( 'Auto-expire at (%s), optional', 'buddynext' ),
+						esc_html( wp_timezone()->getName() )
+					);
+					?>
+				</span>
 			</label>
 			<input
 				type="datetime-local"

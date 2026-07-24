@@ -71,16 +71,21 @@
 	border-color: var(--bn-line-strong);
 }
 
-/* Announcement + pinned variants — subtle accent rails on the v2 single border. */
-.bn-post-card--announcement {
-	border-inline-start-width: 4px;
-	border-inline-start-color: var(--bn-accent);
-}
-
-.bn-post-card--pinned {
-	border-block-start-width: 3px;
-	border-block-start-color: var(--bn-warn);
-}
+/*
+ * Announcement + pinned variants carry NO coloured edge rail.
+ *
+ * They used to: a 4px accent border on the inline start, and a 3px warn border on the
+ * block start. Both were a second, weaker way of saying something the card already says
+ * in words — an announcement renders .bn-post-card__announcement-bar with a labelled
+ * badge on a tinted ground, and a pinned post renders .bn-post-card__pin-label. Two
+ * signals for one state, and the rail was the one a member cannot read.
+ *
+ * Neither Facebook nor LinkedIn marks a pinned or promoted post with a coloured card
+ * edge; they label it. The rail also broke the card's silhouette (a 4px stripe against
+ * 1px on the other three sides) and stole width from the text on a phone.
+ *
+ * Keep the state legible in the banner, not in the border.
+ */
 
 /* Announcement / pin banners — flush rows above the head. */
 .bn-post-card__announcement-bar {
@@ -2793,9 +2798,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
-	/* No wrap: the datetime input (flex:1 + min-width:0) absorbs the row and
-	   shrinks instead, so the × clear button stays inline rather than wrapping
-	   to its own line. */
+	/* WRAPS, and the input carries a real flex-basis. The row used to be single-line with a
+	   non-shrinking label, which made it correct only while the label happened to be short:
+	   at 390px "Publish at (Asia/Kolkata)" already crushed the datetime input to 32px, and the
+	   longer announcement label pushed both the input and the × clear button entirely outside
+	   the row — unreachable, not merely cramped. A row whose correctness depends on the length
+	   of a translatable string is a bug in the row. The label now drops to its own line when it
+	   cannot share one, and the input keeps a usable width instead of absorbing the shortfall. */
+	flex-wrap: wrap;
 }
 .bn-composer__schedule-label {
 	display: inline-flex;
@@ -2804,11 +2814,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	font-size: var(--text-sm);
 	font-weight: 600;
 	color: var(--text-2);
-	flex-shrink: 0;
+	/* May shrink and wrap its own text; it no longer wins the row outright. */
+	min-width: 0;
 }
-.bn-composer__schedule-label svg { width: 16px; height: 16px; }
+.bn-composer__schedule-label svg { width: 16px; height: 16px; flex-shrink: 0; }
 .bn-composer__schedule-input {
-	flex: 1 1 auto;
+	/* Basis ~= the intrinsic width of a rendered "mm/dd/yyyy --:--", so the row wraps
+	   before the control becomes too narrow to read the value it holds. */
+	flex: 1 1 11rem;
 	min-width: 0;
 	background: var(--bg-subtle);
 	border: 1px solid var(--border);

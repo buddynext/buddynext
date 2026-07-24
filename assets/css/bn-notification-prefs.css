@@ -312,6 +312,12 @@
 	border-radius: var(--bn-r-md);
 	background: var(--bn-sunken);
 	border: 1px solid var(--bn-line);
+	/* A segmented control must never be wider than the row holding it. Without this
+	   clamp the group kept its intrinsic width (257px inside a 221px row at 390px) and
+	   the card clipped the last segment: "Off" rendered as "Of". The clamp is the
+	   structural guard — it holds for any label set, including translations — while the
+	   mobile block below buys back the room so the segments never have to be squeezed. */
+	max-inline-size: 100%;
 }
 
 .bn-prefs-chip {
@@ -527,6 +533,23 @@
 	.bn-prefs-row__controls { justify-content: flex-start; }
 	.bn-prefs-row__warn { text-align: start; }
 	.bn-prefs-space { flex-wrap: wrap; }
+
+	/* Both segmented controls span the row and share it out proportionally. The
+	   frequency group was missing from this rule, so it kept its intrinsic width and
+	   overflowed. Full width alone is not enough either: the four labels need only
+	   143px of text but carried 106px of chrome against a 221px row, so the fix is to
+	   spend the row's slack on the segments instead of on fixed padding. `1 1 auto`
+	   (not `1 1 0`) keeps each segment sized to its own label first, so "Immediate"
+	   is never truncated to make room for "Off". */
+	.bn-prefs-freq,
 	.bn-prefs-space__controls { inline-size: 100%; justify-content: flex-start; }
+
+	.bn-prefs-freq .bn-prefs-chip,
+	.bn-prefs-space__controls .bn-prefs-chip {
+		flex: 1 1 auto;
+		min-inline-size: 0;
+		padding-inline: var(--bn-s2);
+		text-align: center;
+	}
 }
 

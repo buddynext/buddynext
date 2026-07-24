@@ -41,12 +41,34 @@ if ( ! in_array( $explore_filter, ExploreService::FILTERS, true ) ) {
 $explore_cursor = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 // ── Build the discovery deck (single source of truth) ──────────────────────
-$bn_explore_per_page = 12;
-$bn_explore_service  = new ExploreService();
-$bn_deck             = $bn_explore_service->deck( $explore_filter, '' !== $explore_cursor ? $explore_cursor : null, $bn_explore_per_page );
-$bn_cards            = (array) ( $bn_deck['items'] ?? array() );
-$bn_next_cursor      = $bn_deck['next_cursor'] ?? null;
-$bn_pulse            = $bn_explore_service->pulse();
+
+/*
+ * "Load more" GROWS this page; it does not inject cards.
+ *
+ * Explore used the same injecting infinite scroll the home feed did: fetch the
+ * next page and drop its server-rendered cards into the grid. A card is an
+ * Interactivity island and the API only hydrates islands present at first paint,
+ * so every card past the first screen arrived inert — React, Comment, Share and
+ * Save silently dead for the rest of the session. Home was fixed first; this is
+ * the same fix, so the product has ONE pagination behaviour rather than two.
+ *
+ * `shown` is the number of cards this page renders, clamped to whole pages and to
+ * six pages so a crafted URL can never ask for an unbounded render. See
+ * free-internal/docs/plans/feed-hydrated-pagination-2026-07-24.md
+ */
+$bn_explore_page_size = 12;
+$bn_explore_max_shown = $bn_explore_page_size * 6;
+$bn_explore_raw_shown = isset( $_GET['shown'] ) ? absint( wp_unslash( $_GET['shown'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_explore_shown     = max(
+	$bn_explore_page_size,
+	min( $bn_explore_max_shown, (int) ( ceil( $bn_explore_raw_shown / $bn_explore_page_size ) * $bn_explore_page_size ) )
+);
+$bn_explore_per_page  = $bn_explore_shown;
+$bn_explore_service   = new ExploreService();
+$bn_deck              = $bn_explore_service->deck( $explore_filter, '' !== $explore_cursor ? $explore_cursor : null, $bn_explore_per_page );
+$bn_cards             = (array) ( $bn_deck['items'] ?? array() );
+$bn_next_cursor       = $bn_deck['next_cursor'] ?? null;
+$bn_pulse             = $bn_explore_service->pulse();
 
 // ── REST nonce ─────────────────────────────────────────────────────────────
 $rest_nonce = wp_create_nonce( 'wp_rest' );
@@ -156,6 +178,18 @@ $bn_explore_filters = array(
 			<?php endforeach; ?>
 		</div>
 
+		<?php
+		/*
+		 * Router region around the grid + its Load-more control, exactly as the home feed
+		 * does. The router hydrates the markup it swaps, which is the only supported way to
+		 * add cards that actually work — the hero, filter chips and search stay outside so
+		 * paginating never re-initialises them. See parts/feed-load-more.php.
+		 */
+		$bn_explore_region_attrs = (bool) apply_filters( 'buddynext_feed_client_pagination', true )
+			? ' data-wp-interactive="buddynext/feed" data-wp-router-region="buddynext/feed"'
+			: '';
+		?>
+		<div class="bn-feed-region"<?php echo $bn_explore_region_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
 		<!-- Masonry discovery grid -->
 		<div class="bn-explore-grid" role="feed" aria-label="<?php esc_attr_e( 'Explore', 'buddynext' ); ?>">
 			<?php if ( ! empty( $bn_cards ) ) : ?>
@@ -218,33 +252,21 @@ $bn_explore_filters = array(
 			<?php endif; ?>
 		</div>
 
-		<!-- Infinite scroll / load more -->
+		<!-- Load more: a real link the router upgrades to an in-place region swap -->
 		<?php if ( $bn_next_cursor ) : ?>
-			<div
-				class="bn-load-more"
-				data-bn-infinite-feed="explore"
-				data-bn-feed-target=".bn-explore-grid"
-				data-next-cursor="<?php echo esc_attr( (string) $bn_next_cursor ); ?>"
-				data-filter="<?php echo esc_attr( $explore_filter ); ?>"
-				data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed/explore/page' ) ); ?>"
-				data-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
-				data-per-page="<?php echo esc_attr( (string) $bn_explore_per_page ); ?>"
-			>
-				<div class="bn-load-more__spinner" hidden aria-live="polite">
-					<span class="bn-skeleton bn-load-more__spinner-line"></span>
-					<span class="bn-load-more__spinner-text"><?php esc_html_e( 'Loading more…', 'buddynext' ); ?></span>
-				</div>
-				<noscript>
-					<a href="<?php echo esc_url( add_query_arg( 'cursor', (string) $bn_next_cursor ) ); ?>" class="bn-btn bn-load-more__btn" data-variant="secondary">
-						<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-					</a>
-				</noscript>
-			</div>
+			<?php
+			$bn_explore_more_url = add_query_arg(
+				array( 'shown' => $bn_explore_shown + $bn_explore_page_size ),
+				remove_query_arg( 'cursor' )
+			);
+			?>
+			<?php buddynext_get_template( 'parts/feed-load-more.php', array( 'more_url' => $bn_explore_more_url ) ); ?>
 		<?php elseif ( ! empty( $bn_cards ) ) : ?>
 			<div class="bn-feed-end" role="status">
 				<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
 			</div>
 		<?php endif; ?>
+		</div><!-- /.bn-feed-region -->
 
 	</div><!-- /.bn-explore-content -->
 

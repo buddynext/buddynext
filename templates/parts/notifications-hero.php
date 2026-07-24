@@ -69,7 +69,18 @@ do_action( 'buddynext_part_notifications_hero_before', $args );
 			<h1 class="bn-section-head__title">
 				<?php esc_html_e( 'Notifications', 'buddynext' ); ?>
 				<?php if ( $bn_total_unread > 0 ) : ?>
-					<span class="bn-badge" data-tone="accent" data-wp-text="state.unreadLabel">
+					<?php
+					/*
+					 * Bound to the UNREAD total, not state.unreadLabel — that one reports the
+					 * bell's UNSEEN count, which opening this page has just cleared, so the
+					 * pill blanked itself on hydration. The hidden binding matters just as
+					 * much: without it, marking everything read leaves an empty coloured
+					 * chip beside the heading instead of removing it.
+					 */
+					?>
+					<span class="bn-badge" data-tone="accent"
+						data-wp-text="state.unreadTotalLabel"
+						data-wp-bind--hidden="state.unreadTotalHidden">
 					<?php
 					$display = $bn_total_unread > 99 ? '99+' : (string) $bn_total_unread;
 					echo esc_html(

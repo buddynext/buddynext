@@ -570,8 +570,49 @@ body.admin-bar .bn-app__rail {
 	 * Deliberately NOT kept on .bn-app__main as well — two stacked clearances
 	 * would reserve 176px and leave a dead gap above the footer.
 	 */
+	/*
+	 * The shell's own root carries no theme gutter on mobile.
+	 *
+	 * .bn-app is OUR element, but a theme wrapper can still style it from outside —
+	 * Reign's `.wb-grid > :not(.no-gutter)` puts 15px on every grid child, and .bn-app
+	 * is one. That is the outer half of the inset described on .bn-app__main below, and
+	 * leaving it in place would mean our mobile width depends on which theme is
+	 * installed. Zeroed here so the ONE gutter is the one we set, identical everywhere.
+	 *
+	 * !important is deliberate, and it is the only tool that actually works here. The
+	 * rule has to beat a selector written by a theme we have never seen. A doubled
+	 * class was tried first and lost: it ties Reign's `.wb-grid > :not(.no-gutter)` on
+	 * specificity and the theme stylesheet loads last, so the gutters stacked to 27px
+	 * and the card came out NARROWER than before the fix (321px against 345px). Any
+	 * class-based escalation can still be beaten by a theme that uses an id, so
+	 * specificity is the wrong instrument for "nothing outside this plugin sets padding
+	 * on the plugin's own root".
+	 */
+	.bn-app {
+		padding-inline: 0 !important;
+	}
+
 	.bn-app__main {
 		padding-bottom: var(--bn-mobile-nav-clearance); /* clear .bn-mobile-nav bottom bar */
+
+		/*
+		 * ONE gutter on mobile, and it is ours.
+		 *
+		 * --bn-s6 (24px) is desktop column padding, and it used to stack on two other
+		 * insets: the host theme's wrapper gutter and then each card's own inner
+		 * padding. Measured on profile edit at 390px — 15px (Reign's .wb-grid gutter)
+		 * + 24px (this) + 16px (the card) = 55px PER SIDE, so 110px of a 375px viewport
+		 * went to white space and the content ran at 265px. Nearly a third of a phone.
+		 *
+		 * Inheriting the theme's gutter instead would be the smaller change, but it
+		 * makes our layout a function of whichever theme is installed: BuddyNext ships
+		 * on BuddyX and on themes we have never seen, and one that sets no wrapper
+		 * padding would put every card flush against the screen edge. So the shell
+		 * neutralises the theme's contribution just above and states its own value
+		 * here — 12px, the same on every theme, with each card's own padding supplying
+		 * the space between its border and its text.
+		 */
+		padding-inline: var(--bn-s3);
 	}
 
 	/*

@@ -211,22 +211,31 @@ let bnReactionScrollBound = false;
 // Returns false when there is no feed list on the page or no html, so the
 // caller can fall back to a full reload.
 function prependFeedCard( html ) {
-	if ( ! html || typeof html !== 'string' ) {
-		return false;
-	}
-	var listEl = document.querySelector( '.bn-feed-list' );
-	if ( ! listEl ) {
-		return false;
-	}
-	// DOMParser yields an inert document (scripts never execute); move each
-	// parsed node to the top of the live list before the current first child.
-	var doc   = new DOMParser().parseFromString( html, 'text/html' );
-	var nodes = Array.prototype.slice.call( doc.body.childNodes );
-	var first = listEl.firstChild;
-	for ( var i = 0; i < nodes.length; i++ ) {
-		listEl.insertBefore( nodes[ i ], first );
-	}
-	return true;
+	/*
+	 * DISABLED: a card inserted this way is DEAD.
+	 *
+	 * A post card is an Interactivity island (data-wp-interactive="buddynext/post-card").
+	 * The Interactivity API hydrates islands present at first paint; markup injected
+	 * afterwards is never hydrated, so every directive on the inserted card is inert. The
+	 * member saw their post appear and then found React, Comment, Share and Save all dead
+	 * until they refreshed the page (cards 10127252280 and 10127947165 — same root cause).
+	 * Verified in the browser with a clean single click: a server-rendered card opens its
+	 * comments, an injected one does not.
+	 *
+	 * There is no supported way to hydrate it from here. WordPress 7.0 exports no public
+	 * hydrate/init from @wordpress/interactivity; core's own router reaches for privateApis,
+	 * which a plugin must not depend on. The router itself is not an option either: it only
+	 * hydrates a swapped data-wp-router-region, and client navigation is off by default.
+	 *
+	 * So we refuse the insert and return false, which routes BOTH callers (composer submit
+	 * and repost) into the reload fallback they already carry. The member gets their post
+	 * from the server, fully hydrated, with every control working. A page load is a real
+	 * cost against the Facebook/LinkedIn bar — but a card whose every button is dead is a
+	 * much bigger one, and this is the honest behaviour until the feed renders its cards
+	 * through the Interactivity API itself (data-wp-each) rather than injecting server HTML.
+	 * That refactor is the actual fix; this keeps the product correct until it lands.
+	 */
+	return false;
 }
 
 function bnApplyFilters( hook, value, ...args ) {
@@ -911,8 +920,8 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 						body.appendChild( repliesEl );
 					}
 					repliesEl.appendChild( buildCommentNode( reply, currentUserId, postId, restUrl, nonce, cappedDepth + 1 ) );
-					replyTextarea.value = '';
-					replyForm.hidden    = true;
+					clearField( replyTextarea );
+					replyForm.hidden = true;
 					adjustCommentCount( postId, 1 );
 				} else {
 					const data = res.data || {};
@@ -2107,9 +2116,7 @@ store( 'buddynext/post-card', {
 						listEl.dataset.loaded = '1';
 						listEl.appendChild( buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 ) );
 					}
-					if ( inputEl ) {
-						inputEl.value = '';
-					}
+					clearField( inputEl );
 					adjustCommentCount( ctx.postId, 1 );
 					if ( window.bnToast ) { window.bnToast( t( 'commentAdded', 'Comment added' ) ); }
 				} else {
@@ -2240,6 +2247,29 @@ function autoResizeTextarea( el ) {
 	if ( ! el ) { return; }
 	el.style.height = 'auto';
 	el.style.height = el.scrollHeight + 'px';
+}
+
+/**
+ * Empty a field the way a member would — clear it AND fire `input`.
+ *
+ * Assigning `.value` in code changes a field SILENTLY: the browser fires no
+ * `input` event, so everything listening to it keeps rendering the old value.
+ * That is why the character counter still read "87 / 5000" under an empty
+ * composer after a successful post, and "37 / 1000" under an empty comment box —
+ * attachCharCounter only recomputes on `input`, and the reset paths set `.value`
+ * directly.
+ *
+ * Dispatching the event once here keeps every input-driven affordance (counter,
+ * typeahead, any future listener) in step, instead of each reset site having to
+ * remember to poke each one by hand.
+ *
+ * @param {HTMLTextAreaElement|HTMLInputElement|null} el Field to clear.
+ * @return {void}
+ */
+function clearField( el ) {
+	if ( ! el ) { return; }
+	el.value = '';
+	el.dispatchEvent( new Event( 'input', { bubbles: true } ) );
 }
 
 function maybeDetectLink( ctx ) {
@@ -3045,7 +3075,7 @@ store( 'buddynext/post-composer', {
 			setDraftStatus( ctx, '', false );
 			const textarea = document.querySelector( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' );
 			if ( textarea ) {
-				textarea.value = '';
+				clearField( textarea );
 				autoResizeTextarea( textarea );
 			}
 		},
@@ -3189,7 +3219,7 @@ store( 'buddynext/post-composer', {
 					ctx.content     = '';
 					ctx.hasDraft    = false;
 					setDraftStatus( ctx, '', false );
-					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { ta.value = ''; autoResizeTextarea( ta ); } );
+					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { clearField( ta ); autoResizeTextarea( ta ); } );
 
 					// The media was consumed into the post — clear the staged set and its
 					// previews WITHOUT deleting from the server (the post now owns them).
@@ -3830,6 +3860,128 @@ const feedStore = store( 'buddynext/feed', {
 		},
 	},
 	actions: {
+		/**
+		 * Load the next page of the feed WITHOUT a page load, and with every card alive.
+		 *
+		 * A post card is an Interactivity island, and the API only hydrates islands present
+		 * at first paint — so the old infinite scroll, which injected the next page's cards,
+		 * left every card past the first screen inert: React, Comment, Share and Save all
+		 * did nothing, silently, for the rest of the session.
+		 *
+		 * The Interactivity Router is the one thing that CAN hydrate: it fetches a URL and
+		 * swaps the matching data-wp-router-region, hydrating what it swapped. So this
+		 * follows the link's own href (?shown=N — the cumulative server render) and lets the
+		 * router replace the feed region. One PHP renderer, no injected HTML, no dead cards.
+		 *
+		 * Mirrors the shell's navigate action, including the modified-click bail-outs so a
+		 * middle-click or cmd-click still opens a normal tab. Any failure falls through to
+		 * the browser's own navigation, because the control is a real <a href> — the same
+		 * progressive-enhancement contract the rest of the shell uses.
+		 *
+		 * Plan: free-internal/docs/plans/feed-hydrated-pagination-2026-07-24.md
+		 *
+		 * @param {MouseEvent} event Click on the Load-more link.
+		 */
+		*loadMore( event ) {
+			const link = event && event.target ? event.target.closest( 'a[href]' ) : null;
+			if ( ! link || ! link.href ) {
+				return;
+			}
+			// Let the browser handle anything that is not a plain left-click, and anything
+			// pointing off-site — same rules as the shell navigate action.
+			if (
+				event.ctrlKey ||
+				event.metaKey ||
+				event.shiftKey ||
+				event.altKey ||
+				event.button !== 0 ||
+				link.target === '_blank' ||
+				link.origin !== window.location.origin
+			) {
+				return;
+			}
+
+			event.preventDefault();
+
+			// Drop the #bn-load-more fragment. It exists for the no-JS path, where a full
+			// page load would otherwise drop the member at the top of the feed; on the
+			// router path nothing moves, so honouring the anchor would yank them from where
+			// they were reading down to the button. Keeping position is the whole point.
+			const href = link.href.split( '#' )[ 0 ];
+
+			// Where the member is reading. A region swap is not a navigation, so nothing
+			// SHOULD move — but the swap replaces the focused Load-more button, and the
+			// browser scrolls the re-created element into view, which lands them at the
+			// bottom of the newly-loaded batch with 15 unseen cards above. Measured: 1200 ->
+			// 4165. Restore the offset so new posts simply appear below them, which is what
+			// continuous scrolling feels like everywhere else.
+			const scrollY = window.scrollY;
+
+			try {
+				const router = yield import( '@wordpress/interactivity-router' );
+				yield router.actions.navigate( href );
+
+				// After the swap, and again on the next frame: the router settles focus and
+				// the browser can adjust once more after layout.
+				window.scrollTo( 0, scrollY );
+				window.requestAnimationFrame( () => window.scrollTo( 0, scrollY ) );
+
+				// Same signal a shell navigation emits, so anything that re-initialises on
+				// navigation (nav chevrons, shell offsets) also runs after a feed swap.
+				document.dispatchEvent(
+					new CustomEvent( 'buddynext:navigated', { detail: { href } } )
+				);
+			} catch ( _e ) {
+				// Router unavailable or the swap failed — do what the link would have done.
+				window.location.href = href;
+			}
+		},
+
+		/**
+		 * Turn the Load-more control into continuous scroll.
+		 *
+		 * Bound with data-wp-init on the control, so it arrives with every region swap —
+		 * including the swapped-in copy, which is what keeps the behaviour going page after
+		 * page without re-registering anything by hand.
+		 *
+		 * Every mainstream network scrolls rather than asking you to click, so the click is
+		 * the fallback, not the design. The link stays real and keyboard-reachable: a member
+		 * on a keyboard, or with the observer unsupported, still has a focusable control.
+		 *
+		 * `rootMargin` starts the fetch a screen early so the next cards are usually there
+		 * before the reader arrives. A guard flag stops a second fetch while one is in
+		 * flight — the sentinel can stay intersecting across the swap.
+		 */
+		initLoadMore() {
+			const { ref } = getElement();
+			if ( ! ref || typeof window.IntersectionObserver !== 'function' ) {
+				return; // No observer support: the link still works as a click.
+			}
+			// Honour reduced-motion by leaving auto-advance off — an unexpected stream of
+			// new content is exactly the kind of motion that setting asks us not to start.
+			if ( window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) {
+				return;
+			}
+
+			let firing = false;
+			const observer = new window.IntersectionObserver(
+				( entries ) => {
+					if ( firing || ! entries.some( ( e ) => e.isIntersecting ) ) {
+						return;
+					}
+					if ( ! ref.isConnected ) {
+						observer.disconnect();
+						return;
+					}
+					firing = true;
+					observer.disconnect(); // The swap brings a fresh control with its own observer.
+					ref.click();
+				},
+				{ rootMargin: '600px 0px' }
+			);
+			observer.observe( ref );
+		},
+
 		setFilter( event ) {
 			if ( event && event.preventDefault ) { event.preventDefault(); }
 			const ctx    = getContext();
