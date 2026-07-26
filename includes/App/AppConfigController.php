@@ -76,6 +76,164 @@ class AppConfigController {
 				'permission_callback' => '__return_true',
 			)
 		);
+
+		// Translation delivery for the native app. The plugin is already 100%
+		// translation-ready (text domain 'buddynext', full .po/.mo for 10 locales),
+		// but wp_set_script_translations only serves enqueued browser scripts. This
+		// exposes the SAME already-loaded translations to the app: it POSTs its
+		// English source strings, we return them translated for the requested locale.
+		// No new text domain, no new .pot — pure lookup against the existing catalogs.
+		register_rest_route(
+			'buddynext/v1',
+			'/app/strings',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'get_strings' ),
+				// Public like /app/config: translations are not sensitive, and the app
+				// may localise the pre-auth sign-in screen.
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'locale'  => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'strings' => array(
+						'required' => true,
+						'type'     => 'object',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * POST /app/strings — translate the app's English source strings for a locale.
+	 *
+	 * The app sends its bundled English catalogue as { key: "English source" }. We
+	 * resolve each value through the existing 'buddynext' text domain for the
+	 * requested locale and return { key: "translated" }. Strings the plugin has no
+	 * msgid for come back unchanged (English), which the app already has bundled as
+	 * its fallback. A site owner localises or overrides via the normal 'buddynext'
+	 * Loco/.po workflow, or the buddynext_app_strings filter below.
+	 *
+	 * @param WP_REST_Request $request Incoming request (locale + strings map).
+	 * @return WP_REST_Response
+	 */
+	public function get_strings( WP_REST_Request $request ): WP_REST_Response {
+		$locale  = (string) $request->get_param( 'locale' );
+		$strings = (array) $request->get_param( 'strings' );
+
+		// Cap the request so a client cannot ask us to translate an unbounded map.
+		if ( count( $strings ) > 2000 ) {
+			$strings = array_slice( $strings, 0, 2000, true );
+		}
+
+		// Resolve the app's BCP-47 code ('es', 'pt') to the locale the plugin's own
+		// .mo is keyed by ('es_ES', 'pt_BR') and read that catalogue directly via the
+		// MO class. This is deterministic and has NO side effect on the request locale
+		// (switch_to_locale is unreliable outside a normal front-end context), and it
+		// reads the plugin's OWN languages/ folder, which get_available_languages()
+		// does not see.
+		$mo = $this->load_plugin_mo( $this->map_app_locale( $locale ) );
+
+		$out = array();
+		foreach ( $strings as $key => $source ) {
+			$source = (string) $source;
+			// Untranslated (English source) when there is no catalogue or no entry —
+			// the app already has that value bundled as its fallback.
+			$out[ (string) $key ] = null !== $mo ? $mo->translate( $source ) : $source;
+		}
+
+		/**
+		 * Filter the translated app strings, so a site can override or white-label
+		 * specific keys per site without touching the shared catalogue.
+		 *
+		 * @since 1.1.2
+		 *
+		 * @param array<string,string> $out    Key => translated string.
+		 * @param string               $locale Requested app locale.
+		 * @param array<string,string> $strings Original key => English source.
+		 */
+		$out = (array) apply_filters( 'buddynext_app_strings', $out, $locale, $strings );
+
+		return new WP_REST_Response( $out, 200 );
+	}
+
+	/**
+	 * Map an app BCP-47 language code to the best-matching installed WP locale.
+	 *
+	 * The app sends short codes ('es', 'pt'); WP catalogues are 'es_ES', 'pt_BR'.
+	 * Prefer an exact available locale, else the first installed locale whose language
+	 * matches, else the code as-is.
+	 *
+	 * @param string $code App language code.
+	 * @return string WP locale, or '' when nothing suitable is installed.
+	 */
+	private function map_app_locale( string $code ): string {
+		$code = strtolower( str_replace( '-', '_', $code ) );
+		if ( '' === $code || 'en' === $code || 0 === strpos( $code, 'en_' ) ) {
+			return '';
+		}
+
+		$installed = $this->plugin_locales();
+		// Exact match ('pt_br' → 'pt_BR').
+		foreach ( $installed as $loc ) {
+			if ( strtolower( $loc ) === $code ) {
+				return $loc;
+			}
+		}
+		// Language-only match ('es' → 'es_ES', 'pt' → 'pt_BR').
+		$lang = explode( '_', $code )[0];
+		foreach ( $installed as $loc ) {
+			if ( strtolower( $loc ) === $lang || 0 === strpos( strtolower( $loc ), $lang . '_' ) ) {
+				return $loc;
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Load the plugin's compiled catalogue for a locale as an MO object, or null.
+	 *
+	 * @param string $wp_locale Plugin locale (e.g. 'es_ES'), or '' for none.
+	 * @return \MO|null
+	 */
+	private function load_plugin_mo( string $wp_locale ) {
+		if ( '' === $wp_locale ) {
+			return null;
+		}
+		$mofile = BUDDYNEXT_DIR . 'languages/buddynext-' . $wp_locale . '.mo';
+		if ( ! is_readable( $mofile ) ) {
+			return null;
+		}
+		require_once ABSPATH . 'wp-includes/pomo/mo.php';
+		$mo = new \MO();
+		if ( ! $mo->import_from_file( $mofile ) ) {
+			return null;
+		}
+		return $mo;
+	}
+
+	/**
+	 * The locales the plugin ships a buddynext-<locale>.mo for, cached per request.
+	 *
+	 * @return string[]
+	 */
+	private function plugin_locales(): array {
+		static $locales = null;
+		if ( null !== $locales ) {
+			return $locales;
+		}
+		$locales = array();
+		foreach ( (array) glob( BUDDYNEXT_DIR . 'languages/buddynext-*.mo' ) as $path ) {
+			$base = basename( (string) $path, '.mo' );
+			$loc  = substr( $base, strlen( 'buddynext-' ) );
+			if ( '' !== $loc ) {
+				$locales[] = $loc;
+			}
+		}
+		return $locales;
 	}
 
 	/**
