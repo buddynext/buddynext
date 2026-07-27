@@ -1726,27 +1726,36 @@ class AuthController {
 	 * @return WP_REST_Response
 	 */
 	public function verification_status(): WP_REST_Response {
+		// Onboarding completion is server-authoritative so it follows the member
+		// across devices and survives a reinstall — a member who onboarded on the
+		// web or another phone must never be walled behind the wizard again. The
+		// native app keeps a local mirror only as an offline-first cache. Same meta
+		// the web gate reads (PageRouter: 'bn_onboarding_complete').
+		$user_id              = get_current_user_id();
+		$onboarding_completed = (bool) get_user_meta( $user_id, 'bn_onboarding_complete', true );
+
 		// Email Verification feature off: there is no "unverified" state, so the
 		// caller should treat every account as cleared rather than gating on a
 		// subsystem the owner disabled.
 		if ( ! buddynext_feature_enabled( 'verification' ) ) {
 			return new WP_REST_Response(
 				array(
-					'verified' => true,
-					'enabled'  => false,
+					'verified'             => true,
+					'enabled'              => false,
+					'onboarding_completed' => $onboarding_completed,
 				),
 				200
 			);
 		}
 
-		$user_id  = get_current_user_id();
 		$svc      = new VerificationService();
 		$verified = $svc->is_verified( $user_id );
 
 		return new WP_REST_Response(
 			array(
-				'verified' => $verified,
-				'enabled'  => true,
+				'verified'             => $verified,
+				'enabled'              => true,
+				'onboarding_completed' => $onboarding_completed,
 			),
 			200
 		);
