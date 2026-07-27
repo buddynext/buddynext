@@ -265,6 +265,7 @@ class AppConfigController {
 			'integrations'     => $this->integrations(),
 			'limits'           => $this->limits(),
 			'time'             => $this->time(),
+			'locale'           => $this->locale(),
 
 			'legal'            => $this->legal(),
 
@@ -474,6 +475,56 @@ class AppConfigController {
 			'site_timezone' => (string) get_option( 'timezone_string', '' ),
 			'gmt_offset'    => (float) get_option( 'gmt_offset', 0 ),
 			'server_utc'    => gmdate( 'Y-m-d\TH:i:s\Z' ),
+		);
+	}
+
+	/**
+	 * The `locale` block — the site's language facts for the mobile app.
+	 *
+	 *  - default         : the site locale as a short code ('en', 'es'), seeding the
+	 *    app's initial language when the member has no explicit choice and the device
+	 *    language is unavailable.
+	 *  - languages       : short codes the site actually ships a compiled catalogue for
+	 *    ('en' is always present as the app's bundled fallback). Drives the Settings
+	 *    language picker — a site only offers languages it can serve over the air.
+	 *  - strings_version : a cache-bust key (newest .mo mtime) so the app refetches its
+	 *    OTA strings when the site updates its translations. Filterable for sites that
+	 *    prefer to pin it.
+	 *
+	 * Additive/optional: an app reading an older plugin simply sees no `locale` and
+	 * falls back to its bundled languages, so this needs no contract-version bump.
+	 *
+	 * @return array{default:string,languages:array<int,string>,strings_version:int}
+	 */
+	private function locale(): array {
+		$languages = array( 'en' );
+		foreach ( $this->plugin_locales() as $wp_locale ) {
+			$short = strtolower( explode( '_', $wp_locale )[0] );
+			if ( '' !== $short && ! in_array( $short, $languages, true ) ) {
+				$languages[] = $short;
+			}
+		}
+
+		$default = strtolower( explode( '_', (string) get_locale() )[0] );
+		if ( '' === $default ) {
+			$default = 'en';
+		}
+
+		$version = 0;
+		foreach ( (array) glob( BUDDYNEXT_DIR . 'languages/buddynext-*.mo' ) as $path ) {
+			$version = max( $version, (int) filemtime( (string) $path ) );
+		}
+
+		return array(
+			'default'         => $default,
+			'languages'       => $languages,
+			/**
+			 * Filter the OTA strings cache-bust version. Bump (or pin) to control when
+			 * the app refetches translated strings for this site.
+			 *
+			 * @param int $version Default: newest translation-file mtime.
+			 */
+			'strings_version' => (int) apply_filters( 'buddynext_app_strings_version', $version ),
 		);
 	}
 
