@@ -524,22 +524,23 @@
    them scannable on dense explore cards, and gives the hover a discrete
    target. Mentions stay accent-coloured but un-chipped so the @-prefix
    does the visual lifting. */
+/* A hashtag is a word in a sentence, not a chip.
+ *
+ * It used to render as a filled pill - tinted background, full rounding,
+ * horizontal padding, inline-block. One tag looked deliberate; a normal post
+ * carrying five or six turned the body copy into a row of badges and broke the
+ * line rhythm, because every pill adds padding and its own baseline box.
+ *
+ * X and LinkedIn both render hashtags as plain accent-coloured text inline with
+ * the sentence, and .bn-mention right below already did exactly that here - so
+ * the pill was also the only inline entity in the product that disagreed with
+ * its own sibling. Matching them fixes both problems at once. */
 .bn-hashtag {
-	display: inline-block;
-	padding: 0 var(--bn-s2);
-	border-radius: var(--bn-r-full, 999px);
-	background: var(--bn-accent-bg, color-mix(in oklab, var(--bn-accent) 12%, transparent));
 	color: var(--bn-accent);
 	font-weight: 500;
-	font-size: inherit;
-	line-height: 1.5;
-	text-decoration: none;
-	transition: background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
-}
-.bn-hashtag:hover {
-	background: var(--bn-accent-bg-strong, color-mix(in oklab, var(--bn-accent) 20%, transparent));
 	text-decoration: none;
 }
+.bn-hashtag:hover { text-decoration: underline; }
 
 .bn-mention {
 	color: var(--bn-accent);
@@ -2378,10 +2379,18 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	line-height: var(--leading-tight, 1.2);
 }
 .bn-composer__typeahead-name {
-	font-weight: var(--fw-medium, 500);
+	/* Normal weight: the BOLD in this row marks the part not yet typed, so the
+	   label itself must not compete with it. */
+	font-weight: var(--bn-fw-normal, 400);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+/* The completion - what the member gains by picking this row. Same colour, so
+   the row still reads as one continuous word rather than two fragments. */
+.bn-composer__typeahead-match {
+	font-weight: var(--bn-fw-bold, 700);
+	color: inherit;
 }
 .bn-composer__typeahead-handle {
 	font-size: var(--text-xs);

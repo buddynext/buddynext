@@ -4389,6 +4389,7 @@ function attachMentionHashtagTypeahead( textarea ) {
 	let suggestions = [];
 	let activeKind = null; // '@' or '#'
 	let activeStart = -1;
+	let activeToken = '';
 	let fetchAbort = null;
 	let suggestTimer = null;
 	const SUGGEST_DEBOUNCE_MS = 200;
@@ -4401,6 +4402,98 @@ function attachMentionHashtagTypeahead( textarea ) {
 		suggestions = [];
 		activeKind = null;
 		activeStart = -1;
+		activeToken = '';
+	};
+
+	/**
+	 * Put the suggestion list under the CARET, the way X and LinkedIn do.
+	 *
+	 * The list is absolutely positioned inside .bn-composer__input and carried no
+	 * `top` at all, so it landed at the container's origin - which is the
+	 * textarea's first line. Typing "Testing hashtag autocomplete #des" dropped
+	 * the "#design" suggestion straight over the words being written, leaving
+	 * "lete #des" visible beside it. Nothing was wrong with the text; it was
+	 * covered. That is what got reported as garbled output.
+	 *
+	 * A textarea exposes no caret geometry, so the position is measured with the
+	 * standard mirror technique: a hidden div that copies the textarea's box and
+	 * type metrics, filled with the text up to the trigger character, with a
+	 * marker span at the end to read off. Measured rather than declared in CSS
+	 * because the composer auto-grows and wraps - any fixed offset is right at
+	 * one height and one line count only.
+	 *
+	 * @return {void}
+	 */
+	const positionAtCaret = () => {
+		if ( ! dropdown ) {
+			return;
+		}
+
+		const cs     = window.getComputedStyle( textarea );
+		const mirror = document.createElement( 'div' );
+
+		// Copy every property that affects where a glyph lands.
+		[
+			'boxSizing', 'width', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+			'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+			'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing',
+			'lineHeight', 'textTransform', 'wordSpacing', 'textIndent', 'whiteSpace', 'wordWrap',
+		].forEach( ( prop ) => {
+			mirror.style[ prop ] = cs[ prop ];
+		} );
+
+		mirror.style.position   = 'absolute';
+		mirror.style.visibility = 'hidden';
+		mirror.style.whiteSpace = 'pre-wrap';
+		mirror.style.wordWrap   = 'break-word';
+		mirror.style.top        = '0';
+		mirror.style.left       = '0';
+
+		// Text up to the trigger character, then a zero-width marker to measure.
+		const upto   = textarea.value.slice( 0, activeStart >= 0 ? activeStart : textarea.selectionStart );
+		const marker = document.createElement( 'span' );
+
+		mirror.textContent = upto;
+		marker.textContent = '\u200b';
+		mirror.appendChild( marker );
+		textarea.parentElement.appendChild( mirror );
+
+		const lineHeight = parseFloat( cs.lineHeight ) || ( parseFloat( cs.fontSize ) * 1.4 );
+
+		// Measured as a DIFFERENCE of bounding rects, not with offsetTop: the
+		// composer's input wrapper is position:static, so offsetTop on the marker
+		// resolves against a further-up ancestor and silently double-counts the
+		// mirror's own origin - which pinned the list near the top of the box
+		// however far down the caret actually was.
+		const mirrorRect = mirror.getBoundingClientRect();
+		const markerRect = marker.getBoundingClientRect();
+		const caretTop   = markerRect.top - mirrorRect.top;
+		const caretLeft  = markerRect.left - mirrorRect.left;
+
+		mirror.remove();
+
+		// One line below the caret, and never left of the textarea.
+		let top  = textarea.offsetTop + caretTop - textarea.scrollTop + lineHeight;
+		let left = textarea.offsetLeft + caretLeft;
+
+		// Keep the whole list inside the composer rather than letting it hang off
+		// the right edge on a caret near the end of a long line.
+		const containerWidth = textarea.parentElement.clientWidth;
+		const listWidth      = dropdown.offsetWidth || 220;
+		if ( left + listWidth > containerWidth ) {
+			left = Math.max( 0, containerWidth - listWidth );
+		}
+
+		// If the caret sits low enough that the list would overflow the composer,
+		// flip it above the caret line instead of pushing the page taller.
+		const listHeight = dropdown.offsetHeight || 0;
+		const spaceBelow = ( textarea.offsetTop + textarea.offsetHeight ) - ( top - textarea.offsetTop );
+		if ( listHeight > 0 && spaceBelow < listHeight && top - lineHeight - listHeight > 0 ) {
+			top = top - lineHeight - listHeight;
+		}
+
+		dropdown.style.top  = Math.round( top ) + 'px';
+		dropdown.style.left = Math.round( left ) + 'px';
 	};
 
 	const renderDropdown = () => {
@@ -4426,17 +4519,33 @@ function attachMentionHashtagTypeahead( textarea ) {
 			// Hashtags keep the "#" prefix on the name; members lead with the
 			// display name (the handle shows on its own line below).
 			const namePrefix = isMember ? '' : escapeHtml( activeKind );
+
+			// Show what has been TYPED in normal weight and the remainder in bold,
+			// the way X does it: the eye lands on the part it is about to gain
+			// rather than re-reading the part it just wrote. Falls back to the
+			// plain label when the match is not a prefix (a fuzzy or mid-word hit),
+			// so nothing is emphasised misleadingly.
+			const typed  = activeToken || '';
+			const label  = String( s.label );
+			const isPre  = typed.length > 0 && label.toLowerCase().startsWith( typed.toLowerCase() );
+			const nameHtml = isPre
+				? escapeHtml( label.slice( 0, typed.length ) ) +
+					'<b class="bn-composer__typeahead-match">' + escapeHtml( label.slice( typed.length ) ) + '</b>'
+				: escapeHtml( label );
+
 			return `
 			<button type="button" role="option" class="bn-composer__typeahead-item" data-i="${ i }"
 					aria-selected="${ i === activeIndex ? 'true' : 'false' }">
 				${ avatarHtml }
 				<span class="bn-composer__typeahead-text">
-					<span class="bn-composer__typeahead-name">${ namePrefix }${ escapeHtml( s.label ) }</span>
+					<span class="bn-composer__typeahead-name">${ namePrefix }${ nameHtml }</span>
 					${ handleHtml }
 				</span>
 			</button>
 		`;
 		} ).join( '' );
+		positionAtCaret();
+
 		dropdown.querySelectorAll( '.bn-composer__typeahead-item' ).forEach( ( btn ) => {
 			btn.addEventListener( 'mousedown', ( e ) => {
 				e.preventDefault();
@@ -4519,6 +4628,7 @@ function attachMentionHashtagTypeahead( textarea ) {
 		if ( token.length < 2 ) { bail(); return; }
 		activeKind = trigger;
 		activeStart = i;
+		activeToken = token;
 		// Debounce the suggestion fetch so a fast typist fires one request after a
 		// short pause instead of one per keystroke (the in-flight request is also
 		// aborted in fetchSuggestions). ~200ms is below the perceptible-lag bar.

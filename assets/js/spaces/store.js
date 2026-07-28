@@ -2588,6 +2588,13 @@ function attachInviteTypeahead( input ) {
 				'<span class="bn-composer__typeahead-text"><span class="bn-composer__typeahead-name">' + bnInviteEscape( m.label ) + '</span>' + handle + '</span>' +
 				'</button>';
 		} ).join( '' );
+		// Sit below the field, not on top of it. The shared .bn-composer__typeahead
+		// carries no `top`, so the list lands at the wrap's origin - which is the
+		// input itself, covering what is being typed. This is a single-line input,
+		// so unlike the post composer it needs no caret tracking: the line is the
+		// field.
+		dropdown.style.top = ( input.offsetTop + input.offsetHeight ) + 'px';
+
 		dropdown.querySelectorAll( '.bn-composer__typeahead-item' ).forEach( function ( btn ) {
 			btn.addEventListener( 'mousedown', function ( e ) {
 				e.preventDefault();
