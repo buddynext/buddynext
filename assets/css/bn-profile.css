@@ -818,7 +818,16 @@
 .bn-pf-head {
 	padding: 0 var(--bn-s6) var(--bn-s5);
 	display: grid;
-	grid-template-columns: auto 1fr auto;
+	/*
+	 * minmax(18rem, 1fr) on the identity column, not a bare 1fr. `1fr` means
+	 * "one share of the FREE space", and it still floors at the content's
+	 * min-content width — so a wide action cluster (a pending connection adds
+	 * Accept + Decline on top of Follow / Message / Share / more) ate the row
+	 * and squeezed the identity column to ~138px on a 1440px desktop, wrapping
+	 * the member's own name onto two lines. The floor makes the column refuse
+	 * to be crushed; the container query below stacks before it has to.
+	 */
+	grid-template-columns: auto minmax(18rem, 1fr) auto;
 	align-items: start;
 	gap: var(--bn-s5);
 }
@@ -832,7 +841,14 @@
 	container-type: inline-size;
 }
 
-@container (max-width: 720px) {
+/*
+ * 900px, not 720px. The worst-case action cluster measures ~458px; with the
+ * 96px avatar and two gaps that leaves the identity column under 190px on a
+ * 780px container — which is what the old 720px threshold allowed to happen,
+ * because the hero never got narrow enough to trip it. Stack while the identity
+ * column can still hold a name on one line.
+ */
+@container (max-width: 900px) {
 	.bn-pf-head {
 		grid-template-columns: 1fr;
 	}
@@ -841,6 +857,11 @@
 		justify-self: start;
 		justify-content: flex-start;
 	}
+}
+
+/* A long action set wraps instead of forcing the identity column to collapse. */
+.bn-pf-actions {
+	flex-wrap: wrap;
 }
 
 /* The wrap is the positioning context for the edit/remove controls, which anchor
