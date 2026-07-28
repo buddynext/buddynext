@@ -237,7 +237,15 @@ class BlockController extends BaseRestController {
 			),
 			'expand'   => array(
 				'type'        => 'string',
-				'description' => 'Comma-separated expansions. `members` returns a `members` array of hydrated rows (display_name, avatar_url) alongside `ids`.',
+				// Defaults ON. These three routes exist for the native app's
+				// Blocked / Muted / Restricted screens, and every one of them
+				// needs a name and an avatar — shipping ids by default meant the
+				// only consumer had to opt in to the thing it always wants, and a
+				// client that forgot rendered a list of tombstones. `ids` is still
+				// returned unchanged, so nothing that reads it breaks; pass
+				// `expand=` (empty) for the lighter id-only payload.
+				'default'     => 'members',
+				'description' => 'Comma-separated expansions. `members` (the default) returns a `members` array of hydrated rows (display_name, avatar_url, profile_url, is_online, …) alongside `ids`. Pass an empty value for ids only.',
 			),
 		);
 	}

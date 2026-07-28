@@ -81,17 +81,40 @@ class RelationshipListExpandTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Without ?expand the payload stays exactly as it shipped: ids only.
+	 * Hydrated rows are the DEFAULT.
+	 *
+	 * These three routes exist for the app's Blocked / Muted / Restricted
+	 * screens, all of which need a name and an avatar. Shipping ids by default
+	 * made the only consumer opt in to the thing it always wants, and a client
+	 * that forgot rendered a list of tombstones — which is exactly what the app
+	 * team reported after the first pass. `ids` is still present, so a reader of
+	 * that key is unaffected.
 	 *
 	 * @return void
 	 */
-	public function test_default_payload_is_ids_only(): void {
+	public function test_members_are_hydrated_by_default(): void {
 		buddynext_service( 'blocks' )->block( $this->viewer, $this->target );
 
 		$data = $this->fetch( 'blocked', false );
 
-		$this->assertSame( array( 'ids' ), array_keys( $data ), 'Default response gained an unrequested key.' );
-		$this->assertSame( array( $this->target ), $data['ids'] );
+		$this->assertSame( array( 'ids', 'members' ), array_keys( $data ) );
+		$this->assertSame( array( $this->target ), $data['ids'], 'ids must survive the default change.' );
+		$this->assertSame( 'Blocked Person', $data['members'][0]['display_name'] );
+	}
+
+	/**
+	 * A client that wants the light payload can still ask for it.
+	 *
+	 * @return void
+	 */
+	public function test_an_empty_expand_returns_ids_only(): void {
+		buddynext_service( 'blocks' )->block( $this->viewer, $this->target );
+
+		$request = new WP_REST_Request( 'GET', '/buddynext/v1/me/blocked' );
+		$request->set_param( 'expand', '' );
+		$data = (array) rest_do_request( $request )->get_data();
+
+		$this->assertSame( array( 'ids' ), array_keys( $data ) );
 	}
 
 	/**
