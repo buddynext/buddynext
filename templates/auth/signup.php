@@ -183,8 +183,20 @@ if ( 'invite' === $bn_reg_mode ) {
 		// Pre-fill the email for an invited signup so the member doesn't re-type the
 		// address the invitation was sent to (already known + validated). $bn_invite is
 		// only set in invite-only mode; default to empty otherwise. Seeded into BOTH the
-		// store context (below) and the input's value attribute (the field is an
-		// uncontrolled data-wp-on--input, so the context alone won't paint it).
+		// store context (below) and the input's value attribute, and the input BINDS
+		// that context value.
+		//
+		// The binding is what makes it survive. Email is the only field on this form
+		// carrying a server-rendered `value`, and a plain value attribute is a
+		// CONTROLLED prop to the Interactivity API's renderer: every re-render wrote
+		// the server value back over the DOM. On a normal (non-invite) signup that
+		// value is the empty string, so any re-render — such as the one triggered when
+		// a failed submit populates the field errors — wiped whatever the visitor had
+		// typed. Name and password carry no value attribute, which is exactly why they
+		// survived and email did not, and why this looked like an email-specific bug.
+		// Binding data-wp-bind--value makes the re-render write back the store's
+		// current value instead of the stale server one. Same fix, same reason, as
+		// templates/parts/profile-edit-hero.php.
 		$bn_prefill_email = ( isset( $bn_invite ) && is_array( $bn_invite ) && ! empty( $bn_invite['email'] ) )
 			? (string) $bn_invite['email']
 			: '';
@@ -368,6 +380,7 @@ if ( 'invite' === $bn_reg_mode ) {
 							placeholder="you@example.com"
 							value="<?php echo esc_attr( $bn_prefill_email ); ?>"
 							required
+							data-wp-bind--value="context.email"
 							data-wp-bind--disabled="state.submitting"
 							data-wp-bind--aria-invalid="state.emailInvalid"
 							data-wp-on--input="actions.setEmail" />
