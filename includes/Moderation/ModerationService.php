@@ -1826,6 +1826,38 @@ class ModerationService {
 	}
 
 	/**
+	 * Build the refusal a suspended member gets, carrying the way out.
+	 *
+	 * Every suspension refusal must tell the member where to appeal. The appeal
+	 * page (/me/account-status/) was fully built — suspension reason, strike
+	 * history, a working inline appeal form — and nothing in the UI linked to it,
+	 * so a suspended member could only reach it by already knowing the URL. The
+	 * two places they actually hit the wall returned a bare translated sentence
+	 * and, in the comment box, a Retry button that could never succeed.
+	 *
+	 * The URL travels in the error DATA rather than being written into the
+	 * sentence, so the client renders it as a real link — and the native app can
+	 * route to its own screen — instead of parsing prose.
+	 *
+	 * Centralised because there are two refusal sites today, content creation and
+	 * interaction, and they had already drifted into two independent copies of the
+	 * same decision.
+	 *
+	 * @param string $message Member-facing reason, already translated.
+	 * @return WP_Error 403 carrying `appeal_url`.
+	 */
+	public static function suspension_error( string $message ): WP_Error {
+		return new WP_Error(
+			'forbidden',
+			$message,
+			array(
+				'status'     => 403,
+				'appeal_url' => \BuddyNext\Core\PageRouter::account_status_url(),
+			)
+		);
+	}
+
+	/**
 	 * Check whether a user is currently suspended.
 	 *
 	 * A user is suspended if they have an active suspension row (lifted_at IS NULL)

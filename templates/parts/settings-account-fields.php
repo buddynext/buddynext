@@ -254,6 +254,13 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 				'',
 			),
 			array( 'notif_digest', __( 'Notification email schedule', 'buddynext' ), __( 'Configure how often we email you.', 'buddynext' ), __( 'Open notification preferences', 'buddynext' ), '', $prefs_url, '' ),
+			// The account-status page had no permanent home in the UI: it was
+			// reachable only from an appeal-outcome notification, so a member
+			// could not look up their own standing, and a suspended member could
+			// not find the appeal form at all. The suspension errors now link to
+			// it directly; this is where a member goes when nothing is wrong and
+			// they simply want to check.
+			array( 'account_status', __( 'Account status', 'buddynext' ), __( 'Review your standing, any moderation actions, and appeal a decision.', 'buddynext' ), __( 'View account status', 'buddynext' ), '', \BuddyNext\Core\PageRouter::account_status_url(), '' ),
 			array( 'sign_out', __( 'Active sessions', 'buddynext' ), __( 'Sign out of every browser and device this account is signed in on.', 'buddynext' ), __( 'Sign out everywhere', 'buddynext' ), 'actions.signOutEverywhere', '', 'context.signOutSubmitting' ),
 		);
 		foreach ( $account_rows_tail as $a ) {

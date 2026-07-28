@@ -51,10 +51,8 @@ class InteractionGuard {
 		// (1) Suspension is object-type-agnostic: a suspended member cannot
 		// react or comment on anything.
 		if ( self::is_suspended( $actor_id ) ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Your account is suspended and cannot interact with content.', 'buddynext' ),
-				array( 'status' => 403 )
+			return ModerationService::suspension_error(
+				__( 'Your account is suspended and cannot interact with content.', 'buddynext' )
 			);
 		}
 

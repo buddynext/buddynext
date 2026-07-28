@@ -3068,6 +3068,54 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	cursor: pointer;
 	text-decoration: underline;
 }
+/* The appeal affordance is an anchor, not a button, so it needs the reset the
+   button gets for free. [hidden] is restated because `display: inline-flex`
+   below would otherwise beat the UA hidden rule. */
+a.bn-composer__error-retry { display: inline-flex; align-items: center; }
+a.bn-composer__error-retry[hidden] { display: none; }
+
+/* ── Composer replaced by a suspension notice ───────────────────────────── */
+.bn-composer--blocked {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	padding: var(--bn-s4);
+}
+.bn-composer__blocked-text {
+	flex: 1 1 16rem;
+	margin: 0;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-body);
+}
+/* Styled here rather than with .bn-btn--secondary: that modifier is defined in
+   bn-profile.css, which the feed does not enqueue, so the link rendered as bare
+   text. .bn-btn (bn-base.css) supplies the shape; the surface is set locally. */
+.bn-composer__blocked-action {
+	flex: 0 0 auto;
+	background: var(--bn-surface);
+	border-color: var(--bn-line-strong);
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: none;
+}
+.bn-composer__blocked-action:hover,
+.bn-composer__blocked-action:focus-visible {
+	background: var(--bn-sunken);
+	border-color: var(--bn-accent);
+	color: var(--bn-ink);
+}
+
+@media (max-width: 640px) {
+	.bn-composer--blocked { flex-direction: column; align-items: stretch; }
+	/* flex-basis is a HEIGHT once the axis turns vertical, so the 16rem that
+	   sets a sensible minimum column width on desktop would otherwise reserve
+	   16rem of empty space under two lines of text. */
+	.bn-composer__blocked-text { flex: 0 0 auto; }
+	.bn-composer__blocked-action { width: 100%; justify-content: center; }
+}
 
 /* ── Composer modals (event / voice / AI) ───────────────────────────────── */
 .bn-composer-modal[hidden] { display: none !important; }

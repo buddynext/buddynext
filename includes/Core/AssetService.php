@@ -842,6 +842,7 @@ class AssetService {
 					'verifyResent'            => __( 'Verification email sent. Check your inbox.', 'buddynext' ),
 					'verifyResendFailed'      => __( 'Could not resend the verification email. Try again.', 'buddynext' ),
 					'resendVerification'      => __( 'Resend verification email', 'buddynext' ),
+					'reviewAccountStatus'     => __( 'Review your account status', 'buddynext' ),
 					'pollMinOptions'          => __( 'Add at least two poll options.', 'buddynext' ),
 					'savingDraft'             => __( 'Saving draft…', 'buddynext' ),
 					'draftSaved'              => __( 'Draft saved', 'buddynext' ),

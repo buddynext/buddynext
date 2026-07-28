@@ -323,6 +323,30 @@ function bnApplyFilters( hook, value, ...args ) {
  * @param {string}      nonce     REST nonce.
  * @return {void}
  */
+/**
+ * Append an "account status" link to a comment/reply error box.
+ *
+ * A suspension 403 can never succeed on retry, so the generic Retry button is a
+ * dead control. The appeal page is where the member can actually do something
+ * about it, and nothing in the UI linked to it — a suspended member could only
+ * reach it by already knowing the URL. The server now ships that URL in the
+ * error data, so this renders it rather than guessing the path.
+ *
+ * @param {HTMLElement} container Error element to append the link to.
+ * @param {string}      url       Appeal page URL, from the error data.
+ * @return {void}
+ */
+function appendAppealLink( container, url ) {
+	if ( ! url ) {
+		return;
+	}
+	const link = document.createElement( 'a' );
+	link.className = 'bn-comment-submit-error__retry';
+	link.href = url;
+	link.textContent = t( 'reviewAccountStatus', 'Review your account status' );
+	container.appendChild( link );
+}
+
 function appendResendVerifyButton( container, nonce ) {
 	const btn = document.createElement( 'button' );
 	btn.type = 'button';
@@ -2131,7 +2155,7 @@ store( 'buddynext/post-card', {
 			}
 
 			// Helper: render an inline alert above the comment textarea.
-			const showInlineError = ( msg, code ) => {
+			const showInlineError = ( msg, code, appealUrl ) => {
 				if ( ! inputEl ) {
 					return;
 				}
@@ -2168,6 +2192,10 @@ store( 'buddynext/post-card', {
 				// of a dead Retry - mirroring the composer's affordance.
 				if ( 'email_unverified' === code ) {
 					appendResendVerifyButton( alertEl, ctx.reactNonce );
+				} else if ( appealUrl ) {
+					// A suspension cannot be retried away. Offer the appeal page
+					// instead of a control that is guaranteed to fail.
+					appendAppealLink( alertEl, appealUrl );
 				} else {
 					alertEl.appendChild( retry );
 				}
@@ -2200,7 +2228,8 @@ store( 'buddynext/post-card', {
 					// the response carries no message.
 					showInlineError(
 						( res.data && res.data.message ) ? String( res.data.message ) : t( 'commentPostFailed', 'Could not post your comment. Try again.' ),
-						res.data && res.data.code
+						res.data && res.data.code,
+						res.data && res.data.data && res.data.data.appeal_url
 					);
 				}
 			} catch ( _e ) {
@@ -2836,6 +2865,14 @@ store( 'buddynext/post-composer', {
 			// was specifically an unverified-email 403.
 			try { return ! getContext().errorEmailUnverified; } catch ( _e ) { return true; }
 		},
+		get appealHidden() {
+			// Show the appeal link only when the server said the block was a
+			// suspension, which it signals by shipping the URL in the error data.
+			try { return ! getContext().errorAppealUrl; } catch ( _e ) { return true; }
+		},
+		get appealUrl() {
+			try { return getContext().errorAppealUrl || ''; } catch ( _e ) { return ''; }
+		},
 		get hasNoVoiceError() {
 			try { return ! ( getContext().voiceError || '' ); } catch ( _e ) { return true; }
 		},
@@ -3172,6 +3209,7 @@ store( 'buddynext/post-composer', {
 				return;
 			}
 			ctx.errorMessage = '';
+			ctx.errorAppealUrl = '';
 			ctx.errorRetryable = true;
 			ctx.submitting   = true;
 
@@ -3356,6 +3394,9 @@ store( 'buddynext/post-composer', {
 				ctx.errorMessage       = msg;
 				ctx.errorRetryable     = ! nonRetryable;
 				ctx.errorEmailUnverified = emailUnverified;
+				// A suspension is a dead end for Retry but not for the member:
+				// the server ships the appeal URL so we can offer the way out.
+				ctx.errorAppealUrl     = ( data && data.data && data.data.appeal_url ) || '';
 				ctx.submitting         = false;
 			} catch ( _e ) {
 				ctx.errorMessage   = t( 'networkError', 'Network error. Try again.' );

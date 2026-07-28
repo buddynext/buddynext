@@ -165,10 +165,8 @@ class PostService {
 		// Suspended users are locked out of all content creation (spec 09-moderation:
 		// "Suspend — locked out… cannot post/comment/react"). Gate before any DB write.
 		if ( $this->is_author_suspended( $user_id ) ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Your account is suspended and cannot create posts.', 'buddynext' ),
-				array( 'status' => 403 )
+			return \BuddyNext\Moderation\ModerationService::suspension_error(
+				__( 'Your account is suspended and cannot create posts.', 'buddynext' )
 			);
 		}
 

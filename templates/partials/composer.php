@@ -57,6 +57,28 @@ if ( function_exists( 'buddynext_can' ) ) {
 	}
 }
 
+// Suspension is stated up front, not discovered by failing.
+//
+// A suspended member got a fully normal composer — no banner, no disabled state
+// — typed a post, and only then learned they were suspended, from a sentence
+// that linked nowhere. Returning early like the capability gate above would be
+// worse here: an unexplained missing composer tells them even less. So the
+// composer is replaced by the reason and the way out.
+if ( function_exists( 'buddynext_service' ) && buddynext_service( 'moderation' )->is_suspended( $composer_user_id ) ) {
+	?>
+	<div class="bn-composer bn-composer--blocked" role="status">
+		<p class="bn-composer__blocked-text">
+			<?php esc_html_e( 'Your account is suspended, so you cannot post right now.', 'buddynext' ); ?>
+		</p>
+		<a class="bn-btn bn-composer__blocked-action"
+			href="<?php echo esc_url( \BuddyNext\Core\PageRouter::account_status_url() ); ?>">
+			<?php esc_html_e( 'Review your account status', 'buddynext' ); ?>
+		</a>
+	</div>
+	<?php
+	return;
+}
+
 $composer_display = $composer_user->display_name;
 $composer_avatar  = get_avatar_url( $composer_user_id, array( 'size' => 76 ) );
 $composer_initial = mb_substr( $composer_display, 0, 1 );
@@ -176,6 +198,10 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				hidden
 				data-wp-bind--hidden="state.resendVerifyHidden"
 				data-wp-on--click="actions.resendVerification"><?php esc_html_e( 'Resend verification email', 'buddynext' ); ?></button>
+			<a class="bn-composer__error-retry"
+				hidden
+				data-wp-bind--hidden="state.appealHidden"
+				data-wp-bind--href="state.appealUrl"><?php esc_html_e( 'Review your account status', 'buddynext' ); ?></a>
 		</div>
 
 		<textarea class="bn-composer__prompt"
