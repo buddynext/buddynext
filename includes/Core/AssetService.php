@@ -109,6 +109,9 @@ class AssetService {
 			// only for logged-in visitors (the section renders nothing otherwise).
 			if ( is_user_logged_in() ) {
 				wp_enqueue_style( 'bn-header' );
+				// The account menu's open state is a real toggle, so its script
+				// travels with the section's CSS rather than with a hub bundle.
+				wp_enqueue_script( 'bn-header-user-menu' );
 			}
 		}
 	}
@@ -382,6 +385,20 @@ class AssetService {
 			true
 		);
 		wp_set_script_translations( 'bn-shell-extras', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+
+		// ── Account menu disclosure ────────────────────────────────────────────
+		// Ships with the header CSS rather than the hub bundles: the header
+		// section renders in ANY theme, through the block, the shortcode or a
+		// per-theme shim, on ordinary theme pages as well as hub pages. Fully
+		// delegated from the document, so it needs no data and no mount point and
+		// survives a client-side navigation.
+		wp_register_script(
+			'bn-header-user-menu',
+			$this->assets_url . 'js/header/user-menu.js',
+			array(),
+			$v,
+			true
+		);
 
 		// ── Feature CSS (each depends on the base) ─────────────────────────────
 		$feature_styles = array(

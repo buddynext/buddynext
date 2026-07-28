@@ -191,17 +191,32 @@
 		visibility var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
 }
 
-/* Open on hover (pointer) and on focus-within (keyboard / touch). Rotate the
-   caret to signal the open state. No JavaScript. */
-.bn-header-user:hover .bn-header-user__dropdown,
-.bn-header-user:focus-within .bn-header-user__dropdown {
+/* The menu opens on CLICK only. One opener, one closer.
+ *
+ * It used to open on :hover AND :focus-within, with no script. Both had to go,
+ * and for the same underlying reason: neither can be undone by the control that
+ * caused it.
+ *
+ *  - :focus-within — clicking the caret focused it, focus stayed put, so a
+ *    second click could not close the menu. Only clicking elsewhere released it.
+ *  - :hover — closing on the second click then LOOKED broken anyway, because the
+ *    pointer is still resting on the caret and hover immediately re-opened what
+ *    the click had just closed. Verified: after a second click the menu stayed
+ *    visible until the pointer moved away.
+ *
+ * A hover-opened menu and a click-toggled menu cannot coexist on one element.
+ * Click-only is what Facebook, X and LinkedIn all do with the account menu, and
+ * it is the standard menu-button pattern: the button owns the state, exposes it
+ * as aria-expanded, and assets/js/header/user-menu.js closes on a second click,
+ * Escape, an outside click, or focus leaving.
+ */
+.bn-header-user.is-open .bn-header-user__dropdown {
 	opacity: 1;
 	visibility: visible;
 	transform: translateY(0);
 }
 
-.bn-header-user:hover .bn-header-user__caret,
-.bn-header-user:focus-within .bn-header-user__caret {
+.bn-header-user.is-open .bn-header-user__caret {
 	transform: rotate(180deg);
 }
 

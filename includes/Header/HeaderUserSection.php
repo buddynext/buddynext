@@ -154,10 +154,14 @@ final class HeaderUserSection {
 		$html  = '<div class="bn-header-user">';
 		$html .= '<a class="bn-header-user__avatar" href="' . esc_url( $profile_url ) . '" aria-label="' . esc_attr( $user->display_name ) . '">' . $avatar . '</a>';
 
-		// CSS-only disclosure: the caret button is focusable; :focus-within reveals
-		// the dropdown and an outside click (blur) closes it. No JS.
+		// Disclosure button. It used to be CSS-only — :focus-within revealed the
+		// dropdown — which meant a second click could not close it, because the
+		// click kept focus on the button and CSS held the menu open. It is now a
+		// real menu button: aria-expanded is the state, and
+		// assets/js/header/user-menu.js toggles it on click, closes on Escape,
+		// on an outside click, and when focus leaves. Hover-to-open is unchanged.
 		$html .= '<div class="bn-header-user__menu">';
-		$html .= '<button type="button" class="bn-header-user__caret" aria-haspopup="true" aria-label="' . esc_attr__( 'Open profile menu', 'buddynext' ) . '">'
+		$html .= '<button type="button" class="bn-header-user__caret" aria-haspopup="true" aria-expanded="false" aria-label="' . esc_attr__( 'Open profile menu', 'buddynext' ) . '">'
 			. self::icon( 'chevron-down' ) . '</button>';
 		$html .= '<div class="bn-header-user__dropdown" role="menu">';
 		$html .= '<div class="bn-header-user__head"><a class="bn-header-user__name" href="' . esc_url( $profile_url ) . '" role="menuitem">' . esc_html( $user->display_name ) . '</a></div>';
