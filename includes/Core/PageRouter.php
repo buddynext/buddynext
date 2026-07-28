@@ -46,6 +46,26 @@ use WP_User;
  */
 class PageRouter {
 
+	/**
+	 * Render state set by dispatch_hub_template() for the template_include
+	 * callback, so the wrapper template can access the hub, template path,
+	 * and context without needing a singleton.
+	 *
+	 * @var array{hub:string,template:string,context:array}|null
+	 */
+	private static $render_state = null;
+
+	/**
+	 * Returns the render state stored by dispatch_hub_template().
+	 *
+	 * Called by templates/page-template.php.
+	 *
+	 * @return array{hub:string,template:string,context:array}|null
+	 */
+	public static function get_render_state(): ?array {
+		return self::$render_state;
+	}
+
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -76,6 +96,7 @@ class PageRouter {
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
+		add_filter( 'template_include', array( $this, 'get_shell_with_chrome_template' ) );
 
 		// Hub pages render from a virtual WP_Post (ID 0), so core's admin-bar
 		// "Edit Page" resolves to wp-admin/edit.php. Drop that node on hub routes.
@@ -790,8 +811,32 @@ class PageRouter {
 		// edge-to-edge regardless of whatever container the theme wraps
 		// content in. There is no opt-out filter; the host theme's header +
 		// footer always render on BN-mapped slugs.
-		$this->render_shell_with_theme_chrome( $hub, $template, $context );
-		exit;
+		//
+		// Store state for the template_include callback instead of
+		// rendering inline and exiting — this lets WordPress's normal
+		// template lifecycle (including output buffers) run to completion.
+		self::$render_state = array(
+			'hub'      => $hub,
+			'template' => $template,
+			'context'  => $context,
+		);
+	}
+
+	/**
+	 * Filters the template path to return BuddyNext's wrapper template
+	 * when dispatch_hub_template() has stored render state.
+	 *
+	 * This replaces the previous exit()-based approach, letting WordPress's
+	 * normal lifecycle (output buffers, shutdown hooks, etc.) complete.
+	 *
+	 * @param string $template The template path determined by WordPress.
+	 * @return string The wrapper template path, or the original.
+	 */
+	public function get_shell_with_chrome_template( string $template ): string {
+		if ( null !== self::$render_state ) {
+			return BUDDYNEXT_DIR . 'templates/shell-with-chrome.php';
+		}
+		return $template;
 	}
 
 	/**
@@ -822,20 +867,21 @@ class PageRouter {
 	/**
 	 * Render the .bn-app shell wrapped by the active theme's header + footer.
 	 *
-	 * Extracted from dispatch_hub_template() so unit tests can exercise the
-	 * render path without hitting the trailing exit. Production code always
-	 * reaches this through dispatch_hub_template(), which then exits.
+	 * Both the wrapper template (shell-with-chrome.php) and unit tests
+	 * delegate here — this is the single canonical render path.
 	 *
-	 * @param string               $hub      Active bn_hub query var.
-	 * @param string               $template Relative template path resolved for the hub.
-	 * @param array<string, mixed> $context  Template context built by build_hub_context().
+	 * @param array{hub:string,template:string,context:array} $state Render state (see get_render_state()).
 	 * @return void
 	 */
-	public function render_shell_with_theme_chrome( string $hub, string $template, array $context ): void {
+	public static function render_shell_with_theme_chrome( array $state ): void {
+		$hub     = $state['hub'];
+		$tpl     = $state['template'];
+		$context = $state['context'];
+
 		$shell_context = array_merge(
 			$context,
 			array(
-				'inner_template' => $template,
+				'inner_template' => $tpl,
 				'hub'            => $hub,
 				'context'        => $context,
 			)

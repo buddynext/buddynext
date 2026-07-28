@@ -358,14 +358,17 @@ class PageRouterTest extends \WP_UnitTestCase {
 		wp_set_current_user( $user_id );
 
 		ob_start();
-		$this->router->render_shell_with_theme_chrome( 'feed', 'feed/home.php', array() );
+		$this->router->render_shell_with_theme_chrome( array(
+			'hub'      => 'feed',
+			'template' => 'feed/home.php',
+			'context'  => array(),
+		) );
 		$output = (string) ob_get_clean();
 
 		wp_set_current_user( 0 );
 
 		remove_action( 'get_header', $emit_header );
 		remove_action( 'get_footer', $emit_footer );
-
 		$this->assertStringNotContainsString(
 			'<!DOCTYPE',
 			$output,
@@ -464,7 +467,11 @@ class PageRouterTest extends \WP_UnitTestCase {
 		wp_set_current_user( $user_id );
 
 		ob_start();
-		$this->router->render_shell_with_theme_chrome( 'feed', 'feed/home.php', array() );
+		$this->router->render_shell_with_theme_chrome( array(
+			'hub'      => 'feed',
+			'template' => 'feed/home.php',
+			'context'  => array(),
+		) );
 		$output = (string) ob_get_clean();
 
 		wp_set_current_user( 0 );
