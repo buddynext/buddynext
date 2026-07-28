@@ -303,7 +303,7 @@ class SpaceMemberService {
 			return true;
 		}
 
-		$inviter_role = $this->get_role( $space_id, $inviter_id );
+		$inviter_role = (string) $this->get_role( $space_id, $inviter_id );
 		if ( '' === $inviter_role ) {
 			return false; // Not a member of the space.
 		}
@@ -1895,9 +1895,17 @@ class SpaceMemberService {
 		$limit = max( 1, min( 50, $limit ) );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Join wp_users so the ban list is renderable on its own — a banned user is no
+		// longer a member, so the members projection can't supply their name. Mirrors the
+		// members list's shape (display_name + get_avatar_url) so the app reuses one row type.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_space_bans WHERE space_id = %d ORDER BY created_at ASC, user_id ASC LIMIT %d",
+				"SELECT b.space_id, b.user_id, b.banned_by, b.reason, b.created_at, u.display_name, u.user_nicename
+				 FROM {$wpdb->prefix}bn_space_bans b
+				 LEFT JOIN {$wpdb->users} u ON u.ID = b.user_id
+				 WHERE b.space_id = %d
+				 ORDER BY b.created_at ASC, b.user_id ASC
+				 LIMIT %d",
 				$space_id,
 				$limit
 			),
@@ -1905,7 +1913,26 @@ class SpaceMemberService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return is_array( $rows ) ? $rows : array();
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		return array_map(
+			static function ( array $r ): array {
+				$uid = (int) $r['user_id'];
+				return array(
+					'space_id'      => (int) ( $r['space_id'] ?? 0 ),
+					'user_id'       => $uid,
+					'display_name'  => (string) ( $r['display_name'] ?? '' ),
+					'user_nicename' => (string) ( $r['user_nicename'] ?? '' ),
+					'avatar_url'    => get_avatar_url( $uid, array( 'size' => 96 ) ),
+					'reason'        => (string) ( $r['reason'] ?? '' ),
+					'created_at'    => (string) ( $r['created_at'] ?? '' ),
+					'banned_by'     => (int) ( $r['banned_by'] ?? 0 ),
+				);
+			},
+			$rows
+		);
 	}
 
 	/**
