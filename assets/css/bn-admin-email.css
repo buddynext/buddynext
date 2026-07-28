@@ -92,7 +92,13 @@
 	flex-direction: column;
 	gap: 2px;
 	min-width: 0;
-	flex: 1;
+	/* A real basis, not a bare `flex: 1` (which is basis 0). With basis 0 the
+	   title had no width of its own to defend, so the action buttons — which do
+	   not shrink — squeezed it until "New Follower" broke across two lines and
+	   its description rendered as a one-word-per-line ribbon, on the DESKTOP
+	   layout as much as at tablet width. A basis makes the row wrap instead of
+	   crushing the only text on it. */
+	flex: 1 1 14rem;
 }
 .bn-email-editor__pane-name {
 	font-family: var(--bn-font-display);
@@ -108,6 +114,22 @@
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
+	flex-wrap: wrap;
+}
+
+/* Below the two-pane threshold the head is the only row competing for width, so
+ * give the title the whole line and let the actions drop underneath. The head
+ * already had flex-wrap, but the title kept shrinking instead of forcing a wrap
+ * — "New Follower" broke to two lines beside the buttons while its own
+ * description rendered as a four-word-tall ribbon. A basis of 100% makes the
+ * wrap happen at the row level, where it belongs. */
+@media (max-width: 900px) {
+	.bn-email-editor__pane-title {
+		flex: 1 0 100%;
+	}
+	.bn-email-editor__pane-actions {
+		width: 100%;
+	}
 }
 
 /* Tab strip lives inside the pane head row of the editor. */
@@ -157,7 +179,11 @@
 }
 .bn-email-editor__tokens-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	/* min(220px, 100%) rather than a bare 220px: auto-fill still lays out 220px
+	   tracks when there is room, but in the narrow editor pane a hard 220px
+	   minimum made every chip wider than its own container - 220px inside 154px,
+	   at every viewport width including 1440. */
+	grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
 	gap: var(--bn-s2);
 }
 .bn-email-editor__token {
@@ -165,6 +191,16 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--bn-s2);
+	/* A token name is one unbreakable string - {{notification_message}} is 24
+	   characters with no break opportunity - so the chip could not be narrower
+	   than its longest token, and neither could the 1fr grid track holding it
+	   (a track's automatic minimum is min-content). The chip then overflowed its
+	   own grid at every width, including 1440.
+	   The name is allowed to WRAP rather than ellipsize: the owner has to be able
+	   to read and copy the whole token, so hiding the tail behind an ellipsis
+	   would trade one defect for a worse one. */
+	min-width: 0;
+	flex-wrap: wrap;
 	padding: var(--bn-s2) var(--bn-s3);
 	background: var(--bn-sunken);
 	border: 1px solid var(--bn-line-faint);
@@ -180,6 +216,10 @@
 	background: var(--bn-accent-100);
 	border-color: var(--bn-accent);
 	color: var(--bn-accent-700);
+}
+.bn-email-editor__token > :first-child {
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 .bn-email-editor__token-desc {
 	font-family: var(--bn-font-ui);
@@ -235,11 +275,34 @@
 /* 782px to match WP-admin's own collapse point and the rest of this admin —
    768 left the editor two-column in the 769-782 sliver where everything around
    it had already stacked. */
+/* Stack the two panes below 900px, not at the shared .bn-split breakpoint of
+ * 768px.
+ *
+ * That 132px gap is the whole bug. Between 770 and 890 the split was still two
+ * columns while the editor pane's min-content (subject field, body textarea,
+ * token chips and the three pane actions) needed more room than was left, so
+ * the grid overflowed a container with overflow:hidden. Both panes were clipped
+ * in opposite directions - the rail lost its left edge, rendering as "ilter
+ * templates", "OCIAL", "w Follower", while the editor lost its right - and
+ * there was no scrollbar to reach either.
+ *
+ * This editor is the heaviest consumer of .bn-split, so it earns its own
+ * threshold rather than moving the shared one and disturbing the other screens
+ * that use it. */
+@media (max-width: 900px) {
+	.bn-email-editor .bn-split {
+		grid-template-columns: minmax(0, 1fr);
+		min-height: 0;
+	}
+	.bn-email-editor .bn-split__rail {
+		border-inline-end: none;
+		border-bottom: 1px solid var(--bn-line-faint);
+		max-height: 260px;
+	}
+}
+
 @media (max-width: 782px) {
 	.bn-email-editor__tokens-grid {
-		grid-template-columns: 1fr;
-	}
-	.bn-email-editor .bn-split {
-		min-height: 0;
+		grid-template-columns: minmax(0, 1fr);
 	}
 }

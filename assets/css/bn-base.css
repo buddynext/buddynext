@@ -3904,7 +3904,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 /* ── Split-pane editor — list on left, detail on right ───────────────── */
 .bn-split {
 	display: grid;
-	grid-template-columns: var(--bn-railw) 1fr;
+	/* minmax(0, 1fr), never a bare 1fr: a grid track's automatic minimum is
+	   MIN-CONTENT, so a bare 1fr refuses to shrink below the widest thing in the
+	   pane. This container has overflow:hidden, so the moment that happens the
+	   pane is not scrolled - it is CLIPPED, at both edges, with no scrollbar to
+	   reach it. minmax(0, …) lets the column shrink and the pane's own
+	   overflow-y handle the rest. */
+	grid-template-columns: var(--bn-railw) minmax(0, 1fr);
 	gap: var(--bn-s4);
 	min-height: 480px;
 	background: var(--bn-surface);
