@@ -1304,3 +1304,26 @@
 	font-size: var(--bn-fs-sm, 0.875rem);
 	color: var(--bn-ink-2, inherit);
 }
+
+/* ── Already-actioned state ──────────────────────────────────────────────────
+   A row whose offender is already suspended shows this instead of a Suspend
+   button. Sized to sit on the same line as the sibling buttons so the action
+   row does not reflow when one row is in this state. */
+.bn-mod-queue__state {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	line-height: var(--bn-leading-snug);
+}
+.bn-mod-queue__state svg { width: 16px; height: 16px; flex-shrink: 0; }
+.bn-mod-queue__state[data-state="suspended"] {
+	border-color: color-mix(in oklch, var(--bn-danger) 30%, var(--bn-line));
+	color: var(--bn-danger);
+}

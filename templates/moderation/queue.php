@@ -384,6 +384,10 @@ do_action( 'buddynext_moderation_queue_before' );
 				$offender_name   = (string) ( $report['offender_name'] ?? '' );
 				$offender_joined = (string) ( $report['offender_joined'] ?? '' );
 
+				// Whether this offender is ALREADY suspended, from the same batch
+				// enrich pass as the name and strike count — no per-row lookup.
+				$offender_suspended = (bool) ( $report['offender_suspended'] ?? false );
+
 				if ( '' === $offender_name ) {
 					$offender_name = $offender_id > 0
 						? __( 'Unknown user', 'buddynext' )
@@ -693,16 +697,28 @@ do_action( 'buddynext_moderation_queue_before' );
 								<?php endif; ?>
 
 								<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/suspend-user' ) ) : ?>
-									<button type="button"
-										class="bn-btn"
-										data-variant="danger"
-										data-size="sm"
-										data-wp-on--click="actions.suspendUser"
-										data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
-										data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-										<?php buddynext_icon( 'ban' ); ?>
-										<?php esc_html_e( 'Suspend account', 'buddynext' ); ?>
-									</button>
+									<?php if ( $offender_suspended ) : ?>
+										<?php
+										// Already suspended: state, not a button. Pressing it again is a
+										// no-op server-side, so offering it told the moderator nothing and
+										// hid the one fact they needed — that this account is already out.
+										?>
+										<span class="bn-mod-queue__state" data-state="suspended">
+											<?php buddynext_icon( 'ban' ); ?>
+											<?php esc_html_e( 'Already suspended', 'buddynext' ); ?>
+										</span>
+									<?php else : ?>
+										<button type="button"
+											class="bn-btn"
+											data-variant="danger"
+											data-size="sm"
+											data-wp-on--click="actions.suspendUser"
+											data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
+											data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
+											<?php buddynext_icon( 'ban' ); ?>
+											<?php esc_html_e( 'Suspend account', 'buddynext' ); ?>
+										</button>
+									<?php endif; ?>
 								<?php endif; ?>
 							<?php endif; ?>
 						</div>

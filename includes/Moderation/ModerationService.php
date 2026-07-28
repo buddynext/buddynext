@@ -1160,10 +1160,14 @@ class ModerationService {
 	 *   enrich      bool    When true, each queue item gains offender enrichment:
 	 *                       'offender_id' (the reported user for 'user' reports, the
 	 *                       sender for 'message' reports, 0 otherwise), 'strikes_count'
-	 *                       (active strikes against that offender), 'offender_name', and
-	 *                       'offender_joined' (registration date). Items with no
-	 *                       resolvable offender get offender_id 0, a 0 strike count and
-	 *                       null name/joined. Default false (unenriched).
+	 *                       (active strikes against that offender), 'offender_name',
+	 *                       'offender_joined' (registration date), and
+	 *                       'offender_suspended' (whether that offender is already
+	 *                       serving an active suspension, so the queue can show the
+	 *                       state instead of offering the action again). Items with no
+	 *                       resolvable offender get offender_id 0, a 0 strike count,
+	 *                       null name/joined and offender_suspended false. Default
+	 *                       false (unenriched).
 	 *
 	 * @internal Performs NO capability check. Callers MUST gate first; the REST
 	 *           caller is behind ModerationController::require_queue_access, which
@@ -1351,6 +1355,7 @@ class ModerationService {
 
 		$strike_counts = array();
 		$user_meta     = array();
+		$suspended     = array();
 		if ( ! empty( $user_ids ) ) {
 			global $wpdb;
 			// $placeholders is a "%d,..." string from array_fill( count( $user_ids ) ),
@@ -1376,7 +1381,27 @@ class ModerationService {
 				),
 				ARRAY_A
 			);
+			// Who is ALREADY suspended, resolved in the same batch pass as the
+			// strike counts. The queue offered an active "Suspend account" button
+			// on a row whose author was already suspended, with nothing to say so:
+			// a moderator working a queue could not tell whether they had already
+			// acted. Predicate mirrors is_suspended() exactly — an active row
+			// (lifted_at IS NULL) that has not expired.
+			$suspended_rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_user_suspensions
+					 WHERE lifted_at IS NULL
+					   AND ( expires_at IS NULL OR expires_at > NOW() )
+					   AND user_id IN ({$placeholders})",
+					...$user_ids
+				),
+				ARRAY_A
+			);
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			foreach ( (array) $suspended_rows as $sus ) {
+				$suspended[ (int) $sus['user_id'] ] = true;
+			}
 
 			foreach ( (array) $strike_rows as $sr ) {
 				$strike_counts[ (int) $sr['user_id'] ] = (int) $sr['cnt'];
@@ -1390,11 +1415,12 @@ class ModerationService {
 		}
 
 		foreach ( $items as $idx => &$item ) {
-			$uid                     = (int) ( $offender_ids[ $idx ] ?? 0 );
-			$item['offender_id']     = $uid;
-			$item['strikes_count']   = $uid > 0 ? ( $strike_counts[ $uid ] ?? 0 ) : 0;
-			$item['offender_name']   = $uid > 0 && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['name'] : null;
-			$item['offender_joined'] = $uid > 0 && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['joined'] : null;
+			$uid                        = (int) ( $offender_ids[ $idx ] ?? 0 );
+			$item['offender_id']        = $uid;
+			$item['strikes_count']      = $uid > 0 ? ( $strike_counts[ $uid ] ?? 0 ) : 0;
+			$item['offender_name']      = $uid > 0 && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['name'] : null;
+			$item['offender_joined']    = $uid > 0 && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['joined'] : null;
+			$item['offender_suspended'] = $uid > 0 && isset( $suspended[ $uid ] );
 		}
 		unset( $item );
 
