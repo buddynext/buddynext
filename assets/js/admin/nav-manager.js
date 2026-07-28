@@ -232,8 +232,13 @@
 		}
 	}
 
-	document.querySelectorAll( 'input[name$="[url_slug]"]' ).forEach( function ( input ) {
-		var match = input.name.match( /\[main\]\[([^\]]+)\]\[url_slug\]/ );
+	// The selector and the regex both looked for `…[main][hub][url_slug]`, a name
+	// this admin has never rendered — the field is `bn_hub[hub][slug]`. So the
+	// query matched zero inputs and the whole live-check was dead code: the REST
+	// endpoint, the debounce and the three localized strings all shipped and none
+	// of them could ever run.
+	document.querySelectorAll( 'input[name^="bn_hub"][name$="[slug]"]' ).forEach( function ( input ) {
+		var match = input.name.match( /^bn_hub\[([^\]]+)\]\[slug\]$/ );
 		if ( ! match ) {
 			return;
 		}

@@ -278,6 +278,8 @@ class NavManager extends AdminPageBase {
 											spellcheck="false"
 											placeholder="<?php echo esc_attr( $cfg['default'] ); ?>">
 										<span class="bn-field-hint"><?php echo esc_html( trailingslashit( home_url( '/' . ( '' !== $slug_val ? $slug_val : $cfg['default'] ) ) ) ); // bn-route-ok: admin preview of the slug being edited. ?></span>
+										<?php // Live availability feedback target. nav-manager.js fills this from admin/slug-check as the owner types; without the element the whole check bails out. ?>
+										<span class="bn-cf-hint" aria-live="polite"></span>
 									<?php else : ?>
 										<span class="bn-field-hint"><?php esc_html_e( 'Renders under Activity feed', 'buddynext' ); ?></span>
 									<?php endif; ?>
@@ -436,7 +438,14 @@ class NavManager extends AdminPageBase {
 		// tab=navigation), not a standalone page — gate on that, not the old
 		// `buddynext_page_buddynext-nav` hook suffix (which never matches now, so
 		// the reorder/slug JS silently failed to load).
-		if ( ! AdminHub::is_active( 'settings', 'navigation' ) ) {
+		// Also on Pages & URLs: that tab renders the per-hub slug inputs, and the
+		// live availability check in this script is the only consumer of the
+		// admin/slug-check endpoint. Gating on 'navigation' alone meant the script
+		// never loaded on the one screen the check exists for — the third and
+		// outermost reason the feature was dead code (the other two: the selector
+		// looked for a field name this admin never renders, and the markup had no
+		// .bn-cf-hint element to write into).
+		if ( ! AdminHub::is_active( 'settings', 'navigation' ) && ! AdminHub::is_active( 'settings', 'pages' ) ) {
 			return;
 		}
 

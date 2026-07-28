@@ -204,7 +204,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 						type="button"
 						data-wp-on--click="actions.removeMedia"
 						data-wp-bind--data-media-id="context.item.id"
-						aria-label="<?php esc_attr_e( 'Remove', 'buddynext' ); ?>">&times;</button>
+						aria-label="<?php esc_attr_e( 'Remove', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
 				</div>
 			</template>
 		</div>

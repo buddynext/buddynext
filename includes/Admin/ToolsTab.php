@@ -456,9 +456,9 @@ class ToolsTab {
 		// import guard in InviteController.
 		$finfo    = finfo_open( FILEINFO_MIME_TYPE );
 		$detected = $finfo ? (string) finfo_file( $finfo, $tmp ) : '';
-		if ( $finfo ) {
-			finfo_close( $finfo );
-		}
+		// No finfo_close(): the resource became a proper object in PHP 8.1 and is
+		// freed by refcount, so the call is a deprecated no-op on 8.5+ (this
+		// plugin requires 8.1+, so there is no version to keep it for).
 		$allowed_mime = array( 'application/json', 'text/json', 'text/plain' );
 		if ( '' !== $detected && ! in_array( $detected, $allowed_mime, true ) ) {
 			$this->redirect_back( 'import_failed' );

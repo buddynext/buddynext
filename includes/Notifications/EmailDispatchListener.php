@@ -184,7 +184,7 @@ class EmailDispatchListener implements ListenerInterface {
 			<a class="bn-unsub-notice__manage" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notification_prefs_url() ); ?>">
 				<?php esc_html_e( 'Manage email preferences', 'buddynext' ); ?>
 			</a>
-			<a class="bn-unsub-notice__dismiss" href="<?php echo esc_url( remove_query_arg( 'bn_unsub_status' ) ); ?>" aria-label="<?php esc_attr_e( 'Dismiss', 'buddynext' ); ?>">&times;</a>
+			<a class="bn-unsub-notice__dismiss" href="<?php echo esc_url( remove_query_arg( 'bn_unsub_status' ) ); ?>" aria-label="<?php esc_attr_e( 'Dismiss', 'buddynext' ); ?>"><?php echo \BuddyNext\Core\IconService::render( 'x' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses()-sanitized SVG. ?></a>
 		</div>
 		<?php
 	}

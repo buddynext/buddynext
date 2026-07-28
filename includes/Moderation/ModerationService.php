@@ -1102,6 +1102,12 @@ class ModerationService {
 		);
 	}
 
+	/**
+	 * Return the number of active (non-reversed) strikes for a user.
+	 *
+	 * @param int $user_id User to check.
+	 * @return int
+	 */
 	public function get_active_strike_count( int $user_id ): int {
 		global $wpdb;
 

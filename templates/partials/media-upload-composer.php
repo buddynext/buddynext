@@ -100,7 +100,7 @@ $bn_mu_ctx = array(
 					<button type="button" class="bn-mu-file__remove"
 						aria-label="<?php esc_attr_e( 'Remove file', 'buddynext' ); ?>"
 						data-wp-bind--hidden="context.item.isUploading"
-						data-wp-on--click="actions.removeStaged">&times;</button>
+						data-wp-on--click="actions.removeStaged"><?php buddynext_icon( 'x' ); ?></button>
 
 					<span class="bn-mu-file__error"
 						data-wp-bind--hidden="!context.item.isError"

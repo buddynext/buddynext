@@ -173,7 +173,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 							data-bn-discussion-search
 							data-wp-on--input="actions.discussionSearch"
 							data-wp-on--focus="actions.discussionSearch">
-						<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear hidden data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear — create a new discussion instead', 'buddynext' ); ?>">&times;</button>
+						<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear hidden data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear — create a new discussion instead', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
 						<ul id="bn_discussion_results" class="bn-space-settings__discussion-results" data-bn-discussion-results role="listbox" hidden></ul>
 					</div>
 				<?php endif; ?>

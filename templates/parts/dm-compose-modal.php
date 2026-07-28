@@ -61,7 +61,7 @@ defined( 'ABSPATH' ) || exit;
 					<template data-wp-each--member="context.groupMembers">
 						<li class="bn-dm-compose__chip">
 							<span data-wp-text="context.member.name"></span>
-							<button type="button" class="bn-dm-compose__chip-x" aria-label="<?php esc_attr_e( 'Remove', 'buddynext' ); ?>" data-wp-on--click="actions.removeGroupMember" data-wp-bind--data-id="context.member.id">&times;</button>
+							<button type="button" class="bn-dm-compose__chip-x" aria-label="<?php esc_attr_e( 'Remove', 'buddynext' ); ?>" data-wp-on--click="actions.removeGroupMember" data-wp-bind--data-id="context.member.id"><?php buddynext_icon( 'x' ); ?></button>
 						</li>
 					</template>
 				</ul>

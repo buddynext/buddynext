@@ -196,7 +196,7 @@ $bn_mt_ctx = array(
 					<span data-wp-bind--hidden="state.isEditing"><?php esc_html_e( 'New album', 'buddynext' ); ?></span>
 					<span data-wp-bind--hidden="!state.isEditing"><?php esc_html_e( 'Edit album', 'buddynext' ); ?></span>
 				</h3>
-				<button type="button" class="bn-modal__close" aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>" data-wp-on--click="actions.closeCreateAlbum">&times;</button>
+				<button type="button" class="bn-modal__close" aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>" data-wp-on--click="actions.closeCreateAlbum"><?php buddynext_icon( 'x' ); ?></button>
 			</div>
 			<div class="bn-modal__body">
 				<label class="bn-field">
@@ -236,7 +236,7 @@ $bn_mt_ctx = array(
 		<div class="bn-modal__panel" data-size="lg" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Add media', 'buddynext' ); ?>">
 			<div class="bn-modal__head">
 				<h3 class="bn-modal__title"><?php esc_html_e( 'Add media to album', 'buddynext' ); ?></h3>
-				<button type="button" class="bn-modal__close" aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>" data-wp-on--click="actions.closeAddMedia">&times;</button>
+				<button type="button" class="bn-modal__close" aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>" data-wp-on--click="actions.closeAddMedia"><?php buddynext_icon( 'x' ); ?></button>
 			</div>
 			<div class="bn-modal__body bn-album-picker__body">
 				<?php

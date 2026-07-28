@@ -34,15 +34,15 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $args = array(
-	'bn_post'      => isset( $bn_post ) && is_array( $bn_post ) ? $bn_post : array(),
-	'bn_post_id'   => isset( $bn_post_id ) ? absint( $bn_post_id ) : 0,
-	'can_edit'     => ! empty( $can_edit ),
-	'can_pin'      => ! empty( $can_pin ),
-	'can_report'   => ! empty( $can_report ),
-	'has_reported' => ! empty( $has_reported ),
-	'can_delete'   => ! empty( $can_delete ),
-	'is_pinned'    => ! empty( $is_pinned ),
-	'classes'      => isset( $classes ) ? (array) $classes : array(),
+	'bn_post'          => isset( $bn_post ) && is_array( $bn_post ) ? $bn_post : array(),
+	'bn_post_id'       => isset( $bn_post_id ) ? absint( $bn_post_id ) : 0,
+	'can_edit'         => ! empty( $can_edit ),
+	'can_pin'          => ! empty( $can_pin ),
+	'can_report'       => ! empty( $can_report ),
+	'has_reported'     => ! empty( $has_reported ),
+	'can_delete'       => ! empty( $can_delete ),
+	'is_pinned'        => ! empty( $is_pinned ),
+	'classes'          => isset( $classes ) ? (array) $classes : array(),
 	// Mobile Follow: the author, and the same show_follow gate the inline pill
 	// uses (self / guest / blocked already decided by the byline).
 	'show_follow'      => ! empty( $show_follow ),

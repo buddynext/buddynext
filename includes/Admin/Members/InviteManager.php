@@ -68,9 +68,9 @@ class InviteManager {
 		// upload entry points enforce the same allow-list.
 		$finfo    = finfo_open( FILEINFO_MIME_TYPE );
 		$detected = $finfo ? (string) finfo_file( $finfo, $tmp_path ) : '';
-		if ( $finfo ) {
-			finfo_close( $finfo );
-		}
+		// No finfo_close(): the resource became a proper object in PHP 8.1 and is
+		// freed by refcount, so the call is a deprecated no-op on 8.5+ (this
+		// plugin requires 8.1+, so there is no version to keep it for).
 		$allowed_mime_types = array( 'text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel' );
 		if ( '' !== $detected && ! in_array( $detected, $allowed_mime_types, true ) ) {
 			wp_safe_redirect( add_query_arg( 'bn_notice', 'bad_type', $redirect ) );

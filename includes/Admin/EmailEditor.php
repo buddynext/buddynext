@@ -1092,7 +1092,7 @@ class EmailEditor {
 						class="bn-modal__close"
 						data-bn-close
 						aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
-					>&times;</button>
+					><?php echo \BuddyNext\Core\IconService::render( 'x' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses()-sanitized SVG. ?></button>
 				</header>
 				<div class="bn-modal__body">
 					<p>
@@ -1149,7 +1149,7 @@ class EmailEditor {
 						class="bn-modal__close"
 						data-bn-close
 						aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
-					>&times;</button>
+					><?php echo \BuddyNext\Core\IconService::render( 'x' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses()-sanitized SVG. ?></button>
 				</header>
 				<div class="bn-modal__body">
 					<p>

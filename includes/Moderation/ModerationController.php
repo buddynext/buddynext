@@ -1684,6 +1684,11 @@ class ModerationController extends BaseRestController {
 		);
 	}
 
+	/**
+	 * GET /me/appeals — the current member's own submitted appeals.
+	 *
+	 * @return WP_REST_Response
+	 */
 	public function list_my_appeals(): WP_REST_Response {
 		$appeals = ( new ModerationService() )->get_user_appeals( get_current_user_id() );
 

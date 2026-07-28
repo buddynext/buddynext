@@ -294,7 +294,7 @@ final class SetupChecklist {
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-setup-card__dismiss">
 					<input type="hidden" name="action" value="bn_dismiss_setup">
 					<?php wp_nonce_field( 'bn_dismiss_setup' ); ?>
-					<button type="submit" class="bn-setup-card__dismiss-btn" title="<?php esc_attr_e( 'Dismiss setup checklist', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Dismiss setup checklist', 'buddynext' ); ?>">&times;</button>
+					<button type="submit" class="bn-setup-card__dismiss-btn" title="<?php esc_attr_e( 'Dismiss setup checklist', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Dismiss setup checklist', 'buddynext' ); ?>"><?php echo \BuddyNext\Core\IconService::render( 'x' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses()-sanitized SVG. ?></button>
 				</form>
 			</div>
 

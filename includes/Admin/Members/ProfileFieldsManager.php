@@ -1649,6 +1649,17 @@ class ProfileFieldsManager {
 				<div class="bn-ss-body bn-pf-card-body">
 				<!-- Fields table -->
 				<?php if ( ! empty( $group['fields'] ) ) : ?>
+					<?php
+					/*
+					 * Scroll wrapper: .bn-pf-card sets overflow:hidden, so once the
+					 * table is wider than the card — around 1150px with the WP admin
+					 * sidebar expanded — the Visible To column and the Edit/Delete
+					 * icons are clipped off the right edge with no scrollbar, which
+					 * puts them permanently out of reach. Same pattern the Members
+					 * list table already uses.
+					 */
+					?>
+					<div class="bn-table-wrap__scroll">
 					<table class="bn-pf-table">
 						<thead>
 							<tr>
@@ -1964,6 +1975,7 @@ class ProfileFieldsManager {
 						<?php endforeach; ?>
 						</tbody>
 					</table>
+					</div>
 				<?php else : ?>
 					<div class="bn-empty">
 					<p class="bn-empty__title"><?php esc_html_e( 'No fields yet', 'buddynext' ); ?></p>

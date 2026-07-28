@@ -61,9 +61,8 @@ class InviteController {
 		// Validate MIME type. finfo is the reliable server-side check.
 		$finfo    = finfo_open( FILEINFO_MIME_TYPE );
 		$detected = $finfo ? (string) finfo_file( $finfo, $file['tmp_name'] ) : '';
-		if ( $finfo ) {
-			finfo_close( $finfo );
-		}
+		// No finfo_close(): the resource became a proper object in PHP 8.1 and is
+		// freed by refcount, so the call is a deprecated no-op on 8.5+.
 
 		$allowed_mime_types = array(
 			'text/csv',

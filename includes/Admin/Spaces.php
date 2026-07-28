@@ -800,7 +800,10 @@ class Spaces extends AdminPageBase {
 						class="bn-modal__close"
 						aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
 						data-bn-modal-close
-					>&times;</button>
+					>
+						<?php // Not a raw &times; glyph: the icon set is the single source for iconography, and the Members confirm modal already renders this exact button through it. Two close buttons on the same component should not look different. ?>
+						<?php echo \BuddyNext\Core\IconService::render( 'x' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses()-sanitized SVG. ?>
+					</button>
 				</header>
 				<div class="bn-modal__body">
 					<p><?php esc_html_e( 'This will permanently delete the space and all of its member associations. This cannot be undone.', 'buddynext' ); ?></p>
