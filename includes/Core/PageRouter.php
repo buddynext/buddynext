@@ -373,6 +373,25 @@ class PageRouter {
 			// when explore is public, guests actually reach it.
 			$is_explore = ( 'feed' === $hub && 'explore' === $activity_action );
 
+			// A feed-hub sub-route that NAMES an activity action — hashtag, search,
+			// leaderboard, explore — is its own public surface, not the member's
+			// personalised home feed. Only the bare feed is guarded below.
+			//
+			// Both guards used to key on $feed_section being empty, which every one
+			// of those sub-routes also satisfies (they set bn_activity_action, never
+			// bn_feed_section). So a guest was swept off ALL of them: hashtag and
+			// search and leaderboard 302'd to Explore when public-explore was on, and
+			// to /login/ when it was off — unreachable either way. Hashtag pages are
+			// meant to be a public share surface, every #tag in every post links to
+			// one for guests too, and /search/'s own REST routes are registered with
+			// permission_callback => __return_true.
+			//
+			// Testing the ACTION rather than adding a per-route carve-out is the
+			// point: $is_explore was a one-item allowlist, so each new sub-route
+			// inherited the bug by default. Bookmarks / saved / account-status set a
+			// feed_section and no action, so they stay guarded exactly as before.
+			$is_home_feed = ( 'feed' === $hub && '' === $activity_action );
+
 			// Honour the per-tab "Login required" option from Settings → Navigation
 			// (buddynext_nav_overrides, main scope, keyed by hub slug). Hiding the
 			// nav link alone never stopped a guest visiting the hub URL directly, so
@@ -388,8 +407,7 @@ class PageRouter {
 			// base feed (/activity/ or its Home view) should land on the public
 			// explore feed rather than the login wall — that is the whole point of
 			// the setting. Personal sections (bookmarks/saved) still require login.
-			if ( 'feed' === $hub
-				&& ! $is_explore
+			if ( $is_home_feed
 				&& in_array( $feed_section, array( '', 'home' ), true )
 				&& ! $override_login
 				&& (bool) get_option( 'buddynext_public_explore', true )
@@ -401,7 +419,7 @@ class PageRouter {
 			$needs_login =
 				$override_login
 				|| in_array( $hub, array( 'messages', 'notifications', 'onboarding', 'settings' ), true )
-				|| ( 'feed' === $hub && ! $is_explore && in_array( $feed_section, $guarded_feed_sections, true ) );
+				|| ( $is_home_feed && in_array( $feed_section, $guarded_feed_sections, true ) );
 
 			if ( $needs_login ) {
 				wp_safe_redirect( self::auth_url() );
@@ -899,15 +917,18 @@ class PageRouter {
 			}
 		}
 
-		// Secret-space gate.
+		/*
+		 * Space-content gate — the same SpaceVisibility decision point the REST
+		 * read path uses. This method emits the og:/twitter: description for a
+		 * post permalink, so the secret-only check it replaces published the body
+		 * of a PRIVATE space's post into crawler-readable meta tags for anyone
+		 * with the link.
+		 */
 		$space_id = (int) ( $post['space_id'] ?? 0 );
 		if ( $space_id > 0 ) {
 			$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
-			if ( null !== $space && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) ( $space['type'] ?? '' ) ) ) {
-				$is_member = $viewer_id > 0 && ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer_id );
-				if ( ! $is_member && ! user_can( $viewer_id, 'manage_options' ) ) {
-					return;
-				}
+			if ( null !== $space && ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
+				return;
 			}
 		}
 

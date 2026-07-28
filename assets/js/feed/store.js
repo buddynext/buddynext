@@ -82,10 +82,59 @@ function timeAgo( dateStr ) {
 	const raw = String( dateStr );
 	const iso = /[zZ]|[+-]\d\d:?\d\d$/.test( raw ) ? raw : raw.replace( ' ', 'T' ) + 'Z';
 	const secs = Math.floor( ( Date.now() - new Date( iso ).getTime() ) / 1000 );
-	if ( secs < 60 )    return t( 'timeJustNow', 'just now' );
-	if ( secs < 3600 )  return fmt( t( 'timeMinutesAgo', '%dm ago' ), Math.floor( secs / 60 ) );
-	if ( secs < 86400 ) return fmt( t( 'timeHoursAgo', '%dh ago' ), Math.floor( secs / 3600 ) );
-	return fmt( t( 'timeDaysAgo', '%dd ago' ), Math.floor( secs / 86400 ) );
+	if ( secs < 60 )     return t( 'timeJustNow', 'just now' );
+	if ( secs < 3600 )   return fmt( t( 'timeMinutesAgo', '%dm ago' ), Math.floor( secs / 60 ) );
+	if ( secs < 86400 )  return fmt( t( 'timeHoursAgo', '%dh ago' ), Math.floor( secs / 3600 ) );
+	if ( secs < 604800 ) return fmt( t( 'timeDaysAgo', '%dd ago' ), Math.floor( secs / 86400 ) );
+
+	// Past a week, switch to a calendar date — the same cutoff and shape as the
+	// server-rendered byline (buddynext_time_ago()), so a comment loaded by JS
+	// and one rendered by PHP never read differently.
+	return siteDate( new Date( iso ) );
+}
+
+/**
+ * A Date -> an absolute day/month(/year) string in the SITE's timezone.
+ *
+ * Never the viewer's clock: the offset comes from WP's timezone setting, and the
+ * date is then formatted as UTC on the shifted instant so Intl does not apply a
+ * second, device-local shift. Month names come from Intl in the page's language,
+ * matching what PHP's date_i18n() produces server-side. The year is shown only
+ * when it is not the current one.
+ *
+ * @param {Date} date Instant to format.
+ * @return {string} e.g. "20 July" or "11 June 2025".
+ */
+function siteDate( date ) {
+	const shifted = new Date( date.getTime() + siteTzOffset() * 1000 );
+	const nowSite = new Date( Date.now() + siteTzOffset() * 1000 );
+	const lang    = document.documentElement.getAttribute( 'lang' ) || undefined;
+
+	const withYear = shifted.getUTCFullYear() !== nowSite.getUTCFullYear();
+	const opts     = { day: 'numeric', month: 'long', timeZone: 'UTC' };
+	if ( withYear ) {
+		opts.year = 'numeric';
+	}
+
+	let parts;
+	try {
+		parts = new Intl.DateTimeFormat( lang, opts ).formatToParts( shifted );
+	} catch ( e ) {
+		// An unusable lang tag must not blank the timestamp.
+		parts = new Intl.DateTimeFormat( undefined, opts ).formatToParts( shifted );
+	}
+
+	// Assembled in PHP's order rather than taking Intl's locale ordering: the
+	// server byline renders 'j F' / 'j F Y' ("8 July", "11 June 2025"), and a
+	// comment row inserted by JS sitting next to a byline rendered by PHP must
+	// not read "July 8". Only the month NAME comes from Intl, which is what we
+	// actually need it for — a translated name matching PHP's date_i18n().
+	const get   = ( type ) => ( parts.find( ( x ) => x.type === type ) || {} ).value || '';
+	const day   = get( 'day' );
+	const month = get( 'month' );
+	const year  = withYear ? ' ' + get( 'year' ) : '';
+
+	return day + ' ' + month + year;
 }
 
 /**
@@ -177,6 +226,23 @@ const COMMENT_MAX_DEPTH = 5;
 // behaviour every major feed uses for reaction poppers). One is open at a time.
 let bnOpenReactionCtx     = null;
 let bnReactionScrollBound = false;
+
+// Scroll position when the picker opened, and how far the page must actually
+// move before that counts as "the member scrolled away".
+//
+// Closing on ANY scroll event killed the picker the moment it opened. Clicking
+// React focuses the trigger, and the browser scrolls a partially-visible focused
+// element into view on mousedown; that scroll is dispatched on the NEXT frame,
+// i.e. after the open handler has already set bnOpenReactionCtx. Measured: open
+// at t=2.9ms, one scroll event at t=871.6ms, closed at t=871.5ms. A 1px
+// window.scrollBy() closes it, so any momentum tick, rubber-band, or layout
+// shift from a lazy-loading image did it too — the picker looked like it simply
+// never opened.
+//
+// A threshold rather than a timer: it does not matter WHEN the page moved, only
+// whether it moved enough to carry the card away from the reader.
+let bnOpenReactionScrollY = 0;
+const BN_REACTION_SCROLL_CLOSE_PX = 24;
 
 /**
  * Build a comment DOM node using safe DOM methods (no innerHTML for user content).
@@ -1368,15 +1434,23 @@ store( 'buddynext/post-card', {
 			// Remember which picker is open and dismiss it on scroll so it never
 			// floats over the sticky header once its card scrolls away.
 			bnOpenReactionCtx = ctx.reactionPickerOpen ? ctx : null;
+			// Remember where the page was when this picker opened, so the
+			// focus-scroll the click itself causes cannot be mistaken for the
+			// member scrolling away.
+			bnOpenReactionScrollY = window.scrollY;
 			if ( ! bnReactionScrollBound ) {
 				bnReactionScrollBound = true;
 				window.addEventListener(
 					'scroll',
 					() => {
-						if ( bnOpenReactionCtx ) {
-							bnOpenReactionCtx.reactionPickerOpen = false;
-							bnOpenReactionCtx = null;
+						if ( ! bnOpenReactionCtx ) {
+							return;
 						}
+						if ( Math.abs( window.scrollY - bnOpenReactionScrollY ) < BN_REACTION_SCROLL_CLOSE_PX ) {
+							return;
+						}
+						bnOpenReactionCtx.reactionPickerOpen = false;
+						bnOpenReactionCtx = null;
 					},
 					{ passive: true }
 				);
@@ -4191,7 +4265,12 @@ function attachCharCounter( textarea ) {
 
 	const update = () => {
 		const len = ( textarea.value || '' ).length;
-		counter.textContent = `${ len } / ${ max }`;
+		// Nothing typed yet -> render nothing. update() runs once on attach, so the
+		// counter used to read "0 / 1000" before the member had touched the field:
+		// noise in the composer toolbar, and on the comment form a permanently
+		// non-empty element that the :empty rule could never hide, stealing width
+		// from the input it sits beside.
+		counter.textContent = len ? `${ len } / ${ max }` : '';
 		counter.dataset.state = len > max
 			? 'over'
 			: ( len > max * 0.9 ? 'near' : 'ok' );
@@ -4841,12 +4920,37 @@ function initEmojiPicker() {
 		}
 		activeTrigger = trigger;
 		trigger.setAttribute( 'aria-expanded', 'true' );
-		// Position the panel under the trigger.
-		const r = trigger.getBoundingClientRect();
-		panel.style.position = 'absolute';
-		panel.style.top  = ( window.scrollY + r.bottom + 6 ) + 'px';
-		panel.style.left = ( window.scrollX + r.left ) + 'px';
+		// Position the panel under the trigger, CLAMPED to the viewport.
+		//
+		// This used to set top/left straight from the trigger rect with no
+		// measurement of the panel and no flip. Opening the picker on a comment box
+		// near the bottom-right of the window put it 240px past the right edge and
+		// 184px past the bottom — measured at 1440x900. Near the bottom of a feed
+		// that is every comment box on screen.
+		//
+		// Unhide first: the panel is display:none while hidden, so it has no
+		// measurable size and any clamp computed before this is meaningless.
 		panel.hidden = false;
+		panel.style.position = 'absolute';
+
+		const r      = trigger.getBoundingClientRect();
+		const pr     = panel.getBoundingClientRect();
+		const margin = 8;
+
+		// Horizontal: prefer trigger-aligned, clamp into [margin, right edge].
+		const maxLeft = Math.max( margin, window.innerWidth - pr.width - margin );
+		const left    = Math.min( Math.max( r.left, margin ), maxLeft );
+
+		// Vertical: flip above the trigger when it does not fit below. A popover is
+		// SUPPOSED to paint over the content behind it — the card's "overlaps the
+		// post below" is a consequence of never flipping, not of a missing backdrop.
+		const fitsBelow = r.bottom + 6 + pr.height + margin <= window.innerHeight;
+		const top       = fitsBelow
+			? r.bottom + 6
+			: Math.max( margin, r.top - 6 - pr.height );
+
+		panel.style.top  = ( window.scrollY + top ) + 'px';
+		panel.style.left = ( window.scrollX + left ) + 'px';
 	} );
 
 	document.addEventListener( 'keydown', ( e ) => {

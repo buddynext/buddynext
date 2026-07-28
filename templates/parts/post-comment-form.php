@@ -87,6 +87,25 @@ do_action( 'buddynext_part_post_comment_form_before', $args );
 		data-comment-input="<?php echo absint( $bn_cf_post_id ); ?>"
 		rows="1"
 	></textarea>
+	<?php
+	/*
+	 * Character-counter slot, matching the composer's.
+	 *
+	 * attachCharCounter() (assets/js/feed/store.js) looks for a template-owned
+	 * slot first and otherwise injects a bare <span> immediately AFTER the
+	 * textarea. This form is display:flex, so that span became a flex ITEM and
+	 * took 40px off the textarea — enough that at 375px the "Write a comment..."
+	 * placeholder no longer fit on one line and wrapped inside a 44px box, with
+	 * the second line clipped. Measured: placeholder 114.4px vs a 111.5px content
+	 * box; without the injected span the textarea is 185px with ~70px to spare.
+	 *
+	 * The CSS comment at bn-feed.css:2180-2183 describes the fallback as "a block
+	 * element after the textarea", but display:block on a flex child is
+	 * blockified to a flex item — it never stacked. Owning the slot here is what
+	 * the JS was written to prefer.
+	 */
+	?>
+	<span class="bn-comment-form__char-counter-slot" aria-live="polite"></span>
 	<?php if ( (bool) get_option( 'buddynext_enable_emoji_picker', true ) ) : ?>
 		<?php // Same option-gated picker the composer offers; the setting promises the comment editor too. The shared initEmojiPicker() binds any .bn-emoji-trigger and inserts into the target resolved within this .bn-comment-form. ?>
 		<button

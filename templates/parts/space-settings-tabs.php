@@ -78,6 +78,19 @@ $bn_base   = (string) $args['base_url'];
 
 do_action( 'buddynext_part_space_settings_tabs_before', $args );
 ?>
+<?php
+/*
+ * .bn-navgroup opts this strip into the shared overflow chevrons (shell/extras.js),
+ * the same affordance the Settings hub uses. The script is already enqueued on every
+ * hub and selects `.bn-navgroup > .bn-tabs` — it was simply finding nothing here, so
+ * a space with the full tab set silently hid its last tabs: measured at 1440px,
+ * scrollWidth 955 vs clientWidth 780, with "Notifications" clipped and "Danger zone"
+ * entirely invisible and unreachable. Worse on mobile.
+ *
+ * It must stay a DIRECT parent of the nav — extras.js re-checks parentElement.
+ */
+?>
+<div class="bn-navgroup">
 <nav class="<?php echo esc_attr( $bn_class ); ?>" role="tablist" aria-label="<?php esc_attr_e( 'Settings sections', 'buddynext' ); ?>">
 	<?php
 	foreach ( (array) $args['tabs'] as $bn_tab ) :
@@ -112,5 +125,6 @@ do_action( 'buddynext_part_space_settings_tabs_before', $args );
 		</a>
 	<?php endforeach; ?>
 </nav>
+</div><!-- /.bn-navgroup -->
 <?php
 do_action( 'buddynext_part_space_settings_tabs_after', $args );

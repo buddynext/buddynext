@@ -1345,9 +1345,41 @@ function buddynext_time_ago( string $gmt_datetime ): string {
 		return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
 	}
 
-	$days = (int) round( $diff / DAY_IN_SECONDS );
-	/* translators: %d: number of days. */
-	return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
+	if ( $diff < WEEK_IN_SECONDS ) {
+		$days = (int) round( $diff / DAY_IN_SECONDS );
+		/* translators: %d: number of days. */
+		return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
+	}
+
+	/*
+	 * Past a week, a duration stops being information: "412d ago" tells a reader
+	 * nothing they can place. Switch to a calendar date, the way Facebook, X and
+	 * LinkedIn all do — relative while recency is the useful signal, absolute
+	 * once it is not. The year is included only when it is not the current one,
+	 * so the common case stays short.
+	 *
+	 * Both sides of the year comparison are resolved in the SITE timezone
+	 * (Settings > General), never the server's or the viewer's.
+	 */
+	$is_current_year = get_date_from_gmt( $gmt_datetime, 'Y' ) === current_time( 'Y' );
+
+	/**
+	 * Filters the date format used once a timestamp is too old for relative time.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @param string $format          PHP date format.
+	 * @param bool   $is_current_year Whether the date falls in the current year.
+	 * @param string $gmt_datetime    The UTC datetime being formatted.
+	 */
+	$format = (string) apply_filters(
+		'buddynext_time_ago_date_format',
+		$is_current_year ? 'j F' : 'j F Y',
+		$is_current_year,
+		$gmt_datetime
+	);
+
+	return buddynext_date_local( $gmt_datetime, $format );
 }
 
 /**

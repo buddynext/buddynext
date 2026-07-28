@@ -687,6 +687,15 @@ class ProfileController extends BaseRestController {
 				: false;
 		}
 		$profile['post_count'] = $this->user_post_count( $profile_user_id );
+
+		// Connection block — the SAME {state, can_message} shape the member
+		// directory ships. Without it the app had to follow every profile open
+		// with a /connection/status call AND a scan of /me/connection-requests
+		// just to decide whether the button says Connect, Requested or Respond.
+		$connections = buddynext_service( 'connections' );
+		if ( $connections instanceof \BuddyNext\SocialGraph\ConnectionService ) {
+			$profile['connection'] = $connections->connection_block( $viewer_id, $profile_user_id );
+		}
 		if ( ! isset( $profile['bio'] ) ) {
 			// The bio lives in bn_profile_values; the bn_field_bio usermeta is written by nothing
 			// (see ProfileService::bios_for). Reading it here handed the app an empty bio for

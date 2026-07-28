@@ -70,6 +70,7 @@ $follower_count = $bn_follow_svc->follower_count( $user_id );
 
 // --- Social graph state (viewer vs. this profile) -------------------------
 $is_following        = false;
+$follow_pending      = false;
 $is_connected        = false;
 $connection_pending  = false;
 $connection_received = false;
@@ -85,6 +86,15 @@ if ( ! $is_own_profile && $current_user_id ) {
 	// pending-sent vs pending-received is resolved without a second query),
 	// and one batched block/mute/restrict lookup. See HIGH-02 / HIGH-05.
 	$is_following = buddynext_service( 'follows' )->is_following( $current_user_id, $user_id );
+
+	// Following a PRIVATE account stores the row as status='pending' until the
+	// owner approves it (FollowService::follow). The profile header had no third
+	// state for that — only Follow / Following — so it had no way to say
+	// "Requested", which is the state the member is actually in. Connections
+	// already model this ($connection_pending, just below); follows now match.
+	$follow_pending = ! $is_following
+		&& method_exists( buddynext_service( 'follows' ), 'has_pending_request' )
+		&& buddynext_service( 'follows' )->has_pending_request( $current_user_id, $user_id );
 
 	$bn_conn_row         = $bn_conn_svc->pair_row( $current_user_id, $user_id );
 	$bn_conn_status      = $bn_conn_row ? (string) $bn_conn_row->status : '';
@@ -293,6 +303,7 @@ $bn_pf_ctx = array(
 	'peopleUrl'          => \BuddyNext\Core\PageRouter::people_url(),
 	'profileBaseUrl'     => \BuddyNext\Core\PageRouter::profile_url( (int) $user_id ),
 	'isFollowing'        => $is_following,
+	'followPending'      => $follow_pending,
 	'isConnected'        => $is_connected,
 	'connectionPending'  => $connection_pending,
 	'connectionReceived' => $connection_received,
@@ -342,6 +353,7 @@ $bn_pf_ctx = array(
 			'can_edit_any'        => (bool) $bn_can_edit_any,
 			'is_online'           => (bool) $is_online,
 			'is_following'        => (bool) $is_following,
+			'follow_pending'      => (bool) $follow_pending,
 			'is_connected'        => (bool) $is_connected,
 			'connection_pending'  => (bool) $connection_pending,
 			'connection_received' => (bool) $connection_received,

@@ -654,11 +654,22 @@ class ModerationService {
 		 */
 		$handled = (bool) apply_filters( 'buddynext_content_removal_handled', false, $object_type, $object_id, $actor_id );
 
+		// Only announce a takedown that actually happened. This used to fire
+		// unconditionally, so an object type no handler claimed still broadcast
+		// "content removed" while the content stayed up — which would have had
+		// the new takedown notice telling an author their post was removed when
+		// it was not. The hook's own contract says it fires when content is
+		// removed from public view; now it does.
+		if ( ! $handled ) {
+			return false;
+		}
+
 		/**
 		 * Fires when a moderator removes reported content from public view.
 		 *
 		 * Side-effect hook only — the takedown itself happens on the
-		 * buddynext_content_removal_handled filter above.
+		 * buddynext_content_removal_handled filter above, and this fires only
+		 * once that filter has confirmed the content was really taken down.
 		 *
 		 * @param string $object_type Content type ('post', 'comment', 'message', …).
 		 * @param int    $object_id   Content ID.
@@ -666,7 +677,7 @@ class ModerationService {
 		 */
 		do_action( 'buddynext_content_removed', $object_type, $object_id, $actor_id );
 
-		return $handled;
+		return true;
 	}
 
 	/**
@@ -977,7 +988,7 @@ class ModerationService {
 				"SELECT id, user_id, issued_by, reason, created_at
 				 FROM {$wpdb->prefix}bn_user_strikes
 				 WHERE user_id = %d AND is_reversed = 0
-				 ORDER BY created_at DESC",
+				 ORDER BY created_at DESC, id DESC",
 				$user_id
 			),
 			ARRAY_A
@@ -1004,6 +1015,93 @@ class ModerationService {
 	 * @param int $user_id User to check.
 	 * @return int
 	 */
+	/**
+	 * A member's own account standing, in the shape they are allowed to see.
+	 *
+	 * A member could read their submitted appeals but not the suspension the
+	 * appeal is ABOUT — that route is admin-only — so an Account Standing screen
+	 * could show a history of appeals while being unable to offer "Appeal this
+	 * suspension", because submit_appeal() needs a suspension id the member had
+	 * no way to obtain.
+	 *
+	 * What is deliberately NOT here:
+	 *
+	 *  - The moderator's identity (`issued_by` / `suspended_by`). Who acted on a
+	 *    report is sensitive for the same reason the report queue is admin-only;
+	 *    the member needs to know WHAT happened, not who did it.
+	 *  - Shadow-ban state. A shadow ban only works while the member does not
+	 *    know about it — surfacing it here would defeat the feature entirely.
+	 *    Do not add it, however convenient it looks for an "account health" UI.
+	 *
+	 * @param int $user_id Member reading their own standing.
+	 * @return array<string, mixed>
+	 */
+	public function get_standing( int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return array(
+				'strikes'    => 0,
+				'history'    => array(),
+				'suspension' => null,
+			);
+		}
+
+		global $wpdb;
+
+		$suspension = $this->get_suspension( $user_id );
+		$shaped     = null;
+
+		if ( null !== $suspension ) {
+			$suspension_id = (int) ( $suspension['id'] ?? 0 );
+
+			// Has this member already appealed THIS suspension, and is it still
+			// awaiting review? Drives whether the app offers the appeal button or
+			// says "Appeal submitted".
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$pending = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_appeals
+					 WHERE user_id = %d AND suspension_id = %d AND status = 'pending'",
+					$user_id,
+					$suspension_id
+				)
+			);
+
+			$shaped = array(
+				// The id is the point of this endpoint: POST /me/appeals needs it.
+				'id'             => $suspension_id,
+				'reason'         => (string) ( $suspension['reason'] ?? '' ),
+				'created_at'     => (string) ( $suspension['created_at'] ?? '' ),
+				// null = permanent, not "unknown".
+				// isset() already excludes null, so a permanent suspension (NULL
+				// expires_at) correctly reports null rather than an empty string.
+				'expires_at'     => isset( $suspension['expires_at'] )
+					? (string) $suspension['expires_at']
+					: null,
+				'hide_posts'     => (bool) ( $suspension['hide_posts'] ?? false ),
+				'appeal_pending' => $pending > 0,
+				'can_appeal'     => 0 === $pending,
+			);
+		}
+
+		// Own strikes, minus the moderator identity.
+		$history = array_map(
+			static function ( array $row ): array {
+				return array(
+					'id'         => (int) $row['id'],
+					'reason'     => (string) $row['reason'],
+					'created_at' => (string) $row['created_at'],
+				);
+			},
+			$this->get_strikes( $user_id )
+		);
+
+		return array(
+			'strikes'    => $this->get_active_strike_count( $user_id ),
+			'history'    => $history,
+			'suspension' => $shaped,
+		);
+	}
+
 	public function get_active_strike_count( int $user_id ): int {
 		global $wpdb;
 
@@ -2207,6 +2305,28 @@ class ModerationService {
 
 		if ( null === $suspension ) {
 			return new WP_Error( 'not_suspended', __( 'No matching suspension found.', 'buddynext' ) );
+		}
+
+		// One open appeal per suspension. There was no guard at all, so a double
+		// tap on the app's new "Appeal this suspension" button — which the
+		// member-readable standing endpoint now makes possible — would file two
+		// appeals and put the same case in the moderator queue twice.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$already_pending = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_appeals
+				 WHERE user_id = %d AND suspension_id = %d AND status = 'pending'",
+				$user_id,
+				$suspension_id
+			)
+		);
+
+		if ( $already_pending > 0 ) {
+			return new WP_Error(
+				'appeal_already_pending',
+				__( 'You have already appealed this. A moderator will review it.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

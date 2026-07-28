@@ -232,13 +232,22 @@ function renderCropModal( img, resolve ) {
 	// Slider zoom for accessibility / non-wheel devices.
 	const slider = document.createElement( 'input' );
 	slider.type = 'range';
-	slider.min  = '1';
+	// 100 == minScale == the image exactly covering the crop frame. Below that the
+	// image is smaller than the frame and the uncovered area is not part of the
+	// picture at all — which the JPEG export then bakes in as solid black. The
+	// wheel handler already clamps to minScale; the slider was the one way in.
+	// Every mainstream cropper (Instagram, X) clamps minimum zoom to "fills frame"
+	// for the same reason.
+	slider.min  = '100';
 	slider.max  = '300';
 	slider.value = '100';
 	slider.className = 'bn-avatar-crop-zoom';
 	slider.setAttribute( 'aria-label', t( 'zoom', 'Zoom' ) );
 	slider.addEventListener( 'input', () => {
-		const newScale = minScale * ( parseInt( slider.value, 10 ) / 100 );
+		// Defensive floor as well as the min attribute: a browser that ignores
+		// min, or a future change to it, must not be able to reintroduce the
+		// uncovered-area case.
+		const newScale = Math.max( minScale, minScale * ( parseInt( slider.value, 10 ) / 100 ) );
 		const cx = SIZE / 2;
 		const cy = SIZE / 2;
 		tx = cx - ( ( cx - tx ) / scale ) * newScale;
@@ -283,6 +292,18 @@ function renderCropModal( img, resolve ) {
 		out.height = OUTPUT;
 		const outCtx = out.getContext( '2d' );
 		const ratio = OUTPUT / SIZE;
+		// Fill before drawing. The context starts fully TRANSPARENT, and toBlob()
+		// below encodes image/jpeg, which has no alpha — browsers composite those
+		// untouched pixels onto BLACK, so any area the image does not cover is
+		// baked black into the uploaded file before the request is even made.
+		//
+		// The min-zoom clamp above stops the large uncovered area, but this is not
+		// redundant: at exactly minScale the drawn width is a float, and sub-pixel
+		// rounding can leave a 1px uncovered seam on an edge — which JPEG renders
+		// as a black hairline. It also keeps apply() correct by construction,
+		// since it reads the raw tx/ty/scale closure vars and does not re-clamp.
+		outCtx.fillStyle = '#ffffff';
+		outCtx.fillRect( 0, 0, OUTPUT, OUTPUT );
 		outCtx.drawImage(
 			img,
 			tx * ratio,
@@ -1002,8 +1023,25 @@ function buildEntryNodeFromClone( group, index ) {
 	} );
 
 	// Keep ids/labels unique so a label click focuses THIS entry's control.
+	//
+	// Two id shapes live in a repeater entry and only one of them ends in the
+	// entry index. A sub-field control is id'd from its NAME by
+	// FieldType::input_id() -- 'bn-field-' + the name with everything outside
+	// [A-Za-z0-9_-] stripped, so work_experience[1][work_company] becomes
+	// bn-field-work_experience1work_company. The old `-\d+$` rule never matched
+	// those, so a cloned entry kept entry 0's ids and every label in it focused
+	// the FIRST entry's control. Names are already reindexed above, so the id is
+	// re-derived from the new name here; the `-\d+$` path still covers the
+	// per-entry privacy select, whose id does end in the index.
 	clone.querySelectorAll( '[id]' ).forEach( function ( el ) {
-		var newId = el.id.replace( /-\d+$/, '-' + index );
+		var newId;
+
+		if ( 0 === el.id.indexOf( 'bn-field-' ) && el.name ) {
+			newId = 'bn-field-' + el.name.replace( /[^A-Za-z0-9_-]/g, '' );
+		} else {
+			newId = el.id.replace( /-\d+$/, '-' + index );
+		}
+
 		if ( newId === el.id ) { return; }
 		var lbl = clone.querySelector( 'label[for="' + el.id + '"]' );
 		el.id = newId;
@@ -1107,6 +1145,12 @@ const profileStore = store( 'buddynext/profile', {
 		get muteLabel()     { return getContext().isMuted      ? t( 'unmute', 'Unmute' )         : t( 'mute', 'Mute' ); },
 		get restrictLabel() { return getContext().isRestricted ? t( 'unrestrict', 'Unrestrict' ) : t( 'restrict', 'Restrict' ); },
 		get blockLabel()    { return getContext().isBlocked    ? t( 'unblock', 'Unblock' )       : t( 'block', 'Block' ); },
+
+		// Follow has THREE states on a profile header — Follow / Requested /
+		// Following — because following a private account lands as a pending
+		// request. Computed rather than an inline expression in data-wp-bind so
+		// the transitions live in one place.
+		get followBtnHidden() { const c = getContext(); return !! c.isFollowing || !! c.followPending; },
 		/* Two-factor stage visibility (mutually exclusive). */
 		get twofaShowStart()  { const c = getContext(); return ! c.twofaEnabled && c.twofaStage === 'idle'; },
 		get twofaShowSetup()  { return getContext().twofaStage === 'setup'; },
@@ -1752,7 +1796,7 @@ const profileStore = store( 'buddynext/profile', {
 
 		async follow() {
 			var ctx = getContext();
-			if ( ctx.isFollowing ) { return; }
+			if ( ctx.isFollowing || ctx.followPending ) { return; }
 			// Optimistic.
 			ctx.isFollowing   = true;
 			ctx.followerCount = ( ctx.followerCount || 0 ) + 1;
@@ -1763,9 +1807,31 @@ const profileStore = store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'follow_failed' ); }
+
+				// A PRIVATE account stores the row as pending until the owner
+				// approves it, and the endpoint says so ({ following, pending }).
+				// Only res.ok was checked before, so the optimistic "Following"
+				// stuck: the viewer was told they follow someone who has not
+				// approved them, and the owner's follower count was inflated until
+				// the next page load. Neither was true.
+				// restFetch resolves { ok, status, data } — NOT a fetch Response, so
+				// the payload is res.data and there is no .json() to call.
+				var body = res.data || {};
+				if ( body.pending ) {
+					ctx.isFollowing   = false;
+					ctx.followPending = true;
+					// A pending request is not a follower yet — undo the optimistic
+					// increment rather than leaving an inflated count on screen.
+					ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
+					bnToast( t( 'followRequested', 'Follow request sent' ), { tone: 'info' } );
+					return;
+				}
+
+				ctx.followPending = false;
 				bnToast( t( 'followed', 'Followed' ), { tone: 'success' } );
 			} catch ( _e ) {
 				ctx.isFollowing   = false;
+				ctx.followPending = false;
 				ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
 				bnToast( t( 'couldNotFollow', 'Could not follow. Try again.' ), { tone: 'danger' } );
 			}
@@ -1773,9 +1839,16 @@ const profileStore = store( 'buddynext/profile', {
 
 		async unfollow() {
 			var ctx = getContext();
-			if ( ! ctx.isFollowing ) { return; }
+			// Also drives "Requested" -> withdraw. DELETE removes a pending row the
+			// same way it removes an approved one, so one action serves both; the
+			// count is only touched when an actual follow is being undone.
+			if ( ! ctx.isFollowing && ! ctx.followPending ) { return; }
+			var wasPending    = !! ctx.followPending;
 			ctx.isFollowing   = false;
-			ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
+			ctx.followPending = false;
+			if ( ! wasPending ) {
+				ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
+			}
 			try {
 				var res = await restFetch( '/users/' + ctx.profileUserId + '/follow', {
 					method:       'DELETE',
@@ -1783,10 +1856,22 @@ const profileStore = store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'unfollow_failed' ); }
-				bnToast( t( 'unfollowed', 'Unfollowed' ), { tone: 'info' } );
+				bnToast(
+					wasPending
+						? t( 'followRequestWithdrawn', 'Follow request withdrawn' )
+						: t( 'unfollowed', 'Unfollowed' ),
+					{ tone: 'info' }
+				);
 			} catch ( _e ) {
-				ctx.isFollowing   = true;
-				ctx.followerCount = ( ctx.followerCount || 0 ) + 1;
+				// Restore the state we actually came from, not "following" — a failed
+				// withdraw must go back to Requested, not silently promote the viewer
+				// to a follower they never were.
+				if ( wasPending ) {
+					ctx.followPending = true;
+				} else {
+					ctx.isFollowing   = true;
+					ctx.followerCount = ( ctx.followerCount || 0 ) + 1;
+				}
 				bnToast( t( 'couldNotUnfollow', 'Could not unfollow. Try again.' ), { tone: 'danger' } );
 			}
 		},

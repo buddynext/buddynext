@@ -578,11 +578,6 @@ class PostService {
 			return array();
 		}
 
-		// Site admins may attach any media (curation / moderation reposts).
-		if ( user_can( $user_id, 'manage_options' ) ) {
-			return $ids;
-		}
-
 		$repo = \BuddyNext\Media\MediaClient::repo();
 		if ( ! $repo || ! method_exists( $repo, 'get_author' ) ) {
 			// Engine absent: media cannot be resolved or rendered and ownership
@@ -590,8 +585,30 @@ class PostService {
 			return array();
 		}
 
+		/*
+		 * Site admins may attach media they do NOT own (curation / moderation
+		 * reposts) — but the media still has to exist. The admin exemption used
+		 * to return early and skip this loop entirely, which skipped the
+		 * EXISTENCE check along with the ownership one: a fabricated id (from a
+		 * direct API call or an app, never from the web composer, which only
+		 * sends a server-confirmed id) published a photo post carrying a dangling
+		 * reference that rendered no image and could never be repaired.
+		 */
+		$is_curator = user_can( $user_id, 'manage_options' );
+
 		foreach ( $ids as $mid ) {
-			if ( (int) $repo->get_author( $mid ) !== $user_id ) {
+			$author_id = (int) $repo->get_author( $mid );
+
+			// get_author() returns 0 for an id that resolves to nothing.
+			if ( $author_id <= 0 ) {
+				return new WP_Error(
+					'media_not_found',
+					__( 'One or more attachments could not be found.', 'buddynext' ),
+					array( 'status' => 404 )
+				);
+			}
+
+			if ( ! $is_curator && $author_id !== $user_id ) {
 				return new WP_Error(
 					'media_forbidden',
 					__( 'You can only attach media you uploaded.', 'buddynext' ),
@@ -960,19 +977,28 @@ class PostService {
 			}
 		}
 
-		// Gate 2 — secret/hidden-space membership.
+		/*
+		 * Gate 2 — space-content membership.
+		 *
+		 * Asks SpaceVisibility, the ONE decision point every space surface reads,
+		 * rather than re-deriving the rule here. The hand-rolled version this
+		 * replaces tested is_hidden_from_non_members(), which is true for SECRET
+		 * only — so a post in a PRIVATE (request-to-join) space was readable by a
+		 * fully anonymous visitor who had the id, while the space's own feed
+		 * correctly refused them. can_view_content() is visibility-derived, so a
+		 * custom registered type is gated without touching this method, and it
+		 * also honours the denormalised owner_id column (an owner whose
+		 * membership row is missing no longer locks themselves out).
+		 */
 		$space_id = (int) ( $post['space_id'] ?? 0 );
 		if ( $space_id > 0 ) {
 			$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
-			if ( null !== $space && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) ( $space['type'] ?? '' ) ) ) {
-				$is_member = $viewer_id > 0 && ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer_id );
-				if ( ! $is_member && ! user_can( $viewer_id, 'manage_options' ) ) {
-					return new WP_Error(
-						'post_not_found',
-						__( 'Post not found.', 'buddynext' ),
-						array( 'status' => 404 )
-					);
-				}
+			if ( null !== $space && ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
+				return new WP_Error(
+					'post_not_found',
+					__( 'Post not found.', 'buddynext' ),
+					array( 'status' => 404 )
+				);
 			}
 		}
 
@@ -1060,20 +1086,20 @@ class PostService {
 			return array();
 		}
 
-		$blocks        = function_exists( 'buddynext_service' )
+		$blocks     = function_exists( 'buddynext_service' )
 			? buddynext_service( 'blocks' )
 			: new \BuddyNext\SocialGraph\BlockService();
-		$follows       = function_exists( 'buddynext_service' )
+		$follows    = function_exists( 'buddynext_service' )
 			? buddynext_service( 'follows' )
 			: new \BuddyNext\SocialGraph\FollowService();
-		$spaces        = new \BuddyNext\Spaces\SpaceService();
-		$space_members = new \BuddyNext\Spaces\SpaceMemberService();
-		$moderation    = function_exists( 'buddynext_service' )
+		$spaces     = new \BuddyNext\Spaces\SpaceService();
+		$moderation = function_exists( 'buddynext_service' )
 			? buddynext_service( 'moderation' )
 			: new \BuddyNext\Moderation\ModerationService();
-		$is_admin      = $viewer > 0 && user_can( $viewer, 'manage_options' );
+		$is_admin   = $viewer > 0 && user_can( $viewer, 'manage_options' );
 
-		$visible = array();
+		$visible       = array();
+		$space_visible = array();
 		foreach ( $post_ids as $post_id ) {
 			$post = $this->get( $post_id );
 			if ( null === $post ) {
@@ -1094,18 +1120,18 @@ class PostService {
 				continue;
 			}
 
-			// Gate 2 — secret/hidden-space membership.
+			// Gate 2 — space-content membership, via the same SpaceVisibility
+			// decision point as visibility_error(). Memoised per space so a page
+			// of 50 posts from one space asks once, not fifty times.
 			$space_id = (int) ( $post['space_id'] ?? 0 );
 			if ( $space_id > 0 ) {
-				$space = $spaces->get( $space_id );
-				if (
-					null !== $space
-					&& \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) ( $space['type'] ?? '' ) )
-				) {
-					$is_member = $viewer > 0 && $space_members->is_member( $space_id, $viewer );
-					if ( ! $is_member && ! $is_admin ) {
-						continue;
-					}
+				if ( ! isset( $space_visible[ $space_id ] ) ) {
+					$space                      = $spaces->get( $space_id );
+					$space_visible[ $space_id ] = null === $space
+						|| \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space, $viewer );
+				}
+				if ( ! $space_visible[ $space_id ] ) {
+					continue;
 				}
 			}
 

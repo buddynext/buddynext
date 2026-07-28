@@ -81,7 +81,14 @@ final class SpaceNav {
 				'priority'  => $priority++,
 				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'field-' . $key ),
 				'condition' => static function ( NavContext $c ) use ( $key, $visibility ): bool {
-					$can_manage = $c->role_at_least( 'moderator' ) || current_user_can( 'manage_options' );
+					// buddynext-moderate-space IS "owner or moderator, admins aside".
+					// Hand-rolling it here is what let the nav and the capability
+					// layer answer differently; ask the canonical gate instead.
+					$can_manage = buddynext_can(
+						get_current_user_id(),
+						'buddynext-moderate-space',
+						array( 'space_id' => (int) $c->subject_id )
+					);
 					// Members-only fields are hidden from non-members (managers aside).
 					if ( 'members' === $visibility && ! $c->role_at_least( 'member' ) && ! $can_manage ) {
 						return false;
@@ -107,8 +114,9 @@ final class SpaceNav {
 	 * @return void
 	 */
 	private function render_field_tab_panel( int $space_id, array $field ): void {
-		$role       = ( new SpaceMemberService() )->get_role( $space_id, get_current_user_id() );
-		$can_manage = in_array( $role, array( 'owner', 'moderator' ), true ) || current_user_can( 'manage_options' );
+		// Same canonical gate as the tab-visibility condition above, so what the
+		// panel offers and what the tab shows can never disagree.
+		$can_manage = buddynext_can( get_current_user_id(), 'buddynext-moderate-space', array( 'space_id' => $space_id ) );
 		$space      = ( new SpaceService() )->get( $space_id );
 
 		buddynext_get_template(

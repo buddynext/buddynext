@@ -3,6 +3,7 @@
  * REST controller for onboarding wizard endpoints.
  *
  * Routes (all under buddynext/v1):
+ *   GET  /me/onboarding           — read whether the wizard is done + where it is.
  *   POST /me/onboarding/step      — save data for the current step + advance.
  *   POST /me/onboarding/skip      — skip the wizard, mark complete.
  *   POST /me/onboarding/complete  — finalize the wizard with all step payloads.
@@ -56,6 +57,16 @@ class OnboardingController {
 						'type'     => 'integer',
 					),
 				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/onboarding',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_state' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
 
@@ -197,6 +208,34 @@ class OnboardingController {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * GET /me/onboarding — the wizard's state for the current member.
+	 *
+	 * `bn_onboarding_complete` was only ever WRITTEN over REST, never readable.
+	 * A client therefore had to keep its own per-device "done" flag, so a member
+	 * who finished the wizard on their phone was asked to do it again on a
+	 * tablet. The web gate (PageRouter) has always read this same meta; this is
+	 * the app's equivalent, so both surfaces answer from one source.
+	 *
+	 * `total` is the number of steps THIS site renders, not a constant: the
+	 * Interests step drops out when the owner has authored no space categories,
+	 * so a client hardcoding five would draw a progress bar that never fills.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_state(): WP_REST_Response {
+		$user_id = get_current_user_id();
+
+		return new WP_REST_Response(
+			array(
+				'complete' => $this->service->is_complete( $user_id ),
+				'step'     => $this->service->get_step( $user_id ),
+				'total'    => count( $this->service->step_list() ),
+			),
+			200
+		);
 	}
 
 	/**

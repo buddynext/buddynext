@@ -513,6 +513,55 @@ class FieldType {
 	}
 
 	/**
+	 * Whether a stored value represents something the member actually entered.
+	 *
+	 * "Is this filled in?" is a PER-TYPE question, and it was being answered by
+	 * two hand-rolled predicates that both got it wrong for one type:
+	 * ProfileService::get_strength()'s closure and get_completion_score()'s SQL
+	 * both treated any non-empty string as filled. `boolean` is the only type in
+	 * the engine whose sanitiser turns EMPTY input into a non-empty stored value
+	 * — sanitize() returns '0' for an unticked box — so an untouched checkbox
+	 * read as "filled" everywhere completeness was measured.
+	 *
+	 * That is the whole of the "Profile Strength ticks sections I never filled"
+	 * report: the seeded schema's only booleans are work_current and edu_current,
+	 * which is exactly why Work Experience and Education ticked while Social
+	 * Links, Skills and Interests did not.
+	 *
+	 * render_display() already took this view — it renders '' for a falsy boolean
+	 * — so the profile VIEW showed the section empty while the strength widget
+	 * called it complete. This method is the single answer all three now share.
+	 *
+	 * Note `'0'` is filled for every other type: it is a real entry for a number
+	 * field, and only `boolean` manufactures it from nothing.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @param array<string, mixed> $field Field row (needs `type`).
+	 * @param mixed                $value Stored or submitted value.
+	 * @return bool True when the member put something there.
+	 */
+	public static function is_filled( array $field, $value ): bool {
+		$type = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
+
+		if ( is_array( $value ) ) {
+			foreach ( $value as $item ) {
+				if ( self::is_filled( $field, $item ) ) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		if ( 'boolean' === $type ) {
+			return self::truthy( $value );
+		}
+
+		return '' !== trim( (string) $value );
+	}
+
+	/**
 	 * Whether a type holds a SET of values (chips, comma-joined transport).
 	 *
 	 * The three multiselect types differ in where their choices come from and in
@@ -526,6 +575,54 @@ class FieldType {
 	 */
 	public static function is_multiselect_family( string $type ): bool {
 		return in_array( $type, array( 'multiselect', 'category_multiselect', 'member_type_multiselect' ), true );
+	}
+
+	/**
+	 * The DOM id render_input() gives the control for a submitted field name.
+	 *
+	 * The id was being derived in two files that cannot see each other:
+	 * render_input() built `bn-field-` + sanitize_html_class( $name ), while
+	 * templates/profile/edit.php built `bn-ep-` + the key with underscores turned
+	 * into dashes. The two differ twice over — prefix AND underscore handling —
+	 * so every `<label for>` on the profile editor pointed at an element that does
+	 * not exist. Clicking a field's label focused nothing, and a screen reader
+	 * could not compute the control's accessible name (WCAG 2.1 SC 1.3.1 / 4.1.2).
+	 *
+	 * One function, called by both sides, so they cannot drift again.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @param string $name Submitted field name, e.g. `bio` or
+	 *                     `work_experience[0][work_company]`.
+	 * @return string DOM id.
+	 */
+	public static function input_id( string $name ): string {
+		return 'bn-field-' . sanitize_html_class( $name );
+	}
+
+	/**
+	 * Whether a type renders ONE labelable control that a `<label for>` may target.
+	 *
+	 * False for the group types: radio, member_type and the multiselect family
+	 * render a `<fieldset>` of individually-labelled options, so there is no
+	 * element carrying the field-level id at all. Pointing an outer `<label for>`
+	 * at a fieldset is invalid HTML and does not give the group an accessible
+	 * name — such a label must omit `for` (the option labels inside are already
+	 * correct). `boolean` is also false: render_input() wraps its checkbox in its
+	 * own `<label>`, which is a valid implicit association the editor must not
+	 * duplicate.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @param string $type Field type slug.
+	 * @return bool
+	 */
+	public static function has_labelable_control( string $type ): bool {
+		if ( 'boolean' === $type || 'radio' === $type || 'member_type' === $type ) {
+			return false;
+		}
+
+		return ! self::is_multiselect_family( $type );
 	}
 
 	/**
@@ -571,7 +668,7 @@ class FieldType {
 		}
 
 		$type     = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
-		$id       = 'bn-field-' . sanitize_html_class( $name );
+		$id       = self::input_id( $name );
 		$required = ! empty( $field['is_required'] ) ? ' required' : '';
 
 		// G1: owner-authored placeholder (bn_profile_fields.placeholder). The

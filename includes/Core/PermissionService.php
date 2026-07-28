@@ -232,9 +232,10 @@ class PermissionService {
 	 * @param int $space_id Space ID.
 	 * @return bool
 	 */
-	private function can_manage_space( int $user_id, int $space_id ): bool {
+	public function can_manage_space( int $user_id, int $space_id ): bool {
 		return 'owner' === $this->get_space_role( $user_id, $space_id );
 	}
+
 
 	/**
 	 * Resolve a user's active role within a specific space.

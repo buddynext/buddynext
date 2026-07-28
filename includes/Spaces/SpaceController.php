@@ -237,6 +237,33 @@ class SpaceController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/media',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_space_media' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'page'     => array(
+						'type'              => 'integer',
+						'default'           => 1,
+						'minimum'           => 1,
+						'sanitize_callback' => 'absint',
+						'description'       => 'Page of media-bearing posts.',
+					),
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 24,
+						'minimum'           => 1,
+						'maximum'           => 100,
+						'sanitize_callback' => 'absint',
+						'description'       => 'Media-bearing posts per page. Each post may carry several attachments.',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)/pinned',
 			array(
 				'methods'             => 'GET',
@@ -783,6 +810,9 @@ class SpaceController extends BaseRestController {
 
 		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
 
+		// One instance for the whole page rather than one per row.
+		$member_svc = new SpaceMemberService();
+
 		foreach ( $rows as &$row ) {
 			$sid                   = (int) ( $row['id'] ?? 0 );
 			$row['category_name']  = $cat_map[ $sid ]['category_name'] ?? null;
@@ -796,6 +826,20 @@ class SpaceController extends BaseRestController {
 			$membership               = $member_map[ $sid ] ?? null;
 			$row['membership_role']   = $membership['role'] ?? '';
 			$row['membership_status'] = $membership['status'] ?? '';
+
+			// Viewer-relative permission flags. Without these the app inferred
+			// rights from membership_role rank, which under-shows for a site admin
+			// who is not a member of the space, and for spaces whose owner set
+			// who_can_invite = members.
+			//
+			// Two management flags, not one, because "manage" is two tiers here:
+			// can_manage     -> may reach the Manage screen (owner+mod, admins too)
+			// can_edit_space -> may write identity/reach/structure (OWNER only)
+			// One boolean would promise the app a Manage screen whose name/type/
+			// rules fields then 403 on save.
+			$row['can_invite']     = $viewer_id > 0 && $member_svc->can_invite( $sid, $viewer_id );
+			$row['can_manage']     = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $sid ) );
+			$row['can_edit_space'] = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-manage-space', array( 'space_id' => $sid ) );
 		}
 		unset( $row );
 
@@ -972,6 +1016,14 @@ class SpaceController extends BaseRestController {
 		$membership                 = ( new SpaceMemberService() )->membership_map( $viewer_id, array( (int) $space['id'] ) )[ (int) $space['id'] ] ?? null;
 		$space['membership_role']   = $membership['role'] ?? '';
 		$space['membership_status'] = $membership['status'] ?? '';
+
+		// Same three viewer-relative permission flags the directory rows carry, so
+		// a card and the space header can never disagree about what the viewer may
+		// do. See the note in enrich_directory_rows() for why manage is two flags.
+		$bn_space_id             = (int) $space['id'];
+		$space['can_invite']     = $viewer_id > 0 && ( new SpaceMemberService() )->can_invite( $bn_space_id, $viewer_id );
+		$space['can_manage']     = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $bn_space_id ) );
+		$space['can_edit_space'] = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-manage-space', array( 'space_id' => $bn_space_id ) );
 
 		return new WP_REST_Response( $space, 200 );
 	}
@@ -1329,6 +1381,96 @@ class SpaceController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'pinned' => $pinned ), 200 );
+	}
+
+	/**
+	 * GET /spaces/{id}/media — the space's shared photos and attachments.
+	 *
+	 * The web Media tab derived its grid from the feed, so the app had no way to
+	 * offer one without scanning the feed itself — fragile and unpaginated, as
+	 * the card that asked for this said.
+	 *
+	 * Gated by SpaceVisibility::can_view_content(), the SAME decision point the
+	 * space feed and the single-post read use, so media cannot leak from a
+	 * private space that refuses its own feed. A refused viewer gets 404, not
+	 * 403 — the space's existence is not confirmed either.
+	 *
+	 * Pagination is over media-bearing POSTS (an indexed query); each post can
+	 * contribute several attachments, so `items` is longer than `per_page`. That
+	 * is deliberate — the alternative, offsetting into a flattened attachment
+	 * list, re-reads every earlier post on every page.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_space_media( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id  = (int) $request->get_param( 'id' );
+		$viewer_id = get_current_user_id();
+		$space     = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space || ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$per_page = (int) $request->get_param( 'per_page' );
+		$per_page = $per_page > 0 ? min( $per_page, 100 ) : 24;
+		$page     = max( 1, (int) $request->get_param( 'page' ) );
+
+		$feed  = buddynext_service( 'feed' );
+		$total = (int) $feed->space_media_post_count( $space_id );
+		$rows  = $feed->space_media_rows( $space_id, $per_page, ( $page - 1 ) * $per_page );
+
+		// Prime the engine's row cache once for the whole page instead of letting
+		// descriptor() fire a query per tile.
+		$all_ids = array();
+		foreach ( $rows as $row ) {
+			foreach ( $row['media_ids'] as $mid ) {
+				$all_ids[] = $mid;
+			}
+		}
+		$repo = \BuddyNext\Media\MediaClient::repo();
+		if ( $all_ids && $repo && method_exists( $repo, 'prefetch' ) ) {
+			$repo->prefetch( array_values( array_unique( $all_ids ) ) );
+		}
+
+		$items = array();
+		foreach ( $rows as $row ) {
+			foreach ( $row['media_ids'] as $media_id ) {
+				$descriptor = \BuddyNext\Media\MediaUrlResolver::descriptor( $media_id );
+
+				// Null means deleted, or not visible to THIS viewer — the engine
+				// owns that call. Skipping keeps a revoked attachment out of the
+				// grid rather than rendering a broken tile.
+				if ( null === $descriptor ) {
+					continue;
+				}
+
+				$items[] = array_merge(
+					$descriptor,
+					array(
+						'media_id'   => $media_id,
+						'post_id'    => $row['post_id'],
+						'user_id'    => $row['user_id'],
+						'created_at' => $row['created_at'],
+					)
+				);
+			}
+		}
+
+		return new WP_REST_Response(
+			array(
+				'items'       => $items,
+				'page'        => $page,
+				'per_page'    => $per_page,
+				'total'       => $total,
+				'total_pages' => $per_page > 0 ? (int) ceil( $total / $per_page ) : 0,
+			),
+			200
+		);
 	}
 
 	/**

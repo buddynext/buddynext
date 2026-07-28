@@ -356,6 +356,22 @@ class NotificationMessageService {
 				}
 				return __( 'Your post was not approved by the moderators.', 'buddynext' );
 
+			case 'bn.content_removed':
+				// The content itself is gone, so the copy has to say WHAT was
+				// removed — 'your post' vs 'your comment' is the difference
+				// between an actionable notice and a mystery. content_type is
+				// set by ModerationListener from the report's object type.
+				switch ( isset( $data['content_type'] ) ? (string) $data['content_type'] : '' ) {
+					case 'comment':
+						return __( 'Your comment was removed by a moderator.', 'buddynext' );
+					case 'message':
+						return __( 'Your message was removed by a moderator.', 'buddynext' );
+					case 'post':
+						return __( 'Your post was removed by a moderator.', 'buddynext' );
+					default:
+						return __( 'Something you posted was removed by a moderator.', 'buddynext' );
+				}
+
 			case 'bn.badge_awarded':
 				$badge = isset( $data['badge'] ) ? (string) $data['badge'] : '';
 				if ( '' !== $badge ) {
@@ -659,6 +675,11 @@ class NotificationMessageService {
 					'tone'  => 'warn',
 					'label' => __( 'Warning', 'buddynext' ),
 				),
+				'bn.content_removed'          => array(
+					'icon'  => 'alert-triangle',
+					'tone'  => 'warn',
+					'label' => __( 'Content removed', 'buddynext' ),
+				),
 				'bn.strike_warning'           => array(
 					'icon'  => 'alert-triangle',
 					'tone'  => 'warn',
@@ -829,7 +850,9 @@ class NotificationMessageService {
 				return $actor_id > 0 ? PageRouter::profile_url( $actor_id ) : '';
 
 			case 'bn.post_rejected':
-				// The rejected post is gone — send the author to their feed.
+			case 'bn.content_removed':
+				// The content is gone — there is nothing to deep-link to, so send
+				// the author to their feed rather than to a 404.
 				return PageRouter::activity_url();
 
 			case 'bn.comment_reacted':

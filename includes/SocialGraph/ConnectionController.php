@@ -184,9 +184,24 @@ class ConnectionController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function connection_status( WP_REST_Request $request ): WP_REST_Response {
-		$status = buddynext_service( 'connections' )->status( get_current_user_id(), (int) $request['id'] );
+		$connections = buddynext_service( 'connections' );
+		$viewer_id   = get_current_user_id();
+		$peer_id     = (int) $request['id'];
 
-		return new WP_REST_Response( array( 'status' => $status ), 200 );
+		/*
+		 * `status` stays symmetric and unchanged — existing clients compare it
+		 * against 'pending' and must keep working. The direction they actually
+		 * need arrives alongside it in `connection`, the same block the member
+		 * directory and the profile payload return, so a client can tell a
+		 * request it SENT from one it RECEIVED without a second round trip.
+		 */
+		return new WP_REST_Response(
+			array(
+				'status'     => $connections->status( $viewer_id, $peer_id ),
+				'connection' => $connections->connection_block( $viewer_id, $peer_id ),
+			),
+			200
+		);
 	}
 
 	/**

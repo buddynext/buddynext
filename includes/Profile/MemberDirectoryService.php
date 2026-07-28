@@ -322,7 +322,10 @@ class MemberDirectoryService {
 			// leading-wildcard usermeta scan. The suspended/shadowban/dir-opt-out/block
 			// gate already lives in $where_clauses above; this adds only the match set
 			// (intval-interpolated, no placeholders). An empty match → no results.
-			$match_ids = buddynext_service( 'search' )->match_member_ids( $search );
+			// The viewer is passed so a logged-in member's search also reaches
+			// members-visibility profile values, exactly as Explore does. Anonymous
+			// callers resolve to 0 and never touch that column.
+			$match_ids = buddynext_service( 'search' )->match_member_ids( $search, 500, get_current_user_id() );
 			if ( empty( $match_ids ) ) {
 				$where_clauses[] = '1 = 0';
 			} else {
@@ -1114,7 +1117,32 @@ class MemberDirectoryService {
 		// NOT EXISTS clauses here, so the two surfaces can never drift apart.
 		$exclusions = implode( ' AND ', $this->directory_exclusion_subqueries( 'u.ID' ) );
 
+		// Bidirectional block exclusion, through the SAME canonical builder the
+		// member directory uses (see list_members) so the two surfaces cannot
+		// drift apart.
+		//
+		// The per-row is_restricted() check further down is NOT a block check and
+		// never was: it reads bn_blocks WHERE blocker_id = viewer AND blocked_id =
+		// target AND type = 'restrict'. One direction, and a different type. So it
+		// answered "did the VIEWER restrict this person" and could never answer
+		// "did this person block the viewer" — which is the whole point of a block.
+		// Marcus blocks Priya, Priya keeps seeing Marcus in Online Now.
+		//
+		// Doing it in SQL rather than per row also keeps the over-fetch honest:
+		// blocked rows are gone before the LIMIT is applied, so the widget still
+		// returns up to $limit visible members instead of silently short-filling.
+		[ $block_sql, $block_params ] = buddynext_service( 'privacy' )->block_exclude_sql(
+			$viewer_id,
+			'u.ID',
+			array( 'block' ),
+			array( 'block' )
+		);
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$block_where = '' !== $block_sql
+			? ' AND ' . $wpdb->prepare( $block_sql, ...$block_params ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			: '';
+
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT u.ID, u.display_name, u.user_nicename
@@ -1122,6 +1150,7 @@ class MemberDirectoryService {
 				   JOIN {$wpdb->prefix}bn_presence pres ON pres.user_id = u.ID
 				  WHERE pres.last_active >= %d
 				    AND {$exclusions}
+				    {$block_where}
 				  ORDER BY pres.last_active DESC
 				  LIMIT %d",
 				time() - PresenceService::ONLINE_WINDOW,
@@ -1177,16 +1206,21 @@ class MemberDirectoryService {
 	 * directory-opt-out gate on top of these ids (directory_filter_sql for the SSR
 	 * page; list_members() for REST), so this stays a pure, reusable term-match.
 	 *
-	 * @param string $term Search term.
+	 * @param string   $term      Search term.
+	 * @param int|null $viewer_id Viewer, or null to use the current user. A non-zero
+	 *                            viewer also matches members-visibility profile
+	 *                            values, matching Explore.
 	 * @return int[] Matching member user IDs (empty when the term is blank or matches nothing).
 	 */
-	public function matching_user_ids( string $term ): array {
+	public function matching_user_ids( string $term, ?int $viewer_id = null ): array {
 		$term = trim( $term );
 		if ( '' === $term ) {
 			return array();
 		}
 
-		return buddynext_service( 'search' )->match_member_ids( $term );
+		$viewer_id = null === $viewer_id ? get_current_user_id() : $viewer_id;
+
+		return buddynext_service( 'search' )->match_member_ids( $term, 500, $viewer_id );
 	}
 
 	/**

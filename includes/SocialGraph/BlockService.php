@@ -494,8 +494,26 @@ class BlockService {
 			return false;
 		}
 
-		if ( $viewer_id > 0 && $viewer_id !== $target_id && $this->is_restricted( $viewer_id, $target_id ) ) {
-			return false;
+		if ( $viewer_id > 0 && $viewer_id !== $target_id ) {
+			// Restrict is one-directional by design: the viewer limited what they
+			// see of this person.
+			if ( $this->is_restricted( $viewer_id, $target_id ) ) {
+				return false;
+			}
+
+			// A BLOCK is bidirectional, and this gate was missing entirely — so a
+			// member who blocked you kept showing you their live online dot, and
+			// you kept showing yours to them. is_restricted() cannot cover this: it
+			// matches blocker_id = viewer AND type = 'restrict', so it can never
+			// answer "did this person block the viewer".
+			//
+			// This is the same defect the Online Now widget had. Fixing it here
+			// rather than at the call sites means every presence surface that
+			// routes through is_user_online()/is_user_online_at() — the directory
+			// cards, profile headers, avatars — is covered at once.
+			if ( $this->is_blocked( $viewer_id, $target_id ) ) {
+				return false;
+			}
 		}
 
 		return $last_active >= ( time() - $threshold_s );

@@ -969,11 +969,30 @@ class SearchService {
 	 * applies the suspended/shadowban/block/dir-opt-out exclusion on top, so this stays
 	 * a thin, reusable lookup. Bounded by $limit (people browse a few pages of results).
 	 *
-	 * @param string $term  Search term.
-	 * @param int    $limit Max IDs (clamped 1..1000).
+	 * Matching is kept deliberately IDENTICAL to search()'s FULLTEXT branch, because
+	 * the two surfaces are searching the same column of the same table and a member
+	 * cannot be expected to know which box applies which rule. Two differences used
+	 * to make the directory strictly narrower, and both read to a customer as
+	 * "profile fields are not searchable under Members":
+	 *
+	 *   1. No prefix wildcard. search() appends '*' (:708); this passed the bare
+	 *      term, so only whole indexed words of at least innodb_ft_min_token_size
+	 *      characters could match. Measured on a stock install: 'Priy' returned 0
+	 *      here and 6 from Explore, for the same term against the same rows.
+	 *   2. No members-tier column. search() ORs MATCH(content_members) for a
+	 *      logged-in viewer (:719-722); this never read that column, so a field a
+	 *      member limited to members was searchable in Explore and invisible in the
+	 *      directory. $viewer_id gates it exactly as search() does — an anonymous
+	 *      caller never reaches that branch, so the privacy boundary stays
+	 *      structural.
+	 *
+	 * @param string $term      Search term.
+	 * @param int    $limit     Max IDs (clamped 1..1000).
+	 * @param int    $viewer_id Viewer, or 0 for anonymous. Non-zero also searches
+	 *                          members-visibility profile values.
 	 * @return int[] Matching member user IDs, most-relevant first under FULLTEXT.
 	 */
-	public function match_member_ids( string $term, int $limit = 500 ): array {
+	public function match_member_ids( string $term, int $limit = 500, int $viewer_id = 0 ): array {
 		$term = trim( $term );
 		if ( '' === $term ) {
 			return array();
@@ -982,17 +1001,55 @@ class SearchService {
 		global $wpdb;
 		$limit = max( 1, min( 1000, $limit ) );
 
+		// A query shorter than the FULLTEXT minimum token size can never match in
+		// BOOLEAN MODE even with the wildcard, so short terms route to the LIKE
+		// path — the same seam and the same reason as search() (:462-464). Without
+		// this the directory still disagreed with Explore on 1-2 character terms.
+		$use_fulltext = $this->has_fulltext_index()
+			&& mb_strlen( $term ) >= $this->fulltext_min_token();
+
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		if ( $this->has_fulltext_index() ) {
+		if ( $use_fulltext ) {
+			$public_match = $wpdb->prepare(
+				'MATCH(title, content) AGAINST(%s IN BOOLEAN MODE)',
+				$term . '*'
+			);
+
+			$where_match = $public_match;
+			if ( $viewer_id > 0 ) {
+				// MATCH() must name exactly one index's column list, so the
+				// members-tier column is a second MATCH OR'd in rather than a third
+				// column here — same shape as search().
+				$where_match = '( ' . $public_match . ' OR ' . $wpdb->prepare(
+					'MATCH(content_members) AGAINST(%s IN BOOLEAN MODE)',
+					$term . '*'
+				) . ' )';
+			}
+
+			$rows = $wpdb->get_col(
+				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_match is prepare() output.
+					"SELECT object_id FROM {$wpdb->prefix}bn_search_index
+					 WHERE object_type IN ('user','member')
+					   AND {$where_match}
+					 ORDER BY {$public_match} DESC
+					 LIMIT %d",
+					$limit
+				)
+			);
+		} elseif ( $viewer_id > 0 ) {
+			// Members-tier values are searchable on this path too, for the same
+			// logged-in-only reason as the FULLTEXT branch above.
+			$like = '%' . $wpdb->esc_like( $term ) . '%';
 			$rows = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT object_id FROM {$wpdb->prefix}bn_search_index
 					 WHERE object_type IN ('user','member')
-					   AND MATCH(title, content) AGAINST(%s IN BOOLEAN MODE)
-					 ORDER BY MATCH(title, content) AGAINST(%s IN BOOLEAN MODE) DESC
+					   AND ( title LIKE %s OR content LIKE %s OR content_members LIKE %s )
 					 LIMIT %d",
-					$term,
-					$term,
+					$like,
+					$like,
+					$like,
 					$limit
 				)
 			);

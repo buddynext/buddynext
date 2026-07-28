@@ -348,6 +348,72 @@
 .bn-post-card__menu-item--danger:hover,
 .bn-post-card__menu-item--danger:focus { background: var(--bn-danger-bg); color: var(--bn-danger); }
 
+/* Follow inside the overflow menu is the MOBILE stand-in for the inline pill,
+	which is hidden under 640px. Hidden by default so the two never show at once;
+	the mobile block at the end of this file turns it on.
+
+	This MUST come after the base .bn-post-card__menu-item rule: both are
+	single-class selectors, so source order decides, and placed before it the
+	base `display: flex` won and the menu item showed on desktop ALONGSIDE the
+	inline pill. */
+/* Reads as a menu ROW, not a pill. partials/follow-button.php renders the shared
+	.bn-btn (border, 100px wide, centred, 12px) which is right beside the byline
+	and wrong in a list of borderless icon+label rows — it looked like a button
+	dropped into a menu.
+
+	The button is stretched across the whole row rather than sitting next to the
+	icon, so the icon is not a dead zone: its content is owned by
+	data-wp-text="state.label" and cannot hold an inline SVG. */
+.bn-post-card__menu-item--follow {
+	display: none;
+	position: relative;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	color: var(--bn-ink);
+	/* Siblings compute line-height: normal; the follow row inherited 20.8px and
+		stood 6px taller than every other item in the same menu. */
+	line-height: normal;
+}
+
+.bn-post-card__menu-item--follow > .bn-follow-btn-wrap,
+.bn-post-card__menu-item--follow .bn-follow-btn {
+	position: absolute;
+	inset: 0;
+	inline-size: 100%;
+	block-size: 100%;
+}
+
+.bn-post-card__menu-item--follow .bn-follow-btn,
+.bn-post-card__menu-item--follow .bn-follow-btn[data-variant],
+.bn-post-card__menu-item--follow .bn-follow-btn[data-size] {
+	display: flex;
+	justify-content: flex-start;
+	align-items: center;
+	/* Clear the icon + gap so the label lines up with every other row's label. */
+	padding: var(--bn-s2) var(--bn-s3) var(--bn-s2) calc( var(--bn-s3) + 16px + var(--bn-s2) );
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: inherit;
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-normal);
+	line-height: normal;
+	min-block-size: 0;
+	block-size: auto;
+}
+
+.bn-post-card__menu-item--follow:hover,
+.bn-post-card__menu-item--follow:focus-within {
+	background: var(--bn-sunken);
+}
+
+.bn-post-card__menu-item--follow .bn-follow-btn:focus-visible {
+	outline: 2px solid transparent;
+	box-shadow: inset 0 0 0 2px var(--bn-accent);
+}
+
 /* Already-reported status — a non-interactive confirmation, not an action. */
 .bn-post-card__menu-item--reported { color: var(--bn-ink-3); cursor: default; }
 .bn-post-card__menu-item--reported:hover,
@@ -1323,6 +1389,29 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 /* ── Responsive — mobile (≤640px) ──────────────────────────────────────────────
    The shell (bn-shell.css) owns the rail + right-sidebar collapse breakpoints;
    inner-template overrides here only tweak content rhythm at small widths. */
+/* Pin the reaction picker to the start edge once the shell drops its rail.
+	The picker is centred on its trigger (inset-inline-start: 50% + translateX(-50%)),
+	which puts it off the viewport whenever the trigger sits near the start edge.
+
+	This pin already existed but lived in the 640px block, while the layout that
+	CAUSES the clip switches at 768px — bn-shell.css:542 hides the rail and drops
+	the main gutter to --bn-s3. That left the 641-768px band (an iPad mini in
+	portrait, which is exactly what the bug report screenshotted) with the trigger
+	at x=75 and the 258px picker rendering at left: -54px, cutting the first two
+	emoji off-screen entirely. Matching the breakpoint to the layout is the fix.
+
+	Note this is still position-based, not a true collision clamp: Pro can register
+	custom reaction slugs (post-actions.php consumes ReactionService::reaction_types())
+	which widen the picker arbitrarily. A shared clamp helper is the durable answer —
+	assets/js/admin/more-menu.js:38-56 already implements the full algorithm. */
+@media (max-width: 768px) {
+	.bn-post-card__emoji-picker {
+		inset-inline-start: 0;
+		inset-inline-end: auto;
+		transform: none;
+	}
+}
+
 @media (max-width: 640px) {
 	.bn-feed-stack { gap: var(--bn-s3); }
 	.bn-pf-tab-content > .bn-composer { margin-block-end: var(--bn-s3); }
@@ -1334,6 +1423,10 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	   menu and the author's profile. Desktop has the width, so it keeps the
 	   inline Follow pill (see .bn-post-card__follow base rule). */
 	.bn-post-card__follow { display: none; }
+
+	/* ...and the menu item that replaces it becomes available here. Above this
+	   breakpoint the inline pill is showing, so the menu must NOT duplicate it. */
+	.bn-post-card__menu-item--follow { display: block; }
 
 	/* Facebook-style compact byline on narrow cards: author name on row 1, then
 	   ONE meta line — "Space · time · audience-icon" — on row 2 (never a 3rd
@@ -1377,12 +1470,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	.bn-post-card__link-thumb {
 		width: 56px;
 		height: 56px;
-	}
-
-	.bn-post-card__emoji-picker {
-		inset-inline-start: 0;
-		inset-inline-end: auto;
-		transform: none;
 	}
 
 	.bn-feed-tab {
@@ -2177,16 +2264,34 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-composer__prompt:focus-visible { outline: 2px solid transparent; outline-offset: 2px; }
 
 /*
- * Char counter — populated by JS into the toolbar slot
- * (.bn-composer__char-counter-slot) when present; falls back to a
- * block element after the textarea on comment forms.
+ * Char counter — populated by JS into a template-owned slot
+ * (.bn-composer__char-counter-slot on the composer,
+ * .bn-comment-form__char-counter-slot on comment forms).
+ *
+ * The fallback branch injects a bare <span> as a SIBLING of the textarea. Both
+ * of those parents are display:flex, so the span becomes a flex ITEM: it does
+ * not stack under the field as the old comment here claimed, it takes width
+ * away from it. On the comment form that cost 40px and wrapped the placeholder
+ * at 375px. Every form that uses this counter should own a slot.
  */
 .bn-composer__char-counter,
-.bn-composer__char-counter-slot {
+.bn-composer__char-counter-slot,
+.bn-comment-form__char-counter-slot {
 	font-size: var(--text-2xs, 11px);
 	color: var(--text-3);
 	font-variant-numeric: tabular-nums;
 }
+
+/* Empty until the member types — must take no space at all until then, or it
+	reintroduces the width theft it exists to avoid. */
+.bn-comment-form__char-counter-slot {
+	display: inline-flex;
+	align-items: center;
+	flex: 0 0 auto;
+}
+.bn-comment-form__char-counter-slot:empty { display: none; }
+.bn-comment-form__char-counter-slot[data-state="near"] { color: var(--bn-warn, #b45309); }
+.bn-comment-form__char-counter-slot[data-state="over"] { color: var(--bn-danger, #dc2626); font-weight: 600; }
 .bn-composer__char-counter {
 	display: block;
 	margin-block-start: 4px;

@@ -115,9 +115,9 @@ class ConnectionService {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$existing = $wpdb->get_var(
+		$existing_row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id
+				"SELECT id, status
 				 FROM {$wpdb->prefix}bn_connections
 				 WHERE ( requester_id = %d AND recipient_id = %d )
 				    OR ( requester_id = %d AND recipient_id = %d )
@@ -128,6 +128,58 @@ class ConnectionService {
 				$requester_id
 			)
 		);
+
+		$existing = null !== $existing_row ? $existing_row->id : null;
+
+		/*
+		 * A DECLINED row is not a live relationship — it is the record of one that
+		 * ended, and it must not wall the pair off forever.
+		 *
+		 * decline_request() only flips status to 'declined'; every other exit path
+		 * (withdraw, disconnect) deletes its row. This lookup matched on the PAIR
+		 * regardless of status, so after a single decline every future attempt died
+		 * on request_already_exists — while the Connect button kept rendering
+		 * normally, promising an action that could never succeed. The two members
+		 * could never connect again without someone editing the database.
+		 *
+		 * Re-opening the existing row rather than inserting a second one keeps the
+		 * one-row-per-pair shape the rest of this service assumes, and correctly
+		 * re-points requester/recipient when the DECLINER is the one now reaching
+		 * out (Priya declined Alex; Priya may still send her own request later).
+		 *
+		 * Only 'declined' re-opens. pending / accepted / anything else still block,
+		 * so this cannot be used to spam a live request or silently re-friend.
+		 */
+		if ( null !== $existing_row && 'declined' === (string) $existing_row->status ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$reopened = $wpdb->update(
+				$wpdb->prefix . 'bn_connections',
+				array(
+					'requester_id' => $requester_id,
+					'recipient_id' => $recipient_id,
+					'status'       => 'pending',
+					'note'         => $note,
+					'created_at'   => $created_at ?? current_time( 'mysql', true ),
+				),
+				array( 'id' => (int) $existing_row->id ),
+				array( '%d', '%d', '%s', '%s', '%s' ),
+				array( '%d' )
+			);
+
+			if ( false === $reopened ) {
+				return new WP_Error(
+					'db_error',
+					__( 'The connection request could not be saved. Please try again.', 'buddynext' )
+				);
+			}
+
+			$this->invalidate_connection_cache( $requester_id, $recipient_id );
+
+			/** This action is documented below, on the insert path. */
+			do_action( 'buddynext_connection_requested', (int) $existing_row->id, $requester_id, $recipient_id, $note );
+
+			return true;
+		}
 
 		if ( null !== $existing ) {
 			return new WP_Error(
@@ -471,6 +523,98 @@ class ConnectionService {
 		$row = $this->pair_row( $user_a, $user_b );
 
 		return $row ? (string) $row->status : null;
+	}
+
+	/**
+	 * The viewer's connection status with a peer, WITH the direction resolved.
+	 *
+	 * Status() is deliberately symmetric, so a pending request reads 'pending'
+	 * whichever side asks — which is why a profile screen could not tell
+	 * "Requested" from "Respond" without a second trip through
+	 * /me/connection-requests. This reads the same single cached row and reports
+	 * 'pending-sent' or 'pending-received' from the viewer's point of view,
+	 * matching the vocabulary statuses_for() already uses for the directory.
+	 *
+	 * @param int $viewer_id Viewer.
+	 * @param int $peer_id   The other member.
+	 * @return string|null accepted | pending-sent | pending-received | declined | withdrawn, or null.
+	 */
+	public function directional_status( int $viewer_id, int $peer_id ): ?string {
+		$row = $this->pair_row( $viewer_id, $peer_id );
+
+		if ( ! $row ) {
+			return null;
+		}
+
+		$status = (string) $row->status;
+
+		if ( 'pending' !== $status ) {
+			return $status;
+		}
+
+		return (int) $row->requester_id === $viewer_id ? 'pending-sent' : 'pending-received';
+	}
+
+	/**
+	 * The canonical {state, can_message} block for a direction-aware status.
+	 *
+	 * ONE shaping, shared by the member directory and the profile payload, so the
+	 * two surfaces cannot describe the same relationship differently — the app
+	 * draws the same button from either. Keep new states here, never in a caller.
+	 *
+	 * @param string|null $status Direction-aware status (see directional_status()).
+	 * @return array{state:string,can_message:bool}
+	 */
+	public static function state_block( ?string $status ): array {
+		$none = array(
+			'state'       => 'none',
+			'can_message' => false,
+		);
+
+		if ( null === $status || 'declined' === $status || 'withdrawn' === $status ) {
+			return $none;
+		}
+
+		if ( 'accepted' === $status ) {
+			return array(
+				'state'       => 'accepted',
+				'can_message' => true,
+			);
+		}
+
+		if ( 'pending-sent' === $status ) {
+			return array(
+				'state'       => 'pending-sent',
+				'can_message' => false,
+			);
+		}
+
+		// A bare 'pending' can only reach here from a caller that did not resolve
+		// direction; treat it as received, which is the safe default (it offers
+		// Respond rather than falsely claiming the viewer already asked).
+		if ( 'pending-received' === $status || 'pending' === $status ) {
+			return array(
+				'state'       => 'pending-received',
+				'can_message' => false,
+			);
+		}
+
+		return $none;
+	}
+
+	/**
+	 * The connection block for a single viewer/peer pair, in one cached query.
+	 *
+	 * @param int $viewer_id Viewer.
+	 * @param int $peer_id   The other member.
+	 * @return array{state:string,can_message:bool}
+	 */
+	public function connection_block( int $viewer_id, int $peer_id ): array {
+		if ( $viewer_id <= 0 || $peer_id <= 0 || $viewer_id === $peer_id ) {
+			return self::state_block( null );
+		}
+
+		return self::state_block( $this->directional_status( $viewer_id, $peer_id ) );
 	}
 
 	/**

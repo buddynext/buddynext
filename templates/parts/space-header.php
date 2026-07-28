@@ -37,7 +37,25 @@ $bn_sh_member_svc = new \BuddyNext\Spaces\SpaceMemberService();
 $bn_sh_role       = $bn_sh_viewer ? (string) $bn_sh_member_svc->get_role( $bn_sh_space_id, $bn_sh_viewer ) : '';
 $bn_sh_status     = $bn_sh_viewer ? (string) $bn_sh_member_svc->get_status( $bn_sh_space_id, $bn_sh_viewer ) : '';
 $bn_sh_is_member  = 'active' === $bn_sh_status;
-$bn_sh_is_owner   = $bn_sh_is_member && in_array( $bn_sh_role, array( 'owner', 'moderator' ), true );
+
+/*
+ * Despite the name this has never meant "is the owner" — it is owner OR
+ * moderator, and it drives the hero's Invite and Settings buttons. Hand-rolling
+ * the role set here is one of the four places the Spaces permission model was
+ * being re-derived instead of asked, which is how the nav and the capability
+ * layer ended up able to disagree.
+ *
+ * The right gate for "may reach the settings screen" is
+ * buddynext-spaces/manage-settings (ROLE_MAP: moderator), which resolves to the
+ * same set and short-circuits for site admins — so an admin who is not a member
+ * now gets the buttons too, which the old check refused.
+ */
+$bn_sh_can_manage = $bn_sh_viewer > 0 && buddynext_can(
+	$bn_sh_viewer,
+	'buddynext-spaces/manage-settings',
+	array( 'space_id' => $bn_sh_space_id )
+);
+$bn_sh_is_owner   = $bn_sh_can_manage;
 $bn_sh_is_pending = 'pending' === $bn_sh_status;
 $bn_sh_is_invited = 'invited' === $bn_sh_status;
 $bn_sh_is_guest   = 0 === (int) $bn_sh_viewer;

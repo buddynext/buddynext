@@ -253,6 +253,7 @@ class Plugin {
 					( new \BuddyNext\Admin\ToolsTab() )->register();
 					( new \BuddyNext\Admin\RolesTab() )->register();
 					( new \BuddyNext\Admin\IntegrationControlsAdmin() )->register();
+					( new \BuddyNext\Admin\IsolationAdmin() )->register();
 					( new \BuddyNext\Admin\Insights() )->register();
 					( new \BuddyNext\Admin\AnnouncementsAdmin() )->register();
 					( new \BuddyNext\Admin\ModerationQueue() )->register();

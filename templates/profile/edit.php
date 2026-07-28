@@ -412,7 +412,15 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 							if ( 'boolean' === $bn_ftype ) {
 								$bn_rep_html .= '<div class="bn-ep-field bn-ep-field--full">' . $bn_ctrl . $bn_sf_hint . '</div>';
 							} else {
-								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label" for="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_fkey ) . '-' . $bn_idx_int ) . '">' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_sf_hint . $bn_ctrl . '</div>';
+								// `for` must be the id render_input() actually gave the
+								// control — ask FieldType rather than re-deriving it, and
+								// omit it entirely for the group types, which render a
+								// <fieldset> with no element carrying that id.
+								$bn_sf_for = \BuddyNext\Profile\FieldType::has_labelable_control( $bn_ftype )
+									? ' for="' . esc_attr( \BuddyNext\Profile\FieldType::input_id( $bn_name ) ) . '"'
+									: '';
+
+								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label"' . $bn_sf_for . '>' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_sf_hint . $bn_ctrl . '</div>';
 							}
 						}
 						$bn_rep_html .= '</div>';
@@ -525,7 +533,13 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 
 					$bn_body_html .= '<div class="' . esc_attr( $bn_field_cls ) . '"'
 						. ' data-wp-class--bn-ep-field--error="context.errors.' . esc_attr( $bn_fkey ) . '">';
-					$bn_body_html .= '<div class="bn-ep-field-head"><label class="bn-ep-label" for="' . esc_attr( $bn_inp_id ) . '">' . esc_html( $bn_label ) . $bn_req_mark . '</label>' . $bn_privacy_html . '</div>';
+					// `for` must be the id render_input() actually gave the control (see
+					// FieldType::input_id), and is omitted for the group types, which
+					// render a <fieldset> with no element carrying that id.
+					$bn_lbl_for    = \BuddyNext\Profile\FieldType::has_labelable_control( $bn_ftype )
+						? ' for="' . esc_attr( \BuddyNext\Profile\FieldType::input_id( $bn_fkey ) ) . '"'
+						: '';
+					$bn_body_html .= '<div class="bn-ep-field-head"><label class="bn-ep-label"' . $bn_lbl_for . '>' . esc_html( $bn_label ) . $bn_req_mark . '</label>' . $bn_privacy_html . '</div>';
 					$bn_body_html .= $bn_field_hint;
 					$bn_body_html .= $bn_control;
 					$bn_body_html .= $bn_err_html;

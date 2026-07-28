@@ -2369,6 +2369,28 @@ a.bn-space-row:hover .bn-space-name {
 	border-block-end: 1px solid var(--bn-line-faint);
 }
 .bn-ep-account-row:last-child { border-block-end: none; }
+
+/* The reveal-on-Change forms (new email, password change, two-factor code) had
+	NO rules at all, so they sat at the card body's own inset while every row
+	label above them is inset a further var(--bn-s5) by .bn-ep-account-row. The
+	measured offset was exactly 20px — not "flush with the card's outer edge", so
+	matching the row padding is the whole fix. Getting that wrong by taking the
+	report literally would have doubled it.
+
+	The padding-block pairs with the row's border-block-end: without it the
+	revealed form butts against the divider and reads as belonging to the NEXT
+	row rather than the one it was opened from. */
+.bn-ep-account-form {
+	padding-inline: var(--bn-s5);
+	padding-block: var(--bn-s3) var(--bn-s4);
+}
+.bn-ep-account-form-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s3);
+}
 .bn-ep-account-copy {
 	min-width: 0;
 	display: flex;

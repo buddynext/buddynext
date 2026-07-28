@@ -39,6 +39,12 @@ class ModerationListener implements ListenerInterface {
 		// report resolved. buddynext_content_removed still fires right after, as
 		// the public side-effect hook for notification/analytics listeners.
 		add_filter( 'buddynext_content_removal_handled', array( $this, 'on_content_removed' ), 10, 4 );
+		// The takedown notice. buddynext_content_removed was documented as "the
+		// public side-effect hook for notification listeners" but had none — so a
+		// member's content vanished from the report queue with no explanation and
+		// no prompt to appeal, while every other moderation action (warn, strike,
+		// suspend, pre-moderation reject) told them.
+		add_action( 'buddynext_content_removed', array( $this, 'on_content_removed_notify' ), 10, 3 );
 		add_action( 'buddynext_user_unsuspended', array( $this, 'on_user_unsuspended' ), 10, 1 );
 		add_action( 'buddynext_appeal_submitted', array( $this, 'on_appeal_submitted' ), 10, 2 );
 		add_action( 'buddynext_report_created', array( $this, 'on_report_created' ), 10, 4 );
@@ -408,6 +414,92 @@ class ModerationListener implements ListenerInterface {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Tell the author when a moderator takes their content down.
+	 *
+	 * Runs on the buddynext_content_removed action, which fires only after a
+	 * handler has confirmed the removal really happened — so this never announces
+	 * a takedown of an object type nothing could remove.
+	 *
+	 * The author is resolved from the surviving row: posts and comments are soft
+	 * -deleted (status='deleted' / is_deleted=1) and messages are tombstoned, so
+	 * the authorship is still readable at this point. A moderator removing their
+	 * own content is not notified about it.
+	 *
+	 * @param string $object_type Content type ('post', 'comment', 'message', …).
+	 * @param int    $object_id   Content ID.
+	 * @param int    $actor_id    Moderator who removed it (0 = automated).
+	 */
+	public function on_content_removed_notify( string $object_type, int $object_id, int $actor_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) || $object_id <= 0 ) {
+			return;
+		}
+
+		$author_id = $this->resolve_content_author( $object_type, $object_id );
+
+		if ( $author_id <= 0 || $author_id === $actor_id ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $author_id,
+				'sender_id'    => 0,
+				'type'         => 'bn.content_removed',
+				'object_type'  => $object_type,
+				'object_id'    => $object_id,
+				'group_key'    => null,
+				'data'         => array( 'content_type' => $object_type ),
+			)
+		);
+	}
+
+	/**
+	 * Resolve who wrote a piece of moderated content.
+	 *
+	 * @param string $object_type Content type ('post', 'comment', 'message', …).
+	 * @param int    $object_id   Content ID.
+	 * @return int Author user ID, or 0 when it cannot be resolved.
+	 */
+	private function resolve_content_author( string $object_type, int $object_id ): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( 'post' === $object_type ) {
+			return (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id )
+			);
+		}
+
+		if ( 'comment' === $object_type ) {
+			return (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT user_id FROM {$wpdb->prefix}bn_comments WHERE id = %d", $object_id )
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( 'message' === $object_type ) {
+			$senders = ( new ModerationService() )->get_message_sender_ids( array( $object_id ) );
+
+			return (int) ( $senders[ $object_id ] ?? 0 );
+		}
+
+		/**
+		 * Filters the resolved author of removed content.
+		 *
+		 * Lets an extension that claimed its own object type on
+		 * buddynext_content_removal_handled also name the author, so the takedown
+		 * notice reaches them too.
+		 *
+		 * @since 1.1.1
+		 *
+		 * @param int    $author_id   Resolved author user ID. 0 when core cannot resolve it.
+		 * @param string $object_type Content type.
+		 * @param int    $object_id   Content ID.
+		 */
+		return (int) apply_filters( 'buddynext_removed_content_author', 0, $object_type, $object_id );
 	}
 
 	/**

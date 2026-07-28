@@ -89,6 +89,12 @@ class BlockController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_blocked' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				// These three read per_page / page in list_window() and supported
+				// ?expand=members through the inherited helper, but declared NO args
+				// at all — so nothing was validated, nothing was documented, and a
+				// generated client could not see any of it. tests/REST/DeclaredParamsTest
+				// exists for exactly this class of drift.
+				'args'                => self::relationship_list_args(),
 			)
 		);
 
@@ -99,6 +105,12 @@ class BlockController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_muted' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				// These three read per_page / page in list_window() and supported
+				// ?expand=members through the inherited helper, but declared NO args
+				// at all — so nothing was validated, nothing was documented, and a
+				// generated client could not see any of it. tests/REST/DeclaredParamsTest
+				// exists for exactly this class of drift.
+				'args'                => self::relationship_list_args(),
 			)
 		);
 
@@ -109,6 +121,12 @@ class BlockController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_restricted' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				// These three read per_page / page in list_window() and supported
+				// ?expand=members through the inherited helper, but declared NO args
+				// at all — so nothing was validated, nothing was documented, and a
+				// generated client could not see any of it. tests/REST/DeclaredParamsTest
+				// exists for exactly this class of drift.
+				'args'                => self::relationship_list_args(),
 			)
 		);
 	}
@@ -196,6 +214,65 @@ class BlockController extends BaseRestController {
 	}
 
 	/**
+	 * Declared args shared by /me/blocked, /me/muted and /me/restricted.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function relationship_list_args(): array {
+		return array(
+			'per_page' => array(
+				'type'              => 'integer',
+				'default'           => 50,
+				'minimum'           => 1,
+				'maximum'           => 100,
+				'sanitize_callback' => 'absint',
+				'description'       => 'Rows per page.',
+			),
+			'page'     => array(
+				'type'              => 'integer',
+				'default'           => 1,
+				'minimum'           => 1,
+				'sanitize_callback' => 'absint',
+				'description'       => 'Page number, 1-based.',
+			),
+			'expand'   => array(
+				'type'        => 'string',
+				'description' => 'Comma-separated expansions. `members` returns a `members` array of hydrated rows (display_name, avatar_url) alongside `ids`.',
+			),
+		);
+	}
+
+	/**
+	 * Shape a relationship list: ids, plus hydrated rows on ?expand=members.
+	 *
+	 * The three endpoints returned a bare `{ ids: [12, 45, 77] }` — no names, no
+	 * avatars, nothing renderable — so a blocked list could only draw tombstone
+	 * rows. The hydration was already built and inherited (maybe_expand_members
+	 * -> MemberDirectoryController::hydrate_members, batch-primed, O(1) queries
+	 * per page) and simply never called here, while ConnectionController and
+	 * FollowController have used it all along.
+	 *
+	 * Note hydrate_members() deliberately applies no directory-visibility filter.
+	 * That is correct here: a member must be able to see, and un-block, someone
+	 * who has opted out of the directory.
+	 *
+	 * @param WP_REST_Request $request   Incoming request.
+	 * @param int[]           $ids       Matched user IDs.
+	 * @param int             $viewer_id Viewer.
+	 * @return array<string, mixed>
+	 */
+	private function shape_relationship_list( WP_REST_Request $request, array $ids, int $viewer_id ): array {
+		$payload = array( 'ids' => $ids );
+
+		$members = $this->maybe_expand_members( $request, $ids, $viewer_id );
+		if ( null !== $members ) {
+			$payload['members'] = $members;
+		}
+
+		return $payload;
+	}
+
+	/**
 	 * Resolve [limit, offset] from a request's per_page/page params.
 	 *
 	 * Per_page defaults to 50 and is capped at 100; page is 1-based. Keeps the
@@ -223,7 +300,7 @@ class BlockController extends BaseRestController {
 		[ $limit, $offset ] = $this->list_window( $request );
 		$blocked            = buddynext_service( 'blocks' )->blocked_users( $current_id, $limit, $offset );
 
-		return new WP_REST_Response( array( 'ids' => $blocked ), 200 );
+		return new WP_REST_Response( $this->shape_relationship_list( $request, $blocked, $current_id ), 200 );
 	}
 
 	/**
@@ -237,7 +314,7 @@ class BlockController extends BaseRestController {
 		[ $limit, $offset ] = $this->list_window( $request );
 		$muted              = buddynext_service( 'blocks' )->muted_users( $current_id, $limit, $offset );
 
-		return new WP_REST_Response( array( 'ids' => $muted ), 200 );
+		return new WP_REST_Response( $this->shape_relationship_list( $request, $muted, $current_id ), 200 );
 	}
 
 	/**
@@ -294,6 +371,6 @@ class BlockController extends BaseRestController {
 		[ $limit, $offset ] = $this->list_window( $request );
 		$restricted         = buddynext_service( 'blocks' )->restricted_users( $current_id, $limit, $offset );
 
-		return new WP_REST_Response( array( 'ids' => $restricted ), 200 );
+		return new WP_REST_Response( $this->shape_relationship_list( $request, $restricted, $current_id ), 200 );
 	}
 }

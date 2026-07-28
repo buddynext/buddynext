@@ -7,11 +7,16 @@
  * canonical) so the URL deep-links cleanly into chat clients and social
  * networks. Renders inside the shell main column via templates/shell/hub-shell.php.
  *
- * Visibility enforced server-side, mirroring `PostController::get_post()`:
- *   1. Block list (bidirectional) → 404 so existence isn't leaked.
- *   2. Secret-space membership → 404 for non-members.
- *   3. Followers-only privacy → 404 when viewer doesn't follow author.
- *   4. Private privacy → 404 for everyone except the author.
+ * Visibility is enforced server-side by ASKING the shared gate rather than
+ * re-deriving it: `PostService::visibility_error()` — the same method
+ * `PostController::get_post()`, the comment / reaction / poll read endpoints and
+ * the space feed all call — covers blocks, space-content membership,
+ * followers-only and private posts. This template adds only the two gates that
+ * live outside it: unpublished status, and a suspended / shadow-banned author.
+ *
+ * It used to hand-roll all four, and its space gate tested a literal
+ * `'secret' === $type`, so a post in a PRIVATE (request-to-join) space rendered
+ * in full to an anonymous visitor holding the link.
  *
  * Anything that fails a gate renders the 404 state ("This post is private or
  * unavailable.") rather than disclosing that the ID resolves to a real row.
@@ -30,10 +35,6 @@ defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Feed\PostService;
-use BuddyNext\SocialGraph\BlockService;
-use BuddyNext\SocialGraph\FollowService;
-use BuddyNext\Spaces\SpaceMemberService;
-use BuddyNext\Spaces\SpaceService;
 
 // Declares this fine-grained surface for the sidebar registry (SidebarRegistry
 // reads it via Surface::current()) before the shell renders the right column.
@@ -43,7 +44,7 @@ $bn_post_id     = isset( $post_id ) ? (int) $post_id : (int) get_query_var( 'bn_
 $bn_viewer_id   = get_current_user_id();
 $bn_post_record = $bn_post_id > 0 ? ( new PostService() )->get( $bn_post_id ) : null;
 
-// ── Visibility gates (mirror PostController::get_post()) ───────────────────
+// ── Visibility gates (shared with PostController::get_post()) ─────────────
 $bn_visible = null !== $bn_post_record;
 
 if ( $bn_visible ) {
@@ -54,43 +55,10 @@ if ( $bn_visible ) {
 		$bn_visible = false;
 	}
 
-	// Gate 1: blocks (bidirectional).
-	if ( $bn_visible && $bn_viewer_id > 0 && $bn_author_id > 0 && $bn_viewer_id !== $bn_author_id ) {
-		$bn_blocks = function_exists( 'buddynext_service' )
-			? buddynext_service( 'blocks' )
-			: new BlockService();
-		if ( $bn_blocks->is_blocking_either( $bn_viewer_id, $bn_author_id ) ) {
-			$bn_visible = false;
-		}
-	}
-
-	// Gate 2: secret-space membership.
-	if ( $bn_visible ) {
-		$bn_space_id = (int) ( $bn_post_record['space_id'] ?? 0 );
-		if ( $bn_space_id > 0 ) {
-			$bn_space = ( new SpaceService() )->get( $bn_space_id );
-			if ( null !== $bn_space && 'secret' === ( $bn_space['type'] ?? '' ) ) {
-				$bn_is_member = $bn_viewer_id > 0 && ( new SpaceMemberService() )->is_member( $bn_space_id, $bn_viewer_id );
-				if ( ! $bn_is_member && ! user_can( $bn_viewer_id, 'manage_options' ) ) {
-					$bn_visible = false;
-				}
-			}
-		}
-	}
-
-	// Gate 3: followers-only privacy.
-	if ( $bn_visible && 'followers' === ( $bn_post_record['privacy'] ?? '' ) && $bn_author_id !== $bn_viewer_id ) {
-		$bn_follows     = function_exists( 'buddynext_service' )
-			? buddynext_service( 'follows' )
-			: new FollowService();
-		$bn_is_follower = $bn_viewer_id > 0 && $bn_follows->is_following( $bn_viewer_id, $bn_author_id );
-		if ( ! $bn_is_follower ) {
-			$bn_visible = false;
-		}
-	}
-
-	// Gate 4: private posts.
-	if ( $bn_visible && 'private' === ( $bn_post_record['privacy'] ?? '' ) && $bn_author_id !== $bn_viewer_id ) {
+	// Gates 1-4: blocks, space-content membership, followers-only and private,
+	// answered by the one shared method every REST read path also calls. The page
+	// and the app cannot disagree because they ask the same question.
+	if ( $bn_visible && ( new PostService() )->visibility_error( $bn_post_id, $bn_viewer_id ) instanceof WP_Error ) {
 		$bn_visible = false;
 	}
 

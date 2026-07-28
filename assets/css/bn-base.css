@@ -619,6 +619,35 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 }
 
 /* Explicit fixed sizes — use when not inline with body text */
+/*
+ * RTL: mirror the icons that POINT somewhere.
+ *
+ * The plugin mirrors its layout correctly (extensive use of logical properties),
+ * but directional icons kept pointing the same way — the "Sign in" and "Create
+ * account" arrows moved to the start of their button and still pointed right,
+ * which reads as "backward" to an Arabic or Hebrew reader.
+ *
+ * Every horizontal arrow/chevron flips: submit-button arrows, pagination
+ * prev/next, back links, breadcrumb separators and the navigate-forward chevron
+ * on link tiles. There is no horizontal DISCLOSURE chevron in the plugin — every
+ * real disclosure control uses chevron-down — so nothing here needs excluding.
+ *
+ * Vertical icons are deliberately absent from this list: chevron-down, arrow-up
+ * and arrow-down are not direction-of-reading, and scaleX(-1) on an asymmetric
+ * rising-metric arrow just mangles it.
+ *
+ * This works at all because IconService now emits a per-name class. Doing it at
+ * the call sites instead would have meant touching ~39 templates and getting the
+ * intent right at each one — the original bug report misclassified 3 of the 5
+ * examples it gave.
+ */
+[dir="rtl"] .bn-icon--arrow-right,
+[dir="rtl"] .bn-icon--arrow-left,
+[dir="rtl"] .bn-icon--chevron-right,
+[dir="rtl"] .bn-icon--chevron-left {
+	transform: scaleX(-1);
+}
+
 .bn-icon--xs  { width: 12px; height: 12px; }
 .bn-icon--sm  { width: 14px; height: 14px; }
 .bn-icon--md  { width: 16px; height: 16px; }
@@ -691,6 +720,22 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 
 	body:has(.bn-mobile-nav) .bn-cookie-consent {
 		inset-block-end: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+	}
+
+	/* wb-gamification's points toast is NOT ours, but it collides with OUR nav on
+		OUR pages, and we are the only side that knows the nav's measured height —
+		--bn-mobile-nav-h is published by our shell JS. Measured at 768px: the toast
+		box (y 831-883, z-index 9999) painted over .bn-mobile-nav (y 841-900,
+		z-index 9500), 42px of overlap from a SINGLE toast, more as they stack.
+		Scoped to :has(.bn-mobile-nav) so it only applies where our bar exists and
+		the plugin's own placement is untouched everywhere else.
+
+		The alternative is the same offset in wb-gamification's own frontend.css
+		(.bn-gam-toasts--bottom-right at :72-76). Doing it here means every BN site
+		is correct without shipping a second plugin; if gamification ever adopts the
+		token itself, this rule becomes a harmless no-op. */
+	body:has(.bn-mobile-nav) .wb-gam-toasts {
+		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
 	}
 }
 .bn-toast {
@@ -1763,31 +1808,38 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	This ensures all pages — feed, members, notifications, spaces, profile,
 	search, hashtags, leaderboard — have identical content width. */
 
-/* Reset: strip max-width and padding from ALL template wrappers inside hub shell */
-.bn-hub-shell > .bn-notifs-shell,
-.bn-hub-shell > .bn-lb-shell,
-.bn-hub-shell > .bn-search-shell,
-.bn-hub-shell > .bn-hashtag-feed,
-.bn-hub-shell > .bn-space-home,
-.bn-hub-shell > .bn-spaces-dir,
-.bn-hub-shell > .bn-hub-content {
+/* The ancestor here was `.bn-hub-shell`, a class renamed to `.bn-app__main` and
+	left in no template — so every rule in this block had been silently dead. The
+	visible symptom was the hashtag page: `.bn-hashtag-shell` kept its own
+	`1fr 300px` and rendered ~324px of white between the content column and the
+	real sidebar, because the rule meant to flatten it never matched.
+
+	Four of the old subjects are dead too and are not carried over:
+	`.bn-notifs-shell` (renamed `.bn-notifs-main`), `.bn-space-home`,
+	`.bn-spaces-dir`, `.bn-hub-content`, plus `.bn-lb-grid` inside the flatten
+	block. */
+
+/* Reset: strip max-width and padding from the template wrappers inside the hub
+	shell, so every hub renders at the same content width. */
+.bn-app__main > .bn-notifs-main,
+.bn-app__main > .bn-lb-shell,
+.bn-app__main > .bn-search-shell,
+.bn-app__main > .bn-hashtag-feed {
 	max-width: none;
 	padding: 0;
 }
 
-/* Flatten internal two-column grids — hub shell sidebar is the right column */
-.bn-hub-shell > .bn-notifs-shell {
+/* Flatten internal two-column grids — the hub shell's sidebar IS the right column. */
+.bn-app__main > .bn-hashtag-feed .bn-hashtag-shell {
 	grid-template-columns: 1fr;
 }
-.bn-hub-shell > .bn-hashtag-feed .bn-hashtag-shell {
-	grid-template-columns: 1fr;
-}
-.bn-hub-shell > .bn-lb-shell .bn-lb-grid {
-	grid-template-columns: 1fr;
-}
-.bn-hub-shell > .bn-search-shell .bn-search-layout {
-	grid-template-columns: 1fr;
-}
+
+/* Deliberately NOT revived: `.bn-search-layout`. Unlike the others its second
+	column is real — `.bn-search-aside` (templates/search/results.php) is the
+	filter panel — so flattening it would collapse the filters into the results
+	column. The old rule never fired, which is the only reason search looks right
+	today. `.bn-notifs-main` needs no flatten either: it is already a
+	single-column flex container (bn-notifications.css:22-26). */
 
 /* Profile uses full-width container (Facebook-style, no community sidebar).
 	Profile has its own contextual widgets — community sidebar is redundant. */
@@ -2433,8 +2485,22 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	align-items: center;
 	justify-content: center;
 	gap: var(--bn-s2);
-	padding: 0 var(--bn-s4);
-	height: 36px;
+	/* min-height, not height, and the label may wrap.
+	 *
+	 * A fixed height plus white-space: nowrap means a label longer than its
+	 * container has nowhere to go: it overflows, and an ancestor with
+	 * overflow:hidden clips it. English hides this — "Log in to join" is 15
+	 * characters — but German renders the same button as "Melde dich an, um
+	 * beizutreten" at ~201px, which overflowed the space-directory card and cut
+	 * the first letter off past its start edge.
+	 *
+	 * Wrapping alone would NOT have fixed it: the label would then overflow the
+	 * fixed 36px/28px box vertically instead. Both parts are required.
+	 *
+	 * Single-line buttons are unaffected — min-height resolves to the same 36px,
+	 * so English layouts render byte-identically. */
+	padding: var(--bn-s2) var(--bn-s4);
+	min-height: 36px;
 	border-radius: var(--bn-r-md);
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-sm);
@@ -2445,14 +2511,17 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 				border-color var(--bn-dur) var(--bn-ease),
 				color var(--bn-dur) var(--bn-ease),
 				transform var(--bn-dur-fast) var(--bn-ease);
-	white-space: nowrap;
+	/* Was nowrap. A translated label must be able to wrap rather than escape its
+		card; `balance` keeps two-line labels from breaking after one word. */
+	white-space: normal;
+	text-wrap: balance;
 	cursor: pointer;
 }
 .bn-btn[data-variant]:active { transform: scale(0.98); }
 
 .bn-btn[data-size="sm"] {
-	height: 28px;
-	padding: 0 var(--bn-s3);
+	min-height: 28px;
+	padding: var(--bn-s1) var(--bn-s3);
 	font-size: var(--bn-text-xs);
 	border-radius: var(--bn-r-sm);
 }

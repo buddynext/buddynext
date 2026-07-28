@@ -227,7 +227,22 @@ do_action( 'buddynext_part_post_byline_before', $args );
 	endif;
 	?>
 
-	<?php buddynext_get_template( 'parts/post-options-menu.php', (array) $args['options_menu_args'] ); ?>
+	<?php
+	// Forward the author so the overflow menu can offer Follow on mobile, where
+	// the inline pill above is hidden by bn-feed.css. Passed here rather than
+	// resolved inside the menu part so both controls answer to the SAME
+	// show_follow gate (self / guest / blocked already decided above).
+	buddynext_get_template(
+		'parts/post-options-menu.php',
+		array_merge(
+			(array) $args['options_menu_args'],
+			array(
+				'follow_author_id' => (int) $args['author_id'],
+				'show_follow'      => ! empty( $args['show_follow'] ),
+			)
+		)
+	);
+	?>
 </header>
 <?php
 do_action( 'buddynext_part_post_byline_after', $args );

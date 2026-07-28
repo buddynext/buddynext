@@ -39,15 +39,33 @@ class MediaClient {
 	 * @return object|null
 	 */
 	private static function service( string $key ) {
-		if ( ! self::available() ) {
-			return null;
+		$resolved = null;
+
+		if ( self::available() ) {
+			try {
+				$container = \WPMediaVerse\Core\Plugin::container();
+				$resolved  = $container ? $container->get( $key ) : null;
+			} catch ( \Throwable $e ) {
+				$resolved = null;
+			}
 		}
-		try {
-			$container = \WPMediaVerse\Core\Plugin::container();
-			return $container ? $container->get( $key ) : null;
-		} catch ( \Throwable $e ) {
-			return null;
-		}
+
+		/**
+		 * Filter a resolved WPMediaVerse container service.
+		 *
+		 * The single seam into the media boundary. Returning an object here
+		 * substitutes an engine service, which is how the test suite covers media
+		 * authorisation without booting WPMediaVerse, and how an alternative media
+		 * engine can supply a compatible implementation.
+		 *
+		 * @since 1.1.1
+		 *
+		 * @param object|null $resolved Service resolved from the engine container, or null when absent.
+		 * @param string      $key      Container key ('media_repository', 'upload', 'object_media', …).
+		 */
+		$filtered = apply_filters( 'buddynext_media_service', $resolved, $key );
+
+		return is_object( $filtered ) ? $filtered : null;
 	}
 
 	/**

@@ -297,8 +297,15 @@ class FieldGovernanceTest extends \WP_UnitTestCase {
 
 	/**
 	 * Submitting an empty value for a required flat field is rejected with a
-	 * per-field error; the stored value is never cleared and sibling fields
-	 * still persist.
+	 * per-field error, and the save is ATOMIC — the stored value is not cleared
+	 * and no sibling field is written either.
+	 *
+	 * This previously asserted the opposite for the sibling ("valid fields still
+	 * persist"). That was the documented behaviour and it was the bug: the caller
+	 * received a WP_Error, every caller renders that as "save failed", and the
+	 * member (or the admin editing them) was told nothing saved while a sibling
+	 * field had already changed — then re-edited from a state that no longer
+	 * matched the database. A save that reports failure must leave nothing behind.
 	 *
 	 * @return void
 	 */
@@ -328,14 +335,23 @@ class FieldGovernanceTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( 'location', $fields );
 		$this->assertStringContainsString( 'required', strtolower( (string) $fields['location'] ) );
 
-		// The stored value survives the rejected clear; the valid sibling saved.
+		// The stored value survives the rejected clear.
 		$profile = $this->service->get_profile( $user_id, $user_id );
 		$values  = array();
 		foreach ( $profile['fields'] as $field ) {
 			$values[ $field['field_key'] ] = $field['value'];
 		}
 		$this->assertSame( 'Berlin', $values['location'] );
-		$this->assertSame( 'they/them', $values['pronouns'] );
+
+		// ATOMICITY: the valid sibling in the same rejected submission must NOT
+		// have been written. If this assertion ever fails, save_profile() has gone
+		// back to writing field-by-field and the "told it failed while data
+		// changed" bug is live again.
+		$this->assertNotSame(
+			'they/them',
+			$values['pronouns'],
+			'A rejected save must not persist sibling fields.'
+		);
 	}
 
 	/**

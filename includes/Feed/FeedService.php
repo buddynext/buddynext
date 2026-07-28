@@ -2037,6 +2037,92 @@ class FeedService {
 	 * @param int $limit    Max media IDs to return (1-100). Default 24.
 	 * @return array<int,int>
 	 */
+	/**
+	 * One page of a space's media-bearing posts, newest first.
+	 *
+	 * Pagination is over POSTS, not over individual attachments: `space_id +
+	 * status + created_at` is indexed, so a page stays a bounded, index-backed
+	 * query no matter how deep the caller goes. Flattening attachments in PHP
+	 * with a media-level OFFSET would mean re-reading every earlier post on every
+	 * page — fine on a demo space, quadratic on a five-year-old one.
+	 *
+	 * Each row carries the post it came from so the caller can deep-link a tile
+	 * back to its post without a second query.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $limit    Posts per page (1-100).
+	 * @param int $offset   Post offset.
+	 * @return array<int, array{post_id:int,user_id:int,created_at:string,media_ids:array<int,int>}>
+	 */
+	public function space_media_rows( int $space_id, int $limit = 24, int $offset = 0 ): array {
+		if ( $space_id <= 0 ) {
+			return array();
+		}
+
+		$limit  = max( 1, min( 100, $limit ) );
+		$offset = max( 0, $offset );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, user_id, created_at, media_ids FROM {$wpdb->prefix}bn_posts
+				 WHERE space_id = %d AND status = 'published'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''
+				 ORDER BY created_at DESC, id DESC
+				 LIMIT %d OFFSET %d",
+				$space_id,
+				$limit,
+				$offset
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$out = array();
+		foreach ( (array) $rows as $row ) {
+			$decoded = json_decode( (string) ( $row['media_ids'] ?? '' ), true );
+			if ( ! is_array( $decoded ) ) {
+				continue;
+			}
+
+			$ids = array();
+			foreach ( $decoded as $mid ) {
+				$mid = absint( $mid );
+				if ( $mid > 0 ) {
+					$ids[] = $mid;
+				}
+			}
+
+			if ( empty( $ids ) ) {
+				continue;
+			}
+
+			$out[] = array(
+				'post_id'    => (int) ( $row['id'] ?? 0 ),
+				'user_id'    => (int) ( $row['user_id'] ?? 0 ),
+				'created_at' => (string) ( $row['created_at'] ?? '' ),
+				'media_ids'  => $ids,
+			);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Return a flat, de-duplicated list of media IDs from a space's recent
+	 * published posts, newest post first, capped at $limit. Powers the space
+	 * "Media" gallery without the template touching bn_posts directly.
+	 *
+	 * Scans up to 60 recent media-bearing posts (the source rows can each carry
+	 * several attachments) and flattens their media_ids JSON arrays before
+	 * trimming to $limit unique IDs. For a paginated grid use space_media_rows().
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $limit    Max media IDs to return (1-100). Default 24.
+	 * @return array<int,int>
+	 */
 	public function space_media_ids( int $space_id, int $limit = 24 ): array {
 		if ( $space_id <= 0 ) {
 			return array();

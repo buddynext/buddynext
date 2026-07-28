@@ -381,11 +381,25 @@ class NotificationController extends BaseRestController {
 		$catalogue = new NotificationPrefCatalogue();
 		$resolved  = $catalogue->resolve_for_user( $stored );
 
+		/*
+		 * The owner's site-wide digest switch (Settings -> Email), surfaced so the
+		 * app can grey out Daily/Weekly instead of offering a choice the server
+		 * will never honour — the same thing templates/notifications/prefs.php
+		 * already does on the web.
+		 *
+		 * READ-ONLY, deliberately. The card that asked for this also asked the PUT
+		 * to accept it; that is refused. `buddynext_digest_frequency` is a
+		 * site-wide option owned by an administrator, and this route is
+		 * `require_auth` — accepting it here would let any logged-in member
+		 * disable email digests for the ENTIRE community. See the card for the
+		 * full reasoning.
+		 */
 		return new WP_REST_Response(
 			array(
-				'prefs'   => $resolved,
-				'stored'  => $stored,
-				'updated' => time(),
+				'prefs'           => $resolved,
+				'stored'          => $stored,
+				'digests_enabled' => \BuddyNext\Notifications\EmailSender::digests_enabled(),
+				'updated'         => time(),
 			),
 			200
 		);

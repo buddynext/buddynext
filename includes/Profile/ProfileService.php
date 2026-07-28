@@ -623,6 +623,31 @@ class ProfileService {
 		// honest result instead of always claiming success.
 		$field_errors = array();
 
+		// ATOMICITY: every write below is DEFERRED into this queue and executed
+		// only after the whole submission has validated. Nothing this method
+		// touches reaches the database until the gate after the loop.
+		//
+		// It used to write field-by-field and merely accumulate $field_errors, so a
+		// rejection on the fifth field left the first four persisted while the
+		// caller was handed a WP_Error — which every caller renders as "save
+		// failed". The member (or the admin editing them) was told nothing saved
+		// while half their edit was already live, then re-edited from a state that
+		// no longer matched the database. That is the one answer a save must never
+		// give.
+		//
+		// A DB transaction was rejected as the fix: the loop also calls
+		// update_user_meta() and do_action(), and a ROLLBACK cannot un-populate the
+		// object cache those meta writes prime (on a site with persistent Redis the
+		// wrong value would outlive the request) nor un-fire an action listeners
+		// have already acted on. Deferring the writes has neither problem — on a
+		// rejected save they simply never happen.
+		//
+		// Ordering is preserved: closures run in append order, so the sequence of
+		// writes is identical to what the loop performed inline.
+
+		// Deferred write operations, executed only after the whole payload validates.
+		$pending_writes = array();
+
 		// Repeater searchable sub-fields can't use the single-valued bn_field_{key}
 		// mirror per-entry (each entry would clobber the last). Collect the public,
 		// searchable values across ALL entries of a repeater sub-field here and
@@ -730,7 +755,9 @@ class ProfileService {
 							(string) ( $field_def['visibility'] ?? 'public' )
 						);
 
-						$this->upsert_value( $user_id, $field_id, $entry_index, $sanitized_val, $entry_visibility );
+						$pending_writes[] = function () use ( $user_id, $field_id, $entry_index, $sanitized_val, $entry_visibility ): void {
+							$this->upsert_value( $user_id, $field_id, $entry_index, $sanitized_val, $entry_visibility );
+						};
 
 						// Collect the value for the aggregated repeater mirror. Mark
 						// the field as submitted (empty list) so a now-cleared field
@@ -778,26 +805,35 @@ class ProfileService {
 				if ( ! empty( $group_field_ids ) ) {
 					$id_marks = implode( ', ', array_fill( 0, count( $group_field_ids ), '%d' ) );
 
-					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					// Deferred with every other write — see the $pending_writes note.
+					// A prune that ran while a later field was rejected would delete
+					// the member's removed entries and then report the save failed.
 					if ( empty( $submitted_indexes ) ) {
-						$wpdb->query(
-							$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-								// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-								"DELETE FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id IN ({$id_marks})",
-								...array_merge( array( $user_id ), $group_field_ids )
-							)
-						);
+						$pending_writes[] = function () use ( $wpdb, $user_id, $group_field_ids, $id_marks ): void {
+							// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+							$wpdb->query(
+								$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+									// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+									"DELETE FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id IN ({$id_marks})",
+									...array_merge( array( $user_id ), $group_field_ids )
+								)
+							);
+							// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+						};
 					} else {
-						$ix_marks = implode( ', ', array_fill( 0, count( $submitted_indexes ), '%d' ) );
-						$wpdb->query(
-							$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-								// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-								"DELETE FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id IN ({$id_marks}) AND entry_index NOT IN ({$ix_marks})",
-								...array_merge( array( $user_id ), $group_field_ids, $submitted_indexes )
-							)
-						);
+						$ix_marks         = implode( ', ', array_fill( 0, count( $submitted_indexes ), '%d' ) );
+						$pending_writes[] = function () use ( $wpdb, $user_id, $group_field_ids, $submitted_indexes, $id_marks, $ix_marks ): void {
+							// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+							$wpdb->query(
+								$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+									// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+									"DELETE FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id IN ({$id_marks}) AND entry_index NOT IN ({$ix_marks})",
+									...array_merge( array( $user_id ), $group_field_ids, $submitted_indexes )
+								)
+							);
+							// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+						};
 					}
-					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				}
 
 				// A group emptied of every entry never enters the sub-field loop
@@ -934,7 +970,9 @@ class ProfileService {
 			// gating live in apply_member_type_selection(); writing a bn_profile_values
 			// row here would only create a second value that diverges from the truth.
 			if ( 'member_type' === $field_type ) {
-				$this->apply_member_type_selection( $user_id, $sanitized_val );
+				$pending_writes[] = function () use ( $user_id, $sanitized_val ): void {
+					$this->apply_member_type_selection( $user_id, $sanitized_val );
+				};
 				continue;
 			}
 
@@ -944,12 +982,14 @@ class ProfileService {
 			// key the registration-time save path uses. upsert_value() would instead
 			// orphan a bn_profile_values row on field_id 0, which nothing reads.
 			if ( 0 === $field_id ) {
-				$vkey = 'bn_field_' . sanitize_key( (string) $key );
-				if ( '' !== $sanitized_val ) {
-					update_user_meta( $user_id, $vkey, $sanitized_val );
-				} else {
-					delete_user_meta( $user_id, $vkey );
-				}
+				$vkey             = 'bn_field_' . sanitize_key( (string) $key );
+				$pending_writes[] = function () use ( $user_id, $vkey, $sanitized_val ): void {
+					if ( '' !== $sanitized_val ) {
+						update_user_meta( $user_id, $vkey, $sanitized_val );
+					} else {
+						delete_user_meta( $user_id, $vkey );
+					}
+				};
 				continue;
 			}
 
@@ -960,8 +1000,10 @@ class ProfileService {
 			// sanitised CSV is only the in-memory transport; the search mirror
 			// still gets one human-readable value like every other flat field.
 			if ( \BuddyNext\Profile\FieldType::is_multi_entry( $field_type ) ) {
-				$this->save_multi_entry_value( $user_id, $field_id, $sanitized_val, $entry_visibility );
-				$this->sync_search_mirror( $user_id, $field, $sanitized_val, $entry_visibility );
+				$pending_writes[] = function () use ( $user_id, $field_id, $field, $sanitized_val, $entry_visibility ): void {
+					$this->save_multi_entry_value( $user_id, $field_id, $sanitized_val, $entry_visibility );
+					$this->sync_search_mirror( $user_id, $field, $sanitized_val, $entry_visibility );
+				};
 
 				// Every interests write funnels through this branch (onboarding
 				// step 2 / POST /me/interests alias / profile edit), so this is
@@ -978,15 +1020,19 @@ class ProfileService {
 					 *
 					 * @param int $user_id The member whose interests changed.
 					 */
-					do_action( 'buddynext_member_interests_updated', $user_id );
+					$pending_writes[] = function () use ( $user_id ): void {
+						do_action( 'buddynext_member_interests_updated', $user_id );
+					};
 				}
 				continue;
 			}
 
-			$this->upsert_value( $user_id, $field_id, 0, $sanitized_val, $entry_visibility );
+			$pending_writes[] = function () use ( $user_id, $field_id, $field, $sanitized_val, $entry_visibility ): void {
+				$this->upsert_value( $user_id, $field_id, 0, $sanitized_val, $entry_visibility );
 
-			// A2: write/delete the privacy-safe search mirror.
-			$this->sync_search_mirror( $user_id, $field, $sanitized_val, $entry_visibility );
+				// A2: write/delete the privacy-safe search mirror.
+				$this->sync_search_mirror( $user_id, $field, $sanitized_val, $entry_visibility );
+			};
 
 			// Denormalise the headline into a dedicated bn_headline usermeta key.
 			// Member-list surfaces (onboarding suggestions) LEFT JOIN this key to
@@ -994,12 +1040,38 @@ class ProfileService {
 			// DemoDataService wrote it, so real users showed no headline there;
 			// keep it in lockstep with the canonical bn_profile_values row.
 			if ( 'headline' === $key ) {
-				if ( '' !== $sanitized_val ) {
-					update_user_meta( $user_id, 'bn_headline', $sanitized_val );
-				} else {
-					delete_user_meta( $user_id, 'bn_headline' );
-				}
+				$pending_writes[] = function () use ( $user_id, $sanitized_val ): void {
+					if ( '' !== $sanitized_val ) {
+						update_user_meta( $user_id, 'bn_headline', $sanitized_val );
+					} else {
+						delete_user_meta( $user_id, 'bn_headline' );
+					}
+				};
 			}
+		}
+
+		// ── The atomicity gate ───────────────────────────────────────────────────
+		// Nothing above has touched the database: every write is sitting in
+		// $pending_writes. If ANY field was rejected the whole save is refused here,
+		// so a caller that is told the save failed can trust that nothing changed.
+		//
+		// This returns BEFORE the repeater-mirror flush, the profile-slug write, the
+		// cache busts and the auto-moderation flag below — all of which are writes or
+		// side effects of a save that did not happen.
+		if ( ! empty( $field_errors ) ) {
+			return new \WP_Error(
+				'profile_fields_invalid',
+				__( 'Some fields could not be saved.', 'buddynext' ),
+				array(
+					'fields' => $field_errors,
+					'status' => 422,
+				)
+			);
+		}
+
+		// Validated. Commit, in the order the loop produced.
+		foreach ( $pending_writes as $bn_pending_write ) {
+			$bn_pending_write();
 		}
 
 		// Flush the aggregated repeater search mirrors. A submitted repeater
@@ -1033,20 +1105,6 @@ class ProfileService {
 		// moderation queue so a human reviews the flagged field afterwards.
 		if ( '' !== $bn_flag_reason ) {
 			\BuddyNext\Moderation\ModerationService::auto_flag( 'user', $user_id, $bn_flag_reason );
-		}
-
-		// Honest result: any rejected field returns a WP_Error carrying the
-		// field => message map (HTTP 422) so the admin editor can show inline
-		// errors. Valid fields above were still persisted.
-		if ( ! empty( $field_errors ) ) {
-			return new \WP_Error(
-				'profile_fields_invalid',
-				__( 'Some fields could not be saved.', 'buddynext' ),
-				array(
-					'fields' => $field_errors,
-					'status' => 422,
-				)
-			);
 		}
 
 		return true;
@@ -1797,18 +1855,37 @@ class ProfileService {
 		$placeholders = implode( ', ', array_fill( 0, count( $field_ids ), '%d' ) );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// `value <> ''` alone cannot answer "did the member fill this in?" — the
+		// boolean sanitiser stores '0' for an unticked box, so a SQL-only test
+		// counted every untouched checkbox as filled. The rows are re-judged in PHP
+		// through FieldType::is_filled(), the same predicate get_strength() and
+		// render_display() use, so all three agree. The `value <> ''` stays as a
+		// cheap pre-filter — it discards the overwhelming majority of empty rows
+		// before they cross the wire.
 		$filled_rows = $wpdb->get_results(
 			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				"SELECT field_id FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND entry_index = 0 AND field_id IN ({$placeholders}) AND value IS NOT NULL AND value <> ''",
+				"SELECT field_id, value FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND entry_index = 0 AND field_id IN ({$placeholders}) AND value IS NOT NULL AND value <> ''",
 				...array_merge( array( $user_id ), $field_ids )
 			),
 			ARRAY_A
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$filled_ids = array_column( (array) $filled_rows, 'field_id' );
-		$filled_set = array_flip( $filled_ids );
+		$fields_by_id = array();
+		foreach ( $fields as $bn_field ) {
+			$fields_by_id[ (int) $bn_field['id'] ] = $bn_field;
+		}
+
+		$filled_set = array();
+		foreach ( (array) $filled_rows as $bn_row ) {
+			$bn_field_id = (int) $bn_row['field_id'];
+			$bn_def      = $fields_by_id[ $bn_field_id ] ?? array();
+
+			if ( \BuddyNext\Profile\FieldType::is_filled( $bn_def, $bn_row['value'] ) ) {
+				$filled_set[ $bn_field_id ] = true;
+			}
+		}
 
 		$required_total     = 0;
 		$required_filled    = 0;
@@ -1935,9 +2012,11 @@ class ProfileService {
 		// cluster) -> one rollup task per group, done when any field is filled.
 		// - Repeater groups (work experience, education, customs) -> one task
 		// per group, done when it has at least one non-empty entry.
-		$filled = static fn( $value ): bool => '' !== trim(
-			is_array( $value ) ? implode( '', array_map( 'strval', $value ) ) : (string) $value
-		);
+		// "Filled" is a per-type question — see FieldType::is_filled(). This used to
+		// be a bare non-empty-string test, which counted an unticked checkbox
+		// (stored as '0' by the boolean sanitiser) as filled and ticked Work
+		// Experience and Education for members who had entered nothing.
+		$filled = static fn( array $field, $value ): bool => \BuddyNext\Profile\FieldType::is_filled( $field, $value );
 
 		$tasks = array();
 
@@ -1948,7 +2027,7 @@ class ProfileService {
 				$has_entry = false;
 				foreach ( (array) ( $group['entries'] ?? array() ) as $entry ) {
 					foreach ( (array) $entry as $f ) {
-						if ( is_array( $f ) && isset( $f['field_key'] ) && $filled( $f['value'] ?? '' ) ) {
+						if ( is_array( $f ) && isset( $f['field_key'] ) && $filled( $f, $f['value'] ?? '' ) ) {
 							$has_entry = true;
 							break 2;
 						}
@@ -1979,7 +2058,7 @@ class ProfileService {
 			// is what a member acts on. Repeater groups already roll up per group above.
 			$any_filled = false;
 			foreach ( $fields as $f ) {
-				if ( $filled( $f['value'] ?? '' ) ) {
+				if ( $filled( $f, $f['value'] ?? '' ) ) {
 					$any_filled = true;
 					break;
 				}

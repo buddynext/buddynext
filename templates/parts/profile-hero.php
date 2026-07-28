@@ -83,6 +83,7 @@ $args = array(
 	'can_edit_any'        => isset( $can_edit_any ) ? (bool) $can_edit_any : false,
 	'is_online'           => isset( $is_online ) ? (bool) $is_online : false,
 	'is_following'        => isset( $is_following ) ? (bool) $is_following : false,
+	'follow_pending'      => isset( $follow_pending ) ? (bool) $follow_pending : false,
 	'is_connected'        => isset( $is_connected ) ? (bool) $is_connected : false,
 	'connection_pending'  => isset( $connection_pending ) ? (bool) $connection_pending : false,
 	'connection_received' => isset( $connection_received ) ? (bool) $connection_received : false,
@@ -134,6 +135,7 @@ $bn_pf_is_owner      = (bool) $args['is_owner'];
 $bn_pf_can_edit      = (bool) $args['can_edit_any'];
 $bn_pf_is_online     = (bool) $args['is_online'];
 $bn_pf_is_following  = (bool) $args['is_following'];
+$bn_pf_follow_pend   = (bool) $args['follow_pending'];
 $bn_pf_is_connected  = (bool) $args['is_connected'];
 $bn_pf_conn_pending  = (bool) $args['connection_pending'];
 $bn_pf_conn_received = (bool) $args['connection_received'];
@@ -467,12 +469,33 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 			<!-- Action buttons — shown for other users only; owners see the bar above -->
 			<?php if ( ! $bn_pf_is_owner && $bn_pf_viewer ) : ?>
 			<div class="bn-pf-actions">
-				<?php if ( $bn_pf_can_follow || $bn_pf_is_following ) : ?>
+				<?php
+				/*
+				 * Three states, not two. Following a PRIVATE account stores the row
+				 * as status='pending' until the owner approves it, so "Requested" is
+				 * a real state a member sits in — and this header had no way to show
+				 * it. The button flipped straight to "Following" and the follower
+				 * count incremented, telling the viewer they were following someone
+				 * who had not approved them, and inflating the owner's count until
+				 * the next reload.
+				 *
+				 * The shared partials/follow-button.php already models all of this;
+				 * this header is a separate hand-rolled control, which is why it
+				 * drifted. Bindings use state.* so the store owns the transitions.
+				 */
+				?>
+				<?php if ( $bn_pf_can_follow || $bn_pf_is_following || $bn_pf_follow_pend ) : ?>
 				<button class="bn-btn" data-variant="primary" data-size="sm"
 					data-wp-on--click="actions.follow"
-					data-wp-bind--hidden="context.isFollowing"
-					<?php echo $bn_pf_is_following ? 'hidden' : ''; ?>>
+					data-wp-bind--hidden="state.followBtnHidden"
+					<?php echo ( $bn_pf_is_following || $bn_pf_follow_pend ) ? 'hidden' : ''; ?>>
 					<?php esc_html_e( 'Follow', 'buddynext' ); ?>
+				</button>
+				<button class="bn-btn bn-pf-follow-requested" data-variant="secondary" data-size="sm"
+					data-wp-on--click="actions.unfollow"
+					data-wp-bind--hidden="!context.followPending"
+					<?php echo $bn_pf_follow_pend ? '' : 'hidden'; ?>>
+					<?php esc_html_e( 'Requested', 'buddynext' ); ?>
 				</button>
 				<button class="bn-btn" data-variant="secondary" data-size="sm"
 					data-wp-on--click="actions.unfollow"

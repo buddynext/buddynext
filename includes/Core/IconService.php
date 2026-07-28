@@ -374,7 +374,15 @@ class IconService {
 
 		// Always inject bn-icon as base class so every icon gets the
 		// sizing, stroke, and display rules from bn-base.css.
-		$classes = 'bn-icon' . ( '' !== $css_class ? ' ' . $css_class : '' );
+		//
+		// Plus a per-name modifier, `bn-icon--{name}`. Without it the rendered SVG
+		// carried no trace of WHICH icon it was, so anything that needs to treat
+		// one icon differently from another had to be done at all ~39 call sites
+		// and re-done at every new one. The RTL mirroring of directional icons is
+		// exactly that case: arrows and horizontal chevrons must flip for an RTL
+		// reader, vertical ones must not, and now one CSS rule can say so.
+		$classes = 'bn-icon bn-icon--' . sanitize_html_class( $name )
+			. ( '' !== $css_class ? ' ' . $css_class : '' );
 		$svg     = str_replace( '<svg ', '<svg class="' . esc_attr( $classes ) . '" ', $svg );
 
 		$cache[ $key ] = wp_kses( $svg, self::allowed_tags() );

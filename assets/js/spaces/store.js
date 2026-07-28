@@ -656,6 +656,49 @@ function bumpMemberCount( card, delta ) {
 	countEl.textContent = countEl.textContent.replace( /\d[\d,]*/, next.toLocaleString() );
 }
 
+/**
+ * Re-render the current space page after joining it.
+ *
+ * The hero's Join button is client-side (swapButtonState), but the feed panel's
+ * composer gate is pure server-rendered PHP — templates/parts/space-feed-panel.php
+ * branches on $is_member with no Interactivity binding at all. So joining flipped
+ * the header to "Joined" while the panel below kept showing "Join the conversation"
+ * and a second Join button. The member WAS joined — member count, Members tab and
+ * post visibility were all correct — but they could not post until they reloaded.
+ *
+ * Two approaches were tried and rejected before this one:
+ *
+ *   - Duplicating the composer into the DOM for non-members and toggling it.
+ *     That puts a composer on screen for people who may not post, and splits
+ *     "can this member post" across two sources again — the exact shape of the
+ *     bug being fixed.
+ *   - Re-running the server render through @wordpress/interactivity-router.
+ *     Verified in the browser: actions.navigate() resolves without error but
+ *     does NOT swap this region, for the current URL or a cache-busted one. The
+ *     space route is not served by the router region, so there is nothing for it
+ *     to replace.
+ *
+ * So: reload. It is what the member is doing by hand today, it is guaranteed to
+ * be correct because the server stays the only source of truth, and it happens
+ * once, immediately after an explicit action whose whole point is to change what
+ * this page offers.
+ *
+ * No-op anywhere the gate is not on screen — the spaces directory, a card in a
+ * list — so joining from those surfaces still just swaps the button, no reload.
+ *
+ * @return {void}
+ */
+function refreshSpacePageAfterJoin() {
+	// Only when the composer gate is actually on this page.
+	if ( ! document.querySelector( '.bn-sh-guest-cta' ) ) { return; }
+
+	// Let the "Joined" button state and its toast paint first, so the reload
+	// reads as a page catching up rather than a click that did nothing.
+	window.setTimeout( function () {
+		window.location.reload();
+	}, 350 );
+}
+
 /* ── Store ─────────────────────────────────────────────────────────── */
 
 var storeInstance = store( 'buddynext/spaces', {
@@ -716,6 +759,8 @@ var storeInstance = store( 'buddynext/spaces', {
 					swapButtonState( btn, 'joined' );
 					// Update the member count in the same card (no-op off-card).
 					bumpMemberCount( spaceCardFor( btn ), 1 );
+					// ...and re-render the space page, if that is where we are.
+					refreshSpacePageAfterJoin();
 				} else if ( res.ok && ( data.requested || data.pending ) ) {
 					// Open space with "require approval to join": the server accepted
 					// the join REQUEST and returns 200 {requested:true} (not joined).

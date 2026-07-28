@@ -21,6 +21,7 @@
  *   DELETE /users/{id}/shadow-ban                 — remove shadow ban (admin only)
  *   DELETE /users/{id}/suspend                    — unsuspend a user (admin only)
  *   GET    /users/{id}/suspension                 — get active suspension record (admin only)
+ *   GET    /me/standing                           — own strikes + active suspension (authenticated)
  *   POST   /me/appeals                            — submit an appeal (authenticated)
  *   GET    /appeals                               — list pending appeals (admin only)
  *   POST   /appeals/{id}/resolve                  — resolve an appeal: decision=approved|denied (admin only)
@@ -530,6 +531,16 @@ class ModerationController extends BaseRestController {
 		);
 
 		// Submit an appeal from the current user's own account.
+		register_rest_route(
+			'buddynext/v1',
+			'/me/standing',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_my_standing' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/me/appeals',
@@ -1449,10 +1460,13 @@ class ModerationController extends BaseRestController {
 			return true;
 		}
 
+		// Route through the canonical gate rather than re-deriving the role set.
+		// This hand-rolled in_array( ..., [ 'owner', 'moderator' ] ) is exactly
+		// buddynext-moderate-space, and duplicating it meant a change to the
+		// Spaces permission model would silently miss this endpoint.
 		$space_id = (int) $request->get_param( 'id' );
-		$role     = ( new SpaceMemberService() )->get_role( $space_id, get_current_user_id() );
 
-		if ( in_array( $role, array( 'owner', 'moderator' ), true ) ) {
+		if ( $space_id > 0 && buddynext_can( get_current_user_id(), 'buddynext-moderate-space', array( 'space_id' => $space_id ) ) ) {
 			return true;
 		}
 
@@ -1649,6 +1663,27 @@ class ModerationController extends BaseRestController {
 	 *
 	 * @return WP_REST_Response
 	 */
+	/**
+	 * GET /me/standing — the current member's own account standing.
+	 *
+	 * A member could read their submitted appeals but not the suspension an
+	 * appeal is ABOUT (that route is admin-only), so an Account Standing screen
+	 * could list appeals while being unable to offer "Appeal this suspension" —
+	 * submitting one needs a suspension id the member had no way to obtain.
+	 *
+	 * Own record only: there is no id parameter, and the service reads
+	 * get_current_user_id(). The payload deliberately omits the acting
+	 * moderator's identity and says nothing about shadow-ban state.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_my_standing(): WP_REST_Response {
+		return new WP_REST_Response(
+			( new ModerationService() )->get_standing( get_current_user_id() ),
+			200
+		);
+	}
+
 	public function list_my_appeals(): WP_REST_Response {
 		$appeals = ( new ModerationService() )->get_user_appeals( get_current_user_id() );
 

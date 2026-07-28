@@ -924,13 +924,28 @@ class AuthController {
 			? \WP_Application_Passwords::get_user_application_passwords( $user_id )
 			: array();
 
+		/*
+		 * The credential THIS request authenticated with. WordPress records it on
+		 * the request; without surfacing it the Devices screen cannot label
+		 * "This device", and worse, cannot warn a member who is about to revoke
+		 * the very credential they are signed in with and lock themselves out.
+		 * Returns false for a cookie-authenticated request (the web UI), in which
+		 * case no row is current — which is correct.
+		 */
+		$current_uuid = function_exists( 'rest_get_authenticated_app_password' )
+			? rest_get_authenticated_app_password()
+			: false;
+
 		$out = array();
 		foreach ( (array) $items as $item ) {
+			$uuid = (string) ( $item['uuid'] ?? '' );
+
 			$out[] = array(
-				'uuid'      => (string) ( $item['uuid'] ?? '' ),
+				'uuid'      => $uuid,
 				'name'      => (string) ( $item['name'] ?? '' ),
 				'created'   => (int) ( $item['created'] ?? 0 ),
 				'last_used' => isset( $item['last_used'] ) ? (int) $item['last_used'] : null,
+				'current'   => is_string( $current_uuid ) && '' !== $uuid && $current_uuid === $uuid,
 			);
 		}
 

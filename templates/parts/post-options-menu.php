@@ -43,6 +43,10 @@ $args = array(
 	'can_delete'   => ! empty( $can_delete ),
 	'is_pinned'    => ! empty( $is_pinned ),
 	'classes'      => isset( $classes ) ? (array) $classes : array(),
+	// Mobile Follow: the author, and the same show_follow gate the inline pill
+	// uses (self / guest / blocked already decided by the byline).
+	'show_follow'      => ! empty( $show_follow ),
+	'follow_author_id' => isset( $follow_author_id ) ? absint( $follow_author_id ) : 0,
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -57,7 +61,12 @@ if ( 0 === (int) $args['bn_post_id'] ) {
 // "the menu doesn't open" — so when Edit/Pin/Report/Delete all gate out (e.g. a
 // viewer with no rights over a tool/service-generated activity), render nothing
 // rather than a dead affordance.
-if ( empty( $args['can_edit'] ) && empty( $args['can_pin'] ) && empty( $args['can_report'] ) && empty( $args['can_delete'] ) ) {
+// Follow counts as a qualifying action. Without it here, the one case the mobile
+// Follow exists FOR — someone else's post, where the viewer has no edit/pin/
+// delete rights — would return early and render no menu at all.
+$bn_has_follow = ! empty( $args['show_follow'] ) && $args['follow_author_id'] > 0;
+
+if ( empty( $args['can_edit'] ) && empty( $args['can_pin'] ) && empty( $args['can_report'] ) && empty( $args['can_delete'] ) && ! $bn_has_follow ) {
 	return;
 }
 
@@ -97,6 +106,41 @@ do_action( 'buddynext_part_post_options_menu_before', $args );
 		data-wp-bind--hidden="!state.optionsOpen"
 		hidden
 	>
+		<?php
+		/*
+		 * Follow — mobile only.
+		 *
+		 * bn-feed.css hides the inline per-post Follow pill under 640px and its
+		 * comment says "the action stays available via the post's overflow (…)
+		 * menu". It was not: the menu had Edit / Pin / Report / Delete and no
+		 * Follow, so on a phone the only way to follow a post's author was to
+		 * leave the feed for their profile.
+		 *
+		 * Renders the same partials/follow-button.php the inline pill uses, so the
+		 * two controls share one store, one set of reactive states, and one set of
+		 * self / guest / blocked guards — rather than a second button that could
+		 * drift out of sync with the first.
+		 */
+		if ( ! empty( $args['show_follow'] ) && (int) ( $args['follow_author_id'] ?? 0 ) > 0 ) :
+			?>
+			<div class="bn-post-card__menu-item bn-post-card__menu-item--follow" role="none">
+				<?php
+				// The icon sits in the row, not in the button: the button's content is
+				// owned by data-wp-text="state.label", which replaces its children on
+				// every state change and would delete an inline SVG. CSS stretches the
+				// button across the whole row so the icon is not a dead zone.
+				buddynext_icon( 'user-plus' );
+				buddynext_get_template(
+					'partials/follow-button.php',
+					array(
+						'user_id'         => (int) $args['follow_author_id'],
+						'known_following' => false,
+					)
+				);
+				?>
+			</div>
+		<?php endif; ?>
+
 		<?php if ( ! empty( $args['can_edit'] ) ) : ?>
 			<button
 				type="button"

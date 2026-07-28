@@ -334,6 +334,14 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
+			'bn.content_removed'          => array(
+				'label'              => __( 'Content removed', 'buddynext' ),
+				'description'        => __( 'Something you posted was removed by a moderator.', 'buddynext' ),
+				'group'              => self::GROUP_MODERATION,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
+				'can_email'          => true,
+			),
 
 			// Growth + system.
 			// Badges + level-ups originate in wb-gamification (a partner plugin), so

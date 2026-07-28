@@ -439,36 +439,9 @@ class MemberDirectoryController extends BaseRestController {
 	 * @return array{state:string,can_message:bool}
 	 */
 	private function shape_connection_state( ?string $status ): array {
-		if ( null === $status || 'declined' === $status || 'withdrawn' === $status ) {
-			return array(
-				'state'       => 'none',
-				'can_message' => false,
-			);
-		}
-		if ( 'accepted' === $status ) {
-			return array(
-				'state'       => 'accepted',
-				'can_message' => true,
-			);
-		}
-		// Direction comes from the page-level statuses_for() map (pending-sent /
-		// pending-received), so there is no per-row pending_sent() query. A bare
-		// 'pending' (defensive fallback) is treated as received.
-		if ( 'pending-sent' === $status ) {
-			return array(
-				'state'       => 'pending-sent',
-				'can_message' => false,
-			);
-		}
-		if ( 'pending-received' === $status || 'pending' === $status ) {
-			return array(
-				'state'       => 'pending-received',
-				'can_message' => false,
-			);
-		}
-		return array(
-			'state'       => 'none',
-			'can_message' => false,
-		);
+		// Shared with the profile payload and /connection/status — one shaping, so
+		// the directory row and the profile header can never disagree about the
+		// same relationship.
+		return \BuddyNext\SocialGraph\ConnectionService::state_block( $status );
 	}
 }

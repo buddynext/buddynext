@@ -65,6 +65,67 @@ class PluginIsolation {
 	);
 
 	/**
+	 * Owner-managed option: extra plugin basenames to keep alive on BN routes.
+	 *
+	 * Separate from self::OPTION because that one is REWRITTEN from the canonical
+	 * family on every sync — an owner's choices stored there would be erased the
+	 * next time Pro was toggled. This is the owner's list; sync_option() merges it
+	 * into the mirror the mu-plugin reads, so no mu-plugin change is required and
+	 * an older on-disk copy keeps working.
+	 */
+	public const OPTION_KEEP = 'buddynext_isolation_keep';
+
+	/**
+	 * String-override plugins that isolation must never strip.
+	 *
+	 * These do not add a feature — they rewrite EVERY string on the page through
+	 * `gettext` / `load_textdomain_mofile`. Stripping one does not disable
+	 * something the visitor can see is missing; it silently serves BuddyNext's own
+	 * English while the owner's translation sits on disk being ignored, and only on
+	 * the hub routes, which is precisely where the terminology matters most
+	 * (renaming "Spaces" to "Teams"). A translation plugin is also cheap — Loco's
+	 * front-end footprint is a single filter — so this costs nothing measurable
+	 * against the memory isolation is there to save.
+	 *
+	 * Anything not listed here is covered by the owner-facing allow-list screen
+	 * (Admin -> BuddyNext -> Plugin isolation), so this is a sensible default, not
+	 * the only way in.
+	 */
+	private const TRANSLATION_PLUGINS = array(
+		'loco-translate/loco.php',
+		'polylang/polylang.php',
+		'polylang-pro/polylang.php',
+		'sitepress-multilingual-cms/sitepress.php',
+		'wpml-string-translation/plugin.php',
+		'translatepress-multilingual/index.php',
+		'say-what/say-what.php',
+	);
+
+	/**
+	 * The owner's extra keep-alive basenames, sanitised.
+	 *
+	 * @return array<int,string>
+	 */
+	public static function owner_keep_list(): array {
+		$stored = get_option( self::OPTION_KEEP, array() );
+
+		if ( ! is_array( $stored ) ) {
+			return array();
+		}
+
+		return array_values(
+			array_unique(
+				array_filter(
+					array_map(
+						static fn( $p ): string => is_string( $p ) ? trim( $p ) : '',
+						$stored
+					)
+				)
+			)
+		);
+	}
+
+	/**
 	 * Wire the runtime option-sync pass.
 	 *
 	 * @return void
@@ -92,7 +153,13 @@ class PluginIsolation {
 		 *
 		 * @param array<int,string> $plugins In-house integration basenames.
 		 */
-		$plugins = (array) apply_filters( 'buddynext_isolation_plugins', self::CORE_INTEGRATIONS );
+		$base = array_merge(
+			self::CORE_INTEGRATIONS,
+			self::TRANSLATION_PLUGINS,
+			self::owner_keep_list()
+		);
+
+		$plugins = (array) apply_filters( 'buddynext_isolation_plugins', $base );
 
 		$plugins = array_values(
 			array_unique(

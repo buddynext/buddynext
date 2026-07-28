@@ -2680,6 +2680,19 @@ if ( buddynext_mu_is_bn_request() ) {
 				// Operational.
 				'redis-cache/redis-cache.php',
 				'query-monitor/query-monitor.php',
+				// String-override plugins. These rewrite EVERY string on the page,
+				// so stripping one does not remove a visible feature — it silently
+				// serves BuddyNext's own English while the owner's translation is
+				// ignored, and only on the hub routes, which is exactly where a
+				// terminology override matters most. Keep in sync with
+				// PluginIsolation::TRANSLATION_PLUGINS.
+				'loco-translate/loco.php',
+				'polylang/polylang.php',
+				'polylang-pro/polylang.php',
+				'sitepress-multilingual-cms/sitepress.php',
+				'wpml-string-translation/plugin.php',
+				'translatepress-multilingual/index.php',
+				'say-what/say-what.php',
 			);
 
 			// Plus any dynamic / 3rd-party additions BuddyNext mirrors into the

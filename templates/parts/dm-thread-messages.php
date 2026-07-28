@@ -92,6 +92,30 @@ do_action( 'buddynext_part_dm_thread_messages_before', $args );
 		<?php
 	endif;
 
+	/*
+	 * A thread with no messages rendered ~470px of nothing between the header and
+	 * the composer — the log was a bare foreach with no empty branch.
+	 *
+	 * The report framed this as orphaned data ("conversations with created_by = 0"),
+	 * which is not what the install showed: created_by was 7/13/8/2 and only ONE of
+	 * the four named threads was actually empty. The framing matters because it made
+	 * the bug look like something a cleanup script fixes. It is not — WPMediaVerse
+	 * creates the conversation BEFORE the first message
+	 * (MessagingService::find_or_create_conversation, and POST /conversations), so
+	 * opening a DM and not sending yet reaches this state through ordinary use.
+	 */
+	if ( empty( $messages_iter ) ) :
+		buddynext_get_template(
+			'parts/empty-state.php',
+			array(
+				'icon'    => 'message-circle',
+				'title'   => __( 'No messages yet', 'buddynext' ),
+				'body'    => __( 'Say hello to start the conversation.', 'buddynext' ),
+				'classes' => array( 'bn-dm-pane__empty-state' ),
+			)
+		);
+	endif;
+
 	$prev_date = '';
 	foreach ( $messages_iter as $msg ) :
 		$msg_at    = $msg['created_at'] ?? '';

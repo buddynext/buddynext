@@ -107,17 +107,31 @@ class PostServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_get_decodes_media_ids_json(): void {
-		// Create as an admin: PostService::authorize_media_ids() drops attachments a
-		// non-admin doesn't own (IDOR guard), and the test only exercises JSON
-		// round-tripping of the stored ids.
-		$id   = $this->service->create(
+		global $wpdb;
+
+		// This exercises ONLY the JSON round-trip in get(). The ids are written
+		// straight to the column rather than through create(), because
+		// authorize_media_ids() legitimately refuses ids the media engine cannot
+		// resolve — and the engine is absent in the test environment, so every id
+		// is unresolvable here. Routing through create() would test the guard, not
+		// the decode. (It used to pass by creating as an admin, back when the admin
+		// exemption skipped the whole check; that exemption is what let a
+		// fabricated id publish a dangling attachment.)
+		$id = $this->service->create(
 			$this->admin,
 			array(
-				'type'      => 'photo',
-				'content'   => '',
-				'media_ids' => array( 10, 20, 30 ),
+				'type'    => 'photo',
+				'content' => '',
 			)
 		);
+
+		$wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'media_ids' => wp_json_encode( array( 10, 20, 30 ) ) ),
+			array( 'id' => $id )
+		);
+		wp_cache_flush();
+
 		$post = $this->service->get( $id );
 
 		$this->assertSame( array( 10, 20, 30 ), $post['media_ids'] );

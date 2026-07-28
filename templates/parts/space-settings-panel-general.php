@@ -180,7 +180,8 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 
 	<?php if ( ! $args['is_space_owner'] ) : ?>
 		<p class="bn-space-settings__hint bn-space-settings__hint--locked">
-			<?php esc_html_e( 'Only the space owner can change the name, description and house rules.', 'buddynext' ); ?>
+			<?php // Kept in step with the disabled() calls below — category and parent space are owner-only too, and the old copy did not say so. ?>
+			<?php esc_html_e( 'Only the space owner can change the name, description, house rules, category and parent space. You can still manage everything else here.', 'buddynext' ); ?>
 		</p>
 	<?php endif; ?>
 
@@ -226,7 +227,17 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 
 	<div class="bn-space-settings__field">
 		<label for="space_category_id"><?php esc_html_e( 'Category', 'buddynext' ); ?></label>
-		<select name="space_category_id" id="space_category_id" class="bn-select">
+		<?php
+		// Owner-only, like name / description / rules directly above. Category is
+		// part of the space's identity and reach, and SpaceService::update() gates
+		// it on buddynext-manage-space — the save handler's own comment says "it is
+		// owner-gated, so a moderator is rejected there". Rendering it enabled
+		// anyway is what made a moderator's Save fail on a control they were
+		// invited to use. Disabled says the same thing before they type.
+		?>
+		<select name="space_category_id" id="space_category_id" class="bn-select"
+			<?php disabled( ! $args['is_space_owner'] ); ?>
+		>
 			<option value=""><?php esc_html_e( 'Select a category', 'buddynext' ); ?></option>
 			<?php foreach ( $bn_categories as $bn_cat_item ) : ?>
 				<option
@@ -264,7 +275,10 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 				</p>
 
 			<?php else : ?>
-				<select name="space_parent_id" id="space_parent_id" class="bn-select">
+				<?php // Owner-only for the same reason as Category above — re-parenting is structural, and SpaceService::update() rejects a moderator. ?>
+				<select name="space_parent_id" id="space_parent_id" class="bn-select"
+					<?php disabled( ! $args['is_space_owner'] ); ?>
+				>
 					<option value="0" <?php selected( $bn_current_parent, 0 ); ?>>
 						<?php esc_html_e( 'Top level (no parent)', 'buddynext' ); ?>
 					</option>
