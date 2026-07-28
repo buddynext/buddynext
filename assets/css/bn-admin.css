@@ -90,6 +90,12 @@
 	   size gap behind the "very small" feel (nav/titles/hints already match).
 	   This sheet only loads in wp-admin, so member-facing text is untouched. */
 	--bn-text-sm:             14px;
+	--bn-a-text-2xs:          var(--bn-text-2xs);
+	/* Sunken surface. Was used in three places with three different rgba
+	   fallbacks (0.03 / 0.04 / 0.06) standing in for one missing token, so the
+	   same "recessed" surface rendered as three different greys and none of
+	   them responded to dark mode. */
+	--bn-a-sunken:            var(--bn-sunken);
 	--bn-a-text-xs:           var(--bn-text-xs);
 	--bn-a-text-sm:           var(--bn-text-sm);
 	--bn-a-text-md:           var(--bn-text-md);
@@ -943,6 +949,17 @@ table.bn-table tr:hover td {
 }
 
 .bn-table-wrap__scroll .bn-table th:last-child,
+/*
+ * The row whose actions menu is open is lifted above its neighbours for as long
+ * as the menu is open (more-menu.js toggles this class). Without it the sticky
+ * cell's own stacking context traps the dropdown's z-index and the NEXT row's
+ * opaque actions cell paints over the menu — it opened, but was invisible.
+ */
+.bn-table td:last-child.bn-cell--menu-open,
+.bn-table-wrap__scroll .bn-table td:last-child.bn-cell--menu-open {
+	z-index: 5;
+}
+
 .bn-table-wrap__scroll .bn-table td:last-child {
 	position: sticky;
 	inset-inline-end: 0;
@@ -2617,7 +2634,7 @@ button.bn-btn-danger:hover {
 }
 
 .bn-social-card__status {
-	font-size: var(--bn-a-text-3, 0.78rem);
+	font-size: var(--bn-a-text-xs);
 	padding: 2px 10px;
 	border-radius: 999px;
 	font-weight: 600;
@@ -2646,7 +2663,7 @@ button.bn-btn-danger:hover {
 .bn-copy-row .bn-input {
 	flex: 1;
 	font-family: var(--bn-a-font-mono, monospace);
-	font-size: var(--bn-a-text-3, 0.8rem);
+	font-size: var(--bn-a-text-xs);
 }
 .bn-copy-btn { white-space: nowrap; }
 
@@ -2751,4 +2768,24 @@ button.bn-btn-danger:hover {
 	border-radius: var(--bn-r-md);
 	box-shadow: 0 0 0 2px var(--bn-accent);
 	transition: box-shadow 0.2s ease;
+}
+
+/* --------------------------------------------------------------------------
+   Moderation queue filters + Avatar tools description
+   Both were inline `style=` attributes built on --bn-a-space-2 / --bn-a-space-3,
+   which have never existed — the real names are --bn-a-s2 / --bn-a-s3. The
+   fallbacks silently hardcoded 8px/12px, so the spacing could not respond to
+   the token scale, and the inline styles also broke the no-inline-style rule.
+   -------------------------------------------------------------------------- */
+.bn-mod-queue-filters {
+	display: flex;
+	gap: var(--bn-a-s2);
+	flex-wrap: wrap;
+	align-items: center;
+	/* margin-bottom lives in bn-admin-hub.css, as a documented exception to the
+	   form reset there — it needs that selector's specificity to apply. */
+}
+
+.bn-av-section-desc {
+	margin: 0 0 var(--bn-a-s3);
 }

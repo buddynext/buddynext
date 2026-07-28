@@ -181,7 +181,7 @@ class ModerationQueue {
 			'space'   => __( 'Spaces', 'buddynext' ),
 		);
 		?>
-		<form method="get" class="bn-mod-queue-filters" style="display:flex;gap:var(--bn-a-space-2,8px);flex-wrap:wrap;align-items:center;margin-bottom:var(--bn-a-space-3,12px);">
+		<form method="get" class="bn-mod-queue-filters">
 			<?php
 			// Preserve the admin page/tab routing params in the GET form.
 			foreach ( array( 'page', 'tab' ) as $bn_keep ) {

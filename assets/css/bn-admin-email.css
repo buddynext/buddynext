@@ -232,7 +232,10 @@
 	box-shadow: var(--bn-ring);
 }
 
-@media (max-width: 768px) {
+/* 782px to match WP-admin's own collapse point and the rest of this admin —
+   768 left the editor two-column in the 769-782 sliver where everything around
+   it had already stacked. */
+@media (max-width: 782px) {
 	.bn-email-editor__tokens-grid {
 		grid-template-columns: 1fr;
 	}

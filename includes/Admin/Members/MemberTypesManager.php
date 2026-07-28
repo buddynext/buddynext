@@ -203,7 +203,15 @@ class MemberTypesManager {
 					<span class="bn-ss-count"><?php echo esc_html( (string) count( $types ) ); ?></span>
 				</div>
 				<div class="bn-ss-body">
-				<table class="bn-table">
+				<?php
+				/*
+				 * Scroll wrapper, same as the Members table: below ~900px this
+				 * table's six columns no longer fit, and without it the Actions
+				 * column was clipped off the right edge with no way to reach it.
+				 */
+				?>
+				<div class="bn-table-wrap__scroll">
+				<table class="bn-table bn-table--types">
 					<thead>
 						<tr>
 							<th><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
@@ -283,6 +291,7 @@ class MemberTypesManager {
 					<?php endforeach; ?>
 					</tbody>
 				</table>
+				</div>
 				</div><!-- .bn-ss-body -->
 			</div><!-- .bn-settings-section -->
 		<?php endif; ?>

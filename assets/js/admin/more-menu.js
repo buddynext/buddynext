@@ -17,9 +17,28 @@
 ( function () {
 	'use strict';
 
+	/*
+	 * The dropdown is position:fixed with z-index 1000, but the sticky actions
+	 * cell it lives in is `position: sticky; z-index: 1`, which makes that <td>
+	 * a stacking context — so the 1000 is resolved INSIDE the cell, not against
+	 * the page. Every row's actions cell has the same z-index, so the tie is
+	 * broken by DOM order and the next row's opaque cell paints straight over
+	 * the open menu. position:fixed does not help: it changes the containing
+	 * block, not which stacking context the element participates in.
+	 *
+	 * So the owning cell is lifted for exactly as long as its menu is open.
+	 */
+	function setCellLift( menu, lifted ) {
+		var cell = menu.closest( 'td' );
+		if ( cell ) {
+			cell.classList.toggle( 'bn-cell--menu-open', lifted );
+		}
+	}
+
 	function closeAllRowMenus() {
 		document.querySelectorAll( '.bn-more-menu.open' ).forEach( function ( open ) {
 			open.classList.remove( 'open' );
+			setCellLift( open, false );
 		} );
 	}
 
@@ -72,10 +91,13 @@
 				document.querySelectorAll( '.bn-more-menu.open' ).forEach( function ( open ) {
 					if ( open !== menu ) {
 						open.classList.remove( 'open' );
+						setCellLift( open, false );
 					}
 				} );
 				menu.classList.toggle( 'open' );
-				if ( menu.classList.contains( 'open' ) ) {
+				var isOpen = menu.classList.contains( 'open' );
+				setCellLift( menu, isOpen );
+				if ( isOpen ) {
 					positionRowMenu( menu );
 				}
 			} );

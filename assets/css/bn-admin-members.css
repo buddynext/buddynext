@@ -677,6 +677,10 @@
 	font-size: var(--bn-a-text-xs);
 	color: var(--bn-a-text-3);
 	font-family: var(--bn-font-mono);
+	/* A slug is a single token and must never break mid-word. Without this it
+	   inherits the wrapping used for long free text and renders as
+	   "con / trib / uto / r" once the column is squeezed on a tablet. */
+	white-space: nowrap;
 }
 
 /* Notice — inline success/error messages */
@@ -1779,4 +1783,18 @@
 		width: 100%;
 		text-align: center;
 	}
+}
+
+/* --------------------------------------------------------------------------
+   Member Types table — tablet legibility
+   Six columns (Type / Slug / Members / Directory / Self-Select / Actions) do
+   not fit an iPad-portrait content column once the admin rail is accounted
+   for. Rather than let the browser crush each column to the width of its
+   longest unbreakable word, keep each cell on one line and let the wrapper
+   scroll. Scoped to this table — the Members directory wants its long email
+   and display-name cells to wrap.
+   -------------------------------------------------------------------------- */
+.bn-table--types th,
+.bn-table--types td {
+	white-space: nowrap;
 }

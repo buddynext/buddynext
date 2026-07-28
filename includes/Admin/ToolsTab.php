@@ -218,7 +218,7 @@ class ToolsTab {
 					</div>
 				<?php endif; ?>
 
-				<ul class="bn-av-section-desc" style="margin:0 0 var(--bn-a-space-3,12px);">
+				<ul class="bn-av-section-desc">
 					<li>
 						<?php
 						/* translators: %s: number of indexed rows. */
