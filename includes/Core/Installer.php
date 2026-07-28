@@ -269,7 +269,7 @@ class Installer {
 	 *      overlapped pages until the PK tie-break was added. dbDelta ALTER-adds the KEY on
 	 *      upgrade; no data migration.
 	 */
-	private const SCHEMA_VERSION = 35;
+	private const SCHEMA_VERSION = 36;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -443,7 +443,50 @@ class Installer {
 			\BuddyNext\Auth\VerificationService::mark_verification_enabled();
 		}
 
+		// v36: repair hashtag post_count (support #41066). The recompute in
+		// HashtagService::sync() was a bare COUNT(*) over the pivot with no
+		// filter, so it counted drafts, deleted rows and every privacy tier,
+		// while the tag feed lists only public published posts outside
+		// private/secret spaces. Tag pages therefore advertised more posts than
+		// they rendered. sync() is fixed going forward, but a tag whose posts
+		// never change again would keep its stale number forever, so recompute
+		// every row once here with exactly the predicate the feed uses. One
+		// UPDATE over bn_hashtags, no per-post work.
+		self::repair_hashtag_post_counts( $wpdb->prefix );
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Recompute every hashtag's post_count to match what the tag feed lists.
+	 *
+	 * Mirrors HashtagService::listable_where() for a logged-out viewer:
+	 * published, public, and not inside a private/secret space.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function repair_hashtag_post_counts( string $prefix ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$prefix}bn_hashtags h SET h.post_count = (
+				SELECT COUNT(*)
+				FROM {$prefix}bn_post_hashtags ph
+				INNER JOIN {$prefix}bn_posts p ON p.id = ph.post_id
+				WHERE ph.hashtag_id = h.id
+				  AND ph.object_type = 'post'
+				  AND p.status = 'published'
+				  AND p.privacy = 'public'
+				  AND (
+				      p.space_id IS NULL
+				      OR p.space_id = 0
+				      OR p.space_id IN ( SELECT id FROM {$prefix}bn_spaces WHERE type = 'open' )
+				  )
+			)"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**

@@ -309,7 +309,7 @@ class HashtagService {
 
 		// Space-visibility guard: keep public posts that live in private/secret
 		// spaces off the public tag page (visible only to space members).
-		[ $space_where, $space_params ] = $this->space_visibility_where( 'p', $viewer_id );
+		[ $listable_where, $space_params ] = $this->listable_where( 'p', $viewer_id );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
@@ -322,9 +322,7 @@ class HashtagService {
 				 {$follow_join}
 				 WHERE ph.hashtag_id  = %d
 				   AND ph.object_type = 'post'
-				   AND p.status       = 'published'
-				   AND p.privacy      = 'public'
-				   {$space_where}
+				   {$listable_where}
 				   {$cursor_where}
 				 ORDER BY {$order_sql}
 				 LIMIT %d",
@@ -451,7 +449,20 @@ class HashtagService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_hashtags SET post_count = (SELECT COUNT(*) FROM {$wpdb->prefix}bn_post_hashtags WHERE hashtag_id = %d) WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					"UPDATE {$wpdb->prefix}bn_hashtags SET post_count = (
+						SELECT COUNT(*)
+						FROM {$wpdb->prefix}bn_post_hashtags ph
+						INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
+						WHERE ph.hashtag_id = %d
+						  AND ph.object_type = 'post'
+						  AND p.status = 'published'
+						  AND p.privacy = 'public'
+						  AND (
+						      p.space_id IS NULL
+						      OR p.space_id = 0
+						      OR p.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
+						  )
+					) WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 					$old_id,
 					$old_id
 				)
@@ -525,7 +536,20 @@ class HashtagService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_hashtags SET post_count = (SELECT COUNT(*) FROM {$wpdb->prefix}bn_post_hashtags WHERE hashtag_id = %d) WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					"UPDATE {$wpdb->prefix}bn_hashtags SET post_count = (
+						SELECT COUNT(*)
+						FROM {$wpdb->prefix}bn_post_hashtags ph
+						INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
+						WHERE ph.hashtag_id = %d
+						  AND ph.object_type = 'post'
+						  AND p.status = 'published'
+						  AND p.privacy = 'public'
+						  AND (
+						      p.space_id IS NULL
+						      OR p.space_id = 0
+						      OR p.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
+						  )
+					) WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 					$hashtag_id,
 					$hashtag_id
 				)
@@ -865,6 +889,35 @@ class HashtagService {
 	}
 
 	/**
+	 * The SQL that decides whether a tagged post is LISTABLE by a given viewer.
+	 *
+	 * One predicate, used by the feed, the contributor stats and the stored
+	 * post_count, because those three disagreeing is the whole of ticket #41066:
+	 * the count was a bare COUNT(*) over the pivot with no filter at all, so it
+	 * counted drafts, deleted rows and every privacy tier, while the feed
+	 * listed only public published posts. The tag page read "2 posts" and
+	 * rendered one.
+	 *
+	 * The customer proposed widening the feed instead — replacing the
+	 * privacy='public' literal with a filterable tier list. That would leak:
+	 * space_visibility_where() resolves SPACE membership only and says nothing
+	 * about privacy, so 'followers' posts would show to non-followers and
+	 * 'private' (author-only) posts to everyone. The count is what was wrong,
+	 * not the list.
+	 *
+	 * @param string $alias     Table alias for bn_posts.
+	 * @param int    $viewer_id Viewer user ID (0 = logged out).
+	 * @return array{0:string,1:array<int,mixed>} [sql, params]
+	 */
+	private function listable_where( string $alias, int $viewer_id ): array {
+		[ $space_where, $space_params ] = $this->space_visibility_where( $alias, $viewer_id );
+
+		$sql = " AND {$alias}.status = 'published' AND {$alias}.privacy = 'public' {$space_where}";
+
+		return array( $sql, $space_params );
+	}
+
+	/**
 	 * Space-visibility WHERE fragment for tag queries (with its bound params).
 	 *
 	 * A public-privacy post inside a private/secret space must NOT surface on the
@@ -915,7 +968,7 @@ class HashtagService {
 
 		global $wpdb;
 		// Public tag page: exclude posts in private/secret spaces (guest scope).
-		[ $space_where ] = $this->space_visibility_where( 'p', 0 );
+		[ $listable_where ] = $this->listable_where( 'p', 0 );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -924,9 +977,8 @@ class HashtagService {
 				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
 				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 				 WHERE ph.hashtag_id = %d AND ph.object_type = 'post'
-				   AND p.status = 'published' AND p.privacy = 'public'
-				   {$space_where}
-				 GROUP BY p.user_id
+				   {$listable_where}
+				   				 GROUP BY p.user_id
 				 ORDER BY post_count DESC
 				 LIMIT %d",
 				$hashtag_id,
@@ -962,7 +1014,7 @@ class HashtagService {
 
 		global $wpdb;
 		// Public tag page: exclude posts in private/secret spaces (guest scope).
-		[ $space_where ] = $this->space_visibility_where( 'p', 0 );
+		[ $listable_where ] = $this->listable_where( 'p', 0 );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -970,8 +1022,7 @@ class HashtagService {
 				 FROM {$wpdb->prefix}bn_post_hashtags ph
 				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
 				 WHERE ph.hashtag_id = %d AND ph.object_type = 'post'
-				   AND p.status = 'published' AND p.privacy = 'public'
-				   {$space_where}",
+				   {$listable_where}",
 				$hashtag_id
 			)
 		);

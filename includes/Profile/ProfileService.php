@@ -1107,6 +1107,27 @@ class ProfileService {
 			\BuddyNext\Moderation\ModerationService::auto_flag( 'user', $user_id, $bn_flag_reason );
 		}
 
+		/**
+		 * Refresh the member's search index entry.
+		 *
+		 * Fired HERE, in the service that performs the write, rather than only in
+		 * the REST controller. Both directory search and Explore resolve members
+		 * through bn_search_index, and index_user() copies the bn_field_{key}
+		 * mirrors into it — so a caller that saved a profile any other way left
+		 * the member's new field values permanently unfindable. The mirror was
+		 * correct and the search still missed, which is exactly the "profile
+		 * fields cannot be found" report (support #40911): every path that is not
+		 * the member's own REST save — admin edits, bulk tools, and above all the
+		 * BuddyPress/BuddyBoss importer, which writes profiles wholesale — landed
+		 * members in the directory that no search could reach.
+		 *
+		 * The listener decides sync vs Action Scheduler, so this stays cheap on a
+		 * large import.
+		 *
+		 * @param int $user_id User whose search index entry should be refreshed.
+		 */
+		do_action( 'buddynext_index_user', $user_id );
+
 		return true;
 	}
 
