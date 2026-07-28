@@ -662,7 +662,16 @@
    portrait is 768, so it still stacks there — the change only removes the
    sliver, it does not move the tablet behaviour. */
 @media ( max-width: 782px ) {
-	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 1fr; }
+	/*
+	 * minmax(0, 1fr), not a bare 1fr. `1fr` floors at the track's MIN-CONTENT
+	 * width, and the nav's longest labels ("Registration & Login", "Roles &
+	 * Capabilities") do not wrap — so the stacked column resolved to 618px
+	 * inside a 458px container and pushed the whole document into a horizontal
+	 * scroll. Every admin screen inherited it, which is why the overflow was
+	 * reported against Broadcasts, Drip Sequences and three Moderation tabs
+	 * independently: none of them was the cause, the shared nav rail was.
+	 */
+	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: minmax( 0, 1fr ); }
 	.bn-admin-hub__panel { position: static; max-height: none; }
 }
 
