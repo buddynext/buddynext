@@ -269,7 +269,7 @@ class Installer {
 	 *      overlapped pages until the PK tie-break was added. dbDelta ALTER-adds the KEY on
 	 *      upgrade; no data migration.
 	 */
-	private const SCHEMA_VERSION = 36;
+	private const SCHEMA_VERSION = 37;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -454,7 +454,65 @@ class Installer {
 		// UPDATE over bn_hashtags, no per-post work.
 		self::repair_hashtag_post_counts( $wpdb->prefix );
 
+		// v37: close the private-space search leak. async_index_post() derived a
+		// row's visibility from the post's own privacy alone, so a PUBLIC post
+		// written inside a PRIVATE or SECRET space was indexed as public — and the
+		// guest gate is literally `visibility = 'public'`, so anonymous search
+		// returned its title and body. The indexer now applies the space ceiling,
+		// but every row already written stays wrong until it is rewritten, and a
+		// post nobody edits again would leak forever. One UPDATE fixes the whole
+		// backlog without touching a single post.
+		self::repair_space_content_visibility( $wpdb->prefix );
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Demote every indexed row whose space does not allow public reading (v37).
+	 *
+	 * The publicly-readable type list is asked of SpaceTypeRegistry rather than
+	 * written as `type <> 'open'`, so this agrees with the indexer by construction:
+	 * a site that registers a custom public type keeps its rows public here instead
+	 * of having them demoted by a literal the registry never saw.
+	 *
+	 * The reverse direction is deliberately NOT performed: a row inside an open
+	 * space may be private for its own reasons (an author's private post, a private
+	 * account), and promoting it here would invent access the indexer never granted.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function repair_space_content_visibility( string $prefix ): void {
+		global $wpdb;
+
+		$registry = \BuddyNext\Spaces\SpaceTypeRegistry::instance();
+		$public   = array();
+		foreach ( $registry->keys() as $type ) {
+			if ( ! $registry->content_requires_membership( (string) $type ) ) {
+				$public[] = (string) $type;
+			}
+		}
+
+		// No publicly-readable type at all: every space row is private.
+		$placeholders = implode( ', ', array_fill( 0, max( 1, count( $public ) ), '%s' ) );
+		$params       = empty( $public ) ? array( '' ) : $public;
+
+		// PreparedSQLPlaceholders is a false positive: the %s placeholders are built
+		// into $placeholders and interpolated, so the sniff cannot see them, but every
+		// type value is passed through prepare() as a bound parameter.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$prefix}bn_search_index si
+				 INNER JOIN {$prefix}bn_spaces s ON s.id = si.space_id
+				 SET si.visibility = 'private'
+				 WHERE si.visibility = 'public'
+				   AND si.space_id > 0
+				   AND s.type NOT IN ( {$placeholders} )",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 	}
 
 	/**

@@ -79,7 +79,12 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return string 'public' or 'private'.
 	 */
 	private static function space_visibility( string $type ): string {
-		return 'open' === $type ? 'public' : 'private';
+		// Registry-derived, not a literal type list: content_requires_membership()
+		// is true for every type whose visibility is not 'public', so a custom
+		// registered type is gated without editing this method.
+		return \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( $type )
+			? 'private'
+			: 'public';
 	}
 
 	/**
@@ -404,6 +409,7 @@ class SearchIndexListener implements ListenerInterface {
 			foreach ( (array) $rows as $row ) {
 				$author_id  = (int) $row['user_id'];
 				$visibility = ( 'public' === $row['privacy'] && ! buddynext_service( 'follows' )->is_private_account( $author_id ) ) ? 'public' : 'private';
+
 				$search_service->index(
 					'post',
 					(int) $row['id'],

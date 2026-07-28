@@ -83,6 +83,23 @@ class SearchService {
 	): void {
 		global $wpdb;
 
+		// Nothing may be indexed as more visible than the space holding it.
+		//
+		// This is enforced HERE, at the single write door, and not at the call
+		// sites, because the call sites are exactly what drifted: three of them
+		// (the single-post indexer, the full-reindex loop, and the Jetonomy
+		// discussion bridge) each decided visibility on their own and all three
+		// got it wrong the same way — they read the object's own privacy and
+		// ignored the space entirely. The guest search gate is literally
+		// `visibility = 'public'`, so a public post written inside a PRIVATE or
+		// SECRET space was returned, title and body, to anonymous visitors.
+		//
+		// Putting the rule at the door means an addon calling index() cannot
+		// reintroduce the leak, and a fourth call site added later inherits it.
+		if ( 'public' === $visibility && $space_id > 0 ) {
+			$visibility = self::space_visibility_ceiling( $space_id );
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$result = $wpdb->query(
 			$wpdb->prepare(
@@ -113,6 +130,40 @@ class SearchService {
 				sprintf( 'BuddyNext: search index write failed for %s#%d: %s', $object_type, $object_id, $wpdb->last_error )
 			);
 		}
+	}
+
+	/**
+	 * The highest visibility content inside a given space may be indexed with.
+	 *
+	 * Registry-derived rather than a literal type list, so a site that registers
+	 * a custom public space type is not silently demoted. A space that cannot be
+	 * resolved returns 'private': failing closed is the only safe direction for a
+	 * search index.
+	 *
+	 * Memoised per request because the full reindex walks every post on the site —
+	 * without it, 100k posts across 200 spaces would issue 100k space lookups.
+	 *
+	 * @param int $space_id Space the content belongs to.
+	 * @return string 'public' or 'private'.
+	 */
+	private static function space_visibility_ceiling( int $space_id ): string {
+		static $ceilings = array();
+
+		if ( isset( $ceilings[ $space_id ] ) ) {
+			return $ceilings[ $space_id ];
+		}
+
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+
+		$ceilings[ $space_id ] = ( null === $space )
+			? 'private'
+			: (
+				\BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) ( $space['type'] ?? '' ) )
+					? 'private'
+					: 'public'
+			);
+
+		return $ceilings[ $space_id ];
 	}
 
 	/**

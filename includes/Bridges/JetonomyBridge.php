@@ -195,7 +195,28 @@ class JetonomyBridge {
 		// tab on the results page (the tab list is built from DISTINCT object_type in the
 		// index, so the rows generate the tab that displays them).
 		if ( buddynext_integration_enabled( 'jetonomy', 'search' ) ) {
-			( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, 'public', $space_id );
+			// Two corrections on one line, both leaks.
+			//
+			// Visibility was the literal 'public' while `is_private` and `status` were
+			// selected and then ignored, so a PRIVATE topic — and a draft — entered
+			// community search, where the guest gate is exactly `visibility = 'public'`.
+			// is_public_discussion() is the predicate the feed path already uses for
+			// this same decision; search now shares it instead of holding a second,
+			// wrong opinion.
+			//
+			// The id stamped into bn_search_index.space_id was the JETONOMY forum id.
+			// That column is matched against BuddyNext space ids by the search gate
+			// (`si.space_id IN (viewer's bn spaces)`), so a member of BuddyNext space N
+			// was granted search access to every discussion in unrelated Jetonomy forum
+			// N. The feed path maps the forum back to its linked bn_spaces row; search
+			// must use the same mapping or the value is meaningless in the column it
+			// lands in.
+			$bn_space_id = $this->space_id_for_forum( $space_id );
+			$visibility  = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status )
+				? 'public'
+				: 'private';
+
+			( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, $visibility, $bn_space_id );
 		}
 
 		// Always-on: parse @username mentions from the discussion body. Collect the
