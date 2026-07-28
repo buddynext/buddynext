@@ -324,6 +324,37 @@ function bnApplyFilters( hook, value, ...args ) {
  * @return {void}
  */
 /**
+ * Surface why a reaction was refused, and where the member can go about it.
+ *
+ * Both reaction paths used to throw the server's answer away. The comment one
+ * showed a generic "Could not update your reaction. Try again." - actively
+ * misleading against a suspension, because retrying can never succeed - and the
+ * post one showed NOTHING AT ALL: it reverted the optimistic state silently, so
+ * the member's reaction just undid itself with no explanation.
+ *
+ * Reactions are the highest-frequency interaction in the product, so this is the
+ * most likely place a suspended member first hits the wall, and it was the one
+ * place that told them nothing. The server has always sent the reason and the
+ * appeal URL from InteractionGuard; this reads them.
+ *
+ * @param {Object} res      restFetch result.
+ * @param {string} fallback Message to use when the server sent none.
+ * @return {void}
+ */
+function reactionFailureToast( res, fallback ) {
+	const data      = ( res && res.data ) || {};
+	const message   = data.message ? String( data.message ) : fallback;
+	const appealUrl = ( data.data && data.data.appeal_url ) || '';
+
+	bnToast( message, {
+		tone: 'danger',
+		action: appealUrl
+			? { href: appealUrl, label: t( 'reviewAccountStatus', 'Review your account status' ) }
+			: null,
+	} );
+}
+
+/**
  * Append an "account status" link to a comment/reply error box.
  *
  * A suspension 403 can never succeed on retry, so the generic Retry button is a
@@ -694,7 +725,11 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 						emoji:       next || prev || 'like',
 					},
 				} );
-				if ( ! res.ok ) { throw new Error( 'reaction failed' ); }
+				if ( ! res.ok ) {
+					const err = new Error( 'reaction failed' );
+					err.bnResponse = res;
+					throw err;
+				}
 			} catch ( _e ) {
 				// Rollback to prev.
 				reactBtn.dataset.reaction = prev;
@@ -703,7 +738,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				setReactionIcon( reactIcon, prev );
 				reactLabel.textContent = prev ? ( REACTION_LABELS[ prev ] || t( 'react', 'React' ) ) : t( 'react', 'React' );
 				reactCount.textContent = String( cur );
-				bnToast( t( 'reactionUpdateFailed', 'Could not update your reaction. Try again.' ), { tone: 'danger' } );
+				reactionFailureToast( _e && _e.bnResponse, t( 'reactionUpdateFailed', 'Could not update your reaction. Try again.' ) );
 			}
 		}
 
@@ -1513,6 +1548,9 @@ store( 'buddynext/post-card', {
 				if ( ! res.ok ) {
 					ctx.reactionType  = prev; // Revert on failure.
 					ctx.reactionLabel = prevLbl;
+					// Previously this reverted in total silence, so the member's
+					// reaction appeared to undo itself for no reason.
+					reactionFailureToast( res, t( 'reactionUpdateFailed', 'Could not update your reaction. Try again.' ) );
 				} else {
 					// Rebuild the SSR-only reaction-summary chips from the
 					// authoritative count + per-type breakdown so they reflect

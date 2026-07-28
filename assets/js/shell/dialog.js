@@ -634,6 +634,25 @@ export function bnToast( message, opts ) {
 	toast.setAttribute( 'aria-live', isAlert ? 'assertive' : 'polite' );
 	toast.textContent = message;
 
+	// Optional action link.
+	//
+	// Some refusals are not retryable and the member needs somewhere to GO - a
+	// suspension is the case this was added for: the server says why and ships
+	// the appeal URL, and a toast that can only say "Try again" is worse than
+	// useless, because retrying can never succeed.
+	if ( cfg.action && cfg.action.href && cfg.action.label ) {
+		const link = document.createElement( 'a' );
+		link.className = 'bn-toast__action';
+		link.href = cfg.action.href;
+		link.textContent = cfg.action.label;
+		// The toast dismisses on click; let the link navigate instead of being
+		// swallowed by that handler.
+		link.addEventListener( 'click', function ( e ) {
+			e.stopPropagation();
+		} );
+		toast.appendChild( link );
+	}
+
 	container.appendChild( toast );
 
 	// JS owns the lifetime: fade out via the --leaving class, then remove. Clicking

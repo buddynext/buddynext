@@ -755,6 +755,23 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
    class to fade it out. It must NOT auto-play on a fixed delay — that hid error
    toasts before they could be read. */
 .bn-toast--leaving { animation: bn-toast-out 0.25s ease forwards; }
+/* Action link on a toast. Used when a refusal is not retryable and the member
+   needs somewhere to go instead - a suspension being the case it exists for.
+   Underlined and inheriting the toast's colour so it reads as the one thing in
+   the message you can act on, against the inverted toast surface. */
+.bn-toast__action {
+	margin-inline-start: var(--bn-s3);
+	color: inherit;
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: underline;
+	white-space: nowrap;
+}
+.bn-toast__action:hover,
+.bn-toast__action:focus-visible {
+	color: inherit;
+	text-decoration: none;
+}
+
 /* Repeat counter. An action the server keeps refusing used to emit one toast PER
    attempt and they piled up until they filled the screen (and a screen reader read
    the same sentence out once per copy — every toast is an assertive alert). The

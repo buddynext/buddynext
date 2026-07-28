@@ -190,4 +190,32 @@ class SuspensionAppealPathTest extends \WP_UnitTestCase {
 
 		$this->assertNotWPError( $result, 'A member kept hitting the suspension wall after being unsuspended.' );
 	}
+
+	/**
+	 * The REACTION path carries it too.
+	 *
+	 * This is the one QA bounced the first fix on, and they were right: reactions
+	 * go through the same InteractionGuard, so the server always answered
+	 * correctly — but the client discarded the body and showed a generic
+	 * "Could not update your reaction. Try again." on comments and NOTHING at all
+	 * on posts. Reactions are the highest-frequency interaction in the product,
+	 * so it is the most likely place a suspended member first hits the wall.
+	 *
+	 * Asserted at the guard, which is what the reaction controller calls for both
+	 * object types.
+	 *
+	 * @return void
+	 */
+	public function test_the_reaction_path_carries_the_appeal_url(): void {
+		foreach ( array( 'post', 'comment' ) as $object_type ) {
+			$result = InteractionGuard::check( $this->member, $object_type, $this->post );
+
+			$this->assertInstanceOf( WP_Error::class, $result, $object_type . ' reactions were not refused.' );
+			$this->assertSame(
+				PageRouter::account_status_url(),
+				( (array) $result->get_error_data() )['appeal_url'] ?? '',
+				'A suspended member reacting to a ' . $object_type . ' gets no way to appeal.'
+			);
+		}
+	}
 }
