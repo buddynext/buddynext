@@ -62,11 +62,11 @@ $orderby_raw     = sanitize_key( $_GET['orderby'] ?? 'registered' );            
 $relation_raw    = sanitize_key( $_GET['relation'] ?? 'all' );                      // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_online_only  = ( '1' === sanitize_key( wp_unslash( $_GET['online'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
-// Accept type slug from the pretty URL rewrite (/members/{slug}/) or a ?type= query arg.
-$type_slug_filter = sanitize_key( (string) get_query_var( 'bn_member_type', '' ) );
-if ( '' === $type_slug_filter ) {
-	$type_slug_filter = sanitize_key( wp_unslash( $_GET['type'] ?? '' ) );          // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-}
+// Member type comes from ?type=, the one filter contract on this screen. The
+// pretty /members/{slug}/ form this used to read first never worked: that shape
+// is indistinguishable from /members/{username}/, the user-slug rewrite always
+// won, and the bn_member_type query var was never populated on any request.
+$type_slug_filter = sanitize_key( wp_unslash( $_GET['type'] ?? '' ) );             // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 $allowed_sort = array( 'registered', 'display_name', 'post_count' );
 $bn_orderby   = in_array( $orderby_raw, $allowed_sort, true ) ? $orderby_raw : 'registered';

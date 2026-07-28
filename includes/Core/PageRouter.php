@@ -472,6 +472,25 @@ class PageRouter {
 			}
 		}
 
+		// ── Member existence gate ─────────────────────────────────────────
+		// /members/{slug}/ for a slug that resolves to nobody answered "200 OK"
+		// with an empty shell — the theme chrome and the nav, and no content at
+		// all. A blank 200 is the worst of both outcomes: the visitor gets no
+		// explanation, and search engines index the empty page as real.
+		//
+		// It has to be decided HERE for the same reason the space gate above does:
+		// the virtual-page setup immediately below sets is_404 = false, so any
+		// later attempt to 404 produces a soft "200 with a not-found body".
+		//
+		// user_id is 0 only when a slug was supplied and resolve_user() matched
+		// nothing — the bare /members/ directory sets no slug and never reaches
+		// this branch.
+		if ( 'people' === $hub
+			&& '' !== (string) get_query_var( 'bn_user_slug', '' )
+			&& empty( $context['user_id'] ) ) {
+			$this->send_404();
+		}
+
 		// ── Virtual page setup ────────────────────────────────────────────
 		// No backing WordPress pages exist. Tell WP this is a real page so
 		// it sends 200, generates correct <title>, and themes render their
@@ -1666,7 +1685,6 @@ class PageRouter {
 		add_rewrite_tag( '%bn_space_action%', '([^/]*)' );
 		add_rewrite_tag( '%bn_conv_id%', '([0-9]+)' );
 		add_rewrite_tag( '%bn_msg_action%', '([^/]*)' );
-		add_rewrite_tag( '%bn_member_type%', '([a-z0-9-]+)' );
 		add_rewrite_tag( '%bn_auth_action%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_notif_section%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_settings_section%', '([a-z-]+)' );
@@ -1807,15 +1825,22 @@ class PageRouter {
 			'index.php?bn_hub=people&bn_user_slug=$matches[1]',
 			'top'
 		);
-		// Member-type directory filter URL: /members/{type-slug}/
-		// Registered with 'bottom' priority so the user-slug rules above take precedence.
-		// The set_hub_vars() callback only stores bn_member_type when no user was resolved,
-		// preventing type slugs from incorrectly matching as user profile URLs.
-		add_rewrite_rule(
-			'^' . preg_quote( $p, '/' ) . '/([a-z0-9-]+)/?$',
-			'index.php?bn_hub=people&bn_member_type=$matches[1]',
-			'bottom'
-		);
+		// There is deliberately NO /members/{type-slug}/ rule.
+		//
+		// One lived here, registered 'bottom', with a comment claiming the
+		// user-slug rules took precedence and that bn_member_type was only stored
+		// "when no user was resolved". Rewrite rules do not work that way: they
+		// match on the PATTERN, not on whether the capture resolves to anything.
+		// The 'top' rule directly above has the identical shape, so it always won
+		// and bn_member_type was never populated — the rule never appeared in the
+		// generated rewrite_rules option at all. /members/staff/ was therefore
+		// handled as a profile URL for a member named "staff", which is exactly
+		// why it rendered blank.
+		//
+		// The pretty form cannot be made to work: /members/{type}/ is
+		// indistinguishable from /members/{username}/, and usernames must win.
+		// Member-type filtering is the ?type= query argument, which the directory
+		// already reads and PageRouter::member_type_url() already emits.
 		add_rewrite_rule(
 			'^' . preg_quote( $p, '/' ) . '/?$',
 			'index.php?bn_hub=people',
@@ -2100,13 +2125,6 @@ class PageRouter {
 				$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
 				$query->set( 'bn_resolved_space_id', $space_id );
 			}
-		}
-
-		// Member-type filter: the 'bottom'-priority rewrite rule populates bn_member_type
-		// only when no user slug matched. Sanitize and store it for the directory template.
-		$raw_type_slug = (string) $query->get( 'bn_member_type', '' );
-		if ( '' !== $raw_type_slug ) {
-			$query->set( 'bn_member_type', sanitize_key( $raw_type_slug ) );
 		}
 	}
 
