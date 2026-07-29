@@ -263,6 +263,7 @@ class ApprovalManager {
 							<td class="column-primary" data-colname="<?php esc_attr_e( 'Member', 'buddynext' ); ?>">
 								<?php echo esc_html( $user->display_name ); ?>
 								<button type="button" class="toggle-row">
+									<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
 									<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
 								</button>
 							</td>

@@ -2900,3 +2900,287 @@ button.bn-btn-danger:hover {
 	overflow-wrap: normal;
 	word-break: normal;
 }
+
+/* ── .bn-table: real cards on phones, not a squeezed table ───────────────────
+   Eight columns cannot be read on a 390px screen, and scrolling sideways to
+   read a list is the wrong answer when the platform has a better one. Below
+   WordPress's own 782px admin breakpoint each row becomes a card: title first,
+   supporting fields as label/value pairs behind a per-row expander, exactly the
+   shape the Users and Posts screens use on a phone.
+
+   Built as a card layout rather than by reusing core's .wp-list-table rules.
+   Core's version leans on percentage padding and an absolutely positioned
+   ::before label, which assumes core's own cell metrics; dropped onto
+   .bn-table's borders and padding it produced a dead left gutter, a checkbox
+   floating halfway down the card and labels colliding with their values. A
+   two-column grid states the same intent directly and cannot drift out of
+   alignment.
+
+   The behaviour is still core's: its common.js toggles .is-expanded on any
+   .toggle-row in any tbody, so nothing here needs its own script. A table opts
+   in the same way it would for core - .column-primary FIRST, data-colname on
+   the rest, a .toggle-row button in the primary cell - and a .bn-table that has
+   not opted in is untouched. */
+@media screen and (max-width: 782px) {
+
+	/* Only opted-in tables become cards. :has keeps every other .bn-table on the
+	   ordinary table rendering it already had. */
+	.bn-table:has(td.column-primary) {
+		display: block;
+		border: 0;
+	}
+
+	.bn-table:has(td.column-primary) thead {
+		/* Every value carries its own label once stacked, so the header row is
+		   redundant - and a header row above a stack of cards reads as a stray
+		   fragment. */
+		display: none;
+	}
+
+	.bn-table:has(td.column-primary) tbody,
+	.bn-table:has(td.column-primary) tbody tr,
+	.bn-table:has(td.column-primary) tbody td {
+		display: block;
+		width: auto;
+	}
+
+	.bn-table:has(td.column-primary) tbody tr {
+		position: relative;
+		margin-block-end: var(--bn-a-s3, 12px);
+		padding: var(--bn-a-s3, 12px);
+		padding-inline-end: 44px; /* room for the expander */
+		border: 1px solid var(--bn-a-border, var(--bn-line));
+		border-radius: var(--bn-a-r-lg, 12px);
+		background: var(--bn-a-bg, var(--bn-surface));
+	}
+
+	/* The checkbox rides with the title instead of owning a column of its own -
+	   a whole column for a 16px control leaves a dead gutter down the card. */
+	.bn-table:has(td.column-primary) tbody td.bn-table__cb {
+		display: inline-block;
+		width: auto;
+		padding: 0;
+		margin-inline-end: var(--bn-a-s2, 8px);
+		border: 0;
+		vertical-align: text-top;
+	}
+
+	.bn-table:has(td.column-primary) tbody td.column-primary {
+		display: inline-block;
+		width: auto;
+		padding: 0;
+		border: 0;
+		font-weight: var(--bn-fw-semibold, 600);
+	}
+
+	/* Supporting fields: hidden until the row is expanded, then a clean
+	   label/value pair. minmax(0,*) on both tracks so a long value wraps instead
+	   of forcing the card wider than the screen. */
+	.bn-table:has(td.column-primary) tbody td:not(.column-primary):not(.bn-table__cb) {
+		display: none;
+		/* The label track is capped, not fixed: 10rem left only 98px of a 390px
+		   card for the value itself. max-content lets a short label like "Type"
+		   take what it needs and no more, and the cap stops a long translation
+		   from swallowing the row. */
+		grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+		gap: var(--bn-a-s2, 8px);
+		align-items: baseline;
+		/* Values size to their content instead of being stretched across the
+		   track - without this a status badge became a full-width pill and the
+		   card read as a row of stretched blobs rather than values. */
+		justify-items: start;
+		/* Cells inherit the column's data-align from the desktop table; a card is
+		   always read start-aligned, so reset it or the "Actions" label ends up
+		   floated to the right of its own buttons. */
+		text-align: start;
+		padding: var(--bn-a-s2, 8px) 0 0;
+		border: 0;
+		border-block-start: 1px solid var(--bn-a-border-soft, var(--bn-line-faint));
+		margin-block-start: var(--bn-a-s2, 8px);
+	}
+
+	.bn-table:has(td.column-primary) tbody tr.is-expanded td:not(.column-primary):not(.bn-table__cb) {
+		display: grid;
+	}
+
+	.bn-table:has(td.column-primary) tbody td:not(.column-primary):not(.bn-table__cb)::before {
+		content: attr(data-colname);
+		color: var(--bn-a-text-3, var(--bn-ink-3));
+		font-weight: var(--bn-fw-semibold, 600);
+	}
+
+	/* Row actions get the full card width and wrap; six buttons never fit a
+	   phone on one line. min-width:0 lets the cluster shrink below its widest
+	   button rather than pushing the card wider - the flex min-content floor. */
+	/* Row actions get the whole card width with the label above them, rather than
+	   a label column and a narrow value column: a button cluster squeezed into
+	   the value track overflowed the card by 89px because buttons cannot wrap
+	   below their own width. */
+	.bn-table:has(td.column-primary) tbody tr.is-expanded td[data-colname]:has(.bn-row-actions) {
+		display: block;
+		text-align: start;
+	}
+
+	.bn-table:has(td.column-primary) tbody td[data-colname] .bn-row-actions {
+		flex-wrap: wrap;
+		min-width: 0;
+		margin-block-start: var(--bn-a-s2, 8px);
+		/* The desktop table right-aligns this cluster against the table edge. In a
+		   card every label and value reads from the start, so buttons hanging off
+		   the right were the one thing breaking the alignment. */
+		justify-content: flex-start;
+		/* justify-content alone was not enough: the desktop rule also pushes the
+		   cluster itself over with an auto inline margin, so the flex box was
+		   left-aligning its buttons inside a box that had already been shoved to
+		   the right edge of the card. */
+		margin-inline: 0 auto;
+		width: 100%;
+	}
+
+	/* An opted-in table is no longer wider than the screen, so its scroll
+	   wrapper has nothing left to scroll. */
+	.bn-table-wrap__scroll:has(.bn-table td.column-primary) {
+		overflow-x: visible;
+	}
+}
+
+/* ── .bn-table row expander ──────────────────────────────────────────────────
+   Uses BuddyNext's own Lucide chevron, not the dashicons font. Dashicons are
+   reserved for the WordPress admin menu; every other admin surface draws from
+   assets/icons, so the icon is an inline SVG that inherits currentColor and
+   needs no font to load. Rotating the same chevron covers the open state, so
+   there is no second icon to keep in sync. */
+.bn-table .toggle-row {
+	position: absolute;
+	inset-inline-end: var(--bn-a-s2, 8px);
+	top: var(--bn-a-s2, 8px);
+	display: none;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: var(--bn-a-r-md, 6px);
+	background: transparent;
+	color: var(--bn-a-text-3, var(--bn-ink-3));
+	cursor: pointer;
+}
+
+.bn-table .toggle-row:hover {
+	background: var(--bn-a-bg-soft, var(--bn-sunken));
+	color: var(--bn-a-text, var(--bn-ink));
+}
+
+.bn-table .toggle-row:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 1px;
+}
+
+.bn-toggle-row__icon {
+	width: 18px;
+	height: 18px;
+	transition: transform 150ms ease;
+}
+
+.bn-table .is-expanded .toggle-row .bn-toggle-row__icon {
+	transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bn-toggle-row__icon { transition: none; }
+}
+
+/* Only shown where the card layout is active. */
+@media screen and (max-width: 782px) {
+	.bn-table:has(td.column-primary) .toggle-row {
+		display: inline-flex;
+	}
+}
+
+/* ── Core list tables inside BuddyNext: Lucide expander, not dashicons ───────
+   The Pro admin screens use WordPress's .wp-list-table so they inherit core's
+   responsive stacking for free - but that also brings core's dashicon chevron
+   on .toggle-row::before. Our buttons now carry an inline Lucide chevron, so
+   without this the row would show two arrows stacked on each other.
+
+   Dashicons are reserved for the WordPress admin menu; every other BuddyNext
+   admin surface draws from assets/icons. Suppressing core's glyph here keeps
+   that rule true on the one surface where core would otherwise inject one. */
+.bn-admin-hub__content .wp-list-table .toggle-row::before {
+	content: none;
+}
+
+.bn-admin-hub__content .wp-list-table .toggle-row {
+	display: none;
+	align-items: center;
+	justify-content: center;
+	color: var(--bn-a-text-3, var(--bn-ink-3));
+	border-radius: var(--bn-a-r-md, 6px);
+}
+
+.bn-admin-hub__content .wp-list-table .toggle-row:hover {
+	background: var(--bn-a-bg-soft, var(--bn-sunken));
+	color: var(--bn-a-text, var(--bn-ink));
+}
+
+.bn-admin-hub__content .wp-list-table .is-expanded .toggle-row .bn-toggle-row__icon {
+	transform: rotate(180deg);
+}
+
+@media screen and (max-width: 782px) {
+	.bn-admin-hub__content .wp-list-table .column-primary .toggle-row {
+		display: inline-flex;
+	}
+}
+
+/* ── Bulk toolbar: one control height, one separating gap ───────────────────
+   The bar sits between the filter chips and the list and read as part of
+   neither: flush against the section edge above and the first row below, with a
+   40px select next to a 28px button.
+
+   The height gap comes from the select inheriting the settings-form control
+   size, which is meant for a stacked form field rather than a toolbar beside a
+   button. Both are set with longhands here: the component's own
+   `margin: 0 0 var(--bn-s3)` shorthand was not reaching the element in the
+   admin - measured as a computed margin-bottom of 0 - and an explicit longhand
+   is both verifiable and immune to whatever is beating the shorthand. */
+.bn-admin-hub .bn-settings-section .bn-ss-body form.bn-bulk-bar {
+	margin-block-start: var(--bn-a-s3, 12px);
+	margin-block-end: var(--bn-a-s3, 12px);
+}
+
+/* Specificity is the whole point of this selector, not decoration. The
+   settings-form control rule is `.bn-settings-section .bn-ss-body select`
+   (0,3,1), which is meant for a stacked form field and beat the shorter
+   `.bn-admin-hub .bn-bulk-bar select` (0,2,1) - so the select kept the form
+   height and sat 10px taller than the button beside it. This scores (0,4,2). */
+.bn-admin-hub .bn-settings-section .bn-ss-body form.bn-bulk-bar select {
+	/* Match .bn-btn[data-size="sm"] so the control and its button share a
+	   baseline instead of sitting 12px apart in height. */
+	box-sizing: border-box;
+	min-height: 0;
+	padding-block: 0;
+	line-height: 1;
+}
+
+/* Height is matched by stretching, not by a number.
+ *
+ * Pinning the select to the button's pixel height meant chasing whichever rule
+ * won that week - the settings-form control rule is more specific than anything
+ * reasonable to write here, and the button's own size comes from
+ * data-size="sm". Stretching the toolbar's items makes the two controls share a
+ * height by construction, at every breakpoint, with nothing to keep in sync. */
+.bn-admin-hub .bn-settings-section .bn-ss-body form.bn-bulk-bar {
+	align-items: stretch;
+}
+
+@media screen and (max-width: 640px) {
+	/* Below this the 240px select plus the button no longer share a line, and a
+	   button orphaned under a full-width select reads as accidental - so the
+	   select takes the remaining width and the pair stays on one row. */
+	.bn-admin-hub .bn-settings-section .bn-ss-body form.bn-bulk-bar select {
+		flex: 1 1 auto;
+		width: auto;
+	}
+}

@@ -332,28 +332,35 @@ class Spaces extends AdminPageBase {
 					<?php endforeach; ?>
 				</div>
 
+			<?php
+			// Bulk-action form. Row checkboxes associate via form="bn-spaces-bulk"
+			// so they are not nested inside the per-row Delete forms.
+			//
+			// Deliberately OUTSIDE .bn-table-wrap__scroll. It used to sit inside,
+			// which made a toolbar part of the table's horizontal scroll region:
+			// it inherited the scroller's box, so it sat flush against the section
+			// border above and the first row below with no separation at all, and
+			// on a narrow screen it would have scrolled sideways out of view along
+			// with the table it controls.
+			?>
+			<form id="bn-spaces-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar">
+				<input type="hidden" name="action" value="bn_bulk_spaces">
+				<?php wp_nonce_field( 'bn_bulk_spaces' ); ?>
+				<label for="bn-spaces-bulk-action" class="screen-reader-text"><?php esc_html_e( 'Bulk action', 'buddynext' ); ?></label>
+				<select id="bn-spaces-bulk-action" name="bulk_action" class="bn-select" data-size="sm">
+					<option value=""><?php esc_html_e( 'Bulk actions', 'buddynext' ); ?></option>
+					<option value="delete"><?php esc_html_e( 'Delete', 'buddynext' ); ?></option>
+				</select>
+				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Apply', 'buddynext' ); ?></button>
+			</form>
 			<div class="bn-table-wrap__scroll">
-				<?php
-				// Bulk-action form. Row checkboxes associate via form="bn-spaces-bulk"
-				// so they are not nested inside the per-row Delete forms.
-				?>
-				<form id="bn-spaces-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar">
-					<input type="hidden" name="action" value="bn_bulk_spaces">
-					<?php wp_nonce_field( 'bn_bulk_spaces' ); ?>
-					<label for="bn-spaces-bulk-action" class="screen-reader-text"><?php esc_html_e( 'Bulk action', 'buddynext' ); ?></label>
-					<select id="bn-spaces-bulk-action" name="bulk_action" class="bn-select" data-size="sm">
-						<option value=""><?php esc_html_e( 'Bulk actions', 'buddynext' ); ?></option>
-						<option value="delete"><?php esc_html_e( 'Delete', 'buddynext' ); ?></option>
-					</select>
-					<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Apply', 'buddynext' ); ?></button>
-				</form>
 				<table class="bn-table" data-bn-bulk="bn-spaces-bulk">
 					<thead>
 						<tr>
 							<th scope="col" class="bn-table__cb" data-align="center">
 								<input type="checkbox" id="bn-spaces-cb-all" aria-label="<?php esc_attr_e( 'Select all spaces', 'buddynext' ); ?>">
 							</th>
-							<th scope="col"><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
+							<th scope="col" class="column-primary"><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Join Requests', 'buddynext' ); ?></th>
@@ -396,7 +403,7 @@ class Spaces extends AdminPageBase {
 										?>
 										">
 									</td>
-									<td>
+									<td class="column-primary" data-colname="<?php esc_attr_e( 'Space', 'buddynext' ); ?>">
 										<div class="bn-space-row-info">
 											<strong><?php echo esc_html( (string) $space['name'] ); ?></strong>
 											<?php if ( ! empty( $space['is_archived'] ) ) : ?>
@@ -427,21 +434,25 @@ class Spaces extends AdminPageBase {
 												</span>
 											<?php endif; ?>
 										</div>
+										<button type="button" class="toggle-row">
+											<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
+											<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
+										</button>
 									</td>
-									<td>
+									<td data-colname="<?php esc_attr_e( 'Type', 'buddynext' ); ?>">
 										<span class="bn-badge" data-tone="<?php echo esc_attr( $tone ); ?>">
 											<?php echo esc_html( $bn_type_label ); ?>
 										</span>
 									</td>
-									<td><?php echo esc_html( (string) $space['member_count'] ); ?></td>
-									<td>
+									<td data-colname="<?php esc_attr_e( 'Members', 'buddynext' ); ?>"><?php echo esc_html( (string) $space['member_count'] ); ?></td>
+									<td data-colname="<?php esc_attr_e( 'Join Requests', 'buddynext' ); ?>">
 										<?php if ( $space['pending_count'] > 0 ) : ?>
 											<span class="bn-badge" data-tone="info"><?php echo esc_html( (string) $space['pending_count'] ); ?></span>
 										<?php else : ?>
 											<span class="bn-row-meta" aria-hidden="true">-</span>
 										<?php endif; ?>
 									</td>
-									<td>
+									<td data-colname="<?php esc_attr_e( 'Last Activity', 'buddynext' ); ?>">
 										<?php
 										$bn_last_active = (string) ( $space['last_active_at'] ?? '' );
 										if ( '' !== $bn_last_active ) {
@@ -453,8 +464,8 @@ class Spaces extends AdminPageBase {
 										}
 										?>
 									</td>
-									<td><?php echo esc_html( (string) $created ); ?></td>
-									<td>
+									<td data-colname="<?php esc_attr_e( 'Created', 'buddynext' ); ?>"><?php echo esc_html( (string) $created ); ?></td>
+									<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 										<div class="bn-row-actions">
 											<a href="<?php echo esc_url( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ); ?>"
 													class="bn-btn" data-variant="secondary" data-size="sm" target="_blank" rel="noopener">
