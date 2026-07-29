@@ -69,6 +69,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						value="<?php echo esc_attr( $profile_slug ); ?>"
 						placeholder="<?php esc_attr_e( 'your-custom-url', 'buddynext' ); ?>"
 						aria-describedby="bn-ep-slug-status"
+						data-wp-bind--aria-invalid="state.slugIsTaken"
 						data-wp-on--input="actions.checkSlug" />
 					<span class="bn-ep-slug-indicator"
 						id="bn-ep-slug-status"
