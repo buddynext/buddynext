@@ -107,7 +107,7 @@ if ( 'member' === $bn_kind ) {
 				if ( '' !== $bn_tag ) {
 					echo esc_html( $bn_tag );
 				} elseif ( '' !== $bn_joined ) {
-					/* translators: %s: human-readable time since the member joined. */
+					/* translators: %s: formatted join date. */
 					echo esc_html( sprintf( __( 'Joined %s', 'buddynext' ), buddynext_time_ago( $bn_joined ) ) );
 				} else {
 					esc_html_e( 'New member', 'buddynext' );

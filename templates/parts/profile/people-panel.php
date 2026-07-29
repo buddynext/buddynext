@@ -169,19 +169,19 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 				echo esc_html(
 					$bn_pp_is_owner
 						? __( 'No followers yet', 'buddynext' )
-						: sprintf( /* translators: %s: member name */ __( '%s has no followers yet.', 'buddynext' ), $bn_pp_name )
+						: sprintf( /* translators: %s: member display name. */ __( '%s has no followers yet.', 'buddynext' ), $bn_pp_name )
 				);
 			} elseif ( 'following' === $bn_pp_relation ) {
 				echo esc_html(
 					$bn_pp_is_owner
 						? __( 'You are not following anyone yet', 'buddynext' )
-						: sprintf( /* translators: %s: member name */ __( '%s is not following anyone yet.', 'buddynext' ), $bn_pp_name )
+						: sprintf( /* translators: %s: member display name. */ __( '%s is not following anyone yet.', 'buddynext' ), $bn_pp_name )
 				);
 			} else {
 				echo esc_html(
 					$bn_pp_is_owner
 						? __( 'No connections yet', 'buddynext' )
-						: sprintf( /* translators: %s: member name */ __( '%s has no connections yet.', 'buddynext' ), $bn_pp_name )
+						: sprintf( /* translators: %s: member display name. */ __( '%s has no connections yet.', 'buddynext' ), $bn_pp_name )
 				);
 			}
 			?>

@@ -102,7 +102,7 @@ class MemberEditForm {
 					<span>
 						<?php
 						printf(
-							/* translators: %s: formatted join date wrapped in a <time> element */
+							/* translators: %s: formatted join date. */
 							esc_html__( 'Joined %s', 'buddynext' ),
 							'<time datetime="' . esc_attr( $joined_iso ) . '">' . esc_html( $joined ) . '</time>'
 						);
@@ -113,7 +113,7 @@ class MemberEditForm {
 						<?php if ( $last_login > 0 ) : ?>
 							<?php
 							printf(
-								/* translators: %s: relative time of last login wrapped in a <time> element */
+								/* translators: %s: formatted last-login time, or the word for Never. */
 								esc_html__( 'Last login: %s', 'buddynext' ),
 								'<time datetime="' . esc_attr( $last_login_iso ) . '">' . esc_html( MemberDisplay::human_time_diff_short( $last_login ) ) . '</time>'
 							);
@@ -121,7 +121,7 @@ class MemberEditForm {
 						<?php else : ?>
 							<?php
 							printf(
-								/* translators: %s: literal "Never" string */
+								/* translators: %s: formatted last-login time, or the word for Never. */
 								esc_html__( 'Last login: %s', 'buddynext' ),
 								esc_html__( 'Never', 'buddynext' )
 							);

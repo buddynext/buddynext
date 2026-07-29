@@ -731,11 +731,11 @@ class PageRouter {
 
 			if ( 'profile/edit.php' === $template ) {
 				$hub_title = '' !== $profile_name
-					? sprintf( /* translators: %s: member display name */ __( 'Edit Profile · %s', 'buddynext' ), $profile_name )
+					? sprintf( /* translators: %s: member display name. */ __( 'Edit Profile · %s', 'buddynext' ), $profile_name )
 					: __( 'Edit Profile', 'buddynext' );
 			} elseif ( 'profile/view.php' === $template ) {
 				$hub_title = '' !== $profile_name
-					? sprintf( /* translators: %s: member display name */ __( '%s · Profile', 'buddynext' ), $profile_name )
+					? sprintf( /* translators: %s: member display name. */ __( '%s · Profile', 'buddynext' ), $profile_name )
 					: __( 'Profile', 'buddynext' );
 			}
 		}

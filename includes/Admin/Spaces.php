@@ -398,7 +398,7 @@ class Spaces extends AdminPageBase {
 									<td class="bn-table__cb" data-align="center">
 										<input type="checkbox" name="ids[]" form="bn-spaces-bulk" value="<?php echo absint( $space['id'] ); ?>" class="bn-bulk-cb" aria-label="
 										<?php
-											/* translators: %s: space name */
+											/* translators: %s: name of the item being selected. */
 											echo esc_attr( sprintf( __( 'Select %s', 'buddynext' ), (string) $space['name'] ) );
 										?>
 										">
@@ -457,7 +457,7 @@ class Spaces extends AdminPageBase {
 										$bn_last_active = (string) ( $space['last_active_at'] ?? '' );
 										if ( '' !== $bn_last_active ) {
 											$bn_la_ts = strtotime( $bn_last_active . ' UTC' );
-											/* translators: %s: human time difference, e.g. "2 days". */
+											/* translators: %s: human-readable time difference, e.g. "3 hours". */
 											echo esc_html( sprintf( __( '%s ago', 'buddynext' ), human_time_diff( $bn_la_ts, time() ) ) );
 										} else {
 											echo '<span aria-hidden="true">&#8212;</span><span class="screen-reader-text">' . esc_html__( 'No activity yet', 'buddynext' ) . '</span>';
@@ -486,7 +486,7 @@ class Spaces extends AdminPageBase {
 											<div class="bn-more-menu" data-space-id="<?php echo absint( $space['id'] ); ?>">
 												<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="
 												<?php
-													/* translators: %s: space name */
+													/* translators: %s: name of the item the actions apply to. */
 													echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), (string) $space['name'] ) );
 												?>
 												">

@@ -295,7 +295,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				<?php
 				echo esc_html(
 					sprintf(
-						/* translators: %s: member display name */
+						/* translators: %s: member display name. */
 						__( 'Edit Profile · %s', 'buddynext' ),
 						$display_name
 					)

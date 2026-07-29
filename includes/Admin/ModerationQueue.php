@@ -1088,7 +1088,7 @@ class ModerationQueue {
 		}
 		$now = current_time( 'timestamp' ); // phpcs:ignore WordPress.DateTime.CurrentTimeTimestamp.Requested
 		return $ts <= $now
-			/* translators: %s: human time difference, e.g. "2 hours" */
+			/* translators: %s: human-readable time difference, e.g. "3 hours". */
 			? sprintf( __( '%s ago', 'buddynext' ), human_time_diff( $ts, $now ) )
 			/* translators: %s: human time difference, e.g. "3 days" */
 			: sprintf( __( 'in %s', 'buddynext' ), human_time_diff( $now, $ts ) );

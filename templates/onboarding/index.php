@@ -202,7 +202,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		<!-- Form header: brand + step counter (no separate progress bar — the
 			stepper below is itself the progress indicator). -->
 		<div class="bn-ob-form-head">
-			<span class="bn-ob-form-head__step" data-wp-text="state.stepLabel"><?php echo esc_html( sprintf( /* translators: 1: current step, 2: total steps */ __( 'Step %1$d of %2$d', 'buddynext' ), $saved_step, $total_steps ) ); ?></span>
+			<span class="bn-ob-form-head__step" data-wp-text="state.stepLabel"><?php echo esc_html( sprintf( /* translators: 1: current step number, 2: total step count. */ __( 'Step %1$d of %2$d', 'buddynext' ), $saved_step, $total_steps ) ); ?></span>
 		</div>
 
 		<!-- Numbered step header -->

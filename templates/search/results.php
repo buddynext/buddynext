@@ -599,7 +599,7 @@ $bn_search_ctx = array(
 							<span class="bn-search__page-status">
 								<?php
 								printf(
-									/* translators: 1: current page, 2: total pages. */
+									/* translators: 1: current page number, 2: total page count. */
 									esc_html__( 'Page %1$d of %2$d', 'buddynext' ),
 									(int) min( $bn_spage, $bn_total_pages ),
 									(int) $bn_total_pages

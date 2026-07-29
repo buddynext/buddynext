@@ -51,7 +51,7 @@ $sidebar_user_id = isset( $sidebar_user_id ) ? (int) $sidebar_user_id : 0;
 						<span class="bn-sbar-row__meta">
 							<?php
 							$bn_sbar_mc = (int) $sbar_sp->member_count;
-							/* translators: %s: formatted member count */ printf( esc_html( _n( '%s member', '%s members', $bn_sbar_mc, 'buddynext' ) ), esc_html( number_format_i18n( $bn_sbar_mc ) ) );
+							/* translators: %s: formatted member count. */ printf( esc_html( _n( '%s member', '%s members', $bn_sbar_mc, 'buddynext' ) ), esc_html( number_format_i18n( $bn_sbar_mc ) ) );
 							?>
 							<?php // Count + "members" rendered together above via _n(). ?>
 						</span>

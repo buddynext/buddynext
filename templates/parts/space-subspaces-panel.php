@@ -76,7 +76,7 @@ if ( $bn_sp_space_id <= 0 ) {
 							<span class="bn-space-subspaces__meta">
 								<?php
 								printf(
-									/* translators: %s: number of members in the sub-space. */
+									/* translators: %s: formatted member count. */
 									esc_html( _n( '%s member', '%s members', $bn_sp_sub_count, 'buddynext' ) ),
 									esc_html( number_format_i18n( $bn_sp_sub_count ) )
 								);

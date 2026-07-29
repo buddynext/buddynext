@@ -92,7 +92,7 @@ do_action( 'buddynext_part_notifications_group_before', $args );
 				<?php
 				echo esc_html(
 					sprintf(
-						/* translators: %d is the count of unread notifications in this group. */
+						/* translators: %d: number of unread notifications. */
 						_n( '%d unread', '%d unread', $unread_in_group, 'buddynext' ),
 						$unread_in_group
 					)

@@ -335,7 +335,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						<?php buddynext_icon( 'calendar' ); ?>
 						<span>
 						<?php
-						/* translators: %s: month and year the member joined */
+						/* translators: %s: formatted join date. */
 						echo esc_html( sprintf( __( 'Joined %s', 'buddynext' ), $bn_pf_joined ) );
 						?>
 						</span>

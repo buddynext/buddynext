@@ -187,7 +187,7 @@ class ToolsTab {
 		$empty = 0 === $stats['total'];
 		$last  = $stats['last_reindex'] > 0
 			? sprintf(
-				/* translators: %s: human time diff, e.g. "2 hours". */
+				/* translators: %s: human-readable time difference, e.g. "3 hours". */
 				__( '%s ago', 'buddynext' ),
 				human_time_diff( $stats['last_reindex'], time() )
 			)

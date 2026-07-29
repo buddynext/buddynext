@@ -72,7 +72,7 @@ do_action( 'buddynext_profile_connections_before', isset( $user_id ) ? (int) $us
 				esc_html_e( 'Your Connections', 'buddynext' );
 			} else {
 				printf(
-					/* translators: %s: member display name */
+					/* translators: %s: member display name. */
 					esc_html__( "%s's Connections", 'buddynext' ),
 					esc_html( $profile_user->display_name )
 				);
@@ -125,7 +125,7 @@ do_action( 'buddynext_profile_connections_before', isset( $user_id ) ? (int) $us
 					esc_html_e( 'Connect with other members to see them here.', 'buddynext' );
 				} else {
 					printf(
-						/* translators: %s: member display name */
+						/* translators: %s: member display name. */
 						esc_html__( "%s hasn't made any connections public yet.", 'buddynext' ),
 						esc_html( $profile_user->display_name )
 					);

@@ -182,7 +182,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 			<button
 				type="button"
 				class="bn-md-card__menu"
-				aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'More actions for %s', 'buddynext' ), $bn_display_name ) ); ?>"
+				aria-label="<?php echo esc_attr( sprintf( /* translators: %s: name of the item the actions apply to. */ __( 'More actions for %s', 'buddynext' ), $bn_display_name ) ); ?>"
 				aria-haspopup="true"
 				aria-expanded="false"
 				data-wp-on--click="actions.toggleCardMenu"

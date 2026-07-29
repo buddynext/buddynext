@@ -154,7 +154,7 @@ do_action( 'buddynext_part_dm_rail_item_before', $args );
 			} elseif ( '' !== $c_preview ) {
 				echo esc_html( $c_preview );
 			} elseif ( $c_is_group ) {
-				/* translators: %d: number of group members. */
+				/* translators: %d: number of members. */
 				echo esc_html( sprintf( _n( '%d member', '%d members', $c_members, 'buddynext' ), $c_members ) );
 			}
 			?>
@@ -163,7 +163,7 @@ do_action( 'buddynext_part_dm_rail_item_before', $args );
 
 	<span class="bn-dm-rail__item-meta">
 		<?php if ( $c_unread > 0 ) : ?>
-			<span class="bn-badge" data-tone="accent" aria-label="<?php echo esc_attr( sprintf( /* translators: %d: unread count */ _n( '%d unread', '%d unread', $c_unread, 'buddynext' ), $c_unread ) ); ?>">
+			<span class="bn-badge" data-tone="accent" aria-label="<?php echo esc_attr( sprintf( /* translators: %d: number of unread notifications. */ _n( '%d unread', '%d unread', $c_unread, 'buddynext' ), $c_unread ) ); ?>">
 				<?php echo esc_html( (string) min( $c_unread, 99 ) ); ?>
 			</span>
 		<?php endif; ?>

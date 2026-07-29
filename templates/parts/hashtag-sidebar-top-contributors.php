@@ -101,7 +101,7 @@ do_action( 'buddynext_part_hashtag_sidebar_top_contributors_before', $args );
 						<span class="bn-hashtag-contributors__sub">
 							<?php
 							printf(
-								/* translators: %d: number of posts */
+								/* translators: %d: number of posts. */
 								esc_html( _n( '%d post', '%d posts', $contrib_count, 'buddynext' ) ),
 								absint( $contrib_count )
 							);

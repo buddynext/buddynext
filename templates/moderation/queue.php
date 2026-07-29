@@ -395,7 +395,7 @@ do_action( 'buddynext_moderation_queue_before' );
 				}
 
 				$joined_date = '' !== $offender_joined
-					? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( (int) strtotime( $offender_joined ), time() ) )
+					? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( (int) strtotime( $offender_joined ), time() ) )
 					: '';
 
 				$offender_inits = AvatarService::initials_for( $offender_name );
@@ -428,7 +428,7 @@ do_action( 'buddynext_moderation_queue_before' );
 
 				// Time ago + ISO datetime.
 				$created_ts   = $created_at ? (int) strtotime( $created_at . ' UTC' ) : 0;
-				$time_diff    = $created_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( $created_ts, time() ) ) : '';
+				$time_diff    = $created_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $created_ts, time() ) ) : '';
 				$iso_datetime = $created_ts ? gmdate( DATE_ATOM, $created_ts ) : '';
 
 				// Reporter avatar initials.
@@ -490,7 +490,7 @@ do_action( 'buddynext_moderation_queue_before' );
 										<?php
 										echo esc_html(
 											sprintf(
-												/* translators: %s: time since joining. */
+												/* translators: %s: formatted join date. */
 												__( 'Joined %s', 'buddynext' ),
 												$joined_date
 											)
@@ -517,7 +517,7 @@ do_action( 'buddynext_moderation_queue_before' );
 										<?php
 										echo esc_html(
 											sprintf(
-												/* translators: %d: strike count. */
+												/* translators: %d: number of strikes. */
 												_n( '%d strike', '%d strikes', max( 1, $strikes_count ), 'buddynext' ),
 												$strikes_count
 											)

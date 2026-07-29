@@ -81,7 +81,7 @@ $online      = (bool) $args['is_online'];
 $presence    = $online ? 'online' : 'offline';
 $is_group    = (bool) $args['is_group'];
 $members     = (int) $args['member_count'];
-/* translators: %d: number of group members. */
+/* translators: %d: number of members. */
 $group_sub = sprintf( _n( '%d member', '%d members', $members, 'buddynext' ), $members );
 
 do_action( 'buddynext_part_dm_thread_header_before', $args );

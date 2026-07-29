@@ -172,7 +172,7 @@ if ( ! function_exists( 'bn_time_diff' ) ) {
 	 * @return string Localized time diff.
 	 */
 	function bn_time_diff( string $datetime ): string {
-		return sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $datetime ), time() ) );
+		return sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $datetime ), time() ) );
 	}
 }
 
@@ -320,7 +320,7 @@ $mod_privacy = array(
 											<?php if ( $r_strikes > 0 ) : ?>
 												<?php
 												printf(
-													/* translators: %d: number of strikes */
+													/* translators: %d: number of strikes. */
 													esc_html( _n( '%d strike', '%d strikes', $r_strikes, 'buddynext' ) ),
 													absint( $r_strikes )
 												);
@@ -355,7 +355,7 @@ $mod_privacy = array(
 									<span class="bn-badge" data-tone="default">
 										<?php
 										printf(
-											/* translators: %d: number of reports */
+											/* translators: %d: number of reports. */
 											esc_html( _n( '%d report', '%d reports', $r_count, 'buddynext' ) ),
 											absint( $r_count )
 										);

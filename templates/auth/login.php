@@ -208,7 +208,7 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url();
 								href="<?php echo esc_url( $purl ); ?>"
 								aria-label="
 								<?php
-								/* translators: %s: provider name (e.g. Google) */
+								/* translators: %s: provider name (e.g. Google). */
 								echo esc_attr( sprintf( __( 'Continue with %s', 'buddynext' ), $plabel ) );
 								?>
 								">

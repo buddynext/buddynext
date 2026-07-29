@@ -1605,7 +1605,7 @@ class ProfileFieldsManager {
 											<?php
 											echo esc_html(
 												sprintf(
-													/* translators: 1: number of members with stored values, 2: group name. */
+													/* translators: 1: number of members with stored values, 2: name of the item being deleted. */
 													_n(
 														'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
 														'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',
@@ -1782,7 +1782,7 @@ class ProfileFieldsManager {
 															<?php
 															echo esc_html(
 																sprintf(
-																	/* translators: 1: number of members with stored values, 2: field name. */
+																	/* translators: 1: number of members with stored values, 2: name of the item being deleted. */
 																	_n(
 																		'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
 																		'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',

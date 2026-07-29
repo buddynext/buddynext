@@ -73,18 +73,18 @@ foreach ( $bn_pd_rows as $bn_pd_disc ) :
 		</span>
 		<div class="bn-reply-card__meta">
 			<span><?php echo esc_html( $bn_pd_name ); ?></span>
-			<span class="bn-reply-card__time"><?php echo esc_html( sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $bn_pd_disc->created_at ) ) ) ); ?></span>
+			<span class="bn-reply-card__time"><?php echo esc_html( sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $bn_pd_disc->created_at ) ) ) ); ?></span>
 		</div>
 		<div class="bn-reply-card__content bn-reply-card__content--strong"><?php echo esc_html( $bn_pd_disc->title ); ?></div>
 		<div class="bn-reply-card__context">
 			<?php
 			$bn_pd_rc = (int) $bn_pd_disc->reply_count;
-			/* translators: %d: number of replies */ printf( esc_html( _n( '%d reply', '%d replies', $bn_pd_rc, 'buddynext' ) ), (int) $bn_pd_rc );
+			/* translators: %d: number of replies. */ printf( esc_html( _n( '%d reply', '%d replies', $bn_pd_rc, 'buddynext' ) ), (int) $bn_pd_rc );
 			?>
 			<span aria-hidden="true">&middot;</span>
 			<?php
 			$bn_pd_vc = (int) $bn_pd_disc->vote_score;
-			/* translators: %d: number of votes */ printf( esc_html( _n( '%d vote', '%d votes', $bn_pd_vc, 'buddynext' ) ), (int) $bn_pd_vc );
+			/* translators: %d: number of votes. */ printf( esc_html( _n( '%d vote', '%d votes', $bn_pd_vc, 'buddynext' ) ), (int) $bn_pd_vc );
 			?>
 		</div>
 	</a>

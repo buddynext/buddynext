@@ -1185,7 +1185,7 @@ class AuthController {
 				$errors['terms_agreed'] = __( 'You must accept the Terms of Service to continue.', 'buddynext' );
 				continue;
 			}
-			/* translators: %s: profile field label. */
+			/* translators: %s: field label. */
 			$errors[ $requirement ] = sprintf( __( '%s is required.', 'buddynext' ), $policy->label_for( $requirement ) );
 		}
 
@@ -1409,7 +1409,7 @@ class AuthController {
 				$errors['terms_agreed'] = __( 'You must accept the Terms of Service to continue.', 'buddynext' );
 				continue;
 			}
-			/* translators: %s: profile field label. */
+			/* translators: %s: field label. */
 			$errors[ $requirement ] = sprintf( __( '%s is required.', 'buddynext' ), $policy->label_for( $requirement ) );
 		}
 

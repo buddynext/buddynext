@@ -575,7 +575,7 @@ $updated_iso = gmdate( 'c' );
 							<span class="bn-stat__label"><?php esc_html_e( 'Current', 'buddynext' ); ?></span>
 							<span class="bn-stat__value">
 								<?php
-								// translators: %s: number of consecutive active days.
+								// translators: %s: number of days.
 								echo esc_html( sprintf( _n( '%s day', '%s days', $current_streak, 'buddynext' ), number_format_i18n( $current_streak ) ) );
 								?>
 							</span>
@@ -584,7 +584,7 @@ $updated_iso = gmdate( 'c' );
 							<span class="bn-stat__label"><?php esc_html_e( 'Longest', 'buddynext' ); ?></span>
 							<span class="bn-stat__value">
 								<?php
-								// translators: %s: longest streak in days.
+								// translators: %s: number of days.
 								echo esc_html( sprintf( _n( '%s day', '%s days', $longest_streak, 'buddynext' ), number_format_i18n( $longest_streak ) ) );
 								?>
 							</span>

@@ -34,7 +34,7 @@ $display_name = isset( $display_name ) ? (string) $display_name : '';
 				if ( '' !== $display_name ) {
 					echo esc_html(
 						sprintf(
-							/* translators: %s: member display name */
+							/* translators: %s: member display name. */
 							__( 'Block %s?', 'buddynext' ),
 							$display_name
 						)

@@ -77,7 +77,7 @@ $total_pages = $total > 0 ? (int) ceil( $total / $bn_per_page ) : 0;
 $page_title = $is_own_profile
 	? __( 'Your followers', 'buddynext' )
 	: sprintf(
-		/* translators: %s: member display name */
+		/* translators: %s: member display name. */
 		__( 'Followers · %s', 'buddynext' ),
 		$profile_user->display_name
 	);
@@ -205,7 +205,7 @@ do_action( 'buddynext_profile_followers_before', (int) $user_id );
 						esc_html_e( 'No followers yet', 'buddynext' );
 					} else {
 						printf(
-							/* translators: %s: member display name */
+							/* translators: %s: member display name. */
 							esc_html__( '%s has no followers yet.', 'buddynext' ),
 							esc_html( $profile_user->display_name )
 						);

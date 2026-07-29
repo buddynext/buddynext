@@ -49,7 +49,7 @@ $bn_classes = (array) apply_filters( 'buddynext_part_member_directory_hero_class
 $bn_total = (int) $args['total_members'];
 
 $bn_subtitle = sprintf(
-	/* translators: %s: formatted member count */
+	/* translators: %s: formatted member count. */
 	__( '%s members in the community', 'buddynext' ),
 	number_format_i18n( $bn_total )
 );

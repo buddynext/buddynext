@@ -232,7 +232,7 @@ class SpacesDirectorySidebarProvider {
 							<span class="bn-sd-side-row__meta">
 							<?php
 							$member_count = (int) $space['member_count'];
-							/* translators: %s: formatted member count */
+							/* translators: %s: formatted member count. */
 							printf( esc_html( _n( '%s member', '%s members', $member_count, 'buddynext' ) ), esc_html( number_format_i18n( $member_count ) ) );
 							?>
 							</span>

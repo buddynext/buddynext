@@ -75,7 +75,7 @@ if ( $current_user_id > 0 ) {
 $page_title = $is_own_profile
 	? __( 'You are following', 'buddynext' )
 	: sprintf(
-		/* translators: %s: member display name */
+		/* translators: %s: member display name. */
 		__( 'Following · %s', 'buddynext' ),
 		$profile_user->display_name
 	);
@@ -132,7 +132,7 @@ do_action( 'buddynext_profile_following_before', (int) $user_id );
 						esc_html_e( 'You are not following anyone yet', 'buddynext' );
 					} else {
 						printf(
-							/* translators: %s: member display name */
+							/* translators: %s: member display name. */
 							esc_html__( '%s is not following anyone yet.', 'buddynext' ),
 							esc_html( $profile_user->display_name )
 						);

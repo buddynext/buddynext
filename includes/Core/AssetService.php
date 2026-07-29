@@ -663,42 +663,42 @@ class AssetService {
 					'ariaFollow'              => __( 'Follow this user', 'buddynext' ),
 					'ariaUnfollow'            => __( 'Unfollow this user', 'buddynext' ),
 					'ariaCancelRequest'       => __( 'Cancel follow request', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastUnfollowed'         => __( 'Unfollowed @%s', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastRequestCancelled'   => __( 'Follow request to @%s cancelled', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastRequestSent'        => __( 'Follow request sent to @%s', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastNowFollowing'       => __( 'Now following @%s', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastCouldNotUnfollow'   => __( 'Could not unfollow @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastCouldNotFollow'     => __( 'Could not follow @%s. Try again.', 'buddynext' ),
 					// Follow-request inbox.
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastCanFollowYou'       => __( '@%s can now follow you', 'buddynext' ),
 					'toastApproveFailed'      => __( 'Could not approve request. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastRequestDeclined'    => __( 'Request from @%s declined', 'buddynext' ),
 					'toastDeclineFailed'      => __( 'Could not decline request. Try again.', 'buddynext' ),
 					// Connection button labels.
 					'connect'                 => __( 'Connect', 'buddynext' ),
 					'connected'               => __( 'Connected', 'buddynext' ),
 					'respond'                 => __( 'Respond', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'noteBody'                => __( 'Add a personal message to your request to @%s, or send it without one.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastConnectionSent'     => __( 'Connection request sent to @%s', 'buddynext' ),
 					'toastCouldNotConnect'    => __( 'Could not send connection request. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastRequestWithdrawn'   => __( 'Request to @%s withdrawn', 'buddynext' ),
 					'toastCouldNotWithdraw'   => __( 'Could not withdraw request. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastConnectedWith'      => __( 'Connected with @%s', 'buddynext' ),
 					'toastCouldNotAccept'     => __( 'Could not accept request. Try again.', 'buddynext' ),
 					'toastCouldNotDecline'    => __( 'Could not decline request. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastDisconnected'       => __( 'Disconnected from @%s', 'buddynext' ),
 					'toastCouldNotDisconnect' => __( 'Could not disconnect. Try again.', 'buddynext' ),
 				),
@@ -751,11 +751,11 @@ class AssetService {
 					'scheduleInvalid'         => __( 'Pick a valid date and time.', 'buddynext' ),
 					'schedulePast'            => __( 'Pick a time in the future.', 'buddynext' ),
 					'timeJustNow'             => __( 'just now', 'buddynext' ),
-					/* translators: %d: number of minutes */
+					/* translators: %d: number of minutes. */
 					'timeMinutesAgo'          => __( '%dm ago', 'buddynext' ),
-					/* translators: %d: number of hours */
+					/* translators: %d: number of hours. */
 					'timeHoursAgo'            => __( '%dh ago', 'buddynext' ),
-					/* translators: %d: number of days */
+					/* translators: %d: number of days. */
 					'timeDaysAgo'             => __( '%dd ago', 'buddynext' ),
 					'user'                    => __( 'User', 'buddynext' ),
 					'you'                     => __( 'You', 'buddynext' ),
@@ -901,7 +901,7 @@ class AssetService {
 					'viewMoreComments'        => __( 'View more comments', 'buddynext' ),
 					'loadingComments'         => __( 'Loading…', 'buddynext' ),
 					'oneVote'                 => __( '1 vote', 'buddynext' ),
-					/* translators: %d: number of votes */
+					/* translators: %d: number of votes. */
 					'manyVotes'               => __( '%d votes', 'buddynext' ),
 					'pollNeedsQuestion'       => __( 'Add a question for your poll.', 'buddynext' ),
 					'composerEmpty'           => __( 'Write something to share.', 'buddynext' ),
@@ -944,42 +944,42 @@ class AssetService {
 					'mutualConnectionPlural'        => __( '%d mutual connections', 'buddynext' ),
 					'pagerNext'                     => __( 'Next »', 'buddynext' ),
 					'memberFallback'                => __( 'member', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastUnfollowed'               => __( 'Unfollowed @%s', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastNowFollowing'             => __( 'Now following @%s', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastCouldNotUnfollow'         => __( 'Could not unfollow @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastCouldNotFollow'           => __( 'Could not follow @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'noteBody'                      => __( 'Add a personal message to your request to @%s, or send it without one.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastConnectionSent'           => __( 'Connection request sent to @%s', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastCouldNotSendRequest'      => __( 'Could not send request to @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastRequestWithdrawn'         => __( 'Request to @%s withdrawn', 'buddynext' ),
 					'toastCouldNotWithdraw'         => __( 'Could not withdraw request. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastDisconnected'             => __( 'Disconnected from @%s', 'buddynext' ),
 					'toastCouldNotDisconnect'       => __( 'Could not disconnect. Try again.', 'buddynext' ),
 					'toastCouldNotUpdateConnection' => __( 'Could not update connection. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastConnectedWith'            => __( 'Connected with @%s', 'buddynext' ),
 					'toastCouldNotAccept'           => __( 'Could not accept request. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastRequestDeclined'          => __( 'Request from @%s declined', 'buddynext' ),
 					'toastCouldNotDecline'          => __( 'Could not decline request. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastMuted'                    => __( 'Muted @%s', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastUnmuted'                  => __( 'Unmuted @%s', 'buddynext' ),
 					'toastCouldNotUpdateMute'       => __( 'Could not update mute state. Try again.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'blockTitleNamed'               => __( 'Block %s?', 'buddynext' ),
 					'blockTitleGeneric'             => __( 'Block this member?', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'toastBlocked'                  => __( '@%s blocked', 'buddynext' ),
 					'toastCouldNotBlock'            => __( 'Could not block. Try again.', 'buddynext' ),
 					'toastReportSubmitted'          => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
@@ -1013,7 +1013,7 @@ class AssetService {
 					'labelPublic'                     => __( 'Public', 'buddynext' ),
 					'ariaJoinedClickToLeave'          => __( 'Joined - click to leave', 'buddynext' ),
 					'ariaRequestPendingClickToCancel' => __( 'Request pending - click to cancel', 'buddynext' ),
-					/* translators: %d: member count. */
+					/* translators: %d: number of members. */
 					'membersCount'                    => __( '%d members', 'buddynext' ),
 					'paywallMembersOnly'              => __( 'This space is available to members only.', 'buddynext' ),
 					'paywallBecomeMember'             => __( 'Become a Member', 'buddynext' ),
@@ -1121,7 +1121,7 @@ class AssetService {
 					// picker never keeps showing the previous query's stale rows.
 					'composeError'              => __( 'Could not search right now. Try again.', 'buddynext' ),
 					'memberCountSingular'       => __( '1 member', 'buddynext' ),
-					/* translators: %d: number of members */
+					/* translators: %d: number of members. */
 					'memberCountPlural'         => __( '%d members', 'buddynext' ),
 					'roleAdmin'                 => __( 'Admin', 'buddynext' ),
 					'roleMember'                => __( 'Member', 'buddynext' ),
@@ -1151,13 +1151,13 @@ class AssetService {
 					'reportMessageSuccess'      => __( 'Message reported. Our moderators will review it.', 'buddynext' ),
 					'reportMessageFailed'       => __( 'Could not report this message. Try again.', 'buddynext' ),
 					'thisMember'                => __( 'this member', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'blockTitle'                => __( 'Block %s?', 'buddynext' ),
 					'blockBody'                 => __( 'They will not be able to message you, and you will not see each other across the community. You can unblock them later from their profile.', 'buddynext' ),
 					'blockConfirm'              => __( 'Block', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'blockSuccess'              => __( '%s blocked.', 'buddynext' ),
-					/* translators: %s: member name */
+					/* translators: %s: member display name. */
 					'blockFailed'               => __( 'Could not block %s. Try again.', 'buddynext' ),
 					'reportConversationTitle'   => __( 'Report this conversation', 'buddynext' ),
 					'reportConversationSuccess' => __( 'Reported. Our moderators will review it.', 'buddynext' ),
@@ -1364,7 +1364,7 @@ class AssetService {
 					'strikeReversed'        => __( 'Strike reversed.', 'buddynext' ),
 					'reverseStrikeFailed'   => __( 'Could not reverse the strike. Try again.', 'buddynext' ),
 					'noActiveStrikes'       => __( 'This member has no active strikes.', 'buddynext' ),
-					/* translators: %d: number of active strikes. */
+					/* translators: %d: number of strikes. */
 					'strikeCountOne'        => __( '%d strike', 'buddynext' ),
 					/* translators: %d: number of active strikes. */
 					'strikeCountOther'      => __( '%d strikes', 'buddynext' ),
@@ -1504,7 +1504,7 @@ class AssetService {
 					'secondsAgo'           => __( '%ds ago', 'buddynext' ),
 					/* translators: %d: number of minutes */
 					'minutesAgo'           => __( '%d min ago', 'buddynext' ),
-					/* translators: %d: number of hours */
+					/* translators: %d: number of hours. */
 					'hoursAgo'             => __( '%dh ago', 'buddynext' ),
 					'statusSaving'         => __( 'Saving...', 'buddynext' ),
 					'statusUnsavedChanges' => __( 'Unsaved changes', 'buddynext' ),

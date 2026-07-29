@@ -1316,7 +1316,7 @@ class Members extends AdminPageBase {
 								<td class="bn-table__cb" data-align="center">
 									<input type="checkbox" name="ids[]" form="bn-members-bulk" value="<?php echo absint( $member['id'] ); ?>" class="bn-bulk-cb" aria-label="
 									<?php
-										/* translators: %s: member display name */
+										/* translators: %s: name of the item being selected. */
 										echo esc_attr( sprintf( __( 'Select %s', 'buddynext' ), $member['display'] ) );
 									?>
 									">
@@ -1383,7 +1383,7 @@ class Members extends AdminPageBase {
 										<div class="bn-more-menu" data-uid="<?php echo absint( $member['id'] ); ?>">
 											<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="
 											<?php
-												/* translators: %s: member display name */
+												/* translators: %s: name of the item the actions apply to. */
 												echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), $member['display'] ) );
 											?>
 											">
@@ -1405,7 +1405,7 @@ class Members extends AdminPageBase {
 														data-bn-confirm="1"
 														data-bn-confirm-reason="1"
 														data-bn-confirm-title="<?php esc_attr_e( 'Suspend this member?', 'buddynext' ); ?>"
-														data-bn-confirm-body="<?php /* translators: %s: member display name */ echo esc_attr( sprintf( __( 'Suspend %s? They will lose posting access until the suspension is lifted.', 'buddynext' ), $member['display'] ) ); ?>"
+														data-bn-confirm-body="<?php /* translators: %s: member display name. */ echo esc_attr( sprintf( __( 'Suspend %s? They will lose posting access until the suspension is lifted.', 'buddynext' ), $member['display'] ) ); ?>"
 														data-bn-confirm-label="<?php esc_attr_e( 'Suspend member', 'buddynext' ); ?>">
 														<input type="hidden" name="action" value="bn_suspend_member">
 														<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">

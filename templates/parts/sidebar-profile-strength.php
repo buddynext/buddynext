@@ -109,7 +109,7 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 				role="img"
 				aria-label="
 				<?php
-				/* translators: %d: profile completion percentage */
+				/* translators: %d: profile completion percentage (0-100). */
 				echo esc_attr( sprintf( __( 'Profile %d%% complete', 'buddynext' ), $bn_ring_pct ) );
 				?>
 				"

@@ -603,7 +603,7 @@ class MessagesData {
 					return '';
 				}
 
-				/* translators: %s: human-readable time difference, e.g. "5 mins". */
+				/* translators: %s: human-readable time difference, e.g. "3 hours". */
 				return sprintf( __( '%s ago', 'buddynext' ), human_time_diff( $ts, time() ) );
 			},
 			// Presence is resolved from the canonical reader the rest of the

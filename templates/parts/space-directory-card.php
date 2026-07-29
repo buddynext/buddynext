@@ -134,7 +134,7 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 		<div class="bn-sd-card__stats">
 			<span class="bn-sd-card__stat">
 				<?php
-				// translators: %s: member count.
+				// translators: %s: formatted member count.
 				printf( esc_html( _n( '%s member', '%s members', (int) ( $bn_dc_space['member_count'] ?? 0 ), 'buddynext' ) ), esc_html( $member_count ) );
 				?>
 			</span>

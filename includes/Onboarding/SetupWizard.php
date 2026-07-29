@@ -369,7 +369,7 @@ class SetupWizard {
 						<span class="bn-wizard__progress-text">
 							<?php
 							printf(
-								/* translators: 1: current step number, 2: total step count */
+								/* translators: 1: current step number, 2: total step count. */
 								esc_html__( 'Step %1$d of %2$d', 'buddynext' ),
 								absint( $step ),
 								absint( self::TOTAL_STEPS )

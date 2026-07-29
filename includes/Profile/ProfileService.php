@@ -709,7 +709,7 @@ class ProfileService {
 						// (REST, admin editor, onboarding) gets the same contract.
 						if ( ! empty( $field_def['is_required'] ) && '' === $sanitized_val ) {
 							$field_errors[ "{$key}[{$entry_index}][{$field_key}]" ] = sprintf(
-								/* translators: %s: profile field label. */
+								/* translators: %s: field label. */
 								__( '%s is required.', 'buddynext' ),
 								(string) ( $field_def['label'] ?? $field_key )
 							);
@@ -931,7 +931,7 @@ class ProfileService {
 			// fields) is unchanged.
 			if ( $field_active && ! empty( $field['is_required'] ) && '' === $sanitized_val ) {
 				$field_errors[ (string) $key ] = sprintf(
-					/* translators: %s: profile field label. */
+					/* translators: %s: field label. */
 					__( '%s is required.', 'buddynext' ),
 					(string) ( $field['label'] ?? $key )
 				);
@@ -2056,7 +2056,7 @@ class ProfileService {
 				}
 				$tasks[] = array(
 					'label' => sprintf(
-						/* translators: %s: profile section name (owner-defined, e.g. "Work Experience") */
+						/* translators: %s: profile section name (owner-defined, e.g. "Work Experience"). */
 						__( 'Add %s', 'buddynext' ),
 						$group_label
 					),
@@ -2086,7 +2086,7 @@ class ProfileService {
 			}
 			$tasks[] = array(
 				'label' => sprintf(
-					/* translators: %s: profile section name (owner-defined, e.g. "Basic Info") */
+					/* translators: %s: profile section name (owner-defined, e.g. "Work Experience"). */
 					__( 'Add %s', 'buddynext' ),
 					$group_label
 				),

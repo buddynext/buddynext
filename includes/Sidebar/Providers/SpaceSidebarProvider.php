@@ -384,7 +384,7 @@ class SpaceSidebarProvider {
 								<span class="bn-sh-side-space__meta">
 									<?php
 									printf(
-										/* translators: %s: number of members in the sub-space. */
+										/* translators: %s: formatted member count. */
 										esc_html( _n( '%s member', '%s members', $sub_count, 'buddynext' ) ),
 										esc_html( number_format_i18n( $sub_count ) )
 									);
@@ -511,7 +511,7 @@ class SpaceSidebarProvider {
 							href="<?php echo esc_url( add_query_arg( 'recipient', $mod_uid, PageRouter::messages_url() ) ); ?>"
 							aria-label="
 							<?php
-							/* translators: %s: moderator display name */
+							/* translators: %s: member display name. */
 							echo esc_attr( sprintf( __( 'Message %s', 'buddynext' ), $mod_name ) );
 							?>
 							"
@@ -589,7 +589,7 @@ class SpaceSidebarProvider {
 					</a>
 					<span class="bn-sh-side-member__count">
 						<?php
-						// translators: %d: post count.
+						// translators: %d: number of posts.
 						printf( esc_html( _n( '%d post', '%d posts', (int) $c->post_count, 'buddynext' ) ), (int) $c->post_count );
 						?>
 					</span>

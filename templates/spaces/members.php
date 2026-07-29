@@ -298,7 +298,7 @@ $mem_privacy = array(
 					$joined_local     = get_date_from_gmt( (string) $member['joined_at'], (string) get_option( 'date_format' ) );
 					$joined_formatted = '' !== $joined_local
 						? sprintf(
-							/* translators: %s: human-readable date */
+							/* translators: %s: formatted join date. */
 							__( 'Joined %s', 'buddynext' ),
 							$joined_local
 						)
@@ -326,7 +326,7 @@ $mem_privacy = array(
 								aria-expanded="false"
 								aria-label="
 								<?php
-									/* translators: %s: member name */
+									/* translators: %s: name of the item the actions apply to. */
 									printf( esc_attr__( 'More actions for %s', 'buddynext' ), esc_attr( $member_name ) );
 								?>
 								"
@@ -394,7 +394,7 @@ $mem_privacy = array(
 									data-size="sm"
 									aria-label="
 									<?php
-										/* translators: %s: member name */
+										/* translators: %s: member display name. */
 										printf( esc_attr__( 'Message %s', 'buddynext' ), esc_attr( $member_name ) );
 									?>
 									"

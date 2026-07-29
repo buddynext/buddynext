@@ -458,7 +458,7 @@ $initial_context = wp_json_encode(
 				<?php
 				echo esc_html(
 					sprintf(
-						/* translators: 1: current page number, 2: total pages */
+						/* translators: 1: current page number, 2: total page count. */
 						__( 'Page %1$d of %2$d', 'buddynext' ),
 						$bn_paged,
 						$total_pages

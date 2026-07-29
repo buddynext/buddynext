@@ -129,7 +129,7 @@ do_action( 'buddynext_part_search_result_section_hashtags_before', $args );
 							<?php
 							echo esc_html(
 								sprintf(
-									/* translators: %d = post count for hashtag. */
+									/* translators: %d: number of posts. */
 									_n( '%d post', '%d posts', $ht_count, 'buddynext' ),
 									$ht_count
 								)

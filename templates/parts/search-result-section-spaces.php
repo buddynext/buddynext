@@ -152,7 +152,7 @@ do_action( 'buddynext_part_search_result_section_spaces_before', $args );
 									<?php
 									echo esc_html(
 										sprintf(
-											/* translators: %d = member count. */
+											/* translators: %d: number of members. */
 											_n( '%d member', '%d members', $member_count, 'buddynext' ),
 											$member_count
 										)

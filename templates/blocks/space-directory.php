@@ -67,7 +67,7 @@ $has_more = false;
 							<?php
 							$bn_count = absint( $space['member_count'] ?? 0 );
 							printf(
-								/* translators: %d: member count */
+								/* translators: %d: number of members. */
 								esc_html( _n( '%d member', '%d members', $bn_count, 'buddynext' ) ),
 								absint( $bn_count )
 							);

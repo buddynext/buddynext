@@ -155,7 +155,7 @@ else :
 					<?php buddynext_icon( 'message-circle' ); ?>
 					<?php
 					printf(
-						/* translators: %d: reply count */
+						/* translators: %d: number of replies. */
 						esc_html( _n( '%d reply', '%d replies', $jt_replies, 'buddynext' ) ),
 						(int) $jt_replies
 					);

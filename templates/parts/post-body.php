@@ -252,7 +252,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 					data-wp-text="state.pollTotalVotesText"
 				>
 					<?php
-					/* translators: %d: total vote count */
+					/* translators: %d: number of votes. */
 					echo esc_html( sprintf( _n( '%d vote', '%d votes', $bn_poll_total, 'buddynext' ), $bn_poll_total ) );
 					?>
 				</p>

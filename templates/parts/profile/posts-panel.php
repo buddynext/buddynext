@@ -74,7 +74,7 @@ else :
 		$bn_pl_icon  = 'edit';
 		$bn_pl_empty = $bn_pl_is_owner
 			? __( 'You have not posted anything yet.', 'buddynext' )
-			/* translators: %s: member display name */
+			/* translators: %s: member display name. */
 			: sprintf( __( '%s has not posted anything yet.', 'buddynext' ), $bn_pl_name );
 	}
 

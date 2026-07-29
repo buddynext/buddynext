@@ -1183,7 +1183,7 @@ class ProfileController extends BaseRestController {
 						// Key the error to the entry so the editor can highlight the
 						// offending row instead of showing an unattributable toast.
 						$errors[ $gkey . '.' . (int) $entry_index . '.' . $fkey ] = sprintf(
-							/* translators: %s: profile field label. */
+							/* translators: %s: field label. */
 							__( '%s is required.', 'buddynext' ),
 							(string) ( $field_def['label'] ?? $fkey )
 						);
@@ -1205,7 +1205,7 @@ class ProfileController extends BaseRestController {
 			// A partial update leaves absent keys untouched, so it never demands
 			// fields the caller did not submit.
 			if ( ! empty( $field_def['is_required'] ) && $is_empty && ( $present || $full_write ) ) {
-				/* translators: %s: profile field label. */
+				/* translators: %s: field label. */
 				$errors[ $fkey ] = sprintf( __( '%s is required.', 'buddynext' ), (string) ( $field_def['label'] ?? $fkey ) );
 				continue;
 			}

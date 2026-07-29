@@ -69,18 +69,18 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 					</span>
 					<div class="bn-reply-card__meta">
 						<span><?php echo esc_html( $bn_author ); ?></span>
-						<span class="bn-reply-card__time"><?php echo esc_html( sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( (string) $bn_disc->created_at ) ) ) ); ?></span>
+						<span class="bn-reply-card__time"><?php echo esc_html( sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( (string) $bn_disc->created_at ) ) ) ); ?></span>
 					</div>
 					<div class="bn-reply-card__content bn-reply-card__content--strong"><?php echo esc_html( (string) $bn_disc->title ); ?></div>
 					<div class="bn-reply-card__context">
 						<?php
 						$bn_sdp_rc = (int) ( $bn_disc->reply_count ?? 0 );
-						/* translators: %d: number of replies */ printf( esc_html( _n( '%d reply', '%d replies', $bn_sdp_rc, 'buddynext' ) ), (int) $bn_sdp_rc );
+						/* translators: %d: number of replies. */ printf( esc_html( _n( '%d reply', '%d replies', $bn_sdp_rc, 'buddynext' ) ), (int) $bn_sdp_rc );
 						?>
 						<span aria-hidden="true">&middot;</span>
 						<?php
 						$bn_sdp_vc = (int) ( $bn_disc->vote_score ?? 0 );
-						/* translators: %d: number of votes */ printf( esc_html( _n( '%d vote', '%d votes', $bn_sdp_vc, 'buddynext' ) ), (int) $bn_sdp_vc );
+						/* translators: %d: number of votes. */ printf( esc_html( _n( '%d vote', '%d votes', $bn_sdp_vc, 'buddynext' ) ), (int) $bn_sdp_vc );
 						?>
 					</div>
 				</a>

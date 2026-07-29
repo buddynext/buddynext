@@ -112,7 +112,7 @@ if ( ! function_exists( 'bn_time_diff' ) ) {
 	 * @return string Localized time diff.
 	 */
 	function bn_time_diff( string $datetime ): string {
-		return sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $datetime ), time() ) );
+		return sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $datetime ), time() ) );
 	}
 }
 
@@ -424,7 +424,7 @@ $posts_pct_abs = abs( $posts_pct );
 							$rpt_reason   = ucfirst( (string) ( $rpt['reason'] ?? __( 'Report', 'buddynext' ) ) );
 							$rpt_ts       = ! empty( $rpt['created_at'] ) ? (int) strtotime( (string) $rpt['created_at'] . ' UTC' ) : 0;
 							$rpt_iso      = $rpt_ts ? gmdate( DATE_ATOM, $rpt_ts ) : '';
-							$rpt_time     = $rpt_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( $rpt_ts, time() ) ) : '';
+							$rpt_time     = $rpt_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $rpt_ts, time() ) ) : '';
 							++$displayed;
 							?>
 							<div class="bn-ca-report-row" data-severity="<?php echo esc_attr( $rpt_severity ); ?>">
@@ -639,7 +639,7 @@ $posts_pct_abs = abs( $posts_pct );
 							$su_email = (string) ( $signup->user_email ?? '' );
 							$su_ts    = isset( $signup->user_registered ) ? (int) strtotime( (string) $signup->user_registered ) : 0;
 							$su_iso   = $su_ts ? gmdate( DATE_ATOM, $su_ts ) : '';
-							$su_time  = $su_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( $su_ts, time() ) ) : '';
+							$su_time  = $su_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $su_ts, time() ) ) : '';
 							?>
 							<div class="bn-ca-row">
 								<span class="bn-avatar" data-size="sm" aria-label="<?php echo esc_attr( $su_name ); ?>"><?php echo esc_html( $su_init ); ?></span>
@@ -691,7 +691,7 @@ $posts_pct_abs = abs( $posts_pct );
 									: '';
 								$act_ts     = ! empty( $act['created_at'] ) ? (int) strtotime( (string) $act['created_at'] ) : 0;
 								$act_iso    = $act_ts ? gmdate( DATE_ATOM, $act_ts ) : '';
-								$act_meta   = $act_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( $act_ts, time() ) ) : '';
+								$act_meta   = $act_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $act_ts, time() ) ) : '';
 								$act_report = ( 'post_flagged' === $act_action );
 								?>
 								<div class="bn-ca-activity-row">

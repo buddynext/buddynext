@@ -36,7 +36,7 @@ $sbar_trending = isset( $sbar_trending ) ? (array) $sbar_trending : array();
 						<?php
 						$sbar_tag_count = (int) $sbar_tag->post_count;
 						printf(
-							/* translators: %s: formatted post count */
+							/* translators: %s: formatted post count. */
 							esc_html( _n( '%s post', '%s posts', $sbar_tag_count, 'buddynext' ) ),
 							esc_html( number_format_i18n( $sbar_tag_count ) )
 						);
