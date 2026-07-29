@@ -3858,6 +3858,20 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-table-wrap__scroll {
 	overflow-x: auto;
+	/* contain:paint, not just overflow-x:auto.
+	 *
+	 * The wrapper scrolled correctly and the page STILL grew a horizontal
+	 * scrollbar - 277px of it on Members > Directory at 1024px. The table inside
+	 * carries 66 position:sticky cells (the sticky header row and the checkbox
+	 * column), and a sticky box's layout width leaks past a scroll ancestor, so
+	 * the document scroll region grew to the table's full width even though the
+	 * table itself was reachable only by scrolling the wrapper.
+	 *
+	 * contain:paint tells the browser this box paints its own subtree and nothing
+	 * escapes it. Verified: the wrapper still scrolls, the sticky header is still
+	 * sticky, and the row overflow menu still opens and is fully visible - it
+	 * renders inside the wrapper, so nothing needed to escape. */
+	contain: paint;
 }
 
 /* ── Drag-handle list row ───────────────────────────────────────────── */
