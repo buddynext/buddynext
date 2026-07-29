@@ -267,11 +267,13 @@ class ProfileController extends BaseRestController {
 							'type'              => 'string',
 							'default'           => 'text',
 							'sanitize_callback' => 'sanitize_key',
-							// Whitelisted at the edge. create_field() writes $data['type'] straight
-							// into the INSERT, so without this an admin-authenticated client could
-							// create a field of a WITHHELD type (one with no render or save
-							// pipeline) or of an arbitrary garbage slug — a field nobody can fill
-							// in and nothing knows how to display.
+							// Whitelisted at the edge so a client gets a 400 naming the bad type,
+							// rather than the 0 that create_field() returns for one. The same
+							// registry is enforced at the write boundary inside create_field();
+							// this is the friendly error, not the only guard. Without either, an
+							// admin-authenticated client could create a field of a WITHHELD type
+							// (one with no render or save pipeline) or of an arbitrary garbage
+							// slug — a field nobody can fill in and nothing knows how to display.
 							'validate_callback' => static fn( $value ): bool => array_key_exists( (string) $value, \BuddyNext\Profile\FieldType::types() ),
 						),
 						'is_required' => array(

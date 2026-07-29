@@ -437,13 +437,38 @@ class ProfileService {
 	 * provided, the group is looked up by group_key and created on-the-fly if it
 	 * does not yet exist.
 	 *
+	 * The `type` MUST be a slug registered in FieldType::types() (core builtins
+	 * plus anything an add-on contributes via `buddynext_field_types`). This is
+	 * enforced HERE, at the write boundary, rather than at each caller: the field
+	 * row is what every later surface reads, and a type the engine does not know
+	 * has no render, no sanitize and no display path — the field is unfillable and
+	 * invisible, and only a schema migration can clean it up afterwards. Three
+	 * separate callers have written such a type in the past (hence the `checkbox`,
+	 * `file` and wizard-preset convergences in Installer), so the check belongs on
+	 * the single line they all pass through.
+	 *
 	 * @param array $data Field data: group_id|group_name, field_key, label, type,
 	 *                    options, description, placeholder, is_required,
 	 *                    is_searchable, visibility, sort_order.
-	 * @return int Inserted field ID.
+	 * @return int Inserted field ID, or 0 when the type is not registered.
 	 */
 	public function create_field( array $data ): int {
 		global $wpdb;
+
+		$type = sanitize_key( (string) ( $data['type'] ?? 'text' ) );
+		if ( ! array_key_exists( $type, FieldType::types() ) ) {
+			_doing_it_wrong(
+				__METHOD__,
+				sprintf(
+					/* translators: %s: requested field type slug. */
+					esc_html__( 'Refusing to create a profile field of unregistered type "%s". Register it via the buddynext_field_types filter first.', 'buddynext' ),
+					esc_html( $type )
+				),
+				'1.1.0'
+			);
+
+			return 0;
+		}
 
 		// Resolve group_id from group_name when not supplied directly.
 		$group_id = (int) ( $data['group_id'] ?? 0 );
@@ -493,7 +518,7 @@ class ProfileService {
 				$group_id,
 				$field_key,
 				sanitize_text_field( (string) ( $data['label'] ?? '' ) ),
-				$data['type'] ?? 'text',
+				$type,
 				wp_json_encode( $data['options'] ?? null ),
 				sanitize_text_field( (string) ( $data['description'] ?? '' ) ),
 				sanitize_text_field( (string) ( $data['placeholder'] ?? '' ) ),

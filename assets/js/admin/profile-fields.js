@@ -35,8 +35,11 @@
 		: {};
 
 	// Fallback for the core types only, used if the registry failed to localise.
-	var CHOICE_TYPES = [ 'select', 'multiselect', 'radio', 'checkbox' ];
-	var DATE_TYPES   = [ 'date', 'daterange' ];
+	// Keep these to slugs FieldType::builtin_types() actually registers: 'checkbox'
+	// and 'daterange' were never registered types, so they only ever made the
+	// fallback claim an Options/Date box for a field the engine cannot render.
+	var CHOICE_TYPES = [ 'select', 'multiselect', 'radio' ];
+	var DATE_TYPES   = [ 'date' ];
 
 	function isChoiceType( type ) {
 		if ( FIELD_TYPES[ type ] ) {
