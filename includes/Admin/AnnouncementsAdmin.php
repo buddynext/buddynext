@@ -106,10 +106,25 @@ class AnnouncementsAdmin {
 					<p class="bn-empty__sub"><?php esc_html_e( 'Post one from the feed composer (choose the Announcement type) and it will appear here.', 'buddynext' ); ?></p>
 				</div>
 			<?php else : ?>
-				<table class="widefat bn-announcements-table">
+				<?php
+				// `bn-table` is what opts this listing into the shared responsive
+				// card layout below 782px - the card rules are scoped to
+				// `.bn-table:has(td.column-primary)`, so `widefat` alone leaves the
+				// row as a table-row and the table hangs 86px past the content
+				// column on a phone with nothing to scroll it back into view.
+				?>
+				<table class="widefat bn-table bn-announcements-table">
 					<thead>
 						<tr>
-							<th scope="col"><?php esc_html_e( 'Announcement', 'buddynext' ); ?></th>
+							<?php
+							// Responsive contract, identical to every other admin listing: the
+							// primary column carries `column-primary` and comes FIRST, and every
+							// other cell carries `data-colname`. Core collapses the row with the
+							// selector `td.column-primary ~ td` - a sibling combinator that can
+							// only reach cells AFTER the primary, so putting the primary anywhere
+							// but first makes the row silently stop folding.
+							?>
+							<th scope="col" class="column-primary"><?php esc_html_e( 'Announcement', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Audience', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
@@ -126,17 +141,21 @@ class AnnouncementsAdmin {
 							$is_site  = ( 0 === $space_id );
 							?>
 							<tr>
-								<td>
+								<td class="column-primary">
 									<?php echo esc_html( '' !== $excerpt ? $excerpt : __( '(no text)', 'buddynext' ) ); ?>
 									<?php if ( $is_feat ) : ?>
 										<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Featured', 'buddynext' ); ?></span>
 									<?php endif; ?>
+									<button type="button" class="toggle-row">
+										<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
+										<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
+									</button>
 								</td>
-								<td>
+								<td data-colname="<?php esc_attr_e( 'Audience', 'buddynext' ); ?>">
 									<?php echo $is_site ? esc_html__( 'Site-wide', 'buddynext' ) : esc_html( sprintf( /* translators: %d: space ID. */ __( 'Space #%d', 'buddynext' ), $space_id ) ); ?>
 								</td>
-								<td><span class="bn-badge" data-tone="<?php echo esc_attr( $status['tone'] ); ?>"><?php echo esc_html( $status['label'] ); ?></span></td>
-								<td>
+								<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>"><span class="bn-badge" data-tone="<?php echo esc_attr( $status['tone'] ); ?>"><?php echo esc_html( $status['label'] ); ?></span></td>
+								<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 									<div class="bn-row-actions">
 										<?php
 										// Feature/unfeature only makes sense for a live site-wide announcement.
