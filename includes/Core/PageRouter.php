@@ -46,6 +46,27 @@ use WP_User;
  */
 class PageRouter {
 
+	/**
+	 * The hub render deferred to core's template stage: [ hub, template, context ].
+	 *
+	 * Populated by dispatch_hub_template() once every gate has passed. Consumed by
+	 * the loader template returned from the `template_include` filter.
+	 *
+	 * @var array{0:string,1:string,2:array<string,mixed>}|null
+	 */
+	private ?array $pending_render = null;
+
+	/**
+	 * The instance holding a pending render, for the loader template to reach.
+	 *
+	 * The loader is a plain PHP file `include`d by core, so it has no reference to
+	 * the router. It cannot construct one either: the pending render lives on the
+	 * instance whose gates just ran.
+	 *
+	 * @var self|null
+	 */
+	private static ?self $rendering = null;
+
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -469,6 +490,7 @@ class PageRouter {
 			$bn_gate_space = ( new \BuddyNext\Spaces\SpaceService() )->get( (int) $context['space_id'] );
 			if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $bn_gate_space, get_current_user_id() ) ) {
 				$this->send_404();
+				return;
 			}
 		}
 
@@ -489,6 +511,7 @@ class PageRouter {
 			&& '' !== (string) get_query_var( 'bn_user_slug', '' )
 			&& empty( $context['user_id'] ) ) {
 			$this->send_404();
+			return;
 		}
 
 		// ── Virtual page setup ────────────────────────────────────────────
@@ -827,8 +850,70 @@ class PageRouter {
 		// edge-to-edge regardless of whatever container the theme wraps
 		// content in. There is no opt-out filter; the host theme's header +
 		// footer always render on BN-mapped slugs.
-		$this->render_shell_with_theme_chrome( $hub, $template, $context );
-		exit;
+		// Hand the RENDER to core's template stage; do not render here and exit.
+		//
+		// Everything above this line still runs at template_redirect, which is
+		// where it belongs: the gates, the redirects, and the head-meta
+		// registration that has to precede wp_head().
+		//
+		// The render itself used to happen here, followed by exit. That ended the
+		// request in the middle of core's template pipeline, so three things that
+		// come AFTER template_redirect never ran on any BuddyNext page:
+		//
+		// apply_filters( 'template_include' ) - template-loader.php:114;
+		// do_action( 'wp_before_include_template' ) - template-loader.php:130;
+		// and any template_redirect callback at priority > 10.
+		//
+		// The second of those is what starts core's template-enhancement output
+		// buffer, so `wp_template_enhancement_output_buffer` filters - image
+		// optimisation, lazy-loading, any HTML post-processing - silently did
+		// nothing on /activity/, /members/, /spaces/ and the rest. Verified with a
+		// probe before and after: on a BuddyNext page only template_redirect fired;
+		// on an ordinary page all five did.
+		//
+		// Core's own docblock above the template_redirect hook warns against this
+		// exact pattern (template-loader.php:16-17) and names template_include as
+		// the correct alternative. See github.com/buddynext/buddynext/issues/137.
+		$this->pending_render = array( $hub, $template, $context );
+		self::$rendering      = $this;
+
+		add_filter( 'template_include', array( $this, 'use_hub_loader' ) );
+	}
+
+	/**
+	 * Point core's template loader at the BuddyNext loader file.
+	 *
+	 * Registered only once a hub render is pending, so a request this router did
+	 * not claim keeps whatever template the theme resolved.
+	 *
+	 * @param string $template Template core resolved.
+	 * @return string
+	 */
+	public function use_hub_loader( string $template ): string {
+		return null === $this->pending_render
+			? $template
+			: BUDDYNEXT_DIR . 'templates/hub-loader.php';
+	}
+
+	/**
+	 * Render the pending hub. Called by the loader template.
+	 *
+	 * @return void
+	 */
+	public static function render_pending(): void {
+		$router = self::$rendering;
+		if ( ! $router instanceof self || null === $router->pending_render ) {
+			return;
+		}
+
+		[ $hub, $template, $context ] = $router->pending_render;
+
+		// Cleared before rendering, not after: the shell fires hooks, and a
+		// listener that somehow re-entered here would otherwise render twice.
+		$router->pending_render = null;
+		self::$rendering        = null;
+
+		$router->render_shell_with_theme_chrome( $hub, $template, $context );
 	}
 
 	/**
@@ -848,12 +933,21 @@ class PageRouter {
 		status_header( 404 );
 		nocache_headers();
 
-		$template = get_404_template();
-		if ( '' !== $template ) {
-			include $template;
-		}
-
-		exit;
+		// Set the state and hand back to core; do not load the template here.
+		//
+		// This used to call get_404_template() and exit, which produced a correct
+		// 404 status but skipped the rest of core's pipeline for the SAME reason
+		// the hub render did: template_include and wp_before_include_template come
+		// after template_redirect. Measured directly - a core 404
+		// (/definitely-not-real/) ran the full pipeline while a BuddyNext 404
+		// (/members/nobody-here/) ran only template_redirect, so the 404 page was
+		// invisible to the template-enhancement buffer and to any other plugin
+		// filtering the template.
+		//
+		// With is_404 set and no render pending, core resolves the 404 template
+		// itself through get_query_template(), applies template_include to it, and
+		// includes it inside the buffer. Both callers return immediately after
+		// this, so nothing further in dispatch runs.
 	}
 
 	/**
