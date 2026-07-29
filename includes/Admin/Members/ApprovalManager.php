@@ -229,10 +229,10 @@ class ApprovalManager {
 				<table class="wp-list-table widefat fixed">
 					<thead>
 						<tr>
-							<th><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
-							<th><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
-							<th><?php esc_html_e( 'Registered', 'buddynext' ); ?></th>
-							<th><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
+							<th class="manage-column column-primary"><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
+							<th class="manage-column"><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
+							<th class="manage-column"><?php esc_html_e( 'Registered', 'buddynext' ); ?></th>
+							<th class="manage-column"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -260,10 +260,15 @@ class ApprovalManager {
 						);
 						?>
 						<tr>
-							<td><?php echo esc_html( $user->display_name ); ?></td>
-							<td><?php echo esc_html( $user->user_email ); ?></td>
-							<td><?php echo esc_html( $user->user_registered ); ?></td>
-							<td>
+							<td class="column-primary" data-colname="<?php esc_attr_e( 'Member', 'buddynext' ); ?>">
+								<?php echo esc_html( $user->display_name ); ?>
+								<button type="button" class="toggle-row">
+									<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
+								</button>
+							</td>
+							<td data-colname="<?php esc_attr_e( 'Email', 'buddynext' ); ?>"><?php echo esc_html( $user->user_email ); ?></td>
+							<td data-colname="<?php esc_attr_e( 'Registered', 'buddynext' ); ?>"><?php echo esc_html( $user->user_registered ); ?></td>
+							<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 								<a href="<?php echo esc_url( $approve_url ); ?>"><?php esc_html_e( 'Approve', 'buddynext' ); ?></a>
 								&nbsp;|&nbsp;
 								<a href="<?php echo esc_url( $reject_url ); ?>" class="bn-text-danger" data-bn-confirm="<?php esc_attr_e( 'Reject and permanently delete this pending account?', 'buddynext' ); ?>" data-bn-confirm-tone="danger"><?php esc_html_e( 'Reject', 'buddynext' ); ?></a>
