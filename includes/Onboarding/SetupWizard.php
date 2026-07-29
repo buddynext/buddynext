@@ -262,11 +262,23 @@ class SetupWizard {
 				break;
 
 			case 3:
-				// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified above.
-				$selected = isset( $_POST['profile_groups'] ) && is_array( $_POST['profile_groups'] )
-					? array_map( 'sanitize_key', wp_unslash( $_POST['profile_groups'] ) )
-					: array();
-				$this->provision_profile_group_presets( $selected );
+				/*
+				 * Nothing to save. Step 3 used to post profile_groups[] into
+				 * provision_profile_group_presets(), which skips any group whose
+				 * group_key already exists — and the Installer seeds all four
+				 * preset groups (social_links, work_experience, education,
+				 * skills) at activation, before this wizard ever runs. So every
+				 * checkbox was a no-op in both directions: ticking one created
+				 * nothing new, and clearing one removed nothing. An owner who
+				 * unchecked everything still got the full set, which is exactly
+				 * what was reported.
+				 *
+				 * The step is now a summary of what profiles already include
+				 * rather than a choice it cannot honour. Deleting a group is a
+				 * real action with real consequences for stored member data, so
+				 * it belongs in Members > Profile Fields where it can be done
+				 * deliberately — not behind a checkbox in a setup flow.
+				 */
 				break;
 
 			case 4:
@@ -649,44 +661,56 @@ class SetupWizard {
 		$presets = $this->get_profile_group_presets();
 
 		$this->render_step_head(
-			__( 'What should member profiles include?', 'buddynext' ),
-			__( 'Headline, bio, and location are already on. Pick any extras that fit your community — leaving everything checked is a safe default.', 'buddynext' ),
-			__( 'Editable later in Members → Profile Fields.', 'buddynext' )
+			__( 'What member profiles include', 'buddynext' ),
+			__( 'These field groups are set up and ready. Add, rename, reorder or remove any of them whenever you like — nothing here is fixed.', 'buddynext' ),
+			__( 'Manage them in Members → Profile Fields.', 'buddynext' )
 		);
+
+		// Render the groups that actually exist, not the preset list. The two can
+		// differ the moment an owner edits anything, and a setup screen that
+		// describes a schema the site does not have is worse than no screen.
+		$bn_groups = (array) buddynext_service( 'profiles' )->get_groups();
 		?>
 
-		<div class="bn-wizard__bulk">
-			<button type="button" class="bn-wizard__bulk-btn" data-bulk="all"><?php esc_html_e( 'Select all', 'buddynext' ); ?></button>
-			<span class="bn-wizard__bulk-sep" aria-hidden="true">·</span>
-			<button type="button" class="bn-wizard__bulk-btn" data-bulk="none"><?php esc_html_e( 'Clear all', 'buddynext' ); ?></button>
-		</div>
-
-		<ul class="bn-wizard__options" data-variant="check" role="list">
+		<ul class="bn-wizard__options" data-variant="summary" role="list">
 			<?php
-			foreach ( $presets as $key => $preset ) :
-				$preset_id = 'bn-wiz-preset-' . sanitize_html_class( $key );
+			foreach ( $bn_groups as $bn_group ) :
+				$bn_key   = (string) ( $bn_group['group_key'] ?? '' );
+				$bn_label = (string) ( $bn_group['label'] ?? $bn_key );
+				if ( '' === $bn_key ) {
+					continue;
+				}
+				// Icon and blurb come from the preset table when the group is one
+				// of the built-ins. basic_info and interests are seeded by the
+				// Installer rather than the presets (they are system groups), so
+				// they carry their own entries here; an owner-created group falls
+				// back to the generic icon and no blurb rather than a wrong one.
+				$bn_extras = array(
+					'basic_info' => array(
+						'icon' => 'user',
+						'desc' => __( 'Headline, bio, location, website, pronouns', 'buddynext' ),
+					),
+					'interests'  => array(
+						'icon' => 'heart',
+						'desc' => __( 'Topic picks that power people and space suggestions', 'buddynext' ),
+					),
+				);
+				$bn_preset = $presets[ $bn_key ] ?? array();
+				$bn_icon   = (string) ( $bn_preset['icon'] ?? ( $bn_extras[ $bn_key ]['icon'] ?? 'list' ) );
+				$bn_desc   = (string) ( $bn_preset['description'] ?? ( $bn_extras[ $bn_key ]['desc'] ?? '' ) );
 				?>
 				<li class="bn-wizard__option-row">
-					<label class="bn-wizard__option" for="<?php echo esc_attr( $preset_id ); ?>" data-selected="true">
-						<input
-							type="checkbox"
-							id="<?php echo esc_attr( $preset_id ); ?>"
-							name="profile_groups[]"
-							value="<?php echo esc_attr( $key ); ?>"
-							class="bn-wizard__option-input"
-							checked
-						>
+					<div class="bn-wizard__option" data-selected="true">
 						<span class="bn-wizard__option-icon" aria-hidden="true">
-							<?php echo \BuddyNext\Core\IconService::render( $preset['icon'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?>
+							<?php echo \BuddyNext\Core\IconService::render( $bn_icon ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?>
 						</span>
 						<span class="bn-wizard__option-text">
-							<span class="bn-wizard__option-title"><?php echo esc_html( $preset['label'] ); ?></span>
-							<span class="bn-wizard__option-desc"><?php echo esc_html( $preset['description'] ); ?></span>
+							<span class="bn-wizard__option-title"><?php echo esc_html( $bn_label ); ?></span>
+							<?php if ( '' !== $bn_desc ) : ?>
+								<span class="bn-wizard__option-desc"><?php echo esc_html( $bn_desc ); ?></span>
+							<?php endif; ?>
 						</span>
-						<span class="bn-wizard__option-mark" aria-hidden="true">
-							<?php echo \BuddyNext\Core\IconService::render( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?>
-						</span>
-					</label>
+					</div>
 				</li>
 			<?php endforeach; ?>
 		</ul>
@@ -769,64 +793,6 @@ class SetupWizard {
 		// core-seeded by the Installer as a system field (category_multiselect
 		// backed by the owner's space categories), so it is never optional and
 		// cannot drift. See docs/plans/interests-personalization.md.
-	}
-
-	/**
-	 * Create the selected profile group presets via ProfileService.
-	 *
-	 * Skips groups that already exist (INSERT IGNORE equivalent — checks by group_key
-	 * before inserting so duplicate wizard runs are safe).
-	 *
-	 * @param string[] $selected group_key values chosen by the admin.
-	 * @return void
-	 */
-	private function provision_profile_group_presets( array $selected ): void {
-		if ( empty( $selected ) ) {
-			return;
-		}
-
-		$presets = $this->get_profile_group_presets();
-		$service = buddynext_service( 'profiles' );
-
-		// Fetch existing group keys to skip duplicates.
-		$existing_groups = $service->get_groups();
-		$existing_keys   = array_column( $existing_groups, 'group_key' );
-		$next_sort_order = count( $existing_groups ) + 1;
-
-		foreach ( $selected as $key ) {
-			if ( ! isset( $presets[ $key ] ) ) {
-				continue;
-			}
-
-			if ( in_array( $key, $existing_keys, true ) ) {
-				continue;
-			}
-
-			$preset   = $presets[ $key ];
-			$group_id = $service->create_group(
-				array(
-					'group_key'  => $key,
-					'label'      => $preset['label'],
-					'type'       => $preset['type'],
-					'visibility' => 'public',
-					'sort_order' => $next_sort_order,
-				)
-			);
-			++$next_sort_order;
-
-			foreach ( $preset['fields'] as $i => $field ) {
-				$service->create_field(
-					array(
-						'group_id'      => $group_id,
-						'field_key'     => $field[0],
-						'label'         => $field[1],
-						'type'          => $field[2],
-						'is_searchable' => (int) ( $field[3] ?? 0 ),
-						'sort_order'    => $i + 1,
-					)
-				);
-			}
-		}
 	}
 
 	/**
