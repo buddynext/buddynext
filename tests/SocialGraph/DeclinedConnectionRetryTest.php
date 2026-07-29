@@ -90,16 +90,44 @@ class DeclinedConnectionRetryTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * After a decline the requester may try again.
+	 * After a decline the requester may try again - once the cooldown has passed.
+	 *
+	 * This test originally retried immediately, because at the time nothing sat
+	 * between a decline and the next request. That turned out to be its own
+	 * problem: a declined member could re-send instantly and forever, firing a
+	 * fresh notification at the person who had just said no. A decline now holds
+	 * for a cooldown.
+	 *
+	 * The contract this test exists to protect is unchanged and still asserted
+	 * below: a declined pair must not be walled off PERMANENTLY, and the retry
+	 * must reuse the existing row rather than insert a second one. Only the wait
+	 * is new, so the decline is moved into the past rather than the assertion
+	 * being relaxed.
 	 *
 	 * @return void
 	 */
 	public function test_declined_request_can_be_sent_again(): void {
+		global $wpdb;
+
 		$alex  = self::factory()->user->create();
 		$priya = self::factory()->user->create();
 
 		$this->assertTrue( $this->connections->send_request( $alex, $priya ) );
 		$this->assertTrue( $this->connections->decline_request( $priya, $alex ) );
+
+		// Age the decline past the cooldown.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_connections
+				    SET declined_at = %s
+				  WHERE requester_id = %d AND recipient_id = %d",
+				gmdate( 'Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS ),
+				$alex,
+				$priya
+			)
+		);
+
 		wp_cache_flush();
 
 		$this->assertTrue(

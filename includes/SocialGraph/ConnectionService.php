@@ -117,7 +117,7 @@ class ConnectionService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$existing_row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, status
+				"SELECT id, status, requester_id, declined_at
 				 FROM {$wpdb->prefix}bn_connections
 				 WHERE ( requester_id = %d AND recipient_id = %d )
 				    OR ( requester_id = %d AND recipient_id = %d )
@@ -151,6 +151,51 @@ class ConnectionService {
 		 * so this cannot be used to spam a live request or silently re-friend.
 		 */
 		if ( null !== $existing_row && 'declined' === (string) $existing_row->status ) {
+			// Declining has to mean something.
+			//
+			// Re-opening a declined pair is right - two people should be able to
+			// connect later - but with nothing between the decline and the next
+			// request, a declined member could re-send instantly and forever, and
+			// each attempt fired a fresh notification at the person who had just
+			// said no. Declining was not a way to make it stop. Verified before
+			// this guard: five requests, five declines, back to back, all accepted.
+			//
+			// So the decline holds for a cooldown, the way LinkedIn and Facebook
+			// both handle a declined invitation. It is a pause, not a permanent
+			// block: after it passes the request goes through as before.
+			//
+			// Only the person who was declined waits. If the DECLINER later reaches
+			// out themselves that is a different, welcome action, and the branch
+			// below already re-points requester/recipient for it.
+			$declined_at = isset( $existing_row->declined_at ) ? (string) $existing_row->declined_at : '';
+			$same_asker  = (int) $existing_row->requester_id === $requester_id;
+
+			if ( $same_asker && '' !== $declined_at && '0000-00-00 00:00:00' !== $declined_at ) {
+				/**
+				 * Filter how long a declined member must wait before asking again.
+				 *
+				 * @param int $seconds  Cooldown length. Default 7 days.
+				 * @param int $requester_id Member who was declined.
+				 * @param int $recipient_id Member who declined.
+				 */
+				$cooldown = (int) apply_filters(
+					'buddynext_connection_redeclare_cooldown',
+					7 * DAY_IN_SECONDS,
+					$requester_id,
+					$recipient_id
+				);
+
+				$elapsed = time() - (int) strtotime( $declined_at . ' UTC' );
+
+				if ( $cooldown > 0 && $elapsed < $cooldown ) {
+					return new WP_Error(
+						'request_declined_recently',
+						__( 'This member declined your connection request. You can try again later.', 'buddynext' ),
+						array( 'status' => 429 )
+					);
+				}
+			}
+
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$reopened = $wpdb->update(
 				$wpdb->prefix . 'bn_connections',
@@ -160,9 +205,12 @@ class ConnectionService {
 					'status'       => 'pending',
 					'note'         => $note,
 					'created_at'   => $created_at ?? current_time( 'mysql', true ),
+					// Cleared on re-open so the cooldown measures the LAST decline,
+					// not the first one this pair ever had.
+					'declined_at'  => null,
 				),
 				array( 'id' => (int) $existing_row->id ),
-				array( '%d', '%d', '%s', '%s', '%s' ),
+				array( '%d', '%d', '%s', '%s', '%s', '%s' ),
 				array( '%d' )
 			);
 
@@ -352,12 +400,19 @@ class ConnectionService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_connections',
-			array( 'status' => 'declined' ),
+			array(
+				'status'      => 'declined',
+				// When the decline happened, so the cooldown in send_request() has
+				// something to measure against. The row is REUSED on re-open, which
+				// overwrites created_at - without this stamp the fact that a decline
+				// ever occurred is destroyed on the very next request.
+				'declined_at' => current_time( 'mysql', true ),
+			),
 			array(
 				'id'     => $connection_id,
 				'status' => 'pending',
 			),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%d', '%s' )
 		);
 

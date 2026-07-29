@@ -1,0 +1,215 @@
+<?php
+/**
+ * Declining a connection request has to mean something.
+ *
+ * Re-opening a declined pair is right - two people should be able to connect
+ * later - but nothing sat between the decline and the next request. A declined
+ * member could re-send instantly and forever, and every attempt fired a fresh
+ * notification at the person who had just said no. Declining was not a way to
+ * make it stop. Reproduced before the fix: five requests, five declines, back to
+ * back, all accepted.
+ *
+ * Worse, the row is REUSED rather than a second one inserted, so `created_at`
+ * was overwritten on each re-open and no record survived that a decline had ever
+ * happened - the data a cooldown needs was being destroyed on every retry.
+ *
+ * The rule now is the one LinkedIn and Facebook both use: a decline holds for a
+ * cooldown, then the request goes through again. A pause, not a permanent block.
+ *
+ * @package BuddyNext\Tests\SocialGraph
+ */
+
+declare( strict_types=1 );
+
+namespace BuddyNext\Tests\SocialGraph;
+
+/**
+ * Cooldown between a decline and the next request.
+ *
+ * @covers \BuddyNext\SocialGraph\ConnectionService::send_request
+ * @covers \BuddyNext\SocialGraph\ConnectionService::decline_request
+ */
+class ConnectionDeclineCooldownTest extends \WP_UnitTestCase {
+
+	/**
+	 * The member who asks.
+	 *
+	 * @var int
+	 */
+	private $asker = 0;
+
+	/**
+	 * The member who declines.
+	 *
+	 * @var int
+	 */
+	private $decliner = 0;
+
+	/**
+	 * An uninvolved third member.
+	 *
+	 * @var int
+	 */
+	private $stranger = 0;
+
+	/**
+	 * Three members and a clean slate.
+	 *
+	 * @return void
+	 */
+	public function set_up(): void {
+		parent::set_up();
+
+		$this->asker    = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$this->decliner = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$this->stranger = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+	}
+
+	/**
+	 * Ask, then have it declined.
+	 *
+	 * @return void
+	 */
+	private function ask_and_get_declined(): void {
+		$connections = buddynext_service( 'connections' );
+		$connections->send_request( $this->asker, $this->decliner, '', null );
+		$connections->decline_request( $this->decliner, $this->asker );
+	}
+
+	/**
+	 * Move the recorded decline into the past.
+	 *
+	 * @param int $seconds How far back.
+	 * @return void
+	 */
+	private function backdate_decline( int $seconds ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_connections
+				    SET declined_at = %s
+				  WHERE requester_id = %d AND recipient_id = %d",
+				gmdate( 'Y-m-d H:i:s', time() - $seconds ),
+				$this->asker,
+				$this->decliner
+			)
+		);
+	}
+
+	/**
+	 * The decline must be recorded at all. Without a timestamp there is nothing
+	 * for a cooldown to measure, which is the state this table shipped in.
+	 *
+	 * @return void
+	 */
+	public function test_a_decline_is_recorded(): void {
+		global $wpdb;
+
+		$this->ask_and_get_declined();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$declined_at = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT declined_at FROM {$wpdb->prefix}bn_connections
+				  WHERE requester_id = %d AND recipient_id = %d",
+				$this->asker,
+				$this->decliner
+			)
+		);
+
+		$this->assertNotEmpty( $declined_at, 'Nothing recorded that a decline happened.' );
+	}
+
+	/**
+	 * The regression: asking again straight away is refused.
+	 *
+	 * @return void
+	 */
+	public function test_the_declined_member_cannot_ask_again_immediately(): void {
+		$this->ask_and_get_declined();
+
+		$result = buddynext_service( 'connections' )->send_request( $this->asker, $this->decliner, '', null );
+
+		$this->assertWPError( $result, 'A declined member could re-send immediately.' );
+		$this->assertSame( 'request_declined_recently', $result->get_error_code() );
+	}
+
+	/**
+	 * ...and repeating it does not eventually get through.
+	 *
+	 * @return void
+	 */
+	public function test_repeated_attempts_stay_refused(): void {
+		$this->ask_and_get_declined();
+
+		$connections = buddynext_service( 'connections' );
+		for ( $i = 0; $i < 4; $i++ ) {
+			$this->assertWPError(
+				$connections->send_request( $this->asker, $this->decliner, '', null ),
+				'A repeated request slipped through on attempt ' . ( $i + 1 ) . '.'
+			);
+		}
+	}
+
+	/**
+	 * It is a pause, not a ban: once the cooldown passes the request works again.
+	 *
+	 * @return void
+	 */
+	public function test_the_request_is_allowed_again_once_the_cooldown_passes(): void {
+		$this->ask_and_get_declined();
+		$this->backdate_decline( 8 * DAY_IN_SECONDS );
+
+		$this->assertNotWPError(
+			buddynext_service( 'connections' )->send_request( $this->asker, $this->decliner, '', null ),
+			'The cooldown never expired, so a decline was effectively permanent.'
+		);
+	}
+
+	/**
+	 * The person who DECLINED may still reach out themselves. That is a different
+	 * and welcome action, and holding them to the asker's cooldown would punish
+	 * the wrong member.
+	 *
+	 * @return void
+	 */
+	public function test_the_decliner_may_still_reach_out_themselves(): void {
+		$this->ask_and_get_declined();
+
+		$this->assertNotWPError(
+			buddynext_service( 'connections' )->send_request( $this->decliner, $this->asker, '', null ),
+			'The member who declined was blocked from starting their own request.'
+		);
+	}
+
+	/**
+	 * A first-ever request between two members who have no history is untouched.
+	 *
+	 * @return void
+	 */
+	public function test_a_first_request_is_unaffected(): void {
+		$this->assertNotWPError(
+			buddynext_service( 'connections' )->send_request( $this->asker, $this->stranger, '', null )
+		);
+	}
+
+	/**
+	 * The cooldown is the site owner's call, so it is filterable - and setting it
+	 * to zero restores the old behaviour for a site that wants it.
+	 *
+	 * @return void
+	 */
+	public function test_the_cooldown_is_filterable(): void {
+		$off = static fn(): int => 0;
+		add_filter( 'buddynext_connection_redeclare_cooldown', $off );
+
+		$this->ask_and_get_declined();
+		$result = buddynext_service( 'connections' )->send_request( $this->asker, $this->decliner, '', null );
+
+		remove_filter( 'buddynext_connection_redeclare_cooldown', $off );
+
+		$this->assertNotWPError( $result, 'A zero cooldown still refused the request.' );
+	}
+}

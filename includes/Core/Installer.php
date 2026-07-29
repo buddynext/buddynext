@@ -269,7 +269,7 @@ class Installer {
 	 *      overlapped pages until the PK tie-break was added. dbDelta ALTER-adds the KEY on
 	 *      upgrade; no data migration.
 	 */
-	private const SCHEMA_VERSION = 37;
+	private const SCHEMA_VERSION = 38;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -1954,6 +1954,7 @@ class Installer {
 				status ENUM('pending','accepted','declined','withdrawn') NOT NULL DEFAULT 'pending',
 				note VARCHAR(280) NOT NULL DEFAULT '',
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				declined_at DATETIME NULL DEFAULT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY   pair (requester_id, recipient_id),
 				KEY          recipient_lookup (recipient_id),
