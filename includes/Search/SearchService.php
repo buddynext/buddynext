@@ -147,7 +147,7 @@ class SearchService {
 	 * @return string 'public' or 'private'.
 	 */
 	private static function space_visibility_ceiling( int $space_id ): string {
-		static $ceilings = array();
+		$ceilings = &self::ceiling_cache();
 
 		if ( isset( $ceilings[ $space_id ] ) ) {
 			return $ceilings[ $space_id ];
@@ -164,6 +164,97 @@ class SearchService {
 			);
 
 		return $ceilings[ $space_id ];
+	}
+
+	/**
+	 * The per-request memo behind space_visibility_ceiling().
+	 *
+	 * Held in one place and returned by reference so the resolver and the flush
+	 * below cannot end up talking to two different static arrays.
+	 *
+	 * @return array<int, string>
+	 */
+	private static function &ceiling_cache(): array {
+		static $ceilings = array();
+
+		return $ceilings;
+	}
+
+	/**
+	 * Forget a memoised space ceiling.
+	 *
+	 * The memo exists because a full reindex walks every post on the site and
+	 * would otherwise issue one space lookup per post. That is per-request and
+	 * harmless while a space's type is stable - but a space's type is exactly
+	 * what changes in the request that matters. Anything that read the ceiling
+	 * earlier in that request (indexing another post in the same space, say)
+	 * left the OLD value cached, so the re-index that follows the change writes
+	 * the visibility the space no longer has: content clamped shut stays shut
+	 * after the space is re-opened, and - the direction that matters - content
+	 * can be written back as public from a memo taken before it was closed.
+	 *
+	 * @param int|null $space_id Space to forget, or null to clear everything.
+	 * @return void
+	 */
+	public static function flush_space_ceiling( ?int $space_id = null ): void {
+		$ceilings = &self::ceiling_cache();
+
+		if ( null === $space_id ) {
+			$ceilings = array();
+			return;
+		}
+
+		unset( $ceilings[ $space_id ] );
+	}
+
+	/**
+	 * Re-apply a space's visibility ceiling to content already in the index.
+	 *
+	 * The write door applies this ceiling as content is written, which protects
+	 * anything indexed AFTER a space became private. It does nothing for rows already
+	 * sitting in the index, and flipping a space's type does not rewrite them:
+	 * SearchIndexListener::on_space_updated() re-indexed the SPACE row and
+	 * nothing else. So an open space full of public posts, switched to private,
+	 * kept every one of those posts at visibility 'public' - and the guest search
+	 * gate is literally `visibility = 'public'`, so anonymous visitors could still
+	 * pull their titles and bodies out of a space they cannot open.
+	 *
+	 * Clamping down is done here, in one UPDATE, rather than by re-indexing each
+	 * post: it is the security-critical direction, it must not depend on an async
+	 * worker running, and it costs the same whether the space holds ten posts or
+	 * fifty thousand. Restoring the other way - private space re-opened - cannot
+	 * be done from the index alone, because a row's 'private' does not say whether
+	 * it came from this ceiling or from the post's own privacy or a private
+	 * author account; that direction re-indexes the posts so each one is decided
+	 * by the same rule that wrote it originally.
+	 *
+	 * @param int $space_id Space whose indexed content should be re-clamped.
+	 * @return int Rows changed.
+	 */
+	public function clamp_space_visibility( int $space_id ): int {
+		global $wpdb;
+
+		if ( $space_id <= 0 ) {
+			return 0;
+		}
+
+		// Same ceiling the write door uses. Not a second copy of the rule.
+		if ( 'private' !== self::space_visibility_ceiling( $space_id ) ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$changed = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_search_index
+				    SET visibility = 'private', updated_at = NOW()
+				  WHERE space_id = %d
+				    AND visibility = 'public'",
+				$space_id
+			)
+		);
+
+		return (int) $changed;
 	}
 
 	/**

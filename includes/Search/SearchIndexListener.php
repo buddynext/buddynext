@@ -60,6 +60,7 @@ class SearchIndexListener implements ListenerInterface {
 		add_action( 'buddynext_async_index_post', array( $this, 'async_index_post' ), 10, 2 );
 		add_action( 'buddynext_async_deindex_post', array( $this, 'async_deindex_post' ), 10, 1 );
 		add_action( 'buddynext_async_index_space', array( $this, 'async_index_space' ), 10, 1 );
+		add_action( 'buddynext_async_reindex_space_posts', array( $this, 'async_reindex_space_posts' ), 10, 2 );
 		add_action( 'buddynext_async_deindex_space', array( $this, 'async_deindex_space' ), 10, 1 );
 
 		// Batch re-index handler (triggered by activation or manual schedule).
@@ -215,6 +216,87 @@ class SearchIndexListener implements ListenerInterface {
 	 */
 	public function on_space_updated( int $space_id ): void {
 		$this->dispatch( 'buddynext_async_index_space', array( $space_id ) );
+
+		// The space row is not the only thing indexed under this space.
+		//
+		// Re-indexing only the space row left every POST inside it untouched, so
+		// an open space full of public posts, switched to private or secret, kept
+		// all of those posts at visibility 'public'. The guest search gate is
+		// `visibility = 'public'`, so anonymous visitors could still pull their
+		// titles and bodies out of a space they have no access to.
+		//
+		// Forget any ceiling memoised earlier in THIS request before deciding
+		// anything: the space's type is what just changed, and a value cached
+		// before the change would clamp - or re-open - against the old type.
+		\BuddyNext\Search\SearchService::flush_space_ceiling( $space_id );
+
+		// Clamping runs SYNCHRONOUSLY and first. It is the security-critical
+		// direction, so it must not wait on a queue worker that may be delayed or
+		// absent, and it is a single UPDATE regardless of how many posts the
+		// space holds.
+		buddynext_service( 'search' )->clamp_space_visibility( $space_id );
+
+		// The opposite direction - a private space re-opened - cannot be resolved
+		// from the index alone, because a row's 'private' does not record whether
+		// it came from the space ceiling, the post's own privacy, or a private
+		// author account. Those posts are re-indexed so each is decided by the
+		// same rule that wrote it in the first place. Async and batched: this one
+		// is not a leak, and a large space should not block the request.
+		$this->dispatch( 'buddynext_async_reindex_space_posts', array( $space_id, 0 ) );
+	}
+
+	/**
+	 * Re-index one batch of a space's posts, then queue the next.
+	 *
+	 * Walks in batches so a space holding tens of thousands of posts cannot pin a
+	 * request or a single queue job. Each post goes back through async_index_post,
+	 * which is the same path that indexed it originally - so post privacy, private
+	 * author accounts and the space ceiling are all re-evaluated by one rule
+	 * rather than a second copy of it living here.
+	 *
+	 * @param int $space_id Space to walk.
+	 * @param int $offset   Batch offset.
+	 * @return void
+	 */
+	public function async_reindex_space_posts( int $space_id, int $offset = 0 ): void {
+		global $wpdb;
+
+		if ( $space_id <= 0 ) {
+			return;
+		}
+
+		\BuddyNext\Search\SearchService::flush_space_ceiling( $space_id );
+
+		$batch = 200;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, user_id
+				   FROM {$wpdb->prefix}bn_posts
+				  WHERE space_id = %d
+				    AND status = 'published'
+				  ORDER BY id ASC
+				  LIMIT %d OFFSET %d",
+				$space_id,
+				$batch,
+				$offset
+			),
+			ARRAY_A
+		);
+
+		if ( empty( $rows ) ) {
+			return;
+		}
+
+		foreach ( $rows as $row ) {
+			$this->async_index_post( (int) $row['id'], (int) $row['user_id'] );
+		}
+
+		// Only queue another pass when this one was full; a short batch is the end.
+		if ( count( $rows ) === $batch ) {
+			$this->dispatch( 'buddynext_async_reindex_space_posts', array( $space_id, $offset + $batch ) );
+		}
 	}
 
 	/**
