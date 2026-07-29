@@ -117,6 +117,29 @@ class OnboardingListener implements ListenerInterface {
 			return;
 		}
 
+		// Yield to a pending 2FA enrolment hold.
+		//
+		// TwoFactorService::enforce_enrolment() (template_redirect:7) holds a
+		// member whose role requires 2FA on the settings screen until they enrol,
+		// and exempts /settings so it does not loop on its own destination. This
+		// gate runs first (priority 5) and used to redirect that very destination
+		// to the wizard, so the two bounced forever: /settings -> /onboarding ->
+		// /settings, and the member saw a dead redirect loop instead of either
+		// screen. Each gate was individually loop-safe; together they were not.
+		//
+		// A gate must never hijack another gate's destination, and a security hold
+		// outranks a welcome wizard - so onboarding stands down entirely while the
+		// hold is live. Once 2FA is enrolled the hold clears and this gate resumes
+		// on the next request, so the member still sees the wizard, just after the
+		// thing that was actually blocking them.
+		$user_obj_2fa = wp_get_current_user();
+		if ( $user_obj_2fa instanceof \WP_User
+			&& \BuddyNext\Auth\TwoFactorService::is_required_for( $user_obj_2fa )
+			&& ! \BuddyNext\Auth\TwoFactorService::is_enabled( (int) $user_obj_2fa->ID )
+		) {
+			return;
+		}
+
 		$onboarding_url = \BuddyNext\Core\PageRouter::onboarding_url();
 
 		// Loop guard for the edge case where the onboarding hub is the site's

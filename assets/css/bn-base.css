@@ -4299,3 +4299,47 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		flex-wrap: wrap;
 	}
 }
+
+/* ── Settings hold banner ────────────────────────────────────────────────────
+   Shown on Settings → Account when a policy is holding the member there (today:
+   forced 2FA enrolment). Explains WHY they were routed here; without it the
+   redirect reads as a broken link. Inline, not a toast - it must stay on screen
+   until the hold clears, so it cannot auto-dismiss. */
+.bn-settings-hold {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-inline-start: 3px solid var(--bn-warn);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-warn-bg);
+	color: var(--bn-ink);
+}
+.bn-settings-hold__icon {
+	flex: none;
+	display: inline-flex;
+	color: var(--bn-warn);
+}
+.bn-settings-hold__icon svg { width: 20px; height: 20px; }
+/* min-width:0 so a long translation wraps instead of forcing the banner wider
+   than its column - the flex min-content floor bites here otherwise. */
+.bn-settings-hold__body { min-width: 0; }
+.bn-settings-hold__title {
+	display: block;
+	font-size: var(--bn-text-sm);
+	line-height: 1.4;
+}
+.bn-settings-hold__text {
+	margin: var(--bn-s1) 0 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	line-height: 1.5;
+}
+@media (max-width: 640px) {
+	.bn-settings-hold {
+		padding: var(--bn-s3);
+		gap: var(--bn-s2);
+	}
+}

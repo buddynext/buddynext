@@ -23,11 +23,34 @@ if ( ! is_user_logged_in() ) {
 
 $user_id       = get_current_user_id();
 $twofa_enabled = \BuddyNext\Auth\TwoFactorService::is_enabled( $user_id );
-$profile_slug  = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-$profile_url   = \BuddyNext\Core\PageRouter::profile_url( $user_id );
+
+// Is this member being HELD here? TwoFactorService::enforce_enrolment() bounces
+// anyone whose role requires 2FA to this screen until they enrol. Without this
+// banner they simply arrive: they click Activity, land on Settings, and nothing
+// says why - which reads as a broken link, not a security hold.
+//
+// Derived from state rather than a query arg on purpose: it survives a refresh,
+// shows however they reached the page, and cannot be spoofed by pasting a URL.
+$bn_user_obj  = wp_get_current_user();
+$bn_2fa_held  = ! $twofa_enabled
+	&& $bn_user_obj instanceof \WP_User
+	&& \BuddyNext\Auth\TwoFactorService::is_required_for( $bn_user_obj );
+$profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+$profile_url  = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 ?>
 <div class="bn-settings">
 	<?php buddynext_get_template( 'parts/settings-nav.php', array( 'bn_settings_active' => 'account' ) ); ?>
+	<?php if ( $bn_2fa_held ) : ?>
+		<div class="bn-settings-hold" role="status">
+			<span class="bn-settings-hold__icon" aria-hidden="true"><?php buddynext_icon( 'shield' ); ?></span>
+			<div class="bn-settings-hold__body">
+				<strong class="bn-settings-hold__title"><?php esc_html_e( 'Two-factor authentication is required', 'buddynext' ); ?></strong>
+				<p class="bn-settings-hold__text">
+					<?php esc_html_e( 'Your account needs a second sign-in step before you can use the rest of the community. Set it up under Two-factor authentication below.', 'buddynext' ); ?>
+				</p>
+			</div>
+		</div>
+	<?php endif; ?>
 	<div data-wp-interactive="buddynext/profile"
 		<?php
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_interactivity_data_wp_context() returns an escaped data-wp-context attribute string built by WP core.
