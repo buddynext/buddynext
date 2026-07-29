@@ -589,6 +589,21 @@ class CommentService {
 			return false;
 		}
 
+		// Only a TOP-LEVEL comment can be pinned.
+		//
+		// Pinning promotes a comment to the top of the thread. Applied to a reply
+		// that already lives three levels down, it promoted the reply into a
+		// top-level slot AND left it in its real position under its parent, so the
+		// same reply - and its own children - rendered twice on the page.
+		//
+		// The fix is the rule, not a de-duplicating pass over the tree: a reply is
+		// only meaningful underneath the comment it answers, so lifting one out of
+		// its chain never made sense. YouTube, Facebook and LinkedIn all restrict
+		// pinning to top-level comments for the same reason.
+		if ( ! empty( $comment['parent_id'] ) ) {
+			return false;
+		}
+
 		if ( ! $this->can_pin_comment( $user_id, (string) $comment['object_type'], (int) $comment['object_id'] ) ) {
 			return false;
 		}
