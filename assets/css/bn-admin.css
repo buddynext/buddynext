@@ -2842,6 +2842,8 @@ button.bn-btn-danger:hover {
    broken - they scroll via their wrapper and their columns line up - so the
    selector must reach only the tables dropped straight into the body with no
    wrapper at all. */
+@media (min-width: 783px) {
+
 .bn-settings-section .bn-ss-body > table.widefat,
 .bn-settings-section .bn-ss-body > form > table.widefat {
 	display: block;
@@ -2863,6 +2865,16 @@ button.bn-btn-danger:hover {
 	 * back into a readable one that scrolls. */
 	table-layout: auto;
 }
+
+} /* min-width: 783px */
+
+/* Below 782px WordPress core stacks a .wp-list-table into labelled rows - the
+   pattern the Users and Posts screens use on a phone. That is a far better
+   answer than a horizontally scrolling five-column table, so the scroll
+   treatment above deliberately stops at core's own breakpoint and gets out of
+   the way. A table only gets the stacked layout if its markup opts in with
+   column-primary / data-colname / .toggle-row; one that does not simply keeps
+   the desktop layout, which is why the rule above still has to exist. */
 
 /* ── Slug / identifier chips must not shatter ────────────────────────────────
    A <code> slug in a data table inherits overflow-wrap:anywhere from the admin
