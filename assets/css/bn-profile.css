@@ -3141,3 +3141,20 @@ a.bn-space-row:hover .bn-space-name {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 }
+
+/* ── A profile field the member's plan does not include ──────────────────────
+   Rendered in place of the input, not instead of the whole field: the member
+   still sees that the field exists and what it is called, which is the honest
+   thing to show and the only way the upgrade is discoverable. What they do not
+   get is an editable control the API will refuse - filling one in, saving, and
+   being told it is not in your plan is a trap, and while the field was also
+   marked required it made the entire profile unsaveable. */
+.bn-ep-field-locked {
+	margin: 0;
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px dashed var(--bn-line);
+	border-radius: var(--bn-r-md, 8px);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}

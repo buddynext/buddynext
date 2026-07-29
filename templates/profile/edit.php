@@ -485,8 +485,34 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						$bn_field_cls .= ' bn-ep-field--full';
 					}
 
-					// Field value control via the engine.
-					$bn_control = \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value_raw'] ?? ( $bn_field['value'] ?? '' ), $bn_fkey );
+					// Is this field actually this member's to fill?
+					//
+					// The same predicate the two validation entry points ask, so the
+					// form and the API cannot disagree about a field. A field can be
+					// inactive because its group is locked to a member type this member
+					// does not hold, because a conditional branch is closed, or - what
+					// this was added for - because the member's plan does not include
+					// it.
+					//
+					// Rendering an editable control for a field the API will refuse is a
+					// trap: the member fills it in, saves, and is told the field is not
+					// included in their plan. Worse, the field is marked required in the
+					// schema, so before this they could not satisfy it OR omit it, and
+					// the whole profile became unsaveable.
+					$bn_field_active = (bool) apply_filters(
+						'buddynext_profile_field_is_active',
+						true,
+						$bn_field,
+						array(),
+						$user_id
+					);
+
+					// Field value control via the engine. An inactive field renders a
+					// short, plain explanation instead - no input, so nothing is posted
+					// for it and an omitted key stays a legal partial update.
+					$bn_control = $bn_field_active
+						? \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value_raw'] ?? ( $bn_field['value'] ?? '' ), $bn_fkey )
+						: '<p class="bn-ep-field-locked">' . esc_html__( 'Not available on your current plan.', 'buddynext' ) . '</p>';
 
 					// Admin default = field's own visibility (falls back to the
 					// group default, then public). Current = member's effective
@@ -509,7 +535,9 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					);
 
 					// Required marker on the label (mirrors the hero's display-name field).
-					$bn_is_required = ! empty( $bn_field['is_required'] );
+					// A field the member cannot fill is never marked required of them -
+					// the marker would be asking for something they have no way to give.
+					$bn_is_required = $bn_field_active && ! empty( $bn_field['is_required'] );
 					$bn_req_mark    = $bn_is_required
 						? ' <span class="bn-ep-required" aria-hidden="true">*</span>'
 						: '';
