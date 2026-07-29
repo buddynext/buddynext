@@ -416,6 +416,24 @@
 	max-width: var(--bn-a-control-max-w, 560px);
 }
 
+/* …except in a filter bar, where a control sizes to its own content.
+ *
+ * The rule above is for SETTINGS FORMS, where a field filling the column up to
+ * 560px is right. A filter bar is a different thing: several small controls on
+ * one row above the list they filter. The blanket rule caught those too, so each
+ * select computed to 558px inside a 560px flex row and wrapped one per line -
+ * the moderation Reports queue rendered its three filters as three full-width
+ * stacked bars, which reads as a broken form rather than a toolbar.
+ *
+ * Same specificity as the rule it excepts, placed immediately after it, so the
+ * cascade resolves deterministically and the two stay adjacent. */
+.bn-settings-section .bn-ss-body .bn-mod-queue-filters select,
+.bn-settings-section .bn-ss-body .bn-mod-queue-filters input[type="text"],
+.bn-settings-section .bn-ss-body .bn-mod-queue-filters input[type="search"] {
+	width: auto;
+	max-width: none;
+}
+
 .bn-settings-section .bn-ss-body .bn-field-hint,
 .bn-settings-section .bn-ss-body p.description {
 	max-width: 72ch;
