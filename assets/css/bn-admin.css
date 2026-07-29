@@ -2717,7 +2717,13 @@ button.bn-btn-danger:hover {
 /* --------------------------------------------------------------------------
    Uniform premium tables — every admin list/queue (not WP form-table layouts)
    -------------------------------------------------------------------------- */
-.bn-admin-hub__content table:not(.form-table) {
+/* :not(.screen-reader-text) — a visually-hidden table is not a data table.
+   Without the exclusion this rule out-specifies the utility that hides one
+   (2 classes + an element beats a single class), forcing width:100% onto a
+   table meant to be 1px. It still occupies layout while clipped, so it
+   extended the page's scroll width and put a horizontal scrollbar on the
+   Pro analytics screen at EVERY viewport width, 1440 included. */
+.bn-admin-hub__content table:not(.form-table):not(.screen-reader-text) {
 	width: 100%;
 	border-collapse: collapse;
 	background: var(--bn-a-bg);

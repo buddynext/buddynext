@@ -183,10 +183,28 @@ do_action( 'buddynext_part_post_byline_before', $args );
 				class="bn-post-card__time-link"
 				href="<?php echo esc_url( PageRouter::post_url( (int) $args['bn_post_id'] ) ); ?>"
 				aria-label="<?php esc_attr_e( 'Open post permalink', 'buddynext' ); ?>"
+			<?php
+			// The visible label is relative ("4d ago"); these two attributes are the
+			// absolute form behind it, and both were emitting the raw UTC MySQL
+			// string.
+			//
+			// datetime= was not a valid <time> value at all: the HTML spec wants
+			// ISO 8601, and "2026-07-20 14:33:02" has no T and no zone, so a reader
+			// parsing it - a browser, a scraper, an assistive tool - got nothing
+			// usable. Now a real UTC ISO 8601 stamp.
+			//
+			// title= is what a member actually reads on hover, and it showed UTC,
+			// unformatted. Someone in Delhi hovering a post made at 20:03 their time
+			// saw "2026-07-20 14:33:02". The product's own rule is UTC on the wire,
+			// site timezone on screen (buddynext_time_ago() past a week does exactly
+			// this), so the tooltip now uses wp_date() with the owner's configured
+			// date and time formats rather than a format hardcoded here.
+			$bn_byline_ts = strtotime( (string) $args['created_at'] . ' UTC' );
+			?>
 			><time
 				class="bn-post-card__time"
-				datetime="<?php echo esc_attr( (string) $args['created_at'] ); ?>"
-				title="<?php echo esc_attr( (string) $args['created_at'] ); ?>"
+				datetime="<?php echo esc_attr( false !== $bn_byline_ts ? gmdate( 'c', $bn_byline_ts ) : (string) $args['created_at'] ); ?>"
+				title="<?php echo esc_attr( false !== $bn_byline_ts ? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $bn_byline_ts ) : (string) $args['created_at'] ); ?>"
 			><?php echo $args['post_time']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside producer ?></time></a>
 
 			<?php if ( '' !== (string) $args['edited_label'] ) : ?>
