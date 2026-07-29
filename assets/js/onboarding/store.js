@@ -194,6 +194,23 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			if ( ( c.step || 1 ) < total ) {
 				c.step = ( c.step || 1 ) + 1;
 				scrollToStepTop();
+				// Skipping IS progress, and it has to be remembered.
+				//
+				// This used to advance the local step and stop there, so a member
+				// who skipped three steps and came back later - closed tab, new
+				// session, or just a reload - was dropped at step 1 and had to skip
+				// the same steps again. "Continue" persisted; "Skip for now" did
+				// not, which made the wizard feel broken for exactly the members
+				// least interested in it.
+				//
+				// No `data` is sent: a skip means the member chose not to fill this
+				// step in, so only the pointer moves. save_step() writes profile
+				// fields on step 1 only, and ignores empty values, so nothing they
+				// already have can be blanked by skipping past it.
+				rest( c, 'me/onboarding/step', {
+					method: 'POST',
+					body:   { step: c.step - 1 },
+				} ).catch( () => {} );
 				return;
 			}
 			// Last-step skip — finalize skip.
