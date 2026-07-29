@@ -1302,11 +1302,11 @@ class Members extends AdminPageBase {
 									<input type="checkbox" id="bn-members-cb-all" aria-label="<?php esc_attr_e( 'Select all members', 'buddynext' ); ?>">
 								</th>
 								<th scope="col"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'display_name' ) ); ?>" class="bn-th-sort<?php echo 'display_name' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Member', 'buddynext' ); ?></a></th>
-								<th scope="col"><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
+								<th scope="col" class="bn-col-email"><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Role', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
-								<th scope="col"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'registered' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Joined', 'buddynext' ); ?></a></th>
-								<th scope="col"><?php esc_html_e( 'Last Active', 'buddynext' ); ?></th>
+								<th scope="col" class="bn-col-muted"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'registered' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Joined', 'buddynext' ); ?></a></th>
+								<th scope="col" class="bn-col-muted"><?php esc_html_e( 'Last Active', 'buddynext' ); ?></th>
 								<th scope="col" data-align="end"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 							</tr>
 						</thead>

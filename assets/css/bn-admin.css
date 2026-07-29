@@ -2832,8 +2832,17 @@ button.bn-btn-danger:hover {
    display:block.
 
    min-width:100% keeps it filling the body when it fits, so nothing changes at
-   the widths where these tables were already fine (600px and up). */
-.bn-settings-section .bn-ss-body table.widefat {
+   the widths where these tables were already fine (600px and up).
+
+   The child combinator is load-bearing. Tables that ALREADY sit in a scroll
+   wrapper (.bn-table-wrap__scroll / .bn-table-scroll - Subscriptions uses both)
+   are nested deeper and must not be touched: a descendant selector matched them
+   too, and display:block wrapped their 8-column header row so the Action header
+   landed under column 1 while its cells stayed at column 8. They were never
+   broken - they scroll via their wrapper and their columns line up - so the
+   selector must reach only the tables dropped straight into the body with no
+   wrapper at all. */
+.bn-settings-section .bn-ss-body > table.widefat {
 	display: block;
 	overflow-x: auto;
 	max-width: 100%;

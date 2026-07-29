@@ -200,6 +200,32 @@
 	background: var(--bn-sunken);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-full, 9999px);
+	/* Wrap by default rather than run off the card.
+	 *
+	 * inline-flex with no max-width and nowrap meant a segment holding more
+	 * chips than the card is wide simply overflowed, and .bn-settings-section
+	 * has overflow:hidden - so the last filters were CUT OFF, not merely tight.
+	 * Measured at 390px: Subscriptions 479px of chips in a 366px body,
+	 * Spaces 383px, Invitations 63px past the edge. The status filters an admin
+	 * needs on a phone were the ones that disappeared.
+	 *
+	 * .bn-segment--wrap already existed for exactly this, but it was opt-in and
+	 * used on one screen out of seven, so every screen that forgot it shipped
+	 * the bug. Safe-by-default belongs in the base: a filter group that cannot
+	 * fit should reflow, never hide options. Wrapping (not scrolling) is the
+	 * documented house preference for filters - see B5 in bn-admin.css. */
+	max-width: 100%;
+	flex-wrap: wrap;
+}
+
+/* A wrapped segment is a tall box, and the pill radius reads as an odd oval on
+   one - so soften it at the widths where wrapping actually happens. Same
+   reasoning as .bn-segment--wrap, which keeps overriding this explicitly for
+   segments that wrap at any width. */
+@media (max-width: 782px) {
+	.bn-segment {
+		border-radius: var(--bn-r-lg, 12px);
+	}
 }
 
 .bn-segment__item {
