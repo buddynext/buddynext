@@ -65,6 +65,84 @@ class PluginIsolation {
 	);
 
 	/**
+	 * Pro application-layer integrations that contribute Portfolio panels/tabs.
+	 *
+	 * Separate from CORE_INTEGRATIONS only so the two groups stay readable; both
+	 * are part of the same floor and neither may be stripped.
+	 */
+	private const APP_INTEGRATIONS = array(
+		'wp-career-board/wp-career-board.php',
+		'wp-career-board-pro/wp-career-board-pro.php',
+		'wb-listora/wb-listora.php',
+		'wb-listora-pro/wb-listora-pro.php',
+		'learnomy/learnomy.php',
+		'learnomy-pro/learnomy-pro.php',
+		'eventonomy/eventonomy.php',
+		'eventonomy-pro/eventonomy-pro.php',
+	);
+
+	/**
+	 * Operational plugins that must survive isolation.
+	 *
+	 * Stripping the object cache drop-in's admin plugin or the profiler does not
+	 * remove a member-visible feature, but it makes the hub routes behave
+	 * differently from the rest of the site, which is exactly what makes a
+	 * performance problem impossible to diagnose.
+	 */
+	private const OPERATIONAL_PLUGINS = array(
+		'redis-cache/redis-cache.php',
+		'query-monitor/query-monitor.php',
+	);
+
+	/**
+	 * BuddyNext itself. The mu-plugin's own safety floor.
+	 */
+	private const SELF_PLUGINS = array(
+		'buddynext/buddynext.php',
+		'buddynext-pro/buddynext-pro.php',
+	);
+
+	/**
+	 * The mu-plugin's keep-alive FLOOR. One definition, rendered into the file.
+	 *
+	 * Deliberately wider than what sync_option() merges at runtime, and the
+	 * difference is not an oversight:
+	 *
+	 *  - sync_option() merges CORE_INTEGRATIONS + TRANSLATION_PLUGINS + the owner's
+	 *    list, and Pro appends its application-layer family through the
+	 *    `buddynext_isolation_plugins` filter. That is the correct split - Free
+	 *    does not decide Pro's integrations.
+	 *  - the mu-plugin cannot wait for any of that. It runs before plugins load,
+	 *    so no filter has fired and the option may be empty or stale. Its floor
+	 *    therefore hardcodes the whole in-house family, Pro's included, so
+	 *    Portfolio tabs and nav survive the very first request.
+	 *
+	 * What WAS wrong is that this floor existed twice: once here in constants and
+	 * once as a hand-written array inside the mu-plugin source in Installer, held
+	 * together by a comment reading "keep in sync". A comment is not a sync
+	 * mechanism. Installer now renders this list into the generated file, so the
+	 * copy on disk is derived rather than maintained.
+	 *
+	 * The generated mu-plugin still contains a literal array, because it must - it
+	 * cannot call into this class. Nobody has to type it twice.
+	 *
+	 * @return array<int,string> Plugin basenames, de-duplicated.
+	 */
+	public static function essentials(): array {
+		return array_values(
+			array_unique(
+				array_merge(
+					self::SELF_PLUGINS,
+					self::CORE_INTEGRATIONS,
+					self::APP_INTEGRATIONS,
+					self::OPERATIONAL_PLUGINS,
+					self::TRANSLATION_PLUGINS
+				)
+			)
+		);
+	}
+
+	/**
 	 * Owner-managed option: extra plugin basenames to keep alive on BN routes.
 	 *
 	 * Separate from self::OPTION because that one is REWRITTEN from the canonical

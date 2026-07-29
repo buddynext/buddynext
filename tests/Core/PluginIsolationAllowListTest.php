@@ -182,4 +182,75 @@ class PluginIsolationAllowListTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'loco-translate/loco.php', $content );
 		$this->assertStringContainsString( 'sitepress-multilingual-cms/sitepress.php', $content );
 	}
+
+	/**
+	 * The mu-plugin's floor is DERIVED from essentials(), not typed twice.
+	 *
+	 * It used to be a second hand-written array inside the mu-plugin source, kept
+	 * in step with this class by a comment reading "keep in sync". A comment is
+	 * not a sync mechanism: the two lists are far apart in the codebase, and the
+	 * only thing that would have revealed a drift is a site owner noticing an
+	 * integration had gone missing on hub routes.
+	 *
+	 * This asserts the generated FILE, because that is what actually ships and
+	 * what actually runs before plugins load. Adding an entry to the class must
+	 * show up there without anyone editing the generator.
+	 *
+	 * @return void
+	 */
+	public function test_the_generated_mu_plugin_contains_every_essential(): void {
+		$generate = new \ReflectionMethod( \BuddyNext\Core\Installer::class, 'mu_plugin_content' );
+		$source = (string) $generate->invoke( null );
+
+		foreach ( \BuddyNext\Core\PluginIsolation::essentials() as $basename ) {
+			$this->assertStringContainsString(
+				$basename,
+				$source,
+				$basename . ' is in the canonical floor but not in the generated mu-plugin.'
+			);
+		}
+	}
+
+	/**
+	 * And the generated file is valid PHP. It is assembled by string
+	 * substitution, so a malformed render would not fail until a site loaded it -
+	 * at which point every request on that site is fatal, including wp-admin.
+	 *
+	 * @return void
+	 */
+	public function test_the_generated_mu_plugin_is_syntactically_valid(): void {
+		$generate = new \ReflectionMethod( \BuddyNext\Core\Installer::class, 'mu_plugin_content' );
+		$source = (string) $generate->invoke( null );
+
+		$tmp = wp_tempnam( 'bn-mu-check' );
+		file_put_contents( $tmp, $source );
+
+		$output = array();
+		$status = 0;
+		exec( escapeshellcmd( PHP_BINARY ) . ' -l ' . escapeshellarg( $tmp ) . ' 2>&1', $output, $status );
+		unlink( $tmp );
+
+		$this->assertSame( 0, $status, 'Generated mu-plugin is not valid PHP: ' . implode( "\n", $output ) );
+	}
+
+	/**
+	 * The floor still carries Pro's application-layer family.
+	 *
+	 * This looks redundant against the class constants until you know why it is
+	 * there: sync_option() deliberately does NOT include these - Pro contributes
+	 * them through the buddynext_isolation_plugins filter, and Free has no
+	 * business hardcoding Pro's integrations at runtime. The mu-plugin floor is
+	 * the exception, because it runs before any filter can fire. Someone
+	 * "tidying" Pro entries out of Free would silently strip Portfolio tabs on the
+	 * first request of every page load.
+	 *
+	 * @return void
+	 */
+	public function test_the_floor_includes_pro_integrations_on_purpose(): void {
+		$floor = \BuddyNext\Core\PluginIsolation::essentials();
+
+		foreach ( array( 'wp-career-board/wp-career-board.php', 'learnomy/learnomy.php', 'eventonomy/eventonomy.php' ) as $pro_plugin ) {
+			$this->assertContains( $pro_plugin, $floor, 'The mu-plugin floor must survive before Pro\'s filter runs.' );
+		}
+	}
 }

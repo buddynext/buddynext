@@ -2760,42 +2760,13 @@ if ( buddynext_mu_is_bn_request() ) {
 			// file is stale, or before PluginIsolation has populated the option.
 			// Keep in sync with PluginIsolation::CORE_INTEGRATIONS + the Pro
 			// buddynext_isolation_plugins filter.
-			$essentials = array(
-				'buddynext/buddynext.php',
-				'buddynext-pro/buddynext-pro.php',
-				// Core integrations (Free first-class).
-				'wpmediaverse/wpmediaverse.php',
-				'wpmediaverse-pro/wpmediaverse-pro.php',
-				'jetonomy/jetonomy.php',
-				'jetonomy-pro/jetonomy-pro.php',
-				'wb-gamification/wb-gamification.php',
-				// Pro application-layer integrations (Portfolio panels).
-				'wp-career-board/wp-career-board.php',
-				'wp-career-board-pro/wp-career-board-pro.php',
-				'wb-listora/wb-listora.php',
-				'wb-listora-pro/wb-listora-pro.php',
-				'learnomy/learnomy.php',
-				'learnomy-pro/learnomy-pro.php',
-				// Events (Eventonomy) — BuddyNext bridge integration.
-				'eventonomy/eventonomy.php',
-				'eventonomy-pro/eventonomy-pro.php',
-				// Operational.
-				'redis-cache/redis-cache.php',
-				'query-monitor/query-monitor.php',
-				// String-override plugins. These rewrite EVERY string on the page,
-				// so stripping one does not remove a visible feature — it silently
-				// serves BuddyNext's own English while the owner's translation is
-				// ignored, and only on the hub routes, which is exactly where a
-				// terminology override matters most. Keep in sync with
-				// PluginIsolation::TRANSLATION_PLUGINS.
-				'loco-translate/loco.php',
-				'polylang/polylang.php',
-				'polylang-pro/polylang.php',
-				'sitepress-multilingual-cms/sitepress.php',
-				'wpml-string-translation/plugin.php',
-				'translatepress-multilingual/index.php',
-				'say-what/say-what.php',
-			);
+			// Rendered from PluginIsolation::essentials() when this file is written
+			// - see the placeholder substitution in the generator. This used to be a
+			// second hand-written copy of that list, kept in step by a comment
+			// reading "keep in sync"; a comment is not a sync mechanism. The literal
+			// array is still needed because a mu-plugin runs before plugins load and
+			// cannot call into the class - but it is now derived, not maintained.
+			$essentials = @@BN_MU_ESSENTIALS@@;
 
 			// Plus any dynamic / 3rd-party additions BuddyNext mirrors into the
 			// `buddynext_isolation_plugins` option. Read via the options API so it
@@ -2824,6 +2795,16 @@ MUPLUGIN;
 		// matches the plugin. maybe_refresh_mu_plugin() then detects a stale on-disk
 		// copy simply by comparing its Version header to BUDDYNEXT_VERSION and
 		// rewrites it — no manual mu-plugin edits, no version bump to remember.
+		// Render the canonical keep-alive list into the generated file. var_export
+		// emits valid PHP for a flat string array, so the mu-plugin gets a literal
+		// it can use before any class is loadable, while the list itself is only
+		// ever maintained in one place.
+		$content = str_replace(
+			'@@BN_MU_ESSENTIALS@@',
+			var_export( PluginIsolation::essentials(), true ), // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export
+			$content
+		);
+
 		return str_replace( '@@BN_MU_VERSION@@', (string) BUDDYNEXT_VERSION, $content );
 	}
 
