@@ -2813,3 +2813,30 @@ button.bn-btn-danger:hover {
 .bn-av-section-desc {
 	margin: 0 0 var(--bn-a-s3);
 }
+
+/* ── Core-style admin tables must scroll, not vanish ─────────────────────────
+   WordPress core list tables (.widefat / .wp-list-table) have a natural width
+   set by their columns and no scroll container of their own. Dropped into a BN
+   settings section they render wider than the body - measured at 390px:
+   Automod Rules 544px in a 366px body, Moderation Log 506px, Drip 501px, Email
+   Log 427px - and .bn-settings-section carries overflow:hidden (it clips child
+   backgrounds to the card's rounded corners), so the spill was not merely ugly,
+   it was CUT OFF. Nothing scrolled: up to 178px of columns, including the whole
+   Actions column, were permanently unreachable.
+
+   Fixing it on the section would mean dropping that overflow:hidden and losing
+   the rounded corners, and wrapping each table would mean touching every render
+   site in Free and Pro and remembering to do it again for the next one. So the
+   table becomes its own scroll container - the same technique already proven on
+   .bn-analytics-table, whose column alignment was browser-verified to survive
+   display:block.
+
+   min-width:100% keeps it filling the body when it fits, so nothing changes at
+   the widths where these tables were already fine (600px and up). */
+.bn-settings-section .bn-ss-body table.widefat {
+	display: block;
+	overflow-x: auto;
+	max-width: 100%;
+	min-width: 100%;
+	width: max-content;
+}
