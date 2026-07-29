@@ -2842,10 +2842,49 @@ button.bn-btn-danger:hover {
    broken - they scroll via their wrapper and their columns line up - so the
    selector must reach only the tables dropped straight into the body with no
    wrapper at all. */
-.bn-settings-section .bn-ss-body > table.widefat {
+.bn-settings-section .bn-ss-body > table.widefat,
+.bn-settings-section .bn-ss-body > form > table.widefat {
 	display: block;
 	overflow-x: auto;
 	max-width: 100%;
 	min-width: 100%;
 	width: max-content;
+	/* table-layout:auto is the point, not a detail.
+	 *
+	 * WordPress's .fixed helper sets table-layout:fixed, which divides the
+	 * container evenly between the columns and NEVER overflows - so a narrow
+	 * container does not clip the table, it crushes it. Bulk Moderation at 390px
+	 * gave each of five columns 52px and rendered the "Content" header as
+	 * C/O/N/T/E/N/T, one letter per line, with a single row 700px tall. Nothing
+	 * scrolled because nothing overflowed; the text was simply destroyed in
+	 * place, which is why an overflow-based check reports the screen as clean.
+	 *
+	 * Letting the columns take their natural width turns an unreadable table
+	 * back into a readable one that scrolls. */
+	table-layout: auto;
+}
+
+/* ── Slug / identifier chips must not shatter ────────────────────────────────
+   A <code> slug in a data table inherits overflow-wrap:anywhere from the admin
+   styles. `anywhere` does not merely permit mid-word breaks - unlike
+   `break-word` it also collapses the element's MIN-CONTENT width to a single
+   character, so the table is free to squeeze the column to nothing. On Spaces >
+   Categories at 390px the Slug column shrank to 29px and rendered "general" as
+   gen / era / l and "announcements" as ann / ounc / emen / ts: one fragment per
+   line, unreadable, and impossible to copy by eye.
+
+   A slug is a single identifier - it is read and retyped as one unit, so it
+   should never break at all. Keeping it whole restores an honest min-content
+   width for the column; the table already lives in a horizontal scroll wrapper,
+   so a long slug widens the scroll region instead of destroying the layout.
+
+   Worth noting for the next case: a purely numeric probe missed this. The
+   columns were all technically reachable by scrolling, so nothing "overflowed" -
+   the text was simply destroyed in place. It was caught by looking at it. */
+.bn-table td code,
+.bn-table th code,
+.bn-settings-section .bn-ss-body table td code {
+	white-space: nowrap;
+	overflow-wrap: normal;
+	word-break: normal;
 }
