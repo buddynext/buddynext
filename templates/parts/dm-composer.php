@@ -95,11 +95,18 @@ do_action( 'buddynext_part_dm_composer_before', $args );
 		</button>
 	</div>
 
+	<?php
+	// Named explicitly. The only <label for> in this composer points at the
+	// message textarea, so this input had no accessible name at all - a screen
+	// reader reached a file picker announced as an unnamed button, and it is
+	// visually hidden, so there was nothing on screen to infer it from either.
+	?>
 	<input
 		type="file"
 		id="bn-dm-file"
 		class="bn-visually-hidden"
 		accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
+		aria-label="<?php esc_attr_e( 'Attach an image or video', 'buddynext' ); ?>"
 		data-wp-on--change="actions.onFileSelected"
 	>
 

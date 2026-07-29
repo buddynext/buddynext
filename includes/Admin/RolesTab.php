@@ -148,7 +148,13 @@ class RolesTab {
 									<tr>
 										<td><?php echo esc_html( $label ); ?></td>
 										<td>
-											<select name="cap[<?php echo esc_attr( $cap ); ?>]" class="bn-select">
+											<?php
+											// One select per capability row, the capability name living in
+											// the cell beside it - so every one of them announced as the
+											// same unnamed dropdown. Named with the capability it governs.
+											?>
+											<select name="cap[<?php echo esc_attr( $cap ); ?>]" class="bn-select"
+												aria-label="<?php echo esc_attr( sprintf( /* translators: %s: capability name. */ __( 'Minimum role for: %s', 'buddynext' ), (string) $label ) ); ?>">
 												<?php foreach ( self::role_choices() as $rv => $rl ) : ?>
 													<option value="<?php echo esc_attr( $rv ); ?>" <?php selected( $value, $rv ); ?>>
 														<?php echo esc_html( $rl ); ?>

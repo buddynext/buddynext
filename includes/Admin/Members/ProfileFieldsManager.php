@@ -1739,7 +1739,14 @@ class ProfileFieldsManager {
 										<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
 										<input type="hidden" name="attr" value="visibility">
 										<?php wp_nonce_field( 'bn_update_profile_field_' . $fid ); ?>
-										<select class="bn-pf-vis-field" name="visibility" data-bn-autosubmit>
+										<?php
+										// One of these renders per row, so a bare "Visibility" name would
+										// announce identically on every field in the table. Naming it with
+										// the field it governs is what makes the control usable when the
+										// row is not visible - which is the whole point of the name.
+										?>
+										<select class="bn-pf-vis-field" name="visibility" data-bn-autosubmit
+											aria-label="<?php echo esc_attr( sprintf( /* translators: %s: profile field label. */ __( 'Visibility for %s', 'buddynext' ), (string) $field['label'] ) ); ?>">
 											<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
 												<option value="<?php echo esc_attr( $vis_val ); ?>" <?php selected( $field_vis, $vis_val ); ?>>
 													<?php echo esc_html( $vis_lbl ); ?>

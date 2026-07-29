@@ -269,10 +269,17 @@ class NavManager extends AdminPageBase {
 								</td>
 								<td class="bn-pages-cell--slug">
 									<?php if ( $has_slug ) : ?>
+										<?php
+										// Named per hub. One of these renders per row, and the hub name
+										// lives in the first cell, so without this every slug field on
+										// the screen announced identically as an unnamed text box - a
+										// screen-reader user could not tell which URL they were editing.
+										?>
 										<input type="text"
 											id="<?php echo esc_attr( $field_id . '-slug' ); ?>"
 											name="bn_hub[<?php echo esc_attr( $hub ); ?>][slug]"
 											value="<?php echo esc_attr( $slug_val ); ?>"
+											aria-label="<?php echo esc_attr( sprintf( /* translators: %s: hub name, e.g. "Activity feed". */ __( '%s URL slug', 'buddynext' ), (string) $cfg['label'] ) ); ?>"
 											class="bn-text-input bn-pages-slug-input"
 											pattern="[a-z0-9\-]+"
 											spellcheck="false"
@@ -285,6 +292,22 @@ class NavManager extends AdminPageBase {
 									<?php endif; ?>
 								</td>
 								<td class="bn-pages-cell--page">
+									<?php
+									// A real <label for>, not an aria arg: wp_dropdown_pages() builds its
+									// <select> by hand and accepts no aria attribute, so one passed in
+									// $args is silently dropped. Without it every page dropdown on this
+									// screen announces as "— None —" with nothing to say which hub it
+									// maps - one renders per row.
+									?>
+									<label for="<?php echo esc_attr( $field_id . '-page' ); ?>" class="screen-reader-text">
+										<?php
+										printf(
+											/* translators: %s: hub name, e.g. "Activity feed". */
+											esc_html__( 'WordPress page for %s', 'buddynext' ),
+											esc_html( (string) $cfg['label'] )
+										);
+										?>
+									</label>
 									<?php
 									// wp_dropdown_pages() echoes its markup; arg strings escaped here for WPCS.
 									wp_dropdown_pages(
@@ -1649,17 +1672,27 @@ class NavManager extends AdminPageBase {
 			<div class="bn-cf">
 				<div class="bn-config-toggle-row">
 					<div>
-						<div class="bn-config-toggle-label">
+						<div class="bn-config-toggle-label" id="bn-cfg-loginreq-label-<?php echo esc_attr( $slug ); ?>">
 							<?php esc_html_e( 'Login required', 'buddynext' ); ?>
 						</div>
-						<div class="bn-config-toggle-sub">
+						<div class="bn-config-toggle-sub" id="bn-cfg-loginreq-desc-<?php echo esc_attr( $slug ); ?>">
 							<?php esc_html_e( 'Redirect guests to login page', 'buddynext' ); ?>
 						</div>
 					</div>
+					<?php
+					// The visible label and its hint were plain divs, so a screen reader
+					// reached this toggle as an unnamed checkbox - audible as "checkbox,
+					// not checked" with nothing to say what it governs. Pointing at the
+					// text already on screen names it without adding a second copy for
+					// sighted users to read, and the ids carry $slug because this block
+					// renders once per hub.
+					?>
 					<input type="checkbox"
 							class="bn-cfg-toggle-chk"
 							name="<?php echo esc_attr( $n( 'login_required' ) ); ?>"
 							value="1"
+							aria-labelledby="bn-cfg-loginreq-label-<?php echo esc_attr( $slug ); ?>"
+							aria-describedby="bn-cfg-loginreq-desc-<?php echo esc_attr( $slug ); ?>"
 							<?php checked( $login_req ); ?>>
 				</div>
 			</div>

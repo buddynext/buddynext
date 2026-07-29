@@ -88,7 +88,8 @@ class AppearanceTab {
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Default theme', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
 					<p class="bn-av-section-desc"><?php esc_html_e( 'Applies to visitors who have not picked a theme themselves.', 'buddynext' ); ?></p>
-					<select name="bn_default_theme" class="bn-select">
+					<?php // The section heading is a <span>, not a label, so this select had no name. ?>
+					<select name="bn_default_theme" class="bn-select" aria-label="<?php esc_attr_e( 'Default theme', 'buddynext' ); ?>">
 						<?php foreach ( $themes as $tv => $tl ) : ?>
 							<option value="<?php echo esc_attr( $tv ); ?>" <?php selected( $theme, $tv ); ?>><?php echo esc_html( $tl ); ?></option>
 						<?php endforeach; ?>

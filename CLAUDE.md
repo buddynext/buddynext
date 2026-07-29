@@ -251,7 +251,7 @@ Never name a bridge adapter `class Jetonomy` — it reads like the external plug
 ### Bridge Contract (every integration bridge is born uniform)
 
 The full audit + consistency matrix lives in
-`buddynext-pro/docs/plans/bridge-uniformity-audit.md`. A "content" bridge (one
+`buddynext-pro/free-internal/docs/plans/bridge-uniformity-audit.md`. A "content" bridge (one
 that surfaces partner content into the community) MUST:
 
 1. **Register + self-guard.** `XxxBridge::init()` wired on `buddynext_load_bridges`;

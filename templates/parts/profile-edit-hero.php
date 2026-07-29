@@ -215,11 +215,24 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 		</div>
 	</div>
 
+	<?php
+	// The visible "Change photo" / "Change cover" buttons are the real controls;
+	// these inputs exist only to be .click()ed by triggerAvatarUpload() /
+	// triggerCoverUpload() and by the #avatar / #cover deep-link.
+	//
+	// .bn-ep-file-hidden is the clip pattern, NOT display:none - so without the
+	// two attributes below each input stays focusable and stays in the
+	// accessibility tree: a keyboard user hits an unnamed tab stop that silently
+	// opens the same dialog the button above already opens. Removed from both,
+	// which is safe precisely because nothing ever focuses them - only .click().
+	?>
 	<input
 		type="file"
 		id="bn-ep-avatar-file"
 		accept="image/jpeg,image/png,image/gif,image/webp"
 		class="bn-ep-file-hidden"
+		tabindex="-1"
+		aria-hidden="true"
 		data-wp-on--change="actions.handleAvatarFileChange"
 	/>
 	<input
@@ -227,6 +240,8 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 		id="bn-ep-cover-file"
 		accept="image/jpeg,image/png,image/gif,image/webp"
 		class="bn-ep-file-hidden"
+		tabindex="-1"
+		aria-hidden="true"
 		data-wp-on--change="actions.handleCoverFileChange"
 	/>
 </section>
