@@ -171,6 +171,12 @@ class CronService {
 
 		$this->purge_stale_unverified();
 		$this->prune_webhook_log();
+
+		// Rate-limit counters, on sites with no persistent object cache. Every
+		// read already ignores an expired row, so this is housekeeping rather
+		// than correctness — but a login page being probed writes one row per
+		// attacker key and nothing else would ever remove them.
+		\BuddyNext\Core\RateLimiter::purge_expired();
 	}
 
 	/**

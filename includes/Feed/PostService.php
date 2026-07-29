@@ -90,6 +90,35 @@ class PostService {
 			);
 		}
 
+		/*
+		 * A post must actually say something. POST /posts with an empty body
+		 * returned 201 and wrote a real, published, entirely blank row - the
+		 * composer's client-side guard was the ONLY thing preventing it, so any
+		 * direct API caller (a script, the app mid-bug, someone spamming the
+		 * feed) walked straight past it.
+		 *
+		 * "Content" is any of the four things a card can be built from, because
+		 * a photo post, a poll and a shared link are all legitimately
+		 * text-empty. Checking `content` alone would reject them.
+		 *
+		 * Placed before the verification and space gates on purpose: this is a
+		 * malformed request, not a permission failure, and answering 400 first
+		 * avoids telling an unverified caller their email is the problem when
+		 * the body was empty anyway.
+		 */
+		$bn_has_text  = '' !== trim( wp_strip_all_tags( (string) ( $data['content'] ?? '' ) ) );
+		$bn_has_media = ! empty( $data['media_ids'] ) && is_array( $data['media_ids'] );
+		$bn_has_poll  = ! empty( $data['options'] ) && is_array( $data['options'] );
+		$bn_has_link  = '' !== trim( (string) ( $data['link_url'] ?? '' ) );
+
+		if ( ! $bn_has_text && ! $bn_has_media && ! $bn_has_poll && ! $bn_has_link ) {
+			return new WP_Error(
+				'empty_post',
+				__( 'Add something to your post before sharing it.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
 		// Email-verification gate. When verification is enforced, an unverified
 		// member cannot post until they confirm their address (admins exempt).
 		// is_verified() returns true when the feature is off, so this is a no-op in

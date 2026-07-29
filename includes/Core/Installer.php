@@ -269,7 +269,7 @@ class Installer {
 	 *      overlapped pages until the PK tie-break was added. dbDelta ALTER-adds the KEY on
 	 *      upgrade; no data migration.
 	 */
-	private const SCHEMA_VERSION = 38;
+	private const SCHEMA_VERSION = 39;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -2205,6 +2205,33 @@ class Installer {
 				KEY         type (type),
 				KEY         purge_window (sent_at),
 				KEY         type_id (type, id)
+			) {$cs};",
+
+			/*
+			 * Rate-limit counters for sites with no persistent object cache.
+			 *
+			 * RateLimiter prefers wp_cache_incr(), which is atomic, but that only
+			 * exists when Redis/Memcached is configured - and most WordPress
+			 * installs have neither. The fallback was get_transient() + 1 then
+			 * set_transient(), a read-modify-write that a genuinely concurrent
+			 * burst races straight past: 15 simultaneous wrong-password logins all
+			 * read the same "0" and all wrote "1", so none of them tripped a
+			 * 10-per-15-minutes cap. That silently disarmed brute-force protection
+			 * on login, registration and every other throttled route, on exactly
+			 * the sites least likely to notice.
+			 *
+			 * A dedicated table gets the atomicity from MySQL instead of from
+			 * optional infrastructure: INSERT ... ON DUPLICATE KEY UPDATE is a
+			 * single statement, so concurrent hits serialise on the row lock and
+			 * each sees a distinct count. rl_key is the PRIMARY KEY at 191 chars
+			 * so it stays within the utf8mb4 index limit.
+			 */
+			"CREATE TABLE {$p}bn_rate_limits (
+				rl_key VARCHAR(191) NOT NULL,
+				hits INT UNSIGNED NOT NULL DEFAULT 0,
+				expires_at DATETIME NOT NULL,
+				PRIMARY KEY (rl_key),
+				KEY         expires_at (expires_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_verify_tokens (

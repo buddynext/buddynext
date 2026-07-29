@@ -185,7 +185,7 @@ class MemberTypeService {
 
 		// Slug uniqueness check.
 		if ( $this->get_by_slug( $validated['slug'] ) ) {
-			return new WP_Error( 'slug_exists', __( 'A member type with this slug already exists.', 'buddynext' ) );
+			return new WP_Error( 'slug_exists', __( 'A member type with this slug already exists.', 'buddynext' ), array( 'status' => 409 ) );
 		}
 
 		global $wpdb;
@@ -210,7 +210,7 @@ class MemberTypeService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $inserted ) {
-			return new WP_Error( 'db_error', __( 'Could not save member type.', 'buddynext' ) );
+			return new WP_Error( 'db_error', __( 'Could not save member type.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
 		$new_id = (int) $wpdb->insert_id;
@@ -238,7 +238,7 @@ class MemberTypeService {
 	public function update( int $id, array $data ): bool|WP_Error {
 		$existing = $this->get_by_id( $id );
 		if ( ! $existing ) {
-			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ) );
+			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// Merge with existing so partial updates work.
@@ -253,7 +253,7 @@ class MemberTypeService {
 		if ( $validated['slug'] !== $existing['slug'] ) {
 			$conflict = $this->get_by_slug( $validated['slug'] );
 			if ( $conflict && (int) $conflict['id'] !== $id ) {
-				return new WP_Error( 'slug_exists', __( 'A member type with this slug already exists.', 'buddynext' ) );
+				return new WP_Error( 'slug_exists', __( 'A member type with this slug already exists.', 'buddynext' ), array( 'status' => 409 ) );
 			}
 		}
 
@@ -317,7 +317,7 @@ class MemberTypeService {
 	public function delete( int $id ): bool|WP_Error {
 		$type = $this->get_by_id( $id );
 		if ( ! $type ) {
-			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ) );
+			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		global $wpdb;
@@ -479,11 +479,11 @@ class MemberTypeService {
 	public function assign_type( int $user_id, int $type_id, int $assigned_by = 0 ): bool|WP_Error {
 		$type = $this->get_by_id( $type_id );
 		if ( ! $type ) {
-			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ) );
+			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		if ( ! get_userdata( $user_id ) ) {
-			return new WP_Error( 'invalid_user', __( 'User not found.', 'buddynext' ) );
+			return new WP_Error( 'invalid_user', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// Record the previous type slug for the action hook.
@@ -510,7 +510,7 @@ class MemberTypeService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $inserted ) {
-			return new WP_Error( 'db_error', __( 'Could not assign member type.', 'buddynext' ) );
+			return new WP_Error( 'db_error', __( 'Could not assign member type.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
 		// Write-through: keep usermeta in sync for fast WP_User_Query directory filtering.
@@ -642,12 +642,12 @@ class MemberTypeService {
 	private function validate_type_data( array $data ): array|WP_Error {
 		$slug = sanitize_key( (string) ( $data['slug'] ?? '' ) );
 		if ( '' === $slug ) {
-			return new WP_Error( 'invalid_slug', __( 'Member type slug is required.', 'buddynext' ) );
+			return new WP_Error( 'invalid_slug', __( 'Member type slug is required.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
 		$name = sanitize_text_field( (string) ( $data['name'] ?? '' ) );
 		if ( '' === $name ) {
-			return new WP_Error( 'invalid_name', __( 'Member type name is required.', 'buddynext' ) );
+			return new WP_Error( 'invalid_name', __( 'Member type name is required.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
 		$color = sanitize_hex_color( (string) ( $data['color'] ?? '#0073aa' ) );
