@@ -260,6 +260,7 @@ final class ProfileNav {
 			'parts/profile/posts-panel.php',
 			array(
 				'kind'         => 'posts',
+				'subject_id'   => $c->subject_id,
 				'posts'        => $posts,
 				'viewer_id'    => $c->viewer_id,
 				'is_owner'     => $c->is_self(),
@@ -283,6 +284,7 @@ final class ProfileNav {
 			'parts/profile/posts-panel.php',
 			array(
 				'kind'         => 'scheduled',
+				'subject_id'   => $c->subject_id,
 				'posts'        => (array) buddynext_service( 'post_service' )->user_scheduled_posts( $c->subject_id, 20 ),
 				'viewer_id'    => $c->viewer_id,
 				'is_owner'     => true,
@@ -316,6 +318,7 @@ final class ProfileNav {
 			'parts/profile/posts-panel.php',
 			array(
 				'kind'         => 'likes',
+				'subject_id'   => $c->subject_id,
 				'posts'        => (array) buddynext_service( 'post_service' )->user_liked_posts( $c->subject_id, 20, $c->viewer_id ),
 				'viewer_id'    => $c->viewer_id,
 				'is_owner'     => $c->is_self(),
