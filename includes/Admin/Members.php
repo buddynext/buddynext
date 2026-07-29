@@ -1301,7 +1301,7 @@ class Members extends AdminPageBase {
 								<th scope="col" class="bn-table__cb" data-align="center">
 									<input type="checkbox" id="bn-members-cb-all" aria-label="<?php esc_attr_e( 'Select all members', 'buddynext' ); ?>">
 								</th>
-								<th scope="col"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'display_name' ) ); ?>" class="bn-th-sort<?php echo 'display_name' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Member', 'buddynext' ); ?></a></th>
+								<th scope="col" class="column-primary"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'display_name' ) ); ?>" class="bn-th-sort<?php echo 'display_name' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Member', 'buddynext' ); ?></a></th>
 								<th scope="col" class="bn-col-email"><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Role', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
@@ -1321,7 +1321,7 @@ class Members extends AdminPageBase {
 									?>
 									">
 								</td>
-								<td>
+								<td class="column-primary" data-colname="<?php esc_attr_e( 'Member', 'buddynext' ); ?>">
 									<div class="bn-member-cell">
 										<div class="bn-avatar bn-avatar-initials <?php echo esc_attr( MemberDisplay::get_avatar_color( $member['id'] ) ); ?>" data-size="md" aria-hidden="true">
 											<?php echo esc_html( MemberDisplay::get_initials( $member['display'] ) ); ?>
@@ -1330,11 +1330,15 @@ class Members extends AdminPageBase {
 											<div class="bn-member-name"><?php echo esc_html( $member['display'] ); ?></div>
 											<div class="bn-member-username">@<?php echo esc_html( $member['handle'] ); ?></div>
 										</div>
+										<button type="button" class="toggle-row">
+											<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
+											<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
+										</button>
 									</div>
 								</td>
-								<td class="bn-col-email"><?php echo esc_html( $member['email'] ); ?></td>
-								<td><?php MemberDisplay::render_role_badge( $member['role'] ); ?></td>
-								<td>
+								<td class="bn-col-email" data-colname="<?php esc_attr_e( 'Email', 'buddynext' ); ?>"><?php echo esc_html( $member['email'] ); ?></td>
+								<td data-colname="<?php esc_attr_e( 'Role', 'buddynext' ); ?>"><?php MemberDisplay::render_role_badge( $member['role'] ); ?></td>
+								<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>">
 									<?php if ( $member['suspended'] ) : ?>
 										<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>
 									<?php elseif ( ! empty( $member['pending_approval'] ) ) : ?>
@@ -1343,12 +1347,12 @@ class Members extends AdminPageBase {
 										<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 									<?php endif; ?>
 								</td>
-								<td class="bn-col-muted">
+								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Joined', 'buddynext' ); ?>">
 									<time datetime="<?php echo esc_attr( gmdate( 'c', strtotime( $member['registered'] ) ) ); ?>">
 										<?php echo esc_html( gmdate( 'M j, Y', strtotime( $member['registered'] ) ) ); ?>
 									</time>
 								</td>
-								<td class="bn-col-muted">
+								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Last Active', 'buddynext' ); ?>">
 									<?php if ( $member['last_active'] > 0 ) : ?>
 										<time datetime="<?php echo esc_attr( gmdate( 'c', $member['last_active'] ) ); ?>">
 											<?php echo esc_html( MemberDisplay::human_time_diff_short( $member['last_active'] ) ); ?>
@@ -1358,7 +1362,7 @@ class Members extends AdminPageBase {
 										<span class="screen-reader-text"><?php esc_html_e( 'Never', 'buddynext' ); ?></span>
 									<?php endif; ?>
 								</td>
-								<td data-align="end">
+								<td data-align="end" data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 									<div class="bn-row-actions">
 										<?php
 										$edit_url = add_query_arg(

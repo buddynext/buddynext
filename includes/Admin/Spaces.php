@@ -606,7 +606,7 @@ class Spaces extends AdminPageBase {
 				<table class="bn-table">
 					<thead>
 						<tr>
-							<th scope="col"><?php esc_html_e( 'Category', 'buddynext' ); ?></th>
+							<th scope="col" class="column-primary"><?php esc_html_e( 'Category', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Slug', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Spaces', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Directory', 'buddynext' ); ?></th>
@@ -627,7 +627,7 @@ class Spaces extends AdminPageBase {
 						<?php else : ?>
 							<?php foreach ( $cats as $cat ) : ?>
 								<tr>
-									<td>
+									<td class="column-primary" data-colname="<?php esc_attr_e( 'Category', 'buddynext' ); ?>">
 										<span class="bn-tax-badge-preview"
 											style="background:<?php echo esc_attr( (string) $cat['color'] ); ?>;color:<?php echo esc_attr( (string) $cat['text_color'] ); ?>">
 											<?php if ( '' !== (string) $cat['icon_svg'] ) : ?>
@@ -635,18 +635,22 @@ class Spaces extends AdminPageBase {
 											<?php endif; ?>
 											<span class="bn-tax-badge-label"><?php echo esc_html( (string) $cat['name'] ); ?></span>
 										</span>
+										<button type="button" class="toggle-row">
+											<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
+											<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
+										</button>
 									</td>
-									<td><code><?php echo esc_html( (string) $cat['slug'] ); ?></code></td>
-									<td><?php echo esc_html( (string) $cat['space_count'] ); ?></td>
-									<td>
+									<td data-colname="<?php esc_attr_e( 'Slug', 'buddynext' ); ?>"><code><?php echo esc_html( (string) $cat['slug'] ); ?></code></td>
+									<td data-colname="<?php esc_attr_e( 'Spaces', 'buddynext' ); ?>"><?php echo esc_html( (string) $cat['space_count'] ); ?></td>
+									<td data-colname="<?php esc_attr_e( 'Directory', 'buddynext' ); ?>">
 										<?php if ( ! empty( $cat['show_in_dir'] ) ) : ?>
 											<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Yes', 'buddynext' ); ?></span>
 										<?php else : ?>
 											<span class="bn-badge" data-tone="neutral"><?php esc_html_e( 'No', 'buddynext' ); ?></span>
 										<?php endif; ?>
 									</td>
-									<td><?php echo esc_html( (string) $cat['sort_order'] ); ?></td>
-									<td>
+									<td data-colname="<?php esc_attr_e( 'Sort', 'buddynext' ); ?>"><?php echo esc_html( (string) $cat['sort_order'] ); ?></td>
+									<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 										<div class="bn-row-actions">
 										<a class="bn-btn" data-variant="secondary" data-size="sm"
 											href="<?php echo esc_url( add_query_arg( 'edit_cat', (int) $cat['id'] ) . '#bn-cat-form' ); ?>"

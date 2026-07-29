@@ -214,7 +214,7 @@ class MemberTypesManager {
 				<table class="bn-table bn-table--types">
 					<thead>
 						<tr>
-							<th><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
+							<th class="column-primary"><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Slug', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Directory', 'buddynext' ); ?></th>
@@ -225,7 +225,7 @@ class MemberTypesManager {
 					<tbody>
 					<?php foreach ( $types as $t ) : ?>
 						<tr>
-							<td>
+							<td class="column-primary" data-colname="<?php esc_attr_e( 'Type', 'buddynext' ); ?>">
 								<span class="bn-type-badge-preview"
 									style="background:<?php echo esc_attr( $t['color'] ); ?>;color:<?php echo esc_attr( $t['text_color'] ); ?>">
 									<?php if ( '' !== (string) $t['icon_svg'] ) : ?>
@@ -233,24 +233,28 @@ class MemberTypesManager {
 									<?php endif; ?>
 									<span class="bn-badge-label"><?php echo esc_html( $t['name'] ); ?></span>
 								</span>
+								<button type="button" class="toggle-row">
+									<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
+									<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
+								</button>
 							</td>
-							<td><code class="bn-type-slug-code"><?php echo esc_html( $t['slug'] ); ?></code></td>
-							<td><strong><?php echo esc_html( number_format_i18n( (int) ( $t['member_count'] ?? 0 ) ) ); ?></strong></td>
-							<td>
+							<td data-colname="<?php esc_attr_e( 'Slug', 'buddynext' ); ?>"><code class="bn-type-slug-code"><?php echo esc_html( $t['slug'] ); ?></code></td>
+							<td data-colname="<?php esc_attr_e( 'Members', 'buddynext' ); ?>"><strong><?php echo esc_html( number_format_i18n( (int) ( $t['member_count'] ?? 0 ) ) ); ?></strong></td>
+							<td data-colname="<?php esc_attr_e( 'Directory', 'buddynext' ); ?>">
 								<?php if ( (bool) $t['show_in_dir'] ) : ?>
 									<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Yes', 'buddynext' ); ?></span>
 								<?php else : ?>
 									<span class="bn-badge" data-tone="neutral"><?php esc_html_e( 'No', 'buddynext' ); ?></span>
 								<?php endif; ?>
 							</td>
-							<td>
+							<td data-colname="<?php esc_attr_e( 'Self-Select', 'buddynext' ); ?>">
 								<?php if ( (bool) $t['self_select'] ) : ?>
 									<span class="bn-badge" data-tone="success"><?php esc_html_e( 'On', 'buddynext' ); ?></span>
 								<?php else : ?>
 									<span class="bn-badge" data-tone="neutral"><?php esc_html_e( 'Off', 'buddynext' ); ?></span>
 								<?php endif; ?>
 							</td>
-							<td>
+							<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 								<div class="bn-row-actions">
 									<a href="
 									<?php
