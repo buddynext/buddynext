@@ -446,28 +446,7 @@ class HashtagService {
 			if ( 0 === $old_id ) {
 				continue;
 			}
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_hashtags SET post_count = (
-						SELECT COUNT(*)
-						FROM {$wpdb->prefix}bn_post_hashtags ph
-						INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
-						WHERE ph.hashtag_id = %d
-						  AND ph.object_type = 'post'
-						  AND p.status = 'published'
-						  AND p.privacy = 'public'
-						  AND (
-						      p.space_id IS NULL
-						      OR p.space_id = 0
-						      OR p.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
-						  )
-					) WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-					$old_id,
-					$old_id
-				)
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			);
+			$this->recount_hashtag( $old_id );
 		}
 
 		if ( empty( $slugs ) ) {
@@ -533,28 +512,7 @@ class HashtagService {
 
 		// Recompute counts for newly linked tags.
 		foreach ( $new_hashtag_ids as $hashtag_id ) {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_hashtags SET post_count = (
-						SELECT COUNT(*)
-						FROM {$wpdb->prefix}bn_post_hashtags ph
-						INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
-						WHERE ph.hashtag_id = %d
-						  AND ph.object_type = 'post'
-						  AND p.status = 'published'
-						  AND p.privacy = 'public'
-						  AND (
-						      p.space_id IS NULL
-						      OR p.space_id = 0
-						      OR p.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
-						  )
-					) WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-					$hashtag_id,
-					$hashtag_id
-				)
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			);
+			$this->recount_hashtag( (int) $hashtag_id );
 		}
 
 		$this->bust_trending_cache();
@@ -889,6 +847,51 @@ class HashtagService {
 	}
 
 	/**
+	 * Recompute one tag's stored post_count from the listable predicate.
+	 *
+	 * Both sync() recomputes used to carry a hand-written copy of the WHERE
+	 * clause. They were semantically identical to listable_where() at the time,
+	 * so the counts were right — but that is a property of the moment, not of the
+	 * design: adding a condition to the helper would have left both copies
+	 * behind, and the count/list drift this whole area exists to prevent would
+	 * have come straight back.
+	 *
+	 * Written against viewer 0 deliberately. post_count is a single stored number
+	 * shared by every reader, so it can only mean "how many posts a LOGGED-OUT
+	 * visitor would see" — the public floor. A viewer-specific count would have to
+	 * be computed per request, not stored.
+	 *
+	 * @param int $hashtag_id Tag to recompute.
+	 * @return void
+	 */
+	private function recount_hashtag( int $hashtag_id ): void {
+		global $wpdb;
+
+		if ( $hashtag_id <= 0 ) {
+			return;
+		}
+
+		[ $listable_where ] = $this->listable_where( 'p', 0 );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_hashtags SET post_count = (
+					SELECT COUNT(*)
+					FROM {$wpdb->prefix}bn_post_hashtags ph
+					INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
+					WHERE ph.hashtag_id = %d
+					  AND ph.object_type = 'post'
+					  {$listable_where}
+				) WHERE id = %d",
+				$hashtag_id,
+				$hashtag_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
 	 * The SQL that decides whether a tagged post is LISTABLE by a given viewer.
 	 *
 	 * One predicate, used by the feed, the contributor stats and the stored
@@ -910,11 +913,41 @@ class HashtagService {
 	 * @return array{0:string,1:array<int,mixed>} [sql, params]
 	 */
 	private function listable_where( string $alias, int $viewer_id ): array {
+		if ( 0 === $viewer_id ) {
+			return array( self::public_listable_where( $alias ), array() );
+		}
+
 		[ $space_where, $space_params ] = $this->space_visibility_where( $alias, $viewer_id );
 
 		$sql = " AND {$alias}.status = 'published' AND {$alias}.privacy = 'public' {$space_where}";
 
 		return array( $sql, $space_params );
+	}
+
+	/**
+	 * The guest half of listable_where(), reusable outside this service.
+	 *
+	 * The stored post_count is a single number every reader shares, so it can only
+	 * mean "what a logged-out visitor would see". Both the live recount and the
+	 * schema-upgrade repair need exactly that predicate, and the repair lives in
+	 * Installer, which cannot reach a private instance method — so it had a
+	 * hand-written copy, which is the third copy of this clause and the reason
+	 * this method exists. Static and parameter-free apart from the alias, so
+	 * there is nowhere for a copy to hide.
+	 *
+	 * Carries no bound parameters: for viewer 0 the space clause is literal.
+	 *
+	 * @param string $alias Table alias for bn_posts.
+	 * @return string WHERE fragment with a leading AND.
+	 */
+	public static function public_listable_where( string $alias ): string {
+		global $wpdb;
+
+		return " AND {$alias}.status = 'published'"
+			. " AND {$alias}.privacy = 'public'"
+			. " AND ( {$alias}.space_id IS NULL"
+			. " OR {$alias}.space_id = 0"
+			. " OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' ) )";
 	}
 
 	/**

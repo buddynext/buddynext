@@ -527,6 +527,13 @@ class Installer {
 	private static function repair_hashtag_post_counts( string $prefix ): void {
 		global $wpdb;
 
+		// The predicate comes from HashtagService, it is not written out again here.
+		// This repair used to carry its own copy of the clause - the third copy in
+		// the codebase - which is precisely the drift the helper exists to stop: a
+		// condition added to the service would have left the repair behind, and the
+		// next upgrade would have written stale numbers back over the good ones.
+		$listable = \BuddyNext\Hashtags\HashtagService::public_listable_where( 'p' );
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
 			"UPDATE {$prefix}bn_hashtags h SET h.post_count = (
@@ -535,13 +542,7 @@ class Installer {
 				INNER JOIN {$prefix}bn_posts p ON p.id = ph.post_id
 				WHERE ph.hashtag_id = h.id
 				  AND ph.object_type = 'post'
-				  AND p.status = 'published'
-				  AND p.privacy = 'public'
-				  AND (
-				      p.space_id IS NULL
-				      OR p.space_id = 0
-				      OR p.space_id IN ( SELECT id FROM {$prefix}bn_spaces WHERE type = 'open' )
-				  )
+				  {$listable}
 			)"
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
