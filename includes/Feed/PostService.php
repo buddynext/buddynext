@@ -45,6 +45,13 @@ class PostService {
 		'media',
 		'discussion',
 		'job',
+		// A candidate announcing they are open to work is not a job opening, and
+		// sharing the 'job' type made the feed label it "Job Listing" — the card
+		// read as the member advertising a vacancy rather than looking for one.
+		// The bridge contract requires a real type here, so the distinction has
+		// to exist at this level; a label-only fix would leave the two
+		// indistinguishable to search, Explore and any other type consumer.
+		'resume',
 		'event',
 		'listing',
 		'course',
