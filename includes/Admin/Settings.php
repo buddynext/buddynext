@@ -3003,9 +3003,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				<?php
 				// State-aware: the button reads "Generate" until a secret exists, then "Rotate".
 				if ( $has_secret ) {
-					esc_html_e( 'A shared secret BuddyNext uses to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Click Rotate for a new strong secret, then Save - the old value stops working, so copy the new one into your receiving service (Slack, Zapier, your endpoint). Leave blank to disable signature verification.', 'buddynext' );
+					esc_html_e( 'Verifies INBOUND requests to POST buddynext/v1/webhook/access, which is the only thing this secret does. Outgoing webhooks are signed with the secret you set on each endpoint under Registered endpoints, not with this one - do not copy this value into Slack or Zapier. Click Rotate for a new strong secret, then Save; the old value stops working immediately, so update whatever calls that endpoint. Left blank, the inbound endpoint refuses every request.', 'buddynext' );
 				} else {
-					esc_html_e( 'A shared secret BuddyNext uses to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Click Generate for a strong secret, copy it into your receiving service (Slack, Zapier, your endpoint), then Save. Leave blank to disable signature verification.', 'buddynext' );
+					esc_html_e( 'Verifies INBOUND requests to POST buddynext/v1/webhook/access, which is the only thing this secret does. Outgoing webhooks are signed with the secret you set on each endpoint under Registered endpoints, not with this one - do not copy this value into Slack or Zapier. Click Generate, then Save, and give the value to whatever service calls that endpoint. Left blank, the inbound endpoint refuses every request.', 'buddynext' );
 				}
 				?>
 			</span>
@@ -3079,7 +3079,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			<table class="bn-table widefat" data-bn-webhook-table>
 				<thead>
 					<tr>
-						<th scope="col"><?php esc_html_e( 'Endpoint', 'buddynext' ); ?></th>
+						<th scope="col" class="column-primary"><?php esc_html_e( 'Endpoint', 'buddynext' ); ?></th>
 						<th scope="col"><?php esc_html_e( 'Events', 'buddynext' ); ?></th>
 						<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
 						<th scope="col"><?php esc_html_e( 'Created', 'buddynext' ); ?></th>
@@ -3104,14 +3104,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							: (array) json_decode( (string) ( $hook['events'] ?? '[]' ), true );
 						?>
 						<tr data-bn-webhook-row="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>">
-							<td>
+							<td class="column-primary" data-colname="<?php esc_attr_e( 'Endpoint', 'buddynext' ); ?>">
 								<strong><?php echo esc_html( (string) ( $hook['label'] ?? '' ) ); ?></strong><br>
 								<code class="bn-ep-code"><?php echo esc_html( (string) ( $hook['url'] ?? '' ) ); ?></code>
+								<button type="button" class="toggle-row">
+									<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
+									<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
+								</button>
 							</td>
-							<td>
+							<td data-colname="<?php esc_attr_e( 'Events', 'buddynext' ); ?>">
 								<?php echo esc_html( implode( ', ', array_map( 'sanitize_key', $hook_events ) ) ); ?>
 							</td>
-							<td>
+							<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>">
 								<?php
 								if ( ! empty( $hook['is_active'] ) ) {
 									echo '<span class="bn-badge" data-tone="success">' . esc_html__( 'Active', 'buddynext' ) . '</span>';
@@ -3120,8 +3124,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 								}
 								?>
 							</td>
-							<td><?php echo esc_html( (string) ( $hook['created_at'] ?? '' ) ); ?></td>
-							<td>
+							<td data-colname="<?php esc_attr_e( 'Created', 'buddynext' ); ?>"><?php echo esc_html( (string) ( $hook['created_at'] ?? '' ) ); ?></td>
+							<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 								<div class="bn-row-actions">
 									<button type="button"
 										class="bn-btn"

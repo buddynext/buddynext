@@ -3184,3 +3184,16 @@ button.bn-btn-danger:hover {
 		width: auto;
 	}
 }
+
+/* A webhook URL is one long unbroken token, so it is the one code chip that
+   MUST be allowed to break - the nowrap rule for slug chips would push the card
+   wider than the screen. Breaks anywhere, but only for this chip. */
+.bn-table td code.bn-ep-code,
+.bn-settings-section .bn-ss-body table td code.bn-ep-code,
+code.bn-ep-code {
+	/* Outscores the slug rule above, which is .bn-table td code (0,1,2) and would
+	   otherwise keep this nowrap and run the URL off the card. */
+	white-space: normal;
+	overflow-wrap: anywhere;
+	word-break: break-all;
+}
