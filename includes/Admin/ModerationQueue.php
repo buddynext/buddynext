@@ -103,19 +103,13 @@ class ModerationQueue {
 				<?php elseif ( empty( $items ) ) : ?>
 					<p><?php esc_html_e( 'Nothing to review. The queue is clear.', 'buddynext' ); ?></p>
 					<?php
-					$this->sample_preview(
+					$this->empty_queue_shape(
 						array(
 							__( 'Reported content', 'buddynext' ),
 							__( 'Reason', 'buddynext' ),
 							__( 'Reporter', 'buddynext' ),
 							__( 'When', 'buddynext' ),
 							__( 'Actions', 'buddynext' ),
-						),
-						array(
-							array( __( 'Post: "Buy followers cheap"', 'buddynext' ), __( 'Spam', 'buddynext' ), __( 'Sample Reporter', 'buddynext' ), __( '1 hour ago', 'buddynext' ), __( 'Dismiss / Resolve', 'buddynext' ) ),
-							array( __( 'Comment on "Weekly check-in"', 'buddynext' ), __( 'Harassment', 'buddynext' ), __( 'Concerned Member', 'buddynext' ), __( '3 hours ago', 'buddynext' ), __( 'Dismiss / Resolve', 'buddynext' ) ),
-							array( __( 'Post: "Miracle cure, no proof"', 'buddynext' ), __( 'Misinformation', 'buddynext' ), __( 'Fact Checker', 'buddynext' ), __( '6 hours ago', 'buddynext' ), __( 'Dismiss / Resolve', 'buddynext' ) ),
-							array( __( 'Profile of "Admin Team"', 'buddynext' ), __( 'Impersonation', 'buddynext' ), __( 'Real Person', 'buddynext' ), __( '1 day ago', 'buddynext' ), __( 'Dismiss / Resolve', 'buddynext' ) ),
 						)
 					);
 					?>
@@ -255,20 +249,13 @@ class ModerationQueue {
 						?>
 					</p>
 					<?php
-					$this->sample_preview(
+					$this->empty_queue_shape(
 						array(
 							__( 'Post', 'buddynext' ),
 							__( 'Author', 'buddynext' ),
 							__( 'Space', 'buddynext' ),
 							__( 'Held', 'buddynext' ),
 							__( 'Actions', 'buddynext' ),
-						),
-						array(
-							array( __( 'Check out my new portfolio site', 'buddynext' ), __( 'Sample Member', 'buddynext' ), __( 'Photography', 'buddynext' ), __( '2 hours ago', 'buddynext' ), __( 'Approve / Reject', 'buddynext' ) ),
-							array( __( 'Has anyone tried the new feature yet?', 'buddynext' ), __( 'New Joiner', 'buddynext' ), __( 'General', 'buddynext' ), __( '5 hours ago', 'buddynext' ), __( 'Approve / Reject', 'buddynext' ) ),
-							array( __( 'Big sale, visit my shop now', 'buddynext' ), __( 'Spammy Sam', 'buddynext' ), __( 'Main feed', 'buddynext' ), __( '1 day ago', 'buddynext' ), __( 'Approve / Reject', 'buddynext' ) ),
-							array( __( 'Loving this community so far', 'buddynext' ), __( 'Quiet Riley', 'buddynext' ), __( 'Introductions', 'buddynext' ), __( '1 day ago', 'buddynext' ), __( 'Approve / Reject', 'buddynext' ) ),
-							array( __( 'Sharing a helpful link about onboarding', 'buddynext' ), __( 'Helpful Hana', 'buddynext' ), __( 'Resources', 'buddynext' ), __( '2 days ago', 'buddynext' ), __( 'Approve / Reject', 'buddynext' ) ),
 						)
 					);
 					?>
@@ -457,18 +444,12 @@ class ModerationQueue {
 				<?php if ( empty( $suspensions ) ) : ?>
 					<p><?php esc_html_e( 'No members are currently suspended.', 'buddynext' ); ?></p>
 					<?php
-					$this->sample_preview(
+					$this->empty_queue_shape(
 						array(
 							__( 'Member', 'buddynext' ),
 							__( 'Reason', 'buddynext' ),
 							__( 'Expires', 'buddynext' ),
 							__( 'Actions', 'buddynext' ),
-						),
-						array(
-							array( __( 'Sample Member', 'buddynext' ), __( 'Repeated spam', 'buddynext' ), __( 'in 3 days', 'buddynext' ), __( 'Lift suspension', 'buddynext' ) ),
-							array( __( 'Rule Breaker', 'buddynext' ), __( 'Harassment', 'buddynext' ), __( 'in 7 days', 'buddynext' ), __( 'Lift suspension', 'buddynext' ) ),
-							array( __( 'Test Account', 'buddynext' ), __( 'Ban evasion', 'buddynext' ), __( 'Permanent', 'buddynext' ), __( 'Lift suspension', 'buddynext' ) ),
-							array( __( 'Cooled Off', 'buddynext' ), __( 'Off-topic flooding', 'buddynext' ), __( 'in 1 day', 'buddynext' ), __( 'Lift suspension', 'buddynext' ) ),
 						)
 					);
 					?>
@@ -519,18 +500,12 @@ class ModerationQueue {
 				<?php if ( empty( $appeals ) ) : ?>
 					<p><?php esc_html_e( 'No appeals are waiting for review.', 'buddynext' ); ?></p>
 					<?php
-					$this->sample_preview(
+					$this->empty_queue_shape(
 						array(
 							__( 'Member', 'buddynext' ),
 							__( 'Appeal', 'buddynext' ),
 							__( 'When', 'buddynext' ),
 							__( 'Decision', 'buddynext' ),
-						),
-						array(
-							array( __( 'Sample Member', 'buddynext' ), __( 'I believe this was a misunderstanding', 'buddynext' ), __( '2 hours ago', 'buddynext' ), __( 'Approve / Deny', 'buddynext' ) ),
-							array( __( 'Second Chance', 'buddynext' ), __( 'I have read the guidelines now', 'buddynext' ), __( '1 day ago', 'buddynext' ), __( 'Approve / Deny', 'buddynext' ) ),
-							array( __( 'Honest Mistake', 'buddynext' ), __( 'My account was compromised at the time', 'buddynext' ), __( '2 days ago', 'buddynext' ), __( 'Approve / Deny', 'buddynext' ) ),
-							array( __( 'Patient Pat', 'buddynext' ), __( 'Requesting a review of my suspension', 'buddynext' ), __( '3 days ago', 'buddynext' ), __( 'Approve / Deny', 'buddynext' ) ),
 						)
 					);
 					?>
@@ -815,19 +790,31 @@ class ModerationQueue {
 	// ── Small render + flow helpers ─────────────────────────────────────────
 
 	/**
-	 * Render a dimmed "sample data" preview beneath an empty queue so an owner
-	 * can see what the tab will show once there is activity. The rows are clearly
-	 * labelled as illustrative, are inert (no working actions), and are hidden
-	 * from assistive tech since they carry no real records.
+	 * Render the column shape of an empty queue - headers only, no invented rows.
 	 *
-	 * @param array<int,string>            $columns Column headers.
-	 * @param array<int,array<int,string>> $rows    Sample rows; cells align to columns.
+	 * This used to render four rows of fabricated reports: Post: "Buy followers
+	 * cheap" / Spam / Sample Reporter / 1 hour ago, a fake impersonation report
+	 * against "Admin Team", and two more. They were dimmed and badged "example
+	 * only", but they still read as content: an owner glancing at Moderation saw
+	 * four rows that looked like work waiting for them.
+	 *
+	 * Invented records do not belong on a screen whose entire job is telling the
+	 * owner what is really happening in their community - least of all one where
+	 * the fake rows name plausible members and accuse them of spam and
+	 * impersonation.
+	 *
+	 * Headers only, and no message: each caller already prints its own accurate
+	 * empty line immediately above ("Nothing to review. The queue is clear.",
+	 * "No members are currently suspended.", "No appeals are waiting for
+	 * review."). A sentence in here would be redundant on one tab and wrong on
+	 * the other three.
+	 *
+	 * @param array<int,string> $columns Column headers.
 	 * @return void
 	 */
-	private function sample_preview( array $columns, array $rows ): void {
+	private function empty_queue_shape( array $columns ): void {
 		?>
-		<div class="bn-mod-preview" aria-hidden="true">
-			<span class="bn-mod-preview__badge"><?php esc_html_e( 'Sample preview — example only, not real data. This is how the tab looks once there is activity.', 'buddynext' ); ?></span>
+		<div class="bn-mod-preview">
 			<table class="widefat bn-mod-preview__table">
 				<thead>
 					<tr>
@@ -836,15 +823,7 @@ class ModerationQueue {
 						<?php endforeach; ?>
 					</tr>
 				</thead>
-				<tbody>
-					<?php foreach ( $rows as $row ) : ?>
-						<tr>
-							<?php foreach ( $row as $cell ) : ?>
-								<td><?php echo esc_html( (string) $cell ); ?></td>
-							<?php endforeach; ?>
-						</tr>
-					<?php endforeach; ?>
-				</tbody>
+
 			</table>
 		</div>
 		<?php
