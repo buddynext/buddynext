@@ -53,7 +53,7 @@ class WidgetService {
 		}
 		$limit = max( 1, min( $limit, 20 ) );
 		return (array) $this->cache->get(
-			'trending:' . $limit,
+			WidgetCache::key_trending( $limit ),
 			WidgetCache::GROUP_GLOBAL,
 			WidgetCache::TTL_TRENDING,
 			static function () use ( $limit ): array {
@@ -104,10 +104,12 @@ class WidgetService {
 		// a persistent-object-cache site (Redis/Memcached), showing the same picks on
 		// every reload; sampling on each render keeps the widget rotating regardless
 		// of the object cache — matching the uncached space-suggestion sidebar.
-		$pool_size = max( $limit * 4, $limit + 6 );
-		// v3 key: caches the POOL (not the display sample).
+		$pool_size = WidgetCache::pool_size( $limit );
+		// v3 key: caches the POOL (not the display sample). Built by WidgetCache
+		// so the read and the invalidation cannot drift apart again - they did
+		// once, and a stale delete fails silently.
 		$pool = (array) $this->cache->get(
-			'suggested-pool-v3:' . $user_id . ':' . $pool_size,
+			WidgetCache::key_suggested( $user_id, $limit ),
 			WidgetCache::GROUP_USER,
 			WidgetCache::TTL_USER,
 			static function () use ( $user_id, $pool_size ): array {
@@ -354,7 +356,7 @@ class WidgetService {
 		$user_id = max( 0, $user_id );
 		$limit   = max( 1, min( $limit, 20 ) );
 		return (array) $this->cache->get(
-			'spaces:' . $user_id . ':' . $limit,
+			WidgetCache::key_spaces( $user_id, $limit ),
 			WidgetCache::GROUP_USER,
 			WidgetCache::TTL_USER,
 			static function () use ( $user_id, $limit ): array {
