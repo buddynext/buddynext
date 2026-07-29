@@ -720,11 +720,39 @@ class CommentService {
 		$is_owner = $viewer_id > 0 && $viewer_id === $post_owner_id;
 		$is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
 
-		$should_hide = static function ( int $author_id ) use ( $restricted_ids, $viewer_id, $is_owner, $is_admin ): bool {
-			if ( empty( $restricted_ids ) ) {
-				return false; }
+		// Blocking had no effect on comments at all.
+		//
+		// The restrict gate above is a different, narrower feature - a post owner
+		// restricting a specific commenter on their own posts - and it does not
+		// look at user-to-user blocks. So a member who blocked someone kept seeing
+		// that person's comments, name and all, on every thread. Reactions have
+		// enforced blocks in both directions for a while; comments never asked.
+		//
+		// Bidirectional, matching the feed and the member directory: hide authors
+		// the viewer blocked AND authors who blocked the viewer. One query for the
+		// whole page via blocking_either_map(), not one lookup per comment.
+		//
+		// The WRITE side is deliberately not changed. A blocked member commenting
+		// on a THIRD party's post is not a violation - blocking is not a site-wide
+		// ban, and treating it as one would let anyone silence anyone else
+		// anywhere simply by blocking them. InteractionGuard already refuses the
+		// case that does matter: engaging with the blocker's own post or comment.
+		$blocked_map = array();
+		if ( $viewer_id > 0 && ! $is_admin && function_exists( 'buddynext_service' ) ) {
+			$author_ids  = array_map(
+				static fn( array $c ): int => (int) ( $c['user_id'] ?? 0 ),
+				(array) ( $result['items'] ?? array() )
+			);
+			$blocked_map = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $author_ids );
+		}
+
+		$should_hide = static function ( int $author_id ) use ( $restricted_ids, $viewer_id, $is_owner, $is_admin, $blocked_map ): bool {
 			if ( $author_id === $viewer_id ) {
 				return false; }     // never hide a comment from its own author
+			if ( isset( $blocked_map[ $author_id ] ) ) {
+				return true; }      // a block hides in both directions, for everyone
+			if ( empty( $restricted_ids ) ) {
+				return false; }
 			if ( $is_owner || $is_admin ) {
 				return false; }     // owner + admins moderate
 			return in_array( $author_id, $restricted_ids, true );
