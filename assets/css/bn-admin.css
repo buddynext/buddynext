@@ -10,7 +10,30 @@
  *   1. :root — component-specific design tokens (--bn-a-* prefix)
  *   2. [data-theme="dark"] — dark palette overrides
  *   3. Component rules — desktop-first
- *   4. @media breakpoints — 782px and 640px
+ *   4. @media breakpoints — see the tier list below
+ *
+ * Breakpoint tiers. Author against these three and nothing else:
+ *
+ *   1024px  Tablet. Multi-panel layouts fold to a single column and fixed
+ *           sidebars narrow. iPad portrait is 1024, so this is the tier that
+ *           decides whether the admin is usable on one. Used by the NavManager
+ *           three-panel grid, the hub shell sidebar, and the Member Types
+ *           header actions.
+ *    782px  WordPress core's own admin stack point. Core switches #wpbody to
+ *           its stacked layout here and its list tables switch to the mobile
+ *           card view, so ours must move on the same pixel or the page tears in
+ *           half. Its complement is written as min-width: 783px, not 782, to
+ *           avoid both rules matching at exactly 782.
+ *    640px  Phone. Remaining two-up rows go single-column.
+ *
+ * One documented exception: bn-admin-email.css collapses at 900px. The email
+ * editor is by far the heaviest consumer of .bn-split, and it needs to fold
+ * earlier than the rest; it earns its own threshold rather than dragging the
+ * shared 1024 down and disturbing every other screen that uses .bn-split.
+ * Both of its 900px rules fire together, so there is no width at which the
+ * layout is half-folded. Do not add a second exception without the same
+ * justification - a one-off breakpoint per screen is how a responsive system
+ * stops being a system.
  *
  * @package BuddyNext
  * @since   1.0.0
@@ -954,15 +977,37 @@ table.bn-table tr:hover td {
    differ: a .bn-table row sits on the card surface, a WP-core .widefat row on
    the table's own canvas fill (the zebra is stripped in S8 below). Match each.
 
-   Admin tables get `overflow: hidden` (the card-corner clip on
-   `.bn-admin-hub__content table:not(.form-table)`, and WP-core .widefat adds
-   its own). That makes the table its own scroll container, so a sticky cell
-   pins to the never-scrolling table box instead of the wrapper and the pin
-   does nothing. Clear it inside the scroll wrappers — the wrapper already does
-   the clipping — so the wrapper stays the horizontal scroll context. The
-   `.bn-admin-hub__content` prefix is only there to outweigh that clip rule. */
-.bn-admin-hub__content .bn-table-wrap__scroll > table:not(.form-table),
-.bn-admin-hub__content .bn-table-scroll > table:not(.form-table) {
+   Admin tables get `overflow: hidden` from the card-corner clip in S8
+   (`.bn-admin-hub__content table:not(.form-table):not(.screen-reader-text)`),
+   and WP-core .widefat adds its own. That makes the table its own scroll
+   container, so a sticky cell pins to the never-scrolling table box instead of
+   the wrapper and the pin does nothing. Clear it inside the scroll wrappers —
+   the wrapper already does the clipping — so the wrapper stays the horizontal
+   scroll context.
+
+   MUST OUT-SPECIFY THE S8 CLIP RULE, AND THAT IS NARROWER THAN IT LOOKS. This
+   rule and the clip rule are both (0,3,1): each `:not()` contributes its inner
+   class, so the clip rule's `:not(.form-table):not(.screen-reader-text)` counts
+   two. An exact tie is decided by source order, and S8 comes later in this
+   file — so at (0,3,1) this rule LOSES and every sticky actions column in the
+   admin silently stops pinning.
+
+   That is not hypothetical: it is what shipped. The clip rule originally read
+   `table:not(.form-table)` at (0,2,1) and this rule genuinely outweighed it.
+   Adding `:not(.screen-reader-text)` to stop the clip eating screen-reader text
+   was correct on its own terms and looked local, but it raised that rule into a
+   tie and killed the pin on Members, Spaces, Member Types and Subscriptions at
+   once. Nothing failed loudly — the actions column just scrolled out of sight,
+   which reads as "the table scrolls", not "a fix regressed". Measured on Member
+   Types at 1024px: the Edit/Delete cell sat 128px past the wrapper's right edge
+   instead of pinned at 0.
+
+   So the third `:not()` below is load-bearing, not decoration. It takes this
+   rule to (0,4,1) and puts it decisively above the clip rule rather than level
+   with it. Do not "simplify" it away, and if you add another `:not()` to the S8
+   clip rule, add one here too. */
+.bn-admin-hub__content .bn-table-wrap__scroll > table:not(.form-table):not(.screen-reader-text),
+.bn-admin-hub__content .bn-table-scroll > table:not(.form-table):not(.screen-reader-text) {
 	overflow: visible;
 }
 
