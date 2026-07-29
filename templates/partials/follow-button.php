@@ -20,6 +20,19 @@
  *                       `pending` instead of `following`. Defaults to false.
  *   bool $known_following Optional. Precomputed follow state from the caller;
  *                       set it to skip the per-render is_following() query.
+ *   bool $known_blocked  Optional. Precomputed block state (either direction);
+ *                       set it to skip the per-render is_blocking_either() query.
+ *   bool $known_pending  Optional. Precomputed pending-request state; set it to
+ *                       skip the per-render has_pending_request() query.
+ *
+ * The three `known_*` arguments exist for one reason: this partial runs THREE
+ * queries per render, and callers that draw it in a loop multiply all three. A
+ * caller with the full ID list up front can resolve each in one query via
+ * BlockService::blocking_either_map(), FollowService::following_map() and
+ * FollowService::pending_map(), then pass the answers in. Only `known_following`
+ * existed before, so a bulk caller could batch one of the three and still pay
+ * an N+1 for the other two - which is what the leaderboard was doing, at 147
+ * queries for 50 rows.
  *
  * @package BuddyNext
  * @since   1.0.0
@@ -39,8 +52,13 @@ if ( ! $viewer_id || $viewer_id === $user_id ) {
 	return;
 }
 
-// Block guard — render nothing if either party has blocked the other.
-if ( buddynext_service( 'blocks' )->is_blocking_either( $viewer_id, $user_id ) ) {
+// Block guard — render nothing if either party has blocked the other. A bulk
+// caller can resolve this for the whole list in one query (blocking_either_map)
+// and pass the answer, exactly as with $known_following below.
+$bn_fb_blocked = isset( $known_blocked )
+	? (bool) $known_blocked
+	: buddynext_service( 'blocks' )->is_blocking_either( $viewer_id, $user_id );
+if ( $bn_fb_blocked ) {
 	return;
 }
 
@@ -58,7 +76,13 @@ $private_follow = isset( $private_follow ) ? (bool) $private_follow : $follows->
 // Callers that already know the follow state (e.g. a feed loop that resolved
 // it per-author) can pass $known_following to skip the per-render query.
 $is_following = isset( $known_following ) ? (bool) $known_following : $follows->is_following( $viewer_id, $user_id );
-$is_pending   = ! $is_following && $follows->has_pending_request( $viewer_id, $user_id );
+if ( $is_following ) {
+	$is_pending = false;
+} elseif ( isset( $known_pending ) ) {
+	$is_pending = (bool) $known_pending;
+} else {
+	$is_pending = $follows->has_pending_request( $viewer_id, $user_id );
+}
 
 // The follow store builds its toasts as "@" . targetName, so pass the @handle
 // (user_nicename). Without it the store falls back to "#<id>" and toasts read

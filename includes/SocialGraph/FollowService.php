@@ -448,6 +448,57 @@ class FollowService {
 	}
 
 	/**
+	 * Resolve PENDING follow-request state for a viewer against many targets.
+	 *
+	 * The batched twin of has_pending_request(), and the missing half of
+	 * following_map(): a list renderer could already batch "am I following
+	 * them?" but still had to ask "did I request?" one row at a time, so the
+	 * N+1 only ever halved. Same shape and same contract as following_map() -
+	 * every requested target is present, non-pending ones as `false`.
+	 *
+	 * @param int   $follower_id Viewer who may have requested.
+	 * @param int[] $target_ids  Target user IDs to test.
+	 * @return array<int,bool> Map of target_id => does the viewer have a pending request.
+	 */
+	public function pending_map( int $follower_id, array $target_ids ): array {
+		$follower_id = absint( $follower_id );
+		$target_ids  = array_values( array_unique( array_filter( array_map( 'absint', $target_ids ) ) ) );
+
+		$map = array();
+		foreach ( $target_ids as $tid ) {
+			$map[ $tid ] = false;
+		}
+
+		if ( $follower_id <= 0 || empty( $target_ids ) ) {
+			return $map;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $target_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $placeholders is a generated %d list; $follower_id plus the spread $target_ids bind each placeholder.
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT following_id
+				 FROM {$wpdb->prefix}bn_follows
+				 WHERE follower_id = %d
+				   AND status = 'pending'
+				   AND following_id IN ( {$placeholders} )",
+				$follower_id,
+				...$target_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		foreach ( (array) $rows as $tid ) {
+			$map[ (int) $tid ] = true;
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Return true when the follower has a pending request to the target.
 	 *
 	 * @param int $follower_id Requester.

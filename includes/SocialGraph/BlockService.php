@@ -757,6 +757,30 @@ class BlockService {
 			$map[ $peer ] = true;
 		}
 
+		/*
+		 * Prime the pair memo is_blocking_either() reads, for EVERY peer asked
+		 * about — not just the ones that came back blocked. This query has
+		 * already established the answer for the whole set, so a later
+		 * per-pair check has nothing left to look up.
+		 *
+		 * Without it, batching only helps the caller holding the map. The
+		 * leaderboard hit exactly that: it passed the map into the follow
+		 * button, which then called PrivacyService::can_follow() -> is_blocked()
+		 * -> is_blocking_either() and paid one query per row anyway. Priming
+		 * here fixes it for that path and every other indirect caller at once,
+		 * rather than threading a "known blocked" argument down through
+		 * PrivacyService.
+		 *
+		 * Same unordered-pair key is_blocking_either() builds, since the check
+		 * is symmetric.
+		 */
+		foreach ( $peer_ids as $peer_id ) {
+			$key = $viewer_id < $peer_id ? "{$viewer_id}:{$peer_id}" : "{$peer_id}:{$viewer_id}";
+			if ( ! isset( self::$blocking_pair_cache[ $key ] ) ) {
+				self::$blocking_pair_cache[ $key ] = ! empty( $map[ $peer_id ] );
+			}
+		}
+
 		return $map;
 	}
 

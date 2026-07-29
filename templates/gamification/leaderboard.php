@@ -80,6 +80,60 @@ if ( ! is_array( $leaderboard ) ) {
 	$leaderboard = array();
 }
 
+/*
+ * Prime the user + usermeta caches for the whole window in one pass before any
+ * row renders. This screen draws up to 100 avatars in a single request - far
+ * more than any other BuddyNext page - so a per-row user lookup that is
+ * invisible elsewhere compounds here: measured at 402 queries for 100 rows,
+ * of which 101 hit wp_users and 100 hit wp_usermeta. cache_users() takes that
+ * to one query each, 402 -> 203.
+ *
+ * The remaining 200 are two per row from OTHER plugins hooking the avatar
+ * filter chain (Jetonomy's jt_user_profiles and WP Sell Services'
+ * wpss_vendor_profiles, one unbatched lookup each). Those belong to their own
+ * plugins and are filed there; nothing here can prime a table this plugin does
+ * not own.
+ *
+ * Deliberately NOT bypassing the avatar filter chain for bulk contexts, which
+ * was the suggested fix on the card. get_avatar() IS the extension point for
+ * custom avatars - going around it would silently break every avatar plugin a
+ * site owner has installed, on the one screen showing the most avatars. Priming
+ * the cache fixes our half without taking anything away.
+ */
+if ( ! empty( $leaderboard ) ) {
+	$bn_lb_user_ids = array_values(
+		array_unique(
+			array_filter(
+				array_map(
+					static function ( $bn_lb_row ): int {
+						return (int) ( $bn_lb_row['user_id'] ?? 0 );
+					},
+					$leaderboard
+				)
+			)
+		)
+	);
+	if ( ! empty( $bn_lb_user_ids ) ) {
+		cache_users( $bn_lb_user_ids );
+	}
+}
+
+/*
+ * Follow-button state for the whole window, three queries instead of three per
+ * row. partials/follow-button.php asks is_blocking_either(), is_following() and
+ * has_pending_request() on every render; across 50 rows that measured 147
+ * queries (50 + 50 + 47). Each has a batched twin, so the list resolves all
+ * three up front and passes the answers into the partial.
+ */
+$bn_lb_blocked_map   = array();
+$bn_lb_following_map = array();
+$bn_lb_pending_map   = array();
+if ( $current_user_id > 0 && ! empty( $bn_lb_user_ids ) ) {
+	$bn_lb_blocked_map   = buddynext_service( 'blocks' )->blocking_either_map( $current_user_id, $bn_lb_user_ids );
+	$bn_lb_following_map = buddynext_service( 'follows' )->following_map( $current_user_id, $bn_lb_user_ids );
+	$bn_lb_pending_map   = buddynext_service( 'follows' )->pending_map( $current_user_id, $bn_lb_user_ids );
+}
+
 // Current user stats from the read API.
 $current_user_pts  = $current_user_id ? (int) wb_gam_get_user_points( $current_user_id ) : 0;
 $current_user_rank = 0;
@@ -511,7 +565,18 @@ $updated_iso = gmdate( 'c' );
 								// @buddynext/social-buttons module is enqueued on every BN
 								// hub). Renders nothing for self / blocked rows, so the
 								// dead hand-rolled button is no longer needed.
-								buddynext_get_template( 'partials/follow-button.php', array( 'user_id' => $uid ) );
+								buddynext_get_template(
+									'partials/follow-button.php',
+									array(
+										'user_id'         => $uid,
+										// All three resolved for the whole window above, so the
+										// button runs no query of its own. Without these it
+										// costs three per row.
+										'known_blocked'   => (bool) ( $bn_lb_blocked_map[ $uid ] ?? false ),
+										'known_following' => (bool) ( $bn_lb_following_map[ $uid ] ?? false ),
+										'known_pending'   => (bool) ( $bn_lb_pending_map[ $uid ] ?? false ),
+									)
+								);
 								?>
 							</span>
 						<?php endif; ?>
