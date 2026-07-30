@@ -145,10 +145,13 @@ class RegistrationGuard {
 		$max = (int) apply_filters( 'buddynext_register_rate_limit', (int) get_option( 'buddynext_reg_rate_limit', self::RATE_MAX ) );
 		if ( $max > 0 && '' !== $ip ) {
 			$key = self::RATE_PREFIX . md5( $ip );
-			if ( RateLimiter::count( $key ) >= $max ) {
+			// Increment first, compare the return value — see the note in
+			// AuthController::rate_limit_gate(). Reading the count and then
+			// incrementing leaves the decision racy even though hit() is atomic,
+			// which is the whole point of a per-hour sign-up cap.
+			if ( RateLimiter::hit( $key, HOUR_IN_SECONDS ) > $max ) {
 				return new WP_Error( 'bn_reg_rate', __( 'Too many sign-up attempts from your network. Please wait a few minutes and try again.', 'buddynext' ) );
 			}
-			RateLimiter::hit( $key, HOUR_IN_SECONDS );
 		}
 
 		// 3) Human check — in-house arithmetic challenge (opt-in). Form doors only.

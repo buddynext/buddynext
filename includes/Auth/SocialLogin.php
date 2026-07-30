@@ -1134,10 +1134,12 @@ class SocialLogin {
 	private function rate_limit(): void {
 		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
 		$key = 'bn_oauth_rl_' . md5( $ip );
-		if ( RateLimiter::count( $key ) >= self::RATE_MAX ) {
+		// Increment first, compare the return value — see the note in
+		// AuthController::rate_limit_gate(). An OAuth callback is exactly the kind
+		// of endpoint a burst hits, so the decision must not be racy.
+		if ( RateLimiter::hit( $key, MINUTE_IN_SECONDS ) > self::RATE_MAX ) {
 			$this->bail( 'rate_limited' );
 		}
-		RateLimiter::hit( $key, MINUTE_IN_SECONDS );
 	}
 
 	/**

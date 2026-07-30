@@ -575,14 +575,30 @@ class AuthController {
 
 		$subject = $per_ip_only ? $action : ( $action . '|' . strtolower( $identifier ) );
 		$key     = 'bn_auth_' . md5( $ip . '|' . $subject );
-		if ( RateLimiter::count( $key ) >= $max ) {
+		/*
+		 * Increment FIRST, then compare what came back. Never read the count and
+		 * increment as two steps.
+		 *
+		 * hit() is atomic, but that only guarantees the COUNTS are distinct — it
+		 * does not make the DECISION atomic. Read-then-increment leaves the window
+		 * open at the call site: a genuinely simultaneous burst all reads the same
+		 * pre-burst count, all passes this check, and all then increments. Making
+		 * the store atomic closed the smaller half of that; this is the half that
+		 * actually gates login.
+		 *
+		 * Behaviourally identical to the old two-step form — attempts 1..$max pass
+		 * and $max + 1 is refused either way — so this changes no limit, only
+		 * whether the check can be raced. Nothing clears this key on a successful
+		 * login, so "N attempts per window" is the intended semantic and a refused
+		 * attempt counting toward it is correct.
+		 */
+		if ( RateLimiter::hit( $key, 15 * MINUTE_IN_SECONDS ) > $max ) {
 			return new WP_Error(
 				'bn_auth_rate_limited',
 				__( 'Too many attempts. Please wait a few minutes and try again.', 'buddynext' ),
 				array( 'status' => 429 )
 			);
 		}
-		RateLimiter::hit( $key, 15 * MINUTE_IN_SECONDS );
 
 		return null;
 	}
