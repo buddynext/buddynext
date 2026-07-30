@@ -1416,6 +1416,23 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
+		// Mirror the web Media tab's own condition (Nav/Providers/SpaceNav.php):
+		// media engine present AND the site-wide media integration enabled AND
+		// the per-space Media-tab field on. Without all three here, a space
+		// whose owner switched the tab off - or a site with the integration
+		// disabled entirely - still served its media over REST, so the setting
+		// silently stopped applying the moment a client asked through the API.
+		// Per the bridge contract, the Integrations toggle gates EACH surface.
+		if ( ! \BuddyNext\Media\MediaClient::available()
+			|| ! buddynext_integration_enabled( 'media', 'nav' )
+			|| ! (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' ) ) {
+			return new WP_Error(
+				'media_tab_disabled',
+				__( 'Media is not enabled for this space.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		$per_page = (int) $request->get_param( 'per_page' );
 		$per_page = $per_page > 0 ? min( $per_page, 100 ) : 24;
 		$page     = max( 1, (int) $request->get_param( 'page' ) );

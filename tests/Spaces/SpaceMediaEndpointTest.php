@@ -88,6 +88,12 @@ class SpaceMediaEndpointTest extends \WP_UnitTestCase {
 			$this->assertIsInt( $space_id );
 			$this->spaces[ $type ] = $space_id;
 
+			// The endpoint mirrors the web Media tab's condition: engine present
+			// (the bootstrap's WPMediaVerse stub), site integration on (option
+			// default), and the per-space Media-tab field - which defaults OFF,
+			// so every fixture space enables it explicitly.
+			update_space_meta( $space_id, 'mvs_media_tab', '1' );
+
 			$inserted = $wpdb->insert(
 				$wpdb->prefix . 'bn_space_members',
 				array(
@@ -255,5 +261,39 @@ class SpaceMediaEndpointTest extends \WP_UnitTestCase {
 			buddynext_service( 'feed' )->space_media_rows( $this->spaces['open'], 5000, 0 ),
 			'The cap must clamp, not error.'
 		);
+	}
+
+	/**
+	 * A space whose owner switched the Media tab off must refuse over REST too
+	 * (card 10132702949): the endpoint mirrors the web tab's condition, or the
+	 * per-space setting silently stops applying the moment a client asks
+	 * through the API.
+	 *
+	 * @return void
+	 */
+	public function test_space_with_media_tab_off_refuses_over_rest(): void {
+		update_space_meta( $this->spaces['open'], 'mvs_media_tab', '0' );
+
+		$result = $this->fetch( 'open', $this->member );
+
+		$this->assertSame( 404, $result['status'] );
+
+		update_space_meta( $this->spaces['open'], 'mvs_media_tab', '1' );
+	}
+
+	/**
+	 * A site with the media integration disabled entirely must refuse for every
+	 * space, regardless of the per-space field.
+	 *
+	 * @return void
+	 */
+	public function test_disabled_media_integration_refuses_over_rest(): void {
+		update_option( 'buddynext_integration_media_nav', '0' );
+
+		$result = $this->fetch( 'open', $this->member );
+
+		delete_option( 'buddynext_integration_media_nav' );
+
+		$this->assertSame( 404, $result['status'] );
 	}
 }
