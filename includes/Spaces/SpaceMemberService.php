@@ -834,6 +834,34 @@ class SpaceMemberService {
 	 * @param int $user_id  User ID.
 	 * @return string|null Role string ('owner', 'moderator', 'member') or null.
 	 */
+	/**
+	 * Prime the per-pair role cache for one viewer across a page of spaces.
+	 *
+	 * The directory batch-fetches the viewer's memberships in one query and then
+	 * calls can_invite() / get_role() per row - which each read the
+	 * "role_{space}_{user}" cache this service owns. Without priming, the batch
+	 * fed a local array only and every row still missed cache (~3 uncached
+	 * permission resolutions per row at directory scale). The caller hands over
+	 * what its batch already knows; misses are cached as '' on purpose - "not an
+	 * active member" is an answer, and the empty string is how get_role()
+	 * distinguishes it from a cache miss.
+	 *
+	 * @param int                $user_id       Viewer whose roles are known.
+	 * @param array<int, string> $role_by_space space_id => active role, or '' when
+	 *                                          the viewer is not an ACTIVE member
+	 *                                          (get_role()'s own semantics).
+	 * @return void
+	 */
+	public function prime_viewer_roles( int $user_id, array $role_by_space ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		foreach ( $role_by_space as $space_id => $role ) {
+			wp_cache_set( 'role_' . (int) $space_id . '_' . $user_id, (string) $role, self::CACHE_GROUP, self::CACHE_TTL );
+		}
+	}
+
 	public function get_role( int $space_id, int $user_id ): ?string {
 		$cache_key = "role_{$space_id}_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
