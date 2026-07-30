@@ -61,9 +61,12 @@ final class PrivateCommunity {
 	 * surface. A deeper first-party PMP / WP Fusion integration is planned; this
 	 * filter is the stable seam it (and any custom membership logic) hangs off.
 	 *
+	 * @param bool|null $prior Value decided by a previous callback when used as a
+	 *                         filter, or null when called directly. A denial is
+	 *                         never widened — see the note in the body.
 	 * @return bool
 	 */
-	public static function can_access(): bool {
+	public static function can_access( $prior = null ): bool {
 		/**
 		 * Filter whether the current visitor may access a private community.
 		 *
@@ -71,7 +74,29 @@ final class PrivateCommunity {
 		 *
 		 * @param bool $can_access Default: whether the visitor is logged in.
 		 */
-		return (bool) apply_filters( 'buddynext_private_community_can_access', is_user_logged_in() );
+		$allowed = (bool) apply_filters( 'buddynext_private_community_can_access', is_user_logged_in() );
+
+		/*
+		 * This method is BOTH a direct call (gate_rest, with no argument) and a
+		 * filter callback on the partner contract (mvs_rest_can_access, which
+		 * passes the value decided so far). It used to take no parameter at all, so
+		 * as a filter it silently DISCARDED whatever a previous callback decided and
+		 * answered is_user_logged_in() — turning another gate's denial back into an
+		 * allow.
+		 *
+		 * That made RestHoldGate's hold enforcement depend on filter REGISTRATION
+		 * ORDER: the hold survived only because it happens to be added after this
+		 * one. Re-order boot and an unverified member silently regains the partner
+		 * surface. A gate must not be load-order-sensitive.
+		 *
+		 * So: never widen. A denial already made stands, whoever made it; this
+		 * method can only ever add its own.
+		 */
+		if ( null !== $prior && ! $prior ) {
+			return false;
+		}
+
+		return $allowed;
 	}
 
 	/**

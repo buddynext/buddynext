@@ -75,6 +75,84 @@ final class RestHoldGate implements ListenerInterface {
 	 */
 	public function register(): void {
 		add_filter( 'rest_pre_dispatch', array( $this, 'gate' ), 11, 3 );
+
+		/*
+		 * Extend the same holds to a partner's REST surface through the contract
+		 * that partner publishes, rather than by pattern-matching their routes.
+		 *
+		 * gate() above only ever inspects buddynext(-pro)/v1, so every hold was
+		 * simply absent on any namespace we do not own. The card reported it for
+		 * DMs; the hole is the whole mvs/v1 surface, so an unverified member under
+		 * "full" enforcement could also upload media, write tags and edit their
+		 * MediaVerse profile.
+		 *
+		 * PrivateCommunity already solved this exact problem twenty lines away and
+		 * its comment invites reuse: drive the partner's OWN gate through the two
+		 * filters it exposes. Widening our regex to '#^/mvs/v1/#' would mean
+		 * guessing at another plugin's routing and going stale the moment they add
+		 * a namespace; the filter contract is their supported seam and tracks their
+		 * own coverage (they extend it to mvs-pro/v1 themselves).
+		 *
+		 * require_auth engages their gate at all; can_access is the verdict. Both
+		 * are needed — the gate short-circuits when require_auth is false, so
+		 * answering only can_access would never be consulted.
+		 */
+		add_filter( 'mvs_rest_require_auth', array( $this, 'partner_gate_engaged' ) );
+		add_filter( 'mvs_rest_can_access', array( $this, 'partner_gate_allows' ) );
+	}
+
+	/**
+	 * Whether a partner's REST gate should engage for the current member.
+	 *
+	 * True as soon as any hold applies, so the partner consults can_access below.
+	 * Left untouched otherwise, which keeps the partner's standalone behaviour and
+	 * any other integration's answer intact.
+	 *
+	 * @param bool $require Current value from the partner (or a prior filter).
+	 * @return bool
+	 */
+	public function partner_gate_engaged( $require ): bool {
+		return $this->current_member_is_held() ? true : (bool) $require;
+	}
+
+	/**
+	 * Whether the current member may use a partner's REST surface.
+	 *
+	 * Only ever removes access — a held member is refused; everyone else keeps
+	 * whatever the partner or a prior filter decided. Never widens access, so this
+	 * cannot turn a private community public.
+	 *
+	 * @param bool $can Current value from the partner (or a prior filter).
+	 * @return bool
+	 */
+	public function partner_gate_allows( $can ): bool {
+		return $this->current_member_is_held() ? false : (bool) $can;
+	}
+
+	/**
+	 * Whether a hold applies to the member making this request.
+	 *
+	 * Route-independent, unlike hold_for(): a partner's gate asks "may this member
+	 * use our surface", not "may they use this route". The auth and 2FA-enrolment
+	 * carve-outs are BuddyNext routes, so they cannot apply to a partner namespace
+	 * and are correctly absent here.
+	 *
+	 * @return bool
+	 */
+	private function current_member_is_held(): bool {
+		if ( ! is_user_logged_in() ) {
+			return false;
+		}
+
+		$user_id = get_current_user_id();
+
+		// Same administrator carve-out gate() makes — never trap an owner out of
+		// their own site.
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return false;
+		}
+
+		return $this->is_unverified_under_full_enforcement( $user_id ) || $this->needs_2fa_enrolment( $user_id );
 	}
 
 	/**

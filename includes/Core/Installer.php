@@ -100,6 +100,7 @@ class Installer {
 		'bn_profile_fields',
 		'bn_profile_groups',
 		'bn_profile_values',
+		'bn_rate_limits',
 		'bn_reactions',
 		'bn_reports',
 		'bn_search_index',
