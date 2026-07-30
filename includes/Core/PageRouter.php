@@ -494,6 +494,22 @@ class PageRouter {
 			}
 		}
 
+		// ── Space existence gate ──────────────────────────────────────────
+		// A slug that resolves to NO space must also answer here, for the same
+		// before-any-output reason as the two gates around it. Without this the
+		// request fell through to the template, whose wp_die( 'Space not
+		// found.' ) guard replies with wp_die's default status — HTTP 500 — so
+		// every stale or mistyped space URL read as a server failure to
+		// monitoring, crawlers, and anyone reading the status line.
+		// space_id is 0 only when a slug was supplied and matched nothing; the
+		// bare /spaces/ directory sets no slug and never reaches this branch.
+		if ( 'spaces' === $hub
+			&& '' !== (string) ( $context['space_slug'] ?? '' )
+			&& empty( $context['space_id'] ) ) {
+			$this->send_404();
+			return;
+		}
+
 		// ── Member existence gate ─────────────────────────────────────────
 		// /members/{slug}/ for a slug that resolves to nobody answered "200 OK"
 		// with an empty shell — the theme chrome and the nav, and no content at

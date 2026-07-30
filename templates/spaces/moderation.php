@@ -31,7 +31,7 @@ use BuddyNext\Spaces\SpaceService;
 $space_id = isset( $space_id ) ? absint( $space_id ) : 0;
 
 if ( ! $space_id ) {
-	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
 // ── Permission gate ───────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ $bn_member_svc  = new SpaceMemberService();
 $bn_space_row   = ( new SpaceService() )->get( $space_id );
 
 if ( null === $bn_space_row ) {
-	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 $space = (object) $bn_space_row;
 

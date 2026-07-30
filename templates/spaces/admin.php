@@ -35,13 +35,13 @@ use BuddyNext\Moderation\ModerationService;
 $space_id = isset( $space_id ) ? absint( $space_id ) : 0;
 
 if ( $space_id <= 0 ) {
-	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
 $bn_space = ( new SpaceService() )->get( $space_id );
 
 if ( null === $bn_space ) {
-	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
 // ── Permission gate ───────────────────────────────────────────────────────────

@@ -31,7 +31,7 @@ use BuddyNext\Spaces\SpaceVisibility;
 $space_id = isset( $space_id ) ? absint( $space_id ) : 0;
 
 if ( $space_id <= 0 ) {
-	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
 // Space details for the header — canonical hydrate via SpaceService (no SQL here).
@@ -39,7 +39,7 @@ $bn_member_svc = new SpaceMemberService();
 $space         = ( new SpaceService() )->get( $space_id );
 
 if ( null === $space ) {
-	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
 // ── Current viewer ──────────────────────────────────────────────────────────────

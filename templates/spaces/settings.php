@@ -28,7 +28,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 $space_id = isset( $space_id ) ? absint( $space_id ) : 0;
 
 if ( ! $space_id ) {
-	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
 // ── Permission gate ───────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ $bn_load_space = static function ( int $sid ) use ( $bn_space_service, $bn_categ
 $space = $bn_load_space( $space_id );
 
 if ( ! $space ) {
-	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
 // Category options for the General panel's <select> — the part reads each row

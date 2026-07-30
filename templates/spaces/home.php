@@ -35,7 +35,7 @@ $bn_member_service = new \BuddyNext\Spaces\SpaceMemberService();
 $space_id = isset( $space_id ) ? absint( $space_id ) : 0;
 
 if ( ! $space_id ) {
-	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
 // $space is the shared object shape (bare row + resolved category) every part
@@ -45,7 +45,7 @@ if ( ! $space_id ) {
 $space = $bn_space_service->get_object( $space_id );
 
 if ( null === $space ) {
-	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
 $current_user_id = get_current_user_id();
