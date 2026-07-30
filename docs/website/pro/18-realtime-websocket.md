@@ -1,6 +1,8 @@
 # Real-time WebSocket
 
-Real-time WebSocket (Pro) connects your community to a WebSocket server so notifications, feed activity, and messaging update the instant they happen, instead of waiting for the next poll. It uses the Pusher protocol, so it works with Soketi (free, self-hosted) or any Pusher-compatible server.
+Real-time WebSocket (Pro) connects your community to a WebSocket server so notifications, feed activity, and messaging update the instant they happen, instead of waiting for the next poll. It uses the Pusher protocol, so it works with Sockudo (free, self-hosted) or any other Pusher-compatible server.
+
+> **Need to stand up a server?** This page covers the feature and its settings. For step-by-step deployment - Docker Compose, systemd, Redis, TLS, and a first-connection checklist - see [Deploying a realtime server](25-realtime-server-deployment.md).
 
 ![New posts and reactions appearing live in the community activity feed](../images/community-activity-feed.webp)
 
@@ -35,15 +37,17 @@ Realtime settings live under the BuddyNext admin, on the Realtime tab (Advanced 
 
 ### Requirements
 
-- A Pusher-compatible WebSocket server. Soketi (open-source, self-hosted) is the recommended option and is free; Pusher Channels or Ably (in Pusher-compatible mode) are hosted drop-in alternatives.
+- A Pusher-compatible WebSocket server. Sockudo (open-source, self-hosted, actively maintained) is the recommended option and is free; Laravel Reverb is another self-hosted choice; Pusher Channels or Ably (in Pusher-compatible mode) are hosted drop-in alternatives that need no server of your own.
 
 ### Choosing and connecting a server
 
-1. Stand up a server. The recommended path is Soketi on any VPS or container - it prints an app id, key, and secret on first start.
-2. Optionally front it with a Cloudflare Tunnel so you get HTTPS and DDoS protection without exposing the server's IP or opening ports. Map a hostname (for example realtime.yourdomain.com) to Soketi's port, and use that HTTPS hostname as the Host.
+1. Stand up a server. The recommended path is Sockudo on any VPS or container. Full instructions are in [Deploying a realtime server](25-realtime-server-deployment.md).
+2. Optionally front it with a Cloudflare Tunnel so you get HTTPS and DDoS protection without exposing the server's IP or opening ports. Map a hostname (for example realtime.yourdomain.com) to the server's port, and use that HTTPS hostname as the Host.
 3. Copy the server's App ID, Key, and Secret into the fields below, set the Host, enable realtime, and save.
 
-> **Note:** Cloudflare Workers do not speak the Pusher protocol, so the realtime server itself is still Soketi (or Pusher/Ably). Cloudflare only fronts it.
+> **Note:** Cloudflare Workers do not speak the Pusher protocol, so a realtime server is still required. Cloudflare only fronts it.
+
+> **Sockudo and Soketi both work.** Same protocol, same settings - we test against both. Soketi has not had a release since 2024, so Sockudo is the better pick for a new server; if you already run Soketi, stay on it.
 
 ### Settings
 
