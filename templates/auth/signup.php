@@ -513,6 +513,14 @@ if ( 'invite' === $bn_reg_mode ) {
 						}
 					}
 					foreach ( $bn_reg_fields as $bn_reg_field ) :
+						// A field that is inactive for an anonymous visitor (e.g. a
+						// plan-gated advanced type - no plan exists yet at signup) is
+						// SKIPPED, not rendered locked: a prospect must never face a
+						// control the API will refuse, least of all a required one,
+						// which would dead-end the whole registration.
+						if ( ! \BuddyNext\Profile\FieldType::is_profile_field_active( $bn_reg_field, 0 ) ) {
+							continue;
+						}
 						$bn_rf_key   = (string) $bn_reg_field['field_key'];
 						$bn_rf_name  = 'bn_field_' . $bn_rf_key;
 						$bn_rf_req   = ! empty( $bn_reg_field['is_required'] );

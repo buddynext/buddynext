@@ -131,6 +131,14 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url();
 
 						<?php foreach ( $bn_needs_fields as $bn_rf ) : ?>
 							<?php
+							// Skip fields inactive for the not-yet-created account (e.g.
+							// plan-gated advanced types). This form force-injects
+							// `required` below, so an inactive field here would trap the
+							// prospect both ways: empty fails the client-side required,
+							// filled fails the server's entitlement gate.
+							if ( ! FieldType::is_profile_field_active( $bn_rf, 0 ) ) {
+								continue;
+							}
 							$bn_rf_key   = (string) $bn_rf['field_key'];
 							$bn_rf_name  = 'bn_field_' . $bn_rf_key;
 							$bn_rf_id    = 'bn-complete-' . $bn_rf_key;

@@ -390,7 +390,9 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 							$bn_ftype = isset( $bn_field['type'] ) ? (string) $bn_field['type'] : 'text';
 							$bn_name  = $bn_gkey . '[' . $bn_idx_int . '][' . $bn_fkey . ']';
 							$bn_label = isset( $bn_field['label'] ) ? (string) $bn_field['label'] : ucwords( str_replace( '_', ' ', $bn_fkey ) );
-							$bn_ctrl  = \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value_raw'] ?? ( $bn_field['value'] ?? '' ), $bn_name );
+							// Same render-gate as the flat branch: a plan-gated sub-field
+							// renders the locked explanation, not an input the API refuses.
+							$bn_ctrl  = \BuddyNext\Profile\FieldType::render_profile_input( $bn_field, $bn_field['value_raw'] ?? ( $bn_field['value'] ?? '' ), $bn_name, $user_id );
 
 							// Visible required marker, mirroring the flat-field branch so
 							// repeater sub-fields show the same asterisk (the control already
@@ -499,13 +501,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					// included in their plan. Worse, the field is marked required in the
 					// schema, so before this they could not satisfy it OR omit it, and
 					// the whole profile became unsaveable.
-					$bn_field_active = (bool) apply_filters(
-						'buddynext_profile_field_is_active',
-						true,
-						$bn_field,
-						array(),
-						$user_id
-					);
+					$bn_field_active = \BuddyNext\Profile\FieldType::is_profile_field_active( $bn_field, $user_id );
 
 					// Field value control via the engine. An inactive field renders a
 					// short, plain explanation instead - no input, so nothing is posted

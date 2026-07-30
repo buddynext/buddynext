@@ -650,6 +650,54 @@ class FieldType {
 	}
 
 	/**
+	 * Is this PROFILE field active (editable) for the given member?
+	 *
+	 * The single render-side gate every profile surface must consult before
+	 * emitting an editable control (card 10134744714). It answers the same
+	 * `buddynext_profile_field_is_active` predicate the save path's REQUIRED
+	 * check uses, so render and save cannot disagree: a field the API would
+	 * refuse (e.g. a plan-gated advanced type) never gets an input.
+	 *
+	 * Rendering an editable control for a field the API will refuse is a trap:
+	 * the member fills it in, saves, and is told the field is not in their
+	 * plan. When the field is also marked required, the member can neither
+	 * satisfy it nor omit it and the whole form dead-ends.
+	 *
+	 * Profile surfaces only — space-settings fields render through
+	 * render_input() directly and must NOT be gated by a profile entitlement.
+	 *
+	 * @param array $field   Field definition.
+	 * @param int   $user_id Member the form is for. 0 = anonymous (signup).
+	 * @return bool
+	 */
+	public static function is_profile_field_active( array $field, int $user_id ): bool {
+		/** This filter is documented in includes/Profile/ProfileService.php */
+		return (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field, array(), $user_id );
+	}
+
+	/**
+	 * Render a PROFILE field's control, or the locked explanation when the
+	 * field is inactive for this member.
+	 *
+	 * The inactive branch renders a short plain paragraph instead of an input,
+	 * so nothing is posted for the field and an omitted key stays a legal
+	 * partial update.
+	 *
+	 * @param array  $field   Field definition.
+	 * @param mixed  $value   Current stored value.
+	 * @param string $name    Form field `name` attribute.
+	 * @param int    $user_id Member the form is for.
+	 * @return string Escaped HTML control or locked message.
+	 */
+	public static function render_profile_input( array $field, $value, string $name, int $user_id ): string {
+		if ( ! self::is_profile_field_active( $field, $user_id ) ) {
+			return '<p class="bn-ep-field-locked">' . esc_html__( 'Not available on your current plan.', 'buddynext' ) . '</p>';
+		}
+
+		return self::render_input( $field, $value, $name );
+	}
+
+	/**
 	 * Render the edit-form input control for a field. Always escaped.
 	 *
 	 * @param array  $field Field definition.
