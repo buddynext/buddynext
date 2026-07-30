@@ -2618,15 +2618,12 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	cursor: not-allowed;
 }
 
-/* Native date/time picker icon (::-webkit-calendar-picker-indicator) keeps its
-   default dark glyph regardless of the input's background, so on a dark surface
-   (poll "ends" datetime-local, advanced-search date) it is invisible. Invert it
-   under every BuddyNext dark trigger so the icon stays legible. */
-[data-bn-theme="dark"] .bn-input::-webkit-calendar-picker-indicator,
-[data-theme="dark"] .bn-input::-webkit-calendar-picker-indicator,
-[data-bx-mode="dark"] .bn-input::-webkit-calendar-picker-indicator {
-	filter: invert(1);
-}
+/* Native date/time picker icon: do NOT invert it in dark mode. The dark
+   triggers above set `color-scheme: dark`, which already makes the UA render
+   the calendar glyph light; an invert(1) on top flips it back to dark and the
+   icon disappears into the input background (the Work Experience date fields
+   bug). If the glyph ever reads wrong again, fix the color-scheme declaration,
+   not this pseudo-element. */
 
 /* ── Badge / Chip — v2 attribute tone API ───────────────────────────── */
 .bn-badge {
