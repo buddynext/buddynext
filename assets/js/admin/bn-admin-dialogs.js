@@ -69,6 +69,33 @@
 
 		var body = el( 'div', { 'class': 'bn-dialog__body' }, opts.message || '' );
 
+		// Typed confirmation. When `requireText` is set the dialog grows a text
+		// input and the confirm button stays disabled until the typed value
+		// matches it exactly. Used as the SECOND gate on bulk destructive
+		// actions: a second plain "are you sure?" trains people to double-click,
+		// whereas you cannot type "47" without having read that it is 47.
+		var confirmInput = null;
+		if ( opts.requireText ) {
+			var inputId = 'bn-dialog-confirm-input';
+			var field   = el( 'div', { 'class': 'bn-dialog__confirm-field' } );
+
+			if ( opts.requireLabel ) {
+				field.appendChild( el( 'label', { 'class': 'bn-dialog__confirm-label', htmlFor: inputId }, opts.requireLabel ) );
+			}
+
+			confirmInput = el( 'input', {
+				type: 'text',
+				id: inputId,
+				'class': 'bn-dialog__confirm-input',
+				autocomplete: 'off',
+				// Digits are the common case (a count) but the field also takes
+				// names, so keep the keyboard generic rather than numeric-only.
+				'aria-describedby': 'bn-dialog-title',
+			} );
+			field.appendChild( confirmInput );
+			body.appendChild( field );
+		}
+
 		var foot      = el( 'footer', { 'class': 'bn-dialog__foot' } );
 		var cancelBtn = el( 'button', { type: 'button', 'class': 'bn-dialog__cancel' }, opts.cancelLabel || __( 'Cancel', 'buddynext' ) );
 		var okBtn     = el( 'button', { type: 'button', 'class': 'bn-dialog__ok',     'data-tone': tone }, opts.okLabel || __( 'Confirm', 'buddynext' ) );
@@ -90,6 +117,7 @@
 			backdrop: backdrop,
 			okBtn:    okBtn,
 			cancelBtn: cancelBtn,
+			confirmInput: confirmInput,
 			destroy:  function () {
 				while ( root.firstChild ) {
 					root.removeChild( root.firstChild );
@@ -113,22 +141,48 @@
 				resolve( result );
 			}
 
+			// When requireText is set, "confirmed" means the typed value matches.
+			// Enter is gated on the SAME predicate as the button — otherwise the
+			// typed gate would be defeated by the key that dismisses the first
+			// dialog, which is exactly the double-click reflex it exists to stop.
+			var requireText = opts.requireText ? String( opts.requireText ) : '';
+			var input       = m.confirmInput;
+
+			function satisfied() {
+				return '' === requireText || ( !! input && input.value.trim() === requireText );
+			}
+
+			function syncOk() {
+				if ( '' !== requireText ) {
+					m.okBtn.disabled = ! satisfied();
+				}
+			}
+
 			function onKey( e ) {
 				if ( e.key === 'Escape' ) {
 					close( false );
-				} else if ( e.key === 'Enter' ) {
+				} else if ( e.key === 'Enter' && satisfied() ) {
 					close( true );
 				}
 			}
 
-			m.okBtn.addEventListener( 'click', function () { close( true ); } );
+			m.okBtn.addEventListener( 'click', function () {
+				if ( satisfied() ) { close( true ); }
+			} );
 			m.cancelBtn.addEventListener( 'click', function () { close( false ); } );
 			m.backdrop.addEventListener( 'click', function ( e ) {
 				if ( e.target === m.backdrop ) { close( false ); }
 			} );
 			document.addEventListener( 'keydown', onKey );
 
-			setTimeout( function () { m.okBtn.focus(); }, 0 );
+			if ( input ) {
+				syncOk();
+				input.addEventListener( 'input', syncOk );
+			}
+
+			// Focus the field the member has to act on, not the button they
+			// cannot use yet.
+			setTimeout( function () { ( input || m.okBtn ).focus(); }, 0 );
 		} );
 	}
 

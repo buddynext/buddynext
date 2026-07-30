@@ -146,6 +146,50 @@
 	color: color-mix(in oklch, var(--bn-warn) 22%, oklch(16% 0 0));
 }
 
+/* Typed-confirmation gate. The confirm button is disabled until the field
+   matches, so it must READ as unavailable — a danger-red button that silently
+   does nothing on click is worse than no gate. */
+.bn-dialog__ok:disabled,
+.bn-dialog__ok:disabled:hover {
+	background: var(--bn-sunken);
+	border-color: var(--bn-line);
+	color: var(--bn-ink-4);
+	cursor: not-allowed;
+	filter: none;
+}
+
+.bn-dialog__confirm-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	margin-block-start: var(--bn-s3);
+}
+
+.bn-dialog__confirm-label {
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold, 600);
+	color: var(--bn-ink);
+}
+
+.bn-dialog__confirm-input {
+	width: 100%;
+	max-width: var(--bn-a-control-max-w-xs, 100px);
+	min-height: var(--bn-dialog-btn-h);
+	padding: 0 var(--bn-s3);
+	font: inherit;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+}
+
+.bn-dialog__confirm-input:focus-visible {
+	outline: 2px solid transparent;
+	outline-offset: var(--bn-a-outline-offset, 2px);
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
+}
+
 .bn-dialog__cancel:focus-visible,
 .bn-dialog__ok:focus-visible {
 	outline: 2px solid transparent;
