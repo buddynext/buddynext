@@ -546,6 +546,13 @@
 	.bn-members-filter .bn-input,
 	.bn-members-filter .bn-select {
 		width: 100%;
+		/* Reset the ROW flex. The desktop rule is `flex: 1 1 220px`, meaning
+		   "grow along the row, from a 220px width". Once this container turns
+		   into a column that same declaration means "grow along the COLUMN,
+		   from a 220px HEIGHT" - so the search field rendered as a 220px-tall
+		   block instead of a single-line input. The reported "several hundred
+		   pixels tall" is that basis, read down the wrong axis. */
+		flex: 0 0 auto;
 	}
 }
 
