@@ -963,6 +963,13 @@ table.bn-table tr:hover td {
 /* --------------------------------------------------------------------------
    S3 — Wide-table actions column never clips
    --------------------------------------------------------------------------
+   This is Shape B of THE ADMIN TABLE CONTRACT (stated in full further down this
+   file, above "Shape A: core-style tables must scroll, not vanish"). Same three
+   rules, different markup: here the scroll wrapper is explicit in the HTML
+   instead of being selected with :has(). The `overflow: visible` below is
+   contract rule 3 - the table must not be its own scroll context - and it is
+   the reason the sticky column can pin at all.
+
    A list table wider than the admin content area lives inside a horizontal
    scroll wrapper — Members/Spaces use .bn-table-wrap__scroll, the Pro
    Subscriptions table uses .bn-table-scroll. When it scrolls, the last column
@@ -3064,7 +3071,37 @@ button.bn-btn-danger:hover {
 	margin: 0 0 var(--bn-a-s3);
 }
 
-/* ── Core-style admin tables must scroll, not vanish ─────────────────────────
+/* ══ THE ADMIN TABLE CONTRACT — one rule, two markup shapes ══════════════════
+
+   Admin data tables exist in two shapes, and BOTH obey the same three rules.
+   This is the single statement of that contract; the blocks below and the
+   `.bn-table-wrap__scroll` rules near the top of this file are its two
+   implementations, not two different policies.
+
+     Shape A  table dropped straight into `.bn-ss-body` (with or without a form)
+     Shape B  table wrapped in `.bn-table-wrap__scroll` / `.bn-table-scroll`
+
+     1. The table STAYS A TABLE BOX. Never `display: block` on a <table>. It
+        stops generating a table box, so its rows get laid out by an anonymous
+        table wrapper that shrink-wraps to content while width/min-width
+        stretches only the outer block - two boxes at two widths.
+     2. The rows FILL the table. Border, background and rounded corners are
+        painted by the table box; the header band and row separators are painted
+        by the rows. Disagreement renders as a table cut off partway across.
+     3. The SCROLL CONTEXT IS THE WRAPPER, never the table. A table that is its
+        own scroll container pins sticky cells to a box that never scrolls, and
+        clips its own rounded corners.
+
+   Enforced by tests/e2e/admin/table-layout-contract.spec.ts, which discovers
+   every admin screen from the navigation and measures every table at two
+   widths. Add a third shape and the contract still applies - make the test
+   pass, do not exempt it.
+
+   None of these failures produce overflow, so no static gate can see them:
+   ux-audit.sh passed clean while rows rendered at 713px inside a 980px table.
+   That is why the check is a browser assertion and not a grep. */
+
+/* ── Shape A: core-style tables must scroll, not vanish ──────────────────────
    WordPress core list tables (.widefat / .wp-list-table) have a natural width
    set by their columns and no scroll container of their own. Dropped into a BN
    settings section they render wider than the body - measured at 390px:
@@ -3110,13 +3147,23 @@ button.bn-btn-danger:hover {
    wrapper at all. */
 @media (min-width: 783px) {
 
+/* The scroll host is whichever element directly contains the table. Most render
+   sites nest it in `.bn-ss-body`, but some (Announcements) put the table
+   straight into `.bn-settings-section` - and that section carries
+   `overflow: hidden` for its rounded corners, so at 820px the table was clipped
+   with nothing to scroll and its right-hand columns were unreachable. Only the
+   inline axis opens up; overflow-y stays hidden so the corners still clip. */
 .bn-settings-section .bn-ss-body:has(> table.widefat),
-.bn-settings-section .bn-ss-body > form:has(> table.widefat) {
+.bn-settings-section .bn-ss-body > form:has(> table.widefat),
+.bn-settings-section:has(> table.widefat),
+.bn-settings-section:has(> form > table.widefat) {
 	overflow-x: auto;
 }
 
 .bn-settings-section .bn-ss-body > table.widefat,
-.bn-settings-section .bn-ss-body > form > table.widefat {
+.bn-settings-section .bn-ss-body > form > table.widefat,
+.bn-settings-section > table.widefat,
+.bn-settings-section > form > table.widefat {
 	display: table;
 	width: 100%;
 	/* table-layout:auto is the point, not a detail.
