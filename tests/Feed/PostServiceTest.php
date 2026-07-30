@@ -117,13 +117,21 @@ class PostServiceTest extends \WP_UnitTestCase {
 		// the decode. (It used to pass by creating as an admin, back when the admin
 		// exemption skipped the whole check; that exemption is what let a
 		// fabricated id publish a dangling attachment.)
+		// media_ids is passed to create() rather than only written by the UPDATE
+		// below: a photo post with no text AND no media is an empty post, which
+		// create() now refuses (empty_post). This test is about how media_ids is
+		// DECODED on read, so it needs a valid post to read — it was previously
+		// creating an invalid one as a shortcut and then patching it in SQL.
 		$id = $this->service->create(
 			$this->admin,
 			array(
-				'type'    => 'photo',
-				'content' => '',
+				'type'      => 'photo',
+				'content'   => '',
+				'media_ids' => array( 10 ),
 			)
 		);
+
+		$this->assertIsInt( $id, 'Fixture post was not created, so the decode assertion below would test nothing.' );
 
 		$wpdb->update(
 			$wpdb->prefix . 'bn_posts',

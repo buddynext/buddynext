@@ -454,9 +454,16 @@
    outrank a four-class selector. The exception lives here, next to the rule it
    excepts, so the two cannot drift apart and nobody has to reach for an inline
    style again. */
-.bn-admin-hub .bn-admin-hub__main :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) form.bn-mod-queue-filters,
-.bn-admin-hub .bn-admin-hub__main--wide :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) form.bn-mod-queue-filters {
-	margin-bottom: var(--bn-a-s3);
+.bn-admin-hub .bn-admin-hub__main :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) :is(form.bn-mod-queue-filters, form.bn-listing-filter, form.bnpro-queue-filters, form.bnpro-subs-filter),
+.bn-admin-hub .bn-admin-hub__main--wide :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) :is(form.bn-mod-queue-filters, form.bn-listing-filter, form.bnpro-queue-filters, form.bnpro-subs-filter) {
+	/* --bn-a-s4, not s3: every other block in a listing header (the stat grid, the
+	   filter tab pills) is spaced 16px, and 12px here made the filter row sit
+	   visibly tighter to its table than the pills above it did. Uniform beats
+	   individually-tuned when the whole point is that they read as one stack.
+	   Pro's two filter rows are listed here because they had NO margin at all and
+	   sat flush against their tables - the same defect this exception was written
+	   for, on classes it did not know about. */
+	margin-bottom: var(--bn-a-s4);
 }
 
 /* WP default form-table cell padding is tight — bump for readability. */

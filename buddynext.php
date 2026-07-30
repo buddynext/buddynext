@@ -336,6 +336,39 @@ function buddynext_register_space_field( string $key, array $args = array() ): v
 }
 
 /**
+ * Human-readable label for a member id, for admin lists and logs.
+ *
+ * A data table's first column has to say WHO, and a bare "#409" says nothing —
+ * an owner reading the Subscriptions list cannot tell whether that row is a
+ * paying customer, a deleted account, or a seeding artefact. Several screens had
+ * their own `$u ? $u->display_name : '#' . $id` inline, so the fallback differed
+ * per screen ("Deleted user #4", "Deleted member", "#409") and three of them
+ * showed the bare id.
+ *
+ * This is the one definition. It never returns a naked number: a missing user is
+ * named as deleted, and the id is kept in parentheses because it is still the
+ * only handle an owner has for chasing an orphaned row.
+ *
+ * @param int    $user_id  Member id, possibly of a deleted account.
+ * @param string $fallback Optional label for user_id 0 — a system actor rather
+ *                         than a deleted one. Defaults to an em dash.
+ * @return string Escaped-safe plain text (callers still escape at output).
+ */
+function buddynext_member_label( int $user_id, string $fallback = '' ): string {
+	if ( $user_id <= 0 ) {
+		return '' !== $fallback ? $fallback : "\u{2014}";
+	}
+
+	$user = get_userdata( $user_id );
+	if ( $user instanceof WP_User && '' !== trim( (string) $user->display_name ) ) {
+		return (string) $user->display_name;
+	}
+
+	/* translators: %d: numeric id of a member whose account no longer exists. */
+	return sprintf( __( 'Deleted member (#%d)', 'buddynext' ), $user_id );
+}
+
+/**
  * Read a single space field value, type-cast, with the field's registered
  * default applied when unset. The canonical accessor for per-space settings —
  * the default lives once in the field registration, never duplicated per reader.

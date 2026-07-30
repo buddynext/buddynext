@@ -2846,13 +2846,71 @@ button.bn-btn-danger:hover {
    fallbacks silently hardcoded 8px/12px, so the spacing could not respond to
    the token scale, and the inline styles also broke the no-inline-style rule.
    -------------------------------------------------------------------------- */
-.bn-mod-queue-filters {
+/* ── ONE listing-toolbar standard ────────────────────────────────────────────
+   Filters, search and the table they filter are separate blocks and must read as
+   separate blocks. They were not: measured on Monetization > Subscriptions at
+   390px, the filter tab pills, the search form and the table each had
+   margin-bottom 0, so the tabs touched the search row and the search row touched
+   the table — three controls fused into one slab. Orders showed the same, its
+   tabs flush against the table head. Inside the search row the controls touched
+   each other too, because .bnpro-subs-filter had no CSS at all.
+
+   The moderation queue was already correct, which is the actual problem: the
+   spacing was fixed once, on one class, instead of being made a standard. Pro's
+   two filter rows never got it. So this is the primitive now, and the three
+   toolbar classes are aliases of it rather than three rules free to drift.
+
+   .bn-listing-filter is the class new toolbars should carry. */
+.bn-listing-filter,
+.bn-mod-queue-filters,
+.bnpro-queue-filters,
+.bnpro-subs-filter {
 	display: flex;
 	gap: var(--bn-a-s2);
 	flex-wrap: wrap;
 	align-items: center;
 	/* margin-bottom lives in bn-admin-hub.css, as a documented exception to the
 	   form reset there — it needs that selector's specificity to apply. */
+}
+
+/* Uniform gap under a toolbar, whatever follows it — another filter row, or the
+   table. 16px matches the .bn-stat-grid gap directly above these toolbars, so a
+   listing header reads as one evenly spaced stack.
+ *
+ * Set as the toolbar's OWN margin-bottom rather than the next sibling's
+ * margin-top. The sibling form is reset to `margin: 0 ...` by a
+ * higher-specificity rule in bn-admin-hub.css, so a `+ *` margin-top silently
+ * lost — measured: the selector matched, and computed margin-top stayed 0px.
+ * Owning the space from above avoids that fight entirely and is also the
+ * property a reader expects to find on the toolbar itself. */
+.bn-settings-section .bn-ss-body > .bn-segment,
+.bn-card > .bn-segment,
+.bn-card__body > .bn-segment {
+	margin-bottom: var(--bn-a-s4, 16px);
+}
+
+/* The pagination bar is the other end of the same stack and sat flush against
+   the table it pages. Same 16px, from above, for the same reason. */
+.bn-settings-section .bn-ss-body > .bn-pagination-bar,
+.bn-card > .bn-pagination-bar,
+.bn-card__body > .bn-pagination-bar {
+	margin-top: var(--bn-a-s4, 16px);
+}
+
+/* The filter FORMS get their bottom margin in bn-admin-hub.css instead — a form
+   inside a settings section is reset to `margin: 0` by a four-class selector
+   there, so only a rule at that specificity applies. It is documented as an
+   exception next to the rule it excepts; adding a competing one here would just
+   lose silently, which is exactly what happened on the first attempt. */
+
+/* A hidden input is still a flex item, and the row's `gap` applies around it —
+   which produced visible 1px slivers and an uneven 30px step between the real
+   controls. Taking them out of the layout makes the gaps actually uniform. */
+.bn-listing-filter > input[type="hidden"],
+.bn-mod-queue-filters > input[type="hidden"],
+.bnpro-queue-filters > input[type="hidden"],
+.bnpro-subs-filter > input[type="hidden"] {
+	display: none;
 }
 
 .bn-av-section-desc {

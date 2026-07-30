@@ -465,9 +465,8 @@ class ModerationQueue {
 					</thead>
 					<tbody>
 						<?php foreach ( $suspensions as $s ) : ?>
-							<?php $u = get_userdata( (int) $s['user_id'] ); ?>
 							<tr>
-								<td><?php echo esc_html( $u ? $u->display_name : '#' . (int) $s['user_id'] ); ?></td>
+								<td><?php echo esc_html( buddynext_member_label( (int) $s['user_id'] ) ); ?></td>
 								<td><?php echo esc_html( (string) ( ! empty( $s['reason'] ) ? $s['reason'] : __( '(no reason given)', 'buddynext' ) ) ); ?></td>
 								<td><?php echo esc_html( $s['expires_at'] ? $this->ago( (string) $s['expires_at'] ) : __( 'Permanent', 'buddynext' ) ); ?></td>
 								<td><?php $this->user_button( (int) $s['user_id'], 'unsuspend', __( 'Lift suspension', 'buddynext' ), 'secondary' ); ?></td>
@@ -521,9 +520,8 @@ class ModerationQueue {
 					</thead>
 					<tbody>
 						<?php foreach ( $appeals as $a ) : ?>
-							<?php $u = get_userdata( (int) $a['user_id'] ); ?>
 							<tr>
-								<td><?php echo esc_html( $u ? $u->display_name : '#' . (int) $a['user_id'] ); ?></td>
+								<td><?php echo esc_html( buddynext_member_label( (int) $a['user_id'] ) ); ?></td>
 								<td><?php echo esc_html( (string) $a['message'] ); ?></td>
 								<td><?php echo esc_html( $this->ago( (string) ( $a['created_at'] ?? '' ) ) ); ?></td>
 								<td>
@@ -599,9 +597,9 @@ class ModerationQueue {
 							?>
 							<tr>
 								<td><?php echo esc_html( $this->ago( (string) ( $row['created_at'] ?? '' ) ) ); ?></td>
-								<td><?php echo esc_html( $actor ? $actor->display_name : ( (int) ( $row['actor_id'] ?? 0 ) > 0 ? '#' . (int) $row['actor_id'] : __( 'System', 'buddynext' ) ) ); ?></td>
+								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ) ); ?></td>
 								<td><code><?php echo esc_html( (string) ( $row['action'] ?? '' ) ); ?></code></td>
-								<td><?php echo esc_html( $target ? $target->display_name : ( (int) ( $row['target_user_id'] ?? 0 ) > 0 ? '#' . (int) $row['target_user_id'] : '—' ) ); ?></td>
+								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['target_user_id'] ?? 0 ) ) ); ?></td>
 								<td><?php echo esc_html( '' !== $object ? $object : '—' ); ?></td>
 								<td><?php echo esc_html( (string) ( $row['note'] ?? '' ) ); ?></td>
 							</tr>
