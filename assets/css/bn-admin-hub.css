@@ -453,17 +453,37 @@
    `style="margin-bottom:…"` — an inline style was the only thing that could
    outrank a four-class selector. The exception lives here, next to the rule it
    excepts, so the two cannot drift apart and nobody has to reach for an inline
-   style again. */
-.bn-admin-hub .bn-admin-hub__main :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) :is(form.bn-mod-queue-filters, form.bn-listing-filter, form.bnpro-queue-filters, form.bnpro-subs-filter),
-.bn-admin-hub .bn-admin-hub__main--wide :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) :is(form.bn-mod-queue-filters, form.bn-listing-filter, form.bnpro-queue-filters, form.bnpro-subs-filter) {
+   style again.
+
+   Scoped by POSITION, not by class name. It previously read
+   `:is(form[class*="-filter"], form[class*="-toolbar"])`, which is a guess about
+   what a form in a listing header will be called — and the guess was wrong for
+   `form.bn-analytics-range` on Campaigns and Drip, which sat flush against the
+   stat grid below it with a measured 0px gap.
+
+   A form that is a DIRECT CHILD of a section body is a block in that body's stack
+   and takes the stack's rhythm, whatever it is named. The reset still applies in
+   full to the forms it was written for — the inline per-row controls (visibility
+   select, Required toggle, delete) live inside table cells, several levels down,
+   so they are not direct children of anything here and keep `margin: 0`. */
+.bn-admin-hub .bn-admin-hub__main :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) :is(.bn-ss-body, .bn-card__body) > form:not(.bn-modal__panel),
+.bn-admin-hub .bn-admin-hub__main--wide :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) :is(.bn-ss-body, .bn-card__body) > form:not(.bn-modal__panel),
+.bn-admin-hub .bn-admin-hub__main :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) > form:not(.bn-modal__panel),
+.bn-admin-hub .bn-admin-hub__main--wide :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) > form:not(.bn-modal__panel) {
 	/* --bn-a-s4, not s3: every other block in a listing header (the stat grid, the
 	   filter tab pills) is spaced 16px, and 12px here made the filter row sit
 	   visibly tighter to its table than the pills above it did. Uniform beats
-	   individually-tuned when the whole point is that they read as one stack.
-	   Pro's two filter rows are listed here because they had NO margin at all and
-	   sat flush against their tables - the same defect this exception was written
-	   for, on classes it did not know about. */
+	   individually-tuned when the whole point is that they read as one stack. */
 	margin-bottom: var(--bn-a-s4);
+	margin-top: 0;
+}
+
+/* The last block in a body still gets no bottom margin, forms included — the
+   container's padding is the edge. Mirrors the :last-child rule in bn-admin.css,
+   repeated here only because the form reset's specificity requires it. */
+.bn-admin-hub .bn-admin-hub__main :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) :is(.bn-ss-body, .bn-card__body) > form:not(.bn-modal__panel):last-child,
+.bn-admin-hub .bn-admin-hub__main--wide :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) :is(.bn-ss-body, .bn-card__body) > form:not(.bn-modal__panel):last-child {
+	margin-bottom: 0;
 }
 
 /* WP default form-table cell padding is tight — bump for readability. */

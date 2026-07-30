@@ -145,6 +145,10 @@
 	/* -- Structural / component sizes ------------------------------------ */
 	--bn-a-page-max-w:        1100px;
 	--bn-a-control-max-w:     560px;
+	/* The narrow step, for a control holding a count, price or percentage. Two
+	   values is the whole scale on purpose: every additional width is one more way
+	   for two adjacent fields to disagree by 20px for no reason a reader can see. */
+	--bn-a-control-max-w-xs:  100px;
 	--bn-a-table-search-w:    240px;
 	--bn-a-addon-accent-w:    3px;
 	--bn-a-row-badge-py:      2px;
@@ -2832,6 +2836,55 @@ button.bn-btn-danger:hover {
 .bn-a-pf-col-narrow { flex: 0 0 160px; }
 .bn-a-pf-swatch     { width: 64px; }
 
+/* Range sliders take the house control width, like every other settings control.
+ *
+ * They were missing from it. The control-width rule further up this file
+ * (--bn-a-control-max-w, 560px) enumerates input TYPES — text, email, url,
+ * number, … — and `range` is not among them, so a slider fell through to the
+ * browser default of roughly 129px. Both AI-moderation threshold sliders therefore
+ * carried an inline `max-width:420px;width:100%` to look deliberate, and a third
+ * field nearby carried 400px, and a textarea 640px: three different widths in one
+ * form, none of them the house value, each one a local repair of the same gap.
+ *
+ * Worth recording how close this came to being fixed the wrong way. The first
+ * attempt introduced a `data-bn-fw="xs|sm|md|lg"` scale and mapped those inline
+ * pixel values onto it — which would have preserved every deviation, given it a
+ * blessed vocabulary, and left the admin with TWO competing width systems: the
+ * house 560px that most controls already use, and a parallel ladder that only the
+ * fields someone had touched would opt into. That is the same defect as the five
+ * toolbar classes and the .bn-pagination-bar-versus-nav.bn-pager miss documented
+ * elsewhere in this file: a fix shaped like the thing it is fixing.
+ *
+ * The actual defect was a missing type in an existing rule. One line, and the
+ * inline widths become unnecessary rather than renamed. */
+.bn-settings-section .bn-ss-body input[type="range"] {
+	width: 100%;
+	max-width: var(--bn-a-control-max-w, 560px);
+}
+
+/* ...and the narrow step has to be able to WIN, which .bn-a-input-tiny could not.
+ *
+ * That helper is declared in the block above as a bare `.bn-a-input-tiny` (0,1,0),
+ * while the control-width rule that sets 560px is
+ * `.bn-settings-section .bn-ss-body input[type="number"]` (0,2,1). Inside a
+ * settings body — which is everywhere it is used — the helper always lost, so a
+ * field marked as tiny rendered at the full house width and nothing in the markup
+ * suggested why.
+ *
+ * This is the root of the whole inline-width family, not a separate issue: an
+ * author would add the class, see no change, and reach for `style="width:90px"`
+ * because an inline style was the only thing in the file that could outrank the
+ * house rule. Three of the inline widths removed in this pass were exactly that.
+ * Re-declaring the helper at the specificity of the rule it must override is what
+ * makes the class usable, and therefore what stops the next author reaching for
+ * the attribute again. */
+.bn-settings-section .bn-ss-body input.bn-a-input-tiny {
+	/* width:auto, not 100% — a field holding at most three digits should be sized
+	   by its content, not stretched to a cap it will never reach. */
+	width: auto;
+	max-width: var(--bn-a-control-max-w-xs, 100px);
+}
+
 /* Command-palette deep-link: transient highlight on the targeted setting row. */
 .bn-opt-highlight {
 	border-radius: var(--bn-r-md);
@@ -2883,18 +2936,76 @@ button.bn-btn-danger:hover {
  * lost — measured: the selector matched, and computed margin-top stayed 0px.
  * Owning the space from above avoids that fight entirely and is also the
  * property a reader expects to find on the toolbar itself. */
-.bn-settings-section .bn-ss-body > .bn-segment,
-.bn-card > .bn-segment,
-.bn-card__body > .bn-segment {
+/* THE CONTAINER OWNS THE RHYTHM. Every direct child of a section body is spaced
+   16px from the next one, and the handful of deliberately-tight relationships are
+   named as exceptions below.
+ *
+ * This is deliberately the inverse of how it was written twice before, because
+ * both earlier versions were enumerations and both shipped with holes:
+ *
+ *   attempt 1 — listed three filter classes. There were five. Members > Directory
+ *               kept its toolbar flush against the table.
+ *   attempt 2 — matched [class*="-toolbar"] / [class*="-filter"] by category, which
+ *               fixed all five toolbars, and then Subscriptions still had its table
+ *               flush against the pager: the rule for that end of the stack named
+ *               .bn-pagination-bar, and the element is nav.bn-pager.
+ *
+ * Enumerating the participants cannot work, because the defect is a property of the
+ * STACK, not of any class in it — a gap needs a value whatever happens to sit on
+ * either side of it, including markup added after this rule is written. Measured
+ * across 14 listing screens at 390px before this change: every gap that any rule
+ * covered was already 16px, and every gap that no rule covered was 0, 8, 12, 13 or
+ * 24. So 16px is not a new value being imposed here, it is the value the admin
+ * already uses wherever it was set at all — this makes it the default instead of an
+ * opt-in, so the next component inherits it instead of arriving flush.
+ *
+ * margin-top is zeroed alongside it so a child cannot contribute a second gap on
+ * top of the one the container just gave it; the space between two children is one
+ * value in one place, readable off this rule alone.
+ *
+ * Internal spacing is untouched. The five toolbars keep their own display:flex and
+ * gap (12px for a row of button groups, 8px for a tight filter row) because those
+ * differ on purpose — this rule is about the stack, not the contents. */
+.bn-settings-section .bn-ss-body > *,
+.bn-card__body > * {
+	margin-top: 0;
 	margin-bottom: var(--bn-a-s4, 16px);
 }
 
-/* The pagination bar is the other end of the same stack and sat flush against
-   the table it pages. Same 16px, from above, for the same reason. */
-.bn-settings-section .bn-ss-body > .bn-pagination-bar,
-.bn-card > .bn-pagination-bar,
-.bn-card__body > .bn-pagination-bar {
-	margin-top: var(--bn-a-s4, 16px);
+/* Exception 1 — option rows stack tight and are separated by their own dividers,
+   not by space. .bn-opt carries `padding: 12px 0`, so the breathing room is inside
+   each row; a margin between them would double the divider's visual weight and
+   break the scanned-list rhythm that Settings screens rely on. Verified as
+   intentional before this rule was written, not assumed. */
+.bn-settings-section .bn-ss-body > .bn-opt,
+.bn-card__body > .bn-opt {
+	margin-bottom: 0;
+}
+
+/* Exception 2 — a heading belongs to the block it introduces. Full 16px on both
+   sides would orphan it midway between the group above and the group it labels,
+   which is the standard heading-proximity problem; the tighter step keeps the
+   pairing legible. */
+.bn-settings-section .bn-ss-body > h2,
+.bn-settings-section .bn-ss-body > h3,
+.bn-settings-section .bn-ss-body > h4,
+.bn-card__body > h2,
+.bn-card__body > h3,
+.bn-card__body > h4 {
+	margin-bottom: var(--bn-a-s2, 8px);
+}
+
+/* ...and never below the last thing in the card, where the container's own padding
+   already provides the edge and this would read as padding the card does not have. */
+.bn-settings-section .bn-ss-body > :last-child,
+.bn-card__body > :last-child {
+	margin-bottom: 0;
+}
+
+/* .bn-card is not a body element but hosts the same stack when used bare. */
+.bn-card > .bn-segment,
+.bn-card > .bn-pagination-bar {
+	margin-bottom: var(--bn-a-s4, 16px);
 }
 
 /* The filter FORMS get their bottom margin in bn-admin-hub.css instead — a form
