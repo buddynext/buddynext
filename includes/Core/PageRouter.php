@@ -433,8 +433,23 @@ class PageRouter {
 				&& ! $override_login
 				&& (bool) get_option( 'buddynext_public_explore', true )
 			) {
-				wp_safe_redirect( self::explore_url() );
-				exit;
+				if ( is_front_page() ) {
+					// The feed hub IS the site's front page (Settings > Reading).
+					// Redirecting a guest off "/" would make the canonical home
+					// URL effectively /activity/explore/ — every logged-out
+					// visitor and crawler 302'd off the root, with the SEO and
+					// social-preview consequences the owner never opted into,
+					// and an owner testing while logged in would never see it.
+					// Render the explore view IN PLACE instead: the guest still
+					// gets public content (the point of the setting) and the
+					// homepage stays the homepage. /activity/ itself keeps the
+					// redirect below, exactly as before.
+					set_query_var( 'bn_activity_action', 'explore' );
+					$is_home_feed = false; // Now the public explore surface, not the guarded home feed.
+				} else {
+					wp_safe_redirect( self::explore_url() );
+					exit;
+				}
 			}
 
 			$needs_login =
