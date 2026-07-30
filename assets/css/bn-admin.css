@@ -3077,12 +3077,28 @@ button.bn-btn-danger:hover {
    Fixing it on the section would mean dropping that overflow:hidden and losing
    the rounded corners, and wrapping each table would mean touching every render
    site in Free and Pro and remembering to do it again for the next one. So the
-   table becomes its own scroll container - the same technique already proven on
-   .bn-analytics-table, whose column alignment was browser-verified to survive
-   display:block.
+   scroll container is the table's PARENT, selected with :has() - no markup
+   change, and it matches the rule this file already states elsewhere: the
+   wrapper is the horizontal scroll context, never the table itself.
 
-   min-width:100% keeps it filling the body when it fits, so nothing changes at
-   the widths where these tables were already fine (600px and up).
+   This previously put display:block + width:max-content ON THE TABLE, and that
+   HALVED EVERY ROW. A table with display:block stops generating a table box:
+   its rows are laid out by an anonymous table wrapper that shrink-wraps to
+   content, while min-width:100% stretches only the outer block. On Bulk
+   Moderation the block measured 980px - so the border, background and rounded
+   corners drew 980px wide - and the rows measured 713px, leaving the header
+   band and every row separator stopping dead two-thirds of the way across the
+   card. The table looked cut in half because two different boxes were being
+   sized by two different rules.
+
+   Keeping the table a real table fixes both halves at once, and needs no
+   min-width threshold: table-layout:auto already refuses to shrink a table
+   below its min-content width, so it fills the body when it fits and overflows
+   into the parent's scroller when it does not. Browser-verified on Bulk
+   Moderation: 980px body -> table 980, row 979, no scrollbar; 420px body ->
+   table 617 (its natural minimum), row 616, parent scrolls with 197px
+   reachable; 300px body -> same 617 with 317px reachable. Nothing is ever
+   clipped and nothing is ever crushed.
 
    The child combinator is load-bearing. Tables that ALREADY sit in a scroll
    wrapper (.bn-table-wrap__scroll / .bn-table-scroll - Subscriptions uses both)
@@ -3094,13 +3110,15 @@ button.bn-btn-danger:hover {
    wrapper at all. */
 @media (min-width: 783px) {
 
+.bn-settings-section .bn-ss-body:has(> table.widefat),
+.bn-settings-section .bn-ss-body > form:has(> table.widefat) {
+	overflow-x: auto;
+}
+
 .bn-settings-section .bn-ss-body > table.widefat,
 .bn-settings-section .bn-ss-body > form > table.widefat {
-	display: block;
-	overflow-x: auto;
-	max-width: 100%;
-	min-width: 100%;
-	width: max-content;
+	display: table;
+	width: 100%;
 	/* table-layout:auto is the point, not a detail.
 	 *
 	 * WordPress's .fixed helper sets table-layout:fixed, which divides the
