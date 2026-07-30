@@ -3076,6 +3076,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				?>
 			</p>
 
+			<?php
+			/*
+			 * Scroll wrapper, because the Endpoint column holds a URL that is kept on
+			 * one line (see .bn-ep-code in bn-admin.css). Without it the table is wider
+			 * than .bn-settings-section, which carries overflow-x: hidden for its card
+			 * corners - so the Actions column was clipped away with no way to reach it.
+			 * Measured before this wrapper: table 1263px inside a 602px section at a
+			 * 1024px viewport, Send test / View log / Remove all cut off.
+			 */
+			?>
+			<div class="bn-table-wrap__scroll">
 			<table class="bn-table widefat" data-bn-webhook-table>
 				<thead>
 					<tr>
@@ -3106,7 +3117,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						<tr data-bn-webhook-row="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>">
 							<td class="column-primary" data-colname="<?php esc_attr_e( 'Endpoint', 'buddynext' ); ?>">
 								<strong><?php echo esc_html( (string) ( $hook['label'] ?? '' ) ); ?></strong><br>
-								<code class="bn-ep-code"><?php echo esc_html( (string) ( $hook['url'] ?? '' ) ); ?></code>
+								<code class="bn-ep-code" title="<?php echo esc_attr( (string) ( $hook['url'] ?? '' ) ); ?>"><?php echo esc_html( (string) ( $hook['url'] ?? '' ) ); ?></code>
 								<button type="button" class="toggle-row">
 									<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
 									<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
@@ -3156,6 +3167,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				<?php endif; ?>
 				</tbody>
 			</table>
+			</div>
 
 			<?php
 			$catalogue = array(

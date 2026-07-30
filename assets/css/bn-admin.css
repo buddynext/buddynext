@@ -2818,6 +2818,42 @@ button.bn-btn-danger:hover {
 }
 .bn-admin-hub__content table:not(.form-table) tbody tr:hover td { background: var(--bn-a-bg-subtle); }
 
+/* ── Identifier columns and long technical values ────────────────────────────
+   Two admin cards, one cause: a list table starves its identifier column, and a
+   long unbreakable value in it then wraps to as many lines as it takes.
+
+   Measured before this rule, at an 800px viewport:
+     Webhooks    Endpoint cell 140px wide, 285px tall - 14 lines. The URL broke
+                 mid-token into a ladder of ~8 fragments, and the Actions column
+                 (Send test / View log / Remove) was pushed off the right edge.
+     Member Labels  Name cell 110px wide, 5 lines for one label name, while the
+                 Icon column next to it got 128px and Actions 157px.
+
+   Two separate problems, so two rules.
+
+   1. The identifier column gets a floor. `column-primary` is already the marker
+      for "this cell names the row" (core's responsive stacking uses it), so it
+      is the honest place to hang a minimum on - no new vocabulary, and every
+      current and future list table gets it. Without a floor, `table-layout: auto`
+      is free to hand the naming column less room than a status chip.
+
+   The second half of the fix is per-value, not per-column: see `code.bn-ep-code`
+   further down for how a long unbreakable value (a URL) is allowed to wrap. The
+   floor here is what makes that wrap reasonable - a URL in a 140px column is a
+   ladder whatever the break rule says. */
+.bn-admin-hub__content table:not(.form-table) td.column-primary {
+	min-width: 12rem;
+}
+
+/* Below the stacking breakpoint the row becomes a card and the primary cell owns
+   the full width, so the floor would only fight core's layout. */
+@media screen and ( max-width: 782px ) {
+
+	.bn-admin-hub__content table:not(.form-table) td.column-primary {
+		min-width: 0;
+	}
+}
+
 /* ── Extracted inline-style helpers ──────────────────────────────────────
    Static presentation lifted out of style="" attributes (ux F1). Dynamic
    values (user-chosen colours, computed widths, JS-toggled visibility) stay
@@ -3451,15 +3487,33 @@ button.bn-btn-danger:hover {
 	}
 }
 
-/* A webhook URL is one long unbroken token, so it is the one code chip that
-   MUST be allowed to break - the nowrap rule for slug chips would push the card
-   wider than the screen. Breaks anywhere, but only for this chip. */
+/* A webhook URL is one long unbroken token, so it wraps - but only where it has
+   to, and in a column wide enough that it does not become a ladder.
+ *
+ * History matters here because this rule has now been wrong in both directions.
+ * It used to be `word-break: break-all`, which breaks at EVERY opportunity rather
+ * than only when a line cannot fit. Combined with a starved column that produced,
+ * measured at an 800px viewport with a realistic 92-character endpoint: a 14-line
+ * stack of ~11-character fragments, a 285px-tall row, and the Actions column
+ * (Send test / View log / Remove) pushed off the card.
+ *
+ * Forcing it onto ONE line with an ellipsis was the other extreme and was worse:
+ * the table went to 1263px inside a 602px section that carries overflow-x: hidden
+ * for its card corners, so Actions was clipped away at 800, 1024 AND 1440 with no
+ * way to scroll to it. Trading a tall row for unreachable controls is not a trade.
+ *
+ * So: wrap, with `overflow-wrap: anywhere` instead of `word-break: break-all`.
+ * Both can split a long token, but `anywhere` only does it when the token will not
+ * fit the line, and it lets the column shrink without forcing a break at every
+ * character. Paired with the `min-width` floor on `td.column-primary` further up,
+ * the URL now gets a real column and lands in two or three lines.
+ *
+ * The render site also carries a `title` with the full URL - cheap, and it means
+ * an owner can read the whole endpoint on hover without selecting the text. */
 .bn-table td code.bn-ep-code,
 .bn-settings-section .bn-ss-body table td code.bn-ep-code,
 code.bn-ep-code {
-	/* Outscores the slug rule above, which is .bn-table td code (0,1,2) and would
-	   otherwise keep this nowrap and run the URL off the card. */
 	white-space: normal;
 	overflow-wrap: anywhere;
-	word-break: break-all;
+	word-break: normal;
 }
