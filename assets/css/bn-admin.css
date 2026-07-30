@@ -3270,6 +3270,23 @@ button.bn-btn-danger:hover {
 	.bn-table:has(td.column-primary) tbody td.column-primary {
 		display: inline-block;
 		width: auto;
+		/* Never wider than the room left beside the checkbox, so the TEXT wraps
+		   inside this cell instead of the whole cell wrapping below the checkbox.
+		 *
+		 * Both the checkbox and this title are inline-blocks sharing one line (see
+		 * the rule above - the checkbox rides with the title rather than owning a
+		 * column). Without a cap, a title too wide for the remaining space wraps as
+		 * a UNIT onto the next line, so its left edge lands under the checkbox
+		 * instead of after it. Measured at 390px on the Spaces directory: a normal
+		 * row's title started at x=82, a long sub-space title at x=45 - the two
+		 * left edges the alignment card describes. Sub-spaces "hit it almost every
+		 * time" only because their names carry a parent prefix and are the longest
+		 * on the screen; any long name does it.
+		 *
+		 * 2.5rem covers the checkbox (~16px) plus its inline-end margin plus the
+		 * inline-block whitespace, with room to spare - erring generous costs a few
+		 * px of text width and guarantees the cell stays on line one. */
+		max-width: calc(100% - 2.5rem);
 		padding: 0;
 		border: 0;
 		font-weight: var(--bn-fw-semibold, 600);
