@@ -82,6 +82,15 @@ class RestHoldGateTest extends \WP_UnitTestCase {
 		);
 
 		update_option( 'buddynext_email_verify', true );
+
+		// Pin the enabled-at stamp into the past. Flipping the option above
+		// stamps enabled_at = time(), and the member was created moments
+		// earlier - so whenever the wall clock ticked between the two, the
+		// member's user_registered fell BEFORE enabled_at and the grandfather
+		// clause in is_verified() marked them verified: the hold never engaged
+		// and the 403 assertions flaked to 200 on a seconds boundary. A far
+		// past stamp makes every fixture member unambiguously post-enablement.
+		update_option( 'buddynext_email_verify_enabled_at', 1 );
 	}
 
 	/**
@@ -91,6 +100,7 @@ class RestHoldGateTest extends \WP_UnitTestCase {
 	 */
 	public function tear_down(): void {
 		delete_option( 'buddynext_email_verify' );
+		delete_option( 'buddynext_email_verify_enabled_at' );
 		delete_option( 'buddynext_verify_enforcement' );
 		remove_all_filters( 'buddynext_gate_unverified' );
 		remove_all_filters( 'buddynext_enforce_2fa_enrolment' );
