@@ -1998,7 +1998,9 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		if ( ! buddynext_service( 'permissions' )->can( $current_user, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+		// buddynext-own-space, not manage-space: the message already said "only the
+		// space owner", and manage-space now includes moderators.
+		if ( ! buddynext_service( 'permissions' )->can( $current_user, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'Only the space owner can transfer ownership.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 

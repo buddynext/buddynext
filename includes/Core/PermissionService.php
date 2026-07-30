@@ -65,9 +65,11 @@ class PermissionService {
 		'buddynext-moderation/review-queue' => 'moderator',
 		'buddynext-moderation/issue-strike' => 'moderator',
 		'buddynext-moderation/suspend-user' => 'admin',
-		// Space-scoped capabilities — resolved by can_moderate_space() / can_manage_space().
+		// Space-scoped capabilities — resolved by can_moderate_space() /
+		// can_manage_space() / can_own_space().
 		'buddynext-moderate-space'          => null,
 		'buddynext-manage-space'            => null,
+		'buddynext-own-space'               => null,
 	);
 
 	/**
@@ -144,6 +146,9 @@ class PermissionService {
 		} elseif ( 'buddynext-manage-space' === $capability ) {
 			$space_id = isset( $context['space_id'] ) ? (int) $context['space_id'] : 0;
 			$result   = $space_id > 0 && $this->can_manage_space( $user_id, $space_id );
+		} elseif ( 'buddynext-own-space' === $capability ) {
+			$space_id = isset( $context['space_id'] ) ? (int) $context['space_id'] : 0;
+			$result   = $space_id > 0 && $this->can_own_space( $user_id, $space_id );
 		} else {
 			$result = $this->passes_role_check( $user_id, $capability, $context );
 
@@ -226,13 +231,54 @@ class PermissionService {
 	/**
 	 * Determine whether a user may manage settings for a specific space.
 	 *
-	 * Only the space owner holds manage authority.
+	 * Owner OR moderator. Owner decision, 2026-07-30: "moderators have manage space,
+	 * they just cannot remove the owner or delete the space."
+	 *
+	 * This used to be owner-only, which put it in direct conflict with the two places
+	 * that build the space navigation — `SpaceNav` computed
+	 * `in_array( $role, array( 'owner', 'moderator' ) )` and `role_at_least(
+	 * 'moderator' )`. So a moderator was SHOWN the manage panel and its field tabs and
+	 * then refused by the capability layer when they used them. Whether that surfaced
+	 * as a dead control or a permission error depended on which layer the action went
+	 * through, which is why it tended to be reported as "the moderator role does not
+	 * work properly" rather than as a permissions bug.
+	 *
+	 * The two powers a moderator does NOT get are gated separately and deliberately
+	 * NOT folded in here — see can_own_space(). They were both riding this capability,
+	 * so widening it without splitting them first would have handed every moderator
+	 * space deletion and ownership transfer.
 	 *
 	 * @param int $user_id  WordPress user ID.
 	 * @param int $space_id Space ID.
 	 * @return bool
 	 */
 	public function can_manage_space( int $user_id, int $space_id ): bool {
+		return in_array( $this->get_space_role( $user_id, $space_id ), array( 'owner', 'moderator' ), true );
+	}
+
+	/**
+	 * Determine whether a user holds OWNER authority over a specific space.
+	 *
+	 * The two things a moderator must never do: delete the space, and change who owns
+	 * it. Both are irreversible from the moderator's side — a deleted space is gone,
+	 * and a transferred space can only be transferred back by whoever now owns it —
+	 * so they stay with the one member who cannot be removed from the space.
+	 *
+	 * Split out of can_manage_space() rather than layered on top of it: `delete()`,
+	 * `transfer_ownership()` and `assign_owner()` all checked `buddynext-manage-space`,
+	 * so the moment that capability included moderators these came with it. A separate
+	 * gate is also the honest shape — "can configure this space" and "owns this space"
+	 * are different questions, and conflating them is what produced the original
+	 * divergence.
+	 *
+	 * Removing the OWNER as a member is refused independently, in
+	 * SpaceController::remove_member() (`cannot_remove_owner`), and needs nothing here.
+	 *
+	 * @param int $user_id  WordPress user ID.
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	public function can_own_space( int $user_id, int $space_id ): bool {
 		return 'owner' === $this->get_space_role( $user_id, $space_id );
 	}
 

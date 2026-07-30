@@ -832,7 +832,9 @@ class SpaceService {
 		// User context: owner-only (or manage_options, via PermissionService's
 		// admin bypass). System context (actor null) intentionally skips this —
 		// used by succession and the CLI repair sweep.
-		if ( null !== $actor_id && ! buddynext_service( 'permissions' )->can( $actor_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+		// buddynext-own-space, not manage-space: the message below always said "only
+		// the space owner", and manage-space now includes moderators.
+		if ( null !== $actor_id && ! buddynext_service( 'permissions' )->can( $actor_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'Only the space owner can transfer ownership.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -1171,7 +1173,11 @@ class SpaceService {
 			return new WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ) );
 		}
 
-		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+		// OWNER-only, not manage-level. Moderators hold manage-space (owner decision
+		// 2026-07-30) but must never delete the space - a deleted space is gone, and a
+		// moderator cannot undo it. This checked buddynext-manage-space, so widening
+		// that capability to moderators would have granted deletion by side effect.
+		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to delete this space.', 'buddynext' ) );
 		}
 
