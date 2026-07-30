@@ -1483,6 +1483,34 @@ store( 'buddynext/post-card', {
 					// Picker is a single row (~52px) plus an 8px gap. Flip below when
 					// an upward picker would not clear the header band.
 					ctx.reactionPickerBelow = !! rect && ( rect.top - 60 ) < ( headerBottom + 4 );
+
+					// Clamp against the END edge, the other half of the same
+					// problem. The picker is pinned to its trigger's start edge
+					// on mobile, which fixes the START overflow but says nothing
+					// about the right: Pro sites can register custom reaction
+					// slugs, and a set well above the default 6 runs straight off
+					// a 375px screen. CSS alone cannot do this - the picker is
+					// absolutely positioned inside a narrow wrapper, so a
+					// viewport-relative max-width still starts wherever the
+					// trigger happens to sit. Measure after paint and shift it
+					// back by exactly the overrun, never past the start edge.
+					if ( rect ) {
+						const el = ref.parentElement
+							? ref.parentElement.querySelector( '.bn-post-card__emoji-picker' )
+							: null;
+						if ( el ) {
+							el.style.removeProperty( 'transform' );
+							requestAnimationFrame( () => {
+								const box    = el.getBoundingClientRect();
+								const gutter = 12;
+								const over   = box.right - ( window.innerWidth - gutter );
+								if ( over > 0 ) {
+									const shift = Math.min( over, Math.max( 0, box.left - gutter ) );
+									el.style.transform = 'translateX(-' + Math.round( shift ) + 'px)';
+								}
+							} );
+						}
+					}
 				} catch ( _e ) {
 					ctx.reactionPickerBelow = false;
 				}

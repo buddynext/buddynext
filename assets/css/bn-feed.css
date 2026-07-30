@@ -1450,15 +1450,32 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	at x=75 and the 258px picker rendering at left: -54px, cutting the first two
 	emoji off-screen entirely. Matching the breakpoint to the layout is the fix.
 
-	Note this is still position-based, not a true collision clamp: Pro can register
-	custom reaction slugs (post-actions.php consumes ReactionService::reaction_types())
-	which widen the picker arbitrarily. A shared clamp helper is the durable answer —
-	assets/js/admin/more-menu.js:38-56 already implements the full algorithm. */
+	Pinning alone is position-based, so it stops the START edge clipping but says
+	nothing about the END edge: Pro can register custom reaction slugs
+	(post-actions.php consumes ReactionService::reaction_types()) and a set well
+	above the default 6 runs straight off the right of a 375px screen. The width
+	cap below is the other half — it bounds the picker to the viewport whatever
+	the reaction count is, and lets the row wrap instead of extending off-screen.
+	Wrapping is why `white-space: nowrap` is cleared here: it is set on the base
+	rule to keep a single row on desktop, where there is room for one. */
 @media (max-width: 768px) {
 	.bn-post-card__emoji-picker {
 		inset-inline-start: 0;
 		inset-inline-end: auto;
 		transform: none;
+		/* width:max-content is load-bearing. The picker is absolutely positioned
+		   inside the narrow reaction-button wrapper, so its shrink-to-fit width
+		   resolves against THAT (~58px) rather than the screen: capping
+		   max-width alone made a 20-emoji set wrap into a one-per-row column.
+		   max-content asks for the full row it wants, and the cap below then
+		   clamps it to the screen, so it wraps into a tidy grid instead. */
+		width: max-content;
+		max-width: calc(100vw - (2 * var(--bn-s3)));
+		flex-wrap: wrap;
+		white-space: normal;
+		/* A very large custom set still cannot grow taller than the viewport. */
+		max-height: 40vh;
+		overflow-y: auto;
 	}
 }
 
