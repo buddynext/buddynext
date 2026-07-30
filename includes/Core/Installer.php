@@ -270,7 +270,7 @@ class Installer {
 	 *      overlapped pages until the PK tie-break was added. dbDelta ALTER-adds the KEY on
 	 *      upgrade; no data migration.
 	 */
-	private const SCHEMA_VERSION = 39;
+	private const SCHEMA_VERSION = 40;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -465,7 +465,47 @@ class Installer {
 		// backlog without touching a single post.
 		self::repair_space_content_visibility( $wpdb->prefix );
 
+		// v40: give already-declined pairs a decline stamp. The v38 upgrade
+		// ALTER-added bn_connections.declined_at as NULL and only NEW declines
+		// stamp it, so every pair declined BEFORE the upgrade kept a NULL — and
+		// the cooldown guard skips a NULL stamp. The members most likely to be
+		// re-requested were therefore the exact set the cooldown did not cover.
+		self::backfill_decline_stamps( $wpdb->prefix );
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Stamp legacy declined connections so the re-request cooldown covers them.
+	 *
+	 * Uses created_at as the stamp, deliberately. bn_connections has no
+	 * updated_at column, and created_at is refreshed every time a declined pair
+	 * is re-opened, so on a declined row it is the moment the declined request
+	 * was made — always at or BEFORE the decline itself.
+	 *
+	 * That direction is the safe one: the derived cooldown can only expire
+	 * earlier than the true one, never later, so the backfill can under-hold a
+	 * pair but can never invent a hold that traps someone. Stamping NOW()
+	 * instead would do exactly that — it would open a fresh 7-day window on
+	 * every historical decline at upgrade time, including declines from a year
+	 * ago that have long since expired.
+	 *
+	 * One UPDATE over rows that are already indexed by status; no per-user work.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function backfill_decline_stamps( string $prefix ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$prefix}bn_connections
+			 SET declined_at = created_at
+			 WHERE status = 'declined'
+			   AND declined_at IS NULL"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**

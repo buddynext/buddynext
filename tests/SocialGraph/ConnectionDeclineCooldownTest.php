@@ -212,4 +212,106 @@ class ConnectionDeclineCooldownTest extends \WP_UnitTestCase {
 
 		$this->assertNotWPError( $result, 'A zero cooldown still refused the request.' );
 	}
+
+	/**
+	 * A pair declined BEFORE the declined_at column existed must be covered too.
+	 *
+	 * The v38 upgrade added the column as NULL and only new declines stamp it,
+	 * so every historical decline kept a NULL — and the guard skips a NULL
+	 * stamp. The members most likely to be re-requested were exactly the ones
+	 * the cooldown did not cover. The tests that already passed all created
+	 * FRESH declines, which is the case that always worked.
+	 *
+	 * @return void
+	 */
+	public function test_a_legacy_decline_with_no_stamp_is_backfilled_and_held(): void {
+		global $wpdb;
+
+		$this->ask_and_get_declined();
+
+		// Recreate the pre-upgrade shape: declined, stamp never written, and the
+		// row created recently (created_at is what the backfill reads).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_connections
+				    SET declined_at = NULL, created_at = %s
+				  WHERE requester_id = %d AND recipient_id = %d",
+				gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ),
+				$this->asker,
+				$this->decliner
+			)
+		);
+
+		// Precondition: without the stamp the pair really is re-requestable —
+		// if this ever stops holding, the test below proves nothing.
+		$this->assertNotWPError(
+			buddynext_service( 'connections' )->send_request( $this->asker, $this->decliner, '', null ),
+			'Fixture is wrong: a NULL stamp already blocks, so the backfill is not what is being tested.'
+		);
+
+		// Put the row back into the legacy shape and run the upgrade path.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_connections
+				    SET status = 'declined', declined_at = NULL, created_at = %s
+				  WHERE requester_id = %d AND recipient_id = %d",
+				gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ),
+				$this->asker,
+				$this->decliner
+			)
+		);
+
+		delete_option( 'buddynext_schema_version' );
+		\BuddyNext\Core\Installer::maybe_upgrade();
+
+		$stamp = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT declined_at FROM {$wpdb->prefix}bn_connections
+				  WHERE requester_id = %d AND recipient_id = %d",
+				$this->asker,
+				$this->decliner
+			)
+		);
+		$this->assertNotNull( $stamp, 'The upgrade left a historical decline unstamped.' );
+
+		$result = buddynext_service( 'connections' )->send_request( $this->asker, $this->decliner, '', null );
+
+		$this->assertWPError( $result, 'A pair declined before the upgrade is still instantly re-requestable.' );
+		$this->assertSame( 'request_declined_recently', $result->get_error_code() );
+	}
+
+	/**
+	 * The backfill must not invent a hold. A decline old enough to have expired
+	 * stays expired — stamping NOW() at upgrade time would open a fresh window
+	 * on every historical decline, including year-old ones.
+	 *
+	 * @return void
+	 */
+	public function test_the_backfill_does_not_revive_an_expired_decline(): void {
+		global $wpdb;
+
+		$this->ask_and_get_declined();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_connections
+				    SET declined_at = NULL, created_at = %s
+				  WHERE requester_id = %d AND recipient_id = %d",
+				gmdate( 'Y-m-d H:i:s', time() - ( 400 * DAY_IN_SECONDS ) ),
+				$this->asker,
+				$this->decliner
+			)
+		);
+
+		delete_option( 'buddynext_schema_version' );
+		\BuddyNext\Core\Installer::maybe_upgrade();
+
+		$this->assertNotWPError(
+			buddynext_service( 'connections' )->send_request( $this->asker, $this->decliner, '', null ),
+			'The backfill re-armed a decline from over a year ago.'
+		);
+	}
 }
