@@ -301,6 +301,56 @@ final class CompanionInstaller {
 		if ( is_wp_error( $activated ) ) {
 			return $activated;
 		}
+
+		self::defuse_activation_redirect( $basename );
+
 		return true;
+	}
+
+	/**
+	 * Stop a freshly-activated companion from hijacking the setup wizard.
+	 *
+	 * Every plugin in this family sets a short-lived "just activated" transient
+	 * and redirects to its OWN wizard on the next admin page load. That is
+	 * correct when an owner activates it from the Plugins screen, and wrong when
+	 * WE activated it on their behalf from inside step 7 of our wizard: the
+	 * owner gets a wizard inside a wizard and never reaches step 8.
+	 *
+	 * Clearing the flag rather than passing $silent = true to activate_plugin()
+	 * is deliberate. Silent activation ALSO skips the plugin's own activation
+	 * hook, so its tables would never be created - a far worse bug than the one
+	 * being fixed. The plugin activates completely; only its redirect is
+	 * dropped.
+	 *
+	 * The map covers the companions this installer offers, since those are the
+	 * only plugins it activates. The filter lets a companion that changes its
+	 * key - or a site owner with their own - keep working.
+	 *
+	 * @param string $basename Plugin basename that was just activated.
+	 * @return void
+	 */
+	private static function defuse_activation_redirect( string $basename ): void {
+		$slug = strtok( $basename, '/' );
+
+		$map = array(
+			'jetonomy'        => array( 'jetonomy_activation_redirect' ),
+			'wpmediaverse'    => array( 'mvs_activation_redirect' ),
+			'wp-career-board' => array( 'wcb_activation_redirect' ),
+			'eventonomy'      => array( 'evnm_show_wizard_redirect' ),
+			'learnomy'        => array( 'learnomy_activation_redirect' ),
+		);
+
+		/**
+		 * Filter the "just activated, redirect me" transients cleared after the
+		 * setup wizard activates a companion.
+		 *
+		 * @param array<string, string[]> $map      Plugin slug => transient keys.
+		 * @param string                  $basename Plugin basename activated.
+		 */
+		$map = (array) apply_filters( 'buddynext_companion_activation_redirect_keys', $map, $basename );
+
+		foreach ( (array) ( $map[ $slug ] ?? array() ) as $transient ) {
+			delete_transient( (string) $transient );
+		}
 	}
 }
