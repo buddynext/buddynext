@@ -1018,6 +1018,23 @@ class WPMediaVerseBridge {
 	 * @param int[] $recipient_ids   Users who should receive the notification.
 	 */
 	public function on_message_sent( int $message_id, int $conversation_id, int $sender_id, array $recipient_ids ): void {
+		// No message, no notification. WPMediaVerse fires this hook with
+		// message_id 0 when a conversation is CREATED without an initial send
+		// (opening a compose window and picking a recipient), so the recipient
+		// was told "X sent you a message" for a message that does not exist -
+		// with an empty thread waiting behind it. Reproduced on 1.1.1: create a
+		// conversation, 0 rows in mvs_messages, one bn.new_message row carrying
+		// data {"message_id": 0}.
+		//
+		// The root-cause fire is fixed in WPMediaVerse, but this guard stays
+		// regardless: the bridge contract says BN validates what a partner
+		// hands it rather than trusting the payload, and any other messaging
+		// engine wired to this hook gets the same protection. It also keeps
+		// auto_flag() below from filing a moderation report against message 0.
+		if ( $message_id <= 0 ) {
+			return;
+		}
+
 		// The pre-send gate (moderate_dm_content) let a flagged message through and
 		// left its reason here; now that the message exists and has an ID, file the
 		// system report so it reaches the moderation queue. Cleared either way, so a
