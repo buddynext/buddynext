@@ -738,6 +738,35 @@
 	padding: var(--bn-s2, 8px) 0 var(--bn-s4, 16px);
 	margin-bottom: var(--bn-s4, 16px);
 	border-bottom: 1px solid var(--bn-line);
+	/* Wrap, because five items do not fit a phone and one of them was being cut in
+	   half against the viewport edge.
+	 *
+	 * At 390px this row holds the wordmark (123px), a version chip (59), a flexible
+	 * spacer, Search (96) and Docs (54) with 12px gaps, inside 368px of content
+	 * width. As `nowrap` it overflowed its own box by 13px and the Docs pill's right
+	 * edge landed at 391 against a 390 viewport, so it rendered flush and shaved.
+	 *
+	 * It did NOT produce a page scrollbar, and a card reporting one (every admin
+	 * screen, 15px at 390) does not reproduce: measured 0 across 390/600/782/783/
+	 * 800/1024 on Members, Moderation, Settings and Spaces. It cannot, either -
+	 * WordPress core sets `body { overflow-x: hidden }` inside
+	 * `@media (max-width: 782px)` (wp-admin/css/common.css), which is exactly the
+	 * range where this row overflows, so core clips it before it reaches the
+	 * document. Above 782 the row fits with 20px to spare and there is nothing to
+	 * clip. The visible defect was the clipped pill, not the scrollbar.
+	 *
+	 * Wrapping unconditionally rather than at a breakpoint: the row only ever wraps
+	 * when the items genuinely do not fit, so there is no width at which this
+	 * changes the desktop layout, and no second breakpoint to keep in sync with the
+	 * one core already owns. */
+	flex-wrap: wrap;
+}
+/* The wordmark is an <img> and will happily refuse to shrink below its intrinsic
+   width, which is what pushed the row over in the first place. */
+.bn-admin-hub__brand-logo {
+	max-width: 100%;
+	height: auto;
+	min-width: 0;
 }
 .bn-admin-hub__brand-mark {
 	width: 30px;
