@@ -117,6 +117,56 @@ class AssetService {
 	}
 
 	/**
+	 * Register the shared admin dialog helper (and the tokens it renders against)
+	 * on every admin screen.
+	 *
+	 * Registration only — nothing is emitted until a caller enqueues it, so this
+	 * costs an unvisited admin page nothing. The point is reachability: a handle
+	 * that is not registered cannot be depended on, and WordPress skips an
+	 * unknown dependency silently rather than erroring, so the failure shows up
+	 * as `window.bnConfirm is undefined` at runtime on a screen nobody tested.
+	 *
+	 * The token chain comes with it deliberately. bn-admin-dialogs.css is written
+	 * against --bn-* tokens; loading it without bn-base would render the modal
+	 * against unresolved var() fallbacks — a dialog with no surface colour is not
+	 * an improvement on window.confirm().
+	 *
+	 * @return void
+	 */
+	private function register_admin_dialogs(): void {
+		wp_register_style(
+			'bn-fonts',
+			$this->assets_url . 'css/bn-fonts.css',
+			array(),
+			self::VERSION
+		);
+
+		// The v2 --bn-* token source (canvas, ink, accent ramp, etc.). Without
+		// this the admin surface renders against unresolved aliases.
+		wp_register_style(
+			'bn-base',
+			$this->assets_url . 'css/bn-base.css',
+			array( 'bn-fonts' ),
+			self::VERSION
+		);
+
+		wp_register_style(
+			'bn-admin-dialogs',
+			$this->assets_url . 'css/bn-admin-dialogs.css',
+			array( 'bn-base' ),
+			self::VERSION
+		);
+		wp_register_script(
+			'bn-admin-dialogs',
+			$this->assets_url . 'js/admin/bn-admin-dialogs.js',
+			array( 'wp-i18n' ),
+			self::VERSION,
+			true
+		);
+		wp_set_script_translations( 'bn-admin-dialogs', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+	}
+
+	/**
 	 * Enqueue BuddyNext admin CSS on BuddyNext admin pages.
 	 *
 	 * Only fires when the current admin page slug contains 'buddynext'
@@ -126,26 +176,28 @@ class AssetService {
 	 * @return void
 	 */
 	public function enqueue_admin_assets( string $hook_suffix ): void {
+		// Register the shared dialog helper on EVERY admin screen, before the
+		// BuddyNext-page gate below.
+		//
+		// Registering costs nothing — no markup is emitted until something
+		// enqueues it — but it is what lets a surface OUTSIDE the BN admin
+		// declare `bn-admin-dialogs` as a dependency and actually get it.
+		// Without this the handle only existed on BN pages, so integration
+		// screens that render on a partner's admin page (the Learnomy
+		// community-link card sits on the Learnomy course/Space editor) could
+		// not depend on it: WordPress skips an unregistered dependency in
+		// silence, the script still loads, and `window.bnConfirm` is simply
+		// undefined at runtime. That is exactly why that card still used
+		// window.confirm()/alert() — the compliant option was unreachable
+		// from where it renders.
+		$this->register_admin_dialogs();
+
 		if ( false === strpos( $hook_suffix, 'buddynext' ) ) {
 			return;
 		}
 
-		wp_register_style(
-			'bn-fonts',
-			$this->assets_url . 'css/bn-fonts.css',
-			array(),
-			self::VERSION
-		);
-
-		// bn-admin.css depends on bn-base.css for the v2 --bn-* token
-		// source (canvas, ink, accent ramp, etc.). Without this, the admin
-		// surface renders against unresolved aliases.
-		wp_register_style(
-			'bn-base',
-			$this->assets_url . 'css/bn-base.css',
-			array( 'bn-fonts' ),
-			self::VERSION
-		);
+		// bn-fonts + bn-base (the --bn-* token source) are registered by
+		// register_admin_dialogs() above, which runs before the page gate.
 
 		// bn-admin.css holds tokens, shared components, and shared primitives.
 		// Page-specific blocks (members, email editor, nav manager) used to
@@ -162,21 +214,10 @@ class AssetService {
 		// Shared confirm-modal + toast helper — replaces browser
 		// confirm()/alert() across every BN admin surface. Loaded site-wide
 		// on BN admin so `data-bn-confirm` works regardless of which tab
-		// rendered the link/button/form.
-		wp_enqueue_style(
-			'bn-admin-dialogs',
-			$this->assets_url . 'css/bn-admin-dialogs.css',
-			array( 'bn-admin' ),
-			self::VERSION
-		);
-		wp_enqueue_script(
-			'bn-admin-dialogs',
-			$this->assets_url . 'js/admin/bn-admin-dialogs.js',
-			array( 'wp-i18n' ),
-			self::VERSION,
-			true
-		);
-		wp_set_script_translations( 'bn-admin-dialogs', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+		// rendered the link/button/form. Registration happens earlier (see
+		// register_admin_dialogs) so off-hub surfaces can depend on it too.
+		wp_enqueue_style( 'bn-admin-dialogs' );
+		wp_enqueue_script( 'bn-admin-dialogs' );
 
 		// Members admin (Members + Member Types + Profile Fields + Avatar
 		// Settings + Member Type Field). Lives at ?page=buddynext-members.
