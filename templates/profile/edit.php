@@ -527,12 +527,23 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						$bn_admin_default
 					);
 
-					$bn_privacy_html = $bn_privacy_select(
-						$bn_fkey . '__visibility',
-						$bn_admin_default,
-						$bn_current,
-						$bn_inp_id . '-vis'
-					);
+					// No privacy control for a field the member cannot fill in.
+					//
+					// Same reasoning as the required marker below, which was already
+					// gated on $bn_field_active: an inactive field renders "Not
+					// available on your current plan" instead of an input, so a
+					// "Who can see this field" selector beside it asks the member to
+					// choose an audience for a value they have no way to set. It also
+					// posted `<key>__visibility` on every save, writing a preference
+					// for a field that can hold nothing.
+					$bn_privacy_html = $bn_field_active
+						? $bn_privacy_select(
+							$bn_fkey . '__visibility',
+							$bn_admin_default,
+							$bn_current,
+							$bn_inp_id . '-vis'
+						)
+						: '';
 
 					// Required marker on the label (mirrors the hero's display-name field).
 					// A field the member cannot fill is never marked required of them -
@@ -564,7 +575,14 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					// `for` must be the id render_input() actually gave the control (see
 					// FieldType::input_id), and is omitted for the group types, which
 					// render a <fieldset> with no element carrying that id.
-					$bn_lbl_for    = \BuddyNext\Profile\FieldType::has_labelable_control( $bn_ftype )
+					//
+					// Also omitted when the field is INACTIVE: that path renders a
+					// paragraph instead of an input, so there is no element carrying the
+					// id and the label pointed at nothing. Measured on the edit form of a
+					// member whose plan excludes advanced fields, the gated field was the
+					// only dangling label on the page - so this is the locked state's
+					// doing, not a general template problem.
+					$bn_lbl_for    = ( $bn_field_active && \BuddyNext\Profile\FieldType::has_labelable_control( $bn_ftype ) )
 						? ' for="' . esc_attr( \BuddyNext\Profile\FieldType::input_id( $bn_fkey ) ) . '"'
 						: '';
 					$bn_body_html .= '<div class="bn-ep-field-head"><label class="bn-ep-label"' . $bn_lbl_for . '>' . esc_html( $bn_label ) . $bn_req_mark . '</label>' . $bn_privacy_html . '</div>';
