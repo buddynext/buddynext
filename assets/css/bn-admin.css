@@ -2918,8 +2918,60 @@ button.bn-btn-danger:hover {
    answer than a horizontally scrolling five-column table, so the scroll
    treatment above deliberately stops at core's own breakpoint and gets out of
    the way. A table only gets the stacked layout if its markup opts in with
-   column-primary / data-colname / .toggle-row; one that does not simply keeps
-   the desktop layout, which is why the rule above still has to exist. */
+   column-primary / data-colname / .toggle-row. */
+
+/* ── The gap between those two mechanisms ────────────────────────────────────
+   The paragraph above used to end "one that does not simply keeps the desktop
+   layout", and that was wrong in a way that clipped real screens: the desktop
+   rule lives inside `min-width: 783px`, so below 782px a table that opted into
+   nothing gets NO mechanism at all - it neither stacks nor scrolls, and its
+   right-hand columns are simply unreachable.
+
+   Measured at 390px on the moderation queues, which opt into neither:
+
+       Reports      5 columns   199px past the content column
+       Suspensions  4 columns    78px
+       Pending      5 columns    39px
+       Appeals      4 columns    37px
+
+   Page spill was 0 in every case, which is why a document-overflow check calls
+   this clean: the content column CLIPS the table rather than the page growing,
+   so the columns are lost silently. That is the worst failure mode - Dismiss,
+   Resolve, Remove and Suspend all live in the last column of the Reports queue.
+
+   So this is a floor, not a preference. Stacking into labelled cards is still
+   the better answer and opted-in tables still get it; this only guarantees that
+   a table which opted into nothing scrolls instead of losing its columns.
+
+   Excludes:
+     .wp-list-table          - rides core's own stacking
+     :has(td.column-primary) - opted in, gets the card layout below
+   and the wrapper reset below puts already-wrapped tables back, because giving
+   `display:block` to a table inside a scroll wrapper is what broke header
+   alignment when this rule was first attempted with a descendant selector. */
+@media screen and (max-width: 782px) {
+
+	.bn-admin-hub__content table.widefat:not(.wp-list-table):not(.form-table):not(:has(td.column-primary)),
+	.bn-admin-hub__content table.bn-table:not(.wp-list-table):not(:has(td.column-primary)) {
+		display: block;
+		overflow-x: auto;
+		max-width: 100%;
+		width: max-content;
+		table-layout: auto;
+	}
+
+	/* A table already inside a scroll wrapper scrolls via the wrapper; making it
+	   its own block scroller as well wraps its header row independently of its
+	   cells, which is the misalignment the desktop rule's comment describes. */
+	.bn-table-wrap__scroll > table:not(:has(td.column-primary)),
+	.bn-table-wrap__scroll > form > table:not(:has(td.column-primary)),
+	.bn-table-scroll > table:not(:has(td.column-primary)) {
+		display: table;
+		width: 100%;
+		max-width: none;
+	}
+
+} /* max-width: 782px safety net */
 
 /* ── Slug / identifier chips must not shatter ────────────────────────────────
    A <code> slug in a data table inherits overflow-wrap:anywhere from the admin
