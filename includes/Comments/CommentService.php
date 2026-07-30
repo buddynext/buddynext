@@ -752,16 +752,62 @@ class CommentService {
 		// ban, and treating it as one would let anyone silence anyone else
 		// anywhere simply by blocking them. InteractionGuard already refuses the
 		// case that does matter: engaging with the blocker's own post or comment.
+		/*
+		 * Resolved for the TOP-LEVEL page here, then topped up for descendants and
+		 * the pinned comment once those are known (see resolve_blocks below).
+		 *
+		 * The map has to cover every author actually rendered, not just the roots.
+		 * The first version of this built the map from $result['items'] only while
+		 * applying $should_hide() to descendants as well — so a blocked member
+		 * whose only comment on the page was a REPLY never entered the map and
+		 * their reply rendered. That was the card's own reproduction, and it passed
+		 * my test because the test asserted on top-level ids.
+		 */
 		$blocked_map = array();
-		if ( $viewer_id > 0 && ! $is_admin && function_exists( 'buddynext_service' ) ) {
-			$author_ids  = array_map(
+		// Ids already looked up. Tracked separately because blocking_either_map()
+		// returns ONLY blocked peers — an unblocked author is absent from the map,
+		// not present as false — so the map alone cannot tell "not blocked" from
+		// "not yet asked", and every call would re-query the same clean authors.
+		$blocks_resolved = array();
+
+		/**
+		 * Add any not-yet-resolved author ids to $blocked_map.
+		 *
+		 * Bound by reference so $should_hide() — defined once, below, but called
+		 * before AND after the descendants query — always reads the current map.
+		 * Only unknown ids are looked up, so the second call costs nothing when a
+		 * thread's repliers already appeared at top level.
+		 *
+		 * @param int[] $ids Author ids to resolve.
+		 */
+		$resolve_blocks = static function ( array $ids ) use ( &$blocked_map, &$blocks_resolved, $viewer_id, $is_admin ): void {
+			if ( $viewer_id <= 0 || $is_admin || ! function_exists( 'buddynext_service' ) ) {
+				return;
+			}
+
+			$unknown = array();
+			foreach ( $ids as $id ) {
+				$id = (int) $id;
+				if ( $id > 0 && ! isset( $blocks_resolved[ $id ] ) ) {
+					$unknown[ $id ] = true;
+				}
+			}
+			if ( empty( $unknown ) ) {
+				return;
+			}
+
+			$blocked_map    += buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, array_keys( $unknown ) );
+			$blocks_resolved = $blocks_resolved + $unknown;
+		};
+
+		$resolve_blocks(
+			array_map(
 				static fn( array $c ): int => (int) ( $c['user_id'] ?? 0 ),
 				(array) ( $result['items'] ?? array() )
-			);
-			$blocked_map = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $author_ids );
-		}
+			)
+		);
 
-		$should_hide = static function ( int $author_id ) use ( $restricted_ids, $viewer_id, $is_owner, $is_admin, $blocked_map ): bool {
+		$should_hide = static function ( int $author_id ) use ( $restricted_ids, $viewer_id, $is_owner, $is_admin, &$blocked_map ): bool {
 			if ( $author_id === $viewer_id ) {
 				return false; }     // never hide a comment from its own author
 			if ( isset( $blocked_map[ $author_id ] ) ) {
@@ -824,6 +870,18 @@ class CommentService {
 		// and attach their subtrees recursively up to the depth cap.
 		// Restricted commenters are dropped here so they never appear
 		// at any nesting depth either.
+		// Resolve blocks for the reply authors BEFORE filtering them. Without this
+		// a blocked member whose only comment on the page is a reply is absent from
+		// the map, $should_hide() returns false for them, and the reply renders —
+		// which is the exact case this card reported. One extra query at most, and
+		// none when every replier already appeared at top level.
+		$resolve_blocks(
+			array_map(
+				static fn( array $row ): int => (int) ( $row['user_id'] ?? 0 ),
+				$descendants
+			)
+		);
+
 		$children_by_parent = array();
 		foreach ( $descendants as $row ) {
 			if ( $should_hide( (int) $row['user_id'] ) ) {
@@ -892,7 +950,16 @@ class CommentService {
 
 			if ( ! $in_list ) {
 				$pinned = $this->get( $pinned_id );
+				// The pinned comment is fetched directly and prepended, so it
+				// bypassed every filter the paged rows go through — a blocked
+				// author's pinned comment was force-shown in the MOST prominent
+				// position on the thread. Run it through the same predicate; its
+				// author may not have appeared anywhere else on the page, so
+				// resolve them first.
 				if ( null !== $pinned ) {
+					$resolve_blocks( array( (int) ( $pinned['user_id'] ?? 0 ) ) );
+				}
+				if ( null !== $pinned && ! $should_hide( (int) ( $pinned['user_id'] ?? 0 ) ) ) {
 					$attach( $pinned, 1 );
 					$pinned['pinned'] = true;
 					array_unshift( $result['items'], $pinned );
