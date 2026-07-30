@@ -28,12 +28,30 @@
 	to   { opacity: 1; }
 }
 
+/* Component dimensions as tokens, not hand-picked numbers at the point of use.
+ *
+ * Type, spacing and radius in this file were already tokenised; these four were the
+ * remainder the card was pointing at. They are dimensions rather than scale values,
+ * so they get their own names here - the same pattern bn-admin.css already uses for
+ * --bn-a-control-max-w, --bn-a-table-search-w and --bn-a-page-max-w.
+ *
+ * Border widths (1px hairlines, the 2px focus outline, the 4px tone rail) stay
+ * literal: they are not on any scale, and a token per hairline would be indirection
+ * without a decision behind it. */
+.bn-dialog,
+.bn-toast {
+	--bn-dialog-max-w:  440px;
+	--bn-dialog-btn-h:  36px;
+	--bn-toast-min-w:   220px;
+	--bn-toast-max-w:   360px;
+}
+
 .bn-dialog {
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
 	box-shadow: var(--bn-shadow-lg);
-	max-width: 440px;
+	max-width: var(--bn-dialog-max-w);
 	width: 100%;
 	overflow: hidden;
 	display: flex;
@@ -82,7 +100,7 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-height: 36px;
+	min-height: var(--bn-dialog-btn-h);
 	padding: 0 var(--bn-s4);
 	font: inherit;
 	font-size: var(--bn-text-sm);
@@ -154,8 +172,8 @@
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s3);
-	min-width: 220px;
-	max-width: 360px;
+	min-width: var(--bn-toast-min-w);
+	max-width: var(--bn-toast-max-w);
 	padding: var(--bn-s3) var(--bn-s4);
 	background: var(--bn-surface);
 	color: var(--bn-ink);
