@@ -1326,6 +1326,10 @@ class ProfileService {
 		// fields; an anonymous viewer (viewer_id 0) may not.
 		$viewer_is_member = $viewer_id > 0 && ! $is_owner;
 
+		// How far up the visibility hierarchy this viewer can read, on the same scale
+		// visibility_rank() uses for fields. Resolved once here rather than per row.
+		$viewer_rank = self::viewer_visibility_rank( $viewer_is_member, $viewer_is_follower, $viewer_is_connection );
+
 		// Key on owner + member + follower + connection state so each distinct
 		// viewer relationship gets its own cache bucket (no cross-relationship
 		// leak). The member flag is REQUIRED: without it a logged-in stranger and
@@ -1441,19 +1445,26 @@ class ProfileService {
 						$effective_vis = $v;
 					}
 				}
-				if ( 'private' === $effective_vis ) {
-					continue;
-				}
-				// Reuse the relationship flags resolved once before the cache lookup
-				// — no per-row SQL. The cache key already captures each relationship.
-				if ( 'connections' === $effective_vis && ! $viewer_is_connection ) {
-					continue;
-				}
-				if ( 'followers' === $effective_vis && ! $viewer_is_follower ) {
-					continue;
-				}
-				// `members` = any logged-in viewer; deny only the anonymous public web.
-				if ( 'members' === $effective_vis && ! $viewer_is_member ) {
+				// ONE comparison against the viewer's rank, not one test per tier.
+				//
+				// This used to ask three independent questions - is it `connections` and
+				// are they a connection, is it `followers` and are they a follower, is it
+				// `members` and are they a member. Each tier only ever consulted its own
+				// flag, so standing HIGHER in the hierarchy did not grant what sits below
+				// it: a confirmed connection who had not also pressed Follow was refused
+				// followers-level fields. The closest relationship on the platform saw
+				// less than a looser one.
+				//
+				// visibility_rank() already encoded the intended order (private >
+				// connections > followers > members > public) and was already used to work
+				// out how restrictive the FIELD is; it simply was never used to work out
+				// what the VIEWER is entitled to. Ranking both sides makes the hierarchy
+				// cumulative by construction, and there is no longer a tier that can be
+				// added to the enum and silently miss a gate.
+				//
+				// `private` needs no separate check: it ranks 4 and a viewer can reach at
+				// most 3, so it always fails this comparison. The owner never gets here.
+				if ( self::visibility_rank( $effective_vis ) > $viewer_rank ) {
 					continue;
 				}
 			}
@@ -1704,10 +1715,13 @@ class ProfileService {
 
 				$fvis = (string) ( $vf['visibility'] ?? 'public' );
 				if ( ! $is_owner ) {
-					if ( 'private' === $fvis
-						|| ( 'connections' === $fvis && ! $viewer_is_connection )
-						|| ( 'followers' === $fvis && ! $viewer_is_follower )
-						|| ( 'members' === $fvis && ! $viewer_is_member ) ) {
+					// Same rank comparison the stored-field path uses. This carried its
+					// own copy of the per-tier checks, which meant a filter-registered
+					// virtual field had the identical hierarchy bug - a connection could
+					// not read a followers-tier virtual field either. Two copies of a
+					// gate is two places for it to be wrong; both now go through
+					// visibility_rank(), and `private` fails it automatically at rank 4.
+					if ( self::visibility_rank( $fvis ) > self::viewer_visibility_rank( $viewer_is_member, $viewer_is_follower, $viewer_is_connection ) ) {
 						continue;
 					}
 				}
@@ -2855,6 +2869,51 @@ class ProfileService {
 			},
 			(array) $rows
 		);
+	}
+
+	/**
+	 * How far up the visibility hierarchy a viewer can read.
+	 *
+	 * The counterpart to {@see self::visibility_rank()}: that one ranks how
+	 * restrictive a FIELD is, this one ranks what the VIEWER is entitled to, on the
+	 * same scale. A field is readable when its rank is not greater than the viewer's.
+	 *
+	 * Having only the first half is what caused the bug this replaced. The read path
+	 * asked one question per tier - "is it `followers` and are they a follower" -
+	 * which made each tier an independent gate instead of a level in a hierarchy, so
+	 * a confirmed connection was refused followers-tier fields. Ranking both sides
+	 * makes the hierarchy cumulative by construction: a new tier added to the enum
+	 * gets ordered once, here and in visibility_rank(), instead of needing a fresh
+	 * condition at every call site.
+	 *
+	 * Deliberately max() rather than an if/elseif ladder. Today a follower or a
+	 * connection is necessarily also logged in, so the flags nest - but nothing in
+	 * this class enforces that, and a ladder would silently return the wrong rank
+	 * the day they stop nesting.
+	 *
+	 * The owner is not represented here; callers short-circuit on ownership before
+	 * consulting a rank, because an owner reads their own `private` fields and
+	 * `private` is deliberately above every viewer rank.
+	 *
+	 * @param bool $viewer_is_member     Viewer is a logged-in non-owner.
+	 * @param bool $viewer_is_follower   Viewer follows the owner.
+	 * @param bool $viewer_is_connection Viewer is a confirmed connection of the owner.
+	 * @return int Highest visibility rank this viewer may read (0 = public only).
+	 */
+	private static function viewer_visibility_rank( bool $viewer_is_member, bool $viewer_is_follower, bool $viewer_is_connection ): int {
+		$rank = self::visibility_rank( 'public' );
+
+		if ( $viewer_is_member ) {
+			$rank = max( $rank, self::visibility_rank( 'members' ) );
+		}
+		if ( $viewer_is_follower ) {
+			$rank = max( $rank, self::visibility_rank( 'followers' ) );
+		}
+		if ( $viewer_is_connection ) {
+			$rank = max( $rank, self::visibility_rank( 'connections' ) );
+		}
+
+		return $rank;
 	}
 
 	/**
