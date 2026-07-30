@@ -357,6 +357,16 @@ class AdminHub {
 	private static array $tabs = array();
 
 	/**
+	 * Legacy page slugs mapped to the hub tab that replaced them.
+	 *
+	 * Keyed by the old `?page=` value; each entry is the section + tab to send it
+	 * to. Populated by register_tab()'s `legacy_page` arg.
+	 *
+	 * @var array<string, array{section:string, tab:string}>
+	 */
+	private static array $legacy_pages = array();
+
+	/**
 	 * Singleton instance.
 	 *
 	 * @var self|null
@@ -455,6 +465,10 @@ class AdminHub {
 	public function init(): void {
 		add_action( 'admin_menu', array( $this, 'build_menu' ), 9 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		// Send every registered legacy page slug to its hub tab. Priority 11 so it
+		// runs after the admin_menu pass that registers the tabs (and therefore
+		// their legacy_page declarations), but still before anything renders.
+		add_action( 'admin_init', array( $this, 'redirect_legacy_pages' ), 11 );
 		// Hide empty-label submenu rows (Pro legacy entries) via inline
 		// admin CSS — we can't `unset` them from $submenu because WP's
 		// permission check (`get_plugin_page_hook()`) walks that array
@@ -740,11 +754,15 @@ class AdminHub {
 	 *
 	 * Back-compat: passing a capability string as the 5th arg still works.
 	 *
-	 * @param string                                                                                                                                 $section Section key.
-	 * @param string                                                                                                                                 $slug    Tab slug — URL `?tab=` value.
-	 * @param string                                                                                                                                 $label   Visible tab label (already translated).
-	 * @param callable                                                                                                                               $render  Render callback for the tab body.
-	 * @param array{cap?:string,position?:int,badge?:callable,icon?:string,group?:string,layout?:string,subtitle?:string,action?:string}|string|null $args    Extension args, or capability string.
+	 * @param string                                                                                                                                                     $section Section key.
+	 * @param string                                                                                                                                                     $slug    Tab slug — URL `?tab=` value.
+	 * @param string                                                                                                                                                     $label   Visible tab label (already translated).
+	 * @param callable                                                                                                                                                   $render  Render callback for the tab body.
+	 *                     `legacy_page` names the standalone `?page=` slug this tab replaced. Declaring
+	 *                     it makes AdminHub forward that slug here — see redirect_legacy_pages() for why
+	 *                     that is a live flow fix and not just bookmark hygiene.
+	 *
+	 * @param array{cap?:string,position?:int,badge?:callable,icon?:string,group?:string,layout?:string,subtitle?:string,action?:string,legacy_page?:string}|string|null $args    Extension args, or capability string.
 	 * @return void
 	 */
 	public static function register_tab( string $section, string $slug, string $label, callable $render, array|string|null $args = null ): void {
@@ -792,6 +810,74 @@ class AdminHub {
 			'subtitle' => isset( $args['subtitle'] ) ? (string) $args['subtitle'] : '',
 			'action'   => isset( $args['action'] ) ? (string) $args['action'] : '',
 		);
+
+		// Claim the old standalone page slug, if this tab replaced one.
+		if ( ! empty( $args['legacy_page'] ) ) {
+			self::$legacy_pages[ (string) $args['legacy_page'] ] = array(
+				'section' => $section,
+				'tab'     => $slug,
+			);
+		}
+	}
+
+	/**
+	 * Send a legacy standalone admin page to the hub tab that replaced it.
+	 *
+	 * Every screen that moved into the hub kept its original `add_submenu_page()`
+	 * registration with an empty menu title, so old bookmarks would not 404. That
+	 * leaves the page reachable and rendering its body with NO hub chrome — no H1,
+	 * no sub-nav, no section header — which is not a stale-bookmark curiosity but
+	 * a live broken flow: 28 `admin_post_*` handlers across 10 Pro screens redirect
+	 * back to their own PAGE_SLUG when they finish, so saving a drip step, adding a
+	 * member label, running a bulk moderation action or removing a reaction all
+	 * dropped the owner out of the admin onto a bare page.
+	 *
+	 * AnalyticsAdmin solved this for itself with a private redirect_legacy_page()
+	 * on its own `load-` hook. The other fifteen registrars never got one, which is
+	 * the recurring shape of these bugs — a correct fix applied to the one screen
+	 * someone was looking at. Doing it here means the redirect exists once, covers
+	 * Free and Pro alike, and a screen gets it by declaring `legacy_page` at the
+	 * same moment it declares the tab. It also means the 28 handler redirects need
+	 * no edit at all: they still target PAGE_SLUG, and PAGE_SLUG now forwards.
+	 *
+	 * Every other query arg rides along, so the flash flags those handlers append
+	 * (`?success=1`, `?removed=1`, `?bnpro_tested=1`) still reach the tab body that
+	 * reads them.
+	 *
+	 * @return void
+	 */
+	public function redirect_legacy_pages(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- routing a GET request by its page slug; reads only, changes no state.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( (string) $_GET['page'] ) ) : '';
+		if ( '' === $page || ! isset( self::$legacy_pages[ $page ] ) ) {
+			return;
+		}
+
+		$target = self::$legacy_pages[ $page ];
+
+		// Carry every other arg through, so the flash flags the handlers append
+		// still reach the tab body that reads them. Scalars only: nothing here
+		// legitimately forwards an array, and refusing them keeps a crafted
+		// ?foo[]=bar out of add_query_arg().
+		$carry = wp_unslash( (array) $_GET );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		unset( $carry['page'], $carry['tab'] );
+		$extra = array_map( 'sanitize_text_field', array_filter( $carry, 'is_scalar' ) );
+
+		// tab_url() owns hub URL construction, including the IA placement remap that
+		// relocates a tab to the section it actually renders on — so a legacy page
+		// lands on the right section even when the map has moved its tab.
+		$url = self::tab_url( $target['section'], $target['tab'], $extra );
+
+		// An unknown section makes tab_url() return bare admin.php, which would be a
+		// silent dead end; and a target equal to the current request would bounce
+		// forever. Either way, better to render the legacy page than to break.
+		if ( admin_url( 'admin.php' ) === $url ) {
+			return;
+		}
+
+		wp_safe_redirect( $url );
+		exit;
 	}
 
 	/**
