@@ -1382,7 +1382,18 @@ a.bn-sh-statpill:focus-visible {
 	height: 80px;
 	border-radius: var(--bn-r-lg);
 	background: var(--bn-surface);
-	margin-block-start: calc(-1 * var(--bn-s8));
+	/* Half-overlap the cover with the same token the public hero emblem uses
+	   (.bn-sh-hero__emblem → -s12). At -s8 this avatar barely touched the
+	   banner while the hero straddled it — the two headers are meant to read
+	   as the same component.
+	   align-self: flex-start is load-bearing: the row is align-items:flex-end,
+	   under which a negative top margin only shrinks this item's line
+	   contribution and the visible overlap becomes a function of the INFO
+	   block's height (measured: 19px of the 48 showed). Anchoring the avatar
+	   to the row's top makes the pull-up exactly -s12 regardless of what its
+	   siblings measure. */
+	align-self: flex-start;
+	margin-block-start: calc(-1 * var(--bn-s12));
 	border: 4px solid var(--bn-surface);
 	box-shadow: var(--bn-shadow-md);
 	display: inline-flex;
