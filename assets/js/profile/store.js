@@ -14,6 +14,53 @@ let I18N = {};
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%[sd]/g, () => String( vals[ i++ ] ?? '' ) ); }
 
+/* -- Two-factor enrolment QR -------------------------------------------- */
+/* The setup endpoint already returns a complete otpauth:// provisioning URI -
+ * the exact string a QR encodes - so only the rendering was missing, and a
+ * member on a laptop with their authenticator on their phone (the normal case)
+ * had to transcribe 32 characters by eye.
+ *
+ * The encoder is imported dynamically so its 52KB is fetched when a member
+ * actually opens enrolment, not on every profile page view. It is vendored
+ * rather than pulled from a CDN: enrolling in two-factor must not depend on a
+ * third-party host, and the plugin has to work on a site with no outbound
+ * access.
+ *
+ * Rendered as an inline SVG rather than <img src="data:...">, because a CSP
+ * that forbids data: image sources would otherwise silently show a broken
+ * image on a security screen. If anything here fails the panel is unchanged -
+ * the setup key and the otpauth link are still on screen, so enrolment never
+ * depends on the QR succeeding.
+ */
+async function renderTwofaQr( uri ) {
+	const host = document.querySelector( '[data-bn-2fa-qr]' );
+	if ( ! host || ! uri ) { return; }
+
+	host.replaceChildren();
+
+	try {
+		const { default: qrcode } = await import( '@buddynext/qrcode' );
+		// Type 0 = pick the smallest version that fits. 'M' is the level
+		// authenticator apps expect and tolerates a phone camera at an angle.
+		const qr = qrcode( 0, 'M' );
+		qr.addData( uri );
+		qr.make();
+
+		// createSvgTag returns a self-contained <svg>; scalable means it stays
+		// crisp at any size and inherits the surface colour behind it.
+		host.innerHTML = qr.createSvgTag( { scalable: true, margin: 1 } );
+		const svg = host.querySelector( 'svg' );
+		if ( svg ) {
+			svg.setAttribute( 'role', 'img' );
+			svg.setAttribute( 'aria-label', t( 'twofaQrAlt', 'QR code for your authenticator app' ) );
+		}
+		host.hidden = false;
+	} catch ( _e ) {
+		// Leave the panel exactly as it was: setup key + otpauth link.
+		host.hidden = true;
+	}
+}
+
 /* -- Shared helpers ----------------------------------------------------- */
 
 var slugTimer = null;
@@ -2389,6 +2436,7 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.twofaUri = json.otpauth_uri || '';
 					ctx.twofaCode = '';
 					ctx.twofaStage = 'setup';
+					renderTwofaQr( ctx.twofaUri );
 				} else {
 					bnToast( ( json && json.message ) || t( 'twofaSetupFailed', 'Could not start setup. Try again.' ), { tone: 'danger' } );
 				}

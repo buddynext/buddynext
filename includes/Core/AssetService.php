@@ -515,6 +515,21 @@ class AssetService {
 			$this->module_version( 'js/shell/rest-client.js' )
 		);
 
+		// `@buddynext/qrcode` — vendored QR encoder (qrcode-generator, MIT), used
+		// by the two-factor enrolment panel to render the otpauth:// provisioning
+		// URI as something a phone camera can read.
+		//
+		// Vendored rather than loaded from a CDN, deliberately: a member enrolling
+		// in two-factor must not depend on a third-party host being reachable, and
+		// the plugin has to work on a site with no outbound access. Same policy
+		// libs/ follows for PHP. Provenance is recorded in assets/js/vendor/README.md.
+		wp_register_script_module(
+			'@buddynext/qrcode',
+			$this->assets_url . 'js/vendor/qrcode.js',
+			array(),
+			$this->module_version( 'js/vendor/qrcode.js' )
+		);
+
 		// `@buddynext/nav-init` exposes onNavReady() — the uniform init binder
 		// every store uses so imperative setup re-runs after a client-side
 		// navigation (buddynext:navigated), not only on DOMContentLoaded.
@@ -603,6 +618,15 @@ class AssetService {
 			if ( '@buddynext/feed' === $id ) {
 				$deps[] = array(
 					'id'     => '@wordpress/interactivity-router',
+					'import' => 'dynamic',
+				);
+			}
+			// The profile store renders the two-factor enrolment QR. Declared
+			// dynamic so the 52KB encoder is fetched only when a member actually
+			// opens enrolment, not on every profile page view.
+			if ( '@buddynext/profile' === $id ) {
+				$deps[] = array(
+					'id'     => '@buddynext/qrcode',
 					'import' => 'dynamic',
 				);
 			}
@@ -1358,6 +1382,7 @@ class AssetService {
 					'twofaCodeMismatch'        => __( 'That code did not match.', 'buddynext' ),
 					'somethingWentWrong'       => __( 'Something went wrong. Try again.', 'buddynext' ),
 					'twofaOn'                  => __( 'Two-factor authentication is on.', 'buddynext' ),
+					'twofaQrAlt'               => __( 'QR code for your authenticator app', 'buddynext' ),
 					'enterPassword'            => __( 'Enter your password.', 'buddynext' ),
 					'twofaRegenFailed'         => __( 'Could not regenerate codes.', 'buddynext' ),
 					'twofaOff'                 => __( 'Two-factor authentication is off.', 'buddynext' ),

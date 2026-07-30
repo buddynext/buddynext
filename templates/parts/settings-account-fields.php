@@ -185,7 +185,15 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 
 			<?php /* Stage: enrolling — show secret + confirm a code. */ ?>
 			<div class="bn-2fa-stage" data-wp-bind--hidden="!state.twofaShowSetup">
-				<p class="bn-2fa-desc"><?php esc_html_e( 'In your authenticator app, add an account by entering this setup key:', 'buddynext' ); ?></p>
+				<p class="bn-2fa-desc"><?php esc_html_e( 'Scan this with your authenticator app:', 'buddynext' ); ?></p>
+				<?php
+				// Filled by profile/store.js once setup returns the provisioning
+				// URI. Starts hidden so nothing empty renders if the encoder
+				// fails to load - the setup key below is always the fallback,
+				// so enrolment never depends on the QR.
+				?>
+				<div class="bn-2fa-qr" data-bn-2fa-qr hidden></div>
+				<p class="bn-2fa-desc"><?php esc_html_e( 'Cannot scan? Enter this setup key by hand instead:', 'buddynext' ); ?></p>
 				<code class="bn-2fa-secret" data-wp-text="context.twofaSecret"></code>
 				<p class="bn-2fa-desc"><a data-wp-bind--href="context.twofaUri"><?php esc_html_e( 'Or tap here on your phone to add it automatically.', 'buddynext' ); ?></a></p>
 				<div class="bn-ep-field bn-ep-field--full">

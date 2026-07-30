@@ -3013,6 +3013,35 @@ a.bn-space-row:hover .bn-space-name {
 	line-height: 1.5;
 }
 
+/* Two-factor enrolment QR. The encoder emits a scalable <svg>, so the size is
+   set here rather than baked into the image. 168px is comfortably above the
+   ~2cm a phone camera needs at arm's length from a laptop screen.
+
+   The white plate is deliberate and not decoration: scanners need a light
+   quiet zone around the pattern, and in dark mode the surface behind it is
+   near-black, so an unplated QR would not scan at all. */
+.bn-2fa-qr {
+	display: inline-block;
+	width: 168px;
+	max-width: 100%;
+	padding: var(--bn-s2);
+	margin-block-end: var(--bn-s3);
+	background: #fff;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	line-height: 0;
+}
+
+.bn-2fa-qr svg {
+	width: 100%;
+	height: auto;
+	display: block;
+	/* The encoder colours modules with `fill`; pin it black against the plate
+	   so a themed --bn-ink cannot lower the contrast a scanner depends on. */
+	fill: #000;
+	shape-rendering: crispEdges;
+}
+
 .bn-2fa-secret {
 	display: inline-block;
 	font-family: var(--bn-font-mono);
