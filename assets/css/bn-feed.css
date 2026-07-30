@@ -619,6 +619,55 @@
 	margin: var(--bn-s3) 0 0;
 	border-radius: var(--bn-r-md);
 	overflow: hidden;
+	/* Anchor for the fallback layer below. */
+	position: relative;
+}
+
+/* Fallback backdrop BEHIND the player (see post-body.php). A blocked embed
+   leaves a transparent iframe over the reserved box; this layer shows through
+   it so the member sees a designed state with the original link instead of a
+   blank void. A working player stacks above and covers it entirely. */
+.bn-post-card__oembed-fallback {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s4);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	text-align: center;
+	text-decoration: none;
+}
+
+.bn-post-card__oembed-fallback svg {
+	width: var(--bn-s8);
+	height: var(--bn-s8);
+}
+
+.bn-post-card__oembed iframe:not( .wp-embedded-content ),
+.bn-post-card__oembed video {
+	position: relative;
+	z-index: 1;
+}
+
+/* Reign / FitVids double-reservation: FitVids wraps the iframe in
+   .fluid-width-video-wrapper and reserves height with an INLINE padding-top
+   while our rule below reserves it again via aspect-ratio - two stacked
+   reservations, one blank. The inline style is why these need !important;
+   with the wrapper neutralised, aspect-ratio is the single source of height. */
+.bn-post-card__oembed .fluid-width-video-wrapper {
+	padding: 0 !important;
+	position: static !important;
+	width: auto !important;
+}
+
+.bn-post-card__oembed .fluid-width-video-wrapper iframe {
+	position: relative !important;
 }
 
 .bn-post-card__oembed iframe:not( .wp-embedded-content ),

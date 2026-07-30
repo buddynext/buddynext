@@ -167,6 +167,29 @@ do_action( 'buddynext_part_post_body_before', $args );
 		if ( '' !== $bn_oembed ) :
 			?>
 			<div class="bn-post-card__embed bn-post-card__oembed">
+				<?php
+				// Fallback layer BEHIND the player. A blocked embed (ad blocker,
+				// offline, blocked network request) leaves a TRANSPARENT iframe over
+				// the reserved 16/9 box, so the member saw a large blank void.
+				// Detection is not possible client-side - a cross-origin iframe
+				// fires load, never error, even when its request was blocked - so
+				// instead of detecting, the box carries a designed backdrop: a
+				// working player paints over it completely; a failed one lets it
+				// show through, giving the member the original link instead of
+				// nothing. Deleted/region-locked videos render the provider's own
+				// error UI and never reach this layer.
+				?>
+				<a
+					class="bn-post-card__oembed-fallback"
+					href="<?php echo esc_url( $bn_link_url ); ?>"
+					target="_blank"
+					rel="noopener noreferrer"
+					tabindex="-1"
+					aria-hidden="true"
+				>
+					<?php echo \BuddyNext\Core\IconService::render( 'play' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					<span><?php esc_html_e( 'Video did not load — watch it on the original site', 'buddynext' ); ?></span>
+				</a>
 				<?php echo $bn_oembed; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress oEmbed HTML from the registered-provider allowlist. ?>
 			</div>
 		<?php elseif ( '' !== $bn_link_url ) : ?>
