@@ -448,6 +448,16 @@ class Plugin {
 		// Bust per-viewer follow- + space-suggestion caches on interest edits.
 		( new InterestListener() )->register();
 
+		// Site tracking: a member publishing a post gets a feed card, the way a
+		// WordPress community expects. Gated at fire time on the 'blog'
+		// integration toggle, so registering the listener costs nothing.
+		( new \BuddyNext\Feed\BlogPostListener() )->register();
+
+		// One article, one conversation: comments left on the post and on its
+		// feed card mirror each other, so members are not split into two
+		// discussions of the same piece depending on where they were standing.
+		( new \BuddyNext\Feed\BlogCommentSync() )->register();
+
 		// Wire the WordPress Privacy Tools integration so Tools → Export/Erase
 		// Personal Data covers BuddyNext's custom tables and bn_* user meta.
 		// Registered unconditionally — admin GDPR/CCPA compliance must always work.

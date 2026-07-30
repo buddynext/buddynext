@@ -112,20 +112,51 @@ class IntegrationActivity {
 					// site's default-post-privacy option, which may be blank.
 					'privacy'   => 'public',
 					'link_url'  => $link_url,
-					'link_meta' => array_merge(
-						array(
-							'title'       => $link_title,
-							'description' => $excerpt,
-							'image'       => '',
-							'url'         => $link_url,
-						),
-						$meta
+					'link_meta' => self::normalise_link_meta(
+						array_merge(
+							array(
+								'title'       => $link_title,
+								'description' => $excerpt,
+								'image'       => '',
+								'url'         => $link_url,
+							),
+							$meta
+						)
 					),
 				)
 			);
 		} finally {
 			self::$system_publish = false;
 		}
+	}
+
+	/**
+	 * Reconcile the two names this payload has had for its cover image.
+	 *
+	 * A silent key mismatch, and it cost every bridge its cover art: this class
+	 * has always written `image`, while the thing that RENDERS the card reads
+	 * `thumbnail` (templates/partials/post-card.php, both the inline preview and
+	 * the Explore cover) because that is the key PostService::fetch_og_meta()
+	 * produces for an ordinary shared link. So an integration could set a
+	 * perfectly good image and the card would render without one, with nothing
+	 * anywhere reporting a problem.
+	 *
+	 * Both keys are kept in sync rather than one being renamed, because cards
+	 * already written carry `image` and anything reading either name has to keep
+	 * working. Whichever a caller supplies, both come out populated.
+	 *
+	 * @param array<string, mixed> $meta Link meta being written.
+	 * @return array<string, mixed>
+	 */
+	private static function normalise_link_meta( array $meta ): array {
+		$image     = isset( $meta['image'] ) ? (string) $meta['image'] : '';
+		$thumbnail = isset( $meta['thumbnail'] ) ? (string) $meta['thumbnail'] : '';
+		$resolved  = '' !== $thumbnail ? $thumbnail : $image;
+
+		$meta['image']     = $resolved;
+		$meta['thumbnail'] = $resolved;
+
+		return $meta;
 	}
 
 	/**

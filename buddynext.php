@@ -1483,6 +1483,13 @@ function buddynext_explore_card_kind( array $post ): string {
 		return 'post-media';
 	}
 
+	// A published article. It carries a headline, an excerpt and usually a
+	// featured image, so rendering it as a plain text teaser (which is what it
+	// got before) throws away everything that makes it worth clicking.
+	if ( 'article' === $type ) {
+		return 'post-article';
+	}
+
 	// Discussion / forum posts (e.g. the Jetonomy bridge publishes synced
 	// threads as type 'discussion') get the tinted thread treatment.
 	if ( 'discussion' === $type || 'forum_post' === $type || 'forum' === $type ) {

@@ -56,6 +56,11 @@ class PostService {
 		'listing',
 		'course',
 		'badge',
+		// A member publishing a post on the site. Its own type rather than the
+		// generic 'link' - per the bridge contract, so Explore and the feed can
+		// classify it, and so it renders as an article card instead of a bare
+		// URL row. See Feed\BlogPostListener.
+		'article',
 	);
 
 	/**

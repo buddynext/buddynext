@@ -206,6 +206,21 @@
 .ec-img-glyph { display: inline-flex; }
 .ec-img-glyph svg { width: 32px; height: 32px; opacity: 0.9; }
 
+/* Article excerpt. Only the article card carries one — it is the difference
+   between a headline you have to trust and a headline you can judge — and it
+   is clamped so a long standfirst cannot push the author row out of the tile
+   and break the grid's rhythm. */
+.ec-excerpt {
+	margin: 0;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-body);
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
 /* Body */
 .ec-body {
 	display: flex;

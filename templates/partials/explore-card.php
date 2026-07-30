@@ -359,6 +359,48 @@ if ( 'post-forum' === $bn_kind ) :
 	return;
 endif;
 
+// ── post-article: a published article (cover + headline + excerpt) ──────────
+if ( 'post-article' === $bn_kind ) :
+	$bn_art_cover = is_array( $bn_link_meta )
+		? trim( (string) ( $bn_link_meta['thumbnail'] ?? $bn_link_meta['image'] ?? '' ) )
+		: '';
+	$bn_art_url   = is_array( $bn_link_meta ) ? trim( (string) ( $bn_link_meta['url'] ?? '' ) ) : '';
+	// The article itself is the destination; the card is only how it is
+	// announced, so every link here goes to the piece rather than the activity.
+	$bn_art_href  = '' !== $bn_art_url ? $bn_art_url : $bn_purl;
+	$bn_art_title = '' !== $bn_link_title ? $bn_link_title : $bn_headline;
+	$bn_art_tone  = bn_explore_tone( $bn_pid, $bn_palette );
+	?>
+	<article class="ec-card is-article" data-kind="post-article">
+		<a class="ec-img" href="<?php echo esc_url( $bn_art_href ); ?>" data-tone="<?php echo esc_attr( $bn_art_tone ); ?>">
+			<?php if ( '' !== $bn_art_cover ) : ?>
+				<img src="<?php echo esc_url( $bn_art_cover ); ?>" alt="<?php echo esc_attr( $bn_art_title ); ?>" loading="lazy" decoding="async">
+			<?php else : ?>
+				<span class="ec-img-glyph" aria-hidden="true"><?php buddynext_icon( 'file-text' ); ?></span>
+			<?php endif; ?>
+		</a>
+		<div class="ec-body">
+			<div class="ec-kicker">
+				<?php
+				echo '' !== $bn_kicker
+					/* translators: %s: hashtag. */
+					? esc_html( sprintf( __( 'Article · %s', 'buddynext' ), $bn_kicker ) )
+					: esc_html__( 'Article', 'buddynext' );
+				?>
+			</div>
+			<?php if ( '' !== $bn_art_title ) : ?>
+				<a class="ec-title" href="<?php echo esc_url( $bn_art_href ); ?>"><?php echo esc_html( wp_trim_words( $bn_art_title, 14, '…' ) ); ?></a>
+			<?php endif; ?>
+			<?php if ( '' !== $bn_link_desc ) : ?>
+				<p class="ec-excerpt"><?php echo esc_html( wp_trim_words( $bn_link_desc, 20, '…' ) ); ?></p>
+			<?php endif; ?>
+			<?php $bn_render_foot( $bn_av, $bn_atone, $bn_aname, $bn_aurl, $bn_reactions, $bn_comments ); ?>
+		</div>
+	</article>
+	<?php
+	return;
+endif;
+
 // ── post-media: image card (cover thumbnail + caption) ──────────────────────
 if ( 'post-media' === $bn_kind ) :
 	$bn_cover = '';

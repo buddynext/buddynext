@@ -810,6 +810,104 @@
 }
 
 /* Bridge cards: media, discussion, job. */
+/* ── Article card (site tracking) ───────────────────────────────────────────
+   A member publishing a post is first-class community content on a platform
+   people came to for blogging, so it gets a real card - cover, headline,
+   excerpt - rather than the compact bridge row used for partner links. The
+   whole card is one anchor, so the entire surface is the tap target. */
+.bn-post-card__article {
+	display: block;
+	margin-block-start: var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	overflow: hidden;
+	background: var(--bn-surface);
+	text-decoration: none;
+	color: inherit;
+	transition: border-color var(--bn-dur, 0.14s) var(--bn-ease, ease);
+}
+
+.bn-post-card__article:hover,
+.bn-post-card__article:focus-visible {
+	border-color: var(--bn-accent);
+}
+
+.bn-post-card__article-cover {
+	display: block;
+	aspect-ratio: 16 / 9;
+	/* Capped, like the oembed box above. At a desktop column width a pure 16/9
+	   cover is ~415px - 46% of the viewport - so the headline and excerpt, the
+	   things that make the article worth opening, get pushed under the fold by
+	   its own picture. object-fit crops rather than squashes. */
+	max-height: 20rem;
+	background: var(--bn-sunken);
+}
+
+.bn-post-card__article-cover img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.bn-post-card__article-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	padding: var(--bn-s3) var(--bn-s4) var(--bn-s4);
+}
+
+.bn-post-card__article-kicker {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
+	text-transform: uppercase;
+	letter-spacing: var(--bn-ls-wide, 0.04em);
+}
+
+.bn-post-card__article-kicker svg {
+	width: 14px;
+	height: 14px;
+}
+
+.bn-post-card__article-title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-md);
+	font-weight: var(--bn-fw-bold);
+	line-height: var(--bn-leading-snug);
+	color: var(--bn-ink);
+	/* Two lines maximum: a long headline must not push the excerpt and the
+	   post's own actions off the fold. */
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.bn-post-card__article-excerpt {
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-body);
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.bn-post-card__article-meta {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+
+@media (max-width: 640px) {
+	.bn-post-card__article-body {
+		padding: var(--bn-s3);
+	}
+}
+
 .bn-post-card__bridge-card {
 	display: flex;
 	gap: var(--bn-s3);
