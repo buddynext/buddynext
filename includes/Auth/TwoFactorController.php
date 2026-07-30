@@ -132,6 +132,26 @@ class TwoFactorController {
 				'enabled'          => TwoFactorService::is_enabled( $user_id ),
 				'required'         => TwoFactorService::is_required_for( $user ),
 				'backup_remaining' => TwoFactorService::backup_codes_remaining( $user_id ),
+
+				// Which second factors this member can actually complete a challenge
+				// with, and where to do it. Without these the email fallback was
+				// undiscoverable: it has been implemented and working since the login
+				// guard shipped, but nothing in any response mentioned it, so a client
+				// could only find it by reading PHP.
+				//
+				// That is not a hypothetical. QA reported email 2FA as "still 404, all
+				// three routes missing" after probing /account/2fa/request-code,
+				// /account/2fa/verify and /account/2fa/send-code - none of which have
+				// ever existed. The real routes live under /auth/ because requesting and
+				// submitting a code happen DURING a login challenge, when there is no
+				// authenticated session yet and /account/* is unreachable by definition.
+				// Naming them here is what stops that conclusion being drawn again.
+				'methods'          => TwoFactorService::available_methods( $user_id ),
+				'email_fallback'   => TwoFactorService::email_fallback_available( $user_id ),
+				'challenge'        => array(
+					'request_email_code' => rest_url( 'buddynext/v1/auth/2fa/email-code' ),
+					'submit_code'        => rest_url( 'buddynext/v1/auth/2fa' ),
+				),
 			),
 			200
 		);

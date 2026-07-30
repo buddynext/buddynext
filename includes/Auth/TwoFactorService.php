@@ -330,6 +330,56 @@ class TwoFactorService {
 	/* ──────────────────────── Email fallback code ──────────────────────── */
 
 	/**
+	 * Can this member complete a challenge with an emailed code?
+	 *
+	 * The only requirement send_email_code() has is an address to send to, so that is
+	 * the only thing checked here - deliberately the same condition, not a second
+	 * opinion about it. There is no owner toggle for the email fallback: it exists so
+	 * a member who has lost their authenticator still has a way in, and making that
+	 * switchable would mean a site could lock its own members out permanently.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function email_fallback_available( int $user_id ): bool {
+		$user = get_userdata( $user_id );
+
+		return $user instanceof \WP_User && '' !== trim( (string) $user->user_email );
+	}
+
+	/**
+	 * The second factors this member can actually complete a challenge with.
+	 *
+	 * Reported by GET /account/2fa so a client can render the right options instead of
+	 * guessing. Order is the order to offer them in: the authenticator first because it
+	 * is the one the member deliberately set up, then the codes they were told to keep,
+	 * then the fallback that needs no preparation.
+	 *
+	 * Returns an empty list when 2FA is off - there is no challenge to complete, and
+	 * saying "email" there would advertise a factor that leads nowhere.
+	 *
+	 * @param int $user_id User ID.
+	 * @return array<int,string> Method slugs: totp, backup, email.
+	 */
+	public static function available_methods( int $user_id ): array {
+		if ( ! self::is_enabled( $user_id ) ) {
+			return array();
+		}
+
+		$methods = array( 'totp' );
+
+		if ( self::backup_codes_remaining( $user_id ) > 0 ) {
+			$methods[] = 'backup';
+		}
+
+		if ( self::email_fallback_available( $user_id ) ) {
+			$methods[] = 'email';
+		}
+
+		return $methods;
+	}
+
+	/**
 	 * Generate a one-time numeric code, store it hashed, and email it to the user.
 	 *
 	 * @param int $user_id User ID.
