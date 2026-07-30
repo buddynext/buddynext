@@ -161,6 +161,94 @@ class SpaceModeratorManageTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The owner can promote a member to moderator, and demote them again.
+	 *
+	 * This is the promotion path the members screen drives (PUT
+	 * /spaces/{id}/members/{user}/role).
+	 */
+	public function test_owner_promotes_and_demotes_a_moderator(): void {
+		$promoted = $this->members->change_role( $this->space_id, $this->member_id, 'moderator', $this->owner_id );
+		$this->assertNotWPError( $promoted );
+		$this->assertSame( 'moderator', $this->members->get_role( $this->space_id, $this->member_id ) );
+
+		$demoted = $this->members->change_role( $this->space_id, $this->member_id, 'member', $this->owner_id );
+		$this->assertNotWPError( $demoted );
+		$this->assertSame( 'member', $this->members->get_role( $this->space_id, $this->member_id ) );
+	}
+
+	/**
+	 * A moderator cannot change roles — not even their own.
+	 *
+	 * Matches the members screen, which computes its role control as owner-or-site-admin.
+	 * A moderator who could appoint moderators could staff the space with allies, and
+	 * one who could demote peers could clear the room.
+	 */
+	public function test_moderator_cannot_change_roles(): void {
+		$result = $this->members->change_role( $this->space_id, $this->member_id, 'moderator', $this->moderator_id );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'forbidden', $result->get_error_code() );
+		$this->assertSame( 'member', $this->members->get_role( $this->space_id, $this->member_id ), 'the target role must not have moved' );
+	}
+
+	/**
+	 * The owner cannot demote THEMSELVES through change_role(), which would strand the
+	 * space with no one able to manage it.
+	 *
+	 * Reproduced before the guard existed: this succeeded, leaving zero rows with
+	 * role='owner' while bn_spaces.owner_id still named the ex-owner. Every space gate
+	 * resolves through get_role(), which reads bn_space_members - so that member
+	 * instantly lost both manage-space and own-space, and the space could no longer be
+	 * managed, deleted or transferred by anyone short of a site admin. One click from
+	 * the members screen, permanently.
+	 */
+	public function test_owner_cannot_demote_themselves_and_strand_the_space(): void {
+		global $wpdb;
+
+		$result = $this->members->change_role( $this->space_id, $this->owner_id, 'member', $this->owner_id );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'cannot_change_owner_role', $result->get_error_code() );
+
+		// The two records of ownership must still agree.
+		$this->assertSame( 'owner', $this->members->get_role( $this->space_id, $this->owner_id ) );
+		$this->assertSame(
+			1,
+			(int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND role = 'owner'", $this->space_id ) ),
+			'the space must still have exactly one owner row'
+		);
+		$this->assertSame(
+			$this->owner_id,
+			(int) $wpdb->get_var( $wpdb->prepare( "SELECT owner_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $this->space_id ) )
+		);
+
+		// And the powers that depend on it survived.
+		$this->assertTrue( $this->can( $this->owner_id, 'buddynext-own-space' ) );
+		$this->assertTrue( $this->can( $this->owner_id, 'buddynext-manage-space' ) );
+	}
+
+	/**
+	 * Nobody is promoted TO owner through change_role() either.
+	 *
+	 * The mirror of the case above: it would mint a second owner row that
+	 * bn_spaces.owner_id does not know about. Ownership moves through assign_owner(),
+	 * which updates both tables together.
+	 */
+	public function test_change_role_refuses_to_mint_a_second_owner(): void {
+		global $wpdb;
+
+		$result = $this->members->change_role( $this->space_id, $this->member_id, 'owner', $this->owner_id );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'cannot_promote_to_owner', $result->get_error_code() );
+		$this->assertSame(
+			1,
+			(int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND role = 'owner'", $this->space_id ) ),
+			'there must still be exactly one owner'
+		);
+	}
+
+	/**
 	 * Promote a member to moderator.
 	 *
 	 * Written straight to the column because Free exposes no public promotion API —

@@ -977,6 +977,40 @@ class SpaceMemberService {
 			return new WP_Error( 'forbidden', __( 'Only the space owner can change member roles.', 'buddynext' ) );
 		}
 
+		// Ownership does not move through this method, in either direction.
+		//
+		// This is a lockout guard, not tidiness. `bn_spaces.owner_id` and the
+		// `role = 'owner'` row in bn_space_members are two records of the same fact,
+		// and only assign_owner() moves them together (see SpaceAssignOwnerTest,
+		// "both tables must move together - this is the divergence bug"). This method
+		// writes bn_space_members alone.
+		//
+		// Reproduced before adding this: an owner demoting THEMSELVES to member
+		// succeeded, leaving 0 rows with role='owner' while bn_spaces.owner_id still
+		// named them. Every space gate resolves through get_role(), which reads
+		// bn_space_members - so the ex-owner immediately lost both
+		// buddynext-manage-space and buddynext-own-space, and the space could no
+		// longer be managed, deleted or transferred by anyone short of a site admin.
+		// One click, from the members screen, permanently.
+		//
+		// Promoting TO owner is refused for the mirror reason: it would mint a second
+		// owner row that bn_spaces.owner_id does not know about. Callers that mean to
+		// transfer ownership call assign_owner(), which demotes the outgoing owner and
+		// updates both tables in one transaction.
+		if ( 'owner' === $new_role ) {
+			return new WP_Error(
+				'cannot_promote_to_owner',
+				__( 'Ownership is transferred, not assigned as a role. Use the transfer-ownership action.', 'buddynext' )
+			);
+		}
+
+		if ( 'owner' === $this->get_role( $space_id, $target_id ) ) {
+			return new WP_Error(
+				'cannot_change_owner_role',
+				__( 'The space owner\'s role cannot be changed here. Transfer ownership first.', 'buddynext' )
+			);
+		}
+
 		// Re-assigning the current role is a no-op — skip the write and the
 		// buddynext_space_role_changed hook (it promises an actual change, so
 		// consumers may notify or award on it).
