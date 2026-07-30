@@ -1817,7 +1817,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'   => self::OPTION_WEBHOOK_SECRET,
 							'type'  => 'secret',
 							'label' => __( 'Shared Secret', 'buddynext' ),
-							'hint'  => __( 'Signs outgoing webhooks and verifies inbound access requests.', 'buddynext' ),
+							'hint'  => __( 'Verifies inbound access requests only. Outgoing webhooks are signed with the per-endpoint secret set under Registered endpoints.', 'buddynext' ),
 						)
 					),
 				)
@@ -2958,8 +2958,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	/**
 	 * Render the Webhooks settings tab.
 	 *
-	 * Two sections: the shared HMAC secret used for outbound signing +
-	 * inbound verification, and the endpoint manager (list / add / test
+	 * Two sections: the inbound-verification secret (consumed ONLY by
+	 * AccessWebhookController for POST /webhook/access — outbound payloads
+	 * are signed with the per-endpoint secret generated at registration,
+	 * never with this option), and the endpoint manager (list / add / test
 	 * / delete) wired to the OutboundWebhookService REST API.
 	 *
 	 * @return void
