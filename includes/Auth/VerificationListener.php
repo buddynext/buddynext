@@ -127,18 +127,7 @@ class VerificationListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function maybe_gate_unverified(): void {
-		if ( 'full' !== self::enforcement() || ! is_user_logged_in() ) {
-			return;
-		}
-
-		$user_id = get_current_user_id();
-
-		// Never trap an administrator out of their own site.
-		if ( user_can( $user_id, 'manage_options' ) ) {
-			return;
-		}
-
-		if ( buddynext_service( 'verification' )->is_verified( $user_id ) ) {
+		if ( ! is_user_logged_in() || ! self::holds( get_current_user_id() ) ) {
 			return;
 		}
 
@@ -162,6 +151,33 @@ class VerificationListener implements ListenerInterface {
 
 		wp_safe_redirect( $verify_url );
 		exit;
+	}
+
+	/**
+	 * Is a live verification hold in force for this member?
+	 *
+	 * The single answer other template_redirect gates consult before
+	 * redirecting anywhere (card 10143075880): a gate must never hijack
+	 * another gate's destination, and when a member is under BOTH this hold
+	 * and another (2FA enrolment), the verification hold wins - identity
+	 * comes before enrolment, and /verify is where the member can actually
+	 * move forward (resend the link). The other gate stands down while this
+	 * returns true and resumes on the request after verification clears.
+	 *
+	 * @param int $user_id Member to check.
+	 * @return bool True when enforcement is "full" and this member is unverified.
+	 */
+	public static function holds( int $user_id ): bool {
+		if ( $user_id <= 0 || 'full' !== self::enforcement() ) {
+			return false;
+		}
+
+		// Never trap an administrator out of their own site.
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return false;
+		}
+
+		return ! buddynext_service( 'verification' )->is_verified( $user_id );
 	}
 
 	/**

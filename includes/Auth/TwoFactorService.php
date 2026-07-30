@@ -177,6 +177,21 @@ class TwoFactorService {
 			return;
 		}
 
+		// Yield to a live email-verification hold.
+		//
+		// VerificationListener::maybe_gate_unverified() (template_redirect:6)
+		// holds an unverified member on /verify and exempts only /verify; this
+		// gate exempts only /settings. A member under BOTH holds ping-ponged
+		// /verify -> /settings -> /verify forever - each gate loop-safe alone,
+		// mutually recursive together, the same shape as the onboarding x 2FA
+		// pair fixed in 17c581bb. Identity comes before enrolment: this gate
+		// stands down while the verification hold is live and resumes on the
+		// request after the member verifies, so they still get walked to 2FA
+		// setup - just after the thing that actually blocks them.
+		if ( VerificationListener::holds( (int) $user->ID ) ) {
+			return;
+		}
+
 		$setup_url = \BuddyNext\Core\PageRouter::settings_url( 'account' );
 
 		// Already on the settings screen — do not loop.
