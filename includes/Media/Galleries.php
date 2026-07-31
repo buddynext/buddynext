@@ -80,6 +80,33 @@ class Galleries {
 	}
 
 	/**
+	 * Make an album belong to a space.
+	 *
+	 * The one supported way to create the association, so a caller outside this
+	 * plugin - the importer, bringing a BuddyBoss group album across - does not
+	 * have to know the meta key or guess at the privacy rule that goes with it.
+	 *
+	 * Passing space 0 detaches the album and makes it personal again.
+	 *
+	 * @param int $album_id Album (mvs_album) id.
+	 * @param int $space_id Space id, or 0 to detach.
+	 * @return bool Whether the association changed.
+	 */
+	public static function assign_album_to_space( int $album_id, int $space_id ): bool {
+		if ( $album_id <= 0 || 'mvs_album' !== get_post_type( $album_id ) ) {
+			return false;
+		}
+
+		if ( $space_id <= 0 ) {
+			return (bool) delete_post_meta( $album_id, self::SPACE_META );
+		}
+
+		update_post_meta( $album_id, self::SPACE_META, $space_id );
+
+		return true;
+	}
+
+	/**
 	 * Space albums a media item belongs to.
 	 *
 	 * Used to tell a member what removing a photo is about to affect. A photo

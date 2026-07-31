@@ -17,6 +17,9 @@
  *     The link picker is a REST typeahead (discussion-search), not a prefetched
  *     list — role-scoped server-side (site admin: all; space owner: their own).
  * @var bool   $mvs_media_tab         Required. Current value of the media-tab toggle.
+ * @var string $album_creators        Optional. 'members' (default) or 'admins' - who may
+ *                                    create albums in this space. Uploading INTO an
+ *                                    existing album stays open to members either way.
  * @var bool   $is_space_owner        Required. Whether the viewer owns the space. This
  *                                    panel is owner-only (it decides whether the space
  *                                    has a discussion, a media tab, and whether its
@@ -45,6 +48,7 @@ $args = array(
 	'space'                 => isset( $space ) ? $space : null,
 	'integrations_settings' => isset( $integrations_settings ) && is_array( $integrations_settings ) ? $integrations_settings : array(),
 	'mvs_media_tab'         => isset( $mvs_media_tab ) ? (bool) $mvs_media_tab : false,
+	'album_creators'        => isset( $album_creators ) ? (string) $album_creators : 'members',
 	'is_space_owner'        => isset( $is_space_owner ) ? (bool) $is_space_owner : false,
 	'classes'               => isset( $classes ) ? (array) $classes : array(),
 );
@@ -219,6 +223,28 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			</label>
 		<?php endif; ?>
 	</div>
+
+	<?php
+	/*
+	 * Who may START an album here. Off by default: any member can, which is the
+	 * same line the space already draws for posting. A curated space can turn it
+	 * on and keep album creation with its organisers - adding photos to an album
+	 * that already exists stays open to members either way, because an album only
+	 * its creator can fill is not a shared album.
+	 */
+	?>
+	<?php if ( class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) : ?>
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Only organisers can create albums', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'When off, any member can create an album in this space. Members can always add photos to an album that already exists.', 'buddynext' ); ?></div>
+			</div>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Only organisers can create albums', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="album_creators_admins" value="1" <?php checked( 'admins' === $args['album_creators'] ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+	<?php endif; ?>
 </div>
 <?php
 do_action( 'buddynext_part_space_settings_panel_integrations_after', $args );

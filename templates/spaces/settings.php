@@ -197,6 +197,10 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// why. Same guard the Discussion block below already uses.
 				if ( \BuddyNext\Media\MediaClient::available() ) {
 					$bn_integration_values['mvs_media_tab'] = isset( $_POST['mvs_media_tab'] ) ? '1' : '0';
+					// Album creation is open to members unless the owner restricts
+					// it. Stored as the value the permission code reads, not as a
+					// bare flag, so the setting says what it means.
+					$bn_integration_values['album_creators'] = isset( $_POST['album_creators_admins'] ) ? 'admins' : 'members';
 				}
 
 				// Report what the registry actually did. Discarding this result is how a
@@ -406,6 +410,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_notifications_nonce']
 $require_join_approval = (bool) buddynext_get_space_field( $space_id, 'require_join_approval' );
 $push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_feed' );
 $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' );
+$album_creators        = (string) buddynext_get_space_field( $space_id, 'album_creators' );
 $jetonomy_forum_id     = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 
 // Discussion (Jetonomy) status for the opt-in per-Space control. The link picker
@@ -754,6 +759,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'discussion_status' => $bn_discussion_status,
 					),
 					'mvs_media_tab'         => $mvs_media_tab,
+					'album_creators'        => $album_creators,
 					// Owner-only panel. Passed so it can render read-only for a
 					// moderator rather than show controls that would not save — a
 					// control that silently does nothing is worse than no control.
