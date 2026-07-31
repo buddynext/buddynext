@@ -155,7 +155,14 @@ class MediaController extends BaseRestController {
 				array(
 					'methods'             => 'GET',
 					'callback'            => array( $this, 'list_space_albums' ),
-					'permission_callback' => array( $this, 'require_auth' ),
+					// Anonymous-readable, gated in the handler - the same shape as
+					// the sibling /spaces/{id}/media route. require_auth here meant
+					// a logged-out visitor got 401 on a FULLY OPEN space while that
+					// route served them its photos: the Albums toggle rendered and
+					// its data call always failed, so an open space's albums read
+					// as "none yet" to every guest. Same space, two audiences,
+					// which is exactly what "the space decides" rules out.
+					'permission_callback' => '__return_true',
 					'args'                => array(
 						'id'       => array( 'sanitize_callback' => 'absint' ),
 						'page'     => array(

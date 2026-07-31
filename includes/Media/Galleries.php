@@ -202,25 +202,16 @@ class Galleries {
 			return false;
 		}
 
-		if ( current_user_can( 'manage_options' ) ) {
-			return true;
-		}
-
-		$space = buddynext_service( 'spaces' )->get( $space_id );
-		if ( null === $space ) {
-			return false;
-		}
-
-		// The registry already answers this question for every other space
-		// surface - an open space's content is readable by anyone, anything else
-		// is members-only. Asking it here rather than re-deriving the rule keeps
-		// albums in step with the feed and the member list if the rule changes.
-		if ( ! \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) $space['type'] ) ) {
-			return true;
-		}
-
-		return $viewer_id > 0
-			&& ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer_id );
+		// Delegated, not re-derived. SpaceVisibility::can_view_content() is the
+		// rule every other space surface asks, and it knows two things a local
+		// copy did not: a site admin sees everything, and a space owner is
+		// recognised off the denormalised bn_spaces.owner_id as well as the
+		// membership table - so a space whose owner row is missing does not lock
+		// its own owner out of its albums.
+		return \BuddyNext\Spaces\SpaceVisibility::can_view_content(
+			buddynext_service( 'spaces' )->get( $space_id ),
+			$viewer_id
+		);
 	}
 
 	/**
