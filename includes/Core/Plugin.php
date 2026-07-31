@@ -575,6 +575,9 @@ class Plugin {
 		// all, so the member extended their streak and kept seeing the old number for five
 		// minutes — on a card whose only job is immediate feedback.
 		( new \BuddyNext\Engagement\StreakListener() )->register();
+		// Space albums live and die with their space; without this they orphan
+		// onto the profile of whoever created them.
+		( new \BuddyNext\Media\SpaceAlbumListener() )->register();
 
 		// Wire email dispatch to the notification created action.
 		( new EmailDispatchListener(

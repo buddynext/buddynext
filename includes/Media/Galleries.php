@@ -16,9 +16,153 @@ declare( strict_types=1 );
 namespace BuddyNext\Media;
 
 /**
- * Owner-scoped media listings for profile (and later space) galleries.
+ * Owner-scoped media listings for profile and space galleries.
  */
 class Galleries {
+
+	/**
+	 * Post meta that makes an album belong to a space.
+	 *
+	 * Presence of this key is the ONLY thing that distinguishes a space album
+	 * from a personal one. It lives on the mvs_album post rather than in the
+	 * engine's own store because BuddyNext already queries that CPT with
+	 * WP_Query here, so a space listing is the same query with a meta clause -
+	 * and because the engine's own album group_id gates on
+	 * groups_is_user_member(), a BuddyPress function, for BP groups. BuddyNext
+	 * spaces are not BP groups, and BuddyPress is not active after a migration.
+	 */
+	public const SPACE_META = '_bn_space_id';
+
+	/**
+	 * The space an album belongs to, or 0 when it is a personal album.
+	 *
+	 * @param int $album_id Album (mvs_album) id.
+	 */
+	public static function album_space( int $album_id ): int {
+		return $album_id > 0 ? (int) get_post_meta( $album_id, self::SPACE_META, true ) : 0;
+	}
+
+	/**
+	 * Whether a member may create an album in a space.
+	 *
+	 * Members by default, matching who can already post there - a space that
+	 * lets you post but not make an album would be an odd line to draw. An owner
+	 * who runs a curated space can restrict it to admins and moderators with the
+	 * per-space `album_creators` field; uploading INTO an existing album stays
+	 * open to members either way, which is the shape people know from elsewhere.
+	 *
+	 * @param int $space_id  Space id.
+	 * @param int $viewer_id Viewer user id.
+	 */
+	public static function can_create_space_album( int $space_id, int $viewer_id ): bool {
+		if ( $space_id <= 0 || $viewer_id <= 0 ) {
+			return false;
+		}
+
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+
+		$context    = array( 'space_id' => $space_id );
+		$is_staff   = function_exists( 'buddynext_can' )
+			&& ( (bool) buddynext_can( $viewer_id, 'buddynext-manage-space', $context )
+				|| (bool) buddynext_can( $viewer_id, 'buddynext-moderate-space', $context ) );
+		$restricted = 'admins' === (string) ( function_exists( 'buddynext_get_space_field' )
+			? buddynext_get_space_field( $space_id, 'album_creators' )
+			: '' );
+
+		if ( $restricted ) {
+			return $is_staff;
+		}
+
+		return $is_staff
+			|| ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer_id );
+	}
+
+	/**
+	 * Albums belonging to a space that the viewer may see (newest first).
+	 *
+	 * The space decides the audience, so this gates once on the space rather
+	 * than per album: every album in a space shares that space's visibility.
+	 *
+	 * @param int $space_id  Space id.
+	 * @param int $viewer_id Viewer user id (0 = logged out).
+	 * @param int $limit     Max albums.
+	 * @param int $offset    Pagination offset.
+	 * @return array<int,array<string,mixed>> Ordered album summaries.
+	 */
+	public static function space_albums( int $space_id, int $viewer_id, int $limit = 24, int $offset = 0 ): array {
+		if ( $space_id <= 0 || ! post_type_exists( 'mvs_album' ) ) {
+			return array();
+		}
+
+		if ( ! self::can_view_space( $space_id, $viewer_id ) ) {
+			return array();
+		}
+
+		$query = new \WP_Query(
+			array(
+				'post_type'      => 'mvs_album',
+				'post_status'    => 'publish',
+				'orderby'        => 'date',
+				'order'          => 'DESC',
+				'posts_per_page' => max( 1, $limit ),
+				'offset'         => max( 0, $offset ),
+				'fields'         => 'ids',
+				'no_found_rows'  => true,
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Indexed meta lookup; a space's album count is small.
+				'meta_query'     => array(
+					array(
+						'key'   => self::SPACE_META,
+						'value' => $space_id,
+					),
+				),
+			)
+		);
+
+		$out = array();
+		foreach ( (array) $query->posts as $album_id ) {
+			$out[] = self::album_summary( (int) $album_id );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Whether the viewer may see a space at all.
+	 *
+	 * One place, so every album surface asks the same question. Falls back to
+	 * "visible" only for a space that cannot be resolved, which is the same
+	 * shape the rest of the space UI uses.
+	 *
+	 * @param int $space_id  Space id.
+	 * @param int $viewer_id Viewer user id.
+	 */
+	public static function can_view_space( int $space_id, int $viewer_id ): bool {
+		if ( $space_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+
+		$space = buddynext_service( 'spaces' )->get( $space_id );
+		if ( null === $space ) {
+			return false;
+		}
+
+		// The registry already answers this question for every other space
+		// surface - an open space's content is readable by anyone, anything else
+		// is members-only. Asking it here rather than re-deriving the rule keeps
+		// albums in step with the feed and the member list if the rule changes.
+		if ( ! \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) $space['type'] ) ) {
+			return true;
+		}
+
+		return $viewer_id > 0
+			&& ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer_id );
+	}
 
 	/**
 	 * Ordered media ids owned by a user, visible to the viewer.
@@ -116,6 +260,17 @@ class Galleries {
 				'post_type'      => 'mvs_album',
 				'author'         => $owner_id,
 				'post_status'    => 'publish',
+				// A space album is authored by whoever created it, so without this
+				// the space's albums would appear in that member's own profile
+				// grid - and would still be sitting there after the space itself
+				// was deleted.
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Small per-author set.
+				'meta_query'     => array(
+					array(
+						'key'     => self::SPACE_META,
+						'compare' => 'NOT EXISTS',
+					),
+				),
 				'orderby'        => 'date',
 				'order'          => 'DESC',
 				'posts_per_page' => max( 1, $limit ),
@@ -144,6 +299,14 @@ class Galleries {
 	 * @return bool
 	 */
 	public static function can_view_album( int $album_id, int $viewer_id ): bool {
+		// A space album's audience is the SPACE, always. The engine's privacy
+		// seam knows nothing about spaces, so asking it would judge a private
+		// space's album on its own privacy field and read it as public.
+		$space_id = self::album_space( $album_id );
+		if ( $space_id > 0 ) {
+			return self::can_view_space( $space_id, $viewer_id );
+		}
+
 		$privacy = MediaClient::privacy();
 		if ( ! $privacy || ! method_exists( $privacy, 'can_view' ) ) {
 			// Fail closed for non-owners; owners always see their own.
@@ -166,6 +329,7 @@ class Galleries {
 
 		return array(
 			'id'          => $album_id,
+			'space_id'    => self::album_space( $album_id ),
 			'title'       => (string) get_the_title( $album_id ),
 			'description' => (string) get_post_field( 'post_excerpt', $album_id ),
 			'privacy'     => '' !== $privacy ? $privacy : 'public',

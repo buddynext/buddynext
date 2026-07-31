@@ -129,6 +129,41 @@ class MediaController extends BaseRestController {
 			)
 		);
 
+		// Space albums. Mirrors the two member-level routes above rather than
+		// introducing a parallel album model: same summaries, same item/reorder/
+		// delete routes afterwards, only the listing and creation differ because
+		// the owner is a space rather than a person.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/albums',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'list_space_albums' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+					'args'                => array(
+						'id'       => array( 'sanitize_callback' => 'absint' ),
+						'page'     => array(
+							'sanitize_callback' => 'absint',
+							'default'           => 1,
+						),
+						'per_page' => array(
+							'sanitize_callback' => 'absint',
+							'default'           => 24,
+						),
+					),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'create_space_album' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+					'args'                => array(
+						'id' => array( 'sanitize_callback' => 'absint' ),
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/me/albums',
@@ -453,6 +488,90 @@ class MediaController extends BaseRestController {
 	}
 
 	/**
+	 * GET /spaces/{id}/albums — albums belonging to a space.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function list_space_albums( WP_REST_Request $request ): WP_REST_Response {
+		$space_id = (int) $request->get_param( 'id' );
+		$viewer   = get_current_user_id();
+		$page     = max( 1, (int) $request->get_param( 'page' ) );
+		$per_page = min( 60, max( 1, (int) $request->get_param( 'per_page' ) ) );
+		$offset   = ( $page - 1 ) * $per_page;
+
+		// Galleries::space_albums() gates on the space itself and returns an
+		// empty list to anyone who cannot see it, so a secret space's albums are
+		// indistinguishable from a space with none.
+		return new WP_REST_Response(
+			array(
+				'albums'   => Galleries::space_albums( $space_id, $viewer, $per_page, $offset ),
+				'page'     => $page,
+				'per_page' => $per_page,
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /spaces/{id}/albums — create an album owned by a space.
+	 *
+	 * Creating an empty album posts nothing to the feed; that happens when
+	 * photos are added, which is the moment there is something to see.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function create_space_album( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+
+		$svc = MediaClient::albums();
+		if ( ! $svc || ! method_exists( $svc, 'create' ) ) {
+			return new WP_Error( 'bn_albums_unavailable', __( 'Albums are unavailable right now.', 'buddynext' ), array( 'status' => 503 ) );
+		}
+
+		if ( ! Galleries::can_view_space( $space_id, get_current_user_id() ) ) {
+			// 404 rather than 403 for a space the viewer cannot see: confirming it
+			// exists would leak a secret space.
+			return new WP_Error( 'bn_space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		if ( ! Galleries::can_create_space_album( $space_id, get_current_user_id() ) ) {
+			return new WP_Error(
+				'bn_album_forbidden',
+				__( 'You cannot create an album in this space.', 'buddynext' ),
+				array( 'status' => current_user_can( 'read' ) ? 403 : 401 )
+			);
+		}
+
+		$title = sanitize_text_field( (string) $request->get_param( 'title' ) );
+		if ( '' === $title ) {
+			return new WP_Error( 'bn_album_title_required', __( 'An album needs a name.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		$album_id = $svc->create(
+			get_current_user_id(),
+			array(
+				'title'       => $title,
+				'description' => sanitize_textarea_field( (string) $request->get_param( 'description' ) ),
+				// Privacy is NOT taken from the request: a space album's audience
+				// is the space's audience, and a per-album setting on top of that
+				// is a second privacy system to leak through.
+				'privacy'     => 'private',
+			)
+		);
+		if ( is_wp_error( $album_id ) ) {
+			return $album_id;
+		}
+
+		// The meta IS the space association - written straight after creation so
+		// the album is never briefly a personal album on someone's profile.
+		update_post_meta( (int) $album_id, Galleries::SPACE_META, $space_id );
+
+		return new WP_REST_Response( Galleries::album_summary( (int) $album_id ), 201 );
+	}
+
+	/**
 	 * POST /me/albums — create an album owned by the current member.
 	 *
 	 * @param WP_REST_Request $request Request.
@@ -535,9 +654,30 @@ class MediaController extends BaseRestController {
 	 */
 	public function add_album_items( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$album_id = (int) $request->get_param( 'id' );
-		$gate     = $this->require_album_owner( $album_id );
-		if ( is_wp_error( $gate ) ) {
-			return $gate;
+
+		// Contributing to a SPACE album is not the same as managing it. Any
+		// member of the space may add photos, even where the owner has
+		// restricted who can create albums - that is the shape people already
+		// know, and an album nobody but its creator can fill is not a shared
+		// album at all. Managing it (rename, delete, reorder) still needs the
+		// creator or a space admin, via require_album_owner() below.
+		$space_id = Galleries::album_space( $album_id );
+		if ( $space_id > 0 ) {
+			if ( 'mvs_album' !== get_post_type( $album_id ) ) {
+				return new WP_Error( 'bn_album_not_found', __( 'Album not found.', 'buddynext' ), array( 'status' => 404 ) );
+			}
+			if ( ! $this->can_contribute_to_space( $space_id ) ) {
+				return new WP_Error(
+					'bn_album_forbidden',
+					__( 'You need to be a member of this space to add photos.', 'buddynext' ),
+					array( 'status' => current_user_can( 'read' ) ? 403 : 401 )
+				);
+			}
+		} else {
+			$gate = $this->require_album_owner( $album_id );
+			if ( is_wp_error( $gate ) ) {
+				return $gate;
+			}
 		}
 
 		$media_ids = array_values( array_unique( array_filter( array_map( 'absint', (array) $request->get_param( 'media_ids' ) ) ) ) );
@@ -693,7 +833,12 @@ class MediaController extends BaseRestController {
 	}
 
 	/**
-	 * Whether the current user owns the album (or is a site manager).
+	 * Whether the current user may write to the album.
+	 *
+	 * Its creator, a site manager, or - for a SPACE album - anyone who manages
+	 * or moderates that space. A space album belongs to the space, so the people
+	 * responsible for the space can tidy it without having to be the member who
+	 * happened to create it.
 	 *
 	 * @param int $album_id Album id.
 	 * @return bool
@@ -702,8 +847,47 @@ class MediaController extends BaseRestController {
 		if ( 'mvs_album' !== get_post_type( $album_id ) ) {
 			return false;
 		}
+
 		$author = (int) get_post_field( 'post_author', $album_id );
-		return ( get_current_user_id() === $author ) || current_user_can( 'manage_options' );
+		if ( get_current_user_id() === $author || current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+
+		$space_id = Galleries::album_space( $album_id );
+		if ( $space_id <= 0 || ! function_exists( 'buddynext_can' ) ) {
+			return false;
+		}
+
+		$viewer  = get_current_user_id();
+		$context = array( 'space_id' => $space_id );
+
+		return (bool) buddynext_can( $viewer, 'buddynext-manage-space', $context )
+			|| (bool) buddynext_can( $viewer, 'buddynext-moderate-space', $context );
+	}
+
+	/**
+	 * Whether the current user may put content into a space.
+	 *
+	 * Uploading into an existing space album is a contribution, so it asks the
+	 * same question the space feed asks - not the stricter "can create an album
+	 * here", which an owner may have restricted to admins.
+	 *
+	 * @param int $space_id Space id.
+	 * @return bool
+	 */
+	private function can_contribute_to_space( int $space_id ): bool {
+		if ( $space_id <= 0 ) {
+			return false;
+		}
+
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+
+		$viewer = get_current_user_id();
+
+		return $viewer > 0
+			&& ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer );
 	}
 
 	/**
