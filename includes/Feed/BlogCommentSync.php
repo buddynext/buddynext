@@ -54,6 +54,27 @@ class BlogCommentSync implements ListenerInterface {
 	}
 
 	/**
+	 * Is mirroring switched on for this request?
+	 *
+	 * Sync is right for a live conversation and wrong for a bulk replay of one.
+	 * A migration importing a post's existing comments onto its card would,
+	 * with sync live, mirror every one of them straight back onto the post -
+	 * which already has them - and double the thread. The importer switches
+	 * this off for the duration of a run, the same way it already suppresses
+	 * notification sends and rate limits while replaying history.
+	 *
+	 * @return bool
+	 */
+	private function sync_enabled(): bool {
+		/**
+		 * Filter whether comments mirror between a post and its feed card.
+		 *
+		 * @param bool $enabled Default true.
+		 */
+		return (bool) apply_filters( 'buddynext_sync_blog_comments', true );
+	}
+
+	/**
 	 * A comment on the blog post becomes a comment on its feed card.
 	 *
 	 * @param int         $comment_id New WP comment id.
@@ -61,7 +82,7 @@ class BlogCommentSync implements ListenerInterface {
 	 * @return void
 	 */
 	public function sync_wp_comment_to_card( $comment_id, $comment ): void {
-		if ( self::$syncing || ! $comment instanceof \WP_Comment ) {
+		if ( self::$syncing || ! $this->sync_enabled() || ! $comment instanceof \WP_Comment ) {
 			return;
 		}
 
@@ -105,7 +126,7 @@ class BlogCommentSync implements ListenerInterface {
 	 * @return void
 	 */
 	public function sync_card_comment_to_post( $comment_id, $object_type, $object_id, $user_id ): void {
-		if ( self::$syncing || 'post' !== (string) $object_type ) {
+		if ( self::$syncing || ! $this->sync_enabled() || 'post' !== (string) $object_type ) {
 			return;
 		}
 
