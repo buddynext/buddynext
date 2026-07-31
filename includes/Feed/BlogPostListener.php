@@ -143,9 +143,10 @@ class BlogPostListener implements ListenerInterface {
 	/**
 	 * Publish a card when a post becomes public; retract it when it stops being.
 	 *
-	 * @param string   $new_status New post status.
-	 * @param string   $old_status Previous post status.
-	 * @param \WP_Post $post       The post.
+	 * @param int           $post_id     Post id.
+	 * @param \WP_Post|null $post        The post after the write.
+	 * @param bool          $update      Whether this is an update.
+	 * @param \WP_Post|null $post_before The post before the write, null on create.
 	 * @return void
 	 */
 	public function on_after_insert( $post_id, $post, $update, $post_before ): void {
@@ -236,9 +237,9 @@ class BlogPostListener implements ListenerInterface {
 	/**
 	 * Retract the card when the source post is deleted outright.
 	 *
-	 * transition_post_status does not fire for a permanent delete from the
-	 * trash, so without this a card would outlive the article it points at and
-	 * link members to a 404.
+	 * The transition_post_status hook does not fire for a permanent delete from
+	 * the trash, so without this a card would outlive the article it points at
+	 * and link members to a 404.
 	 *
 	 * @param int $post_id Post being deleted.
 	 * @return void
@@ -353,7 +354,7 @@ class BlogPostListener implements ListenerInterface {
 			return '';
 		}
 
-		$out  = '<a class="bn-post-card__article" href="' . esc_url( $url ) . '">';
+		$out = '<a class="bn-post-card__article" href="' . esc_url( $url ) . '">';
 
 		if ( '' !== $thumb ) {
 			$out .= '<span class="bn-post-card__article-cover">';

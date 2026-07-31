@@ -127,7 +127,8 @@ class VerificationListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function maybe_gate_unverified(): void {
-		if ( ! is_user_logged_in() || ! self::holds( get_current_user_id() ) ) {
+		$user_id = get_current_user_id();
+		if ( ! is_user_logged_in() || ! self::holds( $user_id ) ) {
 			return;
 		}
 
