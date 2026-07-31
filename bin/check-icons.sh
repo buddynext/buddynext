@@ -12,7 +12,7 @@
 # triggered a rewrite of 11 healthy files. Only the ROOT <svg> tag is inspected
 # here, which is the only place a size attribute would be wrong.
 #
-# Brand marks (discord, facebook, github, google) are filled logos, not line
+# Brand marks (apple, discord, facebook, github, google) are filled logos, not line
 # icons. They are exempt from the stroke rule by design — a brand mark drawn in
 # currentColor is no longer the brand.
 set -uo pipefail
@@ -49,7 +49,7 @@ for icon in "$DIR"/*.svg; do
 	# whatever size CSS gives it, so redrawing it on a 24 grid would risk
 	# distorting an official mark for no rendering benefit.
 	case "$name" in
-		discord.svg | facebook.svg | github.svg | google.svg) is_brand=1 ;;
+		apple.svg | discord.svg | facebook.svg | github.svg | google.svg) is_brand=1 ;;
 		*) is_brand=0 ;;
 	esac
 

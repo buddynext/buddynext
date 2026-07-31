@@ -571,6 +571,7 @@ class AssetService {
 			'@buddynext/auth-signup'        => 'auth/signup-store',
 			'@buddynext/auth-verify'        => 'auth/verify-store',
 			'@buddynext/auth-reset'         => 'auth/reset-store',
+			'@buddynext/auth-connect-app'   => 'auth/connect-app-store',
 			'@buddynext/onboarding'         => 'onboarding/store',
 			'@buddynext/gamification'       => 'gamification/store',
 			'@buddynext/moderation'         => 'moderation/store',
@@ -708,6 +709,25 @@ class AssetService {
 		$this->i18n_auth_signup();
 		$this->i18n_auth_verify();
 		$this->i18n_auth_reset();
+		$this->i18n_auth_connect_app();
+	}
+
+	/**
+	 * Auth/connect-app-store: the native-app connect approve screen.
+	 *
+	 * @return void
+	 */
+	private function i18n_auth_connect_app(): void {
+		wp_interactivity_state(
+			'buddynext/auth-connect-app',
+			array(
+				'i18n' => array(
+					'expired'      => __( 'This connection screen has expired. Go back to the app and try connecting again.', 'buddynext' ),
+					'rateLimited'  => __( 'Too many connection attempts. Please wait a while and try again.', 'buddynext' ),
+					'genericError' => __( 'Something went wrong. Please try again.', 'buddynext' ),
+				),
+			)
+		);
 	}
 
 	/**

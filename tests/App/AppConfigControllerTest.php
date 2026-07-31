@@ -510,4 +510,74 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 			$this->assertIsBool( $value, "Feature {$slug} must be a bool, not a structure." );
 		}
 	}
+
+	/**
+	 * The auth block tells the app how to sign a member in on THIS site: the
+	 * bridge URL, the schemes it hands credentials to, and the ready social
+	 * providers. Additive, so contract_version must NOT move — an older app
+	 * reading version 1 keeps working, and an older PLUGIN simply has no
+	 * `auth` key, which the app reads as "use the legacy authorize flow".
+	 *
+	 * @return void
+	 */
+	public function test_auth_block_shape_and_contract_stability(): void {
+		$config = $this->get_config();
+
+		$this->assertSame( 1, $config['contract_version'], 'the auth block is additive; the contract must not bump' );
+		$this->assertArrayHasKey( 'auth', $config );
+
+		$auth = $config['auth'];
+		$this->assertSame( array(), $auth['social_providers'], 'nothing configured means an empty provider list' );
+		$this->assertTrue( $auth['twofactor'] );
+		$this->assertIsBool( $auth['register'] );
+		$this->assertIsBool( $auth['app_passwords_available'] );
+		$this->assertContains( 'buddynextapp', $auth['connect_schemes'] );
+		$this->assertStringEndsWith( '/connect-app/', $auth['connect_url'] );
+	}
+
+	/**
+	 * A configured-and-enabled provider appears in social_providers through
+	 * the SAME readiness rules the web login uses (SocialLogin::is_ready),
+	 * never a parallel derivation that could drift.
+	 *
+	 * @return void
+	 */
+	public function test_auth_block_lists_ready_providers(): void {
+		update_option(
+			'buddynext_social_login',
+			array(
+				'google' => array(
+					'enabled'       => true,
+					'client_id'     => 'gid',
+					'client_secret' => 'gsecret',
+				),
+			)
+		);
+
+		$providers = $this->get_config()['auth']['social_providers'];
+		delete_option( 'buddynext_social_login' );
+
+		$this->assertSame(
+			array(
+				array(
+					'id'    => 'google',
+					'label' => 'Google',
+				),
+			),
+			$providers
+		);
+	}
+
+	/**
+	 * connect_url follows the auth page mapping — a renamed auth slug moves
+	 * the bridge with it, so the app never holds a hardcoded path.
+	 *
+	 * @return void
+	 */
+	public function test_connect_url_respects_the_auth_slug(): void {
+		$this->assertSame(
+			\BuddyNext\Core\PageRouter::auth_url() . 'connect-app/',
+			$this->get_config()['auth']['connect_url']
+		);
+	}
 }

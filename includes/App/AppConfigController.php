@@ -109,6 +109,13 @@ class AppConfigController {
 			'time'             => $this->time(),
 
 			'legal'            => $this->legal(),
+
+			// How the app signs a member in on THIS site. Additive block —
+			// contract_version stays 1 by its own documented rule. An older
+			// plugin simply has no `auth` key, which the app reads as "use the
+			// legacy wp-admin authorize flow": absent means degrade, never
+			// break.
+			'auth'             => $this->auth(),
 		);
 
 		/**
@@ -322,5 +329,37 @@ class AppConfigController {
 	 */
 	private function min_app_version(): string {
 		return (string) apply_filters( 'buddynext_min_app_version', '' );
+	}
+
+	/**
+	 * How a native client signs a member in on this site.
+	 *
+	 * The app renders its sign-in options FROM this block — a provider button
+	 * appears only when this site can actually complete that flow, which is
+	 * why social_providers reads SocialLogin::ready_providers() (the same
+	 * readiness answer the web login uses) instead of re-deriving rules here.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function auth(): array {
+		return array(
+			// Providers a visitor can use right now: enabled, fully
+			// configured, viable on this site. [ {id, label}, … ].
+			'social_providers'        => \BuddyNext\Auth\SocialLogin::ready_providers(),
+
+			// The site supports inline two-factor on POST /auth/login
+			// (twofa_required + twofa_token in the response).
+			'twofactor'               => true,
+
+			'register'                => (bool) get_option( 'users_can_register' ),
+
+			'app_passwords_available' => wp_is_application_passwords_available(),
+
+			// The browser bridge: open connect_url in an auth session, sign in
+			// by any method, approve, receive the credential on an allowlisted
+			// scheme. The query contract is documented on AppConnectService.
+			'connect_url'             => AppConnectService::connect_url(),
+			'connect_schemes'         => AppConnectService::schemes(),
+		);
 	}
 }

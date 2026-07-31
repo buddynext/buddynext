@@ -83,6 +83,29 @@ class SocialLogin {
 	/**
 	 * Built-in provider definitions (endpoints + claim mapping).
 	 *
+	 * Beyond the base shape, a definition may carry CAPABILITY FLAGS that the
+	 * flow reads generically — no provider name is ever special-cased in the
+	 * flow itself. Every flag defaults to today's behaviour when absent, so
+	 * third-party providers registered through buddynext_oauth_providers keep
+	 * working unmodified:
+	 *
+	 *   callback_method  'get' (default) | 'post'  — how the provider returns
+	 *                    to the callback URL. Apple's form_post arrives as a
+	 *                    cross-site POST, which also forces the state cookie
+	 *                    to SameSite=None;Secure for that flow only.
+	 *   response_mode    Extra authorize-request parameter (Apple: form_post,
+	 *                    mandatory when scope includes name or email).
+	 *   identity         'userinfo' (default) | 'id_token' — where the user's
+	 *                    identity comes from. id_token providers have their
+	 *                    token VERIFIED against issuer + jwks + audience.
+	 *   issuer / jwks    Required by the id_token identity path.
+	 *   secret_source    'stored' (default) | 'jwt_es256' — how the client
+	 *                    secret is produced at exchange time. Apple's is a
+	 *                    signed JWT built from the credentials below.
+	 *   credentials      Field descriptors driving the settings card render,
+	 *                    the sanitizer, and is_ready(). Defaults to the
+	 *                    classic client_id + client_secret pair when absent.
+	 *
 	 * @return array<string, array<string, mixed>>
 	 */
 	private static function provider_defaults(): array {
@@ -178,6 +201,61 @@ class SocialLogin {
 					__( 'Open the Discord Developer Portal and click "New Application".', 'buddynext' ),
 					__( 'Open the "OAuth2" tab and copy the "Client ID" and "Client Secret" here.', 'buddynext' ),
 					__( 'Still on OAuth2, under "Redirects", add the redirect URI shown below and save.', 'buddynext' ),
+				),
+			),
+			'apple'    => array(
+				'label'           => 'Apple',
+				'icon'            => 'apple',
+				'authorize'       => 'https://appleid.apple.com/auth/authorize',
+				'token'           => 'https://appleid.apple.com/auth/token',
+				// No userinfo endpoint exists: identity comes from the signed
+				// id_token in the token response, verified below.
+				'userinfo'        => '',
+				'identity'        => 'id_token',
+				'issuer'          => 'https://appleid.apple.com',
+				'jwks'            => 'https://appleid.apple.com/auth/keys',
+				// form_post is MANDATORY when scope includes name or email —
+				// the callback arrives as a cross-site POST, not a GET.
+				'callback_method' => 'post',
+				'response_mode'   => 'form_post',
+				'secret_source'   => 'jwt_es256',
+				'scope'           => 'name email',
+				'map'             => array(
+					'id'       => 'sub',
+					'email'    => 'email',
+					'verified' => 'email_verified',
+					// The name never appears in the id_token: Apple sends it
+					// exactly once, as a `user` JSON field on the FIRST
+					// authorization response. callback() captures it there.
+					'name'     => null,
+					'picture'  => null,
+				),
+				'credentials'     => array(
+					'client_id'   => array(
+						'label' => __( 'Services ID (Client ID)', 'buddynext' ),
+						'type'  => 'text',
+					),
+					'team_id'     => array(
+						'label' => __( 'Team ID', 'buddynext' ),
+						'type'  => 'text',
+					),
+					'key_id'      => array(
+						'label' => __( 'Key ID', 'buddynext' ),
+						'type'  => 'text',
+					),
+					'private_key' => array(
+						'label'  => __( '.p8 private key', 'buddynext' ),
+						'type'   => 'textarea',
+						'secret' => true,
+					),
+				),
+				'console_url'     => 'https://developer.apple.com/account/resources/identifiers/list/serviceId',
+				'setup_steps'     => array(
+					__( 'In the Apple Developer console, create an App ID with the "Sign in with Apple" capability enabled.', 'buddynext' ),
+					__( 'Create a Services ID (this becomes your Client ID), enable Sign in with Apple on it, and register the redirect link shown below as a Return URL.', 'buddynext' ),
+					__( 'Under Keys, create a new key with "Sign in with Apple" enabled and download the .p8 file — Apple only lets you download it once.', 'buddynext' ),
+					__( 'Copy the Team ID (top right of the console), the Key ID (on the key you created), and paste the full contents of the .p8 file here.', 'buddynext' ),
+					__( 'Some members will sign in with a private @privaterelay.appleid.com address (Hide My Email). For this site\'s emails to reach them, also register your sending domain under "Certificates → Services → Sign in with Apple for Email Communication" in the Apple console.', 'buddynext' ),
 				),
 			),
 		);
@@ -438,13 +516,70 @@ class SocialLogin {
 	/**
 	 * Is a provider enabled and fully configured?
 	 *
+	 * The required-credential list comes from the definition's `credentials`
+	 * descriptor when present (Apple needs four fields, not two); providers
+	 * without one keep the classic client_id + client_secret requirement.
+	 *
+	 * A provider whose callback arrives as a cross-site POST additionally
+	 * requires HTTPS: the state cookie must be SameSite=None, which browsers
+	 * only send with the Secure attribute — and Apple mandates HTTPS return
+	 * URLs anyway. On a plain-HTTP site such a provider can never complete a
+	 * flow, so it is not ready rather than broken-at-the-last-step.
+	 *
 	 * @param string $id Provider id.
 	 * @return bool
 	 */
 	private static function is_ready( string $id ): bool {
+		$defs = self::get_providers();
+		if ( ! isset( $defs[ $id ] ) ) {
+			return false;
+		}
+		$def = (array) $defs[ $id ];
+
 		$s = self::settings();
 		$p = isset( $s[ $id ] ) && is_array( $s[ $id ] ) ? $s[ $id ] : array();
-		return ! empty( $p['enabled'] ) && ! empty( $p['client_id'] ) && ! empty( $p['client_secret'] );
+		if ( empty( $p['enabled'] ) ) {
+			return false;
+		}
+
+		$required = isset( $def['credentials'] ) && is_array( $def['credentials'] )
+			? array_keys( $def['credentials'] )
+			: array( 'client_id', 'client_secret' );
+
+		foreach ( $required as $field ) {
+			if ( empty( $p[ $field ] ) ) {
+				return false;
+			}
+		}
+
+		if ( 'post' === (string) ( $def['callback_method'] ?? 'get' ) && ! is_ssl() ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * The providers a visitor can actually use right now — enabled, fully
+	 * configured, and viable on this site.
+	 *
+	 * The single readiness answer for anything OUTSIDE this class (the app
+	 * config handshake reads it), so external surfaces can never drift from
+	 * the readiness rules is_ready() enforces.
+	 *
+	 * @return array<int, array{id: string, label: string}>
+	 */
+	public static function ready_providers(): array {
+		$out = array();
+		foreach ( self::get_providers() as $id => $def ) {
+			if ( self::is_ready( (string) $id ) ) {
+				$out[] = array(
+					'id'    => (string) $id,
+					'label' => (string) ( $def['label'] ?? ucfirst( (string) $id ) ),
+				);
+			}
+		}
+		return $out;
 	}
 
 	/**
@@ -558,6 +693,15 @@ class SocialLogin {
 
 		// Bind the flow to this browser: the callback must present the same state
 		// in an httpOnly cookie, so a stolen/forged state alone cannot complete it.
+		//
+		// SameSite is per-flow: a provider returning by cross-site POST (Apple's
+		// form_post) never gets a Lax cookie attached to that POST, so those — and
+		// ONLY those — use None+Secure. is_ready() refuses such providers on
+		// non-HTTPS sites, so Secure always holds where this branch runs. The
+		// default stays Lax; loosening it for everyone would weaken the CSRF
+		// posture of the four GET-callback providers for no reason.
+		$callback_method = (string) ( $defs[ $id ]['callback_method'] ?? 'get' );
+		$samesite        = 'post' === $callback_method ? 'None' : 'Lax';
 		setcookie(
 			self::STATE_COOKIE,
 			$state,
@@ -565,22 +709,27 @@ class SocialLogin {
 				'expires'  => time() + 10 * MINUTE_IN_SECONDS,
 				'path'     => defined( 'COOKIEPATH' ) && COOKIEPATH ? COOKIEPATH : '/',
 				'domain'   => defined( 'COOKIE_DOMAIN' ) ? (string) COOKIE_DOMAIN : '',
-				'secure'   => is_ssl(),
+				'secure'   => 'None' === $samesite ? true : is_ssl(),
 				'httponly' => true,
-				'samesite' => 'Lax',
+				'samesite' => $samesite,
 			)
 		);
 
-		$url = add_query_arg(
-			array(
-				'client_id'     => rawurlencode( (string) $s['client_id'] ),
-				'redirect_uri'  => rawurlencode( self::callback_url( $id ) ),
-				'response_type' => 'code',
-				'scope'         => rawurlencode( (string) $defs[ $id ]['scope'] ),
-				'state'         => $state,
-			),
-			(string) $defs[ $id ]['authorize']
+		$args = array(
+			'client_id'     => rawurlencode( (string) $s['client_id'] ),
+			'redirect_uri'  => rawurlencode( self::callback_url( $id ) ),
+			'response_type' => 'code',
+			'scope'         => rawurlencode( (string) $defs[ $id ]['scope'] ),
+			'state'         => $state,
 		);
+
+		// Apple requires response_mode=form_post whenever scope includes name
+		// or email; any provider may declare one.
+		if ( ! empty( $defs[ $id ]['response_mode'] ) ) {
+			$args['response_mode'] = rawurlencode( (string) $defs[ $id ]['response_mode'] );
+		}
+
+		$url = add_query_arg( $args, (string) $defs[ $id ]['authorize'] );
 
 		wp_redirect( $url ); // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- external provider URL by design.
 		exit;
@@ -595,11 +744,10 @@ class SocialLogin {
 	private function callback( string $id ): void {
 		$this->rate_limit();
 
-		$defs = self::get_providers();
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended
-		$code  = isset( $_GET['code'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['code'] ) ) : '';
-		$state = isset( $_GET['state'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['state'] ) ) : '';
-		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		$defs   = self::get_providers();
+		$params = isset( $defs[ $id ] ) ? $this->callback_params( (array) $defs[ $id ] ) : array();
+		$code   = (string) ( $params['code'] ?? '' );
+		$state  = (string) ( $params['state'] ?? '' );
 
 		if ( ! isset( $defs[ $id ] ) || ! self::is_ready( $id ) || '' === $code || '' === $state ) {
 			$this->bail( 'cancelled' );
@@ -618,12 +766,12 @@ class SocialLogin {
 			$this->bail( 'expired' );
 		}
 
-		$token = $this->exchange_code( $id, $code );
-		if ( '' === $token ) {
+		$tokens = $this->exchange_code( $id, $code );
+		if ( empty( $tokens ) ) {
 			$this->bail( 'provider_failed' );
 		}
 
-		$profile = $this->fetch_profile( $id, $token );
+		$profile = $this->fetch_profile( $id, $tokens, (string) ( $params['first_auth_name'] ?? '' ) );
 		if ( empty( $profile['email'] ) ) {
 			$this->bail( 'no_email' );
 		}
@@ -676,15 +824,94 @@ class SocialLogin {
 	}
 
 	/**
-	 * Exchange an auth code for an access token.
+	 * Read the callback parameters from wherever this provider delivers them.
+	 *
+	 * GET-callback providers (the default) return code + state in the query
+	 * string. A form_post provider (Apple) returns them in the POST body —
+	 * along with, on the FIRST authorization only, a `user` JSON field
+	 * carrying the member's name. That field never appears again on any later
+	 * sign-in and the name exists in no other Apple response, so it is
+	 * captured here or lost forever.
+	 *
+	 * The OAuth state (verified against the httpOnly cookie in callback()) is
+	 * the CSRF token for this request; a WP nonce cannot exist on a redirect
+	 * arriving from an external provider.
+	 *
+	 * @param array<string, mixed> $def Provider definition.
+	 * @return array{code: string, state: string, first_auth_name: string}
+	 */
+	private function callback_params( array $def ): array {
+		$is_post = 'post' === (string) ( $def['callback_method'] ?? 'get' );
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing
+		$source = $is_post ? $_POST : $_GET;
+
+		$code  = isset( $source['code'] ) ? sanitize_text_field( wp_unslash( (string) $source['code'] ) ) : '';
+		$state = isset( $source['state'] ) ? sanitize_text_field( wp_unslash( (string) $source['state'] ) ) : '';
+
+		$first_auth_name = '';
+		if ( $is_post && isset( $source['user'] ) ) {
+			$user_json = json_decode( wp_unslash( (string) $source['user'] ), true );
+			if ( is_array( $user_json ) ) {
+				$first           = sanitize_text_field( (string) ( $user_json['name']['firstName'] ?? '' ) );
+				$last            = sanitize_text_field( (string) ( $user_json['name']['lastName'] ?? '' ) );
+				$first_auth_name = trim( $first . ' ' . $last );
+			}
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing
+
+		return array(
+			'code'            => $code,
+			'state'           => $state,
+			'first_auth_name' => $first_auth_name,
+		);
+	}
+
+	/**
+	 * Resolve the client secret to present at the token exchange.
+	 *
+	 * 'stored' (the default) is the secret string the owner pasted into
+	 * settings. 'jwt_es256' builds Apple's signed-JWT secret from the
+	 * credential set at call time (cached internally), so a stale six-month
+	 * static secret can never be the thing that quietly breaks sign-in.
+	 *
+	 * @param array<string, mixed> $def Provider definition.
+	 * @param array<string, mixed> $s   Stored provider settings.
+	 * @return string Secret, or '' when it cannot be produced.
+	 */
+	private function client_secret_for( array $def, array $s ): string {
+		if ( 'jwt_es256' === (string) ( $def['secret_source'] ?? 'stored' ) ) {
+			$secret = AppleClientSecret::generate(
+				(string) ( $s['client_id'] ?? '' ),
+				(string) ( $s['team_id'] ?? '' ),
+				(string) ( $s['key_id'] ?? '' ),
+				(string) ( $s['private_key'] ?? '' )
+			);
+			return is_wp_error( $secret ) ? '' : $secret;
+		}
+
+		return (string) ( $s['client_secret'] ?? '' );
+	}
+
+	/**
+	 * Exchange an auth code for the provider's tokens.
+	 *
+	 * Returns BOTH tokens from the response: userinfo providers use the
+	 * access_token, id_token providers read identity from the id_token. Empty
+	 * array on failure.
 	 *
 	 * @param string $id   Provider id.
 	 * @param string $code Auth code.
-	 * @return string Access token, or '' on failure.
+	 * @return array{access_token: string, id_token: string}|array{}
 	 */
-	private function exchange_code( string $id, string $code ): string {
+	private function exchange_code( string $id, string $code ): array {
 		$defs = self::get_providers();
 		$s    = self::settings()[ $id ];
+
+		$secret = $this->client_secret_for( (array) $defs[ $id ], (array) $s );
+		if ( '' === $secret ) {
+			return array();
+		}
 
 		$res = wp_remote_post(
 			(string) $defs[ $id ]['token'],
@@ -693,7 +920,7 @@ class SocialLogin {
 				'headers' => array( 'Accept' => 'application/json' ),
 				'body'    => array(
 					'client_id'     => (string) $s['client_id'],
-					'client_secret' => (string) $s['client_secret'],
+					'client_secret' => $secret,
 					'code'          => $code,
 					'redirect_uri'  => self::callback_url( $id ),
 					'grant_type'    => 'authorization_code',
@@ -701,11 +928,18 @@ class SocialLogin {
 			)
 		);
 		if ( is_wp_error( $res ) ) {
-			return '';
+			return array();
 		}
 
 		$body = json_decode( (string) wp_remote_retrieve_body( $res ), true );
-		return is_array( $body ) && ! empty( $body['access_token'] ) ? (string) $body['access_token'] : '';
+		if ( ! is_array( $body ) || ( empty( $body['access_token'] ) && empty( $body['id_token'] ) ) ) {
+			return array();
+		}
+
+		return array(
+			'access_token' => (string) ( $body['access_token'] ?? '' ),
+			'id_token'     => (string) ( $body['id_token'] ?? '' ),
+		);
 	}
 
 	/**
@@ -716,11 +950,14 @@ class SocialLogin {
 	 * step only merges into an existing local account when that is true, which is
 	 * the difference between safe sign-in and email-based account takeover.
 	 *
-	 * @param string $id    Provider id.
-	 * @param string $token Access token.
+	 * @param string                                       $id              Provider id.
+	 * @param array{access_token?:string,id_token?:string} $tokens          Token-exchange result.
+	 * @param string                                       $first_auth_name Name captured from a
+	 *                                                                      first-authorization POST
+	 *                                                                      (Apple), '' otherwise.
 	 * @return array{id:string,email:string,name:string,picture:string,email_verified:bool}
 	 */
-	private function fetch_profile( string $id, string $token ): array {
+	private function fetch_profile( string $id, array $tokens, string $first_auth_name = '' ): array {
 		$defs  = self::get_providers();
 		$def   = (array) $defs[ $id ];
 		$map   = (array) $def['map'];
@@ -732,7 +969,41 @@ class SocialLogin {
 			'email_verified' => false,
 		);
 
-		$d = $this->api_get_json( (string) $def['userinfo'], $token );
+		// id_token identity: the provider has no userinfo endpoint; the claims
+		// live in a signed JWT that MUST verify against the provider's JWKS
+		// before anything in it is believed — it travelled through the
+		// member's browser, not a server-to-server channel.
+		if ( 'id_token' === (string) ( $def['identity'] ?? 'userinfo' ) ) {
+			$claims = IdTokenVerifier::verify(
+				(string) ( $tokens['id_token'] ?? '' ),
+				(string) ( $def['issuer'] ?? '' ),
+				(string) ( $def['jwks'] ?? '' ),
+				(string) ( self::settings()[ $id ]['client_id'] ?? '' )
+			);
+			if ( is_wp_error( $claims ) ) {
+				return $empty;
+			}
+
+			// Apple emits email_verified as the STRING "true"/"false" as often
+			// as a boolean; FILTER_VALIDATE_BOOLEAN handles both.
+			$verified_key = $map['verified'] ?? null;
+			$verified     = null !== $verified_key
+				? filter_var( $this->claim( $claims, (string) $verified_key ), FILTER_VALIDATE_BOOLEAN )
+				: ! empty( $def['trust_email'] );
+
+			/** This filter is documented on the userinfo path below. */
+			$verified = (bool) apply_filters( 'buddynext_social_email_verified', (bool) $verified, $id, (array) $claims );
+
+			return array(
+				'id'             => (string) $this->claim( $claims, (string) ( $map['id'] ?? '' ) ),
+				'email'          => sanitize_email( (string) $this->claim( $claims, (string) ( $map['email'] ?? '' ) ) ),
+				'name'           => sanitize_text_field( $first_auth_name ),
+				'picture'        => '',
+				'email_verified' => $verified,
+			);
+		}
+
+		$d = $this->api_get_json( (string) $def['userinfo'], (string) ( $tokens['access_token'] ?? '' ) );
 		if ( null === $d ) {
 			return $empty;
 		}
@@ -754,7 +1025,7 @@ class SocialLogin {
 		// forever. If the provider has an email endpoint, it is authoritative:
 		// always ask.
 		if ( ! empty( $def['email_endpoint'] ) ) {
-			$emails = $this->api_get_json( (string) $def['email_endpoint'], $token );
+			$emails = $this->api_get_json( (string) $def['email_endpoint'], (string) ( $tokens['access_token'] ?? '' ) );
 			if ( is_array( $emails ) ) {
 				foreach ( $emails as $row ) {
 					if ( ! empty( $row['primary'] ) && ! empty( $row['verified'] ) && ! empty( $row['email'] ) ) {

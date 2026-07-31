@@ -1946,7 +1946,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
-	 * Sanitize the social-login option ([provider => {enabled,client_id,client_secret}]).
+	 * Sanitize the social-login option ([provider => {enabled, credential fields}]).
+	 *
+	 * The field list per provider comes from the definition's `credentials`
+	 * descriptor when present (Apple: client_id, team_id, key_id, private_key)
+	 * and defaults to the classic client_id + client_secret pair. Fields the
+	 * descriptor flags `secret` render write-only, so a blank submit keeps the
+	 * stored value instead of wiping the credential.
 	 *
 	 * @param mixed $raw Submitted value.
 	 * @return array<string, array<string, mixed>>
@@ -1963,20 +1969,51 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		// Iterate the same provider list the form renders (get_providers()) so a
 		// provider can never be dropped on save by drifting from a hardcoded list.
-		foreach ( array_keys( \BuddyNext\Auth\SocialLogin::get_providers() ) as $id ) {
-			$p         = isset( $raw[ $id ] ) && is_array( $raw[ $id ] ) ? $raw[ $id ] : array();
-			$submitted = isset( $p['client_secret'] ) ? sanitize_text_field( (string) $p['client_secret'] ) : '';
+		foreach ( \BuddyNext\Auth\SocialLogin::get_providers() as $id => $def ) {
+			$p = isset( $raw[ $id ] ) && is_array( $raw[ $id ] ) ? $raw[ $id ] : array();
 
-			// The field renders empty (write-only), so a blank submit means "leave it
-			// alone" — not "wipe my credentials". Only a non-empty value replaces it.
-			$stored = isset( $existing[ $id ]['client_secret'] ) ? (string) $existing[ $id ]['client_secret'] : '';
-			$secret = '' !== $submitted ? $submitted : $stored;
+			$fields = isset( $def['credentials'] ) && is_array( $def['credentials'] )
+				? $def['credentials']
+				: array(
+					'client_id'     => array( 'type' => 'text' ),
+					'client_secret' => array(
+						'type'   => 'password',
+						'secret' => true,
+					),
+				);
 
-			$out[ $id ] = array(
-				'enabled'       => ! empty( $p['enabled'] ),
-				'client_id'     => isset( $p['client_id'] ) ? sanitize_text_field( (string) $p['client_id'] ) : '',
-				'client_secret' => $secret,
-			);
+			$clean = array( 'enabled' => ! empty( $p['enabled'] ) );
+
+			foreach ( $fields as $field => $descriptor ) {
+				$is_textarea = 'textarea' === (string) ( $descriptor['type'] ?? 'text' );
+				$submitted   = isset( $p[ $field ] )
+					? ( $is_textarea ? sanitize_textarea_field( (string) $p[ $field ] ) : sanitize_text_field( (string) $p[ $field ] ) )
+					: '';
+
+				if ( ! empty( $descriptor['secret'] ) ) {
+					// Write-only: the field renders empty, so a blank submit means
+					// "leave it alone" — not "wipe my credentials".
+					$stored = isset( $existing[ $id ][ $field ] ) ? (string) $existing[ $id ][ $field ] : '';
+
+					// A pasted private key that OpenSSL cannot read would break the
+					// provider silently at the token exchange, days later. Refuse it
+					// NOW, tell the owner, and keep whatever worked before.
+					if ( '' !== $submitted && 'private_key' === $field && false === openssl_pkey_get_private( $submitted ) ) {
+						add_settings_error(
+							'buddynext_social_login',
+							'bn_social_bad_p8',
+							__( 'The pasted Apple .p8 private key could not be read, so the previous key was kept. Paste the full file contents, including the BEGIN and END lines.', 'buddynext' )
+						);
+						$submitted = '';
+					}
+
+					$clean[ $field ] = '' !== $submitted ? $submitted : $stored;
+				} else {
+					$clean[ $field ] = $submitted;
+				}
+			}
+
+			$out[ $id ] = $clean;
 		}
 		return $out;
 	}
@@ -2644,17 +2681,41 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		</p>
 		<?php
 		foreach ( \BuddyNext\Auth\SocialLogin::get_providers() as $pid => $def ) {
-			$cfg      = isset( $social[ $pid ] ) && is_array( $social[ $pid ] ) ? $social[ $pid ] : array();
-			$enabled  = ! empty( $cfg['enabled'] );
-			$cid      = isset( $cfg['client_id'] ) ? (string) $cfg['client_id'] : '';
-			$secret   = isset( $cfg['client_secret'] ) ? (string) $cfg['client_secret'] : '';
-			$has_keys = '' !== $cid && '' !== $secret;
-			$cb       = \BuddyNext\Auth\SocialLogin::callback_url( $pid );
-			$label    = (string) ( $def['label'] ?? ucfirst( $pid ) );
-			$icon     = (string) ( $def['icon'] ?? 'globe' );
-			$console  = (string) ( $def['console_url'] ?? '' );
-			$steps    = isset( $def['setup_steps'] ) && is_array( $def['setup_steps'] ) ? $def['setup_steps'] : array();
-			$cb_id    = 'bn-redir-' . sanitize_key( $pid );
+			$cfg     = isset( $social[ $pid ] ) && is_array( $social[ $pid ] ) ? $social[ $pid ] : array();
+			$enabled = ! empty( $cfg['enabled'] );
+
+			// Field set from the definition's credentials descriptor; the classic
+			// id + secret pair when a provider declares none.
+			$cred_fields = isset( $def['credentials'] ) && is_array( $def['credentials'] )
+				? $def['credentials']
+				: array(
+					'client_id'     => array(
+						'label' => __( 'Client ID', 'buddynext' ),
+						'type'  => 'text',
+					),
+					'client_secret' => array(
+						'label'  => __( 'Client Secret', 'buddynext' ),
+						'type'   => 'password',
+						'secret' => true,
+					),
+				);
+
+			$has_keys = true;
+			foreach ( array_keys( $cred_fields ) as $cred_key ) {
+				if ( '' === (string) ( $cfg[ $cred_key ] ?? '' ) ) {
+					$has_keys = false;
+					break;
+				}
+			}
+
+			$needs_https = 'post' === (string) ( $def['callback_method'] ?? 'get' ) && ! is_ssl();
+
+			$cb      = \BuddyNext\Auth\SocialLogin::callback_url( $pid );
+			$label   = (string) ( $def['label'] ?? ucfirst( $pid ) );
+			$icon    = (string) ( $def['icon'] ?? 'globe' );
+			$console = (string) ( $def['console_url'] ?? '' );
+			$steps   = isset( $def['setup_steps'] ) && is_array( $def['setup_steps'] ) ? $def['setup_steps'] : array();
+			$cb_id   = 'bn-redir-' . sanitize_key( $pid );
 
 			if ( $enabled && $has_keys ) {
 				$status_class = 'is-ready';
@@ -2681,30 +2742,51 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				</div>
 
 				<div class="bn-social-card__body">
-					<div class="bn-field">
-						<label for="<?php echo esc_attr( 'bn-cid-' . $pid ); ?>"><?php esc_html_e( 'Client ID', 'buddynext' ); ?></label>
-						<input type="text" class="bn-input" id="<?php echo esc_attr( 'bn-cid-' . $pid ); ?>"
-							name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_id]' ); ?>"
-							value="<?php echo esc_attr( $cid ); ?>"
-							placeholder="<?php esc_attr_e( 'Paste the Client ID here', 'buddynext' ); ?>"
-							autocomplete="off" spellcheck="false" />
-					</div>
-					<div class="bn-field">
-						<label for="<?php echo esc_attr( 'bn-sec-' . $pid ); ?>"><?php esc_html_e( 'Client Secret', 'buddynext' ); ?></label>
-						<?php
-						// WRITE-ONLY. The stored secret is never echoed back into the
-						// page. type="password" is not a secret store — the plaintext
-						// sat in the DOM and in View Source, exposed to any admin-side
-						// XSS or browser extension. A blank submit keeps the saved
-						// value (see sanitize_social_login), so the owner can edit
-						// everything else on this screen without retyping it.
+					<?php if ( $needs_https ) : ?>
+						<p class="bn-field-hint bn-social-card__warning">
+							<?php
+							/* translators: %s: provider name (e.g. Apple). */
+							echo esc_html( sprintf( __( '%s sign-in returns to your site over a secure cross-site request, so it only works on HTTPS. This site is not using HTTPS, so the button will stay hidden even when configured.', 'buddynext' ), $label ) );
+							?>
+						</p>
+					<?php endif; ?>
+
+					<?php
+					foreach ( $cred_fields as $cred_key => $descriptor ) :
+						$cred_id     = 'bn-' . sanitize_key( $pid ) . '-' . sanitize_key( (string) $cred_key );
+						$cred_name   = 'buddynext_social_login[' . $pid . '][' . $cred_key . ']';
+						$cred_label  = (string) ( $descriptor['label'] ?? ucfirst( str_replace( '_', ' ', (string) $cred_key ) ) );
+						$cred_type   = (string) ( $descriptor['type'] ?? 'text' );
+						$cred_secret = ! empty( $descriptor['secret'] ) || 'password' === $cred_type;
+						$cred_stored = (string) ( $cfg[ $cred_key ] ?? '' );
+
+						// WRITE-ONLY secrets. The stored value is never echoed back into
+						// the page — type="password" is not a secret store; the
+						// plaintext sat in the DOM and View Source, exposed to any
+						// admin-side XSS or browser extension. A blank submit keeps the
+						// saved value (see sanitize_social_login_option), so the owner
+						// can edit everything else without retyping credentials.
+						$cred_saved_ph = esc_attr__( 'Saved. Leave blank to keep it, or paste a new one to replace it.', 'buddynext' );
+						/* translators: %s: credential field label (e.g. Client ID). */
+						$cred_empty_ph = esc_attr( sprintf( __( 'Paste the %s here', 'buddynext' ), $cred_label ) );
 						?>
-						<input type="password" class="bn-input" id="<?php echo esc_attr( 'bn-sec-' . $pid ); ?>"
-							name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_secret]' ); ?>"
-							value=""
-							placeholder="<?php echo '' !== $secret ? esc_attr__( 'Saved. Leave blank to keep it, or paste a new one to replace it.', 'buddynext' ) : esc_attr__( 'Paste the Client Secret here', 'buddynext' ); ?>"
-							autocomplete="off" spellcheck="false" />
-					</div>
+						<div class="bn-field">
+							<label for="<?php echo esc_attr( $cred_id ); ?>"><?php echo esc_html( $cred_label ); ?></label>
+							<?php if ( 'textarea' === $cred_type ) : ?>
+								<textarea class="bn-input" id="<?php echo esc_attr( $cred_id ); ?>"
+									name="<?php echo esc_attr( $cred_name ); ?>"
+									rows="4"
+									placeholder="<?php echo $cred_secret && '' !== $cred_stored ? $cred_saved_ph : $cred_empty_ph; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>"
+									autocomplete="off" spellcheck="false"><?php echo $cred_secret ? '' : esc_textarea( $cred_stored ); ?></textarea>
+							<?php else : ?>
+								<input type="<?php echo esc_attr( $cred_secret ? 'password' : 'text' ); ?>" class="bn-input" id="<?php echo esc_attr( $cred_id ); ?>"
+									name="<?php echo esc_attr( $cred_name ); ?>"
+									value="<?php echo $cred_secret ? '' : esc_attr( $cred_stored ); ?>"
+									placeholder="<?php echo $cred_secret && '' !== $cred_stored ? $cred_saved_ph : $cred_empty_ph; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>"
+									autocomplete="off" spellcheck="false" />
+							<?php endif; ?>
+						</div>
+					<?php endforeach; ?>
 					<div class="bn-field">
 						<label for="<?php echo esc_attr( $cb_id ); ?>">
 							<?php

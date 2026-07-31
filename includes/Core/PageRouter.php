@@ -142,7 +142,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-07-11-auth-complete';
+	private const ROUTER_VERSION = '2026-07-31-auth-connect-app';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -355,13 +355,50 @@ class PageRouter {
 
 		// Auth hub: redirect logged-in users away from login + signup
 		// surfaces. Verify-email stays accessible because a logged-in but
-		// unverified user must still see the "check your inbox" state.
+		// unverified user must still see the "check your inbox" state, and
+		// connect-app because its approve screen exists FOR the signed-in
+		// member — bouncing them to the feed would make the app bridge
+		// unreachable for exactly the people who can complete it.
 		if ( 'auth' === $hub && is_user_logged_in() ) {
 			$auth_action = (string) get_query_var( 'bn_auth_action', '' );
-			if ( 'verify' !== $auth_action ) {
+			if ( ! in_array( $auth_action, array( 'verify', 'connect-app' ), true ) ) {
 				wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
 				exit;
 			}
+		}
+
+		// Connect-app for a LOGGED-OUT visitor: send them through this site's
+		// own sign-in (password, social, 2FA — whatever the site runs) with the
+		// full bridge URL as the destination, so approving lands them straight
+		// back here. When the app asked for a specific ready provider, skip the
+		// chooser and start that provider's OAuth flow directly.
+		if ( 'auth' === $hub
+			&& 'connect-app' === (string) get_query_var( 'bn_auth_action', '' )
+			&& ! is_user_logged_in()
+		) {
+			nocache_headers();
+
+			// Read-only routing params; the one-time bridge token gates the
+			// actual mint, not this hop.
+			$bridge_query = array();
+			foreach ( array( 'app_name', 'app_id', 'scheme', 'state', 'provider' ) as $bn_param ) {
+				if ( isset( $_GET[ $bn_param ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+					$bridge_query[ $bn_param ] = sanitize_text_field( wp_unslash( (string) $_GET[ $bn_param ] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				}
+			}
+			$bn_provider = (string) ( $bridge_query['provider'] ?? '' );
+			unset( $bridge_query['provider'] );
+
+			$bridge_url = add_query_arg( array_map( 'rawurlencode', $bridge_query ), \BuddyNext\App\AppConnectService::connect_url() );
+
+			$ready_ids = array_column( \BuddyNext\Auth\SocialLogin::ready_providers(), 'id' );
+			if ( '' !== $bn_provider && in_array( $bn_provider, $ready_ids, true ) ) {
+				wp_safe_redirect( add_query_arg( 'redirect_to', rawurlencode( $bridge_url ), home_url( '/oauth/' . rawurlencode( $bn_provider ) . '/' ) ) ); // bn-route-ok: plugin-registered fixed /oauth/ rewrite.
+				exit;
+			}
+
+			wp_safe_redirect( add_query_arg( 'redirect_to', rawurlencode( $bridge_url ), self::auth_url() ) );
+			exit;
 		}
 
 		// Auth hub /signup/: bounce to /login/?registration=disabled when WP
@@ -624,6 +661,8 @@ class PageRouter {
 				$hub_title = __( 'Create an account', 'buddynext' );
 			} elseif ( 'verify' === $auth_action ) {
 				$hub_title = __( 'Verify your email', 'buddynext' );
+			} elseif ( 'connect-app' === $auth_action ) {
+				$hub_title = __( 'Connect the app', 'buddynext' );
 			}
 		}
 
@@ -1537,6 +1576,9 @@ class PageRouter {
 					case 'reset':
 						wp_enqueue_script_module( '@buddynext/auth-reset' );
 						break;
+					case 'connect-app':
+						wp_enqueue_script_module( '@buddynext/auth-connect-app' );
+						break;
 					case 'login':
 					default:
 						wp_enqueue_script_module( '@buddynext/auth-login' );
@@ -1778,6 +1820,8 @@ class PageRouter {
 						return 'auth/verify.php';
 					case 'reset':
 						return 'auth/reset.php';
+					case 'connect-app':
+						return 'auth/connect-app.php';
 					case 'login':
 					default:
 						return 'auth/login.php';
@@ -2184,6 +2228,14 @@ class PageRouter {
 		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/complete/?$',
 			'index.php?bn_hub=auth&bn_auth_action=complete',
+			'top'
+		);
+		// The native-app connect bridge: the mobile app opens this in a browser
+		// auth session; after any sign-in method, the approve screen mints an
+		// Application Password and deep-links it back to the app.
+		add_rewrite_rule(
+			'^' . preg_quote( $a, '/' ) . '/connect-app/?$',
+			'index.php?bn_hub=auth&bn_auth_action=connect-app',
 			'top'
 		);
 		add_rewrite_rule(

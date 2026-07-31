@@ -346,6 +346,113 @@ class AuthController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		// The connect-app bridge's mint step: the approve screen at
+		// {auth}/connect-app/ POSTs here over the member's fresh cookie session
+		// (require_auth + core's wp_rest nonce), and gets back the credential
+		// plus the deep link that returns it to the app.
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/app-connect',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'connect_app' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'scheme'       => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'bridge_token' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'app_name'     => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+					'app_id'       => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+					'state'        => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * POST /auth/app-connect — the bridge's mint step.
+	 *
+	 * Runs only for a member who is signed in IN THIS BROWSER and holds a
+	 * live one-time bridge token from a freshly rendered approve screen. The
+	 * response carries the deep link; the approve screen navigates to it
+	 * client-side. Deliberately never a server 302 — a Location header holding
+	 * a credential lands in proxy and access logs.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function connect_app( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id = get_current_user_id();
+
+		$scheme = sanitize_text_field( (string) $request->get_param( 'scheme' ) );
+		if ( ! \BuddyNext\App\AppConnectService::allowed_scheme( $scheme ) ) {
+			return new WP_Error(
+				'bn_app_bad_scheme',
+				__( 'This connection request came from an app this site does not recognise.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		if ( ! \BuddyNext\App\AppConnectService::consume_bridge_token( (string) $request->get_param( 'bridge_token' ), $user_id ) ) {
+			return new WP_Error(
+				'bn_app_bridge_expired',
+				__( 'This connection screen has expired. Go back to the app and try connecting again.', 'buddynext' ),
+				array( 'status' => 410 )
+			);
+		}
+
+		// A member should connect a handful of devices, ever. Anything past a
+		// small hourly cap is a runaway retry loop or an abuse attempt, and
+		// every excess mint is a live credential that then exists.
+		if ( RateLimiter::hit( 'bn_app_connect_' . $user_id, HOUR_IN_SECONDS ) > 5 ) {
+			return new WP_Error(
+				'bn_auth_rate_limited',
+				__( 'Too many connection attempts. Please wait a while and try again.', 'buddynext' ),
+				array( 'status' => 429 )
+			);
+		}
+
+		$minted = $this->mint_app_password(
+			$user_id,
+			(string) $request->get_param( 'app_name' ),
+			(string) $request->get_param( 'app_id' )
+		);
+		if ( is_wp_error( $minted ) ) {
+			return $minted;
+		}
+
+		// The state nonce is the APP's, echoed verbatim: it proves to the app
+		// that this redirect answers a flow the app itself started.
+		$state = sanitize_text_field( (string) $request->get_param( 'state' ) );
+
+		$response = new WP_REST_Response(
+			array(
+				'site_url'   => home_url(),
+				'user_login' => (string) $minted['username'],
+				'uuid'       => (string) $minted['uuid'],
+				'deep_link'  => \BuddyNext\App\AppConnectService::deep_link( $scheme, (string) $minted['username'], (string) $minted['password'], $state ),
+			),
+			201
+		);
+		// A response carrying a live credential must never be cached anywhere.
+		$response->header( 'Cache-Control', 'no-store' );
+
+		return $response;
 	}
 
 	/**
@@ -575,6 +682,7 @@ class AuthController {
 
 		$subject = $per_ip_only ? $action : ( $action . '|' . strtolower( $identifier ) );
 		$key     = 'bn_auth_' . md5( $ip . '|' . $subject );
+
 		/*
 		 * Increment FIRST, then compare what came back. Never read the count and
 		 * increment as two steps.
@@ -879,9 +987,10 @@ class AuthController {
 	 *
 	 * @param int    $user_id User to mint for.
 	 * @param string $name    Device / app label (defaults to a generic BuddyNext label).
+	 * @param string $app_id  The app's stable per-install UUID; matching rows are replaced on reconnect.
 	 * @return array{password:string,uuid:string,name:string,username:string}|WP_Error
 	 */
-	private function mint_app_password( int $user_id, string $name = '' ) {
+	private function mint_app_password( int $user_id, string $name = '', string $app_id = '' ) {
 		if ( ! class_exists( '\WP_Application_Passwords' ) || ! wp_is_application_passwords_available_for_user( $user_id ) ) {
 			return new WP_Error(
 				'app_passwords_unavailable',
@@ -890,9 +999,38 @@ class AuthController {
 			);
 		}
 
-		$name    = sanitize_text_field( $name );
-		$label   = '' !== $name ? $name : __( 'BuddyNext app', 'buddynext' );
-		$created = \WP_Application_Passwords::create_new_application_password( $user_id, array( 'name' => $label ) );
+		$name  = sanitize_text_field( $name );
+		$label = '' !== $name ? $name : __( 'BuddyNext app', 'buddynext' );
+
+		// The app's stable per-install UUID, same semantics as WP core's
+		// authorize-application flow: with it, the site shows ONE credential
+		// row per device across reconnects instead of a new row every time.
+		$args   = array( 'name' => $label );
+		$app_id = sanitize_text_field( $app_id );
+		if ( '' !== $app_id && wp_is_uuid( $app_id ) ) {
+			$args['app_id'] = $app_id;
+		}
+
+		// A RECONNECT replaces the device's credential rather than stacking a
+		// new row beside the old one. Core's class does not dedupe (only its
+		// REST controller refuses duplicate names), so left alone every
+		// reconnect of the same device appends another live credential —
+		// verified: two identical "BuddyNext" rows after two mints. Matching
+		// is by the app's stable per-install app_id when it sent one, else by
+		// label; the stale credential dies the moment its replacement is born,
+		// which is also the right security outcome for a lost/reset device.
+		foreach ( (array) \WP_Application_Passwords::get_user_application_passwords( $user_id ) as $existing ) {
+			if ( empty( $existing['uuid'] ) ) {
+				continue;
+			}
+			$same_app  = isset( $args['app_id'] ) && (string) ( $existing['app_id'] ?? '' ) === (string) $args['app_id'];
+			$same_name = ! isset( $args['app_id'] ) && (string) ( $existing['name'] ?? '' ) === $label;
+			if ( $same_app || $same_name ) {
+				\WP_Application_Passwords::delete_application_password( $user_id, (string) $existing['uuid'] );
+			}
+		}
+
+		$created = \WP_Application_Passwords::create_new_application_password( $user_id, $args );
 
 		if ( is_wp_error( $created ) ) {
 			return $created;
