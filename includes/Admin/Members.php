@@ -695,7 +695,7 @@ class Members extends AdminPageBase {
 
 		// Handle cover photo removal.
 		if ( ! empty( $_POST['bn_remove_cover'] ) ) {
-			delete_user_meta( $user_id, 'buddynext_cover_url' );
+			( new \BuddyNext\Profile\AvatarService() )->delete_cover( (int) $user_id );
 			delete_user_meta( $user_id, 'buddynext_cover_focal' );
 			( new \BuddyNext\Media\ImageStorageService() )->delete( 'cover', 'user', (int) $user_id );
 		}
@@ -721,7 +721,7 @@ class Members extends AdminPageBase {
 			$cover_uploaded = ( new \BuddyNext\Media\ImageStorageService() )->store( $cover_tmp, 'cover', 'user', (int) $user_id );
 
 			if ( ! is_wp_error( $cover_uploaded ) ) {
-				update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $cover_uploaded ) );
+				( new \BuddyNext\Profile\AvatarService() )->save_cover_url( (int) $user_id, (string) $cover_uploaded );
 			}
 		}
 

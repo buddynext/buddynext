@@ -243,7 +243,7 @@ class MemberEditForm {
 				$this->close_section();
 
 				// ── Cover Photo ───────────────────────────────────────────────
-				$existing_cover = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
+				$existing_cover = ( new \BuddyNext\Profile\AvatarService() )->get_cover_url( (int) $user_id );
 				$this->open_section( __( 'Cover Photo', 'buddynext' ) );
 				?>
 				<div class="bn-field-row">

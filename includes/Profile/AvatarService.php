@@ -259,6 +259,77 @@ class AvatarService {
 		delete_user_meta( $user_id, 'bn_avatar' );
 	}
 
+	/**
+	 * The user-meta key holding a member's cover image URL.
+	 *
+	 * Declared once, here, because it was previously spelled out by hand at
+	 * nine call sites across admin, REST, the demo seeder and the storage
+	 * service - and by the importer, which had to reach past us and write our
+	 * meta directly because there was no setter to call. A storage detail
+	 * copied into ten places is a storage detail that cannot be changed.
+	 */
+	private const COVER_META = 'buddynext_cover_url';
+
+	/**
+	 * A member's cover image URL, or '' when they have none.
+	 *
+	 * @param int $user_id User ID.
+	 * @return string
+	 */
+	public function get_cover_url( int $user_id ): string {
+		if ( $user_id <= 0 ) {
+			return '';
+		}
+
+		return (string) get_user_meta( $user_id, self::COVER_META, true );
+	}
+
+	/**
+	 * Save a member's cover image URL.
+	 *
+	 * Escaping lives here rather than at each caller: every existing call site
+	 * applied esc_url_raw() itself, and one that forgot would have written an
+	 * unescaped URL with nothing to catch it. An empty URL deletes, so callers
+	 * do not need to branch between "set" and "clear".
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $url     Absolute URL to the cover image. '' clears it.
+	 * @return void
+	 */
+	public function save_cover_url( int $user_id, string $url ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		$url = esc_url_raw( trim( $url ) );
+
+		if ( '' === $url ) {
+			$this->delete_cover( $user_id );
+			return;
+		}
+
+		update_user_meta( $user_id, self::COVER_META, $url );
+	}
+
+	/**
+	 * Remove a member's cover image URL.
+	 *
+	 * Only the pointer - the stored file is owned by ImageStorageService, and
+	 * callers that need the bytes gone delete them there. Keeping those two
+	 * separate is deliberate: dropping the meta while leaving the file is
+	 * recoverable, and the REST delete path relies on that ordering.
+	 *
+	 * @param int $user_id User ID.
+	 * @return void
+	 */
+	public function delete_cover( int $user_id ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		delete_user_meta( $user_id, self::COVER_META );
+	}
+
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/**

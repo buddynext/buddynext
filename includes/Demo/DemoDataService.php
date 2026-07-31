@@ -1440,12 +1440,15 @@ class DemoDataService {
 			return;
 		}
 		if ( 'user' === $owner ) {
-			// Write the canonical key for each kind: avatars live under `bn_avatar`,
-			// covers under `buddynext_cover_url` — the same keys the profile upload
-			// flow and renderers use, so seeded media resolves identically to real
-			// uploads (no demo-only dual-key shim).
-			$meta_key = ( 'avatar' === $kind ) ? 'bn_avatar' : 'buddynext_cover_url';
-			update_user_meta( $id, $meta_key, esc_url_raw( $stored ) );
+			// Through the same service the profile upload flow uses, so seeded
+			// media resolves identically to a real upload and the storage keys
+			// stay owned in one place (no demo-only shim).
+			$avatars = new \BuddyNext\Profile\AvatarService();
+			if ( 'avatar' === $kind ) {
+				$avatars->save_avatar_url( (int) $id, esc_url_raw( (string) $stored ) );
+			} else {
+				$avatars->save_cover_url( (int) $id, (string) $stored );
+			}
 		}
 	}
 }

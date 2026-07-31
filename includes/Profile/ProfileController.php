@@ -1769,7 +1769,7 @@ class ProfileController extends BaseRestController {
 	 * @return void
 	 */
 	private function purge_user_cover( int $user_id ): void {
-		delete_user_meta( $user_id, 'buddynext_cover_url' );
+		( new AvatarService() )->delete_cover( $user_id );
 		delete_user_meta( $user_id, 'buddynext_cover_focal' );
 		( new \BuddyNext\Media\ImageStorageService() )->delete( 'cover', 'user', $user_id );
 	}
@@ -1890,7 +1890,7 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
-		update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $cover_stored ) );
+		( new AvatarService() )->save_cover_url( $user_id, (string) $cover_stored );
 
 		/*
 		 * Reposition data — `focal_x`/`focal_y` (object-position percent 0–100)
