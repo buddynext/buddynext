@@ -155,4 +155,68 @@ class RegisterCompleteTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 403, rest_do_request( $request )->get_status() );
 		$this->assertFalse( get_user_by( 'email', $email ) );
 	}
+
+	/**
+	 * A destination parked with the signup is returned on completion.
+	 *
+	 * The producer is the app-connect bridge: a first-ever social sign-up
+	 * through the app parks here for terms consent, and the bridge URL must
+	 * survive the park or the member finishes signup into onboarding while the
+	 * app's auth sheet waits forever for an approve screen. Off-host values
+	 * must NOT survive - a parked redirect is attacker-reachable input, and
+	 * wp_validate_redirect() is the same-origin gate.
+	 */
+	public function test_a_parked_redirect_to_is_returned_on_completion(): void {
+		$bridge = home_url( '/login/connect-app/?app_name=BuddyNext&scheme=buddynextapp' );
+
+		$email = 'social_' . wp_generate_password( 6, false ) . '@example.com';
+		$token = PendingSignup::park(
+			array(
+				'provider'       => 'google',
+				'uid'            => 'uid-' . wp_generate_password( 6, false ),
+				'email'          => $email,
+				'email_verified' => true,
+				'name'           => 'Social Person',
+				'picture'        => '',
+				'redirect_to'    => $bridge,
+			)
+		);
+
+		$request = new WP_REST_Request( 'POST', '/buddynext/v1/auth/register/complete' );
+		$request->set_param( 'pending_token', $token );
+		$request->set_param( 'terms_agreed', true );
+
+		$data = rest_do_request( $request )->get_data();
+
+		$this->assertTrue( $data['success'] );
+		$this->assertSame( $bridge, html_entity_decode( (string) $data['redirect_to'] ), 'the member must return to the bridge, not onboarding' );
+	}
+
+	/**
+	 * An off-host parked destination is dropped, not followed.
+	 */
+	public function test_an_offsite_parked_redirect_is_refused(): void {
+		$email = 'social_' . wp_generate_password( 6, false ) . '@example.com';
+		$token = PendingSignup::park(
+			array(
+				'provider'       => 'google',
+				'uid'            => 'uid-' . wp_generate_password( 6, false ),
+				'email'          => $email,
+				'email_verified' => true,
+				'name'           => 'Social Person',
+				'picture'        => '',
+				'redirect_to'    => 'https://evil.example/phish',
+			)
+		);
+
+		$request = new WP_REST_Request( 'POST', '/buddynext/v1/auth/register/complete' );
+		$request->set_param( 'pending_token', $token );
+		$request->set_param( 'terms_agreed', true );
+
+		$data = rest_do_request( $request )->get_data();
+
+		$this->assertTrue( $data['success'] );
+		$this->assertStringNotContainsString( 'evil.example', (string) $data['redirect_to'] );
+		$this->assertStringStartsWith( home_url(), (string) $data['redirect_to'], 'fallback must be the normal same-origin landing' );
+	}
 }

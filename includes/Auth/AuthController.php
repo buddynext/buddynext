@@ -1610,11 +1610,24 @@ class AuthController {
 			);
 		}
 
+		// A destination parked WITH the signup wins over the default landing.
+		// The one real producer is the app-connect bridge: a first-ever social
+		// sign-up through the app parks here for terms consent, and without
+		// returning to the bridge the member finished signup into onboarding
+		// while the app's auth sheet waited forever for an approve screen.
+		// Same-origin only — wp_validate_redirect() returns '' for anything
+		// off-host, and '' falls back to the normal landing.
+		$parked_destination = wp_validate_redirect( (string) ( $pending['redirect_to'] ?? '' ), '' );
+
 		return new WP_REST_Response(
 			array(
 				'success'     => true,
 				'user_id'     => (int) $user_id,
-				'redirect_to' => esc_url_raw( self::post_register_redirect( (int) $user_id, $params ) ),
+				'redirect_to' => esc_url_raw(
+					'' !== $parked_destination
+						? $parked_destination
+						: self::post_register_redirect( (int) $user_id, $params )
+				),
 			),
 			200
 		);

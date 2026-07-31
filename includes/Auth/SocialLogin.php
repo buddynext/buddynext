@@ -777,7 +777,7 @@ class SocialLogin {
 		}
 
 		$invite   = (string) ( $stored['invite'] ?? '' );
-		$resolved = $this->resolve_user( $id, $profile, $invite );
+		$resolved = $this->resolve_user( $id, $profile, $invite, (string) ( $stored['redirect_to'] ?? '' ) );
 		if ( is_wp_error( $resolved ) ) {
 			$this->bail( $this->code_for( $resolved ) );
 		}
@@ -1136,10 +1136,13 @@ class SocialLogin {
 	 *
 	 * @param string                                                                       $id      Provider id.
 	 * @param array{id:string,email:string,name:string,picture:string,email_verified:bool} $profile Provider profile.
-	 * @param string                                                                       $invite  Invitation token carried through the OAuth round-trip.
+	 * @param string                                                                       $invite      Invitation token carried through the OAuth round-trip.
+	 * @param string                                                                       $redirect_to Same-origin destination carried through the round-trip; survives a
+	 *                                                                                                  parked signup so the finish-signup step can return the member to it
+	 *                                                                                                  (the app-connect bridge depends on this).
 	 * @return int|string|\WP_Error User id, a pending-signup token, or an error.
 	 */
-	private function resolve_user( string $id, array $profile, string $invite = '' ) {
+	private function resolve_user( string $id, array $profile, string $invite = '', string $redirect_to = '' ) {
 		$meta_key = 'bn_social_' . $id . '_id';
 
 		// Who, if anyone, already owns this provider identity?
@@ -1238,6 +1241,12 @@ class SocialLogin {
 			// The invite must survive the finish-signup step, or a social sign-up
 			// that needs terms consent would silently lose its invitation.
 			'invite'         => $invite,
+			// So must the destination. A first-ever social sign-up through the
+			// app-connect bridge parks here (terms consent defaults on and OAuth
+			// cannot supply it) - without carrying redirect_to, the member
+			// finished signup and was sent to onboarding while the app's auth
+			// sheet sat waiting for an approve screen that never came.
+			'redirect_to'    => $redirect_to,
 		);
 
 		// The owner may require terms consent and/or profile fields that OAuth
