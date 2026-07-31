@@ -81,10 +81,28 @@ function setPrivacySelect( value ) {
 	setTimeout( apply, 0 );
 }
 
+// Where this album list lives. A space album collection and a member's own are
+// the same UI over the same summaries; only the owner differs, so the scope is
+// resolved here rather than by forking the store - two album stores is how two
+// behaviours drift apart.
+function albumsRoot( ctx ) {
+	const spaceId = Number( ctx.spaceId ) || 0;
+	return spaceId > 0
+		? '/spaces/' + spaceId + '/albums'
+		: '/users/' + ( Number( ctx.ownerId ) || 0 ) + '/albums';
+}
+
+// Where a NEW album is created, and where an existing one is edited. Editing
+// stays on /me/albums/{id} for both scopes: that route is already id-scoped and
+// its permission callback knows about space albums.
+function albumCreateRoot( ctx ) {
+	const spaceId = Number( ctx.spaceId ) || 0;
+	return spaceId > 0 ? '/spaces/' + spaceId + '/albums' : '/me/albums';
+}
+
 async function fetchAlbums( ctx ) {
-	const owner = Number( ctx.ownerId ) || 0;
 	try {
-		const res = await restFetch( '/users/' + owner + '/albums?per_page=48', {
+		const res = await restFetch( albumsRoot( ctx ) + '?per_page=48', {
 			method: 'GET', nonce: ctx.restNonce, toastOnError: false,
 		} );
 		const list = ( res.ok && res.data && Array.isArray( res.data.albums ) ) ? res.data.albums : [];
@@ -152,7 +170,7 @@ const albumsStore = store( 'buddynext/media-albums', {
 			const editing = Number( ctx.editingAlbumId ) || 0;
 			const body = { title, description: ctx.createDesc || '', privacy: ctx.createPrivacy || 'public' };
 			try {
-				const res = await restFetch( editing ? ( '/me/albums/' + editing ) : '/me/albums', {
+				const res = await restFetch( editing ? ( '/me/albums/' + editing ) : albumCreateRoot( ctx ), {
 					method: editing ? 'PUT' : 'POST', nonce: ctx.restNonce, toastOnError: false, body,
 				} );
 				if ( res.ok && res.data && res.data.id ) {

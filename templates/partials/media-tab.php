@@ -17,8 +17,13 @@
 
 defined( 'ABSPATH' ) || exit;
 
-$bn_mt_owner_id  = isset( $bn_mt_owner_id ) ? (int) $bn_mt_owner_id : 0;
-$bn_mt_is_owner  = isset( $bn_mt_is_owner ) ? (bool) $bn_mt_is_owner : false;
+$bn_mt_owner_id = isset( $bn_mt_owner_id ) ? (int) $bn_mt_owner_id : 0;
+$bn_mt_is_owner = isset( $bn_mt_is_owner ) ? (bool) $bn_mt_is_owner : false;
+// Non-zero when this gallery belongs to a SPACE rather than a member. The same
+// template and the same store serve both; only the owner of the collection
+// differs, so the scope travels in the context rather than in a second copy of
+// this file.
+$bn_mt_space_id  = isset( $bn_mt_space_id ) ? (int) $bn_mt_space_id : 0;
 $bn_mt_media_ids = isset( $bn_mt_media_ids ) ? (array) $bn_mt_media_ids : array();
 // Owner control: the Albums sub-view can be hidden via BuddyNext -> Integrations
 // (Media -> Albums sub-tab). Default on. When off, only the flat Media gallery shows.
@@ -27,6 +32,9 @@ $bn_mt_albums_enabled = ! isset( $bn_mt_albums_enabled ) || (bool) $bn_mt_albums
 $bn_mt_ctx = array(
 	'restNonce'          => wp_create_nonce( 'wp_rest' ),
 	'ownerId'            => $bn_mt_owner_id,
+	'spaceId'            => $bn_mt_space_id,
+	// For a space this means "may create albums here", which the space's own
+	// album_creators setting decides - not "owns this profile".
 	'isOwner'            => $bn_mt_is_owner,
 	'view'               => 'media',
 	'albums'             => array(),

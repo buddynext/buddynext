@@ -194,6 +194,22 @@ final class CoreSpaceFields {
 			)
 		);
 		$registry->register(
+			'album_creators',
+			array(
+				'label'      => __( 'Who can create albums in this space', 'buddynext' ),
+				'type'       => 'select',
+				'default'    => 'members',
+				'options'    => array(
+					'members' => __( 'Any member', 'buddynext' ),
+					'admins'  => __( 'Organisers only', 'buddynext' ),
+				),
+				'section'    => 'integrations',
+				'sort_order' => 25,
+				'visibility' => 'members',
+				'core'       => true,
+			)
+		);
+		$registry->register(
 			'jetonomy_forum_id',
 			array(
 				'label'      => __( 'Linked forum ID', 'buddynext' ),

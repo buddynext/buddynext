@@ -1459,6 +1459,15 @@ class PageRouter {
 				if ( in_array( $space_action_v, array( 'members', 'settings' ), true ) || 'members' === $bn_space_tab ) {
 					$assets->enqueue( 'space-members' );
 				}
+				// The space Media tab renders the SAME gallery template as a
+				// profile, so it needs the same two modules. Without them the
+				// Media | Albums toggle and the upload dropzone are in the DOM but
+				// never hydrate: the buttons do nothing and the grid stays empty,
+				// which is exactly how the tab looked before this line existed.
+				if ( 'media' === $space_action_v || 'media' === $bn_space_tab ) {
+					$assets->enqueue( 'media-upload' );
+					$assets->enqueue( 'media-albums' );
+				}
 				// The settings "Custom fields" panel saves registered space fields
 				// over REST via the buddynext/space-fields store.
 				if ( 'settings' === $space_action_v ) {

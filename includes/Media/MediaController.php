@@ -688,12 +688,122 @@ class MediaController extends BaseRestController {
 		$svc   = MediaClient::albums();
 		$added = ( $svc && method_exists( $svc, 'add_items' ) ) ? (int) $svc->add_items( $album_id, $media_ids ) : 0;
 
+		if ( $space_id > 0 ) {
+			// Clamp whatever was ASKED for, not only what was newly inserted. A
+			// photo already sitting in the album still has to obey the space's
+			// privacy, and add_items() reports 0 for a re-add - so gating this on
+			// the insert count left an already-present photo public forever.
+			$this->clamp_media_to_space_privacy( $space_id, $media_ids );
+
+			// The feed post is different: announcing a no-op would put "Added
+			// photos" in the space every time somebody re-submitted the same set.
+			if ( $added > 0 ) {
+				$this->announce_space_album_upload( $space_id, $album_id, $media_ids );
+			}
+		}
+
 		return new WP_REST_Response(
 			array(
 				'added'       => $added,
 				'media_count' => ( $svc && method_exists( $svc, 'get_item_count' ) ) ? (int) $svc->get_item_count( $album_id ) : 0,
 			),
 			200
+		);
+	}
+
+	/**
+	 * Stop a restricted space's photos being publicly listed elsewhere.
+	 *
+	 * The album is gated by the space, but the PHOTO is not: a member's profile
+	 * gallery lists their media by the media's own privacy, so a picture whose
+	 * only home is a private space album was still reachable by a logged-out
+	 * stranger on that member's profile. The album was private and the content
+	 * was not, which is precisely the leak "the space decides the audience" is
+	 * supposed to rule out.
+	 *
+	 * Only restricted spaces clamp. A photo in an open space is public content
+	 * and there is nothing to protect it from.
+	 *
+	 * @param int   $space_id  Space the album belongs to.
+	 * @param int[] $media_ids Media just added.
+	 * @return void
+	 */
+	private function clamp_media_to_space_privacy( int $space_id, array $media_ids ): void {
+		$space = function_exists( 'buddynext_service' ) ? buddynext_service( 'spaces' )->get( $space_id ) : null;
+		if ( null === $space ) {
+			return;
+		}
+
+		if ( ! \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) $space['type'] ) ) {
+			return;
+		}
+
+		$repo = MediaClient::repo();
+		if ( ! $repo || ! method_exists( $repo, 'set' ) ) {
+			return;
+		}
+
+		foreach ( $media_ids as $media_id ) {
+			$repo->set( (int) $media_id, 'privacy', 'private' );
+		}
+	}
+
+	/**
+	 * Post to the space when photos land in one of its albums.
+	 *
+	 * Album content is otherwise invisible until somebody thinks to open the
+	 * Albums tab, which is not how members find anything. One post per upload,
+	 * not per photo - a batch of twelve is one thing that happened, and twelve
+	 * posts is how a feed becomes unreadable.
+	 *
+	 * Creating an EMPTY album announces nothing: there is nothing to look at
+	 * yet, and an album is often made minutes before it is filled.
+	 *
+	 * A migration never reaches this: the importer files album contents through
+	 * the engine's add_items() directly, not through this REST handler, so
+	 * replaying years of uploads cannot manufacture a feed full of upload
+	 * notices. Worth knowing before anyone routes the importer through here.
+	 *
+	 * @param int   $space_id  Space the album belongs to.
+	 * @param int   $album_id  Album id.
+	 * @param int[] $media_ids Media just added.
+	 * @return void
+	 */
+	private function announce_space_album_upload( int $space_id, int $album_id, array $media_ids ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		/**
+		 * Filter whether adding photos to a space album posts to that space.
+		 *
+		 * @since 1.1.1
+		 *
+		 * @param bool $announce Default true.
+		 * @param int  $space_id Space id.
+		 * @param int  $album_id Album id.
+		 */
+		if ( ! (bool) apply_filters( 'buddynext_announce_space_album_upload', true, $space_id, $album_id ) ) {
+			return;
+		}
+
+		$posts = buddynext_service( 'post_service' );
+		if ( ! $posts || ! method_exists( $posts, 'create' ) ) {
+			return;
+		}
+
+		$posts->create(
+			get_current_user_id(),
+			array(
+				'type'      => 'media',
+				'content'   => sprintf(
+					/* translators: %s: album name. */
+					__( 'Added photos to %s', 'buddynext' ),
+					get_the_title( $album_id )
+				),
+				'space_id'  => $space_id,
+				'media_ids' => $media_ids,
+			)
 		);
 	}
 

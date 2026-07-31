@@ -515,21 +515,31 @@ final class SpaceNav {
 	 * @return void
 	 */
 	private function render_media_panel( int $space_id ): void {
-		$ids = MediaClient::available()
-			? (array) buddynext_service( 'feed' )->space_media_ids( $space_id, 24 )
-			: array();
-
-		if ( ! empty( $ids ) ) {
-			echo \BuddyNext\Media\MediaRenderer::gallery( $ids, array( 'space_id' => $space_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer::gallery() returns escaped markup.
+		if ( ! MediaClient::available() ) {
+			buddynext_get_template(
+				'parts/empty-state.php',
+				array(
+					'icon'  => 'camera',
+					'title' => __( 'No media in this space yet', 'buddynext' ),
+					'body'  => __( 'Share a photo to get started.', 'buddynext' ),
+				)
+			);
 			return;
 		}
 
+		$viewer = get_current_user_id();
+
+		// The same gallery the profile uses, scoped to this space: one template
+		// and one Interactivity store for both, so the two cannot drift.
+		// space_media_ids() supplies the flat grid (media shared in posts here);
+		// the Albums view loads itself from /spaces/{id}/albums.
 		buddynext_get_template(
-			'parts/empty-state.php',
+			'partials/media-tab.php',
 			array(
-				'icon'  => 'camera',
-				'title' => __( 'No media in this space yet', 'buddynext' ),
-				'body'  => __( 'Share a photo to get started.', 'buddynext' ),
+				'bn_mt_space_id'  => $space_id,
+				'bn_mt_owner_id'  => 0,
+				'bn_mt_is_owner'  => \BuddyNext\Media\Galleries::can_create_space_album( $space_id, $viewer ),
+				'bn_mt_media_ids' => (array) buddynext_service( 'feed' )->space_media_ids( $space_id, 24 ),
 			)
 		);
 	}
