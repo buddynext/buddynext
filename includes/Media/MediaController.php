@@ -105,6 +105,21 @@ class MediaController extends BaseRestController {
 			)
 		);
 
+		register_rest_route(
+			'buddynext/v1',
+			'/me/media/(?P<media_id>[\d]+)/usage',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'media_usage' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+					'args'                => array(
+						'media_id' => array( 'sanitize_callback' => 'absint' ),
+					),
+				),
+			)
+		);
+
 		// ── Albums ────────────────────────────────────────────────────────────
 		register_rest_route(
 			'buddynext/v1',
@@ -459,6 +474,41 @@ class MediaController extends BaseRestController {
 			array(
 				'deleted' => true,
 				'id'      => $media_id,
+			),
+			200
+		);
+	}
+
+	/**
+	 * GET /me/media/{id}/usage — what else this photo is part of.
+	 *
+	 * Asked immediately before a delete is confirmed, so the member is told that
+	 * removing their photo also removes it from a space's shared album. It stays
+	 * their photo and they may still delete it; they just find out first rather
+	 * than the space quietly losing a picture.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function media_usage( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$media_id = (int) $request->get_param( 'media_id' );
+		$repo     = MediaClient::repo();
+		$author   = ( $repo && method_exists( $repo, 'get_author' ) ) ? (int) $repo->get_author( $media_id ) : 0;
+
+		// Same owner gate as the delete this precedes - the answer names spaces,
+		// so it must not be readable for somebody else's media.
+		if ( get_current_user_id() !== $author && ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error(
+				'bn_media_forbidden',
+				__( 'You can only remove your own media.', 'buddynext' ),
+				array( 'status' => current_user_can( 'read' ) ? 403 : 401 )
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'media_id'     => $media_id,
+				'space_albums' => Galleries::space_albums_for_media( $media_id ),
 			),
 			200
 		);

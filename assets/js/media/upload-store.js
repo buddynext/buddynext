@@ -371,9 +371,29 @@ function bindRegionDelete() {
 		if ( ! id ) {
 			return;
 		}
+		// A photo shared into a space is still the member's to delete, but it is
+		// also sitting in somebody's shared album. Say so BEFORE the delete, or
+		// the space's gallery quietly develops holes and nobody knows why.
+		let body = t( 'confirmDeleteBody', 'This cannot be undone.' );
+		try {
+			const usage = await restFetch( '/me/media/' + id + '/usage', {
+				method: 'GET', nonce: cfg.nonce, toastOnError: false,
+			} );
+			const albums = ( usage.ok && usage.data && Array.isArray( usage.data.space_albums ) )
+				? usage.data.space_albums
+				: [];
+			if ( albums.length ) {
+				body = t( 'confirmDeleteInSpaces', 'It will also be removed from these space albums: %s' )
+					.replace( '%s', albums.map( ( a ) => a.title ).join( ', ' ) )
+					+ ' ' + body;
+			}
+		} catch ( e ) {
+			// The warning is a courtesy; never block a delete because it failed.
+		}
+
 		const ok = await bnConfirm( {
 			title:        t( 'confirmDeleteTitle', 'Remove this media?' ),
-			body:         t( 'confirmDeleteBody', 'This cannot be undone.' ),
+			body:         body,
 			confirmLabel: t( 'remove', 'Remove' ),
 			tone:         'danger',
 		} );

@@ -80,6 +80,38 @@ class Galleries {
 	}
 
 	/**
+	 * Space albums a media item belongs to.
+	 *
+	 * Used to tell a member what removing a photo is about to affect. A photo
+	 * shared into a space stays the member's own - they may delete it - but it
+	 * is also sitting in somebody's shared album, and finding that out
+	 * afterwards is how a space's gallery quietly develops holes.
+	 *
+	 * @param int $media_id Media id.
+	 * @return array<int,array{id:int,title:string,space_id:int}>
+	 */
+	public static function space_albums_for_media( int $media_id ): array {
+		$albums = MediaClient::albums();
+		if ( ! $albums || ! method_exists( $albums, 'albums_for_media' ) ) {
+			return array();
+		}
+
+		$out = array();
+		foreach ( (array) $albums->albums_for_media( $media_id ) as $album_id ) {
+			$space_id = self::album_space( (int) $album_id );
+			if ( $space_id > 0 ) {
+				$out[] = array(
+					'id'       => (int) $album_id,
+					'title'    => (string) get_the_title( (int) $album_id ),
+					'space_id' => $space_id,
+				);
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Albums belonging to a space that the viewer may see (newest first).
 	 *
 	 * The space decides the audience, so this gates once on the space rather

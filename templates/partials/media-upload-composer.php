@@ -28,25 +28,27 @@ $bn_mu_ctx = array(
 	'uploading' => false,
 	'errorMsg'  => '',
 	't'         => array(
-		'badType'            => __( 'Only images, video and audio can be uploaded.', 'buddynext' ),
-		'tooLarge'           => __( 'File is larger than the allowed size.', 'buddynext' ),
+		'badType'               => __( 'Only images, video and audio can be uploaded.', 'buddynext' ),
+		'tooLarge'              => __( 'File is larger than the allowed size.', 'buddynext' ),
 		/* translators: %d: maximum number of files allowed per upload batch. */
-		'tooMany'            => __( 'You can upload up to %d files at once.', 'buddynext' ),
-		'failed'             => __( 'Upload failed.', 'buddynext' ),
+		'tooMany'               => __( 'You can upload up to %d files at once.', 'buddynext' ),
+		'failed'                => __( 'Upload failed.', 'buddynext' ),
 		/* translators: %d: number of files uploaded. */
-		'uploaded'           => __( '%d uploaded.', 'buddynext' ),
+		'uploaded'              => __( '%d uploaded.', 'buddynext' ),
 		/* translators: %d: number of files uploaded and posted to the feed. */
-		'shared'             => __( '%d uploaded and shared to your feed.', 'buddynext' ),
+		'shared'                => __( '%d uploaded and shared to your feed.', 'buddynext' ),
 		/* translators: %d: number of files that were already in the library (duplicates). */
-		'dup'                => __( '%d already in your library.', 'buddynext' ),
-		'someFailed'         => __( 'Some files could not be uploaded.', 'buddynext' ),
-		'empty'              => __( 'No media uploaded yet.', 'buddynext' ),
-		'remove'             => __( 'Remove', 'buddynext' ),
-		'confirmDelete'      => __( 'Remove this media? This cannot be undone.', 'buddynext' ),
-		'confirmDeleteTitle' => __( 'Remove this media?', 'buddynext' ),
-		'confirmDeleteBody'  => __( 'This cannot be undone.', 'buddynext' ),
-		'removed'            => __( 'Media removed.', 'buddynext' ),
-		'removeFailed'       => __( 'Could not remove.', 'buddynext' ),
+		'dup'                   => __( '%d already in your library.', 'buddynext' ),
+		'someFailed'            => __( 'Some files could not be uploaded.', 'buddynext' ),
+		'empty'                 => __( 'No media uploaded yet.', 'buddynext' ),
+		'remove'                => __( 'Remove', 'buddynext' ),
+		'confirmDelete'         => __( 'Remove this media? This cannot be undone.', 'buddynext' ),
+		'confirmDeleteTitle'    => __( 'Remove this media?', 'buddynext' ),
+		'confirmDeleteBody'     => __( 'This cannot be undone.', 'buddynext' ),
+		/* translators: %s: comma-separated list of space album names. */
+		'confirmDeleteInSpaces' => __( 'It will also be removed from these space albums: %s', 'buddynext' ),
+		'removed'               => __( 'Media removed.', 'buddynext' ),
+		'removeFailed'          => __( 'Could not remove.', 'buddynext' ),
 	),
 );
 ?>
