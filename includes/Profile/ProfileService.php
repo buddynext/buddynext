@@ -1600,6 +1600,21 @@ class ProfileService {
 						}
 					}
 					$flat_fields[ $flat_fid ]['value'] = $picks;
+
+					// value_raw has to move with it. It was assigned per ROW
+					// further up, so on a set-valued field it held the FIRST
+					// pick and nothing else - and the edit form prefills from
+					// `value_raw ?? value`. A member who chose three interests
+					// came back to one ticked box, and the next save wrote that
+					// single pick over the other two. The save path was always
+					// correct; this was the whole of the bug.
+					//
+					// Owner-only, exactly as the per-row assignment is: the raw
+					// value exists for the edit form, and nobody else has any
+					// business receiving it.
+					if ( null !== ( $flat_fields[ $flat_fid ]['value_raw'] ?? null ) ) {
+						$flat_fields[ $flat_fid ]['value_raw'] = $picks;
+					}
 				}
 
 				$flat_fields = array_values( $flat_fields );
