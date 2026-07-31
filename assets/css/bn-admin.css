@@ -1022,15 +1022,14 @@ table.bn-table tr:hover td {
 	overflow: visible;
 }
 
-.bn-table-wrap__scroll .bn-table th:last-child,
 /*
- * The row whose actions menu is open is lifted above its neighbours for as long
- * as the menu is open (more-menu.js toggles this class). Without it the sticky
- * cell's own stacking context traps the dropdown's z-index and the NEXT row's
- * opaque actions cell paints over the menu — it opened, but was invisible.
+ * The per-row lift that used to live here is gone. It raised the actions cell
+ * while its menu was open, to stop the sticky cell's own stacking context
+ * trapping the dropdown's z-index. The dropdown is now re-parented to <body>
+ * while open (more-menu.js), so it is not inside that stacking context at all
+ * and there is nothing left to lift.
  */
-.bn-table td:last-child.bn-cell--menu-open,
-.bn-table-wrap__scroll .bn-table td:last-child.bn-cell--menu-open {
+.bn-table-wrap__scroll .bn-table th:last-child {
 	z-index: 5;
 }
 
@@ -1981,7 +1980,16 @@ button.bn-btn-danger:hover {
 	overflow: hidden;
 }
 
-.bn-more-menu.open .bn-more-dropdown {
+/*
+ * Two selectors for one state, because the open dropdown does not stay where it
+ * is written: more-menu.js re-parents it to <body> to escape the table
+ * wrapper's paint containment and the sticky cell's stacking context. Once
+ * moved it is no longer a descendant of .bn-more-menu, so a descendant selector
+ * alone would hide the very menu that had just been opened. The class on the
+ * element itself is what survives the move.
+ */
+.bn-more-menu.open .bn-more-dropdown,
+.bn-more-dropdown.is-open {
 	display: block;
 }
 

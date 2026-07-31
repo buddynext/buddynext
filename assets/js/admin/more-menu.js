@@ -18,37 +18,56 @@
 	'use strict';
 
 	/*
-	 * The dropdown is position:fixed with z-index 1000, but the sticky actions
-	 * cell it lives in is `position: sticky; z-index: 1`, which makes that <td>
-	 * a stacking context — so the 1000 is resolved INSIDE the cell, not against
-	 * the page. Every row's actions cell has the same z-index, so the tie is
-	 * broken by DOM order and the next row's opaque cell paints straight over
-	 * the open menu. position:fixed does not help: it changes the containing
-	 * block, not which stacking context the element participates in.
+	 * The dropdown is MOVED TO <body> while it is open, and put back on close.
 	 *
-	 * So the owning cell is lifted for exactly as long as its menu is open.
+	 * Two separate ancestors made it unreachable where it sits in the markup,
+	 * and both are load-bearing, so neither could simply be removed:
+	 *
+	 * 1. `.bn-table-wrap__scroll` carries `contain: paint` - deliberately, to
+	 *    stop 66 sticky cells leaking their layout width past the scroll
+	 *    ancestor and growing a 277px page scrollbar. Paint containment also
+	 *    makes that box the containing block for position:fixed descendants, so
+	 *    the menu's correctly-computed VIEWPORT coordinates were re-resolved
+	 *    against the wrapper and landed off-screen. Measured on Members >
+	 *    Directory at 1440: computed left 1213 / top 695, rendered at 1684 /
+	 *    1292. The button looked dead because the menu opened where nobody could
+	 *    see it.
+	 * 2. The actions <td> is `position: sticky; z-index: 1`, which makes it a
+	 *    stacking context, so z-index 1000 was resolved INSIDE the cell and the
+	 *    next row's opaque cell painted over the menu.
+	 *
+	 * Re-parenting to <body> escapes both at once: no contained ancestor, no
+	 * stacking context, and the existing viewport maths becomes correct as
+	 * written. It also retires the per-cell lift that used to work around (2).
 	 */
-	function setCellLift( menu, lifted ) {
-		var cell = menu.closest( 'td' );
-		if ( cell ) {
-			cell.classList.toggle( 'bn-cell--menu-open', lifted );
+	function dropdownOf( menu ) {
+		return menu.bnDropdown || menu.querySelector( '.bn-more-dropdown' );
+	}
+
+	function restoreDropdown( menu ) {
+		var dd = menu.bnDropdown;
+		if ( ! dd ) {
+			return;
+		}
+		dd.classList.remove( 'is-open' );
+		if ( dd.parentElement !== menu ) {
+			menu.appendChild( dd );
 		}
 	}
 
 	function closeAllRowMenus() {
 		document.querySelectorAll( '.bn-more-menu.open' ).forEach( function ( open ) {
 			open.classList.remove( 'open' );
-			setCellLift( open, false );
+			restoreDropdown( open );
 		} );
 	}
 
-	// The dropdown is position:fixed so it escapes the overflow:hidden on the
-	// rounded card/table ancestors (which clipped the bottom rows). Place it
-	// under the trigger, right-aligned, flipping above when it would overflow
-	// the viewport bottom.
+	// Place it under the trigger, right-aligned, flipping above when it would
+	// overflow the viewport bottom. Coordinates are viewport-relative, which is
+	// only true because the dropdown has been re-parented to <body> first.
 	function positionRowMenu( menu ) {
 		var btn = menu.querySelector( '.bn-more-btn' );
-		var dd  = menu.querySelector( '.bn-more-dropdown' );
+		var dd  = dropdownOf( menu );
 		if ( ! btn || ! dd ) {
 			return;
 		}
@@ -82,6 +101,13 @@
 		}
 
 		triggers.forEach( function ( btn ) {
+			var owner = btn.closest( '.bn-more-menu' );
+			if ( owner && ! owner.bnDropdown ) {
+				// Held on the menu because the element stops being a descendant
+				// once it is open - a querySelector would find nothing.
+				owner.bnDropdown = owner.querySelector( '.bn-more-dropdown' );
+			}
+
 			btn.addEventListener( 'click', function ( e ) {
 				e.stopPropagation();
 				var menu = btn.closest( '.bn-more-menu' );
@@ -91,14 +117,22 @@
 				document.querySelectorAll( '.bn-more-menu.open' ).forEach( function ( open ) {
 					if ( open !== menu ) {
 						open.classList.remove( 'open' );
-						setCellLift( open, false );
+						restoreDropdown( open );
 					}
 				} );
 				menu.classList.toggle( 'open' );
 				var isOpen = menu.classList.contains( 'open' );
-				setCellLift( menu, isOpen );
 				if ( isOpen ) {
+					// Re-parent BEFORE measuring: the maths below is
+					// viewport-relative and only resolves that way once the
+					// element has left the contained, sticky subtree.
+					document.body.appendChild( menu.bnDropdown );
+					// The descendant selector cannot reach it out here, so the
+					// element carries its own open state.
+					menu.bnDropdown.classList.add( 'is-open' );
 					positionRowMenu( menu );
+				} else {
+					restoreDropdown( menu );
 				}
 			} );
 		} );
