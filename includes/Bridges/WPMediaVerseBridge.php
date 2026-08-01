@@ -24,6 +24,7 @@ use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Media\MediaClient;
+use BuddyNext\Media\Galleries;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\IntegrationActivity;
 
@@ -161,6 +162,10 @@ class WPMediaVerseBridge {
 		// falls back to its own /media/@{login}/ URL, which is not a member
 		// profile.
 		add_filter( 'mvs_user_profile_url', array( $this, 'member_profile_url' ), 10, 2 );
+
+		// Space albums decide media privacy themselves — opt out of the engine's
+		// album-privacy inheritance for them.
+		add_filter( 'mvs_album_inherit_privacy', array( $this, 'skip_inherit_for_space_albums' ), 10, 2 );
 
 		// Route new-message events into bn_notifications.
 		add_action( 'mvs_message_sent', array( $this, 'on_message_sent' ), 10, 4 );
@@ -781,6 +786,33 @@ class WPMediaVerseBridge {
 			default:
 				return $reason;
 		}
+	}
+
+	/**
+	 * Keep the engine's album-privacy inheritance away from space albums.
+	 *
+	 * Hooked on: mvs_album_inherit_privacy ($inherit, $album_id).
+	 *
+	 * MVS 2.3.0 clamps a media item to its album's privacy when it is added, so
+	 * a photo dropped into a Private album stops being public. That is right for
+	 * a personal album, where the album's privacy IS the member's intent.
+	 *
+	 * It is wrong for a space album. We create every space album with
+	 * privacy 'private' as a container flag — deliberately, so a per-album
+	 * setting cannot become a second privacy system on top of the space's own
+	 * audience (see MediaController::create_space_album). The real decision is
+	 * made afterwards by clamp_media_to_space_privacy(), which forces 'private'
+	 * only when the space type actually requires membership.
+	 *
+	 * Letting the engine inherit from that container flag turned every photo in
+	 * an OPEN space album private, and they vanished from the public gallery.
+	 *
+	 * @param bool $inherit  Whether MVS should clamp. Default true.
+	 * @param int  $album_id Album receiving the media.
+	 * @return bool
+	 */
+	public function skip_inherit_for_space_albums( bool $inherit, int $album_id ): bool {
+		return Galleries::album_space( $album_id ) > 0 ? false : $inherit;
 	}
 
 	/**
