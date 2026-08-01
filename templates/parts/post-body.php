@@ -434,6 +434,33 @@ do_action( 'buddynext_part_post_body_before', $args );
 		?>
 	<?php endif; ?>
 
+	<?php
+	/*
+	 * Attached media on a post whose own branch above does not present it.
+	 *
+	 * Media is orthogonal to post type everywhere except here. PostService::create()
+	 * accepts media_ids on ANY allowed type — media alone even satisfies its
+	 * not-empty gate — authorizes them, stores them and links them in the media
+	 * table. Only the render treated media as belonging to two types, so a post
+	 * could be created with media, pass every check, and show the member nothing.
+	 *
+	 * Three reachable ways in, none of them hypothetical:
+	 *   - the composer promotes photo|text to 'photo' when media is attached, but
+	 *     ONLY those two, so announcement + media stays 'announcement';
+	 *   - the importer types a migrated blog post as its blog type and attaches
+	 *     media in the same call, so migrated post media never rendered;
+	 *   - any REST client may post a valid type with media_ids.
+	 *
+	 * Rendered here rather than added to each branch so the rule is one rule: a new
+	 * post type gets its media shown by existing, instead of silently dropping it
+	 * until someone notices. Types listed below already present their own media —
+	 * photo/media as the grid, file as the file list — and are the only exclusions.
+	 */
+	if ( ! empty( $bn_body_media_ids ) && ! in_array( $bn_body_post_type, array( 'photo', 'media', 'file' ), true ) ) {
+		echo \BuddyNext\Media\MediaRenderer::grid( array_map( 'absint', (array) $bn_body_media_ids ), (int) $args['bn_post_id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer escapes all URLs/attributes internally.
+	}
+	?>
+
 </div><!-- .bn-post-card__body -->
 <?php
 do_action( 'buddynext_part_post_body_after', $args );

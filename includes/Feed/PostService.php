@@ -2776,10 +2776,34 @@ class PostService {
 	}
 
 	/**
+	 * Decode a column that is JSON in the database but may arrive already decoded.
+	 *
+	 * Hydrate() documents a RAW wpdb row, but real callers pass it the output of
+	 * get(), which is itself hydrated — live_announcement_row() does exactly that.
+	 * The old `json_decode( (string) $value )` then ran over an ARRAY, which
+	 * stringifies to the literal "Array", fails to parse, and returns null. So an
+	 * announcement carrying media silently lost it: get() reported media_ids [702]
+	 * while active_announcement() reported null for the same post.
+	 *
+	 * Passing through an already-decoded value makes hydrate() idempotent, which is
+	 * the property those callers were assuming all along.
+	 *
+	 * @param mixed $value Raw JSON string, an already-decoded value, or null.
+	 * @return mixed Decoded value, or null when absent/unparseable.
+	 */
+	private static function decode_json_field( $value ) {
+		if ( is_string( $value ) ) {
+			return json_decode( $value, true );
+		}
+
+		return is_array( $value ) ? $value : null;
+	}
+
+	/**
 	 * Hydrate a raw database row into a post array.
 	 *
 	 * Decodes JSON fields and casts integer columns. For poll posts, fetches
-	 * and attaches poll_options.
+	 * and attaches poll_options. Safe to call on an already-hydrated row.
 	 *
 	 * @param array $row Raw associative row from wpdb.
 	 * @return array
@@ -2792,9 +2816,9 @@ class PostService {
 			'shared_post_id'       => isset( $row['shared_post_id'] ) ? (int) $row['shared_post_id'] : null,
 			'type'                 => $row['type'] ?? 'text',
 			'content'              => $row['content'] ?? '',
-			'media_ids'            => isset( $row['media_ids'] ) ? json_decode( (string) $row['media_ids'], true ) : null,
+			'media_ids'            => self::decode_json_field( $row['media_ids'] ?? null ),
 			'link_url'             => $row['link_url'] ?? null,
-			'link_meta'            => isset( $row['link_meta'] ) ? json_decode( (string) $row['link_meta'], true ) : null,
+			'link_meta'            => self::decode_json_field( $row['link_meta'] ?? null ),
 			'privacy'              => $row['privacy'] ?? 'public',
 			'reaction_count'       => (int) ( $row['reaction_count'] ?? 0 ),
 			'comment_count'        => (int) ( $row['comment_count'] ?? 0 ),

@@ -817,10 +817,16 @@ class DemoDataService {
 						continue;
 					}
 					$manifest['media'][] = (int) $media_id;
-					$post_id             = $posts->create(
+					// 'photo', matching what the composer stores for the same action:
+					// it promotes a text post to 'photo' the moment media is attached.
+					// Seeding these as 'text' made the demo content misrepresent its own
+					// product — the type is what classifies a post, so a demo photo post
+					// was indistinguishable from a plain status update to anything that
+					// reads the type.
+					$post_id = $posts->create(
 						$author_id,
 						array(
-							'type'      => 'text',
+							'type'      => 'photo',
 							'content'   => $mp['content'],
 							'media_ids' => array( (int) $media_id ),
 						)
