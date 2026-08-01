@@ -377,6 +377,27 @@ class MessagesData {
 			}
 		}
 
+		// The request count must come from the requests tab, not from scanning
+		// whatever the CURRENT tab returned.
+		//
+		// This used to work by accident: WPMediaVerse's 'all' tab selected
+		// status IN ('active','request_pending'), so a pending request appeared
+		// in the inbox AND could be counted from those same rows. MVS 2.3.0
+		// narrowed 'all' to active only, because listing a request in both All
+		// and Requests showed it twice (MVS #10153356172) — which silently
+		// zeroed this badge.
+		//
+		// Counting from $rows was never right regardless of that: on the
+		// 'unread' or 'archived' tab it also reports 0, and on a paginated
+		// inbox it only ever counted the first page.
+		if ( $svc && method_exists( $svc, 'count_conversations' ) ) {
+			$reqs = (int) $svc->count_conversations( $viewer, 'requests' );
+		} elseif ( 'requests' !== $tab && $svc ) {
+			// MVS < 2.3.0 has no count_conversations(). Fall back to a scoped
+			// fetch so the number is still correct on every tab.
+			$reqs = count( (array) $svc->get_conversations( $viewer, 'requests', $limit, 1 ) );
+		}
+
 		return array(
 			'pinned'   => $pinned,
 			'recent'   => $recent,
