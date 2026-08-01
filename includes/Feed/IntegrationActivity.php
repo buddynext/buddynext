@@ -207,6 +207,45 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Re-write the stored snapshot on a card that already exists.
+	 *
+	 * The companion publish() needs — and the reason a bridge cannot simply "publish
+	 * again" to correct a card. publish() is idempotent by link_url and returns 0 the
+	 * moment a card exists, by design: a partner hook that fires twice must not post
+	 * to the feed twice. But that also froze the snapshot forever, so any bridge bug
+	 * that wrote a wrong or empty payload stayed wrong on every card already out
+	 * there, on real member feeds, with the fix helping only cards published after it.
+	 *
+	 * Call it right after a publish() that returned 0 and the card self-heals the next
+	 * time the partner saves the entity — the bridge already re-asserts on every
+	 * update, so no new hook and no migration is needed.
+	 *
+	 * The payload is MERGED over what the card already carries, never substituted for
+	 * it. A bridge's snapshot builder knows its own typed fields and nothing else —
+	 * publish() is what stamped `title` and `description` on the card, from arguments
+	 * a refresh caller does not have — so a wholesale replace would repair the date
+	 * and silently strip the headline off the same card.
+	 *
+	 * @param string               $link_url The partner page the card links to.
+	 * @param string               $type     Post type the card was stored as.
+	 * @param array<string, mixed> $meta     Fields to update; others are preserved.
+	 * @return bool True when a card was refreshed.
+	 */
+	public static function refresh( string $link_url, string $type, array $meta ): bool {
+		if ( '' === $link_url || '' === $type || array() === $meta ) {
+			return false;
+		}
+
+		$service = new PostService();
+
+		return $service->update_link_meta(
+			$type,
+			$link_url,
+			self::normalise_link_meta( array_merge( $service->get_link_meta( $type, $link_url ), $meta ) )
+		);
+	}
+
+	/**
 	 * Remove EVERY card of a type that a bridge stamped with a partner id in its
 	 * link_meta — e.g. all of an event's cards (the organizer card + each
 	 * attendee's) by their shared event_id.

@@ -1627,6 +1627,81 @@ class PostService {
 	}
 
 	/**
+	 * The stored `link_meta` snapshot for a content type + external link, or an
+	 * empty array when no card matches or its payload is not a JSON object.
+	 *
+	 * The read side of update_link_meta(): a caller repairing one field of a card
+	 * needs to see the rest so it can merge rather than overwrite.
+	 *
+	 * @param string $type     Post type marker (e.g. 'event').
+	 * @param string $link_url Canonical link the card points at.
+	 * @return array<string, mixed>
+	 */
+	public function get_link_meta( string $type, string $link_url ): array {
+		if ( '' === $type || '' === $link_url ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$raw = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT link_meta FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s LIMIT 1",
+				$type,
+				$link_url
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$meta = is_string( $raw ) ? json_decode( $raw, true ) : null;
+
+		return is_array( $meta ) ? $meta : array();
+	}
+
+	/**
+	 * Replace the stored `link_meta` snapshot on an existing integration card.
+	 *
+	 * A typed card renders from the snapshot it was published with, so the feed can
+	 * show N cards without N partner queries. The cost of that is that a card is only
+	 * ever as correct as the moment it was written: any bug in building the snapshot
+	 * is frozen into every card published while it was live, and re-publishing does
+	 * NOT correct it, because publish is idempotent by link_url and returns early
+	 * when the card exists. Before this method there was no repair path at all short
+	 * of deleting the card (losing its reactions and comments) or hand-written SQL.
+	 *
+	 * Only `link_meta` is touched — never the author, content, privacy or timestamps
+	 * — so refreshing a card cannot resurface it or change what it says it is.
+	 *
+	 * @param string               $type     Post type marker (e.g. 'event').
+	 * @param string               $link_url Canonical link the card points at.
+	 * @param array<string, mixed> $meta     Full replacement link_meta payload.
+	 * @return bool True when a card was updated.
+	 */
+	public function update_link_meta( string $type, string $link_url, array $meta ): bool {
+		if ( '' === $type || '' === $link_url ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'link_meta' => wp_json_encode( $meta ) ),
+			array(
+				'type'     => $type,
+				'link_url' => $link_url,
+			),
+			array( '%s' ),
+			array( '%s', '%s' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_int( $updated ) && $updated > 0;
+	}
+
+	/**
 	 * Delete every post of a type whose `link_meta` carries an integer field equal
 	 * to a value — e.g. remove all of an integration's cards for one source entity
 	 * by the id it stamped on them.
