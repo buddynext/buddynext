@@ -298,11 +298,51 @@ class IntegrationActivity {
 			$title = wp_trim_words( wp_strip_all_tags( (string) ( $args['post_content'] ?? '' ) ), 14 );
 		}
 
-		$html  = '<div class="bn-post-card__bridge-card bn-post-card__bridge-card--' . esc_attr( sanitize_html_class( $type ) ) . '">';
+		// The member's own words for what happened ("posted a new job", "completed
+		// a course"). Every bridge passes one and none of them were ever shown: it
+		// was read only as a FALLBACK title, so on a card that had a title it was
+		// silently dropped. The event card has always printed its verb as a lead,
+		// and the result of bridge cards not doing so was that "completed a course"
+		// and "earned a certificate" rendered as two identical cards.
+		//
+		// Skipped when it was already promoted to the title above, so a card with
+		// no title of its own does not say the same thing twice.
+		$verb = trim( wp_strip_all_tags( (string) ( $args['post_content'] ?? '' ) ) );
+		$lead = ( '' !== $verb && $verb !== $title ) ? $verb : '';
+
+		// Cover art, when the partner has one. Listings, courses and jobs often do
+		// and just as often do not, so this is strictly optional: no image means no
+		// element at all, and the card keeps the compact single-column shape it has
+		// today rather than reserving an empty box.
+		// `thumb` is the key post-card.php already puts in link_preview (it reads
+		// link_meta['thumbnail']); `image` is accepted too because normalise_link_meta()
+		// writes BOTH names and a caller building this array by hand will reach for
+		// the obvious one. Reading only one of the two is how the covers went
+		// missing the first time.
+		$image = (string) ( $link['thumb'] ?? $link['image'] ?? '' );
+
+		$classes = 'bn-post-card__bridge-card bn-post-card__bridge-card--' . sanitize_html_class( $type );
+		if ( '' !== $image ) {
+			$classes .= ' has-cover';
+		}
+
+		$html = '<div class="' . esc_attr( $classes ) . '">';
+
+		if ( '' !== $image ) {
+			// Decorative: the title beneath it is the accessible name of the same
+			// link, so announcing the image as well would read the card twice.
+			$html .= '<a class="bn-post-card__bridge-cover" href="' . esc_url( $url ) . '" tabindex="-1" aria-hidden="true">';
+			$html .= '<img src="' . esc_url( $image ) . '" alt="" loading="lazy" decoding="async" />';
+			$html .= '</a>';
+		}
+
 		$html .= '<span class="bn-post-card__bridge-icon" aria-hidden="true">' . buddynext_get_icon( $icon ) . '</span>';
 		$html .= '<div class="bn-post-card__bridge-content">';
 		if ( '' !== $label ) {
 			$html .= '<span class="bn-post-card__bridge-source">' . esc_html( $label ) . '</span>';
+		}
+		if ( '' !== $lead ) {
+			$html .= '<p class="bn-post-card__bridge-lead">' . esc_html( $lead ) . '</p>';
 		}
 		$html .= '<a class="bn-post-card__bridge-title" href="' . esc_url( $url ) . '">' . esc_html( $title ) . '</a>';
 		if ( '' !== $desc ) {

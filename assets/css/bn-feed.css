@@ -908,17 +908,20 @@
 	}
 }
 
+/* Embedded partner content, styled as the SAME box the feed already uses for
+   embedded content of any kind - .bn-post-card__shared / __shared-embed. Same
+   border, radius, background and padding, so a job, a course and a reshared post
+   read as one family instead of three.
+   The accent stripe this used to carry was a bridge-only invention: it marked
+   partner content, but nothing else in the feed marks embedded content that way,
+   so it read as decoration rather than meaning. Owner decision 2026-08-02. */
 .bn-post-card__bridge-card {
 	display: flex;
 	gap: var(--bn-s3);
 	align-items: flex-start;
 	border: 1px solid var(--bn-line);
-	/* One uniform integration card: every bridge (discussion, job, listing,
-	   course, badge, …) shares the same accent stripe from the shared BN token,
-	   never a per-integration colour. */
-	border-inline-start: 3px solid var(--bn-accent);
 	border-radius: var(--bn-r-md);
-	padding: var(--bn-s3);
+	padding: var(--bn-s4);
 	background: var(--bn-sunken);
 }
 
@@ -926,6 +929,64 @@
 	display: inline-flex;
 	flex-shrink: 0;
 	color: var(--bn-ink-3);
+}
+
+/* Optional cover art. A listing, course or job may carry one and just as often
+   may not, so the DEFAULT card is the compact icon+text row above and this only
+   applies when the renderer found an image - no empty box is ever reserved. */
+.bn-post-card__bridge-card.has-cover {
+	align-items: stretch;
+}
+
+/* Cover art carries the card on its own, so the two markers that exist to
+   substitute for imagery step aside: the accent stripe and the type icon. What
+   is left is a plain bordered card with a thumbnail, a source label and text -
+   which is what a reader needs, and one less thing competing with the image.
+   Owner decision 2026-08-02.
+   Cards WITHOUT a cover keep both: there the icon is the only visual anchor and
+   the stripe is what marks the card as partner content at a glance.
+   The icon is aria-hidden, so hiding it costs assistive tech nothing. */
+
+.bn-post-card__bridge-card.has-cover .bn-post-card__bridge-icon {
+	display: none;
+}
+
+.bn-post-card__bridge-cover {
+	flex: 0 0 auto;
+	inline-size: 88px;
+	border-radius: var(--bn-r-sm);
+	overflow: hidden;
+	line-height: 0;
+	background: var(--bn-sunken);
+}
+
+.bn-post-card__bridge-cover img {
+	inline-size: 100%;
+	block-size: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+/* The verb ("posted a new job", "completed a course"). Quiet by design - it is
+   context for the title, not the headline. */
+.bn-post-card__bridge-lead {
+	margin: 0 0 var(--bn-s1);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+@media (max-width: 640px) {
+	/* A 88px thumbnail beside a wrapped title leaves too little room for either,
+	   so the cover goes full width above the text. */
+	.bn-post-card__bridge-card.has-cover {
+		flex-wrap: wrap;
+	}
+
+	.bn-post-card__bridge-cover {
+		inline-size: 100%;
+		aspect-ratio: 16 / 9;
+		order: -1;
+	}
 }
 
 /* Event activity card — date pill + title + date/time + location. Mirrors the
