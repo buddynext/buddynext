@@ -30,6 +30,35 @@ All writing and editing stays in Member Blog. BuddyNext only shows the work and 
 
 See [WB Member Blog](../integrations/09-member-blog.md).
 
+## Integration cards that actually say something
+
+A job, a listing or a course reaching the community feed used to arrive as a
+label and a title and nothing else - the least useful thing those cards can be,
+because the title of a listing rarely says what it is and the title of a job
+rarely says what the role involves.
+
+They now carry a short description, and cover art when the source has one. A
+listing shows its excerpt and photo, a job its summary, a course its one-line
+description and thumbnail. None of it is required: a listing with no image simply
+renders the compact text card it always did, with no empty box reserved.
+
+The card also says what happened again. Every integration has always passed a
+verb - "posted a new job", "completed a course" - and the card quietly dropped
+it. That had a visible cost: finishing a course produced two cards, one for the
+completion and one for the certificate, and with no verb they were identical
+apart from where they linked. They now read as the two different things they
+always were.
+
+Finally, these cards use the same box as a reshared post rather than a bespoke
+one with a coloured edge. A job, a course and a reshared post are all embedded
+content, and they now look like it.
+
+## Event cards no longer show a grey gap
+
+An event published without a cover image left a blank block where the artwork
+should be - most obvious on a phone, where the cover sits above the text rather
+than beside it. The placeholder now renders as intended.
+
 ## A 2FA setup code you can scan
 
 Two-factor enrolment showed a 32-character setup key and expected members to type it into their authenticator. It now shows a QR code, with the key still available for anyone who needs to enter it by hand. The email fallback is easier to find, and forced enrolment no longer dead-ends in a redirect loop when a verification hold is already in force.
@@ -65,6 +94,7 @@ Several gaps closed, all of the same shape - content that should have been scope
 - Suspended members can reach the appeal page, and the reaction route is no longer a dead end.
 - Failed video embeds show a designed fallback instead of an empty frame.
 - The leaderboard ran 312 queries to draw 50 rows. It no longer does.
+- The Notifications tab of Settings was narrower than Account, Privacy and Appearance, so the page shifted as you moved along the tab strip. It had inherited the notifications sidebar - filters for a list of notifications, on a page with no list to filter.
 
 ## For developers
 

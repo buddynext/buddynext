@@ -56,6 +56,50 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
+= 1.1.1 - August 2026 =
+
+Spaces can own photo albums, Sign in with Apple, an Articles tab for members who write, and integration cards that finally say what they are. Plus a large pass over the admin screens on phones, several privacy gaps closed, and a long list of things that looked finished but were not.
+
+* New      - Spaces can own albums. Turn on a space's Media tab and it gains an Albums view: create a named album, upload into it, reorder it, remove items. The audience is the space, so a private or secret space's albums stay invisible to non-members and out of search.
+* New      - Sign in with Apple, alongside the existing social providers, with the native-app connect bridge so a member signing in on the phone lands in the same account they use on the web.
+* New      - An Articles tab on member profiles listing what that member has published, when WB Member Blog is active. Viewing your own tab also offers Write a new article, Manage articles, and an Edit link per row; your drafts and pending posts appear there, labelled, and nobody else sees them.
+* New      - Two-factor enrolment shows a QR code to scan instead of only a 32-character key. The key is still shown for anyone entering it by hand.
+* New      - The members directory can sort by Last Active.
+* New      - Hashtag counts, and profile-field search across the directory and site-wide search.
+* New      - WB Member Blog joins the companion catalogue, so it installs from inside BuddyNext like every other integration.
+* Improve  - Job, listing and course cards in the feed now carry a short description and cover art when the source has one. A card with no image renders the compact text shape it always did, with no empty box reserved.
+* Improve  - Integration cards say what happened again - "posted a new job", "completed a course". The verb was always passed and always dropped, which is why finishing a course produced two identical-looking cards instead of a completion and a certificate.
+* Improve  - Integration cards use the same box as a reshared post rather than a bespoke one with a coloured edge; embedded content now looks like embedded content wherever it comes from.
+* Improve  - Every admin listing becomes labelled cards on a narrow screen instead of a table with its columns cut off. Members, Spaces, Bulk Moderation, Announcements, Email Templates, Webhooks, Member Labels, Subscriptions, Invoices and the analytics tables were each broken at some width and are each fixed.
+* Improve  - Every admin and profile control is named for assistive technology, and destructive bulk actions ask you to type a confirmation rather than accepting one click.
+* Improve  - Moderation queues show when an offender is already suspended, and no longer invent report rows in an empty queue.
+* Improve  - Failed video embeds show a designed fallback instead of an empty frame.
+* Fix      - Media attached to a post now shows whatever the post's type. An announcement posted with a photo used to lose the photo.
+* Fix      - An event card published straight from the create hook had no date on it. The card now resolves the event's real date, and existing cards repair themselves.
+* Fix      - Choosing several Interests saved only the first, and saving again wiped the rest. The data was always correct; the edit form was prefilled with one value and faithfully saved what it had been shown.
+* Fix      - The row actions menu in admin lists opened off-screen, which read as an unresponsive button.
+* Fix      - Blocking now applies to comments. A block hid top-level comments but left replies and pinned comments visible.
+* Fix      - Declining a connection request makes it stop, and the cooldown now covers declines made before this upgrade.
+* Fix      - A private profile no longer tells visitors the member has never posted.
+* Fix      - Forced two-factor enrolment dead-ended in a redirect loop when a verification hold was already in force.
+* Fix      - Signup no longer wipes the email field after a failed validation.
+* Fix      - Suspended members can reach the appeal page, and the reaction route is no longer a dead end.
+* Fix      - Unknown member URLs answer 404 instead of a blank 200, and unknown space slugs answer 404 instead of 500.
+* Fix      - The Notifications tab of Settings was narrower than the other three, so the page shifted as you moved along the tab strip.
+* Fix      - An event with no cover image showed a blank block where the artwork belongs.
+* Fix      - The account menu could not be closed by clicking the caret again.
+* Fix      - Space owners can no longer strand their own space by changing their role; moderators manage a space, owners alone delete it or transfer it.
+* Security - Closing a space left its posts publicly searchable.
+* Security - Private and secret space content was fully searchable by anonymous visitors.
+* Security - Account holds did not reach a partner plugin's REST surface, so a held member could still act through an integration.
+* Security - Rate limiting was silently disabled on any site without Redis or Memcached, and the limit decision is now atomic rather than only the counter.
+* Security - Space media over REST now applies the same three gates as the web Media tab.
+* Perf     - The leaderboard ran 312 queries to draw 50 rows.
+* Dev      - POST /app/strings serves the mobile app its translations from the catalogues already on the site, and /app/config carries a locale block.
+* Dev      - IntegrationActivity::refresh() lets a bridge correct the snapshot on a card it already published, instead of a wrong payload being frozen onto every member's feed.
+* Dev      - A resume post type, distinct from job.
+* Dev      - The generated REST catalogue in docs/api/openapi.json covers all 208 free endpoints.
+
 = 1.1.0 - July 2026 =
 
 Continuous scrolling in the activity feed, a wider mobile layout on every screen, offline support, live message reactions, and a round of feed, composer, notification, profile and signup fixes.
