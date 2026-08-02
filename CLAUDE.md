@@ -7,6 +7,7 @@ These are the rules the code in this repo is held to — read before changing an
 
 | What | Where |
 |---|---|
+| **What this plugin can and cannot do** (read before planning a feature) | [`CAPABILITIES.md`](CAPABILITIES.md) |
 | Plugin code | `includes/` (PHP) · `templates/` · `assets/` · `blocks/` |
 | Customer documentation — usage guides, developer guide | `docs/website/` (tracked) |
 | Public REST catalogue — generated OpenAPI | `docs/api/` (tracked) |
@@ -38,6 +39,11 @@ design, not by oversight — committing one would leak the internal surface inve
 publicly. If tooling (`/wp-plugin-onboard`, a manifest refresh) generates artifacts
 here, leave them untracked and regenerate the canonical copy on the private shelf.
 Never add an exception to the allowlist to make a tool happy.
+
+The one tracked exception is [`CAPABILITIES.md`](CAPABILITIES.md), which belongs in
+the open: it is buyer-language ("can it do X?"), it doubles as the source of truth
+for store and docs copy, and it holds no internal inventory. Refresh it in the same
+pass as the manifest so store copy can never over- or under-claim.
 
 ---
 
