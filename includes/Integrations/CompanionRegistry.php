@@ -50,7 +50,7 @@ final class CompanionRegistry {
 		return (array) apply_filters(
 			'buddynext_companions',
 			array(
-				'wpmediaverse'    => array(
+				'wpmediaverse'           => array(
 					'label'     => 'MediaVerse',
 					'why'       => __( 'Direct messaging, media galleries, and social feeds.', 'buddynext' ),
 					'detect'    => static fn(): bool => class_exists( '\\WPMediaVerse\\Core\\Plugin' ),
@@ -62,7 +62,7 @@ final class CompanionRegistry {
 					'store_url' => 'https://wbcomdesigns.com/downloads/wpmediaverse/',
 					'unlocks'   => __( 'Member-to-member direct messaging inside BuddyNext.', 'buddynext' ),
 				),
-				'jetonomy'        => array(
+				'jetonomy'               => array(
 					'label'     => 'Jetonomy',
 					'why'       => __( 'Forum-style threaded discussions and Q&A boards.', 'buddynext' ),
 					'detect'    => static fn(): bool => class_exists( '\\Jetonomy\\Plugin' ) || function_exists( 'jetonomy' ),
@@ -74,7 +74,7 @@ final class CompanionRegistry {
 					'store_url' => 'https://wbcomdesigns.com/downloads/jetonomy/',
 					'unlocks'   => __( 'Forum activity surfaced in the BuddyNext feed.', 'buddynext' ),
 				),
-				'wb-gamification' => array(
+				'wb-gamification'        => array(
 					'label'     => 'Gamification',
 					'why'       => __( 'Points, badges, levels, and leaderboards.', 'buddynext' ),
 					'detect'    => static fn(): bool => function_exists( 'wb_gam_submit_event' ) || defined( 'WB_GAM_VERSION' ),
@@ -86,7 +86,7 @@ final class CompanionRegistry {
 					'store_url' => 'https://wbcomdesigns.com/downloads/wb-gamification/',
 					'unlocks'   => __( 'Badges + leaderboard on member profiles.', 'buddynext' ),
 				),
-				'wp-career-board' => array(
+				'wp-career-board'        => array(
 					'label'     => 'Career Board',
 					'why'       => __( 'Job listings and applicant management.', 'buddynext' ),
 					// Probe WCB_VERSION (defined when Career Board loads) + its real
@@ -105,7 +105,7 @@ final class CompanionRegistry {
 					// finish setup, instead of leaving them on the integrations screen.
 					'setup_url' => 'admin.php?page=wpcb-settings',
 				),
-				'learnomy'        => array(
+				'learnomy'               => array(
 					'label'     => 'Learnomy',
 					'why'       => __( 'Courses, lessons, and quizzes - a full LMS for your community.', 'buddynext' ),
 					'detect'    => static fn(): bool => defined( 'LEARNOMY_VERSION' ) || function_exists( 'learnomy' ),
@@ -117,7 +117,7 @@ final class CompanionRegistry {
 					'store_url' => 'https://wbcomdesigns.com/downloads/learnomy/',
 					'unlocks'   => __( 'Completed courses + certificates on member profiles.', 'buddynext' ),
 				),
-				'wb-listora'      => array(
+				'wb-listora'             => array(
 					'label'     => 'Listora',
 					'why'       => __( 'Directory listings - members publish and manage listings.', 'buddynext' ),
 					'detect'    => static fn(): bool => defined( 'WB_LISTORA_VERSION' ),
@@ -133,7 +133,7 @@ final class CompanionRegistry {
 					'store_url' => 'https://wbcomdesigns.com/downloads/wb-listora/',
 					'unlocks'   => __( 'Member listings surfaced in the feed + on profiles.', 'buddynext' ),
 				),
-				'eventonomy'      => array(
+				'eventonomy'             => array(
 					'label'     => 'Eventonomy',
 					'why'       => __( 'Events, RSVPs, and calendars - members create and attend events.', 'buddynext' ),
 					'detect'    => static fn(): bool => defined( 'EVENTONOMY_VERSION' ),

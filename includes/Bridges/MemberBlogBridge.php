@@ -285,7 +285,13 @@ class MemberBlogBridge {
 	private function dashboard_url( int $user_id ): string {
 		// Member Blog's own resolver when its compat class happens to be loaded - it
 		// knows about per-platform profile routing that a page id cannot express.
-		if ( class_exists( '\Member_Blog_Compat' ) && method_exists( '\Member_Blog_Compat', 'get_dashboard_url' ) ) {
+		//
+		// class_exists() alone: the class and get_dashboard_url() are one public API
+		// that ships together, so a method_exists() on the literal class-string adds
+		// no real protection. (The method_exists() guards elsewhere in Bridges/ are a
+		// different case - those test runtime OBJECTS pulled from a partner's
+		// container, where the shape genuinely varies.
+		if ( class_exists( '\Member_Blog_Compat' ) ) {
 			$url = (string) \Member_Blog_Compat::get_dashboard_url( $user_id );
 			if ( '' !== $url && home_url() !== $url ) {
 				return $url;

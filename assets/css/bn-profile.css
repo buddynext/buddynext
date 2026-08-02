@@ -1829,6 +1829,12 @@ a.bn-space-row:hover .bn-space-name {
 .bn-empty-icon  { margin-bottom: var(--bn-s3); }
 .bn-empty-title { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--fw-bold); color: var(--text-2); margin-bottom: var(--bn-s2); }
 .bn-empty-text  { font-size: var(--text-sm); line-height: 1.6; color: var(--text-2); }
+/* The supporting line under an empty state's title - the sibling of
+   .bn-empty-title, and the one member of the family that never had a rule.
+   templates/parts/profile/posts-panel.php has emitted it unstyled since it was
+   written; the Articles panel then copied the pattern. Defined once here rather
+   than swapping one template to a different class and leaving the other broken. */
+.bn-empty-sub   { font-size: var(--bn-text-sm); line-height: var(--bn-leading-body); color: var(--bn-ink-3); margin-top: var(--bn-s2); }
 /* .bn-pagination is the shared component — defined once in bn-base.css. */
 
 /* Dark mode — canonical trio ([data-bn-theme], [data-theme], [data-bx-mode]). */

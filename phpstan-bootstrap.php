@@ -225,3 +225,35 @@ if ( ! class_exists( 'WP_CLI' ) ) {
 		public static function warning( string $message ): void {}
 	}
 }
+
+// WB Member Blog (optional partner plugin) — declared so static analysis knows the
+// two symbols MemberBlogBridge reads. Both are guarded at runtime: the bridge only
+// acts when the real plugin has defined the version constant, and it checks
+// class_exists() before touching the compat class. Without these stubs PHPStan
+// analyses BuddyNext in isolation, sees an undefined constant and a method_exists()
+// on a class it has never heard of, and reports both as errors on correct code.
+if ( ! defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' ) ) {
+	define( 'BUDDYPRESS_MEMBER_BLOG_VERSION', '4.0.0' );
+}
+
+if ( ! class_exists( 'Member_Blog_Compat' ) ) {
+	/**
+	 * WB Member Blog's platform-compatibility helper.
+	 *
+	 * Only `get_dashboard_url()` is consumed here, and only when the class is
+	 * actually loaded — it is NOT loaded on a BuddyNext profile page, which is why
+	 * MemberBlogBridge falls back to the plugin's configured dashboard page.
+	 */
+	class Member_Blog_Compat { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- Partner plugin's own class name.
+
+		/**
+		 * Front-end dashboard URL for a member.
+		 *
+		 * @param int $user_id User id.
+		 * @return string
+		 */
+		public static function get_dashboard_url( $user_id = 0 ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+			return '';
+		}
+	}
+}
