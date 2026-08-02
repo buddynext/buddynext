@@ -108,11 +108,11 @@ final class RestHoldGate implements ListenerInterface {
 	 * Left untouched otherwise, which keeps the partner's standalone behaviour and
 	 * any other integration's answer intact.
 	 *
-	 * @param bool $require Current value from the partner (or a prior filter).
+	 * @param bool $partner_value Current value from the partner (or a prior filter).
 	 * @return bool
 	 */
-	public function partner_gate_engaged( $require ): bool {
-		return $this->current_member_is_held() ? true : (bool) $require;
+	public function partner_gate_engaged( $partner_value ): bool {
+		return $this->current_member_is_held() ? true : (bool) $partner_value;
 	}
 
 	/**

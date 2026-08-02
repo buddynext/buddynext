@@ -752,6 +752,7 @@ class CommentService {
 		// ban, and treating it as one would let anyone silence anyone else
 		// anywhere simply by blocking them. InteractionGuard already refuses the
 		// case that does matter: engaging with the blocker's own post or comment.
+
 		/*
 		 * Resolved for the TOP-LEVEL page here, then topped up for descendants and
 		 * the pinned comment once those are known (see resolve_blocks below).

@@ -392,7 +392,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 							$bn_label = isset( $bn_field['label'] ) ? (string) $bn_field['label'] : ucwords( str_replace( '_', ' ', $bn_fkey ) );
 							// Same render-gate as the flat branch: a plan-gated sub-field
 							// renders the locked explanation, not an input the API refuses.
-							$bn_ctrl  = \BuddyNext\Profile\FieldType::render_profile_input( $bn_field, $bn_field['value_raw'] ?? ( $bn_field['value'] ?? '' ), $bn_name, $user_id );
+							$bn_ctrl = \BuddyNext\Profile\FieldType::render_profile_input( $bn_field, $bn_field['value_raw'] ?? ( $bn_field['value'] ?? '' ), $bn_name, $user_id );
 
 							// Visible required marker, mirroring the flat-field branch so
 							// repeater sub-fields show the same asterisk (the control already

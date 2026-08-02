@@ -816,18 +816,18 @@ class SpaceController extends BaseRestController {
 		// Prime the two caches the per-row permission flags below actually read,
 		// so the page batch does the job it was written for (card 10130355643):
 		// - bn_space meta (who_can_invite, consulted by can_invite()) in one
-		//   query for the whole page instead of one per row;
+		// query for the whole page instead of one per row;
 		// - the viewer's role_{space}_{user} entries from $member_map, including
-		//   the misses as '' - "not an active member" is an answer, and caching
-		//   it is what stops every non-member row re-querying. Without this the
-		//   batch fed a local array only and each row cost ~3 uncached
-		//   permission resolutions (can_invite + two buddynext_can flags) on a
-		//   surface designed for 20-30k spaces per site.
+		// the misses as '' - "not an active member" is an answer, and caching
+		// it is what stops every non-member row re-querying. Without this the
+		// batch fed a local array only and each row cost ~3 uncached
+		// permission resolutions (can_invite + two buddynext_can flags) on a
+		// surface designed for 20-30k spaces per site.
 		update_meta_cache( 'bn_space', $space_ids );
 		if ( $viewer_id > 0 ) {
 			$viewer_roles = array();
 			foreach ( $space_ids as $prime_sid ) {
-				$prime_row = $member_map[ (int) $prime_sid ] ?? null;
+				$prime_row                        = $member_map[ (int) $prime_sid ] ?? null;
 				$viewer_roles[ (int) $prime_sid ] =
 					( null !== $prime_row && 'active' === $prime_row['status'] ) ? $prime_row['role'] : '';
 			}

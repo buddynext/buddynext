@@ -90,7 +90,7 @@ class BlogCommentSync implements ListenerInterface {
 		// community conversation, and an unapproved or spam comment must never
 		// appear in the feed - moderation on the post has to mean something on
 		// the card too.
-		if ( '1' !== (string) $comment->comment_approved || '' !== (string) $comment->comment_type && 'comment' !== (string) $comment->comment_type ) {
+		if ( '1' !== (string) $comment->comment_approved || ( '' !== (string) $comment->comment_type && 'comment' !== (string) $comment->comment_type ) ) {
 			return;
 		}
 

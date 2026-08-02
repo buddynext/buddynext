@@ -1365,8 +1365,22 @@ class Members extends AdminPageBase {
 								$bn_la_next   = ( $bn_la_active && 'DESC' === $bn_order ) ? 'ASC' : 'DESC';
 								?>
 								<th scope="col" class="bn-col-muted"
-									<?php if ( $bn_la_active ) : ?>aria-sort="<?php echo esc_attr( 'ASC' === $bn_order ? 'ascending' : 'descending' ); ?>"<?php endif; ?>>
-									<a href="<?php echo esc_url( add_query_arg( array( 'orderby' => 'last_active', 'order' => $bn_la_next ) ) ); ?>"
+									<?php
+									if ( $bn_la_active ) :
+										?>
+										aria-sort="<?php echo esc_attr( 'ASC' === $bn_order ? 'ascending' : 'descending' ); ?>"<?php endif; ?>>
+									<a href="
+									<?php
+									echo esc_url(
+										add_query_arg(
+											array(
+												'orderby' => 'last_active',
+												'order'   => $bn_la_next,
+											)
+										)
+									);
+									?>
+												"
 										class="bn-th-sort<?php echo $bn_la_active ? ' is-active' : ''; ?>">
 										<?php esc_html_e( 'Last Active', 'buddynext' ); ?>
 									</a>

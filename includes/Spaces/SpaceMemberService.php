@@ -862,6 +862,16 @@ class SpaceMemberService {
 		}
 	}
 
+	/**
+	 * A member's role in a space, or null when they are not a member.
+	 *
+	 * Cached per (space, user) in CACHE_GROUP; the cache is dropped whenever the
+	 * membership row changes.
+	 *
+	 * @param int $space_id Space id.
+	 * @param int $user_id  User id.
+	 * @return string|null Role slug (owner|moderator|member), or null.
+	 */
 	public function get_role( int $space_id, int $user_id ): ?string {
 		$cache_key = "role_{$space_id}_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
