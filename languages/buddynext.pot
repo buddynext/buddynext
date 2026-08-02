@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-02T15:10:19+00:00\n"
+"POT-Creation-Date: 2026-08-02T15:49:38+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: buddynext\n"
@@ -170,7 +170,7 @@ msgstr ""
 #: templates/community-admin.php:281
 #: templates/directory/members.php:94
 #: templates/feed/explore.php:89
-#: templates/partials/media-tab.php:225
+#: templates/partials/media-tab.php:238
 #: templates/parts/dm-thread-header.php:146
 #: templates/parts/member-directory-hero.php:66
 #: templates/parts/search-result-section-members.php:86
@@ -1097,7 +1097,7 @@ msgstr ""
 #: templates/partials/media-lightbox.php:62
 #: templates/partials/media-lightbox.php:69
 #: templates/partials/media-tab.php:207
-#: templates/partials/media-tab.php:247
+#: templates/partials/media-tab.php:261
 #: templates/partials/nav.php:286
 #: templates/partials/report-modal.php:46
 #: templates/partials/share-modal.php:65
@@ -1151,8 +1151,8 @@ msgstr ""
 #: templates/notifications/prefs.php:522
 #: templates/partials/block-confirm-modal.php:73
 #: templates/partials/create-space-modal.php:234
-#: templates/partials/media-tab.php:231
-#: templates/partials/media-tab.php:279
+#: templates/partials/media-tab.php:245
+#: templates/partials/media-tab.php:293
 #: templates/partials/report-modal.php:89
 #: templates/partials/space-delete-confirm-modal.php:84
 #: templates/parts/dm-delete-modal.php:78
@@ -2783,7 +2783,7 @@ msgstr ""
 #: templates/partials/composer.php:470
 #: templates/partials/composer.php:487
 #: templates/partials/explore-card.php:154
-#: templates/partials/media-tab.php:224
+#: templates/partials/media-tab.php:237
 #: templates/partials/media-upload-composer.php:118
 #: templates/partials/post-card.php:317
 #: templates/parts/profile-edit-sidebar.php:134
@@ -2815,7 +2815,7 @@ msgstr ""
 #: includes/Core/AssetService.php:960
 #: includes/Core/AssetService.php:1420
 #: templates/partials/composer.php:523
-#: templates/partials/media-tab.php:226
+#: templates/partials/media-tab.php:239
 #: templates/partials/media-upload-composer.php:121
 #: templates/partials/post-card.php:321
 #: templates/parts/profile-edit-sidebar.php:155
@@ -3819,7 +3819,7 @@ msgid "Browse spaces"
 msgstr ""
 
 #: includes/Admin/NavManager.php:972
-#: templates/partials/media-tab.php:235
+#: templates/partials/media-tab.php:249
 msgid "Create"
 msgstr ""
 
@@ -7947,7 +7947,7 @@ msgid "Retry"
 msgstr ""
 
 #: includes/Core/AssetService.php:851
-#: templates/partials/media-tab.php:236
+#: templates/partials/media-tab.php:250
 #: templates/parts/dm-group-panel.php:47
 #: templates/parts/post-actions.php:286
 msgid "Save"
@@ -8941,7 +8941,7 @@ msgid "Cover removed."
 msgstr ""
 
 #: includes/Core/AssetService.php:1169
-#: templates/partials/media-tab.php:272
+#: templates/partials/media-tab.php:286
 #: templates/partials/media-upload-composer.php:134
 msgid "Uploading…"
 msgstr ""
@@ -10968,7 +10968,7 @@ msgstr ""
 #: includes/Media/MediaController.php:674
 #: includes/Media/MediaController.php:680
 #: includes/Media/MediaController.php:724
-#: includes/Media/MediaController.php:1068
+#: includes/Media/MediaController.php:1079
 msgid "Album not found."
 msgstr ""
 
@@ -10986,7 +10986,7 @@ msgstr ""
 msgid "Added photos to %s"
 msgstr ""
 
-#: includes/Media/MediaController.php:1073
+#: includes/Media/MediaController.php:1084
 msgid "You can only manage your own albums."
 msgstr ""
 
@@ -14631,7 +14631,7 @@ msgstr[1] ""
 
 #: templates/blocks/profile-completion-bar.php:79
 #: templates/blocks/profile-completion-bar.php:100
-#: templates/partials/media-tab.php:281
+#: templates/partials/media-tab.php:295
 #: templates/parts/sidebar-profile-strength.php:159
 #: templates/parts/taxonomy-editor.php:220
 msgid "Add"
@@ -16391,7 +16391,7 @@ msgid "No albums yet."
 msgstr ""
 
 #: templates/partials/media-tab.php:183
-#: templates/partials/media-tab.php:244
+#: templates/partials/media-tab.php:258
 msgid "Add media"
 msgstr ""
 
@@ -16403,20 +16403,24 @@ msgstr ""
 msgid "e.g. Summer trip"
 msgstr ""
 
-#: templates/partials/media-tab.php:222
+#: templates/partials/media-tab.php:231
+msgid "Who can see this album is decided by the space. Members who can see the space can see its albums."
+msgstr ""
+
+#: templates/partials/media-tab.php:235
 #: templates/partials/media-upload-composer.php:116
 msgid "Who can see this"
 msgstr ""
 
-#: templates/partials/media-tab.php:246
+#: templates/partials/media-tab.php:260
 msgid "Add media to album"
 msgstr ""
 
-#: templates/partials/media-tab.php:260
+#: templates/partials/media-tab.php:274
 msgid "Upload from device"
 msgstr ""
 
-#: templates/partials/media-tab.php:275
+#: templates/partials/media-tab.php:289
 msgid "Tap media to select, or upload something new."
 msgstr ""
 

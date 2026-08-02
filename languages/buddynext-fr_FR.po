@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.1.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-08-02T15:09:21+00:00\n"
+"POT-Creation-Date: 2026-08-02T15:48:59+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -153,7 +153,7 @@ msgstr "Plateforme"
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:237
 #: templates/blocks/member-directory.php:33 templates/community-admin.php:221
 #: templates/community-admin.php:281 templates/directory/members.php:94
-#: templates/feed/explore.php:89 templates/partials/media-tab.php:225
+#: templates/feed/explore.php:89 templates/partials/media-tab.php:238
 #: templates/parts/dm-thread-header.php:146
 #: templates/parts/member-directory-hero.php:66
 #: templates/parts/search-result-section-members.php:86
@@ -1016,7 +1016,7 @@ msgstr "Envoyer un e-mail de test"
 #: templates/partials/media-lightbox.php:49
 #: templates/partials/media-lightbox.php:62
 #: templates/partials/media-lightbox.php:69
-#: templates/partials/media-tab.php:207 templates/partials/media-tab.php:247
+#: templates/partials/media-tab.php:207 templates/partials/media-tab.php:261
 #: templates/partials/nav.php:286 templates/partials/report-modal.php:46
 #: templates/partials/share-modal.php:65
 #: templates/partials/space-delete-confirm-modal.php:46
@@ -1067,7 +1067,7 @@ msgstr ""
 #: includes/Core/PageRouter.php:1266 templates/notifications/prefs.php:522
 #: templates/partials/block-confirm-modal.php:73
 #: templates/partials/create-space-modal.php:234
-#: templates/partials/media-tab.php:231 templates/partials/media-tab.php:279
+#: templates/partials/media-tab.php:245 templates/partials/media-tab.php:293
 #: templates/partials/report-modal.php:89
 #: templates/partials/space-delete-confirm-modal.php:84
 #: templates/parts/dm-delete-modal.php:78
@@ -2705,7 +2705,7 @@ msgstr ""
 #: includes/Admin/Settings.php:957 includes/Core/AssetService.php:957
 #: includes/Core/AssetService.php:1098 includes/Core/AssetService.php:1416
 #: templates/partials/composer.php:470 templates/partials/composer.php:487
-#: templates/partials/explore-card.php:154 templates/partials/media-tab.php:224
+#: templates/partials/explore-card.php:154 templates/partials/media-tab.php:237
 #: templates/partials/media-upload-composer.php:118
 #: templates/partials/post-card.php:317
 #: templates/parts/profile-edit-sidebar.php:134 templates/profile/edit.php:144
@@ -2732,7 +2732,7 @@ msgstr "Connexions uniquement"
 #: includes/Admin/Members/ProfileFieldsManager.php:1454
 #: includes/Admin/Settings.php:960 includes/Core/AssetService.php:960
 #: includes/Core/AssetService.php:1420 templates/partials/composer.php:523
-#: templates/partials/media-tab.php:226
+#: templates/partials/media-tab.php:239
 #: templates/partials/media-upload-composer.php:121
 #: templates/partials/post-card.php:321
 #: templates/parts/profile-edit-sidebar.php:155
@@ -3743,7 +3743,7 @@ msgstr "Fil d'accueil (hérite de la page de navigation principale)"
 msgid "Browse spaces"
 msgstr "Parcourir les espaces"
 
-#: includes/Admin/NavManager.php:972 templates/partials/media-tab.php:235
+#: includes/Admin/NavManager.php:972 templates/partials/media-tab.php:249
 msgid "Create"
 msgstr "Créer"
 
@@ -4676,7 +4676,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:703 includes/Admin/Settings.php:722
 msgid "30 days"
-msgstr ""
+msgstr "30 jours"
 
 #: includes/Admin/Settings.php:704
 msgid "60 days"
@@ -4684,7 +4684,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:705 includes/Admin/Settings.php:724
 msgid "90 days"
-msgstr ""
+msgstr "90 jours"
 
 #: includes/Admin/Settings.php:712
 msgid ""
@@ -8532,7 +8532,7 @@ msgstr "Chargement…"
 msgid "Retry"
 msgstr "Réessayer"
 
-#: includes/Core/AssetService.php:851 templates/partials/media-tab.php:236
+#: includes/Core/AssetService.php:851 templates/partials/media-tab.php:250
 #: templates/parts/dm-group-panel.php:47 templates/parts/post-actions.php:286
 msgid "Save"
 msgstr "Enregistrer"
@@ -9456,7 +9456,7 @@ msgstr "Impossible de supprimer la couverture."
 msgid "Cover removed."
 msgstr "Couverture supprimée."
 
-#: includes/Core/AssetService.php:1169 templates/partials/media-tab.php:272
+#: includes/Core/AssetService.php:1169 templates/partials/media-tab.php:286
 #: templates/partials/media-upload-composer.php:134
 msgid "Uploading…"
 msgstr "Téléchargement en cours…"
@@ -11565,7 +11565,7 @@ msgstr "Un album a besoin d'un nom."
 #: includes/Media/MediaController.php:674
 #: includes/Media/MediaController.php:680
 #: includes/Media/MediaController.php:724
-#: includes/Media/MediaController.php:1068
+#: includes/Media/MediaController.php:1079
 msgid "Album not found."
 msgstr "Album non trouvé."
 
@@ -11583,7 +11583,7 @@ msgstr "Aucun média à ajouter."
 msgid "Added photos to %s"
 msgstr ""
 
-#: includes/Media/MediaController.php:1073
+#: includes/Media/MediaController.php:1084
 msgid "You can only manage your own albums."
 msgstr "Vous ne pouvez gérer que vos propres albums."
 
@@ -15413,7 +15413,7 @@ msgstr[1] "%d champs obligatoires doivent encore être remplis."
 
 #: templates/blocks/profile-completion-bar.php:79
 #: templates/blocks/profile-completion-bar.php:100
-#: templates/partials/media-tab.php:281
+#: templates/partials/media-tab.php:295
 #: templates/parts/sidebar-profile-strength.php:159
 #: templates/parts/taxonomy-editor.php:220
 msgid "Add"
@@ -17263,7 +17263,7 @@ msgstr "Nouvel album"
 msgid "No albums yet."
 msgstr "Aucun album pour le moment."
 
-#: templates/partials/media-tab.php:183 templates/partials/media-tab.php:244
+#: templates/partials/media-tab.php:183 templates/partials/media-tab.php:258
 msgid "Add media"
 msgstr "Ajouter un média"
 
@@ -17275,20 +17275,26 @@ msgstr "Modifier l'album"
 msgid "e.g. Summer trip"
 msgstr "p. ex. Voyage d'été"
 
-#: templates/partials/media-tab.php:222
+#: templates/partials/media-tab.php:231
+msgid ""
+"Who can see this album is decided by the space. Members who can see the "
+"space can see its albums."
+msgstr ""
+
+#: templates/partials/media-tab.php:235
 #: templates/partials/media-upload-composer.php:116
 msgid "Who can see this"
 msgstr "Qui peut voir ceci"
 
-#: templates/partials/media-tab.php:246
+#: templates/partials/media-tab.php:260
 msgid "Add media to album"
 msgstr "Ajoute un média à l'album"
 
-#: templates/partials/media-tab.php:260
+#: templates/partials/media-tab.php:274
 msgid "Upload from device"
 msgstr ""
 
-#: templates/partials/media-tab.php:275
+#: templates/partials/media-tab.php:289
 msgid "Tap media to select, or upload something new."
 msgstr ""
 

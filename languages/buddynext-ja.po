@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.1.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-08-02T15:09:21+00:00\n"
+"POT-Creation-Date: 2026-08-02T15:48:59+00:00\n"
 "PO-Revision-Date: 2026-07-08T06:01:07+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -28,7 +28,7 @@ msgstr ""
 #. Plugin URI of the plugin
 #: buddynext.php
 msgid "https://buddynext.com/"
-msgstr ""
+msgstr "https://buddynext.com/"
 
 #. Description of the plugin
 #: buddynext.php
@@ -38,12 +38,12 @@ msgstr ""
 #. Author of the plugin
 #: buddynext.php
 msgid "Wbcom Designs"
-msgstr ""
+msgstr "Wbcom Designs"
 
 #. Author URI of the plugin
 #: buddynext.php
 msgid "https://wbcomdesigns.com"
-msgstr ""
+msgstr "https://wbcomdesigns.com"
 
 #: buddynext.php:151
 msgid ""
@@ -144,7 +144,7 @@ msgstr ""
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:237
 #: templates/blocks/member-directory.php:33 templates/community-admin.php:221
 #: templates/community-admin.php:281 templates/directory/members.php:94
-#: templates/feed/explore.php:89 templates/partials/media-tab.php:225
+#: templates/feed/explore.php:89 templates/partials/media-tab.php:238
 #: templates/parts/dm-thread-header.php:146
 #: templates/parts/member-directory-hero.php:66
 #: templates/parts/search-result-section-members.php:86
@@ -157,7 +157,7 @@ msgstr ""
 #: templates/spaces/admin.php:133 templates/spaces/admin.php:153
 #: templates/spaces/settings.php:531
 msgid "Members"
-msgstr ""
+msgstr "メンバー"
 
 #: includes/Admin/AdminHub.php:74 includes/Admin/EmailEditor.php:172
 #: includes/Admin/GetStartedScreen.php:173 includes/Admin/Insights.php:101
@@ -183,11 +183,11 @@ msgstr ""
 #: templates/parts/search-result-section-spaces.php:82
 #: templates/search/results.php:355 templates/spaces/directory.php:305
 msgid "Spaces"
-msgstr ""
+msgstr "スペース"
 
 #: includes/Admin/AdminHub.php:79
 msgid "Engagement"
-msgstr ""
+msgstr "エンゲージメント"
 
 #: includes/Admin/AdminHub.php:84 includes/Admin/NavManager.php:193
 #: includes/Admin/NavManager.php:2182 includes/Admin/Settings.php:93
@@ -220,7 +220,7 @@ msgstr ""
 #: templates/parts/space-settings-panel-moderation.php:73
 #: templates/spaces/admin.php:171 templates/spaces/settings.php:536
 msgid "Moderation"
-msgstr ""
+msgstr "モデレーション"
 
 #: includes/Admin/AdminHub.php:104
 msgid "Auto-Moderation"
@@ -263,7 +263,7 @@ msgstr ""
 #: templates/parts/search-hero.php:68 templates/parts/search-hero.php:85
 #: templates/search/results.php:420
 msgid "Search"
-msgstr ""
+msgstr "検索"
 
 #: includes/Admin/AdminHub.php:1204
 msgid "Docs"
@@ -298,7 +298,7 @@ msgstr ""
 #: templates/spaces/moderation.php:425 assets/js/admin/avatar-settings.js:102
 #: assets/js/admin/settings.js:210
 msgid "Remove"
-msgstr ""
+msgstr "削除"
 
 #: includes/Admin/AdminPageBase.php:628
 msgid "Save Settings"
@@ -326,7 +326,7 @@ msgstr ""
 #: templates/parts/profile/articles-panel.php:166
 #: templates/search/results.php:610
 msgid "Next"
-msgstr ""
+msgstr "次へ"
 
 #: includes/Admin/AnnouncementsAdmin.php:37
 #: includes/Notifications/NotificationPrefCatalogue.php:206
@@ -364,7 +364,7 @@ msgstr ""
 #: includes/Demo/DemoAdmin.php:158 includes/Demo/DemoAdmin.php:175
 #: includes/Spaces/SpaceCategoryController.php:320
 msgid "You do not have permission to perform this action."
-msgstr ""
+msgstr "このアクションを実行する権限がありません。"
 
 #: includes/Admin/AnnouncementsAdmin.php:105
 msgid "No announcements yet"
@@ -394,7 +394,7 @@ msgstr ""
 #: includes/Privacy/PrivacyTools.php:823 includes/Privacy/PrivacyTools.php:937
 #: includes/Privacy/PrivacyTools.php:1166 assets/js/admin/settings.js:175
 msgid "Status"
-msgstr ""
+msgstr "ステータス"
 
 #: includes/Admin/AnnouncementsAdmin.php:130
 #: includes/Admin/AnnouncementsAdmin.php:158 includes/Admin/Members.php:1388
@@ -414,7 +414,7 @@ msgstr ""
 #: includes/Admin/Spaces.php:468 includes/Admin/Spaces.php:614
 #: includes/Admin/Spaces.php:653 templates/moderation/queue.php:347
 msgid "Actions"
-msgstr ""
+msgstr "操作"
 
 #: includes/Admin/AnnouncementsAdmin.php:145
 msgid "(no text)"
@@ -466,7 +466,7 @@ msgstr ""
 #: templates/parts/post-options-menu.php:191 assets/js/admin/spaces.js:70
 #: assets/js/admin/spaces.js:90
 msgid "Delete"
-msgstr ""
+msgstr "削除"
 
 #: includes/Admin/AnnouncementsAdmin.php:196
 #: includes/Nav/Providers/ProfileNav.php:137
@@ -487,7 +487,7 @@ msgstr ""
 #: includes/Onboarding/SetupWizard.php:1064
 #: includes/Onboarding/SetupWizard.php:1097 assets/js/admin/setup-wizard.js:102
 msgid "Active"
-msgstr ""
+msgstr "有効"
 
 #: includes/Admin/AnnouncementsAdmin.php:242
 msgid "Delete this announcement permanently?"
@@ -522,7 +522,7 @@ msgstr ""
 
 #: includes/Admin/AppearanceTab.php:72
 msgid "Logo"
-msgstr ""
+msgstr "ロゴ"
 
 #: includes/Admin/AppearanceTab.php:74
 msgid ""
@@ -560,7 +560,7 @@ msgstr ""
 
 #: includes/Admin/AppearanceTab.php:105
 msgid "Custom CSS"
-msgstr ""
+msgstr "カスタムCSS"
 
 #: includes/Admin/AppearanceTab.php:107
 msgid ""
@@ -580,7 +580,7 @@ msgstr ""
 #: includes/Admin/NavManager.php:1654 includes/Admin/RolesTab.php:105
 #: includes/Admin/ToolsTab.php:51 templates/parts/taxonomy-editor.php:117
 msgid "Advanced"
-msgstr ""
+msgstr "詳細設定"
 
 #: includes/Admin/EmailEditor.php:57
 msgid ""
@@ -590,7 +590,7 @@ msgstr ""
 #: includes/Admin/EmailEditor.php:98 includes/Admin/Settings.php:91
 #: includes/Admin/Settings.php:2102 includes/Profile/GamificationPoints.php:289
 msgid "Social"
-msgstr ""
+msgstr "ソーシャル"
 
 #: includes/Admin/EmailEditor.php:100
 msgid "New Follower"
@@ -619,7 +619,7 @@ msgstr ""
 #: includes/Admin/EmailEditor.php:124
 #: includes/Notifications/NotificationMessageService.php:611
 msgid "Mention"
-msgstr ""
+msgstr "メンション"
 
 #: includes/Admin/EmailEditor.php:125
 msgid "When you're @mentioned"
@@ -867,7 +867,7 @@ msgstr ""
 #: includes/Admin/EmailEditor.php:560 includes/Admin/EmailEditor.php:593
 #: includes/Admin/EmailEditor.php:624 includes/Admin/EmailEditor.php:699
 msgid "Permission denied."
-msgstr ""
+msgstr "権限がありません。"
 
 #: includes/Admin/EmailEditor.php:761
 msgid "Template saved."
@@ -903,11 +903,11 @@ msgstr ""
 
 #: includes/Admin/EmailEditor.php:826
 msgid "Enabled"
-msgstr ""
+msgstr "有効"
 
 #: includes/Admin/EmailEditor.php:827 includes/Admin/Settings.php:3218
 msgid "Disabled"
-msgstr ""
+msgstr "無効"
 
 #: includes/Admin/EmailEditor.php:839
 msgid "Template editor"
@@ -977,7 +977,7 @@ msgstr ""
 
 #: includes/Admin/EmailEditor.php:1062
 msgid "Email preview"
-msgstr ""
+msgstr "メールプレビュー"
 
 #: includes/Admin/EmailEditor.php:1088
 msgid "Send a test email"
@@ -991,7 +991,7 @@ msgstr ""
 #: templates/partials/media-lightbox.php:49
 #: templates/partials/media-lightbox.php:62
 #: templates/partials/media-lightbox.php:69
-#: templates/partials/media-tab.php:207 templates/partials/media-tab.php:247
+#: templates/partials/media-tab.php:207 templates/partials/media-tab.php:261
 #: templates/partials/nav.php:286 templates/partials/report-modal.php:46
 #: templates/partials/share-modal.php:65
 #: templates/partials/space-delete-confirm-modal.php:46
@@ -1038,7 +1038,7 @@ msgstr ""
 #: includes/Core/PageRouter.php:1266 templates/notifications/prefs.php:522
 #: templates/partials/block-confirm-modal.php:73
 #: templates/partials/create-space-modal.php:234
-#: templates/partials/media-tab.php:231 templates/partials/media-tab.php:279
+#: templates/partials/media-tab.php:245 templates/partials/media-tab.php:293
 #: templates/partials/report-modal.php:89
 #: templates/partials/space-delete-confirm-modal.php:84
 #: templates/parts/dm-delete-modal.php:78
@@ -1057,7 +1057,7 @@ msgstr ""
 #: assets/js/admin/bn-admin-dialogs.js:250 assets/js/admin/spaces.js:69
 #: assets/js/admin/spaces.js:93
 msgid "Cancel"
-msgstr ""
+msgstr "キャンセル"
 
 #: includes/Admin/EmailEditor.php:1145
 msgid "Reset to default?"
@@ -1103,7 +1103,7 @@ msgstr ""
 #: templates/notifications/index.php:362 templates/parts/dm-rail.php:65
 #: templates/parts/space-members-panel.php:89 templates/search/results.php:343
 msgid "All"
-msgstr ""
+msgstr "すべて"
 
 #: includes/Admin/EmailLog.php:170
 msgid "No sent email recorded for this filter yet"
@@ -1122,7 +1122,7 @@ msgstr ""
 #: includes/Privacy/PrivacyTools.php:1150
 #: templates/partials/create-space-modal.php:121
 msgid "Type"
-msgstr ""
+msgstr "タイプ"
 
 #: includes/Admin/EmailLog.php:178
 msgid "Digest date"
@@ -1272,7 +1272,7 @@ msgstr ""
 #: templates/partials/explore-card.php:258
 #: templates/partials/explore-card.php:306
 msgid "Reactions"
-msgstr ""
+msgstr "リアクション"
 
 #: includes/Admin/Insights.php:113 includes/Admin/NavManager.php:812
 #: includes/Admin/RolesTab.php:62 includes/Admin/Settings.php:1043
@@ -1379,7 +1379,7 @@ msgstr ""
 #: templates/partials/connection-button.php:159
 #: templates/parts/member-card.php:414 templates/parts/profile-hero.php:539
 msgid "Connected"
-msgstr ""
+msgstr "接続済み"
 
 #: includes/Admin/IntegrationControlsAdmin.php:96
 msgid "Show in navigation"
@@ -1646,7 +1646,7 @@ msgstr ""
 
 #: includes/Admin/Members.php:1316 templates/spaces/members.php:265
 msgid "Filter"
-msgstr ""
+msgstr "フィルター"
 
 #: includes/Admin/Members.php:1330 includes/Admin/Spaces.php:349
 msgid "Bulk action"
@@ -1659,7 +1659,7 @@ msgstr ""
 #: includes/Admin/Members.php:1333 includes/Admin/Members.php:1492
 #: includes/Core/AssetService.php:1461
 msgid "Suspend"
-msgstr ""
+msgstr "停止"
 
 #: includes/Admin/Members.php:1334 includes/Admin/Members.php:1477
 #: includes/Admin/Members/MemberEditForm.php:150
@@ -1670,7 +1670,7 @@ msgstr ""
 #: includes/Admin/Spaces.php:354 includes/Core/AssetService.php:1310
 #: templates/parts/filter-strip.php:201 templates/parts/filter-strip.php:206
 msgid "Apply"
-msgstr ""
+msgstr "適用"
 
 #: includes/Admin/Members.php:1344 templates/spaces/members.php:410
 msgid "No members found"
@@ -1708,7 +1708,7 @@ msgstr ""
 #: templates/spaces/members.php:143 templates/spaces/members.php:261
 #: templates/spaces/moderation.php:487
 msgid "Member"
-msgstr ""
+msgstr "メンバー"
 
 #: includes/Admin/Members.php:1355 includes/Admin/Members.php:1417
 #: includes/Admin/Members/ApprovalManager.php:233
@@ -1756,7 +1756,7 @@ msgstr ""
 #: includes/Admin/Members.php:1440
 #: includes/Admin/Members/MemberEditForm.php:126
 msgid "Never"
-msgstr ""
+msgstr "なし"
 
 #: includes/Admin/Members.php:1456 includes/Admin/NavManager.php:325
 #: includes/Admin/Spaces.php:472 templates/partials/explore-card.php:125
@@ -1771,7 +1771,7 @@ msgstr ""
 #: templates/parts/post-options-menu.php:150
 #: templates/parts/profile/articles-panel.php:129
 msgid "Edit"
-msgstr ""
+msgstr "編集"
 
 #. translators: %s: name of the item the actions apply to.
 #: includes/Admin/Members.php:1465 includes/Admin/Spaces.php:490
@@ -1900,7 +1900,7 @@ msgstr ""
 #: templates/parts/profile/articles-panel.php:149
 #: templates/search/results.php:597
 msgid "Previous"
-msgstr ""
+msgstr "前へ"
 
 #. translators: 1: current page number, 2: total number of pages.
 #: includes/Admin/Members/ApprovalManager.php:294
@@ -2037,7 +2037,7 @@ msgstr ""
 #: includes/Admin/Members/InviteManager.php:202
 #: includes/Admin/Members/InviteManager.php:374
 msgid "Expired"
-msgstr ""
+msgstr "期限切れ"
 
 #: includes/Admin/Members/InviteManager.php:203
 #: includes/Admin/Members/InviteManager.php:368
@@ -2161,7 +2161,7 @@ msgstr ""
 #: includes/Admin/ModerationQueue.php:451
 #: includes/Admin/ModerationQueue.php:462
 msgid "Expires"
-msgstr ""
+msgstr "有効期限"
 
 #: includes/Admin/Members/InviteManager.php:416
 msgid "Resend"
@@ -2173,7 +2173,7 @@ msgstr ""
 
 #: includes/Admin/Members/InviteManager.php:418
 msgid "Revoke"
-msgstr ""
+msgstr "取り消す"
 
 #: includes/Admin/Members/InviteManager.php:439
 msgid "Invitations pagination"
@@ -2196,7 +2196,7 @@ msgstr ""
 #: includes/Admin/ModerationQueue.php:255
 #: includes/Admin/ModerationQueue.php:267
 msgid "Author"
-msgstr ""
+msgstr "投稿者"
 
 #: includes/Admin/Members/MemberDisplay.php:68
 #: templates/parts/hashtag-hero.php:164
@@ -2229,7 +2229,7 @@ msgstr ""
 #: includes/SocialGraph/FollowController.php:438
 #: templates/onboarding/index.php:37
 msgid "User not found."
-msgstr ""
+msgstr "ユーザーが見つかりません。"
 
 #: includes/Admin/Members/MemberEditForm.php:48
 msgid "Profile updated successfully."
@@ -2421,7 +2421,7 @@ msgstr ""
 
 #: includes/Admin/Members/MemberExport.php:79
 msgid "ID"
-msgstr ""
+msgstr "ID"
 
 #: includes/Admin/Members/MemberExport.php:80 includes/Core/CoreHubs.php:34
 #: includes/Core/PageRouter.php:649
@@ -2467,7 +2467,7 @@ msgstr ""
 #: templates/partials/create-space-modal.php:102
 #: templates/parts/taxonomy-editor.php:122
 msgid "Slug"
-msgstr ""
+msgstr "スラッグ"
 
 #: includes/Admin/Members/MemberTypesManager.php:221
 #: includes/Admin/Members/MemberTypesManager.php:250
@@ -2488,7 +2488,7 @@ msgstr ""
 #: includes/Admin/Members/MemberTypesManager.php:254
 #: templates/notifications/prefs.php:85
 msgid "Off"
-msgstr ""
+msgstr "無効"
 
 #: includes/Admin/Members/MemberTypesManager.php:275
 #: includes/Core/AssetService.php:1024
@@ -2583,7 +2583,7 @@ msgstr ""
 
 #: includes/Admin/Members/ProfileFieldsManager.php:130
 msgid "Color"
-msgstr ""
+msgstr "色"
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1393
 msgid "Profile fields saved."
@@ -2613,7 +2613,7 @@ msgstr ""
 #: includes/Admin/Settings.php:957 includes/Core/AssetService.php:957
 #: includes/Core/AssetService.php:1098 includes/Core/AssetService.php:1416
 #: templates/partials/composer.php:470 templates/partials/composer.php:487
-#: templates/partials/explore-card.php:154 templates/partials/media-tab.php:224
+#: templates/partials/explore-card.php:154 templates/partials/media-tab.php:237
 #: templates/partials/media-upload-composer.php:118
 #: templates/partials/post-card.php:317
 #: templates/parts/profile-edit-sidebar.php:134 templates/profile/edit.php:144
@@ -2624,7 +2624,7 @@ msgstr ""
 #: includes/Admin/Settings.php:866
 #: templates/parts/settings-privacy-fields.php:32
 msgid "Members only"
-msgstr ""
+msgstr "メンバー限定"
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1452
 #: includes/Admin/Settings.php:958 templates/partials/post-card.php:318
@@ -2640,7 +2640,7 @@ msgstr ""
 #: includes/Admin/Members/ProfileFieldsManager.php:1454
 #: includes/Admin/Settings.php:960 includes/Core/AssetService.php:960
 #: includes/Core/AssetService.php:1420 templates/partials/composer.php:523
-#: templates/partials/media-tab.php:226
+#: templates/partials/media-tab.php:239
 #: templates/partials/media-upload-composer.php:121
 #: templates/partials/post-card.php:321
 #: templates/parts/profile-edit-sidebar.php:155
@@ -2894,7 +2894,7 @@ msgstr ""
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1975
 msgid "Save Changes"
-msgstr ""
+msgstr "変更を保存"
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1988
 msgid "No fields yet"
@@ -3038,12 +3038,12 @@ msgstr ""
 #: templates/partials/report-modal.php:58
 #: templates/parts/member-report-modal.php:78
 msgid "Reason"
-msgstr ""
+msgstr "理由"
 
 #: includes/Admin/ModerationQueue.php:110
 #: includes/Admin/ModerationQueue.php:122 templates/moderation/queue.php:342
 msgid "Reporter"
-msgstr ""
+msgstr "報告者"
 
 #: includes/Admin/ModerationQueue.php:111
 #: includes/Admin/ModerationQueue.php:123
@@ -3117,9 +3117,10 @@ msgstr ""
 #: templates/parts/hashtag-hero.php:160
 #: templates/parts/profile-edit-sidebar.php:109
 #: templates/parts/search-result-section-posts.php:145
+#, fuzzy
 msgid "Post"
 msgid_plural "Posts"
-msgstr[0] ""
+msgstr[0] "投稿"
 
 #: includes/Admin/ModerationQueue.php:256
 #: includes/Admin/ModerationQueue.php:268 includes/Admin/Spaces.php:363
@@ -3129,7 +3130,7 @@ msgstr[0] ""
 #: templates/parts/search-result-section-spaces.php:147
 #: templates/parts/space-subspaces-panel.php:57
 msgid "Space"
-msgstr ""
+msgstr "スペース"
 
 #: includes/Admin/ModerationQueue.php:257
 #: includes/Admin/ModerationQueue.php:269
@@ -3181,7 +3182,7 @@ msgstr ""
 #: templates/moderation/queue.php:622 templates/parts/notification-row.php:152
 #: templates/spaces/moderation.php:402
 msgid "Dismiss"
-msgstr ""
+msgstr "却下"
 
 #: includes/Admin/ModerationQueue.php:411
 msgid "Resolve"
@@ -3262,7 +3263,7 @@ msgstr[0] ""
 
 #: includes/Admin/ModerationQueue.php:582 includes/Admin/RolesTab.php:141
 msgid "Action"
-msgstr ""
+msgstr "操作"
 
 #: includes/Admin/ModerationQueue.php:583
 msgid "Target member"
@@ -3271,7 +3272,7 @@ msgstr ""
 #: includes/Admin/ModerationQueue.php:584
 #: includes/Privacy/PrivacyTools.php:1100
 msgid "Object"
-msgstr ""
+msgstr "オブジェクト"
 
 #: includes/Admin/ModerationQueue.php:585 includes/Privacy/PrivacyTools.php:827
 msgid "Note"
@@ -3607,7 +3608,7 @@ msgstr ""
 msgid "Browse spaces"
 msgstr ""
 
-#: includes/Admin/NavManager.php:972 templates/partials/media-tab.php:235
+#: includes/Admin/NavManager.php:972 templates/partials/media-tab.php:249
 msgid "Create"
 msgstr ""
 
@@ -3630,7 +3631,7 @@ msgstr ""
 #: includes/Onboarding/OnboardingService.php:106 templates/partials/nav.php:160
 #: templates/parts/dm-thread-header.php:153
 msgid "Profile"
-msgstr ""
+msgstr "プロフィール"
 
 #: includes/Admin/NavManager.php:992
 msgid "Profile shortcut — fixed slot, always shown."
@@ -3805,11 +3806,11 @@ msgstr ""
 
 #: includes/Admin/NavManager.php:1546
 msgid "Label"
-msgstr ""
+msgstr "ラベル"
 
 #: includes/Admin/NavManager.php:1567 templates/parts/taxonomy-editor.php:183
 msgid "Icon"
-msgstr ""
+msgstr "アイコン"
 
 #: includes/Admin/NavManager.php:1596
 msgid "Position"
@@ -4163,7 +4164,7 @@ msgstr ""
 #: templates/parts/space-settings-panel-general.php:115
 #: templates/spaces/settings.php:516
 msgid "General"
-msgstr ""
+msgstr "一般"
 
 #: includes/Admin/Settings.php:90
 msgid "Registration & Login"
@@ -4297,11 +4298,11 @@ msgstr ""
 
 #: includes/Admin/Settings.php:355 includes/Admin/Settings.php:2978
 msgid "Free"
-msgstr ""
+msgstr "無料"
 
 #: includes/Admin/Settings.php:356
 msgid "Pro"
-msgstr ""
+msgstr "Pro"
 
 #: includes/Admin/Settings.php:373
 msgid "Not included"
@@ -4471,7 +4472,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:703 includes/Admin/Settings.php:722
 msgid "30 days"
-msgstr ""
+msgstr "30日間"
 
 #: includes/Admin/Settings.php:704
 msgid "60 days"
@@ -4479,7 +4480,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:705 includes/Admin/Settings.php:724
 msgid "90 days"
-msgstr ""
+msgstr "90日間"
 
 #: includes/Admin/Settings.php:712
 msgid ""
@@ -4581,7 +4582,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:814
 msgid "Discovery"
-msgstr ""
+msgstr "ディスカバリー"
 
 #: includes/Admin/Settings.php:820
 msgid "Public explore feed"
@@ -4719,7 +4720,7 @@ msgstr ""
 #: includes/Admin/Settings.php:948 includes/Core/PageRouter.php:643
 #: assets/js/blocks.js:119
 msgid "Activity Feed"
-msgstr ""
+msgstr "アクティビティフィード"
 
 #: includes/Admin/Settings.php:954
 msgid "Default post visibility"
@@ -5080,7 +5081,7 @@ msgstr ""
 #: includes/Notifications/NotificationPrefCatalogue.php:58
 #: includes/Onboarding/SetupWizard.php:807
 msgid "New follower"
-msgstr ""
+msgstr "新しいフォロワー"
 
 #: includes/Admin/Settings.php:1402
 msgid "Notify users by default when someone follows them."
@@ -5090,9 +5091,10 @@ msgstr ""
 #: includes/Notifications/NotificationMessageService.php:576
 #: includes/Notifications/NotificationPrefCatalogue.php:74
 #: templates/parts/profile/people-panel.php:64
+#, fuzzy
 msgid "Connection request"
 msgid_plural "Connection requests"
-msgstr[0] ""
+msgstr[0] "つながりリクエスト"
 
 #: includes/Admin/Settings.php:1411
 msgid "Notify users by default when they receive a connection request."
@@ -5125,7 +5127,7 @@ msgstr ""
 #: includes/Admin/Settings.php:1445
 #: includes/Notifications/NotificationMessageService.php:621
 msgid "New space member"
-msgstr ""
+msgstr "新しいスペースメンバー"
 
 #: includes/Admin/Settings.php:1447
 msgid "Notify space owners by default when someone joins their space."
@@ -5757,7 +5759,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:2693
 msgid "Client ID"
-msgstr ""
+msgstr "クライアントID"
 
 #: includes/Admin/Settings.php:2697
 msgid "Client Secret"
@@ -5868,7 +5870,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:2940
 msgid "Activate"
-msgstr ""
+msgstr "有効化"
 
 #: includes/Admin/Settings.php:2943 includes/Admin/Settings.php:3021
 msgid "Install free"
@@ -5999,7 +6001,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:3178 includes/Admin/Settings.php:3210
 msgid "Events"
-msgstr ""
+msgstr "イベント"
 
 #: includes/Admin/Settings.php:3180 includes/Admin/Settings.php:3222
 #: includes/Admin/Spaces.php:368 includes/Admin/Spaces.php:467
@@ -6007,7 +6009,7 @@ msgstr ""
 #: templates/parts/space-about-panel.php:159
 #: templates/parts/space-header.php:82
 msgid "Created"
-msgstr ""
+msgstr "作成日時"
 
 #: includes/Admin/Settings.php:3189
 msgid "No webhooks registered yet"
@@ -6069,7 +6071,7 @@ msgstr ""
 #: includes/Notifications/NotificationMessageService.php:581
 #: includes/Notifications/NotificationPrefCatalogue.php:82
 msgid "Connection accepted"
-msgstr ""
+msgstr "つながり承認"
 
 #: includes/Admin/Settings.php:3270
 msgid "Space joined"
@@ -6274,7 +6276,7 @@ msgstr ""
 #: includes/Admin/Spaces.php:279 includes/Admin/Spaces.php:315
 #: includes/Spaces/SpaceTypeRegistry.php:84
 msgid "Secret"
-msgstr ""
+msgstr "シークレット"
 
 #: includes/Admin/Spaces.php:293 templates/spaces/directory.php:322
 msgid "Search spaces"
@@ -6310,7 +6312,7 @@ msgstr ""
 
 #: includes/Admin/Spaces.php:410
 msgid "Archived"
-msgstr ""
+msgstr "アーカイブ済み"
 
 #. translators: %s: parent space name
 #: includes/Admin/Spaces.php:417
@@ -6858,7 +6860,7 @@ msgstr ""
 #: includes/Realtime/RealtimeController.php:108
 #: includes/REST/BaseRestController.php:71
 msgid "You must be logged in."
-msgstr ""
+msgstr "ログインが必要です。"
 
 #: includes/Auth/AuthController.php:2059 includes/Feed/FeedController.php:914
 msgid "You do not have permission to do this."
@@ -7109,7 +7111,7 @@ msgstr ""
 
 #: includes/Auth/RegistrationEmailListener.php:284
 msgid "our community"
-msgstr ""
+msgstr "コミュニティ"
 
 #: includes/Auth/RegistrationGuard.php:131
 msgid "Sign-ups from your network are not allowed."
@@ -7760,11 +7762,11 @@ msgstr ""
 
 #: includes/Core/AssetService.php:318
 msgid "Alex Rivera"
-msgstr ""
+msgstr "Alex Rivera"
 
 #: includes/Core/AssetService.php:319
 msgid "Alex"
-msgstr ""
+msgstr "Alex"
 
 #: includes/Core/AssetService.php:321 includes/Core/AssetService.php:322
 #: includes/Core/AssetService.php:323 includes/Core/AssetService.php:324
@@ -7948,7 +7950,7 @@ msgstr ""
 
 #: includes/Core/AssetService.php:845
 msgid "User"
-msgstr ""
+msgstr "ユーザー"
 
 #: includes/Core/AssetService.php:846
 #: templates/gamification/leaderboard.php:505 templates/shell/rail.php:225
@@ -7972,7 +7974,7 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
-#: includes/Core/AssetService.php:851 templates/partials/media-tab.php:236
+#: includes/Core/AssetService.php:851 templates/partials/media-tab.php:250
 #: templates/parts/dm-group-panel.php:47 templates/parts/post-actions.php:286
 msgid "Save"
 msgstr ""
@@ -8025,7 +8027,7 @@ msgstr ""
 
 #: includes/Core/AssetService.php:864 templates/parts/dm-composer.php:122
 msgid "Emoji"
-msgstr ""
+msgstr "絵文字"
 
 #: includes/Core/AssetService.php:865 templates/partials/composer.php:406
 #: templates/partials/composer.php:409 templates/parts/dm-composer.php:119
@@ -8202,7 +8204,7 @@ msgstr ""
 #: includes/Core/AssetService.php:904
 #: templates/parts/settings-account-fields.php:90
 msgid "Saved"
-msgstr ""
+msgstr "保存済み"
 
 #: includes/Core/AssetService.php:905
 msgid "Removed from saved"
@@ -8481,7 +8483,7 @@ msgstr ""
 #: includes/Core/AssetService.php:984 templates/moderation/queue.php:343
 #: templates/parts/post-options-menu.php:182
 msgid "Reported"
-msgstr ""
+msgstr "報告対象"
 
 #: includes/Core/AssetService.php:985
 msgid "You already reported this."
@@ -8574,7 +8576,7 @@ msgstr ""
 #: templates/parts/member-card.php:216 templates/parts/profile-hero.php:611
 #: assets/js/media/lightbox.js:382
 msgid "Block"
-msgstr ""
+msgstr "ブロック"
 
 #: includes/Core/AssetService.php:1025 templates/parts/member-card.php:268
 #: templates/parts/post-byline.php:133
@@ -8687,11 +8689,11 @@ msgstr ""
 
 #: includes/Core/AssetService.php:1103 templates/spaces/paywall.php:41
 msgid "This space is available to members only."
-msgstr ""
+msgstr "このスペースはメンバー限定です。"
 
 #: includes/Core/AssetService.php:1104 templates/spaces/paywall.php:46
 msgid "Become a Member"
-msgstr ""
+msgstr "メンバーになる"
 
 #: includes/Core/AssetService.php:1105 templates/spaces/paywall.php:87
 msgid "Membership purchase is not configured yet. Please check back soon."
@@ -8895,7 +8897,7 @@ msgstr ""
 msgid "Cover removed."
 msgstr ""
 
-#: includes/Core/AssetService.php:1169 templates/partials/media-tab.php:272
+#: includes/Core/AssetService.php:1169 templates/partials/media-tab.php:286
 #: templates/partials/media-upload-composer.php:134
 msgid "Uploading…"
 msgstr ""
@@ -9395,7 +9397,7 @@ msgstr ""
 
 #: includes/Core/AssetService.php:1371
 msgid "Disconnected"
-msgstr ""
+msgstr "未接続"
 
 #: includes/Core/AssetService.php:1373
 msgid "Unmuted"
@@ -9901,7 +9903,7 @@ msgstr ""
 #: includes/Core/AssetService.php:1629
 #: templates/partials/media-upload-composer.php:128
 msgid "Clear"
-msgstr ""
+msgstr "クリア"
 
 #: includes/Core/AssetService.php:1630
 msgid "Search suggestions"
@@ -10049,7 +10051,7 @@ msgstr ""
 
 #: includes/Core/CoreHubs.php:29 templates/feed/single-post.php:121
 msgid "Activity"
-msgstr ""
+msgstr "アクティビティ"
 
 #: includes/Core/FeatureRegistry.php:373
 msgid "Posts, comments, reactions, polls, shares — the heart of the community."
@@ -10551,7 +10553,7 @@ msgstr ""
 #: includes/Moderation/ModerationController.php:1396
 #: includes/Moderation/ModerationController.php:1879
 msgid "Post not found."
-msgstr ""
+msgstr "投稿が見つかりません。"
 
 #. translators: %s: submitted post type
 #: includes/Feed/PostService.php:94
@@ -10630,7 +10632,7 @@ msgstr[0] ""
 
 #: includes/Feed/PostService.php:2692
 msgid "You are not the owner of this post."
-msgstr ""
+msgstr "この投稿の所有者ではありません。"
 
 #: includes/Feed/ShareService.php:46
 msgid "Sharing is disabled on this community."
@@ -10903,7 +10905,7 @@ msgstr ""
 #: includes/Media/MediaController.php:674
 #: includes/Media/MediaController.php:680
 #: includes/Media/MediaController.php:724
-#: includes/Media/MediaController.php:1068
+#: includes/Media/MediaController.php:1079
 msgid "Album not found."
 msgstr ""
 
@@ -10921,7 +10923,7 @@ msgstr ""
 msgid "Added photos to %s"
 msgstr ""
 
-#: includes/Media/MediaController.php:1073
+#: includes/Media/MediaController.php:1084
 msgid "You can only manage your own albums."
 msgstr ""
 
@@ -11033,7 +11035,7 @@ msgstr ""
 #: includes/Moderation/ModerationService.php:2782
 #: includes/Moderation/ModerationService.php:2949
 msgid "Invalid user ID."
-msgstr ""
+msgstr "無効なユーザーIDです。"
 
 #: includes/Moderation/ModerationController.php:1905
 msgid "No active ban was found to lift for this member."
@@ -11170,7 +11172,7 @@ msgstr ""
 #: includes/Moderation/ModerationService.php:1787
 #: includes/Onboarding/SetupWizard.php:199
 msgid "Insufficient permissions."
-msgstr ""
+msgstr "権限が不足しています。"
 
 #: includes/Moderation/ModerationService.php:2371
 msgid "No matching suspension found."
@@ -11227,7 +11229,7 @@ msgstr ""
 
 #: includes/Moderation/SafeguardService.php:270
 msgid "This link is not allowed."
-msgstr ""
+msgstr "このリンクは許可されていません。"
 
 #: includes/Moderation/SafeguardService.php:328
 msgid "You are posting too quickly. Please wait a moment."
@@ -11263,9 +11265,10 @@ msgid_plural "Followers"
 msgstr[0] ""
 
 #: includes/Nav/Providers/ProfileNav.php:106
+#, fuzzy
 msgid "Connection"
 msgid_plural "Connections"
-msgstr[0] ""
+msgstr[0] "接続"
 
 #: includes/Nav/Providers/ProfileNav.php:204 templates/feed/home.php:191
 msgid "Network"
@@ -11628,7 +11631,7 @@ msgstr ""
 
 #: includes/Notifications/NotificationMessageService.php:452
 msgid "You have a new notification."
-msgstr ""
+msgstr "新しい通知があります。"
 
 #. translators: 1: actor display name, 2: number of other actors.
 #: includes/Notifications/NotificationMessageService.php:472
@@ -11718,13 +11721,13 @@ msgstr ""
 
 #: includes/Notifications/NotificationMessageService.php:631
 msgid "Space join request"
-msgstr ""
+msgstr "スペース参加リクエスト"
 
 #: includes/Notifications/NotificationMessageService.php:636
 #: includes/Notifications/NotificationMessageService.php:646
 #: includes/Notifications/NotificationPrefCatalogue.php:174
 msgid "Space request approved"
-msgstr ""
+msgstr "スペース参加リクエスト承認"
 
 #: includes/Notifications/NotificationMessageService.php:641
 msgid "Space ownership"
@@ -11759,7 +11762,7 @@ msgstr ""
 
 #: includes/Notifications/NotificationMessageService.php:686
 msgid "Strike warning"
-msgstr ""
+msgstr "ストライク警告"
 
 #: includes/Notifications/NotificationMessageService.php:691
 msgid "Strike"
@@ -11786,7 +11789,7 @@ msgstr ""
 #: includes/Notifications/NotificationMessageService.php:716
 #: includes/Notifications/NotificationPrefCatalogue.php:298
 msgid "Appeal resolved"
-msgstr ""
+msgstr "申し立て解決"
 
 #: includes/Notifications/NotificationMessageService.php:721
 msgid "Report resolved"
@@ -11833,7 +11836,7 @@ msgstr ""
 #: includes/Profile/GamificationKudos.php:169
 #: templates/parts/dm-thread-messages.php:193
 msgid "Someone"
-msgstr ""
+msgstr "匿名ユーザー"
 
 #: includes/Notifications/NotificationMessageService.php:1043
 #: includes/Notifications/NotificationMessageService.php:1061
@@ -11843,7 +11846,7 @@ msgstr ""
 
 #: includes/Notifications/NotificationPrefCatalogue.php:59
 msgid "Someone started following you."
-msgstr ""
+msgstr "誰かがあなたをフォローし始めました。"
 
 #: includes/Notifications/NotificationPrefCatalogue.php:67
 msgid "Someone requested to follow you."
@@ -11863,7 +11866,7 @@ msgstr ""
 
 #: includes/Notifications/NotificationPrefCatalogue.php:93
 msgid "Someone reacted to a post you authored."
-msgstr ""
+msgstr "誰かがあなたの投稿にリアクションしました。"
 
 #: includes/Notifications/NotificationPrefCatalogue.php:100
 msgid "Reactions on your comments"
@@ -11895,7 +11898,7 @@ msgstr ""
 
 #: includes/Notifications/NotificationPrefCatalogue.php:125
 msgid "Someone shared a post you authored."
-msgstr ""
+msgstr "誰かがあなたの投稿をシェアしました。"
 
 #: includes/Notifications/NotificationPrefCatalogue.php:132
 #: includes/Sidebar/Providers/NotificationsSidebarProvider.php:82
@@ -11904,7 +11907,7 @@ msgstr ""
 
 #: includes/Notifications/NotificationPrefCatalogue.php:133
 msgid "Someone mentioned you in a post or comment."
-msgstr ""
+msgstr "誰かが投稿またはコメントであなたをメンションしました。"
 
 #: includes/Notifications/NotificationPrefCatalogue.php:140
 msgid "Bookmark milestones"
@@ -11937,7 +11940,7 @@ msgstr ""
 
 #: includes/Notifications/NotificationPrefCatalogue.php:175
 msgid "Your request to join a space was approved."
-msgstr ""
+msgstr "スペースへの参加リクエストが承認されました。"
 
 #: includes/Notifications/NotificationPrefCatalogue.php:182
 msgid "Space ownership received"
@@ -11997,7 +12000,7 @@ msgstr ""
 
 #: includes/Notifications/NotificationPrefCatalogue.php:258
 msgid "Strike issued"
-msgstr ""
+msgstr "ストライク発行"
 
 #: includes/Notifications/NotificationPrefCatalogue.php:259
 msgid "Your account received a community-guideline strike."
@@ -12005,7 +12008,7 @@ msgstr ""
 
 #: includes/Notifications/NotificationPrefCatalogue.php:266
 msgid "Account suspended"
-msgstr ""
+msgstr "アカウント停止"
 
 #: includes/Notifications/NotificationPrefCatalogue.php:274
 msgid "Account reinstated"
@@ -12093,7 +12096,7 @@ msgstr ""
 
 #: includes/Notifications/NotificationPrefCatalogue.php:496
 msgid "Social graph"
-msgstr ""
+msgstr "ソーシャルグラフ"
 
 #: includes/Notifications/NotificationPrefCatalogue.php:498
 msgid "Feed activity"
@@ -12357,7 +12360,7 @@ msgstr ""
 #: templates/parts/space-settings-panel-general.php:203
 #: templates/parts/taxonomy-editor.php:107
 msgid "Description"
-msgstr ""
+msgstr "説明"
 
 #: includes/Onboarding/SetupWizard.php:769
 msgid "Education"
@@ -12808,7 +12811,7 @@ msgstr ""
 #: includes/Privacy/PrivacyTools.php:1154
 #: includes/Profile/GamificationPoints.php:288
 msgid "Content"
-msgstr ""
+msgstr "コンテンツ"
 
 #: includes/Privacy/PrivacyTools.php:1158
 msgid "Link"
@@ -13100,7 +13103,7 @@ msgstr ""
 
 #: includes/Profile/GamificationPoints.php:293 templates/search/results.php:70
 msgid "Listings"
-msgstr ""
+msgstr "掲載情報"
 
 #: includes/Profile/GamificationPoints.php:294
 msgid "Careers"
@@ -14411,7 +14414,7 @@ msgstr ""
 
 #: templates/auth/verify.php:162
 msgid "Verified"
-msgstr ""
+msgstr "認証済み"
 
 #: templates/auth/verify.php:165
 msgid "Email verified — welcome!"
@@ -14586,7 +14589,7 @@ msgstr[0] ""
 
 #: templates/blocks/profile-completion-bar.php:79
 #: templates/blocks/profile-completion-bar.php:100
-#: templates/partials/media-tab.php:281
+#: templates/partials/media-tab.php:295
 #: templates/parts/sidebar-profile-strength.php:159
 #: templates/parts/taxonomy-editor.php:220
 msgid "Add"
@@ -14668,7 +14671,7 @@ msgstr ""
 
 #: templates/community-admin.php:217
 msgid "Overview"
-msgstr ""
+msgstr "概要"
 
 #: templates/community-admin.php:238
 msgid "Email invites"
@@ -14713,7 +14716,7 @@ msgstr ""
 
 #: templates/community-admin.php:321
 msgid "Posts today"
-msgstr ""
+msgstr "本日の投稿数"
 
 #. translators: %d: percentage change vs yesterday.
 #: templates/community-admin.php:335
@@ -15488,7 +15491,7 @@ msgstr ""
 
 #: templates/moderation/queue.php:345
 msgid "Severity"
-msgstr ""
+msgstr "重大度"
 
 #: templates/moderation/queue.php:357
 msgid "Nothing to review"
@@ -15661,7 +15664,7 @@ msgstr ""
 
 #: templates/notifications/prefs.php:239 templates/onboarding/index.php:683
 msgid "Push"
-msgstr ""
+msgstr "プッシュ"
 
 #: templates/notifications/prefs.php:240
 msgid "Mobile + desktop push notifications."
@@ -16099,7 +16102,7 @@ msgstr ""
 #: templates/partials/create-space-modal.php:84
 #: templates/partials/media-tab.php:211 templates/parts/taxonomy-editor.php:73
 msgid "Name"
-msgstr ""
+msgstr "名前"
 
 #: templates/partials/create-space-modal.php:114
 msgid ""
@@ -16348,7 +16351,7 @@ msgstr ""
 msgid "No albums yet."
 msgstr ""
 
-#: templates/partials/media-tab.php:183 templates/partials/media-tab.php:244
+#: templates/partials/media-tab.php:183 templates/partials/media-tab.php:258
 msgid "Add media"
 msgstr ""
 
@@ -16360,20 +16363,26 @@ msgstr ""
 msgid "e.g. Summer trip"
 msgstr ""
 
-#: templates/partials/media-tab.php:222
+#: templates/partials/media-tab.php:231
+msgid ""
+"Who can see this album is decided by the space. Members who can see the "
+"space can see its albums."
+msgstr ""
+
+#: templates/partials/media-tab.php:235
 #: templates/partials/media-upload-composer.php:116
 msgid "Who can see this"
 msgstr ""
 
-#: templates/partials/media-tab.php:246
+#: templates/partials/media-tab.php:260
 msgid "Add media to album"
 msgstr ""
 
-#: templates/partials/media-tab.php:260
+#: templates/partials/media-tab.php:274
 msgid "Upload from device"
 msgstr ""
 
-#: templates/partials/media-tab.php:275
+#: templates/partials/media-tab.php:289
 msgid "Tap media to select, or upload something new."
 msgstr ""
 
@@ -17649,7 +17658,7 @@ msgstr ""
 #: templates/parts/search-result-section-posts.php:116
 #: templates/parts/search-result-section-spaces.php:110
 msgid "See all"
-msgstr ""
+msgstr "すべて見る"
 
 #. translators: %d: object id.
 #: templates/parts/search-result-section-generic.php:96
@@ -18878,7 +18887,7 @@ msgstr ""
 
 #: templates/parts/taxonomy-editor.php:176
 msgid "Lower numbers appear first."
-msgstr ""
+msgstr "数字が小さいほど先に表示されます。"
 
 #: templates/parts/taxonomy-editor.php:189
 msgid "Paste an inline <svg> element (optional)"
@@ -19020,7 +19029,7 @@ msgstr ""
 
 #: templates/search/results.php:69
 msgid "Jobs"
-msgstr ""
+msgstr "求人"
 
 #. translators: %s: search query.
 #: templates/search/results.php:416
@@ -19098,7 +19107,7 @@ msgstr ""
 
 #: templates/search/results.php:807
 msgid "Active within (days)"
-msgstr ""
+msgstr "アクティブ期間（日）"
 
 #: templates/search/results.php:816
 msgid "Tier, space and label filters appear when BuddyNext Pro is active."
@@ -19300,7 +19309,7 @@ msgstr ""
 
 #: templates/spaces/home.php:202
 msgid "Space invitation"
-msgstr ""
+msgstr "スペースへの招待"
 
 #: templates/spaces/home.php:205
 msgid "You've been invited to join this space."

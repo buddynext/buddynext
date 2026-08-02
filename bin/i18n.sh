@@ -62,31 +62,51 @@ for po in "$LANGS"/*.po; do
 done
 
 echo "==> make-mo + make-json  ($DOMAIN-{locale}.mo  +  $DOMAIN-{locale}-{hash}.json)"
-# Build artifacts only for locales that have at least one translated string.
+# A locale ships its runtime artifacts only when it is actually translated, and
+# "actually" is a COVERAGE BAR, not "has at least one string".
 #
-# A .mo built from an all-empty .po is a file that says "this language ships"
-# while rendering 100% English — the ja / ko_KR / zh_CN scaffolds were exactly
-# that. The moment a translator does real work both artifacts appear on the next
-# build, with no allow-list to maintain here.
+# Both artifacts are gated in ONE loop on ONE measurement, deliberately. The .mo
+# used to be gated here while `wp i18n make-json "$LANGS"` ran unconditionally
+# over the whole directory, so three empty locales shipped 13 JSON files each —
+# 39 files, every msgid mapped to "". Two gates on the same condition in two
+# places is how they drift apart; there is now only one.
 #
-# BOTH artifacts are gated in ONE loop, on ONE computed count, deliberately. The
-# .mo used to be gated here while `wp i18n make-json "$LANGS"` ran unconditionally
-# over the whole directory below, so the three empty locales shipped 13 JSON files
-# each — 39 files, ~1.6MB, every msgid mapped to "". Two gates on the same
-# condition in two places is how they drift apart; there is now only one.
+# The bar itself replaced a `> 0 translated` test. That test was right while a
+# scaffold held literally nothing, and stopped being right the moment a locale was
+# partially filled: a compendium merge from the Pro catalogue put 119 of ~4,280
+# strings into ja / ko_KR / zh_CN, and `> 0` would have started shipping a .mo at
+# 2.8% — a Japanese member seeing メンバー and スペース in a page of English.
+# Half-translated reads as broken in a way that plain English does not, which is
+# the complaint this whole area started from.
 #
-# (The hazard those stubs were reported as — an empty msgstr rendering a BLANK
-# label rather than falling back to English — was tested and does not happen:
-# @wordpress/i18n falls back to the original string. What is left is package
-# hygiene: shipped artifacts that translate nothing, implying support for three
-# locales that have none.)
+# 80 keeps every locale that ships today shipping (they sit at 88.3%) and holds
+# the partials back until they are done. Override with BN_I18N_MIN_COVERAGE=0.
+#
+# (The hazard the empty JSON stubs were originally reported as — an empty msgstr
+# rendering a BLANK label rather than falling back to English — was tested and
+# does not happen: @wordpress/i18n falls back to the original string. What the
+# gate prevents is package hygiene and a false claim of support, not blank UI.)
+MIN_COVERAGE="${BN_I18N_MIN_COVERAGE:-80}"
+
 for po in "$LANGS"/*.po; do
 	[ -e "$po" ] || continue
 	locale="$(basename "$po" .po)"
-	translated="$(msgattrib --translated --no-obsolete "$po" 2>/dev/null | grep -c '^msgstr "[^"]' || true)"
 
-	if [ "${translated:-0}" -eq 0 ]; then
-		echo "    skip  $locale (0 translated strings — translator scaffold only)"
+	# msgfmt is authoritative. The previous count came from
+	# `grep -c '^msgstr "[^"]'`, which cannot see a multi-line msgstr or a
+	# msgstr[n] plural form and so under-reported every locale by ~500. It never
+	# broke the old 0-vs-nonzero gate, but it is wrong the instant a number is
+	# compared against a threshold - or read by a human as evidence.
+	stats="$(msgfmt --statistics -o /dev/null "$po" 2>&1)"
+	translated="$(printf '%s' "$stats" | grep -oE '[0-9]+ translated' | grep -oE '[0-9]+' || echo 0)"
+	untranslated="$(printf '%s' "$stats" | grep -oE '[0-9]+ untranslated' | grep -oE '[0-9]+' || echo 0)"
+	total=$(( translated + untranslated ))
+	coverage=0
+	[ "$total" -gt 0 ] && coverage=$(( translated * 100 / total ))
+
+	if [ "$coverage" -lt "$MIN_COVERAGE" ]; then
+		printf '    skip  %s (%s%% translated, below the %s%% bar - %s/%s)\n' \
+			"$locale" "$coverage" "$MIN_COVERAGE" "$translated" "$total"
 		# Remove any artifact from a previous build. This is what deletes a stub
 		# when a locale is emptied, and it is why the fix is self-healing rather
 		# than a one-off cleanup.
