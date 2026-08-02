@@ -61,12 +61,25 @@ for po in "$LANGS"/*.po; do
 	rm -f "$po.bak"
 done
 
-echo "==> make-mo   (PHP  -> $DOMAIN-{locale}.mo)"
-# Compile only locales that have at least one translated string. A .mo built from
-# an all-empty .po is a file that says "this language ships" while rendering 100%
-# English — the ja / ko_KR / zh_CN scaffolds were exactly that. The moment a
-# translator does real work the .mo appears on the next build, with no allow-list
-# to maintain here.
+echo "==> make-mo + make-json  ($DOMAIN-{locale}.mo  +  $DOMAIN-{locale}-{hash}.json)"
+# Build artifacts only for locales that have at least one translated string.
+#
+# A .mo built from an all-empty .po is a file that says "this language ships"
+# while rendering 100% English — the ja / ko_KR / zh_CN scaffolds were exactly
+# that. The moment a translator does real work both artifacts appear on the next
+# build, with no allow-list to maintain here.
+#
+# BOTH artifacts are gated in ONE loop, on ONE computed count, deliberately. The
+# .mo used to be gated here while `wp i18n make-json "$LANGS"` ran unconditionally
+# over the whole directory below, so the three empty locales shipped 13 JSON files
+# each — 39 files, ~1.6MB, every msgid mapped to "". Two gates on the same
+# condition in two places is how they drift apart; there is now only one.
+#
+# (The hazard those stubs were reported as — an empty msgstr rendering a BLANK
+# label rather than falling back to English — was tested and does not happen:
+# @wordpress/i18n falls back to the original string. What is left is package
+# hygiene: shipped artifacts that translate nothing, implying support for three
+# locales that have none.)
 for po in "$LANGS"/*.po; do
 	[ -e "$po" ] || continue
 	locale="$(basename "$po" .po)"
@@ -74,15 +87,23 @@ for po in "$LANGS"/*.po; do
 
 	if [ "${translated:-0}" -eq 0 ]; then
 		echo "    skip  $locale (0 translated strings — translator scaffold only)"
+		# Remove any artifact from a previous build. This is what deletes a stub
+		# when a locale is emptied, and it is why the fix is self-healing rather
+		# than a one-off cleanup.
 		rm -f "$LANGS/$locale.mo"
+		rm -f "$LANGS/$locale"-*.json
 		continue
 	fi
 
 	msgfmt --output-file="$LANGS/$locale.mo" "$po"
-	echo "    built $locale.mo ($translated strings)"
-done
 
-echo "==> make-json (JS   -> $DOMAIN-{locale}-{hash}.json)"
-"$WP" i18n make-json "$LANGS" --no-purge
+	# Per-file, not per-directory: the directory form has no locale gate.
+	# --no-purge keeps the JS strings in the .po so the catalogue stays complete
+	# for translators.
+	"$WP" i18n make-json "$po" "$LANGS" --no-purge >/dev/null
+
+	json_count="$(find "$LANGS" -maxdepth 1 -name "$locale-*.json" | wc -l | tr -d ' ')"
+	echo "    built $locale.mo + ${json_count} JSON ($translated strings)"
+done
 
 echo "Done. .pot + .po + .mo + .json regenerated in $LANGS/"
