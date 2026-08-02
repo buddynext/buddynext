@@ -35,8 +35,12 @@ test.describe('notifications / preferences', () => {
         const firstFreqChip = page.locator('.bn-prefs-chip[data-freq]').first();
         await expect(firstFreqChip).toBeVisible();
 
-        // Quiet hours coming-soon section is present.
-        await expect(page.getByText(/quiet hours/i)).toBeVisible();
+        // The "Quiet hours (coming soon)" block is deliberately GONE, and this
+        // spec must not demand it back. docs/standards/public-surface-integrity.md
+        // bans half-cooked surfaces outright - "disabled mockup inputs, hardcoded
+        // sample values, `coming soon` copy or HTML comments never go on a public
+        // surface". Asserting it here made the suite enforce the opposite of the
+        // plugin's own standard.
     });
 
     test('settings link from /notifications/ navigates to prefs', async ({ authenticatedPage: page }, testInfo) => {

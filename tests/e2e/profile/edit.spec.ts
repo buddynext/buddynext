@@ -60,18 +60,27 @@ test.describe('profile / edit', () => {
         await page.waitForLoadState('domcontentloaded');
     });
 
-    test.fixme(process.env.BN_PRO !== '1', 'J-36 theme picker  -  Pro whitelabel only.');
+    // J-36 asserts a brand-hue picker (`[data-field="brand-hue"]` / `bn_brand_hue`).
+    // Neither string exists anywhere in Free or Pro, and /settings/appearance/
+    // renders no form control at all - so this is an UNBUILT feature, not a stale
+    // selector. Left failing-by-declaration rather than deleted, so it stays
+    // visible: either build the picker or retire J-36 from the catalogue.
+    test.fixme(true, 'J-36 brand-hue picker does not exist in Free or Pro - unbuilt, see spec comment.');
     test('J-36 theme picker (Pro) applies brand hue', async ({ authenticatedPage: page }, testInfo) => {
-        await page.goto(urls.memberEdit(user));
+        await page.goto(urls.settingsAppearance);
         const picker = page.locator('[data-field="brand-hue"], [name="bn_brand_hue"]').first();
         await expect(picker).toBeVisible();
     });
 
     /* B5 — Privacy section: audience selects + toggles render. */
     test('Privacy section renders audience selects + toggles', async ({ authenticatedPage: page }) => {
-        await page.goto(urls.memberEdit(user));
+        // Privacy moved off profile-edit and onto the settings hub.
+        await page.goto(urls.settingsPrivacy);
         await expect(page.locator('#bn-ep-privacy-title')).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('#bn-ep-privacy-email')).toBeVisible();
+        // #bn-ep-privacy-email is intentionally absent. bn_privacy_see_email was
+        // REMOVED under docs/standards/public-surface-integrity.md: it saved a
+        // value nothing read, offering a choice over an exposure that did not
+        // exist. Asserting it here would demand the lever come back.
         await expect(page.locator('#bn-ep-privacy-dm')).toBeVisible();
         await expect(page.locator('#bn-ep-privacy-mention')).toBeVisible();
         await expect(page.locator('[data-pref="bn_privacy_show_in_directory"]')).toBeVisible();
@@ -81,7 +90,8 @@ test.describe('profile / edit', () => {
 
     /* B6 — Account section: change-password / change-email / sign-out-everywhere CTAs. */
     test('Account section renders password / email / sign-out-everywhere CTAs', async ({ authenticatedPage: page }) => {
-        await page.goto(urls.memberEdit(user));
+        // Account moved off profile-edit and onto the settings hub.
+        await page.goto(urls.settingsAccount);
         await expect(page.locator('.bn-ep-card-title:has-text("Account")')).toBeVisible({ timeout: 5_000 });
         await expect(page.locator('[data-wp-on--click="actions.openEmailChange"]')).toBeVisible();
         await expect(page.locator('[data-wp-on--click="actions.openPasswordChange"]')).toBeVisible();
@@ -90,7 +100,8 @@ test.describe('profile / edit', () => {
 
     /* C1 — Notification preferences footer carries the prefs page CTA. */
     test('Notification preferences card footer links to full prefs page', async ({ authenticatedPage: page }) => {
-        await page.goto(urls.memberEdit(user));
+        // The card lives on the settings hub, not profile-edit.
+        await page.goto(urls.settings);
         const cta = page.locator('a:has-text("Open notification preferences")').first();
         await expect(cta).toBeVisible({ timeout: 5_000 });
     });

@@ -21,8 +21,15 @@ test.describe('profile / owner gate', () => {
         await page.goto(urls.member(otherMember));
         await expect(page.locator('.bn-pf-hero').first()).toBeVisible({ timeout: 5_000 });
 
-        // No owner Edit-profile link in the action bar on someone else's profile.
-        await expect(page.locator('.bn-pf-actions a[href*="/edit/"]')).toHaveCount(0);
+        // No OWNER Edit-profile link in the action bar on someone else's profile.
+        //
+        // Scoped past .bn-more-menu deliberately. That menu carries a separate
+        // "Edit profile" item gated on $bn_pf_can_edit - the "Edit anyone's
+        // profile" capability (profile-hero.php:589) - which an administrator
+        // legitimately holds. The unscoped matcher caught that admin affordance
+        // and failed a correct gate; this spec is about OWNER controls leaking,
+        // not about removing a capability.
+        await expect(page.locator('.bn-pf-actions a[href*="/edit/"]:not(.bn-more-menu-item)')).toHaveCount(0);
 
         // No cover-edit pencil (owner-only in templates/profile/view.php).
         await expect(page.locator('.bn-pf-cover__edit')).toHaveCount(0);

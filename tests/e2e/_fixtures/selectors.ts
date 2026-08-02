@@ -77,9 +77,18 @@ export const sel = {
 
     // Profile (live markup uses .bn-pf-* prefix)
     profileHero: '.bn-pf-hero, .bn-profile__hero, .bn-profile-hero',
-    profileStats: '.bn-pf-stats, .bn-profile__stats',
-    profileTab: '.bn-pf-tabs .bn-tab, .bn-tabs.bn-pf-tabs .bn-tab, .bn-profile__tabs [role="tab"]',
-    profileViewsWidget: '[data-widget="profile-views"]',
+    // Stat counts are the metric row inside the hero: .bn-nav-metrics.bn-pf-metricrow
+    // wrapping one .bn-nav-metric anchor per count. The old .bn-pf-stats never
+    // rendered, so every assertion on it failed regardless of the feature working.
+    profileStats: '.bn-pf-metricrow, .bn-nav-metrics, .bn-pf-stats',
+    // Profile tabs render as .bn-navgroup > .bn-tabs[role="tablist"] > a.bn-tab.
+    // There is no .bn-pf-tabs wrapper; scoping by role keeps this honest without
+    // matching the feed's own .bn-tabs on a different surface.
+    profileTab: '.bn-navgroup .bn-tabs [role="tab"], .bn-pf-tabs .bn-tab, .bn-profile__tabs [role="tab"]',
+    // Pro's who-viewed widget renders .bn-pf-views (it never emitted
+    // data-widget="profile-views"). It deliberately returns early when the member
+    // has zero views (ProfileViewsWidget.php:116), so a spec must seed a view.
+    profileViewsWidget: '.bn-pf-views',
 
     // Spaces (live markup: .bn-sh-hero, .bn-sh-members)
     spaceCard: '.bn-space-card',
@@ -92,7 +101,10 @@ export const sel = {
     // Onboarding
     onboardingShell: '.bn-ob-shell, .bn-ob-wrap',
     onboardingStep: '.bn-ob-step',
-    onboardingProgress: '.bn-progress, .bn-ob-progress',
+    // The wizard shows its position via step heads (.bn-ob-form-head__step and
+    // .bn-ob-step), not a progress bar. .bn-progress has never existed, so this
+    // assertion could only ever fail.
+    onboardingProgress: '.bn-ob-form-head__step, .bn-ob-step, .bn-ob-progress',
 
     // Hashtags
     hashtagChip: '.bn-hashtag-chip, [data-hashtag]',
@@ -112,8 +124,10 @@ export const sel = {
     adminFeatures: '#buddynext-features, [data-admin-features]',
     adminModQueue: '.bn-mod-queue, [data-mod-queue]',
 
-    // Theme chrome (WordPress theme, not BN). Live theme is Astra.
-    themeHeader: 'header#masthead, header.site-header, .ast-primary-header',
+    // Theme chrome (WordPress theme, not BN). Release testing runs on Reign,
+    // which is what customers run; Astra's .ast-* classes are kept so the suite
+    // still works on an Astra dev site.
+    themeHeader: 'header#masthead, header.site-header, .ast-primary-header, .reign-header, #reign-header',
     themeFooter: 'footer#colophon, footer.site-footer',
     wpAdminBar: '#wpadminbar',
     wpAdminBarLogout: '#wp-admin-bar-logout a',
@@ -137,6 +151,15 @@ export const urls = {
     memberFollowers: (login: string) => `/members/${login}/followers/`,
     memberFollowing: (login: string) => `/members/${login}/following/`,
     memberConnections: (login: string) => `/members/${login}/connections/`,
+    // Privacy, Account and Appearance moved OFF the profile-edit screen and onto
+    // the settings hub. The specs that still asserted them on /members/{u}/edit/
+    // were looking in the old place and failing on a feature that works.
+    settings: '/settings/',
+    settingsPrivacy: '/settings/privacy/',
+    settingsAccount: '/settings/account/',
+    settingsAppearance: '/settings/appearance/',
+    settingsNotifications: '/settings/notifications/',
+    notifPrefs: '/notifications/preferences/',
     spaces: '/spaces/',
     space: (slug: string) => `/spaces/${slug}/`,
     messages: '/messages/',
