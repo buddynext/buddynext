@@ -50,6 +50,39 @@ if [ "${SKIP_RELEASE_GATE:-0}" != 1 ]; then
 	else
 		echo "release gate: cert SKIPPED — set BN_WP_PATH to a live WP root to enforce the behavioural gate" >&2
 	fi
+
+	# Journey suite. Unlike the gates above, a SKIP here is FATAL: cutting a zip
+	# without having run the customer journeys once is exactly how a suite failing
+	# 24 of 95 specs went unnoticed while the coverage gate reported green. Point
+	# BN_BASE_URL at the site the release was verified on.
+	#
+	# Set SKIP_JOURNEY_RUN=1 only for a docs-only re-zip of an already-verified
+	# tree, and say so in the commit.
+	if [ "${SKIP_JOURNEY_RUN:-0}" = 1 ]; then
+		echo "release gate: journey run BYPASSED (SKIP_JOURNEY_RUN=1)" >&2
+	elif [ -f bin/check-journey-run.sh ]; then
+		echo "release gate: journey suite…"
+		# `|| JRC=$?` is required: set -e would abort on the script's own exit
+		# status before the case below ever runs, turning a deliberate FAILED
+		# message into a bare exit 2.
+		JRC=0
+		bin/check-journey-run.sh || JRC=$?
+		case "$JRC" in
+			0) : ;;
+			2)
+				echo "release gate FAILED: the journey suite did not run. Set BN_BASE_URL to the" >&2
+				echo "  site this release was verified on, or SKIP_JOURNEY_RUN=1 for a docs-only re-zip." >&2
+				exit 1
+				;;
+			*)
+				echo "release gate FAILED: journey regressions against tests/e2e/.journey-baseline.json" >&2
+				exit 1
+				;;
+		esac
+	else
+		echo "release gate FAILED: bin/check-journey-run.sh is missing." >&2
+		exit 1
+	fi
 fi
 
 TMP="$(mktemp -d)"

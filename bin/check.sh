@@ -214,6 +214,37 @@ else
 	note "bin/check-journey-tags.py missing"
 fi
 
+# 3b-iii-b. Journey EXECUTION — BLOCKING when a site is reachable.
+#
+# The two gates above check that journey ids are DECLARED and that the catalogue
+# and the spec files reconcile. Neither runs a single test. On 2026-08-02 that gap
+# was measured: the suite failed 24 of 95 specs while the coverage gate reported
+# "catalogue and Playwright suite reconcile in both directions" and went green.
+# Almost none of the 24 were product defects — selectors that had never matched
+# anything, features that had moved to the settings hub, and two assertions that
+# demanded the OPPOSITE of public-surface-integrity.md. All invisible, because
+# nothing executed them.
+#
+# Gated against tests/e2e/.journey-baseline.json rather than "all green": ten
+# specs need Stripe keys, an AI provider, custom domains or 2FA enrolment and
+# cannot pass without them. Exit 2 means skipped (no site) and is not a failure
+# here; bin/build-release.sh refuses that skip, which is where the requirement to
+# have actually run it belongs.
+section "Journey run (Playwright)"
+if [ -f bin/check-journey-run.sh ]; then
+	# Captured, not tested inline: under set -e the non-zero exit would abort
+	# the run before the case could classify skip-vs-regression.
+	JRC=0
+	bin/check-journey-run.sh || JRC=$?
+	case "$JRC" in
+		0) : ;;
+		2) note "journey run skipped — set BN_BASE_URL to gate against the baseline" ;;
+		*) fail "journey suite regressed against tests/e2e/.journey-baseline.json" ;;
+	esac
+else
+	note "bin/check-journey-run.sh missing"
+fi
+
 # 3b-iv. Field-type registry (A1) — BLOCKING, green as of this commit.
 #
 # Pro registers profile field types at runtime via buddynext_field_types. Any consumer
