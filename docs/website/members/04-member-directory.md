@@ -21,7 +21,7 @@ Members can:
 - **Browse** the grid and page through it. The directory loads more members as needed, so a community of thousands stays fast.
 - **Search by name or profile details** using the search box. Results update as you type (after a short pause), with no page reload. Search looks across a person's name, username, and the profile details they have filled in - their bio and headline, plus any fields the owner made searchable, such as skills or role - so you can find someone even when you only remember what they do, not their name. The directory search and the site-wide search look at the same details, so a person who turns up in one turns up in the other.
 - **Filter by member type** using the type tabs or the type selector - for example, show only Students or only Mentors. See Member Types for how those are set up.
-- **Sort** the list (for example, by recently active or newest members).
+- **Sort** the list - **Last Active** (added in 1.1.1), newest members, or alphabetically. Last Active puts the people who are actually around at the top, which is usually what someone browsing a directory wants.
 - **Show online members only** with the online toggle.
 - **Act on a member directly from their card** - Follow, send a Connect request, or accept/decline a pending request, all inline without leaving the page. See Following and Connections for how those relationships work.
 - **Open the card menu** (the kebab) to Mute, Block, or Report a member. See Blocking and Muting and Reporting and Moderation.

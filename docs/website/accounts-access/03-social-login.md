@@ -1,6 +1,6 @@
 # Social Login
 
-Social login lets people sign in or sign up using an account they already have - their Google, Facebook, GitHub, or Discord account - instead of creating and remembering another password. When you turn on a provider, a sign-in button for it appears on your login and sign-up screens. It is the quickest way for a newcomer to get from "interested" to "inside your community."
+Social login lets people sign in or sign up using an account they already have - their Google, Facebook, Apple, GitHub, or Discord account - instead of creating and remembering another password. When you turn on a provider, a sign-in button for it appears on your login and sign-up screens. It is the quickest way for a newcomer to get from "interested" to "inside your community."
 
 ![BuddyNext login form showing social sign-in buttons](../images/login.webp)
 
@@ -20,6 +20,7 @@ BuddyNext includes four providers out of the box:
 
 - **Google**
 - **Facebook**
+- **Apple** (added in 1.1.1)
 - **GitHub**
 - **Discord**
 
@@ -41,7 +42,7 @@ Social login is configured under **BuddyNext > Members > Registration & Login**,
 
 ### Steps for each provider
 
-1. **Open the provider card** for Google, Facebook, GitHub, or Discord on the Social Login section.
+1. **Open the provider card** for Google, Facebook, Apple, GitHub, or Discord on the Social Login section.
 2. **Copy the redirect link** shown on the card and paste it into your provider app's "redirect" or "callback URL" field. Each card includes a step-by-step "How to get your keys" guide and a button that opens the provider's developer site.
 3. **Paste the Client ID and Client Secret** the provider gives you into the two fields on the card.
 4. **Turn on "Show this button"** to make the provider live on your login and sign-up screens.

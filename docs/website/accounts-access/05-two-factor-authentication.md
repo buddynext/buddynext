@@ -31,9 +31,11 @@ Members set up and manage 2FA from **Settings > Account**.
 
 1. Go to **Settings > Account** and find the **Two-factor authentication** card.
 2. Select **Set up two-factor authentication**.
-3. In your authenticator app, add a new account and enter the setup key BuddyNext shows you.
+3. **Scan the QR code** with your authenticator app. If you cannot scan it - a desktop authenticator, or a camera you would rather not use - the setup key is shown underneath and can be typed in by hand instead.
 4. The app starts producing 6-digit codes. Enter the current code on the BuddyNext screen to confirm.
 5. Once the code is accepted, 2FA turns on and BuddyNext shows your **backup codes**.
+
+> **Changed in 1.1.1:** Enrolment used to show only the 32-character setup key, which had to be typed into the authenticator by hand. It now shows a QR code, with the key kept as the fallback.
 
 > **Note:** Nothing is enforced until you enter that first code. If you start setup but never confirm, 2FA stays off.
 

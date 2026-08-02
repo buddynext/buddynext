@@ -24,7 +24,9 @@
         "whats-new/02-whats-new-in-1-0-4.md",
         "whats-new/03-whats-new-in-1-0-7.md",
         "whats-new/04-whats-new-in-1-0-8.md",
-        "whats-new/05-whats-new-in-1-0-9.md"
+        "whats-new/05-whats-new-in-1-0-9.md",
+        "whats-new/06-whats-new-in-1-1-0.md",
+        "whats-new/07-whats-new-in-1-1-1.md"
       ]
     },
     {
@@ -103,7 +105,8 @@
         "spaces/06-space-bans.md",
         "spaces/07-space-notifications.md",
         "spaces/08-space-categories.md",
-        "spaces/09-space-forum.md"
+        "spaces/09-space-forum.md",
+        "spaces/10-space-media-and-albums.md"
       ]
     },
     {
@@ -180,7 +183,8 @@
         "integrations/05-career-board.md",
         "integrations/06-outbound-webhooks.md",
         "integrations/07-listora.md",
-        "integrations/08-learnomy.md"
+        "integrations/08-learnomy.md",
+        "integrations/09-member-blog.md"
       ]
     },
     {
