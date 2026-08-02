@@ -62,6 +62,15 @@ class PluginIsolation {
 		'jetonomy/jetonomy.php',
 		'jetonomy-pro/jetonomy-pro.php',
 		'wb-gamification/wb-gamification.php',
+		// WB Member Blog. MemberBlogBridge's Articles profile tab guards on
+		// BUDDYPRESS_MEMBER_BLOG_VERSION, and /members/ is a BuddyNext front-end
+		// route — so leaving it off this list strips the plugin exactly where the
+		// tab is rendered and the tab silently disappears. That is the failure this
+		// class was written to stop, one integration later.
+		'buddypress-member-blog/buddypress-member-blog.php',
+		// Pro's entry file is class-prefixed, unlike every other pair here. Taken
+		// from `wp plugin list --field=file`, not guessed from the directory name.
+		'buddypress-member-blog-pro/class-buddypress-member-blog-pro.php',
 	);
 
 	/**

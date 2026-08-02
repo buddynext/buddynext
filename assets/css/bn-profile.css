@@ -3187,3 +3187,105 @@ a.bn-space-row:hover .bn-space-name {
 	color: var(--bn-ink-3);
 	font-size: var(--bn-text-sm);
 }
+
+/* ---------------------------------------------------------------------------
+ * Articles tab (WB Member Blog bridge)
+ *
+ * The list is a real <ul> so the tab is a list to assistive tech; the markers
+ * are removed visually because each row already renders as a card. Without the
+ * reset the theme's own list styling shows a bullet beside every card.
+ * ------------------------------------------------------------------------- */
+.bn-articles {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-articles__item {
+	margin: 0;
+}
+
+/* Owner toolbar above the list. Deliberately NOT .bn-card-actions — that is
+ * `justify-content: center` for the action row INSIDE a member card, and reusing
+ * it floated these two buttons in the middle of the column, aligned to nothing.
+ * A toolbar leads its list, so it starts where the cards start. */
+.bn-articles__manage {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-start;
+	gap: var(--bn-s2);
+	margin-bottom: var(--bn-s4);
+}
+
+.bn-article-card {
+	display: flex;
+	gap: var(--bn-s4);
+	align-items: flex-start;
+}
+
+.bn-article-card__media {
+	flex: 0 0 auto;
+	width: 96px;
+	border-radius: var(--bn-r-md);
+	overflow: hidden;
+	line-height: 0;
+}
+
+.bn-article-card__media img {
+	width: 100%;
+	height: auto;
+	display: block;
+}
+
+.bn-article-card__body {
+	min-width: 0; /* let long titles wrap instead of pushing the card wide. */
+	flex: 1 1 auto;
+}
+
+.bn-article-card__title {
+	margin: 0 0 var(--bn-s1);
+	font-size: var(--bn-text-md);
+	font-weight: var(--bn-fw-semibold);
+	line-height: var(--bn-leading-snug);
+}
+
+.bn-article-card__meta {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	margin-bottom: var(--bn-s2);
+}
+
+.bn-article-card__excerpt {
+	margin: 0;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-body);
+}
+
+.bn-article-card__actions {
+	margin-top: var(--bn-s3);
+}
+
+@media (max-width: 640px) {
+	/* Cover art above the text rather than beside it - a 96px thumbnail next to
+	   a wrapped title leaves neither enough room on a phone. */
+	.bn-article-card {
+		flex-direction: column;
+		gap: var(--bn-s3);
+	}
+
+	.bn-article-card__media {
+		width: 100%;
+	}
+
+	/* Both buttons full width on a phone rather than two short pills on one row -
+	   the 40px tap-target floor with room to spare. */
+	.bn-articles__manage .bn-btn {
+		flex: 1 1 100%;
+		justify-content: center;
+	}
+}

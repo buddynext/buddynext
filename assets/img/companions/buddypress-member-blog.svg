@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="WB Member Blog">
+  <defs>
+    <linearGradient id="mblFamGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7C5CFF"/>
+      <stop offset="1" stop-color="#5433CC"/>
+    </linearGradient>
+  </defs>
+  <rect x="36" y="36" width="440" height="440" rx="110" fill="url(#mblFamGrad)"/>
+  <path d="M150 122 h150 l62 62 v206 a24 24 0 0 1 -24 24 H150 a24 24 0 0 1 -24 -24 V146 a24 24 0 0 1 24 -24 Z" fill="#FFFFFF"/>
+  <path d="M300 122 l62 62 h-62 Z" fill="#D9CEFF"/>
+  <rect x="168" y="238" width="176" height="18" rx="9" fill="url(#mblFamGrad)"/>
+  <rect x="168" y="288" width="176" height="18" rx="9" fill="url(#mblFamGrad)"/>
+  <rect x="168" y="338" width="110" height="18" rx="9" fill="url(#mblFamGrad)"/>
+</svg>

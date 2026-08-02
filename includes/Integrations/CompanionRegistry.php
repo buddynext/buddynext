@@ -147,6 +147,21 @@ final class CompanionRegistry {
 					'store_url' => 'https://wbcomdesigns.com/downloads/eventonomy/',
 					'unlocks'   => __( 'Events as activity cards in the feed + attending events on member profiles.', 'buddynext' ),
 				),
+				'buddypress-member-blog' => array(
+					'label'     => 'WB Member Blog',
+					'why'       => __( 'Front-end publishing - members write and manage posts without wp-admin.', 'buddynext' ),
+					'detect'    => static fn(): bool => defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' ),
+					// Free-download credentials mirror WB Member Blog's own EDD-SL
+					// preset (buddypress-member-blog.php:
+					// BUDDYPRESS_MEMBER_BLOG_EDD_ITEM_ID + _EDD_LICENSE).
+					'free'      => array(
+						'item_id'  => 610863,
+						'key'      => 'memberblog8d3a7c1e5f2b9a4c6e0d1f8b7a2c9e55',
+						'basename' => 'buddypress-member-blog/buddypress-member-blog.php',
+					),
+					'store_url' => 'https://wbcomdesigns.com/downloads/buddypress-member-blog/',
+					'unlocks'   => __( 'An Articles tab on member profiles + article cards in the feed.', 'buddynext' ),
+				),
 			)
 		);
 	}
