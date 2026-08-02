@@ -928,8 +928,19 @@ class MediaController extends BaseRestController {
 			wp_update_post( $update );
 		}
 
+		// A SPACE album has no privacy of its own: its audience is the space's, and
+		// Galleries::space_albums() gates on the space alone and never reads this
+		// value. Accepting one here stored a setting that could not do anything,
+		// and album_summary() then reported it back as if it were in force - a
+		// member could mark a space album "Only me", be told it saved, and have it
+		// served to whoever can see the space.
+		//
+		// This is the write that actually persisted it. create_space_album()
+		// already discards the request value and hardcodes 'private'; the edit
+		// modal PUTs to /me/albums/{id}, which is this handler, so the create path
+		// looked correct while the edit path wrote through.
 		$privacy = $request->get_param( 'privacy' );
-		if ( null !== $privacy ) {
+		if ( null !== $privacy && Galleries::album_space( $album_id ) <= 0 ) {
 			$repo = MediaClient::repo();
 			if ( $repo && method_exists( $repo, 'set' ) ) {
 				$repo->set( $album_id, 'privacy', $this->sanitize_album_privacy( (string) $privacy ) );

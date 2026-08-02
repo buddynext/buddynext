@@ -218,14 +218,28 @@ $bn_mt_ctx = array(
 					<span class="bn-field__label"><?php esc_html_e( 'Description', 'buddynext' ); ?></span>
 					<textarea class="bn-input" rows="2" data-wp-bind--value="context.createDesc" data-wp-on--input="actions.setCreateDesc"></textarea>
 				</label>
-				<label class="bn-field">
-					<span class="bn-field__label"><?php esc_html_e( 'Who can see this', 'buddynext' ); ?></span>
-					<select class="bn-input bn-album-privacy-select" data-wp-on--change="actions.setCreatePrivacy">
-						<option value="public"><?php esc_html_e( 'Public', 'buddynext' ); ?></option>
-						<option value="members"><?php esc_html_e( 'Members', 'buddynext' ); ?></option>
-						<option value="private"><?php esc_html_e( 'Only me', 'buddynext' ); ?></option>
-					</select>
-				</label>
+				<?php if ( $bn_mt_space_id > 0 ) : ?>
+					<?php
+					// A space album has NO privacy control of its own - the space
+					// decides who can see it. Offering the choice here rendered a
+					// control that was told it saved and then governed nothing,
+					// which is worse than no control: a member could mark an album
+					// "Only me" and have it served to everyone who can see an open
+					// space. Say what governs it instead.
+					?>
+					<p class="bn-album-privacy-note">
+						<?php esc_html_e( 'Who can see this album is decided by the space. Members who can see the space can see its albums.', 'buddynext' ); ?>
+					</p>
+				<?php else : ?>
+					<label class="bn-field">
+						<span class="bn-field__label"><?php esc_html_e( 'Who can see this', 'buddynext' ); ?></span>
+						<select class="bn-input bn-album-privacy-select" data-wp-on--change="actions.setCreatePrivacy">
+							<option value="public"><?php esc_html_e( 'Public', 'buddynext' ); ?></option>
+							<option value="members"><?php esc_html_e( 'Members', 'buddynext' ); ?></option>
+							<option value="private"><?php esc_html_e( 'Only me', 'buddynext' ); ?></option>
+						</select>
+					</label>
+				<?php endif; ?>
 			</div>
 			<div class="bn-modal__foot">
 				<button type="button" class="bn-btn" data-variant="ghost" data-wp-on--click="actions.closeCreateAlbum"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>

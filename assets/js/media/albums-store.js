@@ -100,6 +100,25 @@ function albumCreateRoot( ctx ) {
 	return spaceId > 0 ? '/spaces/' + spaceId + '/albums' : '/me/albums';
 }
 
+/* The privacy to stamp on MEDIA uploaded into this album, and on the feed post
+ * that announces the batch.
+ *
+ * Deliberately NOT ctx.activeAlbumPrivacy for a space album. A space album has no
+ * privacy of its own, so the API now reports 'space' for one - a value that means
+ * "the space decides" and is not a media-row privacy. Passing it through here
+ * would send 'space' to the media repo and the composer.
+ *
+ * 'private' is what a space album already stored (create_space_album() hardcodes
+ * it as the fail-closed default), so this keeps upload and feed-post privacy
+ * exactly as they are today. Restricted-space media is clamped to private
+ * server-side regardless; whether an OPEN space's album uploads should instead be
+ * public is a separate question about existing behaviour, not something this
+ * change decides. */
+function mediaPrivacyFor( ctx ) {
+	if ( ( Number( ctx.spaceId ) || 0 ) > 0 ) { return 'private'; }
+	return ctx.activeAlbumPrivacy || 'public';
+}
+
 async function fetchAlbums( ctx ) {
 	try {
 		const res = await restFetch( albumsRoot( ctx ) + '?per_page=48', {
@@ -168,7 +187,13 @@ const albumsStore = store( 'buddynext/media-albums', {
 			if ( ! title || ctx.creating ) { return; }
 			ctx.creating = true;
 			const editing = Number( ctx.editingAlbumId ) || 0;
-			const body = { title, description: ctx.createDesc || '', privacy: ctx.createPrivacy || 'public' };
+			// A space album has no privacy of its own - the space decides. Sending
+			// one had it stored by the /me/albums/{id} edit route and reported back
+			// as if in force. The server refuses it too; this just stops asking.
+			const body = { title, description: ctx.createDesc || '' };
+			if ( ( Number( ctx.spaceId ) || 0 ) === 0 ) {
+				body.privacy = ctx.createPrivacy || 'public';
+			}
 			try {
 				const res = await restFetch( editing ? ( '/me/albums/' + editing ) : albumCreateRoot( ctx ), {
 					method: editing ? 'PUT' : 'POST', nonce: ctx.restNonce, toastOnError: false, body,
@@ -291,7 +316,7 @@ const albumsStore = store( 'buddynext/media-albums', {
 
 				const res = await uploadMedia( file, {
 					nonce:   ctx.restNonce,
-					privacy: ctx.activeAlbumPrivacy || 'public',
+					privacy: mediaPrivacyFor( ctx ),
 				} );
 				if ( ! res.ok || ! res.mediaId ) {
 					bnToast( res.message || t( 'uploadFailed', 'Could not upload that file.' ), { tone: 'danger' } );
@@ -325,7 +350,7 @@ const albumsStore = store( 'buddynext/media-albums', {
 							type:      'photo',
 							content:   '',
 							media_ids: uploaded,
-							privacy:   ctx.activeAlbumPrivacy || 'public',
+							privacy:   mediaPrivacyFor( ctx ),
 						},
 						toastOnError: false,
 					} );

@@ -445,6 +445,16 @@
 	color: var(--bn-ink-2);
 }
 
+/* Shown in place of the privacy select when the album belongs to a SPACE, which
+   decides its audience. It replaces a form field, so it carries that field's
+   bottom spacing to keep the modal's rhythm rather than closing the gap. */
+.bn-album-modal .bn-album-privacy-note {
+	margin: 0 0 var(--bn-s3);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-body);
+	color: var(--bn-ink-3);
+}
+
 /* ── Add-media picker ──────────────────────────────────────────────────────── */
 
 /* Upload-from-device row, above the grid. The picker used to offer only media the

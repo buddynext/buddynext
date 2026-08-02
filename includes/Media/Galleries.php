@@ -375,14 +375,28 @@ class Galleries {
 		$albums = MediaClient::albums();
 		$repo   = MediaClient::repo();
 
-		$privacy = ( $repo && method_exists( $repo, 'get' ) ) ? (string) $repo->get( $album_id, 'privacy' ) : '';
+		$privacy  = ( $repo && method_exists( $repo, 'get' ) ) ? (string) $repo->get( $album_id, 'privacy' ) : '';
+		$space_id = self::album_space( $album_id );
+
+		// A space album reports 'space', never a per-album value. Its audience is
+		// decided by the space - space_albums() gates on that and reads this field
+		// for nothing - so emitting the stored value told a client something that
+		// was not being enforced: an open space's album carries a stored 'private'
+		// (create_space_album() hardcodes it as the fail-closed default), and any
+		// client rendering a lock on privacy === 'private' would put one on an
+		// album the whole internet can see.
+		//
+		// 'space' rather than the space's resolved audience on purpose: resolving
+		// it means a space lookup per album, and space_id is already in this
+		// payload for a client that wants specifics.
+		$reported = $space_id > 0 ? 'space' : ( '' !== $privacy ? $privacy : 'public' );
 
 		return array(
 			'id'          => $album_id,
-			'space_id'    => self::album_space( $album_id ),
+			'space_id'    => $space_id,
 			'title'       => (string) get_the_title( $album_id ),
 			'description' => (string) get_post_field( 'post_excerpt', $album_id ),
-			'privacy'     => '' !== $privacy ? $privacy : 'public',
+			'privacy'     => $reported,
 			'owner'       => (int) get_post_field( 'post_author', $album_id ),
 			'media_count' => ( $albums && method_exists( $albums, 'get_item_count' ) ) ? (int) $albums->get_item_count( $album_id ) : 0,
 			'cover_url'   => ( $albums && method_exists( $albums, 'get_cover_url' ) ) ? (string) $albums->get_cover_url( $album_id, 'large' ) : '',
