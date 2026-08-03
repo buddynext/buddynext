@@ -13,7 +13,8 @@
         "getting-started/05-shortcodes-and-placement.md",
         "getting-started/06-community-insights.md",
         "getting-started/07-appearance-and-branding.md",
-        "getting-started/08-tools-and-maintenance.md"
+        "getting-started/08-tools-and-maintenance.md",
+        "getting-started/09-object-cache-at-scale.md"
       ]
     },
     {
@@ -243,7 +244,8 @@
         "developer-guide/48-customizing-cards.md",
         "developer-guide/49-child-theme-template-overrides.md",
         "developer-guide/50-shortcodes.md",
-        "developer-guide/51-coming-from-buddypress.md"
+        "developer-guide/51-coming-from-buddypress.md",
+        "developer-guide/52-extending-interactivity-stores.md"
       ]
     }
   ]
