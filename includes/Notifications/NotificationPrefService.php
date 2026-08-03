@@ -204,10 +204,20 @@ class NotificationPrefService {
 	public function set_pref( int $user_id, string $type, array $data ): void {
 		global $wpdb;
 
+		// Both keys are optional: a partial update is the natural call - turning one
+		// type off in-app without touching its email cadence is exactly what the
+		// prefs UI and any integration does. Default FIRST, then validate. Folding
+		// the two steps together (`in_array( $data['x'] ?? 'immediate', ... ) ? $data['x'] : ...`)
+		// reads the key again on the true branch, where it may not exist: that
+		// emitted a warning into debug.log on every partial update and stored ''.
+		// The column is ENUM('immediate','daily','weekly','off') NOT NULL, so ''
+		// is MySQL's invalid-value marker rather than an ordinary string, and
+		// get_pref() hands it straight back unvalidated. The digest cron then
+		// matched neither 'daily' nor 'weekly' and the member silently got no
+		// digest at all - a wrong row that never announced itself.
 		$on_site    = isset( $data['on_site'] ) ? (int) $data['on_site'] : 1;
-		$email_freq = in_array( $data['email_freq'] ?? 'immediate', self::VALID_FREQ, true )
-			? $data['email_freq']
-			: 'immediate';
+		$email_freq = $data['email_freq'] ?? 'immediate';
+		$email_freq = in_array( $email_freq, self::VALID_FREQ, true ) ? $email_freq : 'immediate';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
