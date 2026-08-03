@@ -1212,6 +1212,9 @@ class DemoDataService {
 			}
 		}
 
+		// Bring the site owner INTO the community they just seeded.
+		$this->seed_owner_relationships( $user_ids, $follows, $connections, $say );
+
 		// ── Engagement extras: a poll, bookmarks, and DM threads ────────────
 		// These populate the Polls feature, the member Bookmarks screen, and the
 		// Messages UI so every demo surface has live content (no empty states).
@@ -1221,6 +1224,91 @@ class DemoDataService {
 		$say( 'Demo data installed.' );
 
 		return $this->summary();
+	}
+
+	/**
+	 * Connect the site owner to the demo community.
+	 *
+	 * Without this the owner is a stranger on their own site. The whole roster
+	 * follows and connects in a ring among ITSELF, so after seeding the person
+	 * evaluating BuddyNext has an empty notification bell, no followers, nobody
+	 * followed, and a personalised home feed with nothing personal in it. The
+	 * community looks alive from every angle except theirs - which is the one
+	 * angle they are looking from.
+	 *
+	 * Everything goes through the real services, so each follow and request
+	 * fires its own notification exactly as a live one would; nothing is
+	 * inserted straight into bn_notifications.
+	 *
+	 * Two requests are left PENDING on purpose. An owner opening a fresh install
+	 * to "2 people want to connect" has something to DO, and it exercises the
+	 * accept/decline path that an all-accepted graph never shows.
+	 *
+	 * Cleanup needs no special case: wp_delete_user() on each demo member fires
+	 * UserCleanupListener, which purges their follows, connections and
+	 * notifications platform-wide, including the ones pointing at the owner.
+	 *
+	 * @param array<int,int>    $user_ids    Seeded member IDs.
+	 * @param FollowService     $follows     Follow service.
+	 * @param ConnectionService $connections Connection service.
+	 * @param callable          $say         Progress logger.
+	 */
+	private function seed_owner_relationships( array $user_ids, $follows, $connections, callable $say ): void {
+		$owner_id = $this->resolve_owner_id();
+		if ( $owner_id <= 0 || count( $user_ids ) < 8 ) {
+			return;
+		}
+
+		$say( 'Introducing the site owner to the community…' );
+
+		// Five members follow the owner: the bell has something in it.
+		foreach ( array_slice( $user_ids, 0, 5 ) as $member_id ) {
+			$follows->follow( $member_id, $owner_id );
+		}
+
+		// The owner follows four back, so Following is not empty and the
+		// personalised home feed actually has a reason to differ from Explore.
+		foreach ( array_slice( $user_ids, 2, 4 ) as $member_id ) {
+			$follows->follow( $owner_id, $member_id );
+		}
+
+		// One settled connection, so the Connections tab is not empty either.
+		$settled = $user_ids[0];
+		if ( true === $connections->send_request( $settled, $owner_id ) ) {
+			$connections->accept_request( $owner_id, $settled );
+		}
+
+		// Two still waiting on the owner.
+		foreach ( array_slice( $user_ids, 5, 2 ) as $member_id ) {
+			$connections->send_request( $member_id, $owner_id );
+		}
+	}
+
+	/**
+	 * The person who will be looking at this demo.
+	 *
+	 * Seeding runs from two places: the Tools screen, where the current user IS
+	 * the owner, and WP-CLI, where there is no current user at all. Falling back
+	 * to the first administrator keeps `wp buddynext demo seed` useful instead of
+	 * silently skipping the one member who matters.
+	 */
+	private function resolve_owner_id(): int {
+		$current = get_current_user_id();
+		if ( $current > 0 ) {
+			return $current;
+		}
+
+		$admins = get_users(
+			array(
+				'role'    => 'administrator',
+				'number'  => 1,
+				'orderby' => 'ID',
+				'order'   => 'ASC',
+				'fields'  => 'ID',
+			)
+		);
+
+		return empty( $admins ) ? 0 : (int) $admins[0];
 	}
 
 	/**
