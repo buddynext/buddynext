@@ -82,8 +82,20 @@ class CertCommand {
 
 		if ( $result['ok'] ) {
 			\WP_CLI::success( 'Functional certification passed — ' . $line );
-		} else {
-			\WP_CLI::error( 'Functional certification FAILED — ' . $line ); // error() exits 1.
+			return;
 		}
+
+		// Distinguish "the assertions failed" from "there were no assertions". A
+		// bare FAILED on an empty run sends the reader hunting for a broken check
+		// that does not exist, so name the cause instead.
+		$message = ( 0 === (int) $s['pass'] && 0 === (int) $s['fail'] )
+			? 'Functional certification proved NOTHING — ' . $line . '. No assertions ran, '
+				. 'so this gate is not evidence of anything. Its inputs (audit/manifest.json '
+				. 'and audit/cert-oracles.json) are gitignored by design, so a fresh clone or '
+				. 'CI runner has neither: restore audit/ from the private shelf before treating '
+				. 'a cert result as meaningful. See CLAUDE.md, "This repository is PUBLIC".'
+			: 'Functional certification FAILED — ' . $line;
+
+		\WP_CLI::error( $message ); // error() exits 1.
 	}
 }
