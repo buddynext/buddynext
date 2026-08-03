@@ -2853,6 +2853,12 @@ a.bn-space-row:hover .bn-space-name {
 	border-bottom: 1px solid var(--bn-line-faint);
 }
 .bn-pf-detail:last-child { border-bottom: none; }
+/* A row whose label was suppressed because it only repeated the card heading
+   (a single-field group named after its own field). Without this the lone value
+   would land in the narrow label column of the two-column grid above. */
+.bn-pf-detail--unlabelled {
+	grid-template-columns: 1fr;
+}
 .bn-pf-detail__label {
 	margin: 0;
 	font-weight: var(--bn-fw-medium, 500);

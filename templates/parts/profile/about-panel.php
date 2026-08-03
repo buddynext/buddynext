@@ -71,7 +71,7 @@ $bn_ap_is_empty = static function ( $value ): bool {
  * @param array<string,mixed> $field Hydrated field { type, label, value, field_key }.
  * @return string HTML ('' when the field has no displayable value).
  */
-$bn_ap_render_field = static function ( array $field ) use ( $bn_ap_is_empty ): string {
+$bn_ap_render_field = static function ( array $field, bool $hide_label = false ) use ( $bn_ap_is_empty ): string {
 	$value = $field['value'] ?? '';
 	if ( $bn_ap_is_empty( $value ) ) {
 		return '';
@@ -85,6 +85,24 @@ $bn_ap_render_field = static function ( array $field ) use ( $bn_ap_is_empty ): 
 	$label = isset( $field['label'] ) && '' !== (string) $field['label']
 		? (string) $field['label']
 		: ucwords( str_replace( '_', ' ', (string) ( $field['field_key'] ?? '' ) ) );
+
+	// A single-field group whose field is named after the group prints its name
+	// twice — the card heading and then the row label. The caller decides when
+	// that is the case; here we simply drop the label term.
+	//
+	// The element names change with it: a <dl> holding a <dd> with no <dt> is
+	// invalid, so an unlabelled row is a plain div. Every class is preserved, and
+	// the CSS is entirely class-based, so nothing restyles. The --unlabelled
+	// modifier collapses .bn-pf-detail's two-column grid, which would otherwise
+	// drop the value into the narrow label column.
+	if ( $hide_label ) {
+		return sprintf(
+			'<div class="bn-pf-detail bn-pf-detail--%1$s bn-pf-detail--unlabelled"><div class="bn-pf-detail__value">%2$s</div></div>',
+			esc_attr( $mode ),
+			// $display is escaped per the FieldType engine contract.
+			$display
+		);
+	}
 
 	return sprintf(
 		'<div class="bn-pf-detail bn-pf-detail--%1$s"><dt class="bn-pf-detail__label">%2$s</dt><dd class="bn-pf-detail__value">%3$s</dd></div>',
@@ -237,6 +255,12 @@ foreach ( $bn_ap_groups as $bn_ap_g ) {
 		continue;
 	}
 
+	// Resolved before the body is built: the flat-group branch needs it to decide
+	// whether a lone field's label merely repeats this heading.
+	$bn_ap_glabel = isset( $bn_ap_g['label'] ) && '' !== (string) $bn_ap_g['label']
+		? (string) $bn_ap_g['label']
+		: ucwords( str_replace( '_', ' ', $bn_ap_gkey ) );
+
 	$bn_ap_body = '';
 
 	if ( 'repeater' === $bn_ap_gtype ) {
@@ -247,7 +271,7 @@ foreach ( $bn_ap_groups as $bn_ap_g ) {
 			}
 		}
 	} else {
-		$bn_ap_rows = '';
+		$bn_ap_flat = array();
 		foreach ( ( is_array( $bn_ap_g['fields'] ?? null ) ? $bn_ap_g['fields'] : array() ) as $bn_ap_f ) {
 			if ( ! is_array( $bn_ap_f ) || empty( $bn_ap_f['field_key'] ) ) {
 				continue;
@@ -256,20 +280,45 @@ foreach ( $bn_ap_groups as $bn_ap_g ) {
 			if ( 'basic_info' === $bn_ap_gkey && in_array( (string) $bn_ap_f['field_key'], $bn_ap_hero_keys, true ) ) {
 				continue;
 			}
-			$bn_ap_rows .= $bn_ap_render_field( $bn_ap_f );
+			$bn_ap_flat[] = $bn_ap_f;
+		}
+
+		// Suppress the row label when a group holds exactly ONE field named after
+		// the group itself: the card heading already says it, so the row label is
+		// a visible duplicate ("Skills / Skills / Design systems, prototyping…").
+		//
+		// The installer seeds two groups in exactly this shape — skills and
+		// interests each hold a single field carrying the group's own label — and
+		// any owner who creates a single-field group hits it the same way. Kept
+		// deliberately narrow: a group whose one field is named DIFFERENTLY still
+		// shows both, because there the label is carrying real information.
+		//
+		// Compared case- and whitespace-insensitively so "Skills" and "skills" are
+		// treated as the same word, which is what a reader sees.
+		$bn_ap_norm       = static fn( string $s ): string => strtolower( trim( $s ) );
+		$bn_ap_hide_label = false;
+		if ( 1 === count( $bn_ap_flat ) ) {
+			$bn_ap_only_label = isset( $bn_ap_flat[0]['label'] ) ? (string) $bn_ap_flat[0]['label'] : '';
+			$bn_ap_hide_label = '' !== $bn_ap_only_label
+				&& $bn_ap_norm( $bn_ap_only_label ) === $bn_ap_norm( $bn_ap_glabel );
+		}
+
+		$bn_ap_rows = '';
+		foreach ( $bn_ap_flat as $bn_ap_f ) {
+			$bn_ap_rows .= $bn_ap_render_field( $bn_ap_f, $bn_ap_hide_label );
 		}
 		if ( '' !== $bn_ap_rows ) {
-			$bn_ap_body = '<dl class="bn-pf-detail-list">' . $bn_ap_rows . '</dl>';
+			// A <dl> may not hold a <dd> without its <dt>, so an unlabelled list is
+			// a plain div. Same class, same styling.
+			$bn_ap_body = $bn_ap_hide_label
+				? '<div class="bn-pf-detail-list">' . $bn_ap_rows . '</div>'
+				: '<dl class="bn-pf-detail-list">' . $bn_ap_rows . '</dl>';
 		}
 	}
 
 	if ( '' === $bn_ap_body ) {
 		continue; // Self-hide a group with no displayable content.
 	}
-
-	$bn_ap_glabel = isset( $bn_ap_g['label'] ) && '' !== (string) $bn_ap_g['label']
-		? (string) $bn_ap_g['label']
-		: ucwords( str_replace( '_', ' ', $bn_ap_gkey ) );
 
 	/**
 	 * Fires before a rendered About group card. `$bn_ap_gkey` identifies the

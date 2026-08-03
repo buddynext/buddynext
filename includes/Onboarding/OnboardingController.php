@@ -321,9 +321,17 @@ class OnboardingController {
 		}
 
 		// Step 1 — chosen handle / slug (non-fatal on collision).
-		$slug = $request->get_param( 'slug' );
+		//
+		// Keep what was actually stored. save_slug() runs the submitted value
+		// through sanitize_title(), which can differ from what the member typed —
+		// a period is dropped, "Jo Smith" becomes "jo-smith" — and the return was
+		// being discarded, so the response asserted nothing about the handle and
+		// the member first learned their real one from their profile URL.
+		// Reported as onboarding showing "shubham.qa" and publishing "@shubham-qa".
+		$bn_saved_handle = '';
+		$slug            = $request->get_param( 'slug' );
 		if ( is_string( $slug ) && '' !== trim( $slug ) ) {
-			$this->service->save_slug( $user_id, $slug );
+			$bn_saved_handle = $this->service->save_slug( $user_id, $slug );
 		}
 
 		// Step 4 — notification channel preferences.
@@ -388,11 +396,20 @@ class OnboardingController {
 
 		return new WP_REST_Response(
 			array(
-				'completed'   => true,
+				'completed'         => true,
+				// The handle as STORED, which is not always the string submitted —
+				// sanitize_title() normalizes it. Returned so a client can show the
+				// member the handle they actually got instead of the one they typed.
+				'handle'            => \BuddyNext\Core\PageRouter::member_handle( $user_id ),
+				// True when the submitted handle was rewritten on the way in, so a
+				// client can say so rather than silently swapping the value.
+				'handle_normalized' => '' !== $bn_saved_handle
+					&& is_string( $slug )
+					&& trim( $slug ) !== $bn_saved_handle,
 				// Land the new member on their own profile — the thing they just
 				// built in the wizard — rather than the activity feed. Owners can
 				// override the destination in Settings > Registration & Login.
-				'redirect_to' => \BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ),
+				'redirect_to'       => \BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ),
 			),
 			200
 		);
