@@ -779,4 +779,63 @@
 		window.addEventListener( 'resize', fitAll, { passive: true } );
 		document.addEventListener( 'buddynext:navigated', fitAll );
 	}() );
+
+	/* ── Profile bio: collapse a long one behind Show more ─────────────────── */
+	( function () {
+		'use strict';
+
+		// The bio renders in full in the profile hero and nowhere else, so a long
+		// one pushed the tabs and every bit of profile content below the fold —
+		// measured 883px of hero for a ~1000-char bio against 496px with none.
+		//
+		// Collapse is applied HERE rather than in CSS on purpose: a CSS-default
+		// clamp would truncate the bio outright for anyone whose JS fails, because
+		// the control that opens it would never appear. Rendering open and
+		// collapsing once the control exists loses nothing.
+		function clampBios() {
+			document.querySelectorAll( '.bn-pf-bio' ).forEach( function ( bio ) {
+				if ( bio.dataset.bnClampBound ) {
+					return;
+				}
+				bio.dataset.bnClampBound = '1';
+
+				// Measure first: only collapse a bio that is actually too tall.
+				bio.setAttribute( 'data-bn-clamped', '1' );
+				if ( bio.scrollHeight <= bio.clientHeight + 1 ) {
+					bio.removeAttribute( 'data-bn-clamped' );
+					return;
+				}
+
+				var i18n = ( window.bnShellData && window.bnShellData.i18n ) || {};
+				var more = i18n.bioShowMore || 'Show more';
+				var less = i18n.bioShowLess || 'Show less';
+
+				var btn = document.createElement( 'button' );
+				btn.type = 'button';
+				btn.className = 'bn-pf-bio__toggle';
+				btn.textContent = more;
+				btn.setAttribute( 'aria-expanded', 'false' );
+
+				btn.addEventListener( 'click', function () {
+					var collapsed = '1' === bio.getAttribute( 'data-bn-clamped' );
+					if ( collapsed ) {
+						bio.removeAttribute( 'data-bn-clamped' );
+					} else {
+						bio.setAttribute( 'data-bn-clamped', '1' );
+					}
+					btn.textContent = collapsed ? less : more;
+					btn.setAttribute( 'aria-expanded', collapsed ? 'true' : 'false' );
+				} );
+
+				bio.insertAdjacentElement( 'afterend', btn );
+			} );
+		}
+
+		if ( 'loading' === document.readyState ) {
+			document.addEventListener( 'DOMContentLoaded', clampBios );
+		} else {
+			clampBios();
+		}
+		document.addEventListener( 'buddynext:navigated', clampBios );
+	}() );
 }() );

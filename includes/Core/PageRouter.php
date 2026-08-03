@@ -1260,6 +1260,9 @@ class PageRouter {
 			// dialog.js and unreachable from any caller — this is its only translatable
 			// source. Keep in sync with the keys read in those two files.
 			'i18n'               => array(
+				// Profile bio collapse (shell/extras.js).
+				'bioShowMore'            => __( 'Show more', 'buddynext' ),
+				'bioShowLess'            => __( 'Show less', 'buddynext' ),
 				// Shared modal frame.
 				'close'                  => __( 'Close', 'buddynext' ),
 				'confirm'                => __( 'Confirm', 'buddynext' ),
