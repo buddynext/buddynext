@@ -365,10 +365,22 @@ class Installer {
 
 		// v20: a digest_frequency row stored as '' (pre-default install) makes the
 		// admin select display "Disabled" while the cron gate treats '' as ENABLED
-		// - and a save from that state silently persists 'never'. Normalize to the
-		// registered default. Idempotent.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( "UPDATE {$wpdb->options} SET option_value = 'weekly' WHERE option_name = 'buddynext_digest_frequency' AND option_value = ''" );
+		// (EmailSender::digests_enabled() reads `'never' !== $value`) - and a save
+		// from that state silently persists 'never'. Normalize to the registered
+		// default. Idempotent: after one pass the value is 'weekly', which is not ''.
+		//
+		// `null` as the default is load-bearing, not tidiness. This replaced a raw
+		// UPDATE whose WHERE clause was `option_name = ... AND option_value = ''`,
+		// i.e. it only touched a row that EXISTS and holds ''. get_option() with the
+		// usual '' default cannot tell that apart from the option being absent
+		// entirely, so it would additionally CREATE the row on installs that never
+		// had one. Passing an explicit default also suppresses any registered
+		// default (WP returns the passed value when $passed_default is true), so an
+		// absent option comes back as null here and is correctly left alone.
+		$bn_digest_frequency = get_option( 'buddynext_digest_frequency', null );
+		if ( '' === $bn_digest_frequency ) {
+			update_option( 'buddynext_digest_frequency', 'weekly' );
+		}
 
 		// v19: converge the seeded email-template subjects on one natural style
 		// (no em-dash separators, no exclamation endings). Byte-exact matches
