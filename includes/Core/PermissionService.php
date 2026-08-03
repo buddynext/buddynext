@@ -138,7 +138,19 @@ class PermissionService {
 			}
 		}
 
-		if ( $user && $user->has_cap( 'manage_options' ) ) {
+		if ( $user_id <= 0 ) {
+			// A logged-out visitor holds nothing. Decided once, here, rather than
+			// left to the resolvers below — two of them independently defaulted a
+			// guest to a granted state (the role map's `?: 'member'`, and
+			// has_active_grant()'s reading of get_user_meta( 0 ) === false as a
+			// permanent grant). Both are fixed at source, but this makes the
+			// invariant explicit so a third resolver cannot reintroduce it.
+			//
+			// Set rather than returned, so `buddynext_user_can` still runs and a
+			// site that deliberately wants to grant a guest something (a public
+			// read ability, say) keeps that seam.
+			$result = false;
+		} elseif ( $user && $user->has_cap( 'manage_options' ) ) {
 			$result = true;
 		} elseif ( 'buddynext-moderate-space' === $capability ) {
 			$space_id = isset( $context['space_id'] ) ? (int) $context['space_id'] : 0;
@@ -179,6 +191,25 @@ class PermissionService {
 	 * @return bool
 	 */
 	private function passes_role_check( int $user_id, string $capability, array $context = array() ): bool {
+		// A logged-out visitor holds no community role. Without this guard the
+		// read below resolves to the DEFAULT 'member' for user 0 — get_user_meta( 0 )
+		// returns '' and the `?:` fills in 'member' — so every capability mapped to
+		// 'member' (10 of them: create-post, comments/create, spaces/create,
+		// spaces/join, spaces/post, connections/follow, connections/connect,
+		// moderation/report, feed/delete-own-post, feed/schedule-post) returned TRUE
+		// for a guest. REST was never exposed: every route puts require_auth() in
+		// front, which is why this surfaced as a UI bug rather than a breach. But
+		// any TEMPLATE gating on buddynext_can( get_current_user_id(), … ) rendered
+		// member-only controls to logged-out visitors — the "Create a space" button
+		// on the spaces directory being the one somebody reported.
+		//
+		// Guarding here rather than in each template is deliberate: there are 7 such
+		// call sites across 4 templates today, and the next one added would inherit
+		// the bug again.
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
 		$required = self::get_role_map()[ $capability ] ?? null;
 
 		if ( null === $required ) {
@@ -352,7 +383,21 @@ class PermissionService {
 	private function has_active_grant( int $user_id, string $ability ): bool {
 		$value = get_user_meta( $user_id, self::ability_meta_key( $ability ), true );
 
-		if ( '' === $value || null === $value ) {
+		// `false` HAS to be caught here, and it was not.
+		//
+		// get_user_meta() returns '' when a real user simply has no grant, but it
+		// returns `false` when the object id is not a real user — user 0, i.e. every
+		// logged-out visitor. `false` is neither '' nor null, so it fell through this
+		// guard; `(int) false` is 0; and 0 is this function's own encoding for "no
+		// expiry". A guest therefore held a permanent grant to EVERY ability, up to
+		// and including buddynext-moderation/suspend-user and abilities that do not
+		// exist at all — has_active_grant() never checks the slug against a registry,
+		// it only reads a meta key that will never be set.
+		//
+		// Verified before and after with a wp eval of
+		// buddynext_can( 0, 'buddynext-moderation/suspend-user' ), which returned
+		// bool(true) and now returns bool(false).
+		if ( '' === $value || null === $value || false === $value ) {
 			return false;
 		}
 
