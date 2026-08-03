@@ -14,6 +14,14 @@
 # Overrides (env vars — this script takes no flags; $1 is the dist dir):
 #   SKIP_RELEASE_GATE=1  bypass every gate below
 #   SKIP_JOURNEY_RUN=1   bypass only the journey suite
+#   SKIP_CERT=1          bypass only `wp buddynext cert`
+#   SKIP_FLOW_AUDIT=1    bypass only the flow-audit
+#
+#   Every bypass has to be typed. cert and flow-audit used to skip themselves
+#   whenever BN_WP_PATH was unset or the CLI was missing, which meant a machine
+#   that had simply never been set up packaged a release with two behavioural
+#   gates never running — announced in one line of stderr that scrolls past.
+#   They are fatal now, matching the journey suite.
 #   ALLOW_STALE_DOCS=1   bypass only the documentation-truth gate. For a
 #                        genuinely surface-neutral commit — a docs-only re-zip —
 #                        and say so in the commit message. Using it habitually
@@ -142,8 +150,22 @@ if [ "${SKIP_RELEASE_GATE:-0}" != 1 ]; then
 			echo "release gate FAILED: new/unbaselined flow-audit errors — run: node \"$FLOW_AUDIT_CLI\" \"$PWD\" \"$BN_PRO_PATH\" (see audit/flow-audit-report.md)" >&2
 			exit 1
 		fi
+	elif [ "${SKIP_FLOW_AUDIT:-0}" = 1 ]; then
+		echo "release gate: flow-audit BYPASSED (SKIP_FLOW_AUDIT=1)" >&2
 	else
-		echo "release gate: flow-audit SKIPPED — CLI not found (set FLOW_AUDIT_CLI to .../build/flow-audit-cli.js)" >&2
+		# A SKIP here is FATAL, exactly as it is for the journey suite below.
+		#
+		# This used to warn and continue, so a machine that simply did not have the
+		# CLI installed packaged a release with the gate never running — and said so
+		# in one line of stderr that scrolls past. A gate that cannot fail when its
+		# precondition is missing is not a gate; it is a comment. The cert fix on
+		# card 10158857250 hardened the tool, and this is the same disease one layer
+		# up, in the caller that decides whether to run it.
+		#
+		# SKIP_FLOW_AUDIT=1 keeps a deliberate bypass available, but it now has to be
+		# typed, which makes it a recorded decision instead of an accident.
+		echo "release gate FAILED: flow-audit did not run — CLI not found. Set FLOW_AUDIT_CLI to .../build/flow-audit-cli.js, or SKIP_FLOW_AUDIT=1 to bypass deliberately." >&2
+		exit 1
 	fi
 	if [ -n "${BN_WP_PATH:-}" ] && command -v wp >/dev/null 2>&1; then
 		echo "release gate: wp buddynext cert…"
@@ -151,8 +173,18 @@ if [ "${SKIP_RELEASE_GATE:-0}" != 1 ]; then
 			echo "release gate FAILED: functional certification failed — run: wp --path=\"$BN_WP_PATH\" buddynext cert" >&2
 			exit 1
 		fi
+	elif [ "${SKIP_CERT:-0}" = 1 ]; then
+		echo "release gate: cert BYPASSED (SKIP_CERT=1)" >&2
 	else
-		echo "release gate: cert SKIPPED — set BN_WP_PATH to a live WP root to enforce the behavioural gate" >&2
+		# FATAL, same reasoning as flow-audit above. Card 10158857250 made
+		# `wp buddynext cert` exit non-zero when it proves nothing; that hardening
+		# could still be sidestepped entirely by not exporting BN_WP_PATH, because
+		# this caller then quietly skipped the tool. The behavioural gate is the one
+		# that actually exercises the product, so declining to run it must be a
+		# choice somebody typed, not the default on any machine that has not set an
+		# environment variable.
+		echo "release gate FAILED: cert did not run — set BN_WP_PATH to a live WP root with the plugin active, or SKIP_CERT=1 to bypass deliberately." >&2
+		exit 1
 	fi
 
 	# Journey suite. Unlike the gates above, a SKIP here is FATAL: cutting a zip
