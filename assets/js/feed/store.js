@@ -154,6 +154,41 @@ function escapeHtml( str ) {
 }
 
 /**
+ * Shift an absolutely-positioned popover back inside the viewport's end edge.
+ *
+ * CSS alone cannot do this: these pickers are absolutely positioned inside a
+ * narrow wrapper and pinned to their trigger's start edge, so a viewport-relative
+ * max-width still starts wherever the trigger happens to sit. Measure after paint
+ * and shift back by exactly the overrun, never past the start edge.
+ *
+ * Extracted from the post-card reaction picker, which had this logic inline. The
+ * comment/reply reaction picker is a separate implementation
+ * (.bn-comment__react-picker, built in buildCommentNode) and never had it, so on
+ * a narrow screen a picker on an indented reply ran straight off the right edge
+ * with the later reactions unreachable and no scroll affordance. Two pickers, one
+ * rule -- do not write a third copy.
+ *
+ * @param {Element|null} el Popover element, already visible. A hidden element has no measurable box.
+ * @return {void}
+ */
+function bnClampPopoverToViewport( el ) {
+	if ( ! el ) {
+		return;
+	}
+
+	el.style.removeProperty( 'transform' );
+	requestAnimationFrame( () => {
+		const box    = el.getBoundingClientRect();
+		const gutter = 12;
+		const over   = box.right - ( window.innerWidth - gutter );
+		if ( over > 0 ) {
+			const shift = Math.min( over, Math.max( 0, box.left - gutter ) );
+			el.style.transform = 'translateX(-' + Math.round( shift ) + 'px)';
+		}
+	} );
+}
+
+/**
  * Rebuild a post card's reaction-summary chip strip after a toggle.
  *
  * The chip strip (templates/parts/post-reaction-summary.php) is SSR-only with no
@@ -643,7 +678,17 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		wrapBtn.appendChild( picker );
 
 		let hoverTimer = null;
-		const openPicker  = () => { clearTimeout( hoverTimer ); picker.hidden = false; };
+		// Unhide first, THEN clamp: a hidden element has no measurable box, so a
+		// clamp computed before this would read zeroes and do nothing. The picker
+		// is `inset-inline-start: 0` on its wrapper, so on a narrow screen a
+		// nested reply's indentation pushes it off the end edge with the later
+		// reactions unreachable -- the same overflow the post-card picker already
+		// guards against, now through the same helper.
+		const openPicker  = () => {
+			clearTimeout( hoverTimer );
+			picker.hidden = false;
+			bnClampPopoverToViewport( picker );
+		};
 		const closePicker = () => { hoverTimer = setTimeout( () => { picker.hidden = true; }, 200 ); };
 		// Hover reveal for pointer devices. Touch devices never fire these, so the
 		// click handler below also opens the picker — otherwise the six specific
@@ -1489,27 +1534,16 @@ store( 'buddynext/post-card', {
 					// on mobile, which fixes the START overflow but says nothing
 					// about the right: Pro sites can register custom reaction
 					// slugs, and a set well above the default 6 runs straight off
-					// a 375px screen. CSS alone cannot do this - the picker is
-					// absolutely positioned inside a narrow wrapper, so a
-					// viewport-relative max-width still starts wherever the
-					// trigger happens to sit. Measure after paint and shift it
-					// back by exactly the overrun, never past the start edge.
+					// a 375px screen. The measurement lives in
+					// bnClampPopoverToViewport() so the comment/reply picker --
+					// a separate implementation that had no clamp at all -- runs
+					// the same rule rather than a second copy of it.
 					if ( rect ) {
-						const el = ref.parentElement
-							? ref.parentElement.querySelector( '.bn-post-card__emoji-picker' )
-							: null;
-						if ( el ) {
-							el.style.removeProperty( 'transform' );
-							requestAnimationFrame( () => {
-								const box    = el.getBoundingClientRect();
-								const gutter = 12;
-								const over   = box.right - ( window.innerWidth - gutter );
-								if ( over > 0 ) {
-									const shift = Math.min( over, Math.max( 0, box.left - gutter ) );
-									el.style.transform = 'translateX(-' + Math.round( shift ) + 'px)';
-								}
-							} );
-						}
+						bnClampPopoverToViewport(
+							ref.parentElement
+								? ref.parentElement.querySelector( '.bn-post-card__emoji-picker' )
+								: null
+						);
 					}
 				} catch ( _e ) {
 					ctx.reactionPickerBelow = false;

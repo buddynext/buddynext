@@ -4166,6 +4166,32 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		min-width: 44px;
 		min-height: 44px;
 	}
+
+	/* The composer toolbar needs its own rule, and it needs THIS selector list.
+	 *
+	 * `.bn-composer__tool` is in the list above, and it still shipped at 32x32 on
+	 * every touch device. The theme-proof lock earlier in this file pins
+	 * `.bn-app .bn-composer__tool` (and its :hover / :focus / :active /
+	 * :focus-visible variants) to width/height 32px with min-width/min-height 0.
+	 * That loses to nothing above: it is more specific (two classes vs one), and
+	 * min-* cannot beat an explicit width/height anyway. Two independent reasons
+	 * the accessibility rule never applied.
+	 *
+	 * So match the lock's selector list exactly -- the pseudo-class variants are
+	 * needed or the 32px returns on hover and focus -- and override width/height,
+	 * not just the minimums. Equal specificity, later in the file, so this wins.
+	 * The lock itself stays: it exists to stop host themes painting their own
+	 * button fills, which is still worth having. */
+	.bn-app .bn-composer__tool,
+	.bn-app .bn-composer__tool:hover,
+	.bn-app .bn-composer__tool:focus,
+	.bn-app .bn-composer__tool:active,
+	.bn-app .bn-composer__tool:focus-visible {
+		width: 44px;
+		height: 44px;
+		min-width: 44px;
+		min-height: 44px;
+	}
 }
 
 /* ════════════════════════════════════════════════════════════════════════
