@@ -4,7 +4,6 @@
   "info": {
     "title": "BuddyNext REST API",
     "description": "The public REST surface of the BuddyNext community plugin (Free), under the `buddynext/v1` namespace. This file is generated from the live route registry by `bin/gen-openapi.php`; do not hand-edit it. The hand-written narrative reference lives in `docs/website/developer-guide/` (pages 14-24). Pro adds its own `buddynext-pro/v1` namespace, which this document intentionally excludes.",
-    "version": "1.1.1",
     "contact": {
       "name": "Wbcom Designs",
       "url": "https://wbcomdesigns.com"

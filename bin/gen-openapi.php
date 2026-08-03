@@ -285,12 +285,25 @@ foreach ( array_keys( $bn_tags_seen ) as $bn_t ) {
 }
 usort( $bn_tag_list, static fn( $a, $b ) => strcmp( $a['name'], $b['name'] ) );
 
+// The spec version tracks the SHIPPED plugin version, never a literal in the
+// config. Learnomy published two consecutive releases whose catalogues carried
+// the PREVIOUS version, because that value was hand-maintained in its
+// openapi.config.json and nobody bumped it. No gate can catch that: the
+// freshness check regenerates the spec and diffs it against the committed copy,
+// and both read the same config key, so a stale stamp matches itself and passes.
+// Those gates prove the spec is reproducible, not that it is correct.
+//
+// Measured here before this change: bumping buddynext.php to 1.1.2 and
+// regenerating still emitted "version": "1.1.1".
+$bn_info = (array) ( $bn_config['info'] ?? array( 'title' => 'BuddyNext REST API' ) );
+
+$bn_info['version'] = defined( 'BUDDYNEXT_VERSION' )
+	? BUDDYNEXT_VERSION
+	: (string) ( $bn_info['version'] ?? '0.0.0' );
+
 $bn_doc = array(
 	'openapi'    => '3.1.0',
-	'info'       => (array) ( $bn_config['info'] ?? array(
-		'title'   => 'BuddyNext REST API',
-		'version' => '0.0.0',
-	) ),
+	'info'       => $bn_info,
 	'servers'    => (array) ( $bn_config['servers'] ?? array() ),
 	'tags'       => $bn_tag_list,
 	'paths'      => $bn_paths,
