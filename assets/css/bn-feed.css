@@ -582,8 +582,15 @@
 .bn-post-card__file-item:hover { background: var(--bn-line-faint); }
 
 /* Link embed (v2 .embed). */
+/* Every embed wrapper is a containing block. The fallback layer below is
+   absolutely positioned, and only the RICH player variant used to establish an
+   anchor for it - so for any other provider shape (WordPress' own internal-post
+   embeds, X/Instagram/Reddit blockquotes) it resolved against .bn-app and
+   painted over the whole feed. The template no longer emits the layer in those
+   cases; this keeps it structurally impossible for a future variant to escape. */
 .bn-post-card__embed,
 .bn-post-card__link-preview {
+	position: relative;
 	display: flex;
 	gap: var(--bn-s3);
 	padding: var(--bn-s3) var(--bn-s4);
