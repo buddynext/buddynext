@@ -218,6 +218,11 @@ class PluginIsolation {
 	 * @return void
 	 */
 	public function init(): void {
+		// Attach the type-owner collectors before anything registers a taxonomy or
+		// post type (those land on `init`). Self-gates to the admin and to a changed
+		// plugin set, so on the steady state this call does nothing at all.
+		$this->maybe_collect_type_owners();
+
 		// Late on init: Pro's wire_extensions() (plugins_loaded) has already added
 		// its `buddynext_isolation_plugins` filter, so the persisted option carries
 		// the full free+pro family. The guarded write below is a no-op unless the
@@ -243,7 +248,8 @@ class PluginIsolation {
 		$base = array_merge(
 			self::CORE_INTEGRATIONS,
 			self::TRANSLATION_PLUGINS,
-			self::owner_keep_list()
+			self::owner_keep_list(),
+			self::menu_dependency_plugins()
 		);
 
 		$plugins = (array) apply_filters( 'buddynext_isolation_plugins', $base );
@@ -262,6 +268,212 @@ class PluginIsolation {
 		sort( $plugins ); // Deterministic order so the guarded write only fires on real changes.
 
 		return $plugins;
+	}
+
+	/**
+	 * Option holding the object-type -> plugin-basename map, plus the signature of
+	 * the plugin set it was built from.
+	 *
+	 * @var string
+	 */
+	public const OPTION_OWNERS = 'buddynext_isolation_type_owners';
+
+	/**
+	 * Plugins that must stay loaded because the site's NAV MENUS depend on them.
+	 *
+	 * This is the fix for a live customer defect. Isolation strips non-allow-listed
+	 * plugins on BuddyNext routes; when a stripped plugin owns a taxonomy or post
+	 * type, that type is never registered, and WordPress then treats every nav menu
+	 * item pointing at it as invalid and DROPS IT (`wp_setup_nav_menu_item()` sets
+	 * `_invalid`, `wp_get_nav_menu_items()` filters those out on the front end).
+	 * The owner sees menu links present on every normal page and silently missing on
+	 * /activity/, /spaces/, /login/ - reported as WooCommerce `product_cat` links
+	 * vanishing from a footer menu, with Elementor and a consent banner going the
+	 * same way.
+	 *
+	 * Restoring the item without the plugin is not an option: `_menu_item_url` is
+	 * EMPTY for taxonomy and post-type items (verified on a real menu row) because
+	 * the URL is resolved at runtime by `get_term_link()`, which needs the taxonomy
+	 * registered. Un-invalidating the item would render a link to nowhere, which is
+	 * worse than dropping it. The plugin genuinely has to stay loaded.
+	 *
+	 * Deliberately GENERIC rather than a hardcoded list of popular plugins. A
+	 * hardcoded list is endless and always one plugin behind the site that breaks.
+	 * This keeps whatever the owner's menus actually reference, whatever registered
+	 * it.
+	 *
+	 * Safe by construction: it can only ADD to the allow-list, so the worst case is
+	 * that isolation keeps more plugins alive than strictly necessary - a smaller
+	 * saving, never a broken page.
+	 *
+	 * @return array<int,string> Plugin basenames.
+	 */
+	public static function menu_dependency_plugins(): array {
+		$types = self::menu_object_types();
+		if ( array() === $types ) {
+			return array();
+		}
+
+		$owners = get_option( self::OPTION_OWNERS, array() );
+		$map    = is_array( $owners ) && isset( $owners['map'] ) && is_array( $owners['map'] ) ? $owners['map'] : array();
+		if ( array() === $map ) {
+			return array();
+		}
+
+		$keep = array();
+		foreach ( $types as $type ) {
+			if ( isset( $map[ $type ] ) && is_string( $map[ $type ] ) && '' !== $map[ $type ] ) {
+				$keep[] = $map[ $type ];
+			}
+		}
+
+		return array_values( array_unique( $keep ) );
+	}
+
+	/**
+	 * Object types (taxonomies / post types) referenced by any nav menu item.
+	 *
+	 * One indexed postmeta read. Menu items store their target in
+	 * `_menu_item_object` ('product_cat', 'page', ...); custom-URL items store
+	 * nothing here and are unaffected by isolation, so they never appear.
+	 *
+	 * @return array<int,string>
+	 */
+	private static function menu_object_types(): array {
+		global $wpdb;
+
+		$types = wp_cache_get( 'menu_object_types', 'buddynext_isolation' );
+		if ( is_array( $types ) ) {
+			return $types;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- result is cached on the line below; no core API returns "every object type referenced by any menu" without loading every menu item.
+		$rows = $wpdb->get_col(
+			"SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_menu_item_object' AND meta_value <> ''"
+		);
+
+		$types = array_values( array_unique( array_map( 'strval', (array) $rows ) ) );
+		wp_cache_set( 'menu_object_types', $types, 'buddynext_isolation', HOUR_IN_SECONDS );
+
+		return $types;
+	}
+
+	/**
+	 * Record which plugin registered which taxonomy / post type.
+	 *
+	 * Nothing in WordPress records the registering plugin, so it is captured at
+	 * registration time from the call stack. That is not free, so it runs ONLY when
+	 * the active-plugin set has changed since the map was built, and only in the
+	 * admin - never on a front-end request.
+	 *
+	 * Hooked from init() at `plugins_loaded`, because registrations happen on
+	 * `init` and the collectors must already be attached.
+	 *
+	 * @return void
+	 */
+	public function maybe_collect_type_owners(): void {
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		$signature = md5( (string) wp_json_encode( (array) get_option( 'active_plugins', array() ) ) );
+		$stored    = get_option( self::OPTION_OWNERS, array() );
+		if ( is_array( $stored ) && ( $stored['signature'] ?? '' ) === $signature ) {
+			return;
+		}
+
+		$map = array();
+
+		$collect = static function ( string $type ) use ( &$map ): void {
+			if ( isset( $map[ $type ] ) ) {
+				return;
+			}
+			$basename = self::registering_plugin();
+			if ( '' !== $basename ) {
+				$map[ $type ] = $basename;
+			}
+		};
+
+		add_action( 'registered_taxonomy', $collect, 10, 1 );
+		add_action( 'registered_post_type', $collect, 10, 1 );
+
+		// Persist after every registration has run. Priority 19 so the map is stored
+		// before sync_option() reads it at 20.
+		add_action(
+			'init',
+			static function () use ( &$map, $signature ): void {
+				update_option(
+					self::OPTION_OWNERS,
+					array(
+						'signature' => $signature,
+						'map'       => $map,
+					),
+					false
+				);
+			},
+			19
+		);
+	}
+
+	/**
+	 * Resolve the plugin basename that registered the type being processed.
+	 *
+	 * Returns '' for anything registered by core, a theme or a mu-plugin - none of
+	 * which isolation strips, so none of which needs keeping.
+	 *
+	 * @return string Plugin basename, or '' when not resolvable.
+	 */
+	private static function registering_plugin(): string {
+		if ( ! defined( 'WP_PLUGIN_DIR' ) ) {
+			return '';
+		}
+
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace -- the only way to attribute a registration to its plugin; runs once per plugin-set change, admin-only.
+		$frames = debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS );
+
+		// Use the frame for register_taxonomy() / register_post_type() itself: in a
+		// PHP backtrace that frame's `file` is the file which CALLED it, i.e. the
+		// plugin doing the registering.
+		//
+		// Do NOT simply take the first frame inside any plugin directory. The stack
+		// here runs back through our own collector, so the first plugin frame is
+		// always BuddyNext - which is what the first cut of this did, cheerfully
+		// attributing core's `post` and `page` to buddynext/buddynext.php.
+		$file = '';
+		foreach ( $frames as $frame ) {
+			$fn = (string) $frame['function'];
+			if ( 'register_taxonomy' === $fn || 'register_post_type' === $fn ) {
+				$file = isset( $frame['file'] ) ? wp_normalize_path( (string) $frame['file'] ) : '';
+				break;
+			}
+		}
+
+		$plugin_dir = wp_normalize_path( WP_PLUGIN_DIR ) . '/';
+		if ( '' === $file || ! str_starts_with( $file, $plugin_dir ) ) {
+			return '';
+		}
+
+		$parts = explode( '/', substr( $file, strlen( $plugin_dir ) ) );
+		$dir   = $parts[0] ?? '';
+		if ( '' === $dir ) {
+			return '';
+		}
+
+		// Single-file plugin: the basename IS the file.
+		if ( 1 === count( $parts ) ) {
+			return $dir;
+		}
+
+		// Directory plugin: active_plugins stores `dir/main-file.php`, and the main
+		// file rarely matches the directory name, so resolve it from the active list
+		// rather than guessing.
+		foreach ( (array) get_option( 'active_plugins', array() ) as $active ) {
+			if ( is_string( $active ) && str_starts_with( $active, $dir . '/' ) ) {
+				return $active;
+			}
+		}
+
+		return '';
 	}
 
 	/**
