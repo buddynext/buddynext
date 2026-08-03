@@ -68,10 +68,11 @@ class DemoDataService {
 	 * Realistic member roster. login is prefixed `bn_demo_` so it never
 	 * collides with a real account; avatar/cover index into assets/demo/.
 	 *
-	 * `topics` is a list of space-category slugs (see seed_member_interests);
-	 * every other field is a plain string.
+	 * `topics` is a list of space-category slugs (see seed_member_interests),
+	 * `profile` is a field_key => value map merged into save_profile(); every
+	 * other field is a plain string.
 	 *
-	 * @var array<int,array<string,string|array<int,string>>>
+	 * @var array<int,array<string,string|array<int,string>|array<string,string>>>
 	 */
 	private const MEMBERS = array(
 		array(
@@ -83,6 +84,24 @@ class DemoDataService {
 			'site'     => 'https://alexrivera.example',
 			'note'     => 'Design systems, empty states, good coffee',
 			'topics'   => array( 'design', 'startups' ),
+			'profile'  => array(
+				'work_company'     => 'Nomad Studio',
+				'work_title'       => 'Product Designer',
+				'work_location'    => 'Lisbon, PT',
+				'work_start_date'  => '2021-03-01',
+				'work_current'     => '1',
+				'work_description' => 'Design systems and the checkout flow for a payments product.',
+				'edu_institution'  => 'Universidade de Lisboa',
+				'edu_degree'       => 'BA',
+				'edu_field'        => 'Communication Design',
+				'edu_start_year'   => '2013',
+				'edu_end_year'     => '2017',
+				'edu_current'      => '0',
+				'skills'           => 'Design systems, prototyping, user research',
+				'birth_date'       => '1994-06-12',
+				'social_linkedin'  => 'https://linkedin.com/in/alexrivera',
+				'social_instagram' => 'https://instagram.com/alexrivera',
+			),
 		),
 		array(
 			'login'    => 'priya_nair',
@@ -93,6 +112,24 @@ class DemoDataService {
 			'site'     => 'https://priyanair.example',
 			'note'     => 'CSS, accessibility, the web platform',
 			'topics'   => array( 'web-development', 'design' ),
+			'profile'  => array(
+				'work_company'     => 'Hyperlane',
+				'work_title'       => 'Senior Frontend Engineer',
+				'work_location'    => 'Bengaluru, IN',
+				'work_start_date'  => '2022-01-10',
+				'work_current'     => '1',
+				'work_description' => 'Accessibility and the design-system component library.',
+				'edu_institution'  => 'BITS Pilani',
+				'edu_degree'       => 'BE',
+				'edu_field'        => 'Computer Science',
+				'edu_start_year'   => '2014',
+				'edu_end_year'     => '2018',
+				'edu_current'      => '0',
+				'skills'           => 'CSS architecture, ARIA, performance budgets',
+				'birth_date'       => '1996-02-03',
+				'social_linkedin'  => 'https://linkedin.com/in/priyanair',
+				'social_github'    => 'https://github.com/priyanair',
+			),
 		),
 		array(
 			'login'    => 'marcus_obrien',
@@ -103,6 +140,23 @@ class DemoDataService {
 			'site'     => '',
 			'note'     => 'Books, community building, board games',
 			'topics'   => array( 'books', 'startups' ),
+			'profile'  => array(
+				'work_company'     => 'Openhouse',
+				'work_title'       => 'Community Lead',
+				'work_location'    => 'Dublin, IE',
+				'work_start_date'  => '2020-09-01',
+				'work_current'     => '1',
+				'work_description' => 'Runs the ambassador programme and the monthly community call.',
+				'edu_institution'  => 'Trinity College Dublin',
+				'edu_degree'       => 'BA',
+				'edu_field'        => 'Sociology',
+				'edu_start_year'   => '2010',
+				'edu_end_year'     => '2014',
+				'edu_current'      => '0',
+				'skills'           => 'Community strategy, moderation, events',
+				'birth_date'       => '1990-11-22',
+				'social_linkedin'  => 'https://linkedin.com/in/marcusobrien',
+			),
 		),
 		array(
 			'login'    => 'yuki_tanaka',
@@ -113,6 +167,23 @@ class DemoDataService {
 			'site'     => 'https://yuki.example',
 			'note'     => 'Type design, printmaking, slow mornings',
 			'topics'   => array( 'design', 'photography' ),
+			'profile'  => array(
+				'work_company'     => 'Independent',
+				'work_title'       => 'Illustrator',
+				'work_location'    => 'Kyoto, JP',
+				'work_start_date'  => '2018-04-01',
+				'work_current'     => '1',
+				'work_description' => 'Editorial illustration and type design for print and screen.',
+				'edu_institution'  => 'Kyoto City University of Arts',
+				'edu_degree'       => 'BFA',
+				'edu_field'        => 'Visual Design',
+				'edu_start_year'   => '2012',
+				'edu_end_year'     => '2016',
+				'edu_current'      => '0',
+				'skills'           => 'Editorial illustration, printmaking, lettering',
+				'birth_date'       => '1993-08-30',
+				'social_instagram' => 'https://instagram.com/yukitanaka',
+			),
 		),
 		array(
 			'login'    => 'sara_lindqvist',
@@ -123,6 +194,24 @@ class DemoDataService {
 			'site'     => '',
 			'note'     => 'Trail running, data viz, houseplants',
 			'topics'   => array( 'running', 'web-development' ),
+			'profile'  => array(
+				'work_company'     => 'Nordic Grid',
+				'work_title'       => 'Data Scientist',
+				'work_location'    => 'Gothenburg, SE',
+				'work_start_date'  => '2019-06-01',
+				'work_current'     => '1',
+				'work_description' => 'Forecasting models for renewable-energy load.',
+				'edu_institution'  => 'Chalmers',
+				'edu_degree'       => 'MSc',
+				'edu_field'        => 'Applied Mathematics',
+				'edu_start_year'   => '2013',
+				'edu_end_year'     => '2018',
+				'edu_current'      => '0',
+				'skills'           => 'Python, forecasting, data visualisation',
+				'birth_date'       => '1992-04-17',
+				'social_linkedin'  => 'https://linkedin.com/in/saralindqvist',
+				'social_github'    => 'https://github.com/saralindqvist',
+			),
 		),
 		array(
 			'login'    => 'diego_morales',
@@ -133,6 +222,24 @@ class DemoDataService {
 			'site'     => 'https://diego.example',
 			'note'     => 'Pixel art, game jams, synthwave',
 			'topics'   => array( 'design', 'photography' ),
+			'profile'  => array(
+				'work_company'     => 'Pixel Cantina',
+				'work_title'       => 'Gameplay Programmer',
+				'work_location'    => 'Mexico City, MX',
+				'work_start_date'  => '2021-08-01',
+				'work_current'     => '1',
+				'work_description' => 'Gameplay and tools for a pixel-art platformer.',
+				'edu_institution'  => 'UNAM',
+				'edu_degree'       => 'BSc',
+				'edu_field'        => 'Computer Engineering',
+				'edu_start_year'   => '2014',
+				'edu_end_year'     => '2019',
+				'edu_current'      => '0',
+				'skills'           => 'Godot, C#, shaders',
+				'birth_date'       => '1997-01-09',
+				'social_github'    => 'https://github.com/diegomorales',
+				'social_youtube'   => 'https://youtube.com/@/diegomorales',
+			),
 		),
 		array(
 			'login'    => 'amina_diallo',
@@ -143,6 +250,23 @@ class DemoDataService {
 			'site'     => '',
 			'note'     => 'Ocean systems, climate models, sailing',
 			'topics'   => array( 'running', 'books' ),
+			'profile'  => array(
+				'work_company'     => 'Institut Ocean',
+				'work_title'       => 'Research Scientist',
+				'work_location'    => 'Dakar, SN',
+				'work_start_date'  => '2017-02-01',
+				'work_current'     => '1',
+				'work_description' => 'Coastal climate models and ocean-temperature datasets.',
+				'edu_institution'  => 'Universite Cheikh Anta Diop',
+				'edu_degree'       => 'PhD',
+				'edu_field'        => 'Oceanography',
+				'edu_start_year'   => '2011',
+				'edu_end_year'     => '2016',
+				'edu_current'      => '0',
+				'skills'           => 'Climate modelling, R, remote sensing',
+				'birth_date'       => '1988-05-28',
+				'social_linkedin'  => 'https://linkedin.com/in/aminadiallo',
+			),
 		),
 		array(
 			'login'    => 'tom_becker',
@@ -153,6 +277,24 @@ class DemoDataService {
 			'site'     => 'https://becker.example',
 			'note'     => 'Coffee roasting, Go, mechanical keyboards',
 			'topics'   => array( 'web-development', 'books' ),
+			'profile'  => array(
+				'work_company'     => 'Rostwerk',
+				'work_title'       => 'Backend Engineer',
+				'work_location'    => 'Berlin, DE',
+				'work_start_date'  => '2020-03-16',
+				'work_current'     => '1',
+				'work_description' => 'Go services and the subscription billing pipeline.',
+				'edu_institution'  => 'TU Berlin',
+				'edu_degree'       => 'BSc',
+				'edu_field'        => 'Informatik',
+				'edu_start_year'   => '2012',
+				'edu_end_year'     => '2016',
+				'edu_current'      => '0',
+				'skills'           => 'Go, PostgreSQL, distributed systems',
+				'birth_date'       => '1991-09-05',
+				'social_linkedin'  => 'https://linkedin.com/in/tombecker',
+				'social_github'    => 'https://github.com/tombecker',
+			),
 		),
 		array(
 			'login'    => 'lucia_ferrari',
@@ -163,6 +305,23 @@ class DemoDataService {
 			'site'     => '',
 			'note'     => 'Plain language, UX writing, espresso',
 			'topics'   => array( 'design', 'books' ),
+			'profile'  => array(
+				'work_company'     => 'Chiaro',
+				'work_title'       => 'UX Writer',
+				'work_location'    => 'Milan, IT',
+				'work_start_date'  => '2022-05-02',
+				'work_current'     => '1',
+				'work_description' => 'Plain-language content for onboarding and error states.',
+				'edu_institution'  => 'Universita di Bologna',
+				'edu_degree'       => 'MA',
+				'edu_field'        => 'Linguistics',
+				'edu_start_year'   => '2015',
+				'edu_end_year'     => '2020',
+				'edu_current'      => '0',
+				'skills'           => 'UX writing, plain language, content design',
+				'birth_date'       => '1995-12-01',
+				'social_linkedin'  => 'https://linkedin.com/in/luciaferrari',
+			),
 		),
 		array(
 			'login'    => 'noah_kim',
@@ -173,6 +332,25 @@ class DemoDataService {
 			'site'     => 'https://noahkim.example',
 			'note'     => 'Photography, DevRel, street food',
 			'topics'   => array( 'photography', 'web-development' ),
+			'profile'  => array(
+				'work_company'     => 'Tideway',
+				'work_title'       => 'Developer Advocate',
+				'work_location'    => 'Seoul, KR',
+				'work_start_date'  => '2023-02-01',
+				'work_current'     => '1',
+				'work_description' => 'Docs, demos, and the getting-started experience.',
+				'edu_institution'  => 'KAIST',
+				'edu_degree'       => 'BSc',
+				'edu_field'        => 'Computer Science',
+				'edu_start_year'   => '2013',
+				'edu_end_year'     => '2017',
+				'edu_current'      => '0',
+				'skills'           => 'Developer relations, docs, public speaking',
+				'birth_date'       => '1994-03-14',
+				'social_linkedin'  => 'https://linkedin.com/in/noahkim',
+				'social_github'    => 'https://github.com/noahkim',
+				'social_youtube'   => 'https://youtube.com/@/noahkim',
+			),
 		),
 		array(
 			'login'    => 'fatima_zahra',
@@ -183,6 +361,25 @@ class DemoDataService {
 			'site'     => '',
 			'note'     => 'Open source, docs, mentoring',
 			'topics'   => array( 'web-development', 'startups' ),
+			'profile'  => array(
+				'work_company'     => 'Atlas Cloud',
+				'work_title'       => 'Staff Engineer',
+				'work_location'    => 'Casablanca, MA',
+				'work_start_date'  => '2018-01-08',
+				'work_end_date'    => '2024-06-28',
+				'work_current'     => '0',
+				'work_description' => 'Platform team. Maintaining open-source tooling full time since.',
+				'edu_institution'  => 'ENSIAS',
+				'edu_degree'       => 'MEng',
+				'edu_field'        => 'Software Engineering',
+				'edu_start_year'   => '2011',
+				'edu_end_year'     => '2016',
+				'edu_current'      => '0',
+				'skills'           => 'Open source, documentation, mentoring',
+				'birth_date'       => '1989-07-19',
+				'social_linkedin'  => 'https://linkedin.com/in/fatimazahra',
+				'social_github'    => 'https://github.com/fatimazahra',
+			),
 		),
 		array(
 			'login'    => 'liam_walsh',
@@ -193,6 +390,24 @@ class DemoDataService {
 			'site'     => '',
 			'note'     => 'Synth DIY, cycling, vinyl',
 			'topics'   => array( 'running', 'photography' ),
+			'profile'  => array(
+				'work_company'     => 'Bellwether Instruments',
+				'work_title'       => 'Hardware Engineer',
+				'work_location'    => 'Melbourne, AU',
+				'work_start_date'  => '2019-11-04',
+				'work_current'     => '1',
+				'work_description' => 'Analogue synth design and small-batch manufacturing.',
+				'edu_institution'  => 'RMIT',
+				'edu_degree'       => 'BEng',
+				'edu_field'        => 'Electrical Engineering',
+				'edu_start_year'   => '2009',
+				'edu_end_year'     => '2013',
+				'edu_current'      => '0',
+				'skills'           => 'PCB design, analogue circuits, firmware',
+				'birth_date'       => '1990-02-26',
+				'social_instagram' => 'https://instagram.com/liamwalsh',
+				'social_youtube'   => 'https://youtube.com/@/liamwalsh',
+			),
 		),
 	);
 
@@ -630,15 +845,31 @@ class DemoDataService {
 			// would want to run. Empty parts drop out, so a member with neither
 			// simply has no bio.
 			$bn_bio = $member['job'] . ' based in ' . $member['location'] . '. Into ' . lcfirst( $member['note'] ) . '.';
+			// The starter fields, plus the member's work / education / skills.
+			//
+			// A fresh install ships 26 profile fields in six groups and the seed
+			// used to fill six of them, all in Basics - so a demo profile showed
+			// a headline and one link with the Work, Education and Skills
+			// sections empty, and the date / boolean / number field types never
+			// rendered at all. An owner cannot judge a profile layout that has
+			// nothing in it.
+			//
+			// The `profile` block per member is deliberately uneven on socials:
+			// the UX writer has no GitHub, the illustrator has Instagram and no
+			// LinkedIn. Real rosters look like that, and it shows the renderer
+			// handling a missing field rather than a uniformly full one.
 			$profiles->save_profile(
 				$user_id,
-				array(
-					'headline'       => $member['headline'],
-					'bio'            => $bn_bio,
-					'location'       => $member['location'],
-					'website'        => $member['site'],
-					'pronouns'       => self::PRONOUNS[ $i ] ?? '',
-					'social_twitter' => 'https://twitter.com/' . $bn_handle,
+				array_merge(
+					array(
+						'headline'       => $member['headline'],
+						'bio'            => $bn_bio,
+						'location'       => $member['location'],
+						'website'        => $member['site'],
+						'pronouns'       => self::PRONOUNS[ $i ] ?? '',
+						'social_twitter' => 'https://twitter.com/' . $bn_handle,
+					),
+					$member['profile']
 				)
 			);
 		}
@@ -1515,7 +1746,7 @@ class DemoDataService {
 	/**
 	 * Create a single demo member, flagged for safe cleanup.
 	 *
-	 * @param array<string,string|array<int,string>> $member Roster entry.
+	 * @param array<string,string|array<int,string>|array<string,string>> $member Roster entry.
 	 * @return int New user ID, or 0 on failure / already-exists.
 	 */
 	private function create_member( array $member ): int {
