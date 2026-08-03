@@ -395,12 +395,43 @@ class Galleries {
 			'id'          => $album_id,
 			'space_id'    => $space_id,
 			'title'       => (string) get_the_title( $album_id ),
-			'description' => (string) get_post_field( 'post_excerpt', $album_id ),
+			'description' => self::album_description( $album_id ),
 			'privacy'     => $reported,
 			'owner'       => (int) get_post_field( 'post_author', $album_id ),
 			'media_count' => ( $albums && method_exists( $albums, 'get_item_count' ) ) ? (int) $albums->get_item_count( $album_id ) : 0,
 			'cover_url'   => ( $albums && method_exists( $albums, 'get_cover_url' ) ) ? (string) $albums->get_cover_url( $album_id, 'large' ) : '',
 		);
+	}
+
+	/**
+	 * An album's description, read from where WPMediaVerse actually stores it.
+	 *
+	 * WPMediaVerse owns the mvs_album post type and keeps the description in
+	 * post_content: AlbumService::create() writes it there, AlbumService::update()
+	 * writes it there, and its REST reader returns it from there. This read used
+	 * post_excerpt, so a description created through WPMediaVerse came back blank
+	 * on every BuddyNext surface - the member typed it, saved, reloaded, and found
+	 * the field empty, which reads as data loss.
+	 *
+	 * post_excerpt is still consulted as a FALLBACK, and that is the whole reason
+	 * this is a helper rather than a one-word change. BuddyNext's own album editor
+	 * used to write descriptions to post_excerpt, so a straight swap to
+	 * post_content would have orphaned every description saved through it. Reading
+	 * post_content first and falling back recovers both sets. New writes all land
+	 * in post_content (MediaController::update_album() now goes through
+	 * WPMediaVerse's service), so the fallback drains over time and can be dropped
+	 * once no post_excerpt values remain.
+	 *
+	 * @param int $album_id Album id.
+	 * @return string Description, '' when there is none.
+	 */
+	private static function album_description( int $album_id ): string {
+		$description = trim( (string) get_post_field( 'post_content', $album_id ) );
+		if ( '' !== $description ) {
+			return $description;
+		}
+
+		return trim( (string) get_post_field( 'post_excerpt', $album_id ) );
 	}
 
 	/**
