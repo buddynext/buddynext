@@ -10,6 +10,17 @@
 # plugin needs to RUN ship; anything else (QA dirs, screenshots, docs, .md, dev
 # configs, the dev mu-plugins/) can never leak in, regardless of what's committed.
 # Version is read from the plugin header (never bumped here — BuddyNext is pre-release).
+#
+# Overrides (env vars — this script takes no flags; $1 is the dist dir):
+#   SKIP_RELEASE_GATE=1  bypass every gate below
+#   SKIP_JOURNEY_RUN=1   bypass only the journey suite
+#   ALLOW_STALE_DOCS=1   bypass only the documentation-truth gate. For a
+#                        genuinely surface-neutral commit — a docs-only re-zip —
+#                        and say so in the commit message. Using it habitually
+#                        defeats the point: the manifest is what tells the next
+#                        audit whether a feature already exists.
+#   BN_PRO_PATH=…        buddynext-pro checkout (holds Free's canonical manifest
+#                        on the private shelf; defaults to a sibling directory)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -30,8 +41,101 @@ OPTIONAL=( languages uninstall.php readme.txt )
 #    Override the CLI path with FLOW_AUDIT_CLI and the Pro root with BN_PRO_PATH;
 #    set SKIP_RELEASE_GATE=1 to bypass (e.g. a docs-only re-zip).
 if [ "${SKIP_RELEASE_GATE:-0}" != 1 ]; then
+	# Resolve the Pro checkout ONCE: it is both the second input to flow-audit and
+	# the home of Free's canonical manifest. Prefer a sibling directory, which is
+	# how a wp-content/plugins tree is laid out, and fall back to the legacy path.
+	if [ -z "${BN_PRO_PATH:-}" ]; then
+		if [ -d "$(cd .. && pwd)/buddynext-pro" ]; then
+			BN_PRO_PATH="$(cd .. && pwd)/buddynext-pro"
+		else
+			BN_PRO_PATH="$HOME/dev/repos/buddynext-pro"
+		fi
+	fi
+
+	# Documentation-truth gate — truth is a gate, not a habit.
+	#
+	# The manifest is what the manifest-first rule reads to answer "does this
+	# already exist?". When it lags the code it does not merely go stale, it
+	# answers WRONG in the direction that makes us rebuild what we already ship:
+	# a surface absent from the manifest reads as "not built yet". That has
+	# already produced duplicate feature cards on this project, and this cycle
+	# the scanner was silently dropping a live route for the same reason.
+	#
+	# FREE IS THE AWKWARD CASE, and getting it wrong makes the gate decorative.
+	# This repo is public, so /audit/ is gitignored by design and the canonical
+	# manifest lives on the private shelf in the Pro repo. `git log -- audit/
+	# manifest.json` here therefore returns NOTHING, and a gate that treats an
+	# empty timestamp as "no manifest to check" passes every time while proving
+	# nothing. So resolve the shelf explicitly and REFUSE when it is absent: you
+	# cannot cut a release without it, and failing loudly beats a green tick.
+	#
+	# Override with ALLOW_STALE_DOCS=1 for a genuinely surface-neutral commit -
+	# a docs-only re-zip - and say so in the commit message. Not habitually.
+	if [ "${ALLOW_STALE_DOCS:-0}" = 1 ]; then
+		echo "release gate: docs-truth BYPASSED (ALLOW_STALE_DOCS=1)" >&2
+	else
+		echo "release gate: docs-truth…"
+
+		# Newest commit touching code that can add a surface.
+		CODE_TS="$(git log -1 --format=%ct -- includes templates blocks assets 2>/dev/null || echo 0)"
+		CODE_TS="${CODE_TS:-0}"
+
+		# The canonical Free manifest, on the private shelf in the Pro repo.
+		PRO_ROOT="$BN_PRO_PATH"
+		SHELF_REL="free-internal/audit/manifest.json"
+		if [ ! -f "$PRO_ROOT/$SHELF_REL" ]; then
+			echo "release gate FAILED: cannot find the Free manifest on the private shelf." >&2
+			echo "  Looked for: $PRO_ROOT/$SHELF_REL" >&2
+			echo "  It is NOT in this repo by design (public repo, /audit/ gitignored)." >&2
+			echo "  Point BN_PRO_PATH at the buddynext-pro checkout, or ALLOW_STALE_DOCS=1 to bypass." >&2
+			exit 18
+		fi
+		MAN_TS="$(git -C "$PRO_ROOT" log -1 --format=%ct -- "$SHELF_REL" 2>/dev/null || echo 0)"
+		MAN_TS="${MAN_TS:-0}"
+		if [ "$MAN_TS" -eq 0 ]; then
+			echo "release gate FAILED: the shelf manifest exists but is not committed in $PRO_ROOT." >&2
+			echo "  An uncommitted manifest has no timestamp to compare, so this gate cannot prove anything." >&2
+			exit 18
+		fi
+		if [ "$CODE_TS" -gt "$MAN_TS" ]; then
+			echo "release gate FAILED: code changed after the last manifest refresh." >&2
+			echo "  Run /wp-plugin-onboard --refresh, commit the manifest to the shelf, then rebuild." >&2
+			echo "  Surface-neutral commit only: ALLOW_STALE_DOCS=1" >&2
+			exit 18
+		fi
+
+		# Buyer-level roll-up. Tracked in THIS repo (it holds no internal inventory).
+		if [ -f CAPABILITIES.md ]; then
+			CAP_TS="$(git log -1 --format=%ct -- CAPABILITIES.md 2>/dev/null || echo 0)"
+			CAP_TS="${CAP_TS:-0}"
+			if [ "$CODE_TS" -gt "$CAP_TS" ]; then
+				echo "release gate FAILED: code changed after the last CAPABILITIES.md update." >&2
+				echo "  Refresh the buyer-level capability roll-up, commit it, then rebuild." >&2
+				echo "  Surface-neutral commit only: ALLOW_STALE_DOCS=1" >&2
+				exit 18
+			fi
+		else
+			echo "release gate FAILED: CAPABILITIES.md is missing from the plugin root." >&2
+			echo "  It is the source of truth for store and docs copy - generate it via /wp-plugin-onboard." >&2
+			exit 18
+		fi
+
+		# Maturity is the structured status field, never a free-text name. A
+		# feature whose NAME says "coming soon" stays mislabeled after it ships.
+		# Scoped to name/label/title values so a legitimate "Coming soon" string
+		# in a UI template is untouched.
+		STALE_LABEL="$(grep -rniE "[\"'](name|label|title)[\"'][[:space:]]*=>[[:space:]]*[\"'][^\"']*coming soon" --include='*.php' includes 2>/dev/null || true)"
+		if [ -n "$STALE_LABEL" ]; then
+			echo "release gate FAILED: a feature name/label still says 'coming soon':" >&2
+			echo "$STALE_LABEL" >&2
+			echo "  Use the structured status field, not a free-text name." >&2
+			exit 18
+		fi
+
+		echo "    manifest + CAPABILITIES current; no stale labels"
+	fi
+
 	FLOW_AUDIT_CLI="${FLOW_AUDIT_CLI:-$HOME/.mcp-servers/wp-plugin-qa-mcp-server/build/flow-audit-cli.js}"
-	BN_PRO_PATH="${BN_PRO_PATH:-$HOME/dev/repos/buddynext-pro}"
 	if command -v node >/dev/null 2>&1 && [ -f "$FLOW_AUDIT_CLI" ]; then
 		echo "release gate: flow-audit (free + pro)…"
 		if ! node "$FLOW_AUDIT_CLI" "$PWD" "$BN_PRO_PATH" >/dev/null 2>&1; then
@@ -83,6 +187,7 @@ if [ "${SKIP_RELEASE_GATE:-0}" != 1 ]; then
 		echo "release gate FAILED: bin/check-journey-run.sh is missing." >&2
 		exit 1
 	fi
+
 fi
 
 TMP="$(mktemp -d)"
