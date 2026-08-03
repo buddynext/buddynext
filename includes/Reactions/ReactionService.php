@@ -41,6 +41,30 @@ class ReactionService {
 	private const CACHE_TTL = 300;
 
 	/**
+	 * Largest face-stack top_reactors_map() will build for one object.
+	 *
+	 * A stack is a glanceable signal, not a list — the who-reacted sheet is where
+	 * the full set belongs. The ceiling also bounds the per-object slice below.
+	 */
+	private const TOP_REACTORS_MAX = 10;
+
+	/**
+	 * Extra rows read per object so the restrict filter can drop some.
+	 *
+	 * Without headroom a hidden reactor would shorten the stack instead of
+	 * promoting the next visible one.
+	 */
+	private const TOP_REACTORS_BUFFER = 5;
+
+	/**
+	 * Objects per UNION ALL read.
+	 *
+	 * Keeps a single statement to a sane size on an unusually large page while
+	 * still costing one round trip for any normal feed page.
+	 */
+	private const TOP_REACTORS_CHUNK = 50;
+
+	/**
 	 * Add a reaction from a user on an object.
 	 *
 	 * Uses INSERT IGNORE so duplicate reactions are silently skipped.
@@ -563,6 +587,207 @@ class ReactionService {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Leading reactors for a page of objects, resolved in one bounded read.
+	 *
+	 * The batched sibling of get_reactors(), for the feed's face-stack. get_reactors()
+	 * answers for a single object and spends three queries doing it — the slice, an
+	 * owner lookup, and the owner's restrict list — which is correct for the
+	 * who-reacted sheet and ruinous in a feed loop, where it becomes sixty queries on
+	 * a twenty-post page.
+	 *
+	 * Two things make the batched form bounded rather than merely batched. The slice
+	 * is read as one UNION ALL of per-object subqueries, so each arm is an index range
+	 * scan on object_recent (object_type, object_id, created_at) that reads a handful
+	 * of rows and stops — a post with fifty thousand reactions costs the same as a post
+	 * with five. And the owner ids are supplied by the caller, which already holds them,
+	 * so the per-post owner lookup disappears entirely.
+	 *
+	 * Each arm reads a buffer above the requested size because the restrict filter runs
+	 * afterwards in PHP: without headroom, hiding one reactor would leave a short stack
+	 * rather than promoting the next visible one.
+	 *
+	 * Privacy is the same gate get_reactors() applies, and deliberately so — restrict is
+	 * one-way and silent. The restricted person still sees themselves, the object's owner
+	 * still sees everyone they moderate, and admins see through it; only the ordinary
+	 * onlooker loses the signal.
+	 *
+	 * @param string         $object_type Object type ('post' or 'comment').
+	 * @param int[]          $object_ids  Objects on the page.
+	 * @param array<int,int> $owner_map   object_id => owner user id. Supply it to skip
+	 *                                    the owner lookup; missing ids are resolved in
+	 *                                    one extra query rather than losing the gate.
+	 * @param int            $limit       Optional. Reactors per object. Default 3.
+	 * @param int            $viewer_id   Optional. Current viewer. Default current user.
+	 * @return array<int,array<int,array{user_id:int,display_name:string,avatar_url:string}>>
+	 *         object_id => reactors, most recent first. Every requested id is present.
+	 */
+	public function top_reactors_map( string $object_type, array $object_ids, array $owner_map = array(), int $limit = 3, int $viewer_id = 0 ): array {
+		$object_type = sanitize_key( $object_type );
+		$object_ids  = array_values( array_unique( array_filter( array_map( 'absint', $object_ids ) ) ) );
+		if ( empty( $object_ids ) ) {
+			return array();
+		}
+
+		$limit = max( 1, min( self::TOP_REACTORS_MAX, $limit ) );
+		if ( 0 === $viewer_id ) {
+			$viewer_id = get_current_user_id();
+		}
+
+		// Every requested id answers, so callers read the map without guarding.
+		$map = array_fill_keys( $object_ids, array() );
+
+		global $wpdb;
+
+		// Read a slice per object, all in one round trip. The buffer above $limit is
+		// what lets the restrict filter drop rows without shortening the stack.
+		$slice  = $limit + self::TOP_REACTORS_BUFFER;
+		$rows   = array();
+		$chunks = array_chunk( $object_ids, self::TOP_REACTORS_CHUNK );
+		foreach ( $chunks as $chunk ) {
+			$arms = array();
+			$args = array();
+			foreach ( $chunk as $oid ) {
+				$arms[] = "(SELECT user_id, object_id, created_at FROM {$wpdb->prefix}bn_reactions
+					WHERE object_type = %s AND object_id = %d
+					ORDER BY created_at DESC, user_id DESC
+					LIMIT %d)";
+				$args[] = $object_type;
+				$args[] = $oid;
+				$args[] = $slice;
+			}
+			$sql = implode( ' UNION ALL ', $arms );
+
+			// Every arm of $sql is a literal with %s/%d placeholders and $args carries one
+			// value per placeholder, in order; the sniffs cannot follow a built-up query.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			$chunk_rows = $wpdb->get_results( $wpdb->prepare( $sql, ...$args ), ARRAY_A );
+			if ( ! empty( $chunk_rows ) ) {
+				$rows = array_merge( $rows, (array) $chunk_rows );
+			}
+		}
+
+		if ( empty( $rows ) ) {
+			return $map;
+		}
+
+		// Group by object. UNION ALL does not promise to preserve each arm's ordering,
+		// so the sort is reapplied per group — at a handful of rows apiece it is free.
+		$grouped = array();
+		foreach ( $rows as $row ) {
+			$grouped[ (int) $row['object_id'] ][] = array(
+				'user_id'    => (int) $row['user_id'],
+				'created_at' => (string) $row['created_at'],
+			);
+		}
+
+		$owner_map = $this->resolve_owner_map( $object_type, array_keys( $grouped ), $owner_map );
+		$is_admin  = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+
+		// One read for every owner on the page. Per-owner caching alone would still cost
+		// a query per distinct author on a cold cache, which is a page-size-shaped cost
+		// on precisely the feed where authors rarely repeat.
+		$restricted_map = function_exists( 'buddynext_service' )
+			? buddynext_service( 'blocks' )->restricted_users_map( array_values( array_unique( array_map( 'intval', $owner_map ) ) ) )
+			: array();
+
+		$survivors = array();
+		foreach ( $grouped as $oid => $entries ) {
+			usort(
+				$entries,
+				static function ( array $a, array $b ): int {
+					return array( $b['created_at'], $b['user_id'] ) <=> array( $a['created_at'], $a['user_id'] );
+				}
+			);
+
+			$owner_id   = (int) ( $owner_map[ $oid ] ?? 0 );
+			$is_owner   = $viewer_id > 0 && $viewer_id === $owner_id;
+			$restricted = $restricted_map[ $owner_id ] ?? array();
+
+			$kept = array();
+			foreach ( $entries as $entry ) {
+				$uid = $entry['user_id'];
+				if (
+					! empty( $restricted )
+					&& in_array( $uid, $restricted, true )
+					&& $uid !== $viewer_id
+					&& ! $is_owner
+					&& ! $is_admin
+				) {
+					continue;
+				}
+				$kept[]      = $uid;
+				$survivors[] = $uid;
+				if ( count( $kept ) >= $limit ) {
+					break;
+				}
+			}
+			$map[ $oid ] = $kept;
+		}
+
+		// One priming pass for every face on the page, so the hydrate below is O(1).
+		if ( ! empty( $survivors ) ) {
+			cache_users( array_values( array_unique( $survivors ) ) );
+		}
+
+		foreach ( $map as $oid => $user_ids ) {
+			$map[ $oid ] = array_map(
+				static function ( int $uid ): array {
+					$user = get_userdata( $uid );
+
+					return array(
+						'user_id'      => $uid,
+						'display_name' => $user ? $user->display_name : __( 'Community Member', 'buddynext' ),
+						'avatar_url'   => (string) get_avatar_url( $uid, array( 'size' => 96 ) ),
+					);
+				},
+				$user_ids
+			);
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Fill in any object owners the caller did not supply, in one query.
+	 *
+	 * The gate in top_reactors_map() needs an owner to resolve a restrict list. A
+	 * caller that already holds them (the feed does) passes them straight through and
+	 * this costs nothing. A caller that does not still gets the gate rather than
+	 * silently losing it, which is the failure mode worth spending a query to avoid.
+	 *
+	 * @param string         $object_type Object type.
+	 * @param int[]          $object_ids  Objects needing an owner.
+	 * @param array<int,int> $owner_map   Owners already known.
+	 * @return array<int,int> object_id => owner user id.
+	 */
+	private function resolve_owner_map( string $object_type, array $object_ids, array $owner_map ): array {
+		if ( 'post' !== $object_type ) {
+			return $owner_map;
+		}
+
+		$missing = array_values( array_diff( $object_ids, array_keys( $owner_map ) ) );
+		if ( empty( $missing ) ) {
+			return $owner_map;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $missing ), '%d' ) );
+		$sql          = "SELECT id, user_id FROM {$wpdb->prefix}bn_posts WHERE id IN ({$placeholders})";
+
+		// $placeholders is a run of %d built from a counted int array, so the query is
+		// fully placeholdered and every value below is bound; the sniffs cannot see that.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, ...$missing ), ARRAY_A );
+
+		foreach ( (array) $rows as $row ) {
+			$owner_map[ (int) $row['id'] ] = (int) $row['user_id'];
+		}
+
+		return $owner_map;
 	}
 
 	/**

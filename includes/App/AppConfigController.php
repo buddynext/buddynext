@@ -424,6 +424,10 @@ class AppConfigController {
 			// it reads from the route's own constant — restating the literal here is
 			// how the two drift and the app starts chunking at the wrong size.
 			'viewer_state_max_ids'    => \BuddyNext\Feed\FeedController::VIEWER_STATE_MAX_IDS,
+			// How many faces each feed item's top_reactors carries. The app derives the
+			// "+N others" remainder from reaction_count minus this, so a client that
+			// assumes a different size labels the stack wrongly on every card.
+			'face_stack_size'         => \BuddyNext\Feed\FeedController::FACE_STACK_SIZE,
 		);
 	}
 

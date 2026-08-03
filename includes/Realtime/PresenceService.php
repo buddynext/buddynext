@@ -357,4 +357,46 @@ class PresenceService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
+
+	/**
+	 * Resolve last-active timestamps for a set of users in one read.
+	 *
+	 * The batched sibling of last_active_at(), for callers rendering a page of
+	 * people at once. The member directory avoids the per-row lookup by joining
+	 * bn_presence into its own user query; a feed cannot — its authors arrive from
+	 * bn_posts rows, not from a WP_User_Query — so it needs the ids resolved
+	 * separately. Calling last_active_at() in that loop is a query per card.
+	 *
+	 * Every requested id is present in the result. A user who has never been seen
+	 * has no bn_presence row, and is reported as 0 rather than omitted, so callers
+	 * can read the map directly instead of guarding every lookup.
+	 *
+	 * @param int[] $user_ids Users to resolve.
+	 * @return array<int,int> user_id => last-active UNIX timestamp (0 = never seen).
+	 */
+	public static function last_active_map( array $user_ids ): array {
+		$user_ids = array_values( array_unique( array_filter( array_map( 'absint', $user_ids ) ) ) );
+		if ( empty( $user_ids ) ) {
+			return array();
+		}
+
+		// Seed every id to 0 so an absent row reads as offline, not as a missing key.
+		$map = array_fill_keys( $user_ids, 0 );
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $user_ids ), '%d' ) );
+		$sql          = "SELECT user_id, last_active FROM {$wpdb->prefix}bn_presence WHERE user_id IN ({$placeholders})";
+
+		// $placeholders is a run of %d built from a counted int array, so the query is
+		// fully placeholdered and every value below is bound; the sniffs cannot see that.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, ...$user_ids ), ARRAY_A );
+
+		foreach ( (array) $rows as $row ) {
+			$map[ (int) $row['user_id'] ] = (int) $row['last_active'];
+		}
+
+		return $map;
+	}
 }

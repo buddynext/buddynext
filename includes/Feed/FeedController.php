@@ -45,6 +45,18 @@ class FeedController extends BaseRestController {
 	public const VIEWER_STATE_MAX_IDS = 100;
 
 	/**
+	 * Leading reactors carried on each feed item for the face-stack.
+	 *
+	 * Public for the same reason VIEWER_STATE_MAX_IDS is: the client renders
+	 * "Amina, Marcus +12" by subtracting the faces it received from reaction_count,
+	 * so it has to know how many faces the payload promises. AppConfigController
+	 * emits it rather than restating the literal, so the two cannot drift.
+	 *
+	 * @var int
+	 */
+	public const FACE_STACK_SIZE = 3;
+
+	/**
 	 * The pagination contract every feed surface shares.
 	 *
 	 * Declared, not just read. Each feed route used to read cursor and per_page in
@@ -429,6 +441,7 @@ class FeedController extends BaseRestController {
 		$author_ids = array();
 		$poll_ids   = array();
 		$media_ids  = array();
+		$owner_map  = array();
 		foreach ( $items as $item ) {
 			$pid = absint( $item['id'] ?? 0 );
 			$aid = absint( $item['user_id'] ?? 0 );
@@ -437,6 +450,11 @@ class FeedController extends BaseRestController {
 			}
 			if ( $aid ) {
 				$author_ids[] = $aid;
+			}
+			if ( $pid && $aid ) {
+				// The reactor gate needs each post's owner; the page already knows them,
+				// so handing them over keeps top_reactors_map() off a per-post lookup.
+				$owner_map[ $pid ] = $aid;
 			}
 			if ( $pid && 'poll' === ( $item['type'] ?? '' ) ) {
 				$poll_ids[] = $pid;
@@ -458,6 +476,27 @@ class FeedController extends BaseRestController {
 
 		$maps = $this->prime_viewer_maps( $viewer, $post_ids, $poll_ids );
 
+		// Community signals, primed for the page like everything above it. Presence is
+		// one read for every author; the face-stacks are one bounded read for every
+		// post. Resolved per card instead, these are the two cheapest ways to turn a
+		// twenty-post feed into a sixty-query one.
+		$presence = ! empty( $author_ids )
+			? \BuddyNext\Realtime\PresenceService::last_active_map( $author_ids )
+			: array();
+		$blocks   = buddynext_service( 'blocks' );
+		if ( ! empty( $author_ids ) ) {
+			// is_user_online_at() consults the restrict and block gates per author, and
+			// both are per-pair caches — cold, that is two queries for every distinct
+			// author on the page. These two primers already exist for exactly this shape
+			// (the directory and DM rails use them), so the presence dot reuses them
+			// rather than growing a third way to ask the same question.
+			$blocks->prime_restricted_cache( $viewer, $author_ids );
+			$blocks->blocking_either_map( $viewer, $author_ids );
+		}
+		$reactors = ! empty( $post_ids )
+			? buddynext_service( 'reactions' )->top_reactors_map( 'post', $post_ids, $owner_map, self::FACE_STACK_SIZE, $viewer )
+			: array();
+
 		$format = function_exists( 'buddynext_format_content' );
 
 		foreach ( $items as &$item ) {
@@ -469,7 +508,14 @@ class FeedController extends BaseRestController {
 				'id'           => $aid,
 				'display_name' => $author ? $author->display_name : __( 'Community Member', 'buddynext' ),
 				'avatar_url'   => $aid ? get_avatar_url( $aid, array( 'size' => 96 ) ) : '',
+				// From the primed map, never last_active_at() — same reason the member
+				// directory reads presence out of its own query rather than per card.
+				'is_online'    => $aid > 0 && $blocks->is_user_online_at( $viewer, $aid, (int) ( $presence[ $aid ] ?? 0 ) ),
 			);
+
+			// Up to FACE_STACK_SIZE leading reactors, so a client can render the stack
+			// beside reaction_count without a second request per card.
+			$item['top_reactors'] = $reactors[ $pid ] ?? array();
 
 			$item['content_html'] = $format
 				? buddynext_format_content( (string) ( $item['content'] ?? '' ) )
