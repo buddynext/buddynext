@@ -67,32 +67,8 @@ parameters:
 			path: includes/Core/RecommendedDefaults.php
 
 		-
-			message: '#^Offset 0\|1\|2\|3\|4\|5\|6\|7\|8\|9\|10\|11 on array\{''Design systems,…'', ''CSS, accessibility,…'', ''Books, community…'', ''Type design,…'', ''Trail running, data…'', ''Pixel art, game…'', ''Ocean systems,…'', ''Coffee roasting, Go…'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: includes/Demo/DemoDataService.php
-
-		-
 			message: '#^Offset 0\|1\|2\|3\|4\|5\|6\|7\|8\|9\|10\|11 on array\{''she/her'', ''she/her'', ''he/him'', ''they/them'', ''she/her'', ''he/him'', ''she/her'', ''he/him'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
-			count: 1
-			path: includes/Demo/DemoDataService.php
-
-		-
-			message: '#^Result of && is always true\.$#'
-			identifier: booleanAnd.alwaysTrue
-			count: 1
-			path: includes/Demo/DemoDataService.php
-
-		-
-			message: '#^Strict comparison using \!\=\= between '''' and ''Backend Engineer''\|''Community Lead''\|''Data Scientist''\|''Developer Advocate''\|''Frontend Engineer''\|''Game Developer''\|''Hardware Engineer''\|''Illustrator''\|''OSS Maintainer''\|''Product Designer''\|''Researcher''\|''UX Writer'' will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: includes/Demo/DemoDataService.php
-
-		-
-			message: '#^Strict comparison using \!\=\= between '''' and ''Bengaluru, IN''\|''Berlin, DE''\|''Casablanca, MA''\|''Dakar, SN''\|''Dublin, IE''\|''Gothenburg, SE''\|''Kyoto, JP''\|''Lisbon, PT''\|''Melbourne, AU''\|''Mexico City, MX''\|''Milan, IT''\|''Seoul, KR'' will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
 			count: 1
 			path: includes/Demo/DemoDataService.php
 

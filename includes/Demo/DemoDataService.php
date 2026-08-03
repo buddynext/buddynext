@@ -68,7 +68,10 @@ class DemoDataService {
 	 * Realistic member roster. login is prefixed `bn_demo_` so it never
 	 * collides with a real account; avatar/cover index into assets/demo/.
 	 *
-	 * @var array<int,array<string,string>>
+	 * `topics` is a list of space-category slugs (see seed_member_interests);
+	 * every other field is a plain string.
+	 *
+	 * @var array<int,array<string,string|array<int,string>>>
 	 */
 	private const MEMBERS = array(
 		array(
@@ -78,6 +81,8 @@ class DemoDataService {
 			'location' => 'Lisbon, PT',
 			'job'      => 'Product Designer',
 			'site'     => 'https://alexrivera.example',
+			'note'     => 'Design systems, empty states, good coffee',
+			'topics'   => array( 'design', 'startups' ),
 		),
 		array(
 			'login'    => 'priya_nair',
@@ -86,6 +91,8 @@ class DemoDataService {
 			'location' => 'Bengaluru, IN',
 			'job'      => 'Frontend Engineer',
 			'site'     => 'https://priyanair.example',
+			'note'     => 'CSS, accessibility, the web platform',
+			'topics'   => array( 'web-development', 'design' ),
 		),
 		array(
 			'login'    => 'marcus_obrien',
@@ -94,6 +101,8 @@ class DemoDataService {
 			'location' => 'Dublin, IE',
 			'job'      => 'Community Lead',
 			'site'     => '',
+			'note'     => 'Books, community building, board games',
+			'topics'   => array( 'books', 'startups' ),
 		),
 		array(
 			'login'    => 'yuki_tanaka',
@@ -102,6 +111,8 @@ class DemoDataService {
 			'location' => 'Kyoto, JP',
 			'job'      => 'Illustrator',
 			'site'     => 'https://yuki.example',
+			'note'     => 'Type design, printmaking, slow mornings',
+			'topics'   => array( 'design', 'photography' ),
 		),
 		array(
 			'login'    => 'sara_lindqvist',
@@ -110,6 +121,8 @@ class DemoDataService {
 			'location' => 'Gothenburg, SE',
 			'job'      => 'Data Scientist',
 			'site'     => '',
+			'note'     => 'Trail running, data viz, houseplants',
+			'topics'   => array( 'running', 'web-development' ),
 		),
 		array(
 			'login'    => 'diego_morales',
@@ -118,6 +131,8 @@ class DemoDataService {
 			'location' => 'Mexico City, MX',
 			'job'      => 'Game Developer',
 			'site'     => 'https://diego.example',
+			'note'     => 'Pixel art, game jams, synthwave',
+			'topics'   => array( 'design', 'photography' ),
 		),
 		array(
 			'login'    => 'amina_diallo',
@@ -126,6 +141,8 @@ class DemoDataService {
 			'location' => 'Dakar, SN',
 			'job'      => 'Researcher',
 			'site'     => '',
+			'note'     => 'Ocean systems, climate models, sailing',
+			'topics'   => array( 'running', 'books' ),
 		),
 		array(
 			'login'    => 'tom_becker',
@@ -134,6 +151,8 @@ class DemoDataService {
 			'location' => 'Berlin, DE',
 			'job'      => 'Backend Engineer',
 			'site'     => 'https://becker.example',
+			'note'     => 'Coffee roasting, Go, mechanical keyboards',
+			'topics'   => array( 'web-development', 'books' ),
 		),
 		array(
 			'login'    => 'lucia_ferrari',
@@ -142,6 +161,8 @@ class DemoDataService {
 			'location' => 'Milan, IT',
 			'job'      => 'UX Writer',
 			'site'     => '',
+			'note'     => 'Plain language, UX writing, espresso',
+			'topics'   => array( 'design', 'books' ),
 		),
 		array(
 			'login'    => 'noah_kim',
@@ -150,6 +171,8 @@ class DemoDataService {
 			'location' => 'Seoul, KR',
 			'job'      => 'Developer Advocate',
 			'site'     => 'https://noahkim.example',
+			'note'     => 'Photography, DevRel, street food',
+			'topics'   => array( 'photography', 'web-development' ),
 		),
 		array(
 			'login'    => 'fatima_zahra',
@@ -158,6 +181,8 @@ class DemoDataService {
 			'location' => 'Casablanca, MA',
 			'job'      => 'OSS Maintainer',
 			'site'     => '',
+			'note'     => 'Open source, docs, mentoring',
+			'topics'   => array( 'web-development', 'startups' ),
 		),
 		array(
 			'login'    => 'liam_walsh',
@@ -166,6 +191,8 @@ class DemoDataService {
 			'location' => 'Melbourne, AU',
 			'job'      => 'Hardware Engineer',
 			'site'     => '',
+			'note'     => 'Synth DIY, cycling, vinyl',
+			'topics'   => array( 'running', 'photography' ),
 		),
 	);
 
@@ -195,20 +222,21 @@ class DemoDataService {
 	 *
 	 * @var string[]
 	 */
-	private const INTERESTS = array(
-		'Design systems, empty states, good coffee',
-		'CSS, accessibility, the web platform',
-		'Books, community building, board games',
-		'Type design, printmaking, slow mornings',
-		'Trail running, data viz, houseplants',
-		'Pixel art, game jams, synthwave',
-		'Ocean systems, climate models, sailing',
-		'Coffee roasting, Go, mechanical keyboards',
-		'Plain language, UX writing, espresso',
-		'Photography, DevRel, street food',
-		'Open source, docs, mentoring',
-		'Synth DIY, cycling, vinyl',
-	);
+	/**
+	 * Topic interests and the human bio line used to live in two arrays kept
+	 * parallel to MEMBERS by index. They are fields on the member record now:
+	 * a parallel array is a drift point, and PHPStan proved the defensive
+	 * `?? ''` guards around them were already dead code.
+	 *
+	 * `interests` is a category_multiselect whose options come from the SPACE
+	 * CATEGORIES, so its values are category IDs, not prose. The seeder used to
+	 * post free-text blurbs into it, which stored NOTHING - on a fresh install
+	 * not one demo member had an interest, so suggestions had no signal and
+	 * `buddynext_member_interests_updated` could never fire. The blurbs predate
+	 * the field: a migration renamed the old free-text `interests` field to
+	 * `skills` and gave the key to this one. They are good copy, so they enrich
+	 * the bio instead of being discarded.
+	 */
 
 	/**
 	 * Spaces to seed — one of every type. avatar/cover index into assets/demo/.
@@ -221,42 +249,70 @@ class DemoDataService {
 			'slug'     => 'design-critique',
 			'type'     => 'open',
 			'desc'     => 'Share work in progress and get honest, kind feedback.',
-			'category' => 'general',
+			'category' => 'design',
 		),
 		array(
 			'name'     => 'Frontend Guild',
 			'slug'     => 'frontend-guild',
 			'type'     => 'open',
 			'desc'     => 'Everything CSS, a11y, and the modern web platform.',
-			'category' => 'help-support',
+			'category' => 'web-development',
 		),
 		array(
 			'name'     => 'Book Club',
 			'slug'     => 'book-club',
 			'type'     => 'private',
 			'desc'     => 'One book a month. Request to join and pick up the current read.',
-			'category' => 'off-topic',
+			'category' => 'books',
 		),
 		array(
 			'name'     => 'Trail Runners',
 			'slug'     => 'trail-runners',
 			'type'     => 'open',
 			'desc'     => 'Routes, gear talk, and weekend meetups.',
-			'category' => 'general',
+			'category' => 'running',
 		),
 		array(
 			'name'     => 'Founders Lounge',
 			'slug'     => 'founders-lounge',
 			'type'     => 'secret',
 			'desc'     => 'Invite-only room for the core team to talk shop.',
-			'category' => 'announcements',
+			'category' => 'startups',
 		),
 		array(
 			'name'     => 'Photo Walks',
 			'slug'     => 'photo-walks',
 			'type'     => 'private',
 			'desc'     => 'Monthly city photo walks. Members share their best frame.',
+			'category' => 'photography',
+		),
+		// The three below exist to fill the categories the INSTALLER seeds, so no
+		// filter chip in the directory leads to an empty page. The topic spaces
+		// above deliberately no longer use those generic slugs - "Trail Runners"
+		// filed under "General" tells an owner nothing - but leaving them barren
+		// just moves the problem: the 1.0.4 QA found exactly that, a chip that
+		// filters to nothing. These are also the three spaces almost every real
+		// community actually has, so they earn their place rather than padding.
+		array(
+			'name'     => 'Say Hello',
+			'slug'     => 'say-hello',
+			'type'     => 'open',
+			'desc'     => 'New here? Introduce yourself and tell us what you are working on.',
 			'category' => 'introductions',
+		),
+		array(
+			'name'     => 'Community News',
+			'slug'     => 'community-news',
+			'type'     => 'open',
+			'desc'     => 'Product updates and community announcements from the team.',
+			'category' => 'announcements',
+		),
+		array(
+			'name'     => 'The Lounge',
+			'slug'     => 'the-lounge',
+			'type'     => 'open',
+			'desc'     => 'Off-topic chatter, small wins, and weekend plans.',
+			'category' => 'general',
 		),
 	);
 
@@ -553,10 +609,14 @@ class DemoDataService {
 			// made every card render the tagline twice). Empty when we have
 			// nothing to add - the card then simply shows the headline alone.
 			$bn_handle = str_replace( '_', '', $member['login'] );
-			$bn_bio    = '';
-			if ( '' !== $member['job'] && '' !== $member['location'] ) {
-				$bn_bio = $member['job'] . ' based in ' . $member['location'] . '.';
-			}
+
+			// Two sentences: what they do, then who they are. "Product Designer
+			// based in Lisbon, PT." on its own is a database row; adding "Into
+			// design systems, empty states, good coffee." makes it a person, and
+			// an owner judges the demo on whether it reads like a community they
+			// would want to run. Empty parts drop out, so a member with neither
+			// simply has no bio.
+			$bn_bio = $member['job'] . ' based in ' . $member['location'] . '. Into ' . lcfirst( $member['note'] ) . '.';
 			$profiles->save_profile(
 				$user_id,
 				array(
@@ -565,7 +625,6 @@ class DemoDataService {
 					'location'       => $member['location'],
 					'website'        => $member['site'],
 					'pronouns'       => self::PRONOUNS[ $i ] ?? '',
-					'interests'      => self::INTERESTS[ $i ] ?? '',
 					'social_twitter' => 'https://twitter.com/' . $bn_handle,
 				)
 			);
@@ -616,6 +675,12 @@ class DemoDataService {
 				$manifest['space_categories'][] = (int) $bn_new_cat;
 			}
 		}
+
+		// Interests, now that the topic categories exist. This runs here rather
+		// than in the member loop above for a plain ordering reason: the field
+		// stores CATEGORY IDS, and the categories are not created until the
+		// block directly above this one.
+		$this->seed_member_interests( $user_ids, $cat_by_slug, $profiles );
 
 		foreach ( self::SPACES as $i => $space ) {
 			$owner_id = $user_ids[ $i % count( $user_ids ) ];
@@ -891,6 +956,43 @@ class DemoDataService {
 		$say( 'Demo data installed.' );
 
 		return $this->summary();
+	}
+
+	/**
+	 * Give each member the topic categories they are interested in.
+	 *
+	 * Kept separate from the member loop because the field stores category IDs
+	 * and the categories do not exist until the spaces block has run.
+	 *
+	 * Saved through save_profile() - the same path the REST API and the profile
+	 * form use - so the values land in bn_profile_values, the caches clear, and
+	 * `buddynext_member_interests_updated` fires exactly as it would for a real
+	 * member. A direct INSERT would produce rows the suggestion engine reads but
+	 * no event any integration could observe.
+	 *
+	 * @param array<int,int>    $user_ids    Seeded member IDs, in MEMBERS order.
+	 * @param array<string,int> $cat_by_slug Category slug => ID.
+	 * @param object            $profiles    ProfileService.
+	 */
+	private function seed_member_interests( array $user_ids, array $cat_by_slug, $profiles ): void {
+		foreach ( $user_ids as $i => $user_id ) {
+			$slugs = self::MEMBERS[ $i ]['topics'] ?? array();
+			if ( empty( $slugs ) ) {
+				continue;
+			}
+
+			$ids = array();
+			foreach ( $slugs as $slug ) {
+				if ( isset( $cat_by_slug[ $slug ] ) ) {
+					$ids[] = (int) $cat_by_slug[ $slug ];
+				}
+			}
+			if ( empty( $ids ) ) {
+				continue;
+			}
+
+			$profiles->save_profile( $user_id, array( 'interests' => $ids ) );
+		}
 	}
 
 	/**
@@ -1379,7 +1481,7 @@ class DemoDataService {
 	/**
 	 * Create a single demo member, flagged for safe cleanup.
 	 *
-	 * @param array<string,string> $member Roster entry.
+	 * @param array<string,string|array<int,string>> $member Roster entry.
 	 * @return int New user ID, or 0 on failure / already-exists.
 	 */
 	private function create_member( array $member ): int {
