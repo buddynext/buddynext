@@ -1,5 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { urls } from '../_fixtures/selectors';
+import { resolveOtherMemberSlug, softSkip } from '../_fixtures/precondition';
 
 /**
  * J-124-profile-owner-gate.
@@ -16,10 +17,20 @@ import { urls } from '../_fixtures/selectors';
  * pencil (`.bn-pf-cover__edit`), not a dedicated `.bn-profile-actions-bar`.
  */
 test.describe('profile / owner gate', () => {
-    test('Edit Profile / cover pencil do NOT render on a non-owner profile', async ({ authenticatedPage: page }) => {
-        const otherMember = process.env.BN_TEST_OTHER_USER ?? 'member1';
+    test('Edit Profile / cover pencil do NOT render on a non-owner profile', async ({ authenticatedPage: page }, testInfo) => {
+        const self        = process.env.BN_TEST_USER ?? 'varundubey';
+        const otherMember = await resolveOtherMemberSlug(page, self);
+
+        if (!otherMember) {
+            softSkip(testInfo, 'No member other than the test user exists — cannot exercise the non-owner profile gate.');
+            return;
+        }
+
         await page.goto(urls.member(otherMember));
-        await expect(page.locator('.bn-pf-hero').first()).toBeVisible({ timeout: 5_000 });
+        await expect(
+            page.locator('.bn-pf-hero').first(),
+            `Profile hero did not render for "${otherMember}" — the gate below never ran. This is a fixture problem, not an owner-gate failure.`,
+        ).toBeVisible({ timeout: 5_000 });
 
         // No OWNER Edit-profile link in the action bar on someone else's profile.
         //
