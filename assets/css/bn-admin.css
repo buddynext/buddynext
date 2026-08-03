@@ -8,9 +8,16 @@
  *
  * File structure:
  *   1. :root — component-specific design tokens (--bn-a-* prefix)
- *   2. [data-theme="dark"] — dark palette overrides
- *   3. Component rules — desktop-first
- *   4. @media breakpoints — see the tier list below
+ *   2. Component rules — desktop-first
+ *   3. @media breakpoints — see the tier list below
+ *
+ * There is deliberately no dark section. This file has never carried a
+ * [data-theme="dark"] block, and nothing sets that attribute in wp-admin:
+ * assets/js/shell/font-scale.js is the only writer and it is enqueued solely for
+ * front-end hub pages via PageRouter::enqueue_hub_assets(). Admin dark mode is
+ * unbuilt, not broken — do not add dark overrides here expecting them to apply.
+ * Wiring it up (a toggle, or prefers-color-scheme) is a feature, and needs the
+ * attribute set on an admin surface first.
  *
  * Breakpoint tiers. Author against these three and nothing else:
  *
