@@ -39,6 +39,7 @@ use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Hashtags\HashtagListener;
 use BuddyNext\Hashtags\HashtagService;
+use BuddyNext\Media\Galleries;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Media\ImageStorageService;
 use BuddyNext\Profile\ProfileService;
@@ -1215,15 +1216,196 @@ class DemoDataService {
 		// Bring the site owner INTO the community they just seeded.
 		$this->seed_owner_relationships( $user_ids, $follows, $connections, $say );
 
+		// Space albums (1.1.1) — shipped after this seeder was written, so the
+		// space Media tab was empty on every demo site.
+		$this->seed_space_albums( $space_by_slug, $manifest, $say );
+
 		// ── Engagement extras: a poll, bookmarks, and DM threads ────────────
 		// These populate the Polls feature, the member Bookmarks screen, and the
 		// Messages UI so every demo surface has live content (no empty states).
 		$this->seed_extras( $user_ids, $post_ids, $manifest, $say );
 
 		update_option( self::MANIFEST_OPTION, $manifest, false );
+
+		// Say what the demo could NOT show, and why.
+		//
+		// Photo posts, space albums and direct messages all run on WPMediaVerse.
+		// Without it the seed still succeeds - it never hard-depends on an
+		// optional plugin - but it quietly produces a community with no images
+		// and no messages, and the owner is left to conclude that BuddyNext
+		// simply does not do those things. Skipping silently is the wrong
+		// default when the whole purpose of the seed is to show the product.
+		if ( ! MediaClient::available() ) {
+			$say( 'Skipped photo posts, space albums and direct messages: WPMediaVerse is not active.' );
+			$say( 'Install and activate it, then run cleanup and seed again for the full demo.' );
+		}
+
 		$say( 'Demo data installed.' );
 
 		return $this->summary();
+	}
+
+	/**
+	 * Ingest a bundled demo image through the real upload path.
+	 *
+	 * Shared by the media posts and the space albums. The copy-to-tempfile dance
+	 * is not incidental: handle() may move or unlink tmp_name, and the bundled
+	 * repo asset has to survive for the next seed.
+	 *
+	 * @param string $rel       Path under assets/demo/.
+	 * @param int    $author_id Uploading member.
+	 * @return int Media ID, or 0 when the engine is absent or the file is unusable.
+	 */
+	private function upload_bundled_media( string $rel, int $author_id ): int {
+		$uploader = MediaClient::available() ? MediaClient::upload() : null;
+		if ( ! is_object( $uploader ) || ! method_exists( $uploader, 'handle' ) ) {
+			return 0;
+		}
+
+		$src = BUDDYNEXT_DIR . 'assets/demo/' . $rel;
+		if ( ! is_readable( $src ) ) {
+			return 0;
+		}
+
+		if ( ! function_exists( 'wp_tempnam' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+
+		$tmp = wp_tempnam( basename( $rel ) );
+		// copy() can emit a warning on a transient temp-write failure; the return
+		// value is the real signal and is checked here.
+		if ( ! $tmp || ! @copy( $src, $tmp ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- failure handled via the checked return value.
+			return 0;
+		}
+
+		$media_id = $uploader->handle(
+			array(
+				'tmp_name' => $tmp,
+				'name'     => basename( $rel ),
+				'type'     => 'image/png',
+				'size'     => (int) filesize( $tmp ),
+				'error'    => 0,
+			),
+			$author_id,
+			array()
+		);
+
+		if ( file_exists( $tmp ) ) {
+			wp_delete_file( $tmp );
+		}
+
+		return is_wp_error( $media_id ) ? 0 : (int) $media_id;
+	}
+
+	/**
+	 * Put a photo album inside a couple of spaces.
+	 *
+	 * Space albums shipped in 1.1.1, after this seeder was written, so the space
+	 * Media tab was empty on every demo site - a feature we ship and never show.
+	 *
+	 * Albums are an mvs_album CPT owned by WPMediaVerse, so this goes through
+	 * MediaClient::albums() (the BuddyNext-owned client, same pattern as the DM
+	 * threads) and Galleries::assign_album_to_space() for the space binding. No
+	 * direct writes to the partner's post meta: the bridge contract says the
+	 * bridge owns partner-table access, and a demo seeder is not an excuse.
+	 *
+	 * Skipped when the media engine is absent - seed() reports that once, at the
+	 * end, rather than each step failing quietly on its own.
+	 *
+	 * @param array<string,int>   $space_by_slug Space slug => ID.
+	 * @param array<string,mixed> $manifest      Seed manifest, by reference.
+	 * @param callable            $say           Progress logger.
+	 */
+	private function seed_space_albums( array $space_by_slug, array &$manifest, callable $say ): void {
+		if ( ! MediaClient::available() ) {
+			return;
+		}
+
+		$albums = MediaClient::albums();
+		if ( ! is_object( $albums ) || ! method_exists( $albums, 'create' ) || ! method_exists( $albums, 'add_items' ) ) {
+			return;
+		}
+
+		// Albums upload their OWN images rather than borrowing the three the
+		// media posts made. Splitting those across two albums left one photo in
+		// each, and a one-photo album demonstrates the feature worse than having
+		// none. The bundled covers are abstract art and there are eight of them,
+		// so this needs no new assets.
+		$plan = array(
+			array(
+				'space'       => 'photo-walks',
+				'title'       => 'March city walk',
+				'description' => 'Everyone brought a frame back from the riverside route.',
+				'images'      => array( 'covers/cover-01.png', 'covers/cover-03.png', 'covers/cover-04.png' ),
+			),
+			array(
+				'space'       => 'design-critique',
+				'title'       => 'Work in progress',
+				'description' => 'Screens shared for feedback this month.',
+				'images'      => array( 'covers/cover-06.png', 'covers/cover-08.png', 'covers/cover-02.png' ),
+			),
+		);
+
+		$made = 0;
+
+		foreach ( $plan as $entry ) {
+			$space_id = (int) ( $space_by_slug[ $entry['space'] ] ?? 0 );
+			if ( $space_id <= 0 ) {
+				continue;
+			}
+
+			// Authored by the space owner, which is who could really create it.
+			$owner_id = (int) ( ( new SpaceService() )->get( $space_id )['owner_id'] ?? 0 );
+			if ( $owner_id <= 0 ) {
+				continue;
+			}
+
+			$items = array();
+			foreach ( $entry['images'] as $rel ) {
+				$media_id = $this->upload_bundled_media( $rel, $owner_id );
+				if ( $media_id > 0 ) {
+					$items[]             = $media_id;
+					$manifest['media'][] = $media_id;
+				}
+			}
+			if ( empty( $items ) ) {
+				continue;
+			}
+
+			$album_id = $albums->create(
+				$owner_id,
+				array(
+					'title'       => $entry['title'],
+					'description' => $entry['description'],
+					'privacy'     => 'public',
+				)
+			);
+			if ( is_wp_error( $album_id ) || (int) $album_id <= 0 ) {
+				continue;
+			}
+
+			$album_id = (int) $album_id;
+			$albums->add_items( $album_id, $items );
+
+			// Switch the space's Media tab ON. Without it the album exists and is
+			// simply unreachable: the tab is gated on the per-space
+			// `mvs_media_tab` field, which defaults OFF, so the REST route answers
+			// media_tab_disabled and the web nav never renders the tab. Seeding
+			// content nobody can open is worse than seeding none - it looks like
+			// the feature is broken rather than switched off.
+			update_space_meta( $space_id, 'mvs_media_tab', '1' );
+			if ( method_exists( $albums, 'set_cover' ) ) {
+				$albums->set_cover( $album_id, (int) $items[0] );
+			}
+			Galleries::assign_album_to_space( $album_id, $space_id );
+
+			$manifest['albums'][] = $album_id;
+			++$made;
+		}
+
+		if ( $made > 0 ) {
+			$say( sprintf( 'Created %d space albums.', $made ) );
+		}
 	}
 
 	/**
@@ -1718,6 +1900,19 @@ class DemoDataService {
 				$say( 'Removing media…' );
 				foreach ( $demo_media as $mid ) {
 					$repo->delete_cascade( $mid );
+				}
+			}
+		}
+
+		// Space albums. The media inside them is deleted separately above; this
+		// removes the album post itself, which would otherwise survive as an
+		// empty collection pointing at a space that is about to be deleted too.
+		$demo_albums = array_values( array_filter( array_map( 'intval', (array) ( $manifest['albums'] ?? array() ) ) ) );
+		if ( ! empty( $demo_albums ) ) {
+			$say( 'Removing space albums…' );
+			foreach ( $demo_albums as $album_id ) {
+				if ( 'mvs_album' === get_post_type( $album_id ) ) {
+					wp_delete_post( $album_id, true );
 				}
 			}
 		}
