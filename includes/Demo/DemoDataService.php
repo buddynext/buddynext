@@ -241,12 +241,17 @@ class DemoDataService {
 	/**
 	 * Spaces to seed — one of every type. avatar/cover index into assets/demo/.
 	 *
-	 * @var array<int,array<string,string>>
+	 * `members` is how many of the roster join, and the spread across spaces is
+	 * deliberate: the directory's default sort is member_count DESC, so equal
+	 * counts would make it rank nothing.
+	 *
+	 * @var array<int,array<string,string|int>>
 	 */
 	private const SPACES = array(
 		array(
 			'name'     => 'Design Critique',
 			'slug'     => 'design-critique',
+			'members'  => 11,
 			'type'     => 'open',
 			'desc'     => 'Share work in progress and get honest, kind feedback.',
 			'category' => 'design',
@@ -254,6 +259,7 @@ class DemoDataService {
 		array(
 			'name'     => 'Frontend Guild',
 			'slug'     => 'frontend-guild',
+			'members'  => 9,
 			'type'     => 'open',
 			'desc'     => 'Everything CSS, a11y, and the modern web platform.',
 			'category' => 'web-development',
@@ -261,6 +267,7 @@ class DemoDataService {
 		array(
 			'name'     => 'Book Club',
 			'slug'     => 'book-club',
+			'members'  => 5,
 			'type'     => 'private',
 			'desc'     => 'One book a month. Request to join and pick up the current read.',
 			'category' => 'books',
@@ -268,6 +275,7 @@ class DemoDataService {
 		array(
 			'name'     => 'Trail Runners',
 			'slug'     => 'trail-runners',
+			'members'  => 7,
 			'type'     => 'open',
 			'desc'     => 'Routes, gear talk, and weekend meetups.',
 			'category' => 'running',
@@ -275,6 +283,7 @@ class DemoDataService {
 		array(
 			'name'     => 'Founders Lounge',
 			'slug'     => 'founders-lounge',
+			'members'  => 3,
 			'type'     => 'secret',
 			'desc'     => 'Invite-only room for the core team to talk shop.',
 			'category' => 'startups',
@@ -282,6 +291,7 @@ class DemoDataService {
 		array(
 			'name'     => 'Photo Walks',
 			'slug'     => 'photo-walks',
+			'members'  => 4,
 			'type'     => 'private',
 			'desc'     => 'Monthly city photo walks. Members share their best frame.',
 			'category' => 'photography',
@@ -296,6 +306,7 @@ class DemoDataService {
 		array(
 			'name'     => 'Say Hello',
 			'slug'     => 'say-hello',
+			'members'  => 8,
 			'type'     => 'open',
 			'desc'     => 'New here? Introduce yourself and tell us what you are working on.',
 			'category' => 'introductions',
@@ -303,6 +314,7 @@ class DemoDataService {
 		array(
 			'name'     => 'Community News',
 			'slug'     => 'community-news',
+			'members'  => 10,
 			'type'     => 'open',
 			'desc'     => 'Product updates and community announcements from the team.',
 			'category' => 'announcements',
@@ -310,6 +322,7 @@ class DemoDataService {
 		array(
 			'name'     => 'The Lounge',
 			'slug'     => 'the-lounge',
+			'members'  => 6,
 			'type'     => 'open',
 			'desc'     => 'Off-topic chatter, small wins, and weekend plans.',
 			'category' => 'general',
@@ -712,15 +725,36 @@ class DemoDataService {
 				)
 			);
 
-			// Add roughly half the members to each space.
-			foreach ( $user_ids as $j => $member_id ) {
-				if ( $member_id === $owner_id || 0 !== ( ( $i + $j ) % 2 ) ) {
-					continue;
+			// Membership varies per space, and that is the point. The old rule
+			// added every second member to every space, so all of them landed on
+			// the SAME count - and "Sort: Popular" is member_count DESC, which
+			// made the directory's default sort a total tie that ranked nothing.
+			// A believable spread is what shows an owner the sort works at all.
+			//
+			// The roster is rotated by space index so different spaces draw
+			// different members; taking the first N of the same list every time
+			// would give every space an identical membership.
+			if ( 'secret' !== $space['type'] ) {
+				// No `?? default` here on purpose: every space declares `members`,
+				// so a missing one is a mistake PHPStan should catch rather than
+				// a silent fallback that quietly flattens the spread again.
+				$bn_want   = (int) $space['members'];
+				$bn_offset = count( $user_ids ) > 0 ? ( $i % count( $user_ids ) ) : 0;
+				$bn_roster = array_merge(
+					array_slice( $user_ids, $bn_offset ),
+					array_slice( $user_ids, 0, $bn_offset )
+				);
+				$bn_joined = 0;
+				foreach ( $bn_roster as $member_id ) {
+					if ( $bn_joined >= $bn_want ) {
+						break;
+					}
+					if ( $member_id === $owner_id ) {
+						continue;
+					}
+					$space_members->join( $space_id, $member_id );
+					++$bn_joined;
 				}
-				if ( 'secret' === $space['type'] ) {
-					continue; // Invite-only: leave to owner only for the demo.
-				}
-				$space_members->join( $space_id, $member_id );
 			}
 		}
 		$say( sprintf( 'Created %d spaces.', count( $space_ids ) ) );
