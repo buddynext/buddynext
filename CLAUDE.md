@@ -572,18 +572,41 @@ or weaken a test to make a card go away.
 
 ## Quality Gates — How to Run
 
-Run from the repo root. All of these must pass before a commit.
+Run from the repo root. **Gates are tiered — do not run the release battery on every
+bug fix.** Running `cert`, the journey suite and a manifest refresh after each card
+costs more time than it catches, and the cost is what makes people start skipping
+gates entirely.
+
+### Per fix — run what your change can actually break
+
+| You touched | Run |
+|---|---|
+| Any PHP | `bin/check.sh --staged` (the pre-commit hook already does this) |
+| PHP logic with test coverage | `vendor/bin/phpunit tests/[Area]/[ClassTest].php` — the touched area, not the suite |
+| CSS | `bin/ux-audit.sh` |
+| An icon | `bin/check-icons.sh` |
+| Frontend REST / a store | `bin/check-rest-boundary.sh` |
+| Any member-facing UI | Browser verification: desktop + 390px + dark. **Not optional, not deferrable** — this is the gate that actually catches defects on a bug fix |
+
+The browser check is the one that matters per card. The static gates mostly re-prove
+things the pre-commit hook already proved.
+
+### Per release — the full battery
 
 | Gate | Command |
 |---|---|
 | Full CI-parity gate (lint + WPCS + PHPStan + UX audit) | `bin/check.sh` |
-| Same, staged files only (fast pre-commit signal) | `bin/check.sh --staged` |
 | WPCS | `vendor/bin/phpcs` |
 | PHPStan level 5 | `vendor/bin/phpstan analyse` |
-| Unit tests | `vendor/bin/phpunit` |
-| UX audit — token + primitive compliance, inline style/script, no `alert()`/`confirm()` | `bin/ux-audit.sh` |
+| Full unit suite | `vendor/bin/phpunit` |
 | REST boundary — 100% REST frontend, no admin-ajax | `bin/check-rest-boundary.sh` |
 | Icon set — Lucide-style, no baked-in sizes, well-formed | `bin/check-icons.sh` |
+| Behavioural cert + journey suite + flow-audit + docs-truth | `bin/build-release.sh` (see the release gates below) |
+
+`bin/check.sh` silently skips the journey suite and `cert` unless `BN_BASE_URL` and
+`BN_WP_PATH` are exported — so a green tick from it proves less than it appears to.
+Export both when running it as a release gate; that gap is tracked on card
+`10160723942`.
 
 **PWA / service workers cannot be tested on the local site.** A worker only runs
 in a secure context, and plain-HTTP `buddynext.local` is not one — `'serviceWorker'
