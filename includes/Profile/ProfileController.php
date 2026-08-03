@@ -1151,6 +1151,35 @@ class ProfileController extends BaseRestController {
 				continue;
 			}
 
+			// A required `member_type` field must not be enforced against the payload
+			// when the member has nothing to submit it WITH.
+			//
+			// member_type is assignment-backed and set-once, so the editor renders no
+			// input in two of its three states: once a member is classified it is a
+			// read-only badge ("Set by the community"), and an unclassified member with
+			// no self-selectable types gets a plain sentence. In both cases the key is
+			// absent from every payload, and the full-write rule below ("an omitted
+			// required key is a bypass") then 422'd EVERY save — one changed field or
+			// none, member or admin, self-assign on or off. The profile simply could
+			// not be saved while a required member_type field existed.
+			//
+			// Resolve from the live assignment instead, exactly as the group-restriction
+			// and field_is_active skips above resolve from state rather than payload.
+			// The middle state — unclassified WITH self-selectable types — still falls
+			// through and is enforced, because there the member really can choose one.
+			// Registration is unaffected: signup enforces through
+			// RegistrationPolicy::missing(), not this validator.
+			if ( 'member_type' === (string) ( $field_def['type'] ?? '' ) ) {
+				$bn_mt_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
+				$bn_has_type   = is_object( $bn_mt_service )
+					&& method_exists( $bn_mt_service, 'get_user_type' )
+					&& null !== $bn_mt_service->get_user_type( $target_user_id );
+
+				if ( $bn_has_type || array() === \BuddyNext\Profile\FieldType::member_type_self_select_options() ) {
+					continue;
+				}
+			}
+
 			// A repeater sub-field's value is NEVER a top-level payload key: it lives
 			// inside its group's entries (data[group_key][i][field_key], written by
 			// collectRepeaterEntries in the profile store). Measuring it against the
