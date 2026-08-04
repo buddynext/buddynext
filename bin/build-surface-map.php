@@ -150,14 +150,63 @@ $contract       = array(
 	'namespaces'            => array(),
 	'multi_file_namespaces' => array(),
 );
+// A module's entry file may split its store() registrations across relative-
+// imported sub-files (import './share-modal.js') that WP serves but never
+// registers. Follow that import graph so the hub view stays complete after a
+// split — otherwise extracting a namespace into a sub-file makes it vanish from
+// the map even though it still loads with the module.
+$import_graph = static function ( ?string $entry ) use ( $bn_dir ): array {
+	if ( null === $entry ) {
+		return array();
+	}
+	$seen  = array();
+	$stack = array( $entry );
+	while ( $stack ) {
+		$rel = array_pop( $stack );
+		if ( isset( $seen[ $rel ] ) ) {
+			continue;
+		}
+		$seen[ $rel ] = true;
+		$abs          = $bn_dir . '/' . $rel;
+		if ( ! is_readable( $abs ) ) {
+			continue;
+		}
+		$src = (string) file_get_contents( $abs );
+		if ( preg_match_all( "/from\s+'(\.[^']+\.js)'/", $src, $im ) ) {
+			$base = dirname( $rel );
+			foreach ( $im[1] as $spec ) {
+				$resolved = $base . '/' . $spec;
+				// Normalise ../ and ./ segments.
+				$parts = array();
+				foreach ( explode( '/', $resolved ) as $seg ) {
+					if ( '..' === $seg ) {
+						array_pop( $parts );
+					} elseif ( '.' !== $seg && '' !== $seg ) {
+						$parts[] = $seg;
+					}
+				}
+				$stack[] = implode( '/', $parts );
+			}
+		}
+	}
+	return array_keys( $seen );
+};
+
 foreach ( $hub_enqueues as $hub => $features ) {
 	$mods = array();
 	foreach ( $features as $slug ) {
-		$mid          = $slug_to_module( $slug );
-		$file         = $module_file[ $mid ] ?? null;
+		$mid  = $slug_to_module( $slug );
+		$file = $module_file[ $mid ] ?? null;
+		// Namespaces from the entry file AND every relative-imported sub-file.
+		$ns_in_graph = array();
+		foreach ( $import_graph( $file ) as $graph_file ) {
+			if ( isset( $store_namespaces[ $graph_file ] ) ) {
+				$ns_in_graph = array_merge( $ns_in_graph, array_keys( $store_namespaces[ $graph_file ] ) );
+			}
+		}
 		$mods[ $mid ] = array(
 			'file'       => $file,
-			'namespaces' => $file && isset( $store_namespaces[ $file ] ) ? array_keys( $store_namespaces[ $file ] ) : array(),
+			'namespaces' => array_values( array_unique( $ns_in_graph ) ),
 		);
 	}
 	$contract['hubs'][ $hub ] = $mods;
