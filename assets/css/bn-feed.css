@@ -3319,6 +3319,12 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-composer__privacy-opt-label { display: flex; flex-direction: column; gap: 1px; }
 .bn-composer__privacy-opt-label strong { font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-ink); }
 .bn-composer__privacy-opt-label small { font-size: 11px; color: var(--bn-ink-3); }
+/* The privacy popover is kept inside the viewport by the shared JS clamp
+   (bnClampPopoverToViewport, called from the composer's togglePrivacy) rather
+   than a fixed CSS alignment: the "Posting to" chip's position shifts with the
+   action-row layout, so no static inset works at every width. Cap the width so a
+   very narrow screen still leaves the clamp room to fit it. */
+.bn-composer__privacy-pop { max-width: calc(100vw - 1.5rem); }
 li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hover); }
 
 /* ── Composer error band ─────────────────────────────────────────────────── */

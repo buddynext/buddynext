@@ -230,3 +230,45 @@ export function escapeHtml( str ) {
 		( ch ) => ( { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ ch ] )
 	);
 }
+
+/**
+ * Shift an absolutely-positioned popover back inside the viewport — either edge.
+ *
+ * CSS alone cannot do this: these popovers are absolutely positioned inside a
+ * narrow wrapper and pinned to their trigger's edge, so a viewport-relative
+ * max-width still starts wherever the trigger happens to sit. The trigger's
+ * position shifts with the layout (the post-card reaction pickers can overflow the
+ * END edge; the composer "Posting to" popover, end-aligned, overflows the START
+ * edge on a narrow screen where the chip sits toward the middle), so no static
+ * inset works everywhere. Measure after paint and translate back by exactly the
+ * overrun, never past the opposite gutter.
+ *
+ * Shared by the post-card reaction/comment pickers AND the composer privacy
+ * popover — one rule, do not write a third copy.
+ *
+ * @param {Element|null} el Popover element, already visible. A hidden element has no measurable box.
+ * @return {void}
+ */
+export function bnClampPopoverToViewport( el ) {
+	if ( ! el ) {
+		return;
+	}
+
+	el.style.removeProperty( 'transform' );
+	requestAnimationFrame( () => {
+		const box       = el.getBoundingClientRect();
+		const gutter    = 12;
+		const overRight = box.right - ( window.innerWidth - gutter );
+		const overLeft  = gutter - box.left;
+		if ( overRight > 0 ) {
+			// Overflows the END edge — shift toward START, never past the start gutter.
+			const shift = Math.min( overRight, Math.max( 0, box.left - gutter ) );
+			el.style.transform = 'translateX(-' + Math.round( shift ) + 'px)';
+		} else if ( overLeft > 0 ) {
+			// Overflows the START edge — shift toward END, never past the end gutter.
+			const room  = ( window.innerWidth - gutter ) - box.right;
+			const shift = Math.min( overLeft, Math.max( 0, room ) );
+			el.style.transform = 'translateX(' + Math.round( shift ) + 'px)';
+		}
+	} );
+}

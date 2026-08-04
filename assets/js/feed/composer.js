@@ -19,7 +19,7 @@ import { bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '../media/upload-core.js';
-import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime } from './shared.js';
+import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime, bnClampPopoverToViewport } from './shared.js';
 
 /* ── Post composer ───────────────────────────────────────────────────────── */
 
@@ -1063,6 +1063,18 @@ store( 'buddynext/post-composer', {
 		togglePrivacy() {
 			const ctx        = getContext();
 			ctx.privacyOpen  = ! ctx.privacyOpen;
+			if ( ctx.privacyOpen ) {
+				// Keep the popover inside the viewport. The "Posting to" chip's
+				// position shifts with the action-row layout, so a static CSS inset
+				// overflows one edge or the other on mobile — the shared clamp
+				// measures after paint and nudges it back in (either edge).
+				try {
+					const trigger = getElement().ref;
+					const wrap    = trigger ? trigger.closest( '.bn-composer__privacy-wrap' ) : null;
+					const pop     = wrap ? wrap.querySelector( '.bn-composer__privacy-pop' ) : null;
+					bnClampPopoverToViewport( pop );
+				} catch ( _e ) {}
+			}
 		},
 		* resendVerification( event ) {
 			if ( event && typeof event.preventDefault === 'function' ) { event.preventDefault(); }

@@ -17,7 +17,7 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
-import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue } from './shared.js';
+import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnClampPopoverToViewport } from './shared.js';
 
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
@@ -140,40 +140,6 @@ function siteDate( date ) {
 	return day + ' ' + month + year;
 }
 
-/**
- * Shift an absolutely-positioned popover back inside the viewport's end edge.
- *
- * CSS alone cannot do this: these pickers are absolutely positioned inside a
- * narrow wrapper and pinned to their trigger's start edge, so a viewport-relative
- * max-width still starts wherever the trigger happens to sit. Measure after paint
- * and shift back by exactly the overrun, never past the start edge.
- *
- * Extracted from the post-card reaction picker, which had this logic inline. The
- * comment/reply reaction picker is a separate implementation
- * (.bn-comment__react-picker, built in buildCommentNode) and never had it, so on
- * a narrow screen a picker on an indented reply ran straight off the right edge
- * with the later reactions unreachable and no scroll affordance. Two pickers, one
- * rule -- do not write a third copy.
- *
- * @param {Element|null} el Popover element, already visible. A hidden element has no measurable box.
- * @return {void}
- */
-function bnClampPopoverToViewport( el ) {
-	if ( ! el ) {
-		return;
-	}
-
-	el.style.removeProperty( 'transform' );
-	requestAnimationFrame( () => {
-		const box    = el.getBoundingClientRect();
-		const gutter = 12;
-		const over   = box.right - ( window.innerWidth - gutter );
-		if ( over > 0 ) {
-			const shift = Math.min( over, Math.max( 0, box.left - gutter ) );
-			el.style.transform = 'translateX(-' + Math.round( shift ) + 'px)';
-		}
-	} );
-}
 
 /**
  * Rebuild a post card's reaction-summary chip strip after a toggle.
