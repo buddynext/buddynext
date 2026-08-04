@@ -214,3 +214,19 @@ export function autoResizeTextarea( el ) {
 	el.style.height = 'auto';
 	el.style.height = el.scrollHeight + 'px';
 }
+
+/**
+ * HTML-escape a string for safe interpolation into innerHTML.
+ *
+ * Used by the comment renderer (post-card.js) and the feed store's client-side
+ * enhancements (store.js), so it lives here as one instance.
+ *
+ * @param {string} str Raw value.
+ * @return {string} HTML-escaped value.
+ */
+export function escapeHtml( str ) {
+	return String( str == null ? '' : str ).replace(
+		/[&<>"']/g,
+		( ch ) => ( { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ ch ] )
+	);
+}
