@@ -153,6 +153,22 @@ else
 	note "bin/build-surface-map.php missing"
 fi
 
+# 3bd. Store-merge collisions — two co-loading files must not define the same
+# store key in one namespace without a declared dependency ordering them.
+# store() merges silently, so an undeclared clash means last-loaded wins with no
+# error. Passes today (the four overlaps are editor-vs-frontend); this keeps a
+# deliberate file split from introducing a live one.
+section "Store-merge collisions"
+if [ -f bin/check-store-collisions.php ]; then
+	if php bin/check-store-collisions.php >/dev/null 2>&1; then
+		ok "no undeclared same-key collision between co-loading store modules"
+	else
+		fail "undeclared store-key collision — run: php bin/check-store-collisions.php"
+	fi
+else
+	note "bin/check-store-collisions.php missing"
+fi
+
 # 3bb. Hook-doc conformance — BLOCKING.
 #
 # The integration-hook table in CLAUDE.md is read by third-party integrators AND by AI agents.
