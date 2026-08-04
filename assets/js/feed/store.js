@@ -3675,25 +3675,6 @@ store( 'buddynext/post-composer', {
 	},
 } );
 
-/* ── Announcement ────────────────────────────────────────────────────────── */
-
-store( 'buddynext/announcement', {
-	actions: {
-		* dismiss() {
-			const ctx    = getContext();
-			const banner = document.querySelector( '[data-bn-rest-nonce]' );
-			const nonce  = banner?.dataset.bnRestNonce || '';
-			try {
-				yield restFetch( '/feed/announcements/' + ctx.announcementId + '/dismiss', {
-					method:  'POST',
-					nonce,
-					toastOnError: false,
-				} );
-			} catch ( _e ) {}
-			document.querySelector( '.bn-announcement' )?.remove();
-		},
-	},
-} );
 
 /* ── Infinite-scroll trigger for the home + explore feeds ──────────────────
    Watches every `[data-bn-infinite-feed]` sentinel. When it scrolls into the
