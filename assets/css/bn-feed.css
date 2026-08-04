@@ -2929,6 +2929,40 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-composer__media-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
 /*
+ * Kind placeholder for media with no visual frame — audio, or a video whose poster
+ * could not be captured. A centered play/music icon on a sunken surface, never a
+ * broken <img>. A video that DOES have a captured poster keeps its <img> and gets a
+ * small play badge so it still reads as a video.
+ */
+.bn-composer__media-kind {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+}
+.bn-composer__media-thumb.is-uploading .bn-composer__media-kind { opacity: 0.5; }
+
+/* A video that HAS a captured poster keeps its <img>; add a small play badge so it
+ * still reads as a video. Videos without a poster already show the play kind-icon,
+ * so the badge is scoped to tiles that contain an <img>. */
+.bn-composer__media-thumb--video:has( img )::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	margin: auto;
+	width: 0;
+	height: 0;
+	border-style: solid;
+	border-width: 8px 0 8px 13px;
+	border-color: transparent transparent transparent rgba(255, 255, 255, 0.95);
+	filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+	pointer-events: none;
+}
+
+/*
  * Per-tile upload spinner. The composer builds media tiles imperatively; while a
  * file is in flight the tile carries .is-uploading and a centered spinner over
  * the dimmed local thumbnail, so each image reads as "uploading" until its id

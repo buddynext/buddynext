@@ -21,7 +21,7 @@ import { restFetch } from '@buddynext/rest-client';
 // Shared client-side thumbnail only — DM upload stays on MediaVerse's own
 // conversation-scoped (privacy:'dm') endpoint; this just unifies the fast
 // small preview so a large attachment doesn't decode full-res into the chip.
-import { makeThumb } from '../media/upload-core.js';
+import { mediaPreview } from '../media/upload-core.js';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1429,7 +1429,7 @@ const messagesStore = store( 'buddynext/messages', {
 			// URL so a large image doesn't decode megapixels into the tiny chip.
 			let preview = '';
 			if ( file.type.indexOf( 'image/' ) === 0 ) {
-				preview = yield makeThumb( file );
+				preview = yield mediaPreview( file );
 			}
 			ctx.attachmentPreview = preview;
 			// In flight: drives the chip spinner and disables Send so the member can

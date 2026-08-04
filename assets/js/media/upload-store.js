@@ -18,7 +18,7 @@ import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { bnToast, bnConfirm } from '@buddynext/shell-dialog';
-import { validateMedia, makeThumb, uploadMedia, deleteMedia } from './upload-core.js';
+import { validateMedia, mediaPreview, mediaKind, uploadMedia, deleteMedia } from './upload-core.js';
 
 /* Staged File objects are not reactive state (only their display metadata is),
  * so they live in a module buffer keyed by the island element. */
@@ -69,7 +69,7 @@ function syncStaged( ctx ) {
 		error:       s.error || '',
 		isImage:      !! s.preview,
 		isImageKind:  s.kind === 'image',
-		thumbLoading: s.kind === 'image' && ! s.preview,
+		thumbLoading: ( s.kind === 'image' || s.kind === 'video' ) && ! s.preview,
 		isQueued:     s.status === 'queued',
 		isUploading:  s.status === 'uploading',
 		isDone:       s.status === 'done',
@@ -89,7 +89,7 @@ function addFiles( ctx, fileList ) {
 			break;
 		}
 		const err = validate( file, ctx );
-		const kind = ( file.type || '' ).split( '/' )[ 0 ] || 'file';
+		const kind = mediaKind( file );
 		const item = {
 			file,
 			name:    file.name,
@@ -99,7 +99,7 @@ function addFiles( ctx, fileList ) {
 			error:   err,
 		};
 		buf.push( item );
-		if ( ! err && kind === 'image' ) {
+		if ( ! err && ( 'image' === kind || 'video' === kind ) ) {
 			fresh.push( item );
 		}
 	}
@@ -109,7 +109,7 @@ function addFiles( ctx, fileList ) {
 	// Generate the small thumbnails asynchronously so a large source image never
 	// blocks staging or upload; the tile shows its placeholder until ready.
 	fresh.forEach( ( item ) => {
-		makeThumb( item.file ).then( ( url ) => {
+		mediaPreview( item.file ).then( ( url ) => {
 			item.preview = url;
 			syncStaged( ctx );
 		} );

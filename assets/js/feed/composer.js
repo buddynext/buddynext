@@ -18,7 +18,7 @@ import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
-import { makeThumb, uploadMedia, deleteMedia, validateMedia } from '../media/upload-core.js';
+import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '../media/upload-core.js';
 import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime } from './shared.js';
 
 /* ── Post composer ───────────────────────────────────────────────────────── */
@@ -26,6 +26,29 @@ import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDateti
 // Module-level media state — shared between native event handler and store actions.
 // WP Interactivity API getContext() doesn't work in native addEventListener callbacks.
 const _mediaState = { ids: [], previews: [] };
+
+// Inline SVG for a media KIND with no visual frame — a video whose poster could
+// not be captured, or an audio file. Matches the icon set (play / music) rather
+// than showing a broken <img>, mirroring the WPMediaVerse upload dialogs. viewBox
+// 0 0 24 24, currentColor stroke so it inherits the tile's colour.
+function bnMediaKindIconSvg( kind ) {
+	const svg = document.createElementNS( 'http://www.w3.org/2000/svg', 'svg' );
+	svg.setAttribute( 'viewBox', '0 0 24 24' );
+	svg.setAttribute( 'width', '28' );
+	svg.setAttribute( 'height', '28' );
+	svg.setAttribute( 'aria-hidden', 'true' );
+	const paths = 'audio' === kind
+		? [ [ 'path', { d: 'M9 18V5l12-2v13', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } ],
+			[ 'circle', { cx: '6', cy: '18', r: '3', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' } ],
+			[ 'circle', { cx: '18', cy: '16', r: '3', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' } ] ]
+		: [ [ 'path', { d: 'M6 4l15 8-15 8V4z', fill: 'currentColor', stroke: 'none' } ] ];
+	paths.forEach( ( [ tag, attrs ] ) => {
+		const el = document.createElementNS( 'http://www.w3.org/2000/svg', tag );
+		Object.keys( attrs ).forEach( ( k ) => el.setAttribute( k, attrs[ k ] ) );
+		svg.appendChild( el );
+	} );
+	return svg;
+}
 
 /* ── Link preview detection ──────────────────────────────────────────────
  * As the user types, the first http(s) URL in the composer is detected and
@@ -595,9 +618,13 @@ store( 'buddynext/post-composer', {
 
 						// Shared upload core: one BuddyNext-owned, owner-gated path
 						// (buddynext/v1/me/media) for every surface, plus a fast small
-						// client thumbnail so a large file never blanks the tile. The
+						// client preview so a large file never blanks the tile. The
 						// engine REST is never called directly from the client.
-						const thumbUrl = await makeThumb( file );
+						// mediaPreview() returns an image thumbnail OR a captured video
+						// frame; '' for audio (and for a video whose frame can't be
+						// grabbed), where we paint a kind icon instead of a broken <img>.
+						const kind     = mediaKind( file );
+						const thumbUrl = await mediaPreview( file );
 
 						// Show the tile IMMEDIATELY with a spinner overlay, using the
 						// local thumbnail — the member sees the image the instant they
@@ -609,16 +636,29 @@ store( 'buddynext/post-composer', {
 						// attribute.
 						let thumb       = null;
 						let thumbRemove = null;
+						let thumbImg    = null;
 						if ( previewArea ) {
 							thumb = document.createElement( 'div' );
-							thumb.className = 'bn-composer__media-thumb is-uploading';
-							const thumbImg = document.createElement( 'img' );
-							thumbImg.src = thumbUrl || '';
-							thumbImg.alt = '';
-							thumbImg.width = 80;
-							thumbImg.height = 80;
-							thumbImg.loading = 'lazy';
-							thumbImg.decoding = 'async';
+							thumb.className = 'bn-composer__media-thumb is-uploading bn-composer__media-thumb--' + kind;
+							// A visual poster (image thumb or captured video frame) renders
+							// as an <img>; audio and un-grabbable video render a kind icon so
+							// the tile is never a broken image. A video with a frame also
+							// carries the --video class for the CSS play badge overlay.
+							if ( thumbUrl ) {
+								thumbImg = document.createElement( 'img' );
+								thumbImg.src = thumbUrl;
+								thumbImg.alt = '';
+								thumbImg.width = 80;
+								thumbImg.height = 80;
+								thumbImg.loading = 'lazy';
+								thumbImg.decoding = 'async';
+								thumb.appendChild( thumbImg );
+							} else {
+								const icon = document.createElement( 'span' );
+								icon.className = 'bn-composer__media-kind';
+								icon.appendChild( bnMediaKindIconSvg( kind ) );
+								thumb.appendChild( icon );
+							}
 							const spinner = document.createElement( 'span' );
 							spinner.className = 'bn-composer__media-spinner';
 							spinner.setAttribute( 'aria-hidden', 'true' );
@@ -628,7 +668,8 @@ store( 'buddynext/post-composer', {
 							thumbRemove.textContent = '×';
 							// No removing until the upload lands and has a real media id.
 							thumbRemove.hidden = true;
-							thumb.append( thumbImg, spinner, thumbRemove );
+							// The poster/icon is already appended above; add the overlays.
+							thumb.append( spinner, thumbRemove );
 							previewArea.appendChild( thumb );
 						}
 
@@ -648,6 +689,21 @@ store( 'buddynext/post-composer', {
 								thumb.dataset.mediaId = mediaId;
 								const spin = thumb.querySelector( '.bn-composer__media-spinner' );
 								if ( spin ) { spin.remove(); }
+								// If we showed a kind icon (no client frame - audio, or a
+								// video whose frame we could not grab) but the engine
+								// produced a real poster, upgrade the tile to that image.
+								if ( ! thumbImg && out.thumb ) {
+									const kindEl = thumb.querySelector( '.bn-composer__media-kind' );
+									if ( kindEl ) { kindEl.remove(); }
+									const posterImg = document.createElement( 'img' );
+									posterImg.src = out.thumb;
+									posterImg.alt = '';
+									posterImg.width = 80;
+									posterImg.height = 80;
+									posterImg.loading = 'lazy';
+									posterImg.decoding = 'async';
+									thumb.insertBefore( posterImg, thumb.firstChild );
+								}
 								if ( thumbRemove ) {
 									thumbRemove.hidden = false;
 									thumbRemove.dataset.mediaId = mediaId;
