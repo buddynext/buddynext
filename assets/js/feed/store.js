@@ -3695,29 +3695,6 @@ store( 'buddynext/announcement', {
 	},
 } );
 
-/* ── Spaces sidebar join ─────────────────────────────────────────────────── */
-
-store( 'buddynext/spaces', {
-	actions: {
-		* join( event ) {
-			const ctx    = getContext();
-			const banner = document.querySelector( '[data-bn-rest-nonce]' );
-			const nonce  = banner?.dataset.bnRestNonce || '';
-			try {
-				const res = yield restFetch( '/spaces/' + ctx.spaceId + '/join', {
-					method:  'POST',
-					nonce,
-					toastOnError: false,
-				} );
-				if ( res.ok ) {
-					event.target.textContent = t( 'joined', 'Joined' );
-					event.target.disabled    = true;
-				}
-			} catch ( _e ) {}
-		},
-	},
-} );
-
 /* ── Infinite-scroll trigger for the home + explore feeds ──────────────────
    Watches every `[data-bn-infinite-feed]` sentinel. When it scrolls into the
    IntersectionObserver root margin, the next page is fetched as pre-rendered
