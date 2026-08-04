@@ -50,9 +50,46 @@ class JetonomyBridge {
 	 * into a comment). The reciprocal hook fires synchronously during that write;
 	 * seeing the flag, its handler returns immediately, so the mirror never loops.
 	 *
+	 * Raise it only through mirror(), never by hand — see that method for why.
+	 *
+	 * It is also an IN-REQUEST guard. It cannot protect a cycle that crosses a
+	 * request boundary, so if any leg of this sync is ever moved to a queue, a
+	 * cron tick or a webhook, the flag stops working and the pair record
+	 * (bn_comments.sync_reply_id) has to carry the guard instead: write the
+	 * counterpart id first, and bail when it is already set.
+	 *
 	 * @var bool
 	 */
 	private static bool $syncing = false;
+
+	/**
+	 * Perform a cross-boundary write with the echo guard raised, and lower it
+	 * whatever happens.
+	 *
+	 * The guard being static means its blast radius is the PHP process, not the
+	 * function. If anything throws between raising and lowering it, every later
+	 * mirror in that process is silently skipped — no error, no log entry, just
+	 * replies that stop appearing in the feed. That failure is invisible in
+	 * testing because a request mirroring ONE comment has no second comment to
+	 * lose; it shows up in bulk actions, imports and CLI runs, where nobody
+	 * looks.
+	 *
+	 * The window deliberately contains third-party code — the callbacks re-fire
+	 * the far side's own hooks so its notifications and counters still run — so
+	 * it must never depend on the body completing. `finally` also covers any
+	 * early return added to a callback later.
+	 *
+	 * @param callable $write The cross-boundary write.
+	 * @return void
+	 */
+	private static function mirror( callable $write ): void {
+		self::$syncing = true;
+		try {
+			$write();
+		} finally {
+			self::$syncing = false;
+		}
+	}
 
 	/**
 	 * Attach hooks.
@@ -986,25 +1023,27 @@ class JetonomyBridge {
 			return;
 		}
 
-		self::$syncing = true;
-		$reply_id      = \Jetonomy\Models\Reply::create(
-			array(
-				'post_id'       => $topic_id,
-				'author_id'     => $user_id,
-				'content'       => wp_kses_post( $content ),
-				'content_plain' => wp_strip_all_tags( $content ),
-			)
+		self::mirror(
+			function () use ( $topic_id, $user_id, $content, $comment_id ) {
+				$reply_id = \Jetonomy\Models\Reply::create(
+					array(
+						'post_id'       => $topic_id,
+						'author_id'     => $user_id,
+						'content'       => wp_kses_post( $content ),
+						'content_plain' => wp_strip_all_tags( $content ),
+					)
+				);
+				if ( ! is_wp_error( $reply_id ) && (int) $reply_id > 0 ) {
+					// Persist the pair on the comment so edit/delete can propagate later
+					// (both directions resolve through bn_comments.sync_reply_id).
+					( new \BuddyNext\Comments\CommentService() )->set_sync_reply_id( $comment_id, (int) $reply_id );
+					// Fire the same post-create signal Jetonomy's REST reply path fires so the
+					// engine's own listeners (notifications, activity, counts) treat this reply
+					// like any other. The reciprocal handler bails on self::$syncing.
+					do_action( 'jetonomy_after_create_reply', (int) $reply_id, $topic_id );
+				}
+			}
 		);
-		if ( ! is_wp_error( $reply_id ) && (int) $reply_id > 0 ) {
-			// Persist the pair on the comment so edit/delete can propagate later
-			// (both directions resolve through bn_comments.sync_reply_id).
-			( new \BuddyNext\Comments\CommentService() )->set_sync_reply_id( $comment_id, (int) $reply_id );
-			// Fire the same post-create signal Jetonomy's REST reply path fires so the
-			// engine's own listeners (notifications, activity, counts) treat this reply
-			// like any other. The reciprocal handler bails on self::$syncing.
-			do_action( 'jetonomy_after_create_reply', (int) $reply_id, $topic_id );
-		}
-		self::$syncing = false;
 	}
 
 	/**
@@ -1038,16 +1077,18 @@ class JetonomyBridge {
 			return; // Only mirror a published reply by a real author.
 		}
 
-		self::$syncing = true;
-		// CommentService applies its own permission/verification gate and sanitizes;
-		// a WP_Error (e.g. an unverified author) simply means no mirrored comment.
-		$comments   = new \BuddyNext\Comments\CommentService();
-		$comment_id = $comments->create( $author_id, 'post', $card_id, $content );
-		if ( ! is_wp_error( $comment_id ) && (int) $comment_id > 0 ) {
-			// Persist the pair so edit/delete propagate in both directions.
-			$comments->set_sync_reply_id( (int) $comment_id, $reply_id );
-		}
-		self::$syncing = false;
+		self::mirror(
+			function () use ( $author_id, $card_id, $content, $reply_id ) {
+				// CommentService applies its own permission/verification gate and sanitizes;
+				// a WP_Error (e.g. an unverified author) simply means no mirrored comment.
+				$comments   = new \BuddyNext\Comments\CommentService();
+				$comment_id = $comments->create( $author_id, 'post', $card_id, $content );
+				if ( ! is_wp_error( $comment_id ) && (int) $comment_id > 0 ) {
+					// Persist the pair so edit/delete propagate in both directions.
+					$comments->set_sync_reply_id( (int) $comment_id, $reply_id );
+				}
+			}
+		);
 	}
 
 	/**
@@ -1073,15 +1114,17 @@ class JetonomyBridge {
 		if ( '' === $content ) {
 			return;
 		}
-		self::$syncing = true;
-		\Jetonomy\Models\Reply::update(
-			$reply_id,
-			array(
-				'content'       => wp_kses_post( $content ),
-				'content_plain' => wp_strip_all_tags( $content ),
-			)
+		self::mirror(
+			function () use ( $reply_id, $content ) {
+				\Jetonomy\Models\Reply::update(
+					$reply_id,
+					array(
+						'content'       => wp_kses_post( $content ),
+						'content_plain' => wp_strip_all_tags( $content ),
+					)
+				);
+			}
 		);
-		self::$syncing = false;
 	}
 
 	/**
@@ -1100,9 +1143,11 @@ class JetonomyBridge {
 		if ( $reply_id <= 0 ) {
 			return;
 		}
-		self::$syncing = true;
-		\Jetonomy\Models\Reply::delete( $reply_id );
-		self::$syncing = false;
+		self::mirror(
+			function () use ( $reply_id ) {
+				\Jetonomy\Models\Reply::delete( $reply_id );
+			}
+		);
 	}
 
 	/**
@@ -1129,9 +1174,11 @@ class JetonomyBridge {
 		if ( '' === $content ) {
 			return;
 		}
-		self::$syncing = true;
-		$comments->update( (int) $comment['id'], (int) $comment['user_id'], $content );
-		self::$syncing = false;
+		self::mirror(
+			function () use ( $comments, $comment, $content ) {
+				$comments->update( (int) $comment['id'], (int) $comment['user_id'], $content );
+			}
+		);
 	}
 
 	/**
@@ -1151,9 +1198,11 @@ class JetonomyBridge {
 		if ( null === $comment ) {
 			return;
 		}
-		self::$syncing = true;
-		$comments->delete( (int) $comment['id'], (int) $comment['user_id'] );
-		self::$syncing = false;
+		self::mirror(
+			function () use ( $comments, $comment ) {
+				$comments->delete( (int) $comment['id'], (int) $comment['user_id'] );
+			}
+		);
 	}
 
 	/**
