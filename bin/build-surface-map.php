@@ -172,7 +172,10 @@ $import_graph = static function ( ?string $entry ) use ( $bn_dir ): array {
 			continue;
 		}
 		$src = (string) file_get_contents( $abs );
-		if ( preg_match_all( "/from\s+'(\.[^']+\.js)'/", $src, $im ) ) {
+		// Both `import x from './y.js'` and the side-effect `import './y.js';`
+		// (no `from`) — a split registers its store from a side-effect import, so
+		// missing that form would drop the extracted namespace from the map.
+		if ( preg_match_all( "/import\s+(?:[^;]*?\bfrom\s+)?'(\.[^']+\.js)'/", $src, $im ) ) {
 			$base = dirname( $rel );
 			foreach ( $im[1] as $spec ) {
 				$resolved = $base . '/' . $spec;

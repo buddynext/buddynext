@@ -5,6 +5,11 @@ import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { makeThumb, uploadMedia, deleteMedia, validateMedia } from '../media/upload-core.js';
 
+// Store concerns split into their own files by responsibility. Side-effect
+// imports: each registers its namespace when this module loads, so they load
+// exactly where @buddynext/feed is enqueued — the file moved, the loading did not.
+import './tabs.js';
+
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
  * (AssetService::i18n_feed) because Script Modules cannot use
@@ -3989,26 +3994,6 @@ store( 'buddynext/share-modal', {
 // context. (A plain document listener here could only mutate the inert
 // data-wp-context attribute, leaving the reactive store's postId at 0.)
 
-/* ── Feed filter tabs ────────────────────────────────────────────────────── */
-
-store( 'buddynext/feed-tabs', {
-	actions: {
-		setFilter( event ) {
-			if ( event && event.preventDefault ) { event.preventDefault(); }
-			const ctx    = getContext();
-			const target = event && event.target ? event.target.closest( '[data-filter]' ) : null;
-			const filter = target ? target.getAttribute( 'data-filter' ) : '';
-			if ( ! filter || filter === ctx.filter ) { return; }
-			ctx.filter = filter;
-			// Reactive page transitions reload the surface so server-rendered post
-			// cards stay the single source of truth — see docs/specs/UI-CONTRACT.md.
-			const url = new URL( window.location.href );
-			url.searchParams.set( 'filter', filter );
-			url.searchParams.delete( 'cursor' );
-			window.location.href = url.toString();
-		},
-	},
-} );
 
 /* ── Explore facet chips + search bar (buddynext/feed namespace) ──────────
  *
