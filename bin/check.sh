@@ -134,6 +134,25 @@ else
 	note "bin/check-route-urls.sh missing"
 fi
 
+# 3bc. Surface map — the store-per-hub contract must match source.
+#
+# audit/surface-map.json records hub -> module -> namespace -> actions, generated
+# from PageRouter::enqueue_hub_assets() + AssetService + store() calls. It is the
+# index that answers "which store loads on which surface, and what does it wire" —
+# the thing that was answered by hand and got wrong (people/post hubs missed). If
+# a refactor changes an enqueue, a namespace, or an action without regenerating
+# the map, this fails so the drift is caught at the change, not a survey later.
+section "Surface map (store-per-hub contract)"
+if [ -f bin/build-surface-map.php ]; then
+	if php bin/build-surface-map.php --check >/dev/null 2>&1; then
+		ok "surface map matches source"
+	else
+		fail "surface map stale — regenerate: php bin/build-surface-map.php (then commit audit/surface-map.json to the Pro shelf)"
+	fi
+else
+	note "bin/build-surface-map.php missing"
+fi
+
 # 3bb. Hook-doc conformance — BLOCKING.
 #
 # The integration-hook table in CLAUDE.md is read by third-party integrators AND by AI agents.
