@@ -169,6 +169,31 @@ export async function mediaPreview( file ) {
 }
 
 /**
+ * Convert a `data:` URL (e.g. a captured video frame) into a Blob for upload.
+ *
+ * @param {string} dataUrl A data: URL.
+ * @return {Blob|null} The decoded Blob, or null when the input isn't a data URL.
+ */
+function dataUrlToBlob( dataUrl ) {
+	if ( ! dataUrl || 0 !== String( dataUrl ).indexOf( 'data:' ) ) {
+		return null;
+	}
+	try {
+		const parts     = String( dataUrl ).split( ',' );
+		const mimeMatch = parts[ 0 ].match( /:(.*?);/ );
+		const mime      = mimeMatch ? mimeMatch[ 1 ] : 'image/jpeg';
+		const binary    = atob( parts[ 1 ] );
+		const bytes     = new Uint8Array( binary.length );
+		for ( let i = 0; i < binary.length; i++ ) {
+			bytes[ i ] = binary.charCodeAt( i );
+		}
+		return new Blob( [ bytes ], { type: mime } );
+	} catch ( e ) {
+		return null;
+	}
+}
+
+/**
  * Upload one file through the BuddyNext endpoint (engine services server-side).
  * Always posts as the current member's own media; owner-gated server-side.
  *
@@ -184,6 +209,16 @@ export async function uploadMedia( file, opts = {} ) {
 	}
 	if ( opts.title ) {
 		fd.append( 'title', opts.title );
+	}
+	// A client-captured video poster (data URL) rides along as a `thumbnail` file so
+	// the server can stage it for videos the engine can't extract an embedded frame
+	// from — otherwise the feed shows the default poster while the composer showed
+	// the real frame. Only for video; images/audio never send one.
+	if ( opts.thumbnail && /^video\//.test( file.type || '' ) ) {
+		const posterBlob = dataUrlToBlob( opts.thumbnail );
+		if ( posterBlob ) {
+			fd.append( 'thumbnail', posterBlob, 'poster.jpg' );
+		}
 	}
 
 	let res;

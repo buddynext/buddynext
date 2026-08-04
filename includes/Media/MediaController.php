@@ -372,6 +372,17 @@ class MediaController extends BaseRestController {
 			return $media_id;
 		}
 
+		// A video the engine cannot extract an embedded poster from otherwise shows
+		// the bundled default poster in the feed, even though the composer already
+		// captured a real frame. When the client posts that frame as a `thumbnail`
+		// file, stage it through the engine so the feed and Explore use it — the same
+		// mechanism WPMediaVerse's own upload endpoint uses. Best-effort; a genuine
+		// engine poster always wins (see MediaClient::apply_client_poster()).
+		$thumb_file = $request->get_file_params()['thumbnail'] ?? null;
+		if ( is_array( $thumb_file ) && ! empty( $thumb_file['tmp_name'] ) && empty( $thumb_file['error'] ) ) {
+			MediaClient::apply_client_poster( (int) $media_id, (string) $thumb_file['tmp_name'] );
+		}
+
 		$descriptor = MediaUrlResolver::descriptor( (int) $media_id );
 
 		$duplicate_id = method_exists( $upload, 'get_last_duplicate_warning' )

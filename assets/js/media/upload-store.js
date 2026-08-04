@@ -202,8 +202,10 @@ const mediaStore = store( 'buddynext/media', {
 				syncStaged( ctx );
 
 				const out = await uploadMedia( item.file, {
-					nonce:   ctx.restNonce,
-					privacy: ctx.privacy || 'public',
+					nonce:     ctx.restNonce,
+					privacy:   ctx.privacy || 'public',
+					// Send the captured frame so a posterless video keeps its real poster in the feed.
+					thumbnail: 'video' === item.kind ? item.preview : '',
 				} );
 				if ( out.ok ) {
 					item.status = 'done';

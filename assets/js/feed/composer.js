@@ -673,7 +673,12 @@ store( 'buddynext/post-composer', {
 							previewArea.appendChild( thumb );
 						}
 
-						const out = await uploadMedia( file, { nonce } );
+						const out = await uploadMedia( file, {
+							nonce,
+							// Send the captured video frame so the feed uses the real
+							// poster, not the engine's default film-strip fallback.
+							thumbnail: ( 'video' === kind && thumbUrl ) ? thumbUrl : '',
+						} );
 
 						if ( out.ok ) {
 							const mediaId = out.mediaId;

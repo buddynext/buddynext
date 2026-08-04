@@ -141,4 +141,55 @@ class MediaClient {
 		}
 		return '';
 	}
+
+	/**
+	 * Apply a client-captured poster frame to a video that has no server poster.
+	 *
+	 * The engine extracts a poster from a video's EMBEDDED frame; a video without
+	 * one (many screen recordings / re-encodes) otherwise falls back to the bundled
+	 * default poster, so the feed shows a generic film strip while the composer
+	 * already showed the real frame. The composer captures that frame client-side
+	 * and posts it as a `thumbnail` file; this stages it through the engine's poster
+	 * pipeline so the feed and Explore use the REAL frame — the exact mechanism
+	 * WPMediaVerse's own upload endpoint uses (MediaController::stage_client_frame).
+	 *
+	 * A genuine engine-generated poster (a valid image thumb_large) always wins;
+	 * the client frame is only staged when none exists. Best-effort and self-gated:
+	 * returns false when the engine, the poster service, or the temp file is absent.
+	 *
+	 * @param int    $media_id Engine media id just created.
+	 * @param string $tmp_path Uploaded thumbnail temp-file path ($_FILES tmp_name).
+	 * @return bool True when the client frame was staged as the poster.
+	 */
+	public static function apply_client_poster( int $media_id, string $tmp_path ): bool {
+		if ( $media_id <= 0 || '' === $tmp_path || ! is_file( $tmp_path ) ) {
+			return false;
+		}
+
+		$poster = self::service( 'poster' );
+		if ( ! $poster || ! is_callable( array( $poster, 'stage_client_frame' ) ) ) {
+			return false;
+		}
+
+		// A real engine poster (a valid image URL in thumb_large) wins — only stage
+		// the client frame when the video has no server-generated poster yet.
+		$repo = self::repo();
+		if ( $repo && is_callable( array( $repo, 'get_raw' ) ) ) {
+			$existing = (string) $repo->get_raw( $media_id, 'thumb_large' );
+			if ( '' !== $existing && preg_match( '#\.(jpe?g|png|gif|webp|avif)(?:[?\#].*)?$#i', $existing ) ) {
+				return false;
+			}
+		}
+
+		$staged_path = $poster->stage_client_frame( $media_id, $tmp_path );
+		if ( ! $staged_path ) {
+			return false;
+		}
+
+		$upload = self::upload();
+		if ( $upload && is_callable( array( $upload, 'generate_thumbnails' ) ) ) {
+			$upload->generate_thumbnails( $media_id, $staged_path, 'image/jpeg' );
+		}
+		return true;
+	}
 }
