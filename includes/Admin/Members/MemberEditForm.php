@@ -341,12 +341,11 @@ class MemberEditForm {
 								</div>
 								<?php
 								foreach ( $entry_fields as $entry_field ) :
-									// A saved entry carries non-field meta — a scalar `_visibility`
-									// element ProfileService appends beside the field arrays. Skip
-									// anything that isn't a field array so the array-typed renderer
-									// never receives a string. Mirrors the guard in profile/edit.php
-									// and profile/view.php; field-key agnostic, so it holds for any
-									// owner-defined repeater schema.
+									// Defensive: entries are packed field-array lists (per-entry
+									// privacy travels in the group's parallel entry_visibility
+									// array). Skip anything that isn't a field array so the
+									// array-typed renderer never receives a stray element. Mirrors
+									// the guard in profile/edit.php and profile/view.php.
 									if ( ! is_array( $entry_field ) || ! isset( $entry_field['field_key'] ) ) {
 										continue;
 									}

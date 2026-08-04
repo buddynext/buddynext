@@ -387,6 +387,21 @@ class HashtagController {
 			return new WP_Error( 'not_found', __( 'Hashtag not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
+		// Same hydrate + enrichment as every other post-returning surface
+		// (typed columns, then author, content_html, viewer_state, media) —
+		// raw rows here meant the app rendered its "Community Member" author
+		// fallback and no photos on the tag page while Home/space/Bookmarks
+		// showed the full card. The web template keeps consuming the raw
+		// service rows, so both steps live at this REST seam only.
+		$post_service    = new \BuddyNext\Feed\PostService();
+		$result['items'] = ( new \BuddyNext\Feed\FeedController() )->enrich_for_rest(
+			array_map(
+				static fn( array $row ): array => $post_service->hydrate( $row ),
+				(array) $result['items']
+			),
+			get_current_user_id()
+		);
+
 		return new WP_REST_Response( $result, 200 );
 	}
 

@@ -428,8 +428,11 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						$bn_rep_html .= '</div>';
 
 						// Per-entry privacy lock (reuses the _visibility control).
+						// The saved choice arrives in the group's index-aligned
+						// entry_visibility array — never inside the entry itself,
+						// which must stay a packed list for JSON consumers.
 						$bn_entry_vis = $bn_vis_norm(
-							$bn_entry['_visibility'] ?? ( $bn_group['entry_visibility'] ?? $bn_gdefault ),
+							$bn_group['entry_visibility'][ $bn_idx_int ] ?? $bn_gdefault,
 							$bn_gdefault
 						);
 						$bn_rep_html .= '<div class="bn-ep-field bn-ep-field--full bn-ep-repeater-vis">';

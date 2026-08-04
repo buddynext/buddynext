@@ -310,8 +310,9 @@ class FeedService {
 		}
 
 		$per_page       = min( $per_page, 50 );
-		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
+		// $cursor_where is built AFTER the ORDER BY is resolved below — a tiered
+		// ordering needs a tier-aware keyset, so the fragment depends on it.
 
 		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
 
@@ -372,6 +373,7 @@ class FeedService {
 		// every home timeline. Pins now surface only in their own context (profile
 		// / space feeds); the admin announcement is the sole top-of-home surface.
 		$default_order_by = 'created_at DESC, id DESC';
+		$tier_expr        = null;
 		if ( 'for-you' === $filter && $user_id > 0 ) {
 			global $wpdb;
 			$bn_conn_ids     = $this->connection_ids_capped( $user_id );
@@ -417,14 +419,25 @@ class FeedService {
 			// No emptiness guard: the own-post tier above is unconditional, so there is
 			// always at least one WHEN. The guard this replaces dated from when every
 			// tier was conditional on the member having connections or interests.
-			$default_order_by = 'CASE ' . implode( ' ', $bn_tiers )
-				. ' ELSE ' . count( $bn_tiers ) . ' END ASC, created_at DESC, id DESC';
+			$tier_expr        = 'CASE ' . implode( ' ', $bn_tiers ) . ' ELSE ' . count( $bn_tiers ) . ' END';
+			$default_order_by = $tier_expr . ' ASC, created_at DESC, id DESC';
 		}
 
 		$order_by = (string) apply_filters( 'buddynext_feed_order_by', $default_order_by, $user_id, $query_args );
 		if ( '' === $order_by ) {
 			$order_by = $default_order_by;
 		}
+
+		// A tiered ORDER BY needs a tier-aware keyset — a chronological cursor
+		// under a tiered order re-emits floated rows on later pages (dup posts →
+		// app key crash). Rebuild the cursor fragment now that the ordering is
+		// final; if a filter replaced the tiered default (e.g. Pro AI ranking),
+		// its own ordering contract applies and the chronological keyset stands.
+		if ( null !== $tier_expr && $order_by !== $default_order_by ) {
+			$tier_expr = null;
+		}
+		$cursor_where = $this->cursor_where( $cursor, $tier_expr );
+		$tier_select  = null !== $tier_expr ? ", ({$tier_expr}) AS bn_tier" : '';
 
 		// Source-blend WHERE built per filter. All branches use subqueries — no
 		// PHP-side ID arrays, no interpolation. $cursor_where, $excluded_where,
@@ -435,7 +448,7 @@ class FeedService {
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
-			"SELECT * FROM {$wpdb->prefix}bn_posts
+			"SELECT *{$tier_select} FROM {$wpdb->prefix}bn_posts
 			 WHERE status = 'published'
 			   AND type <> 'announcement'
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
@@ -445,7 +458,7 @@ class FeedService {
 			   {$cursor_where}
 			 ORDER BY {$order_by}
 			 LIMIT %d",
-			...array_merge( $source_params, $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( $source_params, $block_mute_params, $this->cursor_params( $cursor, $tier_expr ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -1692,13 +1705,20 @@ class FeedService {
 	/**
 	 * Encode a cursor from the last item in a page.
 	 *
-	 * Cursor format: base64( "{created_at}|{id}" ).
+	 * Cursor format: base64( "{created_at}|{id}" ), plus the row's ORDER BY
+	 * tier ("|{tier}") when the page was produced by a tiered ordering (the
+	 * for-you affinity CASE) — see cursor_where() for why the tier must ride
+	 * the cursor.
 	 *
-	 * @param array $row A hydrated post row.
+	 * @param array $row A hydrated post row (bn_tier present on tiered pages).
 	 * @return string Opaque cursor string.
 	 */
 	public function encode_cursor( array $row ): string {
-		return CursorCodec::encode( (string) $row['created_at'], (int) $row['id'] );
+		return CursorCodec::encode(
+			(string) $row['created_at'],
+			(int) $row['id'],
+			isset( $row['bn_tier'] ) ? (int) $row['bn_tier'] : null
+		);
 	}
 
 	/**
@@ -1706,10 +1726,20 @@ class FeedService {
 	 *
 	 * Returns an empty string when no cursor is given (first page).
 	 *
-	 * @param string|null $cursor Opaque cursor or null.
+	 * With a $tier_expr (the for-you affinity CASE, already fully prepared SQL)
+	 * AND a cursor that carries a tier, the keyset spans the FULL sort key
+	 * (tier, created_at, id). A purely chronological keyset under a tiered
+	 * ORDER BY re-emitted every tier-floated row on later pages — a
+	 * connection's older post pulled onto page 1 still satisfied
+	 * `created_at < cursor` on pages 2..n, which the app surfaced as the
+	 * duplicate-React-key crash. A tierless (legacy) cursor degrades to the
+	 * chronological fragment rather than erroring.
+	 *
+	 * @param string|null $cursor    Opaque cursor or null.
+	 * @param string|null $tier_expr Prepared tier CASE SQL when the feed's ORDER BY is tiered.
 	 * @return string SQL fragment (already safe to embed — placeholders handled separately).
 	 */
-	private function cursor_where( ?string $cursor ): string {
+	private function cursor_where( ?string $cursor, ?string $tier_expr = null ): string {
 		if ( null === $cursor ) {
 			return '';
 		}
@@ -1717,6 +1747,10 @@ class FeedService {
 		$decoded = CursorCodec::decode( $cursor );
 		if ( null === $decoded ) {
 			return '';
+		}
+
+		if ( null !== $tier_expr && null !== $decoded['tier'] ) {
+			return "AND ( ({$tier_expr}) > %d OR ( ({$tier_expr}) = %d AND (created_at < %s OR (created_at = %s AND id < %d)) ) )";
 		}
 
 		return 'AND (created_at < %s OR (created_at = %s AND id < %d))';
@@ -1725,10 +1759,14 @@ class FeedService {
 	/**
 	 * Return the ordered parameter values for cursor_where placeholders.
 	 *
-	 * @param string|null $cursor Opaque cursor or null.
+	 * MUST take the same $tier_expr the paired cursor_where() call took — the
+	 * fragment choice (tiered vs chronological) decides the placeholder count.
+	 *
+	 * @param string|null $cursor    Opaque cursor or null.
+	 * @param string|null $tier_expr Prepared tier CASE SQL when the feed's ORDER BY is tiered.
 	 * @return array
 	 */
-	private function cursor_params( ?string $cursor ): array {
+	private function cursor_params( ?string $cursor, ?string $tier_expr = null ): array {
 		if ( null === $cursor ) {
 			return array();
 		}
@@ -1736,6 +1774,10 @@ class FeedService {
 		$decoded = CursorCodec::decode( $cursor );
 		if ( null === $decoded ) {
 			return array();
+		}
+
+		if ( null !== $tier_expr && null !== $decoded['tier'] ) {
+			return array( $decoded['tier'], $decoded['tier'], $decoded['created_at'], $decoded['created_at'], $decoded['id'] );
 		}
 
 		return array( $decoded['created_at'], $decoded['created_at'], $decoded['id'] );

@@ -123,7 +123,7 @@ $bn_ap_render_field = static function ( array $field, bool $hide_label = false )
  * repeater with unconventional fields still renders — it just leans on the row
  * fallback.
  *
- * @param array<string,mixed> $entry Hydrated entry (field_key => field, + _visibility).
+ * @param array<string,mixed> $entry Hydrated entry (packed list of field arrays).
  * @return string HTML ('' when the entry has no displayable value).
  */
 $bn_ap_render_entry = static function ( array $entry ) use ( $bn_ap_is_empty, $bn_ap_render_field ): string {

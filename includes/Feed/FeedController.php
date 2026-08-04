@@ -440,7 +440,6 @@ class FeedController extends BaseRestController {
 		$post_ids   = array();
 		$author_ids = array();
 		$poll_ids   = array();
-		$media_ids  = array();
 		$owner_map  = array();
 		foreach ( $items as $item ) {
 			$pid = absint( $item['id'] ?? 0 );
@@ -459,20 +458,15 @@ class FeedController extends BaseRestController {
 			if ( $pid && 'poll' === ( $item['type'] ?? '' ) ) {
 				$poll_ids[] = $pid;
 			}
-			foreach ( self::normalize_media_ids( $item['media_ids'] ?? null ) as $mid ) {
-				$media_ids[] = $mid;
-			}
 		}
 
 		// Prime once for the whole page (no per-card lookups below).
 		if ( ! empty( $author_ids ) ) {
 			cache_users( array_values( array_unique( $author_ids ) ) );
 		}
-		// Warm attachment post + meta caches for every image on the page in one pass, so
-		// the per-item media resolve below is O(1) — no N+1 at 20 photo cards.
-		if ( ! empty( $media_ids ) ) {
-			_prime_post_caches( array_values( array_unique( $media_ids ) ), false, true );
-		}
+		// media_ids need no page-level priming: they are WPMediaVerse index ids,
+		// not WP attachments, and the engine's MediaRepository keeps a per-request
+		// row cache — one bounded query per distinct media id on the page.
 
 		$maps = $this->prime_viewer_maps( $viewer, $post_ids, $poll_ids );
 
@@ -614,38 +608,40 @@ class FeedController extends BaseRestController {
 	}
 
 	/**
-	 * Resolve a post's media_ids to renderable image objects.
+	 * Resolve a post's media_ids to renderable media objects.
 	 *
-	 * Each entry: { id, url (large), thumb_url (medium), width, height, mime }. Non-image
-	 * attachments (a stray upload) are skipped rather than returned as an unrenderable box.
-	 * Attachment caches are primed by the caller, so this is O(1) per id.
+	 * The media_ids are WPMediaVerse `mvs_media_index` ids — NOT WP attachment posts —
+	 * so resolution goes through MediaUrlResolver::descriptor(), the same
+	 * viewer-aware signed-URL seam every web surface (post-card.php,
+	 * MediaRenderer, SpaceController) uses. Each entry:
+	 * { id, type (image|video|audio|file), url, thumb_url, width, height, alt,
+	 *   duration }. A client renders by `type`; unavailable / not-visible media
+	 * are skipped rather than returned as an unrenderable box.
 	 *
 	 * @param mixed $raw The post's media_ids value.
 	 * @return array<int,array<string,mixed>> Ordered media objects; empty for a text post.
 	 */
 	private static function resolve_media( $raw ): array {
 		$media = array();
-		foreach ( self::normalize_media_ids( $raw ) as $id ) {
-			if ( 'attachment' !== get_post_type( $id ) ) {
-				continue;
-			}
-			$mime = (string) get_post_mime_type( $id );
-			if ( 0 !== strpos( $mime, 'image/' ) ) {
-				continue;
-			}
-			$full  = wp_get_attachment_image_src( $id, 'large' );
-			$thumb = wp_get_attachment_image_src( $id, 'medium' );
-			if ( ! $full ) {
+		foreach ( \BuddyNext\Media\MediaUrlResolver::descriptors( self::normalize_media_ids( $raw ) ) as $d ) {
+			$url   = (string) ( $d['url'] ?? '' );
+			$thumb = (string) ( $d['thumb'] ?? '' );
+			if ( '' === $url && '' === $thumb ) {
 				continue;
 			}
 			$media[] = array(
-				'id'        => $id,
-				'url'       => $full[0],
-				'thumb_url' => $thumb ? $thumb[0] : $full[0],
-				'width'     => (int) $full[1],
-				'height'    => (int) $full[2],
-				'mime'      => $mime,
-				'alt'       => (string) get_post_meta( $id, '_wp_attachment_image_alt', true ),
+				'id'        => (int) $d['id'],
+				'type'      => (string) $d['type'],
+				'url'       => '' !== $url ? $url : $thumb,
+				// Images may lack a generated thumbnail — fall back to the full
+				// file. Video/audio keep '' rather than forcing a non-image into
+				// an image slot; the descriptor already substituted the default
+				// video poster where the engine has one.
+				'thumb_url' => '' !== $thumb ? $thumb : ( 'image' === $d['type'] ? $url : '' ),
+				'width'     => (int) ( $d['width'] ?? 0 ),
+				'height'    => (int) ( $d['height'] ?? 0 ),
+				'alt'       => (string) ( $d['title'] ?? '' ),
+				'duration'  => (string) ( $d['duration'] ?? '' ),
 			);
 		}
 		return $media;

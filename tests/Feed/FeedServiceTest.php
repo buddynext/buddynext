@@ -499,6 +499,66 @@ class FeedServiceTest extends \WP_UnitTestCase {
 		$this->assertNotContains( $carol_id, $ids );
 	}
 
+	public function test_for_you_tiered_pagination_never_duplicates(): void {
+		global $wpdb;
+
+		// Alice ↔ Bob are connections, so Bob's post rides the connection tier.
+		$connections = new \BuddyNext\SocialGraph\ConnectionService();
+		$connections->send_request( $this->alice, $this->bob );
+		$connections->accept_request( $this->bob, $this->alice );
+
+		// Bob's post is chronologically the OLDEST on the feed…
+		$bob_post = $this->posts->create(
+			$this->bob,
+			array(
+				'type'    => 'text',
+				'content' => 'Old connection post',
+				'privacy' => 'public',
+			)
+		);
+		$wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'created_at' => gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ) ),
+			array( 'id' => $bob_post )
+		);
+
+		$expected = array( $bob_post );
+		for ( $i = 0; $i < 6; $i++ ) {
+			$expected[] = $this->posts->create(
+				$this->carol,
+				array(
+					'type'    => 'text',
+					'content' => "Stranger post {$i}",
+					'privacy' => 'public',
+				)
+			);
+		}
+
+		// …yet the tier floats it to the top of page 1. With a purely
+		// chronological cursor that float made Bob's post satisfy
+		// `created_at < cursor` again on EVERY later page — the app's
+		// duplicate-React-key crash. The tier-aware keyset must emit each
+		// post exactly once across the walk.
+		$seen   = array();
+		$cursor = null;
+		for ( $page = 0; $page < 5; $page++ ) {
+			$result = $this->feed->home_feed( $this->alice, $cursor, 3, 'for-you' );
+			foreach ( array_column( $result['items'], 'id' ) as $id ) {
+				$this->assertNotContains( $id, $seen, "Post {$id} was returned on more than one page." );
+				$seen[] = $id;
+			}
+			if ( 0 === $page ) {
+				$this->assertSame( $bob_post, $result['items'][0]['id'], 'The connection-tier float must actually occur, or this test proves nothing.' );
+			}
+			$cursor = $result['next_cursor'];
+			if ( null === $cursor ) {
+				break;
+			}
+		}
+
+		$this->assertEqualsCanonicalizing( $expected, $seen, 'Every post must appear exactly once across the full walk.' );
+	}
+
 	public function test_home_feed_for_you_filter_blends_all_sources(): void {
 		$this->follows->follow( $this->alice, $this->bob );
 		$own_id      = $this->posts->create(

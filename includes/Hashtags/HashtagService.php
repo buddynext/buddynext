@@ -314,9 +314,7 @@ class HashtagService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Placeholder count is dynamic: the optional follow JOIN's %d, the space-visibility fragment's optional %d, and the variable $cursor_params are spread via array_merge() and match at runtime; the sniff cannot resolve the conditional/array args statically.
-				"SELECT p.id, p.user_id, p.content, p.type, p.privacy,
-				        p.reaction_count, p.comment_count, p.share_count, p.created_at,
-				        ph.created_at AS bn_cursor_ts
+				"SELECT p.*, ph.created_at AS bn_cursor_ts
 				 FROM {$pivot_tbl} ph
 				 INNER JOIN {$posts_tbl} p ON p.id = ph.post_id
 				 {$follow_join}

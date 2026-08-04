@@ -1359,6 +1359,7 @@ class ProfileService {
 			if ( isset( $cached['groups'] ) && is_array( $cached['groups'] ) ) {
 				$this->apply_member_type_field_value( $cached['groups'], $profile_user_id, $viewer_id );
 			}
+			$this->apply_cover( $cached, $profile_user_id );
 			return $cached;
 		}
 
@@ -1559,25 +1560,28 @@ class ProfileService {
 					}
 				}
 
-				$out['entries'] = array();
+				// Entries MUST stay packed lists: a string key mixed into the list
+				// makes wp_json_encode emit a JSON object instead of an array, which
+				// breaks every typed consumer of the REST payload (the mobile app
+				// iterates entries[i] with for…of). The entry's saved privacy is
+				// therefore surfaced in a PARALLEL entry_visibility array, index-
+				// aligned with entries, never inside the entry itself.
+				$out['entries']          = array();
+				$out['entry_visibility'] = array();
 				foreach ( $entries as $entry_fields ) {
 					$entry_fields += $schema;
 					$sorted        = array_values( $entry_fields );
 					usort( $sorted, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
 
-					// Surface the entry's saved privacy as `_visibility` so the edit
-					// form can pre-select it on reload — it is stored on every value
-					// row of the entry, mirroring the `group_key[n][_visibility]`
-					// save contract. Without this the per-entry privacy lock always
-					// rendered the default even after the member tightened it.
-					$entry_out = $sorted;
+					$entry_vis = null;
 					foreach ( $sorted as $sorted_field ) {
 						if ( isset( $sorted_field['entry_visibility'] ) && '' !== $sorted_field['entry_visibility'] ) {
-							$entry_out['_visibility'] = (string) $sorted_field['entry_visibility'];
+							$entry_vis = (string) $sorted_field['entry_visibility'];
 							break;
 						}
 					}
-					$out['entries'][] = $entry_out;
+					$out['entries'][]          = $sorted;
+					$out['entry_visibility'][] = $entry_vis;
 				}
 			} else {
 				// Flat group — scalar fields live at entry_index 0; set-valued
@@ -1679,8 +1683,30 @@ class ProfileService {
 		// it is injected fresh on every return (see the cached-path note above), so an
 		// assign/reassign is reflected without invalidating the profile cache.
 		$this->apply_member_type_field_value( $profile['groups'], $profile_user_id, $viewer_id );
+		$this->apply_cover( $profile, $profile_user_id );
 
 		return $profile;
+	}
+
+	/**
+	 * Inject the member's cover image into a profile payload.
+	 *
+	 * Injected fresh on every return (never stored in the per-viewer cache blob)
+	 * because the cover upload/delete endpoints do not bust the profile cache —
+	 * same lifecycle pattern as member_type above. Both reads hit the usermeta
+	 * cache, so this costs no extra queries. `cover_url` is '' when unset;
+	 * `cover_focal` is null or {focal_x, focal_y, focal_zoom} as stored by the
+	 * cover crop endpoint.
+	 *
+	 * @param array<string,mixed> $profile         Profile payload to mutate.
+	 * @param int                 $profile_user_id Profile owner.
+	 * @return void
+	 */
+	private function apply_cover( array &$profile, int $profile_user_id ): void {
+		$profile['cover_url'] = ( new AvatarService() )->get_cover_url( $profile_user_id );
+
+		$focal                  = get_user_meta( $profile_user_id, 'buddynext_cover_focal', true );
+		$profile['cover_focal'] = ( is_array( $focal ) && array() !== $focal ) ? $focal : null;
 	}
 
 	/**

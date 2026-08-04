@@ -1210,7 +1210,7 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * REST permission gate for POST /spaces/{id}/forum.
+	 * REST permission gate for management-only forum routes (discussion-search).
 	 *
 	 * @param \WP_REST_Request $request Request.
 	 * @return true|\WP_Error
@@ -1227,6 +1227,37 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * REST permission gate for POST /spaces/{id}/forum.
+	 *
+	 * View-level, NOT manage-level: this route is the app's only way to RESOLVE a
+	 * space's forum id, and every member who can see the space needs that. Gating
+	 * it on buddynext-moderate-space made the Discussions tab a hard error for
+	 * every non-owner (even when the forum already existed, readable via
+	 * /jetonomy/v1). Whether the caller may PROVISION a missing forum is decided
+	 * in the handler (rest_provision_forum) — a plain member gets the zero-state,
+	 * never a 403, matching the web tab's owner-only "Start the first discussion"
+	 * trigger.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return true|\WP_Error
+	 */
+	public function rest_forum_access_permission( \WP_REST_Request $request ) {
+		if ( ! is_user_logged_in() ) {
+			return new \WP_Error( 'rest_not_logged_in', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
+		}
+
+		$space_id = (int) $request['id'];
+		$space    = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+
+		// Same 404 for missing and not-viewable (secret) so existence isn't leaked.
+		if ( null === $space || ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $space, get_current_user_id() ) ) {
+			return new \WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return true;
+	}
+
+	/**
 	 * Register the space-forum REST route (app coverage).
 	 *
 	 * @return void
@@ -1238,7 +1269,7 @@ class JetonomyBridge {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'rest_provision_forum' ),
-				'permission_callback' => array( $this, 'rest_provision_permission' ),
+				'permission_callback' => array( $this, 'rest_forum_access_permission' ),
 				'args'                => array(
 					'id' => array(
 						'required'          => true,
@@ -1369,12 +1400,26 @@ class JetonomyBridge {
 	 */
 	public function rest_provision_forum( \WP_REST_Request $request ): \WP_REST_Response {
 		$space_id = (int) $request['id'];
-		$forum_id = $this->provision_space_forum( $space_id );
+		$existing = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
+
+		// Resolve-first: an existing forum is returned to ANY viewer the
+		// permission gate admitted (view-level). Only a MISSING forum requires
+		// the moderate-space capability to create — a plain member gets the
+		// zero-state instead of a 403, mirroring the web tab where "Start the
+		// first discussion" is an owner/moderator-only trigger.
+		$forum_id = $existing;
+		if ( 0 >= $forum_id && $this->can_provision_forum( $space_id, get_current_user_id() ) ) {
+			$forum_id = $this->provision_space_forum( $space_id );
+		}
 
 		return new \WP_REST_Response(
 			array(
-				'forum_id'  => $forum_id,
-				'forum_url' => $forum_id > 0 ? $this->space_forum_url( $space_id ) : '',
+				'forum_id'      => $forum_id,
+				'forum_url'     => $forum_id > 0 ? $this->space_forum_url( $space_id ) : '',
+				// The zero-state discriminator: false + forum_id 0 → "no
+				// discussions yet, and you can't start them"; true → the caller
+				// may POST again after owner action, or just provisioned.
+				'can_provision' => $this->can_provision_forum( $space_id, get_current_user_id() ),
 			),
 			200
 		);
