@@ -253,4 +253,41 @@ class PluginIsolationAllowListTest extends \WP_UnitTestCase {
 			$this->assertContains( $pro_plugin, $floor, 'The mu-plugin floor must survive before Pro\'s filter runs.' );
 		}
 	}
+
+	/**
+	 * The menu object-type cache must be busted on a menu write, not left to a
+	 * blind TTL. Without the bust, a menu item pointing at a freshly registered
+	 * object type is mis-classified for up to an hour (card 10162859689).
+	 */
+	public function test_menu_type_cache_is_busted_on_menu_change(): void {
+		// Prime the cache with a stale sentinel under the class's own group/key.
+		wp_cache_set( 'menu_object_types', array( 'stale_sentinel_type' ), 'buddynext_isolation', HOUR_IN_SECONDS );
+		$this->assertIsArray(
+			wp_cache_get( 'menu_object_types', 'buddynext_isolation' ),
+			'Sentinel should be cached before the bust.'
+		);
+
+		\BuddyNext\Core\PluginIsolation::flush_menu_types_cache();
+
+		$this->assertFalse(
+			wp_cache_get( 'menu_object_types', 'buddynext_isolation' ),
+			'flush_menu_types_cache() must delete the cached set.'
+		);
+	}
+
+	/**
+	 * The bust is wired to the nav-menu write hooks, so an admin menu save clears
+	 * the cache without any caller reaching into PluginIsolation directly.
+	 */
+	public function test_nav_menu_write_hook_busts_the_cache(): void {
+		( new \BuddyNext\Core\PluginIsolation() )->init();
+
+		wp_cache_set( 'menu_object_types', array( 'stale_sentinel_type' ), 'buddynext_isolation', HOUR_IN_SECONDS );
+		do_action( 'wp_update_nav_menu', 1 );
+
+		$this->assertFalse(
+			wp_cache_get( 'menu_object_types', 'buddynext_isolation' ),
+			'wp_update_nav_menu must trigger flush_menu_types_cache().'
+		);
+	}
 }

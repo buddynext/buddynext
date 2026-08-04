@@ -228,6 +228,12 @@ class PluginIsolation {
 		// the full free+pro family. The guarded write below is a no-op unless the
 		// list actually changed, so this is cheap on every request.
 		add_action( 'init', array( $this, 'sync_option' ), 20 );
+
+		// Bust the menu object-type cache whenever a nav menu changes, so isolation
+		// never reasons over a stale set (menu edits are rare; this is cheap).
+		add_action( 'wp_update_nav_menu', array( __CLASS__, 'flush_menu_types_cache' ) );
+		add_action( 'wp_update_nav_menu_item', array( __CLASS__, 'flush_menu_types_cache' ) );
+		add_action( 'wp_delete_nav_menu', array( __CLASS__, 'flush_menu_types_cache' ) );
 	}
 
 	/**
@@ -277,6 +283,23 @@ class PluginIsolation {
 	 * @var string
 	 */
 	public const OPTION_OWNERS = 'buddynext_isolation_type_owners';
+
+	/**
+	 * Object cache group + key for the menu object-type set (see menu_object_types()).
+	 *
+	 * The set is derived from `_menu_item_object` postmeta and only changes when a
+	 * nav menu is edited, so it is cached and busted on menu writes (init() wires the
+	 * hooks) rather than left to a blind TTL. The group follows the shared
+	 * `buddynext_<domain>` convention enforced by bin/check-cache.sh.
+	 */
+	private const CACHE_GROUP = 'buddynext_isolation';
+
+	/**
+	 * Cache key for the menu object-type set.
+	 *
+	 * @var string
+	 */
+	private const CACHE_KEY_MENU_TYPES = 'menu_object_types';
 
 	/**
 	 * Plugins that must stay loaded because the site's NAV MENUS depend on them.
@@ -342,7 +365,7 @@ class PluginIsolation {
 	private static function menu_object_types(): array {
 		global $wpdb;
 
-		$types = wp_cache_get( 'menu_object_types', 'buddynext_isolation' );
+		$types = wp_cache_get( self::CACHE_KEY_MENU_TYPES, self::CACHE_GROUP );
 		if ( is_array( $types ) ) {
 			return $types;
 		}
@@ -353,9 +376,26 @@ class PluginIsolation {
 		);
 
 		$types = array_values( array_unique( array_map( 'strval', (array) $rows ) ) );
-		wp_cache_set( 'menu_object_types', $types, 'buddynext_isolation', HOUR_IN_SECONDS );
+		// TTL is a backstop only; the real freshness guarantee is the menu-write bust
+		// wired in init() -> flush_menu_types_cache().
+		wp_cache_set( self::CACHE_KEY_MENU_TYPES, $types, self::CACHE_GROUP, HOUR_IN_SECONDS );
 
 		return $types;
+	}
+
+	/**
+	 * Bust the cached menu object-type set.
+	 *
+	 * Wired to the nav-menu write hooks in init(). The set is a projection of
+	 * `_menu_item_object` postmeta, so the only thing that can change it is a menu
+	 * edit — busting here keeps isolation reasoning over a current object-type set
+	 * instead of one up to an hour stale (a menu item pointing at a freshly
+	 * registered CPT would otherwise be mis-classified until the TTL lapsed).
+	 *
+	 * @return void
+	 */
+	public static function flush_menu_types_cache(): void {
+		wp_cache_delete( self::CACHE_KEY_MENU_TYPES, self::CACHE_GROUP );
 	}
 
 	/**
