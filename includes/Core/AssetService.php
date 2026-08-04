@@ -1844,5 +1844,19 @@ class AssetService {
 		// bn-<slug> handle, so this enqueue is a harmless no-op for them.
 		wp_enqueue_style( $handle );
 		wp_enqueue_script_module( '@buddynext/' . $slug );
+
+		// The feed module extends its comment rendering through the classic
+		// wp.hooks filter registry (bnApplyFilters -> window.wp.hooks.applyFilters,
+		// hooks buddynext.comment / buddynext.commentNode). It reads the GLOBAL, not
+		// an ES import, so an Interactivity script-module dependency cannot pull it
+		// in — the classic `wp-hooks` script has to be enqueued separately. Without
+		// this the global is present only incidentally (admin bar / heartbeat for
+		// logged-in users) and both filter hooks silently no-op on a clean install,
+		// which is the "if it renders, it is real" rule failing: a documented
+		// extension point that is not guaranteed to fire. Scoped to the feed slug so
+		// no other surface pays for a script it does not use.
+		if ( 'feed' === $slug ) {
+			wp_enqueue_script( 'wp-hooks' );
+		}
 	}
 }
