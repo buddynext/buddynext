@@ -94,3 +94,123 @@ export function bnApplyFilters( hook, value, ...args ) {
 export function prependFeedCard( html ) {
 	return false;
 }
+
+/**
+ * The site's UTC offset in seconds (WP's timezone setting).
+ *
+ * A MODULE SINGLETON, populated once by feed/store.js via setTz() after the
+ * buddynext/feed state is available — the same pattern as the i18n table above.
+ * The post-card (reschedule prefill), composer (schedule submit) and feed stores
+ * all read it through this one instance rather than reaching into the feed store
+ * object, which is defined in a sibling file.
+ */
+let TZ = { offset: 0 };
+
+/**
+ * Set the shared site-timezone table.
+ *
+ * @param {Object} tz `{ offset: <seconds> }` from buddynext/feed state.tz.
+ * @return {void}
+ */
+export function setTz( tz ) {
+	TZ = tz || { offset: 0 };
+}
+
+/**
+ * The site's UTC offset, in seconds, from the server (WP's timezone setting).
+ *
+ * @return {number} Offset in seconds; 0 if unavailable.
+ */
+export function siteTzOffset() {
+	return TZ && 'number' === typeof TZ.offset ? TZ.offset : 0;
+}
+
+/**
+ * A datetime-local value -> the UTC "Y-m-d H:i:s" string the REST layer stores.
+ *
+ * The control's value is read as SITE time, not browser time. A <input
+ * type="datetime-local"> carries no zone, so the wall-clock digits the author typed are
+ * the digits we honour — interpreted in the site's zone, which is the zone the post card
+ * (wp_date) and the admin screens already display. Treating them as browser-local made an
+ * author in IST type "12:50" and the card answer "7:20 am": the same instant, but two
+ * different numbers, which reads as a bug.
+ *
+ * @param {string} localValue "YYYY-MM-DDTHH:MM" as typed in the control.
+ * @return {string} "Y-m-d H:i:s" in UTC, or '' if unparseable.
+ */
+export function toUtcSqlDatetime( localValue ) {
+	if ( ! localValue ) { return ''; }
+	// Parse the digits as if they were UTC, then subtract the site's offset. This never
+	// consults the browser's own zone, so the result does not change with who is looking.
+	const asIfUtc = new Date( String( localValue ).replace( ' ', 'T' ) + 'Z' );
+	if ( isNaN( asIfUtc.getTime() ) ) { return ''; }
+	const d = new Date( asIfUtc.getTime() - siteTzOffset() * 1000 );
+	const pad = ( n ) => String( n ).padStart( 2, '0' );
+	return d.getUTCFullYear() + '-' + pad( d.getUTCMonth() + 1 ) + '-' + pad( d.getUTCDate() ) +
+		' ' + pad( d.getUTCHours() ) + ':' + pad( d.getUTCMinutes() ) + ':' + pad( d.getUTCSeconds() );
+}
+
+/**
+ * The inverse: a stored UTC "Y-m-d H:i:s" -> a datetime-local value in SITE time.
+ *
+ * Used to prefill the reschedule control so the number it shows is the number the post
+ * card shows.
+ *
+ * @param {string} sqlUtc UTC datetime, "Y-m-d H:i:s".
+ * @return {string} "YYYY-MM-DDTHH:MM" in site time, or '' if unparseable.
+ */
+export function toSiteInputValue( sqlUtc ) {
+	if ( ! sqlUtc ) { return ''; }
+	const d = new Date( String( sqlUtc ).replace( ' ', 'T' ) + 'Z' );
+	if ( isNaN( d.getTime() ) ) { return ''; }
+	const site = new Date( d.getTime() + siteTzOffset() * 1000 );
+	const pad = ( n ) => String( n ).padStart( 2, '0' );
+	// Read back with getUTC* — `site` is deliberately shifted so its UTC face IS site time.
+	return site.getUTCFullYear() + '-' + pad( site.getUTCMonth() + 1 ) + '-' + pad( site.getUTCDate() ) +
+		'T' + pad( site.getUTCHours() ) + ':' + pad( site.getUTCMinutes() );
+}
+
+/**
+ * "Now" as a datetime-local string in SITE time — the floor for any schedule control.
+ *
+ * @return {string} "YYYY-MM-DDTHH:MM" in site time.
+ */
+export function siteNowInputValue() {
+	return toSiteInputValue(
+		new Date().toISOString().slice( 0, 19 ).replace( 'T', ' ' )
+	);
+}
+
+/**
+ * Empty a field the way a member would — clear it AND fire `input`.
+ *
+ * Assigning `.value` in code changes a field SILENTLY: the browser fires no
+ * `input` event, so everything listening to it keeps rendering the old value.
+ * Dispatching the event once here keeps every input-driven affordance (character
+ * counter, typeahead, any future listener) in step, instead of each reset site
+ * having to remember to poke each one by hand.
+ *
+ * @param {HTMLTextAreaElement|HTMLInputElement|null} el Field to clear.
+ * @return {void}
+ */
+export function clearField( el ) {
+	if ( ! el ) { return; }
+	el.value = '';
+	el.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+}
+
+/**
+ * Grow a textarea to fit its content.
+ *
+ * Reset to auto first so the field can also shrink when text is deleted, then
+ * set the height to the content's scrollHeight. The CSS max-height caps growth
+ * (the field scrolls internally past that), so no JS ceiling is needed here.
+ *
+ * @param {HTMLTextAreaElement|null} el The textarea.
+ * @return {void}
+ */
+export function autoResizeTextarea( el ) {
+	if ( ! el ) { return; }
+	el.style.height = 'auto';
+	el.style.height = el.scrollHeight + 'px';
+}
