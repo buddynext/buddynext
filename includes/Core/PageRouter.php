@@ -1465,7 +1465,12 @@ class PageRouter {
 				// cover, and field chrome) unstyled.
 				if ( '' !== (string) get_query_var( 'bn_user_slug', '' ) ) {
 					$assets->enqueue( 'profile' );
-					$assets->enqueue( 'feed' ); // Post cards on profile use bn-feed.css classes.
+					// Not only CSS: the feed module owns the profile Share button
+					// (buddynext/share-modal) and, on the activity tab, the post-card
+					// react/comment/share/bookmark actions. Verified 2026-08-04 — a
+					// profile renders a live share-modal island with zero post-cards,
+					// so bn-feed.js is a behavioural dependency here, not just styling.
+					$assets->enqueue( 'feed' );
 					$assets->enqueue( 'media-upload' ); // Owner-only upload composer on the Media tab.
 					$assets->enqueue( 'media-albums' ); // Media | Albums sub-nav + albums UI.
 					// Followers / Following / Connections render as in-page tabs in
@@ -1482,7 +1487,12 @@ class PageRouter {
 
 			case 'spaces':
 				$assets->enqueue( 'spaces' );
-				$assets->enqueue( 'feed' ); // Post cards on space pages use bn-feed.css classes.
+				// Not only CSS: a space feed runs the FULL feed module —
+				// buddynext/post-card, post-composer and share-modal islands are
+				// live in-space with react/comment/share/compose all wired
+				// (verified 2026-08-04). bn-feed.js is a behavioural dependency on
+				// space pages, identical to the activity hub.
+				$assets->enqueue( 'feed' );
 				// Cover/icon uploads on the settings sub-route POST directly to the
 				// REST API (ImageStorageService) — no wp.media / attachment picker.
 				$space_action_v = (string) get_query_var( 'bn_space_action', '' );
