@@ -3,7 +3,7 @@
 What BuddyNext free can and cannot do, in buyer language. One row per capability,
 each verified against the code at the reference given.
 
-**Last verified against code:** 2026-08-03, branch `1.1.2`, commit `c8161921`.
+**Last verified against code:** 2026-08-04, branch `1.1.2`, commit `79669345`.
 **Source of truth order:** `audit/manifest.summary.json` > this file > the code.
 Regenerate both with `/wp-plugin-onboard --refresh`.
 
@@ -86,7 +86,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 |---|---|---|
 | Offer a REST API? | YES | 222 routes under `buddynext/v1`; catalogued in `docs/api/openapi.json` (208 paths) |
 | Send outbound webhooks? | YES | opt-in. `bn_outbound_webhooks` + log; 4 `/webhooks` routes |
-| Be extended by other plugins? | YES | 1,291 documented hooks; `NavRegistry`, `buddynext_companions`, `buddynext_integrations` |
+| Be extended by other plugins? | YES | 1,292 documented hooks; `NavRegistry`, `buddynext_companions`, `buddynext_integrations` |
 | Integrate with Wbcom plugins? | YES | bridges for WPMediaVerse (DM), Jetonomy (forums), Gamification, Career Board, Learnomy, Listora, Eventonomy, WB Member Blog - each self-guards and is individually toggleable |
 | Run background work at scale? | YES | 36 scheduled jobs: 24 on Action Scheduler, 12 on WP-Cron |
 | Manage it from WP-CLI? | YES | 5 commands under `wp buddynext` (`demo`, `cert`, `handles`, `qa-fixtures`, `repair-space-owners`) |
