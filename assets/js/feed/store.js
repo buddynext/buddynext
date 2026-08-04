@@ -4,22 +4,18 @@ import { bnConfirm, bnPrompt, bnReportDialog, bnToast } from '@buddynext/shell-d
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { makeThumb, uploadMedia, deleteMedia, validateMedia } from '../media/upload-core.js';
+import { t, fmt, setI18N, prependFeedCard, bnApplyFilters } from './shared.js';
 
 // Store concerns split into their own files by responsibility. Side-effect
 // imports: each registers its namespace when this module loads, so they load
 // exactly where @buddynext/feed is enqueued — the file moved, the loading did not.
 import './tabs.js';
+import './share-modal.js';
 
 /* -- i18n -------------------------------------------------------------- */
-/* Translated strings are injected server-side into the Interactivity state
- * (AssetService::i18n_feed) because Script Modules cannot use
- * wp_set_script_translations(). The dictionary is read once from the
- * buddynext/feed namespace below and shared by every store in this file; each
- * lookup keeps the English literal as a fallback so the UI never breaks if the
- * state is absent. fmt() fills sprintf-style '%s'/'%d' placeholders. */
-let I18N = {};
-function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
-function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+/* t(), fmt() and the shared i18n table now live in ./shared.js so every split
+ * store file (tabs.js, share-modal.js, …) reads one instance. The dictionary is
+ * still read once from the buddynext/feed state below and handed to setI18N(). */
 
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
@@ -299,57 +295,8 @@ const BN_REACTION_SCROLL_CLOSE_PX = 24;
  * @param {number}  depth         0 = top-level, 1 = reply, 2 = reply-of-reply (capped).
  * @return {HTMLElement}
  */
-/**
- * Apply a wp.hooks JS filter when available, otherwise return the value
- * unchanged. Lets extensions decorate comment rendering without forking this
- * module; degrades silently when @wordpress/hooks is not present.
- *
- * @param {string} hook  Filter name.
- * @param {*}      value Value to filter.
- * @param {...*}   args  Extra context arguments.
- * @return {*} Filtered value (or the original when hooks are unavailable).
- */
-// Insert a server-rendered feed card at the TOP of the feed list (no reload),
-// hydrating it the same way infinite-scroll-appended cards hydrate. Defined at
-// module scope so BOTH the post-composer store (submit) and the share-modal
-// store (repost) can reach it — keeping these inside the infinite-scroll IIFE
-// put them out of those stores' scope and threw a ReferenceError on submit.
-// Returns false when there is no feed list on the page or no html, so the
-// caller can fall back to a full reload.
-function prependFeedCard( html ) {
-	/*
-	 * DISABLED: a card inserted this way is DEAD.
-	 *
-	 * A post card is an Interactivity island (data-wp-interactive="buddynext/post-card").
-	 * The Interactivity API hydrates islands present at first paint; markup injected
-	 * afterwards is never hydrated, so every directive on the inserted card is inert. The
-	 * member saw their post appear and then found React, Comment, Share and Save all dead
-	 * until they refreshed the page (cards 10127252280 and 10127947165 — same root cause).
-	 * Verified in the browser with a clean single click: a server-rendered card opens its
-	 * comments, an injected one does not.
-	 *
-	 * There is no supported way to hydrate it from here. WordPress 7.0 exports no public
-	 * hydrate/init from @wordpress/interactivity; core's own router reaches for privateApis,
-	 * which a plugin must not depend on. The router itself is not an option either: it only
-	 * hydrates a swapped data-wp-router-region, and client navigation is off by default.
-	 *
-	 * So we refuse the insert and return false, which routes BOTH callers (composer submit
-	 * and repost) into the reload fallback they already carry. The member gets their post
-	 * from the server, fully hydrated, with every control working. A page load is a real
-	 * cost against the Facebook/LinkedIn bar — but a card whose every button is dead is a
-	 * much bigger one, and this is the honest behaviour until the feed renders its cards
-	 * through the Interactivity API itself (data-wp-each) rather than injecting server HTML.
-	 * That refactor is the actual fix; this keeps the product correct until it lands.
-	 */
-	return false;
-}
-
-function bnApplyFilters( hook, value, ...args ) {
-	if ( window.wp && window.wp.hooks && typeof window.wp.hooks.applyFilters === 'function' ) {
-		return window.wp.hooks.applyFilters( hook, value, ...args );
-	}
-	return value;
-}
+/* prependFeedCard() and bnApplyFilters() moved to ./shared.js so the split store
+ * files (composer, share-modal, post-card) reach one instance. */
 
 /**
  * Append a "Resend verification email" control to a comment/reply error box.
@@ -3860,133 +3807,6 @@ store( 'buddynext/post-composer', {
 	onNavReady( init );
 } )();
 
-/* ── Share modal ─────────────────────────────────────────────────────────── */
-
-store( 'buddynext/share-modal', {
-	state: {
-		get open() {
-			try { return !! getContext().open; } catch ( _e ) { return false; }
-		},
-		get busy() {
-			try { return !! getContext().busy; } catch ( _e ) { return false; }
-		},
-		get error() {
-			try { return getContext().error || ''; } catch ( _e ) { return ''; }
-		},
-		get hasNoError() {
-			try { return ! ( getContext().error || '' ); } catch ( _e ) { return true; }
-		},
-		get author() {
-			try { return getContext().author || ''; } catch ( _e ) { return ''; }
-		},
-		get excerpt() {
-			try { return getContext().excerpt || ''; } catch ( _e ) { return ''; }
-		},
-		get hasNoPreview() {
-			try {
-				const ctx = getContext();
-				return ! ( ctx.author || ctx.excerpt );
-			} catch ( _e ) { return true; }
-		},
-		get repostLabel() {
-			try { return getContext().busy ? t( 'reposting', 'Reposting…' ) : t( 'repost', 'Repost' ); } catch ( _e ) { return t( 'repost', 'Repost' ); }
-		},
-	},
-	actions: {
-		// Opens the modal in response to the post card's `bn-open-share-modal`
-		// document event. Bound via `data-wp-on-document--bn-open-share-modal`
-		// so it runs INSIDE the store — getContext() here is the live, writable
-		// context, unlike a plain document listener which can only mutate the
-		// inert data-wp-context attribute (that left postId stuck at 0, so
-		// repost silently aborted on its `! ctx.postId` guard).
-		receiveOpen( event ) {
-			const detail  = ( event && event.detail ) || {};
-			const ctx     = getContext();
-			ctx.postId    = detail.postId || 0;
-			ctx.permalink = detail.permalink || '';
-			ctx.author    = detail.author || '';
-			ctx.excerpt   = detail.excerpt || '';
-			ctx.nonce     = detail.nonce || ctx.nonce;
-			ctx.restUrl   = detail.restUrl || ctx.restUrl;
-			ctx.note      = '';
-			ctx.error     = '';
-			ctx.busy      = false;
-			ctx.open      = true;
-			// Clear any leftover text from a previous open (the textarea is
-			// input-only, so resetting ctx.note alone leaves the old value on
-			// screen).
-			document.querySelectorAll( '.bn-share-modal .bn-share-modal__note' ).forEach( function ( ta ) { ta.value = ''; } );
-		},
-		close() {
-			const ctx = getContext();
-			ctx.open  = false;
-			ctx.busy  = false;
-			ctx.error = '';
-		},
-		onNoteInput( event ) {
-			const ctx = getContext();
-			ctx.note  = event && event.target ? event.target.value : '';
-		},
-		* repost() {
-			const ctx = getContext();
-			if ( ctx.busy || ! ctx.postId ) { return; }
-			ctx.busy  = true;
-			ctx.error = '';
-			try {
-				const res = yield restFetch( '/posts/' + ctx.postId + '/share', {
-					method:  'POST',
-					nonce:   ctx.nonce,
-					toastOnError: false,
-					body:    { content: ( ctx.note || '' ).trim() },
-				} );
-				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'reposted', 'Reposted' ), 'success' ); }
-					ctx.open = false;
-					ctx.busy = false;
-					ctx.note = '';
-					// Prepend the server-rendered repost card in place (no reload),
-					// mirroring the composer. Fall back to a reload only when no card
-					// html came back or there's no feed list on this page.
-					if ( ! prependFeedCard( res.data && res.data.html ) ) {
-						setTimeout( function () { window.location.reload(); }, 500 );
-					}
-					return;
-				}
-				// Show the server's specific reason (e.g. "You have already shared
-				// this post.") inline AND as a toast, not a generic mute failure.
-				ctx.error = ( res.data && res.data.message ) || t( 'repostFailed', 'Could not repost. Try again.' );
-				if ( window.bnToast ) { window.bnToast( ctx.error, 'error' ); }
-				ctx.busy  = false;
-			} catch ( _e ) {
-				ctx.error = t( 'networkError', 'Network error. Try again.' );
-				ctx.busy  = false;
-			}
-		},
-		* copyLink() {
-			const ctx = getContext();
-			if ( ! ctx.permalink ) { return; }
-			ctx.busy = true;
-			try {
-				if ( navigator.clipboard && navigator.clipboard.writeText ) {
-					yield navigator.clipboard.writeText( ctx.permalink );
-				} else {
-					const tmp = document.createElement( 'textarea' );
-					tmp.value = ctx.permalink;
-					document.body.appendChild( tmp );
-					tmp.select();
-					document.execCommand( 'copy' );
-					document.body.removeChild( tmp );
-				}
-				if ( window.bnToast ) { window.bnToast( t( 'linkCopied', 'Link copied' ), 'success' ); }
-				ctx.open  = false;
-				ctx.busy  = false;
-			} catch ( _e ) {
-				ctx.error = t( 'linkCopyFailed', 'Could not copy link.' );
-				ctx.busy  = false;
-			}
-		},
-	},
-} );
 
 // The post-card `openShare` dispatches a `bn-open-share-modal` document event;
 // the share-modal store receives it via its `data-wp-on-document--` directive
@@ -4243,7 +4063,7 @@ const feedStore = store( 'buddynext/feed', {
 // The server merges the injected dictionary into this namespace's state; read
 // it once here so every store + vanilla-DOM builder in this file shares one
 // translated table.
-I18N = ( feedStore && feedStore.state && feedStore.state.i18n ) || {};
+setI18N( ( feedStore && feedStore.state && feedStore.state.i18n ) || {} );
 
 /* ── Wire Enter-to-search on the explore search input ─────────────────── */
 
