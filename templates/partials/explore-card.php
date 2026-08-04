@@ -401,10 +401,11 @@ if ( 'post-article' === $bn_kind ) :
 	return;
 endif;
 
-// ── post-media: image card (cover thumbnail + caption) ──────────────────────
+// ── post-media: image / video / audio card (typed cover + caption) ──────────
 if ( 'post-media' === $bn_kind ) :
 	$bn_cover = '';
 	$bn_alt   = '';
+	$bn_mtype = 'image';
 	$bn_mids  = $bn_post['media_ids'] ?? array();
 	if ( is_string( $bn_mids ) ) {
 		$bn_mids = json_decode( $bn_mids, true );
@@ -412,29 +413,47 @@ if ( 'post-media' === $bn_kind ) :
 	if ( is_array( $bn_mids ) && ! empty( $bn_mids ) && class_exists( MediaUrlResolver::class ) ) {
 		$bn_desc = MediaUrlResolver::descriptor( (int) $bn_mids[0] );
 		if ( $bn_desc ) {
-			$bn_cover = (string) ( '' !== $bn_desc['thumb'] ? $bn_desc['thumb'] : $bn_desc['url'] );
+			$bn_mtype = (string) ( $bn_desc['type'] ?? 'image' );
 			$bn_alt   = (string) $bn_desc['title'];
+			// A poster/thumbnail is the only valid <img> src. For an image the file
+			// URL is itself an image, so it is a fine fallback; for video/audio the
+			// file URL is NOT an image — putting it in <img> is the broken-tile bug,
+			// so those fall through to the typed glyph unless a real thumb exists.
+			if ( '' !== (string) $bn_desc['thumb'] ) {
+				$bn_cover = (string) $bn_desc['thumb'];
+			} elseif ( 'image' === $bn_mtype ) {
+				$bn_cover = (string) $bn_desc['url'];
+			}
 		}
 	}
 	$bn_mtone = bn_explore_tone( $bn_pid, $bn_palette );
+	// Typed kicker label + fallback glyph so an audio/video post never reads "Photo"
+	// or paints a broken image.
+	if ( 'audio' === $bn_mtype ) {
+		$bn_mlabel = __( 'Audio', 'buddynext' );
+		$bn_mglyph = 'music';
+	} elseif ( 'video' === $bn_mtype ) {
+		$bn_mlabel = __( 'Video', 'buddynext' );
+		$bn_mglyph = 'play';
+	} else {
+		$bn_mlabel = __( 'Photo', 'buddynext' );
+		$bn_mglyph = 'image';
+	}
+	$bn_mkicker = '' !== $bn_kicker ? $bn_mlabel . ' · ' . $bn_kicker : $bn_mlabel;
 	?>
-	<article class="ec-card is-media" data-kind="post-media">
+	<article class="ec-card is-media" data-kind="post-media" data-media-type="<?php echo esc_attr( $bn_mtype ); ?>">
 		<a class="ec-img" href="<?php echo esc_url( $bn_purl ); ?>" data-tone="<?php echo esc_attr( $bn_mtone ); ?>">
 			<?php if ( '' !== $bn_cover ) : ?>
 				<img src="<?php echo esc_url( $bn_cover ); ?>" alt="<?php echo esc_attr( $bn_alt ); ?>" loading="lazy" decoding="async">
+				<?php if ( 'video' === $bn_mtype ) : ?>
+					<span class="ec-img-play" aria-hidden="true"><?php buddynext_icon( 'play' ); ?></span>
+				<?php endif; ?>
 			<?php else : ?>
-				<span class="ec-img-glyph" aria-hidden="true"><?php buddynext_icon( 'image' ); ?></span>
+				<span class="ec-img-glyph" aria-hidden="true"><?php buddynext_icon( $bn_mglyph ); ?></span>
 			<?php endif; ?>
 		</a>
 		<div class="ec-body">
-			<div class="ec-kicker">
-				<?php
-				echo '' !== $bn_kicker
-					/* translators: %s: hashtag. */
-					? esc_html( sprintf( __( 'Photo · %s', 'buddynext' ), $bn_kicker ) )
-					: esc_html__( 'Photo', 'buddynext' );
-				?>
-			</div>
+			<div class="ec-kicker"><?php echo esc_html( $bn_mkicker ); ?></div>
 			<?php if ( '' !== $bn_headline ) : ?>
 				<a class="ec-title" href="<?php echo esc_url( $bn_purl ); ?>"><?php echo esc_html( wp_trim_words( $bn_headline, 16, '…' ) ); ?></a>
 			<?php endif; ?>
