@@ -433,10 +433,74 @@ Every `assets/css/bn-{feature}.css` file follows this order:
 - **All JS stores** use ES module syntax: `import { store, getContext } from '@wordpress/interactivity'`.
 - **Store namespace** always `buddynext/{feature-name}` — e.g. `buddynext/feed`.
 - **No window globals** — never `window.wp.interactivity.store(...)`.
-- **No inline `<script>` in templates** — JS lives in `assets/js/{feature}/store.js`, loaded via `AssetService`.
+- **No inline `<script>` in templates** — JS lives under `assets/js/{feature}/`, loaded via `AssetService`.
 - **REST calls in stores** use `fetch()` with the `restUrl` / `restNonce` context values passed from PHP via `data-wp-context`.
 - **Computed state** for all class/text bindings — never inline ternaries in `data-wp-bind`.
 - **No jQuery** — Interactivity API + vanilla fetch only.
+
+### JS file organisation — one namespace, many files
+
+**A feature owns a store NAMESPACE, not a single file.** `store()` merges: calling it
+again with the same namespace merges into the existing store key by key. So a feature
+splits across files by concern, and they all merge into one store.
+
+```
+assets/js/feed/
+  store.js       registers buddynext/feed — state, the shared helpers, the entry point
+  comments.js    store( 'buddynext/feed', { actions: { … } } )
+  composer.js    store( 'buddynext/post-composer', { … } )
+```
+
+This is not a new pattern here. **Six namespaces already register from more than one
+file** (`buddynext/feed`, `buddynext/spaces`, `buddynext/post-card`,
+`buddynext/post-composer`, `buddynext/follow-button`, `buddynext/connection-button`).
+What was missing is the rule below, which is what makes it safe to do on purpose.
+
+**The rule that makes splitting safe:**
+
+> **Any module that registers into a namespace another module also registers into MUST
+> declare that module as a script-module dependency.**
+
+Without it the merge order is whatever WordPress happens to emit, and whichever file
+loads last wins on any key both define. That failure is silent — the override simply is
+not there — and it is the exact trap `docs/website/developer-guide/52-extending-interactivity-stores.md`
+warns third parties about. Do not walk into it internally.
+
+Declare it in `AssetService::register_script_modules()`, alongside the existing
+`$shell_dialog_consumers` pattern:
+
+```php
+$deps[] = array( 'id' => '@buddynext/feed' ); // this module merges into buddynext/feed
+```
+
+**Today's six overlaps are safe by accident, not by design.** Four of them
+(`post-card`, `post-composer`, `follow-button`, `connection-button`) collide on real keys
+— but one side is always `assets/js/blocks.js`, which is the **editor** script
+(`buddynext-blocks-editor`) and never loads on the front end, so the two never co-exist.
+The two that do co-exist on the front end are additive only. Nothing enforces either of
+those facts. Add a colliding key to a co-registering module and it breaks silently.
+
+**Splitting a store is the preferred way to shrink one.** It needs no build step, no API
+change, and no new namespace — the same store, the same `data-wp-*` markup, more files.
+
+### File size is a smell, not a rule
+
+There is no line limit. A large file is only debt when it has a **concrete structural
+problem**: unrelated responsibilities in one file, duplicated sibling logic, a method
+that does four things. Size alone is not a reason to split, and a flat threshold would
+flag most of `includes/` and be ignored within a week.
+
+Current shape, for reference — measured, not guessed:
+
+| File | Lines | Why it is on this list |
+|---|---|---|
+| `assets/js/feed/store.js` | ~5,200 | **Genuine debt.** Registers SEVEN namespaces (feed, post-card, post-composer, feed-tabs, announcement, share-modal, spaces). The split boundaries already exist as namespaces — this is one file doing seven jobs. |
+| `assets/js/spaces/store.js` | ~3,300 | Watch. One namespace, one responsibility. Not debt today. |
+| `assets/js/profile/store.js` | ~2,600 | Watch. One namespace. |
+
+**Debt tax:** a change that opens `feed/store.js` should leave it smaller — extract a
+concern to its own file rather than adding to the pile. Not a blocker, but the reviewer
+should ask.
 
 ### Adding a New CSS/JS Bundle
 
@@ -444,6 +508,9 @@ Every `assets/css/bn-{feature}.css` file follows this order:
 2. Register both in `AssetService::register_assets()`.
 3. Enqueue in `PageRouter::enqueue_hub_assets()` for the relevant hub case.
 4. Pass `restNonce` + `restUrl` from the template via `data-wp-context`.
+5. Splitting that feature across more files later needs no new registration — add the
+   file, register it as its own module, and declare the owning module as a dependency
+   (see "JS file organisation" above). The namespace does not change.
 
 ---
 
