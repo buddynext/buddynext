@@ -496,10 +496,38 @@ final class NavOverrides {
 		}
 
 		if ( null !== $create ) {
-			// Back to the middle of whatever is left. intdiv() on the count keeps it centred even
-			// when a slot is hidden (Spaces off) and the bar is shorter than five.
-			$middle = intdiv( count( $rest ), 2 );
-			array_splice( $rest, $middle, 0, array( $create ) );
+			/*
+			 * Back to the middle — of the slots that will actually RENDER.
+			 *
+			 * intdiv( count( $rest ), 2 ) counted ghosts. Hiding a slot here only sets
+			 * show=false; nav.php drops it later (`empty( $bn_m_item['show'] )`), so at
+			 * this point $rest still holds the guest-only tabs a logged-in member will
+			 * never see. For a logged-in viewer that is
+			 * [feed, spaces, notifications, members(hidden), login(hidden), profile] —
+			 * six, middle three, and Create lands FOURTH, after Alerts, with a 3/1 split.
+			 * Measured at 390px: centre x = 268 against a viewport centre of 195.
+			 *
+			 * It only bit sites with saved mobile-nav overrides, because this whole
+			 * method returns early without them — which is why the default install
+			 * looks correct and an owner who touches the Navigation screen breaks the
+			 * bar without touching Create at all.
+			 *
+			 * So: find the middle among the VISIBLE slots, then translate that back to
+			 * an index in $rest. Create is centred by arithmetic (flex:0 0 auto between
+			 * two flex:1 groups), so equal visible counts either side is the whole
+			 * requirement.
+			 */
+			$visible = array();
+			foreach ( $rest as $index => $item ) {
+				if ( ! empty( $item['show'] ) ) {
+					$visible[] = $index;
+				}
+			}
+
+			$middle = intdiv( count( $visible ), 2 );
+			$at     = $visible[ $middle ] ?? count( $rest );
+
+			array_splice( $rest, $at, 0, array( $create ) );
 		}
 
 		$items = $rest;
