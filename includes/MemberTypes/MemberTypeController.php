@@ -281,11 +281,36 @@ class MemberTypeController extends BaseRestController {
 	}
 
 	/**
+	 * May this member change the type they currently hold?
+	 *
+	 * Yes when they hold none, or when the one they hold is self-selectable — a
+	 * type they could have chosen for themselves is one they may change. No when
+	 * an owner assigned them something self_select = 0, which is exactly the
+	 * "Set by the community" state the profile UI already describes.
+	 *
+	 * Admins bypass this; the caller checks manage_options first.
+	 *
+	 * @param int $user_id Member whose type is being changed.
+	 * @return bool
+	 */
+	private function may_change_own_type( int $user_id ): bool {
+		$current = $this->service->get_user_type( $user_id );
+
+		if ( ! is_array( $current ) || empty( $current['slug'] ) ) {
+			return true;
+		}
+
+		return ! empty( $current['self_select'] );
+	}
+
+	/**
 	 * PUT /users/{id}/member-type — assign a type to a user.
 	 *
 	 * Allowed when:
 	 *   - Current user is an admin (manage_options), OR
-	 *   - Current user is the same as {id} AND the requested type has self_select = 1.
+	 *   - Current user is the same as {id}, the type they ALREADY hold is
+	 *     self-selectable (or they hold none), AND the requested type has
+	 *     self_select = 1.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response|WP_Error
@@ -293,6 +318,28 @@ class MemberTypeController extends BaseRestController {
 	public function set_user_type( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$user_id   = absint( $request->get_param( 'id' ) );
 		$type_slug = sanitize_key( (string) $request->get_param( 'type_slug' ) );
+
+		/*
+		 * What the member ALREADY holds is part of the gate.
+		 *
+		 * Both checks below asked only about the type being requested, so a member
+		 * carrying an admin-assigned type could simply request a self-selectable one
+		 * and overwrite it — or send "" and clear it outright, since the empty-slug
+		 * path ran no gate at all. Verified against a member holding a
+		 * self_select = 0 type: PUT contributor returned 200 and replaced it, and
+		 * PUT "" returned 200 and removed it.
+		 *
+		 * self_select = 0 exists precisely to mark the types an owner hands out —
+		 * staff, moderator, verified. A badge the holder can quietly remove is not a
+		 * classification the community controls, which is the whole point of it.
+		 */
+		if ( ! current_user_can( 'manage_options' ) && ! $this->may_change_own_type( $user_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Your member type was set by the community. Contact an admin to change it.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
 
 		// "— None —" in profile edit sends an empty slug to clear the member's type.
 		// can_set_user_type() already confirmed this is the member's own profile (or an
@@ -309,7 +356,7 @@ class MemberTypeController extends BaseRestController {
 			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		// Self-assign gate: if not admin, type must allow self_select.
+		// Self-assign gate: if not admin, the type being taken must allow self_select.
 		if ( ! current_user_can( 'manage_options' ) && ! (bool) $type['self_select'] ) {
 			return new WP_Error(
 				'forbidden',

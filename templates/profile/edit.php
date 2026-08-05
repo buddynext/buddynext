@@ -617,11 +617,37 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					)
 				);
 
-				if ( ! empty( $bn_self_types ) ) {
-					$bn_current_type = method_exists( $bn_mt_service, 'get_user_type' ) ? $bn_mt_service->get_user_type( $user_id ) : null;
-					$bn_current_slug = ( is_array( $bn_current_type ) && isset( $bn_current_type['slug'] ) ) ? (string) $bn_current_type['slug'] : '';
+				$bn_current_type = method_exists( $bn_mt_service, 'get_user_type' ) ? $bn_mt_service->get_user_type( $user_id ) : null;
+				$bn_current_slug = ( is_array( $bn_current_type ) && isset( $bn_current_type['slug'] ) ) ? (string) $bn_current_type['slug'] : '';
 
-					$bn_mt_html  = '<label class="bn-ep-label" for="bn-ep-member-type">' . esc_html__( 'Your member type', 'buddynext' ) . '</label>';
+				// A type the owner assigned is theirs to change, not the member's.
+				//
+				// This block only ever listed self-selectable types, so a member
+				// carrying an admin-assigned one saw "— None —" selected and their
+				// real type missing from the list entirely: the page reported them as
+				// unclassified and invited them to pick something. The endpoint now
+				// refuses that change, so offering it would be a control that fails.
+				$bn_mt_locked = '' !== $bn_current_slug && empty( $bn_current_type['self_select'] );
+
+				if ( $bn_mt_locked ) {
+					// Same wording as the profile-field renderer, because it is the
+					// same state — a member reading both must not be told two things.
+					$bn_mt_html = sprintf(
+						'<div class="bn-field-membertype is-set"><span class="bn-membertype-badge">%1$s</span> <span class="bn-field-hint">%2$s</span></div>',
+						esc_html( (string) ( $bn_current_type['name'] ?? $bn_current_slug ) ),
+						esc_html__( 'Set by the community — contact an admin to change it.', 'buddynext' )
+					);
+
+					buddynext_get_template(
+						'parts/profile-edit-section.php',
+						array(
+							'title'     => __( 'Member type', 'buddynext' ),
+							'title_id'  => 'bn-ep-member-type-title',
+							'body_html' => $bn_mt_html,
+						)
+					);
+				} elseif ( ! empty( $bn_self_types ) ) {
+					$bn_mt_html  = '<label class="bn-ep-label bn-sr-only" for="bn-ep-member-type">' . esc_html__( 'Member type', 'buddynext' ) . '</label>';
 					$bn_mt_html .= '<select class="bn-input" id="bn-ep-member-type" data-user-id="' . esc_attr( (string) $user_id ) . '" data-wp-on--change="actions.setMemberType">';
 					$bn_mt_html .= '<option value="">' . esc_html__( '— None —', 'buddynext' ) . '</option>';
 					foreach ( $bn_self_types as $bn_t ) {
