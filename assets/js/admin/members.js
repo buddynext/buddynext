@@ -274,6 +274,19 @@
 		return meta;
 	}
 
+	// Visibility levels whose values reach a search mirror at all. A field only
+	// visible to followers, connections or its owner is never indexed — see
+	// ProfileService::sync_search_mirror(), which routes by visibility and writes
+	// no mirror for those three.
+	var PF_SEARCHABLE_VISIBILITY = [ 'public', 'members' ];
+
+	// The visibility <select> living in the same form as this type <select>.
+	function pfVisibilityOf( selectEl ) {
+		var form = selectEl.form || selectEl.closest( 'form' );
+
+		return form ? form.querySelector( 'select[name="visibility"]' ) : null;
+	}
+
 	function pfSyncSearchControl( selectEl ) {
 		var wrapId = selectEl.getAttribute( 'data-bn-pf-search-wrap' );
 		if ( ! wrapId ) {
@@ -283,9 +296,31 @@
 		if ( ! wrap ) {
 			return;
 		}
-		var capable = pfTypeMeta( selectEl ).isSearchableCapable;
-		wrap.style.display = capable ? '' : 'none';
-		if ( ! capable ) {
+
+		/*
+		 * Two gates, one rule: only offer the control where it can do something.
+		 *
+		 * The type gate was already here. The VISIBILITY gate was not, so an owner
+		 * could set a field to Followers only, tick "Searchable in the member
+		 * directory", save — and nothing happened, with nothing saying why. The
+		 * combination is unsatisfiable: those values never reach an index.
+		 *
+		 * Hidden rather than explained. This is a configuration screen, not a
+		 * place to warn people about choices we could simply not offer — and it
+		 * is exactly how the type gate has always behaved, so one panel now has
+		 * one behaviour instead of two.
+		 *
+		 * The checkbox is cleared when hidden so the impossible state cannot
+		 * persist. The server enforces the same rule, because a UI gate is a
+		 * convenience and never the authority.
+		 */
+		var vis        = pfVisibilityOf( selectEl );
+		var visValue   = vis ? vis.value : 'public';
+		var applicable = pfTypeMeta( selectEl ).isSearchableCapable
+			&& -1 !== PF_SEARCHABLE_VISIBILITY.indexOf( visValue );
+
+		wrap.style.display = applicable ? '' : 'none';
+		if ( ! applicable ) {
 			var box = wrap.querySelector( 'input[type="checkbox"][name="is_searchable"]' );
 			if ( box ) {
 				box.checked = false;
@@ -305,6 +340,16 @@
 			sel.addEventListener( 'change', function () {
 				pfSyncSearchControl( sel );
 			} );
+
+			// Visibility decides it too, so the control has to follow that select
+			// as well — otherwise switching a field to Followers only would leave a
+			// ticked checkbox on screen that the save then ignores.
+			var vis = pfVisibilityOf( sel );
+			if ( vis ) {
+				vis.addEventListener( 'change', function () {
+					pfSyncSearchControl( sel );
+				} );
+			}
 		} );
 	}
 

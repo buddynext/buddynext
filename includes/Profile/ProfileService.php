@@ -3086,8 +3086,17 @@ class ProfileService {
 		//
 		// followers / connections stay unindexed on purpose: answering them means resolving the
 		// searcher's relationship to every candidate at query time, which is a different (and much
-		// heavier) feature. What matters is that we no longer PRETEND to index them — the admin
-		// says so instead of the box quietly doing nothing.
+		// heavier) feature.
+		//
+		// The field editor no longer OFFERS "searchable" for those visibilities — the control is
+		// hidden and cleared, and ProfileFieldsManager refuses the combination on save
+		// (SEARCHABLE_VISIBILITY) — so this branch is now unreachable from the admin rather than a
+		// silent no-op behind a ticked box. It stays as the enforcement of last resort for values
+		// arriving from anywhere else.
+		//
+		// This comment previously claimed the admin already said so. It did not: there was no such
+		// string anywhere in the admin or its JS, and a reader would have concluded the case was
+		// handled when the box quietly did nothing.
 		$public_value  = ( $indexable && 'public' === $visibility ) ? $this->mirror_value( $field, $stored_value ) : '';
 		$members_value = ( $indexable && 'members' === $visibility ) ? $this->mirror_value( $field, $stored_value ) : '';
 
