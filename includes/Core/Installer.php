@@ -273,6 +273,26 @@ class Installer {
 	private const SCHEMA_VERSION = 40;
 
 	/**
+	 * One-shot corrections of seeded field flags that have already been applied.
+	 *
+	 * Deliberately NOT the schema version. This runs once per stamp and then
+	 * never again, so an owner's later choice sticks — tying it to
+	 * SCHEMA_VERSION would re-impose our values on every release and make the
+	 * admin's "Searchable" checkbox unable to hold a decision. Bump the stamp
+	 * only to ship a NEW correction; see converge_seeded_field_flags().
+	 *
+	 * @var string
+	 */
+	private const FLAG_CONVERGENCE = '2026-08-searchable-system';
+
+	/**
+	 * Option holding the last applied FLAG_CONVERGENCE stamp.
+	 *
+	 * @var string
+	 */
+	private const FLAG_CONVERGENCE_OPTION = 'buddynext_profile_flag_convergence';
+
+	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
 	 *
 	 * Hooked on admin_init so a plain plugin update (no reactivation) still picks
@@ -2017,7 +2037,106 @@ class Installer {
 			  WHERE field_key IN ('bio', 'headline', 'location', 'interests')
 			    AND is_system = 0"
 		);
+		self::converge_seeded_field_flags( $p );
+
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Deliver seeded field flags that INSERT IGNORE could never reach. ONCE.
+	 *
+	 * The seeder declares location, skills and interests searchable, and
+	 * basic_info + interests as system groups — but it inserts with INSERT
+	 * IGNORE, which skips rows that already exist, and nothing else ever
+	 * UPDATEs those columns. So a site whose rows predate a flag never receives
+	 * it, and no upgrade corrects that.
+	 *
+	 * The customer-visible symptom: with location not searchable the profile
+	 * search mirror is never written for it, so members are not findable by
+	 * where they are — on every established install, silently, with the admin
+	 * checkbox showing whatever the stale row says.
+	 *
+	 * WHY ONCE, and not on every upgrade.
+	 *
+	 * is_searchable is an owner-facing checkbox, so a 0 has two possible
+	 * meanings and the data cannot tell them apart: the flag never arrived
+	 * (this bug), or the owner deliberately unticked it. Converging on every
+	 * upgrade would re-impose our value forever and make that checkbox a lie —
+	 * an owner could never keep location unsearchable. Converging ONCE repairs
+	 * the sites that never got the flag, and a later owner change then sticks.
+	 *
+	 * There is no way to do better: the table records no updated_at and no
+	 * "customised" marker, so "converge only untouched fields" cannot be asked.
+	 * The residual cost is accepted and narrow — an owner who had already
+	 * unticked one of these three fields gets it re-enabled on one upgrade.
+	 *
+	 * Stamped with a version so a future flag correction can run its own
+	 * one-shot without repeating this one.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function converge_seeded_field_flags( string $p ): void {
+		global $wpdb;
+
+		if ( self::FLAG_CONVERGENCE === get_option( self::FLAG_CONVERGENCE_OPTION, '' ) ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// The three the seeder ships searchable. They are the directory's reason
+		// to exist — where someone is, what they do, what they are into. Fields an
+		// owner creates default to NOT searchable and stay that way; this only
+		// delivers what our own seed already declared.
+		//
+		// The ids are read FIRST, because after the UPDATE there is no way to tell
+		// which rows this actually changed — and only those need the backfill below.
+		$flipped = $wpdb->get_col(
+			"SELECT id FROM `{$p}bn_profile_fields`
+			  WHERE field_key IN ('location', 'skills', 'interests')
+			    AND is_searchable = 0"
+		);
+
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_fields`
+			    SET is_searchable = 1
+			  WHERE field_key IN ('location', 'skills', 'interests')
+			    AND is_searchable = 0"
+		);
+
+		// basic_info holds the bio/headline/location spine and was declared a
+		// system group; on sites predating that flag it is deletable.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_groups`
+			    SET is_system = 1
+			  WHERE group_key IN ('basic_info', 'interests')
+			    AND is_system = 0"
+		);
+
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		/*
+		 * Flipping the flag makes the field searchable FROM NOW ON. It does not
+		 * make anybody findable.
+		 *
+		 * The search mirror is written when a member saves their profile, so
+		 * without this every existing member stays unfindable until they each
+		 * happen to re-save — which is the very symptom this convergence exists to
+		 * cure, surviving the fix. Verified: after the UPDATE alone, is_searchable
+		 * was 1 and bn_field_location was still empty.
+		 *
+		 * The admin's own "searchable" toggle already solves this by firing
+		 * buddynext_profile_field_updated, which ProfileService::rebuild_field_mirror()
+		 * answers with a keyset-batched backfill queued through Action Scheduler —
+		 * so a 100k-member field never rebuilds inline. Using the same seam means
+		 * one backfill implementation, not a second one written for upgrades.
+		 */
+		foreach ( $flipped as $field_id ) {
+			do_action( 'buddynext_profile_field_updated', (int) $field_id );
+		}
+
+		update_option( self::FLAG_CONVERGENCE_OPTION, self::FLAG_CONVERGENCE, false );
 	}
 
 	/**
