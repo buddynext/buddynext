@@ -285,6 +285,41 @@ if [ "$MISSING" -ne 0 ]; then
 fi
 echo "bundled deps: EDD SL SDK complete (${#REQUIRED_FILES[@]}/${#REQUIRED_FILES[@]})"
 
+# 4c. Translation assertion. `languages` sits in OPTIONAL above, which means
+#     "copy it if it happens to be there" — so losing it produces a green build
+#     that ships an all-English plugin while the store page still claims the
+#     languages. That claim being untrue is a customer-reported bug in its own
+#     right, which is what this assertion exists to make impossible.
+#
+#     Assert on the ARTIFACT and on NAMED locales, not on a directory: a
+#     `[ -d languages ]` check passes on a folder holding only .po sources, and
+#     .po is the translator's file — the runtime loads .mo.
+#
+#     ja / ko_KR / zh_CN are deliberately ABSENT from this list. They are 2%
+#     scaffolds that bin/i18n.sh holds back below the coverage bar, so asserting
+#     them would fail every build for locales we correctly do not ship. When one
+#     of them clears the bar, add it here in the same commit that starts shipping
+#     it — this list and the claim we make to customers move together.
+REQUIRED_LOCALES=( de_DE es_ES fr_FR it_IT nl_NL pt_BR ru_RU )
+MISSING_MO=0
+for loc in "${REQUIRED_LOCALES[@]}"; do
+	if [ ! -f "$STAGE/languages/$SLUG-$loc.mo" ]; then
+		echo "build FAILED: compiled translation missing from the staged package: languages/$SLUG-$loc.mo" >&2
+		MISSING_MO=1
+	fi
+done
+if [ "$MISSING_MO" -ne 0 ]; then
+	echo "" >&2
+	echo "A .mo absent from the package means that language silently falls back to" >&2
+	echo "English on the customer's site while we still advertise it. Run bin/i18n.sh" >&2
+	echo "and check the OPTIONAL allowlist. If a locale was dropped ON PURPOSE because" >&2
+	echo "it fell below the coverage bar, remove it from REQUIRED_LOCALES here too —" >&2
+	echo "and from the marketing copy that promises it." >&2
+	rm -rf "$TMP"
+	exit 1
+fi
+echo "translations: ${#REQUIRED_LOCALES[@]} compiled locales present"
+
 # 5. Zip.
 mkdir -p "$DIST"
 ZIP="$DIST/$SLUG-$VERSION.zip"

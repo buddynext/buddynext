@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.1.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-08-02T15:48:59+00:00\n"
+"POT-Creation-Date: 2026-08-05T18:31:00+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -146,15 +146,15 @@ msgstr "Piattaforma"
 #: includes/Admin/NavManager.php:2190 includes/Admin/Spaces.php:365
 #: includes/Admin/Spaces.php:447 includes/Core/AssetService.php:1417
 #: includes/Core/CoreHubs.php:30 includes/Core/PageRouter.php:645
-#: includes/Core/PageRouter.php:708 includes/Core/Plugin.php:794
+#: includes/Core/PageRouter.php:708 includes/Core/Plugin.php:800
 #: includes/Nav/Providers/SpaceNav.php:187 includes/Nav/ShellNavService.php:86
 #: includes/Onboarding/SetupWizard.php:923
 #: includes/Onboarding/SetupWizard.php:1248
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:237
 #: templates/blocks/member-directory.php:33 templates/community-admin.php:221
 #: templates/community-admin.php:281 templates/directory/members.php:94
-#: templates/feed/explore.php:89 templates/partials/media-tab.php:238
-#: templates/parts/dm-thread-header.php:146
+#: templates/feed/explore.php:90 templates/partials/media-tab.php:238
+#: templates/partials/nav.php:177 templates/parts/dm-thread-header.php:146
 #: templates/parts/member-directory-hero.php:66
 #: templates/parts/search-result-section-members.php:86
 #: templates/parts/space-about-panel.php:164
@@ -177,7 +177,7 @@ msgstr "Membri"
 #: includes/Admin/Spaces.php:199 includes/Admin/Spaces.php:286
 #: includes/Admin/Spaces.php:611 includes/Admin/Spaces.php:644
 #: includes/Core/CoreHubs.php:31 includes/Core/FeatureRegistry.php:380
-#: includes/Core/PageRouter.php:646 includes/Core/Plugin.php:798
+#: includes/Core/PageRouter.php:646 includes/Core/Plugin.php:804
 #: includes/Nav/ShellNavService.php:93 includes/Nav/UserLinks.php:103
 #: includes/Notifications/NotificationPrefCatalogue.php:500
 #: includes/Onboarding/OnboardingService.php:120
@@ -187,8 +187,8 @@ msgstr "Membri"
 #: includes/Sidebar/Providers/NotificationsSidebarProvider.php:94
 #: includes/Sidebar/Providers/NotificationsSidebarProvider.php:122
 #: templates/blocks/space-directory.php:33 templates/community-admin.php:225
-#: templates/feed/explore.php:90 templates/feed/home.php:188
-#: templates/notifications/index.php:387 templates/partials/nav.php:136
+#: templates/feed/explore.php:91 templates/feed/home.php:192
+#: templates/notifications/index.php:387 templates/partials/nav.php:149
 #: templates/parts/search-result-section-spaces.php:82
 #: templates/search/results.php:355 templates/spaces/directory.php:305
 msgid "Spaces"
@@ -202,7 +202,7 @@ msgstr "Coinvolgimento"
 #: includes/Admin/NavManager.php:2182 includes/Admin/Settings.php:93
 #: includes/Admin/Settings.php:2104 includes/Core/CoreHubs.php:33
 #: includes/Core/FeatureRegistry.php:388 includes/Core/PageRouter.php:648
-#: includes/Core/Plugin.php:802 includes/Nav/ShellNavService.php:100
+#: includes/Core/Plugin.php:808 includes/Nav/ShellNavService.php:100
 #: includes/Nav/UserLinks.php:91 includes/Onboarding/OnboardingService.php:130
 #: includes/Onboarding/SetupWizard.php:350
 #: templates/parts/notifications-hero.php:70
@@ -266,8 +266,8 @@ msgstr "Niente è registrato qui ancora."
 msgid "You do not have permission to view this tab."
 msgstr "Non hai il permesso per visualizzare questa scheda."
 
-#: includes/Admin/AdminHub.php:1189 includes/Bridges/JetonomyBridge.php:1976
-#: includes/Core/PageRouter.php:792 includes/Core/Plugin.php:810
+#: includes/Admin/AdminHub.php:1189 includes/Bridges/JetonomyBridge.php:2193
+#: includes/Core/PageRouter.php:792 includes/Core/Plugin.php:816
 #: templates/blocks/search-bar.php:29 templates/parts/dm-thread-header.php:139
 #: templates/parts/search-hero.php:68 templates/parts/search-hero.php:85
 #: templates/search/results.php:420
@@ -357,21 +357,21 @@ msgstr ""
 #: includes/Admin/Members.php:543 includes/Admin/Members.php:575
 #: includes/Admin/Members.php:623 includes/Admin/Members/AvatarSettings.php:101
 #: includes/Admin/Members/MemberExport.php:37
-#: includes/Admin/Members/ProfileFieldsManager.php:336
-#: includes/Admin/Members/ProfileFieldsManager.php:410
-#: includes/Admin/Members/ProfileFieldsManager.php:753
-#: includes/Admin/Members/ProfileFieldsManager.php:819
-#: includes/Admin/Members/ProfileFieldsManager.php:903
-#: includes/Admin/Members/ProfileFieldsManager.php:991
-#: includes/Admin/Members/ProfileFieldsManager.php:1058
-#: includes/Admin/Members/ProfileFieldsManager.php:1226
-#: includes/Admin/Members/ProfileFieldsManager.php:1301
+#: includes/Admin/Members/ProfileFieldsManager.php:350
+#: includes/Admin/Members/ProfileFieldsManager.php:424
+#: includes/Admin/Members/ProfileFieldsManager.php:774
+#: includes/Admin/Members/ProfileFieldsManager.php:840
+#: includes/Admin/Members/ProfileFieldsManager.php:924
+#: includes/Admin/Members/ProfileFieldsManager.php:1012
+#: includes/Admin/Members/ProfileFieldsManager.php:1079
+#: includes/Admin/Members/ProfileFieldsManager.php:1250
+#: includes/Admin/Members/ProfileFieldsManager.php:1325
 #: includes/Admin/ModerationQueue.php:953 includes/Admin/NavManager.php:357
 #: includes/Admin/NavManager.php:1882 includes/Admin/RolesTab.php:192
 #: includes/Admin/Settings.php:249 includes/Admin/Settings.php:267
 #: includes/Admin/SetupChecklist.php:244 includes/Admin/SetupChecklist.php:260
 #: includes/Admin/Spaces.php:1039 includes/Admin/Spaces.php:1077
-#: includes/Admin/Spaces.php:1113 includes/Admin/ToolsTab.php:574
+#: includes/Admin/Spaces.php:1113 includes/Admin/ToolsTab.php:613
 #: includes/Demo/DemoAdmin.php:158 includes/Demo/DemoAdmin.php:175
 #: includes/Spaces/SpaceCategoryController.php:320
 msgid "You do not have permission to perform this action."
@@ -967,7 +967,7 @@ msgstr "HTML"
 msgid "Plain"
 msgstr "Testo semplice"
 
-#: includes/Admin/EmailEditor.php:932 templates/onboarding/index.php:766
+#: includes/Admin/EmailEditor.php:932 templates/onboarding/index.php:784
 #: templates/parts/taxonomy-editor.php:99
 msgid "Preview"
 msgstr "Anteprima"
@@ -1010,14 +1010,14 @@ msgstr "Invia un'email di prova"
 
 #: includes/Admin/EmailEditor.php:1094 includes/Admin/EmailEditor.php:1151
 #: includes/Admin/Spaces.php:816 includes/Core/AssetService.php:1162
-#: includes/Core/PageRouter.php:1264 templates/notifications/prefs.php:511
+#: includes/Core/PageRouter.php:1267 templates/notifications/prefs.php:511
 #: templates/partials/block-confirm-modal.php:49
 #: templates/partials/create-space-modal.php:75
 #: templates/partials/media-lightbox.php:49
 #: templates/partials/media-lightbox.php:62
 #: templates/partials/media-lightbox.php:69
 #: templates/partials/media-tab.php:207 templates/partials/media-tab.php:261
-#: templates/partials/nav.php:286 templates/partials/report-modal.php:46
+#: templates/partials/nav.php:319 templates/partials/report-modal.php:46
 #: templates/partials/share-modal.php:65
 #: templates/partials/space-delete-confirm-modal.php:46
 #: templates/parts/dm-compose-modal.php:39
@@ -1057,14 +1057,14 @@ msgstr ""
 
 #: includes/Admin/EmailEditor.php:1119 includes/Admin/EmailEditor.php:1164
 #: includes/Admin/Members.php:1570 includes/Admin/Members/AvatarSettings.php:87
-#: includes/Admin/Members/ProfileFieldsManager.php:1627
-#: includes/Admin/Members/ProfileFieldsManager.php:1976
-#: includes/Admin/Members/ProfileFieldsManager.php:2117
-#: includes/Admin/Members/ProfileFieldsManager.php:2165
+#: includes/Admin/Members/ProfileFieldsManager.php:1651
+#: includes/Admin/Members/ProfileFieldsManager.php:2000
+#: includes/Admin/Members/ProfileFieldsManager.php:2141
+#: includes/Admin/Members/ProfileFieldsManager.php:2189
 #: includes/Admin/NavManager.php:1861 includes/Admin/Spaces.php:670
 #: includes/Admin/Spaces.php:833 includes/Core/AssetService.php:852
 #: includes/Core/AssetService.php:1123 includes/Core/AssetService.php:1309
-#: includes/Core/PageRouter.php:1266 templates/notifications/prefs.php:522
+#: includes/Core/PageRouter.php:1269 templates/notifications/prefs.php:522
 #: templates/partials/block-confirm-modal.php:73
 #: templates/partials/create-space-modal.php:234
 #: templates/partials/media-tab.php:245 templates/partials/media-tab.php:293
@@ -1135,7 +1135,7 @@ msgstr "Filtra il registro email per tipo"
 
 #: includes/Admin/EmailLog.php:155 includes/Admin/Members.php:1236
 #: includes/Admin/Members/InviteManager.php:205 includes/Admin/Spaces.php:308
-#: templates/feed/explore.php:88 templates/moderation/queue.php:252
+#: templates/feed/explore.php:89 templates/moderation/queue.php:252
 #: templates/notifications/index.php:362 templates/parts/dm-rail.php:65
 #: templates/parts/space-members-panel.php:89 templates/search/results.php:343
 msgid "All"
@@ -1152,7 +1152,7 @@ msgstr "Destinatario"
 #: includes/Admin/EmailLog.php:177
 #: includes/Admin/Members/MemberTypesManager.php:217
 #: includes/Admin/Members/MemberTypesManager.php:228
-#: includes/Admin/Members/ProfileFieldsManager.php:1668
+#: includes/Admin/Members/ProfileFieldsManager.php:1692
 #: includes/Admin/Spaces.php:364 includes/Admin/Spaces.php:442
 #: includes/Privacy/PrivacyTools.php:877 includes/Privacy/PrivacyTools.php:1096
 #: includes/Privacy/PrivacyTools.php:1150
@@ -1184,7 +1184,7 @@ msgid "Email log pagination"
 msgstr "Paginazione del registro email"
 
 #: includes/Admin/GetStartedScreen.php:38
-#: includes/Bridges/JetonomyBridge.php:1971
+#: includes/Bridges/JetonomyBridge.php:2188
 msgid "Home"
 msgstr "Home"
 
@@ -1286,7 +1286,7 @@ msgstr "Attivo (30 giorni)"
 
 #: includes/Admin/Insights.php:94 includes/Admin/ModerationQueue.php:172
 #: includes/Admin/NavManager.php:764 includes/Nav/Providers/ProfileNav.php:127
-#: templates/feed/explore.php:91 templates/moderation/queue.php:260
+#: templates/feed/explore.php:92 templates/moderation/queue.php:260
 #: templates/parts/search-result-section-posts.php:88
 #: templates/parts/space-header.php:76 templates/search/results.php:351
 msgid "Posts"
@@ -1743,9 +1743,9 @@ msgstr "Seleziona tutti i membri"
 #: includes/Admin/ModerationQueue.php:515 includes/Core/AssetService.php:1131
 #: includes/Core/AssetService.php:1212 includes/Messages/MessagesData.php:165
 #: includes/Privacy/PrivacyTools.php:815 includes/Privacy/PrivacyTools.php:873
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:487
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:543
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:576
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:530
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:581
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:609
 #: includes/Spaces/SpaceController.php:1627 templates/community-admin.php:504
 #: templates/community-admin.php:574 templates/community-admin.php:637
 #: templates/messages/native.php:165
@@ -1768,7 +1768,7 @@ msgstr "Membro"
 #: includes/Admin/Members/ProfileFieldsManager.php:82
 #: includes/Admin/Settings.php:94 includes/Admin/Settings.php:2105
 #: includes/Profile/FieldType.php:93 templates/auth/signup.php:373
-#: templates/notifications/prefs.php:226 templates/onboarding/index.php:656
+#: templates/notifications/prefs.php:226 templates/onboarding/index.php:674
 msgid "Email"
 msgstr "Email"
 
@@ -1781,7 +1781,7 @@ msgstr "Ruolo"
 #: includes/Admin/Members.php:1358 includes/Admin/Members.php:1428
 #: includes/Core/AssetService.php:971 includes/Core/AssetService.php:1094
 #: includes/Core/AssetService.php:1514 includes/Privacy/PrivacyTools.php:941
-#: templates/onboarding/index.php:499
+#: templates/onboarding/index.php:517
 #: templates/parts/search-result-section-spaces.php:181
 #: templates/parts/space-directory-card.php:177
 #: templates/parts/space-hero.php:243
@@ -1868,7 +1868,7 @@ msgid "Reason (optional, shown in the moderation log)"
 msgstr "Motivo (opzionale, visualizzato nel registro di moderazione)"
 
 #: includes/Admin/Members.php:1573 includes/Core/AssetService.php:1164
-#: includes/Core/PageRouter.php:1265 assets/js/admin/avatar-settings.js:83
+#: includes/Core/PageRouter.php:1268 assets/js/admin/avatar-settings.js:83
 #: assets/js/admin/bn-admin-dialogs.js:67
 #: assets/js/admin/bn-admin-dialogs.js:101
 #: assets/js/admin/bn-admin-dialogs.js:249 assets/js/admin/spaces.js:88
@@ -2254,7 +2254,7 @@ msgstr "Paginazione degli inviti"
 #: includes/Admin/Members/MemberDisplay.php:56
 #: includes/Core/AssetService.php:1211 includes/Core/PageRouter.php:705
 #: includes/Messages/MessagesData.php:165
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:502
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:540
 #: templates/community-admin.php:211 templates/messages/native.php:164
 #: templates/parts/sidebar-profile-member-of.php:43
 msgid "Admin"
@@ -2288,11 +2288,11 @@ msgstr "Proprio adesso"
 #: includes/Outbound/AccessWebhookController.php:91
 #: includes/Profile/ProfileController.php:647
 #: includes/Profile/ProfileController.php:658
-#: includes/Profile/ProfileController.php:1305
-#: includes/Profile/ProfileController.php:1670
-#: includes/Profile/ProfileController.php:1688
-#: includes/Profile/ProfileController.php:1712
-#: includes/Profile/ProfileController.php:1728
+#: includes/Profile/ProfileController.php:1362
+#: includes/Profile/ProfileController.php:1727
+#: includes/Profile/ProfileController.php:1745
+#: includes/Profile/ProfileController.php:1769
+#: includes/Profile/ProfileController.php:1785
 #: includes/SocialGraph/BlockController.php:147
 #: includes/SocialGraph/BlockController.php:188
 #: includes/SocialGraph/BlockController.php:343
@@ -2458,28 +2458,28 @@ msgid "Entry %d"
 msgstr "Voce %d"
 
 #: includes/Admin/Members/MemberEditForm.php:339
-#: includes/Admin/Members/MemberEditForm.php:377
+#: includes/Admin/Members/MemberEditForm.php:376
 #: templates/parts/profile-field-group.php:69
 msgid "Remove entry"
 msgstr "Rimuovi voce"
 
-#: includes/Admin/Members/MemberEditForm.php:387
+#: includes/Admin/Members/MemberEditForm.php:386
 msgid "+ Add Entry"
 msgstr "+ Aggiungi Voce"
 
-#: includes/Admin/Members/MemberEditForm.php:396
+#: includes/Admin/Members/MemberEditForm.php:395
 msgid "No fields in this group."
 msgstr "Nessun campo in questo gruppo."
 
-#: includes/Admin/Members/MemberEditForm.php:416
+#: includes/Admin/Members/MemberEditForm.php:415
 msgid "Save Profile"
 msgstr "Salva Profilo"
 
-#: includes/Admin/Members/MemberEditForm.php:460
+#: includes/Admin/Members/MemberEditForm.php:459
 msgid "Nothing selected yet."
 msgstr "Niente selezionato ancora."
 
-#: includes/Admin/Members/MemberEditForm.php:462
+#: includes/Admin/Members/MemberEditForm.php:461
 msgid ""
 "Members choose these themselves from onboarding or their profile. Read-only "
 "here."
@@ -2487,14 +2487,14 @@ msgstr ""
 "I membri scelgono questi da soli durante l'onboarding o dal loro profilo. "
 "Sola lettura qui."
 
-#: includes/Admin/Members/MemberEditForm.php:480
+#: includes/Admin/Members/MemberEditForm.php:479
 msgid "-- Select --"
 msgstr "-- Seleziona --"
 
-#: includes/Admin/Members/MemberEditForm.php:530
+#: includes/Admin/Members/MemberEditForm.php:529
 #: includes/Admin/Members/MemberTypesManager.php:245
 #: includes/Admin/Spaces.php:647 includes/Profile/FieldType.php:1077
-#: includes/Profile/FieldType.php:1571
+#: includes/Profile/FieldType.php:1588
 msgid "Yes"
 msgstr "Sì"
 
@@ -2555,8 +2555,8 @@ msgid "Self-Select"
 msgstr "Auto-Selezione"
 
 #: includes/Admin/Members/MemberTypesManager.php:247
-#: includes/Admin/Members/ProfileFieldsManager.php:1804
-#: includes/Admin/Spaces.php:649 includes/Profile/FieldType.php:1571
+#: includes/Admin/Members/ProfileFieldsManager.php:1828
+#: includes/Admin/Spaces.php:649 includes/Profile/FieldType.php:1588
 msgid "No"
 msgstr "No"
 
@@ -2668,27 +2668,27 @@ msgstr "Selezione multipla"
 msgid "Color"
 msgstr "Colore"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1393
+#: includes/Admin/Members/ProfileFieldsManager.php:1417
 msgid "Profile fields saved."
 msgstr "Campi profilo salvati."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1395
+#: includes/Admin/Members/ProfileFieldsManager.php:1419
 msgid "Deleted."
 msgstr "Eliminato."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1397
+#: includes/Admin/Members/ProfileFieldsManager.php:1421
 msgid "Not saved — please check the field name and try again."
 msgstr "Non salvato — controlla il nome del campo e riprova."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1399
-#: includes/Profile/ProfileService.php:2520
+#: includes/Admin/Members/ProfileFieldsManager.php:1423
+#: includes/Profile/ProfileService.php:2546
 msgid ""
 "This is a core field used by search and member cards - it cannot be deleted."
 msgstr ""
 "Questo è un campo principale utilizzato da ricerca e schede membro - non può "
 "essere eliminato."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1401
+#: includes/Admin/Members/ProfileFieldsManager.php:1425
 msgid ""
 "Not deleted - the confirmation text did not match. Type the exact name (or "
 "DELETE) to remove an item that has stored member values."
@@ -2696,7 +2696,7 @@ msgstr ""
 "Non eliminato - il testo di conferma non corrisponde. Digita il nome esatto "
 "(o DELETE) per rimuovere un elemento che ha valori membro memorizzati."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1450
+#: includes/Admin/Members/ProfileFieldsManager.php:1474
 #: includes/Admin/Settings.php:957 includes/Core/AssetService.php:957
 #: includes/Core/AssetService.php:1098 includes/Core/AssetService.php:1416
 #: templates/partials/composer.php:470 templates/partials/composer.php:487
@@ -2707,24 +2707,24 @@ msgstr ""
 msgid "Public"
 msgstr "Pubblico"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1451
+#: includes/Admin/Members/ProfileFieldsManager.php:1475
 #: includes/Admin/Settings.php:866
 #: templates/parts/settings-privacy-fields.php:32
 msgid "Members only"
 msgstr "Solo i membri"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1452
+#: includes/Admin/Members/ProfileFieldsManager.php:1476
 #: includes/Admin/Settings.php:958 templates/partials/post-card.php:318
 msgid "Followers only"
 msgstr "Solo follower"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1453
+#: includes/Admin/Members/ProfileFieldsManager.php:1477
 #: includes/Admin/Settings.php:867 includes/Admin/Settings.php:959
 #: templates/partials/post-card.php:319
 msgid "Connections only"
 msgstr "Solo connessioni"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1454
+#: includes/Admin/Members/ProfileFieldsManager.php:1478
 #: includes/Admin/Settings.php:960 includes/Core/AssetService.php:960
 #: includes/Core/AssetService.php:1420 templates/partials/composer.php:523
 #: templates/partials/media-tab.php:239
@@ -2736,43 +2736,43 @@ msgstr "Solo connessioni"
 msgid "Only me"
 msgstr "Solo io"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1489
+#: includes/Admin/Members/ProfileFieldsManager.php:1513
 msgid "Rename group"
 msgstr ""
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1492
+#: includes/Admin/Members/ProfileFieldsManager.php:1516
 #: includes/Admin/ModerationQueue.php:600
 msgid "System"
 msgstr "Sistema"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1496
+#: includes/Admin/Members/ProfileFieldsManager.php:1520
 msgid ""
 "Whether a group holds one value per field or multiple entries is set when "
 "the group is created and cannot be changed afterwards."
 msgstr ""
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1497
+#: includes/Admin/Members/ProfileFieldsManager.php:1521
 msgid "Multiple entries"
 msgstr "Voci multiple"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1497
-#: includes/Admin/Members/ProfileFieldsManager.php:2147
+#: includes/Admin/Members/ProfileFieldsManager.php:1521
+#: includes/Admin/Members/ProfileFieldsManager.php:2171
 msgid "Single entry"
 msgstr "Voce singola"
 
 #. translators: %d: number of fields
-#: includes/Admin/Members/ProfileFieldsManager.php:1505
+#: includes/Admin/Members/ProfileFieldsManager.php:1529
 #, php-format
 msgid "%d field"
 msgid_plural "%d fields"
 msgstr[0] "%d campo"
 msgstr[1] "%d campi"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1519
+#: includes/Admin/Members/ProfileFieldsManager.php:1543
 msgid "Group visibility"
 msgstr "Visibilità del gruppo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1536
+#: includes/Admin/Members/ProfileFieldsManager.php:1560
 msgid ""
 "Limit to member type - this section only appears on profiles of members with "
 "the selected type."
@@ -2780,36 +2780,36 @@ msgstr ""
 "Limita al tipo di membro - questa sezione appare solo nei profili dei membri "
 "con il tipo selezionato."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1537
+#: includes/Admin/Members/ProfileFieldsManager.php:1561
 #: templates/parts/member-directory-filter-bar.php:183
 msgid "All member types"
 msgstr "Tutti i tipi di membri"
 
 #. translators: %s: member type name.
-#: includes/Admin/Members/ProfileFieldsManager.php:1551
+#: includes/Admin/Members/ProfileFieldsManager.php:1575
 #, php-format
 msgid "Only: %s"
 msgstr "Solo: %s"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1568
+#: includes/Admin/Members/ProfileFieldsManager.php:1592
 msgid "Move group up"
 msgstr "Sposta gruppo su"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1578
+#: includes/Admin/Members/ProfileFieldsManager.php:1602
 msgid "Move group down"
 msgstr "Sposta gruppo giù"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1585
+#: includes/Admin/Members/ProfileFieldsManager.php:1609
 msgid "Add Field"
 msgstr "Aggiungi Campo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1601
+#: includes/Admin/Members/ProfileFieldsManager.php:1625
 msgid "Delete Group"
 msgstr "Elimina Gruppo"
 
 #. translators: 1: number of members with stored values, 2: name of the item being deleted.
-#: includes/Admin/Members/ProfileFieldsManager.php:1609
-#: includes/Admin/Members/ProfileFieldsManager.php:1786
+#: includes/Admin/Members/ProfileFieldsManager.php:1633
+#: includes/Admin/Members/ProfileFieldsManager.php:1810
 #, php-format
 msgid ""
 "This permanently deletes stored values for %1$d member. Type \"%2$s\" or "
@@ -2824,107 +2824,107 @@ msgstr[1] ""
 "Questo elimina in modo permanente i valori memorizzati per %1$d membri. "
 "Digita \"%2$s\" o DELETE per confermare."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1623
-#: includes/Admin/Members/ProfileFieldsManager.php:1800
+#: includes/Admin/Members/ProfileFieldsManager.php:1647
+#: includes/Admin/Members/ProfileFieldsManager.php:1824
 msgid "Type the name or DELETE to confirm"
 msgstr "Digita il nome o DELETE per confermare"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1626
+#: includes/Admin/Members/ProfileFieldsManager.php:1650
 msgid "Yes, delete"
 msgstr "Sì, elimina"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1641
+#: includes/Admin/Members/ProfileFieldsManager.php:1665
 #: templates/parts/dm-compose-modal.php:57
 #: templates/parts/dm-group-panel.php:44
 msgid "Group name"
 msgstr "Nome del gruppo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1645
+#: includes/Admin/Members/ProfileFieldsManager.php:1669
 msgid "Save Name"
 msgstr ""
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1666
+#: includes/Admin/Members/ProfileFieldsManager.php:1690
 msgid "Order"
 msgstr "Ordine"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1667
-#: includes/Admin/Members/ProfileFieldsManager.php:1830
-#: includes/Admin/Members/ProfileFieldsManager.php:2002
+#: includes/Admin/Members/ProfileFieldsManager.php:1691
+#: includes/Admin/Members/ProfileFieldsManager.php:1854
+#: includes/Admin/Members/ProfileFieldsManager.php:2026
 msgid "Field Name"
 msgstr "Nome Campo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1669
-#: includes/Admin/Members/ProfileFieldsManager.php:1730
+#: includes/Admin/Members/ProfileFieldsManager.php:1693
+#: includes/Admin/Members/ProfileFieldsManager.php:1754
 msgid "Required"
 msgstr "Obbligatorio"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1670
-#: includes/Admin/Members/ProfileFieldsManager.php:1881
-#: includes/Admin/Members/ProfileFieldsManager.php:2023
+#: includes/Admin/Members/ProfileFieldsManager.php:1694
+#: includes/Admin/Members/ProfileFieldsManager.php:1905
+#: includes/Admin/Members/ProfileFieldsManager.php:2047
 msgid "Visible to"
 msgstr "Visibile a"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1695
+#: includes/Admin/Members/ProfileFieldsManager.php:1719
 msgid "Move up"
 msgstr "Sposta su"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1704
+#: includes/Admin/Members/ProfileFieldsManager.php:1728
 msgid "Move down"
 msgstr "Sposta giù"
 
 #. translators: %s: profile field label.
-#: includes/Admin/Members/ProfileFieldsManager.php:1749
+#: includes/Admin/Members/ProfileFieldsManager.php:1773
 #, php-format
 msgid "Visibility for %s"
 msgstr ""
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1764
-#: includes/Admin/Members/ProfileFieldsManager.php:1823
+#: includes/Admin/Members/ProfileFieldsManager.php:1788
+#: includes/Admin/Members/ProfileFieldsManager.php:1847
 msgid "Edit field"
 msgstr "Modifica campo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1767
+#: includes/Admin/Members/ProfileFieldsManager.php:1791
 msgid "Core field - used by search and member cards. It cannot be deleted."
 msgstr ""
 "Campo principale - utilizzato da ricerca e schede membro. Non può essere "
 "eliminato."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1767
+#: includes/Admin/Members/ProfileFieldsManager.php:1791
 #: includes/Admin/NavManager.php:1378
 msgid "Core"
 msgstr "Core"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1778
+#: includes/Admin/Members/ProfileFieldsManager.php:1802
 msgid "Remove field"
 msgstr "Rimuovi campo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1803
+#: includes/Admin/Members/ProfileFieldsManager.php:1827
 msgid "Delete?"
 msgstr "Eliminare?"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1838
-#: includes/Admin/Members/ProfileFieldsManager.php:2010
+#: includes/Admin/Members/ProfileFieldsManager.php:1862
+#: includes/Admin/Members/ProfileFieldsManager.php:2034
 msgid "Field Type"
 msgstr "Tipo di Campo"
 
 #. translators: %s: the stored field-type slug, e.g. "location".
-#: includes/Admin/Members/ProfileFieldsManager.php:1864
+#: includes/Admin/Members/ProfileFieldsManager.php:1888
 #, php-format
 msgid "%s (provided by an add-on that is not active)"
 msgstr ""
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1894
-#: includes/Admin/Members/ProfileFieldsManager.php:2035
+#: includes/Admin/Members/ProfileFieldsManager.php:1918
+#: includes/Admin/Members/ProfileFieldsManager.php:2059
 msgid "Help text"
 msgstr "Testo di aiuto"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1902
-#: includes/Admin/Members/ProfileFieldsManager.php:2043
+#: includes/Admin/Members/ProfileFieldsManager.php:1926
+#: includes/Admin/Members/ProfileFieldsManager.php:2067
 msgid "Placeholder"
 msgstr "Placeholder"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1910
-#: includes/Admin/Members/ProfileFieldsManager.php:2051
+#: includes/Admin/Members/ProfileFieldsManager.php:1934
+#: includes/Admin/Members/ProfileFieldsManager.php:2075
 msgid ""
 "Help text appears under the field name on the profile edit and signup forms. "
 "Placeholder shows inside the empty input. Leave both blank to show nothing "
@@ -2934,18 +2934,18 @@ msgstr ""
 "profilo e iscrizione. Il placeholder viene visualizzato all'interno "
 "dell'input vuoto. Lascia entrambi vuoti per non mostrare nulla di extra."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1913
-#: includes/Admin/Members/ProfileFieldsManager.php:2054
+#: includes/Admin/Members/ProfileFieldsManager.php:1937
+#: includes/Admin/Members/ProfileFieldsManager.php:2078
 msgid "Options (one per line)"
 msgstr "Opzioni (una per riga)"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1919
-#: includes/Admin/Members/ProfileFieldsManager.php:2060
+#: includes/Admin/Members/ProfileFieldsManager.php:1943
+#: includes/Admin/Members/ProfileFieldsManager.php:2084
 #: templates/partials/composer.php:281
 msgid "Option 1"
 msgstr "Opzione 1"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1920
+#: includes/Admin/Members/ProfileFieldsManager.php:1944
 msgid ""
 "Each line becomes one selectable option. Example: United States, Canada, "
 "United Kingdom â each on its own line."
@@ -2953,85 +2953,85 @@ msgstr ""
 "Ogni riga diventa un'opzione selezionabile. Esempio: Stati Uniti, Canada, "
 "Regno Unito — ognuno sulla propria riga."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1949
-#: includes/Admin/Members/ProfileFieldsManager.php:2085
+#: includes/Admin/Members/ProfileFieldsManager.php:1973
+#: includes/Admin/Members/ProfileFieldsManager.php:2109
 msgid "Display as"
 msgstr "Mostra come"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1952
+#: includes/Admin/Members/ProfileFieldsManager.php:1976
 msgid "Full date â Jan 15, 1990"
 msgstr "Data completa — 15 gen 1990"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1953
+#: includes/Admin/Members/ProfileFieldsManager.php:1977
 msgid "Month â Year â Jan 1990"
 msgstr "Mese & Anno — gen 1990"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1954
+#: includes/Admin/Members/ProfileFieldsManager.php:1978
 msgid "Year only â 1990"
 msgstr "Solo anno — 1990"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1955
+#: includes/Admin/Members/ProfileFieldsManager.php:1979
 msgid "Calculated age â 34 years old"
 msgstr "Età calcolata — 34 anni"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1957
-#: includes/Admin/Members/ProfileFieldsManager.php:2093
+#: includes/Admin/Members/ProfileFieldsManager.php:1981
+#: includes/Admin/Members/ProfileFieldsManager.php:2117
 msgid ""
 "How this date appears on profiles. Always stored as YYYY-MM-DD internally."
 msgstr ""
 "Come questa data appare sui profili. Sempre archiviato come AAAA-MM-GG "
 "internamente."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1961
-#: includes/Admin/Members/ProfileFieldsManager.php:2097
+#: includes/Admin/Members/ProfileFieldsManager.php:1985
+#: includes/Admin/Members/ProfileFieldsManager.php:2121
 msgid "Make this field required"
 msgstr "Rendi questo campo obbligatorio"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1965
-#: includes/Admin/Members/ProfileFieldsManager.php:2106
+#: includes/Admin/Members/ProfileFieldsManager.php:1989
+#: includes/Admin/Members/ProfileFieldsManager.php:2130
 msgid "Searchable in the member directory"
 msgstr "Ricercabile nella directory dei membri"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1971
+#: includes/Admin/Members/ProfileFieldsManager.php:1995
 msgid "Ask for this on the registration form"
 msgstr "Chiedi questo sul modulo di registrazione"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1975
+#: includes/Admin/Members/ProfileFieldsManager.php:1999
 msgid "Save Changes"
 msgstr "Salva Modifiche"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1988
+#: includes/Admin/Members/ProfileFieldsManager.php:2012
 msgid "No fields yet"
 msgstr ""
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1989
+#: includes/Admin/Members/ProfileFieldsManager.php:2013
 msgid "Click \"Add Field\" to create the first field in this group."
 msgstr ""
 
-#: includes/Admin/Members/ProfileFieldsManager.php:1995
+#: includes/Admin/Members/ProfileFieldsManager.php:2019
 msgid "Add a new field"
 msgstr "Aggiungi un nuovo campo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2006
+#: includes/Admin/Members/ProfileFieldsManager.php:2030
 msgid "e.g. Job Title"
 msgstr "es. Titolo Lavoro"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2031
+#: includes/Admin/Members/ProfileFieldsManager.php:2055
 msgid ""
 "Dropdown, Radio and Multi-select let members choose from options you define "
 "below. Space Categories uses your site categories as the choices; Yes / No "
 "is a single checkbox; everything else is free text."
 msgstr ""
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2039
+#: includes/Admin/Members/ProfileFieldsManager.php:2063
 msgid "e.g. Shown under the field name to explain what to enter"
 msgstr "es. Visualizzato sotto il nome del campo per spiegare cosa inserire"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2047
+#: includes/Admin/Members/ProfileFieldsManager.php:2071
 msgid "e.g. Example value shown inside the empty input"
 msgstr "ad es. Valore di esempio mostrato all'interno dell'input vuoto"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2061
+#: includes/Admin/Members/ProfileFieldsManager.php:2085
 msgid ""
 "Each line becomes one selectable option. Example: United States, Canada, "
 "United Kingdom — each on its own line."
@@ -3039,59 +3039,59 @@ msgstr ""
 "Ogni riga diventa un'opzione selezionabile. Esempio: Stati Uniti, Canada, "
 "Regno Unito — ognuno sulla propria riga."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2088
+#: includes/Admin/Members/ProfileFieldsManager.php:2112
 msgid "Full date — Jan 15, 1990"
 msgstr "Data completa — 15 gen 1990"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2089
+#: includes/Admin/Members/ProfileFieldsManager.php:2113
 msgid "Month & Year — Jan 1990"
 msgstr "Mese & Anno — gen 1990"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2090
+#: includes/Admin/Members/ProfileFieldsManager.php:2114
 msgid "Year only — 1990"
 msgstr "Solo anno — 1990"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2091
+#: includes/Admin/Members/ProfileFieldsManager.php:2115
 msgid "Calculated age — 34 years old"
 msgstr "Età calcolata — 34 anni"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2112
+#: includes/Admin/Members/ProfileFieldsManager.php:2136
 msgid "Show on the registration form"
 msgstr ""
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2116
+#: includes/Admin/Members/ProfileFieldsManager.php:2140
 msgid "Save Field"
 msgstr "Salva Campo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2130
+#: includes/Admin/Members/ProfileFieldsManager.php:2154
 msgid "Add Group"
 msgstr "Aggiungi Gruppo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2134
+#: includes/Admin/Members/ProfileFieldsManager.php:2158
 msgid "Add a new profile group"
 msgstr "Aggiungi un nuovo gruppo profilo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2140
+#: includes/Admin/Members/ProfileFieldsManager.php:2164
 msgid "Group Name"
 msgstr "Nome Gruppo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2142
+#: includes/Admin/Members/ProfileFieldsManager.php:2166
 msgid "e.g. Work Experience"
 msgstr "es. Esperienza Lavorativa"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2145
+#: includes/Admin/Members/ProfileFieldsManager.php:2169
 msgid "Group Type"
 msgstr "Tipo Gruppo"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2148
+#: includes/Admin/Members/ProfileFieldsManager.php:2172
 msgid "Multiple entries (e.g. past jobs)"
 msgstr "Voci multiple (es. lavori precedenti)"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2152
+#: includes/Admin/Members/ProfileFieldsManager.php:2176
 msgid "Default visibility"
 msgstr "Visibilità predefinita"
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2161
+#: includes/Admin/Members/ProfileFieldsManager.php:2185
 msgid ""
 "Single entry: one value per field (e.g. bio, headline). Multiple entries: "
 "members can add several items (e.g. multiple jobs)."
@@ -3099,7 +3099,7 @@ msgstr ""
 "Voce singola: un valore per campo (es. bio, titolo). Voci multiple: i membri "
 "possono aggiungere più elementi (es. più lavori)."
 
-#: includes/Admin/Members/ProfileFieldsManager.php:2164
+#: includes/Admin/Members/ProfileFieldsManager.php:2188
 msgid "Create Group"
 msgstr "Crea Gruppo"
 
@@ -3140,7 +3140,7 @@ msgstr "Contenuto segnalato"
 #: includes/Admin/ModerationQueue.php:109
 #: includes/Admin/ModerationQueue.php:121
 #: includes/Admin/ModerationQueue.php:450
-#: includes/Admin/ModerationQueue.php:461 includes/Core/PageRouter.php:1271
+#: includes/Admin/ModerationQueue.php:461 includes/Core/PageRouter.php:1274
 #: templates/moderation/account-status.php:125
 #: templates/moderation/queue.php:344 templates/moderation/queue.php:536
 #: templates/partials/report-modal.php:58
@@ -3223,7 +3223,7 @@ msgstr "Niente in attesa. Tutti i post trattenuti sono stati revisionati."
 #: includes/Admin/ModerationQueue.php:301 includes/Core/AssetService.php:937
 #: includes/Core/AssetService.php:1122 includes/Core/PageRouter.php:644
 #: templates/feed/single-post.php:134 templates/partials/composer.php:558
-#: templates/partials/explore-card.php:457
+#: templates/partials/explore-card.php:476
 #: templates/partials/media-lightbox.php:141
 #: templates/parts/hashtag-hero.php:160
 #: templates/parts/profile-edit-sidebar.php:109
@@ -3236,7 +3236,7 @@ msgstr[1] "Post"
 #: includes/Admin/ModerationQueue.php:256
 #: includes/Admin/ModerationQueue.php:268 includes/Admin/Spaces.php:363
 #: includes/Admin/Spaces.php:406 includes/Privacy/PrivacyTools.php:929
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:375
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:418
 #: templates/community-admin.php:575 templates/partials/explore-card.php:144
 #: templates/parts/search-result-section-spaces.php:147
 #: templates/parts/space-subspaces-panel.php:57
@@ -3365,7 +3365,7 @@ msgid "No moderator actions have been recorded yet"
 msgstr ""
 
 #: includes/Admin/ModerationQueue.php:581 includes/Core/AssetService.php:1130
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:312
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:355
 #: templates/parts/sidebar-profile-member-of.php:44
 #: templates/parts/space-members-panel.php:155
 #: templates/parts/space-settings-panel-members.php:122
@@ -3426,7 +3426,7 @@ msgstr "Fatto."
 
 #. translators: %s: human-readable time difference, e.g. "3 hours".
 #: includes/Admin/ModerationQueue.php:1090 includes/Admin/Spaces.php:461
-#: includes/Admin/ToolsTab.php:191 includes/Messages/MessagesData.php:628
+#: includes/Admin/ToolsTab.php:230 includes/Messages/MessagesData.php:715
 #: includes/Profile/GamificationPoints.php:144
 #: templates/community-admin.php:115 templates/community-admin.php:427
 #: templates/community-admin.php:642 templates/community-admin.php:694
@@ -3483,7 +3483,7 @@ msgstr "Directory dei membri e URL dei profili individuali."
 
 #: includes/Admin/NavManager.php:186 includes/Admin/NavManager.php:2173
 #: includes/Core/CoreHubs.php:32 includes/Core/PageRouter.php:647
-#: includes/Core/Plugin.php:806 includes/Header/HeaderUserSection.php:121
+#: includes/Core/Plugin.php:812 includes/Header/HeaderUserSection.php:121
 #: includes/Nav/ShellNavService.php:108 includes/Nav/UserLinks.php:85
 #: includes/Notifications/NotificationPrefCatalogue.php:502
 #: includes/Sidebar/Providers/NotificationsSidebarProvider.php:127
@@ -3567,7 +3567,7 @@ msgid "WordPress page for %s"
 msgstr ""
 
 #: includes/Admin/NavManager.php:318 includes/Admin/Settings.php:1186
-#: includes/Admin/Settings.php:2510 templates/profile/edit.php:623
+#: includes/Admin/Settings.php:2510 templates/profile/edit.php:652
 msgid "— None —"
 msgstr "— Nessuno —"
 
@@ -3622,9 +3622,9 @@ msgstr "Commenti e risposte che il membro ha pubblicato"
 #: includes/Admin/NavManager.php:780 includes/Admin/NavManager.php:859
 #: includes/Bridges/WPMediaVerseBridge.php:611
 #: includes/Bridges/WPMediaVerseBridge.php:638 includes/Core/PageRouter.php:714
-#: includes/Core/Plugin.php:836 includes/Nav/Providers/ProfileNav.php:170
+#: includes/Core/Plugin.php:842 includes/Nav/Providers/ProfileNav.php:170
 #: includes/Nav/Providers/SpaceNav.php:221
-#: includes/Profile/GamificationPoints.php:292 templates/feed/explore.php:93
+#: includes/Profile/GamificationPoints.php:292 templates/feed/explore.php:94
 #: templates/partials/media-tab.php:104
 #: templates/parts/search-result-section-media.php:97
 #: templates/parts/search-result-section-media.php:147
@@ -3662,11 +3662,10 @@ msgstr "Membri che seguono questo membro"
 #: includes/Nav/Providers/ProfileNav.php:96
 #: includes/Nav/Providers/ProfileNav.php:238
 #: templates/blocks/follow-button.php:52 templates/blocks/profile-header.php:82
-#: templates/directory/members.php:346 templates/feed/home.php:185
-#: templates/onboarding/index.php:600 templates/partials/follow-button.php:133
+#: templates/directory/members.php:346 templates/feed/home.php:189
+#: templates/onboarding/index.php:618 templates/partials/follow-button.php:133
 #: templates/parts/hashtag-hero.php:115
-#: templates/parts/hashtag-sidebar-about.php:113
-#: templates/parts/hashtag-sidebar-related.php:126
+#: templates/parts/hashtag-sidebar-related.php:147
 #: templates/parts/member-card.php:394
 #: templates/parts/profile-edit-sidebar.php:117
 #: templates/parts/profile-hero.php:504
@@ -3684,9 +3683,9 @@ msgid "Mutual connections"
 msgstr "Connessioni reciproche"
 
 #: includes/Admin/NavManager.php:830 includes/Admin/NavManager.php:956
-#: includes/Admin/NavManager.php:2157 includes/Core/Plugin.php:786
+#: includes/Admin/NavManager.php:2157 includes/Core/Plugin.php:792
 #: includes/Nav/Providers/SpaceNav.php:175 includes/Nav/ShellNavService.php:72
-#: templates/partials/nav.php:129
+#: templates/partials/nav.php:142
 msgid "Feed"
 msgstr "Feed"
 
@@ -3730,7 +3729,7 @@ msgstr ""
 msgid "Home feed (inherits main nav page)"
 msgstr "Feed principale (eredita la pagina di navigazione principale)"
 
-#: includes/Admin/NavManager.php:967 templates/feed/home.php:313
+#: includes/Admin/NavManager.php:967 templates/feed/home.php:353
 #: templates/notifications/prefs.php:418 templates/spaces/directory.php:587
 msgid "Browse spaces"
 msgstr "Sfoglia i Space"
@@ -3743,7 +3742,7 @@ msgstr "Crea"
 msgid "Centre compose button — fixed slot, always shown."
 msgstr "Pulsante di composizione al centro — slot fisso, sempre mostrato."
 
-#: includes/Admin/NavManager.php:981 templates/partials/nav.php:151
+#: includes/Admin/NavManager.php:981 templates/partials/nav.php:168
 msgid "Alerts"
 msgstr "Avvisi"
 
@@ -3755,7 +3754,7 @@ msgstr "Badge di notifica"
 #: includes/Admin/NavManager.php:989 includes/Admin/NavManager.php:2217
 #: includes/Core/AssetService.php:1338 includes/Core/PageRouter.php:809
 #: includes/Nav/ShellNavService.php:119
-#: includes/Onboarding/OnboardingService.php:106 templates/partials/nav.php:160
+#: includes/Onboarding/OnboardingService.php:106 templates/partials/nav.php:186
 #: templates/parts/dm-thread-header.php:153
 msgid "Profile"
 msgstr "Profilo"
@@ -4164,7 +4163,7 @@ msgstr "Modifica il profilo del membro attuale."
 
 #: includes/Admin/NavManager.php:2235 includes/Core/PageRouter.php:672
 #: includes/Nav/ShellNavService.php:137 includes/Nav/UserLinks.php:97
-#: templates/feed/bookmarks.php:88
+#: templates/feed/bookmarks.php:89
 msgid "Bookmarks"
 msgstr "Segnalibri"
 
@@ -4184,7 +4183,7 @@ msgstr "Membri connessi"
 msgid "Logged-out visitors"
 msgstr "Visitatori non connessi"
 
-#: includes/Admin/NavMenuMetabox.php:109 includes/Core/Plugin.php:880
+#: includes/Admin/NavMenuMetabox.php:109 includes/Core/Plugin.php:886
 msgid "Add to Menu"
 msgstr "Aggiungi al menu"
 
@@ -6893,7 +6892,7 @@ msgstr "Stato: esecuzione automatica. Nessuna attività scaduta."
 msgid "Object cache"
 msgstr "Cache dell'oggetto"
 
-#: includes/Admin/ToolsTab.php:157
+#: includes/Admin/ToolsTab.php:169
 msgid ""
 "Status: a persistent object cache is active. BuddyNext's cached values "
 "(member directory, counts, lists) survive between requests — this is the "
@@ -6903,32 +6902,39 @@ msgstr ""
 "cache di BuddyNext (directory dei membri, conteggi, elenchi) sopravvivono "
 "tra le richieste — questa è la configurazione consigliata su larga scala."
 
-#: includes/Admin/ToolsTab.php:162
+#: includes/Admin/ToolsTab.php:174
 msgid "No persistent object cache detected."
 msgstr "Nessuna cache di oggetti persistente rilevata."
 
-#: includes/Admin/ToolsTab.php:163
+#. translators: %s: formatted member count.
+#: includes/Admin/ToolsTab.php:178
+#, php-format
 msgid ""
-"BuddyNext caching still works within a single page load, but cached values "
-"are not shared between requests. For a large community (thousands of active "
-"members) install a persistent object cache — Redis or Memcached — so the "
-"member directory, online list, and counts stay fast."
+"This site has %s members. BuddyNext caching still works within a single page "
+"load, but cached values are not shared between requests, so unread counts, "
+"the member directory and feed page 1 hit the database on every request. "
+"Install a persistent object cache — Redis or Memcached — to keep them fast."
 msgstr ""
-"La cache di BuddyNext funziona ancora all'interno di un singolo caricamento "
-"di pagina, ma i valori memorizzati nella cache non vengono condivisi tra le "
-"richieste. Per una comunità grande (migliaia di membri attivi) installa una "
-"cache di oggetti persistente — Redis o Memcached — in modo che la directory "
-"dei membri, l'elenco online e i conteggi rimangono veloci."
 
-#: includes/Admin/ToolsTab.php:194
+#. translators: 1: formatted member count, 2: formatted threshold.
+#: includes/Admin/ToolsTab.php:199
+#, php-format
+msgid ""
+"No persistent object cache is installed. At %1$s members that is fine — "
+"BuddyNext caches within each page load. Past roughly %2$s members a "
+"persistent cache (Redis or Memcached) becomes the recommended setup, and "
+"this panel will say so."
+msgstr ""
+
+#: includes/Admin/ToolsTab.php:233
 msgid "never"
 msgstr "mai"
 
-#: includes/Admin/ToolsTab.php:198 includes/Core/FeatureRegistry.php:396
+#: includes/Admin/ToolsTab.php:237 includes/Core/FeatureRegistry.php:396
 msgid "Search index"
 msgstr "Indice di ricerca"
 
-#: includes/Admin/ToolsTab.php:202
+#: includes/Admin/ToolsTab.php:241
 msgid ""
 "Global search reads a unified index of members, posts, and spaces. If it "
 "looks empty or out of date — search returns nothing or misses recent content "
@@ -6938,21 +6944,21 @@ msgstr ""
 "sembra vuoto o obsoleto — la ricerca non restituisce nulla o manca il "
 "contenuto recente — ricostruiscilo qui."
 
-#: includes/Admin/ToolsTab.php:208
+#: includes/Admin/ToolsTab.php:247
 msgid "The search index is empty."
 msgstr "L'indice di ricerca è vuoto."
 
-#: includes/Admin/ToolsTab.php:209
+#: includes/Admin/ToolsTab.php:248
 msgid "Search will return no results until it is built. Click Rebuild below."
 msgstr ""
 "La ricerca non restituirà risultati finché non verrà ricompilato. Fai clic "
 "su Ricompila qui sotto."
 
-#: includes/Admin/ToolsTab.php:215
+#: includes/Admin/ToolsTab.php:254
 msgid "FULLTEXT index missing."
 msgstr "Indice FULLTEXT mancante."
 
-#: includes/Admin/ToolsTab.php:216
+#: includes/Admin/ToolsTab.php:255
 msgid ""
 "Search is running on the slower LIKE fallback. Rebuilding restores the "
 "FULLTEXT index."
@@ -6961,42 +6967,42 @@ msgstr ""
 "ripristina l'indice FULLTEXT."
 
 #. translators: %s: number of indexed rows.
-#: includes/Admin/ToolsTab.php:225
+#: includes/Admin/ToolsTab.php:264
 #, php-format
 msgid "Indexed rows: %s"
 msgstr "Righe indicizzate: %s"
 
 #. translators: %s: "present" or "missing".
-#: includes/Admin/ToolsTab.php:238
+#: includes/Admin/ToolsTab.php:277
 #, php-format
 msgid "FULLTEXT index: %s"
 msgstr "Indice FULLTEXT: %s"
 
 #. translators: %s: "present" or "missing".
-#: includes/Admin/ToolsTab.php:238
+#: includes/Admin/ToolsTab.php:277
 msgid "present"
 msgstr "presente"
 
 #. translators: %s: "present" or "missing".
-#: includes/Admin/ToolsTab.php:238
+#: includes/Admin/ToolsTab.php:277
 msgid "missing"
 msgstr "mancante"
 
 #. translators: %s: time since last rebuild, e.g. "2 hours ago".
-#: includes/Admin/ToolsTab.php:244
+#: includes/Admin/ToolsTab.php:283
 #, php-format
 msgid "Last full rebuild: %s"
 msgstr "Ultima ricompilazione completa: %s"
 
-#: includes/Admin/ToolsTab.php:252
+#: includes/Admin/ToolsTab.php:291
 msgid "Rebuild search index"
 msgstr "Ricompila indice di ricerca"
 
-#: includes/Admin/ToolsTab.php:268
+#: includes/Admin/ToolsTab.php:307
 msgid "Repair counters"
 msgstr "Ripara i contatori"
 
-#: includes/Admin/ToolsTab.php:272
+#: includes/Admin/ToolsTab.php:311
 msgid ""
 "Recompute cached counts that can drift after imports or manual database "
 "changes. Safe to run any time; may take a moment on large communities."
@@ -7006,27 +7012,27 @@ msgstr ""
 "qualsiasi momento; potrebbe richiedere un momento su comunità di grandi "
 "dimensioni."
 
-#: includes/Admin/ToolsTab.php:276
+#: includes/Admin/ToolsTab.php:315
 msgid "Recount space members"
 msgstr "Riconta i membri dello spazio"
 
-#: includes/Admin/ToolsTab.php:277
+#: includes/Admin/ToolsTab.php:316
 msgid "Recount follow counts"
 msgstr "Riconta i conteggi dei follow"
 
-#: includes/Admin/ToolsTab.php:278
+#: includes/Admin/ToolsTab.php:317
 msgid "Recount connection counts"
 msgstr "Riconta i conteggi delle connessioni"
 
-#: includes/Admin/ToolsTab.php:279
+#: includes/Admin/ToolsTab.php:318
 msgid "Recount post reactions & comments"
 msgstr "Riconta le reazioni e i commenti del post"
 
-#: includes/Admin/ToolsTab.php:296
+#: includes/Admin/ToolsTab.php:335
 msgid "Caches"
 msgstr "Cache"
 
-#: includes/Admin/ToolsTab.php:300
+#: includes/Admin/ToolsTab.php:339
 msgid ""
 "Clear the BuddyNext object-cache group. Use after changing settings if a "
 "stale value persists."
@@ -7034,15 +7040,15 @@ msgstr ""
 "Cancella il gruppo cache degli oggetti di BuddyNext. Usa dopo aver cambiato "
 "le impostazioni se un valore obsoleto persiste."
 
-#: includes/Admin/ToolsTab.php:305
+#: includes/Admin/ToolsTab.php:344
 msgid "Flush BuddyNext cache"
 msgstr "Svuota la cache di BuddyNext"
 
-#: includes/Admin/ToolsTab.php:321
+#: includes/Admin/ToolsTab.php:360
 msgid "Export / Import settings"
 msgstr "Esporta / Importa impostazioni"
 
-#: includes/Admin/ToolsTab.php:325
+#: includes/Admin/ToolsTab.php:364
 msgid ""
 "Download all BuddyNext settings as a JSON file, or restore them from a "
 "previous export. Only BuddyNext option keys are touched."
@@ -7051,27 +7057,27 @@ msgstr ""
 "un'esportazione precedente. Solo i tasti delle opzioni di BuddyNext vengono "
 "modificati."
 
-#: includes/Admin/ToolsTab.php:331
+#: includes/Admin/ToolsTab.php:370
 msgid "Export settings"
 msgstr "Esporta impostazioni"
 
-#: includes/Admin/ToolsTab.php:338
+#: includes/Admin/ToolsTab.php:377
 msgid "Settings JSON file to import"
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:339
+#: includes/Admin/ToolsTab.php:378
 msgid "Import settings"
 msgstr "Importa impostazioni"
 
-#: includes/Admin/ToolsTab.php:605
+#: includes/Admin/ToolsTab.php:644
 msgid "Counters recomputed."
 msgstr "Contatori ricalcolati."
 
-#: includes/Admin/ToolsTab.php:607
+#: includes/Admin/ToolsTab.php:646
 msgid "Cache flushed."
 msgstr "Cache svuotata."
 
-#: includes/Admin/ToolsTab.php:609
+#: includes/Admin/ToolsTab.php:648
 msgid ""
 "Search index rebuild started. It runs in the background and may take a few "
 "minutes on large communities."
@@ -7079,15 +7085,15 @@ msgstr ""
 "Ricompilazione dell'indice di ricerca avviata. Viene eseguita in background "
 "e potrebbe richiedere alcuni minuti su comunità di grandi dimensioni."
 
-#: includes/Admin/ToolsTab.php:611
+#: includes/Admin/ToolsTab.php:650
 msgid "Settings imported."
 msgstr "Impostazioni importate."
 
-#: includes/Admin/ToolsTab.php:613
+#: includes/Admin/ToolsTab.php:652
 msgid "Import file had no recognised BuddyNext settings."
 msgstr "Il file di importazione non aveva impostazioni BuddyNext riconosciute."
 
-#: includes/Admin/ToolsTab.php:615
+#: includes/Admin/ToolsTab.php:654
 msgid "Could not read that import file."
 msgstr "Impossibile leggere quel file di importazione."
 
@@ -7233,8 +7239,8 @@ msgstr "Devi accettare i Termini di servizio per continuare."
 #. translators: %s: field label.
 #: includes/Auth/AuthController.php:1343 includes/Auth/AuthController.php:1567
 #: includes/Core/AssetService.php:1352
-#: includes/Profile/ProfileController.php:1187
-#: includes/Profile/ProfileController.php:1209
+#: includes/Profile/ProfileController.php:1244
+#: includes/Profile/ProfileController.php:1266
 #: includes/Profile/ProfileService.php:713
 #: includes/Profile/ProfileService.php:935
 #, php-format
@@ -7313,18 +7319,19 @@ msgid "Verification email sent."
 msgstr "Email di verifica inviata."
 
 #: includes/Auth/AuthController.php:2042
-#: includes/Bridges/JetonomyBridge.php:1220
+#: includes/Bridges/JetonomyBridge.php:1392
+#: includes/Bridges/JetonomyBridge.php:1418
 #: includes/Hashtags/HashtagController.php:271
 #: includes/Moderation/ModerationController.php:1428
 #: includes/Moderation/ModerationController.php:1456
 #: includes/Onboarding/InviteController.php:98
-#: includes/Onboarding/OnboardingController.php:410
+#: includes/Onboarding/OnboardingController.php:427
 #: includes/Realtime/RealtimeController.php:108
 #: includes/REST/BaseRestController.php:71
 msgid "You must be logged in."
 msgstr "Devi essere loggato."
 
-#: includes/Auth/AuthController.php:2059 includes/Feed/FeedController.php:914
+#: includes/Auth/AuthController.php:2059 includes/Feed/FeedController.php:956
 msgid "You do not have permission to do this."
 msgstr "Non hai il permesso di farlo."
 
@@ -8134,25 +8141,56 @@ msgstr "ha guadagnato il badge %s"
 msgid "Badge"
 msgstr "Badge"
 
-#: includes/Bridges/JetonomyBridge.php:297
+#: includes/Bridges/JetonomyBridge.php:340
 msgid "started a discussion"
 msgstr "ha avviato una discussione"
 
-#: includes/Bridges/JetonomyBridge.php:513
-#: includes/Bridges/JetonomyBridge.php:1405
-#: includes/Bridges/JetonomyBridge.php:1430
+#: includes/Bridges/JetonomyBridge.php:556
+#: includes/Bridges/JetonomyBridge.php:1622
+#: includes/Bridges/JetonomyBridge.php:1647
 #: includes/Bridges/JetonomyBridgeListener.php:73
-#: includes/Bridges/JetonomyBridgeListener.php:179 includes/Core/Plugin.php:823
-#: templates/feed/explore.php:92
+#: includes/Bridges/JetonomyBridgeListener.php:179 includes/Core/Plugin.php:829
+#: templates/feed/explore.php:93
 #: templates/parts/profile/discussions-panel.php:57
 msgid "Discussions"
 msgstr "Discussioni"
 
-#: includes/Bridges/JetonomyBridge.php:1224
+#: includes/Bridges/JetonomyBridge.php:1396
 msgid "You do not have permission to set up this space forum."
 msgstr "Non hai il permesso di configurare il forum di questo spazio."
 
-#: includes/Bridges/JetonomyBridge.php:1305
+#: includes/Bridges/JetonomyBridge.php:1426
+#: includes/Feed/FeedController.php:871 includes/Feed/FeedController.php:888
+#: includes/Media/MediaController.php:604
+#: includes/Spaces/SpaceController.php:556
+#: includes/Spaces/SpaceController.php:1002
+#: includes/Spaces/SpaceController.php:1012
+#: includes/Spaces/SpaceController.php:1070
+#: includes/Spaces/SpaceController.php:1083
+#: includes/Spaces/SpaceController.php:1181
+#: includes/Spaces/SpaceController.php:1320
+#: includes/Spaces/SpaceController.php:1376
+#: includes/Spaces/SpaceController.php:1435
+#: includes/Spaces/SpaceController.php:1528
+#: includes/Spaces/SpaceController.php:1585
+#: includes/Spaces/SpaceController.php:1658
+#: includes/Spaces/SpaceController.php:1826
+#: includes/Spaces/SpaceController.php:1867
+#: includes/Spaces/SpaceController.php:1906
+#: includes/Spaces/SpaceController.php:1946
+#: includes/Spaces/SpaceController.php:2036
+#: includes/Spaces/SpaceController.php:2257
+#: includes/Spaces/SpaceService.php:494 includes/Spaces/SpaceService.php:656
+#: includes/Spaces/SpaceService.php:825 includes/Spaces/SpaceService.php:1173
+#: templates/spaces/admin.php:38 templates/spaces/admin.php:44
+#: templates/spaces/home.php:38 templates/spaces/home.php:48
+#: templates/spaces/members.php:34 templates/spaces/members.php:42
+#: templates/spaces/moderation.php:34 templates/spaces/moderation.php:60
+#: templates/spaces/settings.php:31 templates/spaces/settings.php:93
+msgid "Space not found."
+msgstr "Spazio non trovato."
+
+#: includes/Bridges/JetonomyBridge.php:1508
 #: includes/Profile/GamificationAchievements.php:511
 #: templates/profile/connections.php:29 templates/profile/connections.php:34
 #: templates/profile/followers.php:28 templates/profile/followers.php:33
@@ -8160,11 +8198,11 @@ msgstr "Non hai il permesso di configurare il forum di questo spazio."
 msgid "Member not found."
 msgstr "Membro non trovato."
 
-#: includes/Bridges/JetonomyBridge.php:1458
+#: includes/Bridges/JetonomyBridge.php:1675
 msgid "Jetonomy"
 msgstr "Jetonomy"
 
-#: includes/Bridges/JetonomyBridge.php:1981 includes/Core/Plugin.php:814
+#: includes/Bridges/JetonomyBridge.php:2198 includes/Core/Plugin.php:820
 #: includes/Profile/GamificationAchievements.php:155
 #: templates/gamification/leaderboard.php:46
 #: templates/gamification/leaderboard.php:256
@@ -8324,8 +8362,8 @@ msgstr "Qualcosa è andato storto. Riprova."
 
 #: includes/Core/AssetService.php:745 includes/Core/AssetService.php:1010
 #: includes/Core/AssetService.php:1515 templates/blocks/follow-button.php:54
-#: templates/onboarding/index.php:600 templates/partials/follow-button.php:135
-#: templates/parts/hashtag-sidebar-related.php:127
+#: templates/onboarding/index.php:618 templates/partials/follow-button.php:135
+#: templates/parts/hashtag-sidebar-related.php:148
 #: templates/parts/member-card.php:394 templates/parts/profile-hero.php:492
 #: templates/parts/profile-hero.php:626
 #: templates/parts/search-result-section-members.php:174
@@ -8516,7 +8554,7 @@ msgid "Retry"
 msgstr "Riprova"
 
 #: includes/Core/AssetService.php:851 templates/partials/media-tab.php:250
-#: templates/parts/dm-group-panel.php:47 templates/parts/post-actions.php:286
+#: templates/parts/dm-group-panel.php:47 templates/parts/post-actions.php:308
 msgid "Save"
 msgstr "Salva"
 
@@ -8527,7 +8565,7 @@ msgid "Reply"
 msgstr "Rispondi"
 
 #: includes/Core/AssetService.php:856 includes/Core/AssetService.php:1023
-#: includes/Core/PageRouter.php:1268 templates/community-admin.php:424
+#: includes/Core/PageRouter.php:1271 templates/community-admin.php:424
 #: templates/partials/media-lightbox.php:124
 #: templates/parts/member-card.php:222
 #: templates/parts/post-options-menu.php:175
@@ -8584,47 +8622,47 @@ msgstr "immagine"
 
 #: includes/Core/AssetService.php:867 templates/partials/post-card.php:390
 #: templates/partials/post-card.php:391 templates/parts/dm-msg-actions.php:28
-#: templates/parts/post-actions.php:120
+#: templates/parts/post-actions.php:142
 msgid "React"
 msgstr "Reagisci"
 
-#: includes/Core/AssetService.php:868 templates/parts/post-actions.php:128
+#: includes/Core/AssetService.php:868 templates/parts/post-actions.php:150
 msgid "Choose reaction"
 msgstr "Scegli reazione"
 
 #: includes/Core/AssetService.php:869
-#: includes/Reactions/ReactionService.php:303
-#: templates/parts/post-actions.php:138
+#: includes/Reactions/ReactionService.php:327
+#: templates/parts/post-actions.php:160
 msgid "Like"
 msgstr "Mi piace"
 
 #: includes/Core/AssetService.php:870
-#: includes/Reactions/ReactionService.php:304
-#: templates/parts/post-actions.php:139
+#: includes/Reactions/ReactionService.php:328
+#: templates/parts/post-actions.php:161
 msgid "Love"
 msgstr "Amo"
 
 #: includes/Core/AssetService.php:871
-#: includes/Reactions/ReactionService.php:305
-#: templates/parts/post-actions.php:140
+#: includes/Reactions/ReactionService.php:329
+#: templates/parts/post-actions.php:162
 msgid "Haha"
 msgstr "Haha"
 
 #: includes/Core/AssetService.php:872
-#: includes/Reactions/ReactionService.php:306
-#: templates/parts/post-actions.php:141
+#: includes/Reactions/ReactionService.php:330
+#: templates/parts/post-actions.php:163
 msgid "Wow"
 msgstr "Wow"
 
 #: includes/Core/AssetService.php:873
-#: includes/Reactions/ReactionService.php:307
-#: templates/parts/post-actions.php:142
+#: includes/Reactions/ReactionService.php:331
+#: templates/parts/post-actions.php:164
 msgid "Sad"
 msgstr "Triste"
 
 #: includes/Core/AssetService.php:874
-#: includes/Reactions/ReactionService.php:308
-#: templates/parts/post-actions.php:143
+#: includes/Reactions/ReactionService.php:332
+#: templates/parts/post-actions.php:165
 msgid "Angry"
 msgstr "Arrabbiato"
 
@@ -8831,7 +8869,7 @@ msgstr "Non è stato possibile terminare l'annuncio. Riprova."
 #: includes/Core/AssetService.php:925
 #: includes/Notifications/NotificationMessageService.php:606
 #: templates/partials/media-lightbox.php:99
-#: templates/parts/post-actions.php:266 templates/parts/profile-hero.php:431
+#: templates/parts/post-actions.php:288 templates/parts/profile-hero.php:431
 #: templates/parts/profile-hero.php:559
 msgid "Share"
 msgstr "Condividi"
@@ -8990,8 +9028,8 @@ msgstr "È possibile aggiungere solo %d immagini in più."
 msgid "Could not upload %1$s (error %2$d)."
 msgstr "Non è stato possibile caricare %1$s (errore %2$d)."
 
-#: includes/Core/AssetService.php:972 templates/feed/bookmarks.php:132
-#: templates/feed/explore.php:266 templates/feed/home.php:288
+#: includes/Core/AssetService.php:972 templates/feed/bookmarks.php:156
+#: templates/feed/explore.php:287 templates/feed/home.php:328
 #: templates/notifications/index.php:490
 msgid "You've reached the end."
 msgstr "Hai raggiunto la fine."
@@ -9205,7 +9243,7 @@ msgstr ""
 "riprova."
 
 #: includes/Core/AssetService.php:1093 includes/Core/AssetService.php:1513
-#: templates/blocks/space-card.php:126 templates/onboarding/index.php:499
+#: templates/blocks/space-card.php:126 templates/onboarding/index.php:517
 #: templates/parts/search-result-section-spaces.php:180
 #: templates/parts/space-directory-card.php:198
 msgid "Join"
@@ -9351,7 +9389,7 @@ msgstr "Space eliminato."
 msgid "Could not delete the space."
 msgstr "Non è stato possibile eliminare questo Space."
 
-#: includes/Core/AssetService.php:1143 templates/onboarding/index.php:723
+#: includes/Core/AssetService.php:1143 templates/onboarding/index.php:741
 #: templates/spaces/settings.php:925
 msgid "Saving…"
 msgstr "Salvataggio in corso…"
@@ -9717,7 +9755,7 @@ msgstr ""
 msgid "Something went wrong. Check your connection and try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1288 includes/PWA/PwaService.php:411
+#: includes/Core/AssetService.php:1288 includes/PWA/PwaService.php:427
 #: templates/notifications/index.php:444
 msgid "Try again"
 msgstr "Riprova"
@@ -9775,7 +9813,7 @@ msgid "Could not save. Please try again."
 msgstr "Non è stato possibile salvare. Riprova."
 
 #: includes/Core/AssetService.php:1320 includes/Profile/FieldType.php:1042
-#: templates/parts/profile/about-panel.php:152
+#: templates/parts/profile/about-panel.php:170
 msgid "Present"
 msgstr "Attualmente"
 
@@ -9873,12 +9911,12 @@ msgid "Preference saved"
 msgstr "Preferenza salvata"
 
 #: includes/Core/AssetService.php:1349
-#: includes/Profile/ProfileController.php:1030
+#: includes/Profile/ProfileController.php:1058
 msgid "Display name is required."
 msgstr "Il nome visualizzato è obbligatorio."
 
 #: includes/Core/AssetService.php:1350
-#: includes/Profile/ProfileController.php:1072
+#: includes/Profile/ProfileController.php:1100
 msgid "Enter a valid URL (https://example.com)."
 msgstr "Inserisci un URL valido (https://example.com)."
 
@@ -9930,7 +9968,7 @@ msgstr "Non seguito"
 msgid "Could not unfollow. Try again."
 msgstr "Impossibile smettere di seguire. Riprova."
 
-#: includes/Core/AssetService.php:1365 includes/Core/PageRouter.php:1282
+#: includes/Core/AssetService.php:1365 includes/Core/PageRouter.php:1285
 msgid ""
 "Add a personal message to your connection request, or send it without one."
 msgstr ""
@@ -10273,7 +10311,7 @@ msgid "Display name must be at least 2 characters."
 msgstr "Il nome visualizzato deve contenere almeno 2 caratteri."
 
 #: includes/Core/AssetService.php:1507 templates/auth/signup.php:404
-#: templates/onboarding/index.php:781
+#: templates/onboarding/index.php:799
 msgid "Your name"
 msgstr "Il tuo nome"
 
@@ -10281,7 +10319,7 @@ msgstr "Il tuo nome"
 msgid "@username"
 msgstr "@username"
 
-#: includes/Core/AssetService.php:1509 templates/onboarding/index.php:789
+#: includes/Core/AssetService.php:1509 templates/onboarding/index.php:807
 msgid "Add a short bio so people know what you're into."
 msgstr "Aggiungi una breve bio in modo che le persone sappiano cosa ti piace."
 
@@ -10809,7 +10847,15 @@ msgstr "Modifica profilo · %s"
 msgid "%s · Profile"
 msgstr "%s · Profilo"
 
-#: includes/Core/PageRouter.php:1269 templates/partials/report-modal.php:53
+#: includes/Core/PageRouter.php:1264
+msgid "Show more"
+msgstr ""
+
+#: includes/Core/PageRouter.php:1265
+msgid "Show less"
+msgstr ""
+
+#: includes/Core/PageRouter.php:1272 templates/partials/report-modal.php:53
 #: templates/parts/member-report-modal.php:77
 msgid ""
 "Reports are reviewed by moderators. The person you report is not notified."
@@ -10817,21 +10863,21 @@ msgstr ""
 "I rapporti sono esaminati dai moderatori. La persona che segnali non viene "
 "notificata."
 
-#: includes/Core/PageRouter.php:1270 templates/partials/report-modal.php:97
+#: includes/Core/PageRouter.php:1273 templates/partials/report-modal.php:97
 #: templates/parts/member-report-modal.php:83
 msgid "Submit report"
 msgstr "Invia rapporto"
 
-#: includes/Core/PageRouter.php:1272 templates/partials/report-modal.php:73
+#: includes/Core/PageRouter.php:1275 templates/partials/report-modal.php:73
 #: templates/parts/member-report-modal.php:79
 msgid "Additional details (optional)"
 msgstr "Dettagli aggiuntivi (facoltativo)"
 
-#: includes/Core/PageRouter.php:1273
+#: includes/Core/PageRouter.php:1276
 msgid "Tell us more about what you saw…"
 msgstr "Raccontaci di più su quello che hai visto…"
 
-#: includes/Core/PageRouter.php:1274
+#: includes/Core/PageRouter.php:1277
 #: includes/Moderation/ModerationService.php:92
 #: templates/moderation/queue.php:187 templates/partials/report-modal.php:23
 #: templates/parts/member-report-modal.php:35
@@ -10839,12 +10885,12 @@ msgstr "Raccontaci di più su quello che hai visto…"
 msgid "Spam"
 msgstr "Spam"
 
-#: includes/Core/PageRouter.php:1275 templates/partials/report-modal.php:24
+#: includes/Core/PageRouter.php:1278 templates/partials/report-modal.php:24
 #: templates/parts/member-report-modal.php:36 assets/js/media/lightbox.js:340
 msgid "Harassment or hate speech"
 msgstr "Molestie o discorsi d'odio"
 
-#: includes/Core/PageRouter.php:1276
+#: includes/Core/PageRouter.php:1279
 #: includes/Moderation/ModerationService.php:94
 #: templates/partials/report-modal.php:25
 #: templates/parts/member-report-modal.php:37
@@ -10852,12 +10898,12 @@ msgstr "Molestie o discorsi d'odio"
 msgid "Misinformation"
 msgstr "Disinformazione"
 
-#: includes/Core/PageRouter.php:1277 templates/partials/report-modal.php:26
+#: includes/Core/PageRouter.php:1280 templates/partials/report-modal.php:26
 #: templates/parts/member-report-modal.php:38
 msgid "Inappropriate content"
 msgstr "Contenuti inappropriati"
 
-#: includes/Core/PageRouter.php:1278
+#: includes/Core/PageRouter.php:1281
 #: includes/Moderation/ModerationService.php:97
 #: templates/partials/report-modal.php:28
 #: templates/parts/member-report-modal.php:40
@@ -10865,67 +10911,67 @@ msgstr "Contenuti inappropriati"
 msgid "Impersonation"
 msgstr "Usurpazione di identità"
 
-#: includes/Core/PageRouter.php:1279 templates/partials/report-modal.php:29
+#: includes/Core/PageRouter.php:1282 templates/partials/report-modal.php:29
 #: templates/parts/member-report-modal.php:41 assets/js/media/lightbox.js:345
 msgid "Something else"
 msgstr "Qualcos'altro"
 
-#: includes/Core/PageRouter.php:1281
+#: includes/Core/PageRouter.php:1284
 msgid "Add a note"
 msgstr "Aggiungi una nota"
 
-#: includes/Core/PageRouter.php:1283
+#: includes/Core/PageRouter.php:1286
 msgid "Send request"
 msgstr "Invia richiesta"
 
-#: includes/Core/PageRouter.php:1284
+#: includes/Core/PageRouter.php:1287
 msgid "e.g. We met at the design meetup — I’d love to stay connected."
 msgstr ""
 "ad es. Ci siamo incontrati all'incontro di design — mi piacerebbe restare in "
 "contatto."
 
-#: includes/Core/PageRouter.php:1286
+#: includes/Core/PageRouter.php:1289
 msgid "Could not update. Try again."
 msgstr "Impossibile aggiornare. Riprova."
 
-#: includes/Core/Plugin.php:319
+#: includes/Core/Plugin.php:325
 msgid "BuddyNext setup is not complete."
 msgstr "La configurazione di BuddyNext non è completa."
 
-#: includes/Core/Plugin.php:321
+#: includes/Core/Plugin.php:327
 msgid "Run the setup wizard"
 msgstr "Esegui la procedura di installazione"
 
-#: includes/Core/Plugin.php:722
+#: includes/Core/Plugin.php:728
 msgid "BuddyNext Community Nav"
 msgstr "Navigazione community BuddyNext"
 
-#: includes/Core/Plugin.php:765
+#: includes/Core/Plugin.php:771
 msgid "BuddyNext Pages"
 msgstr "Pagine BuddyNext"
 
-#: includes/Core/Plugin.php:790 includes/Nav/ShellNavService.php:79
-#: templates/feed/explore.php:194
+#: includes/Core/Plugin.php:796 includes/Nav/ShellNavService.php:79
+#: templates/feed/explore.php:195
 msgid "Explore"
 msgstr "Esplora"
 
-#: includes/Core/Plugin.php:876
+#: includes/Core/Plugin.php:882
 msgid "Select All"
 msgstr "Seleziona tutto"
 
-#: includes/Core/Plugin.php:1090 includes/Core/Plugin.php:1119
+#: includes/Core/Plugin.php:1096 includes/Core/Plugin.php:1125
 msgid "Logo upload failed."
 msgstr "Caricamento del logo non riuscito."
 
-#: includes/Core/Plugin.php:1093
+#: includes/Core/Plugin.php:1099
 msgid "Logo exceeds the 2MB limit."
 msgstr "Il logo supera il limite di 2MB."
 
-#: includes/Core/Plugin.php:1100
+#: includes/Core/Plugin.php:1106
 msgid "Logo file type not allowed."
 msgstr "Tipo di file logo non consentito."
 
-#: includes/Core/PrivateCommunity.php:156
+#: includes/Core/PrivateCommunity.php:192
 msgid "This community is private. Please log in to view it."
 msgstr ""
 
@@ -11018,58 +11064,29 @@ msgid ""
 "paged_bookmarks() for anything that renders."
 msgstr ""
 
-#: includes/Feed/FeedController.php:274
+#: includes/Feed/FeedController.php:286
 msgid "The explore feed is available to members only."
 msgstr "Il feed Esplora è disponibile solo per i membri."
 
-#: includes/Feed/FeedController.php:470
+#: includes/Feed/FeedController.php:503
+#: includes/Reactions/ReactionService.php:742
 #: includes/Spaces/SpaceController.php:1395
 #: templates/partials/post-card.php:138
 #: templates/parts/hashtag-posts-list.php:105
 #: templates/parts/hashtag-sidebar-top-contributors.php:75
-#: templates/parts/post-body.php:325
+#: templates/parts/post-body.php:341
 msgid "Community Member"
 msgstr "Membro della comunità"
 
-#: includes/Feed/FeedController.php:829 includes/Feed/FeedController.php:846
-#: includes/Media/MediaController.php:593
-#: includes/Spaces/SpaceController.php:556
-#: includes/Spaces/SpaceController.php:1002
-#: includes/Spaces/SpaceController.php:1012
-#: includes/Spaces/SpaceController.php:1070
-#: includes/Spaces/SpaceController.php:1083
-#: includes/Spaces/SpaceController.php:1181
-#: includes/Spaces/SpaceController.php:1320
-#: includes/Spaces/SpaceController.php:1376
-#: includes/Spaces/SpaceController.php:1435
-#: includes/Spaces/SpaceController.php:1528
-#: includes/Spaces/SpaceController.php:1585
-#: includes/Spaces/SpaceController.php:1658
-#: includes/Spaces/SpaceController.php:1826
-#: includes/Spaces/SpaceController.php:1867
-#: includes/Spaces/SpaceController.php:1906
-#: includes/Spaces/SpaceController.php:1946
-#: includes/Spaces/SpaceController.php:2036
-#: includes/Spaces/SpaceController.php:2257
-#: includes/Spaces/SpaceService.php:494 includes/Spaces/SpaceService.php:656
-#: includes/Spaces/SpaceService.php:825 includes/Spaces/SpaceService.php:1173
-#: templates/spaces/admin.php:38 templates/spaces/admin.php:44
-#: templates/spaces/home.php:38 templates/spaces/home.php:48
-#: templates/spaces/members.php:34 templates/spaces/members.php:42
-#: templates/spaces/moderation.php:34 templates/spaces/moderation.php:60
-#: templates/spaces/settings.php:31 templates/spaces/settings.php:93
-msgid "Space not found."
-msgstr "Spazio non trovato."
-
-#: includes/Feed/FeedController.php:852
+#: includes/Feed/FeedController.php:894
 msgid "This space is members only. Join to view its posts."
 msgstr "Questo spazio è solo per i membri. Unisciti per visualizzare i post."
 
-#: includes/Feed/FeedController.php:878
+#: includes/Feed/FeedController.php:920
 msgid "Announcements are disabled."
 msgstr "Gli annunci sono disabilitati."
 
-#: includes/Feed/FeedController.php:889 includes/Feed/FeedController.php:924
+#: includes/Feed/FeedController.php:931 includes/Feed/FeedController.php:966
 msgid "Announcement not found."
 msgstr "Annuncio non trovato."
 
@@ -11274,9 +11291,9 @@ msgstr "Gli hashtag sono disattivati su questa community."
 #: includes/Hashtags/HashtagController.php:319
 #: includes/Hashtags/HashtagController.php:349
 #: includes/Hashtags/HashtagController.php:387
-#: includes/Hashtags/HashtagController.php:404
-#: includes/Hashtags/HashtagController.php:424
-#: includes/Hashtags/HashtagController.php:446
+#: includes/Hashtags/HashtagController.php:419
+#: includes/Hashtags/HashtagController.php:439
+#: includes/Hashtags/HashtagController.php:461
 msgid "Hashtag not found."
 msgstr "Hashtag non trovato."
 
@@ -11498,56 +11515,56 @@ msgstr "I caricamenti di file multimediali sono attualmente non disponibili."
 msgid "No file uploaded, or the upload failed."
 msgstr "Nessun file caricato o il caricamento non è riuscito."
 
-#: includes/Media/MediaController.php:440
+#: includes/Media/MediaController.php:451
 msgid "Media is unavailable right now."
 msgstr "Il file multimediale è attualmente non disponibile."
 
-#: includes/Media/MediaController.php:454
-#: includes/Media/MediaController.php:510
+#: includes/Media/MediaController.php:465
+#: includes/Media/MediaController.php:521
 msgid "You can only remove your own media."
 msgstr "Puoi rimuovere solo i tuoi file multimediali."
 
-#: includes/Media/MediaController.php:475
+#: includes/Media/MediaController.php:486
 msgid "Could not remove that media. Please try again."
 msgstr "Non è stato possibile rimuovere quel file multimediale. Riprova."
 
-#: includes/Media/MediaController.php:587
-#: includes/Media/MediaController.php:640
+#: includes/Media/MediaController.php:598
+#: includes/Media/MediaController.php:651
 msgid "Albums are unavailable right now."
 msgstr "Gli album sono attualmente non disponibili."
 
-#: includes/Media/MediaController.php:599
+#: includes/Media/MediaController.php:610
 msgid "You cannot create an album in this space."
 msgstr ""
 
-#: includes/Media/MediaController.php:606
-#: includes/Media/MediaController.php:645
-#: includes/Media/MediaController.php:917
+#: includes/Media/MediaController.php:617
+#: includes/Media/MediaController.php:656
+#: includes/Media/MediaController.php:938
 msgid "An album needs a name."
 msgstr "Un album ha bisogno di un nome."
 
-#: includes/Media/MediaController.php:674
-#: includes/Media/MediaController.php:680
-#: includes/Media/MediaController.php:724
-#: includes/Media/MediaController.php:1079
+#: includes/Media/MediaController.php:685
+#: includes/Media/MediaController.php:691
+#: includes/Media/MediaController.php:735
+#: includes/Media/MediaController.php:1122
 msgid "Album not found."
 msgstr "Album non trovato."
 
-#: includes/Media/MediaController.php:729
+#: includes/Media/MediaController.php:740
 msgid "You need to be a member of this space to add photos."
 msgstr ""
 
-#: includes/Media/MediaController.php:742
+#: includes/Media/MediaController.php:753
 msgid "No media to add."
 msgstr "Nessun file multimediale da aggiungere."
 
 #. translators: %s: album name.
-#: includes/Media/MediaController.php:858
+#: includes/Media/MediaController.php:869
 #, php-format
 msgid "Added photos to %s"
 msgstr ""
 
-#: includes/Media/MediaController.php:1084
+#: includes/Media/MediaController.php:1127
 msgid "You can only manage your own albums."
 msgstr "Puoi gestire solo i tuoi album."
 
@@ -11555,24 +11572,29 @@ msgstr "Puoi gestire solo i tuoi album."
 msgid "Play video"
 msgstr "Riproduci video"
 
-#: includes/Media/MediaRenderer.php:283
+#: includes/Media/MediaRenderer.php:285
 msgid "View image"
 msgstr "Visualizza immagine"
 
 #: includes/MemberTypes/MemberTypeController.php:220
 #: includes/MemberTypes/MemberTypeController.php:246
-#: includes/MemberTypes/MemberTypeController.php:309
+#: includes/MemberTypes/MemberTypeController.php:356
 #: includes/MemberTypes/MemberTypeService.php:241
 #: includes/MemberTypes/MemberTypeService.php:320
 #: includes/MemberTypes/MemberTypeService.php:482
 msgid "Member type not found."
 msgstr "Tipo di membro non trovato."
 
-#: includes/MemberTypes/MemberTypeController.php:316
+#: includes/MemberTypes/MemberTypeController.php:339
+msgid ""
+"Your member type was set by the community. Contact an admin to change it."
+msgstr ""
+
+#: includes/MemberTypes/MemberTypeController.php:363
 msgid "This member type cannot be self-assigned."
 msgstr "Questo tipo di membro non può essere auto-assegnato."
 
-#: includes/MemberTypes/MemberTypeController.php:363
+#: includes/MemberTypes/MemberTypeController.php:410
 msgid "You cannot set a member type for another user."
 msgstr "Non puoi impostare un tipo di membro per un altro utente."
 
@@ -11607,8 +11629,11 @@ msgstr "Gruppo"
 msgid "%1$s +%2$d"
 msgstr "%1$s +%2$d"
 
-#: includes/Messages/MessagesData.php:298
-#: includes/Messages/MessagesData.php:517
+#: includes/Messages/MessagesData.php:370
+msgid "Deleted member"
+msgstr ""
+
+#: includes/Messages/MessagesData.php:604
 msgid "Conversation"
 msgstr "Conversazione"
 
@@ -11906,7 +11931,7 @@ msgid_plural "Connections"
 msgstr[0] "Connessione"
 msgstr[1] "Connessioni"
 
-#: includes/Nav/Providers/ProfileNav.php:204 templates/feed/home.php:191
+#: includes/Nav/Providers/ProfileNav.php:204 templates/feed/home.php:195
 msgid "Network"
 msgstr "Rete"
 
@@ -12367,7 +12392,7 @@ msgid "Reaction"
 msgstr "Reazione"
 
 #: includes/Notifications/NotificationMessageService.php:596
-#: includes/Privacy/PrivacyTools.php:1216 templates/parts/post-actions.php:241
+#: includes/Privacy/PrivacyTools.php:1216 templates/parts/post-actions.php:263
 msgid "Comment"
 msgstr "Commento"
 
@@ -12845,9 +12870,9 @@ msgid "Finish setup"
 msgstr "Termina l'impostazione"
 
 #: includes/Onboarding/SetupWizard.php:366 templates/auth/verify.php:172
-#: templates/onboarding/index.php:370 templates/onboarding/index.php:434
-#: templates/onboarding/index.php:530 templates/onboarding/index.php:632
-#: templates/onboarding/index.php:732
+#: templates/onboarding/index.php:388 templates/onboarding/index.php:452
+#: templates/onboarding/index.php:548 templates/onboarding/index.php:650
+#: templates/onboarding/index.php:750
 msgid "Continue"
 msgstr "Continua"
 
@@ -12860,7 +12885,7 @@ msgid "Setup progress"
 msgstr "Progresso dell'impostazione"
 
 #. translators: 1: current step number, 2: total step count.
-#: includes/Onboarding/SetupWizard.php:385 templates/onboarding/index.php:205
+#: includes/Onboarding/SetupWizard.php:385 templates/onboarding/index.php:223
 #, php-format
 msgid "Step %1$d of %2$d"
 msgstr "Passaggio %1$d di %2$d"
@@ -12873,9 +12898,9 @@ msgstr "Salva ed esci"
 msgid "Setup steps"
 msgstr "Passaggi dell'impostazione"
 
-#: includes/Onboarding/SetupWizard.php:468 templates/onboarding/index.php:419
-#: templates/onboarding/index.php:516 templates/onboarding/index.php:618
-#: templates/onboarding/index.php:713
+#: includes/Onboarding/SetupWizard.php:468 templates/onboarding/index.php:437
+#: templates/onboarding/index.php:534 templates/onboarding/index.php:636
+#: templates/onboarding/index.php:731
 msgid "Back"
 msgstr "Indietro"
 
@@ -13575,7 +13600,7 @@ msgstr "Space Categorie"
 msgid "Colour"
 msgstr "Colore"
 
-#: includes/Profile/FieldType.php:694 templates/profile/edit.php:511
+#: includes/Profile/FieldType.php:694 templates/profile/edit.php:514
 msgid "Not available on your current plan."
 msgstr ""
 
@@ -13591,7 +13616,7 @@ msgstr ""
 msgid "Select…"
 msgstr "Seleziona…"
 
-#: includes/Profile/FieldType.php:940
+#: includes/Profile/FieldType.php:940 templates/profile/edit.php:638
 msgid "Set by the community — contact an admin to change it."
 msgstr ""
 
@@ -13654,7 +13679,7 @@ msgid "Please choose a valid option for %s."
 msgstr "Scegli un'opzione valida per %s."
 
 #. translators: %d: the member's age in years.
-#: includes/Profile/FieldType.php:1542
+#: includes/Profile/FieldType.php:1559
 #, php-format
 msgid "%d year old"
 msgid_plural "%d years old"
@@ -13868,51 +13893,51 @@ msgstr "Nessun account trovato."
 msgid "Administrators cannot delete their own account here."
 msgstr "Gli amministratori non possono eliminare il proprio account qui."
 
-#: includes/Profile/ProfileController.php:1085
+#: includes/Profile/ProfileController.php:1113
 msgid "Choose a valid audience."
 msgstr "Scegli un'audience valida."
 
-#: includes/Profile/ProfileController.php:1102
+#: includes/Profile/ProfileController.php:1130
 msgid "Choose a valid privacy option."
 msgstr "Scegli un'opzione di privacy valida."
 
-#: includes/Profile/ProfileController.php:1398
+#: includes/Profile/ProfileController.php:1455
 msgid "Slug cannot be empty."
 msgstr "Lo slug non può essere vuoto."
 
-#: includes/Profile/ProfileController.php:1406
+#: includes/Profile/ProfileController.php:1463
 msgid "That profile URL is already taken."
 msgstr "Quell'URL del profilo è già in uso."
 
-#: includes/Profile/ProfileController.php:1827
-#: includes/Profile/ProfileController.php:1970
+#: includes/Profile/ProfileController.php:1884
+#: includes/Profile/ProfileController.php:2027
 #: includes/Spaces/SpaceController.php:2180
 msgid "No file uploaded or upload error."
 msgstr "Nessun file caricato o errore di caricamento."
 
-#: includes/Profile/ProfileController.php:1835
+#: includes/Profile/ProfileController.php:1892
 #: includes/Spaces/SpaceController.php:2187
 msgid "File must be under 5MB."
 msgstr "Il file deve essere sotto 5MB."
 
-#: includes/Profile/ProfileController.php:1849
+#: includes/Profile/ProfileController.php:1906
 msgid "Cover image must be at most 1920×1080 pixels."
 msgstr "L'immagine di copertina deve essere al massimo 1920×1080 pixel."
 
-#: includes/Profile/ProfileController.php:1872
+#: includes/Profile/ProfileController.php:1929
 #: includes/Spaces/SpaceController.php:2201
 msgid "Only JPEG, PNG, or WebP images are accepted."
 msgstr "Solo immagini JPEG, PNG o WebP sono accettate."
 
-#: includes/Profile/ProfileController.php:1978
+#: includes/Profile/ProfileController.php:2035
 msgid "File must be under 4MB."
 msgstr "Il file deve essere sotto 4MB."
 
-#: includes/Profile/ProfileController.php:1992
+#: includes/Profile/ProfileController.php:2049
 msgid "Avatar image must be at most 1024×1024 pixels."
 msgstr "L'immagine avatar deve essere al massimo 1024×1024 pixel."
 
-#: includes/Profile/ProfileController.php:2015
+#: includes/Profile/ProfileController.php:2072
 msgid "Only JPEG, PNG, GIF, or WebP images are accepted."
 msgstr "Solo immagini JPEG, PNG, GIF o WebP sono accettate."
 
@@ -13925,27 +13950,27 @@ msgid "Suspended User"
 msgstr "Utente Sospeso"
 
 #. translators: %s: profile section name (owner-defined, e.g. "Work Experience").
-#: includes/Profile/ProfileService.php:2089
-#: includes/Profile/ProfileService.php:2119
+#: includes/Profile/ProfileService.php:2115
+#: includes/Profile/ProfileService.php:2145
 #, php-format
 msgid "Add %s"
 msgstr "Aggiungi %s"
 
-#: includes/Profile/ProfileService.php:2345
+#: includes/Profile/ProfileService.php:2371
 msgid "This is a built-in profile group and cannot be deleted."
 msgstr "Questo è un gruppo di profilo integrato e non può essere eliminato."
 
-#: includes/PWA/PwaService.php:409
+#: includes/PWA/PwaService.php:425
 msgid "You are offline"
 msgstr ""
 
-#: includes/PWA/PwaService.php:410
+#: includes/PWA/PwaService.php:426
 msgid ""
 "This page is not available without a connection. Your community is waiting "
 "once you are back online."
 msgstr ""
 
-#: includes/PWA/PwaService.php:412
+#: includes/PWA/PwaService.php:428
 msgid "Go to the community"
 msgstr ""
 
@@ -14033,8 +14058,8 @@ msgstr "Senza titolo"
 msgid "You must be logged in to view this page."
 msgstr "Devi essere connesso per visualizzare questa pagina."
 
-#: includes/Shortcodes/ShortcodeService.php:345 templates/feed/explore.php:159
-#: templates/parts/space-feed-panel.php:169
+#: includes/Shortcodes/ShortcodeService.php:345 templates/feed/explore.php:160
+#: templates/partials/nav.php:193 templates/parts/space-feed-panel.php:169
 msgid "Log in"
 msgstr "Accedi"
 
@@ -14062,7 +14087,7 @@ msgstr "Popolare questa settimana"
 
 #. translators: %s: formatted member count.
 #: includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php:236
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:388
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:431
 #: templates/partials/explore-card.php:175
 #: templates/parts/sidebar-your-spaces.php:54
 #: templates/parts/space-members-panel.php:111
@@ -14096,11 +14121,11 @@ msgstr "Vedi tutti i membri"
 msgid "Top contributors"
 msgstr "Collaboratori principali"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:308
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:351
 msgid "Owner & Moderators"
 msgstr ""
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:309
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:352
 #: templates/parts/space-members-panel.php:154
 #: templates/parts/space-settings-panel-members.php:121
 #: templates/spaces/members.php:135 templates/spaces/members.php:259
@@ -14108,12 +14133,12 @@ msgid "Owner"
 msgstr "Proprietario"
 
 #. translators: %s is the formatted date.
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:336
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:379
 #, php-format
 msgid "Created %s"
 msgstr "Creato %s"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:401
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:444
 #: templates/parts/space-subspaces-panel.php:99
 msgid ""
 "Organize this space into focused sub-spaces members can join on their own."
@@ -14122,37 +14147,37 @@ msgstr ""
 "unirti da soli."
 
 #. translators: 1: sub-spaces already created, 2: maximum allowed.
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:413
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:456
 #: templates/parts/space-subspaces-panel.php:113
 #, php-format
 msgid "%1$d of %2$d sub-spaces used"
 msgstr ""
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:434
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:452
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:477
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:495
 #: templates/parts/space-subspaces-panel.php:130
 #: templates/parts/space-subspaces-panel.php:144
 msgid "Add sub-space"
 msgstr "Aggiungi sotto-spazio"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:437
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:480
 #: templates/parts/space-subspaces-panel.php:133
 msgid "This space has reached its sub-space limit."
 msgstr ""
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:502
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:540
 msgid "Mod"
 msgstr "Mod"
 
 #. translators: %s: member display name.
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:515
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:553
 #: templates/spaces/members.php:398
 #, php-format
 msgid "Message %s"
 msgstr "Messaggio %s"
 
 #. translators: %d: number of posts.
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:593
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:621
 #: templates/parts/hashtag-sidebar-top-contributors.php:105
 #: templates/parts/search-result-section-hashtags.php:133
 #, php-format
@@ -15086,7 +15111,7 @@ msgstr ""
 msgid "Ask a member of this community to send you an invitation."
 msgstr ""
 
-#: templates/auth/signup.php:253 templates/feed/explore.php:153
+#: templates/auth/signup.php:253 templates/feed/explore.php:154
 msgid "Join the community"
 msgstr "Unisciti alla comunità"
 
@@ -15112,7 +15137,7 @@ msgstr ""
 msgid "This is how other members will see you."
 msgstr ""
 
-#: templates/auth/signup.php:432 templates/onboarding/index.php:315
+#: templates/auth/signup.php:432 templates/onboarding/index.php:333
 msgid "Username"
 msgstr "Nome utente"
 
@@ -15290,7 +15315,7 @@ msgid "Follow user"
 msgstr "Segui utente"
 
 #. translators: %d: follower count
-#: templates/blocks/member-card.php:62 templates/onboarding/index.php:585
+#: templates/blocks/member-card.php:62 templates/onboarding/index.php:603
 #, php-format
 msgid "%d follower"
 msgid_plural "%d followers"
@@ -15613,19 +15638,23 @@ msgstr "Reimposta filtri"
 msgid "Member directory pages"
 msgstr "Pagine della directory dei membri"
 
-#: templates/feed/bookmarks.php:90
+#: templates/feed/bookmarks.php:91
 msgid "Posts you save show up here. Only you can see your bookmarks."
 msgstr "I post che salvi compaiono qui. Solo tu puoi vedere i tuoi preferiti."
 
-#: templates/feed/bookmarks.php:103
+#: templates/feed/bookmarks.php:104
 msgid "Bookmarked posts"
 msgstr "Post salvati"
 
-#: templates/feed/bookmarks.php:140
+#: templates/feed/bookmarks.php:151
+msgid "Older bookmarks"
+msgstr ""
+
+#: templates/feed/bookmarks.php:164
 msgid "No bookmarks yet"
 msgstr "Nessun preferito ancora"
 
-#: templates/feed/bookmarks.php:143
+#: templates/feed/bookmarks.php:167
 msgid ""
 "Tap Save on any post to keep it for later. Bookmarks are private — only you "
 "can see them."
@@ -15633,29 +15662,29 @@ msgstr ""
 "Tocca Salva su qualsiasi post per conservarlo per dopo. I preferiti sono "
 "privati — solo tu puoi vederli."
 
-#: templates/feed/bookmarks.php:146
+#: templates/feed/bookmarks.php:170
 msgid "Browse the feed"
 msgstr "Sfoglia il feed"
 
 #. translators: 1: member count, 2: space count, 3: post count.
-#: templates/feed/explore.php:118
+#: templates/feed/explore.php:119
 #, php-format
 msgid "Explore · %1$s members · %2$s spaces · %3$s posts"
 msgstr "Esplora · %1$s membri · %2$s Space · %3$s post"
 
-#: templates/feed/explore.php:131
+#: templates/feed/explore.php:132
 msgid "What's happening in the community"
 msgstr "Cosa sta accadendo nella comunità"
 
-#: templates/feed/explore.php:138 templates/parts/search-empty-state.php:95
+#: templates/feed/explore.php:139 templates/parts/search-empty-state.php:95
 msgid "Search the community"
 msgstr "Cerca nella comunità"
 
-#: templates/feed/explore.php:144
+#: templates/feed/explore.php:145
 msgid "Search posts, people, spaces, hashtags…"
 msgstr "Cerca post, persone, Space, hashtag…"
 
-#: templates/feed/explore.php:155
+#: templates/feed/explore.php:156
 msgid ""
 "You're browsing as a guest. Create an account to post, follow people, and "
 "join spaces."
@@ -15663,97 +15692,101 @@ msgstr ""
 "Stai navigando come ospite. Crea un account per pubblicare, seguire persone "
 "e aderire ai Space."
 
-#: templates/feed/explore.php:158
+#: templates/feed/explore.php:159
 msgid "Sign up free"
 msgstr "Iscriviti gratuitamente"
 
-#: templates/feed/explore.php:165
+#: templates/feed/explore.php:166
 msgid "Filter what to explore"
 msgstr "Filtra cosa esplorare"
 
-#: templates/feed/explore.php:227
+#: templates/feed/explore.php:228
 msgid "No new members to show yet"
 msgstr "Nessun nuovo membro da mostrare ancora"
 
-#: templates/feed/explore.php:230
+#: templates/feed/explore.php:231
 msgid "No spaces to show yet"
 msgstr "Nessuno Space da mostrare ancora"
 
-#: templates/feed/explore.php:233
+#: templates/feed/explore.php:234
 #: templates/parts/space-discussions-panel.php:96
 msgid "No discussions yet"
 msgstr "Nessuna discussione ancora"
 
-#: templates/feed/explore.php:236
+#: templates/feed/explore.php:237
 msgid "No media shared yet"
 msgstr "Nessun media condiviso ancora"
 
-#: templates/feed/explore.php:239
+#: templates/feed/explore.php:240
 msgid "Nothing here yet"
 msgstr "Non c'è niente ancora"
 
-#: templates/feed/explore.php:245
+#: templates/feed/explore.php:246
 msgid "Be the first to post and start the conversation."
 msgstr "Sii il primo a pubblicare e inizia la conversazione."
 
-#: templates/feed/explore.php:248
+#: templates/feed/explore.php:249
 msgid "Go to your feed"
 msgstr "Vai al tuo feed"
 
-#: templates/feed/home.php:163
+#: templates/feed/explore.php:282 templates/feed/home.php:323
+msgid "Older posts"
+msgstr ""
+
+#: templates/feed/home.php:167
 msgid "Filter home feed"
 msgstr "Filtra feed home"
 
-#: templates/feed/home.php:182
+#: templates/feed/home.php:186
 msgid "For you"
 msgstr "Per te"
 
-#: templates/feed/home.php:248
+#: templates/feed/home.php:252
 msgid "Home feed"
 msgstr "Feed home"
 
-#: templates/feed/home.php:297
+#: templates/feed/home.php:337
 msgid "Your feed is empty"
 msgstr "Il tuo feed è vuoto"
 
-#: templates/feed/home.php:298
+#: templates/feed/home.php:338
 msgid "Follow members or join spaces to start seeing posts here."
 msgstr "Segui i membri o aderisci ai Space per iniziare a vedere i post qui."
 
-#: templates/feed/home.php:299
+#: templates/feed/home.php:339
 msgid "Discover members"
 msgstr "Scopri i membri"
 
-#: templates/feed/home.php:304
+#: templates/feed/home.php:344
 msgid "You aren't following anyone yet"
 msgstr "Non stai seguendo nessuno ancora"
 
-#: templates/feed/home.php:305
+#: templates/feed/home.php:345
 msgid "Once you follow people their latest posts will show up here."
 msgstr "Una volta che segui le persone i loro ultimi post appariranno qui."
 
-#: templates/feed/home.php:306
+#: templates/feed/home.php:346
 msgid "Find people to follow"
 msgstr "Trova persone da seguire"
 
-#: templates/feed/home.php:311
+#: templates/feed/home.php:351
 msgid "Join your first space"
 msgstr "Aderisci al tuo primo Space"
 
-#: templates/feed/home.php:312
+#: templates/feed/home.php:352
 msgid "Posts from spaces you join appear here."
 msgstr "I post dai Space a cui aderisci compaiono qui."
 
-#: templates/feed/home.php:318
+#: templates/feed/home.php:358
 msgid "Build your network"
 msgstr "Costruisci la tua rete"
 
-#: templates/feed/home.php:319
+#: templates/feed/home.php:359
 msgid "Send a few connection requests to see posts from your network."
 msgstr ""
 "Invia alcune richieste di connessione per vedere i post dalla tua rete."
 
-#: templates/feed/home.php:320
+#: templates/feed/home.php:360
 msgid "Find people to connect with"
 msgstr "Trova persone a cui connetterti"
 
@@ -16469,7 +16502,7 @@ msgstr ""
 "superficie di consegna."
 
 #: templates/notifications/prefs.php:214 templates/notifications/prefs.php:356
-#: templates/onboarding/index.php:669
+#: templates/onboarding/index.php:687
 msgid "In-app"
 msgstr "In-app"
 
@@ -16481,7 +16514,7 @@ msgstr "Mostra notifiche dentro BuddyNext."
 msgid "Send transactional and digest emails."
 msgstr "Invia email transazionali e riassunte."
 
-#: templates/notifications/prefs.php:239 templates/onboarding/index.php:683
+#: templates/notifications/prefs.php:239 templates/onboarding/index.php:701
 msgid "Push"
 msgstr "Push"
 
@@ -16596,68 +16629,68 @@ msgstr ""
 "per spazio si ripristinano a \"Tutta l'attività\". Questo mette in scena il "
 "cambiamento; ricordati di premere Salva per confermare."
 
-#: templates/onboarding/index.php:210
+#: templates/onboarding/index.php:228
 msgid "Onboarding steps"
 msgstr "Passaggi di onboarding"
 
-#: templates/onboarding/index.php:244
+#: templates/onboarding/index.php:262
 msgid "Set up your profile"
 msgstr "Configura il tuo profilo"
 
-#: templates/onboarding/index.php:245
+#: templates/onboarding/index.php:263
 msgid "Help others discover you. You can change this any time."
 msgstr "Aiuta gli altri a scoprirti. Puoi cambiar questo in qualsiasi momento."
 
-#: templates/onboarding/index.php:253
+#: templates/onboarding/index.php:271
 msgid "Upload profile photo"
 msgstr "Carica foto profilo"
 
-#: templates/onboarding/index.php:291
+#: templates/onboarding/index.php:309
 msgid "Add a profile photo"
 msgstr "Aggiungi una foto profilo"
 
-#: templates/onboarding/index.php:293
+#: templates/onboarding/index.php:311
 msgid "JPG or PNG, max 4MB, up to 1024×1024px."
 msgstr "JPG o PNG, max 4MB, fino a 1024×1024px."
 
-#: templates/onboarding/index.php:299 templates/parts/profile-edit-hero.php:174
+#: templates/onboarding/index.php:317 templates/parts/profile-edit-hero.php:174
 msgid "Display name"
 msgstr "Nome visualizzato"
 
-#: templates/onboarding/index.php:306 templates/parts/profile-edit-hero.php:183
+#: templates/onboarding/index.php:324 templates/parts/profile-edit-hero.php:183
 msgid "Your full name"
 msgstr "Il tuo nome completo"
 
-#: templates/onboarding/index.php:316
+#: templates/onboarding/index.php:334
 msgid "3+ characters, letters & numbers"
 msgstr "3+ caratteri, lettere e numeri"
 
-#: templates/onboarding/index.php:328
+#: templates/onboarding/index.php:346
 msgid "username"
 msgstr "nome utente"
 
-#: templates/onboarding/index.php:343
+#: templates/onboarding/index.php:361
 msgid "Bio"
 msgstr "Bio"
 
-#: templates/onboarding/index.php:344
+#: templates/onboarding/index.php:362
 msgid "(optional)"
 msgstr "(facoltativo)"
 
-#: templates/onboarding/index.php:350
+#: templates/onboarding/index.php:368
 msgid "Tell the community a bit about yourself..."
 msgstr "Racconta un po' di te alla comunità..."
 
-#: templates/onboarding/index.php:362 templates/onboarding/index.php:426
-#: templates/onboarding/index.php:523 templates/onboarding/index.php:625
+#: templates/onboarding/index.php:380 templates/onboarding/index.php:444
+#: templates/onboarding/index.php:541 templates/onboarding/index.php:643
 msgid "Skip for now"
 msgstr "Salta per ora"
 
-#: templates/onboarding/index.php:387
+#: templates/onboarding/index.php:405
 msgid "What are you into?"
 msgstr "Che cosa ti interessa?"
 
-#: templates/onboarding/index.php:388
+#: templates/onboarding/index.php:406
 msgid ""
 "Choose the topics you care about. You can change these on your profile any "
 "time."
@@ -16665,58 +16698,58 @@ msgstr ""
 "Scegli gli argomenti che ti interessano. Puoi cambiarli nel tuo profilo in "
 "qualsiasi momento."
 
-#: templates/onboarding/index.php:392
+#: templates/onboarding/index.php:410
 msgid "Interest topics"
 msgstr "Argomenti di interesse"
 
-#: templates/onboarding/index.php:409
+#: templates/onboarding/index.php:427
 msgid "Pick a few to personalize your community."
 msgstr "Scegline alcuni per personalizzare la tua comunità."
 
-#: templates/onboarding/index.php:451
+#: templates/onboarding/index.php:469
 msgid "Join some spaces"
 msgstr "Unisciti ad alcuni spazi"
 
-#: templates/onboarding/index.php:452
+#: templates/onboarding/index.php:470
 msgid "Spaces are topic-focused communities. Join the ones that interest you."
 msgstr ""
 "Spazi sono comunità focalizzate su argomenti. Unisciti a quelle che ti "
 "interessano."
 
 #. translators: %s: member count
-#: templates/onboarding/index.php:481
+#: templates/onboarding/index.php:499
 #, php-format
 msgid "%s members"
 msgstr "%s membri"
 
-#: templates/onboarding/index.php:505
+#: templates/onboarding/index.php:523
 msgid "No spaces available yet. You can explore spaces after setup."
 msgstr ""
 "Nessuno spazio disponibile ancora. Puoi esplorare gli spazi dopo la "
 "configurazione."
 
-#: templates/onboarding/index.php:546
+#: templates/onboarding/index.php:564
 msgid "Follow some members"
 msgstr "Segui alcuni membri"
 
-#: templates/onboarding/index.php:547
+#: templates/onboarding/index.php:565
 msgid ""
 "Start building your feed by following members in your areas of interest."
 msgstr ""
 "Inizia a costruire il tuo feed seguendo i membri nelle tue aree di interesse."
 
-#: templates/onboarding/index.php:607
+#: templates/onboarding/index.php:625
 msgid ""
 "No suggestions yet. Discover members in the member directory after setup."
 msgstr ""
 "Nessun suggerimento ancora. Scopri i membri nella directory dei membri dopo "
 "la configurazione."
 
-#: templates/onboarding/index.php:648
+#: templates/onboarding/index.php:666
 msgid "How should we ping you?"
 msgstr "Come dovremmo contattarti?"
 
-#: templates/onboarding/index.php:649
+#: templates/onboarding/index.php:667
 msgid ""
 "Pick the channels you want to hear from. You can fine-tune which events on "
 "each channel from your settings."
@@ -16724,39 +16757,39 @@ msgstr ""
 "Scegli i canali da cui vuoi sentire. Puoi mettere a punto quali eventi su "
 "ogni canale dalle tue impostazioni."
 
-#: templates/onboarding/index.php:652
+#: templates/onboarding/index.php:670
 msgid "Notification channels"
 msgstr "Canali di notifica"
 
-#: templates/onboarding/index.php:657
+#: templates/onboarding/index.php:675
 msgid "Daily summary of mentions, comments, and important activity."
 msgstr "Riepilogo giornaliero di menzioni, commenti e attività importanti."
 
-#: templates/onboarding/index.php:670
+#: templates/onboarding/index.php:688
 msgid "Bell badge and notification panel inside BuddyNext."
 msgstr "Notifica badge e pannello di notifica dentro BuddyNext."
 
-#: templates/onboarding/index.php:684
+#: templates/onboarding/index.php:702
 msgid "Real-time alerts on your browser or device."
 msgstr "Avvisi in tempo reale sul tuo browser o dispositivo."
 
-#: templates/onboarding/index.php:696
+#: templates/onboarding/index.php:714
 msgid "Sound"
 msgstr "Suono"
 
-#: templates/onboarding/index.php:697
+#: templates/onboarding/index.php:715
 msgid "Play a short sound when a new notification arrives."
 msgstr "Riproduci un suono breve quando arriva una nuova notifica."
 
-#: templates/onboarding/index.php:722
+#: templates/onboarding/index.php:740
 msgid "Finish"
 msgstr "Termina"
 
-#: templates/onboarding/index.php:763
+#: templates/onboarding/index.php:781
 msgid "Live profile preview"
 msgstr "Anteprima profilo in tempo reale"
 
-#: templates/onboarding/index.php:794
+#: templates/onboarding/index.php:812
 msgid ""
 "This is how other members will see you. Update anything from your profile "
 "later."
@@ -16892,8 +16925,8 @@ msgid "Cancel announcement"
 msgstr "Annulla annuncio"
 
 #: templates/partials/composer.php:385 templates/partials/composer.php:386
-msgid "Image"
-msgstr "Immagine"
+msgid "Add photo, video or audio"
+msgstr ""
 
 #: templates/partials/composer.php:396 templates/partials/composer.php:397
 #: templates/partials/explore-card.php:286
@@ -17025,7 +17058,7 @@ msgid "Discussion · %s"
 msgstr "Discussione · %s"
 
 #: templates/partials/explore-card.php:328
-#: templates/parts/hashtag-posts-list.php:122 templates/parts/post-body.php:306
+#: templates/parts/hashtag-posts-list.php:122 templates/parts/post-body.php:322
 #: templates/parts/space-settings-panel-integrations.php:127
 #: templates/parts/space-settings-panel-integrations.php:149
 msgid "Discussion"
@@ -17049,18 +17082,20 @@ msgstr "Apri thread"
 msgid "Article · %s"
 msgstr ""
 
-#. translators: %s: hashtag.
-#: templates/partials/explore-card.php:434
-#, php-format
-msgid "Photo · %s"
-msgstr "Foto · %s"
+#: templates/partials/explore-card.php:433
+msgid "Audio"
+msgstr ""
 
-#: templates/partials/explore-card.php:435
+#: templates/partials/explore-card.php:436
+msgid "Video"
+msgstr ""
+
+#: templates/partials/explore-card.php:439
 msgid "Photo"
 msgstr "Foto"
 
 #. translators: %s: hashtag.
-#: templates/partials/explore-card.php:456
+#: templates/partials/explore-card.php:475
 #, php-format
 msgid "Post · %s"
 msgstr "Post · %s"
@@ -17312,19 +17347,19 @@ msgstr "Carica"
 msgid "Section navigation"
 msgstr "Navigazione sezione"
 
-#: templates/partials/nav.php:143 templates/parts/hashtag-hero.php:135
+#: templates/partials/nav.php:160 templates/parts/hashtag-hero.php:135
 msgid "Create post"
 msgstr "Crea post"
 
-#: templates/partials/nav.php:217 templates/partials/nav.php:284
+#: templates/partials/nav.php:250 templates/partials/nav.php:317
 msgid "More"
 msgstr "Altro"
 
-#: templates/partials/nav.php:223
+#: templates/partials/nav.php:256
 msgid "Mobile navigation"
 msgstr "Navigazione mobile"
 
-#: templates/partials/nav.php:282
+#: templates/partials/nav.php:315
 msgid "More navigation"
 msgstr "Altre navigazioni"
 
@@ -17386,7 +17421,7 @@ msgstr "Segnala questo profilo"
 msgid "Tell us more about what you saw..."
 msgstr "Raccontaci di più su quello che hai visto..."
 
-#: templates/partials/share-modal.php:60 templates/parts/post-actions.php:260
+#: templates/partials/share-modal.php:60 templates/parts/post-actions.php:282
 msgid "Share post"
 msgstr "Condividi post"
 
@@ -17782,16 +17817,12 @@ msgstr "Creato da"
 msgid "Total posts"
 msgstr "Post totali"
 
-#: templates/parts/hashtag-sidebar-about.php:114
-msgid "Follow hashtag"
-msgstr "Segui hashtag"
-
-#: templates/parts/hashtag-sidebar-related.php:75
+#: templates/parts/hashtag-sidebar-related.php:90
 msgid "Related hashtags"
 msgstr "Hashtag correlati"
 
 #. translators: %s: post count
-#: templates/parts/hashtag-sidebar-related.php:97
+#: templates/parts/hashtag-sidebar-related.php:112
 #, php-format
 msgid "%s posts"
 msgstr "post %s"
@@ -18007,23 +18038,24 @@ msgstr "&laquo; Precedente"
 msgid "Next &raquo;"
 msgstr "Successivo &raquo;"
 
-#: templates/parts/post-actions.php:87 templates/parts/post-options-menu.php:96
+#: templates/parts/post-actions.php:109
+#: templates/parts/post-options-menu.php:96
 msgid "Post actions"
 msgstr "Azioni post"
 
-#: templates/parts/post-actions.php:100
+#: templates/parts/post-actions.php:122
 msgid "React to post"
 msgstr "Reagisci al post"
 
 #. translators: %d: comment count
-#: templates/parts/post-actions.php:234
+#: templates/parts/post-actions.php:256
 #, php-format
 msgid "%d comment"
 msgid_plural "%d comments"
 msgstr[0] "%d commento"
 msgstr[1] "%d commenti"
 
-#: templates/parts/post-actions.php:278
+#: templates/parts/post-actions.php:300
 msgid "Bookmark post"
 msgstr "Salva post nei segnalibri"
 
@@ -18031,16 +18063,16 @@ msgstr "Salva post nei segnalibri"
 msgid "Attached file"
 msgstr "File allegato"
 
-#: templates/parts/post-body.php:191
+#: templates/parts/post-body.php:206
 msgid "Video did not load — watch it on the original site"
 msgstr ""
 
-#: templates/parts/post-body.php:236
+#: templates/parts/post-body.php:252
 msgid "Poll options"
 msgstr "Opzioni sondaggio"
 
 #. translators: %d: number of votes.
-#: templates/parts/post-body.php:279
+#: templates/parts/post-body.php:295
 #: templates/parts/profile/discussions-panel.php:87
 #: templates/parts/space-discussions-panel.php:83
 #, php-format
@@ -18049,23 +18081,23 @@ msgid_plural "%d votes"
 msgstr[0] "%d voto"
 msgstr[1] "%d voti"
 
-#: templates/parts/post-body.php:285
+#: templates/parts/post-body.php:301
 msgid "Poll closed"
 msgstr "Sondaggio chiuso"
 
-#: templates/parts/post-body.php:334
+#: templates/parts/post-body.php:350
 msgid "Shared post"
 msgstr "Post condiviso"
 
-#: templates/parts/post-body.php:400
+#: templates/parts/post-body.php:416
 msgid "View original post"
 msgstr "Visualizza post originale"
 
-#: templates/parts/post-body.php:402
+#: templates/parts/post-body.php:418
 msgid "View activity"
 msgstr "Visualizza attività"
 
-#: templates/parts/post-body.php:408
+#: templates/parts/post-body.php:424
 msgid "Original post is no longer available."
 msgstr "Il post originale non è più disponibile."
 
@@ -18250,7 +18282,7 @@ msgstr ""
 "campo più privato rispetto all'impostazione predefinita del sito, ma non "
 "meno."
 
-#: templates/parts/profile-field-group.php:68 templates/profile/edit.php:448
+#: templates/parts/profile-field-group.php:68 templates/profile/edit.php:451
 msgid "Add entry"
 msgstr "Aggiungi voce"
 
@@ -19892,15 +19924,12 @@ msgstr "Account e impostazioni"
 msgid "Remove this entry"
 msgstr "Rimuovi questa voce"
 
-#: templates/profile/edit.php:621
-msgid "Your member type"
-msgstr "Il tuo tipo di membro"
-
-#: templates/profile/edit.php:650
+#: templates/profile/edit.php:644 templates/profile/edit.php:650
+#: templates/profile/edit.php:679
 msgid "Member type"
 msgstr "Tipo di membro"
 
-#: templates/profile/edit.php:651
+#: templates/profile/edit.php:680
 msgid "Pick the type that best describes you. Saved instantly."
 msgstr "Scegli il tipo che meglio ti descrive. Salvato istantaneamente."
 
@@ -21121,6 +21150,32 @@ msgstr "di tendenza"
 msgctxt "block keyword"
 msgid "topics"
 msgstr "argomenti"
+
+#~ msgid ""
+#~ "BuddyNext caching still works within a single page load, but cached "
+#~ "values are not shared between requests. For a large community (thousands "
+#~ "of active members) install a persistent object cache — Redis or Memcached "
+#~ "— so the member directory, online list, and counts stay fast."
+#~ msgstr ""
+#~ "La cache di BuddyNext funziona ancora all'interno di un singolo "
+#~ "caricamento di pagina, ma i valori memorizzati nella cache non vengono "
+#~ "condivisi tra le richieste. Per una comunità grande (migliaia di membri "
+#~ "attivi) installa una cache di oggetti persistente — Redis o Memcached — "
+#~ "in modo che la directory dei membri, l'elenco online e i conteggi "
+#~ "rimangono veloci."
+
+#~ msgid "Image"
+#~ msgstr "Immagine"
+
+#, php-format
+#~ msgid "Photo · %s"
+#~ msgstr "Foto · %s"
+
+#~ msgid "Follow hashtag"
+#~ msgstr "Segui hashtag"
+
+#~ msgid "Your member type"
+#~ msgstr "Il tuo tipo di membro"
 
 #~ msgid "Signs outgoing webhooks and verifies inbound access requests."
 #~ msgstr ""
