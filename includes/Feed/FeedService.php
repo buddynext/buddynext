@@ -35,6 +35,28 @@ class FeedService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * Hard ceiling on rows any single feed read may return.
+	 *
+	 * This is NOT the REST page size. Each feed route declares per_page 1-50 with
+	 * its own validate_callback, so an external caller is bounded at the route
+	 * long before it reaches here; this ceiling exists for the server-rendered
+	 * feed, which is a different shape of caller.
+	 *
+	 * "Load more" re-renders the region with a CUMULATIVE count (?shown=15, 30,
+	 * 45 ...) because appended cards would arrive un-hydrated - so the feed
+	 * legitimately asks for more rows than a REST page. It was silently cut off
+	 * at 50: the templates intend six pages (up to 90), the service returned 50,
+	 * and the member simply stopped receiving new posts after the third click
+	 * with nothing on screen to say why. Two ceilings disagreeing, and the lower
+	 * one invisible.
+	 *
+	 * The templates now derive their own limit from this constant, so the two
+	 * cannot drift apart again. Raise this and the feed can render further;
+	 * lower it and the templates follow.
+	 */
+	public const MAX_PER_PAGE = 100;
+
+	/**
 	 * Object-cache group for short-lived feed reads.
 	 */
 	private const CACHE_GROUP = 'buddynext_feed';
@@ -270,7 +292,7 @@ class FeedService {
 	 *
 	 * @param int         $user_id  Viewing user ID.
 	 * @param string|null $cursor   Opaque pagination cursor from a previous response.
-	 * @param int         $per_page Number of posts to return (max 50).
+	 * @param int         $per_page Number of posts to return (ceiling: MAX_PER_PAGE).
 	 * @param string      $filter   Filter slug: for-you | following | spaces | network.
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
@@ -309,7 +331,7 @@ class FeedService {
 			$filter = 'for-you';
 		}
 
-		$per_page       = min( $per_page, 50 );
+		$per_page       = min( $per_page, self::MAX_PER_PAGE );
 		$excluded_where = $this->excluded_users_where();
 		// $cursor_where is built AFTER the ORDER BY is resolved below — a tiered
 		// ordering needs a tier-aware keyset, so the fragment depends on it.
@@ -340,7 +362,7 @@ class FeedService {
 		);
 
 		$per_page = (int) ( $query_args['per_page'] ?? $per_page );
-		$per_page = max( 1, min( $per_page, 50 ) );
+		$per_page = max( 1, min( $per_page, self::MAX_PER_PAGE ) );
 
 		/**
 		 * Filter the ORDER BY clause used by the home feed SQL.
@@ -1262,7 +1284,7 @@ class FeedService {
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
 	public function profile_feed( int $profile_user_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
-		$per_page = max( 1, min( $per_page, 50 ) );
+		$per_page = max( 1, min( $per_page, self::MAX_PER_PAGE ) );
 
 		// Private-account gate FIRST, and deliberately OUTSIDE the cache. The owner sees
 		// themselves; admins see everything; otherwise only approved followers see posts.
@@ -1314,7 +1336,7 @@ class FeedService {
 	private function profile_feed_uncached( int $profile_user_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
 		global $wpdb;
 
-		$per_page = max( 1, min( $per_page, 50 ) );
+		$per_page = max( 1, min( $per_page, self::MAX_PER_PAGE ) );
 
 		/**
 		 * Filter the query args before SQL is built for the profile feed.
@@ -1339,7 +1361,7 @@ class FeedService {
 			$viewer_id
 		);
 
-		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), 50 ) );
+		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), self::MAX_PER_PAGE ) );
 
 		if ( $viewer_id === $profile_user_id ) {
 			// Owner sees everything — but suspended/shadow-banned posts are still hidden.
@@ -1487,7 +1509,7 @@ class FeedService {
 	private function space_feed_uncached( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
 		global $wpdb;
 
-		$per_page       = min( $per_page, 50 );
+		$per_page       = min( $per_page, self::MAX_PER_PAGE );
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
 
@@ -1519,7 +1541,7 @@ class FeedService {
 			$viewer_id
 		);
 
-		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), 50 ) );
+		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), self::MAX_PER_PAGE ) );
 
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
 		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
@@ -1630,7 +1652,7 @@ class FeedService {
 	public function explore_feed( ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $post_filter = 'all' ): array {
 		global $wpdb;
 
-		$per_page       = min( $per_page, 50 );
+		$per_page       = min( $per_page, self::MAX_PER_PAGE );
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
 		$viewer_id      = get_current_user_id();
