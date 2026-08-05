@@ -696,6 +696,34 @@ class ProfileController extends BaseRestController {
 		if ( $connections instanceof \BuddyNext\SocialGraph\ConnectionService ) {
 			$profile['connection'] = $connections->connection_block( $viewer_id, $profile_user_id );
 		}
+
+		/*
+		 * The follow side of the same problem.
+		 *
+		 * `is_following` above answers "am I following them" but not "may I" or
+		 * "have I already asked" — so a follow button could not be drawn from this
+		 * payload alone. The app filled the gap with a conditional
+		 * GET /users/{id}/follow/status on every profile open, purely to decide
+		 * whether the button reads Follow, Requested, or nothing at all.
+		 *
+		 * These are the two values that endpoint returns, from the same services
+		 * it uses, so the app can drop that request. Both are false for a guest
+		 * and on one's own profile, where neither question means anything.
+		 */
+		if ( $viewer_id && empty( $profile['is_self'] ) ) {
+			$privacy = buddynext_service( 'privacy' );
+
+			$profile['is_pending'] = $follows instanceof \BuddyNext\SocialGraph\FollowService
+				? $follows->has_pending_request( $viewer_id, $profile_user_id )
+				: false;
+
+			$profile['can_follow'] = $privacy instanceof \BuddyNext\SocialGraph\PrivacyService
+				? $privacy->can_follow( $viewer_id, $profile_user_id )
+				: false;
+		} else {
+			$profile['is_pending'] = false;
+			$profile['can_follow'] = false;
+		}
 		if ( ! isset( $profile['bio'] ) ) {
 			// The bio lives in bn_profile_values; the bn_field_bio usermeta is written by nothing
 			// (see ProfileService::bios_for). Reading it here handed the app an empty bio for
