@@ -939,6 +939,35 @@ class JetonomyBridge {
 			return 0;
 		}
 
+		/**
+		 * Adopt an existing Jetonomy space instead of provisioning a new one.
+		 *
+		 * ASKED, not assumed. This file cannot know why a space exists - a
+		 * community linked to a Learnomy course already has a Jetonomy space
+		 * carrying that course's access rule, and provisioning a second one
+		 * gives the course TWO discussions: the one the rule gates, and this
+		 * one, which carries no rule and which nobody is enrolled into.
+		 * Reproduced before this guard existed: one course, jt spaces #37 and
+		 * #38.
+		 *
+		 * Free has no business knowing what a Learnomy course is, so it asks
+		 * and whoever does know answers. Return a jt_spaces id to adopt, or 0
+		 * to let provisioning proceed.
+		 *
+		 * @since 1.1.2
+		 *
+		 * @param int   $forum_id Adopted discussion id, or 0 to create one.
+		 * @param int   $space_id BuddyNext space being given a discussion.
+		 * @param array $space    The space row.
+		 */
+		$adopted = (int) apply_filters( 'buddynext_adopt_discussion_space', 0, $space_id, $space );
+		if ( $adopted > 0 ) {
+			update_space_meta( $space_id, 'jetonomy_forum_id', $adopted );
+			$this->set_discussion_enabled( $space_id, true );
+
+			return $adopted;
+		}
+
 		$owner_id = (int) ( $space['owner_id'] ?? 0 );
 		$forum_id = (int) \Jetonomy\Models\Space::create(
 			array(
@@ -961,6 +990,24 @@ class JetonomyBridge {
 			// could never see until someone separately called
 			// set_discussion_enabled(). One call now yields a visible tab.
 			$this->set_discussion_enabled( $space_id, true );
+
+			/**
+			 * A discussion was just provisioned for a BuddyNext space.
+			 *
+			 * The other half of the adopt guard above. When the community IS the
+			 * first thing created for a Learnomy course, nothing has written that
+			 * course's access rule yet - so Jetonomy, which decides whether to
+			 * provision by looking for exactly that rule, would go on to create a
+			 * SECOND space later. A listener claims this one for the course
+			 * instead, which makes the rule the single source of truth for
+			 * "the course's discussion" no matter which plugin got there first.
+			 *
+			 * @since 1.1.2
+			 *
+			 * @param int $space_id BuddyNext space.
+			 * @param int $forum_id The discussion just created.
+			 */
+			do_action( 'buddynext_space_discussion_provisioned', $space_id, $forum_id );
 		}
 
 		return $forum_id;
