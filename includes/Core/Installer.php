@@ -1026,7 +1026,18 @@ class Installer {
 		// field the seeder adds. Idempotent no-op on fresh installs.
 		self::maybe_migrate_skills_field_key( $wpdb->prefix );
 
-		self::seed_default_profile_groups_and_fields( $wpdb->prefix );
+		// The starter profile schema is offered ONCE, to a new site. Re-running it
+		// on every upgrade is what resurrected deleted sections: INSERT IGNORE
+		// skips rows that exist, and a deleted row conflicts with nothing, so it
+		// came back as if new. Same fresh-install rule as the starter space
+		// categories and member types below, for the same reason.
+		if ( $is_fresh_install ) {
+			self::seed_default_profile_groups_and_fields( $wpdb->prefix );
+		}
+
+		// Always: corrects flags on rows a site already has, and creates nothing.
+		self::converge_profile_schema( $wpdb->prefix );
+
 		self::seed_default_space( $wpdb->prefix );
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
@@ -1813,11 +1824,27 @@ class Installer {
 	}
 
 	/**
-	 * Seed the five built-in profile groups and their fields.
+	 * Seed the built-in profile groups and their fields. ONCE, on a new site.
 	 *
-	 * Uses INSERT IGNORE throughout so re-running the installer never destroys
-	 * customised data. Fields are inserted with a subquery that resolves the
-	 * group_id by group_key so the seed is order-independent.
+	 * A STARTER KIT, not a contract. It exists so a new community has a usable
+	 * profile on day one; from then on the schema belongs to the owner, who may
+	 * rename, reorder or delete any of it. Same rule the starter space
+	 * categories and member types already follow, and for the same reason.
+	 *
+	 * MUST NOT run on upgrade. It used to, and INSERT IGNORE is exactly the
+	 * wrong instrument for the job: it skips rows that still exist, and a row
+	 * the owner DELETED no longer conflicts with anything, so it came back as
+	 * if new. Every release that bumped SCHEMA_VERSION silently resurrected
+	 * every deleted default - Work Experience, Education, Pronouns - on every
+	 * site that had pruned them. Reproduced end to end before this change.
+	 *
+	 * The convergence UPDATEs that used to live here have moved to
+	 * converge_profile_schema(), which still runs on every upgrade: those only
+	 * touch rows that already exist, so they fix a site's schema without ever
+	 * re-creating something it threw away.
+	 *
+	 * Fields are inserted with a subquery that resolves the group_id by
+	 * group_key so the seed is order-independent.
 	 *
 	 * @param string $p Table prefix.
 	 */
@@ -1866,28 +1893,6 @@ class Installer {
 				)
 			);
 		}
-
-		// An existing site may carry the SetupWizard-preset 'interests' group
-		// (seeded is_system=0): converge it to the canonical system group. The
-		// INSERT IGNORE above no-ops on it, so flip the flag explicitly.
-		$wpdb->query(
-			"UPDATE `{$p}bn_profile_groups`
-			    SET is_system = 1, label = 'Interests'
-			  WHERE group_key = 'interests'
-			    AND is_system = 0"
-		);
-
-		// Freedom pass (v18/v19): converge older installs where the showcase
-		// sections were seeded is_system=1 — the INSERT IGNORE above no-ops on
-		// existing rows, so drop the group lock explicitly. 'skills' joined this
-		// list in v19 (was mis-locked as a "suggestion signal"). Field-level
-		// is_system (the bio/headline/location/interests spine) is untouched.
-		$wpdb->query(
-			"UPDATE `{$p}bn_profile_groups`
-			    SET is_system = 0
-			  WHERE group_key IN ('social_links', 'work_experience', 'education', 'skills')
-			    AND is_system = 1"
-		);
 
 		// ── 2. Fields ─────────────────────────────────────────────────────────
 		// Each INSERT uses a subquery to resolve group_id by group_key.
@@ -1956,14 +1961,56 @@ class Installer {
 			);
 		}
 
-		// ── 3. System-field protection (v16/v17) ─────────────────────────────
-		// Exactly the load-bearing spine is protected from deletion: bio (search
-		// index + directory cards), headline (hero + directory), location
-		// (directory filter), interests (the suggestion signal the engines read).
-		// Every other seeded field stays deletable so owners can customise their
-		// profile schema — display-only fields degrade gracefully by design.
-		// Idempotent single UPDATE; covers fresh installs and (via
-		// maybe_upgrade -> run) existing sites alike.
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Converge an existing site's profile schema. Runs on EVERY upgrade.
+	 *
+	 * The half of the old seeder that is safe to re-run, and separated from the
+	 * half that was not. Every statement here is an UPDATE with a WHERE that
+	 * matches only rows already present, so it can correct a site's schema
+	 * without ever re-creating something the owner deleted - which is precisely
+	 * what the INSERT half could not promise.
+	 *
+	 * Splitting them is what lets both rules hold at once: a new site still
+	 * gets a complete starter profile, and an established site keeps the schema
+	 * it curated while still receiving flag corrections.
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function converge_profile_schema( string $p ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// An existing site may carry the SetupWizard-preset 'interests' group
+		// (seeded is_system=0): converge it to the canonical system group.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_groups`
+			    SET is_system = 1, label = 'Interests'
+			  WHERE group_key = 'interests'
+			    AND is_system = 0"
+		);
+
+		// Freedom pass (v18/v19): converge older installs where the showcase
+		// sections were seeded is_system=1, so drop the group lock explicitly.
+		// 'skills' joined this list in v19 (was mis-locked as a "suggestion
+		// signal"). Field-level is_system (the bio/headline/location/interests
+		// spine) is untouched.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_groups`
+			    SET is_system = 0
+			  WHERE group_key IN ('social_links', 'work_experience', 'education', 'skills')
+			    AND is_system = 1"
+		);
+
+		// System-field protection (v16/v17). Exactly the load-bearing spine is
+		// protected from deletion: bio (search index + directory cards),
+		// headline (hero + directory), location (directory filter), interests
+		// (the suggestion signal the engines read). Every other seeded field
+		// stays deletable so owners can customise their profile schema —
+		// display-only fields degrade gracefully by design.
 		$wpdb->query(
 			"UPDATE `{$p}bn_profile_fields`
 			    SET is_system = 1
