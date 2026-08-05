@@ -134,6 +134,21 @@ else
 	note "bin/check-route-urls.sh missing"
 fi
 
+# 3c. Cross-plugin guards — a call into a partner plugin must be guarded against
+# the class it ACTUALLY calls. A guard naming a sibling class reads as careful,
+# passes every other gate here, and fatals only on a site with the partner
+# deactivated — the configuration nobody develops on.
+section "Cross-plugin guards"
+if [ -f bin/check-cross-plugin-guards.php ]; then
+	if php bin/check-cross-plugin-guards.php; then
+		:
+	else
+		fail "unguarded call into a partner plugin — guard the exact class the body calls"
+	fi
+else
+	note "bin/check-cross-plugin-guards.php missing"
+fi
+
 # 3bc. Surface map — the store-per-hub contract must match source.
 #
 # audit/surface-map.json records hub -> module -> namespace -> actions, generated
