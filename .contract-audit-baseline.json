@@ -322,11 +322,6 @@
    "severity": "info"
   },
   {
-   "id": "hook-consumed-never-fired:buddynext_async_space_new_post_notification",
-   "reason": "Async/extension-point action — fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
-   "severity": "error"
-  },
-  {
    "id": "hook-consumed-never-fired:buddynext_async_index_user",
    "reason": "Async/extension-point action — fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
    "severity": "info"
