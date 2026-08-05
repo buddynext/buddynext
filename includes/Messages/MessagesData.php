@@ -260,6 +260,55 @@ class MessagesData {
 	}
 
 	/**
+	 * Is this a one-to-one conversation with nobody on the other end?
+	 *
+	 * A 1:1 thread should always have a second participant. It can lose one:
+	 * a race while the conversation is being created leaves the row half-built,
+	 * and an account deletion that does not cascade-clean participants leaves it
+	 * behind. Either way the viewer got a row labelled "Conversation" with
+	 * other_user_id = 0 — no name, no avatar, and a click that went nowhere,
+	 * because there was no profile to open.
+	 *
+	 * Verified on the dev site: one such conversation, one participant, four
+	 * messages, all from the viewer.
+	 *
+	 * Reported as demo-data noise, but the state is reachable in production by
+	 * both routes above, and nothing in the UI handled it — so it is treated as
+	 * a state to render honestly rather than a fixture to clean up.
+	 *
+	 * @param object $conv   Conversation row.
+	 * @param int    $viewer Viewing user ID.
+	 * @return bool
+	 */
+	private static function is_orphaned_direct( $conv, int $viewer ): bool {
+		if ( self::is_group( $conv ) ) {
+			return false;
+		}
+
+		if ( null !== self::other_participant( $conv, $viewer ) ) {
+			return false;
+		}
+
+		/*
+		 * One more question before hiding it: is there anyone else here at all?
+		 *
+		 * The two ways a 1:1 thread loses its second participant are not the same
+		 * situation. An account deleted without cascade-cleaning leaves a real
+		 * conversation whose history the viewer should still be able to read; a
+		 * race during creation leaves a row that never became a conversation.
+		 *
+		 * created_by separates them without a per-row query — which matters, as
+		 * this runs for every row of an inbox. When the creator is someone other
+		 * than the viewer, a second person WAS here, so the thread is kept and
+		 * named below rather than discarded. Only a thread the viewer started,
+		 * that nobody else ever joined, is dropped.
+		 */
+		$creator = (int) self::val( $conv, 'created_by', 0 );
+
+		return $creator <= 0 || $creator === $viewer;
+	}
+
+	/**
 	 * Map a conversation row to the dm-rail-item shape.
 	 *
 	 * @param object $conv   Conversation row.
@@ -290,12 +339,35 @@ class MessagesData {
 
 		$other = self::other_participant( $conv, $viewer );
 
+		if ( $other ) {
+			return array_merge(
+				$base,
+				array(
+					'is_group'        => false,
+					'other_user_id'   => (int) self::val( $other, 'id', 0 ),
+					'other_user_name' => (string) self::val( $other, 'display_name', '' ),
+				)
+			);
+		}
+
+		/*
+		 * Reached only for a thread somebody else started and then left no
+		 * participant row for — an account deleted without cascade-cleaning. The
+		 * threads with nobody on the other end at all are dropped before this
+		 * (see is_orphaned_direct), so this branch is the case worth keeping:
+		 * real history the viewer should still be able to read.
+		 *
+		 * "Conversation" was the wrong word for it. It reads as a normal thread
+		 * whose name failed to load, so the row invited a click that could not go
+		 * anywhere. Naming the state tells the member what happened, and
+		 * other_user_id stays 0 because there is genuinely no profile to open.
+		 */
 		return array_merge(
 			$base,
 			array(
 				'is_group'        => false,
-				'other_user_id'   => $other ? (int) self::val( $other, 'id', 0 ) : 0,
-				'other_user_name' => $other ? (string) self::val( $other, 'display_name', '' ) : __( 'Conversation', 'buddynext' ),
+				'other_user_id'   => 0,
+				'other_user_name' => __( 'Deleted member', 'buddynext' ),
 			)
 		);
 	}
@@ -365,6 +437,21 @@ class MessagesData {
 		$reqs     = 0;
 
 		foreach ( $rows as $conv ) {
+			/*
+			 * A 1:1 thread with nobody on the other end is not a conversation the
+			 * viewer can do anything with: no name to show, no profile to open, and
+			 * nobody who could ever reply. It was still listed — as "Conversation",
+			 * with a click that went nowhere — so the inbox advertised a thread that
+			 * did not exist and gave no way to tell what had happened.
+			 *
+			 * Dropped from the list rather than rendered as a dead end. Nothing is
+			 * destroyed: the row and its messages stay in the database, so a repair
+			 * that restores the missing participant brings the thread straight back.
+			 */
+			if ( self::is_orphaned_direct( $conv, $viewer ) ) {
+				continue;
+			}
+
 			$mapped  = self::map_conversation( $conv, $viewer );
 			$unread += $mapped['unread_count'];
 			if ( 'request_pending' === self::val( $conv, 'participant_status', 'active' ) ) {
