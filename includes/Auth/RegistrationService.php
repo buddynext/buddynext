@@ -2,7 +2,7 @@
 /**
  * Registration creation pipeline — the one way a BuddyNext member is created.
  *
- * Doors must not call wp_create_user() themselves. Social login used to, and as
+ * Doors must not create the account themselves. Social login used to, and as
  * a direct result it skipped the default DM-privacy seed, the registration
  * profile fields, and the canonical registration hooks — silently, for every
  * member who signed up with Google. Centralising creation is what stops a door
@@ -137,7 +137,7 @@ class RegistrationService {
 
 		// RESOLVE THE INVITE BEFORE THE ACCOUNT EXISTS.
 		//
-		// wp_create_user() fires `user_register`, and OnboardingListener hooks it at
+		// Inserting the user fires `user_register`, and OnboardingListener hooks it at
 		// priority 16 to reconcile invites BY EMAIL — flipping the invitee's invite to
 		// `registered`. redeem_invite() then looked the token up with
 		// InviteService::get_by_token(), whose SQL requires status = 'pending', got
@@ -151,29 +151,41 @@ class RegistrationService {
 		// Read it here, while it is still pending. Nothing downstream can race us.
 		$invite = $this->find_invite( $data );
 
-		$user_id = wp_create_user(
-			(string) $data['user_login'],
-			(string) $data['password'],
-			(string) $data['email']
-		);
-		if ( is_wp_error( $user_id ) ) {
-			return $user_id;
-		}
-		$user_id = (int) $user_id;
-
 		// The name is what a community actually shows. Set it when we were given one; the
 		// social path already did this from the provider profile, and the email path did
 		// not, so the same member looked like a person or like a handle depending on which
 		// button they happened to click.
+		//
+		// It goes in with the INSERT, not in an update afterwards. wp_create_user()
+		// takes only login/password/email, so core defaulted display_name to the
+		// username and fired `user_register` with that in place; the real name landed
+		// a moment later. Anything listening to user_register therefore saw the
+		// handle - which is why the verification email greeted "Hi qatest," while
+		// the welcome email, sent later, correctly greeted "Hi QA123,".
+		//
+		// Fixing the send order would have fixed one email. Setting the name before
+		// the account is announced fixes it for every listener, including the ones
+		// nobody has written yet.
+		//
+		// wp_insert_user() is what wp_create_user() calls; it expects slashed data,
+		// which is the slashing wp_create_user() was doing for us.
 		$name = trim( (string) ( $data['name'] ?? '' ) );
+
+		$userdata = array(
+			'user_login' => wp_slash( (string) $data['user_login'] ),
+			'user_pass'  => (string) $data['password'],
+			'user_email' => wp_slash( (string) $data['email'] ),
+		);
+
 		if ( '' !== $name ) {
-			wp_update_user(
-				array(
-					'ID'           => $user_id,
-					'display_name' => sanitize_text_field( $name ),
-				)
-			);
+			$userdata['display_name'] = wp_slash( sanitize_text_field( $name ) );
 		}
+
+		$user_id = wp_insert_user( $userdata );
+		if ( is_wp_error( $user_id ) ) {
+			return $user_id;
+		}
+		$user_id = (int) $user_id;
 
 		$this->redeem_invite( $user_id, $invite );
 
@@ -260,7 +272,7 @@ class RegistrationService {
 	/**
 	 * Resolve the presented invitation, if any.
 	 *
-	 * Called BEFORE wp_create_user() — see create(). Once the account exists, the
+	 * Called BEFORE the account is inserted — see create(). Once the account exists, the
 	 * `user_register` email-reconcile listener has already flipped the row out of
 	 * `pending` and this lookup would find nothing.
 	 *
@@ -284,7 +296,7 @@ class RegistrationService {
 	 * `registered` — so re-reading it here by token would find nothing.
 	 *
 	 * @param int                      $user_id New member id.
-	 * @param array<string,mixed>|null $invite  Invite row captured before wp_create_user(), or null.
+	 * @param array<string,mixed>|null $invite  Invite row captured before the account was inserted, or null.
 	 * @return void
 	 */
 	private function redeem_invite( int $user_id, ?array $invite ): void {
