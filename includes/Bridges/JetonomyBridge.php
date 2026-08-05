@@ -127,6 +127,12 @@ class JetonomyBridge {
 		// the unified Nav API (one registry, one renderer) — profile tab carries a
 		// count badge; the space tab links to the forum (or the on-demand provision
 		// trigger). Replaces the old buddynext_profile_extra_data + buddynext_space_tabs.
+		// A space's type is the authority for its discussion's visibility, so
+		// follow it whenever the space is saved. Creation-time correctness
+		// alone would let the leak back in the first time an owner locks a
+		// space down.
+		add_action( 'buddynext_space_updated', array( $this, 'sync_discussion_visibility' ), 10, 3 );
+
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
 
 		// Owner controls: register on the integration registry so the site owner can
@@ -832,6 +838,74 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * The discussion visibility a BuddyNext space type requires.
+	 *
+	 * ONE definition, used both when the discussion is created and when the
+	 * space's type later changes, so the two can never disagree. This used to
+	 * be the literal 'public' at the creation site and nothing at all on
+	 * change: enabling Discussion on a private or secret space published its
+	 * entire discussion history to the world, silently and permanently, and
+	 * nothing re-evaluated it afterwards.
+	 *
+	 * The enums map 1:1. An unrecognised type resolves to 'hidden' rather than
+	 * 'public' - if we cannot tell what a space is, the safe answer is the one
+	 * that exposes nothing, and a hidden discussion is recoverable where a
+	 * leaked one is not.
+	 *
+	 * @param string $space_type BuddyNext space type: open | private | secret.
+	 * @return string Jetonomy visibility: public | private | hidden.
+	 */
+	public static function discussion_visibility_for( string $space_type ): string {
+		switch ( $space_type ) {
+			case \BuddyNext\Spaces\SpaceService::TYPE_OPEN:
+				return 'public';
+			case \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE:
+				return 'private';
+			case \BuddyNext\Spaces\SpaceService::TYPE_SECRET:
+				return 'hidden';
+			default:
+				return 'hidden';
+		}
+	}
+
+	/**
+	 * Keep a linked discussion's visibility in step with its space's type.
+	 *
+	 * Creation-time correctness is not enough: an owner who opens a space to
+	 * the public, or locks a public one down, expects the conversation inside
+	 * it to follow. Without this the discussion keeps whatever it was born
+	 * with, so the first time anyone tightens a space the leak reappears.
+	 *
+	 * Only writes when the value actually differs, so an unrelated space edit
+	 * does not churn Jetonomy rows.
+	 *
+	 * @param int   $space_id BuddyNext space ID.
+	 * @param int   $user_id  Actor (unused; the space's type is the authority).
+	 * @param array $fields   Fields saved.
+	 * @return void
+	 */
+	public function sync_discussion_visibility( $space_id, $user_id = 0, $fields = array() ): void {
+		$space_id = (int) $space_id;
+		$forum_id = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
+		if ( $space_id <= 0 || $forum_id <= 0 || ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return;
+		}
+
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return;
+		}
+
+		$want = self::discussion_visibility_for( (string) ( $space['type'] ?? '' ) );
+		$jt   = \Jetonomy\Models\Space::find( $forum_id );
+		if ( ! $jt || (string) ( $jt->visibility ?? '' ) === $want ) {
+			return;
+		}
+
+		\Jetonomy\Models\Space::update( $forum_id, array( 'visibility' => $want ) );
+	}
+
+	/**
 	 * Provision (once) the ONE dedicated Jetonomy discussion a BuddyNext space
 	 * owns for its lifetime, and store the permanent link.
 	 *
@@ -844,6 +918,8 @@ class JetonomyBridge {
 	 * space slug (suffixed with the space id when that base slug is already taken),
 	 * so it can NEVER silently adopt an unrelated Jetonomy space that merely shares
 	 * a slug — that slug-matching was a hijack risk and is gone.
+	 *
+	 * Visibility is derived from the space's own type, never assumed.
 	 *
 	 * @param int $space_id BuddyNext space ID.
 	 * @return int Jetonomy discussion (jt_spaces) id, or 0 on failure.
@@ -869,7 +945,7 @@ class JetonomyBridge {
 				'title'      => (string) ( $space['name'] ?? '' ),
 				'slug'       => $this->unique_discussion_slug( (string) ( $space['slug'] ?? '' ), $space_id ),
 				'author_id'  => $owner_id,
-				'visibility' => 'public',
+				'visibility' => self::discussion_visibility_for( (string) ( $space['type'] ?? '' ) ),
 				'status'     => 'active',
 			),
 			$owner_id
