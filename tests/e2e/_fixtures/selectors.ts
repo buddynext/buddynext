@@ -57,6 +57,10 @@ export const sel = {
     // Feed list
     feedList: '.bn-feed-list, .bn-feed, [data-feed-list]',
     feedEmpty: '.bn-feed-empty',
+    feedList: '.bn-feed-list',
+    // The Load-more control is a real <a href>, not a JS sentinel — it has to
+    // keep working with JS off. #bn-load-more is the region-swap anchor.
+    feedLoadMore: '#bn-load-more .bn-load-more__btn',
 
     // Auth (live build uses .bn-auth-* on /login/ and /signup/)
     authPage: '.bn-auth, .bn-auth-page, body.login',
