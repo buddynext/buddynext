@@ -3,7 +3,7 @@
 What BuddyNext free can and cannot do, in buyer language. One row per capability,
 each verified against the code at the reference given.
 
-**Last verified against code:** 2026-08-04, branch `1.1.2`, commit `79669345`.
+**Last verified against code:** 2026-08-06, branch `1.1.2`, commit `c83a33d4`.
 **Source of truth order:** `audit/manifest.summary.json` > this file > the code.
 Regenerate both with `/wp-plugin-onboard --refresh`.
 
