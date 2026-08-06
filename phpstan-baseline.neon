@@ -30,29 +30,9 @@ parameters:
 			count: 1
 			path: includes/Bridges/GamificationBridge.php
 
-		-
-			message: '#^Call to an undefined static method WP_CLI\:\:colorize\(\)\.$#'
-			identifier: staticMethod.notFound
-			count: 3
-			path: includes/Cert/CertCommand.php
 
-		-
-			message: '#^Call to an undefined static method WP_CLI\:\:error\(\)\.$#'
-			identifier: staticMethod.notFound
-			count: 1
-			path: includes/Cert/CertCommand.php
 
-		-
-			message: '#^Call to an undefined static method WP_CLI\:\:halt\(\)\.$#'
-			identifier: staticMethod.notFound
-			count: 1
-			path: includes/Cert/CertCommand.php
 
-		-
-			message: '#^Call to an undefined static method WP_CLI\:\:line\(\)\.$#'
-			identifier: staticMethod.notFound
-			count: 1
-			path: includes/Cert/CertCommand.php
 
 		-
 			message: '#^@param array\<string, bool\|string\> \$map does not accept actual type of parameter\: array\{buddynext_public_explore\: true, buddynext_enable_community_nav\: true, buddynext_enable_dm\: true, buddynext_default_dm_access\: ''members'', buddynext_default_post_privacy\: ''public'', buddynext_allow_polls\: ''1'', buddynext_allow_shares\: ''1'', buddynext_allow_bookmarks\: ''1'', \.\.\.\}\.$#'
