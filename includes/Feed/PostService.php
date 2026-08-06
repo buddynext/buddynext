@@ -3216,6 +3216,70 @@ class PostService {
 	}
 
 	/**
+	 * Resolve a hostname to its IP addresses through the SYSTEM resolver.
+	 *
+	 * Deliberately NOT dns_get_record(). That function takes no timeout argument
+	 * — there is no value you can pass to bound it — and under PHP-FPM it blocked
+	 * for 60 SECONDS per call, while the same lookup through the system resolver
+	 * returned in 0.00s. WP-CLI does not reproduce it (0.02s there), which is why
+	 * every command-line measurement of this path looked healthy while the
+	 * browser hung: og_meta() timed at 0.3-0.6s on the CLI and ~60s under FPM.
+	 * Anything calling it inherits the resolver's entire retry ladder and nothing
+	 * downstream can defend against that. It is what made GET /link-preview hang
+	 * (so no preview card ever rendered in the composer) and, before create() was
+	 * made async, what left a member sitting on "Posting…".
+	 *
+	 * It also queries DNS directly and ignores /etc/hosts, so a hosts-file alias,
+	 * a container alias, or split-horizon DNS is unresolvable to it while being
+	 * instant for every other part of the stack — staging behind internal DNS,
+	 * not only local dev.
+	 *
+	 * getaddrinfo(), via socket_addrinfo_lookup(), IS the system resolver and
+	 * covers both address families. gethostbynamel() is the fallback where
+	 * ext-sockets is absent; it is IPv4-only, so an IPv6-only host resolves to
+	 * nothing and the caller fails CLOSED — the correct direction for an SSRF
+	 * guard, which is why the guard itself is unchanged.
+	 *
+	 * @param string $host Hostname to resolve.
+	 * @return string[] Resolved IP addresses; empty when the host does not resolve.
+	 */
+	private static function resolve_host( string $host ): array {
+		$ips = array();
+
+		if ( function_exists( 'socket_addrinfo_lookup' ) && function_exists( 'socket_addrinfo_explain' ) ) {
+			// Both lookups return FALSE (not an empty array) for a host that does
+			// not resolve — and `(array) false` is `array( false )`, not `array()`.
+			// Casting straight into a foreach therefore yields one iteration with
+			// a boolean, and socket_addrinfo_explain( false ) throws a TypeError
+			// that `@` cannot suppress: a member pasting http://[::1]/ fataled the
+			// request. Hence the explicit is_array()/instanceof guards.
+			$addrs = @socket_addrinfo_lookup( $host ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			if ( is_array( $addrs ) ) {
+				foreach ( $addrs as $addr ) {
+					$info = @socket_addrinfo_explain( $addr ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+					$ip   = $info['ai_addr']['sin_addr'] ?? ( $info['ai_addr']['sin6_addr'] ?? '' );
+					if ( '' !== $ip ) {
+						$ips[] = (string) $ip;
+					}
+				}
+			}
+		}
+
+		if ( empty( $ips ) ) {
+			// Suppressed for the same reason as above; is_array() for the same
+			// `(array) false` hazard.
+			$v4 = @gethostbynamel( $host ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			if ( is_array( $v4 ) ) {
+				foreach ( $v4 as $ip ) {
+					$ips[] = (string) $ip;
+				}
+			}
+		}
+
+		return array_values( array_unique( array_filter( $ips ) ) );
+	}
+
+	/**
 	 * Decide whether a user-supplied URL is safe for the server to fetch.
 	 *
 	 * Blocks SSRF by requiring an http/https scheme and resolving the host to
@@ -3225,6 +3289,9 @@ class PostService {
 	 * covers 10/8, 172.16/12, 192.168/16 and fc00::/7. Unresolvable hosts are
 	 * rejected too. (TOCTOU/DNS-rebinding is mitigated further by passing
 	 * reject_unsafe_urls to wp_remote_get.)
+	 *
+	 * The guard is unchanged; only the resolution call behind it moved — see
+	 * resolve_host() for why dns_get_record() could not stay.
 	 *
 	 * @param string $url URL to validate.
 	 * @return bool True when the URL is a public http(s) destination.
@@ -3244,21 +3311,7 @@ class PostService {
 		if ( filter_var( $host, FILTER_VALIDATE_IP ) ) {
 			$ips[] = $host;
 		} else {
-			// Suppress the native PHP warning dns_get_record() emits on unresolvable hosts; a failed lookup is an expected branch of this SSRF guard and is handled by the empty-array cast.
-			foreach ( (array) @dns_get_record( $host, DNS_A | DNS_AAAA ) as $record ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-				if ( ! empty( $record['ip'] ) ) {
-					$ips[] = $record['ip'];
-				}
-				if ( ! empty( $record['ipv6'] ) ) {
-					$ips[] = $record['ipv6'];
-				}
-			}
-			if ( empty( $ips ) ) {
-				$resolved = gethostbyname( $host );
-				if ( $resolved && $resolved !== $host ) {
-					$ips[] = $resolved;
-				}
-			}
+			$ips = self::resolve_host( $host );
 		}
 
 		if ( empty( $ips ) ) {
