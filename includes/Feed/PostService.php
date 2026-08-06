@@ -74,6 +74,13 @@ class PostService {
 	private const CACHE_TTL = 600;
 
 	/**
+	 * Hook that resolves a link post's Open Graph preview off the request path.
+	 *
+	 * Carries the post id. Queued by create() and handled by resolve_link_meta().
+	 */
+	public const LINK_META_HOOK = 'buddynext_async_fetch_link_meta';
+
+	/**
 	 * Create a new post.
 	 *
 	 * For poll posts, $data['options'] must be an array of 2–5 non-empty strings (max 5 enforced).
@@ -286,10 +293,16 @@ class PostService {
 
 		$media_ids = ! empty( $owned_media ) ? wp_json_encode( $owned_media ) : null;
 
-		// Auto-fetch OG metadata when link_url is set but link_meta is empty.
-		if ( ! empty( $data['link_url'] ) && empty( $data['link_meta'] ) ) {
-			$data['link_meta'] = self::fetch_og_meta( (string) $data['link_url'] );
-		}
+		// A link post whose preview is not resolved yet is saved WITHOUT it and the
+		// scrape is queued (see dispatch_link_meta below). The fetch used to run
+		// here, inline, which made saving a post depend on a third-party server
+		// answering: the member's POST held open until the remote host replied, so
+		// a slow or dead URL left the composer stuck on "Posting…" indefinitely.
+		// wp_remote_get's 'timeout' does not bound that — WP_Http forwards only
+		// 'timeout' to Requests, so connect/DNS still runs to Requests' own 10s
+		// default, and a host that cannot resolve blocks past the 5s that is set
+		// here. Even working perfectly it charged the member up to 5s per link post.
+		$queue_link_meta = ! empty( $data['link_url'] ) && empty( $data['link_meta'] );
 
 		$link_meta = isset( $data['link_meta'] ) ? wp_json_encode( $data['link_meta'] ) : null;
 
@@ -388,6 +401,14 @@ class PostService {
 
 		if ( 'poll' === $type ) {
 			$this->insert_poll_options( $post_id, $data['options'], (string) ( $data['poll_end_date'] ?? '' ) );
+		}
+
+		// Resolve the link preview off the request path now that the row exists.
+		// Queued for every status, not just 'published': a scheduled or held post
+		// needs its preview resolved before it goes live, and by then nothing is
+		// left to hang.
+		if ( $post_id > 0 && $queue_link_meta ) {
+			self::dispatch_link_meta( $post_id );
 		}
 
 		// Live side-effects fire only for a published post. A held ('pending')
@@ -2937,10 +2958,134 @@ class PostService {
 	}
 
 	/**
+	 * Wire the async link-preview worker. Called once from Plugin::init().
+	 *
+	 * @return void
+	 */
+	public static function register_async(): void {
+		add_action( self::LINK_META_HOOK, array( self::class, 'resolve_link_meta' ), 10, 1 );
+	}
+
+	/**
+	 * Queue a link post's preview scrape so it runs outside the member's request.
+	 *
+	 * Deliberately has NO inline fallback. Every other async seam in the plugin
+	 * (search indexing, hashtags) falls back to running inline when no scheduler
+	 * is available, because the work is local and cheap. This work is neither: it
+	 * is an HTTP request to a third-party server, and running it inline is exactly
+	 * the defect being fixed. A preview that never resolves costs the member a
+	 * plain link card; a preview fetched inline can cost them their post.
+	 *
+	 * So on a host with no Action Scheduler AND no working cron, link_meta stays
+	 * empty and the card renders as a bare link — degraded, never broken, and the
+	 * post itself is already saved either way.
+	 *
+	 * @param int $post_id Post ID to resolve.
+	 * @return void
+	 */
+	private static function dispatch_link_meta( int $post_id ): void {
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::LINK_META_HOOK, array( $post_id ), 'buddynext' );
+			return;
+		}
+
+		if ( ! wp_next_scheduled( self::LINK_META_HOOK, array( $post_id ) ) ) {
+			wp_schedule_single_event( time() + 1, self::LINK_META_HOOK, array( $post_id ) );
+		}
+	}
+
+	/**
+	 * Resolve a queued link preview and store it on the post.
+	 *
+	 * Re-reads the row rather than trusting queued data: the post may have been
+	 * deleted, edited, or had its preview removed between queueing and running.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	public static function resolve_link_meta( int $post_id ): void {
+		$post_id = absint( $post_id );
+		if ( $post_id < 1 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT link_url, link_meta FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+				$post_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// Deleted while queued.
+		if ( null === $row ) {
+			return;
+		}
+
+		$url = (string) ( $row['link_url'] ?? '' );
+		if ( '' === $url ) {
+			return;
+		}
+
+		// Already resolved — by an edit, or by a duplicate job. Never overwrite:
+		// update() lets an author REMOVE a preview, and re-scraping over that
+		// would put back what they took off.
+		$existing = (string) ( $row['link_meta'] ?? '' );
+		if ( '' !== $existing && 'null' !== $existing && '[]' !== $existing ) {
+			return;
+		}
+
+		$meta = self::fetch_og_meta( $url );
+
+		// The URL yielded nothing usable (unreachable, no OG tags, SSRF-rejected).
+		// Leave link_meta empty so the card renders as a plain link instead of an
+		// empty preview shell.
+		if ( '' === $meta['title'] && '' === $meta['description'] && '' === $meta['thumbnail'] ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'link_meta' => wp_json_encode( $meta ) ),
+			array( 'id' => $post_id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		self::flush_cache( $post_id );
+
+		/**
+		 * Fires after a queued link preview resolves and is stored on the post.
+		 *
+		 * The post was already visible without it, so anything that renders or
+		 * caches a link card listens here to pick up the late arrival.
+		 *
+		 * @since 1.1.2
+		 *
+		 * @param int                                                     $post_id Post ID.
+		 * @param array{title: string, description: string, thumbnail: string} $meta    Resolved preview.
+		 */
+		do_action( 'buddynext_post_link_meta_resolved', $post_id, $meta );
+	}
+
+	/**
 	 * Fetch Open Graph metadata from a URL.
 	 *
 	 * Uses wp_remote_get with a 5s timeout. Extracts og:title, og:description,
 	 * og:image from <meta> tags. Falls back to <title> tag.
+	 *
+	 * Runs OFF the member's request path — from resolve_link_meta() (queued) or
+	 * the explicit /link-preview endpoint, where the member is waiting on a
+	 * preview and nothing else. Never call it before saving a post: WP_Http
+	 * forwards only 'timeout' to Requests, so the connect/DNS phase runs to
+	 * Requests' own 10s default and a host that cannot resolve blocks past the
+	 * 5s set here.
 	 *
 	 * @param string $url URL to fetch.
 	 * @return array{title: string, description: string, thumbnail: string}

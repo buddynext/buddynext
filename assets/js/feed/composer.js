@@ -14,7 +14,7 @@
  * @package BuddyNext
  */
 
-import { store, getContext, getElement } from '@wordpress/interactivity';
+import { store, getContext, getElement, withScope } from '@wordpress/interactivity';
 import { bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
@@ -57,8 +57,46 @@ function bnMediaKindIconSvg( kind ) {
  * and link_url/link_meta ride along in the submit payload. A dismissed URL
  * is remembered so it isn't re-fetched on the next keystroke.
  */
-const _linkPreviewState = { url: '', dismissed: '', timer: null };
+const _linkPreviewState = { url: '', dismissed: '', timer: null, pending: null, resolvePending: null };
 const LINK_PREVIEW_DEBOUNCE_MS = 700;
+
+/**
+ * How long submit() will wait for an in-flight preview before posting without it.
+ *
+ * A member who pastes a link and posts immediately would otherwise beat the
+ * debounced fetch and get a bare card that only fills in on the next page load.
+ * Waiting briefly closes that gap without ever making the post depend on the
+ * remote host: when the wait expires the post goes out regardless, and the
+ * server-side queue resolves the preview afterwards.
+ */
+const LINK_PREVIEW_SUBMIT_WAIT_MS = 2500;
+
+/**
+ * Promise that settles when the in-flight preview fetch finishes, or null when
+ * none is running. Re-armed by maybeDetectLink() on every new URL.
+ *
+ * @return {Promise|null} Pending preview promise.
+ */
+function pendingLinkPreview() {
+	return _linkPreviewState.pending;
+}
+
+function armPendingPreview() {
+	if ( _linkPreviewState.resolvePending ) {
+		_linkPreviewState.resolvePending();
+	}
+	_linkPreviewState.pending = new Promise( ( resolve ) => {
+		_linkPreviewState.resolvePending = resolve;
+	} );
+}
+
+function settlePendingPreview() {
+	if ( _linkPreviewState.resolvePending ) {
+		_linkPreviewState.resolvePending();
+		_linkPreviewState.resolvePending = null;
+	}
+	_linkPreviewState.pending = null;
+}
 const URL_RE = /(https?:\/\/[^\s<>"']+)/i;
 
 function detectFirstUrl( text ) {
@@ -80,6 +118,7 @@ function maybeDetectLink( ctx ) {
 			ctx.linkUrl = ''; ctx.linkTitle = ''; ctx.linkDesc = ''; ctx.linkThumb = ''; ctx.linkMeta = null;
 		}
 		_linkPreviewState.url = '';
+		settlePendingPreview();
 		return;
 	}
 
@@ -89,10 +128,22 @@ function maybeDetectLink( ctx ) {
 	}
 
 	_linkPreviewState.url = url;
+	// Arm the gate BEFORE the debounce, not inside it: a member who pastes and
+	// posts within the debounce window must still be waited for, and at that
+	// point the fetch has not started yet.
+	armPendingPreview();
 	clearTimeout( _linkPreviewState.timer );
-	_linkPreviewState.timer = setTimeout( async () => {
+	// withScope() restores the Interactivity scope for a callback that runs from
+	// a timer, outside the call stack — required for `ctx.*` writes to be seen
+	// reactively.
+	//
+	// NOTE: this alone does NOT make the composer preview render. Confirmed
+	// still broken with it in place: /link-preview returns 200 with full
+	// title/description/thumbnail, and the card stays display:none with an empty
+	// title. Root cause not yet identified — do not assume it is the scope.
+	_linkPreviewState.timer = setTimeout( withScope( async () => {
 		// Bail if the URL changed again during the debounce window.
-		if ( detectFirstUrl( ctx.content ) !== url ) { return; }
+		if ( detectFirstUrl( ctx.content ) !== url ) { settlePendingPreview(); return; }
 		try {
 			const res  = await restFetch(
 				'/link-preview?url=' + encodeURIComponent( url ),
@@ -113,8 +164,14 @@ function maybeDetectLink( ctx ) {
 			};
 		} catch ( _e ) {
 			// Network/preview failure degrades silently — the URL still posts as text.
+		} finally {
+			// Release submit()'s gate on every outcome, including the early
+			// returns above. A gate that can be left armed would hold the member
+			// on "Posting…" for the full wait on a failure — trading one stall
+			// for a smaller one.
+			settlePendingPreview();
 		}
-	}, LINK_PREVIEW_DEBOUNCE_MS );
+	} ), LINK_PREVIEW_DEBOUNCE_MS );
 }
 
 // Resolved at call time (not module-eval time) so the injected i18n dictionary —
@@ -869,6 +926,24 @@ store( 'buddynext/post-composer', {
 			ctx.errorRetryable = true;
 			ctx.submitting   = true;
 
+			// The member pasted a link and hit Post before the debounced preview
+			// fetch resolved. Wait for it — briefly — so the card posts complete
+			// instead of appearing bare and filling in on the next page load.
+			//
+			// The wait is capped and the post goes out either way: the server
+			// queues the scrape when link_meta is empty, so the preview still
+			// arrives, just later. Nothing here can make posting depend on the
+			// remote host answering — that was the original defect.
+			if ( ctx.linkPreviewEnabled && ! ctx.linkMeta && detectFirstUrl( content ) ) {
+				const inFlight = pendingLinkPreview();
+				if ( inFlight ) {
+					yield Promise.race( [
+						inFlight,
+						new Promise( ( resolve ) => setTimeout( resolve, LINK_PREVIEW_SUBMIT_WAIT_MS ) ),
+					] );
+				}
+			}
+
 			// Collect poll options and media attachments.
 			const body = {
 				content,
@@ -925,8 +1000,10 @@ store( 'buddynext/post-composer', {
 
 			// Link preview: when a card was resolved for a URL in the content,
 			// carry link_url + link_meta so the post stores and renders the
-			// preview. PostService also auto-fetches when link_url is set but
-			// link_meta is empty, so a dismissed card still posts as plain text.
+			// preview immediately. When link_meta is empty the server QUEUES the
+			// scrape (it no longer fetches inline — that made saving a post
+			// depend on a third-party server answering), so the preview arrives
+			// shortly after instead of never.
 			if ( ctx.linkUrl ) {
 				body.link_url = ctx.linkUrl;
 				if ( ctx.linkMeta ) {
@@ -936,11 +1013,10 @@ store( 'buddynext/post-composer', {
 					body.type = 'link';
 				}
 			} else if ( ctx.linkPreviewEnabled ) {
-				// The preview metadata request can take several seconds on a cold
-				// cache (it fetches the provider's oEmbed/OG data). Don't lose the
-				// embed just because the member hit Post before the card resolved:
-				// attach the first detected URL so the server resolves the oEmbed on
-				// render. PostService auto-fetches link_meta when it is empty. A
+				// The preview did not resolve within the wait above (cold cache, a
+				// slow host, or an unreachable one). Attach the URL anyway so the
+				// server can queue the scrape and the card fills in — losing the
+				// embed entirely would be worse than showing it a moment late. A
 				// manually dismissed URL is respected and still posts as plain text.
 				const pendingUrl = detectFirstUrl( ctx.content );
 				if ( pendingUrl && pendingUrl !== _linkPreviewState.dismissed ) {

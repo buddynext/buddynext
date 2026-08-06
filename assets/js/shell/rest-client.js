@@ -22,8 +22,14 @@
  *   - On `403 rest_cookie_invalid_nonce`, GETs /auth/nonce once to refresh and
  *     retries. A 404 there (route not shipped) abandons the retry and returns
  *     the original 403 verbatim.
+ *   - Applies a 30s client-side deadline so a request the server never answers
+ *     cannot pin the caller's UI in its in-flight state forever. Streaming
+ *     bodies (FormData/Blob) are exempt — an upload's duration is set by file
+ *     size and connection, not by the server being stuck. Override with
+ *     `opts.timeout` (ms; 0 disables), or supply `opts.signal` to manage it.
  *   - Never throws on HTTP/network errors — always resolves to
- *     `{ ok, status, data, error? }`.
+ *     `{ ok, status, data, error? }`. A tripped deadline resolves with
+ *     `{ ok: false, status: 0, error: 'timeout' }`.
  *   - On a failed result, shows one generic error toast unless the caller
  *     opts out with `{ toastOnError: false }` (sites doing optimistic rollback
  *     plus their own toast must opt out to avoid double-toasting).
@@ -32,6 +38,15 @@
 import { bnToast } from '@buddynext/shell-dialog';
 
 const DEFAULT_BASE = '/wp-json/buddynext/v1';
+
+/**
+ * Default client-side deadline for a request, in milliseconds.
+ *
+ * Generous on purpose — this is a backstop against a request that will never
+ * be answered, not a performance budget. Callers needing longer pass
+ * `opts.timeout`; `opts.timeout: 0` disables the deadline entirely.
+ */
+const DEFAULT_TIMEOUT_MS = 30000;
 
 function resolveBase() {
 	if ( window.buddynextRestData && window.buddynextRestData.restBase ) {
@@ -161,15 +176,48 @@ function performRequest( path, opts, isRetry ) {
 		body = JSON.stringify( body );
 	}
 
+	// Client-side deadline. Without one, a request the server never answers
+	// leaves the caller's UI pinned in its in-flight state forever — the composer
+	// sat on "Posting…" with the textarea disabled and no way back.
+	//
+	// NOT applied to a streaming body (FormData/Blob). How long a file upload
+	// legitimately takes is a function of its size and the member's connection,
+	// so there is no honest default deadline for one — a 30s cap would abort a
+	// large video on a slow line, turning a slow upload into a failed one. A
+	// JSON request is different: the server either answers or it never will.
+	// Callers may still pass an explicit `opts.timeout` for an upload, or their
+	// own `signal` (which wins outright, so an explicitly-managed request is
+	// never cut short).
+	const isStreamingBody = ( typeof FormData !== 'undefined' && opts.body instanceof FormData )
+		|| ( typeof Blob !== 'undefined' && opts.body instanceof Blob );
+	const deadlineMs      = typeof opts.timeout === 'number'
+		? opts.timeout
+		: ( isStreamingBody ? 0 : DEFAULT_TIMEOUT_MS );
+
+	let timeoutId = null;
+	let signal    = opts.signal;
+	if ( typeof signal === 'undefined' && deadlineMs > 0 && typeof AbortController === 'function' ) {
+		const controller = new AbortController();
+		signal           = controller.signal;
+		timeoutId        = setTimeout( () => controller.abort(), deadlineMs );
+	}
+
 	const init = {
 		method,
 		credentials: 'same-origin',
 		headers,
-		signal: opts.signal,
+		signal,
 	};
 	if ( typeof body !== 'undefined' && method !== 'GET' && method !== 'HEAD' ) {
 		init.body = body;
 	}
+
+	const clearDeadline = () => {
+		if ( null !== timeoutId ) {
+			clearTimeout( timeoutId );
+			timeoutId = null;
+		}
+	};
 
 	return doFetch( buildUrl( path, opts ), init )
 		.then( ( response ) =>
@@ -202,8 +250,14 @@ function performRequest( path, opts, isRetry ) {
 			ok: false,
 			status: 0,
 			data: null,
-			error: err && err.message ? err.message : 'network_error',
-		} ) );
+			// An aborted request is reported as a timeout rather than a generic
+			// network error so a caller can tell "the server never answered" from
+			// "the request failed". Both stay retryable.
+			error: err && 'AbortError' === err.name
+				? 'timeout'
+				: ( err && err.message ? err.message : 'network_error' ),
+		} ) )
+		.finally( clearDeadline );
 }
 
 /**

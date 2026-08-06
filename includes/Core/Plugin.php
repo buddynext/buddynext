@@ -406,6 +406,11 @@ class Plugin {
 		// cron event armed at their due time — no perpetual poll.
 		\BuddyNext\Feed\ScheduledPostsPublisher::register();
 
+		// Wire the async link-preview worker. A link post is saved without its
+		// preview and the scrape runs here, off the member's request — see
+		// PostService::dispatch_link_meta() for why this one has no inline fallback.
+		\BuddyNext\Feed\PostService::register_async();
+
 		// Wire moderation notification/email handlers and daily cron alert.
 		( new ModerationListener() )->register();
 

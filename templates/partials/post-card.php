@@ -344,7 +344,11 @@ $link_title  = $link_meta['title'] ?? '';
 $link_desc   = $link_meta['description'] ?? '';
 $link_thumb  = $link_meta['thumbnail'] ?? '';
 $link_domain = $link_url ? wp_parse_url( $link_url, PHP_URL_HOST ) : '';
-$link_domain = $link_domain ? ltrim( (string) $link_domain, 'www.' ) : '';
+// Strip a leading "www." PREFIX. This was ltrim( $host, 'www.' ), which takes a
+// character MASK, not a prefix: it ate every leading w and . until it hit
+// something else, so wbcomdesigns.com rendered as "bcomdesigns.com" and
+// wordpress.org as "ordpress.org". Any domain starting with w loses letters.
+$link_domain = $link_domain ? (string) preg_replace( '/^www\./i', '', (string) $link_domain ) : '';
 
 // ── Article CSS classes ────────────────────────────────────────────────────────
 $card_classes = array( 'bn-post-card' );
