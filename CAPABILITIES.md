@@ -3,7 +3,7 @@
 What BuddyNext free can and cannot do, in buyer language. One row per capability,
 each verified against the code at the reference given.
 
-**Last verified against code:** 2026-08-06, branch `1.1.2`, commit `c83a33d4`.
+**Last verified against code:** 2026-08-06, branch `1.1.2`, commit `fd282fbd`.
 **Source of truth order:** `audit/manifest.summary.json` > this file > the code.
 Regenerate both with `/wp-plugin-onboard --refresh`.
 
@@ -18,6 +18,8 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 |---|---|---|
 | Run an activity feed members post to? | YES | `Feed\PostService`, 9 `/posts` + 9 `/feed` routes, `bn_posts` |
 | Post text, links, images, video and polls? | YES | `PostService::ALLOWED_TYPES`; `bn_poll_options` / `bn_poll_votes` |
+| Show a preview card for a pasted link? | YES | `PostController::link_preview` + `PostService::og_meta`; the scrape runs off the member's request (`buddynext_async_fetch_link_meta`), so a slow or dead link never blocks the post |
+| Open a post permalink with its replies visible? | YES | `templates/feed/single-post.php` seeds `commentsOpen` for `context === 'single'`; paging is the same control as the feed |
 | Let members react, comment and reply? | YES | `bn_reactions`, `bn_comments`; 4 `/reactions` + 3 `/comments` routes |
 | Bookmark and reshare posts? | YES | `bn_bookmarks`, `bn_shares` |
 | Follow people, and connect mutually? | YES | `bn_follows` (follow) and `bn_connections` (request/accept) are separate graphs |
@@ -36,6 +38,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Can it... | Status | How |
 |---|---|---|
 | Give members a profile with custom fields? | YES | `bn_profile_groups` / `bn_profile_fields` / `bn_profile_values`; admin at `buddynext-members` |
+| Show a member's cover photo on their directory card? | YES | `MemberDirectoryController::shape_item()` sends `cover_url` via `buddynext_user_cover_url()`; falls back to a tone gradient when the member has none |
 | Segment members into types? | YES | `bn_member_types` + assignments; 4 `/member-types` routes |
 | Show who is online / last active? | YES | `bn_presence` |
 | Let a member keep a private profile? | YES | per-field and profile-level visibility; a private profile does not leak post counts |

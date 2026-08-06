@@ -2,15 +2,7 @@
   "_comment": "Specs known to fail because they need external configuration or a feature that ships off. NOT a list of acceptable bugs. Every entry should carry a reason, and the list should only ever shrink. Regenerate with bin/check-journey-run.sh --update and say why in the commit message.",
   "project": "desktop",
   "known_failing": [
-    "admin/custom-domains.spec.ts::domains admin page exposes add-domain form",
-    "admin/settings-features.spec.ts::features panel renders toggles",
-    "auth/login.spec.ts::login prompts for TOTP when 2FA enabled (Pro)",
-    "auth/login.spec.ts::redirects guest from /activity/ to auth",
     "explore/trending.spec.ts::trending page renders posts + hashtag chips",
-    "feed/ai-reply.spec.ts::clicking a smart-reply chip drops text into comment composer",
-    "moderation/queue.spec.ts::admin queue page renders",
-    "pro/ai-moderation.spec.ts::AI moderation toggle visible in settings",
-    "pro/stripe-checkout.spec.ts::clicking Subscribe redirects to Stripe Checkout",
-    "spaces/brand-override.spec.ts::owner can set a brand hue per space"
+    "moderation/queue.spec.ts::admin queue page renders"
   ]
 }
