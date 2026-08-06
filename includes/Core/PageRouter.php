@@ -1305,6 +1305,31 @@ class PageRouter {
 				'notifications' => self::notifications_url(),
 				'messages'      => self::messages_url(),
 			),
+			/**
+			 * Whether the single-key shortcuts are active (n, /, g+f and friends).
+			 *
+			 * On by default: they cost nothing to ignore and readers who want them
+			 * expect them. But a single unmodified keypress is a surprisingly
+			 * strong claim on someone's keyboard - it fires for anyone who is not
+			 * focused in a field, including assistive-technology users navigating
+			 * by character, and on a site where the community is not the whole
+			 * product an owner may simply not want them.
+			 *
+			 * A filter rather than a setting: this is a per-site preference an
+			 * owner either holds or does not, and it does not deserve a control
+			 * every other owner has to read past.
+			 *
+			 *     add_filter( 'buddynext_keyboard_shortcuts_enabled', '__return_false' );
+			 *
+			 * @param bool $enabled Whether to bind the shortcut handler.
+			 */
+			// Emitted as '1'/'0', NOT as a bool. wp_localize_script() casts every
+			// value to a string, so `false` arrives in JS as the empty string ''
+			// and a `!== false` test on the other side is never true - the filter
+			// would return false, the handler would bind anyway, and the whole
+			// option would be decorative. Caught by switching the filter on and
+			// watching the shortcut still fire.
+			'shortcuts'          => apply_filters( 'buddynext_keyboard_shortcuts_enabled', true ) ? '1' : '0',
 			// Rollout master switch for client-side navigation. OFF until the
 			// per-surface init() handlers are made nav-aware (Phase 3) and
 			// browser-verified (Phase 5) — enabling client-nav before a surface
