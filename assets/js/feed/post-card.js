@@ -1385,11 +1385,19 @@ store( 'buddynext/post-card', {
 	},
 	callbacks: {
 		/**
-		 * Fires on every post-card mount. Auto-loads the comment thread when
-		 * the server seeded `commentsOpen` true (e.g. on the single-post page
-		 * `/p/{id}/` where the thread should be expanded by default). On the
-		 * home feed the seeded value is false so this becomes a no-op until
-		 * the user clicks Comment.
+		 * Fires on every post-card mount. Auto-loads the comment thread when the
+		 * server seeded `commentsOpen` true — the single-post permalink
+		 * `/p/{id}/`, where the thread is expanded by default. Every other
+		 * surface seeds false, so this is a no-op there until the member clicks
+		 * Comment.
+		 *
+		 * This guard made the whole callback DEAD CODE for a while: commentsOpen
+		 * was hardcoded false on every surface, so the early return always fired
+		 * and the body never ran — while this docblock went on describing the
+		 * permalink behaviour as though it worked, which is worse than no comment
+		 * at all. Both halves are live again. If the seed is ever pinned false
+		 * everywhere, DELETE this callback rather than leave it reading as a
+		 * working feature.
 		 */
 		* initPostCard() {
 			const ctx = getContext();
