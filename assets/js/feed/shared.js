@@ -272,3 +272,25 @@ export function bnClampPopoverToViewport( el ) {
 		}
 	} );
 }
+
+/**
+ * Base URL for the bundled emoji SVGs.
+ *
+ * Lives here because BOTH the feed store (emoji picker) and the post-card store
+ * (the emoji trigger on the inline comment editor) need it. It was declared in
+ * feed/store.js and left there when the comment renderer was extracted into
+ * post-card.js — and because these are ES modules, not scripts sharing a global
+ * scope, the call from post-card.js threw `bnEmojiAssetBase is not defined` at
+ * runtime. The exception aborted the click handler before it could insert the
+ * editor, so pressing Edit on your own comment silently did nothing.
+ *
+ * @return {string} Trailing-slashed base URL, or '' when it cannot be resolved.
+ */
+export function bnEmojiAssetBase() {
+	const link = document.querySelector( '[data-emoji-base]' );
+	if ( link && link.dataset.emojiBase ) { return link.dataset.emojiBase; }
+	// Derive from a known plugin script src as a fallback.
+	const s = document.querySelector( 'script[src*="/buddynext/assets/"]' );
+	if ( s ) { return s.src.replace( /assets\/.*$/, 'assets/emoji/' ); }
+	return '';
+}

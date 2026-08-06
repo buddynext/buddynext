@@ -2,7 +2,7 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
-import { setI18N, setTz, t, fmt, bnApplyFilters, escapeHtml, siteTzOffset, clearField, autoResizeTextarea, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue } from './shared.js';
+import { setI18N, setTz, t, fmt, bnApplyFilters, escapeHtml, siteTzOffset, clearField, autoResizeTextarea, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnEmojiAssetBase } from './shared.js';
 
 // Store concerns split into their own files by responsibility. Side-effect
 // imports: each registers its namespace when this module loads, so they load
@@ -1218,15 +1218,6 @@ const BN_EMOJI_MAP = {
 	eyes: '👀', wow: '😮', celebrate: '🎉', sparkles: '✨', star: '⭐',
 	rocket: '🚀', trophy: '🏆', gift: '🎁', check: '✅',
 };
-
-function bnEmojiAssetBase() {
-	const link = document.querySelector( '[data-emoji-base]' );
-	if ( link && link.dataset.emojiBase ) { return link.dataset.emojiBase; }
-	// Derive from a known plugin script src as a fallback.
-	const s = document.querySelector( 'script[src*="/buddynext/assets/"]' );
-	if ( s ) { return s.src.replace( /assets\/.*$/, 'assets/emoji/' ); }
-	return '';
-}
 
 function bnInsertAtCaret( field, text ) {
 	if ( ! field ) { return; }

@@ -17,7 +17,7 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
-import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnClampPopoverToViewport } from './shared.js';
+import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnClampPopoverToViewport, bnEmojiAssetBase } from './shared.js';
 
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 

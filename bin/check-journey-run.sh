@@ -47,8 +47,29 @@ PROJECT="${BN_JOURNEY_PROJECT:-desktop}"
 # machines with no WordPress. It must never skip QUIETLY though — a silent skip is
 # how a gate becomes decorative. bin/build-release.sh treats the skip as fatal,
 # which is where "you must actually have run this" belongs.
+# Auto-detect the local dev site before skipping.
+#
+# Requiring an env var made this gate opt-in, and an opt-in gate is one nobody
+# opts into: a comment-editing regression from the 2026-08-04 post-card refactor
+# sat in the branch for two days, through nine card closures, while every
+# `bin/check.sh` run reported green because this returned 2 and moved on. The
+# suite caught it in one run the first time anyone set the variable.
+#
+# So the default is now "run it", and skipping is what needs a reason. Nothing
+# is weakened — an unreachable site still skips, and the release build still
+# refuses the skip outright.
 if [ -z "${BN_BASE_URL:-}" ]; then
-	echo "journey run SKIPPED — set BN_BASE_URL to the site under test." >&2
+	for candidate in http://buddynext-dev.local http://localhost:10003; do
+		if curl -sf -o /dev/null --max-time 5 "$candidate"; then
+			BN_BASE_URL="$candidate"
+			export BN_BASE_URL
+			echo "journey run: auto-detected $BN_BASE_URL (set BN_BASE_URL to override)"
+			break
+		fi
+	done
+fi
+if [ -z "${BN_BASE_URL:-}" ]; then
+	echo "journey run SKIPPED — no site under test found; set BN_BASE_URL." >&2
 	echo "  (release builds refuse this skip; see bin/build-release.sh)" >&2
 	exit 2
 fi
