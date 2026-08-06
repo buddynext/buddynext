@@ -577,6 +577,9 @@ a.bn-hashtag:hover {
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--bn-s2);
+
+	/* Anchor for the stretched link below. */
+	position: relative;
 }
 
 .bn-hashtag-related__chip {
@@ -585,6 +588,33 @@ a.bn-hashtag:hover {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	text-decoration: none;
+}
+
+/*
+ * The whole row opens the hashtag, not just the pill.
+ *
+ * The pill was the only thing you could click: 81x20 in a 229x36 row, about a
+ * third of its width, with "2 posts" beside it as a plain span that named the
+ * same destination and did nothing. Meanwhile Follow — the secondary action —
+ * was a full-height 74x36 target. The hit areas were inverted against the
+ * importance of the two actions, and reads as "the tag is not clickable"
+ * because most of the row genuinely is not.
+ *
+ * A stretched pseudo-element is used rather than wrapping the row in an anchor:
+ * the row also contains a BUTTON, and an anchor may not contain one. The
+ * accessible name is unaffected — ::after carries no content, so the link is
+ * still announced as its tag.
+ */
+.bn-hashtag-related__chip::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+}
+
+/* Follow sits ABOVE the stretched link, or the row would swallow its clicks. */
+.bn-hashtag-related__follow {
+	position: relative;
+	z-index: 1;
 }
 
 .bn-hashtag-related__chip:hover {

@@ -285,12 +285,32 @@ foreach ( array_keys( $bn_tags_seen ) as $bn_t ) {
 }
 usort( $bn_tag_list, static fn( $a, $b ) => strcmp( $a['name'], $b['name'] ) );
 
+// Derive info.version from the plugin, never from the config file.
+//
+// `info` is consumed WHOLESALE from the config, and the config carried a
+// hand-maintained `version` literal. Nothing tied it to the plugin, so the
+// published catalogue kept declaring whatever was last typed there: bump
+// buddynext.php and regenerate, and the spec still said the old version.
+//
+// The freshness gate cannot catch this. It regenerates the spec and diffs it
+// against the committed copy; both sides read the same config key, so a stale
+// stamp matches itself and passes. The gate proves the spec is REPRODUCIBLE,
+// not that it is CORRECT, and would stay blind to this release after release.
+// Learnomy shipped exactly this twice before anyone noticed.
+//
+// It has to be an override, not a `??` fallback: with `info` copied wholesale,
+// a config value would win and nothing would change. The fallback runs only if
+// the constant is somehow undefined, which cannot happen here (this script
+// already refuses to run outside WordPress with a live REST server, so the
+// plugin is loaded), but costs nothing to keep.
+$bn_info            = (array) ( $bn_config['info'] ?? array( 'title' => 'BuddyNext REST API' ) );
+$bn_info['version'] = defined( 'BUDDYNEXT_VERSION' )
+	? (string) BUDDYNEXT_VERSION
+	: (string) ( $bn_info['version'] ?? '0.0.0' );
+
 $bn_doc = array(
 	'openapi'    => '3.1.0',
-	'info'       => (array) ( $bn_config['info'] ?? array(
-		'title'   => 'BuddyNext REST API',
-		'version' => '0.0.0',
-	) ),
+	'info'       => $bn_info,
 	'servers'    => (array) ( $bn_config['servers'] ?? array() ),
 	'tags'       => $bn_tag_list,
 	'paths'      => $bn_paths,

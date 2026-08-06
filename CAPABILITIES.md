@@ -3,7 +3,7 @@
 What BuddyNext free can and cannot do, in buyer language. One row per capability,
 each verified against the code at the reference given.
 
-**Last verified against code:** 2026-08-02, branch `1.1.1`, commit `0293a53d`.
+**Last verified against code:** 2026-08-06, branch `1.1.2`, commit `fd282fbd`.
 **Source of truth order:** `audit/manifest.summary.json` > this file > the code.
 Regenerate both with `/wp-plugin-onboard --refresh`.
 
@@ -18,6 +18,8 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 |---|---|---|
 | Run an activity feed members post to? | YES | `Feed\PostService`, 9 `/posts` + 9 `/feed` routes, `bn_posts` |
 | Post text, links, images, video and polls? | YES | `PostService::ALLOWED_TYPES`; `bn_poll_options` / `bn_poll_votes` |
+| Show a preview card for a pasted link? | YES | `PostController::link_preview` + `PostService::og_meta`; the scrape runs off the member's request (`buddynext_async_fetch_link_meta`), so a slow or dead link never blocks the post |
+| Open a post permalink with its replies visible? | YES | `templates/feed/single-post.php` seeds `commentsOpen` for `context === 'single'`; paging is the same control as the feed |
 | Let members react, comment and reply? | YES | `bn_reactions`, `bn_comments`; 4 `/reactions` + 3 `/comments` routes |
 | Bookmark and reshare posts? | YES | `bn_bookmarks`, `bn_shares` |
 | Follow people, and connect mutually? | YES | `bn_follows` (follow) and `bn_connections` (request/accept) are separate graphs |
@@ -36,6 +38,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Can it... | Status | How |
 |---|---|---|
 | Give members a profile with custom fields? | YES | `bn_profile_groups` / `bn_profile_fields` / `bn_profile_values`; admin at `buddynext-members` |
+| Show a member's cover photo on their directory card? | YES | `MemberDirectoryController::shape_item()` sends `cover_url` via `buddynext_user_cover_url()`; falls back to a tone gradient when the member has none |
 | Segment members into types? | YES | `bn_member_types` + assignments; 4 `/member-types` routes |
 | Show who is online / last active? | YES | `bn_presence` |
 | Let a member keep a private profile? | YES | per-field and profile-level visibility; a private profile does not leak post counts |
@@ -84,12 +87,12 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 
 | Can it... | Status | How |
 |---|---|---|
-| Offer a REST API? | YES | 219 routes under `buddynext/v1`; catalogued in `docs/api/openapi.json` (208 paths) |
+| Offer a REST API? | YES | 222 routes under `buddynext/v1`; catalogued in `docs/api/openapi.json` (208 paths) |
 | Send outbound webhooks? | YES | opt-in. `bn_outbound_webhooks` + log; 4 `/webhooks` routes |
-| Be extended by other plugins? | YES | 1,291 documented hooks; `NavRegistry`, `buddynext_companions`, `buddynext_integrations` |
+| Be extended by other plugins? | YES | 1,292 documented hooks; `NavRegistry`, `buddynext_companions`, `buddynext_integrations` |
 | Integrate with Wbcom plugins? | YES | bridges for WPMediaVerse (DM), Jetonomy (forums), Gamification, Career Board, Learnomy, Listora, Eventonomy, WB Member Blog - each self-guards and is individually toggleable |
 | Run background work at scale? | YES | 36 scheduled jobs: 24 on Action Scheduler, 12 on WP-Cron |
-| Manage it from WP-CLI? | YES | 10 commands under `wp buddynext` |
+| Manage it from WP-CLI? | YES | 5 commands under `wp buddynext` (`demo`, `cert`, `handles`, `qa-fixtures`, `repair-space-owners`) |
 | Stay fast at 100k members? | YES | list surfaces paginate and count via `COUNT(*)`; the leaderboard N+1 was removed in 1.1.1 |
 
 ## Deliberately not in free

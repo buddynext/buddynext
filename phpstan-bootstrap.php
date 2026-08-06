@@ -223,6 +223,48 @@ if ( ! class_exists( 'WP_CLI' ) ) {
 		 * @return void
 		 */
 		public static function warning( string $message ): void {}
+
+		/**
+		 * Print an error line and, by default, halt the command.
+		 *
+		 * Signature mirrors the shipped one — `error( $message, $exit = true )`.
+		 * Declared `void` rather than `never` on purpose: `never` is only true for
+		 * the default $exit, and claiming it would make PHPStan treat every
+		 * `error( $msg, false )` call site as unreachable-after.
+		 *
+		 * @param string $message Message.
+		 * @param bool   $exit    Whether to halt. Default true.
+		 * @return void
+		 */
+		public static function error( string $message, bool $exit = true ): void {}
+
+		/**
+		 * Print a plain line.
+		 *
+		 * @param string $message Message.
+		 * @return void
+		 */
+		public static function line( string $message = '' ): void {}
+
+		/**
+		 * Apply %-colour tokens to a string.
+		 *
+		 * @param string $string Message with colour tokens.
+		 * @return string
+		 */
+		public static function colorize( string $string ): string {
+			return $string;
+		}
+
+		/**
+		 * Halt the command with an exit code.
+		 *
+		 * Declared `void` for the same reason as error(): see that note.
+		 *
+		 * @param int $return_code Exit code.
+		 * @return void
+		 */
+		public static function halt( int $return_code ): void {}
 	}
 }
 
@@ -256,4 +298,55 @@ if ( ! class_exists( 'Member_Blog_Compat' ) ) {
 			return '';
 		}
 	}
+}
+
+// Jetonomy (optional partner plugin) — declared so static analysis knows the two
+// static methods DiscussionVisibilityRepairCommand calls on a linked discussion.
+// Both are guarded at runtime: the command's first act is a
+// class_exists( '\Jetonomy\Models\Space' ) check that halts via WP_CLI::error()
+// when Jetonomy is absent. PHPStan cannot follow that guard to the call sites —
+// error() exits at runtime but is not `never` in the stub (see above), so the
+// analysis continues past it into a class it has never heard of and reports
+// class.notFound on correct code.
+//
+// Stubbed rather than baselined so the signatures stay visible and honest: if
+// Jetonomy changes either method, the mismatch surfaces here instead of hiding
+// behind a suppressed error.
+if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
+	// phpcs:disable
+	eval(
+		'namespace Jetonomy\Models;
+		/**
+		 * Jetonomy space/discussion model.
+		 */
+		class Space {
+			/**
+			 * Fetch one discussion by id.
+			 *
+			 * @param int $id Discussion id.
+			 * @return object|null
+			 */
+			public static function find( $id ) { return null; }
+
+			/**
+			 * Update a discussion.
+			 *
+			 * @param int                 $id   Discussion id.
+			 * @param array<string,mixed> $data Columns to set.
+			 * @return bool
+			 */
+			public static function update( $id, $data ) { return false; }
+
+			/**
+			 * Create a discussion. JetonomyBridge::provision_space_forum() casts
+			 * the return to int, so it is the new id.
+			 *
+			 * @param array<string,mixed> $data      Columns.
+			 * @param int                 $author_id Creating user.
+			 * @return int
+			 */
+			public static function create( $data, $author_id = 0 ) { return 0; }
+		}'
+	);
+	// phpcs:enable
 }

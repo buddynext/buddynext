@@ -27,7 +27,11 @@
    cap - landscape shots fill the width edge-to-edge with no crop. */
 .bn-post-card__media-grid--1 { aspect-ratio: auto; }
 .bn-post-card__media-grid--1 .bn-media-tile { aspect-ratio: auto; height: auto; }
-.bn-post-card__media-grid--1 .bn-media-tile__img { height: auto; max-height: 32rem; object-fit: contain; }
+/* Single media (image OR video poster): cap the height so a tall/portrait shot
+   never dominates the feed, tied to the viewport (min with 60vh) so it also never
+   overflows the grid's own 60vh cap and clips on a short laptop screen. object-fit:
+   contain letterboxes tall media — the aspect ratio is preserved, never cropped. */
+.bn-post-card__media-grid--1 .bn-media-tile__img { height: auto; max-height: min( 60vh, 32rem ); object-fit: contain; }
 .bn-post-card__media-grid--2 { grid-template-columns: 1fr 1fr; aspect-ratio: 2 / 1; }
 .bn-post-card__media-grid--3 { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; aspect-ratio: 3 / 2; }
 .bn-post-card__media-grid--3 .bn-media-tile:first-child { grid-row: 1 / span 2; }
@@ -130,6 +134,68 @@
 	white-space: nowrap;
 }
 .bn-media-tile__audio-player { width: 100%; max-width: 280px; }
+
+/*
+ * Single-audio post — a compact, premium audio card instead of a raw player in a
+ * tall empty square. A two-row grid: an accent-tinted album-art square (music
+ * icon) spans both rows on the left; the title sits on row 1 and the player on
+ * row 2 to its right. Content-height (no forced aspect) so the card is ~as tall as
+ * its contents, and full feed width so it reads as part of the post. Collage cells
+ * (audio mixed with photos/videos) keep the centered column above.
+ */
+.bn-media-tile__audio-body { display: contents; }
+.bn-post-card__media-grid--1 .bn-media-tile--audio {
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-start;
+	gap: var( --bn-s4, 16px );
+	height: auto;
+	min-height: 0;
+	padding: var( --bn-s4, 16px );
+}
+.bn-post-card__media-grid--1 .bn-media-tile--audio .bn-media-tile__audio-icon {
+	flex: 0 0 auto;
+	display: grid;
+	place-items: center;
+	width: 3.5rem;
+	height: 3.5rem;
+	border-radius: var( --bn-r-md, 10px );
+	background: var( --bn-accent-50, oklch( 95% 0.03 var( --bn-hue, 250 ) ) );
+	color: var( --bn-accent, oklch( 62% 0.18 var( --bn-hue, 250 ) ) );
+}
+.bn-post-card__media-grid--1 .bn-media-tile--audio .bn-media-tile__audio-icon svg { width: 1.75rem; height: 1.75rem; }
+/* Title + player are a single centred column beside the art (display:contents on
+ * the body lets them flex-align as if direct children, so the group centres against
+ * the art box regardless of its height — no row-span misalignment). */
+.bn-post-card__media-grid--1 .bn-media-tile__audio-body {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: var( --bn-s2, 8px );
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.bn-post-card__media-grid--1 .bn-media-tile__audio-title {
+	max-width: 100%;
+	text-align: start;
+	font-size: var( --bn-text-base, 0.9375rem );
+	color: var( --bn-ink, oklch( 22% 0.01 0 ) );
+}
+.bn-post-card__media-grid--1 .bn-media-tile__audio-player {
+	width: 100%;
+	max-width: 420px;
+}
+@media ( max-width: 480px ) {
+	.bn-post-card__media-grid--1 .bn-media-tile--audio {
+		gap: var( --bn-s3, 12px );
+		padding: var( --bn-s3, 12px );
+	}
+	.bn-post-card__media-grid--1 .bn-media-tile--audio .bn-media-tile__audio-icon {
+		width: 3rem;
+		height: 3rem;
+	}
+	.bn-post-card__media-grid--1 .bn-media-tile__audio-player { max-width: none; }
+}
 /* Theme the native audio control to the active scheme so it doesn't render a
  * light pill on the dark card (and vice-versa). */
 [data-bn-theme="dark"] .bn-media-tile__audio-player,

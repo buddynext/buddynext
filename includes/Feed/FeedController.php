@@ -45,6 +45,18 @@ class FeedController extends BaseRestController {
 	public const VIEWER_STATE_MAX_IDS = 100;
 
 	/**
+	 * Leading reactors carried on each feed item for the face-stack.
+	 *
+	 * Public for the same reason VIEWER_STATE_MAX_IDS is: the client renders
+	 * "Amina, Marcus +12" by subtracting the faces it received from reaction_count,
+	 * so it has to know how many faces the payload promises. AppConfigController
+	 * emits it rather than restating the literal, so the two cannot drift.
+	 *
+	 * @var int
+	 */
+	public const FACE_STACK_SIZE = 3;
+
+	/**
 	 * The pagination contract every feed surface shares.
 	 *
 	 * Declared, not just read. Each feed route used to read cursor and per_page in
@@ -428,7 +440,7 @@ class FeedController extends BaseRestController {
 		$post_ids   = array();
 		$author_ids = array();
 		$poll_ids   = array();
-		$media_ids  = array();
+		$owner_map  = array();
 		foreach ( $items as $item ) {
 			$pid = absint( $item['id'] ?? 0 );
 			$aid = absint( $item['user_id'] ?? 0 );
@@ -438,11 +450,13 @@ class FeedController extends BaseRestController {
 			if ( $aid ) {
 				$author_ids[] = $aid;
 			}
+			if ( $pid && $aid ) {
+				// The reactor gate needs each post's owner; the page already knows them,
+				// so handing them over keeps top_reactors_map() off a per-post lookup.
+				$owner_map[ $pid ] = $aid;
+			}
 			if ( $pid && 'poll' === ( $item['type'] ?? '' ) ) {
 				$poll_ids[] = $pid;
-			}
-			foreach ( self::normalize_media_ids( $item['media_ids'] ?? null ) as $mid ) {
-				$media_ids[] = $mid;
 			}
 		}
 
@@ -450,13 +464,32 @@ class FeedController extends BaseRestController {
 		if ( ! empty( $author_ids ) ) {
 			cache_users( array_values( array_unique( $author_ids ) ) );
 		}
-		// Warm attachment post + meta caches for every image on the page in one pass, so
-		// the per-item media resolve below is O(1) — no N+1 at 20 photo cards.
-		if ( ! empty( $media_ids ) ) {
-			_prime_post_caches( array_values( array_unique( $media_ids ) ), false, true );
-		}
+		// media_ids need no page-level priming: they are WPMediaVerse index ids,
+		// not WP attachments, and the engine's MediaRepository keeps a per-request
+		// row cache — one bounded query per distinct media id on the page.
 
 		$maps = $this->prime_viewer_maps( $viewer, $post_ids, $poll_ids );
+
+		// Community signals, primed for the page like everything above it. Presence is
+		// one read for every author; the face-stacks are one bounded read for every
+		// post. Resolved per card instead, these are the two cheapest ways to turn a
+		// twenty-post feed into a sixty-query one.
+		$presence = ! empty( $author_ids )
+			? \BuddyNext\Realtime\PresenceService::last_active_map( $author_ids )
+			: array();
+		$blocks   = buddynext_service( 'blocks' );
+		if ( ! empty( $author_ids ) ) {
+			// is_user_online_at() consults the restrict and block gates per author, and
+			// both are per-pair caches — cold, that is two queries for every distinct
+			// author on the page. These two primers already exist for exactly this shape
+			// (the directory and DM rails use them), so the presence dot reuses them
+			// rather than growing a third way to ask the same question.
+			$blocks->prime_restricted_cache( $viewer, $author_ids );
+			$blocks->blocking_either_map( $viewer, $author_ids );
+		}
+		$reactors = ! empty( $post_ids )
+			? buddynext_service( 'reactions' )->top_reactors_map( 'post', $post_ids, $owner_map, self::FACE_STACK_SIZE, $viewer )
+			: array();
 
 		$format = function_exists( 'buddynext_format_content' );
 
@@ -469,7 +502,14 @@ class FeedController extends BaseRestController {
 				'id'           => $aid,
 				'display_name' => $author ? $author->display_name : __( 'Community Member', 'buddynext' ),
 				'avatar_url'   => $aid ? get_avatar_url( $aid, array( 'size' => 96 ) ) : '',
+				// From the primed map, never last_active_at() — same reason the member
+				// directory reads presence out of its own query rather than per card.
+				'is_online'    => $aid > 0 && $blocks->is_user_online_at( $viewer, $aid, (int) ( $presence[ $aid ] ?? 0 ) ),
 			);
+
+			// Up to FACE_STACK_SIZE leading reactors, so a client can render the stack
+			// beside reaction_count without a second request per card.
+			$item['top_reactors'] = $reactors[ $pid ] ?? array();
 
 			$item['content_html'] = $format
 				? buddynext_format_content( (string) ( $item['content'] ?? '' ) )
@@ -568,38 +608,40 @@ class FeedController extends BaseRestController {
 	}
 
 	/**
-	 * Resolve a post's media_ids to renderable image objects.
+	 * Resolve a post's media_ids to renderable media objects.
 	 *
-	 * Each entry: { id, url (large), thumb_url (medium), width, height, mime }. Non-image
-	 * attachments (a stray upload) are skipped rather than returned as an unrenderable box.
-	 * Attachment caches are primed by the caller, so this is O(1) per id.
+	 * The media_ids are WPMediaVerse `mvs_media_index` ids — NOT WP attachment posts —
+	 * so resolution goes through MediaUrlResolver::descriptor(), the same
+	 * viewer-aware signed-URL seam every web surface (post-card.php,
+	 * MediaRenderer, SpaceController) uses. Each entry:
+	 * { id, type (image|video|audio|file), url, thumb_url, width, height, alt,
+	 *   duration }. A client renders by `type`; unavailable / not-visible media
+	 * are skipped rather than returned as an unrenderable box.
 	 *
 	 * @param mixed $raw The post's media_ids value.
 	 * @return array<int,array<string,mixed>> Ordered media objects; empty for a text post.
 	 */
 	private static function resolve_media( $raw ): array {
 		$media = array();
-		foreach ( self::normalize_media_ids( $raw ) as $id ) {
-			if ( 'attachment' !== get_post_type( $id ) ) {
-				continue;
-			}
-			$mime = (string) get_post_mime_type( $id );
-			if ( 0 !== strpos( $mime, 'image/' ) ) {
-				continue;
-			}
-			$full  = wp_get_attachment_image_src( $id, 'large' );
-			$thumb = wp_get_attachment_image_src( $id, 'medium' );
-			if ( ! $full ) {
+		foreach ( \BuddyNext\Media\MediaUrlResolver::descriptors( self::normalize_media_ids( $raw ) ) as $d ) {
+			$url   = (string) ( $d['url'] ?? '' );
+			$thumb = (string) ( $d['thumb'] ?? '' );
+			if ( '' === $url && '' === $thumb ) {
 				continue;
 			}
 			$media[] = array(
-				'id'        => $id,
-				'url'       => $full[0],
-				'thumb_url' => $thumb ? $thumb[0] : $full[0],
-				'width'     => (int) $full[1],
-				'height'    => (int) $full[2],
-				'mime'      => $mime,
-				'alt'       => (string) get_post_meta( $id, '_wp_attachment_image_alt', true ),
+				'id'        => (int) $d['id'],
+				'type'      => (string) $d['type'],
+				'url'       => '' !== $url ? $url : $thumb,
+				// Images may lack a generated thumbnail — fall back to the full
+				// file. Video/audio keep '' rather than forcing a non-image into
+				// an image slot; the descriptor already substituted the default
+				// video poster where the engine has one.
+				'thumb_url' => '' !== $thumb ? $thumb : ( 'image' === $d['type'] ? $url : '' ),
+				'width'     => (int) ( $d['width'] ?? 0 ),
+				'height'    => (int) ( $d['height'] ?? 0 ),
+				'alt'       => (string) ( $d['title'] ?? '' ),
+				'duration'  => (string) ( $d['duration'] ?? '' ),
 			);
 		}
 		return $media;

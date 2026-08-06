@@ -134,6 +134,56 @@ else
 	note "bin/check-route-urls.sh missing"
 fi
 
+# 3c. Cross-plugin guards — a call into a partner plugin must be guarded against
+# the class it ACTUALLY calls. A guard naming a sibling class reads as careful,
+# passes every other gate here, and fatals only on a site with the partner
+# deactivated — the configuration nobody develops on.
+section "Cross-plugin guards"
+if [ -f bin/check-cross-plugin-guards.php ]; then
+	if php bin/check-cross-plugin-guards.php; then
+		:
+	else
+		fail "unguarded call into a partner plugin — guard the exact class the body calls"
+	fi
+else
+	note "bin/check-cross-plugin-guards.php missing"
+fi
+
+# 3bc. Surface map — the store-per-hub contract must match source.
+#
+# audit/surface-map.json records hub -> module -> namespace -> actions, generated
+# from PageRouter::enqueue_hub_assets() + AssetService + store() calls. It is the
+# index that answers "which store loads on which surface, and what does it wire" —
+# the thing that was answered by hand and got wrong (people/post hubs missed). If
+# a refactor changes an enqueue, a namespace, or an action without regenerating
+# the map, this fails so the drift is caught at the change, not a survey later.
+section "Surface map (store-per-hub contract)"
+if [ -f bin/build-surface-map.php ]; then
+	if php bin/build-surface-map.php --check >/dev/null 2>&1; then
+		ok "surface map matches source"
+	else
+		fail "surface map stale — regenerate: php bin/build-surface-map.php (then commit audit/surface-map.json to the Pro shelf)"
+	fi
+else
+	note "bin/build-surface-map.php missing"
+fi
+
+# 3bd. Store-merge collisions — two co-loading files must not define the same
+# store key in one namespace without a declared dependency ordering them.
+# store() merges silently, so an undeclared clash means last-loaded wins with no
+# error. Passes today (the four overlaps are editor-vs-frontend); this keeps a
+# deliberate file split from introducing a live one.
+section "Store-merge collisions"
+if [ -f bin/check-store-collisions.php ]; then
+	if php bin/check-store-collisions.php >/dev/null 2>&1; then
+		ok "no undeclared same-key collision between co-loading store modules"
+	else
+		fail "undeclared store-key collision — run: php bin/check-store-collisions.php"
+	fi
+else
+	note "bin/check-store-collisions.php missing"
+fi
+
 # 3bb. Hook-doc conformance — BLOCKING.
 #
 # The integration-hook table in CLAUDE.md is read by third-party integrators AND by AI agents.

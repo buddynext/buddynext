@@ -1450,7 +1450,24 @@ class FieldType {
 			return self::format_date( $field, (string) $value );
 		}
 
-		return (string) $value;
+		/**
+		 * Filter the text a field contributes to the search mirror.
+		 *
+		 * A type whose STORED form is not human text needs to say what it is
+		 * searchable AS. Pro's `location` stores JSON, and without this the whole
+		 * blob — braces, "lat", coordinates — went into the index, so searching
+		 * "address" matched every member who had one.
+		 *
+		 * The dates above are the same idea handled inline: never index the raw
+		 * stored form when it is not what a member would search for.
+		 *
+		 * @since 1.1.2
+		 *
+		 * @param string              $text  Default searchable text.
+		 * @param array<string,mixed> $field Field definition.
+		 * @param mixed               $value Stored value.
+		 */
+		return (string) apply_filters( 'buddynext_field_searchable_text', (string) $value, $field, $value );
 	}
 
 	/**

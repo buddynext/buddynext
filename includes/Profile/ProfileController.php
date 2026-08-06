@@ -696,6 +696,34 @@ class ProfileController extends BaseRestController {
 		if ( $connections instanceof \BuddyNext\SocialGraph\ConnectionService ) {
 			$profile['connection'] = $connections->connection_block( $viewer_id, $profile_user_id );
 		}
+
+		/*
+		 * The follow side of the same problem.
+		 *
+		 * `is_following` above answers "am I following them" but not "may I" or
+		 * "have I already asked" — so a follow button could not be drawn from this
+		 * payload alone. The app filled the gap with a conditional
+		 * GET /users/{id}/follow/status on every profile open, purely to decide
+		 * whether the button reads Follow, Requested, or nothing at all.
+		 *
+		 * These are the two values that endpoint returns, from the same services
+		 * it uses, so the app can drop that request. Both are false for a guest
+		 * and on one's own profile, where neither question means anything.
+		 */
+		if ( $viewer_id && empty( $profile['is_self'] ) ) {
+			$privacy = buddynext_service( 'privacy' );
+
+			$profile['is_pending'] = $follows instanceof \BuddyNext\SocialGraph\FollowService
+				? $follows->has_pending_request( $viewer_id, $profile_user_id )
+				: false;
+
+			$profile['can_follow'] = $privacy instanceof \BuddyNext\SocialGraph\PrivacyService
+				? $privacy->can_follow( $viewer_id, $profile_user_id )
+				: false;
+		} else {
+			$profile['is_pending'] = false;
+			$profile['can_follow'] = false;
+		}
 		if ( ! isset( $profile['bio'] ) ) {
 			// The bio lives in bn_profile_values; the bn_field_bio usermeta is written by nothing
 			// (see ProfileService::bios_for). Reading it here handed the app an empty bio for
@@ -1149,6 +1177,35 @@ class ProfileController extends BaseRestController {
 			$field_active = apply_filters( 'buddynext_profile_field_is_active', true, $field_def, $data, $target_user_id );
 			if ( false === $field_active ) {
 				continue;
+			}
+
+			// A required `member_type` field must not be enforced against the payload
+			// when the member has nothing to submit it WITH.
+			//
+			// member_type is assignment-backed and set-once, so the editor renders no
+			// input in two of its three states: once a member is classified it is a
+			// read-only badge ("Set by the community"), and an unclassified member with
+			// no self-selectable types gets a plain sentence. In both cases the key is
+			// absent from every payload, and the full-write rule below ("an omitted
+			// required key is a bypass") then 422'd EVERY save — one changed field or
+			// none, member or admin, self-assign on or off. The profile simply could
+			// not be saved while a required member_type field existed.
+			//
+			// Resolve from the live assignment instead, exactly as the group-restriction
+			// and field_is_active skips above resolve from state rather than payload.
+			// The middle state — unclassified WITH self-selectable types — still falls
+			// through and is enforced, because there the member really can choose one.
+			// Registration is unaffected: signup enforces through
+			// RegistrationPolicy::missing(), not this validator.
+			if ( 'member_type' === (string) ( $field_def['type'] ?? '' ) ) {
+				$bn_mt_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
+				$bn_has_type   = is_object( $bn_mt_service )
+					&& method_exists( $bn_mt_service, 'get_user_type' )
+					&& null !== $bn_mt_service->get_user_type( $target_user_id );
+
+				if ( $bn_has_type || array() === \BuddyNext\Profile\FieldType::member_type_self_select_options() ) {
+					continue;
+				}
 			}
 
 			// A repeater sub-field's value is NEVER a top-level payload key: it lives

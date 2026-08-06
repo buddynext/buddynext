@@ -7,8 +7,10 @@
   "batch": 40,
   "makeJson": true,
   "protect": [
-    "Jetonomy",
+    "BuddyNext",
     "Pro",
+    "Space",
+    "Spaces",
     "WordPress",
     "BuddyPress",
     "REST",
@@ -17,10 +19,7 @@
     "CSV",
     "AI"
   ],
-  "glossary": {
-    "Space": "",
-    "Trust Level": ""
-  },
+  "glossary": {},
   "locales": [
     {
       "locale": "de_DE",

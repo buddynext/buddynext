@@ -344,7 +344,11 @@ $link_title  = $link_meta['title'] ?? '';
 $link_desc   = $link_meta['description'] ?? '';
 $link_thumb  = $link_meta['thumbnail'] ?? '';
 $link_domain = $link_url ? wp_parse_url( $link_url, PHP_URL_HOST ) : '';
-$link_domain = $link_domain ? ltrim( (string) $link_domain, 'www.' ) : '';
+// Strip a leading "www." PREFIX. This was ltrim( $host, 'www.' ), which takes a
+// character MASK, not a prefix: it ate every leading w and . until it hit
+// something else, so wbcomdesigns.com rendered as "bcomdesigns.com" and
+// wordpress.org as "ordpress.org". Any domain starting with w loses letters.
+$link_domain = $link_domain ? (string) preg_replace( '/^www\./i', '', (string) $link_domain ) : '';
 
 // ── Article CSS classes ────────────────────────────────────────────────────────
 $card_classes = array( 'bn-post-card' );
@@ -398,13 +402,24 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				'pollOptions'       => $poll_options_ctx,
 				'pollVotedOptionId' => $my_voted_option_id,
 				'pollTotalVotes'    => $poll_total_votes,
-				// Always start closed so the "N comments" toggle opens on the FIRST
-				// click on every surface (feed + single). Seeding 'single' open made
-				// the single-post toggle start in the open state — the first click
-				// then closed it (looked like a no-op) — and relied on the auto-load-
-				// on-mount path, which raced empty on a freshly loaded permalink.
-				// Loading now runs through the reliable on-click path everywhere.
-				'commentsOpen'      => false,
+				// The permalink opens with its thread EXPANDED; every other surface
+				// starts closed.
+				//
+				// /p/{id}/ is the page whose entire purpose is the conversation, and
+				// "Someone commented on your post" notifications deep-link straight
+				// to it (NotificationMessageService resolves to PageRouter::post_url()).
+				// Landing there and seeing zero comments — with the replies you were
+				// just told about hidden behind a button — is the opposite of what the
+				// notification promised, and of what every comparable product does with
+				// a post permalink.
+				//
+				// This was previously hardcoded false on every surface because seeding
+				// 'single' open relied on the auto-load-on-mount path, which raced
+				// empty on a freshly loaded permalink. That retreat removed the
+				// behaviour rather than fixing the race, and left initPostCard()
+				// unreachable. The mount path now defers a tick and delegates to the
+				// same loader the click path uses, so there is one loader and no race.
+				'commentsOpen'      => 'single' === $context,
 				'commentCount'      => $comment_count,
 				'shareCount'        => $share_count,
 				'shareShared'       => false,

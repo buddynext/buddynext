@@ -52,6 +52,54 @@ class NotificationPrefServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 'daily', $pref['email_freq'] );
 	}
 
+	/**
+	 * A partial update must not corrupt the key it was not given.
+	 *
+	 * Turning one type off in-app without touching its email cadence is the
+	 * natural call, and it used to emit "Undefined array key email_freq" and
+	 * store '' - which is not a valid ENUM member, so the row read back as an
+	 * empty string and the digest cron matched neither 'daily' nor 'weekly'.
+	 */
+	public function test_set_pref_with_only_on_site_defaults_email_freq(): void {
+		$this->service->set_pref(
+			$this->user_id,
+			'bn.new_follower',
+			array( 'on_site' => false )
+		);
+
+		$pref = $this->service->get_pref( $this->user_id, 'bn.new_follower' );
+
+		$this->assertFalse( $pref['on_site'] );
+		$this->assertSame( 'immediate', $pref['email_freq'] );
+	}
+
+	/**
+	 * The mirror case, which was already correct - guard against regressing it
+	 * while fixing the one above.
+	 */
+	public function test_set_pref_with_only_email_freq_defaults_on_site(): void {
+		$this->service->set_pref(
+			$this->user_id,
+			'bn.post_liked',
+			array( 'email_freq' => 'weekly' )
+		);
+
+		$pref = $this->service->get_pref( $this->user_id, 'bn.post_liked' );
+
+		$this->assertTrue( $pref['on_site'] );
+		$this->assertSame( 'weekly', $pref['email_freq'] );
+	}
+
+	public function test_set_pref_rejects_an_invalid_email_freq(): void {
+		$this->service->set_pref(
+			$this->user_id,
+			'bn.mention',
+			array( 'email_freq' => 'hourly' )
+		);
+
+		$this->assertSame( 'immediate', $this->service->get_pref( $this->user_id, 'bn.mention' )['email_freq'] );
+	}
+
 	public function test_set_pref_updates_existing(): void {
 		$this->service->set_pref(
 			$this->user_id,

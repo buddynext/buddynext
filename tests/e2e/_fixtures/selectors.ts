@@ -57,6 +57,10 @@ export const sel = {
     // Feed list
     feedList: '.bn-feed-list, .bn-feed, [data-feed-list]',
     feedEmpty: '.bn-feed-empty',
+    feedList: '.bn-feed-list',
+    // The Load-more control is a real <a href>, not a JS sentinel — it has to
+    // keep working with JS off. #bn-load-more is the region-swap anchor.
+    feedLoadMore: '#bn-load-more .bn-load-more__btn',
 
     // Auth (live build uses .bn-auth-* on /login/ and /signup/)
     authPage: '.bn-auth, .bn-auth-page, body.login',
@@ -71,9 +75,29 @@ export const sel = {
     lostPasswordForm: '#lostpasswordform, form[action*="lostpassword"]',
 
     // Directory
-    memberCard: '.bn-member-card, [data-member-card]',
-    memberFilter: '.bn-directory__filter [data-filter]',
-    directorySearch: '.bn-directory__search input, [data-directory-search]',
+    //
+    // The member directory renders client-side into .bn-md-* markup. These read
+    // `.bn-member-card` / `.bn-directory__*`, which no template or store emits —
+    // `bn-member-card` survives only as a BLOCK NAME in BlockRegistrar.php, and
+    // `.bn-directory__*` not at all. A count() on a selector matching nothing is
+    // 0, and every spec here either asserted >= 0 or soft-skipped on "no cards",
+    // so J-24/J-27/J-28 reported green for a page they never looked at.
+    memberCard: '.bn-md-card, [data-member-card]',
+    memberDirectoryEmpty: '.bn-md-empty',
+    memberCardFollow: '.bn-md-card__follow',
+    memberCardMenu: '.bn-md-card__menu',
+    memberCardMute: '.bn-md-card__mute',
+    // Two filter controls exist. The member-type pills (.bn-md-pill) render ONLY
+    // when the site has member types configured — on a site without them the row
+    // is genuinely absent, which is a real precondition rather than a broken
+    // selector. The relation tabs always render, so match either: the spec should
+    // assert against a control that is actually on the page.
+    memberFilter: '.bn-md-pill, .bn-md-strip .bn-tab[data-relation]',
+    // The member directory does NOT use parts/filter-strip.php — it has its own
+    // strip. Only the SPACES directory includes filter-strip (input[name=bn_search]),
+    // so these are two controls, not one shared seam. Verified on the rendered
+    // page: /members/ has 1 .bn-md-strip__search-input and 0 input[name=bn_search].
+    directorySearch: '.bn-md-strip__search-input',
 
     // Profile (live markup uses .bn-pf-* prefix)
     profileHero: '.bn-pf-hero, .bn-profile__hero, .bn-profile-hero',
@@ -88,14 +112,33 @@ export const sel = {
     // Pro's who-viewed widget renders .bn-pf-views (it never emitted
     // data-widget="profile-views"). It deliberately returns early when the member
     // has zero views (ProfileViewsWidget.php:116), so a spec must seed a view.
+    // PRO markup (buddynext-pro Analytics\ProfileViewsWidget). Correct as-is —
+    // it reads as "dead" to any sweep that only greps the free plugin.
     profileViewsWidget: '.bn-pf-views',
 
-    // Spaces (live markup: .bn-sh-hero, .bn-sh-members)
-    spaceCard: '.bn-space-card',
-    spaceFilter: '.bn-spaces__filter [data-filter]',
-    spaceJoin: '.bn-space-card [data-action="join"]',
+    // Spaces (live markup: .bn-sh-hero, .bn-sh-members; directory is .bn-sd-*)
+    // Live markup is .bn-sd-card. `.bn-space-card` exists only as a BLOCK NAME in
+    // BlockRegistrar.php — assets/js/spaces/store.js:583 already carried a comment
+    // saying these "exist nowhere in the markup", and the specs kept using them
+    // anyway because a zero count read as "nothing seeded" rather than "wrong
+    // selector".
+    spaceCard: '.bn-sd-card',
+    spaceDirectoryEmpty: '.bn-sd-empty',
+    // Category chips are BUTTONS. The same .bn-sd-chip class is also on the
+    // "All Spaces" / "My Spaces" ANCHORS, which are pretty-URL links — a bare
+    // .bn-sd-chip therefore made `.first()` a link, and clicking it navigated
+    // away mid-assertion. Scope to the buttons, which are the reactive filter.
+    spaceFilter: 'button.bn-sd-chip',
+    // Spaces search comes from templates/parts/filter-strip.php, which the
+    // spaces directory includes and the member directory does not. J-39 had its
+    // own inline '.bn-spaces__search input' copy, which matched nothing.
+    spaceSearch: 'input[name="bn_search"]',
+    // The card carries no [data-action]; the join control is keyed on
+    // data-current-state (templates/parts/space-directory-card.php:195).
+    spaceJoin: '.bn-sd-card [data-current-state="join"]',
     spaceHero: '.bn-sh-hero, .bn-space__hero, .bn-space-hero',
-    spaceTab: '.bn-sh-hero__tabs .bn-tab, .bn-tabs.bn-sh-hero__tabs a.bn-tab',
+    // Live markup is .bn-sh-tab inside .bn-sh-tabs — not the generic .bn-tab.
+    spaceTab: '.bn-sh-tabs .bn-sh-tab, .bn-sh-hero__tabs .bn-sh-tab',
     spaceMemberCard: '.bn-sh-members__card, .bn-sh-side-member, .bn-member-card',
 
     // Onboarding
@@ -108,20 +151,25 @@ export const sel = {
 
     // Hashtags
     hashtagChip: '.bn-hashtag-chip, [data-hashtag]',
-    hashtagFollow: '.bn-hashtag-chip [data-action="follow"]',
+    hashtagFollow: '.bn-hashtag-related__follow',
 
     // Notifications
     notifList: '.bn-notif-list, [data-notif-list]',
-    notifItem: '.bn-notif-item, [data-notif-item]',
+    // Live markup is .bn-notif-row (templates/parts/notification-row.php:71).
+    notifItem: '.bn-notif-row, [data-notif-item]',
     notifMarkAll: '[data-action="mark-all-read"]',
 
     // Messages
-    dmList: '.bn-dm-list, [data-dm-list]',
+    // Live markup is .bn-dm-rail__list (templates/parts/dm-rail.php:194). The old
+    // value matched nothing, so messages/list.spec.ts's bridge-ACTIVE branch had
+    // never run green — it only ever passed via the bridge-absent path.
+    dmList: '.bn-dm-rail__list, [data-dm-list]',
+    dmEmpty: '.bn-dm-rail__empty',
     dmThread: '.bn-dm-thread, [data-dm-thread]',
     dmInput: '.bn-dm-input textarea, [data-dm-input]',
 
     // Admin
-    adminFeatures: '#buddynext-features, [data-admin-features]',
+    adminFeatures: '.bn-admin-hub, [data-admin-features]',
     adminModQueue: '.bn-mod-queue, [data-mod-queue]',
 
     // Theme chrome (WordPress theme, not BN). Release testing runs on Reign,

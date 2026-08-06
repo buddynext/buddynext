@@ -39,13 +39,31 @@ if ( ! $ob_user ) {
 
 $display_name  = $ob_user->display_name;
 $current_login = $ob_user->user_login;
-// Surface the user's BN profile slug ("handle") if they've set one,
-// otherwise fall back to the WP login as a reasonable starting point.
+// Surface the user's BN profile slug ("handle") if they've set one, otherwise
+// fall back to the PUBLIC HANDLE — user_nicename — never the raw user_login.
 // The onboarding submit saves whatever the user finalises into the
 // bn_profile_slug user_meta via PUT /profile-slug.
+//
+// The fallback used to be $current_login, which is how a member came to confirm
+// a handle they never got. RegistrationService::unique_login() derives a login
+// from the email local part with sanitize_user( ..., true ), which KEEPS a
+// period — so shubham.qa@ produced the login "shubham.qa". The wizard then
+// pre-filled that verbatim, while OnboardingService::save_slug() runs
+// sanitize_title(), which STRIPS periods. The member confirmed "shubham.qa" and
+// the community got "@shubham-qa".
+//
+// user_nicename is the right fallback on both counts: WP derives it as
+// sanitize_title( user_login ), so it is already in the handle charset, and it
+// is exactly what PageRouter::member_handle() falls back to when no
+// bn_profile_slug is set (see :2619). What the wizard shows is now what the
+// wizard saves. Handle::CHARSET excludes '.' by design, so this closes the gap
+// rather than widening the charset.
 $current_slug = (string) get_user_meta( $ob_user_id, 'bn_profile_slug', true );
 if ( '' === $current_slug ) {
-	$current_slug = $current_login;
+	$current_slug = (string) $ob_user->user_nicename;
+}
+if ( '' === $current_slug ) {
+	$current_slug = sanitize_title( $current_login );
 }
 
 $initials = '' !== trim( $display_name )

@@ -214,7 +214,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 		<input
 			type="file"
 			class="bn-composer__file-input"
-			accept="image/*,video/*"
+			accept="image/*,video/*,audio/*"
 			multiple
 			hidden
 			aria-label="<?php esc_attr_e( 'Upload media', 'buddynext' ); ?>">
@@ -382,8 +382,8 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-on--click="actions.pickMedia"
-				aria-label="<?php esc_attr_e( 'Image', 'buddynext' ); ?>"
-				title="<?php esc_attr_e( 'Image', 'buddynext' ); ?>">
+				aria-label="<?php esc_attr_e( 'Add photo, video or audio', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Add photo, video or audio', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'image' ); ?>
 			</button>
 			<?php endif; ?>

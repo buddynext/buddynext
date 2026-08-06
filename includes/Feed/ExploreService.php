@@ -107,7 +107,7 @@ class ExploreService {
 	 */
 	public function deck( string $filter, ?string $cursor = null, int $per_page = 12 ): array {
 		$filter   = in_array( $filter, self::FILTERS, true ) ? $filter : 'all';
-		$per_page = max( 1, min( $per_page, 50 ) );
+		$per_page = max( 1, min( $per_page, FeedService::MAX_PER_PAGE ) );
 
 		// The deck IS viewer-dependent, even though nothing in the signature says so: it
 		// drops users the viewer has blocked (in either direction) and it garnishes the

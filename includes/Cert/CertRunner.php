@@ -110,7 +110,18 @@ class CertRunner {
 				++$summary[ $status ];
 			}
 		}
-		$ok = ( 0 === $summary['fail'] );
+		// A gate that asserted nothing must never report success. Both inputs live
+		// under audit/, which is gitignored in this repo BY DESIGN (the internal
+		// inventory does not ship publicly) - so a fresh clone, a CI runner or a new
+		// laptop has neither the manifest nor the oracles. The runner then produces
+		// holes only, and "0 failures" used to read as a pass: `Success: Functional
+		// certification passed — 0 passed, 0 failed`, exit 0, having proved nothing.
+		//
+		// That is the dangerous shape rather than the noisy one. A gate that fails
+		// loudly gets fixed; a gate that passes vacuously gets trusted. Requiring at
+		// least one real assertion means a missing, renamed or emptied oracle file
+		// cannot silently disarm the gate.
+		$ok = ( 0 === $summary['fail'] ) && ( $summary['pass'] > 0 );
 
 		$this->write_ledger( $summary, $rows, $ok );
 

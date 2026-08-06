@@ -91,7 +91,7 @@ $bn_mu_ctx = array(
 					<span class="bn-mu-file__skeleton" aria-hidden="true"
 						data-wp-bind--hidden="!context.item.thumbLoading"></span>
 					<span class="bn-mu-file__placeholder" aria-hidden="true"
-						data-wp-bind--hidden="context.item.isImageKind"
+						data-wp-bind--hidden="context.item.isImage"
 						data-wp-text="context.item.kind"></span>
 
 					<span class="bn-mu-file__status bn-mu-file__status--uploading"

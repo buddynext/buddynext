@@ -205,6 +205,21 @@
 .ec-card:hover .ec-img img { transform: scale(1.03); }
 .ec-img-glyph { display: inline-flex; }
 .ec-img-glyph svg { width: 32px; height: 32px; opacity: 0.9; }
+/* Play badge on a video card's poster so it reads as a video, not a still. */
+.ec-img-play {
+	position: absolute;
+	inset: 0;
+	margin: auto;
+	display: grid;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	border-radius: var(--bn-r-full, 999px);
+	background: rgba(0, 0, 0, 0.55);
+	color: rgba(255, 255, 255, 0.95);
+	pointer-events: none;
+}
+.ec-img-play svg { width: 22px; height: 22px; }
 
 /* Article excerpt. Only the article card carries one — it is the difference
    between a headline you have to trust and a headline you can judge — and it

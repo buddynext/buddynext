@@ -1260,6 +1260,9 @@ class PageRouter {
 			// dialog.js and unreachable from any caller — this is its only translatable
 			// source. Keep in sync with the keys read in those two files.
 			'i18n'               => array(
+				// Profile bio collapse (shell/extras.js).
+				'bioShowMore'            => __( 'Show more', 'buddynext' ),
+				'bioShowLess'            => __( 'Show less', 'buddynext' ),
 				// Shared modal frame.
 				'close'                  => __( 'Close', 'buddynext' ),
 				'confirm'                => __( 'Confirm', 'buddynext' ),
@@ -1302,6 +1305,31 @@ class PageRouter {
 				'notifications' => self::notifications_url(),
 				'messages'      => self::messages_url(),
 			),
+			/**
+			 * Whether the single-key shortcuts are active (n, /, g+f and friends).
+			 *
+			 * On by default: they cost nothing to ignore and readers who want them
+			 * expect them. But a single unmodified keypress is a surprisingly
+			 * strong claim on someone's keyboard - it fires for anyone who is not
+			 * focused in a field, including assistive-technology users navigating
+			 * by character, and on a site where the community is not the whole
+			 * product an owner may simply not want them.
+			 *
+			 * A filter rather than a setting: this is a per-site preference an
+			 * owner either holds or does not, and it does not deserve a control
+			 * every other owner has to read past.
+			 *
+			 *     add_filter( 'buddynext_keyboard_shortcuts_enabled', '__return_false' );
+			 *
+			 * @param bool $enabled Whether to bind the shortcut handler.
+			 */
+			// Emitted as '1'/'0', NOT as a bool. wp_localize_script() casts every
+			// value to a string, so `false` arrives in JS as the empty string ''
+			// and a `!== false` test on the other side is never true - the filter
+			// would return false, the handler would bind anyway, and the whole
+			// option would be decorative. Caught by switching the filter on and
+			// watching the shortcut still fire.
+			'shortcuts'          => apply_filters( 'buddynext_keyboard_shortcuts_enabled', true ) ? '1' : '0',
 			// Rollout master switch for client-side navigation. OFF until the
 			// per-surface init() handlers are made nav-aware (Phase 3) and
 			// browser-verified (Phase 5) — enabling client-nav before a surface
@@ -1462,7 +1490,12 @@ class PageRouter {
 				// cover, and field chrome) unstyled.
 				if ( '' !== (string) get_query_var( 'bn_user_slug', '' ) ) {
 					$assets->enqueue( 'profile' );
-					$assets->enqueue( 'feed' ); // Post cards on profile use bn-feed.css classes.
+					// Not only CSS: the feed module owns the profile Share button
+					// (buddynext/share-modal) and, on the activity tab, the post-card
+					// react/comment/share/bookmark actions. Verified 2026-08-04 — a
+					// profile renders a live share-modal island with zero post-cards,
+					// so bn-feed.js is a behavioural dependency here, not just styling.
+					$assets->enqueue( 'feed' );
 					$assets->enqueue( 'media-upload' ); // Owner-only upload composer on the Media tab.
 					$assets->enqueue( 'media-albums' ); // Media | Albums sub-nav + albums UI.
 					// Followers / Following / Connections render as in-page tabs in
@@ -1479,7 +1512,12 @@ class PageRouter {
 
 			case 'spaces':
 				$assets->enqueue( 'spaces' );
-				$assets->enqueue( 'feed' ); // Post cards on space pages use bn-feed.css classes.
+				// Not only CSS: a space feed runs the FULL feed module —
+				// buddynext/post-card, post-composer and share-modal islands are
+				// live in-space with react/comment/share/compose all wired
+				// (verified 2026-08-04). bn-feed.js is a behavioural dependency on
+				// space pages, identical to the activity hub.
+				$assets->enqueue( 'feed' );
 				// Cover/icon uploads on the settings sub-route POST directly to the
 				// REST API (ImageStorageService) — no wp.media / attachment picker.
 				$space_action_v = (string) get_query_var( 'bn_space_action', '' );

@@ -50,9 +50,46 @@ class JetonomyBridge {
 	 * into a comment). The reciprocal hook fires synchronously during that write;
 	 * seeing the flag, its handler returns immediately, so the mirror never loops.
 	 *
+	 * Raise it only through mirror(), never by hand — see that method for why.
+	 *
+	 * It is also an IN-REQUEST guard. It cannot protect a cycle that crosses a
+	 * request boundary, so if any leg of this sync is ever moved to a queue, a
+	 * cron tick or a webhook, the flag stops working and the pair record
+	 * (bn_comments.sync_reply_id) has to carry the guard instead: write the
+	 * counterpart id first, and bail when it is already set.
+	 *
 	 * @var bool
 	 */
 	private static bool $syncing = false;
+
+	/**
+	 * Perform a cross-boundary write with the echo guard raised, and lower it
+	 * whatever happens.
+	 *
+	 * The guard being static means its blast radius is the PHP process, not the
+	 * function. If anything throws between raising and lowering it, every later
+	 * mirror in that process is silently skipped — no error, no log entry, just
+	 * replies that stop appearing in the feed. That failure is invisible in
+	 * testing because a request mirroring ONE comment has no second comment to
+	 * lose; it shows up in bulk actions, imports and CLI runs, where nobody
+	 * looks.
+	 *
+	 * The window deliberately contains third-party code — the callbacks re-fire
+	 * the far side's own hooks so its notifications and counters still run — so
+	 * it must never depend on the body completing. `finally` also covers any
+	 * early return added to a callback later.
+	 *
+	 * @param callable $write The cross-boundary write.
+	 * @return void
+	 */
+	private static function mirror( callable $write ): void {
+		self::$syncing = true;
+		try {
+			$write();
+		} finally {
+			self::$syncing = false;
+		}
+	}
 
 	/**
 	 * Attach hooks.
@@ -90,6 +127,12 @@ class JetonomyBridge {
 		// the unified Nav API (one registry, one renderer) — profile tab carries a
 		// count badge; the space tab links to the forum (or the on-demand provision
 		// trigger). Replaces the old buddynext_profile_extra_data + buddynext_space_tabs.
+		// A space's type is the authority for its discussion's visibility, so
+		// follow it whenever the space is saved. Creation-time correctness
+		// alone would let the leak back in the first time an owner locks a
+		// space down.
+		add_action( 'buddynext_space_updated', array( $this, 'sync_discussion_visibility' ), 10, 3 );
+
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
 
 		// Owner controls: register on the integration registry so the site owner can
@@ -795,6 +838,74 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * The discussion visibility a BuddyNext space type requires.
+	 *
+	 * ONE definition, used both when the discussion is created and when the
+	 * space's type later changes, so the two can never disagree. This used to
+	 * be the literal 'public' at the creation site and nothing at all on
+	 * change: enabling Discussion on a private or secret space published its
+	 * entire discussion history to the world, silently and permanently, and
+	 * nothing re-evaluated it afterwards.
+	 *
+	 * The enums map 1:1. An unrecognised type resolves to 'hidden' rather than
+	 * 'public' - if we cannot tell what a space is, the safe answer is the one
+	 * that exposes nothing, and a hidden discussion is recoverable where a
+	 * leaked one is not.
+	 *
+	 * @param string $space_type BuddyNext space type: open | private | secret.
+	 * @return string Jetonomy visibility: public | private | hidden.
+	 */
+	public static function discussion_visibility_for( string $space_type ): string {
+		switch ( $space_type ) {
+			case \BuddyNext\Spaces\SpaceService::TYPE_OPEN:
+				return 'public';
+			case \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE:
+				return 'private';
+			case \BuddyNext\Spaces\SpaceService::TYPE_SECRET:
+				return 'hidden';
+			default:
+				return 'hidden';
+		}
+	}
+
+	/**
+	 * Keep a linked discussion's visibility in step with its space's type.
+	 *
+	 * Creation-time correctness is not enough: an owner who opens a space to
+	 * the public, or locks a public one down, expects the conversation inside
+	 * it to follow. Without this the discussion keeps whatever it was born
+	 * with, so the first time anyone tightens a space the leak reappears.
+	 *
+	 * Only writes when the value actually differs, so an unrelated space edit
+	 * does not churn Jetonomy rows.
+	 *
+	 * @param int   $space_id BuddyNext space ID.
+	 * @param int   $user_id  Actor (unused; the space's type is the authority).
+	 * @param array $fields   Fields saved.
+	 * @return void
+	 */
+	public function sync_discussion_visibility( $space_id, $user_id = 0, $fields = array() ): void {
+		$space_id = (int) $space_id;
+		$forum_id = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
+		if ( $space_id <= 0 || $forum_id <= 0 || ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return;
+		}
+
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return;
+		}
+
+		$want = self::discussion_visibility_for( (string) ( $space['type'] ?? '' ) );
+		$jt   = \Jetonomy\Models\Space::find( $forum_id );
+		if ( ! $jt || (string) ( $jt->visibility ?? '' ) === $want ) {
+			return;
+		}
+
+		\Jetonomy\Models\Space::update( $forum_id, array( 'visibility' => $want ) );
+	}
+
+	/**
 	 * Provision (once) the ONE dedicated Jetonomy discussion a BuddyNext space
 	 * owns for its lifetime, and store the permanent link.
 	 *
@@ -807,6 +918,8 @@ class JetonomyBridge {
 	 * space slug (suffixed with the space id when that base slug is already taken),
 	 * so it can NEVER silently adopt an unrelated Jetonomy space that merely shares
 	 * a slug — that slug-matching was a hijack risk and is gone.
+	 *
+	 * Visibility is derived from the space's own type, never assumed.
 	 *
 	 * @param int $space_id BuddyNext space ID.
 	 * @return int Jetonomy discussion (jt_spaces) id, or 0 on failure.
@@ -826,13 +939,42 @@ class JetonomyBridge {
 			return 0;
 		}
 
+		/**
+		 * Adopt an existing Jetonomy space instead of provisioning a new one.
+		 *
+		 * ASKED, not assumed. This file cannot know why a space exists - a
+		 * community linked to a Learnomy course already has a Jetonomy space
+		 * carrying that course's access rule, and provisioning a second one
+		 * gives the course TWO discussions: the one the rule gates, and this
+		 * one, which carries no rule and which nobody is enrolled into.
+		 * Reproduced before this guard existed: one course, jt spaces #37 and
+		 * #38.
+		 *
+		 * Free has no business knowing what a Learnomy course is, so it asks
+		 * and whoever does know answers. Return a jt_spaces id to adopt, or 0
+		 * to let provisioning proceed.
+		 *
+		 * @since 1.1.2
+		 *
+		 * @param int   $forum_id Adopted discussion id, or 0 to create one.
+		 * @param int   $space_id BuddyNext space being given a discussion.
+		 * @param array $space    The space row.
+		 */
+		$adopted = (int) apply_filters( 'buddynext_adopt_discussion_space', 0, $space_id, $space );
+		if ( $adopted > 0 ) {
+			update_space_meta( $space_id, 'jetonomy_forum_id', $adopted );
+			$this->set_discussion_enabled( $space_id, true );
+
+			return $adopted;
+		}
+
 		$owner_id = (int) ( $space['owner_id'] ?? 0 );
 		$forum_id = (int) \Jetonomy\Models\Space::create(
 			array(
 				'title'      => (string) ( $space['name'] ?? '' ),
 				'slug'       => $this->unique_discussion_slug( (string) ( $space['slug'] ?? '' ), $space_id ),
 				'author_id'  => $owner_id,
-				'visibility' => 'public',
+				'visibility' => self::discussion_visibility_for( (string) ( $space['type'] ?? '' ) ),
 				'status'     => 'active',
 			),
 			$owner_id
@@ -848,6 +990,24 @@ class JetonomyBridge {
 			// could never see until someone separately called
 			// set_discussion_enabled(). One call now yields a visible tab.
 			$this->set_discussion_enabled( $space_id, true );
+
+			/**
+			 * A discussion was just provisioned for a BuddyNext space.
+			 *
+			 * The other half of the adopt guard above. When the community IS the
+			 * first thing created for a Learnomy course, nothing has written that
+			 * course's access rule yet - so Jetonomy, which decides whether to
+			 * provision by looking for exactly that rule, would go on to create a
+			 * SECOND space later. A listener claims this one for the course
+			 * instead, which makes the rule the single source of truth for
+			 * "the course's discussion" no matter which plugin got there first.
+			 *
+			 * @since 1.1.2
+			 *
+			 * @param int $space_id BuddyNext space.
+			 * @param int $forum_id The discussion just created.
+			 */
+			do_action( 'buddynext_space_discussion_provisioned', $space_id, $forum_id );
 		}
 
 		return $forum_id;
@@ -986,25 +1146,27 @@ class JetonomyBridge {
 			return;
 		}
 
-		self::$syncing = true;
-		$reply_id      = \Jetonomy\Models\Reply::create(
-			array(
-				'post_id'       => $topic_id,
-				'author_id'     => $user_id,
-				'content'       => wp_kses_post( $content ),
-				'content_plain' => wp_strip_all_tags( $content ),
-			)
+		self::mirror(
+			function () use ( $topic_id, $user_id, $content, $comment_id ) {
+				$reply_id = \Jetonomy\Models\Reply::create(
+					array(
+						'post_id'       => $topic_id,
+						'author_id'     => $user_id,
+						'content'       => wp_kses_post( $content ),
+						'content_plain' => wp_strip_all_tags( $content ),
+					)
+				);
+				if ( ! is_wp_error( $reply_id ) && (int) $reply_id > 0 ) {
+					// Persist the pair on the comment so edit/delete can propagate later
+					// (both directions resolve through bn_comments.sync_reply_id).
+					( new \BuddyNext\Comments\CommentService() )->set_sync_reply_id( $comment_id, (int) $reply_id );
+					// Fire the same post-create signal Jetonomy's REST reply path fires so the
+					// engine's own listeners (notifications, activity, counts) treat this reply
+					// like any other. The reciprocal handler bails on self::$syncing.
+					do_action( 'jetonomy_after_create_reply', (int) $reply_id, $topic_id );
+				}
+			}
 		);
-		if ( ! is_wp_error( $reply_id ) && (int) $reply_id > 0 ) {
-			// Persist the pair on the comment so edit/delete can propagate later
-			// (both directions resolve through bn_comments.sync_reply_id).
-			( new \BuddyNext\Comments\CommentService() )->set_sync_reply_id( $comment_id, (int) $reply_id );
-			// Fire the same post-create signal Jetonomy's REST reply path fires so the
-			// engine's own listeners (notifications, activity, counts) treat this reply
-			// like any other. The reciprocal handler bails on self::$syncing.
-			do_action( 'jetonomy_after_create_reply', (int) $reply_id, $topic_id );
-		}
-		self::$syncing = false;
 	}
 
 	/**
@@ -1038,16 +1200,18 @@ class JetonomyBridge {
 			return; // Only mirror a published reply by a real author.
 		}
 
-		self::$syncing = true;
-		// CommentService applies its own permission/verification gate and sanitizes;
-		// a WP_Error (e.g. an unverified author) simply means no mirrored comment.
-		$comments   = new \BuddyNext\Comments\CommentService();
-		$comment_id = $comments->create( $author_id, 'post', $card_id, $content );
-		if ( ! is_wp_error( $comment_id ) && (int) $comment_id > 0 ) {
-			// Persist the pair so edit/delete propagate in both directions.
-			$comments->set_sync_reply_id( (int) $comment_id, $reply_id );
-		}
-		self::$syncing = false;
+		self::mirror(
+			function () use ( $author_id, $card_id, $content, $reply_id ) {
+				// CommentService applies its own permission/verification gate and sanitizes;
+				// a WP_Error (e.g. an unverified author) simply means no mirrored comment.
+				$comments   = new \BuddyNext\Comments\CommentService();
+				$comment_id = $comments->create( $author_id, 'post', $card_id, $content );
+				if ( ! is_wp_error( $comment_id ) && (int) $comment_id > 0 ) {
+					// Persist the pair so edit/delete propagate in both directions.
+					$comments->set_sync_reply_id( (int) $comment_id, $reply_id );
+				}
+			}
+		);
 	}
 
 	/**
@@ -1073,15 +1237,17 @@ class JetonomyBridge {
 		if ( '' === $content ) {
 			return;
 		}
-		self::$syncing = true;
-		\Jetonomy\Models\Reply::update(
-			$reply_id,
-			array(
-				'content'       => wp_kses_post( $content ),
-				'content_plain' => wp_strip_all_tags( $content ),
-			)
+		self::mirror(
+			function () use ( $reply_id, $content ) {
+				\Jetonomy\Models\Reply::update(
+					$reply_id,
+					array(
+						'content'       => wp_kses_post( $content ),
+						'content_plain' => wp_strip_all_tags( $content ),
+					)
+				);
+			}
 		);
-		self::$syncing = false;
 	}
 
 	/**
@@ -1100,9 +1266,11 @@ class JetonomyBridge {
 		if ( $reply_id <= 0 ) {
 			return;
 		}
-		self::$syncing = true;
-		\Jetonomy\Models\Reply::delete( $reply_id );
-		self::$syncing = false;
+		self::mirror(
+			function () use ( $reply_id ) {
+				\Jetonomy\Models\Reply::delete( $reply_id );
+			}
+		);
 	}
 
 	/**
@@ -1129,9 +1297,11 @@ class JetonomyBridge {
 		if ( '' === $content ) {
 			return;
 		}
-		self::$syncing = true;
-		$comments->update( (int) $comment['id'], (int) $comment['user_id'], $content );
-		self::$syncing = false;
+		self::mirror(
+			function () use ( $comments, $comment, $content ) {
+				$comments->update( (int) $comment['id'], (int) $comment['user_id'], $content );
+			}
+		);
 	}
 
 	/**
@@ -1151,9 +1321,11 @@ class JetonomyBridge {
 		if ( null === $comment ) {
 			return;
 		}
-		self::$syncing = true;
-		$comments->delete( (int) $comment['id'], (int) $comment['user_id'] );
-		self::$syncing = false;
+		self::mirror(
+			function () use ( $comments, $comment ) {
+				$comments->delete( (int) $comment['id'], (int) $comment['user_id'] );
+			}
+		);
 	}
 
 	/**
@@ -1210,7 +1382,7 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * REST permission gate for POST /spaces/{id}/forum.
+	 * REST permission gate for management-only forum routes (discussion-search).
 	 *
 	 * @param \WP_REST_Request $request Request.
 	 * @return true|\WP_Error
@@ -1227,6 +1399,37 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * REST permission gate for POST /spaces/{id}/forum.
+	 *
+	 * View-level, NOT manage-level: this route is the app's only way to RESOLVE a
+	 * space's forum id, and every member who can see the space needs that. Gating
+	 * it on buddynext-moderate-space made the Discussions tab a hard error for
+	 * every non-owner (even when the forum already existed, readable via
+	 * /jetonomy/v1). Whether the caller may PROVISION a missing forum is decided
+	 * in the handler (rest_provision_forum) — a plain member gets the zero-state,
+	 * never a 403, matching the web tab's owner-only "Start the first discussion"
+	 * trigger.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return true|\WP_Error
+	 */
+	public function rest_forum_access_permission( \WP_REST_Request $request ) {
+		if ( ! is_user_logged_in() ) {
+			return new \WP_Error( 'rest_not_logged_in', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
+		}
+
+		$space_id = (int) $request['id'];
+		$space    = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+
+		// Same 404 for missing and not-viewable (secret) so existence isn't leaked.
+		if ( null === $space || ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $space, get_current_user_id() ) ) {
+			return new \WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return true;
+	}
+
+	/**
 	 * Register the space-forum REST route (app coverage).
 	 *
 	 * @return void
@@ -1238,7 +1441,7 @@ class JetonomyBridge {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'rest_provision_forum' ),
-				'permission_callback' => array( $this, 'rest_provision_permission' ),
+				'permission_callback' => array( $this, 'rest_forum_access_permission' ),
 				'args'                => array(
 					'id' => array(
 						'required'          => true,
@@ -1369,12 +1572,26 @@ class JetonomyBridge {
 	 */
 	public function rest_provision_forum( \WP_REST_Request $request ): \WP_REST_Response {
 		$space_id = (int) $request['id'];
-		$forum_id = $this->provision_space_forum( $space_id );
+		$existing = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
+
+		// Resolve-first: an existing forum is returned to ANY viewer the
+		// permission gate admitted (view-level). Only a MISSING forum requires
+		// the moderate-space capability to create — a plain member gets the
+		// zero-state instead of a 403, mirroring the web tab where "Start the
+		// first discussion" is an owner/moderator-only trigger.
+		$forum_id = $existing;
+		if ( 0 >= $forum_id && $this->can_provision_forum( $space_id, get_current_user_id() ) ) {
+			$forum_id = $this->provision_space_forum( $space_id );
+		}
 
 		return new \WP_REST_Response(
 			array(
-				'forum_id'  => $forum_id,
-				'forum_url' => $forum_id > 0 ? $this->space_forum_url( $space_id ) : '',
+				'forum_id'      => $forum_id,
+				'forum_url'     => $forum_id > 0 ? $this->space_forum_url( $space_id ) : '',
+				// The zero-state discriminator: false + forum_id 0 → "no
+				// discussions yet, and you can't start them"; true → the caller
+				// may POST again after owner action, or just provisioned.
+				'can_provision' => $this->can_provision_forum( $space_id, get_current_user_id() ),
 			),
 			200
 		);

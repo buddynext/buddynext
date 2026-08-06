@@ -35,6 +35,28 @@ class FeedService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * Hard ceiling on rows any single feed read may return.
+	 *
+	 * This is NOT the REST page size. Each feed route declares per_page 1-50 with
+	 * its own validate_callback, so an external caller is bounded at the route
+	 * long before it reaches here; this ceiling exists for the server-rendered
+	 * feed, which is a different shape of caller.
+	 *
+	 * "Load more" re-renders the region with a CUMULATIVE count (?shown=15, 30,
+	 * 45 ...) because appended cards would arrive un-hydrated - so the feed
+	 * legitimately asks for more rows than a REST page. It was silently cut off
+	 * at 50: the templates intend six pages (up to 90), the service returned 50,
+	 * and the member simply stopped receiving new posts after the third click
+	 * with nothing on screen to say why. Two ceilings disagreeing, and the lower
+	 * one invisible.
+	 *
+	 * The templates now derive their own limit from this constant, so the two
+	 * cannot drift apart again. Raise this and the feed can render further;
+	 * lower it and the templates follow.
+	 */
+	public const MAX_PER_PAGE = 100;
+
+	/**
 	 * Object-cache group for short-lived feed reads.
 	 */
 	private const CACHE_GROUP = 'buddynext_feed';
@@ -270,7 +292,7 @@ class FeedService {
 	 *
 	 * @param int         $user_id  Viewing user ID.
 	 * @param string|null $cursor   Opaque pagination cursor from a previous response.
-	 * @param int         $per_page Number of posts to return (max 50).
+	 * @param int         $per_page Number of posts to return (ceiling: MAX_PER_PAGE).
 	 * @param string      $filter   Filter slug: for-you | following | spaces | network.
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
@@ -309,9 +331,10 @@ class FeedService {
 			$filter = 'for-you';
 		}
 
-		$per_page       = min( $per_page, 50 );
-		$cursor_where   = $this->cursor_where( $cursor );
+		$per_page       = min( $per_page, self::MAX_PER_PAGE );
 		$excluded_where = $this->excluded_users_where();
+		// $cursor_where is built AFTER the ORDER BY is resolved below — a tiered
+		// ordering needs a tier-aware keyset, so the fragment depends on it.
 
 		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
 
@@ -339,7 +362,7 @@ class FeedService {
 		);
 
 		$per_page = (int) ( $query_args['per_page'] ?? $per_page );
-		$per_page = max( 1, min( $per_page, 50 ) );
+		$per_page = max( 1, min( $per_page, self::MAX_PER_PAGE ) );
 
 		/**
 		 * Filter the ORDER BY clause used by the home feed SQL.
@@ -372,6 +395,7 @@ class FeedService {
 		// every home timeline. Pins now surface only in their own context (profile
 		// / space feeds); the admin announcement is the sole top-of-home surface.
 		$default_order_by = 'created_at DESC, id DESC';
+		$tier_expr        = null;
 		if ( 'for-you' === $filter && $user_id > 0 ) {
 			global $wpdb;
 			$bn_conn_ids     = $this->connection_ids_capped( $user_id );
@@ -417,14 +441,25 @@ class FeedService {
 			// No emptiness guard: the own-post tier above is unconditional, so there is
 			// always at least one WHEN. The guard this replaces dated from when every
 			// tier was conditional on the member having connections or interests.
-			$default_order_by = 'CASE ' . implode( ' ', $bn_tiers )
-				. ' ELSE ' . count( $bn_tiers ) . ' END ASC, created_at DESC, id DESC';
+			$tier_expr        = 'CASE ' . implode( ' ', $bn_tiers ) . ' ELSE ' . count( $bn_tiers ) . ' END';
+			$default_order_by = $tier_expr . ' ASC, created_at DESC, id DESC';
 		}
 
 		$order_by = (string) apply_filters( 'buddynext_feed_order_by', $default_order_by, $user_id, $query_args );
 		if ( '' === $order_by ) {
 			$order_by = $default_order_by;
 		}
+
+		// A tiered ORDER BY needs a tier-aware keyset — a chronological cursor
+		// under a tiered order re-emits floated rows on later pages (dup posts →
+		// app key crash). Rebuild the cursor fragment now that the ordering is
+		// final; if a filter replaced the tiered default (e.g. Pro AI ranking),
+		// its own ordering contract applies and the chronological keyset stands.
+		if ( null !== $tier_expr && $order_by !== $default_order_by ) {
+			$tier_expr = null;
+		}
+		$cursor_where = $this->cursor_where( $cursor, $tier_expr );
+		$tier_select  = null !== $tier_expr ? ", ({$tier_expr}) AS bn_tier" : '';
 
 		// Source-blend WHERE built per filter. All branches use subqueries — no
 		// PHP-side ID arrays, no interpolation. $cursor_where, $excluded_where,
@@ -435,7 +470,7 @@ class FeedService {
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
-			"SELECT * FROM {$wpdb->prefix}bn_posts
+			"SELECT *{$tier_select} FROM {$wpdb->prefix}bn_posts
 			 WHERE status = 'published'
 			   AND type <> 'announcement'
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
@@ -445,7 +480,7 @@ class FeedService {
 			   {$cursor_where}
 			 ORDER BY {$order_by}
 			 LIMIT %d",
-			...array_merge( $source_params, $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( $source_params, $block_mute_params, $this->cursor_params( $cursor, $tier_expr ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -1249,7 +1284,7 @@ class FeedService {
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
 	public function profile_feed( int $profile_user_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
-		$per_page = max( 1, min( $per_page, 50 ) );
+		$per_page = max( 1, min( $per_page, self::MAX_PER_PAGE ) );
 
 		// Private-account gate FIRST, and deliberately OUTSIDE the cache. The owner sees
 		// themselves; admins see everything; otherwise only approved followers see posts.
@@ -1301,7 +1336,7 @@ class FeedService {
 	private function profile_feed_uncached( int $profile_user_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
 		global $wpdb;
 
-		$per_page = max( 1, min( $per_page, 50 ) );
+		$per_page = max( 1, min( $per_page, self::MAX_PER_PAGE ) );
 
 		/**
 		 * Filter the query args before SQL is built for the profile feed.
@@ -1326,7 +1361,7 @@ class FeedService {
 			$viewer_id
 		);
 
-		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), 50 ) );
+		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), self::MAX_PER_PAGE ) );
 
 		if ( $viewer_id === $profile_user_id ) {
 			// Owner sees everything — but suspended/shadow-banned posts are still hidden.
@@ -1474,7 +1509,7 @@ class FeedService {
 	private function space_feed_uncached( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
 		global $wpdb;
 
-		$per_page       = min( $per_page, 50 );
+		$per_page       = min( $per_page, self::MAX_PER_PAGE );
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
 
@@ -1506,7 +1541,7 @@ class FeedService {
 			$viewer_id
 		);
 
-		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), 50 ) );
+		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), self::MAX_PER_PAGE ) );
 
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
 		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
@@ -1617,7 +1652,7 @@ class FeedService {
 	public function explore_feed( ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $post_filter = 'all' ): array {
 		global $wpdb;
 
-		$per_page       = min( $per_page, 50 );
+		$per_page       = min( $per_page, self::MAX_PER_PAGE );
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
 		$viewer_id      = get_current_user_id();
@@ -1692,13 +1727,20 @@ class FeedService {
 	/**
 	 * Encode a cursor from the last item in a page.
 	 *
-	 * Cursor format: base64( "{created_at}|{id}" ).
+	 * Cursor format: base64( "{created_at}|{id}" ), plus the row's ORDER BY
+	 * tier ("|{tier}") when the page was produced by a tiered ordering (the
+	 * for-you affinity CASE) — see cursor_where() for why the tier must ride
+	 * the cursor.
 	 *
-	 * @param array $row A hydrated post row.
+	 * @param array $row A hydrated post row (bn_tier present on tiered pages).
 	 * @return string Opaque cursor string.
 	 */
 	public function encode_cursor( array $row ): string {
-		return CursorCodec::encode( (string) $row['created_at'], (int) $row['id'] );
+		return CursorCodec::encode(
+			(string) $row['created_at'],
+			(int) $row['id'],
+			isset( $row['bn_tier'] ) ? (int) $row['bn_tier'] : null
+		);
 	}
 
 	/**
@@ -1706,10 +1748,20 @@ class FeedService {
 	 *
 	 * Returns an empty string when no cursor is given (first page).
 	 *
-	 * @param string|null $cursor Opaque cursor or null.
+	 * With a $tier_expr (the for-you affinity CASE, already fully prepared SQL)
+	 * AND a cursor that carries a tier, the keyset spans the FULL sort key
+	 * (tier, created_at, id). A purely chronological keyset under a tiered
+	 * ORDER BY re-emitted every tier-floated row on later pages — a
+	 * connection's older post pulled onto page 1 still satisfied
+	 * `created_at < cursor` on pages 2..n, which the app surfaced as the
+	 * duplicate-React-key crash. A tierless (legacy) cursor degrades to the
+	 * chronological fragment rather than erroring.
+	 *
+	 * @param string|null $cursor    Opaque cursor or null.
+	 * @param string|null $tier_expr Prepared tier CASE SQL when the feed's ORDER BY is tiered.
 	 * @return string SQL fragment (already safe to embed — placeholders handled separately).
 	 */
-	private function cursor_where( ?string $cursor ): string {
+	private function cursor_where( ?string $cursor, ?string $tier_expr = null ): string {
 		if ( null === $cursor ) {
 			return '';
 		}
@@ -1717,6 +1769,10 @@ class FeedService {
 		$decoded = CursorCodec::decode( $cursor );
 		if ( null === $decoded ) {
 			return '';
+		}
+
+		if ( null !== $tier_expr && null !== $decoded['tier'] ) {
+			return "AND ( ({$tier_expr}) > %d OR ( ({$tier_expr}) = %d AND (created_at < %s OR (created_at = %s AND id < %d)) ) )";
 		}
 
 		return 'AND (created_at < %s OR (created_at = %s AND id < %d))';
@@ -1725,10 +1781,14 @@ class FeedService {
 	/**
 	 * Return the ordered parameter values for cursor_where placeholders.
 	 *
-	 * @param string|null $cursor Opaque cursor or null.
+	 * MUST take the same $tier_expr the paired cursor_where() call took — the
+	 * fragment choice (tiered vs chronological) decides the placeholder count.
+	 *
+	 * @param string|null $cursor    Opaque cursor or null.
+	 * @param string|null $tier_expr Prepared tier CASE SQL when the feed's ORDER BY is tiered.
 	 * @return array
 	 */
-	private function cursor_params( ?string $cursor ): array {
+	private function cursor_params( ?string $cursor, ?string $tier_expr = null ): array {
 		if ( null === $cursor ) {
 			return array();
 		}
@@ -1736,6 +1796,10 @@ class FeedService {
 		$decoded = CursorCodec::decode( $cursor );
 		if ( null === $decoded ) {
 			return array();
+		}
+
+		if ( null !== $tier_expr && null !== $decoded['tier'] ) {
+			return array( $decoded['tier'], $decoded['tier'], $decoded['created_at'], $decoded['created_at'], $decoded['id'] );
 		}
 
 		return array( $decoded['created_at'], $decoded['created_at'], $decoded['id'] );

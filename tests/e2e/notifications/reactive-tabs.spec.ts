@@ -44,21 +44,26 @@ test.describe('notifications / reactive tabs', () => {
         expect(marker).toBe('kept');
     });
 
-    test('document title reflects unread count when present', async ({ authenticatedPage: page }, testInfo) => {
+    /**
+     * This asserted, behind a data-dependent conditional, that the document
+     * title mirrors the unread badge - `(3) Notifications`. We have never built
+     * that: `grep -rn "document.title" assets/js/` returns nothing. The spec
+     * passed for as long as the test account had zero unread, because the badge
+     * was absent and the conditional never fired. Once notifications
+     * accumulated, the badge appeared, the assertion switched itself on, and the
+     * suite reported an unread-count REGRESSION against code that had not
+     * changed.
+     *
+     * A spec must not assert unimplemented behaviour, least of all behind a
+     * conditional that hides the fact until the data changes underneath it. Kept
+     * to what it genuinely verifies. Whether to implement the count in the title
+     * - Facebook and X both do - is a product decision, tracked separately.
+     */
+    test('notifications page has a meaningful document title', async ({ authenticatedPage: page }) => {
         await page.goto(urls.notifications);
 
-        // Best-effort: title should at least contain the word Notifications.
         const title = await page.title();
         expect(title.toLowerCase()).toContain('notifications');
-
-        // If the page surfaces a (count) suffix, the title should mirror it.
-        const headerCount = await page.locator('.bn-section-head__title .bn-badge[data-tone="accent"]').first().textContent().catch(() => null);
-        if (headerCount && /\d/.test(headerCount)) {
-            const match = headerCount.match(/(\d+|99\+)/);
-            if (match) {
-                expect(title).toContain(match[1]);
-            }
-        }
     });
 
     test('preferences page uses dedicated title', async ({ authenticatedPage: page }, testInfo) => {

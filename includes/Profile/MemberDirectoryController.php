@@ -394,6 +394,24 @@ class MemberDirectoryController extends BaseRestController {
 			// cache hit, not an N+1.
 			'headline'       => (string) get_user_meta( $uid, 'bn_headline', true ),
 			'avatar_url'     => (string) ( $row['avatar_url'] ?? '' ),
+			// The member's real cover, so a directory card shows what their own
+			// profile shows. Without it every card fell back to the tone gradient
+			// no matter what had been uploaded — the client renderer has always
+			// honoured `cover_url` (members/store.js), it was simply never sent.
+			//
+			// Derived HERE rather than in the row builders on purpose: there are
+			// TWO of those (MemberDirectoryService::…, and the foreach in this
+			// controller), and shape_item() is the one seam both funnel through.
+			// Adding the key to the array literals would have fixed one path and
+			// left the other still rendering gradients.
+			//
+			// buddynext_user_cover_url() resolves per-user cover → site default →
+			// ''. The usermeta it reads is cache-warmed by the update_meta_cache()
+			// prime that BOTH callers run, so this is a cache hit, not a per-row
+			// query.
+			'cover_url'      => function_exists( 'buddynext_user_cover_url' )
+				? buddynext_user_cover_url( $uid )
+				: '',
 			'profile_url'    => PageRouter::profile_url( $uid ),
 			'messages_url'   => $messages_url,
 			'bio_excerpt'    => '' !== $bio ? wp_trim_words( $bio, 18 ) : '',

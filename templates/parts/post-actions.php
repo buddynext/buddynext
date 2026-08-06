@@ -60,6 +60,28 @@ if ( 0 === (int) $args['bn_post_id'] ) {
 	return;
 }
 
+// Every control in this toolbar is individually gated (can_react / can_comment /
+// can_share / can_bookmark, all of which require a logged-in viewer upstream in
+// partials/post-card.php). When all four are false the wrapper below still
+// rendered: an empty `.bn-post-card__actions` div, which carries a
+// border-block-start and padding-block-start in bn-feed.css — so a logged-out
+// visitor got a divider line and a band of dead space under every post, with
+// nothing in it and nothing explaining why. Measured on the seeded stack: 30
+// empty toolbars on one guest page load.
+//
+// Guarding here rather than at the call site keeps the rule with the markup it
+// governs — this part is a documented template seam a third party may render
+// directly. `buddynext_part_post_actions_args` runs ABOVE this check, so anyone
+// who wants the toolbar shown regardless can still force a flag true there.
+if (
+	empty( $args['can_react'] )
+	&& empty( $args['can_comment'] )
+	&& empty( $args['can_share'] )
+	&& empty( $args['can_bookmark'] )
+) {
+	return;
+}
+
 $bn_classes = array_merge( array( 'bn-post-card__actions' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
 $bn_classes = (array) apply_filters( 'buddynext_part_post_actions_classes', $bn_classes, $args );

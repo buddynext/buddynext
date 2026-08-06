@@ -84,7 +84,6 @@ class NotificationListener implements ListenerInterface {
 		add_action( 'buddynext_async_announcement_fanout', array( $this, 'async_announcement_fanout' ), 10, 1 );
 
 		// Async worker — runs inline when Action Scheduler is absent.
-		add_action( 'buddynext_async_space_new_post_notification', array( $this, 'async_space_new_post_notification' ), 10, 1 );
 		add_action( 'buddynext_async_space_post_fanout', array( $this, 'async_space_post_fanout' ), 10, 1 );
 
 		// Deliver stage — batched, self-paginating email send for a space post.
@@ -1277,40 +1276,6 @@ class NotificationListener implements ListenerInterface {
 		if ( ! empty( $remaining ) ) {
 			$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, $remaining );
 		}
-	}
-
-	/**
-	 * Action Scheduler worker: create a single space_new_post notification.
-	 *
-	 * Action Scheduler passes all arguments as a single associative array when
-	 * the action was enqueued with an array as the sole argument.
-	 *
-	 * @param array $args Keys: post_id, space_id, author_id, recipient_id.
-	 */
-	public function async_space_new_post_notification( array $args ): void {
-		if ( ! function_exists( 'buddynext_service' ) ) {
-			return;
-		}
-
-		$post_id      = (int) ( $args['post_id'] ?? 0 );
-		$space_id     = (int) ( $args['space_id'] ?? 0 );
-		$author_id    = (int) ( $args['author_id'] ?? 0 );
-		$recipient_id = (int) ( $args['recipient_id'] ?? 0 );
-
-		if ( 0 === $post_id || 0 === $space_id || 0 === $author_id || 0 === $recipient_id ) {
-			return;
-		}
-
-		buddynext_service( 'notifications' )->create(
-			array(
-				'recipient_id' => $recipient_id,
-				'sender_id'    => $author_id,
-				'type'         => 'bn.space_new_post',
-				'object_type'  => 'post',
-				'object_id'    => $post_id,
-				'group_key'    => 'space_new_post_' . $space_id . '_' . $recipient_id,
-			)
-		);
 	}
 
 	/**

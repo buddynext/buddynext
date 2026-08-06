@@ -1135,10 +1135,40 @@ function applyCurrentToggle( checkbox ) {
 	if ( checkbox.checked ) {
 		endEl.value    = '';
 		endEl.disabled = true;
+		// Remember whatever placeholder the field arrived with (usually the
+		// owner's, set in Members > Profile Fields) so unchecking can put it back
+		// rather than leaving the field bare. Stashed once — a second check must
+		// not overwrite the stash with our own injected "Present".
+		if ( ! endEl.hasAttribute( 'data-bn-placeholder-was' ) ) {
+			endEl.setAttribute( 'data-bn-placeholder-was', endEl.getAttribute( 'placeholder' ) || '' );
+		}
 		endEl.setAttribute( 'placeholder', t( 'present', 'Present' ) );
 	} else {
 		endEl.disabled = false;
-		endEl.removeAttribute( 'placeholder' );
+
+		// Release ONLY the state this function injected.
+		//
+		// This branch used to call removeAttribute( 'placeholder' ) unconditionally,
+		// and wireCurrentToggles() runs an initial pass over EVERY current-status
+		// checkbox on load — so on every page load each unchecked row had its paired
+		// end field's placeholder deleted, owner-authored or not. An admin who set
+		// "To" on Education > End Year saw it vanish the moment the page's JS
+		// initialised, while "From" on the sibling Start Year survived (no toggle is
+		// paired to it). buildEntryNodeFromClone() already had the correct guard;
+		// this function never got it.
+		var stashed = endEl.getAttribute( 'data-bn-placeholder-was' );
+		if ( null !== stashed ) {
+			if ( '' === stashed ) {
+				endEl.removeAttribute( 'placeholder' );
+			} else {
+				endEl.setAttribute( 'placeholder', stashed );
+			}
+			endEl.removeAttribute( 'data-bn-placeholder-was' );
+		} else if ( endEl.getAttribute( 'placeholder' ) === t( 'present', 'Present' ) ) {
+			// No stash: the row arrived from the server already checked, so the only
+			// placeholder that can be ours is the literal "Present".
+			endEl.removeAttribute( 'placeholder' );
+		}
 	}
 }
 

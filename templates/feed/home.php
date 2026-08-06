@@ -58,7 +58,11 @@ $bn_page_size = 15;
  * construction, which is how the mainstream networks do it — at which point
  * continuous scroll comes back without dead controls.
  */
-$bn_max_shown = $bn_page_size * 6;
+// Six pages, but never past what a single feed read will actually return. The
+// service ceiling used to be lower than this number and silently truncated the
+// render, so "Load more" went dead three clicks in; deriving the limit from the
+// service means the two can never disagree again.
+$bn_max_shown = min( $bn_page_size * 6, \BuddyNext\Feed\FeedService::MAX_PER_PAGE );
 $raw_shown    = isset( $_GET['shown'] ) ? absint( wp_unslash( $_GET['shown'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_shown     = max( $bn_page_size, min( $bn_max_shown, (int) ( ceil( $raw_shown / $bn_page_size ) * $bn_page_size ) ) );
 $bn_per_page  = $bn_shown;
@@ -262,7 +266,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			<?php endforeach; ?>
 		</div>
 
-			<?php if ( $has_more && '' !== $next_cursor ) : ?>
+			<?php if ( $has_more && '' !== $next_cursor && $bn_shown < $bn_max_shown ) : ?>
 				<?php
 				/*
 				 * A real link, not a JS sentinel. The infinite-scroll trigger
@@ -274,15 +278,51 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 				 * ones. The anchor returns the member to where they were reading
 				 * rather than to the top of the feed.
 				 */
-				$bn_more_url = add_query_arg(
+				$bn_more_args = array(
+					'shown'  => $bn_shown + $bn_page_size,
+					'filter' => $bn_filter,
+				);
+
+				// Carry the cursor. Past the first ceiling the member is reading a
+				// continuation page, and a grow-link that dropped the cursor would
+				// silently take them back to the newest posts - the same posts they
+				// scrolled through to get here.
+				if ( '' !== $raw_cursor ) {
+					$bn_more_args['cursor'] = rawurlencode( $raw_cursor );
+				}
+
+				$bn_more_url = add_query_arg( $bn_more_args, PageRouter::activity_url() );
+				?>
+				<?php buddynext_get_template( 'parts/feed-load-more.php', array( 'more_url' => $bn_more_url ) ); ?>
+			<?php elseif ( $has_more && '' !== $next_cursor ) : ?>
+				<?php
+				/*
+				 * The render ceiling, not the end of the feed.
+				 *
+				 * Growing one page cannot go on forever — every "Load more" re-renders
+				 * the whole region, so the cost climbs with each click. Past the ceiling
+				 * the member continues on a FRESH page from the cursor: bounded render,
+				 * unbounded reach.
+				 *
+				 * It must not use the Load-more control. That one grows `shown`, and at
+				 * the ceiling the count is clamped, so it re-rendered the same posts and
+				 * the button simply stopped working with nothing on screen to explain it.
+				 * A plain next-page link also means no scroll restoration, which would be
+				 * wrong here: this page is shorter than the one before it.
+				 */
+				$bn_next_page_url = add_query_arg(
 					array(
-						'shown'  => $bn_shown + $bn_page_size,
+						'cursor' => rawurlencode( $next_cursor ),
 						'filter' => $bn_filter,
 					),
 					PageRouter::activity_url()
 				);
 				?>
-				<?php buddynext_get_template( 'parts/feed-load-more.php', array( 'more_url' => $bn_more_url ) ); ?>
+				<div class="bn-load-more bn-load-more--next-page">
+					<a class="bn-btn bn-load-more__btn" href="<?php echo esc_url( $bn_next_page_url ); ?>">
+						<?php esc_html_e( 'Older posts', 'buddynext' ); ?>
+					</a>
+				</div>
 			<?php else : ?>
 				<div class="bn-feed-end" role="status">
 					<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>

@@ -351,13 +351,17 @@ class BookmarkService {
 	 *
 	 * @param int         $user_id  Viewing user whose bookmarks to list.
 	 * @param string|null $cursor   Opaque pagination cursor.
-	 * @param int         $per_page Bookmarks per page (max 50).
+	 * @param int         $per_page Bookmarks per page (ceiling: FeedService::MAX_PER_PAGE).
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
 	public function user_bookmarks_paged( int $user_id, ?string $cursor = null, int $per_page = 15 ): array {
 		global $wpdb;
 
-		$per_page      = max( 1, min( $per_page, 50 ) );
+		// Shares the feed ceiling because it shares the feed's "Load more": the
+		// bookmarks page re-renders cumulatively (?shown=15, 30, 45 ...) exactly
+		// like the activity feed, so a lower private limit here would have cut
+		// the same surface off at a different, equally invisible point.
+		$per_page      = max( 1, min( $per_page, FeedService::MAX_PER_PAGE ) );
 		$cursor_data   = $this->decode_cursor( $cursor );
 		$cursor_where  = '';
 		$cursor_params = array();

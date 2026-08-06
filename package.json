@@ -1,6 +1,6 @@
 {
   "name": "buddynext-e2e",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "description": "Playwright end-to-end test suite for BuddyNext Free + Pro. The PHP plugin lives alongside; this file exists only to host the e2e tooling.",
   "scripts": {
@@ -14,6 +14,7 @@
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.10.0",
+    "@wbcom/i18n-ai": "^0.1.3",
     "typescript": "^5.6.3"
   }
 }

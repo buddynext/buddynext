@@ -273,6 +273,26 @@ class Installer {
 	private const SCHEMA_VERSION = 40;
 
 	/**
+	 * One-shot corrections of seeded field flags that have already been applied.
+	 *
+	 * Deliberately NOT the schema version. This runs once per stamp and then
+	 * never again, so an owner's later choice sticks — tying it to
+	 * SCHEMA_VERSION would re-impose our values on every release and make the
+	 * admin's "Searchable" checkbox unable to hold a decision. Bump the stamp
+	 * only to ship a NEW correction; see converge_seeded_field_flags().
+	 *
+	 * @var string
+	 */
+	private const FLAG_CONVERGENCE = '2026-08-searchable-system';
+
+	/**
+	 * Option holding the last applied FLAG_CONVERGENCE stamp.
+	 *
+	 * @var string
+	 */
+	private const FLAG_CONVERGENCE_OPTION = 'buddynext_profile_flag_convergence';
+
+	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
 	 *
 	 * Hooked on admin_init so a plain plugin update (no reactivation) still picks
@@ -365,10 +385,22 @@ class Installer {
 
 		// v20: a digest_frequency row stored as '' (pre-default install) makes the
 		// admin select display "Disabled" while the cron gate treats '' as ENABLED
-		// - and a save from that state silently persists 'never'. Normalize to the
-		// registered default. Idempotent.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( "UPDATE {$wpdb->options} SET option_value = 'weekly' WHERE option_name = 'buddynext_digest_frequency' AND option_value = ''" );
+		// (EmailSender::digests_enabled() reads `'never' !== $value`) - and a save
+		// from that state silently persists 'never'. Normalize to the registered
+		// default. Idempotent: after one pass the value is 'weekly', which is not ''.
+		//
+		// `null` as the default is load-bearing, not tidiness. This replaced a raw
+		// UPDATE whose WHERE clause was `option_name = ... AND option_value = ''`,
+		// i.e. it only touched a row that EXISTS and holds ''. get_option() with the
+		// usual '' default cannot tell that apart from the option being absent
+		// entirely, so it would additionally CREATE the row on installs that never
+		// had one. Passing an explicit default also suppresses any registered
+		// default (WP returns the passed value when $passed_default is true), so an
+		// absent option comes back as null here and is correctly left alone.
+		$bn_digest_frequency = get_option( 'buddynext_digest_frequency', null );
+		if ( '' === $bn_digest_frequency ) {
+			update_option( 'buddynext_digest_frequency', 'weekly' );
+		}
 
 		// v19: converge the seeded email-template subjects on one natural style
 		// (no em-dash separators, no exclamation endings). Byte-exact matches
@@ -1014,7 +1046,18 @@ class Installer {
 		// field the seeder adds. Idempotent no-op on fresh installs.
 		self::maybe_migrate_skills_field_key( $wpdb->prefix );
 
-		self::seed_default_profile_groups_and_fields( $wpdb->prefix );
+		// The starter profile schema is offered ONCE, to a new site. Re-running it
+		// on every upgrade is what resurrected deleted sections: INSERT IGNORE
+		// skips rows that exist, and a deleted row conflicts with nothing, so it
+		// came back as if new. Same fresh-install rule as the starter space
+		// categories and member types below, for the same reason.
+		if ( $is_fresh_install ) {
+			self::seed_default_profile_groups_and_fields( $wpdb->prefix );
+		}
+
+		// Always: corrects flags on rows a site already has, and creates nothing.
+		self::converge_profile_schema( $wpdb->prefix );
+
 		self::seed_default_space( $wpdb->prefix );
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
@@ -1801,11 +1844,27 @@ class Installer {
 	}
 
 	/**
-	 * Seed the five built-in profile groups and their fields.
+	 * Seed the built-in profile groups and their fields. ONCE, on a new site.
 	 *
-	 * Uses INSERT IGNORE throughout so re-running the installer never destroys
-	 * customised data. Fields are inserted with a subquery that resolves the
-	 * group_id by group_key so the seed is order-independent.
+	 * A STARTER KIT, not a contract. It exists so a new community has a usable
+	 * profile on day one; from then on the schema belongs to the owner, who may
+	 * rename, reorder or delete any of it. Same rule the starter space
+	 * categories and member types already follow, and for the same reason.
+	 *
+	 * MUST NOT run on upgrade. It used to, and INSERT IGNORE is exactly the
+	 * wrong instrument for the job: it skips rows that still exist, and a row
+	 * the owner DELETED no longer conflicts with anything, so it came back as
+	 * if new. Every release that bumped SCHEMA_VERSION silently resurrected
+	 * every deleted default - Work Experience, Education, Pronouns - on every
+	 * site that had pruned them. Reproduced end to end before this change.
+	 *
+	 * The convergence UPDATEs that used to live here have moved to
+	 * converge_profile_schema(), which still runs on every upgrade: those only
+	 * touch rows that already exist, so they fix a site's schema without ever
+	 * re-creating something it threw away.
+	 *
+	 * Fields are inserted with a subquery that resolves the group_id by
+	 * group_key so the seed is order-independent.
 	 *
 	 * @param string $p Table prefix.
 	 */
@@ -1854,28 +1913,6 @@ class Installer {
 				)
 			);
 		}
-
-		// An existing site may carry the SetupWizard-preset 'interests' group
-		// (seeded is_system=0): converge it to the canonical system group. The
-		// INSERT IGNORE above no-ops on it, so flip the flag explicitly.
-		$wpdb->query(
-			"UPDATE `{$p}bn_profile_groups`
-			    SET is_system = 1, label = 'Interests'
-			  WHERE group_key = 'interests'
-			    AND is_system = 0"
-		);
-
-		// Freedom pass (v18/v19): converge older installs where the showcase
-		// sections were seeded is_system=1 — the INSERT IGNORE above no-ops on
-		// existing rows, so drop the group lock explicitly. 'skills' joined this
-		// list in v19 (was mis-locked as a "suggestion signal"). Field-level
-		// is_system (the bio/headline/location/interests spine) is untouched.
-		$wpdb->query(
-			"UPDATE `{$p}bn_profile_groups`
-			    SET is_system = 0
-			  WHERE group_key IN ('social_links', 'work_experience', 'education', 'skills')
-			    AND is_system = 1"
-		);
 
 		// ── 2. Fields ─────────────────────────────────────────────────────────
 		// Each INSERT uses a subquery to resolve group_id by group_key.
@@ -1944,21 +1981,162 @@ class Installer {
 			);
 		}
 
-		// ── 3. System-field protection (v16/v17) ─────────────────────────────
-		// Exactly the load-bearing spine is protected from deletion: bio (search
-		// index + directory cards), headline (hero + directory), location
-		// (directory filter), interests (the suggestion signal the engines read).
-		// Every other seeded field stays deletable so owners can customise their
-		// profile schema — display-only fields degrade gracefully by design.
-		// Idempotent single UPDATE; covers fresh installs and (via
-		// maybe_upgrade -> run) existing sites alike.
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Converge an existing site's profile schema. Runs on EVERY upgrade.
+	 *
+	 * The half of the old seeder that is safe to re-run, and separated from the
+	 * half that was not. Every statement here is an UPDATE with a WHERE that
+	 * matches only rows already present, so it can correct a site's schema
+	 * without ever re-creating something the owner deleted - which is precisely
+	 * what the INSERT half could not promise.
+	 *
+	 * Splitting them is what lets both rules hold at once: a new site still
+	 * gets a complete starter profile, and an established site keeps the schema
+	 * it curated while still receiving flag corrections.
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function converge_profile_schema( string $p ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// An existing site may carry the SetupWizard-preset 'interests' group
+		// (seeded is_system=0): converge it to the canonical system group.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_groups`
+			    SET is_system = 1, label = 'Interests'
+			  WHERE group_key = 'interests'
+			    AND is_system = 0"
+		);
+
+		// Freedom pass (v18/v19): converge older installs where the showcase
+		// sections were seeded is_system=1, so drop the group lock explicitly.
+		// 'skills' joined this list in v19 (was mis-locked as a "suggestion
+		// signal"). Field-level is_system (the bio/headline/location/interests
+		// spine) is untouched.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_groups`
+			    SET is_system = 0
+			  WHERE group_key IN ('social_links', 'work_experience', 'education', 'skills')
+			    AND is_system = 1"
+		);
+
+		// System-field protection (v16/v17). Exactly the load-bearing spine is
+		// protected from deletion: bio (search index + directory cards),
+		// headline (hero + directory), location (directory filter), interests
+		// (the suggestion signal the engines read). Every other seeded field
+		// stays deletable so owners can customise their profile schema —
+		// display-only fields degrade gracefully by design.
 		$wpdb->query(
 			"UPDATE `{$p}bn_profile_fields`
 			    SET is_system = 1
 			  WHERE field_key IN ('bio', 'headline', 'location', 'interests')
 			    AND is_system = 0"
 		);
+		self::converge_seeded_field_flags( $p );
+
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Deliver seeded field flags that INSERT IGNORE could never reach. ONCE.
+	 *
+	 * The seeder declares location, skills and interests searchable, and
+	 * basic_info + interests as system groups — but it inserts with INSERT
+	 * IGNORE, which skips rows that already exist, and nothing else ever
+	 * UPDATEs those columns. So a site whose rows predate a flag never receives
+	 * it, and no upgrade corrects that.
+	 *
+	 * The customer-visible symptom: with location not searchable the profile
+	 * search mirror is never written for it, so members are not findable by
+	 * where they are — on every established install, silently, with the admin
+	 * checkbox showing whatever the stale row says.
+	 *
+	 * WHY ONCE, and not on every upgrade.
+	 *
+	 * is_searchable is an owner-facing checkbox, so a 0 has two possible
+	 * meanings and the data cannot tell them apart: the flag never arrived
+	 * (this bug), or the owner deliberately unticked it. Converging on every
+	 * upgrade would re-impose our value forever and make that checkbox a lie —
+	 * an owner could never keep location unsearchable. Converging ONCE repairs
+	 * the sites that never got the flag, and a later owner change then sticks.
+	 *
+	 * There is no way to do better: the table records no updated_at and no
+	 * "customised" marker, so "converge only untouched fields" cannot be asked.
+	 * The residual cost is accepted and narrow — an owner who had already
+	 * unticked one of these three fields gets it re-enabled on one upgrade.
+	 *
+	 * Stamped with a version so a future flag correction can run its own
+	 * one-shot without repeating this one.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function converge_seeded_field_flags( string $p ): void {
+		global $wpdb;
+
+		if ( self::FLAG_CONVERGENCE === get_option( self::FLAG_CONVERGENCE_OPTION, '' ) ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// The three the seeder ships searchable. They are the directory's reason
+		// to exist — where someone is, what they do, what they are into. Fields an
+		// owner creates default to NOT searchable and stay that way; this only
+		// delivers what our own seed already declared.
+		//
+		// The ids are read FIRST, because after the UPDATE there is no way to tell
+		// which rows this actually changed — and only those need the backfill below.
+		$flipped = $wpdb->get_col(
+			"SELECT id FROM `{$p}bn_profile_fields`
+			  WHERE field_key IN ('location', 'skills', 'interests')
+			    AND is_searchable = 0"
+		);
+
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_fields`
+			    SET is_searchable = 1
+			  WHERE field_key IN ('location', 'skills', 'interests')
+			    AND is_searchable = 0"
+		);
+
+		// basic_info holds the bio/headline/location spine and was declared a
+		// system group; on sites predating that flag it is deletable.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_groups`
+			    SET is_system = 1
+			  WHERE group_key IN ('basic_info', 'interests')
+			    AND is_system = 0"
+		);
+
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		/*
+		 * Flipping the flag makes the field searchable FROM NOW ON. It does not
+		 * make anybody findable.
+		 *
+		 * The search mirror is written when a member saves their profile, so
+		 * without this every existing member stays unfindable until they each
+		 * happen to re-save — which is the very symptom this convergence exists to
+		 * cure, surviving the fix. Verified: after the UPDATE alone, is_searchable
+		 * was 1 and bn_field_location was still empty.
+		 *
+		 * The admin's own "searchable" toggle already solves this by firing
+		 * buddynext_profile_field_updated, which ProfileService::rebuild_field_mirror()
+		 * answers with a keyset-batched backfill queued through Action Scheduler —
+		 * so a 100k-member field never rebuilds inline. Using the same seam means
+		 * one backfill implementation, not a second one written for upgrades.
+		 */
+		foreach ( $flipped as $field_id ) {
+			do_action( 'buddynext_profile_field_updated', (int) $field_id );
+		}
+
+		update_option( self::FLAG_CONVERGENCE_OPTION, self::FLAG_CONVERGENCE, false );
 	}
 
 	/**

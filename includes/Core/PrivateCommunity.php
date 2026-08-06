@@ -117,6 +117,42 @@ final class PrivateCommunity {
 		// integration can adopt the same two-filter contract.
 		add_filter( 'mvs_rest_require_auth', array( self::class, 'is_enabled' ) );
 		add_filter( 'mvs_rest_can_access', array( self::class, 'can_access' ) );
+
+		// Same contract, same reason, for Learnomy. A private community whose
+		// courses stayed world-readable is the same leak as the MediaVerse one:
+		// the owner switched the community private and the catalog, category
+		// pages and course REST went on answering logged-out visitors, because
+		// Learnomy has its own private-academy toggle nobody had connected.
+		//
+		// Driving Learnomy's own gate rather than reaching into its routes keeps
+		// this reversible from either side: an owner who genuinely runs a public
+		// academy inside a private community returns false from
+		// learnomy_require_login_for_content, and standalone Learnomy never sees
+		// these filters at all.
+		add_filter( 'learnomy_require_login_for_content', array( self::class, 'is_enabled' ) );
+		add_filter( 'learnomy_content_can_access', array( self::class, 'can_access_user' ), 10, 2 );
+	}
+
+	/**
+	 * Answer Learnomy's per-viewer half of the private-academy gate.
+	 *
+	 * Learnomy asks about a SPECIFIC user - `can_view_course()` is routinely
+	 * asked about someone other than the current visitor - while this class only
+	 * knows about the visitor making the request. Answering the community rule
+	 * for a question about somebody else would apply the wrong person's
+	 * membership, so anything that is not about the current viewer passes
+	 * through untouched.
+	 *
+	 * @param bool $allowed Decision so far.
+	 * @param int  $user_id Viewer Learnomy is asking about; 0 for anonymous.
+	 * @return bool
+	 */
+	public static function can_access_user( $allowed, $user_id = 0 ): bool {
+		if ( get_current_user_id() !== (int) $user_id ) {
+			return (bool) $allowed;
+		}
+
+		return self::can_access( $allowed );
 	}
 
 	/**

@@ -344,7 +344,23 @@ self.addEventListener('fetch', (event) => {
 
   // REST is member-specific data. Network only — no cache write, no cache read.
   // Falling back to a stored copy here would show one member another's feed.
-  if (url.pathname.indexOf('/wp-json/') === 0) {
+  //
+  // BOTH spellings, and the second one is the whole bug. With plain permalinks —
+  // or any rest_url() built on a site that has them — REST arrives as
+  // /index.php?rest_route=/wp/v2/... The pathname is then /index.php, so it
+  // matches neither this test nor the /wp-admin one above, fell through to the
+  // static-resource branch at the bottom, and got answered from cache or with the
+  // offline page at HTTP 200 and content-type text/html.
+  //
+  // That broke WordPress CORE, not just our own routes: /wp/v2/users/me came back
+  // as the offline page inside wp-admin, so any admin JS expecting JSON failed to
+  // parse it, silently, with no error handler firing because the status was 200.
+  //
+  // This file already knew about the query-string form — see the offline-URL
+  // comment in the PHP above, which preserves ?rest_route= precisely because
+  // taking PHP_URL_PATH alone collapses it to "/". That reasoning simply never
+  // reached the fetch bails.
+  if (url.pathname.indexOf('/wp-json/') === 0 || url.searchParams.has('rest_route')) {
     return;
   }
 

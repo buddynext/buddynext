@@ -39,6 +39,7 @@ use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Hashtags\HashtagListener;
 use BuddyNext\Hashtags\HashtagService;
+use BuddyNext\Media\Galleries;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Media\ImageStorageService;
 use BuddyNext\Profile\ProfileService;
@@ -68,7 +69,11 @@ class DemoDataService {
 	 * Realistic member roster. login is prefixed `bn_demo_` so it never
 	 * collides with a real account; avatar/cover index into assets/demo/.
 	 *
-	 * @var array<int,array<string,string>>
+	 * `topics` is a list of space-category slugs (see seed_member_interests),
+	 * `profile` is a field_key => value map merged into save_profile(); every
+	 * other field is a plain string.
+	 *
+	 * @var array<int,array<string,string|array<int,string>|array<string,string>>>
 	 */
 	private const MEMBERS = array(
 		array(
@@ -78,6 +83,26 @@ class DemoDataService {
 			'location' => 'Lisbon, PT',
 			'job'      => 'Product Designer',
 			'site'     => 'https://alexrivera.example',
+			'note'     => 'Design systems, empty states, good coffee',
+			'topics'   => array( 'design', 'startups' ),
+			'profile'  => array(
+				'work_company'     => 'Nomad Studio',
+				'work_title'       => 'Product Designer',
+				'work_location'    => 'Lisbon, PT',
+				'work_start_date'  => '2021-03-01',
+				'work_current'     => '1',
+				'work_description' => 'Design systems and the checkout flow for a payments product.',
+				'edu_institution'  => 'Universidade de Lisboa',
+				'edu_degree'       => 'BA',
+				'edu_field'        => 'Communication Design',
+				'edu_start_year'   => '2013',
+				'edu_end_year'     => '2017',
+				'edu_current'      => '0',
+				'skills'           => 'Design systems, prototyping, user research',
+				'birth_date'       => '1994-06-12',
+				'social_linkedin'  => 'https://linkedin.com/in/alexrivera',
+				'social_instagram' => 'https://instagram.com/alexrivera',
+			),
 		),
 		array(
 			'login'    => 'priya_nair',
@@ -86,6 +111,26 @@ class DemoDataService {
 			'location' => 'Bengaluru, IN',
 			'job'      => 'Frontend Engineer',
 			'site'     => 'https://priyanair.example',
+			'note'     => 'CSS, accessibility, the web platform',
+			'topics'   => array( 'web-development', 'design' ),
+			'profile'  => array(
+				'work_company'     => 'Hyperlane',
+				'work_title'       => 'Senior Frontend Engineer',
+				'work_location'    => 'Bengaluru, IN',
+				'work_start_date'  => '2022-01-10',
+				'work_current'     => '1',
+				'work_description' => 'Accessibility and the design-system component library.',
+				'edu_institution'  => 'BITS Pilani',
+				'edu_degree'       => 'BE',
+				'edu_field'        => 'Computer Science',
+				'edu_start_year'   => '2014',
+				'edu_end_year'     => '2018',
+				'edu_current'      => '0',
+				'skills'           => 'CSS architecture, ARIA, performance budgets',
+				'birth_date'       => '1996-02-03',
+				'social_linkedin'  => 'https://linkedin.com/in/priyanair',
+				'social_github'    => 'https://github.com/priyanair',
+			),
 		),
 		array(
 			'login'    => 'marcus_obrien',
@@ -94,6 +139,25 @@ class DemoDataService {
 			'location' => 'Dublin, IE',
 			'job'      => 'Community Lead',
 			'site'     => '',
+			'note'     => 'Books, community building, board games',
+			'topics'   => array( 'books', 'startups' ),
+			'profile'  => array(
+				'work_company'     => 'Openhouse',
+				'work_title'       => 'Community Lead',
+				'work_location'    => 'Dublin, IE',
+				'work_start_date'  => '2020-09-01',
+				'work_current'     => '1',
+				'work_description' => 'Runs the ambassador programme and the monthly community call.',
+				'edu_institution'  => 'Trinity College Dublin',
+				'edu_degree'       => 'BA',
+				'edu_field'        => 'Sociology',
+				'edu_start_year'   => '2010',
+				'edu_end_year'     => '2014',
+				'edu_current'      => '0',
+				'skills'           => 'Community strategy, moderation, events',
+				'birth_date'       => '1990-11-22',
+				'social_linkedin'  => 'https://linkedin.com/in/marcusobrien',
+			),
 		),
 		array(
 			'login'    => 'yuki_tanaka',
@@ -102,6 +166,25 @@ class DemoDataService {
 			'location' => 'Kyoto, JP',
 			'job'      => 'Illustrator',
 			'site'     => 'https://yuki.example',
+			'note'     => 'Type design, printmaking, slow mornings',
+			'topics'   => array( 'design', 'photography' ),
+			'profile'  => array(
+				'work_company'     => 'Independent',
+				'work_title'       => 'Illustrator',
+				'work_location'    => 'Kyoto, JP',
+				'work_start_date'  => '2018-04-01',
+				'work_current'     => '1',
+				'work_description' => 'Editorial illustration and type design for print and screen.',
+				'edu_institution'  => 'Kyoto City University of Arts',
+				'edu_degree'       => 'BFA',
+				'edu_field'        => 'Visual Design',
+				'edu_start_year'   => '2012',
+				'edu_end_year'     => '2016',
+				'edu_current'      => '0',
+				'skills'           => 'Editorial illustration, printmaking, lettering',
+				'birth_date'       => '1993-08-30',
+				'social_instagram' => 'https://instagram.com/yukitanaka',
+			),
 		),
 		array(
 			'login'    => 'sara_lindqvist',
@@ -110,6 +193,26 @@ class DemoDataService {
 			'location' => 'Gothenburg, SE',
 			'job'      => 'Data Scientist',
 			'site'     => '',
+			'note'     => 'Trail running, data viz, houseplants',
+			'topics'   => array( 'running', 'web-development' ),
+			'profile'  => array(
+				'work_company'     => 'Nordic Grid',
+				'work_title'       => 'Data Scientist',
+				'work_location'    => 'Gothenburg, SE',
+				'work_start_date'  => '2019-06-01',
+				'work_current'     => '1',
+				'work_description' => 'Forecasting models for renewable-energy load.',
+				'edu_institution'  => 'Chalmers',
+				'edu_degree'       => 'MSc',
+				'edu_field'        => 'Applied Mathematics',
+				'edu_start_year'   => '2013',
+				'edu_end_year'     => '2018',
+				'edu_current'      => '0',
+				'skills'           => 'Python, forecasting, data visualisation',
+				'birth_date'       => '1992-04-17',
+				'social_linkedin'  => 'https://linkedin.com/in/saralindqvist',
+				'social_github'    => 'https://github.com/saralindqvist',
+			),
 		),
 		array(
 			'login'    => 'diego_morales',
@@ -118,6 +221,26 @@ class DemoDataService {
 			'location' => 'Mexico City, MX',
 			'job'      => 'Game Developer',
 			'site'     => 'https://diego.example',
+			'note'     => 'Pixel art, game jams, synthwave',
+			'topics'   => array( 'design', 'photography' ),
+			'profile'  => array(
+				'work_company'     => 'Pixel Cantina',
+				'work_title'       => 'Gameplay Programmer',
+				'work_location'    => 'Mexico City, MX',
+				'work_start_date'  => '2021-08-01',
+				'work_current'     => '1',
+				'work_description' => 'Gameplay and tools for a pixel-art platformer.',
+				'edu_institution'  => 'UNAM',
+				'edu_degree'       => 'BSc',
+				'edu_field'        => 'Computer Engineering',
+				'edu_start_year'   => '2014',
+				'edu_end_year'     => '2019',
+				'edu_current'      => '0',
+				'skills'           => 'Godot, C#, shaders',
+				'birth_date'       => '1997-01-09',
+				'social_github'    => 'https://github.com/diegomorales',
+				'social_youtube'   => 'https://youtube.com/@/diegomorales',
+			),
 		),
 		array(
 			'login'    => 'amina_diallo',
@@ -126,6 +249,25 @@ class DemoDataService {
 			'location' => 'Dakar, SN',
 			'job'      => 'Researcher',
 			'site'     => '',
+			'note'     => 'Ocean systems, climate models, sailing',
+			'topics'   => array( 'running', 'books' ),
+			'profile'  => array(
+				'work_company'     => 'Institut Ocean',
+				'work_title'       => 'Research Scientist',
+				'work_location'    => 'Dakar, SN',
+				'work_start_date'  => '2017-02-01',
+				'work_current'     => '1',
+				'work_description' => 'Coastal climate models and ocean-temperature datasets.',
+				'edu_institution'  => 'Universite Cheikh Anta Diop',
+				'edu_degree'       => 'PhD',
+				'edu_field'        => 'Oceanography',
+				'edu_start_year'   => '2011',
+				'edu_end_year'     => '2016',
+				'edu_current'      => '0',
+				'skills'           => 'Climate modelling, R, remote sensing',
+				'birth_date'       => '1988-05-28',
+				'social_linkedin'  => 'https://linkedin.com/in/aminadiallo',
+			),
 		),
 		array(
 			'login'    => 'tom_becker',
@@ -134,6 +276,26 @@ class DemoDataService {
 			'location' => 'Berlin, DE',
 			'job'      => 'Backend Engineer',
 			'site'     => 'https://becker.example',
+			'note'     => 'Coffee roasting, Go, mechanical keyboards',
+			'topics'   => array( 'web-development', 'books' ),
+			'profile'  => array(
+				'work_company'     => 'Rostwerk',
+				'work_title'       => 'Backend Engineer',
+				'work_location'    => 'Berlin, DE',
+				'work_start_date'  => '2020-03-16',
+				'work_current'     => '1',
+				'work_description' => 'Go services and the subscription billing pipeline.',
+				'edu_institution'  => 'TU Berlin',
+				'edu_degree'       => 'BSc',
+				'edu_field'        => 'Informatik',
+				'edu_start_year'   => '2012',
+				'edu_end_year'     => '2016',
+				'edu_current'      => '0',
+				'skills'           => 'Go, PostgreSQL, distributed systems',
+				'birth_date'       => '1991-09-05',
+				'social_linkedin'  => 'https://linkedin.com/in/tombecker',
+				'social_github'    => 'https://github.com/tombecker',
+			),
 		),
 		array(
 			'login'    => 'lucia_ferrari',
@@ -142,6 +304,25 @@ class DemoDataService {
 			'location' => 'Milan, IT',
 			'job'      => 'UX Writer',
 			'site'     => '',
+			'note'     => 'Plain language, UX writing, espresso',
+			'topics'   => array( 'design', 'books' ),
+			'profile'  => array(
+				'work_company'     => 'Chiaro',
+				'work_title'       => 'UX Writer',
+				'work_location'    => 'Milan, IT',
+				'work_start_date'  => '2022-05-02',
+				'work_current'     => '1',
+				'work_description' => 'Plain-language content for onboarding and error states.',
+				'edu_institution'  => 'Universita di Bologna',
+				'edu_degree'       => 'MA',
+				'edu_field'        => 'Linguistics',
+				'edu_start_year'   => '2015',
+				'edu_end_year'     => '2020',
+				'edu_current'      => '0',
+				'skills'           => 'UX writing, plain language, content design',
+				'birth_date'       => '1995-12-01',
+				'social_linkedin'  => 'https://linkedin.com/in/luciaferrari',
+			),
 		),
 		array(
 			'login'    => 'noah_kim',
@@ -150,6 +331,27 @@ class DemoDataService {
 			'location' => 'Seoul, KR',
 			'job'      => 'Developer Advocate',
 			'site'     => 'https://noahkim.example',
+			'note'     => 'Photography, DevRel, street food',
+			'topics'   => array( 'photography', 'web-development' ),
+			'profile'  => array(
+				'work_company'     => 'Tideway',
+				'work_title'       => 'Developer Advocate',
+				'work_location'    => 'Seoul, KR',
+				'work_start_date'  => '2023-02-01',
+				'work_current'     => '1',
+				'work_description' => 'Docs, demos, and the getting-started experience.',
+				'edu_institution'  => 'KAIST',
+				'edu_degree'       => 'BSc',
+				'edu_field'        => 'Computer Science',
+				'edu_start_year'   => '2013',
+				'edu_end_year'     => '2017',
+				'edu_current'      => '0',
+				'skills'           => 'Developer relations, docs, public speaking',
+				'birth_date'       => '1994-03-14',
+				'social_linkedin'  => 'https://linkedin.com/in/noahkim',
+				'social_github'    => 'https://github.com/noahkim',
+				'social_youtube'   => 'https://youtube.com/@/noahkim',
+			),
 		),
 		array(
 			'login'    => 'fatima_zahra',
@@ -158,6 +360,27 @@ class DemoDataService {
 			'location' => 'Casablanca, MA',
 			'job'      => 'OSS Maintainer',
 			'site'     => '',
+			'note'     => 'Open source, docs, mentoring',
+			'topics'   => array( 'web-development', 'startups' ),
+			'profile'  => array(
+				'work_company'     => 'Atlas Cloud',
+				'work_title'       => 'Staff Engineer',
+				'work_location'    => 'Casablanca, MA',
+				'work_start_date'  => '2018-01-08',
+				'work_end_date'    => '2024-06-28',
+				'work_current'     => '0',
+				'work_description' => 'Platform team. Maintaining open-source tooling full time since.',
+				'edu_institution'  => 'ENSIAS',
+				'edu_degree'       => 'MEng',
+				'edu_field'        => 'Software Engineering',
+				'edu_start_year'   => '2011',
+				'edu_end_year'     => '2016',
+				'edu_current'      => '0',
+				'skills'           => 'Open source, documentation, mentoring',
+				'birth_date'       => '1989-07-19',
+				'social_linkedin'  => 'https://linkedin.com/in/fatimazahra',
+				'social_github'    => 'https://github.com/fatimazahra',
+			),
 		),
 		array(
 			'login'    => 'liam_walsh',
@@ -166,6 +389,26 @@ class DemoDataService {
 			'location' => 'Melbourne, AU',
 			'job'      => 'Hardware Engineer',
 			'site'     => '',
+			'note'     => 'Synth DIY, cycling, vinyl',
+			'topics'   => array( 'running', 'photography' ),
+			'profile'  => array(
+				'work_company'     => 'Bellwether Instruments',
+				'work_title'       => 'Hardware Engineer',
+				'work_location'    => 'Melbourne, AU',
+				'work_start_date'  => '2019-11-04',
+				'work_current'     => '1',
+				'work_description' => 'Analogue synth design and small-batch manufacturing.',
+				'edu_institution'  => 'RMIT',
+				'edu_degree'       => 'BEng',
+				'edu_field'        => 'Electrical Engineering',
+				'edu_start_year'   => '2009',
+				'edu_end_year'     => '2013',
+				'edu_current'      => '0',
+				'skills'           => 'PCB design, analogue circuits, firmware',
+				'birth_date'       => '1990-02-26',
+				'social_instagram' => 'https://instagram.com/liamwalsh',
+				'social_youtube'   => 'https://youtube.com/@/liamwalsh',
+			),
 		),
 	);
 
@@ -195,68 +438,110 @@ class DemoDataService {
 	 *
 	 * @var string[]
 	 */
-	private const INTERESTS = array(
-		'Design systems, empty states, good coffee',
-		'CSS, accessibility, the web platform',
-		'Books, community building, board games',
-		'Type design, printmaking, slow mornings',
-		'Trail running, data viz, houseplants',
-		'Pixel art, game jams, synthwave',
-		'Ocean systems, climate models, sailing',
-		'Coffee roasting, Go, mechanical keyboards',
-		'Plain language, UX writing, espresso',
-		'Photography, DevRel, street food',
-		'Open source, docs, mentoring',
-		'Synth DIY, cycling, vinyl',
-	);
+	/**
+	 * Topic interests and the human bio line used to live in two arrays kept
+	 * parallel to MEMBERS by index. They are fields on the member record now:
+	 * a parallel array is a drift point, and PHPStan proved the defensive
+	 * `?? ''` guards around them were already dead code.
+	 *
+	 * `interests` is a category_multiselect whose options come from the SPACE
+	 * CATEGORIES, so its values are category IDs, not prose. The seeder used to
+	 * post free-text blurbs into it, which stored NOTHING - on a fresh install
+	 * not one demo member had an interest, so suggestions had no signal and
+	 * `buddynext_member_interests_updated` could never fire. The blurbs predate
+	 * the field: a migration renamed the old free-text `interests` field to
+	 * `skills` and gave the key to this one. They are good copy, so they enrich
+	 * the bio instead of being discarded.
+	 */
 
 	/**
 	 * Spaces to seed — one of every type. avatar/cover index into assets/demo/.
 	 *
-	 * @var array<int,array<string,string>>
+	 * `members` is how many of the roster join, and the spread across spaces is
+	 * deliberate: the directory's default sort is member_count DESC, so equal
+	 * counts would make it rank nothing.
+	 *
+	 * @var array<int,array<string,string|int>>
 	 */
 	private const SPACES = array(
 		array(
 			'name'     => 'Design Critique',
 			'slug'     => 'design-critique',
+			'members'  => 11,
 			'type'     => 'open',
 			'desc'     => 'Share work in progress and get honest, kind feedback.',
-			'category' => 'general',
+			'category' => 'design',
 		),
 		array(
 			'name'     => 'Frontend Guild',
 			'slug'     => 'frontend-guild',
+			'members'  => 9,
 			'type'     => 'open',
 			'desc'     => 'Everything CSS, a11y, and the modern web platform.',
-			'category' => 'help-support',
+			'category' => 'web-development',
 		),
 		array(
 			'name'     => 'Book Club',
 			'slug'     => 'book-club',
+			'members'  => 5,
 			'type'     => 'private',
 			'desc'     => 'One book a month. Request to join and pick up the current read.',
-			'category' => 'off-topic',
+			'category' => 'books',
 		),
 		array(
 			'name'     => 'Trail Runners',
 			'slug'     => 'trail-runners',
+			'members'  => 7,
 			'type'     => 'open',
 			'desc'     => 'Routes, gear talk, and weekend meetups.',
-			'category' => 'general',
+			'category' => 'running',
 		),
 		array(
 			'name'     => 'Founders Lounge',
 			'slug'     => 'founders-lounge',
+			'members'  => 3,
 			'type'     => 'secret',
 			'desc'     => 'Invite-only room for the core team to talk shop.',
-			'category' => 'announcements',
+			'category' => 'startups',
 		),
 		array(
 			'name'     => 'Photo Walks',
 			'slug'     => 'photo-walks',
+			'members'  => 4,
 			'type'     => 'private',
 			'desc'     => 'Monthly city photo walks. Members share their best frame.',
+			'category' => 'photography',
+		),
+		// The three below exist to fill the categories the INSTALLER seeds, so no
+		// filter chip in the directory leads to an empty page. The topic spaces
+		// above deliberately no longer use those generic slugs - "Trail Runners"
+		// filed under "General" tells an owner nothing - but leaving them barren
+		// just moves the problem: the 1.0.4 QA found exactly that, a chip that
+		// filters to nothing. These are also the three spaces almost every real
+		// community actually has, so they earn their place rather than padding.
+		array(
+			'name'     => 'Say Hello',
+			'slug'     => 'say-hello',
+			'members'  => 8,
+			'type'     => 'open',
+			'desc'     => 'New here? Introduce yourself and tell us what you are working on.',
 			'category' => 'introductions',
+		),
+		array(
+			'name'     => 'Community News',
+			'slug'     => 'community-news',
+			'members'  => 10,
+			'type'     => 'open',
+			'desc'     => 'Product updates and community announcements from the team.',
+			'category' => 'announcements',
+		),
+		array(
+			'name'     => 'The Lounge',
+			'slug'     => 'the-lounge',
+			'members'  => 6,
+			'type'     => 'open',
+			'desc'     => 'Off-topic chatter, small wins, and weekend plans.',
+			'category' => 'general',
 		),
 	);
 
@@ -553,20 +838,39 @@ class DemoDataService {
 			// made every card render the tagline twice). Empty when we have
 			// nothing to add - the card then simply shows the headline alone.
 			$bn_handle = str_replace( '_', '', $member['login'] );
-			$bn_bio    = '';
-			if ( '' !== $member['job'] && '' !== $member['location'] ) {
-				$bn_bio = $member['job'] . ' based in ' . $member['location'] . '.';
-			}
+
+			// Two sentences: what they do, then who they are. "Product Designer
+			// based in Lisbon, PT." on its own is a database row; adding "Into
+			// design systems, empty states, good coffee." makes it a person, and
+			// an owner judges the demo on whether it reads like a community they
+			// would want to run. Empty parts drop out, so a member with neither
+			// simply has no bio.
+			$bn_bio = $member['job'] . ' based in ' . $member['location'] . '. Into ' . lcfirst( $member['note'] ) . '.';
+			// The starter fields, plus the member's work / education / skills.
+			//
+			// A fresh install ships 26 profile fields in six groups and the seed
+			// used to fill six of them, all in Basics - so a demo profile showed
+			// a headline and one link with the Work, Education and Skills
+			// sections empty, and the date / boolean / number field types never
+			// rendered at all. An owner cannot judge a profile layout that has
+			// nothing in it.
+			//
+			// The `profile` block per member is deliberately uneven on socials:
+			// the UX writer has no GitHub, the illustrator has Instagram and no
+			// LinkedIn. Real rosters look like that, and it shows the renderer
+			// handling a missing field rather than a uniformly full one.
 			$profiles->save_profile(
 				$user_id,
-				array(
-					'headline'       => $member['headline'],
-					'bio'            => $bn_bio,
-					'location'       => $member['location'],
-					'website'        => $member['site'],
-					'pronouns'       => self::PRONOUNS[ $i ] ?? '',
-					'interests'      => self::INTERESTS[ $i ] ?? '',
-					'social_twitter' => 'https://twitter.com/' . $bn_handle,
+				array_merge(
+					array(
+						'headline'       => $member['headline'],
+						'bio'            => $bn_bio,
+						'location'       => $member['location'],
+						'website'        => $member['site'],
+						'pronouns'       => self::PRONOUNS[ $i ] ?? '',
+						'social_twitter' => 'https://twitter.com/' . $bn_handle,
+					),
+					$member['profile']
 				)
 			);
 		}
@@ -617,6 +921,12 @@ class DemoDataService {
 			}
 		}
 
+		// Interests, now that the topic categories exist. This runs here rather
+		// than in the member loop above for a plain ordering reason: the field
+		// stores CATEGORY IDS, and the categories are not created until the
+		// block directly above this one.
+		$this->seed_member_interests( $user_ids, $cat_by_slug, $profiles );
+
 		foreach ( self::SPACES as $i => $space ) {
 			$owner_id = $user_ids[ $i % count( $user_ids ) ];
 			$space_id = $space_service->create(
@@ -647,15 +957,36 @@ class DemoDataService {
 				)
 			);
 
-			// Add roughly half the members to each space.
-			foreach ( $user_ids as $j => $member_id ) {
-				if ( $member_id === $owner_id || 0 !== ( ( $i + $j ) % 2 ) ) {
-					continue;
+			// Membership varies per space, and that is the point. The old rule
+			// added every second member to every space, so all of them landed on
+			// the SAME count - and "Sort: Popular" is member_count DESC, which
+			// made the directory's default sort a total tie that ranked nothing.
+			// A believable spread is what shows an owner the sort works at all.
+			//
+			// The roster is rotated by space index so different spaces draw
+			// different members; taking the first N of the same list every time
+			// would give every space an identical membership.
+			if ( 'secret' !== $space['type'] ) {
+				// No `?? default` here on purpose: every space declares `members`,
+				// so a missing one is a mistake PHPStan should catch rather than
+				// a silent fallback that quietly flattens the spread again.
+				$bn_want   = (int) $space['members'];
+				$bn_offset = count( $user_ids ) > 0 ? ( $i % count( $user_ids ) ) : 0;
+				$bn_roster = array_merge(
+					array_slice( $user_ids, $bn_offset ),
+					array_slice( $user_ids, 0, $bn_offset )
+				);
+				$bn_joined = 0;
+				foreach ( $bn_roster as $member_id ) {
+					if ( $bn_joined >= $bn_want ) {
+						break;
+					}
+					if ( $member_id === $owner_id ) {
+						continue;
+					}
+					$space_members->join( $space_id, $member_id );
+					++$bn_joined;
 				}
-				if ( 'secret' === $space['type'] ) {
-					continue; // Invite-only: leave to owner only for the demo.
-				}
-				$space_members->join( $space_id, $member_id );
 			}
 		}
 		$say( sprintf( 'Created %d spaces.', count( $space_ids ) ) );
@@ -882,15 +1213,321 @@ class DemoDataService {
 			}
 		}
 
+		// Bring the site owner INTO the community they just seeded.
+		$this->seed_owner_relationships( $user_ids, $follows, $connections, $say );
+
+		// Space albums (1.1.1) — shipped after this seeder was written, so the
+		// space Media tab was empty on every demo site.
+		$this->seed_space_albums( $space_by_slug, $manifest, $say );
+
 		// ── Engagement extras: a poll, bookmarks, and DM threads ────────────
 		// These populate the Polls feature, the member Bookmarks screen, and the
 		// Messages UI so every demo surface has live content (no empty states).
 		$this->seed_extras( $user_ids, $post_ids, $manifest, $say );
 
 		update_option( self::MANIFEST_OPTION, $manifest, false );
+
+		// Say what the demo could NOT show, and why.
+		//
+		// Photo posts, space albums and direct messages all run on WPMediaVerse.
+		// Without it the seed still succeeds - it never hard-depends on an
+		// optional plugin - but it quietly produces a community with no images
+		// and no messages, and the owner is left to conclude that BuddyNext
+		// simply does not do those things. Skipping silently is the wrong
+		// default when the whole purpose of the seed is to show the product.
+		if ( ! MediaClient::available() ) {
+			$say( 'Skipped photo posts, space albums and direct messages: WPMediaVerse is not active.' );
+			$say( 'Install and activate it, then run cleanup and seed again for the full demo.' );
+		}
+
 		$say( 'Demo data installed.' );
 
 		return $this->summary();
+	}
+
+	/**
+	 * Ingest a bundled demo image through the real upload path.
+	 *
+	 * Shared by the media posts and the space albums. The copy-to-tempfile dance
+	 * is not incidental: handle() may move or unlink tmp_name, and the bundled
+	 * repo asset has to survive for the next seed.
+	 *
+	 * @param string $rel       Path under assets/demo/.
+	 * @param int    $author_id Uploading member.
+	 * @return int Media ID, or 0 when the engine is absent or the file is unusable.
+	 */
+	private function upload_bundled_media( string $rel, int $author_id ): int {
+		$uploader = MediaClient::available() ? MediaClient::upload() : null;
+		if ( ! is_object( $uploader ) || ! method_exists( $uploader, 'handle' ) ) {
+			return 0;
+		}
+
+		$src = BUDDYNEXT_DIR . 'assets/demo/' . $rel;
+		if ( ! is_readable( $src ) ) {
+			return 0;
+		}
+
+		if ( ! function_exists( 'wp_tempnam' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+
+		$tmp = wp_tempnam( basename( $rel ) );
+		// copy() can emit a warning on a transient temp-write failure; the return
+		// value is the real signal and is checked here.
+		if ( ! $tmp || ! @copy( $src, $tmp ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- failure handled via the checked return value.
+			return 0;
+		}
+
+		$media_id = $uploader->handle(
+			array(
+				'tmp_name' => $tmp,
+				'name'     => basename( $rel ),
+				'type'     => 'image/png',
+				'size'     => (int) filesize( $tmp ),
+				'error'    => 0,
+			),
+			$author_id,
+			array()
+		);
+
+		if ( file_exists( $tmp ) ) {
+			wp_delete_file( $tmp );
+		}
+
+		return is_wp_error( $media_id ) ? 0 : (int) $media_id;
+	}
+
+	/**
+	 * Put a photo album inside a couple of spaces.
+	 *
+	 * Space albums shipped in 1.1.1, after this seeder was written, so the space
+	 * Media tab was empty on every demo site - a feature we ship and never show.
+	 *
+	 * Albums are an mvs_album CPT owned by WPMediaVerse, so this goes through
+	 * MediaClient::albums() (the BuddyNext-owned client, same pattern as the DM
+	 * threads) and Galleries::assign_album_to_space() for the space binding. No
+	 * direct writes to the partner's post meta: the bridge contract says the
+	 * bridge owns partner-table access, and a demo seeder is not an excuse.
+	 *
+	 * Skipped when the media engine is absent - seed() reports that once, at the
+	 * end, rather than each step failing quietly on its own.
+	 *
+	 * @param array<string,int>   $space_by_slug Space slug => ID.
+	 * @param array<string,mixed> $manifest      Seed manifest, by reference.
+	 * @param callable            $say           Progress logger.
+	 */
+	private function seed_space_albums( array $space_by_slug, array &$manifest, callable $say ): void {
+		if ( ! MediaClient::available() ) {
+			return;
+		}
+
+		$albums = MediaClient::albums();
+		if ( ! is_object( $albums ) || ! method_exists( $albums, 'create' ) || ! method_exists( $albums, 'add_items' ) ) {
+			return;
+		}
+
+		// Albums upload their OWN images rather than borrowing the three the
+		// media posts made. Splitting those across two albums left one photo in
+		// each, and a one-photo album demonstrates the feature worse than having
+		// none. The bundled covers are abstract art and there are eight of them,
+		// so this needs no new assets.
+		$plan = array(
+			array(
+				'space'       => 'photo-walks',
+				'title'       => 'March city walk',
+				'description' => 'Everyone brought a frame back from the riverside route.',
+				'images'      => array( 'covers/cover-01.png', 'covers/cover-03.png', 'covers/cover-04.png' ),
+			),
+			array(
+				'space'       => 'design-critique',
+				'title'       => 'Work in progress',
+				'description' => 'Screens shared for feedback this month.',
+				'images'      => array( 'covers/cover-06.png', 'covers/cover-08.png', 'covers/cover-02.png' ),
+			),
+		);
+
+		$made = 0;
+
+		foreach ( $plan as $entry ) {
+			$space_id = (int) ( $space_by_slug[ $entry['space'] ] ?? 0 );
+			if ( $space_id <= 0 ) {
+				continue;
+			}
+
+			// Authored by the space owner, which is who could really create it.
+			$owner_id = (int) ( ( new SpaceService() )->get( $space_id )['owner_id'] ?? 0 );
+			if ( $owner_id <= 0 ) {
+				continue;
+			}
+
+			$items = array();
+			foreach ( $entry['images'] as $rel ) {
+				$media_id = $this->upload_bundled_media( $rel, $owner_id );
+				if ( $media_id > 0 ) {
+					$items[]             = $media_id;
+					$manifest['media'][] = $media_id;
+				}
+			}
+			if ( empty( $items ) ) {
+				continue;
+			}
+
+			$album_id = $albums->create(
+				$owner_id,
+				array(
+					'title'       => $entry['title'],
+					'description' => $entry['description'],
+					'privacy'     => 'public',
+				)
+			);
+			if ( is_wp_error( $album_id ) || (int) $album_id <= 0 ) {
+				continue;
+			}
+
+			$album_id = (int) $album_id;
+			$albums->add_items( $album_id, $items );
+
+			// Switch the space's Media tab ON. Without it the album exists and is
+			// simply unreachable: the tab is gated on the per-space
+			// `mvs_media_tab` field, which defaults OFF, so the REST route answers
+			// media_tab_disabled and the web nav never renders the tab. Seeding
+			// content nobody can open is worse than seeding none - it looks like
+			// the feature is broken rather than switched off.
+			update_space_meta( $space_id, 'mvs_media_tab', '1' );
+			if ( method_exists( $albums, 'set_cover' ) ) {
+				$albums->set_cover( $album_id, (int) $items[0] );
+			}
+			Galleries::assign_album_to_space( $album_id, $space_id );
+
+			$manifest['albums'][] = $album_id;
+			++$made;
+		}
+
+		if ( $made > 0 ) {
+			$say( sprintf( 'Created %d space albums.', $made ) );
+		}
+	}
+
+	/**
+	 * Connect the site owner to the demo community.
+	 *
+	 * Without this the owner is a stranger on their own site. The whole roster
+	 * follows and connects in a ring among ITSELF, so after seeding the person
+	 * evaluating BuddyNext has an empty notification bell, no followers, nobody
+	 * followed, and a personalised home feed with nothing personal in it. The
+	 * community looks alive from every angle except theirs - which is the one
+	 * angle they are looking from.
+	 *
+	 * Everything goes through the real services, so each follow and request
+	 * fires its own notification exactly as a live one would; nothing is
+	 * inserted straight into bn_notifications.
+	 *
+	 * Two requests are left PENDING on purpose. An owner opening a fresh install
+	 * to "2 people want to connect" has something to DO, and it exercises the
+	 * accept/decline path that an all-accepted graph never shows.
+	 *
+	 * Cleanup needs no special case: wp_delete_user() on each demo member fires
+	 * UserCleanupListener, which purges their follows, connections and
+	 * notifications platform-wide, including the ones pointing at the owner.
+	 *
+	 * @param array<int,int>    $user_ids    Seeded member IDs.
+	 * @param FollowService     $follows     Follow service.
+	 * @param ConnectionService $connections Connection service.
+	 * @param callable          $say         Progress logger.
+	 */
+	private function seed_owner_relationships( array $user_ids, $follows, $connections, callable $say ): void {
+		$owner_id = $this->resolve_owner_id();
+		if ( $owner_id <= 0 || count( $user_ids ) < 8 ) {
+			return;
+		}
+
+		$say( 'Introducing the site owner to the community…' );
+
+		// Five members follow the owner: the bell has something in it.
+		foreach ( array_slice( $user_ids, 0, 5 ) as $member_id ) {
+			$follows->follow( $member_id, $owner_id );
+		}
+
+		// The owner follows four back, so Following is not empty and the
+		// personalised home feed actually has a reason to differ from Explore.
+		foreach ( array_slice( $user_ids, 2, 4 ) as $member_id ) {
+			$follows->follow( $owner_id, $member_id );
+		}
+
+		// One settled connection, so the Connections tab is not empty either.
+		$settled = $user_ids[0];
+		if ( true === $connections->send_request( $settled, $owner_id ) ) {
+			$connections->accept_request( $owner_id, $settled );
+		}
+
+		// Two still waiting on the owner.
+		foreach ( array_slice( $user_ids, 5, 2 ) as $member_id ) {
+			$connections->send_request( $member_id, $owner_id );
+		}
+	}
+
+	/**
+	 * The person who will be looking at this demo.
+	 *
+	 * Seeding runs from two places: the Tools screen, where the current user IS
+	 * the owner, and WP-CLI, where there is no current user at all. Falling back
+	 * to the first administrator keeps `wp buddynext demo seed` useful instead of
+	 * silently skipping the one member who matters.
+	 */
+	private function resolve_owner_id(): int {
+		$current = get_current_user_id();
+		if ( $current > 0 ) {
+			return $current;
+		}
+
+		$admins = get_users(
+			array(
+				'role'    => 'administrator',
+				'number'  => 1,
+				'orderby' => 'ID',
+				'order'   => 'ASC',
+				'fields'  => 'ID',
+			)
+		);
+
+		return empty( $admins ) ? 0 : (int) $admins[0];
+	}
+
+	/**
+	 * Give each member the topic categories they are interested in.
+	 *
+	 * Kept separate from the member loop because the field stores category IDs
+	 * and the categories do not exist until the spaces block has run.
+	 *
+	 * Saved through save_profile() - the same path the REST API and the profile
+	 * form use - so the values land in bn_profile_values, the caches clear, and
+	 * `buddynext_member_interests_updated` fires exactly as it would for a real
+	 * member. A direct INSERT would produce rows the suggestion engine reads but
+	 * no event any integration could observe.
+	 *
+	 * @param array<int,int>    $user_ids    Seeded member IDs, in MEMBERS order.
+	 * @param array<string,int> $cat_by_slug Category slug => ID.
+	 * @param object            $profiles    ProfileService.
+	 */
+	private function seed_member_interests( array $user_ids, array $cat_by_slug, $profiles ): void {
+		foreach ( $user_ids as $i => $user_id ) {
+			$slugs = self::MEMBERS[ $i ]['topics'] ?? array();
+			if ( empty( $slugs ) ) {
+				continue;
+			}
+
+			$ids = array();
+			foreach ( $slugs as $slug ) {
+				if ( isset( $cat_by_slug[ $slug ] ) ) {
+					$ids[] = (int) $cat_by_slug[ $slug ];
+				}
+			}
+			if ( empty( $ids ) ) {
+				continue;
+			}
+
+			$profiles->save_profile( $user_id, array( 'interests' => $ids ) );
+		}
 	}
 
 	/**
@@ -1267,6 +1904,19 @@ class DemoDataService {
 			}
 		}
 
+		// Space albums. The media inside them is deleted separately above; this
+		// removes the album post itself, which would otherwise survive as an
+		// empty collection pointing at a space that is about to be deleted too.
+		$demo_albums = array_values( array_filter( array_map( 'intval', (array) ( $manifest['albums'] ?? array() ) ) ) );
+		if ( ! empty( $demo_albums ) ) {
+			$say( 'Removing space albums…' );
+			foreach ( $demo_albums as $album_id ) {
+				if ( 'mvs_album' === get_post_type( $album_id ) ) {
+					wp_delete_post( $album_id, true );
+				}
+			}
+		}
+
 		// Spaces (and their per-owner image folders).
 		$say( 'Removing spaces…' );
 		foreach ( (array) ( $manifest['spaces'] ?? array() ) as $space_id ) {
@@ -1379,7 +2029,7 @@ class DemoDataService {
 	/**
 	 * Create a single demo member, flagged for safe cleanup.
 	 *
-	 * @param array<string,string> $member Roster entry.
+	 * @param array<string,string|array<int,string>|array<string,string>> $member Roster entry.
 	 * @return int New user ID, or 0 on failure / already-exists.
 	 */
 	private function create_member( array $member ): int {

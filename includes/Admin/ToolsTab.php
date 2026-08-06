@@ -152,17 +152,56 @@ class ToolsTab {
 				<span class="bn-ss-title"><?php esc_html_e( 'Object cache', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
+				<?php
+				/**
+				 * Filter the member count above which a missing object cache is worth
+				 * warning about.
+				 *
+				 * @since 1.1.2
+				 *
+				 * @param int $threshold Member count. Default 2000.
+				 */
+				$bn_oc_threshold = (int) apply_filters( 'buddynext_object_cache_warn_threshold', 2000 );
+				$bn_oc_users     = (int) ( count_users()['total_users'] ?? 0 );
+				?>
 				<?php if ( wp_using_ext_object_cache() ) : ?>
 					<p class="bn-av-section-desc">
 						<?php esc_html_e( 'Status: a persistent object cache is active. BuddyNext\'s cached values (member directory, counts, lists) survive between requests — this is the recommended setup at scale.', 'buddynext' ); ?>
 					</p>
-				<?php else : ?>
+				<?php elseif ( $bn_oc_users >= $bn_oc_threshold ) : ?>
 					<div class="notice notice-warning inline">
 						<p>
 							<strong><?php esc_html_e( 'No persistent object cache detected.', 'buddynext' ); ?></strong>
-							<?php esc_html_e( 'BuddyNext caching still works within a single page load, but cached values are not shared between requests. For a large community (thousands of active members) install a persistent object cache — Redis or Memcached — so the member directory, online list, and counts stay fast.', 'buddynext' ); ?>
+							<?php
+							printf(
+								/* translators: %s: formatted member count. */
+								esc_html__( 'This site has %s members. BuddyNext caching still works within a single page load, but cached values are not shared between requests, so unread counts, the member directory and feed page 1 hit the database on every request. Install a persistent object cache — Redis or Memcached — to keep them fast.', 'buddynext' ),
+								esc_html( number_format_i18n( $bn_oc_users ) )
+							);
+							?>
 						</p>
 					</div>
+				<?php else : ?>
+					<?php
+					// Below the threshold this is information, not a problem.
+					//
+					// The warning used to fire on every install without a persistent
+					// cache, including a 20-member site where it changes nothing
+					// measurable. That is the noise the request explicitly asked us not
+					// to create: a health check that cries wolf on small sites is a
+					// health check people stop reading, and then it fails to land on the
+					// site that actually needed it.
+					?>
+					<p class="bn-av-section-desc">
+						<?php
+						printf(
+							/* translators: 1: formatted member count, 2: formatted threshold. */
+							esc_html__( 'No persistent object cache is installed. At %1$s members that is fine — BuddyNext caches within each page load. Past roughly %2$s members a persistent cache (Redis or Memcached) becomes the recommended setup, and this panel will say so.', 'buddynext' ),
+							esc_html( number_format_i18n( $bn_oc_users ) ),
+							esc_html( number_format_i18n( $bn_oc_threshold ) )
+						);
+						?>
+					</p>
 				<?php endif; ?>
 			</div>
 		</div>

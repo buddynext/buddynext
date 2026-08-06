@@ -2428,15 +2428,24 @@ async function executeSpacesFilter() {
 		// Clear current grid contents.
 		while ( grid.firstChild ) { grid.removeChild( grid.firstChild ); }
 
+		// NO early return on the empty branch. Everything below - the URL state
+		// and the pager rebuild - has to run for a zero-result filter too.
+		//
+		// It used to return here, which left the SSR pager from the unfiltered
+		// page sitting under the "no spaces match" empty state, still offering
+		// 1 2 3 ... 5 Next. A member reads that as "there are results, they are
+		// on the other pages", and clicking page 2 reloads the unfiltered list
+		// server-side, so their search silently disappears. The same return also
+		// skipped the history update, so a zero-result search was lost on reload
+		// rather than being a shareable URL like every other filter state.
 		if ( 0 === rows.length ) {
 			setDirectoryUiState( 'empty' );
-			return;
+		} else {
+			for ( var i = 0; i < rows.length; i++ ) {
+				grid.appendChild( buildSpaceCard( rows[ i ] ) );
+			}
+			setDirectoryUiState( 'ready' );
 		}
-
-		for ( var i = 0; i < rows.length; i++ ) {
-			grid.appendChild( buildSpaceCard( rows[ i ] ) );
-		}
-		setDirectoryUiState( 'ready' );
 
 		// Update URL state without reload for shareable links. Scope + category
 		// are written as bn_scope / bn_cat (slug) so a reload re-renders the same

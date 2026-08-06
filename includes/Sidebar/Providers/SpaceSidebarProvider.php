@@ -290,6 +290,49 @@ class SpaceSidebarProvider {
 	}
 
 	/**
+	 * Render a sidebar member avatar: the member's photo when they have one,
+	 * their initials when they do not.
+	 *
+	 * All three lists in this sidebar (Owner/Mods, Members, Top Contributors)
+	 * printed initials unconditionally - they only ever called
+	 * AvatarService::initials_for() and never asked for an image. The member
+	 * directory and the sibling MembersSidebarProvider both resolve a real photo,
+	 * so the same member rendered as a photo in one widget and a coloured monogram
+	 * in another on the same page.
+	 *
+	 * Resolved through core's get_avatar_url(), which is what every other caller
+	 * in the plugin uses and what AvatarService hooks (`pre_get_avatar_data`), so a
+	 * BuddyNext-uploaded avatar, a Gravatar and anything a third party filters in
+	 * all work without this knowing the difference. The initials stay as the
+	 * fallback, which is why the tone attribute is still emitted.
+	 *
+	 * @param int    $user_id WordPress user ID.
+	 * @param string $name    Display name, used for the initials fallback.
+	 * @return void
+	 */
+	private function render_member_avatar( int $user_id, string $name ): void {
+		$url = $user_id > 0 ? (string) get_avatar_url( $user_id, array( 'size' => 40 ) ) : '';
+		?>
+		<span class="bn-avatar bn-sh-side-member__avatar"
+			data-size="sm"
+			data-tone="<?php echo esc_attr( $this->avatar_tone( $user_id ) ); ?>"
+			aria-hidden="true"
+		><?php if ( '' !== $url ) : ?>
+			<img
+				src="<?php echo esc_url( $url ); ?>"
+				alt=""
+				width="40"
+				height="40"
+				loading="lazy"
+				decoding="async"
+			>
+		<?php else : ?>
+			<?php echo esc_html( AvatarService::initials_for( $name ) ); ?>
+		<?php endif; ?></span>
+		<?php
+	}
+
+	/**
 	 * The moderators card title, computed from the roles ACTUALLY present in
 	 * $mods rather than assumed — an owner-less fetch must not be titled "Owner".
 	 *
@@ -485,17 +528,12 @@ class SpaceSidebarProvider {
 				<?php
 				$mod_uid   = (int) $mod->user_id;
 				$mod_name  = $mod->display_name ?? __( 'Member', 'buddynext' );
-				$mod_init  = AvatarService::initials_for( (string) $mod_name );
 				$mod_url   = PageRouter::profile_url( $mod_uid );
 				$mod_owner = 'owner' === $mod->role;
 				?>
 				<li class="bn-sh-side-member bn-sh-side-mod">
 					<a class="bn-sh-side-mod__id" href="<?php echo esc_url( $mod_url ); ?>">
-						<span class="bn-avatar bn-sh-side-member__avatar"
-							data-size="sm"
-							data-tone="<?php echo esc_attr( $this->avatar_tone( $mod_uid ) ); ?>"
-							aria-hidden="true"
-						><?php echo esc_html( $mod_init ); ?></span>
+						<?php $this->render_member_avatar( $mod_uid, (string) $mod_name ); ?>
 						<span class="bn-sh-side-member__name">
 							<?php echo esc_html( $mod_name ); ?>
 							<span class="bn-badge" data-tone="<?php echo $mod_owner ? 'paid' : 'accent'; ?>">
@@ -541,16 +579,11 @@ class SpaceSidebarProvider {
 				<?php
 				$uid   = (int) $m->user_id;
 				$mname = $m->display_name ?? __( 'Member', 'buddynext' );
-				$init  = AvatarService::initials_for( (string) $mname );
 				$murl  = PageRouter::profile_url( $uid );
 				?>
 				<li class="bn-sh-side-member">
 					<a class="bn-sh-side-member__id" href="<?php echo esc_url( $murl ); ?>">
-						<span class="bn-avatar bn-sh-side-member__avatar"
-							data-size="sm"
-							data-tone="<?php echo esc_attr( $this->avatar_tone( $uid ) ); ?>"
-							aria-hidden="true"
-						><?php echo esc_html( $init ); ?></span>
+						<?php $this->render_member_avatar( $uid, (string) $mname ); ?>
 						<span class="bn-sh-side-member__name">
 							<?php echo esc_html( $mname ); ?>
 						</span>
@@ -574,17 +607,12 @@ class SpaceSidebarProvider {
 				<?php
 				$cuid  = (int) $c->user_id;
 				$cname = $c->display_name ?? __( 'Member', 'buddynext' );
-				$cinit = AvatarService::initials_for( (string) $cname );
 				$curl  = PageRouter::profile_url( $cuid );
 				?>
 				<li class="bn-sh-side-member">
 					<span class="bn-sh-side-member__rank"><?php echo esc_html( (string) ( $rank + 1 ) ); ?></span>
 					<a class="bn-sh-side-member__id" href="<?php echo esc_url( $curl ); ?>">
-						<span class="bn-avatar bn-sh-side-member__avatar"
-							data-size="sm"
-							data-tone="<?php echo esc_attr( $this->avatar_tone( $cuid ) ); ?>"
-							aria-hidden="true"
-						><?php echo esc_html( $cinit ); ?></span>
+						<?php $this->render_member_avatar( $cuid, (string) $cname ); ?>
 						<span class="bn-sh-side-member__name"><?php echo esc_html( $cname ); ?></span>
 					</a>
 					<span class="bn-sh-side-member__count">

@@ -96,8 +96,21 @@ if ( ! empty( $bn_context_items ) ) :
 <?php endif; ?>
 
 <?php
-if ( $bn_nav_current_user ) :
-	?>
+// The bar renders for EVERY visitor, not only members.
+//
+// It used to be wrapped in `if ( $bn_nav_current_user )`. Combined with
+// bn-shell.css hiding `.bn-app__rail` at `max-width: 768px`, that left a
+// logged-out visitor on a phone or an iPad in portrait with no BuddyNext
+// navigation on screen at all — only the host theme's hamburger. The rail is
+// the desktop nav and the bar is its mobile replacement, so gating the
+// replacement on login removed the only nav a guest had.
+//
+// Membership is now decided per SLOT below (Create / Alerts / Profile need an
+// account; Feed / Spaces do not), which is the level the distinction actually
+// belongs at. The `--bn-mobile-nav-clearance` padding in bn-shell.css was
+// already applied for guests, so this also removes the band of dead space that
+// was being reserved for a bar that never rendered.
+?>
 	<?php
 	// Curated 5-slot bottom bar. Kept data-driven so Settings → Navigation
 	// (mobile scope) can hide/relabel the slots whose slug it controls
@@ -136,12 +149,16 @@ if ( $bn_nav_current_user ) :
 			'label' => __( 'Spaces', 'buddynext' ),
 			'show'  => $bn_spaces_enabled,
 		),
+		// Composing, alerts and a profile all require an account. Shown only to
+		// members; a guest gets the public slots plus a Log in action instead, so
+		// the bar never offers a control that fails at the click (the same rule
+		// that removed the guest-visible "Create a space" button).
 		array(
 			'key'   => 'create',
 			'url'   => $bn_nav_urls['feed'] . '?compose=1',
 			'icon'  => 'plus',
 			'label' => __( 'Create post', 'buddynext' ),
-			'show'  => true,
+			'show'  => $bn_nav_current_user > 0,
 			'type'  => 'create',
 		),
 		array(
@@ -149,16 +166,32 @@ if ( $bn_nav_current_user ) :
 			'url'         => $bn_nav_urls['notifications'],
 			'icon'        => 'bell',
 			'label'       => __( 'Alerts', 'buddynext' ),
-			'show'        => true,
+			'show'        => $bn_nav_current_user > 0,
 			'badge'       => true,
 			'badge_count' => $bn_unread_notifs,
+		),
+		array(
+			'key'   => 'members',
+			'url'   => $bn_nav_urls['members'],
+			'icon'  => 'users',
+			'label' => __( 'Members', 'buddynext' ),
+			// Guests only: takes the slot Create vacates so the bar does not
+			// collapse to two items. Members reach the directory from the rail.
+			'show'  => 0 === $bn_nav_current_user,
 		),
 		array(
 			'key'   => 'profile',
 			'url'   => PageRouter::profile_url( $bn_nav_current_user ),
 			'icon'  => 'user',
 			'label' => __( 'Profile', 'buddynext' ),
-			'show'  => true,
+			'show'  => $bn_nav_current_user > 0,
+		),
+		array(
+			'key'   => 'login',
+			'url'   => PageRouter::auth_url(),
+			'icon'  => 'log-in',
+			'label' => __( 'Log in', 'buddynext' ),
+			'show'  => 0 === $bn_nav_current_user,
 		),
 	);
 
@@ -299,4 +332,3 @@ if ( $bn_nav_current_user ) :
 		</ul>
 	</div>
 	<?php endif; ?>
-<?php endif; ?>

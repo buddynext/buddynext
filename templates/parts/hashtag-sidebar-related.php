@@ -71,7 +71,22 @@ $bn_following_map = (array) $args['following_map'];
 
 do_action( 'buddynext_part_hashtag_sidebar_related_before', $args );
 ?>
-<div class="<?php echo esc_attr( $bn_class ); ?>">
+<?php
+/*
+ * Declares its own island.
+ *
+ * The follow buttons below carry buddynext/feed directives, but this partial is
+ * rendered by HashtagSidebarProvider into aside.bn-app__right — outside the feed
+ * island entirely. The Interactivity API only hydrates directives that sit
+ * INSIDE an island, so every one of them was inert markup: no click handler, no
+ * request, no state. The buttons looked live and did nothing at all.
+ *
+ * Several islands may share one namespace and one store, so naming the feed
+ * here wires these controls to the same actions the feed already registers,
+ * without moving the sidebar into the feed's DOM.
+ */
+?>
+<div class="<?php echo esc_attr( $bn_class ); ?>" data-wp-interactive="buddynext/feed">
 	<h2 class="bn-sidebar-widget__title"><?php esc_html_e( 'Related hashtags', 'buddynext' ); ?></h2>
 	<ul class="bn-hashtag-related">
 		<?php
@@ -104,10 +119,16 @@ do_action( 'buddynext_part_hashtag_sidebar_related_before', $args );
 					// Each chip carries its own reactive context so the follow
 					// toggle re-renders class / aria-pressed / label off the one
 					// ctx.following value (no querySelectorAll paint loop).
+					// restNonce is REQUIRED, not decorative: toggleFollowHashtag's first
+					// line is `if ( ! ctx || ! ctx.restNonce ) { return; }`, so a context
+					// without it makes the action a no-op — the button renders, takes the
+					// click, and silently does nothing. The feed island passes one; this
+					// partial renders outside it, so it must supply its own.
 					$rel_ctx = wp_json_encode(
 						array(
 							'hashtag'   => $rel_slug,
 							'following' => $rel_following,
+							'restNonce' => wp_create_nonce( 'wp_rest' ),
 						)
 					);
 					?>

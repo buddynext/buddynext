@@ -372,6 +372,17 @@ class MediaController extends BaseRestController {
 			return $media_id;
 		}
 
+		// A video the engine cannot extract an embedded poster from otherwise shows
+		// the bundled default poster in the feed, even though the composer already
+		// captured a real frame. When the client posts that frame as a `thumbnail`
+		// file, stage it through the engine so the feed and Explore use it — the same
+		// mechanism WPMediaVerse's own upload endpoint uses. Best-effort; a genuine
+		// engine poster always wins (see MediaClient::apply_client_poster()).
+		$thumb_file = $request->get_file_params()['thumbnail'] ?? null;
+		if ( is_array( $thumb_file ) && ! empty( $thumb_file['tmp_name'] ) && empty( $thumb_file['error'] ) ) {
+			MediaClient::apply_client_poster( (int) $media_id, (string) $thumb_file['tmp_name'] );
+		}
+
 		$descriptor = MediaUrlResolver::descriptor( (int) $media_id );
 
 		$duplicate_id = method_exists( $upload, 'get_last_duplicate_warning' )
@@ -908,7 +919,17 @@ class MediaController extends BaseRestController {
 			return $gate;
 		}
 
-		$update = array( 'ID' => $album_id );
+		// An album is a WPMediaVerse post type (mvs_album); WPMediaVerse owns its
+		// storage. This used to build a wp_update_post() array here and write the
+		// description to post_excerpt - a key WPMediaVerse never reads. Its own
+		// AlbumService::create() writes post_content and its REST reader takes
+		// post_content, so a description typed in BuddyNext was stored somewhere
+		// nothing would look, and came back blank on the very next read.
+		//
+		// Route the write through the owner's service instead. It maps
+		// description -> post_content in one place, so the two plugins cannot drift
+		// apart again, and it only writes the keys actually supplied.
+		$album_fields = array();
 
 		$title = $request->get_param( 'title' );
 		if ( null !== $title ) {
@@ -916,16 +937,38 @@ class MediaController extends BaseRestController {
 			if ( '' === $title ) {
 				return new WP_Error( 'bn_album_title_required', __( 'An album needs a name.', 'buddynext' ), array( 'status' => 422 ) );
 			}
-			$update['post_title'] = $title;
+			$album_fields['title'] = $title;
 		}
 
 		$desc = $request->get_param( 'description' );
 		if ( null !== $desc ) {
-			$update['post_excerpt'] = sanitize_textarea_field( (string) $desc );
+			$album_fields['description'] = sanitize_textarea_field( (string) $desc );
 		}
 
-		if ( count( $update ) > 1 ) {
-			wp_update_post( $update );
+		if ( ! empty( $album_fields ) ) {
+			$album_service = class_exists( '\\WPMediaVerse\\Core\\Plugin' )
+				? \WPMediaVerse\Core\Plugin::container()->get( 'albums' )
+				: null;
+
+			if ( is_object( $album_service ) && method_exists( $album_service, 'update' ) ) {
+				$saved = $album_service->update( $album_id, $album_fields );
+				if ( is_wp_error( $saved ) ) {
+					return $saved;
+				}
+			} else {
+				// WPMediaVerse absent or older than the release that added
+				// AlbumService::update(). Write the same fields it would, so the
+				// mapping still matches its reader rather than reverting to the
+				// post_excerpt key that caused this.
+				$fallback = array( 'ID' => $album_id );
+				if ( isset( $album_fields['title'] ) ) {
+					$fallback['post_title'] = $album_fields['title'];
+				}
+				if ( isset( $album_fields['description'] ) ) {
+					$fallback['post_content'] = $album_fields['description'];
+				}
+				wp_update_post( $fallback );
+			}
 		}
 
 		// A SPACE album has no privacy of its own: its audience is the space's, and

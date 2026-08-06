@@ -38,7 +38,8 @@ $current_user_id = get_current_user_id();
  * pages and to six pages so a crafted URL cannot ask for an unbounded render.
  */
 $bn_bm_page_size = 15;
-$bn_bm_max_shown = $bn_bm_page_size * 6;
+// Six pages, capped by what one feed read returns - see templates/feed/home.php.
+$bn_bm_max_shown = min( $bn_bm_page_size * 6, \BuddyNext\Feed\FeedService::MAX_PER_PAGE );
 $bn_bm_raw_shown = isset( $_GET['shown'] ) ? absint( wp_unslash( $_GET['shown'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_bm_shown     = max(
 	$bn_bm_page_size,
@@ -115,18 +116,41 @@ $bn_bm_rest_nonce = wp_create_nonce( 'wp_rest' );
 			<?php endforeach; ?>
 		</div>
 
-		<?php if ( $bn_bm_has_more && '' !== $bn_bm_next_cursor ) : ?>
+		<?php if ( $bn_bm_has_more && '' !== $bn_bm_next_cursor && $bn_bm_shown < $bn_bm_max_shown ) : ?>
 			<?php
+			$bn_bm_more_args = array( 'shown' => $bn_bm_shown + $bn_bm_page_size );
+
+			// Keep the cursor while growing, or a member reading a continuation
+			// page is thrown back to their newest bookmarks. Same rule as the
+			// activity feed.
+			if ( '' !== $bn_bm_raw_cursor ) {
+				$bn_bm_more_args['cursor'] = rawurlencode( $bn_bm_raw_cursor );
+			}
+
 			buddynext_get_template(
 				'parts/feed-load-more.php',
-				array(
-					'more_url' => add_query_arg(
-						array( 'shown' => $bn_bm_shown + $bn_bm_page_size ),
-						PageRouter::bookmarks_url()
-					),
-				)
+				array( 'more_url' => add_query_arg( $bn_bm_more_args, PageRouter::bookmarks_url() ) )
 			);
 			?>
+		<?php elseif ( $bn_bm_has_more && '' !== $bn_bm_next_cursor ) : ?>
+			<?php
+			/*
+			 * The render ceiling, not the end. Growing one page forever re-renders
+			 * everything on every click, so past the ceiling the member continues on
+			 * a fresh page from the cursor. Deliberately NOT the Load-more control:
+			 * that grows `shown`, which is clamped here, so it would re-render the
+			 * same bookmarks and appear broken.
+			 */
+			$bn_bm_next_url = add_query_arg(
+				array( 'cursor' => rawurlencode( $bn_bm_next_cursor ) ),
+				PageRouter::bookmarks_url()
+			);
+			?>
+			<div class="bn-load-more bn-load-more--next-page">
+				<a class="bn-btn bn-load-more__btn" href="<?php echo esc_url( $bn_bm_next_url ); ?>">
+					<?php esc_html_e( 'Older bookmarks', 'buddynext' ); ?>
+				</a>
+			</div>
 		<?php else : ?>
 			<div class="bn-feed-end" role="status">
 				<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>

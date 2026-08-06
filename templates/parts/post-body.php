@@ -164,6 +164,20 @@ do_action( 'buddynext_part_post_body_before', $args );
 		<?php endif; ?>
 		<?php
 		$bn_oembed = ( '' !== $bn_link_url ) ? \BuddyNext\Feed\PostService::oembed_html( $bn_link_url ) : '';
+
+		// Does this embed actually contain a PLAYER? Only a real provider iframe or
+		// a <video> can fail silently and need the fallback layer below. Plenty of
+		// providers return no player at all: WordPress' own internal-post embeds
+		// (.wp-embedded-content), and the blockquote-plus-script embeds used by X,
+		// Instagram and Reddit. Those carry their own visible fallback markup, so
+		// painting a "video did not load" backdrop behind them is both wrong copy
+		// and - because the CSS only anchors the RICH variant - an absolutely
+		// positioned layer with no positioned ancestor, which escapes to .bn-app
+		// and covers the entire feed. Mirrors the :has() selectors in bn-feed.css.
+		$bn_oembed_has_player = ( '' !== $bn_oembed )
+			&& ( false !== stripos( $bn_oembed, '<video' )
+				|| 1 === preg_match( '#<iframe\b(?![^>]*\bwp-embedded-content\b)#i', $bn_oembed ) );
+
 		if ( '' !== $bn_oembed ) :
 			?>
 			<div class="bn-post-card__embed bn-post-card__oembed">
@@ -179,6 +193,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 				// nothing. Deleted/region-locked videos render the provider's own
 				// error UI and never reach this layer.
 				?>
+				<?php if ( $bn_oembed_has_player ) : ?>
 				<a
 					class="bn-post-card__oembed-fallback"
 					href="<?php echo esc_url( $bn_link_url ); ?>"
@@ -190,6 +205,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 					<?php echo \BuddyNext\Core\IconService::render( 'play' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					<span><?php esc_html_e( 'Video did not load — watch it on the original site', 'buddynext' ); ?></span>
 				</a>
+				<?php endif; ?>
 				<?php echo $bn_oembed; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress oEmbed HTML from the registered-provider allowlist. ?>
 			</div>
 		<?php elseif ( '' !== $bn_link_url ) : ?>

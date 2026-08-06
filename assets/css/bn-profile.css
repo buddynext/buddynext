@@ -1033,6 +1033,40 @@
 	max-width: 540px;
 	margin-block-end: var(--bn-s3);
 }
+/* Collapsed bio.
+ *
+ * The bio renders in full in the hero and nowhere else (the About panel skips it
+ * by design), so an unbounded one pushed the tabs and all profile content below
+ * the fold: measured 883px of hero for a ~1000-char bio against 496px with none.
+ *
+ * The clamp is applied by JS, not by default, and that is deliberate. Clamping in
+ * CSS and relying on JS for the toggle would hide the tail of the bio outright
+ * for anyone whose JS fails — content loss. Rendering it open and collapsing only
+ * once the control exists degrades the right way.
+ *
+ * -webkit-line-clamp is the interoperable spelling; every browser we support
+ * implements it under the -webkit- prefix including Firefox. */
+.bn-pf-bio[data-bn-clamped="1"] {
+	display: -webkit-box;
+	-webkit-line-clamp: 4;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.bn-pf-bio__toggle {
+	display: inline-block;
+	margin-block-start: var(--bn-s1);
+	padding: 0;
+	background: none;
+	border: 0;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium, 500);
+	color: var(--bn-accent);
+	cursor: pointer;
+}
+.bn-pf-bio__toggle:hover,
+.bn-pf-bio__toggle:focus-visible {
+	text-decoration: underline;
+}
 .bn-pf-meta {
 	display: flex;
 	flex-wrap: wrap;
@@ -2853,6 +2887,12 @@ a.bn-space-row:hover .bn-space-name {
 	border-bottom: 1px solid var(--bn-line-faint);
 }
 .bn-pf-detail:last-child { border-bottom: none; }
+/* A row whose label was suppressed because it only repeated the card heading
+   (a single-field group named after its own field). Without this the lone value
+   would land in the narrow label column of the two-column grid above. */
+.bn-pf-detail--unlabelled {
+	grid-template-columns: 1fr;
+}
 .bn-pf-detail__label {
 	margin: 0;
 	font-weight: var(--bn-fw-medium, 500);

@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.1
+Stable tag: 1.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,39 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.1.2 - August 2026 =
+
+Link posts were the headline problem: pasting a link could hang the composer on "Posting..." and no preview card ever appeared. Both had one cause, and it is fixed. Also a post permalink that opened with its comments hidden, member cards that ignored uploaded cover photos, and two privacy holes.
+
+* New      - Composer media previews are real for images, video and audio, so you see what you are about to post rather than a generic tile.
+* New      - Explore renders audio and video as typed cards with a real video poster, instead of a broken image frame.
+* New      - A long profile bio collapses behind Show more rather than pushing the rest of the profile down the page.
+* Improve  - The feed loads past 50 posts.
+* Improve  - Link preview cards now appear while you type, and the post itself never waits on the linked site to answer.
+* Improve  - The composer audience popover, the comment reaction picker and the mobile touch targets stay on screen at phone widths.
+* Improve  - The hashtag sidebar works, and no longer offers Follow twice.
+* Improve  - Demo content introduces the site owner to their own community, fills a whole profile, and gives spaces a believable membership spread.
+* Improve  - The object-cache admin warning is sized to the site rather than shown to everyone.
+* Fix      - Posting a link could hang forever on "Posting...". Saving a post no longer depends on the linked site answering; the preview is fetched in the background and fills in when it arrives.
+* Fix      - Link preview cards never rendered in the composer. Same root cause as the hang: a DNS lookup that could block for 60 seconds per call.
+* Fix      - Link cards lost the first letters of the domain, showing "bcomdesigns.com" for wbcomdesigns.com.
+* Fix      - A post permalink opened with the entire comment thread hidden, including when a notification linked you straight to it.
+* Fix      - Member directory cards showed a placeholder gradient instead of the member's uploaded cover photo.
+* Fix      - Pressing n reloaded the page instead of focusing the composer already on it.
+* Fix      - A zero-result search left the unfiltered pager sitting under the empty state.
+* Fix      - Members could overwrite a member type the community had assigned them, and a profile could refuse to save when the type field was not submittable.
+* Fix      - A failed embed no longer blanks the feed around it.
+* Fix      - Offline mode no longer answers API requests with the offline page.
+* Fix      - Turning on plugin isolation no longer silently deletes navigation menu items.
+* Fix      - A one-to-one conversation with nobody on the other end renders instead of erroring.
+* Fix      - Six REST defects found in mobile-app triage, covering fields the app reads on the profile and connection blocks.
+* Fix      - Notification and digest frequency settings save the value you chose.
+* Security - A discussion created for a private or secret space was world-readable. Existing discussions are realigned with their space's privacy by wp buddynext repair-discussion-visibility.
+* Security - Logged-out visitors were granted every capability by a permission check that returned early.
+* Dev      - German ships complete, and the shipped-languages claim is enforced by the build.
+* Dev      - The REST catalogue takes its version from the plugin, so the published spec can no longer lag a release.
+* Compat   - Ships in lockstep with BuddyNext Pro 1.1.2. Install and test both together.
 
 = 1.1.1 - August 2026 =
 

@@ -57,7 +57,8 @@ $explore_cursor = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_
  * free-internal/docs/plans/feed-hydrated-pagination-2026-07-24.md
  */
 $bn_explore_page_size = 12;
-$bn_explore_max_shown = $bn_explore_page_size * 6;
+// Six pages, capped by what one feed read returns - see templates/feed/home.php.
+$bn_explore_max_shown = min( $bn_explore_page_size * 6, \BuddyNext\Feed\FeedService::MAX_PER_PAGE );
 $bn_explore_raw_shown = isset( $_GET['shown'] ) ? absint( wp_unslash( $_GET['shown'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_explore_shown     = max(
 	$bn_explore_page_size,
@@ -253,14 +254,34 @@ $bn_explore_filters = array(
 		</div>
 
 		<!-- Load more: a real link the router upgrades to an in-place region swap -->
-		<?php if ( $bn_next_cursor ) : ?>
+		<?php if ( $bn_next_cursor && $bn_explore_shown < $bn_explore_max_shown ) : ?>
 			<?php
+			// The cursor is KEPT while growing. Stripping it sent a member reading a
+			// continuation page back to the newest cards - the ones they had already
+			// scrolled past to get there.
 			$bn_explore_more_url = add_query_arg(
-				array( 'shown' => $bn_explore_shown + $bn_explore_page_size ),
-				remove_query_arg( 'cursor' )
+				array( 'shown' => $bn_explore_shown + $bn_explore_page_size )
 			);
 			?>
 			<?php buddynext_get_template( 'parts/feed-load-more.php', array( 'more_url' => $bn_explore_more_url ) ); ?>
+		<?php elseif ( $bn_next_cursor ) : ?>
+			<?php
+			/*
+			 * The render ceiling, not the end. Past it the member continues on a fresh
+			 * page from the cursor, so the render stays bounded while the reach does
+			 * not. Not the Load-more control: that grows `shown`, which is clamped
+			 * here, so it would re-render the same cards and read as broken.
+			 */
+			$bn_explore_next_url = add_query_arg(
+				array( 'cursor' => rawurlencode( (string) $bn_next_cursor ) ),
+				remove_query_arg( 'shown' )
+			);
+			?>
+			<div class="bn-load-more bn-load-more--next-page">
+				<a class="bn-btn bn-load-more__btn" href="<?php echo esc_url( $bn_explore_next_url ); ?>">
+					<?php esc_html_e( 'Older posts', 'buddynext' ); ?>
+				</a>
+			</div>
 		<?php elseif ( ! empty( $bn_cards ) ) : ?>
 			<div class="bn-feed-end" role="status">
 				<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>

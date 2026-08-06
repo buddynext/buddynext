@@ -185,6 +185,12 @@ class Plugin {
 			// a deleted user); succession only guards deletions from now on.
 			\WP_CLI::add_command( 'buddynext repair-space-owners', \BuddyNext\Spaces\SpaceOwnerRepairCommand::class );
 
+			// Discussions provisioned before visibility was derived from the
+			// space type were created world-readable whatever the space was.
+			// A one-off sweep, not an activation migration: it changes who can
+			// READ existing content, so an owner runs it deliberately.
+			\WP_CLI::add_command( 'buddynext repair-discussion-visibility', \BuddyNext\Bridges\DiscussionVisibilityRepairCommand::class );
+
 			// Handles imported from another platform can hold characters mentions
 			// cannot parse (an email in user_nicename), leaving the member silently
 			// unmentionable. `check` reports them; `repair` normalises them to
@@ -399,6 +405,11 @@ class Plugin {
 		// Pro). Posts created with a future scheduled_at publish via a single
 		// cron event armed at their due time — no perpetual poll.
 		\BuddyNext\Feed\ScheduledPostsPublisher::register();
+
+		// Wire the async link-preview worker. A link post is saved without its
+		// preview and the scrape runs here, off the member's request — see
+		// PostService::dispatch_link_meta() for why this one has no inline fallback.
+		\BuddyNext\Feed\PostService::register_async();
 
 		// Wire moderation notification/email handlers and daily cron alert.
 		( new ModerationListener() )->register();

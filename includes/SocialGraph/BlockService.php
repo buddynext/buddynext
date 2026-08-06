@@ -449,6 +449,70 @@ class BlockService {
 	}
 
 	/**
+	 * Restrict lists for several users at once, in one query.
+	 *
+	 * The batched form of restricted_users(). Per-user caching already spares a page
+	 * whose posts share an author, but a page of twenty different authors is twenty
+	 * cold reads on the first view — and the first view is exactly what a cold object
+	 * cache serves worst.
+	 *
+	 * Every requested id resolves, including users with nothing restricted, so callers
+	 * read the map directly. Results are written into the same per-user cache keys
+	 * restricted_users() reads, so a later single-user call is a hit rather than a
+	 * second trip for data this already fetched.
+	 *
+	 * @param int[] $user_ids Users whose restrict lists are wanted.
+	 * @return array<int,int[]> user_id => restricted user ids.
+	 */
+	public function restricted_users_map( array $user_ids ): array {
+		$user_ids = array_values( array_unique( array_filter( array_map( 'absint', $user_ids ) ) ) );
+		if ( empty( $user_ids ) ) {
+			return array();
+		}
+
+		$map     = array();
+		$missing = array();
+		foreach ( $user_ids as $uid ) {
+			$cached = wp_cache_get( "restricted_users_{$uid}", self::CACHE_GROUP );
+			if ( false !== $cached ) {
+				$map[ $uid ] = (array) $cached;
+				continue;
+			}
+			$map[ $uid ] = array();
+			$missing[]   = $uid;
+		}
+
+		if ( empty( $missing ) ) {
+			return $map;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $missing ), '%d' ) );
+		$sql          = "SELECT blocker_id, blocked_id
+			 FROM {$wpdb->prefix}bn_blocks
+			 WHERE blocker_id IN ({$placeholders}) AND type = 'restrict'
+			 ORDER BY created_at DESC";
+
+		// $placeholders is a run of %d built from a counted int array, so the query is
+		// fully placeholdered and every value below is bound; the sniffs cannot see that.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, ...$missing ), ARRAY_A );
+
+		foreach ( (array) $rows as $row ) {
+			$map[ (int) $row['blocker_id'] ][] = (int) $row['blocked_id'];
+		}
+
+		// Warm the same keys the single-user reader uses, including the empty ones —
+		// an unrestricted user is a fact worth caching, not a miss to repeat.
+		foreach ( $missing as $uid ) {
+			wp_cache_set( "restricted_users_{$uid}", $map[ $uid ], self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Return true when the target user appears online to the given viewer.
 	 *
 	 * Single seam for the four surfaces that decide whether to render a
