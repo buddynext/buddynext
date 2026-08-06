@@ -65,8 +65,12 @@ test.describe('profile / edit', () => {
     // renders no form control at all - so this is an UNBUILT feature, not a stale
     // selector. Left failing-by-declaration rather than deleted, so it stays
     // visible: either build the picker or retire J-36 from the catalogue.
-    test.fixme(true, 'J-36 brand-hue picker does not exist in Free or Pro - unbuilt, see spec comment.');
-    test('J-36 theme picker (Pro) applies brand hue', async ({ authenticatedPage: page }, testInfo) => {
+    // NOTE the form: `test.fixme(...)` as a bare statement inside a describe
+    // marks EVERY test in the group as fixme, not the one that follows it. It
+    // was written that way here, so all eight profile/edit tests silently
+    // stopped running - the suite reported "8 skipped" and read as deliberate.
+    // Marking the single test is `test.fixme('name', fn)`.
+    test.fixme('J-36 theme picker (Pro) applies brand hue', async ({ authenticatedPage: page }) => {
         await page.goto(urls.settingsAppearance);
         const picker = page.locator('[data-field="brand-hue"], [name="bn_brand_hue"]').first();
         await expect(picker).toBeVisible();
@@ -92,7 +96,11 @@ test.describe('profile / edit', () => {
     test('Account section renders password / email / sign-out-everywhere CTAs', async ({ authenticatedPage: page }) => {
         // Account moved off profile-edit and onto the settings hub.
         await page.goto(urls.settingsAccount);
-        await expect(page.locator('.bn-ep-card-title:has-text("Account")')).toBeVisible({ timeout: 5_000 });
+        // :has-text() is a SUBSTRING match, so this also matched the "Connected
+        // accounts" card added later and failed on a strict-mode violation. The
+        // breakage was invisible because a describe-level test.fixme had the
+        // whole group skipped. :text-is() is exact.
+        await expect(page.locator('.bn-ep-card-title:text-is("Account")')).toBeVisible({ timeout: 5_000 });
         await expect(page.locator('[data-wp-on--click="actions.openEmailChange"]')).toBeVisible();
         await expect(page.locator('[data-wp-on--click="actions.openPasswordChange"]')).toBeVisible();
         await expect(page.locator('[data-wp-on--click="actions.signOutEverywhere"]')).toBeVisible();
@@ -104,5 +112,32 @@ test.describe('profile / edit', () => {
         await page.goto(urls.settings);
         const cta = page.locator('a:has-text("Open notification preferences")').first();
         await expect(cta).toBeVisible({ timeout: 5_000 });
+    });
+
+    /**
+     * C2 — Member type appears exactly once.
+     *
+     * It rendered twice: the section was emitted by two paths that each looked
+     * correct in isolation, and a duplicated control is not a cosmetic problem
+     * here - two selects bound to the same user mean the one you did not touch
+     * still shows the old value, and whichever posts last wins.
+     *
+     * Asserted by id, not by visible text: "Member type" also appears in the
+     * label and the hint, so counting text would pass with two selects on the
+     * page. An id is required to be unique, which is precisely what broke.
+     */
+    test('Member type control renders exactly once on Edit Profile', async ({ authenticatedPage: page }) => {
+        await page.goto(urls.memberEdit(user));
+        await expect(page.locator(sel.app)).toBeVisible();
+
+        const select = page.locator('#bn-ep-member-type');
+        const count = await select.count();
+        // Sites without member types configured render none at all; that is
+        // valid. What must never happen is more than one.
+        expect(count, `#bn-ep-member-type rendered ${count} times`).toBeLessThanOrEqual(1);
+
+        if (count === 1) {
+            await expect(page.locator('#bn-ep-member-type-title')).toHaveCount(1);
+        }
     });
 });
