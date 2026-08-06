@@ -193,6 +193,39 @@ ROUTE_HINTS = [
 ]
 
 
+
+# What most people touch, every session. Ordering the walk sheet by "what has no
+# journey" put social login, PWA install and outbound webhooks at the top while
+# posting, load-more, buttons and spaces sat below them - and those basics are
+# where every bug this session actually came from (comment edit, hashtag
+# controls, feed pagination). Rarity is not the same as unimportance, but a
+# tester's first hour belongs to the paths 70-80% of members use daily.
+#
+# ESSENTIAL is matched against the capability question, so it re-tiers itself as
+# CAPABILITIES.md changes rather than being a list someone maintains.
+ESSENTIAL = re.compile(
+    r'feed|post|comment|repl|react|bookmark|reshare|share|poll|'
+    r'space|join|member|profile|follow|connect|notification|'
+    r'search|discover|explore|upload|image|video|photo|album|'
+    r'edit|delete|draft|mention|hashtag|online|directory|'
+    # The front door: every member registers and logs in. Social sign-in and
+    # two-factor stay EDGE - they are optional paths, and `log ?in` deliberately
+    # does not match "Sign in with Google".
+    r'register|log ?in|sign ?up|onboard',
+    re.I,
+)
+
+
+def tier_of(question, how):
+    # Matched against the QUESTION ONLY, never the "How" column. Including the
+    # implementation pulled social sign-in and two-factor into ESSENTIAL because
+    # the classes behind them are named `...Login`, and `log ?in` matches
+    # "login". The tier has to follow the promise a buyer reads, not the code
+    # that happens to serve it.
+    del how  # deliberately unused; see above
+    return 'ESSENTIAL' if ESSENTIAL.search(question) else 'EDGE'
+
+
 def infer_context(question, how):
     haystack = f'{question} {how}'.lower()
     for pattern, role, url in ROUTE_HINTS:
@@ -212,16 +245,28 @@ def expectation(question):
 def emit_qa_pack(rows):
     """rows: [(label, question, status, how)] -> markdown assignment pack."""
     out = [QA_HEADER]
-    out.append(f'**{len(rows)} promises need a browser walk.**\n')
-    by_label = {}
-    for label, q, st, how in rows:
-        by_label.setdefault(label, []).append((q, st, how))
-    for label, items in by_label.items():
-        out.append(f'\n## {label} - {len(items)} to walk\n')
-        for i, (q, st, how) in enumerate(items, 1):
+    ess = [r for r in rows if tier_of(r[1], r[3]) == 'ESSENTIAL']
+    edge = [r for r in rows if tier_of(r[1], r[3]) == 'EDGE']
+    out.append(f'**{len(rows)} promises need a browser walk: '
+               f'{len(ess)} essential, {len(edge)} edge.**\n')
+    out.append('Walk the ESSENTIAL block first and finish it before starting the')
+    out.append('other. It is the ground almost every member covers in every')
+    out.append('session, and it is where every bug we shipped this month came')
+    out.append('from. An edge case found while the basics are still unwalked is')
+    out.append('a bug we would have traded for a broken button.\n')
+
+    for tier_name, group, blurb in (
+        ('ESSENTIAL', ess, 'Daily-use paths. Do these first, in order.'),
+        ('EDGE', edge, 'Real promises, rarer use. Only after ESSENTIAL is done.'),
+    ):
+        if not group:
+            continue
+        out.append(f'\n# {tier_name} - {len(group)} to walk\n')
+        out.append(f'_{blurb}_\n')
+        for i, (label, q, st, how) in enumerate(group, 1):
             role, url = infer_context(q, how)
             flag = '' if st.upper().startswith('YES') else f'  **[{st}]**'
-            out.append(f'### {label}-{i}. {q}{flag}')
+            out.append(f'### {tier_name[:3]}-{i}. {q}{flag}  _({label})_')
             out.append('')
             out.append(f'- **Verify:** {expectation(q)} - and that it actually took effect,')
             out.append('  not merely that the control is on screen.')
