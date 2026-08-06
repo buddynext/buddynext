@@ -58,23 +58,63 @@ PROJECT="${BN_JOURNEY_PROJECT:-desktop}"
 # So the default is now "run it", and skipping is what needs a reason. Nothing
 # is weakened — an unreachable site still skips, and the release build still
 # refuses the skip outright.
+#
+# A candidate must PROVE it is a BuddyNext install, not merely answer. Checking
+# the home page with `curl -sf` accepted http://localhost:10003 — a different
+# product's Local site, which 301s to a 404 (-f only judges the response it
+# actually received, and without -L it never follows). The suite then ran its
+# whole pack against that host and reported 38 phantom regressions, byte-identical
+# across three runs. Guessing WRONG is worse than skipping: a silent skip gets
+# ignored, but 38 red lines train people to ignore the gate itself.
+bn_is_buddynext_site() {
+	curl -sfL --max-time 5 "${1%/}/wp-json/buddynext/v1" 2>/dev/null | grep -q '"namespace"'
+}
+
+# Candidates come from Local's own record of what is installed on THIS machine.
+# A hardcoded hostname works only on the machine it was written on: the previous
+# two-entry list named one developer's hosts, and on a second machine neither was
+# the site under test — ports differ per machine too, so 10003 is one product
+# here and another there.
+bn_site_candidates() {
+	sites_json="$HOME/Library/Application Support/Local/sites.json"
+	if [ -f "$sites_json" ] && command -v python3 >/dev/null 2>&1; then
+		python3 -c 'import json,sys
+try: sites = json.load(open(sys.argv[1]))
+except Exception: sys.exit(0)
+ranked = []
+for s in sites.values():
+    d = s.get("domain")
+    if not d: continue
+    n = ((s.get("name") or "") + d).lower()
+    ranked.append((0 if "buddynext" in n else 1, d))
+for _, d in sorted(ranked): print("http://" + d)' "$sites_json" 2>/dev/null
+	fi
+	# Conventional fallbacks for non-Local setups.
+	echo http://buddynext.local
+	echo http://buddynext-dev.local
+}
+
 if [ -z "${BN_BASE_URL:-}" ]; then
-	for candidate in http://buddynext-dev.local http://localhost:10003; do
-		if curl -sf -o /dev/null --max-time 5 "$candidate"; then
+	while read -r candidate; do
+		[ -n "$candidate" ] || continue
+		if bn_is_buddynext_site "$candidate"; then
 			BN_BASE_URL="$candidate"
 			export BN_BASE_URL
 			echo "journey run: auto-detected $BN_BASE_URL (set BN_BASE_URL to override)"
 			break
 		fi
-	done
+	done <<EOF
+$(bn_site_candidates)
+EOF
 fi
 if [ -z "${BN_BASE_URL:-}" ]; then
-	echo "journey run SKIPPED — no site under test found; set BN_BASE_URL." >&2
+	echo "journey run SKIPPED — no BuddyNext install found; set BN_BASE_URL." >&2
 	echo "  (release builds refuse this skip; see bin/build-release.sh)" >&2
 	exit 2
 fi
-if ! curl -sf -o /dev/null --max-time 10 "$BN_BASE_URL"; then
-	echo "journey run SKIPPED — $BN_BASE_URL is not reachable." >&2
+if ! bn_is_buddynext_site "$BN_BASE_URL"; then
+	echo "journey run SKIPPED — $BN_BASE_URL is not a reachable BuddyNext install." >&2
+	echo "  (no BuddyNext REST namespace at \$BN_BASE_URL/wp-json/buddynext/v1)" >&2
 	exit 2
 fi
 if [ ! -d node_modules/@playwright ] && ! command -v npx >/dev/null 2>&1; then

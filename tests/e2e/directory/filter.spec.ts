@@ -22,10 +22,15 @@ test.describe('directory / filter + search', () => {
             expect(cls).toMatch(/active|is-active|selected/);
         });
 
-        // Result count may change  -  assert grid is still rendered without crash.
+        // "The grid did not crash" was asserted as `count() >= 0`, which is also
+        // true when the grid is gone entirely. Assert the directory is still in a
+        // valid rendered state: cards, or an explicit empty state.
         const afterCount = await page.locator(sel.memberCard).count();
-        expect(afterCount).toBeGreaterThanOrEqual(0);
-        void beforeCount;
+        const empty = await page.locator(sel.memberDirectoryEmpty).isVisible().catch(() => false);
+        expect(
+            afterCount > 0 || empty,
+            `filtering left the directory rendering nothing (before: ${beforeCount} cards)`
+        ).toBeTruthy();
     });
 
     test('J-26 typing in directory search updates results', async ({ authenticatedPage: page }, testInfo) => {
@@ -35,10 +40,14 @@ test.describe('directory / filter + search', () => {
             softSkip(testInfo, 'Directory search not exposed.');
             return;
         }
+        const before = await page.locator(sel.memberCard).count();
         await input.fill('a');
-        // Debounced  -  wait for the network or the visible card count to settle.
+        // Debounced - wait for the list to actually settle into a searched state,
+        // not merely for the page to still exist. `>= 0` never failed.
         await expect.poll(async () => {
-            return page.locator(sel.memberCard).count();
-        }, { timeout: 5_000 }).toBeGreaterThanOrEqual(0);
+            const now = await page.locator(sel.memberCard).count();
+            const empty = await page.locator(sel.memberDirectoryEmpty).isVisible().catch(() => false);
+            return now !== before || empty || now > 0;
+        }, { timeout: 5_000 }).toBeTruthy();
     });
 });

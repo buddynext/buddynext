@@ -10,8 +10,17 @@ test.describe('directory / members', () => {
         await page.goto(urls.members);
         await expect(page.locator(sel.app)).toBeVisible();
 
+        // "cards OR empty state" is the real contract, and it has to be asserted
+        // as one. The previous assertion was `count() >= 0`, which is true for
+        // every possible page — including one where the selector matches nothing,
+        // which is exactly what was happening. A spec that cannot fail is not a
+        // spec; this one now fails if the directory renders neither.
         const cards = await page.locator(sel.memberCard).count();
-        expect(cards).toBeGreaterThanOrEqual(0);
+        const empty = await page.locator(sel.memberDirectoryEmpty).isVisible().catch(() => false);
+        expect(
+            cards > 0 || empty,
+            'members directory rendered neither member cards nor an empty state'
+        ).toBeTruthy();
     });
 
     test('J-27 follow from card toggles state', async ({ authenticatedPage: page }, testInfo) => {
