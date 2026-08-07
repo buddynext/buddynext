@@ -906,8 +906,17 @@ class PageRouter {
 			$this->maybe_register_single_post_meta( (int) ( $context['post_id'] ?? 0 ) );
 		}
 
+		// Social + canonical head for every OTHER shareable surface — spaces,
+		// profiles, directories. Until 1.1.3 the single-post permalink above was
+		// the only surface that emitted anything, so a shared space or profile
+		// rendered as a bare imageless link everywhere (Basecamp 10181599620).
+		// Runs before wp_head for the same reason the post meta above does.
+		SurfaceMeta::register( $hub, $context );
+
 		// Community description (Settings → General) as the page meta description
 		// on every BN hub — the help text promises it appears "in meta tags".
+		// SurfaceMeta already emits a description for the hubs it describes; this
+		// stays for any surface it does not, and both defer to an SEO plugin.
 		$this->maybe_register_community_meta_description();
 
 		do_action( 'buddynext_before_hub', $hub, $template );

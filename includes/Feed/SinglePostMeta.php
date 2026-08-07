@@ -210,6 +210,26 @@ class SinglePostMeta {
 	 * @return string URL or empty string.
 	 */
 	private static function resolve_image_url( array $post, int $author_id ): string {
+		/*
+		 * One ordered ladder, every rung filtered by HeadMeta's image contract:
+		 * og:image must be an absolute http(s) URL a scraper can fetch
+		 * anonymously.
+		 *
+		 * The bug this closes lived at the avatar rung. BuddyNext's generated
+		 * letter-avatars are `data:image/svg+xml;base64,…`, which no platform
+		 * accepts — and returning one still counted as "has an image", so a
+		 * text-only post shipped an unloadable og:image AND was upgraded to a
+		 * summary_large_image card that rendered blank rather than degrading to
+		 * summary. sanitize_image() drops the data URI, so an UPLOADED avatar is
+		 * still used and a generated one falls through to the site image
+		 * (Basecamp 10181599620).
+		 *
+		 * Attached media stays the top rung and is unaffected: it resolves to a
+		 * render-stable public MediaVerse URL that a scraper fetches fine
+		 * (verified 200 image/jpeg anonymously).
+		 */
+		$candidates = array();
+
 		$media_ids = $post['media_ids'] ?? null;
 		if ( is_array( $media_ids ) && ! empty( $media_ids ) ) {
 			$first = (int) $media_ids[0];
@@ -219,34 +239,28 @@ class SinglePostMeta {
 				// thumbnail for video; skip audio (no meaningful OG image).
 				$desc = \BuddyNext\Media\MediaUrlResolver::descriptor( $first );
 				if ( $desc ) {
-					if ( 'image' === $desc['type'] && '' !== $desc['url'] ) {
-						return (string) $desc['url'];
+					if ( 'image' === $desc['type'] ) {
+						$candidates[] = (string) $desc['url'];
 					}
-					if ( '' !== $desc['thumb'] ) {
-						return (string) $desc['thumb'];
-					}
+					$candidates[] = (string) $desc['thumb'];
 				}
 			}
 		}
 
 		$link_meta = $post['link_meta'] ?? null;
 		if ( is_array( $link_meta ) && ! empty( $link_meta['thumbnail'] ) ) {
-			return (string) $link_meta['thumbnail'];
+			$candidates[] = (string) $link_meta['thumbnail'];
 		}
 
 		if ( $author_id > 0 ) {
-			$avatar = get_avatar_url( $author_id, array( 'size' => 256 ) );
-			if ( false !== $avatar && '' !== (string) $avatar ) {
-				return (string) $avatar;
-			}
+			$candidates[] = (string) get_user_meta( $author_id, 'bn_avatar', true );
+			$avatar       = get_avatar_url( $author_id, array( 'size' => 512 ) );
+			$candidates[] = false !== $avatar ? (string) $avatar : '';
 		}
 
-		$site_icon = get_site_icon_url( 512 );
-		if ( '' !== (string) $site_icon ) {
-			return (string) $site_icon;
-		}
+		$candidates[] = \BuddyNext\Core\HeadMeta::site_image();
 
-		return '';
+		return \BuddyNext\Core\HeadMeta::first_usable_image( $candidates );
 	}
 
 	/**
