@@ -197,6 +197,16 @@ final class PrivateCommunity {
 		if ( preg_match( '#^/buddynext/v1/auth(?:/|$)#', $route ) ) {
 			return $result;
 		}
+		// The PWA app shell must stay reachable too: browsers fetch the manifest
+		// WITHOUT credentials and the service worker without a REST nonce, so to
+		// this gate those requests are always anonymous — blocking them logged a
+		// 401 console error on every page for every visitor, members included,
+		// and killed add-to-home-screen on private sites (Basecamp 10180597390).
+		// The routes serve only app-shell assets (name, icons, offline page),
+		// no member data.
+		if ( preg_match( '#^/buddynext/v1/pwa(?:/|$)#', $route ) ) {
+			return $result;
+		}
 
 		return new \WP_Error(
 			'buddynext_private_community',
