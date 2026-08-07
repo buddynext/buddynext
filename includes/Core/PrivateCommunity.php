@@ -118,6 +118,17 @@ final class PrivateCommunity {
 		add_filter( 'mvs_rest_require_auth', array( self::class, 'is_enabled' ) );
 		add_filter( 'mvs_rest_can_access', array( self::class, 'can_access' ) );
 
+		// MediaVerse's page-layer gate (2.3.2+) turns guests away from its
+		// server-rendered pages when the filters above arm it. Send them to
+		// BN's auth hub — the same place BN's own gated hubs send guests —
+		// instead of wp-login.php.
+		add_filter(
+			'mvs_community_login_url',
+			static function () {
+				return PageRouter::auth_url();
+			}
+		);
+
 		// Same contract, same reason, for Learnomy. A private community whose
 		// courses stayed world-readable is the same leak as the MediaVerse one:
 		// the owner switched the community private and the catalog, category
