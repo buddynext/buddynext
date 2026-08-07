@@ -444,6 +444,47 @@ add_filter( 'buddynext_member_suite_panels', function ( array $panels, int $memb
 
 ---
 
+## Recipe 13 - Keep a cookie-consent (or other must-run) plugin on community pages (1.1.3)
+
+**Goal:** a plugin that must run on every page - a cookie-consent banner is the canonical case - keeps working on BuddyNext's community routes.
+
+**Seams:** `buddynext_isolation_whitelist` (plugin loading) and `buddynext_allowed_assets` (its CSS/JS).
+
+BuddyNext isolates its community routes for speed and a uniform UX, in two layers: plugin isolation loads only the essential plugin family on those routes, and asset isolation dequeues any stylesheet or script that is not core, theme, or BuddyNext. Both are good defaults - a consent banner is the exception, because a MISSING banner is invisible: nobody notices it is gone, and consent-based script gating silently stops on exactly the pages members use most.
+
+Site owners can allow a plugin without code at **Admin > BuddyNext > Plugin isolation**. The code route needs BOTH filters, and the file **must be a mu-plugin** (`wp-content/mu-plugins/`): plugin isolation filters the active-plugins list before regular plugins load, so a normal plugin or theme hooks too late.
+
+```php
+<?php
+/**
+ * Plugin Name: Keep consent banner on BuddyNext pages
+ * Description: Allows the cookie-consent plugin through BuddyNext's
+ *              plugin and asset isolation. Must live in wp-content/mu-plugins/.
+ */
+
+// Layer 1: keep the plugin LOADED on BuddyNext routes.
+add_filter(
+    'buddynext_isolation_whitelist',
+    static function ( array $whitelist ): array {
+        $whitelist[] = 'wpconsent-cookies-banner-privacy-suite/wpconsent.php';
+        return $whitelist;
+    }
+);
+
+// Layer 2: keep its CSS/JS ENQUEUED on BuddyNext routes.
+add_filter(
+    'buddynext_allowed_assets',
+    static function ( array $prefixes ): array {
+        $prefixes[] = plugins_url( '', 'wpconsent-cookies-banner-privacy-suite/wpconsent.php' );
+        return $prefixes;
+    }
+);
+```
+
+Swap the basename for your consent plugin: `cookie-law-info/cookie-law-info.php` (CookieYes), `complianz-gdpr/complianz-gpdr.php` (Complianz), `cookiebot/cookiebot.php` (Cookiebot). The same two-filter pattern keeps any must-run plugin alive on community pages - security headers, affiliate tracking the owner has consent for, and so on. Use it sparingly: every plugin allowed through gives up part of the memory saving isolation exists to provide.
+
+---
+
 ## Notes and gotchas
 
 - **Filters return, actions react.** A filter that returns nothing erases the value. An action's return value is ignored.
