@@ -49,6 +49,62 @@ class BlockRegistrar {
 		add_action( 'init', array( $this, 'register_patterns' ) );
 		add_action( 'init', array( $this, 'register_block_category' ) );
 		add_filter( 'block_categories_all', array( $this, 'add_block_category' ) );
+
+		/*
+		 * Second print pass for blocks that render late.
+		 *
+		 * WordPress prints script modules on `wp_footer` at priority 10 and
+		 * walks the queue exactly once. A block inside post content enqueues
+		 * its `viewScriptModule` during render, well before that — but a site
+		 * owner can build their footer with anything, and a builder that
+		 * renders it during `wp_footer` enqueues into a queue that has already
+		 * been printed. The block then paints its markup and silently loses
+		 * its view module: a follow button that never follows, a feed that
+		 * never hydrates. No console error, no notice (Basecamp 10181441816;
+		 * same defect wb-listora fixed in 1.4.2).
+		 *
+		 * Priority 20 is deliberate on both sides. Core registers
+		 * `wp_print_footer_scripts` (which runs `print_late_styles()`) at 20
+		 * during bootstrap, so it is already registered when this plugin loads
+		 * and runs first at the same priority — late block CSS is printed
+		 * before we get here. Module translations print at 21, so anything we
+		 * print now still receives them. The import map is emitted separately
+		 * and already carries `@wordpress/interactivity`, so a module printed
+		 * here resolves its dependency.
+		 *
+		 * Both core printers track what they have emitted
+		 * (`WP_Script_Modules::$done`, `WP_Styles::$done`), so re-running them
+		 * is idempotent: nothing is duplicated, only late arrivals are
+		 * written. A footer rendering after priority 20 cannot be rescued —
+		 * nothing can print into a response already streamed past that point —
+		 * this covers the realistic builder cases and costs nothing on a page
+		 * with no late blocks.
+		 */
+		add_action(
+			'wp_footer',
+			static function (): void {
+				/**
+				 * Filters whether to run the late script-module print pass.
+				 *
+				 * @since 1.1.3
+				 *
+				 * @param bool $enabled Whether to run the second pass.
+				 */
+				if ( ! apply_filters( 'buddynext_late_print_script_modules', true ) ) {
+					return;
+				}
+
+				wp_script_modules()->print_enqueued_script_modules();
+
+				// Same story for stylesheets: a block rendering at or after
+				// priority 20 has already missed core's print_late_styles()
+				// run, so its block.json style never printed and the markup
+				// lands unstyled. WP_Styles tracks emitted handles, so this
+				// second call is idempotent the same way the module pass is.
+				print_late_styles();
+			},
+			20
+		);
 	}
 
 	/**
