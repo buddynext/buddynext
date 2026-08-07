@@ -54,7 +54,8 @@ final class SurfaceMeta {
 		if ( PrivateCommunity::is_enabled() ) {
 			$descriptor['noindex']     = true;
 			$descriptor['description'] = '';
-			$descriptor['image']       = HeadMeta::site_image();
+			// Drop any content imagery; HeadMeta supplies the site fallback.
+			$descriptor['image']       = '';
 		}
 
 		HeadMeta::emit( $descriptor );
@@ -97,7 +98,6 @@ final class SurfaceMeta {
 				return array(
 					'url'     => home_url( add_query_arg( array() ) ),
 					'title'   => self::community_name(),
-					'image'   => HeadMeta::site_image(),
 					'noindex' => true,
 				);
 		}
@@ -132,7 +132,6 @@ final class SurfaceMeta {
 			return array(
 				'url'     => PageRouter::activity_url() . 'search/',
 				'title'   => __( 'Search', 'buddynext' ),
-				'image'   => HeadMeta::site_image(),
 				'noindex' => true,
 			);
 		}
@@ -188,12 +187,11 @@ final class SurfaceMeta {
 				? sprintf( __( '%s is a private space.', 'buddynext' ), $name )
 				: (string) $space['description'],
 			'image'   => $is_restricted
-				? HeadMeta::site_image()
+				? ''
 				: HeadMeta::first_usable_image(
 					array(
 						(string) $space['cover_image_url'],
 						(string) $space['avatar_url'],
-						HeadMeta::site_image(),
 					)
 				),
 			'noindex' => $is_restricted,
@@ -233,7 +231,6 @@ final class SurfaceMeta {
 				array(
 					(string) get_user_meta( $user_id, 'bn_avatar', true ),
 					(string) get_avatar_url( $user_id, array( 'size' => 512 ) ),
-					HeadMeta::site_image(),
 				)
 			),
 		);
@@ -247,16 +244,15 @@ final class SurfaceMeta {
 	 * @return array<string,mixed>
 	 */
 	private static function describe_directory( string $label, string $url ): array {
-		$community = self::community_name();
-
 		return array(
-			'url'   => $url,
-			'title' => $label === $community
-				? $community
-				/* translators: 1: surface label (Members, Spaces), 2: community name. */
-				: sprintf( __( '%1$s - %2$s', 'buddynext' ), $label, $community ),
+			'url' => $url,
+			// The BARE label, never "Label - Community". WordPress appends the
+			// site name to the document title itself, so composing it here
+			// produced "Members - BuddyNext - BuddyNext" in the browser tab and
+			// in search results. og:site_name already carries the community name
+			// for the social card, so the bare label is correct on both surfaces.
+			'title'       => $label,
 			'description' => (string) get_option( 'buddynext_description', '' ),
-			'image'       => HeadMeta::site_image(),
 			'type'        => 'website',
 		);
 	}

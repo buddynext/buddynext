@@ -19,6 +19,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Feed;
 
+use BuddyNext\Core\HeadMeta;
 use BuddyNext\Core\PageRouter;
 
 /**
@@ -37,125 +38,48 @@ class SinglePostMeta {
 	private const TITLE_EXCERPT_MAX = 60;
 
 	/**
-	 * Emit head meta tags for a hydrated post record.
+	 * Describe a single post and hand it to the shared head emitter.
 	 *
-	 * Registers two callbacks:
-	 *   - wp_head priority 1: prints the OG / Twitter / canonical tags.
-	 *   - document_title_parts: replaces the page title with a richer excerpt.
+	 * This class used to print its own canonical/OG/Twitter block, which meant
+	 * BuddyNext had TWO head emitters with two sets of rules — they drifted
+	 * (different tag order, no empty-value guards, its own Twitter-card logic)
+	 * and a post could ship empty og: tags. It now only DESCRIBES the post;
+	 * {@see \BuddyNext\Core\HeadMeta} owns every rule, including the image
+	 * contract and the honest-card decision.
 	 *
 	 * @param array<string,mixed> $post Hydrated post record (from PostService::get()).
 	 * @return void
 	 */
 	public static function emit_for_post( array $post ): void {
-		add_action(
-			'wp_head',
-			static function () use ( $post ): void {
-				self::print_meta_tags( $post );
-			},
-			1
-		);
+		$post_id   = (int) ( $post['id'] ?? 0 );
+		$author_id = (int) ( $post['user_id'] ?? 0 );
+		$author    = $author_id > 0 ? get_userdata( $author_id ) : null;
 
-		add_filter(
-			'document_title_parts',
-			static function ( array $parts ) use ( $post ): array {
-				$parts['title'] = self::build_document_title( $post );
-				return $parts;
-			}
-		);
-	}
-
-	/**
-	 * Print OG, Twitter, canonical, and robots tags for the given post.
-	 *
-	 * @param array<string,mixed> $post Hydrated post record.
-	 * @return void
-	 */
-	private static function print_meta_tags( array $post ): void {
-		$post_id     = (int) ( $post['id'] ?? 0 );
-		$author_id   = (int) ( $post['user_id'] ?? 0 );
-		$author      = $author_id > 0 ? get_userdata( $author_id ) : null;
-		$author_name = $author ? $author->display_name : __( 'Community member', 'buddynext' );
-
-		$excerpt    = self::build_description( $post );
-		$title      = self::build_document_title( $post );
-		$canonical  = PageRouter::post_url( $post_id );
-		$image_url  = self::resolve_image_url( $post, $author_id );
-		$is_private = self::is_search_excluded( $post );
-
-		printf(
-			"<link rel=\"canonical\" href=\"%s\" />\n",
-			esc_url( $canonical )
-		);
-
-		if ( $is_private ) {
-			echo "<meta name=\"robots\" content=\"noindex, nofollow\" />\n";
-		}
-
-		printf(
-			"<meta name=\"description\" content=\"%s\" />\n",
-			esc_attr( $excerpt )
-		);
-
-		// Open Graph.
-		printf(
-			"<meta property=\"og:type\" content=\"article\" />\n<meta property=\"og:url\" content=\"%s\" />\n",
-			esc_url( $canonical )
-		);
-		printf(
-			"<meta property=\"og:title\" content=\"%s\" />\n",
-			esc_attr( $title )
-		);
-		printf(
-			"<meta property=\"og:description\" content=\"%s\" />\n",
-			esc_attr( $excerpt )
-		);
-		printf(
-			"<meta property=\"og:site_name\" content=\"%s\" />\n",
-			esc_attr( get_bloginfo( 'name' ) )
-		);
-		if ( '' !== $image_url ) {
-			printf(
-				"<meta property=\"og:image\" content=\"%s\" />\n",
-				esc_url( $image_url )
-			);
-		}
-		printf(
-			"<meta property=\"article:author\" content=\"%s\" />\n",
-			esc_attr( $author_name )
+		$extra = array(
+			'article:author' => $author ? $author->display_name : __( 'Community member', 'buddynext' ),
 		);
 		if ( ! empty( $post['created_at'] ) ) {
-			printf(
-				"<meta property=\"article:published_time\" content=\"%s\" />\n",
-				esc_attr( mysql2date( 'c', (string) $post['created_at'], false ) )
-			);
+			$extra['article:published_time'] = mysql2date( 'c', (string) $post['created_at'], false );
 		}
 		if ( ! empty( $post['edited_at'] ) ) {
-			printf(
-				"<meta property=\"article:modified_time\" content=\"%s\" />\n",
-				esc_attr( mysql2date( 'c', (string) $post['edited_at'], false ) )
-			);
+			$extra['article:modified_time'] = mysql2date( 'c', (string) $post['edited_at'], false );
 		}
 
-		// Twitter / X card.
-		$twitter_card = '' !== $image_url ? 'summary_large_image' : 'summary';
-		printf(
-			"<meta name=\"twitter:card\" content=\"%s\" />\n",
-			esc_attr( $twitter_card )
+		HeadMeta::emit(
+			array(
+				'url'         => PageRouter::post_url( $post_id ),
+				'title'       => self::build_document_title( $post ),
+				'description' => self::build_description( $post ),
+				// CONTENT imagery only — attached media, then a link thumbnail,
+				// then the author's real (uploaded) avatar. No site fallback rung
+				// here: HeadMeta adds that AFTER deciding whether this post has
+				// content imagery, which is what keeps twitter:card honest.
+				'image'       => self::resolve_image_url( $post, $author_id ),
+				'type'        => 'article',
+				'noindex'     => self::is_search_excluded( $post ),
+				'extra'       => $extra,
+			)
 		);
-		printf(
-			"<meta name=\"twitter:title\" content=\"%s\" />\n",
-			esc_attr( $title )
-		);
-		printf(
-			"<meta name=\"twitter:description\" content=\"%s\" />\n",
-			esc_attr( $excerpt )
-		);
-		if ( '' !== $image_url ) {
-			printf(
-				"<meta name=\"twitter:image\" content=\"%s\" />\n",
-				esc_url( $image_url )
-			);
-		}
 	}
 
 	/**
@@ -258,9 +182,10 @@ class SinglePostMeta {
 			$candidates[] = false !== $avatar ? (string) $avatar : '';
 		}
 
-		$candidates[] = \BuddyNext\Core\HeadMeta::site_image();
-
-		return \BuddyNext\Core\HeadMeta::first_usable_image( $candidates );
+		// NO site-image rung here. Returning '' when a post has no imagery of its
+		// own is the signal HeadMeta needs to emit an honest `summary` card; it
+		// applies the site fallback itself, after that decision.
+		return HeadMeta::first_usable_image( $candidates );
 	}
 
 	/**

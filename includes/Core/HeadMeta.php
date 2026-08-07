@@ -55,12 +55,34 @@ final class HeadMeta {
 	private static bool $emitted = false;
 
 	/**
+	 * Has a surface already described this response?
+	 *
+	 * The seam any OTHER head emitter must consult before printing, so two
+	 * emitters can never both claim one response. PageRouter's community
+	 * meta-description fallback checks this: without it both ran at wp_head
+	 * priority 1 and every BuddyNext URL shipped TWO <meta name="description">
+	 * tags making two different claims.
+	 *
+	 * @return bool
+	 */
+	public static function has_emitted(): bool {
+		return self::$emitted;
+	}
+
+	/**
 	 * Register a surface descriptor for rendering into <head>.
 	 *
 	 * Accepted keys — all optional except `url`:
-	 *   title       string  Document + og:title.
+	 *   title       string  The BARE name of this thing ("Members", "Alice
+	 *                       Chen"). Never append the community name: og:site_name
+	 *                       already carries it, and WordPress appends it to the
+	 *                       document title itself.
 	 *   description string  Meta description + og:description (truncated).
-	 *   image       string  Candidate image; sanitised, may be dropped.
+	 *   image       string  CONTENT image only — a post's media, a space cover, a
+	 *                       member's avatar. Leave empty when the surface has no
+	 *                       imagery of its own; the site fallback is applied here,
+	 *                       after the content test, so the Twitter card can tell
+	 *                       real content from a logo.
 	 *   url         string  Canonical URL for this surface. REQUIRED.
 	 *   type        string  og:type. Default 'website'.
 	 *   noindex     bool    Emit robots noindex,nofollow.

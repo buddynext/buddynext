@@ -1183,6 +1183,16 @@ class PageRouter {
 			return;
 		}
 
+		// Defer to SurfaceMeta when it has already described this response.
+		// Both emitters hook wp_head at priority 1, so without this guard every
+		// BuddyNext URL shipped TWO <meta name="description"> tags — and on a
+		// profile or a single post they made two DIFFERENT claims (the member's
+		// own description, plus the site-wide community blurb). This fallback
+		// now only covers surfaces SurfaceMeta does not describe.
+		if ( HeadMeta::has_emitted() ) {
+			return;
+		}
+
 		// Defer to an active SEO plugin — emitting our own tag would duplicate
 		// the head meta description.
 		if (
