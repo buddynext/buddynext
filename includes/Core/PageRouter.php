@@ -601,6 +601,32 @@ class PageRouter {
 		$wp_query->is_archive  = false;
 		$wp_query->is_paged    = false;
 
+		/*
+		 * A hub is a page, so it is NOT the blog home — unless the owner really
+		 * did set it as the static front page.
+		 *
+		 * These two flags used to be left set. On a default install
+		 * (show_on_front = posts) the main query for a URL that matches no post
+		 * falls through to the blog index, so is_home stayed true, and
+		 * is_front_page() is true whenever is_home() is on a posts-front-page
+		 * site. The result was a query that claimed to be BOTH a singular page
+		 * and the blog home, and every consumer that asks WordPress "what page
+		 * is this?" believed the second answer: SEO plugins computed HOMEPAGE
+		 * title, canonical and og:url for every community URL (two conflicting
+		 * canonicals on a single post, the wrong one first), and core built a
+		 * front-page-shaped document title with no site name in it.
+		 *
+		 * hub_for_front_page() already knows when a hub genuinely is the front
+		 * page; that case keeps both flags so it still resolves correctly. It
+		 * must be read BEFORE the flags are cleared — it calls is_front_page()
+		 * itself, so clearing first would always answer ''.
+		 */
+		$front_hub = $this->hub_for_front_page();
+		if ( '' === $front_hub || $front_hub !== $hub ) {
+			$wp_query->is_home       = false;
+			$wp_query->is_front_page = false;
+		}
+
 		// Because we present the hub as singular (is_singular = true), the theme's
 		// header runs WP's singular code path — body_class() reads $post->ID /
 		// post_type / post_parent off the global $post. On these virtual routes
@@ -817,7 +843,14 @@ class PageRouter {
 		// feed/posts, 'none' = noindex every BuddyNext page. Private hubs
 		// (messages/notifications/auth/onboarding) are never indexable.
 		$indexing      = (string) get_option( 'buddynext_google_indexing', 'public_posts' );
-		$is_posts      = ( 'feed' === $hub || 'activity' === $hub );
+		// 'post' is the hub key for the /p/{id}/ PERMALINK — the canonical,
+		// shareable URL for a single post, and the page BuddyNext emits a full
+		// Open Graph card for. It was in neither list below, so under every
+		// value of this setting (including 'all', whose own label is "public
+		// hubs indexable") a public post permalink shipped noindex,nofollow:
+		// there was no configuration in which it could be indexed. The setting
+		// that reads "only the feed/posts" meant the feed HUB, never the posts.
+		$is_posts      = ( 'feed' === $hub || 'activity' === $hub || 'post' === $hub );
 		$is_public     = ( $is_posts || 'people' === $hub || 'spaces' === $hub );
 		$force_noindex = ( 'none' === $indexing )
 			|| ( 'public_posts' === $indexing && ! $is_posts )
