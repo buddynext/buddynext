@@ -222,4 +222,28 @@
 			el.form.submit();
 		}
 	} );
+
+	/*
+	 * Bring the Add Group form into view when its disclosure opens.
+	 *
+	 * The control sits at the bottom of a page thousands of pixels tall, so the
+	 * revealed form can open just past the fold. This is a progressive
+	 * enhancement only: <details> already reveals the form in place with no page
+	 * load and no scroll loss, which is the actual fix. Without JS the admin
+	 * simply scrolls a little.
+	 */
+	document.addEventListener( 'toggle', function ( e ) {
+		var details = e.target;
+		if ( ! details.classList || ! details.classList.contains( 'bn-pf-add-group' ) || ! details.open ) {
+			return;
+		}
+		var field = details.querySelector( '#bn-ag-label' );
+		if ( ! field ) {
+			return;
+		}
+		var rect = field.getBoundingClientRect();
+		if ( rect.bottom > window.innerHeight ) {
+			details.scrollIntoView( { block: 'nearest', behavior: 'smooth' } );
+		}
+	}, true ); // capture: the toggle event does not bubble.
 }() );

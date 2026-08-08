@@ -2148,12 +2148,28 @@ class ProfileFieldsManager {
 		<?php endforeach; ?>
 
 		<!-- Add Group -->
+		<?php
+		/*
+		 * A native <details> disclosure, not a link.
+		 *
+		 * This control sits at the very bottom of a page that runs to several
+		 * thousand pixels. As an <a href="...&add_group=1"> every click was a
+		 * full page load, so the browser correctly started the new document at
+		 * the top and the admin had to scroll all the way back down to reach the
+		 * form they had just asked for. Nothing was "scrolling to top" — a new
+		 * page simply begins there (Basecamp 10180516189).
+		 *
+		 * <details> reveals the form exactly where the control is, with no
+		 * request, no scroll loss, and native keyboard and screen-reader
+		 * behaviour for free. The add_group=1 query arg still opens it, so
+		 * existing links, bookmarks and the post-submit redirect keep working.
+		 */
+		?>
 		<div>
-			<?php if ( ! $show_add_group ) : ?>
-				<a href="<?php echo esc_url( $add_group_url ); ?>" class="bn-pf-add-group-btn">
+			<details class="bn-pf-add-group"<?php echo $show_add_group ? ' open' : ''; ?>>
+				<summary class="bn-pf-add-group-btn">
 					+ <?php esc_html_e( 'Add Group', 'buddynext' ); ?>
-				</a>
-			<?php else : ?>
+				</summary>
 				<div class="bn-pf-ag-card">
 					<h3><?php esc_html_e( 'Add a new profile group', 'buddynext' ); ?></h3>
 					<form method="post" action="<?php echo esc_url( $post_url ); ?>">
@@ -2190,7 +2206,7 @@ class ProfileFieldsManager {
 						</div>
 					</form>
 				</div>
-			<?php endif; ?>
+			</details>
 		</div>
 
 		</div><!-- .bn-pf-wrap -->

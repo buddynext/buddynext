@@ -838,17 +838,25 @@ select.bn-text-input {
  * pseudo-element thumbs (one from base, one from admin).
  */
 /*
- * The settings template renders the checkbox INSIDE the .bn-toggle label
- * (screen-reader-only) with no JS to add the .on class, so the visual never
- * reflected the checked state. Drive the active state straight from the nested
- * checkbox with :has() — pure CSS, correct on load, no flash. The legacy .on
- * class is kept for any JS-driven toggles elsewhere.
+ * A toggle paints from the DOM, never from a server-rendered class.
+ *
+ * When the checkbox lives INSIDE the .bn-toggle label (screen-reader-only),
+ * :has(:checked) is the whole state — pure CSS, correct on load, no flash, and
+ * it follows the member's click with no JS at all.
+ *
+ * The legacy `.on` class remains for genuinely JS-driven toggles that have no
+ * nested checkbox, but it is now scoped AWAY from the ones that do. Written as
+ * a plain OR it painted the track lit whenever either matched, so a template
+ * that baked `.on` in server-side (PushPrefsAdmin did) kept the toggle looking
+ * ON after the member switched it OFF: :has() correctly stopped matching and
+ * the stale class outvoted it. A control must never be able to claim a state
+ * the DOM contradicts.
  */
-.bn-toggle.on,
+.bn-toggle:not( :has( input[type="checkbox"] ) ).on,
 .bn-toggle:has( input[type="checkbox"]:checked ) { background: var(--bn-accent); }
-.bn-toggle.on::before,
+.bn-toggle:not( :has( input[type="checkbox"] ) ).on::before,
 .bn-toggle:has( input[type="checkbox"]:checked )::before { transform: translateX(var(--bn-toggle-travel, 18px)); }
-[dir="rtl"] .bn-toggle.on::before,
+[dir="rtl"] .bn-toggle:not( :has( input[type="checkbox"] ) ).on::before,
 [dir="rtl"] .bn-toggle:has( input[type="checkbox"]:checked )::before { transform: translateX(calc(-1 * var(--bn-toggle-travel, 18px))); }
 
 /* Make sure the hidden checkbox inside the label stays clipped. */
