@@ -102,8 +102,13 @@ class TokenService {
 			'--red-bg'          => 'var(--bn-danger-bg)',
 
 			// ── Sibling-product accents (Jetonomy / WPMediaVerse) ──────────────
+			// *-bg is a SURFACE token in both partner plugins - cards, bars,
+			// panels - and standalone each resolves it to white. Pointing it at
+			// the 96% family tint repainted every grid item, card footer and
+			// search bar the same colour. The hue belongs on the accent (--mvs /
+			// --jetonomy), on badges, and on the edge (*-border), not the surface.
 			'--jetonomy'        => 'var(--bn-jetonomy)',
-			'--jetonomy-bg'     => 'var(--bn-jetonomy-bg)',
+			'--jetonomy-bg'     => 'var(--bn-surface, oklch(100% 0 0))',
 			// A border must never resolve to the same value as the fill it sits
 			// on. These two aliased *-bg, so any partner control that took its
 			// background from *-bg AND its border from *-border rendered with no
@@ -117,7 +122,7 @@ class TokenService {
 			// which is the same invisible-edge failure by another route.
 			'--jetonomy-border' => 'var(--bn-jetonomy-border, oklch(88% 0.05 var(--bn-hue-jetonomy, 285)))',
 			'--mvs'             => 'var(--bn-media)',
-			'--mvs-bg'          => 'var(--bn-media-bg)',
+			'--mvs-bg'          => 'var(--bn-surface, oklch(100% 0 0))',
 			'--mvs-border'      => 'var(--bn-media-border, oklch(88% 0.05 var(--bn-hue-media, 175)))',
 
 			// ── Typography — theme.json presets win over v2 defaults ────────

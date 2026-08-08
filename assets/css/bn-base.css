@@ -263,10 +263,15 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 
 	/* Integration accents */
 	--jetonomy:        var(--bn-jetonomy);
-	--jetonomy-bg:     var(--bn-jetonomy-bg);
+	--jetonomy-bg:     var(--bn-surface);
 	--jetonomy-border: var(--bn-jetonomy-border);
 	--mvs:             var(--bn-media);
-	--mvs-bg:          var(--bn-media-bg);
+	/* Neutral SURFACE, not the family tint. MediaVerse uses --mvs-bg for its
+	   cards, bars and panels - standalone it resolves to white - so pointing it
+	   at the 96% media tint repainted every grid item, every card footer and the
+	   search bar the same mint. The hue belongs on ACCENTS (--mvs, badges) and on
+	   the edge (--mvs-border), not on the surface. */
+	--mvs-bg:          var(--bn-surface);
 	--mvs-border:      var(--bn-media-border);
 
 	/* Neutral */
