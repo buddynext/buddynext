@@ -191,6 +191,7 @@ class BlockRegistrar {
 			'bn-connection-button'      => array( $this, 'render_connection_button' ),
 			// Spaces.
 			'bn-space-directory'        => array( $this, 'render_space_directory' ),
+			'bn-spaces-showcase'        => array( $this, 'render_spaces_showcase' ),
 			'bn-space-card'             => array( $this, 'render_space_card' ),
 			'bn-my-spaces'              => array( $this, 'render_my_spaces' ),
 			// Profile.
@@ -409,6 +410,28 @@ class BlockRegistrar {
 	 * @param array<string, mixed> $attributes Block attributes.
 	 * @return string
 	 */
+	/**
+	 * Render the Spaces showcase block.
+	 *
+	 * @param array<string, mixed> $attributes Block attributes.
+	 * @return string
+	 */
+	public function render_spaces_showcase( array $attributes ): string {
+		$source           = sanitize_key( (string) ( $attributes['source'] ?? 'popular' ) );
+		$category_id      = (int) ( $attributes['categoryId'] ?? 0 );
+		$space_ids        = array_map( 'intval', (array) ( $attributes['spaceIds'] ?? array() ) );
+		$count            = (int) ( $attributes['count'] ?? 3 );
+		$layout           = sanitize_key( (string) ( $attributes['layout'] ?? 'grid' ) );
+		$show_description = ! isset( $attributes['showDescription'] ) || (bool) $attributes['showDescription'];
+
+		ob_start();
+		buddynext_get_template(
+			'blocks/spaces-showcase.php',
+			compact( 'source', 'category_id', 'space_ids', 'count', 'layout', 'show_description' )
+		);
+		return (string) ob_get_clean();
+	}
+
 	public function render_space_card( array $attributes ): string {
 		$space_id = (int) ( $attributes['spaceId'] ?? 0 );
 
