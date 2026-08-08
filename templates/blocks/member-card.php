@@ -1,79 +1,100 @@
 <?php
 /**
- * Block template: Member Card (v2 design system).
+ * Block template: Featured Member.
  *
- * Compact card composition pulled from v2/member-directory.html — uses the
- * v2 attribute API (.bn-card[data-interactive], .bn-avatar[data-size],
- * .bn-btn[data-variant]).
+ * Renders ONE member using the same card the members directory renders. It
+ * delegates to `parts/member-directory-grid.php` rather than to
+ * `parts/member-card.php` directly, because the grid part is where per-member
+ * state (follow, connection, mutuals, presence, muted) is resolved — the card
+ * part is documented as a pure render unit and expects that work already done.
+ * Going through the grid means a featured card and a directory card show the
+ * same badges, the same action cluster and the same states, by construction.
+ *
+ * This block previously carried its own copy of the card markup, which is how
+ * the featured space card ended up rendering an empty colour band while the
+ * directory card beside it was fine. One implementation, no drift.
  *
  * Variables:
- *   int $user_id WordPress user ID to display
+ *   int $user_id Member ID to display.
  *
  * @package BuddyNext
  */
 
+declare( strict_types=1 );
+
 defined( 'ABSPATH' ) || exit;
 
-$user_id = $user_id ?? 0;
+use BuddyNext\Core\PageRouter;
 
-if ( ! $user_id ) {
-	$user_id = get_current_user_id();
-}
+$user_id = isset( $user_id ) ? (int) $user_id : 0;
 
-$user = $user_id ? get_userdata( $user_id ) : false;
-
-if ( ! $user ) {
+if ( $user_id <= 0 ) {
 	return;
 }
 
-$viewer_id      = get_current_user_id();
-$follower_count = buddynext_service( 'follows' )->follower_count( $user_id );
+$bn_fm_member = get_userdata( $user_id );
 
-$avatar_url  = (string) get_avatar_url( $user_id, array( 'size' => 96 ) );
-$profile_url = \BuddyNext\Core\PageRouter::profile_url( $user_id );
-?>
-<div class="bn-card bn-md-card bn-block-member-card" data-interactive data-user-id="<?php echo absint( $user_id ); ?>">
+if ( ! $bn_fm_member ) {
+	return;
+}
 
-	<a href="<?php echo esc_url( $profile_url ); ?>" class="bn-md-card__avatar-link" tabindex="-1" aria-hidden="true">
-		<span class="bn-avatar bn-md-card__avatar" data-size="xl">
-			<?php if ( '' !== $avatar_url ) : ?>
-				<img
-					src="<?php echo esc_url( $avatar_url ); ?>"
-					alt=""
-					width="72"
-					height="72"
-					loading="lazy"
-					decoding="async"
-				>
-			<?php endif; ?>
-		</span>
-	</a>
+$bn_fm_viewer = get_current_user_id();
 
-	<h3 class="bn-md-card__name">
-		<a href="<?php echo esc_url( $profile_url ); ?>">
-			<?php echo esc_html( (string) $user->display_name ); ?>
-		</a>
-	</h3>
+/*
+ * The grid part resolves per-member state through four callables. The
+ * directory builds them over page-wide maps so a grid of 24 costs no
+ * per-card queries; here the "page" is a single member, so each closure
+ * answers for that one id and the cost is the same O(1) shape.
+ */
+$bn_fm_directory = buddynext_service( 'member_directory' );
+$bn_fm_online    = $bn_fm_directory ? $bn_fm_directory->online_among( array( $user_id ) ) : array();
+$bn_fm_mutuals   = ( $bn_fm_viewer > 0 && $bn_fm_directory )
+	? $bn_fm_directory->mutual_peers_for_page( $bn_fm_viewer, array( $user_id ) )
+	: array();
 
-	<p class="bn-md-card__meta">
-		<?php
-		printf(
-			/* translators: %d: follower count */
-			esc_html( _n( '%d follower', '%d followers', $follower_count, 'buddynext' ) ),
-			absint( $follower_count )
-		);
-		?>
-	</p>
+$bn_fm_is_online = static function ( int $id ) use ( $bn_fm_online ): bool {
+	return ! empty( $bn_fm_online[ $id ] );
+};
 
-	<?php if ( $viewer_id && $viewer_id !== $user_id ) : ?>
-		<div class="bn-md-card__actions">
-			<?php
-			// Reuse the canonical Interactivity-API follow button — the only
-			// correctly hydrated implementation — instead of a bespoke
-			// data-action button no JS binds. Hydrated off-hub via the block's
-			// @buddynext/social-buttons viewScriptModule.
-			buddynext_get_template( 'blocks/follow-button.php', array( 'user_id' => $user_id ) );
-			?>
-		</div>
-	<?php endif; ?>
-</div>
+$bn_fm_mutual_ids = static function ( int $viewer, int $target ) use ( $bn_fm_mutuals ): array {
+	return ( 0 === $viewer || 0 === $target || $viewer === $target )
+		? array()
+		: ( $bn_fm_mutuals[ $target ] ?? array() );
+};
+
+$bn_fm_is_following = static function ( int $target ) use ( $bn_fm_viewer ): bool {
+	if ( $bn_fm_viewer <= 0 ) {
+		return false;
+	}
+	$bn_fm_follows = buddynext_service( 'follows' );
+
+	return $bn_fm_follows ? $bn_fm_follows->is_following( $bn_fm_viewer, $target ) : false;
+};
+
+// Member-type map, keyed by slug the way the grid part expects, so a featured
+// member shows the same type badge the directory gives them.
+$bn_fm_type_map = array();
+foreach ( (array) buddynext_service( 'member_types' )->get_all_with_counts() as $bn_fm_type ) {
+	if ( isset( $bn_fm_type['slug'] ) ) {
+		$bn_fm_type_map[ (string) $bn_fm_type['slug'] ] = $bn_fm_type;
+	}
+}
+
+buddynext_get_template(
+	'parts/member-directory-grid.php',
+	array(
+		'members'         => array( $bn_fm_member ),
+		'viewer_id'       => $bn_fm_viewer,
+		'view_mode'       => 'grid',
+		'avatar_tones'    => array( 'accent', 'success', 'jetonomy', 'media', 'events', 'warn', 'danger', 'info' ),
+		'type_map'        => $bn_fm_type_map,
+		'messages_base'   => PageRouter::messages_url(),
+		'is_online_fn'    => $bn_fm_is_online,
+		'is_following_fn' => $bn_fm_is_following,
+		'mutual_ids_fn'   => $bn_fm_mutual_ids,
+		// One card, not a directory page: the modifier lets the grid collapse to
+		// a single column so the card fills a sidebar instead of sitting in a
+		// 3-up track with two empty cells beside it.
+		'classes'         => array( 'bn-md-grid--single' ),
+	)
+);

@@ -53,6 +53,15 @@
 	padding: 0;
 }
 
+/* Featured Member block: one card, so it fills whatever column it is dropped
+   into — a narrow sidebar or a wide content area — instead of sitting in a
+   220px track with empty cells beside it. The block reuses the directory grid
+   because that is where per-member state is resolved; this is the only thing
+   it needs to change about the layout. */
+.bn-md-grid--single {
+	grid-template-columns: 1fr;
+}
+
 /* Owner-set fixed desktop column count (Settings > General > Member directory).
 	Applies only on desktop (≥1025px) so the responsive breakpoints below still
 	step the directory down to 2 then 1 on tablet/mobile; never overrides list view. */
