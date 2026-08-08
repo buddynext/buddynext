@@ -302,9 +302,31 @@ function scheduleDraftSave( ctx ) {
 	}
 	setDraftStatus( ctx, t( 'savingDraft', 'Saving draft…' ), false );
 	const draftTimer = setTimeout( () => {
+		/*
+		 * The draft deliberately does NOT carry composerType.
+		 *
+		 * A draft exists to stop a member losing what they TYPED. The panel they
+		 * happened to have open is not data: poll options and the announcement and
+		 * schedule dates are plain DOM read at submit time (see
+		 * resetComposerSubForms), so none of them are in this payload. Restoring
+		 * composerType therefore restored an EMPTY poll -- a panel with none of the
+		 * content that would have justified bringing it back.
+		 *
+		 * Worse, it could not be turned off. Only onInput() saves a draft, so
+		 * togglePoll / toggleAnnouncement / openLink changed the live state without
+		 * rewriting storage; the draft stayed pinned at whatever panel was open the
+		 * last time the member typed, and restoreDraftsOnLoad re-applied it on every
+		 * page load, on every surface that renders a composer -- the main feed and
+		 * inside every space. One customer downgraded to escape it (Zoho #41288).
+		 *
+		 * Adding a save call to each toggle would have fixed the symptom and left
+		 * the trap: the next panel someone adds forgets again, silently. Not storing
+		 * it removes the whole class -- poll, announcement, link and photo at once --
+		 * and existing poisoned drafts heal themselves on the next load, because the
+		 * restore below no longer reads the field.
+		 */
 		const payload = {
 			content:      ctx.content || '',
-			composerType: ctx.composerType || 'text',
 			privacy:      ctx.privacy || 'public',
 			spaceId:      ctx.spaceId || 0,
 			savedAt:      Date.now(),
@@ -439,7 +461,9 @@ function restoreDraftsOnLoad() {
 		}
 		// Patch the data-wp-context JSON so the hydrated state matches.
 		ctxData.content      = draft.content;
-		ctxData.composerType = draft.composerType || ctxData.composerType;
+		// composerType is deliberately NOT restored -- see scheduleDraftSave().
+		// A draft from before this change may still carry one; ignoring it here is
+		// what heals those drafts without a migration.
 		ctxData.privacy      = draft.privacy || ctxData.privacy;
 		ctxData.hasDraft     = true;
 		ctxData.draftStatus  = t( 'draftRestored', 'Draft restored' );
@@ -1311,7 +1335,10 @@ store( 'buddynext/post-composer', {
 				return;
 			}
 			ctx.content      = draft.content;
-			ctx.composerType = draft.composerType || ctx.composerType;
+			// composerType deliberately not restored -- see scheduleDraftSave().
+			// This is the store-side twin of the same restore in
+			// restoreDraftsOnLoad(); both had to stop reading the field or the
+			// pinned panel would simply come back through the other one.
 			ctx.privacy      = draft.privacy || ctx.privacy;
 			ctx.hasDraft     = true;
 			ctx.draftStatus  = t( 'draftRestored', 'Draft restored' );
