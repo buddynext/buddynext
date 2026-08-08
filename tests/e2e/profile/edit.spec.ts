@@ -22,8 +22,23 @@ test.describe('profile / edit', () => {
         await bio.fill(value);
 
         const save = page.locator('button[type="submit"], .bn-btn[data-action="save"]').first();
-        await save.click();
-        await page.waitForLoadState('domcontentloaded');
+
+        // Wait for the SAVE, not for a page load.
+        //
+        // waitForLoadState() only ever worked here by accident: saving used to
+        // redirect to the member profile, and this happened to sit in the gap.
+        // The save no longer navigates (the member stays on the edit screen, by
+        // design), so that call now resolves instantly and the goto below races
+        // the in-flight PUT and aborts it — the value never persists and the
+        // round-trip fails. Waiting on the request makes the sequencing explicit
+        // and asserts the save actually succeeded.
+        await Promise.all([
+            page.waitForResponse(
+                (r) => r.url().includes('/me/profile') && r.request().method() === 'PUT' && r.status() === 200,
+                { timeout: 15000 }
+            ),
+            save.click(),
+        ]);
 
         // Round-trip  -  reload edit page and confirm the value stuck.
         await page.goto(urls.memberEdit(user));

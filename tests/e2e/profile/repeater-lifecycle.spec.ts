@@ -50,11 +50,23 @@ test.describe('profile / repeater lifecycle (Work Experience)', () => {
     };
 
     const saveAndReload = async (page: Page): Promise<void> => {
-        // Save is an async REST PUT that redirects to the member profile on
-        // success — wait for THAT navigation, never race it with the reload,
-        // or the PUT is aborted mid-flight and nothing persists.
+        // Wait for the SAVE ITSELF, not for a navigation.
+        //
+        // The concern this helper was written around is real and still applies:
+        // never race the reload against the in-flight PUT, or it is aborted and
+        // nothing persists. What changed is the signal. Saving used to redirect
+        // to the member profile, so waiting for that navigation was a usable
+        // proxy for "the save finished". It no longer redirects — the member
+        // stays on the edit screen, which is the point of the fix — so the proxy
+        // is gone and we wait on the request instead.
+        //
+        // This is the stronger assertion anyway: it proves the PUT completed and
+        // succeeded, rather than inferring it from a side effect.
         await Promise.all([
-            page.waitForURL((u) => new RegExp(`/members/${user}/?($|\\?)`).test(u.pathname), { timeout: 15000 }),
+            page.waitForResponse(
+                (r) => r.url().includes('/me/profile') && r.request().method() === 'PUT' && r.status() === 200,
+                { timeout: 15000 }
+            ),
             page.locator(save).first().click(),
         ]);
         await page.goto(urls.memberEdit(user));
