@@ -48,6 +48,15 @@ class PluginIsolation {
 	public const OPTION = 'buddynext_isolation_plugins';
 
 	/**
+	 * Cache of the auto-detected front-end plugin set.
+	 *
+	 * Holds `fingerprint` (of the active-plugin list) and `plugins`, so the
+	 * reflection scan reruns when the owner activates or deactivates something and
+	 * not on every admin page load.
+	 */
+	public const DETECTED_OPTION = 'buddynext_isolation_detected';
+
+	/**
 	 * In-house integration plugin basenames that the front end must never strip.
 	 *
 	 * BuddyNext + BuddyNext Pro themselves are the mu-plugin's safety floor and
@@ -255,7 +264,8 @@ class PluginIsolation {
 			self::CORE_INTEGRATIONS,
 			self::TRANSLATION_PLUGINS,
 			self::owner_keep_list(),
-			self::menu_dependency_plugins()
+			self::menu_dependency_plugins(),
+			self::detected_frontend_plugins()
 		);
 
 		$plugins = (array) apply_filters( 'buddynext_isolation_plugins', $base );
@@ -522,6 +532,215 @@ class PluginIsolation {
 	 * Idempotent: reads the stored JSON, compares against the freshly-collected
 	 * list, and only writes on a genuine diff — so it adds no write on a steady
 	 * state but self-heals the moment Pro is (de)activated or the family changes.
+	 *
+	 * @return void
+	 */
+	/**
+	 * Hooks that mean "this plugin puts something on the front end".
+	 *
+	 * Deliberately about OUTPUT rather than intent. A plugin that only listens to
+	 * save_post or registers a REST route changes nothing a visitor sees on a
+	 * BuddyNext route, and isolation is exactly right to drop it. A plugin that
+	 * hooks wp_head, enqueues assets, filters the_content, or contributes to the
+	 * header/footer template is drawing part of the page, and dropping it makes
+	 * the community pages look broken compared with the rest of the site.
+	 *
+	 * @var string[]
+	 */
+	private const FRONTEND_OUTPUT_HOOKS = array(
+		'wp_head',
+		'wp_footer',
+		'wp_body_open',
+		'wp_enqueue_scripts',
+		'get_header',
+		'get_footer',
+		'the_content',
+		'body_class',
+		'template_include',
+		'wp_nav_menu_items',
+		'render_block',
+		'language_attributes',
+	);
+
+	/**
+	 * Active plugins that render on the front end, detected rather than listed.
+	 *
+	 * WHY THIS EXISTS. Isolation strips every plugin that is not on an allow-list,
+	 * and an allow-list of THIRD-PARTY plugins can never be complete: we cannot
+	 * know what an owner installed. The reported symptom was a Gutenberg
+	 * header/footer builder vanishing on hub routes, but that plugin was only the
+	 * one somebody noticed -- cookie banners, page builders, sliders, custom-CSS
+	 * plugins and analytics were all being dropped the same way, silently, and the
+	 * owner's only clue was that their community pages looked different from the
+	 * rest of their site (Basecamp 10180566662).
+	 *
+	 * So the list is now discovered. Every active plugin is asked one question --
+	 * does it hook anything that draws the front end? -- and if it does, it
+	 * survives isolation. An owner installing a new front-end plugin is protected
+	 * without anyone editing a list.
+	 *
+	 * WHY IT ONLY RUNS IN ADMIN. Detection has to happen on a request where every
+	 * plugin is loaded. On an isolated front-end route the stripped plugins are not
+	 * loaded, so they register no hooks, so they would look like they render
+	 * nothing -- and isolation would permanently confirm its own decision. The
+	 * mu-plugin is a no-op in wp-admin, which makes admin the one context that
+	 * always sees the full set.
+	 *
+	 * The result is cached against the active-plugin set, so the reflection cost is
+	 * paid once per change rather than on every admin page load.
+	 *
+	 * @return string[] Plugin basenames.
+	 */
+	private static function detected_frontend_plugins(): array {
+		$cached = get_option( self::DETECTED_OPTION, array() );
+		$known  = ( is_array( $cached ) && is_array( $cached['plugins'] ?? null ) ) ? $cached['plugins'] : array();
+
+		/*
+		 * Only scan on a request where every plugin is actually loaded.
+		 *
+		 * On an ISOLATED route the stripped plugins register no hooks, so they would
+		 * look like they render nothing and isolation would keep confirming its own
+		 * decision forever. The mu-plugin exposes buddynext_mu_is_bn_request(), so we
+		 * can ask it directly rather than guessing.
+		 */
+		$isolated = function_exists( 'buddynext_mu_is_bn_request' ) && buddynext_mu_is_bn_request();
+		if ( $isolated ) {
+			return $known;
+		}
+
+		$active      = (array) get_option( 'active_plugins', array() );
+		$fingerprint = md5( (string) wp_json_encode( $active ) );
+
+		// The owner changed which plugins are active: start again rather than
+		// carrying findings about a plugin they have since turned off.
+		if ( ! is_array( $cached ) || ( $cached['fingerprint'] ?? '' ) !== $fingerprint ) {
+			$known = array();
+		}
+
+		/*
+		 * ACCUMULATE across contexts instead of replacing.
+		 *
+		 * A plugin may register its front-end hooks only on front-end requests --
+		 * Yoast is the obvious one -- so an admin-only scan reports it as rendering
+		 * nothing and isolation strips it from the very hub pages whose titles and
+		 * meta it is supposed to own. An admin scan and a front-end scan each see a
+		 * partial picture; the union is the true one, and the fingerprint above is
+		 * what stops it growing stale.
+		 */
+		$detected = array_values( array_unique( array_merge( $known, self::scan_frontend_hooks() ) ) );
+		sort( $detected );
+
+		if ( $detected === $known && is_array( $cached ) && ( $cached['fingerprint'] ?? '' ) === $fingerprint ) {
+			return $known;
+		}
+
+		update_option(
+			self::DETECTED_OPTION,
+			array(
+				'fingerprint' => $fingerprint,
+				'plugins'     => $detected,
+			),
+			false
+		);
+
+		return $detected;
+	}
+
+	/**
+	 * Walk the output hooks and map each callback back to the plugin that added it.
+	 *
+	 * Reflection is the only way to ask "which file registered this callback?" --
+	 * WordPress records no provenance for a hook. It is not cheap, which is why
+	 * {@see self::detected_frontend_plugins()} caches the answer.
+	 *
+	 * @return string[] Sorted plugin basenames.
+	 */
+	private static function scan_frontend_hooks(): array {
+		global $wp_filter;
+
+		$found      = array();
+		$plugin_dir = wp_normalize_path( WP_PLUGIN_DIR );
+
+		foreach ( self::FRONTEND_OUTPUT_HOOKS as $hook ) {
+			if ( empty( $wp_filter[ $hook ] ) || ! $wp_filter[ $hook ] instanceof \WP_Hook ) {
+				continue;
+			}
+
+			foreach ( $wp_filter[ $hook ]->callbacks as $callbacks ) {
+				foreach ( $callbacks as $registered ) {
+					$file = self::callback_file( $registered['function'] ?? null );
+					if ( '' === $file ) {
+						continue;
+					}
+
+					$file = wp_normalize_path( $file );
+					if ( 0 !== strpos( $file, $plugin_dir . '/' ) ) {
+						// A theme, a must-use plugin or core. None of those are
+						// stripped by isolation, so none of them need allowing.
+						continue;
+					}
+
+					$relative = ltrim( substr( $file, strlen( $plugin_dir ) ), '/' );
+					$slug     = strtok( $relative, '/' );
+					if ( ! is_string( $slug ) ) {
+						continue;
+					}
+
+					$found[ $slug ] = true;
+				}
+			}
+		}
+
+		// A slug is not a basename. Resolve each against the genuinely active set
+		// so the allow-list carries the same "dir/file.php" the mu-plugin compares.
+		$plugins = array();
+		foreach ( (array) get_option( 'active_plugins', array() ) as $basename ) {
+			$basename = (string) $basename;
+			$slug     = strtok( $basename, '/' );
+			if ( is_string( $slug ) && isset( $found[ $slug ] ) ) {
+				$plugins[] = $basename;
+			}
+		}
+
+		sort( $plugins );
+
+		return $plugins;
+	}
+
+	/**
+	 * The file a hook callback was defined in, or an empty string.
+	 *
+	 * @param mixed $callback Anything WordPress accepts as a callable.
+	 * @return string Absolute path, or '' when it cannot be resolved.
+	 */
+	private static function callback_file( $callback ): string {
+		try {
+			if ( is_string( $callback ) && function_exists( $callback ) ) {
+				$ref = new \ReflectionFunction( $callback );
+			} elseif ( $callback instanceof \Closure ) {
+				$ref = new \ReflectionFunction( $callback );
+			} elseif ( is_array( $callback ) && 2 === count( $callback ) && ( is_object( $callback[0] ) || is_string( $callback[0] ) ) ) {
+				$ref = new \ReflectionMethod( $callback[0], (string) $callback[1] );
+			} elseif ( is_object( $callback ) && method_exists( $callback, '__invoke' ) ) {
+				$ref = new \ReflectionMethod( $callback, '__invoke' );
+			} else {
+				return '';
+			}
+		} catch ( \Throwable $e ) {
+			// A callback we cannot reflect is one we cannot attribute. Skipping it
+			// only means its plugin is not auto-detected from THIS hook; the owner
+			// keep-list remains the manual override.
+			return '';
+		}
+
+		return (string) $ref->getFileName();
+	}
+
+	/**
+	 * Mirror the canonical allow-list into the option the mu-plugin reads.
+	 *
+	 * Guarded: the option is only written when the computed list actually differs,
+	 * so an unchanged site does not write on every request.
 	 *
 	 * @return void
 	 */
