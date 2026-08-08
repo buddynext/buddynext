@@ -383,15 +383,6 @@
 	align-items: center;
 	gap: var(--bn-a-s2);
 }
-/* EVERY colour control, not only the ones inside .bn-color-row.
-   Seven places render an <input type="color"> (AdminPageBase, SetupWizard, the
-   taxonomy editor twice, Pro's member labels twice, the profile field type) and
-   only the .bn-color-row ones were ever sized. A bare colour input inherits
-   whatever width the surrounding form gives it, which is how one ended up
-   rendering as a full-width colour bar that reads as a progress bar rather than
-   a swatch you can click. Sizing the control itself means a new screen cannot
-   reintroduce this by forgetting a wrapper. */
-.bn-admin-hub input[type="color"],
 .bn-color-row input[type="color"],
 .bn-color-swatch {
 	width: 36px;
