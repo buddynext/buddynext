@@ -90,6 +90,18 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-paid:        oklch(55% var(--bn-chroma) var(--bn-hue-paid));
 	--bn-paid-bg:     oklch(96% 0.03 var(--bn-hue-paid));
 
+	/* Family EDGE, one step down in lightness from the 96% surface above.
+	   A border must never be the same value as the fill it sits on: the
+	   partner tokens below used to alias *-bg, so any control that took its
+	   background from *-bg AND its border from *-border rendered with no
+	   visible edge at all - a <select> and an autocomplete dropdown among
+	   them. Same hue keeps the product identity; the lightness step is what
+	   makes it a border. */
+	--bn-jetonomy-border: oklch(88% 0.05 var(--bn-hue-jetonomy));
+	--bn-media-border:    oklch(88% 0.05 var(--bn-hue-media));
+	--bn-events-border:   oklch(88% 0.06 var(--bn-hue-events));
+	--bn-paid-border:     oklch(88% 0.05 var(--bn-hue-paid));
+
 	/* Type families — adopt the host theme's font-family, fall back to BN's stack.
 	 * font-scale.js publishes the active theme's resolved body/heading font as
 	 * --bn-theme-font / --bn-theme-heading-font (the theme sets font-family with no
@@ -252,10 +264,10 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	/* Integration accents */
 	--jetonomy:        var(--bn-jetonomy);
 	--jetonomy-bg:     var(--bn-jetonomy-bg);
-	--jetonomy-border: var(--bn-jetonomy-bg);
+	--jetonomy-border: var(--bn-jetonomy-border);
 	--mvs:             var(--bn-media);
 	--mvs-bg:          var(--bn-media-bg);
-	--mvs-border:      var(--bn-media-bg);
+	--mvs-border:      var(--bn-media-border);
 
 	/* Neutral */
 	--white:          oklch(100% 0 0);
@@ -388,6 +400,14 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-media-bg:    oklch(25% 0.04 var(--bn-hue-media));
 	--bn-events-bg:   oklch(25% 0.04 var(--bn-hue-events));
 	--bn-paid-bg:     oklch(25% 0.04 var(--bn-hue-paid));
+
+	/* Dark: the edge steps UP from the 25% surface, the mirror of light's
+	   step down. Recedes with the rest of the dark palette rather than
+	   glowing, matching how --bn-media-bg drops its own chroma here. */
+	--bn-jetonomy-border: oklch(38% 0.05 var(--bn-hue-jetonomy));
+	--bn-media-border:    oklch(38% 0.05 var(--bn-hue-media));
+	--bn-events-border:   oklch(38% 0.06 var(--bn-hue-events));
+	--bn-paid-border:     oklch(38% 0.05 var(--bn-hue-paid));
 
 	--bn-shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.4);
 	--bn-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.4), 0 2px 4px oklch(0% 0 0 / 0.3);
