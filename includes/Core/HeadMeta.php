@@ -127,8 +127,18 @@ final class HeadMeta {
 			1
 		);
 
+		/*
+		 * Same rule as PageRouter's hub title: only claim the document title
+		 * when no SEO plugin owns the head. This emitter was added by the
+		 * social-card work and repeated the unconditional override, which made
+		 * the reported inconsistency wider rather than narrower — two filters
+		 * discarding the owner's configured title instead of one (Basecamp
+		 * 10173643793). og:title is unaffected: that is BuddyNext describing
+		 * its own surface, not overriding a setting the owner typed.
+		 */
 		$title = trim( (string) ( $descriptor['title'] ?? '' ) );
-		if ( '' !== $title ) {
+		$title = (string) apply_filters( 'buddynext_document_title', $title, 'head-meta' );
+		if ( '' !== $title && ! PageRouter::seo_plugin_active() ) {
 			add_filter(
 				'document_title_parts',
 				static function ( array $parts ) use ( $title ): array {

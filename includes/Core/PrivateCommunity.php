@@ -192,22 +192,44 @@ final class PrivateCommunity {
 		if ( ! preg_match( '#^/buddynext(?:-pro)?/v1/#', $route ) ) {
 			return $result;
 		}
-		// Login / register / reset / verify / 2fa must stay reachable so a guest can
-		// authenticate — that is the whole point of a login page.
-		if ( preg_match( '#^/buddynext/v1/auth(?:/|$)#', $route ) ) {
-			return $result;
-		}
-		// The PWA app shell must stay reachable too: browsers fetch the manifest
-		// WITHOUT credentials and the service worker without a REST nonce, so to
-		// this gate those requests are always anonymous — blocking them logged a
-		// 401 console error on every page for every visitor, members included,
-		// and killed add-to-home-screen on private sites (Basecamp 10180597390).
-		// The routes serve only app-shell assets (name, icons, offline page),
-		// no member data.
-		if ( preg_match( '#^/buddynext/v1/pwa(?:/|$)#', $route ) ) {
-			return $result;
-		}
+		/**
+		 * Route prefixes EXEMPT from the private-community gate.
+		 *
+		 * For routes whose caller is legitimately never logged in. This started
+		 * as one hardcoded literal for /auth, then a second for /pwa, and each
+		 * time the NEXT caller was already broken — Pro's payment webhooks and
+		 * its guest-facing membership routes were being 401'd on every private
+		 * community, so a paid signup took the money and silently provisioned
+		 * nothing (Basecamp 10180597390). A namespace-wide gate cannot keep a
+		 * hand-maintained list of every public route in a namespace it does not
+		 * own, so the list is now declarative and Pro adds its own.
+		 *
+		 * Built-ins: /auth so a guest can sign in at all (the whole point of a
+		 * login page), and /pwa because browsers fetch the manifest without
+		 * credentials and the service worker without a nonce — app-shell assets
+		 * only, no member data.
+		 *
+		 * @since 1.1.3
+		 *
+		 * @param string[]         $exempt  Exempt route prefixes.
+		 * @param \WP_REST_Request $request Current request.
+		 */
+		$exempt = (array) apply_filters(
+			'buddynext_private_community_exempt_routes',
+			array( '/buddynext/v1/auth', '/buddynext/v1/pwa' ),
+			$request
+		);
 
+		foreach ( $exempt as $prefix ) {
+			$prefix = (string) $prefix;
+			if ( '' === $prefix ) {
+				continue;
+			}
+			// Match the segment, not a bare prefix, so /pwabogus is still gated.
+			if ( $route === $prefix || 0 === strpos( $route, rtrim( $prefix, '/' ) . '/' ) ) {
+				return $result;
+			}
+		}
 		return new \WP_Error(
 			'buddynext_private_community',
 			__( 'This community is private. Please log in to view it.', 'buddynext' ),

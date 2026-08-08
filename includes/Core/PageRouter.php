@@ -654,11 +654,31 @@ class PageRouter {
 		// the_post()-style helpers read $GLOBALS['post']. Assigning the virtual
 		// post here is the documented way to make a synthetic page render; it is
 		// intentional, not an accidental global mutation.
+		/*
+		 * Point the query at the hub's MAPPED page when the owner has one.
+		 *
+		 * With queried_object_id left at 0 an SEO plugin has no page to read, so
+		 * a title the owner typed into Yoast on the mapped Members page could
+		 * never be found — BuddyNext stepping back from the title (above) would
+		 * then leave them with the bare site name, which is worse than the
+		 * problem it fixed. Naming the real page lets the plugin resolve that
+		 * page's own settings, which is exactly what the customer asked for
+		 * (Zoho #41057, Basecamp 10173643793).
+		 *
+		 * The virtual post still backs the render — themes read $GLOBALS['post']
+		 * for body classes and template tags — so only the IDENTITY changes, and
+		 * only when a mapped page actually exists.
+		 */
+		$bn_hub_page_id = self::hub_page_id( $hub );
+		if ( $bn_hub_page_id > 0 ) {
+			$virtual_post->ID = $bn_hub_page_id;
+		}
+
 		$GLOBALS['post']             = $virtual_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- intentional virtual post for synthetic hub page rendering.
 		$wp_query->post              = $virtual_post;
 		$wp_query->posts             = array( $virtual_post );
-		$wp_query->queried_object    = $virtual_post;
-		$wp_query->queried_object_id = 0;
+		$wp_query->queried_object    = $bn_hub_page_id > 0 ? get_post( $bn_hub_page_id ) : $virtual_post;
+		$wp_query->queried_object_id = $bn_hub_page_id;
 		$wp_query->post_count        = 1;
 		$wp_query->found_posts       = 1;
 
@@ -842,7 +862,7 @@ class PageRouter {
 		// be indexable. 'all' = public hubs indexable, 'public_posts' = only the
 		// feed/posts, 'none' = noindex every BuddyNext page. Private hubs
 		// (messages/notifications/auth/onboarding) are never indexable.
-		$indexing      = (string) get_option( 'buddynext_google_indexing', 'public_posts' );
+		$indexing = (string) get_option( 'buddynext_google_indexing', 'public_posts' );
 		// 'post' is the hub key for the /p/{id}/ PERMALINK — the canonical,
 		// shareable URL for a single post, and the page BuddyNext emits a full
 		// Open Graph card for. It was in neither list below, so under every
@@ -884,14 +904,27 @@ class PageRouter {
 			}
 		}
 
-		$title_frozen = $hub_title;
-		add_filter(
-			'document_title_parts',
-			static function ( array $parts ) use ( $title_frozen ): array {
-				$parts['title'] = $title_frozen;
-				return $parts;
-			}
-		);
+		/*
+		 * Set the hub title ONLY when no SEO plugin owns the head.
+		 *
+		 * An owner who installs Yoast and types a title into it has made an
+		 * explicit choice about their own site; overwriting it unconditionally
+		 * silently discarded that choice (Zoho #41057, Basecamp 10173643793).
+		 * The meta-description path in this same file has always deferred
+		 * correctly — this is the same rule applied to the title, so BuddyNext
+		 * keeps its title on the default install (no SEO plugin, and the right
+		 * default) and stops fighting the owner on sites that have one.
+		 */
+		$title_frozen = (string) apply_filters( 'buddynext_document_title', $hub_title, $hub );
+		if ( '' !== $title_frozen && ! self::seo_plugin_active() ) {
+			add_filter(
+				'document_title_parts',
+				static function ( array $parts ) use ( $title_frozen ): array {
+					$parts['title'] = $title_frozen;
+					return $parts;
+				}
+			);
+		}
 
 		// Enqueue hub-specific asset bundles before wp_head() fires (which
 		// happens inside get_header() → theme's header.php).
@@ -1201,6 +1234,40 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Is a major SEO plugin managing this site's head?
+	 *
+	 * The single answer both BuddyNext head emitters ask before overriding
+	 * anything the owner may have configured. It used to be inlined in the
+	 * meta-description path only, which is why the description deferred
+	 * correctly while the document TITLE was overwritten unconditionally — the
+	 * inconsistency a paying customer reported (Zoho #41057, Basecamp
+	 * 10173643793): they typed a title into Yoast and BuddyNext discarded it.
+	 *
+	 * @return bool
+	 */
+	public static function seo_plugin_active(): bool {
+		$active = defined( 'WPSEO_VERSION' )              // Yoast SEO.
+			|| class_exists( 'RankMath' )                 // Rank Math.
+			|| defined( 'AIOSEO_VERSION' )                // All in One SEO.
+			|| defined( 'SEOPRESS_VERSION' )              // SEOPress.
+			|| defined( 'THE_SEO_FRAMEWORK_VERSION' );    // The SEO Framework.
+
+		/**
+		 * Filter whether BuddyNext should treat the head as owned by an SEO plugin.
+		 *
+		 * @since 1.1.3
+		 *
+		 * @param bool $active Whether a known SEO plugin is active.
+		 */
+		return (bool) apply_filters( 'buddynext_seo_plugin_active', $active );
+	}
+
+	/**
+	 * Emit the community meta description on hubs that have no richer one.
+	 *
+	 * @return void
+	 */
 	private function maybe_register_community_meta_description(): void {
 		$description = trim( (string) get_option( 'buddynext_description', '' ) );
 
@@ -1228,13 +1295,7 @@ class PageRouter {
 
 		// Defer to an active SEO plugin — emitting our own tag would duplicate
 		// the head meta description.
-		if (
-			defined( 'WPSEO_VERSION' )              // Yoast SEO.
-			|| class_exists( 'RankMath' )           // Rank Math.
-			|| defined( 'AIOSEO_VERSION' )          // All in One SEO.
-			|| defined( 'SEOPRESS_VERSION' )        // SEOPress.
-			|| defined( 'THE_SEO_FRAMEWORK_VERSION' ) // The SEO Framework.
-		) {
+		if ( self::seo_plugin_active() ) {
 			return;
 		}
 
@@ -2451,6 +2512,35 @@ class PageRouter {
 		// for WP_Query resolution, not the canonical URL source.
 		$slug = self::hub_slug( $slug_option, self::default_slug( $slug_option ) );
 		return trailingslashit( home_url( '/' . $slug ) );
+	}
+
+	/**
+	 * The WordPress page mapped to a hub, if the owner has one.
+	 *
+	 * Hubs render virtually, but each is backed by a real page the owner can
+	 * open in wp-admin — which is where they configure SEO settings. This is
+	 * the bridge between the two.
+	 *
+	 * @param string $hub Hub key.
+	 * @return int Page ID, or 0 when the hub has no mapped page.
+	 */
+	public static function hub_page_id( string $hub ): int {
+		$map = array(
+			'feed'          => 'buddynext_page_activity',
+			'people'        => 'buddynext_page_people',
+			'spaces'        => 'buddynext_page_spaces',
+			'messages'      => 'buddynext_page_messages',
+			'notifications' => 'buddynext_page_notifications',
+			'auth'          => 'buddynext_page_auth',
+		);
+
+		if ( ! isset( $map[ $hub ] ) ) {
+			return 0;
+		}
+
+		$page_id = (int) get_option( $map[ $hub ], 0 );
+
+		return ( $page_id > 0 && 'page' === get_post_type( $page_id ) ) ? $page_id : 0;
 	}
 
 	/**

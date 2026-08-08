@@ -105,4 +105,35 @@ class PrivateCommunityGateTest extends WP_UnitTestCase {
 		$result = PrivateCommunity::gate_rest( null, null, new WP_REST_Request( 'GET', '/buddynext/v1/pwafake' ) );
 		$this->assertInstanceOf( \WP_Error::class, $result );
 	}
+
+	/**
+	 * A namespace owner can declare its own public routes.
+	 *
+	 * This is the seam Pro uses for its payment webhooks and guest-facing
+	 * membership routes. Before it existed the exempt list was hardcoded in
+	 * Free, which could never know what Pro registers — so a paid signup on a
+	 * private community was 401'd at the gate and silently provisioned nothing.
+	 */
+	public function test_declared_routes_are_exempt(): void {
+		update_option( PrivateCommunity::OPTION, true );
+
+		$declare = static function ( array $exempt ): array {
+			$exempt[] = '/buddynext-pro/v1/stripe/membership-webhook';
+
+			return $exempt;
+		};
+		add_filter( 'buddynext_private_community_exempt_routes', $declare );
+
+		$this->assertNull(
+			PrivateCommunity::gate_rest( null, null, new \WP_REST_Request( 'POST', '/buddynext-pro/v1/stripe/membership-webhook' ) ),
+			'A declared route must reach its own signature check.'
+		);
+		$this->assertInstanceOf(
+			\WP_Error::class,
+			PrivateCommunity::gate_rest( null, null, new \WP_REST_Request( 'GET', '/buddynext-pro/v1/members' ) ),
+			'Declaring one route must not open the rest of the namespace.'
+		);
+
+		remove_filter( 'buddynext_private_community_exempt_routes', $declare );
+	}
 }
