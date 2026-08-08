@@ -223,18 +223,10 @@ $categories = array_map(
 
 // ── Per-space tone palette (deterministic by id) ──────────────────────────────
 
-if ( ! function_exists( 'bn_space_cover_tone' ) ) {
-	/**
-	 * Return a cover-tone slug from a deterministic palette.
-	 *
-	 * @param int $space_id Space ID used to pick a tone.
-	 * @return string Tone slug consumed by `.bn-sd-card__cover[data-tone]`.
-	 */
-	function bn_space_cover_tone( int $space_id ): string {
-		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
-		return $tones[ $space_id % count( $tones ) ];
-	}
-}
+// bn_space_cover_tone() is a global helper (buddynext.php), beside
+// bn_space_category_icon(), so every caller of the shared space-card part —
+// this directory, the My Spaces sections and the featured-space block — reads
+// one definition.
 
 // bn_space_side_emblem() (avatar-or-category-icon row glyph) formerly lived
 // here; the spaces-directory sidebar it served now renders via

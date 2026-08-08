@@ -1039,6 +1039,27 @@ function bn_space_category_icon( ?string $cat_slug, ?string $icon_svg = null ): 
 }
 
 /**
+ * Deterministic cover tone for a space, used when it has no cover image.
+ *
+ * Lives here, beside bn_space_category_icon(), for the same reason: the space
+ * card part that consumes it is rendered from several different templates —
+ * the directory, the My Spaces sections, and the featured-space block.
+ *
+ * It previously existed as an if(!function_exists()) copy inside BOTH
+ * templates/spaces/directory.php and templates/blocks/space-card.php, which is
+ * what forced the block to keep a whole second copy of the card markup rather
+ * than including the shared part. One definition here means one card.
+ *
+ * @param int $space_id Space ID used to pick a tone.
+ * @return string Tone slug consumed by `.bn-sd-card__cover[data-tone]`.
+ */
+function bn_space_cover_tone( int $space_id ): string {
+	$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+
+	return $tones[ $space_id % count( $tones ) ];
+}
+
+/**
  * Whether the site owner has the BuddyNext community navigation enabled.
  *
  * Controlled by the "Show community navigation" setting
