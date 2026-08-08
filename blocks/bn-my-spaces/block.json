@@ -6,14 +6,27 @@
 	"icon": "groups",
 	"category": "buddynext",
 	"description": "Lists the spaces the current user is a member of.",
-	"keywords": [ "buddynext", "spaces", "my-spaces", "membership" ],
+	"keywords": [
+		"buddynext",
+		"spaces",
+		"my-spaces",
+		"membership"
+	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
 	"style": "file:../../assets/css/blocks.css",
 	"supports": {
-		"color": { "background": true, "text": true },
-		"typography": { "fontSize": true },
-		"spacing": { "padding": true, "margin": true }
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"spacing": {
+			"padding": true,
+			"margin": true
+		}
 	},
 	"attributes": {
 		"limit": {
@@ -21,5 +34,6 @@
 			"default": 10
 		}
 	},
-	"example": {}
+	"example": {},
+	"editorStyle": "file:../../assets/css/blocks.css"
 }

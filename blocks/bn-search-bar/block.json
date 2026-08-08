@@ -6,14 +6,27 @@
 	"icon": "search",
 	"category": "buddynext",
 	"description": "Unified BuddyNext search input that opens grouped results.",
-	"keywords": [ "buddynext", "search", "bar", "unified" ],
+	"keywords": [
+		"buddynext",
+		"search",
+		"bar",
+		"unified"
+	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
 	"style": "file:../../assets/css/blocks.css",
 	"supports": {
-		"color": { "background": true, "text": true },
-		"typography": { "fontSize": true },
-		"spacing": { "padding": true, "margin": true }
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"spacing": {
+			"padding": true,
+			"margin": true
+		}
 	},
 	"attributes": {
 		"placeholder": {
@@ -21,5 +34,6 @@
 			"default": ""
 		}
 	},
-	"example": {}
+	"example": {},
+	"editorStyle": "file:../../assets/css/blocks.css"
 }

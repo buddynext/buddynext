@@ -6,14 +6,30 @@
 	"icon": "tag",
 	"category": "buddynext",
 	"description": "Displays trending hashtags as a list or tag cloud.",
-	"keywords": [ "buddynext", "hashtags", "trending", "topics" ],
+	"keywords": [
+		"buddynext",
+		"hashtags",
+		"trending",
+		"topics"
+	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
-	"style": "file:../../assets/css/blocks.css",
+	"style": [
+		"file:../../assets/css/blocks.css",
+		"bn-hashtags"
+	],
 	"supports": {
-		"color": { "background": true, "text": true },
-		"typography": { "fontSize": true },
-		"spacing": { "padding": true, "margin": true }
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"spacing": {
+			"padding": true,
+			"margin": true
+		}
 	},
 	"attributes": {
 		"count": {
@@ -23,8 +39,15 @@
 		"display": {
 			"type": "string",
 			"default": "list",
-			"enum": [ "list", "cloud" ]
+			"enum": [
+				"list",
+				"cloud"
+			]
 		}
 	},
-	"example": {}
+	"example": {},
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-hashtags"
+	]
 }

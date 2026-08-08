@@ -6,14 +6,30 @@
 	"icon": "networking",
 	"category": "buddynext",
 	"description": "Filterable grid of community spaces, filterable by category and membership.",
-	"keywords": [ "buddynext", "spaces", "directory", "community" ],
+	"keywords": [
+		"buddynext",
+		"spaces",
+		"directory",
+		"community"
+	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
-	"style": "file:../../assets/css/blocks.css",
+	"style": [
+		"file:../../assets/css/blocks.css",
+		"bn-profile"
+	],
 	"supports": {
-		"color": { "background": true, "text": true },
-		"typography": { "fontSize": true },
-		"spacing": { "padding": true, "margin": true }
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"spacing": {
+			"padding": true,
+			"margin": true
+		}
 	},
 	"attributes": {
 		"perPage": {
@@ -23,8 +39,15 @@
 		"layout": {
 			"type": "string",
 			"default": "grid",
-			"enum": [ "grid", "list" ]
+			"enum": [
+				"grid",
+				"list"
+			]
 		}
 	},
-	"example": {}
+	"example": {},
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-profile"
+	]
 }

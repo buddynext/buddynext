@@ -6,26 +6,51 @@
 	"icon": "rss",
 	"category": "buddynext",
 	"description": "Displays the community activity feed. Scope to home, profile, space, or explore.",
-	"keywords": [ "buddynext", "feed", "activity", "social" ],
+	"keywords": [
+		"buddynext",
+		"feed",
+		"activity",
+		"social"
+	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
 	"viewScriptModule": "@buddynext/feed",
-	"style": [ "file:../../assets/css/blocks.css", "bn-feed" ],
+	"style": [
+		"file:../../assets/css/blocks.css",
+		"bn-feed"
+	],
 	"supports": {
-		"color": { "background": true, "text": true },
-		"typography": { "fontSize": true },
-		"spacing": { "padding": true, "margin": true }
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"spacing": {
+			"padding": true,
+			"margin": true
+		}
 	},
 	"attributes": {
 		"scope": {
 			"type": "string",
 			"default": "home",
-			"enum": [ "home", "profile", "space", "explore" ]
+			"enum": [
+				"home",
+				"profile",
+				"space",
+				"explore"
+			]
 		},
 		"perPage": {
 			"type": "integer",
 			"default": 20
 		}
 	},
-	"example": {}
+	"example": {},
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-feed"
+	]
 }

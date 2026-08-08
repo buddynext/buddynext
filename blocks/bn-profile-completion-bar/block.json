@@ -6,14 +6,30 @@
 	"icon": "chart-bar",
 	"category": "buddynext",
 	"description": "Profile completion progress bar with prompt cards for incomplete sections.",
-	"keywords": [ "buddynext", "profile", "completion", "progress" ],
+	"keywords": [
+		"buddynext",
+		"profile",
+		"completion",
+		"progress"
+	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
-	"style": [ "file:../../assets/css/blocks.css", "bn-profile" ],
+	"style": [
+		"file:../../assets/css/blocks.css",
+		"bn-profile"
+	],
 	"supports": {
-		"color": { "background": true, "text": true },
-		"typography": { "fontSize": true },
-		"spacing": { "padding": true, "margin": true }
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"spacing": {
+			"padding": true,
+			"margin": true
+		}
 	},
 	"attributes": {
 		"userId": {
@@ -21,5 +37,9 @@
 			"default": 0
 		}
 	},
-	"example": {}
+	"example": {},
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-profile"
+	]
 }

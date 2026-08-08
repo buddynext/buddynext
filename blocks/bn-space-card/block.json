@@ -6,15 +6,31 @@
 	"icon": "id-alt",
 	"category": "buddynext",
 	"description": "Single space card for featured space callouts.",
-	"keywords": [ "buddynext", "space", "card", "featured" ],
+	"keywords": [
+		"buddynext",
+		"space",
+		"card",
+		"featured"
+	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
 	"viewScriptModule": "@buddynext/spaces",
-	"style": "file:../../assets/css/blocks.css",
+	"style": [
+		"file:../../assets/css/blocks.css",
+		"bn-spaces"
+	],
 	"supports": {
-		"color": { "background": true, "text": true },
-		"typography": { "fontSize": true },
-		"spacing": { "padding": true, "margin": true }
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"spacing": {
+			"padding": true,
+			"margin": true
+		}
 	},
 	"attributes": {
 		"spaceId": {
@@ -22,5 +38,9 @@
 			"default": 0
 		}
 	},
-	"example": {}
+	"example": {},
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-spaces"
+	]
 }

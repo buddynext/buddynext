@@ -21,6 +21,212 @@
 	var useBlockProps = blockEditor.useBlockProps;
 	var Placeholder   = wp.components && wp.components.Placeholder;
 
+	/* ── Block settings (InspectorControls) ─────────────────────────────
+	 *
+	 * Every BuddyNext block declares attributes in its block.json and every
+	 * render callback reads them — but until now NOTHING in the editor could
+	 * write one. The registration loop below passed only edit/save, so a site
+	 * owner inserting a block from the inserter could not choose the member, the
+	 * space, the layout or the page size, and the seven blocks whose target
+	 * defaults to 0 simply rendered empty (Basecamp 10182432045).
+	 *
+	 * The controls live in ONE map keyed by block name, so adding a setting is a
+	 * data change rather than a bespoke edit function per block.
+	 */
+	var components   = wp.components || {};
+	var InspectorControls = blockEditor.InspectorControls;
+	var useState     = element.useState;
+	var useEffect    = element.useEffect;
+
+	/**
+	 * Fetch pickable entities (members or spaces) for the target selects.
+	 *
+	 * Uses window.bnBlocks (localised on this script) rather than adding a
+	 * wp-api-fetch dependency, so the editor bundle is unchanged.
+	 *
+	 * @param {string} kind 'members' or 'spaces'.
+	 * @return {Array} [ { value, label } ] including a context-default option.
+	 */
+	function useEntityOptions( kind ) {
+		var state = useState( null );
+		var options = state[0];
+		var setOptions = state[1];
+
+		useEffect( function () {
+			if ( ! window.bnBlocks || ! window.bnBlocks.restUrl ) {
+				setOptions( [] );
+				return;
+			}
+			var url = window.bnBlocks.restUrl + '/' + kind + '?per_page=100';
+			window.fetch( url, { headers: { 'X-WP-Nonce': window.bnBlocks.nonce } } )
+				.then( function ( r ) { return r.ok ? r.json() : []; } )
+				.then( function ( rows ) {
+					var list = Array.isArray( rows ) ? rows : ( rows && rows.items ) || [];
+					setOptions( list.map( function ( row ) {
+						return {
+							value: String( row.id || row.user_id || 0 ),
+							label: row.name || row.display_name || row.title || ( '#' + ( row.id || 0 ) ),
+						};
+					} ) );
+				} )
+				.catch( function () { setOptions( [] ); } );
+		}, [ kind ] );
+
+		return options;
+	}
+
+	/**
+	 * A target picker: choose a specific member/space, or inherit the page.
+	 *
+	 * 0 means "whoever/whatever this page is about", which is how these blocks
+	 * behave inside BuddyNext's own templates. Saying so explicitly is the
+	 * difference between a block that looks broken and one that is contextual.
+	 */
+	function targetControl( kind, label, attr ) {
+		return function ( props ) {
+			var options = useEntityOptions( kind );
+			var choices = [ { value: '0', label: __( 'Current page context', 'buddynext' ) } ]
+				.concat( options || [] );
+
+			return el( components.SelectControl, {
+				label: label,
+				value: String( props.attributes[ attr ] || 0 ),
+				options: choices,
+				help: null === options
+					? __( 'Loading…', 'buddynext' )
+					: __( 'Leave on “Current page context” to follow whoever the page is about.', 'buddynext' ),
+				onChange: function ( v ) {
+					var next = {};
+					next[ attr ] = parseInt( v, 10 ) || 0;
+					props.setAttributes( next );
+				},
+			} );
+		};
+	}
+
+	function rangeControl( attr, label, min, max ) {
+		return function ( props ) {
+			return el( components.RangeControl, {
+				label: label,
+				value: props.attributes[ attr ],
+				min: min,
+				max: max,
+				onChange: function ( v ) {
+					var next = {}; next[ attr ] = v; props.setAttributes( next );
+				},
+			} );
+		};
+	}
+
+	function selectControl( attr, label, choices ) {
+		return function ( props ) {
+			return el( components.SelectControl, {
+				label: label,
+				value: props.attributes[ attr ],
+				options: choices,
+				onChange: function ( v ) {
+					var next = {}; next[ attr ] = v; props.setAttributes( next );
+				},
+			} );
+		};
+	}
+
+	function toggleControl( attr, label ) {
+		return function ( props ) {
+			return el( components.ToggleControl, {
+				label: label,
+				checked: !! props.attributes[ attr ],
+				onChange: function ( v ) {
+					var next = {}; next[ attr ] = v; props.setAttributes( next );
+				},
+			} );
+		};
+	}
+
+	function textControl( attr, label ) {
+		return function ( props ) {
+			return el( components.TextControl, {
+				label: label,
+				value: props.attributes[ attr ] || '',
+				onChange: function ( v ) {
+					var next = {}; next[ attr ] = v; props.setAttributes( next );
+				},
+			} );
+		};
+	}
+
+	var GRID_LIST = [
+		{ value: 'grid', label: __( 'Grid', 'buddynext' ) },
+		{ value: 'list', label: __( 'List', 'buddynext' ) },
+	];
+
+	var blockControls = {
+		'buddynext/activity-feed': [
+			selectControl( 'scope', __( 'Feed', 'buddynext' ), [
+				{ value: 'home', label: __( 'Home (personalised)', 'buddynext' ) },
+				{ value: 'explore', label: __( 'Explore (community-wide)', 'buddynext' ) },
+			] ),
+			rangeControl( 'perPage', __( 'Posts per page', 'buddynext' ), 1, 50 ),
+		],
+		'buddynext/member-directory': [
+			rangeControl( 'perPage', __( 'Members per page', 'buddynext' ), 1, 60 ),
+			selectControl( 'layout', __( 'Layout', 'buddynext' ), GRID_LIST ),
+		],
+		'buddynext/space-directory': [
+			rangeControl( 'perPage', __( 'Spaces per page', 'buddynext' ), 1, 60 ),
+			selectControl( 'layout', __( 'Layout', 'buddynext' ), GRID_LIST ),
+		],
+		'buddynext/my-spaces': [ rangeControl( 'limit', __( 'Spaces to show', 'buddynext' ), 1, 50 ) ],
+		'buddynext/trending-hashtags': [
+			rangeControl( 'count', __( 'Hashtags to show', 'buddynext' ), 1, 50 ),
+			selectControl( 'display', __( 'Display as', 'buddynext' ), [
+				{ value: 'list', label: __( 'List', 'buddynext' ) },
+				{ value: 'cloud', label: __( 'Cloud', 'buddynext' ) },
+			] ),
+		],
+		'buddynext/member-card':            [ targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ) ],
+		'buddynext/follow-button':          [ targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ) ],
+		'buddynext/connection-button':      [ targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ) ],
+		'buddynext/profile-completion-bar': [ targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ) ],
+		'buddynext/profile-fields':         [
+			targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ),
+			textControl( 'group', __( 'Field group (slug)', 'buddynext' ) ),
+		],
+		'buddynext/profile-header': [
+			targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ),
+			toggleControl( 'showStats', __( 'Show stats', 'buddynext' ) ),
+			toggleControl( 'showActions', __( 'Show actions', 'buddynext' ) ),
+		],
+		'buddynext/space-card':    [ targetControl( 'spaces', __( 'Space', 'buddynext' ), 'spaceId' ) ],
+		'buddynext/post-composer': [ textControl( 'placeholder', __( 'Placeholder text', 'buddynext' ) ) ],
+		'buddynext/search-bar':    [ textControl( 'placeholder', __( 'Placeholder text', 'buddynext' ) ) ],
+	};
+
+	/**
+	 * Render the settings panel for a block, or nothing when it has no settings.
+	 *
+	 * @param {string} name  Block name.
+	 * @param {Object} props Edit props.
+	 * @return {Object|null} InspectorControls element.
+	 */
+	function inspectorFor( name, props ) {
+		var controls = blockControls[ name ];
+		if ( ! controls || ! InspectorControls || ! components.PanelBody ) {
+			return null;
+		}
+		return el(
+			InspectorControls,
+			null,
+			el(
+				components.PanelBody,
+				{ title: __( 'Settings', 'buddynext' ), initialOpen: true },
+				controls.map( function ( Control, i ) {
+					return el( Control, Object.assign( { key: 'bn-ctrl-' + i }, props ) );
+				} )
+			)
+		);
+	}
+
 	/**
 	 * Edit function: server-side-rendered live preview via REST.
 	 *
@@ -58,12 +264,17 @@
 			}
 
 			return el(
-				'div',
-				blockProps,
-				el( SSR, {
-					block:      name,
-					attributes: props.attributes,
-				} )
+				element.Fragment,
+				null,
+				inspectorFor( name, props ),
+				el(
+					'div',
+					blockProps,
+					el( SSR, {
+						block:      name,
+						attributes: props.attributes,
+					} )
+				)
 			);
 		};
 	}
@@ -75,8 +286,8 @@
 	 * @param {string} icon  Dashicon class without the 'dashicons-' prefix.
 	 * @return {Function} Edit component.
 	 */
-	function placeholderEdit( label, icon ) {
-		return function () {
+	function placeholderEdit( label, icon, name ) {
+		return function ( props ) {
 			var blockProps = useBlockProps( {
 				className: 'bn-editor-placeholder',
 				style: {
@@ -105,7 +316,12 @@
 					el( 'strong', null, 'BuddyNext — ' + label ),
 					el( 'p', { style: { margin: '4px 0 0', color: '#aeaca8' } }, __( 'Rendered on the frontend', 'buddynext' ) )
 				);
-			return el( 'div', blockProps, iconEl );
+			return el(
+				element.Fragment,
+				null,
+				name ? inspectorFor( name, props ) : null,
+				el( 'div', blockProps, iconEl )
+			);
 		};
 	}
 
@@ -140,7 +356,7 @@
 			return;
 		}
 		blocks.registerBlockType( def.name, {
-			edit: def.ssr ? ssrEdit( def.name ) : placeholderEdit( def.label ),
+			edit: def.ssr ? ssrEdit( def.name ) : placeholderEdit( def.label, def.icon, def.name ),
 			save: function () {
 				// All blocks are server-side rendered — save() returns null.
 				return null;
