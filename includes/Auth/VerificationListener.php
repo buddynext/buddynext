@@ -190,9 +190,14 @@ class VerificationListener implements ListenerInterface {
 	 * while this feature is on). Gating every entry point on this one accessor
 	 * keeps the contract in a single place.
 	 *
+	 * PUBLIC because that contract now has to hold across classes: the REST twin
+	 * of the link handler (AuthController::verify_email_token, for the native
+	 * app) needs the identical gate, and re-deriving it there would be a second
+	 * definition of "verification is on" waiting to drift from this one.
+	 *
 	 * @return bool
 	 */
-	private static function feature_active(): bool {
+	public static function feature_active(): bool {
 		return buddynext_feature_enabled( 'verification' );
 	}
 

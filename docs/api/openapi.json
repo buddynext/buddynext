@@ -1482,6 +1482,38 @@
                 ]
             }
         },
+        "/auth/verify": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "operationId": "post_auth_verify",
+                "summary": "POST /buddynext/v1/auth/verify",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    }
+                },
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "token": {
+                                        "type": "string",
+                                        "description": "Verification token from the emailed link."
+                                    }
+                                },
+                                "required": [
+                                    "token"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/auth/verify/resend": {
             "post": {
                 "tags": [
@@ -2785,6 +2817,54 @@
                         "appPassword": []
                     }
                 ]
+            }
+        },
+        "/kudos": {
+            "post": {
+                "tags": [
+                    "Social Graph"
+                ],
+                "operationId": "post_kudos",
+                "summary": "POST /buddynext/v1/kudos",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "receiver_id": {
+                                        "type": "string"
+                                    },
+                                    "message": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "receiver_id"
+                                ]
+                            }
+                        }
+                    }
+                }
             }
         },
         "/link-preview": {
@@ -9749,6 +9829,30 @@
                         "appPassword": []
                     }
                 ]
+            }
+        },
+        "/users/{id}/achievements": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_users_id_achievements",
+                "summary": "GET /buddynext/v1/users/{id}/achievements",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    }
+                }
             }
         },
         "/users/{id}/albums": {

@@ -31,7 +31,12 @@ fi
 # standard), so they are loaded with `wp eval "require '…';"` instead - require
 # preserves __FILE__/__DIR__, so the scripts still resolve their own paths.
 echo "• Generating docs/api/openapi.json from the live route registry…"
-if ! wp "${WP_ARGS[@]}" eval "require '${PLUGIN_DIR}/bin/gen-openapi.php';"; then
+# ${WP_ARGS[@]+...} guard: bash 3.2 - still the default /bin/bash on macOS -
+# treats "${ARR[@]}" on an EMPTY array as an unbound variable under `set -u`,
+# so this aborted with "WP_ARGS[@]: unbound variable" whenever WP_PATH was not
+# set. That is the documented default usage, so the script only worked the one
+# way its own docs call optional.
+if ! wp ${WP_ARGS[@]+"${WP_ARGS[@]}"} eval "require '${PLUGIN_DIR}/bin/gen-openapi.php';"; then
 	echo "✗ sync-api-docs: generator failed." >&2
 	exit 1
 fi
