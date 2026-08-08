@@ -1587,14 +1587,24 @@ const profileStore = store( 'buddynext/profile', {
 
 			doSave( ctx ).then( function () {
 				syncDirtyAttr( ctx.isDirty );
-				if ( ctx.saved ) {
-					// Smooth redirect after save: profileUrl is in context.
-					setTimeout( function () {
-						if ( ctx.profileUrl ) {
-							window.location.href = ctx.profileUrl;
-						}
-					}, 700 );
-				}
+
+				/*
+				 * Stay on the edit screen.
+				 *
+				 * This used to navigate to profileUrl 700ms after a successful save,
+				 * which dropped the member on their profile ROOT -- the Posts tab --
+				 * having just edited their About fields. They lost their place, lost
+				 * their scroll position, and could not carry on editing the next
+				 * field without going back (Basecamp 10180604112).
+				 *
+				 * Nothing depended on that redirect. Changing the profile handle is a
+				 * separate action (`/me/profile-slug`) which updates ctx.profileUrl in
+				 * place and never navigated, and the edit screen already offers "My
+				 * Profile" and "Cancel" for anyone who does want to leave. The save
+				 * bar reports the result on its own, which is how the sibling settings
+				 * screen has always behaved -- templates/settings/privacy.php passes an
+				 * empty profileUrl for exactly this reason.
+				 */
 			} );
 		},
 
