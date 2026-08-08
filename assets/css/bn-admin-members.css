@@ -692,11 +692,55 @@
 
 /* Notice — inline success/error messages */
 .bn-notice {
-	padding: var(--bn-a-s3) var(--bn-a-s4);
+	position: relative;
+	/* Room for the dismiss button so a long message never runs under it. The
+	   inline-end padding is the button's own width plus a gutter. */
+	padding: var(--bn-a-s3) var(--bn-a-s10, 2.5rem) var(--bn-a-s3) var(--bn-a-s4);
 	border-radius: var(--bn-a-r-sm);
 	margin-bottom: var(--bn-a-s4);
 	font-size: var(--bn-a-text-sm);
 	font-weight: var(--bn-a-fw-medium);
+}
+
+/* Added by bn-admin-dialogs.js, so it only exists when it can actually work.
+   Inset positioning rather than right/left keeps it on the correct side in RTL. */
+.bn-notice__dismiss {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-end: var(--bn-a-s2);
+	transform: translateY(-50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	/* Keeps the pointer target usable without overpowering a slim notice.
+	   Fallbacks are deliberate: an unresolved var() invalidates the whole
+	   declaration, and this button then collapses to the glyph's own 11x18 --
+	   which is exactly what happened when this first shipped against
+	   --bn-a-s7, a token that does not exist in the admin scale. */
+	inline-size: var(--bn-a-s8, 2rem);
+	block-size: var(--bn-a-s8, 2rem);
+	padding: 0;
+	border: 0;
+	border-radius: var(--bn-a-r-sm);
+	background: none;
+	/* Inherit so the button reads as part of its own notice rather than
+	   introducing a third colour on a green or red ground. */
+	color: inherit;
+	font-size: var(--bn-a-text-lg);
+	line-height: 1;
+	opacity: 0.7;
+	cursor: pointer;
+}
+
+.bn-notice__dismiss:hover,
+.bn-notice__dismiss:focus-visible {
+	opacity: 1;
+	background: rgba( 0, 0, 0, 0.06 );
+}
+
+.bn-notice__dismiss:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: -2px;
 }
 
 .bn-notice-success {
