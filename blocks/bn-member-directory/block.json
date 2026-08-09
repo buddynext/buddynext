@@ -16,7 +16,7 @@
 	"editorScript": "buddynext-blocks-editor",
 	"style": [
 		"file:../../assets/css/blocks.css",
-		"bn-members"
+		"bn-base"
 	],
 	"supports": {
 		"color": {

@@ -2,9 +2,13 @@
 /**
  * Block template: Member Directory (v2 design system).
  *
- * Compact directory listing — sits inside a .bn-card so it shares the home /
- * profile sidebar surface. Each row uses the .bn-avatar primitive; pagination
- * uses the .bn-btn ghost primitive.
+ * Compact directory listing — avatar, name and bio per row, in a .bn-card.
+ *
+ * SELF-CONTAINED. A block can land on any block surface in any theme, so every
+ * class this emits is styled in assets/css/blocks.css (plus the bn-base token
+ * layer) and nothing here depends on a hub feature stylesheet or a
+ * templates/parts include. The row classes used to be styled nowhere at all,
+ * which is why each name rendered flowing off the side of a full-size avatar.
  *
  * Variables:
  *   int    $per_page Number of members to display.
@@ -67,10 +71,12 @@ $cursor   = $result['next_cursor'] ?? '';
 								>
 							<?php endif; ?>
 						</span>
-						<span class="bn-member-name"><?php echo esc_html( $member['display_name'] ?? '' ); ?></span>
-						<?php if ( ! empty( $member['bio'] ) ) : ?>
-							<span class="bn-member-bio"><?php echo esc_html( wp_trim_words( $member['bio'], 12 ) ); ?></span>
-						<?php endif; ?>
+						<span class="bn-member-item__text">
+							<span class="bn-member-name"><?php echo esc_html( $member['display_name'] ?? '' ); ?></span>
+							<?php if ( ! empty( $member['bio'] ) ) : ?>
+								<span class="bn-member-bio"><?php echo esc_html( wp_trim_words( $member['bio'], 12 ) ); ?></span>
+							<?php endif; ?>
+						</span>
 					</a>
 				</li>
 			<?php endforeach; ?>
