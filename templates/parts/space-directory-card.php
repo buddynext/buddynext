@@ -18,6 +18,10 @@
  * @var int   $current_user_id  Optional. Current viewer ID (0 = logged out).
  * @var array $cat_by_id        Optional. Category map keyed by id (`[ id => [name,slug] ]`).
  * @var int   $subspace_count   Optional. Visibility-scoped sub-space count for this space. Default 0.
+ * @var bool  $compact          Optional. Drop the cover band and set the emblem beside the name,
+ *                              for narrow columns. Default false (the directory's full card).
+ * @var bool  $show_action      Optional. Render the footer action (Join / Requested / Manage /
+ *                              Log in to join). Default true.
  */
 
 declare( strict_types=1 );
@@ -38,6 +42,16 @@ $bn_dc_membership = isset( $membership ) && is_array( $membership ) ? $membershi
 $bn_dc_uid        = isset( $current_user_id ) ? (int) $current_user_id : 0;
 $bn_dc_cat_by_id  = isset( $cat_by_id ) && is_array( $cat_by_id ) ? $cat_by_id : array();
 $bn_dc_subspaces  = isset( $subspace_count ) ? (int) $subspace_count : 0;
+
+// Two presentation knobs, both defaulted to the directory's own card so every
+// existing caller is byte-identical. The featured-space block is the only caller
+// that sets them today: a sidebar is too narrow for an 80px cover band, and an
+// owner may want a card that presents a space without asking anyone to join it.
+// They live here rather than in a block-local copy of this markup because a
+// second copy is exactly how the featured card and the directory card drifted
+// apart last time (see the block template's header).
+$bn_dc_compact = ! empty( $compact );
+$bn_dc_action  = ! isset( $show_action ) || (bool) $show_action;
 
 $space_id = (int) $bn_dc_space['id'];
 // 'admin' is not a space role (ALLOWED_ROLES = owner|moderator|member); site
@@ -93,7 +107,8 @@ if ( ! empty( $bn_dc_space['avatar_url'] ) ) {
 // The tone fallback stays for old markup; this is the signal it prefers.
 $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space_type );
 ?>
-<article class="bn-card bn-sd-card" data-interactive role="listitem" data-join-method="<?php echo esc_attr( $bn_dc_join_method ); ?>" aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space_name, $privacy_label ) ); ?>">
+<article class="bn-card bn-sd-card" data-interactive role="listitem" data-size="<?php echo $bn_dc_compact ? 'compact' : 'full'; ?>" data-join-method="<?php echo esc_attr( $bn_dc_join_method ); ?>" aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space_name, $privacy_label ) ); ?>">
+	<?php if ( ! $bn_dc_compact ) : ?>
 	<a href="<?php echo esc_url( $space_url ); ?>" tabindex="-1" aria-hidden="true" class="bn-sd-card__cover-link">
 		<div class="bn-sd-card__cover" data-tone="<?php echo esc_attr( $cover_tone ); ?>">
 			<?php if ( ! empty( $bn_dc_space['cover_image_url'] ) ) : ?>
@@ -102,8 +117,21 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 			<div class="bn-sd-card__emblem" aria-hidden="true"><?php echo $bn_card_emblem; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- branches above each escape their content. ?></div>
 		</div>
 	</a>
+	<?php endif; ?>
 
 	<div class="bn-sd-card__body">
+		<?php if ( $bn_dc_compact ) : ?>
+			<?php
+			// The compact card keeps the emblem and drops only the cover band, so a
+			// space stays visually identifiable in a sidebar. It is the same emblem
+			// markup with the same fallback chain; CSS lifts it out of the cover's
+			// absolute positioning and sets it beside the name.
+			?>
+			<a href="<?php echo esc_url( $space_url ); ?>" tabindex="-1" aria-hidden="true" class="bn-sd-card__emblem-link">
+				<span class="bn-sd-card__emblem"><?php echo $bn_card_emblem; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- branches above each escape their content. ?></span>
+			</a>
+		<?php endif; ?>
+
 		<a href="<?php echo esc_url( $space_url ); ?>" class="bn-sd-card__name-link">
 			<h2 class="bn-sd-card__name"
 				aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space_name, $privacy_label ) ); ?>"
@@ -148,6 +176,7 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 			<?php endif; ?>
 		</div>
 
+		<?php if ( $bn_dc_action ) : ?>
 		<div class="bn-sd-card__foot">
 			<?php if ( 0 === $bn_dc_uid ) : ?>
 				<a
@@ -208,5 +237,6 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 				><?php esc_html_e( 'Request to join', 'buddynext' ); ?></button>
 			<?php endif; ?>
 		</div>
+		<?php endif; ?>
 	</div>
 </article>

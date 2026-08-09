@@ -1,7 +1,7 @@
 /**
  * BuddyNext — blocks.js
  *
- * Editor script for all 17 BuddyNext Gutenberg blocks.
+ * Editor script for all 19 BuddyNext Gutenberg blocks.
  * Registers edit functions (server-side-rendered previews) and
  * WordPress Interactivity API stores for frontend block interactivity.
  */
@@ -95,6 +95,36 @@
 				help: null === options
 					? __( 'Loading…', 'buddynext' )
 					: __( 'Leave on “Current page context” to follow whoever the page is about.', 'buddynext' ),
+				onChange: function ( v ) {
+					var next = {};
+					next[ attr ] = parseInt( v, 10 ) || 0;
+					props.setAttributes( next );
+				},
+			} );
+		};
+	}
+
+	/**
+	 * A target picker with NO page-context option — the target must be chosen.
+	 *
+	 * targetControl() above offers "Current page context", and for the member
+	 * blocks that is real: they fall back to the author of the page carrying the
+	 * block. A space has no equivalent — nothing on an ordinary WordPress page
+	 * says which space it is about, and BuddyNext's own space routes render PHP
+	 * templates rather than blocks, so the context can never be resolved. Offering
+	 * it there was a setting that saved and did nothing, and left the front end
+	 * silently empty with no explanation anywhere.
+	 */
+	function requiredTargetControl( kind, label, attr, emptyLabel, help ) {
+		return function ( props ) {
+			var options = useEntityOptions( kind );
+			var choices = [ { value: '0', label: emptyLabel } ].concat( options || [] );
+
+			return el( components.SelectControl, {
+				label: label,
+				value: String( props.attributes[ attr ] || 0 ),
+				options: choices,
+				help: null === options ? __( 'Loading…', 'buddynext' ) : help,
 				onChange: function ( v ) {
 					var next = {};
 					next[ attr ] = parseInt( v, 10 ) || 0;
@@ -234,7 +264,20 @@
 			] ),
 			toggleControl( 'showSpaceName', __( 'Show space name', 'buddynext' ) ),
 		],
-		'buddynext/space-card':    [ targetControl( 'spaces', __( 'Space', 'buddynext' ), 'spaceId' ) ],
+		'buddynext/space-card': [
+			requiredTargetControl(
+				'spaces',
+				__( 'Space', 'buddynext' ),
+				'spaceId',
+				__( 'Choose a space…', 'buddynext' ),
+				__( 'Pick the space this card features. Without one the block renders nothing.', 'buddynext' )
+			),
+			selectControl( 'size', __( 'Size', 'buddynext' ), [
+				{ value: 'full', label: __( 'Full', 'buddynext' ) },
+				{ value: 'compact', label: __( 'Compact (no cover)', 'buddynext' ) },
+			] ),
+			toggleControl( 'showJoinAction', __( 'Show join action', 'buddynext' ) ),
+		],
 		'buddynext/post-composer': [ textControl( 'placeholder', __( 'Placeholder text', 'buddynext' ) ) ],
 		'buddynext/search-bar':    [ textControl( 'placeholder', __( 'Placeholder text', 'buddynext' ) ) ],
 	};
@@ -363,7 +406,7 @@
 	}
 
 	/**
-	 * Block definitions: all 17 BuddyNext blocks.
+	 * Block definitions: all 19 BuddyNext blocks.
 	 *
 	 * ssr:true  → use serverSideRender for live preview in editor
 	 * ssr:false → show static placeholder (block has no PHP REST callback)

@@ -2,7 +2,7 @@
 /**
  * Gutenberg block and pattern registration.
  *
- * Registers all 18 free-tier BuddyNext blocks (server-rendered, dynamic)
+ * Registers all 19 free-tier BuddyNext blocks (server-rendered, dynamic)
  * and the 4 pre-built block patterns.
  *
  * Each block lives in blocks/bn-{slug}/block.json. Render callbacks are
@@ -133,7 +133,7 @@ class BlockRegistrar {
 	}
 
 	/**
-	 * Register all 18 dynamic blocks.
+	 * Register all 19 dynamic blocks.
 	 *
 	 * The shared editor script (blocks.js) uses `wp.serverSideRender` to render
 	 * live SSR previews inside the block editor. That component ships as the
@@ -421,6 +421,41 @@ class BlockRegistrar {
 	}
 
 	/**
+	 * A message for the block editor, and nothing at all on the front end.
+	 *
+	 * Blocks that need a target an owner has not chosen yet must say so
+	 * SOMEWHERE, or the owner sees an empty box and reads it as broken. But that
+	 * message is developer-and-owner copy: printing it on a member-facing page is
+	 * a public-surface-integrity defect in its own right, which is why the front
+	 * end renders nothing rather than a placeholder.
+	 *
+	 * The editor is told apart by the route WordPress uses to build the preview -
+	 * `wp/v2/block-renderer/...`, which ServerSideRender is the only caller of.
+	 * A bare `REST_REQUEST` check would be wrong: every front-end store call sets
+	 * it too, and the hint would leak into REST responses members read.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param string $message Owner-facing explanation.
+	 * @return string Markup for the editor preview, or '' on the front end.
+	 */
+	private function editor_hint( string $message ): string {
+		$route = isset( $GLOBALS['wp']->query_vars['rest_route'] )
+			? (string) $GLOBALS['wp']->query_vars['rest_route']
+			: '';
+
+		if ( ! defined( 'REST_REQUEST' ) || ! REST_REQUEST || ! str_contains( $route, '/block-renderer/' ) ) {
+			return '';
+		}
+
+		return sprintf(
+			'<div %1$s>%2$s</div>',
+			get_block_wrapper_attributes( array( 'class' => 'bn-block-hint' ) ),
+			esc_html( $message )
+		);
+	}
+
+	/**
 	 * Resolve which member a person-scoped block is about.
 	 *
 	 * An explicit `userId` attribute always wins. With none, fall back to whoever
@@ -491,12 +526,6 @@ class BlockRegistrar {
 		return (string) ob_get_clean();
 	}
 
-	/**
-	 * Render the Space Card block.
-	 *
-	 * @param array<string, mixed> $attributes Block attributes.
-	 * @return string
-	 */
 	/**
 	 * Render the Community activity block.
 	 *
@@ -573,12 +602,44 @@ class BlockRegistrar {
 		return (string) ob_get_clean();
 	}
 
+	/**
+	 * Render the Space Card block — one space, presented as a featured callout.
+	 *
+	 * Renders the shared directory card part, so a card in a sidebar and a card in
+	 * the spaces grid cannot drift apart. `size` and `showJoinAction` are knobs ON
+	 * that shared part rather than a second copy of its markup.
+	 *
+	 * Unlike the person-scoped blocks there is no page-context fallback: a space
+	 * has no equivalent of "the author of this page", and every BuddyNext space
+	 * route renders through a PHP template rather than a block, so a context that
+	 * could be inherited never exists. The block therefore needs an explicit
+	 * space, and says so in the editor instead of rendering an empty box.
+	 *
+	 * @since 1.1.3 size + showJoinAction.
+	 *
+	 * @param array<string, mixed> $attributes Block attributes.
+	 * @return string
+	 */
 	public function render_space_card( array $attributes ): string {
-		$space_id = (int) ( $attributes['spaceId'] ?? 0 );
+		$space_id    = (int) ( $attributes['spaceId'] ?? 0 );
+		$size        = sanitize_key( (string) ( $attributes['size'] ?? 'full' ) );
+		$show_action = ! isset( $attributes['showJoinAction'] ) || (bool) $attributes['showJoinAction'];
+
+		if ( $space_id <= 0 ) {
+			return $this->editor_hint( __( 'Choose a space to feature in the block settings.', 'buddynext' ) );
+		}
 
 		ob_start();
-		buddynext_get_template( 'blocks/space-card.php', compact( 'space_id' ) );
-		return $this->wrap_block_output( (string) ob_get_clean(), 'bn-block-space-card' );
+		buddynext_get_template( 'blocks/space-card.php', compact( 'space_id', 'size', 'show_action' ) );
+		$html = (string) ob_get_clean();
+
+		if ( '' === trim( $html ) ) {
+			// The space id is set but resolved to nothing — deleted, or not visible
+			// to this viewer. The front end stays silent; the editor explains.
+			return $this->editor_hint( __( 'That space is no longer available. Choose another in the block settings.', 'buddynext' ) );
+		}
+
+		return $this->wrap_block_output( $html, 'bn-block-space-card' );
 	}
 
 	/**

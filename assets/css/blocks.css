@@ -1,7 +1,7 @@
 /*
  * BuddyNext — Blocks CSS
  *
- * Frontend stylesheet loaded for all 17 BuddyNext Gutenberg blocks.
+ * Frontend stylesheet loaded for all 19 BuddyNext Gutenberg blocks.
  * Referenced as "style" in every block.json. Covers:
  *   - wp-block-buddynext-* wrapper containment + alignment
  *   - Activity feed block
@@ -1127,4 +1127,22 @@
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 	font-variant-numeric: tabular-nums;
+}
+
+/* ── Editor hint ────────────────────────────────────────────────────────
+ *
+ * Shown ONLY inside the block editor's server-side preview, by
+ * BlockRegistrar::editor_hint(), when a block needs a target the owner has not
+ * chosen yet. The front end renders nothing in that state, so this rule never
+ * paints on a member-facing page — it exists so an unconfigured block reads as
+ * "tell me which one" instead of as an empty, broken box.
+ */
+.bn-block-hint {
+	padding: var(--bn-s4);
+	border: 1px dashed var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	text-align: center;
 }

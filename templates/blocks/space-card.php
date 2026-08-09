@@ -14,7 +14,9 @@
  * card on a landing page is meant to convert.
  *
  * Variables:
- *   int $space_id Space ID to display.
+ *   int    $space_id    Space ID to display.
+ *   string $size        'full' (default) or 'compact' — compact drops the cover band.
+ *   bool   $show_action Render the join/manage action. Default true.
  *
  * @package BuddyNext
  */
@@ -69,5 +71,7 @@ buddynext_get_template(
 		'current_user_id' => $bn_fs_viewer,
 		'cat_by_id'       => $bn_fs_cats,
 		'subspace_count'  => 0,
+		'compact'         => 'compact' === ( isset( $size ) ? (string) $size : 'full' ),
+		'show_action'     => ! isset( $show_action ) || (bool) $show_action,
 	)
 );

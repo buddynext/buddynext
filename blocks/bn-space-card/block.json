@@ -36,6 +36,14 @@
 		"spaceId": {
 			"type": "integer",
 			"default": 0
+		},
+		"size": {
+			"type": "string",
+			"default": "full"
+		},
+		"showJoinAction": {
+			"type": "boolean",
+			"default": true
 		}
 	},
 	"example": {},

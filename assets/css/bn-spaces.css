@@ -368,6 +368,79 @@
 	gap: var(--bn-s2);
 }
 
+/* Compact card — the featured-space block's narrow-column size.
+   An 80px cover band is most of a sidebar's height, so compact drops the band
+   and keeps the emblem, moved out of the cover's absolute positioning to sit
+   beside the name. Everything else is the same card: same name, badge, category,
+   description, stats and action, so the two sizes stay one implementation.
+
+   The body becomes a grid rather than a nested head/text wrapper, which keeps
+   the markup a flat list of children — the category, description and footer are
+   each optional, and a wrapper-based layout would need the emblem's row span
+   recalculated every time one of them is absent.
+
+   Only the NAME shares the emblem's row. Everything below it spans the full
+   card, because the sidebar this size exists for is around 230px wide: running
+   the emblem down the whole card left the description and stats in a ~140px
+   gutter, wrapping "Creative Builders #240" over three lines beside empty
+   space. The emblem earns its column for one row and then gets out of the way. */
+.bn-sd-card[data-size="compact"] .bn-sd-card__body {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	column-gap: var(--bn-s3);
+	row-gap: var(--bn-s2);
+	align-content: start;
+	padding-block: var(--bn-s4);
+}
+
+.bn-sd-card[data-size="compact"] .bn-sd-card__emblem-link {
+	grid-column: 1;
+	grid-row: 1;
+	align-self: center;
+	display: block;
+	line-height: 0;
+}
+
+.bn-sd-card[data-size="compact"] .bn-sd-card__name-link {
+	grid-column: 2;
+	grid-row: 1;
+	align-self: center;
+}
+
+.bn-sd-card[data-size="compact"] .bn-sd-card__body > :not(.bn-sd-card__emblem-link):not(.bn-sd-card__name-link) {
+	grid-column: 1 / -1;
+}
+
+/* On the full card the emblem reads because it sits on the coloured cover: its
+   surface-coloured fill and 3px surface border are a cut-out from that band.
+   With the band gone it would be surface on surface — an invisible container,
+   leaving a bare letter or icon floating next to the name. Compact therefore
+   draws the emblem as a real tile: sunken fill, a line border, no cut-out. */
+.bn-sd-card[data-size="compact"] .bn-sd-card__emblem {
+	position: static;
+	width: 40px;
+	height: 40px;
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	box-shadow: none;
+}
+
+.bn-sd-card[data-size="compact"] .bn-sd-card__emblem svg {
+	width: 20px;
+	height: 20px;
+}
+
+.bn-sd-card[data-size="compact"] .bn-sd-card__emblem-letter {
+	font-size: var(--bn-text-lg);
+}
+
+/* No auto margin: with the cover gone there is no tall band to push the action
+   away from, and a compact card in a sidebar should close up under its content
+   rather than stretch to a neighbour's height. */
+.bn-sd-card[data-size="compact"] .bn-sd-card__foot {
+	margin-block-start: var(--bn-s1);
+}
+
 /* Sidebar list inside .bn-sidebar-card body */
 .bn-sd-side-list {
 	list-style: none;

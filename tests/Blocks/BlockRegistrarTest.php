@@ -19,7 +19,11 @@ use BuddyNext\Blocks\BlockRegistrar;
 class BlockRegistrarTest extends \WP_UnitTestCase {
 
 	/**
-	 * All 18 free-tier block names (namespace/slug).
+	 * All 19 free-tier block names (namespace/slug).
+	 *
+	 * The three showcase blocks were absent from this list, so nothing checked
+	 * that they register, render dynamically, or declare theme supports — the
+	 * suite passed while covering 16 of 19.
 	 *
 	 * @var string[]
 	 */
@@ -31,10 +35,13 @@ class BlockRegistrarTest extends \WP_UnitTestCase {
 		// People.
 		'buddynext/member-directory',
 		'buddynext/member-card',
+		'buddynext/members-showcase',
+		'buddynext/community-activity',
 		'buddynext/follow-button',
 		'buddynext/connection-button',
 		// Spaces.
 		'buddynext/space-directory',
+		'buddynext/spaces-showcase',
 		'buddynext/space-card',
 		'buddynext/my-spaces',
 		// Profile.
