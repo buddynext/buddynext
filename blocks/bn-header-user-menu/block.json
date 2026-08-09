@@ -19,6 +19,7 @@
 	"editorScript": "buddynext-blocks-editor",
 	"style": "file:../../assets/css/bn-header.css",
 	"supports": {
+		"inserter": false,
 		"html": false,
 		"align": false,
 		"color": {

@@ -17,6 +17,7 @@
 	"viewScriptModule": "@buddynext/social-buttons",
 	"style": "file:../../assets/css/blocks.css",
 	"supports": {
+		"inserter": false,
 		"color": {
 			"background": true,
 			"text": true

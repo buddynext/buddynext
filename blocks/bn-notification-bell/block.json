@@ -19,6 +19,7 @@
 		"bn-header"
 	],
 	"supports": {
+		"inserter": false,
 		"color": {
 			"background": true,
 			"text": true
