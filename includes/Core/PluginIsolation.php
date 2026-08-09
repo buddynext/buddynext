@@ -563,6 +563,40 @@ class PluginIsolation {
 	);
 
 	/**
+	 * Asset-URL prefixes for the plugins discovery decided are front-end renderers.
+	 *
+	 * THE SECOND HALF OF ISOLATION. Keeping a plugin LOADED is only half the job:
+	 * AssetIsolation separately dequeues any style or script whose source is not
+	 * on an allowed URL prefix. Teaching only the plugin layer about discovery
+	 * produced something worse than the original bug -- a header/footer builder
+	 * that now EXECUTES and emits its markup with its stylesheet and script
+	 * stripped, i.e. a broken unstyled half-header where there had at least been
+	 * cleanly nothing; and a cookie banner that renders but cannot record
+	 * consent, because the JS that does the recording was dequeued.
+	 *
+	 * Verified by QA with GamiPress: kept in active_plugins on a hub route, but
+	 * gamipress.min.css/js present on an ordinary page and absent on the hub.
+	 *
+	 * So both layers read the SAME discovered list, from here. That is also what
+	 * stops them drifting apart again, which is the failure this whole card is
+	 * about.
+	 *
+	 * @return string[] URL prefixes, one per discovered plugin directory.
+	 */
+	public static function frontend_asset_prefixes(): array {
+		$prefixes = array();
+
+		foreach ( self::detected_frontend_plugins() as $basename ) {
+			// plugins_url() resolves the plugin's own directory from its
+			// basename, so no path handling is needed here; array_filter below
+			// drops anything that fails to resolve.
+			$prefixes[] = trailingslashit( plugins_url( '', (string) $basename ) );
+		}
+
+		return array_values( array_unique( array_filter( $prefixes ) ) );
+	}
+
+	/**
 	 * Active plugins that render on the front end, detected rather than listed.
 	 *
 	 * WHY THIS EXISTS. Isolation strips every plugin that is not on an allow-list,

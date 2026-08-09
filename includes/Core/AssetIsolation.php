@@ -86,6 +86,22 @@ class AssetIsolation {
 			$prefixes[] = BUDDYNEXTPRO_PLUGIN_URL; // BuddyNext Pro.
 		}
 
+		/*
+		 * Whatever PluginIsolation decided to KEEP, keep its assets too.
+		 *
+		 * These two layers have to agree. Isolation keeps a plugin loaded if it
+		 * draws the front end; if this layer then dequeues its CSS and JS, the
+		 * plugin still runs and still emits markup -- just unstyled and inert.
+		 * That is worse than the original bug: a header/footer builder becomes a
+		 * broken half-header instead of cleanly nothing, and a cookie banner
+		 * renders while the script that records consent is gone.
+		 *
+		 * Reading the same discovered list from PluginIsolation, rather than
+		 * maintaining a second one here, is what keeps them from drifting -- the
+		 * drift is precisely what this fix is for.
+		 */
+		$prefixes = array_merge( $prefixes, PluginIsolation::frontend_asset_prefixes() );
+
 		/**
 		 * Filter the allowed asset-source URL prefixes on BuddyNext routes.
 		 *
