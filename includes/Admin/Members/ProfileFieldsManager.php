@@ -2045,11 +2045,20 @@ class ProfileFieldsManager {
 							</div>
 							<div class="bn-pf-af-field bn-a-pf-col-narrow">
 								<label for="bn-af-vis-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Visible to', 'buddynext' ); ?></label>
+								<?php
+								/*
+								 * Members-only preselected, matching ProfileService::create_field()'s
+								 * own default so the screen and the API agree. This is the audience a
+								 * value STARTS at; the member can still publish it from their own edit
+								 * screen, because the group is the ceiling and the field is the default.
+								 */
+								?>
 								<select id="bn-af-vis-<?php echo absint( $gid ); ?>" name="visibility">
 									<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
-										<option value="<?php echo esc_attr( $vis_val ); ?>"><?php echo esc_html( $vis_lbl ); ?></option>
+										<option value="<?php echo esc_attr( $vis_val ); ?>" <?php selected( 'members', $vis_val ); ?>><?php echo esc_html( $vis_lbl ); ?></option>
 									<?php endforeach; ?>
 								</select>
+								<p class="bn-pf-af-hint"><?php esc_html_e( 'Where this field starts for every member. They can change their own to anything this group allows.', 'buddynext' ); ?></p>
 							</div>
 						</div>
 						<p class="bn-pf-opts-hint"><?php esc_html_e( 'Dropdown, Radio and Multi-select let members choose from options you define below. Space Categories uses your site categories as the choices; Yes / No is a single checkbox; everything else is free text.', 'buddynext' ); ?></p>
