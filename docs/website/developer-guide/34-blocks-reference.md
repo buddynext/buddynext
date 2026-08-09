@@ -1,6 +1,12 @@
 # Blocks Reference
 
-BuddyNext Free ships 16 server-rendered Gutenberg blocks under the `buddynext/*` namespace and the `buddynext` editor category. This page is the contract for each block: its name, purpose, attributes, and the REST data source that backs its rendered output. Developers embedding, theming, or extending these blocks should treat this table as authoritative.
+BuddyNext Free ships 17 server-rendered Gutenberg blocks under the `buddynext/*` namespace and the `buddynext` editor category. This page is the contract for each block: its name, purpose, attributes, and the REST data source that backs its rendered output. Developers embedding, theming, or extending these blocks should treat this table as authoritative.
+
+**What these blocks are for.** They let a site owner surface their community **anywhere WordPress supports blocks** - posts, pages, template parts, sidebars, patterns, the site editor. The job is promotion: show a visitor who has not joined what is inside and give them a reason to. So every block meant for that purpose renders fully for a logged-out visitor, and its actions degrade to "sign in, then act" rather than disappearing.
+
+**Not for the BuddyNext hub.** The community's own routes - `/activity/`, `/members/`, `/spaces/`, `/messages/` and the rest - render through PHP templates in `templates/`, not through blocks. These blocks are for the WordPress surfaces AROUND that hub: your posts, pages, sidebars and template parts. Editing a hub surface means overriding its template (see "Override a block's template" below and the theme-override guide), not placing a block.
+
+Because they can land on any block surface, a person-scoped block resolves its subject from the page when no explicit target is set: `follow-button` and `connection-button` fall back to the **author of the post or page carrying them**, which is what makes them useful on an ordinary blog post. With no sensible target they render nothing at all rather than an empty box.
 
 ![A feed page assembled from the server-rendered BuddyNext Gutenberg blocks documented here](../images/community-activity-feed.webp)
 
@@ -12,7 +18,14 @@ All 16 blocks share the same registration and rendering model. Read this before 
 - **Server-rendered (dynamic).** Every block is dynamic: the saved post content holds only the block comment plus attributes, and the markup is produced at request time by a render callback that calls `buddynext_get_template( 'blocks/{slug}.php', ... )`. The template, in turn, reads data through a domain service (`buddynext_service( '...' )`) for the first paint and exposes a REST base URL plus a nonce for live client updates.
 - **Editor preview.** The block editor renders a live preview with `wp.serverSideRender`. The shared editor handle `buddynext-blocks-editor` (`assets/js/blocks.js`) is pre-registered with `wp-server-side-render` in its dependency list and is localised with `window.bnBlocks` (`restUrl`, `nonce`, `searchUrl`) so editor-side REST calls carry a valid `wp_rest` nonce.
 - **REST namespace.** Every data source below is under `buddynext/v1`. Interactive blocks read the base URL from `rest_url( 'buddynext/v1' )` passed into the template; the front-end view modules (`@buddynext/feed`, `@buddynext/social-buttons`, `@buddynext/spaces`) call specific routes under that namespace. Authenticated, state-changing routes require the `wp_rest` nonce; read routes for public directories do not.
-- **Block supports.** With one exception, every block declares the same `supports`: `color` (background + text), `typography.fontSize`, and `spacing` (padding + margin). The Header User Menu block additionally sets `html: false` and `align: false`. These are standard core supports and are not repeated per-block below.
+- **Block supports.** Every block declares the same `supports`: `color` (background + text), `typography.fontSize`, and `spacing` (padding + margin). The Header User Menu block additionally sets `html: false` and `align: false`. Seven blocks also set `inserter: false` - see the next bullet. These are standard core supports and are not repeated per-block below.
+- **Ten blocks are offered in the inserter; seven are not.** The seven need a member or profile context that an ordinary page does not carry, so inserting them there produced an empty box or nothing at all. They remain **registered and fully functional** - a page that already uses one keeps rendering it, and `render_block`/`do_blocks` still execute them - they are simply no longer listed as page content. `inserter` is an editor-only flag and changes no output.
+
+  | Offered in the inserter (10) | Not offered (7) |
+  |---|---|
+  | `activity-feed`, `member-card`, `member-directory`, `profile-fields`, `profile-header`, `search-bar`, `space-card`, `space-directory`, `spaces-showcase`, `trending-hashtags` | `connection-button`, `follow-button`, `header-user-menu`, `my-spaces`, `notification-bell`, `post-composer`, `profile-completion-bar` |
+
+  To place one of the seven deliberately - in a theme template, a pattern, or a template part - insert its block comment directly (`<!-- wp:buddynext/follow-button {"userId":123} /-->`). Nothing blocks programmatic use.
 - **Styles.** Most blocks enqueue `assets/css/blocks.css`. The Header User Menu block enqueues `assets/css/bn-header.css` instead (it shares the logged-in header chrome stylesheet).
 
 > **Note:** Attribute defaults shown below are the `block.json` defaults. The render callback sanitises each attribute (`sanitize_key`, `(int)`, `(bool)`, `esc_url_raw`, `sanitize_text_field`) before passing it to the template, so out-of-range or malformed values fall back safely.

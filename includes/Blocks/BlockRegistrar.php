@@ -361,7 +361,7 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_follow_button( array $attributes ): string {
-		$user_id = (int) ( $attributes['userId'] ?? 0 );
+		$user_id = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
 
 		ob_start();
 		buddynext_get_template( 'blocks/follow-button.php', compact( 'user_id' ) );
@@ -375,11 +375,60 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_connection_button( array $attributes ): string {
-		$user_id = (int) ( $attributes['userId'] ?? 0 );
+		$user_id = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
 
 		ob_start();
 		buddynext_get_template( 'blocks/connection-button.php', compact( 'user_id' ) );
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Resolve which member a person-scoped block is about.
+	 *
+	 * An explicit `userId` attribute always wins. With none, fall back to whoever
+	 * the current page is ABOUT - the author of the post or page carrying the
+	 * block. That is the reading a site owner expects (a follow button dropped on
+	 * a blog post follows its author) and it is what these blocks are for:
+	 * promoting the community from ordinary pages.
+	 *
+	 * No BuddyNext-hub branch on purpose. Hub routes render through PHP templates,
+	 * not blocks, so a block never renders inside one - a branch for it would be
+	 * speculative code for a case that does not occur, and reaching the profile
+	 * owner would mean widening PageRouter's private resolution API to serve it.
+	 *
+	 * Returns 0 when there is no sensible target, and the templates then render
+	 * NOTHING. Deliberately not a placeholder: copy explaining a missing member
+	 * context is developer-facing text on a member-facing page, which the
+	 * public-surface-integrity standard treats as a defect in its own right. The
+	 * editor is where an owner learns the block needs a target.
+	 *
+	 * Before this, a block with no `userId` returned nothing with no fallback at
+	 * all, so a default insertion rendered empty and silent (Basecamp 10184505230,
+	 * 10184505206).
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param int $explicit The block's userId attribute (0 when unset).
+	 * @return int Member ID to render for, or 0 to render nothing.
+	 */
+	private function resolve_member_context( int $explicit ): int {
+		if ( $explicit > 0 ) {
+			return $explicit;
+		}
+
+		// The page's own author. get_queried_object_id() is wrong here:
+		// on an author archive it returns the author, but on a singular post it
+		// returns the POST id, which would be read as a user id.
+		$post = get_post();
+		if ( $post instanceof \WP_Post && (int) $post->post_author > 0 ) {
+			return (int) $post->post_author;
+		}
+
+		if ( is_author() ) {
+			return (int) get_queried_object_id();
+		}
+
+		return 0;
 	}
 
 	// -------------------------------------------------------------------------
