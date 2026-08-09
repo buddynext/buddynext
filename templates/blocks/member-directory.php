@@ -30,8 +30,16 @@ $has_more = null !== ( $result['next_cursor'] ?? null );
 $cursor   = $result['next_cursor'] ?? '';
 ?>
 <section
-	class="bn-card bn-block-member-directory bn-block-member-directory--<?php echo esc_attr( $layout ); ?>"
-	data-layout="<?php echo esc_attr( $layout ); ?>"
+	<?php
+	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+	echo get_block_wrapper_attributes(
+		array(
+			'class'       => 'bn-card bn-block-member-directory bn-block-member-directory--' . $layout,
+			'data-layout' => $layout,
+		)
+	);
+	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+	?>
 >
 	<div class="bn-member-directory__toolbar">
 		<h3 class="bn-block-heading"><?php esc_html_e( 'Members', 'buddynext' ); ?></h3>

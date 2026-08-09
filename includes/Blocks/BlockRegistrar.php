@@ -351,7 +351,7 @@ class BlockRegistrar {
 
 		ob_start();
 		buddynext_get_template( 'blocks/member-card.php', compact( 'user_id' ) );
-		return (string) ob_get_clean();
+		return $this->wrap_block_output( (string) ob_get_clean(), 'bn-block-member-card' );
 	}
 
 	/**
@@ -380,6 +380,42 @@ class BlockRegistrar {
 		ob_start();
 		buddynext_get_template( 'blocks/connection-button.php', compact( 'user_id' ) );
 		return (string) ob_get_clean();
+	}
+
+
+	/**
+	 * Wrap a delegating block's output so its `supports` actually apply.
+	 *
+	 * Most block templates carry their own root element and call
+	 * get_block_wrapper_attributes() on it directly. Three do not: member-card,
+	 * space-card and header-user-menu hand off to a shared template part or to
+	 * HeaderUserSection::render(), so there is no root element here to attach to
+	 * without editing markup that other callers share.
+	 *
+	 * Without a wrapper, every `supports` control those blocks declare - background
+	 * colour, text colour, font size, padding, margin - saved into the block
+	 * attributes and did nothing at all. A control that renders, saves and has no
+	 * effect is a public-surface-integrity defect, not a cosmetic gap.
+	 *
+	 * Empty output stays empty: a block that renders nothing must not leave a
+	 * styled div behind on the page.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param string $html  Buffered template output.
+	 * @param string $class Extra class for the wrapper.
+	 * @return string
+	 */
+	private function wrap_block_output( string $html, string $class ): string {
+		if ( '' === trim( $html ) ) {
+			return '';
+		}
+
+		return sprintf(
+			'<div %1$s>%2$s</div>',
+			get_block_wrapper_attributes( array( 'class' => $class ) ),
+			$html
+		);
 	}
 
 	/**
@@ -486,7 +522,7 @@ class BlockRegistrar {
 
 		ob_start();
 		buddynext_get_template( 'blocks/space-card.php', compact( 'space_id' ) );
-		return (string) ob_get_clean();
+		return $this->wrap_block_output( (string) ob_get_clean(), 'bn-block-space-card' );
 	}
 
 	/**
@@ -589,7 +625,7 @@ class BlockRegistrar {
 	public function render_header_user_menu( array $attributes ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- required by register_block_type signature.
 		ob_start();
 		buddynext_get_template( 'blocks/header-user-menu.php', array() );
-		return (string) ob_get_clean();
+		return $this->wrap_block_output( (string) ob_get_clean(), 'bn-block-header-user-menu' );
 	}
 
 	/**

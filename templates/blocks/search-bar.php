@@ -18,7 +18,13 @@ if ( '' === $placeholder ) {
 	$placeholder = __( 'Search…', 'buddynext' );
 }
 ?>
-<div class="bn-block-search-bar">
+<?php
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+?>
+<div <?php echo get_block_wrapper_attributes( array( 'class' => 'bn-block-search-bar' ) ); ?>>
+<?php
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+?>
 	<form
 		class="bn-search-form"
 		role="search"

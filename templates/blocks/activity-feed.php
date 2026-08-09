@@ -33,7 +33,18 @@ $context  = in_array( $scope, array( 'home', 'explore', 'profile' ), true ) ? $s
 // Batch-prime per-viewer state before the SSR post-card loop (C8.3).
 $feed_svc->prime_viewer_state( (array) $bn_posts, $viewer_id );
 ?>
-<div class="bn-block-activity-feed" data-scope="<?php echo esc_attr( $scope ); ?>">
+<div 
+<?php
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+echo get_block_wrapper_attributes(
+	array(
+		'class'      => 'bn-block-activity-feed',
+		'data-scope' => $scope,
+	)
+);
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+?>
+>
 	<?php if ( empty( $bn_posts ) ) : ?>
 		<?php
 		buddynext_get_template(

@@ -21,8 +21,16 @@ $display = in_array( $display, array( 'list', 'pills' ), true ) ? $display : 'li
 $hashtags = buddynext_service( 'hashtags' )->get_trending( $count );
 ?>
 <section
-	class="bn-card bn-block-trending-hashtags bn-block-trending-hashtags--<?php echo esc_attr( $display ); ?>"
-	data-display="<?php echo esc_attr( $display ); ?>"
+	<?php
+	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+	echo get_block_wrapper_attributes(
+		array(
+			'class'        => 'bn-card bn-block-trending-hashtags bn-block-trending-hashtags--' . $display,
+			'data-display' => $display,
+		)
+	);
+	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+	?>
 >
 	<h3 class="bn-block-heading"><?php esc_html_e( 'Trending', 'buddynext' ); ?></h3>
 	<?php if ( empty( $hashtags ) ) : ?>

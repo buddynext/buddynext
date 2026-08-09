@@ -50,7 +50,18 @@ $bio_field  = reset( $bio_fields );
 $bio        = $bio_field ? ( $bio_field['value'] ?? '' ) : get_user_meta( $user_id, 'bn_bio', true );
 $avatar_url = (string) get_avatar_url( $user_id, array( 'size' => 144 ) );
 ?>
-<section class="bn-card bn-block-profile-header" data-user-id="<?php echo absint( $user_id ); ?>">
+<section 
+<?php
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+echo get_block_wrapper_attributes(
+	array(
+		'class'        => 'bn-card bn-block-profile-header',
+		'data-user-id' => (string) absint( $user_id ),
+	)
+);
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+?>
+>
 	<div class="bn-profile-header__cover" aria-hidden="true"></div>
 	<div class="bn-profile-header__body">
 		<span class="bn-avatar bn-profile-header__avatar" data-size="2xl">

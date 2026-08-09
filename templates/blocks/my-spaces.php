@@ -27,7 +27,13 @@ $spaces  = buddynext_service( 'spaces' )->list_spaces(
 	)
 );
 ?>
-<section class="bn-card bn-block-my-spaces">
+<?php
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+?>
+<section <?php echo get_block_wrapper_attributes( array( 'class' => 'bn-card bn-block-my-spaces' ) ); ?>>
+<?php
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+?>
 	<h3 class="bn-block-heading"><?php esc_html_e( 'My Spaces', 'buddynext' ); ?></h3>
 	<?php if ( empty( $spaces ) ) : ?>
 		<?php

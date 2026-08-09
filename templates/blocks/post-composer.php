@@ -32,7 +32,13 @@ $avatar_url = (string) get_avatar_url( $user_id, array( 'size' => 72 ) );
 // binds and a composer modal that does not exist off the feed.
 $compose_url = \BuddyNext\Core\PageRouter::activity_url();
 ?>
-<div class="bn-card bn-block-post-composer">
+<?php
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+?>
+<div <?php echo get_block_wrapper_attributes( array( 'class' => 'bn-card bn-block-post-composer' ) ); ?>>
+<?php
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+?>
 	<span class="bn-avatar bn-block-post-composer__avatar" data-size="md" aria-hidden="true">
 		<?php if ( '' !== $avatar_url ) : ?>
 			<img

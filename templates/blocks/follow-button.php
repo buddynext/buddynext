@@ -56,10 +56,18 @@ if ( $is_pending ) {
 $bn_fb_is_active = $is_following || $is_pending;
 ?>
 <div
-	class="bn-block-follow-button"
-	data-wp-interactive="buddynext/follow-button"
-	data-user-id="<?php echo absint( $user_id ); ?>"
-	data-wp-context="<?php echo esc_attr( $context_json ); ?>"
+	<?php
+	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+	echo get_block_wrapper_attributes(
+		array(
+			'class'               => 'bn-block-follow-button',
+			'data-wp-interactive' => 'buddynext/follow-button',
+			'data-user-id'        => (string) absint( $user_id ),
+			'data-wp-context'     => $context_json,
+		)
+	);
+	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+	?>
 >
 	<button
 		type="button"

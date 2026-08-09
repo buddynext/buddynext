@@ -48,8 +48,16 @@ foreach ( buddynext_service( 'spaces' )->categories_with_counts( 0, true ) as $b
 }
 ?>
 <section
-	class="bn-card bn-block-space-directory bn-block-space-directory--<?php echo esc_attr( $layout ); ?>"
-	data-layout="<?php echo esc_attr( $layout ); ?>"
+	<?php
+	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+	echo get_block_wrapper_attributes(
+		array(
+			'class'       => 'bn-card bn-block-space-directory bn-block-space-directory--' . $layout,
+			'data-layout' => $layout,
+		)
+	);
+	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+	?>
 >
 	<h3 class="bn-block-heading"><?php esc_html_e( 'Spaces', 'buddynext' ); ?></h3>
 	<?php if ( empty( $spaces ) ) : ?>

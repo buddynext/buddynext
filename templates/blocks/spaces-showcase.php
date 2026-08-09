@@ -97,7 +97,18 @@ foreach ( $bn_ss_service->categories_with_counts( 0, true ) as $bn_ss_cat ) {
 	$bn_ss_cat_by_id[ (int) $bn_ss_cat['id'] ] = $bn_ss_cat;
 }
 ?>
-<div class="bn-spaces-showcase" data-layout="<?php echo esc_attr( $layout ); ?>">
+<div 
+<?php
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+echo get_block_wrapper_attributes(
+	array(
+		'class'       => 'bn-spaces-showcase',
+		'data-layout' => $layout,
+	)
+);
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+?>
+>
 	<?php if ( empty( $bn_ss_spaces ) ) : ?>
 		<?php
 		/*

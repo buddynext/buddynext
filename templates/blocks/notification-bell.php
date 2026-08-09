@@ -27,7 +27,18 @@ $aria_label   = sprintf(
 	absint( $unread_count )
 );
 ?>
-<div class="bn-block-notification-bell" data-user-id="<?php echo absint( $user_id ); ?>">
+<div 
+<?php
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+echo get_block_wrapper_attributes(
+	array(
+		'class'        => 'bn-block-notification-bell',
+		'data-user-id' => (string) absint( $user_id ),
+	)
+);
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+?>
+>
 	<a
 		href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notifications_url() ); ?>"
 		class="bn-notification-bell-link"
