@@ -187,7 +187,9 @@
 /* Space card — sits on `.bn-card[data-interactive]` from base.
    Doubled with .bn-card for the same reason bn-members.css does it: on a block
    surface bn-spaces.css can print BEFORE bn-base.css, and a plain .bn-sd-card
-   then loses `padding: 0` to `.bn-card`'s 24px, insetting the cover band. */
+   then loses `padding: 0` to `.bn-card`'s 24px, insetting the cover band.
+   The print order itself is fixed in BlockRegistrar::enqueue_block_styles_early();
+   this covers the block-widget / template-part surfaces that fix cannot see. */
 .bn-card.bn-sd-card {
 	padding: 0;
 }

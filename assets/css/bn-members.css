@@ -203,13 +203,19 @@
 /* ── Member card composition (uses .bn-card[data-interactive] from base) ──
  *
  * Doubled with .bn-card so `padding: 0` outranks `.bn-card`'s own
- * `padding: var(--bn-s6)` by specificity rather than by source order. On a
- * BuddyNext hub bn-members.css prints after bn-base.css and the plain selector
- * won; on an ordinary page carrying the Featured Member block the two print the
- * other way round, so the card kept the base 24px padding and its cover band
- * sat inset with a white margin around it. A component that overrides its base
- * primitive should say so — sheet order is not a contract a card can rely on
- * once it renders outside the hub. */
+ * `padding: var(--bn-s6)` by specificity rather than by source order.
+ *
+ * The ordering itself is fixed in PHP — BlockRegistrar::enqueue_block_styles_early()
+ * puts a block's stylesheets in the queue during wp_enqueue_scripts, so they no
+ * longer print late and no longer get hoisted above bn-base by WordPress 6.9's
+ * wp_hoist_late_printed_styles(). Read that method for the full mechanism.
+ *
+ * This stays because that fix can only see blocks in the QUERIED POST's content.
+ * A card rendered from a block widget or a template part still takes the
+ * late-and-hoisted path, and there bn-members.css lands above bn-base.css again.
+ * Not redundant, and not a leftover: it is what covers the surfaces the PHP fix
+ * cannot reach. A component that overrides its base primitive should say so by
+ * specificity anyway. */
 .bn-card.bn-md-card {
 	padding: 0;
 }

@@ -50,6 +50,11 @@ class BlockRegistrar {
 		add_action( 'init', array( $this, 'register_block_category' ) );
 		add_filter( 'block_categories_all', array( $this, 'add_block_category' ) );
 
+		// Priority 20: after AssetService::enqueue_global_tokens() (15) has put
+		// bn-base in the queue, so a block stylesheet enqueued here lands behind
+		// it rather than pulling it in as a dependency from an odd position.
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_block_styles_early' ), 20 );
+
 		/*
 		 * Second print pass for blocks that render late.
 		 *
@@ -105,6 +110,67 @@ class BlockRegistrar {
 			},
 			20
 		);
+	}
+
+	/**
+	 * Enqueue a BuddyNext block's stylesheets up front when the page uses it.
+	 *
+	 * WordPress enqueues a block's `style` handles while the block RENDERS,
+	 * which happens inside the_content — long after the head has printed. Since
+	 * 6.9 core no longer just prints those in the footer: `wp_hoist_late_printed_styles()`
+	 * buffers the page and lifts late styles back into the head, sorted into
+	 * buckets. Non-core block styles go to the bucket where
+	 * `wp_enqueue_registered_block_scripts_and_styles()` runs, which sits ABOVE
+	 * the region where ordinary enqueued stylesheets were printed.
+	 *
+	 * bn-base is an ordinary enqueue, so it prints in that lower region. A
+	 * feature stylesheet reached only through a block therefore got hoisted
+	 * ABOVE its own dependency — `bn-members.css` before `bn-base.css`, exactly
+	 * inverting the hub order. Dependencies could not save it: by the time the
+	 * late group is captured, bn-base is already marked done, so it is not
+	 * reprinted alongside the handle being hoisted.
+	 *
+	 * The visible result was any equal-specificity override a feature sheet
+	 * makes against a bn-base primitive silently losing on block surfaces only.
+	 * `.bn-md-card { padding: 0 }` lost to `.bn-card { padding: var(--bn-s6) }`,
+	 * so a Featured Member card drew its cover band inset with white around it.
+	 *
+	 * Enqueueing here removes the lateness rather than fighting the hoist: the
+	 * handle joins the normal queue during wp_enqueue_scripts, prints in the
+	 * head in dependency order, and core finds nothing to lift.
+	 *
+	 * Scope is the queried post's content. A block placed somewhere this cannot
+	 * see (a block widget, a template part) still renders and still styles
+	 * correctly — it simply falls back to the late-and-hoisted path, which is
+	 * where every block was before this. So the failure mode is today's
+	 * behaviour, never worse.
+	 *
+	 * @since 1.1.3
+	 */
+	public function enqueue_block_styles_early(): void {
+		if ( is_admin() ) {
+			return;
+		}
+
+		$post = get_post();
+		if ( ! $post instanceof \WP_Post || '' === (string) $post->post_content ) {
+			return;
+		}
+
+		// has_block() is a substring check against the serialized content, so
+		// this is a handful of strpos calls over one string, not a parse.
+		$registry = \WP_Block_Type_Registry::get_instance();
+		foreach ( $registry->get_all_registered() as $name => $block_type ) {
+			if ( 0 !== strpos( $name, 'buddynext/' ) ) {
+				continue;
+			}
+			if ( ! has_block( $name, $post ) ) {
+				continue;
+			}
+			foreach ( (array) $block_type->style_handles as $handle ) {
+				wp_enqueue_style( $handle );
+			}
+		}
 	}
 
 	/**

@@ -118,10 +118,13 @@ class GamificationAchievements {
 			return;
 		}
 		$ver = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : false;
+		// bn-base is where the --bn-* tokens this stylesheet authors against are
+		// defined, so it must load first. It was not declared, which left the
+		// order to chance rather than to the dependency graph.
 		wp_enqueue_style(
 			'bn-achievements',
 			BUDDYNEXT_URL . 'assets/css/achievements.css',
-			array(),
+			array( 'bn-base' ),
 			$ver
 		);
 	}

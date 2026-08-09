@@ -110,6 +110,18 @@ else
 	note "bin/check-rest-boundary.sh missing"
 fi
 
+# 3a-. Stylesheet dependency graph — every front-end sheet reaches bn-base
+section "Stylesheet deps (bn-base reachable)"
+if [ -x bin/check-style-deps.sh ]; then
+	if bin/check-style-deps.sh; then
+		:
+	else
+		fail "stylesheet with no declared path to bn-base — it can print above the token layer"
+	fi
+else
+	note "bin/check-style-deps.sh missing"
+fi
+
 # 3a. Icon set conformance — Lucide-style, no baked-in sizes
 section "Icon set"
 if [ -x bin/check-icons.sh ]; then
