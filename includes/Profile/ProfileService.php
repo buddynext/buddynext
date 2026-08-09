@@ -1152,6 +1152,28 @@ class ProfileService {
 	 * @param int $user_id Profile owner whose cached views to invalidate.
 	 * @return void
 	 */
+	/**
+	 * Public entry point for busting a member's cached profile.
+	 *
+	 * The per-viewer cache blob now carries a decision that can change WITHOUT the
+	 * profile being edited: whether the member's plan locks a group. An upgrade or
+	 * downgrade has to invalidate it, or the member pays for a section that stays
+	 * hidden until the cache happens to expire.
+	 *
+	 * Exposed rather than made public in place so the internal method keeps its
+	 * instance shape, and so callers outside this class have one obvious name.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param int $user_id Member whose cached profile should be dropped.
+	 * @return void
+	 */
+	public static function flush_member_profile_cache( int $user_id ): void {
+		if ( $user_id > 0 ) {
+			( new self() )->bust_profile_cache( $user_id );
+		}
+	}
+
 	private function bust_profile_cache( int $user_id ): void {
 		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
 
@@ -1203,6 +1225,24 @@ class ProfileService {
 	 * @return bool False when the field belongs to a member type this member does not hold.
 	 */
 	public function field_applies_to_user( array $field_def, int $user_id ): bool {
+		/*
+		 * A group the member's PLAN does not include is not theirs to fill either.
+		 *
+		 * Same reasoning as the member-type restriction below, and deliberately in
+		 * the same helper: the field is never rendered as an input for them, so it
+		 * cannot be required OF them, and a crafted request must not write into it.
+		 * Putting it here means the REST controller, the admin member editor and
+		 * onboarding all inherit it -- the three entry points that had to be fixed
+		 * separately last time this logic lived in one of them.
+		 */
+		$group_key = (string) ( $field_def['group_key'] ?? '' );
+		if ( '' !== $group_key ) {
+			/** This filter is documented in ProfileService::get_profile(). */
+			if ( (bool) apply_filters( 'buddynext_profile_group_locked', false, $group_key, $user_id ) ) {
+				return false;
+			}
+		}
+
 		$restriction = (string) ( $field_def['group_type_restriction'] ?? '' );
 
 		if ( '' === $restriction ) {
@@ -1435,6 +1475,54 @@ class ProfileService {
 				continue;
 			}
 
+			/*
+			 * G3: groups the profile owner's MEMBERSHIP PLAN does not include.
+			 *
+			 * Sits here, beside the member-type restriction and the visibility
+			 * ladder, because this is the one place every display surface reads
+			 * through -- the public profile, the REST payload, the directory, the
+			 * admin member editor and any future block all call get_profile().
+			 * The alternative (asking per template, which is how the existing
+			 * `buddynext_profile_field_is_active` predicate works) was audited and
+			 * rejected: five surfaces do not ask it today, so a locked group would
+			 * simply render on all of them.
+			 *
+			 * Free never locks anything. It asks, and defaults to NOT locked, so a
+			 * standalone Free site and a Pro site with no plan configured behave
+			 * identically. Pro answers from the member's tier.
+			 *
+			 * The owner keeps the group, flagged. A member has to be able to see
+			 * that a section exists before upgrading is a thing they could choose
+			 * to do; hiding it from its own owner sells nothing. Everyone else
+			 * loses it entirely -- which plan somebody is on is not public
+			 * information.
+			 */
+			$g_locked = false;
+			if ( '' !== (string) ( $row['group_key'] ?? '' ) ) {
+				/**
+				 * Filter whether a profile GROUP is locked for this profile owner.
+				 *
+				 * Locked means "not included in their plan". Default false, so
+				 * nothing is ever hidden unless something deliberately says so.
+				 *
+				 * @since 1.1.3
+				 *
+				 * @param bool   $locked    Whether the group is locked. Default false.
+				 * @param string $group_key The group's key.
+				 * @param int    $user_id   Profile owner being rendered.
+				 */
+				$g_locked = (bool) apply_filters(
+					'buddynext_profile_group_locked',
+					false,
+					(string) $row['group_key'],
+					$profile_user_id
+				);
+			}
+
+			if ( $g_locked && ! $is_owner ) {
+				continue;
+			}
+
 			// Enforce group/field/entry visibility for non-owners (most restrictive
 			// wins). Rank-driven so the ladder lives in one place (visibility_rank).
 			if ( ! $is_owner ) {
@@ -1479,6 +1567,9 @@ class ProfileService {
 					'visibility' => $gvis,
 					'is_system'  => (bool) ( $row['group_is_system'] ?? false ),
 					'sort_order' => (int) $row['group_sort_order'],
+					// Only ever true on the OWNER's own read — a non-owner never
+					// gets this far for a locked group (see G3 above).
+					'locked'     => $g_locked,
 					'_entries'   => array(),
 				);
 			}
@@ -1531,6 +1622,10 @@ class ProfileService {
 				'visibility' => $group['visibility'],
 				'is_system'  => ! empty( $group['is_system'] ),
 				'sort_order' => $group['sort_order'],
+				// Owner-only: their plan does not include this group. The edit
+				// screen renders it as a locked section rather than an input, and
+				// nothing else in the product should treat it as writable.
+				'locked'     => ! empty( $group['locked'] ),
 			);
 
 			if ( 'repeater' === $group['type'] ) {

@@ -348,6 +348,46 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					continue;
 				}
 
+				/*
+				 * A group the member's plan does not include.
+				 *
+				 * Shown, not hidden. A member cannot choose to upgrade for a
+				 * section they never learn exists, so this is the one surface
+				 * where a locked group stays visible -- ProfileService drops it
+				 * outright for every other viewer, so nobody else can tell which
+				 * plan this member is on.
+				 *
+				 * Rendered as a static section with no inputs, so nothing is
+				 * posted for it and the save path never has to special-case it.
+				 */
+				if ( ! empty( $bn_group['locked'] ) ) {
+					$bn_upgrade_url = (string) apply_filters( 'buddynext_profile_group_upgrade_url', '', $bn_gkey, $user_id );
+					?>
+					<section class="bn-ep-group bn-ep-group--locked" aria-labelledby="bn-ep-locked-<?php echo esc_attr( $bn_gkey ); ?>">
+						<h3 class="bn-ep-group__title" id="bn-ep-locked-<?php echo esc_attr( $bn_gkey ); ?>">
+							<?php echo esc_html( $bn_glabel ); ?>
+							<span class="bn-ep-locked-badge"><?php esc_html_e( 'Upgrade', 'buddynext' ); ?></span>
+						</h3>
+						<p class="bn-ep-locked-note">
+							<?php esc_html_e( 'This section is not part of your current plan.', 'buddynext' ); ?>
+						</p>
+						<?php
+						/*
+						 * No destination, no button. A prompt that links nowhere is
+						 * worse than no prompt -- same rule the membership pages
+						 * apply when no default plan is configured.
+						 */
+						if ( '' !== $bn_upgrade_url ) :
+							?>
+							<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( $bn_upgrade_url ); ?>">
+								<?php esc_html_e( 'See plans', 'buddynext' ); ?>
+							</a>
+						<?php endif; ?>
+					</section>
+					<?php
+					continue;
+				}
+
 				if ( 'repeater' === $bn_gtype ) {
 					// Repeater group: render each saved entry's sub-fields via
 					// the engine, plus ONE per-entry privacy lock that reuses
