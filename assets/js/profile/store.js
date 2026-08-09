@@ -1555,7 +1555,13 @@ const profileStore = store( 'buddynext/profile', {
 			var formEl = document.querySelector( '.bn-ep-form-shell' );
 			var scope  = formEl || document;
 			scope.querySelectorAll( '[required]' ).forEach( function ( el ) {
-				var key = el.getAttribute( 'name' ) || '';
+				// Strip a trailing [] before keying the error. A multi-value control
+				// posts as `foo[]` while the payload key -- and the inline error slot
+				// the template renders -- is `foo`, so without this the message is
+				// filed under a key nothing displays: the save is blocked and the
+				// member sees no reason why. Pro's multi_select_advanced is a real
+				// <select multiple required> and is the first control to hit this.
+				var key = ( el.getAttribute( 'name' ) || '' ).replace( /\[\]$/, '' );
 				if ( ! key || /\[\d+\]\[/.test( key ) ) { return; }
 				var empty = ( el.type === 'checkbox' )
 					? ! el.checked

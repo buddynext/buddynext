@@ -1001,10 +1001,20 @@ class FieldType {
 	 * aria-required carries the same fact to assistive tech, which the missing
 	 * attribute also denied.
 	 *
+	 * PUBLIC because Pro renders its own multi-value types through the
+	 * `buddynext_field_render_input` seam and needs the SAME attributes: the
+	 * client-side pass keys off `[data-bn-required]` by exact name, so a second
+	 * hand-written copy in Pro would silently stop matching the day this pair
+	 * changes. Sharing the helper makes the attribute names one contract instead
+	 * of a string duplicated across the free/pro boundary. Pro had exactly this
+	 * bug for its four advanced types (Basecamp 10184320781, QA reject 1.1.3).
+	 *
+	 * @since 1.1.3 Exposed for Pro's AdvancedFieldRenderer.
+	 *
 	 * @param string $required Pre-built ` required` attribute, or '' when optional.
 	 * @return string Attributes for the group's fieldset.
 	 */
-	private static function group_required_attrs( string $required ): string {
+	public static function group_required_attrs( string $required ): string {
 		return '' === $required ? '' : ' data-bn-required="1" aria-required="true"';
 	}
 
