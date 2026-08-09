@@ -955,3 +955,98 @@
 		grid-template-columns: 1fr;
 	}
 }
+
+/* ── Members showcase block ─────────────────────────────────────────────
+ * Compact rows by default (avatar, name over headline, action on the right),
+ * or a card grid. Self-contained: styled here on top of the bn-base token
+ * layer so the block looks the same on any block surface in any theme, and
+ * scoped under its own root so it cannot collide with the directory grid.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.bn-block-members-showcase .bn-ms-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-block-members-showcase .bn-ms-item {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	margin: 0;
+	padding: var(--bn-s2);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+}
+
+/* Identity block is the link; the action sits outside it so a click on the
+   Follow button never navigates to the profile. */
+.bn-block-members-showcase .bn-ms-item__id {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex: 1 1 auto;
+	min-width: 0;
+	color: inherit;
+	text-decoration: none;
+}
+
+.bn-block-members-showcase .bn-ms-item__avatar {
+	flex: none;
+}
+
+.bn-block-members-showcase .bn-ms-item__initials {
+	display: grid;
+	place-items: center;
+	inline-size: 100%;
+	block-size: 100%;
+	font-weight: var(--bn-fw-bold);
+}
+
+.bn-block-members-showcase .bn-ms-item__text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 0;
+}
+
+.bn-block-members-showcase .bn-ms-item__name {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	line-height: var(--bn-leading-snug);
+}
+
+.bn-block-members-showcase .bn-ms-item__headline {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	line-height: var(--bn-leading-snug);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-block-members-showcase .bn-ms-item__action {
+	flex: none;
+	margin-inline-start: auto;
+}
+
+/* Grid renders the same row as a card in a responsive track. */
+.bn-block-members-showcase--grid .bn-ms-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: var(--bn-s2);
+}
+
+@media (max-width: 640px) {
+	.bn-block-members-showcase--grid .bn-ms-list {
+		grid-template-columns: 1fr;
+	}
+
+	.bn-block-members-showcase .bn-ms-item__headline {
+		white-space: normal;
+	}
+}

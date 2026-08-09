@@ -192,6 +192,7 @@ class BlockRegistrar {
 			// Spaces.
 			'bn-space-directory'        => array( $this, 'render_space_directory' ),
 			'bn-spaces-showcase'        => array( $this, 'render_spaces_showcase' ),
+			'bn-members-showcase'       => array( $this, 'render_members_showcase' ),
 			'bn-space-card'             => array( $this, 'render_space_card' ),
 			'bn-my-spaces'              => array( $this, 'render_my_spaces' ),
 			// Profile.
@@ -495,6 +496,34 @@ class BlockRegistrar {
 	 * @param array<string, mixed> $attributes Block attributes.
 	 * @return string
 	 */
+	/**
+	 * Render the Members showcase block.
+	 *
+	 * Every `source` maps onto a filter MemberDirectoryService already validates,
+	 * so no option here invents a query surface. 'picked' is the exception and is
+	 * an explicit ordered id list rather than a directory query.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param array<string, mixed> $attributes Block attributes.
+	 * @return string
+	 */
+	public function render_members_showcase( array $attributes ): string {
+		$source        = sanitize_key( (string) ( $attributes['source'] ?? 'newest' ) );
+		$member_type   = sanitize_key( (string) ( $attributes['memberType'] ?? '' ) );
+		$user_ids      = array_map( 'intval', (array) ( $attributes['userIds'] ?? array() ) );
+		$count         = (int) ( $attributes['count'] ?? 4 );
+		$layout        = sanitize_key( (string) ( $attributes['layout'] ?? 'list' ) );
+		$show_headline = ! isset( $attributes['showHeadline'] ) || (bool) $attributes['showHeadline'];
+
+		ob_start();
+		buddynext_get_template(
+			'blocks/members-showcase.php',
+			compact( 'source', 'member_type', 'user_ids', 'count', 'layout', 'show_headline' )
+		);
+		return (string) ob_get_clean();
+	}
+
 	/**
 	 * Render the Spaces showcase block.
 	 *
