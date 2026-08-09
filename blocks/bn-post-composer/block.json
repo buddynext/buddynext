@@ -5,7 +5,7 @@
 	"title": "Post Composer",
 	"icon": "edit",
 	"category": "buddynext",
-	"description": "Post creation box \u2014 what's on your mind.",
+	"description": "Post creation box — what's on your mind.",
 	"keywords": [
 		"buddynext",
 		"post",
@@ -39,5 +39,8 @@
 		}
 	},
 	"example": {},
-	"editorStyle": "file:../../assets/css/blocks.css"
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-base"
+	]
 }

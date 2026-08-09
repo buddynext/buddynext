@@ -485,7 +485,15 @@ class BlockRegistrar {
 
 		ob_start();
 		buddynext_get_template( 'blocks/follow-button.php', compact( 'user_id' ) );
-		return (string) ob_get_clean();
+		$html = (string) ob_get_clean();
+
+		// Silent on the front end, explained in the editor. Nothing renders when
+		// there is no member to follow (no target chosen, no page author, or the
+		// viewer is that member), and an owner looking at a blank preview cannot
+		// tell that apart from a broken block.
+		return '' === trim( $html )
+			? $this->editor_hint( __( 'Choose a member in the block settings, or place this block on a page with an author.', 'buddynext' ) )
+			: $html;
 	}
 
 	/**
@@ -499,7 +507,11 @@ class BlockRegistrar {
 
 		ob_start();
 		buddynext_get_template( 'blocks/connection-button.php', compact( 'user_id' ) );
-		return (string) ob_get_clean();
+		$html = (string) ob_get_clean();
+
+		return '' === trim( $html )
+			? $this->editor_hint( __( 'Choose a member in the block settings, or place this block on a page with an author.', 'buddynext' ) )
+			: $html;
 	}
 
 
@@ -822,14 +834,18 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_profile_completion_bar( array $attributes ): string {
-		$user_id = (int) ( $attributes['userId'] ?? 0 );
+		$user_id = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
 
 		ob_start();
 		buddynext_get_template(
 			'blocks/profile-completion-bar.php',
 			compact( 'user_id' )
 		);
-		return (string) ob_get_clean();
+		$html = (string) ob_get_clean();
+
+		return '' === trim( $html )
+			? $this->editor_hint( __( 'Choose a member in the block settings, or place this block on a page with an author.', 'buddynext' ) )
+			: $html;
 	}
 
 	// -------------------------------------------------------------------------

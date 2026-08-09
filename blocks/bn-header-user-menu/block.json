@@ -36,5 +36,8 @@
 	},
 	"attributes": {},
 	"example": {},
-	"editorStyle": "file:../../assets/css/bn-header.css"
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-header"
+	]
 }

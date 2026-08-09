@@ -26,7 +26,6 @@
 
 	var el            = element.createElement;
 	var useBlockProps = blockEditor.useBlockProps;
-	var Placeholder   = wp.components && wp.components.Placeholder;
 
 	/* ── Block settings (InspectorControls) ─────────────────────────────
 	 *
@@ -516,84 +515,36 @@
 	}
 
 	/**
-	 * Edit function: static placeholder for blocks with no SSR endpoint.
-	 *
-	 * @param {string} label Human-readable block label.
-	 * @param {string} icon  Dashicon class without the 'dashicons-' prefix.
-	 * @return {Function} Edit component.
-	 */
-	function placeholderEdit( label, icon, name ) {
-		return function ( props ) {
-			var blockProps = useBlockProps( {
-				className: 'bn-editor-placeholder',
-				style: {
-					fontFamily: 'Inter, sans-serif',
-				},
-			} );
-			var iconEl = Placeholder
-				? el( Placeholder, {
-					icon:        'buddynext' === icon ? 'admin-site' : ( icon || 'admin-site' ),
-					label:       'BuddyNext — ' + label,
-					instructions: __( 'This block is rendered on the frontend.', 'buddynext' ),
-				  } )
-				: el(
-					'div',
-					{
-						style: {
-							padding:      '24px',
-							background:   '#f8f8f7',
-							border:       '1px dashed #aeaca8',
-							borderRadius: '8px',
-							textAlign:    'center',
-							color:        '#787774',
-							fontSize:     '13px',
-						},
-					},
-					el( 'strong', null, 'BuddyNext — ' + label ),
-					el( 'p', { style: { margin: '4px 0 0', color: '#aeaca8' } }, __( 'Rendered on the frontend', 'buddynext' ) )
-				);
-			return el(
-				element.Fragment,
-				null,
-				name ? inspectorFor( name, props ) : null,
-				el( 'div', blockProps, iconEl )
-			);
-		};
-	}
-
-	/**
 	 * Block definitions: all 19 BuddyNext blocks.
 	 *
-	 * ssr:true  → use serverSideRender for live preview in editor
-	 * ssr:false → show static placeholder (block has no PHP REST callback)
+	 * Every one is server-rendered, so every one previews live in the editor via
+	 * wp.serverSideRender. There used to be an `ssr` flag with a static-placeholder
+	 * fallback "for blocks with no PHP REST callback" — but all 19 have a render
+	 * callback, so the five marked ssr:false were showing an owner a grey
+	 * "Rendered on the frontend" box for no reason (Basecamp 10184505157,
+	 * 10184505171, 10184505544, 10184505547). Flag and fallback both removed:
+	 * a block with no callback could not render on the front end either.
 	 */
 	var blockDefs = [
-		{ name: 'buddynext/activity-feed',         label: __( 'Activity Feed', 'buddynext' ),          ssr: true  },
-		{ name: 'buddynext/post-composer',          label: __( 'Post Composer', 'buddynext' ),          ssr: false },
-		{ name: 'buddynext/trending-hashtags',      label: __( 'Trending Hashtags', 'buddynext' ),      ssr: true  },
-		{ name: 'buddynext/member-directory',       label: __( 'Member Directory', 'buddynext' ),       ssr: true  },
-		{ name: 'buddynext/member-card',            label: __( 'Member Card', 'buddynext' ),            ssr: true  },
-		{ name: 'buddynext/follow-button',          label: __( 'Follow Button', 'buddynext' ),          ssr: false },
-		{ name: 'buddynext/connection-button',      label: __( 'Connection Button', 'buddynext' ),      ssr: false },
-		{ name: 'buddynext/space-directory',        label: __( 'Space Directory', 'buddynext' ),        ssr: true  },
-		{ name: 'buddynext/spaces-showcase',        label: __( 'Spaces showcase', 'buddynext' ),        ssr: true  },
-		{ name: 'buddynext/members-showcase',       label: __( 'Members showcase', 'buddynext' ),       ssr: true  },
-		{ name: 'buddynext/community-activity',     label: __( 'Community activity', 'buddynext' ),     ssr: true  },
-		{ name: 'buddynext/space-card',             label: __( 'Space Card', 'buddynext' ),             ssr: true  },
-		{ name: 'buddynext/my-spaces',              label: __( 'My Spaces', 'buddynext' ),              ssr: true  },
-		{ name: 'buddynext/profile-header',         label: __( 'Profile Header', 'buddynext' ),         ssr: true  },
-		{ name: 'buddynext/profile-fields',         label: __( 'Profile Fields', 'buddynext' ),         ssr: true  },
-		{ name: 'buddynext/profile-completion-bar', label: __( 'Profile Completion Bar', 'buddynext' ), ssr: false },
-		{ name: 'buddynext/notification-bell',      label: __( 'Notification Bell', 'buddynext' ),      ssr: false },
-		// SSR: this block HAS a render callback and needs no member context, so
-		// the editor can show the real bar. It was the only block still in the
-		// inserter showing the "rendered on the frontend" placeholder instead —
-		// an owner setting a placeholder or a scope got no feedback that either
-		// had taken effect. The remaining ssr:false entries are all
-		// inserter:false, so their placeholder is never reached from the
-		// inserter.
-		{ name: 'buddynext/search-bar',             label: __( 'Search Bar', 'buddynext' ),             ssr: true  },
-		{ name: 'buddynext/header-user-menu',       label: __( 'Header User Menu', 'buddynext' ),       ssr: true  },
+		{ name: 'buddynext/activity-feed',         label: __( 'Activity Feed', 'buddynext' ) },
+		{ name: 'buddynext/post-composer',          label: __( 'Post Composer', 'buddynext' ) },
+		{ name: 'buddynext/trending-hashtags',      label: __( 'Trending Hashtags', 'buddynext' ) },
+		{ name: 'buddynext/member-directory',       label: __( 'Member Directory', 'buddynext' ) },
+		{ name: 'buddynext/member-card',            label: __( 'Member Card', 'buddynext' ) },
+		{ name: 'buddynext/follow-button',          label: __( 'Follow Button', 'buddynext' ) },
+		{ name: 'buddynext/connection-button',      label: __( 'Connection Button', 'buddynext' ) },
+		{ name: 'buddynext/space-directory',        label: __( 'Space Directory', 'buddynext' ) },
+		{ name: 'buddynext/spaces-showcase',        label: __( 'Spaces showcase', 'buddynext' ) },
+		{ name: 'buddynext/members-showcase',       label: __( 'Members showcase', 'buddynext' ) },
+		{ name: 'buddynext/community-activity',     label: __( 'Community activity', 'buddynext' ) },
+		{ name: 'buddynext/space-card',             label: __( 'Space Card', 'buddynext' ) },
+		{ name: 'buddynext/my-spaces',              label: __( 'My Spaces', 'buddynext' ) },
+		{ name: 'buddynext/profile-header',         label: __( 'Profile Header', 'buddynext' ) },
+		{ name: 'buddynext/profile-fields',         label: __( 'Profile Fields', 'buddynext' ) },
+		{ name: 'buddynext/profile-completion-bar', label: __( 'Profile Completion Bar', 'buddynext' ) },
+		{ name: 'buddynext/notification-bell',      label: __( 'Notification Bell', 'buddynext' ) },
+		{ name: 'buddynext/search-bar',             label: __( 'Search Bar', 'buddynext' ) },
+		{ name: 'buddynext/header-user-menu',       label: __( 'Header User Menu', 'buddynext' ) },
 	];
 
 	blockDefs.forEach( function ( def ) {
@@ -602,7 +553,7 @@
 			return;
 		}
 		blocks.registerBlockType( def.name, {
-			edit: def.ssr ? ssrEdit( def.name ) : placeholderEdit( def.label, def.icon, def.name ),
+			edit: ssrEdit( def.name ),
 			save: function () {
 				// All blocks are server-side rendered — save() returns null.
 				return null;
