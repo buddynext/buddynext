@@ -859,101 +859,20 @@
 }
 
 /* ── Member Directory block ─────────────────────────────────────────────
- * Self-contained on purpose. A block can land on ANY block surface - a post,
- * a page, a template part, a sidebar, in any theme - so its presentation comes
- * from this stylesheet plus the bn-base token layer, never from a hub feature
- * stylesheet or a templates/parts include. Depending on either would make the
- * block render correctly only where the hub already loaded that CSS, which is
- * exactly how it shipped: bn-member-item, bn-member-link, bn-member-item__avatar
- * and bn-member-bio were emitted by the template and styled NOWHERE, so the
- * anchor stayed inline and each name flowed off the side of a full-size avatar
- * (Basecamp 10184505772).
+ * Only the block's own chrome lives here. The member cards themselves are the
+ * SHARED .bn-md-card, rendered through parts/member-directory-grid.php and
+ * styled in bn-members.css, which the block declares as a named handle — so the
+ * block and the /members/ directory cannot drift apart.
  *
- * Everything below is scoped under the block's own root class so it cannot
- * collide with the directory page's .bn-md-card grid.
+ * The bespoke row rules that used to be here (bn-member-list, bn-member-item,
+ * bn-member-link, bn-member-item__avatar, bn-member-name, bn-member-bio) went
+ * with the bespoke markup they styled. Nothing else emitted those classes
+ * (Basecamp 10184505772).
  * ──────────────────────────────────────────────────────────────────── */
-
-.bn-block-member-directory .bn-member-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s2);
-}
-
-.bn-block-member-directory .bn-member-item {
-	margin: 0;
-}
-
-/* The row itself: avatar, then a stacked name + bio that is allowed to
-   truncate rather than push the row wider. */
-.bn-block-member-directory .bn-member-link {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s3);
-	padding: var(--bn-s2);
-	border-radius: var(--bn-r-md);
-	color: inherit;
-	text-decoration: none;
-	min-width: 0;
-}
-
-.bn-block-member-directory .bn-member-link:hover,
-.bn-block-member-directory .bn-member-link:focus-visible {
-	background: var(--bn-sunken);
-}
-
-.bn-block-member-directory .bn-member-item__avatar {
-	flex: none;
-}
-
-/* Name + bio stack beside the avatar. */
-.bn-block-member-directory .bn-member-item__text {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s1);
-	min-width: 0;
-}
-
-.bn-block-member-directory .bn-member-name {
-	display: block;
-	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink);
-	line-height: var(--bn-leading-snug);
-}
-
-.bn-block-member-directory .bn-member-bio {
-	display: block;
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-3);
-	line-height: var(--bn-leading-snug);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.bn-block-member-directory .bn-member-name,
-.bn-block-member-directory .bn-member-bio {
-	min-width: 0;
-}
 
 .bn-block-member-directory__toolbar,
 .bn-block-member-directory .bn-member-directory__toolbar {
 	margin-block-end: var(--bn-s3);
-}
-
-/* Grid layout renders the same row as cards in a responsive track. */
-.bn-block-member-directory--grid .bn-member-list {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-	gap: var(--bn-s2);
-}
-
-@media (max-width: 640px) {
-	.bn-block-member-directory--grid .bn-member-list {
-		grid-template-columns: 1fr;
-	}
 }
 
 /* ── Members showcase block ─────────────────────────────────────────────

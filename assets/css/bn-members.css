@@ -1022,20 +1022,6 @@
 	background: var(--bn-danger-bg);
 }
 
-/* ── Legacy member-list wrapper ─────────────────────────────────────────
- * Consumed by templates/profile/connections.php and
- * templates/blocks/member-directory.php. Lived in bn-spaces.css until
- * 2026-08-09 — a member class in the spaces stylesheet, which only worked
- * because bn-spaces depends on bn-members. Moved here so the class is where
- * anyone would grep for it.
- * ──────────────────────────────────────────────────────────────────── */
-
-.bn-member-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
 /* ── Compact member card ────────────────────────────────────────────────
  *
  * The featured-member block's narrow-column size. Mirrors the compact space

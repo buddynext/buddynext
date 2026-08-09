@@ -1675,11 +1675,12 @@ a.bn-sh-statpill:focus-visible {
 	flex-wrap: wrap;
 }
 
-/* .bn-member-list moved to bn-members.css, where a MEMBER class belongs — it
- * was the last member rule left in this file. It resolved here only because
- * bn-spaces is registered with bn-members as a dependency, so the misplacement
- * was invisible while making bn-member-directory's style declaration read wrong
- * to anyone checking it (Basecamp 10182506250, secondary finding).
+/* .bn-member-list is gone entirely, not relocated. It lived here — a member
+ * class in the spaces stylesheet, resolving only because bn-spaces depends on
+ * bn-members — and was moved to bn-members.css on 2026-08-09. It then turned out
+ * that the Member Directory block's bespoke list was its ONLY emitter, and that
+ * block now renders the shared .bn-md-card instead, so the class has no markup
+ * left anywhere (Basecamp 10182506250 secondary finding, 10184505772).
  *
  * .bn-pagination is the shared component — defined once in bn-base.css. */
 
