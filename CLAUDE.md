@@ -492,12 +492,20 @@ Declare it in `AssetService::register_script_modules()`, alongside the existing
 $deps[] = array( 'id' => '@buddynext/feed' ); // this module merges into buddynext/feed
 ```
 
-**Today's six overlaps are safe by accident, not by design.** Four of them
-(`post-card`, `post-composer`, `follow-button`, `connection-button`) collide on real keys
-— but one side is always `assets/js/blocks.js`, which is the **editor** script
-(`buddynext-blocks-editor`) and never loads on the front end, so the two never co-exist.
-The two that do co-exist on the front end are additive only. Nothing enforces either of
-those facts. Add a colliding key to a co-registering module and it breaks silently.
+**That used to be six overlaps, four of them safe only by accident.** In every one of those
+four (`post-card`, `post-composer`, `follow-button`, `connection-button`) the other side was
+`assets/js/blocks.js` — the **editor** script (`buddynext-blocks-editor`), which never loads
+on the front end, so the colliding definitions never co-existed. Nothing enforced that; a
+reader could not tell the duplicate apart from a real second registration.
+
+Those eight editor-side stores were **deleted in 1.1.3**, so the accident is gone rather than
+documented: `blocks.js` now registers no namespace at all, and `audit/surface-map.json`
+reports one multi-file namespace (`@buddynext/feed`), which is the deliberate split described
+above. **Never add an Interactivity store to `blocks.js`** — it cannot run for a visitor.
+Frontend behaviour belongs in a module declared as the block's `viewScriptModule`.
+
+The remaining co-registration is additive by design, but nothing enforces that either: add a
+colliding key to a co-registering module and it breaks silently.
 
 **Splitting a store is the preferred way to shrink one.** It needs no build step, no API
 change, and no new namespace — the same store, the same `data-wp-*` markup, more files.
