@@ -746,10 +746,10 @@ class FieldType {
 				return self::render_select_input( $field, $value, $name, $id, $required );
 
 			case 'radio':
-				return self::render_radio_input( $field, $value, $name, $id );
+				return self::render_radio_input( $field, $value, $name, $id, $required );
 
 			case 'multiselect':
-				return self::render_multiselect_input( $field, $value, $name, $id );
+				return self::render_multiselect_input( $field, $value, $name, $id, $required );
 
 			case 'category_multiselect':
 				// Same checkbox-grid control with live category choices. An owner
@@ -758,7 +758,7 @@ class FieldType {
 				if ( array() === self::options( $field ) ) {
 					return '<span class="bn-field-value">' . esc_html__( 'No categories are available yet.', 'buddynext' ) . '</span>';
 				}
-				return self::render_multiselect_input( $field, $value, $name, $id );
+				return self::render_multiselect_input( $field, $value, $name, $id, $required );
 
 			case 'member_type_multiselect':
 				// Same checkbox grid, live member-type choices. An owner who has
@@ -766,18 +766,22 @@ class FieldType {
 				if ( array() === self::options( $field ) ) {
 					return '<span class="bn-field-value">' . esc_html__( 'No member types have been created yet.', 'buddynext' ) . '</span>';
 				}
-				return self::render_multiselect_input( $field, $value, $name, $id );
+				return self::render_multiselect_input( $field, $value, $name, $id, $required );
 
 			case 'member_type':
-				return self::render_member_type_input( $field, $value, $name, $id );
+				return self::render_member_type_input( $field, $value, $name, $id, $required );
 
 			case 'boolean':
+				// A single checkbox is the one grouped control where native
+				// `required` says exactly the right thing: this box must be
+				// ticked. Groups below cannot use it -- see render_group_required().
 				return sprintf(
-					'<label class="bn-field-checkbox"><input type="checkbox" id="%1$s" name="%2$s" value="1"%3$s /> <span>%4$s</span></label>',
+					'<label class="bn-field-checkbox"><input type="checkbox" id="%1$s" name="%2$s" value="1"%3$s%5$s /> <span>%4$s</span></label>',
 					esc_attr( $id ),
 					esc_attr( $name ),
 					checked( self::truthy( $value ), true, false ),
-					esc_html( isset( $field['label'] ) ? (string) $field['label'] : '' )
+					esc_html( isset( $field['label'] ) ? (string) $field['label'] : '' ),
+					$required
 				);
 
 			case 'date':
@@ -881,11 +885,11 @@ class FieldType {
 	 * @param string $id    Element id base.
 	 * @return string Escaped HTML.
 	 */
-	private static function render_radio_input( array $field, $value, string $name, string $id ): string {
+	private static function render_radio_input( array $field, $value, string $name, string $id, string $required = '' ): string {
 		$options  = self::options( $field );
 		$selected = sanitize_title( (string) $value );
 
-		$html = '<fieldset class="bn-field-radio-group">';
+		$html = '<fieldset class="bn-field-radio-group"' . self::group_required_attrs( $required ) . '>';
 		$i    = 0;
 		foreach ( $options as $slug => $label ) {
 			$opt_id = $id . '-' . (string) $i;
@@ -926,7 +930,7 @@ class FieldType {
 	 * @param string $id    Base id for the control.
 	 * @return string Escaped HTML.
 	 */
-	private static function render_member_type_input( array $field, $value, string $name, string $id ): string {
+	private static function render_member_type_input( array $field, $value, string $name, string $id, string $required = '' ): string {
 		unset( $field );
 		$current = sanitize_key( (string) $value );
 
@@ -947,7 +951,7 @@ class FieldType {
 			return '<span class="bn-field-value">' . esc_html__( 'No member types are available to choose.', 'buddynext' ) . '</span>';
 		}
 
-		$html = '<fieldset class="bn-field-radio-group bn-field-membertype-choices">';
+		$html = '<fieldset class="bn-field-radio-group bn-field-membertype-choices"' . self::group_required_attrs( $required ) . '>';
 		$i    = 0;
 		foreach ( $options as $slug => $label ) {
 			$opt_id = $id . '-' . (string) $i;
@@ -977,11 +981,38 @@ class FieldType {
 	 * @param string $id    Element id base.
 	 * @return string Escaped HTML.
 	 */
-	private static function render_multiselect_input( array $field, $value, string $name, string $id ): string {
+	/**
+	 * The attributes that mark a radio / checkbox GROUP as required.
+	 *
+	 * Native `required` cannot express "at least one of these". On a checkbox it
+	 * demands that particular box, so putting it on each member of a group would
+	 * require ALL of them -- the opposite of the intent. Radios could carry it,
+	 * but marking the group keeps one rule for both and keeps the decision where
+	 * the validator can read it.
+	 *
+	 * This existed as a silent gap rather than a decision: `$required` was
+	 * computed once in render_input() and then simply not passed to the radio,
+	 * multiselect, category / member-type multiselect or member-type renderers.
+	 * Six field types rendered with no requiredness in the markup at all, so the
+	 * client pass -- which looks for [required] -- could not see them, the form
+	 * submitted, and the SERVER refused it. The member paid a round trip to be
+	 * told about a rule the form never showed them (Basecamp 10184320781).
+	 *
+	 * aria-required carries the same fact to assistive tech, which the missing
+	 * attribute also denied.
+	 *
+	 * @param string $required Pre-built ` required` attribute, or '' when optional.
+	 * @return string Attributes for the group's fieldset.
+	 */
+	private static function group_required_attrs( string $required ): string {
+		return '' === $required ? '' : ' data-bn-required="1" aria-required="true"';
+	}
+
+	private static function render_multiselect_input( array $field, $value, string $name, string $id, string $required = '' ): string {
 		$options  = self::options( $field );
 		$selected = self::multi_values( $value );
 
-		$html = '<fieldset class="bn-field-checkbox-group">';
+		$html = '<fieldset class="bn-field-checkbox-group"' . self::group_required_attrs( $required ) . '>';
 		$i    = 0;
 		foreach ( $options as $slug => $label ) {
 			// PHP coerces numeric-string array keys (category IDs) to int, so the

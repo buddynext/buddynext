@@ -1566,6 +1566,34 @@ const profileStore = store( 'buddynext/profile', {
 				}
 			} );
 
+			// Required GROUPS — radio and checkbox sets.
+			//
+			// HTML cannot say "at least one of these": `required` on a checkbox
+			// demands that specific box, so a group cannot express the rule the
+			// server enforces. FieldType therefore marks the fieldset with
+			// data-bn-required, and the check lives here.
+			//
+			// Without this the group was invisible to validation: six field types
+			// rendered no requiredness at all, the form submitted happily, and the
+			// server answered 422 for a field the member was never told about
+			// (Basecamp 10184320781). A refusal the form could have predicted
+			// belongs at render time, not after a round trip.
+			scope.querySelectorAll( '[data-bn-required]' ).forEach( function ( group ) {
+				var inputs = group.querySelectorAll( 'input[type="checkbox"], input[type="radio"]' );
+				if ( ! inputs.length ) { return; }
+
+				// The name carries [] for checkbox groups; the payload key does not.
+				var key = ( inputs[ 0 ].getAttribute( 'name' ) || '' ).replace( /\[\]$/, '' );
+				if ( ! key || /\[\d+\]\[/.test( key ) ) { return; }
+
+				var chosen = false;
+				inputs.forEach( function ( input ) { if ( input.checked ) { chosen = true; } } );
+				if ( chosen ) { return; }
+
+				errors[ key ] = fmt( t( 'fieldRequired', '%s is required.' ), requiredLabelFor( group ) );
+				if ( ! firstInvalid ) { firstInvalid = inputs[ 0 ]; }
+			} );
+
 			[ 'website', 'social_twitter', 'social_linkedin', 'social_github', 'social_instagram', 'social_youtube' ].forEach( function ( fname ) {
 				var el = document.querySelector( '[name="' + fname + '"]' );
 				if ( ! el ) { return; }
