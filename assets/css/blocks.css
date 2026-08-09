@@ -367,30 +367,52 @@
 	/* sidebar widget */
 }
 
+/* ── My Spaces block ────────────────────────────────────────────────────
+ * Rules match the markup the template actually emits. They did not: the row is
+ * the <a class="bn-my-spaces-link">, not the <li>, so the avatar and name were
+ * laid out by an undefined class and sat unaligned; and .bn-my-spaces-item__name
+ * / __count were BEM the template had already dropped, styling nothing
+ * (Basecamp 10184505202).
+ * ──────────────────────────────────────────────────────────────────── */
+
 .bn-my-spaces-list {
 	display: flex;
 	flex-direction: column;
-	gap: var(--bn-s2);
+	gap: var(--bn-s1);
+	list-style: none;
+	margin: 0;
+	padding: 0;
 }
 
 .bn-my-spaces-item {
+	margin: 0;
+}
+
+/* The anchor is the row: it owns the layout, the padding and the hover. */
+.bn-my-spaces-link {
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s3);
 	padding: var(--bn-s2) var(--bn-s3);
 	border-radius: var(--bn-r-md);
 	text-decoration: none;
-	transition: background 0.1s;
+	color: inherit;
+	transition: background var(--bn-dur-fast, 0.14s) var(--bn-ease, ease);
 }
 
-.bn-my-spaces-item:hover {
-	background: var(--bg-hover);
+.bn-my-spaces-link:hover,
+.bn-my-spaces-link:focus-visible {
+	background: var(--bn-sunken);
 }
 
-.bn-my-spaces-item__name {
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--text-1);
+.bn-my-spaces-avatar {
+	flex-shrink: 0;
+}
+
+.bn-my-spaces-name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
 	flex: 1;
 	min-width: 0;
 	white-space: nowrap;
@@ -398,11 +420,6 @@
 	text-overflow: ellipsis;
 }
 
-.bn-my-spaces-item__count {
-	font-size: var(--text-xs);
-	color: var(--text-3);
-	flex-shrink: 0;
-}
 
 /* ── Profile header block ───────────────────────────────────────────── */
 
