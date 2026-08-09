@@ -1,0 +1,25 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "buddynext/community-activity",
+	"title": "Community activity",
+	"category": "buddynext",
+	"icon": "megaphone",
+	"description": "Show recent public activity so visitors can see the community is alive.",
+	"keywords": [ "activity", "recent", "showcase", "community", "social proof" ],
+	"textdomain": "buddynext",
+	"supports": {
+		"html": false,
+		"align": [ "wide", "full" ],
+		"spacing": { "margin": true, "padding": true },
+		"color": { "background": true, "text": true },
+		"typography": { "fontSize": true }
+	},
+	"attributes": {
+		"count": { "type": "number", "default": 5 },
+		"show": { "type": "string", "default": "all" },
+		"showSpaceName": { "type": "boolean", "default": false }
+	},
+	"style": [ "file:../../assets/css/blocks.css", "bn-base" ],
+	"editorStyle": [ "file:../../assets/css/blocks.css", "bn-base" ]
+}

@@ -1050,3 +1050,81 @@
 		white-space: normal;
 	}
 }
+
+/* ── Community activity block ───────────────────────────────────────────
+ * A read-only window into the public Explore feed: avatar, who did what,
+ * an excerpt that links through, and when. No composer and no reactions -
+ * this is proof the place is alive, not the feed itself.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.bn-block-community-activity .bn-ca-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-block-community-activity .bn-ca-item {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+	margin: 0;
+	padding: var(--bn-s2);
+	border-radius: var(--bn-r-md);
+}
+
+.bn-block-community-activity .bn-ca-item:hover {
+	background: var(--bn-sunken);
+}
+
+.bn-block-community-activity .bn-ca-item__avatar {
+	flex: none;
+}
+
+.bn-block-community-activity .bn-ca-item__initials {
+	display: grid;
+	place-items: center;
+	inline-size: 100%;
+	block-size: 100%;
+	font-weight: var(--bn-fw-bold);
+}
+
+.bn-block-community-activity .bn-ca-item__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 0;
+}
+
+.bn-block-community-activity .bn-ca-item__head {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	line-height: var(--bn-leading-snug);
+}
+
+.bn-block-community-activity .bn-ca-item__author,
+.bn-block-community-activity .bn-ca-item__space {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	text-decoration: none;
+}
+
+/* The excerpt is the click target through to the post permalink. Clamped so a
+   long post cannot stretch a sidebar placement out of shape. */
+.bn-block-community-activity .bn-ca-item__excerpt {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	color: var(--bn-ink);
+	text-decoration: none;
+	line-height: var(--bn-leading-snug);
+}
+
+.bn-block-community-activity .bn-ca-item__when {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	font-variant-numeric: tabular-nums;
+}

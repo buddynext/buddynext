@@ -193,6 +193,7 @@ class BlockRegistrar {
 			'bn-space-directory'        => array( $this, 'render_space_directory' ),
 			'bn-spaces-showcase'        => array( $this, 'render_spaces_showcase' ),
 			'bn-members-showcase'       => array( $this, 'render_members_showcase' ),
+			'bn-community-activity'     => array( $this, 'render_community_activity' ),
 			'bn-space-card'             => array( $this, 'render_space_card' ),
 			'bn-my-spaces'              => array( $this, 'render_my_spaces' ),
 			// Profile.
@@ -496,6 +497,32 @@ class BlockRegistrar {
 	 * @param array<string, mixed> $attributes Block attributes.
 	 * @return string
 	 */
+	/**
+	 * Render the Community activity block.
+	 *
+	 * Reads explore_feed() and nothing else. There is deliberately no scope
+	 * attribute: the old Activity Feed block's `home` scope is what leaked a
+	 * personalised timeline onto public pages, and this block exists to be shown
+	 * to people who have not joined.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param array<string, mixed> $attributes Block attributes.
+	 * @return string
+	 */
+	public function render_community_activity( array $attributes ): string {
+		$count           = (int) ( $attributes['count'] ?? 5 );
+		$show            = sanitize_key( (string) ( $attributes['show'] ?? 'all' ) );
+		$show_space_name = ! empty( $attributes['showSpaceName'] );
+
+		ob_start();
+		buddynext_get_template(
+			'blocks/community-activity.php',
+			compact( 'count', 'show', 'show_space_name' )
+		);
+		return (string) ob_get_clean();
+	}
+
 	/**
 	 * Render the Members showcase block.
 	 *
