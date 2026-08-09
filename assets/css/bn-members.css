@@ -101,6 +101,12 @@
 	gap: 2px;
 }
 
+/* Icon-only toggle: the base ladder gives it the 40px height, but nothing gives
+   it width — there is no label to widen the box. Square it off. */
+.bn-md-filters__view-btn {
+	min-inline-size: 40px;
+}
+
 .bn-md-filters__view-btn[aria-pressed="true"] {
 	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
 	border-color: color-mix(in oklch, var(--bn-accent) 40%, var(--bn-surface));
@@ -436,11 +442,15 @@
 	flex-wrap: wrap;
 }
 
+/* 40px is the tap-target floor. This said 38px — close enough to look
+   deliberate, and 2px under the rule. These are the card's primary actions
+   (Follow, Connect), not a compact admin list, so the density exception that
+   allows 34px does not apply to them. */
 .bn-md-card__actions .bn-btn {
 	flex: 1 1 0;
-	min-block-size: 38px;
 	min-inline-size: 0;
 }
+
 
 .bn-md-card__actions .bn-md-card__follow,
 .bn-md-card__actions .bn-md-card__connect-primary {
@@ -716,14 +726,19 @@
 	flex: 0 0 auto;
 }
 
-/* Member-type filter <select> — sits between search and the online toggle. */
+/* Member-type filter <select> — sits between search and the online toggle.
+   No min-block-size: .bn-select is 40px in bn-base.css already, and pinning it
+   here ALSO beat the touch block's 44px floor — same specificity (0,1,0), later
+   sheet — so this select stayed 40px on a phone while every input beside it grew. */
 .bn-md-strip__type {
 	flex: 0 1 auto;
-	min-block-size: 40px;
 }
 
-/* "Online only" toggle — a checkbox styled as a pill-height control so the
-	whole label is a 40px tap target. Tokens only; presence dot reuses the
+/* "Online only" toggle — a checkbox styled as a pill-height control so the whole
+	LABEL is the tap target (the native checkbox inside it is 16px and is not
+	meant to be aimed at). 40px is the desktop floor; the touch block in
+	bn-base.css cannot reach a component class, so the 44px touch floor is
+	restated at the bottom of this file. Tokens only; presence dot reuses the
 	directory success token. */
 .bn-md-strip__online {
 	flex: 0 0 auto;
@@ -1094,4 +1109,13 @@
 .bn-md-card[data-size="compact"] .bn-md-card__actions {
 	margin-block-start: 0;
 	padding-block-start: var(--bn-s2);
+}
+
+/* Touch floor for the directory's own composite controls. bn-base.css raises
+   every primitive to 44px on touch, but .bn-md-strip__online is a LABEL acting
+   as a control, so no primitive selector reaches it. */
+@media (pointer: coarse), (max-width: 768px) {
+	.bn-md-strip__online {
+		min-block-size: 44px;
+	}
 }

@@ -2260,11 +2260,14 @@ a.bn-space-row:hover .bn-space-name {
 	width: 13px;
 	height: 13px;
 }
-/* Compact ghost select — overrides the full-width .bn-input it also carries. */
+/* Compact ghost select — overrides the full-width .bn-input it also carries.
+   Density comes from padding and type size, not from the hit area: at 26px this
+   was the smallest interactive control in the plugin, and it is a per-field
+   privacy choice, which is not something to make fiddly to hit. */
 .bn-ep-field-vis__select.bn-input {
 	width: auto;
 	min-width: 0;
-	height: 26px;
+	height: 40px;
 	padding-block: 0;
 	padding-inline: var(--bn-s2) var(--bn-s2);
 	font-size: var(--bn-text-xs);

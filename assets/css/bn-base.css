@@ -941,8 +941,9 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-inline-size: 36px;
-	min-block-size: 36px;
+	/* 40px both ways: a pager is a target, and a 36px one missed the floor. */
+	min-inline-size: 40px;
+	min-block-size: 40px;
 	padding-inline: var(--bn-s2);
 	border: 1px solid var(--bn-line-strong);
 	border-radius: var(--bn-r-md);
@@ -1606,10 +1607,15 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 
+/* min-height 40px is the design system's `md` rung AND the tap-target floor
+   ("40px minimum tap target on buttons"). The default button had no height at
+   all — it measured whatever padding + line-height produced, which was 36px, so
+   every unsized .bn-btn in the plugin shipped 4px under the floor. */
 .bn-btn {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s2);
+	min-height: 40px;
 	padding: var(--bn-s2) var(--bn-s4);
 	border: 1px solid transparent;
 	border-radius: var(--bn-r-md);
@@ -2539,10 +2545,15 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	 * Wrapping alone would NOT have fixed it: the label would then overflow the
 	 * fixed 36px/28px box vertically instead. Both parts are required.
 	 *
-	 * Single-line buttons are unaffected — min-height resolves to the same 36px,
-	 * so English layouts render byte-identically. */
+	 * Single-line buttons are unaffected — min-height resolves to the same floor,
+	 * so English layouts render at exactly that height. */
 	padding: var(--bn-s2) var(--bn-s4);
-	min-height: 36px;
+	/* 40px, the design system's `md` rung and its stated tap-target floor. This
+	   was 36px, and because [data-variant] outranks the plain .bn-btn rule it
+	   was the REAL default height for every button in the plugin — the base
+	   ladder never got a say. Touch raises it again to 44px at the bottom of
+	   this file. */
+	min-height: 40px;
 	border-radius: var(--bn-r-md);
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-sm);
@@ -2561,8 +2572,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-btn[data-variant]:active { transform: scale(0.98); }
 
+/* `sm` is a DENSITY step, not a smaller hit area: tighter padding, smaller type,
+   tighter radius — and the same 40px floor inherited from .bn-btn above. It used
+   to set min-height 28px, which is where the 32px and 36px controls all over the
+   frontend came from, and `sm` is exactly what card action clusters use (Follow,
+   Connect, Join). The standard allows a 34px floor only for compact ADMIN list
+   rows; none of these are that. */
 .bn-btn[data-size="sm"] {
-	min-height: 28px;
 	padding: var(--bn-s1) var(--bn-s3);
 	font-size: var(--bn-text-xs);
 	border-radius: var(--bn-r-sm);
@@ -2611,12 +2627,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 /* ── Input / Textarea / Select — v2 ─────────────────────────────────── */
+/* 40px is the design system's stated default input height ("every input = same
+   40px default"), and it is also the tap-target floor. This shipped at 36px. */
 .bn-input,
 .bn-textarea,
 .bn-select {
 	width: 100%;
 	padding: 0 var(--bn-s3);
-	height: 36px;
+	height: 40px;
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line-strong);
 	border-radius: var(--bn-r-md);
@@ -3190,6 +3208,11 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		the theme-defense interactive-state lock below read it — so a variant can
 		never desync rest vs hover padding again (the pill-vibrate class of bug). */
 	--bn-tab-px: var(--bn-s3);
+	/* A tab is a navigation target, so it takes the 40px floor. The 34px density
+	   exception in the standard is for compact ADMIN list rows, not for a member-
+	   facing tab strip. Touch already raised these to 44px at the bottom of this
+	   file; this is the desktop half of the same rule. */
+	min-block-size: 40px;
 	padding: var(--bn-s2) var(--bn-tab-px);
 	/* Normalise font + metrics so an <a> tab and a <button> tab render
 		IDENTICALLY. Without this, a <button class="bn-tab"> falls back to the
@@ -4146,17 +4169,23 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
  * Mobile tap-target compliance — Style-guide.html Rule 04
  *
  * At touch viewports (≤ 768px) every primitive interactive control grows
- * to at least 44px hit area. Desktop keeps the v2 36px default so the
- * density-aware compact layouts still read tight. Compact-density on
- * mobile still respects the 44px floor — accessibility wins over density.
+ * to at least 44px hit area. Compact-density on mobile still respects the
+ * 44px floor — accessibility wins over density.
+ *
+ * That last sentence used to be contradicted three lines below it: a
+ * `.bn-btn[data-size="sm"] { min-height: 36px }` override sat inside this very
+ * block and exempted the compact size from the floor — and `sm` is exactly what
+ * every card action cluster uses, so Follow / Connect / Join were 36-38px on a
+ * phone while the rule above them said 44. The exception is gone; density does
+ * not get a carve-out from the thing the block exists to guarantee.
+ *
+ * Desktop no longer needs a note here either: the ladder itself now starts at
+ * the design system's own sm/md/lg = 32/40/48, rather than 28.
  * ════════════════════════════════════════════════════════════════════════ */
 @media (pointer: coarse), (max-width: 768px) {
 	.bn-btn[data-variant] {
 		min-height: 44px;
 		padding-inline: var(--bn-s4);
-	}
-	.bn-btn[data-size="sm"] {
-		min-height: 36px;
 	}
 	.bn-input,
 	.bn-textarea,
@@ -4164,6 +4193,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		min-height: 44px;
 	}
 	.bn-tab { min-height: 44px; }
+
+	/* Pagination is a target too, and was never listed here — it sat at the
+	   desktop 40px on touch. Square, because the numbers are narrow. */
+	.bn-page-btn {
+		min-block-size: 44px;
+		min-inline-size: 44px;
+	}
 
 	/* Standalone icon buttons — the control's own box grows to the touch floor.
 	 * These sit in toolbars, card headers and sheet headers where there is room

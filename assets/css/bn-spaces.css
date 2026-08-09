@@ -83,7 +83,10 @@
 	border-radius: var(--bn-r-full);
 	background: var(--bn-surface);
 	color: var(--bn-ink-2);
-	min-height: 36px;
+	/* 40px floor. These category chips are the directory's primary filter — a
+	   target, not decoration — and 36px put them under it. .bn-tab's own base is
+	   40px now; this line only ever pulled them back down. */
+	min-height: 40px;
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s1);

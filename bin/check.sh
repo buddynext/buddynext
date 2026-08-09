@@ -122,6 +122,18 @@ else
 	note "bin/check-style-deps.sh missing"
 fi
 
+# 3a+. Tap targets — no frontend primitive sized under the 40px floor
+section "Tap targets (40px floor)"
+if [ -x bin/check-tap-targets.sh ]; then
+	if bin/check-tap-targets.sh; then
+		:
+	else
+		fail "interactive primitive sized under 40px — ux-foundation Rule 13"
+	fi
+else
+	note "bin/check-tap-targets.sh missing"
+fi
+
 # 3a. Icon set conformance — Lucide-style, no baked-in sizes
 section "Icon set"
 if [ -x bin/check-icons.sh ]; then
