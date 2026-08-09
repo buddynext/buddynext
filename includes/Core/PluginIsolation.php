@@ -250,6 +250,40 @@ class PluginIsolation {
 	 *
 	 * @return array<int,string> De-duplicated plugin basenames.
 	 */
+	/**
+	 * Plugins kept alive because something DECLARED them, not because they were
+	 * discovered.
+	 *
+	 * The in-house family, translation plugins, the owner's own keep-list, menu
+	 * dependencies, and whatever Pro appends through
+	 * `buddynext_isolation_plugins`.
+	 *
+	 * Separated from discovery because the two earn their place differently and
+	 * the ASSET layer treats them differently: BuddyNext renders the in-house
+	 * family's content itself through the bridges, so their stylesheets are
+	 * redundant on a BN route, while a discovered third-party plugin has nothing
+	 * rendering for it and needs its own. Pro registers its half through the
+	 * filter, so reading the constants alone misses Listora, Career Board and
+	 * Learnomy -- which is exactly what a first attempt at this did.
+	 *
+	 * @return string[] Plugin basenames.
+	 */
+	private static function explicitly_listed(): array {
+		$base = array_merge(
+			self::CORE_INTEGRATIONS,
+			self::TRANSLATION_PLUGINS,
+			self::owner_keep_list(),
+			self::menu_dependency_plugins()
+		);
+
+		/**
+		 * Filter the in-house integration plugins kept alive on BuddyNext routes.
+		 *
+		 * @param array<int,string> $plugins In-house integration basenames.
+		 */
+		return (array) apply_filters( 'buddynext_isolation_plugins', $base );
+	}
+
 	public static function integration_plugins(): array {
 		/**
 		 * Filter the in-house integration plugins kept alive on BuddyNext routes.
@@ -260,15 +294,7 @@ class PluginIsolation {
 		 *
 		 * @param array<int,string> $plugins In-house integration basenames.
 		 */
-		$base = array_merge(
-			self::CORE_INTEGRATIONS,
-			self::TRANSLATION_PLUGINS,
-			self::owner_keep_list(),
-			self::menu_dependency_plugins(),
-			self::detected_frontend_plugins()
-		);
-
-		$plugins = (array) apply_filters( 'buddynext_isolation_plugins', $base );
+		$plugins = array_merge( self::explicitly_listed(), self::detected_frontend_plugins() );
 
 		$plugins = array_values(
 			array_unique(
@@ -586,7 +612,55 @@ class PluginIsolation {
 	public static function frontend_asset_prefixes(): array {
 		$prefixes = array();
 
+		/*
+		 * THIRD-PARTY only. Our own suite is deliberately excluded.
+		 *
+		 * The in-house family is kept LOADED so its data and hooks are available,
+		 * but BuddyNext renders partner content itself through the bridges -- a
+		 * Jetonomy discussion or a Listora listing appears as a BN card, drawn
+		 * with BN's own CSS. Their stylesheets and scripts are redundant on a BN
+		 * route, which is why AssetIsolation stripped them long before this
+		 * change, and why pulling them back in cost real weight for nothing:
+		 * measured on the profile editor, allowing everything added 9 assets for
+		 * wb-listora and 8 for wb-gamification alone, and pushed several journey
+		 * specs past their timeouts.
+		 *
+		 * A discovered THIRD-PARTY plugin is the opposite case: nothing renders
+		 * its output for it, so without its own assets it emits unstyled, inert
+		 * markup -- the broken half-header and the consent banner that cannot
+		 * record consent. Those are the ones that need this.
+		 */
+		/*
+		 * Exclude OUR OWN family only -- not everything on the keep-list.
+		 *
+		 * Excluding the whole explicit list was wrong and measurably so: it also
+		 * dropped the owner's own keep-list, which took the consent banner's
+		 * assets with it -- the very plugin this bounce was about. If an owner
+		 * has explicitly kept a third-party plugin, they want it working, so its
+		 * assets belong on the page.
+		 *
+		 * Pro's half of the family (Career Board, Listora, Learnomy) arrives
+		 * through the filter rather than the constant, so it is recovered as the
+		 * delta the filter introduced. Reading the constants alone missed it.
+		 */
+		$declared_base = array_merge(
+			self::CORE_INTEGRATIONS,
+			self::TRANSLATION_PLUGINS,
+			self::owner_keep_list(),
+			self::menu_dependency_plugins()
+		);
+		$pro_family    = array_diff( self::explicitly_listed(), $declared_base );
+
+		$own = array_map(
+			static fn( $basename ): string => (string) strtok( (string) $basename, '/' ),
+			array_merge( self::CORE_INTEGRATIONS, self::SELF_PLUGINS, $pro_family )
+		);
+
 		foreach ( self::detected_frontend_plugins() as $basename ) {
+			$slug = (string) strtok( (string) $basename, '/' );
+			if ( in_array( $slug, $own, true ) ) {
+				continue;
+			}
 			// plugins_url() resolves the plugin's own directory from its
 			// basename, so no path handling is needed here; array_filter below
 			// drops anything that fails to resolve.

@@ -1,53 +1,53 @@
 {
-	"$schema": "https://schemas.wp.org/trunk/block.json",
-	"apiVersion": 3,
-	"name": "buddynext/space-directory",
-	"title": "Space Directory",
-	"icon": "networking",
-	"category": "buddynext",
-	"description": "Filterable grid of community spaces, filterable by category and membership.",
-	"keywords": [
-		"buddynext",
-		"spaces",
-		"directory",
-		"community"
-	],
-	"textdomain": "buddynext",
-	"editorScript": "buddynext-blocks-editor",
-	"style": [
-		"file:../../assets/css/blocks.css",
-		"bn-profile"
-	],
-	"supports": {
-		"color": {
-			"background": true,
-			"text": true
-		},
-		"typography": {
-			"fontSize": true
-		},
-		"spacing": {
-			"padding": true,
-			"margin": true
-		}
-	},
-	"attributes": {
-		"perPage": {
-			"type": "integer",
-			"default": 12
-		},
-		"layout": {
-			"type": "string",
-			"default": "grid",
-			"enum": [
-				"grid",
-				"list"
-			]
-		}
-	},
-	"example": {},
-	"editorStyle": [
-		"file:../../assets/css/blocks.css",
-		"bn-profile"
-	]
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "buddynext/space-directory",
+  "title": "Space Directory",
+  "icon": "networking",
+  "category": "buddynext",
+  "description": "Filterable grid of community spaces, filterable by category and membership.",
+  "keywords": [
+    "buddynext",
+    "spaces",
+    "directory",
+    "community"
+  ],
+  "textdomain": "buddynext",
+  "editorScript": "buddynext-blocks-editor",
+  "style": [
+    "file:../../assets/css/blocks.css",
+    "bn-spaces"
+  ],
+  "supports": {
+    "color": {
+      "background": true,
+      "text": true
+    },
+    "typography": {
+      "fontSize": true
+    },
+    "spacing": {
+      "padding": true,
+      "margin": true
+    }
+  },
+  "attributes": {
+    "perPage": {
+      "type": "integer",
+      "default": 12
+    },
+    "layout": {
+      "type": "string",
+      "default": "grid",
+      "enum": [
+        "grid",
+        "list"
+      ]
+    }
+  },
+  "example": {},
+  "editorStyle": [
+    "file:../../assets/css/blocks.css",
+    "bn-spaces"
+  ]
 }
