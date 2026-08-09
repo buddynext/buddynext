@@ -17,7 +17,7 @@
 	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
-	"style": "file:../../assets/css/bn-header.css",
+	"style": "bn-header",
 	"supports": {
 		"inserter": false,
 		"html": false,

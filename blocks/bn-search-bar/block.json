@@ -14,7 +14,10 @@
 	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
-	"style": "file:../../assets/css/blocks.css",
+	"style": [
+		"file:../../assets/css/blocks.css",
+		"bn-base"
+	],
 	"supports": {
 		"color": {
 			"background": true,

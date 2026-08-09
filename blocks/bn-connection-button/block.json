@@ -15,7 +15,10 @@
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
 	"viewScriptModule": "@buddynext/social-buttons",
-	"style": "file:../../assets/css/blocks.css",
+	"style": [
+		"file:../../assets/css/blocks.css",
+		"bn-base"
+	],
 	"supports": {
 		"inserter": false,
 		"color": {

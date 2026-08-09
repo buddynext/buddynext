@@ -1593,19 +1593,13 @@ a.bn-sh-statpill:focus-visible {
 	flex-wrap: wrap;
 }
 
-/* ── Legacy member-list / pagination wrappers (still consumed by
- * templates/profile/connections.php and templates/blocks/member-directory.php).
- * The .bn-member-card / .bn-member-name / .bn-member-handle / .bn-card-actions /
- * .bn-page-btn rules are defined ONCE in bn-members.css — do not redefine here.
- * ──────────────────────────────────────────────────────────────────── */
-
-.bn-member-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-/* .bn-pagination is the shared component — defined once in bn-base.css. */
+/* .bn-member-list moved to bn-members.css, where a MEMBER class belongs — it
+ * was the last member rule left in this file. It resolved here only because
+ * bn-spaces is registered with bn-members as a dependency, so the misplacement
+ * was invisible while making bn-member-directory's style declaration read wrong
+ * to anyone checking it (Basecamp 10182506250, secondary finding).
+ *
+ * .bn-pagination is the shared component — defined once in bn-base.css. */
 
 /* ── Space settings ─────────────────────────────────────────────────────
  * Composes from v2 primitives: .bn-card panels, .bn-tabs/.bn-tab for nav,
