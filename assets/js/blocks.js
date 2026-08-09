@@ -173,6 +173,28 @@
 		};
 	}
 
+	/**
+	 * A toggle that says what it does.
+	 *
+	 * The bare toggleControl above is fine when the label is self-evident
+	 * ("Show description"). It is not when the toggle governs more than its name
+	 * ("Show follow action" also hides Connect) or when the label names a word
+	 * the owner has to guess at ("Show stats" - which stats?). A control an owner
+	 * has to try in order to understand is a control they will leave alone.
+	 */
+	function helpToggleControl( attr, label, help ) {
+		return function ( props ) {
+			return el( components.ToggleControl, {
+				label: label,
+				help: help,
+				checked: !! props.attributes[ attr ],
+				onChange: function ( v ) {
+					var next = {}; next[ attr ] = v; props.setAttributes( next );
+				},
+			} );
+		};
+	}
+
 	function textControl( attr, label ) {
 		return function ( props ) {
 			return el( components.TextControl, {
@@ -214,7 +236,23 @@
 				{ value: 'cloud', label: __( 'Cloud', 'buddynext' ) },
 			] ),
 		],
-		'buddynext/member-card':            [ targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ) ],
+		'buddynext/member-card': [
+			targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ),
+			selectControl( 'size', __( 'Size', 'buddynext' ), [
+				{ value: 'full', label: __( 'Full', 'buddynext' ) },
+				{ value: 'compact', label: __( 'Compact (no cover)', 'buddynext' ) },
+			] ),
+			helpToggleControl(
+				'showFollowAction',
+				__( 'Show follow action', 'buddynext' ),
+				__( 'Off hides Follow and Connect. Visitors can still open the profile.', 'buddynext' )
+			),
+			helpToggleControl(
+				'showStats',
+				__( 'Show stats', 'buddynext' ),
+				__( 'Shows how many connections you have in common with this member.', 'buddynext' )
+			),
+		],
 		'buddynext/follow-button':          [ targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ) ],
 		'buddynext/connection-button':      [ targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ) ],
 		'buddynext/profile-completion-bar': [ targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ) ],

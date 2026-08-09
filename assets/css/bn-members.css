@@ -53,22 +53,43 @@
 	padding: 0;
 }
 
-/* Featured Member block: one card, so it fills whatever column it is dropped
-   into — a narrow sidebar or a wide content area — instead of sitting in a
-   220px track with empty cells beside it. The block reuses the directory grid
-   because that is where per-member state is resolved; this is the only thing
-   it needs to change about the layout. */
-.bn-md-grid--single {
-	grid-template-columns: 1fr;
+/* Featured Member block: one card. It keeps the directory's own responsive
+   track sizing — so it is a card-sized card in a wide column and fills a narrow
+   one — but is exempt from every rule that fixes a COLUMN COUNT. A count is a
+   statement about many cards; applied to one it just divides the container and
+   squeezes the single card into a fraction of it.
+
+   That exemption is the fix, and it was not decorative. The grid part emits
+   data-cols unconditionally, so this grid also carried data-cols="3" and was
+   laid out as three fixed tracks: in a 25% sidebar the card got 67px and
+   rendered the member's name one character per line. The 768px rule below
+   (a fixed 2-up) did the same thing on tablet.
+
+   Doubled class on purpose: three of those rules are later single-class
+   selectors on .bn-md-grid, so a plain `.bn-md-grid--single` lost to all of
+   them whatever it declared. Matching both classes outranks them by
+   specificity, which is what makes this hold without a counter-rule being added
+   to each new breakpoint. */
+.bn-md-grid.bn-md-grid--single {
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 /* Owner-set fixed desktop column count (Settings > General > Member directory).
 	Applies only on desktop (≥1025px) so the responsive breakpoints below still
-	step the directory down to 2 then 1 on tablet/mobile; never overrides list view. */
+	step the directory down to 2 then 1 on tablet/mobile; never overrides list view.
+
+	The --single exclusion is load-bearing, not defensive. The grid part emits
+	data-cols unconditionally, so the one-card Featured Member render carried
+	data-cols="3" too — and these rules are later AND more specific than
+	.bn-md-grid--single above, so they won. A featured member in a 25% sidebar
+	was laid out as three 67px tracks with the card in one of them, rendering the
+	member's name one character per line. It never showed at full width because a
+	third of the content column is roughly a normal card. An owner's directory
+	column preference is about the DIRECTORY; it has no meaning for one card. */
 @media (min-width: 1025px) {
-	.bn-md-grid[data-cols="2"]:not(.is-list) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-	.bn-md-grid[data-cols="3"]:not(.is-list) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-	.bn-md-grid[data-cols="4"]:not(.is-list) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+	.bn-md-grid[data-cols="2"]:not(.is-list):not(.bn-md-grid--single) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.bn-md-grid[data-cols="3"]:not(.is-list):not(.bn-md-grid--single) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.bn-md-grid[data-cols="4"]:not(.is-list):not(.bn-md-grid--single) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 /* ── View toggle (grid / list) ──────────────────────────────────────────────
@@ -179,7 +200,20 @@
 	}
 }
 
-/* ── Member card composition (uses .bn-card[data-interactive] from base) ── */
+/* ── Member card composition (uses .bn-card[data-interactive] from base) ──
+ *
+ * Doubled with .bn-card so `padding: 0` outranks `.bn-card`'s own
+ * `padding: var(--bn-s6)` by specificity rather than by source order. On a
+ * BuddyNext hub bn-members.css prints after bn-base.css and the plain selector
+ * won; on an ordinary page carrying the Featured Member block the two print the
+ * other way round, so the card kept the base 24px padding and its cover band
+ * sat inset with a white margin around it. A component that overrides its base
+ * primitive should say so — sheet order is not a contract a card can rely on
+ * once it renders outside the hub. */
+.bn-card.bn-md-card {
+	padding: 0;
+}
+
 .bn-md-card {
 	position: relative;
 	display: flex;
@@ -994,4 +1028,78 @@
 	list-style: none;
 	margin: 0;
 	padding: 0;
+}
+
+/* ── Compact member card ────────────────────────────────────────────────
+ *
+ * The featured-member block's narrow-column size. Mirrors the compact space
+ * card: the 76px cover band goes, the avatar comes out of its absolute
+ * overlap and sits beside the name.
+ *
+ * The card becomes the grid, not the body, because `.bn-md-card__avatar-link`
+ * is a SIBLING of the body — the avatar could not share a row with the name if
+ * the body owned the layout. `display: contents` on the body (and, already
+ * globally, on the identity group) hoists the name and handle up to the same
+ * grid, so avatar / name / handle line up without a single wrapper element
+ * being added to markup the directory also renders.
+ *
+ * Only the name and handle share the avatar's rows. Everything below them
+ * spans the card, so the ~230px sidebar this size exists for does not run a
+ * 44px gutter down its whole height.
+ */
+.bn-md-card[data-size="compact"] {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	column-gap: var(--bn-s3);
+	row-gap: var(--bn-s1);
+	align-content: start;
+	padding: var(--bn-s4);
+}
+
+/* The body's own padding cleared the overlapping avatar; with display:contents
+   it generates no box, so the padding above moves onto the card. */
+.bn-md-card[data-size="compact"] .bn-md-card__body {
+	display: contents;
+}
+
+.bn-md-card[data-size="compact"] .bn-md-card__avatar-link {
+	position: static;
+	grid-column: 1;
+	grid-row: 1 / span 2;
+	align-self: center;
+}
+
+/* A 3px surface-coloured ring is a cut-out from the cover gradient. Without the
+   cover it is invisible, so compact draws a real border instead. */
+.bn-md-card[data-size="compact"] .bn-md-card__avatar-link .bn-avatar {
+	width: 44px;
+	height: 44px;
+	font-size: var(--bn-text-base);
+	border: 1px solid var(--bn-line);
+	box-shadow: none;
+}
+
+/* The kebab menu is absolutely pinned top-right. On the full card it floats
+   over the cover band, well clear of the name below it; in compact the name IS
+   the top row, so a long name (or its degree badge) ran underneath the button.
+   Reserve the gutter unconditionally so the row does not reflow between a
+   logged-out visitor, who gets no kebab, and a member, who does. */
+.bn-md-card[data-size="compact"] .bn-md-card__name {
+	grid-column: 2;
+	grid-row: 1;
+	padding-inline-end: var(--bn-s6);
+}
+
+.bn-md-card[data-size="compact"] .bn-md-card__handle {
+	grid-column: 2;
+	grid-row: 2;
+}
+
+.bn-md-card[data-size="compact"] .bn-md-card__body > :not(.bn-md-card__identity) {
+	grid-column: 1 / -1;
+}
+
+.bn-md-card[data-size="compact"] .bn-md-card__actions {
+	margin-block-start: 0;
+	padding-block-start: var(--bn-s2);
 }

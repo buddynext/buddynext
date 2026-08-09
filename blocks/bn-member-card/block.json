@@ -37,6 +37,18 @@
 		"userId": {
 			"type": "integer",
 			"default": 0
+		},
+		"size": {
+			"type": "string",
+			"default": "full"
+		},
+		"showFollowAction": {
+			"type": "boolean",
+			"default": true
+		},
+		"showStats": {
+			"type": "boolean",
+			"default": false
 		}
 	},
 	"example": {},

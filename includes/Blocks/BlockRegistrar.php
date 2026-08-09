@@ -343,17 +343,48 @@ class BlockRegistrar {
 	}
 
 	/**
-	 * Render the Member Card block.
+	 * Render the Member Card block — one member, presented as a featured callout.
+	 *
+	 * Renders through the shared directory grid part, so a featured member and a
+	 * member in the directory show the same badges, states and action cluster.
+	 * `size`, `showFollowAction` and `showStats` are knobs on that shared path
+	 * rather than a second copy of its markup.
+	 *
+	 * The editor has always offered "Current page context" for the member, and
+	 * this callback never resolved one: a userId of 0 fell straight through the
+	 * template's early return, so the setting saved and the block rendered
+	 * nothing. It now falls back the same way the other person-scoped blocks do,
+	 * to whoever the page is about.
+	 *
+	 * @since 1.1.3 size + showFollowAction + showStats, and the context fallback.
 	 *
 	 * @param array<string, mixed> $attributes Block attributes.
 	 * @return string
 	 */
 	public function render_member_card( array $attributes ): string {
-		$user_id = (int) ( $attributes['userId'] ?? 0 );
+		$user_id      = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
+		$size         = sanitize_key( (string) ( $attributes['size'] ?? 'full' ) );
+		$show_actions = ! isset( $attributes['showFollowAction'] ) || (bool) $attributes['showFollowAction'];
+		// The one option whose spec default is OFF: mutual connections are a
+		// signal for a member browsing a directory, not for a visitor meeting
+		// this person for the first time on a landing page.
+		$show_stats = ! empty( $attributes['showStats'] );
+
+		if ( $user_id <= 0 ) {
+			return $this->editor_hint( __( 'Choose a member to feature in the block settings, or place this block on a page with an author.', 'buddynext' ) );
+		}
 
 		ob_start();
-		buddynext_get_template( 'blocks/member-card.php', compact( 'user_id' ) );
-		return $this->wrap_block_output( (string) ob_get_clean(), 'bn-block-member-card' );
+		buddynext_get_template( 'blocks/member-card.php', compact( 'user_id', 'size', 'show_actions', 'show_stats' ) );
+		$html = (string) ob_get_clean();
+
+		if ( '' === trim( $html ) ) {
+			// Resolved to a member who cannot be shown - deleted, or a profile
+			// this viewer may not see. Silent on the front end, explained here.
+			return $this->editor_hint( __( 'That member cannot be shown. Choose another in the block settings.', 'buddynext' ) );
+		}
+
+		return $this->wrap_block_output( $html, 'bn-block-member-card' );
 	}
 
 	/**

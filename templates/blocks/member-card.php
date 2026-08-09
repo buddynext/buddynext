@@ -15,7 +15,10 @@
  * directory card beside it was fine. One implementation, no drift.
  *
  * Variables:
- *   int $user_id Member ID to display.
+ *   int    $user_id      Member ID to display.
+ *   string $size         'full' (default) or 'compact' — compact drops the cover band.
+ *   bool   $show_actions Render Follow / Connect. Default true.
+ *   bool   $show_stats   Render the mutual-connections line. Default true.
  *
  * @package BuddyNext
  */
@@ -96,5 +99,8 @@ buddynext_get_template(
 		// a single column so the card fills a sidebar instead of sitting in a
 		// 3-up track with two empty cells beside it.
 		'classes'         => array( 'bn-md-grid--single' ),
+		'compact'         => 'compact' === ( isset( $size ) ? (string) $size : 'full' ),
+		'show_actions'    => ! isset( $show_actions ) || (bool) $show_actions,
+		'show_stats'      => ! isset( $show_stats ) || (bool) $show_stats,
 	)
 );
