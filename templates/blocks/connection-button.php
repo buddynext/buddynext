@@ -94,7 +94,7 @@ $context_json = (string) wp_json_encode(
 	>
 		<button
 			type="button"
-			class="bn-btn bn-accept"
+			class="bn-btn"
 			data-variant="primary"
 			data-size="sm"
 			data-action="bn-accept-connect"
@@ -106,7 +106,7 @@ $context_json = (string) wp_json_encode(
 		</button>
 		<button
 			type="button"
-			class="bn-btn bn-decline"
+			class="bn-btn"
 			data-variant="ghost"
 			data-size="sm"
 			data-action="bn-decline-connect"
@@ -120,7 +120,7 @@ $context_json = (string) wp_json_encode(
 
 	<button
 		type="button"
-		class="bn-btn bn-connected"
+		class="bn-btn"
 		data-variant="secondary"
 		data-size="sm"
 		data-action="bn-toggle-connect"
@@ -136,7 +136,7 @@ $context_json = (string) wp_json_encode(
 
 	<button
 		type="button"
-		class="bn-btn bn-pending"
+		class="bn-btn"
 		data-variant="ghost"
 		data-size="sm"
 		data-action="bn-toggle-connect"
@@ -152,7 +152,7 @@ $context_json = (string) wp_json_encode(
 
 	<button
 		type="button"
-		class="bn-btn bn-connect"
+		class="bn-btn"
 		data-variant="primary"
 		data-size="sm"
 		data-action="bn-toggle-connect"

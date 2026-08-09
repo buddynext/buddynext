@@ -101,17 +101,32 @@ $bn_md_online_fn = static function ( int $id ) use ( $bn_md_online ): bool {
 		);
 		?>
 		<?php if ( $has_more ) : ?>
-			<button
-				type="button"
-				class="bn-btn bn-load-more"
-				data-variant="ghost"
+			<?php
+			/*
+			 * A LINK to the directory, not a "Load more" button.
+			 *
+			 * This shipped as a button carrying data-block / data-cursor /
+			 * data-per-page, and nothing anywhere read them: the block declares no
+			 * viewScript or viewScriptModule, and the only load-more handler
+			 * (assets/js/feed/store.js) binds the activity feed's own
+			 * .bn-load-more__btn. So it rendered, invited a click, and did nothing
+			 * — the exact "if it renders, it is real" violation the standard names
+			 * (Basecamp 10184505772).
+			 *
+			 * A link is the honest affordance here: it works with no JS at all, it
+			 * matches what the showcase blocks already do with "Browse all spaces",
+			 * and paginating an arbitrary page's copy of the directory is what the
+			 * directory itself is for.
+			 */
+			?>
+			<a
+				class="bn-btn"
+				data-variant="secondary"
 				data-size="sm"
-				data-block="member-directory"
-				data-cursor="<?php echo esc_attr( $cursor ); ?>"
-				data-per-page="<?php echo absint( $bn_per_page ); ?>"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::hub_url( 'buddynext_slug_people', 'buddynext_page_people' ) ); ?>"
 			>
-				<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-			</button>
+				<?php esc_html_e( 'Browse all members', 'buddynext' ); ?>
+			</a>
 		<?php endif; ?>
 	<?php endif; ?>
 </section>

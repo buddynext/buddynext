@@ -812,6 +812,21 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 @keyframes bn-toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-10px); } }
 
 /* ── Empty states (global) ─────────────────────────────────────────────── */
+/* Inline variant + body text. The base .bn-empty-state and __title were here;
+   these two were emitted by the showcase blocks and defined nowhere, so the
+   empty state rendered as unstyled paragraphs (Basecamp 10182506250). */
+.bn-empty-state--inline {
+	padding-block: var(--bn-s6);
+	text-align: center;
+}
+
+.bn-empty-state__text {
+	margin: 0 0 var(--bn-s3);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	line-height: var(--bn-leading-snug);
+}
+
 .bn-empty-state {
 	text-align: center;
 	padding: var(--bn-s12) var(--bn-s6);

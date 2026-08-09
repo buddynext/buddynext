@@ -16,6 +16,32 @@
  *   - Search bar block
  */
 
+/* ── Shared block chrome ────────────────────────────────────────────────
+ * .bn-block-heading is the small caps title six block templates emit. It was
+ * defined only in bn-auth.css and bn-hashtags.css — two feature sheets no block
+ * declares — so every block using it rendered an unstyled heading off-hub. It is
+ * a BLOCK class, so it belongs here, in the sheet every block loads
+ * (Basecamp 10182506250).
+ * ──────────────────────────────────────────────────────────────────── */
+
+.bn-block-heading {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-bold);
+	letter-spacing: var(--bn-ls-tight);
+	color: var(--bn-ink);
+	margin: 0 0 var(--bn-s3);
+}
+
+/* Wrapper for the accept/decline pair on a received connection request. The two
+   buttons need to sit on one row with a gap; without a rule they were inline
+   with whatever whitespace the markup happened to leave. */
+.bn-connect-received {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
 /* ── Block wrappers ─────────────────────────────────────────────────── */
 
 [class*="wp-block-buddynext-"] {
@@ -129,61 +155,55 @@
 	padding: var(--bn-s4) 0;
 }
 
-/* ── Post composer block ────────────────────────────────────────────── */
+/* ── Post composer block ──────────────────────────────────────────────
+ * Rules match the markup this block emits: a card, an avatar, and a link
+ * styled as an input that sends the member to the feed to compose.
+ *
+ * What was here before styled .bn-composer / __row / __textarea / __footer —
+ * the HUB composer's BEM, emitted by templates/partials/composer.php and
+ * already defined canonically in bn-feed.css and bn-base.css. This block emits
+ * none of it. Meanwhile the two classes it DOES emit, bn-composer-input-wrap
+ * and bn-composer-trigger, were defined in no stylesheet at all, so the trigger
+ * fell back to bare .bn-input on an ordinary page (Basecamp 10182506250).
+ * ──────────────────────────────────────────────────────────────────── */
 
 .wp-block-buddynext-post-composer {
 	max-width: 720px;
 	margin: 0 auto var(--bn-s4);
 }
 
-.bn-composer {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--bn-r-lg);
-	padding: var(--bn-s4);
-}
-
-.bn-composer__row {
-	display: flex;
-	gap: var(--bn-s3);
-	align-items: flex-start;
-}
-
-.bn-composer__textarea {
-	flex: 1;
-	min-height: 80px;
-	resize: vertical;
-	padding: var(--bn-s3);
-	border: 1px solid var(--border);
-	border-radius: var(--bn-r-md);
-	font-family: var(--font-body);
-	font-size: var(--text-sm);
-	color: var(--text-1);
-	background: var(--bg-subtle);
-	line-height: var(--leading-body);
-	transition: border-color 0.15s, background 0.15s;
-	outline: none;
-}
-
-.bn-composer__textarea:focus {
-	border-color: var(--brand);
-	background: var(--surface);
-}
-
-.bn-composer__textarea::placeholder {
-	color: var(--text-3);
-}
-
-.bn-composer__footer {
+.bn-block-post-composer {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	gap: var(--bn-s3);
-	margin-top: var(--bn-s3);
 }
 
-/* .bn-composer__tools / .bn-composer__tool are defined ONCE in bn-feed.css
- * (canonical, with focus-visible ring + 18px icon sizing). No copy here. */
+.bn-block-post-composer__avatar {
+	flex: 0 0 auto;
+}
+
+.bn-composer-input-wrap {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* The trigger is an <a> wearing .bn-input, so it needs the parts an input gets
+   from the UA that a link does not: a text baseline inside the box, and the
+   placeholder's muted tone rather than link colour. */
+.bn-composer-trigger {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	color: var(--bn-ink-3);
+	text-decoration: none;
+	cursor: text;
+}
+
+.bn-composer-trigger:hover,
+.bn-composer-trigger:focus-visible {
+	color: var(--bn-ink-2);
+	border-color: var(--bn-line-strong);
+}
 
 /* ── Trending hashtags block ────────────────────────────────────────── */
 
@@ -425,6 +445,11 @@
 
 .wp-block-buddynext-profile-header {
 	margin-bottom: var(--bn-s6);
+}
+
+/* Edit action in the profile header block. */
+.bn-profile-header__edit {
+	flex: 0 0 auto;
 }
 
 .bn-profile-header {
@@ -724,6 +749,14 @@
 /* Uses .bn-bell-wrap + .bn-bell-dropdown from bn-notifications.css */
 
 /* ── Search bar block ───────────────────────────────────────────────── */
+
+/* The form is the block's own row; it was emitted with no rule at all, so the
+   icon-and-input wrap had no container to size against off-hub. */
+.bn-search-form {
+	display: flex;
+	align-items: center;
+	width: 100%;
+}
 
 .bn-search-input-wrap {
 	position: relative;

@@ -527,6 +527,19 @@
 	gap: var(--bn-p-s2);
 }
 
+/* Element parts of .bn-completion-tip. Emitted by the block template and
+   defined nowhere, so the tip row's text and CTA were unstyled. */
+.bn-completion-tip__text {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+
+.bn-completion-tip__cta {
+	flex: 0 0 auto;
+}
+
 .bn-completion-tip {
 	display: flex;
 	align-items: center;

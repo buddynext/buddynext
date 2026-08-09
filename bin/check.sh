@@ -122,6 +122,18 @@ else
 	note "bin/check-style-deps.sh missing"
 fi
 
+# 3a++. Block class coverage — every emitted bn-* class is defined + reachable
+section "Block class coverage"
+if [ -x bin/check-block-class-coverage.sh ]; then
+	if bin/check-block-class-coverage.sh; then
+		:
+	else
+		fail "block emits a class no reachable stylesheet defines"
+	fi
+else
+	note "bin/check-block-class-coverage.sh missing"
+fi
+
 # 3a+. Tap targets — no frontend primitive sized under the 40px floor
 section "Tap targets (40px floor)"
 if [ -x bin/check-tap-targets.sh ]; then

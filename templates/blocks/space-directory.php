@@ -106,17 +106,23 @@ foreach ( buddynext_service( 'spaces' )->categories_with_counts( 0, true ) as $b
 			<?php endforeach; ?>
 		</div>
 		<?php if ( $has_more ) : ?>
-			<button
-				type="button"
-				class="bn-btn bn-load-more"
-				data-variant="ghost"
+			<?php
+			/*
+			 * A LINK, for the same reason member-directory carries one: the button
+			 * this replaces declared data-block / data-page / data-per-page that no
+			 * script read, because this block registers no view script either. It
+			 * was copied from the member-directory block along with the defect
+			 * (Basecamp 10184505772).
+			 */
+			?>
+			<a
+				class="bn-btn"
+				data-variant="secondary"
 				data-size="sm"
-				data-block="space-directory"
-				data-page="2"
-				data-per-page="<?php echo absint( $bn_per_page ); ?>"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::hub_url( 'buddynext_slug_spaces', 'buddynext_page_spaces' ) ); ?>"
 			>
-				<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-			</button>
+				<?php esc_html_e( 'Browse all spaces', 'buddynext' ); ?>
+			</a>
 		<?php endif; ?>
 	<?php endif; ?>
 </section>
