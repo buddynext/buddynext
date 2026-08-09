@@ -27,11 +27,41 @@ use WP_UnitTestCase;
 final class ProfileGroupLockTest extends WP_UnitTestCase {
 
 	/**
-	 * Group key used across the cases.
+	 * A group key that is safe to lock on THIS install, or '' if none is.
 	 *
-	 * @var string
+	 * Discovered rather than hard-coded. The seeded schema is a starter kit an
+	 * owner may rename, delete or re-flag, and which groups carry `is_system`
+	 * has already changed once (social_links, work_experience and education
+	 * dropped it). A test naming a group is testing that install's fixtures, not
+	 * the rule — this one asserted against `work_experience` and failed on a DB
+	 * still holding the older seed.
+	 *
+	 * @return string
 	 */
-	private const GROUP = 'work_experience';
+	private function lockable_group(): string {
+		foreach ( ( new ProfileService() )->get_groups() as $group ) {
+			if ( empty( $group['is_system'] ) && '' !== (string) ( $group['group_key'] ?? '' ) ) {
+				return (string) $group['group_key'];
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * A SYSTEM group key on this install, or '' if none exists.
+	 *
+	 * @return string
+	 */
+	private function system_group(): string {
+		foreach ( ( new ProfileService() )->get_groups() as $group ) {
+			if ( ! empty( $group['is_system'] ) && '' !== (string) ( $group['group_key'] ?? '' ) ) {
+				return (string) $group['group_key'];
+			}
+		}
+
+		return '';
+	}
 
 	/**
 	 * Remove any lock callback between tests so they cannot leak into each other.
@@ -126,14 +156,19 @@ final class ProfileGroupLockTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_locked_group_is_absent_for_other_viewers(): void {
+		$group = $this->lockable_group();
+		if ( '' === $group ) {
+			$this->markTestSkipped( 'No non-system profile group on this install.' );
+		}
+
 		$owner  = self::factory()->user->create();
 		$viewer = self::factory()->user->create();
-		$this->lock( self::GROUP );
+		$this->lock( $group );
 
 		$keys = $this->group_keys( ( new ProfileService() )->get_profile( $owner, $viewer ) );
 
 		$this->assertNotContains(
-			self::GROUP,
+			$group,
 			$keys,
 			'A locked group must not reach another member — plan tier is not public information.'
 		);
@@ -148,21 +183,26 @@ final class ProfileGroupLockTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_owner_keeps_the_group_but_it_is_flagged(): void {
+		$group = $this->lockable_group();
+		if ( '' === $group ) {
+			$this->markTestSkipped( 'No non-system profile group on this install.' );
+		}
+
 		$owner = self::factory()->user->create();
-		$this->lock( self::GROUP );
+		$this->lock( $group );
 
 		$profile = ( new ProfileService() )->get_profile( $owner, $owner );
 		$groups  = (array) ( $profile['groups'] ?? array() );
 
 		$found = null;
-		foreach ( $groups as $group ) {
-			if ( self::GROUP === ( $group['group_key'] ?? '' ) ) {
-				$found = $group;
+		foreach ( $groups as $row ) {
+			if ( $group === ( $row['group_key'] ?? '' ) ) {
+				$found = $row;
 			}
 		}
 
 		if ( null === $found ) {
-			$this->markTestSkipped( 'Seeded schema has no ' . self::GROUP . ' group on this install.' );
+			$this->markTestSkipped( 'Group ' . $group . ' vanished mid-test.' );
 		}
 
 		$this->assertTrue( (bool) $found['locked'], 'The owner must see the group flagged as locked.' );
@@ -177,6 +217,11 @@ final class ProfileGroupLockTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_other_groups_are_untouched(): void {
+		$group = $this->lockable_group();
+		if ( '' === $group ) {
+			$this->markTestSkipped( 'No non-system profile group on this install.' );
+		}
+
 		$owner  = self::factory()->user->create();
 		$viewer = self::factory()->user->create();
 
@@ -187,13 +232,13 @@ final class ProfileGroupLockTest extends WP_UnitTestCase {
 		// BEFORE the lock existed and the test silently proves nothing. Same
 		// staleness an owner hits when they change which groups a plan locks,
 		// which is why that admin path has to flush too.
-		$this->lock( self::GROUP );
+		$this->lock( $group );
 		wp_cache_flush();
 
 		$after = $this->group_keys( ( new ProfileService() )->get_profile( $owner, $viewer ) );
 
 		$this->assertSame(
-			array_values( array_diff( $before, array( self::GROUP ) ) ),
+			array_values( array_diff( $before, array( $group ) ) ),
 			array_values( $after ),
 			'Only the locked group may disappear.'
 		);
@@ -222,6 +267,51 @@ final class ProfileGroupLockTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A SYSTEM group can never be locked, whatever answers the filter.
+	 *
+	 * These are the groups the product itself reads — Basic Info carries bio,
+	 * display name and location, which the directory card, the search index and
+	 * the member header all consume. Hiding one does not degrade a profile, it
+	 * guts it, for every member on that plan at once.
+	 *
+	 * Asserted against the FILTER rather than against an admin screen on purpose:
+	 * a tier row can also be written by an import, a migration or another plugin,
+	 * so a rule that only exists in a checkbox is not a rule.
+	 *
+	 * @return void
+	 */
+	public function test_system_group_cannot_be_locked(): void {
+		$group = $this->system_group();
+		if ( '' === $group ) {
+			$this->markTestSkipped( 'No system profile group on this install.' );
+		}
+
+		$owner  = self::factory()->user->create();
+		$viewer = self::factory()->user->create();
+
+		$this->lock( $group );
+		wp_cache_flush();
+
+		$this->assertContains(
+			$group,
+			$this->group_keys( ( new ProfileService() )->get_profile( $owner, $viewer ) ),
+			'A system group must survive a plan that tries to lock it.'
+		);
+
+		$this->assertTrue(
+			( new ProfileService() )->field_applies_to_user(
+				array(
+					'field_key'       => 'bio',
+					'group_key'       => $group,
+					'group_is_system' => true,
+				),
+				$owner
+			),
+			'A system group\'s fields must stay writable.'
+		);
+	}
+
+	/**
 	 * A locked group's fields are not writable, even by a crafted request.
 	 *
 	 * The visible form never posts them, so this is about the request that does
@@ -231,13 +321,18 @@ final class ProfileGroupLockTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_locked_group_fields_are_not_writable(): void {
+		$group = $this->lockable_group();
+		if ( '' === $group ) {
+			$this->markTestSkipped( 'No non-system profile group on this install.' );
+		}
+
 		$user = self::factory()->user->create();
-		$this->lock( self::GROUP );
+		$this->lock( $group );
 
 		$applies = ( new ProfileService() )->field_applies_to_user(
 			array(
 				'field_key' => 'company',
-				'group_key' => self::GROUP,
+				'group_key' => $group,
 			),
 			$user
 		);

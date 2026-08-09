@@ -299,6 +299,9 @@ class ProfileService {
 					continue;
 				}
 				$field['group_key'] = $group['group_key'] ?? '';
+				// Needed by field_applies_to_user(): a system group is never
+				// lockable, so its fields must stay writable whatever a plan says.
+				$field['group_is_system'] = ! empty( $group['is_system'] );
 				$reg[]              = $field;
 			}
 		}
@@ -1217,7 +1220,7 @@ class ProfileService {
 		 * separately last time this logic lived in one of them.
 		 */
 		$group_key = (string) ( $field_def['group_key'] ?? '' );
-		if ( '' !== $group_key ) {
+		if ( '' !== $group_key && empty( $field_def['group_is_system'] ) ) {
 			/** This filter is documented in ProfileService::get_profile(). */
 			if ( (bool) apply_filters( 'buddynext_profile_group_locked', false, $group_key, $user_id ) ) {
 				return false;
@@ -1479,7 +1482,24 @@ class ProfileService {
 			 * information.
 			 */
 			$g_locked = false;
-			if ( '' !== (string) ( $row['group_key'] ?? '' ) ) {
+
+			/*
+			 * A SYSTEM group is never lockable, and Free decides that -- not the
+			 * plan, and not whatever plugin is answering the filter.
+			 *
+			 * These are the groups the product itself reads: Basic Info carries
+			 * bio, display name and location, which the directory card, search
+			 * index and member header all consume. Hiding one does not degrade a
+			 * profile, it guts it, and it would do so for every member on that
+			 * plan at once. No monetization case is worth a blank directory.
+			 *
+			 * Enforced HERE rather than by disabling a checkbox, because a tier row
+			 * can also be written by an import, a migration, or any plugin on this
+			 * filter. A rule that only exists in an admin screen is not a rule.
+			 */
+			$g_is_system = (bool) ( $row['group_is_system'] ?? false );
+
+			if ( ! $g_is_system && '' !== (string) ( $row['group_key'] ?? '' ) ) {
 				/**
 				 * Filter whether a profile GROUP is locked for this profile owner.
 				 *
