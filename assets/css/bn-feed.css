@@ -512,6 +512,57 @@
 	word-break: break-word;
 }
 
+/* ── Long-post preview ──────────────────────────────────────────────────────
+   A feed card previews; the permalink reads. Only the FEED clamps -- the body
+   part decides via its render context, so /p/{id}/ is never affected.
+
+   Clamped by LINE, not by character. The server decides WHETHER to preview
+   (~300 chars, about one Twitter post); the line count decides how much shows.
+
+   The two have to AGREE, and getting that wrong is the failure mode worth
+   naming: a 335-character post rendered as four lines in the wide feed column,
+   so a six-line clamp cut nothing while "See more" still appeared underneath
+   fully-visible text. Measured, not theorised -- a clamp that does not bite is
+   a promise of hidden content that is not there.
+
+   So the line count is set BELOW what the threshold can fill, at each width.
+   The feed column is far wider on desktop than on a phone, so the same 300
+   characters occupy roughly three lines there and twice that on mobile; both
+   values keep the visible text under the threshold, which means any post that
+   qualifies for a preview is always genuinely cut. It also keeps the amount of
+   text shown roughly CONSTANT across devices rather than the line count, which
+   is why a feed feels the same on both.
+
+   Three lines on desktop is also what LinkedIn settles on.
+
+   line-clamp is CSS, so it applies to cards the router swaps in on page 2+
+   with no re-initialisation. That matters: the dead-controls-below-the-fold
+   class of bug came from JS that only ran on first paint. */
+.bn-post-card__content--preview {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+	overflow: hidden;
+}
+
+.bn-post-card__more {
+	margin-block: var(--bn-s2) 0;
+}
+
+.bn-post-card__more-link {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink-3);
+	text-decoration: none;
+}
+
+.bn-post-card__more-link:hover,
+.bn-post-card__more-link:focus-visible {
+	color: var(--bn-accent);
+	text-decoration: underline;
+}
+
 .bn-post-card__content a {
 	color: var(--bn-accent);
 	text-decoration: none;
@@ -910,6 +961,15 @@
 }
 
 @media (max-width: 640px) {
+	/* A phone column fits roughly half the characters per line that the desktop
+	   feed does, so the same ~300-character budget is about six lines here.
+	   Matching the BUDGET rather than the line count is what keeps a preview
+	   showing a comparable amount of text on both. */
+	.bn-post-card__content--preview {
+		-webkit-line-clamp: 6;
+		line-clamp: 6;
+	}
+
 	.bn-post-card__article-body {
 		padding: var(--bn-s3);
 	}
