@@ -1,47 +1,62 @@
 #!/usr/bin/env bash
-# Block style declarations must reach the token layer.
+# Block style declarations must reach the token layer — on BOTH surfaces.
 #
 # A `file:` reference in block.json gets a WordPress AUTO-GENERATED style handle
-# with NO dependencies. blocks.css uses 12 --bn-* tokens and .bn-btn lives in
+# with NO dependencies. blocks.css uses --bn-* tokens and .bn-btn lives in
 # bn-base.css, so a block declaring ONLY `file:...` renders token-less and
-# unstyled on an ordinary page - invisible on BuddyNext hub routes, where the
+# unstyled on an ordinary page — invisible on BuddyNext hub routes, where the
 # feature stylesheets are already enqueued for other reasons. That is what made
 # this class of bug survive so long (Basecamp 10182506250).
 #
-# So: every block below must declare at least one NAMED handle alongside any
-# file: reference. Named feature handles are registered with bn-base as a
-# dependency (AssetService::register_styles), so one is enough to pull the tokens.
+# `editorStyle` needs the same rule for the same reason, one surface over: a
+# file:-only editorStyle previews the block against no token layer, which is why
+# header-user-menu rendered broken in the editor while its front end was fine
+# (Basecamp 10184505520).
 #
-# SCOPED to the blocks carded in the 1.1.3 batch, by owner decision. A wider
-# version (fail on any file:-only block) would close the class for good; if a new
-# block ever drifts the same way, widen this list rather than re-triaging.
+# So: every block must declare at least one NAMED handle alongside any file:
+# reference, in each of `style` and `editorStyle` that it declares at all. Named
+# feature handles are registered with bn-base as a dependency
+# (AssetService::register_styles), so one is enough to pull the tokens.
+#
+# This checked only the seven blocks carded in the 1.1.3 batch until every block
+# passed it, at which point the narrow list had no reason to exist.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
-SCOPED="bn-follow-button bn-connection-button bn-my-spaces bn-post-composer bn-search-bar bn-header-user-menu bn-member-directory"
-fail=0
+report=$(python3 - <<'PY'
+import glob
+import json
 
-for b in $SCOPED; do
-	f="blocks/$b/block.json"
-	[ -f "$f" ] || { echo "  ✗ $b: block.json missing"; fail=1; continue; }
+problems = []
+for path in sorted(glob.glob('blocks/*/block.json')):
+    try:
+        block = json.load(open(path, encoding='utf-8'))
+    except (OSError, ValueError) as exc:
+        problems.append(f'  x {path}: unreadable ({exc})')
+        continue
 
-	named=$(python3 - "$f" <<'PY'
-import json,sys
-style = json.load(open(sys.argv[1])).get('style')
-items = style if isinstance(style, list) else ([style] if style else [])
-print(sum(1 for s in items if isinstance(s, str) and not s.startswith('file:')))
+    name = block.get('name', path)
+    for key in ('style', 'editorStyle'):
+        value = block.get(key)
+        items = value if isinstance(value, list) else ([value] if value else [])
+        if not items:
+            continue
+        named = [s for s in items if isinstance(s, str) and not s.startswith('file:')]
+        if not named:
+            problems.append(
+                f'  x {name}: {key} declares only file: refs '
+                '— no named handle, so bn-base never loads'
+            )
+
+print('\n'.join(problems))
 PY
 )
-	if [ "${named:-0}" -lt 1 ]; then
-		echo "  ✗ $b: declares only file: style refs — no named handle, so bn-base never loads"
-		fail=1
-	fi
-done
 
-if [ "$fail" -ne 0 ]; then
+if [ -n "$report" ]; then
+	echo "$report"
 	echo "block-styles: FAILED — add the named handle that owns the classes the template emits."
 	echo "              Do NOT add a second file: ref; that bypasses the dependency graph too."
 	exit 1
 fi
 
-echo "block-styles: clean — every scoped block declares a named handle (bn-base reachable)"
+echo "block-styles: clean — every block's style AND editorStyle name a handle (bn-base reachable)"

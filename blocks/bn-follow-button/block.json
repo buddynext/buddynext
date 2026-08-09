@@ -40,5 +40,8 @@
 		}
 	},
 	"example": {},
-	"editorStyle": "file:../../assets/css/blocks.css"
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-base"
+	]
 }
