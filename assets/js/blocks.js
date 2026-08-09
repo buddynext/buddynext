@@ -134,6 +134,74 @@
 		};
 	}
 
+	/**
+	 * An ORDERED multi-picker for the showcase blocks' "Hand-picked" source.
+	 *
+	 * Both showcase blocks offered Hand-picked with nothing to pick with: the
+	 * attribute existed, the template honoured it, and no control could write it.
+	 * spaces-showcase hid that by falling through to the popularity query, so an
+	 * owner who chose Hand-picked was shown spaces they had not chosen; members-
+	 * showcase rendered its empty state forever.
+	 *
+	 * Order is the point of picking - an owner curating their three best wants
+	 * them in that order - and FormTokenField preserves insertion order, which a
+	 * checkbox list would not. Only renders when the source is actually 'picked',
+	 * so the panel does not carry a control that does nothing.
+	 */
+	function pickListControl( kind, label, attr, help ) {
+		return function ( props ) {
+			var options = useEntityOptions( kind );
+
+			if ( 'picked' !== props.attributes.source ) {
+				return null;
+			}
+			if ( ! components.FormTokenField ) {
+				return null;
+			}
+
+			var list    = options || [];
+			var byId    = {};
+			var byLabel = {};
+			list.forEach( function ( o ) {
+				byId[ o.value ] = o.label;
+				// Two entities can share a display name; the id in the token keeps
+				// them distinct and keeps the mapping reversible.
+				byLabel[ o.label + ' (#' + o.value + ')' ] = o.value;
+			} );
+
+			var suggestions = list.map( function ( o ) { return o.label + ' (#' + o.value + ')'; } );
+			var current     = ( props.attributes[ attr ] || [] ).map( function ( id ) {
+				return ( byId[ String( id ) ] || '#' + id ) + ' (#' + id + ')';
+			} );
+
+			return el( components.FormTokenField, {
+				label: label,
+				help: null === options ? __( 'Loading…', 'buddynext' ) : help,
+				value: current,
+				suggestions: suggestions,
+				__experimentalExpandOnFocus: true,
+				onChange: function ( tokens ) {
+					var ids = tokens
+						.map( function ( t ) {
+							if ( byLabel[ t ] ) {
+								return parseInt( byLabel[ t ], 10 );
+							}
+							// Typed free-form: accept a bare id, drop anything else
+							// rather than silently storing a token that resolves to
+							// nothing on the front end.
+							var m = String( t ).match( /#?(\d+)\)?$/ );
+							return m ? parseInt( m[1], 10 ) : 0;
+						} )
+						.filter( function ( id ) { return id > 0; } );
+
+					var next = {};
+					next[ attr ] = ids;
+					props.setAttributes( next );
+				},
+			} );
+		};
+	}
+
 	function rangeControl( attr, label, min, max ) {
 		return function ( props ) {
 			return el( components.RangeControl, {
@@ -295,6 +363,12 @@
 				{ value: 'name', label: __( 'Name (A-Z)', 'buddynext' ) },
 				{ value: 'picked', label: __( 'Hand-picked', 'buddynext' ) },
 			] ),
+			pickListControl(
+				'spaces',
+				__( 'Spaces to feature', 'buddynext' ),
+				'spaceIds',
+				__( 'Shown in the order you add them. Pick none and the block shows its empty state.', 'buddynext' )
+			),
 			rangeControl( 'count', __( 'How many', 'buddynext' ), 1, 6 ),
 			selectControl( 'layout', __( 'Layout', 'buddynext' ), GRID_LIST ),
 			toggleControl( 'showDescription', __( 'Show description', 'buddynext' ) ),
@@ -308,6 +382,12 @@
 				{ value: 'picked', label: __( 'Hand-picked', 'buddynext' ) },
 			] ),
 			textControl( 'memberType', __( 'Member type (slug)', 'buddynext' ) ),
+			pickListControl(
+				'members',
+				__( 'Members to feature', 'buddynext' ),
+				'userIds',
+				__( 'Shown in the order you add them. Pick none and the block shows its empty state.', 'buddynext' )
+			),
 			rangeControl( 'count', __( 'How many', 'buddynext' ), 1, 8 ),
 			selectControl( 'layout', __( 'Layout', 'buddynext' ), [
 				{ value: 'list', label: __( 'List', 'buddynext' ) },

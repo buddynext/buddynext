@@ -65,12 +65,20 @@ if ( $category_id > 0 ) {
 	$bn_ss_args['category_id'] = $category_id;
 }
 
-if ( 'picked' === $source && ! empty( $space_ids ) ) {
+if ( 'picked' === $source ) {
 	// Hand-picked keeps the owner's ORDER, which is the whole point of picking:
 	// they are curating, not sorting. Each id is fetched through the service so
 	// visibility (secret, archived) is enforced per space exactly as the
 	// directory enforces it — a picked id can never leak a space the viewer
 	// could not otherwise see.
+	//
+	// Branching on the source ALONE is deliberate. This used to also require a
+	// non-empty list, so an owner who chose "Hand-picked" and had not picked
+	// anything yet fell through to the popularity query and was shown three
+	// spaces they had not chosen, presented as their featured selection. An
+	// empty selection is a selection: it renders the empty state below, the
+	// same as a category that matches nothing. members-showcase already
+	// branches this way.
 	$bn_ss_spaces = array();
 	foreach ( array_slice( $space_ids, 0, $count ) as $bn_ss_pick ) {
 		$bn_ss_row = $bn_ss_service->get( $bn_ss_pick );
