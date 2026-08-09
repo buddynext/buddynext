@@ -317,7 +317,15 @@
 			toggleControl( 'showJoinAction', __( 'Show join action', 'buddynext' ) ),
 		],
 		'buddynext/post-composer': [ textControl( 'placeholder', __( 'Placeholder text', 'buddynext' ) ) ],
-		'buddynext/search-bar':    [ textControl( 'placeholder', __( 'Placeholder text', 'buddynext' ) ) ],
+		'buddynext/search-bar': [
+			textControl( 'placeholder', __( 'Placeholder text', 'buddynext' ) ),
+			selectControl( 'searchIn', __( 'Search in', 'buddynext' ), [
+				{ value: 'all', label: __( 'Everything', 'buddynext' ) },
+				{ value: 'members', label: __( 'People', 'buddynext' ) },
+				{ value: 'spaces', label: __( 'Spaces', 'buddynext' ) },
+				{ value: 'posts', label: __( 'Posts', 'buddynext' ) },
+			] ),
+		],
 	};
 
 	/**
@@ -467,7 +475,14 @@
 		{ name: 'buddynext/profile-fields',         label: __( 'Profile Fields', 'buddynext' ),         ssr: true  },
 		{ name: 'buddynext/profile-completion-bar', label: __( 'Profile Completion Bar', 'buddynext' ), ssr: false },
 		{ name: 'buddynext/notification-bell',      label: __( 'Notification Bell', 'buddynext' ),      ssr: false },
-		{ name: 'buddynext/search-bar',             label: __( 'Search Bar', 'buddynext' ),             ssr: false },
+		// SSR: this block HAS a render callback and needs no member context, so
+		// the editor can show the real bar. It was the only block still in the
+		// inserter showing the "rendered on the frontend" placeholder instead —
+		// an owner setting a placeholder or a scope got no feedback that either
+		// had taken effect. The remaining ssr:false entries are all
+		// inserter:false, so their placeholder is never reached from the
+		// inserter.
+		{ name: 'buddynext/search-bar',             label: __( 'Search Bar', 'buddynext' ),             ssr: true  },
 		{ name: 'buddynext/header-user-menu',       label: __( 'Header User Menu', 'buddynext' ),       ssr: true  },
 	];
 

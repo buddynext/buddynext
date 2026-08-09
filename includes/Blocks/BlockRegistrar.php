@@ -779,14 +779,28 @@ class BlockRegistrar {
 	/**
 	 * Render the Search Bar block.
 	 *
+	 * `searchIn` is submitted as the results page's own `type` parameter, so the
+	 * block scopes search without inventing a query surface: templates/search/
+	 * results.php already validates that value against its allowed tabs and
+	 * falls back to `all`. An unrecognised value is therefore harmless, but it
+	 * is filtered to the four the editor offers so a hand-edited block cannot
+	 * ship a hidden field naming a tab that does not exist.
+	 *
+	 * @since 1.1.3 searchIn.
+	 *
 	 * @param array<string, mixed> $attributes Block attributes.
 	 * @return string
 	 */
 	public function render_search_bar( array $attributes ): string {
 		$placeholder = sanitize_text_field( $attributes['placeholder'] ?? '' );
 
+		$search_in = sanitize_key( (string) ( $attributes['searchIn'] ?? 'all' ) );
+		if ( ! in_array( $search_in, array( 'all', 'members', 'spaces', 'posts' ), true ) ) {
+			$search_in = 'all';
+		}
+
 		ob_start();
-		buddynext_get_template( 'blocks/search-bar.php', compact( 'placeholder' ) );
+		buddynext_get_template( 'blocks/search-bar.php', compact( 'placeholder', 'search_in' ) );
 		return (string) ob_get_clean();
 	}
 

@@ -35,6 +35,10 @@
 		"placeholder": {
 			"type": "string",
 			"default": ""
+		},
+		"searchIn": {
+			"type": "string",
+			"default": "all"
 		}
 	},
 	"example": {},
