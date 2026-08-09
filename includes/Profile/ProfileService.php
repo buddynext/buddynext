@@ -1134,7 +1134,9 @@ class ProfileService {
 	/**
 	 * Public cache invalidation for events that change what a profile renders
 	 * without going through save_profile() — e.g. a member-type assignment or
-	 * removal flips which type-restricted groups exist on the profile (G2).
+	 * removal flips which type-restricted groups exist on the profile (G2), and a
+	 * membership plan change flips which groups are locked (G3). Both are the same
+	 * shape: the profile did not change, but what it renders did.
 	 *
 	 * @param int $user_id Profile owner whose cached views to invalidate.
 	 * @return void
@@ -1152,27 +1154,6 @@ class ProfileService {
 	 * @param int $user_id Profile owner whose cached views to invalidate.
 	 * @return void
 	 */
-	/**
-	 * Public entry point for busting a member's cached profile.
-	 *
-	 * The per-viewer cache blob now carries a decision that can change WITHOUT the
-	 * profile being edited: whether the member's plan locks a group. An upgrade or
-	 * downgrade has to invalidate it, or the member pays for a section that stays
-	 * hidden until the cache happens to expire.
-	 *
-	 * Exposed rather than made public in place so the internal method keeps its
-	 * instance shape, and so callers outside this class have one obvious name.
-	 *
-	 * @since 1.1.3
-	 *
-	 * @param int $user_id Member whose cached profile should be dropped.
-	 * @return void
-	 */
-	public static function flush_member_profile_cache( int $user_id ): void {
-		if ( $user_id > 0 ) {
-			( new self() )->bust_profile_cache( $user_id );
-		}
-	}
 
 	private function bust_profile_cache( int $user_id ): void {
 		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
