@@ -2235,11 +2235,24 @@ a.bn-space-row:hover .bn-space-name {
  * The privacy control is a quiet, compact "lock" dropdown that sits on the
  * label row — NOT a full-width input stacked above the field. Without this
  * the .bn-input select fell back to width:100% and read as a duplicate box. */
+/* The control sits immediately after the label, not pushed to the far right.
+ *
+ * It used to be `justify-content: space-between`, which right-aligns it to the
+ * FIELD, and that only reads as attached when whatever renders below fills the
+ * field's full width. A single-line input does; a checkbox group does not — its
+ * chips are content-width and wrap ragged, so on Interests / Skills / Languages
+ * the lock floated in empty space between the label and the options, belonging
+ * to nothing (Basecamp 10184561615).
+ *
+ * Anchoring it to the label instead makes one rule cover every field type:
+ * flat input, checkbox group, category multiselect, repeater. The control is
+ * always adjacent to the thing it governs and can never be stranded, because
+ * its position no longer depends on what the field renders underneath. */
 .bn-ep-field-head {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: var(--bn-s2);
+	justify-content: flex-start;
+	gap: var(--bn-s3);
 }
 .bn-ep-field-head .bn-ep-label {
 	min-width: 0;
