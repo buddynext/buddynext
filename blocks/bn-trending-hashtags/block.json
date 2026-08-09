@@ -34,7 +34,7 @@
 	"attributes": {
 		"count": {
 			"type": "integer",
-			"default": 10
+			"default": 8
 		},
 		"display": {
 			"type": "string",
@@ -42,6 +42,15 @@
 			"enum": [
 				"list",
 				"cloud"
+			]
+		},
+		"from": {
+			"type": "string",
+			"default": "7d",
+			"enum": [
+				"24h",
+				"7d",
+				"30d"
 			]
 		}
 	},

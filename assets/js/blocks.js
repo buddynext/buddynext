@@ -161,6 +161,24 @@
 		};
 	}
 
+	/**
+	 * A select that says what the choice means. See helpToggleControl below for
+	 * why some controls need the sentence and some do not.
+	 */
+	function helpSelectControl( attr, label, choices, help ) {
+		return function ( props ) {
+			return el( components.SelectControl, {
+				label: label,
+				help: help,
+				value: props.attributes[ attr ],
+				options: choices,
+				onChange: function ( v ) {
+					var next = {}; next[ attr ] = v; props.setAttributes( next );
+				},
+			} );
+		};
+	}
+
 	function toggleControl( attr, label ) {
 		return function ( props ) {
 			return el( components.ToggleControl, {
@@ -230,11 +248,16 @@
 		],
 		'buddynext/my-spaces': [ rangeControl( 'limit', __( 'Spaces to show', 'buddynext' ), 1, 50 ) ],
 		'buddynext/trending-hashtags': [
-			rangeControl( 'count', __( 'Hashtags to show', 'buddynext' ), 1, 50 ),
+			rangeControl( 'count', __( 'Hashtags to show', 'buddynext' ), 1, 20 ),
 			selectControl( 'display', __( 'Display as', 'buddynext' ), [
 				{ value: 'list', label: __( 'List', 'buddynext' ) },
 				{ value: 'cloud', label: __( 'Cloud', 'buddynext' ) },
 			] ),
+			helpSelectControl( 'from', __( 'From', 'buddynext' ), [
+				{ value: '24h', label: __( 'Last 24 hours', 'buddynext' ) },
+				{ value: '7d', label: __( 'Last 7 days', 'buddynext' ) },
+				{ value: '30d', label: __( 'Last 30 days', 'buddynext' ) },
+			], __( 'How far back to look for activity. A quiet community has more to show over a longer window.', 'buddynext' ) ),
 		],
 		'buddynext/member-card': [
 			targetControl( 'members', __( 'Member', 'buddynext' ), 'userId' ),

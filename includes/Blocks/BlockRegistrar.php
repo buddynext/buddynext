@@ -305,17 +305,38 @@ class BlockRegistrar {
 	/**
 	 * Render the Trending Hashtags block.
 	 *
+	 * `from` is translated to the hours HashtagService::get_trending() takes,
+	 * here rather than in the template, so the template never has to know how a
+	 * window label maps to a query argument.
+	 *
+	 * @since 1.1.3 from; count default 10 -> 8.
+	 *
 	 * @param array<string, mixed> $attributes Block attributes.
 	 * @return string
 	 */
 	public function render_trending_hashtags( array $attributes ): string {
-		$count   = (int) ( $attributes['count'] ?? 10 );
+		$count   = (int) ( $attributes['count'] ?? 8 );
 		$display = sanitize_key( $attributes['display'] ?? 'list' );
+
+		/*
+		 * Window labels to hours. The default is 7 days, not the service's own
+		 * 24: this block lands on landing pages and sidebars, including on
+		 * communities that are quiet or brand new, and a 24-hour window on one of
+		 * those renders the empty state every time. The service keeps its 24-hour
+		 * default so the hub widget and the REST route are untouched.
+		 */
+		$windows = array(
+			'24h' => 24,
+			'7d'  => 24 * 7,
+			'30d' => 24 * 30,
+		);
+		$from    = sanitize_key( (string) ( $attributes['from'] ?? '7d' ) );
+		$hours   = $windows[ $from ] ?? $windows['7d'];
 
 		ob_start();
 		buddynext_get_template(
 			'blocks/trending-hashtags.php',
-			compact( 'count', 'display' )
+			compact( 'count', 'display', 'hours' )
 		);
 		return (string) ob_get_clean();
 	}
