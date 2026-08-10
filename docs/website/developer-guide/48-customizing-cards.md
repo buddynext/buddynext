@@ -15,7 +15,7 @@ BuddyNext renders its frontend from small reusable parts under `templates/parts/
 | `buddynext_part_{name}_before` | action | Just before the root markup | `array $args` |
 | `buddynext_part_{name}_after` | action | Just after the root markup | `array $args` |
 
-Each part documents its `$args` keys and the hooks it fires in its PHP file header. Reach for `_classes` or `_args` to restyle or reshape, and `_before` / `_after` to inject markup - all four survive plugin updates, where a copied template can silently drift. The full convention and the catalogue of shared primitives (`empty-state`, `pagination`, `sidebar-card`, `section-head`, `stat-strip`, `filter-strip`) are in the Template Parts reference (`docs/specs/TEMPLATE-PARTS.md`) and Hooks: Template Parts.
+Each part documents its `$args` keys and the hooks it fires in its PHP file header. Reach for `_classes` or `_args` to restyle or reshape, and `_before` / `_after` to inject markup - all four survive plugin updates, where a copied template can silently drift. The full convention and the catalogue of shared primitives (`empty-state`, `pagination`, `sidebar-card`, `section-head`, `stat-strip`, `filter-strip`) live in each part's PHP file header under `templates/parts/` (Free ships no `docs/specs/TEMPLATE-PARTS.md`) and on the Hooks: Template Parts page.
 
 ## The member card
 
@@ -113,7 +113,7 @@ add_filter( 'buddynext_part_post_actions_classes', static function ( array $clas
 
 ## The shared primitives
 
-The reusable primitives under `templates/parts/` (`empty-state`, `pagination`, `sidebar-card`, `section-head`, `stat-strip`, `filter-strip`) all follow the same four-hook contract, plus a few part-specific extras documented in `docs/specs/TEMPLATE-PARTS.md`. Render one with `buddynext_get_template( 'parts/{name}.php', $args )`, and customize it with its `_args` / `_classes` / `_before` / `_after` hooks. Notable extras:
+The reusable primitives under `templates/parts/` (`empty-state`, `pagination`, `sidebar-card`, `section-head`, `stat-strip`, `filter-strip`) all follow the same four-hook contract, plus a few part-specific extras documented in each part's PHP file header under `templates/parts/` (Free ships no `docs/specs/TEMPLATE-PARTS.md`). Render one with `buddynext_get_template( 'parts/{name}.php', $args )`, and customize it with its `_args` / `_classes` / `_before` / `_after` hooks. Notable extras:
 
 - `filter-strip` adds `buddynext_part_filter_strip_tabs` (filter the tab list) and a `buddynext_part_filter_strip_extras` action (inject fields into the form).
 - `sidebar-card` adds a contextual `buddynext_part_sidebar_card_body__{id}` action that fires inside the body slot when the card is given an `id`.

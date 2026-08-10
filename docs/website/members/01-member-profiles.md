@@ -20,7 +20,7 @@ For the member, the profile is the one place they control how the community sees
 
 Every member has a profile page at their own address. Open any member's profile to see their cover photo and avatar at the top, their display name and bio, their follower and connection counts, and the buttons to follow or connect with them. Below the header, their custom profile fields appear grouped into sections.
 
-What you see on someone else's profile depends on your relationship with them. Each field can be set to show to everyone, to followers only, to connections only, or to no one but the member. If a field is hidden from you, it simply does not appear - the most restrictive setting always wins.
+What you see on someone else's profile depends on your relationship with them. Each field can be set to show to everyone (Public), to logged-in members only (Members only), to followers only, to connections only, or to no one but the member (Only me). If a field is hidden from you, it simply does not appear. The group a field belongs to sets the ceiling, and each member picks their own field's audience up to that ceiling; new fields start at Members only.
 
 Your own profile shows you an Edit Profile entry point so you can update any part of it.
 
@@ -33,7 +33,7 @@ Open Edit Profile from your own profile. The edit form lists every field group w
 
 Fill in or change any field, then save. A confirmation appears and your profile view updates with the new values.
 
-Each field also has a privacy control next to it. You can only tighten a field's privacy, never loosen it past what the owner allows. For example, you can change a field from "everyone" to "connections only," and that choice is enforced everywhere the field is read.
+Each field also has a privacy control next to it. The field's default is only a starting point, not a floor: you set your own field's audience anywhere up to the ceiling the group allows - opening it up to everyone, or narrowing it to connections only or just yourself. That choice is enforced everywhere the field is read.
 
 
 ### Uploading your avatar and cover photo

@@ -78,12 +78,12 @@ BuddyNext Free does not register any custom post types or taxonomies. There are 
 
 > **Warning:** Do not assume a `buddynext`-style CPT or taxonomy. Spaces, member types, and hashtags are custom tables and services. Use the documented hooks and REST routes (see the REST and Hooks pages) to read or react to BuddyNext content.
 
-For completeness, two integration surfaces that BuddyNext Free **does** register (in addition to the 16 blocks and these 4 patterns):
+For completeness, two integration surfaces that BuddyNext Free **does** register (in addition to the 19 blocks and these 4 patterns):
 
 - **Shortcodes.** `ShortcodeService` (`includes/Shortcodes/ShortcodeService.php`, initialised in `Plugin::init()`) registers 7 hub shortcodes: `[buddynext_activity]`, `[buddynext_people]`, `[buddynext_spaces]`, `[buddynext_messages]`, `[buddynext_notifications]`, `[buddynext_auth]`, and `[buddynext_community_admin]`. These render the same surfaces the blocks do, for classic (non-block) themes.
 - **Widgets.** `WidgetService` (`includes/Widgets/WidgetService.php`, initialised in `Plugin::init()`) registers 3 classic `WP_Widget` widgets: Online Members, Trending Hashtags, and Recent Activity. The block-based equivalents (for block themes) are the `buddynext/*` blocks above.
 
-> **Note:** The `audit/manifest.json` `features.shortcodes`, `features.widgets`, `features.cpts`, and `features.taxonomies` arrays are all length 0 at the time of writing. The CPT and taxonomy counts are correct (none exist). The shortcode and widget arrays are stale - the services above are registered and active in the current code. This page documents the current source state; treat the manifest's empty shortcode/widget arrays as a manifest gap, not as the runtime behaviour.
+> **Note:** In `audit/manifest.json`, `features.shortcodes` lists 8 entries (the 7 hub shortcodes above plus the `buddynext_user_menu` closure), while `features.widgets` is stale at length 0 even though the 3 widgets above are registered and active. `features.cpts` and `features.taxonomies` are correctly length 0 (none exist). This page documents the current source state; where the manifest disagrees (the empty widgets array), treat it as a manifest gap, not as the runtime behaviour.
 
 ## Notes / gotchas
 

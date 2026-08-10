@@ -33,9 +33,9 @@ The directory works out of the box once BuddyNext is active - your members URL r
 
 ### The Member Directory block
 
-Add the Member Directory block to any page or post to render the full filterable grid with search and filters. This is the block the members page uses, and you can drop it onto any other page (a custom landing page, for example).
+Add the Member Directory block to any page or post to render a static grid of member cards followed by a "Browse all members" link. The block itself does not include search, filters, or live loading - it is a preview you can place on a custom landing page. The full filterable directory, with search and filters, lives at the /members hub route.
 
-The block has these display options in the editor:
+The block still has these display options in the editor:
 
 | Setting | What it controls | Default |
 |---|---|---|

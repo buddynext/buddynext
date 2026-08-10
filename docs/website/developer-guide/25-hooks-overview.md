@@ -63,7 +63,7 @@ The split is not arbitrary. It tells you what the hook is for.
 
 BuddyNext sits on both sides of the hook system, and the distinction matters when you decide where to put your code.
 
-- **Provided** (BuddyNext fires, you listen): all 1055 hooks counted above. These are the seams you build on. `docs/specs/HOOKS.md` is the locked list of the integration-grade actions; the per-domain pages cover the rest.
+- **Provided** (BuddyNext fires, you listen): all 1055 hooks counted above. These are the seams you build on. Free ships no `docs/specs/HOOKS.md`; the code is the contract - the per-domain hooks pages (25-33) and the live `do_action()` / `apply_filters()` call sites are the reference for the integration-grade actions.
 - **Consumed** (a sibling plugin fires, BuddyNext listens): BuddyNext's Bridges hook events owned by other plugins - for example `mvs_message_sent` (WPMediaVerse), `jetonomy_after_create_post` (Jetonomy), `wcb_job_created` (Career Board), and `wb_gamification_badge_awarded` (WBGamification). You do not hook these through BuddyNext; you hook them on the plugin that fires them. They are listed here only so you know which direction a given event flows.
 
 > **Note:** Some hooks are deliberately fired by Free as a seam that only Pro consumes today. For example `buddynext_feed_order_by` is the documented SQL-level feed-rerank seam; Pro ships an affinity ranker but reaches it by a container rebind rather than this filter, leaving the filter open for third-party use.
@@ -144,7 +144,7 @@ Always declare the argument count on `add_action` when the hook passes more than
 
 ## Notes / gotchas
 
-- **The locked contract is `docs/specs/HOOKS.md`.** It carries an implementation-status table; a few moderation events (warn, shadow ban, appeal) are marked pending in that file where the service did not yet exist at lock time. When the spec and the live code disagree, the code (and `audit/manifest.json`) wins - check the manifest's `hooks_fired` entry for the file and line where a hook actually fires.
+- **The code is the contract.** Free ships no `docs/specs/HOOKS.md`; an earlier revision of this page cited one as a "locked" source of truth, and it does not exist. Use the per-domain hooks pages (25-33) and the live `do_action()` / `apply_filters()` call sites, cross-checked against `audit/manifest.json`'s `hooks_fired` entries for the file and line where a hook actually fires (the manifest can lag the code, so the call site wins). A few moderation events (warn, shadow ban, appeal) may not fire yet where the service did not exist when the hook was first documented.
 - **Do not hook `bn_*` as a public seam.** Those two hooks are internal admin wiring.
 - **Free/Pro boundary.** Pro never calls Free code directly - it extends Free through container rebinds, class inheritance, or these hooks. If you are writing a Pro-style extension, prefer the same three mechanisms. Pro's own hook surface (events it emits, such as `buddynext_pro_subscription_created`) lives in the Pro plugin's `docs/specs/HOOKS.md`.
 - **Consumed hooks live on the other plugin.** To react to a direct message, hook `mvs_message_sent` on WPMediaVerse, not a BuddyNext hook. To react to a Jetonomy discussion, hook `jetonomy_after_create_post`. BuddyNext's bridges already do this internally; your code should target the source plugin's hook directly.

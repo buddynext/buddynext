@@ -631,7 +631,7 @@ up at large-community scale.
 - **Adding new icons:** drop a Lucide-style SVG (no width/height, `stroke="currentColor"`, `viewBox="0 0 24 24"`) into `assets/icons/<slug>.svg`. `bin/check-icons.sh` enforces this.
 - **"No width/height" means the ROOT `<svg>` tag only.** `<rect width="20" height="14">` is required geometry and is correct. A `grep width=` across the file matches that geometry and reports every rect-based icon as broken — it produced a false "11 icons violate the standard" that nearly triggered a rewrite of 11 healthy files. Check the opening tag, or just run the script.
 - **Brand marks are exempt** (`discord`, `facebook`, `github`, `google`): they are filled logos, not line icons, and keep the grid their brand is drawn on — Google's "G" is a 48-box asset.
-- **102 icons already exist** in `assets/icons/` — check before creating one.
+- **Icons already exist** in `assets/icons/` — check the folder before creating one.
 - `IconService::render()` returns `wp_kses()`-sanitized markup — always safe to echo.
 
 ### 5. Translation-ready from day one

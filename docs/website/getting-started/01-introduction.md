@@ -65,13 +65,13 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | Per-space custom branding | - | Pro |
 | **Members and profiles** | Follow, connect, block | Free | Free |
 | | Avatar, cover, bio, social links | Free | Free |
-| | Up to 5 custom profile fields | Free | Free |
+| | Custom profile fields | Free | Free |
 | | Filterable member directory | Free | Free |
 | | Online status indicators | Free | Free |
 | | Advanced profile fields (date, location, file, conditional) | - | Pro |
 | | Custom member labels (Verified, Expert, Staff) | - | Pro |
 | | Member segments, tags, and CSV export | - | Pro |
-| | Profile completeness score and prompts | - | Pro |
+| | Profile completeness score and prompts | Free | Free |
 | **Messaging** | 1:1 direct messaging (via WPMediaVerse) | Free | Free |
 | | Message requests, mute, pin, archive | Free | Free |
 | | Emoji reactions and quoted replies | Free | Free |

@@ -199,7 +199,7 @@ add_filter( 'buddynext_part_filter_strip_tabs', function ( array $tabs, array $a
 }, 10, 2 );
 ```
 
-The same `_args` / `_classes` / `_before` / `_after` pattern applies to every part, so a theme or bridge never needs to ship a forked hub template. The full part catalogue (every part's args and extra hooks) is in `docs/specs/TEMPLATE-PARTS.md`.
+The same `_args` / `_classes` / `_before` / `_after` pattern applies to every part, so a theme or bridge never needs to ship a forked hub template. Free ships no `docs/specs/TEMPLATE-PARTS.md`; the code is the contract - each part documents its `$args` and the hooks it fires in its own PHP file header under `templates/parts/`.
 
 ## Notes / gotchas
 
