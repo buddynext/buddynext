@@ -324,7 +324,12 @@ class ShortcodeService {
 		// stylesheet is already loaded for the panel's .bn-ca-* chrome.
 		$this->enqueue_shell( 'moderation' );
 
-		return $this->capture( 'community-admin.php', array(), false );
+		// The panel's sidebar tabs are built from a base URL. Placed via shortcode it
+		// lives on an arbitrary page, so the tabs must stay on THAT page — pass its
+		// permalink. Falls back (in the template) to the routed hub URL when empty.
+		$bn_ca_base = (string) get_permalink();
+
+		return $this->capture( 'community-admin.php', array( 'admin_base' => $bn_ca_base ), false );
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────

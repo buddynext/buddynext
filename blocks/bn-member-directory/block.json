@@ -14,6 +14,7 @@
 	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
+	"viewScriptModule": "@buddynext/members",
 	"style": [
 		"file:../../assets/css/blocks.css",
 		"bn-members"

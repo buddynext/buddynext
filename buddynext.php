@@ -1039,6 +1039,56 @@ function bn_space_category_icon( ?string $cat_slug, ?string $icon_svg = null ): 
 }
 
 /**
+ * The initial state context for the `buddynext/members` Interactivity store.
+ *
+ * The member cards rendered by parts/member-card.php carry data-wp-on / data-wp-bind
+ * directives (Follow, Connect, the Mute/Block/Report kebab) that resolve against the
+ * nearest `data-wp-interactive="buddynext/members"` ancestor and read shared state
+ * (restNonce, restUrl, the block/report modal fields) from that element's context.
+ * The /members/ directory page provides both; the member-directory and member-card
+ * BLOCKS did not, so every one of those controls was dead wherever the block was
+ * embedded. This is the single source for that context so the page and the blocks
+ * cannot drift — pass request-specific overrides (search/sort/relation/…) or accept
+ * the block-friendly defaults.
+ *
+ * @param array<string, mixed> $overrides Values to override the defaults with.
+ * @return string JSON for a data-wp-context attribute ('{}' if encoding fails).
+ */
+function buddynext_members_directory_context( array $overrides = array() ): string {
+	$defaults = array(
+		'search'           => '',
+		'sort'             => 'newest',
+		'relation'         => 'all',
+		'memberType'       => '',
+		'onlineOnly'       => false,
+		'restNonce'        => wp_create_nonce( 'wp_rest' ),
+		'restUrl'          => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+		'loading'          => false,
+		'searching'        => false,
+		'error'            => '',
+		'hasError'         => false,
+		'isEmpty'          => false,
+		'totalLabel'       => '',
+		'peopleUrl'        => \BuddyNext\Core\PageRouter::people_url(),
+		'blockTargetId'    => 0,
+		'blockTargetName'  => '',
+		'blockConfirmOpen' => false,
+		'blockSubmitting'  => false,
+		'reportOpen'       => false,
+		'reportTargetType' => 'user',
+		'reportTargetId'   => 0,
+		'reportReason'     => 'spam',
+		'reportNotes'      => '',
+		'reportSubmitting' => false,
+		'lastActorName'    => '',
+	);
+
+	$json = wp_json_encode( array_merge( $defaults, $overrides ) );
+
+	return false === $json ? '{}' : $json;
+}
+
+/**
  * Deterministic cover tone for a space, used when it has no cover image.
  *
  * Lives here, beside bn_space_category_icon(), for the same reason: the space

@@ -15,7 +15,10 @@
 	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
-	"viewScriptModule": "@buddynext/social-buttons",
+	"viewScriptModule": [
+		"@buddynext/social-buttons",
+		"@buddynext/members"
+	],
 	"style": [
 		"file:../../assets/css/blocks.css",
 		"bn-members"

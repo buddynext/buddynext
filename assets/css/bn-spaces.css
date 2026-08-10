@@ -134,6 +134,16 @@
 	gap: var(--bn-s4);
 }
 
+/* List layout — a single stacked column. The Space Directory and Spaces Showcase
+   blocks thread a Layout=List setting through to data-layout="list" on the grid
+   (and the block wrapper), but nothing consumed it, so "List" rendered identically
+   to "Grid". Collapsing to one column is the honest list rendering and reuses the
+   same card markup. Scoped to the attribute so Grid is unaffected. */
+.bn-sd-grid[data-layout="list"],
+[data-layout="list"] .bn-sd-grid {
+	grid-template-columns: 1fr;
+}
+
 /* "My Spaces" labelled sections (managed / joined). */
 .bn-sd-section {
 	margin-block-end: var(--bn-s8);

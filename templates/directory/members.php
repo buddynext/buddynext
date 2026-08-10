@@ -285,46 +285,26 @@ $bn_rest_sort_map = array(
 );
 $bn_initial_sort  = $bn_rest_sort_map[ $bn_orderby ] ?? 'newest';
 
-$bn_directory_context = wp_json_encode(
+// Shared with the member-directory / member-card blocks via
+// buddynext_members_directory_context() so the page and the blocks seed the
+// buddynext/members store identically. Only the request-specific values are
+// passed here; the store defaults (restUrl, the block/report modal fields, …)
+// live in the helper. onlineOnly is seeded from the request exactly like the
+// other filters — the store reads ctx.onlineOnly when it builds the REST query
+// and rewrites the URL, so dropping it here stripped `online=1` from the address
+// bar and the checkbox stayed ticked while the results ignored it.
+$bn_directory_context = buddynext_members_directory_context(
 	array(
-		'search'           => $search_term,
-		'sort'             => $bn_initial_sort,
-		'relation'         => $bn_relation,
-		'memberType'       => $type_slug_filter,
-		// Seed the online filter from the request, exactly like the other filters
-		// above. The store reads ctx.onlineOnly when it builds the REST query and
-		// when it rewrites the URL — so omitting it here did not merely fail to
-		// apply the filter: the first sort/relation click DROPPED it and syncUrl()
-		// then stripped `online=1` from the address bar, so even a reload could not
-		// bring it back. The checkbox stayed ticked while the results ignored it.
-		'onlineOnly'       => $bn_online_only,
-		'restNonce'        => $bn_rest_nonce,
-		'restUrl'          => esc_url_raw( rest_url( 'buddynext/v1' ) ),
-		'loading'          => false,
-		'searching'        => false,
-		'error'            => '',
-		'hasError'         => false,
-		'isEmpty'          => empty( $members ),
-		'totalLabel'       => '',
-		'peopleUrl'        => $bn_directory_url,
-		// Cross-surface modal state (block / report).
-		'blockTargetId'    => 0,
-		'blockTargetName'  => '',
-		'blockConfirmOpen' => false,
-		'blockSubmitting'  => false,
-		'reportOpen'       => false,
-		'reportTargetType' => 'user',
-		'reportTargetId'   => 0,
-		'reportReason'     => 'spam',
-		'reportNotes'      => '',
-		'reportSubmitting' => false,
-		// Active row state shared by toast copy helpers.
-		'lastActorName'    => '',
+		'search'     => $search_term,
+		'sort'       => $bn_initial_sort,
+		'relation'   => $bn_relation,
+		'memberType' => $type_slug_filter,
+		'onlineOnly' => $bn_online_only,
+		'restNonce'  => $bn_rest_nonce,
+		'isEmpty'    => empty( $members ),
+		'peopleUrl'  => $bn_directory_url,
 	)
 );
-if ( false === $bn_directory_context ) {
-	$bn_directory_context = '{}';
-}
 
 /**
  * Fires before the members directory inner content.

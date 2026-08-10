@@ -30,7 +30,13 @@ $bn_admin_user   = get_userdata( $current_user_id );
 // ── Active section ────────────────────────────────────────────────────────────
 
 $admin_section = isset( $_GET['bn_admin'] ) ? sanitize_key( wp_unslash( $_GET['bn_admin'] ) ) : 'overview'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$admin_base    = buddynext_community_admin_url();
+// The sidebar tabs are add_query_arg( 'bn_admin', ..., $admin_base ) links, so
+// $admin_base MUST be the URL this panel is actually being viewed at. As the routed
+// hub that is buddynext_community_admin_url(); but via the [buddynext_community_admin]
+// shortcode the panel lives on whatever page the owner placed it on, so the caller
+// passes that page's permalink. Hardcoding the hub slug sent every tab to
+// /bn-community-admin/, which 404s when no page exists there.
+$admin_base = ( isset( $admin_base ) && '' !== (string) $admin_base ) ? (string) $admin_base : buddynext_community_admin_url();
 
 // ── Platform stats (consolidated via AdminHub::overview_stats) ─────────────────
 

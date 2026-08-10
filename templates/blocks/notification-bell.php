@@ -27,16 +27,33 @@ $aria_label   = sprintf(
 	absint( $unread_count )
 );
 ?>
-<div 
 <?php
-// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
-echo get_block_wrapper_attributes(
-	array(
-		'class'        => 'bn-block-notification-bell',
-		'data-user-id' => (string) absint( $user_id ),
-	)
+// This template renders in TWO contexts: as the buddynext/notification-bell BLOCK
+// (real block render), and as plain output from the [buddynext_user_menu] shortcode
+// / buddynext_header_user_menu() / any theme header user section. get_block_wrapper_attributes()
+// only works inside a block render — it reads WP_Block_Supports::$block_to_render['attrs'],
+// which is null outside one, raising "Trying to access array offset on null" and (with
+// display_errors on) injecting the warning HTML mid-tag so `class="..." data-user-id="1">`
+// leaked as visible text before the bell. Use the block wrapper only when a block is
+// actually rendering; otherwise emit the same attributes by hand.
+$bn_nb_attrs = array(
+	'class'        => 'bn-block-notification-bell',
+	'data-user-id' => (string) absint( $user_id ),
 );
-// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+if ( null !== \WP_Block_Supports::$block_to_render ) {
+	$bn_nb_wrapper = get_block_wrapper_attributes( $bn_nb_attrs );
+} else {
+	$bn_nb_wrapper = sprintf(
+		'class="%s" data-user-id="%s"',
+		esc_attr( $bn_nb_attrs['class'] ),
+		esc_attr( $bn_nb_attrs['data-user-id'] )
+	);
+}
+?>
+<div
+<?php
+// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- both branches above escape their own output.
+echo $bn_nb_wrapper;
 ?>
 >
 	<a

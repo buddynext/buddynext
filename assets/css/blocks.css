@@ -78,6 +78,16 @@
 	margin: 0 auto;
 }
 
+/* The activity-feed block renders its post cards as direct children of
+   .bn-block-activity-feed, but only .bn-feed-list (the home/profile feed) ever
+   got the flex+gap treatment — so inside the block the cards sat flush against
+   each other with no vertical rhythm. Mirror the home feed's spacing here. */
+.bn-block-activity-feed {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
 .bn-feed-list {
 	display: flex;
 	flex-direction: column;

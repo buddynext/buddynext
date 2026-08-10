@@ -62,8 +62,18 @@ $bn_md_online_fn = static function ( int $id ) use ( $bn_md_online ): bool {
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
 	echo get_block_wrapper_attributes(
 		array(
-			'class'       => 'bn-card bn-block-member-directory bn-block-member-directory--' . $layout,
-			'data-layout' => $layout,
+			'class'               => 'bn-card bn-block-member-directory bn-block-member-directory--' . $layout,
+			'data-layout'         => $layout,
+			// Host the buddynext/members Interactivity store so the member cards'
+			// Follow / Connect / kebab (Mute·Block·Report) directives resolve here,
+			// exactly as they do on the /members/ page. Without this ancestor the
+			// controls rendered but were inert wherever the block was embedded.
+			// The block also declares @buddynext/members as its viewScriptModule so
+			// the store actually loads. Context is the shared helper (one source with
+			// the directory page).
+			'data-wp-interactive' => 'buddynext/members',
+			'data-wp-context'     => buddynext_members_directory_context(),
+			'data-wp-init'        => 'callbacks.init',
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
