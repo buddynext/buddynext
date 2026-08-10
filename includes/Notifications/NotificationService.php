@@ -500,7 +500,36 @@ class NotificationService {
 	 * @param int|null    $offset   Offset for LIMIT/OFFSET paging (offset mode).
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
-	public function list_for_user( int $user_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $filter = 'all', ?int $offset = null ): array {
+	/**
+	 * Normalise a caller-supplied `since` into a UTC MySQL datetime.
+	 *
+	 * Accepts what a client would naturally send: an ISO-8601 timestamp (what
+	 * this API hands back as created_at_gmt) or a Unix epoch. Anything it cannot
+	 * parse returns null and the bound is simply not applied — a malformed
+	 * timestamp must never be interpreted as "since the epoch" and dump the
+	 * member's entire history, nor as "since now" and silently return nothing.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param string|null $since Raw parameter.
+	 * @return string|null `Y-m-d H:i:s` in UTC, or null when absent/unparseable.
+	 */
+	private function normalize_since( ?string $since ): ?string {
+		$since = null === $since ? '' : trim( $since );
+		if ( '' === $since ) {
+			return null;
+		}
+
+		if ( ctype_digit( $since ) ) {
+			return gmdate( 'Y-m-d H:i:s', (int) $since );
+		}
+
+		$ts = strtotime( $since );
+
+		return false === $ts ? null : gmdate( 'Y-m-d H:i:s', $ts );
+	}
+
+	public function list_for_user( int $user_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $filter = 'all', ?int $offset = null, ?string $since = null ): array {
 		global $wpdb;
 
 		$per_page      = min( $per_page, 50 );
@@ -509,6 +538,25 @@ class NotificationService {
 		$cursor_data   = $use_offset ? null : $this->decode_cursor( $cursor );
 		$cursor_where  = '';
 		$cursor_params = array();
+
+		/*
+		 * `since` is a DELTA bound, and it composes with paging rather than
+		 * replacing it: an app asks "what changed after my last sync" and still
+		 * pages if the answer is large. Without it the only way to poll was to
+		 * walk the list newest-first and stop at a known id, which means fetching
+		 * and discarding rows the client already had on every poll.
+		 *
+		 * Compared strictly greater-than so passing back the newest created_at
+		 * from the previous response returns only what arrived after it, never a
+		 * duplicate of the boundary row.
+		 */
+		$since_where  = '';
+		$since_params = array();
+		$since_gmt    = $this->normalize_since( $since );
+		if ( null !== $since_gmt ) {
+			$since_where  = 'AND created_at > %s';
+			$since_params = array( $since_gmt );
+		}
 
 		if ( null !== $cursor_data ) {
 			$cursor_where  = 'AND (created_at < %s OR (created_at = %s AND id < %d))';
@@ -528,10 +576,11 @@ class NotificationService {
 				"SELECT * FROM {$wpdb->prefix}bn_notifications
 				 WHERE recipient_id = %d
 				   {$filter_where}
+				   {$since_where}
 				   {$cursor_where}
 				 ORDER BY created_at DESC, id DESC
 				 {$limit_sql}",
-				...array_merge( array( $user_id ), $cursor_params, $tail_params )
+				...array_merge( array( $user_id ), $since_params, $cursor_params, $tail_params )
 			),
 			ARRAY_A
 		);

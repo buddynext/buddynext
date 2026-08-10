@@ -71,6 +71,14 @@ class NotificationController extends BaseRestController {
 						'minimum'     => 0,
 						'description' => 'Row offset. Superseded by cursor for new clients.',
 					),
+					// Delta polling. An app syncing a badge or a list previously had
+					// to walk the page newest-first and stop at an id it recognised,
+					// fetching and discarding rows it already held on every poll.
+					'since'    => array(
+						'type'              => 'string',
+						'description'       => 'Return only notifications created AFTER this time. Accepts an ISO-8601 timestamp (pass back created_at_gmt from a previous response) or a Unix epoch. Composes with cursor/per_page, so a large delta still pages.',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
 				),
 			)
 		);
@@ -238,7 +246,8 @@ class NotificationController extends BaseRestController {
 		$filter = (string) ( $request->get_param( 'filter' ) ?? 'all' );
 		$offset = null !== $request->get_param( 'offset' ) ? max( 0, (int) $request->get_param( 'offset' ) ) : null;
 
-		$result   = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page, $filter, $offset );
+		$since  = $request->get_param( 'since' ) ? (string) $request->get_param( 'since' ) : null;
+		$result = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page, $filter, $offset, $since );
 		$composer = buddynext_service( 'notification_message' );
 		$composed = $composer->compose_batch( $result['items'] ?? array() );
 

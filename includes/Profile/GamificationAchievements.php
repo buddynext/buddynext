@@ -56,10 +56,25 @@ class GamificationAchievements {
 			'buddynext_integrations',
 			static function ( array $items ): array {
 				$items['gamification'] = array(
-					'label'    => __( 'Gamification', 'buddynext' ),
-					'version'  => defined( 'WB_GAM_VERSION' ) ? WB_GAM_VERSION : null,
-					'has_nav'  => true,
-					'has_feed' => true,
+					'label'          => __( 'Gamification', 'buddynext' ),
+					'version'        => defined( 'WB_GAM_VERSION' ) ? WB_GAM_VERSION : null,
+					'has_nav'        => true,
+					'has_feed'       => true,
+					/*
+					 * The engine's own REST namespace, so a client can reach what
+					 * BuddyNext deliberately does not proxy. wb-gamification has
+					 * served /wb-gamification/v1/leaderboard (plus /leaderboard/me
+					 * and /leaderboard/group/{id}) since 1.6.4, but the app config
+					 * only said gamification was ENABLED — an app was told the
+					 * feature existed and never told where to call it, so the
+					 * leaderboard read as missing (Basecamp 10184060096).
+					 *
+					 * Declared, not proxied: mirroring these routes under
+					 * buddynext/v1 would be the embedding the bridge contract
+					 * forbids, and would fork the engine's response shape on the
+					 * next engine release.
+					 */
+					'rest_namespace' => 'wb-gamification/v1',
 				);
 				return $items;
 			}
