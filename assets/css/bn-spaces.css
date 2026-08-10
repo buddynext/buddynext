@@ -94,13 +94,26 @@
 	font-weight: var(--bn-fw-medium);
 }
 
+/* Category colour + icon swatch inside a filter chip. A self-contained bg/fg
+   pair (set inline from the category's colour / text_color) so it keeps its
+   contrast on both the light rest chip and the dark selected chip — the same
+   treatment the admin category pill and the space-card badge use. */
 .bn-sd-chip__icon {
 	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 18px;
+	block-size: 18px;
+	border-radius: var(--bn-r-full);
+	/* Fallback tint when a category carries no colour pair (no inline style). */
+	background: var(--bn-surface-2, var(--bn-surface));
+	color: var(--bn-ink-2);
+	flex: 0 0 auto;
 }
 
 .bn-sd-chip__icon svg {
-	width: 14px;
-	height: 14px;
+	width: 12px;
+	height: 12px;
 }
 
 .bn-tab.bn-sd-chip:hover {

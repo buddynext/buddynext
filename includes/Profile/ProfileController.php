@@ -957,17 +957,40 @@ class ProfileController extends BaseRestController {
 			}
 		}
 
-		// Cap long-form fields at sensible lengths before they hit the service.
+		// Cap long-form PLAIN-TEXT fields at sensible lengths before they hit the
+		// service. These caps only make sense for text/textarea: they truncate the
+		// raw string, which corrupts a STRUCTURED value. The built-in `location`
+		// key stores JSON once its field type is switched to the Pro Map type
+		// ("location"); a blind mb_substr( ..., 120 ) sliced that JSON mid-string,
+		// json_decode() then failed, and the whole profile save was rejected with
+		// "Location value is not valid JSON." Advanced/structured field types own
+		// their own length rules in the sanitise/validate layer, so resolve each
+		// capped field's current type and skip the cap for anything but plain text.
 		$caps = array(
 			'bio'      => 1000,
 			'headline' => 160,
 			'location' => 120,
 			'pronouns' => 40,
 		);
+
+		$bn_field_types = array();
+		foreach ( $service->get_flat_fields() as $bn_flat_field ) {
+			$bn_field_types[ (string) ( $bn_flat_field['field_key'] ?? '' ) ] = (string) ( $bn_flat_field['type'] ?? 'text' );
+		}
+
 		foreach ( $caps as $field_key => $max ) {
-			if ( isset( $data[ $field_key ] ) && is_string( $data[ $field_key ] ) ) {
-				$data[ $field_key ] = mb_substr( $data[ $field_key ], 0, $max );
+			if ( ! isset( $data[ $field_key ] ) || ! is_string( $data[ $field_key ] ) ) {
+				continue;
 			}
+
+			// A built-in field re-typed to a structured type (Location -> Map, etc.)
+			// stores a non-plain-text payload the cap would corrupt.
+			$bn_field_type = $bn_field_types[ $field_key ] ?? 'text';
+			if ( ! in_array( $bn_field_type, array( 'text', 'textarea' ), true ) ) {
+				continue;
+			}
+
+			$data[ $field_key ] = mb_substr( $data[ $field_key ], 0, $max );
 		}
 
 		// Normalise URL fields — accept input without protocol by prefixing https.
