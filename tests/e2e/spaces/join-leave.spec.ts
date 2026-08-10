@@ -1,32 +1,92 @@
 import { test, expect } from '../_fixtures/auth.fixture';
-import { softSkip } from "../_fixtures/precondition";
-import { sel, urls } from '../_fixtures/selectors';
+import {
+    getSpace,
+    createSpaceApi,
+    deleteSpaceApi,
+    bnApi,
+    ensureOnboarded,
+    loginContextAs,
+    type SpaceRow,
+} from '../_fixtures/spaces-rest';
 
 /**
- * J-40 join open space + J-41 request to join private space.
+ * J-40 join open space + J-41 request to join a private space.
+ *
+ * UPGRADED to EFFECT-BASED (2026-08-10, Wave-3). The old specs clicked a card
+ * button and asserted only that its own innerText flipped — the weakest possible
+ * signal, passing even if the REST write silently 500'd while the JS optimistically
+ * relabelled the control. They now drive a SECOND actor against a throwaway space
+ * and assert the real server consequence: after Join the member's own REST GET
+ * reports membership_status === 'active'; after Request it reports 'pending' AND
+ * the owner's pending-requests queue lists them. Journey ids are unchanged.
+ *
+ * Throwaway space + second context torn down in `finally`.
  */
 test.describe('spaces / join + request', () => {
-    test('J-40 join open space toggles button to Joined', async ({ authenticatedPage: page }, testInfo) => {
-        await page.goto(urls.spaces);
-        const join = page.locator(sel.spaceJoin).first();
-        if (!(await join.isVisible().catch(() => false))) {
-            softSkip(testInfo, 'No join button visible  -  user may already be in every open space.');
-            return;
+    const other = process.env.BN_TEST_OTHER_USER ?? 'alice';
+
+    test('J-40 joining an open space makes the member active (REST truth)', async ({
+        authenticatedPage: page,
+        browser,
+        baseURL,
+    }) => {
+        const stamp = Date.now().toString().slice(-8);
+        const space = await createSpaceApi(page, { name: `E2E Join ${stamp}`, type: 'open' });
+        const actor = await loginContextAs(browser, baseURL, other);
+
+        try {
+            await ensureOnboarded(actor.page);
+
+            // Baseline: not yet a member.
+            const before = await getSpace(actor.page, space.id);
+            expect((before.data as SpaceRow).membership_status ?? '').not.toBe('active');
+
+            // Action under test: join the open space.
+            const join = await bnApi(actor.page, 'POST', `/spaces/${space.id}/join`);
+            expect(join.status, `join failed: ${JSON.stringify(join.data)}`).toBe(200);
+            expect((join.data as { joined?: boolean }).joined).toBe(true);
+
+            // EFFECT: the member's own view is now active.
+            const after = await getSpace(actor.page, space.id);
+            expect((after.data as SpaceRow).membership_status).toBe('active');
+        } finally {
+            await actor.ctx.close();
+            await deleteSpaceApi(page, space.id);
         }
-        const before = (await join.innerText()).trim();
-        await join.click();
-        await expect.poll(async () => (await join.innerText()).trim(), { timeout: 5_000 }).not.toEqual(before);
     });
 
-    test('J-41 private space request toggles to Requested', async ({ authenticatedPage: page }, testInfo) => {
-        await page.goto(urls.spaces);
-        const request = page.locator('.bn-space-card [data-action="request"], .bn-space-card button:has-text("Request")').first();
-        if (!(await request.isVisible().catch(() => false))) {
-            softSkip(testInfo, 'No private space card with Request button visible.');
-            return;
+    test('J-41 requesting a private space leaves the member pending (REST truth)', async ({
+        authenticatedPage: page,
+        browser,
+        baseURL,
+    }) => {
+        const stamp = Date.now().toString().slice(-8);
+        const space = await createSpaceApi(page, { name: `E2E Request ${stamp}`, type: 'private' });
+        const actor = await loginContextAs(browser, baseURL, other);
+
+        try {
+            await ensureOnboarded(actor.page);
+
+            const before = await getSpace(actor.page, space.id);
+            expect((before.data as SpaceRow).membership_status ?? '').not.toBe('pending');
+
+            // Action under test: request to join the private space.
+            const req = await bnApi(actor.page, 'POST', `/spaces/${space.id}/join`);
+            expect(req.status, `request failed: ${JSON.stringify(req.data)}`).toBe(200);
+            expect((req.data as { requested?: boolean }).requested).toBe(true);
+
+            // EFFECT: the member's own view is pending...
+            const after = await getSpace(actor.page, space.id);
+            expect((after.data as SpaceRow).membership_status).toBe('pending');
+
+            // ...and the owner's pending-requests queue lists them.
+            const queue = await bnApi(page, 'GET', `/spaces/${space.id}/pending-requests`);
+            expect(queue.status).toBe(200);
+            const items = (queue.data as { items?: { user_id: number }[] }).items ?? [];
+            expect(items.length, 'owner does not see the pending request').toBeGreaterThan(0);
+        } finally {
+            await actor.ctx.close();
+            await deleteSpaceApi(page, space.id);
         }
-        const before = (await request.innerText()).trim();
-        await request.click();
-        await expect.poll(async () => (await request.innerText()).trim(), { timeout: 5_000 }).not.toEqual(before);
     });
 });

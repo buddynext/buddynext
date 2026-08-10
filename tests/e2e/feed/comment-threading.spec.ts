@@ -1,6 +1,9 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
+import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
+
+type ReactionCount = { count: number; has_reacted?: boolean };
 
 /**
  * J-121-comment-threading.
@@ -12,35 +15,66 @@ import { sel, urls } from '../_fixtures/selectors';
  */
 test.describe('feed / comment threading', () => {
 
-    test('like button toggles heart + count optimistically', async ({ authenticatedPage: page }, testInfo) => {
-        await page.goto(urls.feed);
-        if ((await page.locator(sel.postCard).count()) === 0) {
-            softSkip(testInfo, 'No posts to comment on.');
-            return;
-        }
-
-        // Open comments on the first card.
-        const firstCard  = page.locator(sel.postCard).first();
-        const commentBtn = firstCard.locator(sel.postComment).first();
-        await commentBtn.click();
-
-        // Post a comment we can then like.
-        const input = page.locator(sel.commentInput).first();
-        if (!(await input.isVisible().catch(() => false))) {
-            softSkip(testInfo, 'Comment input not exposed.');
-            return;
-        }
+    // WEAK ASSERTION REPLACED (Wave-3, 2026-08-10). The prior comment-Like test
+    // asserted only the button's own `data-liked` attribute flipping 0->1 — a
+    // pure optimistic-UI signal that flips client-side even when
+    // `POST /reactions/toggle {object_type:comment}` silently 500s. It is now
+    // effect-based: after liking we read server truth from
+    // `GET /reactions?object_type=comment&object_id={commentId}` and assert the
+    // count went 0->1 with `has_reacted=true`. Runs against a FRESH OWN post
+    // (deleted in finally) so the comment + its like are fully self-contained.
+    test('J-121 liking a comment writes a reaction row (server truth, not just data-liked)', async ({ authenticatedPage: page }, testInfo) => {
+        let createdPostId = 0;
+        let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        await input.fill(`like target ${stamp}`);
-        await page.locator('[data-wp-on--click="actions.submitComment"]').first().click();
+        const postBody = `j121 like-host ${stamp}`;
 
-        const card = page.locator('.bn-comment-card', { hasText: `like target ${stamp}` }).first();
-        await expect(card).toBeVisible({ timeout: 8_000 });
+        try {
+            // Seed an own post to host the comment.
+            await page.goto(urls.feed);
+            await expect(page.locator(sel.composer).first()).toBeVisible();
+            nonce = await readRestNonce(page);
+            await page.locator(sel.composerTextarea).first().fill(postBody);
+            await page.locator(sel.composerSubmit).first().click();
+            await expect(page.locator(sel.postCard).filter({ hasText: postBody }).first()).toBeVisible({ timeout: 10_000 });
+            await page.goto(urls.feed);
+            const hostCard = page.locator(sel.postCard).filter({ hasText: postBody }).first();
+            await expect(hostCard).toBeVisible({ timeout: 10_000 });
+            createdPostId = await postIdOfCard(page, postBody);
 
-        const likeBtn = card.locator('.bn-comment__like-btn');
-        await expect(likeBtn).toHaveAttribute('data-liked', '0');
-        await likeBtn.click();
-        await expect(likeBtn).toHaveAttribute('data-liked', '1');
+            // Open comments and post a comment we can then like.
+            await hostCard.locator(sel.postComment).first().click();
+            const input = hostCard.locator(sel.commentInput).first();
+            if (!(await input.isVisible().catch(() => false))) {
+                softSkip(testInfo, 'Comment input not exposed.');
+                return;
+            }
+            await input.fill(`like target ${stamp}`);
+            await hostCard.locator('[data-wp-on--click="actions.submitComment"]').first().click();
+
+            const card = page.locator('.bn-comment-card', { hasText: `like target ${stamp}` }).first();
+            await expect(card).toBeVisible({ timeout: 8_000 });
+            const commentId = Number(await card.getAttribute('data-comment-id'));
+            expect(commentId).toBeGreaterThan(0);
+
+            const reactionPath = `/reactions?object_type=comment&object_id=${commentId}`;
+            const readCount = async (): Promise<ReactionCount> =>
+                (await restGet<ReactionCount>(page.request, nonce, reactionPath)).body;
+
+            // Precondition truth: the new comment has no likes.
+            expect((await readCount()).count).toBe(0);
+
+            const likeBtn = card.locator('.bn-comment__like-btn');
+            await expect(likeBtn).toHaveAttribute('data-liked', '0');
+            await likeBtn.click();
+            // Optimistic signal still checked...
+            await expect(likeBtn).toHaveAttribute('data-liked', '1');
+            // ...but the real assertion is server truth: the reaction row exists.
+            await expect.poll(async () => (await readCount()).count, { timeout: 8_000 }).toBeGreaterThanOrEqual(1);
+            expect((await readCount()).has_reacted).toBe(true);
+        } finally {
+            await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
+        }
     });
 
     test('reply button opens an inline form and posts a nested reply', async ({ authenticatedPage: page }, testInfo) => {

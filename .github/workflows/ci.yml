@@ -48,3 +48,55 @@ jobs:
         run: composer install --no-interaction --no-progress
       - name: PHPStan
         run: vendor/bin/phpstan analyse --no-progress --memory-limit 2G
+
+  phpunit:
+    name: PHPUnit (WP integration)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          extensions: mysqli
+          coverage: none
+      - name: Composer install
+        run: composer install --no-interaction --no-progress
+      - name: Install WP test suite
+        run: bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1:3306 latest true
+      - name: PHPUnit
+        run: vendor/bin/phpunit
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+
+  journey-catalogue:
+    name: Journey catalogue ↔ spec reconcile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: buddynext
+      # The reconciler lives in the Pro repo and reads Free's specs from a sibling
+      # checkout. It needs Pro-repo read access (a PAT/deploy key) to run in CI;
+      # until that secret is wired, this job runs on demand and is informational.
+      - name: Checkout Pro (needs BN_PRO_TOKEN secret)
+        if: ${{ secrets.BN_PRO_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: buddynext/buddynext-pro
+          token: ${{ secrets.BN_PRO_TOKEN }}
+          path: buddynext-pro
+      - name: Reconcile journey catalogue against specs
+        if: ${{ secrets.BN_PRO_TOKEN != '' }}
+        run: cd buddynext-pro && python3 bin/check-journey-coverage.py

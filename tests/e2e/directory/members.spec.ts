@@ -1,7 +1,17 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
+import { userId, tablePrefix, dbCount, wp } from '../_fixtures/wp';
 import type { Page } from '@playwright/test';
+
+const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
+
+// Follow-from-card targets a member the actor does NOT already follow. Both the
+// server-rendered card (member-card.php) and the JS-rebuilt card
+// (members/store.js paintFollowBtn) stamp the Follow button with
+// data-state="unfollowed" until the actor follows — so a card that OWNS such a
+// button is a not-yet-followed member exposing a live Follow control.
+const FOLLOWABLE_CARD = '.bn-md-card:has(.bn-md-card__follow[data-state="unfollowed"])';
 
 /**
  * Count member cards, failing loudly when the page rendered neither cards nor an
@@ -48,7 +58,18 @@ test.describe('directory / members', () => {
         ).toBeTruthy();
     });
 
-    test('J-27 follow from card toggles state', async ({ authenticatedPage: page }, testInfo) => {
+    /**
+     * J-27 follow from card.
+     *
+     * UPGRADED from WEAK → EFFECT (Wave-3). The old body asserted only that the
+     * button's own innerText changed after the click — an optimistic flip that
+     * the matrix flagged as passing even when the REST write silently 500s. It
+     * now reads the real target member id off the card, follows through the UI,
+     * and asserts the follow row was created in wp_bn_follows (server truth) after
+     * a POST /users/{id}/follow. A DB read cannot be satisfied by an optimistic
+     * label. The row is removed in a finally so reruns start clean.
+     */
+    test('J-27 follow from card creates the follow row (DB confirm)', async ({ authenticatedPage: page }, testInfo) => {
         await page.goto(urls.members);
         const cards = await countMemberCards(page);
         if (cards === 0) {
@@ -56,16 +77,46 @@ test.describe('directory / members', () => {
             return;
         }
 
-        const firstCard = page.locator(sel.memberCard).first();
-        const followBtn = firstCard.locator(sel.memberCardFollow).first();
-        if (!(await followBtn.isVisible().catch(() => false))) {
-            softSkip(testInfo, 'No follow button on this card (already following self or already followed).');
+        // Pick a card the actor is NOT already following AND that exposes a Follow
+        // control (the target may forbid follows via who_can_follow). Wait for the
+        // grid to settle first — the directory server-renders page 1, then the
+        // store may repaint, and either way the Follow button carries data-state.
+        await expect(page.locator(sel.memberCard).first()).toBeVisible();
+        const card = page.locator(FOLLOWABLE_CARD).first();
+        if (!(await card.count())) {
+            softSkip(testInfo, 'No directory card exposes a Follow control for a not-yet-followed member.');
             return;
         }
-        const before = (await followBtn.innerText()).trim();
-        await followBtn.click();
-        const after = (await followBtn.innerText()).trim();
-        expect(after).not.toEqual(before);
+
+        const targetId = Number(await card.getAttribute('data-user-id'));
+        expect(targetId, 'the followable card must carry a numeric data-user-id').toBeGreaterThan(0);
+
+        const followerId = await userId(A_LOGIN);
+        expect(followerId, 'actor must resolve to a user id').toBeGreaterThan(0);
+
+        const p = await tablePrefix();
+        const rowSql = `SELECT COUNT(*) FROM ${p}bn_follows WHERE follower_id=${followerId} AND following_id=${targetId}`;
+        const clearSql = `DELETE FROM ${p}bn_follows WHERE follower_id=${followerId} AND following_id=${targetId}`;
+
+        // Deterministic precondition: no pre-existing edge for this pair.
+        await wp(['db', 'query', clearSql]);
+
+        try {
+            await Promise.all([
+                page.waitForResponse(
+                    (r) => r.url().includes(`/users/${targetId}/follow`) && r.request().method() === 'POST',
+                    { timeout: 10_000 }
+                ),
+                card.locator(sel.memberCardFollow).first().click(),
+            ]);
+
+            expect(
+                await dbCount(rowSql),
+                'following from the card must create a wp_bn_follows row'
+            ).toBe(1);
+        } finally {
+            await wp(['db', 'query', clearSql]);
+        }
     });
 
     test('J-28 mute from card via more menu', async ({ authenticatedPage: page }, testInfo) => {
