@@ -100,3 +100,93 @@ jobs:
       - name: Reconcile journey catalogue against specs
         if: ${{ secrets.BN_PRO_TOKEN != '' }}
         run: cd buddynext-pro && python3 bin/check-journey-coverage.py
+
+  e2e:
+    # Mandatory browser-level gate: stands up a real WordPress with BuddyNext +
+    # BuddyX + seeded data, serves it, and runs the effect-based Playwright journeys
+    # against it — the real admin/member browser flows, not a DOM presence check.
+    name: E2E browser journeys (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      # WP lives OUTSIDE the checkout so symlinking the checkout in as the plugin
+      # cannot recurse (wp-content/plugins/buddynext -> the repo -> wp/ -> ...).
+      WP_DIR: ${{ runner.temp }}/wp
+      BN_BASE_URL: http://127.0.0.1:8889
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Setup PHP + WP-CLI
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2, wp-cli
+          extensions: mysqli, gd, zip, mbstring
+          coverage: none
+      - name: Composer install (runtime autoloader)
+        run: composer install --no-interaction --no-progress --no-dev
+      - name: npm ci
+        run: npm ci
+      - name: Install WordPress
+        run: |
+          wp core download --path="$WP_DIR" --version=latest
+          wp config create --path="$WP_DIR" --dbname=wordpress_e2e --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check
+          wp db create --path="$WP_DIR"
+          wp core install --path="$WP_DIR" --url="$BN_BASE_URL" --title="BuddyNext E2E" \
+            --admin_user=admin --admin_password=password --admin_email=admin@example.com --skip-email
+          wp rewrite structure '/%postname%/' --path="$WP_DIR"
+      - name: Activate BuddyNext + BuddyX + auto-login mu-plugin
+        run: |
+          ln -s "$GITHUB_WORKSPACE" "$WP_DIR/wp-content/plugins/buddynext"
+          wp plugin activate buddynext --path="$WP_DIR"
+          wp theme install buddyx --activate --path="$WP_DIR"
+          mkdir -p "$WP_DIR/wp-content/mu-plugins"
+          cp tests/e2e/_ci/dev-auto-login.php "$WP_DIR/wp-content/mu-plugins/"
+      - name: Seed the E2E world
+        run: BN_WP_PATH="$WP_DIR" bash bin/seed-e2e.sh
+      - name: Start WordPress (built-in server)
+        run: |
+          nohup wp server --host=127.0.0.1 --port=8889 --path="$WP_DIR" >/tmp/wp-server.log 2>&1 &
+          npx --yes wait-on "$BN_BASE_URL" -t 60000 || { echo '--- wp-server.log ---'; cat /tmp/wp-server.log; exit 1; }
+      - name: Install Playwright (chromium)
+        run: npx playwright install --with-deps chromium
+      # BLOCKING: the block/shortcode journeys are verified green on a Free+seeded
+      # harness, so a regression here fails the build. This is the mandatory gate.
+      - name: Browser journeys — blocks & shortcodes (blocking)
+        run: npx playwright test tests/e2e/blocks --project=desktop --reporter=list
+        env:
+          BN_WP_PATH: ${{ runner.temp }}/wp
+          BN_TEST_USER: admin
+          BN_TEST_PASS: password
+          BN_TEST_OTHER_USER: bn_e2e_other
+      # INFORMATIONAL for now: the full member/admin suite. Some specs need Pro,
+      # external services or feature toggles that ship off, so it needs a CI-specific
+      # baseline (bin/check-journey-run.sh) captured from a first run before it can
+      # block. Runs non-blocking and uploads its report so that baseline can be taken,
+      # then this flips to the blocking gate.
+      - name: Full member/admin suite (informational until CI baseline captured)
+        continue-on-error: true
+        run: npx playwright test --project=desktop --reporter=line
+        env:
+          BN_WP_PATH: ${{ runner.temp }}/wp
+          BN_TEST_USER: admin
+          BN_TEST_PASS: password
+          BN_TEST_OTHER_USER: bn_e2e_other
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/e2e/_report
+          if-no-files-found: ignore
