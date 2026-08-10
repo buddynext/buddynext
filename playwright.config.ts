@@ -13,6 +13,9 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
     testDir: './tests/e2e',
+    // Disables the per-minute comment rate limit for the serial suite (see the
+    // file for why) so a burst of test comments doesn't 429 and flake specs red.
+    globalSetup: './tests/e2e/_fixtures/global-setup.ts',
     timeout: 30_000,
     expect: { timeout: 5_000 },
     fullyParallel: false, // WP shares one DB, so don't blast it

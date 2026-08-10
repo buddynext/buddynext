@@ -1,7 +1,14 @@
 import { test, expect } from '../_fixtures/auth.fixture';
-import { softSkip } from '../_fixtures/precondition';
+import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
+import {
+    readRestNonce,
+    postIdOfCard,
+    deletePostRest,
+    restGet,
+    openMemberSession,
+    type MemberSession,
+} from '../_fixtures/feed-wave1.helpers';
 
 type BookmarkIds = { ids: number[] };
 
@@ -17,9 +24,18 @@ type BookmarkIds = { ids: number[] };
  * un-bookmarking assert it is gone. A dead write path leaves the list unchanged
  * and fails the poll. The post is deleted in finally.
  *
- * J-19 (share popover) is left as a presence check here — the effect-based Share
- * / Copy-link journey is covered by `feed/share-permalink.spec.ts` (J-514,
- * Wave 2), which navigates the real permalink the modal exposes.
+ * J-19 WEAK ASSERTION REPLACED (Wave-4, 2026-08-10). The prior J-19 opened the
+ * share modal and asserted only that the popover was visible — no repost ever
+ * happened, so a Repost button wired to nothing would still pass. It is now
+ * effect-based: it seeds a public post from a SECOND member, opens the real
+ * share modal on that post, types a quote into the note field and clicks Repost
+ * (the modal's `POST /posts/{id}/share`), then reloads the actor's own feed and
+ * asserts the reshare card appears carrying the quote text AND the original
+ * author's attribution (`.bn-post-card__shared-embed` → shared-name + a link to
+ * the original post). A repost that 200s but never publishes a card, or one that
+ * loses attribution, fails at the reload. Copy-link permalink stays covered by
+ * `feed/share-permalink.spec.ts` (J-514). The reshare is unshared and the seeded
+ * post deleted in `finally`.
  */
 test.describe('feed / bookmarks + share', () => {
     const bookmarksOf = async (page: import('@playwright/test').Page, nonce: string): Promise<number[]> =>
@@ -76,25 +92,104 @@ test.describe('feed / bookmarks + share', () => {
         }
     });
 
-    test('J-19 share opens a share popover', async ({ authenticatedPage: page }, testInfo) => {
-        await page.goto(urls.feed);
-        if ((await page.locator(sel.postCard).count()) === 0) {
-            softSkip(testInfo, 'Feed empty.');
-            return;
-        }
-        const firstCard = page.locator(sel.postCard).first();
-        const btn = firstCard.locator(sel.postShare).first();
-        if (!(await btn.isVisible().catch(() => false))) {
-            softSkip(testInfo, 'No share control in build.');
+    // Share-modal controls — scoped per-spec (shared selectors.ts is off-limits).
+    const shareBtn = '[data-wp-on--click="actions.openShare"]';
+    const shareModal = '.bn-share-modal';
+    const shareNote = '.bn-share-modal .bn-share-modal__note';
+    const shareRepost = '.bn-share-modal .bn-share-modal__repost';
+    const sharedEmbed = '.bn-post-card__shared-embed';
+    const sharedName = '.bn-post-card__shared-name';
+    const sharedContentLink = '.bn-post-card__shared-content-link';
+
+    test('J-19 quoting + reposting another member\'s post publishes an attributed reshare', async ({ authenticatedPage: page, browser }, testInfo) => {
+        const authorSlug = await resolveOtherMemberSlug(page, 'varundubey');
+        if (!authorSlug) {
+            softSkip(testInfo, 'No second member to author the post being reshared.');
             return;
         }
 
-        await btn.click();
-        // Live build uses `.bn-share-modal` (modal backdrop) for the
-        // share UI. Earlier role-based selectors matched the WP admin
-        // bar menu (role="menu"), so keep the BN class as the primary
-        // signal. Effect-based Share/Copy-link coverage is in share-permalink.spec.ts.
-        const popover = page.locator('.bn-share-modal:not([hidden]), .bn-share-modal__panel, [data-share-popover]').first();
-        await expect(popover).toBeVisible({ timeout: 5_000 });
+        let author: MemberSession | null = null;
+        let origId = 0;
+        let myNonce = '';
+        const stamp = Date.now().toString().slice(-6);
+        const origBody = `j19 original by ${authorSlug} ${stamp}`;
+        const quote = `j19 my take ${stamp}`;
+
+        try {
+            // Seed a public post owned by the OTHER member.
+            author = await openMemberSession(browser, authorSlug);
+            const created = await restPostRaw(author.request, author.nonce, origBody);
+            expect(created.status, `seed post -> ${created.status}`).toBeLessThan(300);
+            origId = created.id;
+            expect(origId).toBeGreaterThan(0);
+
+            // View the original on its permalink (renders regardless of feed
+            // inclusion) and open the share modal from its Share control.
+            await page.goto(urls.feed);
+            myNonce = await readRestNonce(page);
+            await page.goto(`/p/${origId}/`);
+            const origCard = page.locator(sel.postCard).filter({ hasText: origBody }).first();
+            await expect(origCard).toBeVisible({ timeout: 10_000 });
+
+            const share = origCard.locator(shareBtn).first();
+            if (!(await share.isVisible().catch(() => false))) {
+                softSkip(testInfo, 'Share control absent (buddynext_allow_shares off).');
+                return;
+            }
+            await share.click();
+            const modal = page.locator(shareModal).first();
+            await expect(modal).toBeVisible({ timeout: 5_000 });
+
+            // Quote + repost (the modal's POST /posts/{id}/share with the note).
+            await page.locator(shareNote).first().fill(quote);
+            await page.locator(shareRepost).first().click();
+
+            // The reshare is my own public post — it surfaces at the top of my feed.
+            await page.goto(urls.feed);
+            const reshare = page.locator(sel.postCard).filter({ hasText: quote }).first();
+            await expect(reshare, 'my reshare card with the quote must appear in my feed').toBeVisible({ timeout: 10_000 });
+
+            // Attribution: the embedded original names its author and links back to
+            // the original post — proving this is a real reshare, not a bare copy.
+            const embed = reshare.locator(sharedEmbed).first();
+            await expect(embed).toBeVisible();
+            await expect(reshare.locator(sharedName).first()).not.toBeEmpty();
+            await expect(reshare.locator(sharedContentLink).first()).toHaveAttribute('href', new RegExp(`/p/${origId}\\b`));
+        } finally {
+            // Remove my reshare of the original (share/unshare keys on the original id).
+            if (myNonce && origId) {
+                await page.request
+                    .delete(`/wp-json/buddynext/v1/posts/${origId}/share`, { headers: { 'X-WP-Nonce': myNonce } })
+                    .catch(() => undefined);
+            }
+            if (author && origId) {
+                await author.request
+                    .delete(`/wp-json/buddynext/v1/posts/${origId}`, { headers: { 'X-WP-Nonce': author.nonce } })
+                    .catch(() => undefined);
+            }
+            if (author) {
+                await author.ctx.close().catch(() => {});
+            }
+        }
     });
 });
+
+/** Minimal REST helper: create a public post, returning {status,id}. */
+async function restPostRaw(
+    request: import('@playwright/test').APIRequestContext,
+    nonce: string,
+    content: string
+): Promise<{ status: number; id: number }> {
+    const res = await request.post('/wp-json/buddynext/v1/posts', {
+        headers: { 'X-WP-Nonce': nonce, 'Content-Type': 'application/json' },
+        data: { content, privacy: 'public' },
+    });
+    let id = 0;
+    try {
+        const body = (await res.json()) as { id?: number };
+        id = body.id ?? 0;
+    } catch {
+        /* non-JSON */
+    }
+    return { status: res.status(), id };
+}

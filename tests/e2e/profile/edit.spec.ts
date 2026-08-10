@@ -1,7 +1,15 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
-import { userId, getUserMeta, setUserMeta } from '../_fixtures/wp';
+import { userId, getUserMeta, setUserMeta, deleteUserMeta } from '../_fixtures/wp';
+import { openMemberSession } from '../_fixtures/feed-wave1.helpers';
+
+// A valid 4x4 PNG (correct IDAT CRC — ImageMagick rejects a malformed one),
+// small and well under the 4MB / 1024px avatar cap.
+const PNG_IMG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAADklEQVR4nGNoQAIMxHEAcFIYAYPG8BkAAAAASUVORK5CYII=',
+    'base64'
+);
 
 /**
  * J-33 avatar upload, J-34 bio edit, J-35 custom fields, J-36 theme picker.
@@ -49,17 +57,51 @@ test.describe('profile / edit', () => {
         }
     });
 
-    test('J-33 avatar upload control is wired', async ({ authenticatedPage: page }, testInfo) => {
-        await page.goto(urls.memberEdit(user));
-        const input = page.locator('input[type="file"][name*="avatar"], input[type="file"][accept*="image"]').first();
-        if (!(await input.count())) {
-            softSkip(testInfo, 'Avatar upload input not exposed.');
-            return;
+    /**
+     * J-33 avatar upload actually writes the avatar (effect).
+     *
+     * UPGRADED from WEAK → EFFECT (Wave-4). The old body only read the file
+     * input's `accept` attribute — presence, not a write — and deliberately never
+     * uploaded, so it passed even if the whole avatar path was broken. It now
+     * uploads a real image through the canonical media write path (multipart POST
+     * /me/cover's sibling, POST /me/avatar → ImageStorageService) and asserts the
+     * canonical `bn_avatar` usermeta is written to a stored URL. The account is
+     * left as found: the upload is removed (DELETE /me/avatar covers J-707's
+     * remove path) and any prior avatar meta restored. J-707 owns the remove
+     * journey; this owns the SET.
+     */
+    test('J-33 avatar upload writes the bn_avatar meta (effect)', async ({ authenticatedPage: page, browser }) => {
+        const uid = await userId(user);
+        expect(uid, 'actor must resolve to a user id').toBeGreaterThan(0);
+        const original = await getUserMeta(uid, 'bn_avatar');
+
+        const sess = await openMemberSession(browser, user);
+        try {
+            const res = await sess.request.post('/wp-json/buddynext/v1/me/avatar', {
+                headers: { 'X-WP-Nonce': sess.nonce },
+                multipart: {
+                    avatar: { name: 'e2e-avatar.png', mimeType: 'image/png', buffer: PNG_IMG },
+                },
+            });
+            expect(res.status(), 'avatar upload must succeed').toBe(200);
+            const body = (await res.json().catch(() => ({}))) as { avatar_url?: string };
+            expect(String(body.avatar_url ?? ''), 'the response carries the stored URL').toMatch(/^https?:\/\//);
+
+            // Effect: the canonical bn_avatar usermeta is now a stored image URL.
+            const stored = await getUserMeta(uid, 'bn_avatar');
+            expect(stored, 'bn_avatar usermeta must be written by the upload').toMatch(/^https?:\/\//);
+            expect(stored, 'the stored avatar must differ from the pre-upload value').not.toBe(original);
+        } finally {
+            await sess.request
+                .delete('/wp-json/buddynext/v1/me/avatar', { headers: { 'X-WP-Nonce': sess.nonce } })
+                .catch(() => undefined);
+            if (original) {
+                await setUserMeta(uid, 'bn_avatar', original);
+            } else {
+                await deleteUserMeta(uid, 'bn_avatar');
+            }
+            await sess.ctx.close();
         }
-        // We don't actually upload a file (would mutate user state across
-        // runs)  -  assert the input is present and accepts images.
-        const accept = await input.getAttribute('accept');
-        expect(accept ?? '').toMatch(/image/i);
     });
 
     /**

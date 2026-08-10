@@ -1,28 +1,69 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
+import { postIdOfCard } from '../_fixtures/feed-wave1.helpers';
 
 /**
  * J-11-feed-home-loads, plus the pagination assertions that were missing.
  */
 test.describe('feed / home', () => {
-    test('home feed renders shell + composer', async ({ authenticatedPage: page }) => {
+    /**
+     * WEAK ASSERTION REPLACED (Wave-4, 2026-08-10). The prior "renders shell +
+     * composer" asserted only presence (`composer count > 0`) — a composer that
+     * renders but cannot be typed into, and a feed with no real content, both
+     * passed. It is now effect-based: the composer textarea actually accepts and
+     * echoes input (proving it is a live, editable field, not an inert shell),
+     * and the feed carries at least one real post card whose server post id
+     * resolves (proving the shell rendered real feed content, not an empty frame).
+     */
+    test('J-11 home shell renders a usable composer over real feed content', async ({ authenticatedPage: page }, testInfo) => {
         await page.goto(urls.feed);
         await expect(page.locator(sel.app)).toBeVisible();
         await expect(page.locator(sel.appMain)).toBeVisible();
 
-        // Composer is present (logged-in only).
-        const composerCount = await page.locator(sel.composer).count();
-        expect(composerCount).toBeGreaterThan(0);
+        // The composer is not just present — it is editable.
+        const ta = page.locator(sel.composerTextarea).first();
+        await expect(ta).toBeVisible();
+        const probe = `shell-probe ${Date.now().toString().slice(-6)}`;
+        await ta.fill(probe);
+        await expect(ta).toHaveValue(probe);
+        await ta.fill(''); // leave the composer as found (do not publish).
+
+        // The shell rendered real feed content: a card whose server id resolves.
+        const firstCard = page.locator(sel.postCard).first();
+        if (!(await firstCard.isVisible().catch(() => false))) {
+            softSkip(testInfo, 'Home feed genuinely empty for this actor — no post card to resolve.');
+            return;
+        }
+        const text = (await firstCard.innerText().catch(() => '')).trim();
+        const id = await postIdOfCard(page, text.split('\n')[0] ?? '');
+        expect(id, 'a rendered feed card must carry a resolvable server post id').toBeGreaterThan(0);
     });
 
-    test('home feed renders posts OR empty state', async ({ authenticatedPage: page }) => {
-        await page.goto(urls.feed);
+    /**
+     * WEAK ASSERTION REPLACED (Wave-4, 2026-08-10). The prior test asserted
+     * `postCount > 0 OR empty > 0` — it could never fail as long as the page
+     * rendered anything, and never forced or identified a specific empty state.
+     * It now forces a genuinely empty surface — the Network filter for an actor
+     * with no accepted connections — and asserts the SPECIFIC empty-state card
+     * for that filter: `.bn-feed-empty[data-filter="network"]` with its exact
+     * "Build your network" heading and a real CTA. If the actor unexpectedly has
+     * network posts (the empty precondition is genuinely absent) the spec
+     * soft-skips with a reason rather than pass on a non-empty page.
+     */
+    test('J-11 an empty feed filter renders its specific empty-state card', async ({ authenticatedPage: page }, testInfo) => {
+        await page.goto(`${urls.feed}?filter=network`, { waitUntil: 'domcontentloaded' });
         await expect(page.locator(sel.app)).toBeVisible();
 
-        const postCount = await page.locator(sel.postCard).count();
-        const empty = await page.locator(sel.feedEmpty).count();
-        expect(postCount > 0 || empty > 0).toBeTruthy();
+        if ((await page.locator(sel.postCard).count()) > 0) {
+            softSkip(testInfo, 'Actor has network posts — the empty precondition for the Network filter is not met.');
+            return;
+        }
+
+        const emptyCard = page.locator('.bn-feed-empty[data-filter="network"]').first();
+        await expect(emptyCard, 'the Network filter must render its own empty-state card').toBeVisible();
+        await expect(emptyCard.locator('.bn-feed-empty__title')).toHaveText(/Build your network/i);
+        await expect(emptyCard.locator('.bn-feed-empty__cta')).toBeVisible();
     });
 
     /**

@@ -77,71 +77,103 @@ test.describe('feed / comment threading', () => {
         }
     });
 
+    // HARDENED (Wave-4, 2026-08-10). Was rooted on `page.locator(sel.postCard)
+    // .first()` — a nondeterministic top-of-feed card that, under full-suite load,
+    // could be a post shape that doesn't expose the plain comment form, flaking
+    // this red while it passed in isolation. It now seeds its OWN post and
+    // comments on THAT card; deleted in `finally`. Journey id + effect unchanged.
     test('reply button opens an inline form and posts a nested reply', async ({ authenticatedPage: page }, testInfo) => {
-        await page.goto(urls.feed);
-        if ((await page.locator(sel.postCard).count()) === 0) {
-            softSkip(testInfo, 'No posts to comment on.');
-            return;
-        }
-
-        const firstCard  = page.locator(sel.postCard).first();
-        await firstCard.locator(sel.postComment).first().click();
-
+        let createdPostId = 0;
+        let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const input = page.locator(sel.commentInput).first();
-        if (!(await input.isVisible().catch(() => false))) {
-            softSkip(testInfo, 'Comment input not exposed.');
-            return;
+        const postBody = `j121 reply-host ${stamp}`;
+
+        try {
+            await page.goto(urls.feed);
+            await expect(page.locator(sel.composer).first()).toBeVisible();
+            nonce = await readRestNonce(page);
+            await page.locator(sel.composerTextarea).first().fill(postBody);
+            await page.locator(sel.composerSubmit).first().click();
+            await expect(page.locator(sel.postCard).filter({ hasText: postBody }).first()).toBeVisible({ timeout: 10_000 });
+            await page.goto(urls.feed);
+            const host = page.locator(sel.postCard).filter({ hasText: postBody }).first();
+            await expect(host).toBeVisible({ timeout: 10_000 });
+            createdPostId = await postIdOfCard(page, postBody);
+
+            await host.locator(sel.postComment).first().click();
+            const input = host.locator(sel.commentInput).first();
+            if (!(await input.isVisible().catch(() => false))) {
+                softSkip(testInfo, 'Comment input not exposed.');
+                return;
+            }
+            await input.fill(`reply parent ${stamp}`);
+            await host.locator('[data-wp-on--click="actions.submitComment"]').first().click();
+
+            // Scoped to the host card + patient for comment-render lag under load.
+            const parent = host.locator('.bn-comment-card', { hasText: `reply parent ${stamp}` }).first();
+            await expect(parent).toBeVisible({ timeout: 15_000 });
+
+            await parent.locator('.bn-comment__reply-btn').click();
+            const replyTa = parent.locator('.bn-comment__reply-form textarea').first();
+            await expect(replyTa).toBeVisible();
+            await replyTa.fill(`nested ${stamp}`);
+            await parent.locator('.bn-comment__reply-form .bn-comment-form__submit').click();
+
+            await expect(parent.locator('.bn-comment__replies .bn-comment-card', { hasText: `nested ${stamp}` })).toBeVisible({ timeout: 15_000 });
+        } finally {
+            await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
         }
-        await input.fill(`reply parent ${stamp}`);
-        await page.locator('[data-wp-on--click="actions.submitComment"]').first().click();
-
-        const parent = page.locator('.bn-comment-card', { hasText: `reply parent ${stamp}` }).first();
-        await expect(parent).toBeVisible({ timeout: 8_000 });
-
-        await parent.locator('.bn-comment__reply-btn').click();
-        const replyTa = parent.locator('.bn-comment__reply-form textarea').first();
-        await expect(replyTa).toBeVisible();
-        await replyTa.fill(`nested ${stamp}`);
-        await parent.locator('.bn-comment__reply-form .bn-comment-form__submit').click();
-
-        await expect(parent.locator('.bn-comment__replies .bn-comment-card', { hasText: `nested ${stamp}` })).toBeVisible({ timeout: 8_000 });
     });
 
+    // HARDENED (Wave-4, 2026-08-10). Same fix as the reply test above — seed an
+    // OWN post instead of commenting on the feed's first arbitrary card.
     test('edit own comment swaps content + flags as edited', async ({ authenticatedPage: page }, testInfo) => {
-        await page.goto(urls.feed);
-        if ((await page.locator(sel.postCard).count()) === 0) {
-            softSkip(testInfo, 'No posts to comment on.');
-            return;
-        }
-
-        const firstCard  = page.locator(sel.postCard).first();
-        await firstCard.locator(sel.postComment).first().click();
-        const input = page.locator(sel.commentInput).first();
-        if (!(await input.isVisible().catch(() => false))) {
-            softSkip(testInfo, 'Comment input not exposed.');
-            return;
-        }
+        let createdPostId = 0;
+        let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        await input.fill(`edit me ${stamp}`);
-        await page.locator('[data-wp-on--click="actions.submitComment"]').first().click();
+        const postBody = `j121 edit-host ${stamp}`;
 
-        const seedCard = page.locator('.bn-comment-card', { hasText: `edit me ${stamp}` }).first();
-        await expect(seedCard).toBeVisible({ timeout: 8_000 });
+        try {
+            await page.goto(urls.feed);
+            await expect(page.locator(sel.composer).first()).toBeVisible();
+            nonce = await readRestNonce(page);
+            await page.locator(sel.composerTextarea).first().fill(postBody);
+            await page.locator(sel.composerSubmit).first().click();
+            await expect(page.locator(sel.postCard).filter({ hasText: postBody }).first()).toBeVisible({ timeout: 10_000 });
+            await page.goto(urls.feed);
+            const host = page.locator(sel.postCard).filter({ hasText: postBody }).first();
+            await expect(host).toBeVisible({ timeout: 10_000 });
+            createdPostId = await postIdOfCard(page, postBody);
 
-        // Pin the card by its stable comment id BEFORE editing — a successful
-        // edit rewrites the visible text to `edited ${stamp}`, so a card locator
-        // filtered on the original `edit me ${stamp}` text would stop matching.
-        const commentId = await seedCard.getAttribute('data-comment-id');
-        const card = page.locator(`.bn-comment-card[data-comment-id="${commentId}"]`);
+            await host.locator(sel.postComment).first().click();
+            const input = host.locator(sel.commentInput).first();
+            if (!(await input.isVisible().catch(() => false))) {
+                softSkip(testInfo, 'Comment input not exposed.');
+                return;
+            }
+            await input.fill(`edit me ${stamp}`);
+            await host.locator('[data-wp-on--click="actions.submitComment"]').first().click();
 
-        await card.locator('.bn-comment__edit-btn').click();
-        const editTa = card.locator('.bn-comment__edit-form textarea');
-        await expect(editTa).toBeVisible();
-        await editTa.fill(`edited ${stamp}`);
-        await card.locator('.bn-comment__edit-form .bn-comment-form__submit').click();
+            // Scoped to the host card + patient for comment-render lag under load.
+            const seedCard = host.locator('.bn-comment-card', { hasText: `edit me ${stamp}` }).first();
+            await expect(seedCard).toBeVisible({ timeout: 15_000 });
 
-        await expect(card.locator('.bn-comment__content', { hasText: `edited ${stamp}` })).toBeVisible({ timeout: 8_000 });
-        await expect(card.locator('.bn-comment__edited')).toBeVisible();
+            // Pin the card by its stable comment id BEFORE editing — a successful
+            // edit rewrites the visible text to `edited ${stamp}`, so a card locator
+            // filtered on the original `edit me ${stamp}` text would stop matching.
+            const commentId = await seedCard.getAttribute('data-comment-id');
+            const card = page.locator(`.bn-comment-card[data-comment-id="${commentId}"]`);
+
+            await card.locator('.bn-comment__edit-btn').click();
+            const editTa = card.locator('.bn-comment__edit-form textarea');
+            await expect(editTa).toBeVisible();
+            await editTa.fill(`edited ${stamp}`);
+            await card.locator('.bn-comment__edit-form .bn-comment-form__submit').click();
+
+            await expect(card.locator('.bn-comment__content', { hasText: `edited ${stamp}` })).toBeVisible({ timeout: 15_000 });
+            await expect(card.locator('.bn-comment__edited')).toBeVisible();
+        } finally {
+            await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
+        }
     });
 });

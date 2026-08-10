@@ -1,22 +1,41 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
+import { createSpaceApi, deleteSpaceApi } from '../_fixtures/spaces-rest';
 
 /**
  * J-37 spaces directory, J-38 category filter, J-39 search.
  */
 test.describe('spaces / directory', () => {
-    test('J-37 directory renders cards + filter chips', async ({ authenticatedPage: page }, testInfo) => {
-        await page.goto(urls.spaces);
-        await expect(page.locator(sel.app)).toBeVisible();
-        // See directory/members.spec.ts: `count() >= 0` is true of every page,
-        // including one this selector never matched. Assert the real contract.
-        const cards = await page.locator(sel.spaceCard).count();
-        const empty = await page.locator(sel.spaceDirectoryEmpty).isVisible().catch(() => false);
-        expect(
-            cards > 0 || empty,
-            'spaces directory rendered neither space cards nor an empty state'
-        ).toBeTruthy();
+    // The card name lives in `.bn-sd-card__name` (space-directory-card.php:136).
+    const CARD_NAME = '.bn-sd-card__name';
+
+    test('J-37 directory renders a specific seeded space card by name', async ({ authenticatedPage: page }) => {
+        // EFFECT (not presence): seed a throwaway space with a unique name, then
+        // prove the directory actually renders THAT card — a `count() >= 0` or a
+        // "some card exists" check passes on a directory that never listed the
+        // space under test. The directory reads `bn_search` server-side
+        // (templates/spaces/directory.php:43 → SpaceService::search), so filtering
+        // to the unique name pins the assertion to the seeded row regardless of
+        // how many spaces already exist or how the default page paginates.
+        const stamp = Date.now().toString().slice(-8);
+        const name = `E2E Dir Card ${stamp}`;
+        const space = await createSpaceApi(page, { name, type: 'open' });
+
+        try {
+            await page.goto(`${urls.spaces}?bn_search=${encodeURIComponent(name)}`, {
+                waitUntil: 'domcontentloaded',
+            });
+            await expect(page.locator(sel.app)).toBeVisible();
+
+            const card = page.locator(sel.spaceCard).filter({ hasText: name }).first();
+            await expect(card, `directory did not render the seeded space card "${name}"`).toBeVisible({
+                timeout: 10_000,
+            });
+            await expect(card.locator(CARD_NAME)).toContainText(name);
+        } finally {
+            await deleteSpaceApi(page, space.id);
+        }
     });
 
     test('J-38 category filter toggles active state', async ({ authenticatedPage: page }, testInfo) => {
