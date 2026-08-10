@@ -17,6 +17,9 @@
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { writeFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const execFileAsync = promisify(execFile);
 
@@ -154,4 +157,58 @@ export async function resetPair(aId: number, bId: number): Promise<void> {
         `DELETE FROM ${p}bn_reports WHERE object_type='user' AND ((reporter_id=${aId} AND object_id=${bId}) OR (reporter_id=${bId} AND object_id=${aId}));`,
     ];
     await wp(['db', 'query', stmts.join(' ')]);
+}
+
+/**
+ * Create a published page whose content is raw block markup / shortcodes, and
+ * return its id + front-end URL. Block-embed specs need a real page to render a
+ * block on an ORDINARY page (not its routed hub) — the exact context where the
+ * block-interactivity and shortcode defects only appeared.
+ *
+ * Idempotent by slug: any prior page at that slug is deleted first so a rerun
+ * starts clean. Content goes through a temp file, not a CLI arg, because block
+ * comment markup (`<!-- wp:... -->`) does not survive shell quoting.
+ */
+export async function createPage(
+    content: string,
+    opts: { title: string; slug: string }
+): Promise<{ id: number; url: string }> {
+    const prior = await wp([
+        'post', 'list', '--post_type=page', `--name=${opts.slug}`,
+        '--post_status=any', '--field=ID',
+    ]).catch(() => '');
+    for (const id of prior.split(/\s+/).filter(Boolean)) {
+        await wp(['post', 'delete', id, '--force']).catch(() => undefined);
+    }
+
+    const tmp = join(tmpdir(), `bn-e2e-page-${Date.now()}-${process.pid}.html`);
+    writeFileSync(tmp, content, 'utf8');
+    try {
+        const id = parseInt(
+            (
+                await wp([
+                    'post', 'create', tmp,
+                    '--post_type=page', '--post_status=publish',
+                    `--post_title=${opts.title}`, `--post_name=${opts.slug}`,
+                    '--porcelain',
+                ])
+            ).trim(),
+            10
+        );
+        const url = (await wp(['post', 'get', String(id), '--field=url'])).trim();
+        return { id, url };
+    } finally {
+        try {
+            unlinkSync(tmp);
+        } catch {
+            /* temp file already gone */
+        }
+    }
+}
+
+/** Delete a page created by createPage(). Never throws — teardown stays idempotent. */
+export async function deletePage(id: number): Promise<void> {
+    if (id > 0) {
+        await wp(['post', 'delete', String(id), '--force']).catch(() => undefined);
+    }
 }

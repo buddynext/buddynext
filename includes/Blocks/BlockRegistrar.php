@@ -471,7 +471,21 @@ class BlockRegistrar {
 			return $this->editor_hint( __( 'That member cannot be shown. Choose another in the block settings.', 'buddynext' ) );
 		}
 
-		return $this->wrap_block_output( $html, 'bn-block-member-card' );
+		// Host the buddynext/members Interactivity store on the wrapper: the shared
+		// card markup carries Follow / Connect / kebab directives that resolve against
+		// a data-wp-interactive="buddynext/members" ancestor and read shared state from
+		// its context. Without it the controls rendered but were inert wherever the
+		// block was embedded. The block declares @buddynext/members as its
+		// viewScriptModule so the store actually loads.
+		return $this->wrap_block_output(
+			$html,
+			'bn-block-member-card',
+			array(
+				'data-wp-interactive' => 'buddynext/members',
+				'data-wp-context'     => buddynext_members_directory_context(),
+				'data-wp-init'        => 'callbacks.init',
+			)
+		);
 	}
 
 	/**
@@ -534,18 +548,22 @@ class BlockRegistrar {
 	 *
 	 * @since 1.1.3
 	 *
-	 * @param string $html  Buffered template output.
-	 * @param string $class Extra class for the wrapper.
+	 * @param string                $html        Buffered template output.
+	 * @param string                $class       Extra class for the wrapper.
+	 * @param array<string, string> $extra_attrs Extra wrapper attributes (e.g. the
+	 *                                           data-wp-interactive store binding for a
+	 *                                           delegating block whose card markup needs
+	 *                                           an Interactivity ancestor).
 	 * @return string
 	 */
-	private function wrap_block_output( string $html, string $class ): string {
+	private function wrap_block_output( string $html, string $class, array $extra_attrs = array() ): string {
 		if ( '' === trim( $html ) ) {
 			return '';
 		}
 
 		return sprintf(
 			'<div %1$s>%2$s</div>',
-			get_block_wrapper_attributes( array( 'class' => $class ) ),
+			get_block_wrapper_attributes( array_merge( array( 'class' => $class ), $extra_attrs ) ),
 			$html
 		);
 	}

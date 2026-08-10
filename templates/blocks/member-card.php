@@ -83,21 +83,10 @@ foreach ( (array) buddynext_service( 'member_types' )->get_all_with_counts() as 
 	}
 }
 
-// Host the buddynext/members Interactivity store on the block root so the card's
-// Follow / Connect / kebab directives (which resolve against the nearest
-// data-wp-interactive="buddynext/members" ancestor) actually work — the block used
-// to emit the bare grid with no store ancestor, so every control was inert. The
-// block declares @buddynext/members as its viewScriptModule so the store loads.
-// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
-echo '<div ' . get_block_wrapper_attributes(
-	array(
-		'class'               => 'bn-block-member-card',
-		'data-wp-interactive' => 'buddynext/members',
-		'data-wp-context'     => buddynext_members_directory_context(),
-		'data-wp-init'        => 'callbacks.init',
-	)
-) . '>';
-
+// The buddynext/members Interactivity store wrapper (so this card's Follow / Connect
+// / kebab directives resolve and the @buddynext/members module loads) is applied by
+// the block's render callback via wrap_block_output() — this delegating template has
+// no root element of its own, and adding one here would double-wrap the block.
 buddynext_get_template(
 	'parts/member-directory-grid.php',
 	array(
@@ -119,5 +108,3 @@ buddynext_get_template(
 		'show_stats'      => ! isset( $show_stats ) || (bool) $show_stats,
 	)
 );
-
-echo '</div>';
