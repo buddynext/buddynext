@@ -5,6 +5,36 @@ import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtur
 
 type ReactionCount = { count: number; has_reacted?: boolean };
 
+// --- comment REST truth shapes (local — never touch shared selectors.ts) ----
+// GET /comments?object_type=post&object_id=<id> returns the enriched thread as
+// { items, total } with replies nested N-deep. These specs read that payload
+// back after a write so a silent persistence failure (create/update 500 that the
+// optimistic UI papered over) fails loudly instead of passing on the client node.
+type CommentNode = {
+    id: number;
+    parent_id: number | null;
+    content?: string;
+    is_edited?: boolean;
+    replies?: CommentNode[];
+};
+type CommentThread = { items: CommentNode[]; total: number };
+
+/** Depth-first search of the nested comment tree for the first matching node. */
+function findComment(nodes: CommentNode[], pred: (c: CommentNode) => boolean): CommentNode | undefined {
+    for (const node of nodes) {
+        if (pred(node)) {
+            return node;
+        }
+        if (node.replies && node.replies.length) {
+            const hit = findComment(node.replies, pred);
+            if (hit) {
+                return hit;
+            }
+        }
+    }
+    return undefined;
+}
+
 /**
  * J-121-comment-threading.
  *
@@ -113,13 +143,36 @@ test.describe('feed / comment threading', () => {
             const parent = host.locator('.bn-comment-card', { hasText: `reply parent ${stamp}` }).first();
             await expect(parent).toBeVisible({ timeout: 15_000 });
 
+            // Pin the parent's stable id so we can assert the reply persisted as ITS
+            // child (a real nested reply), not as a stray top-level comment.
+            const parentCommentId = Number(await parent.getAttribute('data-comment-id'));
+            expect(parentCommentId).toBeGreaterThan(0);
+
             await parent.locator('.bn-comment__reply-btn').click();
             const replyTa = parent.locator('.bn-comment__reply-form textarea').first();
             await expect(replyTa).toBeVisible();
             await replyTa.fill(`nested ${stamp}`);
             await parent.locator('.bn-comment__reply-form .bn-comment-form__submit').click();
 
+            // Optimistic node still checked...
             await expect(parent.locator('.bn-comment__replies .bn-comment-card', { hasText: `nested ${stamp}` })).toBeVisible({ timeout: 15_000 });
+
+            // ...but the real assertion is SERVER TRUTH: the optimistic node above
+            // renders client-side even when POST /comments silently fails. Read the
+            // thread back from REST and assert the reply persisted as a child of the
+            // parent — proving it was stored, and stored as a nested reply.
+            const thread = await restGet<CommentThread>(
+                page.request,
+                nonce,
+                `/comments?object_type=post&object_id=${createdPostId}`
+            );
+            expect(thread.status, 'the comment thread must load').toBeLessThan(300);
+            const persistedReply = findComment(thread.body.items ?? [], (c) => (c.content ?? '').includes(`nested ${stamp}`));
+            expect(persistedReply, 'the nested reply must persist server-side after write').toBeTruthy();
+            expect(
+                persistedReply?.parent_id,
+                'the reply must persist as a child of its parent, not a top-level comment'
+            ).toBe(parentCommentId);
         } finally {
             await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
         }
@@ -170,8 +223,26 @@ test.describe('feed / comment threading', () => {
             await editTa.fill(`edited ${stamp}`);
             await card.locator('.bn-comment__edit-form .bn-comment-form__submit').click();
 
+            // Optimistic swap still checked...
             await expect(card.locator('.bn-comment__content', { hasText: `edited ${stamp}` })).toBeVisible({ timeout: 15_000 });
             await expect(card.locator('.bn-comment__edited')).toBeVisible();
+
+            // ...but the real assertion is SERVER TRUTH: the DOM text swap and the
+            // `.bn-comment__edited` badge are both applied optimistically by the JS
+            // even when PATCH /comments/{id} silently fails. Read the comment back
+            // from REST and assert the new body + is_edited flag actually persisted.
+            const thread = await restGet<CommentThread>(
+                page.request,
+                nonce,
+                `/comments?object_type=post&object_id=${createdPostId}`
+            );
+            expect(thread.status, 'the comment thread must load').toBeLessThan(300);
+            const persisted = findComment(thread.body.items ?? [], (c) => Number(c.id) === Number(commentId));
+            expect(persisted, 'the edited comment must exist server-side').toBeTruthy();
+            expect(persisted?.content, 'the edited body must persist server-side, not just optimistically').toContain(
+                `edited ${stamp}`
+            );
+            expect(persisted?.is_edited, 'the edit must flag the comment edited server-side').toBe(true);
         } finally {
             await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
         }

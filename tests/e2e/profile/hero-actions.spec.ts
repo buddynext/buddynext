@@ -1,6 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
 import { loginAs } from '../_fixtures/actor';
-import { softSkip } from '../_fixtures/precondition';
 import {
     ensureUser,
     userId,
@@ -358,26 +357,30 @@ test.describe('profile / hero actions (effect-based)', () => {
         }
     });
 
-    test('J-746 a private profile shows the private card to a non-permitted viewer', async ({ page }, testInfo) => {
-        // The gate only bites for a NON-admin viewer (admins pass via manage_options),
-        // and only when the two are not connected. Make the private owner's profile
-        // connections-only and view it as B (a subscriber, not connected).
+    test('J-746 a private profile shows the private card to a non-permitted viewer', async ({ page }) => {
+        // Deterministic gate: profile_visibility='private' denies EVERY non-owner,
+        // non-admin viewer unconditionally (PrivacyService::can_view_profile default
+        // branch) — it does not depend on follow/connection state, so the outcome
+        // cannot flake on graph seed. B is a subscriber (non-admin) and P is a
+        // non-admin, so the gate bites (admins would bypass via manage_options).
+        // resetPair clears any stray block/connection so the private card is
+        // attributable to the visibility preference and nothing else.
         await resetPair(P_ID, B_ID);
-        await setUserMeta(P_ID, 'bn_privacy_profile_visibility', 'connections');
+        await setUserMeta(P_ID, 'bn_privacy_profile_visibility', 'private');
         try {
+            // Fail LOUDLY (no skip) if the preference did not actually persist — the
+            // gate cannot be exercised otherwise, and a silent skip would hide it.
+            expect(
+                await getUserMeta(P_ID, 'bn_privacy_profile_visibility'),
+                'the private visibility preference must be set for the gate to be exercised'
+            ).toBe('private');
+
             await loginAs(page, B_LOGIN);
             const resp = await page.goto(memberUrl(P_LOGIN));
             expect(resp?.status() ?? 0, 'a private profile still returns a page (gated, not 404)').not.toBe(404);
 
+            // Effect: a non-permitted viewer gets the private card, NOT the hero.
             const privateCard = page.locator(PRIVATE_CARD).first();
-            if (!(await privateCard.count())) {
-                softSkip(
-                    testInfo,
-                    'profile_visibility gate did not render the private card — privacy preference not honoured on this build.'
-                );
-                return;
-            }
-            // Effect: the viewer gets the private card, NOT the hero.
             await expect(privateCard, 'a non-permitted viewer sees the private card').toBeVisible();
             await expect(privateCard).toContainText(/this profile is private/i);
             await expect(page.locator(HERO), 'the hero must be withheld from a non-permitted viewer').toHaveCount(0);

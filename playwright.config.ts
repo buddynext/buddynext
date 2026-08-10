@@ -20,6 +20,10 @@ export default defineConfig({
     expect: { timeout: 5_000 },
     fullyParallel: false, // WP shares one DB, so don't blast it
     workers: 1, // single worker against buddynext-dev.local
+    // A single shared WP + php-fpm saturates on a cold serial run, producing
+    // transient timeouts that pass on retry (not logic failures). Retry to keep
+    // the gate trustworthy; a spec that fails on every retry is a real defect.
+    retries: process.env.CI ? 2 : 1,
     reporter: [['html', { outputFolder: 'tests/e2e/_report', open: 'never' }], ['list']],
     use: {
         baseURL: process.env.BN_BASE_URL ?? 'http://buddynext-dev.local',

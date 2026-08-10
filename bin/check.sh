@@ -331,7 +331,27 @@ else
 	note "bin/check-journey-run.sh missing"
 fi
 
-# 3b-iv. Field-type registry (A1) — BLOCKING, green as of this commit.
+# 3b-iv. Layer-1 PHPUnit regression tests — BLOCKING when the WP integration
+# harness is present, skipped (not failed) otherwise so a clone without the test
+# suite installed still passes the rest of the gate. CI runs it unconditionally
+# (see .github/workflows/ci.yml `phpunit` job); locally, install once with
+# `bin/install-wp-tests.sh` and it becomes part of every check.
+section "PHPUnit (WP integration)"
+BN_WTL="${WP_TESTS_DIR:-/tmp/wordpress-tests-lib}"
+if [ -f "$BN_WTL/includes/functions.php" ] && [ -f vendor/bin/phpunit ]; then
+	PURC=0
+	WP_TESTS_DIR="$BN_WTL" vendor/bin/phpunit --no-coverage >/tmp/bn-phpunit.log 2>&1 || PURC=$?
+	if [ "$PURC" -eq 0 ]; then
+		echo "  phpunit: green"
+	else
+		tail -25 /tmp/bn-phpunit.log
+		fail "PHPUnit failed — see output above"
+	fi
+else
+	note "PHPUnit skipped — WP test harness absent (run bin/install-wp-tests.sh; CI runs it)"
+fi
+
+# 3b-v. Field-type registry (A1) — BLOCKING, green as of this commit.
 #
 # Pro registers profile field types at runtime via buddynext_field_types. Any consumer
 # that gates behaviour by field type (reveal Options/Date box, is-choice, is-date) must
