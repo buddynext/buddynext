@@ -1089,6 +1089,30 @@ function buddynext_members_directory_context( array $overrides = array() ): stri
 }
 
 /**
+ * The initial state context for the `buddynext/spaces` Interactivity store.
+ *
+ * The space cards rendered by parts/space-directory-card.php carry Join / Leave /
+ * Request / Cancel directives (actions.joinSpace, actions.requestJoin, …) that
+ * resolve against the nearest `data-wp-interactive="buddynext/spaces"` ancestor and
+ * read restNonce / restUrl from its context to call the REST API. The /spaces/
+ * directory page provides both; the space-directory and spaces-showcase BLOCKS did
+ * not, so every Join button was inert wherever the block was embedded. This is the
+ * single source for that context so the page and the blocks cannot drift.
+ *
+ * @return string JSON for a data-wp-context attribute ('{}' if encoding fails).
+ */
+function buddynext_spaces_directory_context(): string {
+	$json = wp_json_encode(
+		array(
+			'restNonce' => wp_create_nonce( 'wp_rest' ),
+			'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+		)
+	);
+
+	return false === $json ? '{}' : $json;
+}
+
+/**
  * Deterministic cover tone for a space, used when it has no cover image.
  *
  * Lives here, beside bn_space_category_icon(), for the same reason: the space

@@ -49,11 +49,18 @@ foreach ( buddynext_service( 'spaces' )->categories_with_counts( 0, true ) as $b
 ?>
 <section
 	<?php
-	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output, and buddynext_spaces_directory_context() returns pre-escaped JSON.
 	echo get_block_wrapper_attributes(
 		array(
-			'class'       => 'bn-card bn-block-space-directory bn-block-space-directory--' . $layout,
-			'data-layout' => $layout,
+			'class'                => 'bn-card bn-block-space-directory bn-block-space-directory--' . $layout,
+			'data-layout'          => $layout,
+			// The space cards below carry actions.joinSpace / actions.requestJoin /
+			// actions.leaveSpace directives; they need this Interactivity ancestor
+			// (namespace + restNonce/restUrl) or every Join button is inert. Same
+			// store the /spaces/ directory provides — sourced from one helper so the
+			// page and the block cannot drift.
+			'data-wp-interactive'  => 'buddynext/spaces',
+			'data-wp-context'      => buddynext_spaces_directory_context(),
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped

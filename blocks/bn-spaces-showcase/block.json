@@ -8,6 +8,7 @@
 	"description": "Feature a few spaces on a landing page so visitors can see what there is to join.",
 	"keywords": [ "spaces", "groups", "showcase", "featured", "community" ],
 	"textdomain": "buddynext",
+	"viewScriptModule": "@buddynext/spaces",
 	"supports": {
 		"html": false,
 		"align": [ "wide", "full" ],

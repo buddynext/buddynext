@@ -107,11 +107,16 @@ foreach ( $bn_ss_service->categories_with_counts( 0, true ) as $bn_ss_cat ) {
 ?>
 <div 
 <?php
-// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output, and buddynext_spaces_directory_context() returns pre-escaped JSON.
 echo get_block_wrapper_attributes(
 	array(
-		'class'       => 'bn-spaces-showcase',
-		'data-layout' => $layout,
+		'class'               => 'bn-spaces-showcase',
+		'data-layout'         => $layout,
+		// Join / Leave / Request buttons on the space cards resolve against this
+		// Interactivity store; without it the showcase's action buttons are dead.
+		// Shared helper = same context the /spaces/ directory uses.
+		'data-wp-interactive' => 'buddynext/spaces',
+		'data-wp-context'     => buddynext_spaces_directory_context(),
 	)
 );
 // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
