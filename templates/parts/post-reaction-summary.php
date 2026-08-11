@@ -122,7 +122,14 @@ do_action( 'buddynext_part_post_reaction_summary_before', $args );
 					<?php if ( '' !== $bn_emoji_img ) : ?>
 						<?php echo $bn_emoji_img; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside IconService::render_emoji(). ?>
 					<?php else : ?>
-						<span class="bn-post-card__reaction-fallback"><?php echo esc_html( $bn_slug ); ?></span>
+						<?php
+						// Unknown / orphaned reaction slug (no vendored emoji): a NEUTRAL
+						// reaction glyph, never the raw slug — a bare "orphanslug"-style
+						// token on a feed card is the "slug on activity" defect. The count
+						// still renders below. Orphans are normally purged when a Pro custom
+						// reaction is removed; this is the safety net for any that survive.
+						?>
+						<span class="bn-post-card__reaction-fallback" aria-hidden="true"><?php buddynext_icon( 'smile', 'bn-icon--sm' ); ?></span>
 					<?php endif; ?>
 					<?php echo esc_html( (string) $bn_count ); ?>
 				</span>
