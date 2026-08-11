@@ -34,6 +34,24 @@ final class CoreHubs {
 		$reg->register( new HubDescriptor( 'auth', 'buddynext_slug_auth', 'login', 'buddynext_page_auth', __( 'Login', 'buddynext' ), '[buddynext_auth]' ) );
 		$reg->register( new HubDescriptor( 'onboarding', 'buddynext_slug_onboarding', 'onboarding', 'buddynext_page_onboarding', __( 'Onboarding', 'buddynext' ), '[buddynext_onboarding]', backing_page: false ) );
 
+		// Community Admin — a core hub wired through the addon seam (its own
+		// register_rules + resolve_template in CommunityAdminRoutes) so PageRouter
+		// needs no new hub case. No backing WP page (an internal admin tool should
+		// not clutter the owner's Pages list), matching onboarding.
+		$reg->register(
+			new HubDescriptor(
+				'community_admin',
+				'buddynext_slug_community_admin',
+				'community-admin',
+				'buddynext_page_community_admin',
+				__( 'Community Admin', 'buddynext' ),
+				'[buddynext_community_admin]',
+				register_rules: array( CommunityAdminRoutes::class, 'register_rules' ),
+				resolve_template: array( CommunityAdminRoutes::class, 'resolve_template' ),
+				backing_page: false
+			)
+		);
+
 		/**
 		 * Fires after core hubs are registered.
 		 *

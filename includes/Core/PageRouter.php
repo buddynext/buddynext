@@ -142,7 +142,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-07-31-auth-connect-app';
+	private const ROUTER_VERSION = '2026-08-12-community-admin-hub';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -578,6 +578,20 @@ class PageRouter {
 		if ( 'people' === $hub
 			&& '' !== (string) get_query_var( 'bn_user_slug', '' )
 			&& empty( $context['user_id'] ) ) {
+			$this->send_404();
+			return;
+		}
+
+		// ── Community Admin gate ──────────────────────────────────────────
+		// Moderators (community role) and administrators only. This is the same
+		// check the panel template uses at templates/community-admin.php:23, so
+		// route, nav visibility and template gate never drift: buddynext_can()
+		// already treats manage_options as an allow (PermissionService::can()),
+		// and also honours per-user ability grants and the buddynext_user_can
+		// filter — things a bare RoleService::is_moderator() call would miss.
+		// A logged-out user resolves to false and gets a clean 404, not a fatal.
+		if ( 'community_admin' === $hub
+			&& ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) {
 			$this->send_404();
 			return;
 		}
@@ -1747,6 +1761,15 @@ class PageRouter {
 				break;
 
 			case 'moderation':
+				$assets->enqueue( 'moderation' );
+				break;
+
+			case 'community_admin':
+				// The panel's .bn-ca-* chrome lives in bn-moderation.css and its
+				// Appeals approve/deny controls run on the buddynext/moderation
+				// store — the same assets the [buddynext_community_admin] shortcode
+				// enqueues via enqueue_shell( 'moderation' ). Without this the
+				// routed hub renders the panel unstyled.
 				$assets->enqueue( 'moderation' );
 				break;
 
@@ -3137,9 +3160,10 @@ class PageRouter {
 	 * @return string
 	 */
 	private static function default_slug( string $option_name ): string {
-		// Hub defaults come from the registry; the non-hub community-admin slug
-		// and the ultimate fallback stay here.
-		$map = array( 'buddynext_slug_community_admin' => 'bn-community-admin' );
+		// Hub defaults come from the registry (which now includes community_admin
+		// and overrides this map at runtime); the literal here is the pre-registry
+		// fallback for any very-early caller, kept in sync with the descriptor.
+		$map = array( 'buddynext_slug_community_admin' => 'community-admin' );
 		foreach ( HubRegistry::instance()->all() as $hub ) {
 			$map[ $hub->slug_option ] = $hub->default_slug;
 		}

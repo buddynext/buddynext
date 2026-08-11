@@ -29,7 +29,14 @@ $bn_admin_user   = get_userdata( $current_user_id );
 
 // ── Active section ────────────────────────────────────────────────────────────
 
-$admin_section = isset( $_GET['bn_admin'] ) ? sanitize_key( wp_unslash( $_GET['bn_admin'] ) ) : 'overview'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+// As the routed hub the active section is the /{slug}/{section}/ path segment,
+// exposed as the bn_ca_section query var; the [buddynext_community_admin] shortcode
+// embed (which never runs through the hub router) still uses the legacy ?bn_admin=
+// param, so fall back to it. Default 'overview' renders at the bare /{slug}/.
+$bn_ca_route_section = sanitize_key( (string) get_query_var( 'bn_ca_section', '' ) );
+$admin_section       = '' !== $bn_ca_route_section
+	? $bn_ca_route_section
+	: ( isset( $_GET['bn_admin'] ) ? sanitize_key( wp_unslash( $_GET['bn_admin'] ) ) : 'overview' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 // The sidebar tabs are add_query_arg( 'bn_admin', ..., $admin_base ) links, so
 // $admin_base MUST be the URL this panel is actually being viewed at. As the routed
 // hub that is buddynext_community_admin_url(); but via the [buddynext_community_admin]
@@ -248,11 +255,19 @@ $posts_pct_abs = abs( $posts_pct );
 						'label' => __( 'Settings', 'buddynext' ),
 					),
 				);
+				// On the routed hub the tabs are clean /{slug}/{section}/ paths; via
+				// the [buddynext_community_admin] shortcode embed (an arbitrary host
+				// page) they stay ?bn_admin= links, since sub-paths of an arbitrary
+				// page would not resolve to a route.
+				$bn_ca_routed = ( 'community_admin' === (string) get_query_var( 'bn_hub' ) );
 				foreach ( $nav_items as $key => $item ) :
 					$is_active = ( $admin_section === $key );
+					$tab_href  = $bn_ca_routed
+						? ( 'overview' === $key ? $admin_base : trailingslashit( $admin_base . $key ) )
+						: add_query_arg( 'bn_admin', $key, $admin_base );
 					?>
 					<a
-						href="<?php echo esc_url( add_query_arg( 'bn_admin', $key, $admin_base ) ); ?>"
+						href="<?php echo esc_url( $tab_href ); ?>"
 						class="bn-ca-nav-item"
 						<?php echo $is_active ? 'aria-current="page"' : ''; ?>
 					>
