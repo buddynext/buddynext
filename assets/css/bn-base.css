@@ -2676,6 +2676,20 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	cursor: not-allowed;
 }
 
+/* iOS Safari auto-zooms the viewport when a focused input/textarea/select has a
+   computed font-size below 16px. Inputs use --bn-text-sm (13px) by design, so
+   every text field on iPhone zooms the page on focus and never resets. Raise the
+   input font-size to a 16px floor on touch / small screens — the platform-correct
+   fix, not a maximum-scale viewport cap (which would be an accessibility
+   regression). max() preserves any upscaled text preference. */
+@media (pointer: coarse), (max-width: 768px) {
+	.bn-input,
+	.bn-textarea,
+	.bn-select {
+		font-size: max(16px, var(--bn-text-md));
+	}
+}
+
 /* Native date/time picker icon: do NOT invert it in dark mode. The dark
    triggers above set `color-scheme: dark`, which already makes the UA render
    the calendar glyph light; an invert(1) on top flips it back to dark and the
