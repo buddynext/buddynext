@@ -45,6 +45,36 @@ $admin_section       = '' !== $bn_ca_route_section
 // /bn-community-admin/, which 404s when no page exists there.
 $admin_base = ( isset( $admin_base ) && '' !== (string) $admin_base ) ? (string) $admin_base : buddynext_community_admin_url();
 
+// ── Members section data (only when that section is active) ────────────────────
+// Reuses Admin\Members::list_members() — already paginated (LIMIT/OFFSET), search
+// and total-count aware — so the list is big-site safe. Roles come from the
+// RoleService community-role layer (bn_community_role user meta).
+$bn_ca_members  = null;
+$bn_ca_m_page   = 1;
+$bn_ca_m_search = '';
+$bn_ca_roles    = null;
+if ( 'members' === $admin_section ) {
+	$bn_ca_m_page   = isset( $_GET['mpage'] ) ? max( 1, (int) $_GET['mpage'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_ca_m_search = isset( $_GET['ms'] ) ? sanitize_text_field( wp_unslash( $_GET['ms'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_ca_admin_members = buddynext_service( 'admin_members' );
+	$bn_ca_roles         = buddynext_service( 'roles' );
+	$bn_ca_members       = ( is_object( $bn_ca_admin_members ) && method_exists( $bn_ca_admin_members, 'list_members' ) )
+		? $bn_ca_admin_members->list_members(
+			array(
+				'page'     => $bn_ca_m_page,
+				'per_page' => 20,
+				'search'   => $bn_ca_m_search,
+				'orderby'  => 'registered',
+				'order'    => 'DESC',
+			)
+		)
+		: array(
+			'members' => array(),
+			'total'   => 0,
+			'pages'   => 1,
+		);
+}
+
 // ── Platform stats (consolidated via AdminHub::overview_stats) ─────────────────
 
 $bn_ca_stats         = \BuddyNext\Admin\AdminHub::overview_stats();
@@ -294,6 +324,115 @@ $posts_pct_abs = abs( $posts_pct );
 
 		<!-- Main content -->
 		<main class="bn-ca-main">
+
+		<?php
+		// Section body router. The Members section renders its own list; every
+		// other section still shows the Overview dashboard (their dedicated bodies
+		// are separate follow-up work). Kept as one if/else so the large Overview
+		// markup below is untouched.
+		if ( 'members' === $admin_section && is_array( $bn_ca_members ) ) :
+			$bn_ca_sec_url = $bn_ca_routed ? trailingslashit( $admin_base . 'members' ) : $admin_base;
+			?>
+			<section class="bn-ca-card" aria-labelledby="bn-ca-members-title">
+				<header class="bn-ca-card__head">
+					<span id="bn-ca-members-title" class="bn-ca-card__title">
+						<?php buddynext_icon( 'users' ); ?>
+						<?php esc_html_e( 'Members', 'buddynext' ); ?>
+						<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $bn_ca_members['total'] ) ); ?></span>
+					</span>
+				</header>
+
+				<form class="bn-ca-members-search" method="get" action="<?php echo esc_url( $bn_ca_sec_url ); ?>" role="search">
+					<?php if ( ! $bn_ca_routed ) : ?>
+						<input type="hidden" name="bn_admin" value="members" />
+					<?php endif; ?>
+					<input
+						type="search"
+						name="ms"
+						class="bn-input"
+						value="<?php echo esc_attr( $bn_ca_m_search ); ?>"
+						placeholder="<?php esc_attr_e( 'Search members by name, username or email…', 'buddynext' ); ?>"
+						aria-label="<?php esc_attr_e( 'Search members', 'buddynext' ); ?>"
+					/>
+					<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
+				</form>
+
+				<div class="bn-ca-card__body">
+					<?php if ( empty( $bn_ca_members['members'] ) ) : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'No members match your search.', 'buddynext' ); ?></p>
+					<?php else : ?>
+						<?php
+						foreach ( $bn_ca_members['members'] as $bn_ca_m ) :
+							// list_members() returns associative arrays, not WP_User objects.
+							$bn_ca_m_name = '' !== (string) ( $bn_ca_m['display'] ?? '' ) ? (string) $bn_ca_m['display'] : (string) ( $bn_ca_m['login'] ?? '' );
+							$bn_ca_m_id   = (int) ( $bn_ca_m['id'] ?? 0 );
+							$bn_ca_m_role = ( is_object( $bn_ca_roles ) && method_exists( $bn_ca_roles, 'get_role' ) ) ? $bn_ca_roles->get_role( $bn_ca_m_id ) : 'member';
+							$bn_ca_m_init = strtoupper( mb_substr( $bn_ca_m_name, 0, 1 ) );
+							$bn_ca_m_reg  = mysql2date( (string) get_option( 'date_format' ), (string) ( $bn_ca_m['registered'] ?? '' ) );
+							?>
+							<div class="bn-ca-row">
+								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $bn_ca_m_init ); ?></span>
+								<div class="bn-ca-row__body">
+									<span class="bn-ca-row__title">
+										<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $bn_ca_m_id ) ); ?>"><?php echo esc_html( $bn_ca_m_name ); ?></a>
+									</span>
+									<span class="bn-ca-row__sub">
+										<?php
+										printf(
+											/* translators: 1: username, 2: registration date. */
+											esc_html__( '@%1$s · joined %2$s', 'buddynext' ),
+											esc_html( (string) ( $bn_ca_m['handle'] ?? ( $bn_ca_m['login'] ?? '' ) ) ),
+											esc_html( $bn_ca_m_reg )
+										);
+										?>
+									</span>
+								</div>
+								<div class="bn-ca-row__actions">
+									<?php if ( 'admin' === $bn_ca_m_role ) : ?>
+										<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Admin', 'buddynext' ); ?></span>
+									<?php elseif ( 'moderator' === $bn_ca_m_role ) : ?>
+										<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Moderator', 'buddynext' ); ?></span>
+									<?php endif; ?>
+								</div>
+							</div>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</div>
+
+				<?php if ( (int) $bn_ca_members['pages'] > 1 ) : ?>
+					<nav class="bn-ca-pagination" aria-label="<?php esc_attr_e( 'Members pages', 'buddynext' ); ?>">
+						<?php
+						$bn_ca_pg_args = array();
+						if ( '' !== $bn_ca_m_search ) {
+							$bn_ca_pg_args['ms'] = $bn_ca_m_search;
+						}
+						if ( ! $bn_ca_routed ) {
+							$bn_ca_pg_args['bn_admin'] = 'members';
+						}
+						if ( $bn_ca_m_page > 1 ) :
+							$bn_ca_prev = add_query_arg( array_merge( $bn_ca_pg_args, array( 'mpage' => $bn_ca_m_page - 1 ) ), $bn_ca_sec_url );
+							?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_ca_prev ); ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
+						<?php endif; ?>
+						<span class="bn-ca-pagination__status">
+							<?php
+							printf(
+								/* translators: 1: current page, 2: total pages. */
+								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
+								esc_html( number_format_i18n( $bn_ca_m_page ) ),
+								esc_html( number_format_i18n( (int) $bn_ca_members['pages'] ) )
+							);
+							?>
+						</span>
+						<?php if ( $bn_ca_m_page < (int) $bn_ca_members['pages'] ) : ?>
+							<?php $bn_ca_next = add_query_arg( array_merge( $bn_ca_pg_args, array( 'mpage' => $bn_ca_m_page + 1 ) ), $bn_ca_sec_url ); ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_ca_next ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
+						<?php endif; ?>
+					</nav>
+				<?php endif; ?>
+			</section>
+
+		<?php else : ?>
 
 			<!-- Stats grid — .bn-stat-grid primitive -->
 			<div class="bn-stat-grid" role="list" aria-label="<?php esc_attr_e( 'Community metrics', 'buddynext' ); ?>">
@@ -742,6 +881,8 @@ $posts_pct_abs = abs( $posts_pct );
 				</section>
 
 			<?php endif; ?>
+
+		<?php endif; // 'members' section body vs the Overview dashboard. ?>
 
 		</main>
 
