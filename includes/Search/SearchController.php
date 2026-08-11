@@ -26,7 +26,7 @@ use WP_REST_Response;
 /**
  * Handles search and member directory reads over REST.
  */
-class SearchController {
+class SearchController extends \BuddyNext\REST\BaseRestController {
 
 	/**
 	 * Register the controller's routes.
@@ -50,6 +50,17 @@ class SearchController {
 						'type'              => 'string',
 						'sanitize_callback' => 'sanitize_key',
 						'default'           => '',
+					),
+					// A user result row carries the display name as `title` and
+					// nothing else about the person — no avatar. A client drawing
+					// faces in search results therefore paid one profile request
+					// per row. `expand=members` returns the same hydrated member
+					// objects /members returns, in the same batched call.
+					'expand'             => array(
+						'required'          => false,
+						'type'              => 'string',
+						'description'       => 'Comma-separated expansions. `members` hydrates user results into full member objects (avatar, handle, headline, follow/connection state) instead of bare index rows.',
+						'sanitize_callback' => 'sanitize_text_field',
 					),
 					'per_page'           => array(
 						'required'          => false,
@@ -295,6 +306,28 @@ class SearchController {
 
 		if ( null !== $injector ) {
 			remove_filter( 'buddynext_search_query_args', $injector, 5 );
+		}
+
+		/*
+		 * Expansion is opt-in and additive: without it the response is the exact
+		 * index shape existing consumers already parse. Only member searches can
+		 * expand — `members` on a post search would be meaningless, so it is
+		 * ignored there rather than silently returning an empty key.
+		 */
+		if ( in_array( $type, array( 'user', 'member' ), true ) ) {
+			$member_ids = array_values(
+				array_filter(
+					array_map(
+						static fn( $row ): int => (int) ( $row['object_id'] ?? 0 ),
+						(array) ( $results['items'] ?? array() )
+					)
+				)
+			);
+
+			$expanded = $this->maybe_expand_members( $request, $member_ids, $viewer_id );
+			if ( null !== $expanded ) {
+				$results['members'] = $expanded;
+			}
 		}
 
 		return new WP_REST_Response( $results, 200 );

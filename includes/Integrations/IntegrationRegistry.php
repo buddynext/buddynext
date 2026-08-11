@@ -97,16 +97,29 @@ final class IntegrationRegistry {
 			$version = isset( $entry['version'] ) ? trim( (string) $entry['version'] ) : '';
 
 			$out[ $key ] = array(
-				'key'        => $key,
-				'label'      => isset( $entry['label'] ) && '' !== (string) $entry['label'] ? (string) $entry['label'] : ucfirst( $key ),
-				'version'    => '' !== $version ? sanitize_text_field( $version ) : null,
-				'has_nav'    => ! empty( $entry['has_nav'] ),
-				'has_feed'   => ! empty( $entry['has_feed'] ),
+				'key'            => $key,
+				'label'          => isset( $entry['label'] ) && '' !== (string) $entry['label'] ? (string) $entry['label'] : ucfirst( $key ),
+				'version'        => '' !== $version ? sanitize_text_field( $version ) : null,
+				'has_nav'        => ! empty( $entry['has_nav'] ),
+				'has_feed'       => ! empty( $entry['has_feed'] ),
 				// Whether this integration writes into the search index. Only integrations
 				// that declare it get the "Include in search" switch — otherwise the owner
 				// is offered a control that governs nothing.
-				'has_search' => ! empty( $entry['has_search'] ),
-				'subtabs'    => $subtabs,
+				'has_search'     => ! empty( $entry['has_search'] ),
+				// The partner's OWN REST namespace, when it has one. BuddyNext
+				// never proxies partner data — the bridge contract is "reference,
+				// not embed" — so a client that wants a partner's own endpoints
+				// has to be told where they live. Without this the app config said
+				// gamification was enabled and gave no way to find the leaderboard
+				// the engine already serves (Basecamp 10184060096).
+				//
+				// Declared by the integration, never inferred: a guessed namespace
+				// that 404s is worse than an honest null, which a client reads as
+				// "this integration exposes nothing of its own".
+				'rest_namespace' => isset( $entry['rest_namespace'] ) && '' !== (string) $entry['rest_namespace']
+					? sanitize_text_field( (string) $entry['rest_namespace'] )
+					: null,
+				'subtabs'        => $subtabs,
 			);
 		}
 

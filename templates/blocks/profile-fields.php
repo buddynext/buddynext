@@ -48,7 +48,18 @@ if ( $group ) {
 	);
 }
 ?>
-<section class="bn-card bn-block-profile-fields" data-user-id="<?php echo absint( $user_id ); ?>">
+<section 
+<?php
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+echo get_block_wrapper_attributes(
+	array(
+		'class'        => 'bn-card bn-block-profile-fields',
+		'data-user-id' => (string) absint( $user_id ),
+	)
+);
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+?>
+>
 	<?php if ( empty( $fields ) ) : ?>
 		<?php
 		buddynext_get_template(

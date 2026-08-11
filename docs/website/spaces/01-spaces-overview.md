@@ -53,13 +53,12 @@ Once a member belongs to a space, the composer at the top of the space feed lets
 
 ## Putting spaces on your own pages
 
-You are not limited to the built-in Spaces directory. Three blocks let you drop spaces onto any page or post you build in the editor, so you can surface them wherever your members already look.
+You are not limited to the built-in Spaces directory. Two blocks let you drop spaces onto any page or post you build in the editor, so you can surface them wherever your members already look.
 
 | Block | What it shows |
 |-------|---------------|
 | The Spaces Directory block | The full, filterable directory - search, category, and type filters with paginated space cards. Use it to build a dedicated "Communities" landing page. |
 | The Space Card block | A single space as a card (header, member count, join control). Use it to feature one space on a homepage or in a sidebar. |
-| The My Spaces block | The current member's own spaces. Use it on a member dashboard or welcome page so people land on their groups. |
 
 > **Tip:** These blocks read the same live data as the built-in directory, so memberships, join states, and counts stay in sync wherever you place them.
 

@@ -28,7 +28,9 @@ The shell module graph lives under `assets/js/shell/` and is shared by every fea
 | `assets/js/shell/dialog.js` | `bnToast`, `bnConfirm`, `bnPrompt`, `bnReportDialog` - token-styled replacements for native `alert`/`confirm`. |
 | `assets/js/shell/font-scale.js` | Pre-paint theme (`data-bn-theme`) and font-scale stamping; chrome-level, bound once. |
 
-Feature stores live under `assets/js/{feature}/store.js` (for example `feed`, `members`, `spaces`, `messages`, `search`, `profile`, `notifications`, `hashtags`). Each is registered in `AssetService` and enqueued per hub by `PageRouter::enqueue_hub_assets()`. The block bundle (`assets/js/blocks.js`) registers the small per-block stores (`buddynext/follow-button`, `buddynext/connection-button`, `buddynext/notification-bell`, and so on).
+Feature stores live under `assets/js/{feature}/store.js` (for example `feed`, `members`, `spaces`, `messages`, `search`, `profile`, `notifications`, `hashtags`). Each is registered in `AssetService` and enqueued per hub by `PageRouter::enqueue_hub_assets()`.
+
+> **`assets/js/blocks.js` is the EDITOR script** (`buddynext-blocks-editor`), used by `wp.serverSideRender` for editor previews. It never loads on the front end, so any store it registers is inert at runtime. Front-end behaviour for a block comes from its `viewScriptModule` - for the social buttons that is `@buddynext/social-buttons` (`assets/js/social/follow-store.js`). Do not copy a store out of `blocks.js`.
 
 > **Note:** Store namespaces are always `buddynext/{feature-name}` (for example `buddynext/feed`, `buddynext/follow-button`). The bare `buddynext` namespace is reserved for the shell's `navigate` action.
 
@@ -38,7 +40,7 @@ A store has two halves: `state` (getters, computed from context) and `actions` (
 
 ### A small store binding
 
-This is the complete follow button (block bundle `buddynext/follow-button` plus its template). It is the minimal end-to-end shape: context in, computed class and label out, a single action that calls REST and flips context.
+This is the complete follow button - its template plus the front-end store in `assets/js/social/follow-store.js`. It is the minimal end-to-end shape: context in, computed class and label out, a single action that calls REST and flips context.
 
 Template (`templates/blocks/follow-button.php`):
 
@@ -63,18 +65,18 @@ Template (`templates/blocks/follow-button.php`):
 
 `$context_json` is the JSON-encoded initial context, for example `{ "userId": 42, "isFollowing": false, "restUrl": "...", "nonce": "..." }`.
 
-Store (`assets/js/blocks.js`):
+Store (`assets/js/social/follow-store.js`, shipped as the `@buddynext/social-buttons` module):
 
 ```js
 import { store, getContext } from '@wordpress/interactivity';
 
 store( 'buddynext/follow-button', {
     state: {
-        get buttonClass() {
-            const ctx = getContext();
-            return ctx.isFollowing
-                ? 'bn-btn bn-btn--sm bn-btn--secondary bn-following'
-                : 'bn-btn bn-btn--sm bn-btn--primary';
+        // Variant, not a class-name string. Buttons are `bn-btn` plus a
+        // `data-variant` attribute; the `bn-btn--*` modifiers this example
+        // used to show were retired and no longer style anything.
+        get followVariant() {
+            return getContext().isFollowing ? 'secondary' : 'primary';
         },
         get label() {
             return getContext().isFollowing ? 'Following' : 'Follow';

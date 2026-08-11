@@ -6,14 +6,31 @@
 	"icon": "edit",
 	"category": "buddynext",
 	"description": "Post creation box — what's on your mind.",
-	"keywords": [ "buddynext", "post", "composer", "create" ],
+	"keywords": [
+		"buddynext",
+		"post",
+		"composer",
+		"create"
+	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
-	"style": "file:../../assets/css/blocks.css",
+	"style": [
+		"file:../../assets/css/blocks.css",
+		"bn-base"
+	],
 	"supports": {
-		"color": { "background": true, "text": true },
-		"typography": { "fontSize": true },
-		"spacing": { "padding": true, "margin": true }
+		"inserter": false,
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"spacing": {
+			"padding": true,
+			"margin": true
+		}
 	},
 	"attributes": {
 		"placeholder": {
@@ -21,5 +38,9 @@
 			"default": ""
 		}
 	},
-	"example": {}
+	"example": {},
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-base"
+	]
 }

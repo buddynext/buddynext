@@ -2,7 +2,7 @@
 /**
  * Gutenberg block and pattern registration.
  *
- * Registers all 18 free-tier BuddyNext blocks (server-rendered, dynamic)
+ * Registers all 19 free-tier BuddyNext blocks (server-rendered, dynamic)
  * and the 4 pre-built block patterns.
  *
  * Each block lives in blocks/bn-{slug}/block.json. Render callbacks are
@@ -49,6 +49,128 @@ class BlockRegistrar {
 		add_action( 'init', array( $this, 'register_patterns' ) );
 		add_action( 'init', array( $this, 'register_block_category' ) );
 		add_filter( 'block_categories_all', array( $this, 'add_block_category' ) );
+
+		// Priority 20: after AssetService::enqueue_global_tokens() (15) has put
+		// bn-base in the queue, so a block stylesheet enqueued here lands behind
+		// it rather than pulling it in as a dependency from an odd position.
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_block_styles_early' ), 20 );
+
+		/*
+		 * Second print pass for blocks that render late.
+		 *
+		 * WordPress prints script modules on `wp_footer` at priority 10 and
+		 * walks the queue exactly once. A block inside post content enqueues
+		 * its `viewScriptModule` during render, well before that — but a site
+		 * owner can build their footer with anything, and a builder that
+		 * renders it during `wp_footer` enqueues into a queue that has already
+		 * been printed. The block then paints its markup and silently loses
+		 * its view module: a follow button that never follows, a feed that
+		 * never hydrates. No console error, no notice (Basecamp 10181441816;
+		 * same defect wb-listora fixed in 1.4.2).
+		 *
+		 * Priority 20 is deliberate on both sides. Core registers
+		 * `wp_print_footer_scripts` (which runs `print_late_styles()`) at 20
+		 * during bootstrap, so it is already registered when this plugin loads
+		 * and runs first at the same priority — late block CSS is printed
+		 * before we get here. Module translations print at 21, so anything we
+		 * print now still receives them. The import map is emitted separately
+		 * and already carries `@wordpress/interactivity`, so a module printed
+		 * here resolves its dependency.
+		 *
+		 * Both core printers track what they have emitted
+		 * (`WP_Script_Modules::$done`, `WP_Styles::$done`), so re-running them
+		 * is idempotent: nothing is duplicated, only late arrivals are
+		 * written. A footer rendering after priority 20 cannot be rescued —
+		 * nothing can print into a response already streamed past that point —
+		 * this covers the realistic builder cases and costs nothing on a page
+		 * with no late blocks.
+		 */
+		add_action(
+			'wp_footer',
+			static function (): void {
+				/**
+				 * Filters whether to run the late script-module print pass.
+				 *
+				 * @since 1.1.3
+				 *
+				 * @param bool $enabled Whether to run the second pass.
+				 */
+				if ( ! apply_filters( 'buddynext_late_print_script_modules', true ) ) {
+					return;
+				}
+
+				wp_script_modules()->print_enqueued_script_modules();
+
+				// Same story for stylesheets: a block rendering at or after
+				// priority 20 has already missed core's print_late_styles()
+				// run, so its block.json style never printed and the markup
+				// lands unstyled. WP_Styles tracks emitted handles, so this
+				// second call is idempotent the same way the module pass is.
+				print_late_styles();
+			},
+			20
+		);
+	}
+
+	/**
+	 * Enqueue a BuddyNext block's stylesheets up front when the page uses it.
+	 *
+	 * WordPress enqueues a block's `style` handles while the block RENDERS,
+	 * which happens inside the_content — long after the head has printed. Since
+	 * 6.9 core no longer just prints those in the footer: `wp_hoist_late_printed_styles()`
+	 * buffers the page and lifts late styles back into the head, sorted into
+	 * buckets. Non-core block styles go to the bucket where
+	 * `wp_enqueue_registered_block_scripts_and_styles()` runs, which sits ABOVE
+	 * the region where ordinary enqueued stylesheets were printed.
+	 *
+	 * bn-base is an ordinary enqueue, so it prints in that lower region. A
+	 * feature stylesheet reached only through a block therefore got hoisted
+	 * ABOVE its own dependency — `bn-members.css` before `bn-base.css`, exactly
+	 * inverting the hub order. Dependencies could not save it: by the time the
+	 * late group is captured, bn-base is already marked done, so it is not
+	 * reprinted alongside the handle being hoisted.
+	 *
+	 * The visible result was any equal-specificity override a feature sheet
+	 * makes against a bn-base primitive silently losing on block surfaces only.
+	 * `.bn-md-card { padding: 0 }` lost to `.bn-card { padding: var(--bn-s6) }`,
+	 * so a Featured Member card drew its cover band inset with white around it.
+	 *
+	 * Enqueueing here removes the lateness rather than fighting the hoist: the
+	 * handle joins the normal queue during wp_enqueue_scripts, prints in the
+	 * head in dependency order, and core finds nothing to lift.
+	 *
+	 * Scope is the queried post's content. A block placed somewhere this cannot
+	 * see (a block widget, a template part) still renders and still styles
+	 * correctly — it simply falls back to the late-and-hoisted path, which is
+	 * where every block was before this. So the failure mode is today's
+	 * behaviour, never worse.
+	 *
+	 * @since 1.1.3
+	 */
+	public function enqueue_block_styles_early(): void {
+		if ( is_admin() ) {
+			return;
+		}
+
+		$post = get_post();
+		if ( ! $post instanceof \WP_Post || '' === (string) $post->post_content ) {
+			return;
+		}
+
+		// has_block() is a substring check against the serialized content, so
+		// this is a handful of strpos calls over one string, not a parse.
+		$registry = \WP_Block_Type_Registry::get_instance();
+		foreach ( $registry->get_all_registered() as $name => $block_type ) {
+			if ( 0 !== strpos( $name, 'buddynext/' ) ) {
+				continue;
+			}
+			if ( ! has_block( $name, $post ) ) {
+				continue;
+			}
+			foreach ( (array) $block_type->style_handles as $handle ) {
+				wp_enqueue_style( $handle );
+			}
+		}
 	}
 
 	/**
@@ -77,7 +199,7 @@ class BlockRegistrar {
 	}
 
 	/**
-	 * Register all 18 dynamic blocks.
+	 * Register all 19 dynamic blocks.
 	 *
 	 * The shared editor script (blocks.js) uses `wp.serverSideRender` to render
 	 * live SSR previews inside the block editor. That component ships as the
@@ -135,6 +257,9 @@ class BlockRegistrar {
 			'bn-connection-button'      => array( $this, 'render_connection_button' ),
 			// Spaces.
 			'bn-space-directory'        => array( $this, 'render_space_directory' ),
+			'bn-spaces-showcase'        => array( $this, 'render_spaces_showcase' ),
+			'bn-members-showcase'       => array( $this, 'render_members_showcase' ),
+			'bn-community-activity'     => array( $this, 'render_community_activity' ),
 			'bn-space-card'             => array( $this, 'render_space_card' ),
 			'bn-my-spaces'              => array( $this, 'render_my_spaces' ),
 			// Profile.
@@ -246,17 +371,38 @@ class BlockRegistrar {
 	/**
 	 * Render the Trending Hashtags block.
 	 *
+	 * `from` is translated to the hours HashtagService::get_trending() takes,
+	 * here rather than in the template, so the template never has to know how a
+	 * window label maps to a query argument.
+	 *
+	 * @since 1.1.3 from; count default 10 -> 8.
+	 *
 	 * @param array<string, mixed> $attributes Block attributes.
 	 * @return string
 	 */
 	public function render_trending_hashtags( array $attributes ): string {
-		$count   = (int) ( $attributes['count'] ?? 10 );
+		$count   = (int) ( $attributes['count'] ?? 8 );
 		$display = sanitize_key( $attributes['display'] ?? 'list' );
+
+		/*
+		 * Window labels to hours. The default is 7 days, not the service's own
+		 * 24: this block lands on landing pages and sidebars, including on
+		 * communities that are quiet or brand new, and a 24-hour window on one of
+		 * those renders the empty state every time. The service keeps its 24-hour
+		 * default so the hub widget and the REST route are untouched.
+		 */
+		$windows = array(
+			'24h' => 24,
+			'7d'  => 24 * 7,
+			'30d' => 24 * 30,
+		);
+		$from    = sanitize_key( (string) ( $attributes['from'] ?? '7d' ) );
+		$hours   = $windows[ $from ] ?? $windows['7d'];
 
 		ob_start();
 		buddynext_get_template(
 			'blocks/trending-hashtags.php',
-			compact( 'count', 'display' )
+			compact( 'count', 'display', 'hours' )
 		);
 		return (string) ob_get_clean();
 	}
@@ -284,17 +430,62 @@ class BlockRegistrar {
 	}
 
 	/**
-	 * Render the Member Card block.
+	 * Render the Member Card block — one member, presented as a featured callout.
+	 *
+	 * Renders through the shared directory grid part, so a featured member and a
+	 * member in the directory show the same badges, states and action cluster.
+	 * `size`, `showFollowAction` and `showStats` are knobs on that shared path
+	 * rather than a second copy of its markup.
+	 *
+	 * The editor has always offered "Current page context" for the member, and
+	 * this callback never resolved one: a userId of 0 fell straight through the
+	 * template's early return, so the setting saved and the block rendered
+	 * nothing. It now falls back the same way the other person-scoped blocks do,
+	 * to whoever the page is about.
+	 *
+	 * @since 1.1.3 size + showFollowAction + showStats, and the context fallback.
 	 *
 	 * @param array<string, mixed> $attributes Block attributes.
 	 * @return string
 	 */
 	public function render_member_card( array $attributes ): string {
-		$user_id = (int) ( $attributes['userId'] ?? 0 );
+		$user_id      = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
+		$size         = sanitize_key( (string) ( $attributes['size'] ?? 'full' ) );
+		$show_actions = ! isset( $attributes['showFollowAction'] ) || (bool) $attributes['showFollowAction'];
+		// The one option whose spec default is OFF: mutual connections are a
+		// signal for a member browsing a directory, not for a visitor meeting
+		// this person for the first time on a landing page.
+		$show_stats = ! empty( $attributes['showStats'] );
+
+		if ( $user_id <= 0 ) {
+			return $this->editor_hint( __( 'Choose a member to feature in the block settings, or place this block on a page with an author.', 'buddynext' ) );
+		}
 
 		ob_start();
-		buddynext_get_template( 'blocks/member-card.php', compact( 'user_id' ) );
-		return (string) ob_get_clean();
+		buddynext_get_template( 'blocks/member-card.php', compact( 'user_id', 'size', 'show_actions', 'show_stats' ) );
+		$html = (string) ob_get_clean();
+
+		if ( '' === trim( $html ) ) {
+			// Resolved to a member who cannot be shown - deleted, or a profile
+			// this viewer may not see. Silent on the front end, explained here.
+			return $this->editor_hint( __( 'That member cannot be shown. Choose another in the block settings.', 'buddynext' ) );
+		}
+
+		// Host the buddynext/members Interactivity store on the wrapper: the shared
+		// card markup carries Follow / Connect / kebab directives that resolve against
+		// a data-wp-interactive="buddynext/members" ancestor and read shared state from
+		// its context. Without it the controls rendered but were inert wherever the
+		// block was embedded. The block declares @buddynext/members as its
+		// viewScriptModule so the store actually loads.
+		return $this->wrap_block_output(
+			$html,
+			'bn-block-member-card',
+			array(
+				'data-wp-interactive' => 'buddynext/members',
+				'data-wp-context'     => buddynext_members_directory_context(),
+				'data-wp-init'        => 'callbacks.init',
+			)
+		);
 	}
 
 	/**
@@ -304,11 +495,19 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_follow_button( array $attributes ): string {
-		$user_id = (int) ( $attributes['userId'] ?? 0 );
+		$user_id = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
 
 		ob_start();
 		buddynext_get_template( 'blocks/follow-button.php', compact( 'user_id' ) );
-		return (string) ob_get_clean();
+		$html = (string) ob_get_clean();
+
+		// Silent on the front end, explained in the editor. Nothing renders when
+		// there is no member to follow (no target chosen, no page author, or the
+		// viewer is that member), and an owner looking at a blank preview cannot
+		// tell that apart from a broken block.
+		return '' === trim( $html )
+			? $this->editor_hint( __( 'Choose a member in the block settings, or place this block on a page with an author.', 'buddynext' ) )
+			: $html;
 	}
 
 	/**
@@ -318,11 +517,139 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_connection_button( array $attributes ): string {
-		$user_id = (int) ( $attributes['userId'] ?? 0 );
+		$user_id = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
 
 		ob_start();
 		buddynext_get_template( 'blocks/connection-button.php', compact( 'user_id' ) );
-		return (string) ob_get_clean();
+		$html = (string) ob_get_clean();
+
+		return '' === trim( $html )
+			? $this->editor_hint( __( 'Choose a member in the block settings, or place this block on a page with an author.', 'buddynext' ) )
+			: $html;
+	}
+
+
+	/**
+	 * Wrap a delegating block's output so its `supports` actually apply.
+	 *
+	 * Most block templates carry their own root element and call
+	 * get_block_wrapper_attributes() on it directly. Three do not: member-card,
+	 * space-card and header-user-menu hand off to a shared template part or to
+	 * HeaderUserSection::render(), so there is no root element here to attach to
+	 * without editing markup that other callers share.
+	 *
+	 * Without a wrapper, every `supports` control those blocks declare - background
+	 * colour, text colour, font size, padding, margin - saved into the block
+	 * attributes and did nothing at all. A control that renders, saves and has no
+	 * effect is a public-surface-integrity defect, not a cosmetic gap.
+	 *
+	 * Empty output stays empty: a block that renders nothing must not leave a
+	 * styled div behind on the page.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param string                $html        Buffered template output.
+	 * @param string                $class       Extra class for the wrapper.
+	 * @param array<string, string> $extra_attrs Extra wrapper attributes (e.g. the
+	 *                                           data-wp-interactive store binding for a
+	 *                                           delegating block whose card markup needs
+	 *                                           an Interactivity ancestor).
+	 * @return string
+	 */
+	private function wrap_block_output( string $html, string $class, array $extra_attrs = array() ): string {
+		if ( '' === trim( $html ) ) {
+			return '';
+		}
+
+		return sprintf(
+			'<div %1$s>%2$s</div>',
+			get_block_wrapper_attributes( array_merge( array( 'class' => $class ), $extra_attrs ) ),
+			$html
+		);
+	}
+
+	/**
+	 * A message for the block editor, and nothing at all on the front end.
+	 *
+	 * Blocks that need a target an owner has not chosen yet must say so
+	 * SOMEWHERE, or the owner sees an empty box and reads it as broken. But that
+	 * message is developer-and-owner copy: printing it on a member-facing page is
+	 * a public-surface-integrity defect in its own right, which is why the front
+	 * end renders nothing rather than a placeholder.
+	 *
+	 * The editor is told apart by the route WordPress uses to build the preview -
+	 * `wp/v2/block-renderer/...`, which ServerSideRender is the only caller of.
+	 * A bare `REST_REQUEST` check would be wrong: every front-end store call sets
+	 * it too, and the hint would leak into REST responses members read.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param string $message Owner-facing explanation.
+	 * @return string Markup for the editor preview, or '' on the front end.
+	 */
+	private function editor_hint( string $message ): string {
+		$route = isset( $GLOBALS['wp']->query_vars['rest_route'] )
+			? (string) $GLOBALS['wp']->query_vars['rest_route']
+			: '';
+
+		if ( ! defined( 'REST_REQUEST' ) || ! REST_REQUEST || ! str_contains( $route, '/block-renderer/' ) ) {
+			return '';
+		}
+
+		return sprintf(
+			'<div %1$s>%2$s</div>',
+			get_block_wrapper_attributes( array( 'class' => 'bn-block-hint' ) ),
+			esc_html( $message )
+		);
+	}
+
+	/**
+	 * Resolve which member a person-scoped block is about.
+	 *
+	 * An explicit `userId` attribute always wins. With none, fall back to whoever
+	 * the current page is ABOUT - the author of the post or page carrying the
+	 * block. That is the reading a site owner expects (a follow button dropped on
+	 * a blog post follows its author) and it is what these blocks are for:
+	 * promoting the community from ordinary pages.
+	 *
+	 * No BuddyNext-hub branch on purpose. Hub routes render through PHP templates,
+	 * not blocks, so a block never renders inside one - a branch for it would be
+	 * speculative code for a case that does not occur, and reaching the profile
+	 * owner would mean widening PageRouter's private resolution API to serve it.
+	 *
+	 * Returns 0 when there is no sensible target, and the templates then render
+	 * NOTHING. Deliberately not a placeholder: copy explaining a missing member
+	 * context is developer-facing text on a member-facing page, which the
+	 * public-surface-integrity standard treats as a defect in its own right. The
+	 * editor is where an owner learns the block needs a target.
+	 *
+	 * Before this, a block with no `userId` returned nothing with no fallback at
+	 * all, so a default insertion rendered empty and silent (Basecamp 10184505230,
+	 * 10184505206).
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param int $explicit The block's userId attribute (0 when unset).
+	 * @return int Member ID to render for, or 0 to render nothing.
+	 */
+	private function resolve_member_context( int $explicit ): int {
+		if ( $explicit > 0 ) {
+			return $explicit;
+		}
+
+		// The page's own author. get_queried_object_id() is wrong here:
+		// on an author archive it returns the author, but on a singular post it
+		// returns the POST id, which would be read as a user id.
+		$post = get_post();
+		if ( $post instanceof \WP_Post && (int) $post->post_author > 0 ) {
+			return (int) $post->post_author;
+		}
+
+		if ( is_author() ) {
+			return (int) get_queried_object_id();
+		}
+
+		return 0;
 	}
 
 	// -------------------------------------------------------------------------
@@ -348,17 +675,119 @@ class BlockRegistrar {
 	}
 
 	/**
-	 * Render the Space Card block.
+	 * Render the Community activity block.
+	 *
+	 * Reads explore_feed() and nothing else. There is deliberately no scope
+	 * attribute: the old Activity Feed block's `home` scope is what leaked a
+	 * personalised timeline onto public pages, and this block exists to be shown
+	 * to people who have not joined.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param array<string, mixed> $attributes Block attributes.
+	 * @return string
+	 */
+	public function render_community_activity( array $attributes ): string {
+		$count           = (int) ( $attributes['count'] ?? 5 );
+		$show            = sanitize_key( (string) ( $attributes['show'] ?? 'all' ) );
+		$show_space_name = ! empty( $attributes['showSpaceName'] );
+
+		ob_start();
+		buddynext_get_template(
+			'blocks/community-activity.php',
+			compact( 'count', 'show', 'show_space_name' )
+		);
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Render the Members showcase block.
+	 *
+	 * Every `source` maps onto a filter MemberDirectoryService already validates,
+	 * so no option here invents a query surface. 'picked' is the exception and is
+	 * an explicit ordered id list rather than a directory query.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param array<string, mixed> $attributes Block attributes.
+	 * @return string
+	 */
+	public function render_members_showcase( array $attributes ): string {
+		$source        = sanitize_key( (string) ( $attributes['source'] ?? 'newest' ) );
+		$member_type   = sanitize_key( (string) ( $attributes['memberType'] ?? '' ) );
+		$user_ids      = array_map( 'intval', (array) ( $attributes['userIds'] ?? array() ) );
+		$count         = (int) ( $attributes['count'] ?? 4 );
+		$layout        = sanitize_key( (string) ( $attributes['layout'] ?? 'list' ) );
+		$show_headline = ! isset( $attributes['showHeadline'] ) || (bool) $attributes['showHeadline'];
+
+		ob_start();
+		buddynext_get_template(
+			'blocks/members-showcase.php',
+			compact( 'source', 'member_type', 'user_ids', 'count', 'layout', 'show_headline' )
+		);
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Render the Spaces showcase block.
+	 *
+	 * @param array<string, mixed> $attributes Block attributes.
+	 * @return string
+	 */
+	public function render_spaces_showcase( array $attributes ): string {
+		$source           = sanitize_key( (string) ( $attributes['source'] ?? 'popular' ) );
+		$category_id      = (int) ( $attributes['categoryId'] ?? 0 );
+		$space_ids        = array_map( 'intval', (array) ( $attributes['spaceIds'] ?? array() ) );
+		$count            = (int) ( $attributes['count'] ?? 3 );
+		$layout           = sanitize_key( (string) ( $attributes['layout'] ?? 'grid' ) );
+		$show_description = ! isset( $attributes['showDescription'] ) || (bool) $attributes['showDescription'];
+
+		ob_start();
+		buddynext_get_template(
+			'blocks/spaces-showcase.php',
+			compact( 'source', 'category_id', 'space_ids', 'count', 'layout', 'show_description' )
+		);
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Render the Space Card block — one space, presented as a featured callout.
+	 *
+	 * Renders the shared directory card part, so a card in a sidebar and a card in
+	 * the spaces grid cannot drift apart. `size` and `showJoinAction` are knobs ON
+	 * that shared part rather than a second copy of its markup.
+	 *
+	 * Unlike the person-scoped blocks there is no page-context fallback: a space
+	 * has no equivalent of "the author of this page", and every BuddyNext space
+	 * route renders through a PHP template rather than a block, so a context that
+	 * could be inherited never exists. The block therefore needs an explicit
+	 * space, and says so in the editor instead of rendering an empty box.
+	 *
+	 * @since 1.1.3 size + showJoinAction.
 	 *
 	 * @param array<string, mixed> $attributes Block attributes.
 	 * @return string
 	 */
 	public function render_space_card( array $attributes ): string {
-		$space_id = (int) ( $attributes['spaceId'] ?? 0 );
+		$space_id    = (int) ( $attributes['spaceId'] ?? 0 );
+		$size        = sanitize_key( (string) ( $attributes['size'] ?? 'full' ) );
+		$show_action = ! isset( $attributes['showJoinAction'] ) || (bool) $attributes['showJoinAction'];
+
+		if ( $space_id <= 0 ) {
+			return $this->editor_hint( __( 'Choose a space to feature in the block settings.', 'buddynext' ) );
+		}
 
 		ob_start();
-		buddynext_get_template( 'blocks/space-card.php', compact( 'space_id' ) );
-		return (string) ob_get_clean();
+		buddynext_get_template( 'blocks/space-card.php', compact( 'space_id', 'size', 'show_action' ) );
+		$html = (string) ob_get_clean();
+
+		if ( '' === trim( $html ) ) {
+			// The space id is set but resolved to nothing — deleted, or not visible
+			// to this viewer. The front end stays silent; the editor explains.
+			return $this->editor_hint( __( 'That space is no longer available. Choose another in the block settings.', 'buddynext' ) );
+		}
+
+		return $this->wrap_block_output( $html, 'bn-block-space-card' );
 	}
 
 	/**
@@ -423,14 +852,18 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_profile_completion_bar( array $attributes ): string {
-		$user_id = (int) ( $attributes['userId'] ?? 0 );
+		$user_id = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
 
 		ob_start();
 		buddynext_get_template(
 			'blocks/profile-completion-bar.php',
 			compact( 'user_id' )
 		);
-		return (string) ob_get_clean();
+		$html = (string) ob_get_clean();
+
+		return '' === trim( $html )
+			? $this->editor_hint( __( 'Choose a member in the block settings, or place this block on a page with an author.', 'buddynext' ) )
+			: $html;
 	}
 
 	// -------------------------------------------------------------------------
@@ -461,11 +894,20 @@ class BlockRegistrar {
 	public function render_header_user_menu( array $attributes ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- required by register_block_type signature.
 		ob_start();
 		buddynext_get_template( 'blocks/header-user-menu.php', array() );
-		return (string) ob_get_clean();
+		return $this->wrap_block_output( (string) ob_get_clean(), 'bn-block-header-user-menu' );
 	}
 
 	/**
 	 * Render the Search Bar block.
+	 *
+	 * `searchIn` is submitted as the results page's own `type` parameter, so the
+	 * block scopes search without inventing a query surface: templates/search/
+	 * results.php already validates that value against its allowed tabs and
+	 * falls back to `all`. An unrecognised value is therefore harmless, but it
+	 * is filtered to the four the editor offers so a hand-edited block cannot
+	 * ship a hidden field naming a tab that does not exist.
+	 *
+	 * @since 1.1.3 searchIn.
 	 *
 	 * @param array<string, mixed> $attributes Block attributes.
 	 * @return string
@@ -473,8 +915,13 @@ class BlockRegistrar {
 	public function render_search_bar( array $attributes ): string {
 		$placeholder = sanitize_text_field( $attributes['placeholder'] ?? '' );
 
+		$search_in = sanitize_key( (string) ( $attributes['searchIn'] ?? 'all' ) );
+		if ( ! in_array( $search_in, array( 'all', 'members', 'spaces', 'posts' ), true ) ) {
+			$search_in = 'all';
+		}
+
 		ob_start();
-		buddynext_get_template( 'blocks/search-bar.php', compact( 'placeholder' ) );
+		buddynext_get_template( 'blocks/search-bar.php', compact( 'placeholder', 'search_in' ) );
 		return (string) ob_get_clean();
 	}
 

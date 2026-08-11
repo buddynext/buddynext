@@ -1,7 +1,7 @@
 /*
  * BuddyNext — Blocks CSS
  *
- * Frontend stylesheet loaded for all 17 BuddyNext Gutenberg blocks.
+ * Frontend stylesheet loaded for all 19 BuddyNext Gutenberg blocks.
  * Referenced as "style" in every block.json. Covers:
  *   - wp-block-buddynext-* wrapper containment + alignment
  *   - Activity feed block
@@ -15,6 +15,32 @@
  *   - Notification bell block
  *   - Search bar block
  */
+
+/* ── Shared block chrome ────────────────────────────────────────────────
+ * .bn-block-heading is the small caps title six block templates emit. It was
+ * defined only in bn-auth.css and bn-hashtags.css — two feature sheets no block
+ * declares — so every block using it rendered an unstyled heading off-hub. It is
+ * a BLOCK class, so it belongs here, in the sheet every block loads
+ * (Basecamp 10182506250).
+ * ──────────────────────────────────────────────────────────────────── */
+
+.bn-block-heading {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-bold);
+	letter-spacing: var(--bn-ls-tight);
+	color: var(--bn-ink);
+	margin: 0 0 var(--bn-s3);
+}
+
+/* Wrapper for the accept/decline pair on a received connection request. The two
+   buttons need to sit on one row with a gap; without a rule they were inline
+   with whatever whitespace the markup happened to leave. */
+.bn-connect-received {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
 
 /* ── Block wrappers ─────────────────────────────────────────────────── */
 
@@ -50,6 +76,16 @@
 .wp-block-buddynext-activity-feed {
 	max-width: 720px;
 	margin: 0 auto;
+}
+
+/* The activity-feed block renders its post cards as direct children of
+   .bn-block-activity-feed, but only .bn-feed-list (the home/profile feed) ever
+   got the flex+gap treatment — so inside the block the cards sat flush against
+   each other with no vertical rhythm. Mirror the home feed's spacing here. */
+.bn-block-activity-feed {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
 }
 
 .bn-feed-list {
@@ -129,61 +165,55 @@
 	padding: var(--bn-s4) 0;
 }
 
-/* ── Post composer block ────────────────────────────────────────────── */
+/* ── Post composer block ──────────────────────────────────────────────
+ * Rules match the markup this block emits: a card, an avatar, and a link
+ * styled as an input that sends the member to the feed to compose.
+ *
+ * What was here before styled .bn-composer / __row / __textarea / __footer —
+ * the HUB composer's BEM, emitted by templates/partials/composer.php and
+ * already defined canonically in bn-feed.css and bn-base.css. This block emits
+ * none of it. Meanwhile the two classes it DOES emit, bn-composer-input-wrap
+ * and bn-composer-trigger, were defined in no stylesheet at all, so the trigger
+ * fell back to bare .bn-input on an ordinary page (Basecamp 10182506250).
+ * ──────────────────────────────────────────────────────────────────── */
 
 .wp-block-buddynext-post-composer {
 	max-width: 720px;
 	margin: 0 auto var(--bn-s4);
 }
 
-.bn-composer {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--bn-r-lg);
-	padding: var(--bn-s4);
-}
-
-.bn-composer__row {
-	display: flex;
-	gap: var(--bn-s3);
-	align-items: flex-start;
-}
-
-.bn-composer__textarea {
-	flex: 1;
-	min-height: 80px;
-	resize: vertical;
-	padding: var(--bn-s3);
-	border: 1px solid var(--border);
-	border-radius: var(--bn-r-md);
-	font-family: var(--font-body);
-	font-size: var(--text-sm);
-	color: var(--text-1);
-	background: var(--bg-subtle);
-	line-height: var(--leading-body);
-	transition: border-color 0.15s, background 0.15s;
-	outline: none;
-}
-
-.bn-composer__textarea:focus {
-	border-color: var(--brand);
-	background: var(--surface);
-}
-
-.bn-composer__textarea::placeholder {
-	color: var(--text-3);
-}
-
-.bn-composer__footer {
+.bn-block-post-composer {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	gap: var(--bn-s3);
-	margin-top: var(--bn-s3);
 }
 
-/* .bn-composer__tools / .bn-composer__tool are defined ONCE in bn-feed.css
- * (canonical, with focus-visible ring + 18px icon sizing). No copy here. */
+.bn-block-post-composer__avatar {
+	flex: 0 0 auto;
+}
+
+.bn-composer-input-wrap {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* The trigger is an <a> wearing .bn-input, so it needs the parts an input gets
+   from the UA that a link does not: a text baseline inside the box, and the
+   placeholder's muted tone rather than link colour. */
+.bn-composer-trigger {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	color: var(--bn-ink-3);
+	text-decoration: none;
+	cursor: text;
+}
+
+.bn-composer-trigger:hover,
+.bn-composer-trigger:focus-visible {
+	color: var(--bn-ink-2);
+	border-color: var(--bn-line-strong);
+}
 
 /* ── Trending hashtags block ────────────────────────────────────────── */
 
@@ -367,30 +397,52 @@
 	/* sidebar widget */
 }
 
+/* ── My Spaces block ────────────────────────────────────────────────────
+ * Rules match the markup the template actually emits. They did not: the row is
+ * the <a class="bn-my-spaces-link">, not the <li>, so the avatar and name were
+ * laid out by an undefined class and sat unaligned; and .bn-my-spaces-item__name
+ * / __count were BEM the template had already dropped, styling nothing
+ * (Basecamp 10184505202).
+ * ──────────────────────────────────────────────────────────────────── */
+
 .bn-my-spaces-list {
 	display: flex;
 	flex-direction: column;
-	gap: var(--bn-s2);
+	gap: var(--bn-s1);
+	list-style: none;
+	margin: 0;
+	padding: 0;
 }
 
 .bn-my-spaces-item {
+	margin: 0;
+}
+
+/* The anchor is the row: it owns the layout, the padding and the hover. */
+.bn-my-spaces-link {
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s3);
 	padding: var(--bn-s2) var(--bn-s3);
 	border-radius: var(--bn-r-md);
 	text-decoration: none;
-	transition: background 0.1s;
+	color: inherit;
+	transition: background var(--bn-dur-fast, 0.14s) var(--bn-ease, ease);
 }
 
-.bn-my-spaces-item:hover {
-	background: var(--bg-hover);
+.bn-my-spaces-link:hover,
+.bn-my-spaces-link:focus-visible {
+	background: var(--bn-sunken);
 }
 
-.bn-my-spaces-item__name {
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--text-1);
+.bn-my-spaces-avatar {
+	flex-shrink: 0;
+}
+
+.bn-my-spaces-name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
 	flex: 1;
 	min-width: 0;
 	white-space: nowrap;
@@ -398,16 +450,16 @@
 	text-overflow: ellipsis;
 }
 
-.bn-my-spaces-item__count {
-	font-size: var(--text-xs);
-	color: var(--text-3);
-	flex-shrink: 0;
-}
 
 /* ── Profile header block ───────────────────────────────────────────── */
 
 .wp-block-buddynext-profile-header {
 	margin-bottom: var(--bn-s6);
+}
+
+/* Edit action in the profile header block. */
+.bn-profile-header__edit {
+	flex: 0 0 auto;
 }
 
 .bn-profile-header {
@@ -708,6 +760,14 @@
 
 /* ── Search bar block ───────────────────────────────────────────────── */
 
+/* The form is the block's own row; it was emitted with no rule at all, so the
+   icon-and-input wrap had no container to size against off-hub. */
+.bn-search-form {
+	display: flex;
+	align-items: center;
+	width: 100%;
+}
+
 .bn-search-input-wrap {
 	position: relative;
 	display: flex;
@@ -856,4 +916,212 @@
 		flex-direction: column;
 		align-items: flex-start;
 	}
+}
+
+/* ── Member Directory block ─────────────────────────────────────────────
+ * Only the block's own chrome lives here. The member cards themselves are the
+ * SHARED .bn-md-card, rendered through parts/member-directory-grid.php and
+ * styled in bn-members.css, which the block declares as a named handle — so the
+ * block and the /members/ directory cannot drift apart.
+ *
+ * The bespoke row rules that used to be here (bn-member-list, bn-member-item,
+ * bn-member-link, bn-member-item__avatar, bn-member-name, bn-member-bio) went
+ * with the bespoke markup they styled. Nothing else emitted those classes
+ * (Basecamp 10184505772).
+ * ──────────────────────────────────────────────────────────────────── */
+
+.bn-block-member-directory__toolbar,
+.bn-block-member-directory .bn-member-directory__toolbar {
+	margin-block-end: var(--bn-s3);
+}
+
+/* ── Members showcase block ─────────────────────────────────────────────
+ * Compact rows by default (avatar, name over headline, action on the right),
+ * or a card grid. Self-contained: styled here on top of the bn-base token
+ * layer so the block looks the same on any block surface in any theme, and
+ * scoped under its own root so it cannot collide with the directory grid.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.bn-block-members-showcase .bn-ms-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-block-members-showcase .bn-ms-item {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	margin: 0;
+	padding: var(--bn-s2);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+}
+
+/* Identity block is the link; the action sits outside it so a click on the
+   Follow button never navigates to the profile. */
+.bn-block-members-showcase .bn-ms-item__id {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex: 1 1 auto;
+	min-width: 0;
+	color: inherit;
+	text-decoration: none;
+}
+
+.bn-block-members-showcase .bn-ms-item__avatar {
+	flex: none;
+}
+
+.bn-block-members-showcase .bn-ms-item__initials {
+	display: grid;
+	place-items: center;
+	inline-size: 100%;
+	block-size: 100%;
+	font-weight: var(--bn-fw-bold);
+}
+
+.bn-block-members-showcase .bn-ms-item__text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 0;
+}
+
+.bn-block-members-showcase .bn-ms-item__name {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	line-height: var(--bn-leading-snug);
+}
+
+.bn-block-members-showcase .bn-ms-item__headline {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	line-height: var(--bn-leading-snug);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-block-members-showcase .bn-ms-item__action {
+	flex: none;
+	margin-inline-start: auto;
+}
+
+/* Grid renders the same row as a card in a responsive track. */
+.bn-block-members-showcase--grid .bn-ms-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: var(--bn-s2);
+}
+
+@media (max-width: 640px) {
+	.bn-block-members-showcase--grid .bn-ms-list {
+		grid-template-columns: 1fr;
+	}
+
+	.bn-block-members-showcase .bn-ms-item__headline {
+		white-space: normal;
+	}
+}
+
+/* ── Community activity block ───────────────────────────────────────────
+ * A read-only window into the public Explore feed: avatar, who did what,
+ * an excerpt that links through, and when. No composer and no reactions -
+ * this is proof the place is alive, not the feed itself.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.bn-block-community-activity .bn-ca-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-block-community-activity .bn-ca-item {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+	margin: 0;
+	padding: var(--bn-s2);
+	border-radius: var(--bn-r-md);
+}
+
+.bn-block-community-activity .bn-ca-item:hover {
+	background: var(--bn-sunken);
+}
+
+.bn-block-community-activity .bn-ca-item__avatar {
+	flex: none;
+}
+
+.bn-block-community-activity .bn-ca-item__initials {
+	display: grid;
+	place-items: center;
+	inline-size: 100%;
+	block-size: 100%;
+	font-weight: var(--bn-fw-bold);
+}
+
+.bn-block-community-activity .bn-ca-item__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 0;
+}
+
+.bn-block-community-activity .bn-ca-item__head {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	line-height: var(--bn-leading-snug);
+}
+
+.bn-block-community-activity .bn-ca-item__author,
+.bn-block-community-activity .bn-ca-item__space {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	text-decoration: none;
+}
+
+/* The excerpt is the click target through to the post permalink. Clamped so a
+   long post cannot stretch a sidebar placement out of shape. */
+.bn-block-community-activity .bn-ca-item__excerpt {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	color: var(--bn-ink);
+	text-decoration: none;
+	line-height: var(--bn-leading-snug);
+}
+
+.bn-block-community-activity .bn-ca-item__when {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	font-variant-numeric: tabular-nums;
+}
+
+/* ── Editor hint ────────────────────────────────────────────────────────
+ *
+ * Shown ONLY inside the block editor's server-side preview, by
+ * BlockRegistrar::editor_hint(), when a block needs a target the owner has not
+ * chosen yet. The front end renders nothing in that state, so this rule never
+ * paints on a member-facing page — it exists so an unconfigured block reads as
+ * "tell me which one" instead of as an empty, broken box.
+ */
+.bn-block-hint {
+	padding: var(--bn-s4);
+	border: 1px dashed var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	text-align: center;
 }

@@ -48,7 +48,7 @@ Every Layer 2 feature is also opt-out via a `buddynext_feature_{folder}` filter 
 
 ## Stat snapshot
 
-Drawn from the Free plugin's `audit/manifest.json` (the canonical inventory) and the Pro manifest. Counts reflect the current build at version `0.6.0-beta1`.
+Drawn from the Free plugin's `audit/manifest.json` (the machine-readable inventory) and the Pro manifest.
 
 | Metric | Free | Pro |
 |---|---|---|
@@ -58,11 +58,10 @@ Drawn from the Free plugin's `audit/manifest.json` (the canonical inventory) and
 | CSS files | 29 | - |
 | REST endpoints | 168 (`buddynext/v1`) | 48 (`buddynext-pro/v1`) |
 | Database tables | 41 | 22 |
-| Gutenberg blocks | 16 | 0 |
 | Unique hooks fired | 633 (619 `buddynext_*`) | 34 |
 | Cron events | 6 | 4 |
 
-> **Note:** The manifest's own header block reports an older version string than the live plugin file. The numbers above are read from the manifest's inventory sections, which the live code matches; the version is taken from the plugin header (`0.6.0-beta1`). Refresh the manifest after non-trivial changes so the inventory stays authoritative.
+> **Note:** These figures are a manifest snapshot and can lag the code between refreshes; they are regenerated at release. For the current block count see the Blocks Reference, and for the current version string see `readme.txt`. When a count here disagrees with the source, trust the source.
 
 ## How this guide is organized
 
@@ -77,13 +76,11 @@ This developer guide covers the contracts you build against:
 
 ## Where the deep specs live
 
-The website developer guide is the curated, contract-facing reference. The authoritative source material it is built from lives inside the plugin repository:
+The website developer guide is the curated, contract-facing reference. Behind it, the code is the contract - Free ships no `docs/specs/*.md`. An earlier revision of this page pointed at an `INDEX.md`, `MODULAR-ARCHITECTURE.md`, `HOOKS.md`, `REST-FRONTEND-CONTRACT.md`, `SCALE-CONTRACT.md`, and `FREE-VS-PRO.md` under `docs/specs/`, and none of them exist. Read the source instead:
 
-- `audit/manifest.json` - the canonical machine-readable inventory (REST routes, hooks fired, tables, blocks, cron). Read this before grepping.
-- `docs/specs/INDEX.md` - table of contents for every feature spec, plus the DB tables master list.
-- `docs/specs/features/00-architecture.md` and `docs/specs/MODULAR-ARCHITECTURE.md` - the bootstrap order, the five-layer model, and the cross-layer dependency rules.
-- `docs/specs/HOOKS.md` - the complete `buddynext_*` action and filter reference.
-- `docs/specs/REST-FRONTEND-CONTRACT.md` and `docs/specs/SCALE-CONTRACT.md` - the REST envelope contract and the big-site scale rules.
-- `docs/specs/features/FREE-VS-PRO.md` - the Free/Pro boundary, feature by feature.
+- `audit/manifest.json` - the machine-readable inventory (REST routes, hooks fired, tables, blocks, cron). It can lag the code after a change, so treat it as a starting index and confirm against the source.
+- The per-domain hooks pages (25-33) for the `buddynext_*` action and filter reference.
+- The template PHP file headers under `templates/` and `templates/parts/` for the template-part contracts.
+- `register_rest_route(` for routes, `do_action(` / `apply_filters(` for hooks, `FeatureRegistry::catalog()` for features, and `Installer::schema()` for the `bn_*` tables.
 
-When a spec and the source disagree, the current source wins - the specs are locked snapshots, and the manifest plus `includes/` reflect what actually ships.
+When a doc and the source disagree, the current source wins - `includes/` reflects what actually ships.

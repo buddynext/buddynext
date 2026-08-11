@@ -83,7 +83,10 @@
 	border-radius: var(--bn-r-full);
 	background: var(--bn-surface);
 	color: var(--bn-ink-2);
-	min-height: 36px;
+	/* 40px floor. These category chips are the directory's primary filter — a
+	   target, not decoration — and 36px put them under it. .bn-tab's own base is
+	   40px now; this line only ever pulled them back down. */
+	min-height: 40px;
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s1);
@@ -91,13 +94,26 @@
 	font-weight: var(--bn-fw-medium);
 }
 
+/* Category colour + icon swatch inside a filter chip. A self-contained bg/fg
+   pair (set inline from the category's colour / text_color) so it keeps its
+   contrast on both the light rest chip and the dark selected chip — the same
+   treatment the admin category pill and the space-card badge use. */
 .bn-sd-chip__icon {
 	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 18px;
+	block-size: 18px;
+	border-radius: var(--bn-r-full);
+	/* Fallback tint when a category carries no colour pair (no inline style). */
+	background: var(--bn-surface-2, var(--bn-surface));
+	color: var(--bn-ink-2);
+	flex: 0 0 auto;
 }
 
 .bn-sd-chip__icon svg {
-	width: 14px;
-	height: 14px;
+	width: 12px;
+	height: 12px;
 }
 
 .bn-tab.bn-sd-chip:hover {
@@ -116,6 +132,16 @@
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
 	gap: var(--bn-s4);
+}
+
+/* List layout — a single stacked column. The Space Directory and Spaces Showcase
+   blocks thread a Layout=List setting through to data-layout="list" on the grid
+   (and the block wrapper), but nothing consumed it, so "List" rendered identically
+   to "Grid". Collapsing to one column is the honest list rendering and reuses the
+   same card markup. Scoped to the attribute so Grid is unaffected. */
+.bn-sd-grid[data-layout="list"],
+[data-layout="list"] .bn-sd-grid {
+	grid-template-columns: 1fr;
 }
 
 /* "My Spaces" labelled sections (managed / joined). */
@@ -184,7 +210,16 @@
 	.bn-sd-grid[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-/* Space card — sits on `.bn-card[data-interactive]` from base */
+/* Space card — sits on `.bn-card[data-interactive]` from base.
+   Doubled with .bn-card for the same reason bn-members.css does it: on a block
+   surface bn-spaces.css can print BEFORE bn-base.css, and a plain .bn-sd-card
+   then loses `padding: 0` to `.bn-card`'s 24px, insetting the cover band.
+   The print order itself is fixed in BlockRegistrar::enqueue_block_styles_early();
+   this covers the block-widget / template-part surfaces that fix cannot see. */
+.bn-card.bn-sd-card {
+	padding: 0;
+}
+
 .bn-sd-card {
 	display: flex;
 	flex-direction: column;
@@ -366,6 +401,79 @@
 	align-items: center;
 	justify-content: flex-end;
 	gap: var(--bn-s2);
+}
+
+/* Compact card — the featured-space block's narrow-column size.
+   An 80px cover band is most of a sidebar's height, so compact drops the band
+   and keeps the emblem, moved out of the cover's absolute positioning to sit
+   beside the name. Everything else is the same card: same name, badge, category,
+   description, stats and action, so the two sizes stay one implementation.
+
+   The body becomes a grid rather than a nested head/text wrapper, which keeps
+   the markup a flat list of children — the category, description and footer are
+   each optional, and a wrapper-based layout would need the emblem's row span
+   recalculated every time one of them is absent.
+
+   Only the NAME shares the emblem's row. Everything below it spans the full
+   card, because the sidebar this size exists for is around 230px wide: running
+   the emblem down the whole card left the description and stats in a ~140px
+   gutter, wrapping "Creative Builders #240" over three lines beside empty
+   space. The emblem earns its column for one row and then gets out of the way. */
+.bn-sd-card[data-size="compact"] .bn-sd-card__body {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	column-gap: var(--bn-s3);
+	row-gap: var(--bn-s2);
+	align-content: start;
+	padding-block: var(--bn-s4);
+}
+
+.bn-sd-card[data-size="compact"] .bn-sd-card__emblem-link {
+	grid-column: 1;
+	grid-row: 1;
+	align-self: center;
+	display: block;
+	line-height: 0;
+}
+
+.bn-sd-card[data-size="compact"] .bn-sd-card__name-link {
+	grid-column: 2;
+	grid-row: 1;
+	align-self: center;
+}
+
+.bn-sd-card[data-size="compact"] .bn-sd-card__body > :not(.bn-sd-card__emblem-link):not(.bn-sd-card__name-link) {
+	grid-column: 1 / -1;
+}
+
+/* On the full card the emblem reads because it sits on the coloured cover: its
+   surface-coloured fill and 3px surface border are a cut-out from that band.
+   With the band gone it would be surface on surface — an invisible container,
+   leaving a bare letter or icon floating next to the name. Compact therefore
+   draws the emblem as a real tile: sunken fill, a line border, no cut-out. */
+.bn-sd-card[data-size="compact"] .bn-sd-card__emblem {
+	position: static;
+	width: 40px;
+	height: 40px;
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	box-shadow: none;
+}
+
+.bn-sd-card[data-size="compact"] .bn-sd-card__emblem svg {
+	width: 20px;
+	height: 20px;
+}
+
+.bn-sd-card[data-size="compact"] .bn-sd-card__emblem-letter {
+	font-size: var(--bn-text-lg);
+}
+
+/* No auto margin: with the cover gone there is no tall band to push the action
+   away from, and a compact card in a sidebar should close up under its content
+   rather than stretch to a neighbour's height. */
+.bn-sd-card[data-size="compact"] .bn-sd-card__foot {
+	margin-block-start: var(--bn-s1);
 }
 
 /* Sidebar list inside .bn-sidebar-card body */
@@ -1593,19 +1701,14 @@ a.bn-sh-statpill:focus-visible {
 	flex-wrap: wrap;
 }
 
-/* ── Legacy member-list / pagination wrappers (still consumed by
- * templates/profile/connections.php and templates/blocks/member-directory.php).
- * The .bn-member-card / .bn-member-name / .bn-member-handle / .bn-card-actions /
- * .bn-page-btn rules are defined ONCE in bn-members.css — do not redefine here.
- * ──────────────────────────────────────────────────────────────────── */
-
-.bn-member-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-/* .bn-pagination is the shared component — defined once in bn-base.css. */
+/* .bn-member-list is gone entirely, not relocated. It lived here — a member
+ * class in the spaces stylesheet, resolving only because bn-spaces depends on
+ * bn-members — and was moved to bn-members.css on 2026-08-09. It then turned out
+ * that the Member Directory block's bespoke list was its ONLY emitter, and that
+ * block now renders the shared .bn-md-card instead, so the class has no markup
+ * left anywhere (Basecamp 10182506250 secondary finding, 10184505772).
+ *
+ * .bn-pagination is the shared component — defined once in bn-base.css. */
 
 /* ── Space settings ─────────────────────────────────────────────────────
  * Composes from v2 primitives: .bn-card panels, .bn-tabs/.bn-tab for nav,

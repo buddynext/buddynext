@@ -238,6 +238,38 @@ class AuthController {
 			)
 		);
 
+		/*
+		 * Redeem an email-verification token.
+		 *
+		 * The web has always been able to do this through the ?bn_verify=TOKEN
+		 * link handler (VerificationListener::handle_verify_request), but that
+		 * handler answers with a REDIRECT, which a native app cannot consume --
+		 * it would have to open a web view mid-signup and read the result out of
+		 * a query string. So a member could register in the app and then not
+		 * finish verifying inside it (1.0 flow audit).
+		 *
+		 * PUBLIC on purpose, exactly like the link: the token IS the credential
+		 * and the caller is by definition not logged in yet. The route is under
+		 * /auth, which the private-community gate already exempts for the same
+		 * reason -- a guest must be able to complete sign-in on a private site.
+		 */
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/verify',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'verify_email_token' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'token' => array(
+						'type'        => 'string',
+						'required'    => true,
+						'description' => __( 'Verification token from the emailed link.', 'buddynext' ),
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/auth/verify/resend',
@@ -1907,6 +1939,75 @@ class AuthController {
 	 *
 	 * @return WP_REST_Response
 	 */
+	/**
+	 * POST /auth/verify — redeem an email-verification token.
+	 *
+	 * The REST twin of the ?bn_verify link handler, and deliberately routed
+	 * through the SAME service call and the SAME action so the two can never
+	 * diverge: anything listening for a verified email (welcome mail, approval
+	 * flow, onboarding) fires identically whether the member tapped the link in
+	 * a browser or in the app.
+	 *
+	 * Failure is intentionally not specific about WHY. A token is either good or
+	 * it is not; distinguishing "expired" from "unknown" to an unauthenticated
+	 * caller turns this into an oracle for probing tokens.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function verify_email_token( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		if ( ! VerificationListener::feature_active() ) {
+			// Verification is switched off, so no token can be valid. Say so
+			// plainly rather than failing as though the token were bad -- an app
+			// on a site that does not verify should stop asking, not retry.
+			return new WP_REST_Response(
+				array(
+					'verified' => true,
+					'required' => false,
+				),
+				200
+			);
+		}
+
+		$token = trim( (string) $request->get_param( 'token' ) );
+		if ( '' === $token ) {
+			return new WP_Error(
+				'buddynext_verify_missing_token',
+				__( 'A verification token is required.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$service = new VerificationService();
+		$result  = $service->verify( $token );
+
+		if ( is_wp_error( $result ) ) {
+			return new WP_Error(
+				'buddynext_verify_failed',
+				__( 'This verification link is no longer valid. Request a new one.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		/**
+		 * Fires after a user's email address is successfully verified.
+		 *
+		 * Same hook the web link fires — see VerificationListener.
+		 *
+		 * @param int $user_id Verified WordPress user ID.
+		 */
+		do_action( 'buddynext_email_verified', $result );
+
+		return new WP_REST_Response(
+			array(
+				'verified' => true,
+				'required' => true,
+				'user_id'  => (int) $result,
+			),
+			200
+		);
+	}
+
 	public function verification_status(): WP_REST_Response {
 		// Onboarding completion is server-authoritative so it follows the member
 		// across devices and survives a reinstall — a member who onboarded on the

@@ -396,10 +396,17 @@ class AppConfigController {
 				// Feed and search are separate owner switches and must not be
 				// folded in, or turning off a module's activity cards would also
 				// vanish its tab.
-				'enabled' => buddynext_integration_enabled( $key, 'nav' ),
+				'enabled'        => buddynext_integration_enabled( $key, 'nav' ),
 				// isset() is doing the null check too: the registry normalizes an
 				// undeclared version to null, and isset() is false for null.
-				'version' => isset( $entry['version'] ) ? (string) $entry['version'] : null,
+				'version'        => isset( $entry['version'] ) ? (string) $entry['version'] : null,
+				// Where the partner's own REST routes live, when it declares them.
+				// BuddyNext does not proxy partner data (bridge contract:
+				// reference, not embed), so this is how an app finds e.g. the
+				// gamification leaderboard the engine already serves. Null means
+				// "this integration exposes no namespace of its own", which a
+				// client must treat as "nothing to call here" rather than guessing.
+				'rest_namespace' => isset( $entry['rest_namespace'] ) ? (string) $entry['rest_namespace'] : null,
 			);
 		}
 

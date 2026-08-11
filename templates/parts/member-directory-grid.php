@@ -23,6 +23,9 @@
  * @var callable $is_following_fn Required. Helper that returns bool for a target user ID.
  * @var callable $mutual_ids_fn  Required. Helper that returns int[] mutual-connection IDs for (viewer, target). Count + avatar pile are both derived from this single call.
  * @var array    $classes        Optional. Extra CSS classes appended to `.bn-md-grid`.
+ * @var bool     $compact        Optional. Forwarded to each card: drop the cover band. Default false.
+ * @var bool     $show_actions   Optional. Forwarded to each card: render Follow / Connect. Default true.
+ * @var bool     $show_stats     Optional. Forwarded to each card: render the mutuals line. Default true.
  *
  * Fires:
  *   - do_action( 'buddynext_part_member_directory_grid_before', $args )
@@ -49,6 +52,13 @@ $args = array(
 	'is_following_fn' => isset( $is_following_fn ) && is_callable( $is_following_fn ) ? $is_following_fn : null,
 	'mutual_ids_fn'   => isset( $mutual_ids_fn ) && is_callable( $mutual_ids_fn ) ? $mutual_ids_fn : null,
 	'classes'         => isset( $classes ) ? (array) $classes : array(),
+	// Per-card presentation, forwarded verbatim. The grid holds no opinion on
+	// them; it exists here so a caller that renders through the grid (the
+	// featured-member block) can reach the card's knobs without a second copy
+	// of the card markup.
+	'compact'         => ! empty( $compact ),
+	'show_actions'    => ! isset( $show_actions ) || (bool) $show_actions,
+	'show_stats'      => ! isset( $show_stats ) || (bool) $show_stats,
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -246,6 +256,9 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'avatar_url'        => $bn_avatar_url,
 				'initials'          => $bn_initials_text,
 				'messages_url'      => $bn_messages_url,
+				'compact'           => (bool) $args['compact'],
+				'show_actions'      => (bool) $args['show_actions'],
+				'show_stats'        => (bool) $args['show_stats'],
 			)
 		);
 		?>

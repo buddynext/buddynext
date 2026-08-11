@@ -19,6 +19,19 @@ import { bnConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnClampPopoverToViewport, bnEmojiAssetBase } from './shared.js';
 
+/**
+ * Neutral reaction glyph for a slug with no vendored emoji asset. Mirrors the SSR
+ * fallback in templates/parts/post-reaction-summary.php: an unresolvable (orphaned)
+ * reaction slug must NEVER render as raw text on a card — a bare "orphanslug"-style
+ * token is the "slug on activity" defect — so both sides show the same small smile.
+ */
+const REACTION_FALLBACK_GLYPH =
+	'<span class="bn-post-card__reaction-fallback" aria-hidden="true">' +
+	'<svg class="bn-icon bn-icon--smile bn-icon--sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" ' +
+	'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+	'<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/>' +
+	'<line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg></span>';
+
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
 /**
@@ -181,9 +194,7 @@ function updateReactionSummary( cardEl, body ) {
 		const count = Number( row && row.count ) || 0;
 		if ( count < 1 ) return;
 		// row.emoji is server-rendered, sanitized emoji markup (IconService).
-		const emoji = row.emoji
-			? String( row.emoji )
-			: '<span class="bn-post-card__reaction-fallback">' + escapeHtml( row.slug ) + '</span>';
+		const emoji = row.emoji ? String( row.emoji ) : REACTION_FALLBACK_GLYPH;
 		chips +=
 			'<span class="bn-post-card__summary-chip bn-post-card__summary-chip--reaction">' +
 			emoji + ' ' + count + '</span>';

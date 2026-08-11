@@ -211,30 +211,29 @@ if ( ! empty( $bn_count_ids ) ) {
 	);
 }
 
-// Categories list for the create-space modal (expects objects with ->id/->name).
+// Categories list for the create-space modal (expects objects with ->id/->name)
+// and the filter-chip row. colour / text_color / icon_svg travel too: the chip
+// row renders the category's own colour + icon, and dropping them here was why
+// the frontend chips showed a plain grey pill while the admin showed the styled
+// one. The create-space modal simply ignores the extra fields.
 $categories = array_map(
 	static fn( $c ) => (object) array(
-		'id'   => (int) $c['id'],
-		'name' => (string) $c['name'],
-		'slug' => (string) $c['slug'],
+		'id'         => (int) $c['id'],
+		'name'       => (string) $c['name'],
+		'slug'       => (string) $c['slug'],
+		'color'      => (string) ( $c['color'] ?? '' ),
+		'text_color' => (string) ( $c['text_color'] ?? '' ),
+		'icon_svg'   => (string) ( $c['icon_svg'] ?? '' ),
 	),
 	$bn_categories
 );
 
 // ── Per-space tone palette (deterministic by id) ──────────────────────────────
 
-if ( ! function_exists( 'bn_space_cover_tone' ) ) {
-	/**
-	 * Return a cover-tone slug from a deterministic palette.
-	 *
-	 * @param int $space_id Space ID used to pick a tone.
-	 * @return string Tone slug consumed by `.bn-sd-card__cover[data-tone]`.
-	 */
-	function bn_space_cover_tone( int $space_id ): string {
-		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
-		return $tones[ $space_id % count( $tones ) ];
-	}
-}
+// bn_space_cover_tone() is a global helper (buddynext.php), beside
+// bn_space_category_icon(), so every caller of the shared space-card part —
+// this directory, the My Spaces sections and the featured-space block — reads
+// one definition.
 
 // bn_space_side_emblem() (avatar-or-category-icon row glyph) formerly lived
 // here; the spaces-directory sidebar it served now renders via
@@ -358,6 +357,21 @@ $bn_subtitle = sprintf(
 			<?php // Category chips refine the All-spaces directory (reactive); they don't apply to the sectioned My Spaces view, so hide them there. ?>
 			<?php if ( ! $bn_is_mine ) : ?>
 				<?php foreach ( $categories as $bn_cat_item ) : ?>
+					<?php
+						// The category's own colour + icon as a small leading swatch — the
+						// same signal the admin pill and space-card badge carry, so a
+						// category reads consistently everywhere. The swatch is a
+						// self-contained bg/fg pair, so it keeps contrast on both the light
+						// rest chip and the dark selected chip. Dropping colour + icon from
+						// the $categories map above is what left these chips a plain grey
+						// pill while the admin showed the styled one.
+						$bn_chip_bg     = (string) ( $bn_cat_item->color ?? '' );
+						$bn_chip_fg     = (string) ( $bn_cat_item->text_color ?? '' );
+						$bn_chip_swatch = ( '' !== $bn_chip_bg && '' !== $bn_chip_fg )
+							? ' style="' . esc_attr( sprintf( 'background:%1$s;color:%2$s;', $bn_chip_bg, $bn_chip_fg ) ) . '"'
+							: '';
+						$bn_chip_icon   = bn_space_category_icon( (string) $bn_cat_item->slug, (string) $bn_cat_item->icon_svg );
+					?>
 					<button
 						type="button"
 						class="bn-tab bn-sd-chip"
@@ -367,7 +381,7 @@ $bn_subtitle = sprintf(
 						data-bn-cat-id="<?php echo esc_attr( (string) $bn_cat_item->id ); ?>"
 						data-bn-cat-slug="<?php echo esc_attr( (string) $bn_cat_item->slug ); ?>"
 						data-wp-on--click="actions.setScope"
-					><?php echo esc_html( $bn_cat_item->name ); ?></button>
+					><span class="bn-sd-chip__icon" aria-hidden="true"<?php echo $bn_chip_swatch; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped attribute string built from esc_attr(). ?>><?php echo $bn_chip_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bn_space_category_icon() returns a wp_kses'd SVG. ?></span><?php echo esc_html( $bn_cat_item->name ); ?></button>
 				<?php endforeach; ?>
 			<?php endif; ?>
 		</nav>

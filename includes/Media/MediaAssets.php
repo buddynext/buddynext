@@ -59,10 +59,16 @@ class MediaAssets {
 		$css_ver  = file_exists( $css_path ) ? $base_ver . '.' . (string) filemtime( $css_path ) : $base_ver;
 		$js_ver   = file_exists( $js_path ) ? $base_ver . '.' . (string) filemtime( $js_path ) : $base_ver;
 
+		// bn-base, like every other BuddyNext feature stylesheet: bn-media.css
+		// authors against the --bn-* tokens bn-base defines, so it has to load
+		// after it. Declared here rather than left to enqueue order, because
+		// order is not a guarantee — a stylesheet reached through a block gets
+		// hoisted into the head by WordPress 6.9's wp_hoist_late_printed_styles()
+		// and can land above anything it does not name as a dependency.
 		wp_enqueue_style(
 			'bn-media',
 			$url . 'assets/css/bn-media.css',
-			array(),
+			array( 'bn-base' ),
 			$css_ver
 		);
 

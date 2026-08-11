@@ -55,10 +55,30 @@ final class Handle {
 	 * The single definition. Every PHP parser calls this; the composer typeahead
 	 * receives {@see self::CHARSET} from PHP rather than repeating it in JS.
 	 *
+	 * The leading look-behind is what separates a mention from an email address.
+	 * A mention's `@` always opens a token, so it is preceded by the start of the
+	 * string or by something that is not part of a word; an email address's `@`
+	 * is always preceded by its local part. Without this, `support@example.com`
+	 * was read as a mention of `example` — which broke in BOTH directions at
+	 * once, because this pattern has four consumers:
+	 *
+	 *   - the renderer, which sliced the address into three pieces and linked the
+	 *     middle one to a member profile that does not exist (a 404 in the most
+	 *     -read posts on a site, since addresses live in welcome/FAQ copy);
+	 *   - the post, comment and Jetonomy mention parsers, which NOTIFIED whoever
+	 *     owns that local-part that they had been mentioned in a post that never
+	 *     mentioned them.
+	 *
+	 * The second half is the one nobody reported and the reason this fix belongs
+	 * here rather than in the renderer: one pattern, one place, all four callers.
+	 *
+	 * A `.` is excluded alongside word characters so a dotted local part
+	 * (`first.last@example.com`) is not mistaken for a mention either.
+	 *
 	 * @return string A PCRE pattern with the unicode flag.
 	 */
 	public static function mention_regex(): string {
-		return '/@([' . self::CHARSET . ']+)/u';
+		return '/(?<![\w.])@([' . self::CHARSET . ']+)/u';
 	}
 
 	/**

@@ -55,6 +55,24 @@ class AssetService {
 		add_action( 'wp_enqueue_scripts', array( $this, 'inject_interactivity_i18n' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 
+		/*
+		 * Also register on enqueue_block_assets, which fires in the EDITOR as
+		 * well as the front end.
+		 *
+		 * Every block.json names its stylesheet by handle (bn-spaces, bn-profile,
+		 * bn-feed …). Those handles were only ever registered on
+		 * wp_enqueue_scripts — a front-end-only hook — so inside the block editor
+		 * they did not exist, and a block's `style`/`editorStyle` handle resolved
+		 * to nothing. That is the real reason every server-rendered preview
+		 * painted unstyled in the editor: not a missing declaration, a missing
+		 * REGISTRATION (Basecamp 10182433255).
+		 *
+		 * wp_register_style() is a no-op for a handle that already exists, so
+		 * running this in both contexts is safe and keeps one definition of every
+		 * handle instead of a second admin-side copy that could drift.
+		 */
+		add_action( 'enqueue_block_assets', array( $this, 'register_assets' ) );
+
 		// BuddyNext is the style-guide boss: always load bn-base (fonts + tokens)
 		// on every frontend page so Jetonomy and WPMediaVerse pick up the design
 		// system via their var() token chains regardless of which plugin's page

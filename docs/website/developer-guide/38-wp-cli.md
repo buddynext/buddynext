@@ -1,6 +1,6 @@
 # WP-CLI Commands
 
-BuddyNext registers up to four WP-CLI command namespaces in Free: `wp buddynext demo` (the demo-data seeder), `wp buddynext cert` (the functional-certification harness), `wp buddynext repair-space-owners` (a one-off orphan sweep), and `wp buddynext qa-fixtures` (deterministic QA data - **development trees only**). All are registered in `Plugin::init()` and load only when WP-CLI is running. This page documents their subcommands, what they seed or verify, and example invocations.
+BuddyNext registers up to six WP-CLI command namespaces in Free: `wp buddynext demo` (the demo-data seeder), `wp buddynext cert` (the functional-certification harness), `wp buddynext repair-space-owners` (a one-off orphan sweep), `wp buddynext repair-discussion-visibility` (a one-off visibility sweep for discussions provisioned before visibility was derived from the space type), `wp buddynext handles` (check / repair member handles that mentions cannot parse), and `wp buddynext qa-fixtures` (deterministic QA data - **development trees only**). All are registered in `Plugin::init()` and load only when WP-CLI is running. This page documents their subcommands, what they seed or verify, and example invocations.
 
 ![The Platform > Tools admin tab for maintenance and CLI-adjacent operations](../images/admin-tools.webp)
 
@@ -14,6 +14,8 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
     \WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
     \WP_CLI::add_command( 'buddynext cert', new \BuddyNext\Cert\CertCommand() );
     \WP_CLI::add_command( 'buddynext repair-space-owners', \BuddyNext\Spaces\SpaceOwnerRepairCommand::class );
+    \WP_CLI::add_command( 'buddynext repair-discussion-visibility', \BuddyNext\Bridges\DiscussionVisibilityRepairCommand::class );
+    \WP_CLI::add_command( 'buddynext handles', new \BuddyNext\Profile\HandleCommand() );
 
     // Registered only when dev/QaFixturesCommand.php is present.
     $bn_qa_fixtures = BUDDYNEXT_DIR . 'dev/QaFixturesCommand.php';

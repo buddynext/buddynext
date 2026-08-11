@@ -64,6 +64,6 @@ Connections work out of the box with no required configuration. The connect flow
 
 ## The Connect Button block
 
-BuddyNext ships a Connect button as a block you can place in the WordPress editor, so a site owner can add the connect control to any page, template, or pattern.
+The Connect control renders automatically in profile context - the profile header and member cards - so members get the connect control without any setup. The standalone Connect button block is no longer offered in the block inserter.
 
-The block renders the same control members see on profiles and member cards, and it reflects the current state for the viewer: Connect, Pending (request sent), Accept / Decline (request received), or Connected. It respects the connection-note setting, so when the note step is off the button is one click.
+The control reflects the current state for the viewer: Connect, Pending (request sent), Accept / Decline (request received), or Connected. It respects the connection-note setting, so when the note step is off the button is one click.

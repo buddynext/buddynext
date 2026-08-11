@@ -583,6 +583,9 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			'bn_post_id'        => $bn_post_id,
 			'bn_post_type'      => $bn_post_type,
 			'post_content'      => $post_content,
+			// The body needs to know whether it is being PREVIEWED in a feed or
+			// READ on its own page — those want opposite things from a long post.
+			'context'           => $context,
 			'link_preview'      => array(
 				'url'    => $link_url,
 				'title'  => $link_title,

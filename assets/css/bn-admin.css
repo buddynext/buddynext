@@ -217,6 +217,83 @@
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
+   Notice — inline success/error flash messages
+
+   Shared across every BuddyNext admin screen (Members, Spaces > Categories,
+   Member Types, ...). This lives in bn-admin.css — loaded site-wide on BN
+   admin and the home of the --bn-a-* tokens these rules use — rather than in a
+   page-specific stylesheet. It previously lived only in bn-admin-members.css,
+   so the notice rendered unstyled (plain text + a bare dismiss glyph) on every
+   screen except Members, which was the only page that loaded that file. The
+   dismiss button is injected site-wide by bn-admin-dialogs.js initNotices(),
+   so its styling has to be equally site-wide.
+   -------------------------------------------------------------------------- */
+
+.bn-notice {
+	position: relative;
+	/* Room for the dismiss button so a long message never runs under it. The
+	   inline-end padding is the button's own width plus a gutter. */
+	padding: var(--bn-a-s3) var(--bn-a-s10, 2.5rem) var(--bn-a-s3) var(--bn-a-s4);
+	border-radius: var(--bn-a-r-sm);
+	margin-bottom: var(--bn-a-s4);
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-medium);
+}
+
+/* Added by bn-admin-dialogs.js, so it only exists when it can actually work.
+   Inset positioning rather than right/left keeps it on the correct side in RTL. */
+.bn-notice__dismiss {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-end: var(--bn-a-s2);
+	transform: translateY(-50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	/* Keeps the pointer target usable without overpowering a slim notice.
+	   Fallbacks are deliberate: an unresolved var() invalidates the whole
+	   declaration, and this button then collapses to the glyph's own 11x18 --
+	   which is exactly what happened when this first shipped against
+	   --bn-a-s7, a token that does not exist in the admin scale. */
+	inline-size: var(--bn-a-s8, 2rem);
+	block-size: var(--bn-a-s8, 2rem);
+	padding: 0;
+	border: 0;
+	border-radius: var(--bn-a-r-sm);
+	background: none;
+	/* Inherit so the button reads as part of its own notice rather than
+	   introducing a third colour on a green or red ground. */
+	color: inherit;
+	font-size: var(--bn-a-text-lg);
+	line-height: 1;
+	opacity: 0.7;
+	cursor: pointer;
+}
+
+.bn-notice__dismiss:hover,
+.bn-notice__dismiss:focus-visible {
+	opacity: 1;
+	background: rgba( 0, 0, 0, 0.06 );
+}
+
+.bn-notice__dismiss:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: -2px;
+}
+
+.bn-notice-success {
+	background: var(--bn-a-green-bg);
+	color: var(--bn-a-green);
+	border: 1px solid var(--bn-a-green-bg);
+}
+
+.bn-notice-error {
+	background: var(--bn-a-red-bg);
+	color: var(--bn-a-red);
+	border: 1px solid var(--bn-a-red-bg);
+}
+
+/* --------------------------------------------------------------------------
    Page wrap
    -------------------------------------------------------------------------- */
 
@@ -838,17 +915,25 @@ select.bn-text-input {
  * pseudo-element thumbs (one from base, one from admin).
  */
 /*
- * The settings template renders the checkbox INSIDE the .bn-toggle label
- * (screen-reader-only) with no JS to add the .on class, so the visual never
- * reflected the checked state. Drive the active state straight from the nested
- * checkbox with :has() — pure CSS, correct on load, no flash. The legacy .on
- * class is kept for any JS-driven toggles elsewhere.
+ * A toggle paints from the DOM, never from a server-rendered class.
+ *
+ * When the checkbox lives INSIDE the .bn-toggle label (screen-reader-only),
+ * :has(:checked) is the whole state — pure CSS, correct on load, no flash, and
+ * it follows the member's click with no JS at all.
+ *
+ * The legacy `.on` class remains for genuinely JS-driven toggles that have no
+ * nested checkbox, but it is now scoped AWAY from the ones that do. Written as
+ * a plain OR it painted the track lit whenever either matched, so a template
+ * that baked `.on` in server-side (PushPrefsAdmin did) kept the toggle looking
+ * ON after the member switched it OFF: :has() correctly stopped matching and
+ * the stale class outvoted it. A control must never be able to claim a state
+ * the DOM contradicts.
  */
-.bn-toggle.on,
+.bn-toggle:not( :has( input[type="checkbox"] ) ).on,
 .bn-toggle:has( input[type="checkbox"]:checked ) { background: var(--bn-accent); }
-.bn-toggle.on::before,
+.bn-toggle:not( :has( input[type="checkbox"] ) ).on::before,
 .bn-toggle:has( input[type="checkbox"]:checked )::before { transform: translateX(var(--bn-toggle-travel, 18px)); }
-[dir="rtl"] .bn-toggle.on::before,
+[dir="rtl"] .bn-toggle:not( :has( input[type="checkbox"] ) ).on::before,
 [dir="rtl"] .bn-toggle:has( input[type="checkbox"]:checked )::before { transform: translateX(calc(-1 * var(--bn-toggle-travel, 18px))); }
 
 /* Make sure the hidden checkbox inside the label stays clipped. */

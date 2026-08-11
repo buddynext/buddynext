@@ -98,6 +98,18 @@ class FollowController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_suggestions' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					// This route declared no args at all and returned bare ids, so
+					// an app rendering "who to follow" had to fetch one profile per
+					// suggestion just to draw a name and an avatar. Same expansion
+					// contract the connections and bookmarks routes already use.
+					'expand' => array(
+						'required'          => false,
+						'type'              => 'string',
+						'description'       => 'Comma-separated expansions. `members` returns hydrated member objects (avatar, handle, headline, follow state) alongside the ids, in one batched call.',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
 			)
 		);
 
@@ -560,7 +572,7 @@ class FollowController extends BaseRestController {
 	 *
 	 * @return WP_REST_Response
 	 */
-	public function get_suggestions(): WP_REST_Response {
+	public function get_suggestions( WP_REST_Request $request ): WP_REST_Response {
 		$current_id = get_current_user_id();
 		// FollowService::suggestions() already excludes blocked users (either
 		// direction), moderation-hidden users, self, and already-followed, so the
@@ -572,6 +584,16 @@ class FollowController extends BaseRestController {
 		// stays a suggestion list, not the whole pool.
 		$suggestions = buddynext_sample_ranked( $pool, 24 );
 
-		return new WP_REST_Response( array( 'ids' => $suggestions ), 200 );
+		$response = array( 'ids' => $suggestions );
+
+		// Additive: the ids-only shape stays the default so existing callers are
+		// untouched, and `members` is hydrated in ONE batched call rather than one
+		// request per suggestion.
+		$expanded = $this->maybe_expand_members( $request, $suggestions, $current_id );
+		if ( null !== $expanded ) {
+			$response['members'] = $expanded;
+		}
+
+		return new WP_REST_Response( $response, 200 );
 	}
 }

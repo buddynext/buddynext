@@ -53,13 +53,43 @@
 	padding: 0;
 }
 
+/* Featured Member block: one card. It keeps the directory's own responsive
+   track sizing — so it is a card-sized card in a wide column and fills a narrow
+   one — but is exempt from every rule that fixes a COLUMN COUNT. A count is a
+   statement about many cards; applied to one it just divides the container and
+   squeezes the single card into a fraction of it.
+
+   That exemption is the fix, and it was not decorative. The grid part emits
+   data-cols unconditionally, so this grid also carried data-cols="3" and was
+   laid out as three fixed tracks: in a 25% sidebar the card got 67px and
+   rendered the member's name one character per line. The 768px rule below
+   (a fixed 2-up) did the same thing on tablet.
+
+   Doubled class on purpose: three of those rules are later single-class
+   selectors on .bn-md-grid, so a plain `.bn-md-grid--single` lost to all of
+   them whatever it declared. Matching both classes outranks them by
+   specificity, which is what makes this hold without a counter-rule being added
+   to each new breakpoint. */
+.bn-md-grid.bn-md-grid--single {
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
 /* Owner-set fixed desktop column count (Settings > General > Member directory).
 	Applies only on desktop (≥1025px) so the responsive breakpoints below still
-	step the directory down to 2 then 1 on tablet/mobile; never overrides list view. */
+	step the directory down to 2 then 1 on tablet/mobile; never overrides list view.
+
+	The --single exclusion is load-bearing, not defensive. The grid part emits
+	data-cols unconditionally, so the one-card Featured Member render carried
+	data-cols="3" too — and these rules are later AND more specific than
+	.bn-md-grid--single above, so they won. A featured member in a 25% sidebar
+	was laid out as three 67px tracks with the card in one of them, rendering the
+	member's name one character per line. It never showed at full width because a
+	third of the content column is roughly a normal card. An owner's directory
+	column preference is about the DIRECTORY; it has no meaning for one card. */
 @media (min-width: 1025px) {
-	.bn-md-grid[data-cols="2"]:not(.is-list) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-	.bn-md-grid[data-cols="3"]:not(.is-list) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-	.bn-md-grid[data-cols="4"]:not(.is-list) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+	.bn-md-grid[data-cols="2"]:not(.is-list):not(.bn-md-grid--single) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.bn-md-grid[data-cols="3"]:not(.is-list):not(.bn-md-grid--single) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.bn-md-grid[data-cols="4"]:not(.is-list):not(.bn-md-grid--single) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 /* ── View toggle (grid / list) ──────────────────────────────────────────────
@@ -69,6 +99,12 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 2px;
+}
+
+/* Icon-only toggle: the base ladder gives it the 40px height, but nothing gives
+   it width — there is no label to widen the box. Square it off. */
+.bn-md-filters__view-btn {
+	min-inline-size: 40px;
 }
 
 .bn-md-filters__view-btn[aria-pressed="true"] {
@@ -170,7 +206,26 @@
 	}
 }
 
-/* ── Member card composition (uses .bn-card[data-interactive] from base) ── */
+/* ── Member card composition (uses .bn-card[data-interactive] from base) ──
+ *
+ * Doubled with .bn-card so `padding: 0` outranks `.bn-card`'s own
+ * `padding: var(--bn-s6)` by specificity rather than by source order.
+ *
+ * The ordering itself is fixed in PHP — BlockRegistrar::enqueue_block_styles_early()
+ * puts a block's stylesheets in the queue during wp_enqueue_scripts, so they no
+ * longer print late and no longer get hoisted above bn-base by WordPress 6.9's
+ * wp_hoist_late_printed_styles(). Read that method for the full mechanism.
+ *
+ * This stays because that fix can only see blocks in the QUERIED POST's content.
+ * A card rendered from a block widget or a template part still takes the
+ * late-and-hoisted path, and there bn-members.css lands above bn-base.css again.
+ * Not redundant, and not a leftover: it is what covers the surfaces the PHP fix
+ * cannot reach. A component that overrides its base primitive should say so by
+ * specificity anyway. */
+.bn-card.bn-md-card {
+	padding: 0;
+}
+
 .bn-md-card {
 	position: relative;
 	display: flex;
@@ -387,11 +442,15 @@
 	flex-wrap: wrap;
 }
 
+/* 40px is the tap-target floor. This said 38px — close enough to look
+   deliberate, and 2px under the rule. These are the card's primary actions
+   (Follow, Connect), not a compact admin list, so the density exception that
+   allows 34px does not apply to them. */
 .bn-md-card__actions .bn-btn {
 	flex: 1 1 0;
-	min-block-size: 38px;
 	min-inline-size: 0;
 }
+
 
 .bn-md-card__actions .bn-md-card__follow,
 .bn-md-card__actions .bn-md-card__connect-primary {
@@ -667,14 +726,19 @@
 	flex: 0 0 auto;
 }
 
-/* Member-type filter <select> — sits between search and the online toggle. */
+/* Member-type filter <select> — sits between search and the online toggle.
+   No min-block-size: .bn-select is 40px in bn-base.css already, and pinning it
+   here ALSO beat the touch block's 44px floor — same specificity (0,1,0), later
+   sheet — so this select stayed 40px on a phone while every input beside it grew. */
 .bn-md-strip__type {
 	flex: 0 1 auto;
-	min-block-size: 40px;
 }
 
-/* "Online only" toggle — a checkbox styled as a pill-height control so the
-	whole label is a 40px tap target. Tokens only; presence dot reuses the
+/* "Online only" toggle — a checkbox styled as a pill-height control so the whole
+	LABEL is the tap target (the native checkbox inside it is 16px and is not
+	meant to be aimed at). 40px is the desktop floor; the touch block in
+	bn-base.css cannot reach a component class, so the 44px touch floor is
+	restated at the bottom of this file. Tokens only; presence dot reuses the
 	directory success token. */
 .bn-md-strip__online {
 	flex: 0 0 auto;
@@ -971,4 +1035,87 @@
 	color: var(--bn-danger);
 	border-color: color-mix(in oklab, var(--bn-danger) 35%, var(--bn-line));
 	background: var(--bn-danger-bg);
+}
+
+/* ── Compact member card ────────────────────────────────────────────────
+ *
+ * The featured-member block's narrow-column size. Mirrors the compact space
+ * card: the 76px cover band goes, the avatar comes out of its absolute
+ * overlap and sits beside the name.
+ *
+ * The card becomes the grid, not the body, because `.bn-md-card__avatar-link`
+ * is a SIBLING of the body — the avatar could not share a row with the name if
+ * the body owned the layout. `display: contents` on the body (and, already
+ * globally, on the identity group) hoists the name and handle up to the same
+ * grid, so avatar / name / handle line up without a single wrapper element
+ * being added to markup the directory also renders.
+ *
+ * Only the name and handle share the avatar's rows. Everything below them
+ * spans the card, so the ~230px sidebar this size exists for does not run a
+ * 44px gutter down its whole height.
+ */
+.bn-md-card[data-size="compact"] {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	column-gap: var(--bn-s3);
+	row-gap: var(--bn-s1);
+	align-content: start;
+	padding: var(--bn-s4);
+}
+
+/* The body's own padding cleared the overlapping avatar; with display:contents
+   it generates no box, so the padding above moves onto the card. */
+.bn-md-card[data-size="compact"] .bn-md-card__body {
+	display: contents;
+}
+
+.bn-md-card[data-size="compact"] .bn-md-card__avatar-link {
+	position: static;
+	grid-column: 1;
+	grid-row: 1 / span 2;
+	align-self: center;
+}
+
+/* A 3px surface-coloured ring is a cut-out from the cover gradient. Without the
+   cover it is invisible, so compact draws a real border instead. */
+.bn-md-card[data-size="compact"] .bn-md-card__avatar-link .bn-avatar {
+	width: 44px;
+	height: 44px;
+	font-size: var(--bn-text-base);
+	border: 1px solid var(--bn-line);
+	box-shadow: none;
+}
+
+/* The kebab menu is absolutely pinned top-right. On the full card it floats
+   over the cover band, well clear of the name below it; in compact the name IS
+   the top row, so a long name (or its degree badge) ran underneath the button.
+   Reserve the gutter unconditionally so the row does not reflow between a
+   logged-out visitor, who gets no kebab, and a member, who does. */
+.bn-md-card[data-size="compact"] .bn-md-card__name {
+	grid-column: 2;
+	grid-row: 1;
+	padding-inline-end: var(--bn-s6);
+}
+
+.bn-md-card[data-size="compact"] .bn-md-card__handle {
+	grid-column: 2;
+	grid-row: 2;
+}
+
+.bn-md-card[data-size="compact"] .bn-md-card__body > :not(.bn-md-card__identity) {
+	grid-column: 1 / -1;
+}
+
+.bn-md-card[data-size="compact"] .bn-md-card__actions {
+	margin-block-start: 0;
+	padding-block-start: var(--bn-s2);
+}
+
+/* Touch floor for the directory's own composite controls. bn-base.css raises
+   every primitive to 44px on touch, but .bn-md-strip__online is a LABEL acting
+   as a control, so no primitive selector reaches it. */
+@media (pointer: coarse), (max-width: 768px) {
+	.bn-md-strip__online {
+		min-block-size: 44px;
+	}
 }

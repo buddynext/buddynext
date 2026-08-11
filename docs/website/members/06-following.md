@@ -61,6 +61,6 @@ The one owner-facing control that touches following is the notification default 
 
 ## The Follow Button block
 
-BuddyNext ships a Follow button as a block you can place in the WordPress editor, so a site owner can add a one-click Follow control to any page, template, or pattern.
+The Follow control renders automatically in profile context - the profile header and member cards - so members get a one-click Follow / Following button, including the pending state for follow requests on private accounts, without any setup. The standalone Follow button block is no longer offered in the block inserter.
 
-The block renders the same Follow / Following control members see on profiles and member cards, including the pending state for follow requests on private accounts. It only does something for a logged-in member viewing another member - it will not offer a self-follow.
+The control only does something for a logged-in member viewing another member - it will not offer a self-follow.

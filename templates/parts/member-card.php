@@ -30,6 +30,11 @@
  * @var string         $initials           Optional. Initials fallback. Default ''.
  * @var string         $messages_url       Optional. Pre-built per-member messages URL. Default ''.
  * @var array          $classes            Optional. Extra CSS classes appended to `.bn-md-card`.
+ * @var bool           $compact            Optional. Drop the cover band for narrow columns. Default false.
+ * @var bool           $show_actions       Optional. Render the social action cluster (Follow / Connect).
+ *                                         Navigation - View profile, Edit profile - is never suppressed,
+ *                                         so a card is never a dead end. Default true.
+ * @var bool           $show_stats         Optional. Render the mutual-connections line. Default true.
  *
  * Fires:
  *   - do_action( 'buddynext_part_member_card_before', $args )
@@ -65,6 +70,12 @@ $args = array(
 	'initials'          => isset( $initials ) ? (string) $initials : '',
 	'messages_url'      => isset( $messages_url ) ? (string) $messages_url : '',
 	'classes'           => isset( $classes ) ? (array) $classes : array(),
+	// Presentation knobs. All three default to the directory's card, so every
+	// existing caller is unchanged; the featured-member block is the only one
+	// that sets them.
+	'compact'           => ! empty( $compact ),
+	'show_actions'      => ! isset( $show_actions ) || (bool) $show_actions,
+	'show_stats'        => ! isset( $show_stats ) || (bool) $show_stats,
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -98,6 +109,9 @@ $bn_display_name = (string) $bn_member->display_name;
 $bn_member_handle = \BuddyNext\Core\PageRouter::member_handle( $bn_member_id );
 $bn_viewer_id     = (int) $args['viewer_id'];
 $bn_is_following  = (bool) $args['is_following'];
+$bn_md_compact    = (bool) $args['compact'];
+$bn_md_actions    = (bool) $args['show_actions'];
+$bn_md_stats      = (bool) $args['show_stats'];
 $bn_conn_state    = (string) $args['connection_state'];
 $bn_conn_status   = (string) $args['connection_status'];
 $bn_is_muted      = (bool) $args['is_muted'];
@@ -172,6 +186,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 	data-interactive
 	role="listitem"
 	data-user-id="<?php echo esc_attr( (string) $bn_member_id ); ?>"
+	data-size="<?php echo $bn_md_compact ? 'compact' : 'full'; ?>"
 	data-wp-context="<?php echo esc_attr( (string) $bn_card_ctx ); ?>"
 	data-wp-on-document--click="actions.closeCardMenuOnOutside"
 >
@@ -224,7 +239,9 @@ do_action( 'buddynext_part_member_card_before', $args );
 		</div>
 	<?php endif; ?>
 
+	<?php if ( ! $bn_md_compact ) : ?>
 	<div class="bn-md-card__cover" data-tone="<?php echo esc_attr( $bn_card_tone ); ?>"<?php echo '' !== $bn_cover_url ? ' style="background-image:url(\'' . esc_url( $bn_cover_url ) . '\')"' : ''; ?> aria-hidden="true"></div>
+	<?php endif; ?>
 
 	<a href="<?php echo esc_url( $bn_profile_url ); ?>" class="bn-md-card__avatar-link" tabindex="-1" aria-hidden="true">
 		<span
@@ -316,7 +333,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 	<?php endif; ?>
 
 	<?php
-	if ( $bn_mutual > 0 ) :
+	if ( $bn_md_stats && $bn_mutual > 0 ) :
 		$bn_mutual_avatars = array_slice(
 			array_filter( (array) $args['mutual_avatars'], 'is_array' ),
 			0,
@@ -379,12 +396,42 @@ do_action( 'buddynext_part_member_card_before', $args );
 			>
 				<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
 			</a>
+		<?php elseif ( ! $bn_md_actions ) : ?>
+			<?php
+			// Social actions turned off by the caller — but navigation is not an
+			// action, and a card with no way through is the dead end the spec's
+			// guest rule exists to prevent. Same affordance a logged-out visitor
+			// gets, without the sign-in detour.
+			?>
+			<a
+				class="bn-btn"
+				data-variant="secondary"
+				data-size="sm"
+				href="<?php echo esc_url( $bn_profile_url ); ?>"
+			>
+				<?php esc_html_e( 'View profile', 'buddynext' ); ?>
+			</a>
 		<?php else : ?>
 			<?php if ( $bn_can_follow || $bn_is_following ) : ?>
+				<?php
+				// data-variant and data-state are ALSO printed server-side, matching
+				// what state.cardFollowVariant / cardFollowState compute. The bindings
+				// below still own them once the store hydrates - this is the value the
+				// button carries before that, and on any surface where the members
+				// store never loads at all.
+				//
+				// Without it the attribute was simply absent there: `.bn-btn` has no
+				// background of its own, so Follow and Connect rendered as the
+				// browser's native grey buttons on every block placement, while
+				// Accept / Decline beside them - which print a static data-variant -
+				// looked right. Invisible on the directory, where the store runs.
+				?>
 			<button
 				type="button"
 				class="bn-btn bn-md-card__follow"
 				data-size="sm"
+				data-variant="<?php echo $bn_is_following ? 'secondary' : 'primary'; ?>"
+				data-state="<?php echo $bn_is_following ? 'following' : 'unfollowed'; ?>"
 				data-wp-bind--data-variant="state.cardFollowVariant"
 				data-wp-bind--data-state="state.cardFollowState"
 				data-wp-text="state.cardFollowLabel"
@@ -400,6 +447,8 @@ do_action( 'buddynext_part_member_card_before', $args );
 				type="button"
 				class="bn-btn bn-md-card__connect-primary"
 				data-size="sm"
+				data-variant="secondary"
+				data-state="<?php echo esc_attr( 'none' === $bn_conn_state ? 'none' : $bn_conn_state ); ?>"
 				data-wp-bind--hidden="!state.cardShowConnect"
 				data-wp-bind--data-variant="state.cardConnectVariant"
 				data-wp-bind--data-state="state.cardConnectState"

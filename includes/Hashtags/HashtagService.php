@@ -41,6 +41,14 @@ class HashtagService {
 	private const TRENDING_TRANSIENT_TTL = 30 * MINUTE_IN_SECONDS;
 
 	/**
+	 * Option holding the trending-cache version. Bumped to invalidate every
+	 * trending entry at once — see bust_trending_cache().
+	 *
+	 * @var string
+	 */
+	private const TRENDING_VERSION_OPTION = 'buddynext_trending_cache_version';
+
+	/**
 	 * How far back related() looks for co-occurring tags.
 	 *
 	 * "Related" means "tags that recently appeared alongside this one", not "ever". A
@@ -228,14 +236,15 @@ class HashtagService {
 	 *
 	 * Trending data is computed lazily on the first read within each cache window
 	 * (transient ~30 min) rather than by a recurring cron job. The computation
-	 * uses a live JOIN on bn_post_hashtags with a 24-hour rolling window, so the
-	 * result reflects actual recent activity regardless of the post_count column.
+	 * uses a live JOIN on bn_post_hashtags with a rolling window, so the result
+	 * reflects actual recent activity regardless of the post_count column.
 	 *
 	 * @param int $limit Maximum number to return (1–50). Default 10.
+	 * @param int $hours Rolling window in hours (1–720). Default 24.
 	 * @return array[]
 	 */
-	public function trending( int $limit = 10 ): array {
-		return $this->get_trending( $limit );
+	public function trending( int $limit = 10, int $hours = 24 ): array {
+		return $this->get_trending( $limit, $hours );
 	}
 
 	/**
@@ -697,27 +706,42 @@ class HashtagService {
 	}
 
 	/**
-	 * Return the top trending hashtags, ordered by activity in the last 24 hours.
+	 * Return the top trending hashtags, ordered by activity in a recent window.
 	 *
 	 * Computed lazily on the first call within each cache window — no background
-	 * cron required. The query joins bn_post_hashtags directly with a 24-hour
-	 * rolling window so the ranking reflects actual recent activity rather than
-	 * the stale post_count column. Results are stored in two layers:
+	 * cron required. The query joins bn_post_hashtags directly with a rolling
+	 * window so the ranking reflects actual recent activity rather than the stale
+	 * post_count column. Results are stored in two layers:
 	 *
 	 *   1. wp_cache (in-memory, within-request) — avoids repeated DB hits when
 	 *      the trending widget and the REST endpoint both call this in one page load.
 	 *   2. Transient (~30 min) — ensures the expensive JOIN is skipped across
 	 *      requests on sites without a persistent object cache (Memcached / Redis).
 	 *
-	 * The transient is busted by bust_trending_cache() whenever post_count values
-	 * change (post published, hashtag synced), keeping data fresh within the window.
+	 * Both layers are versioned by bust_trending_cache(), so a post publish or a
+	 * hashtag sync invalidates every window/limit combination at once.
+	 *
+	 * The window is a parameter rather than the constant it used to be because
+	 * the Trending Hashtags block lets an owner choose it. 24 hours is right for
+	 * a busy community and shows nothing at all on a quiet one, which is exactly
+	 * where a landing-page block needs to show something. It stays a parameter on
+	 * the SAME query — the WHERE already filtered on ph.created_at, and the
+	 * dedicated index below serves any range — so no new query surface exists.
 	 *
 	 * @param int $limit Maximum number of hashtags to return (1–50). Default 10.
+	 * @param int $hours Rolling window in hours (1–720, i.e. up to 30 days). Default 24.
 	 * @return array[]
 	 */
-	public function get_trending( int $limit = 10 ): array {
-		$limit     = max( 1, min( 50, $limit ) );
-		$cache_key = "trending_{$limit}";
+	public function get_trending( int $limit = 10, int $hours = 24 ): array {
+		$limit = max( 1, min( 50, $limit ) );
+		$hours = max( 1, min( 720, $hours ) );
+
+		// The version prefix is what makes the bust complete. The key space is
+		// (limit x hours) and a bust used to delete a hardcoded list of three
+		// limits — so any other value, including the block's own default, was
+		// never explicitly invalidated and simply aged out with the transient.
+		$version   = $this->trending_cache_version();
+		$cache_key = "trending_{$version}_{$limit}_{$hours}";
 
 		// Layer 1: in-memory object cache (within-request dedup).
 		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
@@ -726,7 +750,7 @@ class HashtagService {
 		}
 
 		// Layer 2: transient (cross-request persistence on all installations).
-		$transient_key  = 'bn_trending_' . $limit;
+		$transient_key  = 'bn_trending_' . $version . '_' . $limit . '_' . $hours;
 		$from_transient = get_transient( $transient_key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_get_transient -- transient is the cache layer; not a DB query.
 		if ( false !== $from_transient && is_array( $from_transient ) ) {
 			wp_cache_set( $cache_key, $from_transient, self::CACHE_GROUP, self::CACHE_TTL );
@@ -735,11 +759,13 @@ class HashtagService {
 
 		global $wpdb;
 
-		// SCALE-CONTRACT: the 24-hour window filters on ph.created_at, which the
+		// SCALE-CONTRACT: the rolling window filters on ph.created_at, which the
 		// composite KEY hashtag_feed (hashtag_id, created_at) cannot serve (its
 		// leading column is hashtag_id). The dedicated KEY trending_window
 		// (created_at) on bn_post_hashtags turns this into a range scan over only
 		// the recent rows instead of a full pivot scan — do NOT drop that index.
+		// A wider window scans more of that range but uses the same index; it is
+		// still bounded, and the result is cached for 30 minutes either way.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -747,10 +773,11 @@ class HashtagService {
 				        COUNT(ph.hashtag_id) AS recent_count
 				 FROM {$wpdb->prefix}bn_hashtags h
 				 INNER JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id
-				 WHERE ph.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
+				 WHERE ph.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d HOUR)
 				 GROUP BY h.id
 				 ORDER BY recent_count DESC, h.post_count DESC
 				 LIMIT %d",
+				$hours,
 				$limit
 			),
 			ARRAY_A
@@ -1303,17 +1330,36 @@ class HashtagService {
 	}
 
 	/**
-	 * Delete trending cache entries for the common limit values.
+	 * Current trending-cache version, mixed into every trending cache key.
 	 *
-	 * Clears both the in-memory object cache (wp_cache) and the persistent
-	 * transient so the next get_trending() call recomputes from the DB.
+	 * Autoloaded, so this is an array read after the first option load rather
+	 * than a query per call.
+	 *
+	 * @return int
+	 */
+	private function trending_cache_version(): int {
+		return (int) get_option( self::TRENDING_VERSION_OPTION, 1 );
+	}
+
+	/**
+	 * Invalidate every trending cache entry, whatever its limit or window.
+	 *
 	 * Called whenever post_count values change (hashtag sync, post delete).
+	 *
+	 * Bumping a version rather than deleting keys, because the keys cannot be
+	 * enumerated: the key space is (limit x window) and both are caller-chosen.
+	 * This used to delete a hardcoded `10, 20, 50`, so a widget or block asking
+	 * for any other limit — including the Trending Hashtags block's own default —
+	 * kept serving its stale entry until the 30-minute transient expired on its
+	 * own. Nobody noticed because trending is a soft signal, but the bust simply
+	 * did not do what its name said for most callers.
+	 *
+	 * The superseded entries are left to expire rather than deleted: they are
+	 * unreachable the moment the version moves, and they carry the same 30-minute
+	 * TTL they always did.
 	 */
 	private function bust_trending_cache(): void {
-		foreach ( array( 10, 20, 50 ) as $limit ) {
-			wp_cache_delete( "trending_{$limit}", self::CACHE_GROUP );
-			delete_transient( 'bn_trending_' . $limit );
-		}
+		update_option( self::TRENDING_VERSION_OPTION, $this->trending_cache_version() + 1, true );
 	}
 
 	/**

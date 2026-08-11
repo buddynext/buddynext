@@ -1962,12 +1962,36 @@ class Installer {
 			array( 'interests', 'interests', 'Interests', 'category_multiselect', 0, 1, 1 ),
 		);
 
+		/*
+		 * Seeded fields are MEMBERS-ONLY by default, except the two that are the
+		 * profile's public face.
+		 *
+		 * Owner decision 2026-08-09: what a member types should not be readable by
+		 * logged-out visitors, and therefore by crawlers, until they say so. Field
+		 * visibility is the DEFAULT a value takes, not a floor (see
+		 * ProfileService::effective_visibility), so a member can still publish any
+		 * of these from their own edit screen - the group stays `public`, which is
+		 * the ceiling that permits it.
+		 *
+		 * Headline and bio stay public because they are what a member wants found,
+		 * and index_user() has always indexed them regardless of the searchable
+		 * flag - making them members-only would leave that indexing writing to a
+		 * column nobody anonymous can read.
+		 *
+		 * FRESH INSTALLS ONLY, like the rest of this seeder. Nothing is rewritten
+		 * on an existing site: those fields keep whatever the owner has, and an
+		 * owner who wants the new default changes it themselves per field.
+		 */
+		$public_by_default = array( 'headline', 'bio' );
+
 		foreach ( $fields as $f ) {
+			$visibility = in_array( $f[1], $public_by_default, true ) ? 'public' : 'members';
+
 			$wpdb->query(
 				$wpdb->prepare(
 					"INSERT IGNORE INTO `{$p}bn_profile_fields`
-					    (group_id, field_key, label, type, is_required, is_searchable, sort_order)
-					 SELECT id, %s, %s, %s, %d, %d, %d
+					    (group_id, field_key, label, type, is_required, is_searchable, sort_order, visibility)
+					 SELECT id, %s, %s, %s, %d, %d, %d, %s
 					   FROM `{$p}bn_profile_groups`
 					  WHERE group_key = %s",
 					$f[1],
@@ -1976,6 +2000,7 @@ class Installer {
 					$f[4],
 					$f[5],
 					$f[6],
+					$visibility,
 					$f[0]
 				)
 			);

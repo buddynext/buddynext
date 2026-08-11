@@ -524,6 +524,33 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Whether a connection-request note can actually be DELIVERED right now.
+	 *
+	 * The note is not stored for display anywhere — deliver_note_as_message_request()
+	 * below hands it to the messaging engine as a DM message request, and that is
+	 * the only way a recipient ever sees it. So when the engine is absent there is
+	 * no delivery path, and asking a member to write a note means asking them to
+	 * write something nobody will read: they type it, press send, get no error,
+	 * and it reaches no one (Basecamp 10185178801).
+	 *
+	 * This probe is deliberately the SAME condition the delivery method guards on,
+	 * so "we asked for a note" and "we can deliver a note" cannot drift apart. If
+	 * that guard ever changes, this must change with it — which is why they sit
+	 * next to each other.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @return bool
+	 */
+	public static function can_deliver_connection_note(): bool {
+		$svc = MediaClient::messaging();
+
+		return is_object( $svc )
+			&& method_exists( $svc, 'find_or_create_conversation' )
+			&& method_exists( $svc, 'send_message' );
+	}
+
+	/**
 	 * Deliver a connection-request note to the recipient as a DM message request.
 	 *
 	 * Fired on buddynext_connection_requested. Only acts when a note is present —
@@ -558,12 +585,11 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		$svc = MediaClient::messaging();
-		if ( ! is_object( $svc )
-			|| ! method_exists( $svc, 'find_or_create_conversation' )
-			|| ! method_exists( $svc, 'send_message' ) ) {
+		if ( ! self::can_deliver_connection_note() ) {
 			return;
 		}
+
+		$svc = MediaClient::messaging();
 
 		try {
 			$conv    = $svc->find_or_create_conversation( $requester_id, $recipient_id, array( 'force_request' => true ) );

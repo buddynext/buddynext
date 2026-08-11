@@ -509,7 +509,85 @@
 	font-size: var(--bn-text-base);
 	line-height: 1.6;
 	color: var(--bn-ink);
-	word-break: break-word;
+	/* Break long words ONLY when one cannot fit a line on its own.
+	   `word-break: break-word` is a deprecated alias that resolves to
+	   `overflow-wrap: anywhere`, which lets the browser break at ANY character —
+	   so the preview clamp ended mid-word ("…when configuring notifi"), which
+	   reads as a rendering fault rather than as truncation. The standard pair
+	   below keeps a long URL from overflowing the card while letting ordinary
+	   prose break only at spaces, so the clamp lands on a whole word. */
+	overflow-wrap: break-word;
+	word-break: normal;
+	/* Cap the MEASURE, not the card.
+	   Measured at 1440px: the post body runs 755px wide at 15px, which is 92
+	   characters per line on both the feed and the permalink. Every typographic
+	   reference puts comfortable reading at 45-75 (Bringhurst, ~66 optimal);
+	   past that the eye loses the line return on the way back, which readers
+	   experience as tiring rather than notice as a fault. Facebook, LinkedIn and
+	   X all sit inside the band because their feed columns are narrower than
+	   ours -- we get there by limiting the text instead of rebuilding the layout.
+
+	   ch units track the actual font, so this holds if a theme changes the face
+	   or the owner changes the size. Only the text is constrained: media, polls
+	   and link previews still use the full card width, which is what makes the
+	   difference read as deliberate rather than as a narrow card.
+
+	   The value is 58 and not 66, because `ch` is the advance width of the "0"
+	   glyph and proportional text averages narrower than that -- 68ch measured
+	   as 79 real characters here, still outside the band. 58ch lands inside it.
+	   Any change to this number should be re-measured rather than reasoned. */
+	max-width: 58ch;
+}
+
+/* ── Long-post preview ──────────────────────────────────────────────────────
+   A feed card previews; the permalink reads. Only the FEED clamps -- the body
+   part decides via its render context, so /p/{id}/ is never affected.
+
+   Clamped by LINE, not by character. The server decides WHETHER to preview
+   (~300 chars, about one Twitter post); the line count decides how much shows.
+
+   The two have to AGREE, and getting that wrong is the failure mode worth
+   naming: a 335-character post rendered as four lines in the wide feed column,
+   so a six-line clamp cut nothing while "See more" still appeared underneath
+   fully-visible text. Measured, not theorised -- a clamp that does not bite is
+   a promise of hidden content that is not there.
+
+   So the line count is set BELOW what the threshold can fill, at each width.
+   The feed column is far wider on desktop than on a phone, so the same 300
+   characters occupy roughly three lines there and twice that on mobile; both
+   values keep the visible text under the threshold, which means any post that
+   qualifies for a preview is always genuinely cut. It also keeps the amount of
+   text shown roughly CONSTANT across devices rather than the line count, which
+   is why a feed feels the same on both.
+
+   Three lines on desktop is also what LinkedIn settles on.
+
+   line-clamp is CSS, so it applies to cards the router swaps in on page 2+
+   with no re-initialisation. That matters: the dead-controls-below-the-fold
+   class of bug came from JS that only ran on first paint. */
+.bn-post-card__content--preview {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+	overflow: hidden;
+}
+
+.bn-post-card__more {
+	margin-block: var(--bn-s2) 0;
+}
+
+.bn-post-card__more-link {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink-3);
+	text-decoration: none;
+}
+
+.bn-post-card__more-link:hover,
+.bn-post-card__more-link:focus-visible {
+	color: var(--bn-accent);
+	text-decoration: underline;
 }
 
 .bn-post-card__content a {
@@ -910,6 +988,15 @@
 }
 
 @media (max-width: 640px) {
+	/* A phone column fits roughly half the characters per line that the desktop
+	   feed does, so the same ~300-character budget is about six lines here.
+	   Matching the BUDGET rather than the line count is what keeps a preview
+	   showing a comparable amount of text on both. */
+	.bn-post-card__content--preview {
+		-webkit-line-clamp: 6;
+		line-clamp: 6;
+	}
+
 	.bn-post-card__article-body {
 		padding: var(--bn-s3);
 	}

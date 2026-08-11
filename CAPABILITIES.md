@@ -3,7 +3,7 @@
 What BuddyNext free can and cannot do, in buyer language. One row per capability,
 each verified against the code at the reference given.
 
-**Last verified against code:** 2026-08-06, branch `1.1.2`, commit `fd282fbd`.
+**Last verified against code:** 2026-08-11, branch `1.1.3`, commit `6714a998`.
 **Source of truth order:** `audit/manifest.summary.json` > this file > the code.
 Regenerate both with `/wp-plugin-onboard --refresh`.
 
@@ -92,7 +92,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Be extended by other plugins? | YES | 1,292 documented hooks; `NavRegistry`, `buddynext_companions`, `buddynext_integrations` |
 | Integrate with Wbcom plugins? | YES | bridges for WPMediaVerse (DM), Jetonomy (forums), Gamification, Career Board, Learnomy, Listora, Eventonomy, WB Member Blog - each self-guards and is individually toggleable |
 | Run background work at scale? | YES | 36 scheduled jobs: 24 on Action Scheduler, 12 on WP-Cron |
-| Manage it from WP-CLI? | YES | 5 commands under `wp buddynext` (`demo`, `cert`, `handles`, `qa-fixtures`, `repair-space-owners`) |
+| Manage it from WP-CLI? | YES | 6 commands under `wp buddynext` (`demo`, `cert`, `handles`, `qa-fixtures`, `repair-space-owners`, `repair-discussion-visibility`) |
 | Stay fast at 100k members? | YES | list surfaces paginate and count via `COUNT(*)`; the leaderboard N+1 was removed in 1.1.1 |
 
 ## Deliberately not in free

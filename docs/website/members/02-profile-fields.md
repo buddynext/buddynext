@@ -23,7 +23,7 @@ A member manages their own fields from Edit Profile.
 
 - **Fill in fields.** Every field you have created shows on the member's Edit Profile form, grouped by section. The member types or selects a value and saves. Empty fields are simply left blank.
 - **Repeating sections.** Some groups (for example Work Experience or Education) allow more than one entry, so a member can add several jobs or schools, each with its own set of values.
-- **Per-field visibility.** Next to each field the member can set who is allowed to see that value. The member can only make a field more private than you set it, never more public. If you set a field to followers-only, a member can tighten it to private, but cannot open it back up to public.
+- **Per-field visibility.** Next to each field the member can set who is allowed to see that value. The visibility you set is only a starting point, not a floor: each member can change their own field's audience anywhere up to the group's ceiling - opening it up to Public, or narrowing it to Only me. A member can never make a field more open than the group allows, but within that ceiling the choice is theirs.
 
 When another member views the profile, they see only the fields their relationship allows. A logged-out visitor, a follower, a connection, and the profile owner can each see a different set of values from the same profile.
 
@@ -46,7 +46,7 @@ Every field carries the following controls.
 |---|---|---|
 | Label | The field name members see on the form and the profile. | (required, no default) |
 | Field type | How the field is captured and displayed - see the type table below. | Text |
-| Visibility | Who can see the value: Public, Members only, Followers only, Connections only, or Only me. A member may tighten this further per field, never loosen it. | Public |
+| Visibility | Who can see the value: Public, Members only, Followers only, Connections only, or Only me. This is the starting value each member gets; a member can then set their own field's audience anywhere up to the group's ceiling. | Members only |
 | Required | Marks the field as expected. The member is nudged to complete it (it counts against their profile completion score). | Off |
 | Searchable | Mirrors the value into search so members can find each other by this field in the directory and search. Available on text-style fields only. How far it reaches depends on the field's visibility - see below. | Off |
 | Show on registration | Adds the field to the sign-up form so you collect it before the member reaches their profile. Fields in a repeating group cannot be added to sign-up. | Off |
@@ -58,7 +58,7 @@ Every field carries the following controls.
 |---|---|---|
 | Label | The section heading shown on the profile and edit form. | (required, no default) |
 | Type | Flat (single set of fields) or Repeater (members can add multiple entries). | Flat |
-| Visibility | Section-level visibility applied on top of each field's own visibility (same five levels). The most restrictive of the two wins. | Public |
+| Visibility | Section-level visibility that sets the ceiling for every field inside it (same five levels). Group visibility is the ceiling; each field starts at its default and a member may set their own field anywhere up to that ceiling. | Members only |
 | Sort order | The position of the group on the profile. Lower numbers appear first. | Appended last |
 
 ### Field types (free tier)
@@ -135,7 +135,7 @@ Since 1.0.4 the profile form is fully yours to shape:
 ## Good to know
 
 - **Visibility is enforced by relationship, not by hiding in the page.** When a profile is read, BuddyNext checks the viewer's relationship to the owner (logged-out, follower, connection, or the owner themselves) and drops any field the viewer is not allowed to see before the value ever leaves the server. A Private field never appears for anyone but the owner.
-- **Most restrictive wins.** A value's effective visibility is the strictest of the group setting, the field setting, and the member's own per-field choice. Tightening any one of them tightens the result.
+- **The member's own choice decides, capped by the group ceiling.** A field's effective visibility is the member's own per-field choice, capped by the group ceiling. New fields start at Members only; each member can then open their own field up to the ceiling (including Public) or narrow it to Only me.
 - **Required is enforced.** Since 1.0.4, saving a profile with a required field left empty is rejected with a clear message next to that field. Required fields also count against the member's profile completion score.
 - **Required only applies where the field is actually shown.** If you limit a group to one member type and mark a field in it required, members of every other type are not asked for it and are not blocked by it. (Before 1.0.8 they were told a field was missing that they could not see and could never fill in, which left them unable to save their profile at all.)
 - **A field's type survives an edit made while Pro is inactive.** Editing a field whose type is provided by an add-on (a Pro type such as Location or Conditional) no longer silently resets it to Text when that add-on happens to be switched off. Deactivate Pro, edit a field's label, reactivate Pro, and the field is still the type you built.

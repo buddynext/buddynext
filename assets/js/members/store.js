@@ -673,11 +673,10 @@ const membersStore = store( 'buddynext/members', {
 		get cardFollowState()   { return getContext().isFollowing ? 'following' : 'unfollowed'; },
 		get cardFollowLabel()   { return getContext().isFollowing ? t( 'following', 'Following' ) : t( 'follow', 'Follow' ); },
 
-		get cardConnectVariant() {
-			const s = getContext().connection;
-			if ( s === 'pending-sent' ) { return 'secondary'; }
-			return 'secondary';
-		},
+		// Every connection state renders secondary; the state itself is carried by
+		// data-state, which is what the CSS varies on. This read as a branch with
+		// two identical arms, which invites someone to "fix" one of them.
+		get cardConnectVariant() { return 'secondary'; },
 		get cardConnectState() { return getContext().connection || 'none'; },
 		get cardConnectLabel() {
 			const s = getContext().connection;

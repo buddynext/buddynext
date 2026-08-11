@@ -348,12 +348,81 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					continue;
 				}
 
+				/*
+				 * A group the member's plan does not include.
+				 *
+				 * Shown, not hidden. A member cannot choose to upgrade for a
+				 * section they never learn exists, so this is the one surface
+				 * where a locked group stays visible -- ProfileService drops it
+				 * outright for every other viewer, so nobody else can tell which
+				 * plan this member is on.
+				 *
+				 * Rendered as a static section with no inputs, so nothing is
+				 * posted for it and the save path never has to special-case it.
+				 */
+				if ( ! empty( $bn_group['locked'] ) ) {
+					$bn_upgrade_url = (string) apply_filters( 'buddynext_profile_group_upgrade_url', '', $bn_gkey, $user_id );
+					?>
+					<section class="bn-ep-group bn-ep-group--locked" aria-labelledby="bn-ep-locked-<?php echo esc_attr( $bn_gkey ); ?>">
+						<h3 class="bn-ep-group__title" id="bn-ep-locked-<?php echo esc_attr( $bn_gkey ); ?>">
+							<?php echo esc_html( $bn_glabel ); ?>
+							<span class="bn-ep-locked-badge"><?php esc_html_e( 'Upgrade', 'buddynext' ); ?></span>
+						</h3>
+						<p class="bn-ep-locked-note">
+							<?php esc_html_e( 'This section is not part of your current plan.', 'buddynext' ); ?>
+						</p>
+						<?php
+						/*
+						 * No destination, no button. A prompt that links nowhere is
+						 * worse than no prompt -- same rule the membership pages
+						 * apply when no default plan is configured.
+						 */
+						if ( '' !== $bn_upgrade_url ) :
+							?>
+							<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( $bn_upgrade_url ); ?>">
+								<?php esc_html_e( 'See plans', 'buddynext' ); ?>
+							</a>
+						<?php endif; ?>
+					</section>
+					<?php
+					continue;
+				}
+
 				if ( 'repeater' === $bn_gtype ) {
 					// Repeater group: render each saved entry's sub-fields via
 					// the engine, plus ONE per-entry privacy lock that reuses
 					// the existing `group_key[n][_visibility]` save contract.
 					$bn_entries  = isset( $bn_group['entries'] ) && is_array( $bn_group['entries'] ) ? $bn_group['entries'] : array();
 					$bn_gdefault = $bn_vis_norm( $bn_group['visibility'] ?? 'public', 'public' );
+
+					/*
+					 * A repeater entry carries ONE audience for the whole entry, but the
+					 * fields inside it each ship their own default. Start the entry at the
+					 * most restrictive of them, so a Work Experience row does not default
+					 * to Public while every flat field on the same screen defaults to
+					 * Members - same screen, same rule.
+					 *
+					 * The group remains the FLOOR (what the member may loosen to); this is
+					 * only the starting value.
+					 */
+					$bn_rep_default = $bn_gdefault;
+					foreach ( $bn_entries as $bn_schema_entry ) {
+						if ( ! is_array( $bn_schema_entry ) ) {
+							continue;
+						}
+						foreach ( $bn_schema_entry as $bn_schema_field ) {
+							if ( ! is_array( $bn_schema_field ) ) {
+								continue;
+							}
+							$bn_sub_vis = $bn_vis_norm(
+								$bn_schema_field['field_visibility'] ?? ( $bn_schema_field['visibility'] ?? $bn_gdefault ),
+								$bn_gdefault
+							);
+							if ( $bn_vis_rank[ $bn_sub_vis ] > $bn_vis_rank[ $bn_rep_default ] ) {
+								$bn_rep_default = $bn_sub_vis;
+							}
+						}
+					}
 
 					// Required sub-field keys for this group, so a JS-added row
 					// (buildEntryNode) can mirror the same asterisk the server
@@ -432,8 +501,8 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						// entry_visibility array — never inside the entry itself,
 						// which must stay a packed list for JSON consumers.
 						$bn_entry_vis = $bn_vis_norm(
-							$bn_group['entry_visibility'][ $bn_idx_int ] ?? $bn_gdefault,
-							$bn_gdefault
+							$bn_group['entry_visibility'][ $bn_idx_int ] ?? $bn_rep_default,
+							$bn_rep_default
 						);
 						$bn_rep_html .= '<div class="bn-ep-field bn-ep-field--full bn-ep-repeater-vis">';
 						$bn_rep_html .= $bn_privacy_select(
@@ -513,17 +582,24 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						? \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value_raw'] ?? ( $bn_field['value'] ?? '' ), $bn_fkey )
 						: '<p class="bn-ep-field-locked">' . esc_html__( 'Not available on your current plan.', 'buddynext' ) . '</p>';
 
-					// Admin default = field's own visibility (falls back to the
-					// group default, then public). Current = member's effective
-					// choice; ProfileService surfaces it on the field row when
-					// present (entry_visibility / visibility), else the default.
-					$bn_admin_default = $bn_vis_norm(
-						$bn_field['field_visibility'] ?? ( $bn_field['visibility'] ?? $bn_gvis_default ),
-						$bn_gvis_default
+					// Two different things, and conflating them is what made the
+					// control a one-way ratchet:
+					//
+					// FLOOR   = the GROUP's visibility. The loosest the member is
+					// allowed to go, so it decides which options exist.
+					// CURRENT = the member's own choice if they made one, else the
+					// FIELD's visibility, which is only a starting point.
+					//
+					// The floor used to be the field, so a members-only field default
+					// removed "Public" from the list and the member could never opt in.
+					$bn_vis_floor = $bn_vis_norm( $bn_gvis_default, 'public' );
+					$bn_field_def = $bn_vis_norm(
+						$bn_field['field_visibility'] ?? ( $bn_field['visibility'] ?? $bn_vis_floor ),
+						$bn_vis_floor
 					);
-					$bn_current       = $bn_vis_norm(
-						$bn_field['entry_visibility'] ?? ( $bn_field['effective_visibility'] ?? $bn_admin_default ),
-						$bn_admin_default
+					$bn_current   = $bn_vis_norm(
+						$bn_field['entry_visibility'] ?? $bn_field_def,
+						$bn_field_def
 					);
 
 					// No privacy control for a field the member cannot fill in.
@@ -538,7 +614,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					$bn_privacy_html = $bn_field_active
 						? $bn_privacy_select(
 							$bn_fkey . '__visibility',
-							$bn_admin_default,
+							$bn_vis_floor,
 							$bn_current,
 							$bn_inp_id . '-vis'
 						)

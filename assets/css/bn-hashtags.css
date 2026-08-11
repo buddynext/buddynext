@@ -33,7 +33,8 @@
  * 1. Hashtag chip (inline + post body)
  * ──────────────────────────────────────────────────────────────────────── */
 
-/* .bn-hashtag-chip — retained for trending-block "pills" variant. */
+/* .bn-hashtag-chip — inline tag chip; the trending block's "cloud" variant
+   below styles its own links rather than reusing this class. */
 .bn-hashtag-chip,
 a.bn-hashtag-chip {
 	display: inline-flex;
@@ -150,18 +151,20 @@ a.bn-hashtag:hover {
 .bn-hashtag-trend--down { color: var(--bn-ht-trend-down); }
 .bn-hashtag-trend--flat { color: var(--bn-ht-trend-flat); }
 
-/* "Pills" display variant on the trending-hashtags block. */
-.bn-block-trending-hashtags--pills .bn-hashtag-list {
+/* "Cloud" display variant on the trending-hashtags block -- chips instead of
+   a ranked list. Named --pills until 1.1.3, which is why it was unreachable: no
+   code path could produce that value. */
+.bn-block-trending-hashtags--cloud .bn-hashtag-list {
 	flex-direction: row;
 	flex-wrap: wrap;
 	gap: var(--bn-s1);
 }
 
-.bn-block-trending-hashtags--pills .bn-hashtag-item {
+.bn-block-trending-hashtags--cloud .bn-hashtag-item {
 	border-bottom: none;
 }
 
-.bn-block-trending-hashtags--pills .bn-hashtag-link {
+.bn-block-trending-hashtags--cloud .bn-hashtag-link {
 	padding: 3px var(--bn-s2);
 	background: var(--bn-ht-chip-bg);
 	color: var(--bn-ht-chip-color);
@@ -170,9 +173,9 @@ a.bn-hashtag:hover {
 	font-weight: var(--bn-fw-medium);
 }
 
-.bn-block-trending-hashtags--pills .bn-hashtag-rank,
-.bn-block-trending-hashtags--pills .bn-hashtag-count,
-.bn-block-trending-hashtags--pills .bn-hashtag-trend {
+.bn-block-trending-hashtags--cloud .bn-hashtag-rank,
+.bn-block-trending-hashtags--cloud .bn-hashtag-count,
+.bn-block-trending-hashtags--cloud .bn-hashtag-trend {
 	display: none;
 }
 

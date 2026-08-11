@@ -6,21 +6,57 @@
 	"icon": "id",
 	"category": "buddynext",
 	"description": "Single user card with avatar, name, and follow button. Ideal for widgets and sidebars.",
-	"keywords": [ "buddynext", "member", "card", "user", "widget" ],
+	"keywords": [
+		"buddynext",
+		"member",
+		"card",
+		"user",
+		"widget"
+	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
-	"viewScriptModule": "@buddynext/social-buttons",
-	"style": [ "file:../../assets/css/blocks.css", "bn-members" ],
+	"viewScriptModule": [
+		"@buddynext/social-buttons",
+		"@buddynext/members"
+	],
+	"style": [
+		"file:../../assets/css/blocks.css",
+		"bn-members"
+	],
 	"supports": {
-		"color": { "background": true, "text": true },
-		"typography": { "fontSize": true },
-		"spacing": { "padding": true, "margin": true }
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"spacing": {
+			"padding": true,
+			"margin": true
+		}
 	},
 	"attributes": {
 		"userId": {
 			"type": "integer",
 			"default": 0
+		},
+		"size": {
+			"type": "string",
+			"default": "full"
+		},
+		"showFollowAction": {
+			"type": "boolean",
+			"default": true
+		},
+		"showStats": {
+			"type": "boolean",
+			"default": false
 		}
 	},
-	"example": {}
+	"example": {},
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-members"
+	]
 }

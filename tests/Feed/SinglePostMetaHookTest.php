@@ -15,6 +15,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Tests\Feed;
 
+use BuddyNext\Core\HeadMeta;
 use BuddyNext\Core\Installer;
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Feed\PostService;
@@ -30,6 +31,11 @@ class SinglePostMetaHookTest extends \WP_UnitTestCase {
 		Installer::run();
 		remove_all_actions( 'wp_head' );
 		remove_all_filters( 'document_title_parts' );
+		// Each test stands for a fresh REQUEST. HeadMeta's first-writer-wins
+		// guard is per-request static state (correct under PHP-FPM, where the
+		// process ends with the response), but PHPUnit renders many requests in
+		// one process — without this reset, test 1's emit blocks test 4's.
+		HeadMeta::reset();
 	}
 
 	public function test_wp_head_callback_registered_when_post_visible(): void {

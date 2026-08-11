@@ -21,7 +21,7 @@ The bar reflects only the member's own progress. It is a private nudge, not some
 
 ## Setting it up (for owners)
 
-Add the Profile Completion Bar block to any layout where you want members nudged to finish.
+The completion UI appears on the member's own profile and edit screens automatically, so members are nudged to finish without any setup. The Profile Completion Bar block is no longer offered in the block inserter; it renders where a theme or pattern places it, and still accepts the setting below when used that way.
 
 | Setting | What it does | Default |
 | --- | --- | --- |

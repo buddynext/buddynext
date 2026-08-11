@@ -118,6 +118,17 @@ final class PrivateCommunity {
 		add_filter( 'mvs_rest_require_auth', array( self::class, 'is_enabled' ) );
 		add_filter( 'mvs_rest_can_access', array( self::class, 'can_access' ) );
 
+		// MediaVerse's page-layer gate (2.3.2+) turns guests away from its
+		// server-rendered pages when the filters above arm it. Send them to
+		// BN's auth hub — the same place BN's own gated hubs send guests —
+		// instead of wp-login.php.
+		add_filter(
+			'mvs_community_login_url',
+			static function () {
+				return PageRouter::auth_url();
+			}
+		);
+
 		// Same contract, same reason, for Learnomy. A private community whose
 		// courses stayed world-readable is the same leak as the MediaVerse one:
 		// the owner switched the community private and the catalog, category
@@ -181,12 +192,44 @@ final class PrivateCommunity {
 		if ( ! preg_match( '#^/buddynext(?:-pro)?/v1/#', $route ) ) {
 			return $result;
 		}
-		// Login / register / reset / verify / 2fa must stay reachable so a guest can
-		// authenticate — that is the whole point of a login page.
-		if ( preg_match( '#^/buddynext/v1/auth(?:/|$)#', $route ) ) {
-			return $result;
-		}
+		/**
+		 * Route prefixes EXEMPT from the private-community gate.
+		 *
+		 * For routes whose caller is legitimately never logged in. This started
+		 * as one hardcoded literal for /auth, then a second for /pwa, and each
+		 * time the NEXT caller was already broken — Pro's payment webhooks and
+		 * its guest-facing membership routes were being 401'd on every private
+		 * community, so a paid signup took the money and silently provisioned
+		 * nothing (Basecamp 10180597390). A namespace-wide gate cannot keep a
+		 * hand-maintained list of every public route in a namespace it does not
+		 * own, so the list is now declarative and Pro adds its own.
+		 *
+		 * Built-ins: /auth so a guest can sign in at all (the whole point of a
+		 * login page), and /pwa because browsers fetch the manifest without
+		 * credentials and the service worker without a nonce — app-shell assets
+		 * only, no member data.
+		 *
+		 * @since 1.1.3
+		 *
+		 * @param string[]         $exempt  Exempt route prefixes.
+		 * @param \WP_REST_Request $request Current request.
+		 */
+		$exempt = (array) apply_filters(
+			'buddynext_private_community_exempt_routes',
+			array( '/buddynext/v1/auth', '/buddynext/v1/pwa' ),
+			$request
+		);
 
+		foreach ( $exempt as $prefix ) {
+			$prefix = (string) $prefix;
+			if ( '' === $prefix ) {
+				continue;
+			}
+			// Match the segment, not a bare prefix, so /pwabogus is still gated.
+			if ( $route === $prefix || 0 === strpos( $route, rtrim( $prefix, '/' ) . '/' ) ) {
+				return $result;
+			}
+		}
 		return new \WP_Error(
 			'buddynext_private_community',
 			__( 'This community is private. Please log in to view it.', 'buddynext' ),

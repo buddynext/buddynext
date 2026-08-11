@@ -3,7 +3,7 @@
  * Plugin Name: BuddyNext
  * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
- * Version:     1.1.2
+ * Version:     1.1.3
  * Author:      Wbcom Designs
  * Author URI:  https://wbcomdesigns.com
  * License:     GPLv2 or later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BUDDYNEXT_VERSION', '1.1.2' );
+define( 'BUDDYNEXT_VERSION', '1.1.3' );
 define( 'BUDDYNEXT_FILE', __FILE__ );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
@@ -1036,6 +1036,101 @@ function buddynext_sample_ranked( array $ranked, int $limit, int $window_multipl
  */
 function bn_space_category_icon( ?string $cat_slug, ?string $icon_svg = null ): string {
 	return \BuddyNext\Core\IconService::space_category_icon( $cat_slug, $icon_svg );
+}
+
+/**
+ * The initial state context for the `buddynext/members` Interactivity store.
+ *
+ * The member cards rendered by parts/member-card.php carry data-wp-on / data-wp-bind
+ * directives (Follow, Connect, the Mute/Block/Report kebab) that resolve against the
+ * nearest `data-wp-interactive="buddynext/members"` ancestor and read shared state
+ * (restNonce, restUrl, the block/report modal fields) from that element's context.
+ * The /members/ directory page provides both; the member-directory and member-card
+ * BLOCKS did not, so every one of those controls was dead wherever the block was
+ * embedded. This is the single source for that context so the page and the blocks
+ * cannot drift — pass request-specific overrides (search/sort/relation/…) or accept
+ * the block-friendly defaults.
+ *
+ * @param array<string, mixed> $overrides Values to override the defaults with.
+ * @return string JSON for a data-wp-context attribute ('{}' if encoding fails).
+ */
+function buddynext_members_directory_context( array $overrides = array() ): string {
+	$defaults = array(
+		'search'           => '',
+		'sort'             => 'newest',
+		'relation'         => 'all',
+		'memberType'       => '',
+		'onlineOnly'       => false,
+		'restNonce'        => wp_create_nonce( 'wp_rest' ),
+		'restUrl'          => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+		'loading'          => false,
+		'searching'        => false,
+		'error'            => '',
+		'hasError'         => false,
+		'isEmpty'          => false,
+		'totalLabel'       => '',
+		'peopleUrl'        => \BuddyNext\Core\PageRouter::people_url(),
+		'blockTargetId'    => 0,
+		'blockTargetName'  => '',
+		'blockConfirmOpen' => false,
+		'blockSubmitting'  => false,
+		'reportOpen'       => false,
+		'reportTargetType' => 'user',
+		'reportTargetId'   => 0,
+		'reportReason'     => 'spam',
+		'reportNotes'      => '',
+		'reportSubmitting' => false,
+		'lastActorName'    => '',
+	);
+
+	$json = wp_json_encode( array_merge( $defaults, $overrides ) );
+
+	return false === $json ? '{}' : $json;
+}
+
+/**
+ * The initial state context for the `buddynext/spaces` Interactivity store.
+ *
+ * The space cards rendered by parts/space-directory-card.php carry Join / Leave /
+ * Request / Cancel directives (actions.joinSpace, actions.requestJoin, …) that
+ * resolve against the nearest `data-wp-interactive="buddynext/spaces"` ancestor and
+ * read restNonce / restUrl from its context to call the REST API. The /spaces/
+ * directory page provides both; the space-directory and spaces-showcase BLOCKS did
+ * not, so every Join button was inert wherever the block was embedded. This is the
+ * single source for that context so the page and the blocks cannot drift.
+ *
+ * @return string JSON for a data-wp-context attribute ('{}' if encoding fails).
+ */
+function buddynext_spaces_directory_context(): string {
+	$json = wp_json_encode(
+		array(
+			'restNonce' => wp_create_nonce( 'wp_rest' ),
+			'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+		)
+	);
+
+	return false === $json ? '{}' : $json;
+}
+
+/**
+ * Deterministic cover tone for a space, used when it has no cover image.
+ *
+ * Lives here, beside bn_space_category_icon(), for the same reason: the space
+ * card part that consumes it is rendered from several different templates —
+ * the directory, the My Spaces sections, and the featured-space block.
+ *
+ * It previously existed as an if(!function_exists()) copy inside BOTH
+ * templates/spaces/directory.php and templates/blocks/space-card.php, which is
+ * what forced the block to keep a whole second copy of the card markup rather
+ * than including the shared part. One definition here means one card.
+ *
+ * @param int $space_id Space ID used to pick a tone.
+ * @return string Tone slug consumed by `.bn-sd-card__cover[data-tone]`.
+ */
+function bn_space_cover_tone( int $space_id ): string {
+	$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+
+	return $tones[ $space_id % count( $tones ) ];
 }
 
 /**

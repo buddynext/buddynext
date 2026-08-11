@@ -51,6 +51,20 @@ class HashtagController {
 						'maximum'           => 50,
 						'sanitize_callback' => 'absint',
 					),
+					// The web Trending Hashtags block lets an owner pick this
+					// window, so the API has to be able to express it too -
+					// otherwise an app asking for "trending" is locked to 24
+					// hours and shows nothing at all on a quiet community, while
+					// the same site's block shows eight tags. Default stays 24 so
+					// every existing consumer is unchanged.
+					'hours' => array(
+						'required'          => false,
+						'type'              => 'integer',
+						'default'           => 24,
+						'minimum'           => 1,
+						'maximum'           => 720,
+						'sanitize_callback' => 'absint',
+					),
 				),
 			)
 		);
@@ -282,7 +296,8 @@ class HashtagController {
 	 */
 	public function get_trending( WP_REST_Request $request ): WP_REST_Response {
 		$limit  = (int) $request->get_param( 'limit' );
-		$result = ( new HashtagService() )->get_trending( $limit );
+		$hours  = (int) $request->get_param( 'hours' );
+		$result = ( new HashtagService() )->get_trending( $limit, $hours );
 
 		return new WP_REST_Response( $result, 200 );
 	}

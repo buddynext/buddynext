@@ -43,6 +43,7 @@ class ProfileService {
 	 */
 	public const MEMBERS_MIRROR_PREFIX = 'bn_mfield_';
 
+
 	/**
 	 * Cache TTL in seconds (10 minutes).
 	 */
@@ -299,7 +300,10 @@ class ProfileService {
 					continue;
 				}
 				$field['group_key'] = $group['group_key'] ?? '';
-				$reg[]              = $field;
+				// Needed by field_applies_to_user(): a system group is never
+				// lockable, so its fields must stay writable whatever a plan says.
+				$field['group_is_system'] = ! empty( $group['is_system'] );
+				$reg[]                    = $field;
 			}
 		}
 
@@ -500,7 +504,13 @@ class ProfileService {
 				(int) ( $data['is_required'] ?? 0 ),
 				(int) ( $data['is_searchable'] ?? 0 ),
 				(int) ( $data['show_on_register'] ?? 0 ),
-				$data['visibility'] ?? 'public',
+				// A new field is members-only unless the caller says otherwise. The
+				// admin form preselects the same value, so the default is the same
+				// whether a field is created through the screen, the REST route, an
+				// import or WP-CLI - a default that only lives in a form is not a
+				// default. Field visibility is the value's starting point, not a
+				// floor, so the member can still publish it.
+				$data['visibility'] ?? 'members',
 				(int) ( $data['sort_order'] ?? 0 )
 			)
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -746,13 +756,15 @@ class ProfileService {
 						}
 
 						// A4: clamp the per-entry _visibility override to be
-						// equal-or-more restrictive than the field admin default.
+						// equal-or-more restrictive than the GROUP ceiling. Clamping to
+						// the field would stop a member publishing a field whose default
+						// is members-only, which is the whole point of the default.
 						$chosen_visibility = isset( $entry_data['_visibility'] )
 							? sanitize_key( (string) $entry_data['_visibility'] )
 							: null;
 						$entry_visibility  = $this->clamp_visibility(
 							$chosen_visibility,
-							(string) ( $field_def['visibility'] ?? 'public' )
+							(string) ( $field_def['group_visibility'] ?? 'public' )
 						);
 
 						$pending_writes[] = function () use ( $user_id, $field_id, $entry_index, $sanitized_val, $entry_visibility ): void {
@@ -954,13 +966,14 @@ class ProfileService {
 			}
 
 			// A4: accept {field_key}__visibility and clamp to be equal-or-more
-			// restrictive than the field admin default before storing.
+			// restrictive than the GROUP ceiling before storing. The field is only
+			// a default, so it must not bound what the member may choose.
 			$chosen_visibility = isset( $data[ $key . '__visibility' ] )
 				? sanitize_key( (string) $data[ $key . '__visibility' ] )
 				: null;
 			$entry_visibility  = $this->clamp_visibility(
 				$chosen_visibility,
-				(string) ( $field['visibility'] ?? 'public' )
+				(string) ( $field['group_visibility'] ?? 'public' )
 			);
 
 			// Member type is assignment-backed, not a bn_profile_values field: the
@@ -1134,7 +1147,9 @@ class ProfileService {
 	/**
 	 * Public cache invalidation for events that change what a profile renders
 	 * without going through save_profile() — e.g. a member-type assignment or
-	 * removal flips which type-restricted groups exist on the profile (G2).
+	 * removal flips which type-restricted groups exist on the profile (G2), and a
+	 * membership plan change flips which groups are locked (G3). Both are the same
+	 * shape: the profile did not change, but what it renders did.
 	 *
 	 * @param int $user_id Profile owner whose cached views to invalidate.
 	 * @return void
@@ -1203,6 +1218,24 @@ class ProfileService {
 	 * @return bool False when the field belongs to a member type this member does not hold.
 	 */
 	public function field_applies_to_user( array $field_def, int $user_id ): bool {
+		/*
+		 * A group the member's PLAN does not include is not theirs to fill either.
+		 *
+		 * Same reasoning as the member-type restriction below, and deliberately in
+		 * the same helper: the field is never rendered as an input for them, so it
+		 * cannot be required OF them, and a crafted request must not write into it.
+		 * Putting it here means the REST controller, the admin member editor and
+		 * onboarding all inherit it -- the three entry points that had to be fixed
+		 * separately last time this logic lived in one of them.
+		 */
+		$group_key = (string) ( $field_def['group_key'] ?? '' );
+		if ( '' !== $group_key && empty( $field_def['group_is_system'] ) ) {
+			/** This filter is documented in ProfileService::get_profile(). */
+			if ( (bool) apply_filters( 'buddynext_profile_group_locked', false, $group_key, $user_id ) ) {
+				return false;
+			}
+		}
+
 		$restriction = (string) ( $field_def['group_type_restriction'] ?? '' );
 
 		if ( '' === $restriction ) {
@@ -1435,17 +1468,88 @@ class ProfileService {
 				continue;
 			}
 
+			/*
+			 * G3: groups the profile owner's MEMBERSHIP PLAN does not include.
+			 *
+			 * Sits here, beside the member-type restriction and the visibility
+			 * ladder, because this is the one place every display surface reads
+			 * through -- the public profile, the REST payload, the directory, the
+			 * admin member editor and any future block all call get_profile().
+			 * The alternative (asking per template, which is how the existing
+			 * `buddynext_profile_field_is_active` predicate works) was audited and
+			 * rejected: five surfaces do not ask it today, so a locked group would
+			 * simply render on all of them.
+			 *
+			 * Free never locks anything. It asks, and defaults to NOT locked, so a
+			 * standalone Free site and a Pro site with no plan configured behave
+			 * identically. Pro answers from the member's tier.
+			 *
+			 * The owner keeps the group, flagged. A member has to be able to see
+			 * that a section exists before upgrading is a thing they could choose
+			 * to do; hiding it from its own owner sells nothing. Everyone else
+			 * loses it entirely -- which plan somebody is on is not public
+			 * information.
+			 */
+			$g_locked = false;
+
+			/*
+			 * A SYSTEM group is never lockable, and Free decides that -- not the
+			 * plan, and not whatever plugin is answering the filter.
+			 *
+			 * These are the groups the product itself reads: Basic Info carries
+			 * bio, display name and location, which the directory card, search
+			 * index and member header all consume. Hiding one does not degrade a
+			 * profile, it guts it, and it would do so for every member on that
+			 * plan at once. No monetization case is worth a blank directory.
+			 *
+			 * Enforced HERE rather than by disabling a checkbox, because a tier row
+			 * can also be written by an import, a migration, or any plugin on this
+			 * filter. A rule that only exists in an admin screen is not a rule.
+			 */
+			$g_is_system = (bool) ( $row['group_is_system'] ?? false );
+
+			if ( ! $g_is_system && '' !== (string) ( $row['group_key'] ?? '' ) ) {
+				/**
+				 * Filter whether a profile GROUP is locked for this profile owner.
+				 *
+				 * Locked means "not included in their plan". Default false, so
+				 * nothing is ever hidden unless something deliberately says so.
+				 *
+				 * @since 1.1.3
+				 *
+				 * @param bool   $locked    Whether the group is locked. Default false.
+				 * @param string $group_key The group's key.
+				 * @param int    $user_id   Profile owner being rendered.
+				 */
+				$g_locked = (bool) apply_filters(
+					'buddynext_profile_group_locked',
+					false,
+					(string) $row['group_key'],
+					$profile_user_id
+				);
+			}
+
+			if ( $g_locked && ! $is_owner ) {
+				continue;
+			}
+
 			// Enforce group/field/entry visibility for non-owners (most restrictive
 			// wins). Rank-driven so the ladder lives in one place (visibility_rank).
 			if ( ! $is_owner ) {
-				$fvis          = (string) ( $row['field_visibility'] ?? 'public' );
-				$evis          = (string) ( $row['entry_visibility'] ?? 'public' );
-				$effective_vis = 'public';
-				foreach ( array( (string) $gvis, $fvis, $evis ) as $v ) {
-					if ( self::visibility_rank( $v ) > self::visibility_rank( $effective_vis ) ) {
-						$effective_vis = $v;
-					}
-				}
+				// Resolved by the SAME method the search mirror uses. This was an
+				// inline copy of the ladder, and the copies disagreed on a NULL
+				// entry visibility - here it was read as `public`, there it was
+				// skipped. Identical results while the seed shipped everything
+				// public, and divergent the moment a members-only default existed:
+				// values would have been hidden from search but still rendered.
+				$effective_vis = $this->effective_visibility(
+					array(
+						'group_visibility' => (string) $gvis,
+						'visibility'       => (string) ( $row['field_visibility'] ?? 'public' ),
+						'field_key'        => (string) ( $row['field_key'] ?? '' ),
+					),
+					isset( $row['entry_visibility'] ) ? (string) $row['entry_visibility'] : null
+				);
 				// ONE comparison against the viewer's rank, not one test per tier.
 				//
 				// This used to ask three independent questions - is it `connections` and
@@ -1479,6 +1583,9 @@ class ProfileService {
 					'visibility' => $gvis,
 					'is_system'  => (bool) ( $row['group_is_system'] ?? false ),
 					'sort_order' => (int) $row['group_sort_order'],
+					// Only ever true on the OWNER's own read — a non-owner never
+					// gets this far for a locked group (see G3 above).
+					'locked'     => $g_locked,
 					'_entries'   => array(),
 				);
 			}
@@ -1488,16 +1595,16 @@ class ProfileService {
 			}
 
 			$raw_groups[ $gid ]['_entries'][ $eidx ][ $fid ] = array(
-				'field_id'         => $fid,
-				'field_key'        => $row['field_key'],
-				'label'            => $row['field_label'],
-				'type'             => $row['field_type'],
-				'options'          => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
-				'description'      => (string) ( $row['description'] ?? '' ),
-				'placeholder'      => (string) ( $row['placeholder'] ?? '' ),
-				'is_required'      => (bool) ( $row['field_is_required'] ?? false ),
-				'sort_order'       => (int) $row['field_sort_order'],
-				'value'            => self::view_value(
+				'field_id'             => $fid,
+				'field_key'            => $row['field_key'],
+				'label'                => $row['field_label'],
+				'type'                 => $row['field_type'],
+				'options'              => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+				'description'          => (string) ( $row['description'] ?? '' ),
+				'placeholder'          => (string) ( $row['placeholder'] ?? '' ),
+				'is_required'          => (bool) ( $row['field_is_required'] ?? false ),
+				'sort_order'           => (int) $row['field_sort_order'],
+				'value'                => self::view_value(
 					array(
 						'type'    => $row['field_type'],
 						'options' => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
@@ -1506,13 +1613,28 @@ class ProfileService {
 				),
 				// The RAW stored value, and ONLY for the owner. The edit form needs the real
 				// date to prefill its input; nobody else has any business receiving it.
-				'value_raw'        => ( $viewer_id === $profile_user_id ) ? $row['value'] : null,
+				'value_raw'            => ( $viewer_id === $profile_user_id ) ? $row['value'] : null,
 				// Visibility surfaced so the edit-form privacy selector can show
 				// the admin default (field_visibility, falling back to the group)
 				// and the member's saved choice (entry_visibility). See workstream D.
-				'field_visibility' => $row['field_visibility'] ?? 'public',
-				'group_visibility' => $gvis,
-				'entry_visibility' => $row['entry_visibility'] ?? null,
+				'field_visibility'     => $row['field_visibility'] ?? 'public',
+				'group_visibility'     => $gvis,
+				'entry_visibility'     => $row['entry_visibility'] ?? null,
+				// What this value ACTUALLY resolves to, including the site default
+				// when the member has chosen nothing. templates/profile/edit.php has
+				// always read this key to pre-select the privacy control; nothing ever
+				// set it, so the control silently fell back to the field default. That
+				// was harmless while the two always matched and becomes a lie the
+				// moment they do not - the member would be told "Public" while their
+				// value was members-only.
+				'effective_visibility' => $this->effective_visibility(
+					array(
+						'group_visibility' => $gvis,
+						'visibility'       => (string) ( $row['field_visibility'] ?? 'public' ),
+						'field_key'        => (string) ( $row['field_key'] ?? '' ),
+					),
+					isset( $row['entry_visibility'] ) ? (string) $row['entry_visibility'] : null
+				),
 			);
 		}
 
@@ -1531,6 +1653,10 @@ class ProfileService {
 				'visibility' => $group['visibility'],
 				'is_system'  => ! empty( $group['is_system'] ),
 				'sort_order' => $group['sort_order'],
+				// Owner-only: their plan does not include this group. The edit
+				// screen renders it as a locked section rather than an input, and
+				// nothing else in the product should treat it as writable.
+				'locked'     => ! empty( $group['locked'] ),
 			);
 
 			if ( 'repeater' === $group['type'] ) {
@@ -1754,6 +1880,15 @@ class ProfileService {
 					continue;
 				}
 
+				/*
+				 * The site-wide members-only default deliberately does NOT apply here.
+				 * That default answers "the member expressed no preference", and a
+				 * virtual field has no member-chosen entry visibility to be absent —
+				 * whoever registered it stated a visibility, and overriding an explicit
+				 * third-party declaration with our default would be a different rule
+				 * wearing the same name. A registrant who wants the default can read
+				 * ProfileService::default_entry_visibility() themselves.
+				 */
 				$fvis = (string) ( $vf['visibility'] ?? 'public' );
 				if ( ! $is_owner ) {
 					// Same rank comparison the stored-field path uses. This carried its
@@ -2992,14 +3127,22 @@ class ProfileService {
 	}
 
 	/**
-	 * Clamp a member-chosen visibility to be equal-or-more restrictive than the
-	 * field admin default. A member may only TIGHTEN, never loosen.
+	 * Clamp a member-chosen visibility to the owner's ceiling.
 	 *
-	 * @param string|null $chosen        Member-submitted visibility, or null (no choice).
-	 * @param string      $admin_default Field admin-default visibility.
+	 * The ceiling is the GROUP's visibility, not the field's. The field is only a
+	 * default now (see effective_visibility), so clamping to it would mean a
+	 * members-only field default could never be published by the member it
+	 * belongs to - the exact one-way ratchet that made "members-only by default,
+	 * public if you ask" impossible to express.
+	 *
+	 * An owner who needs a hard floor sets it on the GROUP, where it binds every
+	 * field inside and cannot be loosened by anyone.
+	 *
+	 * @param string|null $chosen  Member-submitted visibility, or null (no choice).
+	 * @param string      $ceiling Group visibility - the loosest the member may go.
 	 * @return string|null Clamped visibility, or null when no member choice was made.
 	 */
-	private function clamp_visibility( ?string $chosen, string $admin_default ): ?string {
+	private function clamp_visibility( ?string $chosen, string $ceiling ): ?string {
 		if ( null === $chosen || '' === $chosen ) {
 			return null;
 		}
@@ -3009,40 +3152,50 @@ class ProfileService {
 			return null;
 		}
 
-		// A looser-than-default choice is clamped up to the admin default.
-		if ( self::visibility_rank( $chosen ) < self::visibility_rank( $admin_default ) ) {
-			return $admin_default;
+		// A looser-than-the-ceiling choice is clamped up to the ceiling.
+		if ( self::visibility_rank( $chosen ) < self::visibility_rank( $ceiling ) ) {
+			return $ceiling;
 		}
 
 		return $chosen;
 	}
 
 	/**
-	 * Compute the effective visibility for a stored flat value: the MOST
-	 * restrictive of (group default, field default, entry override).
+	 * Compute the effective visibility of a stored value.
 	 *
-	 * @param array       $field            Flat field definition (group_visibility + visibility).
-	 * @param string|null $entry_visibility Clamped per-entry override, or null.
+	 * Two layers, and which is which matters:
+	 *
+	 *   GROUP visibility is the owner's CEILING. Nothing inside the group is ever
+	 *   looser than it, whoever asks.
+	 *   FIELD visibility is the DEFAULT a value takes when the member has not
+	 *   chosen. The member's own choice REPLACES it rather than being max()'d
+	 *   against it, which is what makes the choice real.
+	 *
+	 * The field used to be a floor as well, folded into the same most-restrictive
+	 * pass as the group. That made the member's control a one-way ratchet - they
+	 * could only ever tighten - so a members-only field default would have removed
+	 * "public" from the picker entirely and the member could never opt back in.
+	 * Owner decision 2026-08-09: new fields default to members-only, and a member
+	 * must still be able to publish one. Both are only possible if the field is a
+	 * default and the group is the ceiling.
+	 *
+	 * This is the single predicate for BOTH display and search indexing.
+	 * get_profile() used to re-implement the ladder inline, and the two copies
+	 * disagreed on a NULL entry visibility: the display copy read it as `public`,
+	 * this one skipped it. They matched only while everything was seeded public.
+	 *
+	 * @param array       $field            Field definition (group_visibility + visibility).
+	 * @param string|null $entry_visibility The member's stored choice, or null when they made none.
 	 * @return string Effective visibility (visibility_enum value).
 	 */
 	private function effective_visibility( array $field, ?string $entry_visibility ): string {
-		$candidates = array(
-			(string) ( $field['group_visibility'] ?? 'public' ),
-			(string) ( $field['visibility'] ?? 'public' ),
-		);
+		$chosen = ( null !== $entry_visibility && '' !== $entry_visibility )
+			? $entry_visibility
+			: (string) ( $field['visibility'] ?? 'public' );
 
-		if ( null !== $entry_visibility ) {
-			$candidates[] = $entry_visibility;
-		}
+		$ceiling = (string) ( $field['group_visibility'] ?? 'public' );
 
-		$effective = 'public';
-		foreach ( $candidates as $candidate ) {
-			if ( self::visibility_rank( $candidate ) > self::visibility_rank( $effective ) ) {
-				$effective = $candidate;
-			}
-		}
-
-		return $effective;
+		return self::visibility_rank( $ceiling ) > self::visibility_rank( $chosen ) ? $ceiling : $chosen;
 	}
 
 	/**

@@ -33,7 +33,18 @@ $bar_tone            = $percent >= 100 ? 'success' : 'accent';
 // translators: %d: profile completion percentage (0-100).
 $progress_label = sprintf( __( 'Profile %d%% complete', 'buddynext' ), $percent );
 ?>
-<section class="bn-card bn-block-profile-completion" data-user-id="<?php echo absint( $user_id ); ?>">
+<section 
+<?php
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+echo get_block_wrapper_attributes(
+	array(
+		'class'        => 'bn-card bn-block-profile-completion',
+		'data-user-id' => (string) absint( $user_id ),
+	)
+);
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+?>
+>
 	<div class="bn-completion-header">
 		<span class="bn-completion-label"><?php esc_html_e( 'Profile completion', 'buddynext' ); ?></span>
 		<span

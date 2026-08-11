@@ -690,26 +690,11 @@
 	white-space: nowrap;
 }
 
-/* Notice — inline success/error messages */
-.bn-notice {
-	padding: var(--bn-a-s3) var(--bn-a-s4);
-	border-radius: var(--bn-a-r-sm);
-	margin-bottom: var(--bn-a-s4);
-	font-size: var(--bn-a-text-sm);
-	font-weight: var(--bn-a-fw-medium);
-}
-
-.bn-notice-success {
-	background: var(--bn-a-green-bg);
-	color: var(--bn-a-green);
-	border: 1px solid var(--bn-a-green-bg);
-}
-
-.bn-notice-error {
-	background: var(--bn-a-red-bg);
-	color: var(--bn-a-red);
-	border: 1px solid var(--bn-a-red-bg);
-}
+/* Notice — inline success/error messages: the .bn-notice* component now lives
+   in bn-admin.css (loaded site-wide on BN admin, and the home of the --bn-a-*
+   tokens), so every admin screen styles it identically. It used to live here,
+   which meant only the Members page — the sole loader of this file — rendered
+   it styled. */
 
 @media (max-width: 782px) {
 	.bn-type-grid,
@@ -1364,6 +1349,22 @@
 .bn-pf-add-group-btn:focus-visible {
 	outline: 2px solid var(--bn-a-brand);
 	outline-offset: var(--bn-a-outline-offset);
+}
+
+/* The Add Group control is a <summary>: a native disclosure, so revealing the
+   form costs no page load and never moves the admin's scroll position. Strip
+   the default marker in both engines so it reads as the button it already was,
+   and hide it once open — the form itself is the affordance at that point. */
+.bn-pf-add-group > summary.bn-pf-add-group-btn {
+	list-style: none;
+}
+
+.bn-pf-add-group > summary.bn-pf-add-group-btn::-webkit-details-marker {
+	display: none;
+}
+
+.bn-pf-add-group[open] > summary.bn-pf-add-group-btn {
+	margin-bottom: var(--bn-a-s4);
 }
 
 .bn-pf-ag-card {

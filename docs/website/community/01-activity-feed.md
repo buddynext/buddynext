@@ -67,7 +67,7 @@ The feed works out of the box. Two owner settings shape its behavior, and a few 
 
 ### Placing the feed with blocks
 
-The feed and composer are available as editor blocks, so you can place them on any page or build a custom landing layout. In the block editor, look for the Activity Feed block and the Post Composer block in the BuddyNext block category and drop them onto any page.
+The feed is available as an editor block, so you can place it on any page or build a custom landing layout. In the block editor, look for the Activity Feed block in the BuddyNext block category and drop it onto any page. The composer is built into the activity feed and posts to it in place; it is not offered as a separate block in the inserter.
 
 ## Good to know
 

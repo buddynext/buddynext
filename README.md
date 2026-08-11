@@ -7,7 +7,7 @@
 <p align="center"><strong>The community operating system for WordPress.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.9-2563eb" alt="Version 1.0.9">
+  <a href="https://github.com/buddynext/buddynext/releases/latest"><img src="https://img.shields.io/github/v/release/buddynext/buddynext?label=release&color=2563eb" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/WordPress-6.9%2B-21759b" alt="WordPress 6.9+">
   <img src="https://img.shields.io/badge/PHP-8.1--8.4-777bb4" alt="PHP 8.1 to 8.4">
   <img src="https://img.shields.io/badge/license-GPLv2%2B-4c9a2a" alt="License GPLv2+">

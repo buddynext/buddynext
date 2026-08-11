@@ -59,6 +59,8 @@ $args = array(
 	'has_cw'            => ! empty( $has_cw ),
 	'shared_post'       => isset( $shared_post ) && is_array( $shared_post ) ? $shared_post : null,
 	'classes'           => isset( $classes ) ? (array) $classes : array(),
+	// Which surface is rendering: a feed PREVIEWS, the permalink READS.
+	'context'           => isset( $context ) ? (string) $context : '',
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -101,6 +103,79 @@ $bn_poll_my_vote   = isset( $bn_body_poll['my_voted_option_id'] ) ? absint( $bn_
 $bn_poll_closed    = ! empty( $bn_body_poll['closed'] );
 $bn_shared_post    = is_array( $args['shared_post'] ) ? $args['shared_post'] : null;
 
+/*
+ * PREVIEW vs READ.
+ *
+ * The feed is a scanning surface; the permalink is a reading surface. Measured
+ * on the same 1,820-character post: in the feed its card is 1,310px on desktop
+ * and 1,803px at 390px -- 1.5 and 2.1 screens, with ZERO posts fully visible on
+ * the first screen and 1,686px of scrolling before the next post begins. On
+ * /p/{id}/ the identical text is comfortable, because that page exists to
+ * display it and already carries the full measure, the breadcrumb and the
+ * expanded thread.
+ *
+ * So a long post is previewed here and read there, rather than expanded in
+ * place. Expanding inline would put the 2.1-screen card back the moment it is
+ * tapped, which is the thing being fixed. Opening the post costs the member
+ * nothing because the feed keeps its state in the URL (?shown=N&filter=…) --
+ * verified: going to a post and back restores all 30 loaded cards and the
+ * scroll position.
+ *
+ * THE THRESHOLD IS A CONVENTION, NOT A MEASUREMENT. ~300 characters is about
+ * one Twitter post (280), i.e. what a "regular update" looks like anywhere.
+ * It is deliberately not fitted to any dataset we happen to hold: the migrated
+ * feed that prompted this measures how people wrote on Mighty Networks, and a
+ * seeded test site measures fixtures. Neither predicts how ten thousand
+ * different communities write, so both filters below exist for the owners whose
+ * members genuinely write longer.
+ *
+ * Text only. A tall photo or a vertical video can eat a screen too, but that is
+ * a media-sizing question with different answers, and clamping a caption would
+ * not touch it.
+ */
+/*
+ * Absent context means DO NOT preview.
+ *
+ * post-card.php is theme-overridable, so a site's copy may predate this and
+ * pass no context at all. Defaulting such a render to "feed" would clamp
+ * someone's permalink and point See more at the page the reader is already on
+ * -- which is exactly what happened here the first time, because $args is built
+ * from an explicit key list that did not yet carry context. Truncating a
+ * reading surface is the worse failure, so an unknown surface shows everything.
+ */
+$bn_body_context  = isset( $args['context'] ) ? (string) $args['context'] : '';
+$bn_is_preview    = in_array( $bn_body_context, array( 'home', 'explore', 'profile', 'space', 'bookmarks' ), true );
+$bn_body_is_long  = false;
+
+if ( $bn_is_preview && ( 'text' === $bn_body_post_type || 'activity' === $bn_body_post_type ) ) {
+	/**
+	 * Characters past which a post is previewed rather than shown whole.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param int    $limit   Character count. Default 300 (~one Twitter post).
+	 * @param string $context Feed context the card is rendering in.
+	 */
+	$bn_preview_limit = (int) apply_filters( 'buddynext_post_preview_char_limit', 300, $bn_body_context );
+
+	/**
+	 * Line breaks past which a post is previewed regardless of length.
+	 *
+	 * A short list is tall: ten one-word lines occupy the screen a paragraph of
+	 * the same character count would not, so counting characters alone misses
+	 * exactly the shape that hurts most.
+	 *
+	 * @since 1.1.3
+	 *
+	 * @param int    $limit   Line-break count. Default 6.
+	 * @param string $context Feed context the card is rendering in.
+	 */
+	$bn_preview_lines = (int) apply_filters( 'buddynext_post_preview_line_limit', 6, $bn_body_context );
+
+	$bn_body_is_long = ( $bn_preview_limit > 0 && mb_strlen( $bn_body_content ) > $bn_preview_limit )
+		|| ( $bn_preview_lines > 0 && substr_count( $bn_body_content, "\n" ) > $bn_preview_lines );
+}
+
 do_action( 'buddynext_part_post_body_before', $args );
 ?>
 <div
@@ -111,7 +186,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 >
 
 	<?php if ( 'text' === $bn_body_post_type || 'activity' === $bn_body_post_type ) : ?>
-		<div class="bn-post-card__content">
+		<div class="bn-post-card__content<?php echo $bn_body_is_long ? ' bn-post-card__content--preview' : ''; ?>">
 			<?php
 			echo wp_kses(
 				nl2br( buddynext_format_content( $bn_body_content ) ),
@@ -127,6 +202,24 @@ do_action( 'buddynext_part_post_body_before', $args );
 			);
 			?>
 		</div>
+		<?php if ( $bn_body_is_long ) : ?>
+			<?php
+			/*
+			 * A real link, not a JS toggle.
+			 *
+			 * It points at the canonical permalink, so it works with JS off, it
+			 * middle-clicks into a new tab, it is keyboard reachable for free, and
+			 * a crawler follows it to the page that carries the full text and the
+			 * Open Graph card. A button that expanded in place would have none of
+			 * those properties and would restore the oversized card anyway.
+			 */
+			?>
+			<p class="bn-post-card__more">
+				<a class="bn-post-card__more-link" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::post_url( (int) $args['bn_post_id'] ) ); ?>">
+					<?php esc_html_e( 'See more', 'buddynext' ); ?>
+				</a>
+			</p>
+		<?php endif; ?>
 
 	<?php elseif ( 'photo' === $bn_body_post_type || 'media' === $bn_body_post_type ) : ?>
 		<?php if ( '' !== $bn_body_content ) : ?>

@@ -308,9 +308,80 @@
 		} );
 	}
 
+	/**
+	 * Make every admin flash notice dismissible.
+	 *
+	 * A `.bn-notice` is rendered from a `?msg=` flash after a save or a delete and
+	 * then sat on screen forever: no close control, no timeout, so the only way to
+	 * clear "Member type deleted." was to navigate away. Core's own notices have
+	 * had a dismiss button since 4.2 and owners expect one.
+	 *
+	 * Applied here rather than in each of the eleven render sites so a new notice
+	 * anywhere inherits the behaviour without remembering to ask for it. The
+	 * button is added by script on purpose: with JS off there is nothing to press,
+	 * and a dead × would be worse than none.
+	 *
+	 * Success auto-dismisses; an error does NOT. An error the owner has not read
+	 * yet is the one message that must not disappear on a timer -- they may have
+	 * looked away, and "Could not save member type" is the whole reason they are
+	 * still on the screen.
+	 */
+	function initNotices() {
+		// Long enough to still be there when an owner looks back after clicking
+		// away. A success flash that clears in a couple of seconds is the same
+		// complaint in reverse -- they see something appear and never learn what
+		// it said. The hover/focus pause below covers the reader who is slower
+		// still, and the dismiss button covers everyone who wants it gone now.
+		var AUTO_DISMISS_MS = 12000;
+
+		document.querySelectorAll( '.bn-notice' ).forEach( function ( notice ) {
+			if ( notice.dataset.bnNoticeWired ) {
+				return;
+			}
+			notice.dataset.bnNoticeWired = '1';
+
+			var isError = notice.classList.contains( 'bn-notice-error' );
+
+			// Announce it: a flash the owner never sees is the same bug in a
+			// different form. Errors assert so a screen reader interrupts.
+			if ( ! notice.hasAttribute( 'role' ) ) {
+				notice.setAttribute( 'role', isError ? 'alert' : 'status' );
+			}
+
+			var close = document.createElement( 'button' );
+			close.type      = 'button';
+			close.className = 'bn-notice__dismiss';
+			close.setAttribute( 'aria-label', wp.i18n.__( 'Dismiss this notice', 'buddynext' ) );
+			close.innerHTML = '<span aria-hidden="true">&times;</span>';
+
+			function dismiss() {
+				if ( ! notice.parentNode ) {
+					return;
+				}
+				notice.remove();
+			}
+
+			close.addEventListener( 'click', dismiss );
+			notice.appendChild( close );
+
+			if ( ! isError ) {
+				var timer = window.setTimeout( dismiss, AUTO_DISMISS_MS );
+				// Reading it should not race the timer.
+				notice.addEventListener( 'mouseenter', function () {
+					window.clearTimeout( timer );
+				} );
+				notice.addEventListener( 'focusin', function () {
+					window.clearTimeout( timer );
+				} );
+			}
+		} );
+	}
+
 	function init() {
 		document.addEventListener( 'click',  delegate, true );
 		document.addEventListener( 'submit', delegate, true );
+
+		initNotices();
 
 		document.querySelectorAll( '[data-bn-toast]' ).forEach( function ( node ) {
 			bnToast( node.dataset.bnToast, node.dataset.bnToastTone || 'info' );

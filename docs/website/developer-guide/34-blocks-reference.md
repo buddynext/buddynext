@@ -1,18 +1,31 @@
 # Blocks Reference
 
-BuddyNext Free ships 16 server-rendered Gutenberg blocks under the `buddynext/*` namespace and the `buddynext` editor category. This page is the contract for each block: its name, purpose, attributes, and the REST data source that backs its rendered output. Developers embedding, theming, or extending these blocks should treat this table as authoritative.
+BuddyNext Free ships 19 server-rendered Gutenberg blocks under the `buddynext/*` namespace and the `buddynext` editor category. This page is the contract for each block: its name, purpose, attributes, and the REST data source that backs its rendered output. Developers embedding, theming, or extending these blocks should treat this table as authoritative.
+
+**What these blocks are for.** They let a site owner surface their community **anywhere WordPress supports blocks** - posts, pages, template parts, sidebars, patterns, the site editor. The job is promotion: show a visitor who has not joined what is inside and give them a reason to. So every block meant for that purpose renders fully for a logged-out visitor, and its actions degrade to "sign in, then act" rather than disappearing.
+
+**Not for the BuddyNext hub.** The community's own routes - `/activity/`, `/members/`, `/spaces/`, `/messages/` and the rest - render through PHP templates in `templates/`, not through blocks. These blocks are for the WordPress surfaces AROUND that hub: your posts, pages, sidebars and template parts. Editing a hub surface means overriding its template (see "Override a block's template" below and the theme-override guide), not placing a block.
+
+Because they can land on any block surface, a person-scoped block resolves its subject from the page when no explicit target is set: `follow-button` and `connection-button` fall back to the **author of the post or page carrying them**, which is what makes them useful on an ordinary blog post. With no sensible target they render nothing at all rather than an empty box.
 
 ![A feed page assembled from the server-rendered BuddyNext Gutenberg blocks documented here](../images/community-activity-feed.webp)
 
 ## Overview / Contract
 
-All 16 blocks share the same registration and rendering model. Read this before the per-block tables.
+All 19 blocks share the same registration and rendering model. Read this before the per-block tables.
 
 - **Registration.** Every block is registered from `includes/Blocks/BlockRegistrar.php::register_blocks()` via `register_block_type( block.json, [ 'render_callback' => ... ] )`. Each block's metadata lives in `blocks/bn-{slug}/block.json`. There is no JavaScript build step - render callbacks are inline closures on the registrar.
 - **Server-rendered (dynamic).** Every block is dynamic: the saved post content holds only the block comment plus attributes, and the markup is produced at request time by a render callback that calls `buddynext_get_template( 'blocks/{slug}.php', ... )`. The template, in turn, reads data through a domain service (`buddynext_service( '...' )`) for the first paint and exposes a REST base URL plus a nonce for live client updates.
 - **Editor preview.** The block editor renders a live preview with `wp.serverSideRender`. The shared editor handle `buddynext-blocks-editor` (`assets/js/blocks.js`) is pre-registered with `wp-server-side-render` in its dependency list and is localised with `window.bnBlocks` (`restUrl`, `nonce`, `searchUrl`) so editor-side REST calls carry a valid `wp_rest` nonce.
 - **REST namespace.** Every data source below is under `buddynext/v1`. Interactive blocks read the base URL from `rest_url( 'buddynext/v1' )` passed into the template; the front-end view modules (`@buddynext/feed`, `@buddynext/social-buttons`, `@buddynext/spaces`) call specific routes under that namespace. Authenticated, state-changing routes require the `wp_rest` nonce; read routes for public directories do not.
-- **Block supports.** With one exception, every block declares the same `supports`: `color` (background + text), `typography.fontSize`, and `spacing` (padding + margin). The Header User Menu block additionally sets `html: false` and `align: false`. These are standard core supports and are not repeated per-block below.
+- **Block supports.** Every block declares the same `supports`: `color` (background + text), `typography.fontSize`, and `spacing` (padding + margin). The Header User Menu block additionally sets `html: false` and `align: false`. Seven blocks also set `inserter: false` - see the next bullet. These are standard core supports and are not repeated per-block below.
+- **Twelve blocks are offered in the inserter; seven are not.** The seven need a member or profile context that an ordinary page does not carry, so inserting them there produced an empty box or nothing at all. They remain **registered and fully functional** - a page that already uses one keeps rendering it, and `render_block`/`do_blocks` still execute them - they are simply no longer listed as page content. `inserter` is an editor-only flag and changes no output.
+
+  | Offered in the inserter (12) | Not offered (7) |
+  |---|---|
+  | `activity-feed`, `community-activity`, `member-card`, `member-directory`, `members-showcase`, `profile-fields`, `profile-header`, `search-bar`, `space-card`, `space-directory`, `spaces-showcase`, `trending-hashtags` | `connection-button`, `follow-button`, `header-user-menu`, `my-spaces`, `notification-bell`, `post-composer`, `profile-completion-bar` |
+
+  To place one of the seven deliberately - in a theme template, a pattern, or a template part - insert its block comment directly (`<!-- wp:buddynext/follow-button {"userId":123} /-->`). Nothing blocks programmatic use.
 - **Styles.** Most blocks enqueue `assets/css/blocks.css`. The Header User Menu block enqueues `assets/css/bn-header.css` instead (it shares the logged-in header chrome stylesheet).
 
 > **Note:** Attribute defaults shown below are the `block.json` defaults. The render callback sanitises each attribute (`sanitize_key`, `(int)`, `(bool)`, `esc_url_raw`, `sanitize_text_field`) before passing it to the template, so out-of-range or malformed values fall back safely.
@@ -28,6 +41,7 @@ Each row lists the block name, what it renders, its attributes (name, type, defa
 | `buddynext/activity-feed` | Renders the community activity feed. Scope selects which feed to show. | `scope` : string = `home` (enum: `home`, `profile`, `space`, `explore`) · `perPage` : integer = `20` | First paint via the `feed` service; live load/refresh via `GET`/`POST` `buddynext/v1/posts` and `buddynext/v1/feed` (mark-all-read at `buddynext/v1/notifications/mark-all-read` for header contexts). | `@buddynext/feed` |
 | `buddynext/post-composer` | "What's on your mind" post-creation box. | `placeholder` : string = `""` | `POST buddynext/v1/posts` (create). Link previews via `buddynext/v1/link-preview`. | `@buddynext/feed` |
 | `buddynext/trending-hashtags` | Trending hashtags as a list or tag cloud. | `count` : integer = `10` · `display` : string = `list` (enum: `list`, `cloud`) | First paint via the `hashtags` service (`get_trending()`), backed by the hashtags REST surface under `buddynext/v1` (hashtags routes). | none |
+| `buddynext/community-activity` | Recent public activity on a landing page - social proof that the community is alive, rendered for logged-out visitors. | `count` : integer = `5` · `show` : string = `all` · `showSpaceName` : boolean = `false` | First paint via the `feed` service; live data under `buddynext/v1` (`posts` / `feed`). | none |
 
 ### People
 
@@ -37,6 +51,7 @@ Each row lists the block name, what it renders, its attributes (name, type, defa
 | `buddynext/member-card` | Single user card with avatar, name, and follow button. Built for sidebars/widgets. | `userId` : integer = `0` | First paint via the `follows` service for relationship state; follow action via `buddynext/v1` follow routes. | `@buddynext/social-buttons` |
 | `buddynext/follow-button` | Standalone follow / unfollow button for any user. | `userId` : integer = `0` | `follows` service for initial state; `POST`/`DELETE` against `buddynext/v1` follow routes (`/users/{id}/follow`). | `@buddynext/social-buttons` |
 | `buddynext/connection-button` | Standalone connect / disconnect button for any user. | `userId` : integer = `0` | `connections` + `blocks` services for initial state; connection routes under `buddynext/v1` (`/users/{id}/connection`). | `@buddynext/social-buttons` |
+| `buddynext/members-showcase` | A few featured members on a landing page so visitors can see who is already here. | `source` : string = `newest` · `memberType` : string = `""` · `userIds` : array = `[]` · `count` : integer = `4` · `layout` : string = `list` · `showHeadline` : boolean = `true` | First paint via the `member_directory` service (each `source` maps onto a filter it already validates; `picked` uses the ordered `userIds` list); `follows` service + follow routes under `buddynext/v1` drive the buttons. | `@buddynext/social-buttons` |
 
 ### Spaces
 
@@ -45,6 +60,7 @@ Each row lists the block name, what it renders, its attributes (name, type, defa
 | `buddynext/space-directory` | Filterable grid of community spaces (by category and membership). | `perPage` : integer = `12` · `layout` : string = `grid` (enum: `grid`, `list`) | First paint via the `spaces` service; spaces list via `GET buddynext/v1/spaces`. | none |
 | `buddynext/space-card` | Single space card for a featured-space callout. | `spaceId` : integer = `0` | `spaces` + `space_members` services for initial state; join/leave and media via `buddynext/v1/spaces`, `buddynext/v1/spaces/{id}/avatar`, `buddynext/v1/spaces/{id}/cover`. | `@buddynext/spaces` |
 | `buddynext/my-spaces` | Lists the spaces the current user belongs to. | `limit` : integer = `10` | `spaces` service scoped to the current user; spaces routes under `buddynext/v1`. | none |
+| `buddynext/spaces-showcase` | A few featured spaces on a landing page so visitors can see what there is to join. | `source` : string = `popular` · `categoryId` : integer = `0` · `spaceIds` : array = `[]` · `count` : integer = `3` · `layout` : string = `grid` · `showDescription` : boolean = `true` | First paint via the `spaces` service (`categoryId` / `spaceIds` narrow the set); spaces list via `GET buddynext/v1/spaces`. | none |
 
 ### Profile
 
@@ -99,4 +115,4 @@ echo do_blocks( '<!-- wp:buddynext/member-directory {"perPage":24,"layout":"list
 - **`userId` / `spaceId` default of 0.** For the per-entity blocks (member card, follow/connect buttons, profile blocks, space card), a `0` default means "resolve from the current context" - the profile being viewed, or the logged-in user. Set an explicit ID to pin the block to one entity.
 - **Big-site lists.** The directory blocks (`member-directory`, `space-directory`) and `activity-feed` are paginated by `perPage` and back onto cursor/paged REST routes; they are safe to place on high-traffic pages. Avoid setting `perPage` to large values to "show everything" - use the directory's own load-more instead.
 - **Auth is a shortcode, not a block.** There is no signup or login *block*. The signup / login / verify flow is rendered by the `[buddynext_auth]` shortcode (see Block Patterns), not by a `buddynext/*` block, and it wraps WordPress core authentication rather than posting to a `buddynext/v1` route for the credential exchange.
-- **Free vs Pro.** All 16 blocks ship in Free. Pro does not replace them; it adds capabilities (for example membership-gated content) that surface through the same blocks and the `buddynext-pro/v1` namespace where Pro routes apply.
+- **Free vs Pro.** All 19 blocks ship in Free. Pro does not replace them; it adds capabilities (for example membership-gated content) that surface through the same blocks and the `buddynext-pro/v1` namespace where Pro routes apply.

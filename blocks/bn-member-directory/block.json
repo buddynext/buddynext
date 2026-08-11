@@ -6,14 +6,31 @@
 	"icon": "groups",
 	"category": "buddynext",
 	"description": "Full filterable member grid or list with search and filters.",
-	"keywords": [ "buddynext", "members", "directory", "people" ],
+	"keywords": [
+		"buddynext",
+		"members",
+		"directory",
+		"people"
+	],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
-	"style": "file:../../assets/css/blocks.css",
+	"viewScriptModule": "@buddynext/members",
+	"style": [
+		"file:../../assets/css/blocks.css",
+		"bn-members"
+	],
 	"supports": {
-		"color": { "background": true, "text": true },
-		"typography": { "fontSize": true },
-		"spacing": { "padding": true, "margin": true }
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"spacing": {
+			"padding": true,
+			"margin": true
+		}
 	},
 	"attributes": {
 		"perPage": {
@@ -23,8 +40,15 @@
 		"layout": {
 			"type": "string",
 			"default": "grid",
-			"enum": [ "grid", "list" ]
+			"enum": [
+				"grid",
+				"list"
+			]
 		}
 	},
-	"example": {}
+	"example": {},
+	"editorStyle": [
+		"file:../../assets/css/blocks.css",
+		"bn-members"
+	]
 }

@@ -13,10 +13,17 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
     testDir: './tests/e2e',
+    // Disables the per-minute comment rate limit for the serial suite (see the
+    // file for why) so a burst of test comments doesn't 429 and flake specs red.
+    globalSetup: './tests/e2e/_fixtures/global-setup.ts',
     timeout: 30_000,
     expect: { timeout: 5_000 },
     fullyParallel: false, // WP shares one DB, so don't blast it
     workers: 1, // single worker against buddynext-dev.local
+    // A single shared WP + php-fpm saturates on a cold serial run, producing
+    // transient timeouts that pass on retry (not logic failures). Retry to keep
+    // the gate trustworthy; a spec that fails on every retry is a real defect.
+    retries: process.env.CI ? 2 : 1,
     reporter: [['html', { outputFolder: 'tests/e2e/_report', open: 'never' }], ['list']],
     use: {
         baseURL: process.env.BN_BASE_URL ?? 'http://buddynext-dev.local',

@@ -1555,7 +1555,13 @@ const profileStore = store( 'buddynext/profile', {
 			var formEl = document.querySelector( '.bn-ep-form-shell' );
 			var scope  = formEl || document;
 			scope.querySelectorAll( '[required]' ).forEach( function ( el ) {
-				var key = el.getAttribute( 'name' ) || '';
+				// Strip a trailing [] before keying the error. A multi-value control
+				// posts as `foo[]` while the payload key -- and the inline error slot
+				// the template renders -- is `foo`, so without this the message is
+				// filed under a key nothing displays: the save is blocked and the
+				// member sees no reason why. Pro's multi_select_advanced is a real
+				// <select multiple required> and is the first control to hit this.
+				var key = ( el.getAttribute( 'name' ) || '' ).replace( /\[\]$/, '' );
 				if ( ! key || /\[\d+\]\[/.test( key ) ) { return; }
 				var empty = ( el.type === 'checkbox' )
 					? ! el.checked
@@ -1564,6 +1570,34 @@ const profileStore = store( 'buddynext/profile', {
 					errors[ key ] = fmt( t( 'fieldRequired', '%s is required.' ), requiredLabelFor( el ) );
 					if ( ! firstInvalid ) { firstInvalid = el; }
 				}
+			} );
+
+			// Required GROUPS — radio and checkbox sets.
+			//
+			// HTML cannot say "at least one of these": `required` on a checkbox
+			// demands that specific box, so a group cannot express the rule the
+			// server enforces. FieldType therefore marks the fieldset with
+			// data-bn-required, and the check lives here.
+			//
+			// Without this the group was invisible to validation: six field types
+			// rendered no requiredness at all, the form submitted happily, and the
+			// server answered 422 for a field the member was never told about
+			// (Basecamp 10184320781). A refusal the form could have predicted
+			// belongs at render time, not after a round trip.
+			scope.querySelectorAll( '[data-bn-required]' ).forEach( function ( group ) {
+				var inputs = group.querySelectorAll( 'input[type="checkbox"], input[type="radio"]' );
+				if ( ! inputs.length ) { return; }
+
+				// The name carries [] for checkbox groups; the payload key does not.
+				var key = ( inputs[ 0 ].getAttribute( 'name' ) || '' ).replace( /\[\]$/, '' );
+				if ( ! key || /\[\d+\]\[/.test( key ) ) { return; }
+
+				var chosen = false;
+				inputs.forEach( function ( input ) { if ( input.checked ) { chosen = true; } } );
+				if ( chosen ) { return; }
+
+				errors[ key ] = fmt( t( 'fieldRequired', '%s is required.' ), requiredLabelFor( group ) );
+				if ( ! firstInvalid ) { firstInvalid = inputs[ 0 ]; }
 			} );
 
 			[ 'website', 'social_twitter', 'social_linkedin', 'social_github', 'social_instagram', 'social_youtube' ].forEach( function ( fname ) {
@@ -1587,14 +1621,24 @@ const profileStore = store( 'buddynext/profile', {
 
 			doSave( ctx ).then( function () {
 				syncDirtyAttr( ctx.isDirty );
-				if ( ctx.saved ) {
-					// Smooth redirect after save: profileUrl is in context.
-					setTimeout( function () {
-						if ( ctx.profileUrl ) {
-							window.location.href = ctx.profileUrl;
-						}
-					}, 700 );
-				}
+
+				/*
+				 * Stay on the edit screen.
+				 *
+				 * This used to navigate to profileUrl 700ms after a successful save,
+				 * which dropped the member on their profile ROOT -- the Posts tab --
+				 * having just edited their About fields. They lost their place, lost
+				 * their scroll position, and could not carry on editing the next
+				 * field without going back (Basecamp 10180604112).
+				 *
+				 * Nothing depended on that redirect. Changing the profile handle is a
+				 * separate action (`/me/profile-slug`) which updates ctx.profileUrl in
+				 * place and never navigated, and the edit screen already offers "My
+				 * Profile" and "Cancel" for anyone who does want to leave. The save
+				 * bar reports the result on its own, which is how the sibling settings
+				 * screen has always behaved -- templates/settings/privacy.php passes an
+				 * empty profileUrl for exactly this reason.
+				 */
 			} );
 		},
 

@@ -1,6 +1,6 @@
 # Getting Started for Developers
 
-This page orients you to a local BuddyNext checkout: the runtime requirements, where the code lives, the two WP-CLI commands you will use during development, and how to run the quality gates before you commit.
+This page orients you to a local BuddyNext checkout: the runtime requirements, where the code lives, the WP-CLI commands you will use during development, and how to run the quality gates before you commit.
 
 ![The BuddyNext admin dashboard a fresh local checkout boots into after install and seed](../images/admin-overview.webp)
 
@@ -42,21 +42,21 @@ includes/
   REST/            Router + BaseRestController (shared auth/admin guards)
   Admin/           wp-admin pages, settings, the AdminHub menu
   Theme/           TokenService (injects --bn-* tokens), Appearance, template loader
-  Demo/  Cert/     the two WP-CLI command classes
+  Demo/  Cert/     WP-CLI command classes (6 commands total - see 38-wp-cli.md)
 
 templates/         theme-overridable PHP - hubs, parts/, shell/ (override via {theme}/buddynext/)
 assets/            css/bn-{feature}.css (token-only) + js/{feature}/store.js (Interactivity API)
-blocks/            16 registered Gutenberg blocks (bn-activity-feed, bn-member-directory, ...)
+blocks/            19 registered Gutenberg blocks (bn-activity-feed, bn-member-directory, ...)
 docs/website/       this developer guide
 ```
 
-> **There is no machine-readable manifest in Free.** Earlier revisions of this guide pointed at `audit/manifest.json` and `docs/specs/HOOKS.md` as "the canonical inventory - read before grepping". Neither file exists in this plugin. Grep the source: `register_rest_route(` for routes, `do_action(` / `apply_filters(` for hooks, `FeatureRegistry::catalog()` for features. (The **Pro** plugin does ship `audit/manifest.json` and `docs/specs/HOOKS.md`; references to those are still good.)
+> **The manifest exists; the spec files do not.** Free ships `audit/manifest.json` - the machine-readable inventory (routes, hooks fired, tables, blocks, cron). It is generated, so it can lag the code after a change; treat it as a starting index and confirm against the source. Free ships no `docs/specs/*.md`, though - an earlier revision of this guide cited `docs/specs/HOOKS.md` as a locked contract, and it does not exist. The code is the contract: grep `register_rest_route(` for routes, `do_action(` / `apply_filters(` for hooks, `FeatureRegistry::catalog()` for features, and read the per-domain hooks pages (25-33).
 
 The rules that hold this together: Core never imports from a feature, a Service never echoes template output, and a template never runs `$wpdb` directly. Features talk to each other only through hooks, filters, or container lookups. See the Developer Overview for the contract-first philosophy and the seven extension surfaces.
 
 ## WP-CLI commands
 
-BuddyNext registers two commands at boot (only when `WP_CLI` is defined). Both are wired in `includes/Core/Plugin.php`.
+BuddyNext registers six `wp buddynext` command namespaces at boot (only when `WP_CLI` is defined), all wired in `includes/Core/Plugin.php`: `demo`, `cert`, `repair-space-owners`, `repair-discussion-visibility`, `handles`, and `qa-fixtures` (the last is dev-tree only and absent from a packaged install). The two you reach for daily are covered below; see the WP-CLI Commands page for the full reference.
 
 ### `wp buddynext demo` - demo seeder
 

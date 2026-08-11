@@ -48,6 +48,15 @@ class PluginIsolation {
 	public const OPTION = 'buddynext_isolation_plugins';
 
 	/**
+	 * Cache of the auto-detected front-end plugin set.
+	 *
+	 * Holds `fingerprint` (of the active-plugin list) and `plugins`, so the
+	 * reflection scan reruns when the owner activates or deactivates something and
+	 * not on every admin page load.
+	 */
+	public const DETECTED_OPTION = 'buddynext_isolation_detected';
+
+	/**
 	 * In-house integration plugin basenames that the front end must never strip.
 	 *
 	 * BuddyNext + BuddyNext Pro themselves are the mu-plugin's safety floor and
@@ -145,7 +154,8 @@ class PluginIsolation {
 					self::CORE_INTEGRATIONS,
 					self::APP_INTEGRATIONS,
 					self::OPERATIONAL_PLUGINS,
-					self::TRANSLATION_PLUGINS
+					self::TRANSLATION_PLUGINS,
+					self::CONSENT_PLUGINS
 				)
 			)
 		);
@@ -186,6 +196,37 @@ class PluginIsolation {
 		'wpml-string-translation/plugin.php',
 		'translatepress-multilingual/index.php',
 		'say-what/say-what.php',
+	);
+
+	/**
+	 * Consent-management (cookie-banner / CMP) plugins isolation must never strip.
+	 *
+	 * Same reasoning as TRANSLATION_PLUGINS, but the stakes are legal, not cosmetic.
+	 * A CMP renders its banner and runs its consent-gating scripts on EVERY page; a
+	 * hub route (/activity/, /spaces/, /login/, /members/) is exactly where a visitor
+	 * lands first and where consent must be captured before analytics/marketing
+	 * cookies fire. Front-end discovery keeps a CMP alive once it has run, but it runs
+	 * on a non-isolated request — so a brand-new CMP install whose FIRST served page is
+	 * a hub route would have its scripts dequeued until discovery caught up, i.e. no
+	 * consent management on the one page that needed it. Putting the well-known CMPs on
+	 * the cold-start floor (this list is rendered into the mu-plugin, which runs before
+	 * plugins load) closes that window: a consent plugin is never stripped on a hub
+	 * route, from the very first request. A CMP not on this list is still covered by
+	 * the owner allow-list screen (Admin -> BuddyNext -> Plugin isolation), so this is a
+	 * sensible default, not the only way in.
+	 */
+	private const CONSENT_PLUGINS = array(
+		'wpconsent-cookies-banner-privacy-suite/wpconsent.php',
+		'complianz-gdpr/complianz-gpdr.php',
+		'complianz-gdpr-premium/complianz-gpdr-premium.php',
+		'cookie-law-info/cookie-law-info.php',
+		'webtoffee-gdpr-cookie-consent/webtoffee-gdpr-cookie-consent.php',
+		'gdpr-cookie-consent/gdpr-cookie-consent.php',
+		'borlabs-cookie/borlabs-cookie.php',
+		'real-cookie-banner/index.php',
+		'cookiebot/cookiebot.php',
+		'uk-cookie-consent/uk-cookie-consent.php',
+		'iubenda-cookie-law-solution/iubenda_cookie_solution.php',
 	);
 
 	/**
@@ -241,6 +282,47 @@ class PluginIsolation {
 	 *
 	 * @return array<int,string> De-duplicated plugin basenames.
 	 */
+	/**
+	 * Plugins kept alive because something DECLARED them, not because they were
+	 * discovered.
+	 *
+	 * The in-house family, translation plugins, the owner's own keep-list, menu
+	 * dependencies, and whatever Pro appends through
+	 * `buddynext_isolation_plugins`.
+	 *
+	 * Separated from discovery because the two earn their place differently and
+	 * the ASSET layer treats them differently: BuddyNext renders the in-house
+	 * family's content itself through the bridges, so their stylesheets are
+	 * redundant on a BN route, while a discovered third-party plugin has nothing
+	 * rendering for it and needs its own. Pro registers its half through the
+	 * filter, so reading the constants alone misses Listora, Career Board and
+	 * Learnomy -- which is exactly what a first attempt at this did.
+	 *
+	 * @return string[] Plugin basenames.
+	 */
+	private static function explicitly_listed(): array {
+		$base = array_merge(
+			self::CORE_INTEGRATIONS,
+			self::TRANSLATION_PLUGINS,
+			self::owner_keep_list(),
+			self::menu_dependency_plugins()
+		);
+
+		/**
+		 * Filter the in-house integration plugins kept alive on BuddyNext routes.
+		 *
+		 * @param array<int,string> $plugins In-house integration basenames.
+		 */
+		return (array) apply_filters( 'buddynext_isolation_plugins', $base );
+	}
+
+	/**
+	 * The full set of plugin basenames to keep alive on BuddyNext routes: the
+	 * explicitly-listed in-house family plus any third-party plugins discovered to
+	 * render on the front end. De-duplicated and trimmed.
+	 *
+	 * @return array<int,string> Plugin basenames.
+	 */
 	public static function integration_plugins(): array {
 		/**
 		 * Filter the in-house integration plugins kept alive on BuddyNext routes.
@@ -251,14 +333,7 @@ class PluginIsolation {
 		 *
 		 * @param array<int,string> $plugins In-house integration basenames.
 		 */
-		$base = array_merge(
-			self::CORE_INTEGRATIONS,
-			self::TRANSLATION_PLUGINS,
-			self::owner_keep_list(),
-			self::menu_dependency_plugins()
-		);
-
-		$plugins = (array) apply_filters( 'buddynext_isolation_plugins', $base );
+		$plugins = array_merge( self::explicitly_listed(), self::detected_frontend_plugins() );
 
 		$plugins = array_values(
 			array_unique(
@@ -522,6 +597,317 @@ class PluginIsolation {
 	 * Idempotent: reads the stored JSON, compares against the freshly-collected
 	 * list, and only writes on a genuine diff — so it adds no write on a steady
 	 * state but self-heals the moment Pro is (de)activated or the family changes.
+	 *
+	 * @return void
+	 */
+	/**
+	 * Hooks that mean "this plugin puts something on the front end".
+	 *
+	 * Deliberately about OUTPUT rather than intent. A plugin that only listens to
+	 * save_post or registers a REST route changes nothing a visitor sees on a
+	 * BuddyNext route, and isolation is exactly right to drop it. A plugin that
+	 * hooks wp_head, enqueues assets, filters the_content, or contributes to the
+	 * header/footer template is drawing part of the page, and dropping it makes
+	 * the community pages look broken compared with the rest of the site.
+	 *
+	 * @var string[]
+	 */
+	private const FRONTEND_OUTPUT_HOOKS = array(
+		'wp_head',
+		'wp_footer',
+		'wp_body_open',
+		'wp_enqueue_scripts',
+		'get_header',
+		'get_footer',
+		'the_content',
+		'body_class',
+		'template_include',
+		'wp_nav_menu_items',
+		'render_block',
+		'language_attributes',
+	);
+
+	/**
+	 * Asset-URL prefixes for the plugins discovery decided are front-end renderers.
+	 *
+	 * THE SECOND HALF OF ISOLATION. Keeping a plugin LOADED is only half the job:
+	 * AssetIsolation separately dequeues any style or script whose source is not
+	 * on an allowed URL prefix. Teaching only the plugin layer about discovery
+	 * produced something worse than the original bug -- a header/footer builder
+	 * that now EXECUTES and emits its markup with its stylesheet and script
+	 * stripped, i.e. a broken unstyled half-header where there had at least been
+	 * cleanly nothing; and a cookie banner that renders but cannot record
+	 * consent, because the JS that does the recording was dequeued.
+	 *
+	 * Verified by QA with GamiPress: kept in active_plugins on a hub route, but
+	 * gamipress.min.css/js present on an ordinary page and absent on the hub.
+	 *
+	 * So both layers read the SAME discovered list, from here. That is also what
+	 * stops them drifting apart again, which is the failure this whole card is
+	 * about.
+	 *
+	 * @return string[] URL prefixes, one per discovered plugin directory.
+	 */
+	public static function frontend_asset_prefixes(): array {
+		$prefixes = array();
+
+		/*
+		 * THIRD-PARTY only. Our own suite is deliberately excluded.
+		 *
+		 * The in-house family is kept LOADED so its data and hooks are available,
+		 * but BuddyNext renders partner content itself through the bridges -- a
+		 * Jetonomy discussion or a Listora listing appears as a BN card, drawn
+		 * with BN's own CSS. Their stylesheets and scripts are redundant on a BN
+		 * route, which is why AssetIsolation stripped them long before this
+		 * change, and why pulling them back in cost real weight for nothing:
+		 * measured on the profile editor, allowing everything added 9 assets for
+		 * wb-listora and 8 for wb-gamification alone, and pushed several journey
+		 * specs past their timeouts.
+		 *
+		 * A discovered THIRD-PARTY plugin is the opposite case: nothing renders
+		 * its output for it, so without its own assets it emits unstyled, inert
+		 * markup -- the broken half-header and the consent banner that cannot
+		 * record consent. Those are the ones that need this.
+		 */
+
+		/*
+		 * Exclude OUR OWN family only -- not everything on the keep-list.
+		 *
+		 * Excluding the whole explicit list was wrong and measurably so: it also
+		 * dropped the owner's own keep-list, which took the consent banner's
+		 * assets with it -- the very plugin this bounce was about. If an owner
+		 * has explicitly kept a third-party plugin, they want it working, so its
+		 * assets belong on the page.
+		 *
+		 * Pro's half of the family (Career Board, Listora, Learnomy) arrives
+		 * through the filter rather than the constant, so it is recovered as the
+		 * delta the filter introduced. Reading the constants alone missed it.
+		 */
+		$declared_base = array_merge(
+			self::CORE_INTEGRATIONS,
+			self::TRANSLATION_PLUGINS,
+			self::owner_keep_list(),
+			self::menu_dependency_plugins()
+		);
+		$pro_family    = array_diff( self::explicitly_listed(), $declared_base );
+
+		$own = array_map(
+			static fn( $basename ): string => (string) strtok( (string) $basename, '/' ),
+			array_merge( self::CORE_INTEGRATIONS, self::SELF_PLUGINS, $pro_family )
+		);
+
+		// COLD-START FLOOR — the asset layer must read the SAME floor the plugin
+		// layer does, or the two drift (Basecamp 10186160953). detected_frontend_plugins()
+		// is populated by a discovery pass that only runs on non-isolated requests, so on
+		// the FIRST hub-route request after a CMP is activated (or after the discovery cache
+		// is cleared) that list is empty. A consent or translation plugin kept LOADED by the
+		// essentials floor would then render its markup while AssetIsolation dequeued its
+		// CSS/JS — a consent banner that appears but cannot record consent, which is worse
+		// than absent for the GDPR case. Those floors are known basenames, so their asset
+		// prefixes can be kept from the first request without waiting for discovery, exactly
+		// as essentials() keeps the plugins themselves loaded. The owner's explicit keep-list
+		// rides along for the same reason: a plugin the owner kept should work immediately.
+		// Everything is intersected with the live active set so no prefix is kept for a
+		// plugin that is not actually running.
+		$active     = (array) get_option( 'active_plugins', array() );
+		$cold_floor = array_intersect(
+			array_merge( self::CONSENT_PLUGINS, self::TRANSLATION_PLUGINS, self::owner_keep_list() ),
+			$active
+		);
+
+		foreach ( array_merge( self::detected_frontend_plugins(), $cold_floor ) as $basename ) {
+			$slug = (string) strtok( (string) $basename, '/' );
+			if ( in_array( $slug, $own, true ) ) {
+				continue;
+			}
+			// plugins_url() resolves the plugin's own directory from its
+			// basename, so no path handling is needed here; array_filter below
+			// drops anything that fails to resolve.
+			$prefixes[] = trailingslashit( plugins_url( '', (string) $basename ) );
+		}
+
+		return array_values( array_unique( array_filter( $prefixes ) ) );
+	}
+
+	/**
+	 * Active plugins that render on the front end, detected rather than listed.
+	 *
+	 * WHY THIS EXISTS. Isolation strips every plugin that is not on an allow-list,
+	 * and an allow-list of THIRD-PARTY plugins can never be complete: we cannot
+	 * know what an owner installed. The reported symptom was a Gutenberg
+	 * header/footer builder vanishing on hub routes, but that plugin was only the
+	 * one somebody noticed -- cookie banners, page builders, sliders, custom-CSS
+	 * plugins and analytics were all being dropped the same way, silently, and the
+	 * owner's only clue was that their community pages looked different from the
+	 * rest of their site (Basecamp 10180566662).
+	 *
+	 * So the list is now discovered. Every active plugin is asked one question --
+	 * does it hook anything that draws the front end? -- and if it does, it
+	 * survives isolation. An owner installing a new front-end plugin is protected
+	 * without anyone editing a list.
+	 *
+	 * WHY IT ONLY RUNS IN ADMIN. Detection has to happen on a request where every
+	 * plugin is loaded. On an isolated front-end route the stripped plugins are not
+	 * loaded, so they register no hooks, so they would look like they render
+	 * nothing -- and isolation would permanently confirm its own decision. The
+	 * mu-plugin is a no-op in wp-admin, which makes admin the one context that
+	 * always sees the full set.
+	 *
+	 * The result is cached against the active-plugin set, so the reflection cost is
+	 * paid once per change rather than on every admin page load.
+	 *
+	 * @return string[] Plugin basenames.
+	 */
+	private static function detected_frontend_plugins(): array {
+		$cached = get_option( self::DETECTED_OPTION, array() );
+		$known  = ( is_array( $cached ) && is_array( $cached['plugins'] ?? null ) ) ? $cached['plugins'] : array();
+
+		/*
+		 * Only scan on a request where every plugin is actually loaded.
+		 *
+		 * On an ISOLATED route the stripped plugins register no hooks, so they would
+		 * look like they render nothing and isolation would keep confirming its own
+		 * decision forever. The mu-plugin exposes buddynext_mu_is_bn_request(), so we
+		 * can ask it directly rather than guessing.
+		 */
+		$isolated = function_exists( 'buddynext_mu_is_bn_request' ) && buddynext_mu_is_bn_request();
+		if ( $isolated ) {
+			return $known;
+		}
+
+		$active      = (array) get_option( 'active_plugins', array() );
+		$fingerprint = md5( (string) wp_json_encode( $active ) );
+
+		// The owner changed which plugins are active: start again rather than
+		// carrying findings about a plugin they have since turned off.
+		if ( ! is_array( $cached ) || ( $cached['fingerprint'] ?? '' ) !== $fingerprint ) {
+			$known = array();
+		}
+
+		/*
+		 * ACCUMULATE across contexts instead of replacing.
+		 *
+		 * A plugin may register its front-end hooks only on front-end requests --
+		 * Yoast is the obvious one -- so an admin-only scan reports it as rendering
+		 * nothing and isolation strips it from the very hub pages whose titles and
+		 * meta it is supposed to own. An admin scan and a front-end scan each see a
+		 * partial picture; the union is the true one, and the fingerprint above is
+		 * what stops it growing stale.
+		 */
+		$detected = array_values( array_unique( array_merge( $known, self::scan_frontend_hooks() ) ) );
+		sort( $detected );
+
+		if ( $detected === $known && is_array( $cached ) && ( $cached['fingerprint'] ?? '' ) === $fingerprint ) {
+			return $known;
+		}
+
+		update_option(
+			self::DETECTED_OPTION,
+			array(
+				'fingerprint' => $fingerprint,
+				'plugins'     => $detected,
+			),
+			false
+		);
+
+		return $detected;
+	}
+
+	/**
+	 * Walk the output hooks and map each callback back to the plugin that added it.
+	 *
+	 * Reflection is the only way to ask "which file registered this callback?" --
+	 * WordPress records no provenance for a hook. It is not cheap, which is why
+	 * {@see self::detected_frontend_plugins()} caches the answer.
+	 *
+	 * @return string[] Sorted plugin basenames.
+	 */
+	private static function scan_frontend_hooks(): array {
+		global $wp_filter;
+
+		$found      = array();
+		$plugin_dir = wp_normalize_path( WP_PLUGIN_DIR );
+
+		foreach ( self::FRONTEND_OUTPUT_HOOKS as $hook ) {
+			if ( empty( $wp_filter[ $hook ] ) || ! $wp_filter[ $hook ] instanceof \WP_Hook ) {
+				continue;
+			}
+
+			foreach ( $wp_filter[ $hook ]->callbacks as $callbacks ) {
+				foreach ( $callbacks as $registered ) {
+					$file = self::callback_file( $registered['function'] ?? null );
+					if ( '' === $file ) {
+						continue;
+					}
+
+					$file = wp_normalize_path( $file );
+					if ( 0 !== strpos( $file, $plugin_dir . '/' ) ) {
+						// A theme, a must-use plugin or core. None of those are
+						// stripped by isolation, so none of them need allowing.
+						continue;
+					}
+
+					$relative = ltrim( substr( $file, strlen( $plugin_dir ) ), '/' );
+					$slug     = strtok( $relative, '/' );
+					if ( ! is_string( $slug ) ) {
+						continue;
+					}
+
+					$found[ $slug ] = true;
+				}
+			}
+		}
+
+		// A slug is not a basename. Resolve each against the genuinely active set
+		// so the allow-list carries the same "dir/file.php" the mu-plugin compares.
+		$plugins = array();
+		foreach ( (array) get_option( 'active_plugins', array() ) as $basename ) {
+			$basename = (string) $basename;
+			$slug     = strtok( $basename, '/' );
+			if ( is_string( $slug ) && isset( $found[ $slug ] ) ) {
+				$plugins[] = $basename;
+			}
+		}
+
+		sort( $plugins );
+
+		return $plugins;
+	}
+
+	/**
+	 * The file a hook callback was defined in, or an empty string.
+	 *
+	 * @param mixed $callback Anything WordPress accepts as a callable.
+	 * @return string Absolute path, or '' when it cannot be resolved.
+	 */
+	private static function callback_file( $callback ): string {
+		try {
+			if ( is_string( $callback ) && function_exists( $callback ) ) {
+				$ref = new \ReflectionFunction( $callback );
+			} elseif ( $callback instanceof \Closure ) {
+				$ref = new \ReflectionFunction( $callback );
+			} elseif ( is_array( $callback ) && 2 === count( $callback ) && ( is_object( $callback[0] ) || is_string( $callback[0] ) ) ) {
+				$ref = new \ReflectionMethod( $callback[0], (string) $callback[1] );
+			} elseif ( is_object( $callback ) && method_exists( $callback, '__invoke' ) ) {
+				$ref = new \ReflectionMethod( $callback, '__invoke' );
+			} else {
+				return '';
+			}
+		} catch ( \Throwable $e ) {
+			// A callback we cannot reflect is one we cannot attribute. Skipping it
+			// only means its plugin is not auto-detected from THIS hook; the owner
+			// keep-list remains the manual override.
+			return '';
+		}
+
+		return (string) $ref->getFileName();
+	}
+
+	/**
+	 * Mirror the canonical allow-list into the option the mu-plugin reads.
+	 *
+	 * Guarded: the option is only written when the computed list actually differs,
+	 * so an unchanged site does not write on every request.
 	 *
 	 * @return void
 	 */

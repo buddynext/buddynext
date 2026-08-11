@@ -1,0 +1,28 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "buddynext/spaces-showcase",
+	"title": "Spaces showcase",
+	"category": "buddynext",
+	"icon": "screenoptions",
+	"description": "Feature a few spaces on a landing page so visitors can see what there is to join.",
+	"keywords": [ "spaces", "groups", "showcase", "featured", "community" ],
+	"textdomain": "buddynext",
+	"viewScriptModule": "@buddynext/spaces",
+	"supports": {
+		"html": false,
+		"align": [ "wide", "full" ],
+		"spacing": { "margin": true, "padding": true },
+		"color": { "background": true, "text": true }
+	},
+	"attributes": {
+		"source": { "type": "string", "default": "popular" },
+		"categoryId": { "type": "number", "default": 0 },
+		"spaceIds": { "type": "array", "default": [] },
+		"count": { "type": "number", "default": 3 },
+		"layout": { "type": "string", "default": "grid" },
+		"showDescription": { "type": "boolean", "default": true }
+	},
+	"style": [ "file:../../assets/css/blocks.css", "bn-spaces" ],
+	"editorStyle": [ "file:../../assets/css/blocks.css", "bn-spaces" ]
+}

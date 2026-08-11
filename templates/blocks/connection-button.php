@@ -74,10 +74,18 @@ $context_json = (string) wp_json_encode(
 );
 ?>
 <div
-	class="bn-block-connection-button"
-	data-wp-interactive="buddynext/connection-button"
-	data-user-id="<?php echo absint( $user_id ); ?>"
-	data-wp-context="<?php echo esc_attr( $context_json ); ?>"
+	<?php
+	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
+	echo get_block_wrapper_attributes(
+		array(
+			'class'               => 'bn-block-connection-button',
+			'data-wp-interactive' => 'buddynext/connection-button',
+			'data-user-id'        => (string) absint( $user_id ),
+			'data-wp-context'     => $context_json,
+		)
+	);
+	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+	?>
 >
 	<span
 		class="bn-connect-received"
@@ -86,7 +94,7 @@ $context_json = (string) wp_json_encode(
 	>
 		<button
 			type="button"
-			class="bn-btn bn-accept"
+			class="bn-btn"
 			data-variant="primary"
 			data-size="sm"
 			data-action="bn-accept-connect"
@@ -98,7 +106,7 @@ $context_json = (string) wp_json_encode(
 		</button>
 		<button
 			type="button"
-			class="bn-btn bn-decline"
+			class="bn-btn"
 			data-variant="ghost"
 			data-size="sm"
 			data-action="bn-decline-connect"
@@ -112,7 +120,7 @@ $context_json = (string) wp_json_encode(
 
 	<button
 		type="button"
-		class="bn-btn bn-connected"
+		class="bn-btn"
 		data-variant="secondary"
 		data-size="sm"
 		data-action="bn-toggle-connect"
@@ -128,7 +136,7 @@ $context_json = (string) wp_json_encode(
 
 	<button
 		type="button"
-		class="bn-btn bn-pending"
+		class="bn-btn"
 		data-variant="ghost"
 		data-size="sm"
 		data-action="bn-toggle-connect"
@@ -144,7 +152,7 @@ $context_json = (string) wp_json_encode(
 
 	<button
 		type="button"
-		class="bn-btn bn-connect"
+		class="bn-btn"
 		data-variant="primary"
 		data-size="sm"
 		data-action="bn-toggle-connect"

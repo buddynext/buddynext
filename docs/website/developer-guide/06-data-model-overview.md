@@ -18,7 +18,7 @@ Direct-message tables (`mvs_conversations`, `mvs_messages`, and siblings) are ow
 
 ## Scale-Contract: the rules that shape every schema
 
-Every BuddyNext table is designed against a fixed target: **100,000 sites x 100,000 members per site**. The Scale Contract (`docs/specs/SCALE-CONTRACT.md`, with conformance tracked in `docs/conformance/contract-scale.md`) is the binding ruleset. Three of its rules directly determine how each table is built.
+Every BuddyNext table is designed against a fixed target: **100,000 sites x 100,000 members per site**. Free ships no `docs/specs/SCALE-CONTRACT.md` (nor a `docs/conformance/contract-scale.md`) - the code is the contract, so the scale rules live in the schema itself (`Installer::schema()`) alongside the per-domain database and hooks pages. Three of those rules directly determine how each table is built.
 
 ### Denormalized counters
 
