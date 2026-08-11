@@ -3418,6 +3418,11 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 .bn-composer__error {
 	display: flex;
 	align-items: center;
+	/* Wrap so the "Resend verification email" action drops to its own line on
+	   narrow screens instead of squeezing the message into a one-word column
+	   (the .bn-composer__error-retry link holds its ~158px natural width). Same
+	   treatment the sibling .bn-composer--blocked banner already has. */
+	flex-wrap: wrap;
 	gap: var(--bn-s2);
 	padding: var(--bn-s2) var(--bn-s3);
 	background: color-mix(in oklch, var(--bn-danger) 12%, var(--bn-surface));
@@ -3427,7 +3432,10 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	font-size: var(--bn-text-sm);
 }
 .bn-composer__error[hidden] { display: none; }
-.bn-composer__error-text { flex: 1; }
+/* flex-basis floor (matching .bn-composer__blocked-text) so the message keeps a
+   readable minimum width and the retry link wraps to its own line instead of
+   the text shrinking to a one-word column. Plain `flex: 1` only shrinks. */
+.bn-composer__error-text { flex: 1 1 16rem; }
 .bn-composer__error-retry {
 	border: 0;
 	background: transparent;
@@ -3478,6 +3486,10 @@ a.bn-composer__error-retry[hidden] { display: none; }
 
 @media (max-width: 640px) {
 	.bn-composer--blocked { flex-direction: column; align-items: stretch; }
+	/* Stack the verify-email error banner too: message on its own line, the
+	   "Resend verification email" link beneath it, both left-aligned. */
+	.bn-composer__error { flex-direction: column; align-items: flex-start; }
+	.bn-composer__error-text { flex: 0 0 auto; }
 	/* flex-basis is a HEIGHT once the axis turns vertical, so the 16rem that
 	   sets a sensible minimum column width on desktop would otherwise reserve
 	   16rem of empty space under two lines of text. */
