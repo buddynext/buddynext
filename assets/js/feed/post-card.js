@@ -17,7 +17,7 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
-import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnClampPopoverToViewport, bnEmojiAssetBase } from './shared.js';
+import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnClampPopoverToViewport, bnEmojiAssetBase } from '@buddynext/feed-shared';
 
 /**
  * Neutral reaction glyph for a slug with no vendored emoji asset. Mirrors the SSR

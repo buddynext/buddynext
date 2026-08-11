@@ -2,15 +2,15 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
-import { setI18N, setTz, t, fmt, bnApplyFilters, escapeHtml, siteTzOffset, clearField, autoResizeTextarea, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnEmojiAssetBase } from './shared.js';
+import { setI18N, setTz, t, fmt, bnApplyFilters, escapeHtml, siteTzOffset, clearField, autoResizeTextarea, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnEmojiAssetBase } from '@buddynext/feed-shared';
 
 // Store concerns split into their own files by responsibility. Side-effect
 // imports: each registers its namespace when this module loads, so they load
 // exactly where @buddynext/feed is enqueued — the file moved, the loading did not.
-import './tabs.js';
-import './share-modal.js';
-import './composer.js';
-import './post-card.js';
+import '@buddynext/feed-tabs';
+import '@buddynext/feed-share-modal';
+import '@buddynext/feed-composer';
+import '@buddynext/feed-post-card';
 
 /* -- i18n -------------------------------------------------------------- */
 /* t(), fmt() and the shared i18n table now live in ./shared.js so every split

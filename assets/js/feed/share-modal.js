@@ -13,7 +13,7 @@
 
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
-import { t, prependFeedCard } from './shared.js';
+import { t, prependFeedCard } from '@buddynext/feed-shared';
 
 
 store( 'buddynext/share-modal', {

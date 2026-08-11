@@ -15,7 +15,7 @@ import { onNavReady } from '@buddynext/nav-init';
 import { bnToast, bnConfirm } from '@buddynext/shell-dialog';
 // The SAME upload path the composer uses. The picker must not grow a second way to
 // upload a file — one endpoint, one validation, one set of limits.
-import { uploadMedia, validateMedia } from './upload-core.js';
+import { uploadMedia, validateMedia } from '@buddynext/upload-core';
 
 let cfg = { nonce: '', owner: 0, t: {} };
 

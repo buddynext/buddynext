@@ -18,8 +18,8 @@ import { store, getContext, getElement, withScope } from '@wordpress/interactivi
 import { bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
-import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '../media/upload-core.js';
-import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime, bnClampPopoverToViewport } from './shared.js';
+import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '@buddynext/upload-core';
+import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime, bnClampPopoverToViewport } from '@buddynext/feed-shared';
 
 /* ── Post composer ───────────────────────────────────────────────────────── */
 
