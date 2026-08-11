@@ -83,6 +83,12 @@ jobs:
   journey-catalogue:
     name: Journey catalogue ↔ spec reconcile
     runs-on: ubuntu-latest
+    # The `secrets` context is NOT available inside `if:` expressions — referencing
+    # it there fails the whole workflow at dispatch (startup_failure, no jobs run).
+    # Hoist the token into a job-level env, which IS allowed in `if:`, and gate the
+    # Pro-dependent steps on that instead.
+    env:
+      BN_PRO_TOKEN: ${{ secrets.BN_PRO_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -91,14 +97,14 @@ jobs:
       # checkout. It needs Pro-repo read access (a PAT/deploy key) to run in CI;
       # until that secret is wired, this job runs on demand and is informational.
       - name: Checkout Pro (needs BN_PRO_TOKEN secret)
-        if: ${{ secrets.BN_PRO_TOKEN != '' }}
+        if: ${{ env.BN_PRO_TOKEN != '' }}
         uses: actions/checkout@v4
         with:
           repository: buddynext/buddynext-pro
-          token: ${{ secrets.BN_PRO_TOKEN }}
+          token: ${{ env.BN_PRO_TOKEN }}
           path: buddynext-pro
       - name: Reconcile journey catalogue against specs
-        if: ${{ secrets.BN_PRO_TOKEN != '' }}
+        if: ${{ env.BN_PRO_TOKEN != '' }}
         run: cd buddynext-pro && python3 bin/check-journey-coverage.py
 
   e2e:
