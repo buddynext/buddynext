@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.2
+Stable tag: 1.1.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,30 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.1.3 - August 2026 =
+
+Gutenberg block suite hardening, front-end plugin isolation fixes, and profile-field and reaction polish.
+
+* New      - Community activity and Members showcase blocks, plus size, follow, stats and join-action options on the member and space cards.
+* New      - Search bar block can scope what it searches, and hand-picked showcases can be curated by exact selection.
+* New      - POST /auth/verify endpoint so a member can finish signing up from inside the app.
+* Improve  - Every block previews live in the editor with the correct tokens, declares the styles it needs, and applies its block supports.
+* Improve  - Member and space blocks render the shared cards instead of a private copy, so directory rows are styled consistently everywhere.
+* Improve  - Person-scoped blocks follow the page's author, and member-context blocks are no longer offered as free-standing page content.
+* Improve  - Long feed posts show a preview and open in full on their own page, and post text uses a readable line measure.
+* Improve  - Interactive controls meet the 40px tap target on touch devices.
+* Fix      - Join, Leave, Follow, Connect and kebab-menu buttons on the block cards now work, so the blocks declare their Interactivity store and view module.
+* Fix      - Space Directory and Spaces Showcase blocks honour the List layout setting instead of always rendering as a grid.
+* Fix      - Reaction summary and the React button never show a raw reaction slug; an unknown reaction shows a neutral label and glyph.
+* Fix      - Third-party plugins that draw the front end (cookie-consent, header/footer, SEO) are kept on BuddyNext hub routes, discovered rather than allow-listed, with their styles and scripts intact from the first request.
+* Fix      - Profile fields carry their required state into the form, new fields default to members-only, and a system field group can never be locked by a plan.
+* Fix      - Saving a profile keeps the member on the edit screen, and the visibility control is tied to its label.
+* Fix      - The composer draft no longer re-pins a panel type, so a dismissed poll stays dismissed.
+* Fix      - Partner surface and border tokens resolve correctly instead of tinting against their own background.
+* Fix      - Admin flash notices can be dismissed and success notices clear themselves.
+* Dev      - Blocks declare their own editor and view assets; eight dead Interactivity stores were removed from the shared bundle.
+* Dev      - Two-layer regression coverage: PHPUnit integration tests plus an effect-based Playwright browser-journey gate for blocks and shortcodes in CI.
 
 = 1.1.2 - August 2026 =
 

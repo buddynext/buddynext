@@ -10,7 +10,7 @@
         "license": {
             "name": "GPL-2.0-or-later"
         },
-        "version": "1.1.2"
+        "version": "1.1.3"
     },
     "servers": [
         {
@@ -2416,6 +2416,17 @@
                 ],
                 "operationId": "get_follow_suggestions",
                 "summary": "GET /buddynext/v1/follow-suggestions",
+                "parameters": [
+                    {
+                        "name": "expand",
+                        "in": "query",
+                        "required": false,
+                        "description": "Comma-separated expansions. `members` returns hydrated member objects (avatar, handle, headline, follow state) alongside the ids, in one batched call.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Success."
@@ -2502,6 +2513,16 @@
                         "schema": {
                             "type": "integer",
                             "default": 10
+                        }
+                    },
+                    {
+                        "name": "hours",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "integer",
+                            "default": 24
                         }
                     }
                 ],
@@ -4260,6 +4281,15 @@
                         "description": "Row offset. Superseded by cursor for new clients.",
                         "schema": {
                             "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "since",
+                        "in": "query",
+                        "required": false,
+                        "description": "Return only notifications created AFTER this time. Accepts an ISO-8601 timestamp (pass back created_at_gmt from a previous response) or a Unix epoch. Composes with cursor/per_page, so a large delta still pages.",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 ],
@@ -7529,6 +7559,15 @@
                         "schema": {
                             "type": "string",
                             "default": ""
+                        }
+                    },
+                    {
+                        "name": "expand",
+                        "in": "query",
+                        "required": false,
+                        "description": "Comma-separated expansions. `members` hydrates user results into full member objects (avatar, handle, headline, follow/connection state) instead of bare index rows.",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     {
