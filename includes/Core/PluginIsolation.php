@@ -154,7 +154,8 @@ class PluginIsolation {
 					self::CORE_INTEGRATIONS,
 					self::APP_INTEGRATIONS,
 					self::OPERATIONAL_PLUGINS,
-					self::TRANSLATION_PLUGINS
+					self::TRANSLATION_PLUGINS,
+					self::CONSENT_PLUGINS
 				)
 			)
 		);
@@ -195,6 +196,37 @@ class PluginIsolation {
 		'wpml-string-translation/plugin.php',
 		'translatepress-multilingual/index.php',
 		'say-what/say-what.php',
+	);
+
+	/**
+	 * Consent-management (cookie-banner / CMP) plugins isolation must never strip.
+	 *
+	 * Same reasoning as TRANSLATION_PLUGINS, but the stakes are legal, not cosmetic.
+	 * A CMP renders its banner and runs its consent-gating scripts on EVERY page; a
+	 * hub route (/activity/, /spaces/, /login/, /members/) is exactly where a visitor
+	 * lands first and where consent must be captured before analytics/marketing
+	 * cookies fire. Front-end discovery keeps a CMP alive once it has run, but it runs
+	 * on a non-isolated request — so a brand-new CMP install whose FIRST served page is
+	 * a hub route would have its scripts dequeued until discovery caught up, i.e. no
+	 * consent management on the one page that needed it. Putting the well-known CMPs on
+	 * the cold-start floor (this list is rendered into the mu-plugin, which runs before
+	 * plugins load) closes that window: a consent plugin is never stripped on a hub
+	 * route, from the very first request. A CMP not on this list is still covered by
+	 * the owner allow-list screen (Admin -> BuddyNext -> Plugin isolation), so this is a
+	 * sensible default, not the only way in.
+	 */
+	private const CONSENT_PLUGINS = array(
+		'wpconsent-cookies-banner-privacy-suite/wpconsent.php',
+		'complianz-gdpr/complianz-gpdr.php',
+		'complianz-gdpr-premium/complianz-gpdr-premium.php',
+		'cookie-law-info/cookie-law-info.php',
+		'webtoffee-gdpr-cookie-consent/webtoffee-gdpr-cookie-consent.php',
+		'gdpr-cookie-consent/gdpr-cookie-consent.php',
+		'borlabs-cookie/borlabs-cookie.php',
+		'real-cookie-banner/index.php',
+		'cookiebot/cookiebot.php',
+		'uk-cookie-consent/uk-cookie-consent.php',
+		'iubenda-cookie-law-solution/iubenda_cookie_solution.php',
 	);
 
 	/**
@@ -284,6 +316,13 @@ class PluginIsolation {
 		return (array) apply_filters( 'buddynext_isolation_plugins', $base );
 	}
 
+	/**
+	 * The full set of plugin basenames to keep alive on BuddyNext routes: the
+	 * explicitly-listed in-house family plus any third-party plugins discovered to
+	 * render on the front end. De-duplicated and trimmed.
+	 *
+	 * @return array<int,string> Plugin basenames.
+	 */
 	public static function integration_plugins(): array {
 		/**
 		 * Filter the in-house integration plugins kept alive on BuddyNext routes.
@@ -630,6 +669,7 @@ class PluginIsolation {
 		 * markup -- the broken half-header and the consent banner that cannot
 		 * record consent. Those are the ones that need this.
 		 */
+
 		/*
 		 * Exclude OUR OWN family only -- not everything on the keep-list.
 		 *
