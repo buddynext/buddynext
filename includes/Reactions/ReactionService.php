@@ -331,17 +331,30 @@ class ReactionService {
 			'sad'   => __( 'Sad', 'buddynext' ),
 			'angry' => __( 'Angry', 'buddynext' ),
 		);
-		$label   = $builtin[ $slug ] ?? ucfirst( str_replace( array( '-', '_' ), ' ', $slug ) );
-		$meta    = (array) apply_filters(
+		// A built-in slug maps to its canonical label; anything else starts empty.
+		// We deliberately do NOT humanise an unknown slug as the fallback: a bare
+		// slug like "qaorphanslug" would surface as "Qaorphanslug" on the React
+		// button, the picker, and screen-reader labels — the raw slug leaking into
+		// the UI. Pro registers a real, translated label for each of its custom
+		// reactions through buddynext_reaction_meta; a slug with neither a built-in
+		// entry nor a filter-supplied label is orphaned (e.g. a custom reaction
+		// removed while a stored row survives) and gets a neutral generic label,
+		// mirroring the neutral glyph the summary chip shows for the same case.
+		$builtin_label = $builtin[ $slug ] ?? '';
+		$meta          = (array) apply_filters(
 			'buddynext_reaction_meta',
 			array(
-				'label' => $label,
+				'label' => $builtin_label,
 				'char'  => '',
 				'color' => '',
 			),
 			$slug
 		);
-		return isset( $meta['label'] ) && '' !== (string) $meta['label'] ? (string) $meta['label'] : $label;
+		$filtered = isset( $meta['label'] ) ? (string) $meta['label'] : '';
+		if ( '' !== $filtered ) {
+			return $filtered;
+		}
+		return '' !== $builtin_label ? $builtin_label : __( 'Reaction', 'buddynext' );
 	}
 
 	/**
