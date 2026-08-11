@@ -696,7 +696,26 @@ class PluginIsolation {
 			array_merge( self::CORE_INTEGRATIONS, self::SELF_PLUGINS, $pro_family )
 		);
 
-		foreach ( self::detected_frontend_plugins() as $basename ) {
+		// COLD-START FLOOR — the asset layer must read the SAME floor the plugin
+		// layer does, or the two drift (Basecamp 10186160953). detected_frontend_plugins()
+		// is populated by a discovery pass that only runs on non-isolated requests, so on
+		// the FIRST hub-route request after a CMP is activated (or after the discovery cache
+		// is cleared) that list is empty. A consent or translation plugin kept LOADED by the
+		// essentials floor would then render its markup while AssetIsolation dequeued its
+		// CSS/JS — a consent banner that appears but cannot record consent, which is worse
+		// than absent for the GDPR case. Those floors are known basenames, so their asset
+		// prefixes can be kept from the first request without waiting for discovery, exactly
+		// as essentials() keeps the plugins themselves loaded. The owner's explicit keep-list
+		// rides along for the same reason: a plugin the owner kept should work immediately.
+		// Everything is intersected with the live active set so no prefix is kept for a
+		// plugin that is not actually running.
+		$active     = (array) get_option( 'active_plugins', array() );
+		$cold_floor = array_intersect(
+			array_merge( self::CONSENT_PLUGINS, self::TRANSLATION_PLUGINS, self::owner_keep_list() ),
+			$active
+		);
+
+		foreach ( array_merge( self::detected_frontend_plugins(), $cold_floor ) as $basename ) {
 			$slug = (string) strtok( (string) $basename, '/' );
 			if ( in_array( $slug, $own, true ) ) {
 				continue;
