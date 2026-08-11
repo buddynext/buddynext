@@ -251,12 +251,14 @@ final class HeadMeta {
 	/**
 	 * The community's display name — the last-resort title for any surface.
 	 *
+	 * Delegates to buddynext_site_name(), the single source of truth for the
+	 * community name (owner-set Community Name, falling back to the site title),
+	 * so the social-card title cannot drift from the name shown everywhere else.
+	 *
 	 * @return string
 	 */
 	public static function community_name(): string {
-		$name = trim( (string) get_option( 'buddynext_site_name', '' ) );
-
-		return '' !== $name ? $name : (string) get_bloginfo( 'name' );
+		return buddynext_site_name();
 	}
 
 	/**
