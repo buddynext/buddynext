@@ -18,7 +18,7 @@ import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { bnToast, bnConfirm } from '@buddynext/shell-dialog';
-import { validateMedia, mediaPreview, mediaKind, uploadMedia, deleteMedia } from './upload-core.js';
+import { validateMedia, mediaPreview, mediaKind, uploadMedia, deleteMedia } from '@buddynext/upload-core';
 
 /* Staged File objects are not reactive state (only their display metadata is),
  * so they live in a module buffer keyed by the island element. */

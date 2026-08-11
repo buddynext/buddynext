@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.3
+Stable tag: 1.1.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,13 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.1.4 - August 2026 =
+
+Fixes a stale-cache regression that could blank the Activity page after an update.
+
+* Fix      - Feed and media JavaScript modules are versioned through the import map, so a browser no longer runs a stale module against a newer one after an update, which could blank the Activity and composer page with a module export error.
+* Dev      - Split feed and media sub-modules (composer, post card, share modal, shared helpers and upload core) are registered as first-class Script Modules with per-file cache-busting instead of unversioned relative imports.
 
 = 1.1.3 - August 2026 =
 

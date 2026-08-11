@@ -574,6 +574,68 @@ class AssetService {
 			$this->module_version( 'js/shell/navigate.js' )
 		);
 
+		// Feed + media sub-modules — split out of feed/store.js and media stores by
+		// responsibility and pulled in as their static (side-effect / named) imports.
+		// Registered as first-class script modules, rather than left as bare relative
+		// imports, so WordPress emits VERSIONED import-map entries for them. Otherwise
+		// the browser resolves '../media/upload-core.js' & './shared.js' to unversioned
+		// URLs that stick in the 10-year immutable HTTP cache and break the whole page
+		// after any release that edits them ("does not provide an export named …").
+		// Versioning here mirrors the feature stores, so an edit always reaches the
+		// browser via module_version()'s mtime-busted import-map URL.
+		wp_register_script_module(
+			'@buddynext/feed-shared',
+			$this->assets_url . 'js/feed/shared.js',
+			array(),
+			$this->module_version( 'js/feed/shared.js' )
+		);
+		wp_register_script_module(
+			'@buddynext/upload-core',
+			$this->assets_url . 'js/media/upload-core.js',
+			array( array( 'id' => '@buddynext/rest-client' ) ),
+			$this->module_version( 'js/media/upload-core.js' )
+		);
+		wp_register_script_module(
+			'@buddynext/feed-tabs',
+			$this->assets_url . 'js/feed/tabs.js',
+			array( array( 'id' => '@wordpress/interactivity' ) ),
+			$this->module_version( 'js/feed/tabs.js' )
+		);
+		wp_register_script_module(
+			'@buddynext/feed-share-modal',
+			$this->assets_url . 'js/feed/share-modal.js',
+			array(
+				array( 'id' => '@wordpress/interactivity' ),
+				array( 'id' => '@buddynext/rest-client' ),
+				array( 'id' => '@buddynext/feed-shared' ),
+			),
+			$this->module_version( 'js/feed/share-modal.js' )
+		);
+		wp_register_script_module(
+			'@buddynext/feed-post-card',
+			$this->assets_url . 'js/feed/post-card.js',
+			array(
+				array( 'id' => '@wordpress/interactivity' ),
+				array( 'id' => '@buddynext/shell-dialog' ),
+				array( 'id' => '@buddynext/rest-client' ),
+				array( 'id' => '@buddynext/feed-shared' ),
+			),
+			$this->module_version( 'js/feed/post-card.js' )
+		);
+		wp_register_script_module(
+			'@buddynext/feed-composer',
+			$this->assets_url . 'js/feed/composer.js',
+			array(
+				array( 'id' => '@wordpress/interactivity' ),
+				array( 'id' => '@buddynext/shell-dialog' ),
+				array( 'id' => '@buddynext/rest-client' ),
+				array( 'id' => '@buddynext/nav-init' ),
+				array( 'id' => '@buddynext/upload-core' ),
+				array( 'id' => '@buddynext/feed-shared' ),
+			),
+			$this->module_version( 'js/feed/composer.js' )
+		);
+
 		$feature_modules = array(
 			'@buddynext/feed'               => 'feed/store',
 			'@buddynext/profile'            => 'profile/store',
@@ -648,6 +710,23 @@ class AssetService {
 					'id'     => '@buddynext/qrcode',
 					'import' => 'dynamic',
 				);
+			}
+			// The feed store side-effect imports its split sub-modules (tabs,
+			// share-modal, composer, post-card) and pulls shared helpers; declare
+			// them so WP emits a versioned import-map entry for each (see the
+			// sub-module registrations above). Without this the bare specifiers
+			// would not resolve and the deep modules would stay unversioned.
+			if ( '@buddynext/feed' === $id ) {
+				$deps[] = array( 'id' => '@buddynext/feed-shared' );
+				$deps[] = array( 'id' => '@buddynext/feed-tabs' );
+				$deps[] = array( 'id' => '@buddynext/feed-share-modal' );
+				$deps[] = array( 'id' => '@buddynext/feed-composer' );
+				$deps[] = array( 'id' => '@buddynext/feed-post-card' );
+			}
+			// Media stores import the shared upload core (validate/preview/upload
+			// helpers) — declare it so its import-map entry is versioned too.
+			if ( '@buddynext/media-upload' === $id || '@buddynext/media-albums' === $id ) {
+				$deps[] = array( 'id' => '@buddynext/upload-core' );
 			}
 			wp_register_script_module(
 				$id,
