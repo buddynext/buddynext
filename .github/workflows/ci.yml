@@ -124,11 +124,14 @@ jobs:
           --health-cmd="mysqladmin ping -uroot -proot"
           --health-interval=10s --health-timeout=5s --health-retries=10
     env:
-      # WP lives OUTSIDE the checkout so symlinking the checkout in as the plugin
-      # cannot recurse (wp-content/plugins/buddynext -> the repo -> wp/ -> ...).
-      WP_DIR: ${{ runner.temp }}/wp
       BN_BASE_URL: http://127.0.0.1:8889
     steps:
+      # WP lives OUTSIDE the checkout so symlinking the checkout in as the plugin
+      # cannot recurse (wp-content/plugins/buddynext -> the repo -> wp/ -> ...).
+      # runner.temp is not available in a job-level env: (that is a startup_failure),
+      # so resolve WP_DIR here where the runner context IS available and export it.
+      - name: Resolve WP_DIR
+        run: echo "WP_DIR=${{ runner.temp }}/wp" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
