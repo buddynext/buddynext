@@ -44,20 +44,23 @@ class HandleTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The mention regex stops at the second `@` — which is the bug, stated.
+	 * A handle followed by an email-like tail yields only the real handle.
 	 *
-	 * This is why the member could not be mentioned: the handle the profile shows
-	 * is not the token the parser extracts, so the lookup was always going to miss.
+	 * `@brendan@somewhere-com` used to split into two tokens, the second of which
+	 * (`somewhere-com`) is not a member. The negative lookbehind added in "an email
+	 * address in a post is no longer read as a mention" means an `@` sitting directly
+	 * after a word character is not a mention boundary, so only the leading,
+	 * space-preceded `@brendan` is extracted.
 	 *
 	 * @return void
 	 */
-	public function test_regex_splits_an_email_handle_into_fragments(): void {
+	public function test_a_handle_with_an_email_tail_yields_only_the_handle(): void {
 		preg_match_all( Handle::mention_regex(), 'Hey @brendan@somewhere-com welcome', $m );
 
 		$this->assertSame(
-			array( 'brendan', 'somewhere-com' ),
+			array( 'brendan' ),
 			$m[1],
-			'An @ inside the handle ends the token, so neither fragment is the member.'
+			'The @ that follows a word character is not a mention, so the email-like tail is dropped.'
 		);
 	}
 
@@ -84,9 +87,11 @@ class HandleTest extends \WP_UnitTestCase {
 	public function test_an_email_address_does_not_become_a_mention(): void {
 		preg_match_all( Handle::mention_regex(), 'email me at john@example.com', $m );
 
-		foreach ( $m[1] as $token ) {
-			$this->assertStringNotContainsString( '@', $token, 'A mention token must never span an @.' );
-		}
+		// The `@` sits directly after `john`, so the negative lookbehind rejects it:
+		// an email address yields no mention tokens at all. Asserting the empty set
+		// (rather than looping, which passes vacuously when the set is empty) keeps
+		// the guard real — if the charset is ever widened to admit `@`, this fails.
+		$this->assertSame( array(), $m[1], 'An email address must yield no mention tokens.' );
 	}
 
 	/**

@@ -13,8 +13,13 @@ use BuddyNext\Admin\Members\MemberEditForm;
 use BuddyNext\Core\Installer;
 
 /**
- * Guards the edit-member repeater renderer against the per-entry `_visibility`
- * scalar that ProfileService appends alongside an entry's field arrays.
+ * Guards the edit-member repeater renderer against a saved per-entry visibility.
+ *
+ * ProfileService::get_profile() surfaces per-entry visibility in the group's
+ * PARALLEL entry_visibility array (index-aligned with entries), never inside the
+ * packed entry list — the list must stay a JSON array for the app. The renderer
+ * must iterate the field-array entries without tripping on that, and skip any
+ * element that is not a field object.
  *
  * @covers \BuddyNext\Admin\Members\MemberEditForm
  */
@@ -50,10 +55,13 @@ class MemberEditFormTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A saved repeater entry carries a scalar `_visibility` sibling next to its
-	 * field arrays. The edit form must skip that scalar instead of passing it to
-	 * the array-typed field renderer, which fataled with:
-	 * "render_repeater_field_input(): Argument #3 must be of type array, string given".
+	 * A repeater entry saved with a per-entry visibility override renders on the
+	 * edit form without fataling, and the entry's real field still renders. The
+	 * override travels in the group's parallel entry_visibility array; the entry
+	 * stays a packed field-array list the renderer can iterate. A regression that
+	 * moved visibility back inside the entry (an earlier bug that fataled the
+	 * array-typed field renderer with a string argument) is caught by the
+	 * precondition below.
 	 *
 	 * Uses owner-defined group/field keys — never the seeded schema — so the
 	 * guard is proven field-agnostic: every site defines its own repeater fields.
@@ -82,8 +90,11 @@ class MemberEditFormTest extends \WP_UnitTestCase {
 			)
 		);
 
-		// Save one entry WITH a per-entry visibility override, so get_profile()
-		// surfaces the scalar `_visibility` element that triggered the fatal.
+		// Save one entry WITH a per-entry visibility override. `_visibility` inside
+		// the entry is the write contract save_profile() accepts; on READ it is
+		// surfaced in the group's parallel entry_visibility array, never inside the
+		// packed entry list (which must stay a JSON array for the app — see the REST
+		// contract fix in ProfileService::get_profile()).
 		$service->save_profile(
 			$this->user_id,
 			array(
@@ -96,12 +107,19 @@ class MemberEditFormTest extends \WP_UnitTestCase {
 			)
 		);
 
-		// Precondition: the entry really does carry the scalar `_visibility`
-		// sibling — otherwise this test would pass vacuously.
-		$entry = $this->first_entry( $service->get_profile( $this->user_id, $this->user_id ), 'bn_qa_places' );
+		$profile = $service->get_profile( $this->user_id, $this->user_id );
+		$group   = $this->group_by_key( $profile, 'bn_qa_places' );
+
+		// Precondition: the per-entry override round-trips via the parallel
+		// entry_visibility array, and the entry itself stays a packed field-array
+		// list with no scalar `_visibility` sibling — otherwise this test would pass
+		// vacuously, and a regression that moved visibility back inside the entry
+		// (breaking the app's for…of iteration) would slip through.
+		$this->assertIsArray( $group, 'Repeater group should be present.' );
+		$this->assertSame( 'connections', $group['entry_visibility'][0] ?? null, 'Saved per-entry visibility should round-trip in the parallel array.' );
+		$entry = $group['entries'][0] ?? null;
 		$this->assertIsArray( $entry, 'Repeater entry should be present.' );
-		$this->assertArrayHasKey( '_visibility', $entry, 'Entry should carry the scalar visibility sibling.' );
-		$this->assertIsString( $entry['_visibility'] );
+		$this->assertArrayNotHasKey( '_visibility', $entry, 'Per-entry visibility must not live inside the packed entry list.' );
 
 		// Render the admin edit view. Before the guard this fataled when the
 		// entry-field loop reached the `_visibility` scalar.
@@ -119,17 +137,16 @@ class MemberEditFormTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * First entry of a repeater group by key, from a get_profile() payload.
+	 * A repeater group by key, from a get_profile() payload.
 	 *
 	 * @param array<string,mixed>|null $profile   Profile payload.
 	 * @param string                   $group_key Group to find.
 	 * @return array<string,mixed>|null
 	 */
-	private function first_entry( ?array $profile, string $group_key ): ?array {
+	private function group_by_key( ?array $profile, string $group_key ): ?array {
 		foreach ( (array) ( $profile['groups'] ?? array() ) as $group ) {
 			if ( ( $group['group_key'] ?? '' ) === $group_key ) {
-				$entries = $group['entries'] ?? array();
-				return $entries[0] ?? null;
+				return $group;
 			}
 		}
 		return null;
