@@ -110,6 +110,23 @@ if ( 'spaces' === $admin_section ) {
 	}
 }
 
+// ── Invites section data (only when that section is active) ───────────────────
+// InviteService::get_invites()/count_invites() are LIMIT/OFFSET + COUNT-aware.
+// The panel lists pending invites read-only; bulk sending stays in wp-admin.
+$bn_ca_invites   = null;
+$bn_ca_inv_page  = 1;
+$bn_ca_inv_total = 0;
+if ( 'invites' === $admin_section ) {
+	$bn_ca_inv_page = isset( $_GET['mpage'] ) ? max( 1, (int) $_GET['mpage'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_ca_inv_svc  = buddynext_service( 'invite' );
+	if ( is_object( $bn_ca_inv_svc ) && method_exists( $bn_ca_inv_svc, 'get_invites' ) ) {
+		$bn_ca_invites   = (array) $bn_ca_inv_svc->get_invites( 'pending', $bn_ca_inv_page, 20 );
+		$bn_ca_inv_total = (int) $bn_ca_inv_svc->count_invites( 'pending' );
+	} else {
+		$bn_ca_invites = array();
+	}
+}
+
 // ── Platform stats (consolidated via AdminHub::overview_stats) ─────────────────
 
 $bn_ca_stats         = \BuddyNext\Admin\AdminHub::overview_stats();
@@ -554,6 +571,131 @@ $posts_pct_abs = abs( $posts_pct );
 						</span>
 						<?php if ( $bn_ca_sp_page < $bn_ca_sp_pages ) : ?>
 							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_sp_page + 1, $bn_ca_sp_base ) ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
+						<?php endif; ?>
+					</nav>
+				<?php endif; ?>
+			</section>
+
+		<?php elseif ( 'settings' === $admin_section ) : ?>
+
+			<section class="bn-ca-card" aria-labelledby="bn-ca-settings-title">
+				<header class="bn-ca-card__head">
+					<span id="bn-ca-settings-title" class="bn-ca-card__title">
+						<?php buddynext_icon( 'settings' ); ?>
+						<?php esc_html_e( 'Community settings', 'buddynext' ); ?>
+					</span>
+				</header>
+				<div class="bn-ca-card__body">
+					<?php if ( current_user_can( 'manage_options' ) ) : ?>
+						<?php
+						// Community-wide policy is a site-owner boundary (manage_options),
+						// so this section links out to the wp-admin tabs that own it rather
+						// than duplicating a write path on the panel. tab_url() resolves the
+						// canonical tab placement (never hardcode admin.php?page=… strings).
+						$bn_ca_settings_links = array(
+							array(
+								'icon'  => 'shield',
+								'label' => __( 'Moderation & policy', 'buddynext' ),
+								'sub'   => __( 'Auto-hide thresholds, strikes, banned words and rate limits.', 'buddynext' ),
+								'url'   => \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'moderation' ),
+							),
+							array(
+								'icon'  => 'users',
+								'label' => __( 'Roles & capabilities', 'buddynext' ),
+								'sub'   => __( 'Set the minimum role required for each community action.', 'buddynext' ),
+								'url'   => \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'roles' ),
+							),
+							array(
+								'icon'  => 'mail',
+								'label' => __( 'Bulk email invites (CSV)', 'buddynext' ),
+								'sub'   => __( 'Import a CSV of email addresses to invite in bulk.', 'buddynext' ),
+								'url'   => \BuddyNext\Admin\AdminHub::tab_url( 'members', 'invites' ),
+							),
+						);
+						foreach ( $bn_ca_settings_links as $bn_ca_sl ) :
+							?>
+							<a class="bn-ca-row" href="<?php echo esc_url( $bn_ca_sl['url'] ); ?>">
+								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php buddynext_icon( $bn_ca_sl['icon'] ); ?></span>
+								<div class="bn-ca-row__body">
+									<span class="bn-ca-row__title"><?php echo esc_html( $bn_ca_sl['label'] ); ?></span>
+									<span class="bn-ca-row__sub"><?php echo esc_html( $bn_ca_sl['sub'] ); ?></span>
+								</div>
+								<div class="bn-ca-row__actions"><?php buddynext_icon( 'chevron-right' ); ?></div>
+							</a>
+						<?php endforeach; ?>
+					<?php else : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'Community settings are managed by the site administrator.', 'buddynext' ); ?></p>
+					<?php endif; ?>
+				</div>
+			</section>
+
+		<?php elseif ( 'invites' === $admin_section ) : ?>
+
+			<section class="bn-ca-card" aria-labelledby="bn-ca-invites-title">
+				<header class="bn-ca-card__head">
+					<span id="bn-ca-invites-title" class="bn-ca-card__title">
+						<?php buddynext_icon( 'mail' ); ?>
+						<?php esc_html_e( 'Pending email invites', 'buddynext' ); ?>
+						<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $bn_ca_inv_total ) ); ?></span>
+					</span>
+					<?php if ( current_user_can( 'manage_options' ) ) : ?>
+						<a class="bn-ca-card__link" href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'members', 'invites' ) ); ?>"><?php esc_html_e( 'Send invites', 'buddynext' ); ?></a>
+					<?php endif; ?>
+				</header>
+				<div class="bn-ca-card__body">
+					<?php if ( empty( $bn_ca_invites ) ) : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'No pending invites.', 'buddynext' ); ?></p>
+					<?php else : ?>
+						<?php
+						foreach ( $bn_ca_invites as $bn_ca_inv ) :
+							$bn_inv_email = (string) ( $bn_ca_inv['email'] ?? '' );
+							$bn_inv_exp   = (string) ( $bn_ca_inv['expires_at'] ?? '' );
+							$bn_inv_init  = '' !== $bn_inv_email ? strtoupper( mb_substr( $bn_inv_email, 0, 1 ) ) : '?';
+							?>
+							<div class="bn-ca-row">
+								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $bn_inv_init ); ?></span>
+								<div class="bn-ca-row__body">
+									<span class="bn-ca-row__title"><?php echo esc_html( $bn_inv_email ); ?></span>
+									<span class="bn-ca-row__sub">
+										<?php
+										if ( '' !== $bn_inv_exp ) {
+											printf(
+												/* translators: %s: expiry date. */
+												esc_html__( 'Expires %s', 'buddynext' ),
+												esc_html( mysql2date( (string) get_option( 'date_format' ), $bn_inv_exp ) )
+											);
+										}
+										?>
+									</span>
+								</div>
+								<div class="bn-ca-row__actions">
+									<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Pending', 'buddynext' ); ?></span>
+								</div>
+							</div>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</div>
+				<?php
+				$bn_ca_inv_pages = (int) ceil( (int) $bn_ca_inv_total / 20 );
+				if ( $bn_ca_inv_pages > 1 ) :
+					$bn_ca_inv_base = $bn_ca_routed ? trailingslashit( $admin_base . 'invites' ) : add_query_arg( 'bn_admin', 'invites', $admin_base );
+					?>
+					<nav class="bn-ca-pagination" aria-label="<?php esc_attr_e( 'Invite pages', 'buddynext' ); ?>">
+						<?php if ( $bn_ca_inv_page > 1 ) : ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_inv_page - 1, $bn_ca_inv_base ) ); ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
+						<?php endif; ?>
+						<span class="bn-ca-pagination__status">
+							<?php
+							printf(
+								/* translators: 1: current page, 2: total pages. */
+								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
+								esc_html( number_format_i18n( $bn_ca_inv_page ) ),
+								esc_html( number_format_i18n( $bn_ca_inv_pages ) )
+							);
+							?>
+						</span>
+						<?php if ( $bn_ca_inv_page < $bn_ca_inv_pages ) : ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_inv_page + 1, $bn_ca_inv_base ) ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
 						<?php endif; ?>
 					</nav>
 				<?php endif; ?>
