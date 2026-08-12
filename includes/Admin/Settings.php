@@ -1049,6 +1049,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'label'    => __( 'Ask for a note when connecting', 'buddynext' ),
 							'default'  => '0',
 							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
+
 							/*
 							 * The hint has to say when the setting cannot take
 							 * effect, because the note has no home of its own: it

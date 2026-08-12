@@ -668,6 +668,7 @@ class PageRouter {
 		// the_post()-style helpers read $GLOBALS['post']. Assigning the virtual
 		// post here is the documented way to make a synthetic page render; it is
 		// intentional, not an accidental global mutation.
+
 		/*
 		 * Point the query at the hub's MAPPED page when the owner has one.
 		 *

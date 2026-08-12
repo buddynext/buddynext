@@ -879,10 +879,11 @@ class FieldType {
 	/**
 	 * Render a radio-button group.
 	 *
-	 * @param array  $field Field definition.
-	 * @param mixed  $value Current value (slug).
-	 * @param string $name  Form name.
-	 * @param string $id    Element id base.
+	 * @param array  $field    Field definition.
+	 * @param mixed  $value    Current value (slug).
+	 * @param string $name     Form name.
+	 * @param string $id       Element id base.
+	 * @param string $required Pre-built ` required` attribute, or '' when optional.
 	 * @return string Escaped HTML.
 	 */
 	private static function render_radio_input( array $field, $value, string $name, string $id, string $required = '' ): string {
@@ -924,10 +925,11 @@ class FieldType {
 	 * $value is the member's current type SLUG, injected by ProfileService from the
 	 * live assignment (never a bn_profile_values row — see the type's registry note).
 	 *
-	 * @param array  $field Field definition (unused; kept for signature parity).
-	 * @param mixed  $value Current member-type slug, or '' when unclassified.
-	 * @param string $name  Form field name attribute.
-	 * @param string $id    Base id for the control.
+	 * @param array  $field    Field definition (unused; kept for signature parity).
+	 * @param mixed  $value    Current member-type slug, or '' when unclassified.
+	 * @param string $name     Form field name attribute.
+	 * @param string $id       Base id for the control.
+	 * @param string $required Pre-built ` required` attribute, or '' when optional.
 	 * @return string Escaped HTML.
 	 */
 	private static function render_member_type_input( array $field, $value, string $name, string $id, string $required = '' ): string {
@@ -1018,6 +1020,16 @@ class FieldType {
 		return '' === $required ? '' : ' data-bn-required="1" aria-required="true"';
 	}
 
+	/**
+	 * Render a multi-select field as a checkbox group.
+	 *
+	 * @param array  $field    Field definition (its options source).
+	 * @param mixed  $value    Current value (array, or a delimited string of slugs).
+	 * @param string $name     Form field name attribute (submitted as name[]).
+	 * @param string $id       Base id for the checkbox controls.
+	 * @param string $required Pre-built ` required` attribute, or '' when optional.
+	 * @return string Escaped HTML.
+	 */
 	private static function render_multiselect_input( array $field, $value, string $name, string $id, string $required = '' ): string {
 		$options  = self::options( $field );
 		$selected = self::multi_values( $value );

@@ -55,7 +55,7 @@ final class SurfaceMeta {
 			$descriptor['noindex']     = true;
 			$descriptor['description'] = '';
 			// Drop any content imagery; HeadMeta supplies the site fallback.
-			$descriptor['image']       = '';
+			$descriptor['image'] = '';
 		}
 
 		HeadMeta::emit( $descriptor );
@@ -178,23 +178,29 @@ final class SurfaceMeta {
 		// are not public property.
 		$is_restricted = in_array( (string) $space['type'], array( 'private', 'secret' ), true );
 
-		return array(
-			'url'   => PageRouter::space_url( $space_id ),
-			'title' => $name,
-			'type'  => 'website',
+		if ( $is_restricted ) {
 			/* translators: %s: space name. */
-			'description' => $is_restricted
-				? sprintf( __( '%s is a private space.', 'buddynext' ), $name )
-				: (string) $space['description'],
-			'image'   => $is_restricted
-				? ''
-				: HeadMeta::first_usable_image(
-					array(
-						(string) $space['cover_image_url'],
-						(string) $space['avatar_url'],
-					)
-				),
-			'noindex' => $is_restricted,
+			$description = sprintf( __( '%s is a private space.', 'buddynext' ), $name );
+		} else {
+			$description = (string) $space['description'];
+		}
+
+		$image = $is_restricted
+			? ''
+			: HeadMeta::first_usable_image(
+				array(
+					(string) $space['cover_image_url'],
+					(string) $space['avatar_url'],
+				)
+			);
+
+		return array(
+			'url'         => PageRouter::space_url( $space_id ),
+			'title'       => $name,
+			'type'        => 'website',
+			'description' => $description,
+			'image'       => $image,
+			'noindex'     => $is_restricted,
 		);
 	}
 
@@ -220,9 +226,9 @@ final class SurfaceMeta {
 		$name = (string) $user->display_name;
 
 		return array(
-			'url'   => PageRouter::profile_url( $user_id ),
-			'title' => $name,
-			'type'  => 'profile',
+			'url'         => PageRouter::profile_url( $user_id ),
+			'title'       => $name,
+			'type'        => 'profile',
 			/* translators: 1: member display name, 2: community name. */
 			'description' => sprintf( __( '%1$s on %2$s.', 'buddynext' ), $name, self::community_name() ),
 			// A generated letter-avatar is a data: URI and is dropped by the
@@ -245,7 +251,7 @@ final class SurfaceMeta {
 	 */
 	private static function describe_directory( string $label, string $url ): array {
 		return array(
-			'url' => $url,
+			'url'         => $url,
 			// The BARE label, never "Label - Community". WordPress appends the
 			// site name to the document title itself, so composing it here
 			// produced "Members - BuddyNext - BuddyNext" in the browser tab and

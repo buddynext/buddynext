@@ -2008,6 +2008,16 @@ class AuthController {
 		);
 	}
 
+	/**
+	 * REST: report the current member's verification and onboarding gate state.
+	 *
+	 * Reads the server-authoritative onboarding flag (bn_onboarding_complete user
+	 * meta) so the answer follows the member across devices, and — when the
+	 * Verification feature is enabled — whether the account has cleared email
+	 * verification. With the feature disabled every account is reported as verified.
+	 *
+	 * @return WP_REST_Response Payload with `verified`, `enabled` and `onboarding_completed` flags.
+	 */
 	public function verification_status(): WP_REST_Response {
 		// Onboarding completion is server-authoritative so it follows the member
 		// across devices and survives a reinstall — a member who onboarded on the

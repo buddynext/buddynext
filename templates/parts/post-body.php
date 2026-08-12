@@ -133,6 +133,7 @@ $bn_shared_post    = is_array( $args['shared_post'] ) ? $args['shared_post'] : n
  * a media-sizing question with different answers, and clamping a caption would
  * not touch it.
  */
+
 /*
  * Absent context means DO NOT preview.
  *
@@ -143,9 +144,9 @@ $bn_shared_post    = is_array( $args['shared_post'] ) ? $args['shared_post'] : n
  * from an explicit key list that did not yet carry context. Truncating a
  * reading surface is the worse failure, so an unknown surface shows everything.
  */
-$bn_body_context  = isset( $args['context'] ) ? (string) $args['context'] : '';
-$bn_is_preview    = in_array( $bn_body_context, array( 'home', 'explore', 'profile', 'space', 'bookmarks' ), true );
-$bn_body_is_long  = false;
+$bn_body_context = isset( $args['context'] ) ? (string) $args['context'] : '';
+$bn_is_preview   = in_array( $bn_body_context, array( 'home', 'explore', 'profile', 'space', 'bookmarks' ), true );
+$bn_body_is_long = false;
 
 if ( $bn_is_preview && ( 'text' === $bn_body_post_type || 'activity' === $bn_body_post_type ) ) {
 	/**

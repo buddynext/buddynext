@@ -529,6 +529,22 @@ class NotificationService {
 		return false === $ts ? null : gmdate( 'Y-m-d H:i:s', $ts );
 	}
 
+	/**
+	 * Fetch a paginated slice of a member's notifications, newest first.
+	 *
+	 * Supports two paging modes — keyset (cursor) and LIMIT/OFFSET — plus a filter
+	 * and a `since` delta bound that composes with paging so an app can poll for
+	 * only what changed after its last sync. Passing $offset selects offset mode
+	 * and takes precedence over $cursor.
+	 *
+	 * @param int         $user_id  Recipient user ID.
+	 * @param string|null $cursor   Opaque keyset cursor from a previous page, or null for the first page.
+	 * @param int         $per_page Page size (capped at 50).
+	 * @param string      $filter   Filter slug ('all', 'unread', or a notification type).
+	 * @param int|null    $offset   Row offset; when non-null, pages by LIMIT/OFFSET instead of by cursor.
+	 * @param string|null $since    Only items created strictly after this timestamp (any strtotime-parseable value), or null.
+	 * @return array{items:array<int,array<string,mixed>>,next_cursor:string|null} Hydrated rows and the cursor for the next page (null when none/offset mode).
+	 */
 	public function list_for_user( int $user_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $filter = 'all', ?int $offset = null, ?string $since = null ): array {
 		global $wpdb;
 

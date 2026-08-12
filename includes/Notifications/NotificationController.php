@@ -246,8 +246,8 @@ class NotificationController extends BaseRestController {
 		$filter = (string) ( $request->get_param( 'filter' ) ?? 'all' );
 		$offset = null !== $request->get_param( 'offset' ) ? max( 0, (int) $request->get_param( 'offset' ) ) : null;
 
-		$since  = $request->get_param( 'since' ) ? (string) $request->get_param( 'since' ) : null;
-		$result = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page, $filter, $offset, $since );
+		$since    = $request->get_param( 'since' ) ? (string) $request->get_param( 'since' ) : null;
+		$result   = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page, $filter, $offset, $since );
 		$composer = buddynext_service( 'notification_message' );
 		$composed = $composer->compose_batch( $result['items'] ?? array() );
 
