@@ -83,6 +83,33 @@ if ( 'members' === $admin_section ) {
 		);
 }
 
+// ── Spaces section data (only when that section is active) ────────────────────
+// SpaceService::list_spaces_with_total() is LIMIT/OFFSET + COUNT-aware and cached,
+// so the management list is big-site safe. is_admin => true surfaces secret and
+// archived spaces to a site manager.
+$bn_ca_spaces_list = null;
+$bn_ca_sp_page     = 1;
+$bn_ca_sp_total    = 0;
+if ( 'spaces' === $admin_section ) {
+	$bn_ca_sp_page = isset( $_GET['mpage'] ) ? max( 1, (int) $_GET['mpage'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_ca_sp_svc  = buddynext_service( 'spaces' );
+	if ( is_object( $bn_ca_sp_svc ) && method_exists( $bn_ca_sp_svc, 'list_spaces_with_total' ) ) {
+		$bn_ca_sp_res      = $bn_ca_sp_svc->list_spaces_with_total(
+			array(
+				'page'     => $bn_ca_sp_page,
+				'per_page' => 20,
+				'is_admin' => true,
+				'orderby'  => 'created_at',
+				'order'    => 'DESC',
+			)
+		);
+		$bn_ca_spaces_list = (array) ( $bn_ca_sp_res['items'] ?? array() );
+		$bn_ca_sp_total    = (int) ( $bn_ca_sp_res['total'] ?? 0 );
+	} else {
+		$bn_ca_spaces_list = array();
+	}
+}
+
 // ── Platform stats (consolidated via AdminHub::overview_stats) ─────────────────
 
 $bn_ca_stats         = \BuddyNext\Admin\AdminHub::overview_stats();
@@ -454,6 +481,79 @@ $posts_pct_abs = abs( $posts_pct );
 						<?php if ( $bn_ca_m_page < (int) $bn_ca_members['pages'] ) : ?>
 							<?php $bn_ca_next = add_query_arg( array_merge( $bn_ca_pg_args, array( 'mpage' => $bn_ca_m_page + 1 ) ), $bn_ca_sec_url ); ?>
 							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_ca_next ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
+						<?php endif; ?>
+					</nav>
+				<?php endif; ?>
+			</section>
+
+		<?php elseif ( 'spaces' === $admin_section ) : ?>
+
+			<section class="bn-ca-card" aria-labelledby="bn-ca-spaces-title">
+				<header class="bn-ca-card__head">
+					<span id="bn-ca-spaces-title" class="bn-ca-card__title">
+						<?php buddynext_icon( 'home' ); ?>
+						<?php esc_html_e( 'Spaces', 'buddynext' ); ?>
+						<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $bn_ca_sp_total ) ); ?></span>
+					</span>
+				</header>
+				<div class="bn-ca-card__body">
+					<?php if ( empty( $bn_ca_spaces_list ) ) : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'No spaces yet.', 'buddynext' ); ?></p>
+					<?php else : ?>
+						<?php
+						foreach ( $bn_ca_spaces_list as $bn_ca_sp ) :
+							$bn_sp_id    = (int) ( $bn_ca_sp['id'] ?? 0 );
+							$bn_sp_name  = (string) ( $bn_ca_sp['name'] ?? '' );
+							$bn_sp_type  = (string) ( $bn_ca_sp['type'] ?? 'open' );
+							$bn_sp_count = (int) ( $bn_ca_sp['member_count'] ?? 0 );
+							$bn_sp_init  = \BuddyNext\Profile\AvatarService::initials_for( $bn_sp_name );
+							$bn_sp_admin = trailingslashit( \BuddyNext\Core\PageRouter::space_url( $bn_sp_id ) ) . 'admin/';
+							$bn_sp_tone  = 'private' === $bn_sp_type ? 'info' : ( 'secret' === $bn_sp_type ? 'amber' : '' );
+							?>
+							<div class="bn-ca-row">
+								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $bn_sp_init ); ?></span>
+								<div class="bn-ca-row__body">
+									<span class="bn-ca-row__title"><a href="<?php echo esc_url( $bn_sp_admin ); ?>"><?php echo esc_html( $bn_sp_name ); ?></a></span>
+									<span class="bn-ca-row__sub">
+										<?php
+										printf(
+											/* translators: %s: member count (already i18n-formatted). */
+											esc_html( _n( '%s member', '%s members', $bn_sp_count, 'buddynext' ) ),
+											esc_html( number_format_i18n( $bn_sp_count ) )
+										);
+										?>
+									</span>
+								</div>
+								<div class="bn-ca-row__actions">
+									<?php if ( '' !== $bn_sp_tone ) : ?>
+										<span class="bn-badge" data-tone="<?php echo esc_attr( $bn_sp_tone ); ?>"><?php echo esc_html( ucfirst( $bn_sp_type ) ); ?></span>
+									<?php endif; ?>
+								</div>
+							</div>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</div>
+				<?php
+				$bn_ca_sp_pages = (int) ceil( (int) $bn_ca_sp_total / 20 );
+				if ( $bn_ca_sp_pages > 1 ) :
+					$bn_ca_sp_base = $bn_ca_routed ? trailingslashit( $admin_base . 'spaces' ) : add_query_arg( 'bn_admin', 'spaces', $admin_base );
+					?>
+					<nav class="bn-ca-pagination" aria-label="<?php esc_attr_e( 'Spaces pages', 'buddynext' ); ?>">
+						<?php if ( $bn_ca_sp_page > 1 ) : ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_sp_page - 1, $bn_ca_sp_base ) ); ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
+						<?php endif; ?>
+						<span class="bn-ca-pagination__status">
+							<?php
+							printf(
+								/* translators: 1: current page, 2: total pages. */
+								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
+								esc_html( number_format_i18n( $bn_ca_sp_page ) ),
+								esc_html( number_format_i18n( $bn_ca_sp_pages ) )
+							);
+							?>
+						</span>
+						<?php if ( $bn_ca_sp_page < $bn_ca_sp_pages ) : ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_sp_page + 1, $bn_ca_sp_base ) ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
 						<?php endif; ?>
 					</nav>
 				<?php endif; ?>
