@@ -288,12 +288,10 @@ $posts_pct_abs = abs( $posts_pct );
 			?>
 		</span>
 		<div class="bn-ca-subheader__actions">
+			<?php // Community Admin is an all-front-end surface — no link back to wp-admin. ?>
 			<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="bn-ca-subheader__link" data-emphasis="primary">
 				<?php buddynext_icon( 'chevron-left' ); ?>
 				<?php esc_html_e( 'Back to community', 'buddynext' ); ?>
-			</a>
-			<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-subheader__link">
-				<?php esc_html_e( 'WP Admin', 'buddynext' ); ?>
 			</a>
 		</div>
 	</div>
@@ -361,12 +359,7 @@ $posts_pct_abs = abs( $posts_pct );
 					</a>
 				<?php endforeach; ?>
 
-				<div class="bn-ca-nav-divider" role="presentation"></div>
-
-				<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-nav-item" data-external>
-					<span class="bn-ca-nav-item__icon" aria-hidden="true"><?php buddynext_icon( 'link' ); ?></span>
-					<?php esc_html_e( 'WordPress admin', 'buddynext' ); ?>
-				</a>
+				<?php // All-front-end surface — no "WordPress admin" link out to the backend. ?>
 
 				<p class="bn-ca-sidebar__note">
 					<?php esc_html_e( 'Space admins only see their own space in this panel.', 'buddynext' ); ?>

@@ -624,6 +624,29 @@
 	border-bottom: 1px solid var(--bn-line-faint);
 }
 
+/* Members-section search: input + button on one aligned row, padded off the card
+   edges (the form sits between the head and the row body, so it needs its own
+   inset rather than inheriting the row padding). */
+.bn-ca-members-search {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-bottom: 1px solid var(--bn-line-faint);
+}
+.bn-ca-members-search .bn-input {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.bn-ca-members-search .bn-btn {
+	flex: 0 0 auto;
+}
+
+/* Give the role <select> a readable minimum so "Moderator" never truncates. */
+.bn-ca-role-select {
+	min-width: 8.5rem;
+}
+
 .bn-ca-card__title {
 	display: inline-flex;
 	align-items: center;
