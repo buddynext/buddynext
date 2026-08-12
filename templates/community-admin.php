@@ -703,6 +703,8 @@ $posts_pct_abs = abs( $posts_pct );
 
 		<?php else : ?>
 
+			<?php // The Moderation tab is queue-focused; the stats dashboard belongs to Overview. Both share the reports/appeals queue markup below. ?>
+			<?php if ( 'moderation' !== $admin_section ) : ?>
 			<!-- Stats grid — .bn-stat-grid primitive -->
 			<div class="bn-stat-grid" role="list" aria-label="<?php esc_attr_e( 'Community metrics', 'buddynext' ); ?>">
 
@@ -778,6 +780,7 @@ $posts_pct_abs = abs( $posts_pct );
 				</div>
 
 			</div>
+			<?php endif; // stats grid hidden on the Moderation tab. ?>
 
 			<!-- Section tabs — Reports / Pending joins / Recent activity -->
 			<nav class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Admin sections', 'buddynext' ); ?>">
