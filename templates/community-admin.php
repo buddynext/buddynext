@@ -52,20 +52,19 @@ $admin_base = ( isset( $admin_base ) && '' !== (string) $admin_base ) ? (string)
 $bn_ca_members         = null;
 $bn_ca_m_page          = 1;
 $bn_ca_m_search        = '';
-$bn_ca_roles           = null;
-$bn_ca_can_assign      = false; // May this viewer change member roles at all?
-$bn_ca_can_grant_admin = false; // May this viewer grant the top Admin role?
+// Role changes are admin-only: a WordPress admin, or a member holding the
+// community 'admin' role. Moderators can view the panel but not reassign roles.
+// Granting the top Admin role stays site-administrator-only (mirrors the REST gate).
+// Computed section-independently: the sidebar note (rendered on every section)
+// needs the same admin-vs-moderator distinction as the Members role controls.
+$bn_ca_roles           = buddynext_service( 'roles' );
+$bn_ca_can_assign      = current_user_can( 'manage_options' )
+	|| ( is_object( $bn_ca_roles ) && method_exists( $bn_ca_roles, 'is_admin' ) && $bn_ca_roles->is_admin( get_current_user_id() ) );
+$bn_ca_can_grant_admin = current_user_can( 'manage_options' );
 if ( 'members' === $admin_section ) {
 	$bn_ca_m_page   = isset( $_GET['mpage'] ) ? max( 1, (int) $_GET['mpage'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$bn_ca_m_search = isset( $_GET['ms'] ) ? sanitize_text_field( wp_unslash( $_GET['ms'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$bn_ca_admin_members = buddynext_service( 'admin_members' );
-	$bn_ca_roles         = buddynext_service( 'roles' );
-	// Role changes are admin-only: a WordPress admin, or a member holding the
-	// community 'admin' role. Moderators can view the panel but not reassign roles.
-	// Granting the top Admin role stays site-administrator-only (mirrors the REST gate).
-	$bn_ca_can_assign      = current_user_can( 'manage_options' )
-		|| ( is_object( $bn_ca_roles ) && method_exists( $bn_ca_roles, 'is_admin' ) && $bn_ca_roles->is_admin( get_current_user_id() ) );
-	$bn_ca_can_grant_admin = current_user_can( 'manage_options' );
 	$bn_ca_members       = ( is_object( $bn_ca_admin_members ) && method_exists( $bn_ca_admin_members, 'list_members' ) )
 		? $bn_ca_admin_members->list_members(
 			array(
@@ -362,7 +361,18 @@ $posts_pct_abs = abs( $posts_pct );
 				<?php // All-front-end surface — no "WordPress admin" link out to the backend. ?>
 
 				<p class="bn-ca-sidebar__note">
-					<?php esc_html_e( 'Space admins only see their own space in this panel.', 'buddynext' ); ?>
+					<?php
+					// The panel is a community-WIDE manager view: it is reachable only by
+					// site owners (manage_options) and community-role moderators/admins,
+					// who moderate the whole community — not per-space. So the note states
+					// what the viewer can actually do here, which is what a moderator most
+					// needs to know: role + community-policy controls are owner-only.
+					echo esc_html(
+						$bn_ca_can_assign
+							? __( 'You manage the whole community, including member roles and settings.', 'buddynext' )
+							: __( 'You can moderate the whole community. Member roles and community settings are owner-only.', 'buddynext' )
+					);
+					?>
 				</p>
 			</div>
 		</aside>
