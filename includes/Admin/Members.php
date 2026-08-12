@@ -44,6 +44,7 @@ class Members extends AdminPageBase {
 		add_action( 'admin_post_bn_unsuspend_member', array( $this, 'handle_unsuspend' ) );
 		add_action( 'admin_post_bn_bulk_members', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_post_bn_save_member_profile', array( $this, 'handle_save_member_profile' ) );
+		add_action( 'admin_post_bn_set_community_role', array( $this, 'handle_set_community_role' ) );
 		add_action( 'admin_post_' . self::ACTION_REPAIR_HANDLES, array( $this, 'handle_repair_handles' ) );
 		// NB: the wp_login -> handle_last_login listener is wired unconditionally
 		// in Plugin::boot(), not here — register() only runs in admin, but logins
@@ -560,6 +561,37 @@ class Members extends AdminPageBase {
 				admin_url( 'admin.php' )
 			)
 		);
+		exit;
+	}
+
+	/**
+	 * Handle admin_post_bn_set_community_role — set a member's BuddyNext community
+	 * role (member | moderator | admin) from the Members list role column.
+	 *
+	 * This is the wp-admin counterpart of the front-end Community Admin > Members
+	 * control; both write bn_community_role through the same RoleService::set_role.
+	 * WordPress admins only.
+	 *
+	 * @return void
+	 */
+	public function handle_set_community_role(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+
+		check_admin_referer( 'bn_set_community_role' );
+
+		$user_id = absint( wp_unslash( $_POST['user_id'] ?? 0 ) );
+		$role    = sanitize_key( (string) wp_unslash( $_POST['community_role'] ?? '' ) );
+
+		if ( $user_id > 0 && in_array( $role, array( 'member', 'moderator', 'admin' ), true ) ) {
+			$roles = buddynext_service( 'roles' );
+			if ( is_object( $roles ) && method_exists( $roles, 'set_role' ) ) {
+				$roles->set_role( $user_id, $role );
+			}
+		}
+
+		wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=buddynext-members' ) );
 		exit;
 	}
 
@@ -1354,6 +1386,7 @@ class Members extends AdminPageBase {
 								<th scope="col" class="column-primary"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'display_name' ) ); ?>" class="bn-th-sort<?php echo 'display_name' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Member', 'buddynext' ); ?></a></th>
 								<th scope="col" class="bn-col-email"><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Role', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Community role', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
 								<th scope="col" class="bn-col-muted"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'registered' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Joined', 'buddynext' ); ?></a></th>
 								<?php
@@ -1416,6 +1449,35 @@ class Members extends AdminPageBase {
 								</td>
 								<td class="bn-col-email" data-colname="<?php esc_attr_e( 'Email', 'buddynext' ); ?>"><?php echo esc_html( $member['email'] ); ?></td>
 								<td data-colname="<?php esc_attr_e( 'Role', 'buddynext' ); ?>"><?php MemberDisplay::render_role_badge( $member['role'] ); ?></td>
+								<td data-colname="<?php esc_attr_e( 'Community role', 'buddynext' ); ?>">
+									<?php
+									// bn_community_role (member < moderator < admin). get_user_meta is
+									// served from the batch cache list_members() already primed, so this
+									// is not a per-row query. Same write path as the front-end panel:
+									// admin_post_bn_set_community_role -> RoleService::set_role.
+									$bn_roles_svc = buddynext_service( 'roles' );
+									$bn_comm_role = ( is_object( $bn_roles_svc ) && method_exists( $bn_roles_svc, 'get_role' ) )
+										? $bn_roles_svc->get_role( absint( $member['id'] ) )
+										: 'member';
+									?>
+									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-inline-role-form">
+										<input type="hidden" name="action" value="bn_set_community_role">
+										<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
+										<?php wp_nonce_field( 'bn_set_community_role' ); ?>
+										<label class="screen-reader-text" for="bn-crole-<?php echo absint( $member['id'] ); ?>">
+											<?php
+											/* translators: %s: member name. */
+											echo esc_html( sprintf( __( 'Community role for %s', 'buddynext' ), $member['display'] ) );
+											?>
+										</label>
+										<select id="bn-crole-<?php echo absint( $member['id'] ); ?>" name="community_role" class="bn-select" data-size="sm">
+											<option value="member" <?php selected( $bn_comm_role, 'member' ); ?>><?php esc_html_e( 'Member', 'buddynext' ); ?></option>
+											<option value="moderator" <?php selected( $bn_comm_role, 'moderator' ); ?>><?php esc_html_e( 'Moderator', 'buddynext' ); ?></option>
+											<option value="admin" <?php selected( $bn_comm_role, 'admin' ); ?>><?php esc_html_e( 'Admin', 'buddynext' ); ?></option>
+										</select>
+										<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Update', 'buddynext' ); ?></button>
+									</form>
+								</td>
 								<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>">
 									<?php if ( $member['suspended'] ) : ?>
 										<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>
