@@ -632,9 +632,33 @@ $posts_pct_abs = abs( $posts_pct );
 						<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $bn_ca_inv_total ) ); ?></span>
 					</span>
 					<?php if ( current_user_can( 'manage_options' ) ) : ?>
-						<a class="bn-ca-card__link" href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'members', 'invites' ) ); ?>"><?php esc_html_e( 'Send invites', 'buddynext' ); ?></a>
+						<a class="bn-ca-card__link" href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'members', 'invites' ) ); ?>"><?php esc_html_e( 'Import CSV', 'buddynext' ); ?></a>
 					<?php endif; ?>
 				</header>
+
+				<?php
+				$bn_ca_inv_status = isset( $_GET['bn_invite'] ) ? sanitize_key( wp_unslash( $_GET['bn_invite'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				if ( '' !== $bn_ca_inv_status ) :
+					$bn_ca_inv_msgs = array(
+						'sent'    => __( 'Invite sent.', 'buddynext' ),
+						'skipped' => __( 'That email already has an account or a pending invite.', 'buddynext' ),
+						'error'   => __( 'Enter a valid email address.', 'buddynext' ),
+					);
+					$bn_ca_inv_tone = 'sent' === $bn_ca_inv_status ? 'success' : ( 'skipped' === $bn_ca_inv_status ? 'info' : 'danger' );
+					?>
+					<div class="bn-ca-notice" data-tone="<?php echo esc_attr( $bn_ca_inv_tone ); ?>" role="status">
+						<?php echo esc_html( $bn_ca_inv_msgs[ $bn_ca_inv_status ] ?? '' ); ?>
+					</div>
+				<?php endif; ?>
+
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-ca-invite-form">
+					<input type="hidden" name="action" value="bn_ca_send_invite">
+					<?php wp_nonce_field( 'bn_ca_send_invite' ); ?>
+					<input type="email" name="invite_email" class="bn-input" required placeholder="<?php esc_attr_e( 'name@example.com', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Email address to invite', 'buddynext' ); ?>" />
+					<input type="text" name="invite_first_name" class="bn-input" placeholder="<?php esc_attr_e( 'First name (optional)', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'First name', 'buddynext' ); ?>" />
+					<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Send invite', 'buddynext' ); ?></button>
+				</form>
+
 				<div class="bn-ca-card__body">
 					<?php if ( empty( $bn_ca_invites ) ) : ?>
 						<p class="bn-ca-card__empty"><?php esc_html_e( 'No pending invites.', 'buddynext' ); ?></p>

@@ -624,23 +624,40 @@
 	border-bottom: 1px solid var(--bn-line-faint);
 }
 
-/* Members-section search: input + button on one aligned row, padded off the card
-   edges (the form sits between the head and the row body, so it needs its own
-   inset rather than inheriting the row padding). */
-.bn-ca-members-search {
+/* Members-section search + Invites create form: inputs + button on one aligned
+   row, padded off the card edges (the form sits between the head and the row
+   body, so it needs its own inset rather than inheriting the row padding). */
+.bn-ca-members-search,
+.bn-ca-invite-form {
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
 	padding: var(--bn-s3) var(--bn-s4);
 	border-bottom: 1px solid var(--bn-line-faint);
+	flex-wrap: wrap;
 }
-.bn-ca-members-search .bn-input {
-	flex: 1 1 auto;
+.bn-ca-members-search .bn-input,
+.bn-ca-invite-form .bn-input {
+	flex: 1 1 12rem;
 	min-width: 0;
 }
-.bn-ca-members-search .bn-btn {
+.bn-ca-members-search .bn-btn,
+.bn-ca-invite-form .bn-btn {
 	flex: 0 0 auto;
 }
+
+/* Inline status notice (invite sent / skipped / error). Tinted from the tone. */
+.bn-ca-notice {
+	margin: var(--bn-s3) var(--bn-s4) 0;
+	padding: var(--bn-s2) var(--bn-s3);
+	border-radius: var(--bn-r-sm);
+	font-size: var(--bn-text-sm);
+	background: color-mix( in oklch, var(--bn-accent) 10%, var(--bn-surface) );
+	color: var(--bn-ink);
+}
+.bn-ca-notice[data-tone="success"] { background: color-mix( in oklch, var(--bn-success, #16a34a) 14%, var(--bn-surface) ); }
+.bn-ca-notice[data-tone="danger"]  { background: color-mix( in oklch, var(--bn-danger) 14%, var(--bn-surface) ); }
+.bn-ca-notice[data-tone="info"]    { background: color-mix( in oklch, var(--bn-accent) 12%, var(--bn-surface) ); }
 
 /* Give the role <select> a readable minimum so "Moderator" never truncates. */
 .bn-ca-role-select {
