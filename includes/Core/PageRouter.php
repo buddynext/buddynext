@@ -1771,6 +1771,8 @@ class PageRouter {
 				// enqueues via enqueue_shell( 'moderation' ). Without this the
 				// routed hub renders the panel unstyled.
 				$assets->enqueue( 'moderation' );
+				// The Members view's role controls run on the buddynext/community-admin store.
+				$assets->enqueue( 'community-admin' );
 				break;
 
 			case 'onboarding':

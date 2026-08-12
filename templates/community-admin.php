@@ -49,15 +49,23 @@ $admin_base = ( isset( $admin_base ) && '' !== (string) $admin_base ) ? (string)
 // Reuses Admin\Members::list_members() — already paginated (LIMIT/OFFSET), search
 // and total-count aware — so the list is big-site safe. Roles come from the
 // RoleService community-role layer (bn_community_role user meta).
-$bn_ca_members  = null;
-$bn_ca_m_page   = 1;
-$bn_ca_m_search = '';
-$bn_ca_roles    = null;
+$bn_ca_members         = null;
+$bn_ca_m_page          = 1;
+$bn_ca_m_search        = '';
+$bn_ca_roles           = null;
+$bn_ca_can_assign      = false; // May this viewer change member roles at all?
+$bn_ca_can_grant_admin = false; // May this viewer grant the top Admin role?
 if ( 'members' === $admin_section ) {
 	$bn_ca_m_page   = isset( $_GET['mpage'] ) ? max( 1, (int) $_GET['mpage'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$bn_ca_m_search = isset( $_GET['ms'] ) ? sanitize_text_field( wp_unslash( $_GET['ms'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$bn_ca_admin_members = buddynext_service( 'admin_members' );
 	$bn_ca_roles         = buddynext_service( 'roles' );
+	// Role changes are admin-only: a WordPress admin, or a member holding the
+	// community 'admin' role. Moderators can view the panel but not reassign roles.
+	// Granting the top Admin role stays site-administrator-only (mirrors the REST gate).
+	$bn_ca_can_assign      = current_user_can( 'manage_options' )
+		|| ( is_object( $bn_ca_roles ) && method_exists( $bn_ca_roles, 'is_admin' ) && $bn_ca_roles->is_admin( get_current_user_id() ) );
+	$bn_ca_can_grant_admin = current_user_can( 'manage_options' );
 	$bn_ca_members       = ( is_object( $bn_ca_admin_members ) && method_exists( $bn_ca_admin_members, 'list_members' ) )
 		? $bn_ca_admin_members->list_members(
 			array(
@@ -333,7 +341,7 @@ $posts_pct_abs = abs( $posts_pct );
 		if ( 'members' === $admin_section && is_array( $bn_ca_members ) ) :
 			$bn_ca_sec_url = $bn_ca_routed ? trailingslashit( $admin_base . 'members' ) : $admin_base;
 			?>
-			<section class="bn-ca-card" aria-labelledby="bn-ca-members-title">
+			<section class="bn-ca-card" aria-labelledby="bn-ca-members-title" data-wp-interactive="buddynext/community-admin">
 				<header class="bn-ca-card__head">
 					<span id="bn-ca-members-title" class="bn-ca-card__title">
 						<?php buddynext_icon( 'users' ); ?>
@@ -388,7 +396,26 @@ $posts_pct_abs = abs( $posts_pct );
 									</span>
 								</div>
 								<div class="bn-ca-row__actions">
-									<?php if ( 'admin' === $bn_ca_m_role ) : ?>
+									<?php
+									// Role managers get a live <select> (POSTs to the role endpoint via the
+									// buddynext/community-admin store); everyone else sees a read-only badge.
+									// The viewer's own row is never editable — no self-demotion lockout.
+									$bn_ca_editable = $bn_ca_can_assign && $bn_ca_m_id !== get_current_user_id();
+									if ( $bn_ca_editable ) :
+										?>
+										<select
+											class="bn-input bn-ca-role-select"
+											aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member name. */ __( 'Community role for %s', 'buddynext' ), $bn_ca_m_name ) ); ?>"
+											data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'userId' => $bn_ca_m_id, 'role' => $bn_ca_m_role ) ) ); ?>'
+											data-wp-on--change="actions.setRole"
+										>
+											<option value="member" <?php selected( $bn_ca_m_role, 'member' ); ?>><?php esc_html_e( 'Member', 'buddynext' ); ?></option>
+											<option value="moderator" <?php selected( $bn_ca_m_role, 'moderator' ); ?>><?php esc_html_e( 'Moderator', 'buddynext' ); ?></option>
+											<?php if ( $bn_ca_can_grant_admin || 'admin' === $bn_ca_m_role ) : ?>
+												<option value="admin" <?php selected( $bn_ca_m_role, 'admin' ); ?>><?php esc_html_e( 'Admin', 'buddynext' ); ?></option>
+											<?php endif; ?>
+										</select>
+									<?php elseif ( 'admin' === $bn_ca_m_role ) : ?>
 										<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Admin', 'buddynext' ); ?></span>
 									<?php elseif ( 'moderator' === $bn_ca_m_role ) : ?>
 										<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Moderator', 'buddynext' ); ?></span>
