@@ -66,7 +66,12 @@
 	width: 40px;
 	height: 40px;
 	border-radius: var(--bn-r-full, 999px);
-	color: var(--bn-ink-2, #475569);
+	/* Inherit the host header's foreground, not BuddyNext's content ink: these
+	   icons are dropped into the theme header (outside .bn-app), whose background
+	   is independent of BuddyNext's light/dark mode. Using --bn-ink here made
+	   them go invisible on a dark theme header while BuddyNext was in light mode.
+	   Inheriting matches the theme's own header icons in any theme/mode. */
+	color: inherit;
 	background: transparent;
 	transition: background var(--bn-dur-fast, 0.12s) var(--bn-ease, ease),
 		color var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
@@ -76,8 +81,9 @@
 .bn-notification-bell-link:focus-visible,
 .bn-header-msg:hover,
 .bn-header-msg:focus-visible {
-	background: var(--bn-sunken, #f1f5f9);
-	color: var(--bn-ink, #0f172a);
+	/* A tint of the inherited header colour, so the hover surface adapts to a
+	   light OR dark header instead of a fixed light --bn-sunken. */
+	background: color-mix( in oklab, currentColor 12%, transparent );
 }
 
 .bn-notification-bell-icon,
