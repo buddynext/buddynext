@@ -56,5 +56,21 @@ $bn_settings_tabs = (array) apply_filters( 'buddynext_settings_tabs', $bn_settin
 			<span class="bn-tab__label"><?php echo esc_html( $bn_label ); ?></span>
 		</a>
 	<?php endforeach; ?>
+	<?php
+	// Community Admin lives here (not in the left rail) to keep the rail clean.
+	// It is a manager surface, so it is gated to moderators/admins and links out
+	// to the routed hub rather than a /settings/{slug}/ section — hence rendered
+	// as a special tab outside the slug -> settings_url() loop above.
+	if ( function_exists( 'buddynext_can' ) && buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) :
+		?>
+		<a
+			class="bn-tab bn-settings-tabs__manage"
+			role="tab"
+			aria-selected="false"
+			href="<?php echo esc_url( PageRouter::community_admin_url() ); ?>"
+		>
+			<span class="bn-tab__label"><?php esc_html_e( 'Community Admin', 'buddynext' ); ?></span>
+		</a>
+	<?php endif; ?>
 </nav>
 </div>

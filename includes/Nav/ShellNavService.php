@@ -150,21 +150,10 @@ class ShellNavService {
 				'group' => 'you',
 				'order' => 230,
 			);
-			// Community Admin — only moderators (community role) and admins.
-			// Gated by not pushing the row at all (stronger than show:false: a
-			// non-eligible member's nav never carries the label or URL). Same
-			// capability the hub route and the panel template enforce.
-			if ( function_exists( 'buddynext_can' ) && buddynext_can( $user_id, 'buddynext-spaces/moderate' ) ) {
-				$items[] = array(
-					'key'   => 'community-admin',
-					'label' => __( 'Community Admin', 'buddynext' ),
-					'url'   => PageRouter::community_admin_url(),
-					'icon'  => 'shield',
-					'show'  => true,
-					'group' => 'you',
-					'order' => 240,
-				);
-			}
+			// Community Admin is intentionally NOT in the left rail — it is
+			// surfaced as a gated tab in the Settings strip (templates/parts/
+			// settings-nav.php) so the rail stays clean. Only moderators/admins
+			// see it there; the route + panel enforce the same capability.
 		}
 
 		return $items;
