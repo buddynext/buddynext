@@ -238,15 +238,13 @@ body.admin-bar .bn-app.bn-app--embedded {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s4);
-	/* Sticky rail — mirrors the left rail so a long feed never leaves the right
-	   column blank on scroll (it used to stretch to the full grid-row height and
-	   sit static, so everything below its short content was empty). align-self:
-	   start stops the stretch; sticky pins it in view. Unlike the left rail
-	   (always a full-height nav → fixed height) the right rail's content varies,
-	   so we use MAX-height: a short rail (Feed/Members/Profile/Explore/Spaces)
-	   shows no scrollbar and just pins near the top, while a tall rail
-	   (Notifications' 6 cards, or owner-added cards) scrolls inside itself
-	   instead of stranding its last card below the fold — "does not get stuck". */
+	/* Sticky rail so a long feed never leaves the right column blank on scroll.
+	   align-self:start stops the grid item stretching to the full row height;
+	   max-height + overflow let a tall rail (Notifications' 6 cards, owner cards)
+	   scroll inside itself instead of stranding its last card. This ONLY works
+	   because BN neutralises the theme wrapper's overflow below (an overflow-
+	   clipping ancestor defeats position:sticky AND makes max-height clip the
+	   rail mid-content). Do not ship the max-height without that override. */
 	position: sticky;
 	top: 0;
 	align-self: start;
@@ -255,7 +253,6 @@ body.admin-bar .bn-app.bn-app--embedded {
 	overflow-y: auto;
 	scrollbar-width: thin;
 }
-
 body.admin-bar .bn-app__right {
 	top: 32px;
 	max-height: calc(100vh - 32px);
@@ -267,6 +264,25 @@ body.admin-bar .bn-app__right {
 		max-height: calc(100vh - 46px);
 		max-height: calc(100dvh - 46px);
 	}
+}
+
+/* ── BN owns the hub surface: no theme wrapper may clip it ────────────────────
+   PageRouter stamps `bn-page` on every hub <body>. A theme page wrapper with
+   overflow:hidden (BuddyX's .site, and common block/classic wrappers) clips
+   BN's full-bleed layout and DEFEATS position:sticky on the rails — the sidebar
+   scrolls away and the column goes blank, and with a max-height it clips the
+   rail mid-content. BN's own CSS neutralises the clip on the usual theme page
+   wrappers so the theme can never break the hub. Scoped to body.bn-page, so it
+   only touches wrappers on a BuddyNext hub, never the rest of the site. */
+body.bn-page .site,
+body.bn-page #page,
+body.bn-page #content,
+body.bn-page .site-content,
+body.bn-page .ast-container,
+body.bn-page .wp-site-blocks,
+body.bn-page .hfeed,
+body.bn-page .site-inner {
+	overflow: visible !important;
 }
 
 /* ── Left rail ───────────────────────────────────────────────────────────── */
