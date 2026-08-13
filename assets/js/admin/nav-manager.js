@@ -175,6 +175,48 @@
 		} );
 	} );
 
+	// ── Validate a custom link's URL before it is saved ──────────────────────
+	// A bare word ("test") would be minted into a broken http://test link on the
+	// server, so guide the owner to a real destination here instead of letting a
+	// dead tab save. Accepts absolute URLs, /paths, #anchors, {tokens} (profile/
+	// space scopes) or a dotted host. Mirrors NavManager::sanitize_tab_url().
+	( function () {
+		var i18n = ( window.wp && window.wp.i18n ) || {};
+		var __   = i18n.__ || function ( s ) { return s; };
+		function usable( v ) {
+			v = ( v || '' ).trim();
+			if ( ! v ) { return false; }
+			if ( /\{(space_url|space_id|profile_url|user_id|slug)\}/.test( v ) ) { return true; }
+			if ( /^[a-z][a-z0-9+.\-]*:/i.test( v ) ) { return true; }
+			if ( '/' === v.charAt( 0 ) || '#' === v.charAt( 0 ) ) { return true; }
+			return -1 !== v.indexOf( '.' );
+		}
+		document.querySelectorAll( '.bn-add-tab-inline-actions button[type="submit"]' ).forEach( function ( btn ) {
+			btn.addEventListener( 'click', function ( e ) {
+				var form = btn.closest( '[id^="bn-add-tab-form-"]' );
+				if ( ! form ) { return; }
+				var url = form.querySelector( 'input[name*="[url]"]' );
+				if ( ! url ) { return; }
+				var msg = form.querySelector( '.bn-url-error' );
+				if ( usable( url.value ) ) {
+					if ( msg ) { msg.remove(); }
+					return;
+				}
+				e.preventDefault();
+				if ( ! msg ) {
+					msg = document.createElement( 'p' );
+					msg.className = 'description bn-url-error';
+					msg.style.color = 'var(--bn-danger, #d63638)';
+					url.insertAdjacentElement( 'afterend', msg );
+				}
+				msg.textContent = ( url.value || '' ).trim()
+					? __( 'Enter a full web address (https://example.com) or a path on this site (/support).', 'buddynext' )
+					: __( 'Enter a URL for this link.', 'buddynext' );
+				url.focus();
+			} );
+		} );
+	}() );
+
 	// ── Drag-reorder via jQuery UI Sortable (per scope) ──────────────────────
 
 	if ( window.jQuery && window.jQuery.fn.sortable ) {

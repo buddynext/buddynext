@@ -921,7 +921,14 @@ class NavManager extends AdminPageBase {
 
 			// The logged-out items (Log in / Register) are not part of the account dropdown —
 			// they are the signed-out header, and an owner hiding them locks people out.
-			if ( '' === $slug || \BuddyNext\Nav\UserLinks::LOGGEDIN !== ( $item['visibility'] ?? '' ) ) {
+			// Skip owner-added custom links (NavOverrides flags them 'custom'): they are
+			// not built-in defaults, so they must NOT land here — otherwise the tab
+			// assembly sees the slug "already in defaults", drops the custom copy, and
+			// the link renders as an undeletable "Core" tab. Excluding them lets the
+			// assembly re-surface them as deletable custom tabs.
+			if ( '' === $slug
+				|| ! empty( $item['custom'] )
+				|| \BuddyNext\Nav\UserLinks::LOGGEDIN !== ( $item['visibility'] ?? '' ) ) {
 				continue;
 			}
 
@@ -1790,6 +1797,19 @@ class NavManager extends AdminPageBase {
 			return sanitize_text_field( $url );
 		}
 
+		// A schemeless value with no leading slash / # and no dot is a bare word
+		// (e.g. "test"). esc_url_raw() would silently rewrite it to a broken
+		// external link (http://test), so reject it here instead — the owner
+		// never ships a dead nav link, and the form states the accepted formats.
+		// Accepted: absolute URLs (https://…, mailto:, tel:), site paths (/page),
+		// anchors (#id), or a dotted host meant as external (example.com/x).
+		$has_scheme = (bool) preg_match( '#^[a-z][a-z0-9+.\-]*:#i', $url );
+		$is_path    = ( '/' === $url[0] || '#' === $url[0] );
+		$has_dot    = ( false !== strpos( $url, '.' ) );
+		if ( ! $has_scheme && ! $is_path && ! $has_dot ) {
+			return '';
+		}
+
 		return esc_url_raw( $url );
 	}
 
@@ -1829,7 +1849,7 @@ class NavManager extends AdminPageBase {
 					<input type="text"
 						id="bn-new-tab-url-<?php echo esc_attr( $scope ); ?>"
 						name="bn_new_tab[<?php echo esc_attr( $scope ); ?>][url]"
-						placeholder="<?php echo 'space' === $scope ? esc_attr__( '{space_url}handbook/', 'buddynext' ) : esc_attr__( 'https://...', 'buddynext' ); ?>">
+						placeholder="<?php echo 'space' === $scope ? esc_attr__( '{space_url}handbook/', 'buddynext' ) : esc_attr__( 'https://example.com', 'buddynext' ); ?>">
 					<p class="description">
 						<?php
 						if ( 'space' === $scope ) {
@@ -1840,14 +1860,19 @@ class NavManager extends AdminPageBase {
 							<code>{slug}</code> — <?php esc_html_e( 'that space\'s slug, e.g. design-critique', 'buddynext' ); ?><br>
 							<code>{space_id}</code> — <?php esc_html_e( 'that space\'s numeric ID', 'buddynext' ); ?>
 							<?php
-						} else {
-							esc_html_e( 'This tab is added to EVERY profile. Use a placeholder and it is filled in per member:', 'buddynext' );
+						} elseif ( 'profile' === $scope ) {
+							esc_html_e( 'This tab is added to EVERY profile, so the link points at whichever member is being viewed. Use a placeholder and it is filled in per member:', 'buddynext' );
 							?>
 							<br>
 							<code>{profile_url}</code> — <?php esc_html_e( 'that member\'s profile address', 'buddynext' ); ?><br>
 							<code>{slug}</code> — <?php esc_html_e( 'that member\'s username', 'buddynext' ); ?><br>
 							<code>{user_id}</code> — <?php esc_html_e( 'that member\'s numeric ID', 'buddynext' ); ?>
 							<?php
+						} else {
+							// Account dropdown / main nav: one link that goes to the same
+							// place for everyone. No per-member placeholders here — leaving
+							// them out is what keeps this simple and predictable.
+							esc_html_e( 'Enter a full web address (https://example.com) or a path on this site (/support). This link goes to the same place for everyone.', 'buddynext' );
 						}
 						?>
 					</p>
@@ -1979,7 +2004,11 @@ class NavManager extends AdminPageBase {
 			$new_label = sanitize_text_field( (string) ( $new_tab['label'] ?? '' ) );
 			$new_url   = self::sanitize_tab_url( (string) ( $new_tab['url'] ?? '' ) );
 
-			if ( '' !== $new_label ) {
+			// Require a usable URL: sanitize_tab_url() returns '' for a bare word
+			// like "test" (which would otherwise mint a broken http://test link), so
+			// a custom link with no valid destination is not created at all rather
+			// than saved as a dead tab. The form validates client-side too.
+			if ( '' !== $new_label && '' !== $new_url ) {
 				$new_slug = sanitize_key( $new_label );
 				// Ensure uniqueness.
 				$base    = $new_slug;

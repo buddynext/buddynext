@@ -649,6 +649,10 @@ final class NavOverrides {
 				'visibility' => UserLinks::LOGGEDIN,
 				'url'        => $url,
 				'order'      => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : $fallback,
+				// Flag owner-added links so the admin (default_account_tabs) does not
+				// mistake them for built-in defaults and mark them "Core - cannot be
+				// removed". They are re-surfaced as deletable custom tabs there.
+				'custom'     => true,
 			);
 		}
 
