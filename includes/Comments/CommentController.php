@@ -181,6 +181,16 @@ class CommentController extends BaseRestController {
 			return $gate;
 		}
 
+		// Enforce the "Comment on posts" minimum-role setting (Settings → Roles &
+		// Capabilities). The route's require_auth permission_callback only checks
+		// that the user is logged in; without this gate the configured role was
+		// resolved by PermissionService but never applied, so any member could
+		// comment regardless of the setting.
+		$cap_gate = $this->require_cap( 'buddynext-comments/create' );
+		if ( is_wp_error( $cap_gate ) ) {
+			return $cap_gate;
+		}
+
 		$service     = new CommentService();
 		$user_id     = get_current_user_id();
 		$object_type = (string) ( $request->get_param( 'object_type' ) ?? '' );
