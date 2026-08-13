@@ -238,6 +238,35 @@ body.admin-bar .bn-app.bn-app--embedded {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s4);
+	/* Sticky rail — mirrors the left rail so a long feed never leaves the right
+	   column blank on scroll (it used to stretch to the full grid-row height and
+	   sit static, so everything below its short content was empty). align-self:
+	   start stops the stretch; sticky pins it in view. Unlike the left rail
+	   (always a full-height nav → fixed height) the right rail's content varies,
+	   so we use MAX-height: a short rail (Feed/Members/Profile/Explore/Spaces)
+	   shows no scrollbar and just pins near the top, while a tall rail
+	   (Notifications' 6 cards, or owner-added cards) scrolls inside itself
+	   instead of stranding its last card below the fold — "does not get stuck". */
+	position: sticky;
+	top: 0;
+	align-self: start;
+	max-height: 100vh;
+	max-height: 100dvh;
+	overflow-y: auto;
+	scrollbar-width: thin;
+}
+
+body.admin-bar .bn-app__right {
+	top: 32px;
+	max-height: calc(100vh - 32px);
+	max-height: calc(100dvh - 32px);
+}
+@media screen and (max-width: 782px) {
+	body.admin-bar .bn-app__right {
+		top: 46px;
+		max-height: calc(100vh - 46px);
+		max-height: calc(100dvh - 46px);
+	}
 }
 
 /* ── Left rail ───────────────────────────────────────────────────────────── */
