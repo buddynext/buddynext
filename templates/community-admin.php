@@ -859,7 +859,7 @@ $posts_pct_abs = abs( $posts_pct );
 			<?php if ( 'reports' === $active_section ) : ?>
 
 				<!-- Open reports -->
-				<section class="bn-ca-card" aria-labelledby="bn-ca-reports-title">
+				<section class="bn-ca-card" aria-labelledby="bn-ca-reports-title" data-wp-interactive="buddynext/moderation">
 					<header class="bn-ca-card__head">
 						<span id="bn-ca-reports-title" class="bn-ca-card__title">
 							<?php buddynext_icon( 'shield' ); ?>
@@ -891,8 +891,18 @@ $posts_pct_abs = abs( $posts_pct );
 							$rpt_iso      = $rpt_ts ? gmdate( DATE_ATOM, $rpt_ts ) : '';
 							$rpt_time     = $rpt_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $rpt_ts, time() ) ) : '';
 							++$displayed;
+							// Interactivity context the moderation store's dismiss/removeContent
+							// actions read. data-report-id is the selector they use to drop the
+							// row on success.
+							$rpt_ctx = wp_json_encode(
+								array(
+									'reportId'  => (int) $rpt['id'],
+									'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+									'restNonce' => wp_create_nonce( 'wp_rest' ),
+								)
+							);
 							?>
-							<div class="bn-ca-report-row" data-severity="<?php echo esc_attr( $rpt_severity ); ?>">
+							<div class="bn-ca-report-row" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" data-report-id="<?php echo esc_attr( (string) (int) $rpt['id'] ); ?>" data-wp-context="<?php echo esc_attr( (string) $rpt_ctx ); ?>">
 								<div class="bn-ca-report-row__body">
 									<div class="bn-ca-report-row__type">
 										<span class="bn-ca-status-dot" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" aria-hidden="true"></span>
@@ -912,24 +922,22 @@ $posts_pct_abs = abs( $posts_pct );
 								<?php if ( $rpt_iso ) : ?>
 									<time class="bn-ca-row__time" datetime="<?php echo esc_attr( $rpt_iso ); ?>"><?php echo esc_html( $rpt_time ); ?></time>
 								<?php endif; ?>
-								<a
-									href="
-									<?php
-									echo esc_url(
-										add_query_arg(
-											array(
-												'bn_admin' => 'reports',
-												'bn_report_id' => (int) $rpt['id'],
-											),
-											$admin_base
-										)
-									);
-									?>
-									"
-									class="bn-btn"
-									data-variant="secondary"
-									data-size="sm"
-								><?php esc_html_e( 'Review', 'buddynext' ); ?></a>
+								<div class="bn-ca-row__actions">
+									<button
+										type="button"
+										class="bn-btn"
+										data-variant="secondary"
+										data-size="sm"
+										data-wp-on--click="actions.dismiss"
+									><?php esc_html_e( 'Dismiss', 'buddynext' ); ?></button>
+									<button
+										type="button"
+										class="bn-btn"
+										data-variant="danger"
+										data-size="sm"
+										data-wp-on--click="actions.removeContent"
+									><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+								</div>
 							</div>
 						<?php endforeach; ?>
 
