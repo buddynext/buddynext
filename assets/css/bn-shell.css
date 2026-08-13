@@ -239,31 +239,21 @@ body.admin-bar .bn-app.bn-app--embedded {
 	flex-direction: column;
 	gap: var(--bn-s4);
 	/* Sticky rail so a long feed never leaves the right column blank on scroll.
-	   align-self:start stops the grid item stretching to the full row height;
-	   max-height + overflow let a tall rail (Notifications' 6 cards, owner cards)
-	   scroll inside itself instead of stranding its last card. This ONLY works
-	   because BN neutralises the theme wrapper's overflow below (an overflow-
-	   clipping ancestor defeats position:sticky AND makes max-height clip the
-	   rail mid-content). Do not ship the max-height without that override. */
+	   align-self:start stops the grid item stretching to the full row height.
+	   NO max-height: capping the rail to the viewport clipped a TALL rail (many
+	   spaces / Notifications / owner cards) and cut off its last card. Instead
+	   extras.js (positionRail) sets `top` to min(topGap, viewportH - railHeight):
+	   a short rail pins near the top; a tall rail BOTTOM-sticks so scrolling
+	   reveals its last card, then pins - no clip, no cut-off, no blank column,
+	   does not get stuck. The `top` here is the no-JS fallback (plain top-stick).
+	   Requires the theme-overflow override below, or a clipping ancestor defeats
+	   position:sticky entirely. */
 	position: sticky;
-	top: 0;
+	top: 16px;
 	align-self: start;
-	max-height: 100vh;
-	max-height: 100dvh;
-	overflow-y: auto;
-	scrollbar-width: thin;
 }
 body.admin-bar .bn-app__right {
-	top: 32px;
-	max-height: calc(100vh - 32px);
-	max-height: calc(100dvh - 32px);
-}
-@media screen and (max-width: 782px) {
-	body.admin-bar .bn-app__right {
-		top: 46px;
-		max-height: calc(100vh - 46px);
-		max-height: calc(100dvh - 46px);
-	}
+	top: 48px;
 }
 
 /* ── BN owns the hub surface: no theme wrapper may clip it ────────────────────

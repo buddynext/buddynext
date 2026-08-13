@@ -884,4 +884,50 @@
 		}
 		document.addEventListener( 'buddynext:navigated', clampBios );
 	}() );
+
+	// ── Smart sticky right rail ──────────────────────────────────────────────
+	// Pin the right sidebar so a long feed never leaves the column blank, and —
+	// when the rail is TALLER than the viewport (many spaces, Notifications, or
+	// owner-added cards) — bottom-stick it so scrolling reveals its last card
+	// instead of clipping it. Pure-CSS sticky can only pin the top (cutting a
+	// tall rail's bottom) or clip with a max-height (the cut-off look); the
+	// correct offset is min(topGap, viewportH - railHeight), which needs a
+	// measured height. Recomputed on load, resize, image load, and SPA nav.
+	( function () {
+		function positionRail() {
+			var rail = document.querySelector( '.bn-app__right' );
+			if ( ! rail ) {
+				return;
+			}
+			var bar    = document.getElementById( 'wpadminbar' );
+			var topGap = ( bar ? bar.offsetHeight : 0 ) + 16;
+			var vh     = window.innerHeight;
+			var railH  = rail.offsetHeight;
+			// Short rail → pin at topGap. Tall rail → negative top so its bottom
+			// lands ~16px above the viewport bottom (bottom-stick), keeping the
+			// last card reachable.
+			rail.style.top = Math.min( topGap, vh - railH - 16 ) + 'px';
+		}
+
+		var scheduled = false;
+		function schedule() {
+			if ( scheduled ) {
+				return;
+			}
+			scheduled = true;
+			window.requestAnimationFrame( function () {
+				scheduled = false;
+				positionRail();
+			} );
+		}
+
+		if ( 'loading' === document.readyState ) {
+			document.addEventListener( 'DOMContentLoaded', positionRail );
+		} else {
+			positionRail();
+		}
+		window.addEventListener( 'resize', schedule );
+		window.addEventListener( 'load', positionRail );
+		document.addEventListener( 'buddynext:navigated', positionRail );
+	}() );
 }() );
