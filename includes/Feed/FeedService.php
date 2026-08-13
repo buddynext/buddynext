@@ -1394,6 +1394,7 @@ class FeedService {
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE user_id = %d
+			   AND NOT ( is_pinned = 1 AND space_id IS NULL )
 			   {$privacy_clause}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
@@ -1456,6 +1457,92 @@ class FeedService {
 		);
 
 		return $result;
+	}
+
+	/**
+	 * The profile owner's own pinned posts, hydrated and newest-first.
+	 *
+	 * The profile-scope sibling of space_pinned_posts(): a member can pin their own
+	 * posts to the top of their profile (is_pinned = 1 AND space_id IS NULL). Those
+	 * rows are excluded from profile_feed_uncached()'s chronological query, so pins
+	 * live in exactly one place and never double up or reappear on load-more.
+	 *
+	 * Unlike the space pin strip this list IS viewer-scoped: it applies the SAME
+	 * privacy and block/mute gate as profile_feed() so a followers-only post pinned
+	 * to a profile never leaks to a non-follower. Because the row count is tiny (the
+	 * per-user pin limit) and the result is viewer-specific, it is queried live
+	 * rather than cached — the user_id index makes this a single cheap lookup.
+	 *
+	 * The caller is responsible for the higher-level "can this viewer see the
+	 * profile at all" gate (profile_feed() runs it); by the time pins are fetched
+	 * the viewer is already allowed to see the profile's activity.
+	 *
+	 * @param int $profile_user_id Profile owner.
+	 * @param int $viewer_id       Viewing user ID.
+	 * @param int $limit           Maximum pins to return (clamped 1-10).
+	 * @return array<int,array<string,mixed>> Hydrated pinned post rows, newest first.
+	 */
+	public function profile_pinned_posts( int $profile_user_id, int $viewer_id, int $limit = 10 ): array {
+		if ( $profile_user_id <= 0 ) {
+			return array();
+		}
+
+		$limit = max( 1, min( $limit, 10 ) );
+
+		if ( $viewer_id === $profile_user_id ) {
+			// Owner sees everything — but suspended/shadow-banned posts are still hidden.
+			$privacy_clause = '';
+		} elseif ( $viewer_id > 0 && $this->follows->is_following( $viewer_id, $profile_user_id ) ) {
+			// Followers see public and followers-only posts.
+			$privacy_clause = "AND privacy IN ('public','followers')";
+		} else {
+			// Anonymous visitors and non-followers see only public posts.
+			$privacy_clause = "AND privacy = 'public'";
+		}
+
+		$excluded_where = $this->excluded_users_where();
+
+		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
+
+		global $wpdb;
+		// $privacy_clause is a hardcoded SQL constant — safe.
+		// $excluded_where contains only table/column names — no user data, safe.
+		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts
+				 WHERE user_id = %d
+				   AND space_id IS NULL
+				   AND is_pinned = 1
+				   {$privacy_clause}
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				   {$excluded_where}
+				   {$block_mute_where}
+				 ORDER BY created_at DESC
+				 LIMIT %d",
+				...array_merge( array( $profile_user_id ), $block_mute_params, array( $limit ) )
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$posts = array();
+
+		foreach ( array_map( 'intval', (array) $ids ) as $id ) {
+			$row = $this->post_service->get( $id );
+
+			if ( ! is_array( $row )
+				|| empty( $row['is_pinned'] )
+				|| ! empty( $row['space_id'] )
+				|| ! empty( $row['is_deleted'] )
+			) {
+				continue;
+			}
+
+			$posts[] = $this->post_service->hydrate( $row );
+		}
+
+		return $posts;
 	}
 
 	/**

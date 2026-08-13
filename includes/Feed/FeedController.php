@@ -844,6 +844,28 @@ class FeedController extends BaseRestController {
 
 		$result = $this->feed_service()->profile_feed( $profile_user_id, $viewer_id, $cursor, $per_page );
 
+		// First page only: float the owner's pinned posts (space_id NULL) to the top.
+		// They are excluded from the chronological profile_feed query so a pin lives
+		// in exactly one place; prepend them here so the app feed matches the web
+		// Posts tab. Deeper pages (cursor set) never repeat them, and a private
+		// account (result['private']) surfaces no pins either.
+		if ( null === $cursor && empty( $result['private'] ) ) {
+			$bn_pins = array_values(
+				array_filter(
+					(array) $this->feed_service()->profile_pinned_posts( $profile_user_id, $viewer_id, 10 ),
+					'is_array'
+				)
+			);
+			if ( ! empty( $bn_pins ) ) {
+				$bn_items   = isset( $result['items'] ) ? (array) $result['items'] : array();
+				$bn_pin_ids = array_map( static fn( $p ): int => (int) ( $p['id'] ?? 0 ), $bn_pins );
+				$bn_items   = array_values(
+					array_filter( $bn_items, static fn( $p ): bool => ! in_array( (int) ( $p['id'] ?? 0 ), $bn_pin_ids, true ) )
+				);
+				$result['items'] = array_merge( $bn_pins, $bn_items );
+			}
+		}
+
 		return $this->enriched_response( $result, $viewer_id );
 	}
 
