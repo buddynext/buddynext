@@ -753,9 +753,16 @@ function buddynext_auth_panel_defaults(): array {
  * @return string
  */
 function buddynext_auth_panel_value( string $key ): string {
-	$value = (string) get_option( $key, '' );
-	if ( '' !== trim( $value ) ) {
-		return $value;
+	// Distinguish "never configured" from "explicitly cleared to empty". The old
+	// code treated any empty value as unset and fell back to the default, so an
+	// owner could not remove a default (e.g. the sign-up subtitle) — clearing the
+	// field silently reverted to the default on both the settings screen and the
+	// sign-up panel. A sentinel default to get_option() tells the two apart: a
+	// stored empty string is a real choice the owner made and must be honoured.
+	$unset = "\0bn_auth_panel_unset";
+	$value = get_option( $key, $unset );
+	if ( $unset !== $value ) {
+		return (string) $value;
 	}
 	$defaults = buddynext_auth_panel_defaults();
 	return (string) ( $defaults[ $key ] ?? '' );
