@@ -43,6 +43,20 @@ class ProfileService {
 	 */
 	public const MEMBERS_MIRROR_PREFIX = 'bn_mfield_';
 
+	/**
+	 * The basic_info fields the profile hero renders itself.
+	 *
+	 * Three places need this list and each used to hardcode its own copy: the
+	 * profile view (which fetches them for the hero), the About panel (which skips
+	 * them so they do not render twice), and ProfileNav (which decides whether the
+	 * About tab has anything left to show). Adding a sixth hero field meant editing
+	 * three files, and missing one made the field either duplicate or wrongly empty
+	 * the About tab.
+	 *
+	 * @var string[]
+	 */
+	public const HERO_SPINE_FIELDS = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
+
 
 	/**
 	 * Cache TTL in seconds (10 minutes).
@@ -1614,6 +1628,23 @@ class ProfileService {
 				// The RAW stored value, and ONLY for the owner. The edit form needs the real
 				// date to prefill its input; nobody else has any business receiving it.
 				'value_raw'            => ( $viewer_id === $profile_user_id ) ? $row['value'] : null,
+				// What this field READS as, for any client that renders text rather than
+				// HTML — native apps, notifications, exports.
+				//
+				// `value` cannot serve that purpose: the About panel feeds it straight
+				// into FieldType::render_display(), which needs the underlying value to
+				// build its rich output (the multi-line address and map link for a
+				// location, the chips for a multiselect). Display-rendering `value` in
+				// place would hand the renderer its own output and flatten all of that.
+				// So this is additive — the structural key stays, and every consumer that
+				// just wants a readable string now has one instead of parsing storage.
+				'value_display'        => FieldType::display_text(
+					array(
+						'type'    => $row['field_type'],
+						'options' => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+					),
+					$row['value']
+				),
 				// Visibility surfaced so the edit-form privacy selector can show
 				// the admin default (field_visibility, falling back to the group)
 				// and the member's saved choice (entry_visibility). See workstream D.
@@ -1920,6 +1951,15 @@ class ProfileService {
 					'value_raw'        => $is_owner
 						? get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true )
 						: null,
+					// Readable text for clients that render text, not HTML. Additive for
+					// the same reason as the stored-field branch above.
+					'value_display'    => FieldType::display_text(
+						array(
+							'type'    => (string) ( $vf['type'] ?? 'text' ),
+							'options' => $vf['options'] ?? null,
+						),
+						get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true )
+					),
 					'field_visibility' => $fvis,
 					'group_visibility' => 'public',
 					'entry_visibility' => null,
@@ -3218,6 +3258,19 @@ class ProfileService {
 		$public_key  = 'bn_field_' . $field['field_key'];
 		$members_key = self::MEMBERS_MIRROR_PREFIX . $field['field_key'];
 		$type        = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+
+		// Nothing loaded can read this payload — Pro deactivated while its field
+		// types are still configured. LEAVE the existing mirror exactly as it is.
+		//
+		// Writing here is wrong in both directions: the raw JSON poisons the index
+		// (members became findable by searching "lat"), and clearing it silently
+		// destroys the good address Pro wrote while it was active, which no owner
+		// would connect to a deactivation weeks earlier. Leaving it means search
+		// keeps working on the last known-good text and starts working correctly
+		// again the moment Pro returns — with no member re-saving anything.
+		if ( \BuddyNext\Profile\FieldType::is_unreadable_payload( $field, $stored_value ) ) {
+			return;
+		}
 
 		$indexable = ! empty( $field['is_searchable'] )
 			&& \BuddyNext\Profile\FieldType::is_text_searchable( $type )

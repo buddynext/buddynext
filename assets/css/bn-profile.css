@@ -3364,3 +3364,24 @@ a.bn-space-row:hover .bn-space-name {
 		justify-content: center;
 	}
 }
+
+/* ── Field with no available editor ─────────────────────────────────────────
+   Shown where a field's type is registered by a plugin that is not currently
+   active (Pro deactivated with its advanced field types still configured). The
+   value is preserved in a hidden input and the member is told why they cannot
+   edit it, rather than being handed a text box full of the raw stored payload
+   to mangle by hand. Token-driven so it inherits dark mode with everything
+   else. */
+.bn-field--unavailable {
+	padding: var(--bn-s3);
+	background: var(--bn-p-bg-subtle);
+	border: 1px dashed var(--bn-p-border);
+	border-radius: var(--bn-r-md);
+}
+
+.bn-field-unavailable-note {
+	margin: 0;
+	color: var(--bn-p-text-3);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-normal);
+}

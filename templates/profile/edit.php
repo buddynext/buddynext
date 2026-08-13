@@ -115,6 +115,35 @@ $headline = $fv['headline'] ?? '';
 $bio      = $fv['bio'] ?? '';
 $location = $fv['location'] ?? '';
 
+/*
+ * The sidebar preview shows the member what OTHERS see, so it needs the same
+ * type-aware rendering the profile hero uses — not the raw value the edit inputs
+ * above prefill with. Those two needs pull in opposite directions for any
+ * structured type: the Location map field must prefill its control with the
+ * stored JSON and preview as "Lucknow, Uttar Pradesh, India". Keeping one
+ * variable for both is what put a JSON blob in the preview where a headline
+ * belongs.
+ */
+$bn_preview_display = static function ( string $field_key ) use ( $bn_groups ): string {
+	foreach ( $bn_groups as $bn_pd_group ) {
+		if ( 'flat' !== ( $bn_pd_group['type'] ?? '' ) || empty( $bn_pd_group['fields'] ) ) {
+			continue;
+		}
+		foreach ( $bn_pd_group['fields'] as $bn_pd_field ) {
+			if ( ( $bn_pd_field['field_key'] ?? '' ) === $field_key ) {
+				return \BuddyNext\Profile\FieldType::display_text(
+					$bn_pd_field,
+					$bn_pd_field['value_raw'] ?? ( $bn_pd_field['value'] ?? '' )
+				);
+			}
+		}
+	}
+	return '';
+};
+
+$headline_display = $bn_preview_display( 'headline' );
+$location_display = $bn_preview_display( 'location' );
+
 // The hero card owns the headline control, so it must render the field's
 // admin-configured label / placeholder / description — the field manager
 // persists edits to bn_profile_fields, but the hero hardcoded its strings and
@@ -772,8 +801,10 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				'profile' => array(
 					'user_id'      => $user_id,
 					'display_name' => $display_name,
-					'headline'     => $headline,
-					'location'     => $location,
+					// Display-rendered, not raw: this block is a preview of the public
+					// profile, so it must read exactly as the hero does.
+					'headline'     => $headline_display,
+					'location'     => $location_display,
 					'avatar_url'   => $avatar_url,
 					'initials'     => $initials,
 					'stats'        => array(

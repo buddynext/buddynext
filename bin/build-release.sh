@@ -16,6 +16,7 @@
 #   SKIP_JOURNEY_RUN=1   bypass only the journey suite
 #   SKIP_CERT=1          bypass only `wp buddynext cert`
 #   SKIP_FLOW_AUDIT=1    bypass only the flow-audit
+#   SKIP_PHPUNIT=1       bypass only the unit suite
 #
 #   Every bypass has to be typed. cert and flow-audit used to skip themselves
 #   whenever BN_WP_PATH was unset or the CLI was missing, which meant a machine
@@ -141,6 +142,26 @@ if [ "${SKIP_RELEASE_GATE:-0}" != 1 ]; then
 		fi
 
 		echo "    manifest + CAPABILITIES current; no stale labels"
+	fi
+
+	# Unit suite. CI runs it on every PR, but nothing stopped THIS script packaging
+	# a zip with a red suite — so the contract tests (field-type conformance, and
+	# every other test written to stop a regression returning) could not block a
+	# release. A test that cannot fail a release is documentation.
+	#
+	# Same fatal-unless-typed shape as flow-audit below: a machine without a
+	# vendor/ install must not silently package an untested build.
+	if [ "${SKIP_PHPUNIT:-0}" = 1 ]; then
+		echo "release gate: phpunit BYPASSED (SKIP_PHPUNIT=1)" >&2
+	elif [ -x vendor/bin/phpunit ]; then
+		echo "release gate: phpunit…"
+		if ! vendor/bin/phpunit >/dev/null 2>&1; then
+			echo "release gate FAILED: unit suite is red — run: vendor/bin/phpunit" >&2
+			exit 1
+		fi
+	else
+		echo "release gate FAILED: phpunit did not run — vendor/bin/phpunit missing (run composer install), or SKIP_PHPUNIT=1 to bypass deliberately." >&2
+		exit 1
 	fi
 
 	FLOW_AUDIT_CLI="${FLOW_AUDIT_CLI:-$HOME/.mcp-servers/wp-plugin-qa-mcp-server/build/flow-audit-cli.js}"
