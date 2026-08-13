@@ -359,6 +359,16 @@ class IconService {
 
 		$path = self::icons_dir() . sanitize_file_name( $name ) . '.svg';
 
+		// Custom nav-item icons are chosen from the admin picker's `tab-*` set,
+		// which lives in assets/svg/admin/ (not the assets/icons/ library this
+		// renderer reads), and are stored on the nav item as a `tab-*` slug. Without
+		// this fallback buddynext_icon('tab-home') found no file, so every custom
+		// nav item rendered a blank icon on the front end. Scoped to `tab-` slugs so
+		// nothing in the main library path changes.
+		if ( ! file_exists( $path ) && 0 === strpos( $name, 'tab-' ) ) {
+			$path = BUDDYNEXT_DIR . 'assets/svg/admin/' . sanitize_file_name( $name ) . '.svg';
+		}
+
 		if ( ! file_exists( $path ) ) {
 			$cache[ $key ] = '';
 			return '';
