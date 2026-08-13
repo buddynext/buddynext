@@ -1020,7 +1020,7 @@ $posts_pct_abs = abs( $posts_pct );
 			<?php elseif ( 'appeals' === $active_section ) : ?>
 
 				<!-- Pending join requests -->
-				<section class="bn-ca-card" aria-labelledby="bn-ca-joins-title">
+				<section class="bn-ca-card" aria-labelledby="bn-ca-joins-title" data-wp-interactive="buddynext/moderation">
 					<header class="bn-ca-card__head">
 						<span id="bn-ca-joins-title" class="bn-ca-card__title">
 							<?php buddynext_icon( 'mail' ); ?>
@@ -1039,8 +1039,19 @@ $posts_pct_abs = abs( $posts_pct );
 							$j_member = '' !== (string) ( $join['member_name'] ?? '' ) ? (string) $join['member_name'] : __( 'Member', 'buddynext' );
 							$j_space  = '' !== (string) ( $join['space_name'] ?? '' ) ? (string) $join['space_name'] : __( 'Space', 'buddynext' );
 							$j_inits  = \BuddyNext\Profile\AvatarService::initials_for( $j_member );
+							// Interactivity context the moderation store's approve/declineJoinRequest
+							// actions read via getContext() — the plain data-* attributes below are
+							// not visible to getContext(), which is why the buttons did nothing.
+							$j_ctx = wp_json_encode(
+								array(
+									'userId'    => $j_uid,
+									'spaceId'   => $j_sid,
+									'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+									'restNonce' => wp_create_nonce( 'wp_rest' ),
+								)
+							);
 							?>
-							<div class="bn-ca-row">
+							<div class="bn-ca-row" data-wp-context="<?php echo esc_attr( (string) $j_ctx ); ?>">
 								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $j_inits ); ?></span>
 								<div class="bn-ca-row__body">
 									<span class="bn-ca-row__title"><?php echo esc_html( $j_space ); ?></span>
@@ -1061,8 +1072,6 @@ $posts_pct_abs = abs( $posts_pct );
 										data-variant="primary"
 										data-size="sm"
 										data-wp-on--click="actions.approveJoinRequest"
-										data-user-id="<?php echo esc_attr( (string) $j_uid ); ?>"
-										data-space-id="<?php echo esc_attr( (string) $j_sid ); ?>"
 									><?php esc_html_e( 'Approve', 'buddynext' ); ?></button>
 									<button
 										type="button"
@@ -1070,8 +1079,6 @@ $posts_pct_abs = abs( $posts_pct );
 										data-variant="ghost"
 										data-size="sm"
 										data-wp-on--click="actions.declineJoinRequest"
-										data-user-id="<?php echo esc_attr( (string) $j_uid ); ?>"
-										data-space-id="<?php echo esc_attr( (string) $j_sid ); ?>"
 									><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
 								</div>
 							</div>
