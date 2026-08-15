@@ -306,6 +306,26 @@ class MemberEditForm {
 					</div>
 				</div>
 				<?php $this->close_section(); ?>
+
+				<?php
+				/**
+				 * Fires inside the Account tab of the edit-member form.
+				 *
+				 * Renders member-level administrative sections — member type, membership,
+				 * labels — beside Role and Email, which are the same kind of fact about
+				 * the member rather than profile content.
+				 *
+				 * This deliberately sits INSIDE the Account panel. It previously fired
+				 * after the group loop and therefore outside every tab panel, so the
+				 * sections stayed on screen whichever tab was open and read as though they
+				 * belonged to Work Experience, Education, Skills and every other field
+				 * group in turn.
+				 *
+				 * @param int      $user_id User ID being edited.
+				 * @param \WP_User $wp_user WP_User object.
+				 */
+				do_action( 'buddynext_edit_member_sections', $user_id, $wp_user );
+				?>
 			</div><!-- #bn-panel-account -->
 
 			<?php /* ── Dynamic group tab panels ───────────────────────── */ ?>
@@ -401,15 +421,6 @@ class MemberEditForm {
 				</div><!-- #bn-panel-group-<?php echo absint( $group['id'] ); ?> -->
 			<?php endforeach; ?>
 
-			<?php
-			/**
-			 * Fires after all profile group panels inside the edit-member form.
-			 *
-			 * @param int     $user_id User ID being edited.
-			 * @param \WP_User $wp_user WP_User object.
-			 */
-			do_action( 'buddynext_edit_member_sections', $user_id, $wp_user );
-			?>
 
 			<div class="bn-save-bar">
 				<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Profile', 'buddynext' ); ?></button>

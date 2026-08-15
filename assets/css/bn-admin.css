@@ -3699,3 +3699,77 @@ code.bn-ep-code {
 	overflow-wrap: anywhere;
 	word-break: normal;
 }
+
+/* Members directory — identity as one block.
+ *
+ * The Email column was folded into the identifier cell, so handle and email now
+ * share one line under the name. Two things follow. The cell needs a bigger
+ * floor than the generic 12rem `column-primary` minimum, or the meta line wraps
+ * and every row in the table grows by a line. And the email truncates rather
+ * than wrapping: a directory is scanned down the name column, and an address
+ * long enough to wrap would cost height on every row to show a value nobody is
+ * reading in full. The full address stays available via the mailto link. */
+.bn-admin-hub__content table.bn-table td.column-primary,
+.bn-admin-hub__content table.bn-table th.column-primary {
+	min-width: 16rem;
+}
+
+/* The cap lives on the inner block, NOT the cell. `max-width` on a `td` is
+   ignored under `table-layout: auto` — the algorithm sizes the column to its
+   widest content whatever the cell says, so capping the cell left the column at
+   416px, still pushing Status and Last Active out of view, with the ellipsis
+   never engaging because nothing was ever too narrow. Constraining the block
+   inside the cell is what actually bounds the column. */
+.bn-member-info {
+	min-width: 0;
+	max-width: 20rem;
+}
+
+.bn-member-meta {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s1);
+	min-width: 0;
+	margin-top: var(--bn-a-s1);
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+}
+
+/* The standalone rule adds its own top margin; inside the meta row the flex gap
+   owns the spacing. */
+.bn-member-meta .bn-member-username {
+	margin-top: 0;
+	white-space: nowrap;
+}
+
+.bn-member-email {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--bn-a-text-3);
+	text-decoration: none;
+}
+
+.bn-member-email:hover,
+.bn-member-email:focus {
+	text-decoration: underline;
+}
+
+@media screen and ( max-width: 782px ) {
+
+	/* Stacked card layout: the cell owns the full width, so let the meta wrap
+	   rather than truncating an address in a column that is no longer narrow. */
+	.bn-admin-hub__content table.bn-table td.column-primary {
+		min-width: 0;
+	}
+
+	.bn-member-meta {
+		flex-wrap: wrap;
+	}
+
+	.bn-member-email {
+		overflow: visible;
+		white-space: normal;
+		word-break: break-all;
+	}
+}
