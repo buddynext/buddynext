@@ -56,6 +56,19 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
+= 1.1.5 - August 2026 =
+
+A gated space keeps its posts to itself, the shared filter bar works on a phone, and the webhook audit log is timestamped consistently. Lockstep with BuddyNext Pro 1.1.5 - install and test both together.
+
+* Fix      - A space gated behind a membership plan no longer prints its posts underneath the upgrade prompt.
+* Fix      - A space the join gate will refuse no longer offers a join button, on the space page or in the directory.
+* Fix      - The shared admin filter bar stacks correctly below 782px, where the search field previously rendered as a 256px-tall box and the select stayed a narrow stub.
+* Fix      - The access-webhook audit log records its timestamps in UTC like every other record, so a call can be matched to what it changed.
+* Dev      - New filter `buddynext_can_view_space_content` lets an add-on withhold a space's content before it is rendered or cached.
+* Dev      - New filter `buddynext_transactional_notification_types` lets an add-on declare a notification that must bypass member email preferences, for advance-notice obligations.
+* Dev      - `SpaceMemberService::can_join()` answers whether the join gate would allow a member in, so a surface can ask before offering the action.
+* Compat   - Aligned with BuddyNext Pro 1.1.5. Install both updates together.
+
 = 1.1.4 - August 2026 =
 
 Fixes a stale-cache regression that could blank the Activity page after an update.
