@@ -536,13 +536,57 @@
  * the moderation Reports queue rendered its three filters as three full-width
  * stacked bars, which reads as a broken form rather than a toolbar.
  *
+ * `.bn-filter-bar` is the shared marker; add it to any filter form and the
+ * exception plus the row layout below both apply. `.bn-mod-queue-filters` is the
+ * original one-off kept so that screen cannot regress - retire it by adding the
+ * shared class to its markup the next time that template is touched, rather than
+ * adding a third screen-specific selector here.
+ *
  * Same specificity as the rule it excepts, placed immediately after it, so the
  * cascade resolves deterministically and the two stay adjacent. */
 .bn-settings-section .bn-ss-body .bn-mod-queue-filters select,
 .bn-settings-section .bn-ss-body .bn-mod-queue-filters input[type="text"],
-.bn-settings-section .bn-ss-body .bn-mod-queue-filters input[type="search"] {
+.bn-settings-section .bn-ss-body .bn-mod-queue-filters input[type="search"],
+.bn-settings-section .bn-ss-body .bn-filter-bar select,
+.bn-settings-section .bn-ss-body .bn-filter-bar input[type="text"],
+.bn-settings-section .bn-ss-body .bn-filter-bar input[type="search"] {
 	width: auto;
 	max-width: none;
+}
+
+/* The row itself: several controls above the list they filter, on one line, with
+   the free-text search taking whatever slack is left. */
+.bn-filter-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	margin-bottom: var(--bn-a-s4);
+}
+
+.bn-filter-bar input[type="text"],
+.bn-filter-bar input[type="search"] {
+	flex: 1 1 16rem;
+}
+
+.bn-filter-bar select {
+	flex: 0 0 auto;
+}
+
+/* At the WP admin breakpoint a row of four controls is four slivers, and the
+   search is the one that has to stay usable. */
+@media screen and ( max-width: 782px ) {
+
+	.bn-filter-bar {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.bn-filter-bar select,
+	.bn-filter-bar .bn-btn {
+		max-width: none;
+		width: 100%;
+	}
 }
 
 .bn-settings-section .bn-ss-body .bn-field-hint,
@@ -632,6 +676,30 @@
 	width: 100%;
 	max-width: 560px;
 	box-sizing: border-box;
+}
+
+/* The filter-bar exception again, against the CLASS-based sizing above.
+ *
+ * There are two blanket rules capping controls at 560px, and a filter bar has to
+ * be excepted from both: the first matches by input type, this one by the
+ * .bn-text-input / .bn-select classes. Excepting only the first left a search
+ * field that still stopped growing at 560px in a 928px toolbar, so the row read
+ * as "one big field and some leftovers" rather than a bar. Placed immediately
+ * after the rule it excepts, same specificity, for the same reason as above. */
+.bn-ss-body .bn-filter-bar input.bn-text-input,
+.bn-ss-body .bn-filter-bar input.bn-input {
+	width: auto;
+	max-width: none;
+}
+
+.bn-ss-body .bn-filter-bar select.bn-select,
+.bn-ss-body .bn-filter-bar select:not([multiple]) {
+	width: auto;
+	/* Sized to its own content like every other control on the bar, but capped:
+	   one long tier or label name must not push the rest of the row off the
+	   line. The cap lives here rather than on .bn-filter-bar because only a
+	   selector at this specificity can outrank the blanket rule above. */
+	max-width: 14rem;
 }
 .bn-ss-body textarea.bn-text-input,
 .bn-ss-body textarea.bn-textarea,
