@@ -587,6 +587,19 @@
 		max-width: none;
 		width: 100%;
 	}
+
+	/* Release the desktop flex-basis. `flex: 1 1 16rem` above sizes the search
+	   along the MAIN axis, and the main axis is now vertical — so the basis
+	   became a height and the field rendered as a 256px-tall box with the
+	   placeholder floating in the middle of it. Auto height, full width.
+	   The matching select override cannot live here — see the note beside the
+	   `.bn-ss-body .bn-filter-bar select` cap further down. */
+	.bn-filter-bar input[type="text"],
+	.bn-filter-bar input[type="search"] {
+		flex: 0 0 auto;
+		max-width: none;
+		width: 100%;
+	}
 }
 
 .bn-settings-section .bn-ss-body .bn-field-hint,
@@ -701,6 +714,24 @@
 	   selector at this specificity can outrank the blanket rule above. */
 	max-width: 14rem;
 }
+
+/* Once the bar stacks, that cap is the wrong answer: the select sat at ~93px in
+ * a column where the search, the buttons and everything else ran the full
+ * width, so it read as a broken control rather than a compact one.
+ *
+ * This override HAS to live here rather than in the ≤782px block above. It ties
+ * with the cap on specificity, so the later of the two wins — and the cap is
+ * further down the file. Being inside a media query buys nothing; source order
+ * decides. Moving it up there is exactly the edit that silently does nothing. */
+@media screen and ( max-width: 782px ) {
+
+	.bn-ss-body .bn-filter-bar select.bn-select,
+	.bn-ss-body .bn-filter-bar select:not([multiple]) {
+		width: 100%;
+		max-width: none;
+	}
+}
+
 .bn-ss-body textarea.bn-text-input,
 .bn-ss-body textarea.bn-textarea,
 .bn-ss-body textarea.bn-input {
