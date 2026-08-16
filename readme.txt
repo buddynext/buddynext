@@ -60,6 +60,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 A gated space keeps its posts to itself, the shared filter bar works on a phone, and the webhook audit log is timestamped consistently. Lockstep with BuddyNext Pro 1.1.5 - install and test both together.
 
+* Fix      - The Community Name now reaches the browser tab title on community pages and the name emails are sent under, which its own setting has always promised. The WordPress site title still applies everywhere else.
 * Fix      - A banned word blocks that word and no longer blocks longer words containing it, so "ass" stops rejecting "class" and "passionate". Add * to an entry, as in "spam*", to catch variants on purpose.
 * Fix      - A space gated behind a membership plan no longer prints its posts underneath the upgrade prompt.
 * Fix      - A space the join gate will refuse no longer offers a join button, on the space page or in the directory.
