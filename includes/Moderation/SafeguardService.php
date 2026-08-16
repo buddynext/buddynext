@@ -151,10 +151,16 @@ class SafeguardService {
 	 * Check whether $content contains a banned word or phrase.
 	 *
 	 * Reads the site-wide list (option buddynext_banned_words) and, when the post
-	 * targets a space, that space's own list (option bn_space_{id}_banned_words —
-	 * written by templates/spaces/settings.php). Both are newline-separated;
-	 * matching is case-insensitive and any substring match fails. Without the
-	 * per-space read the space list was write-only.
+	 * targets a space, that space's own list (space meta `banned_words`, written
+	 * by templates/spaces/settings.php). Both are newline-separated and
+	 * matching is case-insensitive. Without the per-space read the space list was
+	 * write-only.
+	 *
+	 * Entries match as WHOLE words, not as substrings. Substring matching made a
+	 * three-letter entry unusable: `ass` blocked "passionate", "assertive",
+	 * "class" and "pass", so an owner adding one common profanity silently
+	 * censored ordinary conversation with a message naming no word. An owner who
+	 * does want variants writes a `*` (see banned_word_pattern()).
 	 *
 	 * @param string $content  Post content to inspect.
 	 * @param int    $space_id Target space ID (0 = site feed; skips per-space list).
@@ -176,19 +182,63 @@ class SafeguardService {
 			return true;
 		}
 
-		$lower = strtolower( $content );
+		$pattern = $this->banned_word_pattern( $words );
 
-		foreach ( $words as $word ) {
-			if ( '' !== $word && str_contains( $lower, strtolower( $word ) ) ) {
-				return new WP_Error(
-					'banned_word',
-					__( 'Your post contains a prohibited word.', 'buddynext' ),
-					array( 'status' => 422 )
-				);
-			}
+		if ( '' === $pattern || 1 !== preg_match( $pattern, $content ) ) {
+			return true;
 		}
 
-		return true;
+		return new WP_Error(
+			'banned_word',
+			__( 'Your post contains a prohibited word.', 'buddynext' ),
+			array( 'status' => 422 )
+		);
+	}
+
+	/**
+	 * Compile a banned-word list into one case-insensitive whole-word pattern.
+	 *
+	 * Word boundaries are lookarounds on word characters rather than `\b`, so an
+	 * entry that begins or ends with punctuation still anchors correctly — `\b`
+	 * is a transition, and a term like `f**k` has no word character on the side
+	 * `\b` would be asserted against.
+	 *
+	 * A `*` in an entry is the owner's opt-in to the old behaviour, scoped to one
+	 * term: `ass*` blocks "asshole" while leaving "passionate" alone. It expands
+	 * to `\w*`, so it can only ever widen a match within a single word.
+	 *
+	 * The `u` modifier puts PCRE in UTF-8 mode AND turns on Unicode character
+	 * properties in PHP, which is what makes `\w` cover accented and non-Latin
+	 * scripts — without it a whole-word rule would be an ASCII-only rule, and
+	 * every non-English community would get the substring bug back.
+	 *
+	 * @param array<int,string> $words Trimmed, non-empty list entries.
+	 * @return string Full pattern including delimiters, or '' when nothing is matchable.
+	 */
+	private function banned_word_pattern( array $words ): string {
+		$parts = array();
+
+		foreach ( $words as $word ) {
+			// An entry of nothing but wildcards would match every post ever
+			// written. Treat it as an empty line rather than a site-wide mute.
+			if ( '' === trim( str_replace( '*', '', $word ) ) ) {
+				continue;
+			}
+
+			$quoted = preg_quote( $word, '/' );
+
+			// Runs of whitespace in a phrase match any run in the content, so
+			// "free  money" pasted with a double space still catches "free money".
+			$quoted = (string) preg_replace( '/\s+/', '\s+', $quoted );
+
+			$parts[] = str_replace( '\*', '\w*', $quoted );
+		}
+
+		if ( empty( $parts ) ) {
+			return '';
+		}
+
+		return '/(?<!\w)(?:' . implode( '|', $parts ) . ')(?!\w)/iu';
 	}
 
 	/**

@@ -1337,7 +1337,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'   => 'buddynext_banned_words',
 							'type'  => 'textarea',
 							'label' => __( 'Banned words', 'buddynext' ),
-							'hint'  => __( 'One word or phrase per line. Posts containing any of these are rejected. Case-insensitive substring match.', 'buddynext' ),
+							'hint'  => __( 'One word or phrase per line. A post using any of them is rejected. Whole words only, so "art" does not block "start" or "particle". Add * to catch variants: "spam*" also blocks "spammer".', 'buddynext' ),
 						)
 					),
 					new Field(
