@@ -327,9 +327,18 @@ class AdminHub {
 			'section'  => 'monetization',
 			'position' => 30,
 		),
+		// License — Settings, not Monetization.
+		//
+		// It sat under Monetization, which read as "this is part of selling
+		// memberships". It is not: the licence unlocks Pro UPDATES and applies
+		// whether or not a site ever turns monetization on, so an owner running a
+		// free community still has one and would never look for it under a section
+		// about taking payments. Settings is also where the tab is registered
+		// (Free's Settings::render_license_tab) and where its own docblocks have
+		// always said it lives.
 		'settings:license'              => array(
-			'section'  => 'monetization',
-			'position' => 40,
+			'section'  => 'settings',
+			'position' => 50,
 		),
 	);
 
