@@ -55,6 +55,37 @@ class EmailSender {
 	private const TRANSACTIONAL_TYPES = array( 'email_verify', 'welcome' );
 
 	/**
+	 * The transactional set, extended by whatever else must not be opt-out-able.
+	 *
+	 * The constant above is the core set and stays private; this is the door for
+	 * types Pro owns. Pro's upcoming-renewal notice is the case that opened it:
+	 * EU and California auto-renewal rules require advance notice before a card is
+	 * charged for a new term, so making that notice a member preference makes
+	 * compliance something the member can revoke.
+	 *
+	 * Do NOT reach for this to make ordinary notifications unavoidable. Everything
+	 * here bypasses the member's own choices, which is defensible only when the
+	 * message is a legal or account-integrity obligation rather than a message the
+	 * site wants to send.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @return string[]
+	 */
+	private function transactional_types(): array {
+		/**
+		 * Filter the notification types that bypass member email preferences.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param string[] $types Transactional notification type keys.
+		 */
+		$types = (array) apply_filters( 'buddynext_transactional_notification_types', self::TRANSACTIONAL_TYPES );
+
+		return array_values( array_unique( array_filter( array_map( 'strval', $types ) ) ) );
+	}
+
+	/**
 	 * Composed-email types: owner-authored campaign/drip mail whose subject and
 	 * body ARE the message (no template row, no per-type preference). These are
 	 * exempt from the can_email pref gate — but the exemption is keyed on this
@@ -129,7 +160,7 @@ class EmailSender {
 
 		// Transactional account emails: skip the notification-preference
 		// machinery entirely and send inline — see TRANSACTIONAL_TYPES.
-		if ( in_array( $notification_type, self::TRANSACTIONAL_TYPES, true ) ) {
+		if ( in_array( $notification_type, self::transactional_types(), true ) ) {
 			$this->send_now( $user_id, $notification_type, $data );
 			return;
 		}
