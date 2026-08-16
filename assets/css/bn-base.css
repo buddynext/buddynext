@@ -2684,34 +2684,33 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
    is an accessibility regression. max() preserves an upscaled text preference.
    16px is a literal because it is Apple's threshold, not a design token.
 
-   Two things this rule learned the hard way, both verified in the browser:
+   THIS RULE USES !important DELIBERATELY, AND MUST KEEP IT.
 
-   It is selected BY TYPE, not by our .bn-input class, because plenty of our own
-   fields never take that class — the composer, the DM bar, the comment box, the
-   auth fields and a dozen more are one-off classes. Scoping to body.bn-page
-   keeps that breadth on our own surfaces and off the rest of the site.
+   Two earlier attempts lost the cascade, each to a different opponent, and the
+   pattern is the lesson:
 
-   And it needs the body scope to WIN. The previous version of this rule was
-   correct in every respect except the cascade: Reign's main.min.css carries
-   `input[type="text"] { font-size: 15px }` at (0,1,1), which outranks a bare
-   `.bn-input` at (0,1,0) — and the theme loads after us, so a tie would lose
-   too. The floor was in the codebase, looked right, and did nothing on the
-   theme this product ships with. `body.bn-page input[type="text"]` is (0,2,1)
-   and beats it outright, whatever the load order. */
+     1. `.bn-input` (0,1,0) lost to Reign's `input[type="text"]` (0,1,1).
+     2. `body.bn-page select` (0,1,2) lost to our OWN
+        `.bn-ep-field-vis__select.bn-input` (0,2,0) in bn-profile.css — 15
+        privacy dropdowns on the edit-profile screen still computed 12px, and
+        iOS zooms on a select exactly as it does on an input.
+
+   Raising specificity again would just pick the next fight. Any component in
+   any of a dozen stylesheets may set a font-size on a field, each is free to
+   use two classes, and every new one silently reopens this bug on a surface
+   nobody re-tests. The floor is not a style opinion competing with those rules
+   — it is a platform constraint that must outrank all of them, which is exactly
+   what !important is for.
+
+   Selected by TYPE rather than by our own classes, because most fields never
+   take .bn-input: the composer, the DM bar, the comment box, the auth fields.
+   Scoped to body.bn-page so it stops at our own surfaces and never restyles the
+   host theme's pages. */
 @media (pointer: coarse), (max-width: 768px) {
-	body.bn-page input[type="text"],
-	body.bn-page input[type="search"],
-	body.bn-page input[type="email"],
-	body.bn-page input[type="password"],
-	body.bn-page input[type="url"],
-	body.bn-page input[type="tel"],
-	body.bn-page input[type="number"],
-	body.bn-page input[type="date"],
-	body.bn-page input[type="datetime-local"],
-	body.bn-page input:not([type]),
+	body.bn-page input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="range"]):not([type="color"]),
 	body.bn-page textarea,
 	body.bn-page select {
-		font-size: max(16px, var(--bn-text-md));
+		font-size: max(16px, var(--bn-text-md)) !important;
 	}
 }
 
