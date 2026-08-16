@@ -2677,15 +2677,40 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 /* iOS Safari auto-zooms the viewport when a focused input/textarea/select has a
-   computed font-size below 16px. Inputs use --bn-text-sm (13px) by design, so
-   every text field on iPhone zooms the page on focus and never resets. Raise the
-   input font-size to a 16px floor on touch / small screens — the platform-correct
-   fix, not a maximum-scale viewport cap (which would be an accessibility
-   regression). max() preserves any upscaled text preference. */
+   computed font-size below 16px, and never zooms back out — the member has to
+   pinch out after tapping any field. Raise text controls to a 16px floor on
+   touch / small screens. This is the platform-correct fix; capping
+   maximum-scale in the viewport tag would silence it by disabling zoom, which
+   is an accessibility regression. max() preserves an upscaled text preference.
+   16px is a literal because it is Apple's threshold, not a design token.
+
+   Two things this rule learned the hard way, both verified in the browser:
+
+   It is selected BY TYPE, not by our .bn-input class, because plenty of our own
+   fields never take that class — the composer, the DM bar, the comment box, the
+   auth fields and a dozen more are one-off classes. Scoping to body.bn-page
+   keeps that breadth on our own surfaces and off the rest of the site.
+
+   And it needs the body scope to WIN. The previous version of this rule was
+   correct in every respect except the cascade: Reign's main.min.css carries
+   `input[type="text"] { font-size: 15px }` at (0,1,1), which outranks a bare
+   `.bn-input` at (0,1,0) — and the theme loads after us, so a tie would lose
+   too. The floor was in the codebase, looked right, and did nothing on the
+   theme this product ships with. `body.bn-page input[type="text"]` is (0,2,1)
+   and beats it outright, whatever the load order. */
 @media (pointer: coarse), (max-width: 768px) {
-	.bn-input,
-	.bn-textarea,
-	.bn-select {
+	body.bn-page input[type="text"],
+	body.bn-page input[type="search"],
+	body.bn-page input[type="email"],
+	body.bn-page input[type="password"],
+	body.bn-page input[type="url"],
+	body.bn-page input[type="tel"],
+	body.bn-page input[type="number"],
+	body.bn-page input[type="date"],
+	body.bn-page input[type="datetime-local"],
+	body.bn-page input:not([type]),
+	body.bn-page textarea,
+	body.bn-page select {
 		font-size: max(16px, var(--bn-text-md));
 	}
 }
