@@ -321,17 +321,26 @@ class AccessWebhookController {
 	private function log( string $action, int $user_id, array $body, string $status ): void {
 		global $wpdb;
 
+		// created_at is written explicitly, in UTC.
+		//
+		// The column's schema default is CURRENT_TIMESTAMP, which MySQL resolves in
+		// the DATABASE SERVER's timezone, and every other timestamp BuddyNext
+		// stores is gmdate(). An audit log exists to be correlated against other
+		// records — "this webhook granted that subscription" — and on a host whose
+		// database is not on UTC it was offset from everything it would be read
+		// beside. Observed here at +5:30: a call at 16:57 UTC logged as 22:27.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_webhook_log',
 			array(
-				'source'  => sanitize_key( $body['source'] ?? '' ),
-				'action'  => $action,
-				'user_id' => $user_id,
-				'payload' => wp_json_encode( $body ),
-				'status'  => $status,
+				'source'     => sanitize_key( $body['source'] ?? '' ),
+				'action'     => $action,
+				'user_id'    => $user_id,
+				'payload'    => wp_json_encode( $body ),
+				'status'     => $status,
+				'created_at' => gmdate( 'Y-m-d H:i:s' ),
 			),
-			array( '%s', '%s', '%d', '%s', '%s' )
+			array( '%s', '%s', '%d', '%s', '%s', '%s' )
 		);
 	}
 }

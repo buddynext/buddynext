@@ -216,6 +216,19 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 					aria-label="<?php esc_attr_e( 'Request pending — click to cancel', 'buddynext' ); ?>"
 				><?php esc_html_e( 'Requested', 'buddynext' ); ?></button>
 
+			<?php elseif ( ! buddynext_service( 'space_members' )->can_join( $bn_dc_space, $bn_dc_uid ) ) : ?>
+				<?php
+				// The gate refuses this member, so neither join CTA belongs on the
+				// card. Same rule as space-hero.php: can_join() runs the
+				// buddynext_can_join_space filter, which is the plan gate rather than
+				// the open/private distinction — a plain private space answers true
+				// and still reaches "Request to join" below.
+				//
+				// Without this a plan-gated space sat in the directory offering a
+				// button that returns 403, which is worse than a locked-looking card:
+				// it reads as available until the member spends a click on it.
+				?>
+
 			<?php elseif ( 'direct' === SpaceTypeRegistry::instance()->join_method( $space_type ) ) : ?>
 				<button
 					class="bn-btn"

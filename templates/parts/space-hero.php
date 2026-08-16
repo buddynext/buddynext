@@ -254,8 +254,24 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			<?php elseif ( $bn_is_invited ) : ?>
 				<?php // Invited: the invitation banner on the space home owns Accept/Decline, so the hero shows no join CTA. ?>
 
-			<?php elseif ( 'open' === $bn_space->type && buddynext_service( 'space_members' )->can_join( $bn_space, get_current_user_id() ) ) : ?>
-				<?php // Only offered when the join gate would actually allow it. A plan-gated space used to show this button beside a paywall explaining the member could not join. ?>
+			<?php elseif ( ! buddynext_service( 'space_members' )->can_join( $bn_space, get_current_user_id() ) ) : ?>
+				<?php
+				// The gate refuses this member, so NEITHER join CTA belongs here — the
+				// paywall beside it is the call to action.
+				//
+				// can_join() runs the buddynext_can_join_space filter, which is the
+				// plan gate and not the open/private distinction: a plain private
+				// space answers true and still reaches "Request to join" below. It is
+				// false only when something will actually refuse the attempt.
+				//
+				// Checking it on the 'open' branch alone was not enough. A plan-gated
+				// OPEN space failed that test and fell through to the else, so the
+				// member was offered "Request to join" instead — a second wrong button
+				// in place of the first, and one that also describes the space as
+				// private when it is open.
+				?>
+
+			<?php elseif ( 'open' === $bn_space->type ) : ?>
 				<button
 					class="bn-btn"
 					data-variant="primary"
