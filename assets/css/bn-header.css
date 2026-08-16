@@ -305,4 +305,40 @@
 		inset-inline-end: 0;
 		min-width: min(260px, calc(100vw - 1.5rem));
 	}
+
+	/* The host theme's mobile header gives this control an AVATAR-sized slot —
+	   Reign's .reign-user-toggler is 40px. Laid out in flow the avatar plus its
+	   caret is 60px, and flex-shrink:0 above (correctly) refuses to be squeezed,
+	   so the control hung 20px past its slot and 5px past the viewport: every
+	   page could be scrolled sideways at 390px.
+
+	   Taking the caret out of flow makes our box the avatar, which fits any
+	   slot. Because it is absolute, its 40px touch target costs no layout width
+	   — the alternative, shrinking the caret to fit, would have traded a
+	   sideways scroll for an untappable control. */
+	.bn-header-user__caret {
+		position: absolute;
+		inset-block-end: -4px;
+		inset-inline-end: -4px;
+		width: 40px;
+		height: 40px;
+		margin-inline-start: 0;
+		align-items: flex-end;
+		justify-content: flex-end;
+	}
+
+	/* Sitting on the avatar, the bare glyph reads as a rendering accident. The
+	   chip is what makes it read as a control — and it has to carry its own
+	   surface, because the avatar behind it is whatever colour that member's
+	   is. Drawn on the icon, not the button, so the 40px touch target stays
+	   invisible and stays 40px. */
+	.bn-header-user__caret svg {
+		width: 18px;
+		height: 18px;
+		padding: 2px;
+		background: var(--bn-surface, #fff);
+		border: 1px solid var(--bn-line, #e2e8f0);
+		border-radius: var(--bn-r-full, 999px);
+		box-shadow: var(--bn-shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.08));
+	}
 }
