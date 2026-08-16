@@ -341,7 +341,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			array( __( 'Real-time feed updates + online presence', 'buddynext' ), false ),
 			array( __( 'Advanced moderation — keyword/link rules, AI, bulk actions', 'buddynext' ), false ),
 			array( __( 'Site + per-space analytics with CSV export', 'buddynext' ), false ),
-			array( __( 'Private/gated spaces, post approval, paywall, member tiers', 'buddynext' ), false ),
+			array( __( 'Private/gated spaces, post approval, paywall, membership plans', 'buddynext' ), false ),
 			array( __( 'Advanced profile fields + custom member labels', 'buddynext' ), false ),
 			array( __( 'AI feed ranking + AI content moderation', 'buddynext' ), false ),
 			array( __( 'Saved searches + advanced filters', 'buddynext' ), false ),
