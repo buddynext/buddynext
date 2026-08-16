@@ -355,16 +355,18 @@ class EmailSender {
 	/**
 	 * Resolve the effective From name for every BuddyNext email.
 	 *
-	 * Falls back to the site name when Settings → Email leaves it blank, so the
-	 * sender is always branded (never the bare WordPress default) and the admin
-	 * field can surface the same effective value instead of an empty box.
+	 * Falls back to the Community Name when Settings → Email leaves it blank, so
+	 * the sender is always branded (never the bare WordPress default) and the
+	 * admin field can surface the same effective value instead of an empty box.
+	 * That fallback used to read the WP Site Title directly, which meant an
+	 * owner who renamed their community still sent mail as WordPress.
 	 *
 	 * @return string
 	 */
 	public static function from_name(): string {
 		$name = sanitize_text_field( (string) get_option( 'buddynext_email_from_name', '' ) );
 		if ( '' === $name ) {
-			$name = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+			$name = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 		}
 		// Let the admin type {{site_name}} etc. so the From name can track the site.
 		return self::apply_global_tokens( $name );
@@ -402,7 +404,7 @@ class EmailSender {
 		return strtr(
 			$text,
 			array(
-				'{{site_name}}'    => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+				'{{site_name}}'    => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 				'{{site_url}}'     => home_url( '/' ),
 				'{{current_year}}' => gmdate( 'Y' ),
 			)
@@ -580,7 +582,7 @@ class EmailSender {
 	 * @return string Full branded HTML document.
 	 */
 	public static function brand_wrap( string $body, string $subject = '', string $preheader = '' ): string {
-		$site_name = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+		$site_name = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 		$site_url  = esc_url( home_url( '/' ) );
 		$brand     = (string) get_option( 'buddynext_brand_color', '#0073aa' );
 		if ( ! preg_match( '/^#[0-9a-fA-F]{3,8}$/', $brand ) ) {
@@ -729,7 +731,7 @@ class EmailSender {
 		}
 
 		$tokens = array(
-			'{{site_name}}'            => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+			'{{site_name}}'            => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 			'{{site_url}}'             => esc_url( home_url( '/' ) ),
 			'{{login_url}}'            => esc_url( \BuddyNext\Core\PageRouter::auth_url() ),
 			'{{action_url}}'           => esc_url( $action_url ),

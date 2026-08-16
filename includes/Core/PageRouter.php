@@ -941,6 +941,8 @@ class PageRouter {
 			);
 		}
 
+		self::apply_community_name_to_title();
+
 		// Enqueue hub-specific asset bundles before wp_head() fires (which
 		// happens inside get_header() → theme's header.php).
 		$this->enqueue_hub_assets( $hub );
@@ -1249,6 +1251,49 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Put the Community Name in the tab title's site half, on BuddyNext pages.
+	 *
+	 * The Community Name field's own hint promises the browser title, and it
+	 * never reached it: both head emitters set `$parts['title']` and nothing
+	 * ever touched `$parts['site']`, which WordPress fills from the WP Site
+	 * Title. So an owner renaming their community saw every BuddyNext page keep
+	 * announcing the WordPress site name in the tab and in bookmarks, with no
+	 * indication the setting had only done half its job.
+	 *
+	 * Only the site half, and only on BuddyNext's own surfaces: the WP Site
+	 * Title is what a blog post or a shop page should carry, and renaming the
+	 * community is not a request to rename WordPress.
+	 *
+	 * Deferred when an SEO plugin owns the head, for the same reason the title
+	 * half is (Zoho #41057, Basecamp 10173643793) - an owner who typed a title
+	 * into Yoast made an explicit choice, and this is not the place to overrule
+	 * it.
+	 *
+	 * @return void
+	 */
+	public static function apply_community_name_to_title(): void {
+		if ( self::seo_plugin_active() ) {
+			return;
+		}
+
+		$community = buddynext_site_name();
+
+		// Identical to the WP Site Title is the common case, and re-stating it
+		// through a filter buys nothing.
+		if ( '' === $community || $community === (string) get_bloginfo( 'name' ) ) {
+			return;
+		}
+
+		add_filter(
+			'document_title_parts',
+			static function ( array $parts ) use ( $community ): array {
+				$parts['site'] = $community;
+				return $parts;
+			}
+		);
+	}
+
 	/**
 	 * Is a major SEO plugin managing this site's head?
 	 *

@@ -147,6 +147,12 @@ final class HeadMeta {
 				}
 			);
 		}
+
+		// Surfaces that emit their head here (a single post permalink, for one)
+		// do not run the hub render, so the site half of the tab title has to be
+		// claimed here as well or the Community Name reaches only some of the
+		// community's own pages.
+		PageRouter::apply_community_name_to_title();
 	}
 
 	/**
