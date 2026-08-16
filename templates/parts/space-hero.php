@@ -254,7 +254,8 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			<?php elseif ( $bn_is_invited ) : ?>
 				<?php // Invited: the invitation banner on the space home owns Accept/Decline, so the hero shows no join CTA. ?>
 
-			<?php elseif ( 'open' === $bn_space->type ) : ?>
+			<?php elseif ( 'open' === $bn_space->type && buddynext_service( 'space_members' )->can_join( $bn_space, get_current_user_id() ) ) : ?>
+				<?php // Only offered when the join gate would actually allow it. A plan-gated space used to show this button beside a paywall explaining the member could not join. ?>
 				<button
 					class="bn-btn"
 					data-variant="primary"

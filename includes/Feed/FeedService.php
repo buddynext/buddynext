@@ -1560,6 +1560,36 @@ class FeedService {
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
 	public function space_feed( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+		/**
+		 * Filter whether this viewer may read the space's posts at all.
+		 *
+		 * Free always allows: a space's own type already decides who can see it,
+		 * and this seam exists for Pro's plan gating, which Free knows nothing
+		 * about. Pro answers false when the space carries a `required_ability` the
+		 * viewer does not hold, which is what stops a paywalled space rendering
+		 * its posts underneath the upgrade prompt.
+		 *
+		 * Deliberately ABOVE the page-1 cache. A denial must never be written to
+		 * the cache or served from it: short-circuiting here means a member who
+		 * later buys the plan has no poisoned empty page waiting for them, and a
+		 * member who loses it is refused immediately rather than at TTL. It is
+		 * also the answer to the warning below about entitlement-dependent
+		 * filters — the entitlement decides whether we reach the cache at all,
+		 * rather than changing what gets stored in it.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param bool $can       Whether the viewer may read this space's posts.
+		 * @param int  $space_id  Space being read.
+		 * @param int  $viewer_id Viewer, 0 for logged out.
+		 */
+		if ( ! apply_filters( 'buddynext_can_view_space_content', true, $space_id, $viewer_id ) ) {
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+			);
+		}
+
 		// Page-1 cache wrap (A9). Only the first page is cached (cursor null); deeper pages
 		// are keyset-paginated and each cursor is a unique position, so caching them buys
 		// nothing. The key carries the VIEWER, so one member's block/mute scoping never

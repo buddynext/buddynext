@@ -2031,6 +2031,31 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Would this user be allowed to join, without attempting it?
+	 *
+	 * Read-only evaluation of the same `buddynext_can_join_space` gate that
+	 * join() and request_join() run, so a surface can ask the question before
+	 * offering the button.
+	 *
+	 * This exists because the space templates offered "Join space" to everyone
+	 * looking at an open space, including members a listener was certain to
+	 * refuse. On a plan-gated space that produced a screen telling the member
+	 * they needed a paid plan while two buttons beside it invited them to join
+	 * anyway. Asking the gate is the only way to be sure the offer is real —
+	 * Free cannot know what Pro will decide.
+	 *
+	 * @param array|object $space   Space row (array from bn_spaces, or the object
+	 *                              the templates carry).
+	 * @param int          $user_id User being considered, 0 for logged out.
+	 * @return bool
+	 */
+	public function can_join( array|object $space, int $user_id ): bool {
+		$space_row = is_object( $space ) ? (array) $space : $space;
+
+		return (bool) apply_filters( 'buddynext_can_join_space', true, $space_row, $user_id, 'join' );
+	}
+
+	/**
 	 * Build the WP_Error returned when a join/request is denied by the
 	 * buddynext_can_join_space gate.
 	 *
