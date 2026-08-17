@@ -12,6 +12,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin;
 
+use BuddyNext\Theme\Appearance;
+
 /**
  * Admin panel for managing BuddyNext community spaces.
  */
@@ -734,7 +736,7 @@ class Spaces extends AdminPageBase {
 			'name'        => sanitize_text_field( wp_unslash( $_POST['name'] ?? '' ) ),
 			'slug'        => sanitize_text_field( wp_unslash( $_POST['slug'] ?? '' ) ),
 			'description' => sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) ),
-			'color'       => sanitize_text_field( wp_unslash( $_POST['color'] ?? '#0073aa' ) ),
+			'color'       => sanitize_text_field( wp_unslash( $_POST['color'] ?? Appearance::DEFAULT_BRAND ) ),
 			'text_color'  => sanitize_text_field( wp_unslash( $_POST['text_color'] ?? '' ) ),
 			'icon_svg'    => (string) wp_unslash( $_POST['icon_svg'] ?? '' ), // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- SVG is sanitised via wp_kses inside SpaceCategoryService::validate().
 			'sort_order'  => absint( wp_unslash( $_POST['sort_order'] ?? 0 ) ),

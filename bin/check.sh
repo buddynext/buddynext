@@ -158,6 +158,22 @@ else
 	note "bin/check-icons.sh missing"
 fi
 
+# 3a1. No inline <script> in admin PHP — hard gate.
+#
+# Blocking, unlike the tab cap below, because the tree is clean today: this can
+# only fail on something the current change introduced, which is the whole point
+# of a gate written after the count proved unstable.
+section "Inline script in admin PHP"
+if [ -x bin/check-inline-script.sh ]; then
+	if bin/check-inline-script.sh; then
+		:
+	else
+		fail "inline <script> in admin PHP — enqueue it instead"
+	fi
+else
+	note "bin/check-inline-script.sh missing"
+fi
+
 # 3a2. Admin five-tab cap — ADVISORY until the re-file lands.
 #
 # AdminHub::TAB_PLACEMENT documents the cap and Settings and Moderation both ship

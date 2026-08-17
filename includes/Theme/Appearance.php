@@ -73,8 +73,14 @@ class Appearance {
 	 * as "not set" — the accent stays opt-in, so saving unrelated settings (or
 	 * completing setup without changing the swatch) never recolours a site that
 	 * relies on its theme's palette.
+	 *
+	 * Public because it is a SENTINEL, not a preference: the meaning above is
+	 * what makes `#0073aa` different from any other blue, and while this was
+	 * private every other colour default in the product retyped the raw literal
+	 * with that meaning attached to none of them. One value, one place, one
+	 * explanation — change it here and every default follows.
 	 */
-	private const DEFAULT_BRAND = '#0073aa';
+	public const DEFAULT_BRAND = '#0073aa';
 
 	/**
 	 * Recolour the accent palette from the admin's brand colour, winning over

@@ -13,6 +13,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin\Members;
 
+use BuddyNext\Theme\Appearance;
+
 /**
  * Renders and processes the Member Types admin tab.
  */
@@ -53,7 +55,7 @@ class MemberTypesManager {
 			'slug'        => sanitize_key( wp_unslash( $_POST['slug'] ?? '' ) ),
 			'name'        => sanitize_text_field( wp_unslash( $_POST['name'] ?? '' ) ),
 			'description' => sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) ),
-			'color'       => sanitize_hex_color( wp_unslash( $_POST['color'] ?? '#0073aa' ) ) ?? '#0073aa',
+			'color'       => sanitize_hex_color( wp_unslash( $_POST['color'] ?? Appearance::DEFAULT_BRAND ) ) ?? Appearance::DEFAULT_BRAND,
 			'text_color'  => sanitize_hex_color( wp_unslash( $_POST['text_color'] ?? '#ffffff' ) ) ?? '#ffffff',
 			'icon_svg'    => wp_kses( wp_unslash( $_POST['icon_svg'] ?? '' ), $this->allowed_svg_tags() ),
 			'sort_order'  => absint( $_POST['sort_order'] ?? 0 ),

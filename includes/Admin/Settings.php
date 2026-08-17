@@ -460,11 +460,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * documented default instead.
 	 *
 	 * @param mixed $value Raw submitted value.
-	 * @return string Valid hex colour, or the default '#0073aa'.
+	 * @return string Valid hex colour, or Appearance::DEFAULT_BRAND.
 	 */
 	public static function sanitize_brand_color( $value ): string {
 		$hex = sanitize_hex_color( (string) $value );
-		return '' !== (string) $hex ? (string) $hex : '#0073aa';
+		return '' !== (string) $hex ? (string) $hex : \BuddyNext\Theme\Appearance::DEFAULT_BRAND;
 	}
 
 	/**
@@ -795,7 +795,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'      => 'buddynext_brand_color',
 							'type'     => 'color',
 							'label'    => __( 'Brand color', 'buddynext' ),
-							'default'  => '#0073aa',
+							'default'  => \BuddyNext\Theme\Appearance::DEFAULT_BRAND,
 							'sanitize' => array( self::class, 'sanitize_brand_color' ),
 							'hint'     => __( 'Your community accent — used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick, or paste a hex code.', 'buddynext' ),
 						)
