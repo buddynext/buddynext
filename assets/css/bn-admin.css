@@ -3815,6 +3815,45 @@ button.bn-btn-danger:hover {
 	.bn-admin-hub__content .wp-list-table .column-primary .toggle-row {
 		display: inline-flex;
 	}
+
+	/* The actions cell, once core has stacked the row.
+	 *
+	 * Its column is right-aligned on desktop, which is correct for the last
+	 * column of a table — the buttons line up against the right edge. Stacked,
+	 * that same rule is applied to a full-width block, so the label drifts right
+	 * and each action form lands on its own line looking centred: on the
+	 * Subscriptions row, "Action" sat inline with a 30-day input while Revoke
+	 * floated alone underneath, which is what made an ordinary row look broken.
+	 *
+	 * Reading order is the fix. The label goes back to the start edge like every
+	 * other stacked row's label, and the forms become one wrapping row so
+	 * "add 30 days" reads as one action and Revoke sits beside it rather than
+	 * below it. */
+	.bn-admin-hub__content .wp-list-table td.column-action,
+	.bn-admin-hub__content .wp-list-table td[data-colname="Action"] {
+		text-align: start;
+	}
+
+	/* Text-align only on the cell itself. Core stacks these cells with
+	   `tr:not(.inline-edit-row):not(.no-items) td:not(.check-column)`, which
+	   outranks anything reasonable here — a `display: flex` on this cell is
+	   silently discarded, and measuring rather than assuming is the only way to
+	   know which half of a rule survived. The label keeps core's own width, so
+	   Action lines up with ID and Plan above it (all three measure 103.68px).
+	   The layout below does the rest, at a specificity core does not contest. */
+
+	/* Both action forms are inline participants in that row, not blocks that
+	   push each other onto new lines. */
+	.bn-admin-hub__content .wp-list-table td.column-action .bn-row-actions,
+	.bn-admin-hub__content .wp-list-table td[data-colname="Action"] .bn-row-actions,
+	.bn-admin-hub__content .wp-list-table td.column-action .bn-row-actions__form,
+	.bn-admin-hub__content .wp-list-table td[data-colname="Action"] .bn-row-actions__form {
+		display: inline-flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--bn-a-s2);
+		margin: 0;
+	}
 }
 
 /* ── Bulk toolbar: one control height, one separating gap ───────────────────
