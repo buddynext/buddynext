@@ -225,6 +225,41 @@ class PwaService {
 
 		$offline_js = wp_json_encode( $offline_url );
 
+		/*
+		 * The real admin and login paths, not assumed ones.
+		 *
+		 * The fetch handler's bails were hardcoded root-relative —
+		 * `url.pathname.indexOf('/wp-admin') === 0`. On a site installed in a
+		 * SUBDIRECTORY the admin path is `/community/wp-admin/…`, so indexOf returns
+		 * a positive offset rather than 0, the bail never fires, and the worker
+		 * caches wp-admin. That includes `/wp-admin/load-scripts.php`, WordPress's
+		 * concatenated admin bundle, whose contents differ per screen — so a copy
+		 * cached on one admin page is replayed on another and every jQuery-dependent
+		 * script on it breaks ("jQuery is not defined").
+		 *
+		 * The worker claims the whole origin (Service-Worker-Allowed: / plus
+		 * scope '/'), so it is genuinely in front of those requests on a
+		 * subdirectory install; only the bail was root-relative.
+		 *
+		 * Derived from admin_url()/site_url() rather than home_url(), because
+		 * WordPress allows the admin to live somewhere other than the site root, and
+		 * a guess is what this bug is made of.
+		 */
+		$admin_path = (string) wp_parse_url( admin_url( '/' ), PHP_URL_PATH );
+		// site_url('wp-login.php'), NOT wp_login_url(): BuddyNext points the latter
+		// at its own /login/ page, so using it would guard the community's auth
+		// screen and quietly stop guarding WordPress's — which is the nonce-bearing
+		// one the original bail was written for.
+		$login_path = (string) wp_parse_url( site_url( 'wp-login.php' ), PHP_URL_PATH );
+		$rest_path  = (string) wp_parse_url( rest_url( '/' ), PHP_URL_PATH );
+
+		// JSON_UNESCAPED_SLASHES so the generated worker reads as "/wp-admin/" rather
+		// than "\/wp-admin\/". Both parse identically; this file is read in DevTools
+		// by whoever is debugging a caching problem, so legibility is the point.
+		$admin_path_js = wp_json_encode( '' !== $admin_path ? $admin_path : '/wp-admin/', JSON_UNESCAPED_SLASHES );
+		$login_path_js = wp_json_encode( '' !== $login_path ? $login_path : '/wp-login.php', JSON_UNESCAPED_SLASHES );
+		$rest_path_js  = wp_json_encode( '' !== $rest_path ? $rest_path : '/wp-json/', JSON_UNESCAPED_SLASHES );
+
 		return <<<JS
 'use strict';
 
@@ -232,6 +267,14 @@ const SHELL_CACHE = '{$shell_cache}';
 const ASSET_CACHE = '{$asset_cache}';
 const OFFLINE_URL = {$offline_js};
 const SHELL_ASSETS = {$shell};
+
+// This site's real admin / login / REST paths, injected from PHP. They are NOT
+// assumed to be at the origin root: on a subdirectory install they are
+// "/community/wp-admin/" and so on, and the guards below used to test for a
+// leading "/wp-admin" that never matched there.
+const ADMIN_PATH = {$admin_path_js};
+const LOGIN_PATH = {$login_path_js};
+const REST_PATH = {$rest_path_js};
 
 // Cap the runtime asset cache. A community with many themes, avatars and icon
 // sets can otherwise grow without limit on a member's device, and a phone that
@@ -338,7 +381,7 @@ self.addEventListener('fetch', (event) => {
 
   // wp-admin and the login screen must never be intercepted: they are
   // authenticated, nonce-bearing, and a stale copy locks an owner out.
-  if (url.pathname.indexOf('/wp-admin') === 0 || url.pathname.indexOf('/wp-login') === 0) {
+  if (url.pathname.indexOf(ADMIN_PATH) === 0 || url.pathname.indexOf(LOGIN_PATH) === 0) {
     return;
   }
 
@@ -360,7 +403,12 @@ self.addEventListener('fetch', (event) => {
   // comment in the PHP above, which preserves ?rest_route= precisely because
   // taking PHP_URL_PATH alone collapses it to "/". That reasoning simply never
   // reached the fetch bails.
-  if (url.pathname.indexOf('/wp-json/') === 0 || url.searchParams.has('rest_route')) {
+  // REST_PATH is only a usable prefix when the site has pretty permalinks. Without
+  // them rest_url() is "/?rest_route=/", whose PATH is just "/" — and
+  // indexOf("/") === 0 is true for every request on the origin, which would bail on
+  // everything and silently switch the whole PWA off. Those sites are covered by
+  // the rest_route query check beside it, which is what identifies REST there.
+  if ((REST_PATH !== '/' && url.pathname.indexOf(REST_PATH) === 0) || url.searchParams.has('rest_route')) {
     return;
   }
 
