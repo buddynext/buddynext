@@ -672,6 +672,48 @@
 	color: var(--bn-a-text-1);
 }
 
+/* A limit that can be switched off (render_optional_limit_row).
+ *
+ * The checkbox and the number are one control, so they sit on one line and read
+ * left to right: "Limit redemptions [x] [25]". Stacked, the pair reads as two
+ * unrelated settings and the checkbox looks like it governs the whole card.
+ * Wraps rather than compresses on a narrow screen — a number input squeezed to
+ * three characters is worse than a second line. */
+.bn-field--optional-limit {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-a-s2);
+}
+
+.bn-field--optional-limit > label:first-child {
+	flex-basis: 100%;
+	margin-bottom: 0;
+}
+
+/* A checkbox with its own words, sitting INSIDE a .bn-field.
+ *
+ * `.bn-field > label` (0,2,0) makes every direct-child label a block-level bold
+ * field title, which is right for the label naming a control and wrong for a
+ * checkbox whose label IS the sentence beside the box — it rendered them bold,
+ * full-width and looking like three separate settings. Matched at the same
+ * specificity and declared after, so the field-title rule stops applying to
+ * checkbox rows without being weakened for the labels it was written for. */
+.bn-field > .bn-check-inline,
+.bn-field .bn-check-inline {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-a-s1);
+	margin-bottom: 0;
+	font-weight: var(--bn-a-fw-normal, 400);
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+}
+
+.bn-field--optional-limit .bn-field-hint {
+	flex-basis: 100%;
+}
+
 /* Form-control sizing inside admin section cards (.bn-ss-body).
  *
  * The cards are full-width, so a bare input would either sit tiny at its content

@@ -586,6 +586,96 @@ abstract class AdminPageBase {
 	}
 
 	/**
+	 * Render a limit that can be switched off, instead of a magic zero.
+	 *
+	 * Several settings across both plugins store "no limit" as `0` and explain it
+	 * in a hint — "0 = unlimited", "Set to 0 to disable rate limiting". The hint
+	 * is the tell: a control that needs a footnote to be read is not readable.
+	 * `0` in a field labelled "Posts per minute" states, in the only language the
+	 * control has, that no posts are allowed — the opposite of what it does. An
+	 * owner who skims sets 0 meaning "off" and is right by accident, or reads it
+	 * as a hard stop and never touches it.
+	 *
+	 * So the sentinel becomes a checkbox and the number means only what it says.
+	 * `0` stays the STORED value, so nothing migrates and every reader downstream
+	 * keeps working — this is presentation, not schema.
+	 *
+	 * Deliberately no JavaScript. The checkbox is authoritative on save, so the
+	 * pair behaves correctly with scripts blocked or broken, and the number keeps
+	 * its value while switched off — unchecking and rechecking does not wipe what
+	 * the owner typed. Callers read it back with read_optional_limit().
+	 *
+	 * @param string $option_name  Field name (also the checkbox's basis: `<name>_limited`).
+	 * @param string $label        Field label.
+	 * @param int    $value        Current stored value; 0 means no limit.
+	 * @param string $toggle_label Checkbox label, e.g. "Limit how many times it can be used".
+	 * @param string $hint         Optional hint beneath the pair.
+	 * @param int    $min          Minimum when a limit IS set. Default 1 — a limit of
+	 *                             zero is the state the checkbox now expresses.
+	 * @return void
+	 */
+	protected function render_optional_limit_row(
+		string $option_name,
+		string $label,
+		int $value,
+		string $toggle_label,
+		string $hint = '',
+		int $min = 1
+	): void {
+		$input_id  = 'bn-field-' . sanitize_key( $option_name );
+		$toggle_id = $input_id . '-limited';
+		$limited   = $value > 0;
+		?>
+		<div class="bn-field bn-field--optional-limit">
+			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
+			<label class="bn-check-inline" for="<?php echo esc_attr( $toggle_id ); ?>">
+				<input type="checkbox"
+						id="<?php echo esc_attr( $toggle_id ); ?>"
+						name="<?php echo esc_attr( $option_name ); ?>_limited"
+						value="1"
+						<?php checked( $limited ); ?>>
+				<span><?php echo esc_html( $toggle_label ); ?></span>
+			</label>
+			<input type="number"
+					id="<?php echo esc_attr( $input_id ); ?>"
+					name="<?php echo esc_attr( $option_name ); ?>"
+					value="<?php echo esc_attr( (string) ( $limited ? $value : $min ) ); ?>"
+					min="<?php echo absint( $min ); ?>"
+					class="bn-text-input small-text bn-a-input-tiny">
+			<?php if ( '' !== $hint ) : ?>
+				<span class="bn-field-hint"><?php echo esc_html( $hint ); ?></span>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Read back a value written by render_optional_limit_row().
+	 *
+	 * The checkbox decides, not the number: unchecked stores 0 whatever is in the
+	 * box, which is what lets the number keep its value while the limit is off.
+	 *
+	 * Lives beside the renderer on purpose. The two halves of a sentinel have to
+	 * agree, and the way this goes wrong is one screen reading the number and
+	 * ignoring the checkbox — which silently reinstates the limit an owner just
+	 * switched off.
+	 *
+	 * Callers are responsible for nonce and capability checks before calling.
+	 *
+	 * @param array<string,mixed> $source      Request array, already unslashed by the caller.
+	 * @param string              $option_name Field name used in render_optional_limit_row().
+	 * @param int                 $min         Minimum when a limit is set. Default 1.
+	 * @return int Stored value: 0 for "no limit", otherwise at least $min.
+	 */
+	public static function read_optional_limit( array $source, string $option_name, int $min = 1 ): int {
+		if ( empty( $source[ $option_name . '_limited' ] ) ) {
+			return 0;
+		}
+
+		return max( $min, (int) ( $source[ $option_name ] ?? $min ) );
+	}
+
+	/**
 	 * Render a labelled select input field.
 	 *
 	 * @param string                   $option_name WP option name.
