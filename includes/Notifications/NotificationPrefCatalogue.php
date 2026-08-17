@@ -27,7 +27,7 @@ namespace BuddyNext\Notifications;
 class NotificationPrefCatalogue {
 
 	/**
-	 * Group identifiers - used by the accordion in templates/notifications/prefs.php.
+	 * Group identifiers - used by the accordion in templates/settings/notifications.php.
 	 */
 	public const GROUP_SOCIAL     = 'social';
 	public const GROUP_FEED       = 'feed';

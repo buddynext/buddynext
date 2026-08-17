@@ -393,7 +393,7 @@ class NotificationController extends BaseRestController {
 		/*
 		 * The owner's site-wide digest switch (Settings -> Email), surfaced so the
 		 * app can grey out Daily/Weekly instead of offering a choice the server
-		 * will never honour — the same thing templates/notifications/prefs.php
+		 * will never honour — the same thing templates/settings/notifications.php
 		 * already does on the web.
 		 *
 		 * READ-ONLY, deliberately. The card that asked for this also asked the PUT

@@ -119,7 +119,7 @@ class EmailSender {
 	 * offering those chips (and to explain why an already-stored Daily/Weekly
 	 * value is dormant) instead of silently accepting a dead choice.
 	 *
-	 * Consumed by CronService::digests_disabled() and templates/notifications/prefs.php.
+	 * Consumed by CronService::digests_disabled() and templates/settings/notifications.php.
 	 *
 	 * @return bool True when digests may be sent, false when the owner disabled them.
 	 */

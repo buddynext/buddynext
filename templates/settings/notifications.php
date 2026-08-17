@@ -9,7 +9,12 @@
  *
  * Powered by the Interactivity API store `buddynext/notification-prefs`.
  *
- * Overridable: copy to {theme}/buddynext/notifications/prefs.php.
+ * Overridable: copy to {theme}/buddynext/settings/notifications.php.
+ *
+ * Moved from templates/notifications/prefs.php in 1.1.5, when this tab stopped
+ * routing through the notifications hub. A theme overriding the OLD path is no
+ * longer picked up — noted in the changelog rather than shimmed, because a shim
+ * would keep both paths live and this move exists to end exactly that.
  *
  * @package BuddyNext
  */
@@ -26,16 +31,19 @@ use BuddyNext\Notifications\NotificationPrefCatalogue;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Profile\AvatarService;
 
-// This template renders as the Notifications TAB OF SETTINGS, so it takes the
-// settings surface - which no sidebar provider claims, so the right column stays
-// empty exactly as it is on Account, Privacy and Appearance.
+// No Surface::set() here, deliberately.
 //
-// Without this the surface fell back to the HUB, which for this route is
-// `notifications`, and NotificationsSidebarProvider filled the column with Quick
-// filters / By type / Preferences. That is right on /notifications/ and wrong
-// here: it made this one settings tab narrower than the other three, so the main
-// column jumped width as you moved along the tab strip.
-\BuddyNext\Sidebar\Surface::set( 'settings' );
+// This template used to force `settings` because the route resolved through the
+// NOTIFICATIONS hub, so the surface fell back to that hub and
+// NotificationsSidebarProvider filled the right column with Quick filters / By
+// type / Unread only — controls that filter a list this page does not have. The
+// result was ~230px of dead controls and one settings tab visibly narrower than
+// its three siblings.
+//
+// The route is now `bn_hub=settings`, so the hub fallback is correct on its own
+// and the override is redundant. It is removed rather than left in place because
+// keeping it would mask whether the routing change actually worked — the tab
+// would look right either way.
 
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();

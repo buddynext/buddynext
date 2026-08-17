@@ -40,7 +40,12 @@ $bn_rail_items = buddynext_service( 'shell_nav' )->base_items( $bn_rail_current_
 // page, not just the hub): light up Bookmarks / Settings when their sub-view is open.
 if ( $bn_rail_current_user ) {
 	$bn_bookmarks_active = ( 'feed' === $hub && 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' ) );
-	$bn_settings_active  = ( 'settings' === $hub || ( 'notifications' === $hub && 'prefs' === (string) get_query_var( 'bn_notif_section', '' ) ) );
+	// All four Settings tabs — including Notifications — are `bn_hub=settings` as
+	// of 1.1.5, so the hub alone is the whole answer. The second clause this
+	// replaces existed only because the Notifications tab routed through a
+	// different hub, and it is the kind of special case that had to be repeated in
+	// every place that asked "am I on Settings?".
+	$bn_settings_active = ( 'settings' === $hub );
 	foreach ( $bn_rail_items as &$bn_ri ) {
 		$bn_ri_key = (string) ( $bn_ri['key'] ?? '' );
 		if ( 'bookmarks' === $bn_ri_key ) {

@@ -800,26 +800,35 @@ class PageRouter {
 		// load. This marks the list SEEN (advances a last-seen timestamp and busts
 		// the badge cache) — it does NOT mark rows read: the items stay unread/bold
 		// and the Unread tab stays populated until an explicit click or "Mark all
-		// read", exactly like GitHub / Slack / X. Not on the preferences sub-page.
+		// read", exactly like GitHub / Slack / X.
+		//
+		// The preferences form no longer needs excluding by hand: it is a Settings
+		// tab (bn_hub=settings), so this block cannot fire for it. That is load
+		// bearing, not incidental — marking a member's notifications seen because
+		// they opened a settings page would be worse than the layout bug this move
+		// fixes. Covered by a test.
 		if ( 'notifications' === $hub
 			&& is_user_logged_in()
-			&& 'prefs' !== (string) get_query_var( 'bn_notif_section', '' )
 			&& function_exists( 'buddynext_service' ) ) {
 			buddynext_service( 'notifications' )->mark_seen( get_current_user_id() );
 		}
 
+		// The Notifications TAB in Settings keeps its own title; it is a preferences
+		// form, not "Settings". Set here beside the other hub titles rather than in
+		// the template, which is where every other hub resolves its title.
+		if ( 'settings' === $hub
+			&& 'notifications' === (string) get_query_var( 'bn_settings_section', '' ) ) {
+			$hub_title = __( 'Notification preferences', 'buddynext' );
+		}
+
 		// Specialise the Notifications hub title:
-		// - Prefs section → "Notification preferences".
 		// - List with unread > 0 → "Notifications (3)" / "Notifications (99+)".
 		// Mirrors the Profile / Spaces patterns above so the document <title>
 		// reflects the active sub-route and the live unread count. The unread
 		// count read is cheap (single COUNT on an indexed column) and only
 		// fires when the hub matches.
 		if ( 'notifications' === $hub ) {
-			$notif_section_for_title = (string) get_query_var( 'bn_notif_section', '' );
-			if ( 'prefs' === $notif_section_for_title ) {
-				$hub_title = __( 'Notification preferences', 'buddynext' );
-			} elseif ( is_user_logged_in() ) {
+			if ( is_user_logged_in() ) {
 				$notif_user_id = get_current_user_id();
 				// Badge-family count (unseen), consistent with the bell/rail badges —
 				// this is 0 right after the list is marked seen above, not the raw
@@ -1281,7 +1290,7 @@ class PageRouter {
 
 		// Identical to the WP Site Title is the common case, and re-stating it
 		// through a filter buys nothing.
-		if ( '' === $community || $community === (string) get_bloginfo( 'name' ) ) {
+		if ( '' === $community || (string) get_bloginfo( 'name' ) === $community ) {
 			return;
 		}
 
@@ -1765,12 +1774,6 @@ class PageRouter {
 
 			case 'notifications':
 				$assets->enqueue( 'notifications' );
-				$notif_section = (string) get_query_var( 'bn_notif_section', '' );
-				if ( 'prefs' === $notif_section ) {
-					$assets->enqueue( 'notification-prefs' );
-					// The prefs page is the Settings hub's "Notifications" tab.
-					wp_enqueue_style( 'bn-settings' );
-				}
 				break;
 
 			case 'settings':
@@ -1778,6 +1781,14 @@ class PageRouter {
 				// editor's `.bn-ep-*` styles, plus the shared settings-tab chrome.
 				$assets->enqueue( 'profile' );
 				$assets->enqueue( 'settings' );
+
+				// The preferences form's own store. This used to live in the
+				// `notifications` case gated on bn_notif_section === 'prefs', with a
+				// comment already admitting "the prefs page is the Settings hub's
+				// Notifications tab" — the intent was right and the routing was not.
+				if ( 'notifications' === (string) get_query_var( 'bn_settings_section', '' ) ) {
+					$assets->enqueue( 'notification-prefs' );
+				}
 				break;
 
 			case 'auth':
@@ -2027,15 +2038,13 @@ class PageRouter {
 				return 'messages/list.php';
 
 			case 'notifications':
-				$notif_section = (string) get_query_var( 'bn_notif_section', '' );
-				if ( 'prefs' === $notif_section ) {
-					return 'notifications/prefs.php';
-				}
+				// No prefs branch: the preferences form is the Settings hub's
+				// Notifications tab and renders settings/notifications.php.
 				return 'notifications/index.php';
 
 			case 'settings':
 				$settings_section = (string) get_query_var( 'bn_settings_section', '' );
-				if ( ! in_array( $settings_section, array( 'account', 'privacy', 'appearance' ), true ) ) {
+				if ( ! in_array( $settings_section, array( 'account', 'privacy', 'appearance', 'notifications' ), true ) ) {
 					$settings_section = 'account';
 				}
 				return 'settings/' . $settings_section . '.php';
@@ -2360,22 +2369,23 @@ class PageRouter {
 	private function register_notifications_rules(): void {
 		$n = self::hub_slug( 'buddynext_slug_notifications', 'notifications' );
 
-		// /notifications/preferences/ — same hub, prefs section.
+		// /notifications/preferences/ — the legacy alias. It resolves to the SETTINGS
+		// hub now, like /settings/notifications/, so the old URL keeps working while
+		// `bn_notif_section=prefs` ceases to exist anywhere. Leaving it pointing at
+		// this hub would have kept the second code path alive for one route — which
+		// is exactly the shape that produced the bug this card removes.
 		add_rewrite_rule(
 			'^' . preg_quote( $n, '/' ) . '/preferences/?$',
-			'index.php?bn_hub=notifications&bn_notif_section=prefs',
+			'index.php?bn_hub=settings&bn_settings_section=notifications',
 			'top'
 		);
 
-		// /settings/notifications/ — canonical entry point requested by the
-		// production-readiness checklist. The "settings" prefix is reserved for
-		// per-user preference surfaces; no other hub uses it yet.
-		add_rewrite_rule(
-			'^settings/notifications/?$',
-			'index.php?bn_hub=notifications&bn_notif_section=prefs',
-			'top'
-		);
-
+		// NOTE: /settings/notifications/ is NOT registered here any more. It is a
+		// Settings tab and now resolves through register_settings_rules() like its
+		// three siblings. Routing it through this hub is what made the sidebar
+		// surface fall back to `notifications` and fill a preferences form's right
+		// column with Quick filters / By type / Unread only — controls that filter a
+		// list the page does not have.
 		add_rewrite_rule(
 			'^' . preg_quote( $n, '/' ) . '/?$',
 			'index.php?bn_hub=notifications',
@@ -2386,15 +2396,19 @@ class PageRouter {
 	/**
 	 * Register the Settings hub rewrite rules.
 	 *
-	 * The Settings hub is a tabbed home for per-user account/privacy/appearance
-	 * preferences. Notifications keep their own canonical route
-	 * (`/settings/notifications/`, registered above) and render as the
-	 * Notifications tab. `/settings/` defaults to the Account tab.
+	 * The Settings hub is a tabbed home for per-user preferences. All four tabs —
+	 * account, privacy, appearance and notifications — resolve here, through the
+	 * same loop, to `bn_hub=settings`. `/settings/` defaults to the Account tab.
+	 *
+	 * Notifications used to be the exception, routed through the notifications hub
+	 * as `bn_notif_section=prefs`. That mismatch generated a real bug rather than
+	 * merely looking untidy: anything keying off the hub got the wrong answer for
+	 * this one tab, and the sidebar surface did exactly that.
 	 *
 	 * @return void
 	 */
 	private function register_settings_rules(): void {
-		foreach ( array( 'account', 'privacy', 'appearance' ) as $section ) {
+		foreach ( array( 'account', 'privacy', 'appearance', 'notifications' ) as $section ) {
 			add_rewrite_rule(
 				'^settings/' . $section . '/?$',
 				'index.php?bn_hub=settings&bn_settings_section=' . $section,
