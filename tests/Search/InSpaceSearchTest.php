@@ -227,6 +227,56 @@ class InSpaceSearchTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The scope pages, and page 2 is a different set — not a repeat of page 1.
+	 *
+	 * A space big enough to need search is big enough to overflow one page of
+	 * it. Before the pager existed the panel asked for page 1 and nothing else,
+	 * so in a 3000-post space the twentieth match was the last one reachable —
+	 * which fails the feature in exactly the scenario that motivated it.
+	 *
+	 * @return void
+	 */
+	public function test_the_scope_pages_without_repeating(): void {
+		for ( $i = 0; $i < 7; $i++ ) {
+			$this->search->index( 'post', 92000 + $i, 'Paged ' . $i, 'pagedzorp item ' . $i, 1, 'public', $this->space_a );
+		}
+
+		$page1 = $this->ids( $this->paged( 'pagedzorp', $this->space_a, 1, 4 ) );
+		$page2 = $this->ids( $this->paged( 'pagedzorp', $this->space_a, 2, 4 ) );
+
+		$this->assertCount( 4, $page1, 'a full first page' );
+		$this->assertCount( 3, $page2, 'the remainder on page two' );
+		$this->assertSame(
+			array(),
+			array_intersect( $page1, $page2 ),
+			'a paged scope must not hand back the same rows twice — that is the shape of an ignored offset'
+		);
+		$this->assertCount( 7, array_unique( array_merge( $page1, $page2 ) ), 'every match must be reachable across the pages' );
+	}
+
+	/**
+	 * Run a scoped search on a specific page.
+	 *
+	 * @param string $query    Search term.
+	 * @param int    $space_id Space to scope to.
+	 * @param int    $page     1-based page.
+	 * @param int    $per_page Results per page.
+	 * @return array{items: array[], total: int}
+	 */
+	private function paged( string $query, int $space_id, int $page, int $per_page ): array {
+		$scope = static function ( array $args ) use ( $space_id ): array {
+			$args['scope_space_id'] = $space_id;
+			return $args;
+		};
+
+		add_filter( 'buddynext_search_query_args', $scope, 5 );
+		$result = $this->search->search( $query, 'post', $per_page, $page, 0 );
+		remove_filter( 'buddynext_search_query_args', $scope, 5 );
+
+		return $result;
+	}
+
+	/**
 	 * Private space content stays invisible to a non-member, scope or not.
 	 *
 	 * The scope is ANDed with the visibility gate rather than replacing it, so

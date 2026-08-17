@@ -33,6 +33,13 @@ use BuddyNext\Spaces\SpaceService;
 final class SpaceNav {
 
 	/**
+	 * Matches per page for in-space search.
+	 *
+	 * @var int
+	 */
+	private const SEARCH_PER_PAGE = 20;
+
+	/**
 	 * Hook the provider onto the one-time registration action.
 	 */
 	public function register(): void {
@@ -325,6 +332,14 @@ final class SpaceNav {
 		$search_query = ( $can_search && isset( $_GET['bn_sf_q'] ) ) ? sanitize_text_field( wp_unslash( $_GET['bn_sf_q'] ) ) : '';
 		$search_total = 0;
 
+		// Page number for the paged search. A space that is big enough to need
+		// search is big enough to overflow one page of it, so the twentieth match
+		// cannot be the last one a member can reach.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only pagination on a GET form.
+		$search_page = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
+		$has_prev    = false;
+		$has_next    = false;
+
 		if ( '' !== $search_query ) {
 			$scope = static function ( array $args ) use ( $space_id ): array {
 				$args['scope_space_id'] = $space_id;
@@ -332,7 +347,7 @@ final class SpaceNav {
 			};
 
 			add_filter( 'buddynext_search_query_args', $scope, 5 );
-			$hits = buddynext_service( 'search' )->search( $search_query, 'post', 20, 1, $viewer_id );
+			$hits = buddynext_service( 'search' )->search( $search_query, 'post', self::SEARCH_PER_PAGE, $search_page, $viewer_id );
 			remove_filter( 'buddynext_search_query_args', $scope, 5 );
 
 			$hit_ids = array_values(
@@ -348,10 +363,21 @@ final class SpaceNav {
 			$visible_ids   = $posts_service->filter_visible( $hit_ids, $viewer_id );
 			$results       = $posts_service->get_many( $visible_ids );
 
-			// The reported total is what the viewer can actually see, not what the
-			// index matched. Showing the index count would promise rows that gate 2
-			// then removed, and "12 results" above 9 cards reads as a bug.
+			// The reported total is what the viewer can actually see on THIS page,
+			// not what the index matched. Showing the index count would promise
+			// rows that gate 2 then removed, and "12 results" above 9 cards reads
+			// as a bug — which on this data it would, constantly: a majority of
+			// indexed post rows can point at posts that no longer exist.
 			$search_total = count( $results );
+
+			// Prev/next rather than a page count, and for the same reason the total
+			// is per-page: gate 2 removes an unknown number of rows per page, so any
+			// "page 3 of 9" we printed would be a guess. What IS knowable is whether
+			// the INDEX had a full page — if it did, there is another page to fetch.
+			// The service's own 1000-row ceiling ends the sequence naturally, since
+			// a bounded page past it comes back short.
+			$has_prev = $search_page > 1;
+			$has_next = count( (array) ( $hits['items'] ?? array() ) ) >= self::SEARCH_PER_PAGE;
 
 			$feed->prime_viewer_state( $results, $viewer_id );
 
@@ -372,6 +398,9 @@ final class SpaceNav {
 					'search_query' => $search_query,
 					'search_total' => $search_total,
 					'can_search'   => $can_search,
+					'search_page'  => $search_page,
+					'has_prev'     => $has_prev,
+					'has_next'     => $has_next,
 				)
 			);
 
@@ -439,6 +468,9 @@ final class SpaceNav {
 				'search_query' => '',
 				'search_total' => 0,
 				'can_search'   => $can_search,
+				'search_page'  => 1,
+				'has_prev'     => false,
+				'has_next'     => false,
 			)
 		);
 	}

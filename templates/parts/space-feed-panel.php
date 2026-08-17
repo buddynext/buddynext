@@ -25,6 +25,9 @@
  * @var string       $search_query  Optional. Active in-space search term. When non-empty, $posts holds matches, not the feed. Default ''.
  * @var int          $search_total  Optional. Number of visible matches for $search_query. Default 0.
  * @var bool         $can_search    Optional. Viewer may read this space's content, so the search box is offered. Default true.
+ * @var int          $search_page   Optional. 1-based page of search results being shown. Default 1.
+ * @var bool         $has_prev      Optional. A previous page of matches exists. Default false.
+ * @var bool         $has_next      Optional. A further page of matches exists. Default false.
  * @var array       $classes        Optional. Extra CSS classes appended to the wrapper.
  *
  * Fires:
@@ -65,6 +68,9 @@ $args = array(
 	// private space the viewer has not joined, where the panel renders a join
 	// CTA and a search box would be a control that can only answer "0 results".
 	'can_search'   => isset( $can_search ) ? (bool) $can_search : true,
+	'search_page'  => isset( $search_page ) ? max( 1, (int) $search_page ) : 1,
+	'has_prev'     => isset( $has_prev ) ? (bool) $has_prev : false,
+	'has_next'     => isset( $has_next ) ? (bool) $has_next : false,
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -93,6 +99,9 @@ $bn_search_query = (string) $args['search_query'];
 $bn_search_total = (int) $args['search_total'];
 $bn_is_searching = '' !== $bn_search_query;
 $bn_can_search   = (bool) $args['can_search'];
+$bn_search_page  = max( 1, (int) $args['search_page'] );
+$bn_has_prev     = (bool) $args['has_prev'];
+$bn_has_next     = (bool) $args['has_next'];
 
 // Base URL for the search form and the clear link: the current space tab with
 // our own params stripped, so submitting never stacks duplicates and clearing
@@ -392,6 +401,52 @@ if ( ! empty( $bn_pinned_posts ) ) :
 		}
 		?>
 	</div>
+<?php endif; ?>
+
+<?php
+/*
+ * Search pager. Prev/next rather than numbered pages: gate 2 (filter_visible)
+ * drops an unknown number of rows per page, so a printed "page 3 of 9" would be
+ * a guess. `has_next` is driven by whether the INDEX returned a full page, and
+ * the search service's own 1000-row ceiling ends the sequence naturally.
+ *
+ * Rendered outside the results branch on purpose: someone who lands past the
+ * last page sees the empty state AND still has a way back.
+ */
+$bn_pager_url = static function ( int $page ) use ( $bn_search_query, $bn_search_base ): string {
+	return add_query_arg(
+		array(
+			'bn_sf_q' => $bn_search_query,
+			'paged'   => $page,
+		),
+		$bn_search_base
+	);
+};
+?>
+<?php if ( $bn_is_searching && ( $bn_has_prev || $bn_has_next ) ) : ?>
+	<nav class="bn-space-search__pager" aria-label="<?php esc_attr_e( 'Search results pages', 'buddynext' ); ?>">
+		<?php if ( $bn_has_prev ) : ?>
+			<a class="bn-btn" data-variant="ghost" data-size="md" rel="prev" href="<?php echo esc_url( $bn_pager_url( $bn_search_page - 1 ) ); ?>">
+				<?php esc_html_e( 'Previous', 'buddynext' ); ?>
+			</a>
+		<?php endif; ?>
+
+		<span class="bn-space-search__pager-page">
+			<?php
+			printf(
+				/* translators: %s: current page number. */
+				esc_html__( 'Page %s', 'buddynext' ),
+				esc_html( number_format_i18n( $bn_search_page ) )
+			);
+			?>
+		</span>
+
+		<?php if ( $bn_has_next ) : ?>
+			<a class="bn-btn" data-variant="ghost" data-size="md" rel="next" href="<?php echo esc_url( $bn_pager_url( $bn_search_page + 1 ) ); ?>">
+				<?php esc_html_e( 'Next', 'buddynext' ); ?>
+			</a>
+		<?php endif; ?>
+	</nav>
 <?php endif; ?>
 
 <?php

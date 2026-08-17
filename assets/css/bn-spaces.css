@@ -3816,3 +3816,18 @@ a.bn-sh-statpill:focus-visible {
 		flex: 1 1 0;
 	}
 }
+
+/* Search results pager (prev / page / next). */
+.bn-space-search__pager {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s3);
+	margin-block: var(--bn-s5);
+}
+
+.bn-space-search__pager-page {
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	font-variant-numeric: tabular-nums;
+}
