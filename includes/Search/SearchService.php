@@ -675,6 +675,12 @@ class SearchService {
 		 * @since 1.0.0
 		 *
 		 * @param array  $args      Query args: per_page, page, type, viewer_id.
+		 *                          Also honoured when set by a contributor:
+		 *                          `date` (week|month|year), `sort` (recent) and
+		 *                          `scope_space_id` (restrict CONTENT results to
+		 *                          one space; distinct from the Pro-owned
+		 *                          `space_id` member filter, which Pro strips
+		 *                          from unentitled viewers).
 		 * @param string $query     Raw (unsanitised) search string.
 		 * @param int    $viewer_id Viewing user ID.
 		 */
@@ -716,6 +722,42 @@ class SearchService {
 				break;
 		}
 		$sort_recent = isset( $search_args['sort'] ) && 'recent' === sanitize_key( (string) $search_args['sort'] );
+
+		// ------------------------------------------------------------------ //
+		// Optional single-space scope, for searching inside one space rather
+		// than the whole community. Narrowing only: it is ANDed with the
+		// visibility gate below, never instead of it, so scoping to a space the
+		// viewer cannot see returns nothing rather than leaking its contents.
+		// That gate is the one place space access is decided for search, and
+		// this must not become a second one.
+		//
+		// absint()'d and embedded directly, exactly as the $viewer_spaces IN()
+		// list below is — an integer cannot carry injection, and keeping it out
+		// of the bound params leaves all four query builders' parameter order
+		// untouched. `space` is a BTREE index on this column, so the scope is a
+		// key lookup rather than a scan.
+		//
+		// The key is `scope_space_id`, NOT `space_id`, and the distinction is
+		// load-bearing rather than cosmetic. `space_id` already existed as one of
+		// the five PRO-owned advanced keys, meaning "members of this space" —
+		// Pro answers it on the buddynext_search_advanced_where seam above by
+		// joining bn_space_members, and AdvancedSearchFilters::apply_pro_args()
+		// STRIPS it from these args whenever the viewer fails the
+		// search.saved_advanced entitlement (which includes every anonymous
+		// visitor). Scoping a FREE feature to that key would therefore work on a
+		// Free-only site and silently stop working the moment monetization was
+		// switched on, handing a member the whole community's results while the
+		// UI told them they had searched one space. Wrong results are worse than
+		// a missing feature, so the two concerns get two keys.
+		//
+		// Still not applied to member searches: user rows carry no space_id of
+		// their own, so the column test would match nothing. The type test
+		// mirrors the advanced-where block above; the two must agree on which
+		// types are member searches.
+		// ------------------------------------------------------------------ //
+		$is_member_search = in_array( $type, array( 'user', 'member' ), true );
+		$scope_space      = ( ! $is_member_search && isset( $search_args['scope_space_id'] ) ) ? absint( $search_args['scope_space_id'] ) : 0;
+		$space_where      = $scope_space > 0 ? " AND si.space_id = {$scope_space}" : '';
 
 		/*
 		 * Advanced member-search WHERE clauses — contributed by whoever OWNS the tables.
@@ -899,6 +941,7 @@ class SearchService {
 						   {$excluded_where}
 						   {$advanced_where}
 						   {$date_where}
+					   {$space_where}
 						 LIMIT %d
 					) bn_bounded",
 					...array_merge( $type_params, $block_params, $advanced_params, array( self::MAX_RESULTS + 1 ) )
@@ -928,6 +971,7 @@ class SearchService {
 					   {$excluded_where}
 					   {$advanced_where}
 					   {$date_where}
+					   {$space_where}
 					 ORDER BY {$order_clause}
 					 LIMIT %d OFFSET %d",
 					...array_merge( array( $safe_query . '*' ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
@@ -988,6 +1032,7 @@ class SearchService {
 						   {$excluded_where}
 						   {$advanced_where}
 						   {$date_where}
+					   {$space_where}
 						 LIMIT %d
 					) bn_bounded",
 					...array_merge( $like_params, $type_params, $block_params, $advanced_params, array( self::MAX_RESULTS + 1 ) )
@@ -1007,6 +1052,7 @@ class SearchService {
 					   {$excluded_where}
 					   {$advanced_where}
 					   {$date_where}
+					   {$space_where}
 					 ORDER BY si.updated_at DESC
 					 LIMIT %d OFFSET %d",
 					...array_merge( $like_params, $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )

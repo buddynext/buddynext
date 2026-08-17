@@ -3754,3 +3754,65 @@ a.bn-sh-statpill:focus-visible {
 		width: 100%;
 	}
 }
+
+/* ── In-space post search ───────────────────────────────────────────────────
+ * The search bar above a space's feed (templates/parts/space-feed-panel.php).
+ * Mirrors the Members tab's filter bar (.bn-space-members__filter) so the two
+ * in-space search affordances look like one feature, not two.
+ */
+.bn-space-search {
+	display: flex;
+	gap: var(--bn-s2);
+	align-items: center;
+	flex-wrap: wrap;
+	padding: var(--bn-s3) var(--bn-s4);
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-space-search__icon {
+	display: inline-flex;
+	flex: 0 0 auto;
+	color: var(--bn-ink-3);
+}
+
+.bn-space-search__icon svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+.bn-space-search__input {
+	flex: 1 1 220px;
+	/* Override the .bn-input width:100% base so the flex-basis wins and the
+	   field shares the row instead of forcing each control onto its own line —
+	   same reason .bn-space-members__filter-search does it. */
+	inline-size: auto;
+	min-inline-size: 0;
+}
+
+.bn-space-search__summary {
+	margin-block: 0 var(--bn-s4);
+	padding-inline: var(--bn-s1);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
+
+@media (max-width: 640px) {
+	.bn-space-search {
+		padding: var(--bn-s3);
+	}
+
+	/* The icon is decoration next to a placeholder that already says what the
+	   field does; at this width the row needs the space for the input and its
+	   two buttons more than it needs the glyph. */
+	.bn-space-search__icon {
+		display: none;
+	}
+
+	.bn-space-search__input {
+		flex: 1 1 100%;
+	}
+
+	.bn-space-search .bn-btn {
+		flex: 1 1 0;
+	}
+}

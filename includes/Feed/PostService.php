@@ -702,6 +702,56 @@ class PostService {
 	}
 
 	/**
+	 * Retrieve many posts by ID in ONE query, hydrated, in the order given.
+	 *
+	 * The batch counterpart to get(). A caller holding a list of ids — search
+	 * hits, bookmarks, a moderation selection — would otherwise loop get() and
+	 * issue one query per row; at a page of 20 that is 20 round trips for data
+	 * a single IN() answers. Ordering follows $post_ids rather than the table,
+	 * because the caller's order is usually meaningful (relevance, for one) and
+	 * is lost by the database.
+	 *
+	 * Visibility is NOT applied here — this is a fetch, not a gate. Callers pass
+	 * the ids through filter_visible() first, exactly as the feed does.
+	 *
+	 * @param array<int,int> $post_ids Post IDs.
+	 * @return array<int,array<string,mixed>> Hydrated posts, missing ids skipped.
+	 */
+	public function get_many( array $post_ids ): array {
+		global $wpdb;
+
+		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+		if ( empty( $post_ids ) ) {
+			return array();
+		}
+
+		// All-integer list, so it is embedded rather than bound — the same idiom
+		// the counter and review queries above use.
+		$ids_in = implode( ',', $post_ids );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			"SELECT * FROM {$wpdb->prefix}bn_posts WHERE id IN ({$ids_in})",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$by_id = array();
+		foreach ( (array) $rows as $row ) {
+			$by_id[ (int) $row['id'] ] = $this->hydrate( $row );
+		}
+
+		$ordered = array();
+		foreach ( $post_ids as $id ) {
+			if ( isset( $by_id[ $id ] ) ) {
+				$ordered[] = $by_id[ $id ];
+			}
+		}
+
+		return $ordered;
+	}
+
+	/**
 	 * Retrieve a single post by ID.
 	 *
 	 * Returns null when the post does not exist. For poll posts, the returned

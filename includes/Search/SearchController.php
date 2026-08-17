@@ -85,8 +85,15 @@ class SearchController extends \BuddyNext\REST\BaseRestController {
 						'type'              => 'string',
 						'sanitize_callback' => 'sanitize_key',
 					),
+					// Meaning depends on `type`, because "restrict to this space"
+					// resolves differently for people than for content. On a member
+					// search Pro answers it by joining bn_space_members; on any
+					// other type Free scopes the index rows to that space. Content
+					// scoping stays subject to the same visibility gate as an
+					// unscoped search, so naming a space the viewer cannot see
+					// returns nothing rather than its contents.
 					'space_id'           => array(
-						'description'       => __( 'Pro: filter members to active members of this space ID.', 'buddynext' ),
+						'description'       => __( 'Restrict results to one space. On a member search (Pro) this means active members of the space; on any other type it means content posted in it.', 'buddynext' ),
 						'required'          => false,
 						'type'              => 'integer',
 						'sanitize_callback' => 'absint',
@@ -275,6 +282,25 @@ class SearchController extends \BuddyNext\REST\BaseRestController {
 		// a request-scoped closure (rather than relying on $_GET) keeps a single,
 		// deterministic source of truth for both grouped and typed searches.
 		$advanced = self::collect_advanced_args( $request );
+
+		// In-space CONTENT search. The public arg stays `space_id` — one param
+		// meaning "restrict to this space" — but it is forwarded under a second,
+		// Free-owned key on anything that is not a member search.
+		//
+		// It cannot ride on `space_id` itself: that is one of Pro's five
+		// entitlement-gated advanced keys, and Pro STRIPS it from these args for
+		// any viewer without search.saved_advanced (every anonymous visitor
+		// included). A Free feature scoped to it would work on a Free-only site
+		// and quietly stop scoping once monetization was enabled, showing the
+		// whole community's posts under a space's search box.
+		//
+		// Member searches keep the Pro meaning untouched: there, "restrict to
+		// this space" means members of it, which is Pro's join to answer.
+		$scope_space = absint( $request->get_param( 'space_id' ) ?? 0 );
+		if ( $scope_space > 0 && ! in_array( $type, array( '', 'user', 'member', 'users', 'members' ), true ) ) {
+			$advanced['scope_space_id'] = $scope_space;
+		}
+
 		$injector = null;
 		if ( ! empty( $advanced ) ) {
 			$injector = static function ( array $args ) use ( $advanced ): array {
