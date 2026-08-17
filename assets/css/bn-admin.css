@@ -81,6 +81,11 @@
 	--bn-a-amber-bg:          var(--bn-warn-bg);
 	--bn-a-red:               var(--bn-danger);
 	--bn-a-red-bg:            var(--bn-danger-bg);
+	/* Informational, not a product accent. --bn-a-career-* aliases the same base
+	   pair, but that name means "Career Board" and a neutral notice is not a
+	   partner surface. */
+	--bn-a-info:              var(--bn-info);
+	--bn-a-info-bg:           var(--bn-info-bg);
 
 	/* -- Sibling-product accents (hue-derived in bn-base.css) ----------- */
 	--bn-a-jetonomy:          var(--bn-jetonomy);
@@ -291,6 +296,22 @@
 	background: var(--bn-a-red-bg);
 	color: var(--bn-a-red);
 	border: 1px solid var(--bn-a-red-bg);
+}
+
+/* Warning and info existed as core notice types that admin screens were still
+   hand-rolling, so a "this will affect existing members" caution rendered in
+   WordPress grey next to BuddyNext's own green and red. Four tones or the
+   primitive only covers half of what the screens actually say. */
+.bn-notice-warning {
+	background: var(--bn-a-amber-bg);
+	color: var(--bn-a-amber);
+	border: 1px solid var(--bn-a-amber-bg);
+}
+
+.bn-notice-info {
+	background: var(--bn-a-info-bg);
+	color: var(--bn-a-info);
+	border: 1px solid var(--bn-a-info-bg);
 }
 
 /* --------------------------------------------------------------------------

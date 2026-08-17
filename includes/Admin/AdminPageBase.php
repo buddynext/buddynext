@@ -596,6 +596,72 @@ abstract class AdminPageBase {
 	}
 
 	/**
+	 * Render a branded admin notice.
+	 *
+	 * Admin screens hand-rolled `<div class="notice notice-success"><p>…</p></div>`
+	 * in 106 places across the two plugins. That is WordPress's own notice, not
+	 * BuddyNext's: core grey-and-blue chrome sitting inside a BuddyNext card,
+	 * beside BuddyNext's own tokens, so the same "saved" message looked like two
+	 * different products depending on which screen said it. The `.bn-notice`
+	 * styles and their dismiss/announce behaviour already existed — what was
+	 * missing was anything for a call site to CALL, which is why the raw markup
+	 * kept being copied.
+	 *
+	 * Static, and public, because the screens needing it are split roughly evenly
+	 * between classes that extend this base and ones that do not (ToolsTab,
+	 * EmailEditor, AvatarSettings, MemberEditForm…). A protected instance method
+	 * would have been reachable from half the call sites it exists for, which is
+	 * how the raw markup would have survived in the other half.
+	 *
+	 * `bn-admin-dialogs.js` wires every `.bn-notice` on load: it sets
+	 * `role="alert"` on errors and `role="status"` otherwise, injects the dismiss
+	 * button, and auto-dismisses after 12s with a hover/focus pause. So there is
+	 * no dismissible variant to opt into — every notice rendered here is
+	 * dismissible and announced, which is what core's `is-dismissible` was being
+	 * used to ask for.
+	 *
+	 * @param string $message Notice text. Escaped unless $allow_links is true.
+	 * @param string $tone    One of success|error|warning|info. Unknown tones
+	 *                        fall back to info rather than rendering untoned.
+	 * @param bool   $allow_links Permit inline links/emphasis in $message, run
+	 *                            through wp_kses with a small allowlist. Use for
+	 *                            a message that points at another screen.
+	 * @return void
+	 */
+	public static function render_notice( string $message, string $tone = 'info', bool $allow_links = false ): void {
+		if ( '' === trim( $message ) ) {
+			return;
+		}
+
+		if ( ! in_array( $tone, array( 'success', 'error', 'warning', 'info' ), true ) ) {
+			$tone = 'info';
+		}
+
+		$body = $allow_links
+			? wp_kses(
+				$message,
+				array(
+					'a'      => array(
+						'href'   => array(),
+						'target' => array(),
+						'rel'    => array(),
+					),
+					'strong' => array(),
+					'em'     => array(),
+					'code'   => array(),
+					'br'     => array(),
+				)
+			)
+			: esc_html( $message );
+
+		printf(
+			'<div class="bn-notice bn-notice-%1$s">%2$s</div>',
+			esc_attr( $tone ),
+			$body // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_html() or wp_kses() applied above.
+		);
+	}
+
+	/**
 	 * Render a limit that can be switched off, instead of a magic zero.
 	 *
 	 * Several settings across both plugins store "no limit" as `0` and explain it
