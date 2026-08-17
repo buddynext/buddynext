@@ -580,6 +580,68 @@ class MemberEditForm {
 		}
 
 		$input_id = 'bn-pf-' . $key;
+
+		/*
+		 * Option-typed controls go through the SHARED renderer, not a copy.
+		 *
+		 * These four used to be hand-rolled here, and every one of them printed the
+		 * option LABEL as the option's value:
+		 *
+		 *     <option value="<?php echo esc_attr( (string) $opt ); ?>" ...>
+		 *
+		 * Values are stored as SLUGS. So `selected( 'leo', 'Leo' )` never matched and
+		 * every select, multiselect, radio and checkbox on the site rendered EMPTY,
+		 * whatever the member had saved. FieldType has always keyed its options
+		 * slug => label — that is why display_text() can look up
+		 * $options[ sanitize_title( $value ) ] and get the label back — and the
+		 * member-facing editor, which renders through FieldType::render_input(),
+		 * round-trips correctly. The admin editor was the only surface that
+		 * re-implemented the control, and it re-implemented it against the wrong key.
+		 *
+		 * That was not merely cosmetic. An empty select POSTS an empty string, and
+		 * Members.php writes any key that is set, so an admin who opened a member and
+		 * saved without touching anything destroyed the stored value and was shown
+		 * "Profile updated successfully." (Verified: a select wiped; radio and
+		 * multiselect survived only because an empty one posts no key at all and the
+		 * isset() check skips it. The select is the one that loses data.) And where
+		 * such a field is REQUIRED it renders empty, fails validation, and — because
+		 * save_profile() is atomic — makes the member unsaveable from this screen
+		 * with no way out, since re-picking the value stores a slug the next render
+		 * again cannot match.
+		 *
+		 * Scoped to these three deliberately. The file's `checkbox` branch carries the
+		 * identical defect but is NOT delegated, because FieldType has no `checkbox`
+		 * case in render_input() or sanitize() — it is not a field type this product
+		 * supports (multi-value lives in multiselect / category_multiselect /
+		 * member_type_multiselect), so that branch is unreachable for any real field
+		 * and routing it here would silently downgrade it to a text input. Left as
+		 * found rather than half-fixed.
+		 *
+		 * The wrapper below stays: it carries the admin form's own row markup and
+		 * label, which the primitive does not render.
+		 */
+		$bn_delegated = array( 'select', 'multiselect', 'radio' );
+
+		if ( in_array( $type, $bn_delegated, true ) ) {
+			// The bare key. render_multiselect_input() appends its own `[]` to the
+			// name it is handed, so passing "$key[]" here produced "$key[][]" — the
+			// boxes rendered and checked correctly and the save posted a nested array
+			// the handler could not read.
+			$bn_input_name = $key;
+			?>
+<div class="bn-field-row">
+	<div class="bn-label"><label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label></div>
+	<div class="bn-control">
+			<?php
+			// FieldType::render_input() returns markup it has escaped itself; this is
+			// the same contract the member-facing profile editor relies on.
+			echo \BuddyNext\Profile\FieldType::render_input( $field, $raw_val, $bn_input_name ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the renderer.
+			?>
+	</div>
+</div>
+			<?php
+			return;
+		}
 		?>
 <div class="bn-field-row">
 	<div class="bn-label"><label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label></div>
