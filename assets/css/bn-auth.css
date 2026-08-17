@@ -443,7 +443,8 @@
 
 .bn-auth-social .bn-btn[data-variant] {
 	width: 100%;
-	padding: 0 var(--bn-s2);
+	--bn-btn-py: 0;
+	--bn-btn-px: var(--bn-s2);
 }
 
 /* Password-strength meter (composes .bn-progress) */

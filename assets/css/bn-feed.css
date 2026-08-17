@@ -174,7 +174,8 @@
 .bn-post-card__follow .bn-btn {
 	min-height: 0;
 	height: auto;
-	padding: 4px 14px;
+	--bn-btn-py: 4px;
+	--bn-btn-px: 14px;
 	font-size: var(--bn-text-xs);
 	font-weight: 600;
 	border-radius: var(--bn-r-full, 999px);
@@ -1965,7 +1966,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	width: 40px;
 	height: 40px;
 	min-height: 40px;
-	padding: 0;
+	--bn-btn-py: 0;
+	--bn-btn-px: 0;
 	border-radius: var(--bn-r-full);
 	flex-shrink: 0;
 }

@@ -1569,7 +1569,7 @@
 	}
 
 	.bn-dm-pane__actions .bn-btn {
-		padding-inline: var(--bn-s2);
+		--bn-btn-px: var(--bn-s2);
 	}
 }
 

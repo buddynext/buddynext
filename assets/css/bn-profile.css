@@ -233,7 +233,8 @@
 }
 
 .bn-btn--sm {
-	padding: 7px var(--bn-p-s4);
+	--bn-btn-py: 7px;
+	--bn-btn-px: var(--bn-p-s4);
 	border-radius: var(--bn-p-r-full);
 	font-size: var(--bn-p-text-xs);
 }
@@ -242,7 +243,8 @@
 	background: var(--bn-p-brand);
 	color: var(--text-on-brand);
 	border: 1.5px solid var(--bn-p-brand);
-	padding: 8px var(--bn-p-s5);
+	--bn-btn-py: 8px;
+	--bn-btn-px: var(--bn-p-s5);
 	border-radius: var(--bn-p-r-full);
 }
 .bn-btn--primary:hover,
@@ -256,7 +258,8 @@
 	background: var(--bn-p-surface);
 	color: var(--bn-p-text-1);
 	border: 1.5px solid var(--bn-p-border);
-	padding: 8px var(--bn-p-s4);
+	--bn-btn-py: 8px;
+	--bn-btn-px: var(--bn-p-s4);
 	border-radius: var(--bn-p-r-full);
 }
 .bn-btn--secondary:hover,
@@ -269,7 +272,8 @@
 	background: var(--bn-p-surface);
 	color: var(--bn-p-text-2);
 	border: 1.5px solid var(--bn-p-border);
-	padding: 8px 10px;
+	--bn-btn-py: 8px;
+	--bn-btn-px: 10px;
 	border-radius: var(--bn-p-r-full);
 	line-height: 1;
 }

@@ -1631,7 +1631,15 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	align-items: center;
 	gap: var(--bn-s2);
 	min-height: 40px;
-	padding: var(--bn-s2) var(--bn-s4);
+	/* Geometry through tokens, never a literal, so the theme-bleed lock can
+	   re-apply the TOKEN on every interactive state. A lock that re-applied a
+	   literal would be 0,3,0 and out-specify every variant below — a small
+	   button would jump from 0 12px to 8px 16px the moment a pointer touched
+	   it. Every rule that changes a button's padding sets these two custom
+	   properties instead. */
+	--bn-btn-py: var(--bn-s2);
+	--bn-btn-px: var(--bn-s4);
+	padding: var(--bn-btn-py) var(--bn-btn-px);
 	border: 1px solid transparent;
 	border-radius: var(--bn-r-md);
 	font-family: var(--font-body);
@@ -1783,7 +1791,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	}
 
 	.bn-btn {
-		padding: var(--bn-s2) var(--bn-s3);
+		--bn-btn-px: var(--bn-s3);
 	}
 }
 
@@ -2034,8 +2042,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-member-row > .bn-follow-btn-wrap,
 .bn-member-row > .bn-btn { flex: 0 0 auto; }
 .bn-member-row .bn-btn {
-	padding-block: 4px;
-	padding-inline: var(--bn-s3);
+	--bn-btn-py: 4px;
+	--bn-btn-px: var(--bn-s3);
 	font-size: var(--text-xs);
 }
 
@@ -2075,8 +2083,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-sbar-row > .bn-btn,
 .bn-sbar-row__action { flex: 0 0 auto; }
 .bn-sbar-row > .bn-btn {
-	padding-block: 4px;
-	padding-inline: var(--bn-s3);
+	--bn-btn-py: 4px;
+	--bn-btn-px: var(--bn-s3);
 	font-size: var(--text-xs);
 }
 .bn-sbar-row__meta {
@@ -2562,7 +2570,9 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	 *
 	 * Single-line buttons are unaffected — min-height resolves to the same floor,
 	 * so English layouts render at exactly that height. */
-	padding: var(--bn-s2) var(--bn-s4);
+	--bn-btn-py: var(--bn-s2);
+	--bn-btn-px: var(--bn-s4);
+	padding: var(--bn-btn-py) var(--bn-btn-px);
 	/* 40px, the design system's `md` rung and its stated tap-target floor. This
 	   was 36px, and because [data-variant] outranks the plain .bn-btn rule it
 	   was the REAL default height for every button in the plugin — the base
@@ -2594,13 +2604,15 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
    Connect, Join). The standard allows a 34px floor only for compact ADMIN list
    rows; none of these are that. */
 .bn-btn[data-size="sm"] {
-	padding: var(--bn-s1) var(--bn-s3);
+	--bn-btn-py: var(--bn-s1);
+	--bn-btn-px: var(--bn-s3);
 	font-size: var(--bn-text-xs);
 	border-radius: var(--bn-r-sm);
 }
 .bn-btn[data-size="lg"] {
 	height: 44px;
-	padding: 0 var(--bn-s5);
+	--bn-btn-py: 0;
+	--bn-btn-px: var(--bn-s5);
 	font-size: var(--bn-text-base);
 }
 
@@ -3644,18 +3656,27 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	the lock cannot collide with our own CSS. That is the only safe thing to lock
 	with a literal value.
 
-	`.bn-btn` is NOT locked here, on purpose. It carries about ten geometry
-	overrides across four stylesheets — [data-size="sm"], [data-size="lg"],
+	`.bn-btn` IS locked here now, and it is the exception that proves the rule
+	above: it has many geometries, so the lock cannot carry a literal. It carries
+	about ten overrides across five stylesheets — [data-size="sm"], [data-size="lg"],
 	[data-variant], the feed follow button, the comment submit, the auth social
-	button, .bn-btn-message, and a responsive @media — most of them at 0,2,0. A
-	central `.bn-app .bn-btn:hover` lock is 0,3,0 and would out-specify EVERY one of
-	them on hover: a small button would jump from `0 12px` to `8px 16px` the moment
-	the pointer touched it. That is the pill bug again, with a bigger blast radius.
+	button, the compact member/sidebar rows, the .bn-btn--* modifiers and a
+	responsive @media — most at 0,2,0, some at 0,1,0. A lock re-applying a literal
+	would be 0,3,0 and out-specify EVERY one of them on hover: a small button would
+	jump from `4px 12px` to `8px 16px` the moment the pointer touched it. That is
+	the pill bug again with a bigger blast radius, and writing it is how this card
+	nearly shipped the thing it was raised to prevent.
 
-	Locking .bn-btn therefore requires tokenising it FIRST (base declares
-	--bn-btn-px/--bn-btn-py; each variant sets the token instead of `padding`), and
-	that is a subsystem change with its own verification. Tracked separately — do not
-	shortcut it by adding a literal lock here.
+	The lock re-applies the TOKENS instead. Every rule that changes a button's
+	padding now sets --bn-btn-py/--bn-btn-px rather than `padding`, so the locked
+	declaration resolves to whatever the winning variant asked for. A variant can
+	never be out-specified by the lock, because the lock is not competing with it —
+	it restates the same custom properties the cascade already resolved. Same
+	pattern as .bn-sd-chip and --bn-tab-px.
+
+	Any NEW rule that wants a different button geometry must set the tokens too. A
+	literal `padding` on a .bn-btn selector will be silently overridden on hover —
+	which is exactly the failure this layer exists to make impossible.
 
 	Also note `.bn-btn[data-variant]:active { transform: scale(0.98) }` — BuddyNext
 	INTENTIONALLY scales a button on press. A blanket `transform: none` on interactive
@@ -3665,6 +3686,18 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	Fixed-geometry controls: no size/shape variants exist, so a literal lock is safe
    and cannot fight our own CSS. Base AND every interactive state, so a theme rule on
    :hover (0,1,1) cannot out-specify us (0,3,0) and reflow the control. */
+/* .bn-btn — locked through its tokens, never a literal. See the note above.
+   `transform` is deliberately absent from this lock: .bn-btn[data-variant]:active
+   scales to 0.98 as press feedback, and a blanket `transform: none` here would
+   silently delete that across the whole product. */
+.bn-app .bn-btn,
+.bn-app .bn-btn:hover,
+.bn-app .bn-btn:focus,
+.bn-app .bn-btn:active,
+.bn-app .bn-btn:focus-visible {
+	padding: var(--bn-btn-py) var(--bn-btn-px);
+}
+
 .bn-app .bn-modal__close,
 .bn-app .bn-modal__close:hover,
 .bn-app .bn-modal__close:focus,
@@ -4238,7 +4271,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 @media (pointer: coarse), (max-width: 768px) {
 	.bn-btn[data-variant] {
 		min-height: 44px;
-		padding-inline: var(--bn-s4);
+		--bn-btn-px: var(--bn-s4);
 	}
 	.bn-input,
 	.bn-textarea,
