@@ -107,4 +107,77 @@ class MemberDirectoryBlockRenderTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'bn-member-bio', $html, 'Retired bn-member-bio class must not return.' );
 		$this->assertStringNotContainsString( 'bn-member-list', $html, 'Retired bn-member-list class must not return.' );
 	}
+
+	/**
+	 * Render the block with an explicit layout attribute.
+	 *
+	 * @param string $layout 'list' or 'grid'.
+	 * @return string Rendered HTML.
+	 */
+	private function render_layout( string $layout ): string {
+		$markup = sprintf( '<!-- wp:buddynext/member-directory {"perPage":6,"layout":"%s"} /-->', $layout );
+		return (string) do_blocks( $markup );
+	}
+
+	/**
+	 * Layout=List renders the grid in its list mode.
+	 *
+	 * @return void
+	 */
+	public function test_list_layout_renders_the_list_class(): void {
+		self::factory()->user->create_many( 3 );
+
+		$this->assertStringContainsString(
+			'is-list',
+			$this->render_layout( 'list' ),
+			'the owner picked List, so the grid must render in list mode'
+		);
+	}
+
+	/**
+	 * Layout=Grid does not.
+	 *
+	 * @return void
+	 */
+	public function test_grid_layout_does_not_render_the_list_class(): void {
+		self::factory()->user->create_many( 3 );
+
+		$this->assertStringNotContainsString(
+			'is-list',
+			$this->render_layout( 'grid' ),
+			'Grid must not render in list mode'
+		);
+	}
+
+	/**
+	 * Either way the grid is pinned against the visitor's view toggle.
+	 *
+	 * This is the actual regression. The layout classes above were ALREADY correct;
+	 * what broke the setting was client-side. The members store's callbacks.init()
+	 * runs applyViewClass( readView() ), readView() reads the VISITOR's localStorage
+	 * (defaulting to grid), and it toggled `is-list` straight back off on hydrate —
+	 * so the owner's choice survived exactly until the JS ran, and the block has no
+	 * toggle UI to restore it with.
+	 *
+	 * `is-view-pinned` is what tells the store to leave an owner-chosen grid alone.
+	 * Without it in the markup the store owns the layout again and this whole card
+	 * comes back, with the PHP still looking perfectly correct.
+	 *
+	 * @return void
+	 */
+	public function test_the_block_grid_is_pinned_against_the_visitor_view_toggle(): void {
+		self::factory()->user->create_many( 3 );
+
+		foreach ( array( 'list', 'grid' ) as $layout ) {
+			$this->assertStringContainsString(
+				'is-view-pinned',
+				$this->render_layout( $layout ),
+				sprintf(
+					'A %s block must be pinned, or the members store overwrites the owner\'s layout '
+					. 'from the visitor\'s localStorage on hydrate.',
+					$layout
+				)
+			);
+		}
+	}
 }
