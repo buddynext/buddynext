@@ -273,7 +273,13 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						</span>
 					<?php endif; ?>
 					<?php
-					$bn_pf_is_verified = (bool) get_user_meta( $bn_pf_uid, 'buddynext_email_verified', true );
+					// Not the raw usermeta, which is permanent: it kept a blue check on
+					// every member who ever verified long after an owner switched
+					// verification off, claiming a test the site no longer performs.
+					// has_verified_badge() requires the site to actually run verification
+					// AND this member to have proved their address — see the note on that
+					// method for why is_verified() is not the same question.
+					$bn_pf_is_verified = buddynext_service( 'verification' )->has_verified_badge( $bn_pf_uid );
 					if ( $bn_pf_is_verified ) :
 						?>
 						<span class="bn-pf-verified" title="<?php esc_attr_e( 'Verified account', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Verified account', 'buddynext' ); ?>">

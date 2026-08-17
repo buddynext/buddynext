@@ -139,10 +139,49 @@ class VerificationService {
 	}
 
 	/**
+	 * Whether this member should be shown the "Verified account" badge.
+	 *
+	 * Deliberately NOT `is_verified()`, which answers a different question. That one
+	 * is an ACCESS gate and is generous on purpose: it returns true for everybody
+	 * when the setting is off, and it grandfathers members who registered before
+	 * verification was switched on, so that enabling the setting on an existing
+	 * community does not lock out the community. Both of those are right for access
+	 * and wrong for a badge — wiring the badge to it would put a blue check on every
+	 * profile on a site that does not run verification at all.
+	 *
+	 * The badge is a claim of EVIDENCE, so it needs both halves to be true:
+	 *
+	 *   1. the site actually runs verification — the feature and its setting, which
+	 *      is exactly what `VerificationListener::enforcement()` already resolves, so
+	 *      the badge cannot drift from the thing that enforces it;
+	 *   2. this member explicitly proved their address, i.e. carries the meta.
+	 *
+	 * Without (1) the badge outlives the feature: the usermeta is permanent, so every
+	 * member who ever verified kept a check forever after an owner switched
+	 * verification off — a claim about a test the site no longer performs, and one
+	 * nobody else can earn any more.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return bool
+	 */
+	public function has_verified_badge( int $user_id ): bool {
+		if ( 'off' === VerificationListener::enforcement() ) {
+			return false;
+		}
+
+		return (bool) get_user_meta( $user_id, 'buddynext_email_verified', true );
+	}
+
+	/**
 	 * Check whether a user's email address is verified.
 	 *
 	 * Returns true immediately when the buddynext_email_verify setting is
 	 * disabled, treating all users as verified in that mode.
+	 *
+	 * This is the ACCESS question. For "should this member be shown as verified",
+	 * use `has_verified_badge()` — see the note there for why they differ.
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return bool
