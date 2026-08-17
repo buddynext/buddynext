@@ -12,6 +12,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin\Members;
 
+use BuddyNext\Admin\AdminPageBase;
 use BuddyNext\Admin\Members\MemberDisplay;
 
 /**
@@ -32,7 +33,7 @@ class MemberEditForm {
 		$wp_user = $user_id > 0 ? get_userdata( $user_id ) : false;
 
 		if ( ! $wp_user || $user_id <= 0 ) {
-			echo '<div class="notice notice-error"><p>' . esc_html__( 'User not found.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'User not found.', 'buddynext' ), 'error' );
 			return;
 		}
 
@@ -45,24 +46,30 @@ class MemberEditForm {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bn_error = sanitize_key( wp_unslash( $_GET['bn_error'] ?? '' ) );
 		if ( $saved ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Profile updated successfully.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Profile updated successfully.', 'buddynext' ), 'success' );
 		}
-		if ( 'avatar_size' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Photo not saved: file exceeds the 2MB limit.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'avatar_type' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'slug_taken' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'cover_size' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'cover_type' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'email_taken' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved: that email address is already in use by another account.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'email_invalid' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved: please enter a valid email address.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'role_invalid' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved: the selected role is not valid.', 'buddynext' ) . '</p></div>';
+
+		/*
+		 * An eight-branch if/elseif chain that only ever picked a string was a
+		 * lookup table wearing a conditional — and the shape is why the raw markup
+		 * multiplied here: adding a failure reason meant copy-pasting a whole
+		 * notice div, so the tenth one was a copy of the ninth. A map means the
+		 * next reason is one line and cannot render differently from its
+		 * neighbours.
+		 */
+		$bn_error_messages = array(
+			'avatar_size'   => __( 'Photo not saved: file exceeds the 2MB limit.', 'buddynext' ),
+			'avatar_type'   => __( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
+			'slug_taken'    => __( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ),
+			'cover_size'    => __( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ),
+			'cover_type'    => __( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
+			'email_taken'   => __( 'Not saved: that email address is already in use by another account.', 'buddynext' ),
+			'email_invalid' => __( 'Not saved: please enter a valid email address.', 'buddynext' ),
+			'role_invalid'  => __( 'Not saved: the selected role is not valid.', 'buddynext' ),
+		);
+
+		if ( isset( $bn_error_messages[ $bn_error ] ) ) {
+			AdminPageBase::render_notice( $bn_error_messages[ $bn_error ], 'error' );
 		}
 		?>
 
