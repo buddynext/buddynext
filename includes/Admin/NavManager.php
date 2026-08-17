@@ -245,7 +245,14 @@ class NavManager extends AdminPageBase {
 					<p class="bn-field-hint">
 						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Hubs are virtual routes — only assign a WordPress page if you want a page-builder layout, a real menu entry, or page-level SEO for that hub.', 'buddynext' ); ?>
 					</p>
-					<table class="bn-table bn-pages-table">
+					<!--
+					Scroll host on the WRAPPER, never the table (admin table contract, rule 3):
+					a table that scrolls itself pins sticky cells to a box that never moves and
+					clips its own rounded corners. Without this the three columns overflowed
+					unreachably at tablet width (596px table in a 595px row, no scroll host).
+					-->
+					<div class="bn-table-wrap__scroll">
+						<table class="bn-table bn-pages-table">
 						<thead>
 							<tr>
 								<th scope="col"><?php esc_html_e( 'Hub', 'buddynext' ); ?></th>
@@ -337,6 +344,7 @@ class NavManager extends AdminPageBase {
 						<?php endforeach; ?>
 						</tbody>
 					</table>
+					</div><!-- .bn-table-wrap__scroll -->
 				</div>
 			</div>
 			<p class="submit"><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Pages & URLs', 'buddynext' ); ?></button></p>
