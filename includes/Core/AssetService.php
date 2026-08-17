@@ -1483,6 +1483,7 @@ class AssetService {
 					'reportSubmitted'          => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
 					'checkInboxConfirm'        => __( 'Check your inbox to confirm.', 'buddynext' ),
 					'verifyEmailFailed'        => __( 'Could not send verification email. Try again.', 'buddynext' ),
+					'emailVerified'            => __( 'Your email address is now marked as verified.', 'buddynext' ),
 					'pwTooShort'               => __( 'Too short', 'buddynext' ),
 					'pwWeak'                   => __( 'Weak', 'buddynext' ),
 					'pwFair'                   => __( 'Fair', 'buddynext' ),

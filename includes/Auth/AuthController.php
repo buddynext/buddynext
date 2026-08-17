@@ -280,6 +280,28 @@ class AuthController {
 			)
 		);
 
+		/*
+		 * An administrator confirming their OWN address without an email round-trip.
+		 *
+		 * The round-trip is not a security boundary for a user who holds
+		 * manage_options: they can already set the usermeta directly, disable
+		 * verification, or edit the row. Making them wait on an email buys nothing as
+		 * a gate and costs them a task, so this is a deliberate exception rather than
+		 * a hole — and it is scoped to the caller's own account, so an admin cannot
+		 * attest for anybody else here.
+		 */
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/verify/self',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'self_verify' ),
+				'permission_callback' => static function () {
+					return is_user_logged_in() && current_user_can( 'manage_options' );
+				},
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/auth/verify/status',
@@ -1930,6 +1952,55 @@ class AuthController {
 
 		return new WP_REST_Response(
 			array( 'message' => __( 'Verification email sent.', 'buddynext' ) ),
+			200
+		);
+	}
+
+	/**
+	 * Mark the CURRENT administrator's own email address verified, no token.
+	 *
+	 * Why this exists: `is_verified()` grandfathers members who registered before
+	 * verification was switched on, so on any community that enabled it after launch
+	 * the owner and every admin had proved nothing and carried no badge. They can
+	 * grant themselves the usermeta by hand in half a minute; the email round-trip
+	 * was friction, not a gate.
+	 *
+	 * Deliberately limited to the caller's OWN account. An admin marking somebody
+	 * else verified would be asserting a fact about a mailbox they do not read, and
+	 * the badge would stop meaning anything.
+	 *
+	 * What this does NOT prove, and the reason the email route stays available to
+	 * admins too: that the mailbox actually receives mail. An owner whose address is
+	 * wrong is the one person a site cannot afford to be unable to reach — password
+	 * resets and every alert go there.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function self_verify(): WP_REST_Response|WP_Error {
+		if ( ! buddynext_feature_enabled( 'verification' ) ) {
+			return new WP_Error(
+				'buddynext_verification_disabled',
+				__( 'Email verification is not enabled on this community.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$user_id = get_current_user_id();
+
+		if ( (bool) get_user_meta( $user_id, 'buddynext_email_verified', true ) ) {
+			return new WP_REST_Response(
+				array( 'message' => __( 'Your email address is already verified.', 'buddynext' ) ),
+				200
+			);
+		}
+
+		( new VerificationService() )->mark_verified( $user_id );
+
+		return new WP_REST_Response(
+			array(
+				'verified' => true,
+				'message'  => __( 'Your email address is now marked as verified.', 'buddynext' ),
+			),
 			200
 		);
 	}

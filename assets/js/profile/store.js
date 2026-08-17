@@ -2371,6 +2371,77 @@ const profileStore = store( 'buddynext/profile', {
 			}
 		},
 
+		/* -- Email verification ----------------------------------------- *
+		 *
+		 * For members the site never asked to verify: everyone who registered before
+		 * verification was switched on is grandfathered past the ACCESS gate, so they
+		 * proved nothing, carry no verified badge, and had no route to one.
+		 *
+		 * Two ways in. An administrator gets `selfVerifyEmail`, a one-click confirm,
+		 * because the email round-trip is not a security boundary for someone who can
+		 * set the usermeta directly. Everyone (admins included) can also take the
+		 * email route, which is the only one that proves the mailbox receives mail.
+		 */
+		openEmailVerify() {
+			var ctx = getContext();
+			ctx.emailVerifyOpen = true;
+		},
+		closeEmailVerify() {
+			var ctx = getContext();
+			ctx.emailVerifyOpen = false;
+		},
+		async requestEmailVerification() {
+			var ctx = getContext();
+			if ( ctx.verifySubmitting ) { return; }
+			ctx.verifySubmitting = true;
+			try {
+				var res = await restFetch( '/auth/verify/resend', {
+					method:       'POST',
+					nonce:        nonce(),
+					toastOnError: false,
+				} );
+				var json = res.data || {};
+				if ( res.ok ) {
+					ctx.emailVerifyOpen = false;
+					bnToast( json.message || t( 'checkInboxConfirm', 'Check your inbox to confirm.' ), { tone: 'success' } );
+				} else {
+					bnToast( ( json && json.message ) || t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ), { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ), { tone: 'danger' } );
+			} finally {
+				ctx.verifySubmitting = false;
+			}
+		},
+		async selfVerifyEmail() {
+			var ctx = getContext();
+			if ( ctx.verifySubmitting ) { return; }
+			ctx.verifySubmitting = true;
+			try {
+				var res = await restFetch( '/auth/verify/self', {
+					method:       'POST',
+					nonce:        nonce(),
+					toastOnError: false,
+				} );
+				var json = res.data || {};
+				if ( res.ok ) {
+					ctx.emailVerifyOpen = false;
+					bnToast( json.message || t( 'emailVerified', 'Your email address is now marked as verified.' ), { tone: 'success' } );
+					// The row and the profile badge are both server-rendered from the
+					// meta this just wrote, so a reload is what makes the change
+					// visible rather than a partial in-place patch that could disagree
+					// with what the next page load shows.
+					window.setTimeout( function () { window.location.reload(); }, 700 );
+				} else {
+					bnToast( ( json && json.message ) || t( 'verifyEmailFailed', 'Could not verify. Try again.' ), { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( t( 'verifyEmailFailed', 'Could not verify. Try again.' ), { tone: 'danger' } );
+			} finally {
+				ctx.verifySubmitting = false;
+			}
+		},
+
 		/* -- Password change -------------------------------------------- */
 		openPasswordChange() {
 			var ctx = getContext();
