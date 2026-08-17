@@ -103,12 +103,20 @@ class ProfileSidebarProvider {
 
 		// Card: Profile Strength. OWN profile only — a visitor must never see
 		// another member's completion checklist. Self-hides on an empty task list.
+		//
+		// mobile => false: the profile hero already carries `.bn-pf-completeness`,
+		// a compact ring + percentage shown ONLY below 1025px as this card's
+		// deliberate mobile counterpart (see bn-profile.css). Without the opt-out
+		// the reflowed mobile column would put both on one screen — the redundant
+		// pair that chip exists to avoid — and the hero chip is the better mobile
+		// placement of the two, being at the top rather than after the content.
 		if ( $is_own_profile && null !== $completion ) {
 			$descriptors[] = array(
 				'id'       => 'profile-strength',
 				'priority' => 10,
 				'surfaces' => self::SURFACES,
 				'chrome'   => false,
+				'mobile'   => false,
 				'render'   => static function () use ( $is_own_profile, $completion, $skills, $work_entries, $social_links, $get_fv, $strength_tasks ): void {
 					if ( ! function_exists( 'buddynext_get_template' ) ) {
 						return;

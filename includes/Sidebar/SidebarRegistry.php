@@ -8,6 +8,12 @@
  * self-hides any widget whose body renders empty. Ported from the Pro
  * SuiteSidebar so bridge descriptors need no change.
  *
+ * Descriptor keys: `id`, `render` (both required), plus optional `surfaces`,
+ * `hubs`, `condition`, `priority` (default 50), `default` (false = opt-in),
+ * `chrome` (false = self-chromed), `title`, `icon`, `classes`, `see_all_url`,
+ * `see_all_label`, and `mobile` (false = suppressed below 1025px; see the
+ * render loop).
+ *
  * @package BuddyNext\Sidebar
  */
 
@@ -85,13 +91,32 @@ class SidebarRegistry {
 			if ( '' === $body ) {
 				continue; // Self-hiding.
 			}
+
+			// Opt-out for a widget that ALREADY has a purpose-built mobile surface
+			// elsewhere on the page. Below 1025px the column reflows under the
+			// content instead of hiding (see bn-shell.css), so a widget with its own
+			// mobile counterpart would render twice on one screen. The viewport is
+			// unknowable server-side, so the choice is expressed as a wrapper the
+			// stylesheet can act on rather than as a skipped render.
+			//
+			// Emitted only for opted-out widgets, and only after the self-hide check
+			// above, so no empty wrapper is ever produced.
+			$desktop_only = array_key_exists( 'mobile', $widget ) && false === $widget['mobile'];
+			if ( $desktop_only ) {
+				echo '<div class="bn-sidebar-desktop-only">';
+			}
+
 			if ( isset( $widget['chrome'] ) && false === $widget['chrome'] ) {
 				// Self-chromed widget: it renders its own .bn-sidebar-card, so echo
 				// the (already-escaped) body raw instead of double-wrapping it.
 				echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render callback outputs escaped markup.
-				continue;
+			} else {
+				$this->render_card( $widget, $body );
 			}
-			$this->render_card( $widget, $body );
+
+			if ( $desktop_only ) {
+				echo '</div>';
+			}
 		}
 	}
 

@@ -522,17 +522,56 @@ body.admin-bar .bn-app__rail {
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
-	/* Right sidebar is hidden at this width; collapse its grid track. Uses :has()
-	   at matching specificity so it overrides the presence-driven rule above (the
-	   sidebar element still exists in the DOM, just display:none). */
+	/* Right sidebar drops out of the side track at this width; collapse it. Uses
+	   :has() at matching specificity so it overrides the presence-driven rule
+	   above. The sidebar itself is NOT hidden — see the reflow below. */
 	.bn-app__shell:has( .bn-app__right ) {
 		grid-template-columns: var(--bn-railw) minmax(0, 1fr);
 	}
-	/* No rail + right sidebar hidden at this width → single content column. */
+	/* No rail + no side track at this width → single content column. */
 	.bn-app__shell--no-rail:has( .bn-app__right ) {
 		grid-template-columns: minmax(0, 1fr);
 	}
+
+	/*
+	 * Reflow the sidebar UNDER the content instead of hiding it.
+	 *
+	 * This used to be `display: none`, which silently destroyed every registry
+	 * widget below 1025px: trending topics, people to follow, discover spaces,
+	 * browse-by-category. Not just on the feed — the Explore, Members, Spaces
+	 * and Hashtag surfaces put their discovery content in this same column, so
+	 * on a phone the community had no discovery surface at all.
+	 *
+	 * The widgets are rendered server-side either way (SidebarRegistry runs
+	 * before CSS exists), so hiding them spent the queries and threw the markup
+	 * away. Reflowing spends the same and shows it.
+	 *
+	 * grid-column: -2 targets the LAST track in every variant above — track 2
+	 * when the rail is present (769-1024px), track 1 when it is not (<=768px
+	 * and the --no-rail shell) — so the block always lands under the content,
+	 * never under the rail, without a per-breakpoint override.
+	 *
+	 * Placement caveat, deliberate: on the infinite-scrolling feed a block after
+	 * the content is effectively out of reach. That is accepted rather than
+	 * worked around — mainstream social (X, LinkedIn, Facebook) moves right-rail
+	 * discovery to a DESTINATION on mobile rather than duplicating it under the
+	 * feed, and BuddyNext has that destination in the Explore tab, whose column
+	 * is short and where this block reads directly.
+	 */
 	.bn-app__right {
+		grid-column: -2;
+		position: static;
+		align-self: stretch;
+		padding-inline: 0;
+		border-inline-start: 0;
+		border-block-start: 1px solid var(--bn-line);
+	}
+
+	/* A widget that declared `mobile => false` because it already has a
+	   purpose-built mobile counterpart in the content column. Emitted by
+	   SidebarRegistry only for opted-out widgets. Today: profile-strength,
+	   whose counterpart is the `.bn-pf-completeness` hero chip. */
+	.bn-sidebar-desktop-only {
 		display: none;
 	}
 }
