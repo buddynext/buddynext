@@ -176,19 +176,20 @@ fi
 
 # 3a2. Admin five-tab cap — ADVISORY until the re-file lands.
 #
-# AdminHub::TAB_PLACEMENT documents the cap and Settings and Moderation both ship
-# 7 today, so this reports rather than fails: wiring it as a hard gate now would
-# red-build every commit for a drift no single commit introduced, which is how
-# people learn to pass --no-verify.
+# BLOCKING as of the IA re-file (card 10207094624). It was advisory only because
+# Settings and Moderation both shipped 7, and failing every commit for a drift no
+# single commit introduced is how people learn to pass --no-verify. Both are back
+# under five, so the note this block used to print would now be decoration.
 #
-# Promote it to fail() in the same change that brings both sections back under
-# five. Leaving it advisory after that point makes it decoration.
-section "Admin tab cap (advisory)"
+# The rule reached 7 twice precisely because nothing enforced it, and Pro
+# contributes 21 of the 49 tabs from a separate repo — so it will drift again
+# unless a build says so.
+section "Admin tab cap"
 if [ -x bin/check-tab-cap.sh ]; then
 	if bin/check-tab-cap.sh; then
 		:
 	else
-		note "admin sections over the five-tab cap — see card 10207094624 (IA re-file)"
+		fail "an admin section exceeds the five-tab cap — re-file a tab through AdminHub::TAB_PLACEMENT, or change the cap deliberately in both the gate and that docblock"
 	fi
 else
 	note "bin/check-tab-cap.sh missing"

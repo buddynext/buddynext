@@ -99,9 +99,14 @@ class AdminHub {
 				'label' => __( 'Moderation', 'buddynext' ),
 				'icon'  => 'shield',
 			),
+			// "Moderation Tools", not "Auto-Moderation". The section now holds Rules,
+			// AI Moderation, Bulk Moderation and the Moderation Log — and the log
+			// records EVERY moderation action, not just automated ones, so filing it
+			// under a name that says "auto" would misdescribe it. The key and slug
+			// are unchanged, so no URL moves and no site loses its place.
 			'automod'       => array(
 				'slug'  => 'buddynext-automod',
-				'label' => __( 'Auto-Moderation', 'buddynext' ),
+				'label' => __( 'Moderation Tools', 'buddynext' ),
 				'icon'  => 'filter',
 			),
 			'monetization'  => array(
@@ -171,8 +176,15 @@ class AdminHub {
 			'section'  => 'platform',
 			'position' => 40,
 		),
+		// Outbound webhooks sit with the other machine-to-machine delivery
+		// mechanisms, not with the member-facing email surfaces. A first pass put
+		// them under Notifications on the reasoning that a webhook is "a delivery
+		// channel"; reading the resulting tab list settled it the other way —
+		// Notifications, Email, Email Templates, Email Log are all things a MEMBER
+		// receives, and Webhooks among them reads as misfiled. Realtime & Push is
+		// the same idea as a webhook: something the site sends outward, now.
 		'settings:webhooks'             => array(
-			'section'  => 'platform',
+			'section'  => 'realtime',
 			'position' => 50,
 		),
 
@@ -299,9 +311,17 @@ class AdminHub {
 			'section'  => 'moderation',
 			'position' => 50,
 		),
+		// Bulk actions and the action log join the automated rules under Moderation
+		// Tools, leaving Moderation itself as the QUEUE a moderator works through:
+		// Controls, Pending, Reports, Suspensions, Appeals. Seven tabs was two jobs
+		// in one list — deciding policy, and doing the day's work.
 		'moderation:bulk'               => array(
-			'section'  => 'moderation',
+			'section'  => 'automod',
 			'position' => 60,
+		),
+		'moderation:log'                => array(
+			'section'  => 'automod',
+			'position' => 70,
 		),
 
 		// Auto-Moderation (Pro). Hidden in free.
@@ -336,9 +356,21 @@ class AdminHub {
 		// about taking payments. Settings is also where the tab is registered
 		// (Free's Settings::render_license_tab) and where its own docblocks have
 		// always said it lives.
+		// Activation belongs with setup rather than with brand identity, and Get
+		// Started held a single tab. Not a perfect home — License is also the screen
+		// an owner needs years later when an update fails, and "Get Started" reads
+		// as onboarding — but Settings had to lose two, and every other tab there
+		// (General, Appearance, Navigation, Pages & URLs, White-label) is genuinely
+		// about how the community looks and is addressed.
 		'settings:license'              => array(
-			'section'  => 'settings',
-			'position' => 50,
+			'section'  => 'get-started',
+			'position' => 90,
+		),
+		// A diagnostic, so it sits with Tools and Features rather than with the
+		// look-and-feel tabs it was filed among.
+		'settings:plugin-isolation'     => array(
+			'section'  => 'platform',
+			'position' => 60,
 		),
 	);
 
