@@ -308,7 +308,29 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 							data-wp-on--click="actions.triggerAvatarUpload">
 							<?php esc_html_e( 'Add a profile photo', 'buddynext' ); ?>
 						</button>
-						<span><?php esc_html_e( 'JPG or PNG, max 4MB, up to 1024×1024px.', 'buddynext' ); ?></span>
+						<?php
+						/*
+						 * The pixel ceiling is deliberately NOT stated. It said "up to
+						 * 1024x1024px", which stopped being true when the server moved to
+						 * a megapixel budget, and it was the copy telling members their
+						 * phone photo would be refused before they even tried.
+						 *
+						 * The real ceiling — 50 megapixels, 10000px a side — exists to
+						 * stop a decompression bomb, not to guide a member. No photo any
+						 * phone or camera produces comes close, so printing it is noise
+						 * that reads as a hurdle. File type and size are the two limits
+						 * a member can actually hit and act on.
+						 */
+						?>
+						<span>
+						<?php
+						printf(
+							/* translators: %s: maximum upload size in megabytes. */
+							esc_html__( 'JPG or PNG, max %sMB.', 'buddynext' ),
+							esc_html( (string) (int) round( (int) apply_filters( 'buddynext_upload_max_bytes', 4 * 1024 * 1024, 'avatar' ) / ( 1024 * 1024 ) ) )
+						);
+						?>
+						</span>
 					</div>
 				</div>
 
