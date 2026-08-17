@@ -474,6 +474,10 @@ class AdminHub {
 	public function init(): void {
 		add_action( 'admin_menu', array( $this, 'build_menu' ), 9 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		// A section registered without a menu link has no menu title for WP to build
+		// the <title> from, so those screens rendered as " ‹ site — WordPress".
+		// Supply it from the section definition.
+		add_filter( 'admin_title', array( $this, 'filter_admin_title' ), 10, 2 );
 		// Send every registered legacy page slug to its hub tab. Priority 11 so it
 		// runs after the admin_menu pass that registers the tabs (and therefore
 		// their legacy_page declarations), but still before anything renders.
@@ -1022,6 +1026,42 @@ class AdminHub {
 	// ── Menu build ───────────────────────────────────────────────────────────
 
 	/**
+	 * Give unlinked hub sections a browser title.
+	 *
+	 * WordPress builds the admin <title> from the menu title, so a section
+	 * registered without a menu entry produced " ‹ site — WordPress" with the page
+	 * name missing. Only fills a gap: a section that still has a menu link keeps
+	 * whatever WP already resolved.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param string $admin_title Full admin title.
+	 * @param string $title       Page title WP resolved (empty for an unlinked page).
+	 * @return string
+	 */
+	public function filter_admin_title( string $admin_title, string $title ): string {
+		if ( '' !== trim( $title ) ) {
+			return $admin_title;
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- reads which
+		// admin screen is being rendered to label it; no state is changed.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		if ( '' === $page ) {
+			return $admin_title;
+		}
+
+		foreach ( self::sections() as $section ) {
+			if ( (string) ( $section['slug'] ?? '' ) === $page ) {
+				return (string) $section['label'] . $admin_title;
+			}
+		}
+
+		return $admin_title;
+	}
+
+	/**
 	 * Build the top-level BuddyNext menu and each section's sub-menu entry.
 	 *
 	 * @return void
@@ -1042,6 +1082,44 @@ class AdminHub {
 			30
 		);
 
+		/**
+		 * Which sections get their own entry in the WP admin menu.
+		 *
+		 * Every section used to, which put 15 BuddyNext entries in the sidebar —
+		 * about 1260px — duplicating the same sections the hub's own rail already
+		 * lists with their children. Eleven labels appeared in both columns, so the
+		 * owner read the same navigation twice and the WP menu pushed every other
+		 * plugin below the fold.
+		 *
+		 * Only the entry points keep a menu LINK. Everything else stays one click
+		 * away inside the hub.
+		 *
+		 * Every section is still registered below, and that is not optional:
+		 * `add_submenu_page()` is what registers the screen and grants access, so
+		 * skipping it does not hide a page, it 403s it. (Verified — the first
+		 * version of this did exactly that, and `admin.php?page=buddynext-monetization`
+		 * returned "Sorry, you are not allowed to access this page.") Registering
+		 * everything and then removing the LINK is what leaves bookmarks, docs links
+		 * and `hub_tab_url()` all still resolving.
+		 *
+		 * Filterable because "which sections are entry points" is a per-site opinion:
+		 * a site that lives in Campaigns should be able to put it back without
+		 * touching the plugin.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param array<int,string> $keys Section keys that keep a WP admin menu link.
+		 */
+		$bn_menu_sections = array_map(
+			'strval',
+			(array) apply_filters(
+				'buddynext_admin_menu_sections',
+				array( 'get-started', 'members', 'moderation', 'settings' )
+			)
+		);
+
+		$bn_unlinked = array();
+
 		foreach ( self::sections() as $key => $section ) {
 			if ( empty( self::$tabs[ $key ] ) ) {
 				continue;
@@ -1049,8 +1127,19 @@ class AdminHub {
 			// Section labels are already translated at their definition
 			// (self::default_sections()); filter-added sections supply their own
 			// translated label in their own textdomain.
+			$bn_linked = in_array( (string) $key, $bn_menu_sections, true );
+
 			add_submenu_page(
-				self::TOP_SLUG,
+				// A registered-but-unlinked page uses the null parent. This is the
+				// idiom that keeps the screen reachable while taking it out of the
+				// menu: it still populates $_registered_pages, which is what
+				// wp-admin/admin.php checks before serving `?page=`.
+				//
+				// remove_submenu_page() after a normal registration does NOT work here
+				// and was the first thing tried — it 403s the screen. Isolated by
+				// restoring every link through the filter, at which point the same URL
+				// loaded fine.
+				$bn_linked ? self::TOP_SLUG : null,
 				$section['label'],
 				$section['label'],
 				'manage_options',
@@ -1058,6 +1147,8 @@ class AdminHub {
 				array( $this, 'render_section' )
 			);
 		}
+
+		unset( $bn_unlinked );
 
 		// License lives as a tab inside a section, which buries the one screen
 		// an owner needs when an update fails - surface it as a direct WP
