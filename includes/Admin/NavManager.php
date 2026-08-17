@@ -2109,22 +2109,100 @@ class NavManager extends AdminPageBase {
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/**
-	 * Available nav-tab icon slugs, from the bundled admin SVG set.
+	 * Icon slugs offered by the nav-item picker.
 	 *
-	 * Globs assets/svg/admin/tab-*.svg so the icon picker stays in sync with the
-	 * shipped glyphs. Returns slugs without the .svg extension, sorted.
+	 * A curated allowlist drawn from the ONE icon library in assets/icons/, rather
+	 * than a glob of assets/svg/admin/tab-*.svg. That glob was the reason the same
+	 * artwork existed twice: widening the picker meant copying Lucide glyphs into a
+	 * second folder as `tab-*` duplicates, which then had to be kept in step by hand.
+	 *
+	 * Curated and not the whole library, deliberately. There are 118 icons; a
+	 * 118-option dropdown is a worse control than a short list of the ones that
+	 * actually read as navigation. Sites that want something else have the filter.
+	 *
+	 * Stored values are untouched by this. A site that saved `tab-star` keeps it —
+	 * the picker prepends any stored value it does not offer (see the render), and
+	 * IconService aliases `tab-star` to the library's `star`.
 	 *
 	 * @return array<int, string>
 	 */
 	private function available_tab_icons(): array {
-		$icons = array();
-		foreach ( (array) glob( self::SVG_DIR . 'tab-*.svg' ) as $file ) {
-			$slug = basename( (string) $file, '.svg' );
-			if ( '' !== $slug ) {
-				$icons[] = $slug;
-			}
-		}
+		$icons = array(
+			// Places and destinations.
+			'home',
+			'globe',
+			'grid',
+			'layers',
+			'map-pin',
+			'building',
+			'store',
+			'door-open',
+			// People.
+			'user',
+			'users',
+			'user-plus',
+			'user-check',
+			// Content.
+			'list',
+			'layout',
+			'file-text',
+			'book-open',
+			'image',
+			'camera',
+			'play',
+			'music',
+			'folder',
+			// Conversation.
+			'message-circle',
+			'message-square',
+			'messages-square',
+			'mail',
+			'inbox',
+			'megaphone',
+			// Signals.
+			'bell',
+			'heart',
+			'star',
+			'bookmark',
+			'flag',
+			'thumbs-up',
+			'sparkles',
+			'zap',
+			// Utility.
+			'search',
+			'settings',
+			'shield',
+			'lock',
+			'calendar',
+			'clock',
+			'bar-chart',
+			'trending-up',
+			'award',
+			'crown',
+			'briefcase',
+			'graduation-cap',
+			'gamepad',
+			'hash',
+			'link',
+			'target',
+			'rocket',
+		);
+
+		/**
+		 * Filter the icon slugs offered by the nav-item picker.
+		 *
+		 * Any slug in assets/icons/ works, whether or not it is listed here; this
+		 * only decides what the dropdown offers.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param array<int, string> $icons Curated icon slugs.
+		 */
+		$icons = (array) apply_filters( 'buddynext_nav_icon_choices', $icons );
+
+		$icons = array_values( array_unique( array_filter( array_map( 'strval', $icons ) ) ) );
 		sort( $icons );
+
 		return $icons;
 	}
 
