@@ -1191,8 +1191,6 @@ class AdminHub {
 			)
 		);
 
-		$bn_unlinked = array();
-
 		foreach ( self::sections() as $key => $section ) {
 			if ( empty( self::$tabs[ $key ] ) ) {
 				continue;
@@ -1220,8 +1218,6 @@ class AdminHub {
 				array( $this, 'render_section' )
 			);
 		}
-
-		unset( $bn_unlinked );
 
 		// License lives as a tab inside a section, which buries the one screen
 		// an owner needs when an update fails - surface it as a direct WP

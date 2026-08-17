@@ -2104,7 +2104,6 @@ class PageRouter {
 		add_rewrite_tag( '%bn_conv_id%', '([0-9]+)' );
 		add_rewrite_tag( '%bn_msg_action%', '([^/]*)' );
 		add_rewrite_tag( '%bn_auth_action%', '([a-z-]+)' );
-		add_rewrite_tag( '%bn_notif_section%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_settings_section%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_post_id%', '([0-9]+)' );
 		add_rewrite_tag( '%bn_feed_section%', '([a-z-]+)' );
