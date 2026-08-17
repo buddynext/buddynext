@@ -581,11 +581,29 @@
 	align-items: start;
 }
 .bn-admin-hub__panel {
-	/* Sticky rail, but no inner scroll: sections are collapsible (only the active
-	   one is open by default), so the nav stays short and follows the normal page
-	   scroll rather than showing its own scrollbar in the gutter. */
+	/* Sticky rail. Sections are collapsible and only the active one opens by
+	   default, so on a fresh profile this is ~728px against a 900px viewport and
+	   the rail follows the normal page scroll with no scrollbar in the gutter.
+	   That default is not a guarantee, though, and the ceiling below is the
+	   difference between the two.
+	   The accordion REMEMBERS manual expansions (localStorage bnAdminNavOpen), so
+	   an owner comparing settings across four groups keeps those groups open on
+	   every subsequent page load. Measured with six groups expanded the rail is
+	   1501px — it ran past the fold with no way to reach the last group except
+	   scrolling the whole document, because the rail had no max-height and
+	   overflow-y: visible. The same happens on a 1280x720 laptop, or when a
+	   third-party plugin registers its own section.
+	   So: keep the page scroll for the common case, and give the rail its own
+	   scroll only once it would otherwise overflow the window. The responsive
+	   block already switches this off at narrow widths, where the rail stacks
+	   above the content and a ceiling would be wrong. */
 	position: sticky;
 	top: var(--bn-s8, 32px);
+	max-height: calc( 100vh - var(--bn-s8, 32px) - var(--bn-s8, 32px) - var(--bn-s4, 16px) );
+	overflow-y: auto;
+	/* A rail that has hit its ceiling must not hand the scroll back to the
+	   document mid-gesture; the owner is reading the nav, not the page. */
+	overscroll-behavior: contain;
 	align-self: start;
 	padding: var(--bn-s2, 8px);
 	background: var(--bn-surface);
@@ -725,7 +743,11 @@
 	 * independently: none of them was the cause, the shared nav rail was.
 	 */
 	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: minmax( 0, 1fr ); }
-	.bn-admin-hub__panel { position: static; max-height: none; }
+	/* Stacked above the content, the rail is not competing with the window for
+	   height — a ceiling here would put a scrollbar inside a nav that has the
+	   whole page to grow into. overflow-y goes back with it, or the ceiling's
+	   absence just clips. */
+	.bn-admin-hub__panel { position: static; max-height: none; overflow-y: visible; }
 }
 
 /* --------------------------------------------------------------------------

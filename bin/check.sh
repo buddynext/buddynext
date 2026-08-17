@@ -158,6 +158,26 @@ else
 	note "bin/check-icons.sh missing"
 fi
 
+# 3a2. Admin five-tab cap — ADVISORY until the re-file lands.
+#
+# AdminHub::TAB_PLACEMENT documents the cap and Settings and Moderation both ship
+# 7 today, so this reports rather than fails: wiring it as a hard gate now would
+# red-build every commit for a drift no single commit introduced, which is how
+# people learn to pass --no-verify.
+#
+# Promote it to fail() in the same change that brings both sections back under
+# five. Leaving it advisory after that point makes it decoration.
+section "Admin tab cap (advisory)"
+if [ -x bin/check-tab-cap.sh ]; then
+	if bin/check-tab-cap.sh; then
+		:
+	else
+		note "admin sections over the five-tab cap — see card 10207094624 (IA re-file)"
+	fi
+else
+	note "bin/check-tab-cap.sh missing"
+fi
+
 # 3b. Route URLs — no hand-rolled home_url() paths outside PageRouter
 section "Route URLs (PageRouter only)"
 if [ -x bin/check-route-urls.sh ]; then
