@@ -277,6 +277,43 @@ class InSpaceSearchTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A seam contributor that changes per_page gets a consistent window.
+	 *
+	 * $offset and $row_limit are derived twice — once before the
+	 * buddynext_search_query_args filter and once after. The second pass used to
+	 * recompute $offset ONLY, so a contributor that changed per_page left
+	 * $row_limit holding the pre-filter value: the caller asked for N rows,
+	 * received the old N, at an offset derived from the new one. The paging this
+	 * journey depends on runs through that same code.
+	 *
+	 * @return void
+	 */
+	public function test_a_filter_that_changes_per_page_gets_a_matching_window(): void {
+		for ( $i = 0; $i < 9; $i++ ) {
+			$this->search->index( 'post', 93000 + $i, 'Win ' . $i, 'windowzorp item ' . $i, 1, 'public', $this->space_a );
+		}
+
+		// Ask for 3, but have a contributor widen it to 6 — the shape of any
+		// caller that tunes per_page on the seam.
+		$widen_scoped = function ( array $args ): array {
+			$args['per_page']       = 6;
+			$args['scope_space_id'] = $this->space_a;
+			return $args;
+		};
+
+		add_filter( 'buddynext_search_query_args', $widen_scoped, 5 );
+		$result = $this->search->search( 'windowzorp', 'post', 3, 1, 0 );
+		remove_filter( 'buddynext_search_query_args', $widen_scoped, 5 );
+
+		$this->assertCount(
+			6,
+			(array) $result['items'],
+			'the returned row count must follow the per_page the filter actually set, '
+			. 'not the one the caller passed before the filter ran'
+		);
+	}
+
+	/**
 	 * Private space content stays invisible to a non-member, scope or not.
 	 *
 	 * The scope is ANDed with the visibility gate rather than replacing it, so

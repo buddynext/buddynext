@@ -857,9 +857,9 @@ class FeedController extends BaseRestController {
 				)
 			);
 			if ( ! empty( $bn_pins ) ) {
-				$bn_items   = isset( $result['items'] ) ? (array) $result['items'] : array();
-				$bn_pin_ids = array_map( static fn( $p ): int => (int) ( $p['id'] ?? 0 ), $bn_pins );
-				$bn_items   = array_values(
+				$bn_items        = isset( $result['items'] ) ? (array) $result['items'] : array();
+				$bn_pin_ids      = array_map( static fn( $p ): int => (int) ( $p['id'] ?? 0 ), $bn_pins );
+				$bn_items        = array_values(
 					array_filter( $bn_items, static fn( $p ): bool => ! in_array( (int) ( $p['id'] ?? 0 ), $bn_pin_ids, true ) )
 				);
 				$result['items'] = array_merge( $bn_pins, $bn_items );

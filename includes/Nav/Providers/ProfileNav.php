@@ -275,7 +275,7 @@ final class ProfileNav {
 				$posts      = array_values(
 					array_filter( $posts, static fn( $p ): bool => ! in_array( (int) ( $p['id'] ?? 0 ), $bn_pin_ids, true ) )
 				);
-				$posts = array_merge( $bn_pins, $posts );
+				$posts      = array_merge( $bn_pins, $posts );
 			}
 		}
 

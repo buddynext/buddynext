@@ -698,7 +698,22 @@ class SearchService {
 
 		$per_page = min( (int) ( $search_args['per_page'] ?? $per_page ), 50 );
 		$page     = max( 1, (int) ( $search_args['page'] ?? $page ) );
-		$offset   = ( $page - 1 ) * $per_page;
+
+		// Re-derive BOTH bounds from the post-filter page/per_page, and re-apply
+		// the SCALE-CONTRACT §1 clamp with them.
+		//
+		// This used to recompute $offset only. $row_limit kept the value computed
+		// further up from the PRE-filter per_page, so a contributor that changed
+		// per_page on this seam left the two disagreeing — asking for 50 rows and
+		// receiving 20, at an offset derived from the 50. The ceiling clamp
+		// applied up there was also discarded here, making it dead for the offset
+		// that actually reaches the SQL.
+		//
+		// With no contributor the values are identical to the earlier pass, so
+		// this changes nothing for the ordinary path; it only stops the filtered
+		// path from being internally inconsistent.
+		$offset    = min( ( $page - 1 ) * $per_page, self::MAX_RESULTS );
+		$row_limit = max( 0, min( $per_page, self::MAX_RESULTS - $offset ) );
 
 		// ------------------------------------------------------------------ //
 		// Optional date window + sort order. Sourced from the seam args so the
