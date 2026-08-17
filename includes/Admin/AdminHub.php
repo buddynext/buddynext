@@ -510,6 +510,11 @@ class AdminHub {
 		// the <title> from, so those screens rendered as " ‹ site — WordPress".
 		// Supply it from the section definition.
 		add_filter( 'admin_title', array( $this, 'filter_admin_title' ), 10, 2 );
+		// Keep the WP menu pointing at BuddyNext on sections that no longer carry
+		// their own menu entry. Without this the whole BuddyNext menu un-highlights
+		// and collapses the moment you open, say, Monetization — the owner is inside
+		// the plugin and the sidebar says they are nowhere.
+		add_filter( 'parent_file', array( $this, 'filter_parent_file' ) );
 		// Send every registered legacy page slug to its hub tab. Priority 11 so it
 		// runs after the admin_menu pass that registers the tabs (and therefore
 		// their legacy_page declarations), but still before anything renders.
@@ -954,7 +959,7 @@ class AdminHub {
 					'spaces'               => 'grid',
 					'notifications'        => 'bell',
 					'email'                => 'mail',
-					'email-log'            => 'mail',
+					'email-log'            => 'list',
 					'moderation'           => 'shield',
 					'integrations'         => 'code',
 					'integration-controls' => 'eye',
@@ -966,12 +971,12 @@ class AdminHub {
 					'navigation'           => 'list',
 					'pages'                => 'link',
 					'announcements'        => 'megaphone',
-					'templates'            => 'mail',
+					'templates'            => 'file-text',
 					'reactions'            => 'smile',
 					'push'                 => 'bell',
-					'push-prefs'           => 'bell',
+					'push-prefs'           => 'settings',
 					'realtime'             => 'zap',
-					'white-label'          => 'palette',
+					'white-label'          => 'type',
 					// Members section.
 					'directory'            => 'users',
 					'labels'               => 'hash',
@@ -993,7 +998,7 @@ class AdminHub {
 					'ai-feed'              => 'sparkles',
 					// Monetization section.
 					'tiers'                => 'crown',
-					'subscriptions'        => 'crown',
+					'subscriptions'        => 'repeat-2',
 					'payments'             => 'store',
 					'license'              => 'award',
 					'paywall'              => 'lock',
@@ -1056,6 +1061,42 @@ class AdminHub {
 	}
 
 	// ── Menu build ───────────────────────────────────────────────────────────
+
+	/**
+	 * Keep the BuddyNext menu highlighted on sections that have no menu entry.
+	 *
+	 * Trimming the WP sub-menu to a few entry points left the other sections with
+	 * no menu item of their own, and WordPress highlights the menu by matching the
+	 * current page against registered entries. So opening Monetization or Campaigns
+	 * un-highlighted BuddyNext entirely and collapsed its sub-menu: the owner was
+	 * inside the plugin while the sidebar showed them nowhere, with no way back
+	 * except the hub's own rail.
+	 *
+	 * Pointing `parent_file` at the top-level slug restores the highlight and keeps
+	 * the sub-menu open, for every hub section whether it has an entry or not.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param string $parent_file Menu slug WordPress resolved.
+	 * @return string
+	 */
+	public function filter_parent_file( string $parent_file ): string {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- reads which
+		// admin screen is being rendered so the menu can highlight it; changes nothing.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		if ( '' === $page ) {
+			return $parent_file;
+		}
+
+		foreach ( self::sections() as $section ) {
+			if ( (string) ( $section['slug'] ?? '' ) === $page ) {
+				return self::TOP_SLUG;
+			}
+		}
+
+		return $parent_file;
+	}
 
 	/**
 	 * Give unlinked hub sections a browser title.
