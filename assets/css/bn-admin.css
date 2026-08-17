@@ -800,6 +800,14 @@
 .bn-ss-body .bn-filter-bar select.bn-select,
 .bn-ss-body .bn-filter-bar select:not([multiple]) {
 	width: auto;
+	/* No floor here, unlike the settings default above.
+	   That default gives every select a 12rem minimum so a two-option control in
+	   a settings column is not a stub. A filter bar is the opposite situation:
+	   it packs a search field, a select and two buttons onto ONE line, so its
+	   controls have to be able to shrink. With the floor inherited, this select
+	   stayed 192px at every width — wider than the whole bar once the bar was
+	   130px, which pushed a one-line toolbar to five rows. */
+	min-width: 0;
 	/* Sized to its own content like every other control on the bar, but capped:
 	   one long tier or label name must not push the rest of the row off the
 	   line. The cap lives here rather than on .bn-filter-bar because only a
