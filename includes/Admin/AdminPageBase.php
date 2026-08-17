@@ -596,6 +596,41 @@ abstract class AdminPageBase {
 	}
 
 	/**
+	 * Render the shared admin empty state.
+	 *
+	 * `.bn-empty` has been the one look for "No X yet" since S4, and twenty admin
+	 * files carry the markup by hand. That is why two screens still showed a bare
+	 * left-aligned sentence under the first column: there was a convention to
+	 * copy but nothing to call, so a screen written after the convention landed
+	 * had no way to inherit it except by someone remembering.
+	 *
+	 * Static and public for the same reason render_notice() is — the screens that
+	 * need it are split between classes that extend this base and ones that do
+	 * not.
+	 *
+	 * The sub line is optional because some empty states have nothing useful to
+	 * add, and an invented second sentence ("There is nothing here yet.") is
+	 * padding that makes the real ones easier to ignore.
+	 *
+	 * @param string $title What is not there — "No members awaiting approval".
+	 * @param string $sub   Optional: what the owner can do about it, or why it is empty.
+	 * @return void
+	 */
+	public static function render_empty_state( string $title, string $sub = '' ): void {
+		if ( '' === trim( $title ) ) {
+			return;
+		}
+		?>
+		<div class="bn-empty">
+			<p class="bn-empty__title"><?php echo esc_html( $title ); ?></p>
+			<?php if ( '' !== trim( $sub ) ) : ?>
+				<p class="bn-empty__sub"><?php echo esc_html( $sub ); ?></p>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render a branded admin notice.
 	 *
 	 * Admin screens hand-rolled `<div class="notice notice-success"><p>…</p></div>`
