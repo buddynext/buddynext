@@ -573,6 +573,65 @@ class ProfileService {
 	}
 
 	/**
+	 * Turn a save_profile() rejection into a field => message map a form can paint
+	 * as inline errors.
+	 *
+	 * `save_profile()` rejects a write in two shapes:
+	 *
+	 *   1. Per-field failures (required / sanitise / validate). The WP_Error data
+	 *      already carries a `fields` map — return it untouched.
+	 *   2. The moderation safeguard (banned word, blocked link, blocked hashtag).
+	 *      That check runs once over the JOINED text of every submitted value, so
+	 *      the WP_Error has no field attribution at all. An unattributed rejection
+	 *      leaves the person with a red notice and no idea WHICH field to fix — a
+	 *      different dead end. So the same safeguard is re-run per submitted value
+	 *      (only on this already-failing path) to name the offending field(s).
+	 *
+	 * An empty map is a valid outcome (the caller still shows the WP_Error's own
+	 * message alongside it); it is never a claim that the save succeeded.
+	 *
+	 * Lives on the service, not on a controller, because it is the counterpart to
+	 * `save_profile()`'s error contract and EVERY caller of that method needs it —
+	 * the REST endpoints, the admin member editor, onboarding. It was private on
+	 * ProfileController, which is why the admin editor had nothing to call and
+	 * reported success instead.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param \WP_Error            $error   The WP_Error returned by save_profile().
+	 * @param array<string, mixed> $data    The payload that was submitted (post-sanitisation).
+	 * @param int                  $user_id User whose profile was being saved.
+	 * @return array<string, string> Field-keyed error messages (possibly empty).
+	 */
+	public function map_save_error_to_fields( \WP_Error $error, array $data, int $user_id ): array {
+		$error_data = (array) $error->get_error_data();
+		$fields     = ( isset( $error_data['fields'] ) && is_array( $error_data['fields'] ) )
+			? array_map( 'strval', $error_data['fields'] )
+			: array();
+
+		if ( ! empty( $fields ) ) {
+			return $fields;
+		}
+
+		$guard = function_exists( 'buddynext_service' ) ? buddynext_service( 'safeguard' ) : null;
+		if ( ! is_object( $guard ) || ! method_exists( $guard, 'check_content' ) ) {
+			return array();
+		}
+
+		$message = (string) $error->get_error_message();
+		foreach ( $data as $key => $value ) {
+			if ( ! is_string( $value ) || '' === trim( $value ) ) {
+				continue;
+			}
+			if ( is_wp_error( $guard->check_content( $value, '', $user_id, 0, 'create' ) ) ) {
+				$fields[ (string) $key ] = $message;
+			}
+		}
+
+		return $fields;
+	}
+
+	/**
 	 * Save profile field values for a user.
 	 *
 	 * Flat fields: keyed directly as field_key => value.

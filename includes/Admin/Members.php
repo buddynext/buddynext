@@ -974,7 +974,42 @@ class Members extends AdminPageBase {
 		}
 
 		if ( ! empty( $profile_data ) ) {
-			buddynext_service( 'profiles' )->save_profile( $user_id, $profile_data );
+			$bn_profiles    = buddynext_service( 'profiles' );
+			$bn_save_result = $bn_profiles->save_profile( $user_id, $profile_data );
+
+			// save_profile() can REJECT the whole write — a field that fails
+			// sanitisation or validation, a required field submitted empty, or the
+			// moderation safeguard. Its return was DISCARDED here and the redirect
+			// below reported success unconditionally, so the editor showed
+			// "Profile updated successfully." while nothing had been written.
+			//
+			// That is worse than a silent failure. save_profile() is atomic on
+			// purpose (deliberate, and documented at length there: a partial write
+			// leaves the admin re-editing from a state that no longer matches the
+			// database), so a rejection means the ENTIRE edit was dropped. The admin
+			// was told the opposite, closed the screen, and the change was gone.
+			//
+			// Atomicity is not the bug and must not be traded away to fix this. The
+			// bug is that the caller never asked.
+			if ( is_wp_error( $bn_save_result ) ) {
+				// Field-attributed messages so the notice can say WHICH field, using
+				// the same mapping the REST editor paints inline — including the
+				// safeguard's per-value re-check, which is the only way an
+				// unattributed moderation rejection gets a field name.
+				$bn_field_errors = $bn_profiles->map_save_error_to_fields( $bn_save_result, $profile_data, $user_id );
+
+				set_transient(
+					\BuddyNext\Admin\Members\MemberEditForm::save_error_transient_key( get_current_user_id(), $user_id ),
+					array(
+						'message' => (string) $bn_save_result->get_error_message(),
+						'fields'  => $bn_field_errors,
+					),
+					\BuddyNext\Admin\Members\MemberEditForm::SAVE_ERROR_TTL
+				);
+
+				wp_safe_redirect( add_query_arg( 'bn_error', 'profile_invalid', $redirect_url ) );
+				exit;
+			}
 		}
 
 		/**

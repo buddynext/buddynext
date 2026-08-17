@@ -1341,31 +1341,9 @@ class ProfileController extends BaseRestController {
 	 * @return array<string, string> Field-keyed error messages (possibly empty).
 	 */
 	private function map_save_error_to_fields( \WP_Error $error, array $data, int $user_id ): array {
-		$error_data = (array) $error->get_error_data();
-		$fields     = ( isset( $error_data['fields'] ) && is_array( $error_data['fields'] ) )
-			? array_map( 'strval', $error_data['fields'] )
-			: array();
-
-		if ( ! empty( $fields ) ) {
-			return $fields;
-		}
-
-		$guard = function_exists( 'buddynext_service' ) ? buddynext_service( 'safeguard' ) : null;
-		if ( ! is_object( $guard ) || ! method_exists( $guard, 'check_content' ) ) {
-			return array();
-		}
-
-		$message = (string) $error->get_error_message();
-		foreach ( $data as $key => $value ) {
-			if ( ! is_string( $value ) || '' === trim( $value ) ) {
-				continue;
-			}
-			if ( is_wp_error( $guard->check_content( $value, '', $user_id, 0, 'create' ) ) ) {
-				$fields[ (string) $key ] = $message;
-			}
-		}
-
-		return $fields;
+		// Lives on the service now: the admin member editor needs the identical
+		// mapping, and this was private here. See ProfileService for the reasoning.
+		return buddynext_service( 'profiles' )->map_save_error_to_fields( $error, $data, $user_id );
 	}
 
 	/**

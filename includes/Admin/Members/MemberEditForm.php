@@ -21,6 +21,36 @@ use BuddyNext\Admin\Members\MemberDisplay;
 class MemberEditForm {
 
 	/**
+	 * How long a rejected save's field messages survive.
+	 *
+	 * The save is a POST that redirects, so the messages have to cross one request
+	 * to reach this screen. Long enough that a slow redirect never loses them,
+	 * short enough that a stale set cannot surface against a later edit.
+	 */
+	public const SAVE_ERROR_TTL = 60;
+
+	/**
+	 * Transient key holding a rejected save's messages for one editor + one member.
+	 *
+	 * Keyed by BOTH ids: two admins editing at the same time must not read each
+	 * other's errors, and one admin moving between members must not be shown the
+	 * previous member's.
+	 *
+	 * Lives here rather than on Members because this is the class that renders the
+	 * messages; Members already depends on this one to render the view, so the key
+	 * adds no new direction to the dependency.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param int $editor_id Admin who submitted the form.
+	 * @param int $member_id Member being edited.
+	 * @return string
+	 */
+	public static function save_error_transient_key( int $editor_id, int $member_id ): string {
+		return sprintf( 'bn_member_save_err_%d_%d', $editor_id, $member_id );
+	}
+
+	/**
 	 * Render the member edit view for a single user.
 	 *
 	 * Called when ?view=edit-member&user_id=X is present.
@@ -58,18 +88,84 @@ class MemberEditForm {
 		 * neighbours.
 		 */
 		$bn_error_messages = array(
-			'avatar_size'   => __( 'Photo not saved: file exceeds the 2MB limit.', 'buddynext' ),
-			'avatar_type'   => __( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
-			'slug_taken'    => __( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ),
-			'cover_size'    => __( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ),
-			'cover_type'    => __( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
-			'email_taken'   => __( 'Not saved: that email address is already in use by another account.', 'buddynext' ),
-			'email_invalid' => __( 'Not saved: please enter a valid email address.', 'buddynext' ),
-			'role_invalid'  => __( 'Not saved: the selected role is not valid.', 'buddynext' ),
+			'avatar_size'     => __( 'Photo not saved: file exceeds the 2MB limit.', 'buddynext' ),
+			'avatar_type'     => __( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
+			'slug_taken'      => __( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ),
+			'cover_size'      => __( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ),
+			'cover_type'      => __( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
+			'email_taken'     => __( 'Not saved: that email address is already in use by another account.', 'buddynext' ),
+			'email_invalid'   => __( 'Not saved: please enter a valid email address.', 'buddynext' ),
+			'role_invalid'    => __( 'Not saved: the selected role is not valid.', 'buddynext' ),
+			// Plural and absolute on purpose: the save is atomic, so one bad field
+			// means none of the profile fields were written. "Some changes were not
+			// saved" would be the same false reassurance this replaces.
+			'profile_invalid' => __( 'Profile fields were not saved. Nothing on this form was changed - fix the problems below and save again.', 'buddynext' ),
 		);
 
 		if ( isset( $bn_error_messages[ $bn_error ] ) ) {
 			AdminPageBase::render_notice( $bn_error_messages[ $bn_error ], 'error' );
+		}
+
+		/*
+		 * A rejected profile save carries per-field messages, and they are the whole
+		 * point: save_profile() is atomic, so a rejection dropped the ENTIRE edit,
+		 * and "Not saved" without naming the field leaves the admin re-submitting
+		 * the same form to find out which one. The generic line above says what
+		 * happened; this says what to fix.
+		 */
+		if ( 'profile_invalid' === $bn_error ) {
+			$bn_save_error = get_transient( self::save_error_transient_key( get_current_user_id(), $user_id ) );
+			delete_transient( self::save_error_transient_key( get_current_user_id(), $user_id ) );
+
+			if ( is_array( $bn_save_error ) ) {
+				$bn_lines = array();
+
+				// Field KEYS are how save_profile() reports, and they are not what the
+				// admin is looking at: this form is labelled "QA Pro Location", so
+				// "qa_pro_location" makes them translate before they can act. Resolve
+				// against the same $groups the form itself was built from, so the
+				// error names the field exactly as the input above it does.
+				$bn_labels = array();
+				foreach ( $groups as $bn_lgroup ) {
+					foreach ( (array) ( $bn_lgroup['fields'] ?? array() ) as $bn_lfield ) {
+						$bn_lkey = (string) ( $bn_lfield['field_key'] ?? '' );
+						if ( '' !== $bn_lkey ) {
+							$bn_labels[ $bn_lkey ] = (string) ( $bn_lfield['label'] ?? $bn_lkey );
+						}
+					}
+				}
+
+				foreach ( (array) ( $bn_save_error['fields'] ?? array() ) as $bn_fk => $bn_msg ) {
+					// Repeater failures are keyed group[0][field_key]; the inner key is
+					// the one with a label. Falling back to the raw key is still an
+					// attribution, which is the point.
+					$bn_inner = ( preg_match( '/\[([a-z0-9_]+)\]$/i', (string) $bn_fk, $bn_m ) === 1 ) ? $bn_m[1] : (string) $bn_fk;
+					$bn_label = $bn_labels[ $bn_inner ] ?? $bn_inner;
+					$bn_msg   = (string) $bn_msg;
+
+					// save_profile()'s own messages already open with the field label
+					// ("Website must be a valid URL."), so prefixing the label would
+					// print it twice. Bold it where it already stands instead, and only
+					// prepend it when the message does not name the field — which is the
+					// safeguard's generic rejection, the one case with no attribution of
+					// its own.
+					$bn_lines[] = str_starts_with( $bn_msg, $bn_label )
+						? '<strong>' . esc_html( $bn_label ) . '</strong>' . esc_html( substr( $bn_msg, strlen( $bn_label ) ) )
+						: '<strong>' . esc_html( $bn_label ) . '</strong>: ' . esc_html( $bn_msg );
+				}
+
+				// The safeguard can reject without naming a field even after the
+				// per-value re-check (a phrase that only trips when values are
+				// joined). Its own message is then all there is, and it is better
+				// than nothing.
+				if ( empty( $bn_lines ) && '' !== (string) ( $bn_save_error['message'] ?? '' ) ) {
+					$bn_lines[] = esc_html( (string) $bn_save_error['message'] );
+				}
+
+				if ( ! empty( $bn_lines ) ) {
+					AdminPageBase::render_notice( implode( '<br>', $bn_lines ), 'error', true );
+				}
+			}
 		}
 		?>
 
