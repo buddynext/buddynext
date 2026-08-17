@@ -163,14 +163,23 @@ abstract class AdminPageBase {
 	 * `.bn-ss-header` bar — the S5 standard for single-section tabs whose
 	 * card title would only repeat the page H1 (e.g. Features).
 	 *
+	 * The optional `$id` puts an anchor on the card itself. Sections were only
+	 * ever anchorable at FIELD level (render_sections() ids each `.bn-opt` for
+	 * the command palette), so a screen that wanted to link to a whole card —
+	 * "Add Plan", "Default plan for new members" — had nowhere to hang the
+	 * target. Membership solved that by forking this method with an `$id` in
+	 * the second position, which is exactly the kind of near-identical copy that
+	 * then drifts. Third position, so no existing caller changes meaning.
+	 *
 	 * @param string $title       Section heading. Empty string suppresses the header bar.
 	 * @param string $action_html Optional raw HTML for the header action slot.
 	 *                            Caller is responsible for escaping this value.
+	 * @param string $id          Optional anchor id for the section wrapper.
 	 * @return void
 	 */
-	protected function open_section( string $title, string $action_html = '' ): void {
+	protected function open_section( string $title, string $action_html = '', string $id = '' ): void {
 		?>
-		<div class="bn-settings-section">
+		<div class="bn-settings-section"<?php echo '' !== $id ? ' id="' . esc_attr( $id ) . '"' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_attr() applied inline. ?>>
 			<?php if ( '' !== $title || '' !== $action_html ) : ?>
 			<div class="bn-ss-header">
 				<span class="bn-ss-title"><?php echo esc_html( $title ); ?></span>
