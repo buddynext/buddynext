@@ -240,6 +240,16 @@ abstract class AdminPageBase {
 					case 'number':
 						$this->render_number_row( $field->key, $field->label, (int) $value, $hint, (int) ( $field->min ?? 0 ), $field->max );
 						break;
+					case 'optional_limit':
+						$this->render_optional_limit_row(
+							$field->key,
+							$field->label,
+							(int) $value,
+							$field->toggle_label,
+							$hint,
+							max( 1, (int) ( $field->min ?? 1 ) )
+						);
+						break;
 					case 'select':
 						$this->render_select_row( $field->key, $field->label, (string) $value, $field->choices(), $hint );
 						break;

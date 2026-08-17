@@ -87,7 +87,7 @@ final class SettingsDriver {
 		if ( 'toggle' === $type ) {
 			return 'boolean';
 		}
-		if ( 'number' === $type ) {
+		if ( 'number' === $type || 'optional_limit' === $type ) {
 			return 'integer';
 		}
 		return 'string';
