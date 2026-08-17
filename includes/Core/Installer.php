@@ -72,6 +72,16 @@ class Installer {
 		'bn_email_suppressed',      // Hard suppression list (Pro BroadcastUnsubscribe).
 	);
 
+	/**
+	 * Memoised result of the owned-table presence check.
+	 *
+	 * Null until asked. A class property rather than a function static so
+	 * flush_schema_check() can clear it after the installer creates tables.
+	 *
+	 * @var bool|null
+	 */
+	private static ?bool $schema_check_result = null;
+
 	public const OWNED_TABLES = array(
 		'bn_activity_log',
 		'bn_appeals',
@@ -293,15 +303,91 @@ class Installer {
 	private const FLAG_CONVERGENCE_OPTION = 'buddynext_profile_flag_convergence';
 
 	/**
-	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
+	 * Whether every table this plugin owns is actually present.
+	 *
+	 * The version option alone is not evidence. `run()` stamps
+	 * `buddynext_schema_version` unconditionally, AFTER an `install_schema()` that
+	 * runs dbDelta with errors suppressed — so a failed creation still records
+	 * success, and `maybe_upgrade()` then trusts that number forever. The observed
+	 * end state is a site reporting schema 40 with zero `bn_*` tables, where posting
+	 * returns HTTP 201 and writes nothing.
+	 *
+	 * The realistic causes are not "a new install" or "an upgrade" specifically —
+	 * both are fine when dbDelta succeeds. They are: dbDelta failing silently on
+	 * either path (permissions, max_allowed_packet, encoding, a restricted host), a
+	 * database restore or clone that carried `wp_options` but not the `bn_*` tables,
+	 * or a manual drop. What they share is that the option and reality disagree and
+	 * nothing ever looks again.
+	 *
+	 * Checked against OWNED_TABLES rather than a hand-picked sentinel set, because
+	 * that list is already guarded against drift by InstallerOwnedTablesTest — so
+	 * this check cannot fall behind the schema the way a second list would.
+	 *
+	 * One indexed information_schema query, memoised per request: this runs on
+	 * admin_init, and the answer cannot change within a request except when we are
+	 * the ones changing it.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @return bool True when every owned table exists.
+	 */
+	private static function schema_intact(): bool {
+		if ( null !== self::$schema_check_result ) {
+			return self::$schema_check_result;
+		}
+
+		global $wpdb;
+
+		$expected = array_values( array_unique( self::OWNED_TABLES ) );
+		if ( array() === $expected ) {
+			self::$schema_check_result = true;
+			return true;
+		}
+
+		$names        = array_map( static fn( string $t ): string => $wpdb->prefix . $t, $expected );
+		$placeholders = implode( ', ', array_fill( 0, count( $names ), '%s' ) );
+
+		// The placeholder list is generated from a hard-coded class constant, never
+		// from input; every VALUE is bound by prepare() below.
+		$sql = 'SELECT COUNT(*) FROM information_schema.tables
+			WHERE table_schema = DATABASE() AND table_name IN ( ' . $placeholders . ' )';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		$found = (int) $wpdb->get_var( $wpdb->prepare( $sql, $names ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		self::$schema_check_result = count( $names ) === $found;
+
+		return self::$schema_check_result;
+	}
+
+	/**
+	 * Forget the memoised schema check.
+	 *
+	 * Only the installer changes the answer within a request, so `run()` calls this
+	 * after creating tables; tests use it to re-ask after altering the schema.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @return void
+	 */
+	public static function flush_schema_check(): void {
+		self::$schema_check_result = null;
+	}
+
+	/**
+	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION,
+	 * or when a table it claims to have created is missing.
 	 *
 	 * Hooked on admin_init so a plain plugin update (no reactivation) still picks
-	 * up column/table changes. Cheap no-op once the versions match.
+	 * up column/table changes. Cheap no-op once the versions match and the schema
+	 * is intact.
 	 *
 	 * @return void
 	 */
 	public static function maybe_upgrade(): void {
-		if ( (int) get_option( 'buddynext_schema_version', 0 ) === self::SCHEMA_VERSION ) {
+		if ( (int) get_option( 'buddynext_schema_version', 0 ) === self::SCHEMA_VERSION
+			&& self::schema_intact() ) {
 			return;
 		}
 
@@ -1062,6 +1148,14 @@ class Installer {
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+
+		// The tables just changed, so the memoised presence check is stale. Stamping
+		// the version above is the step that used to make a failed creation
+		// permanent: it records success whether or not dbDelta achieved anything,
+		// and maybe_upgrade() then believed it forever. It still stamps — the
+		// version is a migration marker, not a health report — but the health is now
+		// asked separately, and re-asked from scratch after this.
+		self::flush_schema_check();
 
 		// Fresh install: give the new community the full experience on day one
 		// (discovery, DM, engagement surfaces, default notifications, baseline

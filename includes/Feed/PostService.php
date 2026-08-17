@@ -387,11 +387,32 @@ class PostService {
 
 		$post_id = (int) $wpdb->insert_id;
 
+		// An insert that wrote nothing must not read as success. This returned the
+		// 0 straight through, and PostController only checks is_wp_error() before
+		// answering 201 — so a missing bn_posts table produced "Post published" over
+		// a feed that stayed empty, for every member, with nothing in any log.
+		//
+		// The table being absent is the case that made this visible (a stamped
+		// schema version with no tables behind it), but the guard is deliberately
+		// about the RESULT rather than that cause: a failed insert is a failed
+		// insert, whatever the reason, and reporting it is the caller's only chance
+		// to tell the member the truth.
+		if ( $post_id <= 0 ) {
+			return new WP_Error(
+				'post_not_saved',
+				__( 'Your post could not be saved. Please try again.', 'buddynext' ),
+				array(
+					'status' => 500,
+					'db'     => $wpdb->last_error,
+				)
+			);
+		}
+
 		// Mirror attached media into the engine's provider-neutral link store
 		// (object_type='bn_post') so the link is migration-safe and the engine
 		// can resolve a post's media. The bn_posts.media_ids JSON stays the
 		// canonical read for now; this is an additive, best-effort mirror.
-		if ( $post_id > 0 && ! empty( $data['media_ids'] ) && is_array( $data['media_ids'] ) ) {
+		if ( ! empty( $data['media_ids'] ) && is_array( $data['media_ids'] ) ) {
 			\BuddyNext\Media\ObjectMediaLink::set(
 				\BuddyNext\Media\ObjectMediaLink::POST,
 				$post_id,
@@ -407,7 +428,7 @@ class PostService {
 		// Queued for every status, not just 'published': a scheduled or held post
 		// needs its preview resolved before it goes live, and by then nothing is
 		// left to hang.
-		if ( $post_id > 0 && $queue_link_meta ) {
+		if ( $queue_link_meta ) {
 			self::dispatch_link_meta( $post_id );
 		}
 
@@ -416,9 +437,9 @@ class PostService {
 		// fan-out, notifications, search indexing, hashtags, webhooks, or realtime
 		// until it goes live. The hook re-fires on approval (approve_pending) /
 		// scheduled publish, so the live edge is the right one.
-		if ( 'published' === $status && $post_id > 0 ) {
+		if ( 'published' === $status ) {
 			$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason );
-		} elseif ( 'scheduled' === $status && $post_id > 0 ) {
+		} elseif ( 'scheduled' === $status ) {
 			// Arm the on-demand publisher for this post's due time. Free owns
 			// scheduled-post publishing so this works with Pro absent.
 			ScheduledPostsPublisher::arm();
