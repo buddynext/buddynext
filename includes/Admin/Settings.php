@@ -288,7 +288,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice routing.
 		$notice = isset( $_GET['bn_recommended'] ) ? sanitize_key( wp_unslash( (string) $_GET['bn_recommended'] ) ) : '';
 		if ( 'applied' === $notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Recommended settings applied. Your community is ready to go.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Recommended settings applied. Your community is ready to go.', 'buddynext' ), 'success' );
 		}
 
 		if ( get_option( 'buddynext_recommended_dismissed' ) ) {

@@ -236,9 +236,7 @@ class Spaces extends AdminPageBase {
 		if ( ! empty( $_GET['deleted'] ) ) {
 			// phpcs:enable WordPress.Security.NonceVerification.Recommended
 			?>
-			<div class="notice notice-success is-dismissible">
-				<p><?php esc_html_e( 'Space deleted successfully.', 'buddynext' ); ?></p>
-			</div>
+			<?php AdminPageBase::render_notice( __( 'Space deleted successfully.', 'buddynext' ), 'success' ); ?>
 			<?php
 		}
 
@@ -249,7 +247,7 @@ class Spaces extends AdminPageBase {
 			$bn_archived = '1' === sanitize_text_field( wp_unslash( $_GET['archived'] ) );
 			// phpcs:enable WordPress.Security.NonceVerification.Recommended
 			?>
-			<div class="notice notice-success is-dismissible">
+			<div class="bn-notice bn-notice-success">
 				<p>
 				<?php
 				if ( $bn_archived ) {

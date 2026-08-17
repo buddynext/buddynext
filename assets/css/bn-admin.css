@@ -286,6 +286,23 @@
 	outline-offset: -2px;
 }
 
+/* A composite notice keeps its own paragraphs.
+ *
+ * Most notices are one sentence and render_notice() emits the text directly. A
+ * few are not — a cron warning with a <strong> lead and a <code> command, a bulk
+ * result with a translator-commented printf — and those keep their markup and
+ * take the primitive's classes instead of being forced through the helper, where
+ * rebuilding a translated string around a sprintf is real risk for no visual
+ * gain. Their inner <p> would otherwise add browser margins on top of the
+ * notice's own padding, so the card grows a ragged gap top and bottom. */
+.bn-notice > p:first-child {
+	margin-block-start: 0;
+}
+
+.bn-notice > p:last-child {
+	margin-block-end: 0;
+}
+
 .bn-notice-success {
 	background: var(--bn-a-green-bg);
 	color: var(--bn-a-green);

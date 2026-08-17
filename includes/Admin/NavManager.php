@@ -231,9 +231,9 @@ class NavManager extends AdminPageBase {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice routing.
 		$notice = isset( $_GET['bn_notice'] ) ? sanitize_key( wp_unslash( (string) $_GET['bn_notice'] ) ) : '';
 		if ( 'pages_saved' === $notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Pages & URLs saved.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Pages & URLs saved.', 'buddynext' ), 'success' );
 		} elseif ( 'pages_conflict' === $notice ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'That URL slug is already used by another hub or an existing page. Nothing was saved — change the slug and try again.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'That URL slug is already used by another hub or an existing page. Nothing was saved — change the slug and try again.', 'buddynext' ), 'error' );
 		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-form">
@@ -368,7 +368,7 @@ class NavManager extends AdminPageBase {
 			if ( '' === $cfg['slug_opt'] ) {
 				continue;
 			} elseif ( 'pages_error' === $notice ) {
-				echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'A backing page could not be created. Your slug changes were saved, but please try creating the page again.', 'buddynext' ) . '</p></div>';
+				AdminPageBase::render_notice( __( 'A backing page could not be created. Your slug changes were saved, but please try creating the page again.', 'buddynext' ), 'error' );
 			}
 			$slug = sanitize_title( (string) ( ( (array) ( $raw[ $hub ] ?? array() ) )['slug'] ?? '' ) );
 			if ( '' === $slug ) {
@@ -1055,9 +1055,7 @@ class NavManager extends AdminPageBase {
 
 		if ( 'saved' === $notice ) {
 			?>
-			<div class="notice notice-success is-dismissible">
-				<p><?php esc_html_e( 'Navigation settings saved.', 'buddynext' ); ?></p>
-			</div>
+			<?php AdminPageBase::render_notice( __( 'Navigation settings saved.', 'buddynext' ), 'success' ); ?>
 			<?php
 		}
 		?>

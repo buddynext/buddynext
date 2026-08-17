@@ -620,15 +620,26 @@ abstract class AdminPageBase {
 	 * dismissible and announced, which is what core's `is-dismissible` was being
 	 * used to ask for.
 	 *
-	 * @param string $message Notice text. Escaped unless $allow_links is true.
-	 * @param string $tone    One of success|error|warning|info. Unknown tones
-	 *                        fall back to info rather than rendering untoned.
-	 * @param bool   $allow_links Permit inline links/emphasis in $message, run
-	 *                            through wp_kses with a small allowlist. Use for
-	 *                            a message that points at another screen.
+	 * `$attributes` carries the `data-*` hooks bn-admin-dialogs.js already reads:
+	 * `data-bn-clear-param="updated"` strips that query arg from the URL so a
+	 * refresh does not re-show a notice about something that already happened,
+	 * and `data-bn-auto-dismiss="5000"` overrides the default 12s. Without this
+	 * argument those notices could not move to the primitive without losing the
+	 * behaviour, which is a quieter failure than not migrating them at all.
+	 *
+	 * @param string               $message Notice text. Escaped unless $allow_links is true.
+	 * @param string               $tone    One of success|error|warning|info. Unknown tones
+	 *                                      fall back to info rather than rendering untoned.
+	 * @param bool                 $allow_links Permit inline links/emphasis in $message, run
+	 *                                      through wp_kses with a small allowlist. Use for
+	 *                                      a message that points at another screen.
+	 * @param array<string,string> $attributes Extra `data-*` attributes. Anything not
+	 *                                      beginning `data-` is dropped: this exists for
+	 *                                      declared behaviour hooks, not as a way to put
+	 *                                      arbitrary markup on a shared primitive.
 	 * @return void
 	 */
-	public static function render_notice( string $message, string $tone = 'info', bool $allow_links = false ): void {
+	public static function render_notice( string $message, string $tone = 'info', bool $allow_links = false, array $attributes = array() ): void {
 		if ( '' === trim( $message ) ) {
 			return;
 		}
@@ -654,10 +665,19 @@ abstract class AdminPageBase {
 			)
 			: esc_html( $message );
 
+		$extra = '';
+		foreach ( $attributes as $name => $value ) {
+			if ( 0 !== strpos( (string) $name, 'data-' ) ) {
+				continue;
+			}
+			$extra .= ' ' . esc_attr( (string) $name ) . '="' . esc_attr( (string) $value ) . '"';
+		}
+
 		printf(
-			'<div class="bn-notice bn-notice-%1$s">%2$s</div>',
+			'<div class="bn-notice bn-notice-%1$s"%3$s>%2$s</div>',
 			esc_attr( $tone ),
-			$body // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_html() or wp_kses() applied above.
+			$body, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_html() or wp_kses() applied above.
+			$extra // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- name and value both esc_attr()'d above.
 		);
 	}
 

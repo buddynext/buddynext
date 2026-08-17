@@ -1339,9 +1339,9 @@ class Members extends AdminPageBase {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$action = sanitize_key( wp_unslash( $_GET['action'] ?? '' ) );
 		if ( 'suspended' === $action ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Member suspended.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Member suspended.', 'buddynext' ), 'success' );
 		} elseif ( 'unsuspended' === $action ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Member unsuspended.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Member unsuspended.', 'buddynext' ), 'success' );
 		}
 
 		// Bulk-action result. handle_bulk() redirects with bulk_action + bulk_done;
@@ -1357,9 +1357,9 @@ class Members extends AdminPageBase {
 					? sprintf( _n( '%d member suspended.', '%d members suspended.', $bulk_done, 'buddynext' ), $bulk_done )
 					/* translators: %d: number of members. */
 					: sprintf( _n( '%d member unsuspended.', '%d members unsuspended.', $bulk_done, 'buddynext' ), $bulk_done );
-				echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $bulk_msg ) . '</p></div>';
+				AdminPageBase::render_notice( (string) $bulk_msg, 'success' );
 			} else {
-				echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html__( 'No members were updated. Administrators and your own account are skipped from bulk actions.', 'buddynext' ) . '</p></div>';
+				AdminPageBase::render_notice( __( 'No members were updated. Administrators and your own account are skipped from bulk actions.', 'buddynext' ), 'warning' );
 			}
 		}
 

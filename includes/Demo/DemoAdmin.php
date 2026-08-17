@@ -14,6 +14,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Demo;
 
+use BuddyNext\Admin\AdminPageBase;
+
 /**
  * Registers the Demo Data admin-post actions and renders its Tools section.
  */
@@ -42,9 +44,9 @@ class DemoAdmin {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$notice = isset( $_GET['bn_demo'] ) ? sanitize_key( wp_unslash( (string) $_GET['bn_demo'] ) ) : '';
 		if ( 'seeded' === $notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Demo data installed.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Demo data installed.', 'buddynext' ), 'success' );
 		} elseif ( 'cleaned' === $notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Demo data removed.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Demo data removed.', 'buddynext' ), 'success' );
 		}
 		?>
 		<div class="bn-settings-section">

@@ -50,9 +50,9 @@ class IntegrationControlsAdmin {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bn_flag = isset( $_GET['bn_intctl'] ) ? sanitize_key( wp_unslash( $_GET['bn_intctl'] ) ) : '';
 		if ( 'error' === $bn_flag ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Could not save integration settings. Please try again.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Could not save integration settings. Please try again.', 'buddynext' ), 'error' );
 		} elseif ( '' !== $bn_flag ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Integration settings saved.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Integration settings saved.', 'buddynext' ), 'success' );
 		}
 
 		$integrations = buddynext_integrations();

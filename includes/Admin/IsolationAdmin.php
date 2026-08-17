@@ -108,9 +108,9 @@ class IsolationAdmin {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bn_flag = isset( $_GET['bn_isolation'] ) ? sanitize_key( wp_unslash( $_GET['bn_isolation'] ) ) : '';
 		if ( 'error' === $bn_flag ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Could not save the isolation allow-list. Please try again.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Could not save the isolation allow-list. Please try again.', 'buddynext' ), 'error' );
 		} elseif ( '' !== $bn_flag ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Plugin isolation settings saved.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Plugin isolation settings saved.', 'buddynext' ), 'success' );
 		}
 
 		$bn_groups = $this->classify();

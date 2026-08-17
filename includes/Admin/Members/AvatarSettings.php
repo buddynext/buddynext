@@ -20,6 +20,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin\Members;
 
+use BuddyNext\Admin\AdminPageBase;
+
 /**
  * Handles the Avatar & Cover settings tab for the Members admin panel.
  */
@@ -168,7 +170,7 @@ class AvatarSettings {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( ! empty( $_GET['saved'] ) ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Avatar settings saved.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Avatar settings saved.', 'buddynext' ), 'success' );
 		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
