@@ -745,12 +745,41 @@
 .bn-ss-body input.bn-text-input:not([type="number"]):not([type="color"]),
 .bn-ss-body input.bn-input:not([type="number"]):not([type="color"]),
 .bn-ss-body input[type="email"].regular-text,
-.bn-ss-body input[type="url"].regular-text,
+.bn-ss-body input[type="url"].regular-text {
+	width: 100%;
+	max-width: 560px;
+	box-sizing: border-box;
+}
+
+/* Selects size to their own options, not to a blanket 560px.
+ *
+ * A text input has no natural width — 560px is a reading measure and the right
+ * answer for one. A select does: it is exactly as wide as the longest thing it
+ * can say. Stretching all 61 of them to one width was wrong in BOTH directions,
+ * which is only visible once you count them:
+ *
+ *   18 hold options under 20 characters ("Forever", "Public") in a 560px control
+ *    8 hold options over 40, one of them 80 ("Restricted — they can look around,
+ *      but cannot post or comment until they confirm")
+ *
+ * The short ones are where this was reported. macOS draws a select's popup at
+ * the CONTROL's width, so an over-wide control makes an over-wide menu that runs
+ * off the right of the screen — Apple devices are where it shows, not where it
+ * is. The long ones are the same rule failing the other way, with the option
+ * ellipsised in the closed state.
+ *
+ * `width: auto` lets the browser do what it is already good at, and it is the
+ * translation-safe choice rather than the risky one: a German label that would
+ * overflow a fixed cap simply widens its own control. min-width stops a
+ * two-option select shrinking to a stub; max-width keeps the longest inside the
+ * card. Measured on Registration: 560px became 192 / 328 / 365 / 555 — each the
+ * width of what it actually says. */
 .bn-ss-body select.bn-select,
 .bn-ss-body select.bn-select-input,
 .bn-ss-body select:not([multiple]) {
-	width: 100%;
-	max-width: 560px;
+	width: auto;
+	min-width: 12rem;
+	max-width: 100%;
 	box-sizing: border-box;
 }
 
