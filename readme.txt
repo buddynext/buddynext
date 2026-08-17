@@ -60,6 +60,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 A gated space keeps its posts to itself, the shared filter bar works on a phone, and the webhook audit log is timestamped consistently. Lockstep with BuddyNext Pro 1.1.5 - install and test both together.
 
+* Improve  - Settings that accept "no limit" now say so with a tick box instead of asking for a 0. Eleven settings across the admin - rate limits, space caps, retention, strike thresholds - no longer need a footnote explaining that zero means the opposite of what it reads.
 * Fix      - The admin navigation rail now stops at the height of the window and scrolls itself, so expanding several sections no longer pushes the last one past the bottom of the page.
 * Fix      - The Community Name now reaches the browser tab title on community pages and the name emails are sent under, which its own setting has always promised. The WordPress site title still applies everywhere else.
 * Fix      - A banned word blocks that word and no longer blocks longer words containing it, so "ass" stops rejecting "class" and "passionate". Add * to an entry, as in "spam*", to catch variants on purpose.
