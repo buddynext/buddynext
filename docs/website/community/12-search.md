@@ -48,6 +48,19 @@ Results carry date and sort controls so you can order them by recency or relevan
 
 > **Note:** Search works without JavaScript. The query form and the type tabs submit as plain page loads, so results are reachable on any device or connection.
 
+### Search inside one space
+
+Community-wide search answers "where in the community is this?". Inside a busy space that is the wrong question - the answer is mostly other spaces. Since 1.1.5 a space's **Feed** tab carries its own search box that returns only that space's posts.
+
+Type a term and press Search. The feed is replaced by the matches, shown as the same post cards, so you can react, comment and open them exactly as you would in the feed. **Clear** puts the feed back.
+
+- **Results are paged.** Twenty per page, with Previous and Next. A space large enough to need search is large enough to have more than twenty matches, and all of them are reachable.
+- **The address bar keeps your search.** The result page is an ordinary link, so you can bookmark it or send it to someone who can also see that space.
+- **It works without JavaScript**, like the members search on the same space.
+- **Nothing is offered that cannot answer.** In a space you are not allowed to read, the search box is not shown at all - and a hand-typed search address returns nothing rather than a count. A result count on a private space would itself say something about what is in it.
+
+Privacy follows the space, not the search. You see exactly the posts you could already see by scrolling: a private space's posts if you are an active member of it, and nothing from it if you are not.
+
 ## Setting it up (for owners)
 
 Search is on as soon as BuddyNext is active - there are no keys to enter and no provider to connect. Indexing runs automatically in the background as members create, edit, or delete content.

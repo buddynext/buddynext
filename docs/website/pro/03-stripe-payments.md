@@ -80,7 +80,8 @@ This keeps test and live separate: your test price and your live price are track
 Once the webhook is connected, BuddyNext keeps each member's access current automatically as their Stripe subscription changes. You do not manage any of this by hand:
 
 - When a member subscribes (or their subscription is updated), BuddyNext records it and grants the tier's access while the subscription is active or in its trial.
-- When a subscription is cancelled, BuddyNext removes the tier's access and re-locks gated spaces and protected content.
+- When a subscription is cancelled, BuddyNext removes the tier's access and re-locks gated spaces and protected content. A member who cancels part-way through a period they have already paid for keeps access until that period ends, and is not told their membership will renew - Stripe reports such a subscription as still active with a cancel-at-period-end flag, and BuddyNext reads the flag rather than the status alone (1.1.5).
+- When a subscription is paused at Stripe, access ends at the end of the paid period rather than being ignored (1.1.5).
 - When a renewal payment succeeds, BuddyNext extends access to the new billing period - this is how renewals keep access alive.
 - When a payment fails, BuddyNext marks the member past due so you can see who needs to fix their card.
 
