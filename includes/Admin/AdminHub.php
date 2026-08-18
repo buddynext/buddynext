@@ -1200,7 +1200,7 @@ class AdminHub {
 			// translated label in their own textdomain.
 			$bn_linked = in_array( (string) $key, $bn_menu_sections, true );
 
-			add_submenu_page(
+			$bn_hook = add_submenu_page(
 				// A registered-but-unlinked page uses the null parent. This is the
 				// idiom that keeps the screen reachable while taking it out of the
 				// menu: it still populates $_registered_pages, which is what
@@ -1217,6 +1217,31 @@ class AdminHub {
 				$section['slug'],
 				array( $this, 'render_section' )
 			);
+
+			/*
+			 * Give the unlinked screens their $title back.
+			 *
+			 * get_admin_page_title() resolves the global $title by walking $submenu
+			 * for the current page. A null-parent registration is not in $submenu by
+			 * design, so it finds nothing and leaves $title null - and core then runs
+			 * strip_tags( $title ) unconditionally (wp-admin/admin-header.php:41).
+			 * On PHP 8.1+ that is a deprecation on every load of each unlinked
+			 * screen: eight of them here, and they were filling the debug log.
+			 *
+			 * load-{hook} fires before admin-header.php is included, which is the
+			 * window where setting it still counts. The browser <title> is handled
+			 * separately by filter_admin_title(); this is the in-page one.
+			 */
+			if ( ! $bn_linked && is_string( $bn_hook ) && '' !== $bn_hook ) {
+				$bn_section_label = (string) $section['label'];
+				add_action(
+					'load-' . $bn_hook,
+					static function () use ( $bn_section_label ): void {
+						// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- supplying the title core could not resolve for a deliberately unlinked screen.
+						$GLOBALS['title'] = $bn_section_label;
+					}
+				);
+			}
 		}
 
 		// License lives as a tab inside a section, which buries the one screen
