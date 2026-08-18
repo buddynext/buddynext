@@ -941,6 +941,7 @@ class PageRouter {
 		 */
 		$title_frozen = (string) apply_filters( 'buddynext_document_title', $hub_title, $hub );
 		if ( '' !== $title_frozen && ! self::seo_plugin_active() ) {
+			self::$title_claimed = true;
 			add_filter(
 				'document_title_parts',
 				static function ( array $parts ) use ( $title_frozen ): array {
@@ -1301,6 +1302,37 @@ class PageRouter {
 				return $parts;
 			}
 		);
+	}
+
+	/**
+	 * Whether a hub render has claimed the document title this request.
+	 *
+	 * @var bool
+	 */
+	private static bool $title_claimed = false;
+
+	/**
+	 * Has a hub render already claimed the document title?
+	 *
+	 * The hub title is the MEMBER-facing one ("Notifications (99+)"), and it is
+	 * more specific than the social descriptor HeadMeta emits afterwards. Both
+	 * used to claim `document_title_parts` at priority 10, so registration order
+	 * decided and HeadMeta - registered second - silently won, costing every hub
+	 * its real title and printing a bare site name on messages and notifications.
+	 *
+	 * @return bool True when render_hub() has already filtered the title.
+	 */
+	public static function title_claimed(): bool {
+		return self::$title_claimed;
+	}
+
+	/**
+	 * Clear the document-title claim. Test seam only.
+	 *
+	 * @return void
+	 */
+	public static function reset_title_claim(): void {
+		self::$title_claimed = false;
 	}
 
 	/**
