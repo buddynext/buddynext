@@ -231,9 +231,9 @@ class NavManager extends AdminPageBase {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice routing.
 		$notice = isset( $_GET['bn_notice'] ) ? sanitize_key( wp_unslash( (string) $_GET['bn_notice'] ) ) : '';
 		if ( 'pages_saved' === $notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Pages & URLs saved.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Pages & URLs saved.', 'buddynext' ), 'success' );
 		} elseif ( 'pages_conflict' === $notice ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'That URL slug is already used by another hub or an existing page. Nothing was saved — change the slug and try again.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'That URL slug is already used by another hub or an existing page. Nothing was saved — change the slug and try again.', 'buddynext' ), 'error' );
 		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-form">
@@ -245,7 +245,14 @@ class NavManager extends AdminPageBase {
 					<p class="bn-field-hint">
 						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Hubs are virtual routes — only assign a WordPress page if you want a page-builder layout, a real menu entry, or page-level SEO for that hub.', 'buddynext' ); ?>
 					</p>
-					<table class="bn-table bn-pages-table">
+					<!--
+					Scroll host on the WRAPPER, never the table (admin table contract, rule 3):
+					a table that scrolls itself pins sticky cells to a box that never moves and
+					clips its own rounded corners. Without this the three columns overflowed
+					unreachably at tablet width (596px table in a 595px row, no scroll host).
+					-->
+					<div class="bn-table-wrap__scroll">
+						<table class="bn-table bn-pages-table">
 						<thead>
 							<tr>
 								<th scope="col"><?php esc_html_e( 'Hub', 'buddynext' ); ?></th>
@@ -337,6 +344,7 @@ class NavManager extends AdminPageBase {
 						<?php endforeach; ?>
 						</tbody>
 					</table>
+					</div><!-- .bn-table-wrap__scroll -->
 				</div>
 			</div>
 			<p class="submit"><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Pages & URLs', 'buddynext' ); ?></button></p>
@@ -368,7 +376,7 @@ class NavManager extends AdminPageBase {
 			if ( '' === $cfg['slug_opt'] ) {
 				continue;
 			} elseif ( 'pages_error' === $notice ) {
-				echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'A backing page could not be created. Your slug changes were saved, but please try creating the page again.', 'buddynext' ) . '</p></div>';
+				AdminPageBase::render_notice( __( 'A backing page could not be created. Your slug changes were saved, but please try creating the page again.', 'buddynext' ), 'error' );
 			}
 			$slug = sanitize_title( (string) ( ( (array) ( $raw[ $hub ] ?? array() ) )['slug'] ?? '' ) );
 			if ( '' === $slug ) {
@@ -921,7 +929,14 @@ class NavManager extends AdminPageBase {
 
 			// The logged-out items (Log in / Register) are not part of the account dropdown —
 			// they are the signed-out header, and an owner hiding them locks people out.
-			if ( '' === $slug || \BuddyNext\Nav\UserLinks::LOGGEDIN !== ( $item['visibility'] ?? '' ) ) {
+			// Skip owner-added custom links (NavOverrides flags them 'custom'): they are
+			// not built-in defaults, so they must NOT land here — otherwise the tab
+			// assembly sees the slug "already in defaults", drops the custom copy, and
+			// the link renders as an undeletable "Core" tab. Excluding them lets the
+			// assembly re-surface them as deletable custom tabs.
+			if ( '' === $slug
+				|| ! empty( $item['custom'] )
+				|| \BuddyNext\Nav\UserLinks::LOGGEDIN !== ( $item['visibility'] ?? '' ) ) {
 				continue;
 			}
 
@@ -1048,9 +1063,7 @@ class NavManager extends AdminPageBase {
 
 		if ( 'saved' === $notice ) {
 			?>
-			<div class="notice notice-success is-dismissible">
-				<p><?php esc_html_e( 'Navigation settings saved.', 'buddynext' ); ?></p>
-			</div>
+			<?php AdminPageBase::render_notice( __( 'Navigation settings saved.', 'buddynext' ), 'success' ); ?>
 			<?php
 		}
 		?>
@@ -1790,6 +1803,19 @@ class NavManager extends AdminPageBase {
 			return sanitize_text_field( $url );
 		}
 
+		// A schemeless value with no leading slash / # and no dot is a bare word
+		// (e.g. "test"). esc_url_raw() would silently rewrite it to a broken
+		// external link (http://test), so reject it here instead — the owner
+		// never ships a dead nav link, and the form states the accepted formats.
+		// Accepted: absolute URLs (https://…, mailto:, tel:), site paths (/page),
+		// anchors (#id), or a dotted host meant as external (example.com/x).
+		$has_scheme = (bool) preg_match( '#^[a-z][a-z0-9+.\-]*:#i', $url );
+		$is_path    = ( '/' === $url[0] || '#' === $url[0] );
+		$has_dot    = ( false !== strpos( $url, '.' ) );
+		if ( ! $has_scheme && ! $is_path && ! $has_dot ) {
+			return '';
+		}
+
 		return esc_url_raw( $url );
 	}
 
@@ -1829,7 +1855,7 @@ class NavManager extends AdminPageBase {
 					<input type="text"
 						id="bn-new-tab-url-<?php echo esc_attr( $scope ); ?>"
 						name="bn_new_tab[<?php echo esc_attr( $scope ); ?>][url]"
-						placeholder="<?php echo 'space' === $scope ? esc_attr__( '{space_url}handbook/', 'buddynext' ) : esc_attr__( 'https://...', 'buddynext' ); ?>">
+						placeholder="<?php echo 'space' === $scope ? esc_attr__( '{space_url}handbook/', 'buddynext' ) : esc_attr__( 'https://example.com', 'buddynext' ); ?>">
 					<p class="description">
 						<?php
 						if ( 'space' === $scope ) {
@@ -1840,14 +1866,19 @@ class NavManager extends AdminPageBase {
 							<code>{slug}</code> — <?php esc_html_e( 'that space\'s slug, e.g. design-critique', 'buddynext' ); ?><br>
 							<code>{space_id}</code> — <?php esc_html_e( 'that space\'s numeric ID', 'buddynext' ); ?>
 							<?php
-						} else {
-							esc_html_e( 'This tab is added to EVERY profile. Use a placeholder and it is filled in per member:', 'buddynext' );
+						} elseif ( 'profile' === $scope ) {
+							esc_html_e( 'This tab is added to EVERY profile, so the link points at whichever member is being viewed. Use a placeholder and it is filled in per member:', 'buddynext' );
 							?>
 							<br>
 							<code>{profile_url}</code> — <?php esc_html_e( 'that member\'s profile address', 'buddynext' ); ?><br>
 							<code>{slug}</code> — <?php esc_html_e( 'that member\'s username', 'buddynext' ); ?><br>
 							<code>{user_id}</code> — <?php esc_html_e( 'that member\'s numeric ID', 'buddynext' ); ?>
 							<?php
+						} else {
+							// Account dropdown / main nav: one link that goes to the same
+							// place for everyone. No per-member placeholders here — leaving
+							// them out is what keeps this simple and predictable.
+							esc_html_e( 'Enter a full web address (https://example.com) or a path on this site (/support). This link goes to the same place for everyone.', 'buddynext' );
 						}
 						?>
 					</p>
@@ -1979,7 +2010,11 @@ class NavManager extends AdminPageBase {
 			$new_label = sanitize_text_field( (string) ( $new_tab['label'] ?? '' ) );
 			$new_url   = self::sanitize_tab_url( (string) ( $new_tab['url'] ?? '' ) );
 
-			if ( '' !== $new_label ) {
+			// Require a usable URL: sanitize_tab_url() returns '' for a bare word
+			// like "test" (which would otherwise mint a broken http://test link), so
+			// a custom link with no valid destination is not created at all rather
+			// than saved as a dead tab. The form validates client-side too.
+			if ( '' !== $new_label && '' !== $new_url ) {
 				$new_slug = sanitize_key( $new_label );
 				// Ensure uniqueness.
 				$base    = $new_slug;
@@ -2082,22 +2117,100 @@ class NavManager extends AdminPageBase {
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/**
-	 * Available nav-tab icon slugs, from the bundled admin SVG set.
+	 * Icon slugs offered by the nav-item picker.
 	 *
-	 * Globs assets/svg/admin/tab-*.svg so the icon picker stays in sync with the
-	 * shipped glyphs. Returns slugs without the .svg extension, sorted.
+	 * A curated allowlist drawn from the ONE icon library in assets/icons/, rather
+	 * than a glob of assets/svg/admin/tab-*.svg. That glob was the reason the same
+	 * artwork existed twice: widening the picker meant copying Lucide glyphs into a
+	 * second folder as `tab-*` duplicates, which then had to be kept in step by hand.
+	 *
+	 * Curated and not the whole library, deliberately. There are 118 icons; a
+	 * 118-option dropdown is a worse control than a short list of the ones that
+	 * actually read as navigation. Sites that want something else have the filter.
+	 *
+	 * Stored values are untouched by this. A site that saved `tab-star` keeps it —
+	 * the picker prepends any stored value it does not offer (see the render), and
+	 * IconService aliases `tab-star` to the library's `star`.
 	 *
 	 * @return array<int, string>
 	 */
 	private function available_tab_icons(): array {
-		$icons = array();
-		foreach ( (array) glob( self::SVG_DIR . 'tab-*.svg' ) as $file ) {
-			$slug = basename( (string) $file, '.svg' );
-			if ( '' !== $slug ) {
-				$icons[] = $slug;
-			}
-		}
+		$icons = array(
+			// Places and destinations.
+			'home',
+			'globe',
+			'grid',
+			'layers',
+			'map-pin',
+			'building',
+			'store',
+			'door-open',
+			// People.
+			'user',
+			'users',
+			'user-plus',
+			'user-check',
+			// Content.
+			'list',
+			'layout',
+			'file-text',
+			'book-open',
+			'image',
+			'camera',
+			'play',
+			'music',
+			'folder',
+			// Conversation.
+			'message-circle',
+			'message-square',
+			'messages-square',
+			'mail',
+			'inbox',
+			'megaphone',
+			// Signals.
+			'bell',
+			'heart',
+			'star',
+			'bookmark',
+			'flag',
+			'thumbs-up',
+			'sparkles',
+			'zap',
+			// Utility.
+			'search',
+			'settings',
+			'shield',
+			'lock',
+			'calendar',
+			'clock',
+			'bar-chart',
+			'trending-up',
+			'award',
+			'crown',
+			'briefcase',
+			'graduation-cap',
+			'gamepad',
+			'hash',
+			'link',
+			'target',
+			'rocket',
+		);
+
+		/**
+		 * Filter the icon slugs offered by the nav-item picker.
+		 *
+		 * Any slug in assets/icons/ works, whether or not it is listed here; this
+		 * only decides what the dropdown offers.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param array<int, string> $icons Curated icon slugs.
+		 */
+		$icons = (array) apply_filters( 'buddynext_nav_icon_choices', $icons );
+
+		$icons = array_values( array_unique( array_filter( array_map( 'strval', $icons ) ) ) );
 		sort( $icons );
+
 		return $icons;
 	}
 

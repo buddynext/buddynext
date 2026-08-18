@@ -51,7 +51,7 @@ if ( ! is_array( $bn_ap_profile ) ) {
 do_action( 'buddynext_profile_about_before', $bn_ap_uid, $bn_ap_viewer, $bn_ap_profile );
 
 // Spine fields the hero already shows — skipped only within basic_info.
-$bn_ap_hero_keys = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
+$bn_ap_hero_keys = \BuddyNext\Profile\ProfileService::HERO_SPINE_FIELDS;
 
 /**
  * Whether a stored value is empty (works for scalar + array/multi values).

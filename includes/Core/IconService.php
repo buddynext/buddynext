@@ -359,6 +359,32 @@ class IconService {
 
 		$path = self::icons_dir() . sanitize_file_name( $name ) . '.svg';
 
+		// Nav-item icons are stored as the admin picker's value, historically a
+		// `tab-*` slug naming a file in assets/svg/admin/ rather than in the
+		// assets/icons/ library this renderer reads.
+		//
+		// Two steps, in this order, and the order is the point:
+		//
+		// 1. ALIAS — `tab-star` means the library's `star`. Most of that second set
+		// was a straight copy of Lucide glyphs, so resolving the alias first is
+		// what allows the duplicates to be deleted: a site that stored
+		// `tab-star` keeps its icon from the one remaining copy.
+		// 2. FALLBACK — the genuinely bespoke admin glyphs (tab-about, tab-auth,
+		// tab-custom …) have no Lucide equivalent and still live in
+		// assets/svg/admin/. They resolve here.
+		//
+		// Without step 1 the picker and the library were two sets of the same
+		// artwork, free to drift; without step 2 every custom nav item rendered a
+		// blank icon, which is the bug the fallback was originally added for.
+		if ( ! file_exists( $path ) && 0 === strpos( $name, 'tab-' ) ) {
+			$bn_bare  = substr( $name, 4 );
+			$bn_alias = self::icons_dir() . sanitize_file_name( $bn_bare ) . '.svg';
+
+			$path = file_exists( $bn_alias )
+				? $bn_alias
+				: BUDDYNEXT_DIR . 'assets/svg/admin/' . sanitize_file_name( $name ) . '.svg';
+		}
+
 		if ( ! file_exists( $path ) ) {
 			$cache[ $key ] = '';
 			return '';

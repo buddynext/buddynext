@@ -12,12 +12,43 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin\Members;
 
+use BuddyNext\Admin\AdminPageBase;
 use BuddyNext\Admin\Members\MemberDisplay;
 
 /**
  * Renders the edit-member admin view for a single user.
  */
 class MemberEditForm {
+
+	/**
+	 * How long a rejected save's field messages survive.
+	 *
+	 * The save is a POST that redirects, so the messages have to cross one request
+	 * to reach this screen. Long enough that a slow redirect never loses them,
+	 * short enough that a stale set cannot surface against a later edit.
+	 */
+	public const SAVE_ERROR_TTL = 60;
+
+	/**
+	 * Transient key holding a rejected save's messages for one editor + one member.
+	 *
+	 * Keyed by BOTH ids: two admins editing at the same time must not read each
+	 * other's errors, and one admin moving between members must not be shown the
+	 * previous member's.
+	 *
+	 * Lives here rather than on Members because this is the class that renders the
+	 * messages; Members already depends on this one to render the view, so the key
+	 * adds no new direction to the dependency.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param int $editor_id Admin who submitted the form.
+	 * @param int $member_id Member being edited.
+	 * @return string
+	 */
+	public static function save_error_transient_key( int $editor_id, int $member_id ): string {
+		return sprintf( 'bn_member_save_err_%d_%d', $editor_id, $member_id );
+	}
 
 	/**
 	 * Render the member edit view for a single user.
@@ -32,7 +63,7 @@ class MemberEditForm {
 		$wp_user = $user_id > 0 ? get_userdata( $user_id ) : false;
 
 		if ( ! $wp_user || $user_id <= 0 ) {
-			echo '<div class="notice notice-error"><p>' . esc_html__( 'User not found.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'User not found.', 'buddynext' ), 'error' );
 			return;
 		}
 
@@ -45,24 +76,96 @@ class MemberEditForm {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bn_error = sanitize_key( wp_unslash( $_GET['bn_error'] ?? '' ) );
 		if ( $saved ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Profile updated successfully.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Profile updated successfully.', 'buddynext' ), 'success' );
 		}
-		if ( 'avatar_size' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Photo not saved: file exceeds the 2MB limit.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'avatar_type' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'slug_taken' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'cover_size' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'cover_type' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'email_taken' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved: that email address is already in use by another account.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'email_invalid' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved: please enter a valid email address.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'role_invalid' === $bn_error ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved: the selected role is not valid.', 'buddynext' ) . '</p></div>';
+
+		/*
+		 * An eight-branch if/elseif chain that only ever picked a string was a
+		 * lookup table wearing a conditional — and the shape is why the raw markup
+		 * multiplied here: adding a failure reason meant copy-pasting a whole
+		 * notice div, so the tenth one was a copy of the ninth. A map means the
+		 * next reason is one line and cannot render differently from its
+		 * neighbours.
+		 */
+		$bn_error_messages = array(
+			'avatar_size'     => __( 'Photo not saved: file exceeds the 2MB limit.', 'buddynext' ),
+			'avatar_type'     => __( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
+			'slug_taken'      => __( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ),
+			'cover_size'      => __( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ),
+			'cover_type'      => __( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
+			'email_taken'     => __( 'Not saved: that email address is already in use by another account.', 'buddynext' ),
+			'email_invalid'   => __( 'Not saved: please enter a valid email address.', 'buddynext' ),
+			'role_invalid'    => __( 'Not saved: the selected role is not valid.', 'buddynext' ),
+			// Plural and absolute on purpose: the save is atomic, so one bad field
+			// means none of the profile fields were written. "Some changes were not
+			// saved" would be the same false reassurance this replaces.
+			'profile_invalid' => __( 'Profile fields were not saved. Nothing on this form was changed - fix the problems below and save again.', 'buddynext' ),
+		);
+
+		if ( isset( $bn_error_messages[ $bn_error ] ) ) {
+			AdminPageBase::render_notice( $bn_error_messages[ $bn_error ], 'error' );
+		}
+
+		/*
+		 * A rejected profile save carries per-field messages, and they are the whole
+		 * point: save_profile() is atomic, so a rejection dropped the ENTIRE edit,
+		 * and "Not saved" without naming the field leaves the admin re-submitting
+		 * the same form to find out which one. The generic line above says what
+		 * happened; this says what to fix.
+		 */
+		if ( 'profile_invalid' === $bn_error ) {
+			$bn_save_error = get_transient( self::save_error_transient_key( get_current_user_id(), $user_id ) );
+			delete_transient( self::save_error_transient_key( get_current_user_id(), $user_id ) );
+
+			if ( is_array( $bn_save_error ) ) {
+				$bn_lines = array();
+
+				// Field KEYS are how save_profile() reports, and they are not what the
+				// admin is looking at: this form is labelled "QA Pro Location", so
+				// "qa_pro_location" makes them translate before they can act. Resolve
+				// against the same $groups the form itself was built from, so the
+				// error names the field exactly as the input above it does.
+				$bn_labels = array();
+				foreach ( $groups as $bn_lgroup ) {
+					foreach ( (array) ( $bn_lgroup['fields'] ?? array() ) as $bn_lfield ) {
+						$bn_lkey = (string) ( $bn_lfield['field_key'] ?? '' );
+						if ( '' !== $bn_lkey ) {
+							$bn_labels[ $bn_lkey ] = (string) ( $bn_lfield['label'] ?? $bn_lkey );
+						}
+					}
+				}
+
+				foreach ( (array) ( $bn_save_error['fields'] ?? array() ) as $bn_fk => $bn_msg ) {
+					// Repeater failures are keyed group[0][field_key]; the inner key is
+					// the one with a label. Falling back to the raw key is still an
+					// attribution, which is the point.
+					$bn_inner = ( preg_match( '/\[([a-z0-9_]+)\]$/i', (string) $bn_fk, $bn_m ) === 1 ) ? $bn_m[1] : (string) $bn_fk;
+					$bn_label = $bn_labels[ $bn_inner ] ?? $bn_inner;
+					$bn_msg   = (string) $bn_msg;
+
+					// save_profile()'s own messages already open with the field label
+					// ("Website must be a valid URL."), so prefixing the label would
+					// print it twice. Bold it where it already stands instead, and only
+					// prepend it when the message does not name the field — which is the
+					// safeguard's generic rejection, the one case with no attribution of
+					// its own.
+					$bn_lines[] = str_starts_with( $bn_msg, $bn_label )
+						? '<strong>' . esc_html( $bn_label ) . '</strong>' . esc_html( substr( $bn_msg, strlen( $bn_label ) ) )
+						: '<strong>' . esc_html( $bn_label ) . '</strong>: ' . esc_html( $bn_msg );
+				}
+
+				// The safeguard can reject without naming a field even after the
+				// per-value re-check (a phrase that only trips when values are
+				// joined). Its own message is then all there is, and it is better
+				// than nothing.
+				if ( empty( $bn_lines ) && '' !== (string) ( $bn_save_error['message'] ?? '' ) ) {
+					$bn_lines[] = esc_html( (string) $bn_save_error['message'] );
+				}
+
+				if ( ! empty( $bn_lines ) ) {
+					AdminPageBase::render_notice( implode( '<br>', $bn_lines ), 'error', true );
+				}
+			}
 		}
 		?>
 
@@ -306,6 +409,26 @@ class MemberEditForm {
 					</div>
 				</div>
 				<?php $this->close_section(); ?>
+
+				<?php
+				/**
+				 * Fires inside the Account tab of the edit-member form.
+				 *
+				 * Renders member-level administrative sections — member type, membership,
+				 * labels — beside Role and Email, which are the same kind of fact about
+				 * the member rather than profile content.
+				 *
+				 * This deliberately sits INSIDE the Account panel. It previously fired
+				 * after the group loop and therefore outside every tab panel, so the
+				 * sections stayed on screen whichever tab was open and read as though they
+				 * belonged to Work Experience, Education, Skills and every other field
+				 * group in turn.
+				 *
+				 * @param int      $user_id User ID being edited.
+				 * @param \WP_User $wp_user WP_User object.
+				 */
+				do_action( 'buddynext_edit_member_sections', $user_id, $wp_user );
+				?>
 			</div><!-- #bn-panel-account -->
 
 			<?php /* ── Dynamic group tab panels ───────────────────────── */ ?>
@@ -401,15 +524,6 @@ class MemberEditForm {
 				</div><!-- #bn-panel-group-<?php echo absint( $group['id'] ); ?> -->
 			<?php endforeach; ?>
 
-			<?php
-			/**
-			 * Fires after all profile group panels inside the edit-member form.
-			 *
-			 * @param int     $user_id User ID being edited.
-			 * @param \WP_User $wp_user WP_User object.
-			 */
-			do_action( 'buddynext_edit_member_sections', $user_id, $wp_user );
-			?>
 
 			<div class="bn-save-bar">
 				<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Profile', 'buddynext' ); ?></button>
@@ -466,6 +580,68 @@ class MemberEditForm {
 		}
 
 		$input_id = 'bn-pf-' . $key;
+
+		/*
+		 * Option-typed controls go through the SHARED renderer, not a copy.
+		 *
+		 * These four used to be hand-rolled here, and every one of them printed the
+		 * option LABEL as the option's value:
+		 *
+		 *     <option value="<?php echo esc_attr( (string) $opt ); ?>" ...>
+		 *
+		 * Values are stored as SLUGS. So `selected( 'leo', 'Leo' )` never matched and
+		 * every select, multiselect, radio and checkbox on the site rendered EMPTY,
+		 * whatever the member had saved. FieldType has always keyed its options
+		 * slug => label — that is why display_text() can look up
+		 * $options[ sanitize_title( $value ) ] and get the label back — and the
+		 * member-facing editor, which renders through FieldType::render_input(),
+		 * round-trips correctly. The admin editor was the only surface that
+		 * re-implemented the control, and it re-implemented it against the wrong key.
+		 *
+		 * That was not merely cosmetic. An empty select POSTS an empty string, and
+		 * Members.php writes any key that is set, so an admin who opened a member and
+		 * saved without touching anything destroyed the stored value and was shown
+		 * "Profile updated successfully." (Verified: a select wiped; radio and
+		 * multiselect survived only because an empty one posts no key at all and the
+		 * isset() check skips it. The select is the one that loses data.) And where
+		 * such a field is REQUIRED it renders empty, fails validation, and — because
+		 * save_profile() is atomic — makes the member unsaveable from this screen
+		 * with no way out, since re-picking the value stores a slug the next render
+		 * again cannot match.
+		 *
+		 * Scoped to these three deliberately. The file's `checkbox` branch carries the
+		 * identical defect but is NOT delegated, because FieldType has no `checkbox`
+		 * case in render_input() or sanitize() — it is not a field type this product
+		 * supports (multi-value lives in multiselect / category_multiselect /
+		 * member_type_multiselect), so that branch is unreachable for any real field
+		 * and routing it here would silently downgrade it to a text input. Left as
+		 * found rather than half-fixed.
+		 *
+		 * The wrapper below stays: it carries the admin form's own row markup and
+		 * label, which the primitive does not render.
+		 */
+		$bn_delegated = array( 'select', 'multiselect', 'radio' );
+
+		if ( in_array( $type, $bn_delegated, true ) ) {
+			// The bare key. render_multiselect_input() appends its own `[]` to the
+			// name it is handed, so passing "$key[]" here produced "$key[][]" — the
+			// boxes rendered and checked correctly and the save posted a nested array
+			// the handler could not read.
+			$bn_input_name = $key;
+			?>
+<div class="bn-field-row">
+	<div class="bn-label"><label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label></div>
+	<div class="bn-control">
+			<?php
+			// FieldType::render_input() returns markup it has escaped itself; this is
+			// the same contract the member-facing profile editor relies on.
+			echo \BuddyNext\Profile\FieldType::render_input( $field, $raw_val, $bn_input_name ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the renderer.
+			?>
+	</div>
+</div>
+			<?php
+			return;
+		}
 		?>
 <div class="bn-field-row">
 	<div class="bn-label"><label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label></div>

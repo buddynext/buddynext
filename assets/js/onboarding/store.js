@@ -19,6 +19,12 @@ import { restFetch } from '@buddynext/rest-client';
  * sprintf-style '%s'/'%d' placeholders. */
 let I18N = {};
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+
+/* Upload limits, read from the same server state as the strings above. The
+ * fallbacks match ProfileController::validate_image_upload()'s own defaults, so
+ * an absent state degrades to the real rule rather than to the 1024x1024 cap
+ * that made a phone photo unusable here. */
+let UPLOAD_LIMITS = { maxMegapixels: 50, maxDimension: 10000, maxBytes: 4 * 1024 * 1024 };
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
 
 // Holds the pending username-availability check timer so a fresh
@@ -457,9 +463,18 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			const c = ctx();
 			const file = event && event.target && event.target.files ? event.target.files[ 0 ] : null;
 			if ( ! file ) { return; }
-			// Size cap matches the server (ProfileController: 4MB).
-			if ( file.size > 4 * 1024 * 1024 ) {
-				toast( t( 'toastImageTooLarge', 'Image too large. Max 4MB.' ), 'danger' );
+			// Size cap read from the server, for the same reason as the pixel check
+			// below: hardcoding it here matched the server's DEFAULT but was
+			// unreachable by buddynext_upload_max_bytes, so an owner who raised the
+			// limit got a browser that still refused the file.
+			if ( file.size > UPLOAD_LIMITS.maxBytes ) {
+				toast(
+					fmt(
+						t( 'toastImageTooLarge', 'Image too large. Max %sMB.' ),
+						Math.round( UPLOAD_LIMITS.maxBytes / ( 1024 * 1024 ) )
+					),
+					'danger'
+				);
 				return;
 			}
 
@@ -506,16 +521,41 @@ const onboardingStore = store( 'buddynext/onboarding', {
 					} );
 			};
 
-			// Pre-check pixel dimensions against the server cap (1024×1024) so the
-			// user gets an immediate, specific message rather than a 422 after a
-			// wasted upload.
+			// Pre-check pixel dimensions so the member gets an immediate, specific
+			// message rather than a 422 after a wasted upload.
+			//
+			// The limits come from the SERVER (state.uploadLimits), resolved through
+			// the same buddynext_upload_max_* filters the endpoint enforces. This used
+			// to hardcode 1024x1024 — correct when written, then silently wrong once
+			// the server moved to a megapixel budget. The result was that onboarding,
+			// the very first thing a new member does, refused an ordinary phone photo
+			// (4032x3024) in the browser and never sent the request, so the server
+			// never got the chance to accept it and an owner's filter could not reach
+			// the surface that needed it most.
+			//
+			// Reading the values instead of repeating the rule is the point: the next
+			// change to the limits moves both sides at once.
 			const objectUrl = URL.createObjectURL( file );
 			const probe = new Image();
 			probe.onload = () => {
-				const tooBig = probe.naturalWidth > 1024 || probe.naturalHeight > 1024;
+				const megapixels = ( probe.naturalWidth * probe.naturalHeight ) / 1000000;
+				const tooBig =
+					megapixels > UPLOAD_LIMITS.maxMegapixels ||
+					probe.naturalWidth > UPLOAD_LIMITS.maxDimension ||
+					probe.naturalHeight > UPLOAD_LIMITS.maxDimension;
 				URL.revokeObjectURL( objectUrl );
 				if ( tooBig ) {
-					toast( t( 'toastImageDimensions', 'Image must be at most 1024×1024 pixels. Please choose a smaller photo.' ), 'danger' );
+					toast(
+						fmt(
+							t(
+								'toastImageDimensions',
+								'That image is too large to process (over %1$s megapixels or %2$s pixels on a side). Please choose a smaller photo.'
+							),
+							UPLOAD_LIMITS.maxMegapixels,
+							UPLOAD_LIMITS.maxDimension
+						),
+						'danger'
+					);
 					return;
 				}
 				doUpload();
@@ -644,3 +684,18 @@ const onboardingStore = store( 'buddynext/onboarding', {
 } );
 
 I18N = ( onboardingStore.state && onboardingStore.state.i18n ) || {};
+
+if ( onboardingStore.state && onboardingStore.state.uploadLimits ) {
+	const limits = onboardingStore.state.uploadLimits;
+	// Guard each value independently: a partial or malformed state must fall back
+	// to the real server rule, never to zero — which would reject every photo.
+	if ( Number( limits.maxMegapixels ) > 0 ) {
+		UPLOAD_LIMITS.maxMegapixels = Number( limits.maxMegapixels );
+	}
+	if ( Number( limits.maxDimension ) > 0 ) {
+		UPLOAD_LIMITS.maxDimension = Number( limits.maxDimension );
+	}
+	if ( Number( limits.maxBytes ) > 0 ) {
+		UPLOAD_LIMITS.maxBytes = Number( limits.maxBytes );
+	}
+}

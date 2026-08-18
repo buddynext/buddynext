@@ -37,6 +37,7 @@ use BuddyNext\Comments\CommentController;
 use BuddyNext\Hashtags\HashtagController;
 use BuddyNext\MemberTypes\MemberTypeController;
 use BuddyNext\Moderation\ModerationController;
+use BuddyNext\CommunityAdmin\RoleController;
 use BuddyNext\Notifications\NotificationController;
 use BuddyNext\Outbound\OutboundWebhookController;
 use BuddyNext\Reactions\ReactionController;
@@ -70,6 +71,7 @@ class Router {
 		do_action( 'buddynext_rest_init' );
 
 		( new AccessWebhookController() )->register_routes();
+		( new RoleController() )->register_routes();
 		( new AuthController() )->register_routes();
 		( new TwoFactorController() )->register_routes();
 		( new InviteController() )->register_routes();

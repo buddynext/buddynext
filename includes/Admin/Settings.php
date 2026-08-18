@@ -288,7 +288,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice routing.
 		$notice = isset( $_GET['bn_recommended'] ) ? sanitize_key( wp_unslash( (string) $_GET['bn_recommended'] ) ) : '';
 		if ( 'applied' === $notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Recommended settings applied. Your community is ready to go.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Recommended settings applied. Your community is ready to go.', 'buddynext' ), 'success' );
 		}
 
 		if ( get_option( 'buddynext_recommended_dismissed' ) ) {
@@ -341,7 +341,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			array( __( 'Real-time feed updates + online presence', 'buddynext' ), false ),
 			array( __( 'Advanced moderation — keyword/link rules, AI, bulk actions', 'buddynext' ), false ),
 			array( __( 'Site + per-space analytics with CSV export', 'buddynext' ), false ),
-			array( __( 'Private/gated spaces, post approval, paywall, member tiers', 'buddynext' ), false ),
+			array( __( 'Private/gated spaces, post approval, paywall, membership plans', 'buddynext' ), false ),
 			array( __( 'Advanced profile fields + custom member labels', 'buddynext' ), false ),
 			array( __( 'AI feed ranking + AI content moderation', 'buddynext' ), false ),
 			array( __( 'Saved searches + advanced filters', 'buddynext' ), false ),
@@ -460,11 +460,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * documented default instead.
 	 *
 	 * @param mixed $value Raw submitted value.
-	 * @return string Valid hex colour, or the default '#0073aa'.
+	 * @return string Valid hex colour, or Appearance::DEFAULT_BRAND.
 	 */
 	public static function sanitize_brand_color( $value ): string {
 		$hex = sanitize_hex_color( (string) $value );
-		return '' !== (string) $hex ? (string) $hex : '#0073aa';
+		return '' !== (string) $hex ? (string) $hex : \BuddyNext\Theme\Appearance::DEFAULT_BRAND;
 	}
 
 	/**
@@ -675,12 +675,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'     => 'buddynext_data_retention_days',
-							'type'    => 'number',
-							'label'   => __( 'Data retention (days)', 'buddynext' ),
-							'default' => 365,
-							'min'     => 0,
-							'max'     => 3650,
+							'key'          => 'buddynext_data_retention_days',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Delete records after a set time', 'buddynext' ),
+							'label'        => __( 'Data retention (days)', 'buddynext' ),
+							'default'      => 365,
+							'min'          => 0,
+							'max'          => 3650,
 							// Name every table this deletes, and ONLY the ones it actually
 							// deletes. It used to promise "read notifications, email log" as
 							// well — and it never governed them: LogRetentionService pruned
@@ -690,7 +691,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							//
 							// An owner cannot consent to a deletion they were never told about,
 							// and they cannot rely on a promise the code does not keep.
-							'hint'    => __( 'Automatically delete records older than this: activity log, closed moderation reports, and (with Pro) analytics events. Open reports and the moderation log are never deleted. Set to 0 to keep them indefinitely.', 'buddynext' ),
+							'hint'         => __( 'Automatically delete records older than this: activity log, closed moderation reports, and (with Pro) analytics events. Open reports and the moderation log are never deleted.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -794,7 +795,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'      => 'buddynext_brand_color',
 							'type'     => 'color',
 							'label'    => __( 'Brand color', 'buddynext' ),
-							'default'  => '#0073aa',
+							'default'  => \BuddyNext\Theme\Appearance::DEFAULT_BRAND,
 							'sanitize' => array( self::class, 'sanitize_brand_color' ),
 							'hint'     => __( 'Your community accent — used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick, or paste a hex code.', 'buddynext' ),
 						)
@@ -1021,12 +1022,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_post_edit_window',
-							'type'    => 'number',
-							'label'   => __( 'Post edit window (minutes)', 'buddynext' ),
-							'default' => 60,
-							'min'     => 0,
-							'hint'    => __( 'How many minutes after posting a member can edit their post. Set to 0 for no limit.', 'buddynext' ),
+							'key'          => 'buddynext_post_edit_window',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Close the edit window after a while', 'buddynext' ),
+							'label'        => __( 'Post edit window (minutes)', 'buddynext' ),
+							'default'      => 60,
+							'min'          => 0,
+							'hint'         => __( 'How many minutes after posting a member can edit their post.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1049,6 +1051,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'label'    => __( 'Ask for a note when connecting', 'buddynext' ),
 							'default'  => '0',
 							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
+
 							/*
 							 * The hint has to say when the setting cannot take
 							 * effect, because the note has no home of its own: it
@@ -1154,11 +1157,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_space_max_per_member',
-							'type'  => 'number',
-							'label' => __( 'Max spaces per member', 'buddynext' ),
-							'min'   => 0,
-							'hint'  => __( 'Maximum number of spaces a single member can create. Set to 0 for no limit. Admins are exempt.', 'buddynext' ),
+							'key'          => 'buddynext_space_max_per_member',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Cap how many spaces a member can create', 'buddynext' ),
+							'label'        => __( 'Max spaces per member', 'buddynext' ),
+							'min'          => 0,
+							'hint'         => __( 'Maximum number of spaces a single member can create. Admins are exempt.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1173,11 +1177,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_space_max_sub_spaces',
-							'type'  => 'number',
-							'label' => __( 'Max sub-spaces per space', 'buddynext' ),
-							'min'   => 0,
-							'hint'  => __( 'Maximum number of sub-spaces a space owner can create inside their space. Set to 0 for no limit.', 'buddynext' ),
+							'key'          => 'buddynext_space_max_sub_spaces',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Cap sub-spaces per space', 'buddynext' ),
+							'label'        => __( 'Max sub-spaces per space', 'buddynext' ),
+							'min'          => 0,
+							'hint'         => __( 'Maximum number of sub-spaces a space owner can create inside their space.', 'buddynext' ),
 						)
 					),
 				)
@@ -1281,12 +1286,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_mod_queue_alert_threshold',
-							'type'    => 'number',
-							'label'   => __( 'Queue alert threshold', 'buddynext' ),
-							'default' => 20,
-							'min'     => 0,
-							'hint'    => __( 'Send a daily email to admins when the moderation queue exceeds this many unreviewed items. Set to 0 to disable.', 'buddynext' ),
+							'key'          => 'buddynext_mod_queue_alert_threshold',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Email admins when the queue builds up', 'buddynext' ),
+							'label'        => __( 'Queue alert threshold', 'buddynext' ),
+							'default'      => 20,
+							'min'          => 0,
+							'hint'         => __( 'Send a daily email to admins when the moderation queue exceeds this many unreviewed items.', 'buddynext' ),
 						)
 					),
 				)
@@ -1317,12 +1323,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_strike_perma_ban_threshold',
-							'type'    => 'number',
-							'label'   => __( 'Strikes before permanent ban', 'buddynext' ),
-							'default' => 0,
-							'min'     => 0,
-							'hint'    => __( 'The member is permanently banned after this many lifetime strikes. Set to 0 to disable automatic permanent bans.', 'buddynext' ),
+							'key'          => 'buddynext_strike_perma_ban_threshold',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Permanently ban after enough strikes', 'buddynext' ),
+							'label'        => __( 'Strikes before permanent ban', 'buddynext' ),
+							'default'      => 0,
+							'min'          => 0,
+							'hint'         => __( 'The member is permanently banned after this many lifetime strikes.', 'buddynext' ),
 						)
 					),
 				)
@@ -1336,7 +1343,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'   => 'buddynext_banned_words',
 							'type'  => 'textarea',
 							'label' => __( 'Banned words', 'buddynext' ),
-							'hint'  => __( 'One word or phrase per line. Posts containing any of these are rejected. Case-insensitive substring match.', 'buddynext' ),
+							'hint'  => __( 'One word or phrase per line. A post using any of them is rejected. Whole words only, so "art" does not block "start" or "particle". Add * to catch variants: "spam*" also blocks "spammer".', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1366,42 +1373,46 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_post_rate_limit',
-							'type'    => 'number',
-							'label'   => __( 'Post rate limit (per minute)', 'buddynext' ),
-							'default' => 10,
-							'min'     => 0,
-							'hint'    => __( 'Maximum number of posts a member can create per minute. Set to 0 to disable rate limiting.', 'buddynext' ),
+							'key'          => 'buddynext_post_rate_limit',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Rate-limit posting', 'buddynext' ),
+							'label'        => __( 'Post rate limit (per minute)', 'buddynext' ),
+							'default'      => 10,
+							'min'          => 0,
+							'hint'         => __( 'Maximum number of posts a member can create per minute.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_comment_rate_limit',
-							'type'    => 'number',
-							'label'   => __( 'Comment rate limit (per minute)', 'buddynext' ),
-							'default' => 30,
-							'min'     => 0,
-							'hint'    => __( 'Maximum number of comments a member can post per minute. Set to 0 to disable rate limiting.', 'buddynext' ),
+							'key'          => 'buddynext_comment_rate_limit',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Rate-limit commenting', 'buddynext' ),
+							'label'        => __( 'Comment rate limit (per minute)', 'buddynext' ),
+							'default'      => 30,
+							'min'          => 0,
+							'hint'         => __( 'Maximum number of comments a member can post per minute.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_duplicate_post_window',
-							'type'    => 'number',
-							'label'   => __( 'Duplicate post window (minutes)', 'buddynext' ),
-							'default' => 0,
-							'min'     => 0,
-							'hint'    => __( 'Hold a post for review when the member has already posted identical content within this many minutes. Set to 0 to disable.', 'buddynext' ),
+							'key'          => 'buddynext_duplicate_post_window',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Hold duplicate posts for review', 'buddynext' ),
+							'label'        => __( 'Duplicate post window (minutes)', 'buddynext' ),
+							'default'      => 0,
+							'min'          => 0,
+							'hint'         => __( 'Hold a post for review when the member has already posted identical content within this many minutes.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_new_member_post_threshold',
-							'type'    => 'number',
-							'label'   => __( 'New member review threshold', 'buddynext' ),
-							'default' => 0,
-							'min'     => 0,
-							'hint'    => __( 'Posts by members with fewer than this many published posts are held for review. Set to 0 to disable.', 'buddynext' ),
+							'key'          => 'buddynext_new_member_post_threshold',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Review posts from new members', 'buddynext' ),
+							'label'        => __( 'New member review threshold', 'buddynext' ),
+							'default'      => 0,
+							'min'          => 0,
+							'hint'         => __( 'Posts by members with fewer than this many published posts are held for review.', 'buddynext' ),
 						)
 					),
 				)
@@ -1743,12 +1754,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_reg_rate_limit',
-							'type'  => 'number',
-							'label' => __( 'Sign-ups per hour per IP', 'buddynext' ),
-							'min'   => 0,
-							'max'   => 100,
-							'hint'  => __( 'Maximum sign-up attempts from one IP per hour. 0 disables the limit.', 'buddynext' ),
+							'key'          => 'buddynext_reg_rate_limit',
+							'type'         => 'optional_limit',
+							'toggle_label' => __( 'Rate-limit sign-ups per IP', 'buddynext' ),
+							'label'        => __( 'Sign-ups per hour per IP', 'buddynext' ),
+							'min'          => 0,
+							'max'          => 100,
+							'hint'         => __( 'Maximum sign-up attempts from one IP per hour.', 'buddynext' ),
 						)
 					),
 				)
@@ -2610,13 +2622,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			(bool) get_option( 'buddynext_reg_challenge', true )
 		);
 
-		$this->render_number_row(
+		// The Registration tab renders this option itself rather than through
+		// render_sections(), so converting the descriptor alone would have left
+		// the magic zero on the only screen an owner actually sees it.
+		$this->render_optional_limit_row(
 			'buddynext_reg_rate_limit',
 			__( 'Sign-ups per hour per IP', 'buddynext' ),
 			(int) get_option( 'buddynext_reg_rate_limit', 5 ),
-			__( 'Maximum sign-up attempts allowed from one IP address per hour. Set to 0 to disable the rate limit.', 'buddynext' ),
-			0,
-			100
+			__( 'Rate-limit sign-ups per IP', 'buddynext' ),
+			__( 'Maximum sign-up attempts allowed from one IP address per hour.', 'buddynext' )
 		);
 
 		$this->close_section();

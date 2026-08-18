@@ -128,17 +128,33 @@ final class HeadMeta {
 		);
 
 		/*
-		 * Same rule as PageRouter's hub title: only claim the document title
-		 * when no SEO plugin owns the head. This emitter was added by the
-		 * social-card work and repeated the unconditional override, which made
-		 * the reported inconsistency wider rather than narrower — two filters
-		 * discarding the owner's configured title instead of one (Basecamp
-		 * 10173643793). og:title is unaffected: that is BuddyNext describing
-		 * its own surface, not overriding a setting the owner typed.
+		 * Two guards, for two different ways this emitter used to take a title
+		 * that was not its to take.
+		 *
+		 * 1. seo_plugin_active() — same rule as PageRouter's hub title: only claim
+		 *    the document title when no SEO plugin owns the head. This emitter was
+		 *    added by the social-card work and repeated the unconditional override,
+		 *    which made the reported inconsistency wider rather than narrower — two
+		 *    filters discarding the owner's configured title instead of one (Zoho
+		 *    #41057, Basecamp 10173643793).
+		 *
+		 * 2. title_claimed() — the descriptor's `title` is the SOCIAL CARD title,
+		 *    and it is not always the right document title; the two answer to
+		 *    different readers. messages/notifications describe themselves with a
+		 *    bare community name on purpose (SurfaceMeta), because a personal inbox
+		 *    must not leak "Notifications (99+)" into a shared preview. Reusing that
+		 *    string for the browser tab printed "buddynext - buddynext" on both hubs,
+		 *    and cost every other hub its real title too (the activity feed read
+		 *    "Activity", the mapped page's name, rather than "Activity Feed"). A hub
+		 *    render owns the document title; this emitter fills the gap only on
+		 *    surfaces that run none (a single-post permalink, for one).
+		 *
+		 * og:title is unaffected by either: that is BuddyNext describing its own
+		 * surface, not overriding a setting the owner typed.
 		 */
 		$title = trim( (string) ( $descriptor['title'] ?? '' ) );
 		$title = (string) apply_filters( 'buddynext_document_title', $title, 'head-meta' );
-		if ( '' !== $title && ! PageRouter::seo_plugin_active() ) {
+		if ( '' !== $title && ! PageRouter::seo_plugin_active() && ! PageRouter::title_claimed() ) {
 			add_filter(
 				'document_title_parts',
 				static function ( array $parts ) use ( $title ): array {
@@ -147,6 +163,12 @@ final class HeadMeta {
 				}
 			);
 		}
+
+		// Surfaces that emit their head here (a single post permalink, for one)
+		// do not run the hub render, so the site half of the tab title has to be
+		// claimed here as well or the Community Name reaches only some of the
+		// community's own pages.
+		PageRouter::apply_community_name_to_title();
 	}
 
 	/**

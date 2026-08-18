@@ -106,7 +106,19 @@ $bn_md_online_fn = static function ( int $id ) use ( $bn_md_online ): bool {
 				// The directory's own list view is the same grid with .is-list;
 				// reusing it keeps the block's two layouts and the hub's two
 				// layouts the same two layouts.
-				'classes'      => 'list' === $layout ? array( 'is-list' ) : array(),
+				//
+				// `is-view-pinned` says "the OWNER chose this, leave it alone".
+				// Without it the members store stripped the layout again on hydrate:
+				// its callbacks.init() runs applyViewClass( readView() ), readView()
+				// reads the VISITOR's localStorage (defaulting to grid), and the class
+				// this line renders was toggled straight back off. The block's Layout
+				// setting was therefore decorative — what rendered was whatever the
+				// visitor last toggled on /members/, where the toggle actually exists.
+				// In a block there is no toggle, so they could never get it back.
+				'classes'      => array_merge(
+					array( 'is-view-pinned' ),
+					'list' === $layout ? array( 'is-list' ) : array()
+				),
 			)
 		);
 		?>

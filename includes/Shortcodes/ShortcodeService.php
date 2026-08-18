@@ -322,7 +322,7 @@ class ShortcodeService {
 		// routed hub, so the hub union-enqueue never runs for it). Script modules
 		// enqueued during the_content still print in the footer. The bn-moderation
 		// stylesheet is already loaded for the panel's .bn-ca-* chrome.
-		$this->enqueue_shell( 'moderation' );
+		$this->enqueue_shell( 'moderation', 'community-admin' );
 
 		// The panel's sidebar tabs are built from a base URL. Placed via shortcode it
 		// lives on an arbitrary page, so the tabs must stay on THAT page — pass its

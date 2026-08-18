@@ -32,6 +32,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Hashtag and follow topics? | YES | `bn_hashtags`, `bn_post_hashtags`, `bn_hashtag_follows`; 7 `/hashtags` routes |
 | Post announcements? | YES | `announcements` feature group (default on) |
 | Search members, spaces and posts? | YES | `bn_search_index`; 3 `/search` routes; visibility-scoped |
+| Search inside one space? | YES | 1.1.5. `?bn_sf_q=` on a space's Feed tab; `scope_space_id` on the search index, paged, gated by the space's own visibility |
 
 ## Members and profiles
 

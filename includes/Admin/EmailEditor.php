@@ -758,19 +758,49 @@ class EmailEditor {
 		 */
 		?>
 		<?php if ( 1 === $updated ) : ?>
-			<div class="notice notice-success is-dismissible" data-bn-clear-param="updated" data-bn-auto-dismiss="5000"><p><?php esc_html_e( 'Template saved.', 'buddynext' ); ?></p></div>
+			<?php
+			AdminPageBase::render_notice(
+				__( 'Template saved.', 'buddynext' ),
+				'success',
+				false,
+				array(
+					'data-bn-clear-param'  => 'updated',
+					'data-bn-auto-dismiss' => '5000',
+				)
+			);
+			?>
 		<?php elseif ( 0 === $updated ) : ?>
-			<div class="notice notice-error is-dismissible" data-bn-clear-param="updated"><p><?php esc_html_e( 'Save failed. Please try again.', 'buddynext' ); ?></p></div>
+			<?php AdminPageBase::render_notice( __( 'Save failed. Please try again.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'updated' ) ); ?>
 		<?php endif; ?>
 
 		<?php if ( 1 === $tested ) : ?>
-			<div class="notice notice-success is-dismissible" data-bn-clear-param="tested" data-bn-auto-dismiss="5000"><p><?php esc_html_e( 'Test email sent.', 'buddynext' ); ?></p></div>
+			<?php
+			AdminPageBase::render_notice(
+				__( 'Test email sent.', 'buddynext' ),
+				'success',
+				false,
+				array(
+					'data-bn-clear-param'  => 'tested',
+					'data-bn-auto-dismiss' => '5000',
+				)
+			);
+			?>
 		<?php elseif ( 0 === $tested ) : ?>
-			<div class="notice notice-error is-dismissible" data-bn-clear-param="tested"><p><?php esc_html_e( 'Test email failed. Check wp_mail() configuration.', 'buddynext' ); ?></p></div>
+			<?php AdminPageBase::render_notice( __( 'Test email failed. Check wp_mail() configuration.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'tested' ) ); ?>
 		<?php endif; ?>
 
 		<?php if ( 1 === $reset ) : ?>
-			<div class="notice notice-success is-dismissible" data-bn-clear-param="reset" data-bn-auto-dismiss="5000"><p><?php esc_html_e( 'Template reset to defaults.', 'buddynext' ); ?></p></div>
+			<?php
+			AdminPageBase::render_notice(
+				__( 'Template reset to defaults.', 'buddynext' ),
+				'success',
+				false,
+				array(
+					'data-bn-clear-param'  => 'reset',
+					'data-bn-auto-dismiss' => '5000',
+				)
+			);
+			?>
 		<?php endif; ?>
 
 		<?php

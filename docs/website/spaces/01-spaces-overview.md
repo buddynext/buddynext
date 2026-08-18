@@ -51,6 +51,14 @@ A member can leave any space they have joined at any time from the space page.
 
 Once a member belongs to a space, the composer at the top of the space feed lets them post directly into that space. The post appears in the space feed for other members - it does not spill into the global site feed. Members react, comment, and engage on space posts the same way they do anywhere else on the site.
 
+### Search a space's posts
+
+A space's Feed tab has a search box that returns only that space's own posts. It exists because a space gets harder to search exactly as it succeeds: past the first screenful, finding "that thread about pricing from last month" meant scrolling, or using community-wide search and mentally discarding every other space's results.
+
+Results are paged, they render as the same post cards you can react and reply to, and **Clear** returns you to the feed. The box respects the space's privacy: in a space you cannot read, it is not offered, and it returns nothing.
+
+Full detail, including what the results include: [Search](../community/12-search.md#search-inside-one-space).
+
 ## Putting spaces on your own pages
 
 You are not limited to the built-in Spaces directory. Two blocks let you drop spaces onto any page or post you build in the editor, so you can surface them wherever your members already look.

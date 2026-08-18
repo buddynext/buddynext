@@ -12,6 +12,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin;
 
+use BuddyNext\Theme\Appearance;
+
 /**
  * Admin panel for managing BuddyNext community spaces.
  */
@@ -234,9 +236,7 @@ class Spaces extends AdminPageBase {
 		if ( ! empty( $_GET['deleted'] ) ) {
 			// phpcs:enable WordPress.Security.NonceVerification.Recommended
 			?>
-			<div class="notice notice-success is-dismissible">
-				<p><?php esc_html_e( 'Space deleted successfully.', 'buddynext' ); ?></p>
-			</div>
+			<?php AdminPageBase::render_notice( __( 'Space deleted successfully.', 'buddynext' ), 'success' ); ?>
 			<?php
 		}
 
@@ -247,7 +247,7 @@ class Spaces extends AdminPageBase {
 			$bn_archived = '1' === sanitize_text_field( wp_unslash( $_GET['archived'] ) );
 			// phpcs:enable WordPress.Security.NonceVerification.Recommended
 			?>
-			<div class="notice notice-success is-dismissible">
+			<div class="bn-notice bn-notice-success">
 				<p>
 				<?php
 				if ( $bn_archived ) {
@@ -734,7 +734,7 @@ class Spaces extends AdminPageBase {
 			'name'        => sanitize_text_field( wp_unslash( $_POST['name'] ?? '' ) ),
 			'slug'        => sanitize_text_field( wp_unslash( $_POST['slug'] ?? '' ) ),
 			'description' => sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) ),
-			'color'       => sanitize_text_field( wp_unslash( $_POST['color'] ?? '#0073aa' ) ),
+			'color'       => sanitize_text_field( wp_unslash( $_POST['color'] ?? Appearance::DEFAULT_BRAND ) ),
 			'text_color'  => sanitize_text_field( wp_unslash( $_POST['text_color'] ?? '' ) ),
 			'icon_svg'    => (string) wp_unslash( $_POST['icon_svg'] ?? '' ), // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- SVG is sanitised via wp_kses inside SpaceCategoryService::validate().
 			'sort_order'  => absint( wp_unslash( $_POST['sort_order'] ?? 0 ) ),

@@ -222,6 +222,22 @@ class FieldType {
 				'is_date'               => ! empty( $descriptor['is_date'] ),
 				'is_searchable_capable' => ! empty( $descriptor['is_searchable_capable'] ),
 			);
+
+			// A representative stored value, declared by the type itself.
+			//
+			// Part of the type contract, not test furniture: it is what lets the
+			// conformance suite prove that a type renders its own storage on every
+			// engine output. Only a type knows what its storage looks like, so only a
+			// type can supply it — and a type that supplies none cannot be verified,
+			// which is precisely how five types shipped handing back raw payloads.
+			// Carried through the normaliser because this map is the only thing
+			// consumers see; without it the declaration is silently dropped.
+			if ( isset( $descriptor['sample_value'] ) ) {
+				$normalised[ $slug ]['sample_value'] = $descriptor['sample_value'];
+			}
+			if ( isset( $descriptor['sample_options'] ) && is_array( $descriptor['sample_options'] ) ) {
+				$normalised[ $slug ]['sample_options'] = $descriptor['sample_options'];
+			}
 		}
 
 		return $normalised;
@@ -240,6 +256,53 @@ class FieldType {
 		}
 
 		return isset( $types['text'] ) ? 'text' : (string) array_key_first( $types );
+	}
+
+	/**
+	 * Whether a type slug is actually registered with the engine.
+	 *
+	 * Distinct from resolve_type(), which silently answers 'text' for anything it
+	 * does not know. That fallback is right for rendering a control and wrong for
+	 * deciding whether we UNDERSTAND a stored value.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param string $type Field type slug.
+	 * @return bool
+	 */
+	public static function is_registered_type( string $type ): bool {
+		$types = self::types();
+		return '' !== $type && isset( $types[ $type ] );
+	}
+
+	/**
+	 * Whether a value is a structured payload we have no registered type to read.
+	 *
+	 * Deactivating Pro (a lapsed licence, a plan downgrade) leaves fields whose DB
+	 * type is still `location` while nothing can decode them any more. resolve_type()
+	 * degrades those to `text`, so free would render and INDEX the raw JSON — a
+	 * member became findable by searching "lat" or "components", and re-activating
+	 * Pro did not heal the mirror because it is only rewritten on the next save.
+	 *
+	 * Fail closed instead: show and index nothing rather than storage internals. The
+	 * data is untouched, so re-activating Pro restores the real value immediately.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param array<string,mixed> $field Field definition.
+	 * @param mixed               $value Stored value.
+	 * @return bool
+	 */
+	public static function is_unreadable_payload( array $field, $value ): bool {
+		$declared = isset( $field['type'] ) ? (string) $field['type'] : '';
+		if ( '' === $declared || self::is_registered_type( $declared ) ) {
+			return false;
+		}
+
+		// An unregistered type holding plain text is still perfectly readable — a
+		// legacy value, or a field re-typed back to text. Only structured storage
+		// is unreadable without the type that wrote it.
+		return is_string( $value ) && is_array( json_decode( $value, true ) );
 	}
 
 	/**
@@ -715,6 +778,24 @@ class FieldType {
 			return $custom;
 		}
 
+		// The control that wrote this value is gone (Pro deactivated with its field
+		// types still configured), so there is nothing here that can edit it safely.
+		// Degrading to a text input prefilled with the raw payload — which is what
+		// the unknown-type fallback below does — invites the member to hand-edit
+		// JSON and destroy their own coordinates with one keystroke. Show a
+		// read-only placeholder and preserve the value on save instead.
+		if ( self::is_unreadable_payload( $field, $value ) ) {
+			return sprintf(
+				'<div class="bn-field bn-field--unavailable">
+					<input type="hidden" name="%1$s" value="%2$s" />
+					<p class="bn-field-unavailable-note">%3$s</p>
+				</div>',
+				esc_attr( $name ),
+				esc_attr( (string) $value ),
+				esc_html__( 'This field needs BuddyNext Pro to edit. Your saved value is kept.', 'buddynext' )
+			);
+		}
+
 		$type     = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
 		$id       = self::input_id( $name );
 		$required = ! empty( $field['is_required'] ) ? ' required' : '';
@@ -879,10 +960,11 @@ class FieldType {
 	/**
 	 * Render a radio-button group.
 	 *
-	 * @param array  $field Field definition.
-	 * @param mixed  $value Current value (slug).
-	 * @param string $name  Form name.
-	 * @param string $id    Element id base.
+	 * @param array  $field    Field definition.
+	 * @param mixed  $value    Current value (slug).
+	 * @param string $name     Form name.
+	 * @param string $id       Element id base.
+	 * @param string $required Pre-built ` required` attribute, or '' when optional.
 	 * @return string Escaped HTML.
 	 */
 	private static function render_radio_input( array $field, $value, string $name, string $id, string $required = '' ): string {
@@ -924,10 +1006,11 @@ class FieldType {
 	 * $value is the member's current type SLUG, injected by ProfileService from the
 	 * live assignment (never a bn_profile_values row — see the type's registry note).
 	 *
-	 * @param array  $field Field definition (unused; kept for signature parity).
-	 * @param mixed  $value Current member-type slug, or '' when unclassified.
-	 * @param string $name  Form field name attribute.
-	 * @param string $id    Base id for the control.
+	 * @param array  $field    Field definition (unused; kept for signature parity).
+	 * @param mixed  $value    Current member-type slug, or '' when unclassified.
+	 * @param string $name     Form field name attribute.
+	 * @param string $id       Base id for the control.
+	 * @param string $required Pre-built ` required` attribute, or '' when optional.
 	 * @return string Escaped HTML.
 	 */
 	private static function render_member_type_input( array $field, $value, string $name, string $id, string $required = '' ): string {
@@ -1018,6 +1101,16 @@ class FieldType {
 		return '' === $required ? '' : ' data-bn-required="1" aria-required="true"';
 	}
 
+	/**
+	 * Render a multi-select field as a checkbox group.
+	 *
+	 * @param array  $field    Field definition (its options source).
+	 * @param mixed  $value    Current value (array, or a delimited string of slugs).
+	 * @param string $name     Form field name attribute (submitted as name[]).
+	 * @param string $id       Base id for the checkbox controls.
+	 * @param string $required Pre-built ` required` attribute, or '' when optional.
+	 * @return string Escaped HTML.
+	 */
 	private static function render_multiselect_input( array $field, $value, string $name, string $id, string $required = '' ): string {
 		$options  = self::options( $field );
 		$selected = self::multi_values( $value );
@@ -1460,6 +1553,13 @@ class FieldType {
 	 * @return string Mirror text (empty when the type is not searchable).
 	 */
 	public static function searchable_text( array $field, $value ): string {
+		// An unreadable payload must never reach the index. Without this a
+		// Pro-deactivated site wrote raw JSON into the mirror on the next profile
+		// save, and members became findable by searching "lat" or "components".
+		if ( self::is_unreadable_payload( $field, $value ) ) {
+			return '';
+		}
+
 		$type = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
 		if ( ! self::is_text_searchable( $type ) ) {
 			return '';
@@ -1623,6 +1723,32 @@ class FieldType {
 	 * @return string
 	 */
 	public static function display_text( array $field, $value ): string {
+		/**
+		 * Add-on hook: extensions render their own types' plain-text output. Return
+		 * a string to take over; null falls through to core types.
+		 *
+		 * Mirrors `buddynext_field_render_display`. Without this seam a type could
+		 * be fully wired for the About panel and still hand back raw storage to the
+		 * profile hero, notifications and exports — which is exactly how the Pro
+		 * Location map type printed a JSON blob under a member's name.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param string|null         $custom Plain-text rendering, or null to fall through.
+		 * @param array<string,mixed> $field  Field definition.
+		 * @param mixed               $value  Stored value.
+		 */
+		$custom = apply_filters( 'buddynext_field_display_text', null, $field, $value );
+		if ( is_string( $custom ) ) {
+			return $custom;
+		}
+
+		// Nothing registered can read this payload (Pro deactivated with its field
+		// types still configured). Show nothing rather than storage internals.
+		if ( self::is_unreadable_payload( $field, $value ) ) {
+			return '';
+		}
+
 		$type = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
 
 		if ( 'boolean' === $type ) {
@@ -1648,6 +1774,16 @@ class FieldType {
 			return $options[ $slug ] ?? (string) $value;
 		}
 
+		// A member type stores its SLUG. ProfileService rewrites `value` to the
+		// display name for the profile payload, which made this look correct there
+		// and leak the slug everywhere else — notifications, exports, and any client
+		// not reading that one payload. Resolve it here so every caller agrees.
+		if ( 'member_type' === $type ) {
+			$options = self::member_type_options();
+			$slug    = (string) $value;
+			return $options[ $slug ] ?? $slug;
+		}
+
 		if ( self::is_date_type( $type ) ) {
 			return self::format_date( $field, (string) $value );
 		}
@@ -1665,6 +1801,25 @@ class FieldType {
 	 * @return bool|int|float|string|array<int,int|string>
 	 */
 	public static function rest_value( array $field, $value ): bool|int|float|string|array {
+		/**
+		 * Add-on hook: extensions type-shape their own values for REST / app payloads.
+		 * Return a scalar or array to take over; null falls through to core types.
+		 *
+		 * `value` is the DISPLAY channel — the raw structure belongs in the
+		 * owner-only `value_raw`. A type that stores JSON must render here, or every
+		 * API and native-app consumer receives the blob.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param bool|int|float|string|array|null $custom Type-shaped value, or null to fall through.
+		 * @param array<string,mixed>              $field  Field definition.
+		 * @param mixed                            $value  Stored value.
+		 */
+		$custom = apply_filters( 'buddynext_field_rest_value', null, $field, $value );
+		if ( null !== $custom && ( is_scalar( $custom ) || is_array( $custom ) ) ) {
+			return $custom;
+		}
+
 		$type = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
 
 		if ( 'boolean' === $type ) {

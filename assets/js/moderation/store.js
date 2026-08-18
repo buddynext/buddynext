@@ -400,10 +400,12 @@ const moderationStore = store( 'buddynext/moderation', {
 		* approveJoinRequest() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.spaceId || ! ctx.restNonce ) { return; }
+			// Spec-conformant route is POST /spaces/{id}/members/{uid}/approve — the
+			// PUT used here matched no registered route, so the request silently failed.
 			const res = yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId + '/approve', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
-				method: 'PUT',
+				method: 'POST',
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
@@ -416,10 +418,13 @@ const moderationStore = store( 'buddynext/moderation', {
 		* declineJoinRequest() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.spaceId || ! ctx.restNonce ) { return; }
-			const res = yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId, {
+			// Spec-conformant route is POST /spaces/{id}/members/{uid}/decline. The old
+			// DELETE /spaces/{id}/members/{uid} hit the remove-member route (or none) and
+			// silently failed for a pending request.
+			const res = yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId + '/decline', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
-				method: 'DELETE',
+				method: 'POST',
 				toastOnError: false,
 			} );
 			if ( res.ok ) {

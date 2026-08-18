@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.4
+Stable tag: 1.1.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,40 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.1.5 - August 2026 =
+
+Search inside a space, discovery that survives a phone screen, and space post emails that actually send. Lockstep with BuddyNext Pro 1.1.5 - install and test both together.
+
+* New      - Search inside a space. A space's Feed tab now carries a search box that returns only that space's own posts, so a busy space stays findable past the first screenful. Results are paged, and the box follows the space's privacy: a member who cannot read the space is not offered it and matches nothing.
+* New      - A member can verify their own email address from their profile, and an admin can confirm a member in one click from the member editor.
+* Improve  - Profile and space photos taken on a phone are accepted. Covers and avatars were capped at 1920x1080 and 1024x1024, so an ordinary 4032x3024 phone photo was refused and had to be cropped by hand first. The limit is now a pixel-count ceiling generous enough for any phone, and site owners can raise or lower it with the `buddynext_upload_max_megapixels`, `buddynext_upload_max_dimension` and `buddynext_upload_max_bytes` filters.
+* Improve  - Settings that accept "no limit" now say so with a tick box instead of asking for a 0. Eleven settings across the admin - rate limits, space caps, retention, strike thresholds - no longer need a footnote explaining that zero means the opposite of what it reads.
+* Improve  - The WordPress admin menu now lists entry points instead of every screen, each tab carries an icon that tells it apart, and no section exceeds the documented five-tab cap. Every screen stays reachable, and the menu highlights the section you are in.
+* Fix      - The admin navigation rail now stops at the height of the window and scrolls itself, so expanding several sections no longer pushes the last one past the bottom of the page.
+* Fix      - The Community Name now reaches the browser tab title on community pages and the name emails are sent under, which its own setting has always promised. The WordPress site title still applies everywhere else.
+* Fix      - A banned word blocks that word and no longer blocks longer words containing it, so "ass" stops rejecting "class" and "passionate". Add * to an entry, as in "spam*", to catch variants on purpose.
+* Fix      - A space gated behind a membership plan no longer prints its posts underneath the upgrade prompt.
+* Fix      - A space the join gate will refuse no longer offers a join button, on the space page or in the directory.
+* Fix      - The shared admin filter bar stacks correctly below 782px, where the search field previously rendered as a 256px-tall box and the select stayed a narrow stub.
+* Fix      - The access-webhook audit log records its timestamps in UTC like every other record, so a call can be matched to what it changed.
+* Fix      - Space new-post emails are delivered again. On any site running Action Scheduler the queued email job failed on every space post, so no member received one. The in-app notification arrived normally, which hid the failure from both the member and the site owner.
+* Fix      - Discovery content is no longer hidden on phones and tablets. Trending topics, people to follow, spaces to discover and browse-by-category vanished entirely below 1025px on the feed, Explore, Members, Spaces and Hashtag screens, leaving a phone with no way to discover anything; they now render beneath the content.
+* Fix      - The browser tab now names the screen on every community page. Notifications and Messages showed the site name twice, and the remaining hubs showed their page's name rather than the screen's.
+* Fix      - The hub Pages table in Settings scrolls on a tablet, so its last column can be reached.
+* Fix      - A missing database table is repaired on the next load. The installer treated a matching recorded schema version as proof the tables existed, so a table lost to a partial restore stayed missing.
+* Fix      - The offline service worker follows the site's real login, admin and REST paths instead of assuming the defaults, so it no longer caches a screen it should leave alone.
+* Fix      - The member editor reports a profile that failed to save instead of reporting success.
+* Fix      - The verified badge no longer appears on sites that do not run email verification.
+* Fix      - The Spaces directory set to List renders compact rows instead of stretched cards.
+* Fix      - A visitor switching the members directory between grid and list no longer overwrites the layout the owner set on the block.
+* Dev      - New filter `buddynext_can_view_space_content` lets an add-on withhold a space's content before it is rendered or cached.
+* Dev      - New filter `buddynext_transactional_notification_types` lets an add-on declare a notification that must bypass member email preferences, for advance-notice obligations.
+* Dev      - `SpaceMemberService::can_join()` answers whether the join gate would allow a member in, so a surface can ask before offering the action.
+* Dev      - Search accepts a `scope_space_id` argument on the `buddynext_search_query_args` filter to restrict content results to a single space, narrowing the existing visibility rules rather than replacing them.
+* Dev      - `PostService::get_many()` hydrates a batch of post IDs in one query, in the order asked for, skipping IDs with no row.
+* Dev      - A sidebar widget can declare `mobile => false` when it already has a purpose-built mobile surface, so the same information does not render twice on one screen.
+* Compat   - Aligned with BuddyNext Pro 1.1.5. Install both updates together.
 
 = 1.1.4 - August 2026 =
 

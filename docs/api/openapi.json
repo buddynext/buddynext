@@ -10,7 +10,7 @@
         "license": {
             "name": "GPL-2.0-or-later"
         },
-        "version": "1.1.3"
+        "version": "1.1.4"
     },
     "servers": [
         {
@@ -1542,6 +1542,34 @@
                 ]
             }
         },
+        "/auth/verify/self": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "operationId": "post_auth_verify_self",
+                "summary": "POST /buddynext/v1/auth/verify/self",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/auth/verify/status": {
             "get": {
                 "tags": [
@@ -1947,6 +1975,182 @@
                         "appPassword": []
                     }
                 ]
+            }
+        },
+        "/community-admin/members/{id}/role": {
+            "post": {
+                "tags": [
+                    "Misc"
+                ],
+                "operationId": "post_community_admin_members_id_role",
+                "summary": "POST /buddynext/v1/community-admin/members/{id}/role",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "role": {
+                                        "type": "string",
+                                        "enum": [
+                                            "member",
+                                            "moderator",
+                                            "admin"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "role"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Misc"
+                ],
+                "operationId": "put_community_admin_members_id_role",
+                "summary": "PUT /buddynext/v1/community-admin/members/{id}/role",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "role": {
+                                        "type": "string",
+                                        "enum": [
+                                            "member",
+                                            "moderator",
+                                            "admin"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "role"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "Misc"
+                ],
+                "operationId": "patch_community_admin_members_id_role",
+                "summary": "PATCH /buddynext/v1/community-admin/members/{id}/role",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "role": {
+                                        "type": "string",
+                                        "enum": [
+                                            "member",
+                                            "moderator",
+                                            "admin"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "role"
+                                ]
+                            }
+                        }
+                    }
+                }
             }
         },
         "/companions/install": {
@@ -2838,54 +3042,6 @@
                         "appPassword": []
                     }
                 ]
-            }
-        },
-        "/kudos": {
-            "post": {
-                "tags": [
-                    "Social Graph"
-                ],
-                "operationId": "post_kudos",
-                "summary": "POST /buddynext/v1/kudos",
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "receiver_id": {
-                                        "type": "string"
-                                    },
-                                    "message": {
-                                        "type": "string"
-                                    }
-                                },
-                                "required": [
-                                    "receiver_id"
-                                ]
-                            }
-                        }
-                    }
-                }
             }
         },
         "/link-preview": {
@@ -7603,7 +7759,7 @@
                         "name": "space_id",
                         "in": "query",
                         "required": false,
-                        "description": "Pro: filter members to active members of this space ID.",
+                        "description": "Restrict results to one space. On a member search (Pro) this means active members of the space; on any other type it means content posted in it.",
                         "schema": {
                             "type": "integer"
                         }
@@ -9870,30 +10026,6 @@
                 ]
             }
         },
-        "/users/{id}/achievements": {
-            "get": {
-                "tags": [
-                    "Members and Profiles"
-                ],
-                "operationId": "get_users_id_achievements",
-                "summary": "GET /buddynext/v1/users/{id}/achievements",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    }
-                }
-            }
-        },
         "/users/{id}/albums": {
             "get": {
                 "tags": [
@@ -11583,398 +11715,6 @@
                         "description": "Success."
                     }
                 }
-            }
-        },
-        "/webhooks": {
-            "get": {
-                "tags": [
-                    "Webhooks"
-                ],
-                "operationId": "get_webhooks",
-                "summary": "GET /buddynext/v1/webhooks",
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            },
-            "post": {
-                "tags": [
-                    "Webhooks"
-                ],
-                "operationId": "post_webhooks",
-                "summary": "POST /buddynext/v1/webhooks",
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "url": {
-                                        "type": "string"
-                                    },
-                                    "secret": {
-                                        "type": "string",
-                                        "default": ""
-                                    },
-                                    "events": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "string"
-                                        }
-                                    }
-                                },
-                                "required": [
-                                    "url"
-                                ]
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/webhooks/{id}": {
-            "delete": {
-                "tags": [
-                    "Webhooks"
-                ],
-                "operationId": "delete_webhooks_id_",
-                "summary": "DELETE /buddynext/v1/webhooks/{id}",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            },
-            "post": {
-                "tags": [
-                    "Webhooks"
-                ],
-                "operationId": "post_webhooks_id_",
-                "summary": "POST /buddynext/v1/webhooks/{id}",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "url": {
-                                        "type": "string"
-                                    },
-                                    "events": {
-                                        "type": "array"
-                                    },
-                                    "is_active": {
-                                        "type": "boolean"
-                                    },
-                                    "secret": {
-                                        "type": "string"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "Webhooks"
-                ],
-                "operationId": "put_webhooks_id_",
-                "summary": "PUT /buddynext/v1/webhooks/{id}",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "url": {
-                                        "type": "string"
-                                    },
-                                    "events": {
-                                        "type": "array"
-                                    },
-                                    "is_active": {
-                                        "type": "boolean"
-                                    },
-                                    "secret": {
-                                        "type": "string"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "tags": [
-                    "Webhooks"
-                ],
-                "operationId": "patch_webhooks_id_",
-                "summary": "PATCH /buddynext/v1/webhooks/{id}",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "url": {
-                                        "type": "string"
-                                    },
-                                    "events": {
-                                        "type": "array"
-                                    },
-                                    "is_active": {
-                                        "type": "boolean"
-                                    },
-                                    "secret": {
-                                        "type": "string"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/webhooks/{id}/log": {
-            "get": {
-                "tags": [
-                    "Webhooks"
-                ],
-                "operationId": "get_webhooks_id_log",
-                "summary": "GET /buddynext/v1/webhooks/{id}/log",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "per_page",
-                        "in": "query",
-                        "required": false,
-                        "description": "",
-                        "schema": {
-                            "type": "integer",
-                            "default": 20
-                        }
-                    },
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "required": false,
-                        "description": "",
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            }
-        },
-        "/webhooks/{id}/test": {
-            "post": {
-                "tags": [
-                    "Webhooks"
-                ],
-                "operationId": "post_webhooks_id_test",
-                "summary": "POST /buddynext/v1/webhooks/{id}/test",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
             }
         }
     },

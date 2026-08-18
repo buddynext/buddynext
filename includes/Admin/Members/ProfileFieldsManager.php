@@ -13,6 +13,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin\Members;
 
+use BuddyNext\Admin\AdminPageBase;
+
 /**
  * Profile field group and field CRUD + tab renderer.
  */
@@ -1414,15 +1416,15 @@ class ProfileFieldsManager {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bn_pf_notice = isset( $_GET['bn_pf_notice'] ) ? sanitize_key( wp_unslash( $_GET['bn_pf_notice'] ) ) : '';
 		if ( 'saved' === $bn_pf_notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Profile fields saved.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Profile fields saved.', 'buddynext' ), 'success' );
 		} elseif ( 'deleted' === $bn_pf_notice ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Deleted.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Deleted.', 'buddynext' ), 'success' );
 		} elseif ( 'error' === $bn_pf_notice ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved — please check the field name and try again.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Not saved — please check the field name and try again.', 'buddynext' ), 'error' );
 		} elseif ( 'locked' === $bn_pf_notice ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ), 'error' );
 		} elseif ( 'confirm' === $bn_pf_notice ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not deleted - the confirmation text did not match. Type the exact name (or DELETE) to remove an item that has stored member values.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Not deleted - the confirmation text did not match. Type the exact name (or DELETE) to remove an item that has stored member values.', 'buddynext' ), 'error' );
 		}
 
 		$groups      = buddynext_service( 'profiles' )->get_fields();

@@ -60,6 +60,7 @@ class GamificationAchievements {
 					'version'        => defined( 'WB_GAM_VERSION' ) ? WB_GAM_VERSION : null,
 					'has_nav'        => true,
 					'has_feed'       => true,
+
 					/*
 					 * The engine's own REST namespace, so a client can reach what
 					 * BuddyNext deliberately does not proxy. wb-gamification has

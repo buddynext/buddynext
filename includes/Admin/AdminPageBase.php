@@ -163,14 +163,23 @@ abstract class AdminPageBase {
 	 * `.bn-ss-header` bar — the S5 standard for single-section tabs whose
 	 * card title would only repeat the page H1 (e.g. Features).
 	 *
+	 * The optional `$id` puts an anchor on the card itself. Sections were only
+	 * ever anchorable at FIELD level (render_sections() ids each `.bn-opt` for
+	 * the command palette), so a screen that wanted to link to a whole card —
+	 * "Add Plan", "Default plan for new members" — had nowhere to hang the
+	 * target. Membership solved that by forking this method with an `$id` in
+	 * the second position, which is exactly the kind of near-identical copy that
+	 * then drifts. Third position, so no existing caller changes meaning.
+	 *
 	 * @param string $title       Section heading. Empty string suppresses the header bar.
 	 * @param string $action_html Optional raw HTML for the header action slot.
 	 *                            Caller is responsible for escaping this value.
+	 * @param string $id          Optional anchor id for the section wrapper.
 	 * @return void
 	 */
-	protected function open_section( string $title, string $action_html = '' ): void {
+	protected function open_section( string $title, string $action_html = '', string $id = '' ): void {
 		?>
-		<div class="bn-settings-section">
+		<div class="bn-settings-section"<?php echo '' !== $id ? ' id="' . esc_attr( $id ) . '"' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_attr() applied inline. ?>>
 			<?php if ( '' !== $title || '' !== $action_html ) : ?>
 			<div class="bn-ss-header">
 				<span class="bn-ss-title"><?php echo esc_html( $title ); ?></span>
@@ -230,6 +239,16 @@ abstract class AdminPageBase {
 						break;
 					case 'number':
 						$this->render_number_row( $field->key, $field->label, (int) $value, $hint, (int) ( $field->min ?? 0 ), $field->max );
+						break;
+					case 'optional_limit':
+						$this->render_optional_limit_row(
+							$field->key,
+							$field->label,
+							(int) $value,
+							$field->toggle_label,
+							$hint,
+							max( 1, (int) ( $field->min ?? 1 ) )
+						);
 						break;
 					case 'select':
 						$this->render_select_row( $field->key, $field->label, (string) $value, $field->choices(), $hint );
@@ -394,7 +413,7 @@ abstract class AdminPageBase {
 	 *
 	 * @param string $option_name WP option name.
 	 * @param string $label       Field label.
-	 * @param string $value       Current hex value (e.g. #0073aa).
+	 * @param string $value       Current hex value (e.g. `Appearance::DEFAULT_BRAND`).
 	 * @param string $hint        Optional hint text beneath the field.
 	 * @return void
 	 */
@@ -405,7 +424,7 @@ abstract class AdminPageBase {
 		string $hint = ''
 	): void {
 		$input_id = 'bn-field-' . sanitize_key( $option_name );
-		$value    = '' !== $value ? $value : '#0073aa';
+		$value    = '' !== $value ? $value : \BuddyNext\Theme\Appearance::DEFAULT_BRAND;
 		?>
 		<div class="bn-field bn-color-field">
 			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
@@ -574,6 +593,217 @@ abstract class AdminPageBase {
 			<?php endif; ?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Render the shared admin empty state.
+	 *
+	 * `.bn-empty` has been the one look for "No X yet" since S4, and twenty admin
+	 * files carry the markup by hand. That is why two screens still showed a bare
+	 * left-aligned sentence under the first column: there was a convention to
+	 * copy but nothing to call, so a screen written after the convention landed
+	 * had no way to inherit it except by someone remembering.
+	 *
+	 * Static and public for the same reason render_notice() is — the screens that
+	 * need it are split between classes that extend this base and ones that do
+	 * not.
+	 *
+	 * The sub line is optional because some empty states have nothing useful to
+	 * add, and an invented second sentence ("There is nothing here yet.") is
+	 * padding that makes the real ones easier to ignore.
+	 *
+	 * @param string $title What is not there — "No members awaiting approval".
+	 * @param string $sub   Optional: what the owner can do about it, or why it is empty.
+	 * @return void
+	 */
+	public static function render_empty_state( string $title, string $sub = '' ): void {
+		if ( '' === trim( $title ) ) {
+			return;
+		}
+		?>
+		<div class="bn-empty">
+			<p class="bn-empty__title"><?php echo esc_html( $title ); ?></p>
+			<?php if ( '' !== trim( $sub ) ) : ?>
+				<p class="bn-empty__sub"><?php echo esc_html( $sub ); ?></p>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render a branded admin notice.
+	 *
+	 * Admin screens hand-rolled `<div class="notice notice-success"><p>…</p></div>`
+	 * in 106 places across the two plugins. That is WordPress's own notice, not
+	 * BuddyNext's: core grey-and-blue chrome sitting inside a BuddyNext card,
+	 * beside BuddyNext's own tokens, so the same "saved" message looked like two
+	 * different products depending on which screen said it. The `.bn-notice`
+	 * styles and their dismiss/announce behaviour already existed — what was
+	 * missing was anything for a call site to CALL, which is why the raw markup
+	 * kept being copied.
+	 *
+	 * Static, and public, because the screens needing it are split roughly evenly
+	 * between classes that extend this base and ones that do not (ToolsTab,
+	 * EmailEditor, AvatarSettings, MemberEditForm…). A protected instance method
+	 * would have been reachable from half the call sites it exists for, which is
+	 * how the raw markup would have survived in the other half.
+	 *
+	 * `bn-admin-dialogs.js` wires every `.bn-notice` on load: it sets
+	 * `role="alert"` on errors and `role="status"` otherwise, injects the dismiss
+	 * button, and auto-dismisses after 12s with a hover/focus pause. So there is
+	 * no dismissible variant to opt into — every notice rendered here is
+	 * dismissible and announced, which is what core's `is-dismissible` was being
+	 * used to ask for.
+	 *
+	 * `$attributes` carries the `data-*` hooks bn-admin-dialogs.js already reads:
+	 * `data-bn-clear-param="updated"` strips that query arg from the URL so a
+	 * refresh does not re-show a notice about something that already happened,
+	 * and `data-bn-auto-dismiss="5000"` overrides the default 12s. Without this
+	 * argument those notices could not move to the primitive without losing the
+	 * behaviour, which is a quieter failure than not migrating them at all.
+	 *
+	 * @param string               $message Notice text. Escaped unless $allow_links is true.
+	 * @param string               $tone    One of success|error|warning|info. Unknown tones
+	 *                                      fall back to info rather than rendering untoned.
+	 * @param bool                 $allow_links Permit inline links/emphasis in $message, run
+	 *                                      through wp_kses with a small allowlist. Use for
+	 *                                      a message that points at another screen.
+	 * @param array<string,string> $attributes Extra `data-*` attributes. Anything not
+	 *                                      beginning `data-` is dropped: this exists for
+	 *                                      declared behaviour hooks, not as a way to put
+	 *                                      arbitrary markup on a shared primitive.
+	 * @return void
+	 */
+	public static function render_notice( string $message, string $tone = 'info', bool $allow_links = false, array $attributes = array() ): void {
+		if ( '' === trim( $message ) ) {
+			return;
+		}
+
+		if ( ! in_array( $tone, array( 'success', 'error', 'warning', 'info' ), true ) ) {
+			$tone = 'info';
+		}
+
+		$body = $allow_links
+			? wp_kses(
+				$message,
+				array(
+					'a'      => array(
+						'href'   => array(),
+						'target' => array(),
+						'rel'    => array(),
+					),
+					'strong' => array(),
+					'em'     => array(),
+					'code'   => array(),
+					'br'     => array(),
+				)
+			)
+			: esc_html( $message );
+
+		$extra = '';
+		foreach ( $attributes as $name => $value ) {
+			if ( 0 !== strpos( (string) $name, 'data-' ) ) {
+				continue;
+			}
+			$extra .= ' ' . esc_attr( (string) $name ) . '="' . esc_attr( (string) $value ) . '"';
+		}
+
+		printf(
+			'<div class="bn-notice bn-notice-%1$s"%3$s>%2$s</div>',
+			esc_attr( $tone ),
+			$body, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_html() or wp_kses() applied above.
+			$extra // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- name and value both esc_attr()'d above.
+		);
+	}
+
+	/**
+	 * Render a limit that can be switched off, instead of a magic zero.
+	 *
+	 * Several settings across both plugins store "no limit" as `0` and explain it
+	 * in a hint — "0 = unlimited", "Set to 0 to disable rate limiting". The hint
+	 * is the tell: a control that needs a footnote to be read is not readable.
+	 * `0` in a field labelled "Posts per minute" states, in the only language the
+	 * control has, that no posts are allowed — the opposite of what it does. An
+	 * owner who skims sets 0 meaning "off" and is right by accident, or reads it
+	 * as a hard stop and never touches it.
+	 *
+	 * So the sentinel becomes a checkbox and the number means only what it says.
+	 * `0` stays the STORED value, so nothing migrates and every reader downstream
+	 * keeps working — this is presentation, not schema.
+	 *
+	 * Deliberately no JavaScript. The checkbox is authoritative on save, so the
+	 * pair behaves correctly with scripts blocked or broken, and the number keeps
+	 * its value while switched off — unchecking and rechecking does not wipe what
+	 * the owner typed. Callers read it back with read_optional_limit().
+	 *
+	 * @param string $option_name  Field name (also the checkbox's basis: `<name>_limited`).
+	 * @param string $label        Field label.
+	 * @param int    $value        Current stored value; 0 means no limit.
+	 * @param string $toggle_label Checkbox label, e.g. "Limit how many times it can be used".
+	 * @param string $hint         Optional hint beneath the pair.
+	 * @param int    $min          Minimum when a limit IS set. Default 1 — a limit of
+	 *                             zero is the state the checkbox now expresses.
+	 * @return void
+	 */
+	protected function render_optional_limit_row(
+		string $option_name,
+		string $label,
+		int $value,
+		string $toggle_label,
+		string $hint = '',
+		int $min = 1
+	): void {
+		$input_id  = 'bn-field-' . sanitize_key( $option_name );
+		$toggle_id = $input_id . '-limited';
+		$limited   = $value > 0;
+		?>
+		<div class="bn-field bn-field--optional-limit">
+			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
+			<label class="bn-check-inline" for="<?php echo esc_attr( $toggle_id ); ?>">
+				<input type="checkbox"
+						id="<?php echo esc_attr( $toggle_id ); ?>"
+						name="<?php echo esc_attr( $option_name ); ?>_limited"
+						value="1"
+						<?php checked( $limited ); ?>>
+				<span><?php echo esc_html( $toggle_label ); ?></span>
+			</label>
+			<input type="number"
+					id="<?php echo esc_attr( $input_id ); ?>"
+					name="<?php echo esc_attr( $option_name ); ?>"
+					value="<?php echo esc_attr( (string) ( $limited ? $value : $min ) ); ?>"
+					min="<?php echo absint( $min ); ?>"
+					class="bn-text-input small-text bn-a-input-tiny">
+			<?php if ( '' !== $hint ) : ?>
+				<span class="bn-field-hint"><?php echo esc_html( $hint ); ?></span>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Read back a value written by render_optional_limit_row().
+	 *
+	 * The checkbox decides, not the number: unchecked stores 0 whatever is in the
+	 * box, which is what lets the number keep its value while the limit is off.
+	 *
+	 * Lives beside the renderer on purpose. The two halves of a sentinel have to
+	 * agree, and the way this goes wrong is one screen reading the number and
+	 * ignoring the checkbox — which silently reinstates the limit an owner just
+	 * switched off.
+	 *
+	 * Callers are responsible for nonce and capability checks before calling.
+	 *
+	 * @param array<string,mixed> $source      Request array, already unslashed by the caller.
+	 * @param string              $option_name Field name used in render_optional_limit_row().
+	 * @param int                 $min         Minimum when a limit is set. Default 1.
+	 * @return int Stored value: 0 for "no limit", otherwise at least $min.
+	 */
+	public static function read_optional_limit( array $source, string $option_name, int $min = 1 ): int {
+		if ( empty( $source[ $option_name . '_limited' ] ) ) {
+			return 0;
+		}
+
+		return max( $min, (int) ( $source[ $option_name ] ?? $min ) );
 	}
 
 	/**

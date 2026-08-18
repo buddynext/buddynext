@@ -13,6 +13,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin\Members;
 
+use BuddyNext\Theme\Appearance;
+
 /**
  * Renders and processes the Member Types admin tab.
  */
@@ -29,7 +31,8 @@ class MemberTypesManager {
 		add_action( 'admin_post_bn_save_member_type', array( $this, 'handle_save' ) );
 		add_action( 'admin_post_bn_delete_member_type', array( $this, 'handle_delete' ) );
 		add_action( 'admin_post_bn_assign_member_type', array( $this, 'handle_assign' ) );
-		add_action( 'buddynext_after_edit_member_form', array( $this, 'render_member_type_field' ), 10, 1 );
+		add_action( 'buddynext_edit_member_sections', array( $this, 'render_member_type_field' ), 10, 1 );
+		add_action( 'buddynext_admin_member_profile_saved', array( $this, 'save_member_type' ), 10, 1 );
 	}
 
 	// ── Save handler ──────────────────────────────────────────────────────────
@@ -52,7 +55,7 @@ class MemberTypesManager {
 			'slug'        => sanitize_key( wp_unslash( $_POST['slug'] ?? '' ) ),
 			'name'        => sanitize_text_field( wp_unslash( $_POST['name'] ?? '' ) ),
 			'description' => sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) ),
-			'color'       => sanitize_hex_color( wp_unslash( $_POST['color'] ?? '#0073aa' ) ) ?? '#0073aa',
+			'color'       => sanitize_hex_color( wp_unslash( $_POST['color'] ?? Appearance::DEFAULT_BRAND ) ) ?? Appearance::DEFAULT_BRAND,
 			'text_color'  => sanitize_hex_color( wp_unslash( $_POST['text_color'] ?? '#ffffff' ) ) ?? '#ffffff',
 			'icon_svg'    => wp_kses( wp_unslash( $_POST['icon_svg'] ?? '' ), $this->allowed_svg_tags() ),
 			'sort_order'  => absint( $_POST['sort_order'] ?? 0 ),
@@ -346,41 +349,87 @@ class MemberTypesManager {
 		$all_types    = $service->get_all();
 		$current_type = $service->get_user_type( $user_id );
 		$current_slug = $current_type ? (string) $current_type['slug'] : '';
+		// Renders INSIDE the profile form, above Save Profile, in the same card as
+		// every other section on this screen. It used to sit below the button with
+		// its own form and its own "Save Type" — three save buttons on one screen,
+		// each saving a different slice of the same member, which is exactly the
+		// confusion this screen is meant to avoid.
 		?>
-		<div class="bn-field-row bn-member-type-field bn-edit-member-extra">
-			<div class="bn-label"><label for="bn-member-type-select"><?php esc_html_e( 'Member Type', 'buddynext' ); ?></label></div>
-			<div class="bn-control">
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-					class="bn-member-type-form">
-					<?php wp_nonce_field( 'bn_assign_member_type' ); ?>
-					<input type="hidden" name="action"  value="bn_assign_member_type">
-					<input type="hidden" name="user_id" value="<?php echo esc_attr( (string) $user_id ); ?>">
+		<div class="bn-settings-section bn-member-type-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Member Type', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<div class="bn-field-row bn-member-type-field">
+					<div class="bn-label"><label for="bn-member-type-select"><?php esc_html_e( 'Type', 'buddynext' ); ?></label></div>
+					<div class="bn-control">
+						<?php
+						// bn-select is this screen's select primitive; bn-text-input left the
+								// control on native Safari/iOS chrome, so it sat at a different height
+								// and radius from the Role and profile selects beside it.
+						?>
+						<select id="bn-member-type-select" name="bn_member_type" class="bn-select bn-member-type-select">
+							<option value="none"><?php esc_html_e( '- No type -', 'buddynext' ); ?></option>
+							<?php foreach ( $all_types as $t ) : ?>
+								<option value="<?php echo esc_attr( $t['slug'] ); ?>"
+									<?php selected( $current_slug, $t['slug'] ); ?>>
+									<?php echo esc_html( $t['name'] ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
 
-					<select id="bn-member-type-select" name="type_slug" class="bn-text-input bn-member-type-select">
-						<option value="none"><?php esc_html_e( '- No type -', 'buddynext' ); ?></option>
-						<?php foreach ( $all_types as $t ) : ?>
-							<option value="<?php echo esc_attr( $t['slug'] ); ?>"
-								<?php selected( $current_slug, $t['slug'] ); ?>>
-								<?php echo esc_html( $t['name'] ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
+						<?php if ( $current_type ) : ?>
+							<span class="bn-type-badge-preview"
+								style="background:<?php echo esc_attr( $current_type['color'] ); ?>;color:<?php echo esc_attr( $current_type['text_color'] ); ?>">
+								<?php echo esc_html( $current_type['name'] ); ?>
+							</span>
+						<?php endif; ?>
 
-					<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Type', 'buddynext' ); ?></button>
-
-					<?php if ( $current_type ) : ?>
-						<span class="bn-type-badge-preview"
-							style="background:<?php echo esc_attr( $current_type['color'] ); ?>;color:<?php echo esc_attr( $current_type['text_color'] ); ?>">
-							<?php echo esc_html( $current_type['name'] ); ?>
+						<span class="bn-field-hint">
+							<?php esc_html_e( 'Assigning a new type replaces any existing type for this member. Saved with the profile.', 'buddynext' ); ?>
 						</span>
-					<?php endif; ?>
-				</form>
-				<span class="bn-field-hint">
-					<?php esc_html_e( 'Assigning a new type replaces any existing type for this member.', 'buddynext' ); ?>
-				</span>
+					</div>
+				</div>
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Persist the member type from the profile submit.
+	 *
+	 * The nonce and capability were both verified by
+	 * Members::handle_save_member_profile() before this action fired. Only this
+	 * section's own key is read.
+	 *
+	 * @param int $user_id Member that was saved.
+	 * @return void
+	 */
+	public function save_member_type( int $user_id ): void {
+		if ( $user_id <= 0 || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified by Members::handle_save_member_profile() before this action fires.
+		if ( ! isset( $_POST['bn_member_type'] ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
+		$type_slug = sanitize_key( wp_unslash( $_POST['bn_member_type'] ) );
+		$service   = buddynext_service( 'member_types' );
+
+		if ( '' === $type_slug || 'none' === $type_slug ) {
+			$service->remove_user_type( $user_id );
+
+			return;
+		}
+
+		$type = $service->get_by_slug( $type_slug );
+
+		if ( $type ) {
+			$service->assign_type( $user_id, (int) $type['id'], get_current_user_id() );
+		}
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────

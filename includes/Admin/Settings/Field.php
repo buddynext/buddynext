@@ -72,6 +72,14 @@ final class Field {
 	public array $choices;
 
 	/**
+	 * Checkbox label for an `optional_limit` field — the sentence that replaces
+	 * the magic zero ("Limit how many spaces a member can create").
+	 *
+	 * @var string
+	 */
+	public string $toggle_label;
+
+	/**
 	 * Minimum for `number`.
 	 *
 	 * @var int|null
@@ -152,6 +160,7 @@ final class Field {
 		$this->default           = $args['default'] ?? '';
 		$this->has_default       = array_key_exists( 'default', $args );
 		$this->choices           = (array) ( $args['choices'] ?? array() );
+		$this->toggle_label      = (string) ( $args['toggle_label'] ?? '' );
 		$this->min               = isset( $args['min'] ) ? (int) $args['min'] : null;
 		$this->max               = isset( $args['max'] ) ? (int) $args['max'] : null;
 		$this->sanitize          = $args['sanitize'] ?? null;

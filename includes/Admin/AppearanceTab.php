@@ -48,11 +48,11 @@ class AppearanceTab {
 	public function render_page(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( ! empty( $_GET['bn_appearance'] ) ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Appearance saved.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Appearance saved.', 'buddynext' ), 'success' );
 		}
 		$bn_logo_err = isset( $_GET['bn_error'] ) ? sanitize_key( wp_unslash( $_GET['bn_error'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( 'logo_url' === $bn_logo_err ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Logo not saved: select an image from the media library or enter a valid image URL.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Logo not saved: select an image from the media library or enter a valid image URL.', 'buddynext' ), 'error' );
 		}
 
 		$logo   = (string) get_option( 'buddynext_logo_url', '' );

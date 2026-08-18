@@ -66,7 +66,12 @@
 	width: 40px;
 	height: 40px;
 	border-radius: var(--bn-r-full, 999px);
-	color: var(--bn-ink-2, #475569);
+	/* Inherit the host header's foreground, not BuddyNext's content ink: these
+	   icons are dropped into the theme header (outside .bn-app), whose background
+	   is independent of BuddyNext's light/dark mode. Using --bn-ink here made
+	   them go invisible on a dark theme header while BuddyNext was in light mode.
+	   Inheriting matches the theme's own header icons in any theme/mode. */
+	color: inherit;
 	background: transparent;
 	transition: background var(--bn-dur-fast, 0.12s) var(--bn-ease, ease),
 		color var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
@@ -76,8 +81,9 @@
 .bn-notification-bell-link:focus-visible,
 .bn-header-msg:hover,
 .bn-header-msg:focus-visible {
-	background: var(--bn-sunken, #f1f5f9);
-	color: var(--bn-ink, #0f172a);
+	/* A tint of the inherited header colour, so the hover surface adapts to a
+	   light OR dark header instead of a fixed light --bn-sunken. */
+	background: color-mix( in oklab, currentColor 12%, transparent );
 }
 
 .bn-notification-bell-icon,
@@ -298,5 +304,41 @@
 	.bn-header-user__dropdown {
 		inset-inline-end: 0;
 		min-width: min(260px, calc(100vw - 1.5rem));
+	}
+
+	/* The host theme's mobile header gives this control an AVATAR-sized slot —
+	   Reign's .reign-user-toggler is 40px. Laid out in flow the avatar plus its
+	   caret is 60px, and flex-shrink:0 above (correctly) refuses to be squeezed,
+	   so the control hung 20px past its slot and 5px past the viewport: every
+	   page could be scrolled sideways at 390px.
+
+	   Taking the caret out of flow makes our box the avatar, which fits any
+	   slot. Because it is absolute, its 40px touch target costs no layout width
+	   — the alternative, shrinking the caret to fit, would have traded a
+	   sideways scroll for an untappable control. */
+	.bn-header-user__caret {
+		position: absolute;
+		inset-block-end: -4px;
+		inset-inline-end: -4px;
+		width: 40px;
+		height: 40px;
+		margin-inline-start: 0;
+		align-items: flex-end;
+		justify-content: flex-end;
+	}
+
+	/* Sitting on the avatar, the bare glyph reads as a rendering accident. The
+	   chip is what makes it read as a control — and it has to carry its own
+	   surface, because the avatar behind it is whatever colour that member's
+	   is. Drawn on the icon, not the button, so the 40px touch target stays
+	   invisible and stays 40px. */
+	.bn-header-user__caret svg {
+		width: 18px;
+		height: 18px;
+		padding: 2px;
+		background: var(--bn-surface, #fff);
+		border: 1px solid var(--bn-line, #e2e8f0);
+		border-radius: var(--bn-r-full, 999px);
+		box-shadow: var(--bn-shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.08));
 	}
 }

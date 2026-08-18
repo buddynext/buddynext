@@ -1341,31 +1341,9 @@ class ProfileController extends BaseRestController {
 	 * @return array<string, string> Field-keyed error messages (possibly empty).
 	 */
 	private function map_save_error_to_fields( \WP_Error $error, array $data, int $user_id ): array {
-		$error_data = (array) $error->get_error_data();
-		$fields     = ( isset( $error_data['fields'] ) && is_array( $error_data['fields'] ) )
-			? array_map( 'strval', $error_data['fields'] )
-			: array();
-
-		if ( ! empty( $fields ) ) {
-			return $fields;
-		}
-
-		$guard = function_exists( 'buddynext_service' ) ? buddynext_service( 'safeguard' ) : null;
-		if ( ! is_object( $guard ) || ! method_exists( $guard, 'check_content' ) ) {
-			return array();
-		}
-
-		$message = (string) $error->get_error_message();
-		foreach ( $data as $key => $value ) {
-			if ( ! is_string( $value ) || '' === trim( $value ) ) {
-				continue;
-			}
-			if ( is_wp_error( $guard->check_content( $value, '', $user_id, 0, 'create' ) ) ) {
-				$fields[ (string) $key ] = $message;
-			}
-		}
-
-		return $fields;
+		// Lives on the service now: the admin member editor needs the identical
+		// mapping, and this was private here. See ProfileService for the reasoning.
+		return buddynext_service( 'profiles' )->map_save_error_to_fields( $error, $data, $user_id );
 	}
 
 	/**
@@ -1873,6 +1851,129 @@ class ProfileController extends BaseRestController {
 	}
 
 	/**
+	 * Gate an uploaded image on size and pixel count.
+	 *
+	 * Replaces a pair of hardcoded dimension caps — 1920x1080 for covers,
+	 * 1024x1024 for avatars — that predate the phones people actually upload
+	 * from. A current handset shoots 4032x3024, so BOTH were rejecting an
+	 * ordinary photo and asking a non-technical member to go and crop it before
+	 * they could finish their profile.
+	 *
+	 * The caps could not simply be lifted, though the card asking for it argued
+	 * they could: `ImageStorageService` does downscale every stored image
+	 * (avatar 512, cover 1600), but that happens AFTER the file is decoded, and
+	 * decoding is the step that costs the memory. A 20000x20000 PNG is a few MB
+	 * on disk and about 1.6GB decoded — the byte cap cannot catch it, because
+	 * compression ratio is precisely what varies.
+	 *
+	 * So the guard stays and gets measured limits instead of arbitrary ones:
+	 *
+	 * - a MEGAPIXEL ceiling, because decode cost is proportional to pixel count
+	 *   and nothing else. 50MP passes every phone including 48MP high-res modes
+	 *   and stops the decompression bombs, which run to hundreds of megapixels.
+	 * - a single-side ceiling, because 100000x500 is 50MP and still pathological.
+	 * - both filterable, along with the byte cap, which is what the reporting
+	 *   owner actually needed.
+	 *
+	 * Deliberately NOT derived from `memory_get_usage()` or `WP_MEMORY_LIMIT`,
+	 * which was the first design and was wrong: measured on this stack, GD's
+	 * buffers are invisible to PHP's accounting — allocating 900 megapixels
+	 * moved PHP's reported usage by 0.00 MB. A budget computed from PHP's
+	 * memory limit would be arithmetic about a number that does not govern the
+	 * allocation, and would read as principled while protecting nothing.
+	 *
+	 * @param array<string,mixed> $file Entry from $_FILES.
+	 * @param string              $kind 'avatar' or 'cover' — selects the defaults
+	 *                                  and is passed to every filter so a site can
+	 *                                  treat the two differently.
+	 * @return true|WP_Error
+	 */
+	private function validate_image_upload( array $file, string $kind ): bool|WP_Error {
+		$default_bytes = 'avatar' === $kind ? 4 * 1024 * 1024 : 5 * 1024 * 1024;
+
+		/**
+		 * Filter the maximum accepted upload size for a profile image.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param int    $bytes Maximum bytes.
+		 * @param string $kind  'avatar' or 'cover'.
+		 */
+		$max_bytes = (int) apply_filters( 'buddynext_upload_max_bytes', $default_bytes, $kind );
+
+		if ( $max_bytes > 0 && (int) ( $file['size'] ?? 0 ) > $max_bytes ) {
+			return new WP_Error(
+				'avatar' === $kind ? 'avatar_too_large' : 'cover_too_large',
+				sprintf(
+					/* translators: %s: maximum file size, e.g. "5 MB". */
+					__( 'That file is larger than %s. Please choose a smaller one.', 'buddynext' ),
+					size_format( $max_bytes )
+				),
+				array( 'status' => 422 )
+			);
+		}
+
+		$tmp  = (string) ( $file['tmp_name'] ?? '' );
+		$dims = ( '' !== $tmp && is_readable( $tmp ) ) ? @getimagesize( $tmp ) : false; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+
+		if ( ! is_array( $dims ) ) {
+			return true;
+		}
+
+		$width  = (int) $dims[0];
+		$height = (int) $dims[1];
+
+		/**
+		 * Filter the maximum pixel count accepted for a profile image.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param float  $megapixels Maximum megapixels.
+		 * @param string $kind       'avatar' or 'cover'.
+		 */
+		$max_megapixels = (float) apply_filters( 'buddynext_upload_max_megapixels', 50.0, $kind );
+
+		/**
+		 * Filter the maximum length of either side of a profile image.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param int    $pixels Maximum width or height.
+		 * @param string $kind   'avatar' or 'cover'.
+		 */
+		$max_side = (int) apply_filters( 'buddynext_upload_max_dimension', 10000, $kind );
+
+		$megapixels = ( $width * $height ) / 1000000;
+
+		if ( $max_megapixels > 0 && $megapixels > $max_megapixels ) {
+			return new WP_Error(
+				'avatar' === $kind ? 'avatar_dimensions' : 'cover_dimensions',
+				sprintf(
+					/* translators: 1: the image's megapixels, 2: the maximum allowed. */
+					__( 'That image is %1$s megapixels, and the limit is %2$s. Please scale it down before uploading.', 'buddynext' ),
+					number_format_i18n( $megapixels, 1 ),
+					number_format_i18n( $max_megapixels, 0 )
+				),
+				array( 'status' => 422 )
+			);
+		}
+
+		if ( $max_side > 0 && ( $width > $max_side || $height > $max_side ) ) {
+			return new WP_Error(
+				'avatar' === $kind ? 'avatar_dimensions' : 'cover_dimensions',
+				sprintf(
+					/* translators: %s: maximum pixels on one side. */
+					__( 'That image is longer than %s pixels on one side. Please scale it down before uploading.', 'buddynext' ),
+					number_format_i18n( $max_side )
+				),
+				array( 'status' => 422 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
 	 * Shared cover upload logic.
 	 *
 	 * Validates the uploaded file, moves it to the uploads directory via the
@@ -1909,26 +2010,9 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
-		if ( (int) ( $cover_file['size'] ?? 0 ) > 5 * 1024 * 1024 ) {
-			return new WP_Error(
-				'cover_too_large',
-				__( 'File must be under 5MB.', 'buddynext' ),
-				array( 'status' => 422 )
-			);
-		}
-
-		// Reject oversized pixel dimensions even when the byte size passes — a
-		// highly compressed huge image can exhaust memory during thumbnail/WebP
-		// conversion.
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-		$cover_tmp  = (string) ( $cover_file['tmp_name'] ?? '' );
-		$cover_dims = ( '' !== $cover_tmp && is_readable( $cover_tmp ) ) ? @getimagesize( $cover_tmp ) : false; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-		if ( is_array( $cover_dims ) && ( (int) $cover_dims[0] > 1920 || (int) $cover_dims[1] > 1080 ) ) {
-			return new WP_Error(
-				'cover_dimensions',
-				__( 'Cover image must be at most 1920×1080 pixels.', 'buddynext' ),
-				array( 'status' => 422 )
-			);
+		$cover_valid = $this->validate_image_upload( $cover_file, 'cover' );
+		if ( is_wp_error( $cover_valid ) ) {
+			return $cover_valid;
 		}
 
 		$file_data = array(
@@ -2052,26 +2136,9 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
-		if ( (int) ( $avatar_file['size'] ?? 0 ) > 4 * 1024 * 1024 ) {
-			return new WP_Error(
-				'avatar_too_large',
-				__( 'File must be under 4MB.', 'buddynext' ),
-				array( 'status' => 422 )
-			);
-		}
-
-		// Reject oversized pixel dimensions even when the byte size passes — a
-		// highly compressed huge image can exhaust memory during thumbnail/WebP
-		// conversion.
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-		$avatar_tmp  = (string) ( $avatar_file['tmp_name'] ?? '' );
-		$avatar_dims = ( '' !== $avatar_tmp && is_readable( $avatar_tmp ) ) ? @getimagesize( $avatar_tmp ) : false; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-		if ( is_array( $avatar_dims ) && ( (int) $avatar_dims[0] > 1024 || (int) $avatar_dims[1] > 1024 ) ) {
-			return new WP_Error(
-				'avatar_dimensions',
-				__( 'Avatar image must be at most 1024×1024 pixels.', 'buddynext' ),
-				array( 'status' => 422 )
-			);
+		$avatar_valid = $this->validate_image_upload( $avatar_file, 'avatar' );
+		if ( is_wp_error( $avatar_valid ) ) {
+			return $avatar_valid;
 		}
 
 		$file_data = array(

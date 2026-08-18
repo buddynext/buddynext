@@ -29,7 +29,14 @@ $bn_admin_user   = get_userdata( $current_user_id );
 
 // ── Active section ────────────────────────────────────────────────────────────
 
-$admin_section = isset( $_GET['bn_admin'] ) ? sanitize_key( wp_unslash( $_GET['bn_admin'] ) ) : 'overview'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+// As the routed hub the active section is the /{slug}/{section}/ path segment,
+// exposed as the bn_ca_section query var; the [buddynext_community_admin] shortcode
+// embed (which never runs through the hub router) still uses the legacy ?bn_admin=
+// param, so fall back to it. Default 'overview' renders at the bare /{slug}/.
+$bn_ca_route_section = sanitize_key( (string) get_query_var( 'bn_ca_section', '' ) );
+$admin_section       = '' !== $bn_ca_route_section
+	? $bn_ca_route_section
+	: ( isset( $_GET['bn_admin'] ) ? sanitize_key( wp_unslash( $_GET['bn_admin'] ) ) : 'overview' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 // The sidebar tabs are add_query_arg( 'bn_admin', ..., $admin_base ) links, so
 // $admin_base MUST be the URL this panel is actually being viewed at. As the routed
 // hub that is buddynext_community_admin_url(); but via the [buddynext_community_admin]
@@ -37,6 +44,87 @@ $admin_section = isset( $_GET['bn_admin'] ) ? sanitize_key( wp_unslash( $_GET['b
 // passes that page's permalink. Hardcoding the hub slug sent every tab to
 // /bn-community-admin/, which 404s when no page exists there.
 $admin_base = ( isset( $admin_base ) && '' !== (string) $admin_base ) ? (string) $admin_base : buddynext_community_admin_url();
+
+// ── Members section data (only when that section is active) ────────────────────
+// Reuses Admin\Members::list_members() — already paginated (LIMIT/OFFSET), search
+// and total-count aware — so the list is big-site safe. Roles come from the
+// RoleService community-role layer (bn_community_role user meta).
+$bn_ca_members  = null;
+$bn_ca_m_page   = 1;
+$bn_ca_m_search = '';
+// Role changes are admin-only: a WordPress admin, or a member holding the
+// community 'admin' role. Moderators can view the panel but not reassign roles.
+// Granting the top Admin role stays site-administrator-only (mirrors the REST gate).
+// Computed section-independently: the sidebar note (rendered on every section)
+// needs the same admin-vs-moderator distinction as the Members role controls.
+$bn_ca_roles           = buddynext_service( 'roles' );
+$bn_ca_can_assign      = current_user_can( 'manage_options' )
+	|| ( is_object( $bn_ca_roles ) && method_exists( $bn_ca_roles, 'is_admin' ) && $bn_ca_roles->is_admin( get_current_user_id() ) );
+$bn_ca_can_grant_admin = current_user_can( 'manage_options' );
+if ( 'members' === $admin_section ) {
+	$bn_ca_m_page        = isset( $_GET['mpage'] ) ? max( 1, (int) $_GET['mpage'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_ca_m_search      = isset( $_GET['ms'] ) ? sanitize_text_field( wp_unslash( $_GET['ms'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_ca_admin_members = buddynext_service( 'admin_members' );
+	$bn_ca_members       = ( is_object( $bn_ca_admin_members ) && method_exists( $bn_ca_admin_members, 'list_members' ) )
+		? $bn_ca_admin_members->list_members(
+			array(
+				'page'     => $bn_ca_m_page,
+				'per_page' => 20,
+				'search'   => $bn_ca_m_search,
+				'orderby'  => 'registered',
+				'order'    => 'DESC',
+			)
+		)
+		: array(
+			'members' => array(),
+			'total'   => 0,
+			'pages'   => 1,
+		);
+}
+
+// ── Spaces section data (only when that section is active) ────────────────────
+// SpaceService::list_spaces_with_total() is LIMIT/OFFSET + COUNT-aware and cached,
+// so the management list is big-site safe. is_admin => true surfaces secret and
+// archived spaces to a site manager.
+$bn_ca_spaces_list = null;
+$bn_ca_sp_page     = 1;
+$bn_ca_sp_total    = 0;
+if ( 'spaces' === $admin_section ) {
+	$bn_ca_sp_page = isset( $_GET['mpage'] ) ? max( 1, (int) $_GET['mpage'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_ca_sp_svc  = buddynext_service( 'spaces' );
+	if ( is_object( $bn_ca_sp_svc ) && method_exists( $bn_ca_sp_svc, 'list_spaces_with_total' ) ) {
+		$bn_ca_sp_res      = $bn_ca_sp_svc->list_spaces_with_total(
+			array(
+				'page'     => $bn_ca_sp_page,
+				'per_page' => 20,
+				'is_admin' => true,
+				'orderby'  => 'created_at',
+				'order'    => 'DESC',
+			)
+		);
+		$bn_ca_spaces_list = (array) ( $bn_ca_sp_res['items'] ?? array() );
+		$bn_ca_sp_total    = (int) ( $bn_ca_sp_res['total'] ?? 0 );
+	} else {
+		$bn_ca_spaces_list = array();
+	}
+}
+
+// ── Invites section data (only when that section is active) ───────────────────
+// InviteService::get_invites()/count_invites() are LIMIT/OFFSET + COUNT-aware.
+// The panel lists pending invites read-only; bulk sending stays in wp-admin.
+$bn_ca_invites   = null;
+$bn_ca_inv_page  = 1;
+$bn_ca_inv_total = 0;
+if ( 'invites' === $admin_section ) {
+	$bn_ca_inv_page = isset( $_GET['mpage'] ) ? max( 1, (int) $_GET['mpage'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_ca_inv_svc  = buddynext_service( 'invite' );
+	if ( is_object( $bn_ca_inv_svc ) && method_exists( $bn_ca_inv_svc, 'get_invites' ) ) {
+		$bn_ca_invites   = (array) $bn_ca_inv_svc->get_invites( 'pending', $bn_ca_inv_page, 20 );
+		$bn_ca_inv_total = (int) $bn_ca_inv_svc->count_invites( 'pending' );
+	} else {
+		$bn_ca_invites = array();
+	}
+}
 
 // ── Platform stats (consolidated via AdminHub::overview_stats) ─────────────────
 
@@ -199,12 +287,10 @@ $posts_pct_abs = abs( $posts_pct );
 			?>
 		</span>
 		<div class="bn-ca-subheader__actions">
+			<?php // Community Admin is an all-front-end surface — no link back to wp-admin. ?>
 			<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="bn-ca-subheader__link" data-emphasis="primary">
 				<?php buddynext_icon( 'chevron-left' ); ?>
 				<?php esc_html_e( 'Back to community', 'buddynext' ); ?>
-			</a>
-			<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-subheader__link">
-				<?php esc_html_e( 'WP Admin', 'buddynext' ); ?>
 			</a>
 		</div>
 	</div>
@@ -248,11 +334,19 @@ $posts_pct_abs = abs( $posts_pct );
 						'label' => __( 'Settings', 'buddynext' ),
 					),
 				);
+				// On the routed hub the tabs are clean /{slug}/{section}/ paths; via
+				// the [buddynext_community_admin] shortcode embed (an arbitrary host
+				// page) they stay ?bn_admin= links, since sub-paths of an arbitrary
+				// page would not resolve to a route.
+				$bn_ca_routed = ( 'community_admin' === (string) get_query_var( 'bn_hub' ) );
 				foreach ( $nav_items as $key => $item ) :
 					$is_active = ( $admin_section === $key );
+					$tab_href  = $bn_ca_routed
+						? ( 'overview' === $key ? $admin_base : trailingslashit( $admin_base . $key ) )
+						: add_query_arg( 'bn_admin', $key, $admin_base );
 					?>
 					<a
-						href="<?php echo esc_url( add_query_arg( 'bn_admin', $key, $admin_base ) ); ?>"
+						href="<?php echo esc_url( $tab_href ); ?>"
 						class="bn-ca-nav-item"
 						<?php echo $is_active ? 'aria-current="page"' : ''; ?>
 					>
@@ -264,15 +358,21 @@ $posts_pct_abs = abs( $posts_pct );
 					</a>
 				<?php endforeach; ?>
 
-				<div class="bn-ca-nav-divider" role="presentation"></div>
-
-				<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-nav-item" data-external>
-					<span class="bn-ca-nav-item__icon" aria-hidden="true"><?php buddynext_icon( 'link' ); ?></span>
-					<?php esc_html_e( 'WordPress admin', 'buddynext' ); ?>
-				</a>
+				<?php // All-front-end surface — no "WordPress admin" link out to the backend. ?>
 
 				<p class="bn-ca-sidebar__note">
-					<?php esc_html_e( 'Space admins only see their own space in this panel.', 'buddynext' ); ?>
+					<?php
+					// The panel is a community-WIDE manager view: it is reachable only by
+					// site owners (manage_options) and community-role moderators/admins,
+					// who moderate the whole community — not per-space. So the note states
+					// what the viewer can actually do here, which is what a moderator most
+					// needs to know: role + community-policy controls are owner-only.
+					echo esc_html(
+						$bn_ca_can_assign
+							? __( 'You manage the whole community, including member roles and settings.', 'buddynext' )
+							: __( 'You can moderate the whole community. Member roles and community settings are owner-only.', 'buddynext' )
+					);
+					?>
 				</p>
 			</div>
 		</aside>
@@ -280,6 +380,364 @@ $posts_pct_abs = abs( $posts_pct );
 		<!-- Main content -->
 		<main class="bn-ca-main">
 
+		<?php
+		// Section body router. The Members section renders its own list; every
+		// other section still shows the Overview dashboard (their dedicated bodies
+		// are separate follow-up work). Kept as one if/else so the large Overview
+		// markup below is untouched.
+		if ( 'members' === $admin_section && is_array( $bn_ca_members ) ) :
+			$bn_ca_sec_url = $bn_ca_routed ? trailingslashit( $admin_base . 'members' ) : $admin_base;
+			?>
+			<section class="bn-ca-card" aria-labelledby="bn-ca-members-title" data-wp-interactive="buddynext/community-admin">
+				<header class="bn-ca-card__head">
+					<span id="bn-ca-members-title" class="bn-ca-card__title">
+						<?php buddynext_icon( 'users' ); ?>
+						<?php esc_html_e( 'Members', 'buddynext' ); ?>
+						<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $bn_ca_members['total'] ) ); ?></span>
+					</span>
+				</header>
+
+				<form class="bn-ca-members-search" method="get" action="<?php echo esc_url( $bn_ca_sec_url ); ?>" role="search">
+					<?php if ( ! $bn_ca_routed ) : ?>
+						<input type="hidden" name="bn_admin" value="members" />
+					<?php endif; ?>
+					<input
+						type="search"
+						name="ms"
+						class="bn-input"
+						value="<?php echo esc_attr( $bn_ca_m_search ); ?>"
+						placeholder="<?php esc_attr_e( 'Search members by name, username or email…', 'buddynext' ); ?>"
+						aria-label="<?php esc_attr_e( 'Search members', 'buddynext' ); ?>"
+					/>
+					<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
+				</form>
+
+				<div class="bn-ca-card__body">
+					<?php if ( empty( $bn_ca_members['members'] ) ) : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'No members match your search.', 'buddynext' ); ?></p>
+					<?php else : ?>
+						<?php
+						foreach ( $bn_ca_members['members'] as $bn_ca_m ) :
+							// list_members() returns associative arrays, not WP_User objects.
+							$bn_ca_m_name = '' !== (string) ( $bn_ca_m['display'] ?? '' ) ? (string) $bn_ca_m['display'] : (string) ( $bn_ca_m['login'] ?? '' );
+							$bn_ca_m_id   = (int) ( $bn_ca_m['id'] ?? 0 );
+							$bn_ca_m_role = ( is_object( $bn_ca_roles ) && method_exists( $bn_ca_roles, 'get_role' ) ) ? $bn_ca_roles->get_role( $bn_ca_m_id ) : 'member';
+							$bn_ca_m_init = strtoupper( mb_substr( $bn_ca_m_name, 0, 1 ) );
+							$bn_ca_m_reg  = mysql2date( (string) get_option( 'date_format' ), (string) ( $bn_ca_m['registered'] ?? '' ) );
+							?>
+							<div class="bn-ca-row">
+								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $bn_ca_m_init ); ?></span>
+								<div class="bn-ca-row__body">
+									<span class="bn-ca-row__title">
+										<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $bn_ca_m_id ) ); ?>"><?php echo esc_html( $bn_ca_m_name ); ?></a>
+									</span>
+									<span class="bn-ca-row__sub">
+										<?php
+										printf(
+											/* translators: 1: username, 2: registration date. */
+											esc_html__( '@%1$s · joined %2$s', 'buddynext' ),
+											esc_html( (string) ( $bn_ca_m['handle'] ?? ( $bn_ca_m['login'] ?? '' ) ) ),
+											esc_html( $bn_ca_m_reg )
+										);
+										?>
+									</span>
+								</div>
+								<div class="bn-ca-row__actions">
+									<?php
+									// Role managers get a live <select> (POSTs to the role endpoint via the
+									// buddynext/community-admin store); everyone else sees a read-only badge.
+									// The viewer's own row is never editable — no self-demotion lockout.
+									$bn_ca_editable = $bn_ca_can_assign && get_current_user_id() !== $bn_ca_m_id;
+									if ( $bn_ca_editable ) :
+										$bn_ca_ctx_json = (string) wp_json_encode(
+											array(
+												'userId' => $bn_ca_m_id,
+												'role'   => $bn_ca_m_role,
+											)
+										);
+										?>
+										<select
+											class="bn-input bn-ca-role-select"
+											aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member name. */ __( 'Community role for %s', 'buddynext' ), $bn_ca_m_name ) ); ?>"
+											data-wp-context='<?php echo esc_attr( $bn_ca_ctx_json ); ?>'
+											data-wp-on--change="actions.setRole"
+										>
+											<option value="member" <?php selected( $bn_ca_m_role, 'member' ); ?>><?php esc_html_e( 'Member', 'buddynext' ); ?></option>
+											<option value="moderator" <?php selected( $bn_ca_m_role, 'moderator' ); ?>><?php esc_html_e( 'Moderator', 'buddynext' ); ?></option>
+											<?php if ( $bn_ca_can_grant_admin || 'admin' === $bn_ca_m_role ) : ?>
+												<option value="admin" <?php selected( $bn_ca_m_role, 'admin' ); ?>><?php esc_html_e( 'Admin', 'buddynext' ); ?></option>
+											<?php endif; ?>
+										</select>
+									<?php elseif ( 'admin' === $bn_ca_m_role ) : ?>
+										<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Admin', 'buddynext' ); ?></span>
+									<?php elseif ( 'moderator' === $bn_ca_m_role ) : ?>
+										<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Moderator', 'buddynext' ); ?></span>
+									<?php endif; ?>
+								</div>
+							</div>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</div>
+
+				<?php if ( (int) $bn_ca_members['pages'] > 1 ) : ?>
+					<nav class="bn-ca-pagination" aria-label="<?php esc_attr_e( 'Members pages', 'buddynext' ); ?>">
+						<?php
+						$bn_ca_pg_args = array();
+						if ( '' !== $bn_ca_m_search ) {
+							$bn_ca_pg_args['ms'] = $bn_ca_m_search;
+						}
+						if ( ! $bn_ca_routed ) {
+							$bn_ca_pg_args['bn_admin'] = 'members';
+						}
+						if ( $bn_ca_m_page > 1 ) :
+							$bn_ca_prev = add_query_arg( array_merge( $bn_ca_pg_args, array( 'mpage' => $bn_ca_m_page - 1 ) ), $bn_ca_sec_url );
+							?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_ca_prev ); ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
+						<?php endif; ?>
+						<span class="bn-ca-pagination__status">
+							<?php
+							printf(
+								/* translators: 1: current page, 2: total pages. */
+								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
+								esc_html( number_format_i18n( $bn_ca_m_page ) ),
+								esc_html( number_format_i18n( (int) $bn_ca_members['pages'] ) )
+							);
+							?>
+						</span>
+						<?php if ( $bn_ca_m_page < (int) $bn_ca_members['pages'] ) : ?>
+							<?php $bn_ca_next = add_query_arg( array_merge( $bn_ca_pg_args, array( 'mpage' => $bn_ca_m_page + 1 ) ), $bn_ca_sec_url ); ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_ca_next ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
+						<?php endif; ?>
+					</nav>
+				<?php endif; ?>
+			</section>
+
+		<?php elseif ( 'spaces' === $admin_section ) : ?>
+
+			<section class="bn-ca-card" aria-labelledby="bn-ca-spaces-title">
+				<header class="bn-ca-card__head">
+					<span id="bn-ca-spaces-title" class="bn-ca-card__title">
+						<?php buddynext_icon( 'home' ); ?>
+						<?php esc_html_e( 'Spaces', 'buddynext' ); ?>
+						<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $bn_ca_sp_total ) ); ?></span>
+					</span>
+				</header>
+				<div class="bn-ca-card__body">
+					<?php if ( empty( $bn_ca_spaces_list ) ) : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'No spaces yet.', 'buddynext' ); ?></p>
+					<?php else : ?>
+						<?php
+						foreach ( $bn_ca_spaces_list as $bn_ca_sp ) :
+							$bn_sp_id    = (int) ( $bn_ca_sp['id'] ?? 0 );
+							$bn_sp_name  = (string) ( $bn_ca_sp['name'] ?? '' );
+							$bn_sp_type  = (string) ( $bn_ca_sp['type'] ?? 'open' );
+							$bn_sp_count = (int) ( $bn_ca_sp['member_count'] ?? 0 );
+							$bn_sp_init  = \BuddyNext\Profile\AvatarService::initials_for( $bn_sp_name );
+							$bn_sp_admin = trailingslashit( \BuddyNext\Core\PageRouter::space_url( $bn_sp_id ) ) . 'admin/';
+							$bn_sp_tone  = 'private' === $bn_sp_type ? 'info' : ( 'secret' === $bn_sp_type ? 'amber' : '' );
+							?>
+							<div class="bn-ca-row">
+								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $bn_sp_init ); ?></span>
+								<div class="bn-ca-row__body">
+									<span class="bn-ca-row__title"><a href="<?php echo esc_url( $bn_sp_admin ); ?>"><?php echo esc_html( $bn_sp_name ); ?></a></span>
+									<span class="bn-ca-row__sub">
+										<?php
+										printf(
+											/* translators: %s: member count (already i18n-formatted). */
+											esc_html( _n( '%s member', '%s members', $bn_sp_count, 'buddynext' ) ),
+											esc_html( number_format_i18n( $bn_sp_count ) )
+										);
+										?>
+									</span>
+								</div>
+								<div class="bn-ca-row__actions">
+									<?php if ( '' !== $bn_sp_tone ) : ?>
+										<span class="bn-badge" data-tone="<?php echo esc_attr( $bn_sp_tone ); ?>"><?php echo esc_html( ucfirst( $bn_sp_type ) ); ?></span>
+									<?php endif; ?>
+								</div>
+							</div>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</div>
+				<?php
+				$bn_ca_sp_pages = (int) ceil( (int) $bn_ca_sp_total / 20 );
+				if ( $bn_ca_sp_pages > 1 ) :
+					$bn_ca_sp_base = $bn_ca_routed ? trailingslashit( $admin_base . 'spaces' ) : add_query_arg( 'bn_admin', 'spaces', $admin_base );
+					?>
+					<nav class="bn-ca-pagination" aria-label="<?php esc_attr_e( 'Spaces pages', 'buddynext' ); ?>">
+						<?php if ( $bn_ca_sp_page > 1 ) : ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_sp_page - 1, $bn_ca_sp_base ) ); ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
+						<?php endif; ?>
+						<span class="bn-ca-pagination__status">
+							<?php
+							printf(
+								/* translators: 1: current page, 2: total pages. */
+								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
+								esc_html( number_format_i18n( $bn_ca_sp_page ) ),
+								esc_html( number_format_i18n( $bn_ca_sp_pages ) )
+							);
+							?>
+						</span>
+						<?php if ( $bn_ca_sp_page < $bn_ca_sp_pages ) : ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_sp_page + 1, $bn_ca_sp_base ) ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
+						<?php endif; ?>
+					</nav>
+				<?php endif; ?>
+			</section>
+
+		<?php elseif ( 'settings' === $admin_section ) : ?>
+
+			<section class="bn-ca-card" aria-labelledby="bn-ca-settings-title">
+				<header class="bn-ca-card__head">
+					<span id="bn-ca-settings-title" class="bn-ca-card__title">
+						<?php buddynext_icon( 'settings' ); ?>
+						<?php esc_html_e( 'Community settings', 'buddynext' ); ?>
+					</span>
+				</header>
+				<div class="bn-ca-card__body">
+					<?php if ( current_user_can( 'manage_options' ) ) : ?>
+						<?php
+						// Community-wide policy is a site-owner boundary (manage_options),
+						// so this section links out to the wp-admin tabs that own it rather
+						// than duplicating a write path on the panel. tab_url() resolves the
+						// canonical tab placement (never hardcode admin.php?page=… strings).
+						$bn_ca_settings_links = array(
+							array(
+								'icon'  => 'shield',
+								'label' => __( 'Moderation & policy', 'buddynext' ),
+								'sub'   => __( 'Auto-hide thresholds, strikes, banned words and rate limits.', 'buddynext' ),
+								'url'   => \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'moderation' ),
+							),
+							array(
+								'icon'  => 'users',
+								'label' => __( 'Roles & capabilities', 'buddynext' ),
+								'sub'   => __( 'Set the minimum role required for each community action.', 'buddynext' ),
+								'url'   => \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'roles' ),
+							),
+							array(
+								'icon'  => 'mail',
+								'label' => __( 'Bulk email invites (CSV)', 'buddynext' ),
+								'sub'   => __( 'Import a CSV of email addresses to invite in bulk.', 'buddynext' ),
+								'url'   => \BuddyNext\Admin\AdminHub::tab_url( 'members', 'invites' ),
+							),
+						);
+						foreach ( $bn_ca_settings_links as $bn_ca_sl ) :
+							?>
+							<a class="bn-ca-row" href="<?php echo esc_url( $bn_ca_sl['url'] ); ?>">
+								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php buddynext_icon( $bn_ca_sl['icon'] ); ?></span>
+								<div class="bn-ca-row__body">
+									<span class="bn-ca-row__title"><?php echo esc_html( $bn_ca_sl['label'] ); ?></span>
+									<span class="bn-ca-row__sub"><?php echo esc_html( $bn_ca_sl['sub'] ); ?></span>
+								</div>
+								<div class="bn-ca-row__actions"><?php buddynext_icon( 'chevron-right' ); ?></div>
+							</a>
+						<?php endforeach; ?>
+					<?php else : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'Community settings are managed by the site administrator.', 'buddynext' ); ?></p>
+					<?php endif; ?>
+				</div>
+			</section>
+
+		<?php elseif ( 'invites' === $admin_section ) : ?>
+
+			<section class="bn-ca-card" aria-labelledby="bn-ca-invites-title">
+				<header class="bn-ca-card__head">
+					<span id="bn-ca-invites-title" class="bn-ca-card__title">
+						<?php buddynext_icon( 'mail' ); ?>
+						<?php esc_html_e( 'Pending email invites', 'buddynext' ); ?>
+						<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $bn_ca_inv_total ) ); ?></span>
+					</span>
+					<?php if ( current_user_can( 'manage_options' ) ) : ?>
+						<a class="bn-ca-card__link" href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'members', 'invites' ) ); ?>"><?php esc_html_e( 'Import CSV', 'buddynext' ); ?></a>
+					<?php endif; ?>
+				</header>
+
+				<?php
+				$bn_ca_inv_status = isset( $_GET['bn_invite'] ) ? sanitize_key( wp_unslash( $_GET['bn_invite'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				if ( '' !== $bn_ca_inv_status ) :
+					$bn_ca_inv_msgs = array(
+						'sent'    => __( 'Invite sent.', 'buddynext' ),
+						'skipped' => __( 'That email already has an account or a pending invite.', 'buddynext' ),
+						'error'   => __( 'Enter a valid email address.', 'buddynext' ),
+					);
+					$bn_ca_inv_tone = 'sent' === $bn_ca_inv_status ? 'success' : ( 'skipped' === $bn_ca_inv_status ? 'info' : 'danger' );
+					?>
+					<div class="bn-ca-notice" data-tone="<?php echo esc_attr( $bn_ca_inv_tone ); ?>" role="status">
+						<?php echo esc_html( $bn_ca_inv_msgs[ $bn_ca_inv_status ] ?? '' ); ?>
+					</div>
+				<?php endif; ?>
+
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-ca-invite-form">
+					<input type="hidden" name="action" value="bn_ca_send_invite">
+					<?php wp_nonce_field( 'bn_ca_send_invite' ); ?>
+					<input type="email" name="invite_email" class="bn-input" required placeholder="<?php esc_attr_e( 'name@example.com', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Email address to invite', 'buddynext' ); ?>" />
+					<input type="text" name="invite_first_name" class="bn-input" placeholder="<?php esc_attr_e( 'First name (optional)', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'First name', 'buddynext' ); ?>" />
+					<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Send invite', 'buddynext' ); ?></button>
+				</form>
+
+				<div class="bn-ca-card__body">
+					<?php if ( empty( $bn_ca_invites ) ) : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'No pending invites.', 'buddynext' ); ?></p>
+					<?php else : ?>
+						<?php
+						foreach ( $bn_ca_invites as $bn_ca_inv ) :
+							$bn_inv_email = (string) ( $bn_ca_inv['email'] ?? '' );
+							$bn_inv_exp   = (string) ( $bn_ca_inv['expires_at'] ?? '' );
+							$bn_inv_init  = '' !== $bn_inv_email ? strtoupper( mb_substr( $bn_inv_email, 0, 1 ) ) : '?';
+							?>
+							<div class="bn-ca-row">
+								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $bn_inv_init ); ?></span>
+								<div class="bn-ca-row__body">
+									<span class="bn-ca-row__title"><?php echo esc_html( $bn_inv_email ); ?></span>
+									<span class="bn-ca-row__sub">
+										<?php
+										if ( '' !== $bn_inv_exp ) {
+											printf(
+												/* translators: %s: expiry date. */
+												esc_html__( 'Expires %s', 'buddynext' ),
+												esc_html( mysql2date( (string) get_option( 'date_format' ), $bn_inv_exp ) )
+											);
+										}
+										?>
+									</span>
+								</div>
+								<div class="bn-ca-row__actions">
+									<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Pending', 'buddynext' ); ?></span>
+								</div>
+							</div>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</div>
+				<?php
+				$bn_ca_inv_pages = (int) ceil( (int) $bn_ca_inv_total / 20 );
+				if ( $bn_ca_inv_pages > 1 ) :
+					$bn_ca_inv_base = $bn_ca_routed ? trailingslashit( $admin_base . 'invites' ) : add_query_arg( 'bn_admin', 'invites', $admin_base );
+					?>
+					<nav class="bn-ca-pagination" aria-label="<?php esc_attr_e( 'Invite pages', 'buddynext' ); ?>">
+						<?php if ( $bn_ca_inv_page > 1 ) : ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_inv_page - 1, $bn_ca_inv_base ) ); ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
+						<?php endif; ?>
+						<span class="bn-ca-pagination__status">
+							<?php
+							printf(
+								/* translators: 1: current page, 2: total pages. */
+								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
+								esc_html( number_format_i18n( $bn_ca_inv_page ) ),
+								esc_html( number_format_i18n( $bn_ca_inv_pages ) )
+							);
+							?>
+						</span>
+						<?php if ( $bn_ca_inv_page < $bn_ca_inv_pages ) : ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_inv_page + 1, $bn_ca_inv_base ) ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
+						<?php endif; ?>
+					</nav>
+				<?php endif; ?>
+			</section>
+
+		<?php else : ?>
+
+			<?php // The Moderation tab is queue-focused; the stats dashboard belongs to Overview. Both share the reports/appeals queue markup below. ?>
+			<?php if ( 'moderation' !== $admin_section ) : ?>
 			<!-- Stats grid — .bn-stat-grid primitive -->
 			<div class="bn-stat-grid" role="list" aria-label="<?php esc_attr_e( 'Community metrics', 'buddynext' ); ?>">
 
@@ -355,6 +813,7 @@ $posts_pct_abs = abs( $posts_pct );
 				</div>
 
 			</div>
+			<?php endif; // stats grid hidden on the Moderation tab. ?>
 
 			<!-- Section tabs — Reports / Pending joins / Recent activity -->
 			<nav class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Admin sections', 'buddynext' ); ?>">
@@ -400,7 +859,7 @@ $posts_pct_abs = abs( $posts_pct );
 			<?php if ( 'reports' === $active_section ) : ?>
 
 				<!-- Open reports -->
-				<section class="bn-ca-card" aria-labelledby="bn-ca-reports-title">
+				<section class="bn-ca-card" aria-labelledby="bn-ca-reports-title" data-wp-interactive="buddynext/moderation">
 					<header class="bn-ca-card__head">
 						<span id="bn-ca-reports-title" class="bn-ca-card__title">
 							<?php buddynext_icon( 'shield' ); ?>
@@ -432,8 +891,18 @@ $posts_pct_abs = abs( $posts_pct );
 							$rpt_iso      = $rpt_ts ? gmdate( DATE_ATOM, $rpt_ts ) : '';
 							$rpt_time     = $rpt_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $rpt_ts, time() ) ) : '';
 							++$displayed;
+							// Interactivity context the moderation store's dismiss/removeContent
+							// actions read. data-report-id is the selector they use to drop the
+							// row on success.
+							$rpt_ctx = wp_json_encode(
+								array(
+									'reportId'  => (int) $rpt['id'],
+									'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+									'restNonce' => wp_create_nonce( 'wp_rest' ),
+								)
+							);
 							?>
-							<div class="bn-ca-report-row" data-severity="<?php echo esc_attr( $rpt_severity ); ?>">
+							<div class="bn-ca-report-row" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" data-report-id="<?php echo esc_attr( (string) (int) $rpt['id'] ); ?>" data-wp-context="<?php echo esc_attr( (string) $rpt_ctx ); ?>">
 								<div class="bn-ca-report-row__body">
 									<div class="bn-ca-report-row__type">
 										<span class="bn-ca-status-dot" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" aria-hidden="true"></span>
@@ -453,24 +922,22 @@ $posts_pct_abs = abs( $posts_pct );
 								<?php if ( $rpt_iso ) : ?>
 									<time class="bn-ca-row__time" datetime="<?php echo esc_attr( $rpt_iso ); ?>"><?php echo esc_html( $rpt_time ); ?></time>
 								<?php endif; ?>
-								<a
-									href="
-									<?php
-									echo esc_url(
-										add_query_arg(
-											array(
-												'bn_admin' => 'reports',
-												'bn_report_id' => (int) $rpt['id'],
-											),
-											$admin_base
-										)
-									);
-									?>
-									"
-									class="bn-btn"
-									data-variant="secondary"
-									data-size="sm"
-								><?php esc_html_e( 'Review', 'buddynext' ); ?></a>
+								<div class="bn-ca-row__actions">
+									<button
+										type="button"
+										class="bn-btn"
+										data-variant="secondary"
+										data-size="sm"
+										data-wp-on--click="actions.dismiss"
+									><?php esc_html_e( 'Dismiss', 'buddynext' ); ?></button>
+									<button
+										type="button"
+										class="bn-btn"
+										data-variant="danger"
+										data-size="sm"
+										data-wp-on--click="actions.removeContent"
+									><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+								</div>
 							</div>
 						<?php endforeach; ?>
 
@@ -561,7 +1028,7 @@ $posts_pct_abs = abs( $posts_pct );
 			<?php elseif ( 'appeals' === $active_section ) : ?>
 
 				<!-- Pending join requests -->
-				<section class="bn-ca-card" aria-labelledby="bn-ca-joins-title">
+				<section class="bn-ca-card" aria-labelledby="bn-ca-joins-title" data-wp-interactive="buddynext/moderation">
 					<header class="bn-ca-card__head">
 						<span id="bn-ca-joins-title" class="bn-ca-card__title">
 							<?php buddynext_icon( 'mail' ); ?>
@@ -580,8 +1047,19 @@ $posts_pct_abs = abs( $posts_pct );
 							$j_member = '' !== (string) ( $join['member_name'] ?? '' ) ? (string) $join['member_name'] : __( 'Member', 'buddynext' );
 							$j_space  = '' !== (string) ( $join['space_name'] ?? '' ) ? (string) $join['space_name'] : __( 'Space', 'buddynext' );
 							$j_inits  = \BuddyNext\Profile\AvatarService::initials_for( $j_member );
+							// Interactivity context the moderation store's approve/declineJoinRequest
+							// actions read via getContext() — the plain data-* attributes below are
+							// not visible to getContext(), which is why the buttons did nothing.
+							$j_ctx = wp_json_encode(
+								array(
+									'userId'    => $j_uid,
+									'spaceId'   => $j_sid,
+									'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+									'restNonce' => wp_create_nonce( 'wp_rest' ),
+								)
+							);
 							?>
-							<div class="bn-ca-row">
+							<div class="bn-ca-row" data-wp-context="<?php echo esc_attr( (string) $j_ctx ); ?>">
 								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $j_inits ); ?></span>
 								<div class="bn-ca-row__body">
 									<span class="bn-ca-row__title"><?php echo esc_html( $j_space ); ?></span>
@@ -602,8 +1080,6 @@ $posts_pct_abs = abs( $posts_pct );
 										data-variant="primary"
 										data-size="sm"
 										data-wp-on--click="actions.approveJoinRequest"
-										data-user-id="<?php echo esc_attr( (string) $j_uid ); ?>"
-										data-space-id="<?php echo esc_attr( (string) $j_sid ); ?>"
 									><?php esc_html_e( 'Approve', 'buddynext' ); ?></button>
 									<button
 										type="button"
@@ -611,8 +1087,6 @@ $posts_pct_abs = abs( $posts_pct );
 										data-variant="ghost"
 										data-size="sm"
 										data-wp-on--click="actions.declineJoinRequest"
-										data-user-id="<?php echo esc_attr( (string) $j_uid ); ?>"
-										data-space-id="<?php echo esc_attr( (string) $j_sid ); ?>"
 									><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
 								</div>
 							</div>
@@ -727,6 +1201,8 @@ $posts_pct_abs = abs( $posts_pct );
 				</section>
 
 			<?php endif; ?>
+
+		<?php endif; // 'members' section body vs the Overview dashboard. ?>
 
 		</main>
 

@@ -109,6 +109,7 @@ class Plugin {
 		// Purge a user's social-graph / per-user rows when their account is
 		// deleted (any path: admin, CLI, REST) so no orphans are left behind.
 		( new \BuddyNext\SocialGraph\UserCleanupListener() )->register();
+		( new \BuddyNext\CommunityAdmin\InviteAction() )->register();
 
 		// Invalidate a viewer's directory result cache the moment their block list
 		// changes, so a just-blocked member disappears immediately (not after TTL).

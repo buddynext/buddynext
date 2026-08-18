@@ -254,8 +254,31 @@ final class ProfileNav {
 	 * @return void
 	 */
 	private function render_posts( NavContext $c ): void {
-		$feed  = buddynext_service( 'feed' )->profile_feed( $c->subject_id, $c->viewer_id, null, 10 );
-		$posts = is_array( $feed ) && isset( $feed['items'] ) ? (array) $feed['items'] : array();
+		$feed_service = buddynext_service( 'feed' );
+		$feed         = $feed_service->profile_feed( $c->subject_id, $c->viewer_id, null, 10 );
+		$posts        = is_array( $feed ) && isset( $feed['items'] ) ? (array) $feed['items'] : array();
+
+		// The owner's own pinned posts (space_id NULL) are excluded from the
+		// chronological profile_feed query and float to the top of the Posts tab as
+		// their own cards, so a pin shows in exactly one place and never doubles up
+		// on load-more. Skipped when the account is private to the viewer (the feed
+		// wrapper already denied activity, so pins must not leak either).
+		if ( empty( $feed['private'] ) ) {
+			$bn_pins = array_values(
+				array_filter(
+					(array) $feed_service->profile_pinned_posts( $c->subject_id, $c->viewer_id, 10 ),
+					'is_array'
+				)
+			);
+			if ( ! empty( $bn_pins ) ) {
+				$bn_pin_ids = array_map( static fn( $p ): int => (int) ( $p['id'] ?? 0 ), $bn_pins );
+				$posts      = array_values(
+					array_filter( $posts, static fn( $p ): bool => ! in_array( (int) ( $p['id'] ?? 0 ), $bn_pin_ids, true ) )
+				);
+				$posts      = array_merge( $bn_pins, $posts );
+			}
+		}
+
 		buddynext_get_template(
 			'parts/profile/posts-panel.php',
 			array(
@@ -454,7 +477,7 @@ final class ProfileNav {
 		if ( ! is_array( $profile ) ) {
 			return false;
 		}
-		$hero = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
+		$hero = \BuddyNext\Profile\ProfileService::HERO_SPINE_FIELDS;
 		foreach ( (array) ( $profile['groups'] ?? array() ) as $group ) {
 			$gkey = (string) ( $group['group_key'] ?? '' );
 			if ( '' === $gkey || 'social_links' === $gkey ) {

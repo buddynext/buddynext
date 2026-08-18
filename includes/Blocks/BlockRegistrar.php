@@ -549,21 +549,21 @@ class BlockRegistrar {
 	 * @since 1.1.3
 	 *
 	 * @param string                $html        Buffered template output.
-	 * @param string                $class       Extra class for the wrapper.
+	 * @param string                $extra_class Extra class for the wrapper.
 	 * @param array<string, string> $extra_attrs Extra wrapper attributes (e.g. the
 	 *                                           data-wp-interactive store binding for a
 	 *                                           delegating block whose card markup needs
 	 *                                           an Interactivity ancestor).
 	 * @return string
 	 */
-	private function wrap_block_output( string $html, string $class, array $extra_attrs = array() ): string {
+	private function wrap_block_output( string $html, string $extra_class, array $extra_attrs = array() ): string {
 		if ( '' === trim( $html ) ) {
 			return '';
 		}
 
 		return sprintf(
 			'<div %1$s>%2$s</div>',
-			get_block_wrapper_attributes( array_merge( array( 'class' => $class ), $extra_attrs ) ),
+			get_block_wrapper_attributes( array_merge( array( 'class' => $extra_class ), $extra_attrs ) ),
 			$html
 		);
 	}

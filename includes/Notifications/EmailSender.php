@@ -55,6 +55,37 @@ class EmailSender {
 	private const TRANSACTIONAL_TYPES = array( 'email_verify', 'welcome' );
 
 	/**
+	 * The transactional set, extended by whatever else must not be opt-out-able.
+	 *
+	 * The constant above is the core set and stays private; this is the door for
+	 * types Pro owns. Pro's upcoming-renewal notice is the case that opened it:
+	 * EU and California auto-renewal rules require advance notice before a card is
+	 * charged for a new term, so making that notice a member preference makes
+	 * compliance something the member can revoke.
+	 *
+	 * Do NOT reach for this to make ordinary notifications unavoidable. Everything
+	 * here bypasses the member's own choices, which is defensible only when the
+	 * message is a legal or account-integrity obligation rather than a message the
+	 * site wants to send.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @return string[]
+	 */
+	private function transactional_types(): array {
+		/**
+		 * Filter the notification types that bypass member email preferences.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param string[] $types Transactional notification type keys.
+		 */
+		$types = (array) apply_filters( 'buddynext_transactional_notification_types', self::TRANSACTIONAL_TYPES );
+
+		return array_values( array_unique( array_filter( array_map( 'strval', $types ) ) ) );
+	}
+
+	/**
 	 * Composed-email types: owner-authored campaign/drip mail whose subject and
 	 * body ARE the message (no template row, no per-type preference). These are
 	 * exempt from the can_email pref gate — but the exemption is keyed on this
@@ -88,7 +119,7 @@ class EmailSender {
 	 * offering those chips (and to explain why an already-stored Daily/Weekly
 	 * value is dormant) instead of silently accepting a dead choice.
 	 *
-	 * Consumed by CronService::digests_disabled() and templates/notifications/prefs.php.
+	 * Consumed by CronService::digests_disabled() and templates/settings/notifications.php.
 	 *
 	 * @return bool True when digests may be sent, false when the owner disabled them.
 	 */
@@ -129,7 +160,7 @@ class EmailSender {
 
 		// Transactional account emails: skip the notification-preference
 		// machinery entirely and send inline — see TRANSACTIONAL_TYPES.
-		if ( in_array( $notification_type, self::TRANSACTIONAL_TYPES, true ) ) {
+		if ( in_array( $notification_type, self::transactional_types(), true ) ) {
 			$this->send_now( $user_id, $notification_type, $data );
 			return;
 		}
@@ -324,16 +355,18 @@ class EmailSender {
 	/**
 	 * Resolve the effective From name for every BuddyNext email.
 	 *
-	 * Falls back to the site name when Settings → Email leaves it blank, so the
-	 * sender is always branded (never the bare WordPress default) and the admin
-	 * field can surface the same effective value instead of an empty box.
+	 * Falls back to the Community Name when Settings → Email leaves it blank, so
+	 * the sender is always branded (never the bare WordPress default) and the
+	 * admin field can surface the same effective value instead of an empty box.
+	 * That fallback used to read the WP Site Title directly, which meant an
+	 * owner who renamed their community still sent mail as WordPress.
 	 *
 	 * @return string
 	 */
 	public static function from_name(): string {
 		$name = sanitize_text_field( (string) get_option( 'buddynext_email_from_name', '' ) );
 		if ( '' === $name ) {
-			$name = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+			$name = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 		}
 		// Let the admin type {{site_name}} etc. so the From name can track the site.
 		return self::apply_global_tokens( $name );
@@ -371,7 +404,7 @@ class EmailSender {
 		return strtr(
 			$text,
 			array(
-				'{{site_name}}'    => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+				'{{site_name}}'    => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 				'{{site_url}}'     => home_url( '/' ),
 				'{{current_year}}' => gmdate( 'Y' ),
 			)
@@ -549,7 +582,7 @@ class EmailSender {
 	 * @return string Full branded HTML document.
 	 */
 	public static function brand_wrap( string $body, string $subject = '', string $preheader = '' ): string {
-		$site_name = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+		$site_name = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 		$site_url  = esc_url( home_url( '/' ) );
 		$brand     = (string) get_option( 'buddynext_brand_color', '#0073aa' );
 		if ( ! preg_match( '/^#[0-9a-fA-F]{3,8}$/', $brand ) ) {
@@ -698,7 +731,7 @@ class EmailSender {
 		}
 
 		$tokens = array(
-			'{{site_name}}'            => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+			'{{site_name}}'            => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 			'{{site_url}}'             => esc_url( home_url( '/' ) ),
 			'{{login_url}}'            => esc_url( \BuddyNext\Core\PageRouter::auth_url() ),
 			'{{action_url}}'           => esc_url( $action_url ),

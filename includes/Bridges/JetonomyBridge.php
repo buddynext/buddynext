@@ -884,7 +884,7 @@ class JetonomyBridge {
 	 * @param array $fields   Fields saved.
 	 * @return void
 	 */
-	public function sync_discussion_visibility( $space_id, $user_id = 0, $fields = array() ): void {
+	public function sync_discussion_visibility( $space_id, $user_id = 0, $fields = array() ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter -- $user_id/$fields are required by the buddynext_space_updated hook signature (3 args); the space's type is the authority here.
 		$space_id = (int) $space_id;
 		$forum_id = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 		if ( $space_id <= 0 || $forum_id <= 0 || ! class_exists( '\Jetonomy\Models\Space' ) ) {

@@ -33,6 +33,13 @@ use BuddyNext\Spaces\SpaceService;
 final class SpaceNav {
 
 	/**
+	 * Matches per page for in-space search.
+	 *
+	 * @var int
+	 */
+	private const SEARCH_PER_PAGE = 20;
+
+	/**
 	 * Hook the provider onto the one-time registration action.
 	 */
 	public function register(): void {
@@ -287,6 +294,120 @@ final class SpaceNav {
 		$feed = buddynext_service( 'feed' );
 
 		/*
+		 * ── In-space search ──────────────────────────────────────────────────
+		 * A space's own posts become unfindable exactly as the space succeeds:
+		 * past the first screenful the only options were scrolling or a
+		 * community-wide search whose results are mostly other spaces. `bn_sf_q`
+		 * swaps the chronological list for matches inside THIS space, keeping the
+		 * same post cards, the same panel and the same tab.
+		 *
+		 * Two gates, both pre-existing, and deliberately no third:
+		 *
+		 *   1. SearchService's own visibility gate scopes the index query — a
+		 *      viewer who is not an active member of a private space matches no
+		 *      rows in it, so an unauthorised scope returns empty rather than
+		 *      leaking.
+		 *   2. PostService::filter_visible() — the feed's per-post gate — then
+		 *      re-checks every hit. Belt and braces, and it earns its keep: on the
+		 *      dev site 186 of 332 indexed post rows pointed at posts that no
+		 *      longer existed, so without this the panel would have counted and
+		 *      promised results that cannot be rendered.
+		 *
+		 * Hand-rolling a third rule here is what shipped the leak on the sibling
+		 * card; the scope narrows what the gates already allow, it never widens.
+		 */
+		// Offered only to a viewer who can actually READ this space's content. On a
+		// private space a non-member still reaches this panel — it renders their
+		// join CTA — and a search box there would be a control that can only ever
+		// answer "0 results": it advertises a capability the viewer does not have
+		// and, worse, invites them to read the count as evidence about what the
+		// space contains. Short-circuited before the query, not just hidden in the
+		// template, so an appended ?bn_sf_q= costs nothing either.
+		$can_search = \BuddyNext\Spaces\SpaceVisibility::can_view_content(
+			(array) $space,
+			$viewer_id
+		);
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only search over a public GET form, no state change.
+		$search_query = ( $can_search && isset( $_GET['bn_sf_q'] ) ) ? sanitize_text_field( wp_unslash( $_GET['bn_sf_q'] ) ) : '';
+		$search_total = 0;
+
+		// Page number for the paged search. A space that is big enough to need
+		// search is big enough to overflow one page of it, so the twentieth match
+		// cannot be the last one a member can reach.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only pagination on a GET form.
+		$search_page = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
+		$has_prev    = false;
+		$has_next    = false;
+
+		if ( '' !== $search_query ) {
+			$scope = static function ( array $args ) use ( $space_id ): array {
+				$args['scope_space_id'] = $space_id;
+				return $args;
+			};
+
+			add_filter( 'buddynext_search_query_args', $scope, 5 );
+			$hits = buddynext_service( 'search' )->search( $search_query, 'post', self::SEARCH_PER_PAGE, $search_page, $viewer_id );
+			remove_filter( 'buddynext_search_query_args', $scope, 5 );
+
+			$hit_ids = array_values(
+				array_filter(
+					array_map(
+						static fn( $row ): int => (int) ( $row['object_id'] ?? 0 ),
+						(array) ( $hits['items'] ?? array() )
+					)
+				)
+			);
+
+			$posts_service = buddynext_service( 'post_service' );
+			$visible_ids   = $posts_service->filter_visible( $hit_ids, $viewer_id );
+			$results       = $posts_service->get_many( $visible_ids );
+
+			// The reported total is what the viewer can actually see on THIS page,
+			// not what the index matched. Showing the index count would promise
+			// rows that gate 2 then removed, and "12 results" above 9 cards reads
+			// as a bug — which on this data it would, constantly: a majority of
+			// indexed post rows can point at posts that no longer exist.
+			$search_total = count( $results );
+
+			// Prev/next rather than a page count, and for the same reason the total
+			// is per-page: gate 2 removes an unknown number of rows per page, so any
+			// "page 3 of 9" we printed would be a guess. What IS knowable is whether
+			// the INDEX had a full page — if it did, there is another page to fetch.
+			// The service's own 1000-row ceiling ends the sequence naturally, since
+			// a bounded page past it comes back short.
+			$has_prev = $search_page > 1;
+			$has_next = count( (array) ( $hits['items'] ?? array() ) ) >= self::SEARCH_PER_PAGE;
+
+			$feed->prime_viewer_state( $results, $viewer_id );
+
+			buddynext_get_template(
+				'parts/space-feed-panel.php',
+				array(
+					'space'        => $space,
+					'space_id'     => $space_id,
+					'viewer_id'    => $viewer_id,
+					'is_member'    => $is_member,
+					'can_post'     => $can_post,
+					'is_guest'     => $is_guest,
+					'is_pending'   => $is_pending,
+					'is_archived'  => $archived,
+					'posts'        => $results,
+					'pinned_posts' => array(),
+					'current_user' => $viewer_id > 0 ? get_userdata( $viewer_id ) : null,
+					'search_query' => $search_query,
+					'search_total' => $search_total,
+					'can_search'   => $can_search,
+					'search_page'  => $search_page,
+					'has_prev'     => $has_prev,
+					'has_next'     => $has_next,
+				)
+			);
+
+			return;
+		}
+
+		/*
 		 * Pinned posts, as hydrated ARRAYS - the shape partials/post-card.php consumes.
 		 *
 		 * They used to be cast to objects and enriched with author_name for a hand-rolled stub
@@ -344,6 +465,12 @@ final class SpaceNav {
 				'posts'        => $posts,
 				'pinned_posts' => $pinned_posts,
 				'current_user' => $viewer_id > 0 ? get_userdata( $viewer_id ) : null,
+				'search_query' => '',
+				'search_total' => 0,
+				'can_search'   => $can_search,
+				'search_page'  => 1,
+				'has_prev'     => false,
+				'has_next'     => false,
 			)
 		);
 	}

@@ -350,7 +350,7 @@ class ReactionService {
 			),
 			$slug
 		);
-		$filtered = isset( $meta['label'] ) ? (string) $meta['label'] : '';
+		$filtered      = isset( $meta['label'] ) ? (string) $meta['label'] : '';
 		if ( '' !== $filtered ) {
 			return $filtered;
 		}

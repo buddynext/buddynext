@@ -129,13 +129,23 @@ if ( is_array( $profile_data ) ) {
 	}
 }
 
+/**
+ * A field's value as a person should READ it, not as it is stored.
+ *
+ * The hero is the one surface that used to bypass the field-type engine: it took
+ * `$field['value']` verbatim and echoed it, so any type storing something other
+ * than its own display text leaked raw storage under the member's name — the Pro
+ * Location map type printed its whole JSON payload there. Resolving through
+ * FieldType::display_text() puts the hero on the same type-aware path the About
+ * panel has always used, for every type at once rather than one at a time.
+ */
 $get_fv = static function ( string $group_key, string $field_key ) use ( $group_data ): string {
 	if ( ! isset( $group_data[ $group_key ]['fields'] ) ) {
 		return '';
 	}
 	foreach ( $group_data[ $group_key ]['fields'] as $field ) {
 		if ( $field['field_key'] === $field_key ) {
-			return (string) ( $field['value'] ?? '' );
+			return \BuddyNext\Profile\FieldType::display_text( $field, $field['value'] ?? '' );
 		}
 	}
 	return '';

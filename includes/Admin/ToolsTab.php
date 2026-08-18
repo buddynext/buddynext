@@ -109,7 +109,7 @@ class ToolsTab {
 				</p>
 
 				<?php if ( $health['stalled'] ) : ?>
-					<div class="notice notice-warning inline">
+					<div class="bn-notice bn-notice-warning">
 						<p>
 							<strong><?php esc_html_e( 'Background tasks are not running.', 'buddynext' ); ?></strong>
 							<?php
@@ -169,7 +169,7 @@ class ToolsTab {
 						<?php esc_html_e( 'Status: a persistent object cache is active. BuddyNext\'s cached values (member directory, counts, lists) survive between requests — this is the recommended setup at scale.', 'buddynext' ); ?>
 					</p>
 				<?php elseif ( $bn_oc_users >= $bn_oc_threshold ) : ?>
-					<div class="notice notice-warning inline">
+					<div class="bn-notice bn-notice-warning">
 						<p>
 							<strong><?php esc_html_e( 'No persistent object cache detected.', 'buddynext' ); ?></strong>
 							<?php
@@ -242,14 +242,14 @@ class ToolsTab {
 				</p>
 
 				<?php if ( $empty ) : ?>
-					<div class="notice notice-warning inline">
+					<div class="bn-notice bn-notice-warning">
 						<p>
 							<strong><?php esc_html_e( 'The search index is empty.', 'buddynext' ); ?></strong>
 							<?php esc_html_e( 'Search will return no results until it is built. Click Rebuild below.', 'buddynext' ); ?>
 						</p>
 					</div>
 				<?php elseif ( ! $stats['fulltext'] ) : ?>
-					<div class="notice notice-warning inline">
+					<div class="bn-notice bn-notice-warning">
 						<p>
 							<strong><?php esc_html_e( 'FULLTEXT index missing.', 'buddynext' ); ?></strong>
 							<?php esc_html_e( 'Search is running on the slower LIKE fallback. Rebuilding restores the FULLTEXT index.', 'buddynext' ); ?>

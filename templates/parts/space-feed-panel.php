@@ -22,6 +22,12 @@
  * @var array       $posts          Optional. List of post arrays for the feed. Default [].
  * @var array        $pinned_posts   Optional. Hydrated pinned post rows (arrays), newest first.
  * @var WP_User|null $current_user  Optional. Current WP_User object (for composer guard).
+ * @var string       $search_query  Optional. Active in-space search term. When non-empty, $posts holds matches, not the feed. Default ''.
+ * @var int          $search_total  Optional. Number of visible matches for $search_query. Default 0.
+ * @var bool         $can_search    Optional. Viewer may read this space's content, so the search box is offered. Default true.
+ * @var int          $search_page   Optional. 1-based page of search results being shown. Default 1.
+ * @var bool         $has_prev      Optional. A previous page of matches exists. Default false.
+ * @var bool         $has_next      Optional. A further page of matches exists. Default false.
  * @var array       $classes        Optional. Extra CSS classes appended to the wrapper.
  *
  * Fires:
@@ -54,6 +60,17 @@ $args = array(
 	'pinned_posts' => isset( $pinned_posts ) ? (array) $pinned_posts : array(),
 	'current_user' => isset( $current_user ) ? $current_user : null,
 	'classes'      => isset( $classes ) ? (array) $classes : array(),
+	// In-space search. When non-empty, $posts holds the matches for this term
+	// rather than the chronological feed, and the panel says so.
+	'search_query' => isset( $search_query ) ? sanitize_text_field( (string) $search_query ) : '',
+	'search_total' => isset( $search_total ) ? (int) $search_total : 0,
+	// Whether the viewer may read this space's content at all. False on a
+	// private space the viewer has not joined, where the panel renders a join
+	// CTA and a search box would be a control that can only answer "0 results".
+	'can_search'   => isset( $can_search ) ? (bool) $can_search : true,
+	'search_page'  => isset( $search_page ) ? max( 1, (int) $search_page ) : 1,
+	'has_prev'     => isset( $has_prev ) ? (bool) $has_prev : false,
+	'has_next'     => isset( $has_next ) ? (bool) $has_next : false,
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -78,6 +95,18 @@ $bn_is_archived  = (bool) $args['is_archived'];
 $bn_posts        = (array) $args['posts'];
 $bn_pinned_posts = (array) $args['pinned_posts'];
 $bn_user         = $args['current_user'];
+$bn_search_query = (string) $args['search_query'];
+$bn_search_total = (int) $args['search_total'];
+$bn_is_searching = '' !== $bn_search_query;
+$bn_can_search   = (bool) $args['can_search'];
+$bn_search_page  = max( 1, (int) $args['search_page'] );
+$bn_has_prev     = (bool) $args['has_prev'];
+$bn_has_next     = (bool) $args['has_next'];
+
+// Base URL for the search form and the clear link: the current space tab with
+// our own params stripped, so submitting never stacks duplicates and clearing
+// returns to the plain feed rather than to a differently-filtered one.
+$bn_search_base = remove_query_arg( array( 'bn_sf_q', 'paged' ) );
 
 $bn_wrap_class = trim(
 	implode(
@@ -136,7 +165,71 @@ if ( '' !== $bn_wrap_class ) {
 	</div>
 <?php endif; ?>
 
-<?php if ( $bn_is_member && $bn_user && $bn_can_post ) : ?>
+<?php
+/*
+ * In-space search. A plain GET form, deliberately: it is the same pattern the
+ * space Members tab already uses (bn_sm_q), it survives with JavaScript off, the
+ * result is a real URL a member can share or bookmark, and the back button
+ * returns to the feed. No typeahead in v1 — a keystroke-per-request search over
+ * a space's whole history is a load profile to take on once, on purpose, not as
+ * a side effect of adding a box.
+ *
+ * Rendered above the feed so it is reachable without scrolling past it, and only
+ * where there is something to search: a viewer who cannot read the feed sees the
+ * join CTA below instead.
+ */
+?>
+<?php if ( $bn_can_search ) : ?>
+	<form method="get" action="<?php echo esc_url( $bn_search_base ); ?>" class="bn-card bn-space-search" role="search">
+		<?php
+		// Preserve the path-routing query vars this form does not own, so
+		// submitting from a filtered/paged view does not silently drop them.
+		foreach ( $_GET as $bn_q_key => $bn_q_val ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			if ( in_array( $bn_q_key, array( 'bn_sf_q', 'paged' ), true ) || ! is_scalar( $bn_q_val ) ) {
+				continue;
+			}
+			printf(
+				'<input type="hidden" name="%s" value="%s">',
+				esc_attr( sanitize_key( $bn_q_key ) ),
+				esc_attr( sanitize_text_field( wp_unslash( (string) $bn_q_val ) ) )
+			);
+		}
+		?>
+		<label class="bn-sr-only" for="bn_sf_q"><?php esc_html_e( 'Search posts in this space', 'buddynext' ); ?></label>
+		<span class="bn-space-search__icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></span>
+		<input
+			type="search"
+			id="bn_sf_q"
+			name="bn_sf_q"
+			class="bn-input bn-space-search__input"
+			placeholder="<?php esc_attr_e( 'Search posts in this space…', 'buddynext' ); ?>"
+			value="<?php echo esc_attr( $bn_search_query ); ?>"
+		>
+		<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
+			<?php esc_html_e( 'Search', 'buddynext' ); ?>
+		</button>
+		<?php if ( $bn_is_searching ) : ?>
+			<a href="<?php echo esc_url( $bn_search_base ); ?>" class="bn-btn" data-variant="ghost" data-size="md">
+				<?php esc_html_e( 'Clear', 'buddynext' ); ?>
+			</a>
+		<?php endif; ?>
+	</form>
+<?php endif; ?>
+
+<?php if ( $bn_is_searching ) : ?>
+	<p class="bn-space-search__summary" role="status">
+		<?php
+		printf(
+			/* translators: 1: number of matching posts, 2: the search term. */
+			esc_html( _n( '%1$s post matching “%2$s”', '%1$s posts matching “%2$s”', $bn_search_total, 'buddynext' ) ),
+			esc_html( number_format_i18n( $bn_search_total ) ),
+			esc_html( $bn_search_query )
+		);
+		?>
+	</p>
+<?php endif; ?>
+
+<?php if ( $bn_is_member && $bn_user && $bn_can_post && ! $bn_is_searching ) : ?>
 	<?php
 	buddynext_get_template(
 		'partials/composer.php',
@@ -168,7 +261,8 @@ if ( '' !== $bn_wrap_class ) {
 			data-size="md"
 		><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
 	</div>
-<?php elseif ( ! $bn_is_member && ! $bn_is_pending && 'open' === $bn_space->type ) : ?>
+<?php elseif ( ! $bn_is_member && ! $bn_is_pending && 'open' === $bn_space->type && buddynext_service( 'space_members' )->can_join( $bn_space, get_current_user_id() ) ) : ?>
+	<?php // can_join() asks the same gate the join itself runs, so this card is only offered when the invitation is real. See space-hero.php. ?>
 	<div class="bn-card bn-sh-guest-cta">
 		<div class="bn-sh-guest-cta__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
 		<div class="bn-sh-guest-cta__copy">
@@ -264,7 +358,21 @@ if ( ! empty( $bn_pinned_posts ) ) :
 	</div>
 <?php endif; ?>
 
-<?php if ( empty( $bn_posts ) ) : ?>
+<?php if ( empty( $bn_posts ) && $bn_is_searching ) : ?>
+	<?php
+	// A search that matched nothing is not an empty space. Telling a member to
+	// "be the first to post" when the space has 3000 posts they simply could not
+	// match reads as broken, so the no-results state is its own.
+	buddynext_get_template(
+		'parts/empty-state.php',
+		array(
+			'icon'  => 'search',
+			'title' => __( 'No matching posts', 'buddynext' ),
+			'body'  => __( 'Nothing in this space matches that search. Try a different or shorter term.', 'buddynext' ),
+		)
+	);
+	?>
+<?php elseif ( empty( $bn_posts ) ) : ?>
 	<?php
 	buddynext_get_template(
 		'parts/empty-state.php',
@@ -293,6 +401,52 @@ if ( ! empty( $bn_pinned_posts ) ) :
 		}
 		?>
 	</div>
+<?php endif; ?>
+
+<?php
+/*
+ * Search pager. Prev/next rather than numbered pages: gate 2 (filter_visible)
+ * drops an unknown number of rows per page, so a printed "page 3 of 9" would be
+ * a guess. `has_next` is driven by whether the INDEX returned a full page, and
+ * the search service's own 1000-row ceiling ends the sequence naturally.
+ *
+ * Rendered outside the results branch on purpose: someone who lands past the
+ * last page sees the empty state AND still has a way back.
+ */
+$bn_pager_url = static function ( int $page ) use ( $bn_search_query, $bn_search_base ): string {
+	return add_query_arg(
+		array(
+			'bn_sf_q' => $bn_search_query,
+			'paged'   => $page,
+		),
+		$bn_search_base
+	);
+};
+?>
+<?php if ( $bn_is_searching && ( $bn_has_prev || $bn_has_next ) ) : ?>
+	<nav class="bn-space-search__pager" aria-label="<?php esc_attr_e( 'Search results pages', 'buddynext' ); ?>">
+		<?php if ( $bn_has_prev ) : ?>
+			<a class="bn-btn" data-variant="ghost" data-size="md" rel="prev" href="<?php echo esc_url( $bn_pager_url( $bn_search_page - 1 ) ); ?>">
+				<?php esc_html_e( 'Previous', 'buddynext' ); ?>
+			</a>
+		<?php endif; ?>
+
+		<span class="bn-space-search__pager-page">
+			<?php
+			printf(
+				/* translators: %s: current page number. */
+				esc_html__( 'Page %s', 'buddynext' ),
+				esc_html( number_format_i18n( $bn_search_page ) )
+			);
+			?>
+		</span>
+
+		<?php if ( $bn_has_next ) : ?>
+			<a class="bn-btn" data-variant="ghost" data-size="md" rel="next" href="<?php echo esc_url( $bn_pager_url( $bn_search_page + 1 ) ); ?>">
+				<?php esc_html_e( 'Next', 'buddynext' ); ?>
+			</a>
+		<?php endif; ?>
+	</nav>
 <?php endif; ?>
 
 <?php

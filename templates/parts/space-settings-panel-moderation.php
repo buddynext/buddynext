@@ -84,7 +84,7 @@ do_action( 'buddynext_part_space_settings_panel_moderation_before', $args );
 				placeholder="<?php esc_attr_e( 'One word or phrase per line', 'buddynext' ); ?>"
 			><?php echo esc_textarea( $bn_banned_words ); ?></textarea>
 			<p class="bn-space-settings__hint">
-				<?php esc_html_e( 'Posts containing these words will be held for review. One word or phrase per line.', 'buddynext' ); ?>
+				<?php esc_html_e( 'One word or phrase per line, added to whatever the site already blocks. A post using any of them is rejected. Whole words only, so "art" does not block "start". Add * to catch variants: "spam*" also blocks "spammer".', 'buddynext' ); ?>
 			</p>
 		</div>
 	</div>

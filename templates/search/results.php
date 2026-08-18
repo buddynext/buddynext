@@ -736,9 +736,9 @@ $bn_search_ctx = array(
 
 						<?php if ( ! empty( $adv_tiers ) ) : ?>
 							<label class="bn-search-aside__field" for="bn-adv-tier">
-								<span class="bn-search-aside__label"><?php esc_html_e( 'Membership tier', 'buddynext' ); ?></span>
+								<span class="bn-search-aside__label"><?php esc_html_e( 'Membership plan', 'buddynext' ); ?></span>
 								<select class="bn-input" id="bn-adv-tier" name="tier_slug">
-									<option value=""><?php esc_html_e( 'Any tier', 'buddynext' ); ?></option>
+									<option value=""><?php esc_html_e( 'Any plan', 'buddynext' ); ?></option>
 									<?php
 									foreach ( $adv_tiers as $bn_tier ) :
 										$tslug  = isset( $bn_tier['slug'] ) ? (string) $bn_tier['slug'] : '';
@@ -813,7 +813,7 @@ $bn_search_ctx = array(
 
 						<?php if ( ! $adv_has_provider ) : ?>
 							<p class="bn-search-aside__hint">
-								<?php esc_html_e( 'Tier, space and label filters appear when BuddyNext Pro is active.', 'buddynext' ); ?>
+								<?php esc_html_e( 'Plan, space and label filters appear when BuddyNext Pro is active.', 'buddynext' ); ?>
 							</p>
 						<?php endif; ?>
 

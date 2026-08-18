@@ -43,6 +43,20 @@ class ProfileService {
 	 */
 	public const MEMBERS_MIRROR_PREFIX = 'bn_mfield_';
 
+	/**
+	 * The basic_info fields the profile hero renders itself.
+	 *
+	 * Three places need this list and each used to hardcode its own copy: the
+	 * profile view (which fetches them for the hero), the About panel (which skips
+	 * them so they do not render twice), and ProfileNav (which decides whether the
+	 * About tab has anything left to show). Adding a sixth hero field meant editing
+	 * three files, and missing one made the field either duplicate or wrongly empty
+	 * the About tab.
+	 *
+	 * @var string[]
+	 */
+	public const HERO_SPINE_FIELDS = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
+
 
 	/**
 	 * Cache TTL in seconds (10 minutes).
@@ -556,6 +570,65 @@ class ProfileService {
 			}
 		);
 		return implode( "\n", $parts );
+	}
+
+	/**
+	 * Turn a save_profile() rejection into a field => message map a form can paint
+	 * as inline errors.
+	 *
+	 * `save_profile()` rejects a write in two shapes:
+	 *
+	 *   1. Per-field failures (required / sanitise / validate). The WP_Error data
+	 *      already carries a `fields` map — return it untouched.
+	 *   2. The moderation safeguard (banned word, blocked link, blocked hashtag).
+	 *      That check runs once over the JOINED text of every submitted value, so
+	 *      the WP_Error has no field attribution at all. An unattributed rejection
+	 *      leaves the person with a red notice and no idea WHICH field to fix — a
+	 *      different dead end. So the same safeguard is re-run per submitted value
+	 *      (only on this already-failing path) to name the offending field(s).
+	 *
+	 * An empty map is a valid outcome (the caller still shows the WP_Error's own
+	 * message alongside it); it is never a claim that the save succeeded.
+	 *
+	 * Lives on the service, not on a controller, because it is the counterpart to
+	 * `save_profile()`'s error contract and EVERY caller of that method needs it —
+	 * the REST endpoints, the admin member editor, onboarding. It was private on
+	 * ProfileController, which is why the admin editor had nothing to call and
+	 * reported success instead.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param \WP_Error            $error   The WP_Error returned by save_profile().
+	 * @param array<string, mixed> $data    The payload that was submitted (post-sanitisation).
+	 * @param int                  $user_id User whose profile was being saved.
+	 * @return array<string, string> Field-keyed error messages (possibly empty).
+	 */
+	public function map_save_error_to_fields( \WP_Error $error, array $data, int $user_id ): array {
+		$error_data = (array) $error->get_error_data();
+		$fields     = ( isset( $error_data['fields'] ) && is_array( $error_data['fields'] ) )
+			? array_map( 'strval', $error_data['fields'] )
+			: array();
+
+		if ( ! empty( $fields ) ) {
+			return $fields;
+		}
+
+		$guard = function_exists( 'buddynext_service' ) ? buddynext_service( 'safeguard' ) : null;
+		if ( ! is_object( $guard ) || ! method_exists( $guard, 'check_content' ) ) {
+			return array();
+		}
+
+		$message = (string) $error->get_error_message();
+		foreach ( $data as $key => $value ) {
+			if ( ! is_string( $value ) || '' === trim( $value ) ) {
+				continue;
+			}
+			if ( is_wp_error( $guard->check_content( $value, '', $user_id, 0, 'create' ) ) ) {
+				$fields[ (string) $key ] = $message;
+			}
+		}
+
+		return $fields;
 	}
 
 	/**
@@ -1614,6 +1687,23 @@ class ProfileService {
 				// The RAW stored value, and ONLY for the owner. The edit form needs the real
 				// date to prefill its input; nobody else has any business receiving it.
 				'value_raw'            => ( $viewer_id === $profile_user_id ) ? $row['value'] : null,
+				// What this field READS as, for any client that renders text rather than
+				// HTML — native apps, notifications, exports.
+				//
+				// `value` cannot serve that purpose: the About panel feeds it straight
+				// into FieldType::render_display(), which needs the underlying value to
+				// build its rich output (the multi-line address and map link for a
+				// location, the chips for a multiselect). Display-rendering `value` in
+				// place would hand the renderer its own output and flatten all of that.
+				// So this is additive — the structural key stays, and every consumer that
+				// just wants a readable string now has one instead of parsing storage.
+				'value_display'        => FieldType::display_text(
+					array(
+						'type'    => $row['field_type'],
+						'options' => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+					),
+					$row['value']
+				),
 				// Visibility surfaced so the edit-form privacy selector can show
 				// the admin default (field_visibility, falling back to the group)
 				// and the member's saved choice (entry_visibility). See workstream D.
@@ -1920,6 +2010,15 @@ class ProfileService {
 					'value_raw'        => $is_owner
 						? get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true )
 						: null,
+					// Readable text for clients that render text, not HTML. Additive for
+					// the same reason as the stored-field branch above.
+					'value_display'    => FieldType::display_text(
+						array(
+							'type'    => (string) ( $vf['type'] ?? 'text' ),
+							'options' => $vf['options'] ?? null,
+						),
+						get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true )
+					),
 					'field_visibility' => $fvis,
 					'group_visibility' => 'public',
 					'entry_visibility' => null,
@@ -3218,6 +3317,19 @@ class ProfileService {
 		$public_key  = 'bn_field_' . $field['field_key'];
 		$members_key = self::MEMBERS_MIRROR_PREFIX . $field['field_key'];
 		$type        = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+
+		// Nothing loaded can read this payload — Pro deactivated while its field
+		// types are still configured. LEAVE the existing mirror exactly as it is.
+		//
+		// Writing here is wrong in both directions: the raw JSON poisons the index
+		// (members became findable by searching "lat"), and clearing it silently
+		// destroys the good address Pro wrote while it was active, which no owner
+		// would connect to a deactivation weeks earlier. Leaving it means search
+		// keeps working on the last known-good text and starts working correctly
+		// again the moment Pro returns — with no member re-saving anything.
+		if ( \BuddyNext\Profile\FieldType::is_unreadable_payload( $field, $stored_value ) ) {
+			return;
+		}
 
 		$indexable = ! empty( $field['is_searchable'] )
 			&& \BuddyNext\Profile\FieldType::is_text_searchable( $type )

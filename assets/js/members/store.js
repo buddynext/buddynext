@@ -55,10 +55,24 @@ function writeView( next ) {
 }
 
 function applyViewClass( next ) {
-	const grid = document.querySelector( '.bn-md-grid' );
-	if ( grid ) {
+	/*
+	 * Every grid the visitor's toggle owns — and only those.
+	 *
+	 * Two bugs lived in the single `querySelector` this replaces. It returned the
+	 * FIRST .bn-md-grid on the page, so with more than one on screen (any page
+	 * carrying a Member Directory block) the others were never touched at all. And
+	 * it touched grids it had no business touching: a block's grid is rendered with
+	 * the layout the SITE OWNER picked in the editor, and this toggled it back off
+	 * on hydrate from the visitor's localStorage — which defaults to grid, so the
+	 * owner's "list" was erased on every page load. The block has no toggle UI, so
+	 * nothing could restore it.
+	 *
+	 * `is-view-pinned` marks an owner-chosen grid. The toggle is a /members/ hub
+	 * feature, where the control actually exists; a pinned grid is not its business.
+	 */
+	document.querySelectorAll( '.bn-md-grid:not(.is-view-pinned)' ).forEach( ( grid ) => {
 		grid.classList.toggle( 'is-list', next === 'list' );
-	}
+	} );
 	document.querySelectorAll( '.bn-md-filters__view .bn-btn' ).forEach( ( btn ) => {
 		const pressed = btn.dataset.view === next;
 		btn.setAttribute( 'aria-pressed', pressed ? 'true' : 'false' );

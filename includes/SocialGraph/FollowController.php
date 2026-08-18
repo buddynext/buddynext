@@ -570,6 +570,7 @@ class FollowController extends BaseRestController {
 	/**
 	 * Return follow suggestions for the current user.
 	 *
+	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
 	public function get_suggestions( WP_REST_Request $request ): WP_REST_Response {

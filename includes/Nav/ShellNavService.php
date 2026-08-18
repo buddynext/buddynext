@@ -150,6 +150,10 @@ class ShellNavService {
 				'group' => 'you',
 				'order' => 230,
 			);
+			// Community Admin is intentionally NOT in the left rail — it is
+			// surfaced as a gated tab in the Settings strip (templates/parts/
+			// settings-nav.php) so the rail stays clean. Only moderators/admins
+			// see it there; the route + panel enforce the same capability.
 		}
 
 		return $items;

@@ -16,6 +16,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin\Members;
 
+use BuddyNext\Admin\AdminPageBase;
+
 /**
  * Renders and processes the Pending Approvals admin tab.
  */
@@ -224,7 +226,12 @@ class ApprovalManager {
 			</p>
 
 			<?php if ( empty( $pending ) ) : ?>
-				<p><?php esc_html_e( 'No members awaiting approval.', 'buddynext' ); ?></p>
+				<?php
+				AdminPageBase::render_empty_state(
+					__( 'No members awaiting approval', 'buddynext' ),
+					__( 'New sign-ups appear here when registration is set to require approval.', 'buddynext' )
+				);
+				?>
 			<?php else : ?>
 				<table class="wp-list-table widefat fixed">
 					<thead>

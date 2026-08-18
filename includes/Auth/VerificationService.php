@@ -117,9 +117,7 @@ class VerificationService {
 
 		$user_id = (int) $row->user_id;
 
-		update_user_meta( $user_id, 'buddynext_email_verified', 1 );
-		// Cleared so the account is no longer a purge candidate.
-		delete_user_meta( $user_id, 'buddynext_verify_pending' );
+		$this->mark_verified( $user_id );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
@@ -128,14 +126,72 @@ class VerificationService {
 			array( '%d' )
 		);
 
+		return $user_id;
+	}
+
+	/**
+	 * Record that a user's email address is verified.
+	 *
+	 * The one place the verified state is granted, so every route into it leaves
+	 * identical state and fires the same action — token redemption above, and an
+	 * administrator confirming their own address without one.
+	 *
+	 * Capability-free on purpose: this is the primitive, and every caller is
+	 * responsible for having earned the right to call it. The token path earns it by
+	 * redeeming a token; the admin path earns it with `manage_options`.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param int $user_id User whose address is now verified.
+	 * @return void
+	 */
+	public function mark_verified( int $user_id ): void {
+		update_user_meta( $user_id, 'buddynext_email_verified', 1 );
+		// Cleared so the account is no longer a purge candidate.
+		delete_user_meta( $user_id, 'buddynext_verify_pending' );
+
 		/**
-		 * Fires after a user successfully verifies their email address.
+		 * Fires after a user's email address becomes verified.
 		 *
 		 * @param int $user_id Verified user ID.
 		 */
 		do_action( 'buddynext_user_verified', $user_id );
+	}
 
-		return $user_id;
+	/**
+	 * Whether this member should be shown the "Verified account" badge.
+	 *
+	 * Deliberately NOT `is_verified()`, which answers a different question. That one
+	 * is an ACCESS gate and is generous on purpose: it returns true for everybody
+	 * when the setting is off, and it grandfathers members who registered before
+	 * verification was switched on, so that enabling the setting on an existing
+	 * community does not lock out the community. Both of those are right for access
+	 * and wrong for a badge — wiring the badge to it would put a blue check on every
+	 * profile on a site that does not run verification at all.
+	 *
+	 * The badge is a claim of EVIDENCE, so it needs both halves to be true:
+	 *
+	 *   1. the site actually runs verification — the feature and its setting, which
+	 *      is exactly what `VerificationListener::enforcement()` already resolves, so
+	 *      the badge cannot drift from the thing that enforces it;
+	 *   2. this member explicitly proved their address, i.e. carries the meta.
+	 *
+	 * Without (1) the badge outlives the feature: the usermeta is permanent, so every
+	 * member who ever verified kept a check forever after an owner switched
+	 * verification off — a claim about a test the site no longer performs, and one
+	 * nobody else can earn any more.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return bool
+	 */
+	public function has_verified_badge( int $user_id ): bool {
+		if ( 'off' === VerificationListener::enforcement() ) {
+			return false;
+		}
+
+		return (bool) get_user_meta( $user_id, 'buddynext_email_verified', true );
 	}
 
 	/**
@@ -143,6 +199,9 @@ class VerificationService {
 	 *
 	 * Returns true immediately when the buddynext_email_verify setting is
 	 * disabled, treating all users as verified in that mode.
+	 *
+	 * This is the ACCESS question. For "should this member be shown as verified",
+	 * use `has_verified_badge()` — see the note there for why they differ.
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return bool
@@ -201,16 +260,33 @@ class VerificationService {
 	}
 
 	/**
-	 * Resend the verification email for a user.
+	 * Send (or re-send) a verification email for a user.
 	 *
 	 * Deletes any existing pending token for the user, then calls create_token()
 	 * to generate a fresh one and trigger the send action.
+	 *
+	 * Refuses only a member who has GENUINELY verified — the usermeta — and
+	 * deliberately not `is_verified()`, which was the check here and was the wrong
+	 * question. `is_verified()` is the ACCESS gate: it grandfathers everyone who
+	 * registered before verification was switched on, so that enabling the setting
+	 * on an existing community does not lock that community out.
+	 *
+	 * Asking it here meant that on any site which turned verification on after
+	 * launch, the entire existing membership — the owner and every admin included —
+	 * was told "your email address is already verified" and refused a link. They had
+	 * proved nothing, could not earn the verified badge, and there was no route to
+	 * it: the only thing that grants the meta is clicking a token, and the only
+	 * thing that issues a token declined.
+	 *
+	 * The grandfather rule is about access, not about who proved what. This method
+	 * answers "do you still need to prove your address?", so it reads the evidence —
+	 * the same distinction `has_verified_badge()` draws.
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return string|WP_Error The new token on success, WP_Error when already verified.
 	 */
 	public function resend( int $user_id ): string|WP_Error {
-		if ( $this->is_verified( $user_id ) ) {
+		if ( (bool) get_user_meta( $user_id, 'buddynext_email_verified', true ) ) {
 			return new WP_Error(
 				'already_verified',
 				__( 'Your email address is already verified.', 'buddynext' ),

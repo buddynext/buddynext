@@ -132,6 +132,65 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 			)
 		);
 
+		/*
+		 * Email verification row — only where verification is actually running, and
+		 * only for a member who has not proved their address.
+		 *
+		 * It exists because `is_verified()` grandfathers everyone who registered
+		 * before verification was switched on, so that enabling the setting on an
+		 * existing community does not lock that community out. Those members proved
+		 * nothing, carry no verified badge, and until now had no way to change that:
+		 * the only thing that grants the badge is clicking a token link, and the only
+		 * thing that issues one refused them as "already verified".
+		 *
+		 * An administrator gets a one-click confirm instead of an email round-trip.
+		 * That round-trip is not a security boundary for someone holding
+		 * manage_options — they can set the usermeta directly — so requiring it is
+		 * friction that buys nothing. The email route stays available to them as
+		 * well, because it is the only one that proves the mailbox actually RECEIVES
+		 * mail, and an owner nobody can email is the one address a site cannot afford
+		 * to have wrong.
+		 */
+		if ( 'off' !== \BuddyNext\Auth\VerificationListener::enforcement()
+			&& ! buddynext_service( 'verification' )->has_verified_badge( $user_id ) ) {
+
+			$bn_is_admin = current_user_can( 'manage_options' );
+
+			ob_start();
+			?>
+			<div class="bn-ep-account-form-actions">
+				<?php if ( $bn_is_admin ) : ?>
+					<button type="button" class="bn-btn" data-variant="primary" data-size="sm"
+						data-wp-on--click="actions.selfVerifyEmail"
+						data-wp-bind--disabled="context.verifySubmitting">
+						<?php esc_html_e( 'Mark as verified', 'buddynext' ); ?>
+					</button>
+				<?php endif; ?>
+				<button type="button" class="bn-btn" data-variant="<?php echo $bn_is_admin ? 'secondary' : 'primary'; ?>" data-size="sm"
+					data-wp-on--click="actions.requestEmailVerification"
+					data-wp-bind--disabled="context.verifySubmitting">
+					<?php esc_html_e( 'Send verification email', 'buddynext' ); ?>
+				</button>
+			</div>
+			<?php
+			$bn_verify_inline = (string) ob_get_clean();
+
+			buddynext_get_template(
+				'parts/profile-edit-account-row.php',
+				array(
+					'row_id'                   => 'verify',
+					'label'                    => __( 'Email verification', 'buddynext' ),
+					'value'                    => $bn_is_admin
+						? __( 'Your address is not verified. Confirm it to show the verified badge on your profile.', 'buddynext' )
+						: __( 'Your address is not verified. Verify it to show the verified badge on your profile.', 'buddynext' ),
+					'cta_label'                => __( 'Verify', 'buddynext' ),
+					'cta_action'               => 'actions.openEmailVerify',
+					'inline_form_html'         => $bn_verify_inline,
+					'inline_form_visible_when' => 'context.emailVerifyOpen',
+				)
+			);
+		}
+
 		// Build the password inline form via output-buffered HTML.
 		ob_start();
 		?>

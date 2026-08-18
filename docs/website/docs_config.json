@@ -28,7 +28,8 @@
         "whats-new/05-whats-new-in-1-0-9.md",
         "whats-new/06-whats-new-in-1-1-0.md",
         "whats-new/07-whats-new-in-1-1-1.md",
-        "whats-new/08-whats-new-in-1-1-2.md"
+        "whats-new/08-whats-new-in-1-1-2.md",
+        "whats-new/09-whats-new-in-1-1-5.md"
       ]
     },
     {
@@ -130,7 +131,8 @@
         "moderation/02-moderation-queue.md",
         "moderation/03-user-moderation.md",
         "moderation/04-appeals.md",
-        "moderation/05-content-safeguards.md"
+        "moderation/05-content-safeguards.md",
+        "moderation/06-community-roles-and-moderators.md"
       ]
     },
     {

@@ -99,9 +99,14 @@ class AdminHub {
 				'label' => __( 'Moderation', 'buddynext' ),
 				'icon'  => 'shield',
 			),
+			// "Moderation Tools", not "Auto-Moderation". The section now holds Rules,
+			// AI Moderation, Bulk Moderation and the Moderation Log — and the log
+			// records EVERY moderation action, not just automated ones, so filing it
+			// under a name that says "auto" would misdescribe it. The key and slug
+			// are unchanged, so no URL moves and no site loses its place.
 			'automod'       => array(
 				'slug'  => 'buddynext-automod',
-				'label' => __( 'Auto-Moderation', 'buddynext' ),
+				'label' => __( 'Moderation Tools', 'buddynext' ),
 				'icon'  => 'filter',
 			),
 			'monetization'  => array(
@@ -171,8 +176,15 @@ class AdminHub {
 			'section'  => 'platform',
 			'position' => 40,
 		),
+		// Outbound webhooks sit with the other machine-to-machine delivery
+		// mechanisms, not with the member-facing email surfaces. A first pass put
+		// them under Notifications on the reasoning that a webhook is "a delivery
+		// channel"; reading the resulting tab list settled it the other way —
+		// Notifications, Email, Email Templates, Email Log are all things a MEMBER
+		// receives, and Webhooks among them reads as misfiled. Realtime & Push is
+		// the same idea as a webhook: something the site sends outward, now.
 		'settings:webhooks'             => array(
-			'section'  => 'platform',
+			'section'  => 'realtime',
 			'position' => 50,
 		),
 
@@ -299,9 +311,17 @@ class AdminHub {
 			'section'  => 'moderation',
 			'position' => 50,
 		),
+		// Bulk actions and the action log join the automated rules under Moderation
+		// Tools, leaving Moderation itself as the QUEUE a moderator works through:
+		// Controls, Pending, Reports, Suspensions, Appeals. Seven tabs was two jobs
+		// in one list — deciding policy, and doing the day's work.
 		'moderation:bulk'               => array(
-			'section'  => 'moderation',
+			'section'  => 'automod',
 			'position' => 60,
+		),
+		'moderation:log'                => array(
+			'section'  => 'automod',
+			'position' => 70,
 		),
 
 		// Auto-Moderation (Pro). Hidden in free.
@@ -327,9 +347,30 @@ class AdminHub {
 			'section'  => 'monetization',
 			'position' => 30,
 		),
+		// License — Settings, not Monetization.
+		//
+		// It sat under Monetization, which read as "this is part of selling
+		// memberships". It is not: the licence unlocks Pro UPDATES and applies
+		// whether or not a site ever turns monetization on, so an owner running a
+		// free community still has one and would never look for it under a section
+		// about taking payments. Settings is also where the tab is registered
+		// (Free's Settings::render_license_tab) and where its own docblocks have
+		// always said it lives.
+		// Activation belongs with setup rather than with brand identity, and Get
+		// Started held a single tab. Not a perfect home — License is also the screen
+		// an owner needs years later when an update fails, and "Get Started" reads
+		// as onboarding — but Settings had to lose two, and every other tab there
+		// (General, Appearance, Navigation, Pages & URLs, White-label) is genuinely
+		// about how the community looks and is addressed.
 		'settings:license'              => array(
-			'section'  => 'monetization',
-			'position' => 40,
+			'section'  => 'get-started',
+			'position' => 90,
+		),
+		// A diagnostic, so it sits with Tools and Features rather than with the
+		// look-and-feel tabs it was filed among.
+		'settings:plugin-isolation'     => array(
+			'section'  => 'platform',
+			'position' => 60,
 		),
 	);
 
@@ -465,6 +506,15 @@ class AdminHub {
 	public function init(): void {
 		add_action( 'admin_menu', array( $this, 'build_menu' ), 9 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		// A section registered without a menu link has no menu title for WP to build
+		// the <title> from, so those screens rendered as " ‹ site — WordPress".
+		// Supply it from the section definition.
+		add_filter( 'admin_title', array( $this, 'filter_admin_title' ), 10, 2 );
+		// Keep the WP menu pointing at BuddyNext on sections that no longer carry
+		// their own menu entry. Without this the whole BuddyNext menu un-highlights
+		// and collapses the moment you open, say, Monetization — the owner is inside
+		// the plugin and the sidebar says they are nowhere.
+		add_filter( 'parent_file', array( $this, 'filter_parent_file' ) );
 		// Send every registered legacy page slug to its hub tab. Priority 11 so it
 		// runs after the admin_menu pass that registers the tabs (and therefore
 		// their legacy_page declarations), but still before anything renders.
@@ -909,7 +959,7 @@ class AdminHub {
 					'spaces'               => 'grid',
 					'notifications'        => 'bell',
 					'email'                => 'mail',
-					'email-log'            => 'mail',
+					'email-log'            => 'list',
 					'moderation'           => 'shield',
 					'integrations'         => 'code',
 					'integration-controls' => 'eye',
@@ -921,12 +971,12 @@ class AdminHub {
 					'navigation'           => 'list',
 					'pages'                => 'link',
 					'announcements'        => 'megaphone',
-					'templates'            => 'mail',
+					'templates'            => 'file-text',
 					'reactions'            => 'smile',
 					'push'                 => 'bell',
-					'push-prefs'           => 'bell',
+					'push-prefs'           => 'settings',
 					'realtime'             => 'zap',
-					'white-label'          => 'palette',
+					'white-label'          => 'type',
 					// Members section.
 					'directory'            => 'users',
 					'labels'               => 'hash',
@@ -948,7 +998,7 @@ class AdminHub {
 					'ai-feed'              => 'sparkles',
 					// Monetization section.
 					'tiers'                => 'crown',
-					'subscriptions'        => 'crown',
+					'subscriptions'        => 'repeat-2',
 					'payments'             => 'store',
 					'license'              => 'award',
 					'paywall'              => 'lock',
@@ -1013,6 +1063,78 @@ class AdminHub {
 	// ── Menu build ───────────────────────────────────────────────────────────
 
 	/**
+	 * Keep the BuddyNext menu highlighted on sections that have no menu entry.
+	 *
+	 * Trimming the WP sub-menu to a few entry points left the other sections with
+	 * no menu item of their own, and WordPress highlights the menu by matching the
+	 * current page against registered entries. So opening Monetization or Campaigns
+	 * un-highlighted BuddyNext entirely and collapsed its sub-menu: the owner was
+	 * inside the plugin while the sidebar showed them nowhere, with no way back
+	 * except the hub's own rail.
+	 *
+	 * Pointing `parent_file` at the top-level slug restores the highlight and keeps
+	 * the sub-menu open, for every hub section whether it has an entry or not.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param string $parent_file Menu slug WordPress resolved.
+	 * @return string
+	 */
+	public function filter_parent_file( string $parent_file ): string {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- reads which
+		// admin screen is being rendered so the menu can highlight it; changes nothing.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		if ( '' === $page ) {
+			return $parent_file;
+		}
+
+		foreach ( self::sections() as $section ) {
+			if ( (string) ( $section['slug'] ?? '' ) === $page ) {
+				return self::TOP_SLUG;
+			}
+		}
+
+		return $parent_file;
+	}
+
+	/**
+	 * Give unlinked hub sections a browser title.
+	 *
+	 * WordPress builds the admin <title> from the menu title, so a section
+	 * registered without a menu entry produced " ‹ site — WordPress" with the page
+	 * name missing. Only fills a gap: a section that still has a menu link keeps
+	 * whatever WP already resolved.
+	 *
+	 * @since 1.1.5
+	 *
+	 * @param string $admin_title Full admin title.
+	 * @param string $title       Page title WP resolved (empty for an unlinked page).
+	 * @return string
+	 */
+	public function filter_admin_title( string $admin_title, string $title ): string {
+		if ( '' !== trim( $title ) ) {
+			return $admin_title;
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- reads which
+		// admin screen is being rendered to label it; no state is changed.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		if ( '' === $page ) {
+			return $admin_title;
+		}
+
+		foreach ( self::sections() as $section ) {
+			if ( (string) ( $section['slug'] ?? '' ) === $page ) {
+				return (string) $section['label'] . $admin_title;
+			}
+		}
+
+		return $admin_title;
+	}
+
+	/**
 	 * Build the top-level BuddyNext menu and each section's sub-menu entry.
 	 *
 	 * @return void
@@ -1033,6 +1155,42 @@ class AdminHub {
 			30
 		);
 
+		/**
+		 * Which sections get their own entry in the WP admin menu.
+		 *
+		 * Every section used to, which put 15 BuddyNext entries in the sidebar —
+		 * about 1260px — duplicating the same sections the hub's own rail already
+		 * lists with their children. Eleven labels appeared in both columns, so the
+		 * owner read the same navigation twice and the WP menu pushed every other
+		 * plugin below the fold.
+		 *
+		 * Only the entry points keep a menu LINK. Everything else stays one click
+		 * away inside the hub.
+		 *
+		 * Every section is still registered below, and that is not optional:
+		 * `add_submenu_page()` is what registers the screen and grants access, so
+		 * skipping it does not hide a page, it 403s it. (Verified — the first
+		 * version of this did exactly that, and `admin.php?page=buddynext-monetization`
+		 * returned "Sorry, you are not allowed to access this page.") Registering
+		 * everything and then removing the LINK is what leaves bookmarks, docs links
+		 * and `hub_tab_url()` all still resolving.
+		 *
+		 * Filterable because "which sections are entry points" is a per-site opinion:
+		 * a site that lives in Campaigns should be able to put it back without
+		 * touching the plugin.
+		 *
+		 * @since 1.1.5
+		 *
+		 * @param array<int,string> $keys Section keys that keep a WP admin menu link.
+		 */
+		$bn_menu_sections = array_map(
+			'strval',
+			(array) apply_filters(
+				'buddynext_admin_menu_sections',
+				array( 'get-started', 'members', 'moderation', 'settings' )
+			)
+		);
+
 		foreach ( self::sections() as $key => $section ) {
 			if ( empty( self::$tabs[ $key ] ) ) {
 				continue;
@@ -1040,14 +1198,50 @@ class AdminHub {
 			// Section labels are already translated at their definition
 			// (self::default_sections()); filter-added sections supply their own
 			// translated label in their own textdomain.
-			add_submenu_page(
-				self::TOP_SLUG,
+			$bn_linked = in_array( (string) $key, $bn_menu_sections, true );
+
+			$bn_hook = add_submenu_page(
+				// A registered-but-unlinked page uses the null parent. This is the
+				// idiom that keeps the screen reachable while taking it out of the
+				// menu: it still populates $_registered_pages, which is what
+				// wp-admin/admin.php checks before serving `?page=`.
+				//
+				// remove_submenu_page() after a normal registration does NOT work here
+				// and was the first thing tried — it 403s the screen. Isolated by
+				// restoring every link through the filter, at which point the same URL
+				// loaded fine.
+				$bn_linked ? self::TOP_SLUG : null,
 				$section['label'],
 				$section['label'],
 				'manage_options',
 				$section['slug'],
 				array( $this, 'render_section' )
 			);
+
+			/*
+			 * Give the unlinked screens their $title back.
+			 *
+			 * get_admin_page_title() resolves the global $title by walking $submenu
+			 * for the current page. A null-parent registration is not in $submenu by
+			 * design, so it finds nothing and leaves $title null - and core then runs
+			 * strip_tags( $title ) unconditionally (wp-admin/admin-header.php:41).
+			 * On PHP 8.1+ that is a deprecation on every load of each unlinked
+			 * screen: eight of them here, and they were filling the debug log.
+			 *
+			 * load-{hook} fires before admin-header.php is included, which is the
+			 * window where setting it still counts. The browser <title> is handled
+			 * separately by filter_admin_title(); this is the in-page one.
+			 */
+			if ( ! $bn_linked && is_string( $bn_hook ) && '' !== $bn_hook ) {
+				$bn_section_label = (string) $section['label'];
+				add_action(
+					'load-' . $bn_hook,
+					static function () use ( $bn_section_label ): void {
+						// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- supplying the title core could not resolve for a deliberately unlinked screen.
+						$GLOBALS['title'] = $bn_section_label;
+					}
+				);
+			}
 		}
 
 		// License lives as a tab inside a section, which buries the one screen

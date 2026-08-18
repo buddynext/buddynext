@@ -157,9 +157,30 @@ class PwaServiceTest extends \WP_UnitTestCase {
 	public function test_service_worker_never_caches_personalised_responses(): void {
 		$script = $this->pwa->get_service_worker_script();
 
-		$this->assertStringContainsString( "indexOf('/wp-json/')", $script, 'REST must be excluded from the worker.' );
-		$this->assertStringContainsString( "indexOf('/wp-admin')", $script, 'wp-admin must never be intercepted.' );
-		$this->assertStringContainsString( "indexOf('/wp-login')", $script, 'The login screen must never be intercepted.' );
+		/*
+		 * Asserted through the injected path constants rather than literal
+		 * `indexOf('/wp-json/')` matches, which is what this used to do.
+		 *
+		 * Those literals were the bug: a hardcoded leading "/wp-admin" only matches
+		 * a site at the origin root, so on a subdirectory install the bail never
+		 * fired and the worker cached wp-admin. Pinning the literal here meant this
+		 * test PASSED against that bug and then FAILED against its fix — it was
+		 * describing the implementation, not the boundary the docblock above claims.
+		 *
+		 * The boundary is: each of these paths is excluded, whatever the site's
+		 * layout. ServiceWorkerAdminBailTest covers the subdirectory case itself.
+		 */
+		$this->assertStringContainsString( 'indexOf(REST_PATH)', $script, 'REST must be excluded from the worker.' );
+		$this->assertStringContainsString( 'indexOf(ADMIN_PATH)', $script, 'wp-admin must never be intercepted.' );
+		$this->assertStringContainsString( 'indexOf(LOGIN_PATH)', $script, 'The login screen must never be intercepted.' );
+		// Not asserted as "wp-json": with plain permalinks rest_url() has no such
+		// path and REST_PATH is "/", which the worker deliberately ignores in favour
+		// of the rest_route query check. Asserting the literal would pin one
+		// permalink setting.
+		$this->assertStringContainsString( 'const REST_PATH', $script, 'REST_PATH must be injected.' );
+		$this->assertStringContainsString( "REST_PATH !== '/'", $script, 'A path-less REST root must not bail on every request.' );
+		$this->assertMatchesRegularExpression( '~ADMIN_PATH\s*=\s*"[^"]*wp-admin~', $script, 'ADMIN_PATH must point at the admin.' );
+		$this->assertMatchesRegularExpression( '~LOGIN_PATH\s*=\s*"[^"]*wp-login~', $script, 'LOGIN_PATH must point at wp-login.php.' );
 
 		// The navigate branch falls back to the OFFLINE page and nothing else: it
 		// must not read a stored copy of the page that was requested.

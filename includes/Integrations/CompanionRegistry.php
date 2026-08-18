@@ -103,7 +103,7 @@ final class CompanionRegistry {
 					'unlocks'   => __( 'Job posts as activity cards in the feed.', 'buddynext' ),
 					// Where to send the admin after a one-click install so they can
 					// finish setup, instead of leaving them on the integrations screen.
-					'setup_url' => 'admin.php?page=wpcb-settings',
+					'setup_url' => 'admin.php?page=wcb-settings',
 				),
 				'learnomy'               => array(
 					'label'     => 'Learnomy',

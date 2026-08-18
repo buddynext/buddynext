@@ -660,6 +660,7 @@ class AssetService {
 			'@buddynext/social-buttons'     => 'social/follow-store',
 			'@buddynext/media-upload'       => 'media/upload-store',
 			'@buddynext/media-albums'       => 'media/albums-store',
+			'@buddynext/community-admin'    => 'community-admin/store',
 		);
 
 		// Feature stores that import from ../shell/dialog.js need the
@@ -676,6 +677,7 @@ class AssetService {
 			'@buddynext/messages',
 			'@buddynext/media-upload',
 			'@buddynext/media-albums',
+			'@buddynext/community-admin',
 		);
 
 		foreach ( $feature_modules as $id => $path ) {
@@ -1481,6 +1483,7 @@ class AssetService {
 					'reportSubmitted'          => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
 					'checkInboxConfirm'        => __( 'Check your inbox to confirm.', 'buddynext' ),
 					'verifyEmailFailed'        => __( 'Could not send verification email. Try again.', 'buddynext' ),
+					'emailVerified'            => __( 'Your email address is now marked as verified.', 'buddynext' ),
 					'pwTooShort'               => __( 'Too short', 'buddynext' ),
 					'pwWeak'                   => __( 'Weak', 'buddynext' ),
 					'pwFair'                   => __( 'Fair', 'buddynext' ),
@@ -1597,7 +1600,7 @@ class AssetService {
 		wp_interactivity_state(
 			'buddynext/onboarding',
 			array(
-				'i18n' => array(
+				'i18n'         => array(
 					/* translators: 1: current step number, 2: total step count */
 					'stepLabel'                => __( 'Step %1$s of %2$s', 'buddynext' ),
 					'displayNameError'         => __( 'Display name must be at least 2 characters.', 'buddynext' ),
@@ -1618,8 +1621,10 @@ class AssetService {
 					'toastFollowing'           => __( 'Following.', 'buddynext' ),
 					'toastUnfollowed'          => __( 'Unfollowed.', 'buddynext' ),
 					'toastFollowUpdateFailed'  => __( 'Could not update follow. Please try again.', 'buddynext' ),
-					'toastImageTooLarge'       => __( 'Image too large. Max 4MB.', 'buddynext' ),
-					'toastImageDimensions'     => __( 'Image must be at most 1024×1024 pixels. Please choose a smaller photo.', 'buddynext' ),
+					/* translators: %s: maximum upload size in megabytes. */
+					'toastImageTooLarge'       => __( 'Image too large. Max %sMB.', 'buddynext' ),
+					/* translators: 1: maximum megapixels, 2: maximum pixels on a single side */
+					'toastImageDimensions'     => __( 'That image is too large to process (over %1$s megapixels or %2$s pixels on a side). Please choose a smaller photo.', 'buddynext' ),
 					'toastPhotoUploadFailed'   => __( 'Could not upload photo. Please try again.', 'buddynext' ),
 					'toastPhotoUpdated'        => __( 'Profile photo updated.', 'buddynext' ),
 					'toastAllSet'              => __( 'You are all set. Welcome aboard!', 'buddynext' ),
@@ -1633,6 +1638,32 @@ class AssetService {
 					'errorProfileSaveFailed'   => __( 'Your profile could not be saved. Please check your details and try again.', 'buddynext' ),
 					'errorHandleTaken'         => __( 'That username is already taken. Please choose another.', 'buddynext' ),
 					'errorChannelsSaveFailed'  => __( 'Your notification settings could not be saved. Please try again.', 'buddynext' ),
+				),
+
+				/*
+				 * The REAL upload limits, resolved through the same filters the server
+				 * enforces, so the wizard's pre-check cannot disagree with the endpoint
+				 * it is standing in front of.
+				 *
+				 * The pre-check used to hardcode 1024x1024 — the server cap at the time
+				 * it was written. When the server moved to a megapixel budget, onboarding
+				 * kept refusing an ordinary phone photo (4032x3024) in the browser and
+				 * never sent the request, so the server never got to accept it and
+				 * `buddynext_upload_max_megapixels` could not be reached from the one
+				 * surface that most needed it. A filter that cannot be reached from the
+				 * surface that needs it is a broken filter.
+				 *
+				 * Passing the resolved values rather than repeating the rule means the
+				 * next change to the limits moves both sides at once.
+				 */
+				'uploadLimits' => array(
+					'maxMegapixels' => (float) apply_filters( 'buddynext_upload_max_megapixels', 50.0, 'avatar' ),
+					'maxDimension'  => (int) apply_filters( 'buddynext_upload_max_dimension', 10000, 'avatar' ),
+					// The byte cap had the identical problem one branch earlier in the
+					// same function: hardcoded 4MB in JS, matching the server's DEFAULT
+					// but unreachable by buddynext_upload_max_bytes. An owner who raised
+					// it got a browser that still refused the file.
+					'maxBytes'      => (int) apply_filters( 'buddynext_upload_max_bytes', 4 * 1024 * 1024, 'avatar' ),
 				),
 			)
 		);

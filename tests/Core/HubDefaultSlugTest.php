@@ -53,7 +53,7 @@ class HubDefaultSlugTest extends WP_UnitTestCase {
 			'buddynext_slug_notifications'   => 'notifications',
 			'buddynext_slug_auth'            => 'login',
 			'buddynext_slug_onboarding'      => 'onboarding',
-			'buddynext_slug_community_admin' => 'bn-community-admin', // Non-hub entry; stays hardcoded.
+			'buddynext_slug_community_admin' => 'community-admin', // Registered hub; registry supplies the default.
 			'buddynext_slug_unknown'         => 'community',          // Ultimate fallback.
 		);
 		foreach ( $cases as $opt => $expected ) {

@@ -44,6 +44,9 @@ class Members extends AdminPageBase {
 		add_action( 'admin_post_bn_unsuspend_member', array( $this, 'handle_unsuspend' ) );
 		add_action( 'admin_post_bn_bulk_members', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_post_bn_save_member_profile', array( $this, 'handle_save_member_profile' ) );
+		add_action( 'admin_post_bn_set_community_role', array( $this, 'handle_set_community_role' ) );
+		add_action( 'buddynext_edit_member_sections', array( $this, 'render_community_role_section' ), 5, 1 );
+		add_action( 'buddynext_admin_member_profile_saved', array( $this, 'save_community_role' ), 10, 1 );
 		add_action( 'admin_post_' . self::ACTION_REPAIR_HANDLES, array( $this, 'handle_repair_handles' ) );
 		// NB: the wp_login -> handle_last_login listener is wired unconditionally
 		// in Plugin::boot(), not here — register() only runs in admin, but logins
@@ -564,6 +567,141 @@ class Members extends AdminPageBase {
 	}
 
 	/**
+	 * Render the Community Role section on the edit-member screen.
+	 *
+	 * Community role (member < moderator < admin) is a BuddyNext-level fact about
+	 * the member, like Member Type and Membership, so it belongs beside them in
+	 * the Account tab rather than as an inline control in the directory. It saves
+	 * with the profile — one Save button for the whole screen.
+	 *
+	 * @param int $user_id Member being edited.
+	 * @return void
+	 */
+	public function render_community_role_section( int $user_id ): void {
+		if ( ! current_user_can( 'manage_options' ) || $user_id <= 0 ) {
+			return;
+		}
+
+		$svc     = buddynext_service( 'roles' );
+		$current = ( is_object( $svc ) && method_exists( $svc, 'get_role' ) )
+			? (string) $svc->get_role( $user_id )
+			: 'member';
+
+		$choices = array(
+			'member'    => __( 'Member', 'buddynext' ),
+			'moderator' => __( 'Moderator', 'buddynext' ),
+			'admin'     => __( 'Admin', 'buddynext' ),
+		);
+		?>
+		<div class="bn-settings-section bn-community-role-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Community Role', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<div class="bn-field-row">
+					<div class="bn-label"><label for="bn-community-role"><?php esc_html_e( 'Role', 'buddynext' ); ?></label></div>
+					<div class="bn-control">
+						<select id="bn-community-role" name="bn_community_role" class="bn-select">
+							<?php foreach ( $choices as $bn_value => $bn_label ) : ?>
+								<option value="<?php echo esc_attr( $bn_value ); ?>" <?php selected( $current, $bn_value ); ?>>
+									<?php echo esc_html( $bn_label ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+						<span class="bn-field-hint">
+							<?php esc_html_e( 'Controls moderation powers inside the community. Separate from the WordPress role above. Saved with the profile.', 'buddynext' ); ?>
+						</span>
+					</div>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Persist the community role from the profile submit.
+	 *
+	 * Nonce and capability were verified by handle_save_member_profile() before
+	 * this action fired. Only this section's own key is read.
+	 *
+	 * @param int $user_id Member that was saved.
+	 * @return void
+	 */
+	public function save_community_role( int $user_id ): void {
+		if ( $user_id <= 0 || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified by handle_save_member_profile() before this action fires.
+		if ( ! isset( $_POST['bn_community_role'] ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
+		$role = sanitize_key( wp_unslash( $_POST['bn_community_role'] ) );
+
+		if ( ! in_array( $role, array( 'member', 'moderator', 'admin' ), true ) ) {
+			return;
+		}
+
+		$svc = buddynext_service( 'roles' );
+
+		if ( is_object( $svc ) && method_exists( $svc, 'set_role' ) ) {
+			$svc->set_role( $user_id, $role );
+		}
+	}
+
+	/**
+	 * Print a community-role badge for the directory.
+	 *
+	 * @param string $role Community role slug.
+	 * @return void
+	 */
+	private static function render_community_role_badge( string $role ): void {
+		$labels = array(
+			'admin'     => __( 'Admin', 'buddynext' ),
+			'moderator' => __( 'Moderator', 'buddynext' ),
+			'member'    => __( 'Member', 'buddynext' ),
+		);
+
+		$label = $labels[ $role ] ?? $labels['member'];
+
+		echo '<span class="bn-badge bn-badge-crole-' . esc_attr( $role ) . '">' . esc_html( $label ) . '</span>';
+	}
+
+	/**
+	 * Handle admin_post_bn_set_community_role — set a member's BuddyNext community
+	 * role (member | moderator | admin).
+	 *
+	 * Retained as the write path for the front-end Community Admin > Members
+	 * control, which posts here. The wp-admin directory no longer does: assigning
+	 * a community role moved to the member edit screen, where it saves with the
+	 * profile alongside Member Type, Membership and Labels.
+	 *
+	 * @return void
+	 */
+	public function handle_set_community_role(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+
+		check_admin_referer( 'bn_set_community_role' );
+
+		$user_id = absint( wp_unslash( $_POST['user_id'] ?? 0 ) );
+		$role    = sanitize_key( (string) wp_unslash( $_POST['community_role'] ?? '' ) );
+
+		if ( $user_id > 0 && in_array( $role, array( 'member', 'moderator', 'admin' ), true ) ) {
+			$roles = buddynext_service( 'roles' );
+			if ( is_object( $roles ) && method_exists( $roles, 'set_role' ) ) {
+				$roles->set_role( $user_id, $role );
+			}
+		}
+
+		wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=buddynext-members' ) );
+		exit;
+	}
+
+	/**
 	 * Handle admin_post_bn_bulk_members — apply a bulk action to the selected
 	 * member IDs (checkbox column). Reuses the same suspend/unsuspend service
 	 * calls the single-row actions use; self and other admins are skipped.
@@ -836,7 +974,42 @@ class Members extends AdminPageBase {
 		}
 
 		if ( ! empty( $profile_data ) ) {
-			buddynext_service( 'profiles' )->save_profile( $user_id, $profile_data );
+			$bn_profiles    = buddynext_service( 'profiles' );
+			$bn_save_result = $bn_profiles->save_profile( $user_id, $profile_data );
+
+			// save_profile() can REJECT the whole write — a field that fails
+			// sanitisation or validation, a required field submitted empty, or the
+			// moderation safeguard. Its return was DISCARDED here and the redirect
+			// below reported success unconditionally, so the editor showed
+			// "Profile updated successfully." while nothing had been written.
+			//
+			// That is worse than a silent failure. save_profile() is atomic on
+			// purpose (deliberate, and documented at length there: a partial write
+			// leaves the admin re-editing from a state that no longer matches the
+			// database), so a rejection means the ENTIRE edit was dropped. The admin
+			// was told the opposite, closed the screen, and the change was gone.
+			//
+			// Atomicity is not the bug and must not be traded away to fix this. The
+			// bug is that the caller never asked.
+			if ( is_wp_error( $bn_save_result ) ) {
+				// Field-attributed messages so the notice can say WHICH field, using
+				// the same mapping the REST editor paints inline — including the
+				// safeguard's per-value re-check, which is the only way an
+				// unattributed moderation rejection gets a field name.
+				$bn_field_errors = $bn_profiles->map_save_error_to_fields( $bn_save_result, $profile_data, $user_id );
+
+				set_transient(
+					\BuddyNext\Admin\Members\MemberEditForm::save_error_transient_key( get_current_user_id(), $user_id ),
+					array(
+						'message' => (string) $bn_save_result->get_error_message(),
+						'fields'  => $bn_field_errors,
+					),
+					\BuddyNext\Admin\Members\MemberEditForm::SAVE_ERROR_TTL
+				);
+
+				wp_safe_redirect( add_query_arg( 'bn_error', 'profile_invalid', $redirect_url ) );
+				exit;
+			}
 		}
 
 		/**
@@ -1201,9 +1374,9 @@ class Members extends AdminPageBase {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$action = sanitize_key( wp_unslash( $_GET['action'] ?? '' ) );
 		if ( 'suspended' === $action ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Member suspended.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Member suspended.', 'buddynext' ), 'success' );
 		} elseif ( 'unsuspended' === $action ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Member unsuspended.', 'buddynext' ) . '</p></div>';
+			AdminPageBase::render_notice( __( 'Member unsuspended.', 'buddynext' ), 'success' );
 		}
 
 		// Bulk-action result. handle_bulk() redirects with bulk_action + bulk_done;
@@ -1219,9 +1392,9 @@ class Members extends AdminPageBase {
 					? sprintf( _n( '%d member suspended.', '%d members suspended.', $bulk_done, 'buddynext' ), $bulk_done )
 					/* translators: %d: number of members. */
 					: sprintf( _n( '%d member unsuspended.', '%d members unsuspended.', $bulk_done, 'buddynext' ), $bulk_done );
-				echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $bulk_msg ) . '</p></div>';
+				AdminPageBase::render_notice( (string) $bulk_msg, 'success' );
 			} else {
-				echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html__( 'No members were updated. Administrators and your own account are skipped from bulk actions.', 'buddynext' ) . '</p></div>';
+				AdminPageBase::render_notice( __( 'No members were updated. Administrators and your own account are skipped from bulk actions.', 'buddynext' ), 'warning' );
 			}
 		}
 
@@ -1352,8 +1525,8 @@ class Members extends AdminPageBase {
 									<input type="checkbox" id="bn-members-cb-all" aria-label="<?php esc_attr_e( 'Select all members', 'buddynext' ); ?>">
 								</th>
 								<th scope="col" class="column-primary"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'display_name' ) ); ?>" class="bn-th-sort<?php echo 'display_name' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Member', 'buddynext' ); ?></a></th>
-								<th scope="col" class="bn-col-email"><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Role', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Community role', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
 								<th scope="col" class="bn-col-muted"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'registered' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Joined', 'buddynext' ); ?></a></th>
 								<?php
@@ -1406,7 +1579,20 @@ class Members extends AdminPageBase {
 										</div>
 										<div class="bn-member-info">
 											<div class="bn-member-name"><?php echo esc_html( $member['display'] ); ?></div>
-											<div class="bn-member-username">@<?php echo esc_html( $member['handle'] ); ?></div>
+											<?php
+											/*
+											 * Handle and email share one line under the name. Email had its own
+											 * column, which spent a full column of width repeating one fact per row
+											 * and pushed Status / Joined / Last Active off-screen on a normal window.
+											 * Identity reads better as one block: who they are, what they are called,
+											 * how to reach them.
+											 */
+											?>
+											<div class="bn-member-meta">
+												<span class="bn-member-username">@<?php echo esc_html( $member['handle'] ); ?></span>
+												<span class="bn-member-sep" aria-hidden="true">&middot;</span>
+												<a class="bn-member-email" href="<?php echo esc_url( 'mailto:' . $member['email'] ); ?>"><?php echo esc_html( $member['email'] ); ?></a>
+											</div>
 										</div>
 										<button type="button" class="toggle-row">
 											<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
@@ -1414,8 +1600,30 @@ class Members extends AdminPageBase {
 										</button>
 									</div>
 								</td>
-								<td class="bn-col-email" data-colname="<?php esc_attr_e( 'Email', 'buddynext' ); ?>"><?php echo esc_html( $member['email'] ); ?></td>
 								<td data-colname="<?php esc_attr_e( 'Role', 'buddynext' ); ?>"><?php MemberDisplay::render_role_badge( $member['role'] ); ?></td>
+								<td data-colname="<?php esc_attr_e( 'Community role', 'buddynext' ); ?>">
+									<?php
+									// bn_community_role (member < moderator < admin). get_user_meta is
+									// served from the batch cache list_members() already primed, so this
+									// is not a per-row query. Same write path as the front-end panel:
+									// admin_post_bn_set_community_role -> RoleService::set_role.
+									$bn_roles_svc = buddynext_service( 'roles' );
+									$bn_comm_role = ( is_object( $bn_roles_svc ) && method_exists( $bn_roles_svc, 'get_role' ) )
+										? $bn_roles_svc->get_role( absint( $member['id'] ) )
+										: 'member';
+									?>
+									<?php
+									/*
+									 * Display only. This cell used to carry a select plus an Update button —
+									 * 80px of form in every row, which forced the whole table to 105px rows
+									 * against ~20px of content and pushed the later columns off-screen.
+									 * Assigning a community role now lives on the member edit screen beside
+									 * Member Type, Membership and Labels, so the directory can go back to
+									 * being scannable. Read as a badge, matching the Role column beside it.
+									 */
+									self::render_community_role_badge( $bn_comm_role );
+									?>
+								</td>
 								<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>">
 									<?php if ( $member['suspended'] ) : ?>
 										<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>

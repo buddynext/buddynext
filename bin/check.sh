@@ -158,6 +158,43 @@ else
 	note "bin/check-icons.sh missing"
 fi
 
+# 3a1. No inline <script> in admin PHP — hard gate.
+#
+# Blocking, unlike the tab cap below, because the tree is clean today: this can
+# only fail on something the current change introduced, which is the whole point
+# of a gate written after the count proved unstable.
+section "Inline script in admin PHP"
+if [ -x bin/check-inline-script.sh ]; then
+	if bin/check-inline-script.sh; then
+		:
+	else
+		fail "inline <script> in admin PHP — enqueue it instead"
+	fi
+else
+	note "bin/check-inline-script.sh missing"
+fi
+
+# 3a2. Admin five-tab cap — ADVISORY until the re-file lands.
+#
+# BLOCKING as of the IA re-file (card 10207094624). It was advisory only because
+# Settings and Moderation both shipped 7, and failing every commit for a drift no
+# single commit introduced is how people learn to pass --no-verify. Both are back
+# under five, so the note this block used to print would now be decoration.
+#
+# The rule reached 7 twice precisely because nothing enforced it, and Pro
+# contributes 21 of the 49 tabs from a separate repo — so it will drift again
+# unless a build says so.
+section "Admin tab cap"
+if [ -x bin/check-tab-cap.sh ]; then
+	if bin/check-tab-cap.sh; then
+		:
+	else
+		fail "an admin section exceeds the five-tab cap — re-file a tab through AdminHub::TAB_PLACEMENT, or change the cap deliberately in both the gate and that docblock"
+	fi
+else
+	note "bin/check-tab-cap.sh missing"
+fi
+
 # 3b. Route URLs — no hand-rolled home_url() paths outside PageRouter
 section "Route URLs (PageRouter only)"
 if [ -x bin/check-route-urls.sh ]; then

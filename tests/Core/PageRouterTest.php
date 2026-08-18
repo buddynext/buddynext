@@ -479,4 +479,85 @@ class PageRouterTest extends \WP_UnitTestCase {
 		);
 		$this->assertStringNotContainsString( '<!DOCTYPE', $output );
 	}
+
+	/**
+	 * The Notifications preferences form is a SETTINGS route, not a notifications one.
+	 *
+	 * It used to resolve to `bn_hub=notifications&bn_notif_section=prefs` — the only
+	 * Settings tab routed through a foreign hub. Anything keying off the hub then got
+	 * the wrong answer for this one tab, and the sidebar surface did exactly that:
+	 * it inherited the notifications surface and filled a preferences form's right
+	 * column with Quick filters / By type / Unread only, leaving the tab ~230px
+	 * narrower than its three siblings.
+	 *
+	 * @return void
+	 */
+	public function test_settings_notifications_resolves_to_the_settings_hub(): void {
+		global $wp_rewrite;
+		$rules = $wp_rewrite->wp_rewrite_rules();
+
+		$target = '';
+		foreach ( $rules as $pattern => $rule ) {
+			if ( str_starts_with( ltrim( (string) $pattern, '^' ), 'settings/notifications' ) ) {
+				$target = (string) $rule;
+				break;
+			}
+		}
+
+		$this->assertNotSame( '', $target, 'Expected a rewrite rule for settings/notifications.' );
+		$this->assertStringContainsString( 'bn_hub=settings', $target );
+		$this->assertStringContainsString( 'bn_settings_section=notifications', $target );
+		$this->assertStringNotContainsString(
+			'bn_notif_section',
+			$target,
+			'The preferences form must not route through the notifications hub — that mismatch is '
+			. 'what let the sidebar surface fall back to the wrong hub.'
+		);
+	}
+
+	/**
+	 * The legacy /notifications/preferences/ URL keeps working, and lands on Settings.
+	 *
+	 * Pointed at the settings hub rather than left on the old one, so
+	 * `bn_notif_section=prefs` ceases to exist anywhere. Leaving it behind would keep
+	 * the second code path alive for one route, which is the shape that caused this.
+	 *
+	 * @return void
+	 */
+	public function test_the_legacy_preferences_url_still_resolves_to_settings(): void {
+		global $wp_rewrite;
+		$rules = $wp_rewrite->wp_rewrite_rules();
+
+		$target = '';
+		foreach ( $rules as $pattern => $rule ) {
+			if ( str_starts_with( ltrim( (string) $pattern, '^' ), 'notifications/preferences' ) ) {
+				$target = (string) $rule;
+				break;
+			}
+		}
+
+		$this->assertNotSame( '', $target, 'The legacy preferences URL must still resolve.' );
+		$this->assertStringContainsString( 'bn_hub=settings', $target );
+	}
+
+	/**
+	 * No rewrite rule anywhere still emits bn_notif_section.
+	 *
+	 * The query var itself stays registered (a filter or an addon may read it), but
+	 * nothing this plugin routes should produce it any more. A single leftover rule
+	 * would resurrect the split that this move exists to close.
+	 *
+	 * @return void
+	 */
+	public function test_no_rule_emits_the_retired_notif_section_var(): void {
+		global $wp_rewrite;
+
+		foreach ( $wp_rewrite->wp_rewrite_rules() as $pattern => $rule ) {
+			$this->assertStringNotContainsString(
+				'bn_notif_section',
+				(string) $rule,
+				sprintf( 'Rule "%s" still routes through the retired notifications sub-section.', $pattern )
+			);
+		}
+	}
 }

@@ -684,10 +684,12 @@ class NotificationListener implements ListenerInterface {
 			as_enqueue_async_action(
 				'buddynext_async_space_post_fanout',
 				array(
-					'post_id'       => $post_id,
-					'space_id'      => $space_id,
-					'author_id'     => $user_id,
-					'after_user_id' => $after_user_id,
+					array(
+						'post_id'       => $post_id,
+						'space_id'      => $space_id,
+						'author_id'     => $user_id,
+						'after_user_id' => $after_user_id,
+					),
 				),
 				'buddynext'
 			);
@@ -731,10 +733,12 @@ class NotificationListener implements ListenerInterface {
 			as_enqueue_async_action(
 				'buddynext_async_space_post_fanout',
 				array(
-					'post_id'       => $post_id,
-					'space_id'      => $space_id,
-					'author_id'     => $author_id,
-					'after_user_id' => $batch['last_user_id'],
+					array(
+						'post_id'       => $post_id,
+						'space_id'      => $space_id,
+						'author_id'     => $author_id,
+						'after_user_id' => $batch['last_user_id'],
+					),
 				),
 				'buddynext'
 			);
@@ -764,10 +768,12 @@ class NotificationListener implements ListenerInterface {
 			as_enqueue_async_action(
 				'buddynext_async_announcement_fanout',
 				array(
-					'post_id'       => $post_id,
-					'author_id'     => $author_id,
-					'space_id'      => $space_id,
-					'after_user_id' => $batch['last_user_id'],
+					array(
+						'post_id'       => $post_id,
+						'author_id'     => $author_id,
+						'space_id'      => $space_id,
+						'after_user_id' => $batch['last_user_id'],
+					),
 				),
 				'buddynext'
 			);
@@ -797,10 +803,12 @@ class NotificationListener implements ListenerInterface {
 			as_enqueue_async_action(
 				'buddynext_async_announcement_fanout',
 				array(
-					'post_id'       => $post_id,
-					'author_id'     => $author_id,
-					'space_id'      => $space_id,
-					'after_user_id' => $batch['last_user_id'],
+					array(
+						'post_id'       => $post_id,
+						'author_id'     => $author_id,
+						'space_id'      => $space_id,
+						'after_user_id' => $batch['last_user_id'],
+					),
 				),
 				'buddynext'
 			);
@@ -1220,8 +1228,39 @@ class NotificationListener implements ListenerInterface {
 			'recipients' => array_values( $recipients ),
 		);
 
+		/*
+		 * The payload is wrapped in an outer array(), and that wrap is the whole
+		 * difference between this working and failing silently.
+		 *
+		 * Action Scheduler's second parameter is the callback's ARGUMENT LIST, not
+		 * a payload, and ActionScheduler_Action::execute() dispatches it as
+		 * `do_action_ref_array( $hook, array_values( $this->get_args() ) )`. That
+		 * array_values() is the trap: it throws the string keys away, so an
+		 * associative map is flattened to a positional list and spread across the
+		 * callback's parameters. Handing this map over bare meant
+		 * async_space_post_emails( array $args ) received $post_id — an int — as
+		 * argument 1: TypeError, action failed, no email sent.
+		 *
+		 * It was silent. The in-app notification is recorded before this stage, so
+		 * the bell looked right, and the failure existed only in the queue log. On
+		 * the dev site this hook had 63 failed runs and zero completed ones.
+		 *
+		 * Wrapping makes the argument list a single element, so array_values() has
+		 * nothing to flatten and the callback receives the map intact as $args.
+		 *
+		 * Note it is array_values(), NOT WordPress's array_slice() in
+		 * class-wp-hook.php — array_slice always PRESERVES string keys, so the
+		 * blame does not lie there. Worth stating because the reindex looks like
+		 * the obvious culprit and is not.
+		 *
+		 * The inline fallback below is why the bug survived review: it calls the
+		 * method directly with $args and has always been correct, so the code reads
+		 * fine and behaves correctly on any site WITHOUT Action Scheduler — which
+		 * is no real site. A test that calls the method directly cannot catch this;
+		 * it has to assert the shape handed to the enqueue.
+		 */
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( 'buddynext_async_space_post_emails', $args, 'buddynext' );
+			as_enqueue_async_action( 'buddynext_async_space_post_emails', array( $args ), 'buddynext' );
 			return;
 		}
 

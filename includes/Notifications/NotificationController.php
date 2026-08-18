@@ -246,8 +246,8 @@ class NotificationController extends BaseRestController {
 		$filter = (string) ( $request->get_param( 'filter' ) ?? 'all' );
 		$offset = null !== $request->get_param( 'offset' ) ? max( 0, (int) $request->get_param( 'offset' ) ) : null;
 
-		$since  = $request->get_param( 'since' ) ? (string) $request->get_param( 'since' ) : null;
-		$result = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page, $filter, $offset, $since );
+		$since    = $request->get_param( 'since' ) ? (string) $request->get_param( 'since' ) : null;
+		$result   = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page, $filter, $offset, $since );
 		$composer = buddynext_service( 'notification_message' );
 		$composed = $composer->compose_batch( $result['items'] ?? array() );
 
@@ -393,7 +393,7 @@ class NotificationController extends BaseRestController {
 		/*
 		 * The owner's site-wide digest switch (Settings -> Email), surfaced so the
 		 * app can grey out Daily/Weekly instead of offering a choice the server
-		 * will never honour — the same thing templates/notifications/prefs.php
+		 * will never honour — the same thing templates/settings/notifications.php
 		 * already does on the web.
 		 *
 		 * READ-ONLY, deliberately. The card that asked for this also asked the PUT
