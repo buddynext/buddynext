@@ -6,13 +6,11 @@
  * membership tier they do not hold. Shows a blurred/locked preview, the
  * admin-configured description, and a "Become a Member" CTA.
  *
- * Two CTA modes:
- *   - External (spec default): the CTA is an anchor pointing OUT to wherever
- *     the site sells access (WooCommerce, a Stripe payment link, etc.).
- *   - First-party checkout (Pro, only when a Stripe price is linked to the
- *     tier): the CTA is a button that the Spaces Interactivity store wires to
- *     POST buddynext-pro/v1/me/checkout and redirect to the returned Stripe
- *     Checkout URL.
+ * The CTA is an anchor pointing OUT to wherever the site sells access (the
+ * membership pricing page, WooCommerce, a payment link). The first-party
+ * in-paywall Stripe checkout that used to be the second mode here was retired
+ * with CheckoutService and the /me/checkout route; nothing set its flag and the
+ * endpoint it posted to no longer exists.
  *
  * This part is theme-overridable at
  * {child-theme}/buddynext/spaces/paywall.php and emits no inline styles — see
@@ -25,10 +23,7 @@
  * @var string $description Optional. Body copy below the heading.
  * @var string $cta_url    Optional. External CTA href (external mode).
  * @var string $cta_label  Required. CTA button/link label.
- * @var string $tier_slug  Optional. Required membership tier slug.
  * @var string $tier_name  Optional. Human-readable tier name.
- * @var bool   $checkout   Optional. When true, render the first-party Stripe
- *                         checkout button instead of an external link.
  */
 
 declare( strict_types=1 );
@@ -44,9 +39,7 @@ $bn_pw_cta_url   = isset( $cta_url ) ? (string) $cta_url : '';
 $bn_pw_cta_label = isset( $cta_label ) && '' !== (string) $cta_label
 	? (string) $cta_label
 	: __( 'Become a Member', 'buddynext' );
-$bn_pw_tier_slug = isset( $tier_slug ) ? (string) $tier_slug : '';
 $bn_pw_tier_name = isset( $tier_name ) ? (string) $tier_name : '';
-$bn_pw_checkout  = isset( $checkout ) ? (bool) $checkout : false;
 ?>
 <div class="bn-paywall" data-space-id="<?php echo esc_attr( (string) $bn_pw_space_id ); ?>" role="region" aria-label="<?php esc_attr_e( 'Members-only space', 'buddynext' ); ?>">
 	<div class="bn-paywall__preview" aria-hidden="true">
@@ -68,16 +61,7 @@ $bn_pw_checkout  = isset( $checkout ) ? (bool) $checkout : false;
 			<p class="bn-paywall__description"><?php echo esc_html( $bn_pw_desc ); ?></p>
 		<?php endif; ?>
 
-		<?php if ( $bn_pw_checkout && '' !== $bn_pw_tier_slug ) : ?>
-			<button
-				type="button"
-				class="bn-btn bn-paywall__cta"
-				data-variant="primary"
-				data-bn-paywall-checkout
-				data-tier-slug="<?php echo esc_attr( $bn_pw_tier_slug ); ?>"
-				data-wp-on--click="actions.startCheckout"
-			><?php buddynext_icon( 'sparkles' ); ?> <?php echo esc_html( $bn_pw_cta_label ); ?></button>
-		<?php elseif ( '' !== $bn_pw_cta_url ) : ?>
+		<?php if ( '' !== $bn_pw_cta_url ) : ?>
 			<a
 				href="<?php echo esc_url( $bn_pw_cta_url ); ?>"
 				class="bn-btn bn-paywall__cta"

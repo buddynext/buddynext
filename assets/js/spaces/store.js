@@ -386,18 +386,7 @@ function surfacePaywall( btn, spaceId, data ) {
 
 	var label = ( paywall && paywall.cta_label ) ? paywall.cta_label : t( 'paywallBecomeMember', 'Become a Member' );
 
-	if ( paywall && paywall.checkout && paywall.tier_slug ) {
-		var cBtn = document.createElement( 'button' );
-		cBtn.type = 'button';
-		cBtn.className = 'bn-btn bn-paywall__cta';
-		cBtn.setAttribute( 'data-variant', 'primary' );
-		cBtn.setAttribute( 'data-tier-slug', paywall.tier_slug );
-		cBtn.textContent = label;
-		cBtn.addEventListener( 'click', function ( ev ) {
-			storeInstance.actions.startCheckout( ev );
-		} );
-		body.appendChild( cBtn );
-	} else if ( paywall && paywall.cta_url ) {
+	if ( paywall && paywall.cta_url ) {
 		var a = document.createElement( 'a' );
 		a.className = 'bn-btn bn-paywall__cta';
 		a.setAttribute( 'data-variant', 'primary' );
@@ -895,64 +884,6 @@ var storeInstance = store( 'buddynext/spaces', {
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
 				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
-			}
-		},
-
-		/**
-		 * Start first-party Stripe checkout for a gated space's required tier.
-		 *
-		 * Bound to the paywall CTA button (`data-wp-on--click="actions.startCheckout"`)
-		 * when the site has linked a Stripe price to the tier. POSTs to the Pro
-		 * checkout endpoint and redirects the browser to the returned Stripe
-		 * Checkout Session URL. On any failure (Stripe not configured, network)
-		 * the button is re-enabled and a toast surfaces the reason — never a
-		 * silent dead end.
-		 */
-		startCheckout: async function ( event ) {
-			var btn = event && event.target && event.target.closest( 'button' );
-			if ( ! btn ) { return; }
-
-			var cfg      = ( typeof window !== 'undefined' && window.bnProCheckout ) ? window.bnProCheckout : null;
-			var tierSlug = btn.getAttribute( 'data-tier-slug' ) || ( cfg && cfg.tierSlug ) || '';
-			var endpoint = ( cfg && cfg.endpoint ) || 'buddynext-pro/v1/me/checkout';
-
-			if ( ! tierSlug ) {
-				if ( window.bnToast ) { window.bnToast( t( 'purchaseNotConfigured', 'Membership purchase is not configured yet.' ), 'warn' ); }
-				return;
-			}
-
-			var origText = btn.textContent;
-			btn.disabled = true;
-			btn.textContent = t( 'redirecting', 'Redirecting…' );
-
-			var body = { tier_slug: tierSlug };
-			if ( cfg && cfg.successUrl ) { body.success_url = cfg.successUrl; }
-			if ( cfg && cfg.cancelUrl ) { body.cancel_url = cfg.cancelUrl; }
-
-			try {
-				var res  = await restFetch( '/' + endpoint, {
-					base:    ( ( window.wpApiSettings && window.wpApiSettings.root ) || '/wp-json/' ).replace( /\/+$/, '' ),
-					method:  'POST',
-					nonce:   resolveNonce(),
-					body:    body,
-					toastOnError: false,
-				} );
-				var data = res.data || {};
-
-				if ( res.ok && data && data.url ) {
-					window.location.href = data.url;
-					return;
-				}
-
-				// Surface a clear reason (e.g. Stripe not configured / no price linked).
-				var msg = ( data && data.message ) ? data.message : t( 'couldNotStartCheckout', 'Could not start checkout. Please try again later.' );
-				if ( window.bnToast ) { window.bnToast( msg, 'danger' ); }
-				btn.textContent = origText;
-				btn.disabled    = false;
-			} catch ( _e ) {
-				if ( window.bnToast ) { window.bnToast( t( 'networkErrorRetry', 'Network error. Please try again.' ), 'danger' ); }
-				btn.textContent = origText;
-				btn.disabled    = false;
 			}
 		},
 
