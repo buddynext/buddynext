@@ -73,6 +73,7 @@ use BuddyNext\Onboarding\InterestListener;
 use BuddyNext\Onboarding\OnboardingListener;
 use BuddyNext\Privacy\PrivacyTools;
 use BuddyNext\Outbound\OutboundWebhookListener;
+use BuddyNext\Outbound\WebhookLogListener;
 use BuddyNext\Realtime\TransportFactory;
 use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
@@ -495,6 +496,13 @@ class Plugin {
 			$container->get( 'webhooks' )->init();
 			( new OutboundWebhookListener() )->register();
 		}
+
+		// Deliberately NOT inside the `webhooks` feature gate above. That toggle
+		// governs OUTBOUND deliveries; this records access grants arriving from a
+		// same-site plugin into bn_webhook_log, which is the audit trail for who
+		// was given what and is not opt-in. Gating it would mean a site with
+		// outbound webhooks switched off kept no record of its membership grants.
+		( new WebhookLogListener() )->register();
 
 		// Sidebar feature — Listener registers cache-bust hooks. Conditional
 		// per plug-and-play model: only when the feature is bound.

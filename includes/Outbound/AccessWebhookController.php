@@ -94,7 +94,16 @@ class AccessWebhookController {
 		}
 
 		$action = sanitize_key( $body['action'] ?? '' );
+
+		// This request logs itself, below, with the whole signed body — richer than
+		// anything the action can carry. WebhookLogListener watches the same grant
+		// action for callers that have no request to log from, so it is told to
+		// stand down for the duration of this one. Without that, every HTTP grant
+		// would be recorded twice: once here and once by the listener.
+		WebhookLog::begin_request_scope();
 		$result = $this->dispatch( $action, $user->ID, $body );
+		WebhookLog::end_request_scope();
+
 		$status = ( $result instanceof WP_Error ) ? 'error' : 'success';
 
 		$this->log( $action, $user->ID, $body, $status );
@@ -313,34 +322,16 @@ class AccessWebhookController {
 	/**
 	 * Write an audit row to bn_webhook_log.
 	 *
+	 * Delegates to WebhookLog, which is the shared door: same-site callers that
+	 * fire `buddynext_ability_granted` directly have no HTTP request to log from,
+	 * and they need the same trail this one writes.
+	 *
 	 * @param string $action  Action slug.
 	 * @param int    $user_id User ID.
 	 * @param array  $body    Request body (payload stored as JSON).
 	 * @param string $status  'success' or 'error'.
 	 */
 	private function log( string $action, int $user_id, array $body, string $status ): void {
-		global $wpdb;
-
-		// created_at is written explicitly, in UTC.
-		//
-		// The column's schema default is CURRENT_TIMESTAMP, which MySQL resolves in
-		// the DATABASE SERVER's timezone, and every other timestamp BuddyNext
-		// stores is gmdate(). An audit log exists to be correlated against other
-		// records — "this webhook granted that subscription" — and on a host whose
-		// database is not on UTC it was offset from everything it would be read
-		// beside. Observed here at +5:30: a call at 16:57 UTC logged as 22:27.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_webhook_log',
-			array(
-				'source'     => sanitize_key( $body['source'] ?? '' ),
-				'action'     => $action,
-				'user_id'    => $user_id,
-				'payload'    => wp_json_encode( $body ),
-				'status'     => $status,
-				'created_at' => gmdate( 'Y-m-d H:i:s' ),
-			),
-			array( '%s', '%s', '%d', '%s', '%s', '%s' )
-		);
+		WebhookLog::write( $action, $user_id, $body, $status );
 	}
 }
