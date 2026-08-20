@@ -140,6 +140,24 @@ class SearchService {
 	 * resolved returns 'private': failing closed is the only safe direction for a
 	 * search index.
 	 *
+	 * A PLAN GATE also caps it, and that is the second half of the question this
+	 * used to skip. `required_ability` on an OPEN space means the content is paid
+	 * for; the type says 'open', so the ceiling came out 'public', and the guest
+	 * query is literally `si.visibility = 'public'`. Gated posts were therefore
+	 * searchable by anyone on the internet. Reproduced on the site: two posts in an
+	 * open space carrying `tier:vip` sat in the index as `public`.
+	 *
+	 * Free deliberately does NOT evaluate the ability here — it cannot, and it does
+	 * not need to. The presence of a gate is a fact about its own table, and it is
+	 * enough to know the content is not public.
+	 *
+	 * Known narrowing, accepted: 'private' rows are matched by space MEMBERSHIP
+	 * (`si.space_id IN (viewer_spaces)`), so a member who holds the plan but has
+	 * not JOINED the gated space stops finding its content in search, even though
+	 * they can read it. Leaking to the whole internet is the worse failure, so this
+	 * fails closed; restoring reach for entitled non-members needs the viewer-space
+	 * list to become entitlement-aware, which is its own change.
+	 *
 	 * Memoised per request because the full reindex walks every post on the site —
 	 * without it, 100k posts across 200 spaces would issue 100k space lookups.
 	 *
@@ -155,13 +173,18 @@ class SearchService {
 
 		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
 
-		$ceilings[ $space_id ] = ( null === $space )
-			? 'private'
-			: (
-				\BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) ( $space['type'] ?? '' ) )
-					? 'private'
-					: 'public'
-			);
+		if ( null === $space ) {
+			$ceilings[ $space_id ] = 'private';
+
+			return $ceilings[ $space_id ];
+		}
+
+		$members_only = \BuddyNext\Spaces\SpaceTypeRegistry::instance()
+			->content_requires_membership( (string) ( $space['type'] ?? '' ) );
+
+		$gated = '' !== (string) ( $space['required_ability'] ?? '' );
+
+		$ceilings[ $space_id ] = ( $members_only || $gated ) ? 'private' : 'public';
 
 		return $ceilings[ $space_id ];
 	}

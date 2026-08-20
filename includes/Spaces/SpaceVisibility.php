@@ -122,9 +122,30 @@ final class SpaceVisibility {
 	/**
 	 * Whether the viewer may see the space's content (feed, pinned posts, sub-spaces).
 	 *
-	 * Derived from the type's visibility: public content is open to all; private
-	 * and secret content is members-only. Mirrors the feed gate the space home
-	 * already applied, so the REST content routes agree with the page.
+	 * Two questions, and for a long time this answered only the first.
+	 *
+	 * 1. Does the space's TYPE let this viewer in? Public content is open to all;
+	 *    private and secret content is members-only.
+	 * 2. Does the space carry a PLAN GATE the viewer does not hold? Free knows
+	 *    nothing about plans, so it asks through `buddynext_can_view_space_content`
+	 *    — the same seam `FeedService::space_feed()` fires and Pro already answers.
+	 *
+	 * Skipping the second question is why gating a space protected almost nothing.
+	 * `FeedService` asked it, so the space FEED was gated; this method did not, and
+	 * eleven other surfaces resolve through here — pinned posts, sub-spaces, the
+	 * roster, single posts fetched by id, media albums, the sidebar. On an OPEN
+	 * space carrying `required_ability`, a member without the plan (and a logged-out
+	 * visitor) got `true` from every one of them. Reproduced on the site: for a
+	 * free-plan member the feed gate answered false while this answered true.
+	 *
+	 * Asking through the filter rather than reading `required_ability` here is
+	 * deliberate. Free has no way to evaluate an ability, the rule lives in Pro's
+	 * `GatedSpacesIntegration`, and duplicating it would put two answers to one
+	 * question in two plugins — which is exactly how the join gate and the read
+	 * gate came apart in the first place.
+	 *
+	 * The filter can only NARROW: a type-based `false` is passed in as `false` and
+	 * Pro honours it, so this never widens access.
 	 *
 	 * @param array<string, mixed>|null $space     Hydrated space row (SpaceService::get()), or null.
 	 * @param int                       $viewer_id Viewer user ID (0 = logged out).
@@ -135,11 +156,41 @@ final class SpaceVisibility {
 			return false;
 		}
 
-		if ( ! SpaceTypeRegistry::instance()->content_requires_membership( self::type( $space ) ) ) {
-			return true;
+		$can = ! SpaceTypeRegistry::instance()->content_requires_membership( self::type( $space ) )
+			|| self::is_privileged( $space, $viewer_id );
+
+		// Short-circuit on a type-based denial, so the filter is only ever asked to
+		// NARROW. Passing a false through and trusting every listener to return it
+		// unchanged would make this seam a way into private spaces for any plugin
+		// on the site — a bigger hole than the one it was added to close. Pro's own
+		// gate honours an incoming false, but the guarantee has to live here, not
+		// in the good manners of the listener.
+		if ( ! $can ) {
+			return false;
 		}
 
-		return self::is_privileged( $space, $viewer_id );
+		/**
+		 * Filter whether this viewer may see the space's content.
+		 *
+		 * Documented on `FeedService::space_feed()`, which fires the same filter for
+		 * the space feed. Pro answers false when the space carries a
+		 * `required_ability` the viewer does not hold.
+		 *
+		 * @since 1.1.6
+		 *
+		 * Only reached when the space's type already allows the read, so a listener
+		 * can refuse but cannot grant.
+		 *
+		 * @param bool $can       Always true here; the type-based denial returns above.
+		 * @param int  $space_id  Space being read.
+		 * @param int  $viewer_id Viewer, 0 for logged out.
+		 */
+		return (bool) apply_filters(
+			'buddynext_can_view_space_content',
+			true,
+			(int) ( $space['id'] ?? 0 ),
+			$viewer_id
+		);
 	}
 
 	/**
