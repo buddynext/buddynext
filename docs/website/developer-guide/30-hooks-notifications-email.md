@@ -73,11 +73,35 @@ The email channel is driven by `EmailSender`. Event emails render from a `bn_ema
 | `buddynext_email_shell` | filter | Wrapping the email body in the branded HTML shell; return HTML containing the literal `{{email_body}}` token to fully replace the default shell | `string $shell, string $body, string $subject` |
 | `buddynext_queue_email_digest` | action | A notification is routed to a digest queue instead of an immediate send | `int $user_id, string $notification_type, array $data` |
 | `buddynext_send_notification_email` | action | Action Scheduler callback to send a notification email asynchronously | `int $user_id, string $notification_type, array $data` |
+| `buddynext_email_template_catalogue` | filter | Building the list of templates on Settings -> Notifications -> Email Templates | `array $catalogue` |
 
 Details:
 
 - `buddynext_email_payload` receives `$payload` with keys `to`, `subject`, `body`, `headers`. Return the array to modify recipients, subject, or body. Return an array with `'send' => false` to suppress the `wp_mail()` call entirely - Pro broadcast and drip use this to capture the message for batched campaign delivery rather than sending inline. `$template_slug` is the notification type (matches `bn_email_templates.type`); `$context` is the original `$data` array.
 - Sender identity is centralized: `EmailSender::from_name()` and `from_address()` fall back to the site name and admin email when Settings -> Email is blank, and `build_identity_headers()` applies the configured Reply-To as a per-message header so it survives any `wp_mail_from` override.
+- `buddynext_email_template_catalogue` is how a plugin puts its own emails on the owner's editor screen, and it is not cosmetic. That screen writes to `bn_email_templates`, which is where `EmailSender` reads the subject, the body, and the `enabled` flag it checks before sending. **A type absent from the catalogue cannot be switched off by the owner at all** — on a screen that lists every other email the site sends, which reads as "that email does not exist here". Seeding a row is half the feature; this filter is the other half.
+
+  Add a group keyed by its heading. Every key is required, and `tokens` drives the test-send sampler — a token you leave out of it reaches the owner's test email as a literal `{{brace}}`.
+
+  ```php
+  add_filter( 'buddynext_email_template_catalogue', function ( array $catalogue ): array {
+      $catalogue[ __( 'Mentoring', 'my-plugin' ) ] = [
+          'my.mentor_assigned' => [
+              'name'    => __( 'Mentor assigned', 'my-plugin' ),
+              'trigger' => __( 'When a mentor is assigned to a member', 'my-plugin' ),
+              'tokens'  => [ '{{user_name}}', '{{site_name}}', '{{action_url}}', '{{unsubscribe_url}}', '{{mentor_name}}' ],
+              'subject' => 'Meet your mentor, {{mentor_name}}',
+              'preview' => 'Your mentor is ready to say hello',
+              'body'    => '<p>Hi {{user_name}},</p><p>{{mentor_name}} is now your mentor on {{site_name}}.</p><p><a href="{{action_url}}">Say hello</a></p>',
+          ],
+      ];
+
+      return $catalogue;
+  } );
+  ```
+
+  Define this copy **once** and have your installer's seed read the same array. Two literals — one seeded, one for the editor — drift apart silently, and the drift lands in the worst possible place: the owner edits one body and the member receives the other.
+
 - The digest path (`buddynext_queue_email_digest`) appends to a per-user, per-frequency user-meta queue (`buddynext_digest_queue_{freq}`) that a daily or weekly cron later batches. A member's per-type `email_freq` preference (`immediate`, `daily`, `weekly`, `off`) decides whether an event emails immediately, queues for digest, or is suppressed.
 
 ## Examples

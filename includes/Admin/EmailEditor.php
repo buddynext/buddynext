@@ -94,7 +94,7 @@ class EmailEditor {
 	 *   The 'tokens' key holds a list<string>; all other keys are plain strings.
 	 */
 	public function get_catalogue(): array {
-		return array(
+		$catalogue = array(
 			__( 'Social', 'buddynext' )       => array(
 				'bn.new_follower'         => array(
 					'name'    => __( 'New Follower', 'buddynext' ),
@@ -339,6 +339,32 @@ class EmailEditor {
 				),
 			),
 		);
+
+		/**
+		 * The email templates an owner can edit.
+		 *
+		 * This screen writes to `bn_email_templates`, which is where EmailSender
+		 * reads subjects, bodies and — the part that matters most — the `enabled`
+		 * flag it checks before sending. A type absent from this catalogue is
+		 * therefore not merely uneditable: the owner has no way to switch it off
+		 * at all, on a screen that shows them every other email the site sends.
+		 *
+		 * That was the state until now. Pro seeds seven membership templates into
+		 * this table and honours their `enabled` flag correctly, and not one of
+		 * them appeared here, because the catalogue was a closed literal. The
+		 * owner-facing half of the feature simply did not exist, and nothing said
+		 * so — the screen looked complete.
+		 *
+		 * Add a group keyed by its heading, with the same shape as the built-ins.
+		 * Every key is required: `name`, `trigger`, `tokens`, `subject`, `preview`
+		 * and `body`. The `tokens` list drives the test-send sampler, so a token
+		 * left out of it renders as a literal brace in the owner's test email.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param array<string, array<string, array<string, string|list<string>>>> $catalogue Groups of templates.
+		 */
+		return (array) apply_filters( 'buddynext_email_template_catalogue', $catalogue );
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────

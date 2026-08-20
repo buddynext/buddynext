@@ -137,6 +137,19 @@ $this->revoke( $user_id, $tier_slug );
 
 Both fire the same in-process contract the HTTP access webhook fires, so a bridge grant and a webhook grant land in exactly one place and cannot behave differently.
 
+A grant also emails the member, and that is worth knowing before you wire one. The email
+(`bn.subscription_granted`, "Membership added") deliberately follows your partner's own — because
+your partner cannot send it. WooCommerce knows about an order and PMPro about a level; neither
+knows this community exists, so without it the membership simply appears and the member finds it
+only if they happen to look. It says the two things only BuddyNext can say — what they now have
+*here*, and that billing questions belong *there* — and it links to the community, never to a
+pricing page they cannot buy from.
+
+It carries `{{source_label}}` from your `label()` and `{{manage_url}}` from your `manage_url()`,
+so both come out of your bridge rather than being guessed. A site owner who finds it redundant
+switches it off in Settings -> Notifications -> Email Templates; a member switches it off in their
+own preferences. You do not need to send anything yourself, and you should not.
+
 `grant()` takes **no expiry**, deliberately. Your system owns the billing period, and a date copied across at grant time is stale the moment you renew or cancel. The truth arrives as your next event, not as a guess made now — so grant on renewal and revoke on cancellation, which is what your own hooks are for.
 
 ## Reconciliation
@@ -170,5 +183,6 @@ Two things you can do to make it work well for your source:
 | `buddynextpro_external_manage_url` | filter | Where a member manages billing. `AbstractGrantBridge` answers it from `manage_url()`. |
 | `buddynext_ability_granted` | action | The grant contract. Prefer `grant()` — firing this directly skips the source declaration. |
 | `buddynext_ability_revoked` | action | The revoke half. Prefer `revoke()`. |
+| `buddynext_email_template_catalogue` | filter | Where the "Membership added" email becomes editable and switchable by the owner. Pro registers it; you do not need to. |
 
 See also: [Pro and Integration Hooks](33-hooks-pro-and-integration.md) for the wider cross-plugin surface, and [REST and Webhooks](23-rest-webhooks.md) for the HTTP door — the same grant contract, for systems that cannot run PHP in your WordPress process.
