@@ -92,9 +92,10 @@ class WebhookLog {
 	 * @param array<string,mixed> $payload Everything worth keeping, stored as JSON.
 	 *                                     A `source` key is lifted into its own column.
 	 * @param string              $status  self::STATUS_SUCCESS | self::STATUS_ERROR.
+	 * @param string              $signature Signature the call was accepted on; '' when there is none.
 	 * @return void
 	 */
-	public static function write( string $action, int $user_id, array $payload, string $status = self::STATUS_SUCCESS ): void {
+	public static function write( string $action, int $user_id, array $payload, string $status = self::STATUS_SUCCESS, string $signature = '' ): void {
 		global $wpdb;
 
 		if ( ! $wpdb instanceof \wpdb ) {
@@ -118,9 +119,14 @@ class WebhookLog {
 				'user_id'    => $user_id,
 				'payload'    => wp_json_encode( $payload ),
 				'status'     => self::STATUS_ERROR === $status ? self::STATUS_ERROR : self::STATUS_SUCCESS,
+				// The signature the request was accepted on, so a replay of the same
+				// captured call can be recognised. Empty for anything with no
+				// signature to replay: in-process grants, and legacy body-only
+				// requests, which cannot be replay-checked at all.
+				'signature'  => '' !== $signature ? $signature : null,
 				'created_at' => gmdate( 'Y-m-d H:i:s' ),
 			),
-			array( '%s', '%s', '%d', '%s', '%s', '%s' )
+			array( '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
 		);
 	}
 }

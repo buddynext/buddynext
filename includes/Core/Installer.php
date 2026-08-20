@@ -279,8 +279,12 @@ class Installer {
 	 *      query — created_at alone is not unique, so OFFSET paging over same-second reports
 	 *      overlapped pages until the PK tie-break was added. dbDelta ALTER-adds the KEY on
 	 *      upgrade; no data migration.
+	 * v41: bn_webhook_log gains signature CHAR(64) + KEY signature. The access webhook now
+	 *      signs "{timestamp}.{body}" and refuses a signature it has already seen inside the
+	 *      tolerance window, so a captured grant_ability request cannot be replayed to renew a
+	 *      membership forever. Additive; legacy rows keep NULL.
 	 */
-	private const SCHEMA_VERSION = 40;
+	private const SCHEMA_VERSION = 41;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -1289,6 +1293,13 @@ class Installer {
 			// v5: a flat field can be surfaced on the registration form.
 			// v16: load-bearing fields (bio/headline/location) are marked is_system
 			// so they cannot be deleted out from under search + directory + hero.
+			// v41: the signed webhook records the signature it accepted, so a
+			// replay of a captured request can be recognised and refused. Null on
+			// every row written before v41 and on in-process grants, which carry no
+			// signature to replay.
+			'bn_webhook_log'      => array(
+				'signature' => 'ADD COLUMN signature CHAR(64) DEFAULT NULL',
+			),
 			'bn_profile_fields'   => array(
 				'show_on_register' => 'ADD COLUMN show_on_register TINYINT(1) NOT NULL DEFAULT 0',
 				'is_system'        => 'ADD COLUMN is_system TINYINT(1) NOT NULL DEFAULT 0',
@@ -1363,6 +1374,11 @@ class Installer {
 			// exact enough for numeric IDs and short slugs.
 			'bn_profile_values' => array(
 				'field_value' => 'ADD KEY field_value (field_id, value(20))',
+			),
+			// v41: the replay check looks up one signature inside a short time
+			// window on every signed webhook call, so it must not scan the log.
+			'bn_webhook_log'    => array(
+				'signature' => 'ADD KEY signature (signature)',
 			),
 		);
 
@@ -2731,11 +2747,13 @@ class Installer {
 				user_id BIGINT(20) NOT NULL DEFAULT 0,
 				payload LONGTEXT NOT NULL,
 				status VARCHAR(20) NOT NULL DEFAULT 'success',
+				signature CHAR(64) DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY action (action),
 				KEY user_id (user_id),
-				KEY created_at (created_at)
+				KEY created_at (created_at),
+				KEY signature (signature)
 			) {$cs};",
 
 			// ── Activity Log ───────────────────────────────────────────────────
