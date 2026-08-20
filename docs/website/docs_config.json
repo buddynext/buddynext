@@ -248,7 +248,8 @@
         "developer-guide/49-child-theme-template-overrides.md",
         "developer-guide/50-shortcodes.md",
         "developer-guide/51-coming-from-buddypress.md",
-        "developer-guide/52-extending-interactivity-stores.md"
+        "developer-guide/52-extending-interactivity-stores.md",
+        "developer-guide/53-membership-grant-bridges.md"
       ]
     }
   ]

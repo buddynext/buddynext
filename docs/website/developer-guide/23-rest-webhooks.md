@@ -135,3 +135,13 @@ Success response (200):
 - Free is capped at 1 outbound endpoint. To raise the cap in Pro or a custom build, return a higher integer from `buddynext_outbound_webhook_limit`.
 - The inbound `/webhook/access` endpoint signs over the raw request body. Compute the HMAC on the exact bytes you send - any re-serialization (whitespace, key reordering) changes the signature and produces a 401.
 - The two surfaces use different secrets: outbound deliveries are signed with the per-endpoint secret returned at registration; inbound requests are verified against the single `buddynext_webhook_secret` option.
+
+## If your system runs inside this WordPress install
+
+The `/webhook/access` endpoint is the door for a system that cannot run PHP in your process — a hosted CRM, a separate site, a payment platform calling in over HTTP.
+
+A WordPress plugin on the same install should not use it. It would be signing an HTTP request to itself, and it would still have to declare its source, answer for its own name, supply a management URL and survive being deactivated. All of that is already written.
+
+Extend `AbstractGrantBridge` instead — see [Membership Grant Bridges](53-membership-grant-bridges.md). It fires the same grant contract this endpoint fires, so the two doors land in exactly one place and cannot behave differently.
+
+One thing to know if you fire `buddynext_ability_granted` directly rather than through either door: the `$source` argument is honoured **only for a source declared** through `buddynextpro_integration_subscription_sources`. An undeclared source is silently recorded as `manual`, which tells the member their membership was comped and points their Cancel and Manage controls at the wrong system. The grant itself works, so nothing fails and nobody notices.

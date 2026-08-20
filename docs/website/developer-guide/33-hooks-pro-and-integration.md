@@ -26,8 +26,8 @@ The table lists every hook Pro fires. Names are exact. The `consumed_by` column 
 
 | Hook | Type | Fired when | Parameters | consumed_by |
 |---|---|---|---|---|
-| `buddynext_ability_granted` | action | A Stripe `customer.subscription.created`/`.updated`/`invoice.paid` event resolves to an active or trialing subscription. Also fired by Free's access webhook. | `int $user_id, string $ability` (Pro) - Free's `AccessWebhookController` adds a third `string $source` | `buddynext`, `buddynext-pro` |
-| `buddynext_ability_revoked` | action | A Stripe `customer.subscription.deleted` event (or expiry) removes a tier ability. Also fired by Free's access webhook. | `int $user_id, string $ability` | `buddynext` |
+| `buddynext_ability_granted` | action | A Stripe `customer.subscription.created`/`.updated`/`invoice.paid` event resolves to an active or trialing subscription. Also fired by Free's access webhook, and by every membership grant bridge (WooCommerce, Paid Memberships Pro, and any third-party source). | `int $user_id, string $ability, string $source` - Pro's Stripe path omits the third argument; the access webhook and the grant bridges supply it. **`$source` is honoured only when declared** - see the note below. | `buddynext`, `buddynext-pro` |
+| `buddynext_ability_revoked` | action | A Stripe `customer.subscription.deleted` event (or expiry) removes a tier ability. Also fired by Free's access webhook, and by every membership grant bridge. | `int $user_id, string $ability` | `buddynext` |
 | `buddynextpro_stripe_subscription_synced` | action | After any Stripe subscription event has been synced into Pro state (created, updated, deleted, invoice). | `int $user_id, string $tier_slug, array $event` | (none) |
 | `buddynext_pro_subscription_created` | action | A `bn_subscriptions` row is created (the canonical "user became a paying customer" event). | `int $sub_id, int $user_id, int $tier_id, string $source` | (none) |
 | `buddynext_pro_subscription_expired` | action | A subscription lapses (daily expiry cron or webhook). | `int $sub_id, int $user_id, int $tier_id` | (none) |
@@ -303,3 +303,13 @@ add_filter(
 - **REST namespaces are separate.** Pro routes live under `buddynext-pro/v1`; Free under `buddynext/v1`. The PWA manifest and service worker are served from Free's `buddynext/v1` namespace.
 - **An empty `consumed_by` is stable, not private.** Hooks like `buddynext_pro_subscription_created` and `buddynext_pro_broadcast_dispatched` have no first-party listener but are the documented contract for gamification/CRM integrations.
 - **`buddynext_ability_granted` arg count differs by producer.** Free passes three args (`$source` last), Pro passes two. Register for two to stay compatible with both.
+
+## Granting a membership from another system
+
+`buddynext_ability_granted` is the contract a third-party membership system uses to say "this member now holds that plan". It is fired from three places: Pro's own Stripe handling, Free's HTTP access webhook, and every membership grant bridge.
+
+**The `$source` argument is honoured only for a declared source.** `WebhookSubscriptionSync` writes the subscription row, and it accepts `$source` only when that slug has been declared through `buddynextpro_integration_subscription_sources`. An undeclared source is silently recorded as `manual`.
+
+That failure is quiet and expensive. `manual` means "the owner comped this", so the member is told their membership was given to them rather than billed by your system, their Cancel and Manage controls resolve against the wrong place, and the revenue never appears as external billing. The grant works. Nothing errors.
+
+If you are writing a WordPress plugin that grants BuddyNext plans, do not fire this action directly. Extend `BuddyNextPro\Bridges\AbstractGrantBridge`, which declares the source for you, keeps answering for rows it created after your plugin is deactivated, and gets reconciliation and dry-run support for free. See [Membership Grant Bridges](53-membership-grant-bridges.md).
