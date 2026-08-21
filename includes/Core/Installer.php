@@ -1744,12 +1744,6 @@ class Installer {
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your appeal on {{site_name}} has been reviewed and <strong>{{decision}}</strong>.</p><p>If you have questions about this decision, please contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'         => 'bn.unsuspension_confirmation',
-				'subject'      => 'Your {{site_name}} account suspension has been lifted',
-				'preview_text' => 'Welcome back — your suspension has been lifted',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Good news — your account suspension on {{site_name}} has been lifted. You can post and interact with the community again.</p><p>Please review our community guidelines to keep your account in good standing.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
-			),
-			array(
 				'type'         => 'bn.new_report',
 				'subject'      => 'New content report awaiting review on {{site_name}}',
 				'preview_text' => 'A member reported content for moderation',
@@ -1793,8 +1787,62 @@ class Installer {
 			),
 		);
 
+		// Anything the Email Templates screen offers, but this list forgot.
+		//
+		// A type with no row in bn_email_templates CANNOT SEND: EmailSender::send_now()
+		// looks the row up and returns false when it is absent - silently, with no log
+		// line and no notice, and the in-app notification has already been written so
+		// the bell looks right. Fourteen emailable types were in that state, including
+		// every moderation message: warned, content removed, post rejected, reinstated.
+		//
+		// The cause is two hand-maintained lists. This one seeds rows; EmailEditor's
+		// catalogue defines what an owner can edit. Nothing kept them in step, and
+		// bn.space_ownership_received had drifted out of this one while sitting in the
+		// other - editable on screen, unable to send.
+		//
+		// So the catalogue is now the backstop: every entry it defines gets a row, with
+		// its own default copy. Adding a template there is enough; forgetting to add it
+		// here can no longer cost a member their mail.
+		if ( class_exists( '\\BuddyNext\\Admin\\EmailEditor' ) ) {
+			$known = array_column( $templates, 'type' );
+
+			foreach ( ( new \BuddyNext\Admin\EmailEditor() )->get_catalogue() as $group ) {
+				foreach ( (array) $group as $type => $tpl ) {
+					if ( in_array( (string) $type, $known, true ) ) {
+						continue;
+					}
+
+					$templates[] = array(
+						'type'         => (string) $type,
+						'subject'      => (string) ( $tpl['subject'] ?? '' ),
+						'preview_text' => (string) ( $tpl['preview'] ?? '' ),
+						'body_html'    => wpautop( (string) ( $tpl['body'] ?? '' ) ),
+					);
+				}
+			}
+		}
+
 		// Table name is a hardcoded constant — safe to interpolate. Values use prepare().
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// The old slug is deliberately absent from $templates above - leaving it there
+		// re-inserted it on the very next run, immediately undoing the rename below and
+		// leaving BOTH rows in the table. Caught on the dev site by reading the rows
+		// after running the seeder rather than trusting that the UPDATE had settled it.
+		//
+		// A rename, not a new template: bn.unsuspension_confirmation was seeded and
+		// editable, and NOTHING ever sent it - the type that actually fires when a
+		// suspension is lifted is bn.user_unsuspended, which had no template at all.
+		// One message under two names, each missing the other half. Migrated rather
+		// than re-seeded so an owner's edits to the copy survive.
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE IGNORE `{$p}bn_email_templates` SET type = %s WHERE type = %s",
+				'bn.user_unsuspended',
+				'bn.unsuspension_confirmation'
+			)
+		);
+
 		foreach ( $templates as $tpl ) {
 			$wpdb->query(
 				$wpdb->prepare(
