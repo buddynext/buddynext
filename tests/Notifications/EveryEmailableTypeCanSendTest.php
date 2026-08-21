@@ -45,6 +45,18 @@ use WP_UnitTestCase;
 class EveryEmailableTypeCanSendTest extends WP_UnitTestCase {
 
 	/**
+	 * WP core options `Installer::run()` legitimately writes, restored after.
+	 *
+	 * run() mirrors BuddyNext's open-registration default onto core's
+	 * users_can_register on a fresh install - deliberate, documented, and a side
+	 * effect these tests must not leak. Calling run() repeatedly here flipped it and
+	 * broke CoreRegistrationTest, which passed alone and failed in the suite.
+	 *
+	 * @var array<string,mixed>
+	 */
+	private array $core_options = array();
+
+	/**
 	 * Start every test from an empty templates table.
 	 *
 	 * Without this the suite proves nothing: rows seeded by an earlier run persist in
@@ -61,10 +73,31 @@ class EveryEmailableTypeCanSendTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 
+		foreach ( array( 'users_can_register', 'buddynext_reg_mode' ) as $option ) {
+			$this->core_options[ $option ] = get_option( $option );
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_email_templates" );
+	}
+
+	/**
+	 * Put back the core options run() writes.
+	 *
+	 * @return void
+	 */
+	public function tear_down(): void {
+		foreach ( $this->core_options as $option => $value ) {
+			if ( false === $value ) {
+				delete_option( $option );
+			} else {
+				update_option( $option, $value );
+			}
+		}
+
+		parent::tear_down();
 	}
 
 	/**

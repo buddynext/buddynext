@@ -65,12 +65,28 @@ use WP_UnitTestCase;
 class SchemaFailureIsNotSuccessTest extends WP_UnitTestCase {
 
 	/**
+	 * WP core options `Installer::run()` legitimately writes, restored after.
+	 *
+	 * run() mirrors BuddyNext's open-registration default onto core's
+	 * users_can_register on a fresh install - deliberate, documented, and a side
+	 * effect these tests must not leak. Calling run() repeatedly here flipped it and
+	 * broke CoreRegistrationTest, which passed alone and failed in the suite.
+	 *
+	 * @var array<string,mixed>
+	 */
+	private array $core_options = array();
+
+	/**
 	 * Clear recorded failure state between tests.
 	 *
 	 * @return void
 	 */
 	public function set_up(): void {
 		parent::set_up();
+
+		foreach ( array( 'users_can_register', 'buddynext_reg_mode' ) as $option ) {
+			$this->core_options[ $option ] = get_option( $option );
+		}
 
 		delete_option( Installer::SCHEMA_FAILURE_OPTION );
 	}
@@ -82,6 +98,14 @@ class SchemaFailureIsNotSuccessTest extends WP_UnitTestCase {
 	 */
 	public function tear_down(): void {
 		delete_option( Installer::SCHEMA_FAILURE_OPTION );
+
+		foreach ( $this->core_options as $option => $value ) {
+			if ( false === $value ) {
+				delete_option( $option );
+			} else {
+				update_option( $option, $value );
+			}
+		}
 
 		parent::tear_down();
 	}
