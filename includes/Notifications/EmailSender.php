@@ -342,9 +342,12 @@ class EmailSender {
 			$payload['to'],
 			$payload['subject'],
 			$payload['body'],
-			(array) $payload['headers']
+			(array) $payload['headers'],
+			self::LOG_HANDLED_BY_CALLER
 		);
 
+		// One row, with the real type and the known user id. See
+		// LOG_HANDLED_BY_CALLER for why the inner logger has to be told to stand down.
 		$this->log_sent( $user_id, $notification_type );
 
 		// Report the actual wp_mail() outcome so callers (broadcast/drip) can
@@ -440,6 +443,28 @@ class EmailSender {
 	}
 
 	/**
+	 * $log_type value meaning "the caller writes its own log row".
+	 *
+	 * Not a type that is ever stored. send_now() knows the recipient's user id and
+	 * the real notification type, so it logs the send itself and passes this to stop
+	 * send_with_identity() writing a second, worse row.
+	 *
+	 * Worse in two ways: it was typed 'transactional' rather than the real event,
+	 * and it resolves the recipient by email lookup where the caller already has the
+	 * id. Every catalogue-driven email therefore produced TWO rows - one correct,
+	 * one phantom - which roughly doubled the apparent send volume in the admin
+	 * Email Log and filled its "transactional" filter with copies of every other
+	 * event type. Not a double SEND: wp_mail() ran once and members received one
+	 * email. The log was the only casualty, and it is the record an owner checks
+	 * when they are asked whether an email went out.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var string
+	 */
+	public const LOG_HANDLED_BY_CALLER = '__caller_logs__';
+
+	/**
 	 * Dispatch an email through wp_mail() with the BuddyNext sender identity.
 	 *
 	 * Applies the configured From name and From address (Settings → Email) via
@@ -524,7 +549,7 @@ class EmailSender {
 
 		// Record the send in bn_email_log so identity sends (auth lifecycle,
 		// invites, 2FA, reset, test) appear in the log alongside template emails.
-		if ( $sent ) {
+		if ( $sent && self::LOG_HANDLED_BY_CALLER !== $log_type ) {
 			self::log_identity_send( $to, '' !== $log_type ? $log_type : 'transactional' );
 		}
 

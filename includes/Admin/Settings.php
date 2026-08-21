@@ -694,25 +694,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'hint'         => __( 'Automatically delete records older than this: activity log, closed moderation reports, and (with Pro) analytics events. Open reports and the moderation log are never deleted.', 'buddynext' ),
 						)
 					),
-					new Field(
-						array(
-							'key'     => 'buddynext_log_retention_days',
-							'type'    => 'select',
-							'label'   => __( 'Notification & email log retention', 'buddynext' ),
-							'default' => 60,
-							'choices' => array(
-								30 => __( '30 days', 'buddynext' ),
-								60 => __( '60 days', 'buddynext' ),
-								90 => __( '90 days', 'buddynext' ),
-							),
-							// This option already existed and already ran — it simply had NO UI,
-							// so the owner had no way to see or change the window that actually
-							// governed these two tables. It is the fastest-growing pair on a big
-							// install (one row per notification, one per email), and it was being
-							// pruned on a value nobody could reach.
-							'hint'    => __( 'How long to keep read notifications and the email log. These are the fastest-growing tables on a busy community, so they are kept on a shorter window than the rest. Unread notifications are kept longer, so nothing a member has not seen is deleted early.', 'buddynext' ),
-						)
-					),
+					// NOTE: a second control for buddynext_log_retention_days used to sit
+					// here, labelled "Notification & email log retention" against the one
+					// below's "Notification and email log retention". Two fields, one
+					// option, different choice text - so the screen showed the same
+					// setting twice, disagreeing with itself, and whichever the owner
+					// changed silently moved the other.
+					//
+					// The survivor is the one below. It keys off
+					// LogRetentionService::OPTION rather than repeating the literal, takes
+					// its default from DEFAULT_WINDOW, and its hint says the three things
+					// that actually surprise people: that it DELETES, that unread
+					// notifications are exempt, and that it cannot be undone.
 					new Field(
 						array(
 							'key'     => \BuddyNext\Core\LogRetentionService::OPTION,
@@ -3253,7 +3246,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 								</button>
 							</td>
 							<td data-colname="<?php esc_attr_e( 'Events', 'buddynext' ); ?>">
-								<?php echo esc_html( implode( ', ', array_map( 'sanitize_key', $hook_events ) ) ); ?>
+								<?php
+								// No sanitize_key() here. It is an INPUT sanitiser that strips
+								// everything outside [a-z0-9_-] - including the dot in every
+								// event slug - so "member.registered" rendered as
+								// "memberregistered", and two events as one unreadable run
+								// ("postcreatedpostdeleted"). esc_html() is what makes this
+								// safe to print; the map only corrupted it.
+								echo esc_html( implode( ', ', array_map( 'strval', $hook_events ) ) );
+								?>
 							</td>
 							<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>">
 								<?php
