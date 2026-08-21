@@ -23,6 +23,8 @@
  * @var array          $mutual_avatars     Optional. Up to ~3 mutual descriptors [ 'name', 'avatar_url' ] for the pile. Default [].
  * @var string         $presence           Optional. 'online' or 'offline'. Default 'offline'.
  * @var string         $member_type_label  Optional. Member-type display name. Default ''.
+ * @var string         $member_type_color  Optional. Owner-configured badge background. Default ''.
+ * @var string         $member_type_text_color Optional. Owner-configured badge text colour. Default ''.
  * @var string         $avatar_tone        Optional. Avatar tone slot. Default 'accent'.
  * @var string         $bio                Optional. Pre-resolved bio string. Default ''.
  * @var string         $profile_url        Optional. Profile permalink. Default ''.
@@ -50,32 +52,34 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $args = array(
-	'member'            => isset( $member ) ? $member : null,
-	'viewer_id'         => isset( $viewer_id ) ? (int) $viewer_id : 0,
-	'is_following'      => isset( $is_following ) ? (bool) $is_following : false,
-	'connection_state'  => isset( $connection_state ) ? (string) $connection_state : 'none',
-	'connection_status' => isset( $connection_status ) ? (string) $connection_status : 'none',
-	'is_muted'          => isset( $is_muted ) ? (bool) $is_muted : false,
-	'mutual_count'      => isset( $mutual_count ) ? (int) $mutual_count : 0,
-	'mutual_avatars'    => isset( $mutual_avatars ) && is_array( $mutual_avatars ) ? $mutual_avatars : array(),
-	'degree'            => isset( $degree ) ? (int) $degree : 0,
-	'presence'          => isset( $presence ) ? (string) $presence : 'offline',
-	'member_type_label' => isset( $member_type_label ) ? (string) $member_type_label : '',
-	'member_type_icon'  => isset( $member_type_icon ) ? (string) $member_type_icon : '',
-	'avatar_tone'       => isset( $avatar_tone ) ? (string) $avatar_tone : 'accent',
-	'bio'               => isset( $bio ) ? (string) $bio : '',
-	'profile_url'       => isset( $profile_url ) ? (string) $profile_url : '',
-	'cover_url'         => isset( $cover_url ) ? (string) $cover_url : '',
-	'avatar_url'        => isset( $avatar_url ) ? (string) $avatar_url : '',
-	'initials'          => isset( $initials ) ? (string) $initials : '',
-	'messages_url'      => isset( $messages_url ) ? (string) $messages_url : '',
-	'classes'           => isset( $classes ) ? (array) $classes : array(),
+	'member'                 => isset( $member ) ? $member : null,
+	'viewer_id'              => isset( $viewer_id ) ? (int) $viewer_id : 0,
+	'is_following'           => isset( $is_following ) ? (bool) $is_following : false,
+	'connection_state'       => isset( $connection_state ) ? (string) $connection_state : 'none',
+	'connection_status'      => isset( $connection_status ) ? (string) $connection_status : 'none',
+	'is_muted'               => isset( $is_muted ) ? (bool) $is_muted : false,
+	'mutual_count'           => isset( $mutual_count ) ? (int) $mutual_count : 0,
+	'mutual_avatars'         => isset( $mutual_avatars ) && is_array( $mutual_avatars ) ? $mutual_avatars : array(),
+	'degree'                 => isset( $degree ) ? (int) $degree : 0,
+	'presence'               => isset( $presence ) ? (string) $presence : 'offline',
+	'member_type_label'      => isset( $member_type_label ) ? (string) $member_type_label : '',
+	'member_type_color'      => isset( $member_type_color ) ? (string) $member_type_color : '',
+	'member_type_text_color' => isset( $member_type_text_color ) ? (string) $member_type_text_color : '',
+	'member_type_icon'       => isset( $member_type_icon ) ? (string) $member_type_icon : '',
+	'avatar_tone'            => isset( $avatar_tone ) ? (string) $avatar_tone : 'accent',
+	'bio'                    => isset( $bio ) ? (string) $bio : '',
+	'profile_url'            => isset( $profile_url ) ? (string) $profile_url : '',
+	'cover_url'              => isset( $cover_url ) ? (string) $cover_url : '',
+	'avatar_url'             => isset( $avatar_url ) ? (string) $avatar_url : '',
+	'initials'               => isset( $initials ) ? (string) $initials : '',
+	'messages_url'           => isset( $messages_url ) ? (string) $messages_url : '',
+	'classes'                => isset( $classes ) ? (array) $classes : array(),
 	// Presentation knobs. All three default to the directory's card, so every
 	// existing caller is unchanged; the featured-member block is the only one
 	// that sets them.
-	'compact'           => ! empty( $compact ),
-	'show_actions'      => ! isset( $show_actions ) || (bool) $show_actions,
-	'show_stats'        => ! isset( $show_stats ) || (bool) $show_stats,
+	'compact'                => ! empty( $compact ),
+	'show_actions'           => ! isset( $show_actions ) || (bool) $show_actions,
+	'show_stats'             => ! isset( $show_stats ) || (bool) $show_stats,
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -118,11 +122,19 @@ $bn_is_muted      = (bool) $args['is_muted'];
 $bn_mutual        = (int) $args['mutual_count'];
 $bn_presence_attr = (string) $args['presence'];
 $bn_type_label    = (string) $args['member_type_label'];
-$bn_type_icon     = \BuddyNext\MemberTypes\MemberTypeService::render_icon_svg( (string) $args['member_type_icon'] );
-$bn_avatar_tone   = (string) $args['avatar_tone'];
-$bn_bio           = (string) $args['bio'];
-$bn_profile_url   = (string) $args['profile_url'];
-$bn_cover_url     = (string) $args['cover_url'];
+$bn_type_color    = (string) $args['member_type_color'];
+$bn_type_text     = (string) $args['member_type_text_color'];
+// Inline, exactly as profile-hero.php does. data-tone="accent" alone loses the
+// owner's colour pair to var(--bn-accent-700), which is a DARK ink - so a badge
+// configured dark-on-white rendered dark-on-light and could not be read.
+$bn_type_style  = ( '' !== $bn_type_color && '' !== $bn_type_text )
+	? sprintf( ' style="background:%s;color:%s;"', esc_attr( $bn_type_color ), esc_attr( $bn_type_text ) )
+	: '';
+$bn_type_icon   = \BuddyNext\MemberTypes\MemberTypeService::render_icon_svg( (string) $args['member_type_icon'] );
+$bn_avatar_tone = (string) $args['avatar_tone'];
+$bn_bio         = (string) $args['bio'];
+$bn_profile_url = (string) $args['profile_url'];
+$bn_cover_url   = (string) $args['cover_url'];
 
 // Honour the member's who_can_follow preference so the Follow button is hidden
 // when they accept no follows (and the viewer is not already a follower).
@@ -313,7 +325,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 	?>
 
 	<?php if ( '' !== $bn_type_label ) : ?>
-		<span class="bn-badge bn-md-card__type" data-tone="accent">
+		<span class="bn-badge bn-md-card__type" data-tone="accent"<?php echo $bn_type_style; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- both values esc_attr()-escaped above. ?>>
 			<?php if ( '' !== $bn_type_icon ) : ?>
 				<span class="bn-type-badge__icon" aria-hidden="true"><?php echo $bn_type_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses-sanitized by MemberTypeService::render_icon_svg(). ?></span>
 			<?php endif; ?>

@@ -325,8 +325,12 @@ class CommentController extends BaseRestController {
 			$comment['can_edit']        = $viewer_id > 0
 				&& ( (int) $comment['user_id'] === $viewer_id || user_can( $viewer_id, 'manage_options' ) );
 			$comment['can_delete']      = $comment['can_edit'];
-			$comment['can_pin']         = $can_pin_object;
-			$comment['is_pinned']       = ( $pinned_id > 0 && (int) $comment['id'] === $pinned_id );
+			// Per-object permission AND top-level, because pin() itself refuses a
+			// reply. Sending can_pin=true for every reply rendered a Pin button on
+			// each one that could only ever return 403 - a control that is visible,
+			// enabled, and guaranteed to fail.
+			$comment['can_pin']   = $can_pin_object && empty( $comment['parent_id'] );
+			$comment['is_pinned'] = ( $pinned_id > 0 && (int) $comment['id'] === $pinned_id );
 
 			$comment['author_meta_html'] = wp_kses_post(
 				(string) apply_filters(

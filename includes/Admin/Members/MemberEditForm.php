@@ -570,10 +570,16 @@ class MemberEditForm {
 	 * @return void
 	 */
 	private function render_flat_field_input( array $field ): void {
-		$key     = sanitize_key( (string) ( $field['field_key'] ?? '' ) );
-		$label   = (string) ( $field['label'] ?? $key );
-		$type    = sanitize_key( (string) ( $field['type'] ?? 'text' ) );
-		$raw_val = $field['value'] ?? '';
+		$key   = sanitize_key( (string) ( $field['field_key'] ?? '' ) );
+		$label = (string) ( $field['label'] ?? $key );
+		$type  = sanitize_key( (string) ( $field['type'] ?? 'text' ) );
+		// value_raw, not value: view_value() reduces a date to its display form
+		// ("36 years old", "1990") as it enters the payload, so an edit input reading
+		// `value` prefills with prose or nothing. value_raw is the real stored date and
+		// is owner-only - which works here because render_edit_member_view() asks for
+		// the member's OWN view (get_profile( $user_id, $user_id )). Same pattern as
+		// templates/profile/edit.php.
+		$raw_val = $field['value_raw'] ?? ( $field['value'] ?? '' );
 		$value   = is_array( $raw_val ) ? $raw_val : (string) $raw_val;
 		$options = array();
 		if ( isset( $field['options'] ) && is_array( $field['options'] ) ) {
@@ -788,10 +794,11 @@ class MemberEditForm {
 	 * @return void
 	 */
 	private function render_repeater_field_input( string $group_key, int $entry_idx, array $field ): void {
-		$key      = sanitize_key( (string) ( $field['field_key'] ?? '' ) );
-		$label    = (string) ( $field['label'] ?? $key );
-		$type     = sanitize_key( (string) ( $field['type'] ?? 'text' ) );
-		$value    = (string) ( $field['value'] ?? '' );
+		$key   = sanitize_key( (string) ( $field['field_key'] ?? '' ) );
+		$label = (string) ( $field['label'] ?? $key );
+		$type  = sanitize_key( (string) ( $field['type'] ?? 'text' ) );
+		// See render_flat_field_input() - repeater date sub-fields reduce identically.
+		$value    = (string) ( $field['value_raw'] ?? ( $field['value'] ?? '' ) );
 		$name     = esc_attr( $group_key ) . '[' . absint( $entry_idx ) . '][' . esc_attr( $key ) . ']';
 		$input_id = 'bn-pf-' . esc_attr( $group_key ) . '-' . absint( $entry_idx ) . '-' . esc_attr( $key );
 		?>
