@@ -137,6 +137,23 @@ Each plan card on the Tiers tab carries the controls you need:
 - Edit - opens the full form to change name, description, pricing, status, sort order, and perks. The plan's identifier is fixed and shown read-only.
 - Delete - removes the plan permanently. Any active subscriptions on that plan are cancelled at the same time, so members lose access cleanly; cancelled and expired records are kept for your billing history.
 
+#### The four statuses
+
+| Status | On the pricing page? | Can someone subscribe? |
+|---|---|---|
+| **Active** | Yes | Yes |
+| **Unlisted** | No | **Yes**, with the link |
+| Inactive | No | No |
+| Archived | No | No |
+
+**Unlisted (1.1.5) is a live plan that is simply not advertised.** It does not appear on the pricing page, but anyone who has its link can still subscribe and be charged - so treat the link as the offer. Use it for a negotiated rate, a legacy price you are honouring, a partner tier, or a plan you are testing before announcing.
+
+The plan's own edit screen shows the link to share. Members already on the plan keep it whether it is Active or Unlisted, so moving a plan to Unlisted quietly closes it to new sign-ups without disturbing anyone who already pays for it.
+
+The pricing page will render an unlisted plan when the link names it explicitly (`?plan=<id>`), and only that one - every other unlisted plan stays hidden, and a visitor without the link sees nothing extra.
+
+> **It is not a way to hide a plan.** An unlisted plan is live and taking money. If you want a plan to stop selling, set it Inactive.
+
 
 ### Review and manage subscriptions
 
@@ -145,8 +162,17 @@ The Subscriptions tab is your record of who has access. It lists each subscripti
 - Filter by status - switch between All, Active, Expired, and Cancelled.
 - Filter by tier - narrow the list to one plan.
 - Revoke - on an active subscription, immediately ends access. The record moves to Expired.
+- **Export to CSV (1.1.5)** - downloads the list carrying whichever filters are on screen, so you export what you are looking at rather than everything. The Orders screen has the same button.
 
-A subscription's source tells you how it was created: a gateway name (such as Stripe) for a paid purchase, or Manual for access you granted outside checkout.
+A subscription's source tells you how it was created: a gateway name (such as Stripe) for a paid purchase, or Manual for access you granted outside checkout. A membership granted by another system - WooCommerce, Paid Memberships Pro, or any integration that uses the source contract - is named as that source and is deliberately **not** counted as revenue this site collected.
+
+#### Money received, not just projected (1.1.5)
+
+The Billing screen shows a **Received** figure alongside MRR and ARR. The distinction matters: MRR and ARR are projections of what recurring plans should bring in, while Received is money that actually arrived. A month with failed payments, refunds or a batch of externally-granted memberships will show the two diverging, and that gap is the number worth looking at.
+
+#### One member's payment history (1.1.5)
+
+The edit-member screen carries that member's recent payments and links through to their full order history, so a support question about a charge does not mean searching the Orders table by hand.
 
 > **Note:** Subscriptions expire automatically. A daily background job flips any subscription whose expiry date has passed to Expired and re-locks the content it unlocked. Subscriptions with no expiry date never time out.
 

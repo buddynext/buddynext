@@ -87,6 +87,23 @@ Once the webhook is connected, BuddyNext keeps each member's access current auto
 
 BuddyNext links each Stripe customer to the matching member on your site. The first time it sees a new customer, it matches them by email, so every update after that resolves to the right member instantly.
 
+### Refunds, whole or partial (1.1.5)
+
+Refund an order from the Orders screen. Leave the amount blank to refund everything still outstanding, or type a smaller figure to refund part of it.
+
+The distinction decides what happens to access:
+
+- **A partial refund adjusts the price and leaves the membership alone.** The member keeps what they paid for. Use it for a goodwill gesture, a pro-rata adjustment, or a disputed extra.
+- **A full refund ends access**, exactly as it always did.
+
+Only a **paid** order can be refunded, and refunds accumulate: BuddyNext tracks how much of an order has already been returned and will not let the total exceed what was charged, so two partial refunds cannot quietly over-refund an order. The money is returned through the gateway that took it.
+
+### Free trials start at the provider (1.1.5)
+
+If a plan advertises a free trial, the trial is now created **at the payment provider** rather than only being recorded locally. Previously a plan could promise a trial and still charge the card in full on day one, because the trial length never reached Stripe.
+
+A gateway that cannot start a trial now **declines the sale** rather than charging. That is deliberate: refusing a sale is recoverable, and charging someone who was promised a free trial is not.
+
 ### Hosted checkout
 
 When a member buys a tier, BuddyNext creates a Stripe Checkout session and sends them to Stripe's hosted payment page. The session carries the tier and member identity so the webhook can grant the right access on completion. Any BuddyNext coupon or tax is applied to the price before checkout, so Stripe is charged the final amount - discounts are handled by BuddyNext, not by a Stripe coupon. After paying, the member is returned to the My Membership page with a confirmation; if they cancel at Stripe, they land back on the pricing page. Both pages are provisioned automatically when Monetization is enabled (see Membership Tiers).
