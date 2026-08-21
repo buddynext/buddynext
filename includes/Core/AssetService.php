@@ -548,6 +548,18 @@ class AssetService {
 			$this->module_version( 'js/vendor/qrcode.js' )
 		);
 
+		// `@buddynext/popover` keeps an absolutely-positioned popover inside the
+		// viewport. Chrome rather than feed logic — it lived in feed/shared.js
+		// until the spaces sort + notification popovers needed it, and a spaces
+		// store importing `@buddynext/feed-shared` for it would have implied a
+		// dependency that is not really there.
+		wp_register_script_module(
+			'@buddynext/popover',
+			$this->assets_url . 'js/shell/popover.js',
+			array(),
+			$this->module_version( 'js/shell/popover.js' )
+		);
+
 		// `@buddynext/nav-init` exposes onNavReady() — the uniform init binder
 		// every store uses so imperative setup re-runs after a client-side
 		// navigation (buddynext:navigated), not only on DOMContentLoaded.
@@ -619,6 +631,7 @@ class AssetService {
 				array( 'id' => '@buddynext/shell-dialog' ),
 				array( 'id' => '@buddynext/rest-client' ),
 				array( 'id' => '@buddynext/feed-shared' ),
+				array( 'id' => '@buddynext/popover' ),
 			),
 			$this->module_version( 'js/feed/post-card.js' )
 		);
@@ -632,6 +645,7 @@ class AssetService {
 				array( 'id' => '@buddynext/nav-init' ),
 				array( 'id' => '@buddynext/upload-core' ),
 				array( 'id' => '@buddynext/feed-shared' ),
+				array( 'id' => '@buddynext/popover' ),
 			),
 			$this->module_version( 'js/feed/composer.js' )
 		);
@@ -691,6 +705,11 @@ class AssetService {
 			);
 			if ( in_array( $id, $shell_dialog_consumers, true ) ) {
 				$deps[] = array( 'id' => '@buddynext/shell-dialog' );
+			}
+			// The spaces store clamps its sort + notification popovers back inside
+			// the viewport; declared so WP emits the import-map entry.
+			if ( '@buddynext/spaces' === $id ) {
+				$deps[] = array( 'id' => '@buddynext/popover' );
 			}
 			// The feed paginates by letting the Interactivity Router swap its region
 			// (actions.loadMore) — the only supported way to add cards that are actually

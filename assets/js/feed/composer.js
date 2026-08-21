@@ -19,7 +19,8 @@ import { bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '@buddynext/upload-core';
-import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime, bnClampPopoverToViewport } from '@buddynext/feed-shared';
+import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime } from '@buddynext/feed-shared';
+import { bnClampPopoverToViewport } from '@buddynext/popover';
 
 /* ── Post composer ───────────────────────────────────────────────────────── */
 

@@ -2,6 +2,7 @@
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
+import { bnClampPopoverToViewport } from '@buddynext/popover';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1602,6 +1603,10 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( list.hasAttribute( 'hidden' ) ) {
 				list.removeAttribute( 'hidden' );
 				trigger.setAttribute( 'aria-expanded', 'true' );
+				// The bell is the FIRST control in the hero action row, so
+				// end-pinning puts the 200px list ~127px off the start edge at
+				// 390px — a blank sliver, which is how this was reported.
+				bnClampPopoverToViewport( list );
 			} else {
 				list.setAttribute( 'hidden', '' );
 				trigger.setAttribute( 'aria-expanded', 'false' );
@@ -1843,6 +1848,11 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( open ) {
 				list.removeAttribute( 'hidden' );
 				trigger.setAttribute( 'aria-expanded', 'true' );
+				// The chip is full-width below 480px (end-pinning correct), a
+				// 128px chip at the start of the row from 481px (list lands at
+				// -80px), and sidebar-indented from ~1024px (correct again).
+				// No static inset covers all three - measure and shift.
+				bnClampPopoverToViewport( list );
 			} else {
 				list.setAttribute( 'hidden', '' );
 				trigger.setAttribute( 'aria-expanded', 'false' );

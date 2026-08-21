@@ -1339,6 +1339,11 @@ a.bn-sh-statpill:focus-visible {
 .bn-sh-side-meta {
 	display: flex;
 	flex-direction: column;
+	/* Hug the content. A column flex container defaults to align-items:stretch,
+	   which blockifies its items across the cross axis - so the privacy .bn-badge
+	   rendered as a full-width 245px bar instead of a 46px pill, while the SAME
+	   class in the hero (a ROW flex, where stretch affects height) looked right. */
+	align-items: flex-start;
 	gap: var(--bn-s2);
 	padding-block-start: var(--bn-s3);
 	border-block-start: 1px solid var(--bn-line-faint);
