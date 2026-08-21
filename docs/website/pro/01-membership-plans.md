@@ -1,29 +1,29 @@
-# Membership Tiers
+# Membership Plans
 
-Membership tiers are the plans, free or paid, that you offer your community. Each tier carries a price, a billing schedule, and a set of perks (the features and limits it unlocks), and members subscribe to a tier to get what it includes.
+Membership plans are the plans, free or paid, that you offer your community. Each plan carries a price, a billing schedule, and a set of perks (the features and limits it unlocks), and members subscribe to a plan to get what it includes.
 
-![The Monetization Plans admin tab where you define membership tiers, pricing, and perks](../images/admin-tiers.webp)
+![The Monetization Plans admin tab where you define membership plans, pricing, and perks](../images/admin-plans.webp)
 
-![The member-facing pricing page - each tier with its price, perks and a subscribe button](../images/membership-pricing.webp)
+![The member-facing pricing page - each plan with its price, perks and a subscribe button](../images/membership-pricing.webp)
 
 ![The Monetization → Subscriptions admin tab listing active member subscriptions](../images/admin-subscriptions.webp)
 
-![A space home members unlock by subscribing to a paid membership tier](../images/space-home.webp)
+![A space home members unlock by subscribing to a paid membership plan](../images/space-home.webp)
 
-> **Before you start:** Membership tiers come with BuddyNext Pro. You need BuddyNext Pro active, and to take real payments you also need a payment gateway connected (see Requirements below). Even without a gateway you can still create tiers and grant access by hand, which is handy while you set things up.
+> **Before you start:** Membership plans come with BuddyNext Pro. You need BuddyNext Pro active, and to take real payments you also need a payment gateway connected (see Requirements below). Even without a gateway you can still create plans and grant access by hand, which is handy while you set things up.
 
 ## Why use it
 
-Turning your community into a place people happily pay for is one of the most rewarding things you can do as an owner, and membership tiers are how you do it without leaving WordPress. You define the offer once, members choose the plan that fits them, and everyone gets a clear deal: pay this, get that.
+Turning your community into a place people happily pay for is one of the most rewarding things you can do as an owner, and membership plans are how you do it without leaving WordPress. You define the offer once, members choose the plan that fits them, and everyone gets a clear deal: pay this, get that.
 
-Use tiers when you want to:
+Use plans when you want to:
 
 - Charge for access to premium areas of your community (see Gating Spaces).
 - Offer a paid plan that lifts limits free members hit - more spaces they can create, more pinned posts, larger group messages.
 - Run a free plan and one or more paid plans side by side, so members can self-upgrade when they need more.
 - Sell a one-time pass or a recurring monthly or yearly subscription, with an optional free trial.
 
-For the member, a tier is a clear promise. For you, it is a single place to define the offer, see who is subscribed, and step in when you need to extend or revoke access. The same tier definition drives the pricing page members see, the access checks across the community, and the reports you review.
+For the member, a plan is a clear promise. For you, it is a single place to define the offer, see who is subscribed, and step in when you need to extend or revoke access. The same plan definition drives the pricing page members see, the access checks across the community, and the reports you review.
 
 ## How it works (for members)
 
@@ -62,18 +62,18 @@ To surface a compact version of this plan summary on another page, the shortcode
 
 Monetization is an optional layer and is off by default with Pro. You turn the whole layer on or off under Platform → Features ("Memberships & monetization"): while it is off, the pricing and My Membership pages, checkout, and gated content are all disabled; when you turn it on, the pages are created automatically.
 
-All tier and subscription management lives in wp-admin under BuddyNext, in the Monetization section. You manage plans, review subscriptions, issue coupons, configure the upgrade prompt and connect gateways across five tabs: Plans, Subscriptions, Coupons, Paywall and Payment Gateways. (Paywall is covered in Gating Spaces, coupons and tax in Coupons and Tax, and gateways in Payment Gateways.)
+All plan and subscription management lives in wp-admin under BuddyNext, in the Monetization section. You manage plans, review subscriptions, issue coupons, configure the upgrade prompt and connect gateways across five tabs: Plans, Subscriptions, Coupons, Paywall and Payment Gateways. (Paywall is covered in Gating Spaces, coupons and tax in Coupons and Tax, and gateways in Payment Gateways.)
 
-### Create a tier
+### Create a plan
 
-Open the Plans tab and choose Add Plan. A tier is defined by three groups of settings: plan details, pricing and billing, and perks.
+Open the Plans tab and choose Add Plan. A plan is defined by three groups of settings: plan details, pricing and billing, and perks.
 
 #### Plan details
 
 | Setting | What it does | Default |
 |---|---|---|
 | Plan Name | The display name members see on the pricing page. Up to 120 characters. | (empty - required) |
-| Slug | A short, unique identifier for the plan, using lowercase letters, digits, and hyphens. It is fixed once the tier is created, so choose it with care. | (empty - required) |
+| Slug | A short, unique identifier for the plan, using lowercase letters, digits, and hyphens. It is fixed once the plan is created, so choose it with care. | (empty - required) |
 | Description | A short summary shown under the plan name on the pricing page. | (empty) |
 | Status | Controls whether the plan is live. Only Active plans appear on the pricing page. Options: Active, Inactive, Archived. | Inactive |
 | Sort Order | Orders plans on admin and pricing surfaces. Lower numbers appear first. | 0 |
@@ -89,7 +89,7 @@ Open the Plans tab and choose Add Plan. A tier is defined by three groups of set
 | Billing Interval | How often a recurring plan bills, or whether it is a single charge. Options: Monthly, Yearly, Once. | Monthly |
 | This is a free plan | Marks the plan as free and not purchasable through checkout. Use this for the base plan members start on. | Off |
 
-> **Tip:** Give your community one tier with the "free plan" box checked and name it "free". BuddyNext treats the free tier as the baseline for every member who has not bought anything, so its perks define what unpaid members can do. Set it up deliberately - it shapes the experience for most of your community.
+> **Tip:** Give your community one plan with the "free plan" box checked and name it "free". BuddyNext treats the free plan as the baseline for every member who has not bought anything, so its perks define what unpaid members can do. Set it up deliberately - it shapes the experience for most of your community.
 
 #### Perks
 
@@ -125,11 +125,11 @@ The full list of perks:
 | Analytics | Personal Analytics | Toggle | Off |
 | Discovery | AI Discovery | Toggle | Off |
 
-> **Note:** The Gated Space Access perk lets a subscriber into any gated space in one purchase, regardless of which specific tier each space requires. See Gating Spaces.
+> **Note:** The Gated Space Access perk lets a subscriber into any gated space in one purchase, regardless of which specific plan each space requires. See Gating Spaces.
 
 > **Note:** There is no perk for the activity feed itself, and there will not be one. The feed is the community: a member on a plan with the feed switched off would land on the home page of your site with nothing to read and no way to fix it. That is a dead end, not a paywall. Every perk above leaves the member with the community still in front of them and a clear upgrade path. If an old plan of yours still has a saved Activity Feed value from an earlier release, it is simply ignored - nobody's feed is broken by it and there is nothing for you to clean up.
 
-### Activate, edit, and remove a tier
+### Activate, edit, and remove a plan
 
 Each plan card on the Plans tab carries the controls you need:
 
@@ -146,7 +146,7 @@ Each plan card on the Plans tab carries the controls you need:
 | Inactive | No | No |
 | Archived | No | No |
 
-**Unlisted (1.1.5) is a live plan that is simply not advertised.** It does not appear on the pricing page, but anyone who has its link can still subscribe and be charged - so treat the link as the offer. Use it for a negotiated rate, a legacy price you are honouring, a partner tier, or a plan you are testing before announcing.
+**Unlisted (1.1.5) is a live plan that is simply not advertised.** It does not appear on the pricing page, but anyone who has its link can still subscribe and be charged - so treat the link as the offer. Use it for a negotiated rate, a legacy price you are honouring, a partner plan, or a plan you are testing before announcing.
 
 The plan's own edit screen shows the link to share. Members already on the plan keep it whether it is Active or Unlisted, so moving a plan to Unlisted quietly closes it to new sign-ups without disturbing anyone who already pays for it.
 
@@ -157,10 +157,10 @@ The pricing page will render an unlisted plan when the link names it explicitly 
 
 ### Review and manage subscriptions
 
-The Subscriptions tab is your record of who has access. It lists each subscription with the member, the tier, the status, the source (how it was created), the start date, and the expiry.
+The Subscriptions tab is your record of who has access. It lists each subscription with the member, the plan, the status, the source (how it was created), the start date, and the expiry.
 
 - Filter by status - switch between All, Active, Expired, and Cancelled.
-- Filter by tier - narrow the list to one plan.
+- Filter by plan - narrow the list to one plan.
 - Revoke - on an active subscription, immediately ends access. The record moves to Expired.
 - **Export to CSV (1.1.5)** - downloads the list carrying whichever filters are on screen, so you export what you are looking at rather than everything. The Orders view has the same button.
 
@@ -215,13 +215,13 @@ The three states, in plain terms:
 | Memberships on, but you have not chosen a default plan | Still nothing is enforced. Plans exist but do not gate anything yet, and an admin notice tells you so. Nothing is taken away from anyone. |
 | Memberships on, and you have chosen a default plan | The default plan is now the floor. Members with no subscription get exactly what it grants, and nothing else. |
 
-The shipped **Free** plan is a starting point, not a neutral one. It grants the social basics and modest limits (3 spaces, 5 custom profile fields, 1 pinned post, 6 reactions), and it deliberately does *not* grant the premium perks. That is a sensible free tier if you are selling upgrades. It is the wrong choice if you only turned memberships on to gate one space and did not intend to take anything else away.
+The shipped **Free** plan is a starting point, not a neutral one. It grants the social basics and modest limits (3 spaces, 5 custom profile fields, 1 pinned post, 6 reactions), and it deliberately does *not* grant the premium perks. That is a sensible free plan if you are selling upgrades. It is the wrong choice if you only turned memberships on to gate one space and did not intend to take anything else away.
 
-> **Tip:** Before you choose a default plan, open its perk list and read it as your free members will experience it. If you want memberships purely to sell access to one thing, edit your default plan to grant everything *except* that thing, rather than accepting a free tier that quietly withdraws five features nobody asked you to withdraw. Site administrators are exempt from all of this, which is exactly why it is easy to miss - it will look perfect while you test it and be wrong for everyone else.
+> **Tip:** Before you choose a default plan, open its perk list and read it as your free members will experience it. If you want memberships purely to sell access to one thing, edit your default plan to grant everything *except* that thing, rather than accepting a free plan that quietly withdraws five features nobody asked you to withdraw. Site administrators are exempt from all of this, which is exactly why it is easy to miss - it will look perfect while you test it and be wrong for everyone else.
 
 ### Settings reference
 
-The tier and subscription screens above have no separate options - everything is stored on the tier itself. The one shared settings group is the paywall prompt, documented in Gating Spaces.
+The plan and subscription screens above have no separate options - everything is stored on the plan itself. The one shared settings group is the paywall prompt, documented in Gating Spaces.
 
 ### Entitlements that explain themselves (1.0.4)
 
@@ -229,19 +229,19 @@ Every entitlement row in the plan editor carries a one-line explanation of what 
 
 ## Good to know
 
-- The plan's identifier is permanent. Pick it carefully when you create a tier; you can rename the plan freely afterwards, but its underlying identifier stays fixed.
+- The plan's identifier is permanent. Pick it carefully when you create a plan; you can rename the plan freely afterwards, but its underlying identifier stays fixed.
 - Only Active plans are public. Inactive and Archived plans are hidden from the pricing page but kept in your admin, so you can prepare a plan before launch or retire one without deleting its history.
-- The free plan is the baseline. For anyone without an active paid subscription, what they can do falls back to the free tier's perks, then to the standard default. Set the free tier up deliberately.
-- Deleting a tier cancels its active subscriptions. This is on purpose, so no member is left holding access to a plan that no longer exists. Cancelled and expired records are kept for your reporting.
+- The free plan is the baseline. For anyone without an active paid subscription, what they can do falls back to the free plan's perks, then to the standard default. Set the free plan up deliberately.
+- Deleting a plan cancels its active subscriptions. This is on purpose, so no member is left holding access to a plan that no longer exists. Cancelled and expired records are kept for your reporting.
 - One active plan per member. BuddyNext treats a member as being on their most recent active subscription when deciding what they can do.
 
 ## Free vs Pro
 
-Membership tiers, subscriptions, the pricing and my-membership pages, content protection, and gated spaces are all BuddyNext Pro. BuddyNext Free has no paid-plan or subscription layer.
+Membership plans, subscriptions, the pricing and my-membership pages, content protection, and gated spaces are all BuddyNext Pro. BuddyNext Free has no paid-plan or subscription layer.
 
-Within Pro, taking real payments needs a payment gateway. Pro is built to work with whichever gateway you connect, and a built-in Stripe integration is included. If a tier has no gateway price linked yet, the upgrade prompt falls back to a plain call-to-action link you set, so the offer still points members somewhere even before billing is fully connected.
+Within Pro, taking real payments needs a payment gateway. Pro is built to work with whichever gateway you connect, and a built-in Stripe integration is included. If a plan has no gateway price linked yet, the upgrade prompt falls back to a plain call-to-action link you set, so the offer still points members somewhere even before billing is fully connected.
 
 ## Requirements
 
 - BuddyNext Pro active alongside BuddyNext.
-- A connected payment gateway (the included Stripe integration, or another connected gateway) to charge members through checkout. Without one, you can still define tiers and grant access by hand while you finish setting up.
+- A connected payment gateway (the included Stripe integration, or another connected gateway) to charge members through checkout. Without one, you can still define plans and grant access by hand while you finish setting up.

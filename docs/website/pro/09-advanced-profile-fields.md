@@ -113,4 +113,4 @@ Pro field types appear in the same field builder you use for free fields, under 
 The free plugin ships the core field types (text, textarea, select, checkbox, and the other standard inputs) and the whole field builder, member edit form, and profile view. See Profile Fields for that baseline.
 
 Pro adds the six field types documented here - extended date, location, file upload, advanced multi-select, advanced number, and conditional - by extending the free field engine. No free field type changes; Pro only adds to the type list and the per-type options.
-> **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Tiers.
+> **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Plans.

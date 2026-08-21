@@ -40,7 +40,7 @@ Strikes are the engine that turns repeat offenses into automatic consequences. E
 2. **Suspension threshold** (default: 5 strikes) - the member is automatically suspended. The suspension is indefinite, and their content stays visible.
 3. **Permanent-ban threshold** (default: off) - the member is permanently banned. This is a permanent suspension with the member's content hidden. It is opt-in: leave it at 0 and no strike count ever triggers an automatic permanent ban.
 
-Escalation always applies the strongest tier reached, strongest first. The thresholds are yours to set in the admin settings (see "Setting it up" below), so you can make your community as forgiving or as strict as it needs to be.
+Escalation always applies the strongest plan reached, strongest first. The thresholds are yours to set in the admin settings (see "Setting it up" below), so you can make your community as forgiving or as strict as it needs to be.
 
 > **Tip:** Reversing a strike lowers the member's active strike count, so a member who appeals successfully can drop back below a threshold.
 

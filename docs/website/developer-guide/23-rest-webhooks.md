@@ -6,7 +6,7 @@ BuddyNext exposes two webhook surfaces: an outbound CRUD surface that registers 
 
 ## Overview / Contract
 
-The outbound webhook feature is an opt-in feature (`webhooks`, tier `opt_in`, group `integrations`). It is off by default. The owner enables Webhooks in Settings before the CRUD routes register: `REST/Router.php` only registers the outbound CRUD controller when `features->is_enabled( 'webhooks' )` is true. Until then, `/webhooks*` is not on the wire and the admin screen shows a "Webhooks are turned off" notice.
+The outbound webhook feature is an opt-in feature (`webhooks`, plan `opt_in`, group `integrations`). It is off by default. The owner enables Webhooks in Settings before the CRUD routes register: `REST/Router.php` only registers the outbound CRUD controller when `features->is_enabled( 'webhooks' )` is true. Until then, `/webhooks*` is not on the wire and the admin screen shows a "Webhooks are turned off" notice.
 
 Free caps a site at 1 registered outbound endpoint. The cap is applied at registration time via the `buddynext_outbound_webhook_limit` filter (default `1`), checked against all rows in `bn_outbound_webhooks` (active or inactive). Exceeding it returns a 422 `webhook_limit_reached`. Pro lifts the cap by returning a higher integer (or `PHP_INT_MAX`) from the filter.
 

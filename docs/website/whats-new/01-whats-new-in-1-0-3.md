@@ -45,7 +45,7 @@ On the Pro side, the same theme continues under the hood: membership and analyti
 
 If you run BuddyNext Pro, the releases just before 1.0.3 expanded how members pay for and manage their membership. These are worth knowing about as part of the current Pro picture:
 
-- **More ways to pay.** Alongside Stripe, members can now pay with **PayPal** hosted checkout, or **redeem a membership tier with gamification points** using a per-tier points price you set.
+- **More ways to pay.** Alongside Stripe, members can now pay with **PayPal** hosted checkout, or **redeem a membership plan with gamification points** using a per-plan points price you set.
 - **One place to manage gateways.** A single **Payments** screen lists every gateway - Stripe, PayPal, points, and a sandbox option - each with its own enable toggle, its own settings, and a default-gateway pick.
 - **A gateway picker at checkout.** When more than one gateway is active, members choose how they want to pay.
 - **Self-service cancellation.** Members can **cancel their own membership** from their My Membership page, and cancelling stops billing at the provider.

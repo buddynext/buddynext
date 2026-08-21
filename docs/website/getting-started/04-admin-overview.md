@@ -34,7 +34,7 @@ Tabs marked **(Pro)** require BuddyNext Pro. Everything else is in the free plug
 | **Campaigns (Pro)** | Broadcasts; Drip; Scheduled Posts; AI Feed | Send broadcast emails, build automated drip sequences, schedule posts, and configure AI feed ranking. |
 | **Moderation** | Controls; Pending; Reports; Suspensions; Appeals | Set moderation policy, review pending content, work the report queue, manage suspensions, and handle member appeals. |
 | **Moderation Tools** | Rules **(Pro)**; AI Moderation **(Pro)**; Bulk **(Pro)**; Moderation Log | Build automatic moderation rules (including banned-word rules), enable AI-assisted moderation, run bulk moderation actions, and read the log of who moderated what. The Moderation Log is free; the other three are Pro. |
-| **Monetization (Pro)** | Plans; Subscriptions; Coupons; Paywall; Payment Gateways | Define paid membership tiers, manage subscriptions, issue discount coupons, configure the paywall prompt, and connect payment gateways (Stripe, PayPal, points). |
+| **Monetization (Pro)** | Plans; Subscriptions; Coupons; Paywall; Payment Gateways | Define paid membership plans, manage subscriptions, issue discount coupons, configure the paywall prompt, and connect payment gateways (Stripe, PayPal, points). |
 
 > **Note:** Sections marked (Pro) and individual (Pro) tabs appear only when BuddyNext Pro is active. With the free plugin alone you see Get Started, Settings, Platform, Members, Spaces, Engagement, Notifications, Moderation and Moderation Tools, with the Pro-only tabs inside them hidden. Free also shows an **Upgrade** section, which is an upsell rather than a place to configure anything.
 

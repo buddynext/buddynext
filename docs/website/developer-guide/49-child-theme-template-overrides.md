@@ -1,6 +1,6 @@
 # Overriding templates in a child theme
 
-How to override a BuddyNext template from your theme. BuddyNext resolves every template through a three-tier loader that checks your child theme and parent theme before its own defaults, so you can copy any template into your theme and edit it there. This page covers the resolution order, the copy workflow, the variable gotcha that trips people up, the wrap-hook alternative that needs no copy, and the template tree you can override.
+How to override a BuddyNext template from your theme. BuddyNext resolves every template through a three-plan loader that checks your child theme and parent theme before its own defaults, so you can copy any template into your theme and edit it there. This page covers the resolution order, the copy workflow, the variable gotcha that trips people up, the wrap-hook alternative that needs no copy, and the template tree you can override.
 
 ![A space home view assembled from overridable templates and parts](../images/spaces-directory.webp)
 

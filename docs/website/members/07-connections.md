@@ -8,7 +8,7 @@ A connection is a two-way relationship that both members agree to: one member se
 
 Connections model a real relationship rather than a one-sided interest. Because both members opt in, a connection signals "we know each other" the way a connection does on LinkedIn or a friendship does on Facebook. That mutual agreement is what makes connections useful for privacy.
 
-For a site owner, connections unlock a "connections only" privacy level. Members can keep certain content - profile fields, posts, or who can message them - visible to their connections and no one else. Without a mutual relationship to anchor it, that privacy tier would have nothing to gate on. Connections give members a trusted inner circle and give the site a way to offer genuinely private sharing.
+For a site owner, connections unlock a "connections only" privacy level. Members can keep certain content - profile fields, posts, or who can message them - visible to their connections and no one else. Without a mutual relationship to anchor it, that privacy plan would have nothing to gate on. Connections give members a trusted inner circle and give the site a way to offer genuinely private sharing.
 
 Most members will follow many people (open, one-way) and connect with a smaller, mutual group. See Following for the open side of the social graph.
 

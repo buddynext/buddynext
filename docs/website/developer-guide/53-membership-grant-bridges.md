@@ -121,7 +121,7 @@ Paid Memberships Pro has a content-protection rule engine; WooCommerce Membershi
 Those keep working on WordPress posts and pages exactly as they did before the bridge existed, and
 BuddyNext does not read them, defer to them, or switch itself off because they are present. What
 the mapping buys you is the other half: the plan a member holds *here*, so **BuddyNext's own
-features** — gated spaces, tier entitlements, anything behind `tier:<slug>` — can be locked behind
+features** — gated spaces, plan entitlements, anything behind `tier:<slug>` — can be locked behind
 a level they bought *there*.
 
 So `bn_members_only`, BuddyNext's own post-level gate, is unaffected by a bridge. If an owner sets

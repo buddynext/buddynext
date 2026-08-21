@@ -1,12 +1,12 @@
 # Gating Spaces Behind a Membership
 
-A gated space is a space only members on a particular tier can join. When someone without the right membership tries to enter, BuddyNext shows a paywall - a friendly upgrade prompt with your call to action - instead of letting them in.
+A gated space is a space only members on a particular plan can join. When someone without the right membership tries to enter, BuddyNext shows a paywall - a friendly upgrade prompt with your call to action - instead of letting them in.
 
-![A members-only space home shown only after the visitor meets the required tier](../images/space-home.webp)
+![A members-only space home shown only after the visitor meets the required plan](../images/space-home.webp)
 
 ![The Monetization > Paywall tab where the upgrade prompt for gated spaces is configured](../images/admin-paywall.webp)
 
-> **Before you start:** Gated spaces come with BuddyNext Pro and build on Membership Tiers. You need BuddyNext Pro active and at least one membership tier set up before you can gate a space. To sell access through checkout you also need a payment gateway connected (see Membership Tiers).
+> **Before you start:** Gated spaces come with BuddyNext Pro and build on Membership Plans. You need BuddyNext Pro active and at least one membership plan set up before you can gate a space. To sell access through checkout you also need a payment gateway connected (see Membership Plans).
 
 ## Why use it
 
@@ -18,24 +18,24 @@ Use a gated space when you want:
 - A reason to upgrade that members can see. The paywall on a locked space is the most direct nudge you have: a member who wants in is one click from your pricing page.
 - One purchase that unlocks several premium spaces at once, by selling a plan that carries the Gated Space Access perk.
 
-For the member, a gated space is a clear boundary: this is part of what your membership includes. For you, it is access control that looks after itself - once a space requires a tier, every join attempt is checked automatically, on the website and in any connected app, with no per-member work.
+For the member, a gated space is a clear boundary: this is part of what your membership includes. For you, it is access control that looks after itself - once a space requires a plan, every join attempt is checked automatically, on the website and in any connected app, with no per-member work.
 
 ## How it works
 
 ### What gates a space
 
-A space is gated when you tie it to a membership tier. Only members whose active plan is that tier can join it. For example, a space gated behind your Premium plan can only be joined by Premium members.
+A space is gated when you tie it to a membership plan. Only members holding that plan can join it. For example, a space gated behind your Premium plan can only be joined by Premium members.
 
 When a space is gated:
 
-- A member on the matching tier (or on a plan that grants the Gated Space Access perk) can join normally.
+- A member on the matching plan (or on a plan that grants the Gated Space Access perk) can join normally.
 - A member without it is blocked, and the join is never recorded.
 
-The Gated Space Access perk is the all-access pass. A plan that grants it lets its subscribers into any gated space, whatever specific tier each space asks for. Use it when you want one plan to unlock everything, instead of matching each space to its own tier.
+The Gated Space Access perk is the all-access pass. A plan that grants it lets its subscribers into any gated space, whatever specific plan each space asks for. Use it when you want one plan to unlock everything, instead of matching each space to its own plan.
 
 ### What a blocked member sees
 
-When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. The button either starts checkout (when a gateway price is linked to the required tier) or points to the call-to-action link you set. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
+When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. The button either starts checkout (when a gateway price is linked to the required plan) or points to the call-to-action link you set. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
 
 
 ## Setting it up (for owners)
@@ -48,7 +48,7 @@ Open BuddyNext in wp-admin, go to the Monetization section, and choose the Paywa
 
 The space picker shows 50 spaces at a time and has a **search box** next to it - type part of a space name to find the one you want. On a community with hundreds or thousands of spaces, search rather than scroll. The table of already-gated spaces below is paginated too, showing the page you are on and the total number of gated spaces.
 
-Once a space is linked to the tier you want (for example, the Premium plan), everything else - the join check, the paywall, and the per-space settings row on the Paywall tab - works automatically.
+Once a space is linked to the plan you want (for example, the Premium plan), everything else - the join check, the paywall, and the per-space settings row on the Paywall tab - works automatically.
 
 One limitation to know about:
 
@@ -70,7 +70,7 @@ These apply to every gated space unless a space overrides them.
 
 #### Per-space overrides
 
-Below the global defaults, the Paywall tab lists every gated space with the tier it requires and its own CTA URL, Button Label, and Description fields. Fill any of these to override the global default for that one space; leave them blank to inherit the global values. This lets you point each premium space at a different upgrade page or word its prompt differently while keeping one shared default for the rest.
+Below the global defaults, the Paywall tab lists every gated space with the plan it requires and its own CTA URL, Button Label, and Description fields. Fill any of these to override the global default for that one space; leave them blank to inherit the global values. This lets you point each premium space at a different upgrade page or word its prompt differently while keeping one shared default for the rest.
 
 
 > **Tip:** Set a sensible CTA URL and description in the global defaults first - usually a link to your pricing page. Then add a per-space override only where a particular space needs its own wording or destination.
@@ -78,13 +78,13 @@ Below the global defaults, the Paywall tab lists every gated space with the tier
 ## Good to know
 
 - The gate works everywhere. Once a space is gated, the join check runs on the website and in any connected app alike. A blocked member is never added, even from an app.
-- Access can come from a tier or the all-access perk. A member gets in if they are on the tier the space requires, or if their active plan grants the Gated Space Access perk.
+- Access can come from a plan or the all-access perk. A member gets in if they are on the plan the space requires, or if their active plan grants the Gated Space Access perk.
 - Losing the subscription re-locks the space. When a subscription expires or is revoked, access is removed and the member can no longer enter the gated space.
-- The paywall handles half-finished setups gracefully. When no gateway price is linked to the required tier, the button uses your CTA URL. When neither a price nor a URL is set, the prompt shows a friendly "not configured" notice rather than failing - so a partial setup never breaks the page.
+- The paywall handles half-finished setups gracefully. When no gateway price is linked to the required plan, the button uses your CTA URL. When neither a price nor a URL is set, the prompt shows a friendly "not configured" notice rather than failing - so a partial setup never breaks the page.
 - No badge yet. Because gated spaces are not marked in directories, tell members which spaces are premium in your space description or pricing copy until a visible badge ships.
 
 ## Free vs Pro
 
-Gating spaces behind a membership, the paywall prompt, and the per-space override settings are all BuddyNext Pro and depend on Membership Tiers. BuddyNext Free has open and request-to-join spaces but no membership-based gating.
+Gating spaces behind a membership, the paywall prompt, and the per-space override settings are all BuddyNext Pro and depend on Membership Plans. BuddyNext Free has open and request-to-join spaces but no membership-based gating.
 
-Within Pro, both linking a space to a tier and the paywall prompt are managed from the admin Paywall tab. A visible badge on gated spaces is planned but not part of the current release.
+Within Pro, both linking a space to a plan and the paywall prompt are managed from the admin Paywall tab. A visible badge on gated spaces is planned but not part of the current release.

@@ -66,7 +66,7 @@ Pro's release centers on membership:
 - **Entitlements that explain themselves.** Every plan option says what it grants, right under its toggle.
 - Plus a moderation quality pass: the bulk queue shows who posted what instead of raw IDs, and bulk member actions accept usernames or emails.
 
-See the [Pro membership guide](../pro/01-membership-tiers.md) for the full picture.
+See the [Pro membership guide](../pro/01-membership-plans.md) for the full picture.
 
 ## Under the hood
 

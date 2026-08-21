@@ -1,6 +1,6 @@
 # Stripe Payments
 
-Stripe is the payment gateway BuddyNext Pro uses to take real payments for memberships. You connect your Stripe account once, and from then on members can buy a tier with a card, manage their own billing, and have their access kept in sync automatically as payments succeed or fail.
+Stripe is the payment gateway BuddyNext Pro uses to take real payments for memberships. You connect your Stripe account once, and from then on members can buy a plan with a card, manage their own billing, and have their access kept in sync automatically as payments succeed or fail.
 
 ![The Monetization Payments admin tab where you connect your Stripe API keys and webhook](../images/admin-stripe.webp)
 
@@ -10,7 +10,7 @@ Stripe is the payment gateway BuddyNext Pro uses to take real payments for membe
 
 ## Why use it
 
-Membership tiers and gated spaces define *who* gets access. Stripe is what turns that into income, and it takes most of the hard work off your plate. With Stripe connected, a member who hits a paywall can pay on the spot and get in immediately, with no admin in the loop.
+Membership plans and gated spaces define *who* gets access. Stripe is what turns that into income, and it takes most of the hard work off your plate. With Stripe connected, a member who hits a paywall can pay on the spot and get in immediately, with no admin in the loop.
 
 For the owner, Stripe handles the tricky parts of taking money: card entry, fraud checks, receipts, renewals, retries on failed cards, and refunds. BuddyNext keeps each member's subscription and access current alongside Stripe, so a lapsed card automatically marks the member past due and a cancellation re-locks the content. You set a price once on the plan, and BuddyNext sets up the matching product and price in Stripe for you.
 
@@ -34,7 +34,7 @@ Renewals happen on their own. Each time Stripe charges the card successfully, th
 - A Stripe account.
 - Your Stripe publishable key and secret key (both found in your Stripe dashboard).
 - A webhook added in your Stripe dashboard that points back to BuddyNext (covered below). This step is required - without it, Stripe payments will not sync access back to your members.
-- At least one membership tier with a price set on it (see Membership Tiers and Gated Spaces).
+- At least one membership plan with a price set on it (see Membership Plans and Gated Spaces).
 
 ### Step 1: Enter your keys
 
@@ -69,9 +69,9 @@ When Stripe asks which events to send, choose the subscription and invoice event
 
 > **Warning:** Set the webhook up before you go live. The webhook is how Stripe tells your site about renewals, cancellations, and failed payments - without it, those never reach your members and subscriptions drift out of sync with what Stripe thinks. BuddyNext does have a safety net for the moment of purchase (when a buyer returns from Stripe, the site checks the payment directly rather than waiting for a webhook that may never arrive, so a first purchase is not lost), but that net only covers that one moment. It is not a substitute for the webhook.
 
-### Step 3: Price your tiers
+### Step 3: Price your plans
 
-You set the price on the membership plan itself - there is no Stripe price to copy across. When a tier is ready to sell, BuddyNext sets up the matching product and price in your Stripe account from the plan's price, currency, and billing interval, and remembers it so it is only created once. If that price is later removed in Stripe, BuddyNext recreates it on the next checkout.
+You set the price on the membership plan itself - there is no Stripe price to copy across. When a plan is ready to sell, BuddyNext sets up the matching product and price in your Stripe account from the plan's price, currency, and billing interval, and remembers it so it is only created once. If that price is later removed in Stripe, BuddyNext recreates it on the next checkout.
 
 This keeps test and live separate: your test price and your live price are tracked on their own, so switching from test keys to live keys creates a fresh live price without disturbing your test setup.
 
@@ -79,8 +79,8 @@ This keeps test and live separate: your test price and your live price are track
 
 Once the webhook is connected, BuddyNext keeps each member's access current automatically as their Stripe subscription changes. You do not manage any of this by hand:
 
-- When a member subscribes (or their subscription is updated), BuddyNext records it and grants the tier's access while the subscription is active or in its trial.
-- When a subscription is cancelled, BuddyNext removes the tier's access and re-locks gated spaces and protected content. A member who cancels part-way through a period they have already paid for keeps access until that period ends, and is not told their membership will renew - Stripe reports such a subscription as still active with a cancel-at-period-end flag, and BuddyNext reads the flag rather than the status alone (1.1.5).
+- When a member subscribes (or their subscription is updated), BuddyNext records it and grants the plan's access while the subscription is active or in its trial.
+- When a subscription is cancelled, BuddyNext removes the plan's access and re-locks gated spaces and protected content. A member who cancels part-way through a period they have already paid for keeps access until that period ends, and is not told their membership will renew - Stripe reports such a subscription as still active with a cancel-at-period-end flag, and BuddyNext reads the flag rather than the status alone (1.1.5).
 - When a subscription is paused at Stripe, access ends at the end of the paid period rather than being ignored (1.1.5).
 - When a renewal payment succeeds, BuddyNext extends access to the new billing period - this is how renewals keep access alive.
 - When a payment fails, BuddyNext marks the member past due so you can see who needs to fix their card.
@@ -106,7 +106,7 @@ A gateway that cannot start a trial now **declines the sale** rather than chargi
 
 ### Hosted checkout
 
-When a member buys a tier, BuddyNext creates a Stripe Checkout session and sends them to Stripe's hosted payment page. The session carries the tier and member identity so the webhook can grant the right access on completion. Any BuddyNext coupon or tax is applied to the price before checkout, so Stripe is charged the final amount - discounts are handled by BuddyNext, not by a Stripe coupon. After paying, the member is returned to the My Membership page with a confirmation; if they cancel at Stripe, they land back on the pricing page. Both pages are provisioned automatically when Monetization is enabled (see Membership Tiers).
+When a member buys a plan, BuddyNext creates a Stripe Checkout session and sends them to Stripe's hosted payment page. The session carries the plan and member identity so the webhook can grant the right access on completion. Any BuddyNext coupon or tax is applied to the price before checkout, so Stripe is charged the final amount - discounts are handled by BuddyNext, not by a Stripe coupon. After paying, the member is returned to the My Membership page with a confirmation; if they cancel at Stripe, they land back on the pricing page. Both pages are provisioned automatically when Monetization is enabled (see Membership Plans).
 
 ### Customer billing portal
 
@@ -114,7 +114,7 @@ Returning subscribers can open the Stripe billing portal from your site. The por
 
 ## Good to know
 
-- **A few things need to be in place before the live path works.** Stripe keys, the webhook plus its signing secret, and a priced tier all have to be set up. If any is missing, the paywall falls back to a plain call-to-action or a friendly "not configured" notice rather than a broken checkout. This is expected, not a fault.
+- **A few things need to be in place before the live path works.** Stripe keys, the webhook plus its signing secret, and a priced plan all have to be set up. If any is missing, the paywall falls back to a plain call-to-action or a friendly "not configured" notice rather than a broken checkout. This is expected, not a fault.
 - **An expired Pro license never blocks Stripe.** A Pro license controls update downloads only; your payment features keep working regardless.
 - **The card form loads from Stripe.** As Stripe's terms require, the card form comes straight from Stripe's own servers. Nothing card-related is ever stored on your site.
 - **Mode comes from both your key and an explicit toggle.** Stripe reads live or test from your secret key prefix, and the Payment Gateways tab has a Test mode toggle you set. A mismatch warning appears if the two disagree, so you always know whether you are taking real payments.
@@ -123,4 +123,4 @@ Returning subscribers can open the Stripe billing portal from your site. The por
 
 ## Free vs Pro
 
-Membership gating exists at the model level in the platform: a space can require an ability, and the paywall can point members to an external page to upgrade. Stripe payments - taking the card, hosted checkout, the billing portal, automatic price provisioning from the plan, and the subscription lifecycle synced from Stripe webhooks - are part of BuddyNext Pro. See Membership Tiers and Gated Spaces for how access is defined, and Content Protection for locking individual posts and pages behind the same memberships.
+Membership gating exists at the model level in the platform: a space can require an ability, and the paywall can point members to an external page to upgrade. Stripe payments - taking the card, hosted checkout, the billing portal, automatic price provisioning from the plan, and the subscription lifecycle synced from Stripe webhooks - are part of BuddyNext Pro. See Membership Plans and Gated Spaces for how access is defined, and Content Protection for locking individual posts and pages behind the same memberships.

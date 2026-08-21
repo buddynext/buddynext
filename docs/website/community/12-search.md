@@ -77,7 +77,7 @@ The block also supports the standard editor controls for background and text col
 
 ### Public explore and search visibility
 
-The search page is safe to expose to logged-out visitors: a signed-out search matches public content only, and it never reaches the members-only tier of the index. The related visibility control for guests is the public explore feed - see Explore for how to make discovery surfaces members-only.
+The search page is safe to expose to logged-out visitors: a signed-out search matches public content only, and it never reaches the members-only plan of the index. The related visibility control for guests is the public explore feed - see Explore for how to make discovery surfaces members-only.
 
 ### Reindexing
 
@@ -101,7 +101,7 @@ Unified search across members, posts, spaces, hashtags, and media - with viewer-
 
 Pro adds advanced member filters on the search page. When BuddyNext Pro is active, the results page shows an "Advanced member filters" card that lets members narrow people by:
 
-- Membership tier
+- Membership plan
 - Space they belong to
 - Member label
 - Joined after a chosen date

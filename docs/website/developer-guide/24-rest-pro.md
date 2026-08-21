@@ -1,6 +1,6 @@
 # REST: Pro namespace
 
-The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 63 registered routes (across the controllers under `includes/`). This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and tiers, moderation rules, AI assistance, scheduled posts, push, saved searches, the member portfolio, Learnomy course links, and the realtime + payment-gateway (Stripe / PayPal) webhook endpoints.
+The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 63 registered routes (across the controllers under `includes/`). This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and plans, moderation rules, AI assistance, scheduled posts, push, saved searches, the member portfolio, Learnomy course links, and the realtime + payment-gateway (Stripe / PayPal) webhook endpoints.
 
 ![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-settings.webp)
 
@@ -29,14 +29,14 @@ Source of truth: `audit/manifest.json` (`rest.endpoints`, namespace `buddynext-p
 
 ## Routes by domain
 
-### Membership: tiers, checkout, subscriptions
+### Membership: plans, checkout, subscriptions
 
-Tiers are the membership plans. Tier CRUD lives under `/tiers`; the buyer-facing checkout flow (plan list, gateway list, checkout, quote) lives under `/membership/*` in `Membership/CheckoutController`; subscriptions and the billing portal live in `Membership/Controllers/SubscriptionsController`.
+Plans are the membership plans. Plan CRUD lives under `/tiers`; the buyer-facing checkout flow (plan list, gateway list, checkout, quote) lives under `/membership/*` in `Membership/CheckoutController`; subscriptions and the billing portal live in `Membership/Controllers/SubscriptionsController`.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET, POST | `/tiers` | Public (GET) / Admin (POST) | List tiers; create a tier. |
-| GET, DELETE | `/tiers/{id}` | Public (GET) / Admin (DELETE) | Get a tier; delete a tier. |
+| GET, POST | `/tiers` | Public (GET) / Admin (POST) | List plans; create a plan. |
+| GET, DELETE | `/tiers/{id}` | Public (GET) / Admin (DELETE) | Get a plan; delete a plan. |
 | GET | `/membership/plans` | Public | List purchasable plans. |
 | GET | `/membership/gateways` | Public | List enabled payment gateways. |
 | POST | `/membership/checkout` | Logged in | Start a checkout for a plan (`plan_id`, optional `gateway`, `mode`, `coupon`, `country`). |
@@ -77,7 +77,7 @@ Two rules that make the difference between a correct client and a plausible one:
 - **Never infer one key from another.** `can_update_payment` is the clearest case: Offline is
   `billed_by: gateway` and still has no portal, so `billed_by === 'gateway'` is not a substitute.
 
-### Member tiers vs labels
+### Member plans vs labels
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|

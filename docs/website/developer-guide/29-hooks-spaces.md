@@ -104,9 +104,9 @@ The built-in types are `open` (public/direct), `private` (private/request), and 
 
 ## Examples
 
-### Gate a space behind a membership tier
+### Gate a space behind a membership plan
 
-`buddynext_can_join_space` is the seam Pro uses for paywalls and gated tiers. Return `false` to block; pair it with `buddynext_space_join_denied_data` to surface a reason or paywall payload in the REST error response. The gate runs before any database work, so a denied user never creates a row.
+`buddynext_can_join_space` is the seam Pro uses for paywalls and gated plans. Return `false` to block; pair it with `buddynext_space_join_denied_data` to surface a reason or paywall payload in the REST error response. The gate runs before any database work, so a denied user never creates a row.
 
 ```php
 // Block the join/request unless the user holds the required entitlement.

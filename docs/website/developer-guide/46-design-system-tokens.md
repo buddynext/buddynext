@@ -206,4 +206,4 @@ The same `_args` / `_classes` / `_before` / `_after` pattern applies to every pa
 - **Icons are SVG, never emoji or icon fonts.** Use `buddynext_icon( 'slug' )` in templates; the slugs are Lucide-style SVGs in `assets/icons/`. Custom icons follow the same `stroke="currentColor"`, `viewBox="0 0 24 24"`, no width/height shape.
 - **Never hardcode values to restyle.** Hardcoded hex/px breaks dark mode and RTL. Override tokens via `theme.json` or `buddynext_css_vars`.
 - **`.bn-app` scoping is deliberate.** It isolates BuddyNext's interactive states from your theme and vice versa. Keep any custom rules scoped under `.bn-app` so they do not leak.
-- **Free and Pro share the token system.** Pro adds no second token set; it reuses the same `--bn-*` families and the same `buddynext_css_vars` override point, so one theme override covers both tiers.
+- **Free and Pro share the token system.** Pro adds no second token set; it reuses the same `--bn-*` families and the same `buddynext_css_vars` override point, so one theme override covers both plans.

@@ -153,7 +153,7 @@ add_filter( 'buddynext_post_before_save', function ( $data, int $user_id, ?int $
 
 ## Notes / gotchas
 
-- **Free vs Pro.** Every hook on this page is fired by Free. The Pro-facing extension seams are `buddynext_post_pin_limit` (raise pin caps for tiers), `buddynext_reaction_types` / `buddynext_reaction_meta` (add reaction types), and the `buddynext_feed_query_args` / `buddynext_feed_order_by` / `buddynext_feed_items` trio (tier-based feed filtering, reranking, sponsored injection).
+- **Free vs Pro.** Every hook on this page is fired by Free. The Pro-facing extension seams are `buddynext_post_pin_limit` (raise pin caps for plans), `buddynext_reaction_types` / `buddynext_reaction_meta` (add reaction types), and the `buddynext_feed_query_args` / `buddynext_feed_order_by` / `buddynext_feed_items` trio (plan-based feed filtering, reranking, sponsored injection).
 - **Re-fetch, do not assume.** Action listeners receive IDs. Hydrate via the relevant service (`post_service`, `comment_service`) instead of caching the data you wish had been passed.
 - **`buddynext_post_created` fires for shares too.** Branch on `$type` if you only want native posts; use `buddynext_post_shared` for the share-specific signal with the original post ID.
 - **Counter writes already happen.** BuddyNext updates `reaction_count`, `comment_count`, and `share_count` itself before firing these actions. Do not re-increment denormalised counters from a listener.

@@ -40,7 +40,7 @@ Some features are extended by optional companion plugins. Direct messaging is po
 
 ## Free vs Pro
 
-The free plugin covers everything a community needs to launch and run. Pro adds growth, automation, monetization, and analytics. License tier only changes the number of sites you can use Pro on, not the feature set (white-label is the one exception noted below). The native mobile app is a separate Pro deliverable that is planned and not yet released; it is listed below as upcoming.
+The free plugin covers everything a community needs to launch and run. Pro adds growth, automation, monetization, and analytics. License tier only changes the number of sites you can use Pro on, not the feature set. The native mobile app is a separate Pro deliverable that is planned and not yet released; it is listed below as upcoming.
 
 | Area | Capability | Free | Pro |
 |------|------------|------|-----|
@@ -61,7 +61,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | Private (invite-only) spaces | - | Pro |
 | | Gated spaces (membership-controlled) | - | Pro |
 | | Post approval queue per space | - | Pro |
-| | Paywall preview and member tiers | - | Pro |
+| | Paywall preview and member plans | - | Pro |
 | | Per-space custom branding | - | Pro |
 | **Members and profiles** | Follow, connect, block | Free | Free |
 | | Avatar, cover, bio, social links | Free | Free |
@@ -100,7 +100,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | Member self-analytics (profile views, reach) | - | Pro |
 | | CSV export of analytics | - | Pro |
 | **Monetization** | Gated and tiered space access | - | Pro |
-| | Membership tiers and paywall UI | - | Pro |
+| | Membership plans and paywall UI | - | Pro |
 | **Integrations** | Companion connections (Jetonomy, WPMediaVerse, WB Gamification, Career Board) | Free | Free |
 | | 1 outbound connection to another system (webhook) | Free | Free |
 | | Page-editor blocks and shortcodes (core set) | Free | Free |
@@ -120,7 +120,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 
 - BuddyNext requires WordPress 6.9 or newer and PHP 8.1 or newer.
 - The free plugin works fully on its own. Companion plugins are optional and extend specific features.
-- White-label is available only on the Unlimited (Agency) license tier. All other Pro features are identical across every license tier.
+- Every Pro feature, white-label included, is identical across every license tier. The licence gates update downloads rather than functionality, so an expired licence keeps working and simply stops receiving updates.
 
 ## What's next
 

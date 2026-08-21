@@ -48,7 +48,7 @@ Open BuddyNext and go to **Platform > Integrations**. Each companion shows as a 
 
 ### Install a companion in one click
 
-When a companion is not installed, its card offers a one-click install. BuddyNext downloads the free version of that plugin directly from wbcomdesigns.com, installs it, and activates it for you. There is no manual upload, no plugin search, and no license key to paste for the free tier - the download is handled for you.
+When a companion is not installed, its card offers a one-click install. BuddyNext downloads the free version of that plugin directly from wbcomdesigns.com, installs it, and activates it for you. There is no manual upload, no plugin search, and no license key to paste for the free plan - the download is handled for you.
 
 After install, BuddyNext sends you to the right place to finish setup. For most companions that is the Plugins screen; for companions that have their own setup wizard (such as Career Board) you land on that companion's settings page so you can configure it straight away.
 

@@ -151,7 +151,7 @@
       "slug": "pro-bnext",
       "name": "Pro Features",
       "docs": [
-        "pro/01-membership-tiers.md",
+        "pro/01-membership-plans.md",
         "pro/02-gated-spaces.md",
         "pro/03-stripe-payments.md",
         "pro/04-content-protection.md",

@@ -45,7 +45,7 @@ If you are upgrading and you want reminders, this is the one setting you have to
 
 - **Reminders are sent by a background job**, so they do not depend on anyone visiting the site. The sweep processes a bounded batch each run; on a very large community a developer can raise that ceiling through the `buddynextpro_renewal_reminder_batch` filter.
 - **Offsets can vary per subscription.** The `buddynextpro_renewal_reminder_offsets` filter receives the offsets and the subscription row, so an add-on can give one plan a different reminder schedule. Note the same name is also the option the admin screen writes; the filter runs afterwards.
-- **Two actions fire** if you want to hook your own behaviour onto a reminder: `buddynextpro_subscription_renewal_upcoming` and `buddynextpro_subscription_expiring_soon`, both carrying the subscription id, member, tier, expiry date and the number of days left. See the Pro and Integration Hooks reference.
+- **Two actions fire** if you want to hook your own behaviour onto a reminder: `buddynextpro_subscription_renewal_upcoming` and `buddynextpro_subscription_expiring_soon`, both carrying the subscription id, member, plan, expiry date and the number of days left. See the Pro and Integration Hooks reference.
 - **A reminder is claimed before it is sent.** If the send then fails, the member misses one notice rather than receiving the same one on every subsequent run. Duplicate mail to a paying member is the worse failure, so that is the trade the sweep makes.
 
 ## Free vs Pro

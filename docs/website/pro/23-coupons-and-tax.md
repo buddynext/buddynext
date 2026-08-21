@@ -72,14 +72,14 @@ Tax is applied to the price after any coupon discount, so a member who uses a co
 - **Coupons switch off without deleting.** Uncheck Active to pause a code and keep its redemption history; delete only when you want it gone for good.
 - **Redemption limits are total, not per member.** Max redemptions counts every use of the code across your whole community.
 - **Tax follows the discount.** Tax is always calculated on the post-discount price, never the list price.
-- **Both show on the invoice.** The discount and the tax line appear on the printable invoice the member can save or print (see Membership Tiers).
+- **Both show on the invoice.** The discount and the tax line appear on the printable invoice the member can save or print (see Membership Plans).
 
 ## Free vs Pro
 
-Coupons and tax are part of BuddyNext Pro's Monetization layer. BuddyNext Free has no checkout, so it has no discount or tax layer. Within Pro, both apply to money purchases through any connected gateway. See Membership Tiers for plans and invoices, Payment Gateways for the gateways they apply to, and Stripe Payments for the Stripe setup.
+Coupons and tax are part of BuddyNext Pro's Monetization layer. BuddyNext Free has no checkout, so it has no discount or tax layer. Within Pro, both apply to money purchases through any connected gateway. See Membership Plans for plans and invoices, Payment Gateways for the gateways they apply to, and Stripe Payments for the Stripe setup.
 
 ## Requirements
 
 - BuddyNext Pro active alongside BuddyNext, with the Monetization layer turned on.
-- At least one paid membership tier for a coupon to discount or tax to apply to.
+- At least one paid membership plan for a coupon to discount or tax to apply to.
 - A connected payment gateway to take the final charge (see Payment Gateways).

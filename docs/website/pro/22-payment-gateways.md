@@ -15,7 +15,7 @@ Different communities take money in different ways. Some members will only pay t
 You gain the choice when you want to:
 
 - Accept PayPal as well as, or instead of, card payments through Stripe.
-- Let members redeem a membership tier with Gamification points instead of money.
+- Let members redeem a membership plan with Gamification points instead of money.
 - Exercise the full checkout flow with no real charge while you set things up.
 - Add a third-party gateway a developer registers, which appears on this tab automatically.
 
@@ -68,7 +68,7 @@ Recurring plans use a PayPal billing subscription on a product and plan BuddyNex
 
 ## Gamification Points
 
-The Points gateway lets members redeem a membership tier with WB Gamification points instead of paying money. Spending goes through WB Gamification's own audited points ledger, so the points balance stays the single source of truth and BuddyNext never edits points directly.
+The Points gateway lets members redeem a membership plan with WB Gamification points instead of paying money. Spending goes through WB Gamification's own audited points ledger, so the points balance stays the single source of truth and BuddyNext never edits points directly.
 
 ### Set up Points
 
@@ -78,7 +78,7 @@ The Points gateway appears on the Payment Gateways tab only when WB Gamification
 |---|---|---|
 | Points value | How many points equal one unit of your plan currency. For example, 1000 means "1,000 points = 1 unit". Members see each plan's points price as an approximate cash value next to the redeem button. Set 0 to hide the cash value. | 1000 |
 
-A tier is redeemable with points only when you give it a points price greater than zero (set on the tier - see Membership Tiers). Redemption is instant: the points are debited and access is granted in the same request, with no webhook involved.
+A plan is redeemable with points only when you give it a points price greater than zero (set on the plan - see Membership Plans). Redemption is instant: the points are debited and access is granted in the same request, with no webhook involved.
 
 > **Note:** A money coupon cannot reduce a points redemption. Points are not a cash rail, so there is no amount for a percentage or fixed discount to come out of. Tax is likewise a money concept and does not apply to a points redemption.
 
@@ -98,11 +98,11 @@ It is opt-in and off by default in every environment - you must switch it on exp
 
 ## Free vs Pro
 
-Taking real payments is part of BuddyNext Pro. BuddyNext Free has no checkout or gateway layer. Within Pro, the gateway-agnostic Payment Gateways tab, the PayPal and Points gateways, and the Test sandbox are all included alongside the built-in Stripe integration. See Membership Tiers and Gated Spaces for how access is defined, Stripe Payments for the Stripe setup, and Coupons and Tax for how discounts and tax are applied before any gateway is charged.
+Taking real payments is part of BuddyNext Pro. BuddyNext Free has no checkout or gateway layer. Within Pro, the gateway-agnostic Payment Gateways tab, the PayPal and Points gateways, and the Test sandbox are all included alongside the built-in Stripe integration. See Membership Plans and Gated Spaces for how access is defined, Stripe Payments for the Stripe setup, and Coupons and Tax for how discounts and tax are applied before any gateway is charged.
 
 ## Requirements
 
 - BuddyNext Pro active alongside BuddyNext, with the Monetization layer turned on.
 - For PayPal: a PayPal app (Client ID and Secret) and a PayPal webhook.
 - For Points: WB Gamification active, and the gateway switched on.
-- At least one membership tier with a price (or a points price) set on it.
+- At least one membership plan with a price (or a points price) set on it.

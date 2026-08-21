@@ -57,7 +57,7 @@ There are no settings to configure for scheduling - the queue and its actions ar
 
 The queue is **paginated at 50 posts a page**, with a prev/next pager and the full count in the heading, so the screen stays usable on a community with thousands of posts waiting.
 
-> **Note:** Scheduling is a plan perk. If you have turned Memberships on **and** chosen a default plan, a member can schedule a post only if their plan grants Scheduled Posts (the shipped Free plan does not). With Memberships off (the default), every member can schedule. See Membership Tiers.
+> **Note:** Scheduling is a plan perk. If you have turned Memberships on **and** chosen a default plan, a member can schedule a post only if their plan grants Scheduled Posts (the shipped Free plan does not). With Memberships off (the default), every member can schedule. See Membership Plans.
 
 ### How posts publish on time
 

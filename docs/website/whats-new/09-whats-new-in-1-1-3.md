@@ -52,7 +52,7 @@ A reaction the site does not recognise used to display its raw internal name. It
 
 **Plan access to profile groups is now something you choose.** Previously a plan carried a blunt limit on how many profile fields it unlocked. Now you pick which profile groups each plan includes, which is what owners were trying to express with the quota.
 
-Alongside that: a paid tier no longer inherits the free tier's profile restrictions, and a system profile group can never be locked behind a plan - those groups hold the fields the community itself depends on.
+Alongside that: a paid plan no longer inherits the free plan's profile restrictions, and a system profile group can never be locked behind a plan - those groups hold the fields the community itself depends on.
 
 Pro's public pages are also correctly reachable when the community is set to private, and the push-preferences toggle no longer shows the wrong state.
 

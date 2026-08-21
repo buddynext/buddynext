@@ -47,7 +47,7 @@ Pro registers 18 admin pages, each a `submenu` under the `buddynext` parent, all
 | `buddynextpro-broadcasts` | Broadcast Campaigns |
 | `buddynextpro-drip-sequences` | Drip Sequences |
 | `buddynextpro-member-labels` | Member Labels |
-| `bnpro-membership-tiers` | Membership Tiers |
+| `bnpro-membership-tiers` | Membership Plans |
 | `bnpro-subscriptions` | Subscriptions |
 | `bnpro-paywall-settings` | Paywall Settings |
 | `buddynextpro-mod-rules` | Moderation Rules |

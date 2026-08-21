@@ -118,4 +118,4 @@ The admin Spaces page has two sections: a Spaces list and Categories. The Spaces
 
 ## Free vs Pro
 
-Creating, editing, archiving, restoring, deleting, transferring, sub-spaces, and all the settings above are part of the free plugin. Space membership tiers and paid access to a space are part of the membership and monetization features in Pro.
+Creating, editing, archiving, restoring, deleting, transferring, sub-spaces, and all the settings above are part of the free plugin. Space membership plans and paid access to a space are part of the membership and monetization features in Pro.

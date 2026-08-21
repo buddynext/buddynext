@@ -100,13 +100,13 @@ Order is deterministic: items sort by `priority` then registration order, with o
 
 ## 3. Template overrides
 
-BuddyPress ships templates under `bp-templates/`, resolved through `bp_get_template_part()` and the template stack so a theme can override any file from its own `buddypress/` directory. BuddyNext keeps the same theme-override idea with a three-tier loader (`BuddyNext\Core\TemplateLoader`) and the `buddynext_get_template()` helper.
+BuddyPress ships templates under `bp-templates/`, resolved through `bp_get_template_part()` and the template stack so a theme can override any file from its own `buddypress/` directory. BuddyNext keeps the same theme-override idea with a three-plan loader (`BuddyNext\Core\TemplateLoader`) and the `buddynext_get_template()` helper.
 
 | BuddyPress / BuddyBoss | BuddyNext |
 |---|---|
 | `bp_get_template_part( 'members/single/home' )` | `buddynext_get_template( 'feed/home.php', $vars )` |
 | `{theme}/buddypress/{relative}.php` override | `{child-theme}/buddynext/{relative}.php` override |
-| `bp_locate_template()` stack | `TemplateLoader::locate()` three-tier resolution |
+| `bp_locate_template()` stack | `TemplateLoader::locate()` three-plan resolution |
 | `bp_before_member_body` etc. template hooks | `buddynext_before_template` / `buddynext_after_template` (fired around every template) |
 
 The resolution order is:
@@ -208,7 +208,7 @@ BuddyPress bundles messaging and leans on bbPress for forums and third-party plu
 | Forums / discussions | Jetonomy | `JetonomyBridge`. Surfaces a `Discussions` tab on the profile and space surfaces (via `buddynext_register_nav`) and a left-rail item (via `buddynext_rail_items`); Jetonomy owns the `jt_*` data. |
 | Points, badges, levels | WB Gamification | `GamificationBridge`. Listens to WB Gamification award/level hooks and reflects them into BuddyNext (for example the profile `Achievements` tab). |
 
-If you are porting a customization that touched BuddyPress messages, bbPress, or a points plugin, target the companion's own API for the data and use the relevant BuddyNext bridge hook for the integration touch-point. For how a bridge normalizes external data into BuddyNext and the full list of bridges (including the Pro-tier ones), see the Integration Bridges page; for how companions are installed, see The Companion Install Model.
+If you are porting a customization that touched BuddyPress messages, bbPress, or a points plugin, target the companion's own API for the data and use the relevant BuddyNext bridge hook for the integration touch-point. For how a bridge normalizes external data into BuddyNext and the full list of bridges (including the Pro-plan ones), see the Integration Bridges page; for how companions are installed, see The Companion Install Model.
 
 ## Notes and gotchas
 

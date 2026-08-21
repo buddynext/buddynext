@@ -27,7 +27,7 @@ We have kept this honest. Where something is provided by a companion plugin or i
 | Reactions | Free | Members react to posts, comments, and content. A custom reaction emoji set is Pro. |
 | Notifications and email | Free | In-app notification bell and page, transactional emails (mention, reply, message, invite, and more), and per-user notification preferences. Broadcast campaigns, drip welcome sequences, digest emails, and open-rate stats are Pro. |
 | Moderation | Free | Report button on all content, an admin review queue and moderation log, and actions to dismiss, remove, warn, strike, and suspend, including space-scoped moderation for space admins. Keyword blocklists, auto-action rules, spam scoring, bulk actions, blocklists, and an appeal system are Pro. |
-| Memberships and monetization | Pro | Membership tiers, a paywall experience, and gated or tiered space access. |
+| Memberships and monetization | Pro | Membership plans, a paywall experience, and gated or tiered space access. |
 | Gamification | Companion | Points, badges, and levels are provided by the free WB Gamification companion plugin. |
 | Push and mobile | Pro, plus one coming soon | Web push notifications (desktop and mobile browsers) are Pro and available today. Members can also install the community to a phone home screen as an app-like experience, which is free (see the PWA page). A **native iOS and Android app is planned for a future release and does not ship yet** - do not switch on the strength of it. |
 | Real-time updates | Free and Pro | The free plugin keeps feeds and counts current with regular background refreshes. Instant real-time delivery and typing indicators in messaging are Pro. |

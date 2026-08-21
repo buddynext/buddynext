@@ -200,7 +200,7 @@ add_filter( 'buddynext_notification_should_send', static function ( bool $should
 
 ## Recipe 6 - Gate a space by capability
 
-**Goal:** block certain users from joining or requesting membership in a space (for example, gate a space behind a paid tier).
+**Goal:** block certain users from joining or requesting membership in a space (for example, gate a space behind a paid plan).
 
 **Seam:** `buddynext_can_join_space`. It runs in `SpaceMemberService` for both the direct-join and the request-to-join paths, receiving the resolved space row, the user, and the action. Return `false` to block. This is the seam Pro uses for gated spaces.
 

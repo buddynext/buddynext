@@ -61,9 +61,9 @@ Every field carries the following controls.
 | Visibility | Section-level visibility that sets the ceiling for every field inside it (same five levels). Group visibility is the ceiling; each field starts at its default and a member may set their own field anywhere up to that ceiling. | Members only |
 | Sort order | The position of the group on the profile. Lower numbers appear first. | Appended last |
 
-### Field types (free tier)
+### Field types (free plan)
 
-The free tier covers the everyday field types most communities need.
+The free plan covers the everyday field types most communities need.
 
 | Type | Use it for |
 |---|---|
@@ -145,7 +145,7 @@ Since 1.0.4 the profile form is fully yours to shape:
 
 ## Free vs Pro
 
-The free tier covers the basics: the everyday field types listed above (text, paragraph, number, URL, email, phone, date, yes/no, dropdown, radio, multi-select, and colour), grouped into sections with visibility, required, searchable, and show-on-registration controls. For a typical community a handful of well-chosen fields is enough to get started.
+The free plan covers the basics: the everyday field types listed above (text, paragraph, number, URL, email, phone, date, yes/no, dropdown, radio, multi-select, and colour), grouped into sections with visibility, required, searchable, and show-on-registration controls. For a typical community a handful of well-chosen fields is enough to get started.
 
 Pro adds six advanced field types for communities that need richer data capture:
 

@@ -66,4 +66,4 @@ Privacy is enforced regardless of the setting: only public spaces, public (non-p
 
 ## Free vs Pro
 
-The Space Forum integration is part of BuddyNext itself - it ships in the free plugin and turns on the moment the Jetonomy companion is active. The forum experience (discussions, replies, votes, accepted answers, the forum's own admin) is provided by the Jetonomy companion plugin, which has its own free and paid tiers. BuddyNext does not gate the forum behind its own Pro plugin; what you get depends on the Jetonomy plan you run. See Jetonomy Integration for what the companion provides.
+The Space Forum integration is part of BuddyNext itself - it ships in the free plugin and turns on the moment the Jetonomy companion is active. The forum experience (discussions, replies, votes, accepted answers, the forum's own admin) is provided by the Jetonomy companion plugin, which has its own free and paid plans. BuddyNext does not gate the forum behind its own Pro plugin; what you get depends on the Jetonomy plan you run. See Jetonomy Integration for what the companion provides.
