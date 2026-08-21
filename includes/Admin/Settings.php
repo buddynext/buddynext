@@ -1291,7 +1291,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'toggle_label' => __( 'Email admins when the queue builds up', 'buddynext' ),
 							'label'        => __( 'Queue alert threshold', 'buddynext' ),
 							'default'      => 20,
-							'min'          => 0,
+							// 1, not 0: 0 is the value the unticked checkbox stores and
+							// means "off". Offering it as a typeable minimum let an owner
+							// set a threshold that reads as "alert on everything" and
+							// behaves as "alert never".
+							'min'          => 1,
 							'hint'         => __( 'Send a daily email to admins when the moderation queue exceeds this many unreviewed items.', 'buddynext' ),
 						)
 					),

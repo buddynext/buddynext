@@ -814,6 +814,18 @@ class ModerationListener implements ListenerInterface {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
+		// A threshold of 0 means the alert is OFF, not "alert at any size".
+		//
+		// The field is an `optional_limit`, where unticking the box stores 0 and 0
+		// conventionally means "no limit". That reading is right for a cap and
+		// exactly backwards for a threshold to EXCEED: with $threshold = 0 the guard
+		// below is `$count < 0`, which a count never is, so unticking "Email admins
+		// when the queue builds up" made the daily alert fire every single day
+		// regardless of queue size. The off switch turned it on.
+		if ( $threshold < 1 ) {
+			return;
+		}
+
 		if ( $count < $threshold ) {
 			return;
 		}
