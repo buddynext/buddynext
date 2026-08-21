@@ -1490,16 +1490,44 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'     => 'buddynext_digest_frequency',
-							'type'    => 'select',
-							'label'   => __( 'Digest frequency', 'buddynext' ),
-							'default' => 'weekly',
-							'choices' => array(
+							'key'            => 'buddynext_digest_frequency',
+							'type'           => 'select',
+							'label'          => __( 'Digest emails', 'buddynext' ),
+
+							/*
+							 * TWO choices, not three. This offered Daily / Weekly / Disabled
+							 * and the first two did exactly the same thing: the ONLY code that
+							 * reads this option is EmailSender::digests_enabled(), which asks
+							 * `'never' !== $value`. Both cron jobs are scheduled unconditionally
+							 * (CronScheduler::maybe_schedule for JOB_DAILY_DIGEST and
+							 * JOB_WEEKLY_DIGEST), and the cadence a member actually receives
+							 * comes from their own `email_freq` preference. So an owner who
+							 * picked Daily changed nothing, and the hint - "how often BuddyNext
+							 * sends a digest" - described something the control does not do.
+							 *
+							 * The alternative was to make the site setting real by capping the
+							 * per-member preference. That was rejected: the default here is
+							 * 'weekly', so on every existing install a cap would silently stop
+							 * digests for every member who chose daily - a regression shipped
+							 * as a fix. It also is not the model the product follows; the
+							 * platform offers cadences and the member picks one.
+							 */
+							'default'        => 'weekly',
+							'value_callback' => static function (): string {
+								// Legacy sites store 'daily' here. It is not among the choices
+								// any more, so the select would match nothing, preselect the
+								// first option, and the next save would write it back - turning
+								// digests OFF on a site that had them ON. Normalise on display;
+								// stored data is left alone until the owner saves.
+								return 'never' === (string) get_option( 'buddynext_digest_frequency', 'weekly' )
+									? 'never'
+									: 'weekly';
+							},
+							'choices'        => array(
+								'weekly' => __( 'Enabled', 'buddynext' ),
 								'never'  => __( 'Disabled — no digest emails', 'buddynext' ),
-								'daily'  => __( 'Daily', 'buddynext' ),
-								'weekly' => __( 'Weekly', 'buddynext' ),
 							),
-							'hint'    => __( 'How often BuddyNext sends a digest of unread notifications. Individual users can opt out.', 'buddynext' ),
+							'hint'           => __( 'Whether BuddyNext sends digests of unread notifications at all. Each member chooses daily or weekly in their own notification preferences.', 'buddynext' ),
 						)
 					),
 				)
