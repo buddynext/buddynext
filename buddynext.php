@@ -157,6 +157,7 @@ if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' )
 // Apply pending DB schema upgrades on a plain plugin update (no deactivate/
 // reactivate needed). Cheap no-op once the stored schema revision matches.
 add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
+\BuddyNext\Core\Installer::register_site_health();
 
 // Keep the front-end isolation mu-plugin in sync with the plugin's generated
 // source on every update — signature-compared, so it rewrites the mu-plugin

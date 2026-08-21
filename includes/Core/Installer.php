@@ -82,6 +82,26 @@ class Installer {
 	 */
 	private static ?bool $schema_check_result = null;
 
+	/**
+	 * Per-table DB errors from the most recent dbDelta pass, keyed by table.
+	 *
+	 * Populated by install_schema() and read by run(), which refuses to stamp the
+	 * schema version while it is non-empty.
+	 *
+	 * @var array<string,string>
+	 */
+	private static array $last_schema_errors = array();
+
+	/**
+	 * Option recording a schema the server could not create.
+	 *
+	 * Holds the missing tables, the DB errors behind them, and when it was last
+	 * attempted. Absent on a healthy site.
+	 *
+	 * @var string
+	 */
+	public const SCHEMA_FAILURE_OPTION = 'buddynext_schema_failure';
+
 	public const OWNED_TABLES = array(
 		'bn_activity_log',
 		'bn_appeals',
@@ -335,6 +355,171 @@ class Installer {
 	 *
 	 * @return bool True when every owned table exists.
 	 */
+	/**
+	 * Register the Site Health test that reports a schema the server refused.
+	 *
+	 * Site Health because that is where a site owner and a support engineer already
+	 * look, and where they can copy the detail into a ticket. The previous answer to
+	 * "why is nothing saving" was a database dump.
+	 *
+	 * @return void
+	 */
+	public static function register_site_health(): void {
+		add_filter(
+			'site_status_tests',
+			static function ( array $tests ): array {
+				$tests['direct']['buddynext_schema'] = array(
+					'label' => __( 'BuddyNext database tables', 'buddynext' ),
+					'test'  => array( self::class, 'site_health_schema_test' ),
+				);
+
+				return $tests;
+			}
+		);
+	}
+
+	/**
+	 * The Site Health result: green when the schema is complete, critical when not.
+	 *
+	 * Names the missing tables and the database's own error, because those two
+	 * together are what identify the cause - "index column size too large" and
+	 * "bn_spaces" says row format, where either alone says very little.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function site_health_schema_test(): array {
+		$missing = self::missing_tables();
+
+		if ( array() === $missing ) {
+			return array(
+				'label'       => __( 'BuddyNext database tables are all present', 'buddynext' ),
+				'status'      => 'good',
+				'badge'       => array(
+					'label' => __( 'BuddyNext', 'buddynext' ),
+					'color' => 'blue',
+				),
+				'description' => '<p>' . esc_html__( 'Every table BuddyNext needs exists.', 'buddynext' ) . '</p>',
+				'test'        => 'buddynext_schema',
+			);
+		}
+
+		$failure = get_option( self::SCHEMA_FAILURE_OPTION );
+		$errors  = is_array( $failure ) && is_array( $failure['errors'] ?? null ) ? $failure['errors'] : array();
+
+		$detail = '<p>' . sprintf(
+			/* translators: 1: number of missing tables, 2: total expected. */
+			esc_html__( '%1$d of %2$d BuddyNext tables are missing, so features that use them will appear to work and save nothing.', 'buddynext' ),
+			count( $missing ),
+			count( array_unique( self::OWNED_TABLES ) )
+		) . '</p>';
+
+		$detail .= '<p><code>' . esc_html( implode( '</code>, <code>', array_slice( $missing, 0, 20 ) ) ) . '</code></p>';
+
+		if ( array() !== $errors ) {
+			$detail .= '<p>' . esc_html__( 'The database reported:', 'buddynext' ) . '</p><ul>';
+
+			foreach ( array_slice( $errors, 0, 5, true ) as $table => $error ) {
+				$detail .= '<li><code>' . esc_html( (string) $table ) . '</code>: ' . esc_html( (string) $error ) . '</li>';
+			}
+
+			$detail .= '</ul>';
+		}
+
+		return array(
+			'label'       => __( 'BuddyNext database tables are missing', 'buddynext' ),
+			'status'      => 'critical',
+			'badge'       => array(
+				'label' => __( 'BuddyNext', 'buddynext' ),
+				'color' => 'red',
+			),
+			'description' => $detail,
+			'actions'     => '',
+			'test'        => 'buddynext_schema',
+		);
+	}
+
+	/**
+	 * Whether we very recently failed to create this schema.
+	 *
+	 * Deliberately time-based rather than a give-up flag. A server that cannot
+	 * create the tables today may be upgraded tomorrow, and the plugin should heal
+	 * itself when that happens rather than needing someone to know about a hidden
+	 * option. An hour is short enough that a fix is picked up while the person who
+	 * made it is still watching, and long enough that a broken install is not
+	 * re-attempting the whole schema on every page of wp-admin.
+	 *
+	 * @return bool
+	 */
+	private static function schema_failure_is_recent(): bool {
+		$failure = get_option( self::SCHEMA_FAILURE_OPTION );
+
+		if ( ! is_array( $failure ) || empty( $failure['attempted_at'] ) ) {
+			return false;
+		}
+
+		// A schema bump is a new question, so it is always asked.
+		if ( (int) ( $failure['schema'] ?? 0 ) !== self::SCHEMA_VERSION ) {
+			return false;
+		}
+
+		return ( time() - (int) $failure['attempted_at'] ) < HOUR_IN_SECONDS;
+	}
+
+	/**
+	 * Which of our tables are not in the database.
+	 *
+	 * `schema_intact()` answers yes/no from a COUNT, which is all it needs for its
+	 * early return. Reporting a failure needs the names - "eight of forty-one" sends
+	 * support to a database dump, "bn_spaces, bn_invites" does not.
+	 *
+	 * @return array<int,string> Unprefixed table names, empty when all are present.
+	 */
+	public static function missing_tables(): array {
+		global $wpdb;
+
+		$expected = array_values( array_unique( self::OWNED_TABLES ) );
+
+		if ( array() === $expected ) {
+			return array();
+		}
+
+		$names        = array_map( static fn( string $t ): string => $wpdb->prefix . $t, $expected );
+		$placeholders = implode( ', ', array_fill( 0, count( $names ), '%s' ) );
+
+		// Placeholders are generated from a hard-coded class constant, never input;
+		// every value is bound by prepare().
+		$sql = 'SELECT table_name FROM information_schema.tables
+			WHERE table_schema = DATABASE() AND table_name IN ( ' . $placeholders . ' )';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		$found = array_map( 'strval', (array) $wpdb->get_col( $wpdb->prepare( $sql, $names ) ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		$missing = array();
+
+		foreach ( $expected as $table ) {
+			if ( ! in_array( $wpdb->prefix . $table, $found, true ) ) {
+				$missing[] = $table;
+			}
+		}
+
+		return $missing;
+	}
+
+	/**
+	 * Whether every table this plugin owns exists.
+	 *
+	 * A cheap COUNT against information_schema, memoised per request: `maybe_upgrade()`
+	 * asks it on every admin_init, and the answer cannot change mid-request.
+	 *
+	 * Checked against OWNED_TABLES rather than a hand-picked sentinel set, so a table
+	 * added later is covered without anyone remembering to extend a list.
+	 *
+	 * Use `missing_tables()` when the NAMES matter - reporting a failure needs them;
+	 * this only needs to know whether to re-run.
+	 *
+	 * @return bool
+	 */
 	private static function schema_intact(): bool {
 		if ( null !== self::$schema_check_result ) {
 			return self::$schema_check_result;
@@ -392,6 +577,22 @@ class Installer {
 	public static function maybe_upgrade(): void {
 		if ( (int) get_option( 'buddynext_schema_version', 0 ) === self::SCHEMA_VERSION
 			&& self::schema_intact() ) {
+			return;
+		}
+
+		// Back off when the server has already refused this schema.
+		//
+		// This runs on admin_init. With tables missing, schema_intact() fails on
+		// every request, so the whole installer - 41 dbDelta calls plus every
+		// migration below - ran again on EVERY admin page load. On the site this was
+		// found on that is permanent, because the server could not create those
+		// tables however many times it was asked, and the owner simply experienced
+		// wp-admin as broken-slow with no clue why.
+		//
+		// Retrying is still right: the fix is often to change the server, and the
+		// next attempt should pick that up. Retrying unboundedly is not. Once an
+		// hour converges within an hour of a real fix and costs nothing in between.
+		if ( self::schema_failure_is_recent() ) {
 			return;
 		}
 
@@ -1150,8 +1351,44 @@ class Installer {
 
 		self::seed_default_space( $wpdb->prefix );
 
-		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
-		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+		// Only claim the schema is installed if it is.
+		//
+		// This stamp used to be unconditional, which is what turned a failed CREATE
+		// TABLE into a site that believed itself healthy forever: the version said
+		// 40, the database had eight tables of forty-one, and nothing anywhere
+		// disagreed. Recording the version is a claim about the database, so it has
+		// to be checked against the database.
+		//
+		// Both the errors dbDelta reported AND a direct table count, because they
+		// catch different things - dbDelta stays quiet about some failures, and a
+		// table can also vanish afterwards.
+		self::$schema_check_result = null;
+
+		$missing = self::missing_tables();
+
+		if ( array() === $missing && array() === self::$last_schema_errors ) {
+			delete_option( self::SCHEMA_FAILURE_OPTION );
+
+			update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
+			update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+		} else {
+			// Recorded rather than thrown. Activation still completes - refusing it
+			// here would leave a half-created schema behind with no way to inspect
+			// it - but the version is NOT stamped, so nothing downstream mistakes
+			// this for a finished install, and the detail is somewhere support can
+			// read without a database dump.
+			update_option(
+				self::SCHEMA_FAILURE_OPTION,
+				array(
+					'missing'      => $missing,
+					'errors'       => self::$last_schema_errors,
+					'attempted_at' => time(),
+					'db_server'    => $wpdb->db_version(),
+					'schema'       => self::SCHEMA_VERSION,
+				),
+				false
+			);
+		}
 
 		// The tables just changed, so the memoised presence check is stale. Stamping
 		// the version above is the step that used to make a failed creation
@@ -1222,11 +1459,36 @@ class Installer {
 
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
+		//
+		// Suppressing the ECHO is right. Discarding the RESULT was not: a CREATE
+		// TABLE that failed left no trace anywhere, and run() stamped the schema
+		// version immediately afterwards, so the site recorded a complete install it
+		// did not have. That is the state a customer reached on MariaDB 5.5 - schema
+		// version 40, eight tables of forty-one, posting returning HTTP 201 and
+		// writing nothing, and support reverse-engineering it from the database.
+		//
+		// So the error is still kept off the screen, and now also kept.
+		$errors = array();
+
 		$wpdb->suppress_errors( true );
 		foreach ( self::schema( $wpdb->prefix, $charset ) as $sql ) {
+			// Compare against the previous value rather than blanking it first.
+			// Clearing $wpdb->last_error would stomp state this method does not own,
+			// and it is not needed: a NEW error is one that differs from the last.
+			$before = (string) $wpdb->last_error;
+
 			dbDelta( $sql );
+
+			$after = (string) $wpdb->last_error;
+
+			if ( '' !== $after && $after !== $before ) {
+				$table            = preg_match( '/CREATE TABLE ([a-z0-9_]+)/i', $sql, $m ) ? $m[1] : '?';
+				$errors[ $table ] = $after;
+			}
 		}
 		$wpdb->suppress_errors( false );
+
+		self::$last_schema_errors = $errors;
 
 		// Idempotent column back-fills for existing installs. dbDelta handles
 		// most additive changes, but enum/charset edge cases on older MySQL can
