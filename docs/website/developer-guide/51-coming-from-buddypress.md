@@ -173,7 +173,7 @@ To add a capability you filter `buddynext_abilities` (register the slug) and `bu
 
 ## 6. Hooks cheat-sheet
 
-The action you hooked in BuddyPress has a BuddyNext counterpart with a different name and, in several cases, a different argument order. The signatures below are verified against the live source (`do_action` call sites in `includes/`); `audit/manifest.json` is the authoritative inventory of every hook the plugin fires. Trust these over any older curated list.
+The action you hooked in BuddyPress has a BuddyNext counterpart with a different name and, in several cases, a different argument order. The signatures below are verified against the live source (`do_action` call sites in `includes/`); the `do_action()` and `apply_filters()` call sites in `includes/` are the authoritative inventory of every hook the plugin fires. Trust these over any older curated list.
 
 | BuddyPress / BuddyBoss | BuddyNext | Signature (verified) |
 |---|---|---|

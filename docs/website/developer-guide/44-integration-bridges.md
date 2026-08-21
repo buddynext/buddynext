@@ -109,7 +109,7 @@ curl -X POST "https://example.com/wp-json/buddynext/v1/spaces/42/forum" \
 
 When BuddyNext messaging is available, the bridge filters `option_jetonomy_pro_extensions` at read time to drop Jetonomy Pro's `private-messaging` extension, so BuddyNext owns the `/messages/` route. Nothing is persisted (the filter only changes the value front-end at read time) and it reverts automatically if BN messaging is disabled. The setting is left untouched in wp-admin so the Jetonomy extensions screen still reflects and saves the real value.
 
-> **Note:** A docblock at the top of `JetonomyBridge` and an `audit/manifest.json` `consumed` entry both reference suppressing Jetonomy's own community nav via `jetonomy_show_community_nav -> false`. The current code does **not** register that filter - per the owner rule that BuddyNext must not touch Jetonomy's own pages. The link *into* discussions lives on BuddyNext's own rail instead. Treat the manifest/docblock mention as stale; the live behavior is no suppression.
+> **Note:** A docblock at the top of `JetonomyBridge` references suppressing Jetonomy's own community nav via `jetonomy_show_community_nav -> false`. The current code does **not** register that filter - per the owner rule that BuddyNext must not touch Jetonomy's own pages. The link *into* discussions lives on BuddyNext's own rail instead. Treat the manifest/docblock mention as stale; the live behavior is no suppression.
 
 ## JetonomyBridgeListener
 
@@ -216,4 +216,4 @@ A theme bridge, always wired because it self-guards on `'buddyx' === get_templat
 - **Feature toggle vs companion presence are independent gates.** A bridge runs only when both its feature toggle is on (`buddynext_feature_enabled`) and its companion is active. Disabling the toggle removes the bridge even if the companion is installed.
 - **Companion table access is the bridge's job.** Jetonomy `jt_*` reads and the WPMediaVerse follow-graph access live inside the bridge classes; downstream templates and services consume bridge methods (for example `JetonomyBridge::user_discussions()`), never the companion schema.
 - **Free/Pro boundary.** The integration bridges documented on this page (Jetonomy, WPMediaVerse, gamification, BuddyX, PWA) all live in Free and run regardless of Pro. `CareerBoardBridge` was moved to Pro; Pro also registers `ListoraBridge` and `LearnomyBridge` on the same `buddynext_load_bridges` seam (those business-integration bridges are documented separately). Only `CareerBoardBridge` is covered here.
-- **Manifest may lag code.** The `audit/manifest.json` `consumed` list still records `jetonomy_show_community_nav` for `JetonomyBridge`; the live code no longer registers it. When the manifest and source disagree, the source is authoritative.
+- **Docblocks may lag code.** `JetonomyBridge`'s own docblock still mentions `jetonomy_show_community_nav`; the live code no longer registers it. When a comment and the source disagree, the source is authoritative.

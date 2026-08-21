@@ -101,9 +101,16 @@ The functional-certification harness. It is the one trustworthy release gate tha
 
 ### The contract check (the cert contract)
 
+> **This is an internal QA gate, and its inputs do not ship.** The command is in the plugin, but the
+> inventory and oracle files it reads live outside the distributed package by design - the internal
+> surface inventory is deliberately not public. On a normal install the runner therefore finds no
+> oracles and reports holes rather than passes. That is expected, and it refuses to report a vacuous
+> "0 failures" pass when it has asserted nothing. Documented here because the command exists and you
+> will find it; you are not missing a file you were supposed to have.
+
 The contract check proves that every gated setting is wired through to real behavior, catching "dead toggle" bugs - a setting saved in the database but never read on the enforcement path.
 
-For each gated feature listed in the contract oracle (`audit/cert-oracles.json`, the one hand-authored input), the runner:
+For each gated feature listed in its contract oracle, the runner:
 
 1. Snapshots the current setting state.
 2. Flips the setting **OFF** and asserts the REST surface's behavior changes - the disabled error code appears.
@@ -116,7 +123,7 @@ Each oracle yields a row with one of three statuses:
 |---|---|
 | `PASS` | The toggle enforces - behavior changed when flipped. |
 | `FAIL` | The toggle is dead - flipping the setting did not change behavior. Fails the gate. |
-| `HOLE` | The feature is toggleable but has no oracle, so enforcement is unproven. Add coverage by adding an entry to `audit/cert-oracles.json`. |
+| `HOLE` | The feature is toggleable but has no oracle, so enforcement is unproven. On a normal install every gated feature reports this, because the oracle file is not part of the distributed package. |
 
 A `HOLE` is uncovered surface, not a failure, but it signals a gap in the oracle.
 
@@ -146,7 +153,7 @@ Sample human output:
   PASS  contract  feature-x              disabled code appears when off
   PASS  boot      GET /spaces            200
   FAIL  contract  feature-y              flip had no effect
-  HOLE  contract  feature-z              no oracle - enforcement unproven (add one to audit/cert-oracles.json)
+  HOLE  contract  feature-z              no oracle - enforcement unproven
 
   2 passed, 1 failed, 1 holes (uncovered)
 Error: Functional certification FAILED - 2 passed, 1 failed, 1 holes (uncovered)

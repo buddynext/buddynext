@@ -8,21 +8,21 @@ This page covers the hooks that cross plugin boundaries: the actions and filters
 
 For the core free hook surface (post, reaction, comment, space, moderation events) see the Core Hooks reference. This page is the layer above it.
 
-## The free/pro contract: the `consumed_by` field
+## The free/pro contract: the "consumed by" column
 
-Pro's manifest (`buddynext-pro/audit/manifest.json`) records every hook Pro fires under `hooks_fired`, and each entry carries a `consumed_by` array. That array is the documented cross-plugin contract: it names which plugins (`buddynext`, `buddynext-pro`, or neither) actually attach a listener to the hook.
+The table below carries a **consumed by** column for every hook Pro fires. It names which of the two BuddyNext plugins actually attaches a listener, and it is the cross-plugin contract:
 
-- `consumed_by: ["buddynext", "buddynext-pro"]` - the hook is part of the live free<->pro wiring. Removing or renaming it breaks a real listener in the paired plugin. Treat it as a frozen contract.
-- `consumed_by: ["buddynext-pro"]` - Pro fires it and Pro consumes it (internal to the Pro layer), but it is still a public seam you may hook.
-- `consumed_by: []` - Pro fires it but nothing in the free/pro pair listens. It exists as an extension seam for your code or a companion plugin (gamification, CRM, analytics). These are safe, stable hooks; the empty array means "no first-party consumer," not "private."
+- **`buddynext`, `buddynext-pro`** - the hook is part of the live free-to-Pro wiring. Removing or renaming it breaks a real listener in the paired plugin. Treat it as a frozen contract.
+- **`buddynext-pro`** - Pro fires it and Pro consumes it, internal to the Pro layer, but it is still a public seam you may hook.
+- **(none)** - Pro fires it and nothing in the pair listens. It exists as an extension seam for your code or a companion plugin (gamification, CRM, analytics). These are safe, stable hooks; "none" means no first-party consumer, not private.
 
-The same `consumed_by` mapping is what lets a third party (for example wb-gamification) know which events are guaranteed to fire. Read the manifest entry before hooking - it tells you the firing site (`where`), the argument count (`args_count`), and who else is on the wire.
+This is what lets a third party such as wb-gamification know which events are guaranteed to fire. Confirm the argument list against the call site before you hook - grep the hook name in the Pro plugin's `includes/`.
 
-> **Note:** `consumed_by` describes first-party listeners only (the two BuddyNext plugins). Your own `add_action()`/`add_filter()` callbacks never appear there. An empty `consumed_by` is the normal state for a clean extension point.
+> **Note:** the column describes first-party listeners only, meaning the two BuddyNext plugins. Your own `add_action()` / `add_filter()` callbacks never appear there, so "none" is the normal state for a clean extension point.
 
 ## Pro-emitted hooks with their free<->pro mapping
 
-The table lists every hook Pro fires. Names are exact. The `consumed_by` column reproduces the manifest contract.
+The table lists every hook Pro fires. Names are exact.
 
 | Hook | Type | Fired when | Parameters | consumed_by |
 |---|---|---|---|---|

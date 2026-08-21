@@ -14,7 +14,7 @@ The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 63 reg
 - **Most routes are admin- or owner-gated.** Campaign, moderation-rule, label-admin, analytics-overview, and AI-classify routes require an admin capability. Member-scoped routes (anything under `/me/...`, own subscriptions, saved searches, push) require login. A few are public reads.
 - **The payment-webhook routes are open at the permission layer but signed at the payload layer:** `/stripe/webhook`, `/stripe/membership-webhook`, and `/paypal/membership-webhook` register `permission_callback => __return_true` and are authorised entirely by verifying the provider's signature on the payload. `/realtime/auth` is login-gated and additionally enforces per-channel access. See the highlight below - "open" does not mean "unauthenticated trust".
 
-Source of truth: `audit/manifest.json` (`rest.endpoints`, namespace `buddynext-pro/v1`) in the Pro repo, and the controllers under `includes/`.
+Source of truth: the controllers under `includes/` in the Pro plugin - grep `register_rest_route(` for the `buddynext-pro/v1` namespace.
 
 ## Open-but-signed routes (read this first)
 

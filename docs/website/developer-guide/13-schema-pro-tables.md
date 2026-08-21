@@ -13,7 +13,7 @@ Pro tables use the same `bn_` prefix as Free (there is no `bnpro_` prefix). Pro'
 1. **Pro never creates or modifies Free tables.** When a Pro feature needs an extra column, it is added to a Pro-owned table, or - for additive columns on Pro tables - through `Installer::maybe_alter_tables()` behind an `INFORMATION_SCHEMA` guard so re-runs are no-ops. The membership tier columns (`price`, `currency`, `billing_type`, `billing_interval`, `trial_days`, `is_free`, `status`, `entitlements`) are back-filled this way onto `bn_membership_tiers`.
 2. **`bn_mod_appeals` does not exist.** The Pro moderation spec named an appeals table `bn_mod_appeals`, but Pro reuses Free's `bn_appeals` for the appeal workflow. The two names are the same logical table; Pro does not duplicate it.
 
-> **Note:** The authoritative list of what Pro *creates* is the `schema()` method in `BuddyNextPro\Core\Installer` (`schema_membership_extension()` + `schema_core()`), which creates **18** Pro-owned tables. This page follows the Installer, not the `audit/manifest.json` snapshot - the manifest's `dbTables` array is a usage index (it also references Free's `bn_posts` and WPMediaVerse's `mvs_*` tables that Pro reads but does not own).
+> **Note:** The authoritative list of what Pro *creates* is the `schema()` method in `BuddyNextPro\Core\Installer` (`schema_membership_extension()` + `schema_core()`), which creates **18** Pro-owned tables. This page follows the Installer, which is the only authoritative list of what Pro creates. Note it also touches Free's `bn_posts` and WPMediaVerse's `mvs_*` tables that Pro reads but does not own).
 
 ## Membership
 
