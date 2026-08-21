@@ -25,7 +25,7 @@ The community sees the effect - less spam, fewer abusive posts - without any vis
 
 ## Setting it up (for owners)
 
-Auto-moderation rules are managed at **BuddyNext > Auto-Moderation > Rules**. BuddyNext ships a set of built-in default rules so the screen is never blank and sensible protection is in place from day one. You can toggle the defaults on or off, adjust their settings, and add your own rules alongside them.
+Auto-moderation rules are managed at **BuddyNext > Moderation Tools > Rules**. BuddyNext ships a set of built-in default rules so the screen is never blank and sensible protection is in place from day one. You can toggle the defaults on or off, adjust their settings, and add your own rules alongside them.
 
 ### Rule types
 

@@ -32,7 +32,7 @@ We have kept this honest. Where something is provided by a companion plugin or i
 | Push and mobile | Pro, plus one coming soon | Web push notifications (desktop and mobile browsers) are Pro and available today. Members can also install the community to a phone home screen as an app-like experience, which is free (see the PWA page). A **native iOS and Android app is planned for a future release and does not ship yet** - do not switch on the strength of it. |
 | Real-time updates | Free and Pro | The free plugin keeps feeds and counts current with regular background refreshes. Instant real-time delivery and typing indicators in messaging are Pro. |
 | Analytics | Free and Pro | The free plugin shows basic admin counts. A full analytics dashboard (daily, weekly, and monthly active members, churn), space-level analytics, member self-analytics, and CSV export are Pro. |
-| White-label | Pro | Available on the Unlimited (Agency) license tier of Pro. |
+| White-label | Pro | Included with any active Pro licence. It replaces the BuddyNext name and logo across wp-admin and in the emails your community sends; the site front end is unchanged and follows your theme. |
 | Member and content importer from BuddyPress / BuddyBoss | Companion plugin | **BuddyNext Importer**, free. Moves members, profile fields and values, member types, groups (with privacy and roles), activity with its comment threads, friendships, follows, reactions, bbPress forums, avatars and covers, albums and media, and private messages. Each domain reports what it wrote against what the source held. Rehearse on staging first - an import cannot be undone from inside the plugin. See Moving Your Existing Members and Content. |
 
 ## Good to know
@@ -40,7 +40,7 @@ We have kept this honest. Where something is provided by a companion plugin or i
 - **The free plugin is a complete community platform**, not a limited trial. Most of what a community needs to launch is in the Free column.
 - **Companion plugins are free and optional.** Messaging, media, discussions, and gamification each come from a companion you add only when you want that capability. This keeps your core install lean.
 - **Pro is additive.** Turning on Pro never removes or changes a free feature you already use - it only adds new capabilities.
-- **License tier affects the number of sites, not the feature set**, with one exception: white-label is Unlimited-tier only.
+- **License tier affects the number of sites, not the feature set.** Every Pro feature is available on every tier. The licence gates update downloads, not functionality - an expired licence keeps working, it just stops receiving updates.
 - **The native mobile app is not shipped yet.** It is a planned Pro deliverable for a future release. If a native app is the reason you are considering a move, wait for it to be released rather than buying on the promise. What exists today is web push and an installable, app-like PWA - both real, both documented, neither a native app.
 
 ## What's next

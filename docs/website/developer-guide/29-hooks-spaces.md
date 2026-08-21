@@ -6,7 +6,7 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 
 ## Overview / Contract
 
-- **Actions fire after the write commits.** Membership and lifecycle actions pass IDs, not hydrated rows. Re-fetch via `buddynext_service( 'space_service' )->get( $space_id )` when you need more than the IDs.
+- **Actions fire after the write commits.** Membership and lifecycle actions pass IDs, not hydrated rows. Re-fetch via `buddynext_service( 'spaces' )->get( $space_id )` when you need more than the IDs. The container key is `spaces`, not `space_service`.
 - **`buddynext_can_join_space` is the access gate.** It runs before any database work in both the direct-join and request-membership paths. Return `false` to block; BuddyNext then short-circuits with a `WP_Error` built by the denial path, and `buddynext_space_join_denied_data` lets you attach a payload (for example a Pro paywall) to that error.
 - **Removal vs ban are distinct events.** A ban also removes the membership, so a ban fires both `buddynext_space_member_removed` (so removal listeners such as cache busting always react) and `buddynext_space_user_banned` (so ban-specific listeners react). Listen to whichever matches your intent.
 - **Idempotent membership writes.** Joins, requests, and invites use `INSERT IGNORE`; their actions fire only when the membership state actually changes. Unban fires only when an active ban row was deleted.
@@ -51,29 +51,9 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 
 `buddynext_space_archived` and `buddynext_space_unarchived` are dispatched from a single call site that selects the hook name by state, so a listener only fires on the transition it registered for.
 
-> **Arity warning: `buddynext_space_updated` is fired from three call sites and one of them is short.**
+> **`buddynext_space_updated` fires with the full three arguments from every call site.**
 >
-> | Call site | Arguments passed |
-> |---|---|
-> | `SpaceService::update()` (`includes/Spaces/SpaceService.php:599`) | 3 - `$space_id, $user_id, $fields` |
-> | `SpaceService` sub-space detach (`includes/Spaces/SpaceService.php:1188`) | 3 - `$space_id, $user_id, $fields` |
-> | `SpaceFieldRegistry::save()` (`includes/Spaces/SpaceFieldRegistry.php:565`) | **1 - `$space_id` only** |
->
-> The third fires when a searchable, public space field is saved (it exists to trigger a search re-index). WordPress passes a listener only the arguments the *firing* site supplied, so a typed 3-parameter callback raises an `ArgumentCountError` on that path even though it was registered exactly as documented.
->
-> Until the call sites converge, **give your callback defaults** rather than relying on `accepted_args`:
->
-> ```php
-> add_action(
->     'buddynext_space_updated',
->     static function ( int $space_id, int $user_id = 0, array $fields = array() ): void {
->         // $user_id === 0 and $fields === [] means the short call site fired:
->         // a searchable space field changed. Re-fetch the space if you need more.
->     },
->     10,
->     3
-> );
-> ```
+> This was not always true. `SpaceFieldRegistry::save()` used to fire `$space_id` alone, so a typed three-parameter listener - registered exactly as documented - took an `ArgumentCountError` on that one path. It now passes `$space_id, get_current_user_id(), $saved` like the two `SpaceService` call sites, and the source carries a comment saying the arity is part of the contract and must not vary by call site. Earlier versions of this page told you to default the second and third parameters as a workaround; that is no longer necessary.
 
 ## Membership: join, request, invite
 
@@ -180,4 +160,4 @@ add_action( 'buddynext_space_member_joined', function ( int $space_id, int $user
 - **Free vs Pro.** Every hook here is fired by Free. `buddynext_can_join_space` plus `buddynext_space_join_denied_data` are the documented gated-spaces / paywall seam that Pro builds on; `buddynext_space_types` is the extension point for new space kinds.
 - **The gate runs first.** Because `buddynext_can_join_space` short-circuits before any insert, you cannot rely on a `*_member_joined` action to undo a join you wanted to block. Block it at the gate.
 - **Ban fires two actions.** Choose `buddynext_space_user_banned` for ban-specific behaviour and `buddynext_space_member_removed` for "no longer a member" behaviour. They fire together on a ban.
-- **Re-fetch space data.** Lifecycle actions pass IDs only. Hydrate via `buddynext_service( 'space_service' )->get( $space_id )` rather than reading `$space` from a stale closure.
+- **Re-fetch space data.** Lifecycle actions pass IDs only. Hydrate via `buddynext_service( 'spaces' )->get( $space_id )` rather than reading `$space` from a stale closure.

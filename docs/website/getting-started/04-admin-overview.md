@@ -1,6 +1,6 @@
 # Admin Overview
 
-The BuddyNext admin hub is the single place you manage your whole community from. Instead of scattering settings across dozens of unrelated screens, BuddyNext groups every control into eleven labeled sections that follow how you actually run a community: set it up, manage your platform, look after members and spaces, drive engagement, handle notifications, and moderate. This page is your map - find any setting by the job it does.
+The BuddyNext admin hub is the single place you manage your whole community from. Instead of scattering settings across dozens of unrelated screens, BuddyNext groups every control into labeled sections that follow how you actually run a community: set it up, manage your platform, look after members and spaces, drive engagement, handle notifications, and moderate. This page is your map - find any setting by the job it does.
 
 ![BuddyNext admin Community Overview dashboard — member, post and engagement stat cards, an activity timeline, a community-health score, top spaces by activity, recent moderation activity, and quick actions.](../images/admin-overview.webp)
 
@@ -24,18 +24,19 @@ Tabs marked **(Pro)** require BuddyNext Pro. Everything else is in the free plug
 | Section | Tabs | What you configure |
 |---------|------|--------------------|
 | **Settings** | General; Appearance; Navigation; Pages & URLs; White-Label **(Pro)** | Core community name and identity, theme appearance and brand color, the front-end navigation menu, and the URL for each community hub. |
-| **Platform** | Features; Integrations; Integration Display; Tools; Webhooks | Turn whole features on or off, install and connect companion plugins, control how each integration surfaces, run maintenance tools, and send outbound webhooks to other systems. |
+| **Get Started** | Home; License **(Pro)** | Find your way around a new install, work through setup, and enter your Pro license key so the plugin receives automatic updates. |
+| **Platform** | Features; Add-ons; Integration Settings; Tools; Plugin isolation | Turn whole features on or off, install and connect companion plugins, control how each integration surfaces, run maintenance tools, and choose which other plugins load on community pages. |
 | **Members** | Directory; Labels **(Pro)**; Registration; Roles; Privacy | Manage the member directory, apply member labels, set how people register and verify, define roles and capabilities, and set default privacy. |
 | **Spaces** | Directory; Spaces settings | Manage the spaces directory and configure how spaces, categories, and membership work. |
 | **Engagement** | Insights; Announcements; Social; Reactions | View engagement insights, post site-wide announcements, configure social and social-login behavior, and choose which reactions members can use. |
 | **Notifications** | Notifications; Email; Templates; Email Log | Set notification defaults and channels, configure sending email identity, edit the email templates members receive, and review a log of every message sent. |
-| **Realtime & Push (Pro)** | Realtime; Push; Push Preferences | Configure real-time updates, web and mobile push delivery, and the default push preferences for members. |
+| **Realtime & Push (Pro)** | Realtime; Push; Push Preferences; Webhooks | Configure real-time updates, web and mobile push delivery, the default push preferences for members, and outbound webhooks to other systems. |
 | **Campaigns (Pro)** | Broadcasts; Drip; Scheduled Posts; AI Feed | Send broadcast emails, build automated drip sequences, schedule posts, and configure AI feed ranking. |
-| **Moderation** | Moderation; Pending; Reports; Suspensions; Appeals; Bulk **(Pro)** | Set moderation policy, review pending content, work the report queue, manage suspensions, handle member appeals, and run bulk moderation actions. |
-| **Auto-Moderation (Pro)** | Rules; AI Moderation | Build automatic moderation rules (including banned-word rules) and enable AI-assisted content moderation. |
-| **Monetization (Pro)** | Tiers; Subscriptions; Paywall; Payments; License | Define paid membership tiers, manage subscriptions, configure the paywall prompt, connect payment gateways (Stripe, PayPal, points), and enter your Pro license key. |
+| **Moderation** | Controls; Pending; Reports; Suspensions; Appeals | Set moderation policy, review pending content, work the report queue, manage suspensions, and handle member appeals. |
+| **Moderation Tools** | Rules **(Pro)**; AI Moderation **(Pro)**; Bulk **(Pro)**; Moderation Log | Build automatic moderation rules (including banned-word rules), enable AI-assisted moderation, run bulk moderation actions, and read the log of who moderated what. The Moderation Log is free; the other three are Pro. |
+| **Monetization (Pro)** | Plans; Subscriptions; Coupons; Paywall; Payment Gateways | Define paid membership tiers, manage subscriptions, issue discount coupons, configure the paywall prompt, and connect payment gateways (Stripe, PayPal, points). |
 
-> **Note:** Sections marked (Pro) and individual (Pro) tabs appear only when BuddyNext Pro is active. With the free plugin alone you see Settings, Platform, Members, Spaces, Engagement, Notifications, and Moderation, with the Pro-only tabs inside them hidden.
+> **Note:** Sections marked (Pro) and individual (Pro) tabs appear only when BuddyNext Pro is active. With the free plugin alone you see Get Started, Settings, Platform, Members, Spaces, Engagement, Notifications, Moderation and Moderation Tools, with the Pro-only tabs inside them hidden. Free also shows an **Upgrade** section, which is an upsell rather than a place to configure anything.
 
 ## Refined in 1.0.4
 
@@ -44,7 +45,7 @@ The admin had a full quality pass in 1.0.4, so screenshots from earlier versions
 - Every settings screen uses the same full-width card style, with inputs capped at a comfortable reading width.
 - The left navigation shows real hierarchy - section labels with their screens nested beneath - and keeps its sidebar layout on iPad.
 - Logo and image fields open the WordPress media library with a preview and a Remove button.
-- **License** has its own entry in the BuddyNext admin menu, so activating updates no longer means hunting through tabs.
+- **License** moved out of Monetization and onto its own tab, so activating updates no longer means hunting through the billing screens. As of 1.1.5 it sits under **Get Started**.
 
 ![The License screen, now one click from the admin menu](../images/admin-license.webp)
 

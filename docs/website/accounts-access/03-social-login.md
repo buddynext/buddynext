@@ -16,7 +16,7 @@ Social login lets people sign in or sign up using an account they already have -
 
 ## Supported providers
 
-BuddyNext includes four providers out of the box:
+BuddyNext includes five providers out of the box:
 
 - **Google**
 - **Facebook**
@@ -24,7 +24,7 @@ BuddyNext includes four providers out of the box:
 - **GitHub**
 - **Discord**
 
-These four are the providers BuddyNext ships and walks you through setting up. They cover the networks most communities need.
+These five are the providers BuddyNext ships and walks you through setting up. They cover the networks most communities need.
 
 ## How it works for members
 

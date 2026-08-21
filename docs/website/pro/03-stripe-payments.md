@@ -6,7 +6,7 @@ Stripe is the payment gateway BuddyNext Pro uses to take real payments for membe
 
 ![What members see - the pricing page where they pick a plan and check out via Stripe](../images/membership-pricing.webp)
 
-> **Before you start:** BuddyNext is built to work with whichever gateway you connect. Alongside Stripe it ships a PayPal gateway, a Points gateway, and a Test sandbox so you can try the checkout flow without real money - all configured on the same Payments tab. This page covers Stripe.
+> **Before you start:** BuddyNext is built to work with whichever gateway you connect. Alongside Stripe it ships a PayPal gateway, a Points gateway, and a Test sandbox so you can try the checkout flow without real money - all configured on the same Payment Gateways tab. This page covers Stripe.
 
 ## Why use it
 
@@ -38,7 +38,7 @@ Renewals happen on their own. Each time Stripe charges the card successfully, th
 
 ### Step 1: Enter your keys
 
-Open BuddyNext settings and go to the Monetization section, Payments tab. Find the Stripe section, paste your publishable key and secret key, then save.
+Open BuddyNext settings and go to the Monetization section, Payment Gateways tab. Find the Stripe section, paste your publishable key and secret key, then save.
 
 | Setting | What it does | Default |
 |---|---|---|
@@ -46,11 +46,11 @@ Open BuddyNext settings and go to the Monetization section, Payments tab. Find t
 | Secret key | Your Stripe secret key. Like the publishable key, it comes in a test and a live version. BuddyNext keeps it masked on screen. Whether you are in test or live mode is detected automatically from this key. | Empty |
 | Webhook signing secret | A short secret Stripe gives you when you create the webhook in Step 2. It lets BuddyNext confirm that incoming updates genuinely came from Stripe. Kept masked on screen. | Empty |
 
-> **Note:** Stripe reads whether it is in test or live mode from your secret key prefix - an `sk_live_` key is live, an `sk_test_` key is test. The Payments tab also carries an explicit Test mode toggle you set yourself, and shows a Test mode / Live mode badge. If your declared mode and your key disagree - for example, test mode is on but a live key is saved - BuddyNext shows a mismatch warning so you never take real payments by mistake.
+> **Note:** Stripe reads whether it is in test or live mode from your secret key prefix - an `sk_live_` key is live, an `sk_test_` key is test. The Payment Gateways tab also carries an explicit Test mode toggle you set yourself, and shows a Test mode / Live mode badge. If your declared mode and your key disagree - for example, test mode is on but a live key is saved - BuddyNext shows a mismatch warning so you never take real payments by mistake.
 
 ### The gateway status badge
 
-The Payments tab shows a status badge for each gateway. It is not just checking that you typed something into the key fields - it actually asks the payment provider whether the credentials work. The badge reads:
+The Payment Gateways tab shows a status badge for each gateway. It is not just checking that you typed something into the key fields - it actually asks the payment provider whether the credentials work. The badge reads:
 
 | Badge | What it means |
 |---|---|
@@ -89,7 +89,7 @@ BuddyNext links each Stripe customer to the matching member on your site. The fi
 
 ### Refunds, whole or partial (1.1.5)
 
-Refund an order from the Orders screen. Leave the amount blank to refund everything still outstanding, or type a smaller figure to refund part of it.
+Refund an order from the Orders view of the Subscriptions tab. Leave the amount blank to refund everything still outstanding, or type a smaller figure to refund part of it.
 
 The distinction decides what happens to access:
 
@@ -117,7 +117,7 @@ Returning subscribers can open the Stripe billing portal from your site. The por
 - **A few things need to be in place before the live path works.** Stripe keys, the webhook plus its signing secret, and a priced tier all have to be set up. If any is missing, the paywall falls back to a plain call-to-action or a friendly "not configured" notice rather than a broken checkout. This is expected, not a fault.
 - **An expired Pro license never blocks Stripe.** A Pro license controls update downloads only; your payment features keep working regardless.
 - **The card form loads from Stripe.** As Stripe's terms require, the card form comes straight from Stripe's own servers. Nothing card-related is ever stored on your site.
-- **Mode comes from both your key and an explicit toggle.** Stripe reads live or test from your secret key prefix, and the Payments tab has a Test mode toggle you set. A mismatch warning appears if the two disagree, so you always know whether you are taking real payments.
+- **Mode comes from both your key and an explicit toggle.** Stripe reads live or test from your secret key prefix, and the Payment Gateways tab has a Test mode toggle you set. A mismatch warning appears if the two disagree, so you always know whether you are taking real payments.
 - **Stripe never flags your site as failing.** Stripe sends many kinds of updates; BuddyNext quietly accepts the ones it does not need, so your webhook always reports healthy.
 
 

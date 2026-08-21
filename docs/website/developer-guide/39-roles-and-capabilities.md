@@ -93,7 +93,7 @@ The role map holds 22 generic capabilities:
 
 > **`buddynext-spaces/create` has one option that overrides its default.** The legacy Spaces-tab "who can create spaces" setting is folded into the role map: when `get_option( 'buddynext_space_creation_role' )` is `'admin'`, the map default flips from `member` to `admin`. The default (`'member'`) leaves the map untouched. It is applied inside `role_map()` so it composes with the Roles and Capabilities tab instead of fighting it.
 
-> **`buddynext-comments/create` is enforced, but it is not currently grantable through a UI.** It is present in `PermissionService::ROLE_MAP` (so `buddynext_can()` gates on it), but it is absent from both `Abilities::CATALOG` and `RolesTab::catalog()`. That means it is not registered with the WordPress Abilities API, it renders no row in the admin Roles tab, and `RolesTab::handle_save()` drops it if submitted (it writes nothing outside its own catalog). Today the only way to change its required role is the `buddynext_role_map` filter:
+> **`buddynext-comments/create` is grantable from the admin.** It is present in `PermissionService::ROLE_MAP`, in `Abilities::CATALOG`, and in `RolesTab::catalog()`, so it is registered with the WordPress Abilities API and renders a row ("Comment on posts") on the Roles and Capabilities tab like any other capability. An earlier version of this page said it was absent from the catalog and reachable only through the `buddynext_role_map` filter; that has not been true for some time. The filter still works if you want to set the role in code:
 >
 > ```php
 > add_filter( 'buddynext_role_map', static function ( array $map ): array {

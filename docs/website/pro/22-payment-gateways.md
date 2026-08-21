@@ -1,12 +1,12 @@
 # Payment Gateways
 
-BuddyNext Pro is built to work with whichever payment gateway you connect, not just one. You enable the gateways you want on a single Payments tab, each shows its own status, and checkout routes members to your preferred gateway. Alongside the built-in Stripe integration, Pro ships a PayPal gateway, a Gamification Points gateway, and a Test sandbox - all configured in the same place.
+BuddyNext Pro is built to work with whichever payment gateway you connect, not just one. You enable the gateways you want on a single Payment Gateways tab, each shows its own status, and checkout routes members to your preferred gateway. Alongside the built-in Stripe integration, Pro ships a PayPal gateway, a Gamification Points gateway, and a Test sandbox - all configured in the same place.
 
 ![The Monetization Payments admin tab listing every payment gateway with its own enable toggle and status badge](../images/admin-stripe.webp)
 
 ![What members see - the pricing page where they pick a plan and check out through the gateway you offer](../images/membership-pricing.webp)
 
-> **Before you start:** These gateways come with BuddyNext Pro. You need Pro active and the Monetization layer turned on (Platform → Features, "Memberships & monetization"), then open BuddyNext settings, Monetization section, Payments tab. This page covers the shared gateway model plus PayPal, Points, and the Test sandbox. Stripe has its own page - see Stripe Payments.
+> **Before you start:** These gateways come with BuddyNext Pro. You need Pro active and the Monetization layer turned on (Platform → Features, "Memberships & monetization"), then open BuddyNext settings, Monetization section, Payment Gateways tab. This page covers the shared gateway model plus PayPal, Points, and the Test sandbox. Stripe has its own page - see Stripe Payments.
 
 ## Why use it
 
@@ -21,9 +21,9 @@ You gain the choice when you want to:
 
 Whichever gateway a member uses, BuddyNext charges the same final amount for the same plan, because any coupon or tax is worked out by BuddyNext before the gateway is called (see Coupons and Tax). The gateway handles the payment; BuddyNext keeps the member's subscription and access in sync.
 
-## How the Payments tab works
+## How the Payment Gateways tab works
 
-The Payments tab lists every registered gateway. Each one renders its own enable toggle and the credential fields it needs, so a newly added gateway shows up the moment it is registered - there is no separate screen to edit. Three things are shared across all of them.
+The Payment Gateways tab lists every registered gateway. Each one renders its own enable toggle and the credential fields it needs, so a newly added gateway shows up the moment it is registered - there is no separate screen to edit. Three things are shared across all of them.
 
 ### The status badge
 
@@ -52,7 +52,7 @@ PayPal lets members pay with their PayPal balance or a card through PayPal's hos
 
 ### Set up PayPal
 
-Open the Payments tab, find the PayPal section, and fill in:
+Open the Payment Gateways tab, find the PayPal section, and fill in:
 
 | Setting | What it does | Default |
 |---|---|---|
@@ -72,7 +72,7 @@ The Points gateway lets members redeem a membership tier with WB Gamification po
 
 ### Set up Points
 
-The Points gateway appears on the Payments tab only when WB Gamification is active, and it is off by default - charging points for paid plans is a deliberate choice, so you switch it on yourself.
+The Points gateway appears on the Payment Gateways tab only when WB Gamification is active, and it is off by default - charging points for paid plans is a deliberate choice, so you switch it on yourself.
 
 | Setting | What it does | Default |
 |---|---|---|
@@ -98,7 +98,7 @@ It is opt-in and off by default in every environment - you must switch it on exp
 
 ## Free vs Pro
 
-Taking real payments is part of BuddyNext Pro. BuddyNext Free has no checkout or gateway layer. Within Pro, the gateway-agnostic Payments tab, the PayPal and Points gateways, and the Test sandbox are all included alongside the built-in Stripe integration. See Membership Tiers and Gated Spaces for how access is defined, Stripe Payments for the Stripe setup, and Coupons and Tax for how discounts and tax are applied before any gateway is charged.
+Taking real payments is part of BuddyNext Pro. BuddyNext Free has no checkout or gateway layer. Within Pro, the gateway-agnostic Payment Gateways tab, the PayPal and Points gateways, and the Test sandbox are all included alongside the built-in Stripe integration. See Membership Tiers and Gated Spaces for how access is defined, Stripe Payments for the Stripe setup, and Coupons and Tax for how discounts and tax are applied before any gateway is charged.
 
 ## Requirements
 

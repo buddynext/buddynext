@@ -4,7 +4,7 @@ This page documents every table created by `BuddyNextPro\Core\Installer`, groupe
 
 ![The Pro admin settings powered by the BuddyNextPro Installer tables documented on this page](../images/admin-settings.webp)
 
-![The Monetization Tiers admin tab, one of the Pro screens that reads and writes the Pro schema described here](../images/admin-tiers.webp)
+![The Monetization Plans admin tab, one of the Pro screens that reads and writes the Pro schema described here](../images/admin-tiers.webp)
 
 ## Contract: ownership and the Free/Pro boundary
 
@@ -57,6 +57,7 @@ Per-user subscription rows linked to a tier and a gateway. The unique `external_
 | `started_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `expires_at` | DATETIME | Nullable; indexed (`expires`) |
 | `external_id` | VARCHAR(255) | Gateway subscription ID, nullable; unique |
+| `reminder_sent_days` | SMALLINT UNSIGNED | Added 1.1.5. The smallest reminder offset already sent for this subscription, nullable. Makes the renewal-reminder sweep idempotent without a join table. |
 | `created_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `updated_at` | DATETIME | `ON UPDATE CURRENT_TIMESTAMP` |
 
@@ -95,6 +96,7 @@ Purchase receipts. The `meta` JSON blob carries line items and billing address f
 | `currency` | CHAR(3) | Default `USD` |
 | `status` | VARCHAR(20) | Default `paid` |
 | `number` | VARCHAR(50) | Human invoice number, nullable |
+| `refunded` | DECIMAL(10,2) | Added 1.1.5. Cumulative amount refunded against this order, default 0. A partial refund increments it; the guard is `refunded + amount <= total`. |
 | `created_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `meta` | LONGTEXT | JSON line items + address, nullable |
 

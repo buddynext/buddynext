@@ -126,9 +126,9 @@ WPMediaVerse fires these actions, which BuddyNext bridges into community surface
 ```php
 do_action( 'mvs_message_sent',     int $message_id, int $conversation_id, int $sender_id, array $recipient_ids )
 do_action( 'mvs_media_uploaded',   int $media_id, array $file_data, int $user_id, string $media_type )
-do_action( 'mvs_media_deleted',    int $media_id, int $author_id )
+do_action( 'mvs_media_deleted',    int $media_id, int $author_id, string $permalink )
 do_action( 'mvs_reaction_added',   int $media_id, int $user_id, string $emoji )
-do_action( 'mvs_comment_created',  int $media_id, int $user_id, int $comment_id )
+do_action( 'mvs_comment_created',  int $media_id, int $user_id, int $comment_id, string $content, string $source )
 do_action( 'mvs_favorite_toggled', int $media_id, int $user_id, string $action ) // 'added' | 'removed'
 do_action( 'mvs_mentions_created', int $media_id, array $mentioned_user_ids, string $context, int $comment_id )
 ```

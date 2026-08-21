@@ -46,6 +46,6 @@ A few rules keep this safe:
 
 ## Tune what each role can do
 
-The table above is the starting point, not a fixed rule. Open **Settings > Roles & Capabilities** to change the minimum role each ability needs - for example, letting members create spaces, or requiring admin to pin a post. Every ability in the community reads from this one place, so a change here applies everywhere at once.
+The table above is the starting point, not a fixed rule. Open **Members > Roles & Capabilities** to change the minimum role each ability needs - for example, letting members create spaces, or requiring admin to pin a post. Every ability in the community reads from this one place, so a change here applies everywhere at once.
 
 For the full list of abilities and how to override them in code, see [Roles and Capabilities](../developer-guide/39-roles-and-capabilities.md) in the developer guide.

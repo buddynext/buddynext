@@ -41,22 +41,22 @@ A flagged post is not blocked. It publishes normally, and a report is filed to t
 
 ## Setting it up (for owners)
 
-All safeguards live under **BuddyNext > Moderation > Controls**. Each one is a single option you can change at any time without touching code. Leave a list empty, or set a numeric threshold to 0, to turn that individual guard off.
+All safeguards live under **BuddyNext > Moderation > Controls**. Each one is a single option you can change at any time without touching code. Leave a list empty to turn a list-based guard off. Numeric guards that can be switched off carry a tick box for it - untick the box and the number field is ignored. A few guards have no off switch and take a minimum of 1; they are marked below.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Banned words | Newline-separated list of words and phrases. Any post or comment containing one (case-insensitive, substring match) is rejected. Runs through the moderation rules pipeline, so Pro keyword and AI rules stack on top of this list. Spaces can also keep their own per-space banned-word list. | Empty (off) |
+| Banned words | Newline-separated list of words and phrases. Matching is case-insensitive and by **whole word**, so `ass` blocks "ass" but not "class", "pass" or "passionate". Append `*` to catch variants deliberately - `spam*` blocks "spam", "spammer" and "spamming". Any post or comment matching an entry is rejected. Runs through the moderation rules pipeline, so Pro keyword and AI rules stack on top of this list. Spaces can also keep their own per-space banned-word list. | Empty (off) |
 | Banned hashtags | Newline-separated list of hashtags that may never be created or attached to posts. Blocked tags never become followable topics. | Empty (off) |
 | Blocked link domains | Newline-separated list of domains. Any post that attaches a link to a listed domain is rejected. Use this to stop known spam, scam, and phishing destinations. | Empty (off) |
 | Blocked IPs | Newline-separated list of IP addresses. A member posting from a listed IP is blocked before any content check runs. | Empty (off) |
-| Post rate limit | Maximum number of posts one member can publish per minute. Stops bots and burst-flooding. Set to 0 to remove the cap. | 10 |
-| Duplicate post window | Number of minutes during which an identical repeat post by the same member is flagged for review. The repeat still publishes, but a report is filed. Set to 0 to allow duplicates. | 0 (off) |
-| New-member post threshold | Number of posts a member must reach before their posts stop being flagged. Until then, each post publishes but is also sent to the moderation queue for review. Set to 0 to let new members post freely. | 0 (off) |
-| Auto-hide threshold | Number of reports a single piece of content can receive before it is automatically hidden pending review. Set to 0 to never auto-hide. | 5 |
-| Moderation-queue alert threshold | Number of pending items in the moderation queue that triggers an admin alert, so a growing backlog does not go unnoticed. Set to 0 to disable the alert. | 20 |
-| Strike warn threshold | Number of strikes against a member that triggers an automatic warning. Set to 0 to disable. | 2 |
-| Strike suspend threshold | Number of strikes that triggers an automatic suspension. Set to 0 to disable. | 5 |
-| Strike permanent-ban threshold | Number of strikes that triggers an automatic permanent ban. Set to 0 to disable. | 0 (off) |
+| Post rate limit | Maximum number of posts one member can publish per minute. Stops bots and burst-flooding. Untick to remove the cap. | 10 |
+| Duplicate post window | Number of minutes during which an identical repeat post by the same member is flagged for review. The repeat still publishes, but a report is filed. Untick to allow duplicates. | 0 (off) |
+| New-member post threshold | Number of posts a member must reach before their posts stop being flagged. Until then, each post publishes but is also sent to the moderation queue for review. Untick to let new members post freely. | 0 (off) |
+| Auto-hide threshold | Number of reports a single piece of content can receive before it is automatically hidden pending review. Minimum 1 - auto-hide cannot be switched off from this field. | 5 |
+| Moderation-queue alert threshold | Number of pending items in the moderation queue that triggers an admin alert, so a growing backlog does not go unnoticed. Untick to disable the alert. | 20 |
+| Strike warn threshold | Number of strikes against a member that triggers an automatic warning. Minimum 1; there is no off switch, and 0 is not accepted. | 2 |
+| Strike suspend threshold | Number of strikes that triggers an automatic suspension. Minimum 1; there is no off switch, and 0 is not accepted. | 5 |
+| Strike permanent-ban threshold | Number of strikes that triggers an automatic permanent ban. Untick to disable. | 0 (off) |
 
 
 > **Tip:** Set the strike thresholds so they escalate in order: warn at the lowest count, suspend higher, permanent ban highest (or left at 0 if you never want an automatic permanent ban). A member who keeps accumulating strikes is warned first, suspended next, and only banned if the behavior continues.

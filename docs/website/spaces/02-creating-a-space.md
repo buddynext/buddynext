@@ -95,9 +95,9 @@ These settings live under the plugin's Spaces settings. They set the platform-wi
 | Setting | What it does | Default |
 |---------|--------------|---------|
 | Who can create spaces | Limits space creation to any member or to site admins only. Set to admins to run a curated, official-spaces-only community. | Any member |
-| Maximum spaces per member | The cap on how many active spaces one member may own. Archived spaces do not count toward the cap. Set to 0 for no limit. | 0 (unlimited) |
+| Maximum spaces per member | The cap on how many active spaces one member may own. Archived spaces do not count toward the cap. Untick the box for no limit. | 0 (unlimited) |
 | Allow sub-spaces | Whether members may nest a space under a parent space. Turn off to keep every space top-level. | On |
-| Maximum sub-spaces per parent | The cap on how many sub-spaces a single parent space may contain. Set to 0 for no limit. | 0 (unlimited) |
+| Maximum sub-spaces per parent | The cap on how many sub-spaces a single parent space may contain. Untick the box for no limit. | 0 (unlimited) |
 | Default visibility for new spaces | The type a new space starts with (Open, Private, or Secret). Owners can still change it per space. | Open |
 | Default category for new spaces | The category a new space is filed under when the creator does not pick one. | None |
 | Space directory columns (desktop) | How many space cards appear per row in the directory on desktop. A fixed value (2, 3, or 4) caps the row and still steps down on tablet and mobile; Auto fits as many as the width allows. This control lives on the General settings tab, not the Spaces tab. | 3 columns |

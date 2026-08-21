@@ -52,9 +52,9 @@ Strike thresholds and the report auto-hide limit live in the Moderation settings
 |---|---|---|
 | Strikes before warning | A warning email is sent to the member once they reach this many active strikes. | 2 |
 | Strikes before suspension | The member is automatically suspended once they reach this many active strikes. | 5 |
-| Strikes before permanent ban | The member is permanently banned (a permanent, content-hidden suspension) at this many lifetime strikes. Set to 0 to disable automatic permanent bans. | 0 (off) |
+| Strikes before permanent ban | The member is permanently banned (a permanent, content-hidden suspension) at this many lifetime strikes. Untick the box to disable automatic permanent bans. | 0 (off) |
 | Auto-hide after N reports | Content is hidden automatically once it reaches this many reports, then waits in the moderation queue for review. | 5 |
-| Queue alert threshold | Sends a daily email to admins when the moderation queue exceeds this many unreviewed items. Set to 0 to disable. | 20 |
+| Queue alert threshold | Sends a daily email to admins when the moderation queue exceeds this many unreviewed items. Untick the box to disable. | 20 |
 
 
 ## Good to know

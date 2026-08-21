@@ -21,7 +21,7 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 | `buddynext_user_verified` | action | A member completes email verification | `int $user_id` |
 | `buddynext_onboarding_completed` | action | A member finishes the onboarding wizard | `int $user_id` |
 | `buddynext_member_suspended` | action | A member is suspended (member-domain mirror) | `int $user_id, int $by_user_id` |
-| `buddynext_member_unsuspended` | action | A suspension is lifted | `int $user_id, int $by_user_id`. **Arity warning: the wp-admin Members screen fires this with `$user_id` only** - see Hooks: Moderation, Auth, Trust. Default the second parameter. |
+| `buddynext_member_unsuspended` | action | A suspension is lifted | `int $user_id, int $by_user_id` from every call site, including the wp-admin Members screen. |
 | `buddynext_member_approved` | action | A pending registration is approved | `int $user_id` |
 | `buddynext_member_rejected` | action | A pending registration is rejected | `int $user_id` |
 | `buddynext_purge_user_data` | action | A member is deleted and their relations are purged | `int $user_id, string $context` |
@@ -177,7 +177,7 @@ Return `null` from `buddynext_user_active_dates` to fall through to BuddyNext's 
 
 ## Notes / gotchas
 
-- **Re-fetch for full objects.** Social and engagement actions pass IDs, not full rows. Resolve the rest through the relevant service (`buddynext_service( 'social_graph' )`, `post_service`, and so on).
+- **Re-fetch for full objects.** Social and engagement actions pass IDs, not full rows. Resolve the rest through the relevant service. Note the social graph is three separate container keys, not one: `follows`, `connections` and `blocks`. Posts are `post_service`. There is no `social_graph` binding - `social_graph` is a feature-registry slug, and asking the container for it throws.
 - **Recipient mirrors are conditional.** `buddynext_post_reaction_received` and `buddynext_post_comment_received` do not fire on self-engagement (author reacting to or commenting on their own post). `buddynext_follower_gained` always fires because following yourself is not possible.
 - **Overlay filters are not sanitized for you.** The six read surfaces echo raw. A plugin that returns unescaped user input introduces an XSS hole. Escape before returning.
 - **Free vs Pro.** Every hook on this page is fired by Free. Pro and gamification plugins are consumers - they attach to these seams rather than re-implementing the social graph. For notification and email seams, see Hooks: Notifications and Email.

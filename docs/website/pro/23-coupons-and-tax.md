@@ -2,11 +2,11 @@
 
 BuddyNext Pro lets you run discount codes and apply a flat tax to membership purchases. Both are worked out by BuddyNext itself before any payment gateway is called, so a coupon or tax line produces the same final charge whichever gateway a member uses, and both appear as clear lines on the member's checkout and invoice.
 
-![The Monetization Paywall admin page where you create coupons and configure tax](../images/admin-paywall.webp)
+![The Monetization section, where coupons have their own tab and tax settings sit with the payment gateways](../images/admin-paywall.webp)
 
 ![The member-facing pricing page where a plan's price, discount, and tax lead into checkout](../images/membership-pricing.webp)
 
-> **Before you start:** Coupons and tax come with BuddyNext Pro. You need Pro active and the Monetization layer turned on (Platform → Features, "Memberships & monetization"). Both are configured in BuddyNext settings, in the Monetization section, on the Paywall page, under the Coupons and Tax sections.
+> **Before you start:** Coupons and tax come with BuddyNext Pro. You need Pro active and the Monetization layer turned on (Platform → Features, "Memberships & monetization"). Both are configured in the Monetization section, but on two different tabs: coupons have their own **Coupons** tab, and tax settings live on the **Payment Gateways** tab. Neither is on Paywall, which is about the upgrade prompt.
 
 ## Why use it
 
@@ -16,7 +16,7 @@ Because BuddyNext computes both before calling the gateway, you get one consiste
 
 ## Coupons
 
-A coupon is a code a member enters at checkout to reduce the price. You create and manage codes in the Coupons section of the Paywall page.
+A coupon is a code a member enters at checkout to reduce the price. You create and manage codes on the **Coupons** tab, which is its own screen under Monetization because the list grows.
 
 ### Create a coupon
 
@@ -45,7 +45,7 @@ Tax adds a flat charge on top of the plan price at checkout, shown as its own la
 
 ### Configure tax
 
-The Tax section on the Paywall page has these settings:
+The Tax section on the **Payment Gateways** tab has these settings:
 
 | Setting | What it does | Default |
 |---|---|---|

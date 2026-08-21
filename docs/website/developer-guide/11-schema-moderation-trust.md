@@ -199,7 +199,7 @@ Email invitations to join the community, optionally scoped to a space. Each invi
 |---|---|---|
 | `PRIMARY` | `id` | Row identity. |
 | `token` (UNIQUE) | `token` | Look up an invite by its accept-link token; the uniqueness guarantees one invite per token. |
-| `email` | `email` | Find invites for a given address. |
+| `email` | `email(191)` | Find invites for a given address. Prefixed to 191 characters so the index fits InnoDB's 767-byte limit under utf8mb4. |
 | `status_expires` | `status, expires_at` | Sweep pending invites for expiry, list outstanding invites. |
 
 ### Relationships

@@ -83,7 +83,7 @@ These live under **BuddyNext > Members > Registration & Login**.
 | Panel banner image | A full-width banner image behind the panel. | Built-in gradient artwork |
 | Protect the sign-up form | Turns on the built-in spam protection, which quietly screens out bots and fake sign-ups without a captcha service. | On |
 | Show a human-verification question | Adds a simple "what is three plus five?" question to the form. No images, no cookies, no external captcha. Requires spam protection to be on. | On |
-| Sign-ups per hour per IP | The most sign-up attempts allowed from a single IP address per hour. Set to 0 to remove this limit. | 5 |
+| Sign-ups per hour per IP | The most sign-up attempts allowed from a single IP address per hour. Untick the box to remove this limit. | 5 |
 | Allowed email domains | One domain per line. When set, only addresses from these domains can register. Leave blank to allow all. | Blank (all domains) |
 
 > **Note:** Registration Mode also respects the core WordPress "Anyone can register" setting. If registration is closed in WordPress, sign-up is closed too, and visitors see a "Registration is currently closed" message. A fresh BuddyNext install (1.0.4+) turns the core setting on to match its default Open mode, so registration works out of the box; changing the Registration Mode keeps the two in sync from then on.

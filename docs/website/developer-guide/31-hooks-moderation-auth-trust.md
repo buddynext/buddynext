@@ -67,7 +67,7 @@ These fire after a moderator (or an auto-action) acts on content or a member. Tr
 | `buddynext_user_suspended` | action | A member is suspended | `int $user_id, int $actor_id, string $reason, ?string $expires_at` |
 | `buddynext_user_unsuspended` | action | A suspension is lifted | `int $user_id` |
 | `buddynext_member_suspended` | action | Member-domain mirror of a suspension | `int $user_id, int $by_user_id` |
-| `buddynext_member_unsuspended` | action | Member-domain mirror of an unsuspension | `int $user_id, int $by_user_id`. **Arity warning: the wp-admin Members screen fires this with `$user_id` only** (`includes/Admin/Members.php:396`, marked in source as a legacy call). `ModerationService` passes both. Give your callback a default for `$by_user_id` or a typed 2-parameter listener will raise an `ArgumentCountError` when an admin lifts a suspension from that screen. |
+| `buddynext_member_unsuspended` | action | Member-domain mirror of an unsuspension | `int $user_id, int $by_user_id` from every call site, including the wp-admin Members screen. That screen used to fire `$user_id` alone, which killed a typed two-parameter listener with an `ArgumentCountError`; it now passes `get_current_user_id()` as the actor. No default is needed. |
 | `buddynext_user_shadow_banned` | action | A member is shadow-banned (their content stays visible only to themselves) | `int $user_id, int $actor_id, string $reason` |
 | `buddynext_user_shadow_ban_removed` | action | A shadow ban is lifted | `int $user_id, int $actor_id` |
 | `buddynext_appeal_submitted` | action | A member appeals a moderation decision | `int $user_id, int $appeal_id, string $type, int $suspension_id` |

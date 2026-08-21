@@ -77,9 +77,9 @@ Space behavior is configured under the Spaces settings tab. These controls set t
 | Setting | What it does | Default |
 |---------|--------------|---------|
 | Who can create spaces | Restricts space creation to any member or to admins only. Admins-only prevents members from creating unmoderated spaces. | Any member |
-| Max spaces per member | Maximum number of spaces one member can create. Set to 0 for no limit. Admins are exempt. | 0 (no limit) |
+| Max spaces per member | Maximum number of spaces one member can create. Untick the box for no limit. Admins are exempt. | 0 (no limit) |
 | Allow sub-spaces | Lets space owners create spaces nested inside their own. Turn off to keep every space top-level. | On |
-| Max sub-spaces per space | Maximum number of sub-spaces an owner can create inside their space. Set to 0 for no limit. | 0 (no limit) |
+| Max sub-spaces per space | Maximum number of sub-spaces an owner can create inside their space. Untick the box for no limit. | 0 (no limit) |
 | Default visibility for new spaces | The type a space starts with when created (Open, Private, or Secret). Owners can still change it per space. | Open |
 | Default category for new spaces | The category a new space is filed under when none is chosen. Manage the category list under Spaces, Directory, Categories. | None |
 

@@ -154,7 +154,7 @@ buddynext_can( int $user_id, string $capability, array $context = array() ): boo
 
 Never call `current_user_can()` against a BuddyNext capability or read `bn_community_role` directly - route it through `buddynext_can()` so all four resolution layers (WP admin, role map, explicit grant, the `buddynext_user_can` filter) and the space-ban short-circuit apply.
 
-The free catalog holds 21 capabilities registered through the WordPress Abilities API (WP 6.9+), plus two space-scoped ones resolved by dedicated per-space methods:
+The free catalog holds 22 capabilities registered through the WordPress Abilities API (WP 6.9+), plus two space-scoped ones resolved by dedicated per-space methods:
 
 ```text
 buddynext-profile/edit-own        buddynext-spaces/create          buddynext-connections/follow
@@ -164,7 +164,7 @@ buddynext-feed/create-post        buddynext-spaces/post            buddynext-mod
 buddynext-feed/delete-own-post    buddynext-spaces/moderate        buddynext-moderation/issue-strike
 buddynext-feed/delete-any-post    buddynext-spaces/manage-settings buddynext-moderation/suspend-user
 buddynext-feed/pin-post           buddynext-spaces/delete
-buddynext-feed/schedule-post
+buddynext-feed/schedule-post      buddynext-comments/create
                                   (space-scoped, per-space methods)  buddynext-moderate-space
                                                                      buddynext-manage-space
 ```

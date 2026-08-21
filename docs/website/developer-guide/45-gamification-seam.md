@@ -119,10 +119,10 @@ apply_filters( 'buddynext_user_weekly_followers_gained',         int|null $count
 apply_filters( 'buddynext_user_weekly_engagement_received',      int|null $count, int $user_id )
 ```
 
-To surface a gamification tile on the profile stat strip, append a row to `$args['stats']` via `buddynext_part_profile_stats_strip_args`:
+To surface a gamification tile on the profile stat strip, append a row to `$args['stats']` via `buddynext_part_stat_strip_args`:
 
 ```php
-add_filter( 'buddynext_part_profile_stats_strip_args', function ( array $args ): array {
+add_filter( 'buddynext_part_stat_strip_args', function ( array $args ): array {
     $args['stats'][] = array(
         'slug'  => 'streak',
         'label' => __( 'Streak', 'buddynext' ),

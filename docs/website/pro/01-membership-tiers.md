@@ -2,7 +2,7 @@
 
 Membership tiers are the plans, free or paid, that you offer your community. Each tier carries a price, a billing schedule, and a set of perks (the features and limits it unlocks), and members subscribe to a tier to get what it includes.
 
-![The Monetization Tiers admin tab where you define membership tiers, pricing, and perks](../images/admin-tiers.webp)
+![The Monetization Plans admin tab where you define membership tiers, pricing, and perks](../images/admin-tiers.webp)
 
 ![The member-facing pricing page - each tier with its price, perks and a subscribe button](../images/membership-pricing.webp)
 
@@ -62,11 +62,11 @@ To surface a compact version of this plan summary on another page, the shortcode
 
 Monetization is an optional layer and is off by default with Pro. You turn the whole layer on or off under Platform → Features ("Memberships & monetization"): while it is off, the pricing and My Membership pages, checkout, and gated content are all disabled; when you turn it on, the pages are created automatically.
 
-All tier and subscription management lives in wp-admin under BuddyNext, in the Monetization section. You manage tiers, review subscriptions, and configure the upgrade prompt across three tabs: Tiers, Subscriptions, and Paywall. (The Paywall tab is covered in Gating Spaces.)
+All tier and subscription management lives in wp-admin under BuddyNext, in the Monetization section. You manage plans, review subscriptions, issue coupons, configure the upgrade prompt and connect gateways across five tabs: Plans, Subscriptions, Coupons, Paywall and Payment Gateways. (Paywall is covered in Gating Spaces, coupons and tax in Coupons and Tax, and gateways in Payment Gateways.)
 
 ### Create a tier
 
-Open the Tiers tab and choose Add Plan. A tier is defined by three groups of settings: plan details, pricing and billing, and perks.
+Open the Plans tab and choose Add Plan. A tier is defined by three groups of settings: plan details, pricing and billing, and perks.
 
 #### Plan details
 
@@ -131,7 +131,7 @@ The full list of perks:
 
 ### Activate, edit, and remove a tier
 
-Each plan card on the Tiers tab carries the controls you need:
+Each plan card on the Plans tab carries the controls you need:
 
 - Activate / Deactivate - flips a plan between Active and Inactive without editing it. Only Active plans show on the pricing page. Archived plans cannot be toggled this way; edit them to change status.
 - Edit - opens the full form to change name, description, pricing, status, sort order, and perks. The plan's identifier is fixed and shown read-only.
@@ -162,13 +162,13 @@ The Subscriptions tab is your record of who has access. It lists each subscripti
 - Filter by status - switch between All, Active, Expired, and Cancelled.
 - Filter by tier - narrow the list to one plan.
 - Revoke - on an active subscription, immediately ends access. The record moves to Expired.
-- **Export to CSV (1.1.5)** - downloads the list carrying whichever filters are on screen, so you export what you are looking at rather than everything. The Orders screen has the same button.
+- **Export to CSV (1.1.5)** - downloads the list carrying whichever filters are on screen, so you export what you are looking at rather than everything. The Orders view has the same button.
 
 A subscription's source tells you how it was created: a gateway name (such as Stripe) for a paid purchase, or Manual for access you granted outside checkout. A membership granted by another system - WooCommerce, Paid Memberships Pro, or any integration that uses the source contract - is named as that source and is deliberately **not** counted as revenue this site collected.
 
 #### Money received, not just projected (1.1.5)
 
-The Billing screen shows a **Received** figure alongside MRR and ARR. The distinction matters: MRR and ARR are projections of what recurring plans should bring in, while Received is money that actually arrived. A month with failed payments, refunds or a batch of externally-granted memberships will show the two diverging, and that gap is the number worth looking at.
+The Subscriptions tab shows a **Received, 30 days** figure alongside MRR and ARR, one per currency. The distinction matters: MRR and ARR are projections of what recurring plans should bring in, while Received is money that actually arrived. A month with failed payments, refunds or a batch of externally-granted memberships will show the two diverging, and that gap is the number worth looking at.
 
 #### One member's payment history (1.1.5)
 
