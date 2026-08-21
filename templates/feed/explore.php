@@ -211,7 +211,7 @@ $bn_explore_filters = array(
 				 * Pro can append community-pulse / AI-digest cards here without
 				 * the free build fabricating data.
 				 *
-				 * @since 1.6.0
+				 * @since 1.0.0
 				 *
 				 * @param string $explore_filter Active filter facet.
 				 * @param int    $current_user_id Viewing user ID.

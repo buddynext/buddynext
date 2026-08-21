@@ -73,7 +73,7 @@ class ExploreSidebarProvider {
 				 * Fires at the top of the Explore aside. Pro hooks a live
 				 * community-pulse card (the wireframe's chart) here.
 				 *
-				 * @since 1.6.0
+				 * @since 1.0.0
 				 *
 				 * @param int $uid Viewing user ID.
 				 */
