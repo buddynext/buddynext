@@ -57,12 +57,16 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
+= 1.1.6 - August 2026 =
+
+* New      - An admin can mark a member's email address as verified from the member editor, for the case a verification email never arrives. The 1.1.5 notes described this control before it existed; the entry below has been corrected and the control now ships.
+
 = 1.1.5 - August 2026 =
 
 Search inside a space, discovery that survives a phone screen, and space post emails that actually send. Lockstep with BuddyNext Pro 1.1.5 - install and test both together.
 
 * New      - Search inside a space. A space's Feed tab now carries a search box that returns only that space's own posts, so a busy space stays findable past the first screenful. Results are paged, and the box follows the space's privacy: a member who cannot read the space is not offered it and matches nothing.
-* New      - A member can verify their own email address from their profile, and an admin can confirm a member in one click from the member editor.
+* New      - A member can verify their own email address from their profile.
 * Improve  - Profile and space photos taken on a phone are accepted. Covers and avatars were capped at 1920x1080 and 1024x1024, so an ordinary 4032x3024 phone photo was refused and had to be cropped by hand first. The limit is now a pixel-count ceiling generous enough for any phone, and site owners can raise or lower it with the `buddynext_upload_max_megapixels`, `buddynext_upload_max_dimension` and `buddynext_upload_max_bytes` filters.
 * Improve  - Settings that accept "no limit" now say so with a tick box instead of asking for a 0. Eleven settings across the admin - rate limits, space caps, retention, strike thresholds - no longer need a footnote explaining that zero means the opposite of what it reads.
 * Improve  - The WordPress admin menu now lists entry points instead of every screen, each tab carries an icon that tells it apart, and no section exceeds the documented five-tab cap. Every screen stays reachable, and the menu highlights the section you are in.

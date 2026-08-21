@@ -42,6 +42,7 @@ class Members extends AdminPageBase {
 	public function register(): void {
 		add_action( 'admin_post_bn_suspend_member', array( $this, 'handle_suspend' ) );
 		add_action( 'admin_post_bn_unsuspend_member', array( $this, 'handle_unsuspend' ) );
+		add_action( 'admin_post_bn_verify_member', array( $this, 'handle_verify_member' ) );
 		add_action( 'admin_post_bn_bulk_members', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_post_bn_save_member_profile', array( $this, 'handle_save_member_profile' ) );
 		add_action( 'admin_post_bn_set_community_role', array( $this, 'handle_set_community_role' ) );
@@ -504,6 +505,54 @@ class Members extends AdminPageBase {
 	}
 
 	// ── Admin-post handlers ────────────────────────────────────────────────────
+
+	/**
+	 * Mark a member's email address as verified, from the member editor.
+	 *
+	 * The 1.1.5 release notes promised this control - "an admin can confirm a member
+	 * in one click from the member editor" - and it did not exist. Card 10225756919.
+	 *
+	 * It is worth having on its own merits, which is why it is being built rather
+	 * than struck from the changelog: the common support case is a member whose
+	 * verification email never arrived, and before this the only remedies were the
+	 * database or asking them to keep retrying a mail that is not coming.
+	 *
+	 * Delegates to `VerificationService::mark_verified()` rather than writing the
+	 * meta here. That method is the one place that knows the whole act: set
+	 * `buddynext_email_verified`, clear `buddynext_verify_pending` so the account
+	 * stops being a purge candidate, and fire `buddynext_user_verified` for whatever
+	 * is listening. An admin-side copy that only wrote the meta would leave the
+	 * account queued for deletion while displaying as verified.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return void
+	 */
+	public function handle_verify_member(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+
+		check_admin_referer( 'bn_verify_member' );
+
+		$user_id = absint( wp_unslash( $_POST['user_id'] ?? 0 ) );
+
+		if ( $user_id > 0 && get_userdata( $user_id ) ) {
+			( new \BuddyNext\Auth\VerificationService() )->mark_verified( $user_id );
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'    => 'buddynext-members',
+					'action'  => 'verified',
+					'user_id' => $user_id,
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
 
 	/**
 	 * Handle admin_post_bn_suspend_member form submission.

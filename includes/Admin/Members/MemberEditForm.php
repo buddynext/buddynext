@@ -243,6 +243,30 @@ class MemberEditForm {
 					<?php echo \BuddyNext\Core\IconService::render( 'external-link' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					<?php esc_html_e( 'View Profile', 'buddynext' ); ?>
 				</a>
+				<?php
+				// Verify control: only when the feature is on AND this member is not
+				// already verified. A button that reports success without changing
+				// anything is worse than no button - and "Verified" as a state the
+				// admin can read is the other half of what they came here for.
+				$bn_verify_on       = buddynext_feature_enabled( 'verification' );
+				$bn_member_verified = (bool) get_user_meta( $user_id, 'buddynext_email_verified', true );
+				?>
+				<?php if ( $bn_verify_on && $bn_member_verified ) : ?>
+					<span class="bn-badge" data-variant="success">
+						<?php esc_html_e( 'Email verified', 'buddynext' ); ?>
+					</span>
+				<?php elseif ( $bn_verify_on ) : ?>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="bn_verify_member">
+						<input type="hidden" name="user_id" value="<?php echo absint( $user_id ); ?>">
+						<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'saved', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
+						<?php wp_nonce_field( 'bn_verify_member' ); ?>
+						<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
+							<?php esc_html_e( 'Mark email verified', 'buddynext' ); ?>
+						</button>
+					</form>
+				<?php endif; ?>
+
 				<?php if ( buddynext_service( 'moderation' )->is_suspended( $user_id ) ) : ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="bn_unsuspend_member">
