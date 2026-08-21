@@ -110,6 +110,31 @@ Two consequences worth knowing:
 - **Revoke only what you granted.** Scope `$held` to your own `source()`. A member can hold a Stripe-billed BuddyNext plan and one of yours at the same time, and your partner has no opinion about the first. Revoking anything absent from your entitlement set would cancel a membership bought through BuddyNext's own checkout.
 - **Many-to-one is safe.** Two products granting the same plan is fine, because `$wanted` is a de-duplicated set: losing one of them leaves the plan in `$wanted` and it is never revoked.
 
+## What a bridge does NOT take over
+
+A bridge maps a partner's product or level to a BuddyNext plan. That is the whole of it, and the
+boundary is worth stating because the alternative looks helpful and is not.
+
+**Your system keeps governing your content. BuddyNext keeps governing the community.**
+
+Paid Memberships Pro has a content-protection rule engine; WooCommerce Memberships has its own.
+Those keep working on WordPress posts and pages exactly as they did before the bridge existed, and
+BuddyNext does not read them, defer to them, or switch itself off because they are present. What
+the mapping buys you is the other half: the plan a member holds *here*, so **BuddyNext's own
+features** — gated spaces, tier entitlements, anything behind `tier:<slug>` — can be locked behind
+a level they bought *there*.
+
+So `bn_members_only`, BuddyNext's own post-level gate, is unaffected by a bridge. If an owner sets
+both it and a PMPro rule on one post, both apply and the most restrictive wins.
+
+That is deliberate, and it was decided against the alternative. Having BuddyNext suppress its own
+gate whenever a bridge is active would mean silently switching off a control the owner set, on
+content BuddyNext does not own, because a different plugin happens to be installed. A gate that
+disappears when you install something else is worse than two gates that each do their job.
+
+**Do not add bridge awareness to content protection.** It reads like a missing feature and is not
+one.
+
 ## Mapping products to plans
 
 `tier_for( $partner_key )` returns the BuddyNext plan slug an owner has mapped a product or level to, or `''`.
