@@ -266,6 +266,23 @@ fi
 #
 # This is blocking from day one, because the table is correct as of this commit. A gate that
 # starts green stays green. If you change a do_action(), regenerate the table - do not hand-edit.
+# 3b-i-a. docs_config.json vs the pages on disk — BLOCKING, green as of this commit.
+#
+# The customer-docs index is hand-maintained, and both failure directions are silent: a page
+# on disk but unlisted never appears at all, and a listed page with no file is a dangling
+# entry that only surfaces at publish time. The 1.1.6 docs pass added, renamed and renumbered
+# pages, which is exactly when one forgotten line slips through.
+section "Docs config vs disk"
+if [ -f bin/check-docs-config.py ]; then
+	if python3 bin/check-docs-config.py; then
+		:
+	else
+		fail "docs_config.json does not match docs/website/ — see the list above"
+	fi
+else
+	note "bin/check-docs-config.py missing"
+fi
+
 section "Hook-doc conformance"
 if [ -f bin/check-hook-docs.py ]; then
 	if python3 bin/check-hook-docs.py; then
@@ -275,6 +292,23 @@ if [ -f bin/check-hook-docs.py ]; then
 	fi
 else
 	note "bin/check-hook-docs.py missing"
+fi
+
+# 3b-i-a2. Public hook docs — BLOCKING for anything new, baselined for the existing 32.
+#
+# check-hook-docs.py above gates the ARG COUNT of do_action() hooks in CLAUDE.md. It does not
+# look at filters, and it never opens the customer-facing guide — which is how all twelve
+# extension points advertised in the 1.1.5 release notes shipped undocumented. A @since tag is
+# a public promise; this gate makes it one the build can check.
+section "Public hook docs"
+if [ -f bin/check-public-hook-docs.py ]; then
+	if python3 bin/check-public-hook-docs.py; then
+		:
+	else
+		fail "a hook promised with @since is missing from docs/website/developer-guide/"
+	fi
+else
+	note "bin/check-public-hook-docs.py missing"
 fi
 
 # 3b-i-b. Interactivity directive paths — BLOCKING, and green as of this commit.
