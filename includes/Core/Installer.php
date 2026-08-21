@@ -507,6 +507,97 @@ class Installer {
 	}
 
 	/**
+	 * The lowest database versions this schema can actually be created on.
+	 *
+	 * Derived from the schema, not from a habit. The binding constraint is the JSON
+	 * column type, used by six columns (bn_posts.media_ids and .link_meta,
+	 * bn_notifications.data, bn_poll_options.options, bn_analytics.events and one
+	 * more): MySQL added it in 5.7.8, MariaDB in 10.2.7 as a LONGTEXT alias. Below
+	 * those the CREATE TABLE is a syntax error, not a degraded feature.
+	 *
+	 * InnoDB FULLTEXT (5.6 / 10.0.5) is also required by search but is less binding,
+	 * and the 767-byte index limit no longer is - every index was brought under it,
+	 * so row format is no longer a constraint.
+	 *
+	 * @var array<string,string>
+	 */
+	private const MIN_DB_VERSION = array(
+		'mysql'   => '5.7.8',
+		'mariadb' => '10.2.7',
+	);
+
+	/**
+	 * Undo MariaDB's '5.5.5-' self-description before comparing versions.
+	 *
+	 * MariaDB introduces itself as '5.5.5-10.x.y' to certain PHP builds, so a naive
+	 * version_compare reads EVERY MariaDB as 5.5.5. A guard built on that would
+	 * refuse every MariaDB site on those builds - turning a protection against
+	 * silent data loss into an outage on servers that were fine. This is WordPress
+	 * core's own correction from wpdb::has_cap(), PHP-version conditions included,
+	 * copied rather than reinvented because getting it wrong is worse than not
+	 * having the guard.
+	 *
+	 * $php_version_id is a parameter rather than a constant read so the dangerous
+	 * branch is testable on any build. It was not, and the test that covers it was
+	 * skipped on the development machine - which mutation testing caught: deleting
+	 * this correction entirely left the suite green.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $version        Reported version, from db_version().
+	 * @param string $info           Reported server string, from db_server_info().
+	 * @param int    $php_version_id The running PHP_VERSION_ID.
+	 * @return array{0:string,1:string} Corrected version and server string.
+	 */
+	public static function normalise_db_version( string $version, string $info, int $php_version_id ): array {
+		$affected = $php_version_id <= 80015
+			|| ( 80100 <= $php_version_id && $php_version_id <= 80102 );
+
+		if ( '5.5.5' === $version && false !== strpos( $info, 'MariaDB' ) && $affected ) {
+			$info    = (string) preg_replace( '/^5\.5\.5-(.*)/', '$1', $info );
+			$version = (string) preg_replace( '/[^0-9.].*/', '', $info );
+		}
+
+		return array( $version, $info );
+	}
+
+	/**
+	 * Why this server cannot host the schema, or '' when it can.
+	 *
+	 * Returns a member-of-staff-readable sentence rather than a bool, because every
+	 * caller needs to say the same thing and there is no second way to phrase it.
+	 *
+	 * @return string
+	 */
+	public static function unsupported_db_reason(): string {
+		global $wpdb;
+
+		if ( ! $wpdb instanceof \wpdb ) {
+			return '';
+		}
+
+		$version = (string) $wpdb->db_version();
+		$info    = (string) $wpdb->db_server_info();
+
+		list( $version, $info ) = self::normalise_db_version( $version, $info, PHP_VERSION_ID );
+
+		$is_mariadb = false !== stripos( $info, 'mariadb' );
+		$required   = $is_mariadb ? self::MIN_DB_VERSION['mariadb'] : self::MIN_DB_VERSION['mysql'];
+
+		if ( '' === $version || version_compare( $version, $required, '>=' ) ) {
+			return '';
+		}
+
+		return sprintf(
+			/* translators: 1: server name, e.g. MariaDB. 2: required version. 3: detected version. */
+			__( 'BuddyNext needs %1$s %2$s or newer and this server runs %3$s. Its database tables use the JSON column type, which older servers reject, so installing here would create only part of the schema and lose data without reporting an error.', 'buddynext' ),
+			$is_mariadb ? 'MariaDB' : 'MySQL',
+			$required,
+			$version
+		);
+	}
+
+	/**
 	 * Whether every table this plugin owns exists.
 	 *
 	 * A cheap COUNT against information_schema, memoised per request: `maybe_upgrade()`
@@ -1445,6 +1536,30 @@ class Installer {
 	 */
 	public static function install_schema(): void {
 		global $wpdb;
+
+		// A server that cannot host the schema is not asked to try.
+		//
+		// Recorded and returned rather than fataled: run() is reached from
+		// maybe_upgrade() on admin_init, and wp_die() there would take out wp-admin
+		// on a site whose only problem is an old database. The activation hook is
+		// where the refusal is user-facing; here it is a no-op with a paper trail.
+		$unsupported = self::unsupported_db_reason();
+
+		if ( '' !== $unsupported ) {
+			update_option(
+				self::SCHEMA_FAILURE_OPTION,
+				array(
+					'missing'      => self::missing_tables(),
+					'errors'       => array( 'server' => $unsupported ),
+					'attempted_at' => time(),
+					'db_server'    => $wpdb->db_version(),
+					'schema'       => self::SCHEMA_VERSION,
+				),
+				false
+			);
+
+			return;
+		}
 
 		$charset = $wpdb->get_charset_collate();
 

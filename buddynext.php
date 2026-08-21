@@ -69,6 +69,41 @@ add_action(
 	9
 );
 
+// Refuse to install on a database that cannot hold the schema.
+//
+// Registered BEFORE Installer::run() so it wins: activation hooks fire in
+// registration order, and this one stops before a single table is created.
+//
+// Refusing rather than warning, for the reason the failure mode gives. A partial
+// schema does not announce itself - a customer on MariaDB 5.5 got a successful
+// activation, eight tables of forty-one, and posts that returned HTTP 201 and
+// wrote nothing. There is no version of "let it proceed with a notice" that ends
+// better than not starting: WordPress core takes the same line with Requires PHP.
+register_activation_hook(
+	__FILE__,
+	static function (): void {
+		$reason = \BuddyNext\Core\Installer::unsupported_db_reason();
+
+		if ( '' === $reason ) {
+			return;
+		}
+
+		// Undo the activation itself, or WordPress lists the plugin as active while
+		// its tables do not exist - which is the state this whole guard exists to
+		// prevent, reached by a different road.
+		deactivate_plugins( plugin_basename( __FILE__ ) );
+
+		wp_die(
+			esc_html( $reason ),
+			esc_html__( 'BuddyNext cannot be activated on this database', 'buddynext' ),
+			array(
+				'back_link' => true,
+				'response'  => 200,
+			)
+		);
+	}
+);
+
 register_activation_hook( __FILE__, array( \BuddyNext\Core\Installer::class, 'run' ) );
 register_activation_hook(
 	__FILE__,
