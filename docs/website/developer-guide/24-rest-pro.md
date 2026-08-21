@@ -42,9 +42,40 @@ Tiers are the membership plans. Tier CRUD lives under `/tiers`; the buyer-facing
 | POST | `/membership/checkout` | Logged in | Start a checkout for a plan (`plan_id`, optional `gateway`, `mode`, `coupon`, `country`). |
 | POST | `/membership/quote` | Logged in | Return a price quote (subtotal, tax, discount, total) for a plan without charging. |
 | POST | `/me/billing-portal` | Logged in | Create a billing-portal session for the current user. |
-| GET | `/me/subscriptions` | Logged in | Current user's subscriptions. |
+| GET | `/me/subscriptions` | Logged in | Current user's subscriptions. Each row carries a `capabilities` block - see below. |
 | POST | `/me/subscriptions/{id}/cancel` | Logged in | Cancel one of the current user's subscriptions. |
 | GET | `/users/{id}/subscriptions` | Admin | A user's subscription history. |
+
+#### The `capabilities` block on `/me/subscriptions`
+
+Every row carries `capabilities`, and **any client rendering a membership control should read it
+rather than deriving the rules again**. That is not style advice: the same rules exist in the
+cancel endpoint, the plan-change service and the gateway registry, and every time a surface has
+re-derived them it has drifted - a Cancel button that 409'd on click, a Switch button that worked
+for a member billed by WooCommerce.
+
+The response is a bare array (typed `MySubscription[]` by the mobile app), so the block is a key on
+each element rather than a sibling of the list; wrapping the list would break every installed copy.
+
+| Key | Type | Means |
+|---|---|---|
+| `can_buy` | bool | The **site** has something for sale. The one site-level answer in the block, so it is identical on every row. False on a free-only site or one whose gateway was never credentialed - render no Buy CTA at all rather than a link to an empty pricing page. |
+| `can_change` | bool | This member may move to another plan. False for anything billed elsewhere. |
+| `can_cancel` | bool | The cancel endpoint will accept. When false, `reason` says why. |
+| `can_update_payment` | bool | `POST /me/billing-portal` will return somewhere to go - a minted provider portal, or the partner's own account page. **False for a comped member and for Offline**, both of which have an active subscription and no billing to manage. |
+| `billed_by` | string | `gateway` (billed here), `external` (billed by a connected system), `manual` (comped), `none` (no subscription). |
+| `source` | string | Raw source slug, e.g. `stripe`, `woocommerce`. For logic, prefer `billed_by`. |
+| `source_label` | string | The system's own spelling, for display: `WooCommerce`, not `Woocommerce`. |
+| `manage_url` | string | Where an externally-billed member manages their billing. **May be empty** - a source with nowhere to send them. Show the explanation without a link; a wrong link is worse than none. |
+| `reason` | string | Member-facing, already translated. Non-empty whenever a control is missing. |
+
+Two rules that make the difference between a correct client and a plausible one:
+
+- **If a control is hidden, show `reason`.** Silence reads as a broken screen. The string is the
+  same sentence the endpoint would return if the member forced the request, so the explanation and
+  the refusal cannot describe different rules.
+- **Never infer one key from another.** `can_update_payment` is the clearest case: Offline is
+  `billed_by: gateway` and still has no portal, so `billed_by === 'gateway'` is not a substitute.
 
 ### Member tiers vs labels
 
