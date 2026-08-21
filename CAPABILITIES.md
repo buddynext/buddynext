@@ -3,7 +3,13 @@
 What BuddyNext free can and cannot do, in buyer language. One row per capability,
 each verified against the code at the reference given.
 
-**Last verified against code:** 2026-08-11, branch `1.1.3`, commit `6714a998`.
+**Last full verification:** 2026-08-11, branch `1.1.3`, commit `6714a998`.
+**Partial update 2026-08-18:** 1.1.5 rows were added on top of that pass without the stamp being
+moved, so the header claimed a 1.1.3 review of content that already described 1.1.5. Recorded
+2026-08-19 rather than silently restamping.
+**Still outstanding:** the manifests were fully rescanned on 2026-08-21, but this file was not
+re-verified in that pass, and 1.1.6 has since added notification and email-template work. Treat
+every row as last checked at 1.1.3 unless it names a later version.
 **Source of truth order:** `audit/manifest.summary.json` > this file > the code.
 Regenerate both with `/wp-plugin-onboard --refresh`.
 

@@ -13,7 +13,15 @@
 #
 # Environment:
 #   BN_WP_PATH          WP root to target (optional).
-#   BN_TEST_OTHER_USER  login for the second, non-owner member (default bn_e2e_other).
+#   BN_TEST_OTHER_USER  login for the second, non-owner member (default alice).
+#
+# The default MUST match the specs' own default for the same variable
+# (`process.env.BN_TEST_OTHER_USER ?? 'alice'`, used by ~20 spaces specs). It did
+# not: this script created `bn_e2e_other` while the specs went looking for `alice`,
+# so on any machine that did not export the variable the second actor did not exist
+# and every two-actor spaces journey failed with "autologin as alice did not
+# establish a session cookie" - 39 of them. Change one side and you must change the
+# other. `alice` is also the account documented in free-internal journeys/README.md.
 #
 set -uo pipefail
 
@@ -33,11 +41,11 @@ log 'demo community (wp buddynext demo seed)'
 # 2. A second, non-owner member for the owner-gate / two-actor specs
 #    (BN_TEST_OTHER_USER). The PRIMARY actor is the site admin (user 1), logged in
 #    by the dev-auto-login mu-plugin via ?autologin=1.
-OTHER="${BN_TEST_OTHER_USER:-bn_e2e_other}"
+OTHER="${BN_TEST_OTHER_USER:-alice}"
 if ! "${WP[@]}" user get "$OTHER" --field=ID >/dev/null 2>&1; then
 	log "member ${OTHER}"
 	"${WP[@]}" user create "$OTHER" "${OTHER}@example.com" \
-		--display_name="E2E Other" --role=subscriber --user_pass=password >/dev/null \
+		--display_name="$OTHER" --role=subscriber --user_pass=password >/dev/null \
 		|| log "could not create ${OTHER}"
 fi
 

@@ -227,7 +227,11 @@ class PluginIsolationAllowListTest extends \WP_UnitTestCase {
 
 		$output = array();
 		$status = 0;
-		exec( escapeshellcmd( PHP_BINARY ) . ' -l ' . escapeshellarg( $tmp ) . ' 2>&1', $output, $status );
+		// escapeshellarg(), not escapeshellcmd(): the latter escapes metacharacters but does
+		// not quote, so a PHP_BINARY containing a space — every Local by Flywheel install,
+		// which lives under "Library/Application Support" — was split by the shell and the
+		// lint never ran. The failure looked like invalid generated PHP; it was the path.
+		exec( escapeshellarg( PHP_BINARY ) . ' -l ' . escapeshellarg( $tmp ) . ' 2>&1', $output, $status );
 		unlink( $tmp );
 
 		$this->assertSame( 0, $status, 'Generated mu-plugin is not valid PHP: ' . implode( "\n", $output ) );
