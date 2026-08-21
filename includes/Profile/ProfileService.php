@@ -117,7 +117,26 @@ class ProfileService {
 		$cached = wp_cache_get( 'all_fields', self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return (array) $cached;
+			// Filters layer on top of the CACHED rows too, not just freshly-read
+			// ones. What is cached is the DB tree; code-registered fields are not in
+			// it and never should be, because they belong to whichever plugins are
+			// loaded right now.
+			//
+			// Returning the raw cache here dropped every code-registered field after
+			// the first call in a request, which made the whole programmatic field
+			// API unusable. Worse than unusable, in one case: registration resolves
+			// its requirements three times per submission (missing(), validate_data(),
+			// save_fields()), so a registered field RENDERED on the signup form from
+			// the first call and was then validated against a field list that no
+			// longer contained it - the visitor answered a question and the answer
+			// was silently discarded. With a persistent object cache the field
+			// vanished from the form entirely once the cache was primed, reappearing
+			// for one request whenever the TTL lapsed.
+			//
+			// filter_fields()'s own docblock already stated this contract - "Runs on
+			// every call ... so a plugin loading/unloading is reflected immediately" -
+			// and only this branch disagreed with it.
+			return $this->filter_fields( (array) $cached );
 		}
 
 		global $wpdb;
