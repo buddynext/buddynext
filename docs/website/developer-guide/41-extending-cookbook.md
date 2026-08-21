@@ -485,6 +485,36 @@ Swap the basename for your consent plugin: `cookie-law-info/cookie-law-info.php`
 
 ---
 
+## Recipe 14 - Ask the gate before offering an action (1.1.5)
+
+If your surface renders a Join button, ask whether the join would actually be allowed. Do not infer it from the space being open.
+
+```php
+$spaces = buddynext_service( 'space_members' );   // SpaceMemberService
+
+if ( $spaces->can_join( $space, get_current_user_id() ) ) {
+    // Safe to render the Join control.
+}
+```
+
+`can_join( array|object $space, int $user_id ): bool` takes either a `bn_spaces` row array or the object templates carry, and `0` for a logged-out visitor.
+
+This exists because Free cannot know what Pro will decide. Surfaces used to offer Join to anyone looking at an open space, including members a listener was certain to refuse - on a plan-gated space that produced a screen telling the member they needed a paid plan, with two buttons beside it inviting them to join anyway. Asking the gate is the only way to know the offer is real. The same reasoning applies to any control you render on someone else's behalf.
+
+## Recipe 15 - Hydrate a batch of posts in one query (1.1.5)
+
+Looping `get()` over a list of post ids issues one query per row. At a page of 20 that is 20 round trips for data a single `IN()` answers.
+
+```php
+$posts = buddynext_service( 'post_service' )->get_many( $post_ids );   // PostService
+```
+
+`get_many( array $post_ids ): array` returns hydrated posts **in the order you asked for**, not table order, because the caller's order is usually meaningful - relevance, for one - and the database loses it. Ids with no row are skipped rather than returned as blanks, so do not assume the result is the same length as the input.
+
+**It is a fetch, not a gate.** Visibility is deliberately not applied. Pass the ids through `filter_visible()` first, exactly as the feed does, or you will hand a member content they cannot see.
+
+---
+
 ## Notes and gotchas
 
 - **Filters return, actions react.** A filter that returns nothing erases the value. An action's return value is ignored.

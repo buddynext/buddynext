@@ -26,6 +26,28 @@ The action and filter seams for unified search, the hashtag system, the search i
 
 > **Note:** `buddynext_search_query_args` is where the `member_label`, `tier_slug`, `space_id`, and `joined_after` keys enter the query. BuddyNext Free reads any of those keys if present, but only BuddyNext Pro populates them (and populates `buddynext_search_filter_options` so the controls appear). The page degrades cleanly with Pro inactive: no provider, no control.
 
+### `scope_space_id` - search inside one space
+
+`scope_space_id` is a **Free** key on the same filter. It restricts **content** results to a single space, narrowing the existing visibility rules rather than replacing them, and it is what powers the in-space search box on a space's Feed tab.
+
+```php
+add_filter( 'buddynext_search_query_args', function ( array $args, string $query, int $viewer_id ): array {
+    $args['scope_space_id'] = 42;   // content from space 42 only
+    return $args;
+}, 10, 3 );
+```
+
+**Do not reach for `space_id` to do this.** The two keys look interchangeable and are not:
+
+| Key | Owner | Means | Applied by |
+|---|---|---|---|
+| `scope_space_id` | Free | Restrict content rows to one space | `si.space_id = N`, a key lookup on the `space` BTREE index |
+| `space_id` | Pro | Members **of** this space | A join against `bn_space_members` on `buddynext_search_advanced_where` |
+
+`space_id` is one of Pro's five advanced keys, and `AdvancedSearchFilters::apply_pro_args()` **strips it** whenever the viewer fails the `search.saved_advanced` entitlement - which includes every anonymous visitor. Scoping a free feature to it would work on a Free-only site and then silently stop working the moment monetization was switched on, handing the member the whole community's results while the interface told them they had searched one space. Two concerns, two keys, deliberately.
+
+`scope_space_id` is **not** applied to member searches (`user` and `member` types), because user rows carry no `space_id` of their own and the column test would match nothing.
+
 ## Hashtag seams
 
 | Hook | Type | Fired when | Parameters |

@@ -33,7 +33,7 @@ We have kept this honest. Where something is provided by a companion plugin or i
 | Real-time updates | Free and Pro | The free plugin keeps feeds and counts current with regular background refreshes. Instant real-time delivery and typing indicators in messaging are Pro. |
 | Analytics | Free and Pro | The free plugin shows basic admin counts. A full analytics dashboard (daily, weekly, and monthly active members, churn), space-level analytics, member self-analytics, and CSV export are Pro. |
 | White-label | Pro | Available on the Unlimited (Agency) license tier of Pro. |
-| Member and content importer from BuddyPress / BuddyBoss | Coming soon | A dedicated importer for bringing your existing community across is in active development for an upcoming release. See Moving Your Existing Members and Content. |
+| Member and content importer from BuddyPress / BuddyBoss | Companion plugin | **BuddyNext Importer**, free. Moves members, profile fields and values, member types, groups (with privacy and roles), activity with its comment threads, friendships, follows, reactions, bbPress forums, avatars and covers, albums and media, and private messages. Each domain reports what it wrote against what the source held. Rehearse on staging first - an import cannot be undone from inside the plugin. See Moving Your Existing Members and Content. |
 
 ## Good to know
 

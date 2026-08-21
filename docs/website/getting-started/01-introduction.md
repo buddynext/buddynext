@@ -40,7 +40,7 @@ Some features are extended by optional companion plugins. Direct messaging is po
 
 ## Free vs Pro
 
-The free plugin covers everything a community needs to launch and run. Pro adds growth, automation, monetization, and analytics. License tier only changes the number of sites you can use Pro on, not the feature set (white-label is the one exception noted below). The native mobile app is a separate Pro deliverable planned for the 1.0.8 release; it is listed below as upcoming.
+The free plugin covers everything a community needs to launch and run. Pro adds growth, automation, monetization, and analytics. License tier only changes the number of sites you can use Pro on, not the feature set (white-label is the one exception noted below). The native mobile app is a separate Pro deliverable that is planned and not yet released; it is listed below as upcoming.
 
 | Area | Capability | Free | Pro |
 |------|------------|------|-----|
@@ -110,7 +110,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | Full developer API for custom integrations and apps | Free | Free |
 | | AI feed ranking and AI moderation | - | Pro |
 | | White-label (Unlimited license only) | - | Pro |
-| | Native mobile app (native iOS/Android app, planned for the 1.0.8 release) | - | Coming |
+| | Native mobile app (native iOS/Android app, planned - not yet released, no date announced) | - | Coming |
 
 > **Note:** Photo and file posts, plus all direct messaging, are powered by the free WPMediaVerse companion plugin. The messaging tab only appears when WPMediaVerse is active. See the installation page for how to add it.
 

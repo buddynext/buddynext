@@ -56,6 +56,25 @@ Notes:
 - `buddynext_profile_field_validate` returning a `WP_Error` skips persisting that one value; other fields in the same save are unaffected. It fires in the profile save path for both flat and repeater fields.
 - `buddynext_profile_field_type_options` output is rendered verbatim into the admin form. Escape on output.
 
+## Avatar and cover upload limits
+
+Three filters set the ceiling for a profile image. Each takes a `$kind` of `'avatar'` or `'cover'`, so the two can be capped differently. All three are applied on the server in `ProfileController::validate_image_upload()` **and** passed to the browser through `AssetService`, so the client-side check and the server-side check stay in agreement - if you filter one, the other follows.
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_upload_max_megapixels` | filter | Validating a profile image's pixel count. Default `50.0` megapixels. | `float $megapixels, string $kind` |
+| `buddynext_upload_max_dimension` | filter | Validating a profile image's longest side. Default `10000` pixels. | `int $pixels, string $kind` |
+| `buddynext_upload_max_bytes` | filter | Validating a profile image's file size. Default 4 MB for `avatar`, 5 MB for `cover`. A value of `0` or less disables the byte check. | `int $bytes, string $kind` |
+
+These exist because the previous fixed caps (1920x1080 for covers, 1024x1024 for avatars) refused an ordinary phone photo - a 4032x3024 shot is 12 megapixels and was rejected outright, so members had to crop by hand before uploading. The limits are now a generous pixel-count ceiling rather than a fixed frame, and an owner who needs a different ceiling raises or lowers it here.
+
+```php
+// Accept larger covers, keep avatars where they are.
+add_filter( 'buddynext_upload_max_bytes', function ( int $bytes, string $kind ): int {
+    return 'cover' === $kind ? 12 * 1024 * 1024 : $bytes;
+}, 10, 2 );
+```
+
 ## Social graph actions
 
 These fire after the row is written and the relationship has changed.
