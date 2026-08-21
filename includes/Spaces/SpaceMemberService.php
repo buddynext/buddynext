@@ -1110,6 +1110,88 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * How many DISTINCT people are in these spaces, counted once each.
+	 *
+	 * The batched answer an owner dashboard needs, and the reason it has to exist:
+	 * summing `bn_spaces.member_count` across spaces double-counts anyone who
+	 * belongs to two of them, and the error grows with exactly the communities that
+	 * are working - active members join more spaces. "412 members" when the real
+	 * number is 300 is not a rounding problem, it is a different claim.
+	 *
+	 * The alternative available before this was a loop of `member_count()` calls,
+	 * which is an N+1 AND still double-counts. There was no correct option.
+	 *
+	 * Counts `status = 'active'` only: invited, pending and banned rows are not
+	 * members. That matches `member_count()`'s denormalised column, so the batched
+	 * and singular answers agree for a single space.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<int,int> $space_ids Spaces to count across.
+	 * @return int Distinct active members, 0 when the list is empty.
+	 */
+	public function count_distinct_members( array $space_ids ): int {
+		$space_ids = array_values( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ) );
+
+		if ( empty( $space_ids ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id IN ($placeholders) AND status = 'active'",
+				$space_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	}
+
+	/**
+	 * Pending join requests waiting across these spaces, in one query.
+	 *
+	 * The batched sibling of `count_pending_requests( int $space_id )` further down,
+	 * named `_for_spaces` to match `ModerationService::count_open_reports_for_spaces()`.
+	 * Singular takes an int, plural takes an array - one rule across both services.
+	 *
+	 * Rows rather than distinct people, deliberately, and the opposite call from
+	 * `count_distinct_members()` above: this is a queue length. One person asking to
+	 * join three spaces is three decisions an owner has to make, and collapsing them
+	 * to one would under-report the work waiting.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<int,int> $space_ids Spaces to count across.
+	 * @return int Pending requests, 0 when the list is empty.
+	 */
+	public function count_pending_requests_for_spaces( array $space_ids ): int {
+		$space_ids = array_values( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ) );
+
+		if ( empty( $space_ids ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id IN ($placeholders) AND status = 'pending'",
+				$space_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	}
+
+	/**
 	 * Build the "exclude blocked users" SQL fragment for member queries.
 	 *
 	 * Returns a prepared ` AND sm.user_id NOT IN (...)` clause, or '' when no

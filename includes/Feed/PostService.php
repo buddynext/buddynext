@@ -2537,6 +2537,56 @@ class PostService {
 	}
 
 	/**
+	 * Count draft announcements, optionally scoped to given spaces.
+	 *
+	 * The sibling of `count_pending()` above, and deliberately identical in shape:
+	 * same argument, same empty-means-site-wide rule, same prepared IN (...) build.
+	 * A consumer that has learned one has learned the other.
+	 *
+	 * Exists because the data was already there and only raw SQL could reach it -
+	 * `bn_posts` carries `space_id`, `status` and `is_announcement` with indexes on
+	 * all three, so an owner dashboard wanting "3 drafts waiting" either wrote its
+	 * own query against another plugin's table or did without. Neither is a thing
+	 * BuddyNext should make a consumer choose between.
+	 *
+	 * Announcements are matched on `is_announcement = 1` AND `type = 'announcement'`,
+	 * the same pair `FeedService::list_all_announcements()` uses. Either alone is a
+	 * near-miss: the column is the flag, the type is what the composer writes, and a
+	 * row can carry one without the other after a type change.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<int,int> $space_ids Space ids to scope to. Empty counts site-wide.
+	 * @return int
+	 */
+	public function count_draft_announcements( array $space_ids = array() ): int {
+		global $wpdb;
+
+		$space_ids = array_values( array_filter( array_map( 'absint', $space_ids ) ) );
+
+		// The IN (...) placeholder string is built internally from a fixed count of %d tokens (one per absint'd id); phpcs cannot see the interpolated placeholders.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		if ( empty( $space_ids ) ) {
+			return (int) $wpdb->get_var(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'draft' AND is_announcement = 1 AND type = 'announcement'"
+			);
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'draft' AND is_announcement = 1 AND type = 'announcement'
+				   AND space_id IN ($placeholders)",
+				$space_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	}
+
+	/**
 	 * List posts awaiting pre-moderation approval (oldest first), hydrated with
 	 * author + space for the review queue. Paginated per the scale contract.
 	 *

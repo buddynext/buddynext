@@ -390,6 +390,33 @@ add_action( 'buddynext_register_hubs', function ( \BuddyNext\Core\HubRegistry $r
 		)
 	);
 } );
+
+### Give the hub a proper document `<title>`
+
+Without this your hub's browser tab reads `Events` at best, and `Circle-studio` at
+worst: `PageRouter` keeps a title map for its own hubs and falls back to
+`ucfirst( $hub )` for everything else, which turns a slug into a near-miss of a name.
+
+`buddynext_document_title` is the seam. It receives the title and a **context**,
+which for a hub render is the hub key — so match on your own key and leave every
+other surface alone:
+
+```php
+add_filter( 'buddynext_document_title', function ( string $title, string $context ): string {
+	return 'events' === $context ? __( 'Events', 'my-addon' ) : $title;
+}, 10, 2 );
+```
+
+Two things worth knowing before you rely on it:
+
+- **The context is not always a hub key.** BuddyNext also fires this filter from
+  `HeadMeta` with the context `head-meta`, for surfaces that run no hub render at all
+  (a single-post permalink, for one). Always match on the value you expect rather
+  than assuming a hub.
+- **It does not fight an SEO plugin.** When Yoast, Rank Math or similar is active,
+  BuddyNext leaves the document title alone entirely and your filter will not be
+  applied. That is deliberate — the owner installed that plugin to own their titles —
+  so set your title there instead on those sites.
 ```
 
 One registration buys the whole lifecycle: the Installer creates the backing page, Pages & URLs shows the slug setting, slug changes flush rewrites, and PageRouter dispatches your rules and template. The 7 built-in hubs register through exactly this API (`includes/Core/CoreHubs.php`), so anything they can do, your hub can do.
@@ -524,3 +551,47 @@ $posts = buddynext_service( 'post_service' )->get_many( $post_ids );   // PostSe
 - **Free degrades cleanly.** Several Free defaults (one webhook endpoint, a pin limit of 1) are the seams Pro raises. Your addon raises them the same way and should never assume Pro is present.
 
 For the complete catalog of every hook referenced here, see the hooks reference pages: Feed and Content Hooks, Spaces Hooks, Notifications and Email Hooks, Moderation, Auth and Trust Hooks, Template Part Hooks, and Pro and Integration Hooks.
+
+## Count things across many spaces without an N+1
+
+**Goal:** an owner dashboard showing several spaces at once — total members, join
+requests waiting, content reported — without one query per space, and without
+getting the member count wrong.
+
+**Seam:** batched counters on the services that own each table.
+
+```php
+$members = new \BuddyNext\Spaces\SpaceMemberService();
+$mod     = new \BuddyNext\Moderation\ModerationService();
+$posts   = buddynext_service( 'posts' );
+
+$space_ids = array( 12, 19, 44 );   // the spaces this owner runs
+
+$people   = $members->count_distinct_members( $space_ids );
+$waiting  = $members->count_pending_requests_for_spaces( $space_ids );
+$reported = $mod->count_open_reports_for_spaces( $space_ids );
+$drafts   = $posts->count_draft_announcements( $space_ids );
+```
+
+**Do not sum `bn_spaces.member_count` across spaces.** It is a per-space
+denormalised column, so anyone who belongs to two of an owner's spaces is counted
+twice — and the error grows with exactly the communities that are working, because
+active members join more spaces. On the development site, summing across ten spaces
+gave **54** where the real number of people was **14**.
+
+The two member counters deliberately answer differently, and the difference is not
+an inconsistency:
+
+- `count_distinct_members()` counts **people**, once each. Only `status = 'active'`;
+  invited, pending and banned rows are not members.
+- `count_pending_requests_for_spaces()` counts **rows**. One person asking to join
+  three spaces is three decisions an owner has to make, and collapsing them would
+  under-report the work waiting.
+
+`count_open_reports_for_spaces()` counts distinct reported **objects**, not report
+rows — five members reporting one post is one thing to look at, not five.
+
+Each has a singular sibling (`count_pending_requests( int $space_id )`,
+`count_open_reports_for_space( int $space_id )`). The convention across both
+services: **singular takes an int, `_for_spaces` takes an array.** An empty array
+returns `0` rather than falling through to a site-wide count.

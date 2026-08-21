@@ -3263,6 +3263,49 @@ class ModerationService {
 	}
 
 	/**
+	 * Open reports across MANY spaces, in one query.
+	 *
+	 * The batched sibling of `count_open_reports_for_space()` above. An owner
+	 * dashboard showing several spaces had to call the singular one per space,
+	 * which is an N+1 that grows with exactly the owners who have the most to
+	 * moderate.
+	 *
+	 * Counts DISTINCT reported OBJECTS, not report rows - the same `GROUP BY
+	 * object_type, object_id` the singular version uses. Five members reporting one
+	 * post is one thing to look at, not five, and a dashboard that says five sends
+	 * a moderator looking for four things that do not exist.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<int,int> $space_ids Spaces to count across.
+	 * @return int Distinct open reported objects, 0 when the list is empty.
+	 */
+	public function count_open_reports_for_spaces( array $space_ids ): int {
+		$space_ids = array_values( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ) );
+
+		if ( empty( $space_ids ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM (
+					SELECT 1 FROM {$wpdb->prefix}bn_reports
+					WHERE status IN ('pending','escalated') AND space_id IN ($placeholders)
+					GROUP BY object_type, object_id
+				 ) AS open_groups",
+				$space_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	}
+
+	/**
 	 * Count all open (pending + escalated) reports across the site, counted as
 	 * distinct reported-content groups (the queue's unit).
 	 *
