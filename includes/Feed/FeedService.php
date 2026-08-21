@@ -890,6 +890,77 @@ class FeedService {
 	}
 
 	/**
+	 * The newest post id this member could see under a given filter.
+	 *
+	 * The pill's starting line. Without it the client seeds its watermark from the
+	 * highest id among the RENDERED cards, which is only the same thing when the
+	 * feed is ordered by id — and For-you is not: it is tier-ordered (own post,
+	 * connections, interest spaces, then everyone else), with recency deciding only
+	 * inside a tier.
+	 *
+	 * So a stranger's post could be the newest row in the table, rank below the
+	 * fold, never appear on page one, and therefore sit ABOVE a page-derived
+	 * watermark. `home_feed_new_count()` has no tier awareness, so it counted that
+	 * existing post as news and the pill announced new posts on a feed nobody had
+	 * posted to. Refreshing did not help either: the ranking is unchanged, so the
+	 * post stayed off page one and the same pill came back.
+	 *
+	 * Deliberately mirrors `home_feed_new_count()`'s source, exclusion and
+	 * block/mute clauses rather than approximating them with `MAX(id)` over the
+	 * table: a watermark taken over a wider blend than the count uses would silence
+	 * real news, and a narrower one would reintroduce the false positive on another
+	 * tab. The viewer's OWN posts are included here (unlike the count, which
+	 * excludes them) so that publishing does not leave the watermark behind their
+	 * own newest post.
+	 *
+	 * @param int    $user_id Viewing user ID.
+	 * @param string $filter  Filter slug: for-you | following | spaces | network.
+	 * @return int Newest visible post id, or 0 when the member can see nothing.
+	 */
+	public function home_feed_watermark( int $user_id, string $filter = 'for-you' ): int {
+		global $wpdb;
+
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		if ( ! in_array( $filter, self::HOME_FILTERS, true ) ) {
+			$filter = 'for-you';
+		}
+
+		$cache_key = "watermark_{$user_id}_{$filter}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		$excluded_where = $this->excluded_users_where();
+
+		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
+		[ $source_where, $source_params ]         = $this->home_source_clause( $filter, $user_id );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+		$sql = "SELECT COALESCE(MAX(id), 0)
+			 FROM {$wpdb->prefix}bn_posts
+			 WHERE status = 'published'
+			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+			   AND ({$source_where})
+			   {$excluded_where}
+			   {$block_mute_where}";
+
+		$params = array_merge( $source_params, $block_mute_params );
+
+		$newest = (int) $wpdb->get_var(
+			empty( $params ) ? $sql : $wpdb->prepare( $sql, ...$params ) // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+
+		wp_cache_set( $cache_key, $newest, self::CACHE_GROUP, self::NEW_COUNT_TTL );
+
+		return $newest;
+	}
+
+	/**
 	 * Return the active site-wide announcement for a user, or null.
 	 *
 	 * Returns null when no published, unexpired announcement remains after

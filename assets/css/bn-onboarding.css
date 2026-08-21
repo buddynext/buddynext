@@ -877,6 +877,12 @@
 
 .bn-wizard__steps {
 	display: flex;
+	/* Wrap, never scroll. Eight labelled pills need ~938px; the wizard card is
+	   720px wide, so steps 7 (Addons) and 8 (Done) sat in an overflow-x region
+	   whose scrollbar was then hidden by scrollbar-width:none - invisible, with
+	   no affordance to reach them. The bar read as a six-step wizard while the
+	   header above it said "Step X of 8". Longer translations overflow sooner. */
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bn-s2);
 	margin: 0;
@@ -884,11 +890,7 @@
 	list-style: none;
 	background: var(--bn-sunken);
 	border-bottom: 1px solid var(--bn-line);
-	overflow-x: auto;
-	-webkit-overflow-scrolling: touch;
-	scrollbar-width: none;
 }
-.bn-wizard__steps::-webkit-scrollbar { display: none; }
 .bn-wizard__step {
 	display: inline-flex;
 	align-items: center;

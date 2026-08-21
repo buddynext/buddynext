@@ -126,6 +126,15 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 // New-posts indicator poll cadence (milliseconds) for the feed store. The owner
 // toggle gates it; the interval is filterable (seconds; 0 disables the background
 // poll while still showing realtime pills on Pro). -1 = indicator off entirely.
+// The pill's starting line, taken from the server rather than scanned off the
+// rendered cards. For-you is TIER-ordered, so the highest id on page one is not
+// the highest id that exists - an older, lower-tier post can sit above it and was
+// then counted as "new" on a feed nobody had posted to. See
+// FeedService::home_feed_watermark().
+$bn_feed_watermark = $current_user_id > 0
+	? (int) buddynext_service( 'feed' )->home_feed_watermark( $current_user_id, $bn_filter )
+	: 0;
+
 $bn_new_pill_ms = (bool) get_option( 'buddynext_feed_new_posts_indicator', true )
 	? max( 0, (int) apply_filters( 'buddynext_feed_new_count_interval', 60 ) ) * 1000
 	: -1;
@@ -140,7 +149,8 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 <div class="bn-feed-stack"
 	data-bn-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
 	data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>"
-	data-bn-new-poll-ms="<?php echo esc_attr( (string) $bn_new_pill_ms ); ?>">
+	data-bn-new-poll-ms="<?php echo esc_attr( (string) $bn_new_pill_ms ); ?>"
+	data-bn-watermark="<?php echo esc_attr( (string) $bn_feed_watermark ); ?>">
 
 	<!-- Post composer -->
 	<?php

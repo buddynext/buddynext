@@ -1075,18 +1075,29 @@ function initRealtimeNewPostsPill() {
 	const activeTab = document.querySelector( '.bn-feed-filter-tab[aria-current="true"]' );
 	bnPill.filter = ( activeTab && activeTab.dataset.filter ) || 'for-you';
 
-	// Seed the watermark from the newest post-card already rendered. The pill
-	// only ever cares about posts above this id.
-	bnPill.watermark = 0;
-	feed.querySelectorAll( '[data-post-id]' ).forEach( ( card ) => {
-		const cardId = parseInt( card.dataset.postId, 10 );
-		if ( cardId > bnPill.watermark ) { bnPill.watermark = cardId; }
-	} );
+	// Seed the watermark from the SERVER, not from the rendered cards.
+	//
+	// For-you is tier-ordered (own post, connections, interest spaces, then
+	// everyone else), so the highest id on page one is not the highest id that
+	// exists. An older, lower-tier post could sit above it, get counted as new,
+	// and raise the pill on a feed nobody had posted to - and refreshing did not
+	// clear it, because the ranking that kept the post off page one was unchanged.
+	//
+	// The DOM scan stays as the fallback for any surface that renders the feed
+	// without the attribute; it is only ever wrong in the direction above.
+	const bnStack    = document.querySelector( '.bn-feed-stack' );
+	const bnSeeded   = bnStack ? parseInt( bnStack.dataset.bnWatermark || '', 10 ) : NaN;
+	bnPill.watermark = Number.isNaN( bnSeeded ) ? 0 : bnSeeded;
+	if ( Number.isNaN( bnSeeded ) ) {
+		feed.querySelectorAll( '[data-post-id]' ).forEach( ( card ) => {
+			const cardId = parseInt( card.dataset.postId, 10 );
+			if ( cardId > bnPill.watermark ) { bnPill.watermark = cardId; }
+		} );
+	}
 
 	// Resolve the new-posts indicator config from the feed shell. The server
 	// encodes the poll cadence in ms: -1 = indicator off, 0 = no background poll
 	// (realtime pills only), > 0 = poll interval. A missing attr keeps the default.
-	const bnStack = document.querySelector( '.bn-feed-stack' );
 	const bnRawMs = bnStack ? parseInt( bnStack.dataset.bnNewPollMs || '', 10 ) : NaN;
 	bnPill.enabled = Number.isNaN( bnRawMs ) ? true : bnRawMs >= 0;
 	bnPill.pollMs  = Number.isNaN( bnRawMs ) ? POLL_INTERVAL : Math.max( 0, bnRawMs );
