@@ -117,6 +117,12 @@ The admin hub owns the BuddyNext top-level menu and arranges every settings tab 
 | `buddynext_profile_field_type_labels` | filter | Field-type labels for the admin UI | `array $labels` |
 | `buddynext_before_edit_member_form` / `_after_edit_member_form` | action | Around the admin member-edit form | `int $user_id, WP_User $wp_user` |
 | `buddynext_outbound_webhook_limit` | filter | The max number of outbound webhooks an admin can register | `int $limit` |
+| `buddynext_search_fuzzy_max_rows` | filter | The largest search index on which the fuzzy fallback still runs | `int $max_rows` |
+| `buddynext_explore_aside_pulse` | action | Fires at the top of the Explore sidebar, for a live community-pulse card | `int $uid` |
+| `buddynext_nav_icon_choices` | filter | The icon slugs offered by the nav-item picker. Any slug in `assets/icons/` works whether or not it is listed here; this only shapes the picker | (none) |
+| `buddynext_object_cache_warn_threshold` | filter | The member count above which a missing persistent object cache is worth warning the owner about | `int $threshold` |
+| `buddynext_integration_search_enabled` | action | An integration's search indexing is switched ON. The integration's own bridge listens for its key and backfills | `string $key` |
+| `buddynext_integration_search_disabled` | action | An integration's search indexing is switched OFF, so its bridge can clear what it indexed | `string $key` |
 
 > **Note:** `bn_admin_hub_sections` and `bn_admin_hub_tab_placement` use the internal `bn_*` prefix because they wire admin chrome. They are stable extension points, but treat the section/tab keys as the public contract rather than the surrounding admin classes. See Hooks Overview for the `buddynext_*` vs `bn_*` distinction.
 

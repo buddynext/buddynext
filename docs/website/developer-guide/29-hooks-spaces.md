@@ -88,6 +88,9 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_space_types` | filter | The registered space-type map is resolved | `array $types` (slug-keyed config map) |
+| `buddynext_register_space_fields` | action | The per-space field registry is built. Call `$registry->register()` to add your own space fields | `SpaceFieldRegistry $registry` |
+| `buddynext_space_max_per_member` | filter | The ceiling on how many spaces one member may own is resolved. Defaults to the site-wide setting; `0` means unlimited | `int $max_per_member, int $owner_id` |
+| `buddynext_space_posts_changed` | action | A space's post set changes - a post created in it, or removed from it. Carries the space id, which `buddynext_post_created` does not | `int $space_id` |
 
 Each space-type entry has this shape. Visibility drives the behaviour: `public` allows direct joins, `private` requires a request, `secret` is invite-only.
 

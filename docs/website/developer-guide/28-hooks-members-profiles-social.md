@@ -198,6 +198,11 @@ The decision order is: `textarea` maps to `block`, `url` maps to `link`, any typ
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_field_presentation` | filter | Resolving the About-tab layout for a field type | `string $mode, string $type` - return one of `block`, `chips`, `link`, `inline` |
+| `buddynext_field_display_text` | filter | A profile field is rendered as plain text. Return a string to take over rendering for your own field type; return `null` to fall through to the core types | `string\|null $custom, array $field, mixed $value` |
+| `buddynext_field_rest_value` | filter | A profile field value is shaped for a REST or app payload. Same contract as above - return a value to take over, `null` to fall through | `bool\|int\|float\|string\|array\|null $custom, array $field, mixed $value` |
+| `buddynext_profile_field_is_active` | filter | A profile save decides whether a field is active for this submission. An inactive field is invisible to the member for that save | `bool $active, int $target_user_id` |
+| `buddynext_profile_group_locked` | filter | A profile group is checked for lock state, meaning "not included in their plan". Defaults to `false`, so Free never locks anything | `bool $locked, string $group_key, int $user_id` |
+| `buddynext_relation_list_cap` | filter | A whole-relation list is read (followers, following, connections), bounding how many rows load at once. Raise only if you know the memory is there; the paged reads are the safer route | `int $cap, string $relation, int $user_id` |
 
 The filter's return value is clamped: `presentation_for()` accepts only the four valid modes, and any other return value falls back to `inline`. This keeps an add-on from breaking the About tab by returning an unrecognised layout name.
 

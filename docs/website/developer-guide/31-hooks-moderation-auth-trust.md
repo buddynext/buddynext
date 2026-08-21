@@ -158,6 +158,9 @@ add_filter(
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_redirect_url` | filter | Resolving the login / logout / onboarding redirect URL, after the owner's Settings > Registration & Login value (or the built-in default) has already been applied - runs last, so it has the final say | `string $url, string $context, string $fallback` |
+| `buddynext_content_removal_handled` | filter | Moderation asks whether reported content was actually taken down. Core answers for `post`, `comment` and `message`; return `true` for an object type you own | `bool $handled, string $object_type, int $object_id, int $actor_id` |
+| `buddynext_private_community_exempt_routes` | filter | The private-community gate resolves which route prefixes are exempt, for callers that are legitimately never logged in | `string[] $exempt, WP_REST_Request $request` |
+| `buddynext_terms_consent_recorded` | action | A member's terms consent is recorded. Hook it if you owe a stricter compliance duty, such as a written audit log or an external consent store | `int $user_id, int $terms_page, string $source` |
 
 `RedirectSettings::resolve()` is the one place every login, logout, and onboarding redirect passes through - the BuddyNext auth hub, `wp-login.php`, a theme login form, and programmatic sign-in all resolve through it. `$context` is one of `'login'`, `'logout'`, or `'onboarding'`; `$fallback` is the built-in default for that context (for example, the activity feed for login). Send a member to a custom dashboard or an external portal without touching the settings UI:
 
