@@ -284,7 +284,7 @@ class Installer {
 	 *      tolerance window, so a captured grant_ability request cannot be replayed to renew a
 	 *      membership forever. Additive; legacy rows keep NULL.
 	 */
-	private const SCHEMA_VERSION = 41;
+	private const SCHEMA_VERSION = 42;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -1345,7 +1345,7 @@ class Installer {
 				// denormalized activity column maintained on every space post — an
 				// ongoing background cost we chose to skip).
 				'dir_popular'  => 'ADD KEY dir_popular (parent_id, member_count)',
-				'dir_name'     => 'ADD KEY dir_name (parent_id, name)',
+				'dir_name'     => 'ADD KEY dir_name (parent_id, name(150))',
 				// v13: the "Newest" sort (parent_id IS NULL ORDER BY created_at DESC).
 				// created_at is immutable after insert, so this index is write-once —
 				// a pure read win with no ongoing maintenance.
@@ -2497,13 +2497,13 @@ class Installer {
 				archived_at DATETIME NULL DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY        (id),
-				UNIQUE KEY         slug (slug),
+				UNIQUE KEY         slug (slug(191)),
 				KEY                owner (owner_id),
 				KEY                category (category_id),
 				KEY                parent (parent_id),
 				KEY                is_archived (is_archived),
 				KEY                dir_popular (parent_id, member_count),
-				KEY                dir_name (parent_id, name),
+				KEY                dir_name (parent_id, name(150)),
 				KEY                dir_recent (parent_id, created_at),
 				KEY                admin_type (type, created_at),
 				KEY                admin_recent (created_at),
@@ -2885,7 +2885,7 @@ class Installer {
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				UNIQUE KEY  token (token),
-				KEY         email (email),
+				KEY         email (email(191)),
 				KEY         status_expires (status, expires_at)
 			) {$cs};",
 
