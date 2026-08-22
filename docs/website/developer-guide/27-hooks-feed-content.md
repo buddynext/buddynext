@@ -20,6 +20,7 @@ The action and filter seams for the activity feed and everything members post in
 | `buddynext_post_created` | action | A new post goes live (also fired for a share, with `$type = 'share'`) | `int $post_id, int $user_id, string $type` |
 | `buddynext_post_updated` | action | A post is edited | `int $post_id, int $user_id, array $fields` (columns written this update) |
 | `buddynext_post_deleted` | action | A post is deleted by its owner | `int $post_id, int $user_id` |
+| `buddynext_link_preview_max_redirects` | filter | Fetching a link preview, capping how many redirect hops are followed (default `5`; every hop is re-validated against SSRF rules before it is followed) | `int $max, string $url` |
 | `buddynext_post_approved` | action | A held post is approved by a moderator | `int $post_id, int $author` |
 | `buddynext_post_rejected` | action | A held post is rejected by a moderator | `int $post_id, int $author, string $reason` |
 | `buddynext_post_pin_limit` | filter | A user pins a post, to read the per-scope pin cap | `int $limit, int\|null $space_id, int $user_id` (default `1`) |
