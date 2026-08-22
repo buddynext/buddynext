@@ -1549,10 +1549,49 @@ class Installer {
 	 * test DB without the first-run seed data (default space, member types, …)
 	 * that would otherwise collide with per-test fixtures.
 	 *
+	 * @param bool $force Converge even under the PHPUnit harness. Used by the test
+	 *                    bootstrap and by the tests that assert convergence itself;
+	 *                    see the guard below for why everything else must not.
 	 * @return void
 	 */
-	public static function install_schema(): void {
+	public static function install_schema( bool $force = false ): void {
 		global $wpdb;
+
+		// Under the PHPUnit harness, do not re-converge a schema that is already
+		// complete.
+		//
+		// WP_UnitTestCase rewrites every `CREATE TABLE` into `CREATE TEMPORARY
+		// TABLE` (abstract-testcase.php, the `_create_temporary_tables` query
+		// filter). So when dbDelta runs INSIDE a test and decides a table needs
+		// creating, it does not create that table - it creates a TEMPORARY shadow of
+		// it on this connection, which hides the real one and makes its definition
+		// change underneath the open transaction. Every subsequent statement in that
+		// test then fails with "Table definition has changed, please retry
+		// transaction", and anything reading a row it just wrote gets null back.
+		//
+		// 157 test files call `Installer::run()`, so this fired constantly and its
+		// damage landed on whichever test ran next: the same tree produced different
+		// failures on consecutive runs while every one of those tests passed alone.
+		// It is invisible in a schema dump, because temporary tables are not dumped -
+		// which is why a before/after comparison of the real schema shows nothing but
+		// AUTO_INCREMENT drift.
+		//
+		// Scoped to the harness deliberately. The equivalent production guard would
+		// have to key on the stamped SCHEMA_VERSION, and this file's own history
+		// records that version sitting unchanged for 142 commits - so in production
+		// it could skip a real upgrade. There is already a WP_TESTS_DOMAIN branch a
+		// few lines below, for the same class of reason.
+		//
+		// `missing_tables()` and not `schema_intact()`: the latter memoises in a
+		// static that outlives a test, which is the wrong thing to trust here.
+		// $force is how a caller says "converge, I mean it": the test bootstrap
+		// (which must build the schema before any transaction opens) and the two
+		// tests that exist to prove convergence happens at all. Everything else -
+		// including the 157 set_up() calls that only want the tables to be there -
+		// gets the no-op.
+		if ( ! $force && defined( 'WP_TESTS_DOMAIN' ) && array() === self::missing_tables() ) {
+			return;
+		}
 
 		// A server that cannot host the schema is not asked to try.
 		//
@@ -1639,9 +1678,32 @@ class Installer {
 		if ( defined( 'WP_TESTS_DOMAIN' ) ) {
 			// Test env: actively DROP the index (not just skip creating it) so a DB
 			// that already has it from an earlier run still routes through the
-			// transaction-safe LIKE path. DROP is a harmless no-op when absent.
-			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search_members" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			// transaction-safe LIKE path.
+			//
+			// Guarded on the index actually existing, and that guard is what keeps
+			// the suite deterministic. `ALTER TABLE` forces an IMPLICIT COMMIT in
+			// MySQL whether or not it changes anything, and that commit ends the
+			// transaction WP_UnitTestCase wraps every test in - so everything the
+			// test had written became permanent and the rollback at tear_down had
+			// nothing left to undo. 157 test files call `Installer::run()`, so rows
+			// escaped constantly and landed on whichever test ran next: the same
+			// tree produced different failures on consecutive runs while every one
+			// of those tests passed in isolation.
+			//
+			// This used to run unconditionally, on the reasoning that "DROP is a
+			// harmless no-op when absent". That was true of the SCHEMA and false of
+			// the TRANSACTION - so the two ALTERs added to make the harness work are
+			// precisely what broke the harness's isolation.
+			// SQL kept literal per index - an index name is an identifier and cannot
+			// be a prepare() placeholder, so interpolating one would only trade a
+			// real guarantee for a silenced sniff.
+			if ( self::index_exists( $wpdb->prefix . 'bn_search_index', 'ft_search' ) ) {
+				$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			}
+
+			if ( self::index_exists( $wpdb->prefix . 'bn_search_index', 'ft_search_members' ) ) {
+				$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search_members" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			}
 		} else {
 			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 			// MATCH() must name exactly one FULLTEXT index's column list, so the members tier

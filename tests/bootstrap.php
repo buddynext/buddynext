@@ -207,4 +207,8 @@ require_once $wp_tests_dir . '/includes/bootstrap.php';
 // run plugin activation, so without this every test that touches a custom table
 // (member types, moderation, onboarding, social graph, spaces, …) errors on a
 // missing table. Schema only — no seeds — so per-test fixtures start clean.
-\BuddyNext\Core\Installer::install_schema();
+// Forced: this is the one call that must actually build/converge the schema. It
+// runs before any test transaction, so its DDL is safe here - and doing it here is
+// what lets install_schema() no-op inside tests, where CREATE TABLE would be
+// rewritten to CREATE TEMPORARY TABLE and shadow the real tables mid-transaction.
+\BuddyNext\Core\Installer::install_schema( true );
