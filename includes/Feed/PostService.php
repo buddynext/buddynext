@@ -3229,25 +3229,24 @@ class PostService {
 		$meta['title']     = $oembed['title'];
 		$meta['thumbnail'] = $oembed['thumbnail'];
 
-		// SSRF guard. The URL is user-supplied (post content / link meta), so we
-		// must not let it point the server at internal hosts. url_is_safe_for_fetch()
-		// rejects non-http(s) schemes and any host that resolves into a private or
-		// reserved range — including link-local 169.254.0.0/16, which covers cloud
-		// metadata endpoints (e.g. 169.254.169.254) that wp_http_validate_url() does
-		// NOT block on its own.
+		// SSRF guard. The URL is user-supplied (post content / link meta), so we must
+		// not let it point the server at internal hosts. url_is_safe_for_fetch()
+		// rejects non-http(s) schemes and any host resolving into a private or
+		// reserved range, link-local 169.254.0.0/16 (cloud metadata) included.
+		//
+		// This comment used to add that wp_http_validate_url() does NOT block
+		// 169.254 on its own. Measured on WP 7.1, it does - along with CGNAT,
+		// TEST-NETs, multicast and reserved space - and core applies it to every
+		// redirect hop. Our guard still has to be the one that decides, because we
+		// support WP 6.9+ and core's list has grown over releases, but the old
+		// sentence was wrong and someone would have relied on it.
 		if ( ! self::url_is_safe_for_fetch( $url ) ) {
 			return $meta;
 		}
 
-		$response = wp_remote_get(
-			$url,
-			array(
-				'timeout'             => 5,
-				'user-agent'          => 'BuddyNext/1.0 (Link Preview)',
-				'reject_unsafe_urls'  => true,
-				'limit_response_size' => 2 * MB_IN_BYTES,
-			)
-		);
+		// Every redirect hop is re-validated; see the method for why not
+		// 'redirection' => 0.
+		$response = self::fetch_following_validated_redirects( $url );
 
 		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
 			return $meta;
@@ -3398,6 +3397,89 @@ class PostService {
 		}
 
 		return array_values( array_unique( array_filter( $ips ) ) );
+	}
+
+	/**
+	 * Fetch a URL, re-checking OUR SSRF guard on every redirect hop.
+	 *
+	 * `wp_remote_get()` follows up to five redirects by itself, and the guard at the
+	 * call site only ever saw the FIRST url. A page on a perfectly ordinary host
+	 * could answer `302 Location: http://169.254.169.254/latest/meta-data/` and the
+	 * server would follow it - reachable by any logged-in member through the
+	 * link-preview route.
+	 *
+	 * WordPress does mitigate this already: `WP_Http::handle_redirects()` runs
+	 * `wp_http_validate_url()` on every hop, and on WP 7.1 that rejects the same
+	 * ranges we do. But we support 6.9+, core's list has grown over releases, and
+	 * that branch covers IPv4 only - so the plugin should not depend on which core
+	 * happens to be underneath it.
+	 *
+	 * `'redirection' => 0` alone would have been the cheap fix and a bad one: it
+	 * breaks previews for every URL that redirects, which is most of them
+	 * (http->https, trailing slash, link shorteners, campaign redirects). The hops
+	 * are followed here instead, each validated before it is requested.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $url Already-validated starting URL.
+	 * @return array<string,mixed>|\WP_Error Response, or WP_Error when a hop is refused.
+	 */
+	private static function fetch_following_validated_redirects( string $url ) {
+		$args = array(
+			'timeout'             => 5,
+			'user-agent'          => 'BuddyNext/1.0 (Link Preview)',
+			'reject_unsafe_urls'  => true,
+			'limit_response_size' => 2 * MB_IN_BYTES,
+			// Followed here instead, one validated hop at a time.
+			'redirection'         => 0,
+		);
+
+		/**
+		 * How many redirects a link preview may follow.
+		 *
+		 * Matches the WordPress default. Set to zero on a site that would rather
+		 * follow none at all.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param int    $hops Maximum redirects.
+		 * @param string $url  Starting URL.
+		 */
+		$max_hops = (int) apply_filters( 'buddynext_link_preview_max_redirects', 5, $url );
+
+		for ( $hop = 0; $hop <= $max_hops; $hop++ ) {
+			$response = wp_remote_get( $url, $args );
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			$code = (int) wp_remote_retrieve_response_code( $response );
+
+			if ( ! in_array( $code, array( 301, 302, 303, 307, 308 ), true ) ) {
+				return $response;
+			}
+
+			$location = trim( (string) wp_remote_retrieve_header( $response, 'location' ) );
+
+			if ( '' === $location ) {
+				return $response;
+			}
+
+			// A Location may be relative; resolve it against the URL just requested.
+			$next = \WP_Http::make_absolute_url( $location, $url );
+
+			if ( ! self::url_is_safe_for_fetch( $next ) ) {
+				return new \WP_Error(
+					'unsafe_redirect',
+					__( 'The link redirected somewhere we will not follow.', 'buddynext' )
+				);
+			}
+
+			$url = $next;
+		}
+
+		return new \WP_Error( 'too_many_redirects', __( 'The link redirected too many times.', 'buddynext' ) );
 	}
 
 	/**
