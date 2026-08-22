@@ -1510,6 +1510,23 @@ class Installer {
 			if ( false === get_option( 'buddynext_reg_mode', false ) ) {
 				update_option( 'users_can_register', '1' );
 			}
+
+			// Require timestamped inbound-webhook signatures from day one.
+			//
+			// The legacy scheme signs the BODY alone, so the same bytes verify for
+			// ever and the replay log cannot record them (the accepting branch sets
+			// no digest, deliberately - without a timestamp two identical events are
+			// indistinguishable from a replay). One captured grant_ability or
+			// set_role call can therefore be resent indefinitely.
+			//
+			// Fresh installs only, and that is the whole point: an existing site has
+			// senders that were built against the old scheme, and flipping this
+			// underneath them turns every one of their calls into a 401 on upgrade
+			// with no warning. New sites have no such senders, so they start closed
+			// and never need a migration. Existing sites keep dual-accept, with the
+			// deprecation warning already written to the webhook log on every legacy
+			// request, until the default flips for everyone in a later release.
+			add_option( 'buddynext_webhook_strict_signatures', true );
 		}
 
 		self::create_hub_pages();

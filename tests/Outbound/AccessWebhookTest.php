@@ -35,18 +35,32 @@ class AccessWebhookTest extends \WP_Test_REST_TestCase {
 	/**
 	 * Build and dispatch a signed (or intentionally bad) webhook request.
 	 *
+	 * Signs with the TIMESTAMPED scheme - HMAC of `{timestamp}.{body}` plus an
+	 * `X-BuddyNext-Timestamp` header - because that is what a site is expected to
+	 * send. These calls used the body-only scheme, which a fresh install now
+	 * refuses outright (`buddynext_webhook_strict_signatures` is seeded on for new
+	 * sites, so a captured request cannot be replayed for ever). The body-only
+	 * scheme keeps its own coverage in
+	 * BodyOnlySignatureIsReplayableByDefaultTest, where it is the subject rather
+	 * than the transport.
+	 *
+	 * Each call gets a fresh timestamp so the replay log does not reject the second
+	 * identical request in a test that makes two.
+	 *
 	 * @param array $body       Request payload.
 	 * @param bool  $valid_sig  Whether to use the correct HMAC signature.
 	 * @return \WP_REST_Response
 	 */
 	private function call( array $body, bool $valid_sig = true ): \WP_REST_Response {
 		$payload   = (string) wp_json_encode( $body );
+		$timestamp = (string) time();
 		$signature = $valid_sig
-			? 'sha256=' . hash_hmac( 'sha256', $payload, $this->secret )
+			? 'sha256=' . hash_hmac( 'sha256', $timestamp . '.' . $payload, $this->secret )
 			: 'sha256=bad_signature';
 
 		$request = new \WP_REST_Request( 'POST', '/buddynext/v1/webhook/access' );
 		$request->set_header( 'Content-Type', 'application/json' );
+		$request->set_header( 'X-BuddyNext-Timestamp', $timestamp );
 		$request->set_header( 'X-BuddyNext-Signature', $signature );
 		$request->set_body( $payload );
 
