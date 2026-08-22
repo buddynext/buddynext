@@ -986,10 +986,7 @@ class AuthController {
 			);
 		}
 
-		$redirect_to = (string) $request->get_param( 'redirect_to' );
-		if ( '' === $redirect_to ) {
-			$redirect_to = \BuddyNext\Core\RedirectSettings::login( \BuddyNext\Core\PageRouter::activity_url() );
-		}
+		$redirect_to = self::safe_destination( (string) $request->get_param( 'redirect_to' ) );
 
 		// Two-factor gate (optional, per-user). When on, hold the session and
 		// hand back a one-time challenge ticket; the cookie is only set once a
@@ -1239,10 +1236,7 @@ class AuthController {
 
 		$this->complete_login( $user, $ticket['remember'] );
 
-		$redirect_to = (string) $request->get_param( 'redirect_to' );
-		if ( '' === $redirect_to ) {
-			$redirect_to = \BuddyNext\Core\RedirectSettings::login( \BuddyNext\Core\PageRouter::activity_url() );
-		}
+		$redirect_to = self::safe_destination( (string) $request->get_param( 'redirect_to' ) );
 
 		return new WP_REST_Response(
 			array(
@@ -2281,5 +2275,35 @@ class AuthController {
 		do_action( 'buddynext_member_approved', $user_id );
 
 		return new WP_REST_Response( array( 'approved' => true ), 200 );
+	}
+
+	/**
+	 * Resolve a caller-supplied post-login destination to a same-origin URL.
+	 *
+	 * `esc_url_raw()` sanitises characters; it does not restrict the HOST, and the
+	 * login store assigns the value straight to `window.location.href` AFTER the
+	 * session cookie is set. So `?redirect_to=https://evil.example/phish` signed a
+	 * member in on the real site and then handed them to the attacker's, one step
+	 * from a convincing "your session expired" page. `//evil.example/x` did the
+	 * same while looking like a path.
+	 *
+	 * `wp_validate_redirect()` is the answer core already provides, and this class
+	 * already used it for parked social signup - one path guarded, two not. It
+	 * returns the fallback for anything off-origin, so a hostile value degrades to
+	 * the site's configured landing page rather than erroring.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $requested Destination asked for by the caller.
+	 * @return string Same-origin URL, or the configured default.
+	 */
+	private static function safe_destination( string $requested ): string {
+		$fallback = \BuddyNext\Core\RedirectSettings::login( \BuddyNext\Core\PageRouter::activity_url() );
+
+		if ( '' === $requested ) {
+			return $fallback;
+		}
+
+		return wp_validate_redirect( $requested, $fallback );
 	}
 }

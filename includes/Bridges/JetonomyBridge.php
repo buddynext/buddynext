@@ -1508,6 +1508,22 @@ class JetonomyBridge {
 			return new \WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
+		// SECURITY: same profile-visibility gate the profile route applies.
+		//
+		// This route is public (`permission_callback => '__return_true'`) and only
+		// checked that the id resolved, so a private / followers-only / blocked-from
+		// profile still handed out discussion titles, URLs, space names, reputation
+		// and trust level. ProfileController::get_item() has gated this since the
+		// equivalent leak was closed there; the app-parity route beside it did not.
+		//
+		// Same 404 as a missing member, deliberately, so existence is not leaked
+		// either - a 403 here would confirm the account exists.
+		$privacy = buddynext_service( 'privacy' );
+		if ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService
+			&& ! $privacy->can_view_profile( get_current_user_id(), $user_id ) ) {
+			return new \WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
 		$payload = $this->member_discussion_profile( $user_id, 20 );
 
 		$discussions = array_map(
