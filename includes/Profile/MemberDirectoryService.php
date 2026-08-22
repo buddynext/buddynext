@@ -28,6 +28,76 @@ class MemberDirectoryService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * The part of a bio that the headline has not already said.
+	 *
+	 * A member card shows a headline and, under it, a bio. People routinely write a
+	 * headline and then start their bio with that same sentence, so the card
+	 * rendered the line twice - "Trail runner, data scientist, plant collector"
+	 * followed by "Trail runner, data scientist, plant collector. Data Scientist
+	 * at ...".
+	 *
+	 * The previous guard was `strcasecmp()`, exact equality. It caught a bio that
+	 * IS the headline and missed the prefix case, which is the one that actually
+	 * occurs.
+	 *
+	 * Returns the remainder rather than hiding the bio outright, because the tail
+	 * is usually the only new information on the card. When nothing meaningful is
+	 * left - the bio was just the headline, or what remains is a stray fragment -
+	 * it returns '' and the caller renders nothing.
+	 *
+	 * Entities are decoded before comparing so an encoded ampersand on one side
+	 * ("&amp;" vs "&") cannot defeat the match, and comparison is
+	 * case-insensitive on trimmed values.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $bio      Member bio.
+	 * @param string $headline Member headline.
+	 * @return string Bio text worth showing, or '' when there is none.
+	 */
+	public static function bio_beyond_headline( string $bio, string $headline ): string {
+		$bio_text = trim( html_entity_decode( $bio, ENT_QUOTES ) );
+
+		if ( '' === $bio_text ) {
+			return '';
+		}
+
+		$headline_text = trim( html_entity_decode( $headline, ENT_QUOTES ) );
+
+		if ( '' === $headline_text ) {
+			return $bio;
+		}
+
+		if ( 0 === strcasecmp( $bio_text, $headline_text ) ) {
+			return '';
+		}
+
+		// Not a prefix: the bio says something else entirely, show it as written.
+		if ( 0 !== stripos( $bio_text, $headline_text ) ) {
+			return $bio;
+		}
+
+		$remainder = substr( $bio_text, strlen( $headline_text ) );
+
+		// Drop the punctuation and space that joined the two, so the remainder does
+		// not start with ". " or "- ".
+		$remainder = ltrim( (string) $remainder, " \t\n\r\0\x0B.,;:—–-" );
+
+		/**
+		 * Shortest remainder still worth showing under the headline.
+		 *
+		 * Below this a card gains a line and no information.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param int $length Minimum characters.
+		 */
+		$minimum = (int) apply_filters( 'buddynext_member_card_min_bio_remainder', 12 );
+
+		return strlen( $remainder ) >= $minimum ? $remainder : '';
+	}
+
+	/**
 	 * Cached, EXACT directory total for a viewer + filter set.
 	 *
 	 * The server-rendered directory used to compute this itself, by running a SECOND

@@ -334,14 +334,23 @@ do_action( 'buddynext_part_member_card_before', $args );
 	<?php endif; ?>
 
 	<?php
-	// Show the bio only when it adds something the headline didn't already say —
-	// when a member's bio and headline are identical (or the bio is empty), a
-	// second line would just repeat the tagline. Compared case-insensitively on
-	// the trimmed source values, with HTML entities decoded first so an encoded
-	// ampersand on one side ("&amp;" vs "&amp;amp;") doesn't defeat the dedupe.
-	if ( '' !== $bn_bio && 0 !== strcasecmp( trim( html_entity_decode( $bn_bio, ENT_QUOTES ) ), trim( html_entity_decode( $bn_md_headline, ENT_QUOTES ) ) ) ) :
+	// Show the bio only where it adds something the headline didn't already say.
+	//
+	// The old test was strcasecmp() - exact equality - which catches a bio that is
+	// IDENTICAL to the headline and misses the case people actually produce: a
+	// headline, and then a bio that opens with that same sentence and carries on.
+	// The card rendered "Trail runner, data scientist, plant collector" and
+	// directly beneath it "Trail runner, data scientist, plant collector. Data
+	// Scientist at ...".
+	//
+	// Hiding the whole bio in that case would throw away the part that IS new, so
+	// the repeated opening is trimmed instead and the remainder shown. If nothing
+	// meaningful survives the trim, nothing is rendered.
+	$bn_bio_shown = \BuddyNext\Profile\MemberDirectoryService::bio_beyond_headline( $bn_bio, $bn_md_headline );
+
+	if ( '' !== $bn_bio_shown ) :
 		?>
-		<p class="bn-md-card__bio"><?php echo esc_html( wp_trim_words( $bn_bio, 18 ) ); ?></p>
+		<p class="bn-md-card__bio"><?php echo esc_html( wp_trim_words( $bn_bio_shown, 18 ) ); ?></p>
 	<?php endif; ?>
 
 	<?php
