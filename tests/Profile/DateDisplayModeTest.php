@@ -210,9 +210,13 @@ class DateDisplayModeTest extends WP_UnitTestCase {
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_profile_values',
 			array(
-				'user_id'  => $owner,
-				'field_id' => $field_id,
-				'value'    => $dob,
+				'user_id'     => $owner,
+				'field_id'    => $field_id,
+				// Part of UNIQUE KEY (user_id, field_id, entry_index). Supplied
+				// rather than left to the column default so this row cannot
+				// collide with one another test left behind.
+				'entry_index' => 0,
+				'value'       => $dob,
 			)
 		);
 		update_user_meta( $owner, 'bn_field_dob_probe', $dob );

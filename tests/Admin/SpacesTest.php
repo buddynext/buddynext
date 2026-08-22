@@ -79,6 +79,18 @@ class SpacesTest extends \WP_UnitTestCase {
 	 * inside run() implicitly commits it past WP's per-test transaction rollback,
 	 * so the table is not guaranteed empty at the start of this test. Counting
 	 * the increment is correct regardless of any pre-seeded baseline.
+	 *
+	 * Every fixture below supplies a SLUG, and must. `bn_spaces` carries
+	 * `UNIQUE KEY slug`, so rows inserted without one all collide on the empty
+	 * string: the first wins and the rest are rejected with
+	 *
+	 *   Duplicate entry '' for key 'wptests_bn_spaces.slug'
+	 *
+	 * Which of them survives then depends on what earlier tests happened to leave
+	 * behind - and because the installer's DDL commits past the per-test
+	 * rollback, that is not fixed run to run. This file was the confirmed
+	 * mechanism behind "the suite does not give the same answer twice"
+	 * (card 10228094255): running tests/Admin twice gave 2 failures, then OK.
 	 */
 	public function test_get_space_count_reflects_rows(): void {
 		global $wpdb;
@@ -87,6 +99,7 @@ class SpacesTest extends \WP_UnitTestCase {
 			$wpdb->prefix . 'bn_spaces',
 			array(
 				'name'     => 'Test Space',
+				'slug'     => 'qa-count-space',
 				'owner_id' => 1,
 			)
 		);
@@ -102,6 +115,7 @@ class SpacesTest extends \WP_UnitTestCase {
 			$wpdb->prefix . 'bn_spaces',
 			array(
 				'name'     => 'To Delete',
+				'slug'     => 'qa-delete-space',
 				'owner_id' => 1,
 			)
 		);
@@ -124,6 +138,7 @@ class SpacesTest extends \WP_UnitTestCase {
 			$wpdb->prefix . 'bn_spaces',
 			array(
 				'name'     => 'Action Space',
+				'slug'     => 'qa-action-space',
 				'owner_id' => 1,
 			)
 		);
@@ -153,6 +168,7 @@ class SpacesTest extends \WP_UnitTestCase {
 				$wpdb->prefix . 'bn_spaces',
 				array(
 					'name'     => "Space {$i}",
+					'slug'     => "qa-per-page-{$i}",
 					'owner_id' => 1,
 				)
 			);
