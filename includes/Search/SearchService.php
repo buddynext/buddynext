@@ -133,6 +133,159 @@ class SearchService {
 	}
 
 	/**
+	 * The spaces whose content this viewer may find in search.
+	 *
+	 * Membership is the floor, not the whole answer. A space can be readable for a
+	 * reason that has nothing to do with joining it: an OPEN space carrying a
+	 * `required_ability` is readable by anyone holding the plan, and joining is
+	 * optional. `can_view_content()` gets that right. This list did not, so a
+	 * member who had paid for access found none of that space's content -
+	 * reproduced with an open space gated on `tier:pro`: the viewer could open and
+	 * read it, and searching a word that appears only in its posts returned
+	 * nothing (card 10221739624).
+	 *
+	 * Free cannot answer the entitlement question - it ships no ability system - so
+	 * it asks, and Pro answers. Same Free-asks/Pro-answers shape as the content
+	 * gate itself.
+	 *
+	 * ## This seam may only WIDEN, and Free enforces that rather than trusting it
+	 *
+	 * The mirror of the narrow-only guard on
+	 * {@see \BuddyNext\Spaces\SpaceVisibility::can_view_content()}. There the
+	 * filter can refuse but never grant; here it can grant but never refuse, and
+	 * the same reasoning applies - a seam into the search index for any plugin on
+	 * the site would be a bigger hole than the one it was added to close. So:
+	 *
+	 *  - every id membership already granted is kept, whatever the listener returns,
+	 *    so this cannot become a narrowing seam by the back door;
+	 *  - every id the listener ADDS is checked against `can_view_content()` before
+	 *    it is believed. A listener that returns every space on the site widens
+	 *    the viewer's reach by exactly nothing.
+	 *
+	 * That check is the cost, so it is bounded and memoised: at most
+	 * `buddynext_search_entitled_space_limit` additions are considered (default
+	 * 200), and the resolved list is held per request per viewer, because a single
+	 * search request runs this for each of its four queries.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $viewer_id Logged-in viewer.
+	 * @return int[] Space ids, membership plus verified entitlements.
+	 */
+	private static function viewer_space_ids( int $viewer_id ): array {
+		$memo = &self::viewer_space_memo();
+
+		if ( isset( $memo[ $viewer_id ] ) ) {
+			return $memo[ $viewer_id ];
+		}
+
+		$member_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'space_members' ) : null;
+		$membership     = ( is_object( $member_service ) && method_exists( $member_service, 'spaces_for_user' ) )
+			? array_values( array_unique( array_filter( array_map( 'intval', (array) $member_service->spaces_for_user( $viewer_id ) ) ) ) )
+			: array();
+
+		/**
+		 * Filter the spaces whose content a viewer may find in search.
+		 *
+		 * Answer with ADDITIONAL space ids the viewer is entitled to read without
+		 * having joined - Pro adds gated spaces whose `required_ability` the viewer
+		 * holds. Returning fewer ids than you were given has no effect: membership
+		 * is re-added below, and every addition is verified against
+		 * `can_view_content()`, so a listener cannot grant reach into a space the
+		 * viewer may not actually read.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param int[] $space_ids Space ids from membership.
+		 * @param int   $viewer_id Logged-in viewer.
+		 */
+		$candidates = (array) apply_filters( 'buddynext_search_viewer_spaces', $membership, $viewer_id );
+		$candidates = array_values( array_unique( array_filter( array_map( 'intval', $candidates ) ) ) );
+
+		$added = array_values( array_diff( $candidates, $membership ) );
+
+		if ( array() !== $added ) {
+			/**
+			 * How many entitled-but-unjoined spaces a single search will verify.
+			 *
+			 * Each one costs a space fetch and an ability check. A community with
+			 * thousands of gated spaces should not pay that on every keystroke, so
+			 * the list is cut rather than allowed to grow without limit.
+			 *
+			 * @since 1.1.6
+			 *
+			 * @param int $limit     Maximum additions considered. Default 200.
+			 * @param int $viewer_id Logged-in viewer.
+			 */
+			$limit = (int) apply_filters( 'buddynext_search_entitled_space_limit', 200, $viewer_id );
+
+			if ( $limit > 0 && count( $added ) > $limit ) {
+				$added = array_slice( $added, 0, $limit );
+			}
+
+			$spaces = function_exists( 'buddynext_service' ) ? buddynext_service( 'spaces' ) : null;
+
+			foreach ( $added as $space_id ) {
+				$space = is_object( $spaces ) ? $spaces->get( $space_id ) : null;
+
+				if ( is_array( $space ) && \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
+					$membership[] = $space_id;
+				}
+			}
+		}
+
+		$memo[ $viewer_id ] = array_values( array_unique( $membership ) );
+
+		return $memo[ $viewer_id ];
+	}
+
+	/**
+	 * The per-request memo behind viewer_space_ids().
+	 *
+	 * Returned by reference for the same reason as {@see self::ceiling_cache()} -
+	 * so the resolver and the flush below cannot end up talking to two different
+	 * static arrays.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return array<int, int[]>
+	 */
+	private static function &viewer_space_memo(): array {
+		static $memo = array();
+
+		return $memo;
+	}
+
+	/**
+	 * Forget the memoised viewer-space lists.
+	 *
+	 * One search request runs four queries and each asks for the same list, so the
+	 * memo is what keeps the entitlement checks from running four times over. The
+	 * cost is that the list is fixed for the rest of the request.
+	 *
+	 * That is right almost always - membership and entitlement do not change
+	 * mid-request - but it is not right when something in the same request CHANGES
+	 * them: a member joins a space and then searches, or a test registers the
+	 * listener after a first search has already been run. Both need to say so.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $viewer_id Viewer to forget, or 0 for all of them.
+	 * @return void
+	 */
+	public static function flush_viewer_space_memo( int $viewer_id = 0 ): void {
+		$memo = &self::viewer_space_memo();
+
+		if ( $viewer_id > 0 ) {
+			unset( $memo[ $viewer_id ] );
+
+			return;
+		}
+
+		$memo = array();
+	}
+
+	/**
 	 * The highest visibility content inside a given space may be indexed with.
 	 *
 	 * Registry-derived rather than a literal type list, so a site that registers
@@ -903,10 +1056,7 @@ class SearchService {
 		// so the four search queries below need no extra prepared params.
 		$visibility_where = "si.visibility = 'public'";
 		if ( $viewer_id > 0 ) {
-			$member_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'space_members' ) : null;
-			$viewer_spaces  = ( is_object( $member_service ) && method_exists( $member_service, 'spaces_for_user' ) )
-				? array_filter( array_map( 'intval', (array) $member_service->spaces_for_user( $viewer_id ) ) )
-				: array();
+			$viewer_spaces = self::viewer_space_ids( $viewer_id );
 			if ( ! empty( $viewer_spaces ) ) {
 				$space_in         = implode( ',', array_map( 'absint', $viewer_spaces ) );
 				$visibility_where = "( si.visibility = 'public'"
