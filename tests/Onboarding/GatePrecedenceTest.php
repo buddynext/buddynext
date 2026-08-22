@@ -55,6 +55,20 @@ class GatePrecedenceTest extends \WP_UnitTestCase {
 		$this->user_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
 		wp_set_current_user( $this->user_id );
 
+		// Pin the grandfather cut-off BEFORE this member registered.
+		//
+		// The gate only redirects members who registered at or after the moment
+		// onboarding went live, and it stamps that moment with time() the first
+		// time it runs. Left unset, the fixture races the clock: the member is
+		// created in one second and the stamp taken in the next, so `registered <
+		// gate_since` and the member is treated as part of the back catalogue -
+		// the gate stands down and the test fails for a reason that has nothing to
+		// do with what it is testing.
+		//
+		// It failed roughly one run in four that way. Stating the precondition is
+		// what a fixture is for; the production rule is correct as written.
+		update_option( 'buddynext_onboarding_gate_since', time() - HOUR_IN_SECONDS );
+
 		// Require 2FA of everyone, so this member is held.
 		update_option( 'buddynext_2fa_required', 'all' );
 	}
