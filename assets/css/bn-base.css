@@ -2825,6 +2825,85 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	outline: 2px solid var(--bn-ring);
 	outline-offset: 2px;
 }
+
+/* A STANDALONE boolean — a single checkbox that carries its own label, with no
+   group around it ("Currently working here", "Show my email").
+
+   Not a pill. The pills above are one choice among several, where a bordered
+   chip reads as "pick from this set"; a lone yes/no is a different question and
+   a single chip floating in a row implies siblings that do not exist.
+
+   It had no rule at all, so it inherited `display: block` from the label and
+   rendered as a bare 13px browser checkbox with a text run beside it, baseline
+   -aligned by luck. On a form where every neighbouring control is a 40px-tall
+   bordered field, that reads as an unfinished control. This gives it the row
+   height, alignment and hit target of its neighbours without pretending to be
+   one of them, and it applies on every surface the field engine renders into -
+   profile edit, registration, and the admin member editor - because they all
+   load this sheet. */
+.bn-field-checkbox:not(.bn-field-checkbox-group .bn-field-checkbox) {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	/* --bn-s10, the same 40px the pills and the text inputs stand at, so the
+	   control sits on the form's row rhythm rather than beside it. The scale
+	   runs 1-6, 8, 10, 12, 16 - there is no --bn-s9, and naming one silently
+	   drops the declaration. */
+	min-height: var(--bn-s10);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+}
+.bn-field-checkbox:not(.bn-field-checkbox-group .bn-field-checkbox) input {
+	/* The browser default is 13px and does not scale with the form around it.
+	   accent-color paints the checked state in the community's own accent
+	   rather than the operating system's blue. */
+	inline-size: var(--bn-s4);
+	block-size: var(--bn-s4);
+	margin: 0;
+	accent-color: var(--bn-accent);
+	cursor: pointer;
+	flex: none;
+}
+.bn-field-checkbox:not(.bn-field-checkbox-group .bn-field-checkbox):has(input:checked) {
+	color: var(--bn-ink);
+}
+.bn-field-checkbox:not(.bn-field-checkbox-group .bn-field-checkbox):has(input:focus-visible) {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+	border-radius: var(--bn-r-sm);
+}
+
+/* Field with no available editor — the type is registered by a plugin that is
+   not currently active (Pro deactivated with its advanced field types still
+   configured, a lapsed licence, a plan downgrade).
+
+   The value is preserved in a hidden input and the person is told why they
+   cannot edit it, rather than being handed a text box full of the raw stored
+   payload to mangle by hand — see FieldType::is_unreadable_payload().
+
+   Lives here rather than in bn-profile.css because every surface that edits a
+   field can hit this state, and one of them is wp-admin, which does not load
+   the profile sheet. Unstyled, it rendered as a bare sentence sitting in a
+   column of bordered controls and read as a row that had failed to render
+   rather than a deliberate state. The dashed border says "there is a field
+   here, and it is not yours to edit right now". */
+.bn-field--unavailable {
+	padding: var(--bn-s3);
+	background: var(--bn-sunken);
+	border: 1px dashed var(--bn-line);
+	border-radius: var(--bn-r-md);
+	/* Its padding and border must fit INSIDE any width cap it is given, so it
+	   lines up with the controls above and below rather than standing 26px
+	   proud of them. */
+	box-sizing: border-box;
+}
+.bn-field-unavailable-note {
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-normal);
+}
 .bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: var(--bn-paid); border-color: transparent; }
 
 /* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor

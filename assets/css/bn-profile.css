@@ -3369,23 +3369,9 @@ a.bn-space-row:hover .bn-space-name {
 	}
 }
 
-/* ── Field with no available editor ─────────────────────────────────────────
-   Shown where a field's type is registered by a plugin that is not currently
-   active (Pro deactivated with its advanced field types still configured). The
-   value is preserved in a hidden input and the member is told why they cannot
-   edit it, rather than being handed a text box full of the raw stored payload
-   to mangle by hand. Token-driven so it inherits dark mode with everything
-   else. */
-.bn-field--unavailable {
-	padding: var(--bn-s3);
-	background: var(--bn-p-bg-subtle);
-	border: 1px dashed var(--bn-p-border);
-	border-radius: var(--bn-r-md);
-}
-
-.bn-field-unavailable-note {
-	margin: 0;
-	color: var(--bn-p-text-3);
-	font-size: var(--bn-text-sm);
-	line-height: var(--bn-leading-normal);
-}
+/* The "no available editor" field state moved to bn-base.css — like the choice
+   groups above it is a shared primitive, rendered by FieldType wherever a field
+   is edited, and the ADMIN member editor needs it too (bn-profile.css does not
+   load in wp-admin, so the state rendered there as a bare unstyled sentence in
+   a column of bordered controls). This comment is a signpost so the rules are
+   not re-added here. */

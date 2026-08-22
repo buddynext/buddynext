@@ -421,26 +421,169 @@ class FieldType {
 		}
 
 		$raw = $field['options'] ?? null;
+
+		// The owner's choice list may be stored under a `choices` key. That is the
+		// shape ProfileFieldsManager persists for the advanced types, so a field
+		// created through the Profile Fields screen lands here rather than at the
+		// top level.
+		if ( is_array( $raw ) && isset( $raw['choices'] ) && is_array( $raw['choices'] ) ) {
+			$raw = $raw['choices'];
+		}
+
 		if ( ! is_array( $raw ) ) {
 			return array();
 		}
 
 		$pairs = array();
 		foreach ( $raw as $key => $value ) {
-			if ( is_int( $key ) ) {
+			// A {value,label} pair — the canonical shape parse_choice_pairs() writes.
+			//
+			// This branch was missing, and the result was not a near miss: the whole
+			// list collapsed to a single entry reading `{"array":"Array"}`, because
+			// each item is an ARRAY being cast to string. Any field whose options
+			// came from the Profile Fields screen therefore had no resolvable
+			// choices at all on this side — display_text() could not turn a stored
+			// slug back into its label, and sanitize() accepted nothing.
+			if ( is_array( $value ) ) {
+				$slug  = sanitize_title( (string) ( $value['value'] ?? '' ) );
+				$label = (string) ( $value['label'] ?? $value['value'] ?? '' );
+			} elseif ( is_int( $key ) ) {
 				$label = (string) $value;
 				$slug  = sanitize_title( $label );
 			} else {
 				$slug  = sanitize_title( (string) $key );
 				$label = (string) $value;
 			}
+
 			if ( '' === $slug ) {
 				continue;
 			}
-			$pairs[ $slug ] = $label;
+
+			$pairs[ $slug ] = '' !== $label ? $label : $slug;
 		}
 
 		return $pairs;
+	}
+
+	/**
+	 * The owner's choice list for a field, as slug => label.
+	 *
+	 * The public face of {@see self::options()}. Add-ons that render or validate a
+	 * choice-typed field MUST resolve their options through this rather than
+	 * reading `$field['options']` themselves.
+	 *
+	 * That is not a style preference. Pro re-implemented this resolution in two
+	 * places, and the two implementations disagreed with this one about which
+	 * shapes exist: Pro's understood `{value,label}` lists and silently read the
+	 * LABEL as the value for a flat `slug => label` map, while this one understood
+	 * flat maps and collapsed a `{value,label}` list to `{"array":"Array"}`. Each
+	 * was correct for the shape it was written against and wrong for the other, so
+	 * whether a field worked depended on which screen had created it.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<string, mixed> $field Field definition.
+	 * @return array<string, string> slug => label.
+	 */
+	public static function option_pairs( array $field ): array {
+		return self::options( $field );
+	}
+
+	/**
+	 * Resolve a stored value to its canonical option slug.
+	 *
+	 * Stored values are slugs. Some are not, through no fault of the member: a
+	 * field defined as a flat `slug => label` map was saved through Pro's own
+	 * resolver, which read the label as the value, so those rows hold `Alpha`
+	 * where they should hold `alpha`.
+	 *
+	 * Correcting the resolver alone would strand that data — the control would
+	 * render with nothing selected and the next save would drop it, which is the
+	 * member losing a choice they made because of a bug they never saw. So reads
+	 * accept either form and normalise it, and the value corrects itself on the
+	 * next save with no migration to run and nothing for an owner to do.
+	 *
+	 * Matching is tried in order of confidence: exact slug, slugified value, then
+	 * a case-insensitive label match. An unrecognised value is slugified and
+	 * returned unchanged, which is what callers did before this existed.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<string, mixed> $field Field definition.
+	 * @param string               $value Stored or submitted value.
+	 * @return string The canonical slug.
+	 */
+	public static function canonical_option_value( array $field, string $value ): string {
+		$value = trim( $value );
+		if ( '' === $value ) {
+			return '';
+		}
+
+		$pairs = self::option_pairs( $field );
+
+		if ( isset( $pairs[ $value ] ) ) {
+			return $value;
+		}
+
+		$slug = sanitize_title( $value );
+		if ( isset( $pairs[ $slug ] ) ) {
+			return $slug;
+		}
+
+		foreach ( $pairs as $option_slug => $label ) {
+			if ( 0 === strcasecmp( (string) $label, $value ) ) {
+				return (string) $option_slug;
+			}
+		}
+
+		return $slug;
+	}
+
+	/**
+	 * The owner's LABELS for a stored choice value, or null if it is not one.
+	 *
+	 * A choice field stores slugs and shows labels. The built-in choice types each
+	 * do that in their own branch, keyed on the TYPE - which works until the type
+	 * is no longer registered. Deactivate Pro and a `multi_select_advanced` is
+	 * resolved as plain text, so the profile prints `alpha, beta` where it used to
+	 * print `Alpha, Beta`: the member's answer, in the site's internal spelling.
+	 *
+	 * This keys on the FIELD instead. An owner who defined a choice list meant the
+	 * labels to be what people read, and that intent does not lapse with a licence.
+	 *
+	 * Deliberately conservative - null unless the field HAS an option list and
+	 * EVERY part of the value resolves to one of its slugs. A free-text value that
+	 * happens to match one option must not be quietly relabelled, and a value
+	 * holding an option that has since been deleted is left alone rather than
+	 * half-translated.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<string, mixed> $field Field definition.
+	 * @param string               $value Stored value (a slug, or comma-joined slugs).
+	 * @return string|null Comma-joined labels, or null when this is not a resolvable choice value.
+	 */
+	public static function option_labels_for( array $field, string $value ): ?string {
+		$value = trim( $value );
+		if ( '' === $value ) {
+			return null;
+		}
+
+		$pairs = self::option_pairs( $field );
+		if ( array() === $pairs ) {
+			return null;
+		}
+
+		$labels = array();
+		foreach ( array_filter( array_map( 'trim', explode( ',', $value ) ) ) as $part ) {
+			$slug = self::canonical_option_value( $field, $part );
+			if ( ! isset( $pairs[ $slug ] ) ) {
+				return null;
+			}
+			$labels[] = (string) $pairs[ $slug ];
+		}
+
+		return array() === $labels ? null : implode( ', ', $labels );
 	}
 
 	/**
@@ -1201,6 +1344,23 @@ class FieldType {
 			return $custom;
 		}
 
+		// Nothing registered can read this payload (Pro deactivated with its field
+		// types still configured, a lapsed licence, a plan downgrade). Show nothing
+		// rather than storage internals.
+		//
+		// This is the PUBLIC profile renderer, and it was the one call site of the
+		// four that never got this guard - render_input(), display_text() and
+		// searchable_text() all have it. Measured on a Pro-deactivated site, the
+		// About tab printed the stored payload verbatim to any visitor -
+		// `{"address":"Pune, Maharashtra, India","lat":18.5204,"lng":73.8567}`.
+		// Worse than ugly: a member who chose to share a city name had their exact
+		// coordinates published, and `visibility: public` means logged out too.
+		// resolve_type() degrades the type to `text` and the text branch below
+		// then prints the value as-is.
+		if ( self::is_unreadable_payload( $field, $value ) ) {
+			return '';
+		}
+
 		$type = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
 
 		// Boolean is special: false/empty hides the row entirely.
@@ -1218,6 +1378,13 @@ class FieldType {
 		// Everything else: nothing to show for an empty value.
 		if ( '' === trim( (string) $value ) ) {
 			return '';
+		}
+
+		// As in display_text(): show the owner's labels for a choice value whose
+		// type is no longer registered, rather than the slugs underneath it.
+		$choice_labels = self::option_labels_for( $field, (string) $value );
+		if ( null !== $choice_labels ) {
+			return '<span class="bn-field-value">' . esc_html( $choice_labels ) . '</span>';
 		}
 
 		switch ( $type ) {
@@ -1584,6 +1751,15 @@ class FieldType {
 			return $options[ $slug ] ?? (string) $value;
 		}
 
+		// The mirror indexes what a PERSON would type, which is the label. A choice
+		// field whose type is no longer registered would otherwise index its slugs,
+		// so a member who picked "Alpha" became findable only by searching "alpha".
+		// See option_labels_for().
+		$choice_labels = self::option_labels_for( $field, (string) $value );
+		if ( null !== $choice_labels ) {
+			return $choice_labels;
+		}
+
 		// The SEARCH MIRROR must not hold the raw date either. If the owner reduced a birthday
 		// to age-only, indexing the exact Y-m-d would let anyone find a member by searching
 		// their date of birth — the profile hides it and the search box gives it back.
@@ -1772,6 +1948,12 @@ class FieldType {
 			$options = self::options( $field );
 			$slug    = sanitize_title( (string) $value );
 			return $options[ $slug ] ?? (string) $value;
+		}
+
+		// A choice value whose TYPE is no longer registered - see option_labels_for().
+		$choice_labels = self::option_labels_for( $field, (string) $value );
+		if ( null !== $choice_labels ) {
+			return $choice_labels;
 		}
 
 		// A member type stores its SLUG. ProfileService rewrites `value` to the
