@@ -190,14 +190,21 @@
 				return;
 			}
 
+			// Every attribute carrying the placeholder is rewritten, not a fixed
+			// list of three. The list was id/name/for, which was enough while a
+			// repeater row could only be a text box, a textarea or a url input.
+			// Rows now render through FieldType, whose richer controls also put the
+			// id in aria-controls, aria-labelledby and aria-describedby - leave
+			// those behind and a cloned row's control points at the TEMPLATE's
+			// element, so a screen reader reads the wrong field and a listbox
+			// toggles the wrong list.
 			function applyIdx( node, idx ) {
 				if ( node.nodeType !== 1 ) {
 					return;
 				}
-				[ 'id', 'name', 'for' ].forEach( function ( attr ) {
-					var val = node.getAttribute( attr );
-					if ( val && val.indexOf( '__idx__' ) !== -1 ) {
-						node.setAttribute( attr, val.replace( /__idx__/g, String( idx ) ) );
+				Array.prototype.slice.call( node.attributes ).forEach( function ( attr ) {
+					if ( attr.value && attr.value.indexOf( '__idx__' ) !== -1 ) {
+						node.setAttribute( attr.name, attr.value.replace( /__idx__/g, String( idx ) ) );
 					}
 				} );
 				node.childNodes.forEach( function ( child ) { applyIdx( child, idx ); } );
@@ -234,6 +241,16 @@
 				}
 				bindRemove( newEntry.querySelector( '.bn-repeater-remove' ) );
 				container.appendChild( newEntry );
+
+				// Announce the new controls. A row can now contain any registered
+				// field type, and the richer ones are inert markup until something
+				// wires them - a location field added this way rendered a search
+				// box that never searched and a map that never drew. Whoever owns
+				// the type listens for this and re-runs its own (idempotent) setup;
+				// nothing here needs to know which types those are.
+				document.dispatchEvent( new CustomEvent( 'buddynext:fields-added', {
+					detail: { container: newEntry }
+				} ) );
 			} );
 		} );
 	}

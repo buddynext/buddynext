@@ -1806,3 +1806,41 @@
 .bn-table--types td {
 	white-space: nowrap;
 }
+
+/* --------------------------------------------------------------------------
+   Member editor — profile field controls share one measure
+   Every control on this form now comes from FieldType::render_input(), the
+   same renderer the member's own editor uses. The admin sheet's general rule
+   gives a textarea more room than a text input (760px against 560px), which
+   is right on a settings screen where a textarea holds long-form content and
+   wrong here: on a form of FIELDS it puts one control 182px past the right
+   edge every other control lines up on. Measured on Work Experience - six
+   controls at 560px and the Description at 742px.
+
+   The member-facing editor already renders the two at the same width, and
+   this form exists to be its equal, so it matches rather than inventing a
+   third measure.
+   -------------------------------------------------------------------------- */
+.bn-ss-body .bn-field-row textarea,
+.bn-ss-body .bn-field textarea,
+/* The "needs Pro to edit" panel stands in for a control, so it takes the
+   control measure too - otherwise the one row an admin cannot edit is also the
+   one row that runs past the edge every other row lines up on. */
+.bn-ss-body .bn-field-row .bn-field--unavailable,
+.bn-ss-body .bn-field .bn-field--unavailable {
+	max-width: var(--bn-a-control-max-w, 560px);
+}
+
+/* WordPress core's forms.css gives `input` and `select` a `margin: 0 1px` and
+   gives `textarea` none, so a column of fields does not share a left edge.
+   Measured on Work Experience - inputs at 485px, textarea and checkbox row at
+   484px; and on Account, where the selects were the odd ones out at 472px
+   against 471px. Subtle per row, but it is the whole column. */
+.bn-ss-body .bn-field-row input,
+.bn-ss-body .bn-field-row select,
+.bn-ss-body .bn-field-row textarea,
+.bn-ss-body .bn-field input,
+.bn-ss-body .bn-field select,
+.bn-ss-body .bn-field textarea {
+	margin-inline: 0;
+}

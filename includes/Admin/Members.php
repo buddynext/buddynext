@@ -972,55 +972,7 @@ class Members extends AdminPageBase {
 			}
 		}
 
-		$profile_data = array();
-
-		// Build a whitelist of known field keys to avoid mass-assignment.
-		$known_groups = buddynext_service( 'profiles' )->get_fields();
-
-		foreach ( $known_groups as $group ) {
-			$group_key = $group['group_key'];
-
-			if ( 'repeater' === $group['type'] ) {
-				// Repeater entries arrive as group_key[n][field_key].
-				if ( isset( $_POST[ $group_key ] ) && is_array( $_POST[ $group_key ] ) ) {
-					$entries      = array();
-					$raw_repeater = wp_unslash( $_POST[ $group_key ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-					foreach ( (array) $raw_repeater as $entry_idx => $entry_data ) {
-						if ( ! is_array( $entry_data ) ) {
-							continue;
-						}
-						$sanitized_entry = array();
-						foreach ( $group['fields'] as $field_def ) {
-							$fk = $field_def['field_key'];
-							if ( isset( $entry_data[ $fk ] ) ) {
-								$sanitized_entry[ $fk ] = sanitize_textarea_field( (string) $entry_data[ $fk ] );
-							}
-						}
-						if ( ! empty( $sanitized_entry ) ) {
-							$entries[ (int) $entry_idx ] = $sanitized_entry;
-						}
-					}
-					if ( ! empty( $entries ) ) {
-						$profile_data[ $group_key ] = $entries;
-					}
-				}
-				continue;
-			}
-
-			// Flat group — fields keyed directly by field_key.
-			foreach ( $group['fields'] as $field_def ) {
-				$fk = $field_def['field_key'];
-				if ( isset( $_POST[ $fk ] ) ) {
-					// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized immediately below
-					$raw_val = wp_unslash( $_POST[ $fk ] );
-					if ( is_array( $raw_val ) ) {
-						$profile_data[ $fk ] = array_map( 'sanitize_text_field', $raw_val );
-					} else {
-						$profile_data[ $fk ] = sanitize_textarea_field( (string) $raw_val );
-					}
-				}
-			}
-		}
+		$profile_data = self::collect_profile_data( $_POST ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- check_admin_referer() ran at the top of this handler.
 
 		if ( ! empty( $profile_data ) ) {
 			$bn_profiles    = buddynext_service( 'profiles' );
@@ -1080,6 +1032,147 @@ class Members extends AdminPageBase {
 			add_query_arg( 'saved', '1', $redirect_url )
 		);
 		exit;
+	}
+
+	/**
+	 * What a control of this type submits when the admin has chosen nothing.
+	 *
+	 * Most controls post a key whenever they are on screen, so "the key is missing"
+	 * safely means "not on this form". Three do not, and for those, missing is a
+	 * real answer the admin gave:
+	 *
+	 *   boolean               an unticked checkbox posts nothing
+	 *   radio                 a group with no option chosen posts nothing
+	 *   the multiselect family  a checkbox group with nothing ticked posts nothing
+	 *
+	 * `save_profile()` walks only the keys it is handed, so without this the stored
+	 * value simply survives: the admin unticks, the screen says "Profile updated
+	 * successfully", and the value comes back set. Clearing any of these three from
+	 * the backend would be impossible.
+	 *
+	 * The values returned here are exactly what the member-facing editor sends for
+	 * the same controls - see `assignControlValue()` in
+	 * `assets/js/profile/store.js`, which seeds `''` for a checkbox or radio and an
+	 * empty array for a group rather than omitting the key. Both surfaces edit the
+	 * same data, so both must be able to empty it the same way.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $type Field type slug.
+	 * @return string|array<int, string>|null The empty submission, or null when
+	 *                                        absence means "not on this form".
+	 */
+	private static function empty_submission( string $type ) {
+		if ( \BuddyNext\Profile\FieldType::is_multiselect_family( $type ) ) {
+			return array();
+		}
+
+		if ( 'boolean' === $type || 'radio' === $type ) {
+			return '';
+		}
+
+		return null;
+	}
+
+	/**
+	 * Map a submitted member-edit form to the payload save_profile() expects.
+	 *
+	 * Split out of {@see self::handle_save_member_profile()} so the mapping can be
+	 * asserted directly. The handler around it redirects and exits, which makes the
+	 * one part worth testing the one part a test could not reach - and the rule it
+	 * enforces below is exactly the kind that regresses silently.
+	 *
+	 * Only keys the profile schema knows are read, so the form cannot be used to
+	 * mass-assign anything else.
+	 *
+	 * ## Absent is not the same as unchanged
+	 *
+	 * An unchecked checkbox posts NOTHING - that is HTML, not a bug. But
+	 * `save_profile()` walks only the keys it is handed, so a boolean left out of
+	 * the payload keeps whatever was stored. Read literally, "absent" would mean an
+	 * admin can tick a box from this screen and never untick it: the save reports
+	 * success and the row comes back ticked.
+	 *
+	 * So a boolean the schema declares is written as an empty string when the form
+	 * did not post it. That is the same value the member-facing editor sends for
+	 * the same control - see `assignControlValue()` in
+	 * `assets/js/profile/store.js`, which resolves an unchecked box to `''` rather
+	 * than omitting it.
+	 *
+	 * Scoped to `boolean` deliberately. Every other control posts a key whenever it
+	 * is rendered, so widening this would start clearing fields that were merely
+	 * left alone.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<string, mixed> $post Raw submitted form data (usually `$_POST`).
+	 * @return array<string, mixed> Payload for ProfileService::save_profile().
+	 */
+	private static function collect_profile_data( array $post ): array {
+		$profile_data = array();
+
+		// Build a whitelist of known field keys to avoid mass-assignment.
+		$known_groups = buddynext_service( 'profiles' )->get_fields();
+
+		foreach ( $known_groups as $group ) {
+			$group_key = $group['group_key'];
+
+			if ( 'repeater' === $group['type'] ) {
+				// Repeater entries arrive as group_key[n][field_key].
+				if ( isset( $post[ $group_key ] ) && is_array( $post[ $group_key ] ) ) {
+					$entries      = array();
+					$raw_repeater = wp_unslash( $post[ $group_key ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+					foreach ( (array) $raw_repeater as $entry_idx => $entry_data ) {
+						if ( ! is_array( $entry_data ) ) {
+							continue;
+						}
+						$sanitized_entry = array();
+						foreach ( $group['fields'] as $field_def ) {
+							$fk = $field_def['field_key'];
+							if ( isset( $entry_data[ $fk ] ) ) {
+								$sanitized_entry[ $fk ] = sanitize_textarea_field( (string) $entry_data[ $fk ] );
+								continue;
+							}
+
+							$empty = self::empty_submission( (string) ( $field_def['type'] ?? '' ) );
+							if ( null !== $empty ) {
+								$sanitized_entry[ $fk ] = $empty;
+							}
+						}
+						if ( ! empty( $sanitized_entry ) ) {
+							$entries[ (int) $entry_idx ] = $sanitized_entry;
+						}
+					}
+					if ( ! empty( $entries ) ) {
+						$profile_data[ $group_key ] = $entries;
+					}
+				}
+				continue;
+			}
+
+			// Flat group — fields keyed directly by field_key.
+			foreach ( $group['fields'] as $field_def ) {
+				$fk = $field_def['field_key'];
+				if ( isset( $post[ $fk ] ) ) {
+					// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized immediately below
+					$raw_val = wp_unslash( $post[ $fk ] );
+					if ( is_array( $raw_val ) ) {
+						$profile_data[ $fk ] = array_map( 'sanitize_text_field', $raw_val );
+					} else {
+						$profile_data[ $fk ] = sanitize_textarea_field( (string) $raw_val );
+					}
+					continue;
+				}
+
+				// See the repeater branch above.
+				$empty = self::empty_submission( (string) ( $field_def['type'] ?? '' ) );
+				if ( null !== $empty ) {
+					$profile_data[ $fk ] = $empty;
+				}
+			}
+		}
+
+		return $profile_data;
 	}
 
 	// ── AdminPageBase interface ────────────────────────────────────────────────

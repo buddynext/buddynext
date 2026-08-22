@@ -573,6 +573,7 @@ class MemberEditForm {
 		$key   = sanitize_key( (string) ( $field['field_key'] ?? '' ) );
 		$label = (string) ( $field['label'] ?? $key );
 		$type  = sanitize_key( (string) ( $field['type'] ?? 'text' ) );
+
 		// value_raw, not value: view_value() reduces a date to its display form
 		// ("36 years old", "1990") as it enters the payload, so an edit input reading
 		// `value` prefills with prose or nothing. value_raw is the real stored date and
@@ -580,205 +581,30 @@ class MemberEditForm {
 		// the member's OWN view (get_profile( $user_id, $user_id )). Same pattern as
 		// templates/profile/edit.php.
 		$raw_val = $field['value_raw'] ?? ( $field['value'] ?? '' );
-		$value   = is_array( $raw_val ) ? $raw_val : (string) $raw_val;
-		$options = array();
-		if ( isset( $field['options'] ) && is_array( $field['options'] ) ) {
-			$options = $field['options'];
-		}
 
-		// Category-backed picks (system Interests field and any other
-		// category_multiselect) are chosen by the member — show the resolved
-		// labels read-only and emit NO input, so saving this form never
-		// clobbers the member's selection. Deleted categories drop out of the
-		// label list automatically.
-		if ( 'category_multiselect' === $type ) {
-			$picked_labels = \BuddyNext\Profile\FieldType::display_text( $field, $raw_val );
-			?>
-	<div class="bn-field-row">
-		<div class="bn-label"><?php echo esc_html( $label ); ?></div>
-		<div class="bn-control">
-			<?php if ( '' !== $picked_labels ) : ?>
-				<span class="bn-field-value"><?php echo esc_html( $picked_labels ); ?></span>
-			<?php else : ?>
-				<p class="bn-edit-empty"><?php esc_html_e( 'Nothing selected yet.', 'buddynext' ); ?></p>
-			<?php endif; ?>
-			<p class="bn-edit-hint"><?php esc_html_e( 'Members choose these themselves from onboarding or their profile. Read-only here.', 'buddynext' ); ?></p>
-		</div>
-	</div>
-			<?php
-			return;
-		}
-
-		$input_id = 'bn-pf-' . $key;
-
-		/*
-		 * Option-typed controls go through the SHARED renderer, not a copy.
-		 *
-		 * These four used to be hand-rolled here, and every one of them printed the
-		 * option LABEL as the option's value:
-		 *
-		 *     <option value="<?php echo esc_attr( (string) $opt ); ?>" ...>
-		 *
-		 * Values are stored as SLUGS. So `selected( 'leo', 'Leo' )` never matched and
-		 * every select, multiselect, radio and checkbox on the site rendered EMPTY,
-		 * whatever the member had saved. FieldType has always keyed its options
-		 * slug => label — that is why display_text() can look up
-		 * $options[ sanitize_title( $value ) ] and get the label back — and the
-		 * member-facing editor, which renders through FieldType::render_input(),
-		 * round-trips correctly. The admin editor was the only surface that
-		 * re-implemented the control, and it re-implemented it against the wrong key.
-		 *
-		 * That was not merely cosmetic. An empty select POSTS an empty string, and
-		 * Members.php writes any key that is set, so an admin who opened a member and
-		 * saved without touching anything destroyed the stored value and was shown
-		 * "Profile updated successfully." (Verified: a select wiped; radio and
-		 * multiselect survived only because an empty one posts no key at all and the
-		 * isset() check skips it. The select is the one that loses data.) And where
-		 * such a field is REQUIRED it renders empty, fails validation, and — because
-		 * save_profile() is atomic — makes the member unsaveable from this screen
-		 * with no way out, since re-picking the value stores a slug the next render
-		 * again cannot match.
-		 *
-		 * Scoped to these three deliberately. The file's `checkbox` branch carries the
-		 * identical defect but is NOT delegated, because FieldType has no `checkbox`
-		 * case in render_input() or sanitize() — it is not a field type this product
-		 * supports (multi-value lives in multiselect / category_multiselect /
-		 * member_type_multiselect), so that branch is unreachable for any real field
-		 * and routing it here would silently downgrade it to a text input. Left as
-		 * found rather than half-fixed.
-		 *
-		 * The wrapper below stays: it carries the admin form's own row markup and
-		 * label, which the primitive does not render.
-		 */
-		$bn_delegated = array( 'select', 'multiselect', 'radio' );
-
-		if ( in_array( $type, $bn_delegated, true ) ) {
-			// The bare key. render_multiselect_input() appends its own `[]` to the
-			// name it is handed, so passing "$key[]" here produced "$key[][]" — the
-			// boxes rendered and checked correctly and the save posted a nested array
-			// the handler could not read.
-			$bn_input_name = $key;
-			?>
-<div class="bn-field-row">
-	<div class="bn-label"><label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label></div>
-	<div class="bn-control">
-			<?php
-			// FieldType::render_input() returns markup it has escaped itself; this is
-			// the same contract the member-facing profile editor relies on.
-			echo \BuddyNext\Profile\FieldType::render_input( $field, $raw_val, $bn_input_name ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the renderer.
-			?>
-	</div>
-</div>
-			<?php
-			return;
-		}
+		// A boolean's control is a checkbox carrying its own label; printing the row
+		// label beside it would say the same thing twice. Every other type takes the
+		// row label, with `for` pointing at whatever id the renderer actually used -
+		// asked for, not re-derived, because the group types render a <fieldset> with
+		// no element carrying that id at all.
+		$self_labelling = 'boolean' === $type;
+		$label_for      = \BuddyNext\Profile\FieldType::has_labelable_control( $type )
+			? ' for="' . esc_attr( \BuddyNext\Profile\FieldType::input_id( $key ) ) . '"'
+			: '';
 		?>
 <div class="bn-field-row">
-	<div class="bn-label"><label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label></div>
-	<div class="bn-control">
-			<?php if ( 'textarea' === $type ) : ?>
-		<textarea id="<?php echo esc_attr( $input_id ); ?>"
-					name="<?php echo esc_attr( $key ); ?>"
-					class="bn-textarea"><?php echo esc_textarea( is_array( $value ) ? wp_json_encode( $value ) : $value ); ?></textarea>
-		<?php elseif ( 'select' === $type ) : ?>
-		<select id="<?php echo esc_attr( $input_id ); ?>" name="<?php echo esc_attr( $key ); ?>" class="bn-select">
-			<option value=""><?php esc_html_e( '-- Select --', 'buddynext' ); ?></option>
-			<?php foreach ( $options as $opt ) : ?>
-				<option value="<?php echo esc_attr( (string) $opt ); ?>" <?php selected( is_array( $value ) ? '' : $value, (string) $opt ); ?>><?php echo esc_html( (string) $opt ); ?></option>
-			<?php endforeach; ?>
-		</select>
-		<?php elseif ( 'multiselect' === $type ) : ?>
-		<select id="<?php echo esc_attr( $input_id ); ?>" name="<?php echo esc_attr( $key ); ?>[]" multiple class="bn-select">
-			<?php
-			$selected_vals = is_array( $value ) ? $value : (array) json_decode( $value, true );
-			foreach ( $options as $opt ) :
-				$is_sel = in_array( (string) $opt, array_map( 'strval', (array) $selected_vals ), true );
-				?>
-				<option value="<?php echo esc_attr( (string) $opt ); ?>"<?php echo $is_sel ? ' selected' : ''; ?>><?php echo esc_html( (string) $opt ); ?></option>
-			<?php endforeach; ?>
-		</select>
-		<?php elseif ( 'radio' === $type ) : ?>
-		<div class="bn-radio-group" role="radiogroup">
-			<?php foreach ( $options as $opt ) : ?>
-			<label>
-				<input type="radio"
-					name="<?php echo esc_attr( $key ); ?>"
-					value="<?php echo esc_attr( (string) $opt ); ?>"
-					<?php checked( is_array( $value ) ? '' : $value, (string) $opt ); ?>>
-				<?php echo esc_html( (string) $opt ); ?>
-			</label>
-		<?php endforeach; ?>
-		</div>
-		<?php elseif ( 'checkbox' === $type ) : ?>
-		<div class="bn-checkbox-group">
-			<?php
-			$checked_vals = is_array( $value ) ? $value : (array) json_decode( $value, true );
-			foreach ( $options as $opt ) :
-				$is_chk = in_array( (string) $opt, array_map( 'strval', (array) $checked_vals ), true );
-				?>
-			<label>
-				<input type="checkbox"
-					name="<?php echo esc_attr( $key ); ?>[]"
-					value="<?php echo esc_attr( (string) $opt ); ?>"
-					<?php echo $is_chk ? 'checked' : ''; ?>>
-				<?php echo esc_html( (string) $opt ); ?>
-			</label>
-			<?php endforeach; ?>
-		</div>
-		<?php elseif ( 'toggle' === $type ) : ?>
-		<label class="bn-toggle-inline" for="<?php echo esc_attr( $input_id ); ?>">
-			<input type="checkbox"
-				id="<?php echo esc_attr( $input_id ); ?>"
-				name="<?php echo esc_attr( $key ); ?>"
-				value="1"
-				<?php checked( is_array( $value ) ? '' : $value, '1' ); ?>>
-			<?php esc_html_e( 'Yes', 'buddynext' ); ?>
-		</label>
-		<?php elseif ( 'rating' === $type ) : ?>
-		<input type="number"
-			id="<?php echo esc_attr( $input_id ); ?>"
-			name="<?php echo esc_attr( $key ); ?>"
-			value="<?php echo esc_attr( is_array( $value ) ? '' : $value ); ?>"
-			min="1" max="5" step="1"
-			class="bn-input">
-		<?php elseif ( 'date' === $type ) : ?>
-		<input type="date"
-			id="<?php echo esc_attr( $input_id ); ?>"
-			name="<?php echo esc_attr( $key ); ?>"
-			value="<?php echo esc_attr( is_array( $value ) ? '' : $value ); ?>"
-			class="bn-input">
-		<?php elseif ( 'email' === $type ) : ?>
-		<input type="email"
-			id="<?php echo esc_attr( $input_id ); ?>"
-			name="<?php echo esc_attr( $key ); ?>"
-			value="<?php echo esc_attr( is_array( $value ) ? '' : $value ); ?>"
-			class="bn-input">
-		<?php elseif ( 'url' === $type || 'social' === $type ) : ?>
-		<input type="url"
-			id="<?php echo esc_attr( $input_id ); ?>"
-			name="<?php echo esc_attr( $key ); ?>"
-			value="<?php echo esc_attr( is_array( $value ) ? '' : $value ); ?>"
-			class="bn-input">
-		<?php elseif ( 'number' === $type ) : ?>
-		<input type="number"
-			id="<?php echo esc_attr( $input_id ); ?>"
-			name="<?php echo esc_attr( $key ); ?>"
-			value="<?php echo esc_attr( is_array( $value ) ? '' : $value ); ?>"
-			class="bn-input">
-		<?php elseif ( 'phone' === $type ) : ?>
-		<input type="tel"
-			id="<?php echo esc_attr( $input_id ); ?>"
-			name="<?php echo esc_attr( $key ); ?>"
-			value="<?php echo esc_attr( is_array( $value ) ? '' : $value ); ?>"
-			class="bn-input">
-		<?php else : ?>
-		<input type="text"
-				id="<?php echo esc_attr( $input_id ); ?>"
-				name="<?php echo esc_attr( $key ); ?>"
-				value="<?php echo esc_attr( is_array( $value ) ? '' : $value ); ?>"
-				class="bn-input">
+	<div class="bn-label">
+		<?php if ( ! $self_labelling ) : ?>
+			<label<?php echo $label_for; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>><?php echo esc_html( $label ); ?></label>
 		<?php endif; ?>
-		</div>
+	</div>
+	<div class="bn-control">
+		<?php
+		// One renderer for every type, the same one the member's own editor calls.
+		// Returns markup it has escaped itself.
+		echo \BuddyNext\Profile\FieldType::render_input( $field, $raw_val, $key ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the renderer.
+		?>
+	</div>
 </div>
 		<?php
 	}
@@ -788,39 +614,54 @@ class MemberEditForm {
 	 *
 	 * Input name follows the shape: group_key[entry_index][field_key].
 	 *
-	 * @param string               $group_key  The parent group's group_key.
-	 * @param int                  $entry_idx  Zero-based entry index.
-	 * @param array<string, mixed> $field      Field data: field_key, label, type, value.
+	 * @param string               $group_key The parent group's group_key.
+	 * @param int                  $entry_idx Zero-based entry index.
+	 * @param array<string, mixed> $field     Field data: field_key, label, type, value.
 	 * @return void
 	 */
 	private function render_repeater_field_input( string $group_key, int $entry_idx, array $field ): void {
+		$this->render_repeater_row( $group_key, (string) absint( $entry_idx ), $field );
+	}
+
+	/**
+	 * Render one repeater sub-field row.
+	 *
+	 * Shared by the saved entries and by the blank `<template>` a new entry is
+	 * cloned from. Those were two hand-written copies of the same markup, which is
+	 * how they came to disagree: the type list they each understood was small
+	 * (textarea and url), so a `date` sub-field and a `boolean` sub-field both fell
+	 * through to a plain text box, and a fix applied to one copy would not have
+	 * reached the other. A row added by the admin and a row already saved must be
+	 * the same control.
+	 *
+	 * @param string               $group_key The parent group's group_key.
+	 * @param string               $entry_idx Entry index, or the literal `__idx__`
+	 *                                        placeholder for the blank template.
+	 * @param array<string, mixed> $field     Field data: field_key, label, type, value.
+	 * @param bool                 $blank     Render with no value (template row).
+	 * @return void
+	 */
+	private function render_repeater_row( string $group_key, string $entry_idx, array $field, bool $blank = false ): void {
 		$key   = sanitize_key( (string) ( $field['field_key'] ?? '' ) );
 		$label = (string) ( $field['label'] ?? $key );
 		$type  = sanitize_key( (string) ( $field['type'] ?? 'text' ) );
 		// See render_flat_field_input() - repeater date sub-fields reduce identically.
-		$value    = (string) ( $field['value_raw'] ?? ( $field['value'] ?? '' ) );
-		$name     = esc_attr( $group_key ) . '[' . absint( $entry_idx ) . '][' . esc_attr( $key ) . ']';
-		$input_id = 'bn-pf-' . esc_attr( $group_key ) . '-' . absint( $entry_idx ) . '-' . esc_attr( $key );
+		$value = $blank ? '' : ( $field['value_raw'] ?? ( $field['value'] ?? '' ) );
+		$name  = $group_key . '[' . $entry_idx . '][' . $key . ']';
+
+		$self_labelling = 'boolean' === $type;
+		$label_for      = \BuddyNext\Profile\FieldType::has_labelable_control( $type )
+			? ' for="' . esc_attr( \BuddyNext\Profile\FieldType::input_id( $name ) ) . '"'
+			: '';
 		?>
 <div class="bn-field">
-	<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
-			<?php if ( 'textarea' === $type ) : ?>
-		<textarea id="<?php echo esc_attr( $input_id ); ?>"
-					name="<?php echo esc_attr( $name ); ?>"
-					class="bn-textarea"><?php echo esc_textarea( $value ); ?></textarea>
-		<?php elseif ( 'url' === $type ) : ?>
-		<input type="url"
-				id="<?php echo esc_attr( $input_id ); ?>"
-				name="<?php echo esc_attr( $name ); ?>"
-				value="<?php echo esc_attr( $value ); ?>"
-				class="bn-input">
-		<?php else : ?>
-		<input type="text"
-				id="<?php echo esc_attr( $input_id ); ?>"
-				name="<?php echo esc_attr( $name ); ?>"
-				value="<?php echo esc_attr( $value ); ?>"
-				class="bn-input">
-		<?php endif; ?>
+		<?php if ( ! $self_labelling ) : ?>
+	<label<?php echo $label_for; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>><?php echo esc_html( $label ); ?></label>
+	<?php endif; ?>
+		<?php
+		// Escaped by the renderer, same contract as the flat branch.
+		echo \BuddyNext\Profile\FieldType::render_input( $field, $value, $name ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the renderer.
+		?>
 </div>
 		<?php
 	}
@@ -853,33 +694,7 @@ class MemberEditForm {
 	 * @return void
 	 */
 	private function render_repeater_field_template( string $group_key, array $field ): void {
-		$key      = sanitize_key( (string) ( $field['field_key'] ?? '' ) );
-		$label    = (string) ( $field['label'] ?? $key );
-		$type     = sanitize_key( (string) ( $field['type'] ?? 'text' ) );
-		$name     = esc_attr( $group_key ) . '[__idx__][' . esc_attr( $key ) . ']';
-		$input_id = 'bn-pf-' . esc_attr( $group_key ) . '-__idx__-' . esc_attr( $key );
-		?>
-<div class="bn-field">
-	<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
-			<?php if ( 'textarea' === $type ) : ?>
-		<textarea id="<?php echo esc_attr( $input_id ); ?>"
-					name="<?php echo esc_attr( $name ); ?>"
-					class="bn-textarea"></textarea>
-		<?php elseif ( 'url' === $type ) : ?>
-		<input type="url"
-				id="<?php echo esc_attr( $input_id ); ?>"
-				name="<?php echo esc_attr( $name ); ?>"
-				value=""
-				class="bn-input">
-		<?php else : ?>
-		<input type="text"
-				id="<?php echo esc_attr( $input_id ); ?>"
-				name="<?php echo esc_attr( $name ); ?>"
-				value=""
-				class="bn-input">
-		<?php endif; ?>
-</div>
-		<?php
+		$this->render_repeater_row( $group_key, '__idx__', $field, true );
 	}
 
 	/**

@@ -1731,7 +1731,15 @@ const profileStore = store( 'buddynext/profile', {
 
 			var index = container.querySelectorAll( '.bn-ep-repeater-entry' ).length;
 			var node  = buildEntryNodeFromClone( group, index );
-			if ( node ) { container.appendChild( node ); }
+			if ( node ) {
+				container.appendChild( node );
+				// See the same dispatch in assets/js/admin/members.js: a cloned row
+				// can hold any registered field type, and the richer controls are
+				// dead markup until their owner wires them.
+				document.dispatchEvent( new CustomEvent( 'buddynext:fields-added', {
+					detail: { container: node }
+				} ) );
+			}
 			// Adding a row counts as a dirty edit.
 			getContext().isDirty = true;
 			syncDirtyAttr( true );
