@@ -117,6 +117,56 @@ if ! bn_is_buddynext_site "$BN_BASE_URL"; then
 	echo "  (no BuddyNext REST namespace at \$BN_BASE_URL/wp-json/buddynext/v1)" >&2
 	exit 2
 fi
+
+# BN_WP_PATH matters as much as BN_BASE_URL, and used to be nobody's job.
+#
+# The specs drive a browser at $BN_BASE_URL and ALSO shell out to wp-cli for the
+# things a browser cannot do: resolve an actor's user id, drain an Action
+# Scheduler group, read a row back. That shim (tests/e2e/_fixtures/wp.ts) took
+# its path from BN_WP_PATH and fell back to a hard-coded personal path when it
+# was unset.
+#
+# Nothing set it. The runner auto-detected the SITE and left the PATH alone, so
+# on any machine where that hard-coded directory does not exist, every wp call
+# ran against nothing — and failed SILENTLY, because wp prints its complaint to
+# a stream cleanStdout() strips, so the shim returned an empty string. An empty
+# string parses as user id 0, which surfaces much later as `actor "…" must
+# exist` in whichever specs happened to need an actor.
+#
+# That is the shape reported as "~24-32 regressions that vary run to run"
+# (card 10225491280): not flaky product code, a second target that was not there.
+# With the path exported the same suite reports 183 passed, 1 regression.
+#
+# So it is resolved here, next to the site it must agree with, and a run that
+# cannot find it SKIPS rather than reporting noise — the same contract the
+# missing-site branch above already follows.
+if [ -z "${BN_WP_PATH:-}" ]; then
+	for candidate in \
+		"$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." 2>/dev/null && pwd)" \
+		"$HOME/Local Sites/buddynext/app/public" \
+		"$HOME/Local Sites/buddynext-dev/app/public"; do
+		if [ -n "$candidate" ] && [ -f "$candidate/wp-load.php" ]; then
+			BN_WP_PATH="$candidate"
+			export BN_WP_PATH
+			echo "journey run: auto-detected BN_WP_PATH=$BN_WP_PATH"
+			break
+		fi
+	done
+fi
+
+if [ -z "${BN_WP_PATH:-}" ] || [ ! -f "$BN_WP_PATH/wp-load.php" ]; then
+	echo "journey run SKIPPED — no WordPress root found for the wp-cli shim." >&2
+	echo "  The specs shell out to wp for actors and queue draining; without a real" >&2
+	echo "  path those calls return an empty string and surface as unrelated" >&2
+	echo "  failures. Set BN_WP_PATH to the WordPress root." >&2
+	exit 2
+fi
+
+if ! command -v wp >/dev/null 2>&1; then
+	echo "journey run SKIPPED — wp-cli is not on PATH." >&2
+	echo "  Local does not provide one; the specs need it for actors and queue draining." >&2
+	exit 2
+fi
 if [ ! -d node_modules/@playwright ] && ! command -v npx >/dev/null 2>&1; then
 	echo "journey run SKIPPED — Playwright is not installed (npm install)." >&2
 	exit 2

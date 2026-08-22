@@ -25,6 +25,29 @@ cd "$(dirname "$0")/.." || exit 1
 PLUGIN_DIR="$PWD"
 
 STAGED=0
+
+# Is this the per-commit tier?
+#
+# --staged advertises itself as the "fast pre-commit signal" and it was not one.
+# Two of the twenty-eight gates below honoured it (php -l and WPCS, narrowed to
+# staged files); the other twenty-six ran in full, including the Playwright
+# journey suite, the whole PHPUnit suite and the behavioural cert. A commit
+# therefore cost the release battery — measured here at over ten minutes before
+# it was killed — which is how a hook stops being a hook: people learn to pass
+# --no-verify, and that disables the cheap gates too, which were the ones worth
+# having on every commit.
+#
+# CLAUDE.md already draws the line ("Per fix: the pre-commit hook (staged
+# lint/WPCS/PHPStan) … Per release: the full battery"). This makes the script
+# agree with it. bin/build-release.sh runs without --staged and still gets
+# everything, and it already refuses a skipped journey run.
+bn_heavy_gate_skipped() {
+	if [ "$STAGED" = 1 ]; then
+		note "$1 — release gate, skipped in --staged (runs in full via bin/check.sh and bin/build-release.sh)"
+		return 0
+	fi
+	return 1
+}
 SKIP_AUDIT=0
 for arg in "$@"; do
 	case "$arg" in
@@ -388,7 +411,9 @@ fi
 # here; bin/build-release.sh refuses that skip, which is where the requirement to
 # have actually run it belongs.
 section "Journey run (Playwright)"
-if [ -f bin/check-journey-run.sh ]; then
+if bn_heavy_gate_skipped "journey suite"; then
+	:
+elif [ -f bin/check-journey-run.sh ]; then
 	# Captured, not tested inline: under set -e the non-zero exit would abort
 	# the run before the case could classify skip-vs-regression.
 	JRC=0
@@ -409,7 +434,9 @@ fi
 # `bin/install-wp-tests.sh` and it becomes part of every check.
 section "PHPUnit (WP integration)"
 BN_WTL="${WP_TESTS_DIR:-/tmp/wordpress-tests-lib}"
-if [ -f "$BN_WTL/includes/functions.php" ] && [ -f vendor/bin/phpunit ]; then
+if bn_heavy_gate_skipped "full PHPUnit suite"; then
+	:
+elif [ -f "$BN_WTL/includes/functions.php" ] && [ -f vendor/bin/phpunit ]; then
 	PURC=0
 	WP_TESTS_DIR="$BN_WTL" vendor/bin/phpunit --no-coverage >/tmp/bn-phpunit.log 2>&1 || PURC=$?
 	if [ "$PURC" -eq 0 ]; then
@@ -543,7 +570,9 @@ fi
 section "Flow audit (free + pro pair)"
 FLOW_AUDIT_CLI="${FLOW_AUDIT_CLI:-$HOME/.mcp-servers/wp-plugin-qa-mcp-server/build/flow-audit-cli.js}"
 BN_PRO_PATH="${BN_PRO_PATH:-$HOME/dev/repos/buddynext-pro}"
-if command -v node >/dev/null 2>&1 && [ -f "$FLOW_AUDIT_CLI" ]; then
+if bn_heavy_gate_skipped "flow audit"; then
+	:
+elif command -v node >/dev/null 2>&1 && [ -f "$FLOW_AUDIT_CLI" ]; then
 	if node "$FLOW_AUDIT_CLI" "$PLUGIN_DIR" "$BN_PRO_PATH" >/dev/null 2>&1; then
 		ok "0 unbaselined flow-audit errors"
 	else
@@ -558,7 +587,9 @@ fi
 # behavioural gate is skipped (the static checks above still ran). This is the
 # only gate that proves toggles actually enforce and routes don't fatal.
 section "Functional certification (wp buddynext cert)"
-if [ -n "${BN_WP_PATH:-}" ] && command -v wp >/dev/null 2>&1; then
+if bn_heavy_gate_skipped "behavioural cert"; then
+	:
+elif [ -n "${BN_WP_PATH:-}" ] && command -v wp >/dev/null 2>&1; then
 	if wp --path="$BN_WP_PATH" buddynext cert 2>/dev/null; then
 		ok "functional certification passed"
 	else
