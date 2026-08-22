@@ -21,6 +21,8 @@ The action and filter seams for unified search, the hashtag system, the search i
 | `buddynext_search_results` (results side) | filter | After items are built, to post-process the result set | `array $results, ...` |
 | `buddynext_search_performed` | action | A search has completed and the result set is finalised | `string $query, int $viewer_id, array $args, array $results` |
 | `buddynext_search_filter_options` | filter | The advanced member-search controls are populated (Pro supplies plan / space / member-label option lists; empty groups hide their control) | `array $options, int $viewer_id` |
+| `buddynext_search_viewer_spaces` | filter | The spaces whose content a logged-in viewer may find, resolved from membership. Answer with ADDITIONAL space ids the viewer may read without having joined (Pro adds gated spaces whose `required_ability` they hold). Widening only: membership ids are re-added regardless, and every addition is verified against `can_view_content()` before it is honoured, so a listener cannot grant reach into a space the viewer may not read | `int[] $space_ids, int $viewer_id` |
+| `buddynext_search_entitled_space_limit` | filter | How many entitled-but-unjoined spaces a single search will verify. Each costs a space fetch and an ability check, so the list is cut rather than allowed to grow. Default `200` | `int $limit, int $viewer_id` |
 | `buddynext_search_member_meta_html` | filter | A member row in the results renders its meta line | `string $html, ...` |
 | `buddynext_search_before` / `buddynext_search_after` | action | Around the search results page body | - |
 
