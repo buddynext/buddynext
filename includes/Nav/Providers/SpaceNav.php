@@ -706,17 +706,56 @@ final class SpaceNav {
 	 */
 	private function render_files_panel( int $space_id ): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET view controls.
-		$doc_id  = isset( $_GET['bn_doc'] ) ? absint( wp_unslash( $_GET['bn_doc'] ) ) : 0;
-		$folder  = isset( $_GET['bn_folder'] ) ? absint( wp_unslash( $_GET['bn_folder'] ) ) : 0;
-		$page    = isset( $_GET['bn_files_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_files_page'] ) ) ) : 1;
-		$fpage   = isset( $_GET['bn_folder_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_folder_page'] ) ) ) : 1;
+		$doc_id = isset( $_GET['bn_doc'] ) ? absint( wp_unslash( $_GET['bn_doc'] ) ) : 0;
+		$query  = isset( $_GET['bn_q'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_q'] ) ) : '';
+		$folder = isset( $_GET['bn_folder'] ) ? absint( wp_unslash( $_GET['bn_folder'] ) ) : 0;
+		$page   = isset( $_GET['bn_files_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_files_page'] ) ) ) : 1;
+		$fpage  = isset( $_GET['bn_folder_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_folder_page'] ) ) ) : 1;
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$base_url = $this->tab_url( $space_id, 'files' );
 
 		// Single-file view — a real page, not a modal: it deep-links, it handles
 		// every type (PDF inline, the rest metadata + download), and it matches
 		// the URL-driven folder navigation above it.
 		if ( $doc_id > 0 ) {
 			$this->render_file_single_panel( $space_id, $doc_id );
+			return;
+		}
+
+		// Search mode — a flat, drive-scoped result set instead of the folder
+		// listing. Same panel, so the search box stays put and the rows read the
+		// same. Empty query falls straight through to the folder listing.
+		if ( '' !== $query ) {
+			$search = \BuddyNext\Bridges\WPMediaVerseBridge::space_drive_search( $space_id, $query, $page );
+			if ( null === $search ) {
+				buddynext_get_template(
+					'parts/empty-state.php',
+					array(
+						'icon'  => 'folder',
+						'title' => __( 'No files to show', 'buddynext' ),
+						'body'  => __( 'Files shared with this space will appear here.', 'buddynext' ),
+					)
+				);
+				return;
+			}
+			buddynext_get_template(
+				'partials/space-files-tab.php',
+				array(
+					'bn_sf_space_id'     => $space_id,
+					'bn_sf_base_url'     => $base_url,
+					'bn_sf_search_q'     => $search['query'],
+					'bn_sf_search_ready' => $search['ready'],
+					'bn_sf_documents'    => $search['items'],
+					'bn_sf_folders'      => array(),
+					'bn_sf_breadcrumbs'  => array(),
+					'bn_sf_folder'       => 0,
+					'bn_sf_page'         => $search['page'],
+					'bn_sf_pages'        => $search['pages'],
+					'bn_sf_total'        => $search['total'],
+					'bn_sf_can_write'    => false,
+				)
+			);
 			return;
 		}
 
@@ -737,19 +776,19 @@ final class SpaceNav {
 		buddynext_get_template(
 			'partials/space-files-tab.php',
 			array(
-				'bn_sf_space_id'    => $space_id,
-				'bn_sf_base_url'    => $this->tab_url( $space_id, 'files' ),
-				'bn_sf_folders'     => $view['folders'],
-				'bn_sf_documents'   => $view['documents'],
-				'bn_sf_breadcrumbs' => $view['breadcrumbs'],
-				'bn_sf_folder'      => $view['folder'],
-				'bn_sf_page'        => $view['page'],
-				'bn_sf_pages'       => $view['pages'],
-				'bn_sf_total'       => $view['total'],
-				'bn_sf_folder_page' => $view['folder_page'],
+				'bn_sf_space_id'     => $space_id,
+				'bn_sf_base_url'     => $base_url,
+				'bn_sf_folders'      => $view['folders'],
+				'bn_sf_documents'    => $view['documents'],
+				'bn_sf_breadcrumbs'  => $view['breadcrumbs'],
+				'bn_sf_folder'       => $view['folder'],
+				'bn_sf_page'         => $view['page'],
+				'bn_sf_pages'        => $view['pages'],
+				'bn_sf_total'        => $view['total'],
+				'bn_sf_folder_page'  => $view['folder_page'],
 				'bn_sf_folder_pages' => $view['folder_pages'],
 				'bn_sf_folder_total' => $view['folder_total'],
-				'bn_sf_can_write'   => $view['can_write'],
+				'bn_sf_can_write'    => $view['can_write'],
 			)
 		);
 	}

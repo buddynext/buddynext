@@ -1417,6 +1417,50 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Search one space drive's documents for the Files tab.
+	 *
+	 * Delegates to MVS's search REST scoped to this drive (`drive=space:N`), so
+	 * the index, relevance and per-row privacy are all MVS's — BuddyNext only
+	 * asks the question and lays out the answer. `ready` is false while the
+	 * search index is still building, which the UI shows as "preparing" rather
+	 * than a false "no results".
+	 *
+	 * @param int    $space_id Space id (the drive).
+	 * @param string $query    Search phrase.
+	 * @param int    $page     1-based page.
+	 * @return array{items:array<int,array<string,mixed>>,total:int,pages:int,page:int,query:string,ready:bool}|null
+	 */
+	public static function space_drive_search( int $space_id, string $query, int $page = 1 ): ?array {
+		if ( ! self::documents_available() || null === self::drive_space( 'space', $space_id ) ) {
+			return null;
+		}
+		$page = max( 1, $page );
+		$req  = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/search' );
+		$req->set_query_params(
+			array(
+				'q'        => $query,
+				'drive'    => 'space:' . $space_id,
+				'page'     => $page,
+				'per_page' => 50,
+			)
+		);
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return null;
+		}
+		$data  = (array) $res->get_data();
+		$index = isset( $data['index'] ) && is_array( $data['index'] ) ? $data['index'] : array();
+		return array(
+			'items' => isset( $data['items'] ) && is_array( $data['items'] ) ? $data['items'] : array(),
+			'total' => isset( $data['total'] ) ? (int) $data['total'] : 0,
+			'pages' => isset( $data['pages'] ) ? max( 1, (int) $data['pages'] ) : 1,
+			'page'  => $page,
+			'query' => (string) $query,
+			'ready' => ! empty( $index['ready'] ),
+		);
+	}
+
+	/**
 	 * Trail for the current folder, root-first, INCLUDING the current folder.
 	 *
 	 * MVS stamps a folder object with `breadcrumbs` — its visible ancestors,

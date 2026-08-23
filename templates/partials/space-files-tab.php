@@ -39,6 +39,9 @@ $bn_sf_total       = isset( $bn_sf_total ) ? (int) $bn_sf_total : count( $bn_sf_
 $bn_sf_fpage       = isset( $bn_sf_folder_page ) ? max( 1, (int) $bn_sf_folder_page ) : 1;
 $bn_sf_fpages      = isset( $bn_sf_folder_pages ) ? max( 1, (int) $bn_sf_folder_pages ) : 1;
 $bn_sf_ftotal      = isset( $bn_sf_folder_total ) ? (int) $bn_sf_folder_total : count( $bn_sf_folders );
+$bn_sf_search_q    = isset( $bn_sf_search_q ) ? (string) $bn_sf_search_q : '';
+$bn_sf_search_rdy  = isset( $bn_sf_search_ready ) ? (bool) $bn_sf_search_ready : true;
+$bn_sf_is_search   = '' !== $bn_sf_search_q;
 
 // A short type chip, the same shorthand MediaVerse uses so the two libraries
 // read the same. Unknown types fall back to FILE rather than guessing.
@@ -64,7 +67,17 @@ $bn_sf_folder_url = static function ( int $fid ) use ( $bn_sf_base_url ): string
 	return $fid > 0 ? add_query_arg( 'bn_folder', $fid, $bn_sf_base_url ) : $bn_sf_base_url;
 };
 
-$bn_sf_page_url = static function ( int $p ) use ( $bn_sf_base_url, $bn_sf_folder, $bn_sf_fpage ): string {
+$bn_sf_page_url = static function ( int $p ) use ( $bn_sf_base_url, $bn_sf_folder, $bn_sf_fpage, $bn_sf_is_search, $bn_sf_search_q ): string {
+	// In search mode the page cursor rides on the query, not the folder.
+	if ( $bn_sf_is_search ) {
+		return add_query_arg(
+			array(
+				'bn_q'          => $bn_sf_search_q,
+				'bn_files_page' => $p,
+			),
+			$bn_sf_base_url
+		);
+	}
 	$url = $bn_sf_folder > 0 ? add_query_arg( 'bn_folder', $bn_sf_folder, $bn_sf_base_url ) : $bn_sf_base_url;
 	if ( $bn_sf_fpage > 1 ) {
 		$url = add_query_arg( 'bn_folder_page', $bn_sf_fpage, $url );
@@ -112,6 +125,30 @@ $bn_sf_empty    = empty( $bn_sf_folders ) && empty( $bn_sf_documents );
 ?>
 <div class="bn-space-files">
 
+	<form class="bn-files__search" method="get" action="<?php echo esc_url( $bn_sf_base_url ); ?>" role="search">
+		<label class="screen-reader-text" for="bn-files-q"><?php esc_html_e( 'Search files in this space', 'buddynext' ); ?></label>
+		<input type="search" id="bn-files-q" name="bn_q" class="bn-files__search-input" value="<?php echo esc_attr( $bn_sf_search_q ); ?>" placeholder="<?php esc_attr_e( 'Search files…', 'buddynext' ); ?>" autocomplete="off">
+		<button type="submit" class="bn-files__search-btn"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
+	</form>
+
+	<?php if ( $bn_sf_is_search ) : ?>
+		<div class="bn-files__search-head">
+			<p class="bn-files__count">
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: 1: number of results, 2: search term. */
+						_n( '%1$s result for “%2$s”', '%1$s results for “%2$s”', $bn_sf_total, 'buddynext' ),
+						number_format_i18n( $bn_sf_total ),
+						$bn_sf_search_q
+					)
+				);
+				?>
+			</p>
+			<a class="bn-files__search-clear" href="<?php echo esc_url( $bn_sf_base_url ); ?>"><?php esc_html_e( 'Clear search', 'buddynext' ); ?></a>
+		</div>
+	<?php endif; ?>
+
 	<?php if ( ! empty( $bn_sf_breadcrumbs ) ) : ?>
 		<nav class="bn-files__crumbs" aria-label="<?php esc_attr_e( 'Folder path', 'buddynext' ); ?>">
 			<a class="bn-files__crumb" href="<?php echo esc_url( $bn_sf_folder_url( 0 ) ); ?>"><?php esc_html_e( 'Files', 'buddynext' ); ?></a>
@@ -131,33 +168,53 @@ $bn_sf_empty    = empty( $bn_sf_folders ) && empty( $bn_sf_documents );
 		</nav>
 	<?php endif; ?>
 
-	<?php if ( $bn_sf_empty ) : ?>
+	<?php if ( $bn_sf_is_search && ! $bn_sf_search_rdy ) : ?>
 		<?php
+		// The index is still building — never a false "no results".
 		buddynext_get_template(
 			'parts/empty-state.php',
 			array(
-				'icon'  => 'folder',
-				'title' => $bn_sf_folder > 0 ? __( 'This folder is empty', 'buddynext' ) : __( 'No files shared yet', 'buddynext' ),
-				'body'  => __( 'Files shared with this space appear here to browse and download.', 'buddynext' ),
+				'icon'  => 'file-text',
+				'title' => __( 'Search is getting ready', 'buddynext' ),
+				'body'  => __( 'Files are still being indexed for search. Try again in a moment.', 'buddynext' ),
 			)
+		);
+		?>
+	<?php elseif ( $bn_sf_empty ) : ?>
+		<?php
+		buddynext_get_template(
+			'parts/empty-state.php',
+			$bn_sf_is_search
+				? array(
+					'icon'  => 'file-text',
+					'title' => __( 'No files match your search', 'buddynext' ),
+					'body'  => __( 'Try a different word, or clear the search to browse everything.', 'buddynext' ),
+				)
+				: array(
+					'icon'  => 'folder',
+					'title' => $bn_sf_folder > 0 ? __( 'This folder is empty', 'buddynext' ) : __( 'No files shared yet', 'buddynext' ),
+					'body'  => __( 'Files shared with this space appear here to browse and download.', 'buddynext' ),
+				)
 		);
 		?>
 	<?php else : ?>
 
-		<p class="bn-files__count">
-			<?php
-			$bn_sf_parts = array();
-			if ( $bn_sf_total > 0 ) {
-				/* translators: %s: number of files. */
-				$bn_sf_parts[] = sprintf( _n( '%s file', '%s files', $bn_sf_total, 'buddynext' ), number_format_i18n( $bn_sf_total ) );
-			}
-			if ( $bn_sf_ftotal > 0 ) {
-				/* translators: %s: number of folders. */
-				$bn_sf_parts[] = sprintf( _n( '%s folder', '%s folders', $bn_sf_ftotal, 'buddynext' ), number_format_i18n( $bn_sf_ftotal ) );
-			}
-			echo esc_html( implode( ' · ', $bn_sf_parts ) );
-			?>
-		</p>
+		<?php if ( ! $bn_sf_is_search ) : ?>
+			<p class="bn-files__count">
+				<?php
+				$bn_sf_parts = array();
+				if ( $bn_sf_total > 0 ) {
+					/* translators: %s: number of files. */
+					$bn_sf_parts[] = sprintf( _n( '%s file', '%s files', $bn_sf_total, 'buddynext' ), number_format_i18n( $bn_sf_total ) );
+				}
+				if ( $bn_sf_ftotal > 0 ) {
+					/* translators: %s: number of folders. */
+					$bn_sf_parts[] = sprintf( _n( '%s folder', '%s folders', $bn_sf_ftotal, 'buddynext' ), number_format_i18n( $bn_sf_ftotal ) );
+				}
+				echo esc_html( implode( ' · ', $bn_sf_parts ) );
+				?>
+			</p>
+		<?php endif; ?>
 
 		<ul class="bn-files__list" role="list">
 
