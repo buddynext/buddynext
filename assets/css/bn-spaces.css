@@ -758,11 +758,21 @@
 .bn-sh-hero__cover-tone {
 	position: absolute;
 	inset: 0;
-	background: repeating-linear-gradient(
-		-42deg,
-		transparent 0 22px,
-		color-mix(in oklch, var(--bn-ink) 4%, transparent) 22px 23px
-	);
+	/* The diagonal texture is unchanged; the leading brand wash uses
+	   var(--bn-space-brand, transparent) so it is fully invisible on an unbranded
+	   space (the fallback resolves the mix to transparent) and a soft brand tint
+	   once space-hero.php sets the property from the brand_color field. */
+	background:
+		linear-gradient(
+			120deg,
+			color-mix(in oklch, var(--bn-space-brand, transparent) 40%, transparent),
+			transparent 65%
+		),
+		repeating-linear-gradient(
+			-42deg,
+			transparent 0 22px,
+			color-mix(in oklch, var(--bn-ink) 4%, transparent) 22px 23px
+		);
 	opacity: 0.6;
 	mix-blend-mode: multiply;
 	pointer-events: none;
@@ -796,6 +806,20 @@
 	flex-shrink: 0;
 	color: var(--bn-accent);
 	background-image: linear-gradient(135deg, var(--bn-accent-100), var(--bn-surface));
+}
+
+/* Branded spaces recolour the emblem accent and add a brand ring. Scoped to the
+   presence of --bn-space-brand (set inline on the hero by space-hero.php from the
+   brand_color field), so an unbranded space keeps the default accent emblem above
+   exactly as before. */
+.bn-sh-hero[style*="--bn-space-brand"] .bn-sh-hero__emblem {
+	color: var(--bn-space-brand);
+	background-image: linear-gradient(
+		135deg,
+		color-mix(in oklch, var(--bn-space-brand) 22%, var(--bn-surface)),
+		var(--bn-surface)
+	);
+	box-shadow: var(--bn-shadow-md), 0 0 0 2px color-mix(in oklch, var(--bn-space-brand) 55%, transparent);
 }
 
 /*
@@ -1965,6 +1989,31 @@ a.bn-sh-statpill:focus-visible {
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
+}
+
+/* Brand-colour control: the enable-checkbox row and the native colour swatch. */
+.bn-space-settings__check {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-weight: var(--bn-fw-normal);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+}
+
+.bn-space-settings__color {
+	inline-size: var(--bn-s12);
+	block-size: var(--bn-s8);
+	padding: 0;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	cursor: pointer;
+}
+
+.bn-space-settings__color:disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
 }
 
 /* Sub-option block (e.g. auto-join member-type filter under its toggle). */

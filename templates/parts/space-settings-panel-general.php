@@ -225,6 +225,38 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 		<p class="bn-space-settings__hint"><?php esc_html_e( 'One rule per line. Renders as a numbered list on the About tab.', 'buddynext' ); ?></p>
 	</div>
 
+	<?php
+	// Brand colour — owner-only, a registered `color` space field (saved through
+	// the field registry in settings.php). An <input type="color"> cannot hold an
+	// empty value, so a paired checkbox toggles between the custom colour and the
+	// default tone derived from the space id.
+	$bn_brand_color  = (string) buddynext_get_space_field( (int) ( $bn_space->id ?? 0 ), 'brand_color' );
+	$bn_brand_on     = '' !== $bn_brand_color;
+	$bn_brand_swatch = $bn_brand_on ? $bn_brand_color : '#2563eb';
+	?>
+	<div class="bn-space-settings__field">
+		<label for="space_brand_color"><?php esc_html_e( 'Brand colour', 'buddynext' ); ?></label>
+		<label class="bn-space-settings__check">
+			<input
+				type="checkbox"
+				name="space_brand_color_enabled"
+				value="1"
+				<?php checked( $bn_brand_on ); ?>
+				<?php disabled( ! $args['is_space_owner'] ); ?>
+			/>
+			<span><?php esc_html_e( 'Use a custom brand colour for this space', 'buddynext' ); ?></span>
+		</label>
+		<input
+			type="color"
+			id="space_brand_color"
+			name="space_brand_color"
+			class="bn-space-settings__color"
+			value="<?php echo esc_attr( $bn_brand_swatch ); ?>"
+			<?php disabled( ! $args['is_space_owner'] ); ?>
+		/>
+		<p class="bn-space-settings__hint"><?php esc_html_e( 'Sets the space accent. Leave unchecked to use the default colour derived from the space.', 'buddynext' ); ?></p>
+	</div>
+
 	<div class="bn-space-settings__field">
 		<label for="space_category_id"><?php esc_html_e( 'Category', 'buddynext' ); ?></label>
 		<?php

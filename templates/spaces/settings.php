@@ -263,6 +263,29 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			}
 		}
 
+		// Brand colour rides the general panel but is a registered field (meta), so
+		// it saves through the field registry — which sanitises the hex and enforces
+		// its owner-only writable_by — not the column update below. The paired
+		// checkbox lets the owner clear it back to the id-derived tone, since an
+		// <input type="color"> cannot itself hold "no value".
+		if ( 'error' !== $save_notice && isset( $_POST['space_brand_color'] ) ) {
+			$bn_brand_hex = empty( $_POST['space_brand_color_enabled'] )
+				? ''
+				: (string) sanitize_hex_color( wp_unslash( (string) $_POST['space_brand_color'] ) );
+
+			$bn_brand_result = $bn_field_registry->save_for_space(
+				$space_id,
+				array( 'brand_color' => $bn_brand_hex ),
+				$bn_actor_id
+			);
+			if ( empty( $bn_brand_result['errors'] ) ) {
+				$bn_wrote_something = true;
+			} else {
+				$save_notice           = 'error';
+				$bn_save_error_message = (string) reset( $bn_brand_result['errors'] );
+			}
+		}
+
 		if ( 'error' !== $save_notice ) {
 			if ( ! empty( $update_data ) ) {
 				// Route through the service: validation, cache invalidation and the

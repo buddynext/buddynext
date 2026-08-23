@@ -101,9 +101,15 @@ $bn_privacy_label = (string) $args['privacy_label'];
 $bn_privacy_tone  = (string) $args['privacy_tone'];
 $bn_notif_pref    = (string) $args['notif_pref'];
 
+// Owner-set brand colour (the registered `color` space field). When present it
+// drives the hero accent through a CSS custom property; when empty the stylesheet
+// falls back to the id-derived tone it has always used. Read once, applied on the
+// hero root so both the cover overlay and the emblem can pick it up.
+$bn_brand_color = (string) buddynext_get_space_field( $bn_space_id, 'brand_color' );
+
 do_action( 'buddynext_part_space_hero_before', $args );
 ?>
-<section class="<?php echo esc_attr( $bn_class ); ?>">
+<section class="<?php echo esc_attr( $bn_class ); ?>"<?php echo '' !== $bn_brand_color ? ' style="--bn-space-brand:' . esc_attr( $bn_brand_color ) . ';"' : ''; ?>>
 	<div class="bn-sh-hero__cover"<?php echo empty( $bn_space->cover_image_url ) ? '' : ' style="background-image:url(' . esc_url( $bn_space->cover_image_url ) . ');background-size:cover;background-position:center;"'; ?>>
 		<span class="bn-sh-hero__cover-tone" aria-hidden="true"></span>
 	</div>
