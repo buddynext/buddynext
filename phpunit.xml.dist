@@ -4,6 +4,8 @@
   backupGlobals="false"
   colors="true"
   convertDeprecationsToExceptions="false"
+  executionOrder="random"
+  resolveDependencies="true"
 >
   <!-- Clear BuddyNext's in-memory statics before every test.
 
