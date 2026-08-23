@@ -1886,6 +1886,26 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 				)
 			),
+			new Section(
+				'webhooks',
+				__( 'Signature verification', 'buddynext' ),
+				array(
+					// Renders bespoke in render_tab_webhooks() via render_toggle_row();
+					// this descriptor registers it (group buddynext_webhooks, boolean
+					// sanitize) and indexes it for search. No declared default, so an
+					// upgraded site keeps the inline get_option( …, false ) fallback and
+					// the older body-only signature scheme stays accepted until the owner
+					// opts in here.
+					new Field(
+						array(
+							'key'   => \BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES,
+							'type'  => 'toggle',
+							'label' => __( 'Require replay-proof webhook signatures', 'buddynext' ),
+							'hint'  => __( 'When enabled, only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely - leave this off until every service that calls the inbound webhook sends a timestamp.', 'buddynext' ),
+						)
+					),
+				)
+			),
 		);
 	}
 
@@ -3162,6 +3182,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			<span class="bn-secret-msg" role="status" aria-live="polite" data-bn-secret-msg></span>
 		</div>
 		<?php
+		$this->close_section();
+
+		$this->open_section( __( 'Signature verification', 'buddynext' ) );
+
+		// Off by default on upgraded sites: get_option( …, false ) keeps the older
+		// body-only signature scheme accepted until the owner opts in. The enforcement
+		// default in AccessWebhookController::verify_signature() is deliberately left
+		// as get_option( …, false ) - this control only exposes it, it does not flip it.
+		$this->render_toggle_row(
+			\BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES,
+			__( 'Require replay-proof webhook signatures', 'buddynext' ),
+			__( 'When enabled, only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely - leave this off until every service that calls the inbound webhook sends a timestamp.', 'buddynext' ),
+			(bool) get_option( \BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES, false )
+		);
+
 		$this->close_section();
 
 		$this->render_webhook_endpoints();
