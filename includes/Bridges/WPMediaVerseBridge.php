@@ -1374,6 +1374,37 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * One document from a space drive, for the single-file view.
+	 *
+	 * Asks MVS's REST for the document (so its privacy gate + our drive filters
+	 * both run) and then confirms the row actually belongs to THIS space drive —
+	 * without that check a `?bn_doc=` on the Files tab would render any document
+	 * the viewer can read, from any drive. Returns null on refusal or a
+	 * cross-drive id, so the caller shows "file not found" rather than another
+	 * space's file under this space's tab.
+	 *
+	 * @param int $space_id Space id (the drive this view belongs to).
+	 * @param int $doc_id   Document id.
+	 * @return array<string,mixed>|null
+	 */
+	public static function space_drive_document( int $space_id, int $doc_id ): ?array {
+		if ( ! self::documents_available() || $doc_id <= 0 || null === self::drive_space( 'space', $space_id ) ) {
+			return null;
+		}
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/' . $doc_id );
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return null;
+		}
+		$doc   = (array) $res->get_data();
+		$drive = isset( $doc['drive'] ) && is_array( $doc['drive'] ) ? $doc['drive'] : array();
+		if ( 'space' !== ( $drive['type'] ?? '' ) || (int) ( $drive['id'] ?? 0 ) !== $space_id ) {
+			return null;
+		}
+		return $doc;
+	}
+
+	/**
 	 * Trail for the current folder, root-first, INCLUDING the current folder.
 	 *
 	 * MVS stamps a folder object with `breadcrumbs` — its visible ancestors,

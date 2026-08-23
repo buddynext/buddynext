@@ -66,6 +66,10 @@ $bn_sf_page_url = static function ( int $p ) use ( $bn_sf_base_url, $bn_sf_folde
 	return add_query_arg( 'bn_files_page', $p, $url );
 };
 
+$bn_sf_doc_url = static function ( int $did ) use ( $bn_sf_base_url ): string {
+	return add_query_arg( 'bn_doc', $did, $bn_sf_base_url );
+};
+
 // A cookie-authenticated browser needs a nonce on a REST GET, so a plain
 // download link carries `_wpnonce` — otherwise the request reads as logged-out
 // and a private document 403s.
@@ -185,11 +189,7 @@ $bn_sf_empty    = empty( $bn_sf_folders ) && empty( $bn_sf_documents );
 				?>
 				<li class="bn-files__row">
 					<span class="bn-files__chip bn-files__chip--<?php echo esc_attr( '' !== (string) $bn_sf_dtype ? (string) $bn_sf_dtype : 'file' ); ?>" aria-hidden="true"><?php echo esc_html( $bn_sf_chip( $bn_sf_dtype ) ); ?></span>
-					<?php if ( '' !== $bn_sf_durl ) : ?>
-						<a class="bn-files__name" href="<?php echo esc_url( $bn_sf_durl ); ?>"><?php echo esc_html( $bn_sf_title ); ?></a>
-					<?php else : ?>
-						<span class="bn-files__name"><?php echo esc_html( $bn_sf_title ); ?></span>
-					<?php endif; ?>
+					<a class="bn-files__name" href="<?php echo esc_url( $bn_sf_doc_url( $bn_sf_did ) ); ?>"><?php echo esc_html( $bn_sf_title ); ?></a>
 					<span class="bn-files__meta">
 						<span class="bn-files__size"><?php echo esc_html( $bn_sf_dsize > 0 ? size_format( $bn_sf_dsize ) : '' ); ?></span>
 						<span class="bn-files__date"><?php echo esc_html( '' !== $bn_sf_ddate ? mysql2date( $bn_sf_date_fmt, $bn_sf_ddate ) : '' ); ?></span>
