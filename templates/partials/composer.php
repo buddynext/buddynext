@@ -57,6 +57,21 @@ if ( function_exists( 'buddynext_can' ) ) {
 	}
 }
 
+// Announcement gate — mirror the server (PostService::create): a site admin may
+// announce site-wide, and a space owner/moderator may announce to THEIR space.
+// Gating the announcement UI on manage_options alone hid the control from space
+// owners the server already accepts (buddynext-moderate-space), so a non-admin
+// owner could not reach it in the composer. General-feed announcements stay
+// admin-only, matching the server's $ann_space_id > 0 branch.
+$composer_can_announce = current_user_can( 'manage_options' );
+if ( ! $composer_can_announce && $composer_space && function_exists( 'buddynext_can' ) ) {
+	$composer_can_announce = (bool) buddynext_can(
+		$composer_user_id,
+		'buddynext-moderate-space',
+		array( 'space_id' => $composer_space )
+	);
+}
+
 // Suspension is stated up front, not discovered by failing.
 //
 // A suspended member got a fully normal composer — no banner, no disabled state
@@ -147,7 +162,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'scheduledAt'           => '',
 				'hasPro'                => $composer_has_pro,
 				'userId'                => get_current_user_id(),
-				'isAdmin'               => current_user_can( 'manage_options' ),
+				'isAdmin'               => $composer_can_announce,
 				'announcementExpiresAt' => '',
 				'draftStatus'           => '',
 				'hasDraft'              => false,
@@ -335,7 +350,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			</button>
 		</div>
 
-		<?php if ( current_user_can( 'manage_options' ) ) : ?>
+		<?php if ( $composer_can_announce ) : ?>
 		<div class="bn-composer__schedule"
 			hidden
 			data-wp-bind--hidden="state.isNotAnnouncement">
@@ -420,13 +435,13 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				<?php buddynext_icon( 'clock' ); ?>
 			</button>
 
-			<?php if ( current_user_can( 'manage_options' ) ) : ?>
+			<?php if ( $composer_can_announce ) : ?>
 				<button class="bn-composer__tool"
 					type="button"
 					data-wp-bind--aria-pressed="state.isAnnouncement"
 					data-wp-on--click="actions.toggleAnnouncement"
 					aria-label="<?php esc_attr_e( 'Post as announcement', 'buddynext' ); ?>"
-					title="<?php esc_attr_e( 'Post as announcement (pinned to everyone\'s feed)', 'buddynext' ); ?>">
+					title="<?php echo esc_attr( $composer_space ? __( 'Post as announcement (pinned to the top of this space)', 'buddynext' ) : __( 'Post as announcement (pinned to everyone\'s feed)', 'buddynext' ) ); ?>">
 					<?php buddynext_icon( 'megaphone' ); ?>
 				</button>
 			<?php endif; ?>
