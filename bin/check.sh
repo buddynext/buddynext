@@ -72,6 +72,27 @@ ok()      { printf "${GREEN}✓${RESET} %s\n" "$1"; }
 fail()    { printf "${RED}✗${RESET} %s\n" "$1"; EXIT=1; }
 note()    { printf "${YELLOW}!${RESET} %s\n" "$1"; }
 
+# Run a python3-based gate. PASS when the script exits 0; FAIL with $2 when it exits
+# non-zero; SKIP with a note (never a failure) when python3 OR the script is absent.
+#
+# The doc/registry gates below previously guarded only on the SCRIPT existing, then ran
+# `python3 bin/x.py` unconditionally. On a clone without python3 that hard-failed all of
+# them, blocking every commit for the wrong reason — the failure mode that teaches people
+# to pass --no-verify, which also disables WPCS, PHPStan and the rest. Guarding on the
+# interpreter mirrors the `command -v wp` guard the cert gate already uses.
+py_gate() {
+	# $1 = script path, $2 = failure message.
+	if ! command -v python3 >/dev/null 2>&1; then
+		note "python3 not found — skipped ${1##*/}"
+		return 0
+	fi
+	if [ ! -f "$1" ]; then
+		note "${1} missing"
+		return 0
+	fi
+	python3 "$1" || fail "$2"
+}
+
 # 1. PHP lint
 section "PHP -l"
 if [ "$STAGED" = 1 ]; then
@@ -296,26 +317,10 @@ fi
 # entry that only surfaces at publish time. The 1.1.6 docs pass added, renamed and renumbered
 # pages, which is exactly when one forgotten line slips through.
 section "Docs config vs disk"
-if [ -f bin/check-docs-config.py ]; then
-	if python3 bin/check-docs-config.py; then
-		:
-	else
-		fail "docs_config.json does not match docs/website/ — see the list above"
-	fi
-else
-	note "bin/check-docs-config.py missing"
-fi
+py_gate bin/check-docs-config.py "docs_config.json does not match docs/website/ — see the list above"
 
 section "Hook-doc conformance"
-if [ -f bin/check-hook-docs.py ]; then
-	if python3 bin/check-hook-docs.py; then
-		:
-	else
-		fail "hook-doc drift — regenerate the table from the do_action() call sites"
-	fi
-else
-	note "bin/check-hook-docs.py missing"
-fi
+py_gate bin/check-hook-docs.py "hook-doc drift — regenerate the table from the do_action() call sites"
 
 # 3b-i-a2. Public hook docs — BLOCKING for anything new, baselined for the existing 32.
 #
@@ -324,15 +329,7 @@ fi
 # extension points advertised in the 1.1.5 release notes shipped undocumented. A @since tag is
 # a public promise; this gate makes it one the build can check.
 section "Public hook docs"
-if [ -f bin/check-public-hook-docs.py ]; then
-	if python3 bin/check-public-hook-docs.py; then
-		:
-	else
-		fail "a hook promised with @since is missing from docs/website/developer-guide/"
-	fi
-else
-	note "bin/check-public-hook-docs.py missing"
-fi
+py_gate bin/check-public-hook-docs.py "a hook promised with @since is missing from docs/website/developer-guide/"
 
 # 3b-i-b. Interactivity directive paths — BLOCKING, and green as of this commit.
 #
@@ -345,15 +342,7 @@ fi
 # a bar that never said why it had appeared, profile edit never showed "Unsaved changes".
 # They were found by measuring the DOM in a browser, not by review.
 section "Interactivity directive paths"
-if [ -f bin/check-directive-paths.py ]; then
-	if python3 bin/check-directive-paths.py; then
-		:
-	else
-		fail "a directive is bound to an expression — move the comparison into a computed getter"
-	fi
-else
-	note "bin/check-directive-paths.py missing"
-fi
+py_gate bin/check-directive-paths.py "a directive is bound to an expression — move the comparison into a computed getter"
 
 # 3b-ii. Erasure completeness — BLOCKING, and green as of this commit.
 #
@@ -366,15 +355,7 @@ fi
 # has existed, and bn_activity_log, bn_email_log and bn_webhook_log were still never purged,
 # because adding a table forced nobody to answer the question. This gate forces it.
 section "Erasure completeness"
-if [ -f bin/check-erasure.py ]; then
-	if python3 bin/check-erasure.py; then
-		:
-	else
-		fail "a user-keyed table is not registered for erasure or retention — see DATA-LIFECYCLE.md §9"
-	fi
-else
-	note "bin/check-erasure.py missing"
-fi
+py_gate bin/check-erasure.py "a user-keyed table is not registered for erasure or retention — see DATA-LIFECYCLE.md §9"
 
 # 3b-iii. Journey tags — BLOCKING, and green as of this commit.
 #
@@ -384,15 +365,7 @@ fi
 # because the journey catalogue is internal and lives in the pro repo. The matching gate
 # there (bin/check-journey-coverage.py) reconciles both directions.
 section "Journey tags"
-if [ -f bin/check-journey-tags.py ]; then
-	if python3 bin/check-journey-tags.py; then
-		:
-	else
-		fail "a Playwright spec declares no journey id — add it to the spec's docblock"
-	fi
-else
-	note "bin/check-journey-tags.py missing"
-fi
+py_gate bin/check-journey-tags.py "a Playwright spec declares no journey id — add it to the spec's docblock"
 
 # 3b-iii-b. Journey EXECUTION — BLOCKING when a site is reachable.
 #
@@ -458,15 +431,7 @@ fi
 # display setting never persisted) — invisible with Free-only fixtures because every core
 # type is in every hardcoded list. This is the static backstop the pixel pass can't be.
 section "Field-type registry (A1)"
-if [ -f bin/check-field-type-registry.py ]; then
-	if python3 bin/check-field-type-registry.py; then
-		:
-	else
-		fail "a field-type gate reads a hardcoded list instead of the buddynext_field_types registry"
-	fi
-else
-	note "bin/check-field-type-registry.py missing"
-fi
+py_gate bin/check-field-type-registry.py "a field-type gate reads a hardcoded list instead of the buddynext_field_types registry"
 
 # 3b-v. Emitted CSS class (A2) — BLOCKING, green as of this commit (baselined).
 #
@@ -477,15 +442,7 @@ fi
 # ones beyond .a2-emitted-class-baseline.json. The full emitted-no-rule list is advisory:
 # bin/check-emitted-css-classes.py --report → audit/emitted-class-report.md.
 section "Emitted CSS class (A2)"
-if [ -f bin/check-emitted-css-classes.py ]; then
-	if python3 bin/check-emitted-css-classes.py; then
-		:
-	else
-		fail "a fully-unstyled element emits a class whose styled sibling exists — likely the wrong class"
-	fi
-else
-	note "bin/check-emitted-css-classes.py missing"
-fi
+py_gate bin/check-emitted-css-classes.py "a fully-unstyled element emits a class whose styled sibling exists — likely the wrong class"
 
 # 3b-vi. Auth-form field wiring (A3) — BLOCKING, green as of this commit.
 #
@@ -496,15 +453,7 @@ fi
 # handle prefix — the account was created with the wrong display_name, nothing errored,
 # and a "signup succeeded" journey passed. This gate catches that class statically.
 section "Auth-form field wiring (A3)"
-if [ -f bin/check-form-field-wiring.py ]; then
-	if python3 bin/check-form-field-wiring.py; then
-		:
-	else
-		fail "an editable auth-form control is not wired into the submit payload (card-10 class)"
-	fi
-else
-	note "bin/check-form-field-wiring.py missing"
-fi
+py_gate bin/check-form-field-wiring.py "an editable auth-form control is not wired into the submit payload (card-10 class)"
 
 # 3c. Cache conformance — ADVISORY until the cache backlog is cleared, then make it blocking.
 #
