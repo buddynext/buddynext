@@ -203,6 +203,14 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 					$bn_integration_values['album_creators'] = isset( $_POST['album_creators_admins'] ) ? 'admins' : 'members';
 				}
 
+				// The Files (documents) toggle only exists when WPMediaVerse Pro's
+				// document drive is present. Guard the write the same way as the
+				// Media toggle above, so saving with Pro deactivated does not zero
+				// the owner's choice.
+				if ( \BuddyNext\Bridges\WPMediaVerseBridge::documents_available() ) {
+					$bn_integration_values['mvs_documents_tab'] = isset( $_POST['mvs_documents_tab'] ) ? '1' : '0';
+				}
+
 				// Report what the registry actually did. Discarding this result is how a
 				// rejected write — can_write(), or a value a sanitiser refused — still
 				// rendered "Saved". The permissions panel below already reads it; this
@@ -433,6 +441,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_notifications_nonce']
 $require_join_approval = (bool) buddynext_get_space_field( $space_id, 'require_join_approval' );
 $push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_feed' );
 $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' );
+$mvs_documents_tab     = (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' );
 $album_creators        = (string) buddynext_get_space_field( $space_id, 'album_creators' );
 $jetonomy_forum_id     = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 
@@ -782,6 +791,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'discussion_status' => $bn_discussion_status,
 					),
 					'mvs_media_tab'         => $mvs_media_tab,
+					'mvs_documents_tab'     => $mvs_documents_tab,
 					'album_creators'        => $album_creators,
 					// Owner-only panel. Passed so it can render read-only for a
 					// moderator rather than show controls that would not save — a

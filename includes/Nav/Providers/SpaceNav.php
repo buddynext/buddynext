@@ -236,6 +236,25 @@ final class SpaceNav {
 				},
 			),
 			array(
+				'id'        => 'files',
+				'surface'   => 'space',
+				'layer'     => 'primary',
+				'label'     => __( 'Files', 'buddynext' ),
+				'priority'  => 35,
+				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'files' ),
+				// Same integration gate as Media (both are WPMediaVerse surfaces),
+				// but keyed on the documents feature + the per-space Files toggle.
+				// Per-viewer drive access (read/none, 403 vs 404) is settled by the
+				// drive filters when the panel asks MVS, so the tab shows for any
+				// space member and the panel renders the right state.
+				'condition' => static fn( NavContext $c ): bool => \BuddyNext\Bridges\WPMediaVerseBridge::documents_available()
+					&& buddynext_integration_enabled( 'media', 'nav' )
+					&& (bool) buddynext_get_space_field( (int) $c->subject_id, 'mvs_documents_tab' ),
+				'render'    => function ( NavContext $c ): void {
+					$this->render_files_panel( $c->subject_id );
+				},
+			),
+			array(
 				'id'       => 'about',
 				'surface'  => 'space',
 				'layer'    => 'primary',
@@ -667,6 +686,57 @@ final class SpaceNav {
 				'bn_mt_owner_id'  => 0,
 				'bn_mt_is_owner'  => \BuddyNext\Media\Galleries::can_create_space_album( $space_id, $viewer ),
 				'bn_mt_media_ids' => (array) buddynext_service( 'feed' )->space_media_ids( $space_id, 24 ),
+			)
+		);
+	}
+
+	/**
+	 * Render the Files panel for a space — the space's document drive, browsed +
+	 * downloaded through BuddyNext's own UI (WPMediaVerse ships no space-drive UI;
+	 * we own the tabs and views). The bridge asks MVS's REST internally for this
+	 * drive + folder, so every access decision routes through our drive filters.
+	 * A null view means the viewer may not see this drive (MVS answered 403/404)
+	 * or the feature is gone — show the neutral empty state, never a broken shell.
+	 *
+	 * Read-only view controls (folder, page) come off the GET query, mirroring
+	 * MediaVerse's own drive; nothing is written, so no nonce is involved.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return void
+	 */
+	private function render_files_panel( int $space_id ): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET view controls.
+		$folder = isset( $_GET['bn_folder'] ) ? absint( wp_unslash( $_GET['bn_folder'] ) ) : 0;
+		$page   = isset( $_GET['bn_files_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_files_page'] ) ) ) : 1;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$view = \BuddyNext\Bridges\WPMediaVerseBridge::space_drive_view( $space_id, $folder, $page );
+
+		if ( null === $view ) {
+			buddynext_get_template(
+				'parts/empty-state.php',
+				array(
+					'icon'  => 'folder',
+					'title' => __( 'No files to show', 'buddynext' ),
+					'body'  => __( 'Files shared with this space will appear here.', 'buddynext' ),
+				)
+			);
+			return;
+		}
+
+		buddynext_get_template(
+			'partials/space-files-tab.php',
+			array(
+				'bn_sf_space_id'    => $space_id,
+				'bn_sf_base_url'    => $this->tab_url( $space_id, 'files' ),
+				'bn_sf_folders'     => $view['folders'],
+				'bn_sf_documents'   => $view['documents'],
+				'bn_sf_breadcrumbs' => $view['breadcrumbs'],
+				'bn_sf_folder'      => $view['folder'],
+				'bn_sf_page'        => $view['page'],
+				'bn_sf_pages'       => $view['pages'],
+				'bn_sf_total'       => $view['total'],
+				'bn_sf_can_write'   => $view['can_write'],
 			)
 		);
 	}

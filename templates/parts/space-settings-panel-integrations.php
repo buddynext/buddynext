@@ -17,6 +17,7 @@
  *     The link picker is a REST typeahead (discussion-search), not a prefetched
  *     list — role-scoped server-side (site admin: all; space owner: their own).
  * @var bool   $mvs_media_tab         Required. Current value of the media-tab toggle.
+ * @var bool   $mvs_documents_tab     Optional. Current value of the Files (documents) tab toggle.
  * @var string $album_creators        Optional. 'members' (default) or 'admins' - who may
  *                                    create albums in this space. Uploading INTO an
  *                                    existing album stays open to members either way.
@@ -48,6 +49,7 @@ $args = array(
 	'space'                 => isset( $space ) ? $space : null,
 	'integrations_settings' => isset( $integrations_settings ) && is_array( $integrations_settings ) ? $integrations_settings : array(),
 	'mvs_media_tab'         => isset( $mvs_media_tab ) ? (bool) $mvs_media_tab : false,
+	'mvs_documents_tab'     => isset( $mvs_documents_tab ) ? (bool) $mvs_documents_tab : false,
 	'album_creators'        => isset( $album_creators ) ? (string) $album_creators : 'members',
 	'is_space_owner'        => isset( $is_space_owner ) ? (bool) $is_space_owner : false,
 	'classes'               => isset( $classes ) ? (array) $classes : array(),
@@ -64,6 +66,8 @@ if ( ! $bn_space ) {
 $bn_jetonomy_forum_id = isset( $args['integrations_settings']['jetonomy_forum_id'] ) ? (int) $args['integrations_settings']['jetonomy_forum_id'] : 0;
 $bn_push_to_feed      = ! empty( $args['integrations_settings']['push_to_feed'] );
 $bn_mvs_media_tab     = (bool) $args['mvs_media_tab'];
+$bn_mvs_documents_tab = (bool) $args['mvs_documents_tab'];
+$bn_documents_ready   = \BuddyNext\Bridges\WPMediaVerseBridge::documents_available();
 
 // Discussion (Jetonomy) — opt-in per Space, never mandatory. A Space owns ONE
 // dedicated discussion for its lifetime: before it exists the owner sees a picker
@@ -223,6 +227,20 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			</label>
 		<?php endif; ?>
 	</div>
+
+	<?php // The Files (documents) drive needs WPMediaVerse Pro 2.4.0 - render the toggle only when it is present. ?>
+	<?php if ( $bn_documents_ready ) : ?>
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Files tab', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Files tab so members can browse and download documents shared with this space.', 'buddynext' ); ?></div>
+			</div>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Files tab', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="mvs_documents_tab" value="1" <?php checked( $bn_mvs_documents_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+	<?php endif; ?>
 
 	<?php
 	/*

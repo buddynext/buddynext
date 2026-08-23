@@ -1179,7 +1179,7 @@ class WPMediaVerseBridge {
 	 * @param int    $drive_id   Drive id (space id).
 	 * @return array<string,mixed>|null
 	 */
-	private function drive_space( string $drive_type, int $drive_id ): ?array {
+	private static function drive_space( string $drive_type, int $drive_id ): ?array {
 		if ( 'space' !== $drive_type || $drive_id <= 0 ) {
 			return null;
 		}
@@ -1205,7 +1205,7 @@ class WPMediaVerseBridge {
 	 * @return string
 	 */
 	public function space_drive_access( string $level, string $drive_type, int $drive_id, int $user_id ): string {
-		$space = $this->drive_space( $drive_type, $drive_id );
+		$space = self::drive_space( $drive_type, $drive_id );
 		if ( null === $space ) {
 			return $level;
 		}
@@ -1239,7 +1239,7 @@ class WPMediaVerseBridge {
 	 * @return bool
 	 */
 	public function space_drive_visible( bool $visible, string $drive_type, int $drive_id, int $user_id ): bool {
-		$space = $this->drive_space( $drive_type, $drive_id );
+		$space = self::drive_space( $drive_type, $drive_id );
 		if ( null === $space ) {
 			return $visible;
 		}
@@ -1263,7 +1263,10 @@ class WPMediaVerseBridge {
 		foreach ( (array) buddynext_service( 'space_members' )->spaces_for_user( $user_id ) as $space_id ) {
 			$space_id = (int) $space_id;
 			if ( $space_id > 0 && (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' ) ) {
-				$drives[] = array( 'type' => 'space', 'id' => $space_id );
+				$drives[] = array(
+					'type' => 'space',
+					'id'   => $space_id,
+				);
 			}
 		}
 		return $drives;
@@ -1283,6 +1286,127 @@ class WPMediaVerseBridge {
 		}
 		$space = buddynext_service( 'spaces' )->get( $drive_id );
 		return is_array( $space ) && ! empty( $space['name'] ) ? (string) $space['name'] : $label;
+	}
+
+	/**
+	 * Is WPMediaVerse Pro's document drive present on this site.
+	 *
+	 * The sanctioned bridge guard: bail on the partner's own bootstrap symbol
+	 * (the frozen DriveContract) rather than reading an MVS option across the
+	 * boundary. Gates the space Files tab, its settings toggle, and the render.
+	 *
+	 * @return bool
+	 */
+	public static function documents_available(): bool {
+		return class_exists( '\\WPMediaVersePro\\Documents\\DriveContract' );
+	}
+
+	/**
+	 * The space document-drive view for the Files tab, as plain data.
+	 *
+	 * BuddyNext owns the space Files UI (MediaVerse ships none — see
+	 * docs/architecture/pro/BUDDYNEXT-DRIVE-BRIDGE.md §6). Rather than read MVS
+	 * tables, we ask MVS's OWN REST internally for this drive + folder, so every
+	 * access decision still routes back through our four drive filters — the two
+	 * plugins can never disagree about who may see what. Returns null when the
+	 * drive is unavailable or the viewer may not see it (MVS answered 403/404),
+	 * so the caller renders nothing rather than an empty shell.
+	 *
+	 * @param int $space_id Space id (the drive).
+	 * @param int $folder   Folder to list (0 = drive root).
+	 * @param int $page     1-based page.
+	 * @return array{folders:array<int,array<string,mixed>>,documents:array<int,array<string,mixed>>,breadcrumbs:array<int,array{id:int,name:string}>,total:int,pages:int,page:int,folder:int,can_write:bool}|null
+	 */
+	public static function space_drive_view( int $space_id, int $folder = 0, int $page = 1 ): ?array {
+		if ( ! self::documents_available() || null === self::drive_space( 'space', $space_id ) ) {
+			return null;
+		}
+
+		$drive = 'space:' . $space_id;
+		$page  = max( 1, $page );
+
+		$folders_req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/folders' );
+		$folders_req->set_query_params(
+			array(
+				'drive'    => $drive,
+				'parent'   => $folder,
+				'per_page' => 100,
+			)
+		);
+		$folders_res = rest_do_request( $folders_req );
+		if ( $folders_res->is_error() ) {
+			// 403/404 from the drive filters: the viewer may not see this drive.
+			return null;
+		}
+
+		$docs_req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents' );
+		$docs_req->set_query_params(
+			array(
+				'drive'    => $drive,
+				'folder'   => $folder,
+				'per_page' => 50,
+				'page'     => $page,
+			)
+		);
+		$docs_res = rest_do_request( $docs_req );
+		if ( $docs_res->is_error() ) {
+			return null;
+		}
+
+		$folders   = (array) $folders_res->get_data();
+		$documents = (array) $docs_res->get_data();
+		$headers   = $docs_res->get_headers();
+
+		// The current viewer's write level on this drive — the tab shows an
+		// upload affordance only when they may actually add to it.
+		$access = apply_filters( 'mvs_document_drive_access', 'none', 'space', $space_id, get_current_user_id() );
+
+		return array(
+			'folders'     => $folders,
+			'documents'   => $documents,
+			'breadcrumbs' => self::drive_breadcrumbs( $folder ),
+			'total'       => isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $documents ),
+			'pages'       => isset( $headers['X-WP-TotalPages'] ) ? (int) $headers['X-WP-TotalPages'] : 1,
+			'page'        => $page,
+			'folder'      => $folder,
+			'can_write'   => in_array( $access, array( 'write', 'own' ), true ),
+		);
+	}
+
+	/**
+	 * Trail for the current folder, root-first, INCLUDING the current folder.
+	 *
+	 * MVS stamps a folder object with `breadcrumbs` — its visible ancestors,
+	 * root-first — so the current folder's trail is those ancestors plus the
+	 * folder itself. The caller renders all but the last as links. Empty at the
+	 * drive root, and empty if MVS refuses the folder (the drive gate already
+	 * ran, so that only happens on a stale/hidden id — render the root trail).
+	 *
+	 * @param int $folder Current folder id (0 = root).
+	 * @return array<int,array{id:int,name:string}>
+	 */
+	private static function drive_breadcrumbs( int $folder ): array {
+		if ( $folder <= 0 ) {
+			return array();
+		}
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/folders/' . $folder );
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return array();
+		}
+		$data  = (array) $res->get_data();
+		$trail = array();
+		foreach ( (array) ( $data['breadcrumbs'] ?? array() ) as $c ) {
+			$trail[] = array(
+				'id'   => (int) ( $c['id'] ?? 0 ),
+				'name' => (string) ( $c['name'] ?? '' ),
+			);
+		}
+		$trail[] = array(
+			'id'   => (int) ( $data['id'] ?? $folder ),
+			'name' => (string) ( $data['name'] ?? '' ),
+		);
+		return $trail;
 	}
 
 	/**

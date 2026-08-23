@@ -1,0 +1,258 @@
+/*
+ * bn-space-files.css — the space Files tab (document-drive browse + download).
+ *
+ * Rows-not-tiles, like MediaVerse's own drive: folders first, then documents,
+ * each a chip + name + a muted meta group (size · date · owner) + a download
+ * action. Stacks into cards under 640px. All values come from the --bn-* tokens
+ * in bn-base.css — no hardcoded px / hex / font-family here.
+ */
+
+:root {
+	--bn-files-chip-size: 2.75rem;
+	--bn-files-row-min: var(--bn-s12);
+}
+
+/* ── Breadcrumb ─────────────────────────────────────────────────────────── */
+.bn-files__crumbs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s1);
+	margin-block-end: var(--bn-s3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-files__crumb {
+	color: var(--bn-ink-3);
+	text-decoration: none;
+	border-radius: var(--bn-r-sm);
+}
+
+.bn-files__crumb:hover,
+.bn-files__crumb:focus-visible {
+	color: var(--bn-accent);
+}
+
+.bn-files__crumb--current {
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-semibold);
+}
+
+.bn-files__crumb-sep {
+	display: inline-flex;
+	color: var(--bn-ink-4);
+}
+
+.bn-files__crumb-sep svg {
+	width: 1em;
+	height: 1em;
+}
+
+/* ── Count line ─────────────────────────────────────────────────────────── */
+.bn-files__count {
+	margin: 0 0 var(--bn-s2);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+/* ── List + rows ────────────────────────────────────────────────────────── */
+.bn-files__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-surface);
+	overflow: hidden;
+}
+
+.bn-files__row {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto auto;
+	align-items: center;
+	gap: var(--bn-s3);
+	min-height: var(--bn-files-row-min);
+	padding: var(--bn-s2) var(--bn-s4);
+	border-block-start: 1px solid var(--bn-line-faint);
+}
+
+.bn-files__row:first-child {
+	border-block-start: 0;
+}
+
+.bn-files__row:hover {
+	background: var(--bn-sunken);
+}
+
+/* ── Type chip ──────────────────────────────────────────────────────────── */
+.bn-files__chip {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--bn-files-chip-size);
+	padding: var(--bn-s1) var(--bn-s2);
+	border-radius: var(--bn-r-sm);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-bold);
+	letter-spacing: var(--bn-ls-normal);
+}
+
+.bn-files__chip--dir {
+	background: var(--bn-accent-bg);
+	color: var(--bn-accent);
+}
+
+.bn-files__chip--pdf {
+	background: var(--bn-danger-bg);
+	color: var(--bn-danger);
+}
+
+/* ── Name ───────────────────────────────────────────────────────────────── */
+.bn-files__name {
+	min-width: 0;
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-medium);
+	text-decoration: none;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+a.bn-files__name:hover,
+a.bn-files__name:focus-visible {
+	color: var(--bn-accent);
+	text-decoration: underline;
+}
+
+/* ── Meta group (size · date · owner) ───────────────────────────────────── */
+.bn-files__meta {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+	white-space: nowrap;
+}
+
+.bn-files__meta > * + *::before {
+	content: "·";
+	margin-inline-end: var(--bn-s2);
+	color: var(--bn-ink-4);
+}
+
+.bn-files__owner {
+	max-width: 10rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ── Actions / download ─────────────────────────────────────────────────── */
+.bn-files__actions {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--bn-s6);
+	color: var(--bn-ink-4);
+}
+
+.bn-files__download {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--bn-s10);
+	height: var(--bn-s10);
+	border-radius: var(--bn-r-full);
+	color: var(--bn-ink-3);
+}
+
+.bn-files__download:hover,
+.bn-files__download:focus-visible {
+	background: var(--bn-accent-bg);
+	color: var(--bn-accent);
+}
+
+.bn-files__download svg,
+.bn-files__actions > svg {
+	width: var(--bn-s5);
+	height: var(--bn-s5);
+}
+
+/* ── Pager ──────────────────────────────────────────────────────────────── */
+.bn-files__pager {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s4);
+	margin-block-start: var(--bn-s4);
+}
+
+.bn-files__pager-link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	color: var(--bn-ink);
+	text-decoration: none;
+	font-size: var(--bn-text-sm);
+}
+
+.bn-files__pager-link:hover,
+.bn-files__pager-link:focus-visible {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+}
+
+.bn-files__pager-link svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+.bn-files__pager-status {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+/* ── Mobile: rows become cards (chip + name on top, meta below) ─────────── */
+@media (max-width: 640px) {
+	.bn-files__row {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-areas:
+			"chip name dl"
+			"chip meta dl";
+		row-gap: var(--bn-s1);
+		column-gap: var(--bn-s3);
+	}
+
+	.bn-files__chip {
+		grid-area: chip;
+		align-self: start;
+		margin-block-start: var(--bn-s1);
+	}
+
+	.bn-files__name {
+		grid-area: name;
+		align-self: end;
+		white-space: normal;
+	}
+
+	.bn-files__meta {
+		grid-area: meta;
+		align-self: start;
+	}
+
+	.bn-files__actions,
+	.bn-files__download {
+		grid-area: dl;
+		align-self: center;
+	}
+
+	/* Owner is dropped on the narrow card — the same trim MediaVerse makes. */
+	.bn-files__owner {
+		display: none;
+	}
+}

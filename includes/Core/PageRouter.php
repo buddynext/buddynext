@@ -1768,6 +1768,11 @@ class PageRouter {
 					$assets->enqueue( 'media-upload' );
 					$assets->enqueue( 'media-albums' );
 				}
+				// The space Files tab is a server-rendered document-drive browser
+				// (no store) — it needs only its stylesheet, keyed on the action.
+				if ( 'files' === $space_action_v || 'files' === $bn_space_tab ) {
+					$assets->enqueue( 'space-files' );
+				}
 				// The settings "Custom fields" panel saves registered space fields
 				// over REST via the buddynext/space-fields store.
 				if ( 'settings' === $space_action_v ) {

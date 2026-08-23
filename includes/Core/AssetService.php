@@ -492,6 +492,7 @@ class AssetService {
 			'bn-header',
 			'bn-settings',
 			'bn-media-upload',
+			'bn-space-files',
 		);
 
 		// A few feature stylesheets reuse another feature's shared component and
