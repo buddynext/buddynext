@@ -1013,6 +1013,47 @@ function buddynext_get_icon( string $name, string $css_class = '' ): string {
 }
 
 /**
+ * Return the BuddyNext community search bar as HTML.
+ *
+ * The classic-theme counterpart to the buddynext/search-bar block: drop
+ * `echo buddynext_search_bar();` into a theme header, or use the
+ * [buddynext_search] shortcode in content. Block, shortcode and helper all
+ * render the SAME markup (templates/blocks/search-bar.php) — a GET form to the
+ * community search page — so a theme never hand-builds a form against our URL.
+ *
+ * This does NOT replace WordPress/WooCommerce `?s=` search; it is a first-class
+ * entry point into the community search results (members, spaces, hashtags).
+ *
+ * @param array<string, string> $args {
+ *     Optional. Display options.
+ *
+ *     @type string $placeholder Input placeholder. Default 'Search…'.
+ *     @type string $search_in   Results tab to open: all|members|spaces|posts. Default 'all'.
+ * }
+ * @return string Search-bar markup, safe to echo.
+ */
+function buddynext_search_bar( array $args = array() ): string {
+	// The search-bar layout classes (.bn-search-form, .bn-search-input-wrap) live
+	// in blocks.css; the --bn-* tokens already load site-wide. On a hub page the
+	// block/shell has enqueued this already; on a classic-theme page it may not,
+	// so ensure it. Registered by AssetService; a no-op if already enqueued.
+	if ( function_exists( 'wp_style_is' ) && wp_style_is( 'bn-blocks', 'registered' ) ) {
+		wp_enqueue_style( 'bn-blocks' );
+	}
+
+	$placeholder = sanitize_text_field( (string) ( $args['placeholder'] ?? '' ) );
+
+	$search_in = sanitize_key( (string) ( $args['search_in'] ?? 'all' ) );
+	if ( ! in_array( $search_in, array( 'all', 'members', 'spaces', 'posts' ), true ) ) {
+		$search_in = 'all';
+	}
+
+	ob_start();
+	buddynext_get_template( 'blocks/search-bar.php', compact( 'placeholder', 'search_in' ) );
+	return (string) ob_get_clean();
+}
+
+/**
  * Return the community's display name.
  *
  * Single source of truth for the name shown in the app header, community-admin

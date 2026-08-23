@@ -156,6 +156,18 @@ if ( ! function_exists( 'buddynext_get_icon' ) ) {
 	}
 }
 
+if ( ! function_exists( 'buddynext_search_bar' ) ) {
+	/**
+	 * Return the community search bar markup.
+	 *
+	 * @param array<string, string> $args Optional placeholder/search_in.
+	 * @return string
+	 */
+	function buddynext_search_bar( array $args = array() ): string {
+		return '';
+	}
+}
+
 if ( ! function_exists( 'buddynext_get_template' ) ) {
 	/**
 	 * Render a BuddyNext template by relative path.

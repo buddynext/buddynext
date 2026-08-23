@@ -417,6 +417,19 @@ class AssetService {
 			$v
 		);
 
+		// ── Block frontend styles ──────────────────────────────────────────────
+		// The same stylesheet the buddynext/* blocks load via block.json, exposed
+		// as a first-class handle so the [buddynext_search] shortcode and the
+		// buddynext_search_bar() helper can style themselves on a classic-theme
+		// page that carries no block. Depends on bn-base for the --bn-* tokens
+		// (which already load site-wide via enqueue_global_tokens()).
+		wp_register_style(
+			'bn-blocks',
+			$this->assets_url . 'css/blocks.css',
+			array( 'bn-base' ),
+			$v
+		);
+
 		// ── Shell font-scale + theme bootstrap script ──────────────────────────
 		// Classic script (not a module) — must run before the rail renders
 		// so saved preferences are applied without a flash. Loaded in the

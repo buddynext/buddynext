@@ -71,11 +71,26 @@ The logged-in header user section: the notification bell, the messages icon, and
 - **Attributes:** none.
 - **Use vs block:** This is the classic-theme way to drop the header chrome into a PHP header template or a page-builder header. The exact equivalent is the `buddynext/header-user-menu` block (a block-based widget for block themes). Both render the same component from `HeaderUserSection`.
 
+### `[buddynext_search]`
+
+A community search bar: a GET form that opens the BuddyNext search results page (members, spaces, posts, hashtags). Chrome, not a hub - drop it in a header, a sidebar, or page content. It does **not** replace WordPress or WooCommerce `?s=` search; it is a first-class entry point into *community* search that themes should use instead of hand-building a form against the search URL.
+
+- **Attributes:**
+  - `placeholder` (string, default `Search…`) - the input placeholder.
+  - `type` (string, default `all`) - which results tab to open: `all`, `members`, `spaces`, or `posts`. Any other value falls back to `all`.
+- **Use vs block:** The exact equivalent is the `buddynext/search-bar` block (attributes `placeholder`, `searchIn`). For a classic PHP header, call the helper directly instead:
+
+```php
+<?php echo buddynext_search_bar( array( 'placeholder' => 'Search the community…', 'search_in' => 'members' ) ); ?>
+```
+
+  The block, the `[buddynext_search]` shortcode and `buddynext_search_bar()` all render the **same** markup - the helper is the single source, the other two wrap it. `buddynext_search_bar( array $args = [] ): string` returns the markup (safe to echo) and enqueues the one stylesheet it needs, so it is safe in a theme header.
+
 ## Notes / gotchas
 
 - **These are for classic and page-builder themes.** On a block theme, prefer the matching `buddynext/*` blocks (see the Blocks reference) - they expose attributes and edit in place. The shortcodes shine when you cannot use a block: a classic theme, a page-builder text widget, or a custom PHP template via `do_shortcode()`.
 - **Routing comes from the URL, not the attributes.** Most hub shortcodes take no attributes because the active endpoint is chosen from the hub query vars `PageRouter` sets. The same `[buddynext_activity]` renders different surfaces at `/activity/`, `/activity/explore/`, and `/activity/hashtag/{slug}/`.
-- **Two shortcodes carry attributes:** `[buddynext_people view="profile"]` and the block-equivalent `redirectUrl` on the auth blocks. The rest take none.
+- **A few shortcodes carry attributes:** `[buddynext_people view="profile"]`, `[buddynext_search placeholder="…" type="members"]`, and the block-equivalent `redirectUrl` on the auth blocks. The rest take none.
 - **Auth gating is built in.** `[buddynext_messages]`, `[buddynext_notifications]`, and `[buddynext_community_admin]` show a login prompt to guests; `[buddynext_auth]` redirects logged-in users away; `[buddynext_user_menu]` is empty for guests.
 - **No manual enqueue needed.** The service loads the shell stylesheet and the per-feature bundles for an embedded shortcode and scopes the output in `.bn-app--embedded`, so the hub renders styled even on an arbitrary page.
 
