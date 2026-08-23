@@ -1312,25 +1312,33 @@ class WPMediaVerseBridge {
 	 * drive is unavailable or the viewer may not see it (MVS answered 403/404),
 	 * so the caller renders nothing rather than an empty shell.
 	 *
-	 * @param int $space_id Space id (the drive).
-	 * @param int $folder   Folder to list (0 = drive root).
-	 * @param int $page     1-based page.
-	 * @return array{folders:array<int,array<string,mixed>>,documents:array<int,array<string,mixed>>,breadcrumbs:array<int,array{id:int,name:string}>,total:int,pages:int,page:int,folder:int,can_write:bool}|null
+	 * Folders and documents paginate independently (a drive can carry thousands
+	 * of either), so a level with 500 folders is never silently truncated.
+	 *
+	 * @param int $space_id    Space id (the drive).
+	 * @param int $folder      Folder to list (0 = drive root).
+	 * @param int $page        1-based document page.
+	 * @param int $folder_page 1-based folder page.
+	 * @return array{folders:array<int,array<string,mixed>>,documents:array<int,array<string,mixed>>,breadcrumbs:array<int,array{id:int,name:string}>,total:int,pages:int,page:int,folder:int,folder_total:int,folder_pages:int,folder_page:int,can_write:bool}|null
 	 */
-	public static function space_drive_view( int $space_id, int $folder = 0, int $page = 1 ): ?array {
+	public static function space_drive_view( int $space_id, int $folder = 0, int $page = 1, int $folder_page = 1 ): ?array {
 		if ( ! self::documents_available() || null === self::drive_space( 'space', $space_id ) ) {
 			return null;
 		}
 
-		$drive = 'space:' . $space_id;
-		$page  = max( 1, $page );
+		$drive       = 'space:' . $space_id;
+		$page        = max( 1, $page );
+		$folder_page = max( 1, $folder_page );
 
 		$folders_req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/folders' );
 		$folders_req->set_query_params(
 			array(
 				'drive'    => $drive,
 				'parent'   => $folder,
-				'per_page' => 100,
+				'orderby'  => 'name',
+				'order'    => 'ASC',
+				'per_page' => 50,
+				'page'     => $folder_page,
 			)
 		);
 		$folders_res = rest_do_request( $folders_req );
@@ -1353,23 +1361,27 @@ class WPMediaVerseBridge {
 			return null;
 		}
 
-		$folders   = (array) $folders_res->get_data();
-		$documents = (array) $docs_res->get_data();
-		$headers   = $docs_res->get_headers();
+		$folders     = (array) $folders_res->get_data();
+		$documents   = (array) $docs_res->get_data();
+		$doc_headers = $docs_res->get_headers();
+		$fol_headers = $folders_res->get_headers();
 
 		// The current viewer's write level on this drive — the tab shows an
 		// upload affordance only when they may actually add to it.
 		$access = apply_filters( 'mvs_document_drive_access', 'none', 'space', $space_id, get_current_user_id() );
 
 		return array(
-			'folders'     => $folders,
-			'documents'   => $documents,
-			'breadcrumbs' => self::drive_breadcrumbs( $folder ),
-			'total'       => isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $documents ),
-			'pages'       => isset( $headers['X-WP-TotalPages'] ) ? (int) $headers['X-WP-TotalPages'] : 1,
-			'page'        => $page,
-			'folder'      => $folder,
-			'can_write'   => in_array( $access, array( 'write', 'own' ), true ),
+			'folders'      => $folders,
+			'documents'    => $documents,
+			'breadcrumbs'  => self::drive_breadcrumbs( $folder ),
+			'total'        => isset( $doc_headers['X-WP-Total'] ) ? (int) $doc_headers['X-WP-Total'] : count( $documents ),
+			'pages'        => isset( $doc_headers['X-WP-TotalPages'] ) ? (int) $doc_headers['X-WP-TotalPages'] : 1,
+			'page'         => $page,
+			'folder'       => $folder,
+			'folder_total' => isset( $fol_headers['X-WP-Total'] ) ? (int) $fol_headers['X-WP-Total'] : count( $folders ),
+			'folder_pages' => isset( $fol_headers['X-WP-TotalPages'] ) ? (int) $fol_headers['X-WP-TotalPages'] : 1,
+			'folder_page'  => $folder_page,
+			'can_write'    => in_array( $access, array( 'write', 'own' ), true ),
 		);
 	}
 

@@ -706,9 +706,10 @@ final class SpaceNav {
 	 */
 	private function render_files_panel( int $space_id ): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET view controls.
-		$doc_id = isset( $_GET['bn_doc'] ) ? absint( wp_unslash( $_GET['bn_doc'] ) ) : 0;
-		$folder = isset( $_GET['bn_folder'] ) ? absint( wp_unslash( $_GET['bn_folder'] ) ) : 0;
-		$page   = isset( $_GET['bn_files_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_files_page'] ) ) ) : 1;
+		$doc_id  = isset( $_GET['bn_doc'] ) ? absint( wp_unslash( $_GET['bn_doc'] ) ) : 0;
+		$folder  = isset( $_GET['bn_folder'] ) ? absint( wp_unslash( $_GET['bn_folder'] ) ) : 0;
+		$page    = isset( $_GET['bn_files_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_files_page'] ) ) ) : 1;
+		$fpage   = isset( $_GET['bn_folder_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_folder_page'] ) ) ) : 1;
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		// Single-file view — a real page, not a modal: it deep-links, it handles
@@ -719,7 +720,7 @@ final class SpaceNav {
 			return;
 		}
 
-		$view = \BuddyNext\Bridges\WPMediaVerseBridge::space_drive_view( $space_id, $folder, $page );
+		$view = \BuddyNext\Bridges\WPMediaVerseBridge::space_drive_view( $space_id, $folder, $page, $fpage );
 
 		if ( null === $view ) {
 			buddynext_get_template(
@@ -745,6 +746,9 @@ final class SpaceNav {
 				'bn_sf_page'        => $view['page'],
 				'bn_sf_pages'       => $view['pages'],
 				'bn_sf_total'       => $view['total'],
+				'bn_sf_folder_page' => $view['folder_page'],
+				'bn_sf_folder_pages' => $view['folder_pages'],
+				'bn_sf_folder_total' => $view['folder_total'],
 				'bn_sf_can_write'   => $view['can_write'],
 			)
 		);

@@ -36,6 +36,9 @@ $bn_sf_folder      = isset( $bn_sf_folder ) ? (int) $bn_sf_folder : 0;
 $bn_sf_page        = isset( $bn_sf_page ) ? max( 1, (int) $bn_sf_page ) : 1;
 $bn_sf_pages       = isset( $bn_sf_pages ) ? max( 1, (int) $bn_sf_pages ) : 1;
 $bn_sf_total       = isset( $bn_sf_total ) ? (int) $bn_sf_total : count( $bn_sf_documents );
+$bn_sf_fpage       = isset( $bn_sf_folder_page ) ? max( 1, (int) $bn_sf_folder_page ) : 1;
+$bn_sf_fpages      = isset( $bn_sf_folder_pages ) ? max( 1, (int) $bn_sf_folder_pages ) : 1;
+$bn_sf_ftotal      = isset( $bn_sf_folder_total ) ? (int) $bn_sf_folder_total : count( $bn_sf_folders );
 
 // A short type chip, the same shorthand MediaVerse uses so the two libraries
 // read the same. Unknown types fall back to FILE rather than guessing.
@@ -61,9 +64,20 @@ $bn_sf_folder_url = static function ( int $fid ) use ( $bn_sf_base_url ): string
 	return $fid > 0 ? add_query_arg( 'bn_folder', $fid, $bn_sf_base_url ) : $bn_sf_base_url;
 };
 
-$bn_sf_page_url = static function ( int $p ) use ( $bn_sf_base_url, $bn_sf_folder ): string {
+$bn_sf_page_url = static function ( int $p ) use ( $bn_sf_base_url, $bn_sf_folder, $bn_sf_fpage ): string {
 	$url = $bn_sf_folder > 0 ? add_query_arg( 'bn_folder', $bn_sf_folder, $bn_sf_base_url ) : $bn_sf_base_url;
+	if ( $bn_sf_fpage > 1 ) {
+		$url = add_query_arg( 'bn_folder_page', $bn_sf_fpage, $url );
+	}
 	return add_query_arg( 'bn_files_page', $p, $url );
+};
+
+$bn_sf_fpage_url = static function ( int $p ) use ( $bn_sf_base_url, $bn_sf_folder, $bn_sf_page ): string {
+	$url = $bn_sf_folder > 0 ? add_query_arg( 'bn_folder', $bn_sf_folder, $bn_sf_base_url ) : $bn_sf_base_url;
+	if ( $bn_sf_page > 1 ) {
+		$url = add_query_arg( 'bn_files_page', $bn_sf_page, $url );
+	}
+	return add_query_arg( 'bn_folder_page', $p, $url );
 };
 
 $bn_sf_doc_url = static function ( int $did ) use ( $bn_sf_base_url ): string {
@@ -132,15 +146,14 @@ $bn_sf_empty    = empty( $bn_sf_folders ) && empty( $bn_sf_documents );
 
 		<p class="bn-files__count">
 			<?php
-			$bn_sf_fcount = count( $bn_sf_folders );
-			$bn_sf_parts  = array();
+			$bn_sf_parts = array();
 			if ( $bn_sf_total > 0 ) {
 				/* translators: %s: number of files. */
 				$bn_sf_parts[] = sprintf( _n( '%s file', '%s files', $bn_sf_total, 'buddynext' ), number_format_i18n( $bn_sf_total ) );
 			}
-			if ( $bn_sf_fcount > 0 ) {
+			if ( $bn_sf_ftotal > 0 ) {
 				/* translators: %s: number of folders. */
-				$bn_sf_parts[] = sprintf( _n( '%s folder', '%s folders', $bn_sf_fcount, 'buddynext' ), number_format_i18n( $bn_sf_fcount ) );
+				$bn_sf_parts[] = sprintf( _n( '%s folder', '%s folders', $bn_sf_ftotal, 'buddynext' ), number_format_i18n( $bn_sf_ftotal ) );
 			}
 			echo esc_html( implode( ' · ', $bn_sf_parts ) );
 			?>
@@ -214,6 +227,29 @@ $bn_sf_empty    = empty( $bn_sf_folders ) && empty( $bn_sf_documents );
 			<?php endforeach; ?>
 
 		</ul>
+
+		<?php if ( $bn_sf_fpages > 1 ) : ?>
+			<nav class="bn-files__pager" aria-label="<?php esc_attr_e( 'Folder pages', 'buddynext' ); ?>">
+				<?php if ( $bn_sf_fpage > 1 ) : ?>
+					<a class="bn-files__pager-link" href="<?php echo esc_url( $bn_sf_fpage_url( $bn_sf_fpage - 1 ) ); ?>" rel="prev">
+						<?php echo buddynext_icon( 'chevron-left' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?>
+						<span><?php esc_html_e( 'Previous', 'buddynext' ); ?></span>
+					</a>
+				<?php endif; ?>
+				<span class="bn-files__pager-status">
+					<?php
+					/* translators: 1: current folder page, 2: total folder pages. */
+					echo esc_html( sprintf( __( 'Folders — page %1$s of %2$s', 'buddynext' ), number_format_i18n( $bn_sf_fpage ), number_format_i18n( $bn_sf_fpages ) ) );
+					?>
+				</span>
+				<?php if ( $bn_sf_fpage < $bn_sf_fpages ) : ?>
+					<a class="bn-files__pager-link" href="<?php echo esc_url( $bn_sf_fpage_url( $bn_sf_fpage + 1 ) ); ?>" rel="next">
+						<span><?php esc_html_e( 'Next', 'buddynext' ); ?></span>
+						<?php echo buddynext_icon( 'chevron-right' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?>
+					</a>
+				<?php endif; ?>
+			</nav>
+		<?php endif; ?>
 
 		<?php if ( $bn_sf_pages > 1 ) : ?>
 			<nav class="bn-files__pager" aria-label="<?php esc_attr_e( 'Files pages', 'buddynext' ); ?>">
