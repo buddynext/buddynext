@@ -785,16 +785,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'      => 'buddynext_brand_color',
-							'type'     => 'color',
-							'label'    => __( 'Brand color', 'buddynext' ),
-							'default'  => \BuddyNext\Theme\Appearance::DEFAULT_BRAND,
-							'sanitize' => array( self::class, 'sanitize_brand_color' ),
-							'hint'     => __( 'Your community accent — used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick, or paste a hex code.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
 							'key'   => 'buddynext_description',
 							'type'  => 'textarea',
 							'label' => __( 'Community Description', 'buddynext' ),

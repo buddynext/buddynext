@@ -58,6 +58,7 @@ class AppearanceTab {
 		$logo   = (string) get_option( 'buddynext_logo_url', '' );
 		$theme  = (string) get_option( 'buddynext_default_theme', 'auto' );
 		$css    = (string) get_option( 'buddynext_custom_css', '' );
+		$brand  = (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND );
 		$themes = array(
 			'auto'  => __( 'Auto (follow the visitor’s device)', 'buddynext' ),
 			'light' => __( 'Light', 'buddynext' ),
@@ -85,6 +86,24 @@ class AppearanceTab {
 			</div>
 
 			<div class="bn-settings-section">
+				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Brand color', 'buddynext' ); ?></span></div>
+				<div class="bn-ss-body">
+					<?php
+					// The community accent. Moved here from Settings > General so all
+					// look-and-feel lives on one tab; the value is still stored in the
+					// same buddynext_brand_color option that Appearance reads, so nothing
+					// downstream changes.
+					AdminPageBase::render_color_row(
+						'bn_brand_color',
+						__( 'Brand color', 'buddynext' ),
+						$brand,
+						__( 'Your community accent — used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick, or paste a hex code.', 'buddynext' )
+					);
+					?>
+				</div>
+			</div>
+
+			<div class="bn-settings-section">
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Default theme', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
 					<p class="bn-av-section-desc"><?php esc_html_e( 'Applies to visitors who have not picked a theme themselves.', 'buddynext' ); ?></p>
@@ -94,10 +113,6 @@ class AppearanceTab {
 							<option value="<?php echo esc_attr( $tv ); ?>" <?php selected( $theme, $tv ); ?>><?php echo esc_html( $tl ); ?></option>
 						<?php endforeach; ?>
 					</select>
-					<p class="bn-av-section-desc bn-a-gap-top-sm">
-						<?php esc_html_e( 'Accent colour is set under', 'buddynext' ); ?>
-						<a href="<?php echo esc_url( AdminHub::tab_url( 'settings', 'general' ) ); ?>"><?php esc_html_e( 'General → Brand Color', 'buddynext' ); ?></a>.
-					</p>
 				</div>
 			</div>
 
@@ -125,6 +140,15 @@ class AppearanceTab {
 			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
 		}
 		check_admin_referer( 'bn_appearance_save' );
+
+		// Brand colour — moved here from Settings > General. Reuse the shared
+		// sanitiser, which falls back to the documented default rather than
+		// persisting an empty option (an empty value would wipe the accent, since
+		// read sites only default when the option is ABSENT, not when it is '').
+		$brand = isset( $_POST['bn_brand_color'] )
+			? Settings::sanitize_brand_color( wp_unslash( (string) $_POST['bn_brand_color'] ) )
+			: \BuddyNext\Theme\Appearance::DEFAULT_BRAND;
+		update_option( 'buddynext_brand_color', $brand );
 
 		// Default theme.
 		$theme = isset( $_POST['bn_default_theme'] ) ? sanitize_key( wp_unslash( (string) $_POST['bn_default_theme'] ) ) : 'auto';

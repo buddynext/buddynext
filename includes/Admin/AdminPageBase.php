@@ -257,7 +257,7 @@ abstract class AdminPageBase {
 						$this->render_textarea_row( $field->key, $field->label, (string) $value, $hint );
 						break;
 					case 'color':
-						$this->render_color_row( $field->key, $field->label, (string) $value, $hint );
+						self::render_color_row( $field->key, $field->label, (string) $value, $hint );
 						break;
 					case 'media':
 						self::render_media_row( $field->key, $field->label, (string) $value, $hint );
@@ -417,7 +417,7 @@ abstract class AdminPageBase {
 	 * @param string $hint        Optional hint text beneath the field.
 	 * @return void
 	 */
-	protected function render_color_row(
+	public static function render_color_row(
 		string $option_name,
 		string $label,
 		string $value,
