@@ -25,6 +25,7 @@ use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Media\Galleries;
+use BuddyNext\Spaces\SpaceVisibility;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\IntegrationActivity;
 
@@ -184,6 +185,17 @@ class WPMediaVerseBridge {
 		// through any path is caught once.
 		add_action( 'mvs_reaction_added', array( $this, 'on_media_reaction' ), 10, 3 );
 		add_action( 'mvs_mentions_created', array( $this, 'on_media_mention' ), 10, 4 );
+
+		// Space document drives (MVS Pro 2.4.0). MVS holds an opaque drive id and
+		// asks US who may see and write a space:<id> drive — it never reads bn_*
+		// tables, so the two plugins cannot disagree about space membership. We
+		// answer from the ONE canonical resolver (SpaceVisibility + the member
+		// role), never a second copy of the rules, and only when the space owner
+		// has turned the drive on (mvs_documents_tab, off by default).
+		add_filter( 'mvs_document_drive_access', array( $this, 'space_drive_access' ), 10, 4 );
+		add_filter( 'mvs_document_drive_visible', array( $this, 'space_drive_visible' ), 10, 4 );
+		add_filter( 'mvs_document_drives_for_user', array( $this, 'space_drives_for_user' ), 10, 2 );
+		add_filter( 'mvs_document_drive_label', array( $this, 'space_drive_label' ), 10, 3 );
 
 		// Keep the WPMediaVerse follow graph (mvs_follows) and BuddyNext's
 		// (bn_follows) in sync both ways. MVS profiles and BN profiles otherwise
@@ -1154,6 +1166,123 @@ class WPMediaVerseBridge {
 				)
 			);
 		}
+	}
+
+	/**
+	 * Load a space IF it is a drive-enabled space drive, else null.
+	 *
+	 * The one gate every space-drive filter runs first: the drive exists only for
+	 * a real space whose owner turned the drive on (mvs_documents_tab, off by
+	 * default). Returns null for user/site drives so those pass through untouched.
+	 *
+	 * @param string $drive_type Drive type.
+	 * @param int    $drive_id   Drive id (space id).
+	 * @return array<string,mixed>|null
+	 */
+	private function drive_space( string $drive_type, int $drive_id ): ?array {
+		if ( 'space' !== $drive_type || $drive_id <= 0 ) {
+			return null;
+		}
+		if ( ! (bool) buddynext_get_space_field( $drive_id, 'mvs_documents_tab' ) ) {
+			return null;
+		}
+		$space = buddynext_service( 'spaces' )->get( $drive_id );
+		return is_array( $space ) ? $space : null;
+	}
+
+	/**
+	 * Answer MVS: access level for a space document drive — none|read|write|own.
+	 *
+	 * A level, not a bool, is the whole point: a member reads the shared drive,
+	 * a moderator writes to it, the owner owns it. A non-member reads only when
+	 * the space's content is open to them (public), otherwise none — which the
+	 * visibility filter then splits into 403 (private) vs 404 (secret).
+	 *
+	 * @param string $level      MVS default ('none').
+	 * @param string $drive_type Drive type.
+	 * @param int    $drive_id   Space id.
+	 * @param int    $user_id    Viewer.
+	 * @return string
+	 */
+	public function space_drive_access( string $level, string $drive_type, int $drive_id, int $user_id ): string {
+		$space = $this->drive_space( $drive_type, $drive_id );
+		if ( null === $space ) {
+			return $level;
+		}
+		$role = buddynext_service( 'space_members' )->get_role( $drive_id, $user_id );
+		if ( 'owner' === $role ) {
+			return 'own';
+		}
+		if ( 'moderator' === $role ) {
+			return 'write';
+		}
+		if ( null !== $role ) {
+			// A member reads the shared drive; uploads stay with owner/moderators,
+			// so a plain member hits mvs_drive_read_only when they try to write.
+			return 'read';
+		}
+		return SpaceVisibility::can_view_content( $space, $user_id ) ? 'read' : 'none';
+	}
+
+	/**
+	 * Answer MVS: may this viewer be told the space drive EXISTS.
+	 *
+	 * Only consulted once access is 'none'. A secret space is invisible (false ->
+	 * 404: its existence is the secret); a private/public space is visible (true
+	 * -> 403: it exists, contents are not yours). Straight from can_view_space(),
+	 * so MVS can never contradict the directory the member is standing on.
+	 *
+	 * @param bool   $visible    MVS default (false for space).
+	 * @param string $drive_type Drive type.
+	 * @param int    $drive_id   Space id.
+	 * @param int    $user_id    Viewer.
+	 * @return bool
+	 */
+	public function space_drive_visible( bool $visible, string $drive_type, int $drive_id, int $user_id ): bool {
+		$space = $this->drive_space( $drive_type, $drive_id );
+		if ( null === $space ) {
+			return $visible;
+		}
+		return SpaceVisibility::can_view_space( $space, $user_id );
+	}
+
+	/**
+	 * Answer MVS: which space drives to list for this viewer (drive picker).
+	 *
+	 * The drive-enabled spaces the viewer is an active member of. Access + label
+	 * for each are resolved by the other two filters, so this only names them.
+	 *
+	 * @param array<int,array<string,mixed>> $drives  MVS's list so far.
+	 * @param int                            $user_id Viewer.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function space_drives_for_user( array $drives, int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return $drives;
+		}
+		foreach ( (array) buddynext_service( 'space_members' )->spaces_for_user( $user_id ) as $space_id ) {
+			$space_id = (int) $space_id;
+			if ( $space_id > 0 && (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' ) ) {
+				$drives[] = array( 'type' => 'space', 'id' => $space_id );
+			}
+		}
+		return $drives;
+	}
+
+	/**
+	 * Answer MVS: a human label for a space drive — the space name.
+	 *
+	 * @param string $label      MVS default ('').
+	 * @param string $drive_type Drive type.
+	 * @param int    $drive_id   Space id.
+	 * @return string
+	 */
+	public function space_drive_label( string $label, string $drive_type, int $drive_id ): string {
+		if ( 'space' !== $drive_type ) {
+			return $label;
+		}
+		$space = buddynext_service( 'spaces' )->get( $drive_id );
+		return is_array( $space ) && ! empty( $space['name'] ) ? (string) $space['name'] : $label;
 	}
 
 	/**

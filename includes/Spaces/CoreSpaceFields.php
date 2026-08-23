@@ -215,6 +215,18 @@ final class CoreSpaceFields {
 			)
 		);
 		$registry->register(
+			'mvs_documents_tab',
+			array(
+				'label'      => __( 'Show the Files tab in this space', 'buddynext' ),
+				'type'       => 'boolean',
+				'default'    => '0',
+				'section'    => 'integrations',
+				'sort_order' => 25,
+				'visibility' => 'members',
+				'core'       => true,
+			)
+		);
+		$registry->register(
 			'album_creators',
 			array(
 				'label'      => __( 'Who can create albums in this space', 'buddynext' ),
