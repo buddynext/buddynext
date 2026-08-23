@@ -265,6 +265,7 @@ class Plugin {
 					( new \BuddyNext\Admin\IsolationAdmin() )->register();
 					( new \BuddyNext\Admin\Insights() )->register();
 					( new \BuddyNext\Admin\AnnouncementsAdmin() )->register();
+					( new \BuddyNext\Admin\ActivityAdmin() )->register();
 					( new \BuddyNext\Admin\ModerationQueue() )->register();
 					// "BuddyNext" metabox on Appearance → Menus — add per-member
 					// account and auth links to any WordPress menu (resolved by

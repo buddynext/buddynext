@@ -1312,7 +1312,13 @@ class PostService {
 	public function update( int $post_id, int $user_id, array $data ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
-			return $ownership;
+			// Owners edit their own posts; site admins and space moderators may
+			// edit another member's post as a moderation action (redact/fix a
+			// post that breaks the feed), mirroring delete(). Any other error
+			// (e.g. a missing post) is returned unchanged.
+			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
+				return $ownership;
+			}
 		}
 
 		// Enforce the post edit window (buddynext_post_edit_window, minutes): once
@@ -2696,6 +2702,103 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Paginated, filterable activity query for the admin Activity screen.
+	 *
+	 * Big-site ready: LIMIT/OFFSET on the page, a dedicated COUNT for the total,
+	 * every WHERE column indexed (status_scheduled, space_feed, user_feed,
+	 * post_created), and the author search bounded by the users table's own
+	 * indexes. Content search is a LIKE scan, kept cheap by pagination and the
+	 * other filters narrowing the set first. Returns raw rows; the caller batches
+	 * author lookups to avoid an N+1.
+	 *
+	 * @param array{search?:string,type?:string,status?:string,space_id?:int,author_id?:int,date_from?:string,date_to?:string,page?:int,per_page?:int} $args Filters + paging.
+	 * @return array{items:array<int,array<string,mixed>>,total:int}
+	 */
+	public function admin_query( array $args ): array {
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_posts';
+
+		$per_page = max( 1, min( 100, (int) ( $args['per_page'] ?? 25 ) ) );
+		$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
+		$offset   = ( $page - 1 ) * $per_page;
+
+		$where  = array( '1=1' );
+		$params = array();
+
+		$status = sanitize_key( (string) ( $args['status'] ?? '' ) );
+		if ( '' !== $status && in_array( $status, array( 'published', 'draft', 'pending', 'scheduled', 'deleted' ), true ) ) {
+			$where[]  = 'p.status = %s';
+			$params[] = $status;
+		}
+
+		$type = sanitize_key( (string) ( $args['type'] ?? '' ) );
+		if ( '' !== $type ) {
+			$where[]  = 'p.type = %s';
+			$params[] = $type;
+		}
+
+		$space_id = (int) ( $args['space_id'] ?? 0 );
+		if ( $space_id > 0 ) {
+			$where[]  = 'p.space_id = %d';
+			$params[] = $space_id;
+		}
+
+		$author_id = (int) ( $args['author_id'] ?? 0 );
+		if ( $author_id > 0 ) {
+			$where[]  = 'p.user_id = %d';
+			$params[] = $author_id;
+		}
+
+		$date_from = (string) ( $args['date_from'] ?? '' );
+		if ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date_from ) ) {
+			$where[]  = 'p.created_at >= %s';
+			$params[] = $date_from . ' 00:00:00';
+		}
+
+		$date_to = (string) ( $args['date_to'] ?? '' );
+		if ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date_to ) ) {
+			$where[]  = 'p.created_at <= %s';
+			$params[] = $date_to . ' 23:59:59';
+		}
+
+		$search = trim( (string) ( $args['search'] ?? '' ) );
+		if ( '' !== $search ) {
+			$like     = '%' . $wpdb->esc_like( $search ) . '%';
+			$where[]  = '( p.content LIKE %s OR p.user_id IN ( SELECT ID FROM ' . $wpdb->users . ' WHERE user_login LIKE %s OR display_name LIKE %s ) )';
+			$params[] = $like;
+			$params[] = $like;
+			$params[] = $like;
+		}
+
+		$where_sql = implode( ' AND ', $where );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$count_sql = "SELECT COUNT(*) FROM {$table} p WHERE {$where_sql}";
+		$total     = (int) ( $params
+			? $wpdb->get_var( $wpdb->prepare( $count_sql, $params ) )
+			: $wpdb->get_var( $count_sql ) );
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.user_id, p.space_id, p.type, p.content, p.status, p.is_announcement,
+						p.reaction_count, p.comment_count, p.share_count, p.created_at, p.edited_at
+				 FROM {$table} p
+				 WHERE {$where_sql}
+				 ORDER BY p.created_at DESC
+				 LIMIT %d OFFSET %d",
+				array_merge( $params, array( $per_page, $offset ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array(
+			'items' => is_array( $rows ) ? $rows : array(),
+			'total' => $total,
+		);
 	}
 
 	/**

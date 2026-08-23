@@ -4028,3 +4028,120 @@ code.bn-ep-code {
 		word-break: break-all;
 	}
 }
+
+/* ── Activity admin (Engagement > Activity) ───────────────────────────────── */
+
+.bn-activity-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-activity-filter {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+/* The base admin .bn-input / .bn-select are width:100%, which would stack every
+   filter control on its own row. Inside this toolbar they size to content, with
+   the search box taking the flexible remainder. */
+.bn-activity-filter .bn-input,
+.bn-activity-filter .bn-select {
+	width: auto;
+	min-width: 0;
+}
+
+.bn-activity-filter .bn-input[type="search"] {
+	flex: 1 1 220px;
+	min-width: 180px;
+	max-width: 340px;
+}
+
+.bn-activity-filter .bn-input[type="date"] {
+	flex: 0 0 auto;
+}
+
+.bn-activity-count {
+	margin: 0;
+	margin-inline-start: auto;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-activity-author {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+.bn-activity-author__avatar {
+	border-radius: var(--bn-r-full);
+	flex-shrink: 0;
+}
+
+.bn-activity-author__meta {
+	display: flex;
+	flex-direction: column;
+	line-height: var(--bn-leading-tight);
+}
+
+.bn-activity-preview {
+	display: block;
+	margin-block-start: var(--bn-s1);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	max-width: 32ch;
+}
+
+.bn-activity-actions {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--bn-s2);
+}
+
+.bn-activity-actions .bn-btn {
+	flex: 0 0 auto;
+}
+
+.bn-activity-actions__del {
+	margin: 0;
+	display: inline-flex;
+}
+
+.bn-activity-edit .bn-textarea {
+	width: 100%;
+}
+
+.bn-activity-edit__actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s4);
+}
+
+@media (max-width: 640px) {
+	.bn-activity-toolbar,
+	.bn-activity-filter {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.bn-activity-count {
+		margin-inline-start: 0;
+	}
+
+	.bn-activity-preview {
+		max-width: none;
+	}
+
+	.bn-activity-actions {
+		justify-content: flex-start;
+	}
+}
