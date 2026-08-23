@@ -410,6 +410,20 @@ class NotificationMessageService {
 					$actor_name
 				);
 
+			case 'bn.media_reaction':
+				return sprintf(
+					/* translators: %s: actor display name. */
+					__( '%s reacted to your media.', 'buddynext' ),
+					$actor_name
+				);
+
+			case 'bn.media_mention':
+				return sprintf(
+					/* translators: %s: actor display name. */
+					__( '%s mentioned you in a media comment.', 'buddynext' ),
+					$actor_name
+				);
+
 			case 'bn.test':
 				return __( 'Test notification.', 'buddynext' );
 
@@ -540,6 +554,14 @@ class NotificationMessageService {
 				return sprintf(
 					/* translators: 1: actor display name, 2: number of other actors. */
 					_n( '%1$s and %2$d other favourited your media.', '%1$s and %2$d others favourited your media.', $others, 'buddynext' ),
+					$actor_name,
+					$others
+				);
+
+			case 'bn.media_reaction':
+				return sprintf(
+					/* translators: 1: actor display name, 2: number of other actors. */
+					_n( '%1$s and %2$d other reacted to your media.', '%1$s and %2$d others reacted to your media.', $others, 'buddynext' ),
 					$actor_name,
 					$others
 				);
@@ -755,6 +777,16 @@ class NotificationMessageService {
 					'tone'  => 'warn',
 					'label' => __( 'Media favourite', 'buddynext' ),
 				),
+				'bn.media_reaction'           => array(
+					'icon'  => 'smile',
+					'tone'  => 'accent',
+					'label' => __( 'Media reaction', 'buddynext' ),
+				),
+				'bn.media_mention'            => array(
+					'icon'  => 'at-sign',
+					'tone'  => 'accent',
+					'label' => __( 'Media mention', 'buddynext' ),
+				),
 				'bn.test'                     => array(
 					'icon'  => 'bell',
 					'tone'  => 'info',
@@ -916,6 +948,8 @@ class NotificationMessageService {
 					: PageRouter::messages_url();
 
 			case 'bn.media_favorited':
+			case 'bn.media_reaction':
+			case 'bn.media_mention':
 				return $object_id > 0
 					? add_query_arg( 'post_id', $object_id, PageRouter::activity_url() )
 					: PageRouter::activity_url();
@@ -1011,6 +1045,7 @@ class NotificationMessageService {
 				'bn.space_new_post',
 				'bn.new_message',
 				'bn.media_favorited',
+				'bn.media_reaction',
 			),
 			true
 		);

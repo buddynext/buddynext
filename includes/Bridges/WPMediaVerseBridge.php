@@ -173,6 +173,18 @@ class WPMediaVerseBridge {
 		// Notify media owner when someone favourites their content.
 		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
 
+		// Notify the media owner when someone reacts to their content, and notify
+		// mention targets when they are @mentioned in a media comment. MediaVerse
+		// already renders both categories (media_reaction, media_mention) and owns
+		// their email; these mirror the events into the BuddyNext notification
+		// centre only (can_email=false), so a member sees reactions and mentions in
+		// one place — with the centre's Reactions and Mentions tabs, which had the
+		// UI but never a feed — without a second email. Reactions come from the
+		// service hook (mvs_reaction_added), not the REST toggle, so a reaction made
+		// through any path is caught once.
+		add_action( 'mvs_reaction_added', array( $this, 'on_media_reaction' ), 10, 3 );
+		add_action( 'mvs_mentions_created', array( $this, 'on_media_mention' ), 10, 4 );
+
 		// Keep the WPMediaVerse follow graph (mvs_follows) and BuddyNext's
 		// (bn_follows) in sync both ways. MVS profiles and BN profiles otherwise
 		// show divergent follow state for the same pair. A re-entrancy guard plus
@@ -1061,6 +1073,87 @@ class WPMediaVerseBridge {
 				'data'         => array( 'media_id' => $media_id ),
 			)
 		);
+	}
+
+	/**
+	 * Notify the media owner when someone reacts to their content.
+	 *
+	 * Mirrors MediaVerse's own media_reaction into the BuddyNext centre (Reactions
+	 * tab), collect-only: the catalogue marks bn.media_reaction can_email=false, so
+	 * MediaVerse stays the single emailer. Self-reactions are skipped and reactions
+	 * on the same media collapse via the group key.
+	 *
+	 * Hooked on: mvs_reaction_added ($media_id, $user_id, $reaction_type) — the
+	 * service hook, so a reaction made through any path (REST toggle or direct) is
+	 * caught exactly once.
+	 *
+	 * @param int    $media_id      Media item ID.
+	 * @param int    $user_id       User who reacted.
+	 * @param string $reaction_type Reaction slug (e.g. 'like', 'love').
+	 */
+	public function on_media_reaction( int $media_id, int $user_id, string $reaction_type = '' ): void {
+		$owner_id = (int) get_post_field( 'post_author', $media_id );
+		if ( 0 === $owner_id || $owner_id === $user_id ) {
+			return;
+		}
+
+		( new NotificationService() )->create(
+			array(
+				'recipient_id' => $owner_id,
+				'sender_id'    => $user_id,
+				'type'         => 'bn.media_reaction',
+				'object_type'  => 'media',
+				'object_id'    => $media_id,
+				'group_key'    => "mvs_reaction_{$media_id}",
+				'data'         => array(
+					'media_id'      => $media_id,
+					'reaction_type' => sanitize_key( $reaction_type ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Notify each mentioned member when they are @mentioned in a media comment.
+	 *
+	 * Mirrors MediaVerse's own media_mention into the BuddyNext centre (Mentions
+	 * tab), collect-only. The mentioner is the acting user (the comment author);
+	 * self-mentions are skipped.
+	 *
+	 * Hooked on: mvs_mentions_created ($media_id, $mentioned_ids, $context, $comment_id).
+	 *
+	 * @param int    $media_id      Media item ID.
+	 * @param int[]  $mentioned_ids Users named in the comment.
+	 * @param string $context       Where the mention was made (e.g. 'comment').
+	 * @param int    $comment_id    The comment carrying the mention.
+	 */
+	public function on_media_mention( int $media_id, array $mentioned_ids, string $context = '', int $comment_id = 0 ): void {
+		$actor_id = get_current_user_id();
+		if ( $actor_id <= 0 || $media_id <= 0 ) {
+			return;
+		}
+
+		$service = new NotificationService();
+		foreach ( array_unique( array_map( 'absint', $mentioned_ids ) ) as $recipient_id ) {
+			if ( $recipient_id <= 0 || $recipient_id === $actor_id ) {
+				continue;
+			}
+			$service->create(
+				array(
+					'recipient_id' => $recipient_id,
+					'sender_id'    => $actor_id,
+					'type'         => 'bn.media_mention',
+					'object_type'  => 'media',
+					'object_id'    => $media_id,
+					'group_key'    => "mvs_mention_{$media_id}_{$recipient_id}",
+					'data'         => array(
+						'media_id'   => $media_id,
+						'comment_id' => (int) $comment_id,
+						'context'    => sanitize_key( $context ),
+					),
+				)
+			);
+		}
 	}
 
 	/**

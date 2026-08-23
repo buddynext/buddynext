@@ -56,8 +56,10 @@ function formatBadge( count ) {
 function filterKeyForType( type ) {
 	var map = {
 		'bn.post_reacted': 'reaction',
+		'bn.media_reaction': 'reaction',
 		'bn.post_commented': 'comment',
 		'bn.mention': 'mention',
+		'bn.media_mention': 'mention',
 		'bn.new_follower': 'follow',
 		'bn.connection_accepted': 'follow',
 		'bn.connection_requested': 'follow',
