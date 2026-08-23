@@ -175,6 +175,24 @@ final class ProfileNav {
 				'render'    => fn( NavContext $c ) => $this->render_media( $c ),
 			),
 			array(
+				'id'        => 'files',
+				'surface'   => 'profile',
+				'layer'     => 'primary',
+				'label'     => __( 'Files', 'buddynext' ),
+				'priority'  => 45,
+				// Owner-only: WPMediaVerse Pro renders the viewer's OWN document
+				// drive ('my-drive'); it cannot render an arbitrary member's drive
+				// by id, and a stranger sees nothing anyway. The probe returns
+				// available markup only when the member has a usable document
+				// library, so the tab hides when documents are off (the contract's
+				// mvs_documents_unavailable case) with no extra call.
+				'condition' => static fn( NavContext $c ): bool => $c->is_self()
+					&& buddynext_integration_enabled( 'media', 'nav' )
+					&& '' !== (string) apply_filters( 'mvs_documents_drive_html', '', 'my-drive', array( 'probe' => true ) ),
+				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'files' ),
+				'render'    => fn( NavContext $c ) => $this->render_files( $c ),
+			),
+			array(
 				'id'       => 'likes',
 				'surface'  => 'profile',
 				'layer'    => 'primary',
@@ -370,6 +388,27 @@ final class ProfileNav {
 				'bn_mt_albums_enabled' => buddynext_integration_enabled( 'media', 'nav', 'albums' ),
 			)
 		);
+	}
+
+	/**
+	 * Render the member's document drive (Files tab).
+	 *
+	 * WPMediaVerse Pro 2.4.0 renders the whole drive UI — folders, breadcrumb,
+	 * list, search, its own CSS + JS — through the `mvs_documents_drive_html`
+	 * filter, the same one WPMediaVerse's own dashboard uses. We pass the tab URL
+	 * as the base so the drive's internal links and pagination stay on this tab.
+	 * Only the owner's own drive is shown (see the tab condition).
+	 *
+	 * @param NavContext $c Nav context.
+	 */
+	private function render_files( NavContext $c ): void {
+		// The drive markup styles itself with MVS's --mvs-* design tokens, which
+		// live in MVS's frontend stylesheet — present on MVS's own pages but not
+		// here, so without it the tabs and toolbar collapse to zero padding. Same
+		// handle MVS's own BuddyPress integration enqueues when it embeds drive UI.
+		wp_enqueue_style( 'mvs-frontend' );
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MVS returns pre-escaped drive markup.
+		echo apply_filters( 'mvs_documents_drive_html', '', 'my-drive', array( 'base' => $this->tab_url( $c->subject_id, 'files' ) ) );
 	}
 
 	/**
