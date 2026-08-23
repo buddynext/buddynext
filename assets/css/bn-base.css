@@ -2759,6 +2759,31 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: var(--bn-media); border-color: transparent; }
 .bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: var(--bn-events); border-color: transparent; }
 
+/* Chip group — the shared wrapper an injecting engine (Pro / gamification) should
+   wrap a row of .bn-badge chips in (member labels, credential badges, level frames)
+   so adjacent chips never touch. Reusable across every per-surface overlay filter;
+   token-driven spacing + RTL-safe via flex gap. This is the clean seam; prefer it
+   over relying on the per-container backstop below. */
+.bn-badge-row {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+/* Defensive backstop — space adjacent injected chips even when an engine forgets
+   the .bn-badge-row wrapper. Scoped to the KNOWN Free overlay containers that hold
+   ONLY injected chips and carry no gap of their own — never a global
+   `.bn-badge + .bn-badge`, which would double-space Free's own already-correct
+   surfaces (.bn-pf-name-row, .bn-search-row__title both gap their static badges).
+   margin-inline-start keeps it RTL-safe. */
+.bn-post-card__author .bn-badge + .bn-badge,
+.bn-md-card__meta-overlay .bn-badge + .bn-badge,
+.bn-md-card__labels .bn-badge + .bn-badge,
+.bn-comment__author-meta .bn-badge + .bn-badge {
+	margin-inline-start: var(--bn-s1);
+}
+
 /* Field-value chips — FieldType::render_chips() (multiselect and other
    set-valued profile fields). The markup shipped with no CSS at all, so
    selected values ran together as one unstyled string (Value1Value2Value3). */

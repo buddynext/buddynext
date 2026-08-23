@@ -55,6 +55,8 @@ add_filter( 'buddynext_part_member_card_classes', static function ( array $class
 
 The member card also exposes two pre-escaped HTML overlay filters for richer additions without `_after`: `buddynext_member_card_meta_html` (a meta-overlay slot, receives `'', $member_id, $args`) and `buddynext_avatar_overlay_html` (an avatar corner overlay, receives `'', $member_id, 'xl'`). Whatever you return from these is echoed raw, so escape it yourself.
 
+**Injecting more than one chip? Wrap the row in `.bn-badge-row`.** When an overlay filter returns several `.bn-badge` chips (e.g. Moderator + Verified + Expert), wrap them in a single `.bn-badge-row` element so they are evenly spaced and wrap cleanly: `'<span class="bn-badge-row">' . $chip_a . $chip_b . '</span>'`. It is a shared, token-driven, RTL-safe primitive in `bn-base.css`. Free also backstops the known overlay containers (`.bn-post-card__author`, `.bn-md-card__meta-overlay`, `.bn-md-card__labels`, `.bn-comment__author-meta`) with adjacent-chip spacing, so chips never collide even without the wrapper - but the wrapper is the recommended path and the only one that spaces chips consistently on every surface.
+
 ## The notification row
 
 `templates/parts/notification-row.php` is a pure presenter: every notification's message, deep-link URL, icon, tone, and pill label are pre-composed by `NotificationMessageService::compose()` (`includes/Notifications/NotificationMessageService.php`) and handed in via `$args['payload']`. The row exposes the standard four hooks (`buddynext_part_notification_row_{args,classes,before,after}`), but the important consequence is upstream:
