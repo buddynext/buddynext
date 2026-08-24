@@ -329,13 +329,18 @@ class AccessWebhookController {
 	 * recording the signature (see `replay_seen()`) is what stops it being used
 	 * twice inside that window.
 	 *
-	 * The old scheme is still accepted, because turning it off silently breaks
-	 * every existing integrator the moment they upgrade — a worse failure than
-	 * the window it closes, and one they cannot debug from a 401. Each legacy
-	 * call is logged as deprecated so an owner can see who still needs moving,
-	 * and an owner who knows they are done can refuse them today by setting
-	 * `buddynext_webhook_strict_signatures`. The default flips in a later
-	 * release.
+	 * Timestamped signatures are now REQUIRED by default (1.1.6): the body-only
+	 * fallback is refused unless a site explicitly re-enables it. A site still
+	 * mid-migration can keep accepting the legacy scheme by setting
+	 * `buddynext_webhook_strict_signatures` to '0', or per-request via the
+	 * `buddynext_require_signed_timestamp` filter — the opt-out for a straggler
+	 * finishing a move. Each legacy call that IS accepted is still logged as
+	 * deprecated so an owner can see who to move.
+	 *
+	 * This flip closes the replay window on upgraded sites too (fresh installs
+	 * were already strict via Installer::run()). It is a breaking change for a
+	 * sender still signing the body alone — that is the deliberate, owner-chosen
+	 * trade recorded on Basecamp 10227863022; note it in the release changelog.
 	 *
 	 * Returns a WP_Error when the secret is not configured or the request is
 	 * stale/replayed, false when no scheme matches, true when one does.
@@ -390,7 +395,16 @@ class AccessWebhookController {
 		}
 
 		// ── Legacy: body-only signature, no timestamp ──────────────────────────
-		if ( (bool) get_option( self::OPT_STRICT_SIGNATURES, false ) ) {
+		// Strict by default now (1.1.6). An upgraded site with legacy senders still
+		// mid-migration opts out by setting the option to '0', or per request via
+		// the filter. The option default is `true` so a site that never had the
+		// row (upgraded from before it existed) is strict, matching a fresh install.
+		$strict = (bool) apply_filters(
+			'buddynext_require_signed_timestamp',
+			(bool) get_option( self::OPT_STRICT_SIGNATURES, true ),
+			$request
+		);
+		if ( $strict ) {
 			return new WP_Error(
 				'timestamp_required',
 				__( 'This site requires a signed request timestamp.', 'buddynext' ),

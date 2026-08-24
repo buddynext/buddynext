@@ -1,32 +1,31 @@
 <?php
 /**
- * A signed inbound webhook must not be replayable on a default install.
+ * A signed inbound webhook is NOT replayable on a default install.
  *
- * Reproduces card 10227863022 as a code flow.
+ * Closes card 10227863022. `verify_signature()` prefers the timestamped scheme —
+ * HMAC of `{timestamp}.{body}`, with a freshness window and a replay log. When
+ * `X-BuddyNext-Timestamp` is absent it CAN still accept an HMAC of the body ALONE
+ * (which has nothing time-varying in it, so the same bytes verify forever) — but
+ * only if a site has explicitly re-enabled that legacy scheme. As of 1.1.6 the
+ * default is strict: `buddynext_webhook_strict_signatures` reads `true` when the
+ * row is absent, so a fresh install AND an upgraded site both refuse body-only.
  *
- * `verify_signature()` prefers the timestamped scheme — HMAC of
- * `{timestamp}.{body}`, with a freshness window and a replay log — and that half
- * works. The leftover is the fallback: when `X-BuddyNext-Timestamp` is absent it
- * accepts an HMAC of the body ALONE, and that path is reached unless the site
- * owner has turned on `buddynext_webhook_strict_signatures`, whose default is
- * `false`.
- *
- * A body-only signature has nothing time-varying in it, so the same bytes verify
- * forever. `$this->accepted_signature` is deliberately set to `''` on that branch,
- * which means the replay log never records it and cannot refuse it next time. One
- * captured `grant_ability` or `set_role` call can therefore be resent
- * indefinitely.
+ * The owner-chosen flip (Basecamp 10227863022): the earlier design left upgraded
+ * sites dual-accepting the legacy scheme so a pre-1.1.6 sender was not broken on
+ * upgrade. That window is now closed everywhere; a straggler mid-migration opts
+ * out by setting the option to '0' (or via the `buddynext_require_signed_timestamp`
+ * filter), which this test also pins.
  *
  * ## Scope, stated precisely
  *
- * This is not an unauthenticated hole. With no secret configured the route
- * answers 503, and forging a signature still needs the secret. It matters for
- * sites that already configured an inbound webhook — exactly the sites where the
- * route grants privileges — and where a request was captured in transit or from a
- * log.
+ * This was never an unauthenticated hole. With no secret configured the route
+ * answers 503, and forging a signature still needs the secret. It mattered for
+ * sites that already configured an inbound webhook and where a request was
+ * captured in transit or from a log. The exposure is EXACTLY replay of a
+ * legitimately-signed body-only request — and it is closed by default now.
  *
- * The existing `WebhookReplayProtectionTest` covers the NEW scheme. Nothing
- * covered the default.
+ * The existing `WebhookReplayProtectionTest` covers the NEW scheme. This covers
+ * the default and the opt-out.
  *
  * @package BuddyNext\Tests\Outbound
  */
@@ -44,7 +43,7 @@ use WP_UnitTestCase;
  *
  * @covers \BuddyNext\Outbound\AccessWebhookController::verify_signature
  */
-class BodyOnlySignatureIsReplayableByDefaultTest extends WP_UnitTestCase {
+class BodyOnlySignatureIsRejectedByDefaultTest extends WP_UnitTestCase {
 
 	/**
 	 * The shared secret.
@@ -117,20 +116,20 @@ class BodyOnlySignatureIsReplayableByDefaultTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * On an UPGRADED site, dual-accept is still on and the bytes replay.
+	 * On an UPGRADED site with no stored option, the legacy scheme is now REFUSED.
 	 *
-	 * Kept as a passing description of a known, deliberate state rather than a
-	 * failing assertion: existing sites have senders built against the body-only
-	 * scheme, and flipping the default underneath them would 401 every one of their
-	 * calls on upgrade. They keep dual-accept, with the deprecation warning already
-	 * written to the webhook log per request, until the default flips for everyone.
-	 *
-	 * What this pins is that the exposure is EXACTLY replay of a legitimately-signed
-	 * request - not forgery, and not an unauthenticated hole.
+	 * The owner-chosen flip (Basecamp 10227863022): the option default is `true`,
+	 * so an upgraded site that never stored a row is strict, exactly like a fresh
+	 * install. A body-only request is refused (401 timestamp_required) rather than
+	 * accepted-and-replayable. This is the tripwire that used to assert the opposite
+	 * — inverted deliberately when the default was flipped, not weakened.
 	 *
 	 * @return void
 	 */
-	public function test_an_upgraded_site_still_accepts_the_replayable_legacy_scheme(): void {
+	public function test_an_upgraded_site_now_refuses_the_legacy_scheme_by_default(): void {
+		// No option row — the upgraded-site state the fallback default governs.
+		delete_option( AccessWebhookController::OPT_STRICT_SIGNATURES );
+
 		$body = wp_json_encode(
 			array(
 				'source' => 'partner',
@@ -139,14 +138,26 @@ class BodyOnlySignatureIsReplayableByDefaultTest extends WP_UnitTestCase {
 			)
 		);
 
-		$first  = $this->verify( $this->body_only_request( (string) $body ) );
-		$second = $this->verify( $this->body_only_request( (string) $body ) );
+		$this->assertNotTrue(
+			$this->verify( $this->body_only_request( (string) $body ) ),
+			'An upgraded site with no stored option must now refuse the body-only scheme by default.'
+		);
+	}
 
-		$this->assertTrue( true === $first, 'Precondition: the first body-only request must be accepted, or the replay below proves nothing.' );
+	/**
+	 * A straggler mid-migration can still opt OUT: with the option set to '0', an
+	 * upgraded site keeps accepting the legacy body-only scheme while it finishes
+	 * moving its senders to the timestamped one. This is the escape hatch the flip
+	 * kept.
+	 *
+	 * @return void
+	 */
+	public function test_the_opt_out_still_accepts_the_legacy_scheme(): void {
+		update_option( AccessWebhookController::OPT_STRICT_SIGNATURES, '0' );
 
 		$this->assertTrue(
-			true === $second,
-			'Documented state, not an aspiration: an upgraded site accepts the replay. If this ever starts failing, the default was flipped for existing sites and every legacy sender broke on upgrade - which is the thing this arrangement exists to avoid.'
+			true === $this->verify( $this->body_only_request( '{"source":"partner"}' ) ),
+			'With strict signatures explicitly turned off, a correctly body-only-signed request is still accepted.'
 		);
 	}
 

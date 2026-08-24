@@ -41,7 +41,7 @@ class AccessWebhookTest extends \WP_Test_REST_TestCase {
 	 * refuses outright (`buddynext_webhook_strict_signatures` is seeded on for new
 	 * sites, so a captured request cannot be replayed for ever). The body-only
 	 * scheme keeps its own coverage in
-	 * BodyOnlySignatureIsReplayableByDefaultTest, where it is the subject rather
+	 * BodyOnlySignatureIsRejectedByDefaultTest, where it is the subject rather
 	 * than the transport.
 	 *
 	 * Each call gets a fresh timestamp so the replay log does not reject the second
