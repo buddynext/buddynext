@@ -33,6 +33,8 @@ use BuddyNext\Nav\NavRegistry;
  */
 final class ProfileNav {
 
+	use RendersDriveFiles;
+
 	/**
 	 * Hook the provider onto the one-time registration action.
 	 */
@@ -180,15 +182,14 @@ final class ProfileNav {
 				'layer'     => 'primary',
 				'label'     => __( 'Files', 'buddynext' ),
 				'priority'  => 45,
-				// Owner-only: WPMediaVerse Pro renders the viewer's OWN document
-				// drive ('my-drive'); it cannot render an arbitrary member's drive
-				// by id, and a stranger sees nothing anyway. The probe returns
-				// available markup only when the member has a usable document
-				// library, so the tab hides when documents are off (the contract's
-				// mvs_documents_unavailable case) with no extra call.
+				// Owner-only: the member's own document drive ('user:N'), rendered
+				// by BuddyNext's own Files UI. A stranger sees nothing, so the tab
+				// only shows on your own profile; it shows whenever the documents
+				// feature is available, with its own empty state when the drive is
+				// empty (the owner adds to it by attaching a document to a post).
 				'condition' => static fn( NavContext $c ): bool => $c->is_self()
 					&& buddynext_integration_enabled( 'media', 'nav' )
-					&& '' !== (string) apply_filters( 'mvs_documents_drive_html', '', 'my-drive', array( 'probe' => true ) ),
+					&& \BuddyNext\Bridges\WPMediaVerseBridge::documents_available(),
 				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'files' ),
 				'render'    => fn( NavContext $c ) => $this->render_files( $c ),
 			),
@@ -391,24 +392,25 @@ final class ProfileNav {
 	}
 
 	/**
-	 * Render the member's document drive (Files tab).
+	 * Render the member's own document drive (Files tab) — BuddyNext-native.
 	 *
-	 * WPMediaVerse Pro 2.4.0 renders the whole drive UI — folders, breadcrumb,
-	 * list, search, its own CSS + JS — through the `mvs_documents_drive_html`
-	 * filter, the same one WPMediaVerse's own dashboard uses. We pass the tab URL
-	 * as the base so the drive's internal links and pagination stay on this tab.
-	 * Only the owner's own drive is shown (see the tab condition).
+	 * The same shared Files UI the space tab uses (RendersDriveFiles), pointed at
+	 * the member's own drive (`user:N`). BuddyNext owns the whole surface;
+	 * WPMediaVerse only serves the data via REST. Self-only (see the tab
+	 * condition), so the drive id is the profile owner.
 	 *
 	 * @param NavContext $c Nav context.
 	 */
 	private function render_files( NavContext $c ): void {
-		// The drive markup styles itself with MVS's --mvs-* design tokens, which
-		// live in MVS's frontend stylesheet — present on MVS's own pages but not
-		// here, so without it the tabs and toolbar collapse to zero padding. Same
-		// handle MVS's own BuddyPress integration enqueues when it embeds drive UI.
-		wp_enqueue_style( 'mvs-frontend' );
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MVS returns pre-escaped drive markup.
-		echo apply_filters( 'mvs_documents_drive_html', '', 'my-drive', array( 'base' => $this->tab_url( $c->subject_id, 'files' ) ) );
+		// A document has a clean URL — /members/{slug}/files/{id}/ — carried in the
+		// bn_profile_sub path segment; ?bn_doc= stays a working alias.
+		$doc_id = (int) get_query_var( 'bn_profile_sub', 0 );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET alias for the clean-URL doc id.
+		if ( $doc_id <= 0 && isset( $_GET['bn_doc'] ) ) {
+			$doc_id = absint( wp_unslash( $_GET['bn_doc'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		}
+
+		$this->render_drive_files( 'user', $c->subject_id, $this->tab_url( $c->subject_id, 'files' ), $doc_id );
 	}
 
 	/**

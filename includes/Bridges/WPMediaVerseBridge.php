@@ -1229,6 +1229,22 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * May the current viewer see this member's OWN document drive?
+	 *
+	 * The profile Files tab is self-only: MediaVerse renders only the viewer's
+	 * own drive, and a stranger sees nothing anyway. So the drive is readable
+	 * exactly when the viewer IS the owner — every deeper access decision (a
+	 * private document inside it) still routes through MediaVerse's own gate on
+	 * each REST call.
+	 *
+	 * @param int $owner_id The profile owner.
+	 * @return bool
+	 */
+	private static function user_drive_ok( int $owner_id ): bool {
+		return $owner_id > 0 && get_current_user_id() === $owner_id;
+	}
+
+	/**
 	 * Answer MVS: access level for a space document drive — none|read|write|own.
 	 *
 	 * A level, not a bool, is the whole point: a member reads the shared drive,
@@ -1399,8 +1415,49 @@ class WPMediaVerseBridge {
 		if ( ! self::documents_available() || null === self::drive_space( 'space', $space_id ) ) {
 			return null;
 		}
+		return self::drive_view_core( 'space', $space_id, $folder, $page, $folder_page );
+	}
 
-		$drive       = 'space:' . $space_id;
+	/**
+	 * The member's OWN document drive, as plain data — the profile Files tab.
+	 *
+	 * Same BuddyNext-native rendering as the space drive, pointed at the user
+	 * drive (`user:N`). Self-only: the profile Files tab shows only the owner
+	 * their own drive (MediaVerse cannot render an arbitrary member's drive, and
+	 * a stranger sees nothing), so the caller passes the profile owner id and
+	 * this refuses unless the viewer IS that owner.
+	 *
+	 * @param int $owner_id    The profile owner (must equal the viewer).
+	 * @param int $folder      Folder to list (0 = drive root).
+	 * @param int $page        1-based document page.
+	 * @param int $folder_page 1-based folder page.
+	 * @return array{folders:array<int,array<string,mixed>>,documents:array<int,array<string,mixed>>,breadcrumbs:array<int,array{id:int,name:string}>,total:int,pages:int,page:int,folder:int,folder_total:int,folder_pages:int,folder_page:int,can_write:bool}|null
+	 */
+	public static function user_drive_view( int $owner_id, int $folder = 0, int $page = 1, int $folder_page = 1 ): ?array {
+		if ( ! self::documents_available() || ! self::user_drive_ok( $owner_id ) ) {
+			return null;
+		}
+		return self::drive_view_core( 'user', $owner_id, $folder, $page, $folder_page );
+	}
+
+	/**
+	 * Shared fetch+shape for one folder page of a drive, either kind.
+	 *
+	 * The caller has already decided the viewer may see this drive (space tab
+	 * enabled, or user drive is the viewer's own); this asks MediaVerse's REST
+	 * for the folder + document page and shapes it for the Files templates. Both
+	 * paginate independently (a drive can carry thousands of either), so a level
+	 * with 500 folders is never silently truncated.
+	 *
+	 * @param string $drive_type  'space' or 'user'.
+	 * @param int    $drive_id    Drive id (space id or owner id).
+	 * @param int    $folder      Folder to list (0 = drive root).
+	 * @param int    $page        1-based document page.
+	 * @param int    $folder_page 1-based folder page.
+	 * @return array<string,mixed>|null
+	 */
+	private static function drive_view_core( string $drive_type, int $drive_id, int $folder, int $page, int $folder_page ): ?array {
+		$drive       = $drive_type . ':' . $drive_id;
 		$page        = max( 1, $page );
 		$folder_page = max( 1, $folder_page );
 
@@ -1442,7 +1499,7 @@ class WPMediaVerseBridge {
 
 		// The current viewer's write level on this drive — the tab shows an
 		// upload affordance only when they may actually add to it.
-		$access = apply_filters( 'mvs_document_drive_access', 'none', 'space', $space_id, get_current_user_id() );
+		$access = apply_filters( 'mvs_document_drive_access', 'none', $drive_type, $drive_id, get_current_user_id() );
 
 		return array(
 			'folders'      => $folders,
@@ -1477,6 +1534,41 @@ class WPMediaVerseBridge {
 		if ( ! self::documents_available() || $doc_id <= 0 || null === self::drive_space( 'space', $space_id ) ) {
 			return null;
 		}
+		return self::drive_document_core( 'space', $space_id, $doc_id );
+	}
+
+	/**
+	 * One document from the member's OWN drive, for the profile single-file view.
+	 *
+	 * Self-only, same as {@see user_drive_view()}; confirms the document really
+	 * lives in this owner's user drive so a `?bn_doc=` cannot render a document
+	 * from another drive under the profile Files tab.
+	 *
+	 * @param int $owner_id The profile owner (must equal the viewer).
+	 * @param int $doc_id   Document id.
+	 * @return array<string,mixed>|null
+	 */
+	public static function user_drive_document( int $owner_id, int $doc_id ): ?array {
+		if ( ! self::documents_available() || $doc_id <= 0 || ! self::user_drive_ok( $owner_id ) ) {
+			return null;
+		}
+		return self::drive_document_core( 'user', $owner_id, $doc_id );
+	}
+
+	/**
+	 * Shared fetch+scope-check for one document of either drive kind.
+	 *
+	 * Asks MediaVerse's REST for the document (so its privacy gate + our drive
+	 * filters both run) and then confirms the row belongs to THIS drive — without
+	 * that check a `?bn_doc=` would render any document the viewer can read, from
+	 * any drive. Null on refusal or a cross-drive id.
+	 *
+	 * @param string $drive_type 'space' or 'user'.
+	 * @param int    $drive_id   Drive id (space id or owner id).
+	 * @param int    $doc_id     Document id.
+	 * @return array<string,mixed>|null
+	 */
+	private static function drive_document_core( string $drive_type, int $drive_id, int $doc_id ): ?array {
 		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/' . $doc_id );
 		$res = rest_do_request( $req );
 		if ( $res->is_error() ) {
@@ -1484,7 +1576,7 @@ class WPMediaVerseBridge {
 		}
 		$doc   = (array) $res->get_data();
 		$drive = isset( $doc['drive'] ) && is_array( $doc['drive'] ) ? $doc['drive'] : array();
-		if ( 'space' !== ( $drive['type'] ?? '' ) || (int) ( $drive['id'] ?? 0 ) !== $space_id ) {
+		if ( ( $drive['type'] ?? '' ) !== $drive_type || (int) ( $drive['id'] ?? 0 ) !== $drive_id ) {
 			return null;
 		}
 		return $doc;
@@ -1508,12 +1600,40 @@ class WPMediaVerseBridge {
 		if ( ! self::documents_available() || null === self::drive_space( 'space', $space_id ) ) {
 			return null;
 		}
+		return self::drive_search_core( 'space', $space_id, $query, $page );
+	}
+
+	/**
+	 * Search the member's OWN drive for the profile Files tab. Self-only.
+	 *
+	 * @param int    $owner_id The profile owner (must equal the viewer).
+	 * @param string $query    Search phrase.
+	 * @param int    $page     1-based page.
+	 * @return array{items:array<int,array<string,mixed>>,total:int,pages:int,page:int,query:string,ready:bool}|null
+	 */
+	public static function user_drive_search( int $owner_id, string $query, int $page = 1 ): ?array {
+		if ( ! self::documents_available() || ! self::user_drive_ok( $owner_id ) ) {
+			return null;
+		}
+		return self::drive_search_core( 'user', $owner_id, $query, $page );
+	}
+
+	/**
+	 * Shared drive-scoped search for either drive kind.
+	 *
+	 * @param string $drive_type 'space' or 'user'.
+	 * @param int    $drive_id   Drive id (space id or owner id).
+	 * @param string $query      Search phrase.
+	 * @param int    $page       1-based page.
+	 * @return array{items:array<int,array<string,mixed>>,total:int,pages:int,page:int,query:string,ready:bool}|null
+	 */
+	private static function drive_search_core( string $drive_type, int $drive_id, string $query, int $page = 1 ): ?array {
 		$page = max( 1, $page );
 		$req  = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/search' );
 		$req->set_query_params(
 			array(
 				'q'        => $query,
-				'drive'    => 'space:' . $space_id,
+				'drive'    => $drive_type . ':' . $drive_id,
 				'page'     => $page,
 				'per_page' => 50,
 			)

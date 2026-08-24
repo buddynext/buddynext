@@ -1728,6 +1728,14 @@ class PageRouter {
 					// and the @buddynext/members store (card follow/connect + overflow
 					// menus) so the panels are never unstyled.
 					$assets->enqueue( 'members' );
+					// The Files tab renders BuddyNext's own document drive + the
+					// single-document reader (bn-space-files.css + the
+					// @buddynext/space-files preview island), same as the space
+					// Files tab. Scoped to the files action so no other profile
+					// tab pays for it.
+					if ( 'files' === (string) get_query_var( 'bn_profile_action', '' ) ) {
+						$assets->enqueue( 'space-files' );
+					}
 				} else {
 					$assets->enqueue( 'members' );
 				}
@@ -2136,6 +2144,10 @@ class PageRouter {
 		add_rewrite_tag( '%bn_hashtag%', '([^/]+)' );
 		add_rewrite_tag( '%bn_user_slug%', '([^/]+)' );
 		add_rewrite_tag( '%bn_profile_action%', '([^/]*)' );
+		// A third profile path segment for a tab that addresses one entity by a
+		// clean URL — today the Files tab's document view
+		// (/members/{slug}/files/{id}/), mirroring %bn_space_sub% for spaces.
+		add_rewrite_tag( '%bn_profile_sub%', '([^/]+)' );
 		add_rewrite_tag( '%bn_space_slug%', '([^/]+)' );
 		add_rewrite_tag( '%bn_space_action%', '([^/]*)' );
 		// A third path segment for a tab that addresses a single entity by a clean
@@ -2273,6 +2285,14 @@ class PageRouter {
 		// deep-link without a ?tab= query arg. resolve_hub_template() sends
 		// 'edit' to the edit template; every other action renders the profile
 		// view, which activates the matching tab from bn_profile_action.
+		// Three-segment tab entity: /members/{slug}/files/{doc_id}/ deep-links the
+		// Files tab's single-document view. Registered BEFORE the two-segment rule
+		// so /members/x/files/882/ is not swallowed as a two-segment match.
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/files/([^/]+)/?$',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=files&bn_profile_sub=$matches[2]',
+			'top'
+		);
 		add_rewrite_rule(
 			'^' . preg_quote( $p, '/' ) . '/([^/]+)/([^/]+)/?$',
 			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=$matches[2]',

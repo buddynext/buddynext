@@ -32,6 +32,8 @@ use BuddyNext\Spaces\SpaceService;
  */
 final class SpaceNav {
 
+	use RendersDriveFiles;
+
 	/**
 	 * Matches per page for in-space search.
 	 *
@@ -708,137 +710,13 @@ final class SpaceNav {
 		// A document has a clean URL — /spaces/{slug}/files/{id}/ — carried in the
 		// bn_space_sub path segment; ?bn_doc= stays a working alias.
 		$doc_id = (int) get_query_var( 'bn_space_sub', 0 );
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET view controls.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET alias for the clean-URL doc id.
 		if ( $doc_id <= 0 && isset( $_GET['bn_doc'] ) ) {
-			$doc_id = absint( wp_unslash( $_GET['bn_doc'] ) );
-		}
-		$query  = isset( $_GET['bn_q'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_q'] ) ) : '';
-		$folder = isset( $_GET['bn_folder'] ) ? absint( wp_unslash( $_GET['bn_folder'] ) ) : 0;
-		$page   = isset( $_GET['bn_files_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_files_page'] ) ) ) : 1;
-		$fpage  = isset( $_GET['bn_folder_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_folder_page'] ) ) ) : 1;
-		// phpcs:enable WordPress.Security.NonceVerification.Recommended
-
-		$base_url = $this->tab_url( $space_id, 'files' );
-
-		// Single-file view — a real page, not a modal: it deep-links, it handles
-		// every type (PDF inline, the rest metadata + download), and it matches
-		// the URL-driven folder navigation above it.
-		if ( $doc_id > 0 ) {
-			$this->render_file_single_panel( $space_id, $doc_id );
-			return;
+			$doc_id = absint( wp_unslash( $_GET['bn_doc'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		}
 
-		// Search mode — a flat, drive-scoped result set instead of the folder
-		// listing. Same panel, so the search box stays put and the rows read the
-		// same. Empty query falls straight through to the folder listing.
-		if ( '' !== $query ) {
-			$search = \BuddyNext\Bridges\WPMediaVerseBridge::space_drive_search( $space_id, $query, $page );
-			if ( null === $search ) {
-				buddynext_get_template(
-					'parts/empty-state.php',
-					array(
-						'icon'  => 'folder',
-						'title' => __( 'No files to show', 'buddynext' ),
-						'body'  => __( 'Files shared with this space will appear here.', 'buddynext' ),
-					)
-				);
-				return;
-			}
-			buddynext_get_template(
-				'partials/space-files-tab.php',
-				array(
-					'bn_sf_space_id'     => $space_id,
-					'bn_sf_base_url'     => $base_url,
-					'bn_sf_search_q'     => $search['query'],
-					'bn_sf_search_ready' => $search['ready'],
-					'bn_sf_documents'    => $search['items'],
-					'bn_sf_folders'      => array(),
-					'bn_sf_breadcrumbs'  => array(),
-					'bn_sf_folder'       => 0,
-					'bn_sf_page'         => $search['page'],
-					'bn_sf_pages'        => $search['pages'],
-					'bn_sf_total'        => $search['total'],
-					'bn_sf_can_write'    => false,
-				)
-			);
-			return;
-		}
-
-		$view = \BuddyNext\Bridges\WPMediaVerseBridge::space_drive_view( $space_id, $folder, $page, $fpage );
-
-		if ( null === $view ) {
-			buddynext_get_template(
-				'parts/empty-state.php',
-				array(
-					'icon'  => 'folder',
-					'title' => __( 'No files to show', 'buddynext' ),
-					'body'  => __( 'Files shared with this space will appear here.', 'buddynext' ),
-				)
-			);
-			return;
-		}
-
-		buddynext_get_template(
-			'partials/space-files-tab.php',
-			array(
-				'bn_sf_space_id'     => $space_id,
-				'bn_sf_base_url'     => $base_url,
-				'bn_sf_folders'      => $view['folders'],
-				'bn_sf_documents'    => $view['documents'],
-				'bn_sf_breadcrumbs'  => $view['breadcrumbs'],
-				'bn_sf_folder'       => $view['folder'],
-				'bn_sf_page'         => $view['page'],
-				'bn_sf_pages'        => $view['pages'],
-				'bn_sf_total'        => $view['total'],
-				'bn_sf_folder_page'  => $view['folder_page'],
-				'bn_sf_folder_pages' => $view['folder_pages'],
-				'bn_sf_folder_total' => $view['folder_total'],
-				'bn_sf_can_write'    => $view['can_write'],
-			)
-		);
-	}
-
-	/**
-	 * Render the single-file view for one space document — its details plus the
-	 * inline preview. A cross-drive or unreadable id resolves to null and shows
-	 * "file not found", never another drive's document under this tab.
-	 *
-	 * The preview is BuddyNext's own chrome: the template ships an island that
-	 * fetches the `/preview` REST route MediaVerse exposes (carried on the
-	 * document as `links.preview`) and renders whatever it answers — a PDF, an
-	 * office rendition, rendered HTML, or a "no preview" card. BuddyNext owns
-	 * every pixel of this page; MediaVerse only serves the bytes, so BuddyNext
-	 * does not embed MediaVerse's viewer here (or replicate its type-to-tier map
-	 * — the preview response says which of the three it is).
-	 *
-	 * @param int $space_id Space ID.
-	 * @param int $doc_id   Document ID.
-	 * @return void
-	 */
-	private function render_file_single_panel( int $space_id, int $doc_id ): void {
-		$doc = \BuddyNext\Bridges\WPMediaVerseBridge::space_drive_document( $space_id, $doc_id );
-
-		if ( null === $doc ) {
-			buddynext_get_template(
-				'parts/empty-state.php',
-				array(
-					'icon'  => 'file-text',
-					'title' => __( 'File not found', 'buddynext' ),
-					'body'  => __( 'This file may have been moved or removed, or it is not shared with you.', 'buddynext' ),
-				)
-			);
-			return;
-		}
-
-		$folder = isset( $doc['folder'] ) ? (int) $doc['folder'] : 0;
-
-		buddynext_get_template(
-			'partials/space-file-single.php',
-			array(
-				'bn_fs_doc'      => $doc,
-				'bn_fs_base_url' => $this->tab_url( $space_id, 'files' ),
-				'bn_fs_folder'   => $folder,
-			)
-		);
+		// The whole Files tab — list, search, single document — is the shared
+		// drive renderer (RendersDriveFiles), pointed at this space's drive.
+		$this->render_drive_files( 'space', $space_id, $this->tab_url( $space_id, 'files' ), $doc_id );
 	}
 }
