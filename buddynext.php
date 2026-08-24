@@ -769,10 +769,19 @@ function buddynext_default_reg_mode(): string {
  * @return array<string,string> Option name => default value.
  */
 function buddynext_auth_panel_defaults(): array {
-	$tagline = wp_specialchars_decode( (string) get_bloginfo( 'description' ), ENT_QUOTES );
+	// Follow the COMMUNITY identity (Community Name / Description), not the raw WP
+	// site title/tagline — the login and sign-up panels are community surfaces, and
+	// buddynext_site_name() already falls back to the blog name when the community
+	// name is unset. The community description falls back to the blog tagline, then
+	// the product default. An owner who set the panel heading/tagline explicitly
+	// still wins (see buddynext_auth_panel_value()); these only seed the unset case.
+	$tagline = trim( (string) get_option( 'buddynext_description', '' ) );
+	if ( '' === $tagline ) {
+		$tagline = wp_specialchars_decode( (string) get_bloginfo( 'description' ), ENT_QUOTES );
+	}
 
 	return array(
-		'buddynext_auth_panel_heading' => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+		'buddynext_auth_panel_heading' => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 		'buddynext_auth_panel_tagline' => '' !== trim( $tagline ) ? $tagline : __( 'Next-generation community for WordPress.', 'buddynext' ),
 		'buddynext_auth_panel_quote'   => __( 'Join the conversation, build real connections, and grow in a community that is truly yours.', 'buddynext' ),
 		'buddynext_auth_panel_image'   => BUDDYNEXT_URL . 'assets/images/auth-cover.svg',
