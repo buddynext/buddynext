@@ -209,9 +209,9 @@ class ActivityAdmin implements ListenerInterface {
 					<tbody>
 						<?php
 						foreach ( $items as $row ) :
-							$pid      = (int) $row['id'];
-							$author   = get_userdata( (int) $row['user_id'] );
-							$sid      = (int) $row['space_id'];
+							$pid       = (int) $row['id'];
+							$author    = get_userdata( (int) $row['user_id'] );
+							$sid       = (int) $row['space_id'];
 							$permalink = PageRouter::post_url( $pid );
 							?>
 							<tr>
@@ -275,9 +275,29 @@ class ActivityAdmin implements ListenerInterface {
 		</div>
 
 		<?php
-		if ( $pages > 1 ) {
-			$this->render_pagination( $paged, $pages, $base_url, compact( 'search', 'type', 'status', 'space_id', 'date_from', 'date_to' ) );
-		}
+		// Shared windowed paginator (summary + numbered window), the same control
+		// the Members directory and every other admin list uses — not a bespoke
+		// prev/next, which is what made this screen look different. Rendered even on
+		// a single page so the "Showing X-Y of N" summary always answers "how many?".
+		$carry = array_filter(
+			array(
+				's'        => $search,
+				'type'     => $type,
+				'status'   => $status,
+				'space_id' => $space_id ?: '',
+				'from'     => $date_from,
+				'to'       => $date_to,
+			),
+			static fn( $v ): bool => '' !== (string) $v
+		);
+		AdminPageBase::render_pagination(
+			$paged,
+			$pages,
+			$total,
+			self::PER_PAGE,
+			static fn( int $p ): string => add_query_arg( array_merge( $carry, array( 'paged' => $p ) ), $base_url ),
+			__( 'Activity pagination', 'buddynext' )
+		);
 	}
 
 	/**
@@ -383,54 +403,6 @@ class ActivityAdmin implements ListenerInterface {
 	}
 
 	/**
-	 * Render prev/next pagination that preserves the active filters.
-	 *
-	 * @param int                  $paged   Current page.
-	 * @param int                  $pages   Total pages.
-	 * @param string               $base    Base tab URL.
-	 * @param array<string,mixed>  $filters Active filters to carry.
-	 * @return void
-	 */
-	private function render_pagination( int $paged, int $pages, string $base, array $filters ): void {
-		$carry = array_filter(
-			array(
-				's'        => (string) ( $filters['search'] ?? '' ),
-				'type'     => (string) ( $filters['type'] ?? '' ),
-				'status'   => (string) ( $filters['status'] ?? '' ),
-				'space_id' => ( (int) ( $filters['space_id'] ?? 0 ) ) ?: '',
-				'from'     => (string) ( $filters['date_from'] ?? '' ),
-				'to'       => (string) ( $filters['date_to'] ?? '' ),
-			),
-			static fn( $v ) => '' !== (string) $v
-		);
-		$page_url = static function ( int $p ) use ( $base, $carry ): string {
-			return esc_url( add_query_arg( array_merge( $carry, array( 'paged' => $p ) ), $base ) );
-		};
-		?>
-		<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Activity pages', 'buddynext' ); ?>">
-			<?php if ( $paged > 1 ) : ?>
-				<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo $page_url( $paged - 1 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_url() applied in closure. ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
-			<?php endif; ?>
-			<span class="bn-pagination__status">
-				<?php
-				echo esc_html(
-					sprintf(
-						/* translators: 1: current page, 2: total pages. */
-						__( 'Page %1$s of %2$s', 'buddynext' ),
-						number_format_i18n( $paged ),
-						number_format_i18n( $pages )
-					)
-				);
-				?>
-			</span>
-			<?php if ( $paged < $pages ) : ?>
-				<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo $page_url( $paged + 1 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_url() applied in closure. ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
-			<?php endif; ?>
-		</nav>
-		<?php
-	}
-
-	/**
 	 * Warm the user cache for every author on the page in one query.
 	 *
 	 * @param array<int,array<string,mixed>> $items Rows.
@@ -456,7 +428,7 @@ class ActivityAdmin implements ListenerInterface {
 		}
 		global $wpdb;
 		$in = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, name FROM {$wpdb->prefix}bn_spaces WHERE id IN ({$in})", $ids ), ARRAY_A );
 		$out  = array();
 		foreach ( (array) $rows as $r ) {
