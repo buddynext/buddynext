@@ -1363,6 +1363,13 @@ class WPMediaVerseBridge {
 	 * document capability), so an account without a library gets no control at
 	 * all rather than an offer-then-refuse.
 	 *
+	 * Attaching a document is a WRITE, so the control is also gated on MVS's
+	 * `writable` flag: on a read-only (unlicensed) site reads keep working but
+	 * writes 403 with `mvs_documents_read_only`, so the composer must hide the
+	 * attach control rather than offer it and eat the refusal. `writable` is a
+	 * newer MVS field — when absent (older MVS) the site is treated as writable,
+	 * so this never hides the control on a version that predates the flag.
+	 *
 	 * @return array{enabled:bool,accept:string,max_size:int}
 	 */
 	public static function document_composer_config(): array {
@@ -1381,6 +1388,11 @@ class WPMediaVerseBridge {
 		$data = (array) $res->get_data();
 		$docs = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
 		if ( empty( $docs['enabled'] ) ) {
+			return $off;
+		}
+		// Read-only site (unlicensed): reads work, writes 403. Hide the attach
+		// control up front. Absent on older MVS = writable (no regression there).
+		if ( array_key_exists( 'writable', $docs ) && empty( $docs['writable'] ) ) {
 			return $off;
 		}
 		$mimes = isset( $docs['allowed_mimes'] ) && is_array( $docs['allowed_mimes'] ) ? $docs['allowed_mimes'] : array();
