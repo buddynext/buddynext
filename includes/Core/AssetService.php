@@ -689,6 +689,7 @@ class AssetService {
 			'@buddynext/media-upload'       => 'media/upload-store',
 			'@buddynext/media-albums'       => 'media/albums-store',
 			'@buddynext/community-admin'    => 'community-admin/store',
+			'@buddynext/space-files'        => 'space-files/store',
 		);
 
 		// Feature stores that import from ../shell/dialog.js need the

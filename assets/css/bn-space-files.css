@@ -398,18 +398,86 @@ a.bn-files__name:focus-visible {
 	height: var(--bn-s4);
 }
 
-/* MediaVerse's own document viewer renders inside this container (pdf.js canvas
-   for PDF, rendered HTML for office/text). Its own stylesheet
-   (mvs-pro-document-viewer) styles the content; we only frame it and give it
-   room + a little padding for the HTML case. */
-.bn-file-single__preview--mvs {
+/* BuddyNext's own preview frame. The island (space-files/store.js) fills the
+   pane with an <iframe> (PDF / office rendition) or a rendered-HTML block; this
+   only frames it and gives the HTML case room + padding. */
+.bn-file-single__previewer {
 	margin-block-start: var(--bn-s4);
+}
+
+.bn-file-single__preview {
 	min-height: 40vh;
-	padding: var(--bn-s3);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
 	background: var(--bn-surface);
+	overflow: hidden;
+}
+
+/* The iframe fills the frame edge-to-edge; the HTML case gets breathing room. */
+.bn-file-single__frame {
+	display: block;
+	width: 100%;
+	height: 70vh;
+	border: 0;
+}
+
+.bn-file-single__html {
+	padding: var(--bn-s4);
 	overflow: auto;
+	max-height: 80vh;
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-body);
+}
+
+.bn-file-single__html pre {
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-family: var(--bn-font-mono);
+}
+
+.bn-file-single__html table {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.bn-file-single__html th,
+.bn-file-single__html td {
+	padding: var(--bn-s1) var(--bn-s2);
+	border: 1px solid var(--bn-line);
+	text-align: start;
+}
+
+/* Loading state — centred while the island fetches the preview. */
+.bn-file-single__preview-status {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s2);
+	min-height: 40vh;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-file-single__spinner {
+	width: var(--bn-s5);
+	height: var(--bn-s5);
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: var(--bn-r-full);
+	animation: bn-file-spin 0.7s linear infinite;
+}
+
+@keyframes bn-file-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bn-file-single__spinner {
+		animation: none;
+	}
 }
 
 .bn-file-single__no-preview {
@@ -461,8 +529,16 @@ a.bn-files__name:focus-visible {
 		justify-content: center;
 	}
 
-	.bn-file-single__preview--mvs {
+	.bn-file-single__preview,
+	.bn-file-single__preview-status {
 		min-height: 50vh;
+	}
+
+	.bn-file-single__frame {
+		height: 60vh;
+	}
+
+	.bn-file-single__html {
 		padding: var(--bn-s2);
 	}
 }

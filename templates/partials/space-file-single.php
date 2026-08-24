@@ -3,16 +3,21 @@
  * BuddyNext template partial: the space Files single-document view.
  *
  * A real, deep-linkable page (reached at ?bn_doc=N on the Files tab), not a
- * modal: the document's details, an inline preview where the type allows one
- * (PDF), and always a download. Everything the row could not show without
- * leaving the list.
+ * modal: the document's details, an inline preview where the type allows one,
+ * and always a download. Everything the row could not show without leaving the
+ * list.
+ *
+ * The preview is BuddyNext's OWN chrome around MediaVerse DATA: a small island
+ * fetches the `/preview` REST route (which BuddyNext already carries as
+ * `links.preview`) and renders whatever it answers — a PDF in an iframe, an
+ * office rendition PDF, rendered HTML for text/csv/markdown, or a "no preview"
+ * card. MediaVerse never renders into this page; it only serves the bytes.
  *
  * @package BuddyNext
  *
- * @var array<string,mixed> $bn_fs_doc         MVS document object.
- * @var string              $bn_fs_base_url    /spaces/{slug}/files/ .
- * @var int                 $bn_fs_folder      The document's folder (0 = drive root), for the back link.
- * @var string              $bn_fs_viewer_html MediaVerse DocumentViewer markup for the preview body ('' = none).
+ * @var array<string,mixed> $bn_fs_doc      MVS document object.
+ * @var string              $bn_fs_base_url /spaces/{slug}/files/ .
+ * @var int                 $bn_fs_folder   The document's folder (0 = drive root), for the back link.
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -55,12 +60,18 @@ if ( $bn_fs_aid > 0 ) {
 	$bn_fs_owner = $bn_fs_u ? $bn_fs_u->display_name : '';
 }
 
-// Cookie-auth GET needs the nonce, same as the list's download links.
+// Cookie-auth GET needs the nonce, same as the list's download links — one
+// nonce serves both the download link and the preview fetch below.
 $bn_fs_nonce  = wp_create_nonce( 'wp_rest' );
 $bn_fs_dl_url = isset( $bn_fs_doc['links']['download'] ) ? add_query_arg( '_wpnonce', $bn_fs_nonce, (string) $bn_fs_doc['links']['download'] ) : '';
-// The preview body is MediaVerse's own document viewer (pdf.js for PDF, rendered
-// HTML for office/text, a card for the rest) — resolved by the panel.
-$bn_fs_viewer = isset( $bn_fs_viewer_html ) ? (string) $bn_fs_viewer_html : '';
+$bn_fs_pv_url = isset( $bn_fs_doc['links']['preview'] ) ? add_query_arg( '_wpnonce', $bn_fs_nonce, (string) $bn_fs_doc['links']['preview'] ) : '';
+$bn_fs_ctx    = (string) wp_json_encode(
+	array(
+		'previewUrl' => $bn_fs_pv_url,
+		'title'      => $bn_fs_title,
+		'isPdf'      => ( 'pdf' === $bn_fs_type ),
+	)
+);
 
 $bn_fs_back_url = $bn_fs_folder > 0 ? add_query_arg( 'bn_folder', $bn_fs_folder, $bn_fs_base_url ) : $bn_fs_base_url;
 $bn_fs_date_out = '' !== $bn_fs_date ? mysql2date( (string) get_option( 'date_format' ), $bn_fs_date ) : '';
@@ -101,9 +112,24 @@ $bn_fs_date_out = '' !== $bn_fs_date ? mysql2date( (string) get_option( 'date_fo
 		<?php endif; ?>
 	</header>
 
-	<?php if ( '' !== $bn_fs_viewer ) : ?>
-		<div class="bn-file-single__preview bn-file-single__preview--mvs">
-			<?php echo $bn_fs_viewer; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaVerse's DocumentViewer returns its own sanitised, access-gated markup (pdf.js container / rendered HTML / card). ?>
+	<?php if ( '' !== $bn_fs_pv_url ) : ?>
+		<div
+			class="bn-file-single__previewer"
+			data-wp-interactive="buddynext/space-files"
+			data-wp-context='<?php echo esc_attr( $bn_fs_ctx ); ?>'
+			data-wp-init="callbacks.loadPreview"
+		>
+			<div class="bn-file-single__preview" data-bn-preview>
+				<div class="bn-file-single__preview-status">
+					<span class="bn-file-single__spinner" aria-hidden="true"></span>
+					<span><?php esc_html_e( 'Loading preview…', 'buddynext' ); ?></span>
+				</div>
+			</div>
+			<div class="bn-file-single__no-preview" data-bn-no-preview hidden>
+				<?php echo buddynext_icon( 'file-text' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?>
+				<p class="bn-file-single__no-preview-title"><?php esc_html_e( 'No preview for this file type', 'buddynext' ); ?></p>
+				<p class="bn-file-single__no-preview-body"><?php esc_html_e( 'Download the file to open it in the right app.', 'buddynext' ); ?></p>
+			</div>
 		</div>
 	<?php else : ?>
 		<div class="bn-file-single__no-preview">
