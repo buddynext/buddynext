@@ -271,6 +271,12 @@ class WPMediaVerseBridge {
 		// the time it fires), which is the exact link_url the card was keyed on.
 		add_action( 'mvs_media_deleted', array( $this, 'on_media_deleted' ), 10, 3 );
 
+		// A document TRASHED (not permanently deleted) now fires its own hook
+		// (WPMediaVerse Pro 2.4.0, added for us). Trash is the normal delete from
+		// the app + UI and used to fire nothing, so a composer document card would
+		// linger after its document was gone; remove it here by id.
+		add_action( 'mvs_document_trashed', array( $this, 'on_document_trashed' ), 10, 1 );
+
 		// Media links resolve to the activity the item was posted in, not a
 		// dedicated /media/{slug}/ page — every upload already becomes an activity
 		// (photo post or media card), so a standalone public page per item is
@@ -429,8 +435,7 @@ class WPMediaVerseBridge {
 		// A permanently deleted document is a media row too, so this same hook
 		// carries its id. Remove any composer document card keyed on it — by id,
 		// not URL, because the card stores only the id (privacy) and the source
-		// row is already gone. Trash fires no hook; a trashed document instead
-		// 404s on the next per-viewer render and shows the "unavailable" state.
+		// row is already gone. Trash is handled separately by on_document_trashed().
 		$media_id = (int) $media_id;
 		if ( $media_id > 0 ) {
 			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
@@ -441,6 +446,23 @@ class WPMediaVerseBridge {
 			return;
 		}
 		IntegrationActivity::remove( $permalink, 'media' );
+	}
+
+	/**
+	 * Remove a composer document card when its document is TRASHED.
+	 *
+	 * The permanent-delete hook above covers destroy; this covers trash — the
+	 * normal delete path — now that WPMediaVerse fires `mvs_document_trashed`.
+	 * Keyed by id, the only thing the card stores.
+	 *
+	 * @param int $media_id The trashed document id.
+	 * @return void
+	 */
+	public function on_document_trashed( $media_id ): void {
+		$media_id = (int) $media_id;
+		if ( $media_id > 0 ) {
+			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
+		}
 	}
 
 	/**
