@@ -49,6 +49,15 @@ class SpaceMemberService {
 	 */
 	private const MAX_MEMBERS_PER_QUERY = 200;
 
+	/**
+	 * Hard cap on an ID-ONLY roster page ({@see get_member_ids()}). Higher than
+	 * MAX_MEMBERS_PER_QUERY because a bare user_id column is cheap to read where a
+	 * hydrated roster row (name, nicename, avatar) is not — this is the read a
+	 * consumer walks in batches to compute a subset over a large space's whole
+	 * membership. Still bounded, so no caller loads a 50k roster in one query.
+	 */
+	private const MAX_MEMBER_IDS_PER_QUERY = 1000;
+
 	// ── Public membership API ───────────────────────────────────────────────
 
 	/**
@@ -1340,6 +1349,83 @@ class SpaceMemberService {
 		wp_cache_set( $cache_key, $members, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $members;
+	}
+
+	/**
+	 * A stable, ID-only page of a space's active member user IDs.
+	 *
+	 * The cheap read that lets a consumer walk EVERY member of a large space in
+	 * batches. get_members() clamps each page to MAX_MEMBERS_PER_QUERY (200) and
+	 * hydrates every row (name, nicename, avatar), so it cannot be used to compute
+	 * a SUBSET over a space past 200 members — e.g. intersecting the membership
+	 * with an external paid-enrolment set to split paid/free (Basecamp 10229921690).
+	 * That undercounted silently once a space passed 200; count_members() stayed
+	 * correct (COUNT(*)), so only the subset split was wrong.
+	 *
+	 * Returns only user_ids, ORDERED BY user_id so successive offsets never repeat
+	 * or skip a row (joined_at can tie; user_id is unique), and applies the SAME
+	 * active / block / role / suspension gates as get_members()/count_members() so
+	 * a full walk and count_members() agree. Walk until a page returns fewer than
+	 * `$limit` ids.
+	 *
+	 * @param int                  $space_id  Space ID.
+	 * @param int                  $viewer_id Viewing user ID; when non-zero, blocked users are excluded.
+	 * @param int                  $limit     Page size (>0). Clamped to MAX_MEMBER_IDS_PER_QUERY (1000); 0 uses the cap.
+	 * @param int                  $offset    Row offset.
+	 * @param array<string, mixed> $args      Optional role / exclude_suspended refinements (same keys as count_members()).
+	 * @return int[] Member user IDs for this page, ascending.
+	 */
+	public function get_member_ids( int $space_id, int $viewer_id = 0, int $limit = 0, int $offset = 0, array $args = array() ): array {
+		$limit  = ( $limit <= 0 ) ? self::MAX_MEMBER_IDS_PER_QUERY : min( $limit, self::MAX_MEMBER_IDS_PER_QUERY );
+		$offset = max( 0, $offset );
+
+		// Per-space version salt (the membership_rows() idiom) — invalidate_cache()
+		// bumps it on every join / leave / role change, retiring all pages at once.
+		$cache_key = 'member_ids_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $limit, $offset, $args ) ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+
+		$block_where = $this->member_block_where( $viewer_id );
+
+		$role_where = '';
+		$role       = isset( $args['role'] ) ? (string) $args['role'] : '';
+		if ( in_array( $role, self::ALLOWED_ROLES, true ) ) {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$role_where = $wpdb->prepare( ' AND sm.role = %s', $role );
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		$moderation_where = '';
+		if ( ! empty( $args['exclude_suspended'] ) ) {
+			$moderation_where = ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
+		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT sm.user_id
+				 FROM {$wpdb->prefix}bn_space_members sm
+				 WHERE sm.space_id = %d AND sm.status = 'active'
+				   {$block_where}{$role_where}{$moderation_where}
+				 ORDER BY sm.user_id ASC
+				 LIMIT %d OFFSET %d",
+				$space_id,
+				$limit,
+				$offset
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$ids = array_map( 'intval', (array) $ids );
+
+		wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $ids;
 	}
 
 	/**
