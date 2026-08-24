@@ -65,11 +65,22 @@ if ( $bn_fs_aid > 0 ) {
 $bn_fs_nonce  = wp_create_nonce( 'wp_rest' );
 $bn_fs_dl_url = isset( $bn_fs_doc['links']['download'] ) ? add_query_arg( '_wpnonce', $bn_fs_nonce, (string) $bn_fs_doc['links']['download'] ) : '';
 $bn_fs_pv_url = isset( $bn_fs_doc['links']['preview'] ) ? add_query_arg( '_wpnonce', $bn_fs_nonce, (string) $bn_fs_doc['links']['preview'] ) : '';
-$bn_fs_ctx    = (string) wp_json_encode(
+
+// Vendored PDF.js (assets/js/vendor/pdfjs/) renders PDFs to canvas for a clean
+// single-column read — the browser's embedded PDF chrome is unreadable in a
+// column this width. Dynamic-imported by the island only when a PDF is opened,
+// so no other view pays its weight; mtime-versioned so an update always reaches
+// the browser past the immutable module cache. Falls back to an <iframe> if it
+// fails to load, so the read never breaks outright.
+$bn_fs_pdf_url = BUDDYNEXT_URL . 'assets/js/vendor/pdfjs/';
+$bn_fs_pdf_ver = (string) ( @filemtime( BUDDYNEXT_DIR . 'assets/js/vendor/pdfjs/pdf.min.mjs' ) ?: '' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- missing file just yields an unversioned URL.
+$bn_fs_ctx     = (string) wp_json_encode(
 	array(
 		'previewUrl' => $bn_fs_pv_url,
 		'title'      => $bn_fs_title,
 		'isPdf'      => ( 'pdf' === $bn_fs_type ),
+		'pdfLib'     => add_query_arg( 'ver', $bn_fs_pdf_ver, $bn_fs_pdf_url . 'pdf.min.mjs' ),
+		'pdfWorker'  => add_query_arg( 'ver', $bn_fs_pdf_ver, $bn_fs_pdf_url . 'pdf.worker.min.mjs' ),
 	)
 );
 
