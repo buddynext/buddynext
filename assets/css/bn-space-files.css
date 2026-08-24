@@ -373,6 +373,39 @@ a.bn-files__name:focus-visible {
 	font-size: var(--bn-text-sm);
 }
 
+.bn-file-single__actions {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+/* Share — secondary (outline) so Download stays the primary accent action. */
+.bn-file-single__share {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.bn-file-single__share:hover,
+.bn-file-single__share:focus-visible {
+	background: var(--bn-sunken);
+	border-color: var(--bn-accent);
+}
+
+.bn-file-single__share svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
 .bn-file-single__download {
 	display: inline-flex;
 	align-items: center;
@@ -532,12 +565,248 @@ a.bn-files__name:focus-visible {
 	font-size: var(--bn-text-sm);
 }
 
+/* ── Share modal — BuddyNext's own sharing UI over MediaVerse's REST ───────── */
+.bn-share {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--bn-s4);
+}
+
+.bn-share[hidden] {
+	display: none;
+}
+
+.bn-share__backdrop {
+	position: absolute;
+	inset: 0;
+	background: var(--bn-overlay);
+}
+
+.bn-share__panel {
+	position: relative;
+	width: 100%;
+	max-width: 30rem;
+	max-height: 85vh;
+	overflow: auto;
+	padding: var(--bn-s5);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-canvas);
+	box-shadow: var(--bn-shadow-lg);
+}
+
+.bn-share__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-share__title {
+	margin: 0;
+	font-size: var(--bn-text-md);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-share__close {
+	display: inline-flex;
+	padding: var(--bn-s1);
+	border: 0;
+	background: transparent;
+	color: var(--bn-ink-3);
+	cursor: pointer;
+	border-radius: var(--bn-r-sm);
+}
+
+.bn-share__close:hover,
+.bn-share__close:focus-visible {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+}
+
+.bn-share__close svg {
+	width: var(--bn-s5);
+	height: var(--bn-s5);
+}
+
+.bn-share__error {
+	margin: 0 0 var(--bn-s3);
+	padding: var(--bn-s2) var(--bn-s3);
+	border-radius: var(--bn-r-sm);
+	background: var(--bn-danger-bg);
+	color: var(--bn-danger);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-share__error[hidden] {
+	display: none;
+}
+
+.bn-share__add {
+	display: flex;
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s3);
+}
+
+.bn-share__login {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-share__perm,
+.bn-share__link-perm {
+	padding: var(--bn-s2);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-share__add-btn,
+.bn-share__link-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 0;
+	border-radius: var(--bn-r-md);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.bn-share__add-btn:disabled,
+.bn-share__link-btn:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.bn-share__link-btn svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+.bn-share__grants {
+	list-style: none;
+	margin: 0 0 var(--bn-s4);
+	padding: 0;
+}
+
+.bn-share__grant {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) 0;
+	border-block-end: 1px solid var(--bn-line-faint);
+}
+
+.bn-share__grant-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-share__grant-perm {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-share__grant-remove {
+	border: 0;
+	background: transparent;
+	color: var(--bn-danger);
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-medium);
+	cursor: pointer;
+}
+
+.bn-share__empty {
+	padding: var(--bn-s3) 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	text-align: center;
+}
+
+.bn-share__link {
+	padding-block-start: var(--bn-s4);
+	border-block-start: 1px solid var(--bn-line);
+}
+
+.bn-share__link-controls {
+	display: flex;
+	gap: var(--bn-s2);
+}
+
+.bn-share__link-btn {
+	flex: 1 1 auto;
+	justify-content: center;
+}
+
+.bn-share__link-out {
+	display: flex;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s3);
+}
+
+.bn-share__link-out[hidden] {
+	display: none;
+}
+
+.bn-share__link-url {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-share__link-copy {
+	display: inline-flex;
+	padding: var(--bn-s2);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	cursor: pointer;
+}
+
+.bn-share__link-copy svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
 @media (max-width: 640px) {
 	.bn-file-single__head {
 		grid-template-columns: auto minmax(0, 1fr);
 		grid-template-areas:
 			"chip headings"
-			"dl   dl";
+			"act  act";
 		row-gap: var(--bn-s3);
 	}
 
@@ -549,8 +818,8 @@ a.bn-files__name:focus-visible {
 		grid-area: headings;
 	}
 
-	.bn-file-single__download {
-		grid-area: dl;
+	.bn-file-single__actions {
+		grid-area: act;
 		justify-content: center;
 	}
 

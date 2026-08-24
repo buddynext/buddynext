@@ -1404,6 +1404,33 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * May the current viewer make document WRITES right now.
+	 *
+	 * MVS's `documents.writable` (per-user `DocumentLicense::can_write()`): false
+	 * on a read-only (unlicensed) site, where reads work but writes 403. Gates
+	 * the composer attach control and the single-document Share control, so a
+	 * read-only member is never offered a write that would be refused. `writable`
+	 * is a newer MVS field — absent (older MVS) is treated as writable.
+	 *
+	 * @return bool
+	 */
+	public static function documents_writable(): bool {
+		if ( ! self::documents_available() ) {
+			return false;
+		}
+		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
+		if ( $res->is_error() ) {
+			return false;
+		}
+		$data = (array) $res->get_data();
+		$docs = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		if ( empty( $docs['enabled'] ) ) {
+			return false;
+		}
+		return ! array_key_exists( 'writable', $docs ) || ! empty( $docs['writable'] );
+	}
+
+	/**
 	 * The space document-drive view for the Files tab, as plain data.
 	 *
 	 * BuddyNext owns the space Files UI (MediaVerse ships none — see

@@ -162,7 +162,167 @@ async function renderPdf( pane, src, ctx ) {
 	}
 }
 
+/* ── Sharing (members + link) — BuddyNext's own modal over MediaVerse's
+ *    documents/{id}/permissions REST. Shown only when the viewer may grant. ─── */
+
+function shareEmptyLi( text ) {
+	const li = document.createElement( 'li' );
+	li.className = 'bn-share__empty';
+	li.textContent = text;
+	return li;
+}
+
+function shareGrantLi( ctx, g ) {
+	const li = document.createElement( 'li' );
+	li.className = 'bn-share__grant';
+
+	const name = document.createElement( 'span' );
+	name.className = 'bn-share__grant-name';
+	name.textContent = g.is_link
+		? ctx.i18n.link
+		: ( 'role' === g.grantee_type ? g.role : ( g.user_name || '#' + g.user_id ) );
+
+	const perm = document.createElement( 'span' );
+	perm.className = 'bn-share__grant-perm';
+	perm.textContent = ( ctx.levelLabels && ctx.levelLabels[ g.permission ] ) || g.permission;
+
+	const btn = document.createElement( 'button' );
+	btn.type = 'button';
+	btn.className = 'bn-share__grant-remove';
+	btn.textContent = ctx.i18n.remove;
+	btn.addEventListener( 'click', () => shareRevoke( ctx, g.id ) );
+
+	li.append( name, perm, btn );
+	return li;
+}
+
+async function shareErrorFrom( ctx, res ) {
+	let msg = ctx.i18n.error;
+	try {
+		const d = await res.json();
+		if ( d && d.message ) {
+			msg = d.message;
+		}
+	} catch ( e ) {}
+	ctx.shareError = msg;
+}
+
+async function shareLoadGrants( ctx ) {
+	const ul = document.querySelector( '[data-bn-grants]' );
+	if ( ! ul ) {
+		return;
+	}
+	try {
+		const res = await fetch( ctx.permsUrl, {
+			headers: { 'X-WP-Nonce': ctx.nonce },
+			credentials: 'same-origin',
+		} );
+		if ( ! res.ok ) {
+			ul.replaceChildren( shareEmptyLi( ctx.i18n.error ) );
+			return;
+		}
+		const grants = await res.json();
+		if ( ! Array.isArray( grants ) || ! grants.length ) {
+			ul.replaceChildren( shareEmptyLi( ctx.i18n.noShares ) );
+			return;
+		}
+		ul.replaceChildren( ...grants.map( ( g ) => shareGrantLi( ctx, g ) ) );
+	} catch ( e ) {
+		ul.replaceChildren( shareEmptyLi( ctx.i18n.error ) );
+	}
+}
+
+async function shareRevoke( ctx, id ) {
+	try {
+		const res = await fetch( ctx.permDelUrl + id, {
+			method: 'DELETE',
+			headers: { 'X-WP-Nonce': ctx.nonce },
+			credentials: 'same-origin',
+		} );
+		if ( ! res.ok ) {
+			await shareErrorFrom( ctx, res );
+			return;
+		}
+		shareLoadGrants( ctx );
+	} catch ( e ) {
+		ctx.shareError = ctx.i18n.error;
+	}
+}
+
 store( 'buddynext/space-files', {
+	actions: {
+		openShare() {
+			const ctx = getContext();
+			ctx.shareOpen = true;
+			ctx.shareError = '';
+			shareLoadGrants( ctx );
+		},
+		closeShare() {
+			getContext().shareOpen = false;
+		},
+		async addMember( event ) {
+			event.preventDefault();
+			const ctx = getContext();
+			const form = event.target;
+			const login = ( form.login.value || '' ).trim();
+			const permission = form.permission.value || 'view';
+			if ( ! login ) {
+				return;
+			}
+			ctx.shareError = '';
+			ctx.shareBusy = true;
+			try {
+				const res = await fetch( ctx.permsUrl, {
+					method: 'POST',
+					headers: { 'X-WP-Nonce': ctx.nonce, 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
+					body: JSON.stringify( { grantee_type: 'user', user_login: login, permission } ),
+				} );
+				if ( ! res.ok ) {
+					await shareErrorFrom( ctx, res );
+					return;
+				}
+				form.login.value = '';
+				shareLoadGrants( ctx );
+			} catch ( e ) {
+				ctx.shareError = ctx.i18n.error;
+			} finally {
+				ctx.shareBusy = false;
+			}
+		},
+		async createLink() {
+			const ctx = getContext();
+			const sel = document.querySelector( '.bn-share__link-perm' );
+			const permission = sel ? sel.value : 'view';
+			ctx.shareError = '';
+			ctx.shareBusy = true;
+			try {
+				const res = await fetch( ctx.permsUrl + '/link', {
+					method: 'POST',
+					headers: { 'X-WP-Nonce': ctx.nonce, 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
+					body: JSON.stringify( { permission } ),
+				} );
+				if ( ! res.ok ) {
+					await shareErrorFrom( ctx, res );
+					return;
+				}
+				const data = await res.json();
+				ctx.shareLink = ( data && data.url ) || '';
+				shareLoadGrants( ctx );
+			} catch ( e ) {
+				ctx.shareError = ctx.i18n.error;
+			} finally {
+				ctx.shareBusy = false;
+			}
+		},
+		copyLink() {
+			const ctx = getContext();
+			if ( ctx.shareLink && navigator.clipboard ) {
+				navigator.clipboard.writeText( ctx.shareLink ).catch( () => {} );
+			}
+		},
+	},
 	callbacks: {
 		async loadPreview() {
 			// Capture scope BEFORE any await — getContext()/getElement() are only
