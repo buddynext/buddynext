@@ -2715,11 +2715,58 @@ class ProfileService {
 	}
 
 	/**
+	 * Migrate a field's stored values when its TYPE changes, so existing values
+	 * survive the change instead of becoming unreadable in the new type's format.
+	 *
+	 * The conversion this exists for: a system field like `location` is text-only
+	 * and cannot be deleted, so the way to make it a map is to CHANGE ITS TYPE,
+	 * not create a duplicate map field. A location (map) field stores
+	 * {address,lat,lng} JSON; a plain-text location ("Lucknow, ...") is wrapped as
+	 * that address with no coordinates, so the hero and About keep showing it
+	 * immediately and the pin fills in when the member next edits and the geocoder
+	 * resolves the address (no synchronous geocoding of every value at change time,
+	 * which would hammer the geocoder).
+	 *
+	 * Other conversions leave values untouched — FieldType::display_text() degrades
+	 * a mismatched value gracefully rather than this guessing a lossy transform.
+	 *
+	 * One bulk UPDATE, so a field with 100k values migrates without a per-row loop.
+	 * Idempotent: a value already in JSON-object form (starts with '{') is skipped.
+	 *
+	 * @param int    $field_id  Field whose type changed.
+	 * @param string $from_type Previous type.
+	 * @param string $to_type   New type.
+	 * @return void
+	 */
+	public function convert_field_values( int $field_id, string $from_type, string $to_type ): void {
+		if ( $field_id <= 0 || $from_type === $to_type ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// text-like -> location: wrap the address string as the map field's JSON.
+		if ( 'location' === $to_type && in_array( $from_type, array( 'text', 'textarea', 'url' ), true ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_profile_values
+						SET value = JSON_OBJECT('address', value, 'lat', NULL, 'lng', NULL)
+					  WHERE field_id = %d
+						AND value <> ''
+						AND LEFT(value, 1) <> '{'",
+					$field_id
+				)
+			);
+		}
+	}
+
+	/**
 	 * Update a profile field definition.
 	 *
 	 * Allowed $data keys: label, type, options (null, array, or JSON string),
 	 * description, placeholder, is_required, is_searchable, show_on_register,
-	 * visibility, sort_order.
+	 * show_in_header, visibility, sort_order.
 	 * Unknown keys are ignored.
 	 * When 'options' is an array it is json_encoded before saving.
 	 * Busts 'all_fields' cache key.

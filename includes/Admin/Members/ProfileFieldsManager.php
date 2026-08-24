@@ -1231,6 +1231,15 @@ class ProfileFieldsManager {
 			array( '%d' )
 		);
 
+		// The type changed (e.g. a text `location` field upgraded to a map, so it
+		// need not be duplicated) — migrate existing values into the new type's
+		// storage format so they survive the change. No-op for conversions that
+		// need no migration. Only when both types are known: an unknown stored type
+		// is round-tripped above, not really changed.
+		if ( $type_is_known && $stored_type_is_known && $stored_type !== $type ) {
+			buddynext_service( 'profiles' )->convert_field_values( $field_id, $stored_type, $type );
+		}
+
 		// is_searchable changed → ProfileService rebuilds the searchable mirror
 		// for affected users via the searchable_mirror contract.
 		do_action( 'buddynext_profile_field_updated', $field_id );
