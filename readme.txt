@@ -59,7 +59,22 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 = 1.1.6 - August 2026 =
 
-* New      - An admin can mark a member's email address as verified from the member editor, for the case a verification email never arrives. The 1.1.5 notes described this control before it existed; the entry below has been corrected and the control now ships.
+Documents you can share and read inline, a profile header the owner controls, and replay-proof webhooks by default. Lockstep with BuddyNext Pro 1.1.6 - install and test both together.
+
+* New      - Share a document with specific members at a chosen permission, or with anyone through a link, from its page in the Files tab.
+* New      - Choose which profile fields appear in the profile header, and in what order, from the field editor.
+* New      - Change a profile field's type in place, for example a text location into an interactive map, without losing what members already entered.
+* New      - An admin can mark a member's email address as verified from the member editor, for the case a verification email never arrives. The 1.1.5 notes described this control before it existed; the entry has been corrected and the control now ships.
+* Improve  - Documents open in a clean built-in reader: a PDF renders as a readable single column instead of the browser's embedded viewer, and office and text files render inline.
+* Improve  - The profile Files tab is now part of BuddyNext's own interface and matches the rest of the community.
+* Improve  - The admin Activity list uses the same paged control as every other admin list, with a row-count summary and numbered pages.
+* Fix      - A members-only post in a space now shows on its hashtag page to members of that space, instead of being hidden from everyone.
+* Fix      - The document-attach control is hidden on a site whose document storage is read-only, so a member is not offered an upload that would be refused.
+* Security - Inbound access-webhook calls must carry a replay-proof, timestamped signature by default; a site still sending the older body-only signature can re-enable it while it migrates its callers.
+* Dev      - New filter `buddynext_profile_hero_fields` controls the list of profile fields shown in the profile header.
+* Dev      - New filter `buddynext_require_signed_timestamp` keeps the legacy body-only webhook signature accepted per request during a migration.
+* Dev      - `SpaceMemberService::get_member_ids()` walks a large space's full membership one page at a time, past the roster read cap.
+* Compat   - Aligned with BuddyNext Pro 1.1.6. Install both updates together.
 
 = 1.1.5 - August 2026 =
 
