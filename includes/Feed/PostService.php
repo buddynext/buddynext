@@ -38,6 +38,14 @@ class PostService {
 		'text',
 		'photo',
 		'file',
+		// A document shared from the composer via WPMediaVerse's document drive.
+		// Its own type, per the bridge contract, so Explore + the feed classify it
+		// and it renders as a link-OUT document card (never the embedded file list
+		// that 'file' uses). The card is resolved per-viewer at render — the post
+		// stores only the document id, never a title, so a private document's name
+		// cannot be snapshotted into a feed someone else can read. See
+		// WPMediaVerseBridge::render_document_card().
+		'document',
 		'link',
 		'poll',
 		'announcement',

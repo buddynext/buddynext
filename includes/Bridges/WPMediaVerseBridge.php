@@ -197,6 +197,12 @@ class WPMediaVerseBridge {
 		add_filter( 'mvs_document_drives_for_user', array( $this, 'space_drives_for_user' ), 10, 2 );
 		add_filter( 'mvs_document_drive_label', array( $this, 'space_drive_label' ), 10, 3 );
 
+		// A document shared from the composer renders as a link-out card. The
+		// post stores only the document id; this seam resolves the card PER VIEWER
+		// so a private document's title is never snapshotted into someone else's
+		// feed. Gated inside on the 'media' integration/feed toggle.
+		add_filter( 'buddynext_render_post_body_document', array( $this, 'render_document_card' ), 10, 2 );
+
 		// Keep the WPMediaVerse follow graph (mvs_follows) and BuddyNext's
 		// (bn_follows) in sync both ways. MVS profiles and BN profiles otherwise
 		// show divergent follow state for the same pair. A re-entrancy guard plus
@@ -420,6 +426,16 @@ class WPMediaVerseBridge {
 	 * @return void
 	 */
 	public function on_media_deleted( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		// A permanently deleted document is a media row too, so this same hook
+		// carries its id. Remove any composer document card keyed on it — by id,
+		// not URL, because the card stores only the id (privacy) and the source
+		// row is already gone. Trash fires no hook; a trashed document instead
+		// 404s on the next per-viewer render and shows the "unavailable" state.
+		$media_id = (int) $media_id;
+		if ( $media_id > 0 ) {
+			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
+		}
+
 		$permalink = (string) $permalink;
 		if ( '' === $permalink ) {
 			return;
@@ -1458,6 +1474,123 @@ class WPMediaVerseBridge {
 			'query' => (string) $query,
 			'ready' => ! empty( $index['ready'] ),
 		);
+	}
+
+	/**
+	 * Validate + prepare a composer document attachment for a post.
+	 *
+	 * Called at post-create time (as the poster): confirms the poster can
+	 * actually see the document they claim to attach — otherwise a crafted
+	 * `document_id` could smuggle someone else's document into a post, and every
+	 * viewer who CAN see it would then read its title in the feed. Returns the
+	 * link_meta to persist (just the id — never a title snapshot), or null to
+	 * refuse the attachment.
+	 *
+	 * @param int $doc_id Document id from the composer.
+	 * @return array{doc_id:int}|null
+	 */
+	public static function resolve_document_for_post( int $doc_id ): ?array {
+		if ( $doc_id <= 0 || ! self::documents_available() ) {
+			return null;
+		}
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/' . $doc_id );
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return null;
+		}
+		return array( 'doc_id' => $doc_id );
+	}
+
+	/**
+	 * Fetch one document AS THE CURRENT VIEWER, request-cached.
+	 *
+	 * The whole privacy model of the document card: the feed stores only the id,
+	 * and every render asks MVS "may THIS viewer see it" — so a document that is
+	 * private, trashed, or gone answers with an error and its title never
+	 * reaches a feed the viewer should not see it in. Cached per (viewer, id) so
+	 * the same document rendered twice on a page is one request, not two.
+	 *
+	 * @param int $doc_id Document id.
+	 * @return array<string,mixed>|null The document, or null when the viewer may not see it.
+	 */
+	private static function fetch_document_as_viewer( int $doc_id ): ?array {
+		static $cache = array();
+		if ( $doc_id <= 0 || ! self::documents_available() ) {
+			return null;
+		}
+		$key = get_current_user_id() . ':' . $doc_id;
+		if ( array_key_exists( $key, $cache ) ) {
+			return $cache[ $key ];
+		}
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/' . $doc_id );
+		$res = rest_do_request( $req );
+		$doc = $res->is_error() ? null : (array) $res->get_data();
+
+		$cache[ $key ] = $doc;
+		return $doc;
+	}
+
+	/**
+	 * Render a composer document post as a link-out card — per viewer.
+	 *
+	 * Hooked on `buddynext_render_post_body_document`. Reads only the stored
+	 * document id, asks MVS whether THIS viewer may see it, and renders the
+	 * shared bridge card (icon + "Document" + the real title + a download link)
+	 * when they may — or a neutral, title-less "unavailable" line when they may
+	 * not, so a private document never leaks its name into a feed. Falls back to
+	 * the plain-text body when the integration's feed aspect is off.
+	 *
+	 * @param string              $html Incoming card HTML (default '').
+	 * @param array<string,mixed> $args Post-body args (link_meta, post_content, bn_post_type).
+	 * @return string
+	 */
+	public function render_document_card( string $html, array $args ): string {
+		if ( ! buddynext_integration_enabled( 'media', 'feed' ) ) {
+			return $html;
+		}
+		$meta   = isset( $args['link_meta'] ) && is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
+		$doc_id = isset( $meta['doc_id'] ) ? (int) $meta['doc_id'] : 0;
+		if ( $doc_id <= 0 ) {
+			return $html;
+		}
+
+		$doc = self::fetch_document_as_viewer( $doc_id );
+		if ( null === $doc ) {
+			return self::render_document_unavailable();
+		}
+
+		$title = isset( $doc['title'] ) && '' !== (string) $doc['title'] ? (string) $doc['title'] : __( 'Document', 'buddynext' );
+		$size  = isset( $doc['file_size'] ) ? (int) $doc['file_size'] : 0;
+		$link  = isset( $doc['links']['download'] ) ? (string) $doc['links']['download'] : '';
+		if ( '' === $link ) {
+			return self::render_document_unavailable();
+		}
+		// A cookie-auth GET needs a nonce (same as the Files tab download links).
+		$url = add_query_arg( '_wpnonce', wp_create_nonce( 'wp_rest' ), $link );
+
+		// Reference, not embed: the card links OUT to the document; BuddyNext
+		// never renders its bytes. Build the preview fresh, per viewer.
+		$args['link_preview'] = array(
+			'url'   => $url,
+			'title' => $title,
+			'desc'  => $size > 0 ? size_format( $size ) : '',
+		);
+
+		return IntegrationActivity::render_bridge_card( $args, 'file-text', __( 'Document', 'buddynext' ) );
+	}
+
+	/**
+	 * The neutral, title-less card a viewer sees for a document they cannot open.
+	 *
+	 * Never names the document — existence is tolerable, the name is the leak.
+	 *
+	 * @return string
+	 */
+	private static function render_document_unavailable(): string {
+		return '<div class="bn-post-card__bridge-card bn-post-card__bridge-card--document is-unavailable">'
+			. '<span class="bn-post-card__bridge-icon">' . buddynext_get_icon( 'file-text' ) . '</span>'
+			. '<span class="bn-post-card__bridge-title">' . esc_html__( 'This document isn’t available to you.', 'buddynext' ) . '</span>'
+			. '</div>';
 	}
 
 	/**

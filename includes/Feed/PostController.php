@@ -85,6 +85,11 @@ class PostController extends BaseRestController {
 						'description' => __( 'Resolved link-preview metadata (title, description, thumbnail).', 'buddynext' ),
 						'required'    => false,
 					),
+					'document_id'             => array(
+						'type'        => 'integer',
+						'description' => __( 'WPMediaVerse document ID attached from the composer (type=document).', 'buddynext' ),
+						'required'    => false,
+					),
 					'options'                 => array(
 						'type'        => 'array',
 						'description' => __( 'Poll option labels (type=poll).', 'buddynext' ),
@@ -241,6 +246,22 @@ class PostController extends BaseRestController {
 			// Optional announcement expiry (UTC datetime); only honoured for type=announcement.
 			'announcement_expires_at' => $request->get_param( 'announcement_expires_at' ),
 		);
+
+		// A document attachment resolves to an id-only link_meta — never a title
+		// snapshot, because the card is rendered per viewer. The bridge validates
+		// the poster can actually see the document, so a crafted id cannot smuggle
+		// someone else's document into a post.
+		$document_id = (int) ( $request->get_param( 'document_id' ) ?? 0 );
+		if ( 'document' === $data['type'] || $document_id > 0 ) {
+			$doc_meta = class_exists( '\BuddyNext\Bridges\WPMediaVerseBridge' )
+				? \BuddyNext\Bridges\WPMediaVerseBridge::resolve_document_for_post( $document_id )
+				: null;
+			if ( null === $doc_meta ) {
+				return new WP_Error( 'buddynext_document_unavailable', __( 'That document could not be attached.', 'buddynext' ), array( 'status' => 400 ) );
+			}
+			$data['type']      = 'document';
+			$data['link_meta'] = $doc_meta;
+		}
 
 		$service = function_exists( 'buddynext_service' )
 			? buddynext_service( 'post_service' )
