@@ -530,6 +530,15 @@ class MessagesData {
 		$is_request = ( 'request_pending' === $viewer_status );
 
 		foreach ( $rows as $m ) {
+			// An "unsend" (delete for everyone) leaves no trace: MediaVerse blanks
+			// the row's content, so rendering it here would show an empty bubble on
+			// a reload within the unsend window. Skip it entirely. This is distinct
+			// from a per-user delete, which keeps a "message deleted" tombstone and
+			// travels on is_deleted, not deleted_for_all.
+			if ( 1 === (int) self::val( $m, 'deleted_for_all', 0 ) ) {
+				continue;
+			}
+
 			$reactions = array();
 			foreach ( (array) self::val( $m, 'reactions', array() ) as $r ) {
 				$slug = (string) self::val( $r, 'emoji', '' );
