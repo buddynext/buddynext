@@ -60,11 +60,14 @@ class SetupWizardTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Calling advance() writes the new step to wp_options.
+	 * Calling advance() writes the new step KEY to wp_options.
+	 *
+	 * Progress is persisted as the step key (not a positional integer) so that
+	 * inserting or removing a step never shifts an in-flight wizard.
 	 */
 	public function test_advance_saves_step_to_options(): void {
 		$this->wizard->advance();
-		$this->assertSame( 2, (int) get_option( 'buddynext_setup_step' ) );
+		$this->assertSame( 'registration', get_option( 'buddynext_setup_step' ) );
 	}
 
 	/**
@@ -123,13 +126,42 @@ class SetupWizardTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Calling advance() more than TOTAL_STEPS times does not exceed the max.
+	 * Calling advance() more times than there are steps clamps at the last step.
 	 */
 	public function test_advance_does_not_exceed_max_step(): void {
-		for ( $i = 0; $i < 10; $i++ ) {
+		for ( $i = 0; $i < $this->wizard->step_count() + 5; $i++ ) {
 			$this->wizard->advance();
 		}
-		$this->assertLessThanOrEqual( SetupWizard::TOTAL_STEPS, $this->wizard->get_current_step() );
+		$this->assertSame( $this->wizard->step_count(), $this->wizard->get_current_step() );
+	}
+
+	/**
+	 * A legacy positional integer left in the step option resumes at the right
+	 * key (back-compat for installs saved mid-wizard on the old scheme).
+	 */
+	public function test_legacy_numeric_step_maps_to_key(): void {
+		update_option( 'buddynext_setup_step', 2 );
+		$this->assertSame( 'registration', $this->wizard->current_step_key() );
+		$this->assertSame( 2, $this->wizard->get_current_step() );
+	}
+
+	/**
+	 * The step list is filterable: an add-on can append a keyed step.
+	 */
+	public function test_steps_are_filterable(): void {
+		$cb = function ( array $steps ): array {
+			$steps['my_addon'] = array(
+				'label'  => 'My Addon',
+				'render' => static function (): void {},
+				'save'   => null,
+			);
+			return $steps;
+		};
+		add_filter( 'buddynext_setup_wizard_steps', $cb );
+
+		$this->assertArrayHasKey( 'my_addon', $this->wizard->steps() );
+
+		remove_filter( 'buddynext_setup_wizard_steps', $cb );
 	}
 
 	/**

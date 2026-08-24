@@ -3,9 +3,12 @@
  * Admin setup wizard.
  *
  * Tracks the one-time admin configuration wizard. State is stored in
- * wp_options. The wizard has TOTAL_STEPS steps and completes by calling
- * finish(), which sets buddynext_setup_complete=1 and fires the
- * buddynext_onboarding_completed action.
+ * wp_options. The step list is a keyed, filterable registry (steps()), so Pro
+ * and add-ons can append, remove, or reorder steps via the
+ * buddynext_setup_wizard_steps filter without editing core; progress is stored
+ * as the step KEY, so inserting or removing a step never corrupts an in-flight
+ * wizard. The wizard completes by calling finish(), which sets
+ * buddynext_setup_complete=1 and fires the buddynext_onboarding_completed action.
  *
  * @package BuddyNext\Onboarding
  */
@@ -20,12 +23,11 @@ namespace BuddyNext\Onboarding;
 class SetupWizard {
 
 	/**
-	 * Total number of wizard steps.
-	 */
-	public const TOTAL_STEPS = 8;
-
-	/**
-	 * Option key tracking the current step.
+	 * Option key tracking the current step. Stores the step KEY (e.g. 'branding').
+	 *
+	 * Historically this held a 1-based positional integer; current_step_key()
+	 * maps such a legacy value onto the equivalent key so an install saved
+	 * mid-wizard on the old scheme resumes at the right step.
 	 */
 	private const OPTION_STEP = 'buddynext_setup_step';
 
@@ -135,25 +137,212 @@ class SetupWizard {
 	}
 
 	/**
-	 * Return the current wizard step (1-based).
+	 * The wizard's step registry: an ordered map of key => step definition.
+	 *
+	 * Each step declares its label, a render callback (draws the step body) and
+	 * an optional save callback (persists that step's form data). A callback is
+	 * either the name of a method on this class or any callable — an add-on
+	 * step passes its own closure, which is invoked with the wizard instance.
+	 *
+	 * The list is filterable so Pro / add-ons can append, remove, or reorder
+	 * steps without touching core. Entries missing a key or label, whose render
+	 * callback is not callable, or duplicating an earlier key, are dropped — the
+	 * same validation contract OnboardingService::step_list() uses. Order is
+	 * preserved (insertion order); the last step is treated as the finish step.
+	 *
+	 * @return array<string, array{label:string, render:callable|string, save:callable|string|null}>
+	 */
+	public function steps(): array {
+		$steps = array(
+			'branding'       => array(
+				'label'  => __( 'Branding', 'buddynext' ),
+				'render' => 'render_step_branding',
+				'save'   => 'save_step_branding',
+			),
+			'registration'   => array(
+				'label'  => __( 'Registration', 'buddynext' ),
+				'render' => 'render_step_registration',
+				'save'   => 'save_step_registration',
+			),
+			'profile_fields' => array(
+				'label'  => __( 'Profile Fields', 'buddynext' ),
+				'render' => 'render_step_profile_fields',
+				'save'   => null,
+			),
+			'notifications'  => array(
+				'label'  => __( 'Notifications', 'buddynext' ),
+				'render' => 'render_step_notifications',
+				'save'   => 'save_step_notifications',
+			),
+			'spaces'         => array(
+				'label'  => __( 'Spaces', 'buddynext' ),
+				'render' => 'render_step_spaces',
+				'save'   => 'save_step_spaces',
+			),
+			'pages'          => array(
+				'label'  => __( 'Pages', 'buddynext' ),
+				'render' => 'render_step_pages',
+				'save'   => 'save_step_pages',
+			),
+			'addons'         => array(
+				'label'  => __( 'Addons', 'buddynext' ),
+				'render' => 'render_step_addons',
+				'save'   => null,
+			),
+			'done'           => array(
+				'label'  => __( 'Done', 'buddynext' ),
+				'render' => 'render_step_done',
+				'save'   => null,
+			),
+		);
+
+		/**
+		 * Filter the admin setup wizard's step list.
+		 *
+		 * Mirrors buddynext_onboarding_steps (the member wizard). Append, remove,
+		 * or reorder keyed steps; each entry needs a 'label' and a callable
+		 * 'render', with an optional 'save'. Entries missing key/label, with a
+		 * non-callable render, or a duplicate key, are dropped. The last step is
+		 * the finish step.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param array<string, array{label:string, render:callable|string, save:callable|string|null}> $steps Keyed step registry.
+		 */
+		$filtered = (array) apply_filters( 'buddynext_setup_wizard_steps', $steps );
+
+		$clean = array();
+		foreach ( $filtered as $key => $def ) {
+			$key = (string) $key;
+			if ( '' === $key || isset( $clean[ $key ] ) || ! is_array( $def ) ) {
+				continue;
+			}
+			$label  = (string) ( $def['label'] ?? '' );
+			$render = $def['render'] ?? null;
+			if ( '' === $label || ! $this->step_callable( $render ) ) {
+				continue;
+			}
+			$clean[ $key ] = array(
+				'label'  => $label,
+				'render' => $render,
+				'save'   => $def['save'] ?? null,
+			);
+		}
+
+		// A filter that dropped every step would strand the wizard; fall back to
+		// the built-in registry rather than render nothing.
+		return array() === $clean ? $steps : $clean;
+	}
+
+	/**
+	 * The ordered list of step keys.
+	 *
+	 * @return array<int, string>
+	 */
+	private function step_keys(): array {
+		return array_keys( $this->steps() );
+	}
+
+	/**
+	 * Total number of steps in the (filtered) registry.
+	 *
+	 * @return int
+	 */
+	public function step_count(): int {
+		return count( $this->steps() );
+	}
+
+	/**
+	 * The key of the current step.
+	 *
+	 * Reads OPTION_STEP. A numeric value is a legacy positional index (1-based)
+	 * from an install saved on the old scheme — map it onto the key at that
+	 * position. An unknown key (e.g. a step an add-on used to register and has
+	 * since removed) clamps to the first step so the wizard never dead-ends.
+	 *
+	 * @return string
+	 */
+	public function current_step_key(): string {
+		$keys = $this->step_keys();
+		if ( array() === $keys ) {
+			return '';
+		}
+
+		$stored = (string) get_option( self::OPTION_STEP, '' );
+		if ( '' === $stored ) {
+			return $keys[0];
+		}
+
+		if ( ctype_digit( $stored ) ) {
+			$idx = max( 1, (int) $stored ) - 1;
+			return $keys[ $idx ] ?? $keys[ count( $keys ) - 1 ];
+		}
+
+		return in_array( $stored, $keys, true ) ? $stored : $keys[0];
+	}
+
+	/**
+	 * Return the current wizard step as a 1-based position.
+	 *
+	 * Kept for the step indicator and progress bar (and as the wizard's public
+	 * "where am I" signal); the source of truth is current_step_key().
 	 *
 	 * @return int
 	 */
 	public function get_current_step(): int {
-		$step = (int) get_option( self::OPTION_STEP, 1 );
-		return max( 1, min( self::TOTAL_STEPS, $step ) );
+		$pos = array_search( $this->current_step_key(), $this->step_keys(), true );
+		return false === $pos ? 1 : ( (int) $pos + 1 );
 	}
 
 	/**
-	 * Advance to the next step.
-	 *
-	 * Clamps at TOTAL_STEPS so repeat calls are safe.
+	 * Advance to the next step. Clamps at the last step so repeat calls are safe.
 	 *
 	 * @return void
 	 */
 	public function advance(): void {
-		$next = min( self::TOTAL_STEPS, $this->get_current_step() + 1 );
-		update_option( self::OPTION_STEP, $next );
+		$keys = $this->step_keys();
+		$pos  = array_search( $this->current_step_key(), $keys, true );
+		$pos  = ( false === $pos ) ? 0 : (int) $pos;
+		$next = min( count( $keys ) - 1, $pos + 1 );
+		update_option( self::OPTION_STEP, $keys[ $next ] );
+	}
+
+	/**
+	 * Whether a step render/save value is invokable by this wizard.
+	 *
+	 * A string is a method on this class; anything else must be a callable.
+	 *
+	 * @param mixed $cb Candidate callback.
+	 * @return bool
+	 */
+	private function step_callable( mixed $cb ): bool {
+		if ( is_string( $cb ) ) {
+			return method_exists( $this, $cb );
+		}
+		return is_callable( $cb );
+	}
+
+	/**
+	 * Invoke a step render/save callback.
+	 *
+	 * A string names a method on this class (invoked as $this->method()); any
+	 * other callable is called with the wizard instance so an add-on step can
+	 * reach public helpers.
+	 *
+	 * @param callable|string|null $cb Callback to run (no-op when null/uninvokable).
+	 * @return void
+	 */
+	private function call_step( callable|string|null $cb ): void {
+		if ( null === $cb ) {
+			return;
+		}
+		if ( is_string( $cb ) && method_exists( $this, $cb ) ) {
+			$this->$cb();
+			return;
+		}
+		if ( is_callable( $cb ) ) {
+			call_user_func( $cb, $this );
+		}
 	}
 
 	/**
@@ -206,9 +395,10 @@ class SetupWizard {
 
 		// Back navigation: step back without saving the current form.
 		if ( 'back' === $wizard_action ) {
-			$current = $this->get_current_step();
-			if ( $current > 1 ) {
-				update_option( self::OPTION_STEP, $current - 1 );
+			$keys = $this->step_keys();
+			$pos  = array_search( $this->current_step_key(), $keys, true );
+			if ( is_int( $pos ) && $pos > 0 ) {
+				update_option( self::OPTION_STEP, $keys[ $pos - 1 ] );
 			}
 			wp_safe_redirect(
 				add_query_arg( 'page', 'buddynext-setup', admin_url( 'admin.php' ) )
@@ -218,7 +408,8 @@ class SetupWizard {
 
 		// Skip this step: advance without persisting form data.
 		if ( 'skip' === $wizard_action ) {
-			if ( $this->get_current_step() < self::TOTAL_STEPS ) {
+			$keys = $this->step_keys();
+			if ( $this->current_step_key() !== end( $keys ) ) {
 				$this->advance();
 			}
 			wp_safe_redirect(
@@ -227,7 +418,7 @@ class SetupWizard {
 			exit;
 		}
 
-		// Save & exit: persist current step then return to dashboard.
+		// Save & exit: return to the dashboard without persisting the current form.
 		if ( 'save_exit' === $wizard_action ) {
 			$exit_url = add_query_arg(
 				array(
@@ -240,94 +431,112 @@ class SetupWizard {
 			exit;
 		}
 
-		$current_step = $this->get_current_step();
+		$steps    = $this->steps();
+		$this_key = $this->current_step_key();
+		$def      = $steps[ $this_key ] ?? null;
 
-		switch ( $current_step ) {
-			case 1:
-				$this->save_settings(
-					array(
-						'site_name'   => sanitize_text_field( wp_unslash( $_POST['site_name'] ?? '' ) ),
-						'brand_color' => sanitize_hex_color( wp_unslash( (string) ( $_POST['brand_color'] ?? '#0073aa' ) ) ),
-					)
-				);
-				break;
-
-			case 2:
-				$this->save_settings(
-					array(
-						'reg_mode'     => sanitize_key( wp_unslash( $_POST['reg_mode'] ?? 'open' ) ),
-						'email_verify' => isset( $_POST['email_verify'] ),
-					)
-				);
-				break;
-
-			case 3:
-				/*
-				 * Nothing to save. Step 3 used to post profile_groups[] into
-				 * provision_profile_group_presets(), which skips any group whose
-				 * group_key already exists — and the Installer seeds all four
-				 * preset groups (social_links, work_experience, education,
-				 * skills) at activation, before this wizard ever runs. So every
-				 * checkbox was a no-op in both directions: ticking one created
-				 * nothing new, and clearing one removed nothing. An owner who
-				 * unchecked everything still got the full set, which is exactly
-				 * what was reported.
-				 *
-				 * The step is now a summary of what profiles already include
-				 * rather than a choice it cannot honour. Deleting a group is a
-				 * real action with real consequences for stored member data, so
-				 * it belongs in Members > Profile Fields where it can be done
-				 * deliberately — not behind a checkbox in a setup flow.
-				 */
-				break;
-
-			case 4:
-				$this->save_default_notification_prefs(
-					array(
-						'follow'     => isset( $_POST['notif_follow'] ),
-						'reaction'   => isset( $_POST['notif_reaction'] ),
-						'comment'    => isset( $_POST['notif_comment'] ),
-						'mention'    => isset( $_POST['notif_mention'] ),
-						'connection' => isset( $_POST['notif_connection'] ),
-					)
-				);
-				break;
-
-			case 5:
-				$this->save_space_categories(
-					sanitize_textarea_field( wp_unslash( $_POST['categories'] ?? '' ) )
-				);
-				break;
-
-			case 6:
-				$page_keys  = array( 'feed', 'members', 'spaces' );
-				$page_slugs = array();
-				foreach ( $page_keys as $pk ) {
-					if ( isset( $_POST[ 'page_create_' . $pk ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified above
-						$page_slugs[ $pk ] = sanitize_title( wp_unslash( $_POST[ 'page_slug_' . $pk ] ?? $pk ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
-					}
-				}
-				$this->create_community_pages( $page_slugs );
-				break;
-
-			case 7:
-				// Step 7 is informational — no settings to save.
-				break;
-
-			case 8:
-				$this->finish();
-				wp_safe_redirect( admin_url( 'admin.php?page=buddynext&wizard=done' ) );
-				exit;
+		// Persist this step's form data through its save callback. A step with no
+		// data to save (Profile Fields, Addons, Done) declares none.
+		if ( is_array( $def ) ) {
+			$this->call_step( $def['save'] ?? null );
 		}
 
-		if ( $current_step < self::TOTAL_STEPS ) {
-			$this->advance();
+		// The last step is the finish step: mark the wizard complete and leave for
+		// the dashboard (the old positional `case 8`).
+		$keys = $this->step_keys();
+		if ( end( $keys ) === $this_key ) {
+			$this->finish();
+			wp_safe_redirect( admin_url( 'admin.php?page=buddynext&wizard=done' ) );
+			exit;
 		}
 
+		$this->advance();
 		wp_safe_redirect(
 			add_query_arg( 'page', 'buddynext-setup', admin_url( 'admin.php' ) )
 		);
 		exit;
+	}
+
+	/**
+	 * Save step: Branding (site name + brand colour).
+	 *
+	 * @return void
+	 */
+	private function save_step_branding(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
+		$this->save_settings(
+			array(
+				'site_name'   => sanitize_text_field( wp_unslash( $_POST['site_name'] ?? '' ) ),
+				'brand_color' => sanitize_hex_color( wp_unslash( (string) ( $_POST['brand_color'] ?? '#0073aa' ) ) ),
+			)
+		);
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+	}
+
+	/**
+	 * Save step: Registration (mode + email verification).
+	 *
+	 * @return void
+	 */
+	private function save_step_registration(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
+		$this->save_settings(
+			array(
+				'reg_mode'     => sanitize_key( wp_unslash( $_POST['reg_mode'] ?? 'open' ) ),
+				'email_verify' => isset( $_POST['email_verify'] ),
+			)
+		);
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+	}
+
+	/**
+	 * Save step: Notifications (default per-type preferences).
+	 *
+	 * @return void
+	 */
+	private function save_step_notifications(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
+		$this->save_default_notification_prefs(
+			array(
+				'follow'     => isset( $_POST['notif_follow'] ),
+				'reaction'   => isset( $_POST['notif_reaction'] ),
+				'comment'    => isset( $_POST['notif_comment'] ),
+				'mention'    => isset( $_POST['notif_mention'] ),
+				'connection' => isset( $_POST['notif_connection'] ),
+			)
+		);
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+	}
+
+	/**
+	 * Save step: Spaces (starter categories).
+	 *
+	 * @return void
+	 */
+	private function save_step_spaces(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
+		$this->save_space_categories(
+			sanitize_textarea_field( wp_unslash( $_POST['categories'] ?? '' ) )
+		);
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+	}
+
+	/**
+	 * Save step: Pages (create the selected community hub pages).
+	 *
+	 * @return void
+	 */
+	private function save_step_pages(): void {
+		$page_keys  = array( 'feed', 'members', 'spaces' );
+		$page_slugs = array();
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
+		foreach ( $page_keys as $pk ) {
+			if ( isset( $_POST[ 'page_create_' . $pk ] ) ) {
+				$page_slugs[ $pk ] = sanitize_title( wp_unslash( $_POST[ 'page_slug_' . $pk ] ?? $pk ) );
+			}
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		$this->create_community_pages( $page_slugs );
 	}
 
 	// ── Render ────────────────────────────────────────────────────────────────
@@ -342,29 +551,23 @@ class SetupWizard {
 			wp_die( esc_html__( 'You do not have permission to view this page.', 'buddynext' ) );
 		}
 
+		$steps       = $this->steps();
+		$keys        = array_keys( $steps );
+		$total       = count( $keys );
 		$step        = $this->get_current_step();
-		$step_labels = array(
-			1 => __( 'Branding', 'buddynext' ),
-			2 => __( 'Registration', 'buddynext' ),
-			3 => __( 'Profile Fields', 'buddynext' ),
-			4 => __( 'Notifications', 'buddynext' ),
-			5 => __( 'Spaces', 'buddynext' ),
-			6 => __( 'Pages', 'buddynext' ),
-			7 => __( 'Addons', 'buddynext' ),
-			8 => __( 'Done', 'buddynext' ),
-		);
-		$is_final    = ( self::TOTAL_STEPS === $step );
+		$current_key = $this->current_step_key();
+		$is_final    = ( '' !== $current_key && end( $keys ) === $current_key );
 
 		// Reaching the final ("Done") step marks setup complete, so the
 		// "setup not complete" admin notice clears even when the owner leaves via
 		// the menu or the "View your community" link rather than submitting the
-		// step-8 form. finish() is idempotent (guarded by is_complete()).
+		// final step's form. finish() is idempotent (guarded by is_complete()).
 		if ( $is_final && ! $this->is_complete() ) {
 			$this->finish();
 		}
 
 		$continue = $is_final ? __( 'Finish setup', 'buddynext' ) : __( 'Continue', 'buddynext' );
-		$progress = (int) round( ( ( $step - 1 ) / max( 1, self::TOTAL_STEPS - 1 ) ) * 100 );
+		$progress = (int) round( ( ( $step - 1 ) / max( 1, $total - 1 ) ) * 100 );
 		?>
 		<div class="bn-wizard-wrap">
 			<div class="bn-wizard" data-v2 data-step="<?php echo absint( $step ); ?>">
@@ -384,7 +587,7 @@ class SetupWizard {
 								/* translators: 1: current step number, 2: total step count. */
 								esc_html__( 'Step %1$d of %2$d', 'buddynext' ),
 								absint( $step ),
-								absint( self::TOTAL_STEPS )
+								absint( $total )
 							);
 							?>
 						</span>
@@ -407,9 +610,11 @@ class SetupWizard {
 
 				<ol class="bn-wizard__steps" aria-label="<?php esc_attr_e( 'Setup steps', 'buddynext' ); ?>">
 					<?php
-					for ( $i = 1; $i <= self::TOTAL_STEPS; $i++ ) :
-						$state        = ( $i === $step ) ? 'active' : ( ( $i < $step ) ? 'done' : 'upcoming' );
-						$label        = isset( $step_labels[ $i ] ) ? (string) $step_labels[ $i ] : (string) $i;
+					$position = 0;
+					foreach ( $steps as $step_key => $step_def ) :
+						++$position;
+						$state        = ( $position === $step ) ? 'active' : ( ( $position < $step ) ? 'done' : 'upcoming' );
+						$label        = (string) ( $step_def['label'] ?? $step_key );
 						$current_aria = ( 'active' === $state ) ? ' aria-current="step"' : '';
 						?>
 						<li class="bn-wizard__step" data-state="<?php echo esc_attr( $state ); ?>"<?php echo $current_aria; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- value is a fixed literal. ?>>
@@ -417,12 +622,12 @@ class SetupWizard {
 								<?php if ( 'done' === $state ) : ?>
 									<?php echo \BuddyNext\Core\IconService::render( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?>
 								<?php else : ?>
-									<?php echo absint( $i ); ?>
+									<?php echo absint( $position ); ?>
 								<?php endif; ?>
 							</span>
 							<span class="bn-wizard__step-name"><?php echo esc_html( $label ); ?></span>
 						</li>
-					<?php endfor; ?>
+					<?php endforeach; ?>
 				</ol>
 
 				<div class="bn-wizard__body">
@@ -431,31 +636,10 @@ class SetupWizard {
 						<input type="hidden" name="action" value="buddynext_wizard_step">
 
 						<?php
-						switch ( $step ) {
-							case 1:
-								$this->render_step_branding();
-								break;
-							case 2:
-								$this->render_step_registration();
-								break;
-							case 3:
-								$this->render_step_profile_fields();
-								break;
-							case 4:
-								$this->render_step_notifications();
-								break;
-							case 5:
-								$this->render_step_spaces();
-								break;
-							case 6:
-								$this->render_step_pages();
-								break;
-							case 7:
-								$this->render_step_addons();
-								break;
-							case 8:
-								$this->render_step_done();
-								break;
+						// Draw the current step's body from the registry.
+						$render_def = $steps[ $current_key ] ?? null;
+						if ( is_array( $render_def ) ) {
+							$this->call_step( $render_def['render'] );
 						}
 						?>
 
