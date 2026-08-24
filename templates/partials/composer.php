@@ -118,6 +118,18 @@ $composer_has_pro = defined( 'BUDDYNEXTPRO_VERSION' );
 $composer_media_enabled = class_exists( '\BuddyNext\Media\MediaClient' )
 	&& \BuddyNext\Media\MediaClient::available();
 
+// Document attach (WPMediaVerse Pro 2.4.0). enabled/accept/max_size come from
+// MVS's own app config — never BN constants — so the composer cannot offer a
+// type or size the server will refuse. `enabled` is per-account, so an account
+// with no document library gets no control at all.
+$composer_doc_config = class_exists( '\BuddyNext\Bridges\WPMediaVerseBridge' )
+	? \BuddyNext\Bridges\WPMediaVerseBridge::document_composer_config()
+	: array(
+		'enabled'  => false,
+		'accept'   => '',
+		'max_size' => 0,
+	);
+
 /** Sanitized partial arguments. @var array<string,mixed> $args */
 $args = (array) apply_filters(
 	'buddynext_part_composer_args',
@@ -173,6 +185,12 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'linkThumb'             => '',
 				'linkMeta'              => null,
 				'mediaEnabled'          => $composer_media_enabled,
+				'docEnabled'            => (bool) $composer_doc_config['enabled'],
+				'docAccept'             => (string) $composer_doc_config['accept'],
+				'docMaxSize'            => (int) $composer_doc_config['max_size'],
+				'documentId'            => 0,
+				'documentName'          => '',
+				'documentUploading'     => false,
 			)
 		)
 	);
@@ -233,6 +251,28 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			multiple
 			hidden
 			aria-label="<?php esc_attr_e( 'Upload media', 'buddynext' ); ?>">
+
+		<?php if ( (bool) $composer_doc_config['enabled'] ) : ?>
+			<input
+				type="file"
+				class="bn-composer__doc-input"
+				accept="<?php echo esc_attr( (string) $composer_doc_config['accept'] ); ?>"
+				hidden
+				aria-label="<?php esc_attr_e( 'Attach a document', 'buddynext' ); ?>">
+
+			<div class="bn-composer__doc-chip"
+				hidden
+				data-wp-bind--hidden="!state.hasDocument">
+				<span class="bn-composer__doc-chip-icon" aria-hidden="true"><?php buddynext_icon( 'file-text' ); ?></span>
+				<span class="bn-composer__doc-chip-name" data-wp-text="state.documentName"></span>
+				<span class="bn-composer__doc-chip-spinner" data-wp-bind--hidden="!state.documentUploading" aria-hidden="true"></span>
+				<button
+					class="bn-composer__doc-chip-remove"
+					type="button"
+					data-wp-on--click="actions.removeDocument"
+					aria-label="<?php esc_attr_e( 'Remove document', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
+			</div>
+		<?php endif; ?>
 
 		<div class="bn-composer__media-preview"
 			hidden
@@ -400,6 +440,17 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				aria-label="<?php esc_attr_e( 'Add photo, video or audio', 'buddynext' ); ?>"
 				title="<?php esc_attr_e( 'Add photo, video or audio', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'image' ); ?>
+			</button>
+			<?php endif; ?>
+
+			<?php if ( (bool) $composer_doc_config['enabled'] ) : ?>
+			<button class="bn-composer__tool"
+				type="button"
+				data-wp-on--click="actions.pickDocument"
+				data-wp-bind--disabled="state.documentUploading"
+				aria-label="<?php esc_attr_e( 'Attach a document', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Attach a document', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'file-text' ); ?>
 			</button>
 			<?php endif; ?>
 

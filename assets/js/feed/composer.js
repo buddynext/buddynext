@@ -28,6 +28,33 @@ import { bnClampPopoverToViewport } from '@buddynext/popover';
 // WP Interactivity API getContext() doesn't work in native addEventListener callbacks.
 const _mediaState = { ids: [], previews: [] };
 
+// A human byte size for the document size-limit message. Integer units are
+// enough here (the ceiling is always a round MB), so no decimals to localise.
+function formatBytes( bytes ) {
+	const n = Number( bytes ) || 0;
+	if ( n >= 1073741824 ) { return Math.round( n / 1073741824 ) + ' GB'; }
+	if ( n >= 1048576 ) { return Math.round( n / 1048576 ) + ' MB'; }
+	if ( n >= 1024 ) { return Math.round( n / 1024 ) + ' KB'; }
+	return n + ' B';
+}
+
+// Map WPMediaVerse's frozen document-upload refusals to a member-facing line.
+// Unknown codes fall back to the server's own message, then a generic one — the
+// server's copy is already translated and specific.
+function documentErrorMessage( code, serverMessage ) {
+	switch ( code ) {
+		case 'mvs_documents_unavailable':
+			return t( 'documentsUnavailable', 'Documents are not available on your account.' );
+		case 'mvs_document_too_large':
+			return t( 'documentTooLargeServer', 'That document is over the size limit.' );
+		case 'mvs_document_type_not_allowed':
+			return t( 'documentTypeNotAllowed', 'That file type is not allowed here.' );
+		case 'mvs_document_scan_failed':
+			return t( 'documentScanFailed', 'That file could not be accepted.' );
+	}
+	return serverMessage || t( 'documentUploadFailed', 'That document could not be uploaded. Please try again.' );
+}
+
 // Inline SVG for a media KIND with no visual frame — a video whose poster could
 // not be captured, or an audio file. Matches the icon set (play / music) rather
 // than showing a broken <img>, mirroring the WPMediaVerse upload dialogs. viewBox
@@ -285,6 +312,11 @@ function resetComposerSubForms( ctx ) {
 	ctx.scheduledAt           = '';
 	ctx.announcementExpiresAt = '';
 
+	// Clear any attached document so the next post starts empty.
+	ctx.documentId        = 0;
+	ctx.documentName      = '';
+	ctx.documentUploading = false;
+
 	document.querySelectorAll(
 		'#bn-composer-schedule-at, #bn-composer-announce-expiry, #bn-composer-poll-end, .bn-composer__poll-option'
 	).forEach( function ( el ) {
@@ -532,6 +564,15 @@ store( 'buddynext/post-composer', {
 		},
 		get mediaUploading() {
 			try { return !! getContext().mediaUploading; } catch ( _e ) { return false; }
+		},
+		get hasDocument() {
+			try { return ( getContext().documentId || 0 ) > 0; } catch ( _e ) { return false; }
+		},
+		get documentName() {
+			try { return getContext().documentName || ''; } catch ( _e ) { return ''; }
+		},
+		get documentUploading() {
+			try { return !! getContext().documentUploading; } catch ( _e ) { return false; }
 		},
 		get hasLinkPreview() {
 			try { return !! ( getContext().linkUrl || '' ); } catch ( _e ) { return false; }
@@ -849,6 +890,86 @@ store( 'buddynext/post-composer', {
 			// Delete the orphaned upload from the server (best-effort, BN endpoint).
 			deleteMedia( mediaId, ctx.restNonce );
 		},
+		/**
+		 * Attach a document. Uploads straight to WPMediaVerse's document endpoint
+		 * (not BN's /me/media) and keeps only the returned id — the feed card is
+		 * resolved per-viewer, so the composer never holds a title it might render
+		 * to the wrong audience. One document per post.
+		 */
+		pickDocument() {
+			const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			const docInput   = document.querySelector( '.bn-composer__doc-input' );
+			if ( ! docInput || ! composerEl ) {
+				return;
+			}
+			const ctxData = JSON.parse( composerEl.getAttribute( 'data-wp-context' ) || '{}' );
+			if ( false === ctxData.docEnabled ) {
+				bnToast( t( 'documentsUnavailable', 'Documents are not available on your account.' ), { tone: 'info' } );
+				return;
+			}
+			const nonce   = ctxData.restNonce || '';
+			const maxSize = ctxData.docMaxSize || 0;
+			// MVS's document endpoint sits under mvs-pro/v1, derived from the
+			// composer's own REST root so it works whatever the permalink shape.
+			const uploadUrl = String( ctxData.restUrl || '' ).replace( '/buddynext/v1', '/mvs-pro/v1' ) + '/documents/upload';
+
+			if ( ! docInput._bnWired ) {
+				docInput._bnWired = true;
+				// withScope restores the Interactivity scope so getContext() works
+				// inside this native change handler (it does not otherwise).
+				docInput.addEventListener( 'change', withScope( async function () {
+					const file = docInput.files && docInput.files[ 0 ];
+					if ( ! file ) {
+						return;
+					}
+					if ( maxSize > 0 && file.size > maxSize ) {
+						bnToast( fmt( t( 'documentTooLarge', 'That document is over the %s limit.' ), formatBytes( maxSize ) ), { tone: 'info' } );
+						docInput.value = '';
+						return;
+					}
+
+					const ctx = getContext();
+					ctx.documentUploading = true;
+					ctx.documentName      = file.name;
+					ctx.documentId        = 0;
+
+					try {
+						const fd = new FormData();
+						fd.append( 'file', file );
+						const res  = await fetch( uploadUrl, {
+							method: 'POST',
+							credentials: 'same-origin',
+							headers: { 'X-WP-Nonce': nonce },
+							body: fd,
+						} );
+						const data = await res.json().catch( () => ( {} ) );
+
+						if ( res.ok && data && data.id ) {
+							ctx.documentId   = data.id;
+							ctx.documentName = data.title || file.name;
+						} else {
+							ctx.documentId   = 0;
+							ctx.documentName = '';
+							bnToast( documentErrorMessage( data && data.code, data && data.message ), { tone: 'error' } );
+						}
+					} catch ( _e ) {
+						ctx.documentId   = 0;
+						ctx.documentName = '';
+						bnToast( t( 'documentUploadFailed', 'That document could not be uploaded. Please try again.' ), { tone: 'error' } );
+					} finally {
+						ctx.documentUploading = false;
+						docInput.value        = '';
+					}
+				} ) );
+			}
+			docInput.click();
+		},
+		removeDocument() {
+			const ctx             = getContext();
+			ctx.documentId        = 0;
+			ctx.documentName      = '';
+			ctx.documentUploading = false;
+		},
 		togglePoll() {
 			const ctx        = getContext();
 			ctx.composerOpen = true;
@@ -939,10 +1060,16 @@ store( 'buddynext/post-composer', {
 			// media) must not silently no-op — surface a validation message so the
 			// member gets feedback, mirroring the poll-options check below. For a
 			// poll the "title" the tester expects is the main question textarea.
-			if ( ! content && ! _mediaState.ids.length ) {
+			if ( ! content && ! _mediaState.ids.length && ! ( ( ctx.documentId || 0 ) > 0 ) ) {
 				ctx.errorMessage   = 'poll' === ctx.composerType
 					? t( 'pollNeedsQuestion', 'Add a question for your poll.' )
 					: t( 'composerEmpty', 'Write something to share.' );
+				ctx.errorRetryable = false;
+				return;
+			}
+			// Don't post while a document is still uploading — the id isn't ready.
+			if ( ctx.documentUploading ) {
+				ctx.errorMessage   = t( 'documentStillUploading', 'Wait for the document to finish uploading.' );
 				ctx.errorRetryable = false;
 				return;
 			}
@@ -996,6 +1123,13 @@ store( 'buddynext/post-composer', {
 				if ( body.type === 'photo' || body.type === 'text' ) {
 					body.type = 'photo';
 				}
+			}
+			// A document attachment: send its id and type the post 'document' so
+			// the feed renders the link-out card (the server resolves the card per
+			// viewer from this id). Document wins the type over a bare text post.
+			if ( ( ctx.documentId || 0 ) > 0 ) {
+				body.document_id = ctx.documentId;
+				body.type        = 'document';
 			}
 			if ( ctx.composerType === 'poll' ) {
 				const optionInputs = document.querySelectorAll( '.bn-composer__poll-option' );

@@ -1318,6 +1318,42 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * The document-attach config the composer needs, read from MVS's OWN app
+	 * config (never BuddyNext constants) so the composer can never advertise a
+	 * type or size the server will refuse — the exact mismatch that burned the
+	 * app once with anonymous links. `enabled` is per-user (the account's
+	 * document capability), so an account without a library gets no control at
+	 * all rather than an offer-then-refuse.
+	 *
+	 * @return array{enabled:bool,accept:string,max_size:int}
+	 */
+	public static function document_composer_config(): array {
+		$off = array(
+			'enabled'  => false,
+			'accept'   => '',
+			'max_size' => 0,
+		);
+		if ( ! self::documents_available() || ! buddynext_integration_enabled( 'media', 'feed' ) ) {
+			return $off;
+		}
+		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
+		if ( $res->is_error() ) {
+			return $off;
+		}
+		$data = (array) $res->get_data();
+		$docs = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		if ( empty( $docs['enabled'] ) ) {
+			return $off;
+		}
+		$mimes = isset( $docs['allowed_mimes'] ) && is_array( $docs['allowed_mimes'] ) ? $docs['allowed_mimes'] : array();
+		return array(
+			'enabled'  => true,
+			'accept'   => implode( ',', array_map( 'sanitize_text_field', $mimes ) ),
+			'max_size' => isset( $docs['max_size'] ) ? (int) $docs['max_size'] : 0,
+		);
+	}
+
+	/**
 	 * The space document-drive view for the Files tab, as plain data.
 	 *
 	 * BuddyNext owns the space Files UI (MediaVerse ships none — see

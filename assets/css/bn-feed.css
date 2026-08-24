@@ -3007,6 +3007,64 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	flex-wrap: wrap;
 	gap: var(--bn-s2);
 }
+
+/* Attached-document chip — one document per post, shown as a compact pill. */
+.bn-composer__doc-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	max-width: 100%;
+	margin-top: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	font-size: var(--bn-text-sm);
+}
+.bn-composer__doc-chip-icon {
+	display: inline-flex;
+	flex: 0 0 auto;
+	color: var(--bn-ink-3);
+}
+.bn-composer__doc-chip-icon svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+.bn-composer__doc-chip-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--bn-ink);
+}
+.bn-composer__doc-chip-spinner {
+	flex: 0 0 auto;
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: var(--bn-r-full);
+	animation: bn-spin 0.6s linear infinite;
+}
+.bn-composer__doc-chip-remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--bn-ink-3);
+	cursor: pointer;
+}
+.bn-composer__doc-chip-remove svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+.bn-composer__doc-chip-remove:hover,
+.bn-composer__doc-chip-remove:focus-visible {
+	color: var(--bn-danger);
+}
 .bn-composer__media-thumb {
 	position: relative;
 	width: 80px;
