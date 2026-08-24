@@ -303,8 +303,13 @@ class Installer {
 	 *      signs "{timestamp}.{body}" and refuses a signature it has already seen inside the
 	 *      tolerance window, so a captured grant_ability request cannot be replayed to renew a
 	 *      membership forever. Additive; legacy rows keep NULL.
+	 * v43: bn_profile_fields gains show_in_header TINYINT(1). The profile hero's meta row is
+	 *      data-driven from this flag (in sort_order) instead of a hardcoded key list, so an
+	 *      owner controls which fields the header shows. maybe_alter_tables ADD-COLUMNs it on
+	 *      upgrade; converge_seeded_field_flags seeds it on the existing location + website
+	 *      rows (by field_key) so an upgraded site's header is unchanged.
 	 */
-	private const SCHEMA_VERSION = 42;
+	private const SCHEMA_VERSION = 43;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -317,7 +322,7 @@ class Installer {
 	 *
 	 * @var string
 	 */
-	private const FLAG_CONVERGENCE = '2026-08-searchable-system';
+	private const FLAG_CONVERGENCE = '2026-08-header-fields';
 
 	/**
 	 * Option holding the last applied FLAG_CONVERGENCE stamp.
@@ -1758,6 +1763,12 @@ class Installer {
 			),
 			'bn_profile_fields'   => array(
 				'show_on_register' => 'ADD COLUMN show_on_register TINYINT(1) NOT NULL DEFAULT 0',
+				// Which fields the profile hero renders in its meta row, and in what
+				// order (sort_order) — data-driven so an owner controls the header
+				// instead of a hardcoded key list. Seeded on for the default hero
+				// fields by converge_seeded_field_flags(); read via
+				// ProfileService::hero_fields().
+				'show_in_header'   => 'ADD COLUMN show_in_header TINYINT(1) NOT NULL DEFAULT 0',
 				'is_system'        => 'ADD COLUMN is_system TINYINT(1) NOT NULL DEFAULT 0',
 				// v18 (G1): owner-authored help text (rendered under the label on
 				// edit + signup) and input placeholder. Empty = render nothing.
@@ -2753,6 +2764,19 @@ class Installer {
 			    AND is_system = 0"
 		);
 
+		// The profile hero's meta row is data-driven now (show_in_header, in
+		// sort_order) instead of a hardcoded key list. Seed the two fields the hero
+		// has always shown in its meta row — location and website — so an upgraded
+		// site's header is byte-for-byte unchanged, while an owner can now add,
+		// remove or reorder header fields. Only rows still at 0 are touched, and
+		// this runs once per FLAG_CONVERGENCE stamp, so a later owner choice sticks.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_fields`
+			    SET show_in_header = 1
+			  WHERE field_key IN ('location', 'website')
+			    AND show_in_header = 0"
+		);
+
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		/*
@@ -3198,6 +3222,7 @@ class Installer {
 				is_required TINYINT(1) NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
 				show_on_register TINYINT(1) NOT NULL DEFAULT 0,
+				show_in_header TINYINT(1) NOT NULL DEFAULT 0,
 				is_system TINYINT(1) NOT NULL DEFAULT 0,
 				visibility ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public',
 				sort_order INT NOT NULL DEFAULT 0,

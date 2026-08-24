@@ -518,7 +518,7 @@ final class ProfileNav {
 		if ( ! is_array( $profile ) ) {
 			return false;
 		}
-		$hero = \BuddyNext\Profile\ProfileService::HERO_SPINE_FIELDS;
+		$hero = \BuddyNext\Profile\ProfileService::hero_field_keys();
 		foreach ( (array) ( $profile['groups'] ?? array() ) as $group ) {
 			$gkey = (string) ( $group['group_key'] ?? '' );
 			if ( '' === $gkey || 'social_links' === $gkey ) {

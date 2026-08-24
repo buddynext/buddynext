@@ -439,9 +439,14 @@ class ProfileFieldsManager {
 		// write-side guard, so the flag can never be persisted as a 1 that does
 		// nothing (which is what made the toggle look broken).
 		$show_on_register = ( isset( $_POST['show_on_register'] ) && ! $this->is_repeater_group( $group_id ) ) ? 1 : 0;
-		$visibility       = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
-		$description      = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
-		$placeholder      = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
+		// show_in_header puts the field in the profile hero's meta row. Inert in a
+		// repeater group (the hero shows single values, not a variable list of
+		// entries), so the same write-side guard as show_on_register keeps it from
+		// persisting a 1 that renders nothing.
+		$show_in_header = ( isset( $_POST['show_in_header'] ) && ! $this->is_repeater_group( $group_id ) ) ? 1 : 0;
+		$visibility     = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		$description    = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
+		$placeholder    = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
 
 		if ( ! in_array( $type, self::field_types(), true ) ) {
 			$type = 'text';
@@ -531,6 +536,7 @@ class ProfileFieldsManager {
 					'is_required'      => $is_required > 0 ? 1 : 0,
 					'is_searchable'    => $is_searchable,
 					'show_on_register' => $show_on_register,
+					'show_in_header'   => $show_in_header,
 					'visibility'       => $visibility,
 					'sort_order'       => $sort_order,
 				)
@@ -1179,6 +1185,7 @@ class ProfileFieldsManager {
 			&& in_array( $type, self::searchable_capable_types(), true )
 			&& in_array( $visibility, self::SEARCHABLE_VISIBILITY, true ) ) ? 1 : 0;
 		$show_on_register = isset( $_POST['show_on_register'] ) ? 1 : 0;
+		$show_in_header   = isset( $_POST['show_in_header'] ) ? 1 : 0;
 
 		if ( '' === $label ) {
 			wp_safe_redirect(
@@ -1202,9 +1209,10 @@ class ProfileFieldsManager {
 			'is_required'      => $is_required,
 			'is_searchable'    => $is_searchable,
 			'show_on_register' => $show_on_register,
+			'show_in_header'   => $show_in_header,
 			'visibility'       => $visibility,
 		);
-		$format = array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' );
+		$format = array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s' );
 
 		// Only write `options` when this install understands the type. With the owning add-on
 		// inactive, Free renders none of that type's option inputs — so $parsed_opts is null,
@@ -1996,6 +2004,11 @@ class ProfileFieldsManager {
 													<input type="checkbox" id="bn-ef-reg-<?php echo absint( $fid ); ?>" name="show_on_register" value="1" <?php checked( ! empty( $field['show_on_register'] ) ); ?>>
 													<label for="bn-ef-reg-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Ask for this on the registration form', 'buddynext' ); ?></label>
 												</div>
+												<?php // Profile-header opt-in. Single-entry only — the hero shows single values, not a repeating list. ?>
+												<div class="bn-pf-af-req-row">
+													<input type="checkbox" id="bn-ef-hdr-<?php echo absint( $fid ); ?>" name="show_in_header" value="1" <?php checked( ! empty( $field['show_in_header'] ) ); ?>>
+													<label for="bn-ef-hdr-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Show in the profile header', 'buddynext' ); ?></label>
+												</div>
 											<?php endif; ?>
 											<div class="bn-pf-af-actions">
 												<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Changes', 'buddynext' ); ?></button>
@@ -2145,6 +2158,10 @@ class ProfileFieldsManager {
 							<div class="bn-pf-af-req-row">
 								<input type="checkbox" id="bn-af-reg-<?php echo absint( $gid ); ?>" name="show_on_register" value="1">
 								<label for="bn-af-reg-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Show on the registration form', 'buddynext' ); ?></label>
+							</div>
+							<div class="bn-pf-af-req-row">
+								<input type="checkbox" id="bn-af-hdr-<?php echo absint( $gid ); ?>" name="show_in_header" value="1">
+								<label for="bn-af-hdr-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Show in the profile header', 'buddynext' ); ?></label>
 							</div>
 						<?php endif; ?>
 						<div class="bn-pf-af-actions">

@@ -169,9 +169,44 @@ $entry_fv = static function ( array $entry_fields, string $fkey ): string {
 
 $headline = $get_fv( 'basic_info', 'headline' );
 $bio      = $get_fv( 'basic_info', 'bio' );
-$location = $get_fv( 'basic_info', 'location' );
-$website  = $get_fv( 'basic_info', 'website' );
 $pronouns = $get_fv( 'basic_info', 'pronouns' );
+
+// The hero meta row is data-driven (show_in_header, in sort_order) instead of a
+// hardcoded location + website. Build the ordered {key,label,type,value} list,
+// resolving each flagged field by key across EVERY group (a header field need not
+// live in basic_info) and through FieldType::display_text() so a map/date/etc.
+// shows its human value, not raw storage. Empties are dropped so the row carries
+// only fields the member actually filled.
+$bn_find_field = static function ( string $field_key ) use ( $group_data ): ?array {
+	foreach ( $group_data as $bn_g ) {
+		if ( empty( $bn_g['fields'] ) || ! is_array( $bn_g['fields'] ) ) {
+			continue;
+		}
+		foreach ( $bn_g['fields'] as $bn_f ) {
+			if ( is_array( $bn_f ) && ( $bn_f['field_key'] ?? '' ) === $field_key ) {
+				return $bn_f;
+			}
+		}
+	}
+	return null;
+};
+$hero_meta     = array();
+foreach ( \BuddyNext\Profile\ProfileService::hero_meta_field_keys() as $bn_hk ) {
+	$bn_hf = $bn_find_field( (string) $bn_hk );
+	if ( null === $bn_hf ) {
+		continue;
+	}
+	$bn_hv = \BuddyNext\Profile\FieldType::display_text( $bn_hf, $bn_hf['value'] ?? '' );
+	if ( '' === trim( $bn_hv ) ) {
+		continue;
+	}
+	$hero_meta[] = array(
+		'key'   => (string) $bn_hk,
+		'label' => (string) ( $bn_hf['label'] ?? '' ),
+		'type'  => (string) ( $bn_hf['type'] ?? 'text' ),
+		'value' => $bn_hv,
+	);
+}
 
 $social_link_fields = isset( $group_data['social_links']['fields'] ) ? $group_data['social_links']['fields'] : array();
 $social_links       = array_filter( $social_link_fields, static fn( array $f ): bool => '' !== (string) ( $f['value'] ?? '' ) );
@@ -351,8 +386,7 @@ $bn_pf_ctx = array(
 			'bio'                 => (string) $bio,
 			'headline'            => (string) $headline,
 			'pronouns'            => (string) $pronouns,
-			'location'            => (string) $location,
-			'website'             => (string) $website,
+			'hero_meta'           => $hero_meta,
 			'joined'              => (string) $joined,
 			'mutual_count'        => (int) $mutual_count,
 			'degree_badge'        => (string) $degree_badge,

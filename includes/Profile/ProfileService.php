@@ -55,7 +55,61 @@ class ProfileService {
 	 *
 	 * @var string[]
 	 */
-	public const HERO_SPINE_FIELDS = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
+	/**
+	 * Identity fields the hero renders in their own designed spots — the headline
+	 * tagline, the bio paragraph, and pronouns inline with the @handle. These are
+	 * NOT part of the data-driven meta row; they are the fixed identity block, so
+	 * they stay hardcoded (headline + bio are system fields; pronouns has a bespoke
+	 * placement). The About panel skips these too, so they never render twice.
+	 *
+	 * @var string[]
+	 */
+	public const HERO_IDENTITY_FIELDS = array( 'headline', 'bio', 'pronouns' );
+
+	/**
+	 * Field keys the profile hero renders in its META ROW, in order.
+	 *
+	 * Data-driven from the `show_in_header` flag (in `sort_order`) instead of a
+	 * hardcoded key list, so a site owner controls which fields the header shows
+	 * and in what order — add/remove/reorder in the field admin. The installer
+	 * seeds it on `location` + `website` (the row the hero always showed), so the
+	 * default header is unchanged. Result is filterable for developers.
+	 *
+	 * @return string[] Field keys, in render order.
+	 */
+	public static function hero_meta_field_keys(): array {
+		global $wpdb;
+		// A handful of flagged fields on a small table; queried fresh rather than
+		// memoised so a flag change (admin toggle) is reflected without a cache to
+		// invalidate, and so tests see each state they set.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			"SELECT field_key FROM {$wpdb->prefix}bn_profile_fields WHERE show_in_header = 1 ORDER BY sort_order ASC, id ASC"
+		);
+		$keys = array_values( array_map( 'strval', (array) $rows ) );
+
+		/**
+		 * The profile-hero meta-row field keys, in render order.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param string[] $keys Field keys flagged show_in_header, in sort_order.
+		 */
+		return (array) apply_filters( 'buddynext_profile_hero_fields', $keys );
+	}
+
+	/**
+	 * Every field key the hero renders — the identity fields plus the meta row.
+	 *
+	 * The About panel and ProfileNav read this to skip whatever the hero already
+	 * shows, so a field never renders in both places and the About tab is hidden
+	 * only when nothing is left for it.
+	 *
+	 * @return string[] Field keys.
+	 */
+	public static function hero_field_keys(): array {
+		return array_values( array_unique( array_merge( self::HERO_IDENTITY_FIELDS, self::hero_meta_field_keys() ) ) );
+	}
 
 
 	/**
@@ -162,6 +216,7 @@ class ProfileService {
 				f.is_required,
 				f.is_searchable,
 				f.show_on_register,
+				f.show_in_header,
 				f.is_system    AS field_is_system,
 				f.visibility   AS field_visibility,
 				f.sort_order   AS field_sort_order
@@ -204,6 +259,7 @@ class ProfileService {
 					'is_required'      => (bool) $row['is_required'],
 					'is_searchable'    => (bool) $row['is_searchable'],
 					'show_on_register' => (bool) ( $row['show_on_register'] ?? false ),
+					'show_in_header'   => (bool) ( $row['show_in_header'] ?? false ),
 					'is_system'        => (bool) ( $row['field_is_system'] ?? false ),
 					'visibility'       => $row['field_visibility'] ?? 'public',
 					'sort_order'       => (int) $row['field_sort_order'],
@@ -300,6 +356,7 @@ class ProfileService {
 			'is_required'      => ! empty( $field['is_required'] ),
 			'is_searchable'    => ! empty( $field['is_searchable'] ),
 			'show_on_register' => ! empty( $field['show_on_register'] ),
+			'show_in_header'   => ! empty( $field['show_in_header'] ),
 			'is_system'        => ! empty( $field['is_system'] ),
 			'visibility'       => $visibility,
 			'sort_order'       => (int) ( $field['sort_order'] ?? 0 ),
@@ -525,8 +582,8 @@ class ProfileService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_profile_fields
-					(group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, visibility, sort_order)
-				 VALUES (%d, %s, %s, %s, %s, %s, %s, %d, %d, %d, %s, %d)",
+					(group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, show_in_header, visibility, sort_order)
+				 VALUES (%d, %s, %s, %s, %s, %s, %s, %d, %d, %d, %d, %s, %d)",
 				$group_id,
 				$field_key,
 				sanitize_text_field( (string) ( $data['label'] ?? '' ) ),
@@ -537,6 +594,7 @@ class ProfileService {
 				(int) ( $data['is_required'] ?? 0 ),
 				(int) ( $data['is_searchable'] ?? 0 ),
 				(int) ( $data['show_on_register'] ?? 0 ),
+				(int) ( $data['show_in_header'] ?? 0 ),
 				// A new field is members-only unless the caller says otherwise. The
 				// admin form preselects the same value, so the default is the same
 				// whether a field is created through the screen, the REST route, an
@@ -2722,6 +2780,11 @@ class ProfileService {
 		if ( isset( $data['show_on_register'] ) ) {
 			$update['show_on_register'] = (int) $data['show_on_register'];
 			$format[]                   = '%d';
+		}
+
+		if ( isset( $data['show_in_header'] ) ) {
+			$update['show_in_header'] = (int) $data['show_in_header'];
+			$format[]                 = '%d';
 		}
 
 		if ( isset( $data['visibility'] ) ) {

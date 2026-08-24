@@ -72,8 +72,7 @@ $args = array(
 	'bio'                 => isset( $bio ) ? (string) $bio : '',
 	'headline'            => isset( $headline ) ? (string) $headline : '',
 	'pronouns'            => isset( $pronouns ) ? (string) $pronouns : '',
-	'location'            => isset( $location ) ? (string) $location : '',
-	'website'             => isset( $website ) ? (string) $website : '',
+	'hero_meta'           => isset( $hero_meta ) && is_array( $hero_meta ) ? $hero_meta : array(),
 	'joined'              => isset( $joined ) ? (string) $joined : '',
 	'mutual_count'        => isset( $mutual_count ) ? (int) $mutual_count : 0,
 	'degree_badge'        => isset( $degree_badge ) ? (string) $degree_badge : '',
@@ -124,8 +123,7 @@ $bn_pf_slug          = (string) $args['username'];
 $bn_pf_pronouns      = (string) $args['pronouns'];
 $bn_pf_headline      = (string) $args['headline'];
 $bn_pf_bio           = (string) $args['bio'];
-$bn_pf_location      = (string) $args['location'];
-$bn_pf_website       = (string) $args['website'];
+$bn_pf_hero_meta     = (array) $args['hero_meta'];
 $bn_pf_joined        = (string) $args['joined'];
 $bn_pf_mutual        = (int) $args['mutual_count'];
 $bn_pf_degree        = (string) $args['degree_badge'];
@@ -320,23 +318,37 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				<?php endif; ?>
 
 				<div class="bn-pf-meta">
-					<?php if ( $bn_pf_location ) : ?>
+					<?php
+					// The meta row is data-driven: whichever fields the owner flagged
+					// show_in_header, in sort_order (default: location + website). Each
+					// value is already display-text (a map field shows its address, not
+					// JSON). A URL field renders as a host-only link with its icon; a
+					// location field keeps the pin; everything else gets a neutral marker.
+					foreach ( $bn_pf_hero_meta as $bn_pf_hm ) :
+						if ( ! is_array( $bn_pf_hm ) || '' === (string) ( $bn_pf_hm['value'] ?? '' ) ) {
+							continue;
+						}
+						$bn_pf_hm_type = (string) ( $bn_pf_hm['type'] ?? 'text' );
+						$bn_pf_hm_key  = (string) ( $bn_pf_hm['key'] ?? '' );
+						$bn_pf_hm_val  = (string) $bn_pf_hm['value'];
+						$bn_pf_hm_icon = ( 'location' === $bn_pf_hm_type || 'location' === $bn_pf_hm_key )
+							? 'map-pin'
+							: ( 'url' === $bn_pf_hm_type ? 'link' : 'info' );
+						?>
 						<span class="bn-pf-meta__item">
-							<?php buddynext_icon( 'map-pin' ); ?>
-							<span><?php echo esc_html( $bn_pf_location ); ?></span>
+							<?php buddynext_icon( $bn_pf_hm_icon ); ?>
+							<?php if ( 'url' === $bn_pf_hm_type ) : ?>
+								<a href="<?php echo esc_url( $bn_pf_hm_val ); ?>" target="_blank" rel="nofollow noopener noreferrer ugc">
+									<?php
+									$bn_pf_hm_host = wp_parse_url( $bn_pf_hm_val, PHP_URL_HOST );
+									echo esc_html( $bn_pf_hm_host ? $bn_pf_hm_host : $bn_pf_hm_val );
+									?>
+								</a>
+							<?php else : ?>
+								<span><?php echo esc_html( $bn_pf_hm_val ); ?></span>
+							<?php endif; ?>
 						</span>
-					<?php endif; ?>
-					<?php if ( $bn_pf_website ) : ?>
-						<span class="bn-pf-meta__item">
-							<?php buddynext_icon( 'link' ); ?>
-							<a href="<?php echo esc_url( $bn_pf_website ); ?>" target="_blank" rel="nofollow noopener noreferrer ugc">
-								<?php
-								$parsed_host = wp_parse_url( $bn_pf_website, PHP_URL_HOST );
-								echo esc_html( $parsed_host ? $parsed_host : $bn_pf_website );
-								?>
-							</a>
-						</span>
-					<?php endif; ?>
+					<?php endforeach; ?>
 					<span class="bn-pf-meta__item">
 						<?php buddynext_icon( 'calendar' ); ?>
 						<span>
