@@ -938,15 +938,35 @@ class HashtagService {
 	 * @return array{0:string,1:array<int,mixed>} [sql, params]
 	 */
 	private function listable_where( string $alias, int $viewer_id ): array {
+		global $wpdb;
+
 		if ( 0 === $viewer_id ) {
 			return array( self::public_listable_where( $alias ), array() );
 		}
 
 		[ $space_where, $space_params ] = $this->space_visibility_where( $alias, $viewer_id );
 
-		$sql = " AND {$alias}.status = 'published' AND {$alias}.privacy = 'public' {$space_where}";
+		// A logged-in viewer sees a tagged post two ways: (1) it is PUBLIC and its
+		// space is visible to them ($space_where), or (2) it is SPACE-MEMBERS and
+		// they actually belong to that space. Before this, only clause (1) ran with
+		// a hardcoded privacy = 'public', so a members-only space post never
+		// reached the tag feed even for a member of the space (Basecamp 10231257381).
+		//
+		// The membership check on (2) is deliberate and must NOT be folded into
+		// $space_where: that clause admits EVERY open space's posts to everyone,
+		// which is correct for a public post but would leak a members-only post in
+		// an open space to non-members. A space-members post needs membership, full
+		// stop — verified: a non-member's query returns 0 rows for such a post.
+		$member_of = " {$alias}.space_id IN ( SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active' )";
 
-		return array( $sql, $space_params );
+		$sql = " AND {$alias}.status = 'published' AND ("
+			. " ( {$alias}.privacy = 'public' {$space_where} )"
+			. " OR ( {$alias}.privacy = 'space_members' AND{$member_of} )"
+			. ' )';
+
+		$params = array_merge( $space_params, array( $viewer_id ) );
+
+		return array( $sql, $params );
 	}
 
 	/**
