@@ -3,6 +3,7 @@ import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
+import { openCoverReposModal } from '@buddynext/cover-reposition';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -3064,9 +3065,17 @@ document.addEventListener( 'keydown', function ( event ) {
 		picker.click();
 	}
 
-	function uploadImage( kind, file ) {
+	function uploadImage( kind, file, focal ) {
 		var body = new FormData();
 		body.append( 'image', file );
+		// The cover carries an optional focal point (pan X/Y + zoom) from the
+		// reposition modal, sent the same way the member cover does; the server
+		// clamps and stores it. Absent focal = a plain, centred upload.
+		if ( focal ) {
+			body.append( 'focal_x', String( focal.x ) );
+			body.append( 'focal_y', String( focal.y ) );
+			body.append( 'focal_zoom', String( focal.zoom ) );
+		}
 		return restFetch( '/spaces/' + spaceId + '/' + kind, {
 			method:  'POST',
 			nonce:   imageNonce,
@@ -3099,7 +3108,7 @@ document.addEventListener( 'keydown', function ( event ) {
 	 *                                it a removal would leave the header an empty box until
 	 *                                the next reload - swapping one stale-header bug for another.
 	 */
-	function paintSpaceHeader( kind, url, fallback ) {
+	function paintSpaceHeader( kind, url, fallback, focal ) {
 		var host = document.querySelector( 'avatar' === kind ? '.bn-sh-avatar' : '.bn-sh-cover' );
 		if ( ! host ) { return; }
 
@@ -3122,6 +3131,14 @@ document.addEventListener( 'keydown', function ( event ) {
 		}
 
 		img.src = url;
+		// Apply the cover's focal framing (pan + zoom) so the header matches the
+		// public hero and the reposition modal exactly.
+		if ( 'cover' === kind && focal ) {
+			img.style.objectFit       = 'cover';
+			img.style.objectPosition  = focal.x + '% ' + focal.y + '%';
+			img.style.transform       = 'scale(' + focal.zoom + ')';
+			img.style.transformOrigin = 'center';
+		}
 		host.classList.add( 'has-image' );
 	}
 
@@ -3136,13 +3153,20 @@ document.addEventListener( 'keydown', function ( event ) {
 		var empty     = field.querySelector( '.bn-space-settings__cover-empty' );
 		if ( ! preview ) { return; }
 
-		function paint( url ) {
+		function paint( url, focal ) {
 			if ( input ) { input.value = url || ''; }
 			if ( url ) {
 				preview.classList.add( 'has-image' );
 				preview.style.backgroundImage    = "url('" + url.replace( /'/g, "\\'" ) + "')";
-				preview.style.backgroundSize     = 'cover';
-				preview.style.backgroundPosition = 'center';
+				// Reflect the focal framing on the drop-zone thumbnail: pan via
+				// background-position, zoom via background-size (cover at 1x).
+				if ( focal ) {
+					preview.style.backgroundPosition = focal.x + '% ' + focal.y + '%';
+					preview.style.backgroundSize     = focal.zoom > 1 ? ( focal.zoom * 100 ) + '%' : 'cover';
+				} else {
+					preview.style.backgroundSize     = 'cover';
+					preview.style.backgroundPosition = 'center';
+				}
 				if ( empty ) { empty.hidden = true; }
 				if ( removeBtn ) { removeBtn.hidden = false; }
 			} else {
@@ -3166,6 +3190,12 @@ document.addEventListener( 'keydown', function ( event ) {
 						headerCover.appendChild( headerImg );
 					}
 					headerImg.src = url;
+					if ( focal ) {
+						headerImg.style.objectFit       = 'cover';
+						headerImg.style.objectPosition  = focal.x + '% ' + focal.y + '%';
+						headerImg.style.transform       = 'scale(' + focal.zoom + ')';
+						headerImg.style.transformOrigin = 'center';
+					}
 				} else if ( headerImg ) {
 					headerImg.remove();
 				}
@@ -3174,23 +3204,30 @@ document.addEventListener( 'keydown', function ( event ) {
 
 		function choose() {
 			pickFile( function ( file ) {
-				preview.setAttribute( 'aria-busy', 'true' );
-				uploadImage( 'cover', file ).then( function ( res ) {
-					if ( ! res.ok ) {
-						// Surface the server's specific reason (image_too_large /
-						// image_invalid_type / image_missing) rather than a generic failure.
-						var msg = ( res.data && res.data.message ) ? res.data.message : t( 'couldNotUploadCover', 'Could not upload cover.' );
-						return Promise.reject( new Error( msg ) );
-					}
-					return res.data;
-				} ).then( function ( data ) {
-					paint( data.cover_image_url || '' );
-					paintSpaceHeader( 'cover', data.cover_image_url || '' );
-					if ( window.bnToast ) { window.bnToast( t( 'coverUpdated', 'Cover updated.' ), 'success' ); }
-				} ).catch( function ( err ) {
-					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotUploadCover', 'Could not upload cover.' ), 'danger' ); }
-				} ).finally( function () {
-					preview.removeAttribute( 'aria-busy' );
+				// Reposition first (drag to pan, scroll/slider to zoom) via the same
+				// modal the member cover uses, then upload the image with the chosen
+				// focal point. Cancelling the modal cancels the whole cover change -
+				// nothing is uploaded.
+				openCoverReposModal( file, t ).then( function ( focal ) {
+					if ( ! focal ) { return; }
+					preview.setAttribute( 'aria-busy', 'true' );
+					uploadImage( 'cover', file, focal ).then( function ( res ) {
+						if ( ! res.ok ) {
+							// Surface the server's specific reason (image_too_large /
+							// image_invalid_type / image_missing) rather than a generic failure.
+							var msg = ( res.data && res.data.message ) ? res.data.message : t( 'couldNotUploadCover', 'Could not upload cover.' );
+							return Promise.reject( new Error( msg ) );
+						}
+						return res.data;
+					} ).then( function ( data ) {
+						paint( data.cover_image_url || '', focal );
+						paintSpaceHeader( 'cover', data.cover_image_url || '', undefined, focal );
+						if ( window.bnToast ) { window.bnToast( t( 'coverUpdated', 'Cover updated.' ), 'success' ); }
+					} ).catch( function ( err ) {
+						if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotUploadCover', 'Could not upload cover.' ), 'danger' ); }
+					} ).finally( function () {
+						preview.removeAttribute( 'aria-busy' );
+					} );
 				} );
 			} );
 		}

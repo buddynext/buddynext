@@ -2213,7 +2213,57 @@ class SpaceController extends BaseRestController {
 			return $result;
 		}
 
+		// Non-destructive framing for the cover, mirroring the member cover: the
+		// image is stored uncropped and the owner pans/zooms it at render via a
+		// focal point. Same clamp + shape as ProfileController::handle_cover_upload
+		// so both covers behave identically. Gated already by require_space_manager
+		// above - repositioning is part of managing the cover, not a new capability.
+		if ( 'cover' === $kind ) {
+			$this->store_space_cover_focal( $space_id );
+		}
+
 		return new WP_REST_Response( array( $column => $stored ), 200 );
+	}
+
+	/**
+	 * Persist the space cover's focal point (pan X/Y + zoom) from the request.
+	 *
+	 * Mirrors ProfileController's member-cover focal block: writes only when the
+	 * posted X/Y are both within 0..100, clamps zoom to 1..3, and stores the
+	 * {x, y, zoom} array under the same meta key the member cover uses. Silent
+	 * no-op when the fields are absent (a plain upload with no reposition).
+	 *
+	 * @param int $space_id Space whose cover was just uploaded.
+	 * @return void
+	 */
+	private function store_space_cover_focal( int $space_id ): void {
+		/*
+		 * The REST nonce is verified before this callback runs, and each value is
+		 * unslashed then cast to float; WPCS sees neither layer for a $_POST read,
+		 * so suppress both sniffs for the three reads (mirrors ProfileController).
+		 *
+		 * phpcs:disable WordPress.Security.NonceVerification.Missing
+		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		 */
+		$focal_x    = isset( $_POST['focal_x'] ) ? (float) wp_unslash( (string) $_POST['focal_x'] ) : -1.0;
+		$focal_y    = isset( $_POST['focal_y'] ) ? (float) wp_unslash( (string) $_POST['focal_y'] ) : -1.0;
+		$focal_zoom = isset( $_POST['focal_zoom'] ) ? (float) wp_unslash( (string) $_POST['focal_zoom'] ) : 1.0;
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+		if ( $focal_x < 0.0 || $focal_x > 100.0 || $focal_y < 0.0 || $focal_y > 100.0 ) {
+			return;
+		}
+
+		update_space_meta(
+			$space_id,
+			'buddynext_cover_focal',
+			array(
+				'x'    => round( $focal_x, 2 ),
+				'y'    => round( $focal_y, 2 ),
+				'zoom' => round( max( 1.0, min( 3.0, $focal_zoom ) ), 3 ),
+			)
+		);
 	}
 
 	/**
@@ -2233,6 +2283,13 @@ class SpaceController extends BaseRestController {
 		}
 
 		( new \BuddyNext\Media\ImageStorageService() )->delete( $kind, 'space', $space_id );
+
+		// Drop the focal point with the cover so a future upload starts centred
+		// rather than inheriting the removed image's framing (mirror of the member
+		// cover cleanup in Admin\Members).
+		if ( 'cover' === $kind ) {
+			delete_space_meta( $space_id, 'buddynext_cover_focal' );
+		}
 
 		$column = ( 'cover' === $kind ) ? 'cover_image_url' : 'avatar_url';
 		$result = ( new SpaceService() )->update( $space_id, $user_id, array( $column => '' ) );

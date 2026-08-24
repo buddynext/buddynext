@@ -755,6 +755,19 @@
 	border-start-end-radius: var(--bn-r-lg);
 }
 
+.bn-sh-hero__cover-img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	/* object-fit:cover keeps the aspect ratio; the inline object-position (pan)
+	   and transform:scale (zoom) from the owner's focal point frame it. Defaults
+	   to a centred 50% 50% with no zoom when no focal point is stored. */
+	object-fit: cover;
+	object-position: 50% 50%;
+	transform-origin: center;
+}
+
 .bn-sh-hero__cover-tone {
 	position: absolute;
 	inset: 0;

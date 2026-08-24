@@ -660,6 +660,24 @@ foreach ( $builtin_tabs as $bn_t ) {
 >
 
 	<!-- Space header (mirrors space-home hero shape) -->
+	<?php
+	// Reflect the cover's stored focal framing (pan + zoom) on this header preview
+	// so it matches the public hero, the same object-position + transform:scale the
+	// hero and the reposition modal use.
+	$bn_settings_cover_style = '';
+	if ( ! empty( $space->cover_image_url ) ) {
+		$bn_settings_focal       = (array) get_space_meta( (int) ( $space->id ?? 0 ), 'buddynext_cover_focal', true );
+		$bn_settings_fx          = isset( $bn_settings_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_settings_focal['x'] ) ) : 50.0;
+		$bn_settings_fy          = isset( $bn_settings_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_settings_focal['y'] ) ) : 50.0;
+		$bn_settings_zoom        = isset( $bn_settings_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_settings_focal['zoom'] ) ) : 1.0;
+		$bn_settings_cover_style = sprintf(
+			'object-fit:cover;object-position:%s%% %s%%;transform:scale(%s);transform-origin:center;',
+			esc_attr( (string) $bn_settings_fx ),
+			esc_attr( (string) $bn_settings_fy ),
+			esc_attr( (string) $bn_settings_zoom )
+		);
+	}
+	?>
 	<div class="bn-sh-header">
 		<div class="bn-sh-cover">
 			<?php if ( ! empty( $space->cover_image_url ) ) : ?>
@@ -667,6 +685,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					src="<?php echo esc_url( $space->cover_image_url ); ?>"
 					alt="<?php echo esc_attr( $space->name ?? '' ); ?>"
 					loading="lazy"
+					style="<?php echo esc_attr( $bn_settings_cover_style ); ?>"
 				>
 			<?php endif; ?>
 		</div>

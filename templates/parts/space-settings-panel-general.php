@@ -140,6 +140,26 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 		</div>
 	</div>
 
+	<?php
+	// Reflect the cover's stored focal framing on the drop-zone thumbnail: pan via
+	// background-position, zoom via background-size (cover at 1x). Matches how the
+	// hero and the reposition modal frame the same image.
+	$bn_cover_bg_style = '';
+	if ( ! empty( $bn_space->cover_image_url ) ) {
+		$bn_cover_focal    = (array) get_space_meta( (int) ( $bn_space->id ?? 0 ), 'buddynext_cover_focal', true );
+		$bn_cover_fx       = isset( $bn_cover_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_cover_focal['x'] ) ) : 50.0;
+		$bn_cover_fy       = isset( $bn_cover_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_cover_focal['y'] ) ) : 50.0;
+		$bn_cover_zoom     = isset( $bn_cover_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_cover_focal['zoom'] ) ) : 1.0;
+		$bn_cover_bg_size  = $bn_cover_zoom > 1.0 ? ( (string) round( $bn_cover_zoom * 100 ) . '%' ) : 'cover';
+		$bn_cover_bg_style = sprintf(
+			"background-image:url('%s');background-size:%s;background-position:%s%% %s%%;",
+			esc_url( (string) $bn_space->cover_image_url ),
+			esc_attr( $bn_cover_bg_size ),
+			esc_attr( (string) $bn_cover_fx ),
+			esc_attr( (string) $bn_cover_fy )
+		);
+	}
+	?>
 	<div class="bn-space-settings__field" data-bn-cover-field>
 		<label><?php esc_html_e( 'Cover image', 'buddynext' ); ?></label>
 		<div
@@ -148,8 +168,8 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			role="button"
 			tabindex="0"
 			aria-label="<?php esc_attr_e( 'Upload cover photo', 'buddynext' ); ?>"
-			<?php if ( ! empty( $bn_space->cover_image_url ) ) : ?>
-				style="background-image:url('<?php echo esc_url( $bn_space->cover_image_url ); ?>');background-size:cover;background-position:center;"
+			<?php if ( '' !== $bn_cover_bg_style ) : ?>
+				style="<?php echo esc_attr( $bn_cover_bg_style ); ?>"
 			<?php endif; ?>
 		>
 			<span class="bn-space-settings__cover-empty"<?php echo ! empty( $bn_space->cover_image_url ) ? ' hidden' : ''; ?>>

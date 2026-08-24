@@ -621,6 +621,15 @@ class AssetService {
 			array( array( 'id' => '@buddynext/rest-client' ) ),
 			$this->module_version( 'js/media/upload-core.js' )
 		);
+		// `@buddynext/cover-reposition` is the single drag-to-pan / zoom modal
+		// shared by the member profile cover and the space cover, so both frame a
+		// cover identically. Pure DOM (no store internals), hence no deps.
+		wp_register_script_module(
+			'@buddynext/cover-reposition',
+			$this->assets_url . 'js/media/cover-reposition.js',
+			array(),
+			$this->module_version( 'js/media/cover-reposition.js' )
+		);
 		wp_register_script_module(
 			'@buddynext/feed-tabs',
 			$this->assets_url . 'js/feed/tabs.js',
@@ -725,6 +734,11 @@ class AssetService {
 			// the viewport; declared so WP emits the import-map entry.
 			if ( '@buddynext/spaces' === $id ) {
 				$deps[] = array( 'id' => '@buddynext/popover' );
+			}
+			// Profile and space covers share one reposition modal (drag-to-pan /
+			// scroll-to-zoom), so both import @buddynext/cover-reposition.
+			if ( '@buddynext/profile' === $id || '@buddynext/spaces' === $id ) {
+				$deps[] = array( 'id' => '@buddynext/cover-reposition' );
 			}
 			// The feed paginates by letting the Interactivity Router swap its region
 			// (actions.loadMore) — the only supported way to add cards that are actually

@@ -2,6 +2,7 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast, bnConfirm, bnResolveConnectNote } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
+import { openCoverReposModal } from '@buddynext/cover-reposition';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -384,157 +385,6 @@ function renderCropModal( img, resolve ) {
 	draw();
 }
 
-/*
-   Cover reposition modal — LinkedIn-style. Shows the picked cover in a
-   frame at the hero's display proportions and lets the user DRAG to
-   reposition (pan) and ZOOM with a slider/wheel. The result is non
-   destructive: {x, y, zoom} where x/y are object-position percentages
-   and zoom is a scale factor. profile-hero.php applies them to an
-   <img class="bn-pf-cover__img"> via object-position + transform:scale,
-   so the same source stays sharp and responsive at any viewport width
-   (a fixed-ratio baked crop would mis-fit the responsive cover height).
-
-   No external library: object-fit:cover + pointer events + a range input.
-   ---------------------------------------------------------------- */
-async function openCoverReposModal( file ) {
-	return new Promise( ( resolve ) => {
-		const url = URL.createObjectURL( file );
-		const img = new Image();
-		img.onload = () => {
-			// Keep the object URL alive: the modal's preview <img> uses it as its
-			// src. Revoking here (before render) left the crop preview blank.
-			// The URL is revoked in the modal's cleanup() when it closes.
-			renderCoverReposModal( url, resolve );
-		};
-		img.onerror = () => {
-			URL.revokeObjectURL( url );
-			resolve( null );
-		};
-		img.src = url;
-	} );
-}
-
-function renderCoverReposModal( url, resolve ) {
-	const W = 480;
-	const H = 150; // ~3.2:1 — representative of the desktop hero cover.
-
-	const overlay = document.createElement( 'div' );
-	overlay.className = 'bn-avatar-crop-overlay';
-	overlay.setAttribute( 'role', 'dialog' );
-	overlay.setAttribute( 'aria-modal', 'true' );
-	overlay.setAttribute( 'aria-label', t( 'repositionCover', 'Reposition cover photo' ) );
-
-	const panel = document.createElement( 'div' );
-	panel.className = 'bn-avatar-crop-panel';
-
-	const title = document.createElement( 'h2' );
-	title.className = 'bn-avatar-crop-title';
-	title.textContent = t( 'coverDragHint', 'Drag to reposition · scroll or use the slider to zoom' );
-	panel.appendChild( title );
-
-	const stage = document.createElement( 'div' );
-	stage.className = 'bn-cover-repos-stage';
-	stage.style.width  = W + 'px';
-	stage.style.height = H + 'px';
-
-	// The preview <img> uses the same display contract as the hero, so the
-	// modal is true WYSIWYG: object-fit cover + object-position (pan) + scale.
-	const preview = document.createElement( 'img' );
-	preview.className = 'bn-cover-repos-img';
-	preview.src = url;
-	preview.alt = '';
-	stage.appendChild( preview );
-	panel.appendChild( stage );
-
-	const pos = { x: 50, y: 50, zoom: 1 };
-	const apply3 = () => {
-		preview.style.objectPosition = `${ pos.x }% ${ pos.y }%`;
-		preview.style.transform      = `scale(${ pos.zoom })`;
-	};
-	apply3();
-
-	// Pointer drag → pan. Natural direction: dragging the image right reveals
-	// its left side (object-position-x decreases). Sensitivity is scaled down a
-	// touch so a full-frame drag doesn't slam to the edge instantly.
-	let dragging = false;
-	let lastX = 0;
-	let lastY = 0;
-	stage.addEventListener( 'pointerdown', ( e ) => {
-		dragging = true;
-		lastX = e.clientX;
-		lastY = e.clientY;
-		stage.setPointerCapture( e.pointerId );
-	} );
-	stage.addEventListener( 'pointermove', ( e ) => {
-		if ( ! dragging ) { return; }
-		pos.x = Math.max( 0, Math.min( 100, pos.x - ( ( e.clientX - lastX ) / W ) * 100 ) );
-		pos.y = Math.max( 0, Math.min( 100, pos.y - ( ( e.clientY - lastY ) / H ) * 100 ) );
-		lastX = e.clientX;
-		lastY = e.clientY;
-		apply3();
-	} );
-	stage.addEventListener( 'pointerup',     () => { dragging = false; } );
-	stage.addEventListener( 'pointercancel', () => { dragging = false; } );
-
-	const setZoom = ( z ) => {
-		pos.zoom = Math.max( 1, Math.min( 3, z ) );
-		slider.value = String( Math.round( pos.zoom * 100 ) );
-		apply3();
-	};
-
-	stage.addEventListener( 'wheel', ( e ) => {
-		e.preventDefault();
-		setZoom( pos.zoom * ( e.deltaY < 0 ? 1.05 : 0.95 ) );
-	}, { passive: false } );
-
-	const slider = document.createElement( 'input' );
-	slider.type  = 'range';
-	slider.min   = '100';
-	slider.max   = '300';
-	slider.value = '100';
-	slider.className = 'bn-avatar-crop-zoom';
-	slider.setAttribute( 'aria-label', t( 'zoom', 'Zoom' ) );
-	slider.addEventListener( 'input', () => setZoom( parseInt( slider.value, 10 ) / 100 ) );
-	panel.appendChild( slider );
-
-	const actions = document.createElement( 'div' );
-	actions.className = 'bn-avatar-crop-actions';
-	const cancel = document.createElement( 'button' );
-	cancel.type = 'button';
-	cancel.className = 'bn-btn';
-	cancel.dataset.variant = 'ghost';
-	cancel.textContent = t( 'cancel', 'Cancel' );
-	const apply = document.createElement( 'button' );
-	apply.type = 'button';
-	apply.className = 'bn-btn';
-	apply.dataset.variant = 'primary';
-	apply.textContent = t( 'apply', 'Apply' );
-	actions.appendChild( cancel );
-	actions.appendChild( apply );
-	panel.appendChild( actions );
-
-	const cleanup = ( value ) => {
-		overlay.remove();
-		document.removeEventListener( 'keydown', onKey );
-		URL.revokeObjectURL( url );
-		resolve( value );
-	};
-
-	cancel.addEventListener( 'click', () => cleanup( null ) );
-	apply.addEventListener( 'click', () => cleanup( { x: pos.x, y: pos.y, zoom: pos.zoom } ) );
-	overlay.addEventListener( 'click', ( e ) => {
-		if ( e.target === overlay ) { cleanup( null ); }
-	} );
-
-	const onKey = ( e ) => {
-		if ( e.key === 'Escape' ) { cleanup( null ); }
-		if ( e.key === 'Enter'  ) { apply.click(); }
-	};
-	document.addEventListener( 'keydown', onKey );
-
-	overlay.appendChild( panel );
-	document.body.appendChild( overlay );
-}
 
 /* Strip a trailing "[]" from a control name to get the key the server expects.
    Checkbox groups and <select multiple> render name="key[]"; the payload key is
@@ -1887,7 +1737,7 @@ const profileStore = store( 'buddynext/profile', {
 			// STAGED here and previewed locally; they upload only on "Save
 			// changes" (doSave → flushStagedMedia), so Cancel/Leave reverts.
 			try {
-				var repos = await openCoverReposModal( file );
+				var repos = await openCoverReposModal( file, t );
 				if ( ! repos ) {
 					event.target.value = '';
 					return;

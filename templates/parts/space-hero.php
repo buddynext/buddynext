@@ -110,7 +110,30 @@ $bn_brand_color = (string) buddynext_get_space_field( $bn_space_id, 'brand_color
 do_action( 'buddynext_part_space_hero_before', $args );
 ?>
 <section class="<?php echo esc_attr( $bn_class ); ?>"<?php echo '' !== $bn_brand_color ? ' style="--bn-space-brand:' . esc_attr( $bn_brand_color ) . ';"' : ''; ?>>
-	<div class="bn-sh-hero__cover"<?php echo empty( $bn_space->cover_image_url ) ? '' : ' style="background-image:url(' . esc_url( $bn_space->cover_image_url ) . ');background-size:cover;background-position:center;"'; ?>>
+	<?php
+	// Cover framing. The image is rendered as an <img> (not a background) so the
+	// owner's focal point pans and zooms it exactly the way a member cover does -
+	// object-position for the pan, transform:scale for the zoom. Values re-clamped
+	// here (defence in depth) and mirror templates/parts/profile-hero.php. The
+	// gradient on .bn-sh-hero__cover remains the fallback when no image is set.
+	$bn_sh_cover_style = '';
+	if ( ! empty( $bn_space->cover_image_url ) ) {
+		$bn_sh_focal       = (array) get_space_meta( $bn_space_id, 'buddynext_cover_focal', true );
+		$bn_sh_fx          = isset( $bn_sh_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_sh_focal['x'] ) ) : 50.0;
+		$bn_sh_fy          = isset( $bn_sh_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_sh_focal['y'] ) ) : 50.0;
+		$bn_sh_zoom        = isset( $bn_sh_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_sh_focal['zoom'] ) ) : 1.0;
+		$bn_sh_cover_style = sprintf(
+			'object-position:%s%% %s%%;transform:scale(%s);',
+			esc_attr( (string) $bn_sh_fx ),
+			esc_attr( (string) $bn_sh_fy ),
+			esc_attr( (string) $bn_sh_zoom )
+		);
+	}
+	?>
+	<div class="bn-sh-hero__cover<?php echo empty( $bn_space->cover_image_url ) ? '' : ' bn-sh-hero__cover--has-image'; ?>">
+		<?php if ( ! empty( $bn_space->cover_image_url ) ) : ?>
+			<img class="bn-sh-hero__cover-img" src="<?php echo esc_url( (string) $bn_space->cover_image_url ); ?>" alt="" aria-hidden="true" style="<?php echo esc_attr( $bn_sh_cover_style ); ?>">
+		<?php endif; ?>
 		<span class="bn-sh-hero__cover-tone" aria-hidden="true"></span>
 	</div>
 
