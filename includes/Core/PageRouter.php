@@ -2138,6 +2138,10 @@ class PageRouter {
 		add_rewrite_tag( '%bn_profile_action%', '([^/]*)' );
 		add_rewrite_tag( '%bn_space_slug%', '([^/]+)' );
 		add_rewrite_tag( '%bn_space_action%', '([^/]*)' );
+		// A third path segment for a tab that addresses a single entity by a clean
+		// URL — today the Files tab's document view (/spaces/{slug}/files/{id}/).
+		// Generic on purpose so any tab can adopt one without a new rule.
+		add_rewrite_tag( '%bn_space_sub%', '([^/]+)' );
 		add_rewrite_tag( '%bn_conv_id%', '([0-9]+)' );
 		add_rewrite_tag( '%bn_msg_action%', '([^/]*)' );
 		add_rewrite_tag( '%bn_auth_action%', '([a-z-]+)' );
@@ -2355,6 +2359,14 @@ class PageRouter {
 		// (feed/members/about/media/moderation) all render spaces/home.php so the
 		// space nav is one consistent clean-URL surface; settings/admin keep their
 		// own config screens. Any action slug (incl. integration tabs) is captured.
+		// A tab that addresses one entity by a clean URL: /spaces/{slug}/{action}/{sub}/.
+		// Anchored, so it never overlaps the two-segment tab rule below. The tab's
+		// render callback reads bn_space_sub (the Files tab treats it as a document id).
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/([^/]+)/([^/]+)/([^/]+)/?$',
+			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=$matches[2]&bn_space_sub=$matches[3]',
+			'top'
+		);
 		add_rewrite_rule(
 			'^' . preg_quote( $s, '/' ) . '/([^/]+)/([^/]+)/?$',
 			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=$matches[2]',

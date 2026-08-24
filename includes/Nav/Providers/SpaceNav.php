@@ -705,8 +705,13 @@ final class SpaceNav {
 	 * @return void
 	 */
 	private function render_files_panel( int $space_id ): void {
+		// A document has a clean URL — /spaces/{slug}/files/{id}/ — carried in the
+		// bn_space_sub path segment; ?bn_doc= stays a working alias.
+		$doc_id = (int) get_query_var( 'bn_space_sub', 0 );
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET view controls.
-		$doc_id = isset( $_GET['bn_doc'] ) ? absint( wp_unslash( $_GET['bn_doc'] ) ) : 0;
+		if ( $doc_id <= 0 && isset( $_GET['bn_doc'] ) ) {
+			$doc_id = absint( wp_unslash( $_GET['bn_doc'] ) );
+		}
 		$query  = isset( $_GET['bn_q'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_q'] ) ) : '';
 		$folder = isset( $_GET['bn_folder'] ) ? absint( wp_unslash( $_GET['bn_folder'] ) ) : 0;
 		$page   = isset( $_GET['bn_files_page'] ) ? max( 1, absint( wp_unslash( $_GET['bn_files_page'] ) ) ) : 1;
