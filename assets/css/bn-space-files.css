@@ -413,6 +413,46 @@ a.bn-files__name:focus-visible {
 	border: 0;
 }
 
+/* Server-rendered (office/text) preview HTML from MediaVerse, printed inline. */
+.bn-file-single__preview--html {
+	max-height: 75vh;
+	padding: var(--bn-s4);
+	overflow: auto;
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-body);
+}
+
+.bn-file-single__preview--html :is( h1, h2, h3, h4, h5, h6 ) {
+	color: var(--bn-ink);
+}
+
+.bn-file-single__preview--html a {
+	color: var(--bn-accent);
+}
+
+.bn-file-single__preview--html img {
+	max-width: 100%;
+	height: auto;
+}
+
+.bn-file-single__preview--html table {
+	border-collapse: collapse;
+	max-width: 100%;
+}
+
+.bn-file-single__preview--html :is( th, td ) {
+	padding: var(--bn-s1) var(--bn-s2);
+	border: 1px solid var(--bn-line);
+	text-align: start;
+}
+
+.bn-file-single__preview--html th {
+	background: var(--bn-sunken);
+	font-weight: var(--bn-fw-semibold);
+}
+
 .bn-file-single__no-preview {
 	margin-block-start: var(--bn-s4);
 	padding: var(--bn-s10) var(--bn-s4);

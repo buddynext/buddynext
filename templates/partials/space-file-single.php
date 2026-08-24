@@ -58,7 +58,11 @@ if ( $bn_fs_aid > 0 ) {
 $bn_fs_nonce    = wp_create_nonce( 'wp_rest' );
 $bn_fs_dl_url   = isset( $bn_fs_doc['links']['download'] ) ? add_query_arg( '_wpnonce', $bn_fs_nonce, (string) $bn_fs_doc['links']['download'] ) : '';
 $bn_fs_prev_url = isset( $bn_fs_doc['links']['preview'] ) ? add_query_arg( '_wpnonce', $bn_fs_nonce, (string) $bn_fs_doc['links']['preview'] ) : '';
-$bn_fs_is_pdf   = 'pdf' === $bn_fs_type;
+// MediaVerse renders PDF natively (iframe) and office/text as server HTML that
+// the bridge already fetched into $bn_fs_preview_html. preview_tiers picks the
+// mode; only a type MVS cannot preview at all shows the download-only card.
+$bn_fs_mode = isset( $bn_fs_preview ) ? (string) $bn_fs_preview : 'download';
+$bn_fs_html = isset( $bn_fs_preview_html ) ? (string) $bn_fs_preview_html : '';
 
 $bn_fs_back_url = $bn_fs_folder > 0 ? add_query_arg( 'bn_folder', $bn_fs_folder, $bn_fs_base_url ) : $bn_fs_base_url;
 $bn_fs_date_out = '' !== $bn_fs_date ? mysql2date( (string) get_option( 'date_format' ), $bn_fs_date ) : '';
@@ -99,9 +103,13 @@ $bn_fs_date_out = '' !== $bn_fs_date ? mysql2date( (string) get_option( 'date_fo
 		<?php endif; ?>
 	</header>
 
-	<?php if ( $bn_fs_is_pdf && '' !== $bn_fs_prev_url ) : ?>
+	<?php if ( 'native' === $bn_fs_mode && '' !== $bn_fs_prev_url ) : ?>
 		<div class="bn-file-single__preview">
 			<iframe class="bn-file-single__frame" src="<?php echo esc_url( $bn_fs_prev_url ); ?>" title="<?php echo esc_attr( $bn_fs_title ); ?>" loading="lazy"></iframe>
+		</div>
+	<?php elseif ( 'html' === $bn_fs_mode && '' !== $bn_fs_html ) : ?>
+		<div class="bn-file-single__preview bn-file-single__preview--html mvs-doc-preview">
+			<?php echo wp_kses_post( $bn_fs_html ); ?>
 		</div>
 	<?php else : ?>
 		<div class="bn-file-single__no-preview">

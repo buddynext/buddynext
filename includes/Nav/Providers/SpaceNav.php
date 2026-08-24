@@ -820,12 +820,30 @@ final class SpaceNav {
 
 		$folder = isset( $doc['folder'] ) ? (int) $doc['folder'] : 0;
 
+		// MediaVerse renders PDF natively (iframe) and office/text as server HTML
+		// (a JSON envelope we fetch + print). preview_tiers tells us which; only a
+		// type MVS cannot preview at all falls back to the download card.
+		$preview_mode = \BuddyNext\Bridges\WPMediaVerseBridge::document_preview_mode( isset( $doc['doc_type'] ) ? (string) $doc['doc_type'] : '' );
+		$preview_html = '';
+		if ( 'html' === $preview_mode ) {
+			$preview_html = (string) \BuddyNext\Bridges\WPMediaVerseBridge::document_preview_html( isset( $doc['id'] ) ? (int) $doc['id'] : 0 );
+			if ( '' === $preview_html ) {
+				// MVS declined the preview — fall back to the download card.
+				$preview_mode = 'download';
+			} else {
+				// The rendered HTML uses MediaVerse's own document-viewer styles.
+				wp_enqueue_style( 'mvs-pro-document-viewer' );
+			}
+		}
+
 		buddynext_get_template(
 			'partials/space-file-single.php',
 			array(
-				'bn_fs_doc'      => $doc,
-				'bn_fs_base_url' => $this->tab_url( $space_id, 'files' ),
-				'bn_fs_folder'   => $folder,
+				'bn_fs_doc'          => $doc,
+				'bn_fs_base_url'     => $this->tab_url( $space_id, 'files' ),
+				'bn_fs_folder'       => $folder,
+				'bn_fs_preview'      => $preview_mode,
+				'bn_fs_preview_html' => $preview_html,
 			)
 		);
 	}
