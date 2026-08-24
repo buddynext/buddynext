@@ -794,10 +794,18 @@ final class SpaceNav {
 	}
 
 	/**
-	 * Render the single-file view for one space document — its details plus an
-	 * inline preview where the type allows one (PDF), and always a download. A
-	 * cross-drive or unreadable id resolves to null and shows "file not found",
-	 * never another drive's document under this tab.
+	 * Render the single-file view for one space document — its details plus the
+	 * inline preview. A cross-drive or unreadable id resolves to null and shows
+	 * "file not found", never another drive's document under this tab.
+	 *
+	 * The preview body is MediaVerse's OWN document viewer (the
+	 * `mvs_document_viewer_html` filter), not a re-implementation: it renders a
+	 * PDF through pdf.js, an office file through its PDF rendition or server-side
+	 * HTML, and a card for anything with no preview — with the auth handled by
+	 * rendering inline in PHP. An iframe or a fetch against /preview drops the
+	 * cookie (rest_cookie_check_errors sets the user to 0) and, for a rendered
+	 * PDF, would stream bytes into the page — the exact traps DocumentViewer was
+	 * written to avoid, so BuddyNext reuses it rather than repeating them.
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $doc_id   Document ID.
@@ -819,31 +827,25 @@ final class SpaceNav {
 		}
 
 		$folder = isset( $doc['folder'] ) ? (int) $doc['folder'] : 0;
+		$mime   = isset( $doc['mime_type'] ) ? (string) $doc['mime_type'] : '';
 
-		// MediaVerse renders PDF natively (iframe) and office/text as server HTML
-		// (a JSON envelope we fetch + print). preview_tiers tells us which; only a
-		// type MVS cannot preview at all falls back to the download card.
-		$preview_mode = \BuddyNext\Bridges\WPMediaVerseBridge::document_preview_mode( isset( $doc['doc_type'] ) ? (string) $doc['doc_type'] : '' );
-		$preview_html = '';
-		if ( 'html' === $preview_mode ) {
-			$preview_html = (string) \BuddyNext\Bridges\WPMediaVerseBridge::document_preview_html( isset( $doc['id'] ) ? (int) $doc['id'] : 0 );
-			if ( '' === $preview_html ) {
-				// MVS declined the preview — fall back to the download card.
-				$preview_mode = 'download';
-			} else {
-				// The rendered HTML uses MediaVerse's own document-viewer styles.
-				wp_enqueue_style( 'mvs-pro-document-viewer' );
-			}
-		}
+		// MediaVerse's viewer enqueues its own styles on wp_enqueue_scripts and
+		// its pdf.js on demand; enqueue the base style here too so it is present
+		// on this BuddyNext page (mirrors the profile Files tab enqueuing
+		// mvs-frontend). The filter renders inline, so its on-demand script
+		// enqueues still reach the footer.
+		wp_enqueue_style( 'mvs-pro-document-viewer' );
+
+		// phpcs:ignore WordPress.Security.EscapeOutput -- MediaVerse's DocumentViewer returns its own sanitised, access-gated markup.
+		$viewer_html = (string) apply_filters( 'mvs_document_viewer_html', '', $doc_id, $mime );
 
 		buddynext_get_template(
 			'partials/space-file-single.php',
 			array(
-				'bn_fs_doc'          => $doc,
-				'bn_fs_base_url'     => $this->tab_url( $space_id, 'files' ),
-				'bn_fs_folder'       => $folder,
-				'bn_fs_preview'      => $preview_mode,
-				'bn_fs_preview_html' => $preview_html,
+				'bn_fs_doc'         => $doc,
+				'bn_fs_base_url'    => $this->tab_url( $space_id, 'files' ),
+				'bn_fs_folder'      => $folder,
+				'bn_fs_viewer_html' => $viewer_html,
 			)
 		);
 	}

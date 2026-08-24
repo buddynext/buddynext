@@ -398,59 +398,18 @@ a.bn-files__name:focus-visible {
 	height: var(--bn-s4);
 }
 
-.bn-file-single__preview {
+/* MediaVerse's own document viewer renders inside this container (pdf.js canvas
+   for PDF, rendered HTML for office/text). Its own stylesheet
+   (mvs-pro-document-viewer) styles the content; we only frame it and give it
+   room + a little padding for the HTML case. */
+.bn-file-single__preview--mvs {
 	margin-block-start: var(--bn-s4);
+	min-height: 40vh;
+	padding: var(--bn-s3);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
-	overflow: hidden;
-	background: var(--bn-sunken);
-}
-
-.bn-file-single__frame {
-	display: block;
-	width: 100%;
-	height: 75vh;
-	border: 0;
-}
-
-/* Server-rendered (office/text) preview HTML from MediaVerse, printed inline. */
-.bn-file-single__preview--html {
-	max-height: 75vh;
-	padding: var(--bn-s4);
-	overflow: auto;
 	background: var(--bn-surface);
-	color: var(--bn-ink);
-	font-size: var(--bn-text-sm);
-	line-height: var(--bn-leading-body);
-}
-
-.bn-file-single__preview--html :is( h1, h2, h3, h4, h5, h6 ) {
-	color: var(--bn-ink);
-}
-
-.bn-file-single__preview--html a {
-	color: var(--bn-accent);
-}
-
-.bn-file-single__preview--html img {
-	max-width: 100%;
-	height: auto;
-}
-
-.bn-file-single__preview--html table {
-	border-collapse: collapse;
-	max-width: 100%;
-}
-
-.bn-file-single__preview--html :is( th, td ) {
-	padding: var(--bn-s1) var(--bn-s2);
-	border: 1px solid var(--bn-line);
-	text-align: start;
-}
-
-.bn-file-single__preview--html th {
-	background: var(--bn-sunken);
-	font-weight: var(--bn-fw-semibold);
+	overflow: auto;
 }
 
 .bn-file-single__no-preview {
@@ -502,8 +461,9 @@ a.bn-files__name:focus-visible {
 		justify-content: center;
 	}
 
-	.bn-file-single__frame {
-		height: 60vh;
+	.bn-file-single__preview--mvs {
+		min-height: 50vh;
+		padding: var(--bn-s2);
 	}
 }
 
