@@ -51,6 +51,8 @@ function documentErrorMessage( code, serverMessage ) {
 			return t( 'documentTypeNotAllowed', 'That file type is not allowed here.' );
 		case 'mvs_document_scan_failed':
 			return t( 'documentScanFailed', 'That file could not be accepted.' );
+		case 'mvs_documents_read_only':
+			return t( 'documentsReadOnly', 'Document uploads are paused on this site right now. You can still view existing documents.' );
 	}
 	return serverMessage || t( 'documentUploadFailed', 'That document could not be uploaded. Please try again.' );
 }
