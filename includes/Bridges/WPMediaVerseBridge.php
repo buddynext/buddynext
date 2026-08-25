@@ -1107,7 +1107,10 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		$owner_id = (int) get_post_field( 'post_author', $media_id );
+		// Same media-owner resolution as on_media_reaction(): the id is a
+		// wp_mvs_media_index row, not a post, so get_post_field() returns 0.
+		$repo     = MediaClient::repo();
+		$owner_id = $repo ? (int) $repo->get( $media_id, 'post_author' ) : 0;
 		if ( 0 === $owner_id || $owner_id === $user_id ) {
 			return;
 		}
@@ -1142,7 +1145,11 @@ class WPMediaVerseBridge {
 	 * @param string $reaction_type Reaction slug (e.g. 'like', 'love').
 	 */
 	public function on_media_reaction( int $media_id, int $user_id, string $reaction_type = '' ): void {
-		$owner_id = (int) get_post_field( 'post_author', $media_id );
+		// MVS media live in wp_mvs_media_index, not wp_posts, so get_post_field()
+		// returns 0 and would silently drop every reaction notification. Resolve
+		// the owner through the media repo (the same lookup used at line ~529).
+		$repo     = MediaClient::repo();
+		$owner_id = $repo ? (int) $repo->get( $media_id, 'post_author' ) : 0;
 		if ( 0 === $owner_id || $owner_id === $user_id ) {
 			return;
 		}
