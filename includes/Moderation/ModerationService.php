@@ -2964,6 +2964,29 @@ class ModerationService {
 
 		global $wpdb;
 
+		// One open appeal per suspension. This self-service path (POST
+		// /moderation/me/appeals) had no dedupe, so a member could file the same
+		// appeal repeatedly - flooding the moderator queue and, because each fires
+		// buddynext_appeal_submitted with a per-appeal notification key, spamming
+		// every admin. Mirror the guard submit_appeal() already uses.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$already_pending = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_appeals
+				 WHERE user_id = %d AND suspension_id = %d AND status = 'pending'",
+				$user_id,
+				$suspension_id
+			)
+		);
+
+		if ( $already_pending > 0 ) {
+			return new WP_Error(
+				'appeal_already_pending',
+				__( 'You have already appealed this. A moderator will review it.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
+		}
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'bn_appeals',
