@@ -361,8 +361,11 @@ store( 'buddynext/space-files', {
 				}
 				const type = ( res.headers.get( 'content-type' ) || '' ).toLowerCase();
 
-				// An office rendition streams as a PDF even though the source is
-				// not one — render it the same way, from the bytes we just read.
+				// A defensive fallback: any PDF that reached the fetch path (e.g. one
+				// the server streamed inline but the template did not pre-flag as a
+				// PDF) still renders through PDF.js. MediaVerse embeds PDF and plain
+				// text and hands over a download for everything else — it does not
+				// convert Office/ODF files to PDF, so this is not that path.
 				if ( type.indexOf( 'application/pdf' ) !== -1 ) {
 					const objUrl = URL.createObjectURL( await res.blob() );
 					renderPdf( pane, objUrl, ctx );
