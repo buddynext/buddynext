@@ -1619,14 +1619,10 @@ class PostService {
 			),
 			array( '%s', '%d' )
 		);
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_mod_log',
-			array(
-				'object_type' => 'post',
-				'object_id'   => $post_id,
-			),
-			array( '%s', '%d' )
-		);
+		// bn_mod_log is append-only by design (ModerationLogService) - it is the
+		// permanent moderation audit trail and must survive the deletion of the
+		// content it references. Do NOT delete its rows here; the log reader never
+		// joins to the object, so an orphaned object_id is harmless.
 
 		$wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
