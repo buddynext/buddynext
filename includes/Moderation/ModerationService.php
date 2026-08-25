@@ -336,6 +336,20 @@ class ModerationService {
 						 * @param string $reason     Warning message/reason.
 						 */
 						do_action( 'buddynext_user_warned', (int) $auto_action['user_id'], 0, (string) ( $auto_action['reason'] ?? '' ) );
+
+						// Auto-warn fires the hook directly (it does not route through
+						// warn(), which is where manual warns log), so record it here or
+						// rule-driven warnings leave no audit entry.
+						( new ModerationLogService() )->log(
+							0,
+							'warn',
+							array(
+								'object_type'    => 'user',
+								'object_id'      => (int) $auto_action['user_id'],
+								'target_user_id' => (int) $auto_action['user_id'],
+								'note'           => 'Automated rule warning: ' . (string) ( $auto_action['reason'] ?? '' ),
+							)
+						);
 					}
 					break;
 
@@ -373,6 +387,21 @@ class ModerationService {
 							0, // System actor — same convention as `warn` above.
 							(string) ( $auto_action['reason'] ?? '' ),
 							array( 'duration_days' => $bn_duration )
+						);
+
+						// suspend_user() is shared with the manual path (which logs at
+						// the moderation queue), so log the rule-driven suspension here
+						// rather than inside the primitive - otherwise a manual suspend
+						// would be logged twice while this one is not logged at all.
+						( new ModerationLogService() )->log(
+							0,
+							'suspend',
+							array(
+								'object_type'    => 'user',
+								'object_id'      => (int) $auto_action['user_id'],
+								'target_user_id' => (int) $auto_action['user_id'],
+								'note'           => 'Automated rule suspension: ' . (string) ( $auto_action['reason'] ?? '' ),
+							)
 						);
 					}
 					break;
@@ -2826,6 +2855,23 @@ class ModerationService {
 		}
 
 		$actor_id = $suspended_by > 0 ? $suspended_by : get_current_user_id();
+
+		// Record the automated ban/suspension in the append-only audit trail. This
+		// bare primitive is the strike-threshold escalation path (its only callers
+		// are ModerationListener's perma-ban + threshold-suspend); manual
+		// suspensions go through suspend_user() and are logged at the moderation
+		// queue, so this does not double-log. Without it, strike-driven sanctions
+		// were invisible in bn_mod_log while every manual action was recorded.
+		( new ModerationLogService() )->log(
+			$actor_id,
+			$hide_content ? 'perma_ban' : 'suspend',
+			array(
+				'object_type'    => 'user',
+				'object_id'      => $user_id,
+				'target_user_id' => $user_id,
+				'note'           => $reason,
+			)
+		);
 
 		/**
 		 * Fires after a suspension record is created.
