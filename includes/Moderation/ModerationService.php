@@ -283,7 +283,11 @@ class ModerationService {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$report_total = (int) $wpdb->get_var(
 					$wpdb->prepare(
-						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id = %d",
+						// Only OPEN reports count toward auto-hide. Without the status
+						// filter, dismissed/resolved lifetime reports were tallied, so a
+						// single new report could re-hide content a moderator had already
+						// cleared once the lifetime total crossed the threshold.
+						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id = %d AND status IN ( 'pending', 'escalated' )",
 						$object_id
 					)
 				);
@@ -2482,21 +2486,34 @@ class ModerationService {
 
 		global $wpdb;
 
-		// Fetch user_id for the hook before updating.
+		// Fetch user_id + current status for the hook and the re-resolve guard.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$user_id = (int) $wpdb->get_var(
+		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
+				"SELECT user_id, status FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
 				$appeal_id
-			)
+			),
+			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$user_id = (int) ( $row['user_id'] ?? 0 );
 
 		// Appeal row does not exist (appeals are always filed by a real user, so
 		// user_id is never 0 for a genuine row). Report it instead of updating
 		// zero rows and returning a false success.
 		if ( $user_id <= 0 ) {
 			return new WP_Error( 'bn_appeal_not_found', __( 'That appeal no longer exists.', 'buddynext' ) );
+		}
+
+		// An appeal is resolved exactly once. Without this guard a second resolve
+		// re-ran the UPDATE and re-fired buddynext_appeal_resolved, re-notifying the
+		// member and overwriting the original decision/reviewer.
+		if ( 'pending' !== (string) ( $row['status'] ?? '' ) ) {
+			return new WP_Error(
+				'appeal_not_pending',
+				__( 'That appeal has already been resolved.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2506,7 +2523,8 @@ class ModerationService {
 				'status'        => $decision,
 				'reviewed_by'   => $actor_id,
 				'reviewer_note' => sanitize_textarea_field( $reviewer_note ),
-				'reviewed_at'   => current_time( 'mysql' ),
+				// UTC, to match created_at and the file's timestamp invariant.
+				'reviewed_at'   => current_time( 'mysql', true ),
 			),
 			array( 'id' => $appeal_id ),
 			array( '%s', '%d', '%s', '%s' ),
@@ -2598,7 +2616,7 @@ class ModerationService {
 				 WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated')",
 				$status,
 				$actor_id,
-				current_time( 'mysql' ),
+				current_time( 'mysql', true ), // UTC, to match created_at and the resolved_today query.
 				(string) $target['object_type'],
 				(int) $target['object_id']
 			)
@@ -3135,7 +3153,7 @@ class ModerationService {
 		// (written here) and reviewed_*/reviewer_note (written by resolve_appeal()).
 		// Until the two resolution paths are consolidated, populate BOTH so the audit
 		// trail is complete regardless of which endpoint decided the appeal.
-		$now     = current_time( 'mysql' );
+		$now     = current_time( 'mysql', true ); // UTC, to match created_at and resolved_today.
 		$actor   = $resolved_by > 0 ? $resolved_by : null;
 		$note    = sanitize_textarea_field( $admin_note );
 		$updated = $wpdb->update(
@@ -3281,7 +3299,7 @@ class ModerationService {
 		$stats = $wpdb->get_row(
 			"SELECT
 				SUM( CASE WHEN status = 'pending' THEN 1 ELSE 0 END ) AS pending,
-				SUM( CASE WHEN status IN ('dismissed','resolved') AND DATE(created_at) = CURDATE() THEN 1 ELSE 0 END ) AS resolved_today,
+				SUM( CASE WHEN status IN ('dismissed','resolved') AND DATE(resolved_at) = UTC_DATE() THEN 1 ELSE 0 END ) AS resolved_today,
 				COUNT(*) AS total_all_time
 			 FROM {$wpdb->prefix}bn_reports",
 			ARRAY_A
