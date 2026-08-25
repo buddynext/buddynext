@@ -1318,6 +1318,16 @@ class PostService {
 	 * @return true|WP_Error True on success, WP_Error on permission / edit-window / content-safeguard failure.
 	 */
 	public function update( int $post_id, int $user_id, array $data ): bool|WP_Error {
+		// Suspended users are locked out of all content actions, editing included -
+		// create() gates the same way (spec 09-moderation: "cannot post/comment/react").
+		// Without this an already-suspended member could keep rewriting their existing
+		// posts. Gate before any ownership/DB work, exactly as create() does.
+		if ( $this->is_author_suspended( $user_id ) ) {
+			return \BuddyNext\Moderation\ModerationService::suspension_error(
+				__( 'Your account is suspended and cannot edit posts.', 'buddynext' )
+			);
+		}
+
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
 			// Owners edit their own posts; site admins and space moderators may
