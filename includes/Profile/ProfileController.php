@@ -993,15 +993,13 @@ class ProfileController extends BaseRestController {
 			$data[ $field_key ] = mb_substr( $data[ $field_key ], 0, $max );
 		}
 
-		// Normalise URL fields — accept input without protocol by prefixing https.
-		$url_fields = array( 'website', 'social_twitter', 'social_linkedin', 'social_github', 'social_instagram', 'social_youtube' );
-		foreach ( $url_fields as $url_key ) {
+		// Normalise every URL-type field — accept input without a protocol by
+		// prefixing https. Keyed on field TYPE, not a hardcoded key list, so an
+		// owner-created url field is normalised exactly like the seeded website /
+		// social_* fields (which are all type 'url').
+		foreach ( $this->url_field_keys() as $url_key ) {
 			if ( isset( $data[ $url_key ] ) && is_string( $data[ $url_key ] ) && '' !== trim( $data[ $url_key ] ) ) {
-				$raw = trim( $data[ $url_key ] );
-				if ( ! preg_match( '#^https?://#i', $raw ) ) {
-					$raw = 'https://' . ltrim( $raw, '/' );
-				}
-				$data[ $url_key ] = esc_url_raw( $raw );
+				$data[ $url_key ] = esc_url_raw( self::ensure_url_scheme( $data[ $url_key ] ) );
 			}
 		}
 
@@ -1044,6 +1042,42 @@ class ProfileController extends BaseRestController {
 	}
 
 	/**
+	 * Field keys whose type is 'url'.
+	 *
+	 * Both the sanitize and validate passes normalise/validate URL values keyed
+	 * on this list, so every url-type field - the seeded website / social_* ones
+	 * and any the owner creates - is treated identically (https auto-prefix +
+	 * scheme validation), rather than only a hardcoded set of keys.
+	 *
+	 * @return array<int, string>
+	 */
+	private function url_field_keys(): array {
+		$keys = array();
+		foreach ( (array) buddynext_service( 'profiles' )->get_flat_fields() as $field ) {
+			if ( 'url' === (string) ( $field['type'] ?? '' ) ) {
+				$keys[] = (string) ( $field['field_key'] ?? '' );
+			}
+		}
+
+		return array_values( array_filter( $keys ) );
+	}
+
+	/**
+	 * Prefix https:// when a URL value carries no scheme (input convenience).
+	 *
+	 * @param string $raw Raw URL value.
+	 * @return string Trimmed value with a scheme, or '' when empty.
+	 */
+	private static function ensure_url_scheme( string $raw ): string {
+		$raw = trim( $raw );
+		if ( '' === $raw || preg_match( '#^https?://#i', $raw ) ) {
+			return $raw;
+		}
+
+		return 'https://' . ltrim( $raw, '/' );
+	}
+
+	/**
 	 * Validate an incoming profile payload.
 	 *
 	 * Returns an associative array of `field => message` for every field that
@@ -1051,8 +1085,8 @@ class ProfileController extends BaseRestController {
 	 *
 	 * Rules:
 	 *   - display_name (when present) must be non-empty after trimming.
-	 *   - URL fields (website + social_*) must pass wp_http_validate_url when
-	 *     non-empty. Empty strings are allowed (they clear the field).
+	 *   - Every url-type field (see url_field_keys()) must pass the scheme check
+	 *     when non-empty. Empty strings are allowed (they clear the field).
 	 *
 	 * On a full write (profile create / complete-editor save) a required field
 	 * that is ABSENT from the payload fails validation, closing the bypass where
@@ -1082,8 +1116,7 @@ class ProfileController extends BaseRestController {
 			}
 		}
 
-		$url_fields = array( 'website', 'social_twitter', 'social_linkedin', 'social_github', 'social_instagram', 'social_youtube' );
-		foreach ( $url_fields as $url_key ) {
+		foreach ( $this->url_field_keys() as $url_key ) {
 			if ( ! isset( $data[ $url_key ] ) || ! is_string( $data[ $url_key ] ) ) {
 				continue;
 			}
@@ -1091,7 +1124,7 @@ class ProfileController extends BaseRestController {
 			if ( '' === $value ) {
 				continue;
 			}
-			$candidate = preg_match( '#^https?://#i', $value ) ? $value : 'https://' . ltrim( $value, '/' );
+			$candidate = self::ensure_url_scheme( $value );
 
 			// Validate the URL's FORM, not whether our server may fetch it.
 			//
