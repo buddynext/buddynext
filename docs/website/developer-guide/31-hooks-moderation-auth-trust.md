@@ -128,7 +128,7 @@ The admin moderation queue and the member-facing report modal expose theming sea
 | `buddynext_email_changed` | action | An email-address change is confirmed | `int $user_id, string $new_email` |
 | `buddynext_oauth_providers` | filter | The OAuth provider definitions are assembled | `array $providers` |
 | `buddynext_auth_social_providers` | filter | The social provider buttons rendered on login / signup / connected-accounts | `array $providers` |
-| `buddynext_social_icon` | filter | A social provider's icon is resolved | `string $icon, string $provider_id` |
+| `buddynext_social_icon` | filter | A social-LOGIN provider's button icon is resolved (login / signup / connected accounts). It does NOT affect the profile hero's social-link chips - those icons are a hardcoded map with no filter | `string $icon, string $provider_id` |
 | `buddynext_social_user_created` | action | A new account is created from a social login | `int $user_id, string $provider_id, array $profile` |
 
 ## Authentication: private community access (1.0.7)

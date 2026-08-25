@@ -140,8 +140,9 @@ class ProfileFieldsManager {
 	/**
 	 * Return the filterable list of allowed profile field type slugs.
 	 *
-	 * Pro plugins add custom field types (e.g. 'file', 'video', 'map') by
-	 * hooking buddynext_field_types (in FieldType) or buddynext_profile_field_types.
+	 * Pro plugins add custom field types (e.g. 'location', 'conditional',
+	 * 'number_advanced') by hooking buddynext_field_types (in FieldType) or
+	 * buddynext_profile_field_types.
 	 * The whitelist enforcement in handle_create_field() and handle_edit_field()
 	 * calls this method so registered types are automatically accepted.
 	 *

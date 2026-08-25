@@ -1,6 +1,6 @@
 # Advanced Profile Field Types (Pro)
 
-Pro adds six richer profile field types on top of the free profile builder: an enhanced date, a map-based location, a file upload, an advanced multi-select, an advanced number with units, and a conditional field that appears only when another field has a specific value. You build these the same way you build any profile field, and members fill them in with the matching input control.
+Pro adds five richer profile field types on top of the free profile builder: an enhanced date, a map-based location, an advanced multi-select, an advanced number with units, and a conditional field that appears only when another field has a specific value. You build these the same way you build any profile field, and members fill them in with the matching input control.
 
 ![A member profile populated with the richer Pro field types](../images/member-profile.webp)
 
@@ -36,10 +36,6 @@ A set location can be cleared. The **Remove** control next to the field empties 
 
 > **Note:** The map uses OpenStreetMap for its address lookup, loaded from a fast public source by default. If scripts are blocked, or the lookup service is unreachable, the field still works: the address saves as plain text and can still be cleared. Nobody is ever stuck with a location they cannot change.
 
-### File upload
-
-Renders a file chooser limited to the file types the owner allowed. The member picks a file from their device; after upload the field shows the file name. Owners control which file types are accepted and the maximum size.
-
 ### Multi-select (advanced)
 
 Renders the owner-defined list of choices and lets the member select more than one. Selections are stored together and shown back as a list on the profile view.
@@ -70,13 +66,6 @@ Pro field types appear in the same field builder you use for free fields, under 
 | Setting | What it controls | Default |
 |---|---|---|
 | (none) | The location type has no extra options to configure. It renders an address box plus map and stores address with coordinates. | - |
-
-### File upload
-
-| Setting | What it controls | Default |
-|---|---|---|
-| Allowed file types | Which file types members may upload, so you can limit it to (say) images and PDFs only. Leave empty to accept any type. | empty (any type) |
-| Max size (MB) | The largest file a member may upload, from 1 to 100 MB. | 5 |
 
 ### Multi-select (advanced)
 
@@ -112,5 +101,5 @@ Pro field types appear in the same field builder you use for free fields, under 
 
 The free plugin ships the core field types (text, textarea, select, checkbox, and the other standard inputs) and the whole field builder, member edit form, and profile view. See Profile Fields for that baseline.
 
-Pro adds the six field types documented here - extended date, location, file upload, advanced multi-select, advanced number, and conditional - by extending the free field engine. No free field type changes; Pro only adds to the type list and the per-type options.
+Pro adds the five field types documented here - extended date, location, advanced multi-select, advanced number, and conditional - by extending the free field engine. No free field type changes; Pro only adds to the type list and the per-type options.
 > **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Plans.

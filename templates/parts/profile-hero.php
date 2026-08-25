@@ -384,7 +384,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						'social_linkedin'  => 'link',
 						'social_github'    => 'code',
 						'social_instagram' => 'camera',
-						'social_youtube'   => 'play-circle',
+						'social_youtube'   => 'play',
 					);
 					foreach ( $bn_pf_social as $sl_field ) :
 						$sl_key   = (string) ( $sl_field['field_key'] ?? '' );
