@@ -14,11 +14,11 @@ Plain text fields capture text, and not much else. When you want clean, structur
 
 Richer field types pay off in three places:
 
-- Members fill profiles in faster because the control does the work (a date picker, a map search, a file chooser) instead of asking them to format a value by hand.
+- Members fill profiles in faster because the control does the work (a date picker, a map search, a units-aware number input) instead of asking them to format a value by hand.
 - The data comes back consistent, so directory filters, member search, and any later segmentation actually work on it.
 - Conditional fields keep the edit form short - a follow-up question only shows up when it is relevant, so members are not scrolling past fields that do not apply to them.
 
-A typical use: a professional network asks every member for their role, then a conditional "Years in management" number field that appears only when role is set to "Manager", a location field for their city, and a file field for an optional CV. Three of those four would be plain text boxes without Pro.
+A typical use: a professional network asks every member for their role, then a conditional "Years in management" number field that appears only when role is set to "Manager", and a location field for their city. Two of those three would be plain text boxes without Pro.
 
 ## How it works (for members)
 
@@ -92,7 +92,7 @@ Pro field types appear in the same field builder you use for free fields, under 
 ## Good to know
 
 - Pro field types are built on the free field engine, so visibility, required, and ordering work the same as any free field. See Profile Fields for those base behaviours.
-- The location map, file-name preview, and conditional show/hide are progressive enhancements layered on the saved value. If scripts do not load, members still get a working text or file input and the value still saves - the picker UX is the enhancement, not the storage.
+- The location map and conditional show/hide are progressive enhancements layered on the saved value. If scripts do not load, members still get a working text input and the value still saves - the picker UX is the enhancement, not the storage.
 - Connected clients save through the same checks as the website, so a value entered through the API is validated and stored exactly like one entered on the site.
 - Empty profiles show nothing for a field a member has not filled in. To preview a field type end to end, fill it in and reopen the profile view.
 - A conditional field watches another field by its field ID. If you delete the watched field, or want it to react to a different field, update the conditional field's Trigger field ID so it keeps reacting to the right field.
