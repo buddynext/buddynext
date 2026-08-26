@@ -214,15 +214,20 @@ class PageRouter {
 			return '';
 		}
 
-		// buddynext_page_* option → bn_hub slug.
-		$map = array(
-			'buddynext_page_activity'      => 'feed',
-			'buddynext_page_explore'       => 'feed',
-			'buddynext_page_people'        => 'people',
-			'buddynext_page_spaces'        => 'spaces',
-			'buddynext_page_messages'      => 'messages',
-			'buddynext_page_notifications' => 'notifications',
-		);
+		// buddynext_page_* option → hub key, built from the registry so every
+		// page-backed hub participates (the old hardcoded map omitted auth, so a
+		// site with the Auth page set as the WP front page never resolved "/" to
+		// login, and addon hubs were invisible here too).
+		$map = array();
+		foreach ( HubRegistry::instance()->all() as $bn_descriptor ) {
+			if ( $bn_descriptor->backing_page ) {
+				$map[ $bn_descriptor->page_option ] = $bn_descriptor->key;
+			}
+		}
+		// Explore is a sub-route of the Activity hub with its own page option but no
+		// registry descriptor of its own.
+		$map['buddynext_page_explore'] = 'feed';
+
 		foreach ( $map as $option => $slug ) {
 			if ( (int) get_option( $option ) === $front_id ) {
 				return $slug;
@@ -2687,20 +2692,16 @@ class PageRouter {
 	 * @return int Page ID, or 0 when the hub has no mapped page.
 	 */
 	public static function hub_page_id( string $hub ): int {
-		$map = array(
-			'feed'          => 'buddynext_page_activity',
-			'people'        => 'buddynext_page_people',
-			'spaces'        => 'buddynext_page_spaces',
-			'messages'      => 'buddynext_page_messages',
-			'notifications' => 'buddynext_page_notifications',
-			'auth'          => 'buddynext_page_auth',
-		);
-
-		if ( ! isset( $map[ $hub ] ) ) {
+		// Resolve the page option from the hub registry, not a hardcoded core-only
+		// map: any hub registered with backing_page:true (including addon hubs via
+		// buddynext_register_hubs) then resolves its SEO/queried-object page, and a
+		// non-page-backed hub (onboarding, community-admin) correctly returns 0.
+		$descriptor = HubRegistry::instance()->get( $hub );
+		if ( ! $descriptor instanceof HubDescriptor || ! $descriptor->backing_page ) {
 			return 0;
 		}
 
-		$page_id = (int) get_option( $map[ $hub ], 0 );
+		$page_id = (int) get_option( $descriptor->page_option, 0 );
 
 		return ( $page_id > 0 && 'page' === get_post_type( $page_id ) ) ? $page_id : 0;
 	}

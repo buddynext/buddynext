@@ -70,6 +70,9 @@ class NavManager extends AdminPageBase {
 	 * and calls flush_rewrite_rules() automatically, so no explicit flush is
 	 * needed here.
 	 *
+	 * `explore` is intentionally absent (though PAGE_OPTIONS lists it): Explore is a
+	 * sub-route of Activity and has no URL slug of its own to edit.
+	 *
 	 * @var array<string, string>
 	 */
 	private const SLUG_OPTIONS = array(
@@ -211,6 +214,19 @@ class NavManager extends AdminPageBase {
 				'default'  => 'onboarding',
 			),
 		);
+
+		// Drop hubs the routing layer never backs with a page. onboarding and
+		// community-admin register backing_page:false, so PageRouter::hub_page_id()
+		// never reads their buddynext_page_* option — listing them here offers the
+		// owner a page/slug control that saves a value nothing consumes. The hub
+		// registry is the authority on which hubs are page-backed.
+		$bn_registry = \BuddyNext\Core\HubRegistry::instance();
+		foreach ( array_keys( $catalogue ) as $bn_hub_key ) {
+			$bn_desc = $bn_registry->get( $bn_hub_key );
+			if ( $bn_desc && ! $bn_desc->backing_page ) {
+				unset( $catalogue[ $bn_hub_key ] );
+			}
+		}
 
 		/**
 		 * Filter the community-hub catalogue shown on the Pages & URLs tab so
@@ -375,8 +391,6 @@ class NavManager extends AdminPageBase {
 		foreach ( $catalogue as $hub => $cfg ) {
 			if ( '' === $cfg['slug_opt'] ) {
 				continue;
-			} elseif ( 'pages_error' === $notice ) {
-				AdminPageBase::render_notice( __( 'A backing page could not be created. Your slug changes were saved, but please try creating the page again.', 'buddynext' ), 'error' );
 			}
 			$slug = sanitize_title( (string) ( ( (array) ( $raw[ $hub ] ?? array() ) )['slug'] ?? '' ) );
 			if ( '' === $slug ) {
@@ -405,17 +419,19 @@ class NavManager extends AdminPageBase {
 
 		$create_failed = false;
 		foreach ( $catalogue as $hub => $cfg ) {
-			$hub_data = (array) ( $raw[ $hub ] ?? array() );
+			$hub_data       = (array) ( $raw[ $hub ] ?? array() );
+			$effective_slug = '';
 			if ( '' !== $cfg['slug_opt'] ) {
-				$slug = sanitize_title( (string) ( $hub_data['slug'] ?? '' ) );
-				update_option( $cfg['slug_opt'], '' !== $slug ? $slug : $cfg['default'] );
+				$slug           = sanitize_title( (string) ( $hub_data['slug'] ?? '' ) );
+				$effective_slug = '' !== $slug ? $slug : (string) $cfg['default'];
+				update_option( $cfg['slug_opt'], $effective_slug );
 			}
 
 			$page_id = absint( $hub_data['page_id'] ?? 0 );
 			// "Create a page now" — only when none is selected, so a chosen page
 			// is never silently replaced by a new blank one.
 			if ( 0 === $page_id && ! empty( $hub_data['create'] ) ) {
-				$page_id = $this->create_hub_backing_page( (string) $cfg['label'] );
+				$page_id = $this->create_hub_backing_page( (string) $cfg['label'], $effective_slug );
 				if ( 0 === $page_id ) {
 					// Creation failed — do NOT store 0 (that orphans the hub's
 					// existing assignment) and do NOT report success.
@@ -440,18 +456,26 @@ class NavManager extends AdminPageBase {
 	 * SEO, page-builder). Returns 0 on failure.
 	 *
 	 * @param string $label Hub label, used as the page title.
+	 * @param string $slug  Hub URL slug, used as post_name so the page permalink
+	 *                      matches the hub route. Empty falls back to WordPress's
+	 *                      title-derived slug.
 	 * @return int New page ID, or 0 on failure.
 	 */
-	private function create_hub_backing_page( string $label ): int {
-		$page_id = wp_insert_post(
-			array(
-				'post_title'   => $label,
-				'post_status'  => 'publish',
-				'post_type'    => 'page',
-				'post_content' => '',
-			),
-			true
+	private function create_hub_backing_page( string $label, string $slug = '' ): int {
+		$args = array(
+			'post_title'   => $label,
+			'post_status'  => 'publish',
+			'post_type'    => 'page',
+			'post_content' => '',
 		);
+		// Match the created page's slug to the hub's configured URL slug. Without it
+		// WordPress derives post_name from the title ("Activity feed" -> activity-feed)
+		// and the page permalink no longer matches the hub route — the divergence
+		// Installer::create_hub_pages() avoids by setting post_name the same way.
+		if ( '' !== $slug ) {
+			$args['post_name'] = $slug;
+		}
+		$page_id = wp_insert_post( $args, true );
 		return ( $page_id && ! is_wp_error( $page_id ) ) ? (int) $page_id : 0;
 	}
 
