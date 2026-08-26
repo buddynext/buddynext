@@ -711,6 +711,27 @@
 .bn-hub-nav-link .bn-icon { width: 15px; height: 15px; flex: none; color: var(--bn-ink-3); }
 .bn-hub-nav-link.is-active svg,
 .bn-hub-nav-link.is-active .bn-icon { color: var(--bn-accent-600, var(--bn-accent)); }
+
+/* Counter pill on a tab that declares a badge (e.g. posts awaiting approval).
+   The label takes the free space so the pill sits flush at the trailing edge. */
+.bn-hub-nav-link__label { flex: 1 1 auto; min-width: 0; }
+.bn-hub-nav-link__badge {
+	flex: none;
+	margin-inline-start: auto;
+	min-width: var(--bn-s5, 20px);
+	padding-inline: var(--bn-s1, 4px);
+	border-radius: var(--bn-r-full, 999px);
+	background: var(--bn-accent-100, var(--bn-sunken));
+	color: var(--bn-accent-700, var(--bn-accent));
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold, 600);
+	line-height: var(--bn-s5, 20px);
+	text-align: center;
+}
+.bn-hub-nav-link.is-active .bn-hub-nav-link__badge {
+	background: var(--bn-accent-600, var(--bn-accent));
+	color: var(--bn-accent-fg, var(--bn-bg));
+}
 .bn-admin-hub--paneled .bn-admin-hub__header { padding-top: 0; }
 
 /* iPad portrait + narrow: panel stacks above content */

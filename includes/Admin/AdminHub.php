@@ -1659,13 +1659,23 @@ class AdminHub {
 			foreach ( $visible as $tslug => $tab ) {
 				$is_active = ( $is_current_section && (string) $tslug === $active_slug );
 				$icon_html = ! empty( $tab['icon'] ) ? \BuddyNext\Core\IconService::render( (string) $tab['icon'] ) : '';
+				// A tab may declare a badge callable ( fn(): int ); when it returns a
+				// positive count, render a counter pill (e.g. posts awaiting approval).
+				$bn_badge_n    = ( isset( $tab['badge'] ) && is_callable( $tab['badge'] ) ) ? (int) call_user_func( $tab['badge'] ) : 0;
+				$bn_badge_html = $bn_badge_n > 0
+					? '<span class="bn-hub-nav-link__badge" aria-label="' . esc_attr(
+						/* translators: %d: number of items awaiting attention on this tab. */
+						sprintf( _n( '%d item awaiting attention', '%d items awaiting attention', $bn_badge_n, 'buddynext' ), $bn_badge_n )
+					) . '">' . esc_html( (string) $bn_badge_n ) . '</span>'
+					: '';
 				printf(
-					'<a class="bn-hub-nav-link%1$s" href="%2$s"%3$s>%4$s<span class="bn-hub-nav-link__label">%5$s</span></a>',
+					'<a class="bn-hub-nav-link%1$s" href="%2$s"%3$s>%4$s<span class="bn-hub-nav-link__label">%5$s</span>%6$s</a>',
 					$is_active ? ' is-active' : '',
 					esc_url( self::tab_url( (string) $skey, (string) $tslug ) ),
 					$is_active ? ' aria-current="page"' : '',
 					$icon_html, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
-					esc_html( (string) $tab['label'] )
+					esc_html( (string) $tab['label'] ),
+					$bn_badge_html // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- count is (int)-cast + esc_html'd, aria-label esc_attr'd above.
 				);
 			}
 			echo '</div>';

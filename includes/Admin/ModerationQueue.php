@@ -48,7 +48,18 @@ class ModerationQueue {
 		// go live) rather than reactive like reports. Hidden by AdminHub when the
 		// pre-moderation feature is off, but the tab itself always registers so a
 		// held post is never stranded.
-		AdminHub::register_tab( 'moderation', 'pending', __( 'Pending', 'buddynext' ), array( $this, 'render_pending' ), array( 'position' => 5 ) );
+		AdminHub::register_tab(
+			'moderation',
+			'pending',
+			__( 'Pending', 'buddynext' ),
+			array( $this, 'render_pending' ),
+			array(
+				'position' => 5,
+				// Counter pill on the tab so the owner sees at a glance how many
+				// posts are held for approval without opening the tab.
+				'badge'    => static fn(): int => ( new \BuddyNext\Feed\PostService() )->count_pending(),
+			)
+		);
 		AdminHub::register_tab( 'moderation', 'reports', __( 'Reports', 'buddynext' ), array( $this, 'render_reports' ), array( 'position' => 10 ) );
 		AdminHub::register_tab( 'moderation', 'suspensions', __( 'Suspensions', 'buddynext' ), array( $this, 'render_suspensions' ), array( 'position' => 20 ) );
 		AdminHub::register_tab( 'moderation', 'appeals', __( 'Appeals', 'buddynext' ), array( $this, 'render_appeals' ), array( 'position' => 30 ) );
@@ -296,9 +307,33 @@ class ModerationQueue {
 		if ( '' === $excerpt && ! empty( $row['link_url'] ) ) {
 			$excerpt = (string) $row['link_url'];
 		}
+		$bn_full_text = trim( wp_strip_all_tags( (string) ( $row['content'] ?? '' ) ) );
+		$bn_link      = (string) ( $row['link_url'] ?? '' );
+		// A held post is hidden from the front end, so there is no public URL to
+		// "view" it — the moderator must read the full text here to decide. The
+		// cell shows the excerpt; when the content was trimmed (or carries a link),
+		// it expands inline to the full content so they are not approving blind.
+		$bn_has_more = ( '' !== $bn_full_text && str_word_count( $bn_full_text ) > 24 ) || '' !== $bn_link;
+		$bn_label    = '' !== $excerpt ? $excerpt : sprintf( '%s #%d', esc_html__( 'Post', 'buddynext' ), $post_id );
 		?>
 		<tr>
-			<td><?php echo esc_html( '' !== $excerpt ? $excerpt : sprintf( '%s #%d', esc_html__( 'Post', 'buddynext' ), $post_id ) ); ?></td>
+			<td>
+				<?php if ( $bn_has_more ) : ?>
+					<details class="bn-mod-pending-content">
+						<summary><?php echo esc_html( $bn_label ); ?></summary>
+						<?php if ( '' !== $bn_full_text ) : ?>
+							<div class="bn-mod-pending-content__full"><?php echo esc_html( $bn_full_text ); ?></div>
+						<?php endif; ?>
+						<?php if ( '' !== $bn_link ) : ?>
+							<p class="bn-mod-pending-content__link">
+								<a href="<?php echo esc_url( $bn_link ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $bn_link ); ?></a>
+							</p>
+						<?php endif; ?>
+					</details>
+				<?php else : ?>
+					<?php echo esc_html( $bn_label ); ?>
+				<?php endif; ?>
+			</td>
 			<td><?php echo esc_html( '' !== $author ? $author : __( 'Unknown', 'buddynext' ) ); ?></td>
 			<td><?php echo esc_html( '' !== $space ? $space : __( 'Main feed', 'buddynext' ) ); ?></td>
 			<td><?php echo esc_html( $this->ago( (string) ( $row['created_at'] ?? '' ) ) ); ?></td>
