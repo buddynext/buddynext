@@ -264,25 +264,87 @@
 	// ── Notice handling — auto-clear URL params + auto-fade ───────────────
 
 	/**
-	 * Strip listed query-string params from the current URL via
+	 * One-shot "flash" query params — the result of a POST → redirect → GET.
+	 *
+	 * Every BN admin screen signals the outcome of an action by redirecting
+	 * back with a param the next render turns into a notice. That param has
+	 * done its job the moment the page paints, so it is stripped from the
+	 * address bar; leaving it there means a refresh (or a bookmark, or the
+	 * browser restoring the tab) re-shows "Space archived." for a space
+	 * nobody just archived.
+	 *
+	 * This list is the DEFAULT on any BN admin screen (`?page=buddynext…`) — a
+	 * screen does not have to opt in. It exists because the opt-in attribute
+	 * alone was whack-a-mole: every new admin surface re-introduced the bug
+	 * until someone remembered the attribute.
+	 *
+	 * Rules for adding to it:
+	 * - Only params that carry an OUTCOME (saved / deleted / error / msg).
+	 * - NEVER a param that carries STATE — page, tab, view, paged, s,
+	 *   orderby, status, type, scope, or any entity id. Stripping one of
+	 *   those silently changes what the screen shows on refresh.
+	 * - Prefer reusing a name already on this list over inventing a new one;
+	 *   a new surface that redirects with `?saved=1` is covered for free.
+	 *
+	 * Anything genuinely unusual can still opt in per-notice with
+	 * `data-bn-clear-param="foo bar"` (space-separated), which is merged in
+	 * below.
+	 *
+	 * @type {string[]}
+	 */
+	var FLASH_PARAMS = [
+		// Generic outcome verbs.
+		'saved', 'updated', 'created', 'deleted', 'removed', 'toggled',
+		'archived', 'restored', 'reset', 'revoked', 'cancelled', 'refunded',
+		'extended', 'dispatched', 'queued', 'applied', 'duplicated',
+		'imported', 'exported', 'sent', 'tested', 'bulk_done',
+		// Outcome carriers.
+		'done', 'error', 'fail', 'ok', 'success', 'notice', 'message', 'msg',
+		// Surface-specific outcomes already in use.
+		'test_sent', 'step_added', 'order_added', 'tax_saved', 'coupon_saved',
+		'coupon_error', 'gate_saved', 'gate_error', 'refund_error',
+		'extend_err', 'reminders', 'cat_msg',
+		// BN-namespaced outcomes.
+		'bn_done', 'bn_error', 'bn_msg', 'bn_notice', 'bn_appearance',
+		'bn_tools', 'bn_roles', 'bn_recommended', 'bn_pf_notice',
+		'bn_isolation', 'bn_intctl', 'bn_skipped', 'bn_sent'
+	];
+
+	/**
+	 * Strip one-shot flash params from the current URL via
 	 * history.replaceState so a refresh doesn't re-show the notice.
-	 * Notices opt in by adding `data-bn-clear-param="updated tested reset"`
-	 * (space-separated list).
+	 *
+	 * Strips `FLASH_PARAMS` by default, plus anything a notice opts into with
+	 * `data-bn-clear-param="updated tested reset"` (space-separated list).
 	 */
 	function stripNoticeParams() {
-		var nodes = document.querySelectorAll( '[data-bn-clear-param]' );
-		if ( ! nodes.length || ! window.history || ! window.history.replaceState ) {
+		if ( ! window.history || ! window.history.replaceState ) {
 			return;
 		}
-		var url     = new URL( window.location.href );
-		var changed = false;
-		nodes.forEach( function ( node ) {
+		var url = new URL( window.location.href );
+
+		// The default list applies to BN-owned admin screens only. This helper
+		// also loads on the three Learnomy screens the community-link card
+		// renders on (by script dependency) — rewriting another plugin's URL
+		// from a list we maintain is not ours to do. An opt-in
+		// `data-bn-clear-param` still works everywhere, because there the
+		// screen asked for it.
+		var page   = url.searchParams.get( 'page' ) || '';
+		var params = 0 === page.indexOf( 'buddynext' ) ? FLASH_PARAMS.slice() : [];
+
+		document.querySelectorAll( '[data-bn-clear-param]' ).forEach( function ( node ) {
 			node.getAttribute( 'data-bn-clear-param' ).split( /\s+/ ).forEach( function ( p ) {
-				if ( p && url.searchParams.has( p ) ) {
-					url.searchParams.delete( p );
-					changed = true;
+				if ( p ) {
+					params.push( p );
 				}
 			} );
+		} );
+		var changed = false;
+		params.forEach( function ( p ) {
+			if ( url.searchParams.has( p ) ) {
+				url.searchParams.delete( p );
+				changed = true;
+			}
 		} );
 		if ( changed ) {
 			window.history.replaceState( {}, '', url.toString() );

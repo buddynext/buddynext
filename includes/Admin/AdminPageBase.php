@@ -662,6 +662,16 @@ abstract class AdminPageBase {
 	 * argument those notices could not move to the primitive without losing the
 	 * behaviour, which is a quieter failure than not migrating them at all.
 	 *
+	 * `data-bn-clear-param` is now the EXCEPTION, not the rule. bn-admin-dialogs.js
+	 * strips a default set of one-shot flash params (`FLASH_PARAMS` in that file:
+	 * saved/updated/created/deleted/error/msg/bn_done…) from every BN admin URL,
+	 * because relying on each screen to opt in was whack-a-mole — every new admin
+	 * surface re-introduced the refresh-re-shows-the-notice bug. Redirect with a
+	 * name already on that list and it is handled for free; only reach for the
+	 * attribute when a param genuinely cannot be named from that set. Never name a
+	 * STATE param (page/tab/view/paged/s/orderby/status/type or an entity id) like
+	 * a flash param — those are deliberately excluded and must stay that way.
+	 *
 	 * @param string               $message Notice text. Escaped unless $allow_links is true.
 	 * @param string               $tone    One of success|error|warning|info. Unknown tones
 	 *                                      fall back to info rather than rendering untoned.
