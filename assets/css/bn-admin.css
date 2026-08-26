@@ -3833,6 +3833,35 @@ button.bn-btn-danger:hover {
 		display: inline-flex;
 	}
 
+	/* No stacked label on the headline cell.
+	 *
+	 * Core stacks a row by absolutely positioning `content: attr(data-colname)`
+	 * at left:10px on every `td:not(.check-column)` and clearing a gutter for it
+	 * with `padding-left: 35%`. The primary column is exempt from that gutter —
+	 * it is the row's headline, not a labelled field — and core's own tables get
+	 * away with it because they leave `data-colname` off that cell.
+	 *
+	 * Our tables set it on every cell for the desktop contract, so at <=782px the
+	 * label rendered ON TOP of the value: measured on Campaigns -> Broadcasts at
+	 * 390px, td.column-primary had padding-left:16px with a 32.5px "Name" label
+	 * sitting over the campaign name, printing "NBNAMEepro small B". Every BN
+	 * admin list table stacks through the same core rule, so this is one fix for
+	 * all of them rather than a data-colname edit per table — and it stays right
+	 * for any table added later.
+	 *
+	 * The label is not lost to screen readers: it is generated content, which
+	 * carries no semantics either way, and the column header remains in <thead>.
+	 *
+	 * The two :not()s are load-bearing, not copied decoration. Core's rule is
+	 * (0,4,2) — .wp-list-table plus three :not()s — so the obvious
+	 * `.bn-admin-hub__content .wp-list-table td.column-primary::before` is (0,3,2)
+	 * and LOSES, silently: measured, the label was still generated. Mirroring
+	 * core's row guards takes this to (0,5,2) and it wins on specificity rather
+	 * than on stylesheet order. */
+	.bn-admin-hub__content .wp-list-table tr:not(.inline-edit-row):not(.no-items) td.column-primary::before {
+		content: none;
+	}
+
 	/* The actions cell, once core has stacked the row.
 	 *
 	 * Its column is right-aligned on desktop, which is correct for the last
