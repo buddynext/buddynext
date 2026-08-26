@@ -1252,6 +1252,31 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Whether a viewer may SHARE (grant access to) documents on a space drive.
+	 *
+	 * Sharing is a WRITE authority: only a space owner or moderator may grant
+	 * access to a space document — a plain member reads the shared drive but does
+	 * not hand its files to others. This is the same write authority MediaVerse
+	 * now enforces server-side (can_grant() resolves the viewer's level through
+	 * the mvs_document_drive_access bridge answered by space_drive_access(), where
+	 * owner => own and moderator => write). Kept as one named rule so the Share
+	 * control and the server never disagree about who may share.
+	 *
+	 * @param int $space_id Space id.
+	 * @param int $user_id  Viewer.
+	 * @return bool
+	 */
+	public static function space_drive_can_share( int $space_id, int $user_id ): bool {
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return false;
+		}
+
+		$role = buddynext_service( 'space_members' )->get_role( $space_id, $user_id );
+
+		return in_array( $role, array( 'owner', 'moderator' ), true );
+	}
+
+	/**
 	 * Answer MVS: access level for a space document drive — none|read|write|own.
 	 *
 	 * A level, not a bool, is the whole point: a member reads the shared drive,

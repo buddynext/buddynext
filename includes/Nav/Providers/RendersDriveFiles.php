@@ -142,11 +142,18 @@ trait RendersDriveFiles {
 		}
 
 		// Sharing (members + link) is offered only where the viewer may actually
-		// grant: a personal drive's owner (the profile Files tab is self-only, so
-		// the viewer IS the owner) on a writable site. Space-drive sharing is off
-		// on MediaVerse's side today (can_grant's `mvs_document_can_grant` seam
-		// defaults false — "Space drives are Phase 11"), so no Share control there.
-		$can_share = ( 'user' === $drive_type ) && WPMediaVerseBridge::documents_writable();
+		// grant, and on a writable site. A personal drive's owner qualifies (the
+		// profile Files tab is self-only, so the viewer IS the owner). A space
+		// drive's owner or moderator qualifies too - the write authority MediaVerse
+		// now enforces server-side (can_grant returns true for a contributing Space
+		// member since MVS 2.4.0). A plain space member reads the drive but sees no
+		// Share control, matching what the grant endpoint would refuse anyway.
+		$bn_fs_viewer = get_current_user_id();
+		$can_share    = WPMediaVerseBridge::documents_writable()
+			&& (
+				'user' === $drive_type
+				|| WPMediaVerseBridge::space_drive_can_share( $drive_id, $bn_fs_viewer )
+			);
 
 		buddynext_get_template(
 			'partials/space-file-single.php',
