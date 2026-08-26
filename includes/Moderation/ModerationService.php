@@ -1738,6 +1738,12 @@ class ModerationService {
 		 */
 		do_action( 'buddynext_user_suspended', $user_id, $actor_id, $reason, $expires_at );
 
+		// Suspending a member actions every open report ABOUT that member — the
+		// strongest available action was taken, so their user-object reports must
+		// not linger open in the queue (the "suspend from a report leaves it open"
+		// bug). Cascades via set_status and notifies the reporters.
+		$this->resolve_open_user_reports( $user_id, $actor_id );
+
 		return $suspension_id;
 	}
 
@@ -2555,6 +2561,41 @@ class ModerationService {
 	}
 
 	/**
+	 * Resolve every open (pending/escalated) report ABOUT a user, used after the
+	 * user is suspended so the queue does not keep showing reports the suspension
+	 * already actioned.
+	 *
+	 * Finds one open user-object report and hands it to set_status(), which
+	 * cascades the 'resolved' status to all of that user's open reports and
+	 * notifies the reporters. No-op for the system actor (0), which cannot action
+	 * reports (can_action_report() would reject it).
+	 *
+	 * @param int $user_id  The suspended user (the report object).
+	 * @param int $actor_id The admin who suspended them.
+	 * @return void
+	 */
+	private function resolve_open_user_reports( int $user_id, int $actor_id ): void {
+		if ( $actor_id <= 0 || $user_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$report_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_reports
+				 WHERE object_type = 'user' AND object_id = %d AND status IN ('pending','escalated')
+				 ORDER BY id ASC LIMIT 1",
+				$user_id
+			)
+		);
+
+		if ( $report_id > 0 ) {
+			$this->set_status( $report_id, $actor_id, 'resolved' );
+		}
+	}
+
+	/**
 	 * Update report status (internal helper).
 	 *
 	 * Site admins may action any report; a space owner/moderator may action the
@@ -2900,6 +2941,11 @@ class ModerationService {
 		 * @param string|null $expires_at Expiry timestamp (Y-m-d H:i:s), or null for permanent.
 		 */
 		do_action( 'buddynext_user_suspended', $user_id, $actor_id, $reason, $expires_at );
+
+		// Same as suspend_user(): a strike-driven suspension actions any open
+		// reports about the member, so they don't linger in the queue. No-op when
+		// the actor is the system (0), which cannot action reports.
+		$this->resolve_open_user_reports( $user_id, $actor_id );
 
 		return true;
 	}

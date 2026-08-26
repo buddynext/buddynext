@@ -865,6 +865,17 @@ class ModerationQueue {
 	 */
 	private function user_inline_actions( int $user_id ): void {
 		$this->user_button( $user_id, 'strike', __( 'Strike author', 'buddynext' ), 'secondary' );
+
+		// Already suspended: show the state, not a Suspend button. Re-suspending is
+		// a server-side no-op (suspend_user() returns the existing active
+		// suspension), so offering it told the moderator nothing and hid the one
+		// fact they needed — that this account is already out. Mirrors the frontend
+		// queue's "Already suspended" state.
+		if ( buddynext_service( 'moderation' )->is_suspended( $user_id ) ) {
+			echo '<span class="bn-badge" data-tone="warning">' . esc_html__( 'Already suspended', 'buddynext' ) . '</span>';
+			return;
+		}
+
 		$this->user_button( $user_id, 'suspend', __( 'Suspend author', 'buddynext' ), 'delete', __( 'Suspend this member?', 'buddynext' ) );
 	}
 
