@@ -468,6 +468,18 @@ class WPMediaVerseBridge {
 	/**
 	 * Human verb for a non-photo media activity card.
 	 *
+	 * Only ever called for media that is NOT a photo: publish_media_activity()
+	 * turns photo/image uploads into a native `photo` post and returns before
+	 * reaching here. So the default arm cannot be a photo — it used to say
+	 * "shared a photo" anyway, which meant every DOCUMENT upload announced itself
+	 * as a photo in the feed (65 of them on the dev install, versus one audio and
+	 * two video). MVS resolves four types today — image, video, audio, document —
+	 * and the first is handled elsewhere.
+	 *
+	 * The default is now a type-neutral "shared a file": a media type we do not
+	 * recognise is one MVS added after this was written, and naming it wrongly is
+	 * worse than not naming it.
+	 *
 	 * @param string $media_type Resolved media type.
 	 * @return string
 	 */
@@ -477,8 +489,10 @@ class WPMediaVerseBridge {
 				return __( 'shared a video', 'buddynext' );
 			case 'audio':
 				return __( 'shared an audio clip', 'buddynext' );
+			case 'document':
+				return __( 'shared a document', 'buddynext' );
 			default:
-				return __( 'shared a photo', 'buddynext' );
+				return __( 'shared a file', 'buddynext' );
 		}
 	}
 
