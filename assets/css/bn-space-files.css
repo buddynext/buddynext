@@ -835,5 +835,21 @@ a.bn-files__name:focus-visible {
 	.bn-file-single__html {
 		padding: var(--bn-s2);
 	}
+
+	/* The member-add row stacks on narrow phones so the input keeps its full
+	   placeholder ("Add a member by username or email") instead of clipping to
+	   "Add a m…". The input takes its own row; the permission select and Add
+	   button share the next. Shared by the space and profile Files tabs. */
+	.bn-share__add {
+		flex-wrap: wrap;
+	}
+
+	.bn-share__login {
+		flex: 1 1 100%;
+	}
+
+	.bn-share__perm {
+		flex: 1 1 auto;
+	}
 }
 
