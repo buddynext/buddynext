@@ -351,6 +351,19 @@ class PageRouter {
 			exit;
 		}
 
+		// Bookmarks guard: the personal Bookmarks list (feed hub, bn_feed_section
+		// 'bookmarks') is the toggleable Bookmarks feature (FeatureRegistry
+		// 'bookmarks', default-on). When the owner turns it off, the list must not
+		// render — send visitors to the activity hub, mirroring the guards above.
+		if ( 'feed' === $hub
+			&& 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' )
+			&& function_exists( 'buddynext_service' )
+			&& ! buddynext_service( 'features' )->is_enabled( 'bookmarks' )
+		) {
+			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
+			exit;
+		}
+
 		$template = $this->resolve_hub_template( $hub );
 		if ( null === $template ) {
 			return;

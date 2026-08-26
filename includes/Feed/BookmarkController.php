@@ -107,7 +107,7 @@ class BookmarkController extends BaseRestController {
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 
-		if ( '0' === (string) get_option( 'buddynext_allow_bookmarks', '1' ) ) {
+		if ( ! buddynext_feature_enabled( 'bookmarks' ) ) {
 			return new WP_REST_Response( array( 'code' => 'bookmarks_disabled' ), 403 );
 		}
 

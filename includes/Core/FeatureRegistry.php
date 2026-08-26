@@ -169,6 +169,12 @@ class FeatureRegistry {
 				'group'      => 'community',
 				'depends_on' => array( 'feed' ),
 			),
+			'bookmarks'     => array(
+				'slug'       => 'bookmarks',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array(),
+			),
 
 			// Integration bridges are NOT features. They gate solely on the
 			// per-aspect Integrations toggle (buddynext_integration_enabled), which
@@ -427,6 +433,10 @@ class FeatureRegistry {
 			'announcements' => array(
 				'label'       => __( 'Site announcements', 'buddynext' ),
 				'description' => __( 'Pin an announcement to the top of every member\'s feed.', 'buddynext' ),
+			),
+			'bookmarks'     => array(
+				'label'       => __( 'Bookmarks', 'buddynext' ),
+				'description' => __( 'Let members save posts to a private Bookmarks list to read later.', 'buddynext' ),
 			),
 			'webhooks'      => array(
 				'label'       => __( 'Outbound webhooks', 'buddynext' ),

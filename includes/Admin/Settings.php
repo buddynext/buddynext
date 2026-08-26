@@ -968,16 +968,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'      => 'buddynext_allow_bookmarks',
-							'type'     => 'toggle',
-							'label'    => __( 'Allow bookmarks', 'buddynext' ),
-							'default'  => '1',
-							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
-							'hint'     => __( 'Members can save posts to a private bookmarks list.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
 							'key'     => 'buddynext_enable_link_preview',
 							'type'    => 'toggle',
 							'label'   => __( 'Enable link previews', 'buddynext' ),
