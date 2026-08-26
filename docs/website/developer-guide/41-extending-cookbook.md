@@ -381,15 +381,33 @@ add_action( 'buddynext_register_hubs', function ( \BuddyNext\Core\HubRegistry $r
 			__( 'Events', 'my-addon' ),     // backing page title
 			'[myaddon_events]',             // backing page content shortcode
 			null,                           // query_var (defaults to the key)
-			function ( string $slug ) {     // register_rules
-				add_rewrite_rule( '^' . $slug . '/?$', 'index.php?bn_hub=events', 'top' );
+			function () {                   // register_rules - NO arguments
+				$slug = trim( (string) get_option( 'myaddon_slug_events', 'events' ) );
+				if ( '' === $slug ) {
+					$slug = 'events';
+				}
+				add_rewrite_rule(
+					'^' . preg_quote( $slug, '/' ) . '/?$',
+					'index.php?bn_hub=events',
+					'top'
+				);
 			},
-			function ( string $hub ): ?string { // resolve_template
+			function ( string $hub ): ?string { // resolve_template - receives the hub key
 				return 'events' === $hub ? MY_ADDON_DIR . 'templates/events.php' : null;
 			}
 		)
 	);
 } );
+```
+
+**The two callbacks do not have the same signature.** `PageRouter::register_rewrites()`
+invokes yours as `( $descriptor->register_rules )()` - with **no arguments** - so read
+your slug from your own option inside the callback, as above. A callback that declares
+a required `$slug` parameter throws `ArgumentCountError` on every request under PHP 8,
+taking the whole site down rather than failing quietly. `resolve_template` is the
+opposite: it **is** passed the hub key, and must return `null` for any hub that is not
+yours, or you will hijack another hub's template. `includes/Core/CommunityAdminRoutes.php`
+is the reference implementation of both.
 
 ### Give the hub a proper document `<title>`
 
@@ -417,7 +435,6 @@ Two things worth knowing before you rely on it:
   BuddyNext leaves the document title alone entirely and your filter will not be
   applied. That is deliberate — the owner installed that plugin to own their titles —
   so set your title there instead on those sites.
-```
 
 One registration gives your hub a live route: `PageRouter` dispatches your `register_rules` and `resolve_template` on every request, a slug change flushes rewrites automatically (BuddyNext hooks `update_option_{your_slug_option}` for every registered hub), and - if your add-on is active when BuddyNext is activated - the Installer creates a backing WP page for it. `includes/Core/CoreHubs.php` registers the built-in hubs through the same `HubRegistry`.
 

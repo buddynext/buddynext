@@ -32,7 +32,7 @@ class RecommendedDefaults {
 	 * Option name => recommended value. Booleans turn a feature on; strings set
 	 * a sensible community-first default.
 	 *
-	 * @var array<string, bool|string>
+	 * @var array<string, bool|int|string>
 	 */
 	private const MAP = array(
 		// Discovery + reach.
@@ -71,13 +71,13 @@ class RecommendedDefaults {
 	/**
 	 * The recommended map, filterable so Pro / custom code can extend the bundle.
 	 *
-	 * @return array<string, bool|string>
+	 * @return array<string, bool|int|string>
 	 */
 	public static function map(): array {
 		/**
 		 * Filter the recommended first-run default option values.
 		 *
-		 * @param array<string, bool|string> $map Option name => recommended value.
+		 * @param array<string, bool|int|string> $map Option name => recommended value.
 		 */
 		$map = apply_filters( 'buddynext_recommended_defaults', self::MAP );
 		return is_array( $map ) ? $map : self::MAP;
