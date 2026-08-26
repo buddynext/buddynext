@@ -1420,34 +1420,21 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 .bn-post-card__react-icon svg { width: 18px; height: 18px; }
 
-/* Reacted states — hide the Lucide SVG and paint the colored emoji as
-   a background image. The Fluent Emoji vendor lives at
-   /assets/emoji/{slug}.svg (registered via IconService::emoji_url). */
-.bn-post-card__react-icon--like,
-.bn-post-card__react-icon--love,
-.bn-post-card__react-icon--haha,
-.bn-post-card__react-icon--wow,
-.bn-post-card__react-icon--sad,
-.bn-post-card__react-icon--angry {
+/* Reacted state — hide the idle Lucide heart and show the reaction's OWN mark:
+   the colored Fluent Emoji as a background image (built-ins + any custom that
+   ships an SVG), or a color-tinted letter glyph for Pro customs with no SVG. The
+   mark is data-driven from the serialized reaction set (emoji_url / char / color)
+   via state.reactionIconUrl + the inner .bn-reaction-glyph — so a custom reaction
+   shows itself here instead of the six built-ins being the only ones that could.
+   A hardcoded per-slug list here is exactly why custom reactions showed no icon. */
+.bn-post-card__react-icon--reacted {
 	background-position: center;
 	background-repeat: no-repeat;
 	background-size: contain;
 	transform: scale(1.05);
 }
-.bn-post-card__react-icon--like  svg,
-.bn-post-card__react-icon--love  svg,
-.bn-post-card__react-icon--haha  svg,
-.bn-post-card__react-icon--wow   svg,
-.bn-post-card__react-icon--sad   svg,
-.bn-post-card__react-icon--angry svg {
-	display: none;
-}
-.bn-post-card__react-icon--like  { background-image: url("../emoji/like.svg"); }
-.bn-post-card__react-icon--love  { background-image: url("../emoji/love.svg"); }
-.bn-post-card__react-icon--haha  { background-image: url("../emoji/haha.svg"); }
-.bn-post-card__react-icon--wow   { background-image: url("../emoji/wow.svg"); }
-.bn-post-card__react-icon--sad   { background-image: url("../emoji/sad.svg"); }
-.bn-post-card__react-icon--angry { background-image: url("../emoji/angry.svg"); }
+.bn-post-card__react-icon--reacted > svg { display: none; }
+.bn-post-card__react-icon .bn-reaction-glyph { font-size: 0.625rem; }
 
 /* React button label colour-matches the reacted state for an extra
    FB-style affordance ("Like" turns blue when you've liked, etc.). */

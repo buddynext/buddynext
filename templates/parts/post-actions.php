@@ -123,15 +123,21 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			data-wp-on--click="actions.toggleReactionPicker"
 			data-wp-bind--class="state.reactBtnClass"
 		>
-			<span data-wp-bind--class="state.reactionIconClass" aria-hidden="true">
+			<span data-wp-bind--class="state.reactionIconClass" data-wp-style--background-image="state.reactionIconUrl" aria-hidden="true">
 				<?php
-				// Idle state shows the Lucide heart outline (matches the rest
-				// of the chrome); once the user has reacted, CSS swaps in the
-				// corresponding colored Fluent Emoji via the
-				// .bn-post-card__react-icon--{type} modifier class — see
-				// `.bn-post-card__react-icon--*` in bn-feed.css.
+				// Idle state shows the Lucide heart outline (matches the rest of the
+				// chrome). Once the viewer has reacted, the reacted class hides the
+				// heart and the reaction's own mark takes over: its Fluent Emoji as a
+				// background image (state.reactionIconUrl), or — for a Pro custom
+				// reaction with no bundled SVG — the color-tinted letter glyph below.
+				// Both are data-driven from the serialized reaction set, so any
+				// registered reaction shows its own icon, not just the six built-ins.
 				buddynext_icon( 'heart' );
 				?>
+				<span class="bn-reaction-glyph" aria-hidden="true" hidden
+					data-wp-text="state.reactionGlyphChar"
+					data-wp-bind--hidden="!state.reactionGlyphChar"
+					data-wp-style--color="state.reactionGlyphColor"></span>
 			</span>
 			<?php
 			// Label reflects the viewer's current reaction (e.g. "Love") and falls

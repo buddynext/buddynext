@@ -57,19 +57,24 @@ if ( function_exists( 'buddynext_can' ) ) {
 	}
 }
 
-// Announcement gate — mirror the server (PostService::create): a site admin may
+// Announcement gate — the feature must be on (the feed only DISPLAYS announcements
+// when it is, so offering the megaphone while it is off is a control that writes
+// dead data), then mirror the server (PostService::create): a site admin may
 // announce site-wide, and a space owner/moderator may announce to THEIR space.
 // Gating the announcement UI on manage_options alone hid the control from space
 // owners the server already accepts (buddynext-moderate-space), so a non-admin
 // owner could not reach it in the composer. General-feed announcements stay
 // admin-only, matching the server's $ann_space_id > 0 branch.
-$composer_can_announce = current_user_can( 'manage_options' );
-if ( ! $composer_can_announce && $composer_space && function_exists( 'buddynext_can' ) ) {
-	$composer_can_announce = (bool) buddynext_can(
-		$composer_user_id,
-		'buddynext-moderate-space',
-		array( 'space_id' => $composer_space )
-	);
+$composer_can_announce = false;
+if ( buddynext_feature_enabled( 'announcements' ) ) {
+	$composer_can_announce = current_user_can( 'manage_options' );
+	if ( ! $composer_can_announce && $composer_space && function_exists( 'buddynext_can' ) ) {
+		$composer_can_announce = (bool) buddynext_can(
+			$composer_user_id,
+			'buddynext-moderate-space',
+			array( 'space_id' => $composer_space )
+		);
+	}
 }
 
 // Suspension is stated up front, not discovered by failing.

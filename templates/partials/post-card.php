@@ -58,6 +58,12 @@ $post_privacy    = in_array( $post_privacy, array( 'public', 'followers', 'conne
 	? $post_privacy
 	: 'public';
 $is_pinned       = ! empty( $bn_post['is_pinned'] );
+// The "Pinned" badge is surface-relative: a post is pinned to a member's PROFILE
+// strip or a SPACE strip, never to the global home/explore/single/bookmarks feed.
+// The raw is_pinned column travels with every hydrated row, so without this gate a
+// profile- or space-pinned post shows "Pinned" wherever it also appears. Keep the
+// raw is_pinned for the pin/unpin action + options menu; gate only the display.
+$show_pin_badge  = $is_pinned && in_array( $context, array( 'profile', 'space' ), true );
 $is_announcement = ! empty( $bn_post['is_announcement'] );
 $edited_at       = $bn_post['edited_at'] ?? null;
 $created_at      = $bn_post['created_at'] ?? '';
@@ -355,7 +361,7 @@ $card_classes = array( 'bn-post-card' );
 if ( $is_announcement ) {
 	$card_classes[] = 'bn-post-card--announcement';
 }
-if ( $is_pinned ) {
+if ( $show_pin_badge ) {
 	$card_classes[] = 'bn-post-card--pinned';
 }
 if ( 'poll' === $bn_post_type ) {
@@ -367,7 +373,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 <article
 	class="<?php echo esc_attr( $card_class_attr ); ?>"
 	data-wp-interactive="buddynext/post-card"
-	data-wp-class--bn-post-card--pinned="context.isPinned"
+	data-wp-class--bn-post-card--pinned="state.pinBadgeVisible"
 		data-wp-init="callbacks.initPostCard"
 	data-wp-on-document--click="actions.closePopups"
 	data-wp-on-document--keydown="actions.closePopupsOnEscape"
@@ -381,7 +387,12 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				'currentUserId'     => $current_user_id,
 				'postType'          => $bn_post_type,
 				'showContent'       => ! $has_cw,
+				// Raw pin state (drives the pin/unpin action + options menu label);
+				// showPinBadge gates whether the "Pinned" label is shown on this
+				// surface. The badge is visible only when both are true — so pinning
+				// a post from the home feed never surfaces the label there.
 				'isPinned'          => $is_pinned,
+				'showPinBadge'      => in_array( $context, array( 'profile', 'space' ), true ),
 				'bookmarked'        => $is_bookmarked,
 				'hasReported'       => $has_reported,
 				'reactionType'      => $my_reaction_type,
@@ -465,7 +476,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 
 	<?php if ( ! $is_announcement ) : ?>
 		<?php // Always in the DOM so the label can appear/disappear reactively when a member pins/unpins without a reload; hidden bound to context.isPinned. ?>
-		<div class="bn-post-card__pin-label" aria-label="<?php esc_attr_e( 'Pinned post', 'buddynext' ); ?>" data-wp-bind--hidden="!context.isPinned"<?php echo $is_pinned ? '' : ' hidden'; ?>>
+		<div class="bn-post-card__pin-label" aria-label="<?php esc_attr_e( 'Pinned post', 'buddynext' ); ?>" data-wp-bind--hidden="!state.pinBadgeVisible"<?php echo $show_pin_badge ? '' : ' hidden'; ?>>
 			<?php buddynext_icon( 'pin' ); ?> <?php esc_html_e( 'Pinned', 'buddynext' ); ?>
 		</div>
 	<?php endif; ?>

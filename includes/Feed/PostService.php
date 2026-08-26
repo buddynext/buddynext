@@ -179,6 +179,18 @@ class PostService {
 		if ( 'announcement' === $type ) {
 			$ann_space_id = (int) ( $data['space_id'] ?? 0 );
 
+			// The announcements feature must be enabled. The feed only DISPLAYS
+			// announcements when the toggle is on (FeedService gates every read on
+			// it), so accepting one while it is off writes a post nothing will ever
+			// surface. Gate the write on the same toggle as the read.
+			if ( ! buddynext_feature_enabled( 'announcements' ) ) {
+				return new WP_Error(
+					'feature_disabled',
+					__( 'Announcements are turned off for this community.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+
 			// Site admins may announce site-wide; a space owner/moderator may announce
 			// to their OWN space. The whole decision is filterable so a site can
 			// delegate the capability differently.
@@ -1141,8 +1153,12 @@ class PostService {
 			}
 		}
 
-		// Gate 3 — followers-only privacy.
-		if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author ) {
+		// Gate 3 — followers-only privacy. An admin (manage_options) may read it too:
+		// they can already moderate/edit it from the backend, and the space gate
+		// above grants them the same bypass (via SpaceVisibility). Gate 4 (private /
+		// "Only Me") below stays author-only even for admins.
+		$viewer_is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+		if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $viewer_is_admin ) {
 			$follows     = function_exists( 'buddynext_service' )
 				? buddynext_service( 'follows' )
 				: new \BuddyNext\SocialGraph\FollowService();
@@ -1274,8 +1290,12 @@ class PostService {
 				}
 			}
 
-			// Gate 3 — followers-only privacy.
-			if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author ) {
+			// Gate 3 — followers-only privacy. Admins (manage_options) bypass, the
+			// same access the space gate above and the suspension gate below already
+			// grant them: an admin who moderates/edits the post from the backend
+			// getting a frontend 403 was just an inconsistency. Gate 4 (private /
+			// "Only Me") stays author-only even for admins.
+			if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $is_admin ) {
 				if ( ! ( $viewer > 0 && $follows->is_following( $viewer, $author_id ) ) ) {
 					continue;
 				}

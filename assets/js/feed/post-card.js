@@ -90,6 +90,31 @@ function resolveReactionSet( list ) {
 	} ) );
 }
 
+/**
+ * The serialized reaction meta ({slug,label,char,color,emoji_url}) for `type`,
+ * resolved from the post card the currently-evaluating directive lives in. Used by
+ * the react-trigger icon getters so the button shows the reaction's own mark (SVG
+ * emoji or color glyph) for ANY registered reaction, not only the six built-ins.
+ *
+ * @param {string} type Reaction slug, or falsy for "no reaction".
+ * @return {{slug:string,label:string,char:string,color:string,emoji_url:string}|null}
+ */
+function reactionMetaFor( type ) {
+	if ( ! type ) {
+		return null;
+	}
+	try {
+		// getContext() is reliable inside a derived-state getter; getElement() is
+		// not (it is for actions/callbacks), so resolve the post's reaction list by
+		// id the same way setReactionIcon() does rather than by DOM proximity.
+		const postId = getContext().postId;
+		const list   = document.querySelector( '.bn-comment-list[data-comment-list="' + postId + '"]' );
+		return resolveReactionSet( list ).find( ( r ) => r.slug === type ) || null;
+	} catch ( _e ) {
+		return null;
+	}
+}
+
 function timeAgo( dateStr ) {
 	// The API returns a naive MySQL UTC datetime ("YYYY-MM-DD HH:MM:SS", no zone).
 	// `new Date()` parses a space-separated, zoneless string as LOCAL time, which
@@ -1262,14 +1287,39 @@ store( 'buddynext/post-card', {
 		// Reaction icon class — applied to the reaction button inner span to indicate current reaction type.
 		get reactionIconClass() {
 			try {
-				const ctx  = getContext();
-				const type = ctx.reactionType;
-				return type
-					? 'bn-post-card__react-icon bn-post-card__react-icon--' + type
+				// One generic "reacted" marker rather than a per-slug modifier: the
+				// reacted mark itself (emoji image or glyph) is data-driven below, so
+				// the class only needs to hide the idle heart and size the swap-in.
+				return getContext().reactionType
+					? 'bn-post-card__react-icon bn-post-card__react-icon--reacted'
 					: 'bn-post-card__react-icon';
 			} catch ( _e ) {
 				return 'bn-post-card__react-icon';
 			}
+		},
+		// CSS background-image for the reacted mark — the reaction's bundled Fluent
+		// SVG (built-ins + any custom that ships one). Empty for a glyph-only custom
+		// reaction, which the .bn-reaction-glyph span renders instead.
+		get reactionIconUrl() {
+			try {
+				const meta = reactionMetaFor( getContext().reactionType );
+				return meta && meta.emoji_url ? 'url("' + meta.emoji_url + '")' : '';
+			} catch ( _e ) { return ''; }
+		},
+		// Letter glyph for a Pro custom reaction with no bundled SVG (else empty, so
+		// the glyph span stays hidden and the SVG background-image is used).
+		get reactionGlyphChar() {
+			try {
+				const meta = reactionMetaFor( getContext().reactionType );
+				if ( ! meta || meta.emoji_url ) { return ''; }
+				return meta.char || ( meta.label || meta.slug ).charAt( 0 ).toUpperCase();
+			} catch ( _e ) { return ''; }
+		},
+		get reactionGlyphColor() {
+			try {
+				const meta = reactionMetaFor( getContext().reactionType );
+				return ( meta && ! meta.emoji_url && /^#[0-9a-fA-F]{6}$/.test( meta.color ) ) ? meta.color : '';
+			} catch ( _e ) { return ''; }
 		},
 		get showReactionPicker() {
 			try { return !! getContext().reactionPickerOpen; } catch ( _e ) { return false; }
@@ -1282,6 +1332,13 @@ store( 'buddynext/post-card', {
 		},
 		get bookmarked() {
 			try { return !! getContext().bookmarked; } catch ( _e ) { return false; }
+		},
+		// The "Pinned" label shows only when the post is pinned AND this surface is
+		// one a pin belongs to (profile / space). Keeps a profile- or space-pinned
+		// post from claiming "Pinned" in the global feed, and stops a pin performed
+		// from the home feed from surfacing the label there.
+		get pinBadgeVisible() {
+			try { const c = getContext(); return !! c.isPinned && !! c.showPinBadge; } catch ( _e ) { return false; }
 		},
 		get showContent() {
 			try { return !! getContext().showContent; } catch ( _e ) { return true; }
