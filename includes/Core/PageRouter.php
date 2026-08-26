@@ -340,7 +340,7 @@ class PageRouter {
 		}
 
 		// Direct-messaging guard: the /messages/ route is dead whenever DMs are
-		// off (buddynext_enable_dm) OR the WPMediaVerse engine is absent — bounce
+		// off (the 'messages' capability) OR the WPMediaVerse engine is absent — bounce
 		// the visitor to the activity hub rather than render an unusable hub. Use
 		// the canonical entry_enabled() gate (dm_enabled && available), the same
 		// one that hides the nav entry points, so the route and the nav agree.

@@ -70,7 +70,7 @@ class MessagesData {
 	 * should render at all.
 	 *
 	 * Combines the two independent gates so every entry point asks one question:
-	 *  - dm_enabled():  the site owner's on/off intent (buddynext_enable_dm).
+	 *  - dm_enabled():  the site owner's on/off intent (the 'messages' capability).
 	 *  - available():   the WPMediaVerse engine is actually present.
 	 *
 	 * When this returns false the entry point must be HIDDEN — not rendered and

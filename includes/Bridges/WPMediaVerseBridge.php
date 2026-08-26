@@ -79,7 +79,7 @@ class WPMediaVerseBridge {
 	 * either. `MessagesData::available()` asks `MediaClient`, which resolves the
 	 * engine's own container directly — so `/messages/`, the shell-nav item and
 	 * the messages store stay live whenever the engine is present and
-	 * `buddynext_enable_dm` is on, regardless of this bridge.
+	 * the 'messages' capability is on, regardless of this bridge.
 	 *
 	 * Gating these three filters on the Features toggle therefore did not disable
 	 * DM; it disabled only the checks on it. Turning the integration off left
@@ -90,7 +90,7 @@ class WPMediaVerseBridge {
 	 *
 	 * The owner keeps both switches that mean something: Features → WPMediaVerse
 	 * still controls the integration's display, and Settings → General → Direct
-	 * Messaging (`buddynext_enable_dm`) still turns DM off outright. What an owner
+	 * Messaging (the 'messages' capability) still turns DM off outright. What an owner
 	 * cannot do is leave DM on while its safety gates are off, because that is not
 	 * a preference — it is the Block button lying.
 	 *

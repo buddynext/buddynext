@@ -131,7 +131,7 @@ final class UserLinks {
 		);
 
 		// Drop the Messages item when messaging is not a usable entry point —
-		// either the site owner turned direct messaging off (buddynext_enable_dm)
+		// either the site owner turned direct messaging off (the 'messages' capability)
 		// OR the WPMediaVerse engine that backs it is not active. The catalogue is
 		// the single source of truth for the header dropdown, the menu metabox,
 		// and the menu resolver, so removing it here hides messaging everywhere.
