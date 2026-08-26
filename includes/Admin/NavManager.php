@@ -42,47 +42,13 @@ class NavManager extends AdminPageBase {
 		'account' => 'buddynext_nav_overrides_account',
 	);
 
-	/**
-	 * Map of core tab slug → buddynext_page_* option name.
-	 *
-	 * Used to persist page assignments separately from nav overrides so that
-	 * PageRouter and other services can read them without knowing about the
-	 * nav system.
-	 *
-	 * @var array<string, string>
-	 */
-	private const PAGE_OPTIONS = array(
-		'feed'          => 'buddynext_page_activity',
-		'explore'       => 'buddynext_page_explore',
-		'spaces'        => 'buddynext_page_spaces',
-		'messages'      => 'buddynext_page_messages',
-		'notifications' => 'buddynext_page_notifications',
-		'people'        => 'buddynext_page_people',
-		'auth'          => 'buddynext_page_auth',
-	);
-
-	/**
-	 * Map of main-nav tab slug → buddynext_slug_* option key.
-	 *
-	 * Used to render a URL-slug input inside each hub's config panel and to
-	 * persist slug changes when the nav form is saved.  The option keys match
-	 * those used by PageRouter; PageRouter listens on update_option_buddynext_slug_*
-	 * and calls flush_rewrite_rules() automatically, so no explicit flush is
-	 * needed here.
-	 *
-	 * `explore` is intentionally absent (though PAGE_OPTIONS lists it): Explore is a
-	 * sub-route of Activity and has no URL slug of its own to edit.
-	 *
-	 * @var array<string, string>
-	 */
-	private const SLUG_OPTIONS = array(
-		'feed'          => 'buddynext_slug_activity',
-		'spaces'        => 'buddynext_slug_spaces',
-		'messages'      => 'buddynext_slug_messages',
-		'notifications' => 'buddynext_slug_notifications',
-		'people'        => 'buddynext_slug_people',
-		'auth'          => 'buddynext_slug_auth',
-	);
+	// The page-option and slug-option maps that used to live here were parallel
+	// copies of the hub registry (and drifted: PAGE_OPTIONS carried a non-hub
+	// 'explore' entry, SLUG_OPTIONS omitted it). Everything now derives from
+	// HubRegistry: the Pages & URLs catalogue in page_hub_catalogue(), the
+	// per-hub slug flush in PageRouter, and the "managed in Pages & URLs" hint in
+	// render_config_panel_for_tab() (which reads HubRegistry::has() plus the one
+	// non-hub 'explore' exception).
 
 	/**
 	 * WordPress core URL slugs and feed endpoints that must not be used as hub slugs.
@@ -163,69 +129,22 @@ class NavManager extends AdminPageBase {
 	 * @return array<string, array<string, string>>
 	 */
 	private function page_hub_catalogue(): array {
-		$catalogue = array(
-			'feed'          => array(
-				'label'    => __( 'Activity feed', 'buddynext' ),
-				'desc'     => __( 'The main community feed — your community home.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_activity',
-				'page_opt' => 'buddynext_page_activity',
-				'default'  => 'activity',
-			),
-			'spaces'        => array(
-				'label'    => __( 'Spaces', 'buddynext' ),
-				'desc'     => __( 'Group/community spaces directory.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_spaces',
-				'page_opt' => 'buddynext_page_spaces',
-				'default'  => 'spaces',
-			),
-			'people'        => array(
-				'label'    => __( 'Members directory', 'buddynext' ),
-				'desc'     => __( 'Member directory and individual profile URLs.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_people',
-				'page_opt' => 'buddynext_page_people',
-				'default'  => 'members',
-			),
-			'messages'      => array(
-				'label'    => __( 'Messages', 'buddynext' ),
-				'desc'     => __( 'Direct messages (requires WPMediaVerse).', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_messages',
-				'page_opt' => 'buddynext_page_messages',
-				'default'  => 'messages',
-			),
-			'notifications' => array(
-				'label'    => __( 'Notifications', 'buddynext' ),
-				'desc'     => __( 'Activity notifications.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_notifications',
-				'page_opt' => 'buddynext_page_notifications',
-				'default'  => 'notifications',
-			),
-			'auth'          => array(
-				'label'    => __( 'Login / Register', 'buddynext' ),
-				'desc'     => __( 'Login, registration, and password-reset forms.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_auth',
-				'page_opt' => 'buddynext_page_auth',
-				'default'  => 'login',
-			),
-			'onboarding'    => array(
-				'label'    => __( 'Onboarding', 'buddynext' ),
-				'desc'     => __( 'First-run member setup flow.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_onboarding',
-				'page_opt' => 'buddynext_page_onboarding',
-				'default'  => 'onboarding',
-			),
-		);
-
-		// Drop hubs the routing layer never backs with a page. onboarding and
-		// community-admin register backing_page:false, so PageRouter::hub_page_id()
-		// never reads their buddynext_page_* option — listing them here offers the
-		// owner a page/slug control that saves a value nothing consumes. The hub
-		// registry is the authority on which hubs are page-backed.
-		$bn_registry = \BuddyNext\Core\HubRegistry::instance();
-		foreach ( array_keys( $catalogue ) as $bn_hub_key ) {
-			$bn_desc = $bn_registry->get( $bn_hub_key );
-			if ( $bn_desc && ! $bn_desc->backing_page ) {
-				unset( $catalogue[ $bn_hub_key ] );
+		// Derived from the hub registry — the single source of truth — so a core
+		// hub and an add-on hub reach this screen the same way. A hub opts in with
+		// admin_managed (false for internal/non-page hubs like onboarding and
+		// community_admin); label/desc/default come off the descriptor.
+		$catalogue = array();
+		foreach ( \BuddyNext\Core\HubRegistry::instance()->all() as $bn_hub ) {
+			if ( ! $bn_hub->admin_managed ) {
+				continue;
 			}
+			$catalogue[ $bn_hub->key ] = array(
+				'label'    => $bn_hub->admin_label(),
+				'desc'     => $bn_hub->admin_desc,
+				'slug_opt' => $bn_hub->slug_option,
+				'page_opt' => $bn_hub->page_option,
+				'default'  => $bn_hub->default_slug,
+			);
 		}
 
 		/**
@@ -1565,7 +1484,7 @@ class NavManager extends AdminPageBase {
 		// URL slug + backing page are owned by the Pages & URLs tab now, so the
 		// config panel no longer renders them — it covers display only (label,
 		// order, visibility, capability, login, guest label).
-		$has_routing = ( 'main' === $scope ) && ( isset( self::PAGE_OPTIONS[ $slug ] ) || isset( self::SLUG_OPTIONS[ $slug ] ) );
+		$has_routing = ( 'main' === $scope ) && ( \BuddyNext\Core\HubRegistry::instance()->has( $slug ) || 'explore' === $slug );
 
 		// Helper: generate scope-namespaced input name for this tab's config.
 		$n = static function ( string $field ) use ( $scope, $slug ): string {

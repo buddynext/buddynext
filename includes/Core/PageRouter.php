@@ -272,25 +272,18 @@ class PageRouter {
 			exit;
 		}
 
-		// Feature guard: a hub whose feature the admin has disabled must not
-		// render. Spaces is the toggleable hub (FeatureRegistry 'spaces',
-		// default-on) — when it is off, send visitors to the activity hub
-		// rather than showing a hub the site has turned off.
-		if ( 'spaces' === $hub
+		// Feature guard: a whole hub whose FeatureRegistry feature the admin has
+		// disabled must not render — send visitors to the activity hub instead of
+		// showing a hub the site turned off. The gated hubs declare their feature
+		// on the descriptor (spaces => 'spaces', onboarding => 'onboarding', both
+		// default-on), so this one guard replaces the former per-hub copies and
+		// any add-on hub that sets `feature` is covered automatically. Sub-route
+		// gates (hashtag, bookmarks, messages availability) stay specific below.
+		$bn_hub_desc = HubRegistry::instance()->get( $hub );
+		if ( $bn_hub_desc
+			&& null !== $bn_hub_desc->feature
 			&& function_exists( 'buddynext_service' )
-			&& ! buddynext_service( 'features' )->is_enabled( 'spaces' )
-		) {
-			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
-			exit;
-		}
-
-		// Onboarding is a toggleable hub (FeatureRegistry 'onboarding',
-		// default-on). When the owner turns it off, direct visits to the
-		// onboarding page must not render it — send them to the activity hub,
-		// mirroring the Spaces guard above.
-		if ( 'onboarding' === $hub
-			&& function_exists( 'buddynext_service' )
-			&& ! buddynext_service( 'features' )->is_enabled( 'onboarding' )
+			&& ! buddynext_service( 'features' )->is_enabled( $bn_hub_desc->feature )
 		) {
 			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
 			exit;
@@ -3288,13 +3281,20 @@ class PageRouter {
 	 * @return string
 	 */
 	private static function default_slug( string $option_name ): string {
-		// Hub defaults come from the registry (which now includes community_admin
-		// and overrides this map at runtime); the literal here is the pre-registry
-		// fallback for any very-early caller, kept in sync with the descriptor.
-		$map = array( 'buddynext_slug_community_admin' => 'community-admin' );
+		// The registry is the only source of hub default slugs (community_admin
+		// included). No literal fallback map: an option no hub owns is a caller
+		// bug, not a hub with a 'community' slug.
 		foreach ( HubRegistry::instance()->all() as $hub ) {
-			$map[ $hub->slug_option ] = $hub->default_slug;
+			if ( $hub->slug_option === $option_name ) {
+				return $hub->default_slug;
+			}
 		}
-		return $map[ $option_name ] ?? 'community';
+		// Unknown option: surface it in debug rather than silently routing to a
+		// slug no hub owns. Empty means "no default", so hub_slug() falls back to
+		// whatever the option stores (or '').
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			_doing_it_wrong( __METHOD__, esc_html( "No registered hub owns slug option '{$option_name}'." ), '1.2.0' );
+		}
+		return '';
 	}
 }
