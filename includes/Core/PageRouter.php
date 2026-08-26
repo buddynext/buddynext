@@ -175,27 +175,6 @@ class PageRouter {
 	// ── Template dispatcher ───────────────────────────────────────────────────
 
 	/**
-	 * Load a BuddyNext hub template using the active theme's header and footer.
-	 *
-	 * Hooked on 'template_redirect'. When the current request is a BuddyNext
-	 * hub route this method resolves the correct relative template path,
-	 * enqueues hub-specific assets, injects BuddyNext body classes, then
-	 * delegates the full page frame to the active theme via get_header() and
-	 * get_footer() — so the theme's navigation, widgets, and footer render
-	 * exactly as they do on every other page of the site.
-	 *
-	 * The 'bn-page' body class is the primary integration signal. BuddyXBridge
-	 * reads it so BuddyX skips its .container wrapper on hub pages. The
-	 * 'no-sidebar' class is kept for other popular themes (Astra, GeneratePress,
-	 * etc.) that suppress their sidebar based on body class — BuddyX does not
-	 * use it; its layout is controlled via the buddyx_is_full_width_page filter.
-	 *
-	 * Calls exit so WordPress never renders its own page content.
-	 *
-	 * @return void
-	 */
-
-	/**
 	 * Resolve the hub slug when a BuddyNext hub page is the static front page.
 	 *
 	 * Returns '' unless the request is the front page, the site shows a static
@@ -238,12 +217,17 @@ class PageRouter {
 	}
 
 	/**
-	 * Render the resolved hub template as a standalone document.
+	 * Resolve the BuddyNext hub for this request and queue it for rendering.
 	 *
-	 * The terminal step of the routing chain: handles the legacy /search/ →
-	 * /activity/search/ redirect, sets up a virtual post so theme template tags
-	 * resolve, resolves the hub template, and emits the full HTML document
-	 * (wp_head + content + wp_footer). Hooked on template_redirect.
+	 * Hooked on template_redirect — the stage for gates, redirects and head-meta
+	 * that must precede wp_head(). It runs the legacy /search/ → /activity/search/
+	 * redirect, the private-community and per-feature route guards, resolves the
+	 * hub template + context, then DEFERS the render: it stores the pending hub
+	 * and points core's `template_include` at templates/hub-loader.php, which
+	 * calls render_pending(). The render therefore happens inside core's normal
+	 * template stage — so template_include, wp_before_include_template and the
+	 * output-buffer filters all fire — with the active theme's header and footer.
+	 * This method never emits the document itself. See GH #137.
 	 *
 	 * @return void
 	 */

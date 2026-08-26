@@ -366,7 +366,7 @@ Because a programmatic field has no `bn_profile_fields` row, its submitted value
 
 ## Recipe 10 - Register an add-on hub (1.0.4)
 
-**Goal:** give your add-on its own community page - a real URL like `/events/` that renders inside the BuddyNext shell, with a backing WP page, slug setting, rewrite rules, and template resolution handled for you.
+**Goal:** give your add-on its own community page - a real URL like `/events/` that renders inside the BuddyNext shell, with a backing WP page, rewrite rules, and template resolution handled for you. (Surfacing an editable URL slug in the admin needs one extra filter today - see the end of the recipe.)
 
 **Seam:** `HubRegistry` + the `buddynext_register_hubs` action.
 
@@ -419,7 +419,26 @@ Two things worth knowing before you rely on it:
   so set your title there instead on those sites.
 ```
 
-One registration buys the whole lifecycle: the Installer creates the backing page, Pages & URLs shows the slug setting, slug changes flush rewrites, and PageRouter dispatches your rules and template. The 7 built-in hubs register through exactly this API (`includes/Core/CoreHubs.php`), so anything they can do, your hub can do.
+One registration gives your hub a live route: `PageRouter` dispatches your `register_rules` and `resolve_template` on every request, a slug change flushes rewrites automatically (BuddyNext hooks `update_option_{your_slug_option}` for every registered hub), and - if your add-on is active when BuddyNext is activated - the Installer creates a backing WP page for it. `includes/Core/CoreHubs.php` registers the built-in hubs through the same `HubRegistry`.
+
+Two limits are worth knowing today. Both are being closed as the hub-registry migration finishes; until then, plan around them:
+
+- **The admin Pages & URLs screen does not list add-on hubs yet.** `NavManager::page_hub_catalogue()` is a fixed list of the built-in hubs, so your hub's URL slug is not editable there out of the box. Add it with the `bn_admin_hub_pages` filter, which receives that catalogue as `hub key => { label, desc, slug_opt, page_opt, default }`:
+
+  ```php
+  add_filter( 'bn_admin_hub_pages', function ( array $hubs ): array {
+      $hubs['events'] = array(
+          'label'    => __( 'Events', 'my-addon' ),
+          'desc'     => __( 'Your community events hub.', 'my-addon' ),
+          'slug_opt' => 'myaddon_slug_events',
+          'page_opt' => 'myaddon_page_events',
+          'default'  => 'events',
+      );
+      return $hubs;
+  } );
+  ```
+
+- **Most built-in hubs do not yet go through `register_rules` / `resolve_template`.** Their rewrites and template resolution still live directly in `PageRouter`; only `community_admin` rides this add-on seam so far. The callbacks you pass here are the supported path and are dispatched on every request - as the built-ins move onto the same seam, the two converge and a core hub and your hub run identical code.
 
 ## Recipe 11 - Ship your own templates (1.0.4)
 
