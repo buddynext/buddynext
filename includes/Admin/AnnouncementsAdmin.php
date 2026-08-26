@@ -97,6 +97,9 @@ class AnnouncementsAdmin {
 		$rows        = is_object( $service ) ? $service->list_all_announcements( 200 ) : array();
 		$featured_id = (int) get_option( self::FEATURED_OPTION, 0 );
 		$now         = time();
+		// Resolve every space_id to a name up front (one batched query) so the
+		// Audience column shows "Design Team" rather than a raw "Space #42".
+		$space_names = $this->space_names( $rows );
 		?>
 		<?php // S5: no card header — its title would only repeat the page H1 ("Announcements"). ?>
 		<div class="bn-settings-section">
@@ -152,7 +155,16 @@ class AnnouncementsAdmin {
 									</button>
 								</td>
 								<td data-colname="<?php esc_attr_e( 'Audience', 'buddynext' ); ?>">
-									<?php echo $is_site ? esc_html__( 'Site-wide', 'buddynext' ) : esc_html( sprintf( /* translators: %d: space ID. */ __( 'Space #%d', 'buddynext' ), $space_id ) ); ?>
+									<?php
+									if ( $is_site ) {
+										esc_html_e( 'Site-wide', 'buddynext' );
+									} else {
+										$bn_space_name = $space_names[ $space_id ] ?? '';
+										echo '' !== $bn_space_name
+											? esc_html( sprintf( /* translators: %s: space name. */ __( 'Space: %s', 'buddynext' ), $bn_space_name ) )
+											: esc_html( sprintf( /* translators: %d: space ID (name unavailable). */ __( 'Space #%d', 'buddynext' ), $space_id ) );
+									}
+									?>
 								</td>
 								<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>"><span class="bn-badge" data-tone="<?php echo esc_attr( $status['tone'] ); ?>"><?php echo esc_html( $status['label'] ); ?></span></td>
 								<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
@@ -246,5 +258,30 @@ class AnnouncementsAdmin {
 			><?php echo esc_html( $label ); ?></button>
 		</form>
 		<?php
+	}
+
+	/**
+	 * Batch-resolve space names for a set of announcement rows.
+	 *
+	 * One query for every distinct space_id, so the Audience column can show the
+	 * space name instead of a raw id. Mirrors ActivityAdmin::space_names().
+	 *
+	 * @param array<int,array<string,mixed>> $items Announcement rows (each may carry a space_id).
+	 * @return array<int,string> Map of space_id => name.
+	 */
+	private function space_names( array $items ): array {
+		$ids = array_values( array_unique( array_filter( array_map( static fn( $r ) => (int) ( $r['space_id'] ?? 0 ), $items ) ) ) );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+		global $wpdb;
+		$in = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, name FROM {$wpdb->prefix}bn_spaces WHERE id IN ({$in})", $ids ), ARRAY_A );
+		$out  = array();
+		foreach ( (array) $rows as $r ) {
+			$out[ (int) $r['id'] ] = (string) $r['name'];
+		}
+		return $out;
 	}
 }
