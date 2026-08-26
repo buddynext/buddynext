@@ -286,6 +286,29 @@ class ProfileFieldsManager {
 		add_action( 'admin_post_bn_edit_profile_field', array( $this, 'handle_edit_field' ) );
 		add_action( 'admin_post_bn_reorder_group', array( $this, 'handle_reorder_group' ) );
 		add_action( 'admin_post_bn_reorder_field', array( $this, 'handle_reorder_field' ) );
+
+		// Setup-checklist intent: mark the "Profiles" step done once the owner saves
+		// ANY profile configuration — creating or editing a group/field, including the
+		// seeded starter kit. Runs at priority 1 (before each handler redirects+exits)
+		// on the mutating actions only. The step used to require a brand-new custom
+		// group, so editing the starter kit — what the step's copy invites — never
+		// completed it. See SetupChecklist::profiles_configured().
+		foreach ( array( 'bn_create_profile_group', 'bn_create_profile_field', 'bn_update_profile_group', 'bn_update_profile_field', 'bn_edit_profile_field', 'bn_reorder_group', 'bn_reorder_field' ) as $bn_pf_action ) {
+			add_action( "admin_post_{$bn_pf_action}", array( $this, 'mark_profiles_configured' ), 1 );
+		}
+	}
+
+	/**
+	 * Record that the owner has configured member profiles (drives the Setup
+	 * checklist "Profiles" step). Capability-guarded; a non-privileged request can
+	 * never flip it. Not autoloaded — read only on the admin landing.
+	 *
+	 * @return void
+	 */
+	public function mark_profiles_configured(): void {
+		if ( current_user_can( 'manage_options' ) ) {
+			update_option( 'buddynext_profiles_configured', 1, false );
+		}
 	}
 
 	/**

@@ -142,6 +142,7 @@ class DemoAdmin {
 					data-bn-confirm="<?php echo esc_attr__( 'Remove all demo data? This cannot be undone.', 'buddynext' ); ?>" data-bn-confirm-tone="danger"
 					<?php endif; ?>>
 					<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
+					<input type="hidden" name="bn_demo_origin" value="get-started">
 					<?php wp_nonce_field( $action ); ?>
 					<button type="submit" class="bn-btn" data-variant="<?php echo $seeded ? 'danger' : 'primary'; ?>"><?php echo esc_html( $label ); ?></button>
 				</form>
@@ -191,7 +192,20 @@ class DemoAdmin {
 	 * @return void
 	 */
 	private function redirect_back( string $status ): void {
-		wp_safe_redirect( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'tools', array( 'bn_demo' => $status ) ) );
+		// Return the owner to where they launched the seed/cleanup from. The promo on
+		// the Get Started landing carries bn_demo_origin=get-started; anything else
+		// (the full Tools tab) keeps the historical Tools destination. The nonce was
+		// already verified by the calling handler.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- caller ran check_admin_referer().
+		$origin = isset( $_POST['bn_demo_origin'] ) ? sanitize_key( wp_unslash( $_POST['bn_demo_origin'] ) ) : '';
+		if ( 'get-started' === $origin ) {
+			$slug = \BuddyNext\Admin\AdminHub::section_slug( 'get-started' );
+			$base = '' === $slug ? admin_url( 'admin.php' ) : admin_url( 'admin.php?page=' . $slug );
+			$url  = add_query_arg( 'bn_demo', $status, $base );
+		} else {
+			$url = \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'tools', array( 'bn_demo' => $status ) );
+		}
+		wp_safe_redirect( $url );
 		exit;
 	}
 }

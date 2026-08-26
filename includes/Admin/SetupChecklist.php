@@ -116,7 +116,7 @@ final class SetupChecklist {
 				'key'       => 'profiles',
 				'label'     => __( 'Set up member profiles', 'buddynext' ),
 				'desc'      => __( 'Add the profile fields your members fill in — build your own group or edit the starter kit.', 'buddynext' ),
-				'done'      => self::has_custom_profile_group(),
+				'done'      => self::profiles_configured(),
 				'cta'       => admin_url( 'admin.php?page=buddynext-members&tab=profile-fields' ),
 				'cta_label' => __( 'Build profiles', 'buddynext' ),
 				'icon'      => 'user',
@@ -205,6 +205,21 @@ final class SetupChecklist {
 				'external' => true,
 			),
 		);
+	}
+
+	/**
+	 * True once the owner has configured member profiles at all — either by editing
+	 * the seeded starter kit (the intent flag ProfileFieldsManager sets on any save)
+	 * or by creating a custom group (the historical data signal, kept as a fallback
+	 * so sites that customised profiles before this flag existed still read as done).
+	 *
+	 * The step used to require a brand-new custom group, so an owner who edited the
+	 * starter kit — exactly what the step's own copy invites — never completed it.
+	 *
+	 * @return bool
+	 */
+	private static function profiles_configured(): bool {
+		return (bool) get_option( 'buddynext_profiles_configured' ) || self::has_custom_profile_group();
 	}
 
 	/**
