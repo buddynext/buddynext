@@ -1078,7 +1078,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return void
 	 */
 	public function render_reaction_palette(): void {
-		$bn_all_reactions        = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
+		$bn_all_reactions        = \BuddyNext\Reactions\ReactionService::available_reaction_types();
 		$bn_enabled_reactions    = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
 		$bn_features             = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
 		$bn_reactions_on         = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'reactions' );
@@ -2005,15 +2005,16 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
-	 * Sanitize the enabled-reactions option: keep only canonical reaction slugs,
-	 * in canonical order. Never allow an empty set (that would disable all
-	 * reactions), so an empty submission falls back to the full set.
+	 * Sanitize the enabled-reactions option: keep only slugs that are actually
+	 * available (the built-in six plus any Pro custom reactions), in that order.
+	 * Never allow an empty set (that would disable all reactions), so an empty
+	 * submission falls back to the full available set.
 	 *
 	 * @param mixed $value Raw submitted value.
 	 * @return string[]
 	 */
 	public function sanitize_enabled_reactions( $value ): array {
-		$all    = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
+		$all    = \BuddyNext\Reactions\ReactionService::available_reaction_types();
 		$chosen = array_values( array_intersect( $all, array_map( 'sanitize_key', (array) $value ) ) );
 
 		return empty( $chosen ) ? $all : $chosen;
