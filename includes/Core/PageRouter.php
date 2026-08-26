@@ -142,7 +142,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-08-12-community-admin-hub';
+	private const ROUTER_VERSION = '2026-08-26-hub-registry-seam';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -1991,6 +1991,175 @@ class PageRouter {
 	}
 
 	/**
+	 * Register the feed hub's rewrite rules (activity routes + the /me/ sections).
+	 *
+	 * The feed hub owns both the activity routes (home / explore / hashtag /
+	 * search / leaderboard, plus the legacy /search/ redirect) and the personal
+	 * /me/bookmarks + /me/account-status sections, so its descriptor callback
+	 * registers both. (The single-post /p/{id}/ route is not a hub — it stays a
+	 * direct call in register_rewrites().)
+	 *
+	 * @return void
+	 */
+	public static function register_feed_rules(): void {
+		self::register_activity_rules();
+		self::register_bookmarks_rules();
+	}
+
+	/**
+	 * Resolve the feed hub template from its sub-route query vars.
+	 *
+	 * @param string $hub The bn_hub value (always 'feed' here).
+	 * @return string|null
+	 */
+	public static function resolve_feed_template( string $hub ): ?string {
+		unset( $hub );
+		$section = (string) get_query_var( 'bn_feed_section', '' );
+		if ( 'bookmarks' === $section ) {
+			return 'feed/bookmarks.php';
+		}
+		if ( 'account-status' === $section ) {
+			return 'moderation/account-status.php';
+		}
+		$action = (string) get_query_var( 'bn_activity_action', '' );
+		switch ( $action ) {
+			case 'explore':
+				return 'feed/explore.php';
+			case 'hashtag':
+				return 'hashtags/feed.php';
+			case 'search':
+				return 'search/results.php';
+			case 'leaderboard':
+				return 'gamification/leaderboard.php';
+			default:
+				return 'feed/home.php';
+		}
+	}
+
+	/**
+	 * Resolve the people (members) hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'people' here).
+	 * @return string|null
+	 */
+	public static function resolve_people_template( string $hub ): ?string {
+		unset( $hub );
+		$user_slug = (string) get_query_var( 'bn_user_slug', '' );
+		if ( '' !== $user_slug ) {
+			$profile_action = (string) get_query_var( 'bn_profile_action', '' );
+			switch ( $profile_action ) {
+				case 'edit':
+					return 'profile/edit.php';
+				default:
+					// `media` (and any other profile action without a dedicated
+					// template) opens the profile view; view.php deep-links the
+					// matching tab from bn_profile_action.
+					return 'profile/view.php';
+			}
+		}
+		return 'directory/members.php';
+	}
+
+	/**
+	 * Resolve the spaces hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'spaces' here).
+	 * @return string|null
+	 */
+	public static function resolve_spaces_template( string $hub ): ?string {
+		unset( $hub );
+		$space_slug = (string) get_query_var( 'bn_space_slug', '' );
+		if ( '' !== $space_slug ) {
+			$space_action = (string) get_query_var( 'bn_space_action', '' );
+			switch ( $space_action ) {
+				case 'members':
+					return 'spaces/members.php';
+				case 'moderation':
+					return 'spaces/moderation.php';
+				case 'settings':
+					return 'spaces/settings.php';
+				case 'admin':
+					return 'spaces/admin.php';
+				default:
+					// feed / about / media (+ any in-page integration tab) render
+					// the space home, which reads bn_space_action for the active
+					// tab. Members + Moderation keep their richer standalone pages.
+					return 'spaces/home.php';
+			}
+		}
+		return 'spaces/directory.php';
+	}
+
+	/**
+	 * Resolve the messages hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'messages' here).
+	 * @return string|null
+	 */
+	public static function resolve_messages_template( string $hub ): ?string {
+		unset( $hub );
+		$conv_id    = (int) get_query_var( 'bn_conv_id', 0 );
+		$msg_action = (string) get_query_var( 'bn_msg_action', '' );
+		if ( $conv_id > 0 ) {
+			return 'messages/thread.php';
+		}
+		if ( 'requests' === $msg_action ) {
+			return 'messages/requests.php';
+		}
+		return 'messages/list.php';
+	}
+
+	/**
+	 * Resolve the notifications hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'notifications' here).
+	 * @return string|null
+	 */
+	public static function resolve_notifications_template( string $hub ): ?string {
+		unset( $hub );
+		// No prefs branch: the preferences form is the Settings hub's
+		// Notifications tab and renders settings/notifications.php.
+		return 'notifications/index.php';
+	}
+
+	/**
+	 * Resolve the auth hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'auth' here).
+	 * @return string|null
+	 */
+	public static function resolve_auth_template( string $hub ): ?string {
+		unset( $hub );
+		$auth_action = (string) get_query_var( 'bn_auth_action', '' );
+		switch ( $auth_action ) {
+			case 'signup':
+				return 'auth/signup.php';
+			case 'complete':
+				return 'auth/complete.php';
+			case 'verify':
+				return 'auth/verify.php';
+			case 'reset':
+				return 'auth/reset.php';
+			case 'connect-app':
+				return 'auth/connect-app.php';
+			case 'login':
+			default:
+				return 'auth/login.php';
+		}
+	}
+
+	/**
+	 * Resolve the onboarding hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'onboarding' here).
+	 * @return string|null
+	 */
+	public static function resolve_onboarding_template( string $hub ): ?string {
+		unset( $hub );
+		return 'onboarding/index.php';
+	}
+
+	/**
 	 * Map a hub + active sub-action query vars to a relative template path.
 	 *
 	 * Returns null when the hub value is not recognised, which causes
@@ -2001,86 +2170,14 @@ class PageRouter {
 	 * @return string|null Relative path without extension, e.g. 'feed/home'.
 	 */
 	private function resolve_hub_template( string $hub ): ?string {
+		// Non-hub routes without a descriptor resolve here: the single-post
+		// permalink, the settings sub-tabs, and the moderation queue (post folds
+		// into feed; settings + moderation get descriptors — plan Phase 4). Every
+		// hub, core or addon, resolves through its descriptor's resolve_template
+		// callback in the default branch, so there is one path.
 		switch ( $hub ) {
-			case 'feed':
-				$section = (string) get_query_var( 'bn_feed_section', '' );
-				if ( 'bookmarks' === $section ) {
-					return 'feed/bookmarks.php';
-				}
-				if ( 'account-status' === $section ) {
-					return 'moderation/account-status.php';
-				}
-				$action = (string) get_query_var( 'bn_activity_action', '' );
-				switch ( $action ) {
-					case 'explore':
-						return 'feed/explore.php';
-					case 'hashtag':
-						return 'hashtags/feed.php';
-					case 'search':
-						return 'search/results.php';
-					case 'leaderboard':
-						return 'gamification/leaderboard.php';
-					default:
-						return 'feed/home.php';
-				}
-
 			case 'post':
 				return 'feed/single-post.php';
-
-			case 'people':
-				$user_slug = (string) get_query_var( 'bn_user_slug', '' );
-				if ( '' !== $user_slug ) {
-					$profile_action = (string) get_query_var( 'bn_profile_action', '' );
-					switch ( $profile_action ) {
-						case 'edit':
-							return 'profile/edit.php';
-						default:
-							// `media` (and any other profile action without a
-							// dedicated template) opens the profile view; view.php
-							// deep-links the matching tab from bn_profile_action.
-							return 'profile/view.php';
-					}
-				}
-				return 'directory/members.php';
-
-			case 'spaces':
-				$space_slug = (string) get_query_var( 'bn_space_slug', '' );
-				if ( '' !== $space_slug ) {
-					$space_action = (string) get_query_var( 'bn_space_action', '' );
-					switch ( $space_action ) {
-						case 'members':
-							return 'spaces/members.php';
-						case 'moderation':
-							return 'spaces/moderation.php';
-						case 'settings':
-							return 'spaces/settings.php';
-						case 'admin':
-							return 'spaces/admin.php';
-						default:
-							// feed / about / media (+ any in-page integration tab)
-							// render the space home, which reads bn_space_action for
-							// the active tab. Members + Moderation keep their richer
-							// standalone pages (full member management / report queue).
-							return 'spaces/home.php';
-					}
-				}
-				return 'spaces/directory.php';
-
-			case 'messages':
-				$conv_id    = (int) get_query_var( 'bn_conv_id', 0 );
-				$msg_action = (string) get_query_var( 'bn_msg_action', '' );
-				if ( $conv_id > 0 ) {
-					return 'messages/thread.php';
-				}
-				if ( 'requests' === $msg_action ) {
-					return 'messages/requests.php';
-				}
-				return 'messages/list.php';
-
-			case 'notifications':
-				// No prefs branch: the preferences form is the Settings hub's
-				// Notifications tab and renders settings/notifications.php.
-				return 'notifications/index.php';
 
 			case 'settings':
 				$settings_section = (string) get_query_var( 'bn_settings_section', '' );
@@ -2089,29 +2186,8 @@ class PageRouter {
 				}
 				return 'settings/' . $settings_section . '.php';
 
-			case 'auth':
-				$auth_action = (string) get_query_var( 'bn_auth_action', '' );
-				switch ( $auth_action ) {
-					case 'signup':
-						return 'auth/signup.php';
-					case 'complete':
-						return 'auth/complete.php';
-					case 'verify':
-						return 'auth/verify.php';
-					case 'reset':
-						return 'auth/reset.php';
-					case 'connect-app':
-						return 'auth/connect-app.php';
-					case 'login':
-					default:
-						return 'auth/login.php';
-				}
-
 			case 'moderation':
 				return 'moderation/queue.php';
-
-			case 'onboarding':
-				return 'onboarding/index.php';
 
 			default:
 				$bn_descriptor = HubRegistry::instance()->get( $hub );
@@ -2157,20 +2233,19 @@ class PageRouter {
 		add_rewrite_tag( '%bn_feed_section%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_legacy_search%', '([01])' );
 
-		$this->register_activity_rules();
-		$this->register_post_rules();
-		$this->register_bookmarks_rules();
-		$this->register_people_rules();
-		$this->register_spaces_rules();
-		$this->register_messages_rules();
-		$this->register_notifications_rules();
-		$this->register_settings_rules();
-		$this->register_auth_rules();
-		$this->register_moderation_rules();
-		$this->register_onboarding_rules();
+		// Non-hub routes that have no descriptor: single-post permalink, the
+		// settings sub-tabs, and the moderation queue. These stay explicit until
+		// they gain their own descriptors (post folds into feed; settings +
+		// moderation get descriptors — plan Phase 4).
+		self::register_post_rules();
+		self::register_settings_rules();
+		self::register_moderation_rules();
 
-		// Addon hubs (registered via buddynext_register_hubs) declare their own
-		// rewrite rules through the registry.
+		// Every hub — core and addon — registers its own rewrite rules through
+		// its descriptor's register_rules callback. Core hubs now ride the exact
+		// same seam an addon does (CoreHubs wires register_feed_rules,
+		// register_people_rules, … onto their descriptors), so there is one path,
+		// not a parallel hardcoded call list that could drift.
 		foreach ( HubRegistry::instance()->all() as $bn_hub ) {
 			if ( is_callable( $bn_hub->register_rules ) ) {
 				( $bn_hub->register_rules )();
@@ -2183,7 +2258,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_activity_rules(): void {
+	public static function register_activity_rules(): void {
 		$a = self::hub_slug( 'buddynext_slug_activity', 'activity' );
 
 		add_rewrite_rule(
@@ -2252,7 +2327,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_bookmarks_rules(): void {
+	public static function register_bookmarks_rules(): void {
 		add_rewrite_rule(
 			'^me/bookmarks/?$',
 			'index.php?bn_hub=feed&bn_feed_section=bookmarks',
@@ -2270,7 +2345,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_people_rules(): void {
+	public static function register_people_rules(): void {
 		$p = self::hub_slug( 'buddynext_slug_people', 'members' );
 
 		// Generic profile sub-route: ANY tab slug becomes a pretty URL
@@ -2350,7 +2425,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_spaces_rules(): void {
+	public static function register_spaces_rules(): void {
 		$s = self::hub_slug( 'buddynext_slug_spaces', 'spaces' );
 
 		// Pretty "My Spaces" directory views: /spaces/mine/ (sectioned managed +
@@ -2404,7 +2479,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_messages_rules(): void {
+	public static function register_messages_rules(): void {
 		$m = self::hub_slug( 'buddynext_slug_messages', 'messages' );
 
 		add_rewrite_rule(
@@ -2429,7 +2504,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_notifications_rules(): void {
+	public static function register_notifications_rules(): void {
 		$n = self::hub_slug( 'buddynext_slug_notifications', 'notifications' );
 
 		// /notifications/preferences/ — the legacy alias. It resolves to the SETTINGS
@@ -2516,7 +2591,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_auth_rules(): void {
+	public static function register_auth_rules(): void {
 		$a = self::hub_slug( 'buddynext_slug_auth', 'login' );
 
 		// Sub-routes first (more specific), bare hub last. The `$` anchors mean
@@ -2565,7 +2640,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_onboarding_rules(): void {
+	public static function register_onboarding_rules(): void {
 		$o = self::hub_slug( 'buddynext_slug_onboarding', 'onboarding' );
 
 		add_rewrite_rule(
