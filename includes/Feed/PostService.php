@@ -30,6 +30,68 @@ class PostService {
 	}
 
 	/**
+	 * Every value `bn_posts.status` can hold — the single source of truth.
+	 *
+	 * Keyed by the stored slug; `label` and `tone` drive the admin badge and the
+	 * status filter, `admin_filter` says whether the filter offers it. There were
+	 * four hardcoded copies of this list (the ENUM in Installer, admin_query()'s
+	 * allowlist, and ActivityAdmin's FILTER_STATUSES / status_label /
+	 * status_tone), which is the shape most of our status bugs come in: adding a
+	 * value in one place and finding out months later it was missing from
+	 * another. Read from here; do not restate it.
+	 *
+	 * Adding a value means updating the ENUM too — see
+	 * Installer::maybe_alter_tables(), which widens it on existing installs.
+	 * MySQL silently stores an EMPTY STRING for a value the ENUM does not list
+	 * (verified on this install: the UPDATE returned success and the row's status
+	 * became ''), so a value added here and not to the column corrupts rows with
+	 * no error anywhere.
+	 *
+	 * @var array<string,array{label_key:string,tone:string,admin_filter:bool}>
+	 */
+	public const STATUSES = array(
+		'published'    => array(
+			'label_key'    => 'Published',
+			'tone'         => 'success',
+			'admin_filter' => true,
+		),
+		'scheduled'    => array(
+			'label_key'    => 'Scheduled',
+			'tone'         => 'info',
+			'admin_filter' => true,
+		),
+		// Held by pre-moderation: a NEW post awaiting approval. Distinct from
+		// under_review — see below.
+		'pending'      => array(
+			'label_key'    => 'Pending',
+			'tone'         => 'warning',
+			'admin_filter' => true,
+		),
+		// Auto-hidden after hitting the report threshold. A separate state from
+		// 'pending' because the two mean different things and are resolved by
+		// different people through different screens: 'pending' is answered by
+		// approve/reject in the Pending tab, under_review by resolving the reports
+		// in the Reports tab. Sharing one value put every auto-hidden post in BOTH
+		// tabs, where approving it republished reported content with its reports
+		// still open, and rejecting it deleted the post and orphaned them.
+		'under_review' => array(
+			'label_key'    => 'Under review',
+			'tone'         => 'warning',
+			'admin_filter' => true,
+		),
+		'draft'        => array(
+			'label_key'    => 'Draft',
+			'tone'         => 'neutral',
+			'admin_filter' => true,
+		),
+		'deleted'      => array(
+			'label_key'    => 'Deleted',
+			'tone'         => 'danger',
+			'admin_filter' => true,
+		),
+	);
+
+	/**
 	 * Allowed post types.
 	 *
 	 * @var string[]
@@ -2768,7 +2830,7 @@ class PostService {
 		$params = array();
 
 		$status = sanitize_key( (string) ( $args['status'] ?? '' ) );
-		if ( '' !== $status && in_array( $status, array( 'published', 'draft', 'pending', 'scheduled', 'deleted' ), true ) ) {
+		if ( '' !== $status && isset( self::STATUSES[ $status ] ) ) {
 			$where[]  = 'p.status = %s';
 			$params[] = $status;
 		}

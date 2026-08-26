@@ -275,8 +275,9 @@ class ModerationService {
 
 		// Auto-hide: once a post accrues enough distinct reports, pull it out of
 		// public view into the moderation queue. Enforces the Settings →
-		// Moderation → "Auto-Hide Threshold" setting (0 = disabled). Reuses the
-		// existing 'pending' status (the moderation-hold state) — no new flag.
+		// Moderation → "Auto-Hide Threshold" setting (0 = disabled). Moves the post
+		// to its own 'under_review' status; it used to reuse pre-moderation's
+		// 'pending', which put it in the Pending tab too — see auto_hide_post().
 		if ( 'post' === sanitize_key( $object_type ) ) {
 			$auto_hide_threshold = (int) get_option( 'buddynext_auto_hide_threshold', 5 );
 			if ( $auto_hide_threshold > 0 ) {
@@ -539,11 +540,21 @@ class ModerationService {
 	}
 
 	/**
-	 * Auto-hide a reported post by moving it to the 'pending' moderation state.
+	 * Auto-hide a reported post by moving it to the 'under_review' state.
 	 *
 	 * Only flips a currently 'published' post (never touches drafts, scheduled,
 	 * or already-removed posts), so the public feed stops showing it while the
 	 * moderation queue retains the open reports for a human decision.
+	 *
+	 * `under_review`, not `pending`. This used to write 'pending' — the same value
+	 * pre-moderation uses for a NEW post awaiting approval — so an auto-hidden
+	 * post appeared in the moderation Pending tab as well as the Reports tab, and
+	 * both of the Pending tab's actions were wrong for it: Approve republished
+	 * reported content with its reports still open, Reject deleted the post and
+	 * left the reports pointing at nothing. Neither resolved a single report. The
+	 * two states are answered by different people on different screens, so they
+	 * are different values; the Pending tab's queries filter on = 'pending' and
+	 * now exclude these without needing to know they exist.
 	 *
 	 * @param int $post_id Post to hide.
 	 * @return void
@@ -554,7 +565,7 @@ class ModerationService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET status = 'pending' WHERE id = %d AND status = 'published'",
+				"UPDATE {$wpdb->prefix}bn_posts SET status = 'under_review' WHERE id = %d AND status = 'published'",
 				$post_id
 			)
 		);
@@ -2683,18 +2694,22 @@ class ModerationService {
 		}
 
 		// Lift an auto-hide once the reports are cleared. auto_hide_post() flips a
-		// 'published' post to 'pending' when the report threshold is hit; resolving
-		// or dismissing all of its open reports means a human has cleared it, so it
-		// should reappear in the feed. The status = 'pending' guard restores ONLY
-		// the auto-hide state — content taken down via remove_content() is
-		// 'deleted' (ModerationListener::on_content_removed) and is left untouched.
+		// 'published' post to 'under_review' when the report threshold is hit;
+		// resolving or dismissing all of its open reports means a human has cleared
+		// it, so it should reappear in the feed. The status = 'under_review' guard
+		// restores ONLY the auto-hide state — content taken down via
+		// remove_content() is 'deleted' (ModerationListener::on_content_removed)
+		// and is left untouched, and a post genuinely held by pre-moderation stays
+		// held. That last one was a real hole while both states shared 'pending':
+		// resolving a report on a not-yet-approved post published it, bypassing
+		// pre-moderation entirely.
 		if ( 'post' === (string) $target['object_type'] && in_array( $status, array( 'resolved', 'dismissed' ), true ) ) {
 			$restore_post_id = (int) $target['object_id'];
 
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$restored = $wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published' WHERE id = %d AND status = 'pending'",
+					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published' WHERE id = %d AND status = 'under_review'",
 					$restore_post_id
 				)
 			);

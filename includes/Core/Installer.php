@@ -309,7 +309,7 @@ class Installer {
 	 *      upgrade; converge_seeded_field_flags seeds it on the existing location + website
 	 *      rows (by field_key) so an upgraded site's header is unchanged.
 	 */
-	private const SCHEMA_VERSION = 43;
+	private const SCHEMA_VERSION = 44;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -891,7 +891,54 @@ class Installer {
 		// re-requested were therefore the exact set the cooldown did not cover.
 		self::backfill_decline_stamps( $wpdb->prefix );
 
+		// v44: move already-auto-hidden posts off pre-moderation's 'pending' onto
+		// their own 'under_review'. Runs AFTER run() has widened the ENUM.
+		self::migrate_auto_hidden_posts( $wpdb->prefix );
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Move posts auto-hidden by the report threshold onto 'under_review' (v44).
+	 *
+	 * Auto-hide used to write 'pending' — the value pre-moderation uses for a new
+	 * post awaiting approval — so on an existing install the two states are mixed
+	 * together in one column. Leaving them there is not a cosmetic debt:
+	 * ModerationService's restore path now only lifts a hide from 'under_review',
+	 * so an already-auto-hidden post would stay hidden forever no matter how its
+	 * reports were resolved, and it would keep appearing in both moderation tabs.
+	 * The people already hit by this bug are exactly the ones the fix would
+	 * otherwise skip.
+	 *
+	 * Identified by having at least one OPEN report. A post held by pre-moderation
+	 * cannot have been auto-hidden — auto_hide_post() only ever flips a
+	 * 'published' row — and a post that was never published cannot have been
+	 * reported, since it appears in no feed. So "pending with an open report" is
+	 * the auto-hidden set. Report count is deliberately not compared against the
+	 * current threshold: an owner who lowered it since would have their older
+	 * hides left behind.
+	 *
+	 * One indexed UPDATE ... EXISTS, no per-post work.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function migrate_auto_hidden_posts( string $prefix ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$prefix}bn_posts p
+			    SET p.status = 'under_review'
+			  WHERE p.status = 'pending'
+			    AND EXISTS (
+			        SELECT 1 FROM {$prefix}bn_reports r
+			         WHERE r.object_type = 'post'
+			           AND r.object_id = p.id
+			           AND r.status IN ('pending','escalated')
+			    )"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**
@@ -1849,7 +1896,44 @@ class Installer {
 			),
 		);
 
+		// Per-table ENUM widenings. Additive like the two passes above, but a
+		// different shape: an ENUM gains a value through MODIFY COLUMN, not ADD,
+		// so it needs its own guard — "does the column's type already list this
+		// value?" — rather than column_exists().
+		//
+		// This matters more than it looks. MySQL does not reject a write of a value
+		// the ENUM does not list: on a non-strict server (this one, and most shared
+		// hosts) the UPDATE returns success and the row silently stores an EMPTY
+		// STRING. A post whose status became '' is in no feed, no moderation tab
+		// and no admin filter, with no error logged anywhere. So the widening has
+		// to land before anything writes the new value.
+		//
+		// Each new value is APPENDED to the list, never inserted — that is the
+		// condition for ALGORITHM=INSTANT on MySQL 8, and bn_posts is the biggest
+		// table we have.
+		$table_enums = array(
+			// under_review: auto-hidden by the report threshold, as distinct from
+			// pre-moderation's 'pending'. See PostService::STATUSES.
+			'bn_posts' => array(
+				'status' => array(
+					'value'  => 'under_review',
+					'clause' => "MODIFY COLUMN status ENUM('published','draft','pending','scheduled','deleted','under_review') NOT NULL DEFAULT 'published'",
+				),
+			),
+		);
+
 		$wpdb->suppress_errors( true );
+		foreach ( $table_enums as $table_slug => $columns ) {
+			$table = $p . $table_slug;
+			foreach ( $columns as $column => $spec ) {
+				if ( self::enum_has_value( $table, $column, $spec['value'] ) ) {
+					continue;
+				}
+
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$table}` {$spec['clause']}" );
+			}
+		}
 		foreach ( $table_columns as $table_slug => $columns ) {
 			$table = $p . $table_slug;
 			foreach ( $columns as $column => $clause ) {
@@ -1873,6 +1957,43 @@ class Installer {
 			}
 		}
 		$wpdb->suppress_errors( false );
+	}
+
+	/**
+	 * Whether an ENUM column already permits a given value.
+	 *
+	 * Reads COLUMN_TYPE (e.g. `enum('published','draft')`) and looks for the
+	 * quoted value, so the check is exact rather than a substring match that
+	 * would also fire on a longer value ending in the same characters.
+	 *
+	 * Returns true when the column cannot be found, so a missing table on a
+	 * half-installed site skips the ALTER rather than running it blind.
+	 *
+	 * @param string $table  Fully-prefixed table name.
+	 * @param string $column Column name to check.
+	 * @param string $value  ENUM value to look for.
+	 * @return bool
+	 */
+	private static function enum_has_value( string $table, string $column, string $value ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$type = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$table,
+				$column
+			)
+		);
+
+		if ( null === $type ) {
+			return true;
+		}
+
+		return false !== strpos( (string) $type, "'" . $value . "'" );
 	}
 
 	/**
@@ -2863,6 +2984,18 @@ class Installer {
 
 			// ── Activity Feed ──────────────────────────────────────────────────
 
+			// NOTE on bn_posts.status: keep this ENUM's values in the same ORDER as
+			// the MODIFY clause in maybe_alter_tables(), and add new ones only at the
+			// END. MySQL 8 widens an ENUM with ALGORITHM=INSTANT only when the value
+			// is appended, and bn_posts is the biggest table we have — inserting
+			// mid-list turns the upgrade ALTER into a full table rebuild. The values
+			// and what each means are documented once, in PostService::STATUSES.
+			//
+			// Comments do NOT go inside these SQL strings. dbDelta parses them line by
+			// line and a `--` comment makes it emit a broken CREATE TABLE: adding one
+			// here produced "You have an error in your SQL syntax ... near ''" for
+			// bn_posts only, which the installer recorded as a schema failure and then
+			// backed off for an hour, so every later migration silently stopped running.
 			"CREATE TABLE {$p}bn_posts (
 				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				user_id BIGINT(20) UNSIGNED NOT NULL,
@@ -2874,7 +3007,7 @@ class Installer {
 				link_url VARCHAR(2083) DEFAULT NULL,
 				link_meta JSON DEFAULT NULL,
 				privacy ENUM('public','followers','connections','space_members','private') NOT NULL DEFAULT 'public',
-				status ENUM('published','draft','pending','scheduled','deleted') NOT NULL DEFAULT 'published',
+				status ENUM('published','draft','pending','scheduled','deleted','under_review') NOT NULL DEFAULT 'published',
 				reaction_count INT UNSIGNED NOT NULL DEFAULT 0,
 				comment_count INT UNSIGNED NOT NULL DEFAULT 0,
 				share_count INT UNSIGNED NOT NULL DEFAULT 0,

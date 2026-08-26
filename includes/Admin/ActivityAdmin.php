@@ -20,6 +20,7 @@ namespace BuddyNext\Admin;
 
 use BuddyNext\Contracts\ListenerInterface;
 use BuddyNext\Core\PageRouter;
+use BuddyNext\Feed\PostService;
 
 /**
  * Registers the Engagement > Activity admin tab and its row actions.
@@ -43,9 +44,21 @@ class ActivityAdmin implements ListenerInterface {
 	/**
 	 * Statuses offered in the filter.
 	 *
-	 * @var array<int,string>
+	 * Derived from PostService::STATUSES rather than restated. The hardcoded copy
+	 * this replaces was already one status behind the column it filters, which is
+	 * how a status ends up storable but unfilterable — invisible to the admin
+	 * screen that exists to find it.
+	 *
+	 * @return array<int,string>
 	 */
-	private const FILTER_STATUSES = array( 'published', 'scheduled', 'pending', 'draft', 'deleted' );
+	private function filter_statuses(): array {
+		return array_keys(
+			array_filter(
+				PostService::STATUSES,
+				static fn( array $meta ): bool => (bool) $meta['admin_filter']
+			)
+		);
+	}
 
 	/**
 	 * Wire the tab and the row-action handlers.
@@ -158,7 +171,7 @@ class ActivityAdmin implements ListenerInterface {
 				<label for="bn-activity-status" class="screen-reader-text"><?php esc_html_e( 'Filter by status', 'buddynext' ); ?></label>
 				<select id="bn-activity-status" name="status" class="bn-select">
 					<option value=""><?php esc_html_e( 'All statuses', 'buddynext' ); ?></option>
-					<?php foreach ( self::FILTER_STATUSES as $s ) : ?>
+					<?php foreach ( $this->filter_statuses() as $s ) : ?>
 						<option value="<?php echo esc_attr( $s ); ?>" <?php selected( $status, $s ); ?>><?php echo esc_html( $this->status_label( $s ) ); ?></option>
 					<?php endforeach; ?>
 				</select>
@@ -494,14 +507,18 @@ class ActivityAdmin implements ListenerInterface {
 	 * @return string
 	 */
 	private function status_label( string $status ): string {
+		// The translatable strings stay here, not in the registry: __() must see a
+		// literal to extract, and a const cannot hold a function call. The registry
+		// owns WHICH statuses exist; this owns how they read.
 		$labels = array(
-			'published' => __( 'Published', 'buddynext' ),
-			'scheduled' => __( 'Scheduled', 'buddynext' ),
-			'pending'   => __( 'Pending', 'buddynext' ),
-			'draft'     => __( 'Draft', 'buddynext' ),
-			'deleted'   => __( 'Deleted', 'buddynext' ),
+			'published'    => __( 'Published', 'buddynext' ),
+			'scheduled'    => __( 'Scheduled', 'buddynext' ),
+			'pending'      => __( 'Pending', 'buddynext' ),
+			'under_review' => __( 'Under review', 'buddynext' ),
+			'draft'        => __( 'Draft', 'buddynext' ),
+			'deleted'      => __( 'Deleted', 'buddynext' ),
 		);
-		return $labels[ $status ] ?? ucfirst( $status );
+		return $labels[ $status ] ?? ucfirst( str_replace( '_', ' ', $status ) );
 	}
 
 	/**
@@ -511,14 +528,7 @@ class ActivityAdmin implements ListenerInterface {
 	 * @return string
 	 */
 	private function status_tone( string $status ): string {
-		$tones = array(
-			'published' => 'success',
-			'scheduled' => 'info',
-			'pending'   => 'warning',
-			'draft'     => 'neutral',
-			'deleted'   => 'danger',
-		);
-		return $tones[ $status ] ?? 'neutral';
+		return PostService::STATUSES[ $status ]['tone'] ?? 'neutral';
 	}
 
 	/**
