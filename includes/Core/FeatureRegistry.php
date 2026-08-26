@@ -205,6 +205,18 @@ class FeatureRegistry {
 				'group'      => 'community',
 				'depends_on' => array(),
 			),
+			// Scheduled posts: compose now, publish at a future time. The composer
+			// control, the create-path status flip and Free's on-demand publisher
+			// are all Free (works with Pro absent); Pro layers reschedule/cancel +
+			// a management screen on the SAME slug. Off = the schedule button is
+			// hidden and the create path never flips a post to 'scheduled'; posts
+			// already scheduled still publish (the publisher is never gated).
+			'scheduled-posts' => array(
+				'slug'       => 'scheduled-posts',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'feed' ),
+			),
 
 			// Integration bridges are NOT features. They gate solely on the
 			// per-aspect Integrations toggle (buddynext_integration_enabled), which
@@ -483,6 +495,10 @@ class FeatureRegistry {
 			'pwa'           => array(
 				'label'       => __( 'Installable app (PWA)', 'buddynext' ),
 				'description' => __( 'Let members install the community as an app and use it offline (manifest + service worker).', 'buddynext' ),
+			),
+			'scheduled-posts' => array(
+				'label'       => __( 'Scheduled posts', 'buddynext' ),
+				'description' => __( 'Let members compose a post now and have it publish automatically at a chosen time.', 'buddynext' ),
 			),
 			'webhooks'      => array(
 				'label'       => __( 'Outbound webhooks', 'buddynext' ),

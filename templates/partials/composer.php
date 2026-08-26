@@ -482,6 +482,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			</button>
 			<?php endif; ?>
 
+			<?php if ( buddynext_feature_enabled( 'scheduled-posts' ) ) : ?>
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-bind--aria-pressed="state.isScheduled"
@@ -490,6 +491,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				title="<?php esc_attr_e( 'Schedule for later', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'clock' ); ?>
 			</button>
+			<?php endif; ?>
 
 			<?php if ( $composer_can_announce ) : ?>
 				<button class="bn-composer__tool"

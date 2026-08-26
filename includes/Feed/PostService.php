@@ -331,9 +331,14 @@ class PostService {
 		// A post created with a future scheduled_at is scheduled, not live — flip
 		// it so it is not published immediately (a held 'pending' post keeps its
 		// status: moderation must clear it before it can go live/scheduled).
+		// Gated on the scheduled-posts feature: with it off the composer button is
+		// hidden, and here the create path ignores any scheduled_at supplied
+		// directly (API/client) so the post publishes now instead of stranding
+		// itself as 'scheduled' with no way to manage it.
 		if ( 'published' === $status
 			&& ! empty( $data['scheduled_at'] )
 			&& strtotime( (string) $data['scheduled_at'] ) > time()
+			&& buddynext_feature_enabled( 'scheduled-posts' )
 		) {
 			$status = 'scheduled';
 		}
