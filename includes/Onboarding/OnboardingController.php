@@ -416,11 +416,23 @@ class OnboardingController {
 	}
 
 	/**
-	 * Permission callback — require an authenticated user.
+	 * Permission callback — the Onboarding feature must be on, and the user
+	 * authenticated. Gating the feature here (the one shared callback for every
+	 * onboarding route) closes the whole surface at one seam: with onboarding off,
+	 * the PageRouter already redirects the wizard page, and this stops the wizard's
+	 * read/write REST from still responding — no action runs behind a disabled
+	 * feature.
 	 *
 	 * @return true|WP_Error
 	 */
 	public function require_auth(): bool|WP_Error {
+		if ( ! buddynext_feature_enabled( 'onboarding' ) ) {
+			return new WP_Error(
+				'feature_disabled',
+				__( 'Onboarding is turned off for this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'rest_not_logged_in',
