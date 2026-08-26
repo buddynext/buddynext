@@ -170,7 +170,7 @@ class AvatarSettings {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( ! empty( $_GET['saved'] ) ) {
-			AdminPageBase::render_notice( __( 'Avatar settings saved.', 'buddynext' ), 'success' );
+			AdminPageBase::render_notice( __( 'Avatar settings saved.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'saved' ) );
 		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"

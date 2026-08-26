@@ -76,7 +76,7 @@ class MemberEditForm {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bn_error = sanitize_key( wp_unslash( $_GET['bn_error'] ?? '' ) );
 		if ( $saved ) {
-			AdminPageBase::render_notice( __( 'Profile updated successfully.', 'buddynext' ), 'success' );
+			AdminPageBase::render_notice( __( 'Profile updated successfully.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'saved bn_error' ) );
 		}
 
 		/*
@@ -103,7 +103,7 @@ class MemberEditForm {
 		);
 
 		if ( isset( $bn_error_messages[ $bn_error ] ) ) {
-			AdminPageBase::render_notice( $bn_error_messages[ $bn_error ], 'error' );
+			AdminPageBase::render_notice( $bn_error_messages[ $bn_error ], 'error', false, array( 'data-bn-clear-param' => 'saved bn_error' ) );
 		}
 
 		/*

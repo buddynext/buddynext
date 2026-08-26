@@ -991,12 +991,12 @@ class ModerationQueue {
 	private function maybe_notice(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filter/notice params on an admin screen; every value is sanitized here and escaped at output.
 		if ( ! empty( $_GET['bn_done'] ) ) {
-			AdminPageBase::render_notice( __( 'Done.', 'buddynext' ), 'success' );
+			AdminPageBase::render_notice( __( 'Done.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'bn_done bn_error' ) );
 		}
 
 		if ( ! empty( $_GET['bn_error'] ) ) {
 			$bn_err = sanitize_text_field( wp_unslash( (string) $_GET['bn_error'] ) );
-			AdminPageBase::render_notice( (string) $bn_err, 'error' );
+			AdminPageBase::render_notice( (string) $bn_err, 'error', false, array( 'data-bn-clear-param' => 'bn_done bn_error' ) );
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 	}

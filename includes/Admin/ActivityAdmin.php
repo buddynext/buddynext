@@ -81,12 +81,12 @@ class ActivityAdmin implements ListenerInterface {
 		// Success notices after a redirect from the handlers.
 		$done = isset( $_GET['bn_done'] ) ? sanitize_key( wp_unslash( $_GET['bn_done'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( 'deleted' === $done ) {
-			AdminPageBase::render_notice( __( 'Activity deleted.', 'buddynext' ), 'success' );
+			AdminPageBase::render_notice( __( 'Activity deleted.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'bn_done bn_msg' ) );
 		} elseif ( 'edited' === $done ) {
-			AdminPageBase::render_notice( __( 'Activity updated.', 'buddynext' ), 'success' );
+			AdminPageBase::render_notice( __( 'Activity updated.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'bn_done bn_msg' ) );
 		} elseif ( 'error' === $done ) {
 			$msg = isset( $_GET['bn_msg'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_msg'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			AdminPageBase::render_notice( '' !== $msg ? $msg : __( 'That action could not be completed.', 'buddynext' ), 'error' );
+			AdminPageBase::render_notice( '' !== $msg ? $msg : __( 'That action could not be completed.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'bn_done bn_msg' ) );
 		}
 
 		$edit_id = isset( $_GET['edit_post'] ) ? absint( wp_unslash( $_GET['edit_post'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended

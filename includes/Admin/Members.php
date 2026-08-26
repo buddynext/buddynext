@@ -1516,9 +1516,9 @@ class Members extends AdminPageBase {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$action = sanitize_key( wp_unslash( $_GET['action'] ?? '' ) );
 		if ( 'suspended' === $action ) {
-			AdminPageBase::render_notice( __( 'Member suspended.', 'buddynext' ), 'success' );
+			AdminPageBase::render_notice( __( 'Member suspended.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'action' ) );
 		} elseif ( 'unsuspended' === $action ) {
-			AdminPageBase::render_notice( __( 'Member unsuspended.', 'buddynext' ), 'success' );
+			AdminPageBase::render_notice( __( 'Member unsuspended.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'action' ) );
 		}
 
 		// Bulk-action result. handle_bulk() redirects with bulk_action + bulk_done;
@@ -1534,9 +1534,9 @@ class Members extends AdminPageBase {
 					? sprintf( _n( '%d member suspended.', '%d members suspended.', $bulk_done, 'buddynext' ), $bulk_done )
 					/* translators: %d: number of members. */
 					: sprintf( _n( '%d member unsuspended.', '%d members unsuspended.', $bulk_done, 'buddynext' ), $bulk_done );
-				AdminPageBase::render_notice( (string) $bulk_msg, 'success' );
+				AdminPageBase::render_notice( (string) $bulk_msg, 'success', false, array( 'data-bn-clear-param' => 'bulk_action bulk_done' ) );
 			} else {
-				AdminPageBase::render_notice( __( 'No members were updated. Administrators and your own account are skipped from bulk actions.', 'buddynext' ), 'warning' );
+				AdminPageBase::render_notice( __( 'No members were updated. Administrators and your own account are skipped from bulk actions.', 'buddynext' ), 'warning', false, array( 'data-bn-clear-param' => 'bulk_action bulk_done' ) );
 			}
 		}
 
