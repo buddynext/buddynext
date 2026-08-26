@@ -676,6 +676,21 @@
 		margin-top: var(--bn-p-s3);
 	}
 
+	/* The ⋯ and Share dropdowns anchor to their trigger, which the wrapping action
+	   row (flex-wrap, justify-content: flex-start) can leave anywhere on a line.
+	   Anchored to the trigger's RIGHT edge, a trigger that wrapped to the left of a
+	   line pushed the 160-180px menu off the LEFT edge of the screen — the blank
+	   white box overlapping the stats row and tab bar from the bug report. Wrapped
+	   actions sit at the start edge here, so open both menus from the trigger's start
+	   edge instead and cap their width to the viewport: they then always render fully
+	   on-screen wherever the trigger lands. */
+	.bn-more-menu,
+	.bn-share-menu-wrap .bn-share-menu {
+		inset-inline-start: 0;
+		inset-inline-end: auto;
+		max-width: calc(100vw - 2 * var(--bn-p-s4));
+	}
+
 	/* Stats row — tighten spacing */
 	.bn-profile-header__stats {
 		gap: var(--bn-p-s4);

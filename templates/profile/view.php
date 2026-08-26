@@ -211,8 +211,17 @@ foreach ( \BuddyNext\Profile\ProfileService::hero_meta_field_keys() as $bn_hk ) 
 $social_link_fields = isset( $group_data['social_links']['fields'] ) ? $group_data['social_links']['fields'] : array();
 $social_links       = array_filter( $social_link_fields, static fn( array $f ): bool => '' !== (string) ( $f['value'] ?? '' ) );
 
-$work_entries = array_values( array_filter( isset( $group_data['work_experience']['entries'] ) ? $group_data['work_experience']['entries'] : array(), static fn( array $e ): bool => '' !== $entry_fv( $e, 'work_company' ) || '' !== $entry_fv( $e, 'work_title' ) ) );
-$edu_entries  = array_values( array_filter( isset( $group_data['education']['entries'] ) ? $group_data['education']['entries'] : array(), static fn( array $e ): bool => '' !== $entry_fv( $e, 'edu_institution' ) || '' !== $entry_fv( $e, 'edu_degree' ) ) );
+// An entry is "present" if ANY of its fields carries a value — never a fixed set
+// of keys. The old work_company||work_title / edu_institution||edu_degree probe
+// made every entry vanish the moment the admin deleted that one field, even when
+// the title, dates, location or description were still filled in.
+$entry_has_value = static fn( array $e ): bool => (bool) array_filter(
+	$e,
+	static fn( $f ): bool => is_array( $f ) && '' !== trim( (string) ( $f['value'] ?? '' ) )
+);
+
+$work_entries = array_values( array_filter( isset( $group_data['work_experience']['entries'] ) ? $group_data['work_experience']['entries'] : array(), $entry_has_value ) );
+$edu_entries  = array_values( array_filter( isset( $group_data['education']['entries'] ) ? $group_data['education']['entries'] : array(), $entry_has_value ) );
 
 $profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
 if ( '' === $profile_slug ) {

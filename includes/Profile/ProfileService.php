@@ -59,8 +59,11 @@ class ProfileService {
 	 * Identity fields the hero renders in their own designed spots — the headline
 	 * tagline, the bio paragraph, and pronouns inline with the @handle. These are
 	 * NOT part of the data-driven meta row; they are the fixed identity block, so
-	 * they stay hardcoded (headline + bio are system fields; pronouns has a bespoke
-	 * placement). The About panel skips these too, so they never render twice.
+	 * they stay hardcoded by key. All three are system fields (is_system=1, set in
+	 * Installer::converge_profile_schema) precisely because they are referenced by
+	 * name here: a template may hardcode a field key ONLY when the field is
+	 * guaranteed to exist. The About panel skips these too, so they never render
+	 * twice.
 	 *
 	 * @var string[]
 	 */
@@ -2755,6 +2758,25 @@ class ProfileService {
 					  WHERE field_id = %d
 						AND value <> ''
 						AND LEFT(value, 1) <> '{'",
+					$field_id
+				)
+			);
+		}
+
+		// location -> text-like: unwrap the {address,lat,lng} JSON back to the plain
+		// address string. Without this the downgraded field renders raw JSON on the
+		// hero and About tab (a text field has no reader for the map shape). Only
+		// JSON-object rows are touched; a value already plain text is left as is.
+		if ( 'location' === $from_type && in_array( $to_type, array( 'text', 'textarea', 'url' ), true ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_profile_values
+						SET value = COALESCE( JSON_UNQUOTE( JSON_EXTRACT( value, '$.address' ) ), '' )
+					  WHERE field_id = %d
+						AND value <> ''
+						AND LEFT(value, 1) = '{'
+						AND JSON_VALID( value )",
 					$field_id
 				)
 			);

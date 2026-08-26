@@ -2675,16 +2675,21 @@ class Installer {
 			    AND is_system = 1"
 		);
 
-		// System-field protection (v16/v17). Exactly the load-bearing spine is
-		// protected from deletion: bio (search index + directory cards),
-		// headline (hero + directory), location (directory filter), interests
-		// (the suggestion signal the engines read). Every other seeded field
-		// stays deletable so owners can customise their profile schema —
-		// display-only fields degrade gracefully by design.
+		// System-field protection (v16/v17/v18). Exactly the load-bearing spine is
+		// protected from deletion: bio (search index + directory cards), headline
+		// (hero + directory), location (directory filter), interests (the suggestion
+		// signal the engines read), and pronouns. Pronouns joins the spine (v18)
+		// because the hero renders it by hardcoded key in its bespoke @handle-inline
+		// slot (ProfileService::HERO_IDENTITY_FIELDS) — a template may reference a
+		// field by name ONLY when the field is guaranteed to exist, i.e. is_system.
+		// Leaving pronouns deletable while the hero hard-codes it is the exact
+		// mismatch that made it vanishable. Every OTHER seeded field stays deletable
+		// so owners can customise their schema — those are rendered by nature (group
+		// type / field type), never by name, so they degrade gracefully.
 		$wpdb->query(
 			"UPDATE `{$p}bn_profile_fields`
 			    SET is_system = 1
-			  WHERE field_key IN ('bio', 'headline', 'location', 'interests')
+			  WHERE field_key IN ('bio', 'headline', 'location', 'interests', 'pronouns')
 			    AND is_system = 0"
 		);
 		self::converge_seeded_field_flags( $p );
