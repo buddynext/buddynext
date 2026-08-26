@@ -250,6 +250,12 @@ class NavManager extends AdminPageBase {
 			AdminPageBase::render_notice( __( 'Pages & URLs saved.', 'buddynext' ), 'success' );
 		} elseif ( 'pages_conflict' === $notice ) {
 			AdminPageBase::render_notice( __( 'That URL slug is already used by another hub or an existing page. Nothing was saved — change the slug and try again.', 'buddynext' ), 'error' );
+		} elseif ( 'pages_error' === $notice ) {
+			// handle_save_hub_pages() saves the URL slugs first, then attempts any
+			// requested page creation; a failed create is skipped (the hub keeps its
+			// existing assignment) and the save redirects here. Say exactly that, so
+			// the owner does not read the blank screen as a clean success.
+			AdminPageBase::render_notice( __( 'Your URL slugs were saved, but a new backing page could not be created. Try again, or choose an existing page for that hub instead.', 'buddynext' ), 'error' );
 		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-form">
