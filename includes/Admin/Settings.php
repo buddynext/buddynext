@@ -828,19 +828,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'               => 'buddynext_enable_dm',
-							'type'              => 'toggle',
-							'label'             => __( 'Enable direct messaging', 'buddynext' ),
-							'default'           => true,
-							'value_callback'    => static fn() => class_exists( 'WPMediaVerse\\Core\\Plugin' ) && (bool) get_option( 'buddynext_enable_dm', true ),
-							'disabled_callback' => static fn() => ! class_exists( 'WPMediaVerse\\Core\\Plugin' ),
-							'hint_callback'     => static fn() => class_exists( 'WPMediaVerse\\Core\\Plugin' )
-								? __( 'Allow members to send private messages. Requires the WPMediaVerse plugin.', 'buddynext' )
-								: __( 'Direct Messaging requires the WPMediaVerse plugin. Install and activate it to enable this feature.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
 							'key'     => 'buddynext_default_dm_access',
 							'type'    => 'select',
 							'label'   => __( 'Who can DM me (default)', 'buddynext' ),

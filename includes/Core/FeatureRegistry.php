@@ -187,6 +187,16 @@ class FeatureRegistry {
 				'group'      => 'community',
 				'depends_on' => array( 'feed' ),
 			),
+			// Direct messages. The catalog toggle is the owner's on/off intent; the
+			// separate availability check (WPMediaVerse present) still gates it, so
+			// with the engine absent DMs stay hidden regardless of this switch. See
+			// MessagesData::entry_enabled().
+			'messages'      => array(
+				'slug'       => 'messages',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array(),
+			),
 
 			// Integration bridges are NOT features. They gate solely on the
 			// per-aspect Integrations toggle (buddynext_integration_enabled), which
@@ -457,6 +467,10 @@ class FeatureRegistry {
 			'shares'        => array(
 				'label'       => __( 'Re-shares', 'buddynext' ),
 				'description' => __( 'Let members re-share another member\'s post into their own feed.', 'buddynext' ),
+			),
+			'messages'      => array(
+				'label'       => __( 'Direct messages', 'buddynext' ),
+				'description' => __( 'Private one-to-one messaging between members (requires WPMediaVerse).', 'buddynext' ),
 			),
 			'webhooks'      => array(
 				'label'       => __( 'Outbound webhooks', 'buddynext' ),

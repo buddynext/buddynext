@@ -39,7 +39,6 @@ class RecommendedDefaults {
 		'buddynext_public_explore'             => true,
 		'buddynext_enable_community_nav'       => true,
 		// Direct messaging.
-		'buddynext_enable_dm'                  => true,
 		'buddynext_default_dm_access'          => 'members',
 		// Activity feed engagement surfaces.
 		'buddynext_default_post_privacy'       => 'public',
