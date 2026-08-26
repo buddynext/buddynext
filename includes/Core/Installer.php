@@ -3618,6 +3618,14 @@ function buddynext_mu_is_bn_request() {
 	// request (no extra query) and from the object cache on Redis/Memcached
 	// sites. The option_active_plugins filter below is registered only AFTER
 	// this function returns, so reading options here cannot recurse into it.
+	//
+	// bn-hub-registry-ok: this is the ONE hub-slug list that cannot derive from
+	// HubRegistry — it runs at mu-plugin time, before the plugin (and the
+	// registry) has booted. It reads the live option values, so a renamed slug
+	// is honoured; only the option NAMES are fixed here. If a hub's slug OPTION
+	// is ever renamed (plan Phase 4: buddynext_slug_activity -> _feed), this map
+	// must be updated in lockstep — it is the deliberate exception the
+	// hub-registry gate allows.
 	$slug_defaults = array(
 		'buddynext_slug_activity'      => 'activity',
 		'buddynext_slug_people'        => 'members',

@@ -301,6 +301,16 @@ else
 	note "bin/check-store-collisions.php missing"
 fi
 
+if [ -f bin/check-hub-registry.php ]; then
+	if php bin/check-hub-registry.php >/dev/null 2>&1; then
+		ok "hub registry is the one hub list — no parallel list, every route has a descriptor"
+	else
+		fail "hub-registry drift — run: php bin/check-hub-registry.php"
+	fi
+else
+	note "bin/check-hub-registry.php missing"
+fi
+
 # 3bb. Hook-doc conformance — BLOCKING.
 #
 # The integration-hook table in CLAUDE.md is read by third-party integrators AND by AI agents.
