@@ -101,6 +101,25 @@ class ModerationListener implements ListenerInterface {
 			return;
 		}
 
+		// Escalation thresholds, strongest first: permanent ban → suspension →
+		// warning. The permanent-ban tier is opt-in (0 = disabled) and is a
+		// permanent suspension with the member's content hidden, which is
+		// meaningfully stronger than the plain suspend tier (indefinite but
+		// content-visible) — so the "Strikes before permanent ban" setting does
+		// something distinct.
+		$warn_threshold      = (int) get_option( 'buddynext_strike_warn_threshold', 2 );
+		$suspend_threshold   = (int) get_option( 'buddynext_strike_suspend_threshold', 5 );
+		$perma_ban_threshold = (int) get_option( 'buddynext_strike_perma_ban_threshold', 0 );
+		$active_strikes      = buddynext_service( 'moderation' )->get_active_strike_count( $user_id );
+
+		// A single strike notice (+ one email). When the member has reached the
+		// "Strikes before warning" threshold but is not yet at suspension, this
+		// notice ESCALATES its own copy to flag that suspension is approaching —
+		// instead of firing a second bn.strike_warning notification/email, which
+		// double-notified and double-emailed the member for one strike (and whose
+		// "you are close to a strike" copy contradicts a strike having just been
+		// issued). warn_threshold stays meaningful: it decides the escalated copy.
+		$near_suspension = ( $active_strikes >= $warn_threshold && $active_strikes < $suspend_threshold );
 		buddynext_service( 'notifications' )->create(
 			array(
 				'recipient_id' => $user_id,
@@ -109,19 +128,16 @@ class ModerationListener implements ListenerInterface {
 				'object_type'  => 'strike',
 				'object_id'    => $strike_id,
 				'group_key'    => null,
+				// Nested under 'data' so it persists to the notification's data
+				// column (create() only JSON-encodes $data['data']); compose_single()
+				// reads these back to escalate the copy near suspension.
+				'data'         => array(
+					'count'             => $active_strikes,
+					'suspend_threshold' => $suspend_threshold,
+					'near_suspension'   => $near_suspension,
+				),
 			)
 		);
-
-		// Enforce configurable strike thresholds. Escalation, strongest first:
-		// permanent ban → suspension → warning. The permanent-ban tier is opt-in
-		// (0 = disabled) and is a permanent suspension with the member's content
-		// hidden, which is meaningfully stronger than the plain suspend tier
-		// (indefinite but content-visible) — so the "Strikes before permanent
-		// ban" setting actually does something distinct.
-		$warn_threshold      = (int) get_option( 'buddynext_strike_warn_threshold', 2 );
-		$suspend_threshold   = (int) get_option( 'buddynext_strike_suspend_threshold', 5 );
-		$perma_ban_threshold = (int) get_option( 'buddynext_strike_perma_ban_threshold', 0 );
-		$active_strikes      = buddynext_service( 'moderation' )->get_active_strike_count( $user_id );
 
 		if ( $perma_ban_threshold > 0 && $active_strikes >= $perma_ban_threshold ) {
 			buddynext_service( 'moderation' )->suspend(
@@ -145,30 +161,6 @@ class ModerationListener implements ListenerInterface {
 				false,
 				$actor_id
 			);
-		} elseif ( $active_strikes >= $warn_threshold ) {
-			// The notification create is the single email trigger (EmailDispatch
-			// Listener sends bn.strike_warning on creation). 'count' is top-level
-			// so render() exposes a {{count}} token. Direct send only as a
-			// fallback when the in-app notification was suppressed.
-			$created = buddynext_service( 'notifications' )->create(
-				array(
-					'recipient_id' => $user_id,
-					'sender_id'    => $actor_id,
-					'type'         => 'bn.strike_warning',
-					'object_type'  => 'strike',
-					'object_id'    => $strike_id,
-					'group_key'    => null,
-					'count'        => $active_strikes,
-				)
-			);
-
-			if ( 0 === $created ) {
-				buddynext_service( 'email_sender' )->send(
-					$user_id,
-					'bn.strike_warning',
-					array( 'count' => $active_strikes )
-				);
-			}
 		}
 	}
 

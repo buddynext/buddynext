@@ -311,6 +311,16 @@ class NotificationMessageService {
 				return __( 'You are close to an account strike. Please review the community guidelines.', 'buddynext' );
 
 			case 'bn.strike_issued':
+				$strike_suspend_at = isset( $data['suspend_threshold'] ) ? (int) $data['suspend_threshold'] : 0;
+				$strike_count      = isset( $data['count'] ) ? (int) $data['count'] : 0;
+				if ( ! empty( $data['near_suspension'] ) && $strike_suspend_at > 0 && $strike_count > 0 ) {
+					return sprintf(
+						/* translators: 1: the member's current active strike count, 2: strikes at which the account is suspended. */
+						__( 'Your account received a strike (%1$d of %2$d). At %2$d strikes your account is suspended — please review the community guidelines.', 'buddynext' ),
+						$strike_count,
+						$strike_suspend_at
+					);
+				}
 				return __( 'Your account received a strike for a community guideline breach.', 'buddynext' );
 
 			case 'bn.member_suspended':
