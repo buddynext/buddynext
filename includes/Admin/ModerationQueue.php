@@ -409,7 +409,14 @@ class ModerationQueue {
 					<?php
 					$this->report_button( $report_id, 'dismiss', __( 'Dismiss', 'buddynext' ), 'secondary' );
 					$this->report_button( $report_id, 'resolve', __( 'Resolve', 'buddynext' ), 'secondary' );
-					$this->report_button( $report_id, 'remove', __( 'Remove content', 'buddynext' ), 'delete', __( 'Remove the reported content? It is hidden, not hard-deleted.', 'buddynext' ) );
+					// "Remove content" only applies to removable objects — remove_object()
+					// returns a 422 (bn_removal_unsupported) for user/space reports. Gate
+					// the button on the same object types the frontend queue does
+					// (templates/moderation/queue.php), so a moderator is never shown an
+					// action that always fails.
+					if ( in_array( $object_type, array( 'post', 'comment', 'message' ), true ) ) {
+						$this->report_button( $report_id, 'remove', __( 'Remove content', 'buddynext' ), 'delete', __( 'Remove the reported content? It is hidden, not hard-deleted.', 'buddynext' ) );
+					}
 					if ( ! $escalated ) {
 						$this->report_button( $report_id, 'escalate', __( 'Escalate', 'buddynext' ), 'secondary' );
 					}
