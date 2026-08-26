@@ -642,8 +642,16 @@ class Plugin {
 		// Register sidebar widgets.
 		$container->get( 'widgets' )->init();
 
-		// Register PWA manifest + service worker.
-		$container->get( 'pwa' )->init();
+		// Register PWA manifest + service worker — only when the PWA capability is on
+		// (FeatureRegistry 'pwa', default-on). Off = the service never boots, so no
+		// manifest link, no service-worker registration, no REST routes; the owner's
+		// switch actually controls the installable app instead of being a no-op. Read
+		// the features service directly (not buddynext_feature_enabled(), which
+		// returns its default before buddynext_loaded has fired — and this runs
+		// during init, before that action), mirroring the webhooks gate above.
+		if ( $container->get( 'features' )->is_enabled( 'pwa' ) ) {
+			$container->get( 'pwa' )->init();
+		}
 
 		// Emit CSS custom-property token block on wp_head.
 		( new TokenService() )->init();

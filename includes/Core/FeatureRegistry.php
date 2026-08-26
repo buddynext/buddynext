@@ -197,6 +197,14 @@ class FeatureRegistry {
 				'group'      => 'community',
 				'depends_on' => array(),
 			),
+			// Installable app (PWA): the manifest + service worker. Self-contained
+			// (no external key), so default-on; when off the service never boots.
+			'pwa'           => array(
+				'slug'       => 'pwa',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array(),
+			),
 
 			// Integration bridges are NOT features. They gate solely on the
 			// per-aspect Integrations toggle (buddynext_integration_enabled), which
@@ -471,6 +479,10 @@ class FeatureRegistry {
 			'messages'      => array(
 				'label'       => __( 'Direct messages', 'buddynext' ),
 				'description' => __( 'Private one-to-one messaging between members (requires WPMediaVerse).', 'buddynext' ),
+			),
+			'pwa'           => array(
+				'label'       => __( 'Installable app (PWA)', 'buddynext' ),
+				'description' => __( 'Let members install the community as an app and use it offline (manifest + service worker).', 'buddynext' ),
 			),
 			'webhooks'      => array(
 				'label'       => __( 'Outbound webhooks', 'buddynext' ),
