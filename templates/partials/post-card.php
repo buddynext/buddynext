@@ -253,7 +253,7 @@ $can_comment         = ( $current_user_id > 0 && $bn_comments_enabled );
 // Re-shares and bookmarks are site-owner toggles (BuddyNext → Social). When the
 // owner disables a feature the corresponding action control must disappear, not
 // just no-op — both default ON when the option is unset.
-$can_share    = ( $current_user_id > 0 && '0' !== (string) get_option( 'buddynext_allow_shares', '1' ) );
+$can_share    = ( $current_user_id > 0 && buddynext_feature_enabled( 'shares' ) );
 $can_bookmark = ( $current_user_id > 0 && buddynext_feature_enabled( 'bookmarks' ) );
 
 // ── Nonces — all REST calls use the wp_rest nonce ──────────────────────────────

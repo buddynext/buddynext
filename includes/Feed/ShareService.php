@@ -40,7 +40,7 @@ class ShareService {
 	 *                      WP_Error('already_shared') on duplicate.
 	 */
 	public function share( int $user_id, int $post_id, string $content = '' ): int|WP_Error {
-		if ( '0' === (string) get_option( 'buddynext_allow_shares', '1' ) ) {
+		if ( ! buddynext_feature_enabled( 'shares' ) ) {
 			return new WP_Error(
 				'shares_disabled',
 				__( 'Sharing is disabled on this community.', 'buddynext' ),

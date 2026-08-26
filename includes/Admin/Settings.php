@@ -948,26 +948,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'      => 'buddynext_allow_polls',
-							'type'     => 'toggle',
-							'label'    => __( 'Allow polls', 'buddynext' ),
-							'default'  => '1',
-							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
-							'hint'     => __( 'Members can attach a poll to their posts.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
-							'key'      => 'buddynext_allow_shares',
-							'type'     => 'toggle',
-							'label'    => __( 'Allow re-shares', 'buddynext' ),
-							'default'  => '1',
-							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
-							'hint'     => __( 'Members can share other members\' posts to their own feed.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
 							'key'     => 'buddynext_enable_link_preview',
 							'type'    => 'toggle',
 							'label'   => __( 'Enable link previews', 'buddynext' ),

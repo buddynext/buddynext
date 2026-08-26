@@ -175,6 +175,18 @@ class FeatureRegistry {
 				'group'      => 'community',
 				'depends_on' => array(),
 			),
+			'polls'         => array(
+				'slug'       => 'polls',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'feed' ),
+			),
+			'shares'        => array(
+				'slug'       => 'shares',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'feed' ),
+			),
 
 			// Integration bridges are NOT features. They gate solely on the
 			// per-aspect Integrations toggle (buddynext_integration_enabled), which
@@ -437,6 +449,14 @@ class FeatureRegistry {
 			'bookmarks'     => array(
 				'label'       => __( 'Bookmarks', 'buddynext' ),
 				'description' => __( 'Let members save posts to a private Bookmarks list to read later.', 'buddynext' ),
+			),
+			'polls'         => array(
+				'label'       => __( 'Polls', 'buddynext' ),
+				'description' => __( 'Let members attach a poll to a post and vote in the feed.', 'buddynext' ),
+			),
+			'shares'        => array(
+				'label'       => __( 'Re-shares', 'buddynext' ),
+				'description' => __( 'Let members re-share another member\'s post into their own feed.', 'buddynext' ),
 			),
 			'webhooks'      => array(
 				'label'       => __( 'Outbound webhooks', 'buddynext' ),

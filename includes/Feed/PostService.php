@@ -154,7 +154,7 @@ class PostService {
 		}
 
 		if ( 'poll' === $type ) {
-			if ( '0' === (string) get_option( 'buddynext_allow_polls', '1' ) ) {
+			if ( ! buddynext_feature_enabled( 'polls' ) ) {
 				return new WP_Error(
 					'polls_disabled',
 					__( 'Polls are disabled on this community.', 'buddynext' ),

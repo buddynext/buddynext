@@ -43,8 +43,6 @@ class RecommendedDefaults {
 		'buddynext_default_dm_access'          => 'members',
 		// Activity feed engagement surfaces.
 		'buddynext_default_post_privacy'       => 'public',
-		'buddynext_allow_polls'                => '1',
-		'buddynext_allow_shares'               => '1',
 		'buddynext_enable_link_preview'        => true,
 		'buddynext_enable_emoji_picker'        => true,
 		'buddynext_feed_new_posts_indicator'   => true,
