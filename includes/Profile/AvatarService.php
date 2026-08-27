@@ -63,6 +63,9 @@ class AvatarService {
 	 */
 	public function init(): void {
 		add_filter( 'pre_get_avatar_data', array( $this, 'filter_avatar_data' ), 10, 2 );
+		// The generated initials run LAST, separately, so a real avatar from any
+		// other plugin beats a placeholder from this one. See filter_avatar_fallback().
+		add_filter( 'pre_get_avatar_data', array( $this, 'filter_avatar_fallback' ), 99, 2 );
 		add_filter( 'kses_allowed_protocols', array( $this, 'allow_data_protocol' ) );
 		add_filter( 'clean_url', array( $this, 'restrict_data_urls' ), 10, 2 );
 	}
@@ -169,7 +172,53 @@ class AvatarService {
 			// No image configured — fall through to initials.
 		}
 
-		// ── 3. Initials SVG fallback ───────────────────────────────────────────
+		// ── 3. No real avatar from us ──────────────────────────────────────────
+		// Deliberately return unchanged rather than generating initials here.
+		// This filter runs at priority 10, and so do WPMediaVerse's and
+		// Jetonomy's — three plugins on the same hook at the same priority, with
+		// load order deciding. BuddyNext registers last and won, so a member who
+		// had uploaded an avatar in WPMediaVerse got this plugin's generated
+		// initials on every surface instead, and their real picture appeared
+		// nowhere. A placeholder must never outrank someone's actual photograph.
+		//
+		// The initials are produced by filter_avatar_fallback() at priority 99,
+		// after every other plugin has had its turn.
+		return $args;
+	}
+
+	/**
+	 * Last-resort initials avatar — runs at priority 99, after everyone else.
+	 *
+	 * Only fills in when no plugin, and not Gravatar, produced a URL. Generated
+	 * initials are the answer to "nobody has a picture for this member", which is
+	 * a question that can only be answered once every other participant on the
+	 * hook has declined.
+	 *
+	 * The `bn_avatar_style` option still decides whether initials are wanted at
+	 * all: 'gravatar' leaves the args alone so core resolves Gravatar normally,
+	 * and 'default_image' is handled at priority 10 because a site-wide image the
+	 * owner configured is a real choice, not a fallback.
+	 *
+	 * @param array $args        Avatar args.
+	 * @param mixed $id_or_email User id, email, WP_User, WP_Post or WP_Comment.
+	 * @return array
+	 */
+	public function filter_avatar_fallback( array $args, $id_or_email ): array {
+		// Someone already answered — a real avatar from any source outranks ours.
+		if ( ! empty( $args['url'] ) ) {
+			return $args;
+		}
+
+		if ( 'initials' !== (string) get_option( 'bn_avatar_style', 'initials' )
+			&& 'default_image' !== (string) get_option( 'bn_avatar_style', 'initials' ) ) {
+			return $args;
+		}
+
+		$user = $this->resolve_user( $id_or_email );
+		if ( ! $user ) {
+			return $args;
+		}
+
 		$args['url']          = $this->build_svg_url( $user );
 		$args['found_avatar'] = true;
 

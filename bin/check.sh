@@ -311,6 +311,16 @@ else
 	note "bin/check-hub-registry.php missing"
 fi
 
+if [ -f bin/check-mediaverse-surfaces.php ]; then
+	if php bin/check-mediaverse-surfaces.php >/dev/null 2>&1; then
+		ok "MediaVerse surface ownership holds — no MV assets on BN pages, placeholder avatars stay last, comment controls follow the engine's flags"
+	else
+		fail "MediaVerse surface-ownership violation — run: php bin/check-mediaverse-surfaces.php"
+	fi
+else
+	note "bin/check-mediaverse-surfaces.php missing"
+fi
+
 # 3bb. Hook-doc conformance — BLOCKING.
 #
 # The integration-hook table in CLAUDE.md is read by third-party integrators AND by AI agents.

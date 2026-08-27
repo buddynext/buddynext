@@ -32,7 +32,7 @@ version of the same screen still reachable next to it?"
 | Media grid / profile Media tab | **BuddyNext** | WPMediaVerse | Settled |
 | Composer media attach | **BuddyNext** (`assets/js/feed/composer.js`) | WPMediaVerse | Settled |
 | Activity cards for uploads | **BuddyNext** | WPMediaVerse | Settled by directive 2026-08-27: media only (image/video/audio), never documents |
-| Member avatar | **UNDECIDED** | — | **Three-way collision** — see below |
+| Member avatar | **Shared, by precedence** | each plugin's own | Settled — see below |
 
 ## Media viewer — the two open items
 
@@ -82,26 +82,44 @@ BuddyNext already closes the equivalent door for single media:
 `mvs_single_media_redirect` sends `/media/{slug}/` to the activity the media was
 posted in. The same treatment is what the remaining pages need.
 
-## Avatars — the undecided surface
+## Avatars — shared, by precedence
 
-Three plugins register `pre_get_avatar_data` at **priority 10**, so the winner is
-decided by plugin load order rather than by any rule:
+Avatars are the one surface no single plugin owns, because any of them may hold
+the member's picture. Three register `pre_get_avatar_data`:
 
 ```
 [10] Jetonomy\Avatar::filter_avatar_data
 [10] WPMediaVerse\Services\ProfileService::filter_avatar_data
-[10] BuddyNext\Profile\AvatarService::filter_avatar_data
+[10] BuddyNext\Profile\AvatarService::filter_avatar_data      (real avatars only)
+[99] BuddyNext\Profile\AvatarService::filter_avatar_fallback  (generated initials)
 ```
 
-BuddyNext registers last and wins. Measured on a member holding a valid
-`_mvs_custom_avatar` and no BuddyNext avatar: every avatar on their profile
-renders BuddyNext's generated initials SVG, and the uploaded image appears
-nowhere in the markup. Unhooking BuddyNext's filter makes the real avatar appear
-on every one of those surfaces.
+**The rule: a real picture always beats a generated one.** Everything at priority
+10 is somebody's actual uploaded image, and whichever answers first wins — that
+is a fair race. BuddyNext's generated initials are not in that race; they run at
+99, only when nobody produced a URL.
 
-So a member can upload an avatar in WPMediaVerse that is never displayed
-anywhere. This needs a named owner and an explicit priority — "whoever loads
-last" is not a rule.
+That split is the fix for a real defect. All three used to sit at priority 10 and
+BuddyNext registered last, so its *placeholder* beat WPMediaVerse's *photograph*:
+a member with a valid `_mvs_custom_avatar` and no BuddyNext avatar saw generated
+initials on every surface, and their upload appeared nowhere. Verified before the
+fix by unhooking BuddyNext's filter — the real avatar then appeared everywhere.
+
+Measured precedence after the fix, one member, all four states:
+
+| Member has | Renders |
+|---|---|
+| neither | BuddyNext initials |
+| WPMediaVerse avatar only | **the WPMediaVerse avatar** |
+| BuddyNext avatar only | the BuddyNext avatar |
+| both | the BuddyNext avatar |
+
+BuddyNext's own upload winning when a member has both is deliberate: it is the
+avatar they set *in this community*. What is not acceptable is a placeholder
+outranking anyone's real picture.
+
+Adding another avatar source? Register at 10 if it holds real uploads. Never
+register a generated or default image at 10 — that is the mistake this documents.
 
 ## Adding a surface
 
@@ -111,6 +129,23 @@ When either plugin adds a screen the other could also render:
 2. The non-owner exposes data (REST or a filter) and renders nothing.
 3. If the non-owner already has its own version of that screen, say here whether
    it stays reachable, and close the door if not.
-4. Add a check to `bin/check.sh` that fails if the rule is broken. A rule nothing
-   enforces is a rule that rots — the "no MV assets on BN pages" rule held for
-   two years because it was easy to honour, not because anything tested it.
+4. Add a check to `bin/check-mediaverse-surfaces.php` that fails if the rule is
+   broken. A rule nothing enforces is a rule that rots — the "no MV assets on BN
+   pages" rule held for two years because it was easy to honour, not because
+   anything tested it.
+
+## What is enforced
+
+`bin/check-mediaverse-surfaces.php`, wired into `bin/check.sh`, fails the build on:
+
+| Rule | Detected by |
+|---|---|
+| No WPMediaVerse JS/CSS enqueued from BuddyNext | `wp_enqueue_script/style( 'mvs*' )` anywhere in `includes/` |
+| Generated avatars never race real ones | `filter_avatar_fallback` missing, registered at priority <= 10, or initials generated inside the priority-10 filter |
+| Comment controls follow the engine | `lightbox.js` no longer reading `can_edit` / `can_delete` off a comment |
+
+Mutation-tested — each rule was broken in turn and the check failed for each,
+then passed again once restored. A guard that has never been seen to fail is not
+a guard. The comment-flag check originally matched anywhere in the file and was
+satisfied by the docblock *explaining* the flags while the code had stopped
+reading them; it now strips comments first and requires a real property read.
