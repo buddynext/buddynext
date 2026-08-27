@@ -494,6 +494,74 @@ body.bn-lightbox-open { overflow: hidden; }
 	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
 }
 
+/* Fullscreen: the media takes the whole overlay, the side panel stands down. */
+.bn-lightbox__fullscreen {
+	all: unset;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	/* 40px tap target, per the responsive contract. */
+	inline-size: 40px;
+	block-size: 40px;
+	border-radius: var( --bn-radius-full, 999px );
+	color: inherit;
+}
+.bn-lightbox__fullscreen:hover,
+.bn-lightbox__fullscreen:focus-visible { background: var( --bn-surface-2, oklch( 96% 0.005 0 ) ); }
+.bn-lightbox__fullscreen:focus-visible {
+	outline: 2px solid var( --bn-accent, oklch( 58% 0.13 264 ) );
+	outline-offset: 2px;
+}
+.bn-lightbox--fullscreen .bn-lightbox__panel-side,
+.bn-lightbox--fullscreen aside { display: none; }
+.bn-lightbox--fullscreen .bn-lightbox__media-wrap { inline-size: 100%; }
+
+/* Owner panel — the inline form Edit and Save open inside the side panel. */
+.bn-lightbox__panel {
+	display: flex;
+	flex-direction: column;
+	gap: var( --bn-s2, 8px );
+	padding: var( --bn-s3, 12px ) 0;
+	border-block-end: 1px solid var( --bn-line-faint, oklch( 92% 0.005 0 ) );
+}
+.bn-lightbox__field { display: flex; flex-direction: column; gap: 4px; }
+.bn-lightbox__field-label {
+	font-size: var( --bn-text-xs, 0.75rem );
+	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+}
+.bn-lightbox__field-input {
+	font: inherit;
+	font-size: var( --bn-text-sm, 0.875rem );
+	padding: 6px 8px;
+	border: 1px solid var( --bn-line, oklch( 88% 0.01 0 ) );
+	border-radius: var( --bn-radius-sm, 6px );
+	background: var( --bn-surface, #fff );
+	color: var( --bn-ink, oklch( 25% 0.01 0 ) );
+	width: 100%;
+	box-sizing: border-box;
+}
+.bn-lightbox__field-input:focus-visible {
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+}
+.bn-lightbox__field-check { inline-size: 16px; block-size: 16px; }
+.bn-lightbox__panel-actions { display: flex; gap: var( --bn-s3, 12px ); padding-block-start: 4px; }
+.bn-lightbox__panel-note {
+	margin: 0;
+	font-size: var( --bn-text-sm, 0.875rem );
+	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+}
+.bn-lightbox__collection {
+	display: flex;
+	align-items: center;
+	gap: var( --bn-s2, 8px );
+	font-size: var( --bn-text-sm, 0.875rem );
+	/* 40px tap target on touch without inflating the visual row. */
+	min-block-size: 40px;
+}
+
 .bn-lightbox__comment-login {
 	margin: 0;
 	padding-block-start: var( --bn-s2, 8px );

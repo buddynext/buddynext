@@ -73,6 +73,7 @@ $bn_lb_can_interact = is_user_logged_in();
 		<aside class="bn-lightbox__panel">
 			<header class="bn-lightbox__panel-head">
 				<div class="bn-lightbox__author" data-bn-lb-author></div>
+				<button type="button" class="bn-lightbox__fullscreen" data-bn-lb-fullscreen aria-pressed="false" aria-label="<?php esc_attr_e( 'Toggle fullscreen', 'buddynext' ); ?>"><?php buddynext_icon( 'maximize' ); ?></button>
 				<button type="button" class="bn-lightbox__close" data-bn-lb-close aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
 			</header>
 
@@ -106,6 +107,16 @@ $bn_lb_can_interact = is_user_logged_in();
 						<?php buddynext_icon( 'share' ); ?><span><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
 					</button>
 					<?php endif; ?>
+					<?php if ( $bn_lb_can_interact ) : ?>
+						<?php // Collections are a Pro surface; the JS hides this when the endpoint is absent. ?>
+					<button type="button" class="bn-lightbox__action" data-bn-lb-save hidden>
+						<?php buddynext_icon( 'bookmark' ); ?><span><?php esc_html_e( 'Save', 'buddynext' ); ?></span>
+					</button>
+						<?php // Shown only when the engine says this viewer may edit this media. ?>
+					<button type="button" class="bn-lightbox__action" data-bn-lb-edit hidden>
+						<?php buddynext_icon( 'edit' ); ?><span><?php esc_html_e( 'Edit', 'buddynext' ); ?></span>
+					</button>
+					<?php endif; ?>
 					<a class="bn-lightbox__action" data-bn-lb-download download target="_blank" rel="noopener">
 						<?php buddynext_icon( 'download' ); ?><span><?php esc_html_e( 'Download', 'buddynext' ); ?></span>
 					</a>
@@ -135,6 +146,9 @@ $bn_lb_can_interact = is_user_logged_in();
 					</button>
 					<?php endif; ?>
 				</div>
+
+				<?php // Filled by the JS when Save or Edit is opened; empty otherwise. ?>
+				<div class="bn-lightbox__panel" data-bn-lb-panel hidden></div>
 
 				<?php // Rendered for everyone — reading a public thread needs no account. ?>
 				<div class="bn-lightbox__comments" data-bn-lb-comments aria-live="polite"></div>

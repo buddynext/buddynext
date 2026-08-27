@@ -43,6 +43,10 @@
 			download: overlay.querySelector( '[data-bn-lb-download]' ),
 			form:     overlay.querySelector( '[data-bn-lb-comment-form]' ),
 			input:    overlay.querySelector( '[data-bn-lb-comment-input]' ),
+			save:     overlay.querySelector( '[data-bn-lb-save]' ),
+			edit:     overlay.querySelector( '[data-bn-lb-edit]' ),
+			extra:    overlay.querySelector( '[data-bn-lb-panel]' ),
+			fullscr:  overlay.querySelector( '[data-bn-lb-fullscreen]' ),
 			// DM full-bleed chrome (sender + download float over the stage; the
 			// side panel is hidden for private 1:1 media).
 			dmAuthor:   overlay.querySelector( '[data-bn-lb-dm-author]' ),
@@ -70,6 +74,9 @@
 			panel.report.addEventListener( 'click', report );
 		}
 		if ( panel.block ) { panel.block.addEventListener( 'click', blockAuthor ); }
+		if ( panel.edit ) { panel.edit.addEventListener( 'click', openEditPanel ); }
+		if ( panel.save ) { panel.save.addEventListener( 'click', openSavePanel ); }
+		if ( panel.fullscr ) { panel.fullscr.addEventListener( 'click', toggleFullscreen ); }
 		var shareBtn = overlay.querySelector( '[data-bn-lb-share]' );
 		if ( shareBtn ) { shareBtn.addEventListener( 'click', share ); }
 		// Comment submit.
@@ -225,6 +232,8 @@
 	// The uploader of the media currently open. Needed for Block (which blocks the MEMBER, not
 	// the file) and to hide both controls on your own media — nobody reports themselves.
 	var currentAuthorId = 0;
+	// The media payload for whatever is open — Edit prefills from it.
+	var currentMedia = null;
 
 	function applyAbuseControls( m ) {
 		// WPMediaVerse's media payload carries the uploader's numeric id as `author`
@@ -237,6 +246,17 @@
 		// plugin dir here is a symlink to a working copy in which I had added the alias — the
 		// one environment on earth where it worked. QA caught it by reading the INSTALLED code.
 		currentAuthorId = parseInt( ( m && m.author ) || 0, 10 ) || 0;
+
+		currentMedia = m || null;
+		closeExtraPanel();
+
+		// Edit follows the engine's own `can_edit` on the media payload — viewer
+		// relative, and computed by the same code that enforces PATCH. Measured:
+		// owner true, another member false, anonymous false. Re-deriving "is this
+		// mine" here would be a second copy of a rule the server already answers.
+		if ( panel.edit ) { panel.edit.hidden = ! ( LOGGED_IN && m && m.can_edit ); }
+		// Collections are Pro. Probed once per open; hidden when the route is absent.
+		if ( panel.save ) { panel.save.hidden = ! LOGGED_IN; }
 
 		var mine = ! currentAuthorId || currentAuthorId === ( parseInt( cfg.userId, 10 ) || 0 );
 		// cfg.canReport mirrors WPMediaVerse's `mvs_reports_enabled` filter. If a site turns
@@ -647,6 +667,188 @@
 	}
 
 	/** Re-read the thread from the engine so every row's flags are current. */
+	/**
+	 * Fullscreen: give the media the whole overlay and stand the side panel down.
+	 *
+	 * A CSS class rather than the Fullscreen API — requestFullscreen() takes over
+	 * the whole screen and swallows Escape, so the viewer's own close-on-Escape
+	 * would stop working and a member would have to press it twice to get out.
+	 * This keeps every existing control behaving exactly as it does normally.
+	 */
+	function toggleFullscreen() {
+		if ( ! overlay || ! panel.fullscr ) { return; }
+		var on = ! overlay.classList.contains( 'bn-lightbox--fullscreen' );
+		overlay.classList.toggle( 'bn-lightbox--fullscreen', on );
+		panel.fullscr.setAttribute( 'aria-pressed', on ? 'true' : 'false' );
+	}
+
+	// ── Owner panel: Edit + Save ──────────────────────────────────────────────
+
+	function closeExtraPanel() {
+		if ( ! panel.extra ) { return; }
+		clear( panel.extra );
+		panel.extra.hidden = true;
+	}
+
+	function extraPanel() {
+		if ( ! panel.extra ) { return null; }
+		clear( panel.extra );
+		panel.extra.hidden = false;
+		return panel.extra;
+	}
+
+	function field( labelText, control ) {
+		var wrap = document.createElement( 'label' );
+		wrap.className = 'bn-lightbox__field';
+		var span = document.createElement( 'span' );
+		span.className = 'bn-lightbox__field-label';
+		span.textContent = labelText;
+		wrap.appendChild( span );
+		wrap.appendChild( control );
+		return wrap;
+	}
+
+	/**
+	 * Edit title / description / privacy / download, via PATCH on the media.
+	 *
+	 * The privacy choices come from the payload's `privacy_options` rather than a
+	 * list hardcoded here: the engine owns which levels exist (a Space level was
+	 * added in 2.4.0), and a copy on this side would be wrong the next time that
+	 * set changes.
+	 */
+	function openEditPanel() {
+		var m = currentMedia;
+		var host = extraPanel();
+		if ( ! host || ! m || ! current ) { return; }
+
+		var title = document.createElement( 'input' );
+		title.type = 'text';
+		title.className = 'bn-lightbox__field-input';
+		title.value = m.title || '';
+
+		var desc = document.createElement( 'textarea' );
+		desc.className = 'bn-lightbox__field-input';
+		desc.rows = 2;
+		desc.value = m.description || '';
+
+		var privacy = document.createElement( 'select' );
+		privacy.className = 'bn-lightbox__field-input';
+		var opts = m.privacy_options || {};
+		Object.keys( opts ).forEach( function ( k ) {
+			var o = document.createElement( 'option' );
+			var v = opts[ k ];
+			// privacy_options arrives either as {value: label} or as a list of
+			// {value,label} objects depending on the engine version; accept both
+			// rather than guessing one shape.
+			o.value = ( v && v.value ) ? v.value : k;
+			o.textContent = ( v && v.label ) ? v.label : String( v );
+			if ( o.value === m.privacy ) { o.selected = true; }
+			privacy.appendChild( o );
+		} );
+
+		var dl = document.createElement( 'input' );
+		dl.type = 'checkbox';
+		dl.className = 'bn-lightbox__field-check';
+		dl.checked = !! m.allow_download;
+
+		host.appendChild( field( __( 'Title' ), title ) );
+		host.appendChild( field( __( 'Description' ), desc ) );
+		host.appendChild( field( __( 'Privacy' ), privacy ) );
+		host.appendChild( field( __( 'Allow downloads' ), dl ) );
+
+		var actions = document.createElement( 'div' );
+		actions.className = 'bn-lightbox__panel-actions';
+		actions.appendChild( commentAction( __( 'Save changes' ), 'save', function () {
+			api( '/media/' + current, {
+				method: 'PATCH',
+				json: {
+					title: title.value,
+					description: desc.value,
+					privacy: privacy.value,
+					allow_download: dl.checked,
+				},
+			} ).then( function ( updated ) {
+				if ( updated && updated.id ) { currentMedia = updated; }
+				closeExtraPanel();
+			} ).catch( function () {} );
+		} ) );
+		actions.appendChild( commentAction( __( 'Cancel' ), 'cancel', closeExtraPanel ) );
+		host.appendChild( actions );
+		title.focus();
+	}
+
+	/**
+	 * Save-to-collection. Pro surface: the route lives in mvs-pro, so a Free-only
+	 * site 404s here and the control removes itself rather than offering a save
+	 * that cannot happen.
+	 */
+	function openSavePanel() {
+		var host = extraPanel();
+		if ( ! host || ! current ) { return; }
+
+		var loading = document.createElement( 'p' );
+		loading.className = 'bn-lightbox__panel-note';
+		loading.textContent = I18N.posting || 'Loading…';
+		host.appendChild( loading );
+
+		var id = current;
+		window.buddynextRest.restFetch( '/media/' + id + '/collections', {
+			base: ( cfg.mvsRest || '' ).replace( /\/mvs\/v1\/?$/, '/mvs-pro/v1' ),
+			nonce: cfg.nonce || '',
+			toastOnError: false,
+		} ).then( function ( res ) {
+			if ( ! res.ok || current !== id ) {
+				if ( panel.save ) { panel.save.hidden = true; }
+				closeExtraPanel();
+				return;
+			}
+			renderCollections( host, id, res.data || {} );
+		} ).catch( function () {
+			if ( panel.save ) { panel.save.hidden = true; }
+			closeExtraPanel();
+		} );
+	}
+
+	function renderCollections( host, mediaId, status ) {
+		clear( host );
+		var list = ( status.collections && status.collections.length ) ? status.collections : [];
+		if ( ! list.length ) {
+			// Deliberately not "No collections yet" — the engine returns only
+			// MANUAL collections here, because a smart collection fills itself from
+			// its rules and cannot be added to by hand. A member with two smart
+			// collections and no manual ones would read "none yet" as a bug.
+			var none = document.createElement( 'p' );
+			none.className = 'bn-lightbox__panel-note';
+			none.textContent = __( 'No collections you can add to. Smart collections fill themselves from their rules.' );
+			host.appendChild( none );
+		}
+		list.forEach( function ( col ) {
+			var row = document.createElement( 'label' );
+			row.className = 'bn-lightbox__collection';
+			var box = document.createElement( 'input' );
+			box.type = 'checkbox';
+			box.checked = !! col.member;
+			box.addEventListener( 'change', function () {
+				window.buddynextRest.restFetch( '/media/' + mediaId + '/collections', {
+					base: ( cfg.mvsRest || '' ).replace( /\/mvs\/v1\/?$/, '/mvs-pro/v1' ),
+					nonce: cfg.nonce || '',
+					method: 'POST',
+					body: { collection_id: col.id, member: box.checked },
+					toastOnError: false,
+				} ).catch( function () { box.checked = ! box.checked; } );
+			} );
+			var name = document.createElement( 'span' );
+			name.textContent = col.title || ( '#' + col.id );
+			row.appendChild( box );
+			row.appendChild( name );
+			host.appendChild( row );
+		} );
+		var actions = document.createElement( 'div' );
+		actions.className = 'bn-lightbox__panel-actions';
+		actions.appendChild( commentAction( __( 'Done' ), 'cancel', closeExtraPanel ) );
+		host.appendChild( actions );
+	}
+
 	function reloadComments() {
 		if ( ! current ) { return; }
 		var id = current;
