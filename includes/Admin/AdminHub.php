@@ -1180,11 +1180,31 @@ class AdminHub {
 	 * Lets a feature decide whether to enqueue its CSS/JS without rebuilding
 	 * the page resolution logic.
 	 *
-	 * @param string $section Section key.
+	 * Pass the tab's ORIGIN section — the one given to register_tab() — exactly
+	 * as you would to tab_url(). The placement map is applied here, so a tab the
+	 * IA relocates still answers true on the page it actually renders on.
+	 *
+	 * This used to take $section at face value while tab_url() resolved it, so
+	 * the same ( 'moderation', 'bulk' ) pair meant two different things: the URL
+	 * builder pointed at the automod page, is_active() tested the moderation one
+	 * and returned false forever. Bulk Moderation's JS therefore never enqueued,
+	 * its hidden `action` field stayed empty, and Apply posted to admin-post.php
+	 * with action="" — a blank page (cards 10235468087 / 10235631154). That was
+	 * fixed at the call site by hardcoding the destination slug, which re-broke
+	 * the moment `bn_admin_hub_tab_placement` moved the tab again. Resolve here
+	 * instead, so both functions read one map.
+	 *
+	 * @param string $section Section key the tab was REGISTERED against.
 	 * @param string $tab     Tab slug.
 	 * @return bool
 	 */
 	public static function is_active( string $section, string $tab ): bool {
+		// Same resolution tab_url() performs, for the same reason.
+		$rule = self::tab_placement()[ $section . ':' . $tab ] ?? null;
+		if ( is_array( $rule ) && isset( $rule['section'] ) ) {
+			$section = (string) $rule['section'];
+		}
+
 		if ( ! isset( self::sections()[ $section ] ) ) {
 			return false;
 		}

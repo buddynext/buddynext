@@ -54,6 +54,24 @@ array( 'action' => 'warn',    'user_id' => 123, 'reason' => 'string' );
 array( 'action' => 'suspend', 'user_id' => 123, 'reason' => 'string', 'duration_days' => 7 );
 ```
 
+## Pre-moderation (1.1.6)
+
+Pre-moderation holds a post for review before it appears. It is **developer-only by design**: there is no owner setting, and the retired `buddynext_premod_mode` *option* is deliberately not read. Honouring a stale stored value would leave a site silently holding posts with no UI to turn it off or to find them, so the mode comes from a filter or not at all.
+
+| Hook | Type | Default | Parameters |
+|---|---|---|---|
+| `buddynext_premod_mode` | filter | `'off'` | `string $mode` - one of `off`, `new_members`, `links`, `all` |
+| `buddynext_premod_new_member_count` | filter | `1` | `int $limit` - how many of a new member's first posts to hold |
+
+Hold the first three posts from every new member:
+
+```php
+add_filter( 'buddynext_premod_mode', fn() => 'new_members' );
+add_filter( 'buddynext_premod_new_member_count', fn() => 3 );
+```
+
+Held posts surface in the moderation queue's Pending tab. Turning the mode back to `off` releases nothing on its own - anything already held still needs a decision there, which is the reason this is not a setting an owner can toggle blind.
+
 ## Moderation event actions
 
 These fire after a moderator (or an auto-action) acts on content or a member. Trust-and-safety integrations and gamification penalties hook these.
