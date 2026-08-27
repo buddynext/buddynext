@@ -31,11 +31,18 @@ $bn_lb_reactions = class_exists( '\\BuddyNext\\Reactions\\ReactionService' )
 	? (array) \BuddyNext\Reactions\ReactionService::enabled_reactions()
 	: array();
 
-// Every interaction here (react / favorite / share / comment) hits an
-// auth-required engine route, so a guest can only view + download. Rather than
-// show controls that fail on click (a "Log in to react" toast), omit them from
-// the DOM for logged-out visitors; only the media, its meta, and Download remain.
+// Every WRITE here (react / favorite / share / comment) hits an auth-required
+// engine route, so rather than show controls that fail on click (a "Log in to
+// react" toast), they are omitted from the DOM for logged-out visitors.
 // lightbox.js null-checks each control, so their absence is a no-op there.
+//
+// READING is a different question, and conflating the two was a bug. This one
+// flag used to gate the comments PANEL as well as the comment FORM, so a guest
+// was shown a media with no comments on it at all — while
+// GET /mvs/v1/media/{id}/comments answers 200 with the thread to an anonymous
+// caller. The comments are public; only posting is not. A visitor deciding
+// whether to join was being shown an empty, lifeless version of an active
+// conversation.
 $bn_lb_can_interact = is_user_logged_in();
 ?>
 <div class="bn-lightbox" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Media viewer', 'buddynext' ); ?>" hidden>
@@ -129,17 +136,37 @@ $bn_lb_can_interact = is_user_logged_in();
 					<?php endif; ?>
 				</div>
 
-				<?php if ( $bn_lb_can_interact ) : ?>
+				<?php // Rendered for everyone — reading a public thread needs no account. ?>
 				<div class="bn-lightbox__comments" data-bn-lb-comments aria-live="polite"></div>
-				<?php endif; ?>
 			</div>
 
 			<?php if ( $bn_lb_can_interact ) : ?>
+				<?php // Posting does need an account, so the form stays gated. ?>
 			<form class="bn-lightbox__comment-form" data-bn-lb-comment-form>
 				<?php // A placeholder is not an accessible name - screen readers announce the input as unlabelled once the user types. aria-label carries the name. ?>
 				<input type="text" class="bn-lightbox__comment-input" data-bn-lb-comment-input aria-label="<?php esc_attr_e( 'Add a comment', 'buddynext' ); ?>" placeholder="<?php esc_attr_e( 'Add a comment…', 'buddynext' ); ?>" autocomplete="off">
 				<button type="submit" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'Post', 'buddynext' ); ?></button>
 			</form>
+			<?php else : ?>
+				<?php
+				// Same idiom as ShortcodeService: BuddyNext's own auth page when the
+				// owner has one, wp_login_url() otherwise, and the current page as the
+				// return. Deliberately not hand-built from $_SERVER — a login link is
+				// not worth reading unsanitised superglobals for.
+				$bn_lb_auth  = \BuddyNext\Core\PageRouter::auth_url();
+				$bn_lb_login = '' !== $bn_lb_auth
+					? add_query_arg( 'redirect_to', rawurlencode( (string) get_permalink() ), $bn_lb_auth )
+					: wp_login_url( (string) get_permalink() );
+				?>
+				<p class="bn-lightbox__comment-login">
+					<?php
+					printf(
+						/* translators: %s: log-in link. */
+						esc_html__( '%s to comment.', 'buddynext' ),
+						'<a href="' . esc_url( $bn_lb_login ) . '">' . esc_html__( 'Log in', 'buddynext' ) . '</a>'
+					);
+					?>
+				</p>
 			<?php endif; ?>
 		</aside>
 	</div>

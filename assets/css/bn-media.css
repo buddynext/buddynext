@@ -429,6 +429,78 @@ body.bn-lightbox-open { overflow: hidden; }
 .bn-lightbox__comment-author { margin-inline-end: 6px; }
 .bn-lightbox__comment-text { color: var( --bn-ink-2, oklch( 40% 0.01 0 ) ); }
 
+/* Per-comment controls — Edit / Delete / Save / Cancel.
+ *
+ * These are MICRO actions on a line of text, not form buttons. They are text,
+ * they inherit the comment's own size, and they sit inline after the content.
+ * A full-size button here — worse, a solid red one — outweighs the comment it
+ * belongs to and drags the eye to Delete first.
+ *
+ * `all: unset` first, then only what is needed: a themed <button> inside a
+ * comment otherwise arrives carrying the theme's padding, background and border,
+ * which is exactly how a 12px text action renders as a chunky block. Resetting
+ * beats trying to out-specify every theme. */
+.bn-lightbox__comment-actions,
+.bn-lightbox__comment-confirm {
+	display: inline-flex;
+	align-items: baseline;
+	gap: var( --bn-s2, 8px );
+	margin-inline-start: var( --bn-s2, 8px );
+}
+.bn-lightbox__comment-confirm-text {
+	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+	font-size: var( --bn-text-xs, 0.75rem );
+}
+.bn-lightbox__comment-action {
+	all: unset;
+	box-sizing: border-box;
+	cursor: pointer;
+	font: inherit;
+	font-size: var( --bn-text-xs, 0.75rem );
+	line-height: 1;
+	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+	border-radius: var( --bn-radius-xs, 3px );
+	/* Keeps the hit area usable without inflating the visual box. */
+	padding: 4px 2px;
+}
+.bn-lightbox__comment-action:hover,
+.bn-lightbox__comment-action:focus-visible {
+	color: var( --bn-ink, oklch( 25% 0.01 0 ) );
+	text-decoration: underline;
+}
+.bn-lightbox__comment-action:focus-visible {
+	outline: 2px solid var( --bn-accent, oklch( 58% 0.13 264 ) );
+	outline-offset: 2px;
+}
+.bn-lightbox__comment-action--delete { color: var( --bn-danger, oklch( 55% 0.19 25 ) ); }
+.bn-lightbox__comment-action--delete:hover,
+.bn-lightbox__comment-action--delete:focus-visible { color: var( --bn-danger, oklch( 55% 0.19 25 ) ); }
+
+.bn-lightbox__comment-edit { display: inline-flex; align-items: center; gap: var( --bn-s2, 8px ); width: 100%; }
+.bn-lightbox__comment-edit-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	font: inherit;
+	font-size: var( --bn-text-sm, 0.875rem );
+	padding: 4px 8px;
+	border: 1px solid var( --bn-line, oklch( 88% 0.01 0 ) );
+	border-radius: var( --bn-radius-sm, 6px );
+	background: var( --bn-surface, #fff );
+	color: var( --bn-ink, oklch( 25% 0.01 0 ) );
+}
+.bn-lightbox__comment-edit-input:focus-visible {
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+}
+
+.bn-lightbox__comment-login {
+	margin: 0;
+	padding-block-start: var( --bn-s2, 8px );
+	font-size: var( --bn-text-sm, 0.875rem );
+	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+}
+
 /* Comment form pinned to the panel bottom. */
 .bn-lightbox__comment-form {
 	display: flex;

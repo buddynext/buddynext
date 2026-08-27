@@ -180,11 +180,20 @@
 		// and author (from the meta fetch above) are all that show.
 		if ( isDM ) { return; }
 
-		// Guests can only view + download: the interaction controls aren't rendered
-		// for logged-out visitors (see media-lightbox.php) and every call below is
-		// auth-only, so skip them (no 401 noise, no null panel) and just track the
-		// view best-effort — mirrors the DM skip above.
+		// Guests cannot WRITE: favorite/react/report controls are not rendered for
+		// them (see media-lightbox.php) and those calls are auth-only, so skip
+		// them — no 401 noise, no null panel.
+		//
+		// Comments are NOT in that group. GET /media/{id}/comments answers 200
+		// with the thread to an anonymous caller, so a guest is shown the
+		// conversation and a "Log in to comment." line instead of a media that
+		// looks like nobody has ever said anything about it. Bailing before this
+		// was the JS half of that bug; the template gated the panel, this gated
+		// the fetch, and either alone was enough to hide the thread.
 		if ( ! LOGGED_IN ) {
+			api( '/media/' + id + '/comments' ).then( function ( list ) {
+				if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
+			} ).catch( function () {} );
 			api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
 			return;
 		}
@@ -516,18 +525,134 @@
 		list.forEach( function ( c ) { panel.comments.appendChild( commentEl( c ) ); } );
 	}
 
+	/**
+	 * One comment row, with the controls the SERVER says this viewer may use.
+	 *
+	 * `can_edit` and `can_delete` come from the engine per comment and per
+	 * viewer, computed from the same code that enforces the routes: author-only
+	 * edit inside the `mvs_comment_edit_window`, delete for the author or a
+	 * moderator. So this reads them rather than re-deriving ownership and the
+	 * edit window here — a second copy of those rules is how a UI ends up
+	 * offering a control that 403s, or hiding one the API allows.
+	 */
 	function commentEl( c ) {
 		var row = document.createElement( 'div' );
 		row.className = 'bn-lightbox__comment';
+
 		var name = document.createElement( 'strong' );
 		name.className = 'bn-lightbox__comment-author';
 		name.textContent = c.author_name || c.author || c.name || '';
+
 		var body = document.createElement( 'span' );
 		body.className = 'bn-lightbox__comment-text';
 		body.textContent = c.content || c.comment_content || c.text || '';
+
 		row.appendChild( name );
 		row.appendChild( body );
+
+		if ( ! c.can_edit && ! c.can_delete ) {
+			return row;
+		}
+
+		var actions = document.createElement( 'span' );
+		actions.className = 'bn-lightbox__comment-actions';
+
+		if ( c.can_edit ) {
+			actions.appendChild( commentAction( __( 'Edit' ), 'edit', function () {
+				startEditComment( row, c );
+			} ) );
+		}
+		if ( c.can_delete ) {
+			actions.appendChild( commentAction( __( 'Delete' ), 'delete', function () {
+				deleteComment( row, c );
+			} ) );
+		}
+
+		row.appendChild( actions );
 		return row;
+	}
+
+	/** A micro text button for a comment row — not a full-size form button. */
+	function commentAction( label, variant, onClick ) {
+		var b = document.createElement( 'button' );
+		b.type = 'button';
+		b.className = 'bn-lightbox__comment-action bn-lightbox__comment-action--' + variant;
+		b.textContent = label;
+		b.addEventListener( 'click', onClick );
+		return b;
+	}
+
+	/** Swap a comment row for an inline edit field. */
+	function startEditComment( row, c ) {
+		if ( row.querySelector( '.bn-lightbox__comment-edit' ) ) { return; }
+
+		var wrap = document.createElement( 'span' );
+		wrap.className = 'bn-lightbox__comment-edit';
+
+		var input = document.createElement( 'input' );
+		input.type = 'text';
+		input.className = 'bn-lightbox__comment-edit-input';
+		input.value = c.content || '';
+		input.setAttribute( 'aria-label', __( 'Edit comment' ) );
+
+		var save = commentAction( __( 'Save' ), 'save', function () {
+			var text = ( input.value || '' ).trim();
+			if ( ! text || ! current ) { return; }
+			api( '/media/' + current + '/comments/' + c.id, { method: 'PATCH', json: { content: text } } )
+				.then( reloadComments )
+				.catch( function () {} );
+		} );
+		var cancel = commentAction( __( 'Cancel' ), 'cancel', reloadComments );
+
+		wrap.appendChild( input );
+		wrap.appendChild( save );
+		wrap.appendChild( cancel );
+		clear( row );
+		row.appendChild( wrap );
+		input.focus();
+	}
+
+	/**
+	 * Delete, behind a two-step inline confirm.
+	 *
+	 * Inline rather than the shared modal: this script depends only on wp-i18n,
+	 * so `window.bnConfirm` is not guaranteed to be on the page, and deleting on
+	 * a single click when it happens to be absent is not an acceptable fallback.
+	 * `window.confirm` is not an option either. Asking in the row itself needs
+	 * nothing and cannot silently degrade.
+	 */
+	function deleteComment( row, c ) {
+		if ( ! current ) { return; }
+
+		var ask = document.createElement( 'span' );
+		ask.className = 'bn-lightbox__comment-confirm';
+
+		var label = document.createElement( 'span' );
+		label.className = 'bn-lightbox__comment-confirm-text';
+		label.textContent = __( 'Delete this comment?' );
+
+		var yes = commentAction( __( 'Delete' ), 'delete', function () {
+			api( '/media/' + current + '/comments/' + c.id, { method: 'DELETE' } )
+				.then( reloadComments )
+				.catch( reloadComments );
+		} );
+		var no = commentAction( __( 'Cancel' ), 'cancel', reloadComments );
+
+		ask.appendChild( label );
+		ask.appendChild( yes );
+		ask.appendChild( no );
+		clear( row );
+		row.appendChild( ask );
+		yes.focus();
+	}
+
+	/** Re-read the thread from the engine so every row's flags are current. */
+	function reloadComments() {
+		if ( ! current ) { return; }
+		var id = current;
+		api( '/media/' + id + '/comments' ).then( function ( list ) {
+			if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
+		} ).catch( function () {} );
 	}
 
 	function addComment() {
