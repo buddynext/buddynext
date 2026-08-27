@@ -133,6 +133,8 @@ Two cross-cutting rules:
 
 Connects BuddyNext to the WPMediaVerse engine for media and direct messaging. Active only when `WPMediaVerse\Core\Plugin` exists. BuddyNext consumes WPMediaVerse at the REST/API level only and owns 100% of its own UX - WPMediaVerse JS/CSS is never enqueued on BuddyNext pages, and `/messages/` is a fully native BuddyNext surface (`templates/messages/native.php`) backed by the `mvs/v1` REST engine.
 
+Which plugin owns which shared screen - and which of them are still open - is tracked in [WPMediaVerse Surface Ownership Map](54-mediaverse-surface-ownership.md). Read it before building a screen WPMediaVerse also renders.
+
 ### Declaring BuddyNext active
 
 ```php
