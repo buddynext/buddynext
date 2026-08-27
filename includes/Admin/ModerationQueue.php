@@ -249,11 +249,12 @@ class ModerationQueue {
 					<p>
 						<?php
 						if ( 'off' === $mode ) {
-							printf(
-								/* translators: %s: settings link */
-								esc_html__( 'Pre-moderation is off, so posts go live instantly. Turn it on under %s if you need to approve posts before they appear.', 'buddynext' ),
-								'<a href="' . esc_url( admin_url( 'admin.php?page=buddynext-moderation&tab=moderation' ) ) . '">' . esc_html__( 'Moderation > Controls', 'buddynext' ) . '</a>'
-							);
+							// No "turn it on under Settings" any more — there is no
+							// setting to point at. Pre-moderation is developer-only
+							// (see PreModerationService), so telling an owner to go
+							// looking for a switch would send them somewhere it is
+							// not.
+							esc_html_e( 'Posts go live as soon as they are written, so nothing waits here. Reported content is handled under Reports.', 'buddynext' );
 						} else {
 							esc_html_e( 'Nothing waiting. All held posts have been reviewed.', 'buddynext' );
 						}

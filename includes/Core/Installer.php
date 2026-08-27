@@ -309,7 +309,7 @@ class Installer {
 	 *      upgrade; converge_seeded_field_flags seeds it on the existing location + website
 	 *      rows (by field_key) so an upgraded site's header is unchanged.
 	 */
-	private const SCHEMA_VERSION = 44;
+	private const SCHEMA_VERSION = 45;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -895,7 +895,76 @@ class Installer {
 		// their own 'under_review'. Runs AFTER run() has widened the ENUM.
 		self::migrate_auto_hidden_posts( $wpdb->prefix );
 
+		// v45: retire the media cards that should never have been published.
+		self::purge_retired_media_cards( $wpdb->prefix );
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Remove upload-announcement cards that no longer have a reason to exist (v45).
+	 *
+	 * Two sets, both published by WPMediaVerseBridge::publish_media_activity():
+	 *
+	 * 1. DOCUMENT uploads. The feed announces media — images, video, audio —
+	 *    because that is content people share; filing a PDF in a drive is
+	 *    housekeeping, and announcing it surfaces the file, often its name, to
+	 *    everyone who follows the uploader. Owner directive 2026-08-27: documents
+	 *    do not go in the feed. The bridge no longer publishes them, and the ones
+	 *    already out there are removed rather than left as the only documents the
+	 *    feed will ever show.
+	 * 2. Cards whose media is GONE — trashed or absent from the index. These were
+	 *    never cleaned up: the removal paths key on the pre-delete permalink (only
+	 *    fires on permanent delete, so a trashed media is missed) or on `doc_id`
+	 *    meta belonging to the composer card, and an upload card matches neither.
+	 *    They advertise content that does not exist and link nowhere.
+	 *
+	 * Deliberately narrow, and narrower than `type = 'media'` alone. That type has
+	 * a SECOND producer: MediaController::announce_space_album_upload() posts
+	 * "Added photos to <album>" with real `media_ids` and no `link_url`. Those are
+	 * a member's own photos and must never be touched — an early version of this
+	 * migration matched on type alone, and because an album card has no link_url
+	 * the LEFT JOIN found no media row and swept it up as an orphan. Caught in
+	 * testing, after it had eaten three of them.
+	 *
+	 * So an upload announcement is identified by its SHAPE, not its type: it
+	 * carries a media permalink in `link_url` and no `media_ids` at all. Anything
+	 * a member actually wrote, including a deliberate composer document share
+	 * (`type = 'document'`), is never rewritten or removed by an upgrade.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function purge_retired_media_cards( string $prefix ): void {
+		global $wpdb;
+
+		// The media index is WPMediaVerse's. Without it there is nothing to
+		// reconcile against, and deleting on a missing table would take every
+		// card with it.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $prefix . 'mvs_media_index' ) ) !== $prefix . 'mvs_media_index' ) {
+			return;
+		}
+
+		// A card stores the media PERMALINK, which MVS builds from either the id
+		// or the slug — so both shapes have to be matched to find the row.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"DELETE p FROM {$prefix}bn_posts p
+			  LEFT JOIN {$prefix}mvs_media_index m
+			         ON p.link_url LIKE CONCAT('%/media/', m.media_id, '/')
+			         OR p.link_url LIKE CONCAT('%/media/', m.slug, '/')
+			  WHERE p.type = 'media'
+			    AND p.link_url IS NOT NULL
+			    AND p.link_url <> ''
+			    AND ( p.media_ids IS NULL OR JSON_LENGTH(p.media_ids) = 0 )
+			    AND (
+			         m.media_id IS NULL
+			      OR m.status <> 'publish'
+			      OR m.media_type = 'document'
+			    )"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**

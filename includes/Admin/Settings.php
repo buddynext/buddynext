@@ -1178,38 +1178,24 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return Section[]
 	 */
 	private function fields_moderation(): array {
+		/*
+		 * There is no Pre-Moderation section here any more, and that is deliberate.
+		 *
+		 * BuddyNext is a Facebook/Twitter-shaped community: you post, it appears,
+		 * and moderation is reactive — reports, auto-hide, strikes, suspensions,
+		 * and the Pro rules engine. Review-before-publish is the opposite product,
+		 * and offering it as a switch invited owners into a queue they then had to
+		 * staff, on a feature whose own help text told them not to turn it on.
+		 * Owner directive 2026-08-27: retire the setting for everyone.
+		 *
+		 * The ENGINE is still there and still works — PreModerationService now
+		 * takes its mode from the `buddynext_premod_mode` filter (default 'off')
+		 * rather than an option, so a site with a genuine compliance requirement
+		 * can switch it on in code. The Moderation → Pending tab also still
+		 * renders whenever held posts exist, so anything held before this release
+		 * stays reviewable instead of being stranded.
+		 */
 		return array(
-			new Section(
-				'moderation',
-				__( 'Post Approval (Pre-Moderation)', 'buddynext' ),
-				array(
-					new Field(
-						array(
-							'key'     => 'buddynext_premod_mode',
-							'type'    => 'select',
-							'label'   => __( 'Hold posts for approval', 'buddynext' ),
-							'default' => 'off',
-							'choices' => array(
-								'off'         => __( 'Off — every member posts instantly (recommended)', 'buddynext' ),
-								'new_members' => __( 'New members only — hold their first posts until approved', 'buddynext' ),
-								'links'       => __( 'Posts with links — hold anything containing a URL', 'buddynext' ),
-								'all'         => __( 'Everything — hold every post until a moderator approves', 'buddynext' ),
-							),
-							'hint'    => __( 'Held posts wait in the Moderation > Pending queue and never appear in feeds until approved. Off by default — a community grows by welcoming people, so only turn this up if you start seeing spam. Admins and moderators are never held.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
-							'key'     => 'buddynext_premod_new_member_count',
-							'type'    => 'number',
-							'label'   => __( 'New-member posts to review', 'buddynext' ),
-							'default' => 1,
-							'min'     => 1,
-							'hint'    => __( 'When holding "New members only", review this many of a member\'s first posts before they post freely. Used only by the New members mode.', 'buddynext' ),
-						)
-					),
-				)
-			),
 			new Section(
 				'moderation',
 				__( 'Auto-Moderation Thresholds', 'buddynext' ),

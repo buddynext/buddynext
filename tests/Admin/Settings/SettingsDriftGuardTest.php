@@ -92,8 +92,12 @@ class SettingsDriftGuardTest extends \WP_UnitTestCase {
 		'buddynext_comment_rate_limit',
 		'buddynext_new_member_post_threshold',
 		'buddynext_duplicate_post_window',
-		'buddynext_premod_mode',
-		'buddynext_premod_new_member_count',
+		// buddynext_premod_mode + buddynext_premod_new_member_count are RETIRED,
+		// not dropped by accident — which is the only thing this guard exists to
+		// catch. Pre-moderation lost its owner-facing setting in 1.1.6 and is
+		// developer-only now, driven by the filters of the same names. Leaving the
+		// keys listed here would demand a save path for a setting that no longer
+		// has a UI. See PreModerationService for why the feature went this way.
 		// Notifications.
 		'buddynext_notif_default_follow',
 		'buddynext_notif_default_connection',

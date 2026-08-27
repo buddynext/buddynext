@@ -404,6 +404,21 @@ class WPMediaVerseBridge {
 			return;
 		}
 
+		// A document upload is not feed material. The feed announces MEDIA —
+		// images, video, audio — because that is content people share. Filing a
+		// PDF in your drive is housekeeping, and announcing it to the community
+		// is something the member never asked for: it surfaces that a file
+		// exists, and often its name, to everyone who follows them. Owner
+		// directive 2026-08-27.
+		//
+		// This does not touch the composer's document card. That one is a member
+		// deliberately posting a document, the same way they post a photo, and it
+		// stays (PostController's document_id -> type='document', rendered
+		// per-viewer by render_document_card()).
+		if ( 'document' === (string) $media_type ) {
+			return;
+		}
+
 		$url  = '';
 		$repo = MediaClient::repo();
 		if ( is_object( $repo ) && method_exists( $repo, 'get_permalink' ) ) {
@@ -468,17 +483,15 @@ class WPMediaVerseBridge {
 	/**
 	 * Human verb for a non-photo media activity card.
 	 *
-	 * Only ever called for media that is NOT a photo: publish_media_activity()
-	 * turns photo/image uploads into a native `photo` post and returns before
-	 * reaching here. So the default arm cannot be a photo — it used to say
-	 * "shared a photo" anyway, which meant every DOCUMENT upload announced itself
-	 * as a photo in the feed (65 of them on the dev install, versus one audio and
-	 * two video). MVS resolves four types today — image, video, audio, document —
-	 * and the first is handled elsewhere.
+	 * Only reached for video and audio. publish_media_activity() turns a
+	 * photo/image into a native `photo` post, and a document produces no card at
+	 * all, both returning before this is called. MVS resolves four media types
+	 * today and the other two are handled above.
 	 *
-	 * The default is now a type-neutral "shared a file": a media type we do not
-	 * recognise is one MVS added after this was written, and naming it wrongly is
-	 * worse than not naming it.
+	 * The default used to say "shared a photo", which was the one thing it could
+	 * never be — so every document upload announced itself as a photo. It is now
+	 * a type-neutral "shared a file": an unrecognised type is one MVS added after
+	 * this was written, and naming it wrongly is worse than not naming it.
 	 *
 	 * @param string $media_type Resolved media type.
 	 * @return string
@@ -489,8 +502,6 @@ class WPMediaVerseBridge {
 				return __( 'shared a video', 'buddynext' );
 			case 'audio':
 				return __( 'shared an audio clip', 'buddynext' );
-			case 'document':
-				return __( 'shared a document', 'buddynext' );
 			default:
 				return __( 'shared a file', 'buddynext' );
 		}
