@@ -155,6 +155,7 @@ class SpaceController extends BaseRestController {
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'create_space' ),
 					'permission_callback' => array( $this, 'require_space_creation_role' ),
+					'args'                => $this->create_space_args(),
 				),
 			)
 		);
@@ -890,6 +891,170 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * Declared schema for POST /spaces.
+	 *
+	 * This route declared NO args until 1.1.6, so `OPTIONS /buddynext/v1/spaces`
+	 * returned an empty argument list: the discovery document told an integrator
+	 * nothing, and there was no way to learn the parameter names except by
+	 * reading the source. That is how a caller ends up sending `visibility` and
+	 * never finding out it was ignored.
+	 *
+	 * The type enum is asked of SpaceTypeRegistry rather than written out, so a
+	 * site that registers a custom space type gets it in the schema instead of
+	 * having its own type rejected by a hardcoded list.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function create_space_args(): array {
+		$types        = SpaceTypeRegistry::instance()->keys();
+		$visibilities = array_values(
+			array_unique(
+				array_map(
+					static fn( string $t ): string => SpaceTypeRegistry::instance()->visibility( $t ),
+					$types
+				)
+			)
+		);
+
+		return array(
+			'name'        => array(
+				'type'        => 'string',
+				'required'    => true,
+				'description' => __( 'Space name. Required, 100 characters or fewer.', 'buddynext' ),
+			),
+			'slug'        => array(
+				'type'        => 'string',
+				'description' => __( 'URL slug. Derived from the name when omitted.', 'buddynext' ),
+			),
+
+			/*
+			 * Deliberately no `enum` on either of these.
+			 *
+			 * An enum hands validation to the REST schema layer, which rejects a bad
+			 * value with 400 rest_invalid_param and its own body. This endpoint has
+			 * always answered an invalid type with 422 and a per-field `params` map
+			 * — the same shape it uses for name, slug and parent_id. Declaring the
+			 * enum swapped both the status and the body for one field, which is a
+			 * contract break for any client already handling the 422, and
+			 * SpaceControllerTest::test_create_space_invalid_type_returns_422 caught
+			 * it. The accepted values are named in the descriptions so discovery
+			 * still tells an integrator what to send; validation stays where this
+			 * endpoint's convention already lives.
+			 */
+			'type'        => array(
+				'type'        => 'string',
+				'description' => sprintf(
+					/* translators: %s: comma-separated list of accepted space types. */
+					__( 'Space type. Canonical parameter; defaults to the site default. One of: %s.', 'buddynext' ),
+					implode( ', ', $types )
+				),
+			),
+			'visibility'  => array(
+				'type'        => 'string',
+				'description' => sprintf(
+					/* translators: %s: comma-separated list of accepted visibilities. */
+					__( 'Alias for `type`, resolved to the type carrying that visibility. Sending both with different meanings is refused. One of: %s.', 'buddynext' ),
+					implode( ', ', $visibilities )
+				),
+			),
+			'description' => array(
+				'type'        => 'string',
+				'description' => __( 'Space description.', 'buddynext' ),
+			),
+			'category_id' => array(
+				'type'        => 'integer',
+				'minimum'     => 0,
+				'description' => __( 'Space category id.', 'buddynext' ),
+			),
+			'parent_id'   => array(
+				'type'        => 'integer',
+				'minimum'     => 0,
+				'description' => __( 'Parent space id, to create a sub-space.', 'buddynext' ),
+			),
+		);
+	}
+
+	/**
+	 * The space type this request is asking for — from `type`, or `visibility`.
+	 *
+	 * `type` is canonical. `visibility` is accepted because it names a real
+	 * property of a type in SpaceTypeRegistry (the `open` type has visibility
+	 * `public`), so an integrator reaching for it is not guessing — and until
+	 * 1.1.6 the handler read only `type` and DISCARDED `visibility` in silence.
+	 * A caller asking for a private space got the site default, which on a
+	 * default install is `open`: the space they created to be private was
+	 * publicly readable and nothing said so. That is a privacy incident, not a
+	 * naming quibble, which is why the alias exists rather than the parameter
+	 * simply being documented.
+	 *
+	 * Mapped through the registry rather than by string equality — `visibility:
+	 * public` is the `open` type, and treating the two vocabularies as identical
+	 * would send that straight back to the invalid-type fallback this fixes.
+	 *
+	 * Sending BOTH with different meanings is refused rather than resolved. There
+	 * is no correct guess between "type: open" and "visibility: private", and
+	 * picking one silently is the exact failure being fixed here.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return string|WP_Error Type slug, or WP_Error on a contradictory request.
+	 */
+	private function resolve_requested_type( WP_REST_Request $request ): string|WP_Error {
+		$type_raw       = $request->get_param( 'type' );
+		$visibility_raw = $request->get_param( 'visibility' );
+
+		$from_type = null !== $type_raw ? sanitize_key( (string) $type_raw ) : '';
+
+		$from_visibility = '';
+		if ( null !== $visibility_raw && '' !== (string) $visibility_raw ) {
+			$from_visibility = SpaceTypeRegistry::instance()->type_for_visibility( (string) $visibility_raw );
+			if ( '' === $from_visibility ) {
+				return new WP_Error(
+					'rest_invalid_param',
+					__( 'Validation failed.', 'buddynext' ),
+					array(
+						'status' => 422,
+						'params' => array(
+							'visibility' => sprintf(
+								/* translators: %s: comma-separated list of accepted values. */
+								__( 'Unknown visibility. Accepted values: %s.', 'buddynext' ),
+								implode(
+									', ',
+									array_map(
+										static fn( string $t ): string => SpaceTypeRegistry::instance()->visibility( $t ),
+										SpaceTypeRegistry::instance()->keys()
+									)
+								)
+							),
+						),
+					)
+				);
+			}
+		}
+
+		if ( '' !== $from_type && '' !== $from_visibility && $from_type !== $from_visibility ) {
+			return new WP_Error(
+				'rest_invalid_param',
+				__( 'Validation failed.', 'buddynext' ),
+				array(
+					'status' => 422,
+					'params' => array(
+						'visibility' => __( 'This request asks for two different space types at once — `type` and `visibility` disagree. Send one of them.', 'buddynext' ),
+					),
+				)
+			);
+		}
+
+		if ( '' !== $from_type ) {
+			return $from_type;
+		}
+		if ( '' !== $from_visibility ) {
+			return $from_visibility;
+		}
+
+		return sanitize_key( (string) get_option( 'buddynext_space_default_type', 'open' ) );
+	}
+
+	/**
 	 * Create a space.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -898,10 +1063,13 @@ class SpaceController extends BaseRestController {
 	public function create_space( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$user_id = get_current_user_id();
 
-		$name        = sanitize_text_field( (string) ( $request->get_param( 'name' ) ?? '' ) );
-		$slug_raw    = (string) ( $request->get_param( 'slug' ) ?? '' );
-		$slug        = sanitize_title( $slug_raw );
-		$type        = sanitize_key( (string) ( $request->get_param( 'type' ) ?? get_option( 'buddynext_space_default_type', 'open' ) ) );
+		$name     = sanitize_text_field( (string) ( $request->get_param( 'name' ) ?? '' ) );
+		$slug_raw = (string) ( $request->get_param( 'slug' ) ?? '' );
+		$slug     = sanitize_title( $slug_raw );
+		$type     = $this->resolve_requested_type( $request );
+		if ( is_wp_error( $type ) ) {
+			return $type;
+		}
 		$description = sanitize_textarea_field( (string) ( $request->get_param( 'description' ) ?? '' ) );
 		$category_id = absint( $request->get_param( 'category_id' ) );
 		$parent_id   = absint( $request->get_param( 'parent_id' ) );
@@ -1243,8 +1411,17 @@ class SpaceController extends BaseRestController {
 		if ( null !== $request->get_param( 'description' ) ) {
 			$data['description'] = sanitize_textarea_field( (string) $request->get_param( 'description' ) );
 		}
-		if ( null !== $request->get_param( 'type' ) ) {
-			$data['type'] = sanitize_key( (string) $request->get_param( 'type' ) );
+		// Accepts `visibility` as an alias for `type`, exactly as create does.
+		// Parity matters more here than on create: an owner tightening an existing
+		// space from open to private is the request you can least afford to
+		// discard in silence, because the space stays publicly readable and the
+		// screen says it worked.
+		if ( null !== $request->get_param( 'type' ) || null !== $request->get_param( 'visibility' ) ) {
+			$resolved = $this->resolve_requested_type( $request );
+			if ( is_wp_error( $resolved ) ) {
+				return $resolved;
+			}
+			$data['type'] = $resolved;
 		}
 		// Move under a new parent (>0) or detach to the top level (0). The service
 		// validates depth, cycles, the per-parent cap, and manage permission.

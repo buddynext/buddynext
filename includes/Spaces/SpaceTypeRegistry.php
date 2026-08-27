@@ -90,6 +90,34 @@ class SpaceTypeRegistry {
 	}
 
 	/**
+	 * The type slug that carries a given visibility, or '' when none does.
+	 *
+	 * `visibility` is a first-class property of a type, not a synonym for it:
+	 * the `open` type has visibility `public`. An integrator who sends
+	 * "visibility: private" is naming a real concept in this registry, so the
+	 * REST layer resolves it here rather than assuming the two strings match —
+	 * assuming that would silently turn `visibility: public` into an invalid type
+	 * and fall back to the site default.
+	 *
+	 * Derived from the registered types, so a site that registers a custom type
+	 * gets its visibility resolved too, and this cannot drift from defaults().
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $visibility One of the values returned by visibility().
+	 * @return string Type slug, or '' when no registered type has that visibility.
+	 */
+	public function type_for_visibility( string $visibility ): string {
+		$visibility = sanitize_key( $visibility );
+		foreach ( $this->all() as $slug => $config ) {
+			if ( sanitize_key( (string) ( $config['visibility'] ?? '' ) ) === $visibility ) {
+				return (string) $slug;
+			}
+		}
+		return '';
+	}
+
+	/**
 	 * All registered types, keyed by slug.
 	 *
 	 * @return array<string, array<string, string>>
