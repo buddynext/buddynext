@@ -800,6 +800,17 @@ store( 'buddynext/post-composer', {
 
 						const out = await uploadMedia( file, {
 							nonce,
+							// Stage every composer upload PRIVATE, whatever the privacy
+							// picker currently says. The file lands before the member has
+							// finished choosing an audience — and may never be posted at
+							// all — so anything else publishes it during a decision that
+							// has not been made. The bridge derives the real privacy from
+							// the post on create and on edit
+							// (WPMediaVerseBridge::on_post_privacy_changed), so a public
+							// post still opens its own media; this only closes the window
+							// in between, and the one an abandoned draft leaves open
+							// forever.
+							privacy: 'private',
 							// Send the captured video frame so the feed uses the real
 							// poster, not the engine's default film-strip fallback.
 							thumbnail: ( 'video' === kind && thumbUrl ) ? thumbUrl : '',

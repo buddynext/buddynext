@@ -262,6 +262,12 @@ class WPMediaVerseBridge {
 		// via the same WPMediaVerse path and then creates its OWN feed post — is
 		// never duplicated.
 		add_action( 'mvs_media_uploaded', array( $this, 'on_media_uploaded' ), 10, 4 );
+
+		// Keep an attached media file's engine privacy in step with the privacy of
+		// the post it is attached to — on create AND on edit. See
+		// sync_post_media_privacy() for why the post is the moment that matters.
+		add_action( 'buddynext_post_created', array( $this, 'on_post_privacy_changed' ), 10, 1 );
+		add_action( 'buddynext_post_updated', array( $this, 'on_post_privacy_changed' ), 10, 1 );
 		add_action( 'buddynext_mvs_media_activity', array( $this, 'publish_media_activity' ), 10, 3 );
 
 		// Withdraw the media feed card when its source is deleted, so the feed
@@ -478,6 +484,97 @@ class WPMediaVerseBridge {
 		if ( $media_id > 0 ) {
 			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
 		}
+	}
+
+	/**
+	 * Derive each attached media file's privacy from the post it now belongs to.
+	 *
+	 * MediaController already maps the composer's post-privacy vocabulary onto the
+	 * engine's file privacy (PRIVACY_MAP: public -> public, followers/connections
+	 * -> members, private -> private) and `/me/media` accepts a `privacy` param.
+	 * Nothing ever sent it. The upload therefore fell to the default, `public`,
+	 * and a member who attached a photo and set the post to "Only me" got a
+	 * private post whose photo was public: listed on Explore Media and served to
+	 * anonymous visitors. Verified before this fix — post privacy `private`, media
+	 * privacy `public`, and an anonymous GET of the media returned 200.
+	 *
+	 * Doing it at POST time rather than only at upload time is the point. The
+	 * member uploads first and chooses the audience afterwards, and can change it
+	 * again on edit; privacy set at upload is a guess about a decision that has
+	 * not been made yet. The post is the moment the audience is actually known,
+	 * and running server-side means the web composer, the mobile app and any
+	 * integration all get it — none of them can forget to send a parameter.
+	 *
+	 * Derivation, not a one-way tightening: a public post must be able to render
+	 * its own photo, so the media follows the post in both directions. That is
+	 * what the member chose, and it is the mapping the engine already documents.
+	 *
+	 * @param int $post_id Post that was created or updated.
+	 * @return void
+	 */
+	public function on_post_privacy_changed( int $post_id ): void {
+		// Same bootstrap-symbol guard the rest of this bridge uses — never an MVS
+		// option read across the boundary.
+		if ( $post_id <= 0 || ! class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT privacy, media_ids FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+				$post_id
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $row ) || empty( $row['media_ids'] ) ) {
+			return;
+		}
+
+		$media_ids = json_decode( (string) $row['media_ids'], true );
+		if ( ! is_array( $media_ids ) || ! $media_ids ) {
+			return;
+		}
+
+		$target = self::media_privacy_for_post( (string) ( $row['privacy'] ?? 'public' ) );
+
+		foreach ( $media_ids as $media_id ) {
+			$media_id = (int) $media_id;
+			if ( $media_id <= 0 ) {
+				continue;
+			}
+			$req = new \WP_REST_Request( 'PATCH', '/mvs/v1/media/' . $media_id );
+			$req->set_body_params( array( 'privacy' => $target ) );
+			rest_do_request( $req );
+		}
+	}
+
+	/**
+	 * The engine file-privacy that matches a BuddyNext post privacy.
+	 *
+	 * Mirrors MediaController::PRIVACY_MAP deliberately: the engine has no
+	 * followers/connections concept, so both collapse to logged-in `members` and
+	 * the post's own privacy is what gates the feed surface. An unrecognised
+	 * value resolves to `private` rather than `public` — a privacy vocabulary
+	 * this does not know about must not be guessed open.
+	 *
+	 * @param string $post_privacy BuddyNext post privacy.
+	 * @return string Engine media privacy.
+	 */
+	private static function media_privacy_for_post( string $post_privacy ): string {
+		switch ( sanitize_key( $post_privacy ) ) {
+			case 'public':
+				return 'public';
+			case 'followers':
+			case 'connections':
+			case 'space_members':
+				return 'members';
+			case 'private':
+				return 'private';
+		}
+		return 'private';
 	}
 
 	/**
