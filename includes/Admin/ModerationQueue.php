@@ -136,6 +136,22 @@ class ModerationQueue {
 						</tr>
 					</thead>
 					<tbody>
+						<?php
+						// Resolve every reported object's label in one pass per type
+						// before printing any row. Resolving them row by row is the
+						// N+1 a queue this size exists to avoid.
+						buddynext_prime_object_labels(
+							array_map(
+								static function ( array $bn_report ): array {
+									return array(
+										(string) ( $bn_report['object_type'] ?? '' ),
+										(int) ( $bn_report['object_id'] ?? 0 ),
+									);
+								},
+								$items
+							)
+						);
+						?>
 						<?php foreach ( $items as $report ) : ?>
 							<?php $this->render_report_row( $report ); ?>
 						<?php endforeach; ?>
@@ -386,8 +402,20 @@ class ModerationQueue {
 		<tr>
 			<td>
 				<?php
-				$bn_view_url = $this->object_view_url( $object_type, $object_id );
-				$bn_label    = sprintf( '%s #%d', ucfirst( $object_type ), $object_id );
+				// A moderator deciding whether to strike or suspend cannot act on
+				// "User #519". Resolved through the same helper the log uses, so a
+				// deleted target is named as deleted on both surfaces.
+				$bn_label = buddynext_object_label( $object_type, $object_id );
+
+				// false = we checked and it is gone; null = not ours to answer (a
+				// message, or a type an add-on claimed). Only a definite false
+				// suppresses anything, so an unknowable type keeps every control.
+				$bn_missing = ( false === buddynext_object_exists( $object_type, $object_id ) );
+
+				// A "View content" link to something that no longer exists is a
+				// promise the page cannot keep — it lands on a 404 or, worse, on
+				// whatever now occupies that id.
+				$bn_view_url = $bn_missing ? '' : $this->object_view_url( $object_type, $object_id );
 				?>
 				<strong><?php echo esc_html( $bn_label ); ?></strong>
 				<?php if ( '' !== $bn_view_url ) : ?>
@@ -450,7 +478,13 @@ class ModerationQueue {
 					// the button on the same object types the frontend queue does
 					// (templates/moderation/queue.php), so a moderator is never shown an
 					// action that always fails.
-					if ( in_array( $object_type, array( 'post', 'comment', 'message' ), true ) ) {
+					//
+					// Existence is the second half of the same rule. A report whose
+					// target has since been deleted fails the same way and with the
+					// same 422 — remove_object() finds nothing to take down — and a
+					// queue accumulates those: this surfaced with six of them sitting
+					// in the seeded queue, each still offering the button.
+					if ( in_array( $object_type, array( 'post', 'comment', 'message' ), true ) && ! $bn_missing ) {
 						$this->report_button( $report_id, 'remove', __( 'Remove content', 'buddynext' ), 'delete', __( 'Remove the reported content? It is hidden, not hard-deleted.', 'buddynext' ) );
 					}
 					if ( ! $escalated ) {
@@ -630,20 +664,42 @@ class ModerationQueue {
 					</thead>
 					<tbody>
 						<?php
+						// Same one-pass resolve as the report queue above.
+						buddynext_prime_object_labels(
+							array_map(
+								static function ( array $bn_row ): array {
+									return array(
+										(string) ( $bn_row['object_type'] ?? '' ),
+										(int) ( $bn_row['object_id'] ?? 0 ),
+									);
+								},
+								$items
+							)
+						);
+
 						foreach ( $items as $row ) :
-							$actor  = (int) ( $row['actor_id'] ?? 0 ) > 0 ? get_userdata( (int) $row['actor_id'] ) : null;
-							$target = (int) ( $row['target_user_id'] ?? 0 ) > 0 ? get_userdata( (int) $row['target_user_id'] ) : null;
-							$object = '';
-							if ( ! empty( $row['object_type'] ) && ! empty( $row['object_id'] ) ) {
-								$object = (string) $row['object_type'] . ' #' . (int) $row['object_id'];
-							}
+							// The object column used to print "post #4046" whether or not
+							// that post still existed, while the member columns already
+							// said "Deleted member (#2204)". Since bn_mod_log rows now
+							// deliberately outlive their targets, that asymmetry applies
+							// to every deleted post and space: a moderator reading the
+							// audit trail could not tell a live target from a destroyed
+							// one, which matters most in exactly the audit case.
+							//
+							// The two get_userdata() calls that stood here were dead —
+							// both cells render through buddynext_member_label() — so they
+							// were two wasted lookups per row.
+							$object = buddynext_object_label(
+								(string) ( $row['object_type'] ?? '' ),
+								(int) ( $row['object_id'] ?? 0 )
+							);
 							?>
 							<tr>
 								<td><?php echo esc_html( $this->ago( (string) ( $row['created_at'] ?? '' ) ) ); ?></td>
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ) ); ?></td>
 								<td><code><?php echo esc_html( (string) ( $row['action'] ?? '' ) ); ?></code></td>
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['target_user_id'] ?? 0 ) ) ); ?></td>
-								<td><?php echo esc_html( '' !== $object ? $object : '—' ); ?></td>
+								<td><?php echo esc_html( $object ); ?></td>
 								<td><?php echo esc_html( (string) ( $row['note'] ?? '' ) ); ?></td>
 							</tr>
 						<?php endforeach; ?>

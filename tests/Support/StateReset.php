@@ -78,6 +78,13 @@ final class StateReset implements BeforeTestHook {
 			'placement_cache' => null,
 			'sections_cache'  => null,
 		),
+		// Per-REQUEST label cache: existence answers must not survive a test whose
+		// rows have been rolled back underneath them, or one test's live post is
+		// another's tombstone.
+		\BuddyNext\Core\ObjectLabels::class              => array(
+			'exists' => array(),
+			'names'  => array(),
+		),
 		\BuddyNext\Core\HeadMeta::class                   => array( 'emitted' => false ),
 		\BuddyNext\Core\PageRouter::class                 => array(
 			'rendering'     => null,

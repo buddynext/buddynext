@@ -405,6 +405,59 @@ function buddynext_member_label( int $user_id, string $fallback = '' ): string {
 }
 
 /**
+ * Human-readable label for a moderation object, for admin queues and logs.
+ *
+ * The object-side sibling of buddynext_member_label(), and for the same reason:
+ * a moderator deciding whether to strike or suspend cannot act on "User #519",
+ * and cannot tell "post #4046" (deleted) from "post #4046" (live). The second
+ * case became load-bearing when bn_mod_log rows stopped being deleted alongside
+ * their targets — audit entries now outlive their objects by design.
+ *
+ * Never claims a target is deleted for a type BuddyNext does not own; see
+ * ObjectLabels and the buddynext_object_label filter.
+ *
+ * @since 1.1.6
+ *
+ * @param string $object_type Object type slug ('post', 'comment', 'space', 'user', …).
+ * @param int    $object_id   Object id, possibly of a deleted object.
+ * @return string Plain text (callers still escape at output).
+ */
+function buddynext_object_label( string $object_type, int $object_id ): string {
+	return \BuddyNext\Core\ObjectLabels::label( $object_type, $object_id );
+}
+
+/**
+ * Whether a moderation object still exists, where BuddyNext can tell.
+ *
+ * A null return means "not ours to answer" (a message, or an add-on's own type)
+ * and must not be read as "deleted".
+ *
+ * @since 1.1.6
+ *
+ * @param string $object_type Object type slug.
+ * @param int    $object_id   Object id.
+ * @return bool|null
+ */
+function buddynext_object_exists( string $object_type, int $object_id ): ?bool {
+	return \BuddyNext\Core\ObjectLabels::exists( $object_type, $object_id );
+}
+
+/**
+ * Resolve a page of moderation objects in one pass, before rendering them.
+ *
+ * One query per TYPE instead of one per row. Call this with every (type, id)
+ * pair a table is about to print, then call buddynext_object_label() per row.
+ *
+ * @since 1.1.6
+ *
+ * @param array<int, array{0:string, 1:int}> $pairs List of [ object_type, object_id ].
+ * @return void
+ */
+function buddynext_prime_object_labels( array $pairs ): void {
+	\BuddyNext\Core\ObjectLabels::prime( $pairs );
+}
+
+/**
  * Read a single space field value, type-cast, with the field's registered
  * default applied when unset. The canonical accessor for per-space settings —
  * the default lives once in the field registration, never duplicated per reader.
