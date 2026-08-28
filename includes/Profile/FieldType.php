@@ -322,6 +322,44 @@ class FieldType {
 	}
 
 	/**
+	 * Visibility levels whose values ever reach a search mirror.
+	 *
+	 * ProfileService::sync_search_mirror() routes by visibility and writes NO
+	 * mirror for followers / connections / private, so a field restricted to one
+	 * of those can never be found by search no matter what its type supports.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var string[]
+	 */
+	public const SEARCHABLE_VISIBILITY = array( 'public', 'members' );
+
+	/**
+	 * Whether flagging a field searchable can actually do anything.
+	 *
+	 * Two gates, one rule: the TYPE must back a free-text mirror, and the
+	 * VISIBILITY must be one whose values reach an index. Storing is_searchable=1
+	 * outside that combination records an intent the system can never honour —
+	 * the owner ticks a box, saves, and search still never finds the field.
+	 *
+	 * This is the single authority for that rule. The admin field builder hides
+	 * the control here, the admin save normalises here, and the REST writes
+	 * normalise here, so the three cannot drift apart. Previously the admin
+	 * enforced it and REST did not: POST /profile-fields stored 1 against a date
+	 * field, and PUT dropped the attribute entirely.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $type       Field type slug.
+	 * @param string $visibility Field visibility slug.
+	 * @return bool True when is_searchable may be stored as 1.
+	 */
+	public static function is_searchable_applicable( string $type, string $visibility ): bool {
+		return self::is_text_searchable( $type )
+			&& in_array( $visibility, self::SEARCHABLE_VISIBILITY, true );
+	}
+
+	/**
 	 * The display PRESENTATION mode for a field type — how its label + value are
 	 * laid out on the profile About tab. This is the whole "we can't predict the
 	 * groups or fields, so render by TYPE" contract: the About renderer never

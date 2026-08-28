@@ -295,7 +295,12 @@
 	// visible to followers, connections or its owner is never indexed — see
 	// ProfileService::sync_search_mirror(), which routes by visibility and writes
 	// no mirror for those three.
-	var PF_SEARCHABLE_VISIBILITY = [ 'public', 'members' ];
+	//
+	// Localized from FieldType::SEARCHABLE_VISIBILITY, the one list the server
+	// enforces, so this control can never offer a combination the save refuses.
+	// The literal is a fallback for a page that somehow loads without the data.
+	var PF_SEARCHABLE_VISIBILITY = ( window.bnProfileFieldRules
+		&& window.bnProfileFieldRules.searchableVisibility ) || [ 'public', 'members' ];
 
 	// The visibility <select> living in the same form as this type <select>.
 	function pfVisibilityOf( selectEl ) {

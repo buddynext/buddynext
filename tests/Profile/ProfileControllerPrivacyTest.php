@@ -98,12 +98,20 @@ class ProfileControllerPrivacyTest extends \WP_Test_REST_TestCase {
 	 * write allow-list. This pins the second half: the endpoint must no longer
 	 * accept the key, or the control could be restored without its missing gate.
 	 *
+	 * Since 1.1.6 the refusal is LOUD. The endpoint used to ignore the key and
+	 * answer 200, which pinned the storage but not the contract: a client could
+	 * keep sending it forever and read success every time. A caller now learns
+	 * that BuddyNext does not understand the key.
+	 *
 	 * @return void
 	 */
 	public function test_removed_see_email_lever_is_not_writable(): void {
 		$response = $this->authed_put( array( 'bn_privacy_see_email' => 'connections' ) );
 
-		$this->assertSame( 200, $response->get_status(), 'an unknown key is ignored, not an error' );
+		$this->assertSame( 400, $response->get_status(), 'an unwritable key is refused, not ignored' );
+		$body = $response->get_data();
+		$this->assertSame( 'bn_unknown_params', $body['code'] ?? '' );
+		$this->assertContains( 'bn_privacy_see_email', $body['data']['params'] ?? array() );
 		$this->assertSame(
 			'',
 			get_user_meta( $this->user_id, 'bn_privacy_see_email', true ),

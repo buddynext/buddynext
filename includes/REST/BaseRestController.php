@@ -60,6 +60,90 @@ abstract class BaseRestController {
 	}
 
 	/**
+	 * Params WordPress itself may add to any request.
+	 *
+	 * These are never application data, so a strict handler must let them through
+	 * or every request carrying one would be refused.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var string[]
+	 */
+	protected const RESERVED_PARAMS = array(
+		'_locale',
+		'_fields',
+		'_embed',
+		'_envelope',
+		'_method',
+		'_jsonp',
+		'_wpnonce',
+		'context',
+	);
+
+	/**
+	 * Refuse a write whose body carries keys the endpoint does not understand.
+	 *
+	 * WordPress ignores undeclared params rather than rejecting them, so a caller
+	 * that sent the wrong shape got 200 and an empty result set: PUT /me/profile
+	 * with {"fields":{...}} answered {"saved":true,"errors":[]} and persisted
+	 * nothing, and PUT /profile-fields/{id} accepted five attributes it then threw
+	 * away. Silence is the worst answer a write can give — the caller has no way
+	 * to tell "saved" from "understood nothing you sent".
+	 *
+	 * All-or-nothing: this runs BEFORE any persistence, so a request naming one
+	 * bad key changes nothing at all. A partly-applied write would leave the
+	 * record in a state neither side asked for and make a corrected retry unsafe.
+	 *
+	 * The allowlist is DERIVED from the route's own registered args, so declaring
+	 * an arg is the only thing needed to accept it — there is no second list to
+	 * drift. Endpoints whose accepted keys are dynamic (profile fields are owner
+	 * -defined) pass them in $extra_allowed.
+	 *
+	 * Only the BODY is inspected. Query params on a write are transport (nonces,
+	 * cache-busters, whatever a proxy appends) and are not the payload contract.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param WP_REST_Request   $request       Incoming request.
+	 * @param array<int,string> $extra_allowed Additional accepted top-level keys.
+	 * @return WP_Error|null Error when unknown keys are present, null when clean.
+	 */
+	protected function reject_unknown_body_params( WP_REST_Request $request, array $extra_allowed = array() ): ?WP_Error {
+		$json = $request->get_json_params();
+		$body = is_array( $json ) && ! empty( $json ) ? $json : (array) $request->get_body_params();
+
+		if ( empty( $body ) ) {
+			return null;
+		}
+
+		$attributes = $request->get_attributes();
+		$allowed    = array_merge(
+			array_keys( (array) ( $attributes['args'] ?? array() ) ),
+			$extra_allowed,
+			self::RESERVED_PARAMS
+		);
+
+		$unknown = array_values( array_diff( array_keys( $body ), $allowed ) );
+
+		if ( empty( $unknown ) ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'bn_unknown_params',
+			sprintf(
+				/* translators: %s: comma-separated list of unrecognised parameter names. */
+				__( 'Unrecognised parameters: %s. Nothing was saved.', 'buddynext' ),
+				implode( ', ', $unknown )
+			),
+			array(
+				'status' => 400,
+				'params' => $unknown,
+			)
+		);
+	}
+
+	/**
 	 * Require an authenticated user.
 	 *
 	 * @return true|WP_Error

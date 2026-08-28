@@ -2793,15 +2793,76 @@ class ProfileService {
 	 * When 'options' is an array it is json_encoded before saving.
 	 * Busts 'all_fields' cache key.
 	 *
+	 * A type that is not in the registry is REFUSED: create_field()'s route has
+	 * always rejected one, but this path would write it straight into the column,
+	 * leaving a field with no render or save pipeline that nothing could display
+	 * and no one could repair from the UI.
+	 *
 	 * @param int   $id   Profile field ID.
 	 * @param array $data Associative array of fields to update.
-	 * @return void
+	 * @return true|\WP_Error True on success (including a no-op), error on a refused type.
 	 */
-	public function update_field( int $id, array $data ): void {
+	public function update_field( int $id, array $data ): bool|\WP_Error {
 		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$current = $wpdb->get_row(
+			$wpdb->prepare( "SELECT type, visibility, is_searchable FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
+			ARRAY_A
+		);
+
+		if ( ! $current ) {
+			return new \WP_Error(
+				'bn_field_not_found',
+				__( 'Profile field not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$stored_type = (string) $current['type'];
+		$stored_vis  = (string) $current['visibility'];
+
+		if ( isset( $data['type'] ) ) {
+			$requested_type = sanitize_key( (string) $data['type'] );
+			if ( ! array_key_exists( $requested_type, FieldType::types() ) ) {
+				return new \WP_Error(
+					'bn_invalid_field_type',
+					sprintf(
+						/* translators: %s: the rejected field type slug. */
+						__( 'Unknown field type: %s.', 'buddynext' ),
+						$requested_type
+					),
+					array( 'status' => 400 )
+				);
+			}
+		}
+
+		// The type / visibility this field will HAVE once this update lands. Both
+		// gates below reason about the outcome, not the submitted fragment.
+		$next_type = isset( $data['type'] ) ? sanitize_key( (string) $data['type'] ) : $stored_type;
+		$next_vis  = isset( $data['visibility'] ) ? sanitize_key( (string) $data['visibility'] ) : $stored_vis;
 
 		$update = array();
 		$format = array();
+
+		/*
+		 * is_searchable only means something for a type that backs a free-text
+		 * mirror AND a visibility whose values reach an index — the identical rule
+		 * the admin builder enforces, now read from one place so the two doors to
+		 * this table cannot drift.
+		 *
+		 * The flag is also RE-EVALUATED when type or visibility changes, even if
+		 * the caller did not mention is_searchable: flipping a searchable text
+		 * field to Private otherwise left is_searchable=1 stored against a
+		 * combination that can never be honoured.
+		 */
+		$searchable_applicable = FieldType::is_searchable_applicable( $next_type, $next_vis );
+
+		if ( isset( $data['is_searchable'] ) ) {
+			$data['is_searchable'] = ( $data['is_searchable'] && $searchable_applicable ) ? 1 : 0;
+		} elseif ( ! $searchable_applicable && 1 === (int) $current['is_searchable'] ) {
+			$data['is_searchable'] = 0;
+		}
 
 		if ( isset( $data['label'] ) ) {
 			$update['label'] = sanitize_text_field( (string) $data['label'] );
@@ -2867,7 +2928,7 @@ class ProfileService {
 		}
 
 		if ( empty( $update ) ) {
-			return;
+			return true;
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2882,11 +2943,22 @@ class ProfileService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 
+		// The type changed — migrate existing values into the new type's storage
+		// format so they survive it. The admin editor has always done this; the
+		// REST path did not, so a type change over REST rewrote the definition and
+		// left every stored value encoded for the OLD type, unreadable by the new
+		// one. Same call, same guard, same order as the admin path.
+		if ( $next_type !== $stored_type ) {
+			$this->convert_field_values( $id, $stored_type, $next_type );
+		}
+
 		// Mirror the admin editor: announce the definition change so existing
 		// members' search mirrors are backfilled when is_searchable/visibility
 		// flips (rebuild_field_mirror is wired to this in Plugin.php). Without
 		// this the REST path would persist the toggle but leave stale mirrors.
 		do_action( 'buddynext_profile_field_updated', $id );
+
+		return true;
 	}
 
 	/**

@@ -257,20 +257,6 @@ class ProfileFieldsManager {
 	private const VISIBILITY_VALUES = array( 'public', 'members', 'followers', 'connections', 'private' );
 
 	/**
-	 * Visibility levels whose values reach a search index at all.
-	 *
-	 * ProfileService::sync_search_mirror() routes a value by visibility: public
-	 * lands in the public mirror, members in the members-only one, and
-	 * followers / connections / private are written nowhere. So "searchable" is
-	 * only a meaningful setting for the first two — the rest cannot be indexed
-	 * without answering the searcher's relationship to every candidate at query
-	 * time, which is a different feature.
-	 *
-	 * @var string[]
-	 */
-	private const SEARCHABLE_VISIBILITY = array( 'public', 'members' );
-
-	/**
 	 * Register admin hooks.
 	 *
 	 * @return void
@@ -363,6 +349,15 @@ class ProfileFieldsManager {
 			$handle,
 			'bnProfileFieldTypes',
 			$js_matrix
+		);
+
+		// The visibility half of the is_searchable rule, from the same constant the
+		// server enforces. The builder JS used to carry its own copy of this list;
+		// two copies of a rule are two chances to disagree about it.
+		wp_localize_script(
+			$handle,
+			'bnProfileFieldRules',
+			array( 'searchableVisibility' => \BuddyNext\Profile\FieldType::SEARCHABLE_VISIBILITY )
 		);
 	}
 
@@ -487,8 +482,7 @@ class ProfileFieldsManager {
 		// can never honour. The builder hides the control in the same cases; this
 		// is the authority, because a UI gate is only a convenience.
 		$is_searchable = ( isset( $_POST['is_searchable'] )
-			&& in_array( $type, self::searchable_capable_types(), true )
-			&& in_array( $visibility, self::SEARCHABLE_VISIBILITY, true ) ) ? 1 : 0;
+			&& \BuddyNext\Profile\FieldType::is_searchable_applicable( $type, $visibility ) ) ? 1 : 0;
 
 		// Route options by field type.
 		if ( in_array( $type, self::choice_types(), true ) ) {
@@ -1206,8 +1200,7 @@ class ProfileFieldsManager {
 		$is_required = isset( $_POST['is_required'] ) ? 1 : 0;
 		// Same two gates as the add path — see the note there.
 		$is_searchable    = ( isset( $_POST['is_searchable'] )
-			&& in_array( $type, self::searchable_capable_types(), true )
-			&& in_array( $visibility, self::SEARCHABLE_VISIBILITY, true ) ) ? 1 : 0;
+			&& \BuddyNext\Profile\FieldType::is_searchable_applicable( $type, $visibility ) ) ? 1 : 0;
 		$show_on_register = isset( $_POST['show_on_register'] ) ? 1 : 0;
 		$show_in_header   = isset( $_POST['show_in_header'] ) ? 1 : 0;
 
