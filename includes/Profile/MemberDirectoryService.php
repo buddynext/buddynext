@@ -150,6 +150,31 @@ class MemberDirectoryService {
 				: $frag;
 		}
 
+		/*
+		 * The id-set constraint the SSR grid applies through WP_User_Query's
+		 * `include` — the member SEARCH term and the relation tabs (following /
+		 * connections). Those never reached this method, so the comment above was
+		 * only two-thirds true: member_type and online_only were honoured while
+		 * relation and search were not. Measured on a seeded site,
+		 * /members/?relation=following rendered 7 cards under a header reading
+		 * "227 members in the community".
+		 *
+		 * It arrives through $filters so the cache key varies with it; a total
+		 * computed for one relation tab must never be served to another.
+		 */
+		if ( isset( $filters['include'] ) && is_array( $filters['include'] ) ) {
+			$bn_include = array_values( array_unique( array_map( 'intval', $filters['include'] ) ) );
+
+			if ( empty( $bn_include ) ) {
+				// An explicit empty set means "nothing matched", not "no constraint".
+				return 0;
+			}
+
+			$bn_placeholders = implode( ', ', array_fill( 0, count( $bn_include ), '%d' ) );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- counted "%d, ..." list; every id is bound.
+			$clauses[] = $wpdb->prepare( "{$user_col} IN ( {$bn_placeholders} )", ...$bn_include );
+		}
+
 		$where = empty( $clauses ) ? '1=1' : implode( "\n   AND ", $clauses );
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -924,14 +949,27 @@ class MemberDirectoryService {
 	public function directory_filter_sql( int $viewer_id, array $args, string $user_col ): array {
 		global $wpdb;
 
-		// Exclude the viewer themselves (matches list_members' `u.ID != %d`; for a
-		// logged-out viewer this is `!= 0`, which excludes nobody), then the shared
-		// suspended / shadow-banned / directory-opt-out subqueries.
-		$clauses = array_merge(
-			array( "{$user_col} != %d" ),
-			$this->directory_exclusion_subqueries( $user_col )
-		);
-		$params  = array( $viewer_id );
+		/*
+		 * Exclude the viewer themselves (matches list_members' `u.ID != %d`; for a
+		 * logged-out viewer this is `!= 0`, which excludes nobody), then the shared
+		 * suspended / shadow-banned / directory-opt-out subqueries.
+		 *
+		 * `count_viewer` opts OUT of the self-exclusion. It exists for the HEADER
+		 * count, which states the size of the community rather than the length of
+		 * the grid: a member is part of their own community even though the
+		 * directory does not show them their own card. The grid, its pagination
+		 * and its empty states all keep the exclusion, so only the headline number
+		 * differs — deliberately, and by exactly one.
+		 */
+		$bn_count_viewer = ! empty( $args['count_viewer'] );
+
+		$clauses = $bn_count_viewer
+			? $this->directory_exclusion_subqueries( $user_col )
+			: array_merge(
+				array( "{$user_col} != %d" ),
+				$this->directory_exclusion_subqueries( $user_col )
+			);
+		$params  = $bn_count_viewer ? array() : array( $viewer_id );
 
 		// Bidirectional block exclusion — the one canonical builder list_members
 		// uses (forward + reverse `block`). Empty for logged-out viewers.

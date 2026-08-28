@@ -48,9 +48,12 @@ $bn_classes = (array) apply_filters( 'buddynext_part_member_directory_hero_class
 
 $bn_total = (int) $args['total_members'];
 
+// _n(), not a bare plural: with the count now following the active filter, a
+// one-result filter rendered "1 members in the community". Languages with more
+// than two plural forms were never served by the hardcoded string either.
 $bn_subtitle = sprintf(
 	/* translators: %s: formatted member count. */
-	__( '%s members in the community', 'buddynext' ),
+	_n( '%s member in the community', '%s members in the community', $bn_total, 'buddynext' ),
 	number_format_i18n( $bn_total )
 );
 

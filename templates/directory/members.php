@@ -199,12 +199,31 @@ $bn_directory_filters = array(
 	'online_only' => $bn_online_only,
 );
 
+// The relation tabs and the search term constrain the grid through `include`
+// (assembled above). Hand the SAME constraint to the total, or the header counts
+// a different population than the grid renders — /members/?relation=following
+// showed 7 cards under "227 members in the community".
+if ( isset( $user_query_args['include'] ) && is_array( $user_query_args['include'] ) ) {
+	$bn_directory_filters['include'] = $user_query_args['include'];
+}
+
 // Bounded directory total — the cached service owns this number now (A5). The template
 // used to run a SECOND WP_User_Query purely to count, uncached, on every directory page
 // load; that is the bypass A5 was about. directory_total() runs the capped COUNT once and
 // caches it under the same per-viewer salt as the list pages, so the two surfaces share
 // one number and a block/membership change busts both together.
 $total_users = $bn_directory_service->directory_total( $current_user_id, $bn_directory_filters );
+
+// The HEADER states the size of the community; the grid lists everyone but you.
+// Those are different numbers by exactly one, and the header used to quietly show
+// the grid's: 228 users on the site, "227 members in the community". A member is
+// part of their own community even though the directory does not show them their
+// own card, so the headline counts them and everything else (pagination, empty
+// states) keeps using the grid total.
+$bn_community_total = $bn_directory_service->directory_total(
+	$current_user_id,
+	array_merge( $bn_directory_filters, array( 'count_viewer' => true ) )
+);
 
 // Member ROWS for first paint. Exclusions (suspended / shadow-banned / dir-opt-out /
 // bidirectional blocks), the member-type filter, and the online-only filter are injected
@@ -343,7 +362,7 @@ if ( $current_user_id > 0 ) {
 	buddynext_get_template(
 		'parts/member-directory-hero.php',
 		array(
-			'total_members' => $total_users,
+			'total_members' => $bn_community_total,
 			'current_type'  => $type_slug_filter,
 			'view_mode'     => 'grid',
 			'viewer_id'     => $current_user_id,
