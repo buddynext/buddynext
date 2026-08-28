@@ -200,6 +200,54 @@ class ProfileFieldsManager {
 	}
 
 	/**
+	 * The "Display as" choices for a date field, as value => label.
+	 *
+	 * There were two copies of this list — one in the add-field panel, one in the
+	 * edit-field panel — and they drifted, which is the whole reason this exists
+	 * as a method. The edit copy had picked up mojibake on all four options plus
+	 * the options hint - the raw bytes c3 a2 where an em dash belongs, rendering
+	 * as a stray capital-A-circumflex - while the add copy stayed correct. (The
+	 * corrupt bytes are described rather than quoted here, so that
+	 * `LC_ALL=C grep -rn $'\xc3\xa2' includes/` stays a clean check.) An owner only met
+	 * the corrupted one when EDITING an existing date field, which is why it
+	 * survived so long.
+	 *
+	 * Labels are built here rather than duplicated at each call site, so the next
+	 * change lands in one place and cannot half-apply.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return array<string, string> Keyed by the values in self::DATE_DISPLAY.
+	 */
+	private static function date_display_choices(): array {
+		return array(
+			'date'       => __( 'Full date — Jan 15, 1990', 'buddynext' ),
+			'month_year' => __( 'Month & Year — Jan 1990', 'buddynext' ),
+			'year'       => __( 'Year only — 1990', 'buddynext' ),
+			'age'        => __( 'Calculated age — 34 years old', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * Render the date "Display as" <option> set, marking the current value.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $current Currently stored display mode.
+	 * @return void
+	 */
+	private static function render_date_display_options( string $current = '' ): void {
+		foreach ( self::date_display_choices() as $bn_value => $bn_label ) {
+			printf(
+				'<option value="%1$s"%2$s>%3$s</option>',
+				esc_attr( $bn_value ),
+				selected( $current, $bn_value, false ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- selected() returns a fixed attribute string.
+				esc_html( $bn_label )
+			);
+		}
+	}
+
+	/**
 	 * Slugs of date-family field types (they show the "Date Format" options box).
 	 *
 	 * Registry-driven from is_date, unioned with the legacy DATE_TYPES baseline so
@@ -1977,7 +2025,7 @@ class ProfileFieldsManager {
 													class="bn-pf-opts-textarea"
 													rows="6"
 													placeholder="<?php esc_attr_e( 'Option 1', 'buddynext' ); ?>"><?php echo esc_textarea( $opts_text ); ?></textarea>
-												<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom â each on its own line.', 'buddynext' ); ?></p>
+												<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom — each on its own line.', 'buddynext' ); ?></p>
 											</div>
 											<?php
 											/**
@@ -2009,10 +2057,7 @@ class ProfileFieldsManager {
 													<?php esc_html_e( 'Display as', 'buddynext' ); ?>
 												</label>
 												<select id="bn-ef-date-d-<?php echo absint( $fid ); ?>" name="date_display">
-													<option value="date" <?php selected( $date_display_val, 'date' ); ?>><?php esc_html_e( 'Full date â Jan 15, 1990', 'buddynext' ); ?></option>
-													<option value="month_year" <?php selected( $date_display_val, 'month_year' ); ?>><?php esc_html_e( 'Month â Year â Jan 1990', 'buddynext' ); ?></option>
-													<option value="year" <?php selected( $date_display_val, 'year' ); ?>><?php esc_html_e( 'Year only â 1990', 'buddynext' ); ?></option>
-													<option value="age" <?php selected( $date_display_val, 'age' ); ?>><?php esc_html_e( 'Calculated age â 34 years old', 'buddynext' ); ?></option>
+													<?php self::render_date_display_options( (string) $date_display_val ); ?>
 												</select>
 												<p class="bn-pf-opts-hint"><?php esc_html_e( 'How this date appears on profiles. Always stored as YYYY-MM-DD internally.', 'buddynext' ); ?></p>
 											</div>
@@ -2159,10 +2204,7 @@ class ProfileFieldsManager {
 								<?php esc_html_e( 'Display as', 'buddynext' ); ?>
 							</label>
 							<select id="bn-af-date-d-<?php echo absint( $gid ); ?>" name="date_display">
-								<option value="date"><?php esc_html_e( 'Full date — Jan 15, 1990', 'buddynext' ); ?></option>
-								<option value="month_year"><?php esc_html_e( 'Month & Year — Jan 1990', 'buddynext' ); ?></option>
-								<option value="year"><?php esc_html_e( 'Year only — 1990', 'buddynext' ); ?></option>
-								<option value="age"><?php esc_html_e( 'Calculated age — 34 years old', 'buddynext' ); ?></option>
+								<?php self::render_date_display_options(); ?>
 							</select>
 							<p class="bn-pf-opts-hint"><?php esc_html_e( 'How this date appears on profiles. Always stored as YYYY-MM-DD internally.', 'buddynext' ); ?></p>
 						</div>

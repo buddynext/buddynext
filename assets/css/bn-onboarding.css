@@ -41,6 +41,22 @@
 	background: var(--bn-surface);
 	min-height: 100vh;
 	min-width: 0;
+	/*
+	 * Advancing a step calls scrollIntoView({block:'start'}) on this element,
+	 * which lands its top edge at viewport 0 — underneath the host theme's
+	 * STICKY header. Measured on Reign: after Continue, scrollY=90, the "Step n
+	 * of 6" counter sat at viewport top 31px with a 90px sticky band above it.
+	 * Painted, opacity 1, simply covered — so the member lost all sense of
+	 * progress on exactly the steps they had just advanced into.
+	 *
+	 * scroll-margin-top is the declarative fix: the browser applies it to
+	 * scrollIntoView, so the JS needs no offset arithmetic and cannot drift from
+	 * the measured chrome. --bn-shell-chrome is published on #bn-app by
+	 * shell/extras.js from the real rendered offset (it varies by theme, and by
+	 * whether an admin bar is present), and inherits down to here. The extra
+	 * step is breathing room so the heading does not sit flush against the band.
+	 */
+	scroll-margin-top: calc(var(--bn-shell-chrome, 0px) + var(--bn-s4));
 	padding: var(--bn-s6) var(--bn-s6);
 	display: flex;
 	flex-direction: column;
@@ -492,13 +508,22 @@
 	color: var(--bn-ink);
 	line-height: 1.2;
 }
+/*
+ * Layout only. This block used to set font-family: mono, font-size and color —
+ * typography intended for the member count below it. But __meta WRAPS the space
+ * NAME as well, and the <h3> sets no family of its own, so every space name
+ * inherited the mono: "Coffee First" and "Hiking & Trails" rendered like code
+ * while their descriptions rendered in Inter.
+ *
+ * The size and color were already dead here — both children override them — so
+ * only the family ever escaped, onto the one child that should never have had
+ * it. Typography now sits on the leaf that wants it.
+ */
 .bn-ob-space-card__meta {
-	font-family: var(--bn-font-mono, var(--bn-font-ui));
-	font-size: 10px;
-	color: var(--bn-ink-4);
 	margin-top: 2px;
 }
 .bn-ob-space-card__members {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 }
