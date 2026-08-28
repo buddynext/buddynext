@@ -31,15 +31,8 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-$bn_default_reasons = array(
-	'spam'           => __( 'Spam', 'buddynext' ),
-	'harassment'     => __( 'Harassment or hate speech', 'buddynext' ),
-	'misinformation' => __( 'Misinformation', 'buddynext' ),
-	'inappropriate'  => __( 'Inappropriate content', 'buddynext' ),
-	'fake'           => __( 'Fake account', 'buddynext' ),
-	'impersonation'  => __( 'Impersonation', 'buddynext' ),
-	'other'          => __( 'Something else', 'buddynext' ),
-);
+// Same single source as the profile modal — see ModerationService::reason_choices().
+$bn_default_reasons = \BuddyNext\Moderation\ModerationService::reason_choices();
 
 $args = array(
 	'nonce'          => isset( $nonce ) ? (string) $nonce : '',

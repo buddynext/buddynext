@@ -57,6 +57,89 @@ class ModerationService {
 	private static ?array $reasons_cache = null;
 
 	/**
+	 * Labels for the core report reasons.
+	 *
+	 * @var array<string, string>|null
+	 */
+	private static ?array $reason_labels_cache = null;
+
+	/**
+	 * Report reasons as slug => human label, for every surface that OFFERS them.
+	 *
+	 * reasons() returns slugs and gates what the server accepts. Every UI that
+	 * had to show a LABEL therefore kept its own copy of the list, and there were
+	 * four: two templates, the shell localisation and the dialog JS. None of them
+	 * called this class, so buddynext_report_reasons — documented, applied here,
+	 * and honoured on submission — could add a reason that no UI ever offered. A
+	 * marketplace could not add "item never arrived"; a dating community could not
+	 * add "asked me for money".
+	 *
+	 * The copies had already drifted: the shell localisation and the dialog JS
+	 * were both missing `fake`, so "Fake account" was offered in the profile modal
+	 * and nowhere else.
+	 *
+	 * A slug added through the filter gets a label from
+	 * buddynext_report_reason_labels; without one it is humanised from the slug so
+	 * it is at least offered rather than silently dropped.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return array<string, string> Ordered slug => label.
+	 */
+	public static function reason_choices(): array {
+		if ( null === self::$reason_labels_cache ) {
+			$labels = array(
+				'spam'           => __( 'Spam', 'buddynext' ),
+				'harassment'     => __( 'Harassment or hate speech', 'buddynext' ),
+				'misinformation' => __( 'Misinformation', 'buddynext' ),
+				'inappropriate'  => __( 'Inappropriate content', 'buddynext' ),
+				'fake'           => __( 'Fake account', 'buddynext' ),
+				'impersonation'  => __( 'Impersonation', 'buddynext' ),
+				'other'          => __( 'Something else', 'buddynext' ),
+			);
+
+			/**
+			 * Filters the labels shown for report reasons.
+			 *
+			 * Pair this with buddynext_report_reasons: that filter decides which
+			 * reasons EXIST and are accepted, this one decides how they read.
+			 *
+			 * @since 1.1.6
+			 *
+			 * @param array<string, string> $labels Slug => label.
+			 */
+			self::$reason_labels_cache = (array) apply_filters( 'buddynext_report_reason_labels', $labels );
+		}
+
+		$labels  = self::$reason_labels_cache;
+		$choices = array();
+
+		foreach ( self::reasons() as $slug ) {
+			$slug = (string) $slug;
+			if ( '' === $slug ) {
+				continue;
+			}
+
+			$choices[ $slug ] = isset( $labels[ $slug ] )
+				? (string) $labels[ $slug ]
+				// No label supplied: humanise rather than drop. An offered reason
+				// with an ugly label is recoverable; a missing one is invisible.
+				: ucfirst( str_replace( array( '_', '-' ), ' ', $slug ) );
+		}
+
+		// `other` is the catch-all, so it belongs last however the filters ordered
+		// things — a custom reason appended after it would otherwise read as an
+		// afterthought to "Something else".
+		if ( isset( $choices['other'] ) ) {
+			$bn_other = $choices['other'];
+			unset( $choices['other'] );
+			$choices['other'] = $bn_other;
+		}
+
+		return $choices;
+	}
+
+	/**
 	 * Allowed report reasons, filterable via buddynext_report_reasons.
 	 *
 	 * Filters should return a SUPERSET of the core reasons — the UI offers a

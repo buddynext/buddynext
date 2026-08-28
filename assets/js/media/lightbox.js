@@ -364,6 +364,17 @@
 	function report() {
 		if ( ! requireLogin() || ! current ) { return; }
 
+		/*
+		 * NOT BuddyNext's report vocabulary, and deliberately not read from the
+		 * shared one. A media report goes to WPMediaVerse's endpoint, which
+		 * validates against its OWN enum — nudity / violence / copyright, and no
+		 * inappropriate / impersonation. Passing BuddyNext's list (or a reason an
+		 * owner added through buddynext_report_reasons) would be rejected as an
+		 * invalid reason, so this list belongs to the queue that receives it.
+		 *
+		 * Reviewed as part of unifying the other four copies (card 10244744986):
+		 * this one is a different contract, not a duplicate.
+		 */
 		var reasons = [
 			[ 'spam',           __( 'Spam', 'buddynext' ) ],
 			[ 'harassment',     __( 'Harassment or hate speech', 'buddynext' ) ],

@@ -1483,6 +1483,13 @@ class PageRouter {
 				'reportReasonLabel'      => __( 'Reason', 'buddynext' ),
 				'reportNotesLabel'       => __( 'Additional details (optional)', 'buddynext' ),
 				'reportNotesPlaceholder' => __( 'Tell us more about what you saw…', 'buddynext' ),
+				// Individual reason strings used to live here as a fifth copy of the
+				// list — and it had already drifted, missing `fake` entirely, so
+				// "Fake account" was offered in the profile modal and nowhere else.
+				// The dialog now receives the whole vocabulary as `reportReasons`
+				// below, which is what makes buddynext_report_reasons reach the JS
+				// surfaces at all. These keys remain as a fallback for a cached
+				// script still reading them by name.
 				'reasonSpam'             => __( 'Spam', 'buddynext' ),
 				'reasonHarassment'       => __( 'Harassment or hate speech', 'buddynext' ),
 				'reasonMisinformation'   => __( 'Misinformation', 'buddynext' ),
@@ -1496,6 +1503,16 @@ class PageRouter {
 				'connectPlaceholder'     => __( 'e.g. We met at the design meetup — I’d love to stay connected.', 'buddynext' ),
 				// Generic fallback toast (relation-remove.js).
 				'updateFailed'           => __( 'Could not update. Try again.', 'buddynext' ),
+			),
+			// The report vocabulary as ordered [ slug, label ] pairs — the single
+			// source every surface reads, so a reason added through
+			// buddynext_report_reasons is OFFERED and not merely accepted.
+			'reportReasons'      => array_map(
+				static function ( $bn_slug, $bn_label ): array {
+					return array( (string) $bn_slug, (string) $bn_label );
+				},
+				array_keys( \BuddyNext\Moderation\ModerationService::reason_choices() ),
+				array_values( \BuddyNext\Moderation\ModerationService::reason_choices() )
 			),
 			'restSearchUrl'      => esc_url_raw( rest_url( 'buddynext/v1/search' ) ),
 			'restNotifsUrl'      => esc_url_raw( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ),
