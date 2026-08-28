@@ -320,6 +320,37 @@ class AvatarService {
 	private const COVER_META = 'buddynext_cover_url';
 
 	/**
+	 * Whether the member has a real avatar, as opposed to a generated one.
+	 *
+	 * "Has an avatar_url" is always true — AvatarService always answers with
+	 * something, falling back to generated initials — so it cannot be used to ask
+	 * whether the member has actually added a photo. This resolves the same two
+	 * sources an uploaded avatar comes from, in the same order, and nothing else:
+	 * the external override filter, then the stored upload.
+	 *
+	 * Site-wide fallbacks (Gravatar, a default image, initials) are deliberately
+	 * NOT counted. They are the site's answer, not the member's, and a completion
+	 * checklist that treats them as done can never ask for the one thing it most
+	 * wants.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $user_id Member id.
+	 * @return bool
+	 */
+	public function has_custom_avatar( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		if ( '' !== (string) apply_filters( 'buddynext_avatar_url', '', $user_id ) ) {
+			return true;
+		}
+
+		return '' !== (string) get_user_meta( $user_id, 'bn_avatar', true );
+	}
+
+	/**
 	 * A member's cover image URL, or '' when they have none.
 	 *
 	 * @param int $user_id User ID.

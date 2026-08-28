@@ -2478,6 +2478,36 @@ class ProfileService {
 		 * @param int        $user_id Profile owner.
 		 * @param array|null $profile get_profile() output the tasks were derived from.
 		 */
+		/*
+		 * The photos. Neither was in the model at all, so the meter could point a
+		 * member at text fields while never mentioning the one thing that would
+		 * actually finish their profile — a member who tapped "Skip for now" on
+		 * the onboarding photo step was told their profile was incomplete and
+		 * never told why.
+		 *
+		 * This is a missing INPUT, not a wrong one: get_strength() is deliberately
+		 * schema-driven over field groups and stays that way. Avatar and cover are
+		 * not profile fields and never will be, so they are added here as two
+		 * ordinary tasks, before the filter, which means a site can still remove
+		 * or reword them exactly like any other.
+		 *
+		 * has_custom_avatar() rather than "is there an avatar_url": there is
+		 * ALWAYS an avatar_url, because AvatarService falls back to generated
+		 * initials. Counting that as done would make this task unaskable.
+		 */
+		$bn_avatars = buddynext_service( 'avatars' );
+
+		if ( is_object( $bn_avatars ) && method_exists( $bn_avatars, 'has_custom_avatar' ) ) {
+			$tasks[] = array(
+				'label' => __( 'Add a profile photo', 'buddynext' ),
+				'done'  => $bn_avatars->has_custom_avatar( $user_id ),
+			);
+			$tasks[] = array(
+				'label' => __( 'Add a cover image', 'buddynext' ),
+				'done'  => '' !== $bn_avatars->get_cover_url( $user_id ),
+			);
+		}
+
 		$tasks = (array) apply_filters( 'buddynext_profile_strength_tasks', $tasks, $user_id, $profile );
 
 		$total   = count( $tasks );
