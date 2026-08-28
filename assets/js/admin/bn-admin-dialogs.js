@@ -311,6 +311,34 @@
 	];
 
 	/**
+	 * Params that carry STATE — which screen you are on and what it is showing.
+	 *
+	 * The complement of FLASH_PARAMS, and the safety rail for the sweep below.
+	 * Stripping one of these silently changes what the screen shows on refresh —
+	 * a lost filter, tab or page — which is worse than the notice this whole
+	 * mechanism exists to suppress. Anything here is never removed.
+	 *
+	 * @type {string[]}
+	 */
+	var STATE_PARAMS = [
+		// Navigation.
+		'page', 'tab', 'subtab', 'view', 'section',
+		// Listing state.
+		'paged', 's', 'orderby', 'order', 'status', 'type', 'scope', 'role', 'filter',
+		'log_type', 'log_page', 'inv_status', 'inv_paged', 'gated_paged',
+		'mod_type', 'mod_sort', 'mod_reason', 'mod_page', 'space_q',
+		'bn_page', 'bn_nav_scope', 'bn_event_page', 'bn_event_bucket',
+		'bn_files_page', 'bn_folder', 'bn_folder_page', 'bn_q', 'bn_sf_q', 'bn_tab',
+		// The thing being acted on.
+		'action', 'edit', 'edit_post', 'edit_cat', 'edit_type', 'add_group',
+		'user_id', 'uid', 'sid', 'bid', 'tier_id', 'space_id', 'subscription_id',
+		'session_id', 'invoice', 'plan', 'author_id', 'category_id', 'parent_id', 'id',
+		'date_from', 'date_to', 'from', 'to', 'window', 'until',
+		// WordPress' own.
+		'_wpnonce', '_wp_http_referer', 'token'
+	];
+
+	/**
 	 * Strip one-shot flash params from the current URL via
 	 * history.replaceState so a refresh doesn't re-show the notice.
 	 *
@@ -330,7 +358,34 @@
 		// `data-bn-clear-param` still works everywhere, because there the
 		// screen asked for it.
 		var page   = url.searchParams.get( 'page' ) || '';
-		var params = 0 === page.indexOf( 'buddynext' ) ? FLASH_PARAMS.slice() : [];
+		var onBnScreen = 0 === page.indexOf( 'buddynext' );
+		var params     = onBnScreen ? FLASH_PARAMS.slice() : [];
+
+		/*
+		 * The sweep, and the reason this is not just a longer list.
+		 *
+		 * FLASH_PARAMS only covers names someone thought to enumerate. It shipped
+		 * without `bn_demo`, so "Demo data installed." kept re-showing on every
+		 * refresh of Platform -> Tools — the same bug the list was meant to end,
+		 * on the one screen nobody re-tested. A list of instances cannot close a
+		 * class.
+		 *
+		 * So: when a BN admin screen has actually rendered a notice, anything in
+		 * the URL that is not known STATE has done its job and comes out, named or
+		 * not. A flash param invented next year is handled the first time it shows
+		 * a notice, with nobody having to remember anything.
+		 *
+		 * Gated on a notice being present so an ordinary page load never has its
+		 * URL touched, and floored by STATE_PARAMS so the sweep can never take a
+		 * filter or a page number with it.
+		 */
+		if ( onBnScreen && document.querySelector( '.bn-notice' ) ) {
+			url.searchParams.forEach( function ( _value, key ) {
+				if ( STATE_PARAMS.indexOf( key ) === -1 && params.indexOf( key ) === -1 ) {
+					params.push( key );
+				}
+			} );
+		}
 
 		document.querySelectorAll( '[data-bn-clear-param]' ).forEach( function ( node ) {
 			node.getAttribute( 'data-bn-clear-param' ).split( /\s+/ ).forEach( function ( p ) {
