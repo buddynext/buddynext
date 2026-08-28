@@ -2463,21 +2463,6 @@ class ProfileService {
 			);
 		}
 
-		/**
-		 * Filter the profile-strength checklist for a member.
-		 *
-		 * The defaults above cover BuddyNext's installer-created system schema
-		 * (bio / headline / location are the deletion-protected core fields) and
-		 * are existence-filtered, but a site running a custom profile schema can
-		 * replace or extend the checklist here — each task is
-		 * array{label: string, done: bool}. The percentage, the Profile Strength
-		 * ring, and the buddynext_profile_strength_changed hook all follow
-		 * whatever this filter returns.
-		 *
-		 * @param array      $tasks   Task list: array{label: string, done: bool}[].
-		 * @param int        $user_id Profile owner.
-		 * @param array|null $profile get_profile() output the tasks were derived from.
-		 */
 		/*
 		 * The photos. Neither was in the model at all, so the meter could point a
 		 * member at text fields while never mentioning the one thing that would
@@ -2508,6 +2493,21 @@ class ProfileService {
 			);
 		}
 
+				/**
+		 * Filter the profile-strength checklist for a member.
+		 *
+		 * The defaults above cover BuddyNext's installer-created system schema
+		 * (bio / headline / location are the deletion-protected core fields) and
+		 * are existence-filtered, but a site running a custom profile schema can
+		 * replace or extend the checklist here — each task is
+		 * array{label: string, done: bool}. The percentage, the Profile Strength
+		 * ring, and the buddynext_profile_strength_changed hook all follow
+		 * whatever this filter returns.
+		 *
+		 * @param array      $tasks   Task list: array{label: string, done: bool}[].
+		 * @param int        $user_id Profile owner.
+		 * @param array|null $profile get_profile() output the tasks were derived from.
+		 */
 		$tasks = (array) apply_filters( 'buddynext_profile_strength_tasks', $tasks, $user_id, $profile );
 
 		$total   = count( $tasks );
