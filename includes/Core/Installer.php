@@ -3957,6 +3957,29 @@ MUPLUGIN;
 			if ( ! $hub->backing_page ) {
 				continue;
 			}
+
+			/**
+			 * Filters whether a hub's backing page should be created.
+			 *
+			 * A hub that cannot work yet should not leave a published page behind
+			 * for the theme's page-list to advertise. Messages is the case in
+			 * hand: it requires the WPMediaVerse engine, and BuddyNext published
+			 * the page regardless, so a site without MediaVerse carried a
+			 * /messages/ page that no one could use.
+			 *
+			 * This only ever declines to CREATE. An existing page is never
+			 * deleted, unpublished or edited by this plugin — if the owner has one,
+			 * it is theirs, and a plugin toggle must not touch their content.
+			 *
+			 * @since 1.1.6
+			 *
+			 * @param bool          $create Whether to create the page. Default true.
+			 * @param HubDescriptor $hub    The hub being considered.
+			 */
+			if ( ! (bool) apply_filters( 'buddynext_create_hub_page', true, $hub ) ) {
+				continue;
+			}
+
 			$existing_id = (int) get_option( $hub->page_option, 0 );
 			if ( $existing_id > 0 && 'publish' === get_post_status( $existing_id ) ) {
 				continue;
@@ -3965,6 +3988,25 @@ MUPLUGIN;
 			if ( '' === $slug ) {
 				$slug = $hub->default_slug;
 			}
+
+			/*
+			 * ADOPT before creating. This loop decided "does the page exist?" purely
+			 * from the stored option, so if that option was ever lost while the page
+			 * itself survived — a partial restore, a half-finished migration, an
+			 * option table rolled back — the next run inserted a SECOND page with
+			 * the same slug. WordPress then suffixes it (messages-2), and the hub
+			 * quietly starts serving a different URL from the one the owner's menus
+			 * and links point at.
+			 *
+			 * Claiming the existing page is both safer and what the owner means.
+			 */
+			$existing_by_slug = get_page_by_path( $slug );
+			if ( $existing_by_slug instanceof \WP_Post && 'publish' === $existing_by_slug->post_status ) {
+				update_option( $hub->page_option, (int) $existing_by_slug->ID );
+				update_option( $hub->slug_option, $slug );
+				continue;
+			}
+
 			$page_id = wp_insert_post(
 				array(
 					'post_title'     => $hub->title,

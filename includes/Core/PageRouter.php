@@ -316,17 +316,27 @@ class PageRouter {
 			exit;
 		}
 
-		// Direct-messaging guard: the /messages/ route is dead whenever DMs are
-		// off (the 'messages' capability) OR the WPMediaVerse engine is absent — bounce
-		// the visitor to the activity hub rather than render an unusable hub. Use
-		// the canonical entry_enabled() gate (dm_enabled && available), the same
-		// one that hides the nav entry points, so the route and the nav agree.
-		if ( 'messages' === $hub
-			&& ! \BuddyNext\Messages\MessagesData::entry_enabled()
-		) {
-			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
-			exit;
-		}
+		/*
+		 * Direct messaging unavailable: EXPLAIN, do not bounce.
+		 *
+		 * This used to redirect to the activity hub whenever DMs were off or the
+		 * WPMediaVerse engine was absent. The visitor clicked Messages and landed
+		 * on the feed with nothing said — and templates/messages/native.php has
+		 * carried a purpose-built notice for exactly this state all along, with
+		 * separate copy for administrators ("Direct messaging requires
+		 * WPMediaVerse") and for members ("Messaging isn't available right now").
+		 * The redirect fired first, so ALL of it was unreachable: the card
+		 * reported the admin half, but neither branch could ever render.
+		 *
+		 * A silent redirect is the worst of the options. It looks like a broken
+		 * link to the member and hides the cause from the one person who can fix
+		 * it. The template already knows what to say to each of them.
+		 *
+		 * The nav is unaffected — the entry points already hide themselves through
+		 * the same entry_enabled() gate, so nothing links here while it is off.
+		 * This is only about what happens when someone arrives anyway: a bookmark,
+		 * a shared link, or the page-list fallback on a site with no menu.
+		 */
 
 		// Bookmarks guard: the personal Bookmarks list (feed hub, bn_feed_section
 		// 'bookmarks') is the toggleable Bookmarks feature (FeatureRegistry

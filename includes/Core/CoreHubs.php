@@ -22,6 +22,32 @@ namespace BuddyNext\Core;
  */
 final class CoreHubs {
 	/**
+	 * Whether a core hub's backing page should be created yet.
+	 *
+	 * Messages requires the WPMediaVerse engine. Creating its page regardless
+	 * left a published /messages/ page on every site without MediaVerse — listed
+	 * by the theme's page-list fallback, clicked by members, and leading nowhere.
+	 * The page is created when messaging becomes available instead.
+	 *
+	 * Declines to create only. An existing page is left exactly as the owner has
+	 * it, including if they later deactivate MediaVerse: this plugin does not
+	 * unpublish or delete their content.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param bool          $create Whether to create.
+	 * @param HubDescriptor $hub    Hub under consideration.
+	 * @return bool
+	 */
+	public static function should_create_hub_page( bool $create, HubDescriptor $hub ): bool {
+		if ( ! $create || 'messages' !== $hub->key ) {
+			return $create;
+		}
+
+		return \BuddyNext\Messages\MessagesData::entry_enabled();
+	}
+
+	/**
 	 * Registers all 8 core hub descriptors and fires buddynext_register_hubs.
 	 *
 	 * @param HubRegistry $reg The hub registry to populate.
