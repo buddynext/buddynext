@@ -140,13 +140,14 @@ class ModerationListener implements ListenerInterface {
 		);
 
 		if ( $perma_ban_threshold > 0 && $active_strikes >= $perma_ban_threshold ) {
-			buddynext_service( 'moderation' )->suspend(
+			$bn_sanction = buddynext_service( 'moderation' )->suspend(
 				$user_id,
 				__( 'Automatic permanent ban: strike threshold reached.', 'buddynext' ),
 				0,    // duration_days = 0 → permanent (expires_at NULL).
 				true, // hide the banned member's content.
 				$actor_id
 			);
+			self::report_failed_sanction( $bn_sanction, 'perma_ban', $user_id );
 		} elseif ( $active_strikes >= $suspend_threshold ) {
 			// Route through the canonical suspension method so the strike-issuing
 			// admin is recorded as the actor (admin_members->suspend_member() used
@@ -154,12 +155,59 @@ class ModerationListener implements ListenerInterface {
 			// context) and the suspension reason + bn.member_suspended email carry
 			// real context. Indefinite, content stays visible — distinct from the
 			// perma-ban tier above which hides content.
-			buddynext_service( 'moderation' )->suspend(
+			$bn_sanction = buddynext_service( 'moderation' )->suspend(
 				$user_id,
 				__( 'Automatic suspension: strike threshold reached.', 'buddynext' ),
 				0,
 				false,
 				$actor_id
+			);
+			self::report_failed_sanction( $bn_sanction, 'suspend', $user_id );
+		}
+	}
+
+	/**
+	 * Surface a failed automatic sanction instead of dropping it.
+	 *
+	 * Both calls above discarded suspend()'s return value, so when the insert
+	 * failed the member simply stayed unsuspended and nothing anywhere said so —
+	 * the strike threshold appeared to be enforced and was not. The primitive has
+	 * always reported the failure; nobody was listening.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param bool|\WP_Error $result  What suspend() returned.
+	 * @param string         $kind    'perma_ban' or 'suspend', for the message.
+	 * @param int            $user_id Member the sanction was meant for.
+	 * @return void
+	 */
+	private static function report_failed_sanction( $result, string $kind, int $user_id ): void {
+		if ( ! is_wp_error( $result ) ) {
+			return;
+		}
+
+		/**
+		 * Fires when an automatic strike-threshold sanction could not be applied.
+		 *
+		 * The member is NOT sanctioned when this fires. Listen for it to alert an
+		 * owner rather than discovering the gap during an incident.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param int       $user_id Member the sanction was meant for.
+		 * @param string    $kind    'perma_ban' or 'suspend'.
+		 * @param \WP_Error $error   Why it failed.
+		 */
+		do_action( 'buddynext_automatic_sanction_failed', $user_id, $kind, $result );
+
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- debug-only diagnostic for a sanction that silently did not apply.
+				sprintf(
+					'BuddyNext: automatic %1$s for user %2$d was NOT applied — %3$s',
+					$kind,
+					$user_id,
+					$result->get_error_message()
+				)
 			);
 		}
 	}

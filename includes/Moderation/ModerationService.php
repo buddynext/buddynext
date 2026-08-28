@@ -2915,7 +2915,19 @@ class ModerationService {
 			$wpdb->prefix . 'bn_user_suspensions',
 			array(
 				'user_id'      => $user_id,
-				'suspended_by' => $suspended_by > 0 ? $suspended_by : null,
+				// 0, not NULL. suspended_by is BIGINT UNSIGNED NOT NULL, so a NULL
+				// here made MySQL reject the whole INSERT — "Column 'suspended_by'
+				// cannot be null" — and this primitive is reached ONLY from the
+				// automated path (ModerationListener's strike-threshold perma-ban
+				// and suspend), which passes actor 0. Every automatic sanction
+				// therefore did nothing at all.
+				//
+				// 0 is this codebase's own system-actor convention: the sibling
+				// column on this very table writes it that way (lifted_by, in
+				// unsuspend below), as do SpaceMemberService and apply_auto_actions'
+				// `warn`. Matching lifted_by is the fix, not making the column
+				// nullable — two actor columns on one table should not disagree.
+				'suspended_by' => max( 0, $suspended_by ),
 				'reason'       => sanitize_textarea_field( $reason ),
 				'expires_at'   => $expires_at,
 				'hide_posts'   => $hide_content ? 1 : 0,
@@ -2928,7 +2940,16 @@ class ModerationService {
 			return new WP_Error( 'db_error', $wpdb->last_error );
 		}
 
-		$actor_id = $suspended_by > 0 ? $suspended_by : get_current_user_id();
+		// A system suspension stays attributed to the SYSTEM. Falling back to
+		// get_current_user_id() credited an automatic strike-threshold ban to
+		// whoever's request happened to trip it — often the member who posted the
+		// offending content — writing a false actor into an append-only audit
+		// trail and firing buddynext_user_suspended with it.
+		//
+		// The code below already assumed this: resolve_open_user_reports() is
+		// documented as a "no-op when the actor is the system (0)", which it could
+		// never be while this line replaced the 0 with an ambient user.
+		$actor_id = max( 0, $suspended_by );
 
 		// Record the automated ban/suspension in the append-only audit trail. This
 		// bare primitive is the strike-threshold escalation path (its only callers
