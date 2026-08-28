@@ -66,7 +66,7 @@ class ModerationService {
 	/**
 	 * Report reasons as slug => human label, for every surface that OFFERS them.
 	 *
-	 * reasons() returns slugs and gates what the server accepts. Every UI that
+	 * The reasons() method returns slugs and gates what the server accepts. Every UI that
 	 * had to show a LABEL therefore kept its own copy of the list, and there were
 	 * four: two templates, the shell localisation and the dialog JS. None of them
 	 * called this class, so buddynext_report_reasons — documented, applied here,
