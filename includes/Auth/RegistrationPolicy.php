@@ -113,6 +113,58 @@ class RegistrationPolicy {
 	}
 
 	/**
+	 * The public URL of a legal page, or '' when a visitor could not read it.
+	 *
+	 * "Set" is not the same as "readable". WordPress ships its Privacy Policy
+	 * page as a DRAFT, and a draft (or pending, or private, or password-walled)
+	 * page returns HTTP 404 to the logged-out visitor being asked to agree to it
+	 * — verified with curl against a fresh install: the consent line linked
+	 * "Privacy Policy" to ?page_id=3 and that URL 404s.
+	 *
+	 * Consent is collected from people who are not logged in, so readability is
+	 * judged from their position, never from an editor's.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $page_id Page id, 0 when unset.
+	 * @return string Permalink, or '' when the page cannot be read by a visitor.
+	 */
+	public static function legal_page_url( int $page_id ): string {
+		$page = $page_id > 0 ? get_post( $page_id ) : null;
+
+		// Every path returns through the filter at the bottom, including the
+		// not-readable ones — otherwise a site serving its terms from somewhere
+		// other than a WordPress page could never supply them.
+		if ( ! $page instanceof \WP_Post || 'publish' !== $page->post_status ) {
+			/** This filter is documented at the end of this method. */
+			return (string) apply_filters( 'buddynext_legal_page_url', '', $page_id );
+		}
+
+		// A password-walled document is not readable before consent either.
+		if ( '' !== (string) $page->post_password ) {
+			/** This filter is documented at the end of this method. */
+			return (string) apply_filters( 'buddynext_legal_page_url', '', $page_id );
+		}
+
+		$url = (string) get_permalink( $page );
+
+		/**
+		 * Filters the resolved URL of a legal document shown at signup.
+		 *
+		 * Return '' to withhold the link (the consent line then omits that
+		 * document entirely and the terms gate stops binding), or a URL of your
+		 * own — a site hosting its terms off-site, or behind a membership-aware
+		 * router, can answer here rather than mapping a WordPress page.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param string $url     Resolved permalink, '' when not readable.
+		 * @param int    $page_id The page id that was resolved.
+		 */
+		return (string) apply_filters( 'buddynext_legal_page_url', $url, $page_id );
+	}
+
+	/**
 	 * The signup contract: everything a door must collect before creating a member.
 	 *
 	 * This is the same payload served by GET /auth/register/config, so a native
@@ -141,11 +193,18 @@ class RegistrationPolicy {
 		// The owner is not left guessing: TermsNotice puts an admin notice on screen when
 		// consent is switched on with no page behind it, so "we are not enforcing this" is
 		// stated out loud rather than discovered.
-		$require_terms = (bool) get_option( 'buddynext_require_terms', true ) && $terms_page > 0;
+		//
+		// READABLE, not merely set — the same rule one step further. A terms page
+		// left as a draft is exactly the "document that did not exist" this block
+		// is about: the visitor asked to agree to it gets a 404. Binding the gate
+		// to readability keeps the server and the signup form in lockstep, so the
+		// form never drops a document the server still demands consent for.
+		$terms_url     = self::legal_page_url( $terms_page );
+		$require_terms = (bool) get_option( 'buddynext_require_terms', true ) && '' !== $terms_url;
 
 		return array(
 			'terms'        => $require_terms,
-			'terms_url'    => $terms_page > 0 ? (string) get_permalink( $terms_page ) : '',
+			'terms_url'    => $terms_url,
 			'mode'         => (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
 			'fields'       => buddynext_service( 'profiles' )->get_registration_fields(),
 
