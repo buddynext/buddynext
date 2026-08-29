@@ -2733,49 +2733,7 @@ class Installer {
 		// Each INSERT uses a subquery to resolve group_id by group_key.
 		// Format: group_key, field_key, label, type, is_required, is_searchable, sort_order
 
-		$fields = array(
-			// basic_info.
-			array( 'basic_info', 'headline', 'Headline', 'text', 0, 0, 1 ),
-			array( 'basic_info', 'bio', 'Bio', 'textarea', 0, 0, 2 ),
-			array( 'basic_info', 'location', 'Location', 'text', 0, 1, 3 ),
-			array( 'basic_info', 'website', 'Website', 'url', 0, 0, 4 ),
-			array( 'basic_info', 'pronouns', 'Pronouns', 'text', 0, 0, 5 ),
-			array( 'basic_info', 'birth_date', 'Birth Date', 'date', 0, 0, 6 ),
-
-			// social_links.
-			array( 'social_links', 'social_twitter', 'Twitter / X', 'url', 0, 0, 1 ),
-			array( 'social_links', 'social_linkedin', 'LinkedIn', 'url', 0, 0, 2 ),
-			array( 'social_links', 'social_github', 'GitHub', 'url', 0, 0, 3 ),
-			array( 'social_links', 'social_instagram', 'Instagram', 'url', 0, 0, 4 ),
-			array( 'social_links', 'social_youtube', 'YouTube', 'url', 0, 0, 5 ),
-
-			// work_experience (repeater).
-			array( 'work_experience', 'work_company', 'Company', 'text', 0, 0, 1 ),
-			array( 'work_experience', 'work_title', 'Job Title', 'text', 0, 0, 2 ),
-			array( 'work_experience', 'work_location', 'Location', 'text', 0, 0, 3 ),
-			array( 'work_experience', 'work_start_date', 'Start Date', 'date', 0, 0, 4 ),
-			array( 'work_experience', 'work_end_date', 'End Date', 'date', 0, 0, 5 ),
-			array( 'work_experience', 'work_current', 'Currently Working', 'boolean', 0, 0, 6 ),
-			array( 'work_experience', 'work_description', 'Description', 'textarea', 0, 0, 7 ),
-
-			// education (repeater).
-			array( 'education', 'edu_institution', 'Institution', 'text', 0, 0, 1 ),
-			array( 'education', 'edu_degree', 'Degree', 'text', 0, 0, 2 ),
-			array( 'education', 'edu_field', 'Field of Study', 'text', 0, 0, 3 ),
-			array( 'education', 'edu_start_year', 'Start Year', 'number', 0, 0, 4 ),
-			array( 'education', 'edu_end_year', 'End Year', 'number', 0, 0, 5 ),
-			array( 'education', 'edu_current', 'Currently Attending', 'boolean', 0, 0, 6 ),
-
-			// skills (flat). Key renamed interests->skills in v17 (the canonical
-			// 'interests' key now belongs to the category_multiselect field below);
-			// maybe_migrate_skills_field_key() converges existing sites BEFORE this
-			// seeder runs, so the INSERT IGNORE never creates a duplicate.
-			array( 'skills', 'skills', 'Skills', 'text', 0, 1, 1 ),
-
-			// interests (flat) — the suggestion signal: one bn_profile_values row
-			// per picked space category (see docs/plans/interests-personalization.md).
-			array( 'interests', 'interests', 'Interests', 'category_multiselect', 0, 1, 1 ),
-		);
+		$fields = self::seeded_field_definitions();
 
 		/*
 		 * Seeded fields are MEMBERS-ONLY by default, except the two that are the
@@ -2822,6 +2780,69 @@ class Installer {
 		}
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * The starter profile fields, as data.
+	 *
+	 * Format per row: group_key, field_key, label, type, is_required,
+	 * is_searchable, sort_order.
+	 *
+	 * Extracted so seed_profile_schema() and converge_profile_schema() read the
+	 * SAME definition. The converge pass re-creates a missing hero identity field
+	 * from this list, and a second copy of the row would let the restored field
+	 * drift from the seeded one — different label, different type — in a way that
+	 * only shows up on sites that already lost the field, which is the population
+	 * least likely to notice.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return array<int, array{0:string,1:string,2:string,3:string,4:int,5:int,6:int}>
+	 */
+	private static function seeded_field_definitions(): array {
+		return array(
+			// basic_info.
+			array( 'basic_info', 'headline', 'Headline', 'text', 0, 0, 1 ),
+			array( 'basic_info', 'bio', 'Bio', 'textarea', 0, 0, 2 ),
+			array( 'basic_info', 'location', 'Location', 'text', 0, 1, 3 ),
+			array( 'basic_info', 'website', 'Website', 'url', 0, 0, 4 ),
+			array( 'basic_info', 'pronouns', 'Pronouns', 'text', 0, 0, 5 ),
+			array( 'basic_info', 'birth_date', 'Birth Date', 'date', 0, 0, 6 ),
+
+			// social_links.
+			array( 'social_links', 'social_twitter', 'Twitter / X', 'url', 0, 0, 1 ),
+			array( 'social_links', 'social_linkedin', 'LinkedIn', 'url', 0, 0, 2 ),
+			array( 'social_links', 'social_github', 'GitHub', 'url', 0, 0, 3 ),
+			array( 'social_links', 'social_instagram', 'Instagram', 'url', 0, 0, 4 ),
+			array( 'social_links', 'social_youtube', 'YouTube', 'url', 0, 0, 5 ),
+
+			// work_experience (repeater).
+			array( 'work_experience', 'work_company', 'Company', 'text', 0, 0, 1 ),
+			array( 'work_experience', 'work_title', 'Job Title', 'text', 0, 0, 2 ),
+			array( 'work_experience', 'work_location', 'Location', 'text', 0, 0, 3 ),
+			array( 'work_experience', 'work_start_date', 'Start Date', 'date', 0, 0, 4 ),
+			array( 'work_experience', 'work_end_date', 'End Date', 'date', 0, 0, 5 ),
+			array( 'work_experience', 'work_current', 'Currently Working', 'boolean', 0, 0, 6 ),
+			array( 'work_experience', 'work_description', 'Description', 'textarea', 0, 0, 7 ),
+
+			// education (repeater).
+			array( 'education', 'edu_institution', 'Institution', 'text', 0, 0, 1 ),
+			array( 'education', 'edu_degree', 'Degree', 'text', 0, 0, 2 ),
+			array( 'education', 'edu_field', 'Field of Study', 'text', 0, 0, 3 ),
+			array( 'education', 'edu_start_year', 'Start Year', 'number', 0, 0, 4 ),
+			array( 'education', 'edu_end_year', 'End Year', 'number', 0, 0, 5 ),
+			array( 'education', 'edu_current', 'Currently Attending', 'boolean', 0, 0, 6 ),
+
+			// skills (flat). Key renamed interests->skills in v17 (the canonical
+			// 'interests' key now belongs to the category_multiselect field below);
+			// maybe_migrate_skills_field_key() converges existing sites BEFORE this
+			// seeder runs, so the INSERT IGNORE never creates a duplicate.
+			array( 'skills', 'skills', 'Skills', 'text', 0, 1, 1 ),
+
+			// interests (flat) — the suggestion signal: one bn_profile_values row
+			// per picked space category (see docs/plans/interests-personalization.md).
+			array( 'interests', 'interests', 'Interests', 'category_multiselect', 0, 1, 1 ),
+		);
 	}
 
 	/**
@@ -2882,10 +2903,80 @@ class Installer {
 			  WHERE field_key IN ('bio', 'headline', 'location', 'interests', 'pronouns')
 			    AND is_system = 0"
 		);
+		self::restore_hero_identity_fields( $p );
 		self::converge_seeded_field_flags( $p );
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
+
+	/**
+	 * Re-create a hero identity field that is missing, and only those.
+	 *
+	 * The one deliberate exception to this class's UPDATE-only rule, and it is
+	 * narrow on purpose.
+	 *
+	 * ProfileService::HERO_IDENTITY_FIELDS are the keys a template is allowed to
+	 * hardcode, and it is allowed precisely because those fields are is_system and
+	 * therefore undeletable. That guarantee arrived in v18; a site that deleted one
+	 * BEFORE it did was left with a template asking for a key that does not exist —
+	 * a permanently blank slot in the hero, with nothing on any screen saying why.
+	 * Re-flagging (the UPDATE above) cannot help, because there is no row to flag.
+	 *
+	 * Restoring these is not overriding an owner's choice the way re-seeding the
+	 * whole starter schema would be: the owner is no longer permitted to make this
+	 * particular choice, so the field's absence is a broken invariant rather than a
+	 * preference. Every other seeded field stays deleted forever — those render by
+	 * nature (group type / field type), so their absence degrades quietly instead
+	 * of leaving a hole.
+	 *
+	 * What this does NOT do is bring the members' answers back. delete_field()
+	 * purges bn_profile_values for the field in the background, so those are gone
+	 * at deletion time; this restores the field so the slot works again and members
+	 * can fill it in.
+	 *
+	 * Definitions come from seeded_field_definitions() so a restored field is
+	 * identical to a seeded one. INSERT IGNORE + the group subquery mirror
+	 * seed_profile_schema(): a site missing the whole basic_info group inserts
+	 * nothing rather than orphaning a field.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function restore_hero_identity_fields( string $p ): void {
+		global $wpdb;
+
+		$wanted = \BuddyNext\Profile\ProfileService::HERO_IDENTITY_FIELDS;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		foreach ( self::seeded_field_definitions() as $f ) {
+			if ( ! in_array( $f[1], $wanted, true ) ) {
+				continue;
+			}
+
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO `{$p}bn_profile_fields`
+					    (group_id, field_key, label, type, is_required, is_searchable, sort_order, visibility, is_system)
+					 SELECT id, %s, %s, %s, %d, %d, %d, %s, 1
+					   FROM `{$p}bn_profile_groups`
+					  WHERE group_key = %s",
+					$f[1],
+					$f[2],
+					$f[3],
+					$f[4],
+					$f[5],
+					$f[6],
+					// headline and bio are the profile's public face, as in the
+					// seeder; pronouns follows the members-only default.
+					in_array( $f[1], array( 'headline', 'bio' ), true ) ? 'public' : 'members',
+					$f[0]
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
 
 	/**
 	 * Deliver seeded field flags that INSERT IGNORE could never reach. ONCE.
