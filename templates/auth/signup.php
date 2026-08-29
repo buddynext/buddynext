@@ -614,7 +614,28 @@ if ( 'invite' === $bn_reg_mode ) {
 							. esc_html__( 'Privacy Policy', 'buddynext' ) . '</a>';
 					}
 					?>
-					<?php if ( ! empty( $bn_legal_links ) ) : ?>
+					<?php
+					/*
+					 * Two conditions, and they answer different questions.
+					 *
+					 * requirements['terms'] is whether consent is being COLLECTED at
+					 * all — the owner's "Require members to accept your terms" switch,
+					 * bound to a readable Terms page. The documentation states the
+					 * checkbox appears only when both hold, and the form ignored it:
+					 * the block was emitted unconditionally, so members were asked to
+					 * agree to terms on a site whose owner had switched the requirement
+					 * off, and nothing was recorded when they did.
+					 *
+					 * $bn_legal_links is which DOCUMENTS can be named, and it stays
+					 * because the two can disagree: terms may be published and required
+					 * while the privacy page is still a draft.
+					 *
+					 * The row is a TERMS consent gate, so it follows the terms
+					 * requirement. Without it there is nothing here to consent to, and a
+					 * privacy link alone does not make a consent checkbox meaningful.
+					 */
+					?>
+					<?php if ( ! empty( $bn_requirements['terms'] ) && ! empty( $bn_legal_links ) ) : ?>
 					<div class="bn-auth-field bn-auth-field--check">
 						<label class="bn-auth-check">
 							<input type="checkbox"
