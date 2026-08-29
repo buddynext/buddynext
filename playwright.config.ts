@@ -16,6 +16,10 @@ export default defineConfig({
     // Disables the per-minute comment rate limit for the serial suite (see the
     // file for why) so a burst of test comments doesn't 429 and flake specs red.
     globalSetup: './tests/e2e/_fixtures/global-setup.ts',
+    // Sweeps the data the specs wrote to the target site. Without it a shared
+    // dev site accumulates test posts/users/spaces every run, and that junk gets
+    // reported as product bugs. BN_E2E_KEEP_DATA=1 keeps it for debugging.
+    globalTeardown: './tests/e2e/_fixtures/global-teardown.ts',
     timeout: 30_000,
     expect: { timeout: 5_000 },
     fullyParallel: false, // WP shares one DB, so don't blast it
