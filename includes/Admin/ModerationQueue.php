@@ -511,6 +511,18 @@ class ModerationQueue {
 		$this->maybe_notice();
 		$service     = new ModerationService();
 		$suspensions = $service->get_active_suspensions();
+
+		// Prime both members per row in one pass - the suspended member and whoever
+		// suspended them - so a long suspension list stays two queries rather than
+		// two per row.
+		$bn_sus_pairs = array();
+		foreach ( $suspensions as $bn_sus_row ) {
+			$bn_sus_pairs[] = array( 'user', (int) $bn_sus_row['user_id'] );
+			if ( (int) ( $bn_sus_row['suspended_by'] ?? 0 ) > 0 ) {
+				$bn_sus_pairs[] = array( 'user', (int) $bn_sus_row['suspended_by'] );
+			}
+		}
+		buddynext_prime_object_labels( $bn_sus_pairs );
 		?>
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
@@ -525,6 +537,7 @@ class ModerationQueue {
 						array(
 							__( 'Member', 'buddynext' ),
 							__( 'Reason', 'buddynext' ),
+							__( 'Suspended by', 'buddynext' ),
 							__( 'Expires', 'buddynext' ),
 							__( 'Actions', 'buddynext' ),
 						)
@@ -536,6 +549,7 @@ class ModerationQueue {
 						<tr>
 							<th><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Reason', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Suspended by', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Expires', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
@@ -545,6 +559,16 @@ class ModerationQueue {
 							<tr>
 								<td><?php echo esc_html( buddynext_member_label( (int) $s['user_id'] ) ); ?></td>
 								<td><?php echo esc_html( (string) ( ! empty( $s['reason'] ) ? $s['reason'] : __( '(no reason given)', 'buddynext' ) ) ); ?></td>
+								<?php
+								// suspended_by is 0 for an automatic strike-threshold sanction and a
+								// moderator id otherwise. Until 1.1.6 automated suspensions never
+								// applied, so every row here was necessarily a person; now that they
+								// do, "who decided this" is the first question an appeal raises and
+								// the table could not answer it. The value was already stored - this
+								// is a column, not new plumbing. Matches the moderation log's own
+								// treatment, including "Deleted member (#id)" for a removed account.
+								?>
+								<td><?php echo esc_html( buddynext_member_label( (int) ( $s['suspended_by'] ?? 0 ), __( 'System', 'buddynext' ) ) ); ?></td>
 								<td><?php echo esc_html( $s['expires_at'] ? $this->ago( (string) $s['expires_at'] ) : __( 'Permanent', 'buddynext' ) ); ?></td>
 								<td><?php $this->user_button( (int) $s['user_id'], 'unsuspend', __( 'Lift suspension', 'buddynext' ), 'secondary' ); ?></td>
 							</tr>
@@ -1151,9 +1175,15 @@ class ModerationQueue {
 	 * and review the actual content (post permalink, the comment's parent post,
 	 * or the reported member's profile). Returns '' when no URL applies.
 	 *
-	 * @param string $object_type Reported object type (post|comment|user).
+	 * Reports carry five object types (post, comment, user, space, message - see
+	 * ModerationService). This handled three, and the other two fell through to the
+	 * empty case, so the "View content" link was suppressed with no indication that
+	 * anything was missing. A moderator asked to judge a reported SPACE had no way
+	 * to open it short of guessing the URL or searching by name.
+	 *
+	 * @param string $object_type Reported object type (post|comment|user|space|message).
 	 * @param int    $object_id   Reported object ID.
-	 * @return string
+	 * @return string Front-end URL, or '' when the type has no viewable page.
 	 */
 	private function object_view_url( string $object_type, int $object_id ): string {
 		if ( $object_id <= 0 ) {
@@ -1166,6 +1196,9 @@ class ModerationQueue {
 		if ( 'user' === $object_type ) {
 			return \BuddyNext\Core\PageRouter::profile_url( $object_id );
 		}
+		if ( 'space' === $object_type ) {
+			return \BuddyNext\Core\PageRouter::space_url( $object_id );
+		}
 		if ( 'comment' === $object_type ) {
 			global $wpdb;
 			// A comment has no standalone page — deep-link to its parent post.
@@ -1177,6 +1210,12 @@ class ModerationQueue {
 			return $post_id > 0 ? \BuddyNext\Core\PageRouter::post_url( $post_id ) : '';
 		}
 
+		// 'message' returns '' deliberately, and this is the one type where that is
+		// the right answer rather than an oversight. A reported DM has no page a
+		// moderator can open, and manufacturing one would expose a private
+		// conversation - including the half the reporter did not report - to anyone
+		// with the moderation screen. The queue already shows the reported message's
+		// excerpt inline, which is the part that was actually reported.
 		return '';
 	}
 

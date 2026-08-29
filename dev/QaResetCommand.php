@@ -390,10 +390,18 @@ class QaResetCommand {
 
 		$post_gone = "NOT EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_posts p WHERE p.id = t.object_id )";
 
+		$comment_gone = "NOT EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_comments c WHERE c.id = t.object_id )";
+
 		return array(
 			'bn_comments'  => "t.object_type = 'post' AND {$post_gone}",
 			'bn_reactions' => "t.object_type = 'post' AND {$post_gone}",
 			'bn_bookmarks' => "NOT EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_posts p WHERE p.id = t.post_id )",
+			// A report whose target no longer exists cannot be acted on: the queue
+			// renders it as "Deleted comment (#id)" with no View link and no way to
+			// judge it, and it sits there forever pushing live reports off page one.
+			// Sweeping the comments above without this leaves exactly that behind -
+			// found by doing it and then trying to use the Reports screen.
+			'bn_reports'   => "( ( t.object_type = 'post' AND {$post_gone} ) OR ( t.object_type = 'comment' AND {$comment_gone} ) )",
 		);
 	}
 
