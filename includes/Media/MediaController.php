@@ -347,6 +347,21 @@ class MediaController extends BaseRestController {
 			'privacy'     => $this->sanitize_privacy( (string) $request->get_param( 'privacy' ) ),
 		);
 
+		// WHICH SPACE this upload belongs to, when the composer is posting into one.
+		// The engine resolves the drive from this (mvs_media_drive, answered by
+		// WPMediaVerseBridge::space_media_drive), and the drive is what makes
+		// space-scoped media privacy reachable at all. Explicit rather than inferred
+		// from the surface: a member can have several composers open, and this
+		// decides where their file is filed.
+		//
+		// Passing it does not grant anything. The engine re-checks drive access on
+		// whatever the bridge answers and falls back to the personal drive unless
+		// the member may contribute to that space.
+		$bn_space_id = absint( $request->get_param( 'space_id' ) );
+		if ( $bn_space_id > 0 ) {
+			$args['space_id'] = $bn_space_id;
+		}
+
 		// The engine validates MIME, size, duplicates, strips EXIF, optimizes and
 		// generates thumbnails; we hand it the file and the member as author so the
 		// new media surfaces in their own gallery (Galleries::user_media_ids).

@@ -197,6 +197,11 @@ class WPMediaVerseBridge {
 		add_filter( 'mvs_document_drives_for_user', array( $this, 'space_drives_for_user' ), 10, 2 );
 		add_filter( 'mvs_document_drive_label', array( $this, 'space_drive_label' ), 10, 3 );
 
+		// The fifth drive filter (MV Pro froze it in 2.4.0). Documents got a drive
+		// at ingest from day one; media never did, so every upload landed on the
+		// uploader's personal drive and `space` privacy was unreachable for media.
+		add_filter( 'mvs_media_drive', array( $this, 'space_media_drive' ), 10, 3 );
+
 		// A document shared from the composer renders as a link-out card. The
 		// post stores only the document id; this seam resolves the card PER VIEWER
 		// so a private document's title is never snapshotted into someone else's
@@ -623,6 +628,21 @@ class WPMediaVerseBridge {
 	 * value resolves to `private` rather than `public` — a privacy vocabulary
 	 * this does not know about must not be guessed open.
 	 *
+	 * `space_members` used to sit in that same bucket, and it did not belong
+	 * there. The collapse is sound for followers and connections because the engine
+	 * genuinely has nowhere else to put them. The engine DOES have a `space` level;
+	 * it was unusable only because BuddyNext never answered `mvs_media_drive`, so
+	 * media never got a space drive. Reproduced end to end before the fix: a photo
+	 * posted into a SECRET space was stored as `members`, and PrivacyService::
+	 * can_view() returned true for a signed-in member who was not in the space —
+	 * the space type made no difference, because the media never carried the space
+	 * at all.
+	 *
+	 * `space` on a personal drive resolves to `private` in the engine, so a client
+	 * that does not send a space_id fails CLOSED (the author only) rather than open
+	 * to every signed-in member. That is the right way round for the older clients
+	 * and for the mobile app until they send it.
+	 *
 	 * @param string $post_privacy BuddyNext post privacy.
 	 * @return string Engine media privacy.
 	 */
@@ -632,8 +652,9 @@ class WPMediaVerseBridge {
 				return 'public';
 			case 'followers':
 			case 'connections':
-			case 'space_members':
 				return 'members';
+			case 'space_members':
+				return 'space';
 			case 'private':
 				return 'private';
 		}
@@ -1316,11 +1337,23 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Load a space IF it is a drive-enabled space drive, else null.
+	 * Load the space behind a space drive, else null.
 	 *
-	 * The one gate every space-drive filter runs first: the drive exists only for
-	 * a real space whose owner turned the drive on (mvs_documents_tab, off by
-	 * default). Returns null for user/site drives so those pass through untouched.
+	 * The one gate every space-drive filter runs first. Returns null for user and
+	 * site drives so those pass through untouched.
+	 *
+	 * It used to also require `mvs_documents_tab`, the space's Files-tab switch,
+	 * and that conflated two different things. MediaVerse resolves BOTH documents
+	 * and media through `mvs_document_drive_access` (PrivacyService::
+	 * resolve_drive_for_user calls it), so gating access on the FILES tab meant a
+	 * space with that tab off had no media drive either - and media is a separate
+	 * element from files (owner directive, 2026-08-29). That is why space-scoped
+	 * media privacy was unreachable on almost every space: the drive did not exist
+	 * unless someone had switched on a tab about something else.
+	 *
+	 * The switch still governs what it is named for - whether the Files TAB is
+	 * shown, in SpaceNav, and whether the drive is listed in
+	 * space_drives_for_user(). It no longer decides who may write.
 	 *
 	 * @param string $drive_type Drive type.
 	 * @param int    $drive_id   Drive id (space id).
@@ -1328,9 +1361,6 @@ class WPMediaVerseBridge {
 	 */
 	private static function drive_space( string $drive_type, int $drive_id ): ?array {
 		if ( 'space' !== $drive_type || $drive_id <= 0 ) {
-			return null;
-		}
-		if ( ! (bool) buddynext_get_space_field( $drive_id, 'mvs_documents_tab' ) ) {
 			return null;
 		}
 		$space = buddynext_service( 'spaces' )->get( $drive_id );
@@ -1405,11 +1435,57 @@ class WPMediaVerseBridge {
 			return 'write';
 		}
 		if ( null !== $role ) {
-			// A member reads the shared drive; uploads stay with owner/moderators,
-			// so a plain member hits mvs_drive_read_only when they try to write.
-			return 'read';
+			// Any space member may CONTRIBUTE. MediaVerse built this ladder for
+			// exactly this case - its own docblock says a yes/no "cannot express
+			// 'may contribute but does not own', which is what a Space member is,
+			// and why a Space upload is impossible while ownership is the only
+			// write gate". Answering 'read' here was that impossibility: a member's
+			// photo could never land on the space drive, so space-scoped media
+			// privacy was unreachable and the file fell back to a level readable by
+			// every signed-in member of the site.
+			//
+			// `write` is contribution, not control. Editing or deleting an
+			// individual item is a per-item decision MediaVerse makes separately
+			// (PermissionService::permission_for), so this grants nobody rights over
+			// anyone else's upload.
+			return 'write';
 		}
 		return SpaceVisibility::can_view_content( $space, $user_id ) ? 'read' : 'none';
+	}
+
+	/**
+	 * Answer MVS: which drive does this upload belong on.
+	 *
+	 * Read from an EXPLICIT `space_id` on the write args rather than inferred from
+	 * the surface the composer was opened on (owner decision, 2026-08-29). Inferring
+	 * guesses when a member has several surfaces open, and this decides where a
+	 * member's file is filed - a guess there is a privacy decision made by accident.
+	 *
+	 * Answering wrongly cannot leak: MediaVerse re-checks
+	 * `mvs_document_drive_access` on whatever we return and admits it only at
+	 * `write`/`own` (PrivacyService::resolve_drive_for_user), so a bridge cannot
+	 * file a member's media into a space that member may not contribute to. The
+	 * guard rail was in place before this handler was.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<int,mixed>     $drive   MVS default, array( 'user', 0 ).
+	 * @param int                  $user_id Member doing the write.
+	 * @param array<string, mixed> $args    Write args as passed to UploadService.
+	 * @return array{0:string,1:int}
+	 */
+	public function space_media_drive( $drive, $user_id, $args ): array {
+		unset( $user_id );
+
+		$space_id = (int) ( is_array( $args ) ? ( $args['space_id'] ?? 0 ) : 0 );
+
+		if ( $space_id <= 0 ) {
+			// Not a space upload - hand back MediaVerse's default untouched rather
+			// than substituting our own idea of a personal drive.
+			return is_array( $drive ) ? $drive : array( 'user', 0 );
+		}
+
+		return array( 'space', $space_id );
 	}
 
 	/**
