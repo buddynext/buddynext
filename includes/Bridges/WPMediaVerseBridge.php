@@ -260,6 +260,12 @@ class WPMediaVerseBridge {
 		// Keep an attached media file's engine privacy in step with the privacy of
 		// the post it is attached to — on create AND on edit. See
 		// sync_post_media_privacy() for why the post is the moment that matters.
+		// Typed feed card for a bridge-published media upload. Every other bridge
+		// renders through this seam (event, course, job, listing, badge); media was
+		// the one that never registered, because its type was intercepted by the
+		// photo branch upstream and never reached the seam at all.
+		add_filter( 'buddynext_render_post_body_media', array( $this, 'render_feed_card' ), 10, 2 );
+
 		add_action( 'buddynext_post_created', array( $this, 'on_post_privacy_changed' ), 10, 1 );
 		add_action( 'buddynext_post_updated', array( $this, 'on_post_privacy_changed' ), 10, 1 );
 		add_action( 'buddynext_mvs_media_activity', array( $this, 'publish_media_activity' ), 10, 3 );
@@ -428,7 +434,70 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		IntegrationActivity::publish( $user_id, self::media_activity_verb( (string) $media_type ), $url, '', 'media', '' );
+		// Carry the upload's own title and poster through to the card. Both were
+		// passed as '' before, so the feed card fell back to printing the verb as
+		// its headline — "Media / shared a video" — and never showed a cover even
+		// when the engine had extracted one (Basecamp 10242691205). The renderer
+		// degrades on its own when either is missing, so an untitled upload still
+		// produces a valid compact card.
+		$title = '';
+		$thumb = '';
+		if ( is_object( $repo ) && method_exists( $repo, 'get' ) ) {
+			$title = (string) $repo->get( $media_id, 'title' );
+			// thumb_large first: the poster the engine extracts for video and the
+			// resized still for images. Falls back through the smaller sizes rather
+			// than to the raw file, which for a video is the video itself.
+			foreach ( array( 'thumb_large', 'thumb_medium', 'thumb' ) as $size ) {
+				$candidate = (string) $repo->get( $media_id, $size );
+				if ( '' !== $candidate ) {
+					$thumb = $candidate;
+					break;
+				}
+			}
+		}
+
+		IntegrationActivity::publish(
+			$user_id,
+			self::media_activity_verb( (string) $media_type ),
+			$url,
+			$title,
+			'media',
+			'',
+			0,
+			'' !== $thumb ? array( 'image' => $thumb ) : array()
+		);
+	}
+
+	/**
+	 * Render the feed card for a bridge-published media upload.
+	 *
+	 * Hooked on: buddynext_render_post_body_media( string $html, array $args ).
+	 *
+	 * Delegates to the shared bridge-card renderer every other integration uses,
+	 * so a shared video looks like a shared course or a shared listing rather
+	 * than like a fourth thing. The helper already handles the two states this
+	 * card actually has: a title from link_meta when the upload had one, and a
+	 * cover when the engine produced a thumbnail — falling back to the trimmed
+	 * verb and a coverless compact card when it did not, which is the common
+	 * case for a bridge upload.
+	 *
+	 * Returning '' when there is no link lets post-body.php fall through to the
+	 * plain-text body, so a malformed card degrades instead of disappearing.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string               $html Incoming HTML (unused; this is the first renderer).
+	 * @param array<string, mixed> $args Post-body args.
+	 * @return string
+	 */
+	public function render_feed_card( $html, $args ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		unset( $html );
+
+		return IntegrationActivity::render_bridge_card(
+			is_array( $args ) ? $args : array(),
+			'image',
+			__( 'Media', 'buddynext' )
+		);
 	}
 
 	/**
