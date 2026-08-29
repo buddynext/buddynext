@@ -311,6 +311,16 @@ else
 	note "bin/check-hub-registry.php missing"
 fi
 
+if [ -f bin/check-schema-authority.php ]; then
+	if php bin/check-schema-authority.php >/dev/null 2>&1; then
+		ok "schema authority holds — every column is declared in its CREATE TABLE, not only in an ALTER"
+	else
+		fail "schema drift — run: php bin/check-schema-authority.php"
+	fi
+else
+	note "bin/check-schema-authority.php missing"
+fi
+
 if [ -f bin/check-mediaverse-surfaces.php ]; then
 	if php bin/check-mediaverse-surfaces.php >/dev/null 2>&1; then
 		ok "MediaVerse surface ownership holds — no MV assets on BN pages, placeholder avatars stay last, comment controls follow the engine's flags"
