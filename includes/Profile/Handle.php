@@ -82,6 +82,104 @@ final class Handle {
 	}
 
 	/**
+	 * Shortest handle a member may claim.
+	 *
+	 * Three, which is what the shortest real handles need (`ana`, `bob`) and what
+	 * LinkedIn allows. Twitter is 4 and Facebook 5; WordPress itself enforces no
+	 * minimum at all, which is how a one-character handle gets in. Measured on a
+	 * live install before choosing: zero members were under 3, so the floor costs
+	 * nobody their existing handle.
+	 *
+	 * @since 1.1.6
+	 * @var int
+	 */
+	public const MIN_LENGTH = 3;
+
+	/**
+	 * Longest handle a member may claim.
+	 *
+	 * Thirty — Instagram and Mastodon's limit, and comfortably inside the hard
+	 * ceiling that actually matters: `wp_users.user_nicename` is varchar(50), so
+	 * anything longer is truncated by MySQL rather than refused, which would leave
+	 * the handle and the URL disagreeing. The longest nicename on the install this
+	 * was measured against is 23.
+	 *
+	 * Not set to 50: a handle that long is unreadable in a mention, wraps in the
+	 * directory, and makes a URL nobody can share by voice. The column is the
+	 * ceiling, not the target.
+	 *
+	 * @since 1.1.6
+	 * @var int
+	 */
+	public const MAX_LENGTH = 30;
+
+	/**
+	 * Whether a handle is one a member may claim — safe AND correctly sized.
+	 *
+	 * Charset and length in one answer. is_safe() covers the first — can the
+	 * mention parsers round-trip this — and this adds the bounds, so every writer
+	 * asks one question instead of two and cannot answer them differently.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $handle Handle without a leading `@`.
+	 * @return true|\WP_Error True, or the reason it cannot be used.
+	 */
+	public static function validate( string $handle ): bool|\WP_Error {
+		$length = strlen( $handle );
+
+		/**
+		 * Filter the handle length bounds.
+		 *
+		 * The CHARSET is deliberately not filterable — it is the mention parser's
+		 * contract, and widening it produces handles nobody can @mention. Length
+		 * is a judgement call, so it is the owner's.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param array{0:int,1:int} $bounds [ min, max ].
+		 */
+		list( $min, $max ) = (array) apply_filters(
+			'buddynext_handle_length_bounds',
+			array( self::MIN_LENGTH, self::MAX_LENGTH )
+		);
+
+		if ( $length < (int) $min ) {
+			return new \WP_Error(
+				'handle_too_short',
+				sprintf(
+					/* translators: %d: minimum number of characters. */
+					_n( 'Your handle must be at least %d character.', 'Your handle must be at least %d characters.', (int) $min, 'buddynext' ),
+					(int) $min
+				),
+				array( 'status' => 422 )
+			);
+		}
+
+		if ( $length > (int) $max ) {
+			return new \WP_Error(
+				'handle_too_long',
+				sprintf(
+					/* translators: %d: maximum number of characters. */
+					_n( 'Your handle can be at most %d character.', 'Your handle can be at most %d characters.', (int) $max, 'buddynext' ),
+					(int) $max
+				),
+				array( 'status' => 422 )
+			);
+		}
+
+		if ( ! self::is_safe( $handle ) ) {
+			return new \WP_Error(
+				'handle_unusable_characters',
+				__( 'Handles can use letters, numbers, hyphens and underscores only.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
 	 * Whether a handle can survive a round trip through the mention parsers.
 	 *
 	 * An empty handle is NOT safe: there is nothing to type after the `@`.

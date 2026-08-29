@@ -3320,6 +3320,22 @@ class PageRouter {
 			return false;
 		}
 
+		// Usable at all? Charset and length, before any uniqueness lookup — an
+		// unusable handle is not "taken", it is not a handle. Handle::validate()
+		// owns both rules so the five writers that reach this function cannot
+		// disagree about what a handle is.
+		//
+		// The charset half matters more than it looks: sanitize_title() PERCENT-
+		// ENCODES anything outside Latin, so an emoji became %f0%9f%98%80 and a
+		// non-Latin script became a run of %-escapes. Both were accepted with a
+		// 200, produced a double-encoded profile URL, and were unmentionable —
+		// Handle::mention_regex() stops at `%`, so the member could never be
+		// @mentioned again. HandleRepair already used is_safe() to repair
+		// nicenames in that state; nothing stopped a member creating one here.
+		if ( is_wp_error( \BuddyNext\Profile\Handle::validate( $slug ) ) ) {
+			return false;
+		}
+
 		// Block the reserved "user-{id}" pattern for any other user's ID.
 		if ( preg_match( '/^user-(\d+)$/', $slug, $m ) && (int) $m[1] !== $user_id ) {
 			return false;

@@ -1810,6 +1810,14 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
+		// Unusable and unavailable are different answers, and the member needs to
+		// know which: "already taken" sends them looking for another name, when
+		// the real problem may be that they typed two characters or an emoji.
+		$valid = \BuddyNext\Profile\Handle::validate( $requested_slug );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+
 		if ( ! \BuddyNext\Core\PageRouter::is_slug_available( $requested_slug, $user_id ) ) {
 			return new WP_Error(
 				'slug_taken',
