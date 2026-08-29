@@ -193,6 +193,11 @@ class Plugin {
 			// READ existing content, so an owner runs it deliberately.
 			\WP_CLI::add_command( 'buddynext repair-discussion-visibility', \BuddyNext\Bridges\DiscussionVisibilityRepairCommand::class );
 
+			// Media stored before the post-privacy sync existed keeps serving at
+			// whatever level it was uploaded with until someone re-saves each post by
+			// hand. This walks them once. Dry-run first; it only ever tightens.
+			\WP_CLI::add_command( 'buddynext reconcile-media-privacy', \BuddyNext\Bridges\MediaPrivacyRepairCommand::class );
+
 			// Handles imported from another platform can hold characters mentions
 			// cannot parse (an email in user_nicename), leaving the member silently
 			// unmentionable. `check` reports them; `repair` normalises them to

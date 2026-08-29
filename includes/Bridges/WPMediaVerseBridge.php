@@ -645,8 +645,14 @@ class WPMediaVerseBridge {
 	 *
 	 * @param string $post_privacy BuddyNext post privacy.
 	 * @return string Engine media privacy.
+	 *
+	 * Public because the backfill command (MediaPrivacyRepairCommand) must derive
+	 * exactly the same answer the live sync does. A second copy of this map is how
+	 * a repair ends up disagreeing with the thing it is repairing.
+	 *
+	 * @internal
 	 */
-	private static function media_privacy_for_post( string $post_privacy ): string {
+	public static function media_privacy_for_post( string $post_privacy ): string {
 		switch ( sanitize_key( $post_privacy ) ) {
 			case 'public':
 				return 'public';
