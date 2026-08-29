@@ -11,10 +11,13 @@
  * on a captured call; recording the accepted signature stops it being spent
  * twice inside the window that expiry allows.
  *
- * The old scheme still works, on purpose — see the dual-accept tests at the end.
- * Refusing it on upgrade would break every existing integrator with a 401 they
- * cannot diagnose, which is a worse outcome than the window being open a little
- * longer for callers nobody has migrated yet.
+ * The old body-only scheme is REFUSED by default, including on upgraded sites
+ * (68a89d71). That is an owner-chosen breaking change: a captured grant_ability
+ * call that can be replayed forever is the worse outcome, so a straggler gets a
+ * 401 and an escape hatch rather than an indefinitely open door. The hatch is the
+ * `buddynext_webhook_strict_signatures` option or the
+ * `buddynext_require_signed_timestamp` filter, and the tests at the end pin both
+ * the closed default and the way out of it.
  *
  * @package BuddyNext\Tests\Outbound
  */
@@ -26,7 +29,7 @@ namespace BuddyNext\Tests\Outbound;
 use BuddyNext\Outbound\AccessWebhookController;
 
 /**
- * Timestamp tolerance, replay refusal, and the legacy migration window.
+ * Timestamp tolerance, replay refusal, and the closed legacy default.
  *
  * @covers \BuddyNext\Outbound\AccessWebhookController
  */
@@ -186,25 +189,48 @@ class WebhookReplayProtectionTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The migration window: an integrator on the old scheme still works.
+	 * A body-only signature is refused, on an upgraded site too.
+	 *
+	 * These two tests asserted the opposite until 2026-08-29 - that an unstamped
+	 * request still returned 200 - because 68a89d71 flipped the runtime fallback to
+	 * strict and updated two other files but not this one. Its commit message
+	 * claimed the Outbound suite was green; it had been run filtered. The
+	 * assertions below now pin the policy the code actually implements.
+	 *
+	 * An upgraded site is the case that matters: it has no stored option row, so it
+	 * takes the fallback, and the fallback is what changed.
 	 *
 	 * @return void
 	 */
-	public function test_legacy_unstamped_request_is_still_accepted(): void {
+	public function test_legacy_unstamped_request_is_refused_by_default(): void {
+		delete_option( AccessWebhookController::OPT_STRICT_SIGNATURES );
+
 		$response = rest_do_request( $this->signed_request( $this->grant_body(), null ) );
 
-		$this->assertSame( 200, $response->get_status(), 'Breaking existing integrators on upgrade is not the fix.' );
+		$this->assertSame(
+			401,
+			$response->get_status(),
+			'An unstamped signature cannot be replay-checked, so it is refused even on upgrade.'
+		);
 	}
 
 	/**
-	 * …and is recorded, so an owner can see who has not moved.
+	 * The escape hatch still works, and still records who is using it.
+	 *
+	 * The deprecation row is the reason the hatch is safe to offer: an owner who
+	 * opens it can see which integrators have not moved, rather than leaving it
+	 * open forever because nobody knows who would break.
 	 *
 	 * @return void
 	 */
-	public function test_legacy_request_is_logged_as_deprecated(): void {
+	public function test_the_opt_out_accepts_a_legacy_request_and_logs_it(): void {
 		global $wpdb;
 
-		rest_do_request( $this->signed_request( $this->grant_body(), null ) );
+		update_option( AccessWebhookController::OPT_STRICT_SIGNATURES, '0' );
+
+		$response = rest_do_request( $this->signed_request( $this->grant_body(), null ) );
+
+		$this->assertSame( 200, $response->get_status(), 'The documented opt-out must still let a straggler through.' );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = (array) $wpdb->get_results( "SELECT status FROM {$wpdb->prefix}bn_webhook_log WHERE action = 'signature_scheme_deprecated'", ARRAY_A );

@@ -77,13 +77,19 @@ class SettingsTest extends \WP_UnitTestCase {
 	public function test_register_settings_registers_expected_options(): void {
 		$this->settings->register_settings();
 
+		// Four capability options (dm, polls, shares, bookmarks) are absent by design:
+		// module control turned each into a switch in the Features catalog. See
+		// SettingsDriftGuardTest::RETIRED, which carries the retiring commit for each.
 		$expected = array(
 			'buddynext_site_name',
-			'buddynext_brand_color',
+			// buddynext_brand_color is deliberately absent: 67e83000 moved the Brand
+			// colour field to the Appearance tab, which saves it on its own guarded
+			// admin_post hook rather than through the Settings API.
+			// SettingsDriftGuardTest::SAVED_ELSEWHERE records that and proves the
+			// handler exists, so the move stays visible instead of silently red.
 			'buddynext_reg_mode',
 			'buddynext_email_verify',
 			'buddynext_default_post_privacy',
-			'buddynext_allow_polls',
 			'buddynext_post_edit_window',
 			'buddynext_space_creation_role',
 			'buddynext_auto_hide_threshold',

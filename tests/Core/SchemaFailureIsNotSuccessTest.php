@@ -190,6 +190,22 @@ class SchemaFailureIsNotSuccessTest extends WP_UnitTestCase {
 	 *
 	 * @return void
 	 */
+	/**
+	 * The installer's own schema version.
+	 *
+	 * schema_failure_is_recent() only backs off for a failure recorded against the
+	 * CURRENT schema - a bump is a new question, so it is always re-asked. A test
+	 * that hardcodes the number therefore stops testing the back-off the moment
+	 * anyone bumps it: the recorded failure reads as stale, the method returns
+	 * false, and the assertion fails for a reason that has nothing to do with the
+	 * behaviour. That is exactly what happened here (pinned at 42, now 45).
+	 *
+	 * @return int
+	 */
+	private function schema_version(): int {
+		return (int) ( new \ReflectionClassConstant( Installer::class, 'SCHEMA_VERSION' ) )->getValue();
+	}
+
 	public function test_a_recent_failure_backs_off(): void {
 		$backoff = new \ReflectionMethod( Installer::class, 'schema_failure_is_recent' );
 
@@ -197,7 +213,7 @@ class SchemaFailureIsNotSuccessTest extends WP_UnitTestCase {
 
 		update_option(
 			Installer::SCHEMA_FAILURE_OPTION,
-			array( 'attempted_at' => time(), 'schema' => 42, 'missing' => array( 'bn_spaces' ) ),
+			array( 'attempted_at' => time(), 'schema' => $this->schema_version(), 'missing' => array( 'bn_spaces' ) ),
 			false
 		);
 
@@ -218,7 +234,7 @@ class SchemaFailureIsNotSuccessTest extends WP_UnitTestCase {
 
 		update_option(
 			Installer::SCHEMA_FAILURE_OPTION,
-			array( 'attempted_at' => time() - ( HOUR_IN_SECONDS + 60 ), 'schema' => 42, 'missing' => array( 'bn_spaces' ) ),
+			array( 'attempted_at' => time() - ( HOUR_IN_SECONDS + 60 ), 'schema' => $this->schema_version(), 'missing' => array( 'bn_spaces' ) ),
 			false
 		);
 
@@ -258,7 +274,7 @@ class SchemaFailureIsNotSuccessTest extends WP_UnitTestCase {
 	public function test_a_successful_run_clears_the_recorded_failure(): void {
 		update_option(
 			Installer::SCHEMA_FAILURE_OPTION,
-			array( 'attempted_at' => time(), 'schema' => 42, 'missing' => array( 'bn_spaces' ) ),
+			array( 'attempted_at' => time(), 'schema' => $this->schema_version(), 'missing' => array( 'bn_spaces' ) ),
 			false
 		);
 
