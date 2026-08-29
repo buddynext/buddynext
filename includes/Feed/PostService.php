@@ -832,7 +832,19 @@ class PostService {
 	public function get_many( array $post_ids ): array {
 		global $wpdb;
 
-		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+		// (int) + a positive filter, NOT absint(). absint() returns the ABSOLUTE
+		// value, so a negative id silently becomes a different, real post: -5 read
+		// as post 5 and get_many() handed back a post nobody asked for. It only
+		// showed when post 5 happened to exist, which made it look like a flaky
+		// test rather than the id-coercion bug it is.
+		$post_ids = array_values(
+			array_unique(
+				array_filter(
+					array_map( 'intval', $post_ids ),
+					static fn( int $id ): bool => $id > 0
+				)
+			)
+		);
 		if ( empty( $post_ids ) ) {
 			return array();
 		}

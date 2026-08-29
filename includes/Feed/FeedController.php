@@ -604,7 +604,14 @@ class FeedController extends BaseRestController {
 		if ( ! is_array( $raw ) ) {
 			return array();
 		}
-		return array_values( array_filter( array_map( 'absint', $raw ) ) );
+		// intval + positive, not absint: absint() returns the ABSOLUTE value, so a
+		// request for id -5 would be answered with the real post 5.
+		return array_values(
+			array_filter(
+				array_map( 'intval', $raw ),
+				static fn( int $id ): bool => $id > 0
+			)
+		);
 	}
 
 	/**
@@ -740,9 +747,18 @@ class FeedController extends BaseRestController {
 	 * @return WP_REST_Response Map of post_id => { my_reaction, is_bookmarked, my_voted_option_id }.
 	 */
 	public function viewer_state( WP_REST_Request $request ): WP_REST_Response {
-		$viewer   = get_current_user_id();
-		$raw      = (string) $request->get_param( 'post_ids' );
-		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', explode( ',', $raw ) ) ) ) );
+		$viewer = get_current_user_id();
+		$raw    = (string) $request->get_param( 'post_ids' );
+		// See the note on the id normaliser above: absint() would answer a request
+		// for -5 with post 5.
+		$post_ids = array_values(
+			array_unique(
+				array_filter(
+					array_map( 'intval', explode( ',', $raw ) ),
+					static fn( int $id ): bool => $id > 0
+				)
+			)
+		);
 
 		// Bound the batch — but say so. This used to slice in silence, which is the
 		// worst shape for the caller: a client that sent 150 ids got 100 answers and

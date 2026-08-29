@@ -308,8 +308,15 @@ class Installer {
 	 *      owner controls which fields the header shows. maybe_alter_tables ADD-COLUMNs it on
 	 *      upgrade; converge_seeded_field_flags seeds it on the existing location + website
 	 *      rows (by field_key) so an upgraded site's header is unchanged.
+	 * v46: unwrap location-shaped values stranded on text-like fields. No schema change - a
+	 *      data repair. ProfileService::update_field() over REST used to change a field's
+	 *      type WITHOUT calling convert_field_values(), so a location field downgraded back
+	 *      to text kept its {address,lat,lng} JSON. The REST path now converts, which stops
+	 *      new cases and heals none of the existing ones: every member on an affected site
+	 *      still reads a raw JSON blob under their name on the hero, the About panel, and
+	 *      the directory card. See maybe_repair_stranded_location_values().
 	 */
-	private const SCHEMA_VERSION = 45;
+	private const SCHEMA_VERSION = 46;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -736,6 +743,10 @@ class Installer {
 		// (social/toggle/daterange) to their registered equivalents so existing
 		// installs stop depending on the silent resolve_type() text fallback.
 		self::maybe_migrate_wizard_preset_types();
+
+		// v46: unwrap {address,lat,lng} values left on text-like fields by a REST
+		// type change that predated convert_field_values() being wired there.
+		self::maybe_repair_stranded_location_values();
 
 		// v17: purge the orphaned onboarding-interests user meta — the canonical
 		// interests store is the 'interests' profile field. The paired
@@ -1360,6 +1371,58 @@ class Installer {
 		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'boolean' WHERE type = 'toggle'" );
 		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'text' WHERE type = 'daterange'" );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+	}
+
+	/**
+	 * Unwrap location-shaped values stranded on text-like fields (schema v46).
+	 *
+	 * A location field stores {address,lat,lng} JSON; a text field has no reader
+	 * for that shape, so FieldType::display_text() hands the raw payload straight
+	 * to the profile hero, the About panel and the directory card. Members see
+	 * `{"lat": null, "lng": null, "address": "Kyoto, JP"}` printed under their own
+	 * name.
+	 *
+	 * ProfileService::convert_field_values() has always handled this in BOTH
+	 * directions, and the admin editor has always called it. The REST path did
+	 * not: a type change over REST rewrote the definition and left every value
+	 * encoded for the old type. That is fixed, which stops NEW cases and heals no
+	 * existing one - the stranded rows sit there rendering JSON until something
+	 * rewrites them, and nothing does. Found on the dev site with 11 of 13 members
+	 * affected on the seeded `location` field.
+	 *
+	 * Deliberately keyed on the VALUE SHAPE rather than on field_key. The field
+	 * this was found on is the seeded `location`, but any text-like field that was
+	 * ever a location carries the same payload, and an owner may have renamed or
+	 * added their own. Matching the shape repairs all of them; matching the key
+	 * would repair one and leave the rest printing JSON.
+	 *
+	 * Narrow on purpose: only text-like fields (a `location` field is meant to
+	 * hold this and is left alone), only well-formed JSON objects that actually
+	 * carry an `address`. A text value that merely starts with `{` is not touched.
+	 * Lossy only in the sense the downgrade already was - coordinates a text field
+	 * cannot express are dropped, exactly as convert_field_values does.
+	 *
+	 * One bulk UPDATE, so a field with 100k values repairs without a per-row loop.
+	 * Idempotent: a repaired value no longer starts with '{' and is skipped.
+	 *
+	 * @return void
+	 */
+	private static function maybe_repair_stranded_location_values(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_profile_values v
+				JOIN {$wpdb->prefix}bn_profile_fields f ON f.id = v.field_id
+				SET v.value = COALESCE( JSON_UNQUOTE( JSON_EXTRACT( v.value, '$.address' ) ), '' )
+			  WHERE f.type IN ( 'text', 'textarea', 'url' )
+				AND v.value <> ''
+				AND LEFT( v.value, 1 ) = '{'
+				AND JSON_VALID( v.value )
+				AND JSON_EXTRACT( v.value, '$.address' ) IS NOT NULL"
+		);
 
 		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
 	}
