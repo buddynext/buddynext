@@ -169,11 +169,6 @@ class SetupWizard {
 				'render' => 'render_step_profile_fields',
 				'save'   => null,
 			),
-			'notifications'  => array(
-				'label'  => __( 'Notifications', 'buddynext' ),
-				'render' => 'render_step_notifications',
-				'save'   => 'save_step_notifications',
-			),
 			'spaces'         => array(
 				'label'  => __( 'Spaces', 'buddynext' ),
 				'render' => 'render_step_spaces',
@@ -270,7 +265,37 @@ class SetupWizard {
 
 		$stored = (string) get_option( self::OPTION_STEP, '' );
 		if ( '' === $stored ) {
-			return $keys[0];
+			$stored = $keys[0];
+		}
+
+		/*
+		 * A visited step may be re-opened from the tracker.
+		 *
+		 * The tracker has always LOOKED like navigation - numbered, ticked, sitting
+		 * along the top - while being inert markup, and once the wizard was finished
+		 * there was no way back into it at all. An owner asking "what did I set for
+		 * Registration?" had to leave and hunt through Settings.
+		 *
+		 * Backward only, and only to somewhere they have actually been: a jump
+		 * forward would skip steps whose saves have not run. Once setup is complete
+		 * every step counts as visited, which is what makes the wizard re-openable
+		 * for review rather than a one-shot.
+		 */
+		$requested = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( (string) $_GET['step'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only navigation between steps the owner has already completed; nothing is written here.
+		if ( '' !== $requested ) {
+			$requested_key = ctype_digit( $requested )
+				? ( $keys[ max( 1, (int) $requested ) - 1 ] ?? '' )
+				: $requested;
+
+			if ( '' !== $requested_key && in_array( $requested_key, $keys, true ) ) {
+				$furthest = $this->is_complete()
+					? count( $keys ) - 1
+					: (int) ( array_search( ctype_digit( $stored ) ? ( $keys[ max( 1, (int) $stored ) - 1 ] ?? $keys[0] ) : $stored, $keys, true ) ?: 0 );
+
+				if ( (int) array_search( $requested_key, $keys, true ) <= $furthest ) {
+					return $requested_key;
+				}
+			}
 		}
 
 		if ( ctype_digit( $stored ) ) {
@@ -489,24 +514,6 @@ class SetupWizard {
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 	}
 
-	/**
-	 * Save step: Notifications (default per-type preferences).
-	 *
-	 * @return void
-	 */
-	private function save_step_notifications(): void {
-		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
-		$this->save_default_notification_prefs(
-			array(
-				'follow'     => isset( $_POST['notif_follow'] ),
-				'reaction'   => isset( $_POST['notif_reaction'] ),
-				'comment'    => isset( $_POST['notif_comment'] ),
-				'mention'    => isset( $_POST['notif_mention'] ),
-				'connection' => isset( $_POST['notif_connection'] ),
-			)
-		);
-		// phpcs:enable WordPress.Security.NonceVerification.Missing
-	}
 
 	/**
 	 * Save step: Spaces (starter categories).
@@ -610,14 +617,45 @@ class SetupWizard {
 
 				<ol class="bn-wizard__steps" aria-label="<?php esc_attr_e( 'Setup steps', 'buddynext' ); ?>">
 					<?php
-					$position = 0;
+					$bn_wiz_complete = $this->is_complete();
+					$position        = 0;
 					foreach ( $steps as $step_key => $step_def ) :
 						++$position;
-						$state        = ( $position === $step ) ? 'active' : ( ( $position < $step ) ? 'done' : 'upcoming' );
+
+						/*
+						 * Once setup is complete there is no "upcoming" left - every step has
+						 * been through. Showing one as upcoming while it is also clickable
+						 * said two different things about the same item, which is the exact
+						 * dishonesty this tracker was already guilty of when it looked like
+						 * navigation and was not.
+						 */
+						if ( $position === $step ) {
+							$state = 'active';
+						} elseif ( $position < $step || $bn_wiz_complete ) {
+							$state = 'done';
+						} else {
+							$state = 'upcoming';
+						}
 						$label        = (string) ( $step_def['label'] ?? $step_key );
 						$current_aria = ( 'active' === $state ) ? ' aria-current="step"' : '';
 						?>
+						<?php
+						// A step already visited is a link back to it; anything ahead stays
+						// inert. The tracker looked clickable long before it was, which is
+						// the affordance this closes.
+						$bn_wiz_visitable = ( 'done' === $state ) || ( $bn_wiz_complete && 'active' !== $state );
+						$bn_wiz_step_url  = add_query_arg(
+							array(
+								'page' => 'buddynext-setup',
+								'step' => $step_key,
+							),
+							admin_url( 'admin.php' )
+						);
+						?>
 						<li class="bn-wizard__step" data-state="<?php echo esc_attr( $state ); ?>"<?php echo $current_aria; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- value is a fixed literal. ?>>
+							<?php if ( $bn_wiz_visitable ) : ?>
+								<a class="bn-wizard__step-link" href="<?php echo esc_url( $bn_wiz_step_url ); ?>">
+							<?php endif; ?>
 							<span class="bn-wizard__step-marker" aria-hidden="true">
 								<?php if ( 'done' === $state ) : ?>
 									<?php echo \BuddyNext\Core\IconService::render( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?>
@@ -626,6 +664,9 @@ class SetupWizard {
 								<?php endif; ?>
 							</span>
 							<span class="bn-wizard__step-name"><?php echo esc_html( $label ); ?></span>
+							<?php if ( $bn_wiz_visitable ) : ?>
+								</a>
+							<?php endif; ?>
 						</li>
 					<?php endforeach; ?>
 				</ol>
@@ -1019,68 +1060,6 @@ class SetupWizard {
 		// cannot drift. See docs/plans/interests-personalization.md.
 	}
 
-	/**
-	 * Step 4: Default notification preferences.
-	 *
-	 * @return void
-	 */
-	private function render_step_notifications(): void {
-		$defaults = (array) get_option( 'buddynext_default_notif_prefs', array() );
-		$notifs   = array(
-			'follow'     => array(
-				'title' => __( 'New follower', 'buddynext' ),
-				'desc'  => __( 'When someone starts following a member.', 'buddynext' ),
-			),
-			'reaction'   => array(
-				'title' => __( 'Reactions on posts', 'buddynext' ),
-				'desc'  => __( 'When someone reacts to a member’s post.', 'buddynext' ),
-			),
-			'comment'    => array(
-				'title' => __( 'Comments on posts', 'buddynext' ),
-				'desc'  => __( 'When someone replies to a member’s post.', 'buddynext' ),
-			),
-			'mention'    => array(
-				'title' => __( 'Mentions', 'buddynext' ),
-				'desc'  => __( 'When a member is @-mentioned anywhere.', 'buddynext' ),
-			),
-			'connection' => array(
-				'title' => __( 'Connection requests', 'buddynext' ),
-				'desc'  => __( 'When someone asks to connect.', 'buddynext' ),
-			),
-		);
-
-		$this->render_step_head(
-			__( 'Which notifications should be on by default?', 'buddynext' ),
-			__( 'These are the starting preferences for every new member. Each member can override their own.', 'buddynext' ),
-			__( 'Editable later in the Notifications section.', 'buddynext' )
-		);
-		?>
-
-		<ul class="bn-wizard__switches" role="list">
-			<?php
-			foreach ( $notifs as $key => $notif ) :
-				$notif_id = 'bn-wiz-notif-' . sanitize_html_class( $key );
-				?>
-				<li>
-					<label class="bn-wizard__switch" for="<?php echo esc_attr( $notif_id ); ?>">
-						<span class="bn-wizard__switch-text">
-							<span class="bn-wizard__switch-title"><?php echo esc_html( $notif['title'] ); ?></span>
-							<span class="bn-wizard__switch-desc"><?php echo esc_html( $notif['desc'] ); ?></span>
-						</span>
-						<input
-							type="checkbox"
-							id="<?php echo esc_attr( $notif_id ); ?>"
-							name="notif_<?php echo esc_attr( $key ); ?>"
-							class="bn-wizard__switch-input"
-							<?php checked( $defaults[ $key ] ?? true ); ?>
-						>
-						<span class="bn-wizard__switch-track" aria-hidden="true"></span>
-					</label>
-				</li>
-			<?php endforeach; ?>
-		</ul>
-		<?php
-	}
 
 	/**
 	 * Step 4: Create first space categories.
@@ -1402,19 +1381,6 @@ class SetupWizard {
 
 	// ── Private helpers ───────────────────────────────────────────────────────
 
-	/**
-	 * Save default notification preferences from the wizard.
-	 *
-	 * @param array<string, bool> $prefs Map of notification type → enabled.
-	 * @return void
-	 */
-	private function save_default_notification_prefs( array $prefs ): void {
-		$clean = array();
-		foreach ( $prefs as $key => $value ) {
-			$clean[ sanitize_key( $key ) ] = (bool) $value;
-		}
-		update_option( 'buddynext_default_notif_prefs', $clean );
-	}
 
 	/**
 	 * Create space categories from a comma-separated string.
