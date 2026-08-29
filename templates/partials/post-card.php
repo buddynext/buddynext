@@ -209,14 +209,15 @@ $is_admin = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_option
 // window closes keeps the UI honest instead of showing Edit and failing with a
 // 403 on click. 0 = unlimited; admins are exempt (mirrors the server check).
 //
-// A post that has not published yet (status = scheduled) is exempt from the
-// window, exactly as PostService::update is: the window guards against rewriting
-// history members have already read, and nobody has read a scheduled post. Without
-// the exemption a post scheduled for next week loses its Edit control an hour
-// after it was drafted and can only be deleted.
-$bn_is_scheduled    = 'scheduled' === (string) ( $bn_post['status'] ?? '' );
+// A post nobody has been allowed to read yet is exempt from the window, exactly as
+// PostService::update is: the window guards against rewriting history members have
+// already read. Both halves ask PostService::is_pre_publication() rather than each
+// restating the list - restating it is why they disagreed, the server testing only
+// 'scheduled' behind a variable named $is_pending and this template mirroring the
+// same mistake, so a post held for moderation lost its Edit control while it waited.
+$bn_is_unpublished  = \BuddyNext\Feed\PostService::is_pre_publication( (string) ( $bn_post['status'] ?? 'published' ) );
 $within_edit_window = true;
-if ( ! $is_admin && ! $bn_is_scheduled ) {
+if ( ! $is_admin && ! $bn_is_unpublished ) {
 	$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
 	if ( $edit_window > 0 && '' !== (string) $created_at ) {
 		$created_ts         = (int) strtotime( (string) $created_at . ' UTC' );
@@ -280,11 +281,10 @@ $can_bookmark = ( $current_user_id > 0 && buddynext_feature_enabled( 'bookmarks'
 // on a held post, may be rejected with the comment still attached to it.
 //
 // Same principle the Edit control already follows a few lines up: show the
-// affordance only where the action is real. Note this is the UI half only - the
-// reaction and comment services do NOT check post status, so the write paths
-// still accept these on an unpublished post. That gap is server-side and wider
-// than one template (Basecamp 10239861865, reported separately).
-$bn_is_unpublished = in_array( (string) ( $bn_post['status'] ?? 'published' ), array( 'scheduled', 'pending' ), true );
+// affordance only where the action is real. The server half is closed too as of
+// 255661bd: visibility_error() gates on publication state and every engagement
+// write endpoint calls it, so hiding these controls now agrees with what the REST
+// routes actually do rather than being cosmetic.
 if ( $bn_is_unpublished ) {
 	$can_react    = false;
 	$can_comment  = false;
@@ -591,8 +591,12 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	// Scheduled posts (the owner's "Scheduled" profile tab) show WHEN they will
 	// publish — the byline timestamp is the creation time, not the useful figure
 	// here. scheduled_at is stored in UTC; wp_date() renders it in the site's zone.
+	// Narrower than $bn_is_unpublished on purpose: a PENDING post is unpublished
+	// too, but it has no publish time to show - it publishes when a moderator says
+	// so, not on a clock.
+	$bn_pc_is_scheduled = 'scheduled' === (string) ( $bn_post['status'] ?? '' );
 	$bn_pc_scheduled_at = (string) ( $bn_post['scheduled_at'] ?? '' );
-	if ( $bn_is_scheduled && '' !== $bn_pc_scheduled_at ) {
+	if ( $bn_pc_is_scheduled && '' !== $bn_pc_scheduled_at ) {
 		$bn_pc_sched_ts = strtotime( $bn_pc_scheduled_at . ' UTC' );
 		if ( $bn_pc_sched_ts ) {
 			$bn_pc_sched_fmt = wp_date(

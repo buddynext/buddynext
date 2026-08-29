@@ -53,28 +53,38 @@ class PostService {
 	 * `published` is readable — everything else is the author's business (draft,
 	 * scheduled), a moderator's (pending, under_review), or nobody's (deleted).
 	 *
-	 * @var array<string,array{label_key:string,tone:string,admin_filter:bool,readable:bool}>
+	 * `pre_publication` says whether a post in this state has never been visible to
+	 * anyone. It is a DIFFERENT question from `readable` and the two deliberately
+	 * disagree on one value: an `under_review` post is not readable (it is hidden)
+	 * but it was published first, so members HAVE read it. That distinction is the
+	 * whole basis of the edit-window exemption, and collapsing the two flags into
+	 * one would quietly let an author rewrite a reported post after the fact.
+	 *
+	 * @var array<string,array{label_key:string,tone:string,admin_filter:bool,readable:bool,pre_publication:bool}>
 	 */
 	public const STATUSES = array(
 		'published'    => array(
-			'label_key'    => 'Published',
-			'tone'         => 'success',
-			'admin_filter' => true,
-			'readable'     => true,
+			'label_key'       => 'Published',
+			'tone'            => 'success',
+			'admin_filter'    => true,
+			'readable'        => true,
+			'pre_publication' => false,
 		),
 		'scheduled'    => array(
-			'label_key'    => 'Scheduled',
-			'tone'         => 'info',
-			'admin_filter' => true,
-			'readable'     => false,
+			'label_key'       => 'Scheduled',
+			'tone'            => 'info',
+			'admin_filter'    => true,
+			'readable'        => false,
+			'pre_publication' => true,
 		),
 		// Held by pre-moderation: a NEW post awaiting approval. Distinct from
 		// under_review — see below.
 		'pending'      => array(
-			'label_key'    => 'Pending',
-			'tone'         => 'warning',
-			'admin_filter' => true,
-			'readable'     => false,
+			'label_key'       => 'Pending',
+			'tone'            => 'warning',
+			'admin_filter'    => true,
+			'readable'        => false,
+			'pre_publication' => true,
 		),
 		// Auto-hidden after hitting the report threshold. A separate state from
 		// 'pending' because the two mean different things and are resolved by
@@ -84,22 +94,25 @@ class PostService {
 		// tabs, where approving it republished reported content with its reports
 		// still open, and rejecting it deleted the post and orphaned them.
 		'under_review' => array(
-			'label_key'    => 'Under review',
-			'tone'         => 'warning',
-			'admin_filter' => true,
-			'readable'     => false,
+			'label_key'       => 'Under review',
+			'tone'            => 'warning',
+			'admin_filter'    => true,
+			'readable'        => false,
+			'pre_publication' => false,
 		),
 		'draft'        => array(
-			'label_key'    => 'Draft',
-			'tone'         => 'neutral',
-			'admin_filter' => true,
-			'readable'     => false,
+			'label_key'       => 'Draft',
+			'tone'            => 'neutral',
+			'admin_filter'    => true,
+			'readable'        => false,
+			'pre_publication' => true,
 		),
 		'deleted'      => array(
-			'label_key'    => 'Deleted',
-			'tone'         => 'danger',
-			'admin_filter' => true,
-			'readable'     => false,
+			'label_key'       => 'Deleted',
+			'tone'            => 'danger',
+			'admin_filter'    => true,
+			'readable'        => false,
+			'pre_publication' => false,
 		),
 	);
 
@@ -1220,6 +1233,28 @@ class PostService {
 	}
 
 	/**
+	 * Whether a post in this state has never been visible to another member.
+	 *
+	 * The edit window exists so nobody rewrites history other members have already
+	 * read. A post nobody has been allowed to read yet is therefore exempt from it.
+	 *
+	 * This is a method rather than a literal in two places because it WAS a literal
+	 * in two places, and they drifted: the server tested only 'scheduled' behind a
+	 * variable named $is_pending, and the post-card template mirrored the same
+	 * mistake with $bn_is_scheduled. A member whose post was held for moderation
+	 * lost the ability to edit it while it sat in the queue - and once the window
+	 * closed, deleting it was the only way out.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $status Post status.
+	 * @return bool
+	 */
+	public static function is_pre_publication( string $status ): bool {
+		return ! empty( self::STATUSES[ $status ]['pre_publication'] );
+	}
+
+	/**
 	 * Resolve the visibility WP_Error a viewer should receive for a single post.
 	 *
 	 * Single source of truth for the per-post privacy gate that PostController::get_post()
@@ -1530,19 +1565,19 @@ class PostService {
 		// a post is older than the window a non-admin can no longer edit it.
 		// 0 = unlimited.
 		//
-		// A post that has not published yet (status = scheduled) is exempt: the
-		// window exists so nobody rewrites history other members have already
-		// read, and nobody has read a scheduled post. Without the exemption a post
-		// scheduled for next week becomes uneditable an hour after it was drafted,
-		// leaving delete as the author's only way out.
+		// A post nobody has been allowed to read yet is exempt - see
+		// is_pre_publication(). That covers a scheduled post and a post held for
+		// pre-moderation alike: the window guards against rewriting history members
+		// have already read, and neither has been read. An `under_review` post is
+		// NOT exempt, because it was published before it was hidden.
 		$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
 		if ( $edit_window > 0 && ! user_can( $user_id, 'manage_options' ) ) {
 			global $wpdb;
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$row        = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
-			$created_at = $row['created_at'] ?? '';
-			$is_pending = 'scheduled' === (string) ( $row['status'] ?? '' );
-			if ( ! $is_pending && $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
+			$row            = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+			$created_at     = $row['created_at'] ?? '';
+			$is_unpublished = self::is_pre_publication( (string) ( $row['status'] ?? '' ) );
+			if ( ! $is_unpublished && $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
 				return new WP_Error(
 					'edit_window_closed',
 					__( 'The time window for editing this post has passed.', 'buddynext' ),
