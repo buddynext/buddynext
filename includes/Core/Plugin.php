@@ -208,6 +208,16 @@ class Plugin {
 			if ( is_readable( $bn_qa_fixtures ) ) {
 				require_once $bn_qa_fixtures;
 				\WP_CLI::add_command( 'buddynext qa-fixtures', new \BuddyNext\Dev\QaFixturesCommand() );
+
+				// qa-reset removes what the e2e harnesses left behind. Unlike
+				// qa-fixtures cleanup it has no manifest to work from - the specs
+				// create data the way a member does - so it matches anchored content
+				// prefixes and is dry-run unless told otherwise. Same dev/ guard.
+				$bn_qa_reset = BUDDYNEXT_DIR . 'dev/QaResetCommand.php';
+				if ( is_readable( $bn_qa_reset ) ) {
+					require_once $bn_qa_reset;
+					\WP_CLI::add_command( 'buddynext qa-reset', new \BuddyNext\Dev\QaResetCommand() );
+				}
 			}
 		}
 
