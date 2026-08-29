@@ -229,6 +229,7 @@ $can_edit = ( $is_own_post && $within_edit_window ) || $is_admin;
 // buddynext_can() already grants that to WP admins (manage_options bypass) AND
 // community moderators, so the affordance now shows for mods, not just admins.
 $can_delete = $is_own_post || ( $current_user_id > 0 && buddynext_can( $current_user_id, 'buddynext-feed/delete-any-post' ) );
+
 /*
  * Pin is CONTEXTUAL, and the card already knew that two lines below: the pin
  * BADGE renders only in the profile and space feeds, because that is where
