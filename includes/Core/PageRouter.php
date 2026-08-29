@@ -3267,10 +3267,29 @@ class PageRouter {
 	/**
 	 * Check whether a profile slug is available for a given user to claim.
 	 *
+	 * THE RULE: this must refuse everything resolve_user() can resolve. The two
+	 * are a matched pair — one decides who owns a URL, the other decides who may
+	 * take one — and when they disagree the gap is claimable.
+	 *
+	 * They did disagree. resolve_user() has always resolved by bn_profile_slug,
+	 * then user-{id}, then user_nicename. This checked only the FIRST of the
+	 * three, so every member without a custom slug — who routes by nicename, the
+	 * default for a whole site — read as "available" and another member could
+	 * take their profile URL. Verified before the fix: is_slug_available(
+	 * 'sim_member', $other ) returned true and PUT /me/profile-slug returned 200
+	 * with the victim's own URL (Basecamp 10251987462).
+	 *
+	 * Every writer funnels through here — the REST set and check routes, the
+	 * admin member editor, ProfileService::save and onboarding — so the union is
+	 * enforced once rather than five times.
+	 *
 	 * A slug is unavailable when:
 	 *   - Another user already holds it as bn_profile_slug usermeta.
-	 *   - It matches the reserved "user-{numeric_id}" pattern for any user
-	 *     other than the requesting user.
+	 *   - Another user holds it as their user_nicename.
+	 *   - It matches the reserved "user-{numeric_id}" pattern for another user.
+	 *   - It is a reserved word (see buddynext_reserved_profile_slugs).
+	 *
+	 * @since 1.0.0
 	 *
 	 * @param string $slug    Proposed slug (sanitized with sanitize_title internally).
 	 * @param int    $user_id User requesting the slug (excluded from conflict checks).
@@ -3284,6 +3303,18 @@ class PageRouter {
 
 		// Block the reserved "user-{id}" pattern for any other user's ID.
 		if ( preg_match( '/^user-(\d+)$/', $slug, $m ) && (int) $m[1] !== $user_id ) {
+			return false;
+		}
+
+		if ( in_array( $slug, self::reserved_profile_slugs(), true ) ) {
+			return false;
+		}
+
+		// user_nicename. Checked EVEN IF that member also has a custom slug: the
+		// nicename stays a live fallback in resolve_user(), so their old URL still
+		// reaches them and handing it to someone else would silently redirect it.
+		$nicename_owner = get_user_by( 'slug', $slug );
+		if ( $nicename_owner instanceof \WP_User && (int) $nicename_owner->ID !== $user_id ) {
 			return false;
 		}
 
@@ -3301,6 +3332,48 @@ class PageRouter {
 		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 
 		return empty( $taken_by_meta );
+	}
+
+	/**
+	 * Profile slugs no member may claim.
+	 *
+	 * Deliberately SHORT, and honest about what it is: defence in depth, not a
+	 * fix for a live collision. Measured on 1.1.6 — a member holding the slug
+	 * `edit` gets /members/edit/ and it resolves to them, while
+	 * /members/someone/edit/ still reaches the edit screen. The members rewrite
+	 * takes the first segment as a slug and the second as the action, so a
+	 * one-word slug cannot shadow a two-segment route today.
+	 *
+	 * What it guards is tomorrow: the moment anyone adds a LISTING route under
+	 * the members base — /members/search/, /members/online/ — a member already
+	 * holding that word shadows it, and by then the slug is in their profile URL
+	 * and in links other people have shared. Refusing a handful of routing words
+	 * now costs nothing; reclaiming one later costs a member their URL.
+	 *
+	 * `me` is here for a second reason: BuddyNext already routes /me/... at the
+	 * top level, and a member whose profile is /members/me/ makes every "me"
+	 * link in support ambiguous to read.
+	 *
+	 * Owners extend it — a brand term, a landing page they intend to add — and
+	 * an owner who wants none of it can return an empty array.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return string[] Sanitized, lowercase slugs.
+	 */
+	public static function reserved_profile_slugs(): array {
+		$reserved = array( 'me', 'edit', 'settings', 'admin', 'search', 'new', 'all' );
+
+		/**
+		 * Filter the profile slugs no member may claim.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param string[] $reserved Default reserved slugs.
+		 */
+		$reserved = (array) apply_filters( 'buddynext_reserved_profile_slugs', $reserved );
+
+		return array_values( array_filter( array_map( 'sanitize_title', $reserved ) ) );
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────
