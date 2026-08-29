@@ -249,9 +249,31 @@ final class SpaceNav {
 				// Per-viewer drive access (read/none, 403 vs 404) is settled by the
 				// drive filters when the panel asks MVS, so the tab shows for any
 				// space member and the panel renders the right state.
+				//
+				// Signed-in only, and that is MediaVerse's boundary rather than a
+				// policy of ours: `/mvs-pro/v1/documents` answers 401
+				// `mvs_unauthorized` to a logged-out request whatever the drive
+				// ladder granted — so on a PUBLIC space, where our own ladder gives
+				// a visitor `read`, the tab could only ever render "No files to
+				// show". A tab that structurally cannot hold content is worse than
+				// no tab. Filter it back on for a site whose MediaVerse serves
+				// anonymous reads.
 				'condition' => static fn( NavContext $c ): bool => \BuddyNext\Bridges\WPMediaVerseBridge::documents_available()
 					&& buddynext_integration_enabled( 'media', 'nav' )
-					&& (bool) buddynext_get_space_field( (int) $c->subject_id, 'mvs_documents_tab' ),
+					&& (bool) buddynext_get_space_field( (int) $c->subject_id, 'mvs_documents_tab' )
+					/**
+					 * Whether the space Files tab shows to a logged-out visitor.
+					 *
+					 * Default false: MediaVerse refuses anonymous document reads, so
+					 * the tab would render empty on a public space. Return true if
+					 * your MediaVerse serves them.
+					 *
+					 * @since 1.1.6
+					 *
+					 * @param bool $show     Whether to show the tab when logged out.
+					 * @param int  $space_id The space.
+					 */
+					&& ( is_user_logged_in() || (bool) apply_filters( 'buddynext_space_files_tab_for_guests', false, (int) $c->subject_id ) ),
 				'render'    => function ( NavContext $c ): void {
 					$this->render_files_panel( $c->subject_id );
 				},

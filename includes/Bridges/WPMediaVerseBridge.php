@@ -1799,16 +1799,25 @@ class WPMediaVerseBridge {
 		// activity composer — so this decides whether the empty state TELLS them
 		// how to add a file, not whether an upload control renders.
 		//
-		// The drive-access ladder answers for TEAM drives only: both MediaVerse
-		// call sites (PrivacyService::resolve_drive_for_user, ::check_space)
-		// return before consulting it when the type is `user`, because a personal
-		// drive is settled by plain ownership and no bridge is asked. Asking it
-		// here for a `user` drive therefore always came back `none` — so the
-		// profile Files tab published can_write = false to its own owner. Settle
-		// the personal drive the way MediaVerse does, and only ask the ladder
-		// about the drives it actually speaks for.
+		// ASK MEDIAVERSE FOR THE LEVEL — do not re-derive it. `mvs_document_drive_access`
+		// is the LAST rung of MediaVerse's ladder, not the ladder:
+		// PermissionService::drive_access() resolves (1) the site-wide drive-admin
+		// capability -> `own`, (2) your own personal drive -> `own`, and only then
+		// (3) the filter, whose answer it also validates against the frozen level
+		// set and memoises. Calling the filter directly skipped 1 and 2, so a
+		// drive admin AND a member looking at their own drive both resolved to
+		// `none` — the profile Files tab published can_write = false to the
+		// drive's own owner. Re-deriving a permission the owner already computes
+		// is how the two diverge; ask, and every rung it grows later applies here
+		// for free.
+		//
+		// Documents are a Pro surface, so the ladder is only there when Pro is.
+		// The fallback covers the rung that is ours to know without it: a personal
+		// drive belongs to its owner.
 		$viewer = get_current_user_id();
-		if ( 'user' === $drive_type ) {
+		if ( class_exists( '\\WPMediaVersePro\\Documents\\PermissionService' ) ) {
+			$access = ( new \WPMediaVersePro\Documents\PermissionService() )->drive_access( $drive_type, $drive_id, $viewer );
+		} elseif ( 'user' === $drive_type ) {
 			$access = ( $viewer > 0 && $viewer === $drive_id ) ? 'own' : 'none';
 		} else {
 			$access = apply_filters( 'mvs_document_drive_access', 'none', $drive_type, $drive_id, $viewer );
