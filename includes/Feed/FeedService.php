@@ -1461,10 +1461,27 @@ class FeedService {
 		// $cursor_where is either '' or the single hardcoded SQL constant — safe.
 		// $excluded_where contains only table/column names — no user data, safe.
 		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
+		//
+		// status = 'published' is not decoration. Every other feed query in this
+		// class has always carried it; the profile feed was the one that did not,
+		// so it returned whatever status a row happened to hold. Measured on a
+		// dev site: a post held by pre-moderation and a post the author had
+		// DELETED were both returned to another member viewing the profile.
+		//
+		// That made pre-moderation ornamental on this surface — the hold kept a
+		// post out of the home and space feeds and left it fully readable on the
+		// author's profile — and it meant "delete" did not remove a post from the
+		// place people are most likely to look for it.
+		//
+		// Scheduled posts were already covered, by the scheduled_at clause below
+		// rather than by status, which is why the omission never showed up there.
+		// (Basecamp 10239861865 — found while building the Pending tab, which is
+		// where a held post is supposed to be visible, and only to its author.)
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE user_id = %d
+			   AND status = 'published'
 			   AND NOT ( is_pinned = 1 AND space_id IS NULL )
 			   {$privacy_clause}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
