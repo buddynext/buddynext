@@ -86,10 +86,18 @@ class FallbackNavExclusionTest extends \WP_UnitTestCase {
 	/**
 	 * A signed-in member is not offered a Login link.
 	 *
+	 * The option is `buddynext_page_auth`. This test asked for
+	 * `buddynext_page_login` and so did the code under test, so the two agreed on
+	 * a name no install has ever set: the test created a page under the wrong
+	 * option, the renderer read the same wrong option, got nothing, excluded
+	 * nothing — and the assertion passed on an empty match. A test written from
+	 * the implementation instead of from the hub registry cannot catch the
+	 * implementation being wrong.
+	 *
 	 * @return void
 	 */
 	public function test_a_signed_in_member_is_not_offered_login(): void {
-		$login = $this->page_for( 'buddynext_page_login', 'Login' );
+		$login = $this->page_for( 'buddynext_page_auth', 'Login' );
 
 		wp_set_current_user( self::factory()->user->create() );
 
@@ -102,7 +110,7 @@ class FallbackNavExclusionTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_a_logged_out_visitor_is_still_offered_login(): void {
-		$login = $this->page_for( 'buddynext_page_login', 'Login' );
+		$login = $this->page_for( 'buddynext_page_auth', 'Login' );
 
 		wp_set_current_user( 0 );
 

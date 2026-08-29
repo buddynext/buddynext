@@ -62,22 +62,37 @@ final class MenuRenderer {
 		$excludes  = is_array( $excludes ) ? $excludes : array();
 		$logged_in = is_user_logged_in();
 
-		// option => whether this page is unusable for the CURRENT visitor.
+		// HUB KEY => whether this page is unusable for the CURRENT visitor. Keyed on
+		// the hub, and the page option comes from HubRegistry — because the option
+		// names were written out by hand here and one of them was wrong. The auth
+		// hub's option is `buddynext_page_auth`; this asked for
+		// `buddynext_page_login`, which no install has ever set. `get_option()`
+		// returned false, the id was 0, and the Login page was never excluded — so
+		// the exact bug this method exists to fix (a Login link advertised to
+		// members who are already signed in) was live the whole time, silently,
+		// because a missing option looks identical to "nothing to exclude".
 		$rules = array(
 			// Signing in when you already are.
-			'buddynext_page_login'         => $logged_in,
+			'auth'          => $logged_in,
 			// Both require a session and redirect to /login/ without one.
-			'buddynext_page_notifications' => ! $logged_in,
-			'buddynext_page_messages'      => ! $logged_in
+			'notifications' => ! $logged_in,
+			'messages'      => ! $logged_in
 				|| ! \BuddyNext\Messages\MessagesData::entry_enabled(),
 		);
 
-		foreach ( $rules as $option => $unusable ) {
+		$hubs = \BuddyNext\Core\HubRegistry::instance();
+
+		foreach ( $rules as $hub_key => $unusable ) {
 			if ( ! $unusable ) {
 				continue;
 			}
 
-			$page_id = (int) get_option( $option, 0 );
+			$hub = $hubs->get( $hub_key );
+			if ( null === $hub ) {
+				continue;
+			}
+
+			$page_id = (int) get_option( $hub->page_option, 0 );
 			if ( $page_id > 0 ) {
 				$excludes[] = $page_id;
 			}

@@ -37,6 +37,7 @@ Because it runs on both, the filter is passed a final `$context` argument - `'cr
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
+| `buddynext_automatic_sanction_failed` | action | An automatic sanction (strike, suspension, shadow-ban) could not be applied. Fires so a site can alert a human rather than let the moderation rule fail silently — the report stays open and nothing was applied. | `int $user_id, string $sanction, string $reason` |
 | `buddynext_safeguard_check` | filter | A post is about to be saved (create or edit), after the built-in automated checks pass | `true\|WP_Error $result, int $user_id, string $content, string $link_url, string $context` |
 | `buddynext_client_ip` | filter | The safeguard service resolves the request IP for the blocked-IP check | `string $ip` |
 | `buddynext_report_reasons` | filter | The report reason list is built (default: `spam, harassment, misinformation, inappropriate, fake, impersonation, other`) | `string[] $reasons` |

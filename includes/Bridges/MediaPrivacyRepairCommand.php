@@ -62,12 +62,25 @@ class MediaPrivacyRepairCommand {
 	public function __invoke( array $args, array $assoc_args ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- WP-CLI signature.
 		unset( $args );
 
-		if ( ! class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
+		// Both partner classes are guarded HERE, in the same body that names them,
+		// and the resolved dependencies are passed down. `reconcile()` used to name
+		// them itself while relying on this guard one frame up, which reads as a
+		// bare cross-plugin call in every audit and would become a real fatal the
+		// moment anything else called it.
+		if ( ! class_exists( '\\WPMediaVerse\\Core\\Plugin' )
+			|| ! class_exists( '\\WPMediaVerse\\Services\\PrivacyService' ) ) {
 			WP_CLI::error( 'WPMediaVerse is not active, so there is no media store to reconcile.' );
+			// WP_CLI::error() exits, but static analysis does not know that, so the
+			// guard would not narrow the class for the calls below without this.
+			return;
 		}
 
 		$dry_run = isset( $assoc_args['dry-run'] );
-		$result  = $this->reconcile( $dry_run );
+		$result  = $this->reconcile(
+			$dry_run,
+			\WPMediaVerse\Core\Plugin::container()->get( 'media_repository' ),
+			array( '\\WPMediaVerse\\Services\\PrivacyService', 'more_restrictive' )
+		);
 
 		foreach ( $result['changes'] as $line ) {
 			WP_CLI::log( '  ' . $line );
@@ -102,13 +115,15 @@ class MediaPrivacyRepairCommand {
 	 * public, so there is nothing to tighten and touching it could only loosen
 	 * something a member deliberately set narrower by hand.
 	 *
-	 * @param bool $dry_run Report without writing.
+	 * @param bool     $dry_run          Report without writing.
+	 * @param object   $repo             MediaVerse media repository (resolved by the caller,
+	 *                                   which owns the class_exists guard).
+	 * @param callable $more_restrictive MediaVerse's privacy ordering.
 	 * @return array{posts:int,changed:int,correct:int,skipped:int,changes:string[],skips:string[]}
 	 */
-	private function reconcile( bool $dry_run ): array {
+	private function reconcile( bool $dry_run, $repo, callable $more_restrictive ): array {
 		global $wpdb;
 
-		$repo    = \WPMediaVerse\Core\Plugin::container()->get( 'media_repository' );
 		$posts   = 0;
 		$changed = 0;
 		$correct = 0;
@@ -168,7 +183,7 @@ class MediaPrivacyRepairCommand {
 						continue;
 					}
 
-					$winner = \WPMediaVerse\Services\PrivacyService::more_restrictive( $plan[ $media_id ]['target'], $target );
+					$winner = (string) call_user_func( $more_restrictive, $plan[ $media_id ]['target'], $target );
 					if ( $winner !== $plan[ $media_id ]['target'] ) {
 						$plan[ $media_id ] = array(
 							'target'   => $target,

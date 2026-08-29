@@ -19,6 +19,7 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 |---|---|---|---|
 | `buddynext_space_can_view_roster` | filter | A surface resolves whether a viewer may see a space's member roster | `bool $can_view, int $space_id, int $viewer_id, string $type` |
 | `buddynext_can_view_space_content` | filter | A viewer's access to a space's **content** is resolved, before it is rendered or cached. Return `false` to withhold the space's posts while leaving the space itself visible. Fired from `SpaceVisibility` and again in `FeedService` when building a space feed, so an add-on that gates content only has to answer once. Default `true`. | `bool $can_view, int $space_id, int $viewer_id` |
+| `buddynext_space_files_tab_for_guests` | filter | The space nav decides whether to show the Files tab to a logged-out visitor. Default `false`: WPMediaVerse refuses anonymous document reads, so on a public space the tab could only ever render its empty state. Return `true` if your MediaVerse serves anonymous reads. | `bool $show, int $space_id` |
 
 Default: `true` for open spaces; `false` for private and secret spaces unless the viewer is an active member, a moderator, the space owner, or a site admin. A private space is **listed but gated** — its name, description, house rules, avatar, cover, category, member COUNT, and its owner + moderator list stay public (a stranger needs them to decide whether to request to join), while the full member roster does not.
 
@@ -43,6 +44,7 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_space_created` | action | A new space is created | `int $space_id, int $owner_id` |
+| `buddynext_reserved_space_slugs` | filter | A space slug is generated or validated. These slugs are refused because they collide with BuddyNext's own space sub-routes (`members`, `files`, `about`, …); a space claiming one would shadow its own tab. Add your own to reserve them. | `string[] $slugs` |
 | `buddynext_space_updated` | action | A space's fields are edited | `int $space_id, int $user_id, array $fields` (columns written this update). **See the arity warning below - one call site passes only `$space_id`.** |
 | `buddynext_space_archived` | action | A space is archived | `int $space_id, int $actor_id` |
 | `buddynext_space_unarchived` | action | A space is unarchived | `int $space_id, int $actor_id` |

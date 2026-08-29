@@ -17,6 +17,9 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
+| `buddynext_handle_history_limit` | filter | A member changes their handle and BuddyNext records the old one. Caps how many previous handles are kept per member, so an old handle can still resolve to its owner instead of 404ing or being silently re-issued. Default `5`. | `int $limit, int $user_id` |
+| `buddynext_profile_write_allowlist` | filter | The profile REST controller decides which fields a member may write about themselves. Anything not on the list is dropped rather than saved, so adding a custom field to the profile form also means adding it here. | `string[] $fields, int $user_id` |
+| `buddynext_reserved_profile_slugs` | filter | A member handle is generated or validated. These slugs are refused because they collide with BuddyNext's own profile sub-routes (`files`, `media`, `likes`, …); a member claiming one would shadow their own tab. Add your own to reserve them. | `string[] $slugs` |
 | `buddynext_registration_pending` | action | A new registration is created but awaits admin approval | `int $user_id, string $email` |
 | `buddynext_user_verified` | action | A member completes email verification | `int $user_id` |
 | `buddynext_onboarding_completed` | action | A member finishes the onboarding wizard | `int $user_id` |
