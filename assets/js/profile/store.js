@@ -2008,23 +2008,9 @@ const profileStore = store( 'buddynext/profile', {
 			var ctx = getContext();
 			ctx.moreMenuOpen = ! ctx.moreMenuOpen;
 			if ( ctx.moreMenuOpen ) {
-				ctx.shareMenuOpen = false;
 				flipIfItWouldLandUnderTheNav( '.bn-more-menu-wrap', '.bn-more-menu', 'moreMenuFlip' );
 			} else {
 				ctx.moreMenuFlip = false;
-			}
-		},
-
-		/* -- Share-profile popover ---------------------------------- */
-
-		toggleShareMenu() {
-			var ctx = getContext();
-			ctx.shareMenuOpen = ! ctx.shareMenuOpen;
-			if ( ctx.shareMenuOpen ) {
-				ctx.moreMenuOpen = false;
-				flipIfItWouldLandUnderTheNav( '.bn-share-menu-wrap', '.bn-share-menu', 'shareMenuFlip' );
-			} else {
-				ctx.shareMenuFlip = false;
 			}
 		},
 
@@ -2040,43 +2026,13 @@ const profileStore = store( 'buddynext/profile', {
 		 */
 		closeMenusOnOutside( event ) {
 			var ctx = getContext();
-			if ( ! ctx || ( ! ctx.moreMenuOpen && ! ctx.shareMenuOpen ) ) { return; }
+			if ( ! ctx || ! ctx.moreMenuOpen ) { return; }
 			var ref = getElement() && getElement().ref;
 			if ( ! ref ) { return; }
-			if ( ctx.moreMenuOpen ) {
-				var moreWrap = ref.querySelector( '.bn-more-menu-wrap' );
-				if ( ! moreWrap || ! moreWrap.contains( event.target ) ) {
-					ctx.moreMenuOpen = false;
-				}
+			var moreWrap = ref.querySelector( '.bn-more-menu-wrap' );
+			if ( ! moreWrap || ! moreWrap.contains( event.target ) ) {
+				ctx.moreMenuOpen = false;
 			}
-			if ( ctx.shareMenuOpen ) {
-				var shareWrap = ref.querySelector( '.bn-share-menu-wrap' );
-				if ( ! shareWrap || ! shareWrap.contains( event.target ) ) {
-					ctx.shareMenuOpen = false;
-				}
-			}
-		},
-
-		async copyProfileLink( event ) {
-			var ctx = getContext();
-			var btn = event.target.closest( '[data-share-url]' );
-			var url = btn ? btn.dataset.shareUrl : window.location.href;
-			try {
-				if ( navigator.clipboard && navigator.clipboard.writeText ) {
-					await navigator.clipboard.writeText( url );
-				} else {
-					var ta = document.createElement( 'textarea' );
-					ta.value = url;
-					document.body.appendChild( ta );
-					ta.select();
-					document.execCommand( 'copy' );
-					document.body.removeChild( ta );
-				}
-				bnToast( ( window.bnI18n && window.bnI18n.linkCopied ) || t( 'profileLinkCopied', 'Profile link copied' ), { tone: 'success' } );
-			} catch ( _e ) {
-				bnToast( ( window.bnI18n && window.bnI18n.copyFailed ) || t( 'copyFailed', 'Could not copy link.' ), { tone: 'danger' } );
-			}
-			ctx.shareMenuOpen = false;
 		},
 
 		async toggleMute() {
