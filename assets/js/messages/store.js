@@ -487,6 +487,22 @@ function appendMessage( msg, viewer, force ) {
 	if ( existing ) {
 		return; // already rendered (e.g. our own send echoed back by the poll)
 	}
+	// The "no messages yet" placeholder is SERVER-rendered, by a plain PHP
+	// `if ( empty( $messages_iter ) )` in parts/dm-thread-messages.php with no
+	// binding on it. So the first message of a thread appended here left the
+	// member reading "No messages yet. Say hello to start the conversation."
+	// directly above the message they had just sent, until they reloaded.
+	//
+	// Dropped rather than hidden: the thread cannot become empty again from here.
+	// An unsend removes its own node above and can empty the log, but the
+	// placeholder is a first-paint state, not a live one - re-showing it would
+	// claim there was never a conversation.
+	const emptyState = log.querySelector( '.bn-dm-pane__empty-state' )
+		|| ( log.parentElement && log.parentElement.querySelector( '.bn-dm-pane__empty-state' ) );
+	if ( emptyState ) {
+		emptyState.remove();
+	}
+
 	const atBottom = ( log.scrollHeight - log.scrollTop - log.clientHeight ) < 80;
 	log.appendChild( buildMessageNode( msg, viewer ) );
 	if ( force || atBottom ) {
