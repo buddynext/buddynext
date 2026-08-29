@@ -192,6 +192,10 @@ class WPMediaVerseBridge {
 		// answer from the ONE canonical resolver (SpaceVisibility + the member
 		// role), never a second copy of the rules, and only when the space owner
 		// has turned the drive on (mvs_documents_tab, off by default).
+		// BuddyNext is the avatar authority across the suite, so it answers the
+		// flag MediaVerse publishes about avatars.
+		add_filter( 'mvs_profile_data', array( $this, 'profile_avatar_flag' ), 10, 2 );
+
 		add_filter( 'mvs_document_drive_access', array( $this, 'space_drive_access' ), 10, 4 );
 		add_filter( 'mvs_document_drive_visible', array( $this, 'space_drive_visible' ), 10, 4 );
 		add_filter( 'mvs_document_drives_for_user', array( $this, 'space_drives_for_user' ), 10, 2 );
@@ -2345,5 +2349,50 @@ class WPMediaVerseBridge {
 		if ( $new_comment_id > 0 ) {
 			do_action( 'buddynext_comment_created', $new_comment_id, 'post', $bn_post_id, $user_id );
 		}
+	}
+	/**
+	 * Tell MediaVerse a member HAS a custom avatar when BuddyNext holds one.
+	 *
+	 * MediaVerse's profile payload disagreed with itself: `avatar` correctly
+	 * resolved to the BuddyNext upload (both plugins share avatar resolution),
+	 * while `has_custom_avatar` stayed false because it only ever consulted
+	 * MediaVerse's own avatar meta. Any MediaVerse surface gated on that flag - an
+	 * "upload a profile photo" nudge, a completion check, an avatar-required
+	 * feature - then prompted a member to add the avatar it was already
+	 * displaying. Reproduced on three members: `avatar` pointing at
+	 * `bn-avatars/{id}/full.webp` next to `has_custom_avatar: false`.
+	 *
+	 * ORed, never overwritten. MediaVerse's answer is authoritative for its own
+	 * store; this adds the source it cannot see. Turning its `true` into `false`
+	 * would trade one wrong answer for another.
+	 *
+	 * BuddyNext is the avatar authority across the suite, so the flag comes from
+	 * `AvatarService::has_custom_avatar()` - the same resolver that decides
+	 * whether a member has actually added a photo, deliberately not counting
+	 * Gravatar, a site default or generated initials. A checklist that treats the
+	 * site's fallback as the member's answer can never ask for the one thing it
+	 * most wants.
+	 *
+	 * @param mixed $profile MediaVerse profile payload.
+	 * @param int   $user_id Member.
+	 * @return mixed
+	 */
+	public function profile_avatar_flag( $profile, $user_id ) {
+		if ( ! is_array( $profile ) || (int) $user_id <= 0 ) {
+			return $profile;
+		}
+
+		if ( ! empty( $profile['has_custom_avatar'] ) ) {
+			return $profile;
+		}
+
+		$avatars = buddynext_service( 'avatars' );
+		if ( ! is_object( $avatars ) || ! method_exists( $avatars, 'has_custom_avatar' ) ) {
+			return $profile;
+		}
+
+		$profile['has_custom_avatar'] = $avatars->has_custom_avatar( (int) $user_id );
+
+		return $profile;
 	}
 }
