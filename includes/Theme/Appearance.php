@@ -83,6 +83,26 @@ class Appearance {
 	public const DEFAULT_BRAND = '#0073aa';
 
 	/**
+	 * The accent BuddyNext actually renders when no brand colour has been picked.
+	 *
+	 * NOT the same thing as DEFAULT_BRAND, and the difference matters. DEFAULT_BRAND
+	 * is a SENTINEL: attach_accent() sees it and returns without emitting any accent
+	 * CSS, so the design tokens stand as authored. This is what those tokens then
+	 * resolve to - oklch(58% 0.16 252), the indigo in bn-base.css.
+	 *
+	 * It exists so a screen can SHOW an owner what the product looks like today
+	 * without having to store a value to do it. The setup wizard was displaying
+	 * DEFAULT_BRAND in its colour picker, which meant the "Brand it" step offered
+	 * WordPress admin blue - a colour the product never uses - and accepting it
+	 * changed nothing, because that value is precisely the one that means "do not
+	 * brand anything".
+	 *
+	 * @since 1.1.6
+	 * @var string
+	 */
+	public const DEFAULT_ACCENT_HEX = '#176bc7';
+
+	/**
 	 * Recolour the accent palette from the admin's brand colour, winning over
 	 * the active host theme when explicitly set (opt-in).
 	 *

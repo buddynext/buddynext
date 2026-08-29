@@ -707,8 +707,25 @@ class SetupWizard {
 	 * @return void
 	 */
 	private function render_step_branding(): void {
-		$site_name   = (string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) );
-		$brand_color = (string) get_option( 'buddynext_brand_color', '#0073aa' );
+		$site_name = (string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) );
+
+		/*
+		 * Show what the site looks like NOW, not the sentinel that means "unbranded".
+		 *
+		 * The stored default is Appearance::DEFAULT_BRAND (#0073aa), which
+		 * attach_accent() treats as "inherit the tokens" and emits nothing for. Putting
+		 * it in the picker meant this step offered WordPress admin blue - a colour the
+		 * product never renders - and accepting it appeared to do nothing, because it
+		 * does nothing by design.
+		 *
+		 * Displaying DEFAULT_ACCENT_HEX instead makes the swatch honest: it is the
+		 * indigo the site is actually using. Nothing is written unless the owner picks
+		 * a colour, so accepting the default still leaves the tokens in charge.
+		 */
+		$brand_color = (string) get_option( 'buddynext_brand_color', '' );
+		if ( '' === $brand_color || strtolower( $brand_color ) === \BuddyNext\Theme\Appearance::DEFAULT_BRAND ) {
+			$brand_color = \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX;
+		}
 
 		$this->render_step_head(
 			__( 'What should your community be called?', 'buddynext' ),
@@ -830,6 +847,29 @@ class SetupWizard {
 			>
 			<span class="bn-wizard__switch-track" aria-hidden="true"></span>
 		</label>
+
+		<?php
+		/*
+		 * The lockout this toggle can cause, said out loud next to it.
+		 *
+		 * Requiring verification on a site that cannot send mail locks every new
+		 * member out at signup, with no way in and nothing on screen to explain it.
+		 * Fresh self-hosted WordPress frequently cannot send mail, and there was no
+		 * guard rail here at all - the owner had no way to know the risk existed.
+		 *
+		 * A link to the email tester rather than a second tester built into the
+		 * wizard: Settings > Email Templates already sends a real message through the
+		 * same sender configuration this feature will use, so it proves the actual
+		 * thing. A wizard-local check would either duplicate that or prove something
+		 * weaker.
+		 */
+		?>
+		<p class="bn-wizard__switch-caution">
+			<?php esc_html_e( 'Only switch this on if this site can send email. If it cannot, every new member is stuck at signup with no way in.', 'buddynext' ); ?>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=buddynext&tab=templates' ) ); ?>" target="_blank" rel="noopener">
+				<?php esc_html_e( 'Send yourself a test email first', 'buddynext' ); ?>
+			</a>
+		</p>
 		<?php
 	}
 

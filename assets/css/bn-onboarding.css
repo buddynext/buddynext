@@ -1533,6 +1533,16 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	color: var(--bn-ink-3);
 	line-height: 1.45;
 }
+/* The email-verification caution. Quiet, but not a hint - it names a way to lock
+   every future member out of the site, so it sits under the toggle rather than in
+   a tooltip nobody opens. */
+.bn-wizard__switch-caution {
+	margin-block: var(--bn-s2) 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	line-height: 1.5;
+}
+
 .bn-wizard__addon-status {
 	font-size: 10px;
 	font-weight: var(--bn-fw-semibold);
