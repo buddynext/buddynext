@@ -47,7 +47,7 @@ Connections work out of the box with no required configuration. The connect flow
 
 | Setting | What it does | Default |
 |---|---|---|
-| Ask for a note when connecting | Off: one click sends the connection request, like Facebook. On: the member is asked to add a short note with their request, like LinkedIn, and that note is delivered to the recipient so they can decide before accepting. The note is capped at 280 characters. | Off |
+| Ask for a note when connecting | Off: one click sends the connection request, like Facebook. On: the member is asked to add a short note with their request, like LinkedIn, and that note is shown to the recipient in their connection-request inbox, next to Accept and Decline, so they can decide before accepting. The note is capped at 280 characters. | Off |
 | Notify on connection request | Sets whether members are notified by default when they receive a connection request. Members can still change their own preference. | On |
 
 > **Tip:** Leave the connection note off unless your community is professional or networking-focused. For most social communities, a one-click connect gets people connected faster and matches what members expect from Facebook-style sites. Turn the note on when you want members to introduce themselves before a connection is formed.

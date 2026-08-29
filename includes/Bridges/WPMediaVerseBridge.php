@@ -249,12 +249,6 @@ class WPMediaVerseBridge {
 		// bn_comments entry threaded under the BuddyNext post that holds the media.
 		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 3 );
 
-		// LinkedIn-style connect note → DM message request. When a connection
-		// request carries a note (only when the owner enabled the note step), the
-		// note is delivered to the recipient as a direct-message request so they
-		// can read the context and decide whether to engage before accepting.
-		add_action( 'buddynext_connection_requested', array( $this, 'deliver_note_as_message_request' ), 10, 4 );
-
 		// Surface standalone WPMediaVerse uploads in the activity feed. The
 		// upload itself fired no feed entry before, so media shared from the
 		// "Upload Media" surface never appeared in the community feed. Deferred +
@@ -705,89 +699,6 @@ class WPMediaVerseBridge {
 		// cache-ttl-only: a media->post attachment is immutable once made. There is no event that could invalidate it, because there is no change that can happen.
 		wp_cache_set( $cache_key, $post_id, self::CACHE_GROUP, self::CACHE_TTL );
 		return $post_id;
-	}
-
-	/**
-	 * Whether a connection-request note can actually be DELIVERED right now.
-	 *
-	 * The note is not stored for display anywhere — deliver_note_as_message_request()
-	 * below hands it to the messaging engine as a DM message request, and that is
-	 * the only way a recipient ever sees it. So when the engine is absent there is
-	 * no delivery path, and asking a member to write a note means asking them to
-	 * write something nobody will read: they type it, press send, get no error,
-	 * and it reaches no one (Basecamp 10185178801).
-	 *
-	 * This probe is deliberately the SAME condition the delivery method guards on,
-	 * so "we asked for a note" and "we can deliver a note" cannot drift apart. If
-	 * that guard ever changes, this must change with it — which is why they sit
-	 * next to each other.
-	 *
-	 * @since 1.1.3
-	 *
-	 * @return bool
-	 */
-	public static function can_deliver_connection_note(): bool {
-		$svc = MediaClient::messaging();
-
-		return is_object( $svc )
-			&& method_exists( $svc, 'find_or_create_conversation' )
-			&& method_exists( $svc, 'send_message' );
-	}
-
-	/**
-	 * Deliver a connection-request note to the recipient as a DM message request.
-	 *
-	 * Fired on buddynext_connection_requested. Only acts when a note is present —
-	 * the note step is opt-in via buddynext_connection_require_note, so a 1-click
-	 * connect carries no note and this is a no-op. The note is written into a
-	 * conversation between the two users; the recipient's participant lands as a
-	 * pending request, so it surfaces under their Messages "Requests" tab to accept
-	 * or decline — it never auto-opens an active thread with someone they have not
-	 * chosen to engage.
-	 *
-	 * The pending-request status is requested explicitly through the engine's
-	 * find_or_create_conversation( …, [ 'force_request' => true ] ) seam (WPMediaVerse
-	 * 1.7.1+). The engine still enforces every denial first — a hard block, a
-	 * disabled inbox, self, too-new, or the rate limit — so this can never reach a
-	 * member who has shut the sender out; it only changes an otherwise-allowed send
-	 * from an active thread into a request. Falls back to a plain conversation on
-	 * older engine builds that ignore the third argument.
-	 *
-	 * Hooked on: buddynext_connection_requested( int, int, int, string ).
-	 *
-	 * @param int    $connection_id Connection row ID (unused).
-	 * @param int    $requester_id  User who sent the connection request.
-	 * @param int    $recipient_id  User receiving the request.
-	 * @param string $note          Optional note attached to the request.
-	 * @return void
-	 */
-	public function deliver_note_as_message_request( int $connection_id, int $requester_id, int $recipient_id, string $note = '' ): void {
-		unset( $connection_id );
-
-		$note = trim( $note );
-		if ( '' === $note || $requester_id <= 0 || $recipient_id <= 0 ) {
-			return;
-		}
-
-		if ( ! self::can_deliver_connection_note() ) {
-			return;
-		}
-
-		$svc = MediaClient::messaging();
-
-		try {
-			$conv    = $svc->find_or_create_conversation( $requester_id, $recipient_id, array( 'force_request' => true ) );
-			$conv_id = is_array( $conv ) ? (int) ( $conv['conversation_id'] ?? 0 ) : 0;
-
-			if ( $conv_id > 0 ) {
-				$svc->send_message( $conv_id, $requester_id, array( 'content' => $note ) );
-			}
-		} catch ( \Throwable $e ) {
-			// Best-effort: the connection request itself already succeeded and its
-			// in-app notification still fires. Never let a messaging-engine error
-			// bubble back into the connect flow.
-			unset( $e );
-		}
 	}
 
 	/**

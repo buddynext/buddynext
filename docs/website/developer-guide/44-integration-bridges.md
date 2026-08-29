@@ -166,10 +166,6 @@ This tells WPMediaVerse to suppress its own floating chat panel, standalone mess
 
 `bn_follows` (BuddyNext) and `mvs_follows` (WPMediaVerse) are kept in sync in both directions so a member's follow state is identical on either profile. The bridge listens on `mvs_user_followed/unfollowed` and `buddynext_user_followed/unfollowed`; a re-entrancy guard (`$mirroring_follow`) plus an `is_following()` short-circuit prevent the mirror from looping back on itself.
 
-### Connection-note delivery
-
-When a connection request carries a note (only when the owner enabled the opt-in note step), `deliver_note_as_message_request()` writes it into a conversation as a pending **message request** via the engine's `find_or_create_conversation( …, [ 'force_request' => true ] )` seam (WPMediaVerse 1.7.1+), so it lands under the recipient's Messages "Requests" tab rather than auto-opening a thread. The engine still enforces every denial first; this only converts an otherwise-allowed send into a request. Errors are swallowed so a messaging-engine failure never breaks the connect flow.
-
 ### Media rail item
 
 `inject_media_nav_item()` adds a "Media" link to the BuddyNext left rail, resolving the engine's mapped Explore page (`mvs_page_explore`) and falling back to `/media/`. This only adds a link on BuddyNext's own pages - it never alters a WPMediaVerse page.

@@ -1639,20 +1639,20 @@ class PageRouter {
 			),
 			// Connect-request style. Default false = 1-click connect (Facebook).
 			// When the owner turns on buddynext_connection_require_note, the
-			// Connect button opens a note dialog (LinkedIn) and the note is
-			// delivered to the recipient's DM as a message request. Read once here
-			// so every connect surface shares one source of truth instead of
-			// threading the flag through each button's data-wp-context.
+			// Connect button opens a note dialog (LinkedIn) and the note is shown
+			// to the recipient in their connection-request inbox, next to Accept
+			// and Decline. Read once here so every connect surface shares one
+			// source of truth instead of threading the flag through each button's
+			// data-wp-context.
 			//
-			// AND the delivery path has to exist. The note is never stored for
-			// display — the messaging engine is the only thing that shows it to the
-			// recipient — so with the engine inactive an owner who turned this on
-			// was asking members to write notes that reached nobody, with no error
-			// at any point (Basecamp 10185178801). The setting stays on; it simply
-			// cannot take effect until a note can be delivered, and Settings tells
-			// the owner so. The member is never the error channel.
-			'connectRequireNote' => ( '1' === (string) get_option( 'buddynext_connection_require_note', '0' ) )
-				&& \BuddyNext\Bridges\WPMediaVerseBridge::can_deliver_connection_note(),
+			// No delivery dependency any more. This used to be AND-ed with the
+			// messaging engine being active, because the note was stored but never
+			// rendered and a DM was the only way it reached anyone — so with the
+			// engine off, turning the setting on asked members to write notes that
+			// reached nobody (Basecamp 10185178801). The request inbox now renders
+			// the note itself, so the note always has a reader and the setting
+			// means what it says on every site (Basecamp 10244757451).
+			'connectRequireNote' => '1' === (string) get_option( 'buddynext_connection_require_note', '0' ),
 		);
 		// Base config for the shared REST client module (@buddynext/rest-client).
 		// Emitted on bn-shell-extras (always enqueued on every hub) so the

@@ -1002,29 +1002,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							 * itself, rather than the member discovering it by
 							 * being ignored (Basecamp 10185178801).
 							 */
-							'hint'     => self::connection_note_hint(),
+							'hint'     => __( 'Off (default): one click sends the connection request, like Facebook. On: the member is asked to add a short note with their request, like LinkedIn - and the note is shown to the recipient in their connection-request inbox, next to Accept and Decline.', 'buddynext' ),
 						)
 					),
 				)
 			),
 		);
-	}
-
-	/**
-	 * Hint for the connection-note toggle, including its delivery dependency.
-	 *
-	 * @since 1.1.3
-	 *
-	 * @return string
-	 */
-	private static function connection_note_hint(): string {
-		$hint = __( 'Off (default): one click sends the connection request, like Facebook. On: the member is asked to add a short note with their request, like LinkedIn - and that note is delivered to the recipient as a direct-message request so they can decide whether to engage before accepting.', 'buddynext' );
-
-		if ( ! \BuddyNext\Bridges\WPMediaVerseBridge::can_deliver_connection_note() ) {
-			$hint .= ' ' . __( 'Not available right now: the note is delivered through direct messages, and the messaging plugin (WPMediaVerse) is not active. Until it is, members are not asked for a note and connect stays one click - the setting has no effect rather than collecting notes nobody can read.', 'buddynext' );
-		}
-
-		return $hint;
 	}
 
 	/**
