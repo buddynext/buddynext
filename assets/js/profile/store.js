@@ -1150,6 +1150,14 @@ const profileStore = store( 'buddynext/profile', {
 		get slugStatusHidden() { const c = getContext(); return c.slugChecking || c.slugAvailable === null; },
 		get slugIsOk()         { return getContext().slugAvailable === true; },
 		get slugIsTaken()      { return getContext().slugAvailable === false; },
+		// The field controls the @mention handle as well as the URL. Showing the
+		// result is the cheapest way to say so — a member typing a new handle sees
+		// what they will be called, rather than reading that it will change.
+		get slugHandlePreview() {
+			const c = getContext();
+			const slug = ( c.slugDraft || c.profileSlug || '' ).trim();
+			return slug ? '@' + slug : '';
+		},
 		get slugSaveDisabled() { const c = getContext(); return ! c.slugAvailable || c.slugSaving; },
 		/* Same rule, applied to the save bar's "Unsaved changes" pill. It was bound to
 		 * `!(context.isDirty && !context.saving && !context.saved)`, which the API
@@ -1585,6 +1593,10 @@ const profileStore = store( 'buddynext/profile', {
 			              .replace( /-{2,}/g, '-' )
 			              .replace( /^-|-$/g, '' );
 			input.value = slug;
+
+			// Mirror the normalised value into context so the @handle preview shows
+			// what the member will actually be called, not what they typed.
+			ctx.slugDraft = slug;
 
 			if ( slug === '' ) {
 				ctx.slugAvailable = null;
