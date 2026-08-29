@@ -48,16 +48,16 @@ if ( empty( $bn_post ) || empty( $bn_post['id'] ) ) {
 }
 
 // ── Post meta ──────────────────────────────────────────────────────────────────
-$bn_post_id      = absint( $bn_post['id'] );
-$bn_post_type    = $bn_post['type'] ?? 'text';
-$bn_space_id     = absint( $bn_post['space_id'] ?? 0 );
-$post_author_id  = absint( $bn_post['user_id'] ?? 0 );
-$post_content    = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
-$post_privacy    = $bn_post['privacy'] ?? 'public';
-$post_privacy    = in_array( $post_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
+$bn_post_id     = absint( $bn_post['id'] );
+$bn_post_type   = $bn_post['type'] ?? 'text';
+$bn_space_id    = absint( $bn_post['space_id'] ?? 0 );
+$post_author_id = absint( $bn_post['user_id'] ?? 0 );
+$post_content   = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
+$post_privacy   = $bn_post['privacy'] ?? 'public';
+$post_privacy   = in_array( $post_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
 	? $post_privacy
 	: 'public';
-$is_pinned       = ! empty( $bn_post['is_pinned'] );
+$is_pinned      = ! empty( $bn_post['is_pinned'] );
 // The "Pinned" badge is surface-relative: a post is pinned to a member's PROFILE
 // strip or a SPACE strip, never to the global home/explore/single/bookmarks feed.
 // The raw is_pinned column travels with every hydrated row, so without this gate a
@@ -229,7 +229,23 @@ $can_edit = ( $is_own_post && $within_edit_window ) || $is_admin;
 // buddynext_can() already grants that to WP admins (manage_options bypass) AND
 // community moderators, so the affordance now shows for mods, not just admins.
 $can_delete = $is_own_post || ( $current_user_id > 0 && buddynext_can( $current_user_id, 'buddynext-feed/delete-any-post' ) );
-$can_pin    = $is_own_post || $is_admin;
+/*
+ * Pin is CONTEXTUAL, and the card already knew that two lines below: the pin
+ * BADGE renders only in the profile and space feeds, because that is where
+ * FeedService surfaces pins ("Contextual pins are NOT floated here … Pins now
+ * surface only in their own context (profile / space feeds)").
+ *
+ * The ACTION never got the same rule. In the global feed a member saw a bare
+ * "Pin" on their own post, which reads as pinning to the top of the whole
+ * community. It does not: the pin lands on their profile, invisible from the
+ * surface where they clicked it — no badge appears, and the feed order does not
+ * change. An action whose entire effect is elsewhere should be offered where the
+ * effect is.
+ *
+ * Same context list as $show_pin_badge below, deliberately: one rule, so the
+ * control and its badge cannot disagree about where pinning means something.
+ */
+$can_pin    = ( $is_own_post || $is_admin ) && in_array( $context, array( 'profile', 'space' ), true );
 $can_report = ( $current_user_id > 0 && ! $is_own_post );
 
 // Reactions are a site-owner-toggleable feature (Settings → Features, default on).
