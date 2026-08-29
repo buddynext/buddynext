@@ -2388,7 +2388,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'buddynext_require_terms',
 			__( 'Require members to accept your terms', 'buddynext' ),
 			__( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
-			(bool) get_option( 'buddynext_require_terms', true )
+			(bool) get_option( 'buddynext_require_terms', \BuddyNext\Auth\RegistrationPolicy::terms_default() )
 		);
 
 		// What the front door asks for. Two levers, deliberately: the owner decides what

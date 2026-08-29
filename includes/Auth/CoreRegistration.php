@@ -91,7 +91,7 @@ class CoreRegistration {
 	 */
 	public static function has_terms_gap(): bool {
 		// Only when the owner ASKED for consent and gave us nothing to point at.
-		if ( ! (bool) get_option( 'buddynext_require_terms', true ) ) {
+		if ( ! (bool) get_option( 'buddynext_require_terms', RegistrationPolicy::terms_default() ) ) {
 			return false;
 		}
 

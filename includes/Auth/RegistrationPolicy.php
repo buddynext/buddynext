@@ -113,6 +113,39 @@ class RegistrationPolicy {
 	}
 
 	/**
+	 * Whether terms consent is ON when the owner has never said either way.
+	 *
+	 * Derived from whether a Terms page actually exists, rather than being a fixed
+	 * `true`. Both of the fixed answers are wrong in a different direction:
+	 *
+	 *   - Fixed ON is what shipped, and it put a permanent admin notice on EVERY
+	 *     BuddyNext screen of EVERY fresh install - "consent is switched on, but no
+	 *     Terms page is set" - for a feature the owner never turned on. A warning
+	 *     that is present on day one, before the owner has done anything, is not a
+	 *     warning; it is furniture, and it teaches people to ignore the notices that
+	 *     do matter.
+	 *   - Fixed OFF would silently stop collecting consent on an existing site that
+	 *     HAS a Terms page and simply never touched this setting. It has been
+	 *     enforcing all along on the ON default; flipping it would quietly drop a
+	 *     legal gate the owner believes is up. That is far worse than a nag.
+	 *
+	 * Deriving it satisfies both: a fresh install has no page, so consent is off and
+	 * silent; a site with a page keeps enforcing exactly as before. The two settings
+	 * can no longer contradict each other in the default state, which is what the
+	 * notice existed to report.
+	 *
+	 * An explicit choice always wins - get_option() only falls back to this when the
+	 * row is absent.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return bool
+	 */
+	public static function terms_default(): bool {
+		return (int) get_option( 'buddynext_terms_page_id', 0 ) > 0;
+	}
+
+	/**
 	 * The public URL of a legal page, or '' when a visitor could not read it.
 	 *
 	 * "Set" is not the same as "readable". WordPress ships its Privacy Policy
@@ -200,7 +233,7 @@ class RegistrationPolicy {
 		// to readability keeps the server and the signup form in lockstep, so the
 		// form never drops a document the server still demands consent for.
 		$terms_url     = self::legal_page_url( $terms_page );
-		$require_terms = (bool) get_option( 'buddynext_require_terms', true ) && '' !== $terms_url;
+		$require_terms = (bool) get_option( 'buddynext_require_terms', self::terms_default() ) && '' !== $terms_url;
 
 		return array(
 			'terms'        => $require_terms,
