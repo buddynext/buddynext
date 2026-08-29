@@ -615,7 +615,49 @@ class WPMediaVerseBridge {
 			}
 			$req = new \WP_REST_Request( 'PATCH', '/mvs/v1/media/' . $media_id );
 			$req->set_body_params( array( 'privacy' => $target ) );
-			rest_do_request( $req );
+			$res = rest_do_request( $req );
+
+			if ( ! $res->is_error() ) {
+				continue;
+			}
+
+			/*
+			 * The PATCH failed, and the whole point of this method is that it is a
+			 * PRIVACY tightening. Discarding the return left the file at whatever it
+			 * was uploaded with - in the case this was written for, `public` under a
+			 * post the member had marked "Only me". Silent, and on Explore.
+			 *
+			 * Reproduced by running the cascade with no authenticated user (a cron or
+			 * WP-CLI context): the request is refused and the media stays public.
+			 *
+			 * So: fail CLOSED through MediaVerse's own repository rather than accept
+			 * the failure. The value is one this bridge derived, and it can only ever
+			 * be narrower than what is stored, so writing it directly cannot leak
+			 * anything the REST call would have prevented. It is the same seam the
+			 * reconcile-media-privacy command writes through.
+			 */
+			$repaired = false;
+			if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
+				$repo = \WPMediaVerse\Core\Plugin::container()->get( 'media_repository' );
+				if ( is_object( $repo ) && method_exists( $repo, 'set_many' ) ) {
+					$repo->set_many( $media_id, array( 'privacy' => $target ) );
+					$repaired = true;
+				}
+			}
+
+			// Logged either way. A privacy write that needed a fallback is something
+			// an owner should be able to find afterwards, and one that could not be
+			// repaired at all is a file still readable by more people than the post
+			// it belongs to.
+			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				sprintf(
+					'BuddyNext: media #%d privacy PATCH to "%s" failed (%s)%s',
+					$media_id,
+					$target,
+					$res->get_data()['code'] ?? (string) $res->get_status(),
+					$repaired ? ' - applied directly instead' : ' - MEDIA MAY STILL BE READABLE'
+				)
+			);
 		}
 	}
 
