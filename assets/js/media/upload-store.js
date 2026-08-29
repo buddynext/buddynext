@@ -206,6 +206,9 @@ const mediaStore = store( 'buddynext/media', {
 					privacy:   ctx.privacy || 'public',
 					// Send the captured frame so a posterless video keeps its real poster in the feed.
 					thumbnail: 'video' === item.kind ? item.preview : '',
+					// Present when this staging surface belongs to a space; 0 on the
+					// profile Media tab, which is a personal drive by definition.
+					spaceId:   parseInt( ctx.spaceId, 10 ) || 0,
 				} );
 				if ( out.ok ) {
 					item.status = 'done';
