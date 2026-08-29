@@ -552,6 +552,19 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			parent.appendChild( glyph );
 		};
 
+		// Tint the react button with the chosen reaction's own colour. The colour
+		// already ships in the serialised reaction set the list carries, so this
+		// covers every registered reaction — the stylesheet used to hardcode a tint
+		// for five built-in slugs, which left a custom reaction rendering in the
+		// default colour on a comment while the post trigger carried its artwork.
+		// Same #rrggbb validation the glyph above uses; anything else falls back to
+		// the generic reacted colour in CSS.
+		const setReactionTint = ( btn, type ) => {
+			const meta = type ? REACTION_META[ type ] : null;
+			const hex  = meta && /^#[0-9a-fA-F]{6}$/.test( meta.color ) ? meta.color : '';
+			btn.style.setProperty( '--bn-comment-reaction-color', hex );
+		};
+
 		const wrapBtn = document.createElement( 'span' );
 		wrapBtn.className = 'bn-comment__react-wrap';
 
@@ -570,6 +583,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const reactIcon = document.createElement( 'span' );
 		reactIcon.className = 'bn-comment__like-icon';
 		setReactionIcon( reactIcon, reactBtn.dataset.reaction );
+		setReactionTint( reactBtn, reactBtn.dataset.reaction );
 
 		const reactLabel = document.createElement( 'span' );
 		reactLabel.className = 'bn-comment__like-label';
@@ -693,6 +707,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			reactBtn.dataset.liked = next ? '1' : '0';
 			reactBtn.setAttribute( 'aria-pressed', next ? 'true' : 'false' );
 			setReactionIcon( reactIcon, next );
+			setReactionTint( reactBtn, next );
 			reactLabel.textContent = next ? ( REACTION_LABELS[ next ] || t( 'react', 'React' ) ) : t( 'react', 'React' );
 			const cur = parseInt( reactCount.textContent || '0', 10 );
 			let delta = 0;
@@ -722,6 +737,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				reactBtn.dataset.liked = prev ? '1' : '0';
 				reactBtn.setAttribute( 'aria-pressed', prev ? 'true' : 'false' );
 				setReactionIcon( reactIcon, prev );
+				setReactionTint( reactBtn, prev );
 				reactLabel.textContent = prev ? ( REACTION_LABELS[ prev ] || t( 'react', 'React' ) ) : t( 'react', 'React' );
 				reactCount.textContent = String( cur );
 				reactionFailureToast( _e && _e.bnResponse, t( 'reactionUpdateFailed', 'Could not update your reaction. Try again.' ) );

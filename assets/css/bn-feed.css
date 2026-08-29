@@ -2071,15 +2071,15 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 /* Only style the reacted state when data-reaction holds an actual emoji —
    the JS sets data-reaction="" (empty but present) on un-reacted comments,
    which a bare [data-reaction] would wrongly match. */
+/* The reacted tint comes from the reaction's own colour, set by post-card.js as
+   --bn-comment-reaction-color from the serialized reaction set. Five built-in
+   slugs used to be tinted by name here, so a custom reaction fell through to the
+   generic colour on a comment while the post trigger carried its own artwork -
+   the same hardcoded-slug-list class the trigger fix removed one component over. */
 .bn-comment__like-btn[data-reaction]:not([data-reaction=""]) {
-	color: var(--bn-accent);
+	color: var(--bn-comment-reaction-color, var(--bn-accent));
 	font-weight: 600;
 }
-.bn-comment__like-btn[data-reaction="love"]  { color: var(--bn-danger); }
-.bn-comment__like-btn[data-reaction="angry"] { color: var(--bn-danger); }
-.bn-comment__like-btn[data-reaction="haha"]  { color: var(--bn-warn); }
-.bn-comment__like-btn[data-reaction="wow"]   { color: var(--bn-warn); }
-.bn-comment__like-btn[data-reaction="sad"]   { color: var(--bn-accent); }
 
 .bn-comment__like-icon {
 	font-size: var(--bn-text-base);
