@@ -31,10 +31,24 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 [data-bn-theme="light"] {
 	/* Brand hue — rotate per whitelabel; everything else derives from it. */
 	--bn-hue:           var(--bn-accent-hue, 252);   /* 252 = indigo. 200 blue, 160 teal, 25 orange. */
-	--bn-hue-jetonomy:  285;
-	--bn-hue-media:     175;
-	--bn-hue-events:    45;
-	--bn-hue-paid:      145;
+	/* Per-product tints, as fixed OFFSETS from the brand hue rather than frozen
+	   literals. A site owner who sets the brand colour expects the whole product to
+	   look like their brand — before this, buttons and links turned purple while
+	   every MediaVerse border stayed mint-green, because these four were hardcoded
+	   and Appearance never re-emitted them.
+
+	   Offsets, not one shared hue: each product stays recognisably itself (Media
+	   still reads as Media next to Events) while moving with the brand. The values
+	   are chosen so that at the default hue of 252 they resolve to exactly the
+	   numbers that shipped before — 285 / 175 / 45 / 145 — so nothing changes on a
+	   site that has not picked a brand colour.
+
+	   All offsets are POSITIVE so the result never goes negative on a low brand hue;
+	   OKLCH treats the hue as an angle and wraps past 360 on its own. */
+	--bn-hue-jetonomy:  calc(var(--bn-hue) + 33);    /* 252 -> 285 */
+	--bn-hue-media:     calc(var(--bn-hue) + 283);   /* 252 -> 535 -> 175 */
+	--bn-hue-events:    calc(var(--bn-hue) + 153);   /* 252 -> 405 -> 45  */
+	--bn-hue-paid:      calc(var(--bn-hue) + 253);   /* 252 -> 505 -> 145 */
 
 	/* Chroma (saturation depth). Lower = more neutral, higher = more vivid. */
 	--bn-chroma: 0.16;
