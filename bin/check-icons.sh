@@ -78,10 +78,61 @@ for icon in "$DIR"/*.svg; do
 	fi
 done
 
+# ── Reverse check: every icon we ASK FOR must exist ──────────────────────────
+#
+# Everything above validates the icons that are on disk. Nothing validated that
+# the slugs our own code names resolve to one, and the check runs in the
+# direction that cannot catch the bug that shipped: profile-hero.php asked for
+# 'play-circle', no such file was ever added, and IconService::render() returns
+# an EMPTY STRING for an unknown slug — so the YouTube chip rendered as a blank
+# red square for every install of 1.1.5. No error, no warning, no notice. A
+# blank slot reads as a styling problem, which is why it sat there (10233462637).
+#
+# Two exemptions, both real rather than convenient:
+#   tab-*  — resolves through IconService's alias-then-fallback path
+#            (assets/icons/{bare}.svg, else assets/svg/admin/{name}.svg).
+#   brand marks — exempt from the STYLE rules above, but still must exist, so
+#            they are deliberately NOT exempt here.
+#
+# Only a literal that closes the call is a slug. An earlier draft matched
+# `buddynext_icon( 'following' === $relation ? 'user-plus' : 'users' )` and
+# reported 'following' as missing — the comparison operand, not the icon.
+missing_refs=0
+while IFS= read -r ref; do
+	[ -n "$ref" ] || continue
+
+	if [ -f "$DIR/$ref.svg" ]; then
+		continue
+	fi
+
+	case "$ref" in
+		tab-*)
+			bare="${ref#tab-}"
+			if [ -f "$DIR/$bare.svg" ] || [ -f "assets/svg/admin/$ref.svg" ]; then
+				continue
+			fi
+			printf '  referenced but missing: %s (no %s/%s.svg, no %s/%s.svg, no assets/svg/admin/%s.svg)\n' \
+				"$ref" "$DIR" "$ref" "$DIR" "$bare" "$ref"
+			;;
+		*)
+			printf '  referenced but missing: %s.svg — renders as nothing at all\n' "$ref"
+			;;
+	esac
+	missing_refs=$((missing_refs + 1))
+done < <(
+	grep -rhoE "(buddynext_icon|buddynext_get_icon|IconService::render)\(\s*'[a-z0-9_-]+'\s*[,)]" \
+		--include='*.php' includes templates blocks 2>/dev/null \
+		| grep -oE "'[a-z0-9_-]+'" | tr -d "'" | sort -u
+)
+
+if [ "$missing_refs" -gt 0 ]; then
+	fails=$((fails + missing_refs))
+fi
+
 if [ "$fails" -gt 0 ]; then
 	printf '  %d icon issue(s)\n' "$fails"
 	exit 1
 fi
 
-printf '  icons conform — %d Lucide line icons, %d brand marks\n' "$line_icons" "$brand_icons"
+printf '  icons conform — %d Lucide line icons, %d brand marks, every referenced slug resolves\n' "$line_icons" "$brand_icons"
 exit 0

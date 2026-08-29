@@ -95,10 +95,69 @@ class IconAliasResolutionTest extends \WP_UnitTestCase {
 	/**
 	 * An unknown slug still renders nothing rather than erroring.
 	 *
+	 * It also NOTICES now (1.1.6). Returning '' in silence is how a blank icon
+	 * shipped and sat there looking like a styling bug, so render() reports the
+	 * missing slug through _doing_it_wrong() under WP_DEBUG. The contract this
+	 * test guards - never fatal, never partial markup, always '' - is unchanged;
+	 * the expectation below is what makes the new notice explicit rather than
+	 * something a future reader has to rediscover from a red suite.
+	 *
 	 * @return void
 	 */
 	public function test_an_unknown_slug_renders_nothing(): void {
+		$this->setExpectedIncorrectUsage( 'BuddyNext\\Core\\IconService::render' );
+
 		$this->assertSame( '', IconService::render( 'tab-definitely-not-an-icon' ) );
 		$this->assertSame( '', IconService::render( 'definitely-not-an-icon' ) );
+	}
+
+	/**
+	 * The missing slug is NAMED, so the log says which icon to add.
+	 *
+	 * A notice that only says "an icon is missing" would have saved nobody on the
+	 * bug this was built for - the whole difficulty was identifying which of the
+	 * five social chips had no file behind it.
+	 *
+	 * @return void
+	 */
+	public function test_the_notice_names_the_missing_slug(): void {
+		$this->setExpectedIncorrectUsage( 'BuddyNext\\Core\\IconService::render' );
+
+		$captured = '';
+		add_action(
+			'doing_it_wrong_run',
+			static function ( $function_name, $message ) use ( &$captured ): void {
+				unset( $function_name );
+				$captured = (string) $message;
+			},
+			10,
+			2
+		);
+
+		IconService::render( 'no-such-glyph-here' );
+
+		$this->assertStringContainsString( 'no-such-glyph-here', $captured );
+	}
+
+	/**
+	 * An EMPTY slug is silent - it means "no icon here", not a missing file.
+	 *
+	 * Nav items and filtered links legitimately supply no glyph. Warning on those
+	 * reports every one of them as a defect and buries the real ones; caught the
+	 * first time only because HeaderUserSectionTest happened to render one.
+	 *
+	 * @return void
+	 */
+	public function test_an_empty_slug_does_not_warn(): void {
+		$fired = false;
+		add_action(
+			'doing_it_wrong_run',
+			static function () use ( &$fired ): void {
+				$fired = true;
+			}
+		);
+
+		$this->assertSame( '', IconService::render( '' ) );
+		$this->assertFalse( $fired, 'An empty icon name must not report incorrect usage.' );
 	}
 }

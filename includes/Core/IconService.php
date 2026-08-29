@@ -386,6 +386,35 @@ class IconService {
 		}
 
 		if ( ! file_exists( $path ) ) {
+			// Say it out loud in development. Returning '' silently is how the
+			// YouTube chip shipped as a blank red square in 1.1.5: the hero asked
+			// for 'play-circle', no such file was ever added, and every surface
+			// downstream treated "no icon" as "nothing to draw" (10233462637).
+			//
+			// bin/check-icons.sh catches the slugs written as literals, but it
+			// could not have caught THAT one — the hero passes a variable read
+			// from a map, and no grep resolves that. This does, because it runs
+			// where the answer is actually known.
+			//
+			// An EMPTY name is not a missing icon - it is a caller saying "no icon
+			// here" (a nav item with no glyph, a filtered link that supplies
+			// none). Warning on it reports every one of those as a defect and
+			// buries the real ones.
+			//
+			// Debug-only: a missing glyph must never become a fatal or a notice
+			// printed into a JSON body on a production site.
+			if ( '' !== trim( $name ) && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				_doing_it_wrong(
+					__METHOD__,
+					sprintf(
+						/* translators: %s: icon slug that has no SVG file. */
+						esc_html__( 'No icon file for "%s" — it will render as nothing at all.', 'buddynext' ),
+						esc_html( $name )
+					),
+					'1.1.6'
+				);
+			}
+
 			$cache[ $key ] = '';
 			return '';
 		}
