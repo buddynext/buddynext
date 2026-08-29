@@ -670,6 +670,11 @@
 	background: var(--bn-p-bg-hover);
 }
 
+/* The overflow's narrow-viewport-only items. Hidden by default and revealed in
+   the <=640 block, so the wide layout never shows a control twice. Scoped to the
+   menu to match the reveal rule's specificity. */
+.bn-more-menu .bn-more-menu-item--narrow { display: none; }
+
 .bn-more-menu-item--danger {
 	color: var(--bn-p-red);
 }
@@ -1838,8 +1843,16 @@ a.bn-space-row:hover .bn-space-name {
 	/* Slot contract on narrow screens: the primary and its secondary peers share
 	   the width evenly, and the overflow trigger stays a fixed square at the end
 	   rather than being stretched to a quarter of the screen. nowrap is what
-	   keeps it one line — the row is capped at three controls by design, so
-	   wrapping only ever produced the orphaned ⋯ on a line of its own. */
+	   keeps it one line — the row is capped at three controls below 640, so
+	   wrapping only ever produced the orphaned ⋯ on a line of its own.
+
+	   That cap is now ENFORCED rather than assumed. The comment said "capped at
+	   three by design" while the not-following-and-not-connected state emitted
+	   four (Follow / Connect / Message / More). On BuddyX that gave each 77px and
+	   truncated both "Follow" and "Message"; the icon-hiding rule below was not
+	   enough on a theme with wider button padding than our own. Message moves into
+	   the overflow here, which restores 105px per control - the width that already
+	   worked on Reign. */
 	/* Grid, not flex, for the equal split. `flex: 1 1 0` still sizes to content
 	   when a child is a wrapper (the follow control and the overflow menu each
 	   ship their own div), so the row came out 94 / 128 / 94 - close enough to
@@ -1850,8 +1863,23 @@ a.bn-space-row:hover .bn-space-name {
 		width: 100%;
 		display: grid;
 		grid-auto-flow: column;
-		grid-auto-columns: 1fr;
+		/* minmax(max-content, 1fr), not 1fr. Equal columns while there is room, but
+		   a column can never be narrower than its own label. */
+		grid-auto-columns: minmax(max-content, 1fr);
 	}
+	/* Controls share the row EQUALLY but never shrink below their own label.
+	   `grid-auto-columns: 1fr` did the opposite: it divided the container and let
+	   the text truncate to fit, which made the result depend on how wide the THEME
+	   makes this column. Reign gives the row ~420px and every label fitted; BuddyX
+	   gives ~308px and both "Follow" and "Message" were cut off. Same markup, same
+	   plugin CSS, different theme - so the layout was never really ours.
+
+	   A max-content FLOOR on the column is the plugin owning its own result: equal
+	   widths while there is room, and full labels always, whatever width the theme
+	   hands us. Tried `flex: 1 1 auto` first and it stacked the row into three
+	   full-width lines - two of these controls ship their own wrapper div, and a
+	   flex basis of `auto` through a wrapper resolves to the whole line. The grid
+	   already handled those wrappers correctly; it only needed the floor. */
 	.bn-pf-actions > * { min-width: 0; }
 	.bn-pf-actions .bn-btn {
 		width: 100%;
@@ -1863,6 +1891,14 @@ a.bn-space-row:hover .bn-space-name {
 	   the whole point of the control. Text-only below 640 is also what Facebook
 	   and LinkedIn ship at this width. */
 	.bn-pf-actions .bn-btn > svg { display: none; }
+	/* Message is a menu item down here, not a column of its own. Paired with
+	   .bn-more-menu-item--narrow below so exactly one of the two renders at any
+	   width - never both, never neither. */
+	/* Scoped to the row so it outranks .bn-btn's own display. Both are single-class
+	   selectors, so a bare .bn-pf-actions__wide-only tied on specificity and lost on
+	   source order - the control stayed visible and the row stayed at four. */
+	.bn-pf-actions .bn-pf-actions__wide-only { display: none; }
+	.bn-more-menu .bn-more-menu-item--narrow { display: flex; }
 	.bn-pf-actions .bn-btn > span {
 		overflow: visible;
 		text-overflow: clip;

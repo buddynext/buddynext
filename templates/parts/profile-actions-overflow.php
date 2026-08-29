@@ -22,6 +22,10 @@
  *                          account to act on, so it is off for logged-out
  *                          visitors and meaningless on your own profile.
  * @var string $edit_url    Non-empty renders "Edit profile" (moderator capability).
+ * @var string $message_url Non-empty renders "Message" as the first item, shown
+ *                          ONLY below 640px. Above that the row shows Message as
+ *                          its own control and this copy stays hidden — see
+ *                          .bn-more-menu-item--narrow in bn-profile.css.
  */
 
 declare( strict_types=1 );
@@ -32,6 +36,7 @@ $bn_ov_profile = isset( $profile_url ) ? (string) $profile_url : '';
 $bn_ov_mention = isset( $mention_url ) ? (string) $mention_url : '';
 $bn_ov_safety  = ! empty( $show_safety );
 $bn_ov_edit    = isset( $edit_url ) ? (string) $edit_url : '';
+$bn_ov_message = isset( $message_url ) ? (string) $message_url : '';
 ?>
 <div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen" data-wp-class--is-flipped="context.moreMenuFlip">
 	<button class="bn-btn bn-pf-more-trigger"
@@ -55,6 +60,28 @@ $bn_ov_edit    = isset( $edit_url ) ? (string) $edit_url : '';
 		 * the fallback masquerading as a separate feature.
 		 */
 		?>
+		<?php
+		/*
+		 * Message, on narrow viewports only.
+		 *
+		 * At 390px the row divides its width between however many controls it has.
+		 * With four (Follow / Connect / Message / More) each got 77px on BuddyX and
+		 * BOTH "Follow" and "Message" truncated — "Message" to "Mess…". Folding
+		 * Message in here leaves three, each gets 105px, and nothing truncates.
+		 *
+		 * It is the right one to fold on merit, not just because it is the longest
+		 * word: Follow and Connect are the two relationship actions a member expects
+		 * on a profile, and messaging someone is normally what you do after
+		 * connecting. Measured rather than guessed — see the card comments.
+		 */
+		?>
+		<?php if ( '' !== $bn_ov_message ) : ?>
+			<a class="bn-more-menu-item bn-more-menu-item--narrow" role="menuitem" href="<?php echo esc_url( $bn_ov_message ); ?>">
+				<?php buddynext_icon( 'message-circle' ); ?>
+				<span><?php esc_html_e( 'Message', 'buddynext' ); ?></span>
+			</a>
+		<?php endif; ?>
+
 		<?php if ( '' !== $bn_ov_profile ) : ?>
 			<button class="bn-more-menu-item"
 				type="button"

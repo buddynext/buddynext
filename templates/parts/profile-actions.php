@@ -251,9 +251,17 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 			<span><?php esc_html_e( 'Connected', 'buddynext' ); ?></span>
 		</button>
 
-		<?php if ( \BuddyNext\Messages\MessagesData::entry_enabled() ) : ?>
-			<a href="<?php echo esc_url( add_query_arg( 'with', $bn_pa_uid, \BuddyNext\Core\PageRouter::messages_url() ) ); ?>"
-				class="bn-btn" data-variant="secondary" data-size="sm">
+		<?php
+		// Message shows as its own control from 641px up; below that it moves into
+		// the overflow so the remaining three controls have room for their labels.
+		// See profile-actions-overflow.php for the measurement.
+		$bn_pa_message_url = \BuddyNext\Messages\MessagesData::entry_enabled()
+			? add_query_arg( 'with', $bn_pa_uid, \BuddyNext\Core\PageRouter::messages_url() )
+			: '';
+		?>
+		<?php if ( '' !== $bn_pa_message_url ) : ?>
+			<a href="<?php echo esc_url( $bn_pa_message_url ); ?>"
+				class="bn-btn bn-pf-actions__wide-only" data-variant="secondary" data-size="sm">
 				<?php buddynext_icon( 'message-circle' ); ?>
 				<span><?php esc_html_e( 'Message', 'buddynext' ); ?></span>
 			</a>
@@ -267,6 +275,7 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 				'mention_url' => $bn_pa_mention_url,
 				'show_safety' => true,
 				'edit_url'    => $bn_pa_can_edit ? \BuddyNext\Core\PageRouter::edit_profile_url( $bn_pa_uid ) : '',
+				'message_url' => $bn_pa_message_url,
 			)
 		);
 		?>
