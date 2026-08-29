@@ -2818,11 +2818,24 @@ a.bn-sh-statpill:focus-visible {
 	}
 }
 
-@media (max-width: 768px) {
+/* One column only below 640. This used to fire at max-width:768, which is
+   INCLUSIVE - so an iPad in portrait, exactly 768 wide, got a single 744px
+   column: one card per row with a full-width cover band and half the tablet
+   wasted, while the rule above would have given it two. The card min of 280px
+   fits twice from 640 up, so that is where the single column belongs.
+
+   The Members directory is deliberately NOT changed to match this number. Its
+   cards have a 220px minimum against this one's 320, so two of them still read
+   well down at 481px, which is where its own 1-up band already starts. Copying
+   one breakpoint across two grids with different card widths would cost Members
+   a column between 481 and 639 for the sake of a tidy-looking shared constant. */
+@media (max-width: 639px) {
 	.bn-sd-grid {
 		grid-template-columns: 1fr;
 	}
+}
 
+@media (max-width: 768px) {
 	.bn-sh-hero__cover {
 		height: 120px;
 	}
