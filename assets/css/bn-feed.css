@@ -2507,12 +2507,87 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 
 .bn-post-card__shared-empty,
+/* Dead-source reshare, WITH the sharer's own commentary. Their words are real
+   content and the card stays; only the quote block collapses to this one muted
+   line, so the card loses the dead quote's height instead of the member's post. */
 .bn-post-card__shared-missing {
 	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-2);
+	color: var(--bn-ink-3);
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px dashed var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+}
+
+.bn-post-card__shared-missing p {
+	margin: 0;
+}
+
+.bn-post-card__shared-missing svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+	flex: none;
+	opacity: 0.7;
+}
+
+/* Dead-source reshare with NOTHING else in it. The card has no content left, so
+   it is a single line rather than a full card with an action bar pointing at a
+   post that is gone. Deliberately quieter than a real card: no surface, no
+   shadow, no border - it should read as a gap in the feed, not an entry. */
+.bn-post-card--tombstone {
+	display: flex;
+	/* .bn-post-card is a column flex container; a tombstone is one row, so this
+	   has to be stated rather than inherited or the icon, text and time stack. */
+	flex-direction: row;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	background: none;
+	border: 0;
+	box-shadow: none;
+}
+
+.bn-post-card--tombstone .bn-post-card__tombstone-icon svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+	display: block;
+	opacity: 0.6;
+}
+
+.bn-post-card__tombstone-text {
+	margin: 0;
+	min-width: 0;
+	/* Deliberately NOT nowrap+ellipsis. That kept the row to one line on desktop
+	   but truncated the notice itself at 390px ("...is no longer availa"), which
+	   is the one sentence the member has to be able to read. Wrapping costs a
+	   second line on narrow screens and still leaves this a fraction of the full
+	   card it replaces. */
+	text-wrap: pretty;
+}
+
+.bn-post-card__tombstone-text a {
+	color: var(--bn-ink-2);
+	font-weight: var(--bn-fw-medium);
+}
+
+.bn-post-card__tombstone-time {
+	margin-inline-start: auto;
+	flex: none;
+	color: var(--bn-ink-4);
+	font-size: var(--bn-text-xs);
+}
+
+@media (max-width: 640px) {
+	/* The name + notice is the point; the timestamp is not worth a second line
+	   on a row that exists to take up as little space as possible. */
+	.bn-post-card--tombstone .bn-post-card__tombstone-time {
+		display: none;
+	}
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════

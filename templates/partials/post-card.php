@@ -405,6 +405,65 @@ if ( 'poll' === $bn_post_type ) {
 }
 
 $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes ) );
+
+// ── Dead-source reshare ─────────────────────────────────────────────────────────
+// The original is gone (deleted, hidden, blocked, or its author suspended), so
+// `filter_visible()` returned nothing and the embed falls back to "no longer
+// available". Rendering that as a FULL card — byline, quote block, React /
+// Comment / Share / Save — advertises content that does not exist and, at a few
+// per screen, hollows out the feed.
+//
+// The distinction that matters is whether the SHARER wrote anything. Collapsing
+// every dead reshare to one line, as first proposed, would delete a member's own
+// writing from the feed along with the dead quote — their commentary is real
+// content and the only reason the post still has a reason to exist. So:
+//
+// With commentary, the card stays and only the quote block collapses, via the
+// compact notice in parts/post-body.php. With nothing but the quote, the card
+// has no content left: one muted line and no action bar, because resharing or
+// reacting to a tombstone would only propagate it.
+$bn_dead_share   = 'share' === $bn_post_type && $shared_post_id > 0 && null === $shared_post;
+$bn_hollow_share = $bn_dead_share
+	&& '' === trim( wp_strip_all_tags( (string) $post_content ) )
+	&& empty( $media_ids )
+	&& '' === (string) $link_url
+	&& empty( $poll_options );
+
+/**
+ * Whether to drop a dead-source reshare from the feed entirely.
+ *
+ * Default false — collapse to a tombstone, so the sharer's action stays legible
+ * and the feed does not silently lose posts. An owner who would rather they
+ * vanish returns true; this is a presentation preference with two defensible
+ * answers, not a correctness question.
+ *
+ * @since 1.1.6
+ *
+ * @param bool  $hide     Whether to hide the reshare.
+ * @param array $bn_post  The reshare row.
+ */
+if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', false, $bn_post ) ) {
+	return;
+}
+
+?>
+<?php if ( $bn_hollow_share ) : ?>
+<article class="bn-post-card bn-post-card--tombstone">
+	<span class="bn-post-card__tombstone-icon" aria-hidden="true"><?php buddynext_icon( 'share' ); ?></span>
+	<p class="bn-post-card__tombstone-text">
+		<?php
+		printf(
+			/* translators: %s: name of the member who shared the post. */
+			esc_html__( '%s shared a post that is no longer available.', 'buddynext' ),
+			'<a href="' . esc_url( $profile_link ) . '">' . esc_html( $display_name ) . '</a>'
+		);
+		?>
+	</p>
+	<time class="bn-post-card__tombstone-time" datetime="<?php echo esc_attr( $created_at ); ?>"><?php echo esc_html( $post_time ); ?></time>
+</article>
+	<?php
+	return;
+	endif;
 ?>
 <article
 	class="<?php echo esc_attr( $card_class_attr ); ?>"
