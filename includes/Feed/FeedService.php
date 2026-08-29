@@ -1843,6 +1843,63 @@ class FeedService {
 	}
 
 	/**
+	 * Whether this community has nobody in it yet, for a viewer who can fix that.
+	 *
+	 * Answers one question the empty states need and nothing else: is the person
+	 * reading this looking at a community that has not started, rather than at
+	 * their own quiet corner of a busy one? Those two need opposite advice -
+	 * "discover members" is right in a populated community and absurd on day one,
+	 * when the only member is the reader.
+	 *
+	 * BOTH halves matter. Emptiness alone would give a plain member on a new site
+	 * an "invite members" button they may not be allowed to act on; capability
+	 * alone would give an admin bootstrapping copy on a thriving community. And it
+	 * deliberately does NOT read the onboarding-completed flag: an owner who
+	 * finished onboarding on an empty site still needs to be told what to do next.
+	 *
+	 * Cheap enough to call on every empty render: two COUNTs behind a short
+	 * transient. It only ever flips once per site - the moment a second member or
+	 * a first post arrives - so a stale answer costs a few minutes of the wrong
+	 * empty state and never a wrong page.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $viewer_id Viewer, 0 for logged out.
+	 * @return bool
+	 */
+	public static function community_is_bootstrapping( int $viewer_id ): bool {
+		if ( $viewer_id <= 0 ) {
+			return false;
+		}
+
+		$can_bootstrap = user_can( $viewer_id, 'manage_options' )
+			|| user_can( $viewer_id, 'buddynext_invite_members' );
+
+		if ( ! $can_bootstrap ) {
+			return false;
+		}
+
+		$cached = get_transient( 'bn_community_bootstrapping' );
+		if ( false !== $cached ) {
+			return '1' === $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$members = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users}" );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$posts = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE status = 'published'" );
+
+		$bootstrapping = ( $members <= 1 ) || ( 0 === $posts );
+
+		set_transient( 'bn_community_bootstrapping', $bootstrapping ? '1' : '0', 5 * MINUTE_IN_SECONDS );
+
+		return $bootstrapping;
+	}
+
+	/**
 	 * Return the public explore feed (all public posts, newest first).
 	 *
 	 * @param string|null $cursor      Pagination cursor.
