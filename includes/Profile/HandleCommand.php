@@ -148,4 +148,93 @@ class HandleCommand {
 
 		WP_CLI::success( $summary );
 	}
+
+	/**
+	 * Collapse members who carry two public identities onto one.
+	 *
+	 * Before 1.1.6 renaming yourself wrote BuddyNext's `bn_profile_slug` and left
+	 * WordPress's `user_nicename` alone, so the member's profile and mentions said
+	 * one thing while the author archive, `/wp/v2/users` and every partner plugin
+	 * said another. New renames write both; this repairs the rows already on disk.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--prefer=<field>]
+	 * : Which identity survives.
+	 * ---
+	 * default: handle
+	 * options:
+	 *   - handle
+	 *   - nicename
+	 * ---
+	 *
+	 * [--yes]
+	 * : Apply the changes. Without this the command only reports, because either
+	 * direction rewrites a public URL.
+	 *
+	 * [--dry-run]
+	 * : Report only. Implied when --yes is absent; accepted so an explicit dry run
+	 * reads clearly in a script.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp buddynext handles reconcile
+	 *     wp buddynext handles reconcile --yes
+	 *     wp buddynext handles reconcile --prefer=nicename --yes
+	 *
+	 * @param array $args       Positional args (unused — WP-CLI signature).
+	 * @param array $assoc_args Associative args.
+	 * @return void
+	 */
+	public function reconcile( array $args, array $assoc_args ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- WP-CLI signature.
+		// Dry-run unless the operator opts IN, for the same reason `repair` does:
+		// this rewrites public URLs and runs in contexts with no prompt available.
+		$dry_run = ! isset( $assoc_args['yes'] ) || isset( $assoc_args['dry-run'] );
+		$prefer  = 'nicename' === ( $assoc_args['prefer'] ?? 'handle' ) ? 'nicename' : 'handle';
+
+		$repair = new HandleRepair();
+
+		if ( empty( $repair->find_divergent( 1 ) ) ) {
+			WP_CLI::success( 'Every member has one identity. Nothing to reconcile.' );
+			return;
+		}
+
+		WP_CLI::log(
+			'handle' === $prefer
+				? 'Keeping each member\'s BuddyNext handle; their old nicename stays reserved and keeps resolving.'
+				: 'Keeping each member\'s WordPress nicename; the BuddyNext handle they chose stays reserved and keeps resolving.'
+		);
+
+		$result = $repair->reconcile_all( $dry_run, $prefer );
+
+		foreach ( $result['changes'] as $change ) {
+			WP_CLI::log(
+				sprintf(
+					'  %s %d: %s -> %s',
+					$dry_run ? 'would reconcile' : 'reconciled',
+					$change['id'],
+					$change['from'],
+					$change['to']
+				)
+			);
+		}
+
+		foreach ( $result['skips'] as $skip ) {
+			WP_CLI::warning( sprintf( 'User %d (%s): %s', $skip['id'], $skip['from'], $skip['reason'] ) );
+		}
+
+		$summary = sprintf(
+			'%s %d member(s); %d skipped.',
+			$dry_run ? 'Would reconcile' : 'Reconciled',
+			$result['reconciled'],
+			$result['skipped']
+		);
+
+		if ( $result['skipped'] > 0 ) {
+			WP_CLI::warning( $summary );
+			return;
+		}
+
+		WP_CLI::success( $summary );
+	}
 }

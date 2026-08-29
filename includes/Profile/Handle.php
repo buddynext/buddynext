@@ -362,7 +362,36 @@ final class Handle {
 			return new \WP_Error( 'no_user', __( 'No account found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		$previous = self::current( $user_id );
+		// Both identities the member is leaving behind. They are normally the same
+		// string, but a row written before 1.1.6 has a bn_profile_slug that never
+		// reached user_nicename — and that nicename has been a working profile and
+		// author-archive URL the whole time. Overwriting it without recording it
+		// would break links this class exists to keep alive.
+		$previous = array( self::current( $user_id ), (string) $user->user_nicename );
+
+		// Refuse a handle that is spoken for BEFORE writing anything. Detecting the
+		// clash afterwards was not enough: wp_update_user() had already stored
+		// `taken-2` by the time the guard below saw it, so a member who lost a race
+		// - or any legacy row the reconcile pass touches - was left wearing a handle
+		// nobody chose, on a URL they had been sharing, with the two fields further
+		// apart than when we started.
+		$owner = get_user_by( 'slug', $handle );
+		if ( $owner instanceof \WP_User && (int) $owner->ID !== $user_id ) {
+			return new \WP_Error(
+				'handle_taken',
+				__( 'That handle is already taken.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
+		}
+
+		$reserved = self::previous_owner( $handle );
+		if ( $reserved instanceof \WP_User && (int) $reserved->ID !== $user_id ) {
+			return new \WP_Error(
+				'handle_taken',
+				__( 'That handle is already taken.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
+		}
 
 		update_user_meta( $user_id, 'bn_profile_slug', $handle );
 
@@ -385,6 +414,18 @@ final class Handle {
 
 			$fresh = get_userdata( $user_id );
 			if ( $fresh instanceof \WP_User && $fresh->user_nicename !== $handle ) {
+				// Something claimed the handle between the check above and this write.
+				// Put the member back exactly as they were rather than leaving them on
+				// core's `-2` suffix with a meta row that disagrees with it.
+				wp_update_user(
+					array(
+						'ID'            => $user_id,
+						'user_nicename' => $user->user_nicename,
+					)
+				);
+				update_user_meta( $user_id, 'bn_profile_slug', $previous[0] );
+				clean_user_cache( $user_id );
+
 				return new \WP_Error(
 					'handle_not_applied',
 					__( 'That handle could not be applied. Please try another.', 'buddynext' ),
@@ -426,17 +467,15 @@ final class Handle {
 	 *
 	 * @since 1.1.6
 	 *
-	 * @param int    $user_id  Member.
-	 * @param string $previous Handle being left behind.
-	 * @param string $current  Handle being taken.
+	 * @param int      $user_id  Member.
+	 * @param string[] $previous Handles being left behind - the BN handle and the
+	 *                           nicename, which diverge on rows written before 1.1.6.
+	 * @param string   $current  Handle being taken.
 	 * @return void
 	 */
-	private static function remember( int $user_id, string $previous, string $current ): void {
-		if ( '' === $previous || $previous === $current ) {
-			return;
-		}
-
+	private static function remember( int $user_id, array $previous, string $current ): void {
 		$history = self::history( $user_id );
+		$before  = $history;
 
 		// Taking back a handle you used before removes it from the history: it is
 		// current again, and a member should not own the same handle twice. A->B->A
@@ -444,12 +483,19 @@ final class Handle {
 		// and would confuse any future "release a handle" flow.
 		$history = array_values( array_diff( $history, array( $current ) ) );
 
-		if ( in_array( $previous, $history, true ) ) {
-			update_user_meta( $user_id, self::HISTORY_META, $history );
-			return;
+		foreach ( $previous as $handle ) {
+			$handle = (string) $handle;
+
+			if ( '' === $handle || $handle === $current || in_array( $handle, $history, true ) ) {
+				continue;
+			}
+
+			$history[] = $handle;
 		}
 
-		$history[] = $previous;
+		if ( $history === $before ) {
+			return;
+		}
 
 		/**
 		 * Filter how many previous handles are kept per member.

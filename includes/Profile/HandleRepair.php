@@ -182,6 +182,115 @@ final class HandleRepair {
 	}
 
 	/**
+	 * Members whose BuddyNext handle never reached WordPress's nicename.
+	 *
+	 * Before 1.1.6 the settings screen wrote `bn_profile_slug` and nothing else, so
+	 * a member who renamed themselves ended up with two public identities: BuddyNext
+	 * showed the new one on their profile and in mentions, while WordPress core,
+	 * `/wp/v2/users`, the author archive and every partner plugin that reads
+	 * `user_nicename` kept showing the old one. Both resolve inside BuddyNext, which
+	 * is why nobody noticed — the split is only visible from outside it.
+	 *
+	 * {@see Handle::set()} writes both fields, so no NEW row can diverge; these are
+	 * the ones already on disk.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $limit Hard ceiling on rows returned (0 = no limit).
+	 * @return array<int,array{ID:int,user_nicename:string,handle:string}>
+	 */
+	public function find_divergent( int $limit = 0 ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT u.ID, u.user_nicename, m.meta_value AS handle
+				 FROM {$wpdb->users} u
+				 INNER JOIN {$wpdb->usermeta} m
+				         ON m.user_id = u.ID AND m.meta_key = %s
+				 WHERE m.meta_value <> '' AND m.meta_value <> u.user_nicename
+				 ORDER BY u.ID ASC",
+				'bn_profile_slug'
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$out = array();
+
+		foreach ( (array) $rows as $row ) {
+			$out[] = array(
+				'ID'            => (int) $row['ID'],
+				'user_nicename' => (string) $row['user_nicename'],
+				'handle'        => (string) $row['handle'],
+			);
+
+			if ( $limit > 0 && count( $out ) >= $limit ) {
+				break;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Collapse every divergent member onto a single identity.
+	 *
+	 * Both directions go through {@see Handle::set()} — the only writer — so the
+	 * result is a row indistinguishable from one a member produced themselves,
+	 * abandoned identities land in the handle history, and a collision or an
+	 * out-of-bounds legacy handle comes back as an error instead of a silent `-2`.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param bool   $dry_run Report what would change without writing.
+	 * @param string $prefer  'handle' to keep the BuddyNext handle, 'nicename' to
+	 *                        keep WordPress's.
+	 * @return array{reconciled:int,skipped:int,changes:array<int,array{id:int,from:string,to:string}>,skips:array<int,array{id:int,from:string,reason:string}>}
+	 */
+	public function reconcile_all( bool $dry_run = false, string $prefer = 'handle' ): array {
+		$reconciled = 0;
+		$skipped    = 0;
+		$changes    = array();
+		$skips      = array();
+
+		foreach ( $this->find_divergent() as $row ) {
+			$user_id = (int) $row['ID'];
+			$keep    = 'nicename' === $prefer ? $row['user_nicename'] : $row['handle'];
+			$lose    = 'nicename' === $prefer ? $row['handle'] : $row['user_nicename'];
+
+			if ( ! $dry_run ) {
+				$result = Handle::set( $user_id, $keep );
+
+				if ( is_wp_error( $result ) ) {
+					++$skipped;
+					$skips[] = array(
+						'id'     => $user_id,
+						'from'   => $lose,
+						'reason' => $result->get_error_message(),
+					);
+					continue;
+				}
+			}
+
+			++$reconciled;
+			$changes[] = array(
+				'id'   => $user_id,
+				'from' => $lose,
+				'to'   => $keep,
+			);
+		}
+
+		return array(
+			'reconciled' => $reconciled,
+			'skipped'    => $skipped,
+			'changes'    => $changes,
+			'skips'      => $skips,
+		);
+	}
+
+	/**
 	 * A nicename not already taken by a different user.
 	 *
 	 * Two imported handles can normalise onto the same string — `a.b@corp.com` and
