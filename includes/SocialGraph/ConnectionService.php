@@ -903,6 +903,65 @@ class ConnectionService {
 	}
 
 	/**
+	 * Return the notes attached to pending requests received by a user, keyed by requester.
+	 *
+	 * The note a member writes on a connection request is stored on the connection
+	 * row (`bn_connections.note`) and it is what the recipient is meant to judge the
+	 * request on — but pending_received() returns bare requester IDs, so until this
+	 * existed the note reached no surface that reviews the request: not the profile
+	 * request inbox, not the REST endpoint behind it. That gap is why the note was
+	 * bolted onto the messaging engine instead (Basecamp 10244757451).
+	 *
+	 * Batched deliberately: the caller already has the requester list, so one query
+	 * covers a whole page of requests rather than one per row. It rides the same
+	 * recipient_status index pending_received() uses.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int   $user_id       The recipient user.
+	 * @param int[] $requester_ids Requesters to fetch notes for (a page of pending_received()).
+	 * @return array<int, string> requester_id => note. Requesters with no note are omitted.
+	 */
+	public function pending_notes_for( int $user_id, array $requester_ids ): array {
+		global $wpdb;
+
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $requester_ids ) ) ) );
+		if ( $user_id <= 0 || empty( $ids ) ) {
+			return array();
+		}
+
+		$cache_key = 'pending_notes_' . $user_id . '_' . md5( implode( ',', $ids ) ) . '_v' . $this->version( $user_id );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $placeholders is a counted "%d, ..." list and every id is bound.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT requester_id, note
+				 FROM {$wpdb->prefix}bn_connections
+				 WHERE recipient_id = %d AND status = 'pending' AND note <> ''
+				   AND requester_id IN ( {$placeholders} )",
+				array_merge( array( $user_id ), $ids )
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$result = array();
+		foreach ( (array) $rows as $row ) {
+			$result[ (int) $row->requester_id ] = (string) $row->note;
+		}
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
+	}
+
+	/**
 	 * How many connections $user_a and $user_b have in common.
 	 *
 	 * The profile header renders a single "N mutual connections" number, and it used to get
@@ -1248,6 +1307,7 @@ class ConnectionService {
 	 *     connections_{u}_{limit}_{offset}      (offsets unknowable)
 	 *     pending_sent_{u}_{limit}_{offset}
 	 *     pending_received_{u}_{limit}_{offset}
+	 *     pending_notes_{u}_{md5(ids)}          (id set unknowable)
 	 *     mutual_{a}_{b}_{limit}                (PAIRWISE — see below)
 	 *
 	 * `mutual_` is the one that forces the design. When A's connections change, every

@@ -267,4 +267,40 @@ class ConnectionServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( $this->alice, $captured[1] );
 		$this->assertSame( $this->bob, $captured[2] );
 	}
+
+	public function test_pending_notes_for_returns_notes_keyed_by_requester(): void {
+		$this->service->send_request( $this->alice, $this->carol, 'Met you at WordCamp.' );
+		$this->service->send_request( $this->bob, $this->carol );
+
+		$pending = $this->service->pending_received( $this->carol, 20, 0 );
+		$notes   = $this->service->pending_notes_for( $this->carol, $pending );
+
+		// A note only travels for the requester who wrote one; a bare request is
+		// absent rather than present-and-empty, so callers can test with isset().
+		$this->assertSame( array( $this->alice => 'Met you at WordCamp.' ), $notes );
+	}
+
+	public function test_pending_notes_for_ignores_requesters_outside_the_given_page(): void {
+		$this->service->send_request( $this->alice, $this->carol, 'Alice note.' );
+		$this->service->send_request( $this->bob, $this->carol, 'Bob note.' );
+
+		$notes = $this->service->pending_notes_for( $this->carol, array( $this->bob ) );
+
+		$this->assertSame( array( $this->bob => 'Bob note.' ), $notes );
+	}
+
+	public function test_pending_notes_for_does_not_leak_a_note_addressed_to_someone_else(): void {
+		// Same requester, different recipient: carol must not read the note alice
+		// wrote to bob, even when carol asks about alice.
+		$this->service->send_request( $this->alice, $this->bob, 'For bob only.' );
+
+		$this->assertSame( array(), $this->service->pending_notes_for( $this->carol, array( $this->alice ) ) );
+	}
+
+	public function test_pending_notes_for_drops_the_note_once_the_request_is_accepted(): void {
+		$this->service->send_request( $this->alice, $this->carol, 'Met you at WordCamp.' );
+		$this->service->accept_request( $this->carol, $this->alice );
+
+		$this->assertSame( array(), $this->service->pending_notes_for( $this->carol, array( $this->alice ) ) );
+	}
 }

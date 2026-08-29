@@ -444,8 +444,9 @@ final class ProfileNav {
 		$follow   = buddynext_service( 'follows' );
 		$conn     = buddynext_service( 'connections' );
 
-		$members = array();
-		$pending = array();
+		$members       = array();
+		$pending       = array();
+		$pending_notes = array();
 		if ( 'followers' === $relation ) {
 			// Ask the DB for 60, rather than loading every follower and slicing 60 off
 			// the front. On a popular account the old form scanned 100k+ rows to build
@@ -462,19 +463,26 @@ final class ProfileNav {
 		} else {
 			$members = $this->ids_to_users( (array) $conn->connections( $uid, 60, 0 ) );
 			if ( $is_owner ) {
-				$pending = $this->ids_to_users( (array) $conn->pending_received( $uid, 60, 0 ) );
+				$pending_ids = (array) $conn->pending_received( $uid, 60, 0 );
+				$pending     = $this->ids_to_users( $pending_ids );
+
+				// The note the requester wrote is what the owner judges the request
+				// on, so it travels with the request list — one batched query for the
+				// whole page (Basecamp 10244757451).
+				$pending_notes = $conn->pending_notes_for( $uid, $pending_ids );
 			}
 		}
 
 		buddynext_get_template(
 			'parts/profile/people-panel.php',
 			array(
-				'relation'     => $relation,
-				'members'      => $members,
-				'pending'      => $pending,
-				'viewer_id'    => $c->viewer_id,
-				'is_owner'     => $is_owner,
-				'display_name' => $this->display_name( $uid ),
+				'relation'      => $relation,
+				'members'       => $members,
+				'pending'       => $pending,
+				'pending_notes' => $pending_notes,
+				'viewer_id'     => $c->viewer_id,
+				'is_owner'      => $is_owner,
+				'display_name'  => $this->display_name( $uid ),
 			)
 		);
 	}

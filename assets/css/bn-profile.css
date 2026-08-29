@@ -1270,6 +1270,37 @@
 	margin-top: 3px;
 	line-height: 1.3;
 }
+/* The requester's own note. Quoted, so it reads as their words rather than our
+   copy, and wrapped over up to three lines - a 280-char note must be readable
+   here, since this is the only place the recipient sees it before deciding.
+
+   Shown in full, never clamped: the note is the thing the member is deciding on,
+   and bn_connections.note is already capped at 280 characters, so "all of it" is
+   bounded by the schema rather than by an ellipsis.
+
+   Every property a theme puts on `blockquote` is declared here, not inherited.
+   Left to the theme this rendered as a full-width grey slab that reads like a
+   disabled input rather than a quotation - BN owns its own UX, and blockquote is
+   the element themes restyle hardest. */
+.bn-follow-requests__note {
+	margin: 6px 0 0;
+	padding: 0;
+	padding-inline-start: var(--bn-s3);
+	border: 0;
+	border-inline-start: 2px solid var(--bn-line-strong);
+	background: none;
+	quotes: none;
+	font-family: inherit;
+	font-size: var(--bn-text-xs);
+	font-style: italic;
+	font-weight: var(--bn-fw-normal);
+	color: var(--bn-ink-2);
+	line-height: 1.4;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+.bn-follow-requests__note::before,
+.bn-follow-requests__note::after { content: none; }
 .bn-follow-requests__actions {
 	display: inline-flex;
 	gap: 8px;
