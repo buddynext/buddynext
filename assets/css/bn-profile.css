@@ -616,6 +616,16 @@
 	display: block;
 }
 
+/* Flipped: opened upward because opening downward would put the menu under the
+   fixed bottom nav. The flag is set from a measurement in profile/store.js
+   (flipIfItWouldLandUnderTheNav) and only when flipping actually helps, so a
+   trigger near the top of the viewport keeps opening downward. */
+.bn-more-menu-wrap.is-flipped .bn-more-menu,
+.bn-share-menu-wrap.is-flipped .bn-share-menu {
+	top: auto;
+	bottom: calc(100% + var(--bn-p-s1));
+}
+
 .bn-more-menu-item {
 	display: block;
 	width: 100%;

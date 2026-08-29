@@ -77,6 +77,60 @@ function nonce() {
  * bound, so upload + remove update it imperatively. Pass an empty url to
  * revert to the initials read from data-bn-initials.
  */
+/**
+ * Open a hero popover UPWARD when opening downward would put it under the fixed
+ * bottom nav.
+ *
+ * The action row wraps tall on a phone, so the trigger sits near the fold and the
+ * menu opened past it: measured at 390x844, the More menu ran 735-945 and
+ * `elementFromPoint` on "Report" returned .bn-mobile-nav (z-index 9500). Nothing
+ * was unreachable - the menu stays open on scroll - but Block and Report are the
+ * safety controls, and a member reaching for those is not in a patient mood.
+ * Facebook and LinkedIn both flip a near-fold menu rather than making you scroll
+ * one you just opened (Basecamp 10236292515).
+ *
+ * The nav's height is read from --bn-mobile-nav-h, the measured value
+ * shell/extras.js already publishes for every bottom-pinned surface, so this does
+ * not become a sixth place that guesses at it.
+ *
+ * Measured in rAF because the menu is display:none until the Interactivity class
+ * binding lands, and a hidden element has no height to measure.
+ *
+ * @param {string} wrapSel  Selector for the popover wrapper.
+ * @param {string} menuSel  Selector for the popover itself.
+ * @param {string} ctxKey   Context key holding the flip flag.
+ */
+function flipIfItWouldLandUnderTheNav( wrapSel, menuSel, ctxKey ) {
+	const ref = getElement() && getElement().ref;
+	if ( ! ref ) { return; }
+
+	const wrap = ref.closest( wrapSel ) || ref.querySelector( wrapSel );
+	if ( ! wrap ) { return; }
+
+	// getContext() only resolves inside an action's synchronous call stack, so
+	// take the proxy here and mutate it from the callback. Calling it inside the
+	// rAF throws "Cannot read properties of undefined (reading 'context')".
+	const ctx = getContext();
+	if ( ! ctx ) { return; }
+
+	requestAnimationFrame( () => {
+		const menu = wrap.querySelector( menuSel );
+		if ( ! menu ) { return; }
+
+		const navH = parseFloat(
+			getComputedStyle( document.documentElement ).getPropertyValue( '--bn-mobile-nav-h' )
+		) || 0;
+
+		const trigger = wrap.getBoundingClientRect();
+		const safeBottom = window.innerHeight - navH;
+		const wouldOverflow = trigger.bottom + menu.offsetHeight > safeBottom;
+
+		// Only flip when flipping actually helps — near the top of the viewport an
+		// upward menu clips off the top instead, which is the same bug mirrored.
+		ctx[ ctxKey ] = wouldOverflow && trigger.top - menu.offsetHeight > 0;
+	} );
+}
+
 function setAvatarPreview( url ) {
 	var box = document.querySelector( '.bn-ep-avatar-preview' );
 	if ( ! box ) { return; }
@@ -1955,6 +2009,9 @@ const profileStore = store( 'buddynext/profile', {
 			ctx.moreMenuOpen = ! ctx.moreMenuOpen;
 			if ( ctx.moreMenuOpen ) {
 				ctx.shareMenuOpen = false;
+				flipIfItWouldLandUnderTheNav( '.bn-more-menu-wrap', '.bn-more-menu', 'moreMenuFlip' );
+			} else {
+				ctx.moreMenuFlip = false;
 			}
 		},
 
@@ -1965,6 +2022,9 @@ const profileStore = store( 'buddynext/profile', {
 			ctx.shareMenuOpen = ! ctx.shareMenuOpen;
 			if ( ctx.shareMenuOpen ) {
 				ctx.moreMenuOpen = false;
+				flipIfItWouldLandUnderTheNav( '.bn-share-menu-wrap', '.bn-share-menu', 'shareMenuFlip' );
+			} else {
+				ctx.shareMenuFlip = false;
 			}
 		},
 

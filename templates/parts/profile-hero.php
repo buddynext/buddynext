@@ -566,7 +566,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				<?php endif; ?>
 
 				<!-- Share profile popover -->
-				<div class="bn-share-menu-wrap" data-wp-class--is-open="context.shareMenuOpen">
+				<div class="bn-share-menu-wrap" data-wp-class--is-open="context.shareMenuOpen" data-wp-class--is-flipped="context.shareMenuFlip">
 					<button class="bn-btn" data-variant="secondary" data-size="sm"
 						aria-haspopup="menu"
 						aria-expanded="false"
@@ -595,7 +595,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				</div>
 
 				<!-- More options dropdown -->
-				<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen">
+				<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen" data-wp-class--is-flipped="context.moreMenuFlip">
 					<button class="bn-btn bn-pf-more-trigger"
 						data-variant="ghost"
 						data-size="sm"
