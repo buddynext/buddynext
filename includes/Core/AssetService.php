@@ -1245,6 +1245,7 @@ class AssetService {
 					'labelPublic'                     => __( 'Public', 'buddynext' ),
 					'ariaJoinedClickToLeave'          => __( 'Joined - click to leave', 'buddynext' ),
 					'ariaRequestPendingClickToCancel' => __( 'Request pending - click to cancel', 'buddynext' ),
+					'membersCountSingular'            => __( '1 member', 'buddynext' ),
 					/* translators: %d: number of members. */
 					'membersCount'                    => __( '%d members', 'buddynext' ),
 					'paywallMembersOnly'              => __( 'This space is available to members only.', 'buddynext' ),

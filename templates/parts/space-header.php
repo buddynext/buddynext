@@ -66,14 +66,16 @@ $bn_sh_post_count   = (int) buddynext_service( 'feed' )->space_post_count( $bn_s
 $bn_sh_stats        = array();
 if ( $bn_sh_member_count > 0 ) {
 	$bn_sh_stats[] = array(
-		'label' => __( 'Members', 'buddynext' ),
+		/* translators: singular/plural label for the space member-count stat. */
+		'label' => _n( 'Member', 'Members', $bn_sh_member_count, 'buddynext' ),
 		'value' => number_format_i18n( $bn_sh_member_count ),
 		'icon'  => 'users',
 	);
 }
 if ( $bn_sh_post_count > 0 ) {
 	$bn_sh_stats[] = array(
-		'label' => __( 'Posts', 'buddynext' ),
+		/* translators: singular/plural label for the space post-count stat. */
+		'label' => _n( 'Post', 'Posts', $bn_sh_post_count, 'buddynext' ),
 		'value' => number_format_i18n( $bn_sh_post_count ),
 		'icon'  => 'message-circle',
 	);

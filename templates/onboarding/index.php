@@ -518,7 +518,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 										echo esc_html(
 											sprintf(
 												/* translators: %s: member count */
-												__( '%s members', 'buddynext' ),
+												_n( '%s member', '%s members', (int) $space['member_count'], 'buddynext' ),
 												number_format_i18n( (int) $space['member_count'] )
 											)
 										);

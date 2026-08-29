@@ -2141,7 +2141,13 @@ function buildSpaceCard( row ) {
 	stats.className = 'bn-sd-card__stats';
 	var stat = document.createElement( 'span' );
 	stat.className   = 'bn-sd-card__stat';
-	stat.textContent = fmt( t( 'membersCount', '%d members' ), memberCount );
+	// Both forms come from PHP so the plural rule is the translator's, not ours -
+	// the messages store already does this; the spaces store was formatting the
+	// plural string unconditionally and rendering "1 members".
+	stat.textContent =
+		1 === memberCount
+			? t( 'membersCountSingular', '1 member' )
+			: fmt( t( 'membersCount', '%d members' ), memberCount );
 	stats.appendChild( stat );
 
 	// Sub-space count chip (pre-join discovery) — mirrors space-directory-card.php.
