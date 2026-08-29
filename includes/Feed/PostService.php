@@ -1003,6 +1003,67 @@ class PostService {
 	}
 
 	/**
+	 * List a user's own posts held for pre-moderation approval, newest first,
+	 * hydrated through the canonical mapper. Powers the owner-only profile
+	 * "Pending" tab.
+	 *
+	 * Distinct from get_pending_by_author(), which serves GET /me/pending-posts
+	 * and returns a narrow raw row for a JSON client. This one returns the same
+	 * hydrated shape user_scheduled_posts() does, because it feeds the same
+	 * post-card template.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $user_id Author user ID.
+	 * @param int $limit   Max rows (1-50). Default 20.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function user_pending_posts( int $user_id, int $limit = 20 ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_posts
+				 WHERE user_id = %d AND status = 'pending'
+				 ORDER BY created_at DESC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Count a user's posts awaiting approval - the figure the owner-only
+	 * "Pending" tab badge shows.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $user_id Author user ID.
+	 * @return int
+	 */
+	public function user_pending_count( int $user_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'pending'",
+				$user_id
+			)
+		);
+	}
+
+	/**
 	 * List a user's recent replies (post comments), newest first, joined to the
 	 * post they replied on. Powers the profile "Replies" tab.
 	 *

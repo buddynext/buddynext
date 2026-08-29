@@ -273,6 +273,25 @@ $can_comment         = ( $current_user_id > 0 && $bn_comments_enabled );
 $can_share    = ( $current_user_id > 0 && buddynext_feature_enabled( 'shares' ) );
 $can_bookmark = ( $current_user_id > 0 && buddynext_feature_enabled( 'bookmarks' ) );
 
+// A post that is not published yet has nothing to engage with. React, Comment,
+// Share and Save render on the author's own Scheduled and Pending tabs, and none
+// of them makes sense there: nobody else can see the post, so a share reaches an
+// empty audience and a comment sits under content that may never publish - or,
+// on a held post, may be rejected with the comment still attached to it.
+//
+// Same principle the Edit control already follows a few lines up: show the
+// affordance only where the action is real. Note this is the UI half only - the
+// reaction and comment services do NOT check post status, so the write paths
+// still accept these on an unpublished post. That gap is server-side and wider
+// than one template (Basecamp 10239861865, reported separately).
+$bn_is_unpublished = in_array( (string) ( $bn_post['status'] ?? 'published' ), array( 'scheduled', 'pending' ), true );
+if ( $bn_is_unpublished ) {
+	$can_react    = false;
+	$can_comment  = false;
+	$can_share    = false;
+	$can_bookmark = false;
+}
+
 // ── Nonces — all REST calls use the wp_rest nonce ──────────────────────────────
 $rest_nonce     = $current_user_id > 0 ? wp_create_nonce( 'wp_rest' ) : '';
 $react_nonce    = $rest_nonce;
@@ -592,6 +611,21 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			</div>
 			<?php
 		}
+	}
+
+	// Held for approval (the owner's "Pending" tab). Without this the card is
+	// indistinguishable from a published post, and the author is left to guess
+	// why it never reached the feed - which is the state the Pending tab exists
+	// to end (Basecamp 10239861865). Only the author ever renders this: the
+	// panel behind it is owner-only, and a pending post is not in anyone else's
+	// feed to begin with.
+	if ( 'pending' === (string) ( $bn_post['status'] ?? '' ) ) {
+		?>
+		<div class="bn-post-card__pending">
+			<?php buddynext_icon( 'shield' ); ?>
+			<span><?php esc_html_e( 'Waiting for a moderator to review this post.', 'buddynext' ); ?></span>
+		</div>
+		<?php
 	}
 
 	buddynext_get_template(

@@ -482,7 +482,11 @@
 }
 
 /* "Scheduled for <date>" strip on a scheduled post (owner's Scheduled tab). */
-.bn-post-card__scheduled {
+/* Status strip for a post that is not live yet - scheduled by the author, or
+   held for a moderator. Same shape, different colour, because they are different
+   situations: one is waiting on the clock, the other is waiting on a person. */
+.bn-post-card__scheduled,
+.bn-post-card__pending {
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
@@ -494,11 +498,17 @@
 	font-size: var(--bn-text-sm);
 	font-weight: 500;
 }
-.bn-post-card__scheduled svg {
+.bn-post-card__pending {
+	background: var(--bn-warn-bg);
+	color: color-mix(in oklch, var(--bn-ink) 86%, transparent);
+}
+.bn-post-card__scheduled svg,
+.bn-post-card__pending svg {
 	width: 16px;
 	height: 16px;
 	flex-shrink: 0;
 }
+.bn-post-card__pending svg { color: var(--bn-warn); }
 
 .bn-post-card__body--blurred {
 	filter: blur(8px);

@@ -1,16 +1,18 @@
 <?php
 /**
- * BuddyNext template part: profile post-list panel (posts / scheduled / likes).
+ * BuddyNext template part: profile post-list panel (posts / scheduled / pending / likes).
  *
  * The registry content seam for the three profile post-card tabs. One
  * parameterized panel — an optional owner composer (Posts only), then the
  * post-card list, then the per-kind empty state. Rendered by ProfileNav's
- * posts/scheduled/likes `render` callables, which self-fetch the rows; this part
+ * posts/scheduled/pending/likes `render` callables, which self-fetch the rows; this part
  * only paints the bundle it is handed (no reveal wrapper).
  *
  * @package BuddyNext
  *
- * @var string       $kind         Required. 'posts' | 'scheduled' | 'likes'.
+ * @var string       $kind         Required. 'posts' | 'scheduled' | 'pending' | 'likes'.
+ *                                'pending' has no empty state: its tab only exists while
+ *                                the count is above zero, so the list is never empty.
  * @var array        $posts        Post arrays for the list.
  * @var int          $viewer_id    Current viewer user ID.
  * @var bool         $is_owner     Whether the viewer owns this profile.

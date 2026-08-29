@@ -144,6 +144,37 @@ final class ProfileNav {
 				'count'     => static fn( NavContext $c ): int => (int) buddynext_service( 'post_service' )->user_scheduled_count( $c->subject_id ),
 				'render'    => fn( NavContext $c ) => $this->render_scheduled( $c ),
 			),
+			// Posts held for moderator approval. Owner-only, exactly like Scheduled
+			// — both are the member's own not-yet-public posts, and neither is
+			// anyone else's business. Without this tab a held post was invisible
+			// to the person who wrote it: the only signal was the composer toast
+			// at submission time, and GET /me/pending-posts had no consumer at all
+			// (Basecamp 10239861865).
+			//
+			// hide_empty, so a site with pre-moderation off never shows the tab.
+			// Scheduled deliberately does NOT do this — it is a feature the member
+			// reaches for and expects to find empty — whereas a Pending tab on a
+			// site that never holds anything is a permanent question with no
+			// answer. hide_empty is also what earns the badge: NavRegistry skips
+			// content COUNT(*) badges by default at scale, and resolves the count
+			// for a hide_empty item because it needs the number anyway.
+			//
+			// Consequence: the panel is never empty, so posts-panel.php carries no
+			// 'pending' empty state, and a stale /pending/ URL falls back to the
+			// profile's default tab the same way any unavailable tab does.
+			array(
+				'id'         => 'pending',
+				'surface'    => 'profile',
+				'layer'      => 'primary',
+				'label'      => __( 'Pending', 'buddynext' ),
+				'priority'   => 16,
+				'after'      => 'scheduled',
+				'condition'  => static fn( NavContext $c ): bool => $c->is_self(),
+				'hide_empty' => true,
+				'url'        => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'pending' ),
+				'count'      => static fn( NavContext $c ): int => (int) buddynext_service( 'post_service' )->user_pending_count( $c->subject_id ),
+				'render'     => fn( NavContext $c ) => $this->render_pending( $c ),
+			),
 			array(
 				'id'        => 'about',
 				'surface'   => 'profile',
@@ -328,6 +359,34 @@ final class ProfileNav {
 				'kind'         => 'scheduled',
 				'subject_id'   => $c->subject_id,
 				'posts'        => (array) buddynext_service( 'post_service' )->user_scheduled_posts( $c->subject_id, 20 ),
+				'viewer_id'    => $c->viewer_id,
+				'is_owner'     => true,
+				'display_name' => $this->display_name( $c->subject_id ),
+			)
+		);
+	}
+
+	/**
+	 * Pending panel — the member's own posts waiting for moderator approval.
+	 *
+	 * Owner-only, and guarded here as well as in the tab condition: a render
+	 * callable is reachable by URL whether or not its tab was rendered.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param NavContext $c Context.
+	 * @return void
+	 */
+	private function render_pending( NavContext $c ): void {
+		if ( ! $c->is_self() ) {
+			return;
+		}
+		buddynext_get_template(
+			'parts/profile/posts-panel.php',
+			array(
+				'kind'         => 'pending',
+				'subject_id'   => $c->subject_id,
+				'posts'        => (array) buddynext_service( 'post_service' )->user_pending_posts( $c->subject_id, 20 ),
 				'viewer_id'    => $c->viewer_id,
 				'is_owner'     => true,
 				'display_name' => $this->display_name( $c->subject_id ),
