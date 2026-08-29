@@ -49,6 +49,32 @@ class AvatarService {
 		'#495057',
 	);
 
+	/**
+	 * The identity tone palette — the ONE list every deterministic entity colour
+	 * comes from, for members and spaces alike.
+	 *
+	 * These are the six tokens `.bn-avatar[data-tone]`, `.bn-md-card__cover` and
+	 * `.bn-sd-card__cover` actually define. That matters more than it looks:
+	 * the palette had been copied into five places and three copies had drifted
+	 * off the tokens entirely, so their colours silently did nothing.
+	 * `MembersSidebarProvider` cycled eight values (`accent`, `success`,
+	 * `jetonomy`, `media`, `events`, `warn`, `danger`, `info`) of which the CSS
+	 * defines NONE, so every letter avatar there fell to the default hue and the
+	 * deterministic variety was inert while reading as if it worked. Two
+	 * templates cycled `violet` and `rose` — the purple/pink family the token
+	 * comment calls "deliberately excluded (BN reads those as the synthetic AI
+	 * palette)" — which are equally undefined on an avatar.
+	 *
+	 * Semantic tokens are the other half of why that was wrong. `danger` is the
+	 * destructive red and `warn` the caution amber; colouring a member's
+	 * initials with them says something about the member that is not true.
+	 * Identity and status are different colour languages and must not share a
+	 * palette.
+	 *
+	 * @var string[]
+	 */
+	public const IDENTITY_TONES = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -249,6 +275,26 @@ class AvatarService {
 	 */
 	public static function tone_for( int $user_id ): string {
 		return self::COLOURS[ $user_id % count( self::COLOURS ) ];
+	}
+
+	/**
+	 * The stable identity TOKEN for an entity — `sky`, `cyan`, `emerald`, …
+	 *
+	 * Distinct from `tone_for()` above, which returns a HEX colour for the
+	 * generated initials-avatar image. This returns the `data-tone` token that
+	 * CSS resolves, for markup that is styled rather than drawn.
+	 *
+	 * Deterministic, so a member or space keeps the same colour on every render
+	 * and every surface. Keyed on the id rather than a hash of the name so that
+	 * renaming does not recolour someone the community already recognises.
+	 *
+	 * @param int $id Member or space id.
+	 * @return string One of IDENTITY_TONES.
+	 */
+	public static function identity_tone_for( int $id ): string {
+		$tones = self::IDENTITY_TONES;
+
+		return $tones[ abs( $id ) % count( $tones ) ];
 	}
 
 	/**

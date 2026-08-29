@@ -165,7 +165,7 @@ $bn_avatar_url = (string) $args['avatar_url'];
 // Cover tone — same brand-safe blue→green→warm gradient set the space cards
 // use. Deterministic per member; filterable so a site can force a uniform
 // cover or its own scheme later. The member's uploaded cover image overrides.
-$bn_card_tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+$bn_card_tones = \BuddyNext\Profile\AvatarService::IDENTITY_TONES;
 $bn_card_tone  = $bn_card_tones[ $bn_member_id % count( $bn_card_tones ) ];
 /**
  * Filter the member-card cover tone (sky|cyan|emerald|lime|amber|coral).

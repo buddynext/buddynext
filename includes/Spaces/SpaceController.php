@@ -809,7 +809,7 @@ class SpaceController extends BaseRestController {
 			current_user_can( 'manage_options' )
 		);
 
-		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+		$tones = \BuddyNext\Profile\AvatarService::IDENTITY_TONES;
 
 		// One instance for the whole page rather than one per row.
 		$member_svc = new SpaceMemberService();

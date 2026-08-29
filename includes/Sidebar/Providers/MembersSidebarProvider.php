@@ -32,15 +32,6 @@ class MembersSidebarProvider {
 	private const SURFACES = array( 'members' );
 
 	/**
-	 * Avatar tone palette — cycles deterministically by user ID. Mirrors
-	 * the `$bn_avatar_tones` array formerly declared inline in
-	 * templates/directory/members.php.
-	 *
-	 * @var array<int,string>
-	 */
-	private const AVATAR_TONES = array( 'accent', 'success', 'jetonomy', 'media', 'events', 'warn', 'danger', 'info' );
-
-	/**
 	 * Hooks the descriptor callback onto the sidebar registry filter.
 	 *
 	 * @return void
@@ -95,7 +86,7 @@ class MembersSidebarProvider {
 								'row_handle'  => (string) ( $row['handle'] ?? '' ),
 								'row_url'     => PageRouter::profile_url( $row_id ),
 								'row_avatar'  => (string) get_avatar_url( $row_id, array( 'size' => 40 ) ),
-								'row_tone'    => self::AVATAR_TONES[ $row_id % count( self::AVATAR_TONES ) ],
+								'row_tone'    => \BuddyNext\Profile\AvatarService::identity_tone_for( (int) $row_id ),
 								'row_online'  => true,
 							)
 						);
