@@ -2619,10 +2619,22 @@ class Installer {
 	private static function seed_starter_member_types( string $p ): void {
 		global $wpdb;
 
+		// Colours come from the brand-safe sweep the rest of the product uses
+		// (AvatarService::COLOURS). Both seeds were off it:
+		//
+		// #5b21b6 is deep violet - the purple/pink family the design tokens exclude
+		// by name because BN reads it as the synthetic "AI" palette. It shipped as
+		// a badge on every fresh install. #0073aa is Appearance::DEFAULT_BRAND, the
+		// SENTINEL meaning "the owner has not branded anything"; seeding a visible
+		// badge with it makes the one value that should mean "unset" look
+		// deliberate.
+		//
+		// Slate for Staff rather than another hue: a staff badge is authority,
+		// not a category, and a neutral reads that way beside the coloured ones.
 		$types = array(
 			// slug, name, color, self_select.
-			array( 'contributor', 'Contributor', '#0073aa', 1 ),
-			array( 'staff', 'Staff', '#5b21b6', 0 ),
+			array( 'contributor', 'Contributor', '#1c7ed6', 1 ),
+			array( 'staff', 'Staff', '#495057', 0 ),
 		);
 
 		$order = 0;

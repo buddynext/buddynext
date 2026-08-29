@@ -1251,6 +1251,18 @@ class MemberDirectoryService {
 			? ' AND ' . $wpdb->prepare( $block_sql, ...$block_params ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 			: '';
 
+		// The viewer is not a discovery result. "Online Now" answers "who else is
+		// around", and a member already knows they are here - listing themselves
+		// is noise, and on a quiet community it was the ENTIRE widget: one row,
+		// the person reading it, under the heading "Online Now (1)".
+		//
+		// Excluded in SQL rather than after the fetch, for the same reason the
+		// block exclusion is: the over-fetch trims to $limit further down, so a
+		// row dropped afterwards would silently cost the widget a real member.
+		$self_where = $viewer_id > 0
+			? $wpdb->prepare( ' AND u.ID <> %d', $viewer_id )
+			: '';
+
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT u.ID, u.display_name, u.user_nicename
@@ -1259,6 +1271,7 @@ class MemberDirectoryService {
 				  WHERE pres.last_active >= %d
 				    AND {$exclusions}
 				    {$block_where}
+				    {$self_where}
 				  ORDER BY pres.last_active DESC
 				  LIMIT %d",
 				time() - PresenceService::ONLINE_WINDOW,
