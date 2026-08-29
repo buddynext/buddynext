@@ -47,18 +47,26 @@ class PostService {
 	 * became ''), so a value added here and not to the column corrupts rows with
 	 * no error anywhere.
 	 *
-	 * @var array<string,array{label_key:string,tone:string,admin_filter:bool}>
+	 * `readable` says whether a post in this state may be read by someone who is
+	 * not its author: it is the authority visibility_error() consults, so a status
+	 * added here is gated by construction instead of being remembered about. Only
+	 * `published` is readable — everything else is the author's business (draft,
+	 * scheduled), a moderator's (pending, under_review), or nobody's (deleted).
+	 *
+	 * @var array<string,array{label_key:string,tone:string,admin_filter:bool,readable:bool}>
 	 */
 	public const STATUSES = array(
 		'published'    => array(
 			'label_key'    => 'Published',
 			'tone'         => 'success',
 			'admin_filter' => true,
+			'readable'     => true,
 		),
 		'scheduled'    => array(
 			'label_key'    => 'Scheduled',
 			'tone'         => 'info',
 			'admin_filter' => true,
+			'readable'     => false,
 		),
 		// Held by pre-moderation: a NEW post awaiting approval. Distinct from
 		// under_review — see below.
@@ -66,6 +74,7 @@ class PostService {
 			'label_key'    => 'Pending',
 			'tone'         => 'warning',
 			'admin_filter' => true,
+			'readable'     => false,
 		),
 		// Auto-hidden after hitting the report threshold. A separate state from
 		// 'pending' because the two mean different things and are resolved by
@@ -78,16 +87,19 @@ class PostService {
 			'label_key'    => 'Under review',
 			'tone'         => 'warning',
 			'admin_filter' => true,
+			'readable'     => false,
 		),
 		'draft'        => array(
 			'label_key'    => 'Draft',
 			'tone'         => 'neutral',
 			'admin_filter' => true,
+			'readable'     => false,
 		),
 		'deleted'      => array(
 			'label_key'    => 'Deleted',
 			'tone'         => 'danger',
 			'admin_filter' => true,
+			'readable'     => false,
 		),
 	);
 
@@ -1306,6 +1318,33 @@ class PostService {
 				'post_forbidden',
 				__( 'You do not have permission to view this post.', 'buddynext' ),
 				array( 'status' => 403 )
+			);
+		}
+
+		/*
+		 * Gate 5 — publication state.
+		 *
+		 * The four gates above all read `privacy` and none of them read `status`,
+		 * so a post that had never been published was gated as though it had. Any
+		 * logged-in member could read another member's draft, a post held for
+		 * pre-moderation, one auto-hidden by the report threshold, or one its
+		 * author had deleted — by id, in full, at 200.
+		 *
+		 * 404 rather than 403, matching gates 1 and 2: a draft's existence is
+		 * itself the author's business, and 403 confirms it.
+		 *
+		 * Answered from the STATUSES registry rather than a list written out here,
+		 * because a list written out here is precisely how `status` came to be
+		 * missing from this method. An unknown status is treated as unreadable —
+		 * MySQL stores '' for a value the ENUM does not carry, and a corrupt row
+		 * should disappear rather than publish itself.
+		 */
+		$status = (string) ( $post['status'] ?? '' );
+		if ( empty( self::STATUSES[ $status ]['readable'] ) && ! $is_author && ! $viewer_is_admin ) {
+			return new WP_Error(
+				'post_not_found',
+				__( 'Post not found.', 'buddynext' ),
+				array( 'status' => 404 )
 			);
 		}
 

@@ -111,6 +111,13 @@ class BookmarkController extends BaseRestController {
 			return new WP_REST_Response( array( 'code' => 'bookmarks_disabled' ), 403 );
 		}
 
+		// Same gate the read endpoints use: no engagement with a post the viewer
+		// cannot see.
+		$hidden = $this->engagement_target_error( 'post', $post_id );
+		if ( $hidden instanceof WP_Error ) {
+			return new WP_REST_Response( array( 'code' => 'post_not_found' ), 404 );
+		}
+
 		$this->bookmarks()->bookmark( $user_id, $post_id );
 
 		return new WP_REST_Response( array( 'bookmarked' => true ), 200 );

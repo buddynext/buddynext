@@ -259,4 +259,69 @@ abstract class BaseRestController {
 		}
 		return ( new \BuddyNext\Profile\MemberDirectoryController() )->hydrate_members( $ids, $viewer_id );
 	}
+
+	/**
+	 * Whether the post behind an engagement target is hidden from the current viewer.
+	 *
+	 * Resolves an (object_type, object_id) engagement target to its owning post and
+	 * asks {@see \BuddyNext\Feed\PostService::visibility_error()} — the one gate
+	 * every surface reads. Targets with no gateable post are treated as visible;
+	 * so is an unavailable service container, because a controller that cannot
+	 * resolve the service must not start refusing traffic it used to serve.
+	 *
+	 * It lives here because both copies that existed before were on the READ
+	 * endpoints of two controllers, and the write endpoints of five went without.
+	 * A shared helper on the base is what makes "did this handler check?" a
+	 * question with one answer instead of five.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $object_type Engagement object type ('post', 'comment', …).
+	 * @param int    $object_id   Engagement object ID.
+	 * @return bool True when the owning post is not viewable by the current user.
+	 */
+	protected function is_post_hidden_from_viewer( string $object_type, int $object_id ): bool {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$posts = buddynext_service( 'post_service' );
+		if ( ! $posts instanceof \BuddyNext\Feed\PostService ) {
+			return false;
+		}
+
+		$post_id = $posts->resolve_post_id( $object_type, $object_id );
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		return $posts->visibility_error( $post_id, get_current_user_id() ) instanceof WP_Error;
+	}
+
+	/**
+	 * Refuse an engagement write whose target the viewer cannot see.
+	 *
+	 * The write-side counterpart of {@see self::is_post_hidden_from_viewer()}:
+	 * every create/toggle handler asks this one question and returns what it gets.
+	 * 404 rather than 403 — the read gates hide a hidden post's existence, and a
+	 * write endpoint that answers 403 hands back the fact the read endpoint just
+	 * withheld.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $object_type Engagement object type.
+	 * @param int    $object_id   Engagement object ID.
+	 * @return WP_Error|null Error to return, or null when the write may proceed.
+	 */
+	protected function engagement_target_error( string $object_type, int $object_id ): ?WP_Error {
+		if ( ! $this->is_post_hidden_from_viewer( $object_type, $object_id ) ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'post_not_found',
+			__( 'Post not found.', 'buddynext' ),
+			array( 'status' => 404 )
+		);
+	}
 }

@@ -83,6 +83,15 @@ class ShareController extends BaseRestController {
 		$user_id = get_current_user_id();
 		$content = sanitize_textarea_field( (string) ( $request->get_param( 'content' ) ?? '' ) );
 
+		// Sharing an unpublished post republished it: the wrapper copied the
+		// original's `privacy` but not its `status`, so a draft, a post held for
+		// moderation, or one its author had deleted came back as a PUBLIC post
+		// under someone else's name.
+		$hidden = $this->engagement_target_error( 'post', $post_id );
+		if ( $hidden instanceof WP_Error ) {
+			return $hidden;
+		}
+
 		$result = ( new ShareService() )->share( $user_id, $post_id, $content );
 
 		if ( is_wp_error( $result ) ) {

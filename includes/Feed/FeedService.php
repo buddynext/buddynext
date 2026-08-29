@@ -1884,11 +1884,20 @@ class FeedService {
 		// with nothing to show. See explore_renderable_where().
 		$renderable_where = $this->explore_renderable_where();
 
+		/*
+		 * status = 'published' is not decoration - the same note the home and space
+		 * feeds carry. Explore had the scheduled_at window but no status filter at
+		 * all, which reads as covered and is not: the window says nothing about a
+		 * draft, a post held for pre-moderation, one auto-hidden by the report
+		 * threshold, or one its author deleted. All four were listed publicly, and
+		 * Explore is the one feed a logged-out visitor can reach.
+		 */
 		// $cursor_where, $excluded_where, $filter_where and $renderable_where contain only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE privacy = 'public'
+			   AND status = 'published'
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
 			   {$block_mute_where}
