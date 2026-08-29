@@ -62,10 +62,56 @@ class AssetIsolation {
 		}
 
 		$prefixes = $this->allowed_prefixes();
+		$keep     = $this->partner_keep_handles();
 
-		$this->isolate_classic( wp_styles(), $prefixes, 'wp_dequeue_style' );
-		$this->isolate_classic( wp_scripts(), $prefixes, 'wp_dequeue_script' );
-		$this->isolate_modules( $prefixes );
+		$this->isolate_classic( wp_styles(), $prefixes, 'wp_dequeue_style', $keep );
+		$this->isolate_classic( wp_scripts(), $prefixes, 'wp_dequeue_script', $keep );
+		$this->isolate_modules( $prefixes, $keep );
+	}
+
+	/**
+	 * Handles a partner has declared MUST survive this request.
+	 *
+	 * The prefix allowlist answers "whose assets are welcome here"; it cannot
+	 * answer "is this plugin actually rendering something on THIS request". Only
+	 * the plugin knows that, and MediaVerse already says so.
+	 *
+	 * MediaVerse stands its own UI down whenever BuddyNext is active and the
+	 * request is not one of its own surfaces (`enforce_frontend_presence()`), and
+	 * exempts the handles it still needs through
+	 * `mvs_frontend_presence_keep_handles` - which its BuddyPress profile Media
+	 * tab uses to keep the two stylesheets that tab renders with. Its own comment
+	 * describes exactly what happens without them: "the tabs paint with empty
+	 * --mvs tokens: bare <ul> lists, icons at viewBox size, no grid spacing".
+	 *
+	 * That exemption did not work on a BuddyNext hub route, and the reason is
+	 * ORDERING. MediaVerse sweeps at `wp_enqueue_scripts@PHP_INT_MAX`; this pass
+	 * runs at 9999, BEFORE it. A keep-list can only decline to dequeue a handle -
+	 * it cannot restore one already dequeued - so BuddyNext removed the two
+	 * stylesheets first and MediaVerse's exemption then had nothing to spare.
+	 * On a BuddyNext + BuddyPress install, where BuddyPress renders MediaVerse's
+	 * media inside a route BuddyNext claims, the result is MediaVerse markup with
+	 * no MediaVerse CSS - the unstyled activity and profile tabs reported from
+	 * mediaverse.local.
+	 *
+	 * Asking the same filter is what makes the two agree. It is also self-limiting
+	 * rather than a blanket allowance: on a BuddyNext-only install MediaVerse is
+	 * not rendering, so the list is just its shared REST utility and nothing
+	 * visual is kept. That matters, because pulling in a partner's whole bundle
+	 * was measured to cost real weight for markup that is not on the page.
+	 *
+	 * @return array<int,string> Handles to keep, whatever their source.
+	 */
+	private function partner_keep_handles(): array {
+		if ( ! has_filter( 'mvs_frontend_presence_keep_handles' ) ) {
+			return array();
+		}
+
+		$keep = apply_filters( 'mvs_frontend_presence_keep_handles', array() );
+
+		return is_array( $keep )
+			? array_values( array_unique( array_filter( array_map( 'strval', $keep ) ) ) )
+			: array();
 	}
 
 	/**
@@ -131,13 +177,18 @@ class AssetIsolation {
 	/**
 	 * Dequeue non-allowlisted handles from a classic dependency registry.
 	 *
-	 * @param \WP_Dependencies  $registry  wp_styles() or wp_scripts().
+	 * @param \WP_Dependencies  $registry wp_styles() or wp_scripts().
 	 * @param array<int,string> $prefixes Allowed URL prefixes.
 	 * @param callable          $dequeue  wp_dequeue_style / wp_dequeue_script.
+	 * @param array<int,string> $keep     Handles a partner declared must survive.
 	 * @return void
 	 */
-	private function isolate_classic( \WP_Dependencies $registry, array $prefixes, callable $dequeue ): void {
+	private function isolate_classic( \WP_Dependencies $registry, array $prefixes, callable $dequeue, array $keep = array() ): void {
 		foreach ( (array) $registry->queue as $handle ) {
+			if ( in_array( (string) $handle, $keep, true ) ) {
+				continue;
+			}
+
 			$dep = $registry->registered[ $handle ] ?? null;
 			$src = ( $dep && is_string( $dep->src ) ) ? $dep->src : '';
 
@@ -154,9 +205,10 @@ class AssetIsolation {
 	 * registered set reflectively and bail gracefully if the internals change.
 	 *
 	 * @param array<int,string> $prefixes Allowed URL prefixes.
+	 * @param array<int,string> $keep     Handles/module ids a partner declared must survive.
 	 * @return void
 	 */
-	private function isolate_modules( array $prefixes ): void {
+	private function isolate_modules( array $prefixes, array $keep = array() ): void {
 		if ( ! function_exists( 'wp_script_modules' ) || ! function_exists( 'wp_dequeue_script_module' ) ) {
 			return;
 		}
@@ -174,6 +226,10 @@ class AssetIsolation {
 		}
 
 		foreach ( $queue as $id ) {
+			if ( in_array( (string) $id, $keep, true ) ) {
+				continue;
+			}
+
 			$entry = $registered[ $id ] ?? null;
 			$src   = ( is_array( $entry ) && isset( $entry['src'] ) && is_string( $entry['src'] ) ) ? $entry['src'] : '';
 
