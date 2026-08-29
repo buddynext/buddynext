@@ -707,6 +707,25 @@ class ProfileController extends BaseRestController {
 			)
 		);
 
+		/*
+		 * Deleting an account re-verifies the password, exactly as disabling 2FA
+		 * already does (TwoFactorController: "Sensitive transitions re-verify the
+		 * password so a hijacked session cannot silently weaken the account").
+		 *
+		 * Before this, the most destructive action a member has took an EMPTY body:
+		 * no password, no confirmation, no re-auth. Deleting the whole account
+		 * asked less than turning 2FA off, and any context that could make one
+		 * authenticated request could end the account irreversibly
+		 * (Basecamp 10252058720).
+		 *
+		 * The parameter is declared but NOT `required`, and the enforcement lives in
+		 * the handler instead. `required` is evaluated when the route registers,
+		 * which bakes in whatever the filter said at that moment — so an owner whose
+		 * filter loads after rest_api_init would turn the requirement off and still
+		 * get a 400 for the parameter they had just removed. Reading the filter at
+		 * request time cannot drift that way, and it lets the handler answer with
+		 * "password required" rather than a generic missing-parameter error.
+		 */
 		register_rest_route(
 			'buddynext/v1',
 			'/me/account',
@@ -714,6 +733,12 @@ class ProfileController extends BaseRestController {
 				'methods'             => 'DELETE',
 				'callback'            => array( $this, 'delete_my_account' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'password' => array(
+						'type'        => 'string',
+						'description' => __( 'The account password, re-entered to confirm an irreversible deletion.', 'buddynext' ),
+					),
+				),
 			)
 		);
 	}
@@ -794,9 +819,14 @@ class ProfileController extends BaseRestController {
 	 * content — standard GDPR erasure, the same uniform hard-delete every other delete
 	 * path uses. Content is never reassigned/kept. Administrators cannot self-delete.
 	 *
+	 * Re-verifies the account password before doing any of it — see
+	 * deletion_requires_password() for why, and for the one case where an owner
+	 * turns that off.
+	 *
+	 * @param WP_REST_Request $request Carries the password being re-verified.
 	 * @return WP_REST_Response|WP_Error
 	 */
-	public function delete_my_account(): WP_REST_Response|WP_Error {
+	public function delete_my_account( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		if ( ! (bool) get_option( 'buddynext_allow_account_deletion', true ) ) {
 			return new WP_Error(
 				'deletion_disabled',
@@ -820,6 +850,39 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
+		// Re-verify the password. LAST gate before the irreversible call, and after
+		// the cheap refusals so a member on a deletion-disabled community is told
+		// that, rather than being asked for a password it will not use.
+		if ( self::deletion_requires_password() ) {
+			$password = (string) $request->get_param( 'password' );
+
+			// Absent and wrong are different answers. "You did not send one" is a
+			// client error the caller can fix; "that is not your password" is a
+			// failed check, and saying so plainly is what lets the dialog put the
+			// message on the field.
+			if ( '' === $password ) {
+				return new WP_Error(
+					'password_required',
+					__( 'Enter your password to confirm deleting your account.', 'buddynext' ),
+					array(
+						'status' => 400,
+						'fields' => array( 'password' => __( 'Your password is required.', 'buddynext' ) ),
+					)
+				);
+			}
+
+			if ( ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+				return new WP_Error(
+					'incorrect_password',
+					__( 'Your password was not correct.', 'buddynext' ),
+					array(
+						'status' => 422,
+						'fields' => array( 'password' => __( 'Incorrect password.', 'buddynext' ) ),
+					)
+				);
+			}
+		}
+
 		// Delete the WP account. This fires `deleted_user`, which runs the ONE canonical
 		// MemberCleanupService::purge_user_relations() - hard-deleting the member's
 		// BuddyNext data (follows, connections, blocks, prefs, and their authored posts +
@@ -838,6 +901,38 @@ class ProfileController extends BaseRestController {
 			),
 			200
 		);
+	}
+
+	/**
+	 * Whether deleting an account re-verifies the member's password.
+	 *
+	 * Default TRUE, and it should stay true on any community where members sign in
+	 * with a password: account deletion is irreversible and takes the member's
+	 * content with it, so it earns at least the friction that disabling 2FA has.
+	 *
+	 * The filter exists because not every install authenticates that way. On a site
+	 * where members arrive through SSO or a social provider, the WordPress password
+	 * is a random string nobody has ever seen — requiring it there does not add a
+	 * check, it removes the member's ability to delete their own account at all,
+	 * which is its own (and in some jurisdictions, legal) problem. Those owners turn
+	 * this off and gate deletion their own way.
+	 *
+	 * Read at BOTH route registration and in the handler, so the declared parameter
+	 * and the enforced check can never disagree.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return bool
+	 */
+	private static function deletion_requires_password(): bool {
+		/**
+		 * Filter whether account deletion re-verifies the account password.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param bool $required Default true.
+		 */
+		return (bool) apply_filters( 'buddynext_account_deletion_requires_password', true );
 	}
 
 	/**

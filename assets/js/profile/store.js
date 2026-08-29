@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { bnToast, bnConfirm, bnPrompt, bnResolveConnectNote } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 
@@ -1226,13 +1226,29 @@ const profileStore = store( 'buddynext/profile', {
 			var ctx = getContext();
 			var btn = event && event.target && event.target.closest( 'button' );
 
-			var ok = await bnConfirm( {
+			// Ask for the password IN the confirm step rather than after it. The
+			// server re-verifies it (ProfileController::delete_my_account) the same
+			// way disabling 2FA does; sending the request without it now returns a
+			// 400, so the dialog has to collect it or the member cannot delete their
+			// account at all.
+			var password = await bnPrompt( {
 				title:        t( 'deleteAccountTitle', 'Delete your account?' ),
 				body:         t( 'deleteAccountMessage', 'This permanently deletes your account and removes your data. This cannot be undone.' ),
+				placeholder:  t( 'deleteAccountPasswordPlaceholder', 'Your password' ),
+				inputType:    'password',
+				autocomplete: 'current-password',
 				confirmLabel: t( 'deleteAccountConfirm', 'Delete my account' ),
 				tone:         'danger',
 			} );
-			if ( ! ok ) { return; }
+
+			// null = cancelled. An empty string means they confirmed without typing
+			// one, which the server would refuse — say so here instead of spending a
+			// round trip to be told.
+			if ( null === password ) { return; }
+			if ( '' === password ) {
+				bnToast( t( 'deleteAccountPasswordRequired', 'Enter your password to confirm.' ), 'danger' );
+				return;
+			}
 
 			if ( btn ) { btn.disabled = true; }
 			try {
@@ -1240,6 +1256,7 @@ const profileStore = store( 'buddynext/profile', {
 					method:       'DELETE',
 					nonce:        ctx.restNonce,
 					toastOnError: false,
+					body:         { password: password },
 				} );
 				var data = res.data || {};
 				if ( res.ok && data.deleted ) {

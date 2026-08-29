@@ -242,19 +242,32 @@ export function bnConfirm( opts, legacyOpts ) {
  * @param {string} [opts.defaultValue]
  * @param {string} [opts.confirmLabel]
  * @param {string} [opts.cancelLabel]
+ * @param {string} [opts.inputType]  'textarea' (default) or an <input> type such
+ *                                   as 'password'. A single-line secret must not
+ *                                   render as a resizable textarea that echoes
+ *                                   what is typed, so the account-deletion
+ *                                   re-auth asks for 'password' here rather than
+ *                                   growing its own dialog.
+ * @param {string} [opts.autocomplete] autocomplete hint for the input.
  * @return {Promise<string|null>}
  */
 export function bnPrompt( opts ) {
 	const cfg = Object.assign( { tone: 'default' }, opts || {} );
 
-	const input = document.createElement( 'textarea' );
+	const isTextarea = 'textarea' === ( cfg.inputType || 'textarea' );
+	const input = document.createElement( isTextarea ? 'textarea' : 'input' );
 	input.className = 'bn-input';
-	input.rows = 3;
+	if ( isTextarea ) {
+		input.rows = 3;
+		input.style.resize = 'vertical';
+	} else {
+		input.type = cfg.inputType;
+		if ( cfg.autocomplete ) { input.autocomplete = cfg.autocomplete; }
+	}
 	input.placeholder = cfg.placeholder || '';
 	input.value = cfg.defaultValue || '';
 	input.style.marginTop = '12px';
 	input.style.width = '100%';
-	input.style.resize = 'vertical';
 
 	cfg.extraNode = input;
 
