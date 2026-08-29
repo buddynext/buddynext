@@ -267,7 +267,16 @@ final class Handle {
 			return $by_slug;
 		}
 
-		// 4. user_login, so a mention that worked before this change still does.
+		// 4. A handle this member USED to hold. Renaming must not silently break
+		// every mention and link written before the rename — and because
+		// is_slug_available() refuses a used handle to everyone else, an old
+		// mention can never start pointing at a different person.
+		$previous_owner = self::previous_owner( $handle );
+		if ( $previous_owner instanceof \WP_User ) {
+			return $previous_owner;
+		}
+
+		// 5. user_login, so a mention that worked before this change still does.
 		// Never reached for a handle any BuddyNext surface displayed.
 		$login = sanitize_user( $handle, true );
 		if ( '' === $login ) {
@@ -303,5 +312,207 @@ final class Handle {
 		);
 
 		return self::is_safe( $safe ) ? $safe : '';
+	}
+
+	/**
+	 * User meta holding every handle this member has previously used.
+	 *
+	 * @since 1.1.6
+	 * @var string
+	 */
+	public const HISTORY_META = 'bn_previous_handles';
+
+	/**
+	 * Set a member's handle — the ONE place a handle is written.
+	 *
+	 * A handle is one value with two homes. `bn_profile_slug` is what BuddyNext
+	 * reads; `user_nicename` is what WordPress reads — author archives, the REST
+	 * `slug` field, the admin Users list. They used to be written independently,
+	 * so a member with a custom slug had TWO live public identities and the two
+	 * screens disagreed about who they were: BuddyNext showed @simmy while
+	 * wp-admin showed sim_member. Writing both here is what makes them one.
+	 *
+	 * The old handle is recorded before it is replaced. Until now, old mentions
+	 * and shared links survived a rename only because user_nicename happened to
+	 * stay put — moving it removes that accident, so the history replaces it with
+	 * something deliberate: resolve() reads it, and is_slug_available() refuses
+	 * it to everyone else, which also closes the case where Alice renames, Bob
+	 * takes @alice, and every old mention of Alice silently becomes a mention of
+	 * Bob.
+	 *
+	 * Callers must have already checked availability — this writes, it does not
+	 * adjudicate. It re-validates the handle itself because a write path that
+	 * trusts its callers is one refactor away from being wrong.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int    $user_id Member.
+	 * @param string $handle  New handle, already sanitized.
+	 * @return true|\WP_Error
+	 */
+	public static function set( int $user_id, string $handle ): bool|\WP_Error {
+		$handle = sanitize_title( $handle );
+		$valid  = self::validate( $handle );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+
+		$user = get_userdata( $user_id );
+		if ( ! $user instanceof \WP_User ) {
+			return new \WP_Error( 'no_user', __( 'No account found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$previous = self::current( $user_id );
+
+		update_user_meta( $user_id, 'bn_profile_slug', $handle );
+
+		// Keep WordPress's own idea of this member in step. wp_update_user()
+		// de-duplicates a nicename by appending -2, which would silently hand the
+		// member a handle they did not choose — availability was already checked,
+		// so that path means something is wrong and the caller should hear about
+		// it rather than have it papered over.
+		if ( $user->user_nicename !== $handle ) {
+			$updated = wp_update_user(
+				array(
+					'ID'            => $user_id,
+					'user_nicename' => $handle,
+				)
+			);
+
+			if ( is_wp_error( $updated ) ) {
+				return $updated;
+			}
+
+			$fresh = get_userdata( $user_id );
+			if ( $fresh instanceof \WP_User && $fresh->user_nicename !== $handle ) {
+				return new \WP_Error(
+					'handle_not_applied',
+					__( 'That handle could not be applied. Please try another.', 'buddynext' ),
+					array( 'status' => 409 )
+				);
+			}
+		}
+
+		self::remember( $user_id, $previous, $handle );
+		clean_user_cache( $user_id );
+
+		return true;
+	}
+
+	/**
+	 * The handle a member is using right now.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $user_id Member.
+	 * @return string
+	 */
+	public static function current( int $user_id ): string {
+		$custom = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+		if ( '' !== $custom ) {
+			return $custom;
+		}
+
+		$user = get_userdata( $user_id );
+
+		return $user instanceof \WP_User ? (string) $user->user_nicename : '';
+	}
+
+	/**
+	 * Record a handle the member has stopped using.
+	 *
+	 * Never records the handle they have just taken, so a member who renames and
+	 * renames back does not end up owning their current handle twice.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int    $user_id  Member.
+	 * @param string $previous Handle being left behind.
+	 * @param string $current  Handle being taken.
+	 * @return void
+	 */
+	private static function remember( int $user_id, string $previous, string $current ): void {
+		if ( '' === $previous || $previous === $current ) {
+			return;
+		}
+
+		$history = self::history( $user_id );
+
+		// Taking back a handle you used before removes it from the history: it is
+		// current again, and a member should not own the same handle twice. A->B->A
+		// otherwise left A in both places, which reads as a bug to the next person
+		// and would confuse any future "release a handle" flow.
+		$history = array_values( array_diff( $history, array( $current ) ) );
+
+		if ( in_array( $previous, $history, true ) ) {
+			update_user_meta( $user_id, self::HISTORY_META, $history );
+			return;
+		}
+
+		$history[] = $previous;
+
+		/**
+		 * Filter how many previous handles are kept per member.
+		 *
+		 * Kept forever by default: the point is that a link written years ago
+		 * still reaches the right person. A site may cap it.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param int $limit 0 for unlimited.
+		 */
+		$limit = (int) apply_filters( 'buddynext_handle_history_limit', 0 );
+		if ( $limit > 0 && count( $history ) > $limit ) {
+			$history = array_slice( $history, -$limit );
+		}
+
+		update_user_meta( $user_id, self::HISTORY_META, array_values( $history ) );
+	}
+
+	/**
+	 * Handles this member has previously used.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $user_id Member.
+	 * @return string[]
+	 */
+	public static function history( int $user_id ): array {
+		$stored = get_user_meta( $user_id, self::HISTORY_META, true );
+
+		return is_array( $stored ) ? array_values( array_filter( array_map( 'strval', $stored ) ) ) : array();
+	}
+
+	/**
+	 * The member who used this handle before, if anyone.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $handle Handle without a leading `@`.
+	 * @return \WP_User|null
+	 */
+	public static function previous_owner( string $handle ): ?\WP_User {
+		if ( '' === $handle ) {
+			return null;
+		}
+
+		// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		$users = get_users(
+			array(
+				'meta_key'     => self::HISTORY_META,
+				'meta_value'   => '"' . $handle . '"',
+				'meta_compare' => 'LIKE',
+				'number'       => 1,
+			)
+		);
+		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+
+		foreach ( $users as $user ) {
+			if ( $user instanceof \WP_User && in_array( $handle, self::history( (int) $user->ID ), true ) ) {
+				return $user;
+			}
+		}
+
+		return null;
 	}
 }

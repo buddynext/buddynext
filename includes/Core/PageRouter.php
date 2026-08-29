@@ -3345,6 +3345,17 @@ class PageRouter {
 			return false;
 		}
 
+		// A handle somebody USED to hold stays theirs. Without this, Alice renames,
+		// Bob takes @alice, and every mention of @alice written before the rename
+		// silently becomes a mention of Bob — which bites harder in a small
+		// community, where people trust the handle precisely because everyone is
+		// known. No timer and no cooldown: the history is the protection, and it
+		// is the same record that keeps her old links working.
+		$previous_owner = \BuddyNext\Profile\Handle::previous_owner( $slug );
+		if ( $previous_owner instanceof \WP_User && (int) $previous_owner->ID !== $user_id ) {
+			return false;
+		}
+
 		// user_nicename. Checked EVEN IF that member also has a custom slug: the
 		// nicename stays a live fallback in resolve_user(), so their old URL still
 		// reaches them and handing it to someone else would silently redirect it.

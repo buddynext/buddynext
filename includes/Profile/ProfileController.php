@@ -1810,6 +1810,24 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
+		// Some communities fix handles to real names — an intranet, a course
+		// cohort. Default is that members own their own handle.
+		/**
+		 * Filter whether members may change their own handle.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param bool $allowed Default true.
+		 * @param int  $user_id Member attempting the change.
+		 */
+		if ( ! (bool) apply_filters( 'buddynext_members_can_change_handle', true, $user_id ) ) {
+			return new WP_Error(
+				'handle_change_disabled',
+				__( 'Handles cannot be changed on this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Unusable and unavailable are different answers, and the member needs to
 		// know which: "already taken" sends them looking for another name, when
 		// the real problem may be that they typed two characters or an emoji.
@@ -1826,7 +1844,12 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
-		update_user_meta( $user_id, 'bn_profile_slug', $requested_slug );
+		// One writer for the handle: it also keeps user_nicename in step and
+		// records the handle being left behind.
+		$saved = \BuddyNext\Profile\Handle::set( $user_id, $requested_slug );
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
 
 		return new WP_REST_Response(
 			array(

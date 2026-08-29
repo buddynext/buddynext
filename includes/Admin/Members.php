@@ -964,7 +964,7 @@ class Members extends AdminPageBase {
 			$new_slug = sanitize_title( wp_unslash( $_POST['bn_profile_slug'] ) );
 			if ( '' !== $new_slug ) {
 				if ( \BuddyNext\Core\PageRouter::is_slug_available( $new_slug, $user_id ) ) {
-					update_user_meta( $user_id, 'bn_profile_slug', $new_slug );
+					\BuddyNext\Profile\Handle::set( $user_id, $new_slug );
 				} else {
 					wp_safe_redirect( add_query_arg( 'bn_error', 'slug_taken', $redirect_url ) );
 					exit;

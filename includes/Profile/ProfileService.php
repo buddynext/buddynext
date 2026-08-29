@@ -1260,7 +1260,7 @@ class ProfileService {
 		if ( array_key_exists( 'profile_slug', $data ) ) {
 			$requested_slug = sanitize_title( (string) $data['profile_slug'] );
 			if ( '' !== $requested_slug && \BuddyNext\Core\PageRouter::is_slug_available( $requested_slug, $user_id ) ) {
-				update_user_meta( $user_id, 'bn_profile_slug', $requested_slug );
+				\BuddyNext\Profile\Handle::set( $user_id, $requested_slug );
 			}
 		}
 

@@ -363,7 +363,7 @@ class OnboardingService {
 			return '';
 		}
 
-		update_user_meta( $user_id, 'bn_profile_slug', $slug );
+		\BuddyNext\Profile\Handle::set( $user_id, $slug );
 		return $slug;
 	}
 
