@@ -142,7 +142,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-08-26-hub-registry-seam';
+	private const ROUTER_VERSION = '2026-08-29-space-slug-beats-scope';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -2457,19 +2457,12 @@ class PageRouter {
 
 		// Pretty "My Spaces" directory views: /spaces/mine/ (sectioned managed +
 		// joined) and /spaces/mine/managed|joined/ (one bucket, paginated). Added
-		// BEFORE the generic {slug} rules below — add_rewrite_rule( 'top' ) preserves
-		// addition order within the top bucket, so these match first and "mine" is
-		// never read as a space slug. Reserves only the word "mine" as a non-slug.
-		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/mine/(managed|joined)/?$',
-			'index.php?bn_hub=spaces&bn_scope=mine&bn_membership=$matches[1]',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/mine/?$',
-			'index.php?bn_hub=spaces&bn_scope=mine',
-			'top'
-		);
+		// No dedicated /spaces/mine/ rule any more. It matched BEFORE the generic
+		// {slug} rules and set bn_scope directly, bypassing slug resolution
+		// entirely — which is why a space slugged "mine" could never be opened. The
+		// generic rules below capture it now and parse_query decides: a real space
+		// wins, and only an unclaimed word falls back to the My-Spaces view. Same
+		// URLs, one code path, entity first.
 
 		// One generic rule for every space sub-route: /spaces/{slug}/{action}/.
 		// The dispatcher (get_template_for) routes by action — content tabs
@@ -2702,24 +2695,50 @@ class PageRouter {
 
 		$raw_space_slug = (string) $query->get( 'bn_space_slug', '' );
 		if ( '' !== $raw_space_slug ) {
-			// Reserved directory-scope words are never space slugs. If the generic
-			// /spaces/{slug}/ rewrite rule captured "mine" (it out-orders the pretty
-			// /spaces/mine/ rule on installs where Learnomy/other plugins inject an
-			// early spaces/{slug} rule), re-route to the My-Spaces directory view
-			// instead of resolving a non-existent space (which 404s "Space not
-			// found."). Order-independent — no reliance on rewrite-rule priority.
-			$reserved = (array) apply_filters( 'buddynext_reserved_space_slugs', array( 'mine' ) );
-			if ( in_array( $raw_space_slug, $reserved, true ) ) {
-				$query->set( 'bn_scope', 'mine' );
-				$action = sanitize_key( (string) $query->get( 'bn_space_action', '' ) );
-				if ( 'managed' === $action || 'joined' === $action ) {
-					$query->set( 'bn_membership', $action );
-				}
-				$query->set( 'bn_space_slug', '' );
-				$query->set( 'bn_space_action', '' );
-			} else {
-				$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
+			// THE ENTITY WINS. A path segment in entity position is a space slug
+			// first and a directory-scope word only if no space owns it.
+			//
+			// This used to be the other way round: "mine" short-circuited to the
+			// My-Spaces view before resolve_space() was ever asked, so a space
+			// actually slugged "mine" was unreachable at its own URL — measured
+			// before the fix, /spaces/mine/ served the Spaces LISTING while
+			// /spaces/open-discussion/ served its space. Nothing stopped that space
+			// being created, either: bn_spaces.slug is UNIQUE but carries no
+			// reserved-word guard, so the owner got a space they could not open.
+			//
+			// Resolving first costs one indexed lookup on a route that already does
+			// one for every other slug, and it keeps the legacy URL working: with no
+			// space named "mine", /spaces/mine/ still lands on My Spaces exactly as
+			// before. No redirect, no broken links, and the word stops being
+			// reserved — it is simply a slug nobody has taken.
+			$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
+
+			if ( $space_id > 0 ) {
 				$query->set( 'bn_resolved_space_id', $space_id );
+			} else {
+				/**
+				 * Directory-scope words that /spaces/{word}/ falls back to when no
+				 * space owns that slug.
+				 *
+				 * @since 1.0.0
+				 *
+				 * @param string[] $scopes Fallback scope words.
+				 */
+				$scopes = (array) apply_filters( 'buddynext_reserved_space_slugs', array( 'mine' ) );
+
+				if ( in_array( $raw_space_slug, $scopes, true ) ) {
+					$query->set( 'bn_scope', 'mine' );
+					$action = sanitize_key( (string) $query->get( 'bn_space_action', '' ) );
+					if ( 'managed' === $action || 'joined' === $action ) {
+						$query->set( 'bn_membership', $action );
+					}
+					$query->set( 'bn_space_slug', '' );
+					$query->set( 'bn_space_action', '' );
+				} else {
+					// A genuinely unknown slug still resolves to 0, which is what
+					// the "Space not found" surface reads.
+					$query->set( 'bn_resolved_space_id', $space_id );
+				}
 			}
 		}
 	}
