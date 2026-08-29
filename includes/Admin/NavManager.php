@@ -352,7 +352,8 @@ class NavManager extends AdminPageBase {
 				update_option( $cfg['slug_opt'], $effective_slug );
 			}
 
-			$page_id = absint( $hub_data['page_id'] ?? 0 );
+			$previous_page_id = absint( get_option( $cfg['page_opt'], 0 ) );
+			$page_id          = absint( $hub_data['page_id'] ?? 0 );
 			// "Create a page now" — only when none is selected, so a chosen page
 			// is never silently replaced by a new blank one.
 			if ( 0 === $page_id && ! empty( $hub_data['create'] ) ) {
@@ -365,12 +366,83 @@ class NavManager extends AdminPageBase {
 				}
 			}
 			update_option( $cfg['page_opt'], $page_id );
+
+			$this->reconcile_backing_page( $page_id, $previous_page_id, $effective_slug );
 		}
 
 		wp_safe_redirect(
 			add_query_arg( 'bn_notice', $create_failed ? 'pages_error' : 'pages_saved', $pages_url )
 		);
 		exit;
+	}
+
+	/**
+	 * Keep a hub's backing page consistent with the hub after a save.
+	 *
+	 * A hub's backing page has an identity — its slug and its published state —
+	 * that the hub never maintained, so three symptoms shared one cause:
+	 *
+	 *   1. Renaming a hub left the old URL live. The option moved; the page kept
+	 *      its post_name, and WordPress went on resolving the old path to it.
+	 *   2. Reassigning a hub to a different page orphaned the old one, still
+	 *      published at its own URL.
+	 *   3. A backing page in the trash still counted, because hub_page_id() gates
+	 *      on get_post_type() === 'page', which is true for a trashed page.
+	 *
+	 * Symptoms 1 and 2 are worse than a stale URL. The installer seeds these pages
+	 * with the hub's SHORTCODE in their content, so the abandoned path still renders
+	 * the hub — through the shortcode, not dispatch_hub_template(), which means it
+	 * bypasses every guard that lives in that method: the private-community
+	 * lockdown, the per-feature toggles, the DM gate. A site that turns Spaces off,
+	 * or closes the community to members only, still had a reachable copy at any
+	 * slug it had ever used.
+	 *
+	 * Owner decision (2026-08-29): the old URL 404s. Not a 301 — a redirect keeps
+	 * the abandoned page published and therefore keeps the shortcode reachable to
+	 * anything that finds it another way, which is the exposure rather than the
+	 * broken link. So the page is unpublished, and WordPress stops resolving it.
+	 *
+	 * @param int    $page_id          The page the hub now points at (0 = none).
+	 * @param int    $previous_page_id The page it pointed at before this save.
+	 * @param string $slug             The hub's effective slug after this save.
+	 * @return void
+	 */
+	private function reconcile_backing_page( int $page_id, int $previous_page_id, string $slug ): void {
+		// The hub stopped pointing at a page: retire the old one so it cannot go on
+		// serving hub content at its own URL.
+		if ( $previous_page_id > 0 && $previous_page_id !== $page_id && 'page' === get_post_type( $previous_page_id ) ) {
+			wp_update_post(
+				array(
+					'ID'          => $previous_page_id,
+					'post_status' => 'draft',
+				)
+			);
+		}
+
+		if ( $page_id <= 0 ) {
+			return;
+		}
+
+		$page = get_post( $page_id );
+		if ( ! $page instanceof \WP_Post || 'page' !== $page->post_type ) {
+			return;
+		}
+
+		$update = array( 'ID' => $page_id );
+
+		// A trashed page still answers get_post_type() === 'page', so the hub kept
+		// pointing at it for queried_object_id and SEO while it was in the bin.
+		if ( 'publish' !== $page->post_status ) {
+			$update['post_status'] = 'publish';
+		}
+
+		if ( '' !== $slug && $slug !== $page->post_name ) {
+			$update['post_name'] = $slug;
+		}
+
+		if ( count( $update ) > 1 ) {
+			wp_update_post( $update );
+		}
 	}
 
 	/**
