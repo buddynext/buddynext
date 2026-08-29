@@ -62,9 +62,23 @@ class AvatarService {
 	 * @return void
 	 */
 	public function init(): void {
-		add_filter( 'pre_get_avatar_data', array( $this, 'filter_avatar_data' ), 10, 2 );
-		// The generated initials run LAST, separately, so a real avatar from any
-		// other plugin beats a placeholder from this one. See filter_avatar_fallback().
+		/*
+		 * Three priorities, and the order between them is the whole design.
+		 *
+		 * 50 - the member's own BuddyNext upload. BuddyNext is the account's home in
+		 * this suite, so an avatar uploaded here outranks one set in any sibling
+		 * plugin (owner directive, 2026-08-29). Priority 50 makes that TRUE BY
+		 * DESIGN rather than by luck: WPMediaVerse and Jetonomy both register at 10,
+		 * BuddyNext also registered at 10, and BuddyNext only won because it boots at
+		 * plugins_loaded:15 and therefore happened to be added last. Any sibling that
+		 * moved its own boot, or registered at 11, would have flipped the result
+		 * silently and site-wide.
+		 *
+		 * 99 - our placeholders (the configured default image, then generated
+		 * initials). They must lose to a real photograph from anyone, which is only
+		 * answerable once every other participant has had its turn.
+		 */
+		add_filter( 'pre_get_avatar_data', array( $this, 'filter_avatar_data' ), 50, 2 );
 		add_filter( 'pre_get_avatar_data', array( $this, 'filter_avatar_fallback' ), 99, 2 );
 		add_filter( 'kses_allowed_protocols', array( $this, 'allow_data_protocol' ) );
 		add_filter( 'clean_url', array( $this, 'restrict_data_urls' ), 10, 2 );
@@ -154,25 +168,7 @@ class AvatarService {
 			return $args;
 		}
 
-		// ── 2. Site-wide fallback style ────────────────────────────────────────
-		$style = (string) get_option( 'bn_avatar_style', 'initials' );
-
-		if ( 'gravatar' === $style ) {
-			// Let WordPress and Gravatar handle it — return args unchanged.
-			return $args;
-		}
-
-		if ( 'default_image' === $style ) {
-			$default_url = (string) get_option( 'bn_default_avatar_url', '' );
-			if ( '' !== $default_url ) {
-				$args['url']          = $default_url;
-				$args['found_avatar'] = true;
-				return $args;
-			}
-			// No image configured — fall through to initials.
-		}
-
-		// ── 3. No real avatar from us ──────────────────────────────────────────
+		// ── 2. No real avatar from us ──────────────────────────────────────────
 		// Deliberately return unchanged rather than generating initials here.
 		// This filter runs at priority 10, and so do WPMediaVerse's and
 		// Jetonomy's — three plugins on the same hook at the same priority, with
@@ -209,14 +205,32 @@ class AvatarService {
 			return $args;
 		}
 
-		if ( 'initials' !== (string) get_option( 'bn_avatar_style', 'initials' )
-			&& 'default_image' !== (string) get_option( 'bn_avatar_style', 'initials' ) ) {
+		$style = (string) get_option( 'bn_avatar_style', 'initials' );
+
+		if ( 'initials' !== $style && 'default_image' !== $style ) {
 			return $args;
 		}
 
 		$user = $this->resolve_user( $id_or_email );
 		if ( ! $user ) {
 			return $args;
+		}
+
+		// The owner's configured default image is a placeholder, so it belongs here
+		// rather than at the early priority it used to run at. It was overwriting a
+		// member's real photograph from a sibling plugin - verified on this install:
+		// with style=default_image, a member holding a WPMediaVerse avatar and no
+		// BuddyNext one was served the site-wide placeholder everywhere. The 27 Aug
+		// fix moved the generated INITIALS out of the early pass and left this branch
+		// behind, so the rule the file states was only half true.
+		if ( 'default_image' === $style ) {
+			$default_url = (string) get_option( 'bn_default_avatar_url', '' );
+			if ( '' !== $default_url ) {
+				$args['url']          = $default_url;
+				$args['found_avatar'] = true;
+				return $args;
+			}
+			// No image configured — fall through to initials.
 		}
 
 		$args['url']          = $this->build_svg_url( $user );
