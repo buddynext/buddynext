@@ -1230,7 +1230,7 @@ class SetupWizard {
 		$this->render_step_head(
 			__( 'What’s powering your community?', 'buddynext' ),
 			$can_install && $pending > 0
-				? __( 'These companion plugins extend BuddyNext. They’re all selected — Continue installs and activates them. Uncheck any you don’t want.', 'buddynext' )
+				? __( 'These companion plugins extend BuddyNext. Tick only the ones you want — Continue installs and activates those, and nothing else. You can add the rest any time.', 'buddynext' )
 				: __( 'These companion plugins extend BuddyNext. Anything already active integrates automatically.', 'buddynext' ),
 			$can_install
 				? __( 'Installs the free editions from wbcomdesigns.com. You can manage them later under Plugins.', 'buddynext' )
@@ -1254,8 +1254,20 @@ class SetupWizard {
 				$bn_active = ( 'active' === $bn_status );
 				$bn_label  = (string) ( $bn_c['label'] ?? $bn_slug );
 				$bn_why    = (string) ( $bn_c['why'] ?? '' );
-				// Pre-check every not-yet-active companion when the owner can install.
-				$bn_check = ( ! $bn_active && $can_install );
+
+				/*
+				 * Nothing is pre-checked. This step used to tick every not-yet-active
+				 * companion, so one click on Continue installed an LMS, a job board, an
+				 * events plugin, a directory, a forum and a blog - downloading whichever
+				 * were not present from wbcomdesigns.com. An owner who wanted a community
+				 * got a suite, and the download was hidden behind the primary CTA.
+				 *
+				 * Opting IN is the honest default: the owner leaves this step having
+				 * chosen each product, which is the only way the next screen makes sense
+				 * to them. Anything they skip is still one click away here later.
+				 */
+				$bn_check = false;
+
 				$bn_field = 'bn-companion-' . sanitize_html_class( (string) $bn_slug );
 				?>
 				<li class="bn-wizard__addon" data-state="<?php echo $bn_active ? 'active' : esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
@@ -1282,7 +1294,10 @@ class SetupWizard {
 						} elseif ( 'inactive' === $bn_status ) {
 							esc_html_e( 'Installed — will activate', 'buddynext' );
 						} else {
-							esc_html_e( 'Not installed', 'buddynext' );
+							// What Continue will DO, not what the row currently is. "Not
+							// installed" describes the past; this row's whole risk is that
+							// ticking it fetches a separate product over the network.
+							esc_html_e( 'Will download', 'buddynext' );
 						}
 						?>
 					</span>
