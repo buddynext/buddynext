@@ -67,6 +67,7 @@ trait RendersDriveFiles {
 				'partials/space-files-tab.php',
 				array(
 					'bn_sf_space_id'     => $drive_id,
+					'bn_sf_drive_type'   => $drive_type,
 					'bn_sf_base_url'     => $base_url,
 					'bn_sf_search_q'     => $search['query'],
 					'bn_sf_search_ready' => $search['ready'],
@@ -77,7 +78,6 @@ trait RendersDriveFiles {
 					'bn_sf_page'         => $search['page'],
 					'bn_sf_pages'        => $search['pages'],
 					'bn_sf_total'        => $search['total'],
-					'bn_sf_can_write'    => false,
 				)
 			);
 			return;
@@ -96,6 +96,7 @@ trait RendersDriveFiles {
 			'partials/space-files-tab.php',
 			array(
 				'bn_sf_space_id'     => $drive_id,
+				'bn_sf_drive_type'   => $drive_type,
 				'bn_sf_base_url'     => $base_url,
 				'bn_sf_folders'      => $view['folders'],
 				'bn_sf_documents'    => $view['documents'],

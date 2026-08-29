@@ -1794,9 +1794,25 @@ class WPMediaVerseBridge {
 		$doc_headers = $docs_res->get_headers();
 		$fol_headers = $folders_res->get_headers();
 
-		// The current viewer's write level on this drive — the tab shows an
-		// upload affordance only when they may actually add to it.
-		$access = apply_filters( 'mvs_document_drive_access', 'none', $drive_type, $drive_id, get_current_user_id() );
+		// The current viewer's write level on this drive. The Files tab is a
+		// browse/download view, not an uploader — contribution arrives through the
+		// activity composer — so this decides whether the empty state TELLS them
+		// how to add a file, not whether an upload control renders.
+		//
+		// The drive-access ladder answers for TEAM drives only: both MediaVerse
+		// call sites (PrivacyService::resolve_drive_for_user, ::check_space)
+		// return before consulting it when the type is `user`, because a personal
+		// drive is settled by plain ownership and no bridge is asked. Asking it
+		// here for a `user` drive therefore always came back `none` — so the
+		// profile Files tab published can_write = false to its own owner. Settle
+		// the personal drive the way MediaVerse does, and only ask the ladder
+		// about the drives it actually speaks for.
+		$viewer = get_current_user_id();
+		if ( 'user' === $drive_type ) {
+			$access = ( $viewer > 0 && $viewer === $drive_id ) ? 'own' : 'none';
+		} else {
+			$access = apply_filters( 'mvs_document_drive_access', 'none', $drive_type, $drive_id, $viewer );
+		}
 
 		return array(
 			'folders'      => $folders,

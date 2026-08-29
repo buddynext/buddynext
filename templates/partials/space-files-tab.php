@@ -1,21 +1,28 @@
 <?php
 /**
- * BuddyNext template partial: the space Files tab.
+ * BuddyNext template partial: the Files tab, for either document drive.
  *
- * BuddyNext owns the space document-drive UI (WPMediaVerse ships none — see
+ * BuddyNext owns the document-drive UI (WPMediaVerse ships none — see
  * docs/architecture/pro/BUDDYNEXT-DRIVE-BRIDGE.md §6). This is a browse +
- * download view of one space drive at one folder: folders first, then
- * documents, with a breadcrumb and pagination. Contribution (adding a file)
- * arrives through the activity composer, the same way media reaches a space
- * through a post — the Files tab is the view, not the uploader.
+ * download view of ONE drive at one folder: folders first, then documents,
+ * with a breadcrumb and pagination. The same file serves the space drive and
+ * the member's own drive (RendersDriveFiles points it at either), so anything
+ * that names the drive branches on `$bn_sf_drive_type` — hardcoding "this
+ * space" here puts space copy on a member's own profile.
+ *
+ * Contribution (adding a file) arrives through the activity composer, the same
+ * way media reaches a space through a post — the Files tab is the view, not
+ * the uploader. `$bn_sf_can_write` therefore gates the empty state's "how to
+ * add one" line, not an upload control.
  *
  * Rows-not-tiles, exactly like MediaVerse's own personal drive, and it stacks
  * into cards at 640px. No JavaScript: folders are links, downloads are links.
  *
  * @package BuddyNext
  *
- * @var int                                    $bn_sf_space_id    The space (drive) id.
- * @var string                                 $bn_sf_base_url    /spaces/{slug}/files/ .
+ * @var int                                    $bn_sf_space_id    The drive id (space id, or profile owner id).
+ * @var string                                 $bn_sf_drive_type  'space' or 'user'.
+ * @var string                                 $bn_sf_base_url    The Files tab URL for this drive.
  * @var array<int,array<string,mixed>>         $bn_sf_folders     MVS folder objects at this level.
  * @var array<int,array<string,mixed>>         $bn_sf_documents   MVS document objects at this level.
  * @var array<int,array{id:int,name:string}>   $bn_sf_breadcrumbs Trail incl. current folder.
@@ -42,6 +49,11 @@ $bn_sf_ftotal      = isset( $bn_sf_folder_total ) ? (int) $bn_sf_folder_total : 
 $bn_sf_search_q    = isset( $bn_sf_search_q ) ? (string) $bn_sf_search_q : '';
 $bn_sf_search_rdy  = isset( $bn_sf_search_ready ) ? (bool) $bn_sf_search_ready : true;
 $bn_sf_is_search   = '' !== $bn_sf_search_q;
+$bn_sf_is_space    = 'user' !== ( isset( $bn_sf_drive_type ) ? (string) $bn_sf_drive_type : 'space' );
+// Search results never reach the "no files yet" state, so that path passes no
+// write level; defaulting false keeps the "how to add one" line off a view that
+// cannot know whether the viewer may contribute.
+$bn_sf_can_write = isset( $bn_sf_can_write ) ? (bool) $bn_sf_can_write : false;
 
 // A short type chip, the same shorthand MediaVerse uses so the two libraries
 // read the same. Unknown types fall back to FILE rather than guessing.
@@ -127,7 +139,7 @@ $bn_sf_empty    = empty( $bn_sf_folders ) && empty( $bn_sf_documents );
 <div class="bn-space-files">
 
 	<form class="bn-files__search" method="get" action="<?php echo esc_url( $bn_sf_base_url ); ?>" role="search">
-		<label class="screen-reader-text" for="bn-files-q"><?php esc_html_e( 'Search files in this space', 'buddynext' ); ?></label>
+		<label class="screen-reader-text" for="bn-files-q"><?php echo esc_html( $bn_sf_is_space ? __( 'Search files in this space', 'buddynext' ) : __( 'Search your files', 'buddynext' ) ); ?></label>
 		<input type="search" id="bn-files-q" name="bn_q" class="bn-files__search-input" value="<?php echo esc_attr( $bn_sf_search_q ); ?>" placeholder="<?php esc_attr_e( 'Search files…', 'buddynext' ); ?>" autocomplete="off">
 		<button type="submit" class="bn-files__search-btn"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
 	</form>
@@ -193,8 +205,14 @@ $bn_sf_empty    = empty( $bn_sf_folders ) && empty( $bn_sf_documents );
 				)
 				: array(
 					'icon'  => 'folder',
-					'title' => $bn_sf_folder > 0 ? __( 'This folder is empty', 'buddynext' ) : __( 'No files shared yet', 'buddynext' ),
-					'body'  => __( 'Files shared with this space appear here to browse and download.', 'buddynext' ),
+					'title' => $bn_sf_folder > 0
+						? __( 'This folder is empty', 'buddynext' )
+						: ( $bn_sf_is_space ? __( 'No files shared yet', 'buddynext' ) : __( 'No files yet', 'buddynext' ) ),
+					'body'  => $bn_sf_is_space
+						? ( $bn_sf_can_write
+							? __( 'Files shared with this space appear here. Attach one to a post to add it.', 'buddynext' )
+							: __( 'Files shared with this space appear here to browse and download.', 'buddynext' ) )
+						: __( 'Documents you share appear here. Attach one to a post to add it.', 'buddynext' ),
 				)
 		);
 		?>
