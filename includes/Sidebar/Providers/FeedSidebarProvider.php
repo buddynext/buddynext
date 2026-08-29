@@ -27,9 +27,21 @@ class FeedSidebarProvider {
 	/**
 	 * Surfaces this provider's widgets appear on.
 	 *
+	 * NOT `search`. The search page brings its own right column - date, sort,
+	 * advanced member filters, saved and related searches - so adding the
+	 * discovery widgets there produced FOUR columns at 1440 (rail, results,
+	 * search filters, discovery) and squeezed the results themselves to 502px,
+	 * narrower than either sidebar pair beside them. On a page whose entire job
+	 * is finding something, the results are what deserves the width, and
+	 * "Trending topics" / "People to follow" are a different kind of discovery
+	 * competing with the one the member explicitly asked for.
+	 *
+	 * An owner who wants them back adds them through `buddynext_sidebar_widgets`,
+	 * the same registry filter this provider registers on - no new seam needed.
+	 *
 	 * @var array<int,string>
 	 */
-	private const SURFACES = array( 'feed', 'bookmarks', 'single-post', 'search', 'leaderboard', 'hashtag' );
+	private const SURFACES = array( 'feed', 'bookmarks', 'single-post', 'leaderboard', 'hashtag' );
 
 	/**
 	 * Hooks the descriptor callback onto the sidebar registry filter.
