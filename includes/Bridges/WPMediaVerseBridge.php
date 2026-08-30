@@ -443,37 +443,34 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		// Carry the upload's own title and poster through to the card. Both were
-		// passed as '' before, so the feed card fell back to printing the verb as
-		// its headline — "Media / shared a video" — and never showed a cover even
-		// when the engine had extracted one (Basecamp 10242691205). The renderer
-		// degrades on its own when either is missing, so an untitled upload still
-		// produces a valid compact card.
-		$title = '';
-		$thumb = '';
-		if ( is_object( $repo ) && method_exists( $repo, 'get' ) ) {
-			$title = (string) $repo->get( $media_id, 'title' );
-			// thumb_large first: the poster the engine extracts for video and the
-			// resized still for images. Falls back through the smaller sizes rather
-			// than to the raw file, which for a video is the video itself.
-			foreach ( array( 'thumb_large', 'thumb_medium', 'thumb' ) as $size ) {
-				$candidate = (string) $repo->get( $media_id, $size );
-				if ( '' !== $candidate ) {
-					$thumb = $candidate;
-					break;
-				}
-			}
-		}
-
+		// STORE A REFERENCE, NOT A SNAPSHOT.
+		//
+		// The first version of this fix wrote the upload's title and poster into
+		// link_meta at publish time, which fixed the visible symptom and created
+		// two new problems (QA bounce on 10242691205):
+		//
+		// The poster is a SIGNED url with a one-hour TTL, so every cover 404'd an
+		// hour after upload. Note for anyone reading MediaVerse's docblocks:
+		// get_broadcast_thumbnail_url() is not the escape hatch it used to be - its
+		// TTL was reduced from a year to an hour on purpose, so snapshotting THAT
+		// expires too. No signed URL is safe to freeze.
+		//
+		// And a frozen title outlives the privacy of the thing it describes: rename
+		// or lock a file and the feed keeps printing what it used to be called, to
+		// everyone.
+		//
+		// So the card stores the media id and nothing else derived from it. Title
+		// and cover are resolved at render, for the viewer doing the reading -
+		// see render_feed_card().
 		IntegrationActivity::publish(
 			$user_id,
 			self::media_activity_verb( (string) $media_type ),
 			$url,
-			$title,
+			'',
 			'media',
 			'',
 			0,
-			'' !== $thumb ? array( 'image' => $thumb ) : array()
+			array( 'media_id' => $media_id )
 		);
 	}
 
@@ -502,11 +499,67 @@ class WPMediaVerseBridge {
 	public function render_feed_card( $html, $args ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
 		unset( $html );
 
+		$args = is_array( $args ) ? $args : array();
+
 		return IntegrationActivity::render_bridge_card(
-			is_array( $args ) ? $args : array(),
+			$this->hydrate_media_preview( $args ),
 			'image',
 			__( 'Media', 'buddynext' )
 		);
+	}
+
+	/**
+	 * Resolve a media card's title and cover AT RENDER, for the current viewer.
+	 *
+	 * The card stores only the media id (see publish_media_activity), so both are
+	 * read live. That is the whole point: a signed thumbnail URL expires in an
+	 * hour, and a frozen title outlives the privacy of the file it names.
+	 *
+	 * The cover comes from `get_thumbnail_url_for_viewer()`, which authorises
+	 * against the person reading the feed and returns '' when they may not see the
+	 * media - so a file whose privacy was tightened after posting stops showing
+	 * its poster to everyone, rather than continuing to serve a URL minted when it
+	 * was public. `get_broadcast_thumbnail_url()` would NOT do this: it resolves
+	 * anonymously, which is right for emission and wrong for rendering.
+	 *
+	 * Degrades quietly. No MediaVerse, no repository, or a media row that has
+	 * since been deleted leaves title and cover empty, and render_bridge_card()
+	 * falls back to the verb plus the link - the compact card, not a broken one.
+	 *
+	 * @param array<string,mixed> $args Render args from the post-body seam.
+	 * @return array<string,mixed>
+	 */
+	private function hydrate_media_preview( array $args ): array {
+		$link     = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
+		$media_id = (int) ( $link['media_id'] ?? 0 );
+
+		if ( $media_id <= 0 ) {
+			return $args;
+		}
+
+		$repo = MediaClient::repo();
+		if ( ! is_object( $repo ) ) {
+			return $args;
+		}
+
+		if ( method_exists( $repo, 'get' ) ) {
+			$title = (string) $repo->get( $media_id, 'title' );
+			if ( '' !== $title ) {
+				$link['title'] = $title;
+			}
+		}
+
+		if ( method_exists( $repo, 'get_thumbnail_url_for_viewer' ) ) {
+			$thumb = (string) $repo->get_thumbnail_url_for_viewer( $media_id, 'thumb_large', get_current_user_id() );
+			if ( '' !== $thumb ) {
+				$link['thumb'] = $thumb;
+				$link['image'] = $thumb;
+			}
+		}
+
+		$args['link_preview'] = $link;
+
+		return $args;
 	}
 
 	/**
