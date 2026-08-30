@@ -55,7 +55,18 @@ class NotificationMessageService {
 		$type        = isset( $row['type'] ) ? (string) $row['type'] : '';
 		$actor_id    = isset( $row['sender_id'] ) ? (int) $row['sender_id'] : 0;
 		$object_id   = isset( $row['object_id'] ) ? (int) $row['object_id'] : 0;
+		/*
+		 * Two counts can describe "how many", and the bigger one is the honest one.
+		 *
+		 * `group_count` is the stored write-time tally: re-fires of the SAME event
+		 * merged into one row. `group_size` is the read-time collapse: distinct
+		 * events on the same object folded together for display (NotificationService
+		 * ::group_page). A row can carry both, and taking either alone under-reports
+		 * - which on this screen means telling a moderator there are fewer requests
+		 * waiting than there are.
+		 */
 		$group_count = isset( $row['group_count'] ) ? max( 1, (int) $row['group_count'] ) : 1;
+		$group_count = max( $group_count, isset( $row['group_size'] ) ? (int) $row['group_size'] : 1 );
 		$data        = $this->normalise_data( $row['data'] ?? null );
 
 		$actor_name = $this->resolve_actor_name( $actor_id );
