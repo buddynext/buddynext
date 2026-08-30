@@ -44,6 +44,14 @@ use WP_REST_Response;
 class SpaceController extends BaseRestController {
 
 	/**
+	 * Members decidable in one bulk join-request call.
+	 *
+	 * A collapsed notification row represents a handful of people; this is a
+	 * ceiling on the write loop, not a target.
+	 */
+	private const BULK_DECISION_MAX = 100;
+
+	/**
 	 * Register the controller's routes.
 	 */
 	/**
@@ -359,6 +367,33 @@ class SpaceController extends BaseRestController {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'decline_request' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		// Bulk decision on a space's pending join requests. Exists because the
+		// notifications screen collapses "8 people asked to join Design Guild"
+		// into one row, and that row needs ONE call - looping the per-member
+		// endpoint from the browser would just move an N-round-trip fan-out to
+		// the client.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/members/decide-bulk',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'decide_requests_bulk' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'user_ids' => array(
+						'required' => true,
+						'type'     => 'array',
+						'items'    => array( 'type' => 'integer' ),
+					),
+					'decision' => array(
+						'required'          => true,
+						'type'              => 'string',
+						'validate_callback' => static fn ( $v ): bool => in_array( (string) $v, array( 'approve', 'decline' ), true ),
+					),
+				),
 			)
 		);
 
@@ -2054,6 +2089,114 @@ class SpaceController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'invited' => true ), 200 );
+	}
+
+	/**
+	 * Approve or decline several pending join requests in one call.
+	 *
+	 * Every user is put through the SAME SpaceMemberService method the per-member
+	 * endpoints use, one at a time. That is deliberate: the permission check, the
+	 * "is there actually a pending request" check and the resulting notification
+	 * all live in there, and a bulk path that bypassed them to save queries would
+	 * be a second, weaker set of rules for the same decision.
+	 *
+	 * Partial success is reported, not hidden. Between a moderator loading the
+	 * page and pressing the button, a request can be withdrawn or approved by
+	 * somebody else - so each id gets its own outcome and the caller is told which
+	 * ones did not apply, rather than being shown a blanket success or a blanket
+	 * failure for a batch that was mostly fine.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function decide_requests_bulk( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$actor_id = get_current_user_id();
+		$decision = (string) $request->get_param( 'decision' );
+
+		$user_ids = array_values( array_unique( array_filter( array_map(
+			'absint',
+			(array) $request->get_param( 'user_ids' )
+		) ) ) );
+
+		if ( array() === $user_ids ) {
+			return new WP_Error(
+				'missing_user_id',
+				__( 'At least one user_id is required.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		// Bounded so one call cannot become an unbounded write loop. A collapsed
+		// notification row is a handful of people; anything approaching this many
+		// belongs in the space's own members screen.
+		if ( count( $user_ids ) > self::BULK_DECISION_MAX ) {
+			return new WP_Error(
+				'too_many_users',
+				sprintf(
+					/* translators: %d: maximum number of members per bulk decision. */
+					__( 'Up to %d members can be decided at once.', 'buddynext' ),
+					self::BULK_DECISION_MAX
+				),
+				array( 'status' => 400 )
+			);
+		}
+
+		if ( null === ( new SpaceService() )->get( $space_id ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$members  = new SpaceMemberService();
+		$done     = array();
+		$failed   = array();
+
+		foreach ( $user_ids as $user_id ) {
+			$result = 'approve' === $decision
+				? $members->approve_request( $space_id, $actor_id, $user_id )
+				: $members->decline_request( $space_id, $actor_id, $user_id );
+
+			if ( is_wp_error( $result ) ) {
+				$failed[] = array(
+					'user_id' => $user_id,
+					'code'    => $result->get_error_code(),
+				);
+				continue;
+			}
+
+			$done[] = $user_id;
+		}
+
+		// 403 only when EVERY id was refused for permission - one moderator who
+		// may not act on this space. A mixed result is a success with detail;
+		// failing the whole call would throw away the approvals that did happen.
+		if ( array() === $done && array() !== $failed ) {
+			$first = (string) ( $failed[0]['code'] ?? '' );
+			return new WP_Error(
+				$first !== '' ? $first : 'bulk_decision_failed',
+				'no_pending_request' === $first
+					? __( 'Those join requests are no longer pending.', 'buddynext' )
+					: __( 'You do not have permission to decide these requests.', 'buddynext' ),
+				array(
+					'status' => 'no_pending_request' === $first ? 404 : 403,
+					'failed' => $failed,
+				)
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'decision' => $decision,
+				'decided'  => $done,
+				'failed'   => $failed,
+			),
+			200
+		);
 	}
 
 	/**

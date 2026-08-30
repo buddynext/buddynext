@@ -155,7 +155,52 @@ do_action( 'buddynext_part_notification_row_before', $args );
 			<?php endif; ?>
 		</div>
 
-		<?php if ( 'bn.space_invite' === $notif_type ) : ?>
+		<?php
+		/*
+		 * A COLLAPSED set of join requests for one space gets a decision on the
+		 * whole group. Without this, grouping would be a straight loss for the
+		 * person it was meant to help: eight rows each with Accept became one row
+		 * with no way to act, and the moderator had to go to the space's members
+		 * screen instead.
+		 *
+		 * Only when the group actually holds more than one request - a single
+		 * request keeps the ordinary row, since "Accept all" for one person reads
+		 * like a mistake.
+		 */
+		$bn_group_users = isset( $bn_row->group_actors ) ? array_map( 'absint', (array) $bn_row->group_actors ) : array();
+		$bn_bulk_join   = 'bn.space_join_requested' === $notif_type && count( $bn_group_users ) > 1;
+		?>
+		<?php if ( $bn_bulk_join ) : ?>
+			<div class="bn-notif-row__actions">
+				<?php if ( '' !== $link_url ) : ?>
+					<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $link_url ); ?>">
+						<?php esc_html_e( 'Review', 'buddynext' ); ?>
+					</a>
+				<?php endif; ?>
+				<button class="bn-btn" data-variant="primary" data-size="sm"
+					data-wp-on--click="actions.decideJoinRequests"
+					data-decision="approve"
+					data-space-id="<?php echo esc_attr( (string) $bn_row->object_id ); ?>"
+					data-user-ids="<?php echo esc_attr( implode( ',', $bn_group_users ) ); ?>"
+					data-notif-id="<?php echo esc_attr( (string) $bn_row->id ); ?>">
+					<?php
+					printf(
+						/* translators: %d: number of pending join requests. */
+						esc_html( _n( 'Accept %d', 'Accept all %d', count( $bn_group_users ), 'buddynext' ) ),
+						(int) count( $bn_group_users )
+					);
+					?>
+				</button>
+				<button class="bn-btn" data-variant="ghost" data-size="sm"
+					data-wp-on--click="actions.decideJoinRequests"
+					data-decision="decline"
+					data-space-id="<?php echo esc_attr( (string) $bn_row->object_id ); ?>"
+					data-user-ids="<?php echo esc_attr( implode( ',', $bn_group_users ) ); ?>"
+					data-notif-id="<?php echo esc_attr( (string) $bn_row->id ); ?>">
+					<?php esc_html_e( 'Decline all', 'buddynext' ); ?>
+				</button>
+			</div>
+		<?php elseif ( 'bn.space_invite' === $notif_type ) : ?>
 			<div class="bn-notif-row__actions">
 				<?php if ( '' !== $link_url ) : ?>
 					<?php
