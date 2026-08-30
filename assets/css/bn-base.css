@@ -358,9 +358,24 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-radius-scale: 0.8;   /* multiplicative — keeps the calc() invariant */
 }
 
-/* ── Large-text accessibility ─────────────────────────────────────────── */
-[data-bn-text="large"]  { --bn-text-scale: 1.15; }
-[data-bn-text="xlarge"] { --bn-text-scale: 1.3; }
+/* ── Large-text accessibility (Settings -> Appearance: A / A+ / A++) ───────
+ * Keyed on data-bn-font-scale, which is the attribute the shell bootstrap
+ * actually stamps on <html> (assets/js/shell/font-scale.js, from the
+ * bn_font_scale localStorage key).
+ *
+ * This used to be keyed on [data-bn-text="large"|"xlarge"] - an attribute
+ * nothing in the plugin has ever written, so the A / A+ / A++ control moved
+ * the stored value, the attribute and the root font-size while every visible
+ * BuddyNext string stayed exactly the same size. Two half-built mechanisms
+ * for one job, neither reaching the tokens. One now, keyed on the half that
+ * is real.
+ *
+ * Multiplying --bn-text-scale is what actually moves type, because every
+ * --bn-text-* token is calc(<px> * var(--bn-text-scale)). The root font-size
+ * rule further down is kept and is NOT double-scaling: it only reaches rem
+ * values, and no BuddyNext token is expressed in rem. */
+html[data-bn-font-scale="110"] { --bn-text-scale: 1.1; }
+html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 
 /* ── Dyslexia-friendly font swap (opt-in).
  * Falls through to Inter until Atkinson Hyperlegible is self-hosted. */
@@ -2487,18 +2502,21 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 /* ==========================================================================
 	Font Size Scaling — A / A+ / A++ Accessibility Control
 	──────────────────────────────────────────────────────────────────────────
-	The data-bn-font-scale attribute on <html> scales ALL BuddyNext content
-	uniformly. Because all --text-* tokens use rem, adjusting font-size on
-	the hub shell containers makes everything scale proportionally — text,
-	spacing, icons.
+	Second half of the control. The first half — scaling the --bn-text-* tokens
+	— is up with the other token modes, because that is what moves BuddyNext's
+	own type.
 
-	This applies to BuddyNext pages, Jetonomy pages (inside .bn-jt-content),
-	and WPMediaVerse pages (inside .bn-mvs-content).
+	This half only reaches values written in rem: partner content rendered
+	inside our shell (Jetonomy in .bn-jt-content, WPMediaVerse in
+	.bn-mvs-content) and the handful of BuddyNext rules still carrying a bare
+	rem font-size.
+
+	The comment here used to claim "all --text-* tokens use rem", which is how
+	the control came to be believed working. They are px multiplied by
+	--bn-text-scale, so this rule on its own changed nothing a member could
+	see. Do not restore that reasoning: check bn-base.css's token block before
+	assuming rem.
 	========================================================================== */
-
-/* Works like browser zoom — sets the root font-size so every rem value
-	in BuddyNext, Jetonomy, and WPMediaVerse scales uniformly. Affects
-	text, spacing, padding, icons — everything measured in rem. */
 
 /* A+ (110%) */
 html[data-bn-font-scale="110"] { font-size: 110%; }
