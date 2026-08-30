@@ -216,10 +216,18 @@ class FeedService {
 	 * fragment for logged-out viewers (no relationship to resolve) and when the
 	 * bn_blocks table is absent, so the feed degrades gracefully.
 	 *
+	 * Also drops posts THIS viewer reported. Reporting is a viewer-scoped hide in
+	 * exactly the same sense as a mute: the reporter asked to stop seeing it, the
+	 * author is unaffected and never told. It lives here rather than at the report
+	 * endpoint because every feed query must honour it, and this is the one place
+	 * they all pass through.
+	 *
 	 * @param int $viewer_id Viewing user ID (0 = anonymous).
 	 * @return array{0:string,1:array<int>} SQL fragment + ordered params.
 	 */
-	private function viewer_block_mute_where( int $viewer_id ): array {
+	private function viewer_hidden_where( int $viewer_id ): array {
+		global $wpdb;
+
 		// Delegate to the one canonical block-exclusion builder. Feed semantics:
 		// exclude authors the viewer block|muted (forward) and authors who
 		// blocked the viewer (reverse). Mute is a feed-only soft hide, so it
@@ -231,7 +239,66 @@ class FeedService {
 			array( 'block' )
 		);
 
-		return array( '' === $predicate ? '' : 'AND ' . $predicate, $params );
+		$where = '' === $predicate ? '' : 'AND ' . $predicate;
+
+		if ( $viewer_id <= 0 ) {
+			return array( $where, $params );
+		}
+
+		/**
+		 * Report statuses that keep the reported content hidden from its reporter.
+		 *
+		 * Default: every status. Reporting something is a statement about what the
+		 * member wants in their own feed, and a moderator disagreeing about the
+		 * content does not change what that member asked for - so dismissing a
+		 * report does not put the post back in front of the person who reported it.
+		 * That matches Facebook, X and Instagram, and it matches the promise the UI
+		 * already makes when it removes the card on report.
+		 *
+		 * An owner who reads a dismissal as "we checked, it is fine, show it again"
+		 * can drop 'dismissed' (and/or 'resolved') from this list.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param string[] $statuses  Statuses that keep content hidden from the reporter.
+		 * @param int      $viewer_id The viewer whose feed is being built.
+		 */
+		$statuses = (array) apply_filters(
+			'buddynext_reporter_hidden_statuses',
+			array( 'pending', 'escalated', 'dismissed', 'resolved' ),
+			$viewer_id
+		);
+
+		$statuses = array_values( array_intersect(
+			array_map( 'strval', $statuses ),
+			array( 'pending', 'escalated', 'dismissed', 'resolved' )
+		) );
+
+		if ( array() === $statuses ) {
+			return array( $where, $params );
+		}
+
+		// Correlated NOT EXISTS rather than a NOT IN list of post ids: the reporter
+		// may have reported thousands of things over the years, and only the handful
+		// on the page being built matter. bn_reports' `one_per_reporter` UNIQUE KEY
+		// (reporter_id, object_type, object_id) makes this an index lookup per
+		// candidate row, so it stays flat as that history grows.
+		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+
+		$where .= " AND NOT EXISTS (
+				SELECT 1 FROM {$wpdb->prefix}bn_reports bn_r
+				WHERE bn_r.reporter_id = %d
+				  AND bn_r.object_type = 'post'
+				  AND bn_r.object_id = {$wpdb->prefix}bn_posts.id
+				  AND bn_r.status IN ( {$placeholders} )
+			)";
+
+		$params[] = $viewer_id;
+		foreach ( $statuses as $bn_status ) {
+			$params[] = $bn_status;
+		}
+
+		return array( $where, $params );
 	}
 
 	/**
@@ -336,7 +403,7 @@ class FeedService {
 		// $cursor_where is built AFTER the ORDER BY is resolved below — a tiered
 		// ordering needs a tier-aware keyset, so the fragment depends on it.
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
 
 		/**
 		 * Filter the query args before SQL is built for the home feed.
@@ -476,11 +543,11 @@ class FeedService {
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   AND ({$source_where})
 			   {$excluded_where}
-			   {$block_mute_where}
+			   {$hidden_where}
 			   {$cursor_where}
 			 ORDER BY {$order_by}
 			 LIMIT %d",
-			...array_merge( $source_params, $block_mute_params, $this->cursor_params( $cursor, $tier_expr ), array( $per_page + 1 ) )
+			...array_merge( $source_params, $hidden_params, $this->cursor_params( $cursor, $tier_expr ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -737,7 +804,7 @@ class FeedService {
 
 		$excluded_where = $this->excluded_users_where();
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
 
 		$map = array(
 			'for_you'   => 'for-you',
@@ -769,10 +836,10 @@ class FeedService {
 					      AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 					      AND ({$source_where})
 					      {$excluded_where}
-					      {$block_mute_where}
+					      {$hidden_where}
 					    LIMIT %d
 					 ) _capped", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-					...array_merge( $source_params, $block_mute_params, array( self::NEW_COUNT_CAP + 1 ) )
+					...array_merge( $source_params, $hidden_params, array( self::NEW_COUNT_CAP + 1 ) )
 				)
 			);
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
@@ -838,7 +905,7 @@ class FeedService {
 
 		$excluded_where = $this->excluded_users_where();
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
 		[ $source_where, $source_params ]         = $this->home_source_clause( $filter, $user_id );
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
@@ -869,11 +936,11 @@ class FeedService {
 				       AND user_id <> %d
 				       AND ({$source_where})
 				       {$excluded_where}
-				       {$block_mute_where}
+				       {$hidden_where}
 				     ORDER BY id DESC
 				     LIMIT %d
 				 ) AS bounded", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-				...array_merge( array( $after_id, $after_id, $user_id ), $source_params, $block_mute_params, array( $limit ) )
+				...array_merge( array( $after_id, $after_id, $user_id ), $source_params, $hidden_params, array( $limit ) )
 			),
 			ARRAY_A
 		);
@@ -936,7 +1003,7 @@ class FeedService {
 
 		$excluded_where = $this->excluded_users_where();
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
 		[ $source_where, $source_params ]         = $this->home_source_clause( $filter, $user_id );
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
@@ -946,9 +1013,9 @@ class FeedService {
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   AND ({$source_where})
 			   {$excluded_where}
-			   {$block_mute_where}";
+			   {$hidden_where}";
 
-		$params = array_merge( $source_params, $block_mute_params );
+		$params = array_merge( $source_params, $hidden_params );
 
 		$newest = (int) $wpdb->get_var(
 			empty( $params ) ? $sql : $wpdb->prepare( $sql, ...$params ) // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
@@ -1455,12 +1522,13 @@ class FeedService {
 		// and explore_feed use — so a profile owner the viewer has blocked or muted
 		// does not leak posts onto their own profile feed (self-block is impossible,
 		// so the owner viewing their own profile is unaffected).
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 
 		// $privacy_clause is a hardcoded SQL constant — safe.
 		// $cursor_where is either '' or the single hardcoded SQL constant — safe.
 		// $excluded_where contains only table/column names — no user data, safe.
-		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
+		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
+		// posts this viewer reported); its params are bound below.
 		//
 		// status = 'published' is not decoration. Every other feed query in this
 		// class has always carried it; the profile feed was the one that did not,
@@ -1486,11 +1554,11 @@ class FeedService {
 			   {$privacy_clause}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
-			   {$block_mute_where}
+			   {$hidden_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( array( $profile_user_id ), $privacy_params, $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $profile_user_id ), $privacy_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -1590,12 +1658,13 @@ class FeedService {
 
 		$excluded_where = $this->excluded_users_where();
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 
 		global $wpdb;
 		// $privacy_clause is a hardcoded SQL constant — safe.
 		// $excluded_where contains only table/column names — no user data, safe.
-		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
+		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
+		// posts this viewer reported); its params are bound below.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
@@ -1606,10 +1675,10 @@ class FeedService {
 				   {$privacy_clause}
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   {$excluded_where}
-				   {$block_mute_where}
+				   {$hidden_where}
 				 ORDER BY created_at DESC
 				 LIMIT %d",
-				...array_merge( array( $profile_user_id ), $block_mute_params, array( $limit ) )
+				...array_merge( array( $profile_user_id ), $hidden_params, array( $limit ) )
 			)
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1721,7 +1790,7 @@ class FeedService {
 		// Apply the canonical viewer block/mute exclusion — the same gate home_feed
 		// and explore_feed use — so a co-member the viewer has blocked or muted does
 		// not leak posts into a shared space feed.
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 
 		/**
 		 * Filter the query args before SQL is built for the space feed.
@@ -1749,7 +1818,8 @@ class FeedService {
 		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), self::MAX_PER_PAGE ) );
 
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
-		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
+		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
+		// posts this viewer reported); its params are bound below.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
@@ -1757,11 +1827,11 @@ class FeedService {
 			   AND status = 'published'
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
-			   {$block_mute_where}
+			   {$hidden_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( array( $space_id ), $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $space_id ), $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -1919,7 +1989,7 @@ class FeedService {
 		$excluded_where = $this->excluded_users_where();
 		$viewer_id      = get_current_user_id();
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 
 		// Sub-type facet. Each clause is a static fragment selected by a
 		// validated key — no user input is interpolated.
@@ -1957,13 +2027,13 @@ class FeedService {
 			   AND status = 'published'
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
-			   {$block_mute_where}
+			   {$hidden_where}
 			   {$filter_where}
 			   {$renderable_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
