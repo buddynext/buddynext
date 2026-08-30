@@ -901,6 +901,14 @@
 	gap: var(--bn-a-s3);
 }
 
+/* Head actions (the welcome card's "Run guided setup"). The head is already a
+   space-between row, so this only has to refuse to shrink - without it the
+   button wraps its label at narrow admin widths while the heading keeps its
+   share. */
+.bn-setup-card__actions {
+	flex: none;
+}
+
 .bn-setup-card__title {
 	margin: 0;
 	font-size: var(--bn-a-text-lg, 1.05rem);
