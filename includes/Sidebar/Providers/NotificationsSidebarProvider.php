@@ -131,44 +131,6 @@ class NotificationsSidebarProvider {
 		);
 
 		$descriptors[] = array(
-			'id'       => 'notif-quick-filters',
-			'priority' => 10,
-			'surfaces' => self::SURFACES,
-			'chrome'   => false,
-			'render'   => static function () use ( $quick_filters, $active_filter ): void {
-				if ( ! function_exists( 'buddynext_get_template' ) ) {
-					return;
-				}
-				buddynext_get_template(
-					'parts/notifications-sidecard-quick-filters.php',
-					array(
-						'filters'       => $quick_filters,
-						'active_filter' => $active_filter,
-					)
-				);
-			},
-		);
-
-		$descriptors[] = array(
-			'id'       => 'notif-by-type',
-			'priority' => 20,
-			'surfaces' => self::SURFACES,
-			'chrome'   => false,
-			'render'   => static function () use ( $sidebar_types, $active_filter ): void {
-				if ( ! function_exists( 'buddynext_get_template' ) ) {
-					return;
-				}
-				buddynext_get_template(
-					'parts/notifications-sidecard-types.php',
-					array(
-						'types'         => $sidebar_types,
-						'active_filter' => $active_filter,
-					)
-				);
-			},
-		);
-
-		$descriptors[] = array(
 			'id'       => 'notif-recent-actors',
 			'priority' => 30,
 			'surfaces' => self::SURFACES,

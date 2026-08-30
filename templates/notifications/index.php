@@ -387,6 +387,20 @@ $initial_context = wp_json_encode(
 			'label' => __( 'Spaces', 'buddynext' ),
 			'count' => $space_unread,
 		),
+		// People and Messages were only ever reachable from the sidebar filter
+		// blocks. Those are gone (one filter model, owner decision 2026-08-30), so
+		// they move here rather than disappearing - removing the duplicate controls
+		// must not remove the two things only they could filter.
+		array(
+			'key'   => 'follow',
+			'label' => __( 'People', 'buddynext' ),
+			'count' => $follow_unread,
+		),
+		array(
+			'key'   => 'message',
+			'label' => __( 'Messages', 'buddynext' ),
+			'count' => $message_unread,
+		),
 	);
 
 	buddynext_get_template(

@@ -1749,7 +1749,7 @@ class AssetService {
 					 * number, and the word silently disappeared on hydration.
 					 */
 					/* translators: %s is the formatted number of unread notifications (e.g. "12" or "99+"). */
-					'unreadBadge'         => __( '%s new', 'buddynext' ),
+					'unreadBadge'         => __( '%s unread', 'buddynext' ),
 				),
 			)
 		);

@@ -65,7 +65,7 @@ class NotificationsSidebarProviderTest extends WP_UnitTestCase {
 		$this->assertSame( array(), ( new NotificationsSidebarProvider() )->widgets( array(), 'feed' ) );
 	}
 
-	public function test_logged_in_viewer_gets_all_six_descriptors(): void {
+	public function test_logged_in_viewer_gets_every_descriptor(): void {
 		$user_id = self::factory()->user->create();
 		wp_set_current_user( $user_id );
 
@@ -73,12 +73,17 @@ class NotificationsSidebarProviderTest extends WP_UnitTestCase {
 		$widgets = ( new NotificationsSidebarProvider() )->widgets( array(), 'notifications' );
 		$ids     = $this->ids( $widgets );
 
-		$this->assertContains( 'notif-quick-filters', $ids );
-		$this->assertContains( 'notif-by-type', $ids );
 		$this->assertContains( 'notif-recent-actors', $ids );
 		$this->assertContains( 'notif-prefs', $ids );
 		$this->assertContains( 'notif-this-week', $ids );
 		$this->assertContains( 'notif-muted', $ids );
+
+		// The sidebar carries NO filter controls. The page filters from its tabs
+		// and nowhere else; three ways to filter by "Mentions" is what this screen
+		// used to offer (owner decision 2026-08-30). Asserted as absence rather
+		// than just deleted, so re-adding a sidebar filter fails here first.
+		$this->assertNotContains( 'notif-quick-filters', $ids );
+		$this->assertNotContains( 'notif-by-type', $ids );
 
 		foreach ( $widgets as $w ) {
 			$this->assertArrayHasKey( 'chrome', $w );
@@ -94,10 +99,10 @@ class NotificationsSidebarProviderTest extends WP_UnitTestCase {
 		$widgets = ( new NotificationsSidebarProvider() )->widgets( array(), 'notifications' );
 		$ids     = $this->ids( $widgets );
 
-		$this->assertContains( 'notif-quick-filters', $ids );
-		$this->assertContains( 'notif-by-type', $ids );
 		$this->assertContains( 'notif-recent-actors', $ids );
 		$this->assertContains( 'notif-prefs', $ids );
+		$this->assertNotContains( 'notif-quick-filters', $ids );
+		$this->assertNotContains( 'notif-by-type', $ids );
 		$this->assertNotContains( 'notif-this-week', $ids, 'A logged-out viewer must never see personal "this week" stats.' );
 		$this->assertNotContains( 'notif-muted', $ids, 'A logged-out viewer must never see the muted-list widget.' );
 	}

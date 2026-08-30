@@ -161,7 +161,7 @@ const notificationsStore = store( 'buddynext/notifications', {
 			}
 			// Same translated string the server renders, so the pill does not change
 			// its wording the instant the page hydrates.
-			return fmt( t( 'unreadBadge', '%s new' ), formatBadge( n ) );
+			return fmt( t( 'unreadBadge', '%s unread' ), formatBadge( n ) );
 		},
 		get unreadTotalHidden() {
 			return unreadTotal( getContext() ) <= 0;
