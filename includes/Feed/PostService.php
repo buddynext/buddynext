@@ -632,6 +632,21 @@ class PostService {
 			// yet is simply never looked at. So the list has to be rebuilt here.
 			FeedService::flush_announcement_ids();
 
+			// ...and the per-viewer page-1 caches with it. Rebuilding the candidate
+			// list only helps a viewer whose feed page is actually re-queried; a
+			// member holding a cached page 1 kept seeing the feed as it was before
+			// the announcement existed, for up to its 30s TTL.
+			//
+			// The asymmetry is the giveaway: ENDING an announcement already flushes
+			// every viewer (end_announcement_now), so an announcement could vanish
+			// site-wide instantly but took half a minute to appear. FeedCache's own
+			// docblock lists announcements as the reason this method exists - it was
+			// simply never wired to the publish path.
+			//
+			// This is what an owner means by "urgent": they post the notice and
+			// expect it on screens now, not on the next cache miss.
+			buddynext_service( 'feed' )->flush_all_home_caches();
+
 			do_action( 'buddynext_announcement_published', $post_id, $user_id, (int) ( $data['space_id'] ?? 0 ) );
 		}
 
