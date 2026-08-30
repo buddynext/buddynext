@@ -1,4 +1,5 @@
 import type { Page, TestInfo } from '@playwright/test';
+import { urls } from './selectors';
 
 /**
  * Soft-skip helper.
@@ -37,7 +38,24 @@ export function softSkip(testInfo: TestInfo, reason: string): void {
  * than on one that happens to have one particular username. `BN_TEST_OTHER_USER`
  * still wins when set, for pinning a specific member deliberately.
  *
- * @returns a member slug, or null when the site genuinely has no other members.
+ * The member must also be USABLE as a second actor, which is a stricter thing
+ * than existing. The directory is ordered newest-first, so its top is exactly
+ * where half-finished accounts collect - and a member who has not completed
+ * onboarding is redirected off /activity/ to /onboarding/ (PageRouter reads
+ * bn_onboarding_complete for the CURRENT user). A spec handed that member logs
+ * in fine, gets a valid nonce, and then asserts against the onboarding page.
+ *
+ * That is the same failure this helper was written to end, one layer down: J-550
+ * reported "the announcement card is not visible" while the announcement was
+ * correct and the page simply was not the feed. Existence was never the
+ * precondition; reaching the feed is. So each candidate is TRIED, in directory
+ * order, and the first that lands on the feed is returned.
+ *
+ * Only a login can answer this - the redirect keys on the member's own meta, so
+ * nothing the directory renders can predict it. One throwaway context per
+ * rejected candidate is the price, and it is paid once per spec.
+ *
+ * @returns a member slug proven to reach the feed, or null when none does.
  */
 export async function resolveOtherMemberSlug(page: Page, selfLogin: string): Promise<string | null> {
     const pinned = process.env.BN_TEST_OTHER_USER;
@@ -57,5 +75,48 @@ export async function resolveOtherMemberSlug(page: Page, selfLogin: string): Pro
             .filter(Boolean)
     );
 
-    return [...new Set(slugs)].find((slug) => slug !== selfLogin) ?? null;
+    const candidates = [...new Set(slugs)].filter((slug) => slug !== selfLogin);
+
+    // Bounded: a site whose whole directory is half-onboarded is a seeding
+    // problem, and the caller's softSkip reports it better than a long walk.
+    for (const slug of candidates.slice(0, MAX_CANDIDATES)) {
+        if (await canReachFeed(page, slug)) {
+            return slug;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * How many directory members to try before giving up.
+ */
+const MAX_CANDIDATES = 6;
+
+/**
+ * Whether a member, logged in as themselves, actually lands on the feed.
+ *
+ * Runs in a throwaway context so it cannot disturb the caller's session, which
+ * is mid-spec and logged in as somebody else.
+ */
+async function canReachFeed(page: Page, slug: string): Promise<boolean> {
+    const browser = page.context().browser();
+    if (!browser) {
+        // No browser handle (a connected-over-CDP edge case): fall back to
+        // assuming usable rather than silently returning "no members exist",
+        // which would soft-skip every spec for the wrong reason.
+        return true;
+    }
+
+    const ctx = await browser.newContext();
+    try {
+        const probe = await ctx.newPage();
+        await probe.goto(`/?autologin=${encodeURIComponent(slug)}`, { waitUntil: 'domcontentloaded' });
+        await probe.goto(urls.feed, { waitUntil: 'domcontentloaded' });
+        return !/\/onboarding\/?$/.test(new URL(probe.url()).pathname);
+    } catch {
+        return false;
+    } finally {
+        await ctx.close();
+    }
 }
