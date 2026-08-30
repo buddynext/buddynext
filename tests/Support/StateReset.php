@@ -72,6 +72,10 @@ final class StateReset implements BeforeTestHook {
 			'reason_labels_cache' => null,
 		),
 		\BuddyNext\Profile\MemberDirectoryService::class  => array( 'mirror_keys_memo' => null ),
+		// Per-REQUEST "has this member bookmarked this post" answers. Must not
+		// survive a test whose bn_bookmarks rows have been rolled back underneath
+		// it, or one test's bookmark answers for the next test's fresh ids.
+		\BuddyNext\Feed\BookmarkService::class           => array( 'memo' => array() ),
 		\BuddyNext\Core\Installer::class                  => array(
 			'schema_check_result' => null,
 			'last_schema_errors'  => array(),
