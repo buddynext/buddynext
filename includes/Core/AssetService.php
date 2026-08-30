@@ -1075,6 +1075,26 @@ class AssetService {
 					'shareWithCount'          => __( 'Share · %d', 'buddynext' ),
 					/* translators: %d: share count */
 					'sharedWithCount'         => __( 'Shared · %d', 'buddynext' ),
+					// Document upload refusals. These are shown by
+					// composer.js::documentErrorMessage(), which reads them through
+					// t( key, fallback ) - and t() returns the ENGLISH fallback
+					// whenever the key is missing here. None of them were injected,
+					// so every one of these lines was hard-English on every locale,
+					// and because they existed only as JS literals they never
+					// reached buddynext.pot either - a translator could not see them
+					// to translate them.
+					'documentsUnavailable'    => __( 'Documents are not available on your account.', 'buddynext' ),
+					/* translators: %s: maximum document size, e.g. "10 MB". */
+					'documentTooLarge'        => __( 'That document is over the %s limit.', 'buddynext' ),
+					'documentTooLargeServer'  => __( 'That document is over the size limit.', 'buddynext' ),
+					'documentTypeNotAllowed'  => __( 'That file type is not allowed here.', 'buddynext' ),
+					'documentTypeUnsupported' => __( 'That file type cannot be read, so it cannot be attached.', 'buddynext' ),
+					'documentScanFailed'      => __( 'That file could not be accepted.', 'buddynext' ),
+					'documentsReadOnly'       => __( 'Document uploads are paused on this site right now. You can still view existing documents.', 'buddynext' ),
+					'documentNotPermitted'    => __( 'You do not have permission to add documents here.', 'buddynext' ),
+					'documentServerFault'     => __( 'Something went wrong on our side and the document was not saved. Nothing you did caused this.', 'buddynext' ),
+					'documentUploadFailed'    => __( 'That document could not be uploaded.', 'buddynext' ),
+					'documentStillUploading'  => __( 'Wait for the document to finish uploading.', 'buddynext' ),
 					'repost'                  => __( 'Repost', 'buddynext' ),
 					'reposting'               => __( 'Reposting…', 'buddynext' ),
 					'reposted'                => __( 'Reposted', 'buddynext' ),

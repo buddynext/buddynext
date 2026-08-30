@@ -38,9 +38,35 @@ function formatBytes( bytes ) {
 	return n + ' B';
 }
 
-// Map WPMediaVerse's frozen document-upload refusals to a member-facing line.
-// Unknown codes fall back to the server's own message, then a generic one — the
-// server's copy is already translated and specific.
+/**
+ * Map a WPMediaVerse document-upload refusal to a member-facing line.
+ *
+ * The upload endpoint can answer with ~23 distinct WP_Error codes, and naming
+ * all of them here would be a maintenance treadmill against a plugin we do not
+ * version. So this names only the ones where MediaVerse's own wording gives the
+ * member the WRONG IDEA, and lets the rest through — MV's message is specific
+ * and already translated, which is better than a generic line of ours.
+ *
+ * Three groups earn a translation:
+ *
+ *   permission  - "try again" is the one instruction guaranteed not to work.
+ *                 A refusal stays refused however many times you retry, and
+ *                 telling someone otherwise wastes their time twice.
+ *   server-fault - a failed insert or a failed store is OURS. Phrasing it like
+ *                 the member did something wrong sends them hunting for a
+ *                 problem with their file that does not exist.
+ *   type        - "not allowed" (the owner disallowed it) and "unsupported"
+ *                 (we cannot read it) are different facts with different
+ *                 remedies, and were previously collapsed into one.
+ *
+ * The final fallback deliberately no longer promises a retry: new codes keep
+ * arriving from a plugin we do not control, and "Please try again" is the wrong
+ * default for a refusal.
+ *
+ * @param {string} code          WPMediaVerse error code.
+ * @param {string} serverMessage MediaVerse's own message, already translated.
+ * @return {string}
+ */
 function documentErrorMessage( code, serverMessage ) {
 	switch ( code ) {
 		case 'mvs_documents_unavailable':
@@ -49,12 +75,30 @@ function documentErrorMessage( code, serverMessage ) {
 			return t( 'documentTooLargeServer', 'That document is over the size limit.' );
 		case 'mvs_document_type_not_allowed':
 			return t( 'documentTypeNotAllowed', 'That file type is not allowed here.' );
+		case 'mvs_document_type_unsupported':
+		case 'mvs_document_type_mismatch':
+			return t( 'documentTypeUnsupported', 'That file type cannot be read, so it cannot be attached.' );
 		case 'mvs_document_scan_failed':
 			return t( 'documentScanFailed', 'That file could not be accepted.' );
 		case 'mvs_documents_read_only':
 			return t( 'documentsReadOnly', 'Document uploads are paused on this site right now. You can still view existing documents.' );
+
+		// Permission. Retrying never helps, so the message must not suggest it.
+		case 'mvs_document_forbidden':
+		case 'mvs_document_unauthorized':
+		case 'mvs_document_upload_forbidden':
+		case 'mvs_document_drive_forbidden':
+		case 'mvs_document_folder_forbidden':
+			return t( 'documentNotPermitted', 'You do not have permission to add documents here.' );
+
+		// Ours, not theirs.
+		case 'mvs_document_insert_failed':
+		case 'mvs_document_store_failed':
+		case 'mvs_document_upload_failed':
+			return t( 'documentServerFault', 'Something went wrong on our side and the document was not saved. Nothing you did caused this.' );
 	}
-	return serverMessage || t( 'documentUploadFailed', 'That document could not be uploaded. Please try again.' );
+
+	return serverMessage || t( 'documentUploadFailed', 'That document could not be uploaded.' );
 }
 
 // Inline SVG for a media KIND with no visual frame — a video whose poster could
