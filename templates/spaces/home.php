@@ -238,14 +238,59 @@ if ( ! $bn_active_renderable ) {
 		?>
 		<?php if ( $bn_show_gate ) : ?>
 
+			<?php
+			// TWO different gates wear the same lock, and until now they wore the
+			// same words too.
+			//
+			// A member who has already JOINED can still be gated - by a space that
+			// requires a membership plan. Telling them "join to read" is telling
+			// them to do the one thing they have already done, while their own hero
+			// badge says "Joined" and the sidebar lists them under MEMBERS. Three
+			// statements on one screen, two contradicting the third.
+			//
+			// So the copy branches on WHY they cannot read it, not on the fact that
+			// they cannot. The plan name is asked for through a filter rather than
+			// read from `required_ability` here: gating is a Pro feature, the ability
+			// string is its private vocabulary, and Free has no business parsing
+			// "tier:pro" into a plan name. Pro answers; Free degrades to the generic
+			// line when it is absent.
+			$bn_gate_plan = '';
+			if ( null !== $bn_member_role_now ) {
+				/**
+				 * Name the plan a gated space requires, for the gate card's copy.
+				 *
+				 * @since 1.1.6
+				 *
+				 * @param string $name  Plan name, '' when unknown or not gated by a plan.
+				 * @param array  $space The space row.
+				 * @param int    $user  Viewing member.
+				 */
+				$bn_gate_plan = (string) apply_filters( 'buddynext_space_gate_plan_name', '', $bn_space_row, $current_user_id );
+			}
+			$bn_gate_is_plan = '' !== $bn_gate_plan;
+			?>
 			<div class="bn-card bn-sh-gate">
 				<div class="bn-sh-gate__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
-				<h2 class="bn-sh-gate__title"><?php esc_html_e( 'This is a private space', 'buddynext' ); ?></h2>
+				<h2 class="bn-sh-gate__title">
+					<?php
+					echo $bn_gate_is_plan
+						? esc_html__( 'This space needs a plan', 'buddynext' )
+						: esc_html__( 'This is a private space', 'buddynext' );
+					?>
+				</h2>
 				<p class="bn-sh-gate__lede">
 					<?php
-					echo $is_invited
-						? esc_html__( 'Accept the invitation above to read posts and participate.', 'buddynext' )
-						: esc_html__( 'Join to read posts and participate in discussions.', 'buddynext' );
+					if ( $bn_gate_is_plan ) {
+						printf(
+							/* translators: %s: membership plan name. */
+							esc_html__( 'You are a member of this space. Reading and posting here is included with %s.', 'buddynext' ),
+							esc_html( $bn_gate_plan )
+						);
+					} elseif ( $is_invited ) {
+						esc_html_e( 'Accept the invitation above to read posts and participate.', 'buddynext' );
+					} else {
+						esc_html_e( 'Join to read posts and participate in discussions.', 'buddynext' );
+					}
 					?>
 				</p>
 				<?php
