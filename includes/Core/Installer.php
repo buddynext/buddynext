@@ -308,6 +308,14 @@ class Installer {
 	 *      owner controls which fields the header shows. maybe_alter_tables ADD-COLUMNs it on
 	 *      upgrade; converge_seeded_field_flags seeds it on the existing location + website
 	 *      rows (by field_key) so an upgraded site's header is unchanged.
+	 * v47: recolour the two seeded member-type badges. No schema change - a data repair.
+	 *      `staff` shipped #5b21b6 (deep violet, the purple/pink family the design tokens
+	 *      exclude by name) and `contributor` shipped #0073aa (Appearance::DEFAULT_BRAND,
+	 *      the "not branded" sentinel). The seed is fixed for new installs; this fixes the
+	 *      ones already out there. OWNER DECISION 2026-08-30: rewrite these two rows
+	 *      unconditionally, INCLUDING where an owner has chosen their own colour. The
+	 *      safer option (only rewrite rows still holding the exact seeded value) was
+	 *      offered and declined in favour of guaranteed consistency.
 	 * v46: unwrap location-shaped values stranded on text-like fields. No schema change - a
 	 *      data repair. ProfileService::update_field() over REST used to change a field's
 	 *      type WITHOUT calling convert_field_values(), so a location field downgraded back
@@ -316,7 +324,7 @@ class Installer {
 	 *      still reads a raw JSON blob under their name on the hero, the About panel, and
 	 *      the directory card. See maybe_repair_stranded_location_values().
 	 */
-	private const SCHEMA_VERSION = 46;
+	private const SCHEMA_VERSION = 47;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -747,6 +755,10 @@ class Installer {
 		// v46: unwrap {address,lat,lng} values left on text-like fields by a REST
 		// type change that predated convert_field_values() being wired there.
 		self::maybe_repair_stranded_location_values();
+
+		// v47: recolour the two seeded member-type badges away from the excluded
+		// violet and the "not branded" sentinel.
+		self::maybe_recolour_seeded_member_types();
 
 		// v17: purge the orphaned onboarding-interests user meta — the canonical
 		// interests store is the 'interests' profile field. The paired
@@ -1373,6 +1385,48 @@ class Installer {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+	}
+
+	/**
+	 * Recolour the two seeded member-type badges (schema v47).
+	 *
+	 * `staff` was seeded #5b21b6 - deep violet, the purple/pink family the design
+	 * tokens exclude by name because BN reads it as the synthetic "AI" palette -
+	 * and `contributor` was seeded #0073aa, which is `Appearance::DEFAULT_BRAND`:
+	 * the SENTINEL meaning "the owner has not branded anything". Both shipped as
+	 * visible badges on every install.
+	 *
+	 * UNCONDITIONAL, and that is an owner decision rather than an oversight.
+	 * These colours are owner-editable, so this overwrites a colour an owner may
+	 * have chosen deliberately. The narrower option - rewrite only rows still
+	 * holding the exact seeded value, leaving customised rows alone - was offered
+	 * on 2026-08-30 and declined in favour of guaranteed consistency across the
+	 * install base. Recorded here because the next person to read this will
+	 * otherwise assume it is a bug.
+	 *
+	 * Scoped to the two SEEDED slugs. A member type the owner created themselves
+	 * has no "new default" to migrate to and is never touched.
+	 *
+	 * @return void
+	 */
+	private static function maybe_recolour_seeded_member_types(): void {
+		global $wpdb;
+
+		$colours = array(
+			'contributor' => '#1c7ed6',
+			'staff'       => '#495057',
+		);
+
+		foreach ( $colours as $slug => $colour ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_member_types',
+				array( 'color' => $colour ),
+				array( 'slug' => $slug ),
+				array( '%s' ),
+				array( '%s' )
+			);
+		}
 	}
 
 	/**

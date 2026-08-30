@@ -74,6 +74,32 @@ class IdentityToneTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Explore content cards share the identity palette.
+	 *
+	 * They used to carry their own five-tone list including `violet` and `rose`,
+	 * so the product spoke two colour languages and one of them broke the
+	 * exclusion rule the tokens state. Owner decision 2026-08-30: one palette.
+	 *
+	 * @return void
+	 */
+	public function test_explore_card_tones_are_defined_in_css(): void {
+		$css = file_get_contents( dirname( __DIR__, 2 ) . '/assets/css/bn-explore.css' );
+
+		$this->assertIsString( $css );
+
+		foreach ( AvatarService::IDENTITY_TONES as $tone ) {
+			$this->assertStringContainsString(
+				'.ec-img[data-tone="' . $tone . '"]',
+				$css,
+				sprintf( 'Explore has no rule for identity tone "%s", so it renders the default.', $tone )
+			);
+		}
+
+		$this->assertStringNotContainsString( '--bn-tone-violet', $css, 'The excluded violet token is still defined.' );
+		$this->assertStringNotContainsString( '--bn-tone-rose', $css, 'The excluded rose token is still defined.' );
+	}
+
+	/**
 	 * Same entity, same colour, every render.
 	 *
 	 * @return void
