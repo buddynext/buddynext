@@ -369,8 +369,22 @@ $privacy_icons  = array(
 	'space_members' => buddynext_get_icon( 'lock' ),
 	'private'       => buddynext_get_icon( 'lock' ),
 );
-$privacy_label  = isset( $privacy_labels[ $post_privacy ] ) ? esc_html( $privacy_labels[ $post_privacy ] ) : '';
-$privacy_icon   = $privacy_icons[ $post_privacy ] ?? '';
+/*
+ * Public is the DEFAULT audience, so saying so on every card states a constant
+ * - and a marker that is always present is a marker nobody reads, including on
+ * the posts where it matters. Showing it only when the audience is NARROWER
+ * than the default means it always carries information. Same rule Facebook and
+ * LinkedIn use.
+ *
+ * An empty label is the byline's own signal to render no marker (and no
+ * separator), so this is the single place the rule lives. A theme wanting the
+ * marker on every post overrides this template - it is theme-overridable like
+ * every other one, which is why this needs no filter of its own.
+ */
+$privacy_label  = ( 'public' !== $post_privacy && isset( $privacy_labels[ $post_privacy ] ) )
+	? esc_html( $privacy_labels[ $post_privacy ] )
+	: '';
+$privacy_icon   = '' !== $privacy_label ? ( $privacy_icons[ $post_privacy ] ?? '' ) : '';
 
 // ── Content warning label ──────────────────────────────────────────────────────
 $cw_labels  = array(
