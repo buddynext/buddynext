@@ -1176,9 +1176,13 @@ class ProfileFieldsManager {
 		// The type this field ALREADY is. Read before anything can overwrite it, because it
 		// is the only place the truth is recorded — nothing else remembers a field's previous
 		// type, so a bad write here is unrecoverable even after the add-on comes back.
-		$stored_type = (string) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prepare( "SELECT type FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $field_id )
+		$stored_row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->prepare( "SELECT type, group_id FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $field_id ),
+			ARRAY_A
 		);
+
+		$stored_type     = (string) ( $stored_row['type'] ?? '' );
+		$stored_group_id = (int) ( $stored_row['group_id'] ?? 0 );
 
 		$label       = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
 		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? $stored_type ) );
@@ -1266,6 +1270,36 @@ class ProfileFieldsManager {
 			exit;
 		}
 
+		// Moving the field to another group. Whether that is safe is ProfileService's
+		// call, not this screen's: this handler writes with its own $wpdb->update()
+		// rather than going through update_field(), so asking the service is what
+		// keeps the two doors to this table agreeing about which moves lose data.
+		$submitted_group = absint( wp_unslash( $_POST['group_id'] ?? 0 ) );
+		$moving_group    = $submitted_group > 0 && $submitted_group !== $stored_group_id;
+
+		if ( $moving_group ) {
+			$move_error = buddynext_service( 'profiles' )->field_move_blocker( $field_id, $stored_group_id, $submitted_group );
+			if ( null !== $move_error ) {
+				// Nothing is written - not the group, and not the label/type edits
+				// submitted alongside it. A partial save here would be the worst
+				// outcome: the admin is told the move failed while the rest of the
+				// form silently landed.
+				wp_safe_redirect(
+					add_query_arg(
+						array(
+							'page'         => 'buddynext-members',
+							'tab'          => 'profile-fields',
+							'bn_pf_notice' => 'bn_field_move_would_hide_entries' === $move_error->get_error_code()
+								? 'move_entries'
+								: 'move_group',
+						),
+						admin_url( 'admin.php' )
+					)
+				);
+				exit;
+			}
+		}
+
 		$data   = array(
 			'label'            => $label,
 			'type'             => $type,
@@ -1278,6 +1312,11 @@ class ProfileFieldsManager {
 			'visibility'       => $visibility,
 		);
 		$format = array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s' );
+
+		if ( $moving_group ) {
+			$data['group_id'] = $submitted_group;
+			$format[]         = '%d';
+		}
 
 		// Only write `options` when this install understands the type. With the owning add-on
 		// inactive, Free renders none of that type's option inputs — so $parsed_opts is null,
@@ -1505,6 +1544,16 @@ class ProfileFieldsManager {
 			AdminPageBase::render_notice( __( 'Not saved — please check the field name and try again.', 'buddynext' ), 'error' );
 		} elseif ( 'locked' === $bn_pf_notice ) {
 			AdminPageBase::render_notice( __( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ), 'error' );
+		} elseif ( 'move_entries' === $bn_pf_notice ) {
+			AdminPageBase::render_notice(
+				__( 'Not moved - some members have more than one entry for this field, and a non-repeating group shows only the first. Move it to another repeating group, or remove the extra entries first. Nothing else on the form was saved.', 'buddynext' ),
+				'error'
+			);
+		} elseif ( 'move_group' === $bn_pf_notice ) {
+			AdminPageBase::render_notice(
+				__( 'Not moved - that group no longer exists. Nothing else on the form was saved.', 'buddynext' ),
+				'error'
+			);
 		} elseif ( 'confirm' === $bn_pf_notice ) {
 			AdminPageBase::render_notice( __( 'Not deleted - the confirmation text did not match. Type the exact name (or DELETE) to remove an item that has stored member values.', 'buddynext' ), 'error' );
 		}
@@ -1991,6 +2040,34 @@ class ProfileFieldsManager {
 														<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
 														<option value="<?php echo esc_attr( $vis_val ); ?>" <?php selected( $field['visibility'], $vis_val ); ?>>
 															<?php echo esc_html( $vis_lbl ); ?>
+														</option>
+														<?php endforeach; ?>
+													</select>
+												</div>
+												<?php
+												// Move the field to another group. Repeating groups are marked,
+												// because moving OUT of one into a non-repeating group is the
+												// single case the save can refuse: a non-repeating group renders
+												// only the first entry, so members with several would appear to
+												// lose the rest. The server re-checks - this label is guidance,
+												// not the gate.
+												?>
+												<div class="bn-pf-af-field bn-a-pf-col-narrow">
+													<label for="bn-ef-grp-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Group', 'buddynext' ); ?></label>
+													<select id="bn-ef-grp-<?php echo absint( $fid ); ?>" name="group_id">
+														<?php foreach ( $groups as $bn_g ) : ?>
+														<option value="<?php echo absint( $bn_g['id'] ); ?>" <?php selected( absint( $group['id'] ), absint( $bn_g['id'] ) ); ?>>
+															<?php
+															echo esc_html(
+																'repeater' === ( $bn_g['type'] ?? 'flat' )
+																	? sprintf(
+																		/* translators: %s: profile field group name. */
+																		__( '%s (repeating)', 'buddynext' ),
+																		(string) $bn_g['label']
+																	)
+																	: (string) $bn_g['label']
+															);
+															?>
 														</option>
 														<?php endforeach; ?>
 													</select>

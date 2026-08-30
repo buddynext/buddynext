@@ -252,16 +252,20 @@ class ProfileController extends BaseRestController {
 				'type'              => 'integer',
 				'sanitize_callback' => 'absint',
 			),
+			// Valid on BOTH create and update. It used to be declared only when
+			// creating, so a field could be born into a group and then never
+			// leave it: the update route dropped the param before the service
+			// ever saw it, and answered {"updated":true} regardless.
+			'group_id'         => array(
+				'required'          => false,
+				'type'              => 'integer',
+				'sanitize_callback' => 'absint',
+			),
 		);
 
 		if ( $creating ) {
 			$args = array_merge(
 				array(
-					'group_id'   => array(
-						'required'          => false,
-						'type'              => 'integer',
-						'sanitize_callback' => 'absint',
-					),
 					// create_field() resolves (or creates) a group by key when no
 					// group_id is given. It was never declared, so a client using it
 					// was relying on an undeclared param.
@@ -2079,9 +2083,15 @@ class ProfileController extends BaseRestController {
 			$data['sort_order'] = absint( $sort_order );
 		}
 
+		$group_id = $request->get_param( 'group_id' );
+		if ( null !== $group_id ) {
+			$data['group_id'] = absint( $group_id );
+		}
+
 		// The service is the authority on what a definition may become (registry
-		// type, applicable is_searchable, value migration on a type change), and
-		// it reports a refusal instead of writing something unusable.
+		// type, applicable is_searchable, value migration on a type change, and
+		// whether a group move would hide entries), and it reports a refusal
+		// instead of writing something unusable.
 		$result = buddynext_service( 'profiles' )->update_field( $id, $data );
 		if ( is_wp_error( $result ) ) {
 			return $result;

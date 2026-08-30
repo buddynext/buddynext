@@ -2814,6 +2814,98 @@ class ProfileService {
 	}
 
 	/**
+	 * Why this field may not move to $to_group — or null when the move is safe.
+	 *
+	 * A field's values key on (user_id, field_id, entry_index), never on the
+	 * group, so relocating a field is normally pure metadata and every stored
+	 * value survives untouched. The exception is the pair of groups disagreeing
+	 * about what `entry_index` MEANS:
+	 *
+	 *   flat -> repeater   safe. Every existing value sits at entry_index 0 and
+	 *                      simply becomes the first entry. Nothing is hidden.
+	 *   repeater -> flat   lossy IF anyone has entries past the first. A flat
+	 *                      group renders entry 0 only, so entries 1..n would stop
+	 *                      appearing while still sitting in the table - the member
+	 *                      sees data vanish and the owner sees no error.
+	 *
+	 * Note the second case is refused only when the data actually exists. A
+	 * repeater nobody has filled past one entry moves to flat with nothing at
+	 * stake, and blocking it on the group's type alone would refuse a safe move
+	 * for a hypothetical.
+	 *
+	 * Public because there are TWO doors to this table: this service (REST) and
+	 * the admin screen's own $wpdb->update(). The admin path asks this rather
+	 * than re-deriving the rule, so the two cannot drift into disagreeing about
+	 * which moves are safe - the same reasoning as FieldType::is_searchable_applicable().
+	 *
+	 * @param int $id         Field being moved.
+	 * @param int $from_group Group it is in now.
+	 * @param int $to_group   Group it would move to.
+	 * @return \WP_Error|null Error to return to the caller, or null if the move is fine.
+	 */
+	public function field_move_blocker( int $id, int $from_group, int $to_group ): ?\WP_Error {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$types = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, type FROM {$wpdb->prefix}bn_profile_groups WHERE id IN ( %d, %d )",
+				$from_group,
+				$to_group
+			),
+			OBJECT_K
+		);
+
+		if ( ! isset( $types[ $to_group ] ) ) {
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return new \WP_Error(
+				'bn_group_not_found',
+				__( 'That profile field group does not exist.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$from_type = isset( $types[ $from_group ] ) ? (string) $types[ $from_group ]->type : 'flat';
+		$to_type   = (string) $types[ $to_group ]->type;
+
+		if ( 'repeater' !== $from_type || 'flat' !== $to_type ) {
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return null;
+		}
+
+		$affected = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_profile_values
+				  WHERE field_id = %d AND entry_index > 0",
+				$id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( 0 === $affected ) {
+			return null;
+		}
+
+		return new \WP_Error(
+			'bn_field_move_would_hide_entries',
+			sprintf(
+				/* translators: %d: number of members who have more than one entry for this field. */
+				_n(
+					'This field cannot move to a non-repeating group: %d member has more than one entry, and only the first would still be shown. Move it to another repeating group, or remove the extra entries first.',
+					'This field cannot move to a non-repeating group: %d members have more than one entry, and only the first would still be shown. Move it to another repeating group, or remove the extra entries first.',
+					$affected,
+					'buddynext'
+				),
+				$affected
+			),
+			array(
+				'status'            => 409,
+				'affected_members'  => $affected,
+			)
+		);
+	}
+
+	/**
 	 * Update a profile field definition.
 	 *
 	 * Allowed $data keys: label, type, options (null, array, or JSON string),
@@ -2837,7 +2929,7 @@ class ProfileService {
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$current = $wpdb->get_row(
-			$wpdb->prepare( "SELECT type, visibility, is_searchable FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
+			$wpdb->prepare( "SELECT type, visibility, is_searchable, group_id FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
 			ARRAY_A
 		);
 
@@ -2955,6 +3047,24 @@ class ProfileService {
 		if ( isset( $data['sort_order'] ) ) {
 			$update['sort_order'] = (int) $data['sort_order'];
 			$format[]             = '%d';
+		}
+
+		// Moving the field to another group. Values key on field_id, never on the
+		// group, so the move itself is metadata and every stored value survives -
+		// EXCEPT where the two groups disagree about what entry_index means, which
+		// is what field_move_blocker() weighs.
+		if ( isset( $data['group_id'] ) ) {
+			$bn_next_group = (int) $data['group_id'];
+
+			if ( $bn_next_group !== (int) $current['group_id'] ) {
+				$bn_blocked = $this->field_move_blocker( $id, (int) $current['group_id'], $bn_next_group );
+				if ( null !== $bn_blocked ) {
+					return $bn_blocked;
+				}
+
+				$update['group_id'] = $bn_next_group;
+				$format[]           = '%d';
+			}
 		}
 
 		if ( empty( $update ) ) {
