@@ -791,9 +791,11 @@ const membersStore = store( 'buddynext/members', {
 			const ctx    = getContext();
 			const target = event && event.target ? event.target : null;
 			if ( ! target ) { return; }
-			// Two sources share this action: the filter-bar <select> (read its
-			// value directly) and the legacy pill row (read data-type-slug off
-			// the clicked pill). Detect which one fired.
+			// The filter bar renders member types as a CHIP ROW (matching the
+			// Spaces directory), so the slug comes off the clicked chip's
+			// data-type-slug. The `value` branch below is kept for any other
+			// control a theme may still supply - a <select> override, say - since
+			// reading it costs one line and losing it would break that silently.
 			const pill = typeof target.closest === 'function' ? target.closest( '[data-type-slug]' ) : null;
 			if ( pill ) {
 				ctx.memberType = pill.dataset.typeSlug || '';
@@ -802,12 +804,14 @@ const membersStore = store( 'buddynext/members', {
 			} else {
 				return;
 			}
-			// Keep both controls visually in sync with the active type.
-			document.querySelectorAll( '.bn-md-pill-row .bn-md-pill' ).forEach( ( p ) => {
-				const active = ( p.dataset.typeSlug || '' ) === ctx.memberType;
-				p.classList.toggle( 'is-active', active );
-				p.setAttribute( 'aria-pressed', active ? 'true' : 'false' );
+			// Light exactly one chip. aria-selected (not aria-pressed) because these
+			// are tabs in a tablist, the same role the Spaces category chips use -
+			// a screen reader should hear one selected tab, not five toggle buttons
+			// each reporting their own pressed state.
+			document.querySelectorAll( '.bn-md-chips [data-type-slug]' ).forEach( ( chip ) => {
+				chip.setAttribute( 'aria-selected', ( chip.dataset.typeSlug || '' ) === ctx.memberType ? 'true' : 'false' );
 			} );
+			// A theme-supplied <select> override, if one exists, stays in step.
 			document.querySelectorAll( '.bn-md-strip__type' ).forEach( ( sel ) => {
 				if ( sel.value !== ctx.memberType ) { sel.value = ctx.memberType; }
 			} );
@@ -837,6 +841,12 @@ const membersStore = store( 'buddynext/members', {
 			document.querySelectorAll( '.bn-md-strip__search-input' ).forEach( ( inp ) => { inp.value = ''; } );
 			document.querySelectorAll( '.bn-md-strip__sort' ).forEach( ( sel ) => { sel.value = 'newest'; } );
 			document.querySelectorAll( '.bn-md-strip__type' ).forEach( ( sel ) => { sel.value = ''; } );
+			// Reset must un-light the type chips too, or the row keeps showing a
+			// filter that is no longer applied - the control and the results would
+			// disagree, which is worse than not having a reset.
+			document.querySelectorAll( '.bn-md-chips [data-type-slug]' ).forEach( ( chip ) => {
+				chip.setAttribute( 'aria-selected', '' === ( chip.dataset.typeSlug || '' ) ? 'true' : 'false' );
+			} );
 			document.querySelectorAll( '.bn-md-strip__online-input' ).forEach( ( box ) => { box.checked = false; } );
 			document.querySelectorAll( '.bn-md-strip .bn-tab[data-relation]' ).forEach( ( t ) => {
 				const active = t.dataset.relation === 'all';

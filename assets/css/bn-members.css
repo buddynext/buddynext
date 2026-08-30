@@ -726,10 +726,35 @@
 	flex: 0 0 auto;
 }
 
-/* Member-type filter <select> — sits between search and the online toggle.
-   No min-block-size: .bn-select is 40px in bn-base.css already, and pinning it
-   here ALSO beat the touch block's 44px floor — same specificity (0,1,0), later
-   sheet — so this select stayed 40px on a phone while every input beside it grew. */
+/* Member-type filter chips — the same control the Spaces directory uses for its
+   categories, so the twin directories stop disagreeing about how a taxonomy is
+   filtered. .bn-tabs supplies the scroll behaviour and the scroll-driven edge
+   fade, so a site with many member types scrolls with a visible hint instead of
+   clipping.
+
+   The row takes a full line of its own rather than sitting inline with search:
+   a chip row's width is owner-data-dependent, and squeezing it into the flex
+   line made it the first thing to collapse on a narrow viewport. */
+.bn-md-chips {
+	flex: 1 0 100%;
+	margin-block-start: var(--bn-s2);
+	border-block-end: 0;
+}
+
+/* The type's own colour, matching the swatch on the member badge and on the
+   Spaces category chip, so one type reads the same everywhere. */
+.bn-md-chip__swatch {
+	display: inline-flex;
+	inline-size: 10px;
+	block-size: 10px;
+	border-radius: var(--bn-r-full);
+	margin-inline-end: var(--bn-s2);
+	/* Fallback tint when a type carries no colour pair (no inline style). */
+	background: var(--bn-surface-2, var(--bn-surface));
+	flex: 0 0 auto;
+}
+
+/* Kept for a theme that still supplies the old <select> override. */
 .bn-md-strip__type {
 	flex: 0 1 auto;
 }
