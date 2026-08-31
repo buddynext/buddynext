@@ -561,6 +561,28 @@ function buddynext_nav( \BuddyNext\Nav\NavContext $context ): \BuddyNext\Nav\Res
 }
 
 /**
+ * Render a Space's activity feed panel (composer + stream) for a given space.
+ *
+ * The public entry point for an external surface — a Pro theme's own space
+ * homepage, a block, a shortcode — that needs to show ONE space's feed the way
+ * the space's Feed tab does. It enforces the same read gate spaces/home.php
+ * applies (secret space -> nothing; private / plan-gated -> the join CTA card),
+ * so it cannot leak a private space's stream, and delegates to the space Feed
+ * tab's own renderer so composer, who-can-post rule, pinned announcement and
+ * in-space search all behave identically to the native tab.
+ *
+ * Echoes its output. Consumer example (Wellbee Circles Community tab):
+ *   buddynext_render_space_feed( $space_id );
+ *
+ * @param int      $space_id  Space ID.
+ * @param int|null $viewer_id Viewer user ID; defaults to the current user.
+ * @return void
+ */
+function buddynext_render_space_feed( int $space_id, ?int $viewer_id = null ): void {
+	( new \BuddyNext\Nav\Providers\SpaceNav() )->render_feed( $space_id, $viewer_id );
+}
+
+/**
  * The owner-controllable integrations registered for this site (keyed by key).
  *
  * The single open list — any plugin (in-house or third-party) registers an entry

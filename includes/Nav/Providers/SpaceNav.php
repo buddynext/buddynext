@@ -307,13 +307,70 @@ final class SpaceNav {
 	}
 
 	/**
+	 * PUBLIC entry: render a Space's feed panel (composer + stream) for a given
+	 * space, for an EXTERNAL surface (e.g. a Pro theme's own space homepage, such
+	 * as the Wellbee Circles Community tab).
+	 *
+	 * The render_feed_panel() below is the internal seam and assumes its caller
+	 * (spaces/home.php) already ran the private/secret read gate. An arbitrary
+	 * consumer has not, so this wrapper enforces the SAME two gates home.php does
+	 * before delegating — it can therefore never leak a private space's stream to
+	 * a viewer who may not read it:
+	 *
+	 *   - can_view_space():   unknown or secret-to-this-viewer -> render nothing.
+	 *   - can_view_content(): private / plan-gated for this viewer -> the same
+	 *                         informational gate card the space-home tab shows,
+	 *                         via the shared partial (no duplicated markup).
+	 *
+	 * When the viewer may read the content it delegates to render_feed_panel(),
+	 * which already suppresses the composer for a guest / non-poster and shows a
+	 * join CTA in its place, honouring the space's who-can-post rule.
+	 *
+	 * @param int      $space_id  Space ID.
+	 * @param int|null $viewer_id Viewer user ID; defaults to the current user.
+	 * @return void
+	 */
+	public function render_feed( int $space_id, ?int $viewer_id = null ): void {
+		$viewer_id = null === $viewer_id ? get_current_user_id() : $viewer_id;
+		$space_row = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space_row || ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $space_row, $viewer_id ) ) {
+			return;
+		}
+
+		if ( \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space_row, $viewer_id ) ) {
+			$this->render_feed_panel( $space_id, $viewer_id );
+			return;
+		}
+
+		// Content-gated for this viewer. Mirror spaces/home.php: the plan name is
+		// only asked for when the viewer IS a member still gated by a plan (Pro
+		// answers the filter; Free returns '' and the card shows the generic line).
+		$role       = $viewer_id > 0 ? ( new SpaceMemberService() )->get_role( $space_id, $viewer_id ) : null;
+		$gate_plan  = null !== $role
+			? (string) apply_filters( 'buddynext_space_gate_plan_name', '', $space_row, $viewer_id )
+			: '';
+		$is_invited = $viewer_id > 0 && 'invited' === (string) ( new SpaceMemberService() )->get_status( $space_id, $viewer_id );
+
+		buddynext_get_template(
+			'partials/space-content-gate.php',
+			array(
+				'gate_is_plan' => '' !== $gate_plan,
+				'gate_plan'    => $gate_plan,
+				'is_invited'   => $is_invited,
+			)
+		);
+	}
+
+	/**
 	 * Render the Feed panel for a space — the registry content seam for the Feed
 	 * tab (the space's home panel). Self-contained: it resolves the viewer's
 	 * membership, posting permission and archived state, then the pinned
 	 * announcement + the hydrated feed posts (the same FeedService path the space
 	 * feed REST controller uses), and renders the shared feed part. The caller
-	 * (spaces/home.php) still owns the private/secret access gate, so this only
-	 * runs for a viewer allowed to read the feed.
+	 * (spaces/home.php, or the public render_feed() wrapper above) still owns the
+	 * private/secret access gate, so this only runs for a viewer allowed to read
+	 * the feed.
 	 *
 	 * @param int $space_id  Space ID.
 	 * @param int $viewer_id Current viewer user ID (0 = logged out).

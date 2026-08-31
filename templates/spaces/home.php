@@ -269,39 +269,22 @@ if ( ! $bn_active_renderable ) {
 			}
 			$bn_gate_is_plan = '' !== $bn_gate_plan;
 			?>
-			<div class="bn-card bn-sh-gate">
-				<div class="bn-sh-gate__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
-				<h2 class="bn-sh-gate__title">
-					<?php
-					echo $bn_gate_is_plan
-						? esc_html__( 'This space needs a plan', 'buddynext' )
-						: esc_html__( 'This is a private space', 'buddynext' );
-					?>
-				</h2>
-				<p class="bn-sh-gate__lede">
-					<?php
-					if ( $bn_gate_is_plan ) {
-						printf(
-							/* translators: %s: membership plan name. */
-							esc_html__( 'You are a member of this space. Reading and posting here is included with %s.', 'buddynext' ),
-							esc_html( $bn_gate_plan )
-						);
-					} elseif ( $is_invited ) {
-						esc_html_e( 'Accept the invitation above to read posts and participate.', 'buddynext' );
-					} else {
-						esc_html_e( 'Join to read posts and participate in discussions.', 'buddynext' );
-					}
-					?>
-				</p>
-				<?php
-				// The gate card is purely informational. The space hero (always
-				// rendered in the header) owns the single primary CTA for every
-				// state — guest "Log in to join", pending "Request pending", and
-				// "Request to join" — so repeating it here produced two identical
-				// buttons on one page. One primary CTA per page, matching how
-				// Facebook/LinkedIn present a gated group.
-				?>
-			</div>
+			<?php
+			// Shared with SpaceNav::render_feed()'s gated branch, so the space-home
+			// tab body and the public feed entry render the identical gate card.
+			buddynext_get_template(
+				'partials/space-content-gate.php',
+				array(
+					'gate_is_plan' => $bn_gate_is_plan,
+					'gate_plan'    => $bn_gate_plan,
+					'is_invited'   => $is_invited,
+				)
+			);
+			// The gate card is purely informational: the space hero (always rendered
+			// in the header) owns the single primary CTA for every state, so the card
+			// carries no button of its own - one primary CTA per page, the way
+			// Facebook/LinkedIn present a gated group.
+			?>
 
 		<?php else : ?>
 
