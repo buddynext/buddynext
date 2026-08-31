@@ -150,29 +150,60 @@ $bn_sf_viewer   = get_current_user_id();
 $bn_sf_date_fmt = (string) get_option( 'date_format' );
 $bn_sf_empty    = empty( $bn_sf_folders ) && empty( $bn_sf_documents );
 
-// Remove (trash) authority. MediaVerse gates a document delete to its author or
-// a documents admin (Documents\PermissionService::can_edit — space membership
-// alone grants only `view`), so the Remove control is drawn only where that gate
-// would pass and MediaVerse still enforces it server-side. DELETE trashes with a
-// 30-day restore, so this is reversible, not destruction.
-$bn_sf_can_manage = current_user_can( 'manage_mvs_documents' ) || current_user_can( 'manage_options' ); // phpcs:ignore WordPress.WP.Capabilities.Unknown -- capability owned by the WPMediaVerse companion plugin.
-$bn_sf_del_i18n   = (string) wp_json_encode(
-	array(
-		'confirmTitle' => __( 'Remove this file?', 'buddynext' ),
-		'confirmBody'  => __( 'It moves to trash and leaves this list. You can restore it within 30 days.', 'buddynext' ),
-		'confirm'      => __( 'Remove', 'buddynext' ),
-		'cancel'       => __( 'Cancel', 'buddynext' ),
-		'done'         => __( 'File removed.', 'buddynext' ),
-		'fail'         => __( 'That file could not be removed.', 'buddynext' ),
-	)
-);
+/*
+ * The Remove control means different things on the two drives, and this is the
+ * distinction the whole feature turns on:
+ *
+ *   - Space drive -> UNLINK. The file leaves the space and returns to its owner's
+ *     own Files (BuddyNext's unlink endpoint re-homes the row to the owner's
+ *     personal drive as private). It is NOT deleted; the owner deletes it from
+ *     their own Files if they want it gone. Its owner (reclaiming it) or a space
+ *     moderator (removing anyone's) may do this.
+ *   - Personal drive -> DELETE. This IS the owner's own Files, so Remove trashes
+ *     the document (MediaVerse keeps a 30-day restore). Its author or a documents
+ *     admin may do this.
+ *
+ * Per-row authority is finished in the loop (author compare); the tab-wide pieces
+ * — which endpoint, which copy, and the moderator authority — are settled here.
+ */
+$bn_sf_can_moderate = isset( $bn_sf_can_moderate ) ? (bool) $bn_sf_can_moderate : false;
+$bn_sf_can_manage   = current_user_can( 'manage_mvs_documents' ) || current_user_can( 'manage_options' ); // phpcs:ignore WordPress.WP.Capabilities.Unknown -- capability owned by the WPMediaVerse companion plugin.
+
+if ( $bn_sf_is_space ) {
+	$bn_sf_rm_action   = 'unlink';
+	$bn_sf_rm_endpoint = rest_url( 'buddynext/v1/spaces/' . (int) $bn_sf_space_id . '/media/' );
+	$bn_sf_rm_i18n     = (string) wp_json_encode(
+		array(
+			'confirmTitle' => __( 'Remove from this space?', 'buddynext' ),
+			'confirmBody'  => __( 'The file returns to its owner’s own Files — it is not deleted. They can remove it from there.', 'buddynext' ),
+			'confirm'      => __( 'Remove', 'buddynext' ),
+			'cancel'       => __( 'Cancel', 'buddynext' ),
+			'done'         => __( 'File removed from the space.', 'buddynext' ),
+			'fail'         => __( 'That file could not be removed.', 'buddynext' ),
+		)
+	);
+} else {
+	$bn_sf_rm_action   = 'delete';
+	$bn_sf_rm_endpoint = rest_url( 'mvs-pro/v1/documents/' );
+	$bn_sf_rm_i18n     = (string) wp_json_encode(
+		array(
+			'confirmTitle' => __( 'Remove this file?', 'buddynext' ),
+			'confirmBody'  => __( 'It moves to trash and leaves this list. You can restore it within 30 days.', 'buddynext' ),
+			'confirm'      => __( 'Remove', 'buddynext' ),
+			'cancel'       => __( 'Cancel', 'buddynext' ),
+			'done'         => __( 'File removed.', 'buddynext' ),
+			'fail'         => __( 'That file could not be removed.', 'buddynext' ),
+		)
+	);
+}
 ?>
 <div class="bn-space-files"
 	<?php if ( $bn_sf_viewer > 0 ) : ?>
 	data-bn-files-actions
-	data-bn-del-base="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents/' ) ); ?>"
+	data-bn-action="<?php echo esc_attr( $bn_sf_rm_action ); ?>"
+	data-bn-endpoint="<?php echo esc_url( $bn_sf_rm_endpoint ); ?>"
 	data-bn-nonce="<?php echo esc_attr( $bn_sf_rest_nonce ); ?>"
-	data-bn-strings="<?php echo esc_attr( $bn_sf_del_i18n ); ?>"
+	data-bn-strings="<?php echo esc_attr( $bn_sf_rm_i18n ); ?>"
 	<?php endif; ?>
 >
 
@@ -339,8 +370,11 @@ $bn_sf_del_i18n   = (string) wp_json_encode(
 				if ( $bn_sf_did <= 0 ) {
 					continue;
 				}
-				// Author or documents admin — the same two the engine's delete gate allows.
-				$bn_sf_can_del = $bn_sf_viewer > 0 && ( ( $bn_sf_daid === $bn_sf_viewer ) || $bn_sf_can_manage );
+				// Who may remove THIS row. On a space it is the file's owner or a space
+				// moderator (they unlink it); on a personal drive its author or a
+				// documents admin (they delete it). The owner compare is the common case.
+				$bn_sf_is_owner   = $bn_sf_viewer > 0 && $bn_sf_daid === $bn_sf_viewer;
+				$bn_sf_can_remove = $bn_sf_is_owner || ( $bn_sf_viewer > 0 && ( $bn_sf_is_space ? $bn_sf_can_moderate : $bn_sf_can_manage ) );
 				if ( $bn_sf_daid === $bn_sf_viewer && $bn_sf_viewer > 0 ) {
 					$bn_sf_owner = __( 'You', 'buddynext' );
 				} else {
@@ -370,13 +404,18 @@ $bn_sf_del_i18n   = (string) wp_json_encode(
 								</span>
 							</a>
 						<?php endif; ?>
-						<?php if ( $bn_sf_can_del ) : ?>
-							<button type="button" class="bn-files__remove" data-bn-file-delete data-bn-id="<?php echo esc_attr( (string) $bn_sf_did ); ?>" data-bn-title="<?php echo esc_attr( $bn_sf_title ); ?>">
+						<?php if ( $bn_sf_can_remove ) : ?>
+							<button type="button" class="bn-files__remove" data-bn-file-remove data-bn-id="<?php echo esc_attr( (string) $bn_sf_did ); ?>">
 								<?php echo buddynext_icon( 'trash' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?>
 								<span class="screen-reader-text">
 									<?php
-									/* translators: %s: document title. */
-									echo esc_html( sprintf( __( 'Remove %s', 'buddynext' ), $bn_sf_title ) );
+									if ( $bn_sf_is_space ) {
+										/* translators: %s: document title. */
+										echo esc_html( sprintf( __( 'Remove %s from this space', 'buddynext' ), $bn_sf_title ) );
+									} else {
+										/* translators: %s: document title. */
+										echo esc_html( sprintf( __( 'Remove %s', 'buddynext' ), $bn_sf_title ) );
+									}
 									?>
 								</span>
 							</button>

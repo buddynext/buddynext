@@ -46,6 +46,16 @@ trait RendersDriveFiles {
 			return;
 		}
 
+		// On a space drive the Files tab's Remove control UNLINKS (returns the file
+		// to its owner's personal drive), which a space moderator may do to anyone's
+		// file — an author may always remove their own, checked per row. Compute the
+		// moderator authority once here; it is meaningless on a personal drive.
+		$can_moderate = false;
+		if ( 'space' === $drive_type ) {
+			$role         = ( new \BuddyNext\Spaces\SpaceMemberService() )->get_role( $drive_id, get_current_user_id() );
+			$can_moderate = \BuddyNext\Spaces\SpaceRoles::can_moderate( $role, get_current_user_id() );
+		}
+
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET view controls.
 		$query  = isset( $_GET['bn_q'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_q'] ) ) : '';
 		$folder = isset( $_GET['bn_folder'] ) ? absint( wp_unslash( $_GET['bn_folder'] ) ) : 0;
@@ -78,6 +88,7 @@ trait RendersDriveFiles {
 					'bn_sf_page'         => $search['page'],
 					'bn_sf_pages'        => $search['pages'],
 					'bn_sf_total'        => $search['total'],
+					'bn_sf_can_moderate' => $can_moderate,
 				)
 			);
 			return;
@@ -109,6 +120,7 @@ trait RendersDriveFiles {
 				'bn_sf_folder_pages' => $view['folder_pages'],
 				'bn_sf_folder_total' => $view['folder_total'],
 				'bn_sf_can_write'    => $view['can_write'],
+				'bn_sf_can_moderate' => $can_moderate,
 				// Document upload config (enabled/accept/max_size). Drives the Files-tab
 				// uploader the same way the activity composer's attach control is
 				// configured, so a contributor can add a file from the Files tab itself

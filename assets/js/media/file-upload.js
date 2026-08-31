@@ -8,10 +8,13 @@
  * one the composer uses), passing `drive` = "type:id", the current `folder`, and
  * the drive's default `privacy`.
  *
- * Each file row the viewer may remove carries a Remove button that DELETEs the
- * document (mvs-pro/v1/documents/{id}) — the engine trashes it with a 30-day
- * restore, so this is reversible. The button is only rendered where the engine's
- * delete gate (author or documents admin) would pass, and the engine re-checks.
+ * Each file row the viewer may remove carries a Remove button whose meaning
+ * follows the drive: on a SPACE drive it UNLINKS the file (POST to BuddyNext's
+ * .../media/{id}/unlink — the file leaves the space and returns to its owner's
+ * own Files, not deleted), and on the owner's PERSONAL drive it DELETEs the
+ * document (mvs-pro/v1/documents/{id} — trashed with a 30-day restore). The
+ * button is only drawn where that action's gate would pass, and the server
+ * re-checks. The action + endpoint are declared once on the list root.
  *
  * On success either action reloads the tab so the server-rendered list is fresh —
  * the list has no partial-refresh route, and a reload is honest + correct for a
@@ -165,14 +168,19 @@ function bindActions( root ) {
 	}
 	root._bnFilesActionsBound = true;
 
-	const base  = root.getAttribute( 'data-bn-del-base' ) || '';
-	const nonce = root.getAttribute( 'data-bn-nonce' ) || '';
-	const t     = parseStrings( root );
-	if ( ! base ) {
+	// One action per tab: 'unlink' on a space drive (the file leaves the space and
+	// returns to its owner's Files — a POST to .../{id}/unlink), or 'delete' on the
+	// owner's own drive (trash the document — a DELETE to .../{id}).
+	const action   = root.getAttribute( 'data-bn-action' ) || 'delete';
+	const endpoint = root.getAttribute( 'data-bn-endpoint' ) || '';
+	const nonce    = root.getAttribute( 'data-bn-nonce' ) || '';
+	const t        = parseStrings( root );
+	if ( ! endpoint ) {
 		return;
 	}
+	const isUnlink = 'unlink' === action;
 
-	root.querySelectorAll( '[data-bn-file-delete]' ).forEach( function ( btn ) {
+	root.querySelectorAll( '[data-bn-file-remove]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', async function () {
 			const id = parseInt( btn.getAttribute( 'data-bn-id' ), 10 ) || 0;
 			if ( ! id ) {
@@ -192,8 +200,8 @@ function bindActions( root ) {
 
 			btn.disabled = true;
 			try {
-				const res = await fetch( base + id, {
-					method:      'DELETE',
+				const res = await fetch( isUnlink ? endpoint + id + '/unlink' : endpoint + id, {
+					method:      isUnlink ? 'POST' : 'DELETE',
 					credentials: 'same-origin',
 					headers:     { 'X-WP-Nonce': nonce },
 				} );

@@ -573,9 +573,9 @@ class SpaceController extends BaseRestController {
 	 * Whether the current viewer may unlink a media item from its space.
 	 *
 	 * Returns the item's space id (when it lives on a space drive) and whether the
-	 * viewer is an owner/moderator of that space — the same gate unlink_space_media
-	 * enforces. The lightbox uses it to show the "Unlink from space" control only
-	 * where the action would actually be allowed.
+	 * viewer may unlink it — its owner or a space moderator, the same gate
+	 * unlink_space_media enforces. The lightbox uses it to show the "Remove from
+	 * space" control only where the action would actually be allowed.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
@@ -590,8 +590,12 @@ class SpaceController extends BaseRestController {
 		if ( null !== $repo && 'space' === (string) $repo->get( $media_id, 'drive_type' ) ) {
 			$drive_id = (int) $repo->get( $media_id, 'drive_id' );
 			if ( $drive_id > 0 ) {
-				$role = ( new SpaceMemberService() )->get_role( $drive_id, $user_id );
-				if ( SpaceRoles::can_moderate( $role, $user_id ) ) {
+				// Owner (reclaiming their own) or moderator — the same pair
+				// unlink_space_media enforces.
+				$owner_id  = (int) $repo->get( $media_id, 'post_author' );
+				$role      = ( new SpaceMemberService() )->get_role( $drive_id, $user_id );
+				$is_author = $owner_id > 0 && $owner_id === $user_id;
+				if ( $is_author || SpaceRoles::can_moderate( $role, $user_id ) ) {
 					$space_id   = $drive_id;
 					$can_unlink = true;
 				}
@@ -686,11 +690,12 @@ class SpaceController extends BaseRestController {
 	/**
 	 * Unlink a media item from a space drive (keep the owner's copy).
 	 *
-	 * A space owner/moderator removes a member's contributed item from the space
-	 * WITHOUT deleting it: MediaVerse moves the row back to its owner's own
-	 * personal drive as private, so the member keeps their file — it is simply no
-	 * longer associated with the space. The inverse of the contribute path that
-	 * lands member uploads on the space drive (commit 4186355f).
+	 * The item's OWNER (reclaiming their own contribution) or a space moderator
+	 * removes an item from the space WITHOUT deleting it: MediaVerse moves the row
+	 * back to its owner's own personal drive as private, so the member keeps their
+	 * file — it is simply no longer associated with the space, and they delete it
+	 * from their own Files if they want it gone. The inverse of the contribute path
+	 * that lands member uploads on the space drive (commit 4186355f).
 	 *
 	 * Unlink is a DRIVE action, not a moderation strike and not a post edit: it
 	 * touches only the media's drive association, never a post that embedded it. A
@@ -714,11 +719,6 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		$role = ( new SpaceMemberService() )->get_role( $space_id, $user_id );
-		if ( ! SpaceRoles::can_moderate( $role, $user_id ) ) {
-			return new WP_Error( 'forbidden', __( 'Only a space owner or moderator can unlink media from this space.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-
 		$repo = MediaClient::repo();
 		if ( null === $repo ) {
 			return new WP_Error( 'media_unavailable', __( 'Media is unavailable.', 'buddynext' ), array( 'status' => 503 ) );
@@ -733,6 +733,17 @@ class SpaceController extends BaseRestController {
 		}
 
 		$owner_id = (int) $repo->get( $media_id, 'post_author' );
+
+		// Two people may pull an item off a space drive: its OWNER, reclaiming their
+		// own contribution, and a space moderator, removing someone else's. A plain
+		// member may not touch another member's file. Same authority the Files tab
+		// and the media lightbox draw their Remove control from.
+		$role      = ( new SpaceMemberService() )->get_role( $space_id, $user_id );
+		$is_author = $owner_id > 0 && $owner_id === $user_id;
+		if ( ! $is_author && ! SpaceRoles::can_moderate( $role, $user_id ) ) {
+			return new WP_Error( 'forbidden', __( 'You cannot remove this item from the space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
 		if ( $owner_id <= 0 ) {
 			return new WP_Error( 'unlink_failed', __( 'Could not resolve the item owner.', 'buddynext' ), array( 'status' => 500 ) );
 		}
