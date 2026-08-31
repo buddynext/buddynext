@@ -31,7 +31,7 @@
    never dominates the feed, tied to the viewport (min with 60vh) so it also never
    overflows the grid's own 60vh cap and clips on a short laptop screen. object-fit:
    contain letterboxes tall media — the aspect ratio is preserved, never cropped. */
-.bn-post-card__media-grid--1 .bn-media-tile__img { height: auto; max-height: min( 60vh, 32rem ); object-fit: contain; }
+.bn-post-card__media-grid--1 .bn-media-tile__img { height: auto; min-height: 8rem; max-height: min( 60vh, 32rem ); object-fit: contain; }
 .bn-post-card__media-grid--2 { grid-template-columns: 1fr 1fr; aspect-ratio: 2 / 1; }
 .bn-post-card__media-grid--3 { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; aspect-ratio: 3 / 2; }
 .bn-post-card__media-grid--3 .bn-media-tile:first-child { grid-row: 1 / span 2; }
