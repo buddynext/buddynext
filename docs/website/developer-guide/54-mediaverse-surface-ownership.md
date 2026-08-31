@@ -90,14 +90,18 @@ the member's picture. Three register `pre_get_avatar_data`:
 ```
 [10] Jetonomy\Avatar::filter_avatar_data
 [10] WPMediaVerse\Services\ProfileService::filter_avatar_data
-[10] BuddyNext\Profile\AvatarService::filter_avatar_data      (real avatars only)
+[50] BuddyNext\Profile\AvatarService::filter_avatar_data      (BuddyNext upload only, else defers)
 [99] BuddyNext\Profile\AvatarService::filter_avatar_fallback  (generated initials)
 ```
 
-**The rule: a real picture always beats a generated one.** Everything at priority
-10 is somebody's actual uploaded image, and whichever answers first wins — that
-is a fair race. BuddyNext's generated initials are not in that race; they run at
-99, only when nobody produced a URL.
+**The rule: a real picture always beats a generated one.** The two sources at
+priority 10 each hold somebody's actual uploaded image, and whichever answers
+first wins — a fair race. BuddyNext runs *after* them, at 50: it sets its own
+uploaded avatar when the member has one (an explicit choice made in this
+community, so it wins even over a sibling's) and otherwise returns the args
+**unchanged**, leaving a real photo an earlier filter set. BuddyNext's generated
+initials are not in that race at all; they run at 99, only when nobody produced a
+URL.
 
 That split is the fix for a real defect. All three used to sit at priority 10 and
 BuddyNext registered last, so its *placeholder* beat WPMediaVerse's *photograph*:
@@ -120,6 +124,11 @@ outranking anyone's real picture.
 
 Adding another avatar source? Register at 10 if it holds real uploads. Never
 register a generated or default image at 10 — that is the mistake this documents.
+
+Building a plugin that needs to *read* a member's avatar (rather than provide
+one)? Pull it through `buddynext_user_avatar_url()` — see
+[Member Identity Seams](55-member-identity-seams.md). It returns this same
+resolved avatar and is never empty.
 
 ## Adding a surface
 

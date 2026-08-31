@@ -987,6 +987,51 @@ function buddynext_user_cover_url( int $user_id ): string {
 }
 
 /**
+ * Return a member's BuddyNext-resolved avatar URL — the pull seam for any plugin.
+ *
+ * This is the developer-facing way for a third-party OR in-house plugin to show a
+ * member's community avatar. It runs the standard WordPress get_avatar_url()
+ * pipeline, which BuddyNext powers through pre_get_avatar_data: a real photo (a
+ * BuddyNext upload, or a sibling plugin's such as WPMediaVerse) always wins, and
+ * only when a member has none does BuddyNext supply a deterministic initials
+ * image — so the result is never empty. Do NOT read avatar usermeta directly; go
+ * through here (or core get_avatar()) so BuddyNext can change how it resolves an
+ * avatar without breaking callers.
+ *
+ * To OVERRIDE what BuddyNext returns for a user, hook the `buddynext_avatar_url`
+ * filter and return an absolute URL. To render an <img>, core
+ * get_avatar( $user_id, $size ) runs the same pipeline.
+ *
+ * @param int $user_id WordPress user ID.
+ * @param int $size    Requested square size in px (default 96).
+ * @return string Absolute URL or data: URI; '' only for an invalid user.
+ */
+function buddynext_user_avatar_url( int $user_id, int $size = 96 ): string {
+	if ( $user_id <= 0 ) {
+		return '';
+	}
+	return (string) get_avatar_url( $user_id, array( 'size' => max( 1, $size ) ) );
+}
+
+/**
+ * Return the canonical BuddyNext profile URL for a member — the pull seam any
+ * plugin should use to link to a member's community profile.
+ *
+ * Thin wrapper over PageRouter::profile_url() so callers do not depend on the
+ * class directly. Returns '' when the user is invalid or profiles are
+ * unavailable, so callers can fall back to their own link.
+ *
+ * @param int $user_id WordPress user ID.
+ * @return string Absolute URL, or '' when unavailable.
+ */
+function buddynext_member_url( int $user_id ): string {
+	if ( $user_id <= 0 ) {
+		return '';
+	}
+	return (string) \BuddyNext\Core\PageRouter::profile_url( $user_id );
+}
+
+/**
  * Return the canonical URL for a single space by its slug.
  *
  * Thin procedural wrapper around PageRouter::spaces_url() so templates do not
