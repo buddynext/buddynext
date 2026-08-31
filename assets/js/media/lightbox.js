@@ -45,6 +45,10 @@
 			input:    overlay.querySelector( '[data-bn-lb-comment-input]' ),
 			save:     overlay.querySelector( '[data-bn-lb-save]' ),
 			edit:     overlay.querySelector( '[data-bn-lb-edit]' ),
+			unlink:   overlay.querySelector( '[data-bn-lb-unlink]' ),
+			more:     overlay.querySelector( '[data-bn-lb-more]' ),
+			moreWrap: overlay.querySelector( '[data-bn-lb-more-wrap]' ),
+			menu:     overlay.querySelector( '[data-bn-lb-menu]' ),
 			extra:    overlay.querySelector( '[data-bn-lb-panel]' ),
 			fullscr:  overlay.querySelector( '[data-bn-lb-fullscreen]' ),
 			// DM full-bleed chrome (sender + download float over the stage; the
@@ -74,8 +78,17 @@
 			panel.report.addEventListener( 'click', report );
 		}
 		if ( panel.block ) { panel.block.addEventListener( 'click', blockAuthor ); }
-		if ( panel.edit ) { panel.edit.addEventListener( 'click', openEditPanel ); }
+		if ( panel.edit ) { panel.edit.addEventListener( 'click', function () { closeMenu(); openEditPanel(); } ); }
 		if ( panel.save ) { panel.save.addEventListener( 'click', openSavePanel ); }
+		if ( panel.unlink ) { panel.unlink.addEventListener( 'click', unlinkFromSpace ); }
+		// The ⋯ overflow: toggle on the trigger, close on outside-click / Escape and
+		// after any item is chosen.
+		if ( panel.more ) {
+			panel.more.addEventListener( 'click', function ( e ) { e.stopPropagation(); toggleMenu(); } );
+		}
+		document.addEventListener( 'click', function ( e ) {
+			if ( panel.moreWrap && ! panel.moreWrap.contains( e.target ) ) { closeMenu(); }
+		} );
 		if ( panel.fullscr ) { panel.fullscr.addEventListener( 'click', toggleFullscreen ); }
 		var shareBtn = overlay.querySelector( '[data-bn-lb-share]' );
 		if ( shareBtn ) { shareBtn.addEventListener( 'click', share ); }
@@ -234,6 +247,61 @@
 	var currentAuthorId = 0;
 	// The media payload for whatever is open — Edit prefills from it.
 	var currentMedia = null;
+	// The space this media sits on when the viewer may unlink it (0 otherwise).
+	var currentSpaceId = 0;
+
+	function openMenu() {
+		if ( ! panel.menu || ! panel.more ) { return; }
+		panel.menu.hidden = false;
+		panel.more.setAttribute( 'aria-expanded', 'true' );
+	}
+	function closeMenu() {
+		if ( ! panel.menu || ! panel.more ) { return; }
+		panel.menu.hidden = true;
+		panel.more.setAttribute( 'aria-expanded', 'false' );
+	}
+	function toggleMenu() {
+		if ( panel.menu && panel.menu.hidden ) { openMenu(); } else { closeMenu(); }
+	}
+
+	// Hide the ⋯ trigger entirely when every item in the menu is hidden for this
+	// media — an empty overflow is noise, not an affordance.
+	function syncMore() {
+		if ( ! panel.moreWrap || ! panel.menu ) { return; }
+		var anyVisible = Array.prototype.some.call(
+			panel.menu.querySelectorAll( '[role="menuitem"]' ),
+			function ( it ) { return ! it.hidden; }
+		);
+		panel.moreWrap.hidden = ! anyVisible;
+		if ( ! anyVisible ) { closeMenu(); }
+	}
+
+	// Moderator "Remove from space" — returns the item to its owner's own drive
+	// (kept, private), not a delete. The confirm + result strings come from the
+	// server i18n dictionary. On success the item is gone from the space, so the
+	// lightbox closes.
+	function unlinkFromSpace() {
+		if ( ! current || currentSpaceId <= 0 ) { return; }
+		closeMenu();
+		var msg = I18N.unlinkConfirm || 'Remove this from the space?';
+		Promise.resolve(
+			typeof window.bnConfirm === 'function'
+				? window.bnConfirm( { title: msg, tone: 'danger' } )
+				: window.confirm( msg )
+		).then( function ( ok ) {
+			if ( ! ok ) { return; }
+			window.buddynextRest.restFetch( '/spaces/' + currentSpaceId + '/media/' + current + '/unlink', {
+				nonce: cfg.nonce || '', method: 'POST', toastOnError: false,
+			} ).then( function ( res ) {
+				if ( res && res.ok ) {
+					if ( typeof window.bnToast === 'function' ) { window.bnToast( I18N.unlinkDone || 'Removed from the space.', { tone: 'success' } ); }
+					close();
+				} else if ( typeof window.bnToast === 'function' ) {
+					window.bnToast( I18N.unlinkFail || 'Could not remove it from the space.', { tone: 'danger' } );
+				}
+			} );
+		} );
+	}
 
 	function applyAbuseControls( m ) {
 		// WPMediaVerse's media payload carries the uploader's numeric id as `author`
@@ -266,6 +334,27 @@
 
 		if ( panel.report ) { panel.report.hidden = ! canReport; }
 		if ( panel.block ) { panel.block.hidden = ! canBlock; }
+
+		// Moderator unlink: hidden until a BN check says this media is on a space
+		// drive AND the viewer may moderate that space. Reset first (the panel is
+		// reused across media), then resolve async and re-sync the ⋯ visibility.
+		currentSpaceId = 0;
+		if ( panel.unlink ) { panel.unlink.hidden = true; }
+		syncMore();
+		if ( LOGGED_IN && panel.unlink && current ) {
+			var forId = current;
+			window.buddynextRest.restFetch( '/media/' + current + '/space-context', {
+				nonce: cfg.nonce || '', method: 'GET', toastOnError: false,
+			} ).then( function ( res ) {
+				// Ignore a stale response if the viewer already moved to another item.
+				if ( forId !== current || ! res || ! res.ok || ! res.data || ! res.data.can_unlink ) { return; }
+				currentSpaceId = parseInt( res.data.space_id, 10 ) || 0;
+				if ( currentSpaceId > 0 ) {
+					panel.unlink.hidden = false;
+					syncMore();
+				}
+			} );
+		}
 	}
 
 	function renderAuthor( m, target ) {
@@ -612,6 +701,18 @@
 		b.addEventListener( 'click', onClick );
 		return b;
 	}
+	// A real form button for the Edit / Save panels (primary or ghost), so their
+	// footer reads as buttons, not the plain text-links the comment actions use.
+	function panelBtn( label, variant, onClick ) {
+		var b = document.createElement( 'button' );
+		b.type = 'button';
+		b.className = 'bn-btn';
+		b.setAttribute( 'data-variant', variant );
+		b.setAttribute( 'data-size', 'sm' );
+		b.textContent = label;
+		b.addEventListener( 'click', onClick );
+		return b;
+	}
 
 	/** Swap a comment row for an inline edit field. */
 	function startEditComment( row, c ) {
@@ -769,7 +870,7 @@
 
 		var actions = document.createElement( 'div' );
 		actions.className = 'bn-lightbox__panel-actions';
-		actions.appendChild( commentAction( __( 'Save changes' ), 'save', function () {
+		actions.appendChild( panelBtn( __( 'Save changes' ), 'primary', function () {
 			api( '/media/' + current, {
 				method: 'PATCH',
 				json: {
@@ -783,7 +884,7 @@
 				closeExtraPanel();
 			} ).catch( function () {} );
 		} ) );
-		actions.appendChild( commentAction( __( 'Cancel' ), 'cancel', closeExtraPanel ) );
+		actions.appendChild( panelBtn( __( 'Cancel' ), 'ghost', closeExtraPanel ) );
 		host.appendChild( actions );
 		title.focus();
 	}

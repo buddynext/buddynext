@@ -553,6 +553,58 @@ class SpaceController extends BaseRestController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		// Lightweight lookup the media lightbox calls on open to decide whether to
+		// offer the moderator "Unlink from space" item: is this media on a space
+		// drive, and may the viewer moderate that space? Keeps the unlink control
+		// out of the menu everywhere it would only ever fail.
+		register_rest_route(
+			'buddynext/v1',
+			'/media/(?P<media_id>[\d]+)/space-context',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'media_space_context' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+	}
+
+	/**
+	 * Whether the current viewer may unlink a media item from its space.
+	 *
+	 * Returns the item's space id (when it lives on a space drive) and whether the
+	 * viewer is an owner/moderator of that space — the same gate unlink_space_media
+	 * enforces. The lightbox uses it to show the "Unlink from space" control only
+	 * where the action would actually be allowed.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function media_space_context( WP_REST_Request $request ): WP_REST_Response {
+		$media_id = (int) $request->get_param( 'media_id' );
+		$user_id  = get_current_user_id();
+		$repo     = MediaClient::repo();
+
+		$space_id   = 0;
+		$can_unlink = false;
+		if ( null !== $repo && 'space' === (string) $repo->get( $media_id, 'drive_type' ) ) {
+			$drive_id = (int) $repo->get( $media_id, 'drive_id' );
+			if ( $drive_id > 0 ) {
+				$role = ( new SpaceMemberService() )->get_role( $drive_id, $user_id );
+				if ( SpaceRoles::can_moderate( $role, $user_id ) ) {
+					$space_id   = $drive_id;
+					$can_unlink = true;
+				}
+			}
+		}
+
+		return new WP_REST_Response(
+			array(
+				'space_id'   => $space_id,
+				'can_unlink' => $can_unlink,
+			),
+			200
+		);
 	}
 
 	/**
