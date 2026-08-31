@@ -23,6 +23,7 @@ namespace BuddyNext\Feed;
 use BuddyNext\Feed\PostService;
 use BuddyNext\SocialGraph\FollowService;
 use BuddyNext\Core\CursorCodec;
+use BuddyNext\Media\MediaClient;
 
 /**
  * Aggregates posts into paginated feed responses.
@@ -2563,6 +2564,34 @@ class FeedService {
 			}
 		}
 
-		return array_slice( array_values( array_unique( $media_ids ) ), 0, $limit );
+		$media_ids = array_values( array_unique( $media_ids ) );
+
+		// The list so far is "media ATTACHED TO this space's posts", which is a
+		// different question from "may THIS viewer see it". A photo whose owner has
+		// since made it private — e.g. by unlinking it from the space in the media
+		// lightbox — still hangs off the post that embedded it, so without a gate
+		// here it keeps showing to everyone and the unlink has no visible effect.
+		// Filter through the engine's own per-viewer check (owner + admins always;
+		// otherwise the item's privacy), so a member sees exactly what they may and
+		// an unlinked/private item drops out for others while its owner still sees
+		// their own. Bounded to $limit, so at most $limit checks, each memoised.
+		$privacy = MediaClient::privacy();
+		if ( null === $privacy || ! is_callable( array( $privacy, 'can_view' ) ) ) {
+			return array_slice( $media_ids, 0, $limit );
+		}
+
+		$viewer  = get_current_user_id();
+		$visible = array();
+		foreach ( $media_ids as $mid ) {
+			if ( ! $privacy->can_view( $mid, $viewer ) ) {
+				continue;
+			}
+			$visible[] = $mid;
+			if ( count( $visible ) >= $limit ) {
+				break;
+			}
+		}
+
+		return $visible;
 	}
 }
