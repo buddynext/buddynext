@@ -109,6 +109,11 @@ trait RendersDriveFiles {
 				'bn_sf_folder_pages' => $view['folder_pages'],
 				'bn_sf_folder_total' => $view['folder_total'],
 				'bn_sf_can_write'    => $view['can_write'],
+				// Document upload config (enabled/accept/max_size). Drives the Files-tab
+				// uploader the same way the activity composer's attach control is
+				// configured, so a contributor can add a file from the Files tab itself
+				// (into the current drive + folder) rather than only via a post.
+				'bn_sf_doc_config'   => WPMediaVerseBridge::document_composer_config(),
 			)
 		);
 	}

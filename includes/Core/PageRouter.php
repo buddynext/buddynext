@@ -1757,6 +1757,9 @@ class PageRouter {
 					// tab pays for it.
 					if ( 'files' === (string) get_query_var( 'bn_profile_action', '' ) ) {
 						$assets->enqueue( 'space-files' );
+						// The Files-tab uploader (drag/click a document straight into
+						// this drive) is its own small module beside the reader island.
+						$assets->enqueue( 'file-upload' );
 					}
 				} else {
 					$assets->enqueue( 'members' );
@@ -1802,6 +1805,9 @@ class PageRouter {
 				// (no store) — it needs only its stylesheet, keyed on the action.
 				if ( 'files' === $space_action_v || 'files' === $bn_space_tab ) {
 					$assets->enqueue( 'space-files' );
+					// The Files-tab uploader (drag/click a document straight into this
+					// space drive) rides beside the reader island.
+					$assets->enqueue( 'file-upload' );
 				}
 				// The settings "Custom fields" panel saves registered space fields
 				// over REST via the buddynext/space-fields store.

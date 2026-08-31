@@ -699,6 +699,7 @@ class AssetService {
 			'@buddynext/media-albums'       => 'media/albums-store',
 			'@buddynext/community-admin'    => 'community-admin/store',
 			'@buddynext/space-files'        => 'space-files/store',
+			'@buddynext/file-upload'        => 'media/file-upload',
 		);
 
 		// Feature stores that import from ../shell/dialog.js need the
@@ -716,6 +717,7 @@ class AssetService {
 			'@buddynext/media-upload',
 			'@buddynext/media-albums',
 			'@buddynext/community-admin',
+			'@buddynext/file-upload',
 		);
 
 		foreach ( $feature_modules as $id => $path ) {

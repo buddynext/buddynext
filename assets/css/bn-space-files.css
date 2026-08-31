@@ -218,12 +218,14 @@ a.bn-files__name:focus-visible {
 .bn-files__actions {
 	display: inline-flex;
 	align-items: center;
-	justify-content: center;
+	justify-content: flex-end;
+	gap: var(--bn-s1);
 	min-width: var(--bn-s6);
 	color: var(--bn-ink-4);
 }
 
-.bn-files__download {
+.bn-files__download,
+.bn-files__remove {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -233,13 +235,33 @@ a.bn-files__name:focus-visible {
 	color: var(--bn-ink-3);
 }
 
+/* Remove is a <button>: strip the UA chrome so it reads as an icon action. */
+.bn-files__remove {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+}
+
 .bn-files__download:hover,
 .bn-files__download:focus-visible {
 	background: var(--bn-accent-bg);
 	color: var(--bn-accent);
 }
 
+.bn-files__remove:hover,
+.bn-files__remove:focus-visible {
+	background: var(--bn-danger-bg, color-mix(in srgb, var(--bn-danger) 12%, transparent));
+	color: var(--bn-danger);
+}
+
+.bn-files__remove[disabled] {
+	opacity: 0.5;
+	cursor: default;
+}
+
 .bn-files__download svg,
+.bn-files__remove svg,
 .bn-files__actions > svg {
 	width: var(--bn-s5);
 	height: var(--bn-s5);
@@ -853,3 +875,64 @@ a.bn-files__name:focus-visible {
 	}
 }
 
+
+/* ── Files-tab uploader ─────────────────────────────────────────────────────
+   A dropzone that files a document straight into this drive + folder, so a
+   contributor can add one from the Files tab (not only via an activity post).
+   Same token-driven treatment as the media composer's dropzone. */
+.bn-files-upload {
+	margin-block-end: var( --bn-s4, 16px );
+}
+.bn-files-upload__zone {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var( --bn-s2, 8px );
+	inline-size: 100%;
+	padding: var( --bn-s5, 20px ) var( --bn-s4, 16px );
+	border: 1px dashed var( --bn-line, oklch( 88% 0.01 0 ) );
+	border-radius: var( --bn-r-lg, 12px );
+	background: var( --bn-sunken, oklch( 97% 0.004 0 ) );
+	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
+	cursor: pointer;
+	text-align: center;
+	transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+.bn-files-upload__zone:hover,
+.bn-files-upload__zone:focus-visible {
+	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+	color: var( --bn-ink-2, oklch( 40% 0.01 0 ) );
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+}
+.bn-files-upload.is-drag .bn-files-upload__zone {
+	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+	background: var( --bn-accent-50, oklch( 95% 0.03 264 ) );
+	color: var( --bn-ink, oklch( 22% 0.01 0 ) );
+}
+.bn-files-upload.is-uploading .bn-files-upload__zone {
+	opacity: 0.6;
+	pointer-events: none;
+}
+.bn-files-upload__icon {
+	display: inline-flex;
+	inline-size: var( --bn-s8, 32px );
+	block-size: var( --bn-s8, 32px );
+	color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+}
+.bn-files-upload__icon svg { inline-size: 100%; block-size: 100%; }
+.bn-files-upload__title {
+	font-weight: var( --bn-fw-semibold, 600 );
+	color: var( --bn-ink, oklch( 22% 0.01 0 ) );
+}
+.bn-files-upload__hint {
+	font-size: var( --bn-text-sm, 0.875rem );
+	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
+}
+.bn-files-upload__status {
+	margin-block: var( --bn-s2, 8px ) 0;
+	font-size: var( --bn-text-sm, 0.875rem );
+	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
+	text-align: center;
+}
