@@ -34,6 +34,8 @@ namespace BuddyNext\Spaces;
 use BuddyNext\REST\BaseRestController;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
+use BuddyNext\Media\MediaClient;
+use BuddyNext\Notifications\NotificationService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -536,6 +538,21 @@ class SpaceController extends BaseRestController {
 				),
 			)
 		);
+
+		// Unlink a media item from a space drive. A space owner/moderator removes a
+		// member's contributed item from the space WITHOUT deleting it — MediaVerse
+		// moves it back to the member's own personal drive as private. The inverse
+		// of the contribute path (commit 4186355f) that lands member media on the
+		// space drive. Auth here, moderator gate in the handler.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/media/(?P<media_id>[\d]+)/unlink',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'unlink_space_media' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
 	}
 
 	/**
@@ -609,6 +626,105 @@ class SpaceController extends BaseRestController {
 		return new WP_REST_Response(
 			array(
 				'require_join_approval' => (int) buddynext_get_space_field( $space_id, 'require_join_approval' ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Unlink a media item from a space drive (keep the owner's copy).
+	 *
+	 * A space owner/moderator removes a member's contributed item from the space
+	 * WITHOUT deleting it: MediaVerse moves the row back to its owner's own
+	 * personal drive as private, so the member keeps their file — it is simply no
+	 * longer associated with the space. The inverse of the contribute path that
+	 * lands member uploads on the space drive (commit 4186355f).
+	 *
+	 * Unlink is a DRIVE action, not a moderation strike and not a post edit: it
+	 * touches only the media's drive association, never a post that embedded it. A
+	 * post in the space that referenced the item keeps its reference; the item is
+	 * now private, so it shows to its owner and fails the visibility gate for
+	 * others — the correct consequence of the owner reclaiming it.
+	 *
+	 * Refuses unless the item is actually on THIS space's drive, so the action can
+	 * never move media that belongs to another space or a user's own drive.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function unlink_space_media( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$media_id = (int) $request->get_param( 'media_id' );
+		$user_id  = get_current_user_id();
+
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$role = ( new SpaceMemberService() )->get_role( $space_id, $user_id );
+		if ( ! SpaceRoles::can_moderate( $role, $user_id ) ) {
+			return new WP_Error( 'forbidden', __( 'Only a space owner or moderator can unlink media from this space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$repo = MediaClient::repo();
+		if ( null === $repo ) {
+			return new WP_Error( 'media_unavailable', __( 'Media is unavailable.', 'buddynext' ), array( 'status' => 503 ) );
+		}
+
+		// The item must currently live on THIS space's drive, or there is nothing
+		// to unlink here — refuse rather than silently move an unrelated item.
+		$drive_type = (string) $repo->get( $media_id, 'drive_type' );
+		$drive_id   = (int) $repo->get( $media_id, 'drive_id' );
+		if ( 'space' !== $drive_type || $drive_id !== $space_id ) {
+			return new WP_Error( 'not_on_space_drive', __( 'This item is not on this space\'s drive.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
+		$owner_id = (int) $repo->get( $media_id, 'post_author' );
+		if ( $owner_id <= 0 ) {
+			return new WP_Error( 'unlink_failed', __( 'Could not resolve the item owner.', 'buddynext' ), array( 'status' => 500 ) );
+		}
+
+		// Return the item to its owner's personal drive as private, via MediaVerse's
+		// own index writer (set_many writes drive_type/drive_id/privacy atomically
+		// and fires mvs_media_privacy_changed). The item was just confirmed to exist
+		// on this space's drive, so this is an update, never a partial insert. Keeps
+		// the member's copy; removes the space's. Item is on the space drive, so it
+		// exists — no new MediaVerse code, just its existing API.
+		$repo->set_many(
+			$media_id,
+			array(
+				'drive_type' => 'user',
+				'drive_id'   => $owner_id,
+				'privacy'    => 'private',
+			)
+		);
+
+		// Tell the owner their item left the space (they keep it). Skipped when a
+		// moderator unlinks their own upload. A native BuddyNext event, so the pref
+		// catalogue — not a collect-only rule — decides whether it also emails.
+		if ( $owner_id > 0 && $owner_id !== $user_id ) {
+			( new NotificationService() )->create(
+				array(
+					'recipient_id' => $owner_id,
+					'sender_id'    => $user_id,
+					'type'         => 'bn.space_media_unlinked',
+					'object_type'  => 'space',
+					'object_id'    => $space_id,
+					'group_key'    => "space_media_unlinked_{$space_id}_{$owner_id}",
+					'data'         => array(
+						'space_id' => $space_id,
+						'media_id' => $media_id,
+					),
+				)
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'unlinked' => true,
+				'media_id' => $media_id,
+				'space_id' => $space_id,
 			),
 			200
 		);

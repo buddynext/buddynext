@@ -202,6 +202,14 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
 			),
+			'bn.space_media_unlinked'     => array(
+				'label'              => __( 'Your media removed from a space', 'buddynext' ),
+				'description'        => __( 'A space owner or moderator removed media you shared from the space. You keep your own copy.', 'buddynext' ),
+				'group'              => self::GROUP_SPACES,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
+				'can_email'          => true,
+			),
 			'bn.announcement'             => array(
 				'label'              => __( 'Announcements', 'buddynext' ),
 				'description'        => __( 'An admin or space moderator posted an announcement.', 'buddynext' ),

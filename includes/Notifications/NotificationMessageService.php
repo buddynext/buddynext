@@ -291,6 +291,14 @@ class NotificationMessageService {
 					$space_name
 				);
 
+			case 'bn.space_media_unlinked':
+				return sprintf(
+					/* translators: 1: actor display name, 2: space name. */
+					__( '%1$s removed media you shared from %2$s. You still have your copy.', 'buddynext' ),
+					$actor_name,
+					$this->resolve_space_name( $object_id )
+				);
+
 			case 'bn.space_role_changed':
 				$role = isset( $data['role'] ) ? (string) $data['role'] : '';
 				return sprintf(
@@ -955,6 +963,7 @@ class NotificationMessageService {
 			case 'bn.space_join_declined':
 			case 'bn.space_role_changed':
 			case 'bn.space_ownership_received':
+			case 'bn.space_media_unlinked':
 				return $object_id > 0 ? PageRouter::space_url( $object_id ) : PageRouter::spaces_url();
 
 			case 'bn.bulk_invite':
