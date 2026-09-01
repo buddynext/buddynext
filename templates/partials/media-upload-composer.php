@@ -1,13 +1,20 @@
 <?php
 /**
- * Owner-only media upload composer (profile Media tab).
+ * Media upload composer (profile Media tab, and a space's Media tab).
  *
  * A self-contained BuddyNext Interactivity island (`buddynext/media`). It posts
  * files to buddynext/v1/me/media and, on success, refreshes the sibling gallery
  * region ([data-bn-media-region]). No WPMediaVerse markup/CSS/JS is involved —
  * BuddyNext owns the entire experience.
  *
- * @var int $bn_mu_owner_id Profile owner id (always the current user — owner-only).
+ * When `$bn_mu_space_id` is set the upload is a SPACE upload: the island carries
+ * the space id, so the engine files each photo on that space's drive
+ * (drive_type='space') and the batch's feed post is filed to the space
+ * (space_id), instead of landing on the uploader's personal drive and the global
+ * feed. Authorship is always the uploader either way (owner-gated server-side).
+ *
+ * @var int $bn_mu_owner_id Profile owner id (the current user on the profile tab).
+ * @var int $bn_mu_space_id Space id when this is a space's Media tab; 0 otherwise.
  *
  * @package BuddyNext
  */
@@ -15,13 +22,17 @@
 defined( 'ABSPATH' ) || exit;
 
 $bn_mu_owner_id = isset( $bn_mu_owner_id ) ? (int) $bn_mu_owner_id : get_current_user_id();
+$bn_mu_space_id = isset( $bn_mu_space_id ) ? (int) $bn_mu_space_id : 0;
+$bn_mu_is_space = $bn_mu_space_id > 0;
 
 $bn_mu_ctx = array(
 	'restNonce' => wp_create_nonce( 'wp_rest' ),
 	'ownerId'   => $bn_mu_owner_id,
+	'spaceId'   => $bn_mu_space_id,
 	'maxFiles'  => 10,
 	'maxSizeMB' => 64,
-	'privacy'   => 'public',
+	// A space upload is shared with the space; a profile upload defaults to public.
+	'privacy'   => $bn_mu_is_space ? 'space' : 'public',
 	'staged'    => array(),
 	'hasStaged' => false,
 	'dragOver'  => false,
@@ -112,15 +123,22 @@ $bn_mu_ctx = array(
 		</div>
 
 		<div class="bn-mu__bar">
-			<label class="bn-mu__privacy">
-				<span class="bn-mu__privacy-label"><?php esc_html_e( 'Who can see this', 'buddynext' ); ?></span>
-				<select class="bn-input bn-mu__privacy-select" data-wp-on--change="actions.setPrivacy">
-					<option value="public"><?php esc_html_e( 'Public', 'buddynext' ); ?></option>
-					<option value="followers"><?php esc_html_e( 'Followers', 'buddynext' ); ?></option>
-					<option value="connections"><?php esc_html_e( 'Connections', 'buddynext' ); ?></option>
-					<option value="private"><?php esc_html_e( 'Only me', 'buddynext' ); ?></option>
-				</select>
-			</label>
+			<?php if ( $bn_mu_is_space ) : ?>
+				<span class="bn-mu__privacy bn-mu__privacy--fixed">
+					<span class="bn-mu__privacy-icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></span>
+					<span class="bn-mu__privacy-label"><?php esc_html_e( 'Shared with this space', 'buddynext' ); ?></span>
+				</span>
+			<?php else : ?>
+				<label class="bn-mu__privacy">
+					<span class="bn-mu__privacy-label"><?php esc_html_e( 'Who can see this', 'buddynext' ); ?></span>
+					<select class="bn-input bn-mu__privacy-select" data-wp-on--change="actions.setPrivacy">
+						<option value="public"><?php esc_html_e( 'Public', 'buddynext' ); ?></option>
+						<option value="followers"><?php esc_html_e( 'Followers', 'buddynext' ); ?></option>
+						<option value="connections"><?php esc_html_e( 'Connections', 'buddynext' ); ?></option>
+						<option value="private"><?php esc_html_e( 'Only me', 'buddynext' ); ?></option>
+					</select>
+				</label>
+			<?php endif; ?>
 			<div class="bn-mu__actions">
 				<button type="button" class="bn-btn" data-variant="ghost"
 					data-wp-on--click="actions.clearStaged"

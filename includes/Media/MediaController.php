@@ -45,6 +45,11 @@ class MediaController extends BaseRestController {
 		'followers'   => 'members',
 		'connections' => 'members',
 		'private'     => 'private',
+		// A space upload is shared WITH the space: the engine stamps the row
+		// `privacy = space`, which is what makes it visible to space members (and
+		// only them) once it is on the space drive. Without passing it through, a
+		// space photo was stored `private` and its own space could not see it.
+		'space'       => 'space',
 	);
 
 	/**

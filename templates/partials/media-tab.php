@@ -113,7 +113,17 @@ $bn_mt_ctx = array(
 	<div class="bn-media-view" data-wp-bind--hidden="!state.viewIsMedia">
 		<?php
 		if ( $bn_mt_is_owner ) {
-			buddynext_get_template( 'partials/media-upload-composer.php', array( 'bn_mu_owner_id' => $bn_mt_owner_id ) );
+			buddynext_get_template(
+				'partials/media-upload-composer.php',
+				array(
+					'bn_mu_owner_id' => $bn_mt_owner_id,
+					// On a space Media tab this is the space id, so the composer files
+					// each photo to the space drive and posts the batch to the space
+					// (not the uploader's personal drive + the global feed). 0 on a
+					// profile Media tab.
+					'bn_mu_space_id' => $bn_mt_space_id,
+				)
+			);
 		}
 		echo '<div class="bn-media-grid-region" data-bn-media-region data-bn-owner="' . esc_attr( $bn_mt_is_owner ? '1' : '0' ) . '">';
 		if ( ! empty( $bn_mt_media_ids ) ) {

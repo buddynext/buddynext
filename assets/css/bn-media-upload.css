@@ -218,6 +218,30 @@
 	color: var(--bn-ink-3);
 }
 
+/* Space upload: a fixed "Shared with this space" indicator, not a privacy select. */
+.bn-mu__privacy--fixed {
+	flex-direction: row;
+	align-items: center;
+	gap: var(--bn-s2);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-mu__privacy--fixed .bn-mu__privacy-label {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+
+.bn-mu__privacy-icon {
+	display: inline-flex;
+	color: var(--bn-ink-3);
+}
+
+.bn-mu__privacy-icon svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
 .bn-mu__actions {
 	display: flex;
 	gap: var(--bn-s2);
