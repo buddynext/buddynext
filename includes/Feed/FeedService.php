@@ -22,6 +22,7 @@ namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\PostService;
 use BuddyNext\SocialGraph\FollowService;
+use BuddyNext\SocialGraph\ConnectionService;
 use BuddyNext\Core\CursorCodec;
 use BuddyNext\Media\MediaClient;
 
@@ -175,6 +176,71 @@ class FeedService {
 		$this->follows      = $follows;
 		$this->post_service = $post_service;
 		$this->cache        = $cache;
+	}
+
+	/**
+	 * Connection service, created on first use.
+	 *
+	 * Not a constructor dependency: FeedService is instantiated from three call
+	 * sites with different arities, and the connection check is only needed on
+	 * the profile-feed path, so it is resolved lazily here rather than threaded
+	 * through every constructor. ConnectionService is stateless.
+	 *
+	 * @var ConnectionService|null
+	 */
+	private ?ConnectionService $connections = null;
+
+	/**
+	 * Whether two users are accepted connections.
+	 *
+	 * @param int $viewer_id       Viewer user ID.
+	 * @param int $profile_user_id Profile owner user ID.
+	 * @return bool
+	 */
+	private function are_connected( int $viewer_id, int $profile_user_id ): bool {
+		if ( $viewer_id <= 0 || $profile_user_id <= 0 || $viewer_id === $profile_user_id ) {
+			return false;
+		}
+		if ( null === $this->connections ) {
+			$this->connections = new ConnectionService();
+		}
+		return $this->connections->are_connected( $viewer_id, $profile_user_id );
+	}
+
+	/**
+	 * Privacy IN(...) clause for a viewer looking at a profile owner's posts.
+	 *
+	 * The viewer's audience is additive: 'public' always, plus 'followers' if
+	 * they follow the owner, plus 'connections' if they are an accepted
+	 * connection. Before this, a connections-only post was hidden from the very
+	 * connection it was addressed to on the owner's profile — 'connections' was
+	 * honoured on the Network feed alone. Shared by profile_feed() and
+	 * profile_pinned_posts() so the audience can never drift between them.
+	 *
+	 * Returns '' for the owner (sees everything). Every literal is hardcoded —
+	 * no user data enters the SQL.
+	 *
+	 * @param int $viewer_id       Viewer user ID (0 = anonymous).
+	 * @param int $profile_user_id Profile owner user ID.
+	 * @return string SQL fragment prefixed with AND, or '' for the owner.
+	 */
+	private function profile_privacy_clause( int $viewer_id, int $profile_user_id ): string {
+		if ( $viewer_id === $profile_user_id ) {
+			return '';
+		}
+		$following = $viewer_id > 0 && $this->follows->is_following( $viewer_id, $profile_user_id );
+		$connected = $this->are_connected( $viewer_id, $profile_user_id );
+
+		if ( $following && $connected ) {
+			return "AND privacy IN ('public','followers','connections')";
+		}
+		if ( $following ) {
+			return "AND privacy IN ('public','followers')";
+		}
+		if ( $connected ) {
+			return "AND privacy IN ('public','connections')";
+		}
+		return "AND privacy = 'public'";
 	}
 
 	/**
@@ -1502,19 +1568,12 @@ class FeedService {
 
 		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), self::MAX_PER_PAGE ) );
 
-		if ( $viewer_id === $profile_user_id ) {
-			// Owner sees everything — but suspended/shadow-banned posts are still hidden.
-			$privacy_clause = '';
-			$privacy_params = array();
-		} elseif ( $viewer_id > 0 && $this->follows->is_following( $viewer_id, $profile_user_id ) ) {
-			// Followers see public and followers-only posts.
-			$privacy_clause = "AND privacy IN ('public','followers')";
-			$privacy_params = array();
-		} else {
-			// Anonymous visitors and non-followers see only public posts.
-			$privacy_clause = "AND privacy = 'public'";
-			$privacy_params = array();
-		}
+		// Additive audience: public, plus followers-only if the viewer follows the
+		// owner, plus connections-only if they are an accepted connection — so a
+		// connection sees a 'connections' post on the author's profile, not just
+		// in the Network feed. See profile_privacy_clause().
+		$privacy_clause = $this->profile_privacy_clause( $viewer_id, $profile_user_id );
+		$privacy_params = array();
 
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
@@ -1646,16 +1705,10 @@ class FeedService {
 
 		$limit = max( 1, min( $limit, 10 ) );
 
-		if ( $viewer_id === $profile_user_id ) {
-			// Owner sees everything — but suspended/shadow-banned posts are still hidden.
-			$privacy_clause = '';
-		} elseif ( $viewer_id > 0 && $this->follows->is_following( $viewer_id, $profile_user_id ) ) {
-			// Followers see public and followers-only posts.
-			$privacy_clause = "AND privacy IN ('public','followers')";
-		} else {
-			// Anonymous visitors and non-followers see only public posts.
-			$privacy_clause = "AND privacy = 'public'";
-		}
+		// Same additive audience as the profile feed — a pinned 'connections' post
+		// must be visible to the author's connections, not hidden from the very
+		// people it was pinned for. See profile_privacy_clause().
+		$privacy_clause = $this->profile_privacy_clause( $viewer_id, $profile_user_id );
 
 		$excluded_where = $this->excluded_users_where();
 
