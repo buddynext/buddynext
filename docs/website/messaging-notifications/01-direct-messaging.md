@@ -48,7 +48,7 @@ Direct messaging is controlled from Settings > General, in the Direct Messaging 
 | Setting | What it does | Default |
 |---|---|---|
 | Enable direct messaging | Turns private 1:1 messaging on or off for the whole community. When off, every messaging entry point (the inbox, the profile and directory "Message" buttons, the header icon, and the Messages nav item) is hidden. This setting requires the WPMediaVerse plugin to be active; while WPMediaVerse is not active the toggle is disabled and cannot be turned on. | On |
-| Who can DM me (default) | The default privacy applied to new accounts: who is allowed to start a message with a member. Options are Everyone, Members only, Connections only, and No one. Members can override this in their own privacy settings. | Everyone |
+| Who can DM me (default) | The default privacy applied to new accounts: who is allowed to start a message with a member. Options are Everyone, Members only, Connections only, and No one. Members can override this in their own privacy settings. | Members only |
 
 > **Tip:** "Who can DM me (default)" only sets the starting value for new members. Each member can change their own preference afterward, so this controls the community default, not a hard rule.
 

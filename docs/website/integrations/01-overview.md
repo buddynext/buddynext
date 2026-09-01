@@ -26,6 +26,7 @@ BuddyNext keeps a catalog of companion plugins it knows how to work with. Each o
 | Gamification | Points, badges, levels, and leaderboards. | Badges and a leaderboard on member profiles. |
 | Career Board | Job listings and applicant management. | Job posts as activity cards in the feed. |
 | Learnomy | Courses, lessons, and quizzes - a full LMS for your community. | Completed courses and certificates on member profiles. |
+| Eventonomy | Events, RSVPs, and calendars - members create and attend events. | Events as activity cards in the feed, plus attending events on member profiles. |
 | Listora | Directory listings - members publish and manage their own listings. | Member listings surfaced in the feed and on profiles. |
 | WB Member Blog | Front-end publishing - members write and manage WordPress posts without wp-admin. | An Articles tab on member profiles, plus article cards in the feed. |
 

@@ -27,7 +27,7 @@ You can also send a request from a member card in the directory, in followers an
 When someone sends you a connection request, you get a notification that links to their profile. On their profile you will see Accept and Decline buttons:
 
 - **Accept** - you are now connected to each other, and the connection counts toward both members' connection totals.
-- **Decline** - the request is dismissed and no connection is made. The other member is not connected to you.
+- **Decline** - the request is dismissed and no connection is made. The other member is not connected to you. A declined request is not permanent: the same member can send a fresh request after a short cool-down (about 7 days by default), so a decline is a "not now," not a block.
 
 ### Withdraw a request you sent
 
@@ -56,7 +56,7 @@ Connections work out of the box with no required configuration. The connect flow
 
 - **A connection has three states.** *Pending* - a request has been sent and not yet answered. *Accepted* - both members have agreed and are connected. *Blocked* - if either member blocks the other, the connection path is closed (see Blocking and Muting).
 - **You cannot connect with yourself.** A request to your own account is rejected.
-- **Duplicate requests are merged.** Sending a second request to the same member does not create a duplicate - it returns the existing pending request.
+- **Duplicate requests are rejected.** If you already have a pending or accepted connection with a member, a second request to them is turned down rather than creating a duplicate.
 - **Blocking closes the connection path.** If you or the other member has a block in place, a connection request cannot be sent, and the privacy gate treats you as unconnected.
 - **Incoming requests are handled from the requester's profile and from notifications.** The notification you receive links straight to the requester's profile, where the Accept and Decline buttons appear. An empty account with no pending requests simply shows the Connect button and an empty connections list - that is the expected empty state.
 - **Connecting is not following.** A connection is mutual and both members must agree; following is one-way and instant on public accounts. See Following.

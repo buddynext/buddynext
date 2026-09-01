@@ -110,7 +110,6 @@ The full list of perks:
 | Social | Hashtag Feeds | Toggle | On |
 | Social | Explore Feed | Toggle | On |
 | Limits | Spaces Created | Number | 3 |
-| Limits | Custom Profile Fields | Number | 5 |
 | Limits | Pinned Posts | Number | 1 |
 | Limits | Group DM Size | Number | 1 |
 | Limits | Reactions Set Size | Number | 6 |
@@ -215,7 +214,7 @@ The three states, in plain terms:
 | Memberships on, but you have not chosen a default plan | Still nothing is enforced. Plans exist but do not gate anything yet, and an admin notice tells you so. Nothing is taken away from anyone. |
 | Memberships on, and you have chosen a default plan | The default plan is now the floor. Members with no subscription get exactly what it grants, and nothing else. |
 
-The shipped **Free** plan is a starting point, not a neutral one. It grants the social basics and modest limits (3 spaces, 5 custom profile fields, 1 pinned post, 6 reactions), and it deliberately does *not* grant the premium perks. That is a sensible free plan if you are selling upgrades. It is the wrong choice if you only turned memberships on to gate one space and did not intend to take anything else away.
+The shipped **Free** plan is a starting point, not a neutral one. It grants the social basics and modest limits (3 spaces, 1 pinned post, 6 reactions), and it deliberately does *not* grant the premium perks. That is a sensible free plan if you are selling upgrades. It is the wrong choice if you only turned memberships on to gate one space and did not intend to take anything else away.
 
 > **Tip:** Before you choose a default plan, open its perk list and read it as your free members will experience it. If you want memberships purely to sell access to one thing, edit your default plan to grant everything *except* that thing, rather than accepting a free plan that quietly withdraws five features nobody asked you to withdraw. Site administrators are exempt from all of this, which is exactly why it is easy to miss - it will look perfect while you test it and be wrong for everyone else.
 

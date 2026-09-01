@@ -104,7 +104,7 @@ Details:
 
   Define this copy **once** and have your installer's seed read the same array. Two literals — one seeded, one for the editor — drift apart silently, and the drift lands in the worst possible place: the owner edits one body and the member receives the other.
 
-- The digest path (`buddynext_queue_email_digest`) appends to a per-user, per-frequency user-meta queue (`buddynext_digest_queue_{freq}`) that a daily or weekly cron later batches. A member's per-type `email_freq` preference (`immediate`, `daily`, `weekly`, `off`) decides whether an event emails immediately, queues for digest, or is suppressed.
+- The digest path fires `buddynext_queue_email_digest` when an event is destined for a digest rather than an immediate email. There is no per-user accumulator meta: the daily and weekly digest crons batch straight from the `bn_notifications` rows (joined against `bn_notification_prefs`), so nothing has to be written to a queue and kept in sync. A member's per-type `email_freq` preference (`immediate`, `daily`, `weekly`, `off`) decides whether an event emails immediately, is picked up by the digest cron, or is suppressed.
 
 ## Examples
 
