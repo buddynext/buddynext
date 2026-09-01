@@ -91,11 +91,6 @@ class FeedService {
 	private const ANNOUNCEMENT_VERSION_KEY = 'announcement_ids_version';
 
 	/**
-	 * Version counter for the cached pinned-post lists.
-	 */
-	private const PINNED_VERSION_KEY = 'pinned_ids_version';
-
-	/**
 	 * Ceiling for the "N new posts" pill.
 	 *
 	 * Two jobs, one number.
@@ -1678,13 +1673,13 @@ class FeedService {
 	/**
 	 * The profile owner's own pinned posts, hydrated and newest-first.
 	 *
-	 * The profile-scope sibling of space_pinned_posts(): a member can pin their own
-	 * posts to the top of their profile (is_pinned = 1 AND space_id IS NULL). Those
-	 * rows are excluded from profile_feed_uncached()'s chronological query, so pins
-	 * live in exactly one place and never double up or reappear on load-more.
+	 * Pinning is profile-only: a member pins their own posts to the top of their
+	 * profile (is_pinned = 1 AND space_id IS NULL). Those rows are excluded from
+	 * profile_feed_uncached()'s chronological query, so pins live in exactly one
+	 * place and never double up or reappear on load-more.
 	 *
-	 * Unlike the space pin strip this list IS viewer-scoped: it applies the SAME
-	 * privacy and block/mute gate as profile_feed() so a followers-only post pinned
+	 * This list is viewer-scoped: it applies the SAME privacy and block/mute gate
+	 * as profile_feed() so a followers-only post pinned
 	 * to a profile never leaks to a non-follower. Because the row count is tiny (the
 	 * per-user pin limit) and the result is viewer-specific, it is queried live
 	 * rather than cached — the user_id index makes this a single cheap lookup.
@@ -2334,105 +2329,6 @@ class FeedService {
 		 * @param int   $viewer Current user ID.
 		 */
 		do_action( 'buddynext_feed_viewer_state_primed', $items, $viewer );
-	}
-
-	/**
-	 * Return a space's pinned posts (up to the cap), newest first.
-	 *
-	 * The single-row space_pinned_post() left Pro's "10 pins per space" invisible —
-	 * up to 9 pins were stored but never rendered. This returns the whole pinned
-	 * set so the space feed can show a bounded pinned strip.
-	 *
-	 * @param int $space_id Space ID.
-	 * @param int $limit    Max pins to return (clamped 1-20).
-	 * @return array[] Hydrated pinned post rows, newest first.
-	 */
-	public function space_pinned_posts( int $space_id, int $limit = 10 ): array {
-		if ( $space_id <= 0 ) {
-			return array();
-		}
-
-		$limit = max( 1, min( $limit, 20 ) );
-
-		// Runs on every space page paint. Unlike the feed, this one is NOT viewer-scoped —
-		// the pinned strip is the same for everybody who can see the space — so a single
-		// key per space is safe.
-		//
-		// Only the IDS are cached, and each is re-read through PostService::get() (cached,
-		// and busted on every post write). So an unpinned, deleted, unpublished or
-		// moderated post drops out immediately however stale the list is: the worst a
-		// stale list can do is miss a NEWLY pinned post, which the bust on pin prevents.
-		// Same argument as the announcements, and for the same reason — a pinned post that
-		// will not go away is worse than one that arrives a moment late.
-		$cache_key = 'pinned_ids_v' . self::pinned_version() . "_{$space_id}_{$limit}";
-		$ids       = wp_cache_get( $cache_key, self::CACHE_GROUP );
-
-		if ( ! is_array( $ids ) ) {
-			global $wpdb;
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$ids = $wpdb->get_col(
-				$wpdb->prepare(
-					"SELECT id FROM {$wpdb->prefix}bn_posts
-					 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
-					   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-					 ORDER BY created_at DESC
-					 LIMIT %d",
-					$space_id,
-					$limit
-				)
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-			$ids = array_map( 'intval', (array) $ids );
-
-			wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::ANNOUNCEMENT_TTL );
-		}
-
-		$posts = array();
-
-		foreach ( $ids as $id ) {
-			$row = $this->post_service->get( (int) $id );
-
-			if ( ! is_array( $row )
-				|| empty( $row['is_pinned'] )
-				|| 'published' !== (string) ( $row['status'] ?? '' )
-				|| ! empty( $row['is_deleted'] )
-			) {
-				continue;
-			}
-
-			$posts[] = $this->post_service->hydrate( $row );
-		}
-
-		return $posts;
-	}
-
-	/**
-	 * Current version of the cached pinned-post lists.
-	 *
-	 * @return int
-	 */
-	private static function pinned_version(): int {
-		$version = wp_cache_get( self::PINNED_VERSION_KEY, self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( self::PINNED_VERSION_KEY, $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
-	}
-
-	/**
-	 * Invalidate every cached pinned-post list.
-	 *
-	 * Called whenever a post is pinned or unpinned. The writer knows the post, not
-	 * necessarily the space, and a pin is rare — so one bump beats guessing a key.
-	 *
-	 * @return void
-	 */
-	public static function flush_pinned_posts(): void {
-		wp_cache_set( self::PINNED_VERSION_KEY, self::pinned_version() + 1, self::CACHE_GROUP );
 	}
 
 	/**

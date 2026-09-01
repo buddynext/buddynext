@@ -507,33 +507,12 @@ final class SpaceNav {
 			return;
 		}
 
-		/*
-		 * Pinned posts, as hydrated ARRAYS - the shape partials/post-card.php consumes.
-		 *
-		 * They used to be cast to objects and enriched with author_name for a hand-rolled stub
-		 * card that carried no React / Comment / Share / Save. Since the pinned post is also
-		 * dropped from the chronological list below, that stub was the ONLY place it appeared -
-		 * so pinning a post silently removed every way to engage with it. The panel now renders
-		 * the real post card, which needs the array and does its own author lookup.
-		 *
-		 * Pro allows up to 10 pins per space; the panel bounds how many show at once.
-		 */
-		$pinned_posts = array_values(
-			array_filter(
-				(array) $feed->space_pinned_posts( $space_id, 10 ),
-				'is_array'
-			)
-		);
-
-		// Regular feed (hydrated arrays). The pinned post leads as its own card, so
-		// drop it from the list to avoid showing it twice.
+		// Regular feed (hydrated arrays). Spaces no longer have pins — important
+		// content is surfaced through Announcements — so nothing is pulled out of
+		// the chronological list. A legacy is_pinned flag on an old space post is
+		// ignored here; the post simply shows in date order like any other.
 		$space_feed = $feed->space_feed( $space_id, $viewer_id, null, 20 );
-		$posts      = array_values(
-			array_filter(
-				(array) ( $space_feed['items'] ?? array() ),
-				static fn( $p ): bool => empty( $p['is_pinned'] )
-			)
-		);
+		$posts      = array_values( (array) ( $space_feed['items'] ?? array() ) );
 
 		// A space announcement leads the feed as its own (dismissible) card and is
 		// dropped from the chronological list to avoid showing twice.
@@ -563,7 +542,6 @@ final class SpaceNav {
 				'is_pending'   => $is_pending,
 				'is_archived'  => $archived,
 				'posts'        => $posts,
-				'pinned_posts' => $pinned_posts,
 				'current_user' => $viewer_id > 0 ? get_userdata( $viewer_id ) : null,
 				'search_query' => '',
 				'search_total' => 0,

@@ -275,16 +275,6 @@ class SpaceController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
-			'/spaces/(?P<id>[\d]+)/pinned',
-			array(
-				'methods'             => 'GET',
-				'callback'            => array( $this, 'get_space_pinned' ),
-				'permission_callback' => '__return_true',
-			)
-		);
-
-		register_rest_route(
-			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)/subspaces',
 			array(
 				'methods'             => 'GET',
@@ -1750,49 +1740,6 @@ class SpaceController extends BaseRestController {
 				'maximum' => 100,
 			),
 		);
-	}
-
-	/**
-	 * GET /spaces/{id}/pinned — the space's pinned posts, for the app.
-	 *
-	 * @param WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_space_pinned( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$space_id  = (int) $request->get_param( 'id' );
-		$space     = ( new SpaceService() )->get( $space_id );
-		$viewer_id = get_current_user_id();
-
-		if ( null === $space ) {
-			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
-		}
-
-		// Pinned posts are CONTENT: gated on a private space exactly as on a secret
-		// one (the space feed already was). Canonical resolver — one answer for the
-		// page and the app.
-		if ( ! SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have access to this space.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-
-		// The pinned set the space feed strip shows, exposed for the app. Author is
-		// enriched here; the client can call /feed/viewer-state for the viewer's
-		// reaction/bookmark state across these post ids.
-		$pinned = array();
-		foreach ( buddynext_service( 'feed' )->space_pinned_posts( $space_id, 10 ) as $post ) {
-			$author_id      = (int) ( $post['user_id'] ?? 0 );
-			$author         = $author_id ? get_userdata( $author_id ) : null;
-			$post['author'] = array(
-				'id'           => $author_id,
-				'display_name' => $author ? $author->display_name : __( 'Community Member', 'buddynext' ),
-				'avatar_url'   => $author_id ? get_avatar_url( $author_id, array( 'size' => 96 ) ) : '',
-			);
-			if ( function_exists( 'buddynext_format_content' ) ) {
-				$post['content_html'] = buddynext_format_content( (string) ( $post['content'] ?? '' ) );
-			}
-			$pinned[] = $post;
-		}
-
-		return new WP_REST_Response( array( 'pinned' => $pinned ), 200 );
 	}
 
 	/**
