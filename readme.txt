@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.1.5
+Stable tag: 1.1.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,23 +57,42 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
-= 1.1.6 - August 2026 =
+= 1.1.6 - September 2026 =
 
-Documents you can share and read inline, a profile header the owner controls, and replay-proof webhooks by default. Lockstep with BuddyNext Pro 1.1.6 - install and test both together.
+Documents come to Spaces and profiles, the media lightbox is rebuilt, and pinning, announcements, notifications and privacy all get sharper. Lockstep with BuddyNext Pro 1.1.6 - install and test both together.
 
+* New      - Space Files tab: a space has its own document drive members can browse, search, preview and download, with a built-in reader for PDFs and inline previews for other file types.
+* New      - Profile Files tab: each member gets a Files tab that shows their own documents inside BuddyNext's own interface.
+* New      - Space Media tab: photos uploaded to a space are filed to that space and honour per-viewer visibility, and a moderator can remove one from the space without deleting the member's own copy.
 * New      - Share a document with specific members at a chosen permission, or with anyone through a link, from its page in the Files tab.
+* New      - Attach a document to a post from the composer, shown as a document card in the feed.
 * New      - Choose which profile fields appear in the profile header, and in what order, from the field editor.
 * New      - Change a profile field's type in place, for example a text location into an interactive map, without losing what members already entered.
-* New      - An admin can mark a member's email address as verified from the member editor, for the case a verification email never arrives. The 1.1.5 notes described this control before it existed; the entry has been corrected and the control now ships.
+* New      - The members directory can filter by member type with chips, matching Spaces.
+* New      - Per-space brand colour, set by the space owner.
+* New      - An admin can mark a member's email address as verified from the member editor, for the case a verification email never arrives.
+* New      - A [buddynext_search] shortcode and a search-bar helper for themes.
+* Improve  - The media lightbox is rebuilt with icon-only actions and an overflow menu, fullscreen, edit, and save-to-collection.
+* Improve  - A comment made on a photo in the media lightbox now appears in the post's comment thread, and the comment count is accurate.
+* Improve  - Post pinning is now profile-only; inside a space, feature a post with an Announcement instead.
+* Improve  - Dismissing an announcement sticks after a reload, announcements notify members in the background, and a whole group of join requests can be decided in one action.
+* Improve  - Notifications collapse repeats of the same event and show an accurate count.
 * Improve  - Documents open in a clean built-in reader: a PDF renders as a readable single column instead of the browser's embedded viewer, and office and text files render inline.
-* Improve  - The profile Files tab is now part of BuddyNext's own interface and matches the rest of the community.
-* Improve  - The admin Activity list uses the same paged control as every other admin list, with a row-count summary and numbered pages.
-* Fix      - A members-only post in a space now shows on its hashtag page to members of that space, instead of being hidden from everyone.
-* Fix      - The document-attach control is hidden on a site whose document storage is read-only, so a member is not offered an upload that would be refused.
+* Improve  - The admin Activity screen browses, searches, filters, edits and deletes community activity with the standard paged control.
+* Improve  - A post set to "Connections" is now visible to the author's connections on their profile.
+* Fix      - Members can attach photos to a post again; the image picker no longer fails silently.
+* Fix      - A confirmation dialog opened from the media lightbox is now clickable.
+* Fix      - Photo posts reserve their tile space instead of flashing as blank cards, and the photo count is correct.
+* Fix      - A document upload no longer announces itself as "shared a photo" in the feed.
+* Fix      - "Only me" media is no longer published publicly; a media item's privacy follows its post.
+* Fix      - A members-only post in a space now shows on its hashtag page to members of that space.
+* Fix      - A private or secret space created through the API is saved with that privacy, not public.
+* Fix      - Reported posts stay out of the reporter's feed, and moderation-queue counts, suspensions, appeals and report labels are corrected.
+* Fix      - The document-attach control is hidden on a site whose document storage is read-only.
 * Security - Inbound access-webhook calls must carry a replay-proof, timestamped signature by default; a site still sending the older body-only signature can re-enable it while it migrates its callers.
-* Dev      - New filter `buddynext_profile_hero_fields` controls the list of profile fields shown in the profile header.
-* Dev      - New filter `buddynext_require_signed_timestamp` keeps the legacy body-only webhook signature accepted per request during a migration.
-* Dev      - `SpaceMemberService::get_member_ids()` walks a large space's full membership one page at a time, past the roster read cap.
+* Security - Closed a post-login open redirect and a route that ignored profile privacy, and the link-preview fetcher re-checks its SSRF guard on every redirect hop.
+* Dev      - The end-to-end journey harness resolves the site and its test users from the local install instead of a hardcoded host.
+* Dev      - New filters buddynext_profile_hero_fields (profile header fields) and buddynext_can_view_explore (gate the Explore feed), plus a schema-authority gate so a table cannot be defined in two places.
 * Compat   - Aligned with BuddyNext Pro 1.1.6. Install both updates together.
 
 = 1.1.5 - August 2026 =
