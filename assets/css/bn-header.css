@@ -293,6 +293,49 @@
 	color: var(--bn-danger, #dc2626);
 }
 
+/* ── Reign's compact user slot, at any width ─────────────────────────────── */
+
+/* The same overflow the <=640px block below fixes, in the band that block does
+   not reach.
+
+   Reign keeps its MOBILE header - and its 40px `.reign-user-toggler` slot - all
+   the way up to about 1024px, not just to 640px. Between 641px and there, our
+   control laid the avatar and caret out in flow at 60px inside that 40px slot and
+   hung 5px past the viewport, so every page could be scrolled sideways. Measured
+   under Reign 8.0.6: 640px clean, 768px and 900px 5px over, 1024px clean again
+   once Reign switches to its desktop header.
+
+   Keyed on the SLOT rather than on a width, deliberately. The breakpoint that
+   matters is the theme's, not ours, and guessing it in a media query is what left
+   the 641-1023 band open in the first place. Wherever that slot exists, the
+   control has to fit it.
+
+   Same treatment as the mobile block: taking the caret out of flow makes our box
+   the avatar, which fits any slot, and its 40px touch target costs no layout
+   width. */
+.reign-user-toggler .bn-header-user__caret {
+	position: absolute;
+	inset-block-end: -4px;
+	inset-inline-end: -4px;
+	width: 40px;
+	height: 40px;
+	margin-inline-start: 0;
+	align-items: flex-end;
+	justify-content: flex-end;
+}
+
+/* The chip that stops the glyph reading as a rendering accident - see the note
+   in the mobile block. */
+.reign-user-toggler .bn-header-user__caret svg {
+	width: 18px;
+	height: 18px;
+	padding: 2px;
+	background: var(--bn-surface, #fff);
+	border: 1px solid var(--bn-line, #e2e8f0);
+	border-radius: var(--bn-r-full, 999px);
+	box-shadow: var(--bn-shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.08));
+}
+
 /* ── Mobile (<= 640px) ──────────────────────────────────────────────────── */
 @media (max-width: 640px) {
 	.bn-header-user-section {

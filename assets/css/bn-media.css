@@ -31,7 +31,7 @@
    never dominates the feed, tied to the viewport (min with 60vh) so it also never
    overflows the grid's own 60vh cap and clips on a short laptop screen. object-fit:
    contain letterboxes tall media — the aspect ratio is preserved, never cropped. */
-.bn-post-card__media-grid--1 .bn-media-tile__img { height: auto; max-height: min( 60vh, 32rem ); object-fit: contain; }
+.bn-post-card__media-grid--1 .bn-media-tile__img { height: auto; min-height: 8rem; max-height: min( 60vh, 32rem ); object-fit: contain; }
 .bn-post-card__media-grid--2 { grid-template-columns: 1fr 1fr; aspect-ratio: 2 / 1; }
 .bn-post-card__media-grid--3 { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; aspect-ratio: 3 / 2; }
 .bn-post-card__media-grid--3 .bn-media-tile:first-child { grid-row: 1 / span 2; }
@@ -212,7 +212,7 @@ body.bn-lightbox-open { overflow: hidden; }
 .bn-lightbox {
 	position: fixed;
 	inset: 0;
-	z-index: 100000;
+	z-index: var(--bn-z-lightbox);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -346,7 +346,7 @@ body.bn-lightbox-open { overflow: hidden; }
 	padding: var( --bn-s4, 16px );
 	display: flex;
 	flex-direction: column;
-	gap: var( --bn-s4, 16px );
+	gap: var( --bn-s3, 12px );
 }
 .bn-lightbox__views { margin: 0; font-size: var( --bn-text-sm, 0.875rem ); color: var( --bn-ink-3, oklch( 58% 0.008 0 ) ); }
 
@@ -374,23 +374,69 @@ body.bn-lightbox-open { overflow: hidden; }
 .bn-lightbox__reaction-count { font-size: var( --bn-text-xs, 0.75rem ); font-weight: 600; color: var( --bn-ink-2, oklch( 40% 0.01 0 ) ); }
 
 /* Action row. */
-.bn-lightbox__actions { display: flex; gap: var( --bn-s1, 4px ); flex-wrap: wrap; }
+/* Icon-only action bar: a compact row of 40px tap targets (Favorite / Share /
+   Save / Download / More) instead of the old stretched icon+label buttons. The
+   labels moved to aria-label + title; the secondary + moderation actions moved
+   behind the ⋯ overflow. Fewer controls, no wrapping on a phone. */
+.bn-lightbox__actions { display: flex; gap: var( --bn-s1, 4px ); align-items: center; }
 .bn-lightbox__action {
-	flex: 1 1 auto;
 	display: inline-flex;
-	flex-direction: column;
 	align-items: center;
-	gap: 2px;
-	padding: var( --bn-s2, 8px );
+	justify-content: center;
+	width: var( --bn-s10, 40px );
+	height: var( --bn-s10, 40px );
+	padding: 0;
 	border: 0;
-	border-radius: var( --bn-r-sm, 5px );
+	border-radius: var( --bn-r-full, 999px );
 	background: transparent;
 	color: var( --bn-ink-2, oklch( 40% 0.01 0 ) );
-	font-size: var( --bn-text-xs, 0.75rem );
 	text-decoration: none;
 	cursor: pointer;
 	transition: background 0.12s ease, color 0.12s ease;
 }
+
+/* ── ⋯ overflow menu ───────────────────────────────────────────────────────── */
+.bn-lightbox__more { position: relative; display: inline-flex; }
+.bn-lightbox__menu {
+	position: absolute;
+	inset-block-start: calc( 100% + 4px );
+	inset-inline-end: 0;
+	inline-size: max-content;
+	min-inline-size: 11rem;
+	max-inline-size: 16rem;
+	padding: var( --bn-s1, 4px );
+	background: var( --bn-surface, oklch( 100% 0 0 ) );
+	border: 1px solid var( --bn-line, oklch( 90% 0.006 0 ) );
+	border-radius: var( --bn-r-md, 8px );
+	box-shadow: var( --bn-shadow-md, 0 8px 24px oklch( 0% 0 0 / 0.12 ) );
+	z-index: 20;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.bn-lightbox__menu-item {
+	display: flex;
+	align-items: center;
+	gap: var( --bn-s2, 8px );
+	inline-size: 100%;
+	padding: var( --bn-s2, 8px ) var( --bn-s3, 12px );
+	border: 0;
+	border-radius: var( --bn-r-sm, 5px );
+	background: transparent;
+	color: var( --bn-ink, oklch( 22% 0.01 0 ) );
+	font-size: var( --bn-text-sm, 0.875rem );
+	text-align: start;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: background 0.12s ease;
+}
+.bn-lightbox__menu-item:hover,
+.bn-lightbox__menu-item:focus-visible {
+	background: var( --bn-sunken, oklch( 97% 0.004 0 ) );
+	outline: none;
+}
+.bn-lightbox__menu-item svg { width: 16px; height: 16px; flex: none; }
+.bn-lightbox__menu-item--danger { color: var( --bn-danger, oklch( 55% 0.19 25 ) ); }
 /* Set background AND color/border on hover so a theme's generic
    `button:hover { background:accent; color:#fff; border:accent }` (e.g. Reign)
    can't bleed white text + an accent border onto the light hover surface — that
@@ -429,12 +475,202 @@ body.bn-lightbox-open { overflow: hidden; }
 .bn-lightbox__comment-author { margin-inline-end: 6px; }
 .bn-lightbox__comment-text { color: var( --bn-ink-2, oklch( 40% 0.01 0 ) ); }
 
+/* Per-comment controls — Edit / Delete / Save / Cancel.
+ *
+ * These are MICRO actions on a line of text, not form buttons. They are text,
+ * they inherit the comment's own size, and they sit inline after the content.
+ * A full-size button here — worse, a solid red one — outweighs the comment it
+ * belongs to and drags the eye to Delete first.
+ *
+ * `all: unset` first, then only what is needed: a themed <button> inside a
+ * comment otherwise arrives carrying the theme's padding, background and border,
+ * which is exactly how a 12px text action renders as a chunky block. Resetting
+ * beats trying to out-specify every theme. */
+.bn-lightbox__comment-actions,
+.bn-lightbox__comment-confirm {
+	display: inline-flex;
+	align-items: baseline;
+	gap: var( --bn-s2, 8px );
+	margin-inline-start: var( --bn-s2, 8px );
+}
+.bn-lightbox__comment-confirm-text {
+	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+	font-size: var( --bn-text-xs, 0.75rem );
+}
+.bn-lightbox__comment-action {
+	all: unset;
+	box-sizing: border-box;
+	cursor: pointer;
+	font: inherit;
+	font-size: var( --bn-text-xs, 0.75rem );
+	line-height: 1;
+	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+	border-radius: var( --bn-radius-xs, 3px );
+	/* Keeps the hit area usable without inflating the visual box. */
+	padding: 4px 2px;
+}
+.bn-lightbox__comment-action:hover,
+.bn-lightbox__comment-action:focus-visible {
+	color: var( --bn-ink, oklch( 25% 0.01 0 ) );
+	text-decoration: underline;
+}
+.bn-lightbox__comment-action:focus-visible {
+	outline: 2px solid var( --bn-accent, oklch( 58% 0.13 264 ) );
+	outline-offset: 2px;
+}
+.bn-lightbox__comment-action--delete { color: var( --bn-danger, oklch( 55% 0.19 25 ) ); }
+.bn-lightbox__comment-action--delete:hover,
+.bn-lightbox__comment-action--delete:focus-visible { color: var( --bn-danger, oklch( 55% 0.19 25 ) ); }
+
+.bn-lightbox__comment-edit { display: inline-flex; align-items: center; gap: var( --bn-s2, 8px ); width: 100%; }
+.bn-lightbox__comment-edit-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	font: inherit;
+	font-size: var( --bn-text-sm, 0.875rem );
+	padding: 4px 8px;
+	border: 1px solid var( --bn-line, oklch( 88% 0.01 0 ) );
+	border-radius: var( --bn-radius-sm, 6px );
+	background: var( --bn-surface, #fff );
+	color: var( --bn-ink, oklch( 25% 0.01 0 ) );
+}
+.bn-lightbox__comment-edit-input:focus-visible {
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+}
+
+/* Fullscreen toggle — same circular treatment + size as the close button beside
+   it, and pushed to the right so the two sit as one control group (author left,
+   controls right) instead of the toggle floating in the header's centre. */
+.bn-lightbox__fullscreen {
+	flex-shrink: 0;
+	margin-inline-start: auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	border: 0;
+	border-radius: 999px;
+	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
+	background: var( --bn-sunken, oklch( 97% 0.004 0 ) );
+	cursor: pointer;
+}
+.bn-lightbox__fullscreen:hover { color: var( --bn-ink, oklch( 20% 0.01 0 ) ); }
+.bn-lightbox__fullscreen:focus-visible {
+	outline: 2px solid var( --bn-accent, oklch( 58% 0.13 264 ) );
+	outline-offset: 2px;
+}
+.bn-lightbox__fullscreen svg,
+.bn-lightbox__close svg { width: 1.125rem; height: 1.125rem; }
+
+/* Fullscreen: media fills the overlay and the side panel stands down — but its
+   HEADER controls (fullscreen toggle + close) float top-right over the stage so
+   there is always a visible way back. Without this the toggle was hidden with the
+   panel and Escape was the only exit. */
+.bn-lightbox--fullscreen .bn-lightbox__panel-side { display: none; }
+.bn-lightbox--fullscreen aside.bn-lightbox__panel {
+	position: fixed;
+	inset-block-start: var( --bn-s3, 12px );
+	inset-inline-end: var( --bn-s3, 12px );
+	inline-size: auto;
+	max-inline-size: none;
+	background: transparent;
+	border: 0;
+	box-shadow: none;
+	z-index: 6;
+}
+.bn-lightbox--fullscreen .bn-lightbox__panel-head {
+	padding: 0;
+	border-block-end: 0;
+	background: transparent;
+	justify-content: flex-end;
+}
+.bn-lightbox--fullscreen .bn-lightbox__fullscreen { margin-inline-start: 0; }
+.bn-lightbox--fullscreen .bn-lightbox__author,
+.bn-lightbox--fullscreen .bn-lightbox__panel-body { display: none; }
+.bn-lightbox--fullscreen .bn-lightbox__media-wrap { inline-size: 100%; }
+
+/* Owner panel — the inline form Edit and Save open inside the side panel. */
+.bn-lightbox__panel {
+	display: flex;
+	flex-direction: column;
+	gap: var( --bn-s2, 8px );
+	padding: var( --bn-s3, 12px ) 0;
+	border-block-end: 1px solid var( --bn-line-faint, oklch( 92% 0.005 0 ) );
+}
+.bn-lightbox__field { display: flex; flex-direction: column; gap: 4px; }
+.bn-lightbox__field-label {
+	font-size: var( --bn-text-xs, 0.75rem );
+	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+}
+.bn-lightbox__field-input {
+	font: inherit;
+	font-size: var( --bn-text-sm, 0.875rem );
+	padding: 6px 8px;
+	border: 1px solid var( --bn-line, oklch( 88% 0.01 0 ) );
+	border-radius: var( --bn-radius-sm, 6px );
+	background: var( --bn-surface, #fff );
+	color: var( --bn-ink, oklch( 25% 0.01 0 ) );
+	width: 100%;
+	box-sizing: border-box;
+}
+.bn-lightbox__field-input:focus-visible {
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+}
+.bn-lightbox__field-check { inline-size: 16px; block-size: 16px; }
+
+/* A checkbox field reads as "[✓] Allow downloads" on one row, not a label with a
+   lone checkbox stranded beneath it. */
+.bn-lightbox__field:has( .bn-lightbox__field-check ) {
+	flex-direction: row;
+	align-items: center;
+	gap: var( --bn-s2, 8px );
+}
+.bn-lightbox__field:has( .bn-lightbox__field-check ) .bn-lightbox__field-label {
+	order: 2;
+	font-size: var( --bn-text-sm, 0.875rem );
+	color: var( --bn-ink, oklch( 22% 0.01 0 ) );
+}
+
+/* Edit / Save form footer — real buttons in a row, not plain text links. */
+.bn-lightbox__panel-actions {
+	display: flex;
+	gap: var( --bn-s2, 8px );
+	margin-block-start: var( --bn-s2, 8px );
+}
+.bn-lightbox__panel-actions { display: flex; gap: var( --bn-s3, 12px ); padding-block-start: 4px; }
+.bn-lightbox__panel-note {
+	margin: 0;
+	font-size: var( --bn-text-sm, 0.875rem );
+	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+}
+.bn-lightbox__collection {
+	display: flex;
+	align-items: center;
+	gap: var( --bn-s2, 8px );
+	font-size: var( --bn-text-sm, 0.875rem );
+	/* 40px tap target on touch without inflating the visual row. */
+	min-block-size: 40px;
+}
+
+.bn-lightbox__comment-login {
+	margin: 0;
+	padding-block-start: var( --bn-s2, 8px );
+	font-size: var( --bn-text-sm, 0.875rem );
+	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+}
+
 /* Comment form pinned to the panel bottom. */
+/* The comment box now sits inside the padded panel body (directly under the
+   actions), not as a pinned footer — so it drops the footer's own padding + top
+   rule and relies on the body's gap for spacing. */
 .bn-lightbox__comment-form {
 	display: flex;
 	gap: var( --bn-s2, 8px );
-	padding: var( --bn-s3, 12px ) var( --bn-s4, 16px );
-	border-block-start: 1px solid var( --bn-line, oklch( 92% 0.005 0 ) );
 }
 .bn-lightbox__comment-input {
 	flex: 1 1 auto;

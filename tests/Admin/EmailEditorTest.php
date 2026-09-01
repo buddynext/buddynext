@@ -98,9 +98,21 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	/**
 	 * The catalogue includes all 28 templates across the seven categories.
 	 *
-	 * Was 29. bn.connection_declined was retired: nothing ever created that
+	 * Was 29, then 28, now 40.
+	 *
+	 * bn.connection_declined was retired at 29->28: nothing ever created that
 	 * notification, so the owner was being offered an email to customise that could
 	 * never send. An email in this catalogue must have a sender behind it.
+	 *
+	 * 28->40 is the same rule applied in the other direction. Twelve emailable
+	 * notification types had NO template, so they could not send at all - every
+	 * moderation message among them - and they are now here so an owner can edit
+	 * them and the installer can seed them. A thirteenth,
+	 * bn.unsuspension_confirmation, was renamed rather than added: it was seeded and
+	 * editable and nothing ever sent it, while bn.user_unsuspended - the type that
+	 * actually fires when a suspension is lifted - had no template. Same message,
+	 * two names, each missing the other half. A rename does not move this count,
+	 * which is why 12 additions take 28 to 40.
 	 */
 	public function test_catalogue_has_all_templates(): void {
 		$catalogue = $this->editor->get_catalogue();
@@ -108,7 +120,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 		foreach ( $catalogue as $templates ) {
 			$total += count( $templates );
 		}
-		$this->assertSame( 28, $total );
+		$this->assertSame( 40, $total );
 	}
 
 	/**

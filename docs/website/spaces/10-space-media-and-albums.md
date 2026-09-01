@@ -55,6 +55,18 @@ When removing a photo would empty part of a space album, BuddyNext says so befor
 
 A member who did not create an album can look through it but cannot rearrange it.
 
+### Removing an item from the space (unlink, not delete)
+
+Any member who can post in a space can add media to it, and once added the item lives on the space's own drive. If an item turns out not to belong in the space, a space **owner, admin, or moderator** - or the item's own uploader - can **Remove from space** from the photo's menu in the lightbox.
+
+Remove from space is an *unlink*, not a delete. The item leaves the space and returns to the uploader's own media as **private** - they keep their copy, and only they can delete it for good from their own library. Removing it from the space never destroys a member's file.
+
+## The Files tab (documents)
+
+A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and other attachments), alongside the Media tab. It is a separate per-space switch - **Manage space -> Files tab** - and is **off by default**. It needs the WPMediaVerse documents feature to be active, and by default the tab is visible to signed-in members only.
+
+Files behave like Media on a space drive: any contributor can upload a document to the space, and **Remove** on a space Files tab is the same *unlink* as above - the document returns to the owner's own Files as private, it is not deleted. (On a member's *own* Files tab, Remove **deletes** the document, with WPMediaVerse's 30-day restore window.)
+
 ## Privacy
 
 A space album's audience is the space. That is the whole rule, and it is worth being precise about because it is not the same as a personal album's privacy setting.
@@ -82,9 +94,13 @@ The per-album routes are shared with personal albums and take an album id, becau
 
 ```
 GET    /wp-json/buddynext/v1/albums/{id}
-POST   /wp-json/buddynext/v1/albums/{id}
-DELETE /wp-json/buddynext/v1/albums/{id}
+POST   /wp-json/buddynext/v1/me/albums/{id}/items
+PUT    /wp-json/buddynext/v1/me/albums/{id}
+PUT    /wp-json/buddynext/v1/me/albums/{id}/reorder
+DELETE /wp-json/buddynext/v1/me/albums/{id}
 ```
+
+Album *reads* are under `/albums/{id}`; album *mutations* (add items, rename, reorder, delete) are owner-only and live under `/me/albums/{id}`.
 
 The listing route is readable without authentication so an open space's albums load for a logged-out visitor, exactly as that space's media does. Permission is applied to the result rather than the request: a viewer who cannot see the space receives an empty list.
 

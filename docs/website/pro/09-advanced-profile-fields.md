@@ -1,6 +1,6 @@
 # Advanced Profile Field Types (Pro)
 
-Pro adds six richer profile field types on top of the free profile builder: an enhanced date, a map-based location, a file upload, an advanced multi-select, an advanced number with units, and a conditional field that appears only when another field has a specific value. You build these the same way you build any profile field, and members fill them in with the matching input control.
+Pro adds five richer profile field types on top of the free profile builder: an enhanced date, a map-based location, an advanced multi-select, an advanced number with units, and a conditional field that appears only when another field has a specific value. You build these the same way you build any profile field, and members fill them in with the matching input control.
 
 ![A member profile populated with the richer Pro field types](../images/member-profile.webp)
 
@@ -14,11 +14,11 @@ Plain text fields capture text, and not much else. When you want clean, structur
 
 Richer field types pay off in three places:
 
-- Members fill profiles in faster because the control does the work (a date picker, a map search, a file chooser) instead of asking them to format a value by hand.
+- Members fill profiles in faster because the control does the work (a date picker, a map search, a units-aware number input) instead of asking them to format a value by hand.
 - The data comes back consistent, so directory filters, member search, and any later segmentation actually work on it.
 - Conditional fields keep the edit form short - a follow-up question only shows up when it is relevant, so members are not scrolling past fields that do not apply to them.
 
-A typical use: a professional network asks every member for their role, then a conditional "Years in management" number field that appears only when role is set to "Manager", a location field for their city, and a file field for an optional CV. Three of those four would be plain text boxes without Pro.
+A typical use: a professional network asks every member for their role, then a conditional "Years in management" number field that appears only when role is set to "Manager", and a location field for their city. Two of those three would be plain text boxes without Pro.
 
 ## How it works (for members)
 
@@ -35,10 +35,6 @@ Renders an address box with a map below it. Whatever the member types is what ge
 A set location can be cleared. The **Remove** control next to the field empties it, in the same way the avatar and cover image can be removed.
 
 > **Note:** The map uses OpenStreetMap for its address lookup, loaded from a fast public source by default. If scripts are blocked, or the lookup service is unreachable, the field still works: the address saves as plain text and can still be cleared. Nobody is ever stuck with a location they cannot change.
-
-### File upload
-
-Renders a file chooser limited to the file types the owner allowed. The member picks a file from their device; after upload the field shows the file name. Owners control which file types are accepted and the maximum size.
 
 ### Multi-select (advanced)
 
@@ -71,13 +67,6 @@ Pro field types appear in the same field builder you use for free fields, under 
 |---|---|---|
 | (none) | The location type has no extra options to configure. It renders an address box plus map and stores address with coordinates. | - |
 
-### File upload
-
-| Setting | What it controls | Default |
-|---|---|---|
-| Allowed file types | Which file types members may upload, so you can limit it to (say) images and PDFs only. Leave empty to accept any type. | empty (any type) |
-| Max size (MB) | The largest file a member may upload, from 1 to 100 MB. | 5 |
-
 ### Multi-select (advanced)
 
 | Setting | What it controls | Default |
@@ -103,7 +92,7 @@ Pro field types appear in the same field builder you use for free fields, under 
 ## Good to know
 
 - Pro field types are built on the free field engine, so visibility, required, and ordering work the same as any free field. See Profile Fields for those base behaviours.
-- The location map, file-name preview, and conditional show/hide are progressive enhancements layered on the saved value. If scripts do not load, members still get a working text or file input and the value still saves - the picker UX is the enhancement, not the storage.
+- The location map and conditional show/hide are progressive enhancements layered on the saved value. If scripts do not load, members still get a working text input and the value still saves - the picker UX is the enhancement, not the storage.
 - Connected clients save through the same checks as the website, so a value entered through the API is validated and stored exactly like one entered on the site.
 - Empty profiles show nothing for a field a member has not filled in. To preview a field type end to end, fill it in and reopen the profile view.
 - A conditional field watches another field by its field ID. If you delete the watched field, or want it to react to a different field, update the conditional field's Trigger field ID so it keeps reacting to the right field.
@@ -112,5 +101,5 @@ Pro field types appear in the same field builder you use for free fields, under 
 
 The free plugin ships the core field types (text, textarea, select, checkbox, and the other standard inputs) and the whole field builder, member edit form, and profile view. See Profile Fields for that baseline.
 
-Pro adds the six field types documented here - extended date, location, file upload, advanced multi-select, advanced number, and conditional - by extending the free field engine. No free field type changes; Pro only adds to the type list and the per-type options.
-> **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Tiers.
+Pro adds the five field types documented here - extended date, location, advanced multi-select, advanced number, and conditional - by extending the free field engine. No free field type changes; Pro only adds to the type list and the per-type options.
+> **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Plans.

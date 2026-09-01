@@ -33,6 +33,8 @@ use BuddyNext\Nav\NavRegistry;
  */
 final class ProfileNav {
 
+	use RendersDriveFiles;
+
 	/**
 	 * Hook the provider onto the one-time registration action.
 	 */
@@ -142,6 +144,37 @@ final class ProfileNav {
 				'count'     => static fn( NavContext $c ): int => (int) buddynext_service( 'post_service' )->user_scheduled_count( $c->subject_id ),
 				'render'    => fn( NavContext $c ) => $this->render_scheduled( $c ),
 			),
+			// Posts held for moderator approval. Owner-only, exactly like Scheduled
+			// — both are the member's own not-yet-public posts, and neither is
+			// anyone else's business. Without this tab a held post was invisible
+			// to the person who wrote it: the only signal was the composer toast
+			// at submission time, and GET /me/pending-posts had no consumer at all
+			// (Basecamp 10239861865).
+			//
+			// hide_empty, so a site with pre-moderation off never shows the tab.
+			// Scheduled deliberately does NOT do this — it is a feature the member
+			// reaches for and expects to find empty — whereas a Pending tab on a
+			// site that never holds anything is a permanent question with no
+			// answer. hide_empty is also what earns the badge: NavRegistry skips
+			// content COUNT(*) badges by default at scale, and resolves the count
+			// for a hide_empty item because it needs the number anyway.
+			//
+			// Consequence: the panel is never empty, so posts-panel.php carries no
+			// 'pending' empty state, and a stale /pending/ URL falls back to the
+			// profile's default tab the same way any unavailable tab does.
+			array(
+				'id'         => 'pending',
+				'surface'    => 'profile',
+				'layer'      => 'primary',
+				'label'      => __( 'Pending', 'buddynext' ),
+				'priority'   => 16,
+				'after'      => 'scheduled',
+				'condition'  => static fn( NavContext $c ): bool => $c->is_self(),
+				'hide_empty' => true,
+				'url'        => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'pending' ),
+				'count'      => static fn( NavContext $c ): int => (int) buddynext_service( 'post_service' )->user_pending_count( $c->subject_id ),
+				'render'     => fn( NavContext $c ) => $this->render_pending( $c ),
+			),
 			array(
 				'id'        => 'about',
 				'surface'   => 'profile',
@@ -173,6 +206,23 @@ final class ProfileNav {
 				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'media' ),
 				'count'     => static fn( NavContext $c ): int => (int) Galleries::user_media_count( $c->subject_id, $c->viewer_id ),
 				'render'    => fn( NavContext $c ) => $this->render_media( $c ),
+			),
+			array(
+				'id'        => 'files',
+				'surface'   => 'profile',
+				'layer'     => 'primary',
+				'label'     => __( 'Files', 'buddynext' ),
+				'priority'  => 45,
+				// Owner-only: the member's own document drive ('user:N'), rendered
+				// by BuddyNext's own Files UI. A stranger sees nothing, so the tab
+				// only shows on your own profile; it shows whenever the documents
+				// feature is available, with its own empty state when the drive is
+				// empty (the owner adds to it by attaching a document to a post).
+				'condition' => static fn( NavContext $c ): bool => $c->is_self()
+					&& buddynext_integration_enabled( 'media', 'nav' )
+					&& \BuddyNext\Bridges\WPMediaVerseBridge::documents_available(),
+				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'files' ),
+				'render'    => fn( NavContext $c ) => $this->render_files( $c ),
 			),
 			array(
 				'id'       => 'likes',
@@ -317,6 +367,34 @@ final class ProfileNav {
 	}
 
 	/**
+	 * Pending panel — the member's own posts waiting for moderator approval.
+	 *
+	 * Owner-only, and guarded here as well as in the tab condition: a render
+	 * callable is reachable by URL whether or not its tab was rendered.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param NavContext $c Context.
+	 * @return void
+	 */
+	private function render_pending( NavContext $c ): void {
+		if ( ! $c->is_self() ) {
+			return;
+		}
+		buddynext_get_template(
+			'parts/profile/posts-panel.php',
+			array(
+				'kind'         => 'pending',
+				'subject_id'   => $c->subject_id,
+				'posts'        => (array) buddynext_service( 'post_service' )->user_pending_posts( $c->subject_id, 20 ),
+				'viewer_id'    => $c->viewer_id,
+				'is_owner'     => true,
+				'display_name' => $this->display_name( $c->subject_id ),
+			)
+		);
+	}
+
+	/**
 	 * Replies panel — the member's replies, each linking back to its activity.
 	 *
 	 * @param NavContext $c Context.
@@ -373,6 +451,28 @@ final class ProfileNav {
 	}
 
 	/**
+	 * Render the member's own document drive (Files tab) — BuddyNext-native.
+	 *
+	 * The same shared Files UI the space tab uses (RendersDriveFiles), pointed at
+	 * the member's own drive (`user:N`). BuddyNext owns the whole surface;
+	 * WPMediaVerse only serves the data via REST. Self-only (see the tab
+	 * condition), so the drive id is the profile owner.
+	 *
+	 * @param NavContext $c Nav context.
+	 */
+	private function render_files( NavContext $c ): void {
+		// A document has a clean URL — /members/{slug}/files/{id}/ — carried in the
+		// bn_profile_sub path segment; ?bn_doc= stays a working alias.
+		$doc_id = (int) get_query_var( 'bn_profile_sub', 0 );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET alias for the clean-URL doc id.
+		if ( $doc_id <= 0 && isset( $_GET['bn_doc'] ) ) {
+			$doc_id = absint( wp_unslash( $_GET['bn_doc'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		}
+
+		$this->render_drive_files( 'user', $c->subject_id, $this->tab_url( $c->subject_id, 'files' ), $doc_id );
+	}
+
+	/**
 	 * About panel — the curated about-cards + every other admin-defined field via
 	 * the field-type engine. The part self-fetches the viewer-gated field data.
 	 *
@@ -403,8 +503,9 @@ final class ProfileNav {
 		$follow   = buddynext_service( 'follows' );
 		$conn     = buddynext_service( 'connections' );
 
-		$members = array();
-		$pending = array();
+		$members       = array();
+		$pending       = array();
+		$pending_notes = array();
 		if ( 'followers' === $relation ) {
 			// Ask the DB for 60, rather than loading every follower and slicing 60 off
 			// the front. On a popular account the old form scanned 100k+ rows to build
@@ -421,19 +522,26 @@ final class ProfileNav {
 		} else {
 			$members = $this->ids_to_users( (array) $conn->connections( $uid, 60, 0 ) );
 			if ( $is_owner ) {
-				$pending = $this->ids_to_users( (array) $conn->pending_received( $uid, 60, 0 ) );
+				$pending_ids = (array) $conn->pending_received( $uid, 60, 0 );
+				$pending     = $this->ids_to_users( $pending_ids );
+
+				// The note the requester wrote is what the owner judges the request
+				// on, so it travels with the request list — one batched query for the
+				// whole page (Basecamp 10244757451).
+				$pending_notes = $conn->pending_notes_for( $uid, $pending_ids );
 			}
 		}
 
 		buddynext_get_template(
 			'parts/profile/people-panel.php',
 			array(
-				'relation'     => $relation,
-				'members'      => $members,
-				'pending'      => $pending,
-				'viewer_id'    => $c->viewer_id,
-				'is_owner'     => $is_owner,
-				'display_name' => $this->display_name( $uid ),
+				'relation'      => $relation,
+				'members'       => $members,
+				'pending'       => $pending,
+				'pending_notes' => $pending_notes,
+				'viewer_id'     => $c->viewer_id,
+				'is_owner'      => $is_owner,
+				'display_name'  => $this->display_name( $uid ),
 			)
 		);
 	}
@@ -477,7 +585,7 @@ final class ProfileNav {
 		if ( ! is_array( $profile ) ) {
 			return false;
 		}
-		$hero = \BuddyNext\Profile\ProfileService::HERO_SPINE_FIELDS;
+		$hero = \BuddyNext\Profile\ProfileService::hero_field_keys();
 		foreach ( (array) ( $profile['groups'] ?? array() ) as $group ) {
 			$gkey = (string) ( $group['group_key'] ?? '' );
 			if ( '' === $gkey || 'social_links' === $gkey ) {

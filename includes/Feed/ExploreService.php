@@ -317,7 +317,7 @@ class ExploreService {
 		 * Pro can inject community-pulse / AI-digest cards here (the wireframe's
 		 * speculative card types) without the free build fabricating data.
 		 *
-		 * @since 1.6.0
+		 * @since 1.0.0
 		 *
 		 * @param array<int,array<string,mixed>> $items     Ordered card payloads.
 		 * @param array<int,array<string,mixed>> $post_cards Post cards only.

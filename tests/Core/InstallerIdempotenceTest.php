@@ -59,7 +59,7 @@ class InstallerIdempotenceTest extends WP_UnitTestCase {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
-		Installer::install_schema();
+		$this->converge_schema_for_real();
 
 		$schema = new ReflectionMethod( Installer::class, 'schema' );
 		$schema->setAccessible( true );
@@ -81,5 +81,26 @@ class InstallerIdempotenceTest extends WP_UnitTestCase {
 				. "\n\nAlmost always the column-name-to-type spacing: dbDelta needs exactly ONE"
 				. ' space between a column name and its type. Do not column-align the CREATE TABLE.'
 		);
+	}
+
+	/**
+	 * Converge the schema for real, without leaving temporary shadows behind.
+	 *
+	 * WP_UnitTestCase installs a `query` filter that rewrites every `CREATE TABLE`
+	 * into `CREATE TEMPORARY TABLE`. That is right for fixtures and wrong here: a
+	 * temporary table SHADOWS the real one for the rest of this connection, so every
+	 * later statement in the process can fail with "Table definition has changed,
+	 * please retry transaction". Measured: leaving the filter on turned 9 such errors
+	 * into 203.
+	 *
+	 * These tests exist to prove dbDelta converges the REAL schema, so the filter
+	 * comes off for the duration of the call and goes straight back on.
+	 *
+	 * @return void
+	 */
+	private function converge_schema_for_real(): void {
+		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
+		\BuddyNext\Core\Installer::install_schema( true );
+		add_filter( 'query', array( $this, '_create_temporary_tables' ) );
 	}
 }

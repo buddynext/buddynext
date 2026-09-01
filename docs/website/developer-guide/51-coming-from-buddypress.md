@@ -100,13 +100,13 @@ Order is deterministic: items sort by `priority` then registration order, with o
 
 ## 3. Template overrides
 
-BuddyPress ships templates under `bp-templates/`, resolved through `bp_get_template_part()` and the template stack so a theme can override any file from its own `buddypress/` directory. BuddyNext keeps the same theme-override idea with a three-tier loader (`BuddyNext\Core\TemplateLoader`) and the `buddynext_get_template()` helper.
+BuddyPress ships templates under `bp-templates/`, resolved through `bp_get_template_part()` and the template stack so a theme can override any file from its own `buddypress/` directory. BuddyNext keeps the same theme-override idea with a three-plan loader (`BuddyNext\Core\TemplateLoader`) and the `buddynext_get_template()` helper.
 
 | BuddyPress / BuddyBoss | BuddyNext |
 |---|---|
 | `bp_get_template_part( 'members/single/home' )` | `buddynext_get_template( 'feed/home.php', $vars )` |
 | `{theme}/buddypress/{relative}.php` override | `{child-theme}/buddynext/{relative}.php` override |
-| `bp_locate_template()` stack | `TemplateLoader::locate()` three-tier resolution |
+| `bp_locate_template()` stack | `TemplateLoader::locate()` three-plan resolution |
 | `bp_before_member_body` etc. template hooks | `buddynext_before_template` / `buddynext_after_template` (fired around every template) |
 
 The resolution order is:
@@ -154,7 +154,7 @@ buddynext_can( int $user_id, string $capability, array $context = array() ): boo
 
 Never call `current_user_can()` against a BuddyNext capability or read `bn_community_role` directly - route it through `buddynext_can()` so all four resolution layers (WP admin, role map, explicit grant, the `buddynext_user_can` filter) and the space-ban short-circuit apply.
 
-The free catalog holds 21 capabilities registered through the WordPress Abilities API (WP 6.9+), plus two space-scoped ones resolved by dedicated per-space methods:
+The free catalog holds 22 capabilities registered through the WordPress Abilities API (WP 6.9+), plus two space-scoped ones resolved by dedicated per-space methods:
 
 ```text
 buddynext-profile/edit-own        buddynext-spaces/create          buddynext-connections/follow
@@ -164,7 +164,7 @@ buddynext-feed/create-post        buddynext-spaces/post            buddynext-mod
 buddynext-feed/delete-own-post    buddynext-spaces/moderate        buddynext-moderation/issue-strike
 buddynext-feed/delete-any-post    buddynext-spaces/manage-settings buddynext-moderation/suspend-user
 buddynext-feed/pin-post           buddynext-spaces/delete
-buddynext-feed/schedule-post
+buddynext-feed/schedule-post      buddynext-comments/create
                                   (space-scoped, per-space methods)  buddynext-moderate-space
                                                                      buddynext-manage-space
 ```
@@ -173,7 +173,7 @@ To add a capability you filter `buddynext_abilities` (register the slug) and `bu
 
 ## 6. Hooks cheat-sheet
 
-The action you hooked in BuddyPress has a BuddyNext counterpart with a different name and, in several cases, a different argument order. The signatures below are verified against the live source (`do_action` call sites in `includes/`); `audit/manifest.json` is the authoritative inventory of every hook the plugin fires. Trust these over any older curated list.
+The action you hooked in BuddyPress has a BuddyNext counterpart with a different name and, in several cases, a different argument order. The signatures below are verified against the live source (`do_action` call sites in `includes/`); the `do_action()` and `apply_filters()` call sites in `includes/` are the authoritative inventory of every hook the plugin fires. Trust these over any older curated list.
 
 | BuddyPress / BuddyBoss | BuddyNext | Signature (verified) |
 |---|---|---|
@@ -208,7 +208,7 @@ BuddyPress bundles messaging and leans on bbPress for forums and third-party plu
 | Forums / discussions | Jetonomy | `JetonomyBridge`. Surfaces a `Discussions` tab on the profile and space surfaces (via `buddynext_register_nav`) and a left-rail item (via `buddynext_rail_items`); Jetonomy owns the `jt_*` data. |
 | Points, badges, levels | WB Gamification | `GamificationBridge`. Listens to WB Gamification award/level hooks and reflects them into BuddyNext (for example the profile `Achievements` tab). |
 
-If you are porting a customization that touched BuddyPress messages, bbPress, or a points plugin, target the companion's own API for the data and use the relevant BuddyNext bridge hook for the integration touch-point. For how a bridge normalizes external data into BuddyNext and the full list of bridges (including the Pro-tier ones), see the Integration Bridges page; for how companions are installed, see The Companion Install Model.
+If you are porting a customization that touched BuddyPress messages, bbPress, or a points plugin, target the companion's own API for the data and use the relevant BuddyNext bridge hook for the integration touch-point. For how a bridge normalizes external data into BuddyNext and the full list of bridges (including the Pro-plan ones), see the Integration Bridges page; for how companions are installed, see The Companion Install Model.
 
 ## Notes and gotchas
 

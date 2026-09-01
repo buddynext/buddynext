@@ -103,12 +103,16 @@ class MediaAssets {
 					'views'       => __( 'views', 'buddynext' ),
 					'favorite'    => __( 'Favorite', 'buddynext' ),
 					'favorited'   => __( 'Favorited', 'buddynext' ),
-					'noComments'  => __( 'No comments yet. Be the first to say something!', 'buddynext' ),
+					'noComments'  => __( 'No comments on this photo yet.', 'buddynext' ),
 					'loginPrompt' => __( 'Log in to react and comment.', 'buddynext' ),
 					'posting'     => __( 'Posting…', 'buddynext' ),
 					// Read by lightbox.js when the clipboard API is unavailable; the key
 					// was missing so the manual-copy prompt always rendered its English fallback.
 					'copyManual'  => __( 'Copy this link: ', 'buddynext' ),
+					// Moderator "Remove from space" (unlink) confirm + result toasts.
+					'unlinkConfirm' => __( 'Remove this from the space? The member keeps their own copy.', 'buddynext' ),
+					'unlinkDone'    => __( 'Removed from the space.', 'buddynext' ),
+					'unlinkFail'    => __( 'Could not remove it from the space.', 'buddynext' ),
 				),
 			)
 		);

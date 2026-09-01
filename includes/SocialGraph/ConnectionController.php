@@ -409,6 +409,12 @@ class ConnectionController extends BaseRestController {
 			'page'     => $page,
 			'per_page' => $per_page,
 			'has_more' => count( $pending ) === $per_page,
+			// The note the requester attached, keyed by requester id. Shipped
+			// alongside both response shapes (ids and expanded items) because it
+			// belongs to the REQUEST, not to the member — a client reviewing this
+			// inbox needs it to decide, and nothing else surfaced it before
+			// (Basecamp 10244757451). Requests without a note are absent.
+			'notes'    => buddynext_service( 'connections' )->pending_notes_for( $current_id, $pending ),
 		);
 		// expand=members hydrates the request inbox into enriched member cards in one
 		// batch (no N+1), the same shared path the followers/connections lists use.

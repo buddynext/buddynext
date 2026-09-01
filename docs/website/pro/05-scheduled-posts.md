@@ -4,7 +4,7 @@ Scheduled posts let a member write something now and have it publish automatical
 
 ![A scheduled post going live on time in the community activity feed](../images/community-activity-feed.webp)
 
-![The Growth > Scheduled Posts admin tab where you review the queue of scheduled posts](../images/admin-scheduled.webp)
+![The Campaigns > Scheduled Posts admin tab where you review the queue of scheduled posts](../images/admin-scheduled.webp)
 
 ## Why use it
 
@@ -42,7 +42,7 @@ Only the author of a scheduled post can reschedule or cancel it.
 
 ### The scheduled posts queue
 
-Pro adds a **Scheduled Posts** admin page (under the BuddyNext menu, in the Growth section) that lists every post waiting to publish across the community, ordered by the soonest scheduled time first. For each post you see its ID, author, type, an excerpt, and the scheduled time shown in your site's timezone.
+Pro adds a **Scheduled Posts** admin page (under the BuddyNext menu, in the Campaigns section) that lists every post waiting to publish across the community, ordered by the soonest scheduled time first. For each post you see its ID, author, type, an excerpt, and the scheduled time shown in your site's timezone.
 
 
 The queue gives owners three actions.
@@ -57,7 +57,7 @@ There are no settings to configure for scheduling - the queue and its actions ar
 
 The queue is **paginated at 50 posts a page**, with a prev/next pager and the full count in the heading, so the screen stays usable on a community with thousands of posts waiting.
 
-> **Note:** Scheduling is a plan perk. If you have turned Memberships on **and** chosen a default plan, a member can schedule a post only if their plan grants Scheduled Posts (the shipped Free plan does not). With Memberships off (the default), every member can schedule. See Membership Tiers.
+> **Note:** Scheduling is a plan perk. If you have turned Memberships on **and** chosen a default plan, a member can schedule a post only if their plan grants Scheduled Posts (the shipped Free plan does not). With Memberships off (the default), every member can schedule. See Membership Plans.
 
 ### How posts publish on time
 

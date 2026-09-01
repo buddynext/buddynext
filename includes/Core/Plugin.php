@@ -73,6 +73,7 @@ use BuddyNext\Onboarding\InterestListener;
 use BuddyNext\Onboarding\OnboardingListener;
 use BuddyNext\Privacy\PrivacyTools;
 use BuddyNext\Outbound\OutboundWebhookListener;
+use BuddyNext\Outbound\WebhookLogListener;
 use BuddyNext\Realtime\TransportFactory;
 use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
@@ -192,6 +193,11 @@ class Plugin {
 			// READ existing content, so an owner runs it deliberately.
 			\WP_CLI::add_command( 'buddynext repair-discussion-visibility', \BuddyNext\Bridges\DiscussionVisibilityRepairCommand::class );
 
+			// Media stored before the post-privacy sync existed keeps serving at
+			// whatever level it was uploaded with until someone re-saves each post by
+			// hand. This walks them once. Dry-run first; it only ever tightens.
+			\WP_CLI::add_command( 'buddynext reconcile-media-privacy', \BuddyNext\Bridges\MediaPrivacyRepairCommand::class );
+
 			// Handles imported from another platform can hold characters mentions
 			// cannot parse (an email in user_nicename), leaving the member silently
 			// unmentionable. `check` reports them; `repair` normalises them to
@@ -207,6 +213,16 @@ class Plugin {
 			if ( is_readable( $bn_qa_fixtures ) ) {
 				require_once $bn_qa_fixtures;
 				\WP_CLI::add_command( 'buddynext qa-fixtures', new \BuddyNext\Dev\QaFixturesCommand() );
+
+				// qa-reset removes what the e2e harnesses left behind. Unlike
+				// qa-fixtures cleanup it has no manifest to work from - the specs
+				// create data the way a member does - so it matches anchored content
+				// prefixes and is dry-run unless told otherwise. Same dev/ guard.
+				$bn_qa_reset = BUDDYNEXT_DIR . 'dev/QaResetCommand.php';
+				if ( is_readable( $bn_qa_reset ) ) {
+					require_once $bn_qa_reset;
+					\WP_CLI::add_command( 'buddynext qa-reset', new \BuddyNext\Dev\QaResetCommand() );
+				}
 			}
 		}
 
@@ -230,6 +246,14 @@ class Plugin {
 			// older release, or its integration list drifted — no manual mu-plugin
 			// edits and no separate version to keep in sync.
 			add_action( 'admin_init', array( Installer::class, 'maybe_refresh_mu_plugin' ) );
+
+			// A hub whose backing page was withheld because its dependency was
+			// missing gets that page the moment the dependency appears — activating
+			// WPMediaVerse should not require reactivating BuddyNext to get a
+			// working /messages/ page. create_hub_pages() skips hubs whose page
+			// already exists, so this is idempotent and costs one option read per
+			// admin load in the normal case.
+			add_action( 'admin_init', array( self::class, 'create_missing_hub_pages' ) );
 
 			// AdminHub owns the BuddyNext top-level menu and dispatches every
 			// section page to its registered tabs. Boot first so feature
@@ -264,6 +288,7 @@ class Plugin {
 					( new \BuddyNext\Admin\IsolationAdmin() )->register();
 					( new \BuddyNext\Admin\Insights() )->register();
 					( new \BuddyNext\Admin\AnnouncementsAdmin() )->register();
+					( new \BuddyNext\Admin\ActivityAdmin() )->register();
 					( new \BuddyNext\Admin\ModerationQueue() )->register();
 					// "BuddyNext" metabox on Appearance → Menus — add per-member
 					// account and auth links to any WordPress menu (resolved by
@@ -496,6 +521,13 @@ class Plugin {
 			( new OutboundWebhookListener() )->register();
 		}
 
+		// Deliberately NOT inside the `webhooks` feature gate above. That toggle
+		// governs OUTBOUND deliveries; this records access grants arriving from a
+		// same-site plugin into bn_webhook_log, which is the audit trail for who
+		// was given what and is not opt-in. Gating it would mean a site with
+		// outbound webhooks switched off kept no record of its membership grants.
+		( new WebhookLogListener() )->register();
+
 		// Sidebar feature — Listener registers cache-bust hooks. Conditional
 		// per plug-and-play model: only when the feature is bound.
 		if ( $container->has( 'sidebar_widgets' ) ) {
@@ -633,8 +665,16 @@ class Plugin {
 		// Register sidebar widgets.
 		$container->get( 'widgets' )->init();
 
-		// Register PWA manifest + service worker.
-		$container->get( 'pwa' )->init();
+		// Register PWA manifest + service worker — only when the PWA capability is on
+		// (FeatureRegistry 'pwa', default-on). Off = the service never boots, so no
+		// manifest link, no service-worker registration, no REST routes; the owner's
+		// switch actually controls the installable app instead of being a no-op. Read
+		// the features service directly (not buddynext_feature_enabled(), which
+		// returns its default before buddynext_loaded has fired — and this runs
+		// during init, before that action), mirroring the webhooks gate above.
+		if ( $container->get( 'features' )->is_enabled( 'pwa' ) ) {
+			$container->get( 'pwa' )->init();
+		}
 
 		// Emit CSS custom-property token block on wp_head.
 		( new TokenService() )->init();
@@ -655,6 +695,10 @@ class Plugin {
 
 		// Level 2 context nav — per-section sub-navigation items.
 		add_filter( 'buddynext_context_nav', array( new self(), 'register_context_nav' ), 10, 2 );
+
+		// Withhold a hub's backing page while the hub cannot work — see
+		// CoreHubs::should_create_hub_page().
+		add_filter( 'buddynext_create_hub_page', array( CoreHubs::class, 'should_create_hub_page' ), 10, 2 );
 
 		// Boot first-party bridges at plugins_loaded:25 so they fire after both
 		// BuddyNext (priority 15) and Pro plugins like Jetonomy Pro / WPMediaVerse Pro
@@ -1129,5 +1173,44 @@ class Plugin {
 			return esc_url_raw( (string) $result['url'] );
 		}
 		return new \WP_Error( 'logo_upload', __( 'Logo upload failed.', 'buddynext' ) );
+	}
+
+	/**
+	 * Create any hub backing page that was withheld while its dependency was missing.
+	 *
+	 * The Messages hub needs the WPMediaVerse engine, so its page is not created
+	 * on a site without it (CoreHubs::should_create_hub_page). When MediaVerse is
+	 * activated later, the page should simply appear — an owner should not have to
+	 * deactivate and reactivate BuddyNext to get a working /messages/ route.
+	 *
+	 * Creation only. Nothing here removes or edits a page: if MediaVerse is
+	 * deactivated again, the page the owner now has stays exactly as it is, and
+	 * the route explains itself rather than disappearing.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return void
+	 */
+	public static function create_missing_hub_pages(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		foreach ( HubRegistry::instance()->all() as $hub ) {
+			if ( ! $hub->backing_page ) {
+				continue;
+			}
+
+			$page_id = (int) get_option( $hub->page_option, 0 );
+			if ( $page_id > 0 && 'publish' === get_post_status( $page_id ) ) {
+				continue;
+			}
+
+			// Something is missing AND now allowed — let the installer build it.
+			if ( (bool) apply_filters( 'buddynext_create_hub_page', true, $hub ) ) {
+				Installer::create_hub_pages();
+				return;
+			}
+		}
 	}
 }

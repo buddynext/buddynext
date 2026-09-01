@@ -27,6 +27,18 @@ use WP_UnitTestCase;
 final class ProfileGroupLockTest extends WP_UnitTestCase {
 
 	/**
+	 * Keys of the groups this test owns.
+	 *
+	 * @var string
+	 */
+	private string $own_lockable = '';
+
+	/**
+	 * @var string
+	 */
+	private string $own_system = '';
+
+	/**
 	 * A group key that is safe to lock on THIS install, or '' if none is.
 	 *
 	 * Discovered rather than hard-coded. The seeded schema is a starter kit an
@@ -39,6 +51,10 @@ final class ProfileGroupLockTest extends WP_UnitTestCase {
 	 * @return string
 	 */
 	private function lockable_group(): string {
+		if ( '' !== $this->own_lockable ) {
+			return $this->own_lockable;
+		}
+
 		foreach ( ( new ProfileService() )->get_groups() as $group ) {
 			if ( empty( $group['is_system'] ) && '' !== (string) ( $group['group_key'] ?? '' ) ) {
 				return (string) $group['group_key'];
@@ -54,6 +70,10 @@ final class ProfileGroupLockTest extends WP_UnitTestCase {
 	 * @return string
 	 */
 	private function system_group(): string {
+		if ( '' !== $this->own_system ) {
+			return $this->own_system;
+		}
+
 		foreach ( ( new ProfileService() )->get_groups() as $group ) {
 			if ( ! empty( $group['is_system'] ) && '' !== (string) ( $group['group_key'] ?? '' ) ) {
 				return (string) $group['group_key'];
@@ -89,7 +109,84 @@ final class ProfileGroupLockTest extends WP_UnitTestCase {
 	 */
 	public function set_up(): void {
 		parent::set_up();
+
+		$this->create_own_groups();
+
 		wp_cache_flush();
+	}
+
+	/**
+	 * Build the groups these tests need instead of hoping the install has them.
+	 *
+	 * The discovery helpers above were written to avoid naming a seeded group -
+	 * right, because a starter group can be renamed or deleted and a test that
+	 * names one is testing that install's fixtures rather than the rule. But
+	 * "discover, else skip" has the same failure mode with no symptom: on a test
+	 * database carrying schema and no seeds nothing is discovered, and the whole
+	 * class quietly stops testing. Measured before this change: 7 tests, ONE
+	 * assertion, 5 skipped, 1 risky - for the seam that gates every profile
+	 * surface there is.
+	 *
+	 * Owning the fixture satisfies the original intent properly: these keys belong
+	 * to no install's starter kit, and every case now actually runs.
+	 *
+	 * @return void
+	 */
+	private function create_own_groups(): void {
+		global $wpdb;
+
+		$service = new ProfileService();
+
+		$service->create_group(
+			array(
+				'group_key'  => 'bn_qa_lockable',
+				'label'      => 'QA Lockable',
+				'type'       => 'flat',
+				'visibility' => 'public',
+			)
+		);
+		$this->own_lockable = 'bn_qa_lockable';
+
+		// create_group() hard-codes is_system = 0, so the system-group case needs a
+		// direct write.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_profile_groups',
+			array(
+				'group_key'  => 'bn_qa_system',
+				'label'      => 'QA System',
+				'type'       => 'flat',
+				'visibility' => 'public',
+				'is_system'  => 1,
+				'sort_order' => 1,
+			),
+			array( '%s', '%s', '%s', '%s', '%d', '%d' )
+		);
+		$this->own_system = 'bn_qa_system';
+
+		// No manual cache bust here: create_group() clears the groups key itself,
+		// the direct insert above is followed by the wp_cache_flush() in set_up(),
+		// and CACHE_GROUP is private anyway.
+		// A group with no fields may not surface in the profile payload at all, and
+		// an empty payload is exactly what made the default case assert nothing.
+		$index = 0;
+		foreach ( $service->get_groups() as $group ) {
+			if ( ! in_array( (string) ( $group['group_key'] ?? '' ), array( 'bn_qa_lockable', 'bn_qa_system' ), true ) ) {
+				continue;
+			}
+
+			$service->create_field(
+				array(
+					'group_id'   => (int) $group['id'],
+					'field_key'  => 'qa_lock_field_' . $index,
+					'label'      => 'QA Field',
+					'type'       => 'text',
+					'visibility' => 'public',
+					'sort_order' => 0,
+				)
+			);
+			++$index;
+		}
 	}
 
 	/**

@@ -21,23 +21,25 @@ defined( 'ABSPATH' ) || exit;
 $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 $login_url  = \BuddyNext\Core\PageRouter::auth_url();
-// Terms links to an admin-chosen page (Settings → Registration → Legal Pages) —
-// never a guessed slug. Privacy reuses WordPress core's Privacy Policy page
-// (Settings → Privacy), so it works out of the box. Either link, when its page
-// is not configured, renders as plain text in the consent line, not a broken
-// link.
-$bn_terms_page = (int) get_option( 'buddynext_terms_page_id', 0 );
-$terms_url     = $bn_terms_page > 0 ? (string) get_permalink( $bn_terms_page ) : '';
 
-// get_privacy_policy_url() only returns a URL for a PUBLISHED page. WordPress
-// creates the Privacy Policy page as a draft, so fall back to the mapped page's
-// permalink — a page the owner has mapped should link even before it is
-// published (they will publish it) rather than silently dropping to plain text.
-$privacy_url = (string) get_privacy_policy_url();
-if ( '' === $privacy_url ) {
-	$bn_privacy_page = (int) get_option( 'wp_page_for_privacy_policy', 0 );
-	$privacy_url     = $bn_privacy_page > 0 ? (string) get_permalink( $bn_privacy_page ) : '';
-}
+/*
+ * Terms links to an admin-chosen page (Settings → Registration → Legal Pages) —
+ * never a guessed slug. Privacy reuses WordPress core's Privacy Policy page
+ * (Settings → Privacy).
+ *
+ * Both resolve through RegistrationPolicy::legal_page_url(), which returns a URL
+ * only for a page a LOGGED-OUT visitor can actually open.
+ *
+ * The previous fallback here was well-intentioned and wrong in practice: when
+ * get_privacy_policy_url() returned nothing (it only answers for a PUBLISHED
+ * page) it fell back to the mapped page's permalink, on the reasoning that a
+ * page the owner has mapped will be published eventually. But WordPress creates
+ * that page as a DRAFT, so on a fresh install the consent line linked "Privacy
+ * Policy" to ?page_id=3 — HTTP 404 for the very visitor being asked to agree to
+ * it. The member was asked to accept two documents: one unreadable, one broken.
+ */
+$terms_url   = \BuddyNext\Auth\RegistrationPolicy::legal_page_url( (int) get_option( 'buddynext_terms_page_id', 0 ) );
+$privacy_url = \BuddyNext\Auth\RegistrationPolicy::legal_page_url( (int) get_option( 'wp_page_for_privacy_policy', 0 ) );
 
 // In-house spam guard fields (no third-party captcha): a signed time-trap
 // token, a rotating honeypot field name, and an optional human-check question.
@@ -586,6 +588,54 @@ if ( 'invite' === $bn_reg_mode ) {
 						</div>
 					<?php endforeach; ?>
 
+					<?php
+					/*
+					 * The consent row is composed from the documents a visitor can
+					 * actually READ, and is omitted entirely when there are none.
+					 *
+					 * Naming an unreadable document was the defect: "Terms of Service"
+					 * rendered as dead plain text when no page was set, and "Privacy
+					 * Policy" linked to a draft that 404s. Asking someone to agree to
+					 * a document you will not show them is not consent.
+					 *
+					 * Nothing is lost by omitting it: RegistrationPolicy binds the
+					 * terms requirement to the SAME readability test, so when no
+					 * document is readable the server is not demanding consent either.
+					 * The owner is told separately — TermsNotice puts an admin notice
+					 * on screen when consent is switched on with no page behind it.
+					 */
+					$bn_legal_links = array();
+					if ( '' !== $terms_url ) {
+						$bn_legal_links[] = '<a href="' . esc_url( $terms_url ) . '" target="_blank" rel="noopener">'
+							. esc_html__( 'Terms of Service', 'buddynext' ) . '</a>';
+					}
+					if ( '' !== $privacy_url ) {
+						$bn_legal_links[] = '<a href="' . esc_url( $privacy_url ) . '" target="_blank" rel="noopener">'
+							. esc_html__( 'Privacy Policy', 'buddynext' ) . '</a>';
+					}
+					?>
+					<?php
+					/*
+					 * Two conditions, and they answer different questions.
+					 *
+					 * requirements['terms'] is whether consent is being COLLECTED at
+					 * all — the owner's "Require members to accept your terms" switch,
+					 * bound to a readable Terms page. The documentation states the
+					 * checkbox appears only when both hold, and the form ignored it:
+					 * the block was emitted unconditionally, so members were asked to
+					 * agree to terms on a site whose owner had switched the requirement
+					 * off, and nothing was recorded when they did.
+					 *
+					 * $bn_legal_links is which DOCUMENTS can be named, and it stays
+					 * because the two can disagree: terms may be published and required
+					 * while the privacy page is still a draft.
+					 *
+					 * The row is a TERMS consent gate, so it follows the terms
+					 * requirement. Without it there is nothing here to consent to, and a
+					 * privacy link alone does not make a consent checkbox meaningful.
+					 */
+					?>
+					<?php if ( ! empty( $bn_requirements['terms'] ) && ! empty( $bn_legal_links ) ) : ?>
 					<div class="bn-auth-field bn-auth-field--check">
 						<label class="bn-auth-check">
 							<input type="checkbox"
@@ -598,21 +648,21 @@ if ( 'invite' === $bn_reg_mode ) {
 								// Link each legal page only when configured; otherwise show its
 								// label as plain text so the consent reads correctly with no
 								// broken links.
-								$bn_terms_label   = esc_html__( 'Terms of Service', 'buddynext' );
-								$bn_privacy_label = esc_html__( 'Privacy Policy', 'buddynext' );
-								$bn_terms_html    = '' !== $terms_url
-									? '<a href="' . esc_url( $terms_url ) . '" target="_blank" rel="noopener">' . $bn_terms_label . '</a>'
-									: $bn_terms_label;
-								$bn_privacy_html  = '' !== $privacy_url
-									? '<a href="' . esc_url( $privacy_url ) . '" target="_blank" rel="noopener">' . $bn_privacy_label . '</a>'
-									: $bn_privacy_label;
+								// One readable document or two — the sentence is built to match,
+								// rather than always naming both and hoping each resolves.
 								echo wp_kses(
-									sprintf(
-										/* translators: 1: Terms of Service (link or text), 2: Privacy Policy (link or text) */
-										__( 'I agree to the %1$s and %2$s.', 'buddynext' ),
-										$bn_terms_html,
-										$bn_privacy_html
-									),
+									2 === count( $bn_legal_links )
+										? sprintf(
+											/* translators: 1: link to the Terms of Service, 2: link to the Privacy Policy */
+											__( 'I agree to the %1$s and %2$s.', 'buddynext' ),
+											$bn_legal_links[0],
+											$bn_legal_links[1]
+										)
+										: sprintf(
+											/* translators: %s: link to the one legal document that is published. */
+											__( 'I agree to the %s.', 'buddynext' ),
+											$bn_legal_links[0]
+										),
 									array(
 										'a' => array(
 											'href'   => array(),
@@ -628,6 +678,7 @@ if ( 'invite' === $bn_reg_mode ) {
 							data-wp-bind--hidden="!state.termsError"
 							data-wp-text="state.termsError"></span>
 					</div>
+					<?php endif; ?>
 
 					<?php if ( $bn_challenge_on ) : ?>
 						<div class="bn-auth-field">

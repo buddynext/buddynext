@@ -200,7 +200,7 @@ add_filter( 'buddynext_notification_should_send', static function ( bool $should
 
 ## Recipe 6 - Gate a space by capability
 
-**Goal:** block certain users from joining or requesting membership in a space (for example, gate a space behind a paid tier).
+**Goal:** block certain users from joining or requesting membership in a space (for example, gate a space behind a paid plan).
 
 **Seam:** `buddynext_can_join_space`. It runs in `SpaceMemberService` for both the direct-join and the request-to-join paths, receiving the resolved space row, the user, and the action. Return `false` to block. This is the seam Pro uses for gated spaces.
 
@@ -366,7 +366,7 @@ Because a programmatic field has no `bn_profile_fields` row, its submitted value
 
 ## Recipe 10 - Register an add-on hub (1.0.4)
 
-**Goal:** give your add-on its own community page - a real URL like `/events/` that renders inside the BuddyNext shell, with a backing WP page, slug setting, rewrite rules, and template resolution handled for you.
+**Goal:** give your add-on its own community page - a real URL like `/events/` that renders inside the BuddyNext shell, with a backing WP page, rewrite rules, and template resolution handled for you. (Surfacing an editable URL slug in the admin needs one extra filter today - see the end of the recipe.)
 
 **Seam:** `HubRegistry` + the `buddynext_register_hubs` action.
 
@@ -381,10 +381,18 @@ add_action( 'buddynext_register_hubs', function ( \BuddyNext\Core\HubRegistry $r
 			__( 'Events', 'my-addon' ),     // backing page title
 			'[myaddon_events]',             // backing page content shortcode
 			null,                           // query_var (defaults to the key)
-			function ( string $slug ) {     // register_rules
-				add_rewrite_rule( '^' . $slug . '/?$', 'index.php?bn_hub=events', 'top' );
+			function () {                   // register_rules - NO arguments
+				$slug = trim( (string) get_option( 'myaddon_slug_events', 'events' ) );
+				if ( '' === $slug ) {
+					$slug = 'events';
+				}
+				add_rewrite_rule(
+					'^' . preg_quote( $slug, '/' ) . '/?$',
+					'index.php?bn_hub=events',
+					'top'
+				);
 			},
-			function ( string $hub ): ?string { // resolve_template
+			function ( string $hub ): ?string { // resolve_template - receives the hub key
 				return 'events' === $hub ? MY_ADDON_DIR . 'templates/events.php' : null;
 			}
 		)
@@ -392,7 +400,62 @@ add_action( 'buddynext_register_hubs', function ( \BuddyNext\Core\HubRegistry $r
 } );
 ```
 
-One registration buys the whole lifecycle: the Installer creates the backing page, Pages & URLs shows the slug setting, slug changes flush rewrites, and PageRouter dispatches your rules and template. The 7 built-in hubs register through exactly this API (`includes/Core/CoreHubs.php`), so anything they can do, your hub can do.
+**The two callbacks do not have the same signature.** `PageRouter::register_rewrites()`
+invokes yours as `( $descriptor->register_rules )()` - with **no arguments** - so read
+your slug from your own option inside the callback, as above. A callback that declares
+a required `$slug` parameter throws `ArgumentCountError` on every request under PHP 8,
+taking the whole site down rather than failing quietly. `resolve_template` is the
+opposite: it **is** passed the hub key, and must return `null` for any hub that is not
+yours, or you will hijack another hub's template. `includes/Core/CommunityAdminRoutes.php`
+is the reference implementation of both.
+
+### Give the hub a proper document `<title>`
+
+Without this your hub's browser tab reads `Events` at best, and `Circle-studio` at
+worst: `PageRouter` keeps a title map for its own hubs and falls back to
+`ucfirst( $hub )` for everything else, which turns a slug into a near-miss of a name.
+
+`buddynext_document_title` is the seam. It receives the title and a **context**,
+which for a hub render is the hub key — so match on your own key and leave every
+other surface alone:
+
+```php
+add_filter( 'buddynext_document_title', function ( string $title, string $context ): string {
+	return 'events' === $context ? __( 'Events', 'my-addon' ) : $title;
+}, 10, 2 );
+```
+
+Two things worth knowing before you rely on it:
+
+- **The context is not always a hub key.** BuddyNext also fires this filter from
+  `HeadMeta` with the context `head-meta`, for surfaces that run no hub render at all
+  (a single-post permalink, for one). Always match on the value you expect rather
+  than assuming a hub.
+- **It does not fight an SEO plugin.** When Yoast, Rank Math or similar is active,
+  BuddyNext leaves the document title alone entirely and your filter will not be
+  applied. That is deliberate — the owner installed that plugin to own their titles —
+  so set your title there instead on those sites.
+
+One registration gives your hub a live route: `PageRouter` dispatches your `register_rules` and `resolve_template` on every request, a slug change flushes rewrites automatically (BuddyNext hooks `update_option_{your_slug_option}` for every registered hub), and - if your add-on is active when BuddyNext is activated - the Installer creates a backing WP page for it. `includes/Core/CoreHubs.php` registers the built-in hubs through the same `HubRegistry`.
+
+Two limits are worth knowing today. Both are being closed as the hub-registry migration finishes; until then, plan around them:
+
+- **The admin Pages & URLs screen does not list add-on hubs yet.** `NavManager::page_hub_catalogue()` is a fixed list of the built-in hubs, so your hub's URL slug is not editable there out of the box. Add it with the `bn_admin_hub_pages` filter, which receives that catalogue as `hub key => { label, desc, slug_opt, page_opt, default }`:
+
+  ```php
+  add_filter( 'bn_admin_hub_pages', function ( array $hubs ): array {
+      $hubs['events'] = array(
+          'label'    => __( 'Events', 'my-addon' ),
+          'desc'     => __( 'Your community events hub.', 'my-addon' ),
+          'slug_opt' => 'myaddon_slug_events',
+          'page_opt' => 'myaddon_page_events',
+          'default'  => 'events',
+      );
+      return $hubs;
+  } );
+  ```
+
+- **Most built-in hubs do not yet go through `register_rules` / `resolve_template`.** Their rewrites and template resolution still live directly in `PageRouter`; only `community_admin` rides this add-on seam so far. The callbacks you pass here are the supported path and are dispatched on every request - as the built-ins move onto the same seam, the two converge and a core hub and your hub run identical code.
 
 ## Recipe 11 - Ship your own templates (1.0.4)
 
@@ -485,6 +548,36 @@ Swap the basename for your consent plugin: `cookie-law-info/cookie-law-info.php`
 
 ---
 
+## Recipe 14 - Ask the gate before offering an action (1.1.5)
+
+If your surface renders a Join button, ask whether the join would actually be allowed. Do not infer it from the space being open.
+
+```php
+$spaces = buddynext_service( 'space_members' );   // SpaceMemberService
+
+if ( $spaces->can_join( $space, get_current_user_id() ) ) {
+    // Safe to render the Join control.
+}
+```
+
+`can_join( array|object $space, int $user_id ): bool` takes either a `bn_spaces` row array or the object templates carry, and `0` for a logged-out visitor.
+
+This exists because Free cannot know what Pro will decide. Surfaces used to offer Join to anyone looking at an open space, including members a listener was certain to refuse - on a plan-gated space that produced a screen telling the member they needed a paid plan, with two buttons beside it inviting them to join anyway. Asking the gate is the only way to know the offer is real. The same reasoning applies to any control you render on someone else's behalf.
+
+## Recipe 15 - Hydrate a batch of posts in one query (1.1.5)
+
+Looping `get()` over a list of post ids issues one query per row. At a page of 20 that is 20 round trips for data a single `IN()` answers.
+
+```php
+$posts = buddynext_service( 'post_service' )->get_many( $post_ids );   // PostService
+```
+
+`get_many( array $post_ids ): array` returns hydrated posts **in the order you asked for**, not table order, because the caller's order is usually meaningful - relevance, for one - and the database loses it. Ids with no row are skipped rather than returned as blanks, so do not assume the result is the same length as the input.
+
+**It is a fetch, not a gate.** Visibility is deliberately not applied. Pass the ids through `filter_visible()` first, exactly as the feed does, or you will hand a member content they cannot see.
+
+---
+
 ## Notes and gotchas
 
 - **Filters return, actions react.** A filter that returns nothing erases the value. An action's return value is ignored.
@@ -494,3 +587,47 @@ Swap the basename for your consent plugin: `cookie-law-info/cookie-law-info.php`
 - **Free degrades cleanly.** Several Free defaults (one webhook endpoint, a pin limit of 1) are the seams Pro raises. Your addon raises them the same way and should never assume Pro is present.
 
 For the complete catalog of every hook referenced here, see the hooks reference pages: Feed and Content Hooks, Spaces Hooks, Notifications and Email Hooks, Moderation, Auth and Trust Hooks, Template Part Hooks, and Pro and Integration Hooks.
+
+## Count things across many spaces without an N+1
+
+**Goal:** an owner dashboard showing several spaces at once — total members, join
+requests waiting, content reported — without one query per space, and without
+getting the member count wrong.
+
+**Seam:** batched counters on the services that own each table.
+
+```php
+$members = new \BuddyNext\Spaces\SpaceMemberService();
+$mod     = new \BuddyNext\Moderation\ModerationService();
+$posts   = buddynext_service( 'posts' );
+
+$space_ids = array( 12, 19, 44 );   // the spaces this owner runs
+
+$people   = $members->count_distinct_members( $space_ids );
+$waiting  = $members->count_pending_requests_for_spaces( $space_ids );
+$reported = $mod->count_open_reports_for_spaces( $space_ids );
+$drafts   = $posts->count_draft_announcements( $space_ids );
+```
+
+**Do not sum `bn_spaces.member_count` across spaces.** It is a per-space
+denormalised column, so anyone who belongs to two of an owner's spaces is counted
+twice — and the error grows with exactly the communities that are working, because
+active members join more spaces. On the development site, summing across ten spaces
+gave **54** where the real number of people was **14**.
+
+The two member counters deliberately answer differently, and the difference is not
+an inconsistency:
+
+- `count_distinct_members()` counts **people**, once each. Only `status = 'active'`;
+  invited, pending and banned rows are not members.
+- `count_pending_requests_for_spaces()` counts **rows**. One person asking to join
+  three spaces is three decisions an owner has to make, and collapsing them would
+  under-report the work waiting.
+
+`count_open_reports_for_spaces()` counts distinct reported **objects**, not report
+rows — five members reporting one post is one thing to look at, not five.
+
+Each has a singular sibling (`count_pending_requests( int $space_id )`,
+`count_open_reports_for_space( int $space_id )`). The convention across both
+services: **singular takes an int, `_for_spaces` takes an array.** An empty array
+returns `0` rather than falling through to a site-wide count.

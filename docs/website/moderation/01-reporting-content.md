@@ -41,20 +41,19 @@ Two things behave differently here, and both are deliberate:
 
 ### Choosing a reason
 
-Every report needs one reason. BuddyNext offers a fixed set so moderators see consistent, comparable labels in the queue. The exact list depends on what you are reporting, because a photo raises different questions than a profile does:
+Every report needs one reason. BuddyNext offers one fixed set of seven reasons, and the **same list is used for every kind of content** — a post, a comment, a message, or a profile — so moderators see consistent, comparable labels in the queue:
 
-| Reason | Use it for | Offered on |
-|---|---|---|
-| Spam | Repetitive, promotional, or junk content. | Everything |
-| Harassment or hate speech | Targeted abuse, threats, or hateful content. | Everything |
-| Misinformation | False or misleading claims. | Everything |
-| Something else | Anything not covered above. Use the notes field to explain. | Everything |
-| Inappropriate content | Content that does not belong in the community. | Posts, comments, messages, profiles |
-| Impersonation | An account pretending to be someone else. | Posts, comments, messages, profiles |
-| Fake account | An account that looks automated or fraudulent. | Member profiles |
-| Nudity or sexual content | Explicit imagery. | Media |
-| Violence or graphic content | Graphic or violent imagery. | Media |
-| Copyright infringement | Media published without the right to publish it. | Media |
+| Reason | Use it for |
+|---|---|
+| Spam | Repetitive, promotional, or junk content. |
+| Harassment or hate speech | Targeted abuse, threats, or hateful content. |
+| Misinformation | False or misleading claims. |
+| Inappropriate content | Content that does not belong in the community. |
+| Fake account | An account that looks automated or fraudulent. |
+| Impersonation | An account pretending to be someone else. |
+| Something else | Anything not covered above. Use the notes field to explain. |
+
+Media (photos and videos) is the exception: it is reported into WPMediaVerse's own **Media Moderation** queue with its own media-specific reasons (such as nudity, violence, or copyright), not the BuddyNext list above.
 
 > **Note:** Use the notes field whenever the reason alone does not tell the full story. A moderator reads it before deciding.
 

@@ -228,6 +228,16 @@ class MediaRenderer {
 		$alt       = esc_attr( (string) $d['title'] );
 		$more_attr = $more > 0 ? ' data-bn-media-more="' . (int) $more . '"' : '';
 
+		// Reserve the tile's box before the lazy image loads: emit intrinsic
+		// width/height so the browser derives aspect-ratio and holds space.
+		// Without it, a single-image post (grid--1, height:auto) collapses to
+		// 0px until the img loads — the post paints as a blank card and, sitting
+		// below the fold at 0px, its lazy IntersectionObserver never fires. The
+		// stored dims are the ORIGINAL ratio, which is what a scaled thumb keeps.
+		$w        = (int) ( $d['width'] ?? 0 );
+		$h        = (int) ( $d['height'] ?? 0 );
+		$dim_attr = ( $w > 0 && $h > 0 ) ? ' width="' . $w . '" height="' . $h . '"' : '';
+
 		// Source-post link — only when the media actually came from a post, so
 		// the lightbox can thread a real post id into the Share modal (and omit
 		// it for orphan uploads, which fall back to Copy link).
@@ -245,7 +255,7 @@ class MediaRenderer {
 			// fall back to a poster-less tile — the CSS dark surface + play
 			// overlay read correctly without a broken image.
 			$poster = '' !== $raw_thumb
-				? '<img class="bn-media-tile__img" src="' . esc_url( $raw_thumb ) . '" alt="' . $alt . '" loading="lazy" decoding="async">'
+				? '<img class="bn-media-tile__img" src="' . esc_url( $raw_thumb ) . '"' . $dim_attr . ' alt="' . $alt . '" loading="lazy" decoding="async">'
 				: '';
 
 			return '<button type="button" class="bn-media-tile bn-media-tile--video' . ( '' === $poster ? ' bn-media-tile--no-poster' : '' ) . '" '
@@ -283,7 +293,7 @@ class MediaRenderer {
 		return '<button type="button" class="bn-media-tile bn-media-tile--image" '
 			. 'data-bn-media-id="' . $id . '" data-media-type="image" data-media-src="' . $full . '"' . $more_attr . $post_attr . ' '
 			. 'aria-label="' . ( '' !== $alt ? $alt : esc_attr__( 'View image', 'buddynext' ) ) . '">'
-			. '<img class="bn-media-tile__img" src="' . $img_src . '"' . $srcset . ' alt="' . $alt . '" loading="lazy" decoding="async">'
+			. '<img class="bn-media-tile__img" src="' . $img_src . '"' . $srcset . $dim_attr . ' alt="' . $alt . '" loading="lazy" decoding="async">'
 			. '</button>';
 	}
 }

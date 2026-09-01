@@ -244,6 +244,27 @@ class ReactionService {
 	}
 
 	/**
+	 * Every reaction type the owner can CHOOSE to enable — the canonical six plus
+	 * any Pro custom reactions — independent of which are currently enabled.
+	 *
+	 * The admin reaction palette and its sanitizer use this: they present the full
+	 * choosable set and store the owner's enabled subset separately. reaction_types()
+	 * is the RUNTIME accessor (the enabled subset, entitlement-gated per viewer) and
+	 * must NOT be used where the full configurable set is meant — it would drop
+	 * disabled built-ins and unpicked custom reactions out of the palette, which is
+	 * exactly how custom reactions went missing from Settings → Social. The palette
+	 * is a manage_options screen, so the per-viewer entitlement gate is a no-op here.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return string[] Ordered, de-duplicated slugs (built-ins first, then custom).
+	 */
+	public static function available_reaction_types(): array {
+		$types = array_map( 'sanitize_key', (array) apply_filters( 'buddynext_reaction_types', self::REACTION_TYPES ) );
+		return array_values( array_unique( array_filter( $types ) ) );
+	}
+
+	/**
 	 * Normalise an incoming reaction slug to one the owner actually has enabled.
 	 *
 	 * Single guard used by both write paths (react() and the toggle() replace

@@ -535,4 +535,56 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 		$this->assertTrue( $this->service->join( $this->space_id, $user_id ) );
 		$this->assertSame( 'member', $this->service->get_role( $this->space_id, $user_id ) );
 	}
+
+	/**
+	 * get_member_ids() walks EVERY active member of a space past the 200-row cap
+	 * that get_members() clamps to, in a stable order with no repeats or skips,
+	 * and the full walk matches count_members(). Regression guard for Basecamp
+	 * 10229921690: a consumer computing a subset over a large space's membership
+	 * (paid/free split by intersecting with an external set) undercounted past 200
+	 * because the only id source, get_members(), was capped.
+	 *
+	 * @covers \BuddyNext\Spaces\SpaceMemberService::get_member_ids
+	 */
+	public function test_get_member_ids_walks_the_whole_roster_past_the_cap(): void {
+		global $wpdb;
+
+		// Seed 250 active members directly. Id-only reads do not join wp_users, so
+		// 250 factory users would be needless overhead — the row is all that counts.
+		$now = current_time( 'mysql', true );
+		for ( $u = 1001; $u <= 1250; $u++ ) {
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_space_members',
+				array(
+					'space_id'  => $this->space_id,
+					'user_id'   => $u,
+					'role'      => 'member',
+					'status'    => 'active',
+					'joined_at' => $now,
+				)
+			);
+		}
+
+		$total = $this->service->count_members( $this->space_id );
+		$this->assertGreaterThan( 200, $total, 'the seeded roster exceeds the hydrated-read cap' );
+
+		// The hydrated read is still capped — this is the limitation the id read exists for.
+		$this->assertLessThanOrEqual( 200, count( $this->service->get_members( $this->space_id, 0, 0 ) ) );
+
+		// Walk id-only in pages and collect every id.
+		$walked = array();
+		$offset = 0;
+		do {
+			$page   = $this->service->get_member_ids( $this->space_id, 0, 100, $offset );
+			$walked = array_merge( $walked, $page );
+			$offset += 100;
+		} while ( count( $page ) === 100 );
+
+		$this->assertCount( $total, $walked, 'the id walk returns every member, past the 200 cap' );
+		$this->assertSame( count( $walked ), count( array_unique( $walked ) ), 'no id repeats across pages' );
+
+		$sorted = $walked;
+		sort( $sorted, SORT_NUMERIC );
+		$this->assertSame( $sorted, $walked, 'ids come back in a stable ascending order' );
+	}
 }

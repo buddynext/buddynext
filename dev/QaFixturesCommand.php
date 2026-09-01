@@ -120,7 +120,7 @@ final class QaFixturesCommand {
 		}
 
 		update_option( self::MANIFEST, $m, false );
-		$this->recount_spaces();
+		self::recount_spaces();
 		\WP_CLI::success( sprintf( 'QA fixtures seeded (profile: %s).', $profile ) );
 		$this->status();
 	}
@@ -189,7 +189,7 @@ final class QaFixturesCommand {
 		// The whole point of the tagged teardown: leave the counters honest. A raw
 		// DELETE does not fire adjust_member_count(), which is how a previous QA run
 		// left every space reporting a member count it no longer had.
-		$this->recount_spaces();
+		self::recount_spaces();
 
 		\WP_CLI::success( sprintf( 'QA fixtures removed (%d users, %d spaces). Space counters recomputed.', count( $users ), count( (array) ( $m['spaces'] ?? array() ) ) ) );
 	}
@@ -847,7 +847,7 @@ final class QaFixturesCommand {
 	 *
 	 * @return void
 	 */
-	private function recount_spaces(): void {
+	public static function recount_spaces(): void {
 		global $wpdb;
 		$p = $wpdb->prefix;
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- only the

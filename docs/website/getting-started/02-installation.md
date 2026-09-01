@@ -38,16 +38,16 @@ A clean install is what makes BuddyNext work the moment you switch it on. Activa
 Pro is delivered through a built-in one-click installer, not a manual upload. You do not download a separate Pro zip or search the plugin directory.
 
 1. Buy a BuddyNext Pro license. You will receive a license key.
-2. In wp-admin, open **BuddyNext > Platform > Integrations** (the companion hub).
+2. In wp-admin, open **BuddyNext > Platform > Add-ons** (the companion hub).
 3. Find **BuddyNext Pro** and click **Install**. BuddyNext fetches and installs Pro for you in one click.
 4. Once installed, activate it.
-5. Go to **BuddyNext > Settings > License**, paste your Pro license key, and activate it.
+5. Go to **BuddyNext > Get Started > License**, paste your Pro license key, and activate it. The License tab appears only once Pro is active.
 
 > **Note:** The license key gates **updates only**. It never unlocks or locks features. Pro is fully functional after activation, and the key simply lets your site receive Pro updates. Keep it active so you get security and feature updates.
 
 ## Optional companion plugins
 
-These companion plugins extend specific BuddyNext features. They are all optional - install only the ones whose features you want. Each installs through the same one-click flow under **BuddyNext > Platform > Integrations**.
+These companion plugins extend specific BuddyNext features. They are all optional - install only the ones whose features you want. Each installs through the same one-click flow under **BuddyNext > Platform > Add-ons**.
 
 | Companion | What it adds | Required for |
 |-----------|--------------|--------------|

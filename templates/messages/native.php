@@ -22,7 +22,28 @@ use BuddyNext\Core\PageRouter;
 $active_conv_id = isset( $active_conv_id ) ? (int) $active_conv_id : 0;
 $active_tab     = isset( $active_tab ) ? (string) $active_tab : 'all';
 
-if ( ! MessagesData::available() ) :
+/*
+ * Messaging unavailable — the route now ARRIVES here instead of redirecting to
+ * the activity hub, so this notice is what the visitor sees (PageRouter).
+ *
+ * The guard widened from available() to entry_enabled() deliberately. There are
+ * two ways messaging can be off and they are not the same thing:
+ *
+ *   - the WPMediaVerse engine is absent  -> nothing can deliver a message
+ *   - the owner switched DMs off         -> Platform → Features, 'messages'
+ *
+ * available() only covered the first. With the redirect removed, the second
+ * would have fallen straight through this guard and rendered the whole
+ * messaging UI on a site whose owner had deliberately turned it off.
+ *
+ * The admin copy names the actual cause, because "install WPMediaVerse" is
+ * wrong and confusing advice to an owner who simply unticked a box. Members see
+ * the same neutral line either way — which of the two it is, is not their
+ * problem.
+ */
+$bn_dm_engine_missing = ! MessagesData::available();
+
+if ( ! MessagesData::entry_enabled() ) :
 	?>
 	<div class="bn-messages-content" data-bn-main-edge="true">
 		<div class="bn-card bn-dm-dep-notice" role="status">
@@ -30,10 +51,15 @@ if ( ! MessagesData::available() ) :
 				<span class="bn-dm-dep-notice__icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
 				<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Unavailable', 'buddynext' ); ?></span>
 			</div>
-			<?php if ( current_user_can( 'manage_options' ) ) : ?>
+			<?php if ( current_user_can( 'manage_options' ) && $bn_dm_engine_missing ) : ?>
 				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></h2>
 				<p class="bn-dm-dep-notice__body">
 					<?php esc_html_e( 'Install and activate the WPMediaVerse plugin to enable direct messaging in BuddyNext. (This notice is only shown to administrators.)', 'buddynext' ); ?>
+				</p>
+			<?php elseif ( current_user_can( 'manage_options' ) ) : ?>
+				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Direct messaging is turned off', 'buddynext' ); ?></h2>
+				<p class="bn-dm-dep-notice__body">
+					<?php esc_html_e( 'Messages are disabled for this community. Turn them back on under Platform → Features. (This notice is only shown to administrators.)', 'buddynext' ); ?>
 				</p>
 			<?php else : ?>
 				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Messaging isn’t available right now', 'buddynext' ); ?></h2>

@@ -119,10 +119,10 @@ apply_filters( 'buddynext_user_weekly_followers_gained',         int|null $count
 apply_filters( 'buddynext_user_weekly_engagement_received',      int|null $count, int $user_id )
 ```
 
-To surface a gamification tile on the profile stat strip, append a row to `$args['stats']` via `buddynext_part_profile_stats_strip_args`:
+To surface a gamification tile on the profile stat strip, append a row to `$args['stats']` via `buddynext_part_stat_strip_args`:
 
 ```php
-add_filter( 'buddynext_part_profile_stats_strip_args', function ( array $args ): array {
+add_filter( 'buddynext_part_stat_strip_args', function ( array $args ): array {
     $args['stats'][] = array(
         'slug'  => 'streak',
         'label' => __( 'Streak', 'buddynext' ),
@@ -135,6 +135,17 @@ add_filter( 'buddynext_part_profile_stats_strip_args', function ( array $args ):
 ```
 
 There are also six per-surface user-overlay filters (`buddynext_member_card_meta_html`, `buddynext_post_byline_meta_html`, `buddynext_profile_hero_badges_html`, `buddynext_avatar_overlay_html`, `buddynext_search_member_meta_html`, `buddynext_comment_author_meta_html`) that let an engine inject **escaped** HTML (level frames, badge rows) beside member names and avatars. BuddyNext echoes the returned HTML raw at the call site, so the handler must escape.
+
+**Wrap multi-chip returns in `.bn-badge-row`.** When one of these filters returns more than one `.bn-badge` chip (Moderator + Verified + Expert, a level frame plus a badge), wrap the chips in a single `.bn-badge-row` element - a shared, token-driven, RTL-safe flex-row primitive defined in `bn-base.css` (`gap: var(--bn-s1)`) - so adjacent chips are evenly spaced and wrap cleanly on narrow viewports:
+
+```php
+return '<span class="bn-badge-row">'
+    . '<span class="bn-badge" data-tone="accent">' . esc_html( $label_a ) . '</span>'
+    . '<span class="bn-badge" data-tone="info">'   . esc_html( $label_b ) . '</span>'
+    . '</span>';
+```
+
+As a safety net, Free also backstops the known overlay containers that hold only injected chips (`.bn-post-card__author`, `.bn-md-card__meta-overlay`, `.bn-md-card__labels`, `.bn-comment__author-meta`) with an adjacent-chip `margin-inline-start`, so chips never collide even if an engine forgets the wrapper. The two surfaces whose containers already gap their own static badges (`.bn-pf-name-row`, `.bn-search-row__title`) are intentionally left off that backstop to avoid double-spacing - so the `.bn-badge-row` wrapper is the only path that spaces chips consistently on **every** surface, and is the recommended one.
 
 ## Inbound: engine events -> BuddyNext notifications + feed
 
@@ -213,5 +224,6 @@ add_action(
 - **Recipient vs actor.** Award off the recipient-perspective events (`buddynext_*_received`, `buddynext_follower_gained`) when you want to reward whose work was engaged with; the actor-perspective events reward the doer.
 - **Idempotency is upstream.** The session/daily-login pulses and the badge-activity publisher are already deduped; do not add your own per-request guards that would suppress legitimate repeat awards on `repeatable` actions.
 - **Escape overlay HTML.** The six `*_meta_html` / `*_badges_html` overlay filters echo your return value raw - return escaped markup.
+- **Wrap chip rows in `.bn-badge-row`.** When an overlay filter returns more than one `.bn-badge`, wrap them in `.bn-badge-row` (shared primitive in `bn-base.css`) so they space and wrap correctly on every surface. Free backstops the known single-purpose overlay containers, but the wrapper is the recommended and universally-consistent path.
 - **Free/Pro.** The entire gamification seam (bridge, listener, Achievements tab, leaderboard) is in Free. It runs whenever the `gamification` feature toggle is on and the engine is active.
 - **Source over manifest/conformance docs.** The conformance record references a `buddynext_profile_extra_data` profile injection; the live profile surface is the Achievements tab instead. When docs and code disagree, the code is authoritative.

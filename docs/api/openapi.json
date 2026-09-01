@@ -10,7 +10,7 @@
         "license": {
             "name": "GPL-2.0-or-later"
         },
-        "version": "1.1.4"
+        "version": "1.1.6"
     },
     "servers": [
         {
@@ -3044,6 +3044,54 @@
                 ]
             }
         },
+        "/kudos": {
+            "post": {
+                "tags": [
+                    "Social Graph"
+                ],
+                "operationId": "post_kudos",
+                "summary": "POST /buddynext/v1/kudos",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "receiver_id": {
+                                        "type": "string"
+                                    },
+                                    "message": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "receiver_id"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/link-preview": {
             "get": {
                 "tags": [
@@ -3090,6 +3138,17 @@
                 ],
                 "operationId": "delete_me_account",
                 "summary": "DELETE /buddynext/v1/me/account",
+                "parameters": [
+                    {
+                        "name": "password",
+                        "in": "query",
+                        "required": false,
+                        "description": "The account password, re-entered to confirm an irreversible deletion.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Success."
@@ -5376,6 +5435,44 @@
                 ]
             }
         },
+        "/media/{media_id}/space-context": {
+            "get": {
+                "tags": [
+                    "Media and Albums"
+                ],
+                "operationId": "get_media_media_id_space_context",
+                "summary": "GET /buddynext/v1/media/{media_id}/space-context",
+                "parameters": [
+                    {
+                        "name": "media_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/member-types": {
             "get": {
                 "tags": [
@@ -5586,30 +5683,6 @@
                 }
             }
         },
-        "/members/{id}/discussions": {
-            "get": {
-                "tags": [
-                    "Members and Profiles"
-                ],
-                "operationId": "get_members_id_discussions",
-                "summary": "GET /buddynext/v1/members/{id}/discussions",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    }
-                }
-            }
-        },
         "/moderation/log": {
             "get": {
                 "tags": [
@@ -5790,6 +5863,10 @@
                                     "link_meta": {
                                         "type": "object",
                                         "description": "Resolved link-preview metadata (title, description, thumbnail)."
+                                    },
+                                    "document_id": {
+                                        "type": "integer",
+                                        "description": "WPMediaVerse document ID attached from the composer (type=document)."
                                     },
                                     "options": {
                                         "type": "array",
@@ -6572,8 +6649,8 @@
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "group_id": {
-                                        "type": "integer"
+                                    "group_name": {
+                                        "type": "string"
                                     },
                                     "field_key": {
                                         "type": "string"
@@ -6585,17 +6662,40 @@
                                         "type": "string",
                                         "default": "text"
                                     },
+                                    "options": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "placeholder": {
+                                        "type": "string"
+                                    },
                                     "is_required": {
                                         "type": "boolean",
                                         "default": false
                                     },
+                                    "is_searchable": {
+                                        "type": "boolean"
+                                    },
+                                    "show_on_register": {
+                                        "type": "boolean"
+                                    },
+                                    "show_in_header": {
+                                        "type": "boolean"
+                                    },
+                                    "visibility": {
+                                        "type": "string"
+                                    },
                                     "sort_order": {
                                         "type": "integer",
                                         "default": 0
+                                    },
+                                    "group_id": {
+                                        "type": "integer"
                                     }
                                 },
                                 "required": [
-                                    "group_id",
                                     "field_key",
                                     "label"
                                 ]
@@ -6656,13 +6756,31 @@
                                     "options": {
                                         "type": "string"
                                     },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "placeholder": {
+                                        "type": "string"
+                                    },
                                     "is_required": {
+                                        "type": "boolean"
+                                    },
+                                    "is_searchable": {
+                                        "type": "boolean"
+                                    },
+                                    "show_on_register": {
+                                        "type": "boolean"
+                                    },
+                                    "show_in_header": {
                                         "type": "boolean"
                                     },
                                     "visibility": {
                                         "type": "string"
                                     },
                                     "sort_order": {
+                                        "type": "integer"
+                                    },
+                                    "group_id": {
                                         "type": "integer"
                                     }
                                 }
@@ -8436,7 +8554,49 @@
                     {
                         "appPassword": []
                     }
-                ]
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "description": "Space name. Required, 100 characters or fewer."
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "URL slug. Derived from the name when omitted."
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "description": "Space type. Canonical parameter; defaults to the site default. One of: open, private, secret."
+                                    },
+                                    "visibility": {
+                                        "type": "string",
+                                        "description": "Alias for `type`, resolved to the type carrying that visibility. Sending both with different meanings is refused. One of: public, private, secret."
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "description": "Space description."
+                                    },
+                                    "category_id": {
+                                        "type": "integer",
+                                        "description": "Space category id."
+                                    },
+                                    "parent_id": {
+                                        "type": "integer",
+                                        "description": "Parent space id, to create a sub-space."
+                                    }
+                                },
+                                "required": [
+                                    "name"
+                                ]
+                            }
+                        }
+                    }
+                }
             }
         },
         "/spaces/fields": {
@@ -9070,53 +9230,6 @@
                 ]
             }
         },
-        "/spaces/{id}/discussion-search": {
-            "get": {
-                "tags": [
-                    "Spaces"
-                ],
-                "operationId": "get_spaces_id_discussion_search",
-                "summary": "GET /buddynext/v1/spaces/{id}/discussion-search",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "q",
-                        "in": "query",
-                        "required": false,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            }
-        },
         "/spaces/{id}/feed": {
             "get": {
                 "tags": [
@@ -9167,44 +9280,6 @@
                 ],
                 "operationId": "post_spaces_id_fields",
                 "summary": "POST /buddynext/v1/spaces/{id}/fields",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            }
-        },
-        "/spaces/{id}/forum": {
-            "post": {
-                "tags": [
-                    "Spaces"
-                ],
-                "operationId": "post_spaces_id_forum",
-                "summary": "POST /buddynext/v1/spaces/{id}/forum",
                 "parameters": [
                     {
                         "name": "id",
@@ -9468,6 +9543,52 @@
                 }
             }
         },
+        "/spaces/{id}/media/{media_id}/unlink": {
+            "post": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "post_spaces_id_media_media_id_unlink",
+                "summary": "POST /buddynext/v1/spaces/{id}/media/{media_id}/unlink",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "media_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/spaces/{id}/members": {
             "get": {
                 "tags": [
@@ -9507,6 +9628,68 @@
                 "responses": {
                     "200": {
                         "description": "Success."
+                    }
+                }
+            }
+        },
+        "/spaces/{id}/members/decide-bulk": {
+            "post": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "post_spaces_id_members_decide_bulk",
+                "summary": "POST /buddynext/v1/spaces/{id}/members/decide-bulk",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "user_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "decision": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "user_ids",
+                                    "decision"
+                                ]
+                            }
+                        }
                     }
                 }
             }
@@ -9864,30 +10047,6 @@
                 ]
             }
         },
-        "/spaces/{id}/pinned": {
-            "get": {
-                "tags": [
-                    "Spaces"
-                ],
-                "operationId": "get_spaces_id_pinned",
-                "summary": "GET /buddynext/v1/spaces/{id}/pinned",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    }
-                }
-            }
-        },
         "/spaces/{id}/subspaces": {
             "get": {
                 "tags": [
@@ -10024,6 +10183,30 @@
                         "appPassword": []
                     }
                 ]
+            }
+        },
+        "/users/{id}/achievements": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_users_id_achievements",
+                "summary": "GET /buddynext/v1/users/{id}/achievements",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    }
+                }
             }
         },
         "/users/{id}/albums": {

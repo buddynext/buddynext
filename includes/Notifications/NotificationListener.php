@@ -761,10 +761,26 @@ class NotificationListener implements ListenerInterface {
 			return;
 		}
 
-		$batch_size = $this->fanout_batch_size();
-		$batch      = $this->fan_out_announcement_batch( $post_id, $author_id, $space_id, 0, $batch_size );
-
-		if ( $batch_size === $batch['count'] && $batch['last_user_id'] > 0 && function_exists( 'as_enqueue_async_action' ) ) {
+		/*
+		 * Nothing is notified inline. Every recipient, including the first, is
+		 * handed to Action Scheduler.
+		 *
+		 * This used to notify the first SPACE_FANOUT_BATCH (200) recipients inside
+		 * the publishing request. At ~647ms per notification that made publishing
+		 * a site-wide announcement take 2m 15s on a 217-member site - measured, not
+		 * estimated - and it was a fixed cost, so a 50-member community paid the
+		 * same two minutes as a 50,000-member one. The admin clicked Post and the
+		 * browser sat there.
+		 *
+		 * The batch existed to guarantee delivery on small sites without relying on
+		 * the scheduler. Action Scheduler is exactly the component for this: it
+		 * keeps the work moving in the background in an ordered, resumable way
+		 * instead of holding a web request open. Owner decision 2026-08-30.
+		 *
+		 * The keyset pager below is unchanged - this only removes the inline first
+		 * page, so the very first batch now starts at cursor 0 in the background.
+		 */
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				'buddynext_async_announcement_fanout',
 				array(
@@ -772,12 +788,26 @@ class NotificationListener implements ListenerInterface {
 						'post_id'       => $post_id,
 						'author_id'     => $author_id,
 						'space_id'      => $space_id,
-						'after_user_id' => $batch['last_user_id'],
+						'after_user_id' => 0,
 					),
 				),
 				'buddynext'
 			);
+			return;
 		}
+
+		/*
+		 * No Action Scheduler. It ships with BuddyNext, so reaching here means a
+		 * structurally broken build rather than a normal install - but silently
+		 * notifying NOBODY is the one outcome worse than being slow, so the first
+		 * page is still delivered inline.
+		 *
+		 * Deliberately not paged: without a scheduler there is nothing to resume
+		 * from, and looping the whole membership inside a web request is how you
+		 * turn a broken build into a timed-out one. Same single-batch reach this
+		 * path has always had.
+		 */
+		$this->fan_out_announcement_batch( $post_id, $author_id, $space_id, 0, $this->fanout_batch_size() );
 	}
 
 	/**

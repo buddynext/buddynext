@@ -30,6 +30,93 @@ class PostService {
 	}
 
 	/**
+	 * Every value `bn_posts.status` can hold — the single source of truth.
+	 *
+	 * Keyed by the stored slug; `label` and `tone` drive the admin badge and the
+	 * status filter, `admin_filter` says whether the filter offers it. There were
+	 * four hardcoded copies of this list (the ENUM in Installer, admin_query()'s
+	 * allowlist, and ActivityAdmin's FILTER_STATUSES / status_label /
+	 * status_tone), which is the shape most of our status bugs come in: adding a
+	 * value in one place and finding out months later it was missing from
+	 * another. Read from here; do not restate it.
+	 *
+	 * Adding a value means updating the ENUM too — see
+	 * Installer::maybe_alter_tables(), which widens it on existing installs.
+	 * MySQL silently stores an EMPTY STRING for a value the ENUM does not list
+	 * (verified on this install: the UPDATE returned success and the row's status
+	 * became ''), so a value added here and not to the column corrupts rows with
+	 * no error anywhere.
+	 *
+	 * `readable` says whether a post in this state may be read by someone who is
+	 * not its author: it is the authority visibility_error() consults, so a status
+	 * added here is gated by construction instead of being remembered about. Only
+	 * `published` is readable — everything else is the author's business (draft,
+	 * scheduled), a moderator's (pending, under_review), or nobody's (deleted).
+	 *
+	 * `pre_publication` says whether a post in this state has never been visible to
+	 * anyone. It is a DIFFERENT question from `readable` and the two deliberately
+	 * disagree on one value: an `under_review` post is not readable (it is hidden)
+	 * but it was published first, so members HAVE read it. That distinction is the
+	 * whole basis of the edit-window exemption, and collapsing the two flags into
+	 * one would quietly let an author rewrite a reported post after the fact.
+	 *
+	 * @var array<string,array{label_key:string,tone:string,admin_filter:bool,readable:bool,pre_publication:bool}>
+	 */
+	public const STATUSES = array(
+		'published'    => array(
+			'label_key'       => 'Published',
+			'tone'            => 'success',
+			'admin_filter'    => true,
+			'readable'        => true,
+			'pre_publication' => false,
+		),
+		'scheduled'    => array(
+			'label_key'       => 'Scheduled',
+			'tone'            => 'info',
+			'admin_filter'    => true,
+			'readable'        => false,
+			'pre_publication' => true,
+		),
+		// Held by pre-moderation: a NEW post awaiting approval. Distinct from
+		// under_review — see below.
+		'pending'      => array(
+			'label_key'       => 'Pending',
+			'tone'            => 'warning',
+			'admin_filter'    => true,
+			'readable'        => false,
+			'pre_publication' => true,
+		),
+		// Auto-hidden after hitting the report threshold. A separate state from
+		// 'pending' because the two mean different things and are resolved by
+		// different people through different screens: 'pending' is answered by
+		// approve/reject in the Pending tab, under_review by resolving the reports
+		// in the Reports tab. Sharing one value put every auto-hidden post in BOTH
+		// tabs, where approving it republished reported content with its reports
+		// still open, and rejecting it deleted the post and orphaned them.
+		'under_review' => array(
+			'label_key'       => 'Under review',
+			'tone'            => 'warning',
+			'admin_filter'    => true,
+			'readable'        => false,
+			'pre_publication' => false,
+		),
+		'draft'        => array(
+			'label_key'       => 'Draft',
+			'tone'            => 'neutral',
+			'admin_filter'    => true,
+			'readable'        => false,
+			'pre_publication' => true,
+		),
+		'deleted'      => array(
+			'label_key'       => 'Deleted',
+			'tone'            => 'danger',
+			'admin_filter'    => true,
+			'readable'        => false,
+			'pre_publication' => false,
+		),
+	);
+
+	/**
 	 * Allowed post types.
 	 *
 	 * @var string[]
@@ -38,6 +125,14 @@ class PostService {
 		'text',
 		'photo',
 		'file',
+		// A document shared from the composer via WPMediaVerse's document drive.
+		// Its own type, per the bridge contract, so Explore + the feed classify it
+		// and it renders as a link-OUT document card (never the embedded file list
+		// that 'file' uses). The card is resolved per-viewer at render — the post
+		// stores only the document id, never a title, so a private document's name
+		// cannot be snapshotted into a feed someone else can read. See
+		// WPMediaVerseBridge::render_document_card().
+		'document',
 		'link',
 		'poll',
 		'announcement',
@@ -146,7 +241,7 @@ class PostService {
 		}
 
 		if ( 'poll' === $type ) {
-			if ( '0' === (string) get_option( 'buddynext_allow_polls', '1' ) ) {
+			if ( ! buddynext_feature_enabled( 'polls' ) ) {
 				return new WP_Error(
 					'polls_disabled',
 					__( 'Polls are disabled on this community.', 'buddynext' ),
@@ -170,6 +265,18 @@ class PostService {
 
 		if ( 'announcement' === $type ) {
 			$ann_space_id = (int) ( $data['space_id'] ?? 0 );
+
+			// The announcements feature must be enabled. The feed only DISPLAYS
+			// announcements when the toggle is on (FeedService gates every read on
+			// it), so accepting one while it is off writes a post nothing will ever
+			// surface. Gate the write on the same toggle as the read.
+			if ( ! buddynext_feature_enabled( 'announcements' ) ) {
+				return new WP_Error(
+					'feature_disabled',
+					__( 'Announcements are turned off for this community.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
 
 			// Site admins may announce site-wide; a space owner/moderator may announce
 			// to their OWN space. The whole decision is filterable so a site can
@@ -311,9 +418,14 @@ class PostService {
 		// A post created with a future scheduled_at is scheduled, not live — flip
 		// it so it is not published immediately (a held 'pending' post keeps its
 		// status: moderation must clear it before it can go live/scheduled).
+		// Gated on the scheduled-posts feature: with it off the composer button is
+		// hidden, and here the create path ignores any scheduled_at supplied
+		// directly (API/client) so the post publishes now instead of stranding
+		// itself as 'scheduled' with no way to manage it.
 		if ( 'published' === $status
 			&& ! empty( $data['scheduled_at'] )
 			&& strtotime( (string) $data['scheduled_at'] ) > time()
+			&& buddynext_feature_enabled( 'scheduled-posts' )
 		) {
 			$status = 'scheduled';
 		}
@@ -520,6 +632,21 @@ class PostService {
 			// yet is simply never looked at. So the list has to be rebuilt here.
 			FeedService::flush_announcement_ids();
 
+			// ...and the per-viewer page-1 caches with it. Rebuilding the candidate
+			// list only helps a viewer whose feed page is actually re-queried; a
+			// member holding a cached page 1 kept seeing the feed as it was before
+			// the announcement existed, for up to its 30s TTL.
+			//
+			// The asymmetry is the giveaway: ENDING an announcement already flushes
+			// every viewer (end_announcement_now), so an announcement could vanish
+			// site-wide instantly but took half a minute to appear. FeedCache's own
+			// docblock lists announcements as the reason this method exists - it was
+			// simply never wired to the publish path.
+			//
+			// This is what an owner means by "urgent": they post the notice and
+			// expect it on screens now, not on the next cache miss.
+			buddynext_service( 'feed' )->flush_all_home_caches();
+
 			do_action( 'buddynext_announcement_published', $post_id, $user_id, (int) ( $data['space_id'] ?? 0 ) );
 		}
 
@@ -720,7 +847,19 @@ class PostService {
 	public function get_many( array $post_ids ): array {
 		global $wpdb;
 
-		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+		// (int) + a positive filter, NOT absint(). absint() returns the ABSOLUTE
+		// value, so a negative id silently becomes a different, real post: -5 read
+		// as post 5 and get_many() handed back a post nobody asked for. It only
+		// showed when post 5 happened to exist, which made it look like a flaky
+		// test rather than the id-coercion bug it is.
+		$post_ids = array_values(
+			array_unique(
+				array_filter(
+					array_map( 'intval', $post_ids ),
+					static fn( int $id ): bool => $id > 0
+				)
+			)
+		);
 		if ( empty( $post_ids ) ) {
 			return array();
 		}
@@ -916,6 +1055,67 @@ class PostService {
 	}
 
 	/**
+	 * List a user's own posts held for pre-moderation approval, newest first,
+	 * hydrated through the canonical mapper. Powers the owner-only profile
+	 * "Pending" tab.
+	 *
+	 * Distinct from get_pending_by_author(), which serves GET /me/pending-posts
+	 * and returns a narrow raw row for a JSON client. This one returns the same
+	 * hydrated shape user_scheduled_posts() does, because it feeds the same
+	 * post-card template.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $user_id Author user ID.
+	 * @param int $limit   Max rows (1-50). Default 20.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function user_pending_posts( int $user_id, int $limit = 20 ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_posts
+				 WHERE user_id = %d AND status = 'pending'
+				 ORDER BY created_at DESC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Count a user's posts awaiting approval - the figure the owner-only
+	 * "Pending" tab badge shows.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $user_id Author user ID.
+	 * @return int
+	 */
+	public function user_pending_count( int $user_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'pending'",
+				$user_id
+			)
+		);
+	}
+
+	/**
 	 * List a user's recent replies (post comments), newest first, joined to the
 	 * post they replied on. Powers the profile "Replies" tab.
 	 *
@@ -1060,6 +1260,28 @@ class PostService {
 	}
 
 	/**
+	 * Whether a post in this state has never been visible to another member.
+	 *
+	 * The edit window exists so nobody rewrites history other members have already
+	 * read. A post nobody has been allowed to read yet is therefore exempt from it.
+	 *
+	 * This is a method rather than a literal in two places because it WAS a literal
+	 * in two places, and they drifted: the server tested only 'scheduled' behind a
+	 * variable named $is_pending, and the post-card template mirrored the same
+	 * mistake with $bn_is_scheduled. A member whose post was held for moderation
+	 * lost the ability to edit it while it sat in the queue - and once the window
+	 * closed, deleting it was the only way out.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $status Post status.
+	 * @return bool
+	 */
+	public static function is_pre_publication( string $status ): bool {
+		return ! empty( self::STATUSES[ $status ]['pre_publication'] );
+	}
+
+	/**
 	 * Resolve the visibility WP_Error a viewer should receive for a single post.
 	 *
 	 * Single source of truth for the per-post privacy gate that PostController::get_post()
@@ -1133,8 +1355,12 @@ class PostService {
 			}
 		}
 
-		// Gate 3 — followers-only privacy.
-		if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author ) {
+		// Gate 3 — followers-only privacy. An admin (manage_options) may read it too:
+		// they can already moderate/edit it from the backend, and the space gate
+		// above grants them the same bypass (via SpaceVisibility). Gate 4 (private /
+		// "Only Me") below stays author-only even for admins.
+		$viewer_is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+		if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $viewer_is_admin ) {
 			$follows     = function_exists( 'buddynext_service' )
 				? buddynext_service( 'follows' )
 				: new \BuddyNext\SocialGraph\FollowService();
@@ -1154,6 +1380,33 @@ class PostService {
 				'post_forbidden',
 				__( 'You do not have permission to view this post.', 'buddynext' ),
 				array( 'status' => 403 )
+			);
+		}
+
+		/*
+		 * Gate 5 — publication state.
+		 *
+		 * The four gates above all read `privacy` and none of them read `status`,
+		 * so a post that had never been published was gated as though it had. Any
+		 * logged-in member could read another member's draft, a post held for
+		 * pre-moderation, one auto-hidden by the report threshold, or one its
+		 * author had deleted — by id, in full, at 200.
+		 *
+		 * 404 rather than 403, matching gates 1 and 2: a draft's existence is
+		 * itself the author's business, and 403 confirms it.
+		 *
+		 * Answered from the STATUSES registry rather than a list written out here,
+		 * because a list written out here is precisely how `status` came to be
+		 * missing from this method. An unknown status is treated as unreadable —
+		 * MySQL stores '' for a value the ENUM does not carry, and a corrupt row
+		 * should disappear rather than publish itself.
+		 */
+		$status = (string) ( $post['status'] ?? '' );
+		if ( empty( self::STATUSES[ $status ]['readable'] ) && ! $is_author && ! $viewer_is_admin ) {
+			return new WP_Error(
+				'post_not_found',
+				__( 'Post not found.', 'buddynext' ),
+				array( 'status' => 404 )
 			);
 		}
 
@@ -1266,8 +1519,12 @@ class PostService {
 				}
 			}
 
-			// Gate 3 — followers-only privacy.
-			if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author ) {
+			// Gate 3 — followers-only privacy. Admins (manage_options) bypass, the
+			// same access the space gate above and the suspension gate below already
+			// grant them: an admin who moderates/edits the post from the backend
+			// getting a frontend 403 was just an inconsistency. Gate 4 (private /
+			// "Only Me") stays author-only even for admins.
+			if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $is_admin ) {
 				if ( ! ( $viewer > 0 && $follows->is_following( $viewer, $author_id ) ) ) {
 					continue;
 				}
@@ -1310,28 +1567,44 @@ class PostService {
 	 * @return true|WP_Error True on success, WP_Error on permission / edit-window / content-safeguard failure.
 	 */
 	public function update( int $post_id, int $user_id, array $data ): bool|WP_Error {
+		// Suspended users are locked out of all content actions, editing included -
+		// create() gates the same way (spec 09-moderation: "cannot post/comment/react").
+		// Without this an already-suspended member could keep rewriting their existing
+		// posts. Gate before any ownership/DB work, exactly as create() does.
+		if ( $this->is_author_suspended( $user_id ) ) {
+			return \BuddyNext\Moderation\ModerationService::suspension_error(
+				__( 'Your account is suspended and cannot edit posts.', 'buddynext' )
+			);
+		}
+
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
-			return $ownership;
+			// Owners edit their own posts; site admins and space moderators may
+			// edit another member's post as a moderation action (redact/fix a
+			// post that breaks the feed), mirroring delete(). Any other error
+			// (e.g. a missing post) is returned unchanged.
+			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
+				return $ownership;
+			}
 		}
 
 		// Enforce the post edit window (buddynext_post_edit_window, minutes): once
 		// a post is older than the window a non-admin can no longer edit it.
 		// 0 = unlimited.
 		//
-		// A post that has not published yet (status = scheduled) is exempt: the
-		// window exists so nobody rewrites history other members have already
-		// read, and nobody has read a scheduled post. Without the exemption a post
-		// scheduled for next week becomes uneditable an hour after it was drafted,
-		// leaving delete as the author's only way out.
+		// A post nobody has been allowed to read yet is exempt - see
+		// is_pre_publication(). That covers a scheduled post and a post held for
+		// pre-moderation alike: the window guards against rewriting history members
+		// have already read, and neither has been read. An `under_review` post is
+		// NOT exempt, because it was published before it was hidden.
 		$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
 		if ( $edit_window > 0 && ! user_can( $user_id, 'manage_options' ) ) {
 			global $wpdb;
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$row        = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
-			$created_at = $row['created_at'] ?? '';
-			$is_pending = 'scheduled' === (string) ( $row['status'] ?? '' );
-			if ( ! $is_pending && $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
+			$row            = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+			$created_at     = $row['created_at'] ?? '';
+			$is_unpublished = self::is_pre_publication( (string) ( $row['status'] ?? '' ) );
+			if ( ! $is_unpublished && $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
 				return new WP_Error(
 					'edit_window_closed',
 					__( 'The time window for editing this post has passed.', 'buddynext' ),
@@ -1595,14 +1868,10 @@ class PostService {
 			),
 			array( '%s', '%d' )
 		);
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_mod_log',
-			array(
-				'object_type' => 'post',
-				'object_id'   => $post_id,
-			),
-			array( '%s', '%d' )
-		);
+		// bn_mod_log is append-only by design (ModerationLogService) - it is the
+		// permanent moderation audit trail and must survive the deletion of the
+		// content it references. Do NOT delete its rows here; the log reader never
+		// joins to the object, so an orphaned object_id is harmless.
 
 		$wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1836,36 +2105,41 @@ class PostService {
 	}
 
 	/**
-	 * Pin a post to the author's profile.
+	 * Pin a post to the author's own profile.
 	 *
-	 * @param int      $post_id  Post to pin.
-	 * @param int      $user_id  Requesting user (must be owner).
-	 * @param int|null $space_id Optional space context for space-pinning (null = profile pin).
+	 * Profile-only: spaces surface important content through Announcements, not
+	 * pins, so a post that lives in a space cannot be pinned.
+	 *
+	 * @param int $post_id Post to pin.
+	 * @param int $user_id Requesting user (must be the post owner).
 	 * @return true|WP_Error
 	 */
-	public function pin( int $post_id, int $user_id, ?int $space_id = null ): bool|WP_Error {
-		$ownership = $this->assert_owner( $post_id, $user_id );
-		if ( is_wp_error( $ownership ) ) {
-			// Owners pin their own posts; site admins and space moderators may pin
-			// any post in a space they moderate (same escape hatch as delete()).
-			// Space mods managing their own space's pinned set was impossible before.
-			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
-				return $ownership;
-			}
-		}
-
-		global $wpdb;
-
-		// The pin scope is the post's OWN location, never a caller argument: the
-		// REST controller omitted space_id, so every pin fell into the profile
-		// bucket and the per-space cap was fictional (profile + space pins shared
-		// one bucket). A profile pin (space_id NULL) is capped per author; a space
-		// pin is capped per space. Derive the scope from the post itself.
+	public function pin( int $post_id, int $user_id ): bool|WP_Error {
 		$post = $this->get( $post_id );
 		if ( null === $post ) {
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
-		$space_id = (int) ( $post['space_id'] ?? 0 ) > 0 ? (int) $post['space_id'] : null;
+
+		// Pinning is PROFILE-ONLY. Space posts are featured through Announcements
+		// (admin-controlled, expiring, dismissible), so a post in a space can never
+		// be pinned — refuse it explicitly rather than silently no-op.
+		if ( (int) ( $post['space_id'] ?? 0 ) > 0 ) {
+			return new WP_Error(
+				'pin_not_allowed_in_space',
+				__( 'Posts in a space cannot be pinned. Use an announcement to feature a post.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// Own post only. A member's profile pins are their own curation — no admin
+		// or moderator pins another member's post. assert_owner() is deliberately
+		// NOT used: its admin escape hatch would rearrange how a member presents
+		// themselves on their own profile.
+		if ( (int) $post['user_id'] !== $user_id ) {
+			return new WP_Error( 'not_post_owner', __( 'You are not the owner of this post.', 'buddynext' ) );
+		}
+
+		global $wpdb;
 
 		/**
 		 * Filter the maximum number of pinned posts allowed per scope.
@@ -1879,36 +2153,24 @@ class PostService {
 		 * @param int|null $space_id Space ID when pinning inside a space, null for profile pins.
 		 * @param int      $user_id  The user performing the pin action.
 		 */
-		$pin_limit = (int) apply_filters( 'buddynext_post_pin_limit', 1, $space_id, $user_id );
+		// $space_id is always null now (pinning is profile-only); passed for the
+		// filter's stable 3-arg signature so Pro can still raise a member's cap.
+		$pin_limit = (int) apply_filters( 'buddynext_post_pin_limit', 1, null, $user_id );
 
 		if ( $pin_limit > 0 ) {
-			// Count only PUBLISHED pins already in this scope, excluding this post
-			// (so re-pinning an already-pinned post is idempotent, not a false cap
-			// hit). A trashed/pending post must never consume a pin slot.
+			// Count only PUBLISHED profile pins this author already holds, excluding
+			// this post (so re-pinning an already-pinned post is idempotent, not a
+			// false cap hit). A trashed/pending post must never consume a pin slot.
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			if ( null === $space_id ) {
-				// Profile pins: capped per author.
-				$pinned_count = (int) $wpdb->get_var(
-					$wpdb->prepare(
-						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-						 WHERE user_id = %d AND is_pinned = 1 AND space_id IS NULL
-						   AND status = 'published' AND id <> %d",
-						$user_id,
-						$post_id
-					)
-				);
-			} else {
-				// Space pins: capped per space (across all pinners/moderators).
-				$pinned_count = (int) $wpdb->get_var(
-					$wpdb->prepare(
-						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-						 WHERE is_pinned = 1 AND space_id = %d
-						   AND status = 'published' AND id <> %d",
-						$space_id,
-						$post_id
-					)
-				);
-			}
+			$pinned_count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+					 WHERE user_id = %d AND is_pinned = 1 AND space_id IS NULL
+					   AND status = 'published' AND id <> %d",
+					$user_id,
+					$post_id
+				)
+			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			if ( $pinned_count >= $pin_limit ) {
@@ -1967,12 +2229,6 @@ class PostService {
 			buddynext_service( 'feed_cache' )->invalidate_writer( (int) $post['user_id'] );
 		}
 
-		// The space's pinned strip is cached now — it used to query live, which is what the
-		// comment above used to say. A newly pinned post cannot heal into a stale id list
-		// on its own: its id is not in the list, so nothing ever re-reads it and discovers
-		// it is pinned. Without this bump, pinning something simply would not pin it.
-		FeedService::flush_pinned_posts();
-
 		return true;
 	}
 
@@ -1984,13 +2240,16 @@ class PostService {
 	 * @return true|WP_Error
 	 */
 	public function unpin( int $post_id, int $user_id ): bool|WP_Error {
-		$ownership = $this->assert_owner( $post_id, $user_id );
-		if ( is_wp_error( $ownership ) ) {
-			// Same permission as pin(): owner, site admin, or space moderator of the
-			// post's space may unpin it.
-			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
-				return $ownership;
-			}
+		$post = $this->get( $post_id );
+		if ( null === $post ) {
+			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// Owner only, mirroring pin(): a member's profile pins are their own
+		// curation, so no admin/moderator unpin of another member's post.
+		// assert_owner() is not used — its admin escape hatch would bypass this.
+		if ( (int) $post['user_id'] !== $user_id ) {
+			return new WP_Error( 'not_post_owner', __( 'You are not the owner of this post.', 'buddynext' ) );
 		}
 
 		global $wpdb;
@@ -2012,11 +2271,6 @@ class PostService {
 		if ( $bn_unpinned && function_exists( 'buddynext_service' ) ) {
 			buddynext_service( 'feed_cache' )->invalidate_writer( (int) ( $bn_unpinned['user_id'] ?? 0 ) );
 		}
-
-		// And the space's cached pinned strip. This direction matters more than pin(): a
-		// post that stays pinned after being UNPINNED is content an owner has explicitly
-		// tried to take down from the top of their space and failed.
-		FeedService::flush_pinned_posts();
 
 		return true;
 	}
@@ -2537,6 +2791,56 @@ class PostService {
 	}
 
 	/**
+	 * Count draft announcements, optionally scoped to given spaces.
+	 *
+	 * The sibling of `count_pending()` above, and deliberately identical in shape:
+	 * same argument, same empty-means-site-wide rule, same prepared IN (...) build.
+	 * A consumer that has learned one has learned the other.
+	 *
+	 * Exists because the data was already there and only raw SQL could reach it -
+	 * `bn_posts` carries `space_id`, `status` and `is_announcement` with indexes on
+	 * all three, so an owner dashboard wanting "3 drafts waiting" either wrote its
+	 * own query against another plugin's table or did without. Neither is a thing
+	 * BuddyNext should make a consumer choose between.
+	 *
+	 * Announcements are matched on `is_announcement = 1` AND `type = 'announcement'`,
+	 * the same pair `FeedService::list_all_announcements()` uses. Either alone is a
+	 * near-miss: the column is the flag, the type is what the composer writes, and a
+	 * row can carry one without the other after a type change.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<int,int> $space_ids Space ids to scope to. Empty counts site-wide.
+	 * @return int
+	 */
+	public function count_draft_announcements( array $space_ids = array() ): int {
+		global $wpdb;
+
+		$space_ids = array_values( array_filter( array_map( 'absint', $space_ids ) ) );
+
+		// The IN (...) placeholder string is built internally from a fixed count of %d tokens (one per absint'd id); phpcs cannot see the interpolated placeholders.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		if ( empty( $space_ids ) ) {
+			return (int) $wpdb->get_var(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'draft' AND is_announcement = 1 AND type = 'announcement'"
+			);
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'draft' AND is_announcement = 1 AND type = 'announcement'
+				   AND space_id IN ($placeholders)",
+				$space_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	}
+
+	/**
 	 * List posts awaiting pre-moderation approval (oldest first), hydrated with
 	 * author + space for the review queue. Paginated per the scale contract.
 	 *
@@ -2646,6 +2950,103 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Paginated, filterable activity query for the admin Activity screen.
+	 *
+	 * Big-site ready: LIMIT/OFFSET on the page, a dedicated COUNT for the total,
+	 * every WHERE column indexed (status_scheduled, space_feed, user_feed,
+	 * post_created), and the author search bounded by the users table's own
+	 * indexes. Content search is a LIKE scan, kept cheap by pagination and the
+	 * other filters narrowing the set first. Returns raw rows; the caller batches
+	 * author lookups to avoid an N+1.
+	 *
+	 * @param array{search?:string,type?:string,status?:string,space_id?:int,author_id?:int,date_from?:string,date_to?:string,page?:int,per_page?:int} $args Filters + paging.
+	 * @return array{items:array<int,array<string,mixed>>,total:int}
+	 */
+	public function admin_query( array $args ): array {
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_posts';
+
+		$per_page = max( 1, min( 100, (int) ( $args['per_page'] ?? 25 ) ) );
+		$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
+		$offset   = ( $page - 1 ) * $per_page;
+
+		$where  = array( '1=1' );
+		$params = array();
+
+		$status = sanitize_key( (string) ( $args['status'] ?? '' ) );
+		if ( '' !== $status && isset( self::STATUSES[ $status ] ) ) {
+			$where[]  = 'p.status = %s';
+			$params[] = $status;
+		}
+
+		$type = sanitize_key( (string) ( $args['type'] ?? '' ) );
+		if ( '' !== $type ) {
+			$where[]  = 'p.type = %s';
+			$params[] = $type;
+		}
+
+		$space_id = (int) ( $args['space_id'] ?? 0 );
+		if ( $space_id > 0 ) {
+			$where[]  = 'p.space_id = %d';
+			$params[] = $space_id;
+		}
+
+		$author_id = (int) ( $args['author_id'] ?? 0 );
+		if ( $author_id > 0 ) {
+			$where[]  = 'p.user_id = %d';
+			$params[] = $author_id;
+		}
+
+		$date_from = (string) ( $args['date_from'] ?? '' );
+		if ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date_from ) ) {
+			$where[]  = 'p.created_at >= %s';
+			$params[] = $date_from . ' 00:00:00';
+		}
+
+		$date_to = (string) ( $args['date_to'] ?? '' );
+		if ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date_to ) ) {
+			$where[]  = 'p.created_at <= %s';
+			$params[] = $date_to . ' 23:59:59';
+		}
+
+		$search = trim( (string) ( $args['search'] ?? '' ) );
+		if ( '' !== $search ) {
+			$like     = '%' . $wpdb->esc_like( $search ) . '%';
+			$where[]  = '( p.content LIKE %s OR p.user_id IN ( SELECT ID FROM ' . $wpdb->users . ' WHERE user_login LIKE %s OR display_name LIKE %s ) )';
+			$params[] = $like;
+			$params[] = $like;
+			$params[] = $like;
+		}
+
+		$where_sql = implode( ' AND ', $where );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$count_sql = "SELECT COUNT(*) FROM {$table} p WHERE {$where_sql}";
+		$total     = (int) ( $params
+			? $wpdb->get_var( $wpdb->prepare( $count_sql, $params ) )
+			: $wpdb->get_var( $count_sql ) );
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.user_id, p.space_id, p.type, p.content, p.status, p.is_announcement,
+						p.reaction_count, p.comment_count, p.share_count, p.created_at, p.edited_at
+				 FROM {$table} p
+				 WHERE {$where_sql}
+				 ORDER BY p.created_at DESC
+				 LIMIT %d OFFSET %d",
+				array_merge( $params, array( $per_page, $offset ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array(
+			'items' => is_array( $rows ) ? $rows : array(),
+			'total' => $total,
+		);
 	}
 
 	/**
@@ -3179,25 +3580,24 @@ class PostService {
 		$meta['title']     = $oembed['title'];
 		$meta['thumbnail'] = $oembed['thumbnail'];
 
-		// SSRF guard. The URL is user-supplied (post content / link meta), so we
-		// must not let it point the server at internal hosts. url_is_safe_for_fetch()
-		// rejects non-http(s) schemes and any host that resolves into a private or
-		// reserved range — including link-local 169.254.0.0/16, which covers cloud
-		// metadata endpoints (e.g. 169.254.169.254) that wp_http_validate_url() does
-		// NOT block on its own.
+		// SSRF guard. The URL is user-supplied (post content / link meta), so we must
+		// not let it point the server at internal hosts. url_is_safe_for_fetch()
+		// rejects non-http(s) schemes and any host resolving into a private or
+		// reserved range, link-local 169.254.0.0/16 (cloud metadata) included.
+		//
+		// This comment used to add that wp_http_validate_url() does NOT block
+		// 169.254 on its own. Measured on WP 7.1, it does - along with CGNAT,
+		// TEST-NETs, multicast and reserved space - and core applies it to every
+		// redirect hop. Our guard still has to be the one that decides, because we
+		// support WP 6.9+ and core's list has grown over releases, but the old
+		// sentence was wrong and someone would have relied on it.
 		if ( ! self::url_is_safe_for_fetch( $url ) ) {
 			return $meta;
 		}
 
-		$response = wp_remote_get(
-			$url,
-			array(
-				'timeout'             => 5,
-				'user-agent'          => 'BuddyNext/1.0 (Link Preview)',
-				'reject_unsafe_urls'  => true,
-				'limit_response_size' => 2 * MB_IN_BYTES,
-			)
-		);
+		// Every redirect hop is re-validated; see the method for why not
+		// 'redirection' => 0.
+		$response = self::fetch_following_validated_redirects( $url );
 
 		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
 			return $meta;
@@ -3348,6 +3748,89 @@ class PostService {
 		}
 
 		return array_values( array_unique( array_filter( $ips ) ) );
+	}
+
+	/**
+	 * Fetch a URL, re-checking OUR SSRF guard on every redirect hop.
+	 *
+	 * `wp_remote_get()` follows up to five redirects by itself, and the guard at the
+	 * call site only ever saw the FIRST url. A page on a perfectly ordinary host
+	 * could answer `302 Location: http://169.254.169.254/latest/meta-data/` and the
+	 * server would follow it - reachable by any logged-in member through the
+	 * link-preview route.
+	 *
+	 * WordPress does mitigate this already: `WP_Http::handle_redirects()` runs
+	 * `wp_http_validate_url()` on every hop, and on WP 7.1 that rejects the same
+	 * ranges we do. But we support 6.9+, core's list has grown over releases, and
+	 * that branch covers IPv4 only - so the plugin should not depend on which core
+	 * happens to be underneath it.
+	 *
+	 * `'redirection' => 0` alone would have been the cheap fix and a bad one: it
+	 * breaks previews for every URL that redirects, which is most of them
+	 * (http->https, trailing slash, link shorteners, campaign redirects). The hops
+	 * are followed here instead, each validated before it is requested.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $url Already-validated starting URL.
+	 * @return array<string,mixed>|\WP_Error Response, or WP_Error when a hop is refused.
+	 */
+	private static function fetch_following_validated_redirects( string $url ) {
+		$args = array(
+			'timeout'             => 5,
+			'user-agent'          => 'BuddyNext/1.0 (Link Preview)',
+			'reject_unsafe_urls'  => true,
+			'limit_response_size' => 2 * MB_IN_BYTES,
+			// Followed here instead, one validated hop at a time.
+			'redirection'         => 0,
+		);
+
+		/**
+		 * How many redirects a link preview may follow.
+		 *
+		 * Matches the WordPress default. Set to zero on a site that would rather
+		 * follow none at all.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param int    $hops Maximum redirects.
+		 * @param string $url  Starting URL.
+		 */
+		$max_hops = (int) apply_filters( 'buddynext_link_preview_max_redirects', 5, $url );
+
+		for ( $hop = 0; $hop <= $max_hops; $hop++ ) {
+			$response = wp_remote_get( $url, $args );
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			$code = (int) wp_remote_retrieve_response_code( $response );
+
+			if ( ! in_array( $code, array( 301, 302, 303, 307, 308 ), true ) ) {
+				return $response;
+			}
+
+			$location = trim( (string) wp_remote_retrieve_header( $response, 'location' ) );
+
+			if ( '' === $location ) {
+				return $response;
+			}
+
+			// A Location may be relative; resolve it against the URL just requested.
+			$next = \WP_Http::make_absolute_url( $location, $url );
+
+			if ( ! self::url_is_safe_for_fetch( $next ) ) {
+				return new \WP_Error(
+					'unsafe_redirect',
+					__( 'The link redirected somewhere we will not follow.', 'buddynext' )
+				);
+			}
+
+			$url = $next;
+		}
+
+		return new \WP_Error( 'too_many_redirects', __( 'The link redirected too many times.', 'buddynext' ) );
 	}
 
 	/**

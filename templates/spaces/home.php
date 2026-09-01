@@ -238,25 +238,53 @@ if ( ! $bn_active_renderable ) {
 		?>
 		<?php if ( $bn_show_gate ) : ?>
 
-			<div class="bn-card bn-sh-gate">
-				<div class="bn-sh-gate__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
-				<h2 class="bn-sh-gate__title"><?php esc_html_e( 'This is a private space', 'buddynext' ); ?></h2>
-				<p class="bn-sh-gate__lede">
-					<?php
-					echo $is_invited
-						? esc_html__( 'Accept the invitation above to read posts and participate.', 'buddynext' )
-						: esc_html__( 'Join to read posts and participate in discussions.', 'buddynext' );
-					?>
-				</p>
-				<?php
-				// The gate card is purely informational. The space hero (always
-				// rendered in the header) owns the single primary CTA for every
-				// state — guest "Log in to join", pending "Request pending", and
-				// "Request to join" — so repeating it here produced two identical
-				// buttons on one page. One primary CTA per page, matching how
-				// Facebook/LinkedIn present a gated group.
-				?>
-			</div>
+			<?php
+			// TWO different gates wear the same lock, and until now they wore the
+			// same words too.
+			//
+			// A member who has already JOINED can still be gated - by a space that
+			// requires a membership plan. Telling them "join to read" is telling
+			// them to do the one thing they have already done, while their own hero
+			// badge says "Joined" and the sidebar lists them under MEMBERS. Three
+			// statements on one screen, two contradicting the third.
+			//
+			// So the copy branches on WHY they cannot read it, not on the fact that
+			// they cannot. The plan name is asked for through a filter rather than
+			// read from `required_ability` here: gating is a Pro feature, the ability
+			// string is its private vocabulary, and Free has no business parsing
+			// "tier:pro" into a plan name. Pro answers; Free degrades to the generic
+			// line when it is absent.
+			$bn_gate_plan = '';
+			if ( null !== $bn_member_role_now ) {
+				/**
+				 * Name the plan a gated space requires, for the gate card's copy.
+				 *
+				 * @since 1.1.6
+				 *
+				 * @param string $name  Plan name, '' when unknown or not gated by a plan.
+				 * @param array  $space The space row.
+				 * @param int    $user  Viewing member.
+				 */
+				$bn_gate_plan = (string) apply_filters( 'buddynext_space_gate_plan_name', '', $bn_space_row, $current_user_id );
+			}
+			$bn_gate_is_plan = '' !== $bn_gate_plan;
+			?>
+			<?php
+			// Shared with SpaceNav::render_feed()'s gated branch, so the space-home
+			// tab body and the public feed entry render the identical gate card.
+			buddynext_get_template(
+				'partials/space-content-gate.php',
+				array(
+					'gate_is_plan' => $bn_gate_is_plan,
+					'gate_plan'    => $bn_gate_plan,
+					'is_invited'   => $is_invited,
+				)
+			);
+			// The gate card is purely informational: the space hero (always rendered
+			// in the header) owns the single primary CTA for every state, so the card
+			// carries no button of its own - one primary CTA per page, the way
+			// Facebook/LinkedIn present a gated group.
+			?>
 
 		<?php else : ?>
 

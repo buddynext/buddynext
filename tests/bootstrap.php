@@ -38,6 +38,44 @@ if ( ! is_dir( $wp_tests_dir ) ) {
 	exit( 1 );
 }
 
+/*
+ * The directory existing is NOT proof the suite is usable.
+ *
+ * $wp_tests_dir defaults into the system temp directory, which macOS prunes on
+ * its own schedule — and it prunes by FILE, not by tree. A partially-cleaned
+ * library leaves the directory and some subfolders in place while the files the
+ * bootstrap needs are gone, so the is_dir() check above passes and the require
+ * below dies with a bare "Failed to open stream" and a PHP stack trace.
+ *
+ * That happened mid-session: the suite had run minutes earlier, then stopped,
+ * and the trace pointed at this file rather than at the missing library. A
+ * commit went in on lint and browser verification alone before the cause was
+ * understood. Name the actual problem and the one command that fixes it.
+ */
+$bn_required_files = array(
+	'/includes/functions.php',
+	'/includes/bootstrap.php',
+	'/wp-tests-config.php',
+);
+
+$bn_missing = array();
+foreach ( $bn_required_files as $bn_required ) {
+	if ( ! file_exists( $wp_tests_dir . $bn_required ) ) {
+		$bn_missing[] = $bn_required;
+	}
+}
+
+if ( ! empty( $bn_missing ) ) {
+	printf(
+		'WordPress test suite at %1$s is INCOMPLETE — missing %2$s.' . PHP_EOL
+			. 'The system temp directory is pruned periodically, which removes files without removing the folder.' . PHP_EOL
+			. 'Reinstall it:  bin/install-wp-tests.sh' . PHP_EOL,
+		$wp_tests_dir,
+		implode( ', ', $bn_missing )
+	);
+	exit( 1 );
+}
+
 // WordPress test config (DB credentials etc.) is written by the install script.
 require_once $wp_tests_dir . '/includes/functions.php';
 
@@ -207,4 +245,8 @@ require_once $wp_tests_dir . '/includes/bootstrap.php';
 // run plugin activation, so without this every test that touches a custom table
 // (member types, moderation, onboarding, social graph, spaces, …) errors on a
 // missing table. Schema only — no seeds — so per-test fixtures start clean.
-\BuddyNext\Core\Installer::install_schema();
+// Forced: this is the one call that must actually build/converge the schema. It
+// runs before any test transaction, so its DDL is safe here - and doing it here is
+// what lets install_schema() no-op inside tests, where CREATE TABLE would be
+// rewritten to CREATE TEMPORARY TABLE and shadow the real tables mid-transaction.
+\BuddyNext\Core\Installer::install_schema( true );

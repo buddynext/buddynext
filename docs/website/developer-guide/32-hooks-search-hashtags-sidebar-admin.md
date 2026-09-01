@@ -16,15 +16,39 @@ The action and filter seams for unified search, the hashtag system, the search i
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_search_results` | filter | Before the built-in SQL runs; return a non-null result set to bypass BuddyNext's query entirely (external search driver) | `null\|array $result, string $query, string $type, int $per_page, int $page` |
-| `buddynext_search_query_args` | filter | The query args are assembled, before the built-in SQL builds its WHERE clauses (the Pro advanced-filter seam: tier, space, member-label, joined-after) | `array $args, string $query, int $viewer_id` |
+| `buddynext_search_query_args` | filter | The query args are assembled, before the built-in SQL builds its WHERE clauses (the Pro advanced-filter seam: plan, space, member-label, joined-after) | `array $args, string $query, int $viewer_id` |
 | `buddynext_search_item` | filter | Once per result row on the built-in SQL path (mutate-only; does not run when a driver short-circuits) | `array $item, string $query, string $type, int $viewer_id, array $args` |
 | `buddynext_search_results` (results side) | filter | After items are built, to post-process the result set | `array $results, ...` |
 | `buddynext_search_performed` | action | A search has completed and the result set is finalised | `string $query, int $viewer_id, array $args, array $results` |
-| `buddynext_search_filter_options` | filter | The advanced member-search controls are populated (Pro supplies tier / space / member-label option lists; empty groups hide their control) | `array $options, int $viewer_id` |
+| `buddynext_search_filter_options` | filter | The advanced member-search controls are populated (Pro supplies plan / space / member-label option lists; empty groups hide their control) | `array $options, int $viewer_id` |
+| `buddynext_search_viewer_spaces` | filter | The spaces whose content a logged-in viewer may find, resolved from membership. Answer with ADDITIONAL space ids the viewer may read without having joined (Pro adds gated spaces whose `required_ability` they hold). Widening only: membership ids are re-added regardless, and every addition is verified against `can_view_content()` before it is honoured, so a listener cannot grant reach into a space the viewer may not read | `int[] $space_ids, int $viewer_id` |
+| `buddynext_search_entitled_space_limit` | filter | How many entitled-but-unjoined spaces a single search will verify. Each costs a space fetch and an ability check, so the list is cut rather than allowed to grow. Default `200` | `int $limit, int $viewer_id` |
 | `buddynext_search_member_meta_html` | filter | A member row in the results renders its meta line | `string $html, ...` |
 | `buddynext_search_before` / `buddynext_search_after` | action | Around the search results page body | - |
 
 > **Note:** `buddynext_search_query_args` is where the `member_label`, `tier_slug`, `space_id`, and `joined_after` keys enter the query. BuddyNext Free reads any of those keys if present, but only BuddyNext Pro populates them (and populates `buddynext_search_filter_options` so the controls appear). The page degrades cleanly with Pro inactive: no provider, no control.
+
+### `scope_space_id` - search inside one space
+
+`scope_space_id` is a **Free** key on the same filter. It restricts **content** results to a single space, narrowing the existing visibility rules rather than replacing them, and it is what powers the in-space search box on a space's Feed tab.
+
+```php
+add_filter( 'buddynext_search_query_args', function ( array $args, string $query, int $viewer_id ): array {
+    $args['scope_space_id'] = 42;   // content from space 42 only
+    return $args;
+}, 10, 3 );
+```
+
+**Do not reach for `space_id` to do this.** The two keys look interchangeable and are not:
+
+| Key | Owner | Means | Applied by |
+|---|---|---|---|
+| `scope_space_id` | Free | Restrict content rows to one space | `si.space_id = N`, a key lookup on the `space` BTREE index |
+| `space_id` | Pro | Members **of** this space | A join against `bn_space_members` on `buddynext_search_advanced_where` |
+
+`space_id` is one of Pro's five advanced keys, and `AdvancedSearchFilters::apply_pro_args()` **strips it** whenever the viewer fails the `search.saved_advanced` entitlement - which includes every anonymous visitor. Scoping a free feature to it would work on a Free-only site and then silently stop working the moment monetization was switched on, handing the member the whole community's results while the interface told them they had searched one space. Two concerns, two keys, deliberately.
+
+`scope_space_id` is **not** applied to member searches (`user` and `member` types), because user rows carry no `space_id` of their own and the column test would match nothing.
 
 ## Hashtag seams
 
@@ -95,6 +119,12 @@ The admin hub owns the BuddyNext top-level menu and arranges every settings tab 
 | `buddynext_profile_field_type_labels` | filter | Field-type labels for the admin UI | `array $labels` |
 | `buddynext_before_edit_member_form` / `_after_edit_member_form` | action | Around the admin member-edit form | `int $user_id, WP_User $wp_user` |
 | `buddynext_outbound_webhook_limit` | filter | The max number of outbound webhooks an admin can register | `int $limit` |
+| `buddynext_search_fuzzy_max_rows` | filter | The largest search index on which the fuzzy fallback still runs | `int $max_rows` |
+| `buddynext_explore_aside_pulse` | action | Fires at the top of the Explore sidebar, for a live community-pulse card | `int $uid` |
+| `buddynext_nav_icon_choices` | filter | The icon slugs offered by the nav-item picker. Any slug in `assets/icons/` works whether or not it is listed here; this only shapes the picker | (none) |
+| `buddynext_object_cache_warn_threshold` | filter | The member count above which a missing persistent object cache is worth warning the owner about | `int $threshold` |
+| `buddynext_integration_search_enabled` | action | An integration's search indexing is switched ON. The integration's own bridge listens for its key and backfills | `string $key` |
+| `buddynext_integration_search_disabled` | action | An integration's search indexing is switched OFF, so its bridge can clear what it indexed | `string $key` |
 
 > **Note:** `bn_admin_hub_sections` and `bn_admin_hub_tab_placement` use the internal `bn_*` prefix because they wire admin chrome. They are stable extension points, but treat the section/tab keys as the public contract rather than the surrounding admin classes. See Hooks Overview for the `buddynext_*` vs `bn_*` distinction.
 

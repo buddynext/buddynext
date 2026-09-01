@@ -4,7 +4,23 @@
   backupGlobals="false"
   colors="true"
   convertDeprecationsToExceptions="false"
+  executionOrder="random"
+  resolveDependencies="true"
 >
+  <!-- Clear BuddyNext's in-memory statics before every test.
+
+       WP_UnitTestCase rolls the DATABASE back between tests; nothing rolls back a
+       PHP static, so a memoised answer outlives the rows it was derived from. That
+       was the second cause of this suite disagreeing with itself run to run.
+
+       A hook rather than a base class on purpose: 2,462 tests extend
+       WP_UnitTestCase directly and the next one will too. See
+       tests/Support/StateReset.php, and StaticStateInventoryTest which fails if a
+       new static appears that is neither reset nor declared persistent. -->
+  <extensions>
+    <extension class="BuddyNext\Tests\Support\StateReset"/>
+  </extensions>
+
   <testsuites>
     <testsuite name="buddynext">
       <directory>tests/</directory>

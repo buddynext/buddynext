@@ -56,8 +56,16 @@ class SystemFieldGuardTest extends \WP_UnitTestCase {
 
 	/**
 	 * The installer flags exactly the code-consumed spine as system fields:
-	 * bio, headline, location (search/directory/hero) + interests (the
-	 * suggestion signal added in the interests Phase 0 migration).
+	 * bio, headline, location (search/directory/hero), interests (the suggestion
+	 * signal added in the interests Phase 0 migration) and pronouns.
+	 *
+	 * pronouns joined the spine in schema v18 and this expectation was not
+	 * updated with it, so the test has been failing ever since — which is worse
+	 * than useless, because a permanently red guard cannot report the regression
+	 * it exists to catch. The seed is correct: the hero renders pronouns by
+	 * hardcoded key (ProfileService::HERO_IDENTITY_FIELDS), and a template may
+	 * reference a field by name ONLY when that field is guaranteed to exist.
+	 * Leaving it deletable is what made it vanishable.
 	 *
 	 * @return void
 	 */
@@ -68,7 +76,7 @@ class SystemFieldGuardTest extends \WP_UnitTestCase {
 			"SELECT field_key FROM {$wpdb->prefix}bn_profile_fields WHERE is_system = 1 ORDER BY field_key ASC"
 		);
 
-		$this->assertSame( array( 'bio', 'headline', 'interests', 'location' ), $system_keys );
+		$this->assertSame( array( 'bio', 'headline', 'interests', 'location', 'pronouns' ), $system_keys );
 	}
 
 	/**

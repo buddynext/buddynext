@@ -242,19 +242,32 @@ export function bnConfirm( opts, legacyOpts ) {
  * @param {string} [opts.defaultValue]
  * @param {string} [opts.confirmLabel]
  * @param {string} [opts.cancelLabel]
+ * @param {string} [opts.inputType]  'textarea' (default) or an <input> type such
+ *                                   as 'password'. A single-line secret must not
+ *                                   render as a resizable textarea that echoes
+ *                                   what is typed, so the account-deletion
+ *                                   re-auth asks for 'password' here rather than
+ *                                   growing its own dialog.
+ * @param {string} [opts.autocomplete] autocomplete hint for the input.
  * @return {Promise<string|null>}
  */
 export function bnPrompt( opts ) {
 	const cfg = Object.assign( { tone: 'default' }, opts || {} );
 
-	const input = document.createElement( 'textarea' );
+	const isTextarea = 'textarea' === ( cfg.inputType || 'textarea' );
+	const input = document.createElement( isTextarea ? 'textarea' : 'input' );
 	input.className = 'bn-input';
-	input.rows = 3;
+	if ( isTextarea ) {
+		input.rows = 3;
+		input.style.resize = 'vertical';
+	} else {
+		input.type = cfg.inputType;
+		if ( cfg.autocomplete ) { input.autocomplete = cfg.autocomplete; }
+	}
 	input.placeholder = cfg.placeholder || '';
 	input.value = cfg.defaultValue || '';
 	input.style.marginTop = '12px';
 	input.style.width = '100%';
-	input.style.resize = 'vertical';
 
 	cfg.extraNode = input;
 
@@ -329,16 +342,27 @@ export function bnReportDialog( opts ) {
 	// moderation queue has to pass that queue's reasons — WPMediaVerse's media report endpoint
 	// validates against its own enum (it has nudity / violence / copyright, and no
 	// inappropriate / impersonation), so sending ours would be rejected as an invalid reason.
+	// The server sends the whole vocabulary as ordered [ slug, label ] pairs, so a
+	// reason added through buddynext_report_reasons is OFFERED here rather than
+	// merely accepted on submission. This list used to be hardcoded, which is why
+	// the filter was invisible to every JS surface — and the copy had drifted too,
+	// missing `fake` while the profile modal offered it.
+	//
+	// The literal below is a last-resort fallback for a page whose shell data did
+	// not load; it is deliberately NOT the source of truth.
+	const shellReasons = ( typeof window !== 'undefined' && window.bnShellData && window.bnShellData.reportReasons ) || null;
 	const REASONS = ( Array.isArray( cfg.reasons ) && cfg.reasons.length )
 		? cfg.reasons
-		: [
-			[ 'spam',           si( 'reasonSpam', 'Spam' ) ],
-			[ 'harassment',     si( 'reasonHarassment', 'Harassment or hate speech' ) ],
-			[ 'misinformation', si( 'reasonMisinformation', 'Misinformation' ) ],
-			[ 'inappropriate',  si( 'reasonInappropriate', 'Inappropriate content' ) ],
-			[ 'impersonation',  si( 'reasonImpersonation', 'Impersonation' ) ],
-			[ 'other',          si( 'reasonOther', 'Something else' ) ],
-		];
+		: ( Array.isArray( shellReasons ) && shellReasons.length )
+			? shellReasons
+			: [
+				[ 'spam',           si( 'reasonSpam', 'Spam' ) ],
+				[ 'harassment',     si( 'reasonHarassment', 'Harassment or hate speech' ) ],
+				[ 'misinformation', si( 'reasonMisinformation', 'Misinformation' ) ],
+				[ 'inappropriate',  si( 'reasonInappropriate', 'Inappropriate content' ) ],
+				[ 'impersonation',  si( 'reasonImpersonation', 'Impersonation' ) ],
+				[ 'other',          si( 'reasonOther', 'Something else' ) ],
+			];
 
 	const wrap = document.createElement( 'div' );
 	wrap.style.display = 'flex';

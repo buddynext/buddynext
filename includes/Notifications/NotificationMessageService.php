@@ -55,7 +55,18 @@ class NotificationMessageService {
 		$type        = isset( $row['type'] ) ? (string) $row['type'] : '';
 		$actor_id    = isset( $row['sender_id'] ) ? (int) $row['sender_id'] : 0;
 		$object_id   = isset( $row['object_id'] ) ? (int) $row['object_id'] : 0;
+		/*
+		 * Two counts can describe "how many", and the bigger one is the honest one.
+		 *
+		 * `group_count` is the stored write-time tally: re-fires of the SAME event
+		 * merged into one row. `group_size` is the read-time collapse: distinct
+		 * events on the same object folded together for display (NotificationService
+		 * ::group_page). A row can carry both, and taking either alone under-reports
+		 * - which on this screen means telling a moderator there are fewer requests
+		 * waiting than there are.
+		 */
 		$group_count = isset( $row['group_count'] ) ? max( 1, (int) $row['group_count'] ) : 1;
+		$group_count = max( $group_count, isset( $row['group_size'] ) ? (int) $row['group_size'] : 1 );
 		$data        = $this->normalise_data( $row['data'] ?? null );
 
 		$actor_name = $this->resolve_actor_name( $actor_id );
@@ -280,6 +291,14 @@ class NotificationMessageService {
 					$space_name
 				);
 
+			case 'bn.space_media_unlinked':
+				return sprintf(
+					/* translators: 1: actor display name, 2: space name. */
+					__( '%1$s removed media you shared from %2$s. You still have your copy.', 'buddynext' ),
+					$actor_name,
+					$this->resolve_space_name( $object_id )
+				);
+
 			case 'bn.space_role_changed':
 				$role = isset( $data['role'] ) ? (string) $data['role'] : '';
 				return sprintf(
@@ -311,6 +330,16 @@ class NotificationMessageService {
 				return __( 'You are close to an account strike. Please review the community guidelines.', 'buddynext' );
 
 			case 'bn.strike_issued':
+				$strike_suspend_at = isset( $data['suspend_threshold'] ) ? (int) $data['suspend_threshold'] : 0;
+				$strike_count      = isset( $data['count'] ) ? (int) $data['count'] : 0;
+				if ( ! empty( $data['near_suspension'] ) && $strike_suspend_at > 0 && $strike_count > 0 ) {
+					return sprintf(
+						/* translators: 1: the member's current active strike count, 2: strikes at which the account is suspended. */
+						__( 'Your account received a strike (%1$d of %2$d). At %2$d strikes your account is suspended — please review the community guidelines.', 'buddynext' ),
+						$strike_count,
+						$strike_suspend_at
+					);
+				}
 				return __( 'Your account received a strike for a community guideline breach.', 'buddynext' );
 
 			case 'bn.member_suspended':
@@ -407,6 +436,20 @@ class NotificationMessageService {
 				return sprintf(
 					/* translators: %s: actor display name. */
 					__( '%s favourited your media.', 'buddynext' ),
+					$actor_name
+				);
+
+			case 'bn.media_reaction':
+				return sprintf(
+					/* translators: %s: actor display name. */
+					__( '%s reacted to your media.', 'buddynext' ),
+					$actor_name
+				);
+
+			case 'bn.media_mention':
+				return sprintf(
+					/* translators: %s: actor display name. */
+					__( '%s mentioned you in a media comment.', 'buddynext' ),
 					$actor_name
 				);
 
@@ -540,6 +583,14 @@ class NotificationMessageService {
 				return sprintf(
 					/* translators: 1: actor display name, 2: number of other actors. */
 					_n( '%1$s and %2$d other favourited your media.', '%1$s and %2$d others favourited your media.', $others, 'buddynext' ),
+					$actor_name,
+					$others
+				);
+
+			case 'bn.media_reaction':
+				return sprintf(
+					/* translators: 1: actor display name, 2: number of other actors. */
+					_n( '%1$s and %2$d other reacted to your media.', '%1$s and %2$d others reacted to your media.', $others, 'buddynext' ),
 					$actor_name,
 					$others
 				);
@@ -755,6 +806,16 @@ class NotificationMessageService {
 					'tone'  => 'warn',
 					'label' => __( 'Media favourite', 'buddynext' ),
 				),
+				'bn.media_reaction'           => array(
+					'icon'  => 'smile',
+					'tone'  => 'accent',
+					'label' => __( 'Media reaction', 'buddynext' ),
+				),
+				'bn.media_mention'            => array(
+					'icon'  => 'at-sign',
+					'tone'  => 'accent',
+					'label' => __( 'Media mention', 'buddynext' ),
+				),
 				'bn.test'                     => array(
 					'icon'  => 'bell',
 					'tone'  => 'info',
@@ -902,6 +963,7 @@ class NotificationMessageService {
 			case 'bn.space_join_declined':
 			case 'bn.space_role_changed':
 			case 'bn.space_ownership_received':
+			case 'bn.space_media_unlinked':
 				return $object_id > 0 ? PageRouter::space_url( $object_id ) : PageRouter::spaces_url();
 
 			case 'bn.bulk_invite':
@@ -916,6 +978,8 @@ class NotificationMessageService {
 					: PageRouter::messages_url();
 
 			case 'bn.media_favorited':
+			case 'bn.media_reaction':
+			case 'bn.media_mention':
 				return $object_id > 0
 					? add_query_arg( 'post_id', $object_id, PageRouter::activity_url() )
 					: PageRouter::activity_url();
@@ -1011,6 +1075,7 @@ class NotificationMessageService {
 				'bn.space_new_post',
 				'bn.new_message',
 				'bn.media_favorited',
+				'bn.media_reaction',
 			),
 			true
 		);

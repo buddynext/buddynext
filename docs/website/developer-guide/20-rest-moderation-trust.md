@@ -7,7 +7,7 @@ This page documents the moderation REST surface in BuddyNext free: member report
 ## Overview / Contract
 
 - Base namespace: `buddynext/v1`. Full base URL: `/wp-json/buddynext/v1`.
-- Three permission tiers gate these routes:
+- Three permission plans gate these routes:
   - **Auth** (`require_auth`) - any logged-in user. Used for filing reports and appeals.
   - **Queue** (`require_queue_access`) - site admins (`manage_options`) plus space owners/moderators (scoped to their spaces). Used for reading and actioning the queue.
   - **Admin** (`require_admin`) - site admins only. Used for trust actions and report dispositions.
@@ -42,7 +42,7 @@ A report is filed by a member against an object (post, reply, user, etc.). Admin
 
 ### Related queue surfaces
 
-These sit alongside the report queue and share the same queue-access tier.
+These sit alongside the report queue and share the same queue-access plan.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|

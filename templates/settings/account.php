@@ -63,6 +63,8 @@ $profile_url  = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 				'isDirty'                  => false,
 				'errors'                   => (object) array(),
 				'profileSlug'              => $profile_slug,
+				// The normalised value as typed, so the @handle preview updates live.
+				'slugDraft'                => $profile_slug,
 				'profileUrl'               => $profile_url,
 				'slugAvailable'            => null,
 				'slugChecking'             => false,

@@ -51,11 +51,24 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 		<h2 class="bn-ep-card-title"><?php esc_html_e( 'Account', 'buddynext' ); ?></h2>
 	</header>
 	<div class="bn-ep-card-body bn-ep-account-rows">
-		<!-- Profile URL row (slug field — too composite to fit the generic account-row part) -->
+		<?php
+		/*
+		 * Handle row (too composite to fit the generic account-row part).
+		 *
+		 * Labelled "Handle", not "Profile URL". The value is the member's @mention
+		 * handle as well as their URL — one string read by PageRouter::resolve_user(),
+		 * PageRouter::member_handle() and Handle::resolve() — and the field said
+		 * "Profile URL" with no help text, so a member renamed their URL and their
+		 * @handle changed underneath them with nothing on screen saying so.
+		 */
+		?>
 		<div class="bn-ep-field bn-ep-field--full bn-ep-slug-row">
 			<label class="bn-ep-label" for="bn-ep-slug">
-				<?php esc_html_e( 'Profile URL', 'buddynext' ); ?>
+				<?php esc_html_e( 'Handle', 'buddynext' ); ?>
 			</label>
+			<p class="bn-ep-hint" id="bn-ep-slug-hint">
+				<?php esc_html_e( 'Your profile address and your @mention name. Change it whenever you like - your old handle keeps working, and nobody else can take it.', 'buddynext' ); ?>
+			</p>
 			<div class="bn-ep-slug-field">
 				<span class="bn-ep-slug-base">
 					<?php echo esc_html( $people_url_base ); ?>/
@@ -68,7 +81,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						spellcheck="false"
 						value="<?php echo esc_attr( $profile_slug ); ?>"
 						placeholder="<?php esc_attr_e( 'your-custom-url', 'buddynext' ); ?>"
-						aria-describedby="bn-ep-slug-status"
+						aria-describedby="bn-ep-slug-hint bn-ep-slug-status"
 						data-wp-bind--aria-invalid="state.slugIsTaken"
 						data-wp-on--input="actions.checkSlug" />
 					<span class="bn-ep-slug-indicator"
@@ -79,6 +92,8 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						<span data-wp-bind--hidden="!state.slugIsOk"><?php buddynext_icon( 'check' ); ?></span>
 						<span data-wp-bind--hidden="!state.slugIsTaken"><?php esc_html_e( 'Taken', 'buddynext' ); ?></span>
 					</span>
+					<?php // The other half of what this field controls, shown rather than explained. ?>
+					<span class="bn-ep-slug-handle" data-wp-text="state.slugHandlePreview" aria-hidden="true">@<?php echo esc_html( $profile_slug ); ?></span>
 				</div>
 				<button class="bn-btn"
 					type="button"
@@ -86,7 +101,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 					data-size="md"
 					data-wp-on--click="actions.saveSlug"
 					data-wp-bind--disabled="state.slugSaveDisabled">
-					<span data-wp-bind--hidden="context.slugSaved"><?php esc_html_e( 'Update URL', 'buddynext' ); ?></span>
+					<span data-wp-bind--hidden="context.slugSaved"><?php esc_html_e( 'Update handle', 'buddynext' ); ?></span>
 					<span data-wp-bind--hidden="!context.slugSaved"><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Saved', 'buddynext' ); ?></span>
 				</button>
 			</div>

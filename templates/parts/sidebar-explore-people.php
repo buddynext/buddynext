@@ -38,7 +38,11 @@ ob_start();
 		if ( ! $bn_user ) {
 			continue;
 		}
-		$bn_tone = array( 'violet', 'amber', 'emerald', 'rose', 'sky' )[ $bn_uid % 5 ];
+		// Was array( 'violet', 'amber', 'emerald', 'rose', 'sky' ): `violet` and
+		// `rose` are not defined on .bn-avatar[data-tone] at all, so two members in
+		// five fell back to the default hue - and they are the purple/pink family
+		// the token comment excludes on purpose.
+		$bn_tone = \BuddyNext\Profile\AvatarService::identity_tone_for( (int) $bn_uid );
 		buddynext_get_template(
 			'parts/sidebar-member-row.php',
 			array(

@@ -1,6 +1,6 @@
 # REST: Pro namespace
 
-The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 63 registered routes (across the controllers under `includes/`). This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and tiers, moderation rules, AI assistance, scheduled posts, push, saved searches, the member portfolio, Learnomy course links, and the realtime + payment-gateway (Stripe / PayPal) webhook endpoints.
+The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 63 registered routes (across the controllers under `includes/`). This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and plans, moderation rules, AI assistance, scheduled posts, push, saved searches, the member portfolio, Learnomy course links, and the realtime + payment-gateway (Stripe / PayPal) webhook endpoints.
 
 ![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-settings.webp)
 
@@ -14,7 +14,7 @@ The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 63 reg
 - **Most routes are admin- or owner-gated.** Campaign, moderation-rule, label-admin, analytics-overview, and AI-classify routes require an admin capability. Member-scoped routes (anything under `/me/...`, own subscriptions, saved searches, push) require login. A few are public reads.
 - **The payment-webhook routes are open at the permission layer but signed at the payload layer:** `/stripe/webhook`, `/stripe/membership-webhook`, and `/paypal/membership-webhook` register `permission_callback => __return_true` and are authorised entirely by verifying the provider's signature on the payload. `/realtime/auth` is login-gated and additionally enforces per-channel access. See the highlight below - "open" does not mean "unauthenticated trust".
 
-Source of truth: `audit/manifest.json` (`rest.endpoints`, namespace `buddynext-pro/v1`) in the Pro repo, and the controllers under `includes/`.
+Source of truth: the controllers under `includes/` in the Pro plugin - grep `register_rest_route(` for the `buddynext-pro/v1` namespace.
 
 ## Open-but-signed routes (read this first)
 
@@ -29,24 +29,55 @@ Source of truth: `audit/manifest.json` (`rest.endpoints`, namespace `buddynext-p
 
 ## Routes by domain
 
-### Membership: tiers, checkout, subscriptions
+### Membership: plans, checkout, subscriptions
 
-Tiers are the membership plans. Tier CRUD lives under `/tiers`; the buyer-facing checkout flow (plan list, gateway list, checkout, quote) lives under `/membership/*` in `Membership/CheckoutController`; subscriptions and the billing portal live in `Membership/Controllers/SubscriptionsController`.
+Plans are the membership plans. Plan CRUD lives under `/tiers`; the buyer-facing checkout flow (plan list, gateway list, checkout, quote) lives under `/membership/*` in `Membership/CheckoutController`; subscriptions and the billing portal live in `Membership/Controllers/SubscriptionsController`.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET, POST | `/tiers` | Public (GET) / Admin (POST) | List tiers; create a tier. |
-| GET, DELETE | `/tiers/{id}` | Public (GET) / Admin (DELETE) | Get a tier; delete a tier. |
+| GET, POST | `/tiers` | Public (GET) / Admin (POST) | List plans; create a plan. |
+| GET, DELETE | `/tiers/{id}` | Public (GET) / Admin (DELETE) | Get a plan; delete a plan. |
 | GET | `/membership/plans` | Public | List purchasable plans. |
 | GET | `/membership/gateways` | Public | List enabled payment gateways. |
 | POST | `/membership/checkout` | Logged in | Start a checkout for a plan (`plan_id`, optional `gateway`, `mode`, `coupon`, `country`). |
 | POST | `/membership/quote` | Logged in | Return a price quote (subtotal, tax, discount, total) for a plan without charging. |
 | POST | `/me/billing-portal` | Logged in | Create a billing-portal session for the current user. |
-| GET | `/me/subscriptions` | Logged in | Current user's subscriptions. |
+| GET | `/me/subscriptions` | Logged in | Current user's subscriptions. Each row carries a `capabilities` block - see below. |
 | POST | `/me/subscriptions/{id}/cancel` | Logged in | Cancel one of the current user's subscriptions. |
 | GET | `/users/{id}/subscriptions` | Admin | A user's subscription history. |
 
-### Member tiers vs labels
+#### The `capabilities` block on `/me/subscriptions`
+
+Every row carries `capabilities`, and **any client rendering a membership control should read it
+rather than deriving the rules again**. That is not style advice: the same rules exist in the
+cancel endpoint, the plan-change service and the gateway registry, and every time a surface has
+re-derived them it has drifted - a Cancel button that 409'd on click, a Switch button that worked
+for a member billed by WooCommerce.
+
+The response is a bare array (typed `MySubscription[]` by the mobile app), so the block is a key on
+each element rather than a sibling of the list; wrapping the list would break every installed copy.
+
+| Key | Type | Means |
+|---|---|---|
+| `can_buy` | bool | The **site** has something for sale. The one site-level answer in the block, so it is identical on every row. False on a free-only site or one whose gateway was never credentialed - render no Buy CTA at all rather than a link to an empty pricing page. |
+| `can_change` | bool | This member may move to another plan. False for anything billed elsewhere. |
+| `can_cancel` | bool | The cancel endpoint will accept. When false, `reason` says why. |
+| `can_update_payment` | bool | `POST /me/billing-portal` will return somewhere to go - a minted provider portal, or the partner's own account page. **False for a comped member and for Offline**, both of which have an active subscription and no billing to manage. |
+| `billed_by` | string | `gateway` (billed here), `external` (billed by a connected system), `manual` (comped), `none` (no subscription). |
+| `source` | string | Raw source slug, e.g. `stripe`, `woocommerce`. For logic, prefer `billed_by`. |
+| `source_label` | string | The system's own spelling, for display: `WooCommerce`, not `Woocommerce`. |
+| `manage_url` | string | Where an externally-billed member manages their billing. **May be empty** - a source with nowhere to send them. Show the explanation without a link; a wrong link is worse than none. |
+| `reason` | string | Member-facing, already translated. Non-empty whenever a control is missing. |
+
+Two rules that make the difference between a correct client and a plausible one:
+
+- **If a control is hidden, show `reason`.** Silence reads as a broken screen. The string is the
+  same sentence the endpoint would return if the member forced the request, so the explanation and
+  the refusal cannot describe different rules.
+- **Never infer one key from another.** `can_update_payment` is the clearest case: Offline is
+  `billed_by: gateway` and still has no portal, so `billed_by === 'gateway'` is not a substitute.
+
+### Member plans vs labels
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|

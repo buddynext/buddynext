@@ -17,7 +17,8 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
-import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnClampPopoverToViewport, bnEmojiAssetBase } from '@buddynext/feed-shared';
+import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnEmojiAssetBase } from '@buddynext/feed-shared';
+import { bnClampPopoverToViewport } from '@buddynext/popover';
 
 /**
  * Neutral reaction glyph for a slug with no vendored emoji asset. Mirrors the SSR
@@ -87,6 +88,31 @@ function resolveReactionSet( list ) {
 		color:     '',
 		emoji_url: base ? base + r.slug + '.svg' : '',
 	} ) );
+}
+
+/**
+ * The serialized reaction meta ({slug,label,char,color,emoji_url}) for `type`,
+ * resolved from the post card the currently-evaluating directive lives in. Used by
+ * the react-trigger icon getters so the button shows the reaction's own mark (SVG
+ * emoji or color glyph) for ANY registered reaction, not only the six built-ins.
+ *
+ * @param {string} type Reaction slug, or falsy for "no reaction".
+ * @return {{slug:string,label:string,char:string,color:string,emoji_url:string}|null}
+ */
+function reactionMetaFor( type ) {
+	if ( ! type ) {
+		return null;
+	}
+	try {
+		// getContext() is reliable inside a derived-state getter; getElement() is
+		// not (it is for actions/callbacks), so resolve the post's reaction list by
+		// id the same way setReactionIcon() does rather than by DOM proximity.
+		const postId = getContext().postId;
+		const list   = document.querySelector( '.bn-comment-list[data-comment-list="' + postId + '"]' );
+		return resolveReactionSet( list ).find( ( r ) => r.slug === type ) || null;
+	} catch ( _e ) {
+		return null;
+	}
 }
 
 function timeAgo( dateStr ) {
@@ -526,6 +552,19 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			parent.appendChild( glyph );
 		};
 
+		// Tint the react button with the chosen reaction's own colour. The colour
+		// already ships in the serialised reaction set the list carries, so this
+		// covers every registered reaction — the stylesheet used to hardcode a tint
+		// for five built-in slugs, which left a custom reaction rendering in the
+		// default colour on a comment while the post trigger carried its artwork.
+		// Same #rrggbb validation the glyph above uses; anything else falls back to
+		// the generic reacted colour in CSS.
+		const setReactionTint = ( btn, type ) => {
+			const meta = type ? REACTION_META[ type ] : null;
+			const hex  = meta && /^#[0-9a-fA-F]{6}$/.test( meta.color ) ? meta.color : '';
+			btn.style.setProperty( '--bn-comment-reaction-color', hex );
+		};
+
 		const wrapBtn = document.createElement( 'span' );
 		wrapBtn.className = 'bn-comment__react-wrap';
 
@@ -544,6 +583,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const reactIcon = document.createElement( 'span' );
 		reactIcon.className = 'bn-comment__like-icon';
 		setReactionIcon( reactIcon, reactBtn.dataset.reaction );
+		setReactionTint( reactBtn, reactBtn.dataset.reaction );
 
 		const reactLabel = document.createElement( 'span' );
 		reactLabel.className = 'bn-comment__like-label';
@@ -667,6 +707,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			reactBtn.dataset.liked = next ? '1' : '0';
 			reactBtn.setAttribute( 'aria-pressed', next ? 'true' : 'false' );
 			setReactionIcon( reactIcon, next );
+			setReactionTint( reactBtn, next );
 			reactLabel.textContent = next ? ( REACTION_LABELS[ next ] || t( 'react', 'React' ) ) : t( 'react', 'React' );
 			const cur = parseInt( reactCount.textContent || '0', 10 );
 			let delta = 0;
@@ -696,6 +737,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				reactBtn.dataset.liked = prev ? '1' : '0';
 				reactBtn.setAttribute( 'aria-pressed', prev ? 'true' : 'false' );
 				setReactionIcon( reactIcon, prev );
+				setReactionTint( reactBtn, prev );
 				reactLabel.textContent = prev ? ( REACTION_LABELS[ prev ] || t( 'react', 'React' ) ) : t( 'react', 'React' );
 				reactCount.textContent = String( cur );
 				reactionFailureToast( _e && _e.bnResponse, t( 'reactionUpdateFailed', 'Could not update your reaction. Try again.' ) );
@@ -1261,14 +1303,39 @@ store( 'buddynext/post-card', {
 		// Reaction icon class — applied to the reaction button inner span to indicate current reaction type.
 		get reactionIconClass() {
 			try {
-				const ctx  = getContext();
-				const type = ctx.reactionType;
-				return type
-					? 'bn-post-card__react-icon bn-post-card__react-icon--' + type
+				// One generic "reacted" marker rather than a per-slug modifier: the
+				// reacted mark itself (emoji image or glyph) is data-driven below, so
+				// the class only needs to hide the idle heart and size the swap-in.
+				return getContext().reactionType
+					? 'bn-post-card__react-icon bn-post-card__react-icon--reacted'
 					: 'bn-post-card__react-icon';
 			} catch ( _e ) {
 				return 'bn-post-card__react-icon';
 			}
+		},
+		// CSS background-image for the reacted mark — the reaction's bundled Fluent
+		// SVG (built-ins + any custom that ships one). Empty for a glyph-only custom
+		// reaction, which the .bn-reaction-glyph span renders instead.
+		get reactionIconUrl() {
+			try {
+				const meta = reactionMetaFor( getContext().reactionType );
+				return meta && meta.emoji_url ? 'url("' + meta.emoji_url + '")' : '';
+			} catch ( _e ) { return ''; }
+		},
+		// Letter glyph for a Pro custom reaction with no bundled SVG (else empty, so
+		// the glyph span stays hidden and the SVG background-image is used).
+		get reactionGlyphChar() {
+			try {
+				const meta = reactionMetaFor( getContext().reactionType );
+				if ( ! meta || meta.emoji_url ) { return ''; }
+				return meta.char || ( meta.label || meta.slug ).charAt( 0 ).toUpperCase();
+			} catch ( _e ) { return ''; }
+		},
+		get reactionGlyphColor() {
+			try {
+				const meta = reactionMetaFor( getContext().reactionType );
+				return ( meta && ! meta.emoji_url && /^#[0-9a-fA-F]{6}$/.test( meta.color ) ) ? meta.color : '';
+			} catch ( _e ) { return ''; }
 		},
 		get showReactionPicker() {
 			try { return !! getContext().reactionPickerOpen; } catch ( _e ) { return false; }
@@ -1281,6 +1348,13 @@ store( 'buddynext/post-card', {
 		},
 		get bookmarked() {
 			try { return !! getContext().bookmarked; } catch ( _e ) { return false; }
+		},
+		// The "Pinned" label shows only when the post is pinned AND this surface is
+		// one a pin belongs to (profile / space). Keeps a profile- or space-pinned
+		// post from claiming "Pinned" in the global feed, and stops a pin performed
+		// from the home feed from surfacing the label there.
+		get pinBadgeVisible() {
+			try { const c = getContext(); return !! c.isPinned && !! c.showPinBadge; } catch ( _e ) { return false; }
 		},
 		get showContent() {
 			try { return !! getContext().showContent; } catch ( _e ) { return true; }
@@ -2177,6 +2251,16 @@ store( 'buddynext/post-card', {
 				return;
 			}
 
+			// Block re-entry while a submit is in flight. Without this, rapid clicks
+			// on the send button each fire their own POST /comments before the first
+			// resolves, posting the same comment several times. The flag is set
+			// synchronously here — before the first yield — so the next click sees it
+			// and returns; the send button also binds its disabled state to it.
+			if ( ctx.commentSubmitting ) {
+				return;
+			}
+			ctx.commentSubmitting = true;
+
 			// Helper: render an inline alert above the comment textarea.
 			const showInlineError = ( msg, code, appealUrl ) => {
 				if ( ! inputEl ) {
@@ -2257,6 +2341,8 @@ store( 'buddynext/post-card', {
 				}
 			} catch ( _e ) {
 				showInlineError( t( 'networkError', 'Network error. Try again.' ) );
+			} finally {
+				ctx.commentSubmitting = false;
 			}
 		},
 		* votePoll( event ) {
@@ -2302,14 +2388,32 @@ store( 'buddynext/post-card', {
 		},
 		* dismissAnnouncement() {
 			const ctx = getContext();
+			let res = null;
 			try {
-				yield restFetch( '/feed/announcements/' + ctx.postId + '/dismiss', {
+				res = yield restFetch( '/feed/announcements/' + ctx.postId + '/dismiss', {
 					method:  'POST',
 					nonce:   ctx.dismissNonce,
 					toastOnError: false,
 				} );
-			} catch ( _e ) {}
-			document.querySelector( '.bn-post-card--announcement' )?.remove();
+			} catch ( _e ) {
+				res = null;
+			}
+			// Only hide the card once the server has RECORDED the dismissal.
+			// Removing it optimistically (as before) made a failed write — a stale
+			// nonce, a transient 5xx — look dismissed while bn_dismissed_announcements
+			// got no row, so the announcement silently reappeared on the next reload
+			// and no error was ever shown. Scope the removal to THIS announcement's
+			// post id so a second announcement on the page is not collaterally hidden.
+			if ( res && res.ok ) {
+				document.querySelector(
+					'.bn-post-card--announcement[data-post-id="' + ctx.postId + '"]'
+				)?.remove();
+			} else {
+				bnToast(
+					t( 'announcementDismissFailed', 'Could not dismiss this announcement. Please try again.' ),
+					{ tone: 'danger' }
+				);
+			}
 		},
 		// Admin-only: end the announcement for everyone (expire its pin now).
 		* endAnnouncement() {

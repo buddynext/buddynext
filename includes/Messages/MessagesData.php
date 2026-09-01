@@ -51,17 +51,17 @@ class MessagesData {
 	/**
 	 * Whether direct messaging is turned on for this community.
 	 *
-	 * The site owner can disable DMs entirely via Settings → General → Direct
-	 * Messaging (buddynext_enable_dm, default true). This is the canonical
-	 * on/off switch every BN-side messaging entry point consults — the rail
-	 * item, header icon, user-menu link, and the /messages/ route. It is the
-	 * admin intent gate; whether the WPMediaVerse engine is actually present is
-	 * a separate concern handled by available().
+	 * The site owner can disable DMs entirely from Platform → Features (the
+	 * 'messages' capability, default on). This is the canonical on/off switch every
+	 * BN-side messaging entry point consults — the rail item, header icon, user-menu
+	 * link, and the /messages/ route. It is the admin intent gate; whether the
+	 * WPMediaVerse engine is actually present is a separate concern handled by
+	 * available().
 	 *
 	 * @return bool
 	 */
 	public static function dm_enabled(): bool {
-		return (bool) get_option( 'buddynext_enable_dm', true );
+		return buddynext_feature_enabled( 'messages' );
 	}
 
 	/**
@@ -70,7 +70,7 @@ class MessagesData {
 	 * should render at all.
 	 *
 	 * Combines the two independent gates so every entry point asks one question:
-	 *  - dm_enabled():  the site owner's on/off intent (buddynext_enable_dm).
+	 *  - dm_enabled():  the site owner's on/off intent (the 'messages' capability).
 	 *  - available():   the WPMediaVerse engine is actually present.
 	 *
 	 * When this returns false the entry point must be HIDDEN — not rendered and
@@ -530,6 +530,15 @@ class MessagesData {
 		$is_request = ( 'request_pending' === $viewer_status );
 
 		foreach ( $rows as $m ) {
+			// An "unsend" (delete for everyone) leaves no trace: MediaVerse blanks
+			// the row's content, so rendering it here would show an empty bubble on
+			// a reload within the unsend window. Skip it entirely. This is distinct
+			// from a per-user delete, which keeps a "message deleted" tombstone and
+			// travels on is_deleted, not deleted_for_all.
+			if ( 1 === (int) self::val( $m, 'deleted_for_all', 0 ) ) {
+				continue;
+			}
+
 			$reactions = array();
 			foreach ( (array) self::val( $m, 'reactions', array() ) as $r ) {
 				$slug = (string) self::val( $r, 'emoji', '' );

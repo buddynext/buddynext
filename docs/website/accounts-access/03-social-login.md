@@ -16,7 +16,7 @@ Social login lets people sign in or sign up using an account they already have -
 
 ## Supported providers
 
-BuddyNext includes four providers out of the box:
+BuddyNext includes five providers out of the box:
 
 - **Google**
 - **Facebook**
@@ -24,7 +24,7 @@ BuddyNext includes four providers out of the box:
 - **GitHub**
 - **Discord**
 
-These four are the providers BuddyNext ships and walks you through setting up. They cover the networks most communities need.
+These five are the providers BuddyNext ships and walks you through setting up. They cover the networks most communities need.
 
 ## How it works for members
 
@@ -64,4 +64,4 @@ A button only appears for members once a provider is both enabled and has both k
 - **Avatars come along.** When a provider supplies a profile picture and the member has no avatar yet, BuddyNext adopts it automatically.
 - **Members can unlink, but not lock themselves out.** Connecting a provider is reversible from profile settings. The one exception: if a member signed up with a provider and has never set a password, that provider is their *only* way in - so BuddyNext refuses the unlink and asks them to set a password first. (They can do that without entering a "current" password, because they never had one.) Once they have a password, they can unlink freely. This is the difference between giving someone a choice and letting them delete their own front door.
 - **Works alongside the password form.** Social login is additive - members can still use email/username and password whenever they prefer.
-- **Free vs Pro.** Social login with these four providers is included in free BuddyNext. White-label branding on the surrounding login and sign-up screens is a BuddyNext Pro feature.
+- **Free vs Pro.** Social login with these five providers is included in free BuddyNext. White-label branding on the surrounding login and sign-up screens is a BuddyNext Pro feature.

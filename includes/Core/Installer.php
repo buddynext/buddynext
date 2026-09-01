@@ -82,6 +82,26 @@ class Installer {
 	 */
 	private static ?bool $schema_check_result = null;
 
+	/**
+	 * Per-table DB errors from the most recent dbDelta pass, keyed by table.
+	 *
+	 * Populated by install_schema() and read by run(), which refuses to stamp the
+	 * schema version while it is non-empty.
+	 *
+	 * @var array<string,string>
+	 */
+	private static array $last_schema_errors = array();
+
+	/**
+	 * Option recording a schema the server could not create.
+	 *
+	 * Holds the missing tables, the DB errors behind them, and when it was last
+	 * attempted. Absent on a healthy site.
+	 *
+	 * @var string
+	 */
+	public const SCHEMA_FAILURE_OPTION = 'buddynext_schema_failure';
+
 	public const OWNED_TABLES = array(
 		'bn_activity_log',
 		'bn_appeals',
@@ -279,8 +299,37 @@ class Installer {
 	 *      query — created_at alone is not unique, so OFFSET paging over same-second reports
 	 *      overlapped pages until the PK tie-break was added. dbDelta ALTER-adds the KEY on
 	 *      upgrade; no data migration.
+	 * v41: bn_webhook_log gains signature CHAR(64) + KEY signature. The access webhook now
+	 *      signs "{timestamp}.{body}" and refuses a signature it has already seen inside the
+	 *      tolerance window, so a captured grant_ability request cannot be replayed to renew a
+	 *      membership forever. Additive; legacy rows keep NULL.
+	 * v43: bn_profile_fields gains show_in_header TINYINT(1). The profile hero's meta row is
+	 *      data-driven from this flag (in sort_order) instead of a hardcoded key list, so an
+	 *      owner controls which fields the header shows. maybe_alter_tables ADD-COLUMNs it on
+	 *      upgrade; converge_seeded_field_flags seeds it on the existing location + website
+	 *      rows (by field_key) so an upgraded site's header is unchanged.
+	 * v47: recolour the two seeded member-type badges. No schema change - a data repair.
+	 *      `staff` shipped #5b21b6 (deep violet, the purple/pink family the design tokens
+	 *      exclude by name) and `contributor` shipped #0073aa (Appearance::DEFAULT_BRAND,
+	 *      the "not branded" sentinel). The seed is fixed for new installs; this fixes the
+	 *      ones already out there. OWNER DECISION 2026-08-30: rewrite these two rows
+	 *      unconditionally, INCLUDING where an owner has chosen their own colour. The
+	 *      safer option (only rewrite rows still holding the exact seeded value) was
+	 *      offered and declined in favour of guaranteed consistency.
+	 * v46: unwrap location-shaped values stranded on text-like fields. No schema change - a
+	 *      data repair. ProfileService::update_field() over REST used to change a field's
+	 *      type WITHOUT calling convert_field_values(), so a location field downgraded back
+	 *      to text kept its {address,lat,lng} JSON. The REST path now converts, which stops
+	 *      new cases and heals none of the existing ones: every member on an affected site
+	 *      still reads a raw JSON blob under their name on the hero, the About panel, and
+	 *      the directory card. See maybe_repair_stranded_location_values().
+	 * v48: bn_comments gains media_id BIGINT UNSIGNED DEFAULT NULL. NULL = a post-level
+	 *      comment (all existing rows are correct as NULL, no backfill). Non-NULL = a
+	 *      lightbox comment made on that specific media item, mirrored into the post
+	 *      thread by WPMediaVerseBridge::sync_lightbox_comment() so the feed can render
+	 *      "on photo N of M" attribution. dbDelta ADD-COLUMNs it on upgrade; additive.
 	 */
-	private const SCHEMA_VERSION = 40;
+	private const SCHEMA_VERSION = 48;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -293,7 +342,7 @@ class Installer {
 	 *
 	 * @var string
 	 */
-	private const FLAG_CONVERGENCE = '2026-08-searchable-system';
+	private const FLAG_CONVERGENCE = '2026-08-header-fields';
 
 	/**
 	 * Option holding the last applied FLAG_CONVERGENCE stamp.
@@ -330,6 +379,262 @@ class Installer {
 	 * @since 1.1.5
 	 *
 	 * @return bool True when every owned table exists.
+	 */
+	/**
+	 * Register the Site Health test that reports a schema the server refused.
+	 *
+	 * Site Health because that is where a site owner and a support engineer already
+	 * look, and where they can copy the detail into a ticket. The previous answer to
+	 * "why is nothing saving" was a database dump.
+	 *
+	 * @return void
+	 */
+	public static function register_site_health(): void {
+		add_filter(
+			'site_status_tests',
+			static function ( array $tests ): array {
+				$tests['direct']['buddynext_schema'] = array(
+					'label' => __( 'BuddyNext database tables', 'buddynext' ),
+					'test'  => array( self::class, 'site_health_schema_test' ),
+				);
+
+				return $tests;
+			}
+		);
+	}
+
+	/**
+	 * The Site Health result: green when the schema is complete, critical when not.
+	 *
+	 * Names the missing tables and the database's own error, because those two
+	 * together are what identify the cause - "index column size too large" and
+	 * "bn_spaces" says row format, where either alone says very little.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function site_health_schema_test(): array {
+		$missing = self::missing_tables();
+
+		if ( array() === $missing ) {
+			return array(
+				'label'       => __( 'BuddyNext database tables are all present', 'buddynext' ),
+				'status'      => 'good',
+				'badge'       => array(
+					'label' => __( 'BuddyNext', 'buddynext' ),
+					'color' => 'blue',
+				),
+				'description' => '<p>' . esc_html__( 'Every table BuddyNext needs exists.', 'buddynext' ) . '</p>',
+				'test'        => 'buddynext_schema',
+			);
+		}
+
+		$failure = get_option( self::SCHEMA_FAILURE_OPTION );
+		$errors  = is_array( $failure ) && is_array( $failure['errors'] ?? null ) ? $failure['errors'] : array();
+
+		$detail = '<p>' . sprintf(
+			/* translators: 1: number of missing tables, 2: total expected. */
+			esc_html__( '%1$d of %2$d BuddyNext tables are missing, so features that use them will appear to work and save nothing.', 'buddynext' ),
+			count( $missing ),
+			count( array_unique( self::OWNED_TABLES ) )
+		) . '</p>';
+
+		$detail .= '<p><code>' . esc_html( implode( '</code>, <code>', array_slice( $missing, 0, 20 ) ) ) . '</code></p>';
+
+		if ( array() !== $errors ) {
+			$detail .= '<p>' . esc_html__( 'The database reported:', 'buddynext' ) . '</p><ul>';
+
+			foreach ( array_slice( $errors, 0, 5, true ) as $table => $error ) {
+				$detail .= '<li><code>' . esc_html( (string) $table ) . '</code>: ' . esc_html( (string) $error ) . '</li>';
+			}
+
+			$detail .= '</ul>';
+		}
+
+		return array(
+			'label'       => __( 'BuddyNext database tables are missing', 'buddynext' ),
+			'status'      => 'critical',
+			'badge'       => array(
+				'label' => __( 'BuddyNext', 'buddynext' ),
+				'color' => 'red',
+			),
+			'description' => $detail,
+			'actions'     => '',
+			'test'        => 'buddynext_schema',
+		);
+	}
+
+	/**
+	 * Whether we very recently failed to create this schema.
+	 *
+	 * Deliberately time-based rather than a give-up flag. A server that cannot
+	 * create the tables today may be upgraded tomorrow, and the plugin should heal
+	 * itself when that happens rather than needing someone to know about a hidden
+	 * option. An hour is short enough that a fix is picked up while the person who
+	 * made it is still watching, and long enough that a broken install is not
+	 * re-attempting the whole schema on every page of wp-admin.
+	 *
+	 * @return bool
+	 */
+	private static function schema_failure_is_recent(): bool {
+		$failure = get_option( self::SCHEMA_FAILURE_OPTION );
+
+		if ( ! is_array( $failure ) || empty( $failure['attempted_at'] ) ) {
+			return false;
+		}
+
+		// A schema bump is a new question, so it is always asked.
+		if ( (int) ( $failure['schema'] ?? 0 ) !== self::SCHEMA_VERSION ) {
+			return false;
+		}
+
+		return ( time() - (int) $failure['attempted_at'] ) < HOUR_IN_SECONDS;
+	}
+
+	/**
+	 * Which of our tables are not in the database.
+	 *
+	 * `schema_intact()` answers yes/no from a COUNT, which is all it needs for its
+	 * early return. Reporting a failure needs the names - "eight of forty-one" sends
+	 * support to a database dump, "bn_spaces, bn_invites" does not.
+	 *
+	 * @return array<int,string> Unprefixed table names, empty when all are present.
+	 */
+	public static function missing_tables(): array {
+		global $wpdb;
+
+		$expected = array_values( array_unique( self::OWNED_TABLES ) );
+
+		if ( array() === $expected ) {
+			return array();
+		}
+
+		$names        = array_map( static fn( string $t ): string => $wpdb->prefix . $t, $expected );
+		$placeholders = implode( ', ', array_fill( 0, count( $names ), '%s' ) );
+
+		// Placeholders are generated from a hard-coded class constant, never input;
+		// every value is bound by prepare().
+		$sql = 'SELECT table_name FROM information_schema.tables
+			WHERE table_schema = DATABASE() AND table_name IN ( ' . $placeholders . ' )';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		$found = array_map( 'strval', (array) $wpdb->get_col( $wpdb->prepare( $sql, $names ) ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		$missing = array();
+
+		foreach ( $expected as $table ) {
+			if ( ! in_array( $wpdb->prefix . $table, $found, true ) ) {
+				$missing[] = $table;
+			}
+		}
+
+		return $missing;
+	}
+
+	/**
+	 * The lowest database versions this schema can actually be created on.
+	 *
+	 * Derived from the schema, not from a habit. The binding constraint is the JSON
+	 * column type, used by six columns (bn_posts.media_ids and .link_meta,
+	 * bn_notifications.data, bn_poll_options.options, bn_analytics.events and one
+	 * more): MySQL added it in 5.7.8, MariaDB in 10.2.7 as a LONGTEXT alias. Below
+	 * those the CREATE TABLE is a syntax error, not a degraded feature.
+	 *
+	 * InnoDB FULLTEXT (5.6 / 10.0.5) is also required by search but is less binding,
+	 * and the 767-byte index limit no longer is - every index was brought under it,
+	 * so row format is no longer a constraint.
+	 *
+	 * @var array<string,string>
+	 */
+	private const MIN_DB_VERSION = array(
+		'mysql'   => '5.7.8',
+		'mariadb' => '10.2.7',
+	);
+
+	/**
+	 * Undo MariaDB's '5.5.5-' self-description before comparing versions.
+	 *
+	 * MariaDB introduces itself as '5.5.5-10.x.y' to certain PHP builds, so a naive
+	 * version_compare reads EVERY MariaDB as 5.5.5. A guard built on that would
+	 * refuse every MariaDB site on those builds - turning a protection against
+	 * silent data loss into an outage on servers that were fine. This is WordPress
+	 * core's own correction from wpdb::has_cap(), PHP-version conditions included,
+	 * copied rather than reinvented because getting it wrong is worse than not
+	 * having the guard.
+	 *
+	 * $php_version_id is a parameter rather than a constant read so the dangerous
+	 * branch is testable on any build. It was not, and the test that covers it was
+	 * skipped on the development machine - which mutation testing caught: deleting
+	 * this correction entirely left the suite green.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $version        Reported version, from db_version().
+	 * @param string $info           Reported server string, from db_server_info().
+	 * @param int    $php_version_id The running PHP_VERSION_ID.
+	 * @return array{0:string,1:string} Corrected version and server string.
+	 */
+	public static function normalise_db_version( string $version, string $info, int $php_version_id ): array {
+		$affected = $php_version_id <= 80015
+			|| ( 80100 <= $php_version_id && $php_version_id <= 80102 );
+
+		if ( '5.5.5' === $version && false !== strpos( $info, 'MariaDB' ) && $affected ) {
+			$info    = (string) preg_replace( '/^5\.5\.5-(.*)/', '$1', $info );
+			$version = (string) preg_replace( '/[^0-9.].*/', '', $info );
+		}
+
+		return array( $version, $info );
+	}
+
+	/**
+	 * Why this server cannot host the schema, or '' when it can.
+	 *
+	 * Returns a member-of-staff-readable sentence rather than a bool, because every
+	 * caller needs to say the same thing and there is no second way to phrase it.
+	 *
+	 * @return string
+	 */
+	public static function unsupported_db_reason(): string {
+		global $wpdb;
+
+		if ( ! $wpdb instanceof \wpdb ) {
+			return '';
+		}
+
+		$version = (string) $wpdb->db_version();
+		$info    = (string) $wpdb->db_server_info();
+
+		list( $version, $info ) = self::normalise_db_version( $version, $info, PHP_VERSION_ID );
+
+		$is_mariadb = false !== stripos( $info, 'mariadb' );
+		$required   = $is_mariadb ? self::MIN_DB_VERSION['mariadb'] : self::MIN_DB_VERSION['mysql'];
+
+		if ( '' === $version || version_compare( $version, $required, '>=' ) ) {
+			return '';
+		}
+
+		return sprintf(
+			/* translators: 1: server name, e.g. MariaDB. 2: required version. 3: detected version. */
+			__( 'BuddyNext needs %1$s %2$s or newer and this server runs %3$s. Its database tables use the JSON column type, which older servers reject, so installing here would create only part of the schema and lose data without reporting an error.', 'buddynext' ),
+			$is_mariadb ? 'MariaDB' : 'MySQL',
+			$required,
+			$version
+		);
+	}
+
+	/**
+	 * Whether every table this plugin owns exists.
+	 *
+	 * A cheap COUNT against information_schema, memoised per request: `maybe_upgrade()`
+	 * asks it on every admin_init, and the answer cannot change mid-request.
+	 *
+	 * Checked against OWNED_TABLES rather than a hand-picked sentinel set, so a table
+	 * added later is covered without anyone remembering to extend a list.
+	 *
+	 * Use `missing_tables()` when the NAMES matter - reporting a failure needs them;
+	 * this only needs to know whether to re-run.
+	 *
+	 * @return bool
 	 */
 	private static function schema_intact(): bool {
 		if ( null !== self::$schema_check_result ) {
@@ -391,6 +696,22 @@ class Installer {
 			return;
 		}
 
+		// Back off when the server has already refused this schema.
+		//
+		// This runs on admin_init. With tables missing, schema_intact() fails on
+		// every request, so the whole installer - 41 dbDelta calls plus every
+		// migration below - ran again on EVERY admin page load. On the site this was
+		// found on that is permanent, because the server could not create those
+		// tables however many times it was asked, and the owner simply experienced
+		// wp-admin as broken-slow with no clue why.
+		//
+		// Retrying is still right: the fix is often to change the server, and the
+		// next attempt should pick that up. Retrying unboundedly is not. Once an
+		// hour converges within an hour of a real fix and costs nothing in between.
+		if ( self::schema_failure_is_recent() ) {
+			return;
+		}
+
 		self::run();
 
 		// v6: remove stale cron events from existing installs.
@@ -435,6 +756,14 @@ class Installer {
 		// (social/toggle/daterange) to their registered equivalents so existing
 		// installs stop depending on the silent resolve_type() text fallback.
 		self::maybe_migrate_wizard_preset_types();
+
+		// v46: unwrap {address,lat,lng} values left on text-like fields by a REST
+		// type change that predated convert_field_values() being wired there.
+		self::maybe_repair_stranded_location_values();
+
+		// v47: recolour the two seeded member-type badges away from the excluded
+		// violet and the "not branded" sentinel.
+		self::maybe_recolour_seeded_member_types();
 
 		// v17: purge the orphaned onboarding-interests user meta — the canonical
 		// interests store is the 'interests' profile field. The paired
@@ -590,7 +919,123 @@ class Installer {
 		// re-requested were therefore the exact set the cooldown did not cover.
 		self::backfill_decline_stamps( $wpdb->prefix );
 
+		// v44: move already-auto-hidden posts off pre-moderation's 'pending' onto
+		// their own 'under_review'. Runs AFTER run() has widened the ENUM.
+		self::migrate_auto_hidden_posts( $wpdb->prefix );
+
+		// v45: retire the media cards that should never have been published.
+		self::purge_retired_media_cards( $wpdb->prefix );
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Remove upload-announcement cards that no longer have a reason to exist (v45).
+	 *
+	 * Two sets, both published by WPMediaVerseBridge::publish_media_activity():
+	 *
+	 * 1. DOCUMENT uploads. The feed announces media — images, video, audio —
+	 *    because that is content people share; filing a PDF in a drive is
+	 *    housekeeping, and announcing it surfaces the file, often its name, to
+	 *    everyone who follows the uploader. Owner directive 2026-08-27: documents
+	 *    do not go in the feed. The bridge no longer publishes them, and the ones
+	 *    already out there are removed rather than left as the only documents the
+	 *    feed will ever show.
+	 * 2. Cards whose media is GONE — trashed or absent from the index. These were
+	 *    never cleaned up: the removal paths key on the pre-delete permalink (only
+	 *    fires on permanent delete, so a trashed media is missed) or on `doc_id`
+	 *    meta belonging to the composer card, and an upload card matches neither.
+	 *    They advertise content that does not exist and link nowhere.
+	 *
+	 * Deliberately narrow, and narrower than `type = 'media'` alone. That type has
+	 * a SECOND producer: MediaController::announce_space_album_upload() posts
+	 * "Added photos to <album>" with real `media_ids` and no `link_url`. Those are
+	 * a member's own photos and must never be touched — an early version of this
+	 * migration matched on type alone, and because an album card has no link_url
+	 * the LEFT JOIN found no media row and swept it up as an orphan. Caught in
+	 * testing, after it had eaten three of them.
+	 *
+	 * So an upload announcement is identified by its SHAPE, not its type: it
+	 * carries a media permalink in `link_url` and no `media_ids` at all. Anything
+	 * a member actually wrote, including a deliberate composer document share
+	 * (`type = 'document'`), is never rewritten or removed by an upgrade.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function purge_retired_media_cards( string $prefix ): void {
+		global $wpdb;
+
+		// The media index is WPMediaVerse's. Without it there is nothing to
+		// reconcile against, and deleting on a missing table would take every
+		// card with it.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $prefix . 'mvs_media_index' ) ) !== $prefix . 'mvs_media_index' ) {
+			return;
+		}
+
+		// A card stores the media PERMALINK, which MVS builds from either the id
+		// or the slug — so both shapes have to be matched to find the row.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"DELETE p FROM {$prefix}bn_posts p
+			  LEFT JOIN {$prefix}mvs_media_index m
+			         ON p.link_url LIKE CONCAT('%/media/', m.media_id, '/')
+			         OR p.link_url LIKE CONCAT('%/media/', m.slug, '/')
+			  WHERE p.type = 'media'
+			    AND p.link_url IS NOT NULL
+			    AND p.link_url <> ''
+			    AND ( p.media_ids IS NULL OR JSON_LENGTH(p.media_ids) = 0 )
+			    AND (
+			         m.media_id IS NULL
+			      OR m.status <> 'publish'
+			      OR m.media_type = 'document'
+			    )"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Move posts auto-hidden by the report threshold onto 'under_review' (v44).
+	 *
+	 * Auto-hide used to write 'pending' — the value pre-moderation uses for a new
+	 * post awaiting approval — so on an existing install the two states are mixed
+	 * together in one column. Leaving them there is not a cosmetic debt:
+	 * ModerationService's restore path now only lifts a hide from 'under_review',
+	 * so an already-auto-hidden post would stay hidden forever no matter how its
+	 * reports were resolved, and it would keep appearing in both moderation tabs.
+	 * The people already hit by this bug are exactly the ones the fix would
+	 * otherwise skip.
+	 *
+	 * Identified by having at least one OPEN report. A post held by pre-moderation
+	 * cannot have been auto-hidden — auto_hide_post() only ever flips a
+	 * 'published' row — and a post that was never published cannot have been
+	 * reported, since it appears in no feed. So "pending with an open report" is
+	 * the auto-hidden set. Report count is deliberately not compared against the
+	 * current threshold: an owner who lowered it since would have their older
+	 * hides left behind.
+	 *
+	 * One indexed UPDATE ... EXISTS, no per-post work.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function migrate_auto_hidden_posts( string $prefix ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$prefix}bn_posts p
+			    SET p.status = 'under_review'
+			  WHERE p.status = 'pending'
+			    AND EXISTS (
+			        SELECT 1 FROM {$prefix}bn_reports r
+			         WHERE r.object_type = 'post'
+			           AND r.object_id = p.id
+			           AND r.status IN ('pending','escalated')
+			    )"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**
@@ -948,6 +1393,100 @@ class Installer {
 	}
 
 	/**
+	 * Recolour the two seeded member-type badges (schema v47).
+	 *
+	 * `staff` was seeded #5b21b6 - deep violet, the purple/pink family the design
+	 * tokens exclude by name because BN reads it as the synthetic "AI" palette -
+	 * and `contributor` was seeded #0073aa, which is `Appearance::DEFAULT_BRAND`:
+	 * the SENTINEL meaning "the owner has not branded anything". Both shipped as
+	 * visible badges on every install.
+	 *
+	 * UNCONDITIONAL, and that is an owner decision rather than an oversight.
+	 * These colours are owner-editable, so this overwrites a colour an owner may
+	 * have chosen deliberately. The narrower option - rewrite only rows still
+	 * holding the exact seeded value, leaving customised rows alone - was offered
+	 * on 2026-08-30 and declined in favour of guaranteed consistency across the
+	 * install base. Recorded here because the next person to read this will
+	 * otherwise assume it is a bug.
+	 *
+	 * Scoped to the two SEEDED slugs. A member type the owner created themselves
+	 * has no "new default" to migrate to and is never touched.
+	 *
+	 * @return void
+	 */
+	private static function maybe_recolour_seeded_member_types(): void {
+		global $wpdb;
+
+		$colours = array(
+			'contributor' => '#1c7ed6',
+			'staff'       => '#495057',
+		);
+
+		foreach ( $colours as $slug => $colour ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_member_types',
+				array( 'color' => $colour ),
+				array( 'slug' => $slug ),
+				array( '%s' ),
+				array( '%s' )
+			);
+		}
+	}
+
+	/**
+	 * Unwrap location-shaped values stranded on text-like fields (schema v46).
+	 *
+	 * A location field stores {address,lat,lng} JSON; a text field has no reader
+	 * for that shape, so FieldType::display_text() hands the raw payload straight
+	 * to the profile hero, the About panel and the directory card. Members see
+	 * `{"lat": null, "lng": null, "address": "Kyoto, JP"}` printed under their own
+	 * name.
+	 *
+	 * ProfileService::convert_field_values() has always handled this in BOTH
+	 * directions, and the admin editor has always called it. The REST path did
+	 * not: a type change over REST rewrote the definition and left every value
+	 * encoded for the old type. That is fixed, which stops NEW cases and heals no
+	 * existing one - the stranded rows sit there rendering JSON until something
+	 * rewrites them, and nothing does. Found on the dev site with 11 of 13 members
+	 * affected on the seeded `location` field.
+	 *
+	 * Deliberately keyed on the VALUE SHAPE rather than on field_key. The field
+	 * this was found on is the seeded `location`, but any text-like field that was
+	 * ever a location carries the same payload, and an owner may have renamed or
+	 * added their own. Matching the shape repairs all of them; matching the key
+	 * would repair one and leave the rest printing JSON.
+	 *
+	 * Narrow on purpose: only text-like fields (a `location` field is meant to
+	 * hold this and is left alone), only well-formed JSON objects that actually
+	 * carry an `address`. A text value that merely starts with `{` is not touched.
+	 * Lossy only in the sense the downgrade already was - coordinates a text field
+	 * cannot express are dropped, exactly as convert_field_values does.
+	 *
+	 * One bulk UPDATE, so a field with 100k values repairs without a per-row loop.
+	 * Idempotent: a repaired value no longer starts with '{' and is skipped.
+	 *
+	 * @return void
+	 */
+	private static function maybe_repair_stranded_location_values(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_profile_values v
+				JOIN {$wpdb->prefix}bn_profile_fields f ON f.id = v.field_id
+				SET v.value = COALESCE( JSON_UNQUOTE( JSON_EXTRACT( v.value, '$.address' ) ), '' )
+			  WHERE f.type IN ( 'text', 'textarea', 'url' )
+				AND v.value <> ''
+				AND LEFT( v.value, 1 ) = '{'
+				AND JSON_VALID( v.value )
+				AND JSON_EXTRACT( v.value, '$.address' ) IS NOT NULL"
+		);
+
+		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+	}
+
+	/**
 	 * Rename the legacy skills-group field key interests->skills (schema v17).
 	 *
 	 * The original seed named the skills group's field 'interests'
@@ -1146,8 +1685,44 @@ class Installer {
 
 		self::seed_default_space( $wpdb->prefix );
 
-		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
-		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+		// Only claim the schema is installed if it is.
+		//
+		// This stamp used to be unconditional, which is what turned a failed CREATE
+		// TABLE into a site that believed itself healthy forever: the version said
+		// 40, the database had eight tables of forty-one, and nothing anywhere
+		// disagreed. Recording the version is a claim about the database, so it has
+		// to be checked against the database.
+		//
+		// Both the errors dbDelta reported AND a direct table count, because they
+		// catch different things - dbDelta stays quiet about some failures, and a
+		// table can also vanish afterwards.
+		self::$schema_check_result = null;
+
+		$missing = self::missing_tables();
+
+		if ( array() === $missing && array() === self::$last_schema_errors ) {
+			delete_option( self::SCHEMA_FAILURE_OPTION );
+
+			update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
+			update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+		} else {
+			// Recorded rather than thrown. Activation still completes - refusing it
+			// here would leave a half-created schema behind with no way to inspect
+			// it - but the version is NOT stamped, so nothing downstream mistakes
+			// this for a finished install, and the detail is somewhere support can
+			// read without a database dump.
+			update_option(
+				self::SCHEMA_FAILURE_OPTION,
+				array(
+					'missing'      => $missing,
+					'errors'       => self::$last_schema_errors,
+					'attempted_at' => time(),
+					'db_server'    => $wpdb->db_version(),
+					'schema'       => self::SCHEMA_VERSION,
+				),
+				false
+			);
+		}
 
 		// The tables just changed, so the memoised presence check is stale. Stamping
 		// the version above is the step that used to make a failed creation
@@ -1178,6 +1753,23 @@ class Installer {
 			if ( false === get_option( 'buddynext_reg_mode', false ) ) {
 				update_option( 'users_can_register', '1' );
 			}
+
+			// Require timestamped inbound-webhook signatures from day one.
+			//
+			// The legacy scheme signs the BODY alone, so the same bytes verify for
+			// ever and the replay log cannot record them (the accepting branch sets
+			// no digest, deliberately - without a timestamp two identical events are
+			// indistinguishable from a replay). One captured grant_ability or
+			// set_role call can therefore be resent indefinitely.
+			//
+			// Fresh installs only, and that is the whole point: an existing site has
+			// senders that were built against the old scheme, and flipping this
+			// underneath them turns every one of their calls into a 401 on upgrade
+			// with no warning. New sites have no such senders, so they start closed
+			// and never need a migration. Existing sites keep dual-accept, with the
+			// deprecation warning already written to the webhook log on every legacy
+			// request, until the default flips for everyone in a later release.
+			add_option( 'buddynext_webhook_strict_signatures', true );
 		}
 
 		self::create_hub_pages();
@@ -1200,10 +1792,73 @@ class Installer {
 	 * test DB without the first-run seed data (default space, member types, …)
 	 * that would otherwise collide with per-test fixtures.
 	 *
+	 * @param bool $force Converge even under the PHPUnit harness. Used by the test
+	 *                    bootstrap and by the tests that assert convergence itself;
+	 *                    see the guard below for why everything else must not.
 	 * @return void
 	 */
-	public static function install_schema(): void {
+	public static function install_schema( bool $force = false ): void {
 		global $wpdb;
+
+		// Under the PHPUnit harness, do not re-converge a schema that is already
+		// complete.
+		//
+		// WP_UnitTestCase rewrites every `CREATE TABLE` into `CREATE TEMPORARY
+		// TABLE` (abstract-testcase.php, the `_create_temporary_tables` query
+		// filter). So when dbDelta runs INSIDE a test and decides a table needs
+		// creating, it does not create that table - it creates a TEMPORARY shadow of
+		// it on this connection, which hides the real one and makes its definition
+		// change underneath the open transaction. Every subsequent statement in that
+		// test then fails with "Table definition has changed, please retry
+		// transaction", and anything reading a row it just wrote gets null back.
+		//
+		// 157 test files call `Installer::run()`, so this fired constantly and its
+		// damage landed on whichever test ran next: the same tree produced different
+		// failures on consecutive runs while every one of those tests passed alone.
+		// It is invisible in a schema dump, because temporary tables are not dumped -
+		// which is why a before/after comparison of the real schema shows nothing but
+		// AUTO_INCREMENT drift.
+		//
+		// Scoped to the harness deliberately. The equivalent production guard would
+		// have to key on the stamped SCHEMA_VERSION, and this file's own history
+		// records that version sitting unchanged for 142 commits - so in production
+		// it could skip a real upgrade. There is already a WP_TESTS_DOMAIN branch a
+		// few lines below, for the same class of reason.
+		//
+		// `missing_tables()` and not `schema_intact()`: the latter memoises in a
+		// static that outlives a test, which is the wrong thing to trust here.
+		// $force is how a caller says "converge, I mean it": the test bootstrap
+		// (which must build the schema before any transaction opens) and the two
+		// tests that exist to prove convergence happens at all. Everything else -
+		// including the 157 set_up() calls that only want the tables to be there -
+		// gets the no-op.
+		if ( ! $force && defined( 'WP_TESTS_DOMAIN' ) && array() === self::missing_tables() ) {
+			return;
+		}
+
+		// A server that cannot host the schema is not asked to try.
+		//
+		// Recorded and returned rather than fataled: run() is reached from
+		// maybe_upgrade() on admin_init, and wp_die() there would take out wp-admin
+		// on a site whose only problem is an old database. The activation hook is
+		// where the refusal is user-facing; here it is a no-op with a paper trail.
+		$unsupported = self::unsupported_db_reason();
+
+		if ( '' !== $unsupported ) {
+			update_option(
+				self::SCHEMA_FAILURE_OPTION,
+				array(
+					'missing'      => self::missing_tables(),
+					'errors'       => array( 'server' => $unsupported ),
+					'attempted_at' => time(),
+					'db_server'    => $wpdb->db_version(),
+					'schema'       => self::SCHEMA_VERSION,
+				),
+				false
+			);
+
+			return;
+		}
 
 		$charset = $wpdb->get_charset_collate();
 
@@ -1218,11 +1873,36 @@ class Installer {
 
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
+		//
+		// Suppressing the ECHO is right. Discarding the RESULT was not: a CREATE
+		// TABLE that failed left no trace anywhere, and run() stamped the schema
+		// version immediately afterwards, so the site recorded a complete install it
+		// did not have. That is the state a customer reached on MariaDB 5.5 - schema
+		// version 40, eight tables of forty-one, posting returning HTTP 201 and
+		// writing nothing, and support reverse-engineering it from the database.
+		//
+		// So the error is still kept off the screen, and now also kept.
+		$errors = array();
+
 		$wpdb->suppress_errors( true );
 		foreach ( self::schema( $wpdb->prefix, $charset ) as $sql ) {
+			// Compare against the previous value rather than blanking it first.
+			// Clearing $wpdb->last_error would stomp state this method does not own,
+			// and it is not needed: a NEW error is one that differs from the last.
+			$before = (string) $wpdb->last_error;
+
 			dbDelta( $sql );
+
+			$after = (string) $wpdb->last_error;
+
+			if ( '' !== $after && $after !== $before ) {
+				$table            = preg_match( '/CREATE TABLE ([a-z0-9_]+)/i', $sql, $m ) ? $m[1] : '?';
+				$errors[ $table ] = $after;
+			}
 		}
 		$wpdb->suppress_errors( false );
+
+		self::$last_schema_errors = $errors;
 
 		// Idempotent column back-fills for existing installs. dbDelta handles
 		// most additive changes, but enum/charset edge cases on older MySQL can
@@ -1241,9 +1921,32 @@ class Installer {
 		if ( defined( 'WP_TESTS_DOMAIN' ) ) {
 			// Test env: actively DROP the index (not just skip creating it) so a DB
 			// that already has it from an earlier run still routes through the
-			// transaction-safe LIKE path. DROP is a harmless no-op when absent.
-			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search_members" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			// transaction-safe LIKE path.
+			//
+			// Guarded on the index actually existing, and that guard is what keeps
+			// the suite deterministic. `ALTER TABLE` forces an IMPLICIT COMMIT in
+			// MySQL whether or not it changes anything, and that commit ends the
+			// transaction WP_UnitTestCase wraps every test in - so everything the
+			// test had written became permanent and the rollback at tear_down had
+			// nothing left to undo. 157 test files call `Installer::run()`, so rows
+			// escaped constantly and landed on whichever test ran next: the same
+			// tree produced different failures on consecutive runs while every one
+			// of those tests passed in isolation.
+			//
+			// This used to run unconditionally, on the reasoning that "DROP is a
+			// harmless no-op when absent". That was true of the SCHEMA and false of
+			// the TRANSACTION - so the two ALTERs added to make the harness work are
+			// precisely what broke the harness's isolation.
+			// SQL kept literal per index - an index name is an identifier and cannot
+			// be a prepare() placeholder, so interpolating one would only trade a
+			// real guarantee for a silenced sniff.
+			if ( self::index_exists( $wpdb->prefix . 'bn_search_index', 'ft_search' ) ) {
+				$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			}
+
+			if ( self::index_exists( $wpdb->prefix . 'bn_search_index', 'ft_search_members' ) ) {
+				$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search_members" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			}
 		} else {
 			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 			// MATCH() must name exactly one FULLTEXT index's column list, so the members tier
@@ -1289,8 +1992,21 @@ class Installer {
 			// v5: a flat field can be surfaced on the registration form.
 			// v16: load-bearing fields (bio/headline/location) are marked is_system
 			// so they cannot be deleted out from under search + directory + hero.
+			// v41: the signed webhook records the signature it accepted, so a
+			// replay of a captured request can be recognised and refused. Null on
+			// every row written before v41 and on in-process grants, which carry no
+			// signature to replay.
+			'bn_webhook_log'      => array(
+				'signature' => 'ADD COLUMN signature CHAR(64) DEFAULT NULL',
+			),
 			'bn_profile_fields'   => array(
 				'show_on_register' => 'ADD COLUMN show_on_register TINYINT(1) NOT NULL DEFAULT 0',
+				// Which fields the profile hero renders in its meta row, and in what
+				// order (sort_order) — data-driven so an owner controls the header
+				// instead of a hardcoded key list. Seeded on for the default hero
+				// fields by converge_seeded_field_flags(); read via
+				// ProfileService::hero_fields().
+				'show_in_header'   => 'ADD COLUMN show_in_header TINYINT(1) NOT NULL DEFAULT 0',
 				'is_system'        => 'ADD COLUMN is_system TINYINT(1) NOT NULL DEFAULT 0',
 				// v18 (G1): owner-authored help text (rendered under the label on
 				// edit + signup) and input placeholder. Empty = render nothing.
@@ -1334,7 +2050,7 @@ class Installer {
 				// denormalized activity column maintained on every space post — an
 				// ongoing background cost we chose to skip).
 				'dir_popular'  => 'ADD KEY dir_popular (parent_id, member_count)',
-				'dir_name'     => 'ADD KEY dir_name (parent_id, name)',
+				'dir_name'     => 'ADD KEY dir_name (parent_id, name(150))',
 				// v13: the "Newest" sort (parent_id IS NULL ORDER BY created_at DESC).
 				// created_at is immutable after insert, so this index is write-once —
 				// a pure read win with no ongoing maintenance.
@@ -1364,9 +2080,51 @@ class Installer {
 			'bn_profile_values' => array(
 				'field_value' => 'ADD KEY field_value (field_id, value(20))',
 			),
+			// v41: the replay check looks up one signature inside a short time
+			// window on every signed webhook call, so it must not scan the log.
+			'bn_webhook_log'    => array(
+				'signature' => 'ADD KEY signature (signature)',
+			),
+		);
+
+		// Per-table ENUM widenings. Additive like the two passes above, but a
+		// different shape: an ENUM gains a value through MODIFY COLUMN, not ADD,
+		// so it needs its own guard — "does the column's type already list this
+		// value?" — rather than column_exists().
+		//
+		// This matters more than it looks. MySQL does not reject a write of a value
+		// the ENUM does not list: on a non-strict server (this one, and most shared
+		// hosts) the UPDATE returns success and the row silently stores an EMPTY
+		// STRING. A post whose status became '' is in no feed, no moderation tab
+		// and no admin filter, with no error logged anywhere. So the widening has
+		// to land before anything writes the new value.
+		//
+		// Each new value is APPENDED to the list, never inserted — that is the
+		// condition for ALGORITHM=INSTANT on MySQL 8, and bn_posts is the biggest
+		// table we have.
+		$table_enums = array(
+			// under_review: auto-hidden by the report threshold, as distinct from
+			// pre-moderation's 'pending'. See PostService::STATUSES.
+			'bn_posts' => array(
+				'status' => array(
+					'value'  => 'under_review',
+					'clause' => "MODIFY COLUMN status ENUM('published','draft','pending','scheduled','deleted','under_review') NOT NULL DEFAULT 'published'",
+				),
+			),
 		);
 
 		$wpdb->suppress_errors( true );
+		foreach ( $table_enums as $table_slug => $columns ) {
+			$table = $p . $table_slug;
+			foreach ( $columns as $column => $spec ) {
+				if ( self::enum_has_value( $table, $column, $spec['value'] ) ) {
+					continue;
+				}
+
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$table}` {$spec['clause']}" );
+			}
+		}
 		foreach ( $table_columns as $table_slug => $columns ) {
 			$table = $p . $table_slug;
 			foreach ( $columns as $column => $clause ) {
@@ -1390,6 +2148,43 @@ class Installer {
 			}
 		}
 		$wpdb->suppress_errors( false );
+	}
+
+	/**
+	 * Whether an ENUM column already permits a given value.
+	 *
+	 * Reads COLUMN_TYPE (e.g. `enum('published','draft')`) and looks for the
+	 * quoted value, so the check is exact rather than a substring match that
+	 * would also fire on a longer value ending in the same characters.
+	 *
+	 * Returns true when the column cannot be found, so a missing table on a
+	 * half-installed site skips the ALTER rather than running it blind.
+	 *
+	 * @param string $table  Fully-prefixed table name.
+	 * @param string $column Column name to check.
+	 * @param string $value  ENUM value to look for.
+	 * @return bool
+	 */
+	private static function enum_has_value( string $table, string $column, string $value ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$type = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$table,
+				$column
+			)
+		);
+
+		if ( null === $type ) {
+			return true;
+		}
+
+		return false !== strpos( (string) $type, "'" . $value . "'" );
 	}
 
 	/**
@@ -1728,12 +2523,6 @@ class Installer {
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your appeal on {{site_name}} has been reviewed and <strong>{{decision}}</strong>.</p><p>If you have questions about this decision, please contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'         => 'bn.unsuspension_confirmation',
-				'subject'      => 'Your {{site_name}} account suspension has been lifted',
-				'preview_text' => 'Welcome back — your suspension has been lifted',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Good news — your account suspension on {{site_name}} has been lifted. You can post and interact with the community again.</p><p>Please review our community guidelines to keep your account in good standing.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
-			),
-			array(
 				'type'         => 'bn.new_report',
 				'subject'      => 'New content report awaiting review on {{site_name}}',
 				'preview_text' => 'A member reported content for moderation',
@@ -1777,8 +2566,62 @@ class Installer {
 			),
 		);
 
+		// Anything the Email Templates screen offers, but this list forgot.
+		//
+		// A type with no row in bn_email_templates CANNOT SEND: EmailSender::send_now()
+		// looks the row up and returns false when it is absent - silently, with no log
+		// line and no notice, and the in-app notification has already been written so
+		// the bell looks right. Fourteen emailable types were in that state, including
+		// every moderation message: warned, content removed, post rejected, reinstated.
+		//
+		// The cause is two hand-maintained lists. This one seeds rows; EmailEditor's
+		// catalogue defines what an owner can edit. Nothing kept them in step, and
+		// bn.space_ownership_received had drifted out of this one while sitting in the
+		// other - editable on screen, unable to send.
+		//
+		// So the catalogue is now the backstop: every entry it defines gets a row, with
+		// its own default copy. Adding a template there is enough; forgetting to add it
+		// here can no longer cost a member their mail.
+		if ( class_exists( '\\BuddyNext\\Admin\\EmailEditor' ) ) {
+			$known = array_column( $templates, 'type' );
+
+			foreach ( ( new \BuddyNext\Admin\EmailEditor() )->get_catalogue() as $group ) {
+				foreach ( (array) $group as $type => $tpl ) {
+					if ( in_array( (string) $type, $known, true ) ) {
+						continue;
+					}
+
+					$templates[] = array(
+						'type'         => (string) $type,
+						'subject'      => (string) ( $tpl['subject'] ?? '' ),
+						'preview_text' => (string) ( $tpl['preview'] ?? '' ),
+						'body_html'    => wpautop( (string) ( $tpl['body'] ?? '' ) ),
+					);
+				}
+			}
+		}
+
 		// Table name is a hardcoded constant — safe to interpolate. Values use prepare().
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// The old slug is deliberately absent from $templates above - leaving it there
+		// re-inserted it on the very next run, immediately undoing the rename below and
+		// leaving BOTH rows in the table. Caught on the dev site by reading the rows
+		// after running the seeder rather than trusting that the UPDATE had settled it.
+		//
+		// A rename, not a new template: bn.unsuspension_confirmation was seeded and
+		// editable, and NOTHING ever sent it - the type that actually fires when a
+		// suspension is lifted is bn.user_unsuspended, which had no template at all.
+		// One message under two names, each missing the other half. Migrated rather
+		// than re-seeded so an owner's edits to the copy survive.
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE IGNORE `{$p}bn_email_templates` SET type = %s WHERE type = %s",
+				'bn.user_unsuspended',
+				'bn.unsuspension_confirmation'
+			)
+		);
+
 		foreach ( $templates as $tpl ) {
 			$wpdb->query(
 				$wpdb->prepare(
@@ -1835,10 +2678,22 @@ class Installer {
 	private static function seed_starter_member_types( string $p ): void {
 		global $wpdb;
 
+		// Colours come from the brand-safe sweep the rest of the product uses
+		// (AvatarService::COLOURS). Both seeds were off it:
+		//
+		// #5b21b6 is deep violet - the purple/pink family the design tokens exclude
+		// by name because BN reads it as the synthetic "AI" palette. It shipped as
+		// a badge on every fresh install. #0073aa is Appearance::DEFAULT_BRAND, the
+		// SENTINEL meaning "the owner has not branded anything"; seeding a visible
+		// badge with it makes the one value that should mean "unset" look
+		// deliberate.
+		//
+		// Slate for Staff rather than another hue: a staff badge is authority,
+		// not a category, and a neutral reads that way beside the coloured ones.
 		$types = array(
 			// slug, name, color, self_select.
-			array( 'contributor', 'Contributor', '#0073aa', 1 ),
-			array( 'staff', 'Staff', '#5b21b6', 0 ),
+			array( 'contributor', 'Contributor', '#1c7ed6', 1 ),
+			array( 'staff', 'Staff', '#495057', 0 ),
 		);
 
 		$order = 0;
@@ -2012,49 +2867,7 @@ class Installer {
 		// Each INSERT uses a subquery to resolve group_id by group_key.
 		// Format: group_key, field_key, label, type, is_required, is_searchable, sort_order
 
-		$fields = array(
-			// basic_info.
-			array( 'basic_info', 'headline', 'Headline', 'text', 0, 0, 1 ),
-			array( 'basic_info', 'bio', 'Bio', 'textarea', 0, 0, 2 ),
-			array( 'basic_info', 'location', 'Location', 'text', 0, 1, 3 ),
-			array( 'basic_info', 'website', 'Website', 'url', 0, 0, 4 ),
-			array( 'basic_info', 'pronouns', 'Pronouns', 'text', 0, 0, 5 ),
-			array( 'basic_info', 'birth_date', 'Birth Date', 'date', 0, 0, 6 ),
-
-			// social_links.
-			array( 'social_links', 'social_twitter', 'Twitter / X', 'url', 0, 0, 1 ),
-			array( 'social_links', 'social_linkedin', 'LinkedIn', 'url', 0, 0, 2 ),
-			array( 'social_links', 'social_github', 'GitHub', 'url', 0, 0, 3 ),
-			array( 'social_links', 'social_instagram', 'Instagram', 'url', 0, 0, 4 ),
-			array( 'social_links', 'social_youtube', 'YouTube', 'url', 0, 0, 5 ),
-
-			// work_experience (repeater).
-			array( 'work_experience', 'work_company', 'Company', 'text', 0, 0, 1 ),
-			array( 'work_experience', 'work_title', 'Job Title', 'text', 0, 0, 2 ),
-			array( 'work_experience', 'work_location', 'Location', 'text', 0, 0, 3 ),
-			array( 'work_experience', 'work_start_date', 'Start Date', 'date', 0, 0, 4 ),
-			array( 'work_experience', 'work_end_date', 'End Date', 'date', 0, 0, 5 ),
-			array( 'work_experience', 'work_current', 'Currently Working', 'boolean', 0, 0, 6 ),
-			array( 'work_experience', 'work_description', 'Description', 'textarea', 0, 0, 7 ),
-
-			// education (repeater).
-			array( 'education', 'edu_institution', 'Institution', 'text', 0, 0, 1 ),
-			array( 'education', 'edu_degree', 'Degree', 'text', 0, 0, 2 ),
-			array( 'education', 'edu_field', 'Field of Study', 'text', 0, 0, 3 ),
-			array( 'education', 'edu_start_year', 'Start Year', 'number', 0, 0, 4 ),
-			array( 'education', 'edu_end_year', 'End Year', 'number', 0, 0, 5 ),
-			array( 'education', 'edu_current', 'Currently Attending', 'boolean', 0, 0, 6 ),
-
-			// skills (flat). Key renamed interests->skills in v17 (the canonical
-			// 'interests' key now belongs to the category_multiselect field below);
-			// maybe_migrate_skills_field_key() converges existing sites BEFORE this
-			// seeder runs, so the INSERT IGNORE never creates a duplicate.
-			array( 'skills', 'skills', 'Skills', 'text', 0, 1, 1 ),
-
-			// interests (flat) — the suggestion signal: one bn_profile_values row
-			// per picked space category (see docs/plans/interests-personalization.md).
-			array( 'interests', 'interests', 'Interests', 'category_multiselect', 0, 1, 1 ),
-		);
+		$fields = self::seeded_field_definitions();
 
 		/*
 		 * Seeded fields are MEMBERS-ONLY by default, except the two that are the
@@ -2104,6 +2917,69 @@ class Installer {
 	}
 
 	/**
+	 * The starter profile fields, as data.
+	 *
+	 * Format per row: group_key, field_key, label, type, is_required,
+	 * is_searchable, sort_order.
+	 *
+	 * Extracted so seed_profile_schema() and converge_profile_schema() read the
+	 * SAME definition. The converge pass re-creates a missing hero identity field
+	 * from this list, and a second copy of the row would let the restored field
+	 * drift from the seeded one — different label, different type — in a way that
+	 * only shows up on sites that already lost the field, which is the population
+	 * least likely to notice.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return array<int, array{0:string,1:string,2:string,3:string,4:int,5:int,6:int}>
+	 */
+	private static function seeded_field_definitions(): array {
+		return array(
+			// basic_info.
+			array( 'basic_info', 'headline', 'Headline', 'text', 0, 0, 1 ),
+			array( 'basic_info', 'bio', 'Bio', 'textarea', 0, 0, 2 ),
+			array( 'basic_info', 'location', 'Location', 'text', 0, 1, 3 ),
+			array( 'basic_info', 'website', 'Website', 'url', 0, 0, 4 ),
+			array( 'basic_info', 'pronouns', 'Pronouns', 'text', 0, 0, 5 ),
+			array( 'basic_info', 'birth_date', 'Birth Date', 'date', 0, 0, 6 ),
+
+			// social_links.
+			array( 'social_links', 'social_twitter', 'Twitter / X', 'url', 0, 0, 1 ),
+			array( 'social_links', 'social_linkedin', 'LinkedIn', 'url', 0, 0, 2 ),
+			array( 'social_links', 'social_github', 'GitHub', 'url', 0, 0, 3 ),
+			array( 'social_links', 'social_instagram', 'Instagram', 'url', 0, 0, 4 ),
+			array( 'social_links', 'social_youtube', 'YouTube', 'url', 0, 0, 5 ),
+
+			// work_experience (repeater).
+			array( 'work_experience', 'work_company', 'Company', 'text', 0, 0, 1 ),
+			array( 'work_experience', 'work_title', 'Job Title', 'text', 0, 0, 2 ),
+			array( 'work_experience', 'work_location', 'Location', 'text', 0, 0, 3 ),
+			array( 'work_experience', 'work_start_date', 'Start Date', 'date', 0, 0, 4 ),
+			array( 'work_experience', 'work_end_date', 'End Date', 'date', 0, 0, 5 ),
+			array( 'work_experience', 'work_current', 'Currently Working', 'boolean', 0, 0, 6 ),
+			array( 'work_experience', 'work_description', 'Description', 'textarea', 0, 0, 7 ),
+
+			// education (repeater).
+			array( 'education', 'edu_institution', 'Institution', 'text', 0, 0, 1 ),
+			array( 'education', 'edu_degree', 'Degree', 'text', 0, 0, 2 ),
+			array( 'education', 'edu_field', 'Field of Study', 'text', 0, 0, 3 ),
+			array( 'education', 'edu_start_year', 'Start Year', 'number', 0, 0, 4 ),
+			array( 'education', 'edu_end_year', 'End Year', 'number', 0, 0, 5 ),
+			array( 'education', 'edu_current', 'Currently Attending', 'boolean', 0, 0, 6 ),
+
+			// skills (flat). Key renamed interests->skills in v17 (the canonical
+			// 'interests' key now belongs to the category_multiselect field below);
+			// maybe_migrate_skills_field_key() converges existing sites BEFORE this
+			// seeder runs, so the INSERT IGNORE never creates a duplicate.
+			array( 'skills', 'skills', 'Skills', 'text', 0, 1, 1 ),
+
+			// interests (flat) — the suggestion signal: one bn_profile_values row
+			// per picked space category (see docs/plans/interests-personalization.md).
+			array( 'interests', 'interests', 'Interests', 'category_multiselect', 0, 1, 1 ),
+		);
+	}
+
+	/**
 	 * Converge an existing site's profile schema. Runs on EVERY upgrade.
 	 *
 	 * The half of the old seeder that is safe to re-run, and separated from the
@@ -2144,22 +3020,97 @@ class Installer {
 			    AND is_system = 1"
 		);
 
-		// System-field protection (v16/v17). Exactly the load-bearing spine is
-		// protected from deletion: bio (search index + directory cards),
-		// headline (hero + directory), location (directory filter), interests
-		// (the suggestion signal the engines read). Every other seeded field
-		// stays deletable so owners can customise their profile schema —
-		// display-only fields degrade gracefully by design.
+		// System-field protection (v16/v17/v18). Exactly the load-bearing spine is
+		// protected from deletion: bio (search index + directory cards), headline
+		// (hero + directory), location (directory filter), interests (the suggestion
+		// signal the engines read), and pronouns. Pronouns joins the spine (v18)
+		// because the hero renders it by hardcoded key in its bespoke @handle-inline
+		// slot (ProfileService::HERO_IDENTITY_FIELDS) — a template may reference a
+		// field by name ONLY when the field is guaranteed to exist, i.e. is_system.
+		// Leaving pronouns deletable while the hero hard-codes it is the exact
+		// mismatch that made it vanishable. Every OTHER seeded field stays deletable
+		// so owners can customise their schema — those are rendered by nature (group
+		// type / field type), never by name, so they degrade gracefully.
 		$wpdb->query(
 			"UPDATE `{$p}bn_profile_fields`
 			    SET is_system = 1
-			  WHERE field_key IN ('bio', 'headline', 'location', 'interests')
+			  WHERE field_key IN ('bio', 'headline', 'location', 'interests', 'pronouns')
 			    AND is_system = 0"
 		);
+		self::restore_hero_identity_fields( $p );
 		self::converge_seeded_field_flags( $p );
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
+
+	/**
+	 * Re-create a hero identity field that is missing, and only those.
+	 *
+	 * The one deliberate exception to this class's UPDATE-only rule, and it is
+	 * narrow on purpose.
+	 *
+	 * ProfileService::HERO_IDENTITY_FIELDS are the keys a template is allowed to
+	 * hardcode, and it is allowed precisely because those fields are is_system and
+	 * therefore undeletable. That guarantee arrived in v18; a site that deleted one
+	 * BEFORE it did was left with a template asking for a key that does not exist —
+	 * a permanently blank slot in the hero, with nothing on any screen saying why.
+	 * Re-flagging (the UPDATE above) cannot help, because there is no row to flag.
+	 *
+	 * Restoring these is not overriding an owner's choice the way re-seeding the
+	 * whole starter schema would be: the owner is no longer permitted to make this
+	 * particular choice, so the field's absence is a broken invariant rather than a
+	 * preference. Every other seeded field stays deleted forever — those render by
+	 * nature (group type / field type), so their absence degrades quietly instead
+	 * of leaving a hole.
+	 *
+	 * What this does NOT do is bring the members' answers back. delete_field()
+	 * purges bn_profile_values for the field in the background, so those are gone
+	 * at deletion time; this restores the field so the slot works again and members
+	 * can fill it in.
+	 *
+	 * Definitions come from seeded_field_definitions() so a restored field is
+	 * identical to a seeded one. INSERT IGNORE + the group subquery mirror
+	 * seed_profile_schema(): a site missing the whole basic_info group inserts
+	 * nothing rather than orphaning a field.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function restore_hero_identity_fields( string $p ): void {
+		global $wpdb;
+
+		$wanted = \BuddyNext\Profile\ProfileService::HERO_IDENTITY_FIELDS;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		foreach ( self::seeded_field_definitions() as $f ) {
+			if ( ! in_array( $f[1], $wanted, true ) ) {
+				continue;
+			}
+
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO `{$p}bn_profile_fields`
+					    (group_id, field_key, label, type, is_required, is_searchable, sort_order, visibility, is_system)
+					 SELECT id, %s, %s, %s, %d, %d, %d, %s, 1
+					   FROM `{$p}bn_profile_groups`
+					  WHERE group_key = %s",
+					$f[1],
+					$f[2],
+					$f[3],
+					$f[4],
+					$f[5],
+					$f[6],
+					// headline and bio are the profile's public face, as in the
+					// seeder; pronouns follows the members-only default.
+					in_array( $f[1], array( 'headline', 'bio' ), true ) ? 'public' : 'members',
+					$f[0]
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
 
 	/**
 	 * Deliver seeded field flags that INSERT IGNORE could never reach. ONCE.
@@ -2231,6 +3182,19 @@ class Installer {
 			    SET is_system = 1
 			  WHERE group_key IN ('basic_info', 'interests')
 			    AND is_system = 0"
+		);
+
+		// The profile hero's meta row is data-driven now (show_in_header, in
+		// sort_order) instead of a hardcoded key list. Seed the two fields the hero
+		// has always shown in its meta row — location and website — so an upgraded
+		// site's header is byte-for-byte unchanged, while an owner can now add,
+		// remove or reorder header fields. Only rows still at 0 are touched, and
+		// this runs once per FLAG_CONVERGENCE stamp, so a later owner choice sticks.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_fields`
+			    SET show_in_header = 1
+			  WHERE field_key IN ('location', 'website')
+			    AND show_in_header = 0"
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -2314,6 +3278,18 @@ class Installer {
 
 			// ── Activity Feed ──────────────────────────────────────────────────
 
+			// NOTE on bn_posts.status: keep this ENUM's values in the same ORDER as
+			// the MODIFY clause in maybe_alter_tables(), and add new ones only at the
+			// END. MySQL 8 widens an ENUM with ALGORITHM=INSTANT only when the value
+			// is appended, and bn_posts is the biggest table we have — inserting
+			// mid-list turns the upgrade ALTER into a full table rebuild. The values
+			// and what each means are documented once, in PostService::STATUSES.
+			//
+			// Comments do NOT go inside these SQL strings. dbDelta parses them line by
+			// line and a `--` comment makes it emit a broken CREATE TABLE: adding one
+			// here produced "You have an error in your SQL syntax ... near ''" for
+			// bn_posts only, which the installer recorded as a schema failure and then
+			// backed off for an hour, so every later migration silently stopped running.
 			"CREATE TABLE {$p}bn_posts (
 				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				user_id BIGINT(20) UNSIGNED NOT NULL,
@@ -2325,7 +3301,7 @@ class Installer {
 				link_url VARCHAR(2083) DEFAULT NULL,
 				link_meta JSON DEFAULT NULL,
 				privacy ENUM('public','followers','connections','space_members','private') NOT NULL DEFAULT 'public',
-				status ENUM('published','draft','pending','scheduled','deleted') NOT NULL DEFAULT 'published',
+				status ENUM('published','draft','pending','scheduled','deleted','under_review') NOT NULL DEFAULT 'published',
 				reaction_count INT UNSIGNED NOT NULL DEFAULT 0,
 				comment_count INT UNSIGNED NOT NULL DEFAULT 0,
 				share_count INT UNSIGNED NOT NULL DEFAULT 0,
@@ -2433,13 +3409,13 @@ class Installer {
 				archived_at DATETIME NULL DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY        (id),
-				UNIQUE KEY         slug (slug),
+				UNIQUE KEY         slug (slug(191)),
 				KEY                owner (owner_id),
 				KEY                category (category_id),
 				KEY                parent (parent_id),
 				KEY                is_archived (is_archived),
 				KEY                dir_popular (parent_id, member_count),
-				KEY                dir_name (parent_id, name),
+				KEY                dir_name (parent_id, name(150)),
 				KEY                dir_recent (parent_id, created_at),
 				KEY                admin_type (type, created_at),
 				KEY                admin_recent (created_at),
@@ -2608,6 +3584,7 @@ class Installer {
 				is_edited TINYINT(1) NOT NULL DEFAULT 0,
 				is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 				sync_reply_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				media_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
@@ -2678,6 +3655,7 @@ class Installer {
 				is_required TINYINT(1) NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
 				show_on_register TINYINT(1) NOT NULL DEFAULT 0,
+				show_in_header TINYINT(1) NOT NULL DEFAULT 0,
 				is_system TINYINT(1) NOT NULL DEFAULT 0,
 				visibility ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public',
 				sort_order INT NOT NULL DEFAULT 0,
@@ -2731,11 +3709,13 @@ class Installer {
 				user_id BIGINT(20) NOT NULL DEFAULT 0,
 				payload LONGTEXT NOT NULL,
 				status VARCHAR(20) NOT NULL DEFAULT 'success',
+				signature CHAR(64) DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY action (action),
 				KEY user_id (user_id),
-				KEY created_at (created_at)
+				KEY created_at (created_at),
+				KEY signature (signature)
 			) {$cs};",
 
 			// ── Activity Log ───────────────────────────────────────────────────
@@ -2819,7 +3799,7 @@ class Installer {
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				UNIQUE KEY  token (token),
-				KEY         email (email),
+				KEY         email (email(191)),
 				KEY         status_expires (status, expires_at)
 			) {$cs};",
 
@@ -3066,6 +4046,14 @@ function buddynext_mu_is_bn_request() {
 	// request (no extra query) and from the object cache on Redis/Memcached
 	// sites. The option_active_plugins filter below is registered only AFTER
 	// this function returns, so reading options here cannot recurse into it.
+	//
+	// bn-hub-registry-ok: this is the ONE hub-slug list that cannot derive from
+	// HubRegistry — it runs at mu-plugin time, before the plugin (and the
+	// registry) has booted. It reads the live option values, so a renamed slug
+	// is honoured; only the option NAMES are fixed here. If a hub's slug OPTION
+	// is ever renamed (plan Phase 4: buddynext_slug_activity -> _feed), this map
+	// must be updated in lockstep — it is the deliberate exception the
+	// hub-registry gate allows.
 	$slug_defaults = array(
 		'buddynext_slug_activity'      => 'activity',
 		'buddynext_slug_people'        => 'members',
@@ -3195,6 +4183,29 @@ MUPLUGIN;
 			if ( ! $hub->backing_page ) {
 				continue;
 			}
+
+			/**
+			 * Filters whether a hub's backing page should be created.
+			 *
+			 * A hub that cannot work yet should not leave a published page behind
+			 * for the theme's page-list to advertise. Messages is the case in
+			 * hand: it requires the WPMediaVerse engine, and BuddyNext published
+			 * the page regardless, so a site without MediaVerse carried a
+			 * /messages/ page that no one could use.
+			 *
+			 * This only ever declines to CREATE. An existing page is never
+			 * deleted, unpublished or edited by this plugin — if the owner has one,
+			 * it is theirs, and a plugin toggle must not touch their content.
+			 *
+			 * @since 1.1.6
+			 *
+			 * @param bool          $create Whether to create the page. Default true.
+			 * @param HubDescriptor $hub    The hub being considered.
+			 */
+			if ( ! (bool) apply_filters( 'buddynext_create_hub_page', true, $hub ) ) {
+				continue;
+			}
+
 			$existing_id = (int) get_option( $hub->page_option, 0 );
 			if ( $existing_id > 0 && 'publish' === get_post_status( $existing_id ) ) {
 				continue;
@@ -3203,6 +4214,25 @@ MUPLUGIN;
 			if ( '' === $slug ) {
 				$slug = $hub->default_slug;
 			}
+
+			/*
+			 * ADOPT before creating. This loop decided "does the page exist?" purely
+			 * from the stored option, so if that option was ever lost while the page
+			 * itself survived — a partial restore, a half-finished migration, an
+			 * option table rolled back — the next run inserted a SECOND page with
+			 * the same slug. WordPress then suffixes it (messages-2), and the hub
+			 * quietly starts serving a different URL from the one the owner's menus
+			 * and links point at.
+			 *
+			 * Claiming the existing page is both safer and what the owner means.
+			 */
+			$existing_by_slug = get_page_by_path( $slug );
+			if ( $existing_by_slug instanceof \WP_Post && 'publish' === $existing_by_slug->post_status ) {
+				update_option( $hub->page_option, (int) $existing_by_slug->ID );
+				update_option( $hub->slug_option, $slug );
+				continue;
+			}
+
 			$page_id = wp_insert_post(
 				array(
 					'post_title'     => $hub->title,

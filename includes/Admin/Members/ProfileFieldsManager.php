@@ -140,8 +140,9 @@ class ProfileFieldsManager {
 	/**
 	 * Return the filterable list of allowed profile field type slugs.
 	 *
-	 * Pro plugins add custom field types (e.g. 'file', 'video', 'map') by
-	 * hooking buddynext_field_types (in FieldType) or buddynext_profile_field_types.
+	 * Pro plugins add custom field types (e.g. 'location', 'conditional',
+	 * 'number_advanced') by hooking buddynext_field_types (in FieldType) or
+	 * buddynext_profile_field_types.
 	 * The whitelist enforcement in handle_create_field() and handle_edit_field()
 	 * calls this method so registered types are automatically accepted.
 	 *
@@ -196,6 +197,54 @@ class ProfileFieldsManager {
 	 */
 	private static function choice_types(): array {
 		return self::types_with_flag( 'is_choice' );
+	}
+
+	/**
+	 * The "Display as" choices for a date field, as value => label.
+	 *
+	 * There were two copies of this list — one in the add-field panel, one in the
+	 * edit-field panel — and they drifted, which is the whole reason this exists
+	 * as a method. The edit copy had picked up mojibake on all four options plus
+	 * the options hint - the raw bytes c3 a2 where an em dash belongs, rendering
+	 * as a stray capital-A-circumflex - while the add copy stayed correct. (The
+	 * corrupt bytes are described rather than quoted here, so that
+	 * `LC_ALL=C grep -rn $'\xc3\xa2' includes/` stays a clean check.) An owner only met
+	 * the corrupted one when EDITING an existing date field, which is why it
+	 * survived so long.
+	 *
+	 * Labels are built here rather than duplicated at each call site, so the next
+	 * change lands in one place and cannot half-apply.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return array<string, string> Keyed by the values in self::DATE_DISPLAY.
+	 */
+	private static function date_display_choices(): array {
+		return array(
+			'date'       => __( 'Full date — Jan 15, 1990', 'buddynext' ),
+			'month_year' => __( 'Month & Year — Jan 1990', 'buddynext' ),
+			'year'       => __( 'Year only — 1990', 'buddynext' ),
+			'age'        => __( 'Calculated age — 34 years old', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * Render the date "Display as" <option> set, marking the current value.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $current Currently stored display mode.
+	 * @return void
+	 */
+	private static function render_date_display_options( string $current = '' ): void {
+		foreach ( self::date_display_choices() as $bn_value => $bn_label ) {
+			printf(
+				'<option value="%1$s"%2$s>%3$s</option>',
+				esc_attr( $bn_value ),
+				selected( $current, $bn_value, false ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- selected() returns a fixed attribute string.
+				esc_html( $bn_label )
+			);
+		}
 	}
 
 	/**
@@ -256,20 +305,6 @@ class ProfileFieldsManager {
 	private const VISIBILITY_VALUES = array( 'public', 'members', 'followers', 'connections', 'private' );
 
 	/**
-	 * Visibility levels whose values reach a search index at all.
-	 *
-	 * ProfileService::sync_search_mirror() routes a value by visibility: public
-	 * lands in the public mirror, members in the members-only one, and
-	 * followers / connections / private are written nowhere. So "searchable" is
-	 * only a meaningful setting for the first two — the rest cannot be indexed
-	 * without answering the searcher's relationship to every candidate at query
-	 * time, which is a different feature.
-	 *
-	 * @var string[]
-	 */
-	private const SEARCHABLE_VISIBILITY = array( 'public', 'members' );
-
-	/**
 	 * Register admin hooks.
 	 *
 	 * @return void
@@ -285,6 +320,29 @@ class ProfileFieldsManager {
 		add_action( 'admin_post_bn_edit_profile_field', array( $this, 'handle_edit_field' ) );
 		add_action( 'admin_post_bn_reorder_group', array( $this, 'handle_reorder_group' ) );
 		add_action( 'admin_post_bn_reorder_field', array( $this, 'handle_reorder_field' ) );
+
+		// Setup-checklist intent: mark the "Profiles" step done once the owner saves
+		// ANY profile configuration — creating or editing a group/field, including the
+		// seeded starter kit. Runs at priority 1 (before each handler redirects+exits)
+		// on the mutating actions only. The step used to require a brand-new custom
+		// group, so editing the starter kit — what the step's copy invites — never
+		// completed it. See SetupChecklist::profiles_configured().
+		foreach ( array( 'bn_create_profile_group', 'bn_create_profile_field', 'bn_update_profile_group', 'bn_update_profile_field', 'bn_edit_profile_field', 'bn_reorder_group', 'bn_reorder_field' ) as $bn_pf_action ) {
+			add_action( "admin_post_{$bn_pf_action}", array( $this, 'mark_profiles_configured' ), 1 );
+		}
+	}
+
+	/**
+	 * Record that the owner has configured member profiles (drives the Setup
+	 * checklist "Profiles" step). Capability-guarded; a non-privileged request can
+	 * never flip it. Not autoloaded — read only on the admin landing.
+	 *
+	 * @return void
+	 */
+	public function mark_profiles_configured(): void {
+		if ( current_user_can( 'manage_options' ) ) {
+			update_option( 'buddynext_profiles_configured', 1, false );
+		}
 	}
 
 	/**
@@ -339,6 +397,15 @@ class ProfileFieldsManager {
 			$handle,
 			'bnProfileFieldTypes',
 			$js_matrix
+		);
+
+		// The visibility half of the is_searchable rule, from the same constant the
+		// server enforces. The builder JS used to carry its own copy of this list;
+		// two copies of a rule are two chances to disagree about it.
+		wp_localize_script(
+			$handle,
+			'bnProfileFieldRules',
+			array( 'searchableVisibility' => \BuddyNext\Profile\FieldType::SEARCHABLE_VISIBILITY )
 		);
 	}
 
@@ -439,9 +506,14 @@ class ProfileFieldsManager {
 		// write-side guard, so the flag can never be persisted as a 1 that does
 		// nothing (which is what made the toggle look broken).
 		$show_on_register = ( isset( $_POST['show_on_register'] ) && ! $this->is_repeater_group( $group_id ) ) ? 1 : 0;
-		$visibility       = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
-		$description      = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
-		$placeholder      = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
+		// show_in_header puts the field in the profile hero's meta row. Inert in a
+		// repeater group (the hero shows single values, not a variable list of
+		// entries), so the same write-side guard as show_on_register keeps it from
+		// persisting a 1 that renders nothing.
+		$show_in_header = ( isset( $_POST['show_in_header'] ) && ! $this->is_repeater_group( $group_id ) ) ? 1 : 0;
+		$visibility     = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		$description    = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
+		$placeholder    = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
 
 		if ( ! in_array( $type, self::field_types(), true ) ) {
 			$type = 'text';
@@ -458,8 +530,7 @@ class ProfileFieldsManager {
 		// can never honour. The builder hides the control in the same cases; this
 		// is the authority, because a UI gate is only a convenience.
 		$is_searchable = ( isset( $_POST['is_searchable'] )
-			&& in_array( $type, self::searchable_capable_types(), true )
-			&& in_array( $visibility, self::SEARCHABLE_VISIBILITY, true ) ) ? 1 : 0;
+			&& \BuddyNext\Profile\FieldType::is_searchable_applicable( $type, $visibility ) ) ? 1 : 0;
 
 		// Route options by field type.
 		if ( in_array( $type, self::choice_types(), true ) ) {
@@ -531,6 +602,7 @@ class ProfileFieldsManager {
 					'is_required'      => $is_required > 0 ? 1 : 0,
 					'is_searchable'    => $is_searchable,
 					'show_on_register' => $show_on_register,
+					'show_in_header'   => $show_in_header,
 					'visibility'       => $visibility,
 					'sort_order'       => $sort_order,
 				)
@@ -1104,9 +1176,13 @@ class ProfileFieldsManager {
 		// The type this field ALREADY is. Read before anything can overwrite it, because it
 		// is the only place the truth is recorded — nothing else remembers a field's previous
 		// type, so a bad write here is unrecoverable even after the add-on comes back.
-		$stored_type = (string) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prepare( "SELECT type FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $field_id )
+		$stored_row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->prepare( "SELECT type, group_id FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $field_id ),
+			ARRAY_A
 		);
+
+		$stored_type     = (string) ( $stored_row['type'] ?? '' );
+		$stored_group_id = (int) ( $stored_row['group_id'] ?? 0 );
 
 		$label       = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
 		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? $stored_type ) );
@@ -1176,9 +1252,9 @@ class ProfileFieldsManager {
 		$is_required = isset( $_POST['is_required'] ) ? 1 : 0;
 		// Same two gates as the add path — see the note there.
 		$is_searchable    = ( isset( $_POST['is_searchable'] )
-			&& in_array( $type, self::searchable_capable_types(), true )
-			&& in_array( $visibility, self::SEARCHABLE_VISIBILITY, true ) ) ? 1 : 0;
+			&& \BuddyNext\Profile\FieldType::is_searchable_applicable( $type, $visibility ) ) ? 1 : 0;
 		$show_on_register = isset( $_POST['show_on_register'] ) ? 1 : 0;
+		$show_in_header   = isset( $_POST['show_in_header'] ) ? 1 : 0;
 
 		if ( '' === $label ) {
 			wp_safe_redirect(
@@ -1194,6 +1270,36 @@ class ProfileFieldsManager {
 			exit;
 		}
 
+		// Moving the field to another group. Whether that is safe is ProfileService's
+		// call, not this screen's: this handler writes with its own $wpdb->update()
+		// rather than going through update_field(), so asking the service is what
+		// keeps the two doors to this table agreeing about which moves lose data.
+		$submitted_group = absint( wp_unslash( $_POST['group_id'] ?? 0 ) );
+		$moving_group    = $submitted_group > 0 && $submitted_group !== $stored_group_id;
+
+		if ( $moving_group ) {
+			$move_error = buddynext_service( 'profiles' )->field_move_blocker( $field_id, $stored_group_id, $submitted_group );
+			if ( null !== $move_error ) {
+				// Nothing is written - not the group, and not the label/type edits
+				// submitted alongside it. A partial save here would be the worst
+				// outcome: the admin is told the move failed while the rest of the
+				// form silently landed.
+				wp_safe_redirect(
+					add_query_arg(
+						array(
+							'page'         => 'buddynext-members',
+							'tab'          => 'profile-fields',
+							'bn_pf_notice' => 'bn_field_move_would_hide_entries' === $move_error->get_error_code()
+								? 'move_entries'
+								: 'move_group',
+						),
+						admin_url( 'admin.php' )
+					)
+				);
+				exit;
+			}
+		}
+
 		$data   = array(
 			'label'            => $label,
 			'type'             => $type,
@@ -1202,9 +1308,15 @@ class ProfileFieldsManager {
 			'is_required'      => $is_required,
 			'is_searchable'    => $is_searchable,
 			'show_on_register' => $show_on_register,
+			'show_in_header'   => $show_in_header,
 			'visibility'       => $visibility,
 		);
-		$format = array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' );
+		$format = array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s' );
+
+		if ( $moving_group ) {
+			$data['group_id'] = $submitted_group;
+			$format[]         = '%d';
+		}
 
 		// Only write `options` when this install understands the type. With the owning add-on
 		// inactive, Free renders none of that type's option inputs — so $parsed_opts is null,
@@ -1222,6 +1334,15 @@ class ProfileFieldsManager {
 			$format,
 			array( '%d' )
 		);
+
+		// The type changed (e.g. a text `location` field upgraded to a map, so it
+		// need not be duplicated) — migrate existing values into the new type's
+		// storage format so they survive the change. No-op for conversions that
+		// need no migration. Only when both types are known: an unknown stored type
+		// is round-tripped above, not really changed.
+		if ( $type_is_known && $stored_type_is_known && $stored_type !== $type ) {
+			buddynext_service( 'profiles' )->convert_field_values( $field_id, $stored_type, $type );
+		}
 
 		// is_searchable changed → ProfileService rebuilds the searchable mirror
 		// for affected users via the searchable_mirror contract.
@@ -1423,6 +1544,16 @@ class ProfileFieldsManager {
 			AdminPageBase::render_notice( __( 'Not saved — please check the field name and try again.', 'buddynext' ), 'error' );
 		} elseif ( 'locked' === $bn_pf_notice ) {
 			AdminPageBase::render_notice( __( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ), 'error' );
+		} elseif ( 'move_entries' === $bn_pf_notice ) {
+			AdminPageBase::render_notice(
+				__( 'Not moved - some members have more than one entry for this field, and a non-repeating group shows only the first. Move it to another repeating group, or remove the extra entries first. Nothing else on the form was saved.', 'buddynext' ),
+				'error'
+			);
+		} elseif ( 'move_group' === $bn_pf_notice ) {
+			AdminPageBase::render_notice(
+				__( 'Not moved - that group no longer exists. Nothing else on the form was saved.', 'buddynext' ),
+				'error'
+			);
 		} elseif ( 'confirm' === $bn_pf_notice ) {
 			AdminPageBase::render_notice( __( 'Not deleted - the confirmation text did not match. Type the exact name (or DELETE) to remove an item that has stored member values.', 'buddynext' ), 'error' );
 		}
@@ -1913,6 +2044,34 @@ class ProfileFieldsManager {
 														<?php endforeach; ?>
 													</select>
 												</div>
+												<?php
+												// Move the field to another group. Repeating groups are marked,
+												// because moving OUT of one into a non-repeating group is the
+												// single case the save can refuse: a non-repeating group renders
+												// only the first entry, so members with several would appear to
+												// lose the rest. The server re-checks - this label is guidance,
+												// not the gate.
+												?>
+												<div class="bn-pf-af-field bn-a-pf-col-narrow">
+													<label for="bn-ef-grp-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Group', 'buddynext' ); ?></label>
+													<select id="bn-ef-grp-<?php echo absint( $fid ); ?>" name="group_id">
+														<?php foreach ( $groups as $bn_g ) : ?>
+														<option value="<?php echo absint( $bn_g['id'] ); ?>" <?php selected( absint( $group['id'] ), absint( $bn_g['id'] ) ); ?>>
+															<?php
+															echo esc_html(
+																'repeater' === ( $bn_g['type'] ?? 'flat' )
+																	? sprintf(
+																		/* translators: %s: profile field group name. */
+																		__( '%s (repeating)', 'buddynext' ),
+																		(string) $bn_g['label']
+																	)
+																	: (string) $bn_g['label']
+															);
+															?>
+														</option>
+														<?php endforeach; ?>
+													</select>
+												</div>
 											</div>
 											<?php // G1: owner-authored hints. Empty = nothing renders on the member forms. ?>
 											<div class="bn-pf-af-row">
@@ -1943,7 +2102,7 @@ class ProfileFieldsManager {
 													class="bn-pf-opts-textarea"
 													rows="6"
 													placeholder="<?php esc_attr_e( 'Option 1', 'buddynext' ); ?>"><?php echo esc_textarea( $opts_text ); ?></textarea>
-												<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom â each on its own line.', 'buddynext' ); ?></p>
+												<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom — each on its own line.', 'buddynext' ); ?></p>
 											</div>
 											<?php
 											/**
@@ -1975,10 +2134,7 @@ class ProfileFieldsManager {
 													<?php esc_html_e( 'Display as', 'buddynext' ); ?>
 												</label>
 												<select id="bn-ef-date-d-<?php echo absint( $fid ); ?>" name="date_display">
-													<option value="date" <?php selected( $date_display_val, 'date' ); ?>><?php esc_html_e( 'Full date â Jan 15, 1990', 'buddynext' ); ?></option>
-													<option value="month_year" <?php selected( $date_display_val, 'month_year' ); ?>><?php esc_html_e( 'Month â Year â Jan 1990', 'buddynext' ); ?></option>
-													<option value="year" <?php selected( $date_display_val, 'year' ); ?>><?php esc_html_e( 'Year only â 1990', 'buddynext' ); ?></option>
-													<option value="age" <?php selected( $date_display_val, 'age' ); ?>><?php esc_html_e( 'Calculated age â 34 years old', 'buddynext' ); ?></option>
+													<?php self::render_date_display_options( (string) $date_display_val ); ?>
 												</select>
 												<p class="bn-pf-opts-hint"><?php esc_html_e( 'How this date appears on profiles. Always stored as YYYY-MM-DD internally.', 'buddynext' ); ?></p>
 											</div>
@@ -1995,6 +2151,11 @@ class ProfileFieldsManager {
 												<div class="bn-pf-af-req-row">
 													<input type="checkbox" id="bn-ef-reg-<?php echo absint( $fid ); ?>" name="show_on_register" value="1" <?php checked( ! empty( $field['show_on_register'] ) ); ?>>
 													<label for="bn-ef-reg-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Ask for this on the registration form', 'buddynext' ); ?></label>
+												</div>
+												<?php // Profile-header opt-in. Single-entry only — the hero shows single values, not a repeating list. ?>
+												<div class="bn-pf-af-req-row">
+													<input type="checkbox" id="bn-ef-hdr-<?php echo absint( $fid ); ?>" name="show_in_header" value="1" <?php checked( ! empty( $field['show_in_header'] ) ); ?>>
+													<label for="bn-ef-hdr-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Show in the profile header', 'buddynext' ); ?></label>
 												</div>
 											<?php endif; ?>
 											<div class="bn-pf-af-actions">
@@ -2120,10 +2281,7 @@ class ProfileFieldsManager {
 								<?php esc_html_e( 'Display as', 'buddynext' ); ?>
 							</label>
 							<select id="bn-af-date-d-<?php echo absint( $gid ); ?>" name="date_display">
-								<option value="date"><?php esc_html_e( 'Full date — Jan 15, 1990', 'buddynext' ); ?></option>
-								<option value="month_year"><?php esc_html_e( 'Month & Year — Jan 1990', 'buddynext' ); ?></option>
-								<option value="year"><?php esc_html_e( 'Year only — 1990', 'buddynext' ); ?></option>
-								<option value="age"><?php esc_html_e( 'Calculated age — 34 years old', 'buddynext' ); ?></option>
+								<?php self::render_date_display_options(); ?>
 							</select>
 							<p class="bn-pf-opts-hint"><?php esc_html_e( 'How this date appears on profiles. Always stored as YYYY-MM-DD internally.', 'buddynext' ); ?></p>
 						</div>
@@ -2145,6 +2303,10 @@ class ProfileFieldsManager {
 							<div class="bn-pf-af-req-row">
 								<input type="checkbox" id="bn-af-reg-<?php echo absint( $gid ); ?>" name="show_on_register" value="1">
 								<label for="bn-af-reg-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Show on the registration form', 'buddynext' ); ?></label>
+							</div>
+							<div class="bn-pf-af-req-row">
+								<input type="checkbox" id="bn-af-hdr-<?php echo absint( $gid ); ?>" name="show_in_header" value="1">
+								<label for="bn-af-hdr-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Show in the profile header', 'buddynext' ); ?></label>
 							</div>
 						<?php endif; ?>
 						<div class="bn-pf-af-actions">

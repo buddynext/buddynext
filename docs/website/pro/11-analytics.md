@@ -25,7 +25,7 @@ Most of the dashboard is admin-only, but one piece is member-facing: profile vie
 
 When Pro is active, a "who viewed your profile" panel appears on a member's own profile page. It is visible only to the profile owner - other people viewing the profile never see it.
 
-> **Note:** This member-facing panel is a plan perk (Personal Analytics). If you have turned Memberships on **and** chosen a default plan, a member sees it only if their plan grants it. With Memberships off (the default), every member gets it. The admin analytics dashboard below is unaffected either way - it is yours, not a member perk. See Membership Tiers.
+> **Note:** This member-facing panel is a plan perk (Personal Analytics). If you have turned Memberships on **and** chosen a default plan, a member sees it only if their plan grants it. With Memberships off (the default), every member gets it. The admin analytics dashboard below is unaffected either way - it is yours, not a member perk. See Membership Plans.
 
 The panel shows:
 
@@ -70,6 +70,16 @@ The dashboard has no required configuration. It starts collecting and displaying
 | Setting | What it does | Default |
 |---|---|---|
 | Profile-view tracking (per member) | Each member can opt out of having their profile visits counted. Set by the member, not the owner. | On (visits counted) |
+
+## How long analytics data is kept
+
+Analytics events are an append-only log, so they need pruning or they grow without limit. A background job trims them against the same **data retention** setting the rest of the suite honours, and it covers both the analytics events and the AI signal log. Set retention to "keep forever" and the job stands down.
+
+The job is always armed otherwise, including on sites that never switched on AI moderation - retention belongs to the data, not to whichever feature happens to read it.
+
+**On a large community it now catches up (1.1.5).** Each run deletes in bounded batches, so no single statement holds a long table lock, but the per-run ceiling used to sit below the rate at which busy sites wrote new events - so the backlog grew every night and the prune could never reach it. A site with ten million aged rows would have needed years of nightly runs while still writing faster than it deleted. The ceiling is now high enough that a backlog drains in a few nights.
+
+You do not need to do anything for this; it is a background job. It matters only if you were watching the analytics table grow and wondering why the nightly prune never seemed to help.
 
 ## Good to know
 

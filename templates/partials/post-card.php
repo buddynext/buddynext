@@ -48,16 +48,23 @@ if ( empty( $bn_post ) || empty( $bn_post['id'] ) ) {
 }
 
 // ── Post meta ──────────────────────────────────────────────────────────────────
-$bn_post_id      = absint( $bn_post['id'] );
-$bn_post_type    = $bn_post['type'] ?? 'text';
-$bn_space_id     = absint( $bn_post['space_id'] ?? 0 );
-$post_author_id  = absint( $bn_post['user_id'] ?? 0 );
-$post_content    = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
-$post_privacy    = $bn_post['privacy'] ?? 'public';
-$post_privacy    = in_array( $post_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
+$bn_post_id     = absint( $bn_post['id'] );
+$bn_post_type   = $bn_post['type'] ?? 'text';
+$bn_space_id    = absint( $bn_post['space_id'] ?? 0 );
+$post_author_id = absint( $bn_post['user_id'] ?? 0 );
+$post_content   = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
+$post_privacy   = $bn_post['privacy'] ?? 'public';
+$post_privacy   = in_array( $post_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
 	? $post_privacy
 	: 'public';
-$is_pinned       = ! empty( $bn_post['is_pinned'] );
+$is_pinned      = ! empty( $bn_post['is_pinned'] );
+// The "Pinned" badge is surface-relative: a post is pinned to a member's PROFILE
+// strip, never to the global home/explore/single/bookmarks feed — and no longer
+// to a space (spaces surface important content through Announcements, not pins).
+// The raw is_pinned column travels with every hydrated row, so without this gate a
+// profile-pinned post shows "Pinned" wherever it also appears. Keep the raw
+// is_pinned for the pin/unpin action + options menu; gate only the display.
+$show_pin_badge  = $is_pinned && 'profile' === $context;
 $is_announcement = ! empty( $bn_post['is_announcement'] );
 $edited_at       = $bn_post['edited_at'] ?? null;
 $created_at      = $bn_post['created_at'] ?? '';
@@ -203,14 +210,15 @@ $is_admin = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_option
 // window closes keeps the UI honest instead of showing Edit and failing with a
 // 403 on click. 0 = unlimited; admins are exempt (mirrors the server check).
 //
-// A post that has not published yet (status = scheduled) is exempt from the
-// window, exactly as PostService::update is: the window guards against rewriting
-// history members have already read, and nobody has read a scheduled post. Without
-// the exemption a post scheduled for next week loses its Edit control an hour
-// after it was drafted and can only be deleted.
-$bn_is_scheduled    = 'scheduled' === (string) ( $bn_post['status'] ?? '' );
+// A post nobody has been allowed to read yet is exempt from the window, exactly as
+// PostService::update is: the window guards against rewriting history members have
+// already read. Both halves ask PostService::is_pre_publication() rather than each
+// restating the list - restating it is why they disagreed, the server testing only
+// 'scheduled' behind a variable named $is_pending and this template mirroring the
+// same mistake, so a post held for moderation lost its Edit control while it waited.
+$bn_is_unpublished  = \BuddyNext\Feed\PostService::is_pre_publication( (string) ( $bn_post['status'] ?? 'published' ) );
 $within_edit_window = true;
-if ( ! $is_admin && ! $bn_is_scheduled ) {
+if ( ! $is_admin && ! $bn_is_unpublished ) {
 	$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
 	if ( $edit_window > 0 && '' !== (string) $created_at ) {
 		$created_ts         = (int) strtotime( (string) $created_at . ' UTC' );
@@ -223,7 +231,26 @@ $can_edit = ( $is_own_post && $within_edit_window ) || $is_admin;
 // buddynext_can() already grants that to WP admins (manage_options bypass) AND
 // community moderators, so the affordance now shows for mods, not just admins.
 $can_delete = $is_own_post || ( $current_user_id > 0 && buddynext_can( $current_user_id, 'buddynext-feed/delete-any-post' ) );
-$can_pin    = $is_own_post || $is_admin;
+
+/*
+ * Pin is PROFILE-ONLY. A member pins their own post to the top of their own
+ * profile; the badge and the action both render only there. Spaces no longer
+ * have pins — important space content is surfaced through Announcements
+ * (admin-controlled, expiring, dismissible), so the two overlapping "to the top"
+ * mechanisms are collapsed to one.
+ *
+ * Offered only where the effect is visible: in the global feed a "Pin" on your
+ * own post would land on your profile, invisible from where you clicked it (no
+ * badge, no order change), so it is not offered there either. Same rule as
+ * $show_pin_badge above, so the control and its badge cannot disagree.
+ */
+// Own NON-space post, on the member's own profile. A space post ($bn_space_id > 0)
+// can never be pinned (PostService::pin() returns pin_not_allowed_in_space), and
+// such a post also appears in the member's own profile feed — so it must be
+// excluded here too, or the control renders where it can only 403. No admin/
+// moderator pinning of a member's post either — that is the member's own
+// curation. Mirrors the server gate in PostService::pin().
+$can_pin    = $is_own_post && 'profile' === $context && 0 === $bn_space_id;
 $can_report = ( $current_user_id > 0 && ! $is_own_post );
 
 // Reactions are a site-owner-toggleable feature (Settings → Features, default on).
@@ -247,8 +274,26 @@ $can_comment         = ( $current_user_id > 0 && $bn_comments_enabled );
 // Re-shares and bookmarks are site-owner toggles (BuddyNext → Social). When the
 // owner disables a feature the corresponding action control must disappear, not
 // just no-op — both default ON when the option is unset.
-$can_share    = ( $current_user_id > 0 && '0' !== (string) get_option( 'buddynext_allow_shares', '1' ) );
-$can_bookmark = ( $current_user_id > 0 && '0' !== (string) get_option( 'buddynext_allow_bookmarks', '1' ) );
+$can_share    = ( $current_user_id > 0 && buddynext_feature_enabled( 'shares' ) );
+$can_bookmark = ( $current_user_id > 0 && buddynext_feature_enabled( 'bookmarks' ) );
+
+// A post that is not published yet has nothing to engage with. React, Comment,
+// Share and Save render on the author's own Scheduled and Pending tabs, and none
+// of them makes sense there: nobody else can see the post, so a share reaches an
+// empty audience and a comment sits under content that may never publish - or,
+// on a held post, may be rejected with the comment still attached to it.
+//
+// Same principle the Edit control already follows a few lines up: show the
+// affordance only where the action is real. The server half is closed too as of
+// 255661bd: visibility_error() gates on publication state and every engagement
+// write endpoint calls it, so hiding these controls now agrees with what the REST
+// routes actually do rather than being cosmetic.
+if ( $bn_is_unpublished ) {
+	$can_react    = false;
+	$can_comment  = false;
+	$can_share    = false;
+	$can_bookmark = false;
+}
 
 // ── Nonces — all REST calls use the wp_rest nonce ──────────────────────────────
 $rest_nonce     = $current_user_id > 0 ? wp_create_nonce( 'wp_rest' ) : '';
@@ -327,8 +372,22 @@ $privacy_icons  = array(
 	'space_members' => buddynext_get_icon( 'lock' ),
 	'private'       => buddynext_get_icon( 'lock' ),
 );
-$privacy_label  = isset( $privacy_labels[ $post_privacy ] ) ? esc_html( $privacy_labels[ $post_privacy ] ) : '';
-$privacy_icon   = $privacy_icons[ $post_privacy ] ?? '';
+/*
+ * Public is the DEFAULT audience, so saying so on every card states a constant
+ * - and a marker that is always present is a marker nobody reads, including on
+ * the posts where it matters. Showing it only when the audience is NARROWER
+ * than the default means it always carries information. Same rule Facebook and
+ * LinkedIn use.
+ *
+ * An empty label is the byline's own signal to render no marker (and no
+ * separator), so this is the single place the rule lives. A theme wanting the
+ * marker on every post overrides this template - it is theme-overridable like
+ * every other one, which is why this needs no filter of its own.
+ */
+$privacy_label  = ( 'public' !== $post_privacy && isset( $privacy_labels[ $post_privacy ] ) )
+	? esc_html( $privacy_labels[ $post_privacy ] )
+	: '';
+$privacy_icon   = '' !== $privacy_label ? ( $privacy_icons[ $post_privacy ] ?? '' ) : '';
 
 // ── Content warning label ──────────────────────────────────────────────────────
 $cw_labels  = array(
@@ -355,7 +414,7 @@ $card_classes = array( 'bn-post-card' );
 if ( $is_announcement ) {
 	$card_classes[] = 'bn-post-card--announcement';
 }
-if ( $is_pinned ) {
+if ( $show_pin_badge ) {
 	$card_classes[] = 'bn-post-card--pinned';
 }
 if ( 'poll' === $bn_post_type ) {
@@ -363,11 +422,70 @@ if ( 'poll' === $bn_post_type ) {
 }
 
 $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes ) );
+
+// ── Dead-source reshare ─────────────────────────────────────────────────────────
+// The original is gone (deleted, hidden, blocked, or its author suspended), so
+// `filter_visible()` returned nothing and the embed falls back to "no longer
+// available". Rendering that as a FULL card — byline, quote block, React /
+// Comment / Share / Save — advertises content that does not exist and, at a few
+// per screen, hollows out the feed.
+//
+// The distinction that matters is whether the SHARER wrote anything. Collapsing
+// every dead reshare to one line, as first proposed, would delete a member's own
+// writing from the feed along with the dead quote — their commentary is real
+// content and the only reason the post still has a reason to exist. So:
+//
+// With commentary, the card stays and only the quote block collapses, via the
+// compact notice in parts/post-body.php. With nothing but the quote, the card
+// has no content left: one muted line and no action bar, because resharing or
+// reacting to a tombstone would only propagate it.
+$bn_dead_share   = 'share' === $bn_post_type && $shared_post_id > 0 && null === $shared_post;
+$bn_hollow_share = $bn_dead_share
+	&& '' === trim( wp_strip_all_tags( (string) $post_content ) )
+	&& empty( $media_ids )
+	&& '' === (string) $link_url
+	&& empty( $poll_options );
+
+/**
+ * Whether to drop a dead-source reshare from the feed entirely.
+ *
+ * Default false — collapse to a tombstone, so the sharer's action stays legible
+ * and the feed does not silently lose posts. An owner who would rather they
+ * vanish returns true; this is a presentation preference with two defensible
+ * answers, not a correctness question.
+ *
+ * @since 1.1.6
+ *
+ * @param bool  $hide     Whether to hide the reshare.
+ * @param array $bn_post  The reshare row.
+ */
+if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', false, $bn_post ) ) {
+	return;
+}
+
+?>
+<?php if ( $bn_hollow_share ) : ?>
+<article class="bn-post-card bn-post-card--tombstone">
+	<span class="bn-post-card__tombstone-icon" aria-hidden="true"><?php buddynext_icon( 'share' ); ?></span>
+	<p class="bn-post-card__tombstone-text">
+		<?php
+		printf(
+			/* translators: %s: name of the member who shared the post. */
+			esc_html__( '%s shared a post that is no longer available.', 'buddynext' ),
+			'<a href="' . esc_url( $profile_link ) . '">' . esc_html( $display_name ) . '</a>'
+		);
+		?>
+	</p>
+	<time class="bn-post-card__tombstone-time" datetime="<?php echo esc_attr( $created_at ); ?>"><?php echo esc_html( $post_time ); ?></time>
+</article>
+	<?php
+	return;
+	endif;
 ?>
 <article
 	class="<?php echo esc_attr( $card_class_attr ); ?>"
 	data-wp-interactive="buddynext/post-card"
-	data-wp-class--bn-post-card--pinned="context.isPinned"
+	data-wp-class--bn-post-card--pinned="state.pinBadgeVisible"
 		data-wp-init="callbacks.initPostCard"
 	data-wp-on-document--click="actions.closePopups"
 	data-wp-on-document--keydown="actions.closePopupsOnEscape"
@@ -376,12 +494,18 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		echo wp_json_encode(
 			array(
 				'postId'            => $bn_post_id,
+				'commentSubmitting' => false,
 				'spaceId'           => $bn_space_id,
 				'authorId'          => $post_author_id,
 				'currentUserId'     => $current_user_id,
 				'postType'          => $bn_post_type,
 				'showContent'       => ! $has_cw,
+				// Raw pin state (drives the pin/unpin action + options menu label);
+				// showPinBadge gates whether the "Pinned" label is shown on this
+				// surface. The badge is visible only when both are true — so pinning
+				// a post from the home feed never surfaces the label there.
 				'isPinned'          => $is_pinned,
+				'showPinBadge'      => in_array( $context, array( 'profile', 'space' ), true ),
 				'bookmarked'        => $is_bookmarked,
 				'hasReported'       => $has_reported,
 				'reactionType'      => $my_reaction_type,
@@ -465,7 +589,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 
 	<?php if ( ! $is_announcement ) : ?>
 		<?php // Always in the DOM so the label can appear/disappear reactively when a member pins/unpins without a reload; hidden bound to context.isPinned. ?>
-		<div class="bn-post-card__pin-label" aria-label="<?php esc_attr_e( 'Pinned post', 'buddynext' ); ?>" data-wp-bind--hidden="!context.isPinned"<?php echo $is_pinned ? '' : ' hidden'; ?>>
+		<div class="bn-post-card__pin-label" aria-label="<?php esc_attr_e( 'Pinned post', 'buddynext' ); ?>" data-wp-bind--hidden="!state.pinBadgeVisible"<?php echo $show_pin_badge ? '' : ' hidden'; ?>>
 			<?php buddynext_icon( 'pin' ); ?> <?php esc_html_e( 'Pinned', 'buddynext' ); ?>
 		</div>
 	<?php endif; ?>
@@ -544,8 +668,12 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	// Scheduled posts (the owner's "Scheduled" profile tab) show WHEN they will
 	// publish — the byline timestamp is the creation time, not the useful figure
 	// here. scheduled_at is stored in UTC; wp_date() renders it in the site's zone.
+	// Narrower than $bn_is_unpublished on purpose: a PENDING post is unpublished
+	// too, but it has no publish time to show - it publishes when a moderator says
+	// so, not on a clock.
+	$bn_pc_is_scheduled = 'scheduled' === (string) ( $bn_post['status'] ?? '' );
 	$bn_pc_scheduled_at = (string) ( $bn_post['scheduled_at'] ?? '' );
-	if ( $bn_is_scheduled && '' !== $bn_pc_scheduled_at ) {
+	if ( $bn_pc_is_scheduled && '' !== $bn_pc_scheduled_at ) {
 		$bn_pc_sched_ts = strtotime( $bn_pc_scheduled_at . ' UTC' );
 		if ( $bn_pc_sched_ts ) {
 			$bn_pc_sched_fmt = wp_date(
@@ -564,6 +692,21 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			</div>
 			<?php
 		}
+	}
+
+	// Held for approval (the owner's "Pending" tab). Without this the card is
+	// indistinguishable from a published post, and the author is left to guess
+	// why it never reached the feed - which is the state the Pending tab exists
+	// to end (Basecamp 10239861865). Only the author ever renders this: the
+	// panel behind it is owner-only, and a pending post is not in anyone else's
+	// feed to begin with.
+	if ( 'pending' === (string) ( $bn_post['status'] ?? '' ) ) {
+		?>
+		<div class="bn-post-card__pending">
+			<?php buddynext_icon( 'shield' ); ?>
+			<span><?php esc_html_e( 'Waiting for a moderator to review this post.', 'buddynext' ); ?></span>
+		</div>
+		<?php
 	}
 
 	buddynext_get_template(

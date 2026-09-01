@@ -25,6 +25,29 @@ cd "$(dirname "$0")/.." || exit 1
 PLUGIN_DIR="$PWD"
 
 STAGED=0
+
+# Is this the per-commit tier?
+#
+# --staged advertises itself as the "fast pre-commit signal" and it was not one.
+# Two of the twenty-eight gates below honoured it (php -l and WPCS, narrowed to
+# staged files); the other twenty-six ran in full, including the Playwright
+# journey suite, the whole PHPUnit suite and the behavioural cert. A commit
+# therefore cost the release battery — measured here at over ten minutes before
+# it was killed — which is how a hook stops being a hook: people learn to pass
+# --no-verify, and that disables the cheap gates too, which were the ones worth
+# having on every commit.
+#
+# CLAUDE.md already draws the line ("Per fix: the pre-commit hook (staged
+# lint/WPCS/PHPStan) … Per release: the full battery"). This makes the script
+# agree with it. bin/build-release.sh runs without --staged and still gets
+# everything, and it already refuses a skipped journey run.
+bn_heavy_gate_skipped() {
+	if [ "$STAGED" = 1 ]; then
+		note "$1 — release gate, skipped in --staged (runs in full via bin/check.sh and bin/build-release.sh)"
+		return 0
+	fi
+	return 1
+}
 SKIP_AUDIT=0
 for arg in "$@"; do
 	case "$arg" in
@@ -48,6 +71,27 @@ section() { printf "\n${DIM}── %s ──${RESET}\n" "$1"; }
 ok()      { printf "${GREEN}✓${RESET} %s\n" "$1"; }
 fail()    { printf "${RED}✗${RESET} %s\n" "$1"; EXIT=1; }
 note()    { printf "${YELLOW}!${RESET} %s\n" "$1"; }
+
+# Run a python3-based gate. PASS when the script exits 0; FAIL with $2 when it exits
+# non-zero; SKIP with a note (never a failure) when python3 OR the script is absent.
+#
+# The doc/registry gates below previously guarded only on the SCRIPT existing, then ran
+# `python3 bin/x.py` unconditionally. On a clone without python3 that hard-failed all of
+# them, blocking every commit for the wrong reason — the failure mode that teaches people
+# to pass --no-verify, which also disables WPCS, PHPStan and the rest. Guarding on the
+# interpreter mirrors the `command -v wp` guard the cert gate already uses.
+py_gate() {
+	# $1 = script path, $2 = failure message.
+	if ! command -v python3 >/dev/null 2>&1; then
+		note "python3 not found — skipped ${1##*/}"
+		return 0
+	fi
+	if [ ! -f "$1" ]; then
+		note "${1} missing"
+		return 0
+	fi
+	python3 "$1" || fail "$2"
+}
 
 # 1. PHP lint
 section "PHP -l"
@@ -257,6 +301,36 @@ else
 	note "bin/check-store-collisions.php missing"
 fi
 
+if [ -f bin/check-hub-registry.php ]; then
+	if php bin/check-hub-registry.php >/dev/null 2>&1; then
+		ok "hub registry is the one hub list — no parallel list, every route has a descriptor"
+	else
+		fail "hub-registry drift — run: php bin/check-hub-registry.php"
+	fi
+else
+	note "bin/check-hub-registry.php missing"
+fi
+
+if [ -f bin/check-schema-authority.php ]; then
+	if php bin/check-schema-authority.php >/dev/null 2>&1; then
+		ok "schema authority holds — every column is declared in its CREATE TABLE, not only in an ALTER"
+	else
+		fail "schema drift — run: php bin/check-schema-authority.php"
+	fi
+else
+	note "bin/check-schema-authority.php missing"
+fi
+
+if [ -f bin/check-mediaverse-surfaces.php ]; then
+	if php bin/check-mediaverse-surfaces.php >/dev/null 2>&1; then
+		ok "MediaVerse surface ownership holds — no MV assets on BN pages, placeholder avatars stay last, comment controls follow the engine's flags"
+	else
+		fail "MediaVerse surface-ownership violation — run: php bin/check-mediaverse-surfaces.php"
+	fi
+else
+	note "bin/check-mediaverse-surfaces.php missing"
+fi
+
 # 3bb. Hook-doc conformance — BLOCKING.
 #
 # The integration-hook table in CLAUDE.md is read by third-party integrators AND by AI agents.
@@ -266,16 +340,26 @@ fi
 #
 # This is blocking from day one, because the table is correct as of this commit. A gate that
 # starts green stays green. If you change a do_action(), regenerate the table - do not hand-edit.
+# 3b-i-a. docs_config.json vs the pages on disk — BLOCKING, green as of this commit.
+#
+# The customer-docs index is hand-maintained, and both failure directions are silent: a page
+# on disk but unlisted never appears at all, and a listed page with no file is a dangling
+# entry that only surfaces at publish time. The 1.1.6 docs pass added, renamed and renumbered
+# pages, which is exactly when one forgotten line slips through.
+section "Docs config vs disk"
+py_gate bin/check-docs-config.py "docs_config.json does not match docs/website/ — see the list above"
+
 section "Hook-doc conformance"
-if [ -f bin/check-hook-docs.py ]; then
-	if python3 bin/check-hook-docs.py; then
-		:
-	else
-		fail "hook-doc drift — regenerate the table from the do_action() call sites"
-	fi
-else
-	note "bin/check-hook-docs.py missing"
-fi
+py_gate bin/check-hook-docs.py "hook-doc drift — regenerate the table from the do_action() call sites"
+
+# 3b-i-a2. Public hook docs — BLOCKING for anything new, baselined for the existing 32.
+#
+# check-hook-docs.py above gates the ARG COUNT of do_action() hooks in CLAUDE.md. It does not
+# look at filters, and it never opens the customer-facing guide — which is how all twelve
+# extension points advertised in the 1.1.5 release notes shipped undocumented. A @since tag is
+# a public promise; this gate makes it one the build can check.
+section "Public hook docs"
+py_gate bin/check-public-hook-docs.py "a hook promised with @since is missing from docs/website/developer-guide/"
 
 # 3b-i-b. Interactivity directive paths — BLOCKING, and green as of this commit.
 #
@@ -288,15 +372,7 @@ fi
 # a bar that never said why it had appeared, profile edit never showed "Unsaved changes".
 # They were found by measuring the DOM in a browser, not by review.
 section "Interactivity directive paths"
-if [ -f bin/check-directive-paths.py ]; then
-	if python3 bin/check-directive-paths.py; then
-		:
-	else
-		fail "a directive is bound to an expression — move the comparison into a computed getter"
-	fi
-else
-	note "bin/check-directive-paths.py missing"
-fi
+py_gate bin/check-directive-paths.py "a directive is bound to an expression — move the comparison into a computed getter"
 
 # 3b-ii. Erasure completeness — BLOCKING, and green as of this commit.
 #
@@ -309,15 +385,7 @@ fi
 # has existed, and bn_activity_log, bn_email_log and bn_webhook_log were still never purged,
 # because adding a table forced nobody to answer the question. This gate forces it.
 section "Erasure completeness"
-if [ -f bin/check-erasure.py ]; then
-	if python3 bin/check-erasure.py; then
-		:
-	else
-		fail "a user-keyed table is not registered for erasure or retention — see DATA-LIFECYCLE.md §9"
-	fi
-else
-	note "bin/check-erasure.py missing"
-fi
+py_gate bin/check-erasure.py "a user-keyed table is not registered for erasure or retention — see DATA-LIFECYCLE.md §9"
 
 # 3b-iii. Journey tags — BLOCKING, and green as of this commit.
 #
@@ -327,15 +395,7 @@ fi
 # because the journey catalogue is internal and lives in the pro repo. The matching gate
 # there (bin/check-journey-coverage.py) reconciles both directions.
 section "Journey tags"
-if [ -f bin/check-journey-tags.py ]; then
-	if python3 bin/check-journey-tags.py; then
-		:
-	else
-		fail "a Playwright spec declares no journey id — add it to the spec's docblock"
-	fi
-else
-	note "bin/check-journey-tags.py missing"
-fi
+py_gate bin/check-journey-tags.py "a Playwright spec declares no journey id — add it to the spec's docblock"
 
 # 3b-iii-b. Journey EXECUTION — BLOCKING when a site is reachable.
 #
@@ -354,7 +414,9 @@ fi
 # here; bin/build-release.sh refuses that skip, which is where the requirement to
 # have actually run it belongs.
 section "Journey run (Playwright)"
-if [ -f bin/check-journey-run.sh ]; then
+if bn_heavy_gate_skipped "journey suite"; then
+	:
+elif [ -f bin/check-journey-run.sh ]; then
 	# Captured, not tested inline: under set -e the non-zero exit would abort
 	# the run before the case could classify skip-vs-regression.
 	JRC=0
@@ -375,7 +437,9 @@ fi
 # `bin/install-wp-tests.sh` and it becomes part of every check.
 section "PHPUnit (WP integration)"
 BN_WTL="${WP_TESTS_DIR:-/tmp/wordpress-tests-lib}"
-if [ -f "$BN_WTL/includes/functions.php" ] && [ -f vendor/bin/phpunit ]; then
+if bn_heavy_gate_skipped "full PHPUnit suite"; then
+	:
+elif [ -f "$BN_WTL/includes/functions.php" ] && [ -f vendor/bin/phpunit ]; then
 	PURC=0
 	WP_TESTS_DIR="$BN_WTL" vendor/bin/phpunit --no-coverage >/tmp/bn-phpunit.log 2>&1 || PURC=$?
 	if [ "$PURC" -eq 0 ]; then
@@ -397,15 +461,7 @@ fi
 # display setting never persisted) — invisible with Free-only fixtures because every core
 # type is in every hardcoded list. This is the static backstop the pixel pass can't be.
 section "Field-type registry (A1)"
-if [ -f bin/check-field-type-registry.py ]; then
-	if python3 bin/check-field-type-registry.py; then
-		:
-	else
-		fail "a field-type gate reads a hardcoded list instead of the buddynext_field_types registry"
-	fi
-else
-	note "bin/check-field-type-registry.py missing"
-fi
+py_gate bin/check-field-type-registry.py "a field-type gate reads a hardcoded list instead of the buddynext_field_types registry"
 
 # 3b-v. Emitted CSS class (A2) — BLOCKING, green as of this commit (baselined).
 #
@@ -416,15 +472,7 @@ fi
 # ones beyond .a2-emitted-class-baseline.json. The full emitted-no-rule list is advisory:
 # bin/check-emitted-css-classes.py --report → audit/emitted-class-report.md.
 section "Emitted CSS class (A2)"
-if [ -f bin/check-emitted-css-classes.py ]; then
-	if python3 bin/check-emitted-css-classes.py; then
-		:
-	else
-		fail "a fully-unstyled element emits a class whose styled sibling exists — likely the wrong class"
-	fi
-else
-	note "bin/check-emitted-css-classes.py missing"
-fi
+py_gate bin/check-emitted-css-classes.py "a fully-unstyled element emits a class whose styled sibling exists — likely the wrong class"
 
 # 3b-vi. Auth-form field wiring (A3) — BLOCKING, green as of this commit.
 #
@@ -435,15 +483,7 @@ fi
 # handle prefix — the account was created with the wrong display_name, nothing errored,
 # and a "signup succeeded" journey passed. This gate catches that class statically.
 section "Auth-form field wiring (A3)"
-if [ -f bin/check-form-field-wiring.py ]; then
-	if python3 bin/check-form-field-wiring.py; then
-		:
-	else
-		fail "an editable auth-form control is not wired into the submit payload (card-10 class)"
-	fi
-else
-	note "bin/check-form-field-wiring.py missing"
-fi
+py_gate bin/check-form-field-wiring.py "an editable auth-form control is not wired into the submit payload (card-10 class)"
 
 # 3c. Cache conformance — ADVISORY until the cache backlog is cleared, then make it blocking.
 #
@@ -509,7 +549,9 @@ fi
 section "Flow audit (free + pro pair)"
 FLOW_AUDIT_CLI="${FLOW_AUDIT_CLI:-$HOME/.mcp-servers/wp-plugin-qa-mcp-server/build/flow-audit-cli.js}"
 BN_PRO_PATH="${BN_PRO_PATH:-$HOME/dev/repos/buddynext-pro}"
-if command -v node >/dev/null 2>&1 && [ -f "$FLOW_AUDIT_CLI" ]; then
+if bn_heavy_gate_skipped "flow audit"; then
+	:
+elif command -v node >/dev/null 2>&1 && [ -f "$FLOW_AUDIT_CLI" ]; then
 	if node "$FLOW_AUDIT_CLI" "$PLUGIN_DIR" "$BN_PRO_PATH" >/dev/null 2>&1; then
 		ok "0 unbaselined flow-audit errors"
 	else
@@ -524,7 +566,9 @@ fi
 # behavioural gate is skipped (the static checks above still ran). This is the
 # only gate that proves toggles actually enforce and routes don't fatal.
 section "Functional certification (wp buddynext cert)"
-if [ -n "${BN_WP_PATH:-}" ] && command -v wp >/dev/null 2>&1; then
+if bn_heavy_gate_skipped "behavioural cert"; then
+	:
+elif [ -n "${BN_WP_PATH:-}" ] && command -v wp >/dev/null 2>&1; then
 	if wp --path="$BN_WP_PATH" buddynext cert 2>/dev/null; then
 		ok "functional certification passed"
 	else

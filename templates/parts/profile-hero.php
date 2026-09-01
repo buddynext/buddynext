@@ -72,8 +72,7 @@ $args = array(
 	'bio'                 => isset( $bio ) ? (string) $bio : '',
 	'headline'            => isset( $headline ) ? (string) $headline : '',
 	'pronouns'            => isset( $pronouns ) ? (string) $pronouns : '',
-	'location'            => isset( $location ) ? (string) $location : '',
-	'website'             => isset( $website ) ? (string) $website : '',
+	'hero_meta'           => isset( $hero_meta ) && is_array( $hero_meta ) ? $hero_meta : array(),
 	'joined'              => isset( $joined ) ? (string) $joined : '',
 	'mutual_count'        => isset( $mutual_count ) ? (int) $mutual_count : 0,
 	'degree_badge'        => isset( $degree_badge ) ? (string) $degree_badge : '',
@@ -124,8 +123,7 @@ $bn_pf_slug          = (string) $args['username'];
 $bn_pf_pronouns      = (string) $args['pronouns'];
 $bn_pf_headline      = (string) $args['headline'];
 $bn_pf_bio           = (string) $args['bio'];
-$bn_pf_location      = (string) $args['location'];
-$bn_pf_website       = (string) $args['website'];
+$bn_pf_hero_meta     = (array) $args['hero_meta'];
 $bn_pf_joined        = (string) $args['joined'];
 $bn_pf_mutual        = (int) $args['mutual_count'];
 $bn_pf_degree        = (string) $args['degree_badge'];
@@ -320,23 +318,37 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				<?php endif; ?>
 
 				<div class="bn-pf-meta">
-					<?php if ( $bn_pf_location ) : ?>
+					<?php
+					// The meta row is data-driven: whichever fields the owner flagged
+					// show_in_header, in sort_order (default: location + website). Each
+					// value is already display-text (a map field shows its address, not
+					// JSON). A URL field renders as a host-only link with its icon; a
+					// location field keeps the pin; everything else gets a neutral marker.
+					foreach ( $bn_pf_hero_meta as $bn_pf_hm ) :
+						if ( ! is_array( $bn_pf_hm ) || '' === (string) ( $bn_pf_hm['value'] ?? '' ) ) {
+							continue;
+						}
+						$bn_pf_hm_type = (string) ( $bn_pf_hm['type'] ?? 'text' );
+						$bn_pf_hm_key  = (string) ( $bn_pf_hm['key'] ?? '' );
+						$bn_pf_hm_val  = (string) $bn_pf_hm['value'];
+						$bn_pf_hm_icon = ( 'location' === $bn_pf_hm_type || 'location' === $bn_pf_hm_key )
+							? 'map-pin'
+							: ( 'url' === $bn_pf_hm_type ? 'link' : 'info' );
+						?>
 						<span class="bn-pf-meta__item">
-							<?php buddynext_icon( 'map-pin' ); ?>
-							<span><?php echo esc_html( $bn_pf_location ); ?></span>
+							<?php buddynext_icon( $bn_pf_hm_icon ); ?>
+							<?php if ( 'url' === $bn_pf_hm_type ) : ?>
+								<a href="<?php echo esc_url( $bn_pf_hm_val ); ?>" target="_blank" rel="nofollow noopener noreferrer ugc">
+									<?php
+									$bn_pf_hm_host = wp_parse_url( $bn_pf_hm_val, PHP_URL_HOST );
+									echo esc_html( $bn_pf_hm_host ? $bn_pf_hm_host : $bn_pf_hm_val );
+									?>
+								</a>
+							<?php else : ?>
+								<span><?php echo esc_html( $bn_pf_hm_val ); ?></span>
+							<?php endif; ?>
 						</span>
-					<?php endif; ?>
-					<?php if ( $bn_pf_website ) : ?>
-						<span class="bn-pf-meta__item">
-							<?php buddynext_icon( 'link' ); ?>
-							<a href="<?php echo esc_url( $bn_pf_website ); ?>" target="_blank" rel="nofollow noopener noreferrer ugc">
-								<?php
-								$parsed_host = wp_parse_url( $bn_pf_website, PHP_URL_HOST );
-								echo esc_html( $parsed_host ? $parsed_host : $bn_pf_website );
-								?>
-							</a>
-						</span>
-					<?php endif; ?>
+					<?php endforeach; ?>
 					<span class="bn-pf-meta__item">
 						<?php buddynext_icon( 'calendar' ); ?>
 						<span>
@@ -372,7 +384,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						'social_linkedin'  => 'link',
 						'social_github'    => 'code',
 						'social_instagram' => 'camera',
-						'social_youtube'   => 'play-circle',
+						'social_youtube'   => 'play',
 					);
 					foreach ( $bn_pf_social as $sl_field ) :
 						$sl_key   = (string) ( $sl_field['field_key'] ?? '' );
@@ -401,238 +413,53 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				completeness chip. The chip is shown only to the owner
 				until completion reaches 100 % so others don't see a
 				scoring meter on a profile they're visiting. -->
-			<?php if ( $bn_pf_is_owner ) : ?>
-				<?php
-				// Prefer the caller-supplied 6-task strength percentage (the same set
-				// the strength widget/checklist shows) so the chip matches the
-				// sidebar ring. Fall back to the field-wide completion score only
-				// when a caller renders the hero without it.
-				if ( isset( $strength_pct ) ) {
-					$bn_pf_completion_pct = (int) $strength_pct;
-				} else {
-					$bn_pf_completion_pct = 0;
-					if ( function_exists( 'buddynext_service' ) ) {
-						$bn_pf_completion     = (array) buddynext_service( 'profiles' )->get_completion_score( $bn_pf_uid );
-						$bn_pf_completion_pct = (int) ( $bn_pf_completion['percent'] ?? 0 );
-					}
+			<?php
+			// Prefer the caller-supplied 6-task strength percentage (the same set
+			// the strength widget/checklist shows) so the ring matches the
+			// sidebar. Fall back to the field-wide completion score only when a
+			// caller renders the hero without it. Owner-only, but resolved here
+			// because the fallback needs a service call the part should not make.
+			if ( isset( $strength_pct ) ) {
+				$bn_pf_completion_pct = (int) $strength_pct;
+			} else {
+				$bn_pf_completion_pct = 100;
+				if ( $bn_pf_is_owner && function_exists( 'buddynext_service' ) ) {
+					$bn_pf_completion     = (array) buddynext_service( 'profiles' )->get_completion_score( $bn_pf_uid );
+					$bn_pf_completion_pct = (int) ( $bn_pf_completion['percent'] ?? 0 );
 				}
-				?>
-				<div class="bn-pf-actions">
-					<a class="bn-btn" data-variant="primary" data-size="sm"
-						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>">
-						<?php buddynext_icon( 'edit' ); ?>
-						<span><?php esc_html_e( 'Edit profile', 'buddynext' ); ?></span>
-					</a>
-					<?php
-					$bn_pf_share_url = \BuddyNext\Core\PageRouter::people_url() . rawurlencode( $bn_pf_slug ) . '/';
-					?>
-					<button type="button"
-						class="bn-btn"
-						data-variant="secondary"
-						data-size="sm"
-						data-wp-on--click="actions.shareProfile"
-						data-share-url="<?php echo esc_attr( $bn_pf_share_url ); ?>"
-						aria-label="<?php esc_attr_e( 'Share profile link', 'buddynext' ); ?>">
-						<?php buddynext_icon( 'share' ); ?>
-						<span><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
-					</button>
+			}
 
-					<?php if ( $bn_pf_completion_pct < 100 ) : ?>
-						<a class="bn-pf-completeness"
-							href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
-							style="--bn-pf-pct: <?php echo esc_attr( (string) $bn_pf_completion_pct ); ?>%"
-							aria-label="
-							<?php
-							echo esc_attr(
-								sprintf(
-								/* translators: %d: profile completion percentage. */
-									__( 'Profile %d%% complete — finish to make it discoverable', 'buddynext' ),
-									$bn_pf_completion_pct
-								)
-							);
-							?>
-							"
-						>
-							<span class="bn-pf-completeness__ring" aria-hidden="true">
-								<span class="bn-pf-completeness__ring-fill"></span>
-							</span>
-							<span class="bn-pf-completeness__label">
-								<?php
-								echo esc_html(
-									sprintf(
-									/* translators: %d: profile completion percentage. */
-										__( '%d%% complete', 'buddynext' ),
-										$bn_pf_completion_pct
-									)
-								);
-								?>
-							</span>
-						</a>
-					<?php endif; ?>
-				</div>
-			<?php endif; ?>
-
-			<!-- Action buttons — shown for other users only; owners see the bar above -->
-			<?php if ( ! $bn_pf_is_owner && $bn_pf_viewer ) : ?>
-			<div class="bn-pf-actions">
-				<?php
-				/*
-				 * Three states, not two. Following a PRIVATE account stores the row
-				 * as status='pending' until the owner approves it, so "Requested" is
-				 * a real state a member sits in — and this header had no way to show
-				 * it. The button flipped straight to "Following" and the follower
-				 * count incremented, telling the viewer they were following someone
-				 * who had not approved them, and inflating the owner's count until
-				 * the next reload.
-				 *
-				 * The shared partials/follow-button.php already models all of this;
-				 * this header is a separate hand-rolled control, which is why it
-				 * drifted. Bindings use state.* so the store owns the transitions.
-				 */
-				?>
-				<?php if ( $bn_pf_can_follow || $bn_pf_is_following || $bn_pf_follow_pend ) : ?>
-				<button class="bn-btn" data-variant="primary" data-size="sm"
-					data-wp-on--click="actions.follow"
-					data-wp-bind--hidden="state.followBtnHidden"
-					<?php echo ( $bn_pf_is_following || $bn_pf_follow_pend ) ? 'hidden' : ''; ?>>
-					<?php esc_html_e( 'Follow', 'buddynext' ); ?>
-				</button>
-				<button class="bn-btn bn-pf-follow-requested" data-variant="secondary" data-size="sm"
-					data-wp-on--click="actions.unfollow"
-					data-wp-bind--hidden="!context.followPending"
-					<?php echo $bn_pf_follow_pend ? '' : 'hidden'; ?>>
-					<?php esc_html_e( 'Requested', 'buddynext' ); ?>
-				</button>
-				<button class="bn-btn" data-variant="secondary" data-size="sm"
-					data-wp-on--click="actions.unfollow"
-					data-wp-bind--hidden="!context.isFollowing"
-					<?php echo $bn_pf_is_following ? '' : 'hidden'; ?>>
-					<?php esc_html_e( 'Following', 'buddynext' ); ?>
-				</button>
-				<?php endif; ?>
-
-				<?php if ( $bn_pf_can_connect || $bn_pf_is_connected || $bn_pf_conn_pending || $bn_pf_conn_received ) : ?>
-				<button class="bn-btn" data-variant="secondary" data-size="sm"
-					data-wp-on--click="actions.connect"
-					data-wp-bind--hidden="!context.showConnect"
-					<?php echo ( $bn_pf_is_connected || $bn_pf_conn_pending || $bn_pf_conn_received ) ? 'hidden' : ''; ?>>
-					<?php esc_html_e( 'Connect', 'buddynext' ); ?>
-				</button>
-				<?php endif; ?>
-				<button class="bn-btn" data-variant="secondary" data-size="sm"
-					data-wp-on--click="actions.withdrawRequest"
-					data-wp-bind--hidden="!context.connectionPending"
-					<?php echo $bn_pf_conn_pending ? '' : 'hidden'; ?>>
-					<?php esc_html_e( 'Pending', 'buddynext' ); ?>
-				</button>
-				<span class="bn-pf-actions__group"
-					data-wp-bind--hidden="!context.connectionReceived"
-					<?php echo $bn_pf_conn_received ? '' : 'hidden'; ?>>
-					<button class="bn-btn" data-variant="primary" data-size="sm"
-						data-wp-on--click="actions.acceptRequest">
-						<?php esc_html_e( 'Accept', 'buddynext' ); ?>
-					</button>
-					<button class="bn-btn" data-variant="ghost" data-size="sm"
-						data-wp-on--click="actions.declineRequest">
-						<?php esc_html_e( 'Decline', 'buddynext' ); ?>
-					</button>
-				</span>
-				<button class="bn-btn bn-pf-connected" data-variant="secondary" data-state="connected" data-size="sm"
-					data-wp-on--click="actions.disconnectUser"
-					data-wp-bind--hidden="!context.isConnected"
-					<?php echo $bn_pf_is_connected ? '' : 'hidden'; ?>>
-					<?php buddynext_icon( 'check' ); ?>
-					<span><?php esc_html_e( 'Connected', 'buddynext' ); ?></span>
-				</button>
-
-				<?php if ( \BuddyNext\Messages\MessagesData::entry_enabled() ) : ?>
-					<a href="<?php echo esc_url( add_query_arg( 'with', $bn_pf_uid, \BuddyNext\Core\PageRouter::messages_url() ) ); ?>"
-						class="bn-btn" data-variant="secondary" data-size="sm">
-						<?php buddynext_icon( 'message-circle' ); ?>
-						<span><?php esc_html_e( 'Message', 'buddynext' ); ?></span>
-					</a>
-				<?php endif; ?>
-
-				<!-- Share profile popover -->
-				<div class="bn-share-menu-wrap" data-wp-class--is-open="context.shareMenuOpen">
-					<button class="bn-btn" data-variant="secondary" data-size="sm"
-						aria-haspopup="menu"
-						aria-expanded="false"
-						aria-label="<?php esc_attr_e( 'Share profile', 'buddynext' ); ?>"
-						data-wp-on--click="actions.toggleShareMenu"
-						data-wp-bind--aria-expanded="context.shareMenuOpen">
-						<?php buddynext_icon( 'share-2' ); ?>
-						<span><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
-					</button>
-					<div class="bn-share-menu bn-more-menu" role="menu">
-						<button class="bn-more-menu-item"
-							type="button"
-							role="menuitem"
-							data-share-url="<?php echo esc_attr( \BuddyNext\Core\PageRouter::profile_url( $bn_pf_uid ) ); ?>"
-							data-wp-on--click="actions.copyProfileLink">
-							<?php buddynext_icon( 'link' ); ?>
-							<span><?php esc_html_e( 'Copy link', 'buddynext' ); ?></span>
-						</button>
-						<a class="bn-more-menu-item"
-							role="menuitem"
-							href="<?php echo esc_url( add_query_arg( 'mention', rawurlencode( $bn_pf_slug ), \BuddyNext\Core\PageRouter::activity_url() ) ); ?>">
-							<?php buddynext_icon( 'message-circle' ); ?>
-							<span><?php esc_html_e( 'Share to feed', 'buddynext' ); ?></span>
-						</a>
-					</div>
-				</div>
-
-				<!-- More options dropdown -->
-				<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen">
-					<button class="bn-btn bn-pf-more-trigger"
-						data-variant="ghost"
-						data-size="sm"
-						aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>"
-						aria-expanded="false"
-						data-wp-on--click="actions.toggleMoreMenu"
-						data-wp-bind--aria-expanded="context.moreMenuOpen"><?php buddynext_icon( 'more-horizontal' ); ?></button>
-					<div class="bn-more-menu" role="menu">
-							<?php // Edit this member's profile - shown to holders of the "Edit anyone's profile" capability (buddynext-profile/edit-any). ?>
-							<?php if ( $bn_pf_can_edit ) : ?>
-								<a class="bn-more-menu-item" role="menuitem" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url( $bn_pf_uid ) ); ?>">
-									<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
-								</a>
-							<?php endif; ?>
-						<button class="bn-more-menu-item"
-							role="menuitem"
-							data-wp-on--click="actions.toggleMute"
-							data-wp-text="state.muteLabel">
-							<?php esc_html_e( 'Mute', 'buddynext' ); ?>
-						</button>
-						<button class="bn-more-menu-item"
-							role="menuitem"
-							data-wp-on--click="actions.toggleRestrict"
-							data-wp-text="state.restrictLabel">
-							<?php esc_html_e( 'Restrict', 'buddynext' ); ?>
-						</button>
-						<button class="bn-more-menu-item bn-more-menu-item--danger"
-							role="menuitem"
-							data-wp-on--click="actions.toggleBlock"
-							data-wp-text="state.blockLabel">
-							<?php esc_html_e( 'Block', 'buddynext' ); ?>
-						</button>
-						<button class="bn-more-menu-item"
-							role="menuitem"
-							data-wp-on--click="actions.openReport">
-							<?php esc_html_e( 'Report', 'buddynext' ); ?>
-						</button>
-					</div>
-				</div>
-			</div>
-			<?php elseif ( ! $bn_pf_is_owner ) : ?>
-				<?php // Logged-out guest: a single Follow CTA routed through login that returns to this profile (mirrors the member-directory guest pattern) so the hero is never action-less. ?>
-			<div class="bn-pf-actions">
-				<a class="bn-btn" data-variant="primary" data-size="sm"
-					href="<?php echo esc_url( add_query_arg( 'redirect_to', \BuddyNext\Core\PageRouter::profile_url( $bn_pf_uid ), \BuddyNext\Core\PageRouter::auth_url() ) ); ?>">
-					<?php esc_html_e( 'Follow', 'buddynext' ); ?>
-				</a>
-			</div>
-			<?php endif; ?>
+			/*
+			 * All three viewer states — owner, member-viewing-member, logged-out
+			 * visitor — render through ONE part now. They were three hand-rolled
+			 * rows here, which is how they ended up using four different button
+			 * weights for the same kind of control, and how a second primary and
+			 * two borderless ghosts got onto the same screen.
+			 *
+			 * parts/profile-actions.php owns the slot model (one primary, N
+			 * secondary peers, one bordered overflow last) and the responsive
+			 * contract. Add an action there, not here.
+			 */
+			buddynext_get_template(
+				'parts/profile-actions.php',
+				array(
+					'profile_user_id' => $bn_pf_uid,
+					'display_name'    => $bn_pf_name,
+					'username'        => $bn_pf_slug,
+					'viewer_id'       => $bn_pf_viewer,
+					'is_owner'        => $bn_pf_is_owner,
+					'can_edit_any'    => $bn_pf_can_edit,
+					'can_follow'      => $bn_pf_can_follow,
+					'can_connect'     => $bn_pf_can_connect,
+					'is_following'    => $bn_pf_is_following,
+					'follow_pending'  => $bn_pf_follow_pend,
+					'is_connected'    => $bn_pf_is_connected,
+					'conn_pending'    => $bn_pf_conn_pending,
+					'conn_received'   => $bn_pf_conn_received,
+					'completion_pct'  => $bn_pf_completion_pct,
+				)
+			);
+			?>
 
 		</div><!-- /.bn-pf-head -->
 

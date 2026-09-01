@@ -27,9 +27,11 @@ Two things keep the tab honest:
 
 Every panel links out to the source app rather than trying to reproduce it. The Portfolio tab surfaces the member's activity and points to where it lives; it never takes over the other app's screens, and its copy stays about the member, not about the plugin behind it.
 
-## In the app
+## Built to serve an app, when there is one
 
-The same Portfolio a member sees on the web is served to the BuddyNext mobile app through the API, from one shared data source. The app renders the identical set of panels without scraping the website, so a member's professional profile looks the same on both.
+The Portfolio is assembled from one shared data source and served through the REST API rather than being built into the page, so any client reading the API gets the same panels the web shows.
+
+> **There is no BuddyNext mobile app yet.** The native iOS and Android app is planned and not yet released, so today this matters only if you are building your own client against the API. It is a design property of the Portfolio, not a feature you can use in a store app.
 
 ## Setting it up (for owners)
 

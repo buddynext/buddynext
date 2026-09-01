@@ -482,7 +482,11 @@
 }
 
 /* "Scheduled for <date>" strip on a scheduled post (owner's Scheduled tab). */
-.bn-post-card__scheduled {
+/* Status strip for a post that is not live yet - scheduled by the author, or
+   held for a moderator. Same shape, different colour, because they are different
+   situations: one is waiting on the clock, the other is waiting on a person. */
+.bn-post-card__scheduled,
+.bn-post-card__pending {
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
@@ -494,11 +498,17 @@
 	font-size: var(--bn-text-sm);
 	font-weight: 500;
 }
-.bn-post-card__scheduled svg {
+.bn-post-card__pending {
+	background: var(--bn-warn-bg);
+	color: color-mix(in oklch, var(--bn-ink) 86%, transparent);
+}
+.bn-post-card__scheduled svg,
+.bn-post-card__pending svg {
 	width: 16px;
 	height: 16px;
 	flex-shrink: 0;
 }
+.bn-post-card__pending svg { color: var(--bn-warn); }
 
 .bn-post-card__body--blurred {
 	filter: blur(8px);
@@ -1420,34 +1430,21 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 .bn-post-card__react-icon svg { width: 18px; height: 18px; }
 
-/* Reacted states — hide the Lucide SVG and paint the colored emoji as
-   a background image. The Fluent Emoji vendor lives at
-   /assets/emoji/{slug}.svg (registered via IconService::emoji_url). */
-.bn-post-card__react-icon--like,
-.bn-post-card__react-icon--love,
-.bn-post-card__react-icon--haha,
-.bn-post-card__react-icon--wow,
-.bn-post-card__react-icon--sad,
-.bn-post-card__react-icon--angry {
+/* Reacted state — hide the idle Lucide heart and show the reaction's OWN mark:
+   the colored Fluent Emoji as a background image (built-ins + any custom that
+   ships an SVG), or a color-tinted letter glyph for Pro customs with no SVG. The
+   mark is data-driven from the serialized reaction set (emoji_url / char / color)
+   via state.reactionIconUrl + the inner .bn-reaction-glyph — so a custom reaction
+   shows itself here instead of the six built-ins being the only ones that could.
+   A hardcoded per-slug list here is exactly why custom reactions showed no icon. */
+.bn-post-card__react-icon--reacted {
 	background-position: center;
 	background-repeat: no-repeat;
 	background-size: contain;
 	transform: scale(1.05);
 }
-.bn-post-card__react-icon--like  svg,
-.bn-post-card__react-icon--love  svg,
-.bn-post-card__react-icon--haha  svg,
-.bn-post-card__react-icon--wow   svg,
-.bn-post-card__react-icon--sad   svg,
-.bn-post-card__react-icon--angry svg {
-	display: none;
-}
-.bn-post-card__react-icon--like  { background-image: url("../emoji/like.svg"); }
-.bn-post-card__react-icon--love  { background-image: url("../emoji/love.svg"); }
-.bn-post-card__react-icon--haha  { background-image: url("../emoji/haha.svg"); }
-.bn-post-card__react-icon--wow   { background-image: url("../emoji/wow.svg"); }
-.bn-post-card__react-icon--sad   { background-image: url("../emoji/sad.svg"); }
-.bn-post-card__react-icon--angry { background-image: url("../emoji/angry.svg"); }
+.bn-post-card__react-icon--reacted > svg { display: none; }
+.bn-post-card__react-icon .bn-reaction-glyph { font-size: 0.625rem; }
 
 /* React button label colour-matches the reacted state for an extra
    FB-style affordance ("Like" turns blue when you've liked, etc.). */
@@ -2074,15 +2071,15 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 /* Only style the reacted state when data-reaction holds an actual emoji —
    the JS sets data-reaction="" (empty but present) on un-reacted comments,
    which a bare [data-reaction] would wrongly match. */
+/* The reacted tint comes from the reaction's own colour, set by post-card.js as
+   --bn-comment-reaction-color from the serialized reaction set. Five built-in
+   slugs used to be tinted by name here, so a custom reaction fell through to the
+   generic colour on a comment while the post trigger carried its own artwork -
+   the same hardcoded-slug-list class the trigger fix removed one component over. */
 .bn-comment__like-btn[data-reaction]:not([data-reaction=""]) {
-	color: var(--bn-accent);
+	color: var(--bn-comment-reaction-color, var(--bn-accent));
 	font-weight: 600;
 }
-.bn-comment__like-btn[data-reaction="love"]  { color: var(--bn-danger); }
-.bn-comment__like-btn[data-reaction="angry"] { color: var(--bn-danger); }
-.bn-comment__like-btn[data-reaction="haha"]  { color: var(--bn-warn); }
-.bn-comment__like-btn[data-reaction="wow"]   { color: var(--bn-warn); }
-.bn-comment__like-btn[data-reaction="sad"]   { color: var(--bn-accent); }
 
 .bn-comment__like-icon {
 	font-size: var(--bn-text-base);
@@ -2510,12 +2507,87 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 
 .bn-post-card__shared-empty,
+/* Dead-source reshare, WITH the sharer's own commentary. Their words are real
+   content and the card stays; only the quote block collapses to this one muted
+   line, so the card loses the dead quote's height instead of the member's post. */
 .bn-post-card__shared-missing {
 	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-2);
+	color: var(--bn-ink-3);
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px dashed var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+}
+
+.bn-post-card__shared-missing p {
+	margin: 0;
+}
+
+.bn-post-card__shared-missing svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+	flex: none;
+	opacity: 0.7;
+}
+
+/* Dead-source reshare with NOTHING else in it. The card has no content left, so
+   it is a single line rather than a full card with an action bar pointing at a
+   post that is gone. Deliberately quieter than a real card: no surface, no
+   shadow, no border - it should read as a gap in the feed, not an entry. */
+.bn-post-card--tombstone {
+	display: flex;
+	/* .bn-post-card is a column flex container; a tombstone is one row, so this
+	   has to be stated rather than inherited or the icon, text and time stack. */
+	flex-direction: row;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	background: none;
+	border: 0;
+	box-shadow: none;
+}
+
+.bn-post-card--tombstone .bn-post-card__tombstone-icon svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+	display: block;
+	opacity: 0.6;
+}
+
+.bn-post-card__tombstone-text {
+	margin: 0;
+	min-width: 0;
+	/* Deliberately NOT nowrap+ellipsis. That kept the row to one line on desktop
+	   but truncated the notice itself at 390px ("...is no longer availa"), which
+	   is the one sentence the member has to be able to read. Wrapping costs a
+	   second line on narrow screens and still leaves this a fraction of the full
+	   card it replaces. */
+	text-wrap: pretty;
+}
+
+.bn-post-card__tombstone-text a {
+	color: var(--bn-ink-2);
+	font-weight: var(--bn-fw-medium);
+}
+
+.bn-post-card__tombstone-time {
+	margin-inline-start: auto;
+	flex: none;
+	color: var(--bn-ink-4);
+	font-size: var(--bn-text-xs);
+}
+
+@media (max-width: 640px) {
+	/* The name + notice is the point; the timestamp is not worth a second line
+	   on a row that exists to take up as little space as possible. */
+	.bn-post-card--tombstone .bn-post-card__tombstone-time {
+		display: none;
+	}
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -3006,6 +3078,64 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--bn-s2);
+}
+
+/* Attached-document chip — one document per post, shown as a compact pill. */
+.bn-composer__doc-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	max-width: 100%;
+	margin-top: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	font-size: var(--bn-text-sm);
+}
+.bn-composer__doc-chip-icon {
+	display: inline-flex;
+	flex: 0 0 auto;
+	color: var(--bn-ink-3);
+}
+.bn-composer__doc-chip-icon svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+.bn-composer__doc-chip-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--bn-ink);
+}
+.bn-composer__doc-chip-spinner {
+	flex: 0 0 auto;
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: var(--bn-r-full);
+	animation: bn-spin 0.6s linear infinite;
+}
+.bn-composer__doc-chip-remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--bn-ink-3);
+	cursor: pointer;
+}
+.bn-composer__doc-chip-remove svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+.bn-composer__doc-chip-remove:hover,
+.bn-composer__doc-chip-remove:focus-visible {
+	color: var(--bn-danger);
 }
 .bn-composer__media-thumb {
 	position: relative;

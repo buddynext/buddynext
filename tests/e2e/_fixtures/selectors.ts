@@ -55,9 +55,11 @@ export const sel = {
     commentInput: '.bn-comment-form__input, .bn-comment-form textarea, .bn-comment-form input[type="text"]',
 
     // Feed list
+    // Declared once. It was declared twice — the second, narrower '.bn-feed-list'
+    // silently won and dropped the two fallbacks, so a spec that needed them
+    // failed looking like a missing feed rather than a shadowed selector.
     feedList: '.bn-feed-list, .bn-feed, [data-feed-list]',
     feedEmpty: '.bn-feed-empty',
-    feedList: '.bn-feed-list',
     // The Load-more control is a real <a href>, not a JS sentinel — it has to
     // keep working with JS off. #bn-load-more is the region-swap anchor.
     feedLoadMore: '#bn-load-more .bn-load-more__btn',

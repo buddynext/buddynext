@@ -109,7 +109,7 @@ do_action( 'buddynext_part_hashtag_sidebar_related_before', $args );
 					<?php
 					printf(
 						/* translators: %s: post count */
-						esc_html__( '%s posts', 'buddynext' ),
+						esc_html( _n( '%s post', '%s posts', $rel_count, 'buddynext' ) ),
 						esc_html( number_format_i18n( $rel_count ) )
 					);
 					?>

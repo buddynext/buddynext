@@ -19,13 +19,87 @@ import { bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '@buddynext/upload-core';
-import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime, bnClampPopoverToViewport } from '@buddynext/feed-shared';
+import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime } from '@buddynext/feed-shared';
+import { bnClampPopoverToViewport } from '@buddynext/popover';
 
 /* ── Post composer ───────────────────────────────────────────────────────── */
 
 // Module-level media state — shared between native event handler and store actions.
 // WP Interactivity API getContext() doesn't work in native addEventListener callbacks.
 const _mediaState = { ids: [], previews: [] };
+
+// A human byte size for the document size-limit message. Integer units are
+// enough here (the ceiling is always a round MB), so no decimals to localise.
+function formatBytes( bytes ) {
+	const n = Number( bytes ) || 0;
+	if ( n >= 1073741824 ) { return Math.round( n / 1073741824 ) + ' GB'; }
+	if ( n >= 1048576 ) { return Math.round( n / 1048576 ) + ' MB'; }
+	if ( n >= 1024 ) { return Math.round( n / 1024 ) + ' KB'; }
+	return n + ' B';
+}
+
+/**
+ * Map a WPMediaVerse document-upload refusal to a member-facing line.
+ *
+ * The upload endpoint can answer with ~23 distinct WP_Error codes, and naming
+ * all of them here would be a maintenance treadmill against a plugin we do not
+ * version. So this names only the ones where MediaVerse's own wording gives the
+ * member the WRONG IDEA, and lets the rest through — MV's message is specific
+ * and already translated, which is better than a generic line of ours.
+ *
+ * Three groups earn a translation:
+ *
+ *   permission  - "try again" is the one instruction guaranteed not to work.
+ *                 A refusal stays refused however many times you retry, and
+ *                 telling someone otherwise wastes their time twice.
+ *   server-fault - a failed insert or a failed store is OURS. Phrasing it like
+ *                 the member did something wrong sends them hunting for a
+ *                 problem with their file that does not exist.
+ *   type        - "not allowed" (the owner disallowed it) and "unsupported"
+ *                 (we cannot read it) are different facts with different
+ *                 remedies, and were previously collapsed into one.
+ *
+ * The final fallback deliberately no longer promises a retry: new codes keep
+ * arriving from a plugin we do not control, and "Please try again" is the wrong
+ * default for a refusal.
+ *
+ * @param {string} code          WPMediaVerse error code.
+ * @param {string} serverMessage MediaVerse's own message, already translated.
+ * @return {string}
+ */
+function documentErrorMessage( code, serverMessage ) {
+	switch ( code ) {
+		case 'mvs_documents_unavailable':
+			return t( 'documentsUnavailable', 'Documents are not available on your account.' );
+		case 'mvs_document_too_large':
+			return t( 'documentTooLargeServer', 'That document is over the size limit.' );
+		case 'mvs_document_type_not_allowed':
+			return t( 'documentTypeNotAllowed', 'That file type is not allowed here.' );
+		case 'mvs_document_type_unsupported':
+		case 'mvs_document_type_mismatch':
+			return t( 'documentTypeUnsupported', 'That file type cannot be read, so it cannot be attached.' );
+		case 'mvs_document_scan_failed':
+			return t( 'documentScanFailed', 'That file could not be accepted.' );
+		case 'mvs_documents_read_only':
+			return t( 'documentsReadOnly', 'Document uploads are paused on this site right now. You can still view existing documents.' );
+
+		// Permission. Retrying never helps, so the message must not suggest it.
+		case 'mvs_document_forbidden':
+		case 'mvs_document_unauthorized':
+		case 'mvs_document_upload_forbidden':
+		case 'mvs_document_drive_forbidden':
+		case 'mvs_document_folder_forbidden':
+			return t( 'documentNotPermitted', 'You do not have permission to add documents here.' );
+
+		// Ours, not theirs.
+		case 'mvs_document_insert_failed':
+		case 'mvs_document_store_failed':
+		case 'mvs_document_upload_failed':
+			return t( 'documentServerFault', 'Something went wrong on our side and the document was not saved. Nothing you did caused this.' );
+	}
+
+	return serverMessage || t( 'documentUploadFailed', 'That document could not be uploaded.' );
+}
 
 // Inline SVG for a media KIND with no visual frame — a video whose poster could
 // not be captured, or an audio file. Matches the icon set (play / music) rather
@@ -284,6 +358,11 @@ function resetComposerSubForms( ctx ) {
 	ctx.scheduledAt           = '';
 	ctx.announcementExpiresAt = '';
 
+	// Clear any attached document so the next post starts empty.
+	ctx.documentId        = 0;
+	ctx.documentName      = '';
+	ctx.documentUploading = false;
+
 	document.querySelectorAll(
 		'#bn-composer-schedule-at, #bn-composer-announce-expiry, #bn-composer-poll-end, .bn-composer__poll-option'
 	).forEach( function ( el ) {
@@ -532,6 +611,15 @@ store( 'buddynext/post-composer', {
 		get mediaUploading() {
 			try { return !! getContext().mediaUploading; } catch ( _e ) { return false; }
 		},
+		get hasDocument() {
+			try { return ( getContext().documentId || 0 ) > 0; } catch ( _e ) { return false; }
+		},
+		get documentName() {
+			try { return getContext().documentName || ''; } catch ( _e ) { return ''; }
+		},
+		get documentUploading() {
+			try { return !! getContext().documentUploading; } catch ( _e ) { return false; }
+		},
 		get hasLinkPreview() {
 			try { return !! ( getContext().linkUrl || '' ); } catch ( _e ) { return false; }
 		},
@@ -756,9 +844,27 @@ store( 'buddynext/post-composer', {
 
 						const out = await uploadMedia( file, {
 							nonce,
+							// Stage every composer upload PRIVATE, whatever the privacy
+							// picker currently says. The file lands before the member has
+							// finished choosing an audience — and may never be posted at
+							// all — so anything else publishes it during a decision that
+							// has not been made. The bridge derives the real privacy from
+							// the post on create and on edit
+							// (WPMediaVerseBridge::on_post_privacy_changed), so a public
+							// post still opens its own media; this only closes the window
+							// in between, and the one an abandoned draft leaves open
+							// forever.
+							privacy: 'private',
 							// Send the captured video frame so the feed uses the real
 							// poster, not the engine's default film-strip fallback.
 							thumbnail: ( 'video' === kind && thumbUrl ) ? thumbUrl : '',
+							// The space this composer is posting into, so the engine files
+							// the media on that space's drive. Without it the file lands on
+							// the uploader's personal drive, where the post's space_members
+							// privacy has nothing to resolve against. ctxData is the parsed
+							// composer context from this scope (line 727) — a bare `ctx`
+							// here is a ReferenceError that aborts the whole upload.
+							spaceId: parseInt( ctxData.spaceId, 10 ) || 0,
 						} );
 
 						if ( out.ok ) {
@@ -847,6 +953,86 @@ store( 'buddynext/post-composer', {
 			_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
 			// Delete the orphaned upload from the server (best-effort, BN endpoint).
 			deleteMedia( mediaId, ctx.restNonce );
+		},
+		/**
+		 * Attach a document. Uploads straight to WPMediaVerse's document endpoint
+		 * (not BN's /me/media) and keeps only the returned id — the feed card is
+		 * resolved per-viewer, so the composer never holds a title it might render
+		 * to the wrong audience. One document per post.
+		 */
+		pickDocument() {
+			const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			const docInput   = document.querySelector( '.bn-composer__doc-input' );
+			if ( ! docInput || ! composerEl ) {
+				return;
+			}
+			const ctxData = JSON.parse( composerEl.getAttribute( 'data-wp-context' ) || '{}' );
+			if ( false === ctxData.docEnabled ) {
+				bnToast( t( 'documentsUnavailable', 'Documents are not available on your account.' ), { tone: 'info' } );
+				return;
+			}
+			const nonce   = ctxData.restNonce || '';
+			const maxSize = ctxData.docMaxSize || 0;
+			// MVS's document endpoint sits under mvs-pro/v1, derived from the
+			// composer's own REST root so it works whatever the permalink shape.
+			const uploadUrl = String( ctxData.restUrl || '' ).replace( '/buddynext/v1', '/mvs-pro/v1' ) + '/documents/upload';
+
+			if ( ! docInput._bnWired ) {
+				docInput._bnWired = true;
+				// withScope restores the Interactivity scope so getContext() works
+				// inside this native change handler (it does not otherwise).
+				docInput.addEventListener( 'change', withScope( async function () {
+					const file = docInput.files && docInput.files[ 0 ];
+					if ( ! file ) {
+						return;
+					}
+					if ( maxSize > 0 && file.size > maxSize ) {
+						bnToast( fmt( t( 'documentTooLarge', 'That document is over the %s limit.' ), formatBytes( maxSize ) ), { tone: 'info' } );
+						docInput.value = '';
+						return;
+					}
+
+					const ctx = getContext();
+					ctx.documentUploading = true;
+					ctx.documentName      = file.name;
+					ctx.documentId        = 0;
+
+					try {
+						const fd = new FormData();
+						fd.append( 'file', file );
+						const res  = await fetch( uploadUrl, {
+							method: 'POST',
+							credentials: 'same-origin',
+							headers: { 'X-WP-Nonce': nonce },
+							body: fd,
+						} );
+						const data = await res.json().catch( () => ( {} ) );
+
+						if ( res.ok && data && data.id ) {
+							ctx.documentId   = data.id;
+							ctx.documentName = data.title || file.name;
+						} else {
+							ctx.documentId   = 0;
+							ctx.documentName = '';
+							bnToast( documentErrorMessage( data && data.code, data && data.message ), { tone: 'error' } );
+						}
+					} catch ( _e ) {
+						ctx.documentId   = 0;
+						ctx.documentName = '';
+						bnToast( t( 'documentUploadFailed', 'That document could not be uploaded. Please try again.' ), { tone: 'error' } );
+					} finally {
+						ctx.documentUploading = false;
+						docInput.value        = '';
+					}
+				} ) );
+			}
+			docInput.click();
+		},
+		removeDocument() {
+			const ctx             = getContext();
+			ctx.documentId        = 0;
+			ctx.documentName      = '';
+			ctx.documentUploading = false;
 		},
 		togglePoll() {
 			const ctx        = getContext();
@@ -938,10 +1124,16 @@ store( 'buddynext/post-composer', {
 			// media) must not silently no-op — surface a validation message so the
 			// member gets feedback, mirroring the poll-options check below. For a
 			// poll the "title" the tester expects is the main question textarea.
-			if ( ! content && ! _mediaState.ids.length ) {
+			if ( ! content && ! _mediaState.ids.length && ! ( ( ctx.documentId || 0 ) > 0 ) ) {
 				ctx.errorMessage   = 'poll' === ctx.composerType
 					? t( 'pollNeedsQuestion', 'Add a question for your poll.' )
 					: t( 'composerEmpty', 'Write something to share.' );
+				ctx.errorRetryable = false;
+				return;
+			}
+			// Don't post while a document is still uploading — the id isn't ready.
+			if ( ctx.documentUploading ) {
+				ctx.errorMessage   = t( 'documentStillUploading', 'Wait for the document to finish uploading.' );
 				ctx.errorRetryable = false;
 				return;
 			}
@@ -995,6 +1187,13 @@ store( 'buddynext/post-composer', {
 				if ( body.type === 'photo' || body.type === 'text' ) {
 					body.type = 'photo';
 				}
+			}
+			// A document attachment: send its id and type the post 'document' so
+			// the feed renders the link-out card (the server resolves the card per
+			// viewer from this id). Document wins the type over a bare text post.
+			if ( ( ctx.documentId || 0 ) > 0 ) {
+				body.document_id = ctx.documentId;
+				body.type        = 'document';
 			}
 			if ( ctx.composerType === 'poll' ) {
 				const optionInputs = document.querySelectorAll( '.bn-composer__poll-option' );

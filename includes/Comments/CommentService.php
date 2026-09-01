@@ -966,13 +966,28 @@ class CommentService {
 					array_unshift( $result['items'], $pinned );
 				}
 			} else {
-				foreach ( $result['items'] as &$item ) {
-					if ( $item['id'] === $pinned_id ) {
-						$item['pinned'] = true;
-						break;
+				// Already on the page: LIFT it, do not just label it.
+				//
+				// This branch used to set the flag and leave the comment in its
+				// chronological slot, so on any thread short enough to fit one page
+				// - which is nearly all of them - pinning stored the option, showed
+				// the badge, and moved nothing. The pin appeared to work only on
+				// threads long enough to push the comment off the page and into the
+				// prepend branch above, which is the opposite of what anyone expects.
+				//
+				// Removed by key and re-indexed rather than sorted: the remaining
+				// comments must keep the order the query returned them in.
+				foreach ( $result['items'] as $index => $item ) {
+					if ( $item['id'] !== $pinned_id ) {
+						continue;
 					}
+
+					$item['pinned'] = true;
+					unset( $result['items'][ $index ] );
+					$result['items'] = array_values( $result['items'] );
+					array_unshift( $result['items'], $item );
+					break;
 				}
-				unset( $item );
 			}
 		}
 

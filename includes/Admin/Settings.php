@@ -694,25 +694,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'hint'         => __( 'Automatically delete records older than this: activity log, closed moderation reports, and (with Pro) analytics events. Open reports and the moderation log are never deleted.', 'buddynext' ),
 						)
 					),
-					new Field(
-						array(
-							'key'     => 'buddynext_log_retention_days',
-							'type'    => 'select',
-							'label'   => __( 'Notification & email log retention', 'buddynext' ),
-							'default' => 60,
-							'choices' => array(
-								30 => __( '30 days', 'buddynext' ),
-								60 => __( '60 days', 'buddynext' ),
-								90 => __( '90 days', 'buddynext' ),
-							),
-							// This option already existed and already ran — it simply had NO UI,
-							// so the owner had no way to see or change the window that actually
-							// governed these two tables. It is the fastest-growing pair on a big
-							// install (one row per notification, one per email), and it was being
-							// pruned on a value nobody could reach.
-							'hint'    => __( 'How long to keep read notifications and the email log. These are the fastest-growing tables on a busy community, so they are kept on a shorter window than the rest. Unread notifications are kept longer, so nothing a member has not seen is deleted early.', 'buddynext' ),
-						)
-					),
+					// NOTE: a second control for buddynext_log_retention_days used to sit
+					// here, labelled "Notification & email log retention" against the one
+					// below's "Notification and email log retention". Two fields, one
+					// option, different choice text - so the screen showed the same
+					// setting twice, disagreeing with itself, and whichever the owner
+					// changed silently moved the other.
+					//
+					// The survivor is the one below. It keys off
+					// LogRetentionService::OPTION rather than repeating the literal, takes
+					// its default from DEFAULT_WINDOW, and its hint says the three things
+					// that actually surprise people: that it DELETES, that unread
+					// notifications are exempt, and that it cannot be undone.
 					new Field(
 						array(
 							'key'     => \BuddyNext\Core\LogRetentionService::OPTION,
@@ -792,16 +785,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'      => 'buddynext_brand_color',
-							'type'     => 'color',
-							'label'    => __( 'Brand color', 'buddynext' ),
-							'default'  => \BuddyNext\Theme\Appearance::DEFAULT_BRAND,
-							'sanitize' => array( self::class, 'sanitize_brand_color' ),
-							'hint'     => __( 'Your community accent — used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick, or paste a hex code.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
 							'key'   => 'buddynext_description',
 							'type'  => 'textarea',
 							'label' => __( 'Community Description', 'buddynext' ),
@@ -843,19 +826,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				'general',
 				__( 'Direct Messaging', 'buddynext' ),
 				array(
-					new Field(
-						array(
-							'key'               => 'buddynext_enable_dm',
-							'type'              => 'toggle',
-							'label'             => __( 'Enable direct messaging', 'buddynext' ),
-							'default'           => true,
-							'value_callback'    => static fn() => class_exists( 'WPMediaVerse\\Core\\Plugin' ) && (bool) get_option( 'buddynext_enable_dm', true ),
-							'disabled_callback' => static fn() => ! class_exists( 'WPMediaVerse\\Core\\Plugin' ),
-							'hint_callback'     => static fn() => class_exists( 'WPMediaVerse\\Core\\Plugin' )
-								? __( 'Allow members to send private messages. Requires the WPMediaVerse plugin.', 'buddynext' )
-								: __( 'Direct Messaging requires the WPMediaVerse plugin. Install and activate it to enable this feature.', 'buddynext' ),
-						)
-					),
 					new Field(
 						array(
 							'key'     => 'buddynext_default_dm_access',
@@ -965,36 +935,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'      => 'buddynext_allow_polls',
-							'type'     => 'toggle',
-							'label'    => __( 'Allow polls', 'buddynext' ),
-							'default'  => '1',
-							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
-							'hint'     => __( 'Members can attach a poll to their posts.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
-							'key'      => 'buddynext_allow_shares',
-							'type'     => 'toggle',
-							'label'    => __( 'Allow re-shares', 'buddynext' ),
-							'default'  => '1',
-							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
-							'hint'     => __( 'Members can share other members\' posts to their own feed.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
-							'key'      => 'buddynext_allow_bookmarks',
-							'type'     => 'toggle',
-							'label'    => __( 'Allow bookmarks', 'buddynext' ),
-							'default'  => '1',
-							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
-							'hint'     => __( 'Members can save posts to a private bookmarks list.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
 							'key'     => 'buddynext_enable_link_preview',
 							'type'    => 'toggle',
 							'label'   => __( 'Enable link previews', 'buddynext' ),
@@ -1062,29 +1002,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							 * itself, rather than the member discovering it by
 							 * being ignored (Basecamp 10185178801).
 							 */
-							'hint'     => self::connection_note_hint(),
+							'hint'     => __( 'Off (default): one click sends the connection request, like Facebook. On: the member is asked to add a short note with their request, like LinkedIn - and the note is shown to the recipient in their connection-request inbox, next to Accept and Decline.', 'buddynext' ),
 						)
 					),
 				)
 			),
 		);
-	}
-
-	/**
-	 * Hint for the connection-note toggle, including its delivery dependency.
-	 *
-	 * @since 1.1.3
-	 *
-	 * @return string
-	 */
-	private static function connection_note_hint(): string {
-		$hint = __( 'Off (default): one click sends the connection request, like Facebook. On: the member is asked to add a short note with their request, like LinkedIn - and that note is delivered to the recipient as a direct-message request so they can decide whether to engage before accepting.', 'buddynext' );
-
-		if ( ! \BuddyNext\Bridges\WPMediaVerseBridge::can_deliver_connection_note() ) {
-			$hint .= ' ' . __( 'Not available right now: the note is delivered through direct messages, and the messaging plugin (WPMediaVerse) is not active. Until it is, members are not asked for a note and connect stays one click - the setting has no effect rather than collecting notes nobody can read.', 'buddynext' );
-		}
-
-		return $hint;
 	}
 
 	/**
@@ -1095,7 +1018,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return void
 	 */
 	public function render_reaction_palette(): void {
-		$bn_all_reactions        = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
+		$bn_all_reactions        = \BuddyNext\Reactions\ReactionService::available_reaction_types();
 		$bn_enabled_reactions    = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
 		$bn_features             = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
 		$bn_reactions_on         = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'reactions' );
@@ -1238,38 +1161,24 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return Section[]
 	 */
 	private function fields_moderation(): array {
+		/*
+		 * There is no Pre-Moderation section here any more, and that is deliberate.
+		 *
+		 * BuddyNext is a Facebook/Twitter-shaped community: you post, it appears,
+		 * and moderation is reactive — reports, auto-hide, strikes, suspensions,
+		 * and the Pro rules engine. Review-before-publish is the opposite product,
+		 * and offering it as a switch invited owners into a queue they then had to
+		 * staff, on a feature whose own help text told them not to turn it on.
+		 * Owner directive 2026-08-27: retire the setting for everyone.
+		 *
+		 * The ENGINE is still there and still works — PreModerationService now
+		 * takes its mode from the `buddynext_premod_mode` filter (default 'off')
+		 * rather than an option, so a site with a genuine compliance requirement
+		 * can switch it on in code. The Moderation → Pending tab also still
+		 * renders whenever held posts exist, so anything held before this release
+		 * stays reviewable instead of being stranded.
+		 */
 		return array(
-			new Section(
-				'moderation',
-				__( 'Post Approval (Pre-Moderation)', 'buddynext' ),
-				array(
-					new Field(
-						array(
-							'key'     => 'buddynext_premod_mode',
-							'type'    => 'select',
-							'label'   => __( 'Hold posts for approval', 'buddynext' ),
-							'default' => 'off',
-							'choices' => array(
-								'off'         => __( 'Off — every member posts instantly (recommended)', 'buddynext' ),
-								'new_members' => __( 'New members only — hold their first posts until approved', 'buddynext' ),
-								'links'       => __( 'Posts with links — hold anything containing a URL', 'buddynext' ),
-								'all'         => __( 'Everything — hold every post until a moderator approves', 'buddynext' ),
-							),
-							'hint'    => __( 'Held posts wait in the Moderation > Pending queue and never appear in feeds until approved. Off by default — a community grows by welcoming people, so only turn this up if you start seeing spam. Admins and moderators are never held.', 'buddynext' ),
-						)
-					),
-					new Field(
-						array(
-							'key'     => 'buddynext_premod_new_member_count',
-							'type'    => 'number',
-							'label'   => __( 'New-member posts to review', 'buddynext' ),
-							'default' => 1,
-							'min'     => 1,
-							'hint'    => __( 'When holding "New members only", review this many of a member\'s first posts before they post freely. Used only by the New members mode.', 'buddynext' ),
-						)
-					),
-				)
-			),
 			new Section(
 				'moderation',
 				__( 'Auto-Moderation Thresholds', 'buddynext' ),
@@ -1291,7 +1200,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'toggle_label' => __( 'Email admins when the queue builds up', 'buddynext' ),
 							'label'        => __( 'Queue alert threshold', 'buddynext' ),
 							'default'      => 20,
-							'min'          => 0,
+							// 1, not 0: 0 is the value the unticked checkbox stores and
+							// means "off". Offering it as a typeable minimum let an owner
+							// set a threshold that reads as "alert on everything" and
+							// behaves as "alert never".
+							'min'          => 1,
 							'hint'         => __( 'Send a daily email to admins when the moderation queue exceeds this many unreviewed items.', 'buddynext' ),
 						)
 					),
@@ -1493,16 +1406,44 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'     => 'buddynext_digest_frequency',
-							'type'    => 'select',
-							'label'   => __( 'Digest frequency', 'buddynext' ),
-							'default' => 'weekly',
-							'choices' => array(
+							'key'            => 'buddynext_digest_frequency',
+							'type'           => 'select',
+							'label'          => __( 'Digest emails', 'buddynext' ),
+
+							/*
+							 * TWO choices, not three. This offered Daily / Weekly / Disabled
+							 * and the first two did exactly the same thing: the ONLY code that
+							 * reads this option is EmailSender::digests_enabled(), which asks
+							 * `'never' !== $value`. Both cron jobs are scheduled unconditionally
+							 * (CronScheduler::maybe_schedule for JOB_DAILY_DIGEST and
+							 * JOB_WEEKLY_DIGEST), and the cadence a member actually receives
+							 * comes from their own `email_freq` preference. So an owner who
+							 * picked Daily changed nothing, and the hint - "how often BuddyNext
+							 * sends a digest" - described something the control does not do.
+							 *
+							 * The alternative was to make the site setting real by capping the
+							 * per-member preference. That was rejected: the default here is
+							 * 'weekly', so on every existing install a cap would silently stop
+							 * digests for every member who chose daily - a regression shipped
+							 * as a fix. It also is not the model the product follows; the
+							 * platform offers cadences and the member picks one.
+							 */
+							'default'        => 'weekly',
+							'value_callback' => static function (): string {
+								// Legacy sites store 'daily' here. It is not among the choices
+								// any more, so the select would match nothing, preselect the
+								// first option, and the next save would write it back - turning
+								// digests OFF on a site that had them ON. Normalise on display;
+								// stored data is left alone until the owner saves.
+								return 'never' === (string) get_option( 'buddynext_digest_frequency', 'weekly' )
+									? 'never'
+									: 'weekly';
+							},
+							'choices'        => array(
+								'weekly' => __( 'Enabled', 'buddynext' ),
 								'never'  => __( 'Disabled — no digest emails', 'buddynext' ),
-								'daily'  => __( 'Daily', 'buddynext' ),
-								'weekly' => __( 'Weekly', 'buddynext' ),
 							),
-							'hint'    => __( 'How often BuddyNext sends a digest of unread notifications. Individual users can opt out.', 'buddynext' ),
+							'hint'           => __( 'Whether BuddyNext sends digests of unread notifications at all. Each member chooses daily or weekly in their own notification preferences.', 'buddynext' ),
 						)
 					),
 				)
@@ -1695,8 +1636,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					new Field(
 						array(
 							'key'   => 'buddynext_auth_panel_image',
-							'type'  => 'url',
-							'label' => __( 'Panel banner image URL', 'buddynext' ),
+							'type'  => 'media',
+							'label' => __( 'Panel banner image', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1861,6 +1802,26 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 				)
 			),
+			new Section(
+				'webhooks',
+				__( 'Signature verification', 'buddynext' ),
+				array(
+					// Renders bespoke in render_tab_webhooks() via render_toggle_row();
+					// this descriptor registers it (group buddynext_webhooks, boolean
+					// sanitize) and indexes it for search. On by default (1.1.6) — the
+					// inline get_option( …, true ) fallback means an upgraded site with
+					// no row is strict, matching a fresh install; an owner mid-migration
+					// turns it OFF here to keep accepting the legacy body-only scheme.
+					new Field(
+						array(
+							'key'   => \BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES,
+							'type'  => 'toggle',
+							'label' => __( 'Require replay-proof webhook signatures', 'buddynext' ),
+							'hint'  => __( 'On by default: only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely. Turn this OFF only while migrating a service that still sends body-only signatures, and re-enable it once every caller sends a timestamp.', 'buddynext' ),
+						)
+					),
+				)
+			),
 		);
 	}
 
@@ -1970,15 +1931,16 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
-	 * Sanitize the enabled-reactions option: keep only canonical reaction slugs,
-	 * in canonical order. Never allow an empty set (that would disable all
-	 * reactions), so an empty submission falls back to the full set.
+	 * Sanitize the enabled-reactions option: keep only slugs that are actually
+	 * available (the built-in six plus any Pro custom reactions), in that order.
+	 * Never allow an empty set (that would disable all reactions), so an empty
+	 * submission falls back to the full available set.
 	 *
 	 * @param mixed $value Raw submitted value.
 	 * @return string[]
 	 */
 	public function sanitize_enabled_reactions( $value ): array {
-		$all    = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
+		$all    = \BuddyNext\Reactions\ReactionService::available_reaction_types();
 		$chosen = array_values( array_intersect( $all, array_map( 'sanitize_key', (array) $value ) ) );
 
 		return empty( $chosen ) ? $all : $chosen;
@@ -2426,7 +2388,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'buddynext_require_terms',
 			__( 'Require members to accept your terms', 'buddynext' ),
 			__( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
-			(bool) get_option( 'buddynext_require_terms', true )
+			(bool) get_option( 'buddynext_require_terms', \BuddyNext\Auth\RegistrationPolicy::terms_default() )
 		);
 
 		// What the front door asks for. Two levers, deliberately: the owner decides what
@@ -2525,11 +2487,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			3
 		);
 
-		$this->render_text_row(
+		self::render_media_row(
 			'buddynext_auth_panel_image',
-			__( 'Panel banner image URL', 'buddynext' ),
+			__( 'Panel banner image', 'buddynext' ),
 			buddynext_auth_panel_value( 'buddynext_auth_panel_image' ),
-			__( 'A full-bleed banner image behind the panel. Defaults to the built-in network-textured gradient.', 'buddynext' )
+			__( 'A full-bleed banner image behind the panel. Pick one from the media library or paste an image URL. Defaults to the built-in network-textured gradient.', 'buddynext' ),
+			__( 'Select image', 'buddynext' ),
+			'bn-a-banner-preview'
 		);
 
 		$this->render_text_row(
@@ -3139,6 +3103,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		<?php
 		$this->close_section();
 
+		$this->open_section( __( 'Signature verification', 'buddynext' ) );
+
+		// On by default (1.1.6): get_option( …, true ) mirrors the enforcement
+		// default in AccessWebhookController::verify_signature(), so the toggle shows
+		// the actual state on an upgraded site with no stored row (strict). An owner
+		// mid-migration turns it OFF to keep accepting the legacy body-only scheme.
+		$this->render_toggle_row(
+			\BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES,
+			__( 'Require replay-proof webhook signatures', 'buddynext' ),
+			__( 'On by default: only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely. Turn this OFF only while migrating a service that still sends body-only signatures, and re-enable it once every caller sends a timestamp.', 'buddynext' ),
+			(bool) get_option( \BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES, true )
+		);
+
+		$this->close_section();
+
 		$this->render_webhook_endpoints();
 	}
 
@@ -3249,7 +3228,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 								</button>
 							</td>
 							<td data-colname="<?php esc_attr_e( 'Events', 'buddynext' ); ?>">
-								<?php echo esc_html( implode( ', ', array_map( 'sanitize_key', $hook_events ) ) ); ?>
+								<?php
+								// No sanitize_key() here. It is an INPUT sanitiser that strips
+								// everything outside [a-z0-9_-] - including the dot in every
+								// event slug - so "member.registered" rendered as
+								// "memberregistered", and two events as one unreadable run
+								// ("postcreatedpostdeleted"). esc_html() is what makes this
+								// safe to print; the map only corrupted it.
+								echo esc_html( implode( ', ', array_map( 'strval', $hook_events ) ) );
+								?>
 							</td>
 							<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>">
 								<?php

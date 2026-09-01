@@ -49,16 +49,6 @@ class SpaceSidebarProvider {
 	private const SURFACES = array( 'space' );
 
 	/**
-	 * Deterministic avatar tone palette, cycled by user id. Mirrors the
-	 * `.bn-avatar[data-tone]` palette in bn-base.css (the same six tones the
-	 * member/space cover cards use) — was the module-scoped `bn_sh_avatar_tone()`
-	 * helper formerly declared inline in templates/parts/space-sidebar.php.
-	 *
-	 * @var array<int,string>
-	 */
-	private const AVATAR_TONES = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
-
-	/**
 	 * Hooks the descriptor callback onto the sidebar registry filter.
 	 *
 	 * @return void
@@ -286,7 +276,7 @@ class SpaceSidebarProvider {
 	 * @return string Tone slug (sky|cyan|emerald|lime|amber|coral).
 	 */
 	private function avatar_tone( int $user_id ): string {
-		return self::AVATAR_TONES[ $user_id % count( self::AVATAR_TONES ) ];
+		return \BuddyNext\Profile\AvatarService::identity_tone_for( $user_id );
 	}
 
 	/**

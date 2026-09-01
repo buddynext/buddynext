@@ -90,7 +90,24 @@ class Spaces extends AdminPageBase {
 	 * @return void
 	 */
 	public function enqueue_assets( string $hook_suffix ): void {
-		if ( 'buddynext_page_buddynext-spaces' !== $hook_suffix ) {
+		// Gate on the hub tab, not on a hook suffix.
+		//
+		// The suffix this compared against - 'buddynext_page_buddynext-spaces' -
+		// assumes the screen is registered under a linked parent menu. AdminHub
+		// registers hub screens with a NULL parent when they are not menu-linked,
+		// which is the idiom that keeps them reachable without adding a menu row,
+		// and WordPress then produces 'admin_page_buddynext-spaces' instead. The
+		// string never matched, so bn-admin-bulk-select.js never loaded and every
+		// row's "..." menu did nothing - 48 dead buttons on the dev site's
+		// directory, with no console error, because the handler was never bound
+		// rather than throwing.
+		//
+		// NavManager hit exactly this and solved it the same way; its comment
+		// records the same "never matches now" discovery. AdminHub::is_active()
+		// reads ?page and ?tab, which do not change with menu linkage.
+		unset( $hook_suffix );
+
+		if ( ! AdminHub::is_active( 'spaces', 'directory' ) ) {
 			return;
 		}
 

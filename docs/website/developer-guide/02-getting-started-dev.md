@@ -50,7 +50,7 @@ blocks/            19 registered Gutenberg blocks (bn-activity-feed, bn-member-d
 docs/website/       this developer guide
 ```
 
-> **The manifest exists; the spec files do not.** Free ships `audit/manifest.json` - the machine-readable inventory (routes, hooks fired, tables, blocks, cron). It is generated, so it can lag the code after a change; treat it as a starting index and confirm against the source. Free ships no `docs/specs/*.md`, though - an earlier revision of this guide cited `docs/specs/HOOKS.md` as a locked contract, and it does not exist. The code is the contract: grep `register_rest_route(` for routes, `do_action(` / `apply_filters(` for hooks, `FeatureRegistry::catalog()` for features, and read the per-domain hooks pages (25-33).
+> **The code is the contract.** Free ships no spec files and no machine-readable inventory - earlier revisions of this guide cited both, and neither exists in the plugin you downloaded. To answer "what surfaces are there", read the source: grep `register_rest_route(` for routes, `do_action(` / `apply_filters(` for hooks, and `FeatureRegistry::catalog()` for features. The per-domain hooks pages (25-33) are the curated version of the same thing.
 
 The rules that hold this together: Core never imports from a feature, a Service never echoes template output, and a template never runs `$wpdb` directly. Features talk to each other only through hooks, filters, or container lookups. See the Developer Overview for the contract-first philosophy and the seven extension surfaces.
 

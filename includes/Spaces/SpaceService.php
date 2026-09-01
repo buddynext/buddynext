@@ -1252,8 +1252,9 @@ class SpaceService {
 		$wpdb->delete( $wpdb->prefix . 'bn_space_bans', array( 'space_id' => $space_id ), array( '%d' ) );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $wpdb->prefix . 'bn_reports', array( 'space_id' => $space_id ), array( '%d' ) );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete( $wpdb->prefix . 'bn_mod_log', array( 'space_id' => $space_id ), array( '%d' ) );
+		// bn_mod_log is append-only (ModerationLogService) - the permanent audit
+		// trail must outlive the space it references, so its rows are NOT deleted
+		// here. The log reader never joins to the space row.
 
 		// Remove all members.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

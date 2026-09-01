@@ -32,13 +32,50 @@ class SettingsDriftGuardTest extends \WP_UnitTestCase {
 	 *
 	 * @var string[]
 	 */
+	/**
+	 * Options that legitimately do NOT register through register_settings().
+	 *
+	 * The guard below exists to catch an option silently dropped from the save
+	 * path. An option that MOVED to a different save path is not that, but it is
+	 * indistinguishable from it unless the move is written down - which is how
+	 * buddynext_brand_color sat as a permanent red for six days after 67e83000
+	 * moved the Brand colour field from Settings > General to the Appearance tab.
+	 *
+	 * Anything listed here must be saved by a real, guarded handler; the test below
+	 * proves that rather than taking the list on trust.
+	 *
+	 * @var array<string,string> option => the hook that saves it.
+	 */
+	/**
+	 * Options the product RETIRED, with the commit that retired each.
+	 *
+	 * A retired option is not a drop either, but the guard cannot tell the
+	 * difference on its own - and unlike SAVED_ELSEWHERE these have no handler to
+	 * point at, because there is deliberately nothing left to save. They are
+	 * recorded rather than deleted so that "why is this key gone" has an answer in
+	 * the file that used to require it.
+	 *
+	 * All four became switches in the Features catalog (buddynext_features), which
+	 * is now the single control for each capability.
+	 *
+	 * @var array<string,string> retired option => commit that retired it.
+	 */
+	private const RETIRED = array(
+		'buddynext_enable_dm'       => 'f8d04b6a', // -> features catalog 'messages'.
+		'buddynext_allow_polls'     => '6c7351f9', // -> features catalog 'polls'.
+		'buddynext_allow_shares'    => '6c7351f9', // -> features catalog 'shares'.
+		'buddynext_allow_bookmarks' => '0bcdf67f', // -> features catalog 'bookmarks'.
+	);
+
+	private const SAVED_ELSEWHERE = array(
+		'buddynext_brand_color' => 'admin_post_bn_appearance_save',
+	);
+
 	private const LEGACY_KEYS = array(
 		// General.
 		'buddynext_site_name',
-		'buddynext_brand_color',
 		'buddynext_description',
 		'buddynext_public_explore',
-		'buddynext_enable_dm',
 		'buddynext_default_dm_access',
 		'buddynext_enable_community_nav',
 		'buddynext_enable_community_rail',
@@ -63,9 +100,6 @@ class SettingsDriftGuardTest extends \WP_UnitTestCase {
 		'buddynext_allowed_domains',
 		// Social.
 		'buddynext_default_post_privacy',
-		'buddynext_allow_polls',
-		'buddynext_allow_shares',
-		'buddynext_allow_bookmarks',
 		'buddynext_enable_link_preview',
 		'buddynext_enable_emoji_picker',
 		'buddynext_feed_new_posts_indicator',
@@ -92,8 +126,12 @@ class SettingsDriftGuardTest extends \WP_UnitTestCase {
 		'buddynext_comment_rate_limit',
 		'buddynext_new_member_post_threshold',
 		'buddynext_duplicate_post_window',
-		'buddynext_premod_mode',
-		'buddynext_premod_new_member_count',
+		// buddynext_premod_mode + buddynext_premod_new_member_count are RETIRED,
+		// not dropped by accident — which is the only thing this guard exists to
+		// catch. Pre-moderation lost its owner-facing setting in 1.1.6 and is
+		// developer-only now, driven by the filters of the same names. Leaving the
+		// keys listed here would demand a save path for a setting that no longer
+		// has a UI. See PreModerationService for why the feature went this way.
 		// Notifications.
 		'buddynext_notif_default_follow',
 		'buddynext_notif_default_connection',
@@ -150,9 +188,22 @@ class SettingsDriftGuardTest extends \WP_UnitTestCase {
 		$settings->register_settings();
 
 		global $wp_registered_settings;
+		// Collect every missing key rather than dying on the first. assertArrayHasKey
+		// in a loop reports one name and hides the rest, which is how this guard sat
+		// red for days pointing at a single option while several others were also
+		// absent - fixing the named one just revealed the next.
+		$missing = array();
 		foreach ( self::LEGACY_KEYS as $key ) {
-			$this->assertArrayHasKey( $key, $wp_registered_settings, "Option dropped from save path: {$key}" );
+			if ( ! array_key_exists( $key, $wp_registered_settings ) ) {
+				$missing[] = $key;
+			}
 		}
+
+		$this->assertSame(
+			array(),
+			$missing,
+			"Options dropped from the save path: \n  " . implode( "\n  ", $missing )
+		);
 
 		// No key may live in BOTH the descriptor registry and any legacy map - that
 		// would register it under two groups and break its tab's save. SETTINGS_MAP
@@ -165,5 +216,50 @@ class SettingsDriftGuardTest extends \WP_UnitTestCase {
 			array_values( array_intersect( $map_keys, $descriptor_keys ) ),
 			'Option double-registered (in both a legacy map and descriptors)'
 		);
+	}
+
+	/**
+	 * An option excused from the guard must still have a real way to be saved.
+	 *
+	 * Without this, SAVED_ELSEWHERE would be a list anyone could add a key to in
+	 * order to make a genuine drop go quiet. Requiring a registered handler on the
+	 * named hook makes the excuse cost as much as the fix.
+	 *
+	 * @return void
+	 */
+	public function test_options_saved_elsewhere_have_a_real_handler(): void {
+		// The tab registers its own admin_post hook; nothing in the test bootstrap
+		// runs the admin boot, so register it here rather than asserting against a
+		// hook table the harness never populated.
+		( new \BuddyNext\Admin\AppearanceTab() )->register();
+
+		foreach ( self::SAVED_ELSEWHERE as $option => $hook ) {
+			$this->assertTrue(
+				has_action( $hook ),
+				"{$option} is excused from register_settings() but nothing is listening on {$hook}."
+			);
+		}
+	}
+
+	/**
+	 * A retired option really is gone, not merely unregistered.
+	 *
+	 * The risk with RETIRED is the same as with SAVED_ELSEWHERE: it could become a
+	 * place to park a key that was dropped by accident. A retired option must have
+	 * no descriptor and no legacy-map entry anywhere in Settings - if one is still
+	 * declared, it was not retired, it was dropped.
+	 *
+	 * @return void
+	 */
+	public function test_retired_options_are_declared_nowhere(): void {
+		$declared = $this->descriptor_keys( new Settings() );
+
+		foreach ( array_keys( self::RETIRED ) as $option ) {
+			$this->assertNotContains(
+				$option,
+				$declared,
+				"{$option} is listed as retired but Settings still declares it."
+			);
+		}
 	}
 }

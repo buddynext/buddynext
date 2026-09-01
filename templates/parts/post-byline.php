@@ -211,11 +211,23 @@ do_action( 'buddynext_part_post_byline_before', $args );
 				<span class="bn-post-card__edited"><?php echo esc_html( (string) $args['edited_label'] ); ?></span>
 			<?php endif; ?>
 
+			<?php
+			/*
+			 * Audience marker: ICON ONLY, and only when there is a label to show.
+			 *
+			 * The word used to sit next to the icon, which said the same thing
+			 * twice. The caller decides WHETHER to show a marker (post-card.php
+			 * passes an empty label for the default audience); this decides how
+			 * it looks.
+			 *
+			 * aria-label carries the audience in words, so a screen reader still
+			 * hears "Followers only" where a sighted member sees the icon.
+			 */
+			?>
 			<?php if ( '' !== (string) $args['privacy_label'] ) : ?>
 				<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
 				<span class="bn-post-card__privacy" aria-label="<?php echo esc_attr( (string) $args['privacy_label'] ); ?>">
 					<?php echo $args['privacy_icon']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService::render wp_kses-sanitized SVG ?>
-					<span><?php echo esc_html( (string) $args['privacy_label'] ); ?></span>
 				</span>
 			<?php endif; ?>
 		</div>

@@ -214,4 +214,68 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$this->bridge->on_media_deleted( 55, $this->sender_id, '' );
 		$this->assertTrue( true );
 	}
+
+	/**
+	 * A bridge media card renders through the typed seam, not the photo grid.
+	 *
+	 * `media` shared the 'photo' branch of post-body.php until 1.1.6, which is
+	 * wrong in a way only the bridge's cards expose: a NATIVE photo post owns its
+	 * files and carries media_ids, while a bridge `media` card owns nothing — the
+	 * file is in the engine and the card holds a link. The grid drew nothing and
+	 * the card rendered as its verb alone, "shared a video" (Basecamp 10242691205).
+	 *
+	 * This asserts the seam is wired. The template half — that `media` is no
+	 * longer caught by the photo branch — is what makes the filter reachable, and
+	 * is covered by the render assertion below.
+	 *
+	 * @return void
+	 */
+	public function test_media_registers_the_typed_card_seam(): void {
+		$this->assertNotFalse(
+			has_filter( 'buddynext_render_post_body_media' ),
+			'The bridge must answer the typed-card seam, as every other bridge does.'
+		);
+	}
+
+	/**
+	 * The card carries the upload's title and links to it.
+	 *
+	 * Both were published as '' before, so the renderer fell back to printing the
+	 * verb as the headline and the card read "Media / shared a video".
+	 *
+	 * @return void
+	 */
+	public function test_media_card_renders_title_and_link(): void {
+		$html = (string) apply_filters(
+			'buddynext_render_post_body_media',
+			'',
+			array(
+				'bn_post_type' => 'media',
+				'post_content' => 'shared a video',
+				'link_preview' => array(
+					'url'   => 'https://example.test/media/walkthrough/',
+					'title' => 'Quarterly product walkthrough',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( 'bn-post-card__bridge-card--media', $html );
+		$this->assertStringContainsString( 'Quarterly product walkthrough', $html );
+		$this->assertStringContainsString( 'https://example.test/media/walkthrough/', $html );
+	}
+
+	/**
+	 * No link, no card — the body falls back to plain text rather than vanishing.
+	 *
+	 * @return void
+	 */
+	public function test_media_card_without_a_link_declines(): void {
+		$html = (string) apply_filters(
+			'buddynext_render_post_body_media',
+			'',
+			array( 'bn_post_type' => 'media', 'post_content' => 'shared a video', 'link_preview' => array() )
+		);
+
+		$this->assertSame( '', $html );
+	}
 }

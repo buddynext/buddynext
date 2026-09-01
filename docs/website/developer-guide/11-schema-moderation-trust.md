@@ -1,6 +1,6 @@
 # Schema: Moderation and Trust
 
-Reference for the tables that back BuddyNext's moderation, trust, and audit subsystem: `bn_reports`, `bn_mod_log`, `bn_user_strikes`, `bn_user_suspensions`, `bn_appeals`, `bn_invites`, and `bn_activity_log`. All seven are created by `BuddyNext\Core\Installer` via `dbDelta()` and live in the site table prefix (shown below as `wp_`). This page is for developers reading, extending, or writing against these tables directly.
+Reference for the tables that back BuddyNext's moderation, trust, and audit subsystem: `bn_reports`, `bn_mod_log`, `bn_user_strikes`, `bn_user_suspensions`, `bn_appeals`, `bn_invites`, `bn_activity_log`, and the safeguard counter `bn_rate_limits`. All eight are created by `BuddyNext\Core\Installer` via `dbDelta()` and live in the site table prefix (shown below as `wp_`). This page is for developers reading, extending, or writing against these tables directly.
 
 ![The moderation queue backed by the bn_reports, strikes, suspensions, and audit-log tables documented here](../images/moderation-queue.webp)
 
@@ -199,7 +199,7 @@ Email invitations to join the community, optionally scoped to a space. Each invi
 |---|---|---|
 | `PRIMARY` | `id` | Row identity. |
 | `token` (UNIQUE) | `token` | Look up an invite by its accept-link token; the uniqueness guarantees one invite per token. |
-| `email` | `email` | Find invites for a given address. |
+| `email` | `email(191)` | Find invites for a given address. Prefixed to 191 characters so the index fits InnoDB's 767-byte limit under utf8mb4. |
 | `status_expires` | `status, expires_at` | Sweep pending invites for expiry, list outstanding invites. |
 
 ### Relationships
@@ -232,6 +232,20 @@ A general per-user action log, broader than moderation. Used for audit and activ
 
 - `user_id` references `wp_users.ID`.
 - `object_type` + `object_id` is a polymorphic pointer.
+
+## `bn_rate_limits`
+
+A generic, key-based counter that backs the safeguard rate limits (post and comment throttles, sign-ups per hour, duplicate-post window). Each row is one bucket, keyed by an opaque `rl_key` the caller composes (for example an action name plus the actor id or IP), holding a hit count and an expiry after which the bucket is considered empty. There are no foreign keys — it is a self-expiring tally, not audit state.
+
+| Column | Type | Notes |
+|---|---|---|
+| `rl_key` | `VARCHAR(191)` | Primary key. The caller-composed bucket identifier. |
+| `hits` | `INT UNSIGNED` | Count of hits recorded in the current window. Default `0`. |
+| `expires_at` | `DATETIME` | When the bucket resets. Indexed (`KEY expires_at`) so expired rows can be swept. |
+
+### Relationships
+
+- None. Rows are self-contained counters; expired rows are pruned by `expires_at`.
 
 ## Notes / gotchas
 

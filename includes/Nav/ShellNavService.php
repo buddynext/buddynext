@@ -137,7 +137,7 @@ class ShellNavService {
 				'label' => __( 'Bookmarks', 'buddynext' ),
 				'url'   => PageRouter::bookmarks_url(),
 				'icon'  => 'bookmark',
-				'show'  => true,
+				'show'  => buddynext_feature_enabled( 'bookmarks' ),
 				'group' => 'you',
 				'order' => 220,
 			);

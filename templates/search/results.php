@@ -304,28 +304,7 @@ if ( '' !== $raw_query ) {
  * @return string Escaped HTML with highlighted terms.
  */
 $highlight = static function ( string $text, string $query ): string {
-	if ( '' === $query ) {
-		return esc_html( $text );
-	}
-	// Trim to 200 chars around first match.
-	$pos = stripos( $text, $query );
-	if ( false !== $pos ) {
-		$start = max( 0, $pos - 60 );
-		$text  = ( $start > 0 ? '&hellip;' : '' ) . substr( $text, $start, 200 );
-	} else {
-		$text = substr( $text, 0, 200 );
-	}
-	// Escape first, then wrap terms in <mark>.
-	$escaped = esc_html( $text );
-	$terms   = array_filter( array_map( 'trim', explode( ' ', $query ) ) );
-	foreach ( $terms as $term ) {
-		$escaped = (string) preg_replace(
-			'/(' . preg_quote( esc_html( $term ), '/' ) . ')/i',
-			'<mark>$1</mark>',
-			$escaped
-		);
-	}
-	return $escaped;
+	return \BuddyNext\Search\SearchSnippet::render( $text, $query );
 };
 
 $current_user_id = get_current_user_id();

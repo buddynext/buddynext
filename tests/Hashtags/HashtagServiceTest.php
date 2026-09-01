@@ -270,4 +270,40 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 		$this->assertNotContains( $secret_post, $guest_ids, 'secret-space post must NOT leak to guests' );
 		$this->assertContains( $secret_post, $member_ids, 'a space member still sees the post' );
 	}
+
+	/**
+	 * A space-members-privacy post in an OPEN space appears on the tag feed for a
+	 * member of that space, but NOT for a non-member or a guest. Regression guard
+	 * for card 10231257381: the feed hardcoded privacy = 'public', so members-only
+	 * space posts never reached the tag feed. The open space is the trap — its
+	 * public posts are visible to everyone, so a naive fix would leak the
+	 * members-only post to non-members too. This asserts it does not.
+	 *
+	 * @covers \BuddyNext\Hashtags\HashtagService::get_feed
+	 */
+	public function test_tag_feed_shows_members_only_space_posts_only_to_members(): void {
+		global $wpdb;
+		$author    = self::factory()->user->create();
+		$member    = self::factory()->user->create();
+		$outsider  = self::factory()->user->create();
+
+		$wpdb->insert( $wpdb->prefix . 'bn_hashtags', array( 'slug' => 'membertag', 'post_count' => 0, 'follower_count' => 0 ) );
+		$hid = (int) $wpdb->insert_id;
+
+		$wpdb->insert( $wpdb->prefix . 'bn_spaces', array( 'name' => 'Open', 'slug' => 'open-s', 'type' => 'open', 'owner_id' => $author, 'created_at' => current_time( 'mysql', true ) ) );
+		$open = (int) $wpdb->insert_id;
+		$wpdb->insert( $wpdb->prefix . 'bn_space_members', array( 'space_id' => $open, 'user_id' => $member, 'status' => 'active' ) );
+
+		$wpdb->insert( $wpdb->prefix . 'bn_posts', array( 'user_id' => $author, 'content' => '#membertag', 'type' => 'text', 'privacy' => 'space_members', 'status' => 'published', 'space_id' => $open, 'created_at' => current_time( 'mysql', true ) ) );
+		$post = (int) $wpdb->insert_id;
+		$wpdb->insert( $wpdb->prefix . 'bn_post_hashtags', array( 'post_id' => $post, 'object_type' => 'post', 'hashtag_id' => $hid, 'created_at' => current_time( 'mysql', true ) ) );
+
+		$feed_ids = function ( int $viewer ) : array {
+			return array_map( static fn( $r ): int => (int) $r['id'], $this->service->get_feed( '#membertag', array( 'viewer_id' => $viewer ) )['items'] );
+		};
+
+		$this->assertContains( $post, $feed_ids( $member ), 'a member of the space sees its members-only post' );
+		$this->assertNotContains( $post, $feed_ids( $outsider ), 'a non-member must NOT see a members-only post, even in an open space' );
+		$this->assertNotContains( $post, $feed_ids( 0 ), 'a guest must NOT see a members-only post' );
+	}
 }

@@ -83,7 +83,7 @@ For completeness, two integration surfaces that BuddyNext Free **does** register
 - **Shortcodes.** `ShortcodeService` (`includes/Shortcodes/ShortcodeService.php`, initialised in `Plugin::init()`) registers 7 hub shortcodes: `[buddynext_activity]`, `[buddynext_people]`, `[buddynext_spaces]`, `[buddynext_messages]`, `[buddynext_notifications]`, `[buddynext_auth]`, and `[buddynext_community_admin]`. These render the same surfaces the blocks do, for classic (non-block) themes.
 - **Widgets.** `WidgetService` (`includes/Widgets/WidgetService.php`, initialised in `Plugin::init()`) registers 3 classic `WP_Widget` widgets: Online Members, Trending Hashtags, and Recent Activity. The block-based equivalents (for block themes) are the `buddynext/*` blocks above.
 
-> **Note:** In `audit/manifest.json`, `features.shortcodes` lists 8 entries (the 7 hub shortcodes above plus the `buddynext_user_menu` closure), while `features.widgets` is stale at length 0 even though the 3 widgets above are registered and active. `features.cpts` and `features.taxonomies` are correctly length 0 (none exist). This page documents the current source state; where the manifest disagrees (the empty widgets array), treat it as a manifest gap, not as the runtime behaviour.
+> **Note:** Counting shortcodes, you may see 8 rather than 7 - the eighth is the `buddynext_user_menu` closure, which is registered the same way but is chrome rather than a hub. BuddyNext registers no custom post types and no taxonomies.
 
 ## Notes / gotchas
 

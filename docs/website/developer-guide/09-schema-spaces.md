@@ -43,13 +43,13 @@ The space record. One row per space. Spaces can nest (`parent_id`), belong to a 
 Key indexes:
 
 - `PRIMARY KEY (id)`
-- `UNIQUE KEY slug (slug)` - slug routing and dedup.
+- `UNIQUE KEY slug (slug(191))` - slug routing and dedup. Prefixed to 191 characters so the index fits InnoDB's 767-byte limit under utf8mb4; uniqueness is therefore enforced on the first 191 characters.
 - `KEY owner (owner_id)` - "spaces I own".
 - `KEY category (category_id)` - directory filtering by category.
 - `KEY parent (parent_id)` - resolving sub-spaces of a parent.
 - `KEY is_archived (is_archived)` - excluding archived spaces from the directory.
 - `KEY dir_popular (parent_id, member_count)` - directory ordered by popularity within a parent.
-- `KEY dir_name (parent_id, name)` - directory ordered by name within a parent.
+- `KEY dir_name (parent_id, name(150))` - directory ordered by name within a parent. `name` is prefixed to 150 characters for the same 767-byte reason.
 - `KEY dir_recent (parent_id, created_at)` - directory ordered by recency within a parent.
 
 Relationships: `owner_id` references a WordPress user; `category_id` references `bn_space_categories.id`; `parent_id` is a self-reference to `bn_spaces.id`. Membership rows live in `bn_space_members`; bans live in `bn_space_bans`. Posts reference a space via `bn_posts.space_id`.

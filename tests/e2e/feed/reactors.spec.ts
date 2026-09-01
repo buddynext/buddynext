@@ -16,7 +16,6 @@ import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-w
 test.describe('feed / see reactors', () => {
     const reactorsTrigger = '.bn-post-card__reactors-trigger';
     const reactorName = '.bn-reactors-popover__name';
-    const selfDisplayName = 'Varun Dubey';
 
     test('J-504 reacting puts me in the reactors list', async ({ authenticatedPage: page }) => {
         let createdId = 0;
@@ -52,8 +51,26 @@ test.describe('feed / see reactors', () => {
             await trigger.click();
 
             // Effect: the popover, filled from GET /reactions/list, lists me.
+            //
+            // The name is READ FROM THE SITE, not hardcoded. It used to assert the
+            // literal 'Varun Dubey' while this account's WordPress display_name is
+            // 'varundubey' - so the spec could never pass here however correct the
+            // product was, and it reported a healthy feature as broken. A display
+            // name is site data; any spec that hardcodes one only works on the
+            // machine it was written on.
             const popover = card.locator('.bn-reactors-popover');
             await expect(popover).toBeVisible({ timeout: 5_000 });
+
+            // Taken from the card's own author line. The viewer wrote this post, so
+            // that name IS the viewer's display name - and it comes from the post
+            // render, not from the reactions endpoint the popover was filled from,
+            // so the assertion stays independent of what it is checking.
+            const selfDisplayName = (
+                await card.locator('.bn-post-card__author-name').first().innerText()
+            ).trim();
+
+            expect(selfDisplayName, 'could not resolve the viewer display name').not.toBe('');
+
             await expect(popover.locator(reactorName).filter({ hasText: selfDisplayName }).first())
                 .toBeVisible({ timeout: 8_000 });
         } finally {

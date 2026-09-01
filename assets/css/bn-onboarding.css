@@ -41,6 +41,22 @@
 	background: var(--bn-surface);
 	min-height: 100vh;
 	min-width: 0;
+	/*
+	 * Advancing a step calls scrollIntoView({block:'start'}) on this element,
+	 * which lands its top edge at viewport 0 — underneath the host theme's
+	 * STICKY header. Measured on Reign: after Continue, scrollY=90, the "Step n
+	 * of 6" counter sat at viewport top 31px with a 90px sticky band above it.
+	 * Painted, opacity 1, simply covered — so the member lost all sense of
+	 * progress on exactly the steps they had just advanced into.
+	 *
+	 * scroll-margin-top is the declarative fix: the browser applies it to
+	 * scrollIntoView, so the JS needs no offset arithmetic and cannot drift from
+	 * the measured chrome. --bn-shell-chrome is published on #bn-app by
+	 * shell/extras.js from the real rendered offset (it varies by theme, and by
+	 * whether an admin bar is present), and inherits down to here. The extra
+	 * step is breathing room so the heading does not sit flush against the band.
+	 */
+	scroll-margin-top: calc(var(--bn-shell-chrome, 0px) + var(--bn-s4));
 	padding: var(--bn-s6) var(--bn-s6);
 	display: flex;
 	flex-direction: column;
@@ -492,13 +508,22 @@
 	color: var(--bn-ink);
 	line-height: 1.2;
 }
+/*
+ * Layout only. This block used to set font-family: mono, font-size and color —
+ * typography intended for the member count below it. But __meta WRAPS the space
+ * NAME as well, and the <h3> sets no family of its own, so every space name
+ * inherited the mono: "Coffee First" and "Hiking & Trails" rendered like code
+ * while their descriptions rendered in Inter.
+ *
+ * The size and color were already dead here — both children override them — so
+ * only the family ever escaped, onto the one child that should never have had
+ * it. Typography now sits on the leaf that wants it.
+ */
 .bn-ob-space-card__meta {
-	font-family: var(--bn-font-mono, var(--bn-font-ui));
-	font-size: 10px;
-	color: var(--bn-ink-4);
 	margin-top: 2px;
 }
 .bn-ob-space-card__members {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 }
@@ -877,6 +902,12 @@
 
 .bn-wizard__steps {
 	display: flex;
+	/* Wrap, never scroll. Eight labelled pills need ~938px; the wizard card is
+	   720px wide, so steps 7 (Addons) and 8 (Done) sat in an overflow-x region
+	   whose scrollbar was then hidden by scrollbar-width:none - invisible, with
+	   no affordance to reach them. The bar read as a six-step wizard while the
+	   header above it said "Step X of 8". Longer translations overflow sooner. */
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bn-s2);
 	margin: 0;
@@ -884,11 +915,7 @@
 	list-style: none;
 	background: var(--bn-sunken);
 	border-bottom: 1px solid var(--bn-line);
-	overflow-x: auto;
-	-webkit-overflow-scrolling: touch;
-	scrollbar-width: none;
 }
-.bn-wizard__steps::-webkit-scrollbar { display: none; }
 .bn-wizard__step {
 	display: inline-flex;
 	align-items: center;
@@ -906,6 +933,26 @@
 	background: var(--bn-line);
 	margin-inline-end: 6px;
 }
+/* A visited step is a real link back to it. The tracker looked clickable long
+   before it was; this makes the affordance honest rather than removing it. The
+   anchor wraps the marker and the name so the whole item is the target. */
+.bn-wizard__step-link {
+	display: inline-flex;
+	align-items: center;
+	gap: inherit;
+	color: inherit;
+	text-decoration: none;
+	border-radius: var(--bn-r-sm);
+}
+.bn-wizard__step-link:hover .bn-wizard__step-name,
+.bn-wizard__step-link:focus-visible .bn-wizard__step-name {
+	text-decoration: underline;
+}
+.bn-wizard__step-link:focus-visible {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+}
+
 .bn-wizard__step-marker {
 	width: 22px;
 	height: 22px;
@@ -1506,6 +1553,16 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	color: var(--bn-ink-3);
 	line-height: 1.45;
 }
+/* The email-verification caution. Quiet, but not a hint - it names a way to lock
+   every future member out of the site, so it sits under the toggle rather than in
+   a tooltip nobody opens. */
+.bn-wizard__switch-caution {
+	margin-block: var(--bn-s2) 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	line-height: 1.5;
+}
+
 .bn-wizard__addon-status {
 	font-size: 10px;
 	font-weight: var(--bn-fw-semibold);

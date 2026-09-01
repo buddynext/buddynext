@@ -52,7 +52,7 @@ The feature toggle lives under Platform > Features. The comment rate limit lives
 | Setting | What it does | Default |
 |---|---|---|
 | Comments feature | Master on/off switch for comments. When off, the comment area is removed from posts everywhere - on the page and over the API. Found under Platform > Features. | On |
-| Comment rate limit (per minute) | The maximum number of comments a member can post in one minute. Set to 0 to turn rate limiting off. | 30 |
+| Comment rate limit (per minute) | The maximum number of comments a member can post in one minute. Untick the box to turn rate limiting off. | 30 |
 
 > **Tip:** The comment rate limit is your first line of defence against comment spam and flooding. Lowering it slows down anyone trying to bury a thread, without affecting normal members who comment at a human pace.
 

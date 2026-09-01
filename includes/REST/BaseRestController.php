@@ -60,6 +60,90 @@ abstract class BaseRestController {
 	}
 
 	/**
+	 * Params WordPress itself may add to any request.
+	 *
+	 * These are never application data, so a strict handler must let them through
+	 * or every request carrying one would be refused.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var string[]
+	 */
+	protected const RESERVED_PARAMS = array(
+		'_locale',
+		'_fields',
+		'_embed',
+		'_envelope',
+		'_method',
+		'_jsonp',
+		'_wpnonce',
+		'context',
+	);
+
+	/**
+	 * Refuse a write whose body carries keys the endpoint does not understand.
+	 *
+	 * WordPress ignores undeclared params rather than rejecting them, so a caller
+	 * that sent the wrong shape got 200 and an empty result set: PUT /me/profile
+	 * with {"fields":{...}} answered {"saved":true,"errors":[]} and persisted
+	 * nothing, and PUT /profile-fields/{id} accepted five attributes it then threw
+	 * away. Silence is the worst answer a write can give — the caller has no way
+	 * to tell "saved" from "understood nothing you sent".
+	 *
+	 * All-or-nothing: this runs BEFORE any persistence, so a request naming one
+	 * bad key changes nothing at all. A partly-applied write would leave the
+	 * record in a state neither side asked for and make a corrected retry unsafe.
+	 *
+	 * The allowlist is DERIVED from the route's own registered args, so declaring
+	 * an arg is the only thing needed to accept it — there is no second list to
+	 * drift. Endpoints whose accepted keys are dynamic (profile fields are owner
+	 * -defined) pass them in $extra_allowed.
+	 *
+	 * Only the BODY is inspected. Query params on a write are transport (nonces,
+	 * cache-busters, whatever a proxy appends) and are not the payload contract.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param WP_REST_Request   $request       Incoming request.
+	 * @param array<int,string> $extra_allowed Additional accepted top-level keys.
+	 * @return WP_Error|null Error when unknown keys are present, null when clean.
+	 */
+	protected function reject_unknown_body_params( WP_REST_Request $request, array $extra_allowed = array() ): ?WP_Error {
+		$json = $request->get_json_params();
+		$body = is_array( $json ) && ! empty( $json ) ? $json : (array) $request->get_body_params();
+
+		if ( empty( $body ) ) {
+			return null;
+		}
+
+		$attributes = $request->get_attributes();
+		$allowed    = array_merge(
+			array_keys( (array) ( $attributes['args'] ?? array() ) ),
+			$extra_allowed,
+			self::RESERVED_PARAMS
+		);
+
+		$unknown = array_values( array_diff( array_keys( $body ), $allowed ) );
+
+		if ( empty( $unknown ) ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'bn_unknown_params',
+			sprintf(
+				/* translators: %s: comma-separated list of unrecognised parameter names. */
+				__( 'Unrecognised parameters: %s. Nothing was saved.', 'buddynext' ),
+				implode( ', ', $unknown )
+			),
+			array(
+				'status' => 400,
+				'params' => $unknown,
+			)
+		);
+	}
+
+	/**
 	 * Require an authenticated user.
 	 *
 	 * @return true|WP_Error
@@ -174,5 +258,70 @@ abstract class BaseRestController {
 			return null;
 		}
 		return ( new \BuddyNext\Profile\MemberDirectoryController() )->hydrate_members( $ids, $viewer_id );
+	}
+
+	/**
+	 * Whether the post behind an engagement target is hidden from the current viewer.
+	 *
+	 * Resolves an (object_type, object_id) engagement target to its owning post and
+	 * asks {@see \BuddyNext\Feed\PostService::visibility_error()} — the one gate
+	 * every surface reads. Targets with no gateable post are treated as visible;
+	 * so is an unavailable service container, because a controller that cannot
+	 * resolve the service must not start refusing traffic it used to serve.
+	 *
+	 * It lives here because both copies that existed before were on the READ
+	 * endpoints of two controllers, and the write endpoints of five went without.
+	 * A shared helper on the base is what makes "did this handler check?" a
+	 * question with one answer instead of five.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $object_type Engagement object type ('post', 'comment', …).
+	 * @param int    $object_id   Engagement object ID.
+	 * @return bool True when the owning post is not viewable by the current user.
+	 */
+	protected function is_post_hidden_from_viewer( string $object_type, int $object_id ): bool {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$posts = buddynext_service( 'post_service' );
+		if ( ! $posts instanceof \BuddyNext\Feed\PostService ) {
+			return false;
+		}
+
+		$post_id = $posts->resolve_post_id( $object_type, $object_id );
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		return $posts->visibility_error( $post_id, get_current_user_id() ) instanceof WP_Error;
+	}
+
+	/**
+	 * Refuse an engagement write whose target the viewer cannot see.
+	 *
+	 * The write-side counterpart of {@see self::is_post_hidden_from_viewer()}:
+	 * every create/toggle handler asks this one question and returns what it gets.
+	 * 404 rather than 403 — the read gates hide a hidden post's existence, and a
+	 * write endpoint that answers 403 hands back the fact the read endpoint just
+	 * withheld.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $object_type Engagement object type.
+	 * @param int    $object_id   Engagement object ID.
+	 * @return WP_Error|null Error to return, or null when the write may proceed.
+	 */
+	protected function engagement_target_error( string $object_type, int $object_id ): ?WP_Error {
+		if ( ! $this->is_post_hidden_from_viewer( $object_type, $object_id ) ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'post_not_found',
+			__( 'Post not found.', 'buddynext' ),
+			array( 'status' => 404 )
+		);
 	}
 }

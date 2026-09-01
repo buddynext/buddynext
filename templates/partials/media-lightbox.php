@@ -31,11 +31,18 @@ $bn_lb_reactions = class_exists( '\\BuddyNext\\Reactions\\ReactionService' )
 	? (array) \BuddyNext\Reactions\ReactionService::enabled_reactions()
 	: array();
 
-// Every interaction here (react / favorite / share / comment) hits an
-// auth-required engine route, so a guest can only view + download. Rather than
-// show controls that fail on click (a "Log in to react" toast), omit them from
-// the DOM for logged-out visitors; only the media, its meta, and Download remain.
+// Every WRITE here (react / favorite / share / comment) hits an auth-required
+// engine route, so rather than show controls that fail on click (a "Log in to
+// react" toast), they are omitted from the DOM for logged-out visitors.
 // lightbox.js null-checks each control, so their absence is a no-op there.
+//
+// READING is a different question, and conflating the two was a bug. This one
+// flag used to gate the comments PANEL as well as the comment FORM, so a guest
+// was shown a media with no comments on it at all — while
+// GET /mvs/v1/media/{id}/comments answers 200 with the thread to an anonymous
+// caller. The comments are public; only posting is not. A visitor deciding
+// whether to join was being shown an empty, lifeless version of an active
+// conversation.
 $bn_lb_can_interact = is_user_logged_in();
 ?>
 <div class="bn-lightbox" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Media viewer', 'buddynext' ); ?>" hidden>
@@ -66,6 +73,7 @@ $bn_lb_can_interact = is_user_logged_in();
 		<aside class="bn-lightbox__panel">
 			<header class="bn-lightbox__panel-head">
 				<div class="bn-lightbox__author" data-bn-lb-author></div>
+				<button type="button" class="bn-lightbox__fullscreen" data-bn-lb-fullscreen aria-pressed="false" aria-label="<?php esc_attr_e( 'Toggle fullscreen', 'buddynext' ); ?>"><?php buddynext_icon( 'maximize' ); ?></button>
 				<button type="button" class="bn-lightbox__close" data-bn-lb-close aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
 			</header>
 
@@ -90,57 +98,104 @@ $bn_lb_can_interact = is_user_logged_in();
 				</div>
 				<?php endif; ?>
 
+				<?php
+				// Icon-only primary actions + a single "More" overflow for the
+				// secondary + moderation actions. Seven text buttons wrapped badly on
+				// a phone and read as clutter; the primary four are one-tap icons with
+				// tooltips/labels, and Edit / Report / Block / Unlink live behind ⋯.
+				?>
 				<div class="bn-lightbox__actions">
 					<?php if ( $bn_lb_can_interact ) : ?>
-					<button type="button" class="bn-lightbox__action" data-bn-lb-favorite aria-pressed="false">
-						<?php buddynext_icon( 'heart' ); ?><span><?php esc_html_e( 'Favorite', 'buddynext' ); ?></span>
+					<button type="button" class="bn-lightbox__action" data-bn-lb-favorite aria-pressed="false" aria-label="<?php esc_attr_e( 'Favorite', 'buddynext' ); ?>" title="<?php esc_attr_e( 'Favorite', 'buddynext' ); ?>">
+						<?php buddynext_icon( 'heart' ); ?>
 					</button>
-					<button type="button" class="bn-lightbox__action" data-bn-lb-share>
-						<?php buddynext_icon( 'share' ); ?><span><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
+					<button type="button" class="bn-lightbox__action" data-bn-lb-share aria-label="<?php esc_attr_e( 'Share', 'buddynext' ); ?>" title="<?php esc_attr_e( 'Share', 'buddynext' ); ?>">
+						<?php buddynext_icon( 'share' ); ?>
+					</button>
+						<?php // Collections are a Pro surface; the JS hides this when the endpoint is absent. ?>
+					<button type="button" class="bn-lightbox__action" data-bn-lb-save hidden aria-label="<?php esc_attr_e( 'Save', 'buddynext' ); ?>" title="<?php esc_attr_e( 'Save', 'buddynext' ); ?>">
+						<?php buddynext_icon( 'bookmark' ); ?>
 					</button>
 					<?php endif; ?>
-					<a class="bn-lightbox__action" data-bn-lb-download download target="_blank" rel="noopener">
-						<?php buddynext_icon( 'download' ); ?><span><?php esc_html_e( 'Download', 'buddynext' ); ?></span>
+					<a class="bn-lightbox__action" data-bn-lb-download download target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Download', 'buddynext' ); ?>" title="<?php esc_attr_e( 'Download', 'buddynext' ); ?>">
+						<?php buddynext_icon( 'download' ); ?>
 					</a>
 
 					<?php
 					/*
-					 * Abuse controls. With BuddyNext active, /media/{slug}/ redirects to the source
-					 * activity by design, so WPMediaVerse's own media-single template — the one that
-					 * carries Report and Block — never renders. This lightbox IS the media viewer on
-					 * a BuddyNext site, and it offered Favorite / Share / Download and nothing else:
-					 * a UGC community with no in-UI way to report a piece of media at all.
-					 *
-					 * Report posts to WPMediaVerse's existing queue (mvs/v1/media/{id}/report); we do
-					 * not keep a second one. Block is BuddyNext's own (users/{id}/block) — it is the
-					 * member being blocked, not the file.
-					 *
-					 * Hidden for the author's own media (nobody reports themselves) — the JS toggles
-					 * these off once the media meta says the viewer is the uploader.
+					 * Overflow: the secondary + moderation actions behind one ⋯ button.
+					 *   Edit   — shown when the engine's can_edit says this viewer may.
+					 *   Unlink — space owner/moderator only; returns a member's item to
+					 *            their own drive (not a delete). JS gates on a BN space
+					 *            context check. See SpaceController::media_space_context.
+					 *   Report — WPMediaVerse's existing queue (mvs/v1/media/{id}/report).
+					 *   Block  — BuddyNext's own social-graph block of the uploader.
+					 * All are hidden by default; lightbox.js reveals each per media.
 					 */
 					?>
 					<?php if ( $bn_lb_can_interact ) : ?>
-					<button type="button" class="bn-lightbox__action bn-lightbox__action--danger" data-bn-lb-report hidden>
-						<?php buddynext_icon( 'flag' ); ?><span><?php esc_html_e( 'Report', 'buddynext' ); ?></span>
-					</button>
-					<button type="button" class="bn-lightbox__action bn-lightbox__action--danger" data-bn-lb-block hidden>
-						<?php buddynext_icon( 'ban' ); ?><span><?php esc_html_e( 'Block', 'buddynext' ); ?></span>
-					</button>
+					<div class="bn-lightbox__more" data-bn-lb-more-wrap>
+						<button type="button" class="bn-lightbox__action" data-bn-lb-more aria-haspopup="true" aria-expanded="false" aria-label="<?php esc_attr_e( 'More actions', 'buddynext' ); ?>" title="<?php esc_attr_e( 'More', 'buddynext' ); ?>">
+							<?php buddynext_icon( 'more-horizontal' ); ?>
+						</button>
+						<div class="bn-lightbox__menu" data-bn-lb-menu role="menu" hidden>
+							<button type="button" class="bn-lightbox__menu-item" data-bn-lb-edit hidden role="menuitem">
+								<?php buddynext_icon( 'edit' ); ?><span><?php esc_html_e( 'Edit', 'buddynext' ); ?></span>
+							</button>
+							<button type="button" class="bn-lightbox__menu-item" data-bn-lb-unlink hidden role="menuitem">
+								<?php buddynext_icon( 'log-out' ); ?><span><?php esc_html_e( 'Remove from space', 'buddynext' ); ?></span>
+							</button>
+							<button type="button" class="bn-lightbox__menu-item bn-lightbox__menu-item--danger" data-bn-lb-report hidden role="menuitem">
+								<?php buddynext_icon( 'flag' ); ?><span><?php esc_html_e( 'Report', 'buddynext' ); ?></span>
+							</button>
+							<button type="button" class="bn-lightbox__menu-item bn-lightbox__menu-item--danger" data-bn-lb-block hidden role="menuitem">
+								<?php buddynext_icon( 'ban' ); ?><span><?php esc_html_e( 'Block', 'buddynext' ); ?></span>
+							</button>
+						</div>
+					</div>
 					<?php endif; ?>
 				</div>
 
-				<?php if ( $bn_lb_can_interact ) : ?>
-				<div class="bn-lightbox__comments" data-bn-lb-comments aria-live="polite"></div>
+				<?php
+				// Comment box sits directly beneath the actions (matching the MediaVerse
+				// lightbox) so "join the conversation" is the first thing under the media
+				// controls and the thread grows below it, rather than the input being
+				// pinned to the panel foot away from the thread.
+				if ( $bn_lb_can_interact ) :
+					?>
+				<form class="bn-lightbox__comment-form" data-bn-lb-comment-form>
+					<?php // A placeholder is not an accessible name - screen readers announce the input as unlabelled once the user types. aria-label carries the name. ?>
+					<input type="text" class="bn-lightbox__comment-input" data-bn-lb-comment-input aria-label="<?php esc_attr_e( 'Comment on this photo', 'buddynext' ); ?>" placeholder="<?php esc_attr_e( 'Comment on this photo…', 'buddynext' ); ?>" autocomplete="off">
+					<button type="submit" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'Post', 'buddynext' ); ?></button>
+				</form>
+				<?php else : ?>
+					<?php
+					// Same idiom as ShortcodeService: BuddyNext's own auth page when the
+					// owner has one, wp_login_url() otherwise, and the current page as the
+					// return. Deliberately not hand-built from $_SERVER — a login link is
+					// not worth reading unsanitised superglobals for.
+					$bn_lb_auth  = \BuddyNext\Core\PageRouter::auth_url();
+					$bn_lb_login = '' !== $bn_lb_auth
+						? add_query_arg( 'redirect_to', rawurlencode( (string) get_permalink() ), $bn_lb_auth )
+						: wp_login_url( (string) get_permalink() );
+					?>
+					<p class="bn-lightbox__comment-login">
+						<?php
+						printf(
+							/* translators: %s: log-in link. */
+							esc_html__( '%s to comment.', 'buddynext' ),
+							'<a href="' . esc_url( $bn_lb_login ) . '">' . esc_html__( 'Log in', 'buddynext' ) . '</a>'
+						);
+						?>
+					</p>
 				<?php endif; ?>
-			</div>
 
-			<?php if ( $bn_lb_can_interact ) : ?>
-			<form class="bn-lightbox__comment-form" data-bn-lb-comment-form>
-				<?php // A placeholder is not an accessible name - screen readers announce the input as unlabelled once the user types. aria-label carries the name. ?>
-				<input type="text" class="bn-lightbox__comment-input" data-bn-lb-comment-input aria-label="<?php esc_attr_e( 'Add a comment', 'buddynext' ); ?>" placeholder="<?php esc_attr_e( 'Add a comment…', 'buddynext' ); ?>" autocomplete="off">
-				<button type="submit" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'Post', 'buddynext' ); ?></button>
-			</form>
-			<?php endif; ?>
+				<?php // Filled by the JS when Save or Edit is opened; empty otherwise. ?>
+				<div class="bn-lightbox__panel" data-bn-lb-panel hidden></div>
+
+				<?php // Rendered for everyone — reading a public thread needs no account. ?>
+				<div class="bn-lightbox__comments" data-bn-lb-comments aria-live="polite"></div>
+			</div>
 		</aside>
 	</div>
 </div>

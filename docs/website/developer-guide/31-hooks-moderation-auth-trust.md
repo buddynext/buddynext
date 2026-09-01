@@ -37,6 +37,7 @@ Because it runs on both, the filter is passed a final `$context` argument - `'cr
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
+| `buddynext_automatic_sanction_failed` | action | An automatic sanction (strike, suspension, shadow-ban) could not be applied. Fires so a site can alert a human rather than let the moderation rule fail silently — the report stays open and nothing was applied. | `int $user_id, string $sanction, string $reason` |
 | `buddynext_safeguard_check` | filter | A post is about to be saved (create or edit), after the built-in automated checks pass | `true\|WP_Error $result, int $user_id, string $content, string $link_url, string $context` |
 | `buddynext_client_ip` | filter | The safeguard service resolves the request IP for the blocked-IP check | `string $ip` |
 | `buddynext_report_reasons` | filter | The report reason list is built (default: `spam, harassment, misinformation, inappropriate, fake, impersonation, other`) | `string[] $reasons` |
@@ -54,6 +55,24 @@ array( 'action' => 'warn',    'user_id' => 123, 'reason' => 'string' );
 array( 'action' => 'suspend', 'user_id' => 123, 'reason' => 'string', 'duration_days' => 7 );
 ```
 
+## Pre-moderation (1.1.6)
+
+Pre-moderation holds a post for review before it appears. It is **developer-only by design**: there is no owner setting, and the retired `buddynext_premod_mode` *option* is deliberately not read. Honouring a stale stored value would leave a site silently holding posts with no UI to turn it off or to find them, so the mode comes from a filter or not at all.
+
+| Hook | Type | Default | Parameters |
+|---|---|---|---|
+| `buddynext_premod_mode` | filter | `'off'` | `string $mode` - one of `off`, `new_members`, `links`, `all` |
+| `buddynext_premod_new_member_count` | filter | `1` | `int $limit` - how many of a new member's first posts to hold |
+
+Hold the first three posts from every new member:
+
+```php
+add_filter( 'buddynext_premod_mode', fn() => 'new_members' );
+add_filter( 'buddynext_premod_new_member_count', fn() => 3 );
+```
+
+Held posts surface in the moderation queue's Pending tab. Turning the mode back to `off` releases nothing on its own - anything already held still needs a decision there, which is the reason this is not a setting an owner can toggle blind.
+
 ## Moderation event actions
 
 These fire after a moderator (or an auto-action) acts on content or a member. Trust-and-safety integrations and gamification penalties hook these.
@@ -67,7 +86,7 @@ These fire after a moderator (or an auto-action) acts on content or a member. Tr
 | `buddynext_user_suspended` | action | A member is suspended | `int $user_id, int $actor_id, string $reason, ?string $expires_at` |
 | `buddynext_user_unsuspended` | action | A suspension is lifted | `int $user_id` |
 | `buddynext_member_suspended` | action | Member-domain mirror of a suspension | `int $user_id, int $by_user_id` |
-| `buddynext_member_unsuspended` | action | Member-domain mirror of an unsuspension | `int $user_id, int $by_user_id`. **Arity warning: the wp-admin Members screen fires this with `$user_id` only** (`includes/Admin/Members.php:396`, marked in source as a legacy call). `ModerationService` passes both. Give your callback a default for `$by_user_id` or a typed 2-parameter listener will raise an `ArgumentCountError` when an admin lifts a suspension from that screen. |
+| `buddynext_member_unsuspended` | action | Member-domain mirror of an unsuspension | `int $user_id, int $by_user_id` from every call site, including the wp-admin Members screen. That screen used to fire `$user_id` alone, which killed a typed two-parameter listener with an `ArgumentCountError`; it now passes `get_current_user_id()` as the actor. No default is needed. |
 | `buddynext_user_shadow_banned` | action | A member is shadow-banned (their content stays visible only to themselves) | `int $user_id, int $actor_id, string $reason` |
 | `buddynext_user_shadow_ban_removed` | action | A shadow ban is lifted | `int $user_id, int $actor_id` |
 | `buddynext_appeal_submitted` | action | A member appeals a moderation decision | `int $user_id, int $appeal_id, string $type, int $suspension_id` |
@@ -128,7 +147,7 @@ The admin moderation queue and the member-facing report modal expose theming sea
 | `buddynext_email_changed` | action | An email-address change is confirmed | `int $user_id, string $new_email` |
 | `buddynext_oauth_providers` | filter | The OAuth provider definitions are assembled | `array $providers` |
 | `buddynext_auth_social_providers` | filter | The social provider buttons rendered on login / signup / connected-accounts | `array $providers` |
-| `buddynext_social_icon` | filter | A social provider's icon is resolved | `string $icon, string $provider_id` |
+| `buddynext_social_icon` | filter | A social-LOGIN provider's button icon is resolved (login / signup / connected accounts). It does NOT affect the profile hero's social-link chips - those icons are a hardcoded map with no filter | `string $icon, string $provider_id` |
 | `buddynext_social_user_created` | action | A new account is created from a social login | `int $user_id, string $provider_id, array $profile` |
 
 ## Authentication: private community access (1.0.7)
@@ -158,6 +177,9 @@ add_filter(
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_redirect_url` | filter | Resolving the login / logout / onboarding redirect URL, after the owner's Settings > Registration & Login value (or the built-in default) has already been applied - runs last, so it has the final say | `string $url, string $context, string $fallback` |
+| `buddynext_content_removal_handled` | filter | Moderation asks whether reported content was actually taken down. Core answers for `post`, `comment` and `message`; return `true` for an object type you own | `bool $handled, string $object_type, int $object_id, int $actor_id` |
+| `buddynext_private_community_exempt_routes` | filter | The private-community gate resolves which route prefixes are exempt, for callers that are legitimately never logged in | `string[] $exempt, WP_REST_Request $request` |
+| `buddynext_terms_consent_recorded` | action | A member's terms consent is recorded. Hook it if you owe a stricter compliance duty, such as a written audit log or an external consent store | `int $user_id, int $terms_page, string $source` |
 
 `RedirectSettings::resolve()` is the one place every login, logout, and onboarding redirect passes through - the BuddyNext auth hub, `wp-login.php`, a theme login form, and programmatic sign-in all resolve through it. `$context` is one of `'login'`, `'logout'`, or `'onboarding'`; `$fallback` is the built-in default for that context (for example, the activity feed for login). Send a member to a custom dashboard or an external portal without touching the settings UI:
 

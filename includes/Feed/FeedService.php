@@ -22,7 +22,9 @@ namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\PostService;
 use BuddyNext\SocialGraph\FollowService;
+use BuddyNext\SocialGraph\ConnectionService;
 use BuddyNext\Core\CursorCodec;
+use BuddyNext\Media\MediaClient;
 
 /**
  * Aggregates posts into paginated feed responses.
@@ -87,11 +89,6 @@ class FeedService {
 	 * Version counter for every cached announcement id list.
 	 */
 	private const ANNOUNCEMENT_VERSION_KEY = 'announcement_ids_version';
-
-	/**
-	 * Version counter for the cached pinned-post lists.
-	 */
-	private const PINNED_VERSION_KEY = 'pinned_ids_version';
 
 	/**
 	 * Ceiling for the "N new posts" pill.
@@ -177,6 +174,71 @@ class FeedService {
 	}
 
 	/**
+	 * Connection service, created on first use.
+	 *
+	 * Not a constructor dependency: FeedService is instantiated from three call
+	 * sites with different arities, and the connection check is only needed on
+	 * the profile-feed path, so it is resolved lazily here rather than threaded
+	 * through every constructor. ConnectionService is stateless.
+	 *
+	 * @var ConnectionService|null
+	 */
+	private ?ConnectionService $connections = null;
+
+	/**
+	 * Whether two users are accepted connections.
+	 *
+	 * @param int $viewer_id       Viewer user ID.
+	 * @param int $profile_user_id Profile owner user ID.
+	 * @return bool
+	 */
+	private function are_connected( int $viewer_id, int $profile_user_id ): bool {
+		if ( $viewer_id <= 0 || $profile_user_id <= 0 || $viewer_id === $profile_user_id ) {
+			return false;
+		}
+		if ( null === $this->connections ) {
+			$this->connections = new ConnectionService();
+		}
+		return $this->connections->are_connected( $viewer_id, $profile_user_id );
+	}
+
+	/**
+	 * Privacy IN(...) clause for a viewer looking at a profile owner's posts.
+	 *
+	 * The viewer's audience is additive: 'public' always, plus 'followers' if
+	 * they follow the owner, plus 'connections' if they are an accepted
+	 * connection. Before this, a connections-only post was hidden from the very
+	 * connection it was addressed to on the owner's profile — 'connections' was
+	 * honoured on the Network feed alone. Shared by profile_feed() and
+	 * profile_pinned_posts() so the audience can never drift between them.
+	 *
+	 * Returns '' for the owner (sees everything). Every literal is hardcoded —
+	 * no user data enters the SQL.
+	 *
+	 * @param int $viewer_id       Viewer user ID (0 = anonymous).
+	 * @param int $profile_user_id Profile owner user ID.
+	 * @return string SQL fragment prefixed with AND, or '' for the owner.
+	 */
+	private function profile_privacy_clause( int $viewer_id, int $profile_user_id ): string {
+		if ( $viewer_id === $profile_user_id ) {
+			return '';
+		}
+		$following = $viewer_id > 0 && $this->follows->is_following( $viewer_id, $profile_user_id );
+		$connected = $this->are_connected( $viewer_id, $profile_user_id );
+
+		if ( $following && $connected ) {
+			return "AND privacy IN ('public','followers','connections')";
+		}
+		if ( $following ) {
+			return "AND privacy IN ('public','followers')";
+		}
+		if ( $connected ) {
+			return "AND privacy IN ('public','connections')";
+		}
+		return "AND privacy = 'public'";
+	}
+
+	/**
 	 * Build a SQL fragment that excludes suspended and shadow-banned users.
 	 *
 	 * The fragment is always prefixed with AND so it can be appended directly
@@ -216,10 +278,18 @@ class FeedService {
 	 * fragment for logged-out viewers (no relationship to resolve) and when the
 	 * bn_blocks table is absent, so the feed degrades gracefully.
 	 *
+	 * Also drops posts THIS viewer reported. Reporting is a viewer-scoped hide in
+	 * exactly the same sense as a mute: the reporter asked to stop seeing it, the
+	 * author is unaffected and never told. It lives here rather than at the report
+	 * endpoint because every feed query must honour it, and this is the one place
+	 * they all pass through.
+	 *
 	 * @param int $viewer_id Viewing user ID (0 = anonymous).
 	 * @return array{0:string,1:array<int>} SQL fragment + ordered params.
 	 */
-	private function viewer_block_mute_where( int $viewer_id ): array {
+	private function viewer_hidden_where( int $viewer_id ): array {
+		global $wpdb;
+
 		// Delegate to the one canonical block-exclusion builder. Feed semantics:
 		// exclude authors the viewer block|muted (forward) and authors who
 		// blocked the viewer (reverse). Mute is a feed-only soft hide, so it
@@ -231,7 +301,66 @@ class FeedService {
 			array( 'block' )
 		);
 
-		return array( '' === $predicate ? '' : 'AND ' . $predicate, $params );
+		$where = '' === $predicate ? '' : 'AND ' . $predicate;
+
+		if ( $viewer_id <= 0 ) {
+			return array( $where, $params );
+		}
+
+		/**
+		 * Report statuses that keep the reported content hidden from its reporter.
+		 *
+		 * Default: every status. Reporting something is a statement about what the
+		 * member wants in their own feed, and a moderator disagreeing about the
+		 * content does not change what that member asked for - so dismissing a
+		 * report does not put the post back in front of the person who reported it.
+		 * That matches Facebook, X and Instagram, and it matches the promise the UI
+		 * already makes when it removes the card on report.
+		 *
+		 * An owner who reads a dismissal as "we checked, it is fine, show it again"
+		 * can drop 'dismissed' (and/or 'resolved') from this list.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param string[] $statuses  Statuses that keep content hidden from the reporter.
+		 * @param int      $viewer_id The viewer whose feed is being built.
+		 */
+		$statuses = (array) apply_filters(
+			'buddynext_reporter_hidden_statuses',
+			array( 'pending', 'escalated', 'dismissed', 'resolved' ),
+			$viewer_id
+		);
+
+		$statuses = array_values( array_intersect(
+			array_map( 'strval', $statuses ),
+			array( 'pending', 'escalated', 'dismissed', 'resolved' )
+		) );
+
+		if ( array() === $statuses ) {
+			return array( $where, $params );
+		}
+
+		// Correlated NOT EXISTS rather than a NOT IN list of post ids: the reporter
+		// may have reported thousands of things over the years, and only the handful
+		// on the page being built matter. bn_reports' `one_per_reporter` UNIQUE KEY
+		// (reporter_id, object_type, object_id) makes this an index lookup per
+		// candidate row, so it stays flat as that history grows.
+		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+
+		$where .= " AND NOT EXISTS (
+				SELECT 1 FROM {$wpdb->prefix}bn_reports bn_r
+				WHERE bn_r.reporter_id = %d
+				  AND bn_r.object_type = 'post'
+				  AND bn_r.object_id = {$wpdb->prefix}bn_posts.id
+				  AND bn_r.status IN ( {$placeholders} )
+			)";
+
+		$params[] = $viewer_id;
+		foreach ( $statuses as $bn_status ) {
+			$params[] = $bn_status;
+		}
+
+		return array( $where, $params );
 	}
 
 	/**
@@ -336,7 +465,7 @@ class FeedService {
 		// $cursor_where is built AFTER the ORDER BY is resolved below — a tiered
 		// ordering needs a tier-aware keyset, so the fragment depends on it.
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
 
 		/**
 		 * Filter the query args before SQL is built for the home feed.
@@ -476,11 +605,11 @@ class FeedService {
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   AND ({$source_where})
 			   {$excluded_where}
-			   {$block_mute_where}
+			   {$hidden_where}
 			   {$cursor_where}
 			 ORDER BY {$order_by}
 			 LIMIT %d",
-			...array_merge( $source_params, $block_mute_params, $this->cursor_params( $cursor, $tier_expr ), array( $per_page + 1 ) )
+			...array_merge( $source_params, $hidden_params, $this->cursor_params( $cursor, $tier_expr ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -737,7 +866,7 @@ class FeedService {
 
 		$excluded_where = $this->excluded_users_where();
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
 
 		$map = array(
 			'for_you'   => 'for-you',
@@ -769,10 +898,10 @@ class FeedService {
 					      AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 					      AND ({$source_where})
 					      {$excluded_where}
-					      {$block_mute_where}
+					      {$hidden_where}
 					    LIMIT %d
 					 ) _capped", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-					...array_merge( $source_params, $block_mute_params, array( self::NEW_COUNT_CAP + 1 ) )
+					...array_merge( $source_params, $hidden_params, array( self::NEW_COUNT_CAP + 1 ) )
 				)
 			);
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
@@ -838,7 +967,7 @@ class FeedService {
 
 		$excluded_where = $this->excluded_users_where();
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
 		[ $source_where, $source_params ]         = $this->home_source_clause( $filter, $user_id );
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
@@ -869,11 +998,11 @@ class FeedService {
 				       AND user_id <> %d
 				       AND ({$source_where})
 				       {$excluded_where}
-				       {$block_mute_where}
+				       {$hidden_where}
 				     ORDER BY id DESC
 				     LIMIT %d
 				 ) AS bounded", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-				...array_merge( array( $after_id, $after_id, $user_id ), $source_params, $block_mute_params, array( $limit ) )
+				...array_merge( array( $after_id, $after_id, $user_id ), $source_params, $hidden_params, array( $limit ) )
 			),
 			ARRAY_A
 		);
@@ -887,6 +1016,77 @@ class FeedService {
 		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::NEW_COUNT_TTL );
 
 		return $result;
+	}
+
+	/**
+	 * The newest post id this member could see under a given filter.
+	 *
+	 * The pill's starting line. Without it the client seeds its watermark from the
+	 * highest id among the RENDERED cards, which is only the same thing when the
+	 * feed is ordered by id — and For-you is not: it is tier-ordered (own post,
+	 * connections, interest spaces, then everyone else), with recency deciding only
+	 * inside a tier.
+	 *
+	 * So a stranger's post could be the newest row in the table, rank below the
+	 * fold, never appear on page one, and therefore sit ABOVE a page-derived
+	 * watermark. `home_feed_new_count()` has no tier awareness, so it counted that
+	 * existing post as news and the pill announced new posts on a feed nobody had
+	 * posted to. Refreshing did not help either: the ranking is unchanged, so the
+	 * post stayed off page one and the same pill came back.
+	 *
+	 * Deliberately mirrors `home_feed_new_count()`'s source, exclusion and
+	 * block/mute clauses rather than approximating them with `MAX(id)` over the
+	 * table: a watermark taken over a wider blend than the count uses would silence
+	 * real news, and a narrower one would reintroduce the false positive on another
+	 * tab. The viewer's OWN posts are included here (unlike the count, which
+	 * excludes them) so that publishing does not leave the watermark behind their
+	 * own newest post.
+	 *
+	 * @param int    $user_id Viewing user ID.
+	 * @param string $filter  Filter slug: for-you | following | spaces | network.
+	 * @return int Newest visible post id, or 0 when the member can see nothing.
+	 */
+	public function home_feed_watermark( int $user_id, string $filter = 'for-you' ): int {
+		global $wpdb;
+
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		if ( ! in_array( $filter, self::HOME_FILTERS, true ) ) {
+			$filter = 'for-you';
+		}
+
+		$cache_key = "watermark_{$user_id}_{$filter}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		$excluded_where = $this->excluded_users_where();
+
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
+		[ $source_where, $source_params ]         = $this->home_source_clause( $filter, $user_id );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+		$sql = "SELECT COALESCE(MAX(id), 0)
+			 FROM {$wpdb->prefix}bn_posts
+			 WHERE status = 'published'
+			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+			   AND ({$source_where})
+			   {$excluded_where}
+			   {$hidden_where}";
+
+		$params = array_merge( $source_params, $hidden_params );
+
+		$newest = (int) $wpdb->get_var(
+			empty( $params ) ? $sql : $wpdb->prepare( $sql, ...$params ) // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+
+		wp_cache_set( $cache_key, $newest, self::CACHE_GROUP, self::NEW_COUNT_TTL );
+
+		return $newest;
 	}
 
 	/**
@@ -1363,19 +1563,12 @@ class FeedService {
 
 		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), self::MAX_PER_PAGE ) );
 
-		if ( $viewer_id === $profile_user_id ) {
-			// Owner sees everything — but suspended/shadow-banned posts are still hidden.
-			$privacy_clause = '';
-			$privacy_params = array();
-		} elseif ( $viewer_id > 0 && $this->follows->is_following( $viewer_id, $profile_user_id ) ) {
-			// Followers see public and followers-only posts.
-			$privacy_clause = "AND privacy IN ('public','followers')";
-			$privacy_params = array();
-		} else {
-			// Anonymous visitors and non-followers see only public posts.
-			$privacy_clause = "AND privacy = 'public'";
-			$privacy_params = array();
-		}
+		// Additive audience: public, plus followers-only if the viewer follows the
+		// owner, plus connections-only if they are an accepted connection — so a
+		// connection sees a 'connections' post on the author's profile, not just
+		// in the Network feed. See profile_privacy_clause().
+		$privacy_clause = $this->profile_privacy_clause( $viewer_id, $profile_user_id );
+		$privacy_params = array();
 
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
@@ -1384,25 +1577,43 @@ class FeedService {
 		// and explore_feed use — so a profile owner the viewer has blocked or muted
 		// does not leak posts onto their own profile feed (self-block is impossible,
 		// so the owner viewing their own profile is unaffected).
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 
 		// $privacy_clause is a hardcoded SQL constant — safe.
 		// $cursor_where is either '' or the single hardcoded SQL constant — safe.
 		// $excluded_where contains only table/column names — no user data, safe.
-		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
+		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
+		// posts this viewer reported); its params are bound below.
+		//
+		// status = 'published' is not decoration. Every other feed query in this
+		// class has always carried it; the profile feed was the one that did not,
+		// so it returned whatever status a row happened to hold. Measured on a
+		// dev site: a post held by pre-moderation and a post the author had
+		// DELETED were both returned to another member viewing the profile.
+		//
+		// That made pre-moderation ornamental on this surface — the hold kept a
+		// post out of the home and space feeds and left it fully readable on the
+		// author's profile — and it meant "delete" did not remove a post from the
+		// place people are most likely to look for it.
+		//
+		// Scheduled posts were already covered, by the scheduled_at clause below
+		// rather than by status, which is why the omission never showed up there.
+		// (Basecamp 10239861865 — found while building the Pending tab, which is
+		// where a held post is supposed to be visible, and only to its author.)
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE user_id = %d
+			   AND status = 'published'
 			   AND NOT ( is_pinned = 1 AND space_id IS NULL )
 			   {$privacy_clause}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
-			   {$block_mute_where}
+			   {$hidden_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( array( $profile_user_id ), $privacy_params, $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $profile_user_id ), $privacy_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -1462,13 +1673,13 @@ class FeedService {
 	/**
 	 * The profile owner's own pinned posts, hydrated and newest-first.
 	 *
-	 * The profile-scope sibling of space_pinned_posts(): a member can pin their own
-	 * posts to the top of their profile (is_pinned = 1 AND space_id IS NULL). Those
-	 * rows are excluded from profile_feed_uncached()'s chronological query, so pins
-	 * live in exactly one place and never double up or reappear on load-more.
+	 * Pinning is profile-only: a member pins their own posts to the top of their
+	 * profile (is_pinned = 1 AND space_id IS NULL). Those rows are excluded from
+	 * profile_feed_uncached()'s chronological query, so pins live in exactly one
+	 * place and never double up or reappear on load-more.
 	 *
-	 * Unlike the space pin strip this list IS viewer-scoped: it applies the SAME
-	 * privacy and block/mute gate as profile_feed() so a followers-only post pinned
+	 * This list is viewer-scoped: it applies the SAME privacy and block/mute gate
+	 * as profile_feed() so a followers-only post pinned
 	 * to a profile never leaks to a non-follower. Because the row count is tiny (the
 	 * per-user pin limit) and the result is viewer-specific, it is queried live
 	 * rather than cached — the user_id index makes this a single cheap lookup.
@@ -1489,25 +1700,20 @@ class FeedService {
 
 		$limit = max( 1, min( $limit, 10 ) );
 
-		if ( $viewer_id === $profile_user_id ) {
-			// Owner sees everything — but suspended/shadow-banned posts are still hidden.
-			$privacy_clause = '';
-		} elseif ( $viewer_id > 0 && $this->follows->is_following( $viewer_id, $profile_user_id ) ) {
-			// Followers see public and followers-only posts.
-			$privacy_clause = "AND privacy IN ('public','followers')";
-		} else {
-			// Anonymous visitors and non-followers see only public posts.
-			$privacy_clause = "AND privacy = 'public'";
-		}
+		// Same additive audience as the profile feed — a pinned 'connections' post
+		// must be visible to the author's connections, not hidden from the very
+		// people it was pinned for. See profile_privacy_clause().
+		$privacy_clause = $this->profile_privacy_clause( $viewer_id, $profile_user_id );
 
 		$excluded_where = $this->excluded_users_where();
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 
 		global $wpdb;
 		// $privacy_clause is a hardcoded SQL constant — safe.
 		// $excluded_where contains only table/column names — no user data, safe.
-		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
+		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
+		// posts this viewer reported); its params are bound below.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
@@ -1518,10 +1724,10 @@ class FeedService {
 				   {$privacy_clause}
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   {$excluded_where}
-				   {$block_mute_where}
+				   {$hidden_where}
 				 ORDER BY created_at DESC
 				 LIMIT %d",
-				...array_merge( array( $profile_user_id ), $block_mute_params, array( $limit ) )
+				...array_merge( array( $profile_user_id ), $hidden_params, array( $limit ) )
 			)
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1633,7 +1839,7 @@ class FeedService {
 		// Apply the canonical viewer block/mute exclusion — the same gate home_feed
 		// and explore_feed use — so a co-member the viewer has blocked or muted does
 		// not leak posts into a shared space feed.
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 
 		/**
 		 * Filter the query args before SQL is built for the space feed.
@@ -1661,7 +1867,8 @@ class FeedService {
 		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), self::MAX_PER_PAGE ) );
 
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
-		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
+		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
+		// posts this viewer reported); its params are bound below.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
@@ -1669,11 +1876,11 @@ class FeedService {
 			   AND status = 'published'
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
-			   {$block_mute_where}
+			   {$hidden_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( array( $space_id ), $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $space_id ), $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -1755,6 +1962,63 @@ class FeedService {
 	}
 
 	/**
+	 * Whether this community has nobody in it yet, for a viewer who can fix that.
+	 *
+	 * Answers one question the empty states need and nothing else: is the person
+	 * reading this looking at a community that has not started, rather than at
+	 * their own quiet corner of a busy one? Those two need opposite advice -
+	 * "discover members" is right in a populated community and absurd on day one,
+	 * when the only member is the reader.
+	 *
+	 * BOTH halves matter. Emptiness alone would give a plain member on a new site
+	 * an "invite members" button they may not be allowed to act on; capability
+	 * alone would give an admin bootstrapping copy on a thriving community. And it
+	 * deliberately does NOT read the onboarding-completed flag: an owner who
+	 * finished onboarding on an empty site still needs to be told what to do next.
+	 *
+	 * Cheap enough to call on every empty render: two COUNTs behind a short
+	 * transient. It only ever flips once per site - the moment a second member or
+	 * a first post arrives - so a stale answer costs a few minutes of the wrong
+	 * empty state and never a wrong page.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $viewer_id Viewer, 0 for logged out.
+	 * @return bool
+	 */
+	public static function community_is_bootstrapping( int $viewer_id ): bool {
+		if ( $viewer_id <= 0 ) {
+			return false;
+		}
+
+		$can_bootstrap = user_can( $viewer_id, 'manage_options' )
+			|| user_can( $viewer_id, 'buddynext_invite_members' );
+
+		if ( ! $can_bootstrap ) {
+			return false;
+		}
+
+		$cached = get_transient( 'bn_community_bootstrapping' );
+		if ( false !== $cached ) {
+			return '1' === $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$members = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users}" );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$posts = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE status = 'published'" );
+
+		$bootstrapping = ( $members <= 1 ) || ( 0 === $posts );
+
+		set_transient( 'bn_community_bootstrapping', $bootstrapping ? '1' : '0', 5 * MINUTE_IN_SECONDS );
+
+		return $bootstrapping;
+	}
+
+	/**
 	 * Return the public explore feed (all public posts, newest first).
 	 *
 	 * @param string|null $cursor      Pagination cursor.
@@ -1774,7 +2038,7 @@ class FeedService {
 		$excluded_where = $this->excluded_users_where();
 		$viewer_id      = get_current_user_id();
 
-		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 
 		// Sub-type facet. Each clause is a static fragment selected by a
 		// validated key — no user input is interpolated.
@@ -1796,20 +2060,29 @@ class FeedService {
 		// with nothing to show. See explore_renderable_where().
 		$renderable_where = $this->explore_renderable_where();
 
+		/*
+		 * status = 'published' is not decoration - the same note the home and space
+		 * feeds carry. Explore had the scheduled_at window but no status filter at
+		 * all, which reads as covered and is not: the window says nothing about a
+		 * draft, a post held for pre-moderation, one auto-hidden by the report
+		 * threshold, or one its author deleted. All four were listed publicly, and
+		 * Explore is the one feed a logged-out visitor can reach.
+		 */
 		// $cursor_where, $excluded_where, $filter_where and $renderable_where contain only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE privacy = 'public'
+			   AND status = 'published'
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
-			   {$block_mute_where}
+			   {$hidden_where}
 			   {$filter_where}
 			   {$renderable_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -2059,105 +2332,6 @@ class FeedService {
 	}
 
 	/**
-	 * Return a space's pinned posts (up to the cap), newest first.
-	 *
-	 * The single-row space_pinned_post() left Pro's "10 pins per space" invisible —
-	 * up to 9 pins were stored but never rendered. This returns the whole pinned
-	 * set so the space feed can show a bounded pinned strip.
-	 *
-	 * @param int $space_id Space ID.
-	 * @param int $limit    Max pins to return (clamped 1-20).
-	 * @return array[] Hydrated pinned post rows, newest first.
-	 */
-	public function space_pinned_posts( int $space_id, int $limit = 10 ): array {
-		if ( $space_id <= 0 ) {
-			return array();
-		}
-
-		$limit = max( 1, min( $limit, 20 ) );
-
-		// Runs on every space page paint. Unlike the feed, this one is NOT viewer-scoped —
-		// the pinned strip is the same for everybody who can see the space — so a single
-		// key per space is safe.
-		//
-		// Only the IDS are cached, and each is re-read through PostService::get() (cached,
-		// and busted on every post write). So an unpinned, deleted, unpublished or
-		// moderated post drops out immediately however stale the list is: the worst a
-		// stale list can do is miss a NEWLY pinned post, which the bust on pin prevents.
-		// Same argument as the announcements, and for the same reason — a pinned post that
-		// will not go away is worse than one that arrives a moment late.
-		$cache_key = 'pinned_ids_v' . self::pinned_version() . "_{$space_id}_{$limit}";
-		$ids       = wp_cache_get( $cache_key, self::CACHE_GROUP );
-
-		if ( ! is_array( $ids ) ) {
-			global $wpdb;
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$ids = $wpdb->get_col(
-				$wpdb->prepare(
-					"SELECT id FROM {$wpdb->prefix}bn_posts
-					 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
-					   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-					 ORDER BY created_at DESC
-					 LIMIT %d",
-					$space_id,
-					$limit
-				)
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-			$ids = array_map( 'intval', (array) $ids );
-
-			wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::ANNOUNCEMENT_TTL );
-		}
-
-		$posts = array();
-
-		foreach ( $ids as $id ) {
-			$row = $this->post_service->get( (int) $id );
-
-			if ( ! is_array( $row )
-				|| empty( $row['is_pinned'] )
-				|| 'published' !== (string) ( $row['status'] ?? '' )
-				|| ! empty( $row['is_deleted'] )
-			) {
-				continue;
-			}
-
-			$posts[] = $this->post_service->hydrate( $row );
-		}
-
-		return $posts;
-	}
-
-	/**
-	 * Current version of the cached pinned-post lists.
-	 *
-	 * @return int
-	 */
-	private static function pinned_version(): int {
-		$version = wp_cache_get( self::PINNED_VERSION_KEY, self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( self::PINNED_VERSION_KEY, $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
-	}
-
-	/**
-	 * Invalidate every cached pinned-post list.
-	 *
-	 * Called whenever a post is pinned or unpinned. The writer knows the post, not
-	 * necessarily the space, and a pin is rare — so one bump beats guessing a key.
-	 *
-	 * @return void
-	 */
-	public static function flush_pinned_posts(): void {
-		wp_cache_set( self::PINNED_VERSION_KEY, self::pinned_version() + 1, self::CACHE_GROUP );
-	}
-
-	/**
 	 * Count published, live (non-future) posts in a space.
 	 *
 	 * @param int $space_id Space ID.
@@ -2339,6 +2513,34 @@ class FeedService {
 			}
 		}
 
-		return array_slice( array_values( array_unique( $media_ids ) ), 0, $limit );
+		$media_ids = array_values( array_unique( $media_ids ) );
+
+		// The list so far is "media ATTACHED TO this space's posts", which is a
+		// different question from "may THIS viewer see it". A photo whose owner has
+		// since made it private — e.g. by unlinking it from the space in the media
+		// lightbox — still hangs off the post that embedded it, so without a gate
+		// here it keeps showing to everyone and the unlink has no visible effect.
+		// Filter through the engine's own per-viewer check (owner + admins always;
+		// otherwise the item's privacy), so a member sees exactly what they may and
+		// an unlinked/private item drops out for others while its owner still sees
+		// their own. Bounded to $limit, so at most $limit checks, each memoised.
+		$privacy = MediaClient::privacy();
+		if ( null === $privacy || ! is_callable( array( $privacy, 'can_view' ) ) ) {
+			return array_slice( $media_ids, 0, $limit );
+		}
+
+		$viewer  = get_current_user_id();
+		$visible = array();
+		foreach ( $media_ids as $mid ) {
+			if ( ! $privacy->can_view( $mid, $viewer ) ) {
+				continue;
+			}
+			$visible[] = $mid;
+			if ( count( $visible ) >= $limit ) {
+				break;
+			}
+		}
+
+		return $visible;
 	}
 }

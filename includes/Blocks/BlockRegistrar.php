@@ -913,16 +913,15 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_search_bar( array $attributes ): string {
-		$placeholder = sanitize_text_field( $attributes['placeholder'] ?? '' );
-
-		$search_in = sanitize_key( (string) ( $attributes['searchIn'] ?? 'all' ) );
-		if ( ! in_array( $search_in, array( 'all', 'members', 'spaces', 'posts' ), true ) ) {
-			$search_in = 'all';
-		}
-
-		ob_start();
-		buddynext_get_template( 'blocks/search-bar.php', compact( 'placeholder', 'search_in' ) );
-		return (string) ob_get_clean();
+		// Delegate to the shared helper so the block, the [buddynext_search]
+		// shortcode and buddynext_search_bar() all render one markup. The block
+		// exposes the tab as `searchIn`; the helper takes `search_in`.
+		return buddynext_search_bar(
+			array(
+				'placeholder' => (string) ( $attributes['placeholder'] ?? '' ),
+				'search_in'   => (string) ( $attributes['searchIn'] ?? 'all' ),
+			)
+		);
 	}
 
 	// -------------------------------------------------------------------------

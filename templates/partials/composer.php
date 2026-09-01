@@ -57,6 +57,26 @@ if ( function_exists( 'buddynext_can' ) ) {
 	}
 }
 
+// Announcement gate — the feature must be on (the feed only DISPLAYS announcements
+// when it is, so offering the megaphone while it is off is a control that writes
+// dead data), then mirror the server (PostService::create): a site admin may
+// announce site-wide, and a space owner/moderator may announce to THEIR space.
+// Gating the announcement UI on manage_options alone hid the control from space
+// owners the server already accepts (buddynext-moderate-space), so a non-admin
+// owner could not reach it in the composer. General-feed announcements stay
+// admin-only, matching the server's $ann_space_id > 0 branch.
+$composer_can_announce = false;
+if ( buddynext_feature_enabled( 'announcements' ) ) {
+	$composer_can_announce = current_user_can( 'manage_options' );
+	if ( ! $composer_can_announce && $composer_space && function_exists( 'buddynext_can' ) ) {
+		$composer_can_announce = (bool) buddynext_can(
+			$composer_user_id,
+			'buddynext-moderate-space',
+			array( 'space_id' => $composer_space )
+		);
+	}
+}
+
 // Suspension is stated up front, not discovered by failing.
 //
 // A suspended member got a fully normal composer — no banner, no disabled state
@@ -103,6 +123,18 @@ $composer_has_pro = defined( 'BUDDYNEXTPRO_VERSION' );
 $composer_media_enabled = class_exists( '\BuddyNext\Media\MediaClient' )
 	&& \BuddyNext\Media\MediaClient::available();
 
+// Document attach (WPMediaVerse Pro 2.4.0). enabled/accept/max_size come from
+// MVS's own app config — never BN constants — so the composer cannot offer a
+// type or size the server will refuse. `enabled` is per-account, so an account
+// with no document library gets no control at all.
+$composer_doc_config = class_exists( '\BuddyNext\Bridges\WPMediaVerseBridge' )
+	? \BuddyNext\Bridges\WPMediaVerseBridge::document_composer_config()
+	: array(
+		'enabled'  => false,
+		'accept'   => '',
+		'max_size' => 0,
+	);
+
 /** Sanitized partial arguments. @var array<string,mixed> $args */
 $args = (array) apply_filters(
 	'buddynext_part_composer_args',
@@ -147,7 +179,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'scheduledAt'           => '',
 				'hasPro'                => $composer_has_pro,
 				'userId'                => get_current_user_id(),
-				'isAdmin'               => current_user_can( 'manage_options' ),
+				'isAdmin'               => $composer_can_announce,
 				'announcementExpiresAt' => '',
 				'draftStatus'           => '',
 				'hasDraft'              => false,
@@ -158,6 +190,12 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'linkThumb'             => '',
 				'linkMeta'              => null,
 				'mediaEnabled'          => $composer_media_enabled,
+				'docEnabled'            => (bool) $composer_doc_config['enabled'],
+				'docAccept'             => (string) $composer_doc_config['accept'],
+				'docMaxSize'            => (int) $composer_doc_config['max_size'],
+				'documentId'            => 0,
+				'documentName'          => '',
+				'documentUploading'     => false,
 			)
 		)
 	);
@@ -218,6 +256,28 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			multiple
 			hidden
 			aria-label="<?php esc_attr_e( 'Upload media', 'buddynext' ); ?>">
+
+		<?php if ( (bool) $composer_doc_config['enabled'] ) : ?>
+			<input
+				type="file"
+				class="bn-composer__doc-input"
+				accept="<?php echo esc_attr( (string) $composer_doc_config['accept'] ); ?>"
+				hidden
+				aria-label="<?php esc_attr_e( 'Attach a document', 'buddynext' ); ?>">
+
+			<div class="bn-composer__doc-chip"
+				hidden
+				data-wp-bind--hidden="!state.hasDocument">
+				<span class="bn-composer__doc-chip-icon" aria-hidden="true"><?php buddynext_icon( 'file-text' ); ?></span>
+				<span class="bn-composer__doc-chip-name" data-wp-text="state.documentName"></span>
+				<span class="bn-composer__doc-chip-spinner" data-wp-bind--hidden="!state.documentUploading" aria-hidden="true"></span>
+				<button
+					class="bn-composer__doc-chip-remove"
+					type="button"
+					data-wp-on--click="actions.removeDocument"
+					aria-label="<?php esc_attr_e( 'Remove document', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
+			</div>
+		<?php endif; ?>
 
 		<div class="bn-composer__media-preview"
 			hidden
@@ -335,7 +395,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			</button>
 		</div>
 
-		<?php if ( current_user_can( 'manage_options' ) ) : ?>
+		<?php if ( $composer_can_announce ) : ?>
 		<div class="bn-composer__schedule"
 			hidden
 			data-wp-bind--hidden="state.isNotAnnouncement">
@@ -388,7 +448,18 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			</button>
 			<?php endif; ?>
 
-			<?php if ( '0' !== (string) get_option( 'buddynext_allow_polls', '1' ) ) : ?>
+			<?php if ( (bool) $composer_doc_config['enabled'] ) : ?>
+			<button class="bn-composer__tool"
+				type="button"
+				data-wp-on--click="actions.pickDocument"
+				data-wp-bind--disabled="state.documentUploading"
+				aria-label="<?php esc_attr_e( 'Attach a document', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Attach a document', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'file-text' ); ?>
+			</button>
+			<?php endif; ?>
+
+			<?php if ( buddynext_feature_enabled( 'polls' ) ) : ?>
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-bind--aria-pressed="state.isPoll"
@@ -411,6 +482,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			</button>
 			<?php endif; ?>
 
+			<?php if ( buddynext_feature_enabled( 'scheduled-posts' ) ) : ?>
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-bind--aria-pressed="state.isScheduled"
@@ -419,14 +491,15 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				title="<?php esc_attr_e( 'Schedule for later', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'clock' ); ?>
 			</button>
+			<?php endif; ?>
 
-			<?php if ( current_user_can( 'manage_options' ) ) : ?>
+			<?php if ( $composer_can_announce ) : ?>
 				<button class="bn-composer__tool"
 					type="button"
 					data-wp-bind--aria-pressed="state.isAnnouncement"
 					data-wp-on--click="actions.toggleAnnouncement"
 					aria-label="<?php esc_attr_e( 'Post as announcement', 'buddynext' ); ?>"
-					title="<?php esc_attr_e( 'Post as announcement (pinned to everyone\'s feed)', 'buddynext' ); ?>">
+					title="<?php echo esc_attr( $composer_space ? __( 'Post as announcement (pinned to the top of this space)', 'buddynext' ) : __( 'Post as announcement (pinned to everyone\'s feed)', 'buddynext' ) ); ?>">
 					<?php buddynext_icon( 'megaphone' ); ?>
 				</button>
 			<?php endif; ?>

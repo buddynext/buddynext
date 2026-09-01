@@ -202,6 +202,16 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
 			),
+			'bn.space_media_unlinked'     => array(
+				'label'              => __( 'Your media removed from a space', 'buddynext' ),
+				'description'        => __( 'A space owner or moderator removed media you shared from the space. You keep your own copy.', 'buddynext' ),
+				'group'              => self::GROUP_SPACES,
+				'default_on_site'    => true,
+				// A quick, low-stakes unlink (the member keeps their own copy) - the
+				// in-app bell is enough, no email. can_email=false, no template needed.
+				'default_email_freq' => 'off',
+				'can_email'          => false,
+			),
 			'bn.announcement'             => array(
 				'label'              => __( 'Announcements', 'buddynext' ),
 				'description'        => __( 'An admin or space moderator posted an announcement.', 'buddynext' ),
@@ -396,6 +406,26 @@ class NotificationPrefCatalogue {
 				'default_on_site'    => true,
 				'default_email_freq' => 'weekly',
 				'can_email'          => true,
+			),
+			// Reactions + mentions on media are mirrored from WPMediaVerse, which
+			// owns their email. can_email is FALSE so BuddyNext never sends a second
+			// email for a partner event (the collect-only bridge rule); the centre
+			// shows them so members see everything in one place.
+			'bn.media_reaction'           => array(
+				'label'              => __( 'Reactions on your media', 'buddynext' ),
+				'description'        => __( 'Someone reacted to media you posted.', 'buddynext' ),
+				'group'              => self::GROUP_GROWTH,
+				'default_on_site'    => true,
+				'default_email_freq' => 'off',
+				'can_email'          => false,
+			),
+			'bn.media_mention'            => array(
+				'label'              => __( 'Mentions in media comments', 'buddynext' ),
+				'description'        => __( 'Someone mentioned you in a comment on media.', 'buddynext' ),
+				'group'              => self::GROUP_GROWTH,
+				'default_on_site'    => true,
+				'default_email_freq' => 'off',
+				'can_email'          => false,
 			),
 		);
 

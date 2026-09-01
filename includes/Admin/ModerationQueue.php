@@ -48,7 +48,18 @@ class ModerationQueue {
 		// go live) rather than reactive like reports. Hidden by AdminHub when the
 		// pre-moderation feature is off, but the tab itself always registers so a
 		// held post is never stranded.
-		AdminHub::register_tab( 'moderation', 'pending', __( 'Pending', 'buddynext' ), array( $this, 'render_pending' ), array( 'position' => 5 ) );
+		AdminHub::register_tab(
+			'moderation',
+			'pending',
+			__( 'Pending', 'buddynext' ),
+			array( $this, 'render_pending' ),
+			array(
+				'position' => 5,
+				// Counter pill on the tab so the owner sees at a glance how many
+				// posts are held for approval without opening the tab.
+				'badge'    => static fn(): int => ( new \BuddyNext\Feed\PostService() )->count_pending(),
+			)
+		);
 		AdminHub::register_tab( 'moderation', 'reports', __( 'Reports', 'buddynext' ), array( $this, 'render_reports' ), array( 'position' => 10 ) );
 		AdminHub::register_tab( 'moderation', 'suspensions', __( 'Suspensions', 'buddynext' ), array( $this, 'render_suspensions' ), array( 'position' => 20 ) );
 		AdminHub::register_tab( 'moderation', 'appeals', __( 'Appeals', 'buddynext' ), array( $this, 'render_appeals' ), array( 'position' => 30 ) );
@@ -125,6 +136,22 @@ class ModerationQueue {
 						</tr>
 					</thead>
 					<tbody>
+						<?php
+						// Resolve every reported object's label in one pass per type
+						// before printing any row. Resolving them row by row is the
+						// N+1 a queue this size exists to avoid.
+						buddynext_prime_object_labels(
+							array_map(
+								static function ( array $bn_report ): array {
+									return array(
+										(string) ( $bn_report['object_type'] ?? '' ),
+										(int) ( $bn_report['object_id'] ?? 0 ),
+									);
+								},
+								$items
+							)
+						);
+						?>
 						<?php foreach ( $items as $report ) : ?>
 							<?php $this->render_report_row( $report ); ?>
 						<?php endforeach; ?>
@@ -238,11 +265,12 @@ class ModerationQueue {
 					<p>
 						<?php
 						if ( 'off' === $mode ) {
-							printf(
-								/* translators: %s: settings link */
-								esc_html__( 'Pre-moderation is off, so posts go live instantly. Turn it on under %s if you need to approve posts before they appear.', 'buddynext' ),
-								'<a href="' . esc_url( admin_url( 'admin.php?page=buddynext-moderation&tab=moderation' ) ) . '">' . esc_html__( 'Moderation > Controls', 'buddynext' ) . '</a>'
-							);
+							// No "turn it on under Settings" any more — there is no
+							// setting to point at. Pre-moderation is developer-only
+							// (see PreModerationService), so telling an owner to go
+							// looking for a switch would send them somewhere it is
+							// not.
+							esc_html_e( 'Posts go live as soon as they are written, so nothing waits here. Reported content is handled under Reports.', 'buddynext' );
 						} else {
 							esc_html_e( 'Nothing waiting. All held posts have been reviewed.', 'buddynext' );
 						}
@@ -296,9 +324,33 @@ class ModerationQueue {
 		if ( '' === $excerpt && ! empty( $row['link_url'] ) ) {
 			$excerpt = (string) $row['link_url'];
 		}
+		$bn_full_text = trim( wp_strip_all_tags( (string) ( $row['content'] ?? '' ) ) );
+		$bn_link      = (string) ( $row['link_url'] ?? '' );
+		// A held post is hidden from the front end, so there is no public URL to
+		// "view" it — the moderator must read the full text here to decide. The
+		// cell shows the excerpt; when the content was trimmed (or carries a link),
+		// it expands inline to the full content so they are not approving blind.
+		$bn_has_more = ( '' !== $bn_full_text && str_word_count( $bn_full_text ) > 24 ) || '' !== $bn_link;
+		$bn_label    = '' !== $excerpt ? $excerpt : sprintf( '%s #%d', esc_html__( 'Post', 'buddynext' ), $post_id );
 		?>
 		<tr>
-			<td><?php echo esc_html( '' !== $excerpt ? $excerpt : sprintf( '%s #%d', esc_html__( 'Post', 'buddynext' ), $post_id ) ); ?></td>
+			<td>
+				<?php if ( $bn_has_more ) : ?>
+					<details class="bn-mod-pending-content">
+						<summary><?php echo esc_html( $bn_label ); ?></summary>
+						<?php if ( '' !== $bn_full_text ) : ?>
+							<div class="bn-mod-pending-content__full"><?php echo esc_html( $bn_full_text ); ?></div>
+						<?php endif; ?>
+						<?php if ( '' !== $bn_link ) : ?>
+							<p class="bn-mod-pending-content__link">
+								<a href="<?php echo esc_url( $bn_link ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $bn_link ); ?></a>
+							</p>
+						<?php endif; ?>
+					</details>
+				<?php else : ?>
+					<?php echo esc_html( $bn_label ); ?>
+				<?php endif; ?>
+			</td>
 			<td><?php echo esc_html( '' !== $author ? $author : __( 'Unknown', 'buddynext' ) ); ?></td>
 			<td><?php echo esc_html( '' !== $space ? $space : __( 'Main feed', 'buddynext' ) ); ?></td>
 			<td><?php echo esc_html( $this->ago( (string) ( $row['created_at'] ?? '' ) ) ); ?></td>
@@ -350,8 +402,20 @@ class ModerationQueue {
 		<tr>
 			<td>
 				<?php
-				$bn_view_url = $this->object_view_url( $object_type, $object_id );
-				$bn_label    = sprintf( '%s #%d', ucfirst( $object_type ), $object_id );
+				// A moderator deciding whether to strike or suspend cannot act on
+				// "User #519". Resolved through the same helper the log uses, so a
+				// deleted target is named as deleted on both surfaces.
+				$bn_label = buddynext_object_label( $object_type, $object_id );
+
+				// false = we checked and it is gone; null = not ours to answer (a
+				// message, or a type an add-on claimed). Only a definite false
+				// suppresses anything, so an unknowable type keeps every control.
+				$bn_missing = ( false === buddynext_object_exists( $object_type, $object_id ) );
+
+				// A "View content" link to something that no longer exists is a
+				// promise the page cannot keep — it lands on a 404 or, worse, on
+				// whatever now occupies that id.
+				$bn_view_url = $bn_missing ? '' : $this->object_view_url( $object_type, $object_id );
 				?>
 				<strong><?php echo esc_html( $bn_label ); ?></strong>
 				<?php if ( '' !== $bn_view_url ) : ?>
@@ -409,7 +473,20 @@ class ModerationQueue {
 					<?php
 					$this->report_button( $report_id, 'dismiss', __( 'Dismiss', 'buddynext' ), 'secondary' );
 					$this->report_button( $report_id, 'resolve', __( 'Resolve', 'buddynext' ), 'secondary' );
-					$this->report_button( $report_id, 'remove', __( 'Remove content', 'buddynext' ), 'delete', __( 'Remove the reported content? It is hidden, not hard-deleted.', 'buddynext' ) );
+					// "Remove content" only applies to removable objects — remove_object()
+					// returns a 422 (bn_removal_unsupported) for user/space reports. Gate
+					// the button on the same object types the frontend queue does
+					// (templates/moderation/queue.php), so a moderator is never shown an
+					// action that always fails.
+					//
+					// Existence is the second half of the same rule. A report whose
+					// target has since been deleted fails the same way and with the
+					// same 422 — remove_object() finds nothing to take down — and a
+					// queue accumulates those: this surfaced with six of them sitting
+					// in the seeded queue, each still offering the button.
+					if ( in_array( $object_type, array( 'post', 'comment', 'message' ), true ) && ! $bn_missing ) {
+						$this->report_button( $report_id, 'remove', __( 'Remove content', 'buddynext' ), 'delete', __( 'Remove the reported content? It is hidden, not hard-deleted.', 'buddynext' ) );
+					}
 					if ( ! $escalated ) {
 						$this->report_button( $report_id, 'escalate', __( 'Escalate', 'buddynext' ), 'secondary' );
 					}
@@ -434,6 +511,18 @@ class ModerationQueue {
 		$this->maybe_notice();
 		$service     = new ModerationService();
 		$suspensions = $service->get_active_suspensions();
+
+		// Prime both members per row in one pass - the suspended member and whoever
+		// suspended them - so a long suspension list stays two queries rather than
+		// two per row.
+		$bn_sus_pairs = array();
+		foreach ( $suspensions as $bn_sus_row ) {
+			$bn_sus_pairs[] = array( 'user', (int) $bn_sus_row['user_id'] );
+			if ( (int) ( $bn_sus_row['suspended_by'] ?? 0 ) > 0 ) {
+				$bn_sus_pairs[] = array( 'user', (int) $bn_sus_row['suspended_by'] );
+			}
+		}
+		buddynext_prime_object_labels( $bn_sus_pairs );
 		?>
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
@@ -448,6 +537,7 @@ class ModerationQueue {
 						array(
 							__( 'Member', 'buddynext' ),
 							__( 'Reason', 'buddynext' ),
+							__( 'Suspended by', 'buddynext' ),
 							__( 'Expires', 'buddynext' ),
 							__( 'Actions', 'buddynext' ),
 						)
@@ -459,6 +549,7 @@ class ModerationQueue {
 						<tr>
 							<th><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Reason', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Suspended by', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Expires', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
@@ -468,6 +559,16 @@ class ModerationQueue {
 							<tr>
 								<td><?php echo esc_html( buddynext_member_label( (int) $s['user_id'] ) ); ?></td>
 								<td><?php echo esc_html( (string) ( ! empty( $s['reason'] ) ? $s['reason'] : __( '(no reason given)', 'buddynext' ) ) ); ?></td>
+								<?php
+								// suspended_by is 0 for an automatic strike-threshold sanction and a
+								// moderator id otherwise. Until 1.1.6 automated suspensions never
+								// applied, so every row here was necessarily a person; now that they
+								// do, "who decided this" is the first question an appeal raises and
+								// the table could not answer it. The value was already stored - this
+								// is a column, not new plumbing. Matches the moderation log's own
+								// treatment, including "Deleted member (#id)" for a removed account.
+								?>
+								<td><?php echo esc_html( buddynext_member_label( (int) ( $s['suspended_by'] ?? 0 ), __( 'System', 'buddynext' ) ) ); ?></td>
 								<td><?php echo esc_html( $s['expires_at'] ? $this->ago( (string) $s['expires_at'] ) : __( 'Permanent', 'buddynext' ) ); ?></td>
 								<td><?php $this->user_button( (int) $s['user_id'], 'unsuspend', __( 'Lift suspension', 'buddynext' ), 'secondary' ); ?></td>
 							</tr>
@@ -587,20 +688,42 @@ class ModerationQueue {
 					</thead>
 					<tbody>
 						<?php
+						// Same one-pass resolve as the report queue above.
+						buddynext_prime_object_labels(
+							array_map(
+								static function ( array $bn_row ): array {
+									return array(
+										(string) ( $bn_row['object_type'] ?? '' ),
+										(int) ( $bn_row['object_id'] ?? 0 ),
+									);
+								},
+								$items
+							)
+						);
+
 						foreach ( $items as $row ) :
-							$actor  = (int) ( $row['actor_id'] ?? 0 ) > 0 ? get_userdata( (int) $row['actor_id'] ) : null;
-							$target = (int) ( $row['target_user_id'] ?? 0 ) > 0 ? get_userdata( (int) $row['target_user_id'] ) : null;
-							$object = '';
-							if ( ! empty( $row['object_type'] ) && ! empty( $row['object_id'] ) ) {
-								$object = (string) $row['object_type'] . ' #' . (int) $row['object_id'];
-							}
+							// The object column used to print "post #4046" whether or not
+							// that post still existed, while the member columns already
+							// said "Deleted member (#2204)". Since bn_mod_log rows now
+							// deliberately outlive their targets, that asymmetry applies
+							// to every deleted post and space: a moderator reading the
+							// audit trail could not tell a live target from a destroyed
+							// one, which matters most in exactly the audit case.
+							//
+							// The two get_userdata() calls that stood here were dead —
+							// both cells render through buddynext_member_label() — so they
+							// were two wasted lookups per row.
+							$object = buddynext_object_label(
+								(string) ( $row['object_type'] ?? '' ),
+								(int) ( $row['object_id'] ?? 0 )
+							);
 							?>
 							<tr>
 								<td><?php echo esc_html( $this->ago( (string) ( $row['created_at'] ?? '' ) ) ); ?></td>
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ) ); ?></td>
 								<td><code><?php echo esc_html( (string) ( $row['action'] ?? '' ) ); ?></code></td>
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['target_user_id'] ?? 0 ) ) ); ?></td>
-								<td><?php echo esc_html( '' !== $object ? $object : '—' ); ?></td>
+								<td><?php echo esc_html( $object ); ?></td>
 								<td><?php echo esc_html( (string) ( $row['note'] ?? '' ) ); ?></td>
 							</tr>
 						<?php endforeach; ?>
@@ -858,6 +981,17 @@ class ModerationQueue {
 	 */
 	private function user_inline_actions( int $user_id ): void {
 		$this->user_button( $user_id, 'strike', __( 'Strike author', 'buddynext' ), 'secondary' );
+
+		// Already suspended: show the state, not a Suspend button. Re-suspending is
+		// a server-side no-op (suspend_user() returns the existing active
+		// suspension), so offering it told the moderator nothing and hid the one
+		// fact they needed — that this account is already out. Mirrors the frontend
+		// queue's "Already suspended" state.
+		if ( buddynext_service( 'moderation' )->is_suspended( $user_id ) ) {
+			echo '<span class="bn-badge" data-tone="warning">' . esc_html__( 'Already suspended', 'buddynext' ) . '</span>';
+			return;
+		}
+
 		$this->user_button( $user_id, 'suspend', __( 'Suspend author', 'buddynext' ), 'delete', __( 'Suspend this member?', 'buddynext' ) );
 	}
 
@@ -991,12 +1125,12 @@ class ModerationQueue {
 	private function maybe_notice(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filter/notice params on an admin screen; every value is sanitized here and escaped at output.
 		if ( ! empty( $_GET['bn_done'] ) ) {
-			AdminPageBase::render_notice( __( 'Done.', 'buddynext' ), 'success' );
+			AdminPageBase::render_notice( __( 'Done.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'bn_done bn_error' ) );
 		}
 
 		if ( ! empty( $_GET['bn_error'] ) ) {
 			$bn_err = sanitize_text_field( wp_unslash( (string) $_GET['bn_error'] ) );
-			AdminPageBase::render_notice( (string) $bn_err, 'error' );
+			AdminPageBase::render_notice( (string) $bn_err, 'error', false, array( 'data-bn-clear-param' => 'bn_done bn_error' ) );
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 	}
@@ -1041,9 +1175,15 @@ class ModerationQueue {
 	 * and review the actual content (post permalink, the comment's parent post,
 	 * or the reported member's profile). Returns '' when no URL applies.
 	 *
-	 * @param string $object_type Reported object type (post|comment|user).
+	 * Reports carry five object types (post, comment, user, space, message - see
+	 * ModerationService). This handled three, and the other two fell through to the
+	 * empty case, so the "View content" link was suppressed with no indication that
+	 * anything was missing. A moderator asked to judge a reported SPACE had no way
+	 * to open it short of guessing the URL or searching by name.
+	 *
+	 * @param string $object_type Reported object type (post|comment|user|space|message).
 	 * @param int    $object_id   Reported object ID.
-	 * @return string
+	 * @return string Front-end URL, or '' when the type has no viewable page.
 	 */
 	private function object_view_url( string $object_type, int $object_id ): string {
 		if ( $object_id <= 0 ) {
@@ -1056,6 +1196,9 @@ class ModerationQueue {
 		if ( 'user' === $object_type ) {
 			return \BuddyNext\Core\PageRouter::profile_url( $object_id );
 		}
+		if ( 'space' === $object_type ) {
+			return \BuddyNext\Core\PageRouter::space_url( $object_id );
+		}
 		if ( 'comment' === $object_type ) {
 			global $wpdb;
 			// A comment has no standalone page — deep-link to its parent post.
@@ -1067,6 +1210,12 @@ class ModerationQueue {
 			return $post_id > 0 ? \BuddyNext\Core\PageRouter::post_url( $post_id ) : '';
 		}
 
+		// 'message' returns '' deliberately, and this is the one type where that is
+		// the right answer rather than an oversight. A reported DM has no page a
+		// moderator can open, and manufacturing one would expose a private
+		// conversation - including the half the reporter did not report - to anyone
+		// with the moderation screen. The queue already shows the reported message's
+		// excerpt inline, which is the part that was actually reported.
 		return '';
 	}
 

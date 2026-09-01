@@ -1,0 +1,938 @@
+/*
+ * bn-space-files.css — the space Files tab (document-drive browse + download).
+ *
+ * Rows-not-tiles, like MediaVerse's own drive: folders first, then documents,
+ * each a chip + name + a muted meta group (size · date · owner) + a download
+ * action. Stacks into cards under 640px. All values come from the --bn-* tokens
+ * in bn-base.css — no hardcoded px / hex / font-family here.
+ */
+
+:root {
+	--bn-files-chip-size: 2.75rem;
+	--bn-files-row-min: var(--bn-s12);
+}
+
+/* ── Search ─────────────────────────────────────────────────────────────── */
+.bn-files__search {
+	display: flex;
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s3);
+}
+
+.bn-files__search-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-files__search-input:focus-visible {
+	border-color: var(--bn-accent);
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 1px;
+}
+
+.bn-files__search-btn {
+	flex: 0 0 auto;
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 0;
+	border-radius: var(--bn-r-md);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	cursor: pointer;
+}
+
+.bn-files__search-btn:hover,
+.bn-files__search-btn:focus-visible {
+	background: var(--bn-accent-600);
+}
+
+.bn-files__search-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	margin-block-end: var(--bn-s2);
+}
+
+.bn-files__search-head .bn-files__count {
+	margin: 0;
+}
+
+.bn-files__search-clear {
+	color: var(--bn-accent);
+	font-size: var(--bn-text-sm);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.bn-files__search-clear:hover,
+.bn-files__search-clear:focus-visible {
+	text-decoration: underline;
+}
+
+/* ── Breadcrumb ─────────────────────────────────────────────────────────── */
+.bn-files__crumbs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s1);
+	margin-block-end: var(--bn-s3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-files__crumb {
+	color: var(--bn-ink-3);
+	text-decoration: none;
+	border-radius: var(--bn-r-sm);
+}
+
+.bn-files__crumb:hover,
+.bn-files__crumb:focus-visible {
+	color: var(--bn-accent);
+}
+
+.bn-files__crumb--current {
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-semibold);
+}
+
+.bn-files__crumb-sep {
+	display: inline-flex;
+	color: var(--bn-ink-4);
+}
+
+.bn-files__crumb-sep svg {
+	width: 1em;
+	height: 1em;
+}
+
+/* ── Count line ─────────────────────────────────────────────────────────── */
+.bn-files__count {
+	margin: 0 0 var(--bn-s2);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+/* ── List + rows ────────────────────────────────────────────────────────── */
+.bn-files__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-surface);
+	overflow: hidden;
+}
+
+.bn-files__row {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto auto;
+	align-items: center;
+	gap: var(--bn-s3);
+	min-height: var(--bn-files-row-min);
+	padding: var(--bn-s2) var(--bn-s4);
+	border-block-start: 1px solid var(--bn-line-faint);
+}
+
+.bn-files__row:first-child {
+	border-block-start: 0;
+}
+
+.bn-files__row:hover {
+	background: var(--bn-sunken);
+}
+
+/* ── Type chip ──────────────────────────────────────────────────────────── */
+.bn-files__chip {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--bn-files-chip-size);
+	padding: var(--bn-s1) var(--bn-s2);
+	border-radius: var(--bn-r-sm);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-bold);
+	letter-spacing: var(--bn-ls-normal);
+}
+
+.bn-files__chip--dir {
+	background: var(--bn-accent-bg);
+	color: var(--bn-accent);
+}
+
+.bn-files__chip--pdf {
+	background: var(--bn-danger-bg);
+	color: var(--bn-danger);
+}
+
+/* ── Name ───────────────────────────────────────────────────────────────── */
+.bn-files__name {
+	min-width: 0;
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-medium);
+	text-decoration: none;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+a.bn-files__name:hover,
+a.bn-files__name:focus-visible {
+	color: var(--bn-accent);
+	text-decoration: underline;
+}
+
+/* ── Meta group (size · date · owner) ───────────────────────────────────── */
+.bn-files__meta {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+	white-space: nowrap;
+}
+
+.bn-files__meta > * + *::before {
+	content: "·";
+	margin-inline-end: var(--bn-s2);
+	color: var(--bn-ink-4);
+}
+
+.bn-files__owner {
+	max-width: 10rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ── Actions / download ─────────────────────────────────────────────────── */
+.bn-files__actions {
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--bn-s1);
+	min-width: var(--bn-s6);
+	color: var(--bn-ink-4);
+}
+
+.bn-files__download,
+.bn-files__remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--bn-s10);
+	height: var(--bn-s10);
+	border-radius: var(--bn-r-full);
+	color: var(--bn-ink-3);
+}
+
+/* Remove is a <button>: strip the UA chrome so it reads as an icon action. */
+.bn-files__remove {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+}
+
+.bn-files__download:hover,
+.bn-files__download:focus-visible {
+	background: var(--bn-accent-bg);
+	color: var(--bn-accent);
+}
+
+.bn-files__remove:hover,
+.bn-files__remove:focus-visible {
+	background: var(--bn-danger-bg, color-mix(in srgb, var(--bn-danger) 12%, transparent));
+	color: var(--bn-danger);
+}
+
+.bn-files__remove[disabled] {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.bn-files__download svg,
+.bn-files__remove svg,
+.bn-files__actions > svg {
+	width: var(--bn-s5);
+	height: var(--bn-s5);
+}
+
+/* ── Pager ──────────────────────────────────────────────────────────────── */
+.bn-files__pager {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s4);
+	margin-block-start: var(--bn-s4);
+}
+
+.bn-files__pager-link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	color: var(--bn-ink);
+	text-decoration: none;
+	font-size: var(--bn-text-sm);
+}
+
+.bn-files__pager-link:hover,
+.bn-files__pager-link:focus-visible {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+}
+
+.bn-files__pager-link svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+.bn-files__pager-status {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+/* ── Mobile: rows become cards (chip + name on top, meta below) ─────────── */
+@media (max-width: 640px) {
+	.bn-files__row {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-areas:
+			"chip name dl"
+			"chip meta dl";
+		row-gap: var(--bn-s1);
+		column-gap: var(--bn-s3);
+	}
+
+	.bn-files__chip {
+		grid-area: chip;
+		align-self: start;
+		margin-block-start: var(--bn-s1);
+	}
+
+	.bn-files__name {
+		grid-area: name;
+		align-self: end;
+		white-space: normal;
+	}
+
+	.bn-files__meta {
+		grid-area: meta;
+		align-self: start;
+	}
+
+	.bn-files__actions,
+	.bn-files__download {
+		grid-area: dl;
+		align-self: center;
+	}
+
+	/* Owner is dropped on the narrow card — the same trim MediaVerse makes. */
+	.bn-files__owner {
+		display: none;
+	}
+}
+
+/* ── Single-file view ───────────────────────────────────────────────────── */
+.bn-file-single__back {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	margin-block-end: var(--bn-s3);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	text-decoration: none;
+}
+
+.bn-file-single__back:hover,
+.bn-file-single__back:focus-visible {
+	color: var(--bn-accent);
+}
+
+.bn-file-single__back svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+.bn-file-single__head {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-surface);
+}
+
+.bn-file-single__headings {
+	min-width: 0;
+}
+
+.bn-file-single__title {
+	margin: 0;
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bn-file-single__meta {
+	margin: var(--bn-s1) 0 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-file-single__actions {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+/* Share — secondary (outline) so Download stays the primary accent action. */
+.bn-file-single__share {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.bn-file-single__share:hover,
+.bn-file-single__share:focus-visible {
+	background: var(--bn-sunken);
+	border-color: var(--bn-accent);
+}
+
+.bn-file-single__share svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+.bn-file-single__download {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s4);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.bn-file-single__download:hover,
+.bn-file-single__download:focus-visible {
+	background: var(--bn-accent-600);
+	color: var(--bn-accent-fg);
+}
+
+.bn-file-single__download svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+/* BuddyNext's own preview frame. The island (space-files/store.js) fills the
+   pane with an <iframe> (PDF / office rendition) or a rendered-HTML block; this
+   only frames it and gives the HTML case room + padding. */
+.bn-file-single__previewer {
+	margin-block-start: var(--bn-s4);
+}
+
+.bn-file-single__preview {
+	min-height: 40vh;
+	max-height: 82vh;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-sunken);
+	overflow: auto;
+}
+
+/* PDF.js pages: a centred single column the member scrolls through. Each page is
+   a real page on a light card so the read looks like a document, not a widget. */
+.bn-pdf__pages {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3);
+}
+
+.bn-pdf__page {
+	width: 100%;
+	max-width: 820px;
+	min-height: var(--bn-s16);
+	background: var(--bn-surface);
+	border-radius: var(--bn-r-sm);
+	box-shadow: var(--bn-shadow-sm);
+	overflow: hidden;
+}
+
+.bn-pdf__page canvas {
+	display: block;
+}
+
+/* Fallback iframe (browser PDF viewer) — only used if PDF.js cannot load. */
+.bn-file-single__frame {
+	display: block;
+	width: 100%;
+	height: 78vh;
+	border: 0;
+}
+
+.bn-file-single__html {
+	padding: var(--bn-s4);
+	overflow: auto;
+	max-height: 80vh;
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-body);
+}
+
+.bn-file-single__html pre {
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-family: var(--bn-font-mono);
+}
+
+.bn-file-single__html table {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.bn-file-single__html th,
+.bn-file-single__html td {
+	padding: var(--bn-s1) var(--bn-s2);
+	border: 1px solid var(--bn-line);
+	text-align: start;
+}
+
+/* Loading state — centred while the island fetches the preview. */
+.bn-file-single__preview-status {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s2);
+	min-height: 40vh;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-file-single__spinner {
+	width: var(--bn-s5);
+	height: var(--bn-s5);
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: var(--bn-r-full);
+	animation: bn-file-spin 0.7s linear infinite;
+}
+
+@keyframes bn-file-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bn-file-single__spinner {
+		animation: none;
+	}
+}
+
+.bn-file-single__no-preview {
+	margin-block-start: var(--bn-s4);
+	padding: var(--bn-s10) var(--bn-s4);
+	border: 1px dashed var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-sunken);
+	text-align: center;
+	color: var(--bn-ink-3);
+}
+
+.bn-file-single__no-preview svg {
+	width: var(--bn-s10);
+	height: var(--bn-s10);
+	color: var(--bn-ink-4);
+}
+
+.bn-file-single__no-preview-title {
+	margin: var(--bn-s2) 0 0;
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-medium);
+}
+
+.bn-file-single__no-preview-body {
+	margin: var(--bn-s1) 0 0;
+	font-size: var(--bn-text-sm);
+}
+
+/* ── Share modal — BuddyNext's own sharing UI over MediaVerse's REST ───────── */
+.bn-share {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--bn-s4);
+}
+
+.bn-share[hidden] {
+	display: none;
+}
+
+.bn-share__backdrop {
+	position: absolute;
+	inset: 0;
+	background: var(--bn-overlay);
+}
+
+.bn-share__panel {
+	position: relative;
+	width: 100%;
+	max-width: 30rem;
+	max-height: 85vh;
+	overflow: auto;
+	padding: var(--bn-s5);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-canvas);
+	box-shadow: var(--bn-shadow-lg);
+}
+
+.bn-share__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-share__title {
+	margin: 0;
+	font-size: var(--bn-text-md);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-share__close {
+	display: inline-flex;
+	padding: var(--bn-s1);
+	border: 0;
+	background: transparent;
+	color: var(--bn-ink-3);
+	cursor: pointer;
+	border-radius: var(--bn-r-sm);
+}
+
+.bn-share__close:hover,
+.bn-share__close:focus-visible {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+}
+
+.bn-share__close svg {
+	width: var(--bn-s5);
+	height: var(--bn-s5);
+}
+
+.bn-share__error {
+	margin: 0 0 var(--bn-s3);
+	padding: var(--bn-s2) var(--bn-s3);
+	border-radius: var(--bn-r-sm);
+	background: var(--bn-danger-bg);
+	color: var(--bn-danger);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-share__error[hidden] {
+	display: none;
+}
+
+.bn-share__add {
+	display: flex;
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s3);
+}
+
+.bn-share__login {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-share__perm,
+.bn-share__link-perm {
+	padding: var(--bn-s2);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-share__add-btn,
+.bn-share__link-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 0;
+	border-radius: var(--bn-r-md);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.bn-share__add-btn:disabled,
+.bn-share__link-btn:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.bn-share__link-btn svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+.bn-share__grants {
+	list-style: none;
+	margin: 0 0 var(--bn-s4);
+	padding: 0;
+}
+
+.bn-share__grant {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) 0;
+	border-block-end: 1px solid var(--bn-line-faint);
+}
+
+.bn-share__grant-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-share__grant-perm {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-share__grant-remove {
+	border: 0;
+	background: transparent;
+	color: var(--bn-danger);
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-medium);
+	cursor: pointer;
+}
+
+.bn-share__empty {
+	padding: var(--bn-s3) 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	text-align: center;
+}
+
+.bn-share__link {
+	padding-block-start: var(--bn-s4);
+	border-block-start: 1px solid var(--bn-line);
+}
+
+.bn-share__link-controls {
+	display: flex;
+	gap: var(--bn-s2);
+}
+
+.bn-share__link-btn {
+	flex: 1 1 auto;
+	justify-content: center;
+}
+
+.bn-share__link-out {
+	display: flex;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s3);
+}
+
+.bn-share__link-out[hidden] {
+	display: none;
+}
+
+.bn-share__link-url {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-share__link-copy {
+	display: inline-flex;
+	padding: var(--bn-s2);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	cursor: pointer;
+}
+
+.bn-share__link-copy svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+@media (max-width: 640px) {
+	.bn-file-single__head {
+		grid-template-columns: auto minmax(0, 1fr);
+		grid-template-areas:
+			"chip headings"
+			"act  act";
+		row-gap: var(--bn-s3);
+	}
+
+	.bn-file-single__head .bn-files__chip {
+		grid-area: chip;
+	}
+
+	.bn-file-single__headings {
+		grid-area: headings;
+	}
+
+	.bn-file-single__actions {
+		grid-area: act;
+		justify-content: center;
+	}
+
+	.bn-file-single__preview,
+	.bn-file-single__preview-status {
+		min-height: 50vh;
+	}
+
+	.bn-file-single__frame {
+		height: 60vh;
+	}
+
+	.bn-file-single__html {
+		padding: var(--bn-s2);
+	}
+
+	/* The member-add row stacks on narrow phones so the input keeps its full
+	   placeholder ("Add a member by username or email") instead of clipping to
+	   "Add a m…". The input takes its own row; the permission select and Add
+	   button share the next. Shared by the space and profile Files tabs. */
+	.bn-share__add {
+		flex-wrap: wrap;
+	}
+
+	.bn-share__login {
+		flex: 1 1 100%;
+	}
+
+	.bn-share__perm {
+		flex: 1 1 auto;
+	}
+}
+
+
+/* ── Files-tab uploader ─────────────────────────────────────────────────────
+   A dropzone that files a document straight into this drive + folder, so a
+   contributor can add one from the Files tab (not only via an activity post).
+   Same token-driven treatment as the media composer's dropzone. */
+.bn-files-upload {
+	margin-block-end: var( --bn-s4, 16px );
+}
+.bn-files-upload__zone {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var( --bn-s2, 8px );
+	inline-size: 100%;
+	padding: var( --bn-s5, 20px ) var( --bn-s4, 16px );
+	border: 1px dashed var( --bn-line, oklch( 88% 0.01 0 ) );
+	border-radius: var( --bn-r-lg, 12px );
+	background: var( --bn-sunken, oklch( 97% 0.004 0 ) );
+	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
+	cursor: pointer;
+	text-align: center;
+	transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+.bn-files-upload__zone:hover,
+.bn-files-upload__zone:focus-visible {
+	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+	color: var( --bn-ink-2, oklch( 40% 0.01 0 ) );
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+}
+.bn-files-upload.is-drag .bn-files-upload__zone {
+	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+	background: var( --bn-accent-50, oklch( 95% 0.03 264 ) );
+	color: var( --bn-ink, oklch( 22% 0.01 0 ) );
+}
+.bn-files-upload.is-uploading .bn-files-upload__zone {
+	opacity: 0.6;
+	pointer-events: none;
+}
+.bn-files-upload__icon {
+	display: inline-flex;
+	inline-size: var( --bn-s8, 32px );
+	block-size: var( --bn-s8, 32px );
+	color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+}
+.bn-files-upload__icon svg { inline-size: 100%; block-size: 100%; }
+.bn-files-upload__title {
+	font-weight: var( --bn-fw-semibold, 600 );
+	color: var( --bn-ink, oklch( 22% 0.01 0 ) );
+}
+.bn-files-upload__hint {
+	font-size: var( --bn-text-sm, 0.875rem );
+	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
+}
+.bn-files-upload__status {
+	margin-block: var( --bn-s2, 8px ) 0;
+	font-size: var( --bn-text-sm, 0.875rem );
+	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
+	text-align: center;
+}

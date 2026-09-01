@@ -169,6 +169,54 @@ class FeatureRegistry {
 				'group'      => 'community',
 				'depends_on' => array( 'feed' ),
 			),
+			'bookmarks'     => array(
+				'slug'       => 'bookmarks',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array(),
+			),
+			'polls'         => array(
+				'slug'       => 'polls',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'feed' ),
+			),
+			'shares'        => array(
+				'slug'       => 'shares',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'feed' ),
+			),
+			// Direct messages. The catalog toggle is the owner's on/off intent; the
+			// separate availability check (WPMediaVerse present) still gates it, so
+			// with the engine absent DMs stay hidden regardless of this switch. See
+			// MessagesData::entry_enabled().
+			'messages'      => array(
+				'slug'       => 'messages',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array(),
+			),
+			// Installable app (PWA): the manifest + service worker. Self-contained
+			// (no external key), so default-on; when off the service never boots.
+			'pwa'           => array(
+				'slug'       => 'pwa',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array(),
+			),
+			// Scheduled posts: compose now, publish at a future time. The composer
+			// control, the create-path status flip and Free's on-demand publisher
+			// are all Free (works with Pro absent); Pro layers reschedule/cancel +
+			// a management screen on the SAME slug. Off = the schedule button is
+			// hidden and the create path never flips a post to 'scheduled'; posts
+			// already scheduled still publish (the publisher is never gated).
+			'scheduled-posts' => array(
+				'slug'       => 'scheduled-posts',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'feed' ),
+			),
 
 			// Integration bridges are NOT features. They gate solely on the
 			// per-aspect Integrations toggle (buddynext_integration_enabled), which
@@ -427,6 +475,30 @@ class FeatureRegistry {
 			'announcements' => array(
 				'label'       => __( 'Site announcements', 'buddynext' ),
 				'description' => __( 'Pin an announcement to the top of every member\'s feed.', 'buddynext' ),
+			),
+			'bookmarks'     => array(
+				'label'       => __( 'Bookmarks', 'buddynext' ),
+				'description' => __( 'Let members save posts to a private Bookmarks list to read later.', 'buddynext' ),
+			),
+			'polls'         => array(
+				'label'       => __( 'Polls', 'buddynext' ),
+				'description' => __( 'Let members attach a poll to a post and vote in the feed.', 'buddynext' ),
+			),
+			'shares'        => array(
+				'label'       => __( 'Re-shares', 'buddynext' ),
+				'description' => __( 'Let members re-share another member\'s post into their own feed.', 'buddynext' ),
+			),
+			'messages'      => array(
+				'label'       => __( 'Direct messages', 'buddynext' ),
+				'description' => __( 'Private one-to-one messaging between members (requires WPMediaVerse).', 'buddynext' ),
+			),
+			'pwa'           => array(
+				'label'       => __( 'Installable app (PWA)', 'buddynext' ),
+				'description' => __( 'Let members install the community as an app and use it offline (manifest + service worker).', 'buddynext' ),
+			),
+			'scheduled-posts' => array(
+				'label'       => __( 'Scheduled posts', 'buddynext' ),
+				'description' => __( 'Let members compose a post now and have it publish automatically at a chosen time.', 'buddynext' ),
 			),
 			'webhooks'      => array(
 				'label'       => __( 'Outbound webhooks', 'buddynext' ),

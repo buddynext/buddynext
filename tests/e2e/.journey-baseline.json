@@ -3,20 +3,11 @@
   "project": "desktop",
   "known_failing": [
     "explore/trending.spec.ts::trending page renders posts + hashtag chips",
-    "feed/announcement-dismiss.spec.ts::J-550 a dismissed announcement stays gone for the member after reload",
-    "feed/announcement.spec.ts::J-513 admin announcement renders as an announcement; a non-admin has no control",
-    "feed/audience-picker.spec.ts::J-510 a followers-only post persists privacy=followers and is hidden from a non-follower",
-    "feed/reactors.spec.ts::J-504 reacting puts me in the reactors list",
-    "moderation/queue.spec.ts::admin queue page renders",
-    "profile/profile-tabs.spec.ts::J-720 profile strength rises when a field is filled"
+    "moderation/queue.spec.ts::admin queue page renders"
   ],
   "_reasons": {
     "explore/trending.spec.ts::trending page renders posts + hashtag chips": "Pre-existing. Needs seeded trending data the fixture does not create.",
     "moderation/queue.spec.ts::admin queue page renders": "Pre-existing. Needs a moderation queue with content.",
-    "feed/announcement-dismiss.spec.ts::J-550 a dismissed announcement stays gone for the member after reload": "UNRESOLVED, 2026-08-18. apiRequestContext.post timeout (10s). Grouped with the three below: all fail on the fixture's first authenticated navigation. NOT caused by the 1.1.5 work - none of these areas are touched by it. Card 10211458045.",
-    "feed/announcement.spec.ts::J-513 admin announcement renders as an announcement; a non-admin has no control": "UNRESOLVED, 2026-08-18. page.goto('/?autologin=1') timeout (15s), while the same URL answers in ~0.1s to curl on a fresh session and the page is 60 resources / 18KB / DOMContentLoaded 124ms in a browser. One cause WAS found and fixed (WP-Cron spawning ~47 EDD update checks at a 15s timeout each, 41s cold - now DISABLE_WP_CRON); it did not clear these. Remaining cause unknown. Card 10211458045.",
-    "feed/audience-picker.spec.ts::J-510 a followers-only post persists privacy=followers and is hidden from a non-follower": "UNRESOLVED, 2026-08-18. Same first-navigation timeout as J-513. Card 10211458045.",
-    "feed/reactors.spec.ts::J-504 reacting puts me in the reactors list": "UNRESOLVED, 2026-08-18. NOT a timeout - an assertion: .bn-reactors-popover__name filtered to the reactor never becomes visible. Distinct from the four navigation timeouts and should be investigated on its own. Card 10211458045.",
-    "profile/profile-tabs.spec.ts::J-720 profile strength rises when a field is filled": "UNRESOLVED, 2026-08-18. page.waitForResponse timeout (15s). Same first-navigation family as J-513. Card 10211458045."
+    "_recovered_2026-09-01": "The five card-10211458045 specs (J-550 announcement-dismiss, J-513 announcement, J-510 audience-picker, J-504 reactors, J-720 profile-tabs) were REMOVED from the baseline: they all pass now. Their original 'first-navigation timeout' cause was the hard-coded dev host in playwright.config.ts (fixed: the base URL resolves from the tester's Local site). J-513/J-510 then surfaced a second, harness-only cause - the specs resolved the non-owner member and the author id from a hard-coded 'varundubey' that does not exist on every site; the gate now exports BN_TEST_OTHER_USER (the seeded subscriber) and audience-picker resolves the author from BN_TEST_USER. J-550 and J-504 also carried real code fixes this release. All five verified passing locally with the gate's env (seeded users, BN_TEST_USER=user 1, BN_TEST_OTHER_USER=alice)."
   }
 }

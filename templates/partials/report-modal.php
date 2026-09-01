@@ -19,15 +19,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$reasons = array(
-	'spam'           => __( 'Spam', 'buddynext' ),
-	'harassment'     => __( 'Harassment or hate speech', 'buddynext' ),
-	'misinformation' => __( 'Misinformation', 'buddynext' ),
-	'inappropriate'  => __( 'Inappropriate content', 'buddynext' ),
-	'fake'           => __( 'Fake account', 'buddynext' ),
-	'impersonation'  => __( 'Impersonation', 'buddynext' ),
-	'other'          => __( 'Something else', 'buddynext' ),
-);
+// One source, so buddynext_report_reasons actually reaches the UI. This was a
+// literal copy that never called ModerationService, which is why a filtered-in
+// reason was accepted on submission but offered nowhere.
+$reasons = \BuddyNext\Moderation\ModerationService::reason_choices();
 ?>
 <div class="bn-modal-backdrop bn-pf-report-backdrop"
 	role="dialog"

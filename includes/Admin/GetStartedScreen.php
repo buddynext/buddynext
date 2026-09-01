@@ -61,8 +61,35 @@ class GetStartedScreen {
 				<div class="bn-setup-card__heading">
 					<h2 class="bn-setup-card__title"><?php esc_html_e( 'Welcome to BuddyNext', 'buddynext' ); ?></h2>
 					<p class="bn-setup-card__sub">
-						<?php esc_html_e( 'This is your community control room. Work through the setup checklist, load demo data to see how everything looks, then jump to any area below.', 'buddynext' ); ?>
+						<?php
+						// The old copy said "work through the setup checklist" as a fixed
+						// instruction. The checklist below self-hides once every item is
+						// done, so on a configured site this pointed at nothing - the one
+						// sentence orienting a new owner referred to a card that was not
+						// on screen.
+						esc_html_e( 'This is your community control room. Finish setting up, load demo data to see how everything looks, then jump to any area below.', 'buddynext' );
+						?>
 					</p>
+				</div>
+				<?php
+				// The guided wizard had NO way back in. Its page is registered with an
+				// empty menu label so it stays out of the submenu, and nothing else
+				// linked to it - so once an owner left or dismissed it, a flow we build
+				// and maintain was unreachable except by typing the URL.
+				//
+				// It sits here as a secondary action rather than a headline: the
+				// checklist below is the answer to "am I set up", and the wizard is one
+				// way to work through it, not a competing scoreboard.
+				?>
+				<div class="bn-setup-card__actions">
+					<a
+						class="bn-btn"
+						data-variant="secondary"
+						data-size="sm"
+						href="<?php echo esc_url( add_query_arg( 'page', 'buddynext-setup', admin_url( 'admin.php' ) ) ); ?>"
+					>
+						<?php esc_html_e( 'Run guided setup', 'buddynext' ); ?>
+					</a>
 				</div>
 			</div>
 		</div>

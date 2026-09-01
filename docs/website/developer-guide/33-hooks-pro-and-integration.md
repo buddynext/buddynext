@@ -8,26 +8,26 @@ This page covers the hooks that cross plugin boundaries: the actions and filters
 
 For the core free hook surface (post, reaction, comment, space, moderation events) see the Core Hooks reference. This page is the layer above it.
 
-## The free/pro contract: the `consumed_by` field
+## The free/pro contract: the "consumed by" column
 
-Pro's manifest (`buddynext-pro/audit/manifest.json`) records every hook Pro fires under `hooks_fired`, and each entry carries a `consumed_by` array. That array is the documented cross-plugin contract: it names which plugins (`buddynext`, `buddynext-pro`, or neither) actually attach a listener to the hook.
+The table below carries a **consumed by** column for every hook Pro fires. It names which of the two BuddyNext plugins actually attaches a listener, and it is the cross-plugin contract:
 
-- `consumed_by: ["buddynext", "buddynext-pro"]` - the hook is part of the live free<->pro wiring. Removing or renaming it breaks a real listener in the paired plugin. Treat it as a frozen contract.
-- `consumed_by: ["buddynext-pro"]` - Pro fires it and Pro consumes it (internal to the Pro layer), but it is still a public seam you may hook.
-- `consumed_by: []` - Pro fires it but nothing in the free/pro pair listens. It exists as an extension seam for your code or a companion plugin (gamification, CRM, analytics). These are safe, stable hooks; the empty array means "no first-party consumer," not "private."
+- **`buddynext`, `buddynext-pro`** - the hook is part of the live free-to-Pro wiring. Removing or renaming it breaks a real listener in the paired plugin. Treat it as a frozen contract.
+- **`buddynext-pro`** - Pro fires it and Pro consumes it, internal to the Pro layer, but it is still a public seam you may hook.
+- **(none)** - Pro fires it and nothing in the pair listens. It exists as an extension seam for your code or a companion plugin (gamification, CRM, analytics). These are safe, stable hooks; "none" means no first-party consumer, not private.
 
-The same `consumed_by` mapping is what lets a third party (for example wb-gamification) know which events are guaranteed to fire. Read the manifest entry before hooking - it tells you the firing site (`where`), the argument count (`args_count`), and who else is on the wire.
+This is what lets a third party such as wb-gamification know which events are guaranteed to fire. Confirm the argument list against the call site before you hook - grep the hook name in the Pro plugin's `includes/`.
 
-> **Note:** `consumed_by` describes first-party listeners only (the two BuddyNext plugins). Your own `add_action()`/`add_filter()` callbacks never appear there. An empty `consumed_by` is the normal state for a clean extension point.
+> **Note:** the column describes first-party listeners only, meaning the two BuddyNext plugins. Your own `add_action()` / `add_filter()` callbacks never appear there, so "none" is the normal state for a clean extension point.
 
 ## Pro-emitted hooks with their free<->pro mapping
 
-The table lists every hook Pro fires. Names are exact. The `consumed_by` column reproduces the manifest contract.
+The table lists every hook Pro fires. Names are exact.
 
 | Hook | Type | Fired when | Parameters | consumed_by |
 |---|---|---|---|---|
-| `buddynext_ability_granted` | action | A Stripe `customer.subscription.created`/`.updated`/`invoice.paid` event resolves to an active or trialing subscription. Also fired by Free's access webhook. | `int $user_id, string $ability` (Pro) - Free's `AccessWebhookController` adds a third `string $source` | `buddynext`, `buddynext-pro` |
-| `buddynext_ability_revoked` | action | A Stripe `customer.subscription.deleted` event (or expiry) removes a tier ability. Also fired by Free's access webhook. | `int $user_id, string $ability` | `buddynext` |
+| `buddynext_ability_granted` | action | A Stripe `customer.subscription.created`/`.updated`/`invoice.paid` event resolves to an active or trialing subscription. Also fired by Free's access webhook, and by every membership grant bridge (WooCommerce, Paid Memberships Pro, and any third-party source). | `int $user_id, string $ability, string $source` - Pro's Stripe path omits the third argument; the access webhook and the grant bridges supply it. **`$source` is honoured only when declared** - see the note below. | `buddynext`, `buddynext-pro` |
+| `buddynext_ability_revoked` | action | A Stripe `customer.subscription.deleted` event (or expiry) removes a plan ability. Also fired by Free's access webhook, and by every membership grant bridge. | `int $user_id, string $ability` | `buddynext` |
 | `buddynextpro_stripe_subscription_synced` | action | After any Stripe subscription event has been synced into Pro state (created, updated, deleted, invoice). | `int $user_id, string $tier_slug, array $event` | (none) |
 | `buddynext_pro_subscription_created` | action | A `bn_subscriptions` row is created (the canonical "user became a paying customer" event). | `int $sub_id, int $user_id, int $tier_id, string $source` | (none) |
 | `buddynext_pro_subscription_expired` | action | A subscription lapses (daily expiry cron or webhook). | `int $sub_id, int $user_id, int $tier_id` | (none) |
@@ -44,6 +44,23 @@ The table lists every hook Pro fires. Names are exact. The `consumed_by` column 
 | `buddynext_pro_bind_services` | action | During Pro service-container binding, for registering custom service bindings. | `object $container` | (none) |
 | `buddynext_profile_field_render` | filter | A Pro advanced profile field type is rendered. | `string $html, string $type, array $field, mixed $value, int $user_id` | `buddynext-pro` |
 | `buddynext_search_query_args` | filter | Pro injects advanced search filter args before the SQL is built. | `array $args, string $query, int $viewer_id` | `buddynext`, `buddynext-pro` |
+| `buddynextpro_stripe_webhook_skipped` | action | A Stripe subscription event was accepted but not acted on. Fired from `WebhookController::skip()`, so attaching an existing book of subscriptions can be audited rather than guessed at. | `string $reason, string $reference, array $context` - `$reason` is one of `no_matching_user`, `no_tier_slug`, `unknown_tier_slug`, `create_failed`, `subscription_paused`, `unhandled_status`; `$reference` is the Stripe subscription id; `$context` is reason-specific detail. | (none) |
+| `buddynextpro_subscription_renewal_upcoming` | action | A membership is about to auto-renew, one firing per configured offset. | `int $subscription_id, int $user_id, int $tier_id, string $expires_at, int $days_left` | `buddynext-pro` |
+| `buddynextpro_subscription_expiring_soon` | action | A membership is about to **end** rather than renew. Separate from the hook above because the member needs a different message. | `int $subscription_id, int $user_id, int $tier_id, string $expires_at, int $days_left` | `buddynext-pro` |
+| `buddynextpro_invoice_partially_refunded` | action | Part of an order is refunded. A partial refund adjusts the price and leaves the member's plan alone; only a full refund ends access, and that path fires the revoke hooks instead. | `int $invoice_id, int $user_id, int $plan_id, float $amount` | (none) |
+| `buddynextpro_renewal_reminder_offsets` | filter | The day offsets at which a reminder fires, per subscription. Note the same string is **also an option name** (`RenewalReminderService::OPT_OFFSETS`) that the owner sets in the admin, default `30,7,1`; the filter runs afterwards and can vary the offsets per row. | `int[] $offsets, array $row` | (none) |
+| `buddynextpro_renewal_reminder_batch` | filter | How many subscriptions one reminder sweep processes. Default 500, floored at 1. Raise it on a large community whose sweep is not keeping pace. | `int $batch` | (none) |
+| `buddynext_adopt_discussion_space` | filter | Before provisioning a new Jetonomy space for a BuddyNext space, asking whether an existing forum should be adopted instead. Asked rather than assumed, because this side cannot know why a space already exists | `int $forum_id, int $space_id, array $space` | `buddynext-pro` |
+| `buddynext_space_discussion_provisioned` | action | A discussion was provisioned for a BuddyNext space - the other half of the adopt guard above | `int $space_id, int $forum_id` | `buddynext-pro` |
+| `buddynext_onboarding_steps` | filter | The onboarding wizard's step list, so an add-on can append its own step (this is how Pro inserts the membership-plan step) | (none) | `buddynext-pro` |
+| `buddynext_setup_wizard_steps` | filter | The ADMIN setup wizard's step list (the sibling of `buddynext_onboarding_steps`), a keyed registry so an add-on can append, remove, or reorder steps without editing core. Each entry needs a `label` and a callable `render`, with an optional `save`; entries missing key/label, with a non-callable render, or a duplicate key are dropped. The last entry is the finish step. Progress is stored as the step KEY, so changing the list never corrupts an in-flight wizard | `array $steps` (key => `[label, render, save]`) | (none) |
+| `buddynext_gamification_show_skip_toast` | filter | Whether to show a skip toast when gamification declines an award (cooldown, daily cap, weekly cap). Defaults to `false`: a member is not told an action they completed earned nothing | `bool $show, array $event, int $user_id, string $reason` | (none) |
+| `buddynext_media_service` | filter | A WPMediaVerse container service is resolved. The single seam into the media boundary - returning an object here takes over resolution | `object\|null $resolved, string $key` | (none) |
+| `buddynext_app_connect_schemes` | filter | The custom URL schemes the app-connect bridge may redirect to. **Every scheme here can receive an application password**, so add one only for an app you control | `string[] $schemes` | (none) |
+| `buddynext_app_strings` | filter | The translated app strings, so a site can override or white-label specific keys without touching the shared catalogue | `array $out, string $locale, array $strings` | (none) |
+| `buddynext_presence_stamped` | action | A member's presence timestamp is refreshed. Pro's WebSocket layer listens here to broadcast presence | `int $user_id` | (none) |
+| `buddynext_pwa_shell_assets` | filter | The URLs precached as the offline shell. Keep the list small - every entry is downloaded on install, for every member | `string[] $shell` | (none) |
+| `buddynext_head_meta` | filter | A surface descriptor before BuddyNext renders its head meta. Return an empty array to suppress BuddyNext's head output for that surface entirely | `array $descriptor` | (none) |
 
 > **Note:** `buddynext_ability_granted` is fired with two arguments by Pro's Stripe `WebhookController` and with three (the extra `$source`) by Free's `AccessWebhookController`. Always register your callback for the lowest arg count you need (`add_action( 'buddynext_ability_granted', $cb, 10, 2 )`) so it works regardless of which producer fires.
 
@@ -120,9 +137,9 @@ WPMediaVerse fires these actions, which BuddyNext bridges into community surface
 ```php
 do_action( 'mvs_message_sent',     int $message_id, int $conversation_id, int $sender_id, array $recipient_ids )
 do_action( 'mvs_media_uploaded',   int $media_id, array $file_data, int $user_id, string $media_type )
-do_action( 'mvs_media_deleted',    int $media_id, int $author_id )
+do_action( 'mvs_media_deleted',    int $media_id, int $author_id, string $permalink )
 do_action( 'mvs_reaction_added',   int $media_id, int $user_id, string $emoji )
-do_action( 'mvs_comment_created',  int $media_id, int $user_id, int $comment_id )
+do_action( 'mvs_comment_created',  int $media_id, int $user_id, int $comment_id, string $content, string $source )
 do_action( 'mvs_favorite_toggled', int $media_id, int $user_id, string $action ) // 'added' | 'removed'
 do_action( 'mvs_mentions_created', int $media_id, array $mentioned_user_ids, string $context, int $comment_id )
 ```
@@ -303,3 +320,13 @@ add_filter(
 - **REST namespaces are separate.** Pro routes live under `buddynext-pro/v1`; Free under `buddynext/v1`. The PWA manifest and service worker are served from Free's `buddynext/v1` namespace.
 - **An empty `consumed_by` is stable, not private.** Hooks like `buddynext_pro_subscription_created` and `buddynext_pro_broadcast_dispatched` have no first-party listener but are the documented contract for gamification/CRM integrations.
 - **`buddynext_ability_granted` arg count differs by producer.** Free passes three args (`$source` last), Pro passes two. Register for two to stay compatible with both.
+
+## Granting a membership from another system
+
+`buddynext_ability_granted` is the contract a third-party membership system uses to say "this member now holds that plan". It is fired from three places: Pro's own Stripe handling, Free's HTTP access webhook, and every membership grant bridge.
+
+**The `$source` argument is honoured only for a declared source.** `WebhookSubscriptionSync` writes the subscription row, and it accepts `$source` only when that slug has been declared through `buddynextpro_integration_subscription_sources`. An undeclared source is silently recorded as `manual`.
+
+That failure is quiet and expensive. `manual` means "the owner comped this", so the member is told their membership was given to them rather than billed by your system, their Cancel and Manage controls resolve against the wrong place, and the revenue never appears as external billing. The grant works. Nothing errors.
+
+If you are writing a WordPress plugin that grants BuddyNext plans, do not fire this action directly. Extend `BuddyNextPro\Bridges\AbstractGrantBridge`, which declares the source for you, keeps answering for rows it created after your plugin is deactivated, and gets reconciliation and dry-run support for free. See [Membership Grant Bridges](53-membership-grant-bridges.md).

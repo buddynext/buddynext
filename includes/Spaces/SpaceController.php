@@ -34,6 +34,8 @@ namespace BuddyNext\Spaces;
 use BuddyNext\REST\BaseRestController;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
+use BuddyNext\Media\MediaClient;
+use BuddyNext\Notifications\NotificationService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -42,6 +44,14 @@ use WP_REST_Response;
  * Handles space lifecycle and membership over REST.
  */
 class SpaceController extends BaseRestController {
+
+	/**
+	 * Members decidable in one bulk join-request call.
+	 *
+	 * A collapsed notification row represents a handful of people; this is a
+	 * ceiling on the write loop, not a target.
+	 */
+	private const BULK_DECISION_MAX = 100;
 
 	/**
 	 * Register the controller's routes.
@@ -155,6 +165,7 @@ class SpaceController extends BaseRestController {
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'create_space' ),
 					'permission_callback' => array( $this, 'require_space_creation_role' ),
+					'args'                => $this->create_space_args(),
 				),
 			)
 		);
@@ -264,16 +275,6 @@ class SpaceController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
-			'/spaces/(?P<id>[\d]+)/pinned',
-			array(
-				'methods'             => 'GET',
-				'callback'            => array( $this, 'get_space_pinned' ),
-				'permission_callback' => '__return_true',
-			)
-		);
-
-		register_rest_route(
-			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)/subspaces',
 			array(
 				'methods'             => 'GET',
@@ -358,6 +359,33 @@ class SpaceController extends BaseRestController {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'decline_request' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		// Bulk decision on a space's pending join requests. Exists because the
+		// notifications screen collapses "8 people asked to join Design Guild"
+		// into one row, and that row needs ONE call - looping the per-member
+		// endpoint from the browser would just move an N-round-trip fan-out to
+		// the client.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/members/decide-bulk',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'decide_requests_bulk' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'user_ids' => array(
+						'required' => true,
+						'type'     => 'array',
+						'items'    => array( 'type' => 'integer' ),
+					),
+					'decision' => array(
+						'required'          => true,
+						'type'              => 'string',
+						'validate_callback' => static fn ( $v ): bool => in_array( (string) $v, array( 'approve', 'decline' ), true ),
+					),
+				),
 			)
 		);
 
@@ -500,6 +528,77 @@ class SpaceController extends BaseRestController {
 				),
 			)
 		);
+
+		// Unlink a media item from a space drive. A space owner/moderator removes a
+		// member's contributed item from the space WITHOUT deleting it — MediaVerse
+		// moves it back to the member's own personal drive as private. The inverse
+		// of the contribute path (commit 4186355f) that lands member media on the
+		// space drive. Auth here, moderator gate in the handler.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/media/(?P<media_id>[\d]+)/unlink',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'unlink_space_media' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		// Lightweight lookup the media lightbox calls on open to decide whether to
+		// offer the moderator "Unlink from space" item: is this media on a space
+		// drive, and may the viewer moderate that space? Keeps the unlink control
+		// out of the menu everywhere it would only ever fail.
+		register_rest_route(
+			'buddynext/v1',
+			'/media/(?P<media_id>[\d]+)/space-context',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'media_space_context' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+	}
+
+	/**
+	 * Whether the current viewer may unlink a media item from its space.
+	 *
+	 * Returns the item's space id (when it lives on a space drive) and whether the
+	 * viewer may unlink it — its owner or a space moderator, the same gate
+	 * unlink_space_media enforces. The lightbox uses it to show the "Remove from
+	 * space" control only where the action would actually be allowed.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function media_space_context( WP_REST_Request $request ): WP_REST_Response {
+		$media_id = (int) $request->get_param( 'media_id' );
+		$user_id  = get_current_user_id();
+		$repo     = MediaClient::repo();
+
+		$space_id   = 0;
+		$can_unlink = false;
+		if ( null !== $repo && 'space' === (string) $repo->get( $media_id, 'drive_type' ) ) {
+			$drive_id = (int) $repo->get( $media_id, 'drive_id' );
+			if ( $drive_id > 0 ) {
+				// Owner (reclaiming their own) or moderator — the same pair
+				// unlink_space_media enforces.
+				$owner_id  = (int) $repo->get( $media_id, 'post_author' );
+				$role      = ( new SpaceMemberService() )->get_role( $drive_id, $user_id );
+				$is_author = $owner_id > 0 && $owner_id === $user_id;
+				if ( $is_author || SpaceRoles::can_moderate( $role, $user_id ) ) {
+					$space_id   = $drive_id;
+					$can_unlink = true;
+				}
+			}
+		}
+
+		return new WP_REST_Response(
+			array(
+				'space_id'   => $space_id,
+				'can_unlink' => $can_unlink,
+			),
+			200
+		);
 	}
 
 	/**
@@ -573,6 +672,112 @@ class SpaceController extends BaseRestController {
 		return new WP_REST_Response(
 			array(
 				'require_join_approval' => (int) buddynext_get_space_field( $space_id, 'require_join_approval' ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Unlink a media item from a space drive (keep the owner's copy).
+	 *
+	 * The item's OWNER (reclaiming their own contribution) or a space moderator
+	 * removes an item from the space WITHOUT deleting it: MediaVerse moves the row
+	 * back to its owner's own personal drive as private, so the member keeps their
+	 * file — it is simply no longer associated with the space, and they delete it
+	 * from their own Files if they want it gone. The inverse of the contribute path
+	 * that lands member uploads on the space drive (commit 4186355f).
+	 *
+	 * Unlink is a DRIVE action, not a moderation strike and not a post edit: it
+	 * touches only the media's drive association, never a post that embedded it. A
+	 * post in the space that referenced the item keeps its reference; the item is
+	 * now private, so it shows to its owner and fails the visibility gate for
+	 * others — the correct consequence of the owner reclaiming it.
+	 *
+	 * Refuses unless the item is actually on THIS space's drive, so the action can
+	 * never move media that belongs to another space or a user's own drive.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function unlink_space_media( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$media_id = (int) $request->get_param( 'media_id' );
+		$user_id  = get_current_user_id();
+
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$repo = MediaClient::repo();
+		if ( null === $repo ) {
+			return new WP_Error( 'media_unavailable', __( 'Media is unavailable.', 'buddynext' ), array( 'status' => 503 ) );
+		}
+
+		// The item must currently live on THIS space's drive, or there is nothing
+		// to unlink here — refuse rather than silently move an unrelated item.
+		$drive_type = (string) $repo->get( $media_id, 'drive_type' );
+		$drive_id   = (int) $repo->get( $media_id, 'drive_id' );
+		if ( 'space' !== $drive_type || $drive_id !== $space_id ) {
+			return new WP_Error( 'not_on_space_drive', __( 'This item is not on this space\'s drive.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
+		$owner_id = (int) $repo->get( $media_id, 'post_author' );
+
+		// Two people may pull an item off a space drive: its OWNER, reclaiming their
+		// own contribution, and a space moderator, removing someone else's. A plain
+		// member may not touch another member's file. Same authority the Files tab
+		// and the media lightbox draw their Remove control from.
+		$role      = ( new SpaceMemberService() )->get_role( $space_id, $user_id );
+		$is_author = $owner_id > 0 && $owner_id === $user_id;
+		if ( ! $is_author && ! SpaceRoles::can_moderate( $role, $user_id ) ) {
+			return new WP_Error( 'forbidden', __( 'You cannot remove this item from the space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		if ( $owner_id <= 0 ) {
+			return new WP_Error( 'unlink_failed', __( 'Could not resolve the item owner.', 'buddynext' ), array( 'status' => 500 ) );
+		}
+
+		// Return the item to its owner's personal drive as private, via MediaVerse's
+		// own index writer (set_many writes drive_type/drive_id/privacy atomically
+		// and fires mvs_media_privacy_changed). The item was just confirmed to exist
+		// on this space's drive, so this is an update, never a partial insert. Keeps
+		// the member's copy; removes the space's. Item is on the space drive, so it
+		// exists — no new MediaVerse code, just its existing API.
+		$repo->set_many(
+			$media_id,
+			array(
+				'drive_type' => 'user',
+				'drive_id'   => $owner_id,
+				'privacy'    => 'private',
+			)
+		);
+
+		// Tell the owner their item left the space (they keep it). Skipped when a
+		// moderator unlinks their own upload. A native BuddyNext event, so the pref
+		// catalogue — not a collect-only rule — decides whether it also emails.
+		if ( $owner_id !== $user_id ) {
+			( new NotificationService() )->create(
+				array(
+					'recipient_id' => $owner_id,
+					'sender_id'    => $user_id,
+					'type'         => 'bn.space_media_unlinked',
+					'object_type'  => 'space',
+					'object_id'    => $space_id,
+					'group_key'    => "space_media_unlinked_{$space_id}_{$owner_id}",
+					'data'         => array(
+						'space_id' => $space_id,
+						'media_id' => $media_id,
+					),
+				)
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'unlinked' => true,
+				'media_id' => $media_id,
+				'space_id' => $space_id,
 			),
 			200
 		);
@@ -808,7 +1013,7 @@ class SpaceController extends BaseRestController {
 			current_user_can( 'manage_options' )
 		);
 
-		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+		$tones = \BuddyNext\Profile\AvatarService::IDENTITY_TONES;
 
 		// One instance for the whole page rather than one per row.
 		$member_svc = new SpaceMemberService();
@@ -890,6 +1095,170 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * Declared schema for POST /spaces.
+	 *
+	 * This route declared NO args until 1.1.6, so `OPTIONS /buddynext/v1/spaces`
+	 * returned an empty argument list: the discovery document told an integrator
+	 * nothing, and there was no way to learn the parameter names except by
+	 * reading the source. That is how a caller ends up sending `visibility` and
+	 * never finding out it was ignored.
+	 *
+	 * The type enum is asked of SpaceTypeRegistry rather than written out, so a
+	 * site that registers a custom space type gets it in the schema instead of
+	 * having its own type rejected by a hardcoded list.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function create_space_args(): array {
+		$types        = SpaceTypeRegistry::instance()->keys();
+		$visibilities = array_values(
+			array_unique(
+				array_map(
+					static fn( string $t ): string => SpaceTypeRegistry::instance()->visibility( $t ),
+					$types
+				)
+			)
+		);
+
+		return array(
+			'name'        => array(
+				'type'        => 'string',
+				'required'    => true,
+				'description' => __( 'Space name. Required, 100 characters or fewer.', 'buddynext' ),
+			),
+			'slug'        => array(
+				'type'        => 'string',
+				'description' => __( 'URL slug. Derived from the name when omitted.', 'buddynext' ),
+			),
+
+			/*
+			 * Deliberately no `enum` on either of these.
+			 *
+			 * An enum hands validation to the REST schema layer, which rejects a bad
+			 * value with 400 rest_invalid_param and its own body. This endpoint has
+			 * always answered an invalid type with 422 and a per-field `params` map
+			 * — the same shape it uses for name, slug and parent_id. Declaring the
+			 * enum swapped both the status and the body for one field, which is a
+			 * contract break for any client already handling the 422, and
+			 * SpaceControllerTest::test_create_space_invalid_type_returns_422 caught
+			 * it. The accepted values are named in the descriptions so discovery
+			 * still tells an integrator what to send; validation stays where this
+			 * endpoint's convention already lives.
+			 */
+			'type'        => array(
+				'type'        => 'string',
+				'description' => sprintf(
+					/* translators: %s: comma-separated list of accepted space types. */
+					__( 'Space type. Canonical parameter; defaults to the site default. One of: %s.', 'buddynext' ),
+					implode( ', ', $types )
+				),
+			),
+			'visibility'  => array(
+				'type'        => 'string',
+				'description' => sprintf(
+					/* translators: %s: comma-separated list of accepted visibilities. */
+					__( 'Alias for `type`, resolved to the type carrying that visibility. Sending both with different meanings is refused. One of: %s.', 'buddynext' ),
+					implode( ', ', $visibilities )
+				),
+			),
+			'description' => array(
+				'type'        => 'string',
+				'description' => __( 'Space description.', 'buddynext' ),
+			),
+			'category_id' => array(
+				'type'        => 'integer',
+				'minimum'     => 0,
+				'description' => __( 'Space category id.', 'buddynext' ),
+			),
+			'parent_id'   => array(
+				'type'        => 'integer',
+				'minimum'     => 0,
+				'description' => __( 'Parent space id, to create a sub-space.', 'buddynext' ),
+			),
+		);
+	}
+
+	/**
+	 * The space type this request is asking for — from `type`, or `visibility`.
+	 *
+	 * `type` is canonical. `visibility` is accepted because it names a real
+	 * property of a type in SpaceTypeRegistry (the `open` type has visibility
+	 * `public`), so an integrator reaching for it is not guessing — and until
+	 * 1.1.6 the handler read only `type` and DISCARDED `visibility` in silence.
+	 * A caller asking for a private space got the site default, which on a
+	 * default install is `open`: the space they created to be private was
+	 * publicly readable and nothing said so. That is a privacy incident, not a
+	 * naming quibble, which is why the alias exists rather than the parameter
+	 * simply being documented.
+	 *
+	 * Mapped through the registry rather than by string equality — `visibility:
+	 * public` is the `open` type, and treating the two vocabularies as identical
+	 * would send that straight back to the invalid-type fallback this fixes.
+	 *
+	 * Sending BOTH with different meanings is refused rather than resolved. There
+	 * is no correct guess between "type: open" and "visibility: private", and
+	 * picking one silently is the exact failure being fixed here.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return string|WP_Error Type slug, or WP_Error on a contradictory request.
+	 */
+	private function resolve_requested_type( WP_REST_Request $request ): string|WP_Error {
+		$type_raw       = $request->get_param( 'type' );
+		$visibility_raw = $request->get_param( 'visibility' );
+
+		$from_type = null !== $type_raw ? sanitize_key( (string) $type_raw ) : '';
+
+		$from_visibility = '';
+		if ( null !== $visibility_raw && '' !== (string) $visibility_raw ) {
+			$from_visibility = SpaceTypeRegistry::instance()->type_for_visibility( (string) $visibility_raw );
+			if ( '' === $from_visibility ) {
+				return new WP_Error(
+					'rest_invalid_param',
+					__( 'Validation failed.', 'buddynext' ),
+					array(
+						'status' => 422,
+						'params' => array(
+							'visibility' => sprintf(
+								/* translators: %s: comma-separated list of accepted values. */
+								__( 'Unknown visibility. Accepted values: %s.', 'buddynext' ),
+								implode(
+									', ',
+									array_map(
+										static fn( string $t ): string => SpaceTypeRegistry::instance()->visibility( $t ),
+										SpaceTypeRegistry::instance()->keys()
+									)
+								)
+							),
+						),
+					)
+				);
+			}
+		}
+
+		if ( '' !== $from_type && '' !== $from_visibility && $from_type !== $from_visibility ) {
+			return new WP_Error(
+				'rest_invalid_param',
+				__( 'Validation failed.', 'buddynext' ),
+				array(
+					'status' => 422,
+					'params' => array(
+						'visibility' => __( 'This request asks for two different space types at once — `type` and `visibility` disagree. Send one of them.', 'buddynext' ),
+					),
+				)
+			);
+		}
+
+		if ( '' !== $from_type ) {
+			return $from_type;
+		}
+		if ( '' !== $from_visibility ) {
+			return $from_visibility;
+		}
+
+		return sanitize_key( (string) get_option( 'buddynext_space_default_type', 'open' ) );
+	}
+
+	/**
 	 * Create a space.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -898,10 +1267,13 @@ class SpaceController extends BaseRestController {
 	public function create_space( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$user_id = get_current_user_id();
 
-		$name        = sanitize_text_field( (string) ( $request->get_param( 'name' ) ?? '' ) );
-		$slug_raw    = (string) ( $request->get_param( 'slug' ) ?? '' );
-		$slug        = sanitize_title( $slug_raw );
-		$type        = sanitize_key( (string) ( $request->get_param( 'type' ) ?? get_option( 'buddynext_space_default_type', 'open' ) ) );
+		$name     = sanitize_text_field( (string) ( $request->get_param( 'name' ) ?? '' ) );
+		$slug_raw = (string) ( $request->get_param( 'slug' ) ?? '' );
+		$slug     = sanitize_title( $slug_raw );
+		$type     = $this->resolve_requested_type( $request );
+		if ( is_wp_error( $type ) ) {
+			return $type;
+		}
 		$description = sanitize_textarea_field( (string) ( $request->get_param( 'description' ) ?? '' ) );
 		$category_id = absint( $request->get_param( 'category_id' ) );
 		$parent_id   = absint( $request->get_param( 'parent_id' ) );
@@ -1243,8 +1615,17 @@ class SpaceController extends BaseRestController {
 		if ( null !== $request->get_param( 'description' ) ) {
 			$data['description'] = sanitize_textarea_field( (string) $request->get_param( 'description' ) );
 		}
-		if ( null !== $request->get_param( 'type' ) ) {
-			$data['type'] = sanitize_key( (string) $request->get_param( 'type' ) );
+		// Accepts `visibility` as an alias for `type`, exactly as create does.
+		// Parity matters more here than on create: an owner tightening an existing
+		// space from open to private is the request you can least afford to
+		// discard in silence, because the space stays publicly readable and the
+		// screen says it worked.
+		if ( null !== $request->get_param( 'type' ) || null !== $request->get_param( 'visibility' ) ) {
+			$resolved = $this->resolve_requested_type( $request );
+			if ( is_wp_error( $resolved ) ) {
+				return $resolved;
+			}
+			$data['type'] = $resolved;
 		}
 		// Move under a new parent (>0) or detach to the top level (0). The service
 		// validates depth, cycles, the per-parent cap, and manage permission.
@@ -1359,49 +1740,6 @@ class SpaceController extends BaseRestController {
 				'maximum' => 100,
 			),
 		);
-	}
-
-	/**
-	 * GET /spaces/{id}/pinned — the space's pinned posts, for the app.
-	 *
-	 * @param WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_space_pinned( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$space_id  = (int) $request->get_param( 'id' );
-		$space     = ( new SpaceService() )->get( $space_id );
-		$viewer_id = get_current_user_id();
-
-		if ( null === $space ) {
-			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
-		}
-
-		// Pinned posts are CONTENT: gated on a private space exactly as on a secret
-		// one (the space feed already was). Canonical resolver — one answer for the
-		// page and the app.
-		if ( ! SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have access to this space.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-
-		// The pinned set the space feed strip shows, exposed for the app. Author is
-		// enriched here; the client can call /feed/viewer-state for the viewer's
-		// reaction/bookmark state across these post ids.
-		$pinned = array();
-		foreach ( buddynext_service( 'feed' )->space_pinned_posts( $space_id, 10 ) as $post ) {
-			$author_id      = (int) ( $post['user_id'] ?? 0 );
-			$author         = $author_id ? get_userdata( $author_id ) : null;
-			$post['author'] = array(
-				'id'           => $author_id,
-				'display_name' => $author ? $author->display_name : __( 'Community Member', 'buddynext' ),
-				'avatar_url'   => $author_id ? get_avatar_url( $author_id, array( 'size' => 96 ) ) : '',
-			);
-			if ( function_exists( 'buddynext_format_content' ) ) {
-				$post['content_html'] = buddynext_format_content( (string) ( $post['content'] ?? '' ) );
-			}
-			$pinned[] = $post;
-		}
-
-		return new WP_REST_Response( array( 'pinned' => $pinned ), 200 );
 	}
 
 	/**
@@ -1880,6 +2218,114 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * Approve or decline several pending join requests in one call.
+	 *
+	 * Every user is put through the SAME SpaceMemberService method the per-member
+	 * endpoints use, one at a time. That is deliberate: the permission check, the
+	 * "is there actually a pending request" check and the resulting notification
+	 * all live in there, and a bulk path that bypassed them to save queries would
+	 * be a second, weaker set of rules for the same decision.
+	 *
+	 * Partial success is reported, not hidden. Between a moderator loading the
+	 * page and pressing the button, a request can be withdrawn or approved by
+	 * somebody else - so each id gets its own outcome and the caller is told which
+	 * ones did not apply, rather than being shown a blanket success or a blanket
+	 * failure for a batch that was mostly fine.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function decide_requests_bulk( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$actor_id = get_current_user_id();
+		$decision = (string) $request->get_param( 'decision' );
+
+		$user_ids = array_values( array_unique( array_filter( array_map(
+			'absint',
+			(array) $request->get_param( 'user_ids' )
+		) ) ) );
+
+		if ( array() === $user_ids ) {
+			return new WP_Error(
+				'missing_user_id',
+				__( 'At least one user_id is required.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		// Bounded so one call cannot become an unbounded write loop. A collapsed
+		// notification row is a handful of people; anything approaching this many
+		// belongs in the space's own members screen.
+		if ( count( $user_ids ) > self::BULK_DECISION_MAX ) {
+			return new WP_Error(
+				'too_many_users',
+				sprintf(
+					/* translators: %d: maximum number of members per bulk decision. */
+					__( 'Up to %d members can be decided at once.', 'buddynext' ),
+					self::BULK_DECISION_MAX
+				),
+				array( 'status' => 400 )
+			);
+		}
+
+		if ( null === ( new SpaceService() )->get( $space_id ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$members  = new SpaceMemberService();
+		$done     = array();
+		$failed   = array();
+
+		foreach ( $user_ids as $user_id ) {
+			$result = 'approve' === $decision
+				? $members->approve_request( $space_id, $actor_id, $user_id )
+				: $members->decline_request( $space_id, $actor_id, $user_id );
+
+			if ( is_wp_error( $result ) ) {
+				$failed[] = array(
+					'user_id' => $user_id,
+					'code'    => $result->get_error_code(),
+				);
+				continue;
+			}
+
+			$done[] = $user_id;
+		}
+
+		// 403 only when EVERY id was refused for permission - one moderator who
+		// may not act on this space. A mixed result is a success with detail;
+		// failing the whole call would throw away the approvals that did happen.
+		if ( array() === $done && array() !== $failed ) {
+			$first = (string) ( $failed[0]['code'] ?? '' );
+			return new WP_Error(
+				$first !== '' ? $first : 'bulk_decision_failed',
+				'no_pending_request' === $first
+					? __( 'Those join requests are no longer pending.', 'buddynext' )
+					: __( 'You do not have permission to decide these requests.', 'buddynext' ),
+				array(
+					'status' => 'no_pending_request' === $first ? 404 : 403,
+					'failed' => $failed,
+				)
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'decision' => $decision,
+				'decided'  => $done,
+				'failed'   => $failed,
+			),
+			200
+		);
+	}
+
+	/**
 	 * Approve a pending join request.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -2213,7 +2659,57 @@ class SpaceController extends BaseRestController {
 			return $result;
 		}
 
+		// Non-destructive framing for the cover, mirroring the member cover: the
+		// image is stored uncropped and the owner pans/zooms it at render via a
+		// focal point. Same clamp + shape as ProfileController::handle_cover_upload
+		// so both covers behave identically. Gated already by require_space_manager
+		// above - repositioning is part of managing the cover, not a new capability.
+		if ( 'cover' === $kind ) {
+			$this->store_space_cover_focal( $space_id );
+		}
+
 		return new WP_REST_Response( array( $column => $stored ), 200 );
+	}
+
+	/**
+	 * Persist the space cover's focal point (pan X/Y + zoom) from the request.
+	 *
+	 * Mirrors ProfileController's member-cover focal block: writes only when the
+	 * posted X/Y are both within 0..100, clamps zoom to 1..3, and stores the
+	 * {x, y, zoom} array under the same meta key the member cover uses. Silent
+	 * no-op when the fields are absent (a plain upload with no reposition).
+	 *
+	 * @param int $space_id Space whose cover was just uploaded.
+	 * @return void
+	 */
+	private function store_space_cover_focal( int $space_id ): void {
+		/*
+		 * The REST nonce is verified before this callback runs, and each value is
+		 * unslashed then cast to float; WPCS sees neither layer for a $_POST read,
+		 * so suppress both sniffs for the three reads (mirrors ProfileController).
+		 *
+		 * phpcs:disable WordPress.Security.NonceVerification.Missing
+		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		 */
+		$focal_x    = isset( $_POST['focal_x'] ) ? (float) wp_unslash( (string) $_POST['focal_x'] ) : -1.0;
+		$focal_y    = isset( $_POST['focal_y'] ) ? (float) wp_unslash( (string) $_POST['focal_y'] ) : -1.0;
+		$focal_zoom = isset( $_POST['focal_zoom'] ) ? (float) wp_unslash( (string) $_POST['focal_zoom'] ) : 1.0;
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+		if ( $focal_x < 0.0 || $focal_x > 100.0 || $focal_y < 0.0 || $focal_y > 100.0 ) {
+			return;
+		}
+
+		update_space_meta(
+			$space_id,
+			'buddynext_cover_focal',
+			array(
+				'x'    => round( $focal_x, 2 ),
+				'y'    => round( $focal_y, 2 ),
+				'zoom' => round( max( 1.0, min( 3.0, $focal_zoom ) ), 3 ),
+			)
+		);
 	}
 
 	/**
@@ -2233,6 +2729,13 @@ class SpaceController extends BaseRestController {
 		}
 
 		( new \BuddyNext\Media\ImageStorageService() )->delete( $kind, 'space', $space_id );
+
+		// Drop the focal point with the cover so a future upload starts centred
+		// rather than inheriting the removed image's framing (mirror of the member
+		// cover cleanup in Admin\Members).
+		if ( 'cover' === $kind ) {
+			delete_space_meta( $space_id, 'buddynext_cover_focal' );
+		}
 
 		$column = ( 'cover' === $kind ) ? 'cover_image_url' : 'avatar_url';
 		$result = ( new SpaceService() )->update( $space_id, $user_id, array( $column => '' ) );

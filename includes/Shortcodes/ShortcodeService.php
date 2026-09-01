@@ -43,6 +43,7 @@ class ShortcodeService {
 		add_shortcode( 'buddynext_notifications', array( $this, 'render_notifications' ) );
 		add_shortcode( 'buddynext_auth', array( $this, 'render_auth' ) );
 		add_shortcode( 'buddynext_community_admin', array( $this, 'render_community_admin' ) );
+		add_shortcode( 'buddynext_search', array( $this, 'render_search' ) );
 	}
 
 	// ── Shortcode handlers ────────────────────────────────────────────────────
@@ -330,6 +331,41 @@ class ShortcodeService {
 		$bn_ca_base = (string) get_permalink();
 
 		return $this->capture( 'community-admin.php', array( 'admin_base' => $bn_ca_base ), false );
+	}
+
+	/**
+	 * Render the community search-bar shortcode.
+	 *
+	 * [buddynext_search placeholder="Search the community…" type="members"]
+	 *
+	 * The shortcode form of the buddynext/search-bar block and the
+	 * buddynext_search_bar() helper — all three render one markup (a GET form to
+	 * the community search page). A classic-theme entry point into community
+	 * search; it does NOT replace WordPress/WooCommerce ?s= search. Unlike the hub
+	 * shortcodes this renders a single form, so it enqueues no shell — the helper
+	 * pulls the one stylesheet it needs.
+	 *
+	 * @param array<string, mixed>|string $atts Shortcode attributes. Recognised:
+	 *                                           `placeholder` and `type`
+	 *                                           (all|members|spaces|posts).
+	 * @return string HTML output.
+	 */
+	public function render_search( $atts ): string {
+		$atts = shortcode_atts(
+			array(
+				'placeholder' => '',
+				'type'        => 'all',
+			),
+			$atts,
+			'buddynext_search'
+		);
+
+		return buddynext_search_bar(
+			array(
+				'placeholder' => (string) $atts['placeholder'],
+				'search_in'   => (string) $atts['type'],
+			)
+		);
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────

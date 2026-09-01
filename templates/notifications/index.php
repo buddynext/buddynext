@@ -47,9 +47,9 @@ if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
 // below and the per-type unread tally (so the in-template SQL is gone but the
 // "which types belong to which tab" mapping stays declarative).
 $filter_type_map = array(
-	'reaction' => array( 'bn.post_reacted' ),
+	'reaction' => array( 'bn.post_reacted', 'bn.media_reaction' ),
 	'comment'  => array( 'bn.post_commented' ),
-	'mention'  => array( 'bn.mention' ),
+	'mention'  => array( 'bn.mention', 'bn.media_mention' ),
 	'follow'   => array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' ),
 	'space'    => array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' ),
 	'message'  => array( 'bn.new_message' ),
@@ -386,6 +386,20 @@ $initial_context = wp_json_encode(
 			'key'   => 'space',
 			'label' => __( 'Spaces', 'buddynext' ),
 			'count' => $space_unread,
+		),
+		// People and Messages were only ever reachable from the sidebar filter
+		// blocks. Those are gone (one filter model, owner decision 2026-08-30), so
+		// they move here rather than disappearing - removing the duplicate controls
+		// must not remove the two things only they could filter.
+		array(
+			'key'   => 'follow',
+			'label' => __( 'People', 'buddynext' ),
+			'count' => $follow_unread,
+		),
+		array(
+			'key'   => 'message',
+			'label' => __( 'Messages', 'buddynext' ),
+			'count' => $message_unread,
 		),
 	);
 

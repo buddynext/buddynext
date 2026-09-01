@@ -74,6 +74,31 @@ function toast( message, tone ) {
 	}
 }
 
+/**
+ * The most specific reason the server gave, or a fallback.
+ *
+ * A refusal is not a network blip, and "please try again" is the wrong
+ * instruction for one: a space that needs a plan, an invite-only space, a
+ * banned member and a taken handle all stay refused however many times the
+ * member retries. The server already says which one it is - this is what stops
+ * the client throwing that away.
+ *
+ * Order: a field error map (422 from PUT /me/profile), then the WP_Error
+ * message, then the caller's fallback for the genuinely unexplained failure.
+ *
+ * @param {Object} res      restFetch result.
+ * @param {string} fallback Text to use when the server explained nothing.
+ * @return {string} Reason to show the member.
+ */
+function reason( res, fallback ) {
+	const d = ( res && res.data ) || {};
+	if ( d.errors && typeof d.errors === 'object' ) {
+		const first = Object.keys( d.errors )[ 0 ];
+		if ( first && d.errors[ first ] ) { return String( d.errors[ first ] ); }
+	}
+	return d.message ? String( d.message ) : fallback;
+}
+
 function rest( c, path, opts ) {
 	opts = opts || {};
 	const init = {
@@ -274,7 +299,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 				body:   { interests: Array.isArray( c.interestIds ) ? c.interestIds : [] },
 			} )
 				.then( ( r ) => {
-					if ( ! r.ok ) { throw new Error( 'Failed' ); }
+					if ( ! r.ok ) { throw new Error( reason( r, '' ) ); }
 					// Persist the completed-step pointer (save_step stores
 					// step + 1 as the current step), then reload. `saving`
 					// stays true so the button keeps its busy state until
@@ -291,10 +316,10 @@ const onboardingStore = store( 'buddynext/onboarding', {
 						c.saving = false;
 					}
 				} )
-				.catch( () => {
+				.catch( ( err ) => {
 					c.saving = false;
-					c.error  = t( 'toastInterestsSaveFailed', 'Could not save your interests. Please try again.' );
-					toast( t( 'toastInterestsSaveFailed', 'Could not save your interests. Please try again.' ), 'danger' );
+					c.error  = ( err && err.message ) || t( 'toastInterestsSaveFailed', 'Could not save your interests. Please try again.' );
+					toast( c.error, 'danger' );
 				} );
 		},
 		setDisplayName( event ) {
@@ -383,10 +408,10 @@ const onboardingStore = store( 'buddynext/onboarding', {
 				method: isJoining ? 'POST' : 'DELETE',
 			} )
 				.then( ( r ) => {
-					if ( ! r.ok ) { throw new Error( 'Failed' ); }
+					if ( ! r.ok ) { throw new Error( reason( r, '' ) ); }
 					toast( isJoining ? t( 'toastJoinedSpace', 'Joined the space.' ) : t( 'toastLeftSpace', 'Left the space.' ), 'success' );
 				} )
-				.catch( () => {
+				.catch( ( err ) => {
 					// Rollback.
 					const rollback = Array.isArray( c.joinedSpaces ) ? c.joinedSpaces.slice() : [];
 					const ridx = rollback.indexOf( spaceId );
@@ -402,7 +427,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 						btn.setAttribute( 'aria-pressed', 'true' );
 					}
 					c.joinedSpaces = rollback;
-					toast( t( 'toastSpaceUpdateFailed', 'Could not update space. Please try again.' ), 'danger' );
+					toast( ( err && err.message ) || t( 'toastSpaceUpdateFailed', 'Could not update space. Please try again.' ), 'danger' );
 				} );
 		},
 		followSuggestedUser( event ) {
@@ -432,10 +457,10 @@ const onboardingStore = store( 'buddynext/onboarding', {
 				method: isFollowing ? 'POST' : 'DELETE',
 			} )
 				.then( ( r ) => {
-					if ( ! r.ok ) { throw new Error( 'Failed' ); }
+					if ( ! r.ok ) { throw new Error( reason( r, '' ) ); }
 					toast( isFollowing ? t( 'toastFollowing', 'Following.' ) : t( 'toastUnfollowed', 'Unfollowed.' ), 'success' );
 				} )
-				.catch( () => {
+				.catch( ( err ) => {
 					const rollback = Array.isArray( c.followingUsers ) ? c.followingUsers.slice() : [];
 					const ridx = rollback.indexOf( userId );
 					if ( isFollowing && ridx !== -1 ) {
@@ -452,7 +477,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 						btn.classList.add( 'is-following' );
 					}
 					c.followingUsers = rollback;
-					toast( t( 'toastFollowUpdateFailed', 'Could not update follow. Please try again.' ), 'danger' );
+					toast( ( err && err.message ) || t( 'toastFollowUpdateFailed', 'Could not update follow. Please try again.' ), 'danger' );
 				} );
 		},
 		triggerAvatarUpload() {
@@ -593,18 +618,6 @@ const onboardingStore = store( 'buddynext/onboarding', {
 				if ( step ) { c.step = step; }
 				c.error = message;
 				toast( message, 'danger' );
-			};
-
-			// Pull the most specific reason the server gave us: a field error map
-			// (422 from PUT /me/profile), then the WP_Error/REST message, then a
-			// caller-supplied fallback.
-			const reason = ( res, fallback ) => {
-				const d = ( res && res.data ) || {};
-				if ( d.errors && typeof d.errors === 'object' ) {
-					const first = Object.keys( d.errors )[ 0 ];
-					if ( first && d.errors[ first ] ) { return String( d.errors[ first ] ); }
-				}
-				return d.message ? String( d.message ) : fallback;
 			};
 
 			try {

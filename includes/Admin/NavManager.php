@@ -42,44 +42,13 @@ class NavManager extends AdminPageBase {
 		'account' => 'buddynext_nav_overrides_account',
 	);
 
-	/**
-	 * Map of core tab slug → buddynext_page_* option name.
-	 *
-	 * Used to persist page assignments separately from nav overrides so that
-	 * PageRouter and other services can read them without knowing about the
-	 * nav system.
-	 *
-	 * @var array<string, string>
-	 */
-	private const PAGE_OPTIONS = array(
-		'feed'          => 'buddynext_page_activity',
-		'explore'       => 'buddynext_page_explore',
-		'spaces'        => 'buddynext_page_spaces',
-		'messages'      => 'buddynext_page_messages',
-		'notifications' => 'buddynext_page_notifications',
-		'people'        => 'buddynext_page_people',
-		'auth'          => 'buddynext_page_auth',
-	);
-
-	/**
-	 * Map of main-nav tab slug → buddynext_slug_* option key.
-	 *
-	 * Used to render a URL-slug input inside each hub's config panel and to
-	 * persist slug changes when the nav form is saved.  The option keys match
-	 * those used by PageRouter; PageRouter listens on update_option_buddynext_slug_*
-	 * and calls flush_rewrite_rules() automatically, so no explicit flush is
-	 * needed here.
-	 *
-	 * @var array<string, string>
-	 */
-	private const SLUG_OPTIONS = array(
-		'feed'          => 'buddynext_slug_activity',
-		'spaces'        => 'buddynext_slug_spaces',
-		'messages'      => 'buddynext_slug_messages',
-		'notifications' => 'buddynext_slug_notifications',
-		'people'        => 'buddynext_slug_people',
-		'auth'          => 'buddynext_slug_auth',
-	);
+	// The page-option and slug-option maps that used to live here were parallel
+	// copies of the hub registry (and drifted: PAGE_OPTIONS carried a non-hub
+	// 'explore' entry, SLUG_OPTIONS omitted it). Everything now derives from
+	// HubRegistry: the Pages & URLs catalogue in page_hub_catalogue(), the
+	// per-hub slug flush in PageRouter, and the "managed in Pages & URLs" hint in
+	// render_config_panel_for_tab() (which reads HubRegistry::has() plus the one
+	// non-hub 'explore' exception).
 
 	/**
 	 * WordPress core URL slugs and feed endpoints that must not be used as hub slugs.
@@ -160,57 +129,23 @@ class NavManager extends AdminPageBase {
 	 * @return array<string, array<string, string>>
 	 */
 	private function page_hub_catalogue(): array {
-		$catalogue = array(
-			'feed'          => array(
-				'label'    => __( 'Activity feed', 'buddynext' ),
-				'desc'     => __( 'The main community feed — your community home.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_activity',
-				'page_opt' => 'buddynext_page_activity',
-				'default'  => 'activity',
-			),
-			'spaces'        => array(
-				'label'    => __( 'Spaces', 'buddynext' ),
-				'desc'     => __( 'Group/community spaces directory.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_spaces',
-				'page_opt' => 'buddynext_page_spaces',
-				'default'  => 'spaces',
-			),
-			'people'        => array(
-				'label'    => __( 'Members directory', 'buddynext' ),
-				'desc'     => __( 'Member directory and individual profile URLs.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_people',
-				'page_opt' => 'buddynext_page_people',
-				'default'  => 'members',
-			),
-			'messages'      => array(
-				'label'    => __( 'Messages', 'buddynext' ),
-				'desc'     => __( 'Direct messages (requires WPMediaVerse).', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_messages',
-				'page_opt' => 'buddynext_page_messages',
-				'default'  => 'messages',
-			),
-			'notifications' => array(
-				'label'    => __( 'Notifications', 'buddynext' ),
-				'desc'     => __( 'Activity notifications.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_notifications',
-				'page_opt' => 'buddynext_page_notifications',
-				'default'  => 'notifications',
-			),
-			'auth'          => array(
-				'label'    => __( 'Login / Register', 'buddynext' ),
-				'desc'     => __( 'Login, registration, and password-reset forms.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_auth',
-				'page_opt' => 'buddynext_page_auth',
-				'default'  => 'login',
-			),
-			'onboarding'    => array(
-				'label'    => __( 'Onboarding', 'buddynext' ),
-				'desc'     => __( 'First-run member setup flow.', 'buddynext' ),
-				'slug_opt' => 'buddynext_slug_onboarding',
-				'page_opt' => 'buddynext_page_onboarding',
-				'default'  => 'onboarding',
-			),
-		);
+		// Derived from the hub registry — the single source of truth — so a core
+		// hub and an add-on hub reach this screen the same way. A hub opts in with
+		// admin_managed (false for internal/non-page hubs like onboarding and
+		// community_admin); label/desc/default come off the descriptor.
+		$catalogue = array();
+		foreach ( \BuddyNext\Core\HubRegistry::instance()->all() as $bn_hub ) {
+			if ( ! $bn_hub->admin_managed ) {
+				continue;
+			}
+			$catalogue[ $bn_hub->key ] = array(
+				'label'    => $bn_hub->admin_label(),
+				'desc'     => $bn_hub->admin_desc,
+				'slug_opt' => $bn_hub->slug_option,
+				'page_opt' => $bn_hub->page_option,
+				'default'  => $bn_hub->default_slug,
+			);
+		}
 
 		/**
 		 * Filter the community-hub catalogue shown on the Pages & URLs tab so
@@ -234,6 +169,12 @@ class NavManager extends AdminPageBase {
 			AdminPageBase::render_notice( __( 'Pages & URLs saved.', 'buddynext' ), 'success' );
 		} elseif ( 'pages_conflict' === $notice ) {
 			AdminPageBase::render_notice( __( 'That URL slug is already used by another hub or an existing page. Nothing was saved — change the slug and try again.', 'buddynext' ), 'error' );
+		} elseif ( 'pages_error' === $notice ) {
+			// handle_save_hub_pages() saves the URL slugs first, then attempts any
+			// requested page creation; a failed create is skipped (the hub keeps its
+			// existing assignment) and the save redirects here. Say exactly that, so
+			// the owner does not read the blank screen as a clean success.
+			AdminPageBase::render_notice( __( 'Your URL slugs were saved, but a new backing page could not be created. Try again, or choose an existing page for that hub instead.', 'buddynext' ), 'error' );
 		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-form">
@@ -375,8 +316,6 @@ class NavManager extends AdminPageBase {
 		foreach ( $catalogue as $hub => $cfg ) {
 			if ( '' === $cfg['slug_opt'] ) {
 				continue;
-			} elseif ( 'pages_error' === $notice ) {
-				AdminPageBase::render_notice( __( 'A backing page could not be created. Your slug changes were saved, but please try creating the page again.', 'buddynext' ), 'error' );
 			}
 			$slug = sanitize_title( (string) ( ( (array) ( $raw[ $hub ] ?? array() ) )['slug'] ?? '' ) );
 			if ( '' === $slug ) {
@@ -405,17 +344,20 @@ class NavManager extends AdminPageBase {
 
 		$create_failed = false;
 		foreach ( $catalogue as $hub => $cfg ) {
-			$hub_data = (array) ( $raw[ $hub ] ?? array() );
+			$hub_data       = (array) ( $raw[ $hub ] ?? array() );
+			$effective_slug = '';
 			if ( '' !== $cfg['slug_opt'] ) {
-				$slug = sanitize_title( (string) ( $hub_data['slug'] ?? '' ) );
-				update_option( $cfg['slug_opt'], '' !== $slug ? $slug : $cfg['default'] );
+				$slug           = sanitize_title( (string) ( $hub_data['slug'] ?? '' ) );
+				$effective_slug = '' !== $slug ? $slug : (string) $cfg['default'];
+				update_option( $cfg['slug_opt'], $effective_slug );
 			}
 
-			$page_id = absint( $hub_data['page_id'] ?? 0 );
+			$previous_page_id = absint( get_option( $cfg['page_opt'], 0 ) );
+			$page_id          = absint( $hub_data['page_id'] ?? 0 );
 			// "Create a page now" — only when none is selected, so a chosen page
 			// is never silently replaced by a new blank one.
 			if ( 0 === $page_id && ! empty( $hub_data['create'] ) ) {
-				$page_id = $this->create_hub_backing_page( (string) $cfg['label'] );
+				$page_id = $this->create_hub_backing_page( (string) $cfg['label'], $effective_slug );
 				if ( 0 === $page_id ) {
 					// Creation failed — do NOT store 0 (that orphans the hub's
 					// existing assignment) and do NOT report success.
@@ -424,12 +366,83 @@ class NavManager extends AdminPageBase {
 				}
 			}
 			update_option( $cfg['page_opt'], $page_id );
+
+			$this->reconcile_backing_page( $page_id, $previous_page_id, $effective_slug );
 		}
 
 		wp_safe_redirect(
 			add_query_arg( 'bn_notice', $create_failed ? 'pages_error' : 'pages_saved', $pages_url )
 		);
 		exit;
+	}
+
+	/**
+	 * Keep a hub's backing page consistent with the hub after a save.
+	 *
+	 * A hub's backing page has an identity — its slug and its published state —
+	 * that the hub never maintained, so three symptoms shared one cause:
+	 *
+	 *   1. Renaming a hub left the old URL live. The option moved; the page kept
+	 *      its post_name, and WordPress went on resolving the old path to it.
+	 *   2. Reassigning a hub to a different page orphaned the old one, still
+	 *      published at its own URL.
+	 *   3. A backing page in the trash still counted, because hub_page_id() gates
+	 *      on get_post_type() === 'page', which is true for a trashed page.
+	 *
+	 * Symptoms 1 and 2 are worse than a stale URL. The installer seeds these pages
+	 * with the hub's SHORTCODE in their content, so the abandoned path still renders
+	 * the hub — through the shortcode, not dispatch_hub_template(), which means it
+	 * bypasses every guard that lives in that method: the private-community
+	 * lockdown, the per-feature toggles, the DM gate. A site that turns Spaces off,
+	 * or closes the community to members only, still had a reachable copy at any
+	 * slug it had ever used.
+	 *
+	 * Owner decision (2026-08-29): the old URL 404s. Not a 301 — a redirect keeps
+	 * the abandoned page published and therefore keeps the shortcode reachable to
+	 * anything that finds it another way, which is the exposure rather than the
+	 * broken link. So the page is unpublished, and WordPress stops resolving it.
+	 *
+	 * @param int    $page_id          The page the hub now points at (0 = none).
+	 * @param int    $previous_page_id The page it pointed at before this save.
+	 * @param string $slug             The hub's effective slug after this save.
+	 * @return void
+	 */
+	private function reconcile_backing_page( int $page_id, int $previous_page_id, string $slug ): void {
+		// The hub stopped pointing at a page: retire the old one so it cannot go on
+		// serving hub content at its own URL.
+		if ( $previous_page_id > 0 && $previous_page_id !== $page_id && 'page' === get_post_type( $previous_page_id ) ) {
+			wp_update_post(
+				array(
+					'ID'          => $previous_page_id,
+					'post_status' => 'draft',
+				)
+			);
+		}
+
+		if ( $page_id <= 0 ) {
+			return;
+		}
+
+		$page = get_post( $page_id );
+		if ( ! $page instanceof \WP_Post || 'page' !== $page->post_type ) {
+			return;
+		}
+
+		$update = array( 'ID' => $page_id );
+
+		// A trashed page still answers get_post_type() === 'page', so the hub kept
+		// pointing at it for queried_object_id and SEO while it was in the bin.
+		if ( 'publish' !== $page->post_status ) {
+			$update['post_status'] = 'publish';
+		}
+
+		if ( '' !== $slug && $slug !== $page->post_name ) {
+			$update['post_name'] = $slug;
+		}
+
+		if ( count( $update ) > 1 ) {
+			wp_update_post( $update );
+		}
 	}
 
 	/**
@@ -440,18 +453,26 @@ class NavManager extends AdminPageBase {
 	 * SEO, page-builder). Returns 0 on failure.
 	 *
 	 * @param string $label Hub label, used as the page title.
+	 * @param string $slug  Hub URL slug, used as post_name so the page permalink
+	 *                      matches the hub route. Empty falls back to WordPress's
+	 *                      title-derived slug.
 	 * @return int New page ID, or 0 on failure.
 	 */
-	private function create_hub_backing_page( string $label ): int {
-		$page_id = wp_insert_post(
-			array(
-				'post_title'   => $label,
-				'post_status'  => 'publish',
-				'post_type'    => 'page',
-				'post_content' => '',
-			),
-			true
+	private function create_hub_backing_page( string $label, string $slug = '' ): int {
+		$args = array(
+			'post_title'   => $label,
+			'post_status'  => 'publish',
+			'post_type'    => 'page',
+			'post_content' => '',
 		);
+		// Match the created page's slug to the hub's configured URL slug. Without it
+		// WordPress derives post_name from the title ("Activity feed" -> activity-feed)
+		// and the page permalink no longer matches the hub route — the divergence
+		// Installer::create_hub_pages() avoids by setting post_name the same way.
+		if ( '' !== $slug ) {
+			$args['post_name'] = $slug;
+		}
+		$page_id = wp_insert_post( $args, true );
 		return ( $page_id && ! is_wp_error( $page_id ) ) ? (int) $page_id : 0;
 	}
 
@@ -1535,7 +1556,7 @@ class NavManager extends AdminPageBase {
 		// URL slug + backing page are owned by the Pages & URLs tab now, so the
 		// config panel no longer renders them — it covers display only (label,
 		// order, visibility, capability, login, guest label).
-		$has_routing = ( 'main' === $scope ) && ( isset( self::PAGE_OPTIONS[ $slug ] ) || isset( self::SLUG_OPTIONS[ $slug ] ) );
+		$has_routing = ( 'main' === $scope ) && ( \BuddyNext\Core\HubRegistry::instance()->has( $slug ) || 'explore' === $slug );
 
 		// Helper: generate scope-namespaced input name for this tab's config.
 		$n = static function ( string $field ) use ( $scope, $slug ): string {

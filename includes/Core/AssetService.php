@@ -287,10 +287,17 @@ class AssetService {
 		// core code editor (CodeMirror) upgrades the Custom CSS textarea. Both
 		// fall back gracefully — plain URL input / plain textarea — when
 		// unavailable (user disabled syntax highlighting, blocked JS).
-		if ( \BuddyNext\Admin\AdminHub::is_tab_active( 'appearance' ) ) {
+		// The single-image media picker (AdminPageBase::render_media_row) drives the
+		// Appearance Logo field AND the Registration auth-panel banner field, so it
+		// is enqueued on either tab.
+		if ( \BuddyNext\Admin\AdminHub::is_tab_active( 'appearance' )
+			|| \BuddyNext\Admin\AdminHub::is_tab_active( 'registration' ) ) {
 			wp_enqueue_media();
 			wp_enqueue_script( 'bn-admin-media' );
+		}
 
+		// Appearance also upgrades the Custom CSS textarea with the core code editor.
+		if ( \BuddyNext\Admin\AdminHub::is_tab_active( 'appearance' ) ) {
 			$bn_editor = wp_enqueue_code_editor( array( 'type' => 'text/css' ) );
 			if ( false !== $bn_editor ) {
 				wp_add_inline_script(
@@ -417,6 +424,19 @@ class AssetService {
 			$v
 		);
 
+		// ── Block frontend styles ──────────────────────────────────────────────
+		// The same stylesheet the buddynext/* blocks load via block.json, exposed
+		// as a first-class handle so the [buddynext_search] shortcode and the
+		// buddynext_search_bar() helper can style themselves on a classic-theme
+		// page that carries no block. Depends on bn-base for the --bn-* tokens
+		// (which already load site-wide via enqueue_global_tokens()).
+		wp_register_style(
+			'bn-blocks',
+			$this->assets_url . 'css/blocks.css',
+			array( 'bn-base' ),
+			$v
+		);
+
 		// ── Shell font-scale + theme bootstrap script ──────────────────────────
 		// Classic script (not a module) — must run before the rail renders
 		// so saved preferences are applied without a flash. Loaded in the
@@ -479,6 +499,7 @@ class AssetService {
 			'bn-header',
 			'bn-settings',
 			'bn-media-upload',
+			'bn-space-files',
 		);
 
 		// A few feature stylesheets reuse another feature's shared component and
@@ -548,6 +569,18 @@ class AssetService {
 			$this->module_version( 'js/vendor/qrcode.js' )
 		);
 
+		// `@buddynext/popover` keeps an absolutely-positioned popover inside the
+		// viewport. Chrome rather than feed logic — it lived in feed/shared.js
+		// until the spaces sort + notification popovers needed it, and a spaces
+		// store importing `@buddynext/feed-shared` for it would have implied a
+		// dependency that is not really there.
+		wp_register_script_module(
+			'@buddynext/popover',
+			$this->assets_url . 'js/shell/popover.js',
+			array(),
+			$this->module_version( 'js/shell/popover.js' )
+		);
+
 		// `@buddynext/nav-init` exposes onNavReady() — the uniform init binder
 		// every store uses so imperative setup re-runs after a client-side
 		// navigation (buddynext:navigated), not only on DOMContentLoaded.
@@ -595,6 +628,15 @@ class AssetService {
 			array( array( 'id' => '@buddynext/rest-client' ) ),
 			$this->module_version( 'js/media/upload-core.js' )
 		);
+		// `@buddynext/cover-reposition` is the single drag-to-pan / zoom modal
+		// shared by the member profile cover and the space cover, so both frame a
+		// cover identically. Pure DOM (no store internals), hence no deps.
+		wp_register_script_module(
+			'@buddynext/cover-reposition',
+			$this->assets_url . 'js/media/cover-reposition.js',
+			array(),
+			$this->module_version( 'js/media/cover-reposition.js' )
+		);
 		wp_register_script_module(
 			'@buddynext/feed-tabs',
 			$this->assets_url . 'js/feed/tabs.js',
@@ -619,6 +661,7 @@ class AssetService {
 				array( 'id' => '@buddynext/shell-dialog' ),
 				array( 'id' => '@buddynext/rest-client' ),
 				array( 'id' => '@buddynext/feed-shared' ),
+				array( 'id' => '@buddynext/popover' ),
 			),
 			$this->module_version( 'js/feed/post-card.js' )
 		);
@@ -632,6 +675,7 @@ class AssetService {
 				array( 'id' => '@buddynext/nav-init' ),
 				array( 'id' => '@buddynext/upload-core' ),
 				array( 'id' => '@buddynext/feed-shared' ),
+				array( 'id' => '@buddynext/popover' ),
 			),
 			$this->module_version( 'js/feed/composer.js' )
 		);
@@ -661,6 +705,8 @@ class AssetService {
 			'@buddynext/media-upload'       => 'media/upload-store',
 			'@buddynext/media-albums'       => 'media/albums-store',
 			'@buddynext/community-admin'    => 'community-admin/store',
+			'@buddynext/space-files'        => 'space-files/store',
+			'@buddynext/file-upload'        => 'media/file-upload',
 		);
 
 		// Feature stores that import from ../shell/dialog.js need the
@@ -678,6 +724,7 @@ class AssetService {
 			'@buddynext/media-upload',
 			'@buddynext/media-albums',
 			'@buddynext/community-admin',
+			'@buddynext/file-upload',
 		);
 
 		foreach ( $feature_modules as $id => $path ) {
@@ -691,6 +738,16 @@ class AssetService {
 			);
 			if ( in_array( $id, $shell_dialog_consumers, true ) ) {
 				$deps[] = array( 'id' => '@buddynext/shell-dialog' );
+			}
+			// The spaces store clamps its sort + notification popovers back inside
+			// the viewport; declared so WP emits the import-map entry.
+			if ( '@buddynext/spaces' === $id ) {
+				$deps[] = array( 'id' => '@buddynext/popover' );
+			}
+			// Profile and space covers share one reposition modal (drag-to-pan /
+			// scroll-to-zoom), so both import @buddynext/cover-reposition.
+			if ( '@buddynext/profile' === $id || '@buddynext/spaces' === $id ) {
+				$deps[] = array( 'id' => '@buddynext/cover-reposition' );
 			}
 			// The feed paginates by letting the Interactivity Router swap its region
 			// (actions.loadMore) — the only supported way to add cards that are actually
@@ -1027,6 +1084,26 @@ class AssetService {
 					'shareWithCount'          => __( 'Share · %d', 'buddynext' ),
 					/* translators: %d: share count */
 					'sharedWithCount'         => __( 'Shared · %d', 'buddynext' ),
+					// Document upload refusals. These are shown by
+					// composer.js::documentErrorMessage(), which reads them through
+					// t( key, fallback ) - and t() returns the ENGLISH fallback
+					// whenever the key is missing here. None of them were injected,
+					// so every one of these lines was hard-English on every locale,
+					// and because they existed only as JS literals they never
+					// reached buddynext.pot either - a translator could not see them
+					// to translate them.
+					'documentsUnavailable'    => __( 'Documents are not available on your account.', 'buddynext' ),
+					/* translators: %s: maximum document size, e.g. "10 MB". */
+					'documentTooLarge'        => __( 'That document is over the %s limit.', 'buddynext' ),
+					'documentTooLargeServer'  => __( 'That document is over the size limit.', 'buddynext' ),
+					'documentTypeNotAllowed'  => __( 'That file type is not allowed here.', 'buddynext' ),
+					'documentTypeUnsupported' => __( 'That file type cannot be read, so it cannot be attached.', 'buddynext' ),
+					'documentScanFailed'      => __( 'That file could not be accepted.', 'buddynext' ),
+					'documentsReadOnly'       => __( 'Document uploads are paused on this site right now. You can still view existing documents.', 'buddynext' ),
+					'documentNotPermitted'    => __( 'You do not have permission to add documents here.', 'buddynext' ),
+					'documentServerFault'     => __( 'Something went wrong on our side and the document was not saved. Nothing you did caused this.', 'buddynext' ),
+					'documentUploadFailed'    => __( 'That document could not be uploaded.', 'buddynext' ),
+					'documentStillUploading'  => __( 'Wait for the document to finish uploading.', 'buddynext' ),
 					'repost'                  => __( 'Repost', 'buddynext' ),
 					'reposting'               => __( 'Reposting…', 'buddynext' ),
 					'reposted'                => __( 'Reposted', 'buddynext' ),
@@ -1197,6 +1274,7 @@ class AssetService {
 					'labelPublic'                     => __( 'Public', 'buddynext' ),
 					'ariaJoinedClickToLeave'          => __( 'Joined - click to leave', 'buddynext' ),
 					'ariaRequestPendingClickToCancel' => __( 'Request pending - click to cancel', 'buddynext' ),
+					'membersCountSingular'            => __( '1 member', 'buddynext' ),
 					/* translators: %d: number of members. */
 					'membersCount'                    => __( '%d members', 'buddynext' ),
 					'paywallMembersOnly'              => __( 'This space is available to members only.', 'buddynext' ),
@@ -1211,9 +1289,6 @@ class AssetService {
 					'couldNotAcceptInvite'            => __( 'Could not accept the invitation.', 'buddynext' ),
 					'invitationDeclined'              => __( 'Invitation declined.', 'buddynext' ),
 					'couldNotDeclineInvite'           => __( 'Could not decline the invitation.', 'buddynext' ),
-					'purchaseNotConfigured'           => __( 'Membership purchase is not configured yet.', 'buddynext' ),
-					'redirecting'                     => __( 'Redirecting…', 'buddynext' ),
-					'couldNotStartCheckout'           => __( 'Could not start checkout. Please try again later.', 'buddynext' ),
 					'requestApproved'                 => __( 'Request approved.', 'buddynext' ),
 					'requestDeclined'                 => __( 'Request declined.', 'buddynext' ),
 					'couldNotApproveRequest'          => __( 'Could not approve the request.', 'buddynext' ),
@@ -1402,122 +1477,128 @@ class AssetService {
 			'buddynext/profile',
 			array(
 				'i18n' => array(
-					'cropAvatar'               => __( 'Crop avatar', 'buddynext' ),
-					'positionAvatar'           => __( 'Position your avatar', 'buddynext' ),
-					'zoom'                     => __( 'Zoom', 'buddynext' ),
-					'cancel'                   => __( 'Cancel', 'buddynext' ),
-					'apply'                    => __( 'Apply', 'buddynext' ),
-					'couldNotProcessImage'     => __( 'Could not process the image. Try a different file.', 'buddynext' ),
-					'repositionCover'          => __( 'Reposition cover photo', 'buddynext' ),
-					'coverDragHint'            => __( 'Drag to reposition · scroll or use the slider to zoom', 'buddynext' ),
-					'thisField'                => __( 'This field', 'buddynext' ),
-					'avatarSaveFailed'         => __( 'Avatar could not be saved', 'buddynext' ),
-					'coverSaveFailed'          => __( 'Cover could not be saved', 'buddynext' ),
-					'profileSaved'             => __( 'Profile saved', 'buddynext' ),
-					'fieldsNeedAttention'      => __( 'Some fields need attention', 'buddynext' ),
-					'saveFailed'               => __( 'Could not save. Please try again.', 'buddynext' ),
-					'present'                  => __( 'Present', 'buddynext' ),
-					'unmute'                   => __( 'Unmute', 'buddynext' ),
-					'mute'                     => __( 'Mute', 'buddynext' ),
-					'unrestrict'               => __( 'Unrestrict', 'buddynext' ),
-					'restrict'                 => __( 'Restrict', 'buddynext' ),
-					'unblock'                  => __( 'Unblock', 'buddynext' ),
-					'block'                    => __( 'Block', 'buddynext' ),
+					'cropAvatar'                       => __( 'Crop avatar', 'buddynext' ),
+					'positionAvatar'                   => __( 'Position your avatar', 'buddynext' ),
+					'zoom'                             => __( 'Zoom', 'buddynext' ),
+					'cancel'                           => __( 'Cancel', 'buddynext' ),
+					'apply'                            => __( 'Apply', 'buddynext' ),
+					'couldNotProcessImage'             => __( 'Could not process the image. Try a different file.', 'buddynext' ),
+					'repositionCover'                  => __( 'Reposition cover photo', 'buddynext' ),
+					'coverDragHint'                    => __( 'Drag to reposition · scroll or use the slider to zoom', 'buddynext' ),
+					'thisField'                        => __( 'This field', 'buddynext' ),
+					'avatarSaveFailed'                 => __( 'Avatar could not be saved', 'buddynext' ),
+					'coverSaveFailed'                  => __( 'Cover could not be saved', 'buddynext' ),
+					'profileSaved'                     => __( 'Profile saved', 'buddynext' ),
+					'fieldsNeedAttention'              => __( 'Some fields need attention', 'buddynext' ),
+					'saveFailed'                       => __( 'Could not save. Please try again.', 'buddynext' ),
+					'present'                          => __( 'Present', 'buddynext' ),
+					'unmute'                           => __( 'Unmute', 'buddynext' ),
+					'mute'                             => __( 'Mute', 'buddynext' ),
+					'unrestrict'                       => __( 'Unrestrict', 'buddynext' ),
+					'restrict'                         => __( 'Restrict', 'buddynext' ),
+					'unblock'                          => __( 'Unblock', 'buddynext' ),
+					'block'                            => __( 'Block', 'buddynext' ),
 					/* translators: %d: number of remaining two-factor backup codes (singular). */
-					'backupCodeLeftSingular'   => __( '%d backup code left.', 'buddynext' ),
+					'backupCodeLeftSingular'           => __( '%d backup code left.', 'buddynext' ),
 					/* translators: %d: number of remaining two-factor backup codes (plural). */
-					'backupCodesLeftPlural'    => __( '%d backup codes left.', 'buddynext' ),
-					'dataExportDownloaded'     => __( 'Your data export has downloaded.', 'buddynext' ),
-					'dataExportFailed'         => __( 'Could not export your data. Please try again.', 'buddynext' ),
-					'deleteAccountTitle'       => __( 'Delete your account?', 'buddynext' ),
-					'deleteAccountMessage'     => __( 'This permanently deletes your account and removes your data. This cannot be undone.', 'buddynext' ),
-					'deleteAccountConfirm'     => __( 'Delete my account', 'buddynext' ),
-					'deleteAccountFailed'      => __( 'Could not delete your account.', 'buddynext' ),
-					'deleteAccountFailedRetry' => __( 'Could not delete your account. Please try again.', 'buddynext' ),
-					'profile'                  => __( 'Profile', 'buddynext' ),
-					'profileLinkCopied'        => __( 'Profile link copied', 'buddynext' ),
-					'couldNotCopyLongPress'    => __( 'Could not copy. Long-press the URL.', 'buddynext' ),
+					'backupCodesLeftPlural'            => __( '%d backup codes left.', 'buddynext' ),
+					'dataExportDownloaded'             => __( 'Your data export has downloaded.', 'buddynext' ),
+					'dataExportFailed'                 => __( 'Could not export your data. Please try again.', 'buddynext' ),
+					'deleteAccountTitle'               => __( 'Delete your account?', 'buddynext' ),
+					'deleteAccountMessage'             => __( 'This permanently deletes your account and removes your data. This cannot be undone.', 'buddynext' ),
+					'deleteAccountConfirm'             => __( 'Delete my account', 'buddynext' ),
+					// The re-auth step. Injected here rather than left to the JS
+					// fallback, because a string that only exists as a default in
+					// the store is invisible to the POT scanner and renders English
+					// on every translated site (docs/standards/i18n.md).
+					'deleteAccountPasswordPlaceholder' => __( 'Your password', 'buddynext' ),
+					'deleteAccountPasswordRequired'    => __( 'Enter your password to confirm.', 'buddynext' ),
+					'deleteAccountFailed'              => __( 'Could not delete your account.', 'buddynext' ),
+					'deleteAccountFailedRetry'         => __( 'Could not delete your account. Please try again.', 'buddynext' ),
+					'profile'                          => __( 'Profile', 'buddynext' ),
+					'profileLinkCopied'                => __( 'Profile link copied', 'buddynext' ),
+					'couldNotCopyLongPress'            => __( 'Could not copy. Long-press the URL.', 'buddynext' ),
 					/* translators: %s: profile URL. */
-					'copyThisLink'             => __( 'Copy this link: %s', 'buddynext' ),
-					'socialUnlinked'           => __( 'Account unlinked', 'buddynext' ),
-					'connect'                  => __( 'Connect', 'buddynext' ),
-					'socialUnlinkFailed'       => __( 'Could not unlink. Try again.', 'buddynext' ),
-					'memberTypeSaved'          => __( 'Member type updated', 'buddynext' ),
-					'memberTypeFailed'         => __( 'Could not update member type', 'buddynext' ),
-					'prefSaved'                => __( 'Preference saved', 'buddynext' ),
-					'displayNameRequired'      => __( 'Display name is required.', 'buddynext' ),
-					'invalidUrl'               => __( 'Enter a valid URL (https://example.com).', 'buddynext' ),
+					'copyThisLink'                     => __( 'Copy this link: %s', 'buddynext' ),
+					'socialUnlinked'                   => __( 'Account unlinked', 'buddynext' ),
+					'connect'                          => __( 'Connect', 'buddynext' ),
+					'socialUnlinkFailed'               => __( 'Could not unlink. Try again.', 'buddynext' ),
+					'memberTypeSaved'                  => __( 'Member type updated', 'buddynext' ),
+					'memberTypeFailed'                 => __( 'Could not update member type', 'buddynext' ),
+					'prefSaved'                        => __( 'Preference saved', 'buddynext' ),
+					'displayNameRequired'              => __( 'Display name is required.', 'buddynext' ),
+					'invalidUrl'                       => __( 'Enter a valid URL (https://example.com).', 'buddynext' ),
 					/* translators: %s: field label. */
-					'fieldRequired'            => __( '%s is required.', 'buddynext' ),
-					'avatarReady'              => __( 'Avatar ready — click Save changes to keep it', 'buddynext' ),
-					'couldNotPrepareImage'     => __( 'Could not prepare image. Try again.', 'buddynext' ),
-					'removePhotoTitle'         => __( 'Remove profile photo?', 'buddynext' ),
-					'removePhotoBody'          => __( 'Your photo will be replaced with your initials. You can upload a new one any time.', 'buddynext' ),
-					'remove'                   => __( 'Remove', 'buddynext' ),
-					'photoRemoved'             => __( 'Profile photo removed', 'buddynext' ),
-					'photoRemoveFailed'        => __( 'Could not remove your photo. Try again.', 'buddynext' ),
-					'coverReady'               => __( 'Cover ready — click Save changes to keep it', 'buddynext' ),
-					'followed'                 => __( 'Followed', 'buddynext' ),
-					'couldNotFollow'           => __( 'Could not follow. Try again.', 'buddynext' ),
-					'unfollowed'               => __( 'Unfollowed', 'buddynext' ),
-					'couldNotUnfollow'         => __( 'Could not unfollow. Try again.', 'buddynext' ),
-					'connectNoteBody'          => __( 'Add a personal message to your connection request, or send it without one.', 'buddynext' ),
-					'connectionSent'           => __( 'Connection request sent', 'buddynext' ),
-					'couldNotSendRequest'      => __( 'Could not send request', 'buddynext' ),
-					'requestWithdrawn'         => __( 'Request withdrawn', 'buddynext' ),
-					'connected'                => __( 'Connected', 'buddynext' ),
-					'requestDeclined'          => __( 'Request declined', 'buddynext' ),
-					'disconnected'             => __( 'Disconnected', 'buddynext' ),
-					'copyFailed'               => __( 'Could not copy link.', 'buddynext' ),
-					'unmuted'                  => __( 'Unmuted', 'buddynext' ),
-					'muted'                    => __( 'Muted', 'buddynext' ),
-					'muteFailed'               => __( 'Could not update mute state', 'buddynext' ),
-					'noLongerRestricted'       => __( 'No longer restricted', 'buddynext' ),
-					'restricted'               => __( 'Restricted. They can still see your profile, but their comments are hidden from others.', 'buddynext' ),
-					'restrictFailed'           => __( 'Could not update restrict state', 'buddynext' ),
+					'fieldRequired'                    => __( '%s is required.', 'buddynext' ),
+					'avatarReady'                      => __( 'Avatar ready — click Save changes to keep it', 'buddynext' ),
+					'couldNotPrepareImage'             => __( 'Could not prepare image. Try again.', 'buddynext' ),
+					'removePhotoTitle'                 => __( 'Remove profile photo?', 'buddynext' ),
+					'removePhotoBody'                  => __( 'Your photo will be replaced with your initials. You can upload a new one any time.', 'buddynext' ),
+					'remove'                           => __( 'Remove', 'buddynext' ),
+					'photoRemoved'                     => __( 'Profile photo removed', 'buddynext' ),
+					'photoRemoveFailed'                => __( 'Could not remove your photo. Try again.', 'buddynext' ),
+					'coverReady'                       => __( 'Cover ready — click Save changes to keep it', 'buddynext' ),
+					'followed'                         => __( 'Followed', 'buddynext' ),
+					'couldNotFollow'                   => __( 'Could not follow. Try again.', 'buddynext' ),
+					'unfollowed'                       => __( 'Unfollowed', 'buddynext' ),
+					'couldNotUnfollow'                 => __( 'Could not unfollow. Try again.', 'buddynext' ),
+					'connectNoteBody'                  => __( 'Add a personal message to your connection request, or send it without one.', 'buddynext' ),
+					'connectionSent'                   => __( 'Connection request sent', 'buddynext' ),
+					'couldNotSendRequest'              => __( 'Could not send request', 'buddynext' ),
+					'requestWithdrawn'                 => __( 'Request withdrawn', 'buddynext' ),
+					'connected'                        => __( 'Connected', 'buddynext' ),
+					'requestDeclined'                  => __( 'Request declined', 'buddynext' ),
+					'disconnected'                     => __( 'Disconnected', 'buddynext' ),
+					'copyFailed'                       => __( 'Could not copy link.', 'buddynext' ),
+					'unmuted'                          => __( 'Unmuted', 'buddynext' ),
+					'muted'                            => __( 'Muted', 'buddynext' ),
+					'muteFailed'                       => __( 'Could not update mute state', 'buddynext' ),
+					'noLongerRestricted'               => __( 'No longer restricted', 'buddynext' ),
+					'restricted'                       => __( 'Restricted. They can still see your profile, but their comments are hidden from others.', 'buddynext' ),
+					'restrictFailed'                   => __( 'Could not update restrict state', 'buddynext' ),
 					/* translators: %s: member display name. */
-					'memberBlockedNamed'       => __( '%s blocked', 'buddynext' ),
-					'memberBlocked'            => __( 'Member blocked', 'buddynext' ),
-					'blockFailed'              => __( 'Could not block. Try again.', 'buddynext' ),
-					'reportFailed'             => __( 'Could not submit report. Try again.', 'buddynext' ),
-					'reportSubmitted'          => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
-					'checkInboxConfirm'        => __( 'Check your inbox to confirm.', 'buddynext' ),
-					'verifyEmailFailed'        => __( 'Could not send verification email. Try again.', 'buddynext' ),
-					'emailVerified'            => __( 'Your email address is now marked as verified.', 'buddynext' ),
-					'pwTooShort'               => __( 'Too short', 'buddynext' ),
-					'pwWeak'                   => __( 'Weak', 'buddynext' ),
-					'pwFair'                   => __( 'Fair', 'buddynext' ),
-					'pwGood'                   => __( 'Good', 'buddynext' ),
-					'pwStrong'                 => __( 'Strong', 'buddynext' ),
-					'pwExcellent'              => __( 'Excellent', 'buddynext' ),
-					'enterCurrentPassword'     => __( 'Enter your current password.', 'buddynext' ),
-					'enterNewPassword'         => __( 'Enter a new password.', 'buddynext' ),
-					'passwordMinChars'         => __( 'Use at least 8 characters.', 'buddynext' ),
-					'passwordsNoMatch'         => __( 'Passwords do not match.', 'buddynext' ),
-					'passwordUpdated'          => __( 'Password updated.', 'buddynext' ),
-					'passwordChangeFailed'     => __( 'Could not change password. Try again.', 'buddynext' ),
-					'signedOutEverywhere'      => __( 'Signed out of every other session.', 'buddynext' ),
-					'signOutFailed'            => __( 'Could not sign out everywhere. Try again.', 'buddynext' ),
-					'twofaSetupFailed'         => __( 'Could not start setup. Try again.', 'buddynext' ),
-					'twofaCodeMismatch'        => __( 'That code did not match.', 'buddynext' ),
-					'somethingWentWrong'       => __( 'Something went wrong. Try again.', 'buddynext' ),
-					'twofaOn'                  => __( 'Two-factor authentication is on.', 'buddynext' ),
-					'twofaQrAlt'               => __( 'QR code for your authenticator app', 'buddynext' ),
-					'enterPassword'            => __( 'Enter your password.', 'buddynext' ),
-					'twofaRegenFailed'         => __( 'Could not regenerate codes.', 'buddynext' ),
-					'twofaOff'                 => __( 'Two-factor authentication is off.', 'buddynext' ),
-					'twofaDisableFailed'       => __( 'Could not turn off two-factor.', 'buddynext' ),
-					'unblocked'                => __( 'Unblocked', 'buddynext' ),
-					'unblockFailed'            => __( 'Could not unblock', 'buddynext' ),
+					'memberBlockedNamed'               => __( '%s blocked', 'buddynext' ),
+					'memberBlocked'                    => __( 'Member blocked', 'buddynext' ),
+					'blockFailed'                      => __( 'Could not block. Try again.', 'buddynext' ),
+					'reportFailed'                     => __( 'Could not submit report. Try again.', 'buddynext' ),
+					'reportSubmitted'                  => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
+					'checkInboxConfirm'                => __( 'Check your inbox to confirm.', 'buddynext' ),
+					'verifyEmailFailed'                => __( 'Could not send verification email. Try again.', 'buddynext' ),
+					'emailVerified'                    => __( 'Your email address is now marked as verified.', 'buddynext' ),
+					'pwTooShort'                       => __( 'Too short', 'buddynext' ),
+					'pwWeak'                           => __( 'Weak', 'buddynext' ),
+					'pwFair'                           => __( 'Fair', 'buddynext' ),
+					'pwGood'                           => __( 'Good', 'buddynext' ),
+					'pwStrong'                         => __( 'Strong', 'buddynext' ),
+					'pwExcellent'                      => __( 'Excellent', 'buddynext' ),
+					'enterCurrentPassword'             => __( 'Enter your current password.', 'buddynext' ),
+					'enterNewPassword'                 => __( 'Enter a new password.', 'buddynext' ),
+					'passwordMinChars'                 => __( 'Use at least 8 characters.', 'buddynext' ),
+					'passwordsNoMatch'                 => __( 'Passwords do not match.', 'buddynext' ),
+					'passwordUpdated'                  => __( 'Password updated.', 'buddynext' ),
+					'passwordChangeFailed'             => __( 'Could not change password. Try again.', 'buddynext' ),
+					'signedOutEverywhere'              => __( 'Signed out of every other session.', 'buddynext' ),
+					'signOutFailed'                    => __( 'Could not sign out everywhere. Try again.', 'buddynext' ),
+					'twofaSetupFailed'                 => __( 'Could not start setup. Try again.', 'buddynext' ),
+					'twofaCodeMismatch'                => __( 'That code did not match.', 'buddynext' ),
+					'somethingWentWrong'               => __( 'Something went wrong. Try again.', 'buddynext' ),
+					'twofaOn'                          => __( 'Two-factor authentication is on.', 'buddynext' ),
+					'twofaQrAlt'                       => __( 'QR code for your authenticator app', 'buddynext' ),
+					'enterPassword'                    => __( 'Enter your password.', 'buddynext' ),
+					'twofaRegenFailed'                 => __( 'Could not regenerate codes.', 'buddynext' ),
+					'twofaOff'                         => __( 'Two-factor authentication is off.', 'buddynext' ),
+					'twofaDisableFailed'               => __( 'Could not turn off two-factor.', 'buddynext' ),
+					'unblocked'                        => __( 'Unblocked', 'buddynext' ),
+					'unblockFailed'                    => __( 'Could not unblock', 'buddynext' ),
 					// Per-field visibility selector (edit profile). Read by profile/store.js
 					// via t() but never injected, so the picker labels always rendered
 					// English regardless of locale.
-					'visWhoCanSee'             => __( 'Who can see this field', 'buddynext' ),
-					'visPublic'                => __( 'Public', 'buddynext' ),
-					'visMembers'               => __( 'Members', 'buddynext' ),
-					'visFollowers'             => __( 'Followers', 'buddynext' ),
-					'visConnections'           => __( 'Connections', 'buddynext' ),
-					'visPrivate'               => __( 'Only me', 'buddynext' ),
+					'visWhoCanSee'                     => __( 'Who can see this field', 'buddynext' ),
+					'visPublic'                        => __( 'Public', 'buddynext' ),
+					'visMembers'                       => __( 'Members', 'buddynext' ),
+					'visFollowers'                     => __( 'Followers', 'buddynext' ),
+					'visConnections'                   => __( 'Connections', 'buddynext' ),
+					'visPrivate'                       => __( 'Only me', 'buddynext' ),
 				),
 			)
 		);
@@ -1697,7 +1778,7 @@ class AssetService {
 					 * number, and the word silently disappeared on hydration.
 					 */
 					/* translators: %s is the formatted number of unread notifications (e.g. "12" or "99+"). */
-					'unreadBadge'         => __( '%s new', 'buddynext' ),
+					'unreadBadge'         => __( '%s unread', 'buddynext' ),
 				),
 			)
 		);

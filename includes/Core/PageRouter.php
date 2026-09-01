@@ -142,7 +142,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-08-12-community-admin-hub';
+	private const ROUTER_VERSION = '2026-08-29-space-slug-beats-scope';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -175,27 +175,6 @@ class PageRouter {
 	// ── Template dispatcher ───────────────────────────────────────────────────
 
 	/**
-	 * Load a BuddyNext hub template using the active theme's header and footer.
-	 *
-	 * Hooked on 'template_redirect'. When the current request is a BuddyNext
-	 * hub route this method resolves the correct relative template path,
-	 * enqueues hub-specific assets, injects BuddyNext body classes, then
-	 * delegates the full page frame to the active theme via get_header() and
-	 * get_footer() — so the theme's navigation, widgets, and footer render
-	 * exactly as they do on every other page of the site.
-	 *
-	 * The 'bn-page' body class is the primary integration signal. BuddyXBridge
-	 * reads it so BuddyX skips its .container wrapper on hub pages. The
-	 * 'no-sidebar' class is kept for other popular themes (Astra, GeneratePress,
-	 * etc.) that suppress their sidebar based on body class — BuddyX does not
-	 * use it; its layout is controlled via the buddyx_is_full_width_page filter.
-	 *
-	 * Calls exit so WordPress never renders its own page content.
-	 *
-	 * @return void
-	 */
-
-	/**
 	 * Resolve the hub slug when a BuddyNext hub page is the static front page.
 	 *
 	 * Returns '' unless the request is the front page, the site shows a static
@@ -214,15 +193,20 @@ class PageRouter {
 			return '';
 		}
 
-		// buddynext_page_* option → bn_hub slug.
-		$map = array(
-			'buddynext_page_activity'      => 'feed',
-			'buddynext_page_explore'       => 'feed',
-			'buddynext_page_people'        => 'people',
-			'buddynext_page_spaces'        => 'spaces',
-			'buddynext_page_messages'      => 'messages',
-			'buddynext_page_notifications' => 'notifications',
-		);
+		// buddynext_page_* option → hub key, built from the registry so every
+		// page-backed hub participates (the old hardcoded map omitted auth, so a
+		// site with the Auth page set as the WP front page never resolved "/" to
+		// login, and addon hubs were invisible here too).
+		$map = array();
+		foreach ( HubRegistry::instance()->all() as $bn_descriptor ) {
+			if ( $bn_descriptor->backing_page ) {
+				$map[ $bn_descriptor->page_option ] = $bn_descriptor->key;
+			}
+		}
+		// Explore is a sub-route of the Activity hub with its own page option but no
+		// registry descriptor of its own.
+		$map['buddynext_page_explore'] = 'feed';
+
 		foreach ( $map as $option => $slug ) {
 			if ( (int) get_option( $option ) === $front_id ) {
 				return $slug;
@@ -233,12 +217,17 @@ class PageRouter {
 	}
 
 	/**
-	 * Render the resolved hub template as a standalone document.
+	 * Resolve the BuddyNext hub for this request and queue it for rendering.
 	 *
-	 * The terminal step of the routing chain: handles the legacy /search/ →
-	 * /activity/search/ redirect, sets up a virtual post so theme template tags
-	 * resolve, resolves the hub template, and emits the full HTML document
-	 * (wp_head + content + wp_footer). Hooked on template_redirect.
+	 * Hooked on template_redirect — the stage for gates, redirects and head-meta
+	 * that must precede wp_head(). It runs the legacy /search/ → /activity/search/
+	 * redirect, the private-community and per-feature route guards, resolves the
+	 * hub template + context, then DEFERS the render: it stores the pending hub
+	 * and points core's `template_include` at templates/hub-loader.php, which
+	 * calls render_pending(). The render therefore happens inside core's normal
+	 * template stage — so template_include, wp_before_include_template and the
+	 * output-buffer filters all fire — with the active theme's header and footer.
+	 * This method never emits the document itself. See GH #137.
 	 *
 	 * @return void
 	 */
@@ -283,25 +272,18 @@ class PageRouter {
 			exit;
 		}
 
-		// Feature guard: a hub whose feature the admin has disabled must not
-		// render. Spaces is the toggleable hub (FeatureRegistry 'spaces',
-		// default-on) — when it is off, send visitors to the activity hub
-		// rather than showing a hub the site has turned off.
-		if ( 'spaces' === $hub
+		// Feature guard: a whole hub whose FeatureRegistry feature the admin has
+		// disabled must not render — send visitors to the activity hub instead of
+		// showing a hub the site turned off. The gated hubs declare their feature
+		// on the descriptor (spaces => 'spaces', onboarding => 'onboarding', both
+		// default-on), so this one guard replaces the former per-hub copies and
+		// any add-on hub that sets `feature` is covered automatically. Sub-route
+		// gates (hashtag, bookmarks, messages availability) stay specific below.
+		$bn_hub_desc = HubRegistry::instance()->get( $hub );
+		if ( $bn_hub_desc
+			&& null !== $bn_hub_desc->feature
 			&& function_exists( 'buddynext_service' )
-			&& ! buddynext_service( 'features' )->is_enabled( 'spaces' )
-		) {
-			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
-			exit;
-		}
-
-		// Onboarding is a toggleable hub (FeatureRegistry 'onboarding',
-		// default-on). When the owner turns it off, direct visits to the
-		// onboarding page must not render it — send them to the activity hub,
-		// mirroring the Spaces guard above.
-		if ( 'onboarding' === $hub
-			&& function_exists( 'buddynext_service' )
-			&& ! buddynext_service( 'features' )->is_enabled( 'onboarding' )
+			&& ! buddynext_service( 'features' )->is_enabled( $bn_hub_desc->feature )
 		) {
 			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
 			exit;
@@ -334,13 +316,36 @@ class PageRouter {
 			exit;
 		}
 
-		// Direct-messaging guard: the /messages/ route is dead whenever DMs are
-		// off (buddynext_enable_dm) OR the WPMediaVerse engine is absent — bounce
-		// the visitor to the activity hub rather than render an unusable hub. Use
-		// the canonical entry_enabled() gate (dm_enabled && available), the same
-		// one that hides the nav entry points, so the route and the nav agree.
-		if ( 'messages' === $hub
-			&& ! \BuddyNext\Messages\MessagesData::entry_enabled()
+		/*
+		 * Direct messaging unavailable: EXPLAIN, do not bounce.
+		 *
+		 * This used to redirect to the activity hub whenever DMs were off or the
+		 * WPMediaVerse engine was absent. The visitor clicked Messages and landed
+		 * on the feed with nothing said — and templates/messages/native.php has
+		 * carried a purpose-built notice for exactly this state all along, with
+		 * separate copy for administrators ("Direct messaging requires
+		 * WPMediaVerse") and for members ("Messaging isn't available right now").
+		 * The redirect fired first, so ALL of it was unreachable: the card
+		 * reported the admin half, but neither branch could ever render.
+		 *
+		 * A silent redirect is the worst of the options. It looks like a broken
+		 * link to the member and hides the cause from the one person who can fix
+		 * it. The template already knows what to say to each of them.
+		 *
+		 * The nav is unaffected — the entry points already hide themselves through
+		 * the same entry_enabled() gate, so nothing links here while it is off.
+		 * This is only about what happens when someone arrives anyway: a bookmark,
+		 * a shared link, or the page-list fallback on a site with no menu.
+		 */
+
+		// Bookmarks guard: the personal Bookmarks list (feed hub, bn_feed_section
+		// 'bookmarks') is the toggleable Bookmarks feature (FeatureRegistry
+		// 'bookmarks', default-on). When the owner turns it off, the list must not
+		// render — send visitors to the activity hub, mirroring the guards above.
+		if ( 'feed' === $hub
+			&& 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' )
+			&& function_exists( 'buddynext_service' )
+			&& ! buddynext_service( 'features' )->is_enabled( 'bookmarks' )
 		) {
 			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
 			exit;
@@ -1488,6 +1493,13 @@ class PageRouter {
 				'reportReasonLabel'      => __( 'Reason', 'buddynext' ),
 				'reportNotesLabel'       => __( 'Additional details (optional)', 'buddynext' ),
 				'reportNotesPlaceholder' => __( 'Tell us more about what you saw…', 'buddynext' ),
+				// Individual reason strings used to live here as a fifth copy of the
+				// list — and it had already drifted, missing `fake` entirely, so
+				// "Fake account" was offered in the profile modal and nowhere else.
+				// The dialog now receives the whole vocabulary as `reportReasons`
+				// below, which is what makes buddynext_report_reasons reach the JS
+				// surfaces at all. These keys remain as a fallback for a cached
+				// script still reading them by name.
 				'reasonSpam'             => __( 'Spam', 'buddynext' ),
 				'reasonHarassment'       => __( 'Harassment or hate speech', 'buddynext' ),
 				'reasonMisinformation'   => __( 'Misinformation', 'buddynext' ),
@@ -1501,6 +1513,16 @@ class PageRouter {
 				'connectPlaceholder'     => __( 'e.g. We met at the design meetup — I’d love to stay connected.', 'buddynext' ),
 				// Generic fallback toast (relation-remove.js).
 				'updateFailed'           => __( 'Could not update. Try again.', 'buddynext' ),
+			),
+			// The report vocabulary as ordered [ slug, label ] pairs — the single
+			// source every surface reads, so a reason added through
+			// buddynext_report_reasons is OFFERED and not merely accepted.
+			'reportReasons'      => array_map(
+				static function ( $bn_slug, $bn_label ): array {
+					return array( (string) $bn_slug, (string) $bn_label );
+				},
+				array_keys( \BuddyNext\Moderation\ModerationService::reason_choices() ),
+				array_values( \BuddyNext\Moderation\ModerationService::reason_choices() )
 			),
 			'restSearchUrl'      => esc_url_raw( rest_url( 'buddynext/v1/search' ) ),
 			'restNotifsUrl'      => esc_url_raw( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ),
@@ -1617,20 +1639,20 @@ class PageRouter {
 			),
 			// Connect-request style. Default false = 1-click connect (Facebook).
 			// When the owner turns on buddynext_connection_require_note, the
-			// Connect button opens a note dialog (LinkedIn) and the note is
-			// delivered to the recipient's DM as a message request. Read once here
-			// so every connect surface shares one source of truth instead of
-			// threading the flag through each button's data-wp-context.
+			// Connect button opens a note dialog (LinkedIn) and the note is shown
+			// to the recipient in their connection-request inbox, next to Accept
+			// and Decline. Read once here so every connect surface shares one
+			// source of truth instead of threading the flag through each button's
+			// data-wp-context.
 			//
-			// AND the delivery path has to exist. The note is never stored for
-			// display — the messaging engine is the only thing that shows it to the
-			// recipient — so with the engine inactive an owner who turned this on
-			// was asking members to write notes that reached nobody, with no error
-			// at any point (Basecamp 10185178801). The setting stays on; it simply
-			// cannot take effect until a note can be delivered, and Settings tells
-			// the owner so. The member is never the error channel.
-			'connectRequireNote' => ( '1' === (string) get_option( 'buddynext_connection_require_note', '0' ) )
-				&& \BuddyNext\Bridges\WPMediaVerseBridge::can_deliver_connection_note(),
+			// No delivery dependency any more. This used to be AND-ed with the
+			// messaging engine being active, because the note was stored but never
+			// rendered and a DM was the only way it reached anyone — so with the
+			// engine off, turning the setting on asked members to write notes that
+			// reached nobody (Basecamp 10185178801). The request inbox now renders
+			// the note itself, so the note always has a reader and the setting
+			// means what it says on every site (Basecamp 10244757451).
+			'connectRequireNote' => '1' === (string) get_option( 'buddynext_connection_require_note', '0' ),
 		);
 		// Base config for the shared REST client module (@buddynext/rest-client).
 		// Emitted on bn-shell-extras (always enqueued on every hub) so the
@@ -1728,6 +1750,17 @@ class PageRouter {
 					// and the @buddynext/members store (card follow/connect + overflow
 					// menus) so the panels are never unstyled.
 					$assets->enqueue( 'members' );
+					// The Files tab renders BuddyNext's own document drive + the
+					// single-document reader (bn-space-files.css + the
+					// @buddynext/space-files preview island), same as the space
+					// Files tab. Scoped to the files action so no other profile
+					// tab pays for it.
+					if ( 'files' === (string) get_query_var( 'bn_profile_action', '' ) ) {
+						$assets->enqueue( 'space-files' );
+						// The Files-tab uploader (drag/click a document straight into
+						// this drive) is its own small module beside the reader island.
+						$assets->enqueue( 'file-upload' );
+					}
 				} else {
 					$assets->enqueue( 'members' );
 				}
@@ -1767,6 +1800,14 @@ class PageRouter {
 				if ( 'media' === $space_action_v || 'media' === $bn_space_tab ) {
 					$assets->enqueue( 'media-upload' );
 					$assets->enqueue( 'media-albums' );
+				}
+				// The space Files tab is a server-rendered document-drive browser
+				// (no store) — it needs only its stylesheet, keyed on the action.
+				if ( 'files' === $space_action_v || 'files' === $bn_space_tab ) {
+					$assets->enqueue( 'space-files' );
+					// The Files-tab uploader (drag/click a document straight into this
+					// space drive) rides beside the reader island.
+					$assets->enqueue( 'file-upload' );
 				}
 				// The settings "Custom fields" panel saves registered space fields
 				// over REST via the buddynext/space-fields store.
@@ -1983,6 +2024,175 @@ class PageRouter {
 	}
 
 	/**
+	 * Register the feed hub's rewrite rules (activity routes + the /me/ sections).
+	 *
+	 * The feed hub owns both the activity routes (home / explore / hashtag /
+	 * search / leaderboard, plus the legacy /search/ redirect) and the personal
+	 * /me/bookmarks + /me/account-status sections, so its descriptor callback
+	 * registers both. (The single-post /p/{id}/ route is not a hub — it stays a
+	 * direct call in register_rewrites().)
+	 *
+	 * @return void
+	 */
+	public static function register_feed_rules(): void {
+		self::register_activity_rules();
+		self::register_bookmarks_rules();
+	}
+
+	/**
+	 * Resolve the feed hub template from its sub-route query vars.
+	 *
+	 * @param string $hub The bn_hub value (always 'feed' here).
+	 * @return string|null
+	 */
+	public static function resolve_feed_template( string $hub ): ?string {
+		unset( $hub );
+		$section = (string) get_query_var( 'bn_feed_section', '' );
+		if ( 'bookmarks' === $section ) {
+			return 'feed/bookmarks.php';
+		}
+		if ( 'account-status' === $section ) {
+			return 'moderation/account-status.php';
+		}
+		$action = (string) get_query_var( 'bn_activity_action', '' );
+		switch ( $action ) {
+			case 'explore':
+				return 'feed/explore.php';
+			case 'hashtag':
+				return 'hashtags/feed.php';
+			case 'search':
+				return 'search/results.php';
+			case 'leaderboard':
+				return 'gamification/leaderboard.php';
+			default:
+				return 'feed/home.php';
+		}
+	}
+
+	/**
+	 * Resolve the people (members) hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'people' here).
+	 * @return string|null
+	 */
+	public static function resolve_people_template( string $hub ): ?string {
+		unset( $hub );
+		$user_slug = (string) get_query_var( 'bn_user_slug', '' );
+		if ( '' !== $user_slug ) {
+			$profile_action = (string) get_query_var( 'bn_profile_action', '' );
+			switch ( $profile_action ) {
+				case 'edit':
+					return 'profile/edit.php';
+				default:
+					// `media` (and any other profile action without a dedicated
+					// template) opens the profile view; view.php deep-links the
+					// matching tab from bn_profile_action.
+					return 'profile/view.php';
+			}
+		}
+		return 'directory/members.php';
+	}
+
+	/**
+	 * Resolve the spaces hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'spaces' here).
+	 * @return string|null
+	 */
+	public static function resolve_spaces_template( string $hub ): ?string {
+		unset( $hub );
+		$space_slug = (string) get_query_var( 'bn_space_slug', '' );
+		if ( '' !== $space_slug ) {
+			$space_action = (string) get_query_var( 'bn_space_action', '' );
+			switch ( $space_action ) {
+				case 'members':
+					return 'spaces/members.php';
+				case 'moderation':
+					return 'spaces/moderation.php';
+				case 'settings':
+					return 'spaces/settings.php';
+				case 'admin':
+					return 'spaces/admin.php';
+				default:
+					// feed / about / media (+ any in-page integration tab) render
+					// the space home, which reads bn_space_action for the active
+					// tab. Members + Moderation keep their richer standalone pages.
+					return 'spaces/home.php';
+			}
+		}
+		return 'spaces/directory.php';
+	}
+
+	/**
+	 * Resolve the messages hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'messages' here).
+	 * @return string|null
+	 */
+	public static function resolve_messages_template( string $hub ): ?string {
+		unset( $hub );
+		$conv_id    = (int) get_query_var( 'bn_conv_id', 0 );
+		$msg_action = (string) get_query_var( 'bn_msg_action', '' );
+		if ( $conv_id > 0 ) {
+			return 'messages/thread.php';
+		}
+		if ( 'requests' === $msg_action ) {
+			return 'messages/requests.php';
+		}
+		return 'messages/list.php';
+	}
+
+	/**
+	 * Resolve the notifications hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'notifications' here).
+	 * @return string|null
+	 */
+	public static function resolve_notifications_template( string $hub ): ?string {
+		unset( $hub );
+		// No prefs branch: the preferences form is the Settings hub's
+		// Notifications tab and renders settings/notifications.php.
+		return 'notifications/index.php';
+	}
+
+	/**
+	 * Resolve the auth hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'auth' here).
+	 * @return string|null
+	 */
+	public static function resolve_auth_template( string $hub ): ?string {
+		unset( $hub );
+		$auth_action = (string) get_query_var( 'bn_auth_action', '' );
+		switch ( $auth_action ) {
+			case 'signup':
+				return 'auth/signup.php';
+			case 'complete':
+				return 'auth/complete.php';
+			case 'verify':
+				return 'auth/verify.php';
+			case 'reset':
+				return 'auth/reset.php';
+			case 'connect-app':
+				return 'auth/connect-app.php';
+			case 'login':
+			default:
+				return 'auth/login.php';
+		}
+	}
+
+	/**
+	 * Resolve the onboarding hub template.
+	 *
+	 * @param string $hub The bn_hub value (always 'onboarding' here).
+	 * @return string|null
+	 */
+	public static function resolve_onboarding_template( string $hub ): ?string {
+		unset( $hub );
+		return 'onboarding/index.php';
+	}
+
+	/**
 	 * Map a hub + active sub-action query vars to a relative template path.
 	 *
 	 * Returns null when the hub value is not recognised, which causes
@@ -1993,86 +2203,14 @@ class PageRouter {
 	 * @return string|null Relative path without extension, e.g. 'feed/home'.
 	 */
 	private function resolve_hub_template( string $hub ): ?string {
+		// Non-hub routes without a descriptor resolve here: the single-post
+		// permalink, the settings sub-tabs, and the moderation queue (post folds
+		// into feed; settings + moderation get descriptors — plan Phase 4). Every
+		// hub, core or addon, resolves through its descriptor's resolve_template
+		// callback in the default branch, so there is one path.
 		switch ( $hub ) {
-			case 'feed':
-				$section = (string) get_query_var( 'bn_feed_section', '' );
-				if ( 'bookmarks' === $section ) {
-					return 'feed/bookmarks.php';
-				}
-				if ( 'account-status' === $section ) {
-					return 'moderation/account-status.php';
-				}
-				$action = (string) get_query_var( 'bn_activity_action', '' );
-				switch ( $action ) {
-					case 'explore':
-						return 'feed/explore.php';
-					case 'hashtag':
-						return 'hashtags/feed.php';
-					case 'search':
-						return 'search/results.php';
-					case 'leaderboard':
-						return 'gamification/leaderboard.php';
-					default:
-						return 'feed/home.php';
-				}
-
 			case 'post':
 				return 'feed/single-post.php';
-
-			case 'people':
-				$user_slug = (string) get_query_var( 'bn_user_slug', '' );
-				if ( '' !== $user_slug ) {
-					$profile_action = (string) get_query_var( 'bn_profile_action', '' );
-					switch ( $profile_action ) {
-						case 'edit':
-							return 'profile/edit.php';
-						default:
-							// `media` (and any other profile action without a
-							// dedicated template) opens the profile view; view.php
-							// deep-links the matching tab from bn_profile_action.
-							return 'profile/view.php';
-					}
-				}
-				return 'directory/members.php';
-
-			case 'spaces':
-				$space_slug = (string) get_query_var( 'bn_space_slug', '' );
-				if ( '' !== $space_slug ) {
-					$space_action = (string) get_query_var( 'bn_space_action', '' );
-					switch ( $space_action ) {
-						case 'members':
-							return 'spaces/members.php';
-						case 'moderation':
-							return 'spaces/moderation.php';
-						case 'settings':
-							return 'spaces/settings.php';
-						case 'admin':
-							return 'spaces/admin.php';
-						default:
-							// feed / about / media (+ any in-page integration tab)
-							// render the space home, which reads bn_space_action for
-							// the active tab. Members + Moderation keep their richer
-							// standalone pages (full member management / report queue).
-							return 'spaces/home.php';
-					}
-				}
-				return 'spaces/directory.php';
-
-			case 'messages':
-				$conv_id    = (int) get_query_var( 'bn_conv_id', 0 );
-				$msg_action = (string) get_query_var( 'bn_msg_action', '' );
-				if ( $conv_id > 0 ) {
-					return 'messages/thread.php';
-				}
-				if ( 'requests' === $msg_action ) {
-					return 'messages/requests.php';
-				}
-				return 'messages/list.php';
-
-			case 'notifications':
-				// No prefs branch: the preferences form is the Settings hub's
-				// Notifications tab and renders settings/notifications.php.
-				return 'notifications/index.php';
 
 			case 'settings':
 				$settings_section = (string) get_query_var( 'bn_settings_section', '' );
@@ -2081,29 +2219,8 @@ class PageRouter {
 				}
 				return 'settings/' . $settings_section . '.php';
 
-			case 'auth':
-				$auth_action = (string) get_query_var( 'bn_auth_action', '' );
-				switch ( $auth_action ) {
-					case 'signup':
-						return 'auth/signup.php';
-					case 'complete':
-						return 'auth/complete.php';
-					case 'verify':
-						return 'auth/verify.php';
-					case 'reset':
-						return 'auth/reset.php';
-					case 'connect-app':
-						return 'auth/connect-app.php';
-					case 'login':
-					default:
-						return 'auth/login.php';
-				}
-
 			case 'moderation':
 				return 'moderation/queue.php';
-
-			case 'onboarding':
-				return 'onboarding/index.php';
 
 			default:
 				$bn_descriptor = HubRegistry::instance()->get( $hub );
@@ -2131,8 +2248,16 @@ class PageRouter {
 		add_rewrite_tag( '%bn_hashtag%', '([^/]+)' );
 		add_rewrite_tag( '%bn_user_slug%', '([^/]+)' );
 		add_rewrite_tag( '%bn_profile_action%', '([^/]*)' );
+		// A third profile path segment for a tab that addresses one entity by a
+		// clean URL — today the Files tab's document view
+		// (/members/{slug}/files/{id}/), mirroring %bn_space_sub% for spaces.
+		add_rewrite_tag( '%bn_profile_sub%', '([^/]+)' );
 		add_rewrite_tag( '%bn_space_slug%', '([^/]+)' );
 		add_rewrite_tag( '%bn_space_action%', '([^/]*)' );
+		// A third path segment for a tab that addresses a single entity by a clean
+		// URL — today the Files tab's document view (/spaces/{slug}/files/{id}/).
+		// Generic on purpose so any tab can adopt one without a new rule.
+		add_rewrite_tag( '%bn_space_sub%', '([^/]+)' );
 		add_rewrite_tag( '%bn_conv_id%', '([0-9]+)' );
 		add_rewrite_tag( '%bn_msg_action%', '([^/]*)' );
 		add_rewrite_tag( '%bn_auth_action%', '([a-z-]+)' );
@@ -2141,20 +2266,19 @@ class PageRouter {
 		add_rewrite_tag( '%bn_feed_section%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_legacy_search%', '([01])' );
 
-		$this->register_activity_rules();
-		$this->register_post_rules();
-		$this->register_bookmarks_rules();
-		$this->register_people_rules();
-		$this->register_spaces_rules();
-		$this->register_messages_rules();
-		$this->register_notifications_rules();
-		$this->register_settings_rules();
-		$this->register_auth_rules();
-		$this->register_moderation_rules();
-		$this->register_onboarding_rules();
+		// Non-hub routes that have no descriptor: single-post permalink, the
+		// settings sub-tabs, and the moderation queue. These stay explicit until
+		// they gain their own descriptors (post folds into feed; settings +
+		// moderation get descriptors — plan Phase 4).
+		self::register_post_rules();
+		self::register_settings_rules();
+		self::register_moderation_rules();
 
-		// Addon hubs (registered via buddynext_register_hubs) declare their own
-		// rewrite rules through the registry.
+		// Every hub — core and addon — registers its own rewrite rules through
+		// its descriptor's register_rules callback. Core hubs now ride the exact
+		// same seam an addon does (CoreHubs wires register_feed_rules,
+		// register_people_rules, … onto their descriptors), so there is one path,
+		// not a parallel hardcoded call list that could drift.
 		foreach ( HubRegistry::instance()->all() as $bn_hub ) {
 			if ( is_callable( $bn_hub->register_rules ) ) {
 				( $bn_hub->register_rules )();
@@ -2167,7 +2291,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_activity_rules(): void {
+	public static function register_activity_rules(): void {
 		$a = self::hub_slug( 'buddynext_slug_activity', 'activity' );
 
 		add_rewrite_rule(
@@ -2236,7 +2360,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_bookmarks_rules(): void {
+	public static function register_bookmarks_rules(): void {
 		add_rewrite_rule(
 			'^me/bookmarks/?$',
 			'index.php?bn_hub=feed&bn_feed_section=bookmarks',
@@ -2254,7 +2378,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_people_rules(): void {
+	public static function register_people_rules(): void {
 		$p = self::hub_slug( 'buddynext_slug_people', 'members' );
 
 		// Generic profile sub-route: ANY tab slug becomes a pretty URL
@@ -2264,6 +2388,14 @@ class PageRouter {
 		// deep-link without a ?tab= query arg. resolve_hub_template() sends
 		// 'edit' to the edit template; every other action renders the profile
 		// view, which activates the matching tab from bn_profile_action.
+		// Three-segment tab entity: /members/{slug}/files/{doc_id}/ deep-links the
+		// Files tab's single-document view. Registered BEFORE the two-segment rule
+		// so /members/x/files/882/ is not swallowed as a two-segment match.
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/files/([^/]+)/?$',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=files&bn_profile_sub=$matches[2]',
+			'top'
+		);
 		add_rewrite_rule(
 			'^' . preg_quote( $p, '/' ) . '/([^/]+)/([^/]+)/?$',
 			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=$matches[2]',
@@ -2326,30 +2458,31 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_spaces_rules(): void {
+	public static function register_spaces_rules(): void {
 		$s = self::hub_slug( 'buddynext_slug_spaces', 'spaces' );
 
 		// Pretty "My Spaces" directory views: /spaces/mine/ (sectioned managed +
 		// joined) and /spaces/mine/managed|joined/ (one bucket, paginated). Added
-		// BEFORE the generic {slug} rules below — add_rewrite_rule( 'top' ) preserves
-		// addition order within the top bucket, so these match first and "mine" is
-		// never read as a space slug. Reserves only the word "mine" as a non-slug.
-		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/mine/(managed|joined)/?$',
-			'index.php?bn_hub=spaces&bn_scope=mine&bn_membership=$matches[1]',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/mine/?$',
-			'index.php?bn_hub=spaces&bn_scope=mine',
-			'top'
-		);
+		// No dedicated /spaces/mine/ rule any more. It matched BEFORE the generic
+		// {slug} rules and set bn_scope directly, bypassing slug resolution
+		// entirely — which is why a space slugged "mine" could never be opened. The
+		// generic rules below capture it now and parse_query decides: a real space
+		// wins, and only an unclaimed word falls back to the My-Spaces view. Same
+		// URLs, one code path, entity first.
 
 		// One generic rule for every space sub-route: /spaces/{slug}/{action}/.
 		// The dispatcher (get_template_for) routes by action — content tabs
 		// (feed/members/about/media/moderation) all render spaces/home.php so the
 		// space nav is one consistent clean-URL surface; settings/admin keep their
 		// own config screens. Any action slug (incl. integration tabs) is captured.
+		// A tab that addresses one entity by a clean URL: /spaces/{slug}/{action}/{sub}/.
+		// Anchored, so it never overlaps the two-segment tab rule below. The tab's
+		// render callback reads bn_space_sub (the Files tab treats it as a document id).
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/([^/]+)/([^/]+)/([^/]+)/?$',
+			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=$matches[2]&bn_space_sub=$matches[3]',
+			'top'
+		);
 		add_rewrite_rule(
 			'^' . preg_quote( $s, '/' ) . '/([^/]+)/([^/]+)/?$',
 			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=$matches[2]',
@@ -2372,7 +2505,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_messages_rules(): void {
+	public static function register_messages_rules(): void {
 		$m = self::hub_slug( 'buddynext_slug_messages', 'messages' );
 
 		add_rewrite_rule(
@@ -2397,7 +2530,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_notifications_rules(): void {
+	public static function register_notifications_rules(): void {
 		$n = self::hub_slug( 'buddynext_slug_notifications', 'notifications' );
 
 		// /notifications/preferences/ — the legacy alias. It resolves to the SETTINGS
@@ -2484,7 +2617,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_auth_rules(): void {
+	public static function register_auth_rules(): void {
 		$a = self::hub_slug( 'buddynext_slug_auth', 'login' );
 
 		// Sub-routes first (more specific), bare hub last. The `$` anchors mean
@@ -2533,7 +2666,7 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
-	private function register_onboarding_rules(): void {
+	public static function register_onboarding_rules(): void {
 		$o = self::hub_slug( 'buddynext_slug_onboarding', 'onboarding' );
 
 		add_rewrite_rule(
@@ -2568,24 +2701,50 @@ class PageRouter {
 
 		$raw_space_slug = (string) $query->get( 'bn_space_slug', '' );
 		if ( '' !== $raw_space_slug ) {
-			// Reserved directory-scope words are never space slugs. If the generic
-			// /spaces/{slug}/ rewrite rule captured "mine" (it out-orders the pretty
-			// /spaces/mine/ rule on installs where Learnomy/other plugins inject an
-			// early spaces/{slug} rule), re-route to the My-Spaces directory view
-			// instead of resolving a non-existent space (which 404s "Space not
-			// found."). Order-independent — no reliance on rewrite-rule priority.
-			$reserved = (array) apply_filters( 'buddynext_reserved_space_slugs', array( 'mine' ) );
-			if ( in_array( $raw_space_slug, $reserved, true ) ) {
-				$query->set( 'bn_scope', 'mine' );
-				$action = sanitize_key( (string) $query->get( 'bn_space_action', '' ) );
-				if ( 'managed' === $action || 'joined' === $action ) {
-					$query->set( 'bn_membership', $action );
-				}
-				$query->set( 'bn_space_slug', '' );
-				$query->set( 'bn_space_action', '' );
-			} else {
-				$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
+			// THE ENTITY WINS. A path segment in entity position is a space slug
+			// first and a directory-scope word only if no space owns it.
+			//
+			// This used to be the other way round: "mine" short-circuited to the
+			// My-Spaces view before resolve_space() was ever asked, so a space
+			// actually slugged "mine" was unreachable at its own URL — measured
+			// before the fix, /spaces/mine/ served the Spaces LISTING while
+			// /spaces/open-discussion/ served its space. Nothing stopped that space
+			// being created, either: bn_spaces.slug is UNIQUE but carries no
+			// reserved-word guard, so the owner got a space they could not open.
+			//
+			// Resolving first costs one indexed lookup on a route that already does
+			// one for every other slug, and it keeps the legacy URL working: with no
+			// space named "mine", /spaces/mine/ still lands on My Spaces exactly as
+			// before. No redirect, no broken links, and the word stops being
+			// reserved — it is simply a slug nobody has taken.
+			$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
+
+			if ( $space_id > 0 ) {
 				$query->set( 'bn_resolved_space_id', $space_id );
+			} else {
+				/**
+				 * Directory-scope words that /spaces/{word}/ falls back to when no
+				 * space owns that slug.
+				 *
+				 * @since 1.0.0
+				 *
+				 * @param string[] $scopes Fallback scope words.
+				 */
+				$scopes = (array) apply_filters( 'buddynext_reserved_space_slugs', array( 'mine' ) );
+
+				if ( in_array( $raw_space_slug, $scopes, true ) ) {
+					$query->set( 'bn_scope', 'mine' );
+					$action = sanitize_key( (string) $query->get( 'bn_space_action', '' ) );
+					if ( 'managed' === $action || 'joined' === $action ) {
+						$query->set( 'bn_membership', $action );
+					}
+					$query->set( 'bn_space_slug', '' );
+					$query->set( 'bn_space_action', '' );
+				} else {
+					// A genuinely unknown slug still resolves to 0, which is what
+					// the "Space not found" surface reads.
+					$query->set( 'bn_resolved_space_id', $space_id );
+				}
 			}
 		}
 	}
@@ -2650,20 +2809,16 @@ class PageRouter {
 	 * @return int Page ID, or 0 when the hub has no mapped page.
 	 */
 	public static function hub_page_id( string $hub ): int {
-		$map = array(
-			'feed'          => 'buddynext_page_activity',
-			'people'        => 'buddynext_page_people',
-			'spaces'        => 'buddynext_page_spaces',
-			'messages'      => 'buddynext_page_messages',
-			'notifications' => 'buddynext_page_notifications',
-			'auth'          => 'buddynext_page_auth',
-		);
-
-		if ( ! isset( $map[ $hub ] ) ) {
+		// Resolve the page option from the hub registry, not a hardcoded core-only
+		// map: any hub registered with backing_page:true (including addon hubs via
+		// buddynext_register_hubs) then resolves its SEO/queried-object page, and a
+		// non-page-backed hub (onboarding, community-admin) correctly returns 0.
+		$descriptor = HubRegistry::instance()->get( $hub );
+		if ( ! $descriptor instanceof HubDescriptor || ! $descriptor->backing_page ) {
 			return 0;
 		}
 
-		$page_id = (int) get_option( $map[ $hub ], 0 );
+		$page_id = (int) get_option( $descriptor->page_option, 0 );
 
 		return ( $page_id > 0 && 'page' === get_post_type( $page_id ) ) ? $page_id : 0;
 	}
@@ -3137,10 +3292,29 @@ class PageRouter {
 	/**
 	 * Check whether a profile slug is available for a given user to claim.
 	 *
+	 * THE RULE: this must refuse everything resolve_user() can resolve. The two
+	 * are a matched pair — one decides who owns a URL, the other decides who may
+	 * take one — and when they disagree the gap is claimable.
+	 *
+	 * They did disagree. resolve_user() has always resolved by bn_profile_slug,
+	 * then user-{id}, then user_nicename. This checked only the FIRST of the
+	 * three, so every member without a custom slug — who routes by nicename, the
+	 * default for a whole site — read as "available" and another member could
+	 * take their profile URL. Verified before the fix: is_slug_available(
+	 * 'sim_member', $other ) returned true and PUT /me/profile-slug returned 200
+	 * with the victim's own URL (Basecamp 10251987462).
+	 *
+	 * Every writer funnels through here — the REST set and check routes, the
+	 * admin member editor, ProfileService::save and onboarding — so the union is
+	 * enforced once rather than five times.
+	 *
 	 * A slug is unavailable when:
 	 *   - Another user already holds it as bn_profile_slug usermeta.
-	 *   - It matches the reserved "user-{numeric_id}" pattern for any user
-	 *     other than the requesting user.
+	 *   - Another user holds it as their user_nicename.
+	 *   - It matches the reserved "user-{numeric_id}" pattern for another user.
+	 *   - It is a reserved word (see buddynext_reserved_profile_slugs).
+	 *
+	 * @since 1.0.0
 	 *
 	 * @param string $slug    Proposed slug (sanitized with sanitize_title internally).
 	 * @param int    $user_id User requesting the slug (excluded from conflict checks).
@@ -3152,8 +3326,47 @@ class PageRouter {
 			return false;
 		}
 
+		// Usable at all? Charset and length, before any uniqueness lookup — an
+		// unusable handle is not "taken", it is not a handle. Handle::validate()
+		// owns both rules so the five writers that reach this function cannot
+		// disagree about what a handle is.
+		//
+		// The charset half matters more than it looks: sanitize_title() PERCENT-
+		// ENCODES anything outside Latin, so an emoji became %f0%9f%98%80 and a
+		// non-Latin script became a run of %-escapes. Both were accepted with a
+		// 200, produced a double-encoded profile URL, and were unmentionable —
+		// Handle::mention_regex() stops at `%`, so the member could never be
+		// @mentioned again. HandleRepair already used is_safe() to repair
+		// nicenames in that state; nothing stopped a member creating one here.
+		if ( is_wp_error( \BuddyNext\Profile\Handle::validate( $slug ) ) ) {
+			return false;
+		}
+
 		// Block the reserved "user-{id}" pattern for any other user's ID.
 		if ( preg_match( '/^user-(\d+)$/', $slug, $m ) && (int) $m[1] !== $user_id ) {
+			return false;
+		}
+
+		if ( in_array( $slug, self::reserved_profile_slugs(), true ) ) {
+			return false;
+		}
+
+		// A handle somebody USED to hold stays theirs. Without this, Alice renames,
+		// Bob takes @alice, and every mention of @alice written before the rename
+		// silently becomes a mention of Bob — which bites harder in a small
+		// community, where people trust the handle precisely because everyone is
+		// known. No timer and no cooldown: the history is the protection, and it
+		// is the same record that keeps her old links working.
+		$previous_owner = \BuddyNext\Profile\Handle::previous_owner( $slug );
+		if ( $previous_owner instanceof \WP_User && (int) $previous_owner->ID !== $user_id ) {
+			return false;
+		}
+
+		// user_nicename. Checked EVEN IF that member also has a custom slug: the
+		// nicename stays a live fallback in resolve_user(), so their old URL still
+		// reaches them and handing it to someone else would silently redirect it.
+		$nicename_owner = get_user_by( 'slug', $slug );
+		if ( $nicename_owner instanceof \WP_User && (int) $nicename_owner->ID !== $user_id ) {
 			return false;
 		}
 
@@ -3171,6 +3384,48 @@ class PageRouter {
 		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 
 		return empty( $taken_by_meta );
+	}
+
+	/**
+	 * Profile slugs no member may claim.
+	 *
+	 * Deliberately SHORT, and honest about what it is: defence in depth, not a
+	 * fix for a live collision. Measured on 1.1.6 — a member holding the slug
+	 * `edit` gets /members/edit/ and it resolves to them, while
+	 * /members/someone/edit/ still reaches the edit screen. The members rewrite
+	 * takes the first segment as a slug and the second as the action, so a
+	 * one-word slug cannot shadow a two-segment route today.
+	 *
+	 * What it guards is tomorrow: the moment anyone adds a LISTING route under
+	 * the members base — /members/search/, /members/online/ — a member already
+	 * holding that word shadows it, and by then the slug is in their profile URL
+	 * and in links other people have shared. Refusing a handful of routing words
+	 * now costs nothing; reclaiming one later costs a member their URL.
+	 *
+	 * `me` is here for a second reason: BuddyNext already routes /me/... at the
+	 * top level, and a member whose profile is /members/me/ makes every "me"
+	 * link in support ambiguous to read.
+	 *
+	 * Owners extend it — a brand term, a landing page they intend to add — and
+	 * an owner who wants none of it can return an empty array.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return string[] Sanitized, lowercase slugs.
+	 */
+	public static function reserved_profile_slugs(): array {
+		$reserved = array( 'me', 'edit', 'settings', 'admin', 'search', 'new', 'all' );
+
+		/**
+		 * Filter the profile slugs no member may claim.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param string[] $reserved Default reserved slugs.
+		 */
+		$reserved = (array) apply_filters( 'buddynext_reserved_profile_slugs', $reserved );
+
+		return array_values( array_filter( array_map( 'sanitize_title', $reserved ) ) );
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────
@@ -3253,13 +3508,20 @@ class PageRouter {
 	 * @return string
 	 */
 	private static function default_slug( string $option_name ): string {
-		// Hub defaults come from the registry (which now includes community_admin
-		// and overrides this map at runtime); the literal here is the pre-registry
-		// fallback for any very-early caller, kept in sync with the descriptor.
-		$map = array( 'buddynext_slug_community_admin' => 'community-admin' );
+		// The registry is the only source of hub default slugs (community_admin
+		// included). No literal fallback map: an option no hub owns is a caller
+		// bug, not a hub with a 'community' slug.
 		foreach ( HubRegistry::instance()->all() as $hub ) {
-			$map[ $hub->slug_option ] = $hub->default_slug;
+			if ( $hub->slug_option === $option_name ) {
+				return $hub->default_slug;
+			}
 		}
-		return $map[ $option_name ] ?? 'community';
+		// Unknown option: surface it in debug rather than silently routing to a
+		// slug no hub owns. Empty means "no default", so hub_slug() falls back to
+		// whatever the option stores (or '').
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			_doing_it_wrong( __METHOD__, esc_html( "No registered hub owns slug option '{$option_name}'." ), '1.2.0' );
+		}
+		return '';
 	}
 }

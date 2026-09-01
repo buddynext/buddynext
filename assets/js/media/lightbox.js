@@ -43,6 +43,14 @@
 			download: overlay.querySelector( '[data-bn-lb-download]' ),
 			form:     overlay.querySelector( '[data-bn-lb-comment-form]' ),
 			input:    overlay.querySelector( '[data-bn-lb-comment-input]' ),
+			save:     overlay.querySelector( '[data-bn-lb-save]' ),
+			edit:     overlay.querySelector( '[data-bn-lb-edit]' ),
+			unlink:   overlay.querySelector( '[data-bn-lb-unlink]' ),
+			more:     overlay.querySelector( '[data-bn-lb-more]' ),
+			moreWrap: overlay.querySelector( '[data-bn-lb-more-wrap]' ),
+			menu:     overlay.querySelector( '[data-bn-lb-menu]' ),
+			extra:    overlay.querySelector( '[data-bn-lb-panel]' ),
+			fullscr:  overlay.querySelector( '[data-bn-lb-fullscreen]' ),
 			// DM full-bleed chrome (sender + download float over the stage; the
 			// side panel is hidden for private 1:1 media).
 			dmAuthor:   overlay.querySelector( '[data-bn-lb-dm-author]' ),
@@ -70,6 +78,18 @@
 			panel.report.addEventListener( 'click', report );
 		}
 		if ( panel.block ) { panel.block.addEventListener( 'click', blockAuthor ); }
+		if ( panel.edit ) { panel.edit.addEventListener( 'click', function () { closeMenu(); openEditPanel(); } ); }
+		if ( panel.save ) { panel.save.addEventListener( 'click', openSavePanel ); }
+		if ( panel.unlink ) { panel.unlink.addEventListener( 'click', unlinkFromSpace ); }
+		// The ⋯ overflow: toggle on the trigger, close on outside-click / Escape and
+		// after any item is chosen.
+		if ( panel.more ) {
+			panel.more.addEventListener( 'click', function ( e ) { e.stopPropagation(); toggleMenu(); } );
+		}
+		document.addEventListener( 'click', function ( e ) {
+			if ( panel.moreWrap && ! panel.moreWrap.contains( e.target ) ) { closeMenu(); }
+		} );
+		if ( panel.fullscr ) { panel.fullscr.addEventListener( 'click', toggleFullscreen ); }
 		var shareBtn = overlay.querySelector( '[data-bn-lb-share]' );
 		if ( shareBtn ) { shareBtn.addEventListener( 'click', share ); }
 		// Comment submit.
@@ -180,11 +200,20 @@
 		// and author (from the meta fetch above) are all that show.
 		if ( isDM ) { return; }
 
-		// Guests can only view + download: the interaction controls aren't rendered
-		// for logged-out visitors (see media-lightbox.php) and every call below is
-		// auth-only, so skip them (no 401 noise, no null panel) and just track the
-		// view best-effort — mirrors the DM skip above.
+		// Guests cannot WRITE: favorite/react/report controls are not rendered for
+		// them (see media-lightbox.php) and those calls are auth-only, so skip
+		// them — no 401 noise, no null panel.
+		//
+		// Comments are NOT in that group. GET /media/{id}/comments answers 200
+		// with the thread to an anonymous caller, so a guest is shown the
+		// conversation and a "Log in to comment." line instead of a media that
+		// looks like nobody has ever said anything about it. Bailing before this
+		// was the JS half of that bug; the template gated the panel, this gated
+		// the fetch, and either alone was enough to hide the thread.
 		if ( ! LOGGED_IN ) {
+			api( '/media/' + id + '/comments' ).then( function ( list ) {
+				if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
+			} ).catch( function () {} );
 			api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
 			return;
 		}
@@ -216,6 +245,63 @@
 	// The uploader of the media currently open. Needed for Block (which blocks the MEMBER, not
 	// the file) and to hide both controls on your own media — nobody reports themselves.
 	var currentAuthorId = 0;
+	// The media payload for whatever is open — Edit prefills from it.
+	var currentMedia = null;
+	// The space this media sits on when the viewer may unlink it (0 otherwise).
+	var currentSpaceId = 0;
+
+	function openMenu() {
+		if ( ! panel.menu || ! panel.more ) { return; }
+		panel.menu.hidden = false;
+		panel.more.setAttribute( 'aria-expanded', 'true' );
+	}
+	function closeMenu() {
+		if ( ! panel.menu || ! panel.more ) { return; }
+		panel.menu.hidden = true;
+		panel.more.setAttribute( 'aria-expanded', 'false' );
+	}
+	function toggleMenu() {
+		if ( panel.menu && panel.menu.hidden ) { openMenu(); } else { closeMenu(); }
+	}
+
+	// Hide the ⋯ trigger entirely when every item in the menu is hidden for this
+	// media — an empty overflow is noise, not an affordance.
+	function syncMore() {
+		if ( ! panel.moreWrap || ! panel.menu ) { return; }
+		var anyVisible = Array.prototype.some.call(
+			panel.menu.querySelectorAll( '[role="menuitem"]' ),
+			function ( it ) { return ! it.hidden; }
+		);
+		panel.moreWrap.hidden = ! anyVisible;
+		if ( ! anyVisible ) { closeMenu(); }
+	}
+
+	// Moderator "Remove from space" — returns the item to its owner's own drive
+	// (kept, private), not a delete. The confirm + result strings come from the
+	// server i18n dictionary. On success the item is gone from the space, so the
+	// lightbox closes.
+	function unlinkFromSpace() {
+		if ( ! current || currentSpaceId <= 0 ) { return; }
+		closeMenu();
+		var msg = I18N.unlinkConfirm || 'Remove this from the space?';
+		Promise.resolve(
+			typeof window.bnConfirm === 'function'
+				? window.bnConfirm( { title: msg, tone: 'danger' } )
+				: window.confirm( msg )
+		).then( function ( ok ) {
+			if ( ! ok ) { return; }
+			window.buddynextRest.restFetch( '/spaces/' + currentSpaceId + '/media/' + current + '/unlink', {
+				nonce: cfg.nonce || '', method: 'POST', toastOnError: false,
+			} ).then( function ( res ) {
+				if ( res && res.ok ) {
+					if ( typeof window.bnToast === 'function' ) { window.bnToast( I18N.unlinkDone || 'Removed from the space.', { tone: 'success' } ); }
+					close();
+				} else if ( typeof window.bnToast === 'function' ) {
+					window.bnToast( I18N.unlinkFail || 'Could not remove it from the space.', { tone: 'danger' } );
+				}
+			} );
+		} );
+	}
 
 	function applyAbuseControls( m ) {
 		// WPMediaVerse's media payload carries the uploader's numeric id as `author`
@@ -229,6 +315,17 @@
 		// one environment on earth where it worked. QA caught it by reading the INSTALLED code.
 		currentAuthorId = parseInt( ( m && m.author ) || 0, 10 ) || 0;
 
+		currentMedia = m || null;
+		closeExtraPanel();
+
+		// Edit follows the engine's own `can_edit` on the media payload — viewer
+		// relative, and computed by the same code that enforces PATCH. Measured:
+		// owner true, another member false, anonymous false. Re-deriving "is this
+		// mine" here would be a second copy of a rule the server already answers.
+		if ( panel.edit ) { panel.edit.hidden = ! ( LOGGED_IN && m && m.can_edit ); }
+		// Collections are Pro. Probed once per open; hidden when the route is absent.
+		if ( panel.save ) { panel.save.hidden = ! LOGGED_IN; }
+
 		var mine = ! currentAuthorId || currentAuthorId === ( parseInt( cfg.userId, 10 ) || 0 );
 		// cfg.canReport mirrors WPMediaVerse's `mvs_reports_enabled` filter. If a site turns
 		// reporting off, the endpoint answers 403 — so the button must not be there at all.
@@ -237,6 +334,27 @@
 
 		if ( panel.report ) { panel.report.hidden = ! canReport; }
 		if ( panel.block ) { panel.block.hidden = ! canBlock; }
+
+		// Moderator unlink: hidden until a BN check says this media is on a space
+		// drive AND the viewer may moderate that space. Reset first (the panel is
+		// reused across media), then resolve async and re-sync the ⋯ visibility.
+		currentSpaceId = 0;
+		if ( panel.unlink ) { panel.unlink.hidden = true; }
+		syncMore();
+		if ( LOGGED_IN && panel.unlink && current ) {
+			var forId = current;
+			window.buddynextRest.restFetch( '/media/' + current + '/space-context', {
+				nonce: cfg.nonce || '', method: 'GET', toastOnError: false,
+			} ).then( function ( res ) {
+				// Ignore a stale response if the viewer already moved to another item.
+				if ( forId !== current || ! res || ! res.ok || ! res.data || ! res.data.can_unlink ) { return; }
+				currentSpaceId = parseInt( res.data.space_id, 10 ) || 0;
+				if ( currentSpaceId > 0 ) {
+					panel.unlink.hidden = false;
+					syncMore();
+				}
+			} );
+		}
 	}
 
 	function renderAuthor( m, target ) {
@@ -335,6 +453,17 @@
 	function report() {
 		if ( ! requireLogin() || ! current ) { return; }
 
+		/*
+		 * NOT BuddyNext's report vocabulary, and deliberately not read from the
+		 * shared one. A media report goes to WPMediaVerse's endpoint, which
+		 * validates against its OWN enum — nudity / violence / copyright, and no
+		 * inappropriate / impersonation. Passing BuddyNext's list (or a reason an
+		 * owner added through buddynext_report_reasons) would be rejected as an
+		 * invalid reason, so this list belongs to the queue that receives it.
+		 *
+		 * Reviewed as part of unifying the other four copies (card 10244744986):
+		 * this one is a different contract, not a duplicate.
+		 */
 		var reasons = [
 			[ 'spam',           __( 'Spam', 'buddynext' ) ],
 			[ 'harassment',     __( 'Harassment or hate speech', 'buddynext' ) ],
@@ -509,25 +638,335 @@
 		if ( ! list.length ) {
 			var empty = document.createElement( 'p' );
 			empty.className = 'bn-lightbox__comments-empty';
-			empty.textContent = I18N.noComments || 'No comments yet. Be the first to say something!';
+			empty.textContent = I18N.noComments || 'No comments on this photo yet.';
 			panel.comments.appendChild( empty );
 			return;
 		}
 		list.forEach( function ( c ) { panel.comments.appendChild( commentEl( c ) ); } );
 	}
 
+	/**
+	 * One comment row, with the controls the SERVER says this viewer may use.
+	 *
+	 * `can_edit` and `can_delete` come from the engine per comment and per
+	 * viewer, computed from the same code that enforces the routes: author-only
+	 * edit inside the `mvs_comment_edit_window`, delete for the author or a
+	 * moderator. So this reads them rather than re-deriving ownership and the
+	 * edit window here — a second copy of those rules is how a UI ends up
+	 * offering a control that 403s, or hiding one the API allows.
+	 */
 	function commentEl( c ) {
 		var row = document.createElement( 'div' );
 		row.className = 'bn-lightbox__comment';
+
 		var name = document.createElement( 'strong' );
 		name.className = 'bn-lightbox__comment-author';
 		name.textContent = c.author_name || c.author || c.name || '';
+
 		var body = document.createElement( 'span' );
 		body.className = 'bn-lightbox__comment-text';
 		body.textContent = c.content || c.comment_content || c.text || '';
+
 		row.appendChild( name );
 		row.appendChild( body );
+
+		if ( ! c.can_edit && ! c.can_delete ) {
+			return row;
+		}
+
+		var actions = document.createElement( 'span' );
+		actions.className = 'bn-lightbox__comment-actions';
+
+		if ( c.can_edit ) {
+			actions.appendChild( commentAction( __( 'Edit' ), 'edit', function () {
+				startEditComment( row, c );
+			} ) );
+		}
+		if ( c.can_delete ) {
+			actions.appendChild( commentAction( __( 'Delete' ), 'delete', function () {
+				deleteComment( row, c );
+			} ) );
+		}
+
+		row.appendChild( actions );
 		return row;
+	}
+
+	/** A micro text button for a comment row — not a full-size form button. */
+	function commentAction( label, variant, onClick ) {
+		var b = document.createElement( 'button' );
+		b.type = 'button';
+		b.className = 'bn-lightbox__comment-action bn-lightbox__comment-action--' + variant;
+		b.textContent = label;
+		b.addEventListener( 'click', onClick );
+		return b;
+	}
+	// A real form button for the Edit / Save panels (primary or ghost), so their
+	// footer reads as buttons, not the plain text-links the comment actions use.
+	function panelBtn( label, variant, onClick ) {
+		var b = document.createElement( 'button' );
+		b.type = 'button';
+		b.className = 'bn-btn';
+		b.setAttribute( 'data-variant', variant );
+		b.setAttribute( 'data-size', 'sm' );
+		b.textContent = label;
+		b.addEventListener( 'click', onClick );
+		return b;
+	}
+
+	/** Swap a comment row for an inline edit field. */
+	function startEditComment( row, c ) {
+		if ( row.querySelector( '.bn-lightbox__comment-edit' ) ) { return; }
+
+		var wrap = document.createElement( 'span' );
+		wrap.className = 'bn-lightbox__comment-edit';
+
+		var input = document.createElement( 'input' );
+		input.type = 'text';
+		input.className = 'bn-lightbox__comment-edit-input';
+		input.value = c.content || '';
+		input.setAttribute( 'aria-label', __( 'Edit comment' ) );
+
+		var save = commentAction( __( 'Save' ), 'save', function () {
+			var text = ( input.value || '' ).trim();
+			if ( ! text || ! current ) { return; }
+			api( '/media/' + current + '/comments/' + c.id, { method: 'PATCH', json: { content: text } } )
+				.then( reloadComments )
+				.catch( function () {} );
+		} );
+		var cancel = commentAction( __( 'Cancel' ), 'cancel', reloadComments );
+
+		wrap.appendChild( input );
+		wrap.appendChild( save );
+		wrap.appendChild( cancel );
+		clear( row );
+		row.appendChild( wrap );
+		input.focus();
+	}
+
+	/**
+	 * Delete, behind a two-step inline confirm.
+	 *
+	 * Inline rather than the shared modal: this script depends only on wp-i18n,
+	 * so `window.bnConfirm` is not guaranteed to be on the page, and deleting on
+	 * a single click when it happens to be absent is not an acceptable fallback.
+	 * `window.confirm` is not an option either. Asking in the row itself needs
+	 * nothing and cannot silently degrade.
+	 */
+	function deleteComment( row, c ) {
+		if ( ! current ) { return; }
+
+		var ask = document.createElement( 'span' );
+		ask.className = 'bn-lightbox__comment-confirm';
+
+		var label = document.createElement( 'span' );
+		label.className = 'bn-lightbox__comment-confirm-text';
+		label.textContent = __( 'Delete this comment?' );
+
+		var yes = commentAction( __( 'Delete' ), 'delete', function () {
+			api( '/media/' + current + '/comments/' + c.id, { method: 'DELETE' } )
+				.then( reloadComments )
+				.catch( reloadComments );
+		} );
+		var no = commentAction( __( 'Cancel' ), 'cancel', reloadComments );
+
+		ask.appendChild( label );
+		ask.appendChild( yes );
+		ask.appendChild( no );
+		clear( row );
+		row.appendChild( ask );
+		yes.focus();
+	}
+
+	/** Re-read the thread from the engine so every row's flags are current. */
+	/**
+	 * Fullscreen: give the media the whole overlay and stand the side panel down.
+	 *
+	 * A CSS class rather than the Fullscreen API — requestFullscreen() takes over
+	 * the whole screen and swallows Escape, so the viewer's own close-on-Escape
+	 * would stop working and a member would have to press it twice to get out.
+	 * This keeps every existing control behaving exactly as it does normally.
+	 */
+	function toggleFullscreen() {
+		if ( ! overlay || ! panel.fullscr ) { return; }
+		var on = ! overlay.classList.contains( 'bn-lightbox--fullscreen' );
+		overlay.classList.toggle( 'bn-lightbox--fullscreen', on );
+		panel.fullscr.setAttribute( 'aria-pressed', on ? 'true' : 'false' );
+	}
+
+	// ── Owner panel: Edit + Save ──────────────────────────────────────────────
+
+	function closeExtraPanel() {
+		if ( ! panel.extra ) { return; }
+		clear( panel.extra );
+		panel.extra.hidden = true;
+	}
+
+	function extraPanel() {
+		if ( ! panel.extra ) { return null; }
+		clear( panel.extra );
+		panel.extra.hidden = false;
+		return panel.extra;
+	}
+
+	function field( labelText, control ) {
+		var wrap = document.createElement( 'label' );
+		wrap.className = 'bn-lightbox__field';
+		var span = document.createElement( 'span' );
+		span.className = 'bn-lightbox__field-label';
+		span.textContent = labelText;
+		wrap.appendChild( span );
+		wrap.appendChild( control );
+		return wrap;
+	}
+
+	/**
+	 * Edit title / description / privacy / download, via PATCH on the media.
+	 *
+	 * The privacy choices come from the payload's `privacy_options` rather than a
+	 * list hardcoded here: the engine owns which levels exist (a Space level was
+	 * added in 2.4.0), and a copy on this side would be wrong the next time that
+	 * set changes.
+	 */
+	function openEditPanel() {
+		var m = currentMedia;
+		var host = extraPanel();
+		if ( ! host || ! m || ! current ) { return; }
+
+		var title = document.createElement( 'input' );
+		title.type = 'text';
+		title.className = 'bn-lightbox__field-input';
+		title.value = m.title || '';
+
+		var desc = document.createElement( 'textarea' );
+		desc.className = 'bn-lightbox__field-input';
+		desc.rows = 2;
+		desc.value = m.description || '';
+
+		var privacy = document.createElement( 'select' );
+		privacy.className = 'bn-lightbox__field-input';
+		var opts = m.privacy_options || {};
+		Object.keys( opts ).forEach( function ( k ) {
+			var o = document.createElement( 'option' );
+			var v = opts[ k ];
+			// privacy_options arrives either as {value: label} or as a list of
+			// {value,label} objects depending on the engine version; accept both
+			// rather than guessing one shape.
+			o.value = ( v && v.value ) ? v.value : k;
+			o.textContent = ( v && v.label ) ? v.label : String( v );
+			if ( o.value === m.privacy ) { o.selected = true; }
+			privacy.appendChild( o );
+		} );
+
+		var dl = document.createElement( 'input' );
+		dl.type = 'checkbox';
+		dl.className = 'bn-lightbox__field-check';
+		dl.checked = !! m.allow_download;
+
+		host.appendChild( field( __( 'Title' ), title ) );
+		host.appendChild( field( __( 'Description' ), desc ) );
+		host.appendChild( field( __( 'Privacy' ), privacy ) );
+		host.appendChild( field( __( 'Allow downloads' ), dl ) );
+
+		var actions = document.createElement( 'div' );
+		actions.className = 'bn-lightbox__panel-actions';
+		actions.appendChild( panelBtn( __( 'Save changes' ), 'primary', function () {
+			api( '/media/' + current, {
+				method: 'PATCH',
+				json: {
+					title: title.value,
+					description: desc.value,
+					privacy: privacy.value,
+					allow_download: dl.checked,
+				},
+			} ).then( function ( updated ) {
+				if ( updated && updated.id ) { currentMedia = updated; }
+				closeExtraPanel();
+			} ).catch( function () {} );
+		} ) );
+		actions.appendChild( panelBtn( __( 'Cancel' ), 'ghost', closeExtraPanel ) );
+		host.appendChild( actions );
+		title.focus();
+	}
+
+	/**
+	 * Save-to-collection. Pro surface: the route lives in mvs-pro, so a Free-only
+	 * site 404s here and the control removes itself rather than offering a save
+	 * that cannot happen.
+	 */
+	function openSavePanel() {
+		var host = extraPanel();
+		if ( ! host || ! current ) { return; }
+
+		var loading = document.createElement( 'p' );
+		loading.className = 'bn-lightbox__panel-note';
+		loading.textContent = I18N.posting || 'Loading…';
+		host.appendChild( loading );
+
+		var id = current;
+		window.buddynextRest.restFetch( '/media/' + id + '/collections', {
+			base: ( cfg.mvsRest || '' ).replace( /\/mvs\/v1\/?$/, '/mvs-pro/v1' ),
+			nonce: cfg.nonce || '',
+			toastOnError: false,
+		} ).then( function ( res ) {
+			if ( ! res.ok || current !== id ) {
+				if ( panel.save ) { panel.save.hidden = true; }
+				closeExtraPanel();
+				return;
+			}
+			renderCollections( host, id, res.data || {} );
+		} ).catch( function () {
+			if ( panel.save ) { panel.save.hidden = true; }
+			closeExtraPanel();
+		} );
+	}
+
+	function renderCollections( host, mediaId, status ) {
+		clear( host );
+		var list = ( status.collections && status.collections.length ) ? status.collections : [];
+		if ( ! list.length ) {
+			// Deliberately not "No collections yet" — the engine returns only
+			// MANUAL collections here, because a smart collection fills itself from
+			// its rules and cannot be added to by hand. A member with two smart
+			// collections and no manual ones would read "none yet" as a bug.
+			var none = document.createElement( 'p' );
+			none.className = 'bn-lightbox__panel-note';
+			none.textContent = __( 'No collections you can add to. Smart collections fill themselves from their rules.' );
+			host.appendChild( none );
+		}
+		list.forEach( function ( col ) {
+			var row = document.createElement( 'label' );
+			row.className = 'bn-lightbox__collection';
+			var box = document.createElement( 'input' );
+			box.type = 'checkbox';
+			box.checked = !! col.member;
+			box.addEventListener( 'change', function () {
+				window.buddynextRest.restFetch( '/media/' + mediaId + '/collections', {
+					base: ( cfg.mvsRest || '' ).replace( /\/mvs\/v1\/?$/, '/mvs-pro/v1' ),
+					nonce: cfg.nonce || '',
+					method: 'POST',
+					body: { collection_id: col.id, member: box.checked },
+					toastOnError: false,
+				} ).catch( function () { box.checked = ! box.checked; } );
+			} );
+			var name = document.createElement( 'span' );
+			name.textContent = col.title || ( '#' + col.id );
+			row.appendChild( box );
+			row.appendChild( name );
+			host.appendChild( row );
+		} );
+		var actions = document.createElement( 'div' );
+		actions.className = 'bn-lightbox__panel-actions';
+		actions.appendChild( commentAction( __( 'Done' ), 'cancel', closeExtraPanel ) );
+		host.appendChild( actions );
+	}
+
+	function reloadComments() {
+		if ( ! current ) { return; }
+		var id = current;
+		api( '/media/' + id + '/comments' ).then( function ( list ) {
+			if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
+		} ).catch( function () {} );
 	}
 
 	function addComment() {

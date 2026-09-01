@@ -6,7 +6,7 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 
 ## Overview / Contract
 
-- **Actions fire after the write commits.** Membership and lifecycle actions pass IDs, not hydrated rows. Re-fetch via `buddynext_service( 'space_service' )->get( $space_id )` when you need more than the IDs.
+- **Actions fire after the write commits.** Membership and lifecycle actions pass IDs, not hydrated rows. Re-fetch via `buddynext_service( 'spaces' )->get( $space_id )` when you need more than the IDs. The container key is `spaces`, not `space_service`.
 - **`buddynext_can_join_space` is the access gate.** It runs before any database work in both the direct-join and request-membership paths. Return `false` to block; BuddyNext then short-circuits with a `WP_Error` built by the denial path, and `buddynext_space_join_denied_data` lets you attach a payload (for example a Pro paywall) to that error.
 - **Removal vs ban are distinct events.** A ban also removes the membership, so a ban fires both `buddynext_space_member_removed` (so removal listeners such as cache busting always react) and `buddynext_space_user_banned` (so ban-specific listeners react). Listen to whichever matches your intent.
 - **Idempotent membership writes.** Joins, requests, and invites use `INSERT IGNORE`; their actions fire only when the membership state actually changes. Unban fires only when an active ban row was deleted.
@@ -18,6 +18,8 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_space_can_view_roster` | filter | A surface resolves whether a viewer may see a space's member roster | `bool $can_view, int $space_id, int $viewer_id, string $type` |
+| `buddynext_can_view_space_content` | filter | A viewer's access to a space's **content** is resolved, before it is rendered or cached. Return `false` to withhold the space's posts while leaving the space itself visible. Fired from `SpaceVisibility` and again in `FeedService` when building a space feed, so an add-on that gates content only has to answer once. Default `true`. | `bool $can_view, int $space_id, int $viewer_id` |
+| `buddynext_space_files_tab_for_guests` | filter | The space nav decides whether to show the Files tab to a logged-out visitor. Default `false`: WPMediaVerse refuses anonymous document reads, so on a public space the tab could only ever render its empty state. Return `true` if your MediaVerse serves anonymous reads. | `bool $show, int $space_id` |
 
 Default: `true` for open spaces; `false` for private and secret spaces unless the viewer is an active member, a moderator, the space owner, or a site admin. A private space is **listed but gated** — its name, description, house rules, avatar, cover, category, member COUNT, and its owner + moderator list stay public (a stranger needs them to decide whether to request to join), while the full member roster does not.
 
@@ -42,6 +44,7 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_space_created` | action | A new space is created | `int $space_id, int $owner_id` |
+| `buddynext_reserved_space_slugs` | filter | A space slug is generated or validated. These slugs are refused because they collide with BuddyNext's own space sub-routes (`members`, `files`, `about`, …); a space claiming one would shadow its own tab. Add your own to reserve them. | `string[] $slugs` |
 | `buddynext_space_updated` | action | A space's fields are edited | `int $space_id, int $user_id, array $fields` (columns written this update). **See the arity warning below - one call site passes only `$space_id`.** |
 | `buddynext_space_archived` | action | A space is archived | `int $space_id, int $actor_id` |
 | `buddynext_space_unarchived` | action | A space is unarchived | `int $space_id, int $actor_id` |
@@ -50,29 +53,9 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 
 `buddynext_space_archived` and `buddynext_space_unarchived` are dispatched from a single call site that selects the hook name by state, so a listener only fires on the transition it registered for.
 
-> **Arity warning: `buddynext_space_updated` is fired from three call sites and one of them is short.**
+> **`buddynext_space_updated` fires with the full three arguments from every call site.**
 >
-> | Call site | Arguments passed |
-> |---|---|
-> | `SpaceService::update()` (`includes/Spaces/SpaceService.php:599`) | 3 - `$space_id, $user_id, $fields` |
-> | `SpaceService` sub-space detach (`includes/Spaces/SpaceService.php:1188`) | 3 - `$space_id, $user_id, $fields` |
-> | `SpaceFieldRegistry::save()` (`includes/Spaces/SpaceFieldRegistry.php:565`) | **1 - `$space_id` only** |
->
-> The third fires when a searchable, public space field is saved (it exists to trigger a search re-index). WordPress passes a listener only the arguments the *firing* site supplied, so a typed 3-parameter callback raises an `ArgumentCountError` on that path even though it was registered exactly as documented.
->
-> Until the call sites converge, **give your callback defaults** rather than relying on `accepted_args`:
->
-> ```php
-> add_action(
->     'buddynext_space_updated',
->     static function ( int $space_id, int $user_id = 0, array $fields = array() ): void {
->         // $user_id === 0 and $fields === [] means the short call site fired:
->         // a searchable space field changed. Re-fetch the space if you need more.
->     },
->     10,
->     3
-> );
-> ```
+> This was not always true. `SpaceFieldRegistry::save()` used to fire `$space_id` alone, so a typed three-parameter listener - registered exactly as documented - took an `ArgumentCountError` on that one path. It now passes `$space_id, get_current_user_id(), $saved` like the two `SpaceService` call sites, and the source carries a comment saying the arity is part of the contract and must not vary by call site. Earlier versions of this page told you to default the second and third parameters as a workaround; that is no longer necessary.
 
 ## Membership: join, request, invite
 
@@ -107,6 +90,9 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_space_types` | filter | The registered space-type map is resolved | `array $types` (slug-keyed config map) |
+| `buddynext_register_space_fields` | action | The per-space field registry is built. Call `$registry->register()` to add your own space fields | `SpaceFieldRegistry $registry` |
+| `buddynext_space_max_per_member` | filter | The ceiling on how many spaces one member may own is resolved. Defaults to the site-wide setting; `0` means unlimited | `int $max_per_member, int $owner_id` |
+| `buddynext_space_posts_changed` | action | A space's post set changes - a post created in it, or removed from it. Carries the space id, which `buddynext_post_created` does not | `int $space_id` |
 
 Each space-type entry has this shape. Visibility drives the behaviour: `public` allows direct joins, `private` requires a request, `secret` is invite-only.
 
@@ -123,9 +109,9 @@ The built-in types are `open` (public/direct), `private` (private/request), and 
 
 ## Examples
 
-### Gate a space behind a membership tier
+### Gate a space behind a membership plan
 
-`buddynext_can_join_space` is the seam Pro uses for paywalls and gated tiers. Return `false` to block; pair it with `buddynext_space_join_denied_data` to surface a reason or paywall payload in the REST error response. The gate runs before any database work, so a denied user never creates a row.
+`buddynext_can_join_space` is the seam Pro uses for paywalls and gated plans. Return `false` to block; pair it with `buddynext_space_join_denied_data` to surface a reason or paywall payload in the REST error response. The gate runs before any database work, so a denied user never creates a row.
 
 ```php
 // Block the join/request unless the user holds the required entitlement.
@@ -179,4 +165,4 @@ add_action( 'buddynext_space_member_joined', function ( int $space_id, int $user
 - **Free vs Pro.** Every hook here is fired by Free. `buddynext_can_join_space` plus `buddynext_space_join_denied_data` are the documented gated-spaces / paywall seam that Pro builds on; `buddynext_space_types` is the extension point for new space kinds.
 - **The gate runs first.** Because `buddynext_can_join_space` short-circuits before any insert, you cannot rely on a `*_member_joined` action to undo a join you wanted to block. Block it at the gate.
 - **Ban fires two actions.** Choose `buddynext_space_user_banned` for ban-specific behaviour and `buddynext_space_member_removed` for "no longer a member" behaviour. They fire together on a ban.
-- **Re-fetch space data.** Lifecycle actions pass IDs only. Hydrate via `buddynext_service( 'space_service' )->get( $space_id )` rather than reading `$space` from a stale closure.
+- **Re-fetch space data.** Lifecycle actions pass IDs only. Hydrate via `buddynext_service( 'spaces' )->get( $space_id )` rather than reading `$space` from a stale closure.

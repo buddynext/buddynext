@@ -68,6 +68,13 @@ class PollController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function vote( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		if ( ! buddynext_feature_enabled( 'polls' ) ) {
+			return new WP_Error(
+				'polls_disabled',
+				__( 'Polls are turned off for this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
 		$post_id   = (int) $request->get_param( 'id' );
 		$option_id = (int) $request->get_param( 'option_id' );
 		$user_id   = get_current_user_id();
@@ -78,6 +85,13 @@ class PollController extends BaseRestController {
 				__( 'option_id is required.', 'buddynext' ),
 				array( 'status' => 400 )
 			);
+		}
+
+		// Same gate the read endpoints use: no engagement with a post the viewer
+		// cannot see.
+		$hidden = $this->engagement_target_error( 'post', $post_id );
+		if ( $hidden instanceof WP_Error ) {
+			return $hidden;
 		}
 
 		$result = ( new PollService() )->vote( $user_id, $post_id, $option_id );
@@ -110,7 +124,7 @@ class PollController extends BaseRestController {
 		// is not viewable by the current user, return empty results rather than the
 		// tallies. Gated directly by the route's post id (a poll always belongs to
 		// its post). Shares the single PostService visibility gate.
-		if ( $this->is_post_hidden_from_viewer( $post_id ) ) {
+		if ( $this->is_post_hidden_from_viewer( 'post', $post_id ) ) {
 			return new WP_REST_Response( array( 'results' => array() ), 200 );
 		}
 
@@ -119,28 +133,6 @@ class PollController extends BaseRestController {
 		return new WP_REST_Response( array( 'results' => $results ), 200 );
 	}
 
-	/**
-	 * Whether a poll's post is hidden from the current viewer.
-	 *
-	 * Applies the single shared visibility gate (PostService::visibility_error())
-	 * directly to the route's post id. Degrades to "visible" when the service
-	 * container is unavailable.
-	 *
-	 * @param int $post_id Poll post ID from the route.
-	 * @return bool True when the post is not viewable by the current user.
-	 */
-	private function is_post_hidden_from_viewer( int $post_id ): bool {
-		if ( $post_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
-			return false;
-		}
-
-		$posts = buddynext_service( 'post_service' );
-		if ( ! $posts instanceof PostService ) {
-			return false;
-		}
-
-		return $posts->visibility_error( $post_id, get_current_user_id() ) instanceof WP_Error;
-	}
 
 	/**
 	 * Return the current user's vote on a poll post.

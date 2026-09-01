@@ -8,7 +8,7 @@ BuddyNext 1.0.7 is about control and polish: run the whole community behind a lo
 
 You can now lock the entire community behind a login. When Private Community is on, guests who are not signed in are sent to your login or landing page instead of the feed, members, and spaces, so the whole experience is members-only.
 
-It is a single switch, and it respects your existing pages: the login, registration, and any pages you have marked as public stay reachable so people can still get in. Developers who need finer rules (for example, allow a specific role or a paid tier only) can decide access themselves with the `buddynext_private_community_can_access` filter.
+It is a single switch, and it respects your existing pages: the login, registration, and any pages you have marked as public stay reachable so people can still get in. Developers who need finer rules (for example, allow a specific role or a paid plan only) can decide access themselves with the `buddynext_private_community_can_access` filter.
 
 ## A first-run checklist that gets you live
 
@@ -54,7 +54,7 @@ Dark mode now reaches the corners it used to miss: native form controls, skill c
 - **Owner-only profile panels.** A new building block lets integrations add profile sections that only the profile owner can see, which is how Continue Learning is built.
 - **Simpler white-label.** White-label is trimmed to the backend name and logo; per-space branding was removed as out of scope.
 
-See the [Pro membership guide](../pro/01-membership-tiers.md) for the wider Pro picture.
+See the [Pro membership guide](../pro/01-membership-plans.md) for the wider Pro picture.
 
 ## Under the hood
 

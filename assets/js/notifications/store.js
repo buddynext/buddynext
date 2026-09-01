@@ -56,8 +56,10 @@ function formatBadge( count ) {
 function filterKeyForType( type ) {
 	var map = {
 		'bn.post_reacted': 'reaction',
+		'bn.media_reaction': 'reaction',
 		'bn.post_commented': 'comment',
 		'bn.mention': 'mention',
+		'bn.media_mention': 'mention',
 		'bn.new_follower': 'follow',
 		'bn.connection_accepted': 'follow',
 		'bn.connection_requested': 'follow',
@@ -159,7 +161,7 @@ const notificationsStore = store( 'buddynext/notifications', {
 			}
 			// Same translated string the server renders, so the pill does not change
 			// its wording the instant the page hydrates.
-			return fmt( t( 'unreadBadge', '%s new' ), formatBadge( n ) );
+			return fmt( t( 'unreadBadge', '%s unread' ), formatBadge( n ) );
 		},
 		get unreadTotalHidden() {
 			return unreadTotal( getContext() ) <= 0;
@@ -393,6 +395,79 @@ const notificationsStore = store( 'buddynext/notifications', {
 		// Accept a space invitation straight from its notification. POSTs to the
 		// space join endpoint (which promotes the 'invited' row to active), marks
 		// the notification read, and follows the notification link to the space.
+		/**
+		 * Approve or decline every join request behind a COLLAPSED row.
+		 *
+		 * One request to /members/decide-bulk, not one per member. Looping the
+		 * per-member endpoint from here would just move an N-round-trip fan-out
+		 * into the browser, which is the same mistake with a different victim.
+		 *
+		 * Partial outcomes are reported rather than smoothed over: between the
+		 * page rendering and this click, a request can be withdrawn or decided by
+		 * another moderator, and telling someone "8 accepted" when 6 were is worse
+		 * than telling them the truth.
+		 */
+		decideJoinRequests: async function ( event ) {
+			var ctx = getContext();
+			var btn = event.target.closest( '[data-space-id]' );
+			var row = event.target.closest( '.bn-notif-row' );
+			if ( ! btn || ! row || ! ctx ) { return; }
+			event.stopPropagation();
+
+			var spaceId  = btn.dataset.spaceId;
+			var decision = btn.dataset.decision === 'decline' ? 'decline' : 'approve';
+			var userIds  = ( btn.dataset.userIds || '' )
+				.split( ',' )
+				.map( function ( id ) { return parseInt( id, 10 ); } )
+				.filter( function ( id ) { return id > 0; } );
+
+			if ( ! spaceId || ! userIds.length ) { return; }
+
+			var buttons = row.querySelectorAll( '.bn-notif-row__actions button' );
+			for ( var i = 0; i < buttons.length; i++ ) { buttons[ i ].disabled = true; }
+
+			var apiBase = ctx.restUrl.replace( /(\/buddynext\/v1)\/.*$/, '$1' );
+
+			try {
+				var res = await restFetch( '/spaces/' + spaceId + '/members/decide-bulk', {
+					base: apiBase,
+					nonce: ctx.nonce,
+					method: 'POST',
+					body: { user_ids: userIds, decision: decision },
+					toastOnError: false,
+				} );
+				var data = res.data || {};
+
+				if ( ! res.ok ) {
+					for ( var j = 0; j < buttons.length; j++ ) { buttons[ j ].disabled = false; }
+					toast( data.message || t( 'bulkDecideFailed', 'Could not update those requests.' ), 'danger' );
+					return;
+				}
+
+				var decided = ( data.decided || [] ).length;
+				var failed  = ( data.failed || [] ).length;
+
+				toast(
+					failed > 0
+						? t( 'bulkDecidedPartial', '%1$d handled, %2$d no longer pending.' )
+							.replace( '%1$d', decided ).replace( '%2$d', failed )
+						: ( decision === 'approve'
+							? t( 'bulkApproved', '%d members approved.' ).replace( '%d', decided )
+							: t( 'bulkDeclined', '%d requests declined.' ).replace( '%d', decided ) ),
+					failed > 0 ? 'info' : 'success'
+				);
+
+				if ( row.classList.contains( 'bn-notif-row--unread' ) ) {
+					if ( ctx.unreadCount > 0 ) { ctx.unreadCount = ctx.unreadCount - 1; }
+					adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
+				}
+				row.remove();
+			} catch ( e ) {
+				for ( var k = 0; k < buttons.length; k++ ) { buttons[ k ].disabled = false; }
+				toast( t( 'bulkDecideFailed', 'Could not update those requests.' ), 'danger' );
+			}
+		},
+
 		acceptSpaceInvite: async function ( event ) {
 			var ctx     = getContext();
 			var btn     = event.target.closest( '[data-object-id]' );

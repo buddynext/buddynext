@@ -91,6 +91,29 @@ export async function openMemberSession(browser: Browser, login: string): Promis
     // redirect a not-yet-onboarded member to /onboarding/, which still embeds one.
     await page.goto(urls.feed, { waitUntil: 'domcontentloaded' });
     const nonce = await readRestNonce(page);
+
+    // A member who has not finished onboarding is REDIRECTED away from the feed,
+    // and the session is then only good for REST calls - any spec that goes on to
+    // look for feed content on this page is looking at /onboarding/ and will fail
+    // describing the content instead of the redirect.
+    //
+    // That is exactly how J-550 read: "the announcement card is not visible",
+    // when the announcement was fine and the page was not the feed. The nonce
+    // comment above already knew about this redirect; it just did not matter for
+    // a nonce, so nothing checked it.
+    //
+    // Failing here names the member and the cause, which is the difference
+    // between a five-minute fix and an afternoon.
+    if (/\/onboarding\/?$/.test(new URL(page.url()).pathname)) {
+        throw new Error(
+            `openMemberSession('${login}'): landed on /onboarding/, not the feed. ` +
+            `That member has not completed onboarding, so BuddyNext redirects them ` +
+            `away from /activity/ and no feed content can be asserted on this page. ` +
+            `Pick a different member (BN_TEST_OTHER_USER pins one), or clear the ` +
+            `half-onboarded test accounts out of the members directory.`
+        );
+    }
+
     return { ctx, page, request: ctx.request, nonce };
 }
 

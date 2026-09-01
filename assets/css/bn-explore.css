@@ -16,12 +16,18 @@
 	--bn-ec-shadow-hover: 0 6px 20px rgba(16, 24, 40, 0.10);
 	--bn-ec-transition: 0.14s ease;
 
-	/* Decorative cover tones (the v2 explore gradients). */
-	--bn-tone-violet: linear-gradient(135deg, #ddd6fe, #a78bfa);
-	--bn-tone-amber: linear-gradient(135deg, #fde68a, #f59e0b);
-	--bn-tone-emerald: linear-gradient(135deg, #a7f3d0, #10b981);
-	--bn-tone-rose: linear-gradient(135deg, #fecdd3, #f43f5e);
-	--bn-tone-sky: linear-gradient(135deg, #bae6fd, #0ea5e9);
+	/* Lightness pair for the cover tones, themed the same way the member and
+	   space covers are: bright and decorative in light, receded in dark so a
+	   grid of cards does not glow. */
+	--bn-ec-tone-l-start: 80%;
+	--bn-ec-tone-l-end: 55%;
+}
+
+[data-bn-theme="dark"] .ec-img,
+[data-theme="dark"] .ec-img,
+[data-bx-mode="dark"] .ec-img {
+	--bn-ec-tone-l-start: 45%;
+	--bn-ec-tone-l-end: 30%;
 }
 
 /* ── Explore page shell ──────────────────────────────────────────────────── */
@@ -192,15 +198,23 @@
 	width: 100%;
 	aspect-ratio: 16 / 10;
 	overflow: hidden;
-	background: var(--bn-tone-violet);
+	background: linear-gradient(135deg, oklch(var(--bn-ec-tone-l-start) 0.13 240) 0%, oklch(var(--bn-ec-tone-l-end) 0.18 240) 100%);
 	color: rgba(255, 255, 255, 0.9);
 	text-decoration: none;
 }
-.ec-img[data-tone="violet"]  { background: var(--bn-tone-violet); }
-.ec-img[data-tone="amber"]   { background: var(--bn-tone-amber); }
-.ec-img[data-tone="emerald"] { background: var(--bn-tone-emerald); }
-.ec-img[data-tone="rose"]    { background: var(--bn-tone-rose); }
-.ec-img[data-tone="sky"]     { background: var(--bn-tone-sky); }
+/* ONE identity palette, shared with member and space covers
+   (AvatarService::IDENTITY_TONES). These used to be their own five-tone set of
+   raw hex gradients including `violet` and `rose` - the purple/pink family the
+   design tokens exclude by name as the synthetic "AI" palette - so the product
+   spoke two colour languages and one of them broke its own rule. Same hues,
+   same chroma and the same 135deg sweep as .bn-sd-card__cover, so a space reads
+   the same colour on the directory and on Explore. */
+.ec-img[data-tone="sky"]     { background: linear-gradient(135deg, oklch(var(--bn-ec-tone-l-start) 0.13 240) 0%, oklch(var(--bn-ec-tone-l-end) 0.18 240) 100%); }
+.ec-img[data-tone="cyan"]    { background: linear-gradient(135deg, oklch(var(--bn-ec-tone-l-start) 0.12 200) 0%, oklch(var(--bn-ec-tone-l-end) 0.16 200) 100%); }
+.ec-img[data-tone="emerald"] { background: linear-gradient(135deg, oklch(var(--bn-ec-tone-l-start) 0.13 160) 0%, oklch(var(--bn-ec-tone-l-end) 0.18 160) 100%); }
+.ec-img[data-tone="lime"]    { background: linear-gradient(135deg, oklch(var(--bn-ec-tone-l-start) 0.13 130) 0%, oklch(var(--bn-ec-tone-l-end) 0.17 130) 100%); }
+.ec-img[data-tone="amber"]   { background: linear-gradient(135deg, oklch(var(--bn-ec-tone-l-start) 0.13 70)  0%, oklch(var(--bn-ec-tone-l-end) 0.18 70)  100%); }
+.ec-img[data-tone="coral"]   { background: linear-gradient(135deg, oklch(var(--bn-ec-tone-l-start) 0.13 35)  0%, oklch(var(--bn-ec-tone-l-end) 0.18 35)  100%); }
 .ec-img img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--bn-ec-transition); }
 .ec-card:hover .ec-img img { transform: scale(1.03); }
 .ec-img-glyph { display: inline-flex; }

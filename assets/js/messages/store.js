@@ -467,14 +467,61 @@ function appendMessage( msg, viewer, force ) {
 	if ( ! log ) {
 		return;
 	}
-	if ( log.querySelector( '.bn-dm-msg[data-msg-id="' + ( msg.id || 0 ) + '"]' ) ) {
+	const existing = log.querySelector( '.bn-dm-msg[data-msg-id="' + ( msg.id || 0 ) + '"]' );
+
+	// An "unsend" (delete for everyone, no trace) is re-served by the poll for a
+	// short window with deleted_for_all=1 and blanked content, so every open
+	// client can drop the message live. Remove the whole node — bubble AND the
+	// avatar/spacing that come with it — and never render a placeholder for it.
+	// Without this the poll re-added the blanked row as an empty bubble after the
+	// sender's own unsend (the "blank gap"), and the receiver kept the original
+	// message because appendMessage early-returned on the already-rendered node
+	// (the "leftover"). One guard fixes both sides.
+	if ( isUnsent( msg ) ) {
+		if ( existing ) {
+			existing.remove();
+		}
+		return;
+	}
+
+	if ( existing ) {
 		return; // already rendered (e.g. our own send echoed back by the poll)
 	}
+	// The "no messages yet" placeholder is SERVER-rendered, by a plain PHP
+	// `if ( empty( $messages_iter ) )` in parts/dm-thread-messages.php with no
+	// binding on it. So the first message of a thread appended here left the
+	// member reading "No messages yet. Say hello to start the conversation."
+	// directly above the message they had just sent, until they reloaded.
+	//
+	// Dropped rather than hidden: the thread cannot become empty again from here.
+	// An unsend removes its own node above and can empty the log, but the
+	// placeholder is a first-paint state, not a live one - re-showing it would
+	// claim there was never a conversation.
+	const emptyState = log.querySelector( '.bn-dm-pane__empty-state' )
+		|| ( log.parentElement && log.parentElement.querySelector( '.bn-dm-pane__empty-state' ) );
+	if ( emptyState ) {
+		emptyState.remove();
+	}
+
 	const atBottom = ( log.scrollHeight - log.scrollTop - log.clientHeight ) < 80;
 	log.appendChild( buildMessageNode( msg, viewer ) );
 	if ( force || atBottom ) {
 		log.scrollTop = log.scrollHeight;
 	}
+}
+
+/**
+ * Whether a polled/loaded message row is an unsent one (deleted for everyone).
+ *
+ * MediaVerse re-serves an unsent message with deleted_for_all truthy and blanked
+ * content so live clients can remove it; such a row must never render as a
+ * bubble on any surface.
+ *
+ * @param {Object} msg Message row.
+ * @return {boolean} True when the message was unsent for everyone.
+ */
+function isUnsent( msg ) {
+	return !! msg && 1 === parseInt( msg.deleted_for_all, 10 );
 }
 
 /**
@@ -1871,6 +1918,10 @@ const messagesStore = store( 'buddynext/messages', {
 			list = list.slice().sort( ( a, b ) => ( parseInt( a.id, 10 ) || 0 ) - ( parseInt( b.id, 10 ) || 0 ) );
 			const anchor = wrap ? wrap.nextSibling : log.firstChild;
 			list.forEach( ( m ) => {
+				// An unsent message must not paginate back in as a blank bubble.
+				if ( isUnsent( m ) ) {
+					return;
+				}
 				if ( log.querySelector( '.bn-dm-msg[data-msg-id="' + ( m.id || 0 ) + '"]' ) ) {
 					return;
 				}

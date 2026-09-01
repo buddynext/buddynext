@@ -107,8 +107,15 @@ class BookmarkController extends BaseRestController {
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 
-		if ( '0' === (string) get_option( 'buddynext_allow_bookmarks', '1' ) ) {
+		if ( ! buddynext_feature_enabled( 'bookmarks' ) ) {
 			return new WP_REST_Response( array( 'code' => 'bookmarks_disabled' ), 403 );
+		}
+
+		// Same gate the read endpoints use: no engagement with a post the viewer
+		// cannot see.
+		$hidden = $this->engagement_target_error( 'post', $post_id );
+		if ( $hidden instanceof WP_Error ) {
+			return new WP_REST_Response( array( 'code' => 'post_not_found' ), 404 );
 		}
 
 		$this->bookmarks()->bookmark( $user_id, $post_id );
@@ -239,7 +246,11 @@ class BookmarkController extends BaseRestController {
 				}
 			}
 
-			if ( 'followers' === ( $post['privacy'] ?? '' ) && $author_id !== $viewer ) {
+			// Admins (manage_options) bypass followers-only, matching the secret-space
+			// gate above and the suspension gate below that already grant them access.
+			// 'private' ("Only Me") stays author-only even for admins.
+			if ( 'followers' === ( $post['privacy'] ?? '' ) && $author_id !== $viewer
+				&& ! user_can( $viewer, 'manage_options' ) ) {
 				if ( ! $follows->is_following( $viewer, $author_id ) ) {
 					continue;
 				}

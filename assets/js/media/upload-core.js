@@ -198,7 +198,7 @@ function dataUrlToBlob( dataUrl ) {
  * Always posts as the current member's own media; owner-gated server-side.
  *
  * @param {File}   file File to upload.
- * @param {Object} opts { nonce, privacy, title }.
+ * @param {Object} opts { nonce, privacy, title, spaceId }.
  * @return {Promise<Object>} { ok, mediaId, thumb, url, type, duplicate, status, message }.
  */
 export async function uploadMedia( file, opts = {} ) {
@@ -206,6 +206,19 @@ export async function uploadMedia( file, opts = {} ) {
 	fd.append( 'file', file, file.name );
 	if ( opts.privacy ) {
 		fd.append( 'privacy', opts.privacy );
+	}
+	// WHICH SPACE this upload belongs to. The engine files media on a Space drive
+	// from this (mvs_media_drive), and being on that drive is what makes
+	// space-scoped privacy reachable at all — without it a photo posted into a
+	// secret space was stored at a level every signed-in member could read.
+	//
+	// Sent from the composer's own context rather than inferred server-side: a
+	// member can have the feed composer and a space composer open at once. Sending
+	// it grants nothing — the engine re-checks drive access and falls back to the
+	// personal drive unless this member may contribute to that space.
+	const spaceId = parseInt( opts.spaceId, 10 ) || 0;
+	if ( spaceId > 0 ) {
+		fd.append( 'space_id', String( spaceId ) );
 	}
 	if ( opts.title ) {
 		fd.append( 'title', opts.title );

@@ -206,6 +206,9 @@ const mediaStore = store( 'buddynext/media', {
 					privacy:   ctx.privacy || 'public',
 					// Send the captured frame so a posterless video keeps its real poster in the feed.
 					thumbnail: 'video' === item.kind ? item.preview : '',
+					// Present when this staging surface belongs to a space; 0 on the
+					// profile Media tab, which is a personal drive by definition.
+					spaceId:   parseInt( ctx.spaceId, 10 ) || 0,
 				} );
 				if ( out.ok ) {
 					item.status = 'done';
@@ -233,15 +236,31 @@ const mediaStore = store( 'buddynext/media', {
 				let posted = false;
 				if ( postedIds.length ) {
 					try {
+						const postSpaceId = parseInt( ctx.spaceId, 10 ) || 0;
+						const postBody = {
+							type:      'photo',
+							content:   '',
+							media_ids: postedIds,
+							// A space post's audience is the space's members, so it carries
+							// the POST-privacy value `space_members` (not the media-privacy
+							// `space` the file itself was stored with). The bridge derives
+							// each attached photo's privacy from this on post-create
+							// (media_privacy_for_post: space_members -> space); sending the
+							// media value here instead lands on the map's `private` default
+							// and the space could not see its own photo.
+							privacy:   postSpaceId > 0 ? 'space_members' : ( ctx.privacy || 'public' ),
+						};
+						// A space upload posts to the space, not the global feed. The
+						// controller reads `space_id`; without it the post lands with
+						// space_id null and renders site-wide (feed/composer.js does the
+						// same for its space posts).
+						if ( postSpaceId > 0 ) {
+							postBody.space_id = postSpaceId;
+						}
 						const pres = await restFetch( '/posts', {
 							method:       'POST',
 							nonce:        ctx.restNonce,
-							body:         {
-								type:      'photo',
-								content:   '',
-								media_ids: postedIds,
-								privacy:   ctx.privacy || 'public',
-							},
+							body:         postBody,
 							toastOnError: false,
 						} );
 						posted = !! ( pres && pres.ok );
@@ -303,6 +322,14 @@ function regionEl() {
 async function refreshGallery( ctx ) {
 	const region = regionEl();
 	if ( ! region ) {
+		return;
+	}
+	// A space Media grid is server-rendered from the space's posts (there is no
+	// per-space media REST list to fetch tiles from, unlike a member's own drive),
+	// so reload to show the just-shared photo — the same honest refresh the Files
+	// tab uses after an upload.
+	if ( ( parseInt( ctx.spaceId, 10 ) || 0 ) > 0 ) {
+		window.location.reload();
 		return;
 	}
 	const owner = Number( ctx.ownerId ) || 0;

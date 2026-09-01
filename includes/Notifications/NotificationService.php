@@ -608,7 +608,7 @@ class NotificationService {
 		// trailing sentinel row to trim and no cursor to emit.
 		if ( $use_offset ) {
 			return array(
-				'items'       => array_map( array( $this, 'hydrate' ), $rows ),
+				'items'       => $this->group_page( array_map( array( $this, 'hydrate' ), $rows ) ),
 				'next_cursor' => null,
 			);
 		}
@@ -619,7 +619,7 @@ class NotificationService {
 			$rows = array_slice( $rows, 0, $per_page );
 		}
 
-		$items = array_map( array( $this, 'hydrate' ), $rows );
+		$items = $this->group_page( array_map( array( $this, 'hydrate' ), $rows ) );
 
 		$next_cursor = null;
 		if ( $has_more && ! empty( $rows ) ) {
@@ -656,6 +656,100 @@ class NotificationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return is_array( $row ) ? $this->hydrate( $row ) : null;
+	}
+
+	/**
+	 * Collapse repeats of the same event within a page into one item.
+	 *
+	 * READ-TIME grouping: every notification keeps its own row. Nothing is merged
+	 * in the database, so WHO and WHEN survive, a collapsed entry can be expanded
+	 * back into the individual notifications, per-item read state still works, and
+	 * a change to how things group needs no migration. Collapsing at write time -
+	 * minting a shared group_key - would have been cheaper to read and would have
+	 * destroyed all four.
+	 *
+	 * Grouped by (type, object_type, object_id): "8 people asked to join Design
+	 * Guild" is one entry, while a join request and a join for the same space stay
+	 * apart because their types differ.
+	 *
+	 * Everything groups by default and types opt OUT through the filter. That way
+	 * the next high-volume notification somebody adds is collapsed on the day it
+	 * ships, instead of being discovered later as a wall of identical rows - which
+	 * is exactly how this was found.
+	 *
+	 * Scope worth knowing: grouping is per PAGE. Repeats spanning a page boundary
+	 * stay separate, because the alternative is aggregating in SQL, which breaks
+	 * the keyset cursor this list pages on. The visible item count therefore
+	 * varies per page; the cursor still advances by ROWS, so nothing is skipped.
+	 *
+	 * @param array<int,array<string,mixed>> $items Hydrated notifications, newest first.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function group_page( array $items ): array {
+		/**
+		 * Notification types that must NEVER collapse.
+		 *
+		 * A type belongs here when each occurrence is individually actionable or
+		 * individually meaningful - a direct message is not "3 messages", it is
+		 * three things you have to read.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param string[] $types Type slugs excluded from grouping.
+		 */
+		$ungroupable = (array) apply_filters( 'buddynext_notification_ungroupable_types', array() );
+
+		$grouped = array();
+		$index   = array();
+
+		foreach ( $items as $item ) {
+			$type      = (string) ( $item['type'] ?? '' );
+			$object_id = (int) ( $item['object_id'] ?? 0 );
+
+			// No object to group ON, or the type opted out: passes through whole.
+			if ( $object_id <= 0 || in_array( $type, $ungroupable, true ) ) {
+				$grouped[] = $item;
+				continue;
+			}
+
+			$key = $type . '|' . (string) ( $item['object_type'] ?? '' ) . '|' . $object_id;
+
+			if ( ! isset( $index[ $key ] ) ) {
+				// The NEWEST occurrence represents the group - it is already first,
+				// because the query orders created_at DESC - so the group sorts by
+				// its most recent activity, which is what a reader expects.
+				$item['group_size']  = 1;
+				$item['group_ids']   = array( (int) $item['id'] );
+				$item['group_actors'] = array();
+				if ( ! empty( $item['sender_id'] ) ) {
+					$item['group_actors'][] = (int) $item['sender_id'];
+				}
+
+				$index[ $key ] = count( $grouped );
+				$grouped[]     = $item;
+				continue;
+			}
+
+			$at = $index[ $key ];
+			++$grouped[ $at ]['group_size'];
+			$grouped[ $at ]['group_ids'][] = (int) $item['id'];
+
+			// Distinct actors, in the order they last acted. The collapsed row shows
+			// their avatars, so a repeat actor must not appear twice.
+			$sender = (int) ( $item['sender_id'] ?? 0 );
+			if ( $sender > 0 && ! in_array( $sender, $grouped[ $at ]['group_actors'], true ) ) {
+				$grouped[ $at ]['group_actors'][] = $sender;
+			}
+
+			// A group is unread when ANY member of it is. Marking the group read
+			// marks them all, so the reverse has to hold or the badge would count
+			// items the reader cannot see.
+			if ( empty( $item['is_read'] ) ) {
+				$grouped[ $at ]['is_read'] = false;
+			}
+		}
+
+		return $grouped;
 	}
 
 	/**

@@ -126,6 +126,15 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 // New-posts indicator poll cadence (milliseconds) for the feed store. The owner
 // toggle gates it; the interval is filterable (seconds; 0 disables the background
 // poll while still showing realtime pills on Pro). -1 = indicator off entirely.
+// The pill's starting line, taken from the server rather than scanned off the
+// rendered cards. For-you is TIER-ordered, so the highest id on page one is not
+// the highest id that exists - an older, lower-tier post can sit above it and was
+// then counted as "new" on a feed nobody had posted to. See
+// FeedService::home_feed_watermark().
+$bn_feed_watermark = $current_user_id > 0
+	? (int) buddynext_service( 'feed' )->home_feed_watermark( $current_user_id, $bn_filter )
+	: 0;
+
 $bn_new_pill_ms = (bool) get_option( 'buddynext_feed_new_posts_indicator', true )
 	? max( 0, (int) apply_filters( 'buddynext_feed_new_count_interval', 60 ) ) * 1000
 	: -1;
@@ -140,7 +149,8 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 <div class="bn-feed-stack"
 	data-bn-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
 	data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>"
-	data-bn-new-poll-ms="<?php echo esc_attr( (string) $bn_new_pill_ms ); ?>">
+	data-bn-new-poll-ms="<?php echo esc_attr( (string) $bn_new_pill_ms ); ?>"
+	data-bn-watermark="<?php echo esc_attr( (string) $bn_feed_watermark ); ?>">
 
 	<!-- Post composer -->
 	<?php
@@ -361,7 +371,37 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 				'url'   => PageRouter::people_url(),
 			),
 		);
-		$empty        = $empty_states[ $bn_filter ] ?? $empty_states['for-you'];
+		$empty = $empty_states[ $bn_filter ] ?? $empty_states['for-you'];
+
+		/*
+		 * A community with nobody in it needs a different sentence.
+		 *
+		 * The copy above is written for a member who has joined an established
+		 * community and not followed anyone yet - "Discover members" is the right
+		 * next move for them. On a fresh install the only member IS the person
+		 * reading it, so that button leads to a directory containing themselves,
+		 * and the sidebar's "we'll suggest people once you've completed onboarding"
+		 * never resolves. The one screen where an owner most needs to be told what
+		 * to do next tells them to go and find people who do not exist.
+		 *
+		 * Members, Spaces and Profile already branch for this ("Invite others to
+		 * join", "Create a space", a completion checklist). The feed was the one
+		 * surface that did not.
+		 *
+		 * Branch on community-emptiness AND capability, not on onboarding-completed:
+		 * a member who cannot invite anyone should still see the member-facing copy,
+		 * and an owner who finished onboarding on an empty site still needs the
+		 * bootstrapping version.
+		 */
+		if ( 'for-you' === $bn_filter && \BuddyNext\Feed\FeedService::community_is_bootstrapping( $current_user_id ) ) {
+			$empty = array(
+				'icon'  => 'users',
+				'title' => __( 'Your community starts here', 'buddynext' ),
+				'text'  => __( 'Nobody else has joined yet. Invite a few people, and your feed fills up as they post.', 'buddynext' ),
+				'cta'   => __( 'Invite members', 'buddynext' ),
+				'url'   => PageRouter::people_url(),
+			);
+		}
 		?>
 		<div class="bn-feed-empty" role="status" data-filter="<?php echo esc_attr( $bn_filter ); ?>">
 			<div class="bn-feed-empty__icon" aria-hidden="true"><?php buddynext_icon( $empty['icon'] ); ?></div>

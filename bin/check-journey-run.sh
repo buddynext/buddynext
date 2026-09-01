@@ -70,28 +70,17 @@ bn_is_buddynext_site() {
 	curl -sfL --max-time 5 "${1%/}/wp-json/buddynext/v1" 2>/dev/null | grep -q '"namespace"'
 }
 
-# Candidates come from Local's own record of what is installed on THIS machine.
-# A hardcoded hostname works only on the machine it was written on: the previous
-# two-entry list named one developer's hosts, and on a second machine neither was
-# the site under test — ports differ per machine too, so 10003 is one product
-# here and another there.
+# Candidates come from the shared resolver (tests/e2e/_fixtures/resolve-base-url.mjs)
+# — the SAME source playwright.config.ts uses, so the gate and a direct
+# `npx playwright test` agree on which local site to hit instead of drifting.
+# Every candidate is a real Local site on THIS machine (buddynext-named / the
+# owning install first); no hostname is hardcoded, because BuddyNext ships to
+# anyone and no tester's URL can be assumed. Each candidate is REST-probed below
+# before the suite runs against it.
 bn_site_candidates() {
-	sites_json="$HOME/Library/Application Support/Local/sites.json"
-	if [ -f "$sites_json" ] && command -v python3 >/dev/null 2>&1; then
-		python3 -c 'import json,sys
-try: sites = json.load(open(sys.argv[1]))
-except Exception: sys.exit(0)
-ranked = []
-for s in sites.values():
-    d = s.get("domain")
-    if not d: continue
-    n = ((s.get("name") or "") + d).lower()
-    ranked.append((0 if "buddynext" in n else 1, d))
-for _, d in sorted(ranked): print("http://" + d)' "$sites_json" 2>/dev/null
+	if command -v node >/dev/null 2>&1; then
+		node tests/e2e/_fixtures/resolve-base-url.cjs --list 2>/dev/null
 	fi
-	# Conventional fallbacks for non-Local setups.
-	echo http://buddynext.local
-	echo http://buddynext-dev.local
 }
 
 if [ -z "${BN_BASE_URL:-}" ]; then
@@ -117,9 +106,102 @@ if ! bn_is_buddynext_site "$BN_BASE_URL"; then
 	echo "  (no BuddyNext REST namespace at \$BN_BASE_URL/wp-json/buddynext/v1)" >&2
 	exit 2
 fi
+
+# BN_WP_PATH matters as much as BN_BASE_URL, and used to be nobody's job.
+#
+# The specs drive a browser at $BN_BASE_URL and ALSO shell out to wp-cli for the
+# things a browser cannot do: resolve an actor's user id, drain an Action
+# Scheduler group, read a row back. That shim (tests/e2e/_fixtures/wp.ts) took
+# its path from BN_WP_PATH and fell back to a hard-coded personal path when it
+# was unset.
+#
+# Nothing set it. The runner auto-detected the SITE and left the PATH alone, so
+# on any machine where that hard-coded directory does not exist, every wp call
+# ran against nothing — and failed SILENTLY, because wp prints its complaint to
+# a stream cleanStdout() strips, so the shim returned an empty string. An empty
+# string parses as user id 0, which surfaces much later as `actor "…" must
+# exist` in whichever specs happened to need an actor.
+#
+# That is the shape reported as "~24-32 regressions that vary run to run"
+# (card 10225491280): not flaky product code, a second target that was not there.
+# With the path exported the same suite reports 183 passed, 1 regression.
+#
+# So it is resolved here, next to the site it must agree with, and a run that
+# cannot find it SKIPS rather than reporting noise — the same contract the
+# missing-site branch above already follows.
+if [ -z "${BN_WP_PATH:-}" ]; then
+	for candidate in \
+		"$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." 2>/dev/null && pwd)" \
+		"$HOME/Local Sites/buddynext/app/public" \
+		"$HOME/Local Sites/buddynext-dev/app/public"; do
+		if [ -n "$candidate" ] && [ -f "$candidate/wp-load.php" ]; then
+			BN_WP_PATH="$candidate"
+			export BN_WP_PATH
+			echo "journey run: auto-detected BN_WP_PATH=$BN_WP_PATH"
+			break
+		fi
+	done
+fi
+
+if [ -z "${BN_WP_PATH:-}" ] || [ ! -f "$BN_WP_PATH/wp-load.php" ]; then
+	echo "journey run SKIPPED — no WordPress root found for the wp-cli shim." >&2
+	echo "  The specs shell out to wp for actors and queue draining; without a real" >&2
+	echo "  path those calls return an empty string and surface as unrelated" >&2
+	echo "  failures. Set BN_WP_PATH to the WordPress root." >&2
+	exit 2
+fi
+
+if ! command -v wp >/dev/null 2>&1; then
+	echo "journey run SKIPPED — wp-cli is not on PATH." >&2
+	echo "  Local does not provide one; the specs need it for actors and queue draining." >&2
+	exit 2
+fi
 if [ ! -d node_modules/@playwright ] && ! command -v npx >/dev/null 2>&1; then
 	echo "journey run SKIPPED — Playwright is not installed (npm install)." >&2
 	exit 2
+fi
+
+# Resolve BN_TEST_USER to the login of user ID 1 — the account the auth fixture
+# logs in as via ?autologin=1. The profile/owner specs navigate to
+# urls.member(BN_TEST_USER) as "own profile", so BN_TEST_USER MUST be that same
+# logged-in user or every owner-scoped spec fails with ".bn-app not found" (the
+# profile is a 404). The hard-coded default 'varundubey' only holds on the one
+# machine where user 1 happened to be named varundubey; anywhere else (user 1 =
+# admin, say) ~25 profile/owner specs report phantom regressions. Derive it from
+# the site instead of assuming a name — same lesson as BN_BASE_URL and BN_WP_PATH.
+if [ -z "${BN_TEST_USER:-}" ]; then
+	resolved_user="$(wp --path="$BN_WP_PATH" user get 1 --field=user_login 2>/dev/null | tr -d '[:space:]')"
+	if [ -n "$resolved_user" ]; then
+		BN_TEST_USER="$resolved_user"
+		export BN_TEST_USER
+		echo "journey run: BN_TEST_USER=$BN_TEST_USER (user 1 — the autologin=1 account)"
+	fi
+fi
+
+# Seed the fixture users the specs log in as, exactly like BN_WP_PATH above: it
+# used to be nobody's job. ~20 two-actor spaces specs autologin as BN_TEST_OTHER_USER
+# (default 'alice'); on a site where that account was never created, every one of
+# them fails at the login fixture ("autologin as alice did not establish a session
+# cookie") and reports ~40 phantom regressions that look like broken space
+# membership but are just a missing precondition. seed-e2e.sh is idempotent, so
+# running it every time is safe; a failure to seed is surfaced, not swallowed.
+if [ -f bin/seed-e2e.sh ]; then
+	echo "journey run: seeding e2e fixture users ..."
+	if ! bash bin/seed-e2e.sh >/dev/null 2>&1; then
+		echo "journey run: WARNING — bin/seed-e2e.sh did not complete; two-actor specs may fail at login." >&2
+	fi
+fi
+
+# Pin the second-actor login to the seeded subscriber. seed-e2e.sh creates 'alice'
+# (BN_TEST_OTHER_USER default); export the same value so resolveOtherMemberSlug()
+# returns THAT account instead of scanning the directory and picking whoever comes
+# first — which on a demo site can be another admin, making owner/announcement-gate
+# specs assert the wrong role (J-513 saw the announcement tool on an admin it
+# mistook for a plain member). Same lesson as BN_TEST_USER above.
+if [ -z "${BN_TEST_OTHER_USER:-}" ]; then
+	BN_TEST_OTHER_USER="alice"
+	export BN_TEST_OTHER_USER
+	echo "journey run: BN_TEST_OTHER_USER=$BN_TEST_OTHER_USER (the seeded non-owner member)"
 fi
 
 REPORT="$(mktemp -t bn-journey-XXXXXX.json)"

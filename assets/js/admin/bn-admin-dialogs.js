@@ -264,25 +264,142 @@
 	// ── Notice handling — auto-clear URL params + auto-fade ───────────────
 
 	/**
-	 * Strip listed query-string params from the current URL via
+	 * One-shot "flash" query params — the result of a POST → redirect → GET.
+	 *
+	 * Every BN admin screen signals the outcome of an action by redirecting
+	 * back with a param the next render turns into a notice. That param has
+	 * done its job the moment the page paints, so it is stripped from the
+	 * address bar; leaving it there means a refresh (or a bookmark, or the
+	 * browser restoring the tab) re-shows "Space archived." for a space
+	 * nobody just archived.
+	 *
+	 * This list is the DEFAULT on any BN admin screen (`?page=buddynext…`) — a
+	 * screen does not have to opt in. It exists because the opt-in attribute
+	 * alone was whack-a-mole: every new admin surface re-introduced the bug
+	 * until someone remembered the attribute.
+	 *
+	 * Rules for adding to it:
+	 * - Only params that carry an OUTCOME (saved / deleted / error / msg).
+	 * - NEVER a param that carries STATE — page, tab, view, paged, s,
+	 *   orderby, status, type, scope, or any entity id. Stripping one of
+	 *   those silently changes what the screen shows on refresh.
+	 * - Prefer reusing a name already on this list over inventing a new one;
+	 *   a new surface that redirects with `?saved=1` is covered for free.
+	 *
+	 * Anything genuinely unusual can still opt in per-notice with
+	 * `data-bn-clear-param="foo bar"` (space-separated), which is merged in
+	 * below.
+	 *
+	 * @type {string[]}
+	 */
+	var FLASH_PARAMS = [
+		// Generic outcome verbs.
+		'saved', 'updated', 'created', 'deleted', 'removed', 'toggled',
+		'archived', 'restored', 'reset', 'revoked', 'cancelled', 'refunded',
+		'extended', 'dispatched', 'queued', 'applied', 'duplicated',
+		'imported', 'exported', 'sent', 'tested', 'bulk_done',
+		// Outcome carriers.
+		'done', 'error', 'fail', 'ok', 'success', 'notice', 'message', 'msg',
+		// Surface-specific outcomes already in use.
+		'test_sent', 'step_added', 'order_added', 'tax_saved', 'coupon_saved',
+		'coupon_error', 'gate_saved', 'gate_error', 'refund_error',
+		'extend_err', 'reminders', 'cat_msg',
+		// BN-namespaced outcomes.
+		'bn_done', 'bn_error', 'bn_msg', 'bn_notice', 'bn_appearance',
+		'bn_tools', 'bn_roles', 'bn_recommended', 'bn_pf_notice',
+		'bn_isolation', 'bn_intctl', 'bn_skipped', 'bn_sent'
+	];
+
+	/**
+	 * Params that carry STATE — which screen you are on and what it is showing.
+	 *
+	 * The complement of FLASH_PARAMS, and the safety rail for the sweep below.
+	 * Stripping one of these silently changes what the screen shows on refresh —
+	 * a lost filter, tab or page — which is worse than the notice this whole
+	 * mechanism exists to suppress. Anything here is never removed.
+	 *
+	 * @type {string[]}
+	 */
+	var STATE_PARAMS = [
+		// Navigation.
+		'page', 'tab', 'subtab', 'view', 'section',
+		// Listing state.
+		'paged', 's', 'orderby', 'order', 'status', 'type', 'scope', 'role', 'filter',
+		'log_type', 'log_page', 'inv_status', 'inv_paged', 'gated_paged',
+		'mod_type', 'mod_sort', 'mod_reason', 'mod_page', 'space_q',
+		'bn_page', 'bn_nav_scope', 'bn_event_page', 'bn_event_bucket',
+		'bn_files_page', 'bn_folder', 'bn_folder_page', 'bn_q', 'bn_sf_q', 'bn_tab',
+		// The thing being acted on.
+		'action', 'edit', 'edit_post', 'edit_cat', 'edit_type', 'add_group',
+		'user_id', 'uid', 'sid', 'bid', 'tier_id', 'space_id', 'subscription_id',
+		'session_id', 'invoice', 'plan', 'author_id', 'category_id', 'parent_id', 'id',
+		'date_from', 'date_to', 'from', 'to', 'window', 'until',
+		// WordPress' own.
+		'_wpnonce', '_wp_http_referer', 'token'
+	];
+
+	/**
+	 * Strip one-shot flash params from the current URL via
 	 * history.replaceState so a refresh doesn't re-show the notice.
-	 * Notices opt in by adding `data-bn-clear-param="updated tested reset"`
-	 * (space-separated list).
+	 *
+	 * Strips `FLASH_PARAMS` by default, plus anything a notice opts into with
+	 * `data-bn-clear-param="updated tested reset"` (space-separated list).
 	 */
 	function stripNoticeParams() {
-		var nodes = document.querySelectorAll( '[data-bn-clear-param]' );
-		if ( ! nodes.length || ! window.history || ! window.history.replaceState ) {
+		if ( ! window.history || ! window.history.replaceState ) {
 			return;
 		}
-		var url     = new URL( window.location.href );
-		var changed = false;
-		nodes.forEach( function ( node ) {
-			node.getAttribute( 'data-bn-clear-param' ).split( /\s+/ ).forEach( function ( p ) {
-				if ( p && url.searchParams.has( p ) ) {
-					url.searchParams.delete( p );
-					changed = true;
+		var url = new URL( window.location.href );
+
+		// The default list applies to BN-owned admin screens only. This helper
+		// also loads on the three Learnomy screens the community-link card
+		// renders on (by script dependency) — rewriting another plugin's URL
+		// from a list we maintain is not ours to do. An opt-in
+		// `data-bn-clear-param` still works everywhere, because there the
+		// screen asked for it.
+		var page   = url.searchParams.get( 'page' ) || '';
+		var onBnScreen = 0 === page.indexOf( 'buddynext' );
+		var params     = onBnScreen ? FLASH_PARAMS.slice() : [];
+
+		/*
+		 * The sweep, and the reason this is not just a longer list.
+		 *
+		 * FLASH_PARAMS only covers names someone thought to enumerate. It shipped
+		 * without `bn_demo`, so "Demo data installed." kept re-showing on every
+		 * refresh of Platform -> Tools — the same bug the list was meant to end,
+		 * on the one screen nobody re-tested. A list of instances cannot close a
+		 * class.
+		 *
+		 * So: when a BN admin screen has actually rendered a notice, anything in
+		 * the URL that is not known STATE has done its job and comes out, named or
+		 * not. A flash param invented next year is handled the first time it shows
+		 * a notice, with nobody having to remember anything.
+		 *
+		 * Gated on a notice being present so an ordinary page load never has its
+		 * URL touched, and floored by STATE_PARAMS so the sweep can never take a
+		 * filter or a page number with it.
+		 */
+		if ( onBnScreen && document.querySelector( '.bn-notice' ) ) {
+			url.searchParams.forEach( function ( _value, key ) {
+				if ( STATE_PARAMS.indexOf( key ) === -1 && params.indexOf( key ) === -1 ) {
+					params.push( key );
 				}
 			} );
+		}
+
+		document.querySelectorAll( '[data-bn-clear-param]' ).forEach( function ( node ) {
+			node.getAttribute( 'data-bn-clear-param' ).split( /\s+/ ).forEach( function ( p ) {
+				if ( p ) {
+					params.push( p );
+				}
+			} );
+		} );
+		var changed = false;
+		params.forEach( function ( p ) {
+			if ( url.searchParams.has( p ) ) {
+				url.searchParams.delete( p );
+				changed = true;
+			}
 		} );
 		if ( changed ) {
 			window.history.replaceState( {}, '', url.toString() );

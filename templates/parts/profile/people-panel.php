@@ -14,6 +14,7 @@
  * @var string      $relation     Required. 'followers' | 'following' | 'connections'.
  * @var WP_User[]   $members      Capped member list for the grid.
  * @var WP_User[]   $pending      Owner-only pending requests (follow or connection).
+ * @var array       $pending_notes Owner-only. requester_id => note, for connection requests.
  * @var int         $viewer_id    Current viewer user ID.
  * @var bool        $is_owner     Whether the viewer owns this profile.
  * @var string      $display_name Profile display name (empty states).
@@ -26,6 +27,7 @@ defined( 'ABSPATH' ) || exit;
 $bn_pp_relation = isset( $relation ) ? (string) $relation : 'followers';
 $bn_pp_members  = isset( $members ) && is_array( $members ) ? $members : array();
 $bn_pp_pending  = isset( $pending ) && is_array( $pending ) ? $pending : array();
+$bn_pp_notes    = isset( $pending_notes ) && is_array( $pending_notes ) ? $pending_notes : array();
 $bn_pp_viewer   = isset( $viewer_id ) ? (int) $viewer_id : 0;
 $bn_pp_is_owner = ! empty( $is_owner );
 $bn_pp_name     = isset( $display_name ) ? (string) $display_name : '';
@@ -131,6 +133,17 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 								);
 								?>
 							</span>
+						<?php endif; ?>
+						<?php
+						// The note the requester wrote with their request. This is the
+						// surface it is meant for — the owner reads it here, next to
+						// Accept/Decline, rather than having to find it somewhere else
+						// (Basecamp 10244757451). Blockquote because it is someone
+						// else's words, not our copy.
+						$bn_pp_note = isset( $bn_pp_notes[ $bn_pp_rid ] ) ? trim( (string) $bn_pp_notes[ $bn_pp_rid ] ) : '';
+						if ( '' !== $bn_pp_note ) :
+							?>
+							<blockquote class="bn-follow-requests__note"><?php echo esc_html( $bn_pp_note ); ?></blockquote>
 						<?php endif; ?>
 					</div>
 					<div class="bn-follow-requests__actions">

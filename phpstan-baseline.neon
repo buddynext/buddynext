@@ -13,12 +13,6 @@ parameters:
 			path: includes/Admin/AdminPageBase.php
 
 		-
-			message: '#^Variable \$notice might not be defined\.$#'
-			identifier: variable.undefined
-			count: 1
-			path: includes/Admin/NavManager.php
-
-		-
 			message: '#^PHPDoc tag @var above a method has no effect\.$#'
 			identifier: varTag.misplaced
 			count: 1
@@ -33,18 +27,6 @@ parameters:
 
 
 
-
-		-
-			message: '#^@param array\<string, bool\|string\> \$map does not accept actual type of parameter\: array\{buddynext_public_explore\: true, buddynext_enable_community_nav\: true, buddynext_enable_dm\: true, buddynext_default_dm_access\: ''members'', buddynext_default_post_privacy\: ''public'', buddynext_allow_polls\: ''1'', buddynext_allow_shares\: ''1'', buddynext_allow_bookmarks\: ''1'', \.\.\.\}\.$#'
-			identifier: parameter.phpDocType
-			count: 1
-			path: includes/Core/RecommendedDefaults.php
-
-		-
-			message: '#^PHPDoc tag @var for constant BuddyNext\\Core\\RecommendedDefaults\:\:MAP with type array\<string, bool\|string\> is not subtype of value array\{buddynext_public_explore\: true, buddynext_enable_community_nav\: true, buddynext_enable_dm\: true, buddynext_default_dm_access\: ''members'', buddynext_default_post_privacy\: ''public'', buddynext_allow_polls\: ''1'', buddynext_allow_shares\: ''1'', buddynext_allow_bookmarks\: ''1'', \.\.\.\}\.$#'
-			identifier: classConstant.phpDocType
-			count: 1
-			path: includes/Core/RecommendedDefaults.php
 
 		-
 			message: '#^Offset 0\|1\|2\|3\|4\|5\|6\|7\|8\|9\|10\|11 on array\{''she/her'', ''she/her'', ''he/him'', ''they/them'', ''she/her'', ''he/him'', ''she/her'', ''he/him'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'

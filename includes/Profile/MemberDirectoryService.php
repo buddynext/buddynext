@@ -28,6 +28,76 @@ class MemberDirectoryService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * The part of a bio that the headline has not already said.
+	 *
+	 * A member card shows a headline and, under it, a bio. People routinely write a
+	 * headline and then start their bio with that same sentence, so the card
+	 * rendered the line twice - "Trail runner, data scientist, plant collector"
+	 * followed by "Trail runner, data scientist, plant collector. Data Scientist
+	 * at ...".
+	 *
+	 * The previous guard was `strcasecmp()`, exact equality. It caught a bio that
+	 * IS the headline and missed the prefix case, which is the one that actually
+	 * occurs.
+	 *
+	 * Returns the remainder rather than hiding the bio outright, because the tail
+	 * is usually the only new information on the card. When nothing meaningful is
+	 * left - the bio was just the headline, or what remains is a stray fragment -
+	 * it returns '' and the caller renders nothing.
+	 *
+	 * Entities are decoded before comparing so an encoded ampersand on one side
+	 * ("&amp;" vs "&") cannot defeat the match, and comparison is
+	 * case-insensitive on trimmed values.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $bio      Member bio.
+	 * @param string $headline Member headline.
+	 * @return string Bio text worth showing, or '' when there is none.
+	 */
+	public static function bio_beyond_headline( string $bio, string $headline ): string {
+		$bio_text = trim( html_entity_decode( $bio, ENT_QUOTES ) );
+
+		if ( '' === $bio_text ) {
+			return '';
+		}
+
+		$headline_text = trim( html_entity_decode( $headline, ENT_QUOTES ) );
+
+		if ( '' === $headline_text ) {
+			return $bio;
+		}
+
+		if ( 0 === strcasecmp( $bio_text, $headline_text ) ) {
+			return '';
+		}
+
+		// Not a prefix: the bio says something else entirely, show it as written.
+		if ( 0 !== stripos( $bio_text, $headline_text ) ) {
+			return $bio;
+		}
+
+		$remainder = substr( $bio_text, strlen( $headline_text ) );
+
+		// Drop the punctuation and space that joined the two, so the remainder does
+		// not start with ". " or "- ".
+		$remainder = ltrim( (string) $remainder, " \t\n\r\0\x0B.,;:—–-" );
+
+		/**
+		 * Shortest remainder still worth showing under the headline.
+		 *
+		 * Below this a card gains a line and no information.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param int $length Minimum characters.
+		 */
+		$minimum = (int) apply_filters( 'buddynext_member_card_min_bio_remainder', 12 );
+
+		return strlen( $remainder ) >= $minimum ? $remainder : '';
+	}
+
+	/**
 	 * Cached, EXACT directory total for a viewer + filter set.
 	 *
 	 * The server-rendered directory used to compute this itself, by running a SECOND
@@ -78,6 +148,31 @@ class MemberDirectoryService {
 				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 				? $wpdb->prepare( $frag, ...$frag_params )
 				: $frag;
+		}
+
+		/*
+		 * The id-set constraint the SSR grid applies through WP_User_Query's
+		 * `include` — the member SEARCH term and the relation tabs (following /
+		 * connections). Those never reached this method, so the comment above was
+		 * only two-thirds true: member_type and online_only were honoured while
+		 * relation and search were not. Measured on a seeded site,
+		 * /members/?relation=following rendered 7 cards under a header reading
+		 * "227 members in the community".
+		 *
+		 * It arrives through $filters so the cache key varies with it; a total
+		 * computed for one relation tab must never be served to another.
+		 */
+		if ( isset( $filters['include'] ) && is_array( $filters['include'] ) ) {
+			$bn_include = array_values( array_unique( array_map( 'intval', $filters['include'] ) ) );
+
+			if ( empty( $bn_include ) ) {
+				// An explicit empty set means "nothing matched", not "no constraint".
+				return 0;
+			}
+
+			$bn_placeholders = implode( ', ', array_fill( 0, count( $bn_include ), '%d' ) );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- counted "%d, ..." list; every id is bound.
+			$clauses[] = $wpdb->prepare( "{$user_col} IN ( {$bn_placeholders} )", ...$bn_include );
 		}
 
 		$where = empty( $clauses ) ? '1=1' : implode( "\n   AND ", $clauses );
@@ -854,14 +949,27 @@ class MemberDirectoryService {
 	public function directory_filter_sql( int $viewer_id, array $args, string $user_col ): array {
 		global $wpdb;
 
-		// Exclude the viewer themselves (matches list_members' `u.ID != %d`; for a
-		// logged-out viewer this is `!= 0`, which excludes nobody), then the shared
-		// suspended / shadow-banned / directory-opt-out subqueries.
-		$clauses = array_merge(
-			array( "{$user_col} != %d" ),
-			$this->directory_exclusion_subqueries( $user_col )
-		);
-		$params  = array( $viewer_id );
+		/*
+		 * Exclude the viewer themselves (matches list_members' `u.ID != %d`; for a
+		 * logged-out viewer this is `!= 0`, which excludes nobody), then the shared
+		 * suspended / shadow-banned / directory-opt-out subqueries.
+		 *
+		 * `count_viewer` opts OUT of the self-exclusion. It exists for the HEADER
+		 * count, which states the size of the community rather than the length of
+		 * the grid: a member is part of their own community even though the
+		 * directory does not show them their own card. The grid, its pagination
+		 * and its empty states all keep the exclusion, so only the headline number
+		 * differs — deliberately, and by exactly one.
+		 */
+		$bn_count_viewer = ! empty( $args['count_viewer'] );
+
+		$clauses = $bn_count_viewer
+			? $this->directory_exclusion_subqueries( $user_col )
+			: array_merge(
+				array( "{$user_col} != %d" ),
+				$this->directory_exclusion_subqueries( $user_col )
+			);
+		$params  = $bn_count_viewer ? array() : array( $viewer_id );
 
 		// Bidirectional block exclusion — the one canonical builder list_members
 		// uses (forward + reverse `block`). Empty for logged-out viewers.
@@ -1143,6 +1251,18 @@ class MemberDirectoryService {
 			? ' AND ' . $wpdb->prepare( $block_sql, ...$block_params ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 			: '';
 
+		// The viewer is not a discovery result. "Online Now" answers "who else is
+		// around", and a member already knows they are here - listing themselves
+		// is noise, and on a quiet community it was the ENTIRE widget: one row,
+		// the person reading it, under the heading "Online Now (1)".
+		//
+		// Excluded in SQL rather than after the fetch, for the same reason the
+		// block exclusion is: the over-fetch trims to $limit further down, so a
+		// row dropped afterwards would silently cost the widget a real member.
+		$self_where = $viewer_id > 0
+			? $wpdb->prepare( ' AND u.ID <> %d', $viewer_id )
+			: '';
+
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT u.ID, u.display_name, u.user_nicename
@@ -1151,6 +1271,7 @@ class MemberDirectoryService {
 				  WHERE pres.last_active >= %d
 				    AND {$exclusions}
 				    {$block_where}
+				    {$self_where}
 				  ORDER BY pres.last_active DESC
 				  LIMIT %d",
 				time() - PresenceService::ONLINE_WINDOW,

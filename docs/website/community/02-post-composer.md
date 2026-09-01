@@ -45,9 +45,7 @@ Two rules apply:
 
 ### Pinning a post
 
-A member can pin one of their own posts to the top of their profile so visitors see it first. Inside a space, a space organizer can pin a post to the top of that space. Free allows one pin per surface; Pro raises this (see Free vs Pro).
-
-A pinned space post also appears in a compact pinned-posts strip at the top of the space feed. Anyone with permission to unpin it (the post's owner or a site administrator) sees an **Unpin** control right on that strip, so they can lift the pin without having to find the original post first.
+A member can pin one of their own posts to the top of their profile so visitors see it first. Pinning is profile-only: inside a space, important content is featured through **Announcements** instead (admin-controlled, dismissible, and able to expire on their own - see Activity Feed). Free allows one pin on a profile; Pro raises this (see Free vs Pro).
 
 ### Drafts
 
@@ -59,14 +57,14 @@ Every composer behavior below is controlled from the community settings. All wor
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Post edit window | How many minutes after posting a member can still edit their post. Set to 0 for no limit. Administrators are never limited. | 60 |
+| Post edit window | How many minutes after posting a member can still edit their post. Untick the box for no limit. Administrators are never limited. | 60 |
 | Enable link previews | Whether pasted links get an auto-fetched preview card. Turn off to stop the community from fetching external pages. | On |
 | Enable emoji picker | Whether the emoji picker is available in the composer. | On |
 | Allow polls | Whether members can create poll posts. | On |
-| Post rate limit (per minute) | Maximum posts one member may publish per minute, to stop flooding. Set to 0 to disable. Administrators and moderators are exempt. | 10 |
+| Post rate limit (per minute) | Maximum posts one member may publish per minute, to stop flooding. Untick the box to disable. Administrators and moderators are exempt. | 10 |
 | Comment rate limit (per minute) | Maximum comments one member may publish per minute. | 30 |
-| Duplicate post window | If a member re-posts identical text within this many minutes, the duplicate is published but flagged into the moderation queue for review. Set to 0 to disable. | 0 (off) |
-| New member review threshold | New members whose total post count is below this number have their posts flagged into the moderation queue for review (the post still publishes). Set to 0 to disable. | 0 (off) |
+| Duplicate post window | If a member re-posts identical text within this many minutes, the duplicate is published but flagged into the moderation queue for review. Untick the box to disable. | 0 (off) |
+| New member review threshold | New members whose total post count is below this number have their posts flagged into the moderation queue for review (the post still publishes). Untick the box to disable. | 0 (off) |
 
 > **Note:** BuddyNext uses reactive moderation, the same model as mainstream social platforms. The duplicate and new-member thresholds do not hold a post back; the post publishes and a report is filed so a moderator can review it after the fact. If you want posts held for approval before they appear, use pre-moderation in the Moderation settings instead.
 
@@ -90,4 +88,4 @@ The composer itself, including the schedule clock, link previews, emoji picker, 
 Pro adds two things on top:
 
 - **Scheduled posts management** - a queue view of everything a member has lined up, plus an admin screen (BuddyNext > Campaigns > Scheduled Posts) where the owner can see every scheduled post on the site and cancel it or publish it immediately. Free schedules and reschedules a post from the composer and the post's own edit form; Pro is where the queue is managed as a whole.
-- **Multi-pin** - pin more than one post to a profile or space at a time. Free allows a single pin per surface.
+- **Multi-pin** - pin more than one post to a profile at a time. Free allows a single profile pin.

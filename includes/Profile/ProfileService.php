@@ -55,7 +55,64 @@ class ProfileService {
 	 *
 	 * @var string[]
 	 */
-	public const HERO_SPINE_FIELDS = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
+	/**
+	 * Identity fields the hero renders in their own designed spots — the headline
+	 * tagline, the bio paragraph, and pronouns inline with the @handle. These are
+	 * NOT part of the data-driven meta row; they are the fixed identity block, so
+	 * they stay hardcoded by key. All three are system fields (is_system=1, set in
+	 * Installer::converge_profile_schema) precisely because they are referenced by
+	 * name here: a template may hardcode a field key ONLY when the field is
+	 * guaranteed to exist. The About panel skips these too, so they never render
+	 * twice.
+	 *
+	 * @var string[]
+	 */
+	public const HERO_IDENTITY_FIELDS = array( 'headline', 'bio', 'pronouns' );
+
+	/**
+	 * Field keys the profile hero renders in its META ROW, in order.
+	 *
+	 * Data-driven from the `show_in_header` flag (in `sort_order`) instead of a
+	 * hardcoded key list, so a site owner controls which fields the header shows
+	 * and in what order — add/remove/reorder in the field admin. The installer
+	 * seeds it on `location` + `website` (the row the hero always showed), so the
+	 * default header is unchanged. Result is filterable for developers.
+	 *
+	 * @return string[] Field keys, in render order.
+	 */
+	public static function hero_meta_field_keys(): array {
+		global $wpdb;
+		// A handful of flagged fields on a small table; queried fresh rather than
+		// memoised so a flag change (admin toggle) is reflected without a cache to
+		// invalidate, and so tests see each state they set.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			"SELECT field_key FROM {$wpdb->prefix}bn_profile_fields WHERE show_in_header = 1 ORDER BY sort_order ASC, id ASC"
+		);
+		$keys = array_values( array_map( 'strval', (array) $rows ) );
+
+		/**
+		 * The profile-hero meta-row field keys, in render order.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param string[] $keys Field keys flagged show_in_header, in sort_order.
+		 */
+		return (array) apply_filters( 'buddynext_profile_hero_fields', $keys );
+	}
+
+	/**
+	 * Every field key the hero renders — the identity fields plus the meta row.
+	 *
+	 * The About panel and ProfileNav read this to skip whatever the hero already
+	 * shows, so a field never renders in both places and the About tab is hidden
+	 * only when nothing is left for it.
+	 *
+	 * @return string[] Field keys.
+	 */
+	public static function hero_field_keys(): array {
+		return array_values( array_unique( array_merge( self::HERO_IDENTITY_FIELDS, self::hero_meta_field_keys() ) ) );
+	}
 
 
 	/**
@@ -117,7 +174,26 @@ class ProfileService {
 		$cached = wp_cache_get( 'all_fields', self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return (array) $cached;
+			// Filters layer on top of the CACHED rows too, not just freshly-read
+			// ones. What is cached is the DB tree; code-registered fields are not in
+			// it and never should be, because they belong to whichever plugins are
+			// loaded right now.
+			//
+			// Returning the raw cache here dropped every code-registered field after
+			// the first call in a request, which made the whole programmatic field
+			// API unusable. Worse than unusable, in one case: registration resolves
+			// its requirements three times per submission (missing(), validate_data(),
+			// save_fields()), so a registered field RENDERED on the signup form from
+			// the first call and was then validated against a field list that no
+			// longer contained it - the visitor answered a question and the answer
+			// was silently discarded. With a persistent object cache the field
+			// vanished from the form entirely once the cache was primed, reappearing
+			// for one request whenever the TTL lapsed.
+			//
+			// filter_fields()'s own docblock already stated this contract - "Runs on
+			// every call ... so a plugin loading/unloading is reflected immediately" -
+			// and only this branch disagreed with it.
+			return $this->filter_fields( (array) $cached );
 		}
 
 		global $wpdb;
@@ -143,6 +219,7 @@ class ProfileService {
 				f.is_required,
 				f.is_searchable,
 				f.show_on_register,
+				f.show_in_header,
 				f.is_system    AS field_is_system,
 				f.visibility   AS field_visibility,
 				f.sort_order   AS field_sort_order
@@ -185,6 +262,7 @@ class ProfileService {
 					'is_required'      => (bool) $row['is_required'],
 					'is_searchable'    => (bool) $row['is_searchable'],
 					'show_on_register' => (bool) ( $row['show_on_register'] ?? false ),
+					'show_in_header'   => (bool) ( $row['show_in_header'] ?? false ),
 					'is_system'        => (bool) ( $row['field_is_system'] ?? false ),
 					'visibility'       => $row['field_visibility'] ?? 'public',
 					'sort_order'       => (int) $row['field_sort_order'],
@@ -281,6 +359,7 @@ class ProfileService {
 			'is_required'      => ! empty( $field['is_required'] ),
 			'is_searchable'    => ! empty( $field['is_searchable'] ),
 			'show_on_register' => ! empty( $field['show_on_register'] ),
+			'show_in_header'   => ! empty( $field['show_in_header'] ),
 			'is_system'        => ! empty( $field['is_system'] ),
 			'visibility'       => $visibility,
 			'sort_order'       => (int) ( $field['sort_order'] ?? 0 ),
@@ -506,8 +585,8 @@ class ProfileService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_profile_fields
-					(group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, visibility, sort_order)
-				 VALUES (%d, %s, %s, %s, %s, %s, %s, %d, %d, %d, %s, %d)",
+					(group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, show_in_header, visibility, sort_order)
+				 VALUES (%d, %s, %s, %s, %s, %s, %s, %d, %d, %d, %d, %s, %d)",
 				$group_id,
 				$field_key,
 				sanitize_text_field( (string) ( $data['label'] ?? '' ) ),
@@ -518,6 +597,7 @@ class ProfileService {
 				(int) ( $data['is_required'] ?? 0 ),
 				(int) ( $data['is_searchable'] ?? 0 ),
 				(int) ( $data['show_on_register'] ?? 0 ),
+				(int) ( $data['show_in_header'] ?? 0 ),
 				// A new field is members-only unless the caller says otherwise. The
 				// admin form preselects the same value, so the default is the same
 				// whether a field is created through the screen, the REST route, an
@@ -1180,7 +1260,7 @@ class ProfileService {
 		if ( array_key_exists( 'profile_slug', $data ) ) {
 			$requested_slug = sanitize_title( (string) $data['profile_slug'] );
 			if ( '' !== $requested_slug && \BuddyNext\Core\PageRouter::is_slug_available( $requested_slug, $user_id ) ) {
-				update_user_meta( $user_id, 'bn_profile_slug', $requested_slug );
+				\BuddyNext\Profile\Handle::set( $user_id, $requested_slug );
 			}
 		}
 
@@ -2383,7 +2463,37 @@ class ProfileService {
 			);
 		}
 
-		/**
+		/*
+		 * The photos. Neither was in the model at all, so the meter could point a
+		 * member at text fields while never mentioning the one thing that would
+		 * actually finish their profile — a member who tapped "Skip for now" on
+		 * the onboarding photo step was told their profile was incomplete and
+		 * never told why.
+		 *
+		 * This is a missing INPUT, not a wrong one: get_strength() is deliberately
+		 * schema-driven over field groups and stays that way. Avatar and cover are
+		 * not profile fields and never will be, so they are added here as two
+		 * ordinary tasks, before the filter, which means a site can still remove
+		 * or reword them exactly like any other.
+		 *
+		 * has_custom_avatar() rather than "is there an avatar_url": there is
+		 * ALWAYS an avatar_url, because AvatarService falls back to generated
+		 * initials. Counting that as done would make this task unaskable.
+		 */
+		$bn_avatars = buddynext_service( 'avatars' );
+
+		if ( is_object( $bn_avatars ) && method_exists( $bn_avatars, 'has_custom_avatar' ) ) {
+			$tasks[] = array(
+				'label' => __( 'Add a profile photo', 'buddynext' ),
+				'done'  => $bn_avatars->has_custom_avatar( $user_id ),
+			);
+			$tasks[] = array(
+				'label' => __( 'Add a cover image', 'buddynext' ),
+				'done'  => '' !== $bn_avatars->get_cover_url( $user_id ),
+			);
+		}
+
+				/**
 		 * Filter the profile-strength checklist for a member.
 		 *
 		 * The defaults above cover BuddyNext's installer-created system schema
@@ -2638,24 +2748,243 @@ class ProfileService {
 	}
 
 	/**
+	 * Migrate a field's stored values when its TYPE changes, so existing values
+	 * survive the change instead of becoming unreadable in the new type's format.
+	 *
+	 * The conversion this exists for: a system field like `location` is text-only
+	 * and cannot be deleted, so the way to make it a map is to CHANGE ITS TYPE,
+	 * not create a duplicate map field. A location (map) field stores
+	 * {address,lat,lng} JSON; a plain-text location ("Lucknow, ...") is wrapped as
+	 * that address with no coordinates, so the hero and About keep showing it
+	 * immediately and the pin fills in when the member next edits and the geocoder
+	 * resolves the address (no synchronous geocoding of every value at change time,
+	 * which would hammer the geocoder).
+	 *
+	 * Other conversions leave values untouched — FieldType::display_text() degrades
+	 * a mismatched value gracefully rather than this guessing a lossy transform.
+	 *
+	 * One bulk UPDATE, so a field with 100k values migrates without a per-row loop.
+	 * Idempotent: a value already in JSON-object form (starts with '{') is skipped.
+	 *
+	 * @param int    $field_id  Field whose type changed.
+	 * @param string $from_type Previous type.
+	 * @param string $to_type   New type.
+	 * @return void
+	 */
+	public function convert_field_values( int $field_id, string $from_type, string $to_type ): void {
+		if ( $field_id <= 0 || $from_type === $to_type ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// text-like -> location: wrap the address string as the map field's JSON.
+		if ( 'location' === $to_type && in_array( $from_type, array( 'text', 'textarea', 'url' ), true ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_profile_values
+						SET value = JSON_OBJECT('address', value, 'lat', NULL, 'lng', NULL)
+					  WHERE field_id = %d
+						AND value <> ''
+						AND LEFT(value, 1) <> '{'",
+					$field_id
+				)
+			);
+		}
+
+		// location -> text-like: unwrap the {address,lat,lng} JSON back to the plain
+		// address string. Without this the downgraded field renders raw JSON on the
+		// hero and About tab (a text field has no reader for the map shape). Only
+		// JSON-object rows are touched; a value already plain text is left as is.
+		if ( 'location' === $from_type && in_array( $to_type, array( 'text', 'textarea', 'url' ), true ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_profile_values
+						SET value = COALESCE( JSON_UNQUOTE( JSON_EXTRACT( value, '$.address' ) ), '' )
+					  WHERE field_id = %d
+						AND value <> ''
+						AND LEFT(value, 1) = '{'
+						AND JSON_VALID( value )",
+					$field_id
+				)
+			);
+		}
+	}
+
+	/**
+	 * Why this field may not move to $to_group — or null when the move is safe.
+	 *
+	 * A field's values key on (user_id, field_id, entry_index), never on the
+	 * group, so relocating a field is normally pure metadata and every stored
+	 * value survives untouched. The exception is the pair of groups disagreeing
+	 * about what `entry_index` MEANS:
+	 *
+	 *   flat -> repeater   safe. Every existing value sits at entry_index 0 and
+	 *                      simply becomes the first entry. Nothing is hidden.
+	 *   repeater -> flat   lossy IF anyone has entries past the first. A flat
+	 *                      group renders entry 0 only, so entries 1..n would stop
+	 *                      appearing while still sitting in the table - the member
+	 *                      sees data vanish and the owner sees no error.
+	 *
+	 * Note the second case is refused only when the data actually exists. A
+	 * repeater nobody has filled past one entry moves to flat with nothing at
+	 * stake, and blocking it on the group's type alone would refuse a safe move
+	 * for a hypothetical.
+	 *
+	 * Public because there are TWO doors to this table: this service (REST) and
+	 * the admin screen's own $wpdb->update(). The admin path asks this rather
+	 * than re-deriving the rule, so the two cannot drift into disagreeing about
+	 * which moves are safe - the same reasoning as FieldType::is_searchable_applicable().
+	 *
+	 * @param int $id         Field being moved.
+	 * @param int $from_group Group it is in now.
+	 * @param int $to_group   Group it would move to.
+	 * @return \WP_Error|null Error to return to the caller, or null if the move is fine.
+	 */
+	public function field_move_blocker( int $id, int $from_group, int $to_group ): ?\WP_Error {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$types = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, type FROM {$wpdb->prefix}bn_profile_groups WHERE id IN ( %d, %d )",
+				$from_group,
+				$to_group
+			),
+			OBJECT_K
+		);
+
+		if ( ! isset( $types[ $to_group ] ) ) {
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return new \WP_Error(
+				'bn_group_not_found',
+				__( 'That profile field group does not exist.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$from_type = isset( $types[ $from_group ] ) ? (string) $types[ $from_group ]->type : 'flat';
+		$to_type   = (string) $types[ $to_group ]->type;
+
+		if ( 'repeater' !== $from_type || 'flat' !== $to_type ) {
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return null;
+		}
+
+		$affected = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_profile_values
+				  WHERE field_id = %d AND entry_index > 0",
+				$id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( 0 === $affected ) {
+			return null;
+		}
+
+		return new \WP_Error(
+			'bn_field_move_would_hide_entries',
+			sprintf(
+				/* translators: %d: number of members who have more than one entry for this field. */
+				_n(
+					'This field cannot move to a non-repeating group: %d member has more than one entry, and only the first would still be shown. Move it to another repeating group, or remove the extra entries first.',
+					'This field cannot move to a non-repeating group: %d members have more than one entry, and only the first would still be shown. Move it to another repeating group, or remove the extra entries first.',
+					$affected,
+					'buddynext'
+				),
+				$affected
+			),
+			array(
+				'status'            => 409,
+				'affected_members'  => $affected,
+			)
+		);
+	}
+
+	/**
 	 * Update a profile field definition.
 	 *
 	 * Allowed $data keys: label, type, options (null, array, or JSON string),
 	 * description, placeholder, is_required, is_searchable, show_on_register,
-	 * visibility, sort_order.
+	 * show_in_header, visibility, sort_order.
 	 * Unknown keys are ignored.
 	 * When 'options' is an array it is json_encoded before saving.
 	 * Busts 'all_fields' cache key.
 	 *
+	 * A type that is not in the registry is REFUSED: create_field()'s route has
+	 * always rejected one, but this path would write it straight into the column,
+	 * leaving a field with no render or save pipeline that nothing could display
+	 * and no one could repair from the UI.
+	 *
 	 * @param int   $id   Profile field ID.
 	 * @param array $data Associative array of fields to update.
-	 * @return void
+	 * @return true|\WP_Error True on success (including a no-op), error on a refused type.
 	 */
-	public function update_field( int $id, array $data ): void {
+	public function update_field( int $id, array $data ): bool|\WP_Error {
 		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$current = $wpdb->get_row(
+			$wpdb->prepare( "SELECT type, visibility, is_searchable, group_id FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
+			ARRAY_A
+		);
+
+		if ( ! $current ) {
+			return new \WP_Error(
+				'bn_field_not_found',
+				__( 'Profile field not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$stored_type = (string) $current['type'];
+		$stored_vis  = (string) $current['visibility'];
+
+		if ( isset( $data['type'] ) ) {
+			$requested_type = sanitize_key( (string) $data['type'] );
+			if ( ! array_key_exists( $requested_type, FieldType::types() ) ) {
+				return new \WP_Error(
+					'bn_invalid_field_type',
+					sprintf(
+						/* translators: %s: the rejected field type slug. */
+						__( 'Unknown field type: %s.', 'buddynext' ),
+						$requested_type
+					),
+					array( 'status' => 400 )
+				);
+			}
+		}
+
+		// The type / visibility this field will HAVE once this update lands. Both
+		// gates below reason about the outcome, not the submitted fragment.
+		$next_type = isset( $data['type'] ) ? sanitize_key( (string) $data['type'] ) : $stored_type;
+		$next_vis  = isset( $data['visibility'] ) ? sanitize_key( (string) $data['visibility'] ) : $stored_vis;
 
 		$update = array();
 		$format = array();
+
+		/*
+		 * is_searchable only means something for a type that backs a free-text
+		 * mirror AND a visibility whose values reach an index — the identical rule
+		 * the admin builder enforces, now read from one place so the two doors to
+		 * this table cannot drift.
+		 *
+		 * The flag is also RE-EVALUATED when type or visibility changes, even if
+		 * the caller did not mention is_searchable: flipping a searchable text
+		 * field to Private otherwise left is_searchable=1 stored against a
+		 * combination that can never be honoured.
+		 */
+		$searchable_applicable = FieldType::is_searchable_applicable( $next_type, $next_vis );
+
+		if ( isset( $data['is_searchable'] ) ) {
+			$data['is_searchable'] = ( $data['is_searchable'] && $searchable_applicable ) ? 1 : 0;
+		} elseif ( ! $searchable_applicable && 1 === (int) $current['is_searchable'] ) {
+			$data['is_searchable'] = 0;
+		}
 
 		if ( isset( $data['label'] ) ) {
 			$update['label'] = sanitize_text_field( (string) $data['label'] );
@@ -2705,6 +3034,11 @@ class ProfileService {
 			$format[]                   = '%d';
 		}
 
+		if ( isset( $data['show_in_header'] ) ) {
+			$update['show_in_header'] = (int) $data['show_in_header'];
+			$format[]                 = '%d';
+		}
+
 		if ( isset( $data['visibility'] ) ) {
 			$update['visibility'] = sanitize_key( (string) $data['visibility'] );
 			$format[]             = '%s';
@@ -2715,8 +3049,26 @@ class ProfileService {
 			$format[]             = '%d';
 		}
 
+		// Moving the field to another group. Values key on field_id, never on the
+		// group, so the move itself is metadata and every stored value survives -
+		// EXCEPT where the two groups disagree about what entry_index means, which
+		// is what field_move_blocker() weighs.
+		if ( isset( $data['group_id'] ) ) {
+			$bn_next_group = (int) $data['group_id'];
+
+			if ( $bn_next_group !== (int) $current['group_id'] ) {
+				$bn_blocked = $this->field_move_blocker( $id, (int) $current['group_id'], $bn_next_group );
+				if ( null !== $bn_blocked ) {
+					return $bn_blocked;
+				}
+
+				$update['group_id'] = $bn_next_group;
+				$format[]           = '%d';
+			}
+		}
+
 		if ( empty( $update ) ) {
-			return;
+			return true;
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2731,11 +3083,22 @@ class ProfileService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 
+		// The type changed — migrate existing values into the new type's storage
+		// format so they survive it. The admin editor has always done this; the
+		// REST path did not, so a type change over REST rewrote the definition and
+		// left every stored value encoded for the OLD type, unreadable by the new
+		// one. Same call, same guard, same order as the admin path.
+		if ( $next_type !== $stored_type ) {
+			$this->convert_field_values( $id, $stored_type, $next_type );
+		}
+
 		// Mirror the admin editor: announce the definition change so existing
 		// members' search mirrors are backfilled when is_searchable/visibility
 		// flips (rebuild_field_mirror is wired to this in Plugin.php). Without
 		// this the REST path would persist the toggle but leave stale mirrors.
 		do_action( 'buddynext_profile_field_updated', $id );
+
+		return true;
 	}
 
 	/**

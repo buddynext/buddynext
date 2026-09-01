@@ -48,7 +48,7 @@ Direct messaging is controlled from Settings > General, in the Direct Messaging 
 | Setting | What it does | Default |
 |---|---|---|
 | Enable direct messaging | Turns private 1:1 messaging on or off for the whole community. When off, every messaging entry point (the inbox, the profile and directory "Message" buttons, the header icon, and the Messages nav item) is hidden. This setting requires the WPMediaVerse plugin to be active; while WPMediaVerse is not active the toggle is disabled and cannot be turned on. | On |
-| Who can DM me (default) | The default privacy applied to new accounts: who is allowed to start a message with a member. Options are Everyone, Members only, Connections only, and No one. Members can override this in their own privacy settings. | Everyone |
+| Who can DM me (default) | The default privacy applied to new accounts: who is allowed to start a message with a member. Options are Everyone, Members only, Connections only, and No one. Members can override this in their own privacy settings. | Members only |
 
 > **Tip:** "Who can DM me (default)" only sets the starting value for new members. Each member can change their own preference afterward, so this controls the community default, not a hard rule.
 
@@ -71,4 +71,4 @@ Direct messaging is controlled from Settings > General, in the Direct Messaging 
 
 1:1 direct messaging is free, as long as the WPMediaVerse companion plugin is installed and active. That covers starting a conversation, sending messages, marking conversations read, and sharing media in a message.
 
-Read receipts, group messages (more than two people in one conversation), and instant live delivery are not part of the free tier. They come with WPMediaVerse Pro. On the free engine, new messages surface through the notification bell, which refreshes on a short interval, rather than arriving the very instant they are sent.
+Read receipts, group messages (more than two people in one conversation), and instant live delivery are not part of the free plan. They come with WPMediaVerse Pro. On the free engine, new messages surface through the notification bell, which refreshes on a short interval, rather than arriving the very instant they are sent.

@@ -82,11 +82,18 @@ do_action( 'buddynext_part_notifications_hero_before', $args );
 						data-wp-text="state.unreadTotalLabel"
 						data-wp-bind--hidden="state.unreadTotalHidden">
 					<?php
+					// "unread", not "new". The number is an all-time unread COUNT, but
+					// "new" reads as a time window - which put it in direct conflict
+					// with the "This week" stats card beside it ("41 new" against "2
+					// notifications"). Two true numbers that looked like a
+					// contradiction because only one of them said what it counted.
+					// Naming the state instead of implying a period removes the clash
+					// without either number changing.
 					$display = $bn_total_unread > 99 ? '99+' : (string) $bn_total_unread;
 					echo esc_html(
 						sprintf(
 							/* translators: %s is the formatted number of unread notifications (e.g. "12" or "99+"). */
-							__( '%s new', 'buddynext' ),
+							__( '%s unread', 'buddynext' ),
 							$display
 						)
 					);

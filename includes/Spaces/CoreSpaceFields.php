@@ -40,6 +40,27 @@ final class CoreSpaceFields {
 	 * @return void
 	 */
 	public function register_fields( SpaceFieldRegistry $registry ): void {
+		// ── Branding ─────────────────────────────────────────────────────────
+		// A real, owner-set brand colour for the space. Until now the space tone
+		// was derived from the space id (a fixed six-tone palette), so a space
+		// owner could not brand their space and integrations (e.g. Circles) kept
+		// the colour on their own meta and applied it client-side. This makes it a
+		// first-class space field: stored in bn_space_meta, sanitised to a hex by
+		// the `color` field type, and exposed on the space-field REST API for free.
+		$registry->register(
+			'brand_color',
+			array(
+				'label'       => __( 'Brand colour', 'buddynext' ),
+				'type'        => 'color',
+				'default'     => '',
+				'section'     => 'general',
+				'sort_order'  => 5,
+				'visibility'  => 'members',
+				'writable_by' => 'owner',
+				'core'        => true,
+			)
+		);
+
 		// ── Permissions ──────────────────────────────────────────────────────
 		$registry->register(
 			'require_join_approval',
@@ -189,6 +210,18 @@ final class CoreSpaceFields {
 				'default'    => '0',
 				'section'    => 'integrations',
 				'sort_order' => 20,
+				'visibility' => 'members',
+				'core'       => true,
+			)
+		);
+		$registry->register(
+			'mvs_documents_tab',
+			array(
+				'label'      => __( 'Show the Files tab in this space', 'buddynext' ),
+				'type'       => 'boolean',
+				'default'    => '0',
+				'section'    => 'integrations',
+				'sort_order' => 25,
 				'visibility' => 'members',
 				'core'       => true,
 			)

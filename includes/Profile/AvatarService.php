@@ -49,6 +49,32 @@ class AvatarService {
 		'#495057',
 	);
 
+	/**
+	 * The identity tone palette — the ONE list every deterministic entity colour
+	 * comes from, for members and spaces alike.
+	 *
+	 * These are the six tokens `.bn-avatar[data-tone]`, `.bn-md-card__cover` and
+	 * `.bn-sd-card__cover` actually define. That matters more than it looks:
+	 * the palette had been copied into five places and three copies had drifted
+	 * off the tokens entirely, so their colours silently did nothing.
+	 * `MembersSidebarProvider` cycled eight values (`accent`, `success`,
+	 * `jetonomy`, `media`, `events`, `warn`, `danger`, `info`) of which the CSS
+	 * defines NONE, so every letter avatar there fell to the default hue and the
+	 * deterministic variety was inert while reading as if it worked. Two
+	 * templates cycled `violet` and `rose` — the purple/pink family the token
+	 * comment calls "deliberately excluded (BN reads those as the synthetic AI
+	 * palette)" — which are equally undefined on an avatar.
+	 *
+	 * Semantic tokens are the other half of why that was wrong. `danger` is the
+	 * destructive red and `warn` the caution amber; colouring a member's
+	 * initials with them says something about the member that is not true.
+	 * Identity and status are different colour languages and must not share a
+	 * palette.
+	 *
+	 * @var string[]
+	 */
+	public const IDENTITY_TONES = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -62,7 +88,24 @@ class AvatarService {
 	 * @return void
 	 */
 	public function init(): void {
-		add_filter( 'pre_get_avatar_data', array( $this, 'filter_avatar_data' ), 10, 2 );
+		/*
+		 * Three priorities, and the order between them is the whole design.
+		 *
+		 * 50 - the member's own BuddyNext upload. BuddyNext is the account's home in
+		 * this suite, so an avatar uploaded here outranks one set in any sibling
+		 * plugin (owner directive, 2026-08-29). Priority 50 makes that TRUE BY
+		 * DESIGN rather than by luck: WPMediaVerse and Jetonomy both register at 10,
+		 * BuddyNext also registered at 10, and BuddyNext only won because it boots at
+		 * plugins_loaded:15 and therefore happened to be added last. Any sibling that
+		 * moved its own boot, or registered at 11, would have flipped the result
+		 * silently and site-wide.
+		 *
+		 * 99 - our placeholders (the configured default image, then generated
+		 * initials). They must lose to a real photograph from anyone, which is only
+		 * answerable once every other participant has had its turn.
+		 */
+		add_filter( 'pre_get_avatar_data', array( $this, 'filter_avatar_data' ), 50, 2 );
+		add_filter( 'pre_get_avatar_data', array( $this, 'filter_avatar_fallback' ), 99, 2 );
 		add_filter( 'kses_allowed_protocols', array( $this, 'allow_data_protocol' ) );
 		add_filter( 'clean_url', array( $this, 'restrict_data_urls' ), 10, 2 );
 	}
@@ -151,14 +194,61 @@ class AvatarService {
 			return $args;
 		}
 
-		// ── 2. Site-wide fallback style ────────────────────────────────────────
-		$style = (string) get_option( 'bn_avatar_style', 'initials' );
+		// ── 2. No real avatar from us ──────────────────────────────────────────
+		// Deliberately return unchanged rather than generating initials here.
+		// This filter runs at priority 10, and so do WPMediaVerse's and
+		// Jetonomy's — three plugins on the same hook at the same priority, with
+		// load order deciding. BuddyNext registers last and won, so a member who
+		// had uploaded an avatar in WPMediaVerse got this plugin's generated
+		// initials on every surface instead, and their real picture appeared
+		// nowhere. A placeholder must never outrank someone's actual photograph.
+		//
+		// The initials are produced by filter_avatar_fallback() at priority 99,
+		// after every other plugin has had its turn.
+		return $args;
+	}
 
-		if ( 'gravatar' === $style ) {
-			// Let WordPress and Gravatar handle it — return args unchanged.
+	/**
+	 * Last-resort initials avatar — runs at priority 99, after everyone else.
+	 *
+	 * Only fills in when no plugin, and not Gravatar, produced a URL. Generated
+	 * initials are the answer to "nobody has a picture for this member", which is
+	 * a question that can only be answered once every other participant on the
+	 * hook has declined.
+	 *
+	 * The `bn_avatar_style` option still decides whether initials are wanted at
+	 * all: 'gravatar' leaves the args alone so core resolves Gravatar normally,
+	 * and 'default_image' is handled at priority 10 because a site-wide image the
+	 * owner configured is a real choice, not a fallback.
+	 *
+	 * @param array $args        Avatar args.
+	 * @param mixed $id_or_email User id, email, WP_User, WP_Post or WP_Comment.
+	 * @return array
+	 */
+	public function filter_avatar_fallback( array $args, $id_or_email ): array {
+		// Someone already answered — a real avatar from any source outranks ours.
+		if ( ! empty( $args['url'] ) ) {
 			return $args;
 		}
 
+		$style = (string) get_option( 'bn_avatar_style', 'initials' );
+
+		if ( 'initials' !== $style && 'default_image' !== $style ) {
+			return $args;
+		}
+
+		$user = $this->resolve_user( $id_or_email );
+		if ( ! $user ) {
+			return $args;
+		}
+
+		// The owner's configured default image is a placeholder, so it belongs here
+		// rather than at the early priority it used to run at. It was overwriting a
+		// member's real photograph from a sibling plugin - verified on this install:
+		// with style=default_image, a member holding a WPMediaVerse avatar and no
+		// BuddyNext one was served the site-wide placeholder everywhere. The 27 Aug
+		// fix moved the generated INITIALS out of the early pass and left this branch
+		// behind, so the rule the file states was only half true.
 		if ( 'default_image' === $style ) {
 			$default_url = (string) get_option( 'bn_default_avatar_url', '' );
 			if ( '' !== $default_url ) {
@@ -169,7 +259,6 @@ class AvatarService {
 			// No image configured — fall through to initials.
 		}
 
-		// ── 3. Initials SVG fallback ───────────────────────────────────────────
 		$args['url']          = $this->build_svg_url( $user );
 		$args['found_avatar'] = true;
 
@@ -186,6 +275,26 @@ class AvatarService {
 	 */
 	public static function tone_for( int $user_id ): string {
 		return self::COLOURS[ $user_id % count( self::COLOURS ) ];
+	}
+
+	/**
+	 * The stable identity TOKEN for an entity — `sky`, `cyan`, `emerald`, …
+	 *
+	 * Distinct from `tone_for()` above, which returns a HEX colour for the
+	 * generated initials-avatar image. This returns the `data-tone` token that
+	 * CSS resolves, for markup that is styled rather than drawn.
+	 *
+	 * Deterministic, so a member or space keeps the same colour on every render
+	 * and every surface. Keyed on the id rather than a hash of the name so that
+	 * renaming does not recolour someone the community already recognises.
+	 *
+	 * @param int $id Member or space id.
+	 * @return string One of IDENTITY_TONES.
+	 */
+	public static function identity_tone_for( int $id ): string {
+		$tones = self::IDENTITY_TONES;
+
+		return $tones[ abs( $id ) % count( $tones ) ];
 	}
 
 	/**
@@ -269,6 +378,37 @@ class AvatarService {
 	 * copied into ten places is a storage detail that cannot be changed.
 	 */
 	private const COVER_META = 'buddynext_cover_url';
+
+	/**
+	 * Whether the member has a real avatar, as opposed to a generated one.
+	 *
+	 * "Has an avatar_url" is always true — AvatarService always answers with
+	 * something, falling back to generated initials — so it cannot be used to ask
+	 * whether the member has actually added a photo. This resolves the same two
+	 * sources an uploaded avatar comes from, in the same order, and nothing else:
+	 * the external override filter, then the stored upload.
+	 *
+	 * Site-wide fallbacks (Gravatar, a default image, initials) are deliberately
+	 * NOT counted. They are the site's answer, not the member's, and a completion
+	 * checklist that treats them as done can never ask for the one thing it most
+	 * wants.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param int $user_id Member id.
+	 * @return bool
+	 */
+	public function has_custom_avatar( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		if ( '' !== (string) apply_filters( 'buddynext_avatar_url', '', $user_id ) ) {
+			return true;
+		}
+
+		return '' !== (string) get_user_meta( $user_id, 'bn_avatar', true );
+	}
 
 	/**
 	 * A member's cover image URL, or '' when they have none.

@@ -32,6 +32,8 @@ use BuddyNext\Spaces\SpaceService;
  */
 final class SpaceNav {
 
+	use RendersDriveFiles;
+
 	/**
 	 * Matches per page for in-space search.
 	 *
@@ -236,6 +238,47 @@ final class SpaceNav {
 				},
 			),
 			array(
+				'id'        => 'files',
+				'surface'   => 'space',
+				'layer'     => 'primary',
+				'label'     => __( 'Files', 'buddynext' ),
+				'priority'  => 35,
+				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'files' ),
+				// Same integration gate as Media (both are WPMediaVerse surfaces),
+				// but keyed on the documents feature + the per-space Files toggle.
+				// Per-viewer drive access (read/none, 403 vs 404) is settled by the
+				// drive filters when the panel asks MVS, so the tab shows for any
+				// space member and the panel renders the right state.
+				//
+				// Signed-in only, and that is MediaVerse's boundary rather than a
+				// policy of ours: `/mvs-pro/v1/documents` answers 401
+				// `mvs_unauthorized` to a logged-out request whatever the drive
+				// ladder granted — so on a PUBLIC space, where our own ladder gives
+				// a visitor `read`, the tab could only ever render "No files to
+				// show". A tab that structurally cannot hold content is worse than
+				// no tab. Filter it back on for a site whose MediaVerse serves
+				// anonymous reads.
+				'condition' => static fn( NavContext $c ): bool => \BuddyNext\Bridges\WPMediaVerseBridge::documents_available()
+					&& buddynext_integration_enabled( 'media', 'nav' )
+					&& (bool) buddynext_get_space_field( (int) $c->subject_id, 'mvs_documents_tab' )
+					/**
+					 * Whether the space Files tab shows to a logged-out visitor.
+					 *
+					 * Default false: MediaVerse refuses anonymous document reads, so
+					 * the tab would render empty on a public space. Return true if
+					 * your MediaVerse serves them.
+					 *
+					 * @since 1.1.6
+					 *
+					 * @param bool $show     Whether to show the tab when logged out.
+					 * @param int  $space_id The space.
+					 */
+					&& ( is_user_logged_in() || (bool) apply_filters( 'buddynext_space_files_tab_for_guests', false, (int) $c->subject_id ) ),
+				'render'    => function ( NavContext $c ): void {
+					$this->render_files_panel( $c->subject_id );
+				},
+			),
+			array(
 				'id'       => 'about',
 				'surface'  => 'space',
 				'layer'    => 'primary',
@@ -264,13 +307,70 @@ final class SpaceNav {
 	}
 
 	/**
+	 * PUBLIC entry: render a Space's feed panel (composer + stream) for a given
+	 * space, for an EXTERNAL surface (e.g. a Pro theme's own space homepage, such
+	 * as the Wellbee Circles Community tab).
+	 *
+	 * The render_feed_panel() below is the internal seam and assumes its caller
+	 * (spaces/home.php) already ran the private/secret read gate. An arbitrary
+	 * consumer has not, so this wrapper enforces the SAME two gates home.php does
+	 * before delegating — it can therefore never leak a private space's stream to
+	 * a viewer who may not read it:
+	 *
+	 *   - can_view_space():   unknown or secret-to-this-viewer -> render nothing.
+	 *   - can_view_content(): private / plan-gated for this viewer -> the same
+	 *                         informational gate card the space-home tab shows,
+	 *                         via the shared partial (no duplicated markup).
+	 *
+	 * When the viewer may read the content it delegates to render_feed_panel(),
+	 * which already suppresses the composer for a guest / non-poster and shows a
+	 * join CTA in its place, honouring the space's who-can-post rule.
+	 *
+	 * @param int      $space_id  Space ID.
+	 * @param int|null $viewer_id Viewer user ID; defaults to the current user.
+	 * @return void
+	 */
+	public function render_feed( int $space_id, ?int $viewer_id = null ): void {
+		$viewer_id = null === $viewer_id ? get_current_user_id() : $viewer_id;
+		$space_row = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space_row || ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $space_row, $viewer_id ) ) {
+			return;
+		}
+
+		if ( \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space_row, $viewer_id ) ) {
+			$this->render_feed_panel( $space_id, $viewer_id );
+			return;
+		}
+
+		// Content-gated for this viewer. Mirror spaces/home.php: the plan name is
+		// only asked for when the viewer IS a member still gated by a plan (Pro
+		// answers the filter; Free returns '' and the card shows the generic line).
+		$role       = $viewer_id > 0 ? ( new SpaceMemberService() )->get_role( $space_id, $viewer_id ) : null;
+		$gate_plan  = null !== $role
+			? (string) apply_filters( 'buddynext_space_gate_plan_name', '', $space_row, $viewer_id )
+			: '';
+		$is_invited = $viewer_id > 0 && 'invited' === (string) ( new SpaceMemberService() )->get_status( $space_id, $viewer_id );
+
+		buddynext_get_template(
+			'partials/space-content-gate.php',
+			array(
+				'gate_is_plan' => '' !== $gate_plan,
+				'gate_plan'    => $gate_plan,
+				'is_invited'   => $is_invited,
+			)
+		);
+	}
+
+	/**
 	 * Render the Feed panel for a space — the registry content seam for the Feed
 	 * tab (the space's home panel). Self-contained: it resolves the viewer's
 	 * membership, posting permission and archived state, then the pinned
 	 * announcement + the hydrated feed posts (the same FeedService path the space
 	 * feed REST controller uses), and renders the shared feed part. The caller
-	 * (spaces/home.php) still owns the private/secret access gate, so this only
-	 * runs for a viewer allowed to read the feed.
+	 * (spaces/home.php, or the public render_feed() wrapper above) still owns the
+	 * private/secret access gate, so this only runs for a viewer allowed to read
+	 * the feed.
 	 *
 	 * @param int $space_id  Space ID.
 	 * @param int $viewer_id Current viewer user ID (0 = logged out).
@@ -407,33 +507,12 @@ final class SpaceNav {
 			return;
 		}
 
-		/*
-		 * Pinned posts, as hydrated ARRAYS - the shape partials/post-card.php consumes.
-		 *
-		 * They used to be cast to objects and enriched with author_name for a hand-rolled stub
-		 * card that carried no React / Comment / Share / Save. Since the pinned post is also
-		 * dropped from the chronological list below, that stub was the ONLY place it appeared -
-		 * so pinning a post silently removed every way to engage with it. The panel now renders
-		 * the real post card, which needs the array and does its own author lookup.
-		 *
-		 * Pro allows up to 10 pins per space; the panel bounds how many show at once.
-		 */
-		$pinned_posts = array_values(
-			array_filter(
-				(array) $feed->space_pinned_posts( $space_id, 10 ),
-				'is_array'
-			)
-		);
-
-		// Regular feed (hydrated arrays). The pinned post leads as its own card, so
-		// drop it from the list to avoid showing it twice.
+		// Regular feed (hydrated arrays). Spaces no longer have pins — important
+		// content is surfaced through Announcements — so nothing is pulled out of
+		// the chronological list. A legacy is_pinned flag on an old space post is
+		// ignored here; the post simply shows in date order like any other.
 		$space_feed = $feed->space_feed( $space_id, $viewer_id, null, 20 );
-		$posts      = array_values(
-			array_filter(
-				(array) ( $space_feed['items'] ?? array() ),
-				static fn( $p ): bool => empty( $p['is_pinned'] )
-			)
-		);
+		$posts      = array_values( (array) ( $space_feed['items'] ?? array() ) );
 
 		// A space announcement leads the feed as its own (dismissible) card and is
 		// dropped from the chronological list to avoid showing twice.
@@ -463,7 +542,6 @@ final class SpaceNav {
 				'is_pending'   => $is_pending,
 				'is_archived'  => $archived,
 				'posts'        => $posts,
-				'pinned_posts' => $pinned_posts,
 				'current_user' => $viewer_id > 0 ? get_userdata( $viewer_id ) : null,
 				'search_query' => '',
 				'search_total' => 0,
@@ -669,5 +747,33 @@ final class SpaceNav {
 				'bn_mt_media_ids' => (array) buddynext_service( 'feed' )->space_media_ids( $space_id, 24 ),
 			)
 		);
+	}
+
+	/**
+	 * Render the Files panel for a space — the space's document drive, browsed +
+	 * downloaded through BuddyNext's own UI (WPMediaVerse ships no space-drive UI;
+	 * we own the tabs and views). The bridge asks MVS's REST internally for this
+	 * drive + folder, so every access decision routes through our drive filters.
+	 * A null view means the viewer may not see this drive (MVS answered 403/404)
+	 * or the feature is gone — show the neutral empty state, never a broken shell.
+	 *
+	 * Read-only view controls (folder, page) come off the GET query, mirroring
+	 * MediaVerse's own drive; nothing is written, so no nonce is involved.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return void
+	 */
+	private function render_files_panel( int $space_id ): void {
+		// A document has a clean URL — /spaces/{slug}/files/{id}/ — carried in the
+		// bn_space_sub path segment; ?bn_doc= stays a working alias.
+		$doc_id = (int) get_query_var( 'bn_space_sub', 0 );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET alias for the clean-URL doc id.
+		if ( $doc_id <= 0 && isset( $_GET['bn_doc'] ) ) {
+			$doc_id = absint( wp_unslash( $_GET['bn_doc'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		}
+
+		// The whole Files tab — list, search, single document — is the shared
+		// drive renderer (RendersDriveFiles), pointed at this space's drive.
+		$this->render_drive_files( 'space', $space_id, $this->tab_url( $space_id, 'files' ), $doc_id );
 	}
 }

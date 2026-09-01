@@ -155,6 +155,15 @@ class ReactionController extends BaseRestController {
 		$object_id   = (int) $request->get_param( 'object_id' );
 		$emoji       = (string) $request->get_param( 'emoji' );
 
+		// The post behind this target must be one the viewer can actually see. The
+		// read endpoints on this controller have asked since they were written; the
+		// write endpoint never did, so engagement landed on drafts, held posts and
+		// deleted posts alike.
+		$hidden = $this->engagement_target_error( $object_type, $object_id );
+		if ( $hidden instanceof WP_Error ) {
+			return $hidden;
+		}
+
 		$toggle = $service->toggle( $user_id, $object_type, $object_id, $emoji );
 		if ( is_wp_error( $toggle ) ) {
 			// Surface the Trust-&-Safety refusal (suspended actor / block between
@@ -250,35 +259,6 @@ class ReactionController extends BaseRestController {
 		return true;
 	}
 
-	/**
-	 * Whether the post behind an engagement target is hidden from the current viewer.
-	 *
-	 * Resolves the (object_type, object_id) target to its owning post via
-	 * PostService::resolve_post_id() and applies the single shared visibility gate
-	 * (PostService::visibility_error()). Targets with no gateable post are treated
-	 * as visible. Degrades to "visible" when the service container is unavailable.
-	 *
-	 * @param string $object_type Engagement object type ('post', 'comment', …).
-	 * @param int    $object_id   Engagement object ID.
-	 * @return bool True when the owning post is not viewable by the current user.
-	 */
-	private function is_post_hidden_from_viewer( string $object_type, int $object_id ): bool {
-		if ( ! function_exists( 'buddynext_service' ) ) {
-			return false;
-		}
-
-		$posts = buddynext_service( 'post_service' );
-		if ( ! $posts instanceof \BuddyNext\Feed\PostService ) {
-			return false;
-		}
-
-		$post_id = $posts->resolve_post_id( $object_type, $object_id );
-		if ( $post_id <= 0 ) {
-			return false;
-		}
-
-		return $posts->visibility_error( $post_id, get_current_user_id() ) instanceof WP_Error;
-	}
 
 	/**
 	 * Return reaction count (and current user state if authenticated).

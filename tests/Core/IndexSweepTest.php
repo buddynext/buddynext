@@ -93,7 +93,7 @@ class IndexSweepTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_every_new_index_exists_on_a_fresh_install(): void {
-		Installer::install_schema();
+		$this->converge_schema_for_real();
 
 		foreach ( $this->expected_keys() as $table => $keys ) {
 			$present = $this->index_names( $table );
@@ -122,7 +122,7 @@ class IndexSweepTest extends WP_UnitTestCase {
 	public function test_dbdelta_adds_a_missing_index_to_an_existing_table(): void {
 		global $wpdb;
 
-		Installer::install_schema();
+		$this->converge_schema_for_real();
 
 		// Take an index away, exactly as an older site would have it — the table exists,
 		// with data, just without this key.
@@ -136,7 +136,7 @@ class IndexSweepTest extends WP_UnitTestCase {
 		);
 
 		// This is what an upgrading site runs.
-		Installer::install_schema();
+		$this->converge_schema_for_real();
 
 		$this->assertContains(
 			'link_lookup',
@@ -162,5 +162,26 @@ class IndexSweepTest extends WP_UnitTestCase {
 			(int) $ref->getConstant( 'SCHEMA_VERSION' ),
 			'SCHEMA_VERSION was not bumped. maybe_upgrade() short-circuits when the stored revision matches, so the new indexes would never be applied to any existing site.'
 		);
+	}
+
+	/**
+	 * Converge the schema for real, without leaving temporary shadows behind.
+	 *
+	 * WP_UnitTestCase installs a `query` filter that rewrites every `CREATE TABLE`
+	 * into `CREATE TEMPORARY TABLE`. That is right for fixtures and wrong here: a
+	 * temporary table SHADOWS the real one for the rest of this connection, so every
+	 * later statement in the process can fail with "Table definition has changed,
+	 * please retry transaction". Measured: leaving the filter on turned 9 such errors
+	 * into 203.
+	 *
+	 * These tests exist to prove dbDelta converges the REAL schema, so the filter
+	 * comes off for the duration of the call and goes straight back on.
+	 *
+	 * @return void
+	 */
+	private function converge_schema_for_real(): void {
+		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
+		\BuddyNext\Core\Installer::install_schema( true );
+		add_filter( 'query', array( $this, '_create_temporary_tables' ) );
 	}
 }

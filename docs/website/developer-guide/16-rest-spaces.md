@@ -107,7 +107,6 @@ Served by `SpaceController`. These read routes power the directory's suggested-s
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/spaces/suggestions` | Auth | Ranked suggested spaces for the current viewer. Query: `limit` (default 6, capped at 24). Returns directory-shaped rows (category, membership state, sub-space count, cover tone) - the same card the directory renders. |
-| GET | `/spaces/{id}/pinned` | Public | The space's pinned posts (up to 10), each with a hydrated `author`. Content-gated: a private/secret space returns `403` (`forbidden`) to non-members, `404` (`space_not_found`) when the space does not exist. |
 | GET | `/spaces/{id}/subspaces` | Public | Visibility-scoped child spaces of a parent. Query: `page` (default 1), `per_page` (default 24, capped at 50). Returns `{ subspaces, total, page, per_page }`. A secret parent returns `404`; a private parent returns `403` to non-members. |
 
 > `/spaces/suggestions` and `/spaces/fields` are registered **before** the `/spaces/{id}` route so their literal path segments are matched unambiguously; because the `{id}` pattern is `[\d]+`, the words `suggestions` and `fields` can never collide with it.

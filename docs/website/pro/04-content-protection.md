@@ -6,7 +6,7 @@ Content Protection locks individual posts, pages, and even sections inside a pag
 
 ![The Paywall tab configuring the upgrade prompt shown on protected content](../images/admin-paywall.webp)
 
-> **Before you start:** Content Protection comes with BuddyNext Pro and uses the same memberships as your spaces, so set up at least one membership tier first (see Membership Tiers).
+> **Before you start:** Content Protection comes with BuddyNext Pro and uses the same memberships as your spaces, so set up at least one membership plan first (see Membership Plans).
 
 ## Why use it
 
@@ -54,7 +54,7 @@ Premium content goes here.
 [/buddynext_members_only]
 ```
 
-When `plan` is set, the section unlocks for members who hold the general members-only access or who are subscribed to that named plan. Use the plan's slug as it appears in your membership tiers.
+When `plan` is set, the section unlocks for members who hold the general members-only access or who are subscribed to that named plan. Use the plan's slug as it appears in your membership plans.
 
 ### The locked card and global call-to-action
 
@@ -78,4 +78,4 @@ The locked card non-members see has a heading, a short note, and a call-to-actio
 
 ## Free vs Pro
 
-Content Protection - the members-only post toggle, the `[buddynext_members_only]` shortcode, the locked card, and the shared call-to-action - is part of BuddyNext Pro. It builds on the same memberships as gated spaces, so see Membership Tiers and Gated Spaces for how access is defined and Stripe Payments for how members pay to unlock it.
+Content Protection - the members-only post toggle, the `[buddynext_members_only]` shortcode, the locked card, and the shared call-to-action - is part of BuddyNext Pro. It builds on the same memberships as gated spaces, so see Membership Plans and Gated Spaces for how access is defined and Stripe Payments for how members pay to unlock it.

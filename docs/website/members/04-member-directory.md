@@ -71,4 +71,4 @@ You do not manage the directory roster from a settings screen. Who shows up is d
 
 The core directory - browse, search by name, filter by member type, sort, online-only, and the directory and member-card blocks - is included in BuddyNext free.
 
-Advanced directory filters are a Pro addition. Pro adds the ability to filter the directory by finer criteria such as membership tier, editorial label, join date, and recently-active status, so owners of larger communities can slice their membership more precisely. Editorial badges shown on cards (Verified, Expert, Staff) come from Member Labels, which is also Pro - see Member Labels.
+Advanced directory filters are a Pro addition. Pro adds the ability to filter the directory by finer criteria such as membership plan, editorial label, join date, and recently-active status, so owners of larger communities can slice their membership more precisely. Editorial badges shown on cards (Verified, Expert, Staff) come from Member Labels, which is also Pro - see Member Labels.

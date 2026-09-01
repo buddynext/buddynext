@@ -203,6 +203,14 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 					$bn_integration_values['album_creators'] = isset( $_POST['album_creators_admins'] ) ? 'admins' : 'members';
 				}
 
+				// The Files (documents) toggle only exists when WPMediaVerse Pro's
+				// document drive is present. Guard the write the same way as the
+				// Media toggle above, so saving with Pro deactivated does not zero
+				// the owner's choice.
+				if ( \BuddyNext\Bridges\WPMediaVerseBridge::documents_available() ) {
+					$bn_integration_values['mvs_documents_tab'] = isset( $_POST['mvs_documents_tab'] ) ? '1' : '0';
+				}
+
 				// Report what the registry actually did. Discarding this result is how a
 				// rejected write — can_write(), or a value a sanitiser refused — still
 				// rendered "Saved". The permissions panel below already reads it; this
@@ -260,6 +268,29 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 						$bn_disc_bridge->set_discussion_enabled( $space_id, false );
 					}
 				}
+			}
+		}
+
+		// Brand colour rides the general panel but is a registered field (meta), so
+		// it saves through the field registry — which sanitises the hex and enforces
+		// its owner-only writable_by — not the column update below. The paired
+		// checkbox lets the owner clear it back to the id-derived tone, since an
+		// <input type="color"> cannot itself hold "no value".
+		if ( 'error' !== $save_notice && isset( $_POST['space_brand_color'] ) ) {
+			$bn_brand_hex = empty( $_POST['space_brand_color_enabled'] )
+				? ''
+				: (string) sanitize_hex_color( wp_unslash( (string) $_POST['space_brand_color'] ) );
+
+			$bn_brand_result = $bn_field_registry->save_for_space(
+				$space_id,
+				array( 'brand_color' => $bn_brand_hex ),
+				$bn_actor_id
+			);
+			if ( empty( $bn_brand_result['errors'] ) ) {
+				$bn_wrote_something = true;
+			} else {
+				$save_notice           = 'error';
+				$bn_save_error_message = (string) reset( $bn_brand_result['errors'] );
 			}
 		}
 
@@ -410,6 +441,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_notifications_nonce']
 $require_join_approval = (bool) buddynext_get_space_field( $space_id, 'require_join_approval' );
 $push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_feed' );
 $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' );
+$mvs_documents_tab     = (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' );
 $album_creators        = (string) buddynext_get_space_field( $space_id, 'album_creators' );
 $jetonomy_forum_id     = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 
@@ -628,6 +660,24 @@ foreach ( $builtin_tabs as $bn_t ) {
 >
 
 	<!-- Space header (mirrors space-home hero shape) -->
+	<?php
+	// Reflect the cover's stored focal framing (pan + zoom) on this header preview
+	// so it matches the public hero, the same object-position + transform:scale the
+	// hero and the reposition modal use.
+	$bn_settings_cover_style = '';
+	if ( ! empty( $space->cover_image_url ) ) {
+		$bn_settings_focal       = (array) get_space_meta( (int) ( $space->id ?? 0 ), 'buddynext_cover_focal', true );
+		$bn_settings_fx          = isset( $bn_settings_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_settings_focal['x'] ) ) : 50.0;
+		$bn_settings_fy          = isset( $bn_settings_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_settings_focal['y'] ) ) : 50.0;
+		$bn_settings_zoom        = isset( $bn_settings_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_settings_focal['zoom'] ) ) : 1.0;
+		$bn_settings_cover_style = sprintf(
+			'object-fit:cover;object-position:%s%% %s%%;transform:scale(%s);transform-origin:center;',
+			esc_attr( (string) $bn_settings_fx ),
+			esc_attr( (string) $bn_settings_fy ),
+			esc_attr( (string) $bn_settings_zoom )
+		);
+	}
+	?>
 	<div class="bn-sh-header">
 		<div class="bn-sh-cover">
 			<?php if ( ! empty( $space->cover_image_url ) ) : ?>
@@ -635,6 +685,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					src="<?php echo esc_url( $space->cover_image_url ); ?>"
 					alt="<?php echo esc_attr( $space->name ?? '' ); ?>"
 					loading="lazy"
+					style="<?php echo esc_attr( $bn_settings_cover_style ); ?>"
 				>
 			<?php endif; ?>
 		</div>
@@ -759,6 +810,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'discussion_status' => $bn_discussion_status,
 					),
 					'mvs_media_tab'         => $mvs_media_tab,
+					'mvs_documents_tab'     => $mvs_documents_tab,
 					'album_creators'        => $album_creators,
 					// Owner-only panel. Passed so it can render read-only for a
 					// moderator rather than show controls that would not save — a

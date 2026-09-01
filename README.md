@@ -38,11 +38,14 @@ Learn more at [buddynext.com](https://buddynext.com/). Built and maintained by [
 - **Threaded comments** - nested replies, inline edit, soft delete, and moderator pinning.
 - **Bookmarks** to save any post for later.
 - **Hashtags** - auto-extracted, with trending topics, follow, related tags, and per-tag pages.
+- **Scheduled posts** - write now, publish later; the composer holds the post until its moment.
 - **Announcements** - site-wide banners admins pin to every feed; each member can dismiss their own.
 
 ### Spaces (communities)
 - **Public, private, and hidden spaces** with membership, roles, and join requests.
 - **Per-space feeds**, space moderation, settings, and categories.
+- **Search inside a space** - a space's Feed tab has its own search box, scoped to that space and respecting its privacy.
+- **Sub-spaces** for communities that need a second level.
 
 ### Members & profiles
 - **Rich profiles** with customizable field groups (basic info, social links, work, education, skills, and custom groups).
@@ -50,6 +53,8 @@ Learn more at [buddynext.com](https://buddynext.com/). Built and maintained by [
 - **Field-level visibility** - public, followers-only, private, or per-entry.
 - **Social graph** - follows, mutual connections, block, and mute.
 - **Member directory** with search and by-role browsing.
+- **Member types** to classify members (student, mentor, staff) and filter the directory by them.
+- **Invitations** - invite people by email, with pending and expiring invites tracked.
 
 ### Direct messaging
 - **One-to-one and group messaging** with media attachments, a conversation info panel, shared-media gallery, safety actions, and a full-bleed media lightbox. *(Powered by the free WPMediaVerse companion.)*
@@ -58,6 +63,8 @@ Learn more at [buddynext.com](https://buddynext.com/). Built and maintained by [
 - **Reporting** from any post, a **review queue**, **strikes**, **suspensions**, and an **appeals** flow.
 - **Shadow-ban**, content warnings, and an auto-hide threshold.
 - Every action is written to an **immutable audit log**.
+- **Community Admin** - a front-end hub so moderators can work the community without a wp-admin account.
+- **Banned words, hashtags, link domains and IPs**, with whole-word matching and a `*` wildcard for variants.
 
 ### Accounts & security (in-house, no third-party services)
 - **Login & signup** with built-in spam protection - honeypot, human-check, rate limiting, and time-trap.
@@ -78,10 +85,24 @@ Learn more at [buddynext.com](https://buddynext.com/). Built and maintained by [
 - **Dark mode** that follows your theme; tuned for BuddyX and Reign, works with any theme.
 - **Translation-ready** - every template, label, and script is internationalized, with a complete language template.
 - **White-label** the admin menu, plus a built-in outbound webhook for external integrations.
+- **Plugin isolation** - keep unrelated plugins off community pages so they stay fast, with an allow-list for the ones that must run.
+- **Built for scale** - designed and tested against 100,000-member communities, with guidance on persistent object caching.
+
+### Gutenberg blocks
+
+Nineteen blocks put community surfaces on any page or in any block theme, so a homepage or landing page can be built without shortcodes or code:
+
+- **Feeds** - Activity Feed, Community Activity
+- **Members** - Member Directory, Members Showcase, Member Card, Profile Header, Profile Fields, Profile Completion Bar
+- **Spaces** - Space Directory, Spaces Showcase, Space Card, My Spaces
+- **Actions** - Post Composer, Follow Button, Connection Button
+- **Chrome** - Search Bar, Notification Bell, Header User Menu, Trending Hashtags
+
+Each block previews live in the editor with your theme's tokens, and the action buttons on block-placed cards are fully wired.
 
 ## BuddyNext Pro
 
-[**BuddyNext Pro**](https://wbcomdesigns.com/downloads/buddynext-pro/) adds the application and monetization layer on top of Free: membership plans with on-site checkout and Stripe, content protection and gated spaces, email automation (campaigns + drip), advanced moderation, member labels, advanced profile field types, a Portfolio profile panel, analytics, and more. Free runs first; Pro extends it through a published contract without modifying any Free code.
+[**BuddyNext Pro**](https://wbcomdesigns.com/downloads/buddynext-pro/) adds the application and monetization layer on top of Free: membership plans with on-site checkout across Stripe, PayPal and points, unlisted plans, coupons and tax, partial refunds, renewal reminders, CSV export and per-member billing history; content protection and gated spaces; email automation (campaigns + drip); advanced moderation; member labels; advanced profile field types; a Portfolio profile panel; analytics; and more. Free runs first; Pro extends it through a published contract without modifying any Free code.
 
 ## Part of the Wbcom Designs family
 
@@ -96,6 +117,7 @@ BuddyNext is the social layer. Each companion plugin owns its own domain and sur
 | [WP Career Board](https://wbcomdesigns.com/downloads/wp-career-board/) | Job listings and applicant management | Pro |
 | [Learnomy](https://wbcomdesigns.com/downloads/learnomy/) | Courses, lessons, and certificates | Pro |
 | [Listora](https://wbcomdesigns.com/downloads/listora/) | Business directory and listings | Pro |
+| [BuddyNext Importer](https://github.com/buddynext/buddynext-importer) | Moves an existing BuddyPress or BuddyBoss community across - members, profile fields, groups, activity with its comments, connections, forums, media and messages. Run once, then remove it. | Free, standalone |
 
 **More from Wbcom Designs** (standalone, no bridge required):
 

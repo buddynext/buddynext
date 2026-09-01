@@ -207,6 +207,8 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 		$bn_type_data  = '' !== $bn_type_slug ? ( $bn_type_map[ $bn_type_slug ] ?? null ) : null;
 		$bn_type_label = ( is_array( $bn_type_data ) && isset( $bn_type_data['name'] ) ) ? (string) $bn_type_data['name'] : '';
 		$bn_type_icon  = ( is_array( $bn_type_data ) && isset( $bn_type_data['icon_svg'] ) ) ? (string) $bn_type_data['icon_svg'] : '';
+		$bn_type_color = ( is_array( $bn_type_data ) && isset( $bn_type_data['color'] ) ) ? (string) $bn_type_data['color'] : '';
+		$bn_type_text  = ( is_array( $bn_type_data ) && isset( $bn_type_data['text_color'] ) ) ? (string) $bn_type_data['text_color'] : '';
 		// Open (or start) a native DM with this member — /messages/?to={id}
 		// find-or-creates the conversation and opens it.
 		$bn_messages_url = add_query_arg( 'to', $bn_member_id, $bn_messages_base );
@@ -237,28 +239,30 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 		buddynext_get_template(
 			'parts/member-card.php',
 			array(
-				'member'            => $bn_member_obj,
-				'viewer_id'         => $bn_viewer_id,
-				'is_following'      => $bn_is_following,
-				'connection_state'  => $bn_conn_state,
-				'connection_status' => null === $bn_conn_status ? 'none' : (string) $bn_conn_status,
-				'is_muted'          => $bn_is_muted,
-				'mutual_count'      => $bn_mutual,
-				'mutual_avatars'    => $bn_mutual_avatars,
-				'degree'            => $bn_degree,
-				'presence'          => $bn_presence_attr,
-				'member_type_label' => $bn_type_label,
-				'member_type_icon'  => $bn_type_icon,
-				'avatar_tone'       => $bn_avatar_tone,
-				'bio'               => $bn_bio,
-				'profile_url'       => $bn_profile_url,
-				'cover_url'         => $bn_cover_url,
-				'avatar_url'        => $bn_avatar_url,
-				'initials'          => $bn_initials_text,
-				'messages_url'      => $bn_messages_url,
-				'compact'           => (bool) $args['compact'],
-				'show_actions'      => (bool) $args['show_actions'],
-				'show_stats'        => (bool) $args['show_stats'],
+				'member'                 => $bn_member_obj,
+				'viewer_id'              => $bn_viewer_id,
+				'is_following'           => $bn_is_following,
+				'connection_state'       => $bn_conn_state,
+				'connection_status'      => null === $bn_conn_status ? 'none' : (string) $bn_conn_status,
+				'is_muted'               => $bn_is_muted,
+				'mutual_count'           => $bn_mutual,
+				'mutual_avatars'         => $bn_mutual_avatars,
+				'degree'                 => $bn_degree,
+				'presence'               => $bn_presence_attr,
+				'member_type_label'      => $bn_type_label,
+				'member_type_icon'       => $bn_type_icon,
+				'member_type_color'      => $bn_type_color,
+				'member_type_text_color' => $bn_type_text,
+				'avatar_tone'            => $bn_avatar_tone,
+				'bio'                    => $bn_bio,
+				'profile_url'            => $bn_profile_url,
+				'cover_url'              => $bn_cover_url,
+				'avatar_url'             => $bn_avatar_url,
+				'initials'               => $bn_initials_text,
+				'messages_url'           => $bn_messages_url,
+				'compact'                => (bool) $args['compact'],
+				'show_actions'           => (bool) $args['show_actions'],
+				'show_stats'             => (bool) $args['show_stats'],
 			)
 		);
 		?>

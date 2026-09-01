@@ -56,9 +56,29 @@ $sbar_members_url = isset( $sbar_members_url ) ? (string) $sbar_members_url : ''
 				<?php esc_html_e( 'See all members', 'buddynext' ); ?>
 			</a>
 		<?php else : ?>
-			<p class="bn-sidebar-card__empty">
-				<?php esc_html_e( "We'll suggest people once you've completed onboarding.", 'buddynext' ); ?>
-			</p>
+			<?php
+			/*
+			 * Two reasons this card can be empty, and they need different sentences.
+			 *
+			 * On an established community it means we have nobody to suggest to YOU
+			 * yet - finish onboarding and we will. On a fresh install it means there
+			 * is nobody at all, and telling the owner to complete onboarding is a
+			 * promise that never resolves: they can finish it ten times and the card
+			 * stays empty, because the community has one member and it is them.
+			 */
+			if ( \BuddyNext\Feed\FeedService::community_is_bootstrapping( get_current_user_id() ) ) :
+				?>
+				<p class="bn-sidebar-card__empty">
+					<?php esc_html_e( 'Nobody else has joined yet. Invite a few people to get your community going.', 'buddynext' ); ?>
+				</p>
+				<a href="<?php echo esc_url( $sbar_members_url ); ?>" class="bn-sidebar-see-all">
+					<?php esc_html_e( 'Invite members', 'buddynext' ); ?>
+				</a>
+			<?php else : ?>
+				<p class="bn-sidebar-card__empty">
+					<?php esc_html_e( "We'll suggest people once you've completed onboarding.", 'buddynext' ); ?>
+				</p>
+			<?php endif; ?>
 		<?php endif; ?>
 	</div>
 </div>

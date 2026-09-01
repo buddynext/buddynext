@@ -34,6 +34,25 @@ This depends entirely on **how strictly** you choose to enforce verification, an
 
 > **Note:** The confirmation link is single-use. Once it has been clicked successfully, clicking it again does nothing - the account is already verified, and that state stays set.
 
+### Members can verify themselves from their profile
+
+A member who is already signed in can confirm their own address from their profile, without waiting for another email. This is the quickest fix when the original message went astray.
+
+### Verifying a member yourself (1.1.6)
+
+Sometimes the email simply never arrives - a corporate filter eats it, or the address is on a server that silently drops mail. Rather than leaving that member stuck, you can confirm them by hand.
+
+Open the member in **Members**, and next to View Profile you will see either:
+
+- **Mark email verified** - a button, shown when the member is not yet verified.
+- **Email verified** - a badge, shown when they already are.
+
+The control only appears when email verification is switched on, and only ever one of the two, so the button is never offered for a member it would do nothing for.
+
+Marking a member verified runs exactly the same code as the member confirming the link themselves: the address is recorded as verified, the pending flag is cleared, and any verification gate stops applying to them immediately. Only administrators can do this.
+
+> **This bypasses proof of ownership.** Clicking it asserts the address belongs to that member on your say-so - nobody has proved it by opening a link. Use it when you have another reason to trust the address, not as a way to clear a backlog of unverified accounts.
+
 ## Setting it up (for owners)
 
 Email verification is controlled in three places in the admin: a master feature switch, a toggle that requires it for new sign-ups, and a setting for how strictly to enforce it.

@@ -16,7 +16,7 @@ The page has two sections: a queue of pending reports at the top, and a bulk use
 
 ### Bulk action on reports
 
-1. Open BuddyNext > Moderation > Bulk (or the Bulk Moderation page under the BuddyNext menu). The pending report queue loads with a checkbox on each row.
+1. Open BuddyNext > Moderation Tools > Bulk (or the Bulk Moderation page under the BuddyNext menu). The pending report queue loads with a checkbox on each row.
 2. Optionally narrow the queue with the type and reason filters above the table.
 3. Tick the reports you want to act on, or use the select-all checkbox in the header to select every report on the current page. When you select the whole page, a banner offers "Select all N matching this filter" so you can act on every matching report across all pages, not just the visible 25.
 4. Choose an action - Dismiss or Remove Content - and optionally type a reason.

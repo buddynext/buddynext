@@ -16,13 +16,15 @@ The action and filter seams for the activity feed and everything members post in
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_post_before_save` | filter | A post is about to be written on create or update, after safeguard checks | `array $data, int $user_id, int|null $post_id` (`$post_id` is null on create) |
+| `buddynext_hide_dead_reshares` | filter | A reshare is rendered whose original post is gone (deleted, hidden, blocked, or its author suspended). Default `false`: the card collapses to a tombstone so the sharer's action stays legible and the feed does not silently lose posts. Return `true` to drop it from the feed entirely. | `bool $hide, array $post` |
+| `buddynext_post_before_save` | filter | A post is about to be written on create or update, after safeguard checks | `array $data, int $user_id, int\|null $post_id` (`$post_id` is null on create) |
 | `buddynext_post_created` | action | A new post goes live (also fired for a share, with `$type = 'share'`) | `int $post_id, int $user_id, string $type` |
 | `buddynext_post_updated` | action | A post is edited | `int $post_id, int $user_id, array $fields` (columns written this update) |
 | `buddynext_post_deleted` | action | A post is deleted by its owner | `int $post_id, int $user_id` |
+| `buddynext_link_preview_max_redirects` | filter | Fetching a link preview, capping how many redirect hops are followed (default `5`; every hop is re-validated against SSRF rules before it is followed) | `int $max, string $url` |
 | `buddynext_post_approved` | action | A held post is approved by a moderator | `int $post_id, int $author` |
 | `buddynext_post_rejected` | action | A held post is rejected by a moderator | `int $post_id, int $author, string $reason` |
-| `buddynext_post_pin_limit` | filter | A user pins a post, to read the per-scope pin cap | `int $limit, int|null $space_id, int $user_id` (default `1`) |
+| `buddynext_post_pin_limit` | filter | A user pins a post, to read the per-scope pin cap | `int $limit, int\|null $space_id, int $user_id` (default `1`) |
 | `buddynext_user_mentioned` | action | An `@username` mention in a post (or comment) resolves to a real user | `int $mentioned_user_id, int $mentioner_id, int $post_id` |
 
 > **Note:** `buddynext_post_created` is the catch-all "a post exists now" event and fires for every post type, including shares. If you specifically want the share action with the original post ID, listen to `buddynext_post_shared` instead.
@@ -31,7 +33,7 @@ The action and filter seams for the activity feed and everything members post in
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_comment_before_save` | filter | A comment is about to be written on create or update | `array $data, int $user_id, int|null $comment_id` (`$comment_id` is null on create; on update `$data` carries only `content`) |
+| `buddynext_comment_before_save` | filter | A comment is about to be written on create or update | `array $data, int $user_id, int\|null $comment_id` (`$comment_id` is null on create; on update `$data` carries only `content`) |
 | `buddynext_comment_created` | action | A new comment is created | `int $comment_id, string $object_type, int $object_id, int $user_id` |
 | `buddynext_post_comment_received` | action | The author's post receives a comment from someone else (recipient mirror) | `int $comment_id, int $post_id, int $author_id, int $commenter_id` |
 | `buddynext_comment_updated` | action | A comment is edited | `int $comment_id, int $user_id` |
@@ -87,6 +89,10 @@ The composer partial exposes wrapper hooks for adding tools and modals to the po
 | `buddynext_composer_tools` | filter | The composer toolbar row is rendered | `string $html, array $args` (return escaped HTML to append a tool button) |
 | `buddynext_composer_modals` | action | After the composer, where tool modals belong | `array $args` |
 | `buddynext_part_composer_after` | action | Immediately after the composer markup | `array $args` |
+| `buddynext_comment_descendant_cap` | filter | One page of a comment thread is loaded, bounding how many descendant rows come with it | `int $cap, string $object_type, int $object_id` |
+| `buddynext_explore_all_deck` | filter | The blended Explore first-page deck is assembled, so an add-on can inject its own cards among the posts | `array $items, array $post_cards` |
+| `buddynext_post_link_meta_resolved` | action | A queued link preview finished resolving and was stored on the post. The post was already visible without it, so anything that renders the preview should refresh here | `int $post_id` |
+| `buddynext_scheduled_post_published` | action | A scheduled post is published ahead of its schedule | `int $post_id` |
 
 > **Note:** Every feed template partial (`post-actions`, `post-body`, `post-byline`, `post-comment-form`, and so on) also exposes the standard `buddynext_part_<name>_before`/`_after` actions and `buddynext_part_<name>_args`/`_classes` filters. They follow the same convention as the composer hooks and are the safe seams for theme overlays. See Hooks: Overview for the template-part naming contract.
 
@@ -153,7 +159,7 @@ add_filter( 'buddynext_post_before_save', function ( $data, int $user_id, ?int $
 
 ## Notes / gotchas
 
-- **Free vs Pro.** Every hook on this page is fired by Free. The Pro-facing extension seams are `buddynext_post_pin_limit` (raise pin caps for tiers), `buddynext_reaction_types` / `buddynext_reaction_meta` (add reaction types), and the `buddynext_feed_query_args` / `buddynext_feed_order_by` / `buddynext_feed_items` trio (tier-based feed filtering, reranking, sponsored injection).
+- **Free vs Pro.** Every hook on this page is fired by Free. The Pro-facing extension seams are `buddynext_post_pin_limit` (raise pin caps for plans), `buddynext_reaction_types` / `buddynext_reaction_meta` (add reaction types), and the `buddynext_feed_query_args` / `buddynext_feed_order_by` / `buddynext_feed_items` trio (plan-based feed filtering, reranking, sponsored injection).
 - **Re-fetch, do not assume.** Action listeners receive IDs. Hydrate via the relevant service (`post_service`, `comment_service`) instead of caching the data you wish had been passed.
 - **`buddynext_post_created` fires for shares too.** Branch on `$type` if you only want native posts; use `buddynext_post_shared` for the share-specific signal with the original post ID.
 - **Counter writes already happen.** BuddyNext updates `reaction_count`, `comment_count`, and `share_count` itself before firing these actions. Do not re-increment denormalised counters from a listener.

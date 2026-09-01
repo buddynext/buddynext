@@ -23,8 +23,25 @@ import { join } from 'node:path';
 
 const execFileAsync = promisify(execFile);
 
-const WP_PATH =
-    process.env.BN_WP_PATH ?? '/Users/vapvarun/Local Sites/buddynext-dev/app/public';
+// No default. A wrong path here does not fail loudly - wp writes its complaint
+// to a stream cleanStdout() strips, so the shim hands back an empty string, an
+// empty string parses as user id 0, and the run reports `actor "…" must exist`
+// in whichever specs happened to need an actor. A hard-coded personal path that
+// exists on one machine is therefore worse than none: everywhere else it turns
+// a setup problem into a scatter of unrelated product-looking failures.
+//
+// bin/check-journey-run.sh resolves BN_WP_PATH and refuses to start the suite
+// without it, so by the time a spec runs this is set.
+const WP_PATH = process.env.BN_WP_PATH ?? '';
+
+if (WP_PATH === '') {
+    throw new Error(
+        'BN_WP_PATH is not set. The journey specs shell out to wp-cli for actors, ' +
+            'fixtures and queue draining; without a WordPress root those calls return ' +
+            'nothing and surface as unrelated failures. Run via bin/check-journey-run.sh, ' +
+            'which resolves it, or export BN_WP_PATH yourself.'
+    );
+}
 
 /**
  * Strip PHP startup warnings that Local's mismatched CLI PHP prints. Under a

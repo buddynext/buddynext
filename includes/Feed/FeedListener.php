@@ -50,6 +50,12 @@ class FeedListener implements ListenerInterface {
 		// viewer (A9). buddynext_space_posts_changed carries the space id on BOTH events --
 		// the delete path reads space_id before the row is gone, precisely so this can fire.
 		add_action( 'buddynext_space_posts_changed', array( $this, 'bust_space' ), 10, 1 );
+
+		// Reporting something hides it from the reporter (FeedService::viewer_hidden_where),
+		// and the UI removes the card on the spot. Without this the promise lasts until the
+		// 30s page-1 TTL expires: navigate away and back inside that window and the post the
+		// member just reported is sitting there again, which reads as the report not working.
+		add_action( 'buddynext_report_created', array( $this, 'bust_reporter' ), 10, 4 );
 	}
 
 	/**
@@ -66,6 +72,31 @@ class FeedListener implements ListenerInterface {
 	public function bust_writer( int $post_id, int $user_id ): void {
 		unset( $post_id );
 		$this->cache->invalidate_writer( $user_id );
+	}
+
+	/**
+	 * Invalidate the REPORTER's own first-page feed after they report something.
+	 *
+	 * invalidate_writer() is the right call despite the name: the version stamp it
+	 * bumps (`home:ver:<id>`) is the same one home_page_1_key() salts the VIEWER's
+	 * key with, so bumping it for the reporter rebuilds the reporter's own feed.
+	 *
+	 * @param int    $report_id   Report row (unused - shape only).
+	 * @param string $object_type Reported object type.
+	 * @param int    $object_id   Reported object (unused - shape only).
+	 * @param int    $reporter_id Member who reported.
+	 * @return void
+	 */
+	public function bust_reporter( int $report_id, string $object_type, int $object_id, int $reporter_id ): void {
+		unset( $report_id, $object_id );
+
+		// Only posts are hidden from their reporter, so a comment or member report
+		// has nothing to rebuild.
+		if ( 'post' !== $object_type ) {
+			return;
+		}
+
+		$this->cache->invalidate_writer( $reporter_id );
 	}
 
 	/**

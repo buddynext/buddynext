@@ -4,7 +4,7 @@ This page documents every table created by `BuddyNextPro\Core\Installer`, groupe
 
 ![The Pro admin settings powered by the BuddyNextPro Installer tables documented on this page](../images/admin-settings.webp)
 
-![The Monetization Tiers admin tab, one of the Pro screens that reads and writes the Pro schema described here](../images/admin-tiers.webp)
+![The Monetization Plans admin tab, one of the Pro screens that reads and writes the Pro schema described here](../images/admin-tiers.webp)
 
 ## Contract: ownership and the Free/Pro boundary
 
@@ -13,7 +13,7 @@ Pro tables use the same `bn_` prefix as Free (there is no `bnpro_` prefix). Pro'
 1. **Pro never creates or modifies Free tables.** When a Pro feature needs an extra column, it is added to a Pro-owned table, or - for additive columns on Pro tables - through `Installer::maybe_alter_tables()` behind an `INFORMATION_SCHEMA` guard so re-runs are no-ops. The membership tier columns (`price`, `currency`, `billing_type`, `billing_interval`, `trial_days`, `is_free`, `status`, `entitlements`) are back-filled this way onto `bn_membership_tiers`.
 2. **`bn_mod_appeals` does not exist.** The Pro moderation spec named an appeals table `bn_mod_appeals`, but Pro reuses Free's `bn_appeals` for the appeal workflow. The two names are the same logical table; Pro does not duplicate it.
 
-> **Note:** The authoritative list of what Pro *creates* is the `schema()` method in `BuddyNextPro\Core\Installer` (`schema_membership_extension()` + `schema_core()`), which creates **18** Pro-owned tables. This page follows the Installer, not the `audit/manifest.json` snapshot - the manifest's `dbTables` array is a usage index (it also references Free's `bn_posts` and WPMediaVerse's `mvs_*` tables that Pro reads but does not own).
+> **Note:** The authoritative list of what Pro *creates* is the `schema()` method in `BuddyNextPro\Core\Installer` (`schema_membership_extension()` + `schema_core()`), which creates **18** Pro-owned tables. This page follows the Installer, which is the only authoritative list of what Pro creates. Note it also touches Free's `bn_posts` and WPMediaVerse's `mvs_*` tables that Pro reads but does not own).
 
 ## Membership
 
@@ -57,6 +57,7 @@ Per-user subscription rows linked to a tier and a gateway. The unique `external_
 | `started_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `expires_at` | DATETIME | Nullable; indexed (`expires`) |
 | `external_id` | VARCHAR(255) | Gateway subscription ID, nullable; unique |
+| `reminder_sent_days` | SMALLINT UNSIGNED | Added 1.1.5. The smallest reminder offset already sent for this subscription, nullable. Makes the renewal-reminder sweep idempotent without a join table. |
 | `created_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `updated_at` | DATETIME | `ON UPDATE CURRENT_TIMESTAMP` |
 
@@ -95,6 +96,7 @@ Purchase receipts. The `meta` JSON blob carries line items and billing address f
 | `currency` | CHAR(3) | Default `USD` |
 | `status` | VARCHAR(20) | Default `paid` |
 | `number` | VARCHAR(50) | Human invoice number, nullable |
+| `refunded` | DECIMAL(10,2) | Added 1.1.5. Cumulative amount refunded against this order, default 0. A partial refund increments it; the guard is `refunded + amount <= total`. |
 | `created_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `meta` | LONGTEXT | JSON line items + address, nullable |
 

@@ -12,24 +12,34 @@ We would rather set the right expectation up front than have you discover a surp
 
 In short: the people are already there, and their accounts work on day one.
 
-## What does not carry over automatically today
+## What the importer brings across
 
-BuddyPress and BuddyBoss keep their community-specific information in their own storage, and BuddyNext keeps its information in its own. Because the two are separate systems, BuddyNext does not read your old community data on its own. That means the following do **not** appear inside BuddyNext automatically today:
+Your community-specific data lives in BuddyPress or BuddyBoss storage, and BuddyNext keeps its own. The two are separate systems, so BuddyNext does not read your old data on its own - but **BuddyNext Importer** does. It is a free companion plugin, and it is the recommended route for any community with history worth keeping.
 
-- **Groups** and their memberships (these become Spaces in BuddyNext, but old groups are not copied in).
-- **Extended profile (xProfile) field data** your members filled in.
-- **Friendships** and other member relationships.
-- **Activity history** - the stream of past posts, comments, and updates.
+It moves twelve domains, all selected by default:
 
-Your old data is not deleted or harmed - it simply stays in the previous system rather than flowing into BuddyNext by itself.
+- **Members**, their **profile fields and the values** they filled in, and **member types**
+- **Groups**, which become Spaces, keeping their privacy setting and member roles
+- **Activity history**, with its comment threads intact
+- **Friendships**, **follows** and **reactions**
+- **Forums** from bbPress, with topics, replies and topic tags
+- **Avatars and cover images**
+- **Albums and media**, including rtMedia photos and videos
+- **Private messages**
 
-## Coming soon: a BuddyPress and BuddyBoss importer
+Two nice details: a BuddyBoss group album arrives as a space-owned album rather than as one member's personal album, and blog activity comes across as BuddyNext's article type with its comment thread.
 
-> **Coming soon:** A dedicated importer for bringing your existing BuddyPress and BuddyBoss community across to BuddyNext - members' profile data, groups, relationships, and history - is in active development and will arrive in an upcoming release. We are building it carefully so the move is reliable rather than rushed, so we are not announcing a specific date yet. Until it ships, the fresh-start approach below is the recommended way to switch.
+**It tells you exactly what arrived.** Every domain reports what it wrote against what the source held, and gives a plain-sentence reason for anything it did not write. A domain you chose to leave out reads "skipped by choice", never as a shortfall. Migration checks run from the admin screen, so you do not need WP-CLI to verify the result. Before a run starts, the source panel names the content this importer cannot carry, per kind, so there are no surprises afterwards.
 
-## The recommended approach today: a clean start
+You can run it from the importer screen or from WP-CLI, where `migrate-all` takes `--only` and `--skip` for the same per-domain choice.
 
-Because your accounts already carry over and only the community-specific data needs setting up, most communities find a fresh start is quick and even refreshing. Here is the practical playbook.
+> **Rehearse on a staging site or a local copy first.** Re-running never duplicates anything, but an import **cannot be undone from inside the plugin** - reversing it means restoring a backup. Practise the run somewhere safe, read the report, then do it for real.
+
+Whichever route you take, your old data is not deleted or harmed by the move.
+
+## The alternative: a clean start
+
+Not every community wants its history. If your old groups are mostly dormant, or the activity stream is years of noise you would rather not carry, a clean start is a legitimate choice and often a quick one - your accounts come across regardless, so only the community-specific setup is left. Here is the practical playbook.
 
 ### 1. Re-create your key spaces
 
@@ -63,7 +73,7 @@ If you need an overlap while you set things up, keep it short. Running two commu
 - **Nobody has to create a new account.** This is the single biggest worry for most owners, and the answer is reassuring: existing WordPress logins keep working.
 - **Your old data stays safe in the previous system** until you decide what to do with it. Switching to BuddyNext does not erase it.
 - **A clean start is often a feature, not a chore.** It is a chance to drop dormant groups, tidy your profile fields, and relaunch with momentum.
-- **The importer is on the way.** If your community depends on bringing history and relationships across, you can plan around the upcoming importer rather than rebuilding by hand.
+- **You do not have to choose blindly.** Run the importer on a staging copy, read its report of what arrived, and then decide whether to import for real or start clean.
 
 ## What's next
 

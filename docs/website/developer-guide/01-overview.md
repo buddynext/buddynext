@@ -48,7 +48,7 @@ Every Layer 2 feature is also opt-out via a `buddynext_feature_{folder}` filter 
 
 ## Stat snapshot
 
-Drawn from the Free plugin's `audit/manifest.json` (the machine-readable inventory) and the Pro manifest.
+Counted from the source of both plugins. Figures move with each release; confirm anything load-bearing against the code.
 
 | Metric | Free | Pro |
 |---|---|---|
@@ -78,7 +78,6 @@ This developer guide covers the contracts you build against:
 
 The website developer guide is the curated, contract-facing reference. Behind it, the code is the contract - Free ships no `docs/specs/*.md`. An earlier revision of this page pointed at an `INDEX.md`, `MODULAR-ARCHITECTURE.md`, `HOOKS.md`, `REST-FRONTEND-CONTRACT.md`, `SCALE-CONTRACT.md`, and `FREE-VS-PRO.md` under `docs/specs/`, and none of them exist. Read the source instead:
 
-- `audit/manifest.json` - the machine-readable inventory (REST routes, hooks fired, tables, blocks, cron). It can lag the code after a change, so treat it as a starting index and confirm against the source.
 - The per-domain hooks pages (25-33) for the `buddynext_*` action and filter reference.
 - The template PHP file headers under `templates/` and `templates/parts/` for the template-part contracts.
 - `register_rest_route(` for routes, `do_action(` / `apply_filters(` for hooks, `FeatureRegistry::catalog()` for features, and `Installer::schema()` for the `bn_*` tables.

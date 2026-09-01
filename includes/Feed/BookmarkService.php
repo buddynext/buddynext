@@ -34,6 +34,39 @@ class BookmarkService {
 	private const LIST_CAP = 1000;
 
 	/**
+	 * Per-request memo for bookmarked_among(), keyed "userId:postId".
+	 *
+	 * A class property rather than a function static SPECIFICALLY so that
+	 * writing a bookmark can invalidate it. As a function static it could not
+	 * be: bookmark() cleared the object cache but had no way to reach the memo,
+	 * so anything that wrote a bookmark and then asked about it IN THE SAME
+	 * REQUEST got the stale answer from before the write.
+	 *
+	 * No member-facing surface did that (the REST handler returns a fixed
+	 * `bookmarked: true` rather than reading back), which is why it went
+	 * unnoticed - but the BuddyPress bookmark importer does exactly this to
+	 * confirm each row landed, and every successful import was reported as
+	 * refused while the rows were in fact written.
+	 *
+	 * @var array<string,bool>
+	 */
+	private static array $memo = array();
+
+	/**
+	 * Forget the memoised answer for one member/post pair.
+	 *
+	 * Called by both writers, so the pair is re-read from the table on the next
+	 * question rather than answered from before the write.
+	 *
+	 * @param int $user_id Member.
+	 * @param int $post_id Post.
+	 * @return void
+	 */
+	private static function forget( int $user_id, int $post_id ): void {
+		unset( self::$memo[ $user_id . ':' . $post_id ] );
+	}
+
+	/**
 	 * Save a post to the user's bookmarks.
 	 *
 	 * Silently ignores duplicate bookmarks (INSERT IGNORE).
@@ -57,6 +90,7 @@ class BookmarkService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "bookmarks_{$user_id}", self::CACHE_GROUP );
+		self::forget( $user_id, $post_id );
 
 		if ( $inserted ) {
 			/**
@@ -94,6 +128,7 @@ class BookmarkService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "bookmarks_{$user_id}", self::CACHE_GROUP );
+		self::forget( $user_id, $post_id );
 
 		if ( $deleted ) {
 			/**
@@ -145,8 +180,6 @@ class BookmarkService {
 	 * @return array<int,bool> post_id => true, for the bookmarked ones only. O(1) lookup.
 	 */
 	public function bookmarked_among( int $user_id, array $post_ids ): array {
-		static $memo = array();
-
 		$user_id  = absint( $user_id );
 		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
 
@@ -158,8 +191,8 @@ class BookmarkService {
 		$missing = array();
 		foreach ( $post_ids as $pid ) {
 			$k = $user_id . ':' . $pid;
-			if ( isset( $memo[ $k ] ) ) {
-				if ( $memo[ $k ] ) {
+			if ( isset( self::$memo[ $k ] ) ) {
+				if ( self::$memo[ $k ] ) {
 					$out[ $pid ] = true;
 				}
 			} else {
@@ -188,8 +221,8 @@ class BookmarkService {
 		$found = array_flip( array_map( 'intval', (array) $rows ) );
 
 		foreach ( $missing as $pid ) {
-			$hit                           = isset( $found[ $pid ] );
-			$memo[ $user_id . ':' . $pid ] = $hit;
+			$hit                                 = isset( $found[ $pid ] );
+			self::$memo[ $user_id . ':' . $pid ] = $hit;
 			if ( $hit ) {
 				$out[ $pid ] = true;
 			}

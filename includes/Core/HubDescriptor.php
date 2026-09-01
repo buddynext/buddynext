@@ -31,6 +31,11 @@ final class HubDescriptor {
 	 * @param callable|null     $resolve_template fn(string $hub): ?string addon template resolver. Null = resolved by PageRouter's core switch.
 	 * @param array<int,string> $query_vars       Extra public query vars this hub reads.
 	 * @param bool              $backing_page     Whether Installer creates a backing WP page.
+	 * @param string            $admin_label      Label shown on the Pages & URLs admin screen (empty = derive from $title).
+	 * @param string            $admin_desc       One-line hint shown under the label on Pages & URLs.
+	 * @param string|null       $feature          FeatureRegistry key gating the whole hub; null = always on. Used by the route + admin guards.
+	 * @param bool              $configurable_slug Whether the URL slug is owner-editable; false = fixed route (no slug input).
+	 * @param bool              $admin_managed    Whether the hub appears on the Pages & URLs screen at all.
 	 */
 	public function __construct(
 		public readonly string $key,
@@ -43,8 +48,22 @@ final class HubDescriptor {
 		public readonly mixed $register_rules = null,
 		public readonly mixed $resolve_template = null,
 		public readonly array $query_vars = array(),
-		public readonly bool $backing_page = true
+		public readonly bool $backing_page = true,
+		public readonly string $admin_label = '',
+		public readonly string $admin_desc = '',
+		public readonly ?string $feature = null,
+		public readonly bool $configurable_slug = true,
+		public readonly bool $admin_managed = true
 	) {}
+
+	/**
+	 * Label for the Pages & URLs admin screen, falling back to the page title.
+	 *
+	 * @return string
+	 */
+	public function admin_label(): string {
+		return '' !== $this->admin_label ? $this->admin_label : $this->title;
+	}
 
 	/**
 	 * Returns the effective bn_hub query-var value for this hub.

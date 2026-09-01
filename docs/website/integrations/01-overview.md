@@ -26,6 +26,7 @@ BuddyNext keeps a catalog of companion plugins it knows how to work with. Each o
 | Gamification | Points, badges, levels, and leaderboards. | Badges and a leaderboard on member profiles. |
 | Career Board | Job listings and applicant management. | Job posts as activity cards in the feed. |
 | Learnomy | Courses, lessons, and quizzes - a full LMS for your community. | Completed courses and certificates on member profiles. |
+| Eventonomy | Events, RSVPs, and calendars - members create and attend events. | Events as activity cards in the feed, plus attending events on member profiles. |
 | Listora | Directory listings - members publish and manage their own listings. | Member listings surfaced in the feed and on profiles. |
 | WB Member Blog | Front-end publishing - members write and manage WordPress posts without wp-admin. | An Articles tab on member profiles, plus article cards in the feed. |
 
@@ -48,7 +49,7 @@ Open BuddyNext and go to **Platform > Integrations**. Each companion shows as a 
 
 ### Install a companion in one click
 
-When a companion is not installed, its card offers a one-click install. BuddyNext downloads the free version of that plugin directly from wbcomdesigns.com, installs it, and activates it for you. There is no manual upload, no plugin search, and no license key to paste for the free tier - the download is handled for you.
+When a companion is not installed, its card offers a one-click install. BuddyNext downloads the free version of that plugin directly from wbcomdesigns.com, installs it, and activates it for you. There is no manual upload, no plugin search, and no license key to paste for the free plan - the download is handled for you.
 
 After install, BuddyNext sends you to the right place to finish setup. For most companions that is the Plugins screen; for companions that have their own setup wizard (such as Career Board) you land on that companion's settings page so you can configure it straight away.
 
@@ -83,7 +84,7 @@ This is the screen to visit when you want a companion's data without its menu cl
 - An integration does nothing until its companion is present. BuddyNext loads zero integration code for a companion that is not installed, so unused integrations never affect performance.
 - The catalog is extensible. Pro and third-party plugins can add their own entries, so the set of integrations you see can grow beyond the built-in list above.
 - One-click install only ever downloads from wbcomdesigns.com. BuddyNext will not install an arbitrary plugin from an arbitrary source through this screen.
-- Installing the free version is enough to light up the integration. Pro versions of these companions add more to each capability; each integration's own page covers what is free and what Pro adds.
+- **Whether the free companion is enough depends on the integration.** For most, installing the free version lights up the community surfacing, and the Pro version of that companion adds more. But Career Board, Listora and Learnomy surface into the community through bridges that ship in **BuddyNext Pro** - install the companion on its own and it works as its own plugin, but you will not get the community surfacing described here until BuddyNext Pro is active. Each integration's own page states which applies.
 - BuddyNext works fully standalone. If you never install a single companion, the social core - profiles, feed, spaces, follows, connections, notifications - works on its own.
 
 ## Outbound webhooks

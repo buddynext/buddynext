@@ -37,7 +37,6 @@ WB Gamification can award points for community activity like these, and you set 
 | Profile completed | 25 |
 | Reaction received on your content | 2 |
 | Comment created | 3 |
-| Moderation strike issued | 0 |
 
 These are starting values. The actual points for each action are set in WB Gamification, and you can change any of them.
 
@@ -53,7 +52,7 @@ Where members see their rewards:
 ## Setting it up (for owners)
 
 1. Install and activate WB Gamification alongside BuddyNext.
-2. In WB Gamification, configure the point value for each BuddyNext action you want to reward (the table above lists the actions BuddyNext reports). Set the badges and levels you want to offer.
+2. In WB Gamification, configure the point value for each BuddyNext action you want to reward (the actions come from WB Gamification's own BuddyNext manifest, which is where the list is maintained). Set the badges and levels you want to offer.
 
 That is the whole connection. Once both plugins are active and the actions have points, members start earning the moment they participate.
 

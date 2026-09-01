@@ -26,7 +26,7 @@ A fresh password closes the door on anyone who may have learned your old one.
 
 > **Note:** Changing your password does not sign you out of your other devices on its own. If you are rotating your password because you think your account was accessed, also use Sign out of all devices below.
 
-> **Note:** If you joined with Google, Facebook, X, or LinkedIn and have never had a password, there is nothing to enter as your "current" password - you are setting a first one, not changing one, so that field is not asked for. Setting a password is worth doing: until you have one, your social provider is your only way in, and you will not be able to disconnect it.
+> **Note:** If you joined with Google, Facebook, Apple, GitHub, or Discord and have never had a password, there is nothing to enter as your "current" password - you are setting a first one, not changing one, so that field is not asked for. Setting a password is worth doing: until you have one, your social provider is your only way in, and you will not be able to disconnect it.
 
 ## Change your email address
 

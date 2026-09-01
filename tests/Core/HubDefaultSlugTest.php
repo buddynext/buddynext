@@ -54,10 +54,32 @@ class HubDefaultSlugTest extends WP_UnitTestCase {
 			'buddynext_slug_auth'            => 'login',
 			'buddynext_slug_onboarding'      => 'onboarding',
 			'buddynext_slug_community_admin' => 'community-admin', // Registered hub; registry supplies the default.
-			'buddynext_slug_unknown'         => 'community',          // Ultimate fallback.
 		);
 		foreach ( $cases as $opt => $expected ) {
 			$this->assertSame( $expected, $m->invoke( null, $opt ), $opt );
 		}
+	}
+
+	/**
+	 * An option no hub owns returns '' AND says so.
+	 *
+	 * This case used to sit in the map above expecting 'community'. PageRouter
+	 * dropped that literal fallback when the registry became the only source of hub
+	 * slugs - a fallback map is a second source of truth, and an unowned option is a
+	 * caller bug rather than a hub that happens to live at /community/.
+	 *
+	 * Both halves are pinned here because either alone is the wrong contract:
+	 * returning '' silently would hide the caller bug, and warning while still
+	 * handing back a usable slug would let the caller carry on regardless.
+	 *
+	 * @return void
+	 */
+	public function test_an_option_no_hub_owns_returns_empty_and_warns(): void {
+		$this->setExpectedIncorrectUsage( 'BuddyNext\\Core\\PageRouter::default_slug' );
+
+		$m = new \ReflectionMethod( PageRouter::class, 'default_slug' );
+		$m->setAccessible( true );
+
+		$this->assertSame( '', $m->invoke( null, 'buddynext_slug_unknown' ) );
 	}
 }

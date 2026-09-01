@@ -543,9 +543,153 @@ class AdminHub {
 			return;
 		}
 
-		remove_all_actions( 'admin_notices' );
-		remove_all_actions( 'all_admin_notices' );
-		remove_all_actions( 'user_admin_notices' );
+		self::remove_foreign_admin_notices();
+	}
+
+	/**
+	 * Clear every admin notice except BuddyNext's and Pro's own.
+	 *
+	 * Public because PRO CALLS IT. Pro shipped its own copy of this suppressor
+	 * (BuddyNextPro\Admin\AdminNotices) with the same `remove_all_actions()` and
+	 * therefore the same defect, on a wider screen scope - so fixing Free alone
+	 * changed nothing on any site with Pro active, which is most of them. Two
+	 * copies of one rule is how they came to disagree; there is now one, and Pro
+	 * delegates to it.
+	 *
+	 * Caller decides WHETHER to suppress (each has its own screen test); this
+	 * decides WHAT survives.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return void
+	 */
+	public static function remove_foreign_admin_notices(): void {
+		foreach ( array( 'admin_notices', 'all_admin_notices', 'user_admin_notices' ) as $hook ) {
+			self::remove_foreign_callbacks( $hook );
+		}
+	}
+
+	/**
+	 * Drop every callback on a hook except the ones BuddyNext itself registered.
+	 *
+	 * This used to be `remove_all_actions()`, which cannot tell foreign from our
+	 * own. The intent was always to clear other people's nags - the host theme's
+	 * TGMPA "recommended plugins" prompt and the like - but it also removed nine
+	 * BuddyNext and Pro warnings on the exact screens those warnings are about:
+	 * "no plan applies to your members" was invisible on Monetization > Plans,
+	 * "your plans cannot be bought" invisible on Monetization, and the PayPal
+	 * "buyers will be charged and not receive their plan" warning invisible on
+	 * Gateways.
+	 *
+	 * That is not cosmetic. public-surface-integrity.md requires a member-facing
+	 * dead end caused by owner misconfiguration to be reported to the OWNER - the
+	 * member is never the error channel - and names one of those notices as the
+	 * pattern to copy. Muting them on the Hub met the standard in code and not in
+	 * the product.
+	 *
+	 * Ownership is decided by the callback's defining FILE, not its namespace. A
+	 * callback may be a closure, a static string, a plain function or an object
+	 * method, and only some of those carry a namespace worth reading - but all
+	 * four have a file. Asking where the code lives answers correctly for every
+	 * shape, and keeps working for a Pro notice, a bridge notice, or one somebody
+	 * adds next year without reading this.
+	 *
+	 * Anything we cannot resolve is treated as foreign and removed, which keeps
+	 * the original promise: an unrecognised nag does not get to stay.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string $hook Notice hook to filter.
+	 * @return void
+	 */
+	private static function remove_foreign_callbacks( string $hook ): void {
+		global $wp_filter;
+
+		if ( empty( $wp_filter[ $hook ] ) || ! $wp_filter[ $hook ] instanceof \WP_Hook ) {
+			return;
+		}
+
+		foreach ( $wp_filter[ $hook ]->callbacks as $priority => $callbacks ) {
+			foreach ( $callbacks as $callback ) {
+				if ( self::callback_is_ours( $callback['function'] ) ) {
+					continue;
+				}
+
+				remove_action( $hook, $callback['function'], $priority );
+			}
+		}
+	}
+
+	/**
+	 * Whether a hook callback is defined inside BuddyNext or BuddyNext Pro.
+	 *
+	 * @param mixed $callback Anything WordPress accepts as a callback.
+	 * @return bool
+	 */
+	private static function callback_is_ours( $callback ): bool {
+		try {
+			if ( is_string( $callback ) && false !== strpos( $callback, '::' ) ) {
+				list( $class, $method ) = explode( '::', $callback, 2 );
+				$file                   = ( new \ReflectionMethod( $class, $method ) )->getFileName();
+			} elseif ( is_string( $callback ) ) {
+				$file = ( new \ReflectionFunction( $callback ) )->getFileName();
+			} elseif ( $callback instanceof \Closure ) {
+				$file = ( new \ReflectionFunction( $callback ) )->getFileName();
+			} elseif ( is_array( $callback ) && isset( $callback[0], $callback[1] ) ) {
+				$file = ( new \ReflectionMethod( is_object( $callback[0] ) ? get_class( $callback[0] ) : (string) $callback[0], (string) $callback[1] ) )->getFileName();
+			} elseif ( is_object( $callback ) && method_exists( $callback, '__invoke' ) ) {
+				$file = ( new \ReflectionMethod( $callback, '__invoke' ) )->getFileName();
+			} else {
+				return false;
+			}
+		} catch ( \ReflectionException $e ) {
+			// Unresolvable: treat as foreign, per the note above.
+			return false;
+		}
+
+		if ( ! is_string( $file ) || '' === $file ) {
+			return false;
+		}
+
+		$file = wp_normalize_path( $file );
+
+		foreach ( self::our_directories() as $directory ) {
+			if ( 0 === strpos( $file, $directory ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Directories whose code counts as ours.
+	 *
+	 * Pro sits beside Free rather than inside it, so its own notices would read as
+	 * foreign without this - and Pro owns most of the membership warnings.
+	 *
+	 * @return string[] Normalised, trailing-slashed paths.
+	 */
+	private static function our_directories(): array {
+		$free = wp_normalize_path( trailingslashit( dirname( __DIR__, 2 ) ) );
+
+		$dirs = array( $free );
+
+		if ( defined( 'BUDDYNEXTPRO_PLUGIN_DIR' ) ) {
+			$dirs[] = wp_normalize_path( trailingslashit( (string) BUDDYNEXTPRO_PLUGIN_DIR ) );
+		}
+
+		/**
+		 * Filter the directories whose admin notices survive on Hub screens.
+		 *
+		 * An add-on that legitimately needs to warn the owner from a Hub screen can
+		 * add its own directory here rather than having its notice silently dropped.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param string[] $dirs Normalised, trailing-slashed directory paths.
+		 */
+		return (array) apply_filters( 'buddynext_admin_notice_owner_dirs', $dirs );
 	}
 
 	/**
@@ -1036,11 +1180,31 @@ class AdminHub {
 	 * Lets a feature decide whether to enqueue its CSS/JS without rebuilding
 	 * the page resolution logic.
 	 *
-	 * @param string $section Section key.
+	 * Pass the tab's ORIGIN section — the one given to register_tab() — exactly
+	 * as you would to tab_url(). The placement map is applied here, so a tab the
+	 * IA relocates still answers true on the page it actually renders on.
+	 *
+	 * This used to take $section at face value while tab_url() resolved it, so
+	 * the same ( 'moderation', 'bulk' ) pair meant two different things: the URL
+	 * builder pointed at the automod page, is_active() tested the moderation one
+	 * and returned false forever. Bulk Moderation's JS therefore never enqueued,
+	 * its hidden `action` field stayed empty, and Apply posted to admin-post.php
+	 * with action="" — a blank page (cards 10235468087 / 10235631154). That was
+	 * fixed at the call site by hardcoding the destination slug, which re-broke
+	 * the moment `bn_admin_hub_tab_placement` moved the tab again. Resolve here
+	 * instead, so both functions read one map.
+	 *
+	 * @param string $section Section key the tab was REGISTERED against.
 	 * @param string $tab     Tab slug.
 	 * @return bool
 	 */
 	public static function is_active( string $section, string $tab ): bool {
+		// Same resolution tab_url() performs, for the same reason.
+		$rule = self::tab_placement()[ $section . ':' . $tab ] ?? null;
+		if ( is_array( $rule ) && isset( $rule['section'] ) ) {
+			$section = (string) $rule['section'];
+		}
+
 		if ( ! isset( self::sections()[ $section ] ) ) {
 			return false;
 		}
@@ -1515,13 +1679,23 @@ class AdminHub {
 			foreach ( $visible as $tslug => $tab ) {
 				$is_active = ( $is_current_section && (string) $tslug === $active_slug );
 				$icon_html = ! empty( $tab['icon'] ) ? \BuddyNext\Core\IconService::render( (string) $tab['icon'] ) : '';
+				// A tab may declare a badge callable ( fn(): int ); when it returns a
+				// positive count, render a counter pill (e.g. posts awaiting approval).
+				$bn_badge_n    = ( isset( $tab['badge'] ) && is_callable( $tab['badge'] ) ) ? (int) call_user_func( $tab['badge'] ) : 0;
+				$bn_badge_html = $bn_badge_n > 0
+					? '<span class="bn-hub-nav-link__badge" aria-label="' . esc_attr(
+						/* translators: %d: number of items awaiting attention on this tab. */
+						sprintf( _n( '%d item awaiting attention', '%d items awaiting attention', $bn_badge_n, 'buddynext' ), $bn_badge_n )
+					) . '">' . esc_html( (string) $bn_badge_n ) . '</span>'
+					: '';
 				printf(
-					'<a class="bn-hub-nav-link%1$s" href="%2$s"%3$s>%4$s<span class="bn-hub-nav-link__label">%5$s</span></a>',
+					'<a class="bn-hub-nav-link%1$s" href="%2$s"%3$s>%4$s<span class="bn-hub-nav-link__label">%5$s</span>%6$s</a>',
 					$is_active ? ' is-active' : '',
 					esc_url( self::tab_url( (string) $skey, (string) $tslug ) ),
 					$is_active ? ' aria-current="page"' : '',
 					$icon_html, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
-					esc_html( (string) $tab['label'] )
+					esc_html( (string) $tab['label'] ),
+					$bn_badge_html // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- count is (int)-cast + esc_html'd, aria-label esc_attr'd above.
 				);
 			}
 			echo '</div>';

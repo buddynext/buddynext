@@ -40,7 +40,7 @@ Strikes are the engine that turns repeat offenses into automatic consequences. E
 2. **Suspension threshold** (default: 5 strikes) - the member is automatically suspended. The suspension is indefinite, and their content stays visible.
 3. **Permanent-ban threshold** (default: off) - the member is permanently banned. This is a permanent suspension with the member's content hidden. It is opt-in: leave it at 0 and no strike count ever triggers an automatic permanent ban.
 
-Escalation always applies the strongest tier reached, strongest first. The thresholds are yours to set in the admin settings (see "Setting it up" below), so you can make your community as forgiving or as strict as it needs to be.
+Escalation always applies the strongest plan reached, strongest first. The thresholds are yours to set in the admin settings (see "Setting it up" below), so you can make your community as forgiving or as strict as it needs to be.
 
 > **Tip:** Reversing a strike lowers the member's active strike count, so a member who appeals successfully can drop back below a threshold.
 
@@ -52,9 +52,9 @@ Strike thresholds and the report auto-hide limit live in the Moderation settings
 |---|---|---|
 | Strikes before warning | A warning email is sent to the member once they reach this many active strikes. | 2 |
 | Strikes before suspension | The member is automatically suspended once they reach this many active strikes. | 5 |
-| Strikes before permanent ban | The member is permanently banned (a permanent, content-hidden suspension) at this many lifetime strikes. Set to 0 to disable automatic permanent bans. | 0 (off) |
+| Strikes before permanent ban | The member is permanently banned (a permanent, content-hidden suspension) at this many lifetime strikes. Untick the box to disable automatic permanent bans. | 0 (off) |
 | Auto-hide after N reports | Content is hidden automatically once it reaches this many reports, then waits in the moderation queue for review. | 5 |
-| Queue alert threshold | Sends a daily email to admins when the moderation queue exceeds this many unreviewed items. Set to 0 to disable. | 20 |
+| Queue alert threshold | Sends a daily email to admins when the moderation queue exceeds this many unreviewed items. Untick the box to disable. | 20 |
 
 
 ## Good to know

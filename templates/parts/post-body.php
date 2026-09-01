@@ -222,7 +222,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 			</p>
 		<?php endif; ?>
 
-	<?php elseif ( 'photo' === $bn_body_post_type || 'media' === $bn_body_post_type ) : ?>
+	<?php elseif ( 'photo' === $bn_body_post_type ) : ?>
 		<?php if ( '' !== $bn_body_content ) : ?>
 			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>
 		<?php endif; ?>
@@ -529,6 +529,15 @@ do_action( 'buddynext_part_post_body_before', $args );
 		 * this template. Existing types keep their own branches above; only unknown
 		 * types reach here. An empty return falls through to the plain-text body, so
 		 * a registered-but-declining renderer degrades gracefully.
+		 *
+		 * `media` reaches here as of 1.1.6. It used to share the 'photo' branch,
+		 * which is wrong in a way that only shows on the bridge's cards: a NATIVE
+		 * photo post owns its files and carries media_ids, while a `media` card
+		 * published by the WPMediaVerse bridge owns nothing — the file lives in the
+		 * engine and the card carries only a link. So the photo grid drew nothing
+		 * and the card rendered as its verb and no more: "shared a video", no
+		 * title, no cover, no link (Basecamp 10242691205). The list above always
+		 * intended it to land here.
 		 *
 		 * @param string $html The card HTML to output (default '').
 		 * @param array  $args The full post-body args (post, id, link_meta, content).

@@ -276,13 +276,42 @@ that surfaces partner content into the community) MUST:
    `IntegrationActivity::render_bridge_card( $args, $icon, $label )` — one uniform
    card (icon + source label + linked title) for every integration. Pass the SAME
    `$type` to `IntegrationActivity::remove()` on delete, or the card orphans.
-4. **Notifications: collect-only.** Route partner-sourced notifications through
-   `SuiteNotifications` (Pro) or the Free listener, ALWAYS `can_email=false` + a
-   prefs-catalogue entry + integration-toggle gated + block-aware. **BN never
-   emails on a partner's behalf** — the integration owns its own email templates;
-   BN's center is a collective display so members see everything in one place
-   without double emails. (Exception, documented: WPMediaVerse DM/favorite types
-   are BN-native — BN owns those and their email.)
+4. **Notifications: collect-only.** **BN never emails on a partner's behalf** —
+   the integration owns its own email templates; BN's center is a collective
+   display so members see everything in one place without double emails. There is
+   **one route per tier**, and every integration uses it. Do not hand-roll a
+   third.
+
+   **Pro bridges → `SuiteNotifications`** (`buddynext-pro/includes/Suite/SuiteNotifications.php`):
+
+   ```php
+   SuiteNotifications::register_source( 'events', __( 'Events' ), 'calendar', 'social' ); // once, toggle-gated
+   SuiteNotifications::push( $recipient_id, 'events', array(
+       'message' => $message, 'url' => $url, 'group_key' => $key, 'sender_id' => $actor,
+   ) );
+   ```
+
+   Types are prefixed `suite.` and `filter_catalogue()` hard-sets
+   `can_email => false` for all of them, so a Pro bridge **cannot** send a BN
+   email even by mistake. Used by Eventonomy, CareerBoard, Learnomy.
+
+   **Free bridges → the `JetonomyBridgeListener` pattern** (`includes/Bridges/JetonomyBridgeListener.php`).
+   Four obligations, none optional:
+   1. Register the type via `buddynext_notification_prefs_catalogue` with
+      `'can_email' => false` and `'default_email_freq' => 'off'`.
+   2. `buddynext_service( 'notifications' )->create( … )` with a `group_key` that
+      **keeps the partner subtype**, so re-fires dedupe but distinct events on one
+      object never collapse.
+   3. **Block-aware** — resolve the actor and drop the notification when the
+      recipient has blocked them.
+   4. **Default every optional hook arg.** A partner that fires 5 args where you
+      typed 7 is an `ArgumentCountError` in the partner's own write path; this
+      already 500'd Jetonomy reply creation once.
+
+   Both routes are integration-toggle gated. (Exception, documented: WPMediaVerse
+   DM/favorite types are BN-native — BN owns those and their email. Do not widen
+   it: MediaVerse reactions and mentions are the partner's, and go through the
+   free route with `can_email = false`.)
 5. **Profile presence.** Portfolio-ish content (jobs / listings / courses) → a
    `SuiteProfile` **panel** under the shared Portfolio tab. High-traffic social
    surfaces (Discussions, Achievements) → a top-level profile tab. Events keeps

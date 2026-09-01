@@ -1,0 +1,4 @@
+{
+  "_comment": "Hooks carrying an @since docblock that are not yet in docs/website/developer-guide/. Written 2026-08-21 with 32 entries so bin/check-public-hook-docs.py could start green; all 32 were documented the same day and the list is now EMPTY. It only shrinks: if you find yourself adding to it, document the hook instead. An @since tag is a public promise.",
+  "undocumented": []
+}

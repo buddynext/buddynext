@@ -17,11 +17,14 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
+| `buddynext_handle_history_limit` | filter | A member changes their handle and BuddyNext records the old one. Caps how many previous handles are kept per member, so an old handle can still resolve to its owner instead of 404ing or being silently re-issued. Default `5`. | `int $limit, int $user_id` |
+| `buddynext_profile_write_allowlist` | filter | The profile REST controller decides which fields a member may write about themselves. Anything not on the list is dropped rather than saved, so adding a custom field to the profile form also means adding it here. | `string[] $fields, int $user_id` |
+| `buddynext_reserved_profile_slugs` | filter | A member handle is generated or validated. These slugs are refused because they collide with BuddyNext's own profile sub-routes (`files`, `media`, `likes`, …); a member claiming one would shadow their own tab. Add your own to reserve them. | `string[] $slugs` |
 | `buddynext_registration_pending` | action | A new registration is created but awaits admin approval | `int $user_id, string $email` |
 | `buddynext_user_verified` | action | A member completes email verification | `int $user_id` |
 | `buddynext_onboarding_completed` | action | A member finishes the onboarding wizard | `int $user_id` |
 | `buddynext_member_suspended` | action | A member is suspended (member-domain mirror) | `int $user_id, int $by_user_id` |
-| `buddynext_member_unsuspended` | action | A suspension is lifted | `int $user_id, int $by_user_id`. **Arity warning: the wp-admin Members screen fires this with `$user_id` only** - see Hooks: Moderation, Auth, Trust. Default the second parameter. |
+| `buddynext_member_unsuspended` | action | A suspension is lifted | `int $user_id, int $by_user_id` from every call site, including the wp-admin Members screen. |
 | `buddynext_member_approved` | action | A pending registration is approved | `int $user_id` |
 | `buddynext_member_rejected` | action | A pending registration is rejected | `int $user_id` |
 | `buddynext_purge_user_data` | action | A member is deleted and their relations are purged | `int $user_id, string $context` |
@@ -55,6 +58,25 @@ Notes:
 - `buddynext_profile_field_render` output is wrapped in `wp_kses_post()` by the block before emission, so allowed tags are the WordPress post-content set. `$field` carries `id`, `field_key`, `label`, `type`, `options`, `is_required`, `visibility`, `value`, `group_name`, and related keys.
 - `buddynext_profile_field_validate` returning a `WP_Error` skips persisting that one value; other fields in the same save are unaffected. It fires in the profile save path for both flat and repeater fields.
 - `buddynext_profile_field_type_options` output is rendered verbatim into the admin form. Escape on output.
+
+## Avatar and cover upload limits
+
+Three filters set the ceiling for a profile image. Each takes a `$kind` of `'avatar'` or `'cover'`, so the two can be capped differently. All three are applied on the server in `ProfileController::validate_image_upload()` **and** passed to the browser through `AssetService`, so the client-side check and the server-side check stay in agreement - if you filter one, the other follows.
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_upload_max_megapixels` | filter | Validating a profile image's pixel count. Default `50.0` megapixels. | `float $megapixels, string $kind` |
+| `buddynext_upload_max_dimension` | filter | Validating a profile image's longest side. Default `10000` pixels. | `int $pixels, string $kind` |
+| `buddynext_upload_max_bytes` | filter | Validating a profile image's file size. Default 4 MB for `avatar`, 5 MB for `cover`. A value of `0` or less disables the byte check. | `int $bytes, string $kind` |
+
+These exist because the previous fixed caps (1920x1080 for covers, 1024x1024 for avatars) refused an ordinary phone photo - a 4032x3024 shot is 12 megapixels and was rejected outright, so members had to crop by hand before uploading. The limits are now a generous pixel-count ceiling rather than a fixed frame, and an owner who needs a different ceiling raises or lowers it here.
+
+```php
+// Accept larger covers, keep avatars where they are.
+add_filter( 'buddynext_upload_max_bytes', function ( int $bytes, string $kind ): int {
+    return 'cover' === $kind ? 12 * 1024 * 1024 : $bytes;
+}, 10, 2 );
+```
 
 ## Social graph actions
 
@@ -90,6 +112,7 @@ Six member-facing surfaces apply a render filter so an external plugin (typicall
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_member_card_meta_html` | filter | Rendering a member-directory / search-members card (meta chip below the handle) | `string $html, int $user_id, array $args` |
+| `buddynext_member_card_min_bio_remainder` | filter | Deciding whether the tail of a bio is worth showing under an identical headline (default `12` characters) | `int $min, string $bio, string $headline` |
 | `buddynext_post_byline_meta_html` | filter | Rendering a feed card byline (inline chip beside the author name) | `string $html, int $author_id, int $post_id` |
 | `buddynext_profile_hero_badges_html` | filter | Rendering the profile hero badges row under the display name | `string $html, int $user_id` |
 | `buddynext_avatar_overlay_html` | filter | Rendering inside `.bn-avatar` (level frame / corner badge); fires from profile-hero at size `2xl` and member-card at size `xl` | `string $html, int $user_id, string $size` |
@@ -158,7 +181,7 @@ Return `null` from `buddynext_user_active_dates` to fall through to BuddyNext's 
 
 ## Notes / gotchas
 
-- **Re-fetch for full objects.** Social and engagement actions pass IDs, not full rows. Resolve the rest through the relevant service (`buddynext_service( 'social_graph' )`, `post_service`, and so on).
+- **Re-fetch for full objects.** Social and engagement actions pass IDs, not full rows. Resolve the rest through the relevant service. Note the social graph is three separate container keys, not one: `follows`, `connections` and `blocks`. Posts are `post_service`. There is no `social_graph` binding - `social_graph` is a feature-registry slug, and asking the container for it throws.
 - **Recipient mirrors are conditional.** `buddynext_post_reaction_received` and `buddynext_post_comment_received` do not fire on self-engagement (author reacting to or commenting on their own post). `buddynext_follower_gained` always fires because following yourself is not possible.
 - **Overlay filters are not sanitized for you.** The six read surfaces echo raw. A plugin that returns unescaped user input introduces an XSS hole. Escape before returning.
 - **Free vs Pro.** Every hook on this page is fired by Free. Pro and gamification plugins are consumers - they attach to these seams rather than re-implementing the social graph. For notification and email seams, see Hooks: Notifications and Email.
@@ -179,6 +202,11 @@ The decision order is: `textarea` maps to `block`, `url` maps to `link`, any typ
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_field_presentation` | filter | Resolving the About-tab layout for a field type | `string $mode, string $type` - return one of `block`, `chips`, `link`, `inline` |
+| `buddynext_field_display_text` | filter | A profile field is rendered as plain text. Return a string to take over rendering for your own field type; return `null` to fall through to the core types | `string\|null $custom, array $field, mixed $value` |
+| `buddynext_field_rest_value` | filter | A profile field value is shaped for a REST or app payload. Same contract as above - return a value to take over, `null` to fall through | `bool\|int\|float\|string\|array\|null $custom, array $field, mixed $value` |
+| `buddynext_profile_field_is_active` | filter | A profile save decides whether a field is active for this submission. An inactive field is invisible to the member for that save | `bool $active, int $target_user_id` |
+| `buddynext_profile_group_locked` | filter | A profile group is checked for lock state, meaning "not included in their plan". Defaults to `false`, so Free never locks anything | `bool $locked, string $group_key, int $user_id` |
+| `buddynext_relation_list_cap` | filter | A whole-relation list is read (followers, following, connections), bounding how many rows load at once. Raise only if you know the memory is there; the paged reads are the safer route | `int $cap, string $relation, int $user_id` |
 
 The filter's return value is clamped: `presentation_for()` accepts only the four valid modes, and any other return value falls back to `inline`. This keeps an add-on from breaking the About tab by returning an unrecognised layout name.
 

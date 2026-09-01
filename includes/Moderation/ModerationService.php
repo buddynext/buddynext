@@ -57,6 +57,89 @@ class ModerationService {
 	private static ?array $reasons_cache = null;
 
 	/**
+	 * Labels for the core report reasons.
+	 *
+	 * @var array<string, string>|null
+	 */
+	private static ?array $reason_labels_cache = null;
+
+	/**
+	 * Report reasons as slug => human label, for every surface that OFFERS them.
+	 *
+	 * The reasons() method returns slugs and gates what the server accepts. Every UI that
+	 * had to show a LABEL therefore kept its own copy of the list, and there were
+	 * four: two templates, the shell localisation and the dialog JS. None of them
+	 * called this class, so buddynext_report_reasons — documented, applied here,
+	 * and honoured on submission — could add a reason that no UI ever offered. A
+	 * marketplace could not add "item never arrived"; a dating community could not
+	 * add "asked me for money".
+	 *
+	 * The copies had already drifted: the shell localisation and the dialog JS
+	 * were both missing `fake`, so "Fake account" was offered in the profile modal
+	 * and nowhere else.
+	 *
+	 * A slug added through the filter gets a label from
+	 * buddynext_report_reason_labels; without one it is humanised from the slug so
+	 * it is at least offered rather than silently dropped.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return array<string, string> Ordered slug => label.
+	 */
+	public static function reason_choices(): array {
+		if ( null === self::$reason_labels_cache ) {
+			$labels = array(
+				'spam'           => __( 'Spam', 'buddynext' ),
+				'harassment'     => __( 'Harassment or hate speech', 'buddynext' ),
+				'misinformation' => __( 'Misinformation', 'buddynext' ),
+				'inappropriate'  => __( 'Inappropriate content', 'buddynext' ),
+				'fake'           => __( 'Fake account', 'buddynext' ),
+				'impersonation'  => __( 'Impersonation', 'buddynext' ),
+				'other'          => __( 'Something else', 'buddynext' ),
+			);
+
+			/**
+			 * Filters the labels shown for report reasons.
+			 *
+			 * Pair this with buddynext_report_reasons: that filter decides which
+			 * reasons EXIST and are accepted, this one decides how they read.
+			 *
+			 * @since 1.1.6
+			 *
+			 * @param array<string, string> $labels Slug => label.
+			 */
+			self::$reason_labels_cache = (array) apply_filters( 'buddynext_report_reason_labels', $labels );
+		}
+
+		$labels  = self::$reason_labels_cache;
+		$choices = array();
+
+		foreach ( self::reasons() as $slug ) {
+			$slug = (string) $slug;
+			if ( '' === $slug ) {
+				continue;
+			}
+
+			$choices[ $slug ] = isset( $labels[ $slug ] )
+				? (string) $labels[ $slug ]
+				// No label supplied: humanise rather than drop. An offered reason
+				// with an ugly label is recoverable; a missing one is invisible.
+				: ucfirst( str_replace( array( '_', '-' ), ' ', $slug ) );
+		}
+
+		// `other` is the catch-all, so it belongs last however the filters ordered
+		// things — a custom reason appended after it would otherwise read as an
+		// afterthought to "Something else".
+		if ( isset( $choices['other'] ) ) {
+			$bn_other = $choices['other'];
+			unset( $choices['other'] );
+			$choices['other'] = $bn_other;
+		}
+
+		return $choices;
+	}
+
+	/**
 	 * Allowed report reasons, filterable via buddynext_report_reasons.
 	 *
 	 * Filters should return a SUPERSET of the core reasons — the UI offers a
@@ -275,15 +358,20 @@ class ModerationService {
 
 		// Auto-hide: once a post accrues enough distinct reports, pull it out of
 		// public view into the moderation queue. Enforces the Settings →
-		// Moderation → "Auto-Hide Threshold" setting (0 = disabled). Reuses the
-		// existing 'pending' status (the moderation-hold state) — no new flag.
+		// Moderation → "Auto-Hide Threshold" setting (0 = disabled). Moves the post
+		// to its own 'under_review' status; it used to reuse pre-moderation's
+		// 'pending', which put it in the Pending tab too — see auto_hide_post().
 		if ( 'post' === sanitize_key( $object_type ) ) {
 			$auto_hide_threshold = (int) get_option( 'buddynext_auto_hide_threshold', 5 );
 			if ( $auto_hide_threshold > 0 ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$report_total = (int) $wpdb->get_var(
 					$wpdb->prepare(
-						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id = %d",
+						// Only OPEN reports count toward auto-hide. Without the status
+						// filter, dismissed/resolved lifetime reports were tallied, so a
+						// single new report could re-hide content a moderator had already
+						// cleared once the lifetime total crossed the threshold.
+						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id = %d AND status IN ( 'pending', 'escalated' )",
 						$object_id
 					)
 				);
@@ -336,6 +424,20 @@ class ModerationService {
 						 * @param string $reason     Warning message/reason.
 						 */
 						do_action( 'buddynext_user_warned', (int) $auto_action['user_id'], 0, (string) ( $auto_action['reason'] ?? '' ) );
+
+						// Auto-warn fires the hook directly (it does not route through
+						// warn(), which is where manual warns log), so record it here or
+						// rule-driven warnings leave no audit entry.
+						( new ModerationLogService() )->log(
+							0,
+							'warn',
+							array(
+								'object_type'    => 'user',
+								'object_id'      => (int) $auto_action['user_id'],
+								'target_user_id' => (int) $auto_action['user_id'],
+								'note'           => 'Automated rule warning: ' . (string) ( $auto_action['reason'] ?? '' ),
+							)
+						);
 					}
 					break;
 
@@ -373,6 +475,21 @@ class ModerationService {
 							0, // System actor — same convention as `warn` above.
 							(string) ( $auto_action['reason'] ?? '' ),
 							array( 'duration_days' => $bn_duration )
+						);
+
+						// suspend_user() is shared with the manual path (which logs at
+						// the moderation queue), so log the rule-driven suspension here
+						// rather than inside the primitive - otherwise a manual suspend
+						// would be logged twice while this one is not logged at all.
+						( new ModerationLogService() )->log(
+							0,
+							'suspend',
+							array(
+								'object_type'    => 'user',
+								'object_id'      => (int) $auto_action['user_id'],
+								'target_user_id' => (int) $auto_action['user_id'],
+								'note'           => 'Automated rule suspension: ' . (string) ( $auto_action['reason'] ?? '' ),
+							)
 						);
 					}
 					break;
@@ -506,11 +623,21 @@ class ModerationService {
 	}
 
 	/**
-	 * Auto-hide a reported post by moving it to the 'pending' moderation state.
+	 * Auto-hide a reported post by moving it to the 'under_review' state.
 	 *
 	 * Only flips a currently 'published' post (never touches drafts, scheduled,
 	 * or already-removed posts), so the public feed stops showing it while the
 	 * moderation queue retains the open reports for a human decision.
+	 *
+	 * `under_review`, not `pending`. This used to write 'pending' — the same value
+	 * pre-moderation uses for a NEW post awaiting approval — so an auto-hidden
+	 * post appeared in the moderation Pending tab as well as the Reports tab, and
+	 * both of the Pending tab's actions were wrong for it: Approve republished
+	 * reported content with its reports still open, Reject deleted the post and
+	 * left the reports pointing at nothing. Neither resolved a single report. The
+	 * two states are answered by different people on different screens, so they
+	 * are different values; the Pending tab's queries filter on = 'pending' and
+	 * now exclude these without needing to know they exist.
 	 *
 	 * @param int $post_id Post to hide.
 	 * @return void
@@ -521,7 +648,7 @@ class ModerationService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET status = 'pending' WHERE id = %d AND status = 'published'",
+				"UPDATE {$wpdb->prefix}bn_posts SET status = 'under_review' WHERE id = %d AND status = 'published'",
 				$post_id
 			)
 		);
@@ -880,8 +1007,21 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function warn( int $user_id, int $actor_id, string $reason = '', int $space_id = 0 ): bool|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) && ! $this->actor_moderates_space( $actor_id, $space_id ) ) {
+		$actor_is_admin = user_can( $actor_id, 'manage_options' );
+		if ( ! $actor_is_admin && ! $this->actor_moderates_space( $actor_id, $space_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue warnings.', 'buddynext' ) );
+		}
+
+		// A space moderator's authority is scoped to their space: they may warn a
+		// member OF that space, not any user id they name. Without this target
+		// check a Space-A moderator could warn anyone on the site - admins included -
+		// simply by passing space_id=A. Site admins (manage_options) stay unscoped.
+		if ( ! $actor_is_admin && ! ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $user_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You can only warn members of a space you moderate.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		global $wpdb;
@@ -1692,6 +1832,12 @@ class ModerationService {
 		 */
 		do_action( 'buddynext_user_suspended', $user_id, $actor_id, $reason, $expires_at );
 
+		// Suspending a member actions every open report ABOUT that member — the
+		// strongest available action was taken, so their user-object reports must
+		// not linger open in the queue (the "suspend from a report leaves it open"
+		// bug). Cascades via set_status and notifies the reporters.
+		$this->resolve_open_user_reports( $user_id, $actor_id );
+
 		return $suspension_id;
 	}
 
@@ -2440,21 +2586,34 @@ class ModerationService {
 
 		global $wpdb;
 
-		// Fetch user_id for the hook before updating.
+		// Fetch user_id + current status for the hook and the re-resolve guard.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$user_id = (int) $wpdb->get_var(
+		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
+				"SELECT user_id, status FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
 				$appeal_id
-			)
+			),
+			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$user_id = (int) ( $row['user_id'] ?? 0 );
 
 		// Appeal row does not exist (appeals are always filed by a real user, so
 		// user_id is never 0 for a genuine row). Report it instead of updating
 		// zero rows and returning a false success.
 		if ( $user_id <= 0 ) {
 			return new WP_Error( 'bn_appeal_not_found', __( 'That appeal no longer exists.', 'buddynext' ) );
+		}
+
+		// An appeal is resolved exactly once. Without this guard a second resolve
+		// re-ran the UPDATE and re-fired buddynext_appeal_resolved, re-notifying the
+		// member and overwriting the original decision/reviewer.
+		if ( 'pending' !== (string) ( $row['status'] ?? '' ) ) {
+			return new WP_Error(
+				'appeal_not_pending',
+				__( 'That appeal has already been resolved.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2464,7 +2623,8 @@ class ModerationService {
 				'status'        => $decision,
 				'reviewed_by'   => $actor_id,
 				'reviewer_note' => sanitize_textarea_field( $reviewer_note ),
-				'reviewed_at'   => current_time( 'mysql' ),
+				// UTC, to match created_at and the file's timestamp invariant.
+				'reviewed_at'   => current_time( 'mysql', true ),
 			),
 			array( 'id' => $appeal_id ),
 			array( '%s', '%d', '%s', '%s' ),
@@ -2492,6 +2652,41 @@ class ModerationService {
 		do_action( 'buddynext_appeal_resolved', $appeal_id, $user_id, $decision );
 
 		return true;
+	}
+
+	/**
+	 * Resolve every open (pending/escalated) report ABOUT a user, used after the
+	 * user is suspended so the queue does not keep showing reports the suspension
+	 * already actioned.
+	 *
+	 * Finds one open user-object report and hands it to set_status(), which
+	 * cascades the 'resolved' status to all of that user's open reports and
+	 * notifies the reporters. No-op for the system actor (0), which cannot action
+	 * reports (can_action_report() would reject it).
+	 *
+	 * @param int $user_id  The suspended user (the report object).
+	 * @param int $actor_id The admin who suspended them.
+	 * @return void
+	 */
+	private function resolve_open_user_reports( int $user_id, int $actor_id ): void {
+		if ( $actor_id <= 0 || $user_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$report_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_reports
+				 WHERE object_type = 'user' AND object_id = %d AND status IN ('pending','escalated')
+				 ORDER BY id ASC LIMIT 1",
+				$user_id
+			)
+		);
+
+		if ( $report_id > 0 ) {
+			$this->set_status( $report_id, $actor_id, 'resolved' );
+		}
 	}
 
 	/**
@@ -2556,7 +2751,7 @@ class ModerationService {
 				 WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated')",
 				$status,
 				$actor_id,
-				current_time( 'mysql' ),
+				current_time( 'mysql', true ), // UTC, to match created_at and the resolved_today query.
 				(string) $target['object_type'],
 				(int) $target['object_id']
 			)
@@ -2582,18 +2777,22 @@ class ModerationService {
 		}
 
 		// Lift an auto-hide once the reports are cleared. auto_hide_post() flips a
-		// 'published' post to 'pending' when the report threshold is hit; resolving
-		// or dismissing all of its open reports means a human has cleared it, so it
-		// should reappear in the feed. The status = 'pending' guard restores ONLY
-		// the auto-hide state — content taken down via remove_content() is
-		// 'deleted' (ModerationListener::on_content_removed) and is left untouched.
+		// 'published' post to 'under_review' when the report threshold is hit;
+		// resolving or dismissing all of its open reports means a human has cleared
+		// it, so it should reappear in the feed. The status = 'under_review' guard
+		// restores ONLY the auto-hide state — content taken down via
+		// remove_content() is 'deleted' (ModerationListener::on_content_removed)
+		// and is left untouched, and a post genuinely held by pre-moderation stays
+		// held. That last one was a real hole while both states shared 'pending':
+		// resolving a report on a not-yet-approved post published it, bypassing
+		// pre-moderation entirely.
 		if ( 'post' === (string) $target['object_type'] && in_array( $status, array( 'resolved', 'dismissed' ), true ) ) {
 			$restore_post_id = (int) $target['object_id'];
 
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$restored = $wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published' WHERE id = %d AND status = 'pending'",
+					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published' WHERE id = %d AND status = 'under_review'",
 					$restore_post_id
 				)
 			);
@@ -2799,7 +2998,19 @@ class ModerationService {
 			$wpdb->prefix . 'bn_user_suspensions',
 			array(
 				'user_id'      => $user_id,
-				'suspended_by' => $suspended_by > 0 ? $suspended_by : null,
+				// 0, not NULL. suspended_by is BIGINT UNSIGNED NOT NULL, so a NULL
+				// here made MySQL reject the whole INSERT — "Column 'suspended_by'
+				// cannot be null" — and this primitive is reached ONLY from the
+				// automated path (ModerationListener's strike-threshold perma-ban
+				// and suspend), which passes actor 0. Every automatic sanction
+				// therefore did nothing at all.
+				//
+				// 0 is this codebase's own system-actor convention: the sibling
+				// column on this very table writes it that way (lifted_by, in
+				// unsuspend below), as do SpaceMemberService and apply_auto_actions'
+				// `warn`. Matching lifted_by is the fix, not making the column
+				// nullable — two actor columns on one table should not disagree.
+				'suspended_by' => max( 0, $suspended_by ),
 				'reason'       => sanitize_textarea_field( $reason ),
 				'expires_at'   => $expires_at,
 				'hide_posts'   => $hide_content ? 1 : 0,
@@ -2812,7 +3023,33 @@ class ModerationService {
 			return new WP_Error( 'db_error', $wpdb->last_error );
 		}
 
-		$actor_id = $suspended_by > 0 ? $suspended_by : get_current_user_id();
+		// A system suspension stays attributed to the SYSTEM. Falling back to
+		// get_current_user_id() credited an automatic strike-threshold ban to
+		// whoever's request happened to trip it — often the member who posted the
+		// offending content — writing a false actor into an append-only audit
+		// trail and firing buddynext_user_suspended with it.
+		//
+		// The code below already assumed this: resolve_open_user_reports() is
+		// documented as a "no-op when the actor is the system (0)", which it could
+		// never be while this line replaced the 0 with an ambient user.
+		$actor_id = max( 0, $suspended_by );
+
+		// Record the automated ban/suspension in the append-only audit trail. This
+		// bare primitive is the strike-threshold escalation path (its only callers
+		// are ModerationListener's perma-ban + threshold-suspend); manual
+		// suspensions go through suspend_user() and are logged at the moderation
+		// queue, so this does not double-log. Without it, strike-driven sanctions
+		// were invisible in bn_mod_log while every manual action was recorded.
+		( new ModerationLogService() )->log(
+			$actor_id,
+			$hide_content ? 'perma_ban' : 'suspend',
+			array(
+				'object_type'    => 'user',
+				'object_id'      => $user_id,
+				'target_user_id' => $user_id,
+				'note'           => $reason,
+			)
+		);
 
 		/**
 		 * Fires after a suspension record is created.
@@ -2823,6 +3060,11 @@ class ModerationService {
 		 * @param string|null $expires_at Expiry timestamp (Y-m-d H:i:s), or null for permanent.
 		 */
 		do_action( 'buddynext_user_suspended', $user_id, $actor_id, $reason, $expires_at );
+
+		// Same as suspend_user(): a strike-driven suspension actions any open
+		// reports about the member, so they don't linger in the queue. No-op when
+		// the actor is the system (0), which cannot action reports.
+		$this->resolve_open_user_reports( $user_id, $actor_id );
 
 		return true;
 	}
@@ -2964,6 +3206,29 @@ class ModerationService {
 
 		global $wpdb;
 
+		// One open appeal per suspension. This self-service path (POST
+		// /moderation/me/appeals) had no dedupe, so a member could file the same
+		// appeal repeatedly - flooding the moderator queue and, because each fires
+		// buddynext_appeal_submitted with a per-appeal notification key, spamming
+		// every admin. Mirror the guard submit_appeal() already uses.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$already_pending = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_appeals
+				 WHERE user_id = %d AND suspension_id = %d AND status = 'pending'",
+				$user_id,
+				$suspension_id
+			)
+		);
+
+		if ( $already_pending > 0 ) {
+			return new WP_Error(
+				'appeal_already_pending',
+				__( 'You have already appealed this. A moderator will review it.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
+		}
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'bn_appeals',
@@ -3053,7 +3318,7 @@ class ModerationService {
 		// (written here) and reviewed_*/reviewer_note (written by resolve_appeal()).
 		// Until the two resolution paths are consolidated, populate BOTH so the audit
 		// trail is complete regardless of which endpoint decided the appeal.
-		$now     = current_time( 'mysql' );
+		$now     = current_time( 'mysql', true ); // UTC, to match created_at and resolved_today.
 		$actor   = $resolved_by > 0 ? $resolved_by : null;
 		$note    = sanitize_textarea_field( $admin_note );
 		$updated = $wpdb->update(
@@ -3199,7 +3464,7 @@ class ModerationService {
 		$stats = $wpdb->get_row(
 			"SELECT
 				SUM( CASE WHEN status = 'pending' THEN 1 ELSE 0 END ) AS pending,
-				SUM( CASE WHEN status IN ('dismissed','resolved') AND DATE(created_at) = CURDATE() THEN 1 ELSE 0 END ) AS resolved_today,
+				SUM( CASE WHEN status IN ('dismissed','resolved') AND DATE(resolved_at) = UTC_DATE() THEN 1 ELSE 0 END ) AS resolved_today,
 				COUNT(*) AS total_all_time
 			 FROM {$wpdb->prefix}bn_reports",
 			ARRAY_A
@@ -3260,6 +3525,49 @@ class ModerationService {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Open reports across MANY spaces, in one query.
+	 *
+	 * The batched sibling of `count_open_reports_for_space()` above. An owner
+	 * dashboard showing several spaces had to call the singular one per space,
+	 * which is an N+1 that grows with exactly the owners who have the most to
+	 * moderate.
+	 *
+	 * Counts DISTINCT reported OBJECTS, not report rows - the same `GROUP BY
+	 * object_type, object_id` the singular version uses. Five members reporting one
+	 * post is one thing to look at, not five, and a dashboard that says five sends
+	 * a moderator looking for four things that do not exist.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<int,int> $space_ids Spaces to count across.
+	 * @return int Distinct open reported objects, 0 when the list is empty.
+	 */
+	public function count_open_reports_for_spaces( array $space_ids ): int {
+		$space_ids = array_values( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ) );
+
+		if ( empty( $space_ids ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM (
+					SELECT 1 FROM {$wpdb->prefix}bn_reports
+					WHERE status IN ('pending','escalated') AND space_id IN ($placeholders)
+					GROUP BY object_type, object_id
+				 ) AS open_groups",
+				$space_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 	}
 
 	/**

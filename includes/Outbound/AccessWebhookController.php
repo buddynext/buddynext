@@ -94,7 +94,16 @@ class AccessWebhookController {
 		}
 
 		$action = sanitize_key( $body['action'] ?? '' );
+
+		// This request logs itself, below, with the whole signed body — richer than
+		// anything the action can carry. WebhookLogListener watches the same grant
+		// action for callers that have no request to log from, so it is told to
+		// stand down for the duration of this one. Without that, every HTTP grant
+		// would be recorded twice: once here and once by the listener.
+		WebhookLog::begin_request_scope();
 		$result = $this->dispatch( $action, $user->ID, $body );
+		WebhookLog::end_request_scope();
+
 		$status = ( $result instanceof WP_Error ) ? 'error' : 'success';
 
 		$this->log( $action, $user->ID, $body, $status );
@@ -285,10 +294,56 @@ class AccessWebhookController {
 	}
 
 	/**
+	 * Signature this request was accepted on, recorded so a replay is detectable.
+	 *
+	 * Empty for a legacy body-only request: there is nothing time-bounded to
+	 * compare a later copy against, which is the reason that scheme is going.
+	 *
+	 * @var string
+	 */
+	private string $accepted_signature = '';
+
+	/**
+	 * Tolerance, in seconds, between a request's timestamp and now.
+	 *
+	 * Wide enough for ordinary clock drift between two servers, narrow enough
+	 * that a captured request is worthless within minutes.
+	 */
+	private const TIMESTAMP_TOLERANCE = 300;
+
+	/**
+	 * Option that turns off acceptance of the pre-1.1.6 signature scheme.
+	 */
+	public const OPT_STRICT_SIGNATURES = 'buddynext_webhook_strict_signatures';
+
+	/**
 	 * Verify the HMAC-SHA256 signature from the X-BuddyNext-Signature header.
 	 *
-	 * Returns a WP_Error when the secret is not configured, false when the
-	 * signature does not match, and true when it passes.
+	 * Two schemes are accepted during the migration window.
+	 *
+	 * The current one signs `"{timestamp}.{body}"` and sends the timestamp in
+	 * `X-BuddyNext-Timestamp`. The old one signed the body alone, which made a
+	 * captured request valid forever: `grant_ability` replayed on a timer renews
+	 * a membership indefinitely, and nothing about the request ever goes stale.
+	 * Signing the timestamp is what puts an expiry on a captured call, and
+	 * recording the signature (see `replay_seen()`) is what stops it being used
+	 * twice inside that window.
+	 *
+	 * Timestamped signatures are now REQUIRED by default (1.1.6): the body-only
+	 * fallback is refused unless a site explicitly re-enables it. A site still
+	 * mid-migration can keep accepting the legacy scheme by setting
+	 * `buddynext_webhook_strict_signatures` to '0', or per-request via the
+	 * `buddynext_require_signed_timestamp` filter — the opt-out for a straggler
+	 * finishing a move. Each legacy call that IS accepted is still logged as
+	 * deprecated so an owner can see who to move.
+	 *
+	 * This flip closes the replay window on upgraded sites too (fresh installs
+	 * were already strict via Installer::run()). It is a breaking change for a
+	 * sender still signing the body alone — that is the deliberate, owner-chosen
+	 * trade recorded on Basecamp 10227863022; note it in the release changelog.
+	 *
+	 * Returns a WP_Error when the secret is not configured or the request is
+	 * stale/replayed, false when no scheme matches, true when one does.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return true|false|WP_Error
@@ -304,14 +359,135 @@ class AccessWebhookController {
 			);
 		}
 
-		$header   = (string) ( $request->get_header( 'X-BuddyNext-Signature' ) ?? '' );
-		$expected = 'sha256=' . hash_hmac( 'sha256', $request->get_body(), $secret );
+		$header    = (string) ( $request->get_header( 'X-BuddyNext-Signature' ) ?? '' );
+		$timestamp = (string) ( $request->get_header( 'X-BuddyNext-Timestamp' ) ?? '' );
+		$body      = (string) $request->get_body();
 
-		return hash_equals( $expected, $header );
+		if ( '' !== $timestamp ) {
+			$expected = 'sha256=' . hash_hmac( 'sha256', $timestamp . '.' . $body, $secret );
+
+			if ( ! hash_equals( $expected, $header ) ) {
+				return false;
+			}
+
+			// Signature checked first, deliberately: a stale-timestamp message for
+			// an unsigned request would tell an attacker their guess was otherwise
+			// well-formed.
+			if ( abs( time() - (int) $timestamp ) > self::TIMESTAMP_TOLERANCE ) {
+				return new WP_Error(
+					'stale_request',
+					__( 'Request timestamp is outside the accepted window.', 'buddynext' ),
+					array( 'status' => 401 )
+				);
+			}
+
+			if ( $this->replay_seen( self::signature_digest( $header ) ) ) {
+				return new WP_Error(
+					'replayed_request',
+					__( 'This request has already been processed.', 'buddynext' ),
+					array( 'status' => 409 )
+				);
+			}
+
+			$this->accepted_signature = self::signature_digest( $header );
+
+			return true;
+		}
+
+		// ── Legacy: body-only signature, no timestamp ──────────────────────────
+		// Strict by default now (1.1.6). An upgraded site with legacy senders still
+		// mid-migration opts out by setting the option to '0', or per request via
+		// the filter. The option default is `true` so a site that never had the
+		// row (upgraded from before it existed) is strict, matching a fresh install.
+		$strict = (bool) apply_filters(
+			'buddynext_require_signed_timestamp',
+			(bool) get_option( self::OPT_STRICT_SIGNATURES, true ),
+			$request
+		);
+		if ( $strict ) {
+			return new WP_Error(
+				'timestamp_required',
+				__( 'This site requires a signed request timestamp.', 'buddynext' ),
+				array( 'status' => 401 )
+			);
+		}
+
+		$legacy = 'sha256=' . hash_hmac( 'sha256', $body, $secret );
+
+		if ( ! hash_equals( $legacy, $header ) ) {
+			return false;
+		}
+
+		$this->accepted_signature = '';
+
+		WebhookLog::write(
+			'signature_scheme_deprecated',
+			0,
+			array(
+				'source' => sanitize_key( (string) ( $request->get_param( 'source' ) ?? '' ) ),
+				'reason' => 'request signed without X-BuddyNext-Timestamp; this scheme cannot be replay-checked and will stop being accepted',
+			),
+			WebhookLog::STATUS_ERROR
+		);
+
+		return true;
+	}
+
+	/**
+	 * The hex digest out of a signature header.
+	 *
+	 * The header is `sha256=<64 hex>` — 71 characters, which does not fit the
+	 * CHAR(64) column and made MySQL reject the row outright, so nothing was
+	 * recorded and every replay sailed through. The prefix is a constant and
+	 * carries no information, so only the digest is kept.
+	 *
+	 * @param string $header Signature header value.
+	 * @return string 64-char digest, or '' when the header is not in that shape.
+	 */
+	private static function signature_digest( string $header ): string {
+		$digest = str_starts_with( $header, 'sha256=' ) ? substr( $header, 7 ) : $header;
+
+		return 1 === preg_match( '/^[a-f0-9]{64}$/', $digest ) ? $digest : '';
+	}
+
+	/**
+	 * Whether this exact signature has already been accepted recently.
+	 *
+	 * Only inside the tolerance window: outside it the timestamp check has
+	 * already refused the request, so the log does not need to be kept forever
+	 * to make this work.
+	 *
+	 * @param string $signature Signature header value.
+	 * @return bool
+	 */
+	private function replay_seen( string $signature ): bool {
+		global $wpdb;
+
+		if ( '' === $signature ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT id FROM {$wpdb->prefix}bn_webhook_log
+				 WHERE signature = %s AND created_at > %s
+				 LIMIT 1",
+				$signature,
+				gmdate( 'Y-m-d H:i:s', time() - self::TIMESTAMP_TOLERANCE )
+			)
+		);
+
+		return null !== $found;
 	}
 
 	/**
 	 * Write an audit row to bn_webhook_log.
+	 *
+	 * Delegates to WebhookLog, which is the shared door: same-site callers that
+	 * fire `buddynext_ability_granted` directly have no HTTP request to log from,
+	 * and they need the same trail this one writes.
 	 *
 	 * @param string $action  Action slug.
 	 * @param int    $user_id User ID.
@@ -319,28 +495,6 @@ class AccessWebhookController {
 	 * @param string $status  'success' or 'error'.
 	 */
 	private function log( string $action, int $user_id, array $body, string $status ): void {
-		global $wpdb;
-
-		// created_at is written explicitly, in UTC.
-		//
-		// The column's schema default is CURRENT_TIMESTAMP, which MySQL resolves in
-		// the DATABASE SERVER's timezone, and every other timestamp BuddyNext
-		// stores is gmdate(). An audit log exists to be correlated against other
-		// records — "this webhook granted that subscription" — and on a host whose
-		// database is not on UTC it was offset from everything it would be read
-		// beside. Observed here at +5:30: a call at 16:57 UTC logged as 22:27.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_webhook_log',
-			array(
-				'source'     => sanitize_key( $body['source'] ?? '' ),
-				'action'     => $action,
-				'user_id'    => $user_id,
-				'payload'    => wp_json_encode( $body ),
-				'status'     => $status,
-				'created_at' => gmdate( 'Y-m-d H:i:s' ),
-			),
-			array( '%s', '%s', '%d', '%s', '%s', '%s' )
-		);
+		WebhookLog::write( $action, $user_id, $body, $status, $this->accepted_signature );
 	}
 }

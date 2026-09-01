@@ -29,7 +29,9 @@
         "whats-new/06-whats-new-in-1-1-0.md",
         "whats-new/07-whats-new-in-1-1-1.md",
         "whats-new/08-whats-new-in-1-1-2.md",
-        "whats-new/09-whats-new-in-1-1-5.md"
+        "whats-new/09-whats-new-in-1-1-3.md",
+        "whats-new/10-whats-new-in-1-1-4.md",
+        "whats-new/11-whats-new-in-1-1-5.md"
       ]
     },
     {
@@ -149,7 +151,7 @@
       "slug": "pro-bnext",
       "name": "Pro Features",
       "docs": [
-        "pro/01-membership-tiers.md",
+        "pro/01-membership-plans.md",
         "pro/02-gated-spaces.md",
         "pro/03-stripe-payments.md",
         "pro/04-content-protection.md",
@@ -173,7 +175,8 @@
         "pro/22-payment-gateways.md",
         "pro/23-coupons-and-tax.md",
         "pro/24-suite-portfolio.md",
-        "pro/25-realtime-server-deployment.md"
+        "pro/25-realtime-server-deployment.md",
+        "pro/26-renewal-reminders.md"
       ]
     },
     {
@@ -248,7 +251,9 @@
         "developer-guide/49-child-theme-template-overrides.md",
         "developer-guide/50-shortcodes.md",
         "developer-guide/51-coming-from-buddypress.md",
-        "developer-guide/52-extending-interactivity-stores.md"
+        "developer-guide/52-extending-interactivity-stores.md",
+        "developer-guide/53-membership-grant-bridges.md",
+        "developer-guide/54-mediaverse-surface-ownership.md"
       ]
     }
   ]

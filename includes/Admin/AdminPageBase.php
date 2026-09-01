@@ -257,7 +257,7 @@ abstract class AdminPageBase {
 						$this->render_textarea_row( $field->key, $field->label, (string) $value, $hint );
 						break;
 					case 'color':
-						$this->render_color_row( $field->key, $field->label, (string) $value, $hint );
+						self::render_color_row( $field->key, $field->label, (string) $value, $hint );
 						break;
 					case 'media':
 						self::render_media_row( $field->key, $field->label, (string) $value, $hint );
@@ -417,7 +417,7 @@ abstract class AdminPageBase {
 	 * @param string $hint        Optional hint text beneath the field.
 	 * @return void
 	 */
-	protected function render_color_row(
+	public static function render_color_row(
 		string $option_name,
 		string $label,
 		string $value,
@@ -468,7 +468,10 @@ abstract class AdminPageBase {
 	 * @param string $label        Field label.
 	 * @param string $value        Current image URL ('' = none).
 	 * @param string $hint         Optional hint text beneath the field.
-	 * @param string $select_label Select-button label. Defaults to "Select image".
+	 * @param string $select_label  Select-button label. Defaults to "Select image".
+	 * @param string $preview_class Preview <img> class. Defaults to the logo
+	 *                              thumbnail cap; pass 'bn-a-banner-preview' for
+	 *                              wide, full-bleed banner fields.
 	 * @return void
 	 */
 	public static function render_media_row(
@@ -476,7 +479,8 @@ abstract class AdminPageBase {
 		string $label,
 		string $value,
 		string $hint = '',
-		string $select_label = ''
+		string $select_label = '',
+		string $preview_class = 'bn-a-logo-preview'
 	): void {
 		if ( '' === $select_label ) {
 			$select_label = __( 'Select image', 'buddynext' );
@@ -487,7 +491,7 @@ abstract class AdminPageBase {
 		<div class="bn-field bn-media-field" data-bn-media-field>
 			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
 			<div class="bn-media-preview" data-bn-media-preview <?php echo $has_img ? '' : 'hidden'; ?>>
-				<img src="<?php echo esc_url( $value ); ?>" alt="" class="bn-a-logo-preview">
+				<img src="<?php echo esc_url( $value ); ?>" alt="" class="<?php echo esc_attr( $preview_class ); ?>">
 			</div>
 			<div class="bn-media-controls">
 				<button type="button"
@@ -661,6 +665,16 @@ abstract class AdminPageBase {
 	 * and `data-bn-auto-dismiss="5000"` overrides the default 12s. Without this
 	 * argument those notices could not move to the primitive without losing the
 	 * behaviour, which is a quieter failure than not migrating them at all.
+	 *
+	 * `data-bn-clear-param` is now the EXCEPTION, not the rule. bn-admin-dialogs.js
+	 * strips a default set of one-shot flash params (`FLASH_PARAMS` in that file:
+	 * saved/updated/created/deleted/error/msg/bn_done…) from every BN admin URL,
+	 * because relying on each screen to opt in was whack-a-mole — every new admin
+	 * surface re-introduced the refresh-re-shows-the-notice bug. Redirect with a
+	 * name already on that list and it is handled for free; only reach for the
+	 * attribute when a param genuinely cannot be named from that set. Never name a
+	 * STATE param (page/tab/view/paged/s/orderby/status/type or an entity id) like
+	 * a flash param — those are deliberately excluded and must stay that way.
 	 *
 	 * @param string               $message Notice text. Escaped unless $allow_links is true.
 	 * @param string               $tone    One of success|error|warning|info. Unknown tones

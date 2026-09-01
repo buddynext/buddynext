@@ -1,7 +1,8 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { bnToast, bnConfirm, bnPrompt, bnResolveConnectNote } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
+import { openCoverReposModal } from '@buddynext/cover-reposition';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -76,6 +77,60 @@ function nonce() {
  * bound, so upload + remove update it imperatively. Pass an empty url to
  * revert to the initials read from data-bn-initials.
  */
+/**
+ * Open a hero popover UPWARD when opening downward would put it under the fixed
+ * bottom nav.
+ *
+ * The action row wraps tall on a phone, so the trigger sits near the fold and the
+ * menu opened past it: measured at 390x844, the More menu ran 735-945 and
+ * `elementFromPoint` on "Report" returned .bn-mobile-nav (z-index 9500). Nothing
+ * was unreachable - the menu stays open on scroll - but Block and Report are the
+ * safety controls, and a member reaching for those is not in a patient mood.
+ * Facebook and LinkedIn both flip a near-fold menu rather than making you scroll
+ * one you just opened (Basecamp 10236292515).
+ *
+ * The nav's height is read from --bn-mobile-nav-h, the measured value
+ * shell/extras.js already publishes for every bottom-pinned surface, so this does
+ * not become a sixth place that guesses at it.
+ *
+ * Measured in rAF because the menu is display:none until the Interactivity class
+ * binding lands, and a hidden element has no height to measure.
+ *
+ * @param {string} wrapSel  Selector for the popover wrapper.
+ * @param {string} menuSel  Selector for the popover itself.
+ * @param {string} ctxKey   Context key holding the flip flag.
+ */
+function flipIfItWouldLandUnderTheNav( wrapSel, menuSel, ctxKey ) {
+	const ref = getElement() && getElement().ref;
+	if ( ! ref ) { return; }
+
+	const wrap = ref.closest( wrapSel ) || ref.querySelector( wrapSel );
+	if ( ! wrap ) { return; }
+
+	// getContext() only resolves inside an action's synchronous call stack, so
+	// take the proxy here and mutate it from the callback. Calling it inside the
+	// rAF throws "Cannot read properties of undefined (reading 'context')".
+	const ctx = getContext();
+	if ( ! ctx ) { return; }
+
+	requestAnimationFrame( () => {
+		const menu = wrap.querySelector( menuSel );
+		if ( ! menu ) { return; }
+
+		const navH = parseFloat(
+			getComputedStyle( document.documentElement ).getPropertyValue( '--bn-mobile-nav-h' )
+		) || 0;
+
+		const trigger = wrap.getBoundingClientRect();
+		const safeBottom = window.innerHeight - navH;
+		const wouldOverflow = trigger.bottom + menu.offsetHeight > safeBottom;
+
+		// Only flip when flipping actually helps — near the top of the viewport an
+		// upward menu clips off the top instead, which is the same bug mirrored.
+		ctx[ ctxKey ] = wouldOverflow && trigger.top - menu.offsetHeight > 0;
+	} );
+}
+
 function setAvatarPreview( url ) {
 	var box = document.querySelector( '.bn-ep-avatar-preview' );
 	if ( ! box ) { return; }
@@ -384,157 +439,6 @@ function renderCropModal( img, resolve ) {
 	draw();
 }
 
-/*
-   Cover reposition modal — LinkedIn-style. Shows the picked cover in a
-   frame at the hero's display proportions and lets the user DRAG to
-   reposition (pan) and ZOOM with a slider/wheel. The result is non
-   destructive: {x, y, zoom} where x/y are object-position percentages
-   and zoom is a scale factor. profile-hero.php applies them to an
-   <img class="bn-pf-cover__img"> via object-position + transform:scale,
-   so the same source stays sharp and responsive at any viewport width
-   (a fixed-ratio baked crop would mis-fit the responsive cover height).
-
-   No external library: object-fit:cover + pointer events + a range input.
-   ---------------------------------------------------------------- */
-async function openCoverReposModal( file ) {
-	return new Promise( ( resolve ) => {
-		const url = URL.createObjectURL( file );
-		const img = new Image();
-		img.onload = () => {
-			// Keep the object URL alive: the modal's preview <img> uses it as its
-			// src. Revoking here (before render) left the crop preview blank.
-			// The URL is revoked in the modal's cleanup() when it closes.
-			renderCoverReposModal( url, resolve );
-		};
-		img.onerror = () => {
-			URL.revokeObjectURL( url );
-			resolve( null );
-		};
-		img.src = url;
-	} );
-}
-
-function renderCoverReposModal( url, resolve ) {
-	const W = 480;
-	const H = 150; // ~3.2:1 — representative of the desktop hero cover.
-
-	const overlay = document.createElement( 'div' );
-	overlay.className = 'bn-avatar-crop-overlay';
-	overlay.setAttribute( 'role', 'dialog' );
-	overlay.setAttribute( 'aria-modal', 'true' );
-	overlay.setAttribute( 'aria-label', t( 'repositionCover', 'Reposition cover photo' ) );
-
-	const panel = document.createElement( 'div' );
-	panel.className = 'bn-avatar-crop-panel';
-
-	const title = document.createElement( 'h2' );
-	title.className = 'bn-avatar-crop-title';
-	title.textContent = t( 'coverDragHint', 'Drag to reposition · scroll or use the slider to zoom' );
-	panel.appendChild( title );
-
-	const stage = document.createElement( 'div' );
-	stage.className = 'bn-cover-repos-stage';
-	stage.style.width  = W + 'px';
-	stage.style.height = H + 'px';
-
-	// The preview <img> uses the same display contract as the hero, so the
-	// modal is true WYSIWYG: object-fit cover + object-position (pan) + scale.
-	const preview = document.createElement( 'img' );
-	preview.className = 'bn-cover-repos-img';
-	preview.src = url;
-	preview.alt = '';
-	stage.appendChild( preview );
-	panel.appendChild( stage );
-
-	const pos = { x: 50, y: 50, zoom: 1 };
-	const apply3 = () => {
-		preview.style.objectPosition = `${ pos.x }% ${ pos.y }%`;
-		preview.style.transform      = `scale(${ pos.zoom })`;
-	};
-	apply3();
-
-	// Pointer drag → pan. Natural direction: dragging the image right reveals
-	// its left side (object-position-x decreases). Sensitivity is scaled down a
-	// touch so a full-frame drag doesn't slam to the edge instantly.
-	let dragging = false;
-	let lastX = 0;
-	let lastY = 0;
-	stage.addEventListener( 'pointerdown', ( e ) => {
-		dragging = true;
-		lastX = e.clientX;
-		lastY = e.clientY;
-		stage.setPointerCapture( e.pointerId );
-	} );
-	stage.addEventListener( 'pointermove', ( e ) => {
-		if ( ! dragging ) { return; }
-		pos.x = Math.max( 0, Math.min( 100, pos.x - ( ( e.clientX - lastX ) / W ) * 100 ) );
-		pos.y = Math.max( 0, Math.min( 100, pos.y - ( ( e.clientY - lastY ) / H ) * 100 ) );
-		lastX = e.clientX;
-		lastY = e.clientY;
-		apply3();
-	} );
-	stage.addEventListener( 'pointerup',     () => { dragging = false; } );
-	stage.addEventListener( 'pointercancel', () => { dragging = false; } );
-
-	const setZoom = ( z ) => {
-		pos.zoom = Math.max( 1, Math.min( 3, z ) );
-		slider.value = String( Math.round( pos.zoom * 100 ) );
-		apply3();
-	};
-
-	stage.addEventListener( 'wheel', ( e ) => {
-		e.preventDefault();
-		setZoom( pos.zoom * ( e.deltaY < 0 ? 1.05 : 0.95 ) );
-	}, { passive: false } );
-
-	const slider = document.createElement( 'input' );
-	slider.type  = 'range';
-	slider.min   = '100';
-	slider.max   = '300';
-	slider.value = '100';
-	slider.className = 'bn-avatar-crop-zoom';
-	slider.setAttribute( 'aria-label', t( 'zoom', 'Zoom' ) );
-	slider.addEventListener( 'input', () => setZoom( parseInt( slider.value, 10 ) / 100 ) );
-	panel.appendChild( slider );
-
-	const actions = document.createElement( 'div' );
-	actions.className = 'bn-avatar-crop-actions';
-	const cancel = document.createElement( 'button' );
-	cancel.type = 'button';
-	cancel.className = 'bn-btn';
-	cancel.dataset.variant = 'ghost';
-	cancel.textContent = t( 'cancel', 'Cancel' );
-	const apply = document.createElement( 'button' );
-	apply.type = 'button';
-	apply.className = 'bn-btn';
-	apply.dataset.variant = 'primary';
-	apply.textContent = t( 'apply', 'Apply' );
-	actions.appendChild( cancel );
-	actions.appendChild( apply );
-	panel.appendChild( actions );
-
-	const cleanup = ( value ) => {
-		overlay.remove();
-		document.removeEventListener( 'keydown', onKey );
-		URL.revokeObjectURL( url );
-		resolve( value );
-	};
-
-	cancel.addEventListener( 'click', () => cleanup( null ) );
-	apply.addEventListener( 'click', () => cleanup( { x: pos.x, y: pos.y, zoom: pos.zoom } ) );
-	overlay.addEventListener( 'click', ( e ) => {
-		if ( e.target === overlay ) { cleanup( null ); }
-	} );
-
-	const onKey = ( e ) => {
-		if ( e.key === 'Escape' ) { cleanup( null ); }
-		if ( e.key === 'Enter'  ) { apply.click(); }
-	};
-	document.addEventListener( 'keydown', onKey );
-
-	overlay.appendChild( panel );
-	document.body.appendChild( overlay );
-}
 
 /* Strip a trailing "[]" from a control name to get the key the server expects.
    Checkbox groups and <select multiple> render name="key[]"; the payload key is
@@ -1246,6 +1150,14 @@ const profileStore = store( 'buddynext/profile', {
 		get slugStatusHidden() { const c = getContext(); return c.slugChecking || c.slugAvailable === null; },
 		get slugIsOk()         { return getContext().slugAvailable === true; },
 		get slugIsTaken()      { return getContext().slugAvailable === false; },
+		// The field controls the @mention handle as well as the URL. Showing the
+		// result is the cheapest way to say so — a member typing a new handle sees
+		// what they will be called, rather than reading that it will change.
+		get slugHandlePreview() {
+			const c = getContext();
+			const slug = ( c.slugDraft || c.profileSlug || '' ).trim();
+			return slug ? '@' + slug : '';
+		},
 		get slugSaveDisabled() { const c = getContext(); return ! c.slugAvailable || c.slugSaving; },
 		/* Same rule, applied to the save bar's "Unsaved changes" pill. It was bound to
 		 * `!(context.isDirty && !context.saving && !context.saved)`, which the API
@@ -1322,13 +1234,29 @@ const profileStore = store( 'buddynext/profile', {
 			var ctx = getContext();
 			var btn = event && event.target && event.target.closest( 'button' );
 
-			var ok = await bnConfirm( {
+			// Ask for the password IN the confirm step rather than after it. The
+			// server re-verifies it (ProfileController::delete_my_account) the same
+			// way disabling 2FA does; sending the request without it now returns a
+			// 400, so the dialog has to collect it or the member cannot delete their
+			// account at all.
+			var password = await bnPrompt( {
 				title:        t( 'deleteAccountTitle', 'Delete your account?' ),
 				body:         t( 'deleteAccountMessage', 'This permanently deletes your account and removes your data. This cannot be undone.' ),
+				placeholder:  t( 'deleteAccountPasswordPlaceholder', 'Your password' ),
+				inputType:    'password',
+				autocomplete: 'current-password',
 				confirmLabel: t( 'deleteAccountConfirm', 'Delete my account' ),
 				tone:         'danger',
 			} );
-			if ( ! ok ) { return; }
+
+			// null = cancelled. An empty string means they confirmed without typing
+			// one, which the server would refuse — say so here instead of spending a
+			// round trip to be told.
+			if ( null === password ) { return; }
+			if ( '' === password ) {
+				bnToast( t( 'deleteAccountPasswordRequired', 'Enter your password to confirm.' ), 'danger' );
+				return;
+			}
 
 			if ( btn ) { btn.disabled = true; }
 			try {
@@ -1336,6 +1264,7 @@ const profileStore = store( 'buddynext/profile', {
 					method:       'DELETE',
 					nonce:        ctx.restNonce,
 					toastOnError: false,
+					body:         { password: password },
 				} );
 				var data = res.data || {};
 				if ( res.ok && data.deleted ) {
@@ -1665,6 +1594,10 @@ const profileStore = store( 'buddynext/profile', {
 			              .replace( /^-|-$/g, '' );
 			input.value = slug;
 
+			// Mirror the normalised value into context so the @handle preview shows
+			// what the member will actually be called, not what they typed.
+			ctx.slugDraft = slug;
+
 			if ( slug === '' ) {
 				ctx.slugAvailable = null;
 				ctx.slugChecking  = false;
@@ -1731,7 +1664,15 @@ const profileStore = store( 'buddynext/profile', {
 
 			var index = container.querySelectorAll( '.bn-ep-repeater-entry' ).length;
 			var node  = buildEntryNodeFromClone( group, index );
-			if ( node ) { container.appendChild( node ); }
+			if ( node ) {
+				container.appendChild( node );
+				// See the same dispatch in assets/js/admin/members.js: a cloned row
+				// can hold any registered field type, and the richer controls are
+				// dead markup until their owner wires them.
+				document.dispatchEvent( new CustomEvent( 'buddynext:fields-added', {
+					detail: { container: node }
+				} ) );
+			}
 			// Adding a row counts as a dirty edit.
 			getContext().isDirty = true;
 			syncDirtyAttr( true );
@@ -1879,7 +1820,7 @@ const profileStore = store( 'buddynext/profile', {
 			// STAGED here and previewed locally; they upload only on "Save
 			// changes" (doSave → flushStagedMedia), so Cancel/Leave reverts.
 			try {
-				var repos = await openCoverReposModal( file );
+				var repos = await openCoverReposModal( file, t );
 				if ( ! repos ) {
 					event.target.value = '';
 					return;
@@ -2096,17 +2037,9 @@ const profileStore = store( 'buddynext/profile', {
 			var ctx = getContext();
 			ctx.moreMenuOpen = ! ctx.moreMenuOpen;
 			if ( ctx.moreMenuOpen ) {
-				ctx.shareMenuOpen = false;
-			}
-		},
-
-		/* -- Share-profile popover ---------------------------------- */
-
-		toggleShareMenu() {
-			var ctx = getContext();
-			ctx.shareMenuOpen = ! ctx.shareMenuOpen;
-			if ( ctx.shareMenuOpen ) {
-				ctx.moreMenuOpen = false;
+				flipIfItWouldLandUnderTheNav( '.bn-more-menu-wrap', '.bn-more-menu', 'moreMenuFlip' );
+			} else {
+				ctx.moreMenuFlip = false;
 			}
 		},
 
@@ -2122,43 +2055,13 @@ const profileStore = store( 'buddynext/profile', {
 		 */
 		closeMenusOnOutside( event ) {
 			var ctx = getContext();
-			if ( ! ctx || ( ! ctx.moreMenuOpen && ! ctx.shareMenuOpen ) ) { return; }
+			if ( ! ctx || ! ctx.moreMenuOpen ) { return; }
 			var ref = getElement() && getElement().ref;
 			if ( ! ref ) { return; }
-			if ( ctx.moreMenuOpen ) {
-				var moreWrap = ref.querySelector( '.bn-more-menu-wrap' );
-				if ( ! moreWrap || ! moreWrap.contains( event.target ) ) {
-					ctx.moreMenuOpen = false;
-				}
+			var moreWrap = ref.querySelector( '.bn-more-menu-wrap' );
+			if ( ! moreWrap || ! moreWrap.contains( event.target ) ) {
+				ctx.moreMenuOpen = false;
 			}
-			if ( ctx.shareMenuOpen ) {
-				var shareWrap = ref.querySelector( '.bn-share-menu-wrap' );
-				if ( ! shareWrap || ! shareWrap.contains( event.target ) ) {
-					ctx.shareMenuOpen = false;
-				}
-			}
-		},
-
-		async copyProfileLink( event ) {
-			var ctx = getContext();
-			var btn = event.target.closest( '[data-share-url]' );
-			var url = btn ? btn.dataset.shareUrl : window.location.href;
-			try {
-				if ( navigator.clipboard && navigator.clipboard.writeText ) {
-					await navigator.clipboard.writeText( url );
-				} else {
-					var ta = document.createElement( 'textarea' );
-					ta.value = url;
-					document.body.appendChild( ta );
-					ta.select();
-					document.execCommand( 'copy' );
-					document.body.removeChild( ta );
-				}
-				bnToast( ( window.bnI18n && window.bnI18n.linkCopied ) || t( 'profileLinkCopied', 'Profile link copied' ), { tone: 'success' } );
-			} catch ( _e ) {
-				bnToast( ( window.bnI18n && window.bnI18n.copyFailed ) || t( 'copyFailed', 'Could not copy link.' ), { tone: 'danger' } );
-			}
-			ctx.shareMenuOpen = false;
 		},
 
 		async toggleMute() {

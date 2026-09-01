@@ -169,15 +169,59 @@ $entry_fv = static function ( array $entry_fields, string $fkey ): string {
 
 $headline = $get_fv( 'basic_info', 'headline' );
 $bio      = $get_fv( 'basic_info', 'bio' );
-$location = $get_fv( 'basic_info', 'location' );
-$website  = $get_fv( 'basic_info', 'website' );
 $pronouns = $get_fv( 'basic_info', 'pronouns' );
+
+// The hero meta row is data-driven (show_in_header, in sort_order) instead of a
+// hardcoded location + website. Build the ordered {key,label,type,value} list,
+// resolving each flagged field by key across EVERY group (a header field need not
+// live in basic_info) and through FieldType::display_text() so a map/date/etc.
+// shows its human value, not raw storage. Empties are dropped so the row carries
+// only fields the member actually filled.
+$bn_find_field = static function ( string $field_key ) use ( $group_data ): ?array {
+	foreach ( $group_data as $bn_g ) {
+		if ( empty( $bn_g['fields'] ) || ! is_array( $bn_g['fields'] ) ) {
+			continue;
+		}
+		foreach ( $bn_g['fields'] as $bn_f ) {
+			if ( is_array( $bn_f ) && ( $bn_f['field_key'] ?? '' ) === $field_key ) {
+				return $bn_f;
+			}
+		}
+	}
+	return null;
+};
+$hero_meta     = array();
+foreach ( \BuddyNext\Profile\ProfileService::hero_meta_field_keys() as $bn_hk ) {
+	$bn_hf = $bn_find_field( (string) $bn_hk );
+	if ( null === $bn_hf ) {
+		continue;
+	}
+	$bn_hv = \BuddyNext\Profile\FieldType::display_text( $bn_hf, $bn_hf['value'] ?? '' );
+	if ( '' === trim( $bn_hv ) ) {
+		continue;
+	}
+	$hero_meta[] = array(
+		'key'   => (string) $bn_hk,
+		'label' => (string) ( $bn_hf['label'] ?? '' ),
+		'type'  => (string) ( $bn_hf['type'] ?? 'text' ),
+		'value' => $bn_hv,
+	);
+}
 
 $social_link_fields = isset( $group_data['social_links']['fields'] ) ? $group_data['social_links']['fields'] : array();
 $social_links       = array_filter( $social_link_fields, static fn( array $f ): bool => '' !== (string) ( $f['value'] ?? '' ) );
 
-$work_entries = array_values( array_filter( isset( $group_data['work_experience']['entries'] ) ? $group_data['work_experience']['entries'] : array(), static fn( array $e ): bool => '' !== $entry_fv( $e, 'work_company' ) || '' !== $entry_fv( $e, 'work_title' ) ) );
-$edu_entries  = array_values( array_filter( isset( $group_data['education']['entries'] ) ? $group_data['education']['entries'] : array(), static fn( array $e ): bool => '' !== $entry_fv( $e, 'edu_institution' ) || '' !== $entry_fv( $e, 'edu_degree' ) ) );
+// An entry is "present" if ANY of its fields carries a value — never a fixed set
+// of keys. The old work_company||work_title / edu_institution||edu_degree probe
+// made every entry vanish the moment the admin deleted that one field, even when
+// the title, dates, location or description were still filled in.
+$entry_has_value = static fn( array $e ): bool => (bool) array_filter(
+	$e,
+	static fn( $f ): bool => is_array( $f ) && '' !== trim( (string) ( $f['value'] ?? '' ) )
+);
+
+$work_entries = array_values( array_filter( isset( $group_data['work_experience']['entries'] ) ? $group_data['work_experience']['entries'] : array(), $entry_has_value ) );
+$edu_entries  = array_values( array_filter( isset( $group_data['education']['entries'] ) ? $group_data['education']['entries'] : array(), $entry_has_value ) );
 
 $profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
 if ( '' === $profile_slug ) {
@@ -324,7 +368,7 @@ $bn_pf_ctx = array(
 	'isMuted'            => $is_muted,
 	'isRestricted'       => $is_restricted,
 	'moreMenuOpen'       => false,
-	'shareMenuOpen'      => false,
+	'moreMenuFlip'       => false,
 	'reportOpen'         => false,
 	'reportReason'       => 'spam',
 	'reportNotes'        => '',
@@ -351,8 +395,7 @@ $bn_pf_ctx = array(
 			'bio'                 => (string) $bio,
 			'headline'            => (string) $headline,
 			'pronouns'            => (string) $pronouns,
-			'location'            => (string) $location,
-			'website'             => (string) $website,
+			'hero_meta'           => $hero_meta,
 			'joined'              => (string) $joined,
 			'mutual_count'        => (int) $mutual_count,
 			'degree_badge'        => (string) $degree_badge,

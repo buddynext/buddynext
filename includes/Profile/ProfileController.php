@@ -47,6 +47,298 @@ use WP_REST_Response;
 class ProfileController extends BaseRestController {
 
 	/**
+	 * Audience preference metas accepted by a profile write.
+	 *
+	 * Hoisted out of update_profile() so the write loop and the strict-input
+	 * allowlist read the SAME list. When they were separate, one could accept a
+	 * key the other refused.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var string[]
+	 */
+	private const PROFILE_META_AUDIENCE = array( 'bn_privacy_dm', 'bn_privacy_mention' );
+
+	/**
+	 * Gate metas accepted by a profile write, each with its own vocabulary.
+	 *
+	 * Profile-view / follow / connect gates. Each key accepts only the values its
+	 * PrivacyService gate honours (can_view_profile / can_follow / can_connect).
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var array<string, string[]>
+	 */
+	private const PROFILE_META_GATES = array(
+		'bn_privacy_profile_visibility' => array( 'public', 'followers', 'connections', 'private' ),
+		'bn_privacy_who_can_follow'     => array( 'everyone', 'nobody' ),
+		'bn_privacy_who_can_connect'    => array( 'everyone', 'followers', 'nobody' ),
+	);
+
+	/**
+	 * Boolean preference metas accepted by a profile write.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var string[]
+	 */
+	private const PROFILE_META_BOOLS = array(
+		'bn_account_private',
+		'bn_privacy_show_in_directory',
+		'bn_privacy_search_indexable',
+		'bn_pro_hide_profile_views',
+		'bn_pref_email_replies',
+		'bn_pref_email_mentions',
+		'bn_pref_email_follows',
+		'bn_pref_email_digest',
+	);
+
+	/**
+	 * Non-field top-level keys a profile write accepts.
+	 *
+	 * The full_write key is a mode flag, not data; display_name is a WP core user
+	 * field; profile_slug is consumed by save_profile().
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var string[]
+	 */
+	private const PROFILE_CONTROL_KEYS = array( 'full_write', 'display_name', 'profile_slug' );
+
+	/**
+	 * Every top-level key a profile write understands.
+	 *
+	 * Derived live from the same registries save_profile() consults, so an
+	 * owner-created field, a code-registered virtual field and an added repeater
+	 * group are all accepted the moment they exist — there is no second list to
+	 * keep in step.
+	 *
+	 * Verified against what the shipped editors actually send: the full profile
+	 * editor posts field_key + field_key__visibility + display_name + repeater
+	 * group keys + full_write, and the privacy tab posts the nine privacy metas.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return array<int, string>
+	 */
+	private function profile_write_allowlist(): array {
+		$service = buddynext_service( 'profiles' );
+
+		$keys = array_merge(
+			self::PROFILE_CONTROL_KEYS,
+			self::PROFILE_META_AUDIENCE,
+			array_keys( self::PROFILE_META_GATES ),
+			self::PROFILE_META_BOOLS
+		);
+
+		// Flat fields — exactly the set save_profile() resolves by field_key.
+		foreach ( (array) $service->get_flat_fields() as $field ) {
+			$key = (string) ( $field['field_key'] ?? '' );
+			if ( '' !== $key ) {
+				$keys[] = $key;
+				$keys[] = $key . '__visibility';
+			}
+		}
+
+		// Repeater groups arrive keyed by group_key; virtual (code-registered)
+		// fields arrive flat. save_profile() layers both in the same way.
+		foreach ( (array) $service->get_fields() as $group ) {
+			$group_key = (string) ( $group['group_key'] ?? '' );
+			if ( 'repeater' === (string) ( $group['type'] ?? '' ) && '' !== $group_key ) {
+				$keys[] = $group_key;
+				continue;
+			}
+			foreach ( (array) ( $group['fields'] ?? array() ) as $field ) {
+				$key = (string) ( $field['field_key'] ?? '' );
+				if ( ! empty( $field['is_virtual'] ) && '' !== $key ) {
+					$keys[] = $key;
+					$keys[] = $key . '__visibility';
+				}
+			}
+		}
+
+		/**
+		 * Filters the top-level keys a profile write accepts.
+		 *
+		 * An add-on that teaches save_profile() a new key (via its own listener)
+		 * must declare it here, or the strict-input gate will refuse the request.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param array<int, string> $keys Accepted top-level keys.
+		 */
+		$keys = (array) apply_filters( 'buddynext_profile_write_allowlist', $keys );
+
+		return array_values( array_unique( array_map( 'strval', $keys ) ) );
+	}
+
+	/**
+	 * The schema for a profile field DEFINITION, shared by create and update.
+	 *
+	 * One declaration for both verbs. They used to disagree in three ways, all of
+	 * which reached members: POST accepted eleven attributes (six declared, five
+	 * arriving undeclared and unsanitised through get_params()) while PUT read
+	 * only six and threw the rest away; POST validated `type` against the
+	 * registry while PUT would write any slug at all; and `options` meant an
+	 * array on POST but a newline-separated string on PUT.
+	 *
+	 * ProfileService::update_field() supports all eleven attributes. The gap was
+	 * entirely in this layer, so an admin client could set a description over the
+	 * admin screen and be silently refused over the API.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param bool $creating True for POST (group_id/field_key/label required).
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function field_definition_args( bool $creating ): array {
+		$args = array(
+			'label'            => array(
+				'required'          => $creating,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'type'             => array(
+				'required'          => false,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_key',
+				// Whitelisted at the edge on BOTH verbs. The value is written
+				// straight into the type column, so an unregistered slug produces a
+				// field with no render or save pipeline — one nobody can fill in,
+				// nothing knows how to display, and the admin UI cannot repair.
+				'validate_callback' => static fn( $value ): bool => array_key_exists( (string) $value, FieldType::types() ),
+			),
+			// Accepted as an array OR as the newline-separated string the admin
+			// textarea produces; normalise_field_options() resolves both.
+			'options'          => array(
+				'required' => false,
+			),
+			'description'      => array(
+				'required'          => false,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'placeholder'      => array(
+				'required'          => false,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'is_required'      => array(
+				'required' => false,
+				'type'     => 'boolean',
+			),
+			// Stored only where it can do something — see
+			// FieldType::is_searchable_applicable(), applied in the service.
+			'is_searchable'    => array(
+				'required' => false,
+				'type'     => 'boolean',
+			),
+			'show_on_register' => array(
+				'required' => false,
+				'type'     => 'boolean',
+			),
+			'show_in_header'   => array(
+				'required' => false,
+				'type'     => 'boolean',
+			),
+			'visibility'       => array(
+				'required'          => false,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_key',
+				'validate_callback' => static fn( $value ): bool => in_array( (string) $value, self::FIELD_VISIBILITY, true ),
+			),
+			'sort_order'       => array(
+				'required'          => false,
+				'type'              => 'integer',
+				'sanitize_callback' => 'absint',
+			),
+			// Valid on BOTH create and update. It used to be declared only when
+			// creating, so a field could be born into a group and then never
+			// leave it: the update route dropped the param before the service
+			// ever saw it, and answered {"updated":true} regardless.
+			'group_id'         => array(
+				'required'          => false,
+				'type'              => 'integer',
+				'sanitize_callback' => 'absint',
+			),
+		);
+
+		if ( $creating ) {
+			$args = array_merge(
+				array(
+					// create_field() resolves (or creates) a group by key when no
+					// group_id is given. It was never declared, so a client using it
+					// was relying on an undeclared param.
+					'group_name' => array(
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'field_key'  => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_key',
+					),
+				),
+				$args
+			);
+			$args['type']['default']        = 'text';
+			$args['is_required']['default'] = false;
+			$args['sort_order']['default']  = 0;
+		} else {
+			$args = array_merge(
+				array(
+					'id' => array(
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
+				),
+				$args
+			);
+		}
+
+		return $args;
+	}
+
+	/**
+	 * Field visibility vocabulary.
+	 *
+	 * Matches the admin builder's list; a value outside it has no gate to honour it.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var string[]
+	 */
+	private const FIELD_VISIBILITY = array( 'public', 'members', 'followers', 'connections', 'private' );
+
+	/**
+	 * Normalise a submitted options payload to the array the service stores.
+	 *
+	 * Accepts the admin textarea's newline-separated string and a JSON array
+	 * alike, so the two verbs no longer mean different things by the same key.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param mixed $raw Submitted options value.
+	 * @return array<int, string>|null Normalised list, or null to clear.
+	 */
+	private static function normalise_field_options( $raw ): ?array {
+		if ( null === $raw ) {
+			return null;
+		}
+
+		if ( is_array( $raw ) ) {
+			return array_values( array_filter( array_map( 'trim', array_map( 'strval', $raw ) ) ) );
+		}
+
+		return array_values(
+			array_filter(
+				array_map( 'trim', explode( "\n", (string) $raw ) )
+			)
+		);
+	}
+
+	/**
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
@@ -246,46 +538,7 @@ class ProfileController extends BaseRestController {
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'create_field' ),
 					'permission_callback' => array( $this, 'require_admin' ),
-					'args'                => array(
-						'group_id'    => array(
-							'required'          => true,
-							'type'              => 'integer',
-							'sanitize_callback' => 'absint',
-						),
-						'field_key'   => array(
-							'required'          => true,
-							'type'              => 'string',
-							'sanitize_callback' => 'sanitize_key',
-						),
-						'label'       => array(
-							'required'          => true,
-							'type'              => 'string',
-							'sanitize_callback' => 'sanitize_text_field',
-						),
-						'type'        => array(
-							'required'          => false,
-							'type'              => 'string',
-							'default'           => 'text',
-							'sanitize_callback' => 'sanitize_key',
-							// Whitelisted at the edge. create_field() writes $data['type'] straight
-							// into the INSERT, so without this an admin-authenticated client could
-							// create a field of a WITHHELD type (one with no render or save
-							// pipeline) or of an arbitrary garbage slug — a field nobody can fill
-							// in and nothing knows how to display.
-							'validate_callback' => static fn( $value ): bool => array_key_exists( (string) $value, \BuddyNext\Profile\FieldType::types() ),
-						),
-						'is_required' => array(
-							'required' => false,
-							'type'     => 'boolean',
-							'default'  => false,
-						),
-						'sort_order'  => array(
-							'required'          => false,
-							'type'              => 'integer',
-							'default'           => 0,
-							'sanitize_callback' => 'absint',
-						),
-					),
+					'args'                => self::field_definition_args( true ),
 				),
 			)
 		);
@@ -410,40 +663,7 @@ class ProfileController extends BaseRestController {
 					'methods'             => 'PUT',
 					'callback'            => array( $this, 'update_field' ),
 					'permission_callback' => array( $this, 'require_admin' ),
-					'args'                => array(
-						'id'          => array(
-							'type'              => 'integer',
-							'sanitize_callback' => 'absint',
-						),
-						'label'       => array(
-							'required'          => false,
-							'type'              => 'string',
-							'sanitize_callback' => 'sanitize_text_field',
-						),
-						'type'        => array(
-							'required'          => false,
-							'type'              => 'string',
-							'sanitize_callback' => 'sanitize_key',
-						),
-						'options'     => array(
-							'required' => false,
-							'type'     => 'string',
-						),
-						'is_required' => array(
-							'required' => false,
-							'type'     => 'boolean',
-						),
-						'visibility'  => array(
-							'required'          => false,
-							'type'              => 'string',
-							'sanitize_callback' => 'sanitize_key',
-						),
-						'sort_order'  => array(
-							'required'          => false,
-							'type'              => 'integer',
-							'sanitize_callback' => 'absint',
-						),
-					),
+					'args'                => self::field_definition_args( false ),
 				),
 				array(
 					'methods'             => 'DELETE',
@@ -491,6 +711,25 @@ class ProfileController extends BaseRestController {
 			)
 		);
 
+		/*
+		 * Deleting an account re-verifies the password, exactly as disabling 2FA
+		 * already does (TwoFactorController: "Sensitive transitions re-verify the
+		 * password so a hijacked session cannot silently weaken the account").
+		 *
+		 * Before this, the most destructive action a member has took an EMPTY body:
+		 * no password, no confirmation, no re-auth. Deleting the whole account
+		 * asked less than turning 2FA off, and any context that could make one
+		 * authenticated request could end the account irreversibly
+		 * (Basecamp 10252058720).
+		 *
+		 * The parameter is declared but NOT `required`, and the enforcement lives in
+		 * the handler instead. `required` is evaluated when the route registers,
+		 * which bakes in whatever the filter said at that moment — so an owner whose
+		 * filter loads after rest_api_init would turn the requirement off and still
+		 * get a 400 for the parameter they had just removed. Reading the filter at
+		 * request time cannot drift that way, and it lets the handler answer with
+		 * "password required" rather than a generic missing-parameter error.
+		 */
 		register_rest_route(
 			'buddynext/v1',
 			'/me/account',
@@ -498,6 +737,12 @@ class ProfileController extends BaseRestController {
 				'methods'             => 'DELETE',
 				'callback'            => array( $this, 'delete_my_account' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'password' => array(
+						'type'        => 'string',
+						'description' => __( 'The account password, re-entered to confirm an irreversible deletion.', 'buddynext' ),
+					),
+				),
 			)
 		);
 	}
@@ -578,9 +823,14 @@ class ProfileController extends BaseRestController {
 	 * content — standard GDPR erasure, the same uniform hard-delete every other delete
 	 * path uses. Content is never reassigned/kept. Administrators cannot self-delete.
 	 *
+	 * Re-verifies the account password before doing any of it — see
+	 * deletion_requires_password() for why, and for the one case where an owner
+	 * turns that off.
+	 *
+	 * @param WP_REST_Request $request Carries the password being re-verified.
 	 * @return WP_REST_Response|WP_Error
 	 */
-	public function delete_my_account(): WP_REST_Response|WP_Error {
+	public function delete_my_account( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		if ( ! (bool) get_option( 'buddynext_allow_account_deletion', true ) ) {
 			return new WP_Error(
 				'deletion_disabled',
@@ -604,6 +854,39 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
+		// Re-verify the password. LAST gate before the irreversible call, and after
+		// the cheap refusals so a member on a deletion-disabled community is told
+		// that, rather than being asked for a password it will not use.
+		if ( self::deletion_requires_password() ) {
+			$password = (string) $request->get_param( 'password' );
+
+			// Absent and wrong are different answers. "You did not send one" is a
+			// client error the caller can fix; "that is not your password" is a
+			// failed check, and saying so plainly is what lets the dialog put the
+			// message on the field.
+			if ( '' === $password ) {
+				return new WP_Error(
+					'password_required',
+					__( 'Enter your password to confirm deleting your account.', 'buddynext' ),
+					array(
+						'status' => 400,
+						'fields' => array( 'password' => __( 'Your password is required.', 'buddynext' ) ),
+					)
+				);
+			}
+
+			if ( ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+				return new WP_Error(
+					'incorrect_password',
+					__( 'Your password was not correct.', 'buddynext' ),
+					array(
+						'status' => 422,
+						'fields' => array( 'password' => __( 'Incorrect password.', 'buddynext' ) ),
+					)
+				);
+			}
+		}
+
 		// Delete the WP account. This fires `deleted_user`, which runs the ONE canonical
 		// MemberCleanupService::purge_user_relations() - hard-deleting the member's
 		// BuddyNext data (follows, connections, blocks, prefs, and their authored posts +
@@ -622,6 +905,38 @@ class ProfileController extends BaseRestController {
 			),
 			200
 		);
+	}
+
+	/**
+	 * Whether deleting an account re-verifies the member's password.
+	 *
+	 * Default TRUE, and it should stay true on any community where members sign in
+	 * with a password: account deletion is irreversible and takes the member's
+	 * content with it, so it earns at least the friction that disabling 2FA has.
+	 *
+	 * The filter exists because not every install authenticates that way. On a site
+	 * where members arrive through SSO or a social provider, the WordPress password
+	 * is a random string nobody has ever seen — requiring it there does not add a
+	 * check, it removes the member's ability to delete their own account at all,
+	 * which is its own (and in some jurisdictions, legal) problem. Those owners turn
+	 * this off and gate deletion their own way.
+	 *
+	 * Read at BOTH route registration and in the handler, so the declared parameter
+	 * and the enforced check can never disagree.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @return bool
+	 */
+	private static function deletion_requires_password(): bool {
+		/**
+		 * Filter whether account deletion re-verifies the account password.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param bool $required Default true.
+		 */
+		return (bool) apply_filters( 'buddynext_account_deletion_requires_password', true );
 	}
 
 	/**
@@ -842,16 +1157,28 @@ class ProfileController extends BaseRestController {
 	 *
 	 * Body params are treated as field_key => value pairs for flat fields, or
 	 * group_key => [ [field_key => value, ...], ... ] for repeater groups.
-	 * Unknown keys are silently ignored.
+	 * A key this endpoint cannot write is REFUSED with 400 and nothing is saved
+	 * (see profile_write_allowlist()); it used to be ignored in silence.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function update_profile( WP_REST_Request $request ): WP_REST_Response {
+	public function update_profile( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$user_id = get_current_user_id();
 		$service = buddynext_service( 'profiles' );
-		$json    = $request->get_json_params();
-		$data    = is_array( $json ) && ! empty( $json ) ? $json : (array) $request->get_body_params();
+
+		// Refuse a payload carrying keys this endpoint cannot write, BEFORE any
+		// persistence. A wrapped body — PUT {"fields":{"headline":"x"}} — used to
+		// answer 200 {"saved":true,"errors":[]} having written nothing at all, so
+		// an integration could "succeed" indefinitely while every edit was
+		// discarded. All-or-nothing: one unknown key changes nothing.
+		$unknown = $this->reject_unknown_body_params( $request, $this->profile_write_allowlist() );
+		if ( $unknown instanceof WP_Error ) {
+			return $unknown;
+		}
+
+		$json = $request->get_json_params();
+		$data = is_array( $json ) && ! empty( $json ) ? $json : (array) $request->get_body_params();
 
 		// A full profile write (the complete editor, web or app) declares itself via
 		// full_write so required fields are enforced across ABSENT keys too. A
@@ -890,25 +1217,12 @@ class ProfileController extends BaseRestController {
 		// Handle privacy + notification preference keys — stored as usermeta,
 		// not profile-field rows. Audience enums are constrained to the
 		// canonical four values; boolean toggles are coerced.
-		$audience_keys = array( 'bn_privacy_dm', 'bn_privacy_mention' );
-		// Profile-view / follow / connect gates. Each meta key accepts only the
-		// vocabulary its PrivacyService gate honours (can_view_profile /
-		// can_follow / can_connect); the validator above rejects anything else.
-		$gate_keys = array(
-			'bn_privacy_profile_visibility' => array( 'public', 'followers', 'connections', 'private' ),
-			'bn_privacy_who_can_follow'     => array( 'everyone', 'nobody' ),
-			'bn_privacy_who_can_connect'    => array( 'everyone', 'followers', 'nobody' ),
-		);
-		$bool_keys = array(
-			'bn_account_private',
-			'bn_privacy_show_in_directory',
-			'bn_privacy_search_indexable',
-			'bn_pro_hide_profile_views',
-			'bn_pref_email_replies',
-			'bn_pref_email_mentions',
-			'bn_pref_email_follows',
-			'bn_pref_email_digest',
-		);
+		// One list, two consumers: these same constants build the strict-input
+		// allowlist above, so a key can never be accepted by the gate and then
+		// ignored by the writer (or the reverse).
+		$audience_keys = self::PROFILE_META_AUDIENCE;
+		$gate_keys     = self::PROFILE_META_GATES;
+		$bool_keys     = self::PROFILE_META_BOOLS;
 		foreach ( $audience_keys as $aud_key ) {
 			if ( array_key_exists( $aud_key, $data ) ) {
 				update_user_meta( $user_id, $aud_key, sanitize_key( (string) $data[ $aud_key ] ) );
@@ -993,15 +1307,13 @@ class ProfileController extends BaseRestController {
 			$data[ $field_key ] = mb_substr( $data[ $field_key ], 0, $max );
 		}
 
-		// Normalise URL fields — accept input without protocol by prefixing https.
-		$url_fields = array( 'website', 'social_twitter', 'social_linkedin', 'social_github', 'social_instagram', 'social_youtube' );
-		foreach ( $url_fields as $url_key ) {
+		// Normalise every URL-type field — accept input without a protocol by
+		// prefixing https. Keyed on field TYPE, not a hardcoded key list, so an
+		// owner-created url field is normalised exactly like the seeded website /
+		// social_* fields (which are all type 'url').
+		foreach ( $this->url_field_keys() as $url_key ) {
 			if ( isset( $data[ $url_key ] ) && is_string( $data[ $url_key ] ) && '' !== trim( $data[ $url_key ] ) ) {
-				$raw = trim( $data[ $url_key ] );
-				if ( ! preg_match( '#^https?://#i', $raw ) ) {
-					$raw = 'https://' . ltrim( $raw, '/' );
-				}
-				$data[ $url_key ] = esc_url_raw( $raw );
+				$data[ $url_key ] = esc_url_raw( self::ensure_url_scheme( $data[ $url_key ] ) );
 			}
 		}
 
@@ -1044,6 +1356,42 @@ class ProfileController extends BaseRestController {
 	}
 
 	/**
+	 * Field keys whose type is 'url'.
+	 *
+	 * Both the sanitize and validate passes normalise/validate URL values keyed
+	 * on this list, so every url-type field - the seeded website / social_* ones
+	 * and any the owner creates - is treated identically (https auto-prefix +
+	 * scheme validation), rather than only a hardcoded set of keys.
+	 *
+	 * @return array<int, string>
+	 */
+	private function url_field_keys(): array {
+		$keys = array();
+		foreach ( (array) buddynext_service( 'profiles' )->get_flat_fields() as $field ) {
+			if ( 'url' === (string) ( $field['type'] ?? '' ) ) {
+				$keys[] = (string) ( $field['field_key'] ?? '' );
+			}
+		}
+
+		return array_values( array_filter( $keys ) );
+	}
+
+	/**
+	 * Prefix https:// when a URL value carries no scheme (input convenience).
+	 *
+	 * @param string $raw Raw URL value.
+	 * @return string Trimmed value with a scheme, or '' when empty.
+	 */
+	private static function ensure_url_scheme( string $raw ): string {
+		$raw = trim( $raw );
+		if ( '' === $raw || preg_match( '#^https?://#i', $raw ) ) {
+			return $raw;
+		}
+
+		return 'https://' . ltrim( $raw, '/' );
+	}
+
+	/**
 	 * Validate an incoming profile payload.
 	 *
 	 * Returns an associative array of `field => message` for every field that
@@ -1051,8 +1399,8 @@ class ProfileController extends BaseRestController {
 	 *
 	 * Rules:
 	 *   - display_name (when present) must be non-empty after trimming.
-	 *   - URL fields (website + social_*) must pass wp_http_validate_url when
-	 *     non-empty. Empty strings are allowed (they clear the field).
+	 *   - Every url-type field (see url_field_keys()) must pass the scheme check
+	 *     when non-empty. Empty strings are allowed (they clear the field).
 	 *
 	 * On a full write (profile create / complete-editor save) a required field
 	 * that is ABSENT from the payload fails validation, closing the bypass where
@@ -1082,8 +1430,7 @@ class ProfileController extends BaseRestController {
 			}
 		}
 
-		$url_fields = array( 'website', 'social_twitter', 'social_linkedin', 'social_github', 'social_instagram', 'social_youtube' );
-		foreach ( $url_fields as $url_key ) {
+		foreach ( $this->url_field_keys() as $url_key ) {
 			if ( ! isset( $data[ $url_key ] ) || ! is_string( $data[ $url_key ] ) ) {
 				continue;
 			}
@@ -1091,7 +1438,7 @@ class ProfileController extends BaseRestController {
 			if ( '' === $value ) {
 				continue;
 			}
-			$candidate = preg_match( '#^https?://#i', $value ) ? $value : 'https://' . ltrim( $value, '/' );
+			$candidate = self::ensure_url_scheme( $value );
 
 			// Validate the URL's FORM, not whether our server may fetch it.
 			//
@@ -1349,7 +1696,11 @@ class ProfileController extends BaseRestController {
 	/**
 	 * Update any user's profile (admin only).
 	 *
-	 * Body params: display_name + any field_key => value pairs (same format as PUT /me/profile).
+	 * Body params: display_name + any field_key => value pairs (same format as PUT /me/profile),
+	 * and the same strict-input rule — an unwritable key is refused with 400 rather
+	 * than ignored. The two endpoints share one payload contract, so they share
+	 * one allowlist; an admin editing a member must not get looser behaviour than
+	 * the member editing themselves.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
@@ -1363,6 +1714,11 @@ class ProfileController extends BaseRestController {
 				__( 'User not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
+		}
+
+		$unknown = $this->reject_unknown_body_params( $request, $this->profile_write_allowlist() );
+		if ( $unknown instanceof WP_Error ) {
+			return $unknown;
 		}
 
 		$service = buddynext_service( 'profiles' );
@@ -1458,6 +1814,32 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
+		// Some communities fix handles to real names — an intranet, a course
+		// cohort. Default is that members own their own handle.
+		/**
+		 * Filter whether members may change their own handle.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param bool $allowed Default true.
+		 * @param int  $user_id Member attempting the change.
+		 */
+		if ( ! (bool) apply_filters( 'buddynext_members_can_change_handle', true, $user_id ) ) {
+			return new WP_Error(
+				'handle_change_disabled',
+				__( 'Handles cannot be changed on this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// Unusable and unavailable are different answers, and the member needs to
+		// know which: "already taken" sends them looking for another name, when
+		// the real problem may be that they typed two characters or an emoji.
+		$valid = \BuddyNext\Profile\Handle::validate( $requested_slug );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+
 		if ( ! \BuddyNext\Core\PageRouter::is_slug_available( $requested_slug, $user_id ) ) {
 			return new WP_Error(
 				'slug_taken',
@@ -1466,7 +1848,12 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
-		update_user_meta( $user_id, 'bn_profile_slug', $requested_slug );
+		// One writer for the handle: it also keeps user_nicename in step and
+		// records the handle being left behind.
+		$saved = \BuddyNext\Profile\Handle::set( $user_id, $requested_slug );
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
 
 		return new WP_REST_Response(
 			array(
@@ -1516,8 +1903,43 @@ class ProfileController extends BaseRestController {
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
-	public function create_field( WP_REST_Request $request ): WP_REST_Response {
-		$field_id = buddynext_service( 'profiles' )->create_field( $request->get_params() );
+	public function create_field( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$unknown = $this->reject_unknown_body_params( $request );
+		if ( $unknown instanceof WP_Error ) {
+			return $unknown;
+		}
+
+		// Build the payload from the DECLARED schema rather than forwarding
+		// get_params() wholesale. The old call handed the service every param on
+		// the request — route params, WordPress' own _locale, anything a caller
+		// invented — and the five attributes it did honour arrived undeclared, so
+		// they skipped the route's sanitisation entirely.
+		$data = array();
+		foreach ( array_keys( self::field_definition_args( true ) ) as $key ) {
+			$value = $request->get_param( $key );
+			if ( null !== $value ) {
+				$data[ $key ] = $value;
+			}
+		}
+
+		if ( isset( $data['options'] ) ) {
+			$data['options'] = self::normalise_field_options( $data['options'] );
+		}
+
+		// Same rule as every other door to this table: a flag that cannot be
+		// honoured is not stored as though it were. A date or number field cannot
+		// back a free-text mirror, and a followers/connections/private field never
+		// reaches an index — storing 1 there would tell an owner their field is
+		// findable when search can never return it.
+		if ( ! empty( $data['is_searchable'] )
+			&& ! FieldType::is_searchable_applicable(
+				(string) ( $data['type'] ?? 'text' ),
+				(string) ( $data['visibility'] ?? 'members' )
+			) ) {
+			$data['is_searchable'] = false;
+		}
+
+		$field_id = buddynext_service( 'profiles' )->create_field( $data );
 
 		return new WP_REST_Response( array( 'id' => $field_id ), 201 );
 	}
@@ -1614,13 +2036,32 @@ class ProfileController extends BaseRestController {
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
-	public function update_field( WP_REST_Request $request ): WP_REST_Response {
+	public function update_field( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$unknown = $this->reject_unknown_body_params( $request );
+		if ( $unknown instanceof WP_Error ) {
+			return $unknown;
+		}
+
 		$id   = (int) $request->get_param( 'id' );
 		$data = array();
 
-		$label = $request->get_param( 'label' );
-		if ( null !== $label ) {
-			$data['label'] = sanitize_text_field( (string) $label );
+		// Every attribute the service can write, read from one list. Five of them
+		// (description, placeholder, is_searchable, show_on_register,
+		// show_in_header) were accepted by the route, dropped here, and answered
+		// with {"updated":true} — the admin screen could set them and the API
+		// could not, with nothing saying so.
+		foreach ( self::FIELD_TEXT_ATTRIBUTES as $attribute ) {
+			$value = $request->get_param( $attribute );
+			if ( null !== $value ) {
+				$data[ $attribute ] = sanitize_text_field( (string) $value );
+			}
+		}
+
+		foreach ( self::FIELD_BOOL_ATTRIBUTES as $attribute ) {
+			$value = $request->get_param( $attribute );
+			if ( null !== $value ) {
+				$data[ $attribute ] = (bool) $value;
+			}
 		}
 
 		$type = $request->get_param( 'type' );
@@ -1628,23 +2069,13 @@ class ProfileController extends BaseRestController {
 			$data['type'] = sanitize_key( (string) $type );
 		}
 
-		$options_raw = $request->get_param( 'options' );
-		if ( null !== $options_raw ) {
-			$data['options'] = array_values(
-				array_filter(
-					array_map( 'trim', explode( "\n", (string) $options_raw ) )
-				)
-			);
-		}
-
-		$is_required = $request->get_param( 'is_required' );
-		if ( null !== $is_required ) {
-			$data['is_required'] = (bool) $is_required;
-		}
-
 		$visibility = $request->get_param( 'visibility' );
 		if ( null !== $visibility ) {
 			$data['visibility'] = sanitize_key( (string) $visibility );
+		}
+
+		if ( null !== $request->get_param( 'options' ) ) {
+			$data['options'] = self::normalise_field_options( $request->get_param( 'options' ) );
 		}
 
 		$sort_order = $request->get_param( 'sort_order' );
@@ -1652,10 +2083,40 @@ class ProfileController extends BaseRestController {
 			$data['sort_order'] = absint( $sort_order );
 		}
 
-		buddynext_service( 'profiles' )->update_field( $id, $data );
+		$group_id = $request->get_param( 'group_id' );
+		if ( null !== $group_id ) {
+			$data['group_id'] = absint( $group_id );
+		}
+
+		// The service is the authority on what a definition may become (registry
+		// type, applicable is_searchable, value migration on a type change, and
+		// whether a group move would hide entries), and it reports a refusal
+		// instead of writing something unusable.
+		$result = buddynext_service( 'profiles' )->update_field( $id, $data );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
 
 		return new WP_REST_Response( array( 'updated' => true ), 200 );
 	}
+
+	/**
+	 * Plain-text field attributes accepted on a definition write.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var string[]
+	 */
+	private const FIELD_TEXT_ATTRIBUTES = array( 'label', 'description', 'placeholder' );
+
+	/**
+	 * Boolean field attributes accepted on a definition write.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @var string[]
+	 */
+	private const FIELD_BOOL_ATTRIBUTES = array( 'is_required', 'is_searchable', 'show_on_register', 'show_in_header' );
 
 	/**
 	 * Delete a profile field definition.

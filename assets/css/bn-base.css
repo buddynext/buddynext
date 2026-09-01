@@ -31,10 +31,24 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 [data-bn-theme="light"] {
 	/* Brand hue — rotate per whitelabel; everything else derives from it. */
 	--bn-hue:           var(--bn-accent-hue, 252);   /* 252 = indigo. 200 blue, 160 teal, 25 orange. */
-	--bn-hue-jetonomy:  285;
-	--bn-hue-media:     175;
-	--bn-hue-events:    45;
-	--bn-hue-paid:      145;
+	/* Per-product tints, as fixed OFFSETS from the brand hue rather than frozen
+	   literals. A site owner who sets the brand colour expects the whole product to
+	   look like their brand — before this, buttons and links turned purple while
+	   every MediaVerse border stayed mint-green, because these four were hardcoded
+	   and Appearance never re-emitted them.
+
+	   Offsets, not one shared hue: each product stays recognisably itself (Media
+	   still reads as Media next to Events) while moving with the brand. The values
+	   are chosen so that at the default hue of 252 they resolve to exactly the
+	   numbers that shipped before — 285 / 175 / 45 / 145 — so nothing changes on a
+	   site that has not picked a brand colour.
+
+	   All offsets are POSITIVE so the result never goes negative on a low brand hue;
+	   OKLCH treats the hue as an angle and wraps past 360 on its own. */
+	--bn-hue-jetonomy:  calc(var(--bn-hue) + 33);    /* 252 -> 285 */
+	--bn-hue-media:     calc(var(--bn-hue) + 283);   /* 252 -> 535 -> 175 */
+	--bn-hue-events:    calc(var(--bn-hue) + 153);   /* 252 -> 405 -> 45  */
+	--bn-hue-paid:      calc(var(--bn-hue) + 253);   /* 252 -> 505 -> 145 */
 
 	/* Chroma (saturation depth). Lower = more neutral, higher = more vivid. */
 	--bn-chroma: 0.16;
@@ -157,6 +171,16 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-r-lg:   calc(var(--bn-radius-base) * 1.4);
 	--bn-r-xl:   calc(var(--bn-radius-base) * 2);
 	--bn-r-full: 9999px;
+
+	/* Overlay stacking scale — ordered so an overlay is always above whatever
+	   opened it. Before this the lightbox (100000) sat an order of magnitude
+	   above the modal backdrop (10000), so any confirm/dialog opened from inside
+	   the lightbox (Remove from space, Edit, Report) was painted underneath it
+	   and its buttons could not be clicked. Anything new that stacks on the
+	   front end should use these tokens, not a fresh literal. */
+	--bn-z-lightbox: 100000;
+	--bn-z-modal:    100100;   /* above the lightbox — a modal is the top surface */
+	--bn-z-toast:    100200;   /* above the modal — confirms what a modal just did */
 
 	/* Shadows */
 	--bn-shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.04);
@@ -344,9 +368,24 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-radius-scale: 0.8;   /* multiplicative — keeps the calc() invariant */
 }
 
-/* ── Large-text accessibility ─────────────────────────────────────────── */
-[data-bn-text="large"]  { --bn-text-scale: 1.15; }
-[data-bn-text="xlarge"] { --bn-text-scale: 1.3; }
+/* ── Large-text accessibility (Settings -> Appearance: A / A+ / A++) ───────
+ * Keyed on data-bn-font-scale, which is the attribute the shell bootstrap
+ * actually stamps on <html> (assets/js/shell/font-scale.js, from the
+ * bn_font_scale localStorage key).
+ *
+ * This used to be keyed on [data-bn-text="large"|"xlarge"] - an attribute
+ * nothing in the plugin has ever written, so the A / A+ / A++ control moved
+ * the stored value, the attribute and the root font-size while every visible
+ * BuddyNext string stayed exactly the same size. Two half-built mechanisms
+ * for one job, neither reaching the tokens. One now, keyed on the half that
+ * is real.
+ *
+ * Multiplying --bn-text-scale is what actually moves type, because every
+ * --bn-text-* token is calc(<px> * var(--bn-text-scale)). The root font-size
+ * rule further down is kept and is NOT double-scaling: it only reaches rem
+ * values, and no BuddyNext token is expressed in rem. */
+html[data-bn-font-scale="110"] { --bn-text-scale: 1.1; }
+html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 
 /* ── Dyslexia-friendly font swap (opt-in).
  * Falls through to Inter until Atkinson Hyperlegible is self-hosted. */
@@ -707,7 +746,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	bottom: var(--bn-s6);
 	left: 50%;
 	transform: translateX(-50%);
-	z-index: 9999;
+	z-index: var(--bn-z-toast);
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s2);
@@ -2473,18 +2512,21 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 /* ==========================================================================
 	Font Size Scaling — A / A+ / A++ Accessibility Control
 	──────────────────────────────────────────────────────────────────────────
-	The data-bn-font-scale attribute on <html> scales ALL BuddyNext content
-	uniformly. Because all --text-* tokens use rem, adjusting font-size on
-	the hub shell containers makes everything scale proportionally — text,
-	spacing, icons.
+	Second half of the control. The first half — scaling the --bn-text-* tokens
+	— is up with the other token modes, because that is what moves BuddyNext's
+	own type.
 
-	This applies to BuddyNext pages, Jetonomy pages (inside .bn-jt-content),
-	and WPMediaVerse pages (inside .bn-mvs-content).
+	This half only reaches values written in rem: partner content rendered
+	inside our shell (Jetonomy in .bn-jt-content, WPMediaVerse in
+	.bn-mvs-content) and the handful of BuddyNext rules still carrying a bare
+	rem font-size.
+
+	The comment here used to claim "all --text-* tokens use rem", which is how
+	the control came to be believed working. They are px multiplied by
+	--bn-text-scale, so this rule on its own changed nothing a member could
+	see. Do not restore that reasoning: check bn-base.css's token block before
+	assuming rem.
 	========================================================================== */
-
-/* Works like browser zoom — sets the root font-size so every rem value
-	in BuddyNext, Jetonomy, and WPMediaVerse scales uniformly. Affects
-	text, spacing, padding, icons — everything measured in rem. */
 
 /* A+ (110%) */
 html[data-bn-font-scale="110"] { font-size: 110%; }
@@ -2759,6 +2801,31 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: var(--bn-media); border-color: transparent; }
 .bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: var(--bn-events); border-color: transparent; }
 
+/* Chip group — the shared wrapper an injecting engine (Pro / gamification) should
+   wrap a row of .bn-badge chips in (member labels, credential badges, level frames)
+   so adjacent chips never touch. Reusable across every per-surface overlay filter;
+   token-driven spacing + RTL-safe via flex gap. This is the clean seam; prefer it
+   over relying on the per-container backstop below. */
+.bn-badge-row {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+/* Defensive backstop — space adjacent injected chips even when an engine forgets
+   the .bn-badge-row wrapper. Scoped to the KNOWN Free overlay containers that hold
+   ONLY injected chips and carry no gap of their own — never a global
+   `.bn-badge + .bn-badge`, which would double-space Free's own already-correct
+   surfaces (.bn-pf-name-row, .bn-search-row__title both gap their static badges).
+   margin-inline-start keeps it RTL-safe. */
+.bn-post-card__author .bn-badge + .bn-badge,
+.bn-md-card__meta-overlay .bn-badge + .bn-badge,
+.bn-md-card__labels .bn-badge + .bn-badge,
+.bn-comment__author-meta .bn-badge + .bn-badge {
+	margin-inline-start: var(--bn-s1);
+}
+
 /* Field-value chips — FieldType::render_chips() (multiselect and other
    set-valued profile fields). The markup shipped with no CSS at all, so
    selected values ran together as one unstyled string (Value1Value2Value3). */
@@ -2824,6 +2891,85 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-field-radio-group .bn-field-radio:has(input:focus-visible) {
 	outline: 2px solid var(--bn-ring);
 	outline-offset: 2px;
+}
+
+/* A STANDALONE boolean — a single checkbox that carries its own label, with no
+   group around it ("Currently working here", "Show my email").
+
+   Not a pill. The pills above are one choice among several, where a bordered
+   chip reads as "pick from this set"; a lone yes/no is a different question and
+   a single chip floating in a row implies siblings that do not exist.
+
+   It had no rule at all, so it inherited `display: block` from the label and
+   rendered as a bare 13px browser checkbox with a text run beside it, baseline
+   -aligned by luck. On a form where every neighbouring control is a 40px-tall
+   bordered field, that reads as an unfinished control. This gives it the row
+   height, alignment and hit target of its neighbours without pretending to be
+   one of them, and it applies on every surface the field engine renders into -
+   profile edit, registration, and the admin member editor - because they all
+   load this sheet. */
+.bn-field-checkbox:not(.bn-field-checkbox-group .bn-field-checkbox) {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	/* --bn-s10, the same 40px the pills and the text inputs stand at, so the
+	   control sits on the form's row rhythm rather than beside it. The scale
+	   runs 1-6, 8, 10, 12, 16 - there is no --bn-s9, and naming one silently
+	   drops the declaration. */
+	min-height: var(--bn-s10);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+}
+.bn-field-checkbox:not(.bn-field-checkbox-group .bn-field-checkbox) input {
+	/* The browser default is 13px and does not scale with the form around it.
+	   accent-color paints the checked state in the community's own accent
+	   rather than the operating system's blue. */
+	inline-size: var(--bn-s4);
+	block-size: var(--bn-s4);
+	margin: 0;
+	accent-color: var(--bn-accent);
+	cursor: pointer;
+	flex: none;
+}
+.bn-field-checkbox:not(.bn-field-checkbox-group .bn-field-checkbox):has(input:checked) {
+	color: var(--bn-ink);
+}
+.bn-field-checkbox:not(.bn-field-checkbox-group .bn-field-checkbox):has(input:focus-visible) {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+	border-radius: var(--bn-r-sm);
+}
+
+/* Field with no available editor — the type is registered by a plugin that is
+   not currently active (Pro deactivated with its advanced field types still
+   configured, a lapsed licence, a plan downgrade).
+
+   The value is preserved in a hidden input and the person is told why they
+   cannot edit it, rather than being handed a text box full of the raw stored
+   payload to mangle by hand — see FieldType::is_unreadable_payload().
+
+   Lives here rather than in bn-profile.css because every surface that edits a
+   field can hit this state, and one of them is wp-admin, which does not load
+   the profile sheet. Unstyled, it rendered as a bare sentence sitting in a
+   column of bordered controls and read as a row that had failed to render
+   rather than a deliberate state. The dashed border says "there is a field
+   here, and it is not yours to edit right now". */
+.bn-field--unavailable {
+	padding: var(--bn-s3);
+	background: var(--bn-sunken);
+	border: 1px dashed var(--bn-line);
+	border-radius: var(--bn-r-md);
+	/* Its padding and border must fit INSIDE any width cap it is given, so it
+	   lines up with the controls above and below rather than standing 26px
+	   proud of them. */
+	box-sizing: border-box;
+}
+.bn-field-unavailable-note {
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-normal);
 }
 .bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: var(--bn-paid); border-color: transparent; }
 
@@ -3101,7 +3247,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-modal-backdrop {
 	position: fixed;
 	inset: 0;
-	z-index: 10000;
+	z-index: var(--bn-z-modal);
 	background: color-mix(in oklch, var(--bn-ink) 55%, transparent);
 	-webkit-backdrop-filter: blur(2px);
 	backdrop-filter: blur(2px);

@@ -41,10 +41,14 @@ defined( 'ABSPATH' ) || exit;
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Media\MediaUrlResolver;
 
-$bn_card    = isset( $card ) && is_array( $card ) ? $card : array();
-$bn_kind    = (string) ( $bn_card['kind'] ?? '' );
-$bn_viewer  = isset( $current_user_id ) ? (int) $current_user_id : get_current_user_id();
-$bn_palette = array( 'violet', 'amber', 'emerald', 'rose', 'sky' );
+$bn_card   = isset( $card ) && is_array( $card ) ? $card : array();
+$bn_kind   = (string) ( $bn_card['kind'] ?? '' );
+$bn_viewer = isset( $current_user_id ) ? (int) $current_user_id : get_current_user_id();
+// The ONE identity palette, shared with member and space covers. This was its
+// own five-tone list including `violet` and `rose` - the purple/pink family the
+// design tokens exclude by name - so Explore spoke a different colour language
+// from the rest of the product and broke the rule while doing it.
+$bn_palette = \BuddyNext\Profile\AvatarService::IDENTITY_TONES;
 
 if ( '' === $bn_kind ) {
 	return;
@@ -67,7 +71,7 @@ if ( ! function_exists( 'bn_explore_tone' ) ) {
 	 */
 	function bn_explore_tone( int $seed, array $palette ): string {
 		if ( empty( $palette ) ) {
-			return 'violet';
+			return 'sky';
 		}
 		return $palette[ abs( $seed ) % count( $palette ) ];
 	}

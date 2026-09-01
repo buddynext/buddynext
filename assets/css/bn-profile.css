@@ -576,26 +576,9 @@
 
 /* ── More-Options dropdown (profile view) ─────────────────────────────────── */
 
-.bn-more-menu-wrap,
-.bn-share-menu-wrap {
+.bn-more-menu-wrap {
 	position: relative;
 	display: inline-block;
-}
-.bn-share-menu-wrap .bn-share-menu {
-	display: none;
-	position: absolute;
-	inset-inline-end: 0;
-	top: calc(100% + var(--bn-p-s1));
-	background: var(--bn-p-surface);
-	border: 1px solid var(--bn-p-border);
-	border-radius: var(--bn-p-r-lg);
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
-	min-width: 180px;
-	z-index: 200;
-	overflow: hidden;
-}
-.bn-share-menu-wrap.is-open .bn-share-menu {
-	display: block;
 }
 
 .bn-more-menu {
@@ -616,6 +599,60 @@
 	display: block;
 }
 
+/* ── Incoming connection request ─────────────────────────────────────────────
+   A decision, not an action, so it sits ABOVE the action row and names who is
+   asking. Inside the row it forced a second primary button onto the screen and
+   pushed Decline to `ghost` to avoid a third solid button - which left a
+   consequential control rendering as borderless text beside bordered peers.
+
+   No card, no fill, no border. A boxed notice reads as a system message bolted
+   onto the profile; the buttons already carry their own edges, so the sentence
+   plus spacing is enough to group them. Separation here is rhythm, not chrome. */
+.bn-pf-request {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+	margin-block: var(--bn-s3) var(--bn-s5);
+}
+/* The gap below is doing the work the removed box used to do. Without it Accept
+   and Follow sit 8px apart as two solid blue blocks and read as one undivided
+   set of four buttons - which is the ambiguity this whole change is about. */
+.bn-pf-request[hidden] { display: none; }
+.bn-pf-request__text {
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	line-height: 1.35;
+}
+.bn-pf-request__actions {
+	display: flex;
+	gap: var(--bn-s2);
+}
+/* Content-width by default. Splitting the full width evenly is a phone
+   affordance (thumb targets); at 768 and up it turned a yes/no decision into two
+   350px slabs. */
+.bn-pf-request__actions .bn-btn { justify-content: center; }
+@media (max-width: 640px) {
+	.bn-pf-request__actions .bn-btn { flex: 1 1 0; }
+}
+
+/* The overflow trigger is an ordinary labelled peer. It was a `ghost` three-dot
+   mark alone on its own line; bordering it was not enough, because a wordless
+   glyph still asks the member to guess. It reads "More" like every other button
+   in the row reads what it does. */
+.bn-pf-more-trigger {
+	justify-content: center;
+}
+
+/* Flipped: opened upward because opening downward would put the menu under the
+   fixed bottom nav. The flag is set from a measurement in profile/store.js
+   (flipIfItWouldLandUnderTheNav) and only when flipping actually helps, so a
+   trigger near the top of the viewport keeps opening downward. */
+.bn-more-menu-wrap.is-flipped .bn-more-menu {
+	top: auto;
+	bottom: calc(100% + var(--bn-p-s1));
+}
+
 .bn-more-menu-item {
 	display: block;
 	width: 100%;
@@ -632,6 +669,11 @@
 .bn-more-menu-item:hover {
 	background: var(--bn-p-bg-hover);
 }
+
+/* The overflow's narrow-viewport-only items. Hidden by default and revealed in
+   the <=640 block, so the wide layout never shows a control twice. Scoped to the
+   menu to match the reveal rule's specificity. */
+.bn-more-menu .bn-more-menu-item--narrow { display: none; }
 
 .bn-more-menu-item--danger {
 	color: var(--bn-p-red);
@@ -674,6 +716,26 @@
 	.bn-profile-header__actions {
 		position: static;
 		margin-top: var(--bn-p-s3);
+	}
+
+	/* The ⋯ menu anchors to its trigger, and where that trigger LANDS is now a
+	   fact rather than a guess: the action row is a grid of equal columns that
+	   never wraps, so ⋯ is always the last column, always at the end edge.
+	   Anchoring the menu to that same end edge is therefore always correct.
+	   The width cap stays as a floor under both.
+
+	   History, because both directions have now been wrong once. The menu first
+	   anchored to the trigger's END edge while the row still WRAPPED, so a trigger
+	   that wrapped to the start of a line threw the 160-180px menu off the start
+	   edge of the screen (the blank box over the stats row, 10236292515). That was
+	   fixed by anchoring to the START edge — correct for a wrapping row, and wrong
+	   the moment the row stopped wrapping and ⋯ moved to the end, which pushed the
+	   menu off the opposite edge. A fixed anchor only works when the trigger's
+	   position is fixed; it is, now, so this one holds. */
+	.bn-more-menu {
+		inset-inline-start: auto;
+		inset-inline-end: 0;
+		max-width: calc(100vw - 2 * var(--bn-p-s4));
 	}
 
 	/* Stats row — tighten spacing */
@@ -1153,85 +1215,6 @@
 	stroke-width: 3;
 }
 
-/* Avatar crop modal — opened by handleAvatarFileChange before the
-   upload fires. The user drags + zooms; the cropped 512×512 JPEG
-   is posted to /me/avatar instead of the raw file. */
-.bn-avatar-crop-overlay {
-	position: fixed;
-	inset: 0;
-	background: var(--bn-overlay);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	z-index: 10000;
-	padding: 16px;
-}
-.bn-avatar-crop-panel {
-	background: var(--bn-surface, #fff);
-	border-radius: var(--bn-r-lg, 12px);
-	padding: 20px;
-	max-width: 100%;
-	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 16px;
-}
-.bn-avatar-crop-title {
-	margin: 0;
-	font-size: var(--bn-text-lg, 18px);
-	font-weight: 600;
-	color: var(--bn-ink, #111);
-}
-.bn-avatar-crop-stage {
-	position: relative;
-	border-radius: 50%;
-	overflow: visible;
-	cursor: grab;
-	touch-action: none;
-}
-.bn-avatar-crop-stage:active { cursor: grabbing; }
-.bn-avatar-crop-canvas {
-	display: block;
-	border-radius: 8px;
-}
-.bn-avatar-crop-zoom {
-	width: 100%;
-	max-width: 320px;
-	accent-color: var(--bn-accent, #2563eb);
-}
-.bn-avatar-crop-actions {
-	display: flex;
-	gap: 8px;
-	justify-content: flex-end;
-	width: 100%;
-}
-
-/* Cover reposition stage — a frame at the hero's proportions holding the
-   live <img> preview. Drag to pan (object-position), scroll/slider to zoom
-   (transform:scale) — the same display contract as the rendered hero cover,
-   so the modal is true WYSIWYG. */
-.bn-cover-repos-stage {
-	position: relative;
-	overflow: hidden;
-	cursor: grab;
-	border-radius: 8px;
-	touch-action: none;
-	background-color: var(--bn-sunken, #f3f4f6);
-}
-.bn-cover-repos-stage:active { cursor: grabbing; }
-.bn-cover-repos-img {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	object-position: 50% 50%;
-	transform-origin: center;
-	pointer-events: none;
-	user-select: none;
-}
-
 /* Pending follow-request inbox — only the owner sees this. One row per
    requester, with Decline / Approve buttons that hide the row on success
    via the buddynext/follow-requests Interactivity store. */
@@ -1334,6 +1317,37 @@
 	margin-top: 3px;
 	line-height: 1.3;
 }
+/* The requester's own note. Quoted, so it reads as their words rather than our
+   copy, and wrapped over up to three lines - a 280-char note must be readable
+   here, since this is the only place the recipient sees it before deciding.
+
+   Shown in full, never clamped: the note is the thing the member is deciding on,
+   and bn_connections.note is already capped at 280 characters, so "all of it" is
+   bounded by the schema rather than by an ellipsis.
+
+   Every property a theme puts on `blockquote` is declared here, not inherited.
+   Left to the theme this rendered as a full-width grey slab that reads like a
+   disabled input rather than a quotation - BN owns its own UX, and blockquote is
+   the element themes restyle hardest. */
+.bn-follow-requests__note {
+	margin: 6px 0 0;
+	padding: 0;
+	padding-inline-start: var(--bn-s3);
+	border: 0;
+	border-inline-start: 2px solid var(--bn-line-strong);
+	background: none;
+	quotes: none;
+	font-family: inherit;
+	font-size: var(--bn-text-xs);
+	font-style: italic;
+	font-weight: var(--bn-fw-normal);
+	color: var(--bn-ink-2);
+	line-height: 1.4;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+.bn-follow-requests__note::before,
+.bn-follow-requests__note::after { content: none; }
 .bn-follow-requests__actions {
 	display: inline-flex;
 	gap: 8px;
@@ -1826,21 +1840,92 @@ a.bn-space-row:hover .bn-space-name {
 	.bn-pf-cover { height: 140px; border-radius: var(--bn-r-md) var(--bn-r-md) 0 0; }
 	.bn-pf-avatar-wrap { margin-block-start: calc(var(--bn-s8) * -1); }
 	.bn-pf-name { font-size: var(--bn-text-xl); }
+	/* Slot contract on narrow screens: the primary and its secondary peers share
+	   the width evenly, and the overflow trigger stays a fixed square at the end
+	   rather than being stretched to a quarter of the screen. nowrap is what
+	   keeps it one line — the row is capped at three controls below 640, so
+	   wrapping only ever produced the orphaned ⋯ on a line of its own.
+
+	   That cap is now ENFORCED rather than assumed. The comment said "capped at
+	   three by design" while the not-following-and-not-connected state emitted
+	   four (Follow / Connect / Message / More). On BuddyX that gave each 77px and
+	   truncated both "Follow" and "Message"; the icon-hiding rule below was not
+	   enough on a theme with wider button padding than our own. Message moves into
+	   the overflow here, which restores 105px per control - the width that already
+	   worked on Reign. */
+	/* Grid, not flex, for the equal split. `flex: 1 1 0` still sizes to content
+	   when a child is a wrapper (the follow control and the overflow menu each
+	   ship their own div), so the row came out 94 / 128 / 94 - close enough to
+	   equal to look like a mistake rather than a choice. Equal columns are
+	   declared here instead of negotiated. Hidden state buttons (Connect,
+	   Pending, Connected) are display:none and claim no column. */
 	.bn-pf-actions {
 		width: 100%;
-		flex-wrap: wrap;
+		display: grid;
+		grid-auto-flow: column;
+		/* minmax(max-content, 1fr), not 1fr. Equal columns while there is room, but
+		   a column can never be narrower than its own label. */
+		grid-auto-columns: minmax(max-content, 1fr);
 	}
-	.bn-pf-actions .bn-btn { flex: 1 1 auto; justify-content: center; }
+	/* Controls share the row EQUALLY but never shrink below their own label.
+	   `grid-auto-columns: 1fr` did the opposite: it divided the container and let
+	   the text truncate to fit, which made the result depend on how wide the THEME
+	   makes this column. Reign gives the row ~420px and every label fitted; BuddyX
+	   gives ~308px and both "Follow" and "Message" were cut off. Same markup, same
+	   plugin CSS, different theme - so the layout was never really ours.
+
+	   A max-content FLOOR on the column is the plugin owning its own result: equal
+	   widths while there is room, and full labels always, whatever width the theme
+	   hands us. Tried `flex: 1 1 auto` first and it stacked the row into three
+	   full-width lines - two of these controls ship their own wrapper div, and a
+	   flex basis of `auto` through a wrapper resolves to the whole line. The grid
+	   already handled those wrappers correctly; it only needed the floor. */
+	.bn-pf-actions > * { min-width: 0; }
+	.bn-pf-actions .bn-btn {
+		width: 100%;
+		justify-content: center;
+	}
+	/* Words over glyphs when the two compete. At a third of 390px the icon plus
+	   its gap costs ~24px, which was enough to truncate "Message" to "Messa...".
+	   A cut-off label is worse than no icon: the icon was decoration, the word is
+	   the whole point of the control. Text-only below 640 is also what Facebook
+	   and LinkedIn ship at this width. */
+	.bn-pf-actions .bn-btn > svg { display: none; }
+	/* Message is a menu item down here, not a column of its own. Paired with
+	   .bn-more-menu-item--narrow below so exactly one of the two renders at any
+	   width - never both, never neither. */
+	/* Scoped to the row so it outranks .bn-btn's own display. Both are single-class
+	   selectors, so a bare .bn-pf-actions__wide-only tied on specificity and lost on
+	   source order - the control stayed visible and the row stayed at four. */
+	.bn-pf-actions .bn-pf-actions__wide-only { display: none; }
+	.bn-more-menu .bn-more-menu-item--narrow { display: flex; }
+	.bn-pf-actions .bn-btn > span {
+		overflow: visible;
+		text-overflow: clip;
+	}
+	/* Completeness sits BELOW the row now (it is status, not an action), so it
+	   gets its own full-width line rather than an equal column that wrapped
+	   "50% complete" onto two lines. */
+	.bn-pf-completeness {
+		width: 100%;
+		justify-content: center;
+		margin-block-start: var(--bn-s2);
+	}
+	.bn-pf-actions .bn-btn > span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 	.bn-profile-media-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* iPhone 14 / Pixel widths and below: stack action row, single-column timeline. */
 @media (max-width: 400px) {
-	.bn-pf-actions {
-		flex-direction: column;
-		align-items: stretch;
-	}
-	.bn-pf-actions .bn-btn { width: 100%; }
+	/* The action row stays a ROW here. It used to become a column with every
+	   button full-width, which turned an undifferentiated flex box into a tower
+	   of four identical blue-and-white blocks: no hierarchy to read, and tall
+	   enough to push the ⋯ trigger under the fixed mobile nav. Three controls fit
+	   at 390px, which is what Instagram and Facebook ship. */
 	.bn-pf-timeline { gap: var(--bn-s3); }
 }
 
@@ -2567,6 +2652,17 @@ a.bn-space-row:hover .bn-space-name {
 	gap: var(--bn-s1);
 }
 .bn-ep-slug-indicator svg { width: 14px; height: 14px; }
+
+/* The @handle this field also sets. Shown under the input as the member types,
+   because the field controls two things and only one of them is in the label. */
+.bn-ep-slug-handle {
+	display: block;
+	margin-block-start: var(--bn-s1);
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+.bn-ep-slug-handle:empty { display: none; }
 .bn-ep-slug-ok { color: var(--bn-success); }
 .bn-ep-slug-err { color: var(--bn-danger); }
 
@@ -3369,23 +3465,9 @@ a.bn-space-row:hover .bn-space-name {
 	}
 }
 
-/* ── Field with no available editor ─────────────────────────────────────────
-   Shown where a field's type is registered by a plugin that is not currently
-   active (Pro deactivated with its advanced field types still configured). The
-   value is preserved in a hidden input and the member is told why they cannot
-   edit it, rather than being handed a text box full of the raw stored payload
-   to mangle by hand. Token-driven so it inherits dark mode with everything
-   else. */
-.bn-field--unavailable {
-	padding: var(--bn-s3);
-	background: var(--bn-p-bg-subtle);
-	border: 1px dashed var(--bn-p-border);
-	border-radius: var(--bn-r-md);
-}
-
-.bn-field-unavailable-note {
-	margin: 0;
-	color: var(--bn-p-text-3);
-	font-size: var(--bn-text-sm);
-	line-height: var(--bn-leading-normal);
-}
+/* The "no available editor" field state moved to bn-base.css — like the choice
+   groups above it is a shared primitive, rendered by FieldType wherever a field
+   is edited, and the ADMIN member editor needs it too (bn-profile.css does not
+   load in wp-admin, so the state rendered there as a bare unstyled sentence in
+   a column of bordered controls). This comment is a signpost so the rules are
+   not re-added here. */

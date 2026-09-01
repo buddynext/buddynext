@@ -26,6 +26,87 @@ final class MenuRenderer {
 	 */
 	public function register(): void {
 		add_filter( 'wp_nav_menu_objects', array( $this, 'resolve_items' ), 10, 2 );
+
+		// The same login-state honesty, applied to the fallback nav. See
+		// exclude_unusable_pages().
+		add_filter( 'wp_list_pages_excludes', array( $this, 'exclude_unusable_pages' ) );
+	}
+
+	/**
+	 * Hide BuddyNext pages the current visitor cannot use from the fallback nav.
+	 *
+	 * With no menu assigned to a theme location, WordPress falls back to
+	 * wp_page_menu(), which lists every published page. resolve_items() above
+	 * does login-state filtering properly — but it only runs on
+	 * wp_nav_menu_objects, i.e. once an owner has hand-built a menu. On a fresh
+	 * install none of that protection is active, so the theme advertised a Login
+	 * link to members who were already logged in, and Messages / Notifications to
+	 * logged-out visitors, both of which bounce them straight to /login/.
+	 *
+	 * SCOPE: this excludes only pages BuddyNext created and owns, identified by
+	 * its own page options. It does not reorder the nav, does not create or
+	 * assign a menu, and never touches a page belonging to the theme, another
+	 * plugin, or the owner — including WordPress's "Sample Page". Deciding what a
+	 * site's navigation contains is the owner's job; not advertising our own dead
+	 * ends is ours.
+	 *
+	 * The community hubs (Activity, Members, Spaces) are deliberately KEPT, so a
+	 * fresh install still surfaces the community with no configuration at all.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<int,int|string> $excludes Page ids WordPress will omit.
+	 * @return array<int,int|string>
+	 */
+	public function exclude_unusable_pages( $excludes ): array {
+		$excludes  = is_array( $excludes ) ? $excludes : array();
+		$logged_in = is_user_logged_in();
+
+		// HUB KEY => whether this page is unusable for the CURRENT visitor. Keyed on
+		// the hub, and the page option comes from HubRegistry — because the option
+		// names were written out by hand here and one of them was wrong. The auth
+		// hub's option is `buddynext_page_auth`; this asked for
+		// `buddynext_page_login`, which no install has ever set. `get_option()`
+		// returned false, the id was 0, and the Login page was never excluded — so
+		// the exact bug this method exists to fix (a Login link advertised to
+		// members who are already signed in) was live the whole time, silently,
+		// because a missing option looks identical to "nothing to exclude".
+		$rules = array(
+			// Signing in when you already are.
+			'auth'          => $logged_in,
+			// Both require a session and redirect to /login/ without one.
+			'notifications' => ! $logged_in,
+			'messages'      => ! $logged_in
+				|| ! \BuddyNext\Messages\MessagesData::entry_enabled(),
+		);
+
+		$hubs = \BuddyNext\Core\HubRegistry::instance();
+
+		foreach ( $rules as $hub_key => $unusable ) {
+			if ( ! $unusable ) {
+				continue;
+			}
+
+			$hub = $hubs->get( $hub_key );
+			if ( null === $hub ) {
+				continue;
+			}
+
+			$page_id = (int) get_option( $hub->page_option, 0 );
+			if ( $page_id > 0 ) {
+				$excludes[] = $page_id;
+			}
+		}
+
+		/**
+		 * Filters the BuddyNext pages hidden from the fallback page-list nav.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param array<int,int|string> $excludes Page ids to omit.
+		 * @param bool                  $logged_in Whether the visitor is signed in.
+		 */
+		return (array) apply_filters( 'buddynext_fallback_nav_excludes', $excludes, $logged_in );
 	}
 
 	/**

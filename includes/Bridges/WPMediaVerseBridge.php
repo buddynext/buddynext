@@ -25,6 +25,7 @@ use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Media\Galleries;
+use BuddyNext\Spaces\SpaceVisibility;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\IntegrationActivity;
 
@@ -78,7 +79,7 @@ class WPMediaVerseBridge {
 	 * either. `MessagesData::available()` asks `MediaClient`, which resolves the
 	 * engine's own container directly — so `/messages/`, the shell-nav item and
 	 * the messages store stay live whenever the engine is present and
-	 * `buddynext_enable_dm` is on, regardless of this bridge.
+	 * the 'messages' capability is on, regardless of this bridge.
 	 *
 	 * Gating these three filters on the Features toggle therefore did not disable
 	 * DM; it disabled only the checks on it. Turning the integration off left
@@ -89,7 +90,7 @@ class WPMediaVerseBridge {
 	 *
 	 * The owner keeps both switches that mean something: Features → WPMediaVerse
 	 * still controls the integration's display, and Settings → General → Direct
-	 * Messaging (`buddynext_enable_dm`) still turns DM off outright. What an owner
+	 * Messaging (the 'messages' capability) still turns DM off outright. What an owner
 	 * cannot do is leave DM on while its safety gates are off, because that is not
 	 * a preference — it is the Block button lying.
 	 *
@@ -173,6 +174,44 @@ class WPMediaVerseBridge {
 		// Notify media owner when someone favourites their content.
 		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
 
+		// Notify the media owner when someone reacts to their content, and notify
+		// mention targets when they are @mentioned in a media comment. MediaVerse
+		// already renders both categories (media_reaction, media_mention) and owns
+		// their email; these mirror the events into the BuddyNext notification
+		// centre only (can_email=false), so a member sees reactions and mentions in
+		// one place — with the centre's Reactions and Mentions tabs, which had the
+		// UI but never a feed — without a second email. Reactions come from the
+		// service hook (mvs_reaction_added), not the REST toggle, so a reaction made
+		// through any path is caught once.
+		add_action( 'mvs_reaction_added', array( $this, 'on_media_reaction' ), 10, 3 );
+		add_action( 'mvs_mentions_created', array( $this, 'on_media_mention' ), 10, 4 );
+
+		// Space document drives (MVS Pro 2.4.0). MVS holds an opaque drive id and
+		// asks US who may see and write a space:<id> drive — it never reads bn_*
+		// tables, so the two plugins cannot disagree about space membership. We
+		// answer from the ONE canonical resolver (SpaceVisibility + the member
+		// role), never a second copy of the rules, and only when the space owner
+		// has turned the drive on (mvs_documents_tab, off by default).
+		// BuddyNext is the avatar authority across the suite, so it answers the
+		// flag MediaVerse publishes about avatars.
+		add_filter( 'mvs_profile_data', array( $this, 'profile_avatar_flag' ), 10, 2 );
+
+		add_filter( 'mvs_document_drive_access', array( $this, 'space_drive_access' ), 10, 4 );
+		add_filter( 'mvs_document_drive_visible', array( $this, 'space_drive_visible' ), 10, 4 );
+		add_filter( 'mvs_document_drives_for_user', array( $this, 'space_drives_for_user' ), 10, 2 );
+		add_filter( 'mvs_document_drive_label', array( $this, 'space_drive_label' ), 10, 3 );
+
+		// The fifth drive filter (MV Pro froze it in 2.4.0). Documents got a drive
+		// at ingest from day one; media never did, so every upload landed on the
+		// uploader's personal drive and `space` privacy was unreachable for media.
+		add_filter( 'mvs_media_drive', array( $this, 'space_media_drive' ), 10, 3 );
+
+		// A document shared from the composer renders as a link-out card. The
+		// post stores only the document id; this seam resolves the card PER VIEWER
+		// so a private document's title is never snapshotted into someone else's
+		// feed. Gated inside on the 'media' integration/feed toggle.
+		add_filter( 'buddynext_render_post_body_document', array( $this, 'render_document_card' ), 10, 2 );
+
 		// Keep the WPMediaVerse follow graph (mvs_follows) and BuddyNext's
 		// (bn_follows) in sync both ways. MVS profiles and BN profiles otherwise
 		// show divergent follow state for the same pair. A re-entrancy guard plus
@@ -219,12 +258,6 @@ class WPMediaVerseBridge {
 		// bn_comments entry threaded under the BuddyNext post that holds the media.
 		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 3 );
 
-		// LinkedIn-style connect note → DM message request. When a connection
-		// request carries a note (only when the owner enabled the note step), the
-		// note is delivered to the recipient as a direct-message request so they
-		// can read the context and decide whether to engage before accepting.
-		add_action( 'buddynext_connection_requested', array( $this, 'deliver_note_as_message_request' ), 10, 4 );
-
 		// Surface standalone WPMediaVerse uploads in the activity feed. The
 		// upload itself fired no feed entry before, so media shared from the
 		// "Upload Media" surface never appeared in the community feed. Deferred +
@@ -232,6 +265,18 @@ class WPMediaVerseBridge {
 		// via the same WPMediaVerse path and then creates its OWN feed post — is
 		// never duplicated.
 		add_action( 'mvs_media_uploaded', array( $this, 'on_media_uploaded' ), 10, 4 );
+
+		// Keep an attached media file's engine privacy in step with the privacy of
+		// the post it is attached to — on create AND on edit. See
+		// sync_post_media_privacy() for why the post is the moment that matters.
+		// Typed feed card for a bridge-published media upload. Every other bridge
+		// renders through this seam (event, course, job, listing, badge); media was
+		// the one that never registered, because its type was intercepted by the
+		// photo branch upstream and never reached the seam at all.
+		add_filter( 'buddynext_render_post_body_media', array( $this, 'render_feed_card' ), 10, 2 );
+
+		add_action( 'buddynext_post_created', array( $this, 'on_post_privacy_changed' ), 10, 1 );
+		add_action( 'buddynext_post_updated', array( $this, 'on_post_privacy_changed' ), 10, 1 );
 		add_action( 'buddynext_mvs_media_activity', array( $this, 'publish_media_activity' ), 10, 3 );
 
 		// Withdraw the media feed card when its source is deleted, so the feed
@@ -240,6 +285,12 @@ class WPMediaVerseBridge {
 		// hook carries the pre-delete permalink (the slug row is already gone by
 		// the time it fires), which is the exact link_url the card was keyed on.
 		add_action( 'mvs_media_deleted', array( $this, 'on_media_deleted' ), 10, 3 );
+
+		// A document TRASHED (not permanently deleted) now fires its own hook
+		// (WPMediaVerse Pro 2.4.0, added for us). Trash is the normal delete from
+		// the app + UI and used to fire nothing, so a composer document card would
+		// linger after its document was gone; remove it here by id.
+		add_action( 'mvs_document_trashed', array( $this, 'on_document_trashed' ), 10, 1 );
 
 		// Media links resolve to the activity the item was posted in, not a
 		// dedicated /media/{slug}/ page — every upload already becomes an activity
@@ -368,6 +419,21 @@ class WPMediaVerseBridge {
 			return;
 		}
 
+		// A document upload is not feed material. The feed announces MEDIA —
+		// images, video, audio — because that is content people share. Filing a
+		// PDF in your drive is housekeeping, and announcing it to the community
+		// is something the member never asked for: it surfaces that a file
+		// exists, and often its name, to everyone who follows them. Owner
+		// directive 2026-08-27.
+		//
+		// This does not touch the composer's document card. That one is a member
+		// deliberately posting a document, the same way they post a photo, and it
+		// stays (PostController's document_id -> type='document', rendered
+		// per-viewer by render_document_card()).
+		if ( 'document' === (string) $media_type ) {
+			return;
+		}
+
 		$url  = '';
 		$repo = MediaClient::repo();
 		if ( is_object( $repo ) && method_exists( $repo, 'get_permalink' ) ) {
@@ -377,7 +443,123 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		IntegrationActivity::publish( $user_id, self::media_activity_verb( (string) $media_type ), $url, '', 'media', '' );
+		// STORE A REFERENCE, NOT A SNAPSHOT.
+		//
+		// The first version of this fix wrote the upload's title and poster into
+		// link_meta at publish time, which fixed the visible symptom and created
+		// two new problems (QA bounce on 10242691205):
+		//
+		// The poster is a SIGNED url with a one-hour TTL, so every cover 404'd an
+		// hour after upload. Note for anyone reading MediaVerse's docblocks:
+		// get_broadcast_thumbnail_url() is not the escape hatch it used to be - its
+		// TTL was reduced from a year to an hour on purpose, so snapshotting THAT
+		// expires too. No signed URL is safe to freeze.
+		//
+		// And a frozen title outlives the privacy of the thing it describes: rename
+		// or lock a file and the feed keeps printing what it used to be called, to
+		// everyone.
+		//
+		// So the card stores the media id and nothing else derived from it. Title
+		// and cover are resolved at render, for the viewer doing the reading -
+		// see render_feed_card().
+		IntegrationActivity::publish(
+			$user_id,
+			self::media_activity_verb( (string) $media_type ),
+			$url,
+			'',
+			'media',
+			'',
+			0,
+			array( 'media_id' => $media_id )
+		);
+	}
+
+	/**
+	 * Render the feed card for a bridge-published media upload.
+	 *
+	 * Hooked on: buddynext_render_post_body_media( string $html, array $args ).
+	 *
+	 * Delegates to the shared bridge-card renderer every other integration uses,
+	 * so a shared video looks like a shared course or a shared listing rather
+	 * than like a fourth thing. The helper already handles the two states this
+	 * card actually has: a title from link_meta when the upload had one, and a
+	 * cover when the engine produced a thumbnail — falling back to the trimmed
+	 * verb and a coverless compact card when it did not, which is the common
+	 * case for a bridge upload.
+	 *
+	 * Returning '' when there is no link lets post-body.php fall through to the
+	 * plain-text body, so a malformed card degrades instead of disappearing.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param string               $html Incoming HTML (unused; this is the first renderer).
+	 * @param array<string, mixed> $args Post-body args.
+	 * @return string
+	 */
+	public function render_feed_card( $html, $args ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		unset( $html );
+
+		$args = is_array( $args ) ? $args : array();
+
+		return IntegrationActivity::render_bridge_card(
+			$this->hydrate_media_preview( $args ),
+			'image',
+			__( 'Media', 'buddynext' )
+		);
+	}
+
+	/**
+	 * Resolve a media card's title and cover AT RENDER, for the current viewer.
+	 *
+	 * The card stores only the media id (see publish_media_activity), so both are
+	 * read live. That is the whole point: a signed thumbnail URL expires in an
+	 * hour, and a frozen title outlives the privacy of the file it names.
+	 *
+	 * The cover comes from `get_thumbnail_url_for_viewer()`, which authorises
+	 * against the person reading the feed and returns '' when they may not see the
+	 * media - so a file whose privacy was tightened after posting stops showing
+	 * its poster to everyone, rather than continuing to serve a URL minted when it
+	 * was public. `get_broadcast_thumbnail_url()` would NOT do this: it resolves
+	 * anonymously, which is right for emission and wrong for rendering.
+	 *
+	 * Degrades quietly. No MediaVerse, no repository, or a media row that has
+	 * since been deleted leaves title and cover empty, and render_bridge_card()
+	 * falls back to the verb plus the link - the compact card, not a broken one.
+	 *
+	 * @param array<string,mixed> $args Render args from the post-body seam.
+	 * @return array<string,mixed>
+	 */
+	private function hydrate_media_preview( array $args ): array {
+		$link     = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
+		$media_id = (int) ( $link['media_id'] ?? 0 );
+
+		if ( $media_id <= 0 ) {
+			return $args;
+		}
+
+		$repo = MediaClient::repo();
+		if ( ! is_object( $repo ) ) {
+			return $args;
+		}
+
+		if ( method_exists( $repo, 'get' ) ) {
+			$title = (string) $repo->get( $media_id, 'title' );
+			if ( '' !== $title ) {
+				$link['title'] = $title;
+			}
+		}
+
+		if ( method_exists( $repo, 'get_thumbnail_url_for_viewer' ) ) {
+			$thumb = (string) $repo->get_thumbnail_url_for_viewer( $media_id, 'thumb_large', get_current_user_id() );
+			if ( '' !== $thumb ) {
+				$link['thumb'] = $thumb;
+				$link['image'] = $thumb;
+			}
+		}
+
+		$args['link_preview'] = $link;
+
+		return $args;
 	}
 
 	/**
@@ -396,6 +578,15 @@ class WPMediaVerseBridge {
 	 * @return void
 	 */
 	public function on_media_deleted( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		// A permanently deleted document is a media row too, so this same hook
+		// carries its id. Remove any composer document card keyed on it — by id,
+		// not URL, because the card stores only the id (privacy) and the source
+		// row is already gone. Trash is handled separately by on_document_trashed().
+		$media_id = (int) $media_id;
+		if ( $media_id > 0 ) {
+			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
+		}
+
 		$permalink = (string) $permalink;
 		if ( '' === $permalink ) {
 			return;
@@ -404,7 +595,189 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Remove a composer document card when its document is TRASHED.
+	 *
+	 * The permanent-delete hook above covers destroy; this covers trash — the
+	 * normal delete path — now that WPMediaVerse fires `mvs_document_trashed`.
+	 * Keyed by id, the only thing the card stores.
+	 *
+	 * @param int $media_id The trashed document id.
+	 * @return void
+	 */
+	public function on_document_trashed( $media_id ): void {
+		$media_id = (int) $media_id;
+		if ( $media_id > 0 ) {
+			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
+		}
+	}
+
+	/**
+	 * Derive each attached media file's privacy from the post it now belongs to.
+	 *
+	 * MediaController already maps the composer's post-privacy vocabulary onto the
+	 * engine's file privacy (PRIVACY_MAP: public -> public, followers/connections
+	 * -> members, private -> private) and `/me/media` accepts a `privacy` param.
+	 * Nothing ever sent it. The upload therefore fell to the default, `public`,
+	 * and a member who attached a photo and set the post to "Only me" got a
+	 * private post whose photo was public: listed on Explore Media and served to
+	 * anonymous visitors. Verified before this fix — post privacy `private`, media
+	 * privacy `public`, and an anonymous GET of the media returned 200.
+	 *
+	 * Doing it at POST time rather than only at upload time is the point. The
+	 * member uploads first and chooses the audience afterwards, and can change it
+	 * again on edit; privacy set at upload is a guess about a decision that has
+	 * not been made yet. The post is the moment the audience is actually known,
+	 * and running server-side means the web composer, the mobile app and any
+	 * integration all get it — none of them can forget to send a parameter.
+	 *
+	 * Derivation, not a one-way tightening: a public post must be able to render
+	 * its own photo, so the media follows the post in both directions. That is
+	 * what the member chose, and it is the mapping the engine already documents.
+	 *
+	 * @param int $post_id Post that was created or updated.
+	 * @return void
+	 */
+	public function on_post_privacy_changed( int $post_id ): void {
+		// Same bootstrap-symbol guard the rest of this bridge uses — never an MVS
+		// option read across the boundary.
+		if ( $post_id <= 0 || ! class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT privacy, media_ids FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+				$post_id
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $row ) || empty( $row['media_ids'] ) ) {
+			return;
+		}
+
+		$media_ids = json_decode( (string) $row['media_ids'], true );
+		if ( ! is_array( $media_ids ) || ! $media_ids ) {
+			return;
+		}
+
+		$target = self::media_privacy_for_post( (string) ( $row['privacy'] ?? 'public' ) );
+
+		foreach ( $media_ids as $media_id ) {
+			$media_id = (int) $media_id;
+			if ( $media_id <= 0 ) {
+				continue;
+			}
+			$req = new \WP_REST_Request( 'PATCH', '/mvs/v1/media/' . $media_id );
+			$req->set_body_params( array( 'privacy' => $target ) );
+			$res = rest_do_request( $req );
+
+			if ( ! $res->is_error() ) {
+				continue;
+			}
+
+			/*
+			 * The PATCH failed, and the whole point of this method is that it is a
+			 * PRIVACY tightening. Discarding the return left the file at whatever it
+			 * was uploaded with - in the case this was written for, `public` under a
+			 * post the member had marked "Only me". Silent, and on Explore.
+			 *
+			 * Reproduced by running the cascade with no authenticated user (a cron or
+			 * WP-CLI context): the request is refused and the media stays public.
+			 *
+			 * So: fail CLOSED through MediaVerse's own repository rather than accept
+			 * the failure. The value is one this bridge derived, and it can only ever
+			 * be narrower than what is stored, so writing it directly cannot leak
+			 * anything the REST call would have prevented. It is the same seam the
+			 * reconcile-media-privacy command writes through.
+			 */
+			$repaired = false;
+			if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
+				$repo = \WPMediaVerse\Core\Plugin::container()->get( 'media_repository' );
+				if ( is_object( $repo ) && method_exists( $repo, 'set_many' ) ) {
+					$repo->set_many( $media_id, array( 'privacy' => $target ) );
+					$repaired = true;
+				}
+			}
+
+			// Logged either way. A privacy write that needed a fallback is something
+			// an owner should be able to find afterwards, and one that could not be
+			// repaired at all is a file still readable by more people than the post
+			// it belongs to.
+			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				sprintf(
+					'BuddyNext: media #%d privacy PATCH to "%s" failed (%s)%s',
+					$media_id,
+					$target,
+					$res->get_data()['code'] ?? (string) $res->get_status(),
+					$repaired ? ' - applied directly instead' : ' - MEDIA MAY STILL BE READABLE'
+				)
+			);
+		}
+	}
+
+	/**
+	 * The engine file-privacy that matches a BuddyNext post privacy.
+	 *
+	 * Mirrors MediaController::PRIVACY_MAP deliberately: the engine has no
+	 * followers/connections concept, so both collapse to logged-in `members` and
+	 * the post's own privacy is what gates the feed surface. An unrecognised
+	 * value resolves to `private` rather than `public` — a privacy vocabulary
+	 * this does not know about must not be guessed open.
+	 *
+	 * `space_members` used to sit in that same bucket, and it did not belong
+	 * there. The collapse is sound for followers and connections because the engine
+	 * genuinely has nowhere else to put them. The engine DOES have a `space` level;
+	 * it was unusable only because BuddyNext never answered `mvs_media_drive`, so
+	 * media never got a space drive. Reproduced end to end before the fix: a photo
+	 * posted into a SECRET space was stored as `members`, and PrivacyService::
+	 * can_view() returned true for a signed-in member who was not in the space —
+	 * the space type made no difference, because the media never carried the space
+	 * at all.
+	 *
+	 * `space` on a personal drive resolves to `private` in the engine, so a client
+	 * that does not send a space_id fails CLOSED (the author only) rather than open
+	 * to every signed-in member. That is the right way round for the older clients
+	 * and for the mobile app until they send it.
+	 *
+	 * @param string $post_privacy BuddyNext post privacy.
+	 * @return string Engine media privacy.
+	 *
+	 * Public because the backfill command (MediaPrivacyRepairCommand) must derive
+	 * exactly the same answer the live sync does. A second copy of this map is how
+	 * a repair ends up disagreeing with the thing it is repairing.
+	 *
+	 * @internal
+	 */
+	public static function media_privacy_for_post( string $post_privacy ): string {
+		switch ( sanitize_key( $post_privacy ) ) {
+			case 'public':
+				return 'public';
+			case 'followers':
+			case 'connections':
+				return 'members';
+			case 'space_members':
+				return 'space';
+			case 'private':
+				return 'private';
+		}
+		return 'private';
+	}
+
+	/**
 	 * Human verb for a non-photo media activity card.
+	 *
+	 * Only reached for video and audio. publish_media_activity() turns a
+	 * photo/image into a native `photo` post, and a document produces no card at
+	 * all, both returning before this is called. MVS resolves four media types
+	 * today and the other two are handled above.
+	 *
+	 * The default used to say "shared a photo", which was the one thing it could
+	 * never be — so every document upload announced itself as a photo. It is now
+	 * a type-neutral "shared a file": an unrecognised type is one MVS added after
+	 * this was written, and naming it wrongly is worse than not naming it.
 	 *
 	 * @param string $media_type Resolved media type.
 	 * @return string
@@ -416,7 +789,7 @@ class WPMediaVerseBridge {
 			case 'audio':
 				return __( 'shared an audio clip', 'buddynext' );
 			default:
-				return __( 'shared a photo', 'buddynext' );
+				return __( 'shared a file', 'buddynext' );
 		}
 	}
 
@@ -521,89 +894,6 @@ class WPMediaVerseBridge {
 		// cache-ttl-only: a media->post attachment is immutable once made. There is no event that could invalidate it, because there is no change that can happen.
 		wp_cache_set( $cache_key, $post_id, self::CACHE_GROUP, self::CACHE_TTL );
 		return $post_id;
-	}
-
-	/**
-	 * Whether a connection-request note can actually be DELIVERED right now.
-	 *
-	 * The note is not stored for display anywhere — deliver_note_as_message_request()
-	 * below hands it to the messaging engine as a DM message request, and that is
-	 * the only way a recipient ever sees it. So when the engine is absent there is
-	 * no delivery path, and asking a member to write a note means asking them to
-	 * write something nobody will read: they type it, press send, get no error,
-	 * and it reaches no one (Basecamp 10185178801).
-	 *
-	 * This probe is deliberately the SAME condition the delivery method guards on,
-	 * so "we asked for a note" and "we can deliver a note" cannot drift apart. If
-	 * that guard ever changes, this must change with it — which is why they sit
-	 * next to each other.
-	 *
-	 * @since 1.1.3
-	 *
-	 * @return bool
-	 */
-	public static function can_deliver_connection_note(): bool {
-		$svc = MediaClient::messaging();
-
-		return is_object( $svc )
-			&& method_exists( $svc, 'find_or_create_conversation' )
-			&& method_exists( $svc, 'send_message' );
-	}
-
-	/**
-	 * Deliver a connection-request note to the recipient as a DM message request.
-	 *
-	 * Fired on buddynext_connection_requested. Only acts when a note is present —
-	 * the note step is opt-in via buddynext_connection_require_note, so a 1-click
-	 * connect carries no note and this is a no-op. The note is written into a
-	 * conversation between the two users; the recipient's participant lands as a
-	 * pending request, so it surfaces under their Messages "Requests" tab to accept
-	 * or decline — it never auto-opens an active thread with someone they have not
-	 * chosen to engage.
-	 *
-	 * The pending-request status is requested explicitly through the engine's
-	 * find_or_create_conversation( …, [ 'force_request' => true ] ) seam (WPMediaVerse
-	 * 1.7.1+). The engine still enforces every denial first — a hard block, a
-	 * disabled inbox, self, too-new, or the rate limit — so this can never reach a
-	 * member who has shut the sender out; it only changes an otherwise-allowed send
-	 * from an active thread into a request. Falls back to a plain conversation on
-	 * older engine builds that ignore the third argument.
-	 *
-	 * Hooked on: buddynext_connection_requested( int, int, int, string ).
-	 *
-	 * @param int    $connection_id Connection row ID (unused).
-	 * @param int    $requester_id  User who sent the connection request.
-	 * @param int    $recipient_id  User receiving the request.
-	 * @param string $note          Optional note attached to the request.
-	 * @return void
-	 */
-	public function deliver_note_as_message_request( int $connection_id, int $requester_id, int $recipient_id, string $note = '' ): void {
-		unset( $connection_id );
-
-		$note = trim( $note );
-		if ( '' === $note || $requester_id <= 0 || $recipient_id <= 0 ) {
-			return;
-		}
-
-		if ( ! self::can_deliver_connection_note() ) {
-			return;
-		}
-
-		$svc = MediaClient::messaging();
-
-		try {
-			$conv    = $svc->find_or_create_conversation( $requester_id, $recipient_id, array( 'force_request' => true ) );
-			$conv_id = is_array( $conv ) ? (int) ( $conv['conversation_id'] ?? 0 ) : 0;
-
-			if ( $conv_id > 0 ) {
-				$svc->send_message( $conv_id, $requester_id, array( 'content' => $note ) );
-			}
-		} catch ( \Throwable $e ) {
-			// Best-effort: the connection request itself already succeeded and its
-			// in-app notification still fires. Never let a messaging-engine error
-			// bubble back into the connect flow.
-			unset( $e );
-		}
 	}
 
 	/**
@@ -1045,7 +1335,10 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		$owner_id = (int) get_post_field( 'post_author', $media_id );
+		// Same media-owner resolution as on_media_reaction(): the id is a
+		// wp_mvs_media_index row, not a post, so get_post_field() returns 0.
+		$repo     = MediaClient::repo();
+		$owner_id = $repo ? (int) $repo->get( $media_id, 'post_author' ) : 0;
 		if ( 0 === $owner_id || $owner_id === $user_id ) {
 			return;
 		}
@@ -1061,6 +1354,836 @@ class WPMediaVerseBridge {
 				'data'         => array( 'media_id' => $media_id ),
 			)
 		);
+	}
+
+	/**
+	 * Notify the media owner when someone reacts to their content.
+	 *
+	 * Mirrors MediaVerse's own media_reaction into the BuddyNext centre (Reactions
+	 * tab), collect-only: the catalogue marks bn.media_reaction can_email=false, so
+	 * MediaVerse stays the single emailer. Self-reactions are skipped and reactions
+	 * on the same media collapse via the group key.
+	 *
+	 * Hooked on: mvs_reaction_added ($media_id, $user_id, $reaction_type) — the
+	 * service hook, so a reaction made through any path (REST toggle or direct) is
+	 * caught exactly once.
+	 *
+	 * @param int    $media_id      Media item ID.
+	 * @param int    $user_id       User who reacted.
+	 * @param string $reaction_type Reaction slug (e.g. 'like', 'love').
+	 */
+	public function on_media_reaction( int $media_id, int $user_id, string $reaction_type = '' ): void {
+		// MVS media live in wp_mvs_media_index, not wp_posts, so get_post_field()
+		// returns 0 and would silently drop every reaction notification. Resolve
+		// the owner through the media repo (the same lookup used at line ~529).
+		$repo     = MediaClient::repo();
+		$owner_id = $repo ? (int) $repo->get( $media_id, 'post_author' ) : 0;
+		if ( 0 === $owner_id || $owner_id === $user_id ) {
+			return;
+		}
+
+		( new NotificationService() )->create(
+			array(
+				'recipient_id' => $owner_id,
+				'sender_id'    => $user_id,
+				'type'         => 'bn.media_reaction',
+				'object_type'  => 'media',
+				'object_id'    => $media_id,
+				'group_key'    => "mvs_reaction_{$media_id}",
+				'data'         => array(
+					'media_id'      => $media_id,
+					'reaction_type' => sanitize_key( $reaction_type ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Notify each mentioned member when they are @mentioned in a media comment.
+	 *
+	 * Mirrors MediaVerse's own media_mention into the BuddyNext centre (Mentions
+	 * tab), collect-only. The mentioner is the acting user (the comment author);
+	 * self-mentions are skipped.
+	 *
+	 * Hooked on: mvs_mentions_created ($media_id, $mentioned_ids, $context, $comment_id).
+	 *
+	 * @param int    $media_id      Media item ID.
+	 * @param int[]  $mentioned_ids Users named in the comment.
+	 * @param string $context       Where the mention was made (e.g. 'comment').
+	 * @param int    $comment_id    The comment carrying the mention.
+	 */
+	public function on_media_mention( int $media_id, array $mentioned_ids, string $context = '', int $comment_id = 0 ): void {
+		$actor_id = get_current_user_id();
+		if ( $actor_id <= 0 || $media_id <= 0 ) {
+			return;
+		}
+
+		$service = new NotificationService();
+		foreach ( array_unique( array_map( 'absint', $mentioned_ids ) ) as $recipient_id ) {
+			if ( $recipient_id <= 0 || $recipient_id === $actor_id ) {
+				continue;
+			}
+			$service->create(
+				array(
+					'recipient_id' => $recipient_id,
+					'sender_id'    => $actor_id,
+					'type'         => 'bn.media_mention',
+					'object_type'  => 'media',
+					'object_id'    => $media_id,
+					'group_key'    => "mvs_mention_{$media_id}_{$recipient_id}",
+					'data'         => array(
+						'media_id'   => $media_id,
+						'comment_id' => (int) $comment_id,
+						'context'    => sanitize_key( $context ),
+					),
+				)
+			);
+		}
+	}
+
+	/**
+	 * Load the space behind a space drive, else null.
+	 *
+	 * The one gate every space-drive filter runs first. Returns null for user and
+	 * site drives so those pass through untouched.
+	 *
+	 * It used to also require `mvs_documents_tab`, the space's Files-tab switch,
+	 * and that conflated two different things. MediaVerse resolves BOTH documents
+	 * and media through `mvs_document_drive_access` (PrivacyService::
+	 * resolve_drive_for_user calls it), so gating access on the FILES tab meant a
+	 * space with that tab off had no media drive either - and media is a separate
+	 * element from files (owner directive, 2026-08-29). That is why space-scoped
+	 * media privacy was unreachable on almost every space: the drive did not exist
+	 * unless someone had switched on a tab about something else.
+	 *
+	 * The switch still governs what it is named for - whether the Files TAB is
+	 * shown, in SpaceNav, and whether the drive is listed in
+	 * space_drives_for_user(). It no longer decides who may write.
+	 *
+	 * @param string $drive_type Drive type.
+	 * @param int    $drive_id   Drive id (space id).
+	 * @return array<string,mixed>|null
+	 */
+	private static function drive_space( string $drive_type, int $drive_id ): ?array {
+		if ( 'space' !== $drive_type || $drive_id <= 0 ) {
+			return null;
+		}
+		$space = buddynext_service( 'spaces' )->get( $drive_id );
+		return is_array( $space ) ? $space : null;
+	}
+
+	/**
+	 * May the current viewer see this member's OWN document drive?
+	 *
+	 * The profile Files tab is self-only: MediaVerse renders only the viewer's
+	 * own drive, and a stranger sees nothing anyway. So the drive is readable
+	 * exactly when the viewer IS the owner — every deeper access decision (a
+	 * private document inside it) still routes through MediaVerse's own gate on
+	 * each REST call.
+	 *
+	 * @param int $owner_id The profile owner.
+	 * @return bool
+	 */
+	private static function user_drive_ok( int $owner_id ): bool {
+		return $owner_id > 0 && get_current_user_id() === $owner_id;
+	}
+
+	/**
+	 * Whether a viewer may SHARE (grant access to) documents on a space drive.
+	 *
+	 * Sharing is a WRITE authority: only a space owner or moderator may grant
+	 * access to a space document — a plain member reads the shared drive but does
+	 * not hand its files to others. This is the same write authority MediaVerse
+	 * now enforces server-side (can_grant() resolves the viewer's level through
+	 * the mvs_document_drive_access bridge answered by space_drive_access(), where
+	 * owner => own and moderator => write). Kept as one named rule so the Share
+	 * control and the server never disagree about who may share.
+	 *
+	 * @param int $space_id Space id.
+	 * @param int $user_id  Viewer.
+	 * @return bool
+	 */
+	public static function space_drive_can_share( int $space_id, int $user_id ): bool {
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return false;
+		}
+
+		$role = buddynext_service( 'space_members' )->get_role( $space_id, $user_id );
+
+		return in_array( $role, array( 'owner', 'moderator' ), true );
+	}
+
+	/**
+	 * Answer MVS: access level for a space document drive — none|read|write|own.
+	 *
+	 * A level, not a bool, is the whole point: a member reads the shared drive,
+	 * a moderator writes to it, the owner owns it. A non-member reads only when
+	 * the space's content is open to them (public), otherwise none — which the
+	 * visibility filter then splits into 403 (private) vs 404 (secret).
+	 *
+	 * @param string $level      MVS default ('none').
+	 * @param string $drive_type Drive type.
+	 * @param int    $drive_id   Space id.
+	 * @param int    $user_id    Viewer.
+	 * @return string
+	 */
+	public function space_drive_access( string $level, string $drive_type, int $drive_id, int $user_id ): string {
+		$space = self::drive_space( $drive_type, $drive_id );
+		if ( null === $space ) {
+			return $level;
+		}
+		$role = buddynext_service( 'space_members' )->get_role( $drive_id, $user_id );
+		if ( 'owner' === $role ) {
+			return 'own';
+		}
+		if ( 'moderator' === $role ) {
+			return 'write';
+		}
+		if ( null !== $role ) {
+			// Any space member may CONTRIBUTE. MediaVerse built this ladder for
+			// exactly this case - its own docblock says a yes/no "cannot express
+			// 'may contribute but does not own', which is what a Space member is,
+			// and why a Space upload is impossible while ownership is the only
+			// write gate". Answering 'read' here was that impossibility: a member's
+			// photo could never land on the space drive, so space-scoped media
+			// privacy was unreachable and the file fell back to a level readable by
+			// every signed-in member of the site.
+			//
+			// `write` is contribution, not control. Editing or deleting an
+			// individual item is a per-item decision MediaVerse makes separately
+			// (PermissionService::permission_for), so this grants nobody rights over
+			// anyone else's upload.
+			return 'write';
+		}
+		return SpaceVisibility::can_view_content( $space, $user_id ) ? 'read' : 'none';
+	}
+
+	/**
+	 * Answer MVS: which drive does this upload belong on.
+	 *
+	 * Read from an EXPLICIT `space_id` on the write args rather than inferred from
+	 * the surface the composer was opened on (owner decision, 2026-08-29). Inferring
+	 * guesses when a member has several surfaces open, and this decides where a
+	 * member's file is filed - a guess there is a privacy decision made by accident.
+	 *
+	 * Answering wrongly cannot leak: MediaVerse re-checks
+	 * `mvs_document_drive_access` on whatever we return and admits it only at
+	 * `write`/`own` (PrivacyService::resolve_drive_for_user), so a bridge cannot
+	 * file a member's media into a space that member may not contribute to. The
+	 * guard rail was in place before this handler was.
+	 *
+	 * @since 1.1.6
+	 *
+	 * @param array<int,mixed>     $drive   MVS default, array( 'user', 0 ).
+	 * @param int                  $user_id Member doing the write.
+	 * @param array<string, mixed> $args    Write args as passed to UploadService.
+	 * @return array{0:string,1:int}
+	 */
+	public function space_media_drive( $drive, $user_id, $args ): array {
+		unset( $user_id );
+
+		$space_id = (int) ( is_array( $args ) ? ( $args['space_id'] ?? 0 ) : 0 );
+
+		if ( $space_id <= 0 ) {
+			// Not a space upload - hand back MediaVerse's default untouched rather
+			// than substituting our own idea of a personal drive.
+			return is_array( $drive ) ? $drive : array( 'user', 0 );
+		}
+
+		return array( 'space', $space_id );
+	}
+
+	/**
+	 * Answer MVS: may this viewer be told the space drive EXISTS.
+	 *
+	 * Only consulted once access is 'none'. A secret space is invisible (false ->
+	 * 404: its existence is the secret); a private/public space is visible (true
+	 * -> 403: it exists, contents are not yours). Straight from can_view_space(),
+	 * so MVS can never contradict the directory the member is standing on.
+	 *
+	 * @param bool   $visible    MVS default (false for space).
+	 * @param string $drive_type Drive type.
+	 * @param int    $drive_id   Space id.
+	 * @param int    $user_id    Viewer.
+	 * @return bool
+	 */
+	public function space_drive_visible( bool $visible, string $drive_type, int $drive_id, int $user_id ): bool {
+		$space = self::drive_space( $drive_type, $drive_id );
+		if ( null === $space ) {
+			return $visible;
+		}
+		return SpaceVisibility::can_view_space( $space, $user_id );
+	}
+
+	/**
+	 * Answer MVS: which space drives to list for this viewer (drive picker).
+	 *
+	 * The drive-enabled spaces the viewer is an active member of. Access + label
+	 * for each are resolved by the other two filters, so this only names them.
+	 *
+	 * @param array<int,array<string,mixed>> $drives  MVS's list so far.
+	 * @param int                            $user_id Viewer.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function space_drives_for_user( array $drives, int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return $drives;
+		}
+		foreach ( (array) buddynext_service( 'space_members' )->spaces_for_user( $user_id ) as $space_id ) {
+			$space_id = (int) $space_id;
+			if ( $space_id > 0 && (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' ) ) {
+				$drives[] = array(
+					'type' => 'space',
+					'id'   => $space_id,
+				);
+			}
+		}
+		return $drives;
+	}
+
+	/**
+	 * Answer MVS: a human label for a space drive — the space name.
+	 *
+	 * @param string $label      MVS default ('').
+	 * @param string $drive_type Drive type.
+	 * @param int    $drive_id   Space id.
+	 * @return string
+	 */
+	public function space_drive_label( string $label, string $drive_type, int $drive_id ): string {
+		if ( 'space' !== $drive_type ) {
+			return $label;
+		}
+		$space = buddynext_service( 'spaces' )->get( $drive_id );
+		return is_array( $space ) && ! empty( $space['name'] ) ? (string) $space['name'] : $label;
+	}
+
+	/**
+	 * Is WPMediaVerse Pro's document drive present on this site.
+	 *
+	 * The sanctioned bridge guard: bail on the partner's own bootstrap symbol
+	 * (the frozen DriveContract) rather than reading an MVS option across the
+	 * boundary. Gates the space Files tab, its settings toggle, and the render.
+	 *
+	 * @return bool
+	 */
+	public static function documents_available(): bool {
+		return class_exists( '\\WPMediaVersePro\\Documents\\DriveContract' );
+	}
+
+	/**
+	 * The document-attach config the composer needs, read from MVS's OWN app
+	 * config (never BuddyNext constants) so the composer can never advertise a
+	 * type or size the server will refuse — the exact mismatch that burned the
+	 * app once with anonymous links. `enabled` is per-user (the account's
+	 * document capability), so an account without a library gets no control at
+	 * all rather than an offer-then-refuse.
+	 *
+	 * Attaching a document is a WRITE, so the control is also gated on MVS's
+	 * `writable` flag: on a read-only (unlicensed) site reads keep working but
+	 * writes 403 with `mvs_documents_read_only`, so the composer must hide the
+	 * attach control rather than offer it and eat the refusal. `writable` is a
+	 * newer MVS field — when absent (older MVS) the site is treated as writable,
+	 * so this never hides the control on a version that predates the flag.
+	 *
+	 * @return array{enabled:bool,accept:string,max_size:int}
+	 */
+	public static function document_composer_config(): array {
+		$off = array(
+			'enabled'  => false,
+			'accept'   => '',
+			'max_size' => 0,
+		);
+		if ( ! self::documents_available() || ! buddynext_integration_enabled( 'media', 'feed' ) ) {
+			return $off;
+		}
+		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
+		if ( $res->is_error() ) {
+			return $off;
+		}
+		$data = (array) $res->get_data();
+		$docs = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		if ( empty( $docs['enabled'] ) ) {
+			return $off;
+		}
+		// Read-only site (unlicensed): reads work, writes 403. Hide the attach
+		// control up front. Absent on older MVS = writable (no regression there).
+		if ( array_key_exists( 'writable', $docs ) && empty( $docs['writable'] ) ) {
+			return $off;
+		}
+		$mimes = isset( $docs['allowed_mimes'] ) && is_array( $docs['allowed_mimes'] ) ? $docs['allowed_mimes'] : array();
+		return array(
+			'enabled'  => true,
+			'accept'   => implode( ',', array_map( 'sanitize_text_field', $mimes ) ),
+			'max_size' => isset( $docs['max_size'] ) ? (int) $docs['max_size'] : 0,
+		);
+	}
+
+	/**
+	 * May the current viewer make document WRITES right now.
+	 *
+	 * MVS's `documents.writable` (per-user `DocumentLicense::can_write()`): false
+	 * on a read-only (unlicensed) site, where reads work but writes 403. Gates
+	 * the composer attach control and the single-document Share control, so a
+	 * read-only member is never offered a write that would be refused. `writable`
+	 * is a newer MVS field — absent (older MVS) is treated as writable.
+	 *
+	 * @return bool
+	 */
+	public static function documents_writable(): bool {
+		if ( ! self::documents_available() ) {
+			return false;
+		}
+		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
+		if ( $res->is_error() ) {
+			return false;
+		}
+		$data = (array) $res->get_data();
+		$docs = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		if ( empty( $docs['enabled'] ) ) {
+			return false;
+		}
+		return ! array_key_exists( 'writable', $docs ) || ! empty( $docs['writable'] );
+	}
+
+	/**
+	 * The space document-drive view for the Files tab, as plain data.
+	 *
+	 * BuddyNext owns the space Files UI (MediaVerse ships none — see
+	 * docs/architecture/pro/BUDDYNEXT-DRIVE-BRIDGE.md §6). Rather than read MVS
+	 * tables, we ask MVS's OWN REST internally for this drive + folder, so every
+	 * access decision still routes back through our four drive filters — the two
+	 * plugins can never disagree about who may see what. Returns null when the
+	 * drive is unavailable or the viewer may not see it (MVS answered 403/404),
+	 * so the caller renders nothing rather than an empty shell.
+	 *
+	 * Folders and documents paginate independently (a drive can carry thousands
+	 * of either), so a level with 500 folders is never silently truncated.
+	 *
+	 * @param int $space_id    Space id (the drive).
+	 * @param int $folder      Folder to list (0 = drive root).
+	 * @param int $page        1-based document page.
+	 * @param int $folder_page 1-based folder page.
+	 * @return array{folders:array<int,array<string,mixed>>,documents:array<int,array<string,mixed>>,breadcrumbs:array<int,array{id:int,name:string}>,total:int,pages:int,page:int,folder:int,folder_total:int,folder_pages:int,folder_page:int,can_write:bool}|null
+	 */
+	public static function space_drive_view( int $space_id, int $folder = 0, int $page = 1, int $folder_page = 1 ): ?array {
+		if ( ! self::documents_available() || null === self::drive_space( 'space', $space_id ) ) {
+			return null;
+		}
+		return self::drive_view_core( 'space', $space_id, $folder, $page, $folder_page );
+	}
+
+	/**
+	 * The member's OWN document drive, as plain data — the profile Files tab.
+	 *
+	 * Same BuddyNext-native rendering as the space drive, pointed at the user
+	 * drive (`user:N`). Self-only: the profile Files tab shows only the owner
+	 * their own drive (MediaVerse cannot render an arbitrary member's drive, and
+	 * a stranger sees nothing), so the caller passes the profile owner id and
+	 * this refuses unless the viewer IS that owner.
+	 *
+	 * @param int $owner_id    The profile owner (must equal the viewer).
+	 * @param int $folder      Folder to list (0 = drive root).
+	 * @param int $page        1-based document page.
+	 * @param int $folder_page 1-based folder page.
+	 * @return array{folders:array<int,array<string,mixed>>,documents:array<int,array<string,mixed>>,breadcrumbs:array<int,array{id:int,name:string}>,total:int,pages:int,page:int,folder:int,folder_total:int,folder_pages:int,folder_page:int,can_write:bool}|null
+	 */
+	public static function user_drive_view( int $owner_id, int $folder = 0, int $page = 1, int $folder_page = 1 ): ?array {
+		if ( ! self::documents_available() || ! self::user_drive_ok( $owner_id ) ) {
+			return null;
+		}
+		return self::drive_view_core( 'user', $owner_id, $folder, $page, $folder_page );
+	}
+
+	/**
+	 * Shared fetch+shape for one folder page of a drive, either kind.
+	 *
+	 * The caller has already decided the viewer may see this drive (space tab
+	 * enabled, or user drive is the viewer's own); this asks MediaVerse's REST
+	 * for the folder + document page and shapes it for the Files templates. Both
+	 * paginate independently (a drive can carry thousands of either), so a level
+	 * with 500 folders is never silently truncated.
+	 *
+	 * @param string $drive_type  'space' or 'user'.
+	 * @param int    $drive_id    Drive id (space id or owner id).
+	 * @param int    $folder      Folder to list (0 = drive root).
+	 * @param int    $page        1-based document page.
+	 * @param int    $folder_page 1-based folder page.
+	 * @return array<string,mixed>|null
+	 */
+	private static function drive_view_core( string $drive_type, int $drive_id, int $folder, int $page, int $folder_page ): ?array {
+		$drive       = $drive_type . ':' . $drive_id;
+		$page        = max( 1, $page );
+		$folder_page = max( 1, $folder_page );
+
+		$folders_req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/folders' );
+		$folders_req->set_query_params(
+			array(
+				'drive'    => $drive,
+				'parent'   => $folder,
+				'orderby'  => 'name',
+				'order'    => 'ASC',
+				'per_page' => 50,
+				'page'     => $folder_page,
+			)
+		);
+		$folders_res = rest_do_request( $folders_req );
+		if ( $folders_res->is_error() ) {
+			// 403/404 from the drive filters: the viewer may not see this drive.
+			return null;
+		}
+
+		$docs_req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents' );
+		$docs_req->set_query_params(
+			array(
+				'drive'    => $drive,
+				'folder'   => $folder,
+				'per_page' => 50,
+				'page'     => $page,
+			)
+		);
+		$docs_res = rest_do_request( $docs_req );
+		if ( $docs_res->is_error() ) {
+			return null;
+		}
+
+		$folders     = (array) $folders_res->get_data();
+		$documents   = (array) $docs_res->get_data();
+		$doc_headers = $docs_res->get_headers();
+		$fol_headers = $folders_res->get_headers();
+
+		// The current viewer's write level on this drive. The Files tab is a
+		// browse/download view, not an uploader — contribution arrives through the
+		// activity composer — so this decides whether the empty state TELLS them
+		// how to add a file, not whether an upload control renders.
+		//
+		// ASK MEDIAVERSE FOR THE LEVEL — do not re-derive it. `mvs_document_drive_access`
+		// is the LAST rung of MediaVerse's ladder, not the ladder:
+		// PermissionService::drive_access() resolves (1) the site-wide drive-admin
+		// capability -> `own`, (2) your own personal drive -> `own`, and only then
+		// (3) the filter, whose answer it also validates against the frozen level
+		// set and memoises. Calling the filter directly skipped 1 and 2, so a
+		// drive admin AND a member looking at their own drive both resolved to
+		// `none` — the profile Files tab published can_write = false to the
+		// drive's own owner. Re-deriving a permission the owner already computes
+		// is how the two diverge; ask, and every rung it grows later applies here
+		// for free.
+		//
+		// Documents are a Pro surface, so the ladder is only there when Pro is.
+		// The fallback covers the rung that is ours to know without it: a personal
+		// drive belongs to its owner.
+		$viewer = get_current_user_id();
+		if ( class_exists( '\\WPMediaVersePro\\Documents\\PermissionService' ) ) {
+			$access = ( new \WPMediaVersePro\Documents\PermissionService() )->drive_access( $drive_type, $drive_id, $viewer );
+		} elseif ( 'user' === $drive_type ) {
+			$access = ( $viewer > 0 && $viewer === $drive_id ) ? 'own' : 'none';
+		} else {
+			$access = apply_filters( 'mvs_document_drive_access', 'none', $drive_type, $drive_id, $viewer );
+		}
+
+		return array(
+			'folders'      => $folders,
+			'documents'    => $documents,
+			'breadcrumbs'  => self::drive_breadcrumbs( $folder ),
+			'total'        => isset( $doc_headers['X-WP-Total'] ) ? (int) $doc_headers['X-WP-Total'] : count( $documents ),
+			'pages'        => isset( $doc_headers['X-WP-TotalPages'] ) ? (int) $doc_headers['X-WP-TotalPages'] : 1,
+			'page'         => $page,
+			'folder'       => $folder,
+			'folder_total' => isset( $fol_headers['X-WP-Total'] ) ? (int) $fol_headers['X-WP-Total'] : count( $folders ),
+			'folder_pages' => isset( $fol_headers['X-WP-TotalPages'] ) ? (int) $fol_headers['X-WP-TotalPages'] : 1,
+			'folder_page'  => $folder_page,
+			'can_write'    => in_array( $access, array( 'write', 'own' ), true ),
+		);
+	}
+
+	/**
+	 * One document from a space drive, for the single-file view.
+	 *
+	 * Asks MVS's REST for the document (so its privacy gate + our drive filters
+	 * both run) and then confirms the row actually belongs to THIS space drive —
+	 * without that check a `?bn_doc=` on the Files tab would render any document
+	 * the viewer can read, from any drive. Returns null on refusal or a
+	 * cross-drive id, so the caller shows "file not found" rather than another
+	 * space's file under this space's tab.
+	 *
+	 * @param int $space_id Space id (the drive this view belongs to).
+	 * @param int $doc_id   Document id.
+	 * @return array<string,mixed>|null
+	 */
+	public static function space_drive_document( int $space_id, int $doc_id ): ?array {
+		if ( ! self::documents_available() || $doc_id <= 0 || null === self::drive_space( 'space', $space_id ) ) {
+			return null;
+		}
+		return self::drive_document_core( 'space', $space_id, $doc_id );
+	}
+
+	/**
+	 * One document from the member's OWN drive, for the profile single-file view.
+	 *
+	 * Self-only, same as {@see user_drive_view()}; confirms the document really
+	 * lives in this owner's user drive so a `?bn_doc=` cannot render a document
+	 * from another drive under the profile Files tab.
+	 *
+	 * @param int $owner_id The profile owner (must equal the viewer).
+	 * @param int $doc_id   Document id.
+	 * @return array<string,mixed>|null
+	 */
+	public static function user_drive_document( int $owner_id, int $doc_id ): ?array {
+		if ( ! self::documents_available() || $doc_id <= 0 || ! self::user_drive_ok( $owner_id ) ) {
+			return null;
+		}
+		return self::drive_document_core( 'user', $owner_id, $doc_id );
+	}
+
+	/**
+	 * Shared fetch+scope-check for one document of either drive kind.
+	 *
+	 * Asks MediaVerse's REST for the document (so its privacy gate + our drive
+	 * filters both run) and then confirms the row belongs to THIS drive — without
+	 * that check a `?bn_doc=` would render any document the viewer can read, from
+	 * any drive. Null on refusal or a cross-drive id.
+	 *
+	 * @param string $drive_type 'space' or 'user'.
+	 * @param int    $drive_id   Drive id (space id or owner id).
+	 * @param int    $doc_id     Document id.
+	 * @return array<string,mixed>|null
+	 */
+	private static function drive_document_core( string $drive_type, int $drive_id, int $doc_id ): ?array {
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/' . $doc_id );
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return null;
+		}
+		$doc   = (array) $res->get_data();
+		$drive = isset( $doc['drive'] ) && is_array( $doc['drive'] ) ? $doc['drive'] : array();
+		if ( ( $drive['type'] ?? '' ) !== $drive_type || (int) ( $drive['id'] ?? 0 ) !== $drive_id ) {
+			return null;
+		}
+		return $doc;
+	}
+
+	/**
+	 * Search one space drive's documents for the Files tab.
+	 *
+	 * Delegates to MVS's search REST scoped to this drive (`drive=space:N`), so
+	 * the index, relevance and per-row privacy are all MVS's — BuddyNext only
+	 * asks the question and lays out the answer. `ready` is false while the
+	 * search index is still building, which the UI shows as "preparing" rather
+	 * than a false "no results".
+	 *
+	 * @param int    $space_id Space id (the drive).
+	 * @param string $query    Search phrase.
+	 * @param int    $page     1-based page.
+	 * @return array{items:array<int,array<string,mixed>>,total:int,pages:int,page:int,query:string,ready:bool}|null
+	 */
+	public static function space_drive_search( int $space_id, string $query, int $page = 1 ): ?array {
+		if ( ! self::documents_available() || null === self::drive_space( 'space', $space_id ) ) {
+			return null;
+		}
+		return self::drive_search_core( 'space', $space_id, $query, $page );
+	}
+
+	/**
+	 * Search the member's OWN drive for the profile Files tab. Self-only.
+	 *
+	 * @param int    $owner_id The profile owner (must equal the viewer).
+	 * @param string $query    Search phrase.
+	 * @param int    $page     1-based page.
+	 * @return array{items:array<int,array<string,mixed>>,total:int,pages:int,page:int,query:string,ready:bool}|null
+	 */
+	public static function user_drive_search( int $owner_id, string $query, int $page = 1 ): ?array {
+		if ( ! self::documents_available() || ! self::user_drive_ok( $owner_id ) ) {
+			return null;
+		}
+		return self::drive_search_core( 'user', $owner_id, $query, $page );
+	}
+
+	/**
+	 * Shared drive-scoped search for either drive kind.
+	 *
+	 * @param string $drive_type 'space' or 'user'.
+	 * @param int    $drive_id   Drive id (space id or owner id).
+	 * @param string $query      Search phrase.
+	 * @param int    $page       1-based page.
+	 * @return array{items:array<int,array<string,mixed>>,total:int,pages:int,page:int,query:string,ready:bool}|null
+	 */
+	private static function drive_search_core( string $drive_type, int $drive_id, string $query, int $page = 1 ): ?array {
+		$page = max( 1, $page );
+		$req  = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/search' );
+		$req->set_query_params(
+			array(
+				'q'        => $query,
+				'drive'    => $drive_type . ':' . $drive_id,
+				'page'     => $page,
+				'per_page' => 50,
+			)
+		);
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return null;
+		}
+		$data  = (array) $res->get_data();
+		$index = isset( $data['index'] ) && is_array( $data['index'] ) ? $data['index'] : array();
+		return array(
+			'items' => isset( $data['items'] ) && is_array( $data['items'] ) ? $data['items'] : array(),
+			'total' => isset( $data['total'] ) ? (int) $data['total'] : 0,
+			'pages' => isset( $data['pages'] ) ? max( 1, (int) $data['pages'] ) : 1,
+			'page'  => $page,
+			'query' => (string) $query,
+			'ready' => ! empty( $index['ready'] ),
+		);
+	}
+
+	/**
+	 * Validate + prepare a composer document attachment for a post.
+	 *
+	 * Called at post-create time (as the poster): confirms the poster can
+	 * actually see the document they claim to attach — otherwise a crafted
+	 * `document_id` could smuggle someone else's document into a post, and every
+	 * viewer who CAN see it would then read its title in the feed. Returns the
+	 * link_meta to persist (just the id — never a title snapshot), or null to
+	 * refuse the attachment.
+	 *
+	 * @param int $doc_id Document id from the composer.
+	 * @return array{doc_id:int}|null
+	 */
+	public static function resolve_document_for_post( int $doc_id ): ?array {
+		if ( $doc_id <= 0 || ! self::documents_available() ) {
+			return null;
+		}
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/' . $doc_id );
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return null;
+		}
+		return array( 'doc_id' => $doc_id );
+	}
+
+	/**
+	 * Fetch one document AS THE CURRENT VIEWER, request-cached.
+	 *
+	 * The whole privacy model of the document card: the feed stores only the id,
+	 * and every render asks MVS "may THIS viewer see it" — so a document that is
+	 * private, trashed, or gone answers with an error and its title never
+	 * reaches a feed the viewer should not see it in. Cached per (viewer, id) so
+	 * the same document rendered twice on a page is one request, not two.
+	 *
+	 * @param int $doc_id Document id.
+	 * @return array<string,mixed>|null The document, or null when the viewer may not see it.
+	 */
+	private static function fetch_document_as_viewer( int $doc_id ): ?array {
+		static $cache = array();
+		if ( $doc_id <= 0 || ! self::documents_available() ) {
+			return null;
+		}
+		$key = get_current_user_id() . ':' . $doc_id;
+		if ( array_key_exists( $key, $cache ) ) {
+			return $cache[ $key ];
+		}
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/' . $doc_id );
+		$res = rest_do_request( $req );
+		$doc = $res->is_error() ? null : (array) $res->get_data();
+
+		$cache[ $key ] = $doc;
+		return $doc;
+	}
+
+	/**
+	 * Render a composer document post as a link-out card — per viewer.
+	 *
+	 * Hooked on `buddynext_render_post_body_document`. Reads only the stored
+	 * document id, asks MVS whether THIS viewer may see it, and renders the
+	 * shared bridge card (icon + "Document" + the real title + a download link)
+	 * when they may — or a neutral, title-less "unavailable" line when they may
+	 * not, so a private document never leaks its name into a feed. Falls back to
+	 * the plain-text body when the integration's feed aspect is off.
+	 *
+	 * @param string              $html Incoming card HTML (default '').
+	 * @param array<string,mixed> $args Post-body args (link_meta, post_content, bn_post_type).
+	 * @return string
+	 */
+	public function render_document_card( string $html, array $args ): string {
+		if ( ! buddynext_integration_enabled( 'media', 'feed' ) ) {
+			return $html;
+		}
+		$meta   = isset( $args['link_meta'] ) && is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
+		$doc_id = isset( $meta['doc_id'] ) ? (int) $meta['doc_id'] : 0;
+		if ( $doc_id <= 0 ) {
+			return $html;
+		}
+
+		$doc = self::fetch_document_as_viewer( $doc_id );
+		if ( null === $doc ) {
+			return self::render_document_unavailable();
+		}
+
+		$title = isset( $doc['title'] ) && '' !== (string) $doc['title'] ? (string) $doc['title'] : __( 'Document', 'buddynext' );
+		$size  = isset( $doc['file_size'] ) ? (int) $doc['file_size'] : 0;
+		$link  = isset( $doc['links']['download'] ) ? (string) $doc['links']['download'] : '';
+		if ( '' === $link ) {
+			return self::render_document_unavailable();
+		}
+		// A cookie-auth GET needs a nonce (same as the Files tab download links).
+		$url = add_query_arg( '_wpnonce', wp_create_nonce( 'wp_rest' ), $link );
+
+		// Reference, not embed: the card links OUT to the document; BuddyNext
+		// never renders its bytes. Build the preview fresh, per viewer.
+		$args['link_preview'] = array(
+			'url'   => $url,
+			'title' => $title,
+			'desc'  => $size > 0 ? size_format( $size ) : '',
+		);
+
+		return IntegrationActivity::render_bridge_card( $args, 'file-text', __( 'Document', 'buddynext' ) );
+	}
+
+	/**
+	 * The neutral, title-less card a viewer sees for a document they cannot open.
+	 *
+	 * Never names the document — existence is tolerable, the name is the leak.
+	 *
+	 * @return string
+	 */
+	private static function render_document_unavailable(): string {
+		return '<div class="bn-post-card__bridge-card bn-post-card__bridge-card--document is-unavailable">'
+			. '<span class="bn-post-card__bridge-icon">' . buddynext_get_icon( 'file-text' ) . '</span>'
+			. '<span class="bn-post-card__bridge-title">' . esc_html__( 'This document isn’t available to you.', 'buddynext' ) . '</span>'
+			. '</div>';
+	}
+
+	/**
+	 * Trail for the current folder, root-first, INCLUDING the current folder.
+	 *
+	 * MVS stamps a folder object with `breadcrumbs` — its visible ancestors,
+	 * root-first — so the current folder's trail is those ancestors plus the
+	 * folder itself. The caller renders all but the last as links. Empty at the
+	 * drive root, and empty if MVS refuses the folder (the drive gate already
+	 * ran, so that only happens on a stale/hidden id — render the root trail).
+	 *
+	 * @param int $folder Current folder id (0 = root).
+	 * @return array<int,array{id:int,name:string}>
+	 */
+	private static function drive_breadcrumbs( int $folder ): array {
+		if ( $folder <= 0 ) {
+			return array();
+		}
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/folders/' . $folder );
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return array();
+		}
+		$data  = (array) $res->get_data();
+		$trail = array();
+		foreach ( (array) ( $data['breadcrumbs'] ?? array() ) as $c ) {
+			$trail[] = array(
+				'id'   => (int) ( $c['id'] ?? 0 ),
+				'name' => (string) ( $c['name'] ?? '' ),
+			);
+		}
+		$trail[] = array(
+			'id'   => (int) ( $data['id'] ?? $folder ),
+			'name' => (string) ( $data['name'] ?? '' ),
+		);
+		return $trail;
 	}
 
 	/**
@@ -1227,17 +2350,20 @@ class WPMediaVerseBridge {
 
 		// Dedup: this hook can re-fire for the same lightbox comment (re-saves,
 		// repeated sync passes). Without a guard each fire inserted another
-		// bn_comments row, double-counting and re-notifying. Skip if an identical
-		// comment (same post + author + body) already exists.
+		// bn_comments row, double-counting and re-notifying. The key includes the
+		// media_id: the same natural phrase ("Nice shot!") on two photos of ONE
+		// post is two distinct comments, and a post+author+content-only key would
+		// silently swallow the second — so scope the match to this media too.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$existing = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_comments
-				 WHERE object_type = 'post' AND object_id = %d AND user_id = %d AND content = %s
+				 WHERE object_type = 'post' AND object_id = %d AND user_id = %d AND content = %s AND media_id = %d
 				 LIMIT 1",
 				$bn_post_id,
 				$user_id,
-				wp_kses_post( $comment->comment_content )
+				wp_kses_post( $comment->comment_content ),
+				$media_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1255,10 +2381,19 @@ class WPMediaVerseBridge {
 				'object_id'   => $bn_post_id,
 				'user_id'     => $user_id,
 				'content'     => wp_kses_post( $comment->comment_content ),
-				'parent_id'   => 0,
+				// Top-level in the post thread. It MUST be NULL, not 0: the feed
+				// thread query filters `parent_id IS NULL` (CommentService), and
+				// `0 IS NULL` is false — a mirrored row written with 0 is stored,
+				// counted, and then never rendered ("Comment 3, shows 1"). wpdb
+				// writes a real NULL for a null value regardless of the format arg.
+				'parent_id'   => null,
+				// Which photo this lightbox comment was made on, so the feed can
+				// render "on photo N of M" attribution. Post-level feed comments
+				// carry NULL here (they are about the post, not any one photo).
+				'media_id'    => $media_id,
 				'created_at'  => $now,
 			),
-			array( '%s', '%d', '%d', '%s', '%d', '%s' )
+			array( '%s', '%d', '%d', '%s', '%d', '%d', '%s' )
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1279,5 +2414,50 @@ class WPMediaVerseBridge {
 		if ( $new_comment_id > 0 ) {
 			do_action( 'buddynext_comment_created', $new_comment_id, 'post', $bn_post_id, $user_id );
 		}
+	}
+	/**
+	 * Tell MediaVerse a member HAS a custom avatar when BuddyNext holds one.
+	 *
+	 * MediaVerse's profile payload disagreed with itself: `avatar` correctly
+	 * resolved to the BuddyNext upload (both plugins share avatar resolution),
+	 * while `has_custom_avatar` stayed false because it only ever consulted
+	 * MediaVerse's own avatar meta. Any MediaVerse surface gated on that flag - an
+	 * "upload a profile photo" nudge, a completion check, an avatar-required
+	 * feature - then prompted a member to add the avatar it was already
+	 * displaying. Reproduced on three members: `avatar` pointing at
+	 * `bn-avatars/{id}/full.webp` next to `has_custom_avatar: false`.
+	 *
+	 * ORed, never overwritten. MediaVerse's answer is authoritative for its own
+	 * store; this adds the source it cannot see. Turning its `true` into `false`
+	 * would trade one wrong answer for another.
+	 *
+	 * BuddyNext is the avatar authority across the suite, so the flag comes from
+	 * `AvatarService::has_custom_avatar()` - the same resolver that decides
+	 * whether a member has actually added a photo, deliberately not counting
+	 * Gravatar, a site default or generated initials. A checklist that treats the
+	 * site's fallback as the member's answer can never ask for the one thing it
+	 * most wants.
+	 *
+	 * @param mixed $profile MediaVerse profile payload.
+	 * @param int   $user_id Member.
+	 * @return mixed
+	 */
+	public function profile_avatar_flag( $profile, $user_id ) {
+		if ( ! is_array( $profile ) || (int) $user_id <= 0 ) {
+			return $profile;
+		}
+
+		if ( ! empty( $profile['has_custom_avatar'] ) ) {
+			return $profile;
+		}
+
+		$avatars = buddynext_service( 'avatars' );
+		if ( ! is_object( $avatars ) || ! method_exists( $avatars, 'has_custom_avatar' ) ) {
+			return $profile;
+		}
+
+		$profile['has_custom_avatar'] = $avatars->has_custom_avatar( (int) $user_id );
+
+		return $profile;
 	}
 }

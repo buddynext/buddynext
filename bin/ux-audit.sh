@@ -51,6 +51,13 @@ FIND_EXCLUDES=(
     -not -path "*/tests/*"
     -not -path "*/docs/*"
     -not -path "*/.git/*"
+    # Playwright run output: captured copies of third-party pages (the WP admin
+    # bar, the active theme's stylesheet) that the gate then reported as OUR
+    # inline-onclick and hidden-theme-html violations. Four blocking rows from a
+    # gitignored directory holding no plugin source. A gate that cries wolf after
+    # every browser run is a gate people learn to skip.
+    -not -path "*/test-results/*"
+    -not -path "*/playwright-report/*"
 )
 
 violation() {
