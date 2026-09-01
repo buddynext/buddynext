@@ -10,6 +10,13 @@ moved, so the header claimed a 1.1.3 review of content that already described 1.
 **Still outstanding:** the manifests were fully rescanned on 2026-08-21, but this file was not
 re-verified in that pass, and 1.1.6 has since added notification and email-template work. Treat
 every row as last checked at 1.1.3 unless it names a later version.
+**Partial update 2026-09-01 (1.1.6):** the manifest was fully regenerated for the 1.1.6 release, and
+the capabilities touched by the 1.1.6 feed/media/spaces work were reviewed against the code. None
+add or remove a buyer capability: post pinning is now profile-only (spaces feature content through
+Announcements, already a YES row), the media lightbox and its comment sync are refinements of the
+existing media/comment capabilities, the Space Media and Files tabs extend the space media/document
+capabilities, and per-plan Explore gating is a BuddyNext Pro entitlement. This is a targeted review,
+not a full row-by-row re-verification - unnamed rows still trace to 1.1.3.
 **Source of truth order:** `audit/manifest.summary.json` > this file > the code.
 Regenerate both with `/wp-plugin-onboard --refresh`.
 
