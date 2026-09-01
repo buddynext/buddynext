@@ -161,6 +161,23 @@ if [ ! -d node_modules/@playwright ] && ! command -v npx >/dev/null 2>&1; then
 	exit 2
 fi
 
+# Resolve BN_TEST_USER to the login of user ID 1 — the account the auth fixture
+# logs in as via ?autologin=1. The profile/owner specs navigate to
+# urls.member(BN_TEST_USER) as "own profile", so BN_TEST_USER MUST be that same
+# logged-in user or every owner-scoped spec fails with ".bn-app not found" (the
+# profile is a 404). The hard-coded default 'varundubey' only holds on the one
+# machine where user 1 happened to be named varundubey; anywhere else (user 1 =
+# admin, say) ~25 profile/owner specs report phantom regressions. Derive it from
+# the site instead of assuming a name — same lesson as BN_BASE_URL and BN_WP_PATH.
+if [ -z "${BN_TEST_USER:-}" ]; then
+	resolved_user="$(wp --path="$BN_WP_PATH" user get 1 --field=user_login 2>/dev/null | tr -d '[:space:]')"
+	if [ -n "$resolved_user" ]; then
+		BN_TEST_USER="$resolved_user"
+		export BN_TEST_USER
+		echo "journey run: BN_TEST_USER=$BN_TEST_USER (user 1 — the autologin=1 account)"
+	fi
+fi
+
 # Seed the fixture users the specs log in as, exactly like BN_WP_PATH above: it
 # used to be nobody's job. ~20 two-actor spaces specs autologin as BN_TEST_OTHER_USER
 # (default 'alice'); on a site where that account was never created, every one of
