@@ -638,7 +638,7 @@
 		if ( ! list.length ) {
 			var empty = document.createElement( 'p' );
 			empty.className = 'bn-lightbox__comments-empty';
-			empty.textContent = I18N.noComments || 'No comments yet. Be the first to say something!';
+			empty.textContent = I18N.noComments || 'No comments on this photo yet.';
 			panel.comments.appendChild( empty );
 			return;
 		}

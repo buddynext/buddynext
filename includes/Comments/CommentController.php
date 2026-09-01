@@ -319,7 +319,23 @@ class CommentController extends BaseRestController {
 		// object): admins, plus moderators of the post's space, may pin.
 		$can_pin_object = $service->can_pin_comment( $viewer_id, $object_type, $object_id );
 
-		$enrich = function ( array $comment ) use ( $reactions, $viewer_id, $pinned_id, $anonymize, $can_pin_object ): array {
+		// Resolve the thread's post media list once (all comments hang on the same
+		// object). It attributes a mirrored lightbox comment to the photo it was
+		// made on — "on photo N of M" — but only on a MULTI-photo post, where the
+		// distinction is meaningful. Single-photo posts and non-post threads get
+		// no marker. Ordered, so the index is the photo's position.
+		$bn_comment_media_ids = array();
+		if ( 'post' === $object_type && function_exists( 'buddynext_service' ) ) {
+			$bn_thread_post = buddynext_service( 'post_service' )->get( $object_id );
+			$bn_raw_media   = is_array( $bn_thread_post ) ? ( $bn_thread_post['media_ids'] ?? null ) : null;
+			$bn_decoded     = is_array( $bn_raw_media ) ? $bn_raw_media : json_decode( (string) $bn_raw_media, true );
+			if ( is_array( $bn_decoded ) ) {
+				$bn_comment_media_ids = array_values( array_map( 'intval', $bn_decoded ) );
+			}
+		}
+		$bn_comment_media_total = count( $bn_comment_media_ids );
+
+		$enrich = function ( array $comment ) use ( $reactions, $viewer_id, $pinned_id, $anonymize, $can_pin_object, $bn_comment_media_ids, $bn_comment_media_total ): array {
 			$comment['author_name']       = (string) get_the_author_meta( 'display_name', $comment['user_id'] );
 			$comment['author_avatar_url'] = (string) get_avatar_url( $comment['user_id'], array( 'size' => 40 ) );
 			$comment['like_count']        = $reactions->count( 'comment', (int) $comment['id'] );
@@ -366,6 +382,24 @@ class CommentController extends BaseRestController {
 			// so the client renders comment bodies with markup instead of raw
 			// text. The raw `content` field is kept for the edit textarea.
 			$comment['content_html'] = buddynext_format_content( (string) $comment['content'] );
+
+			// "on photo N of M" attribution for a mirrored lightbox comment. Only
+			// on a multi-photo post, and only when the comment's media is still in
+			// the post's list — a since-unlinked/deleted photo falls back to no
+			// marker rather than a wrong "photo 0 of N". A post-level feed comment
+			// carries media_id NULL and gets no marker.
+			$comment['media_attribution'] = null;
+			$bn_cmid                      = isset( $comment['media_id'] ) ? (int) $comment['media_id'] : 0;
+			if ( $bn_cmid > 0 && $bn_comment_media_total > 1 ) {
+				$bn_idx = array_search( $bn_cmid, $bn_comment_media_ids, true );
+				if ( false !== $bn_idx ) {
+					$comment['media_attribution'] = array(
+						'media_id' => $bn_cmid,
+						'index'    => (int) $bn_idx + 1,
+						'total'    => $bn_comment_media_total,
+					);
+				}
+			}
 
 			return $comment;
 		};

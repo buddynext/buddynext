@@ -2350,17 +2350,20 @@ class WPMediaVerseBridge {
 
 		// Dedup: this hook can re-fire for the same lightbox comment (re-saves,
 		// repeated sync passes). Without a guard each fire inserted another
-		// bn_comments row, double-counting and re-notifying. Skip if an identical
-		// comment (same post + author + body) already exists.
+		// bn_comments row, double-counting and re-notifying. The key includes the
+		// media_id: the same natural phrase ("Nice shot!") on two photos of ONE
+		// post is two distinct comments, and a post+author+content-only key would
+		// silently swallow the second — so scope the match to this media too.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$existing = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_comments
-				 WHERE object_type = 'post' AND object_id = %d AND user_id = %d AND content = %s
+				 WHERE object_type = 'post' AND object_id = %d AND user_id = %d AND content = %s AND media_id = %d
 				 LIMIT 1",
 				$bn_post_id,
 				$user_id,
-				wp_kses_post( $comment->comment_content )
+				wp_kses_post( $comment->comment_content ),
+				$media_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2378,10 +2381,19 @@ class WPMediaVerseBridge {
 				'object_id'   => $bn_post_id,
 				'user_id'     => $user_id,
 				'content'     => wp_kses_post( $comment->comment_content ),
-				'parent_id'   => 0,
+				// Top-level in the post thread. It MUST be NULL, not 0: the feed
+				// thread query filters `parent_id IS NULL` (CommentService), and
+				// `0 IS NULL` is false — a mirrored row written with 0 is stored,
+				// counted, and then never rendered ("Comment 3, shows 1"). wpdb
+				// writes a real NULL for a null value regardless of the format arg.
+				'parent_id'   => null,
+				// Which photo this lightbox comment was made on, so the feed can
+				// render "on photo N of M" attribution. Post-level feed comments
+				// carry NULL here (they are about the post, not any one photo).
+				'media_id'    => $media_id,
 				'created_at'  => $now,
 			),
-			array( '%s', '%d', '%d', '%s', '%d', '%s' )
+			array( '%s', '%d', '%d', '%s', '%d', '%d', '%s' )
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

@@ -103,7 +103,7 @@ class MediaAssets {
 					'views'       => __( 'views', 'buddynext' ),
 					'favorite'    => __( 'Favorite', 'buddynext' ),
 					'favorited'   => __( 'Favorited', 'buddynext' ),
-					'noComments'  => __( 'No comments yet. Be the first to say something!', 'buddynext' ),
+					'noComments'  => __( 'No comments on this photo yet.', 'buddynext' ),
 					'loginPrompt' => __( 'Log in to react and comment.', 'buddynext' ),
 					'posting'     => __( 'Posting…', 'buddynext' ),
 					// Read by lightbox.js when the clipboard API is unavailable; the key

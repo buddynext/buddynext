@@ -323,8 +323,13 @@ class Installer {
 	 *      new cases and heals none of the existing ones: every member on an affected site
 	 *      still reads a raw JSON blob under their name on the hero, the About panel, and
 	 *      the directory card. See maybe_repair_stranded_location_values().
+	 * v48: bn_comments gains media_id BIGINT UNSIGNED DEFAULT NULL. NULL = a post-level
+	 *      comment (all existing rows are correct as NULL, no backfill). Non-NULL = a
+	 *      lightbox comment made on that specific media item, mirrored into the post
+	 *      thread by WPMediaVerseBridge::sync_lightbox_comment() so the feed can render
+	 *      "on photo N of M" attribution. dbDelta ADD-COLUMNs it on upgrade; additive.
 	 */
-	private const SCHEMA_VERSION = 47;
+	private const SCHEMA_VERSION = 48;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3579,6 +3584,7 @@ class Installer {
 				is_edited TINYINT(1) NOT NULL DEFAULT 0,
 				is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 				sync_reply_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				media_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),

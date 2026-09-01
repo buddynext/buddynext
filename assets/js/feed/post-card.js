@@ -463,6 +463,20 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		editedMark.textContent = t( 'edited', '(edited)' );
 		header.appendChild( editedMark );
 	}
+	// "on photo N of M" — a mirrored lightbox comment, shown only on a multi-photo
+	// post (the server sends media_attribution only then, and only when the media
+	// is still in the post). A post-level feed comment carries none, so no marker.
+	if ( comment.media_attribution && comment.media_attribution.total > 1 ) {
+		const attr = document.createElement( 'span' );
+		attr.className = 'bn-comment__media-attr';
+		attr.dataset.mediaId = String( comment.media_attribution.media_id || '' );
+		attr.textContent = fmt(
+			t( 'commentOnPhoto', 'on photo %1$d of %2$d' ),
+			comment.media_attribution.index,
+			comment.media_attribution.total
+		);
+		header.appendChild( attr );
+	}
 	body.appendChild( header );
 
 	// Content paragraph (or placeholder for soft-deleted comments).
