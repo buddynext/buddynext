@@ -31,7 +31,7 @@ test.describe('feed / composer audience picker', () => {
             return;
         }
 
-        const meId = await userId('varundubey');
+        const meId = await userId(process.env.BN_TEST_USER ?? 'varundubey');
         const themId = await userId(otherSlug);
         expect(meId, 'author id').toBeGreaterThan(0);
         expect(themId, 'viewer id').toBeGreaterThan(0);

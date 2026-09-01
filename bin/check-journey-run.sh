@@ -192,6 +192,18 @@ if [ -f bin/seed-e2e.sh ]; then
 	fi
 fi
 
+# Pin the second-actor login to the seeded subscriber. seed-e2e.sh creates 'alice'
+# (BN_TEST_OTHER_USER default); export the same value so resolveOtherMemberSlug()
+# returns THAT account instead of scanning the directory and picking whoever comes
+# first — which on a demo site can be another admin, making owner/announcement-gate
+# specs assert the wrong role (J-513 saw the announcement tool on an admin it
+# mistook for a plain member). Same lesson as BN_TEST_USER above.
+if [ -z "${BN_TEST_OTHER_USER:-}" ]; then
+	BN_TEST_OTHER_USER="alice"
+	export BN_TEST_OTHER_USER
+	echo "journey run: BN_TEST_OTHER_USER=$BN_TEST_OTHER_USER (the seeded non-owner member)"
+fi
+
 REPORT="$(mktemp -t bn-journey-XXXXXX.json)"
 trap 'rm -f "$REPORT"' EXIT
 
