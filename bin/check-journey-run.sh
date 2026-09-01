@@ -70,28 +70,17 @@ bn_is_buddynext_site() {
 	curl -sfL --max-time 5 "${1%/}/wp-json/buddynext/v1" 2>/dev/null | grep -q '"namespace"'
 }
 
-# Candidates come from Local's own record of what is installed on THIS machine.
-# A hardcoded hostname works only on the machine it was written on: the previous
-# two-entry list named one developer's hosts, and on a second machine neither was
-# the site under test — ports differ per machine too, so 10003 is one product
-# here and another there.
+# Candidates come from the shared resolver (tests/e2e/_fixtures/resolve-base-url.mjs)
+# — the SAME source playwright.config.ts uses, so the gate and a direct
+# `npx playwright test` agree on which local site to hit instead of drifting.
+# Every candidate is a real Local site on THIS machine (buddynext-named / the
+# owning install first); no hostname is hardcoded, because BuddyNext ships to
+# anyone and no tester's URL can be assumed. Each candidate is REST-probed below
+# before the suite runs against it.
 bn_site_candidates() {
-	sites_json="$HOME/Library/Application Support/Local/sites.json"
-	if [ -f "$sites_json" ] && command -v python3 >/dev/null 2>&1; then
-		python3 -c 'import json,sys
-try: sites = json.load(open(sys.argv[1]))
-except Exception: sys.exit(0)
-ranked = []
-for s in sites.values():
-    d = s.get("domain")
-    if not d: continue
-    n = ((s.get("name") or "") + d).lower()
-    ranked.append((0 if "buddynext" in n else 1, d))
-for _, d in sorted(ranked): print("http://" + d)' "$sites_json" 2>/dev/null
+	if command -v node >/dev/null 2>&1; then
+		node tests/e2e/_fixtures/resolve-base-url.cjs --list 2>/dev/null
 	fi
-	# Conventional fallbacks for non-Local setups.
-	echo http://buddynext.local
-	echo http://buddynext-dev.local
 }
 
 if [ -z "${BN_BASE_URL:-}" ]; then
