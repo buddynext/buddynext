@@ -212,7 +212,7 @@ body.bn-lightbox-open { overflow: hidden; }
 .bn-lightbox {
 	position: fixed;
 	inset: 0;
-	z-index: 100000;
+	z-index: var(--bn-z-lightbox);
 	display: flex;
 	align-items: center;
 	justify-content: center;

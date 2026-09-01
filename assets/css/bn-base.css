@@ -172,6 +172,16 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-r-xl:   calc(var(--bn-radius-base) * 2);
 	--bn-r-full: 9999px;
 
+	/* Overlay stacking scale — ordered so an overlay is always above whatever
+	   opened it. Before this the lightbox (100000) sat an order of magnitude
+	   above the modal backdrop (10000), so any confirm/dialog opened from inside
+	   the lightbox (Remove from space, Edit, Report) was painted underneath it
+	   and its buttons could not be clicked. Anything new that stacks on the
+	   front end should use these tokens, not a fresh literal. */
+	--bn-z-lightbox: 100000;
+	--bn-z-modal:    100100;   /* above the lightbox — a modal is the top surface */
+	--bn-z-toast:    100200;   /* above the modal — confirms what a modal just did */
+
 	/* Shadows */
 	--bn-shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.04);
 	--bn-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.04), 0 2px 4px oklch(0% 0 0 / 0.04);
@@ -736,7 +746,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	bottom: var(--bn-s6);
 	left: 50%;
 	transform: translateX(-50%);
-	z-index: 9999;
+	z-index: var(--bn-z-toast);
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s2);
@@ -3237,7 +3247,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-modal-backdrop {
 	position: fixed;
 	inset: 0;
-	z-index: 10000;
+	z-index: var(--bn-z-modal);
 	background: color-mix(in oklch, var(--bn-ink) 55%, transparent);
 	-webkit-backdrop-filter: blur(2px);
 	backdrop-filter: blur(2px);
