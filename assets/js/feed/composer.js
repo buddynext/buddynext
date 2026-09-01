@@ -861,8 +861,10 @@ store( 'buddynext/post-composer', {
 							// The space this composer is posting into, so the engine files
 							// the media on that space's drive. Without it the file lands on
 							// the uploader's personal drive, where the post's space_members
-							// privacy has nothing to resolve against.
-							spaceId: parseInt( ctx.spaceId, 10 ) || 0,
+							// privacy has nothing to resolve against. ctxData is the parsed
+							// composer context from this scope (line 727) — a bare `ctx`
+							// here is a ReferenceError that aborts the whole upload.
+							spaceId: parseInt( ctxData.spaceId, 10 ) || 0,
 						} );
 
 						if ( out.ok ) {
