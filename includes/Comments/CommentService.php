@@ -1230,10 +1230,6 @@ class CommentService {
 			'content'     => $row['content'],
 			'is_edited'   => (bool) $row['is_edited'],
 			'is_deleted'  => (bool) $row['is_deleted'],
-			// The media item a mirrored lightbox comment was made on, so the feed
-			// can render "on photo N of M" attribution. NULL for an ordinary
-			// post-level comment (it is about the post, not any one photo).
-			'media_id'    => isset( $row['media_id'] ) && null !== $row['media_id'] ? (int) $row['media_id'] : null,
 			'created_at'  => $row['created_at'],
 			'updated_at'  => $row['updated_at'],
 		);
