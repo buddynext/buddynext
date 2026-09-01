@@ -247,7 +247,11 @@ $can_delete = $is_own_post || ( $current_user_id > 0 && buddynext_can( $current_
  * Same context list as $show_pin_badge below, deliberately: one rule, so the
  * control and its badge cannot disagree about where pinning means something.
  */
-$can_pin    = ( $is_own_post || $is_admin ) && in_array( $context, array( 'profile', 'space' ), true );
+// The owner may pin on their profile or in a space; a site admin / space
+// moderator may pin only a SPACE post (curating the space's pinned set), never a
+// member's profile post (that is the member's own curation). Mirrors the server
+// gate in PostService::can_moderate_pin().
+$can_pin    = ( $is_own_post || ( $is_admin && $bn_space_id > 0 ) ) && in_array( $context, array( 'profile', 'space' ), true );
 $can_report = ( $current_user_id > 0 && ! $is_own_post );
 
 // Reactions are a site-owner-toggleable feature (Settings → Features, default on).

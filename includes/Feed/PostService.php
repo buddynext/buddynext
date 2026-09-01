@@ -2113,18 +2113,6 @@ class PostService {
 	 * @return true|WP_Error
 	 */
 	public function pin( int $post_id, int $user_id, ?int $space_id = null ): bool|WP_Error {
-		$ownership = $this->assert_owner( $post_id, $user_id );
-		if ( is_wp_error( $ownership ) ) {
-			// Owners pin their own posts; site admins and space moderators may pin
-			// any post in a space they moderate (same escape hatch as delete()).
-			// Space mods managing their own space's pinned set was impossible before.
-			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
-				return $ownership;
-			}
-		}
-
-		global $wpdb;
-
 		// The pin scope is the post's OWN location, never a caller argument: the
 		// REST controller omitted space_id, so every pin fell into the profile
 		// bucket and the per-space cap was fictional (profile + space pins shared
@@ -2135,6 +2123,18 @@ class PostService {
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 		$space_id = (int) ( $post['space_id'] ?? 0 ) > 0 ? (int) $post['space_id'] : null;
+
+		// Owner always. A non-owner may pin only a SPACE post they moderate — that
+		// curates the SPACE's pinned set. assert_owner() is deliberately NOT used
+		// here: its admin escape hatch (correct for content moderation such as
+		// delete) would let a site admin pin a member's own profile post,
+		// rearranging how that member presents themselves. Profile pins stay
+		// owner-only. See can_moderate_pin().
+		if ( (int) $post['user_id'] !== $user_id && ! $this->can_moderate_pin( $post_id, $user_id ) ) {
+			return new WP_Error( 'not_post_owner', __( 'You are not the owner of this post.', 'buddynext' ) );
+		}
+
+		global $wpdb;
 
 		/**
 		 * Filter the maximum number of pinned posts allowed per scope.
@@ -2253,13 +2253,17 @@ class PostService {
 	 * @return true|WP_Error
 	 */
 	public function unpin( int $post_id, int $user_id ): bool|WP_Error {
-		$ownership = $this->assert_owner( $post_id, $user_id );
-		if ( is_wp_error( $ownership ) ) {
-			// Same permission as pin(): owner, site admin, or space moderator of the
-			// post's space may unpin it.
-			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
-				return $ownership;
-			}
+		$post = $this->get( $post_id );
+		if ( null === $post ) {
+			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// Same permission as pin(): the owner always, plus a space moderator/admin on
+		// a SPACE post. A profile post's pins stay owner-only (see can_moderate_pin())
+		// — an admin must not unpin from a member's profile. assert_owner() is not
+		// used here: its admin escape hatch would bypass exactly this.
+		if ( (int) $post['user_id'] !== $user_id && ! $this->can_moderate_pin( $post_id, $user_id ) ) {
+			return new WP_Error( 'not_post_owner', __( 'You are not the owner of this post.', 'buddynext' ) );
 		}
 
 		global $wpdb;
@@ -3237,6 +3241,31 @@ class PostService {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Whether a non-owner may pin/unpin a post.
+	 *
+	 * Pinning is narrower than the rest of moderation: it curates a pinned SET,
+	 * not the content. On a SPACE post that set belongs to the space, so a space
+	 * moderator (or a site admin) may manage it — the same authority every
+	 * space-moderation action grants. On a PROFILE post the set is the author's
+	 * OWN profile, which nobody else may rearrange on their behalf, so it stays
+	 * owner-only even for a site admin. This is why pin()/unpin() use this gate
+	 * instead of can_moderate_post(): an admin removing a spam profile post
+	 * (delete) is legitimate moderation, but pinning one to that member's profile
+	 * is not — it changes how the member presents themselves without their say.
+	 *
+	 * @param int $post_id Post being pinned/unpinned.
+	 * @param int $user_id Actor.
+	 * @return bool
+	 */
+	private function can_moderate_pin( int $post_id, int $user_id ): bool {
+		$post = $this->get( $post_id );
+		if ( null === $post || (int) ( $post['space_id'] ?? 0 ) <= 0 ) {
+			return false;
+		}
+		return $this->can_moderate_post( $post_id, $user_id );
 	}
 
 	/**
