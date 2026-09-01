@@ -528,6 +528,19 @@
 	display: block;
 }
 
+/* Full-bleed banner fields: preview at a real banner aspect, not a logo-sized
+   thumbnail, so owners see what will actually render behind the panel. */
+.bn-a-banner-preview {
+	width: 100%;
+	max-width: 480px;
+	aspect-ratio: 5 / 2;
+	height: auto;
+	object-fit: cover;
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	background: var(--bn-a-bg-subtle);
+}
+
 .bn-media-controls {
 	display: flex;
 	flex-wrap: wrap;
@@ -535,9 +548,13 @@
 	gap: var(--bn-a-s2);
 }
 
+/* The URL input carries the posted value and is the no-JS fallback — keep it on
+   its own row below the buttons and visually secondary to the picker. */
 .bn-media-controls .bn-media-url {
-	flex: 1 1 auto;
+	flex: 1 1 100%;
 	min-width: 0;
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-3);
 }
 
 /* --------------------------------------------------------------------------

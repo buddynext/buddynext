@@ -468,7 +468,10 @@ abstract class AdminPageBase {
 	 * @param string $label        Field label.
 	 * @param string $value        Current image URL ('' = none).
 	 * @param string $hint         Optional hint text beneath the field.
-	 * @param string $select_label Select-button label. Defaults to "Select image".
+	 * @param string $select_label  Select-button label. Defaults to "Select image".
+	 * @param string $preview_class Preview <img> class. Defaults to the logo
+	 *                              thumbnail cap; pass 'bn-a-banner-preview' for
+	 *                              wide, full-bleed banner fields.
 	 * @return void
 	 */
 	public static function render_media_row(
@@ -476,7 +479,8 @@ abstract class AdminPageBase {
 		string $label,
 		string $value,
 		string $hint = '',
-		string $select_label = ''
+		string $select_label = '',
+		string $preview_class = 'bn-a-logo-preview'
 	): void {
 		if ( '' === $select_label ) {
 			$select_label = __( 'Select image', 'buddynext' );
@@ -487,7 +491,7 @@ abstract class AdminPageBase {
 		<div class="bn-field bn-media-field" data-bn-media-field>
 			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
 			<div class="bn-media-preview" data-bn-media-preview <?php echo $has_img ? '' : 'hidden'; ?>>
-				<img src="<?php echo esc_url( $value ); ?>" alt="" class="bn-a-logo-preview">
+				<img src="<?php echo esc_url( $value ); ?>" alt="" class="<?php echo esc_attr( $preview_class ); ?>">
 			</div>
 			<div class="bn-media-controls">
 				<button type="button"

@@ -2492,7 +2492,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			__( 'Panel banner image', 'buddynext' ),
 			buddynext_auth_panel_value( 'buddynext_auth_panel_image' ),
 			__( 'A full-bleed banner image behind the panel. Pick one from the media library or paste an image URL. Defaults to the built-in network-textured gradient.', 'buddynext' ),
-			__( 'Select image', 'buddynext' )
+			__( 'Select image', 'buddynext' ),
+			'bn-a-banner-preview'
 		);
 
 		$this->render_text_row(
