@@ -756,7 +756,7 @@ class SpaceController extends BaseRestController {
 		// Tell the owner their item left the space (they keep it). Skipped when a
 		// moderator unlinks their own upload. A native BuddyNext event, so the pref
 		// catalogue — not a collect-only rule — decides whether it also emails.
-		if ( $owner_id > 0 && $owner_id !== $user_id ) {
+		if ( $owner_id !== $user_id ) {
 			( new NotificationService() )->create(
 				array(
 					'recipient_id' => $owner_id,
