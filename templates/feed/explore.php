@@ -40,6 +40,52 @@ if ( ! in_array( $explore_filter, ExploreService::FILTERS, true ) ) {
 // ── First-page cursor (deep links / no-JS pagination) ──────────────────────
 $explore_cursor = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
+// ── Per-viewer visibility gate (first-paint, at the data source) ────────────
+/**
+ * Whether the current viewer may see the Explore discovery deck at all.
+ *
+ * Free ships no plans, so the default is always true. Pro hooks this to return
+ * false for a member whose plan withholds the `social.explore` entitlement, so
+ * the deck is never built or the pulse queried for them. This is the seam that
+ * closes the server-rendered first paint: the REST gate only refuses the data
+ * endpoints (a SSR page never calls them) and the redirect-based page-route gate
+ * cannot act on a site with nothing to sell — so without this a restricted
+ * member still saw the entire discovery deck the owner had excluded them from.
+ *
+ * @param bool $can_view        Whether the viewer may see Explore. Default true.
+ * @param int  $current_user_id Current user ID (0 = guest; guests are unplanned).
+ */
+$bn_can_view_explore = (bool) apply_filters( 'buddynext_can_view_explore', true, $current_user_id );
+
+if ( ! $bn_can_view_explore ) {
+	\BuddyNext\Sidebar\Surface::set( 'explore' );
+	?>
+	<div class="bn-feed-stack bn-explore">
+		<div class="bn-explore-content">
+			<?php
+			buddynext_get_template(
+				'parts/empty-state.php',
+				array(
+					'icon'  => 'lock',
+					'title' => (string) apply_filters(
+						'buddynext_explore_locked_title',
+						__( 'Explore is not available on your plan', 'buddynext' ),
+						$current_user_id
+					),
+					'body'  => (string) apply_filters(
+						'buddynext_explore_locked_body',
+						__( 'Discovering new members, spaces, and posts is part of a higher plan on this community.', 'buddynext' ),
+						$current_user_id
+					),
+				)
+			);
+			?>
+		</div>
+	</div>
+	<?php
+	return;
+}
+
 // ── Build the discovery deck (single source of truth) ──────────────────────
 
 /*
