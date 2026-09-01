@@ -287,10 +287,17 @@ class AssetService {
 		// core code editor (CodeMirror) upgrades the Custom CSS textarea. Both
 		// fall back gracefully — plain URL input / plain textarea — when
 		// unavailable (user disabled syntax highlighting, blocked JS).
-		if ( \BuddyNext\Admin\AdminHub::is_tab_active( 'appearance' ) ) {
+		// The single-image media picker (AdminPageBase::render_media_row) drives the
+		// Appearance Logo field AND the Registration auth-panel banner field, so it
+		// is enqueued on either tab.
+		if ( \BuddyNext\Admin\AdminHub::is_tab_active( 'appearance' )
+			|| \BuddyNext\Admin\AdminHub::is_tab_active( 'registration' ) ) {
 			wp_enqueue_media();
 			wp_enqueue_script( 'bn-admin-media' );
+		}
 
+		// Appearance also upgrades the Custom CSS textarea with the core code editor.
+		if ( \BuddyNext\Admin\AdminHub::is_tab_active( 'appearance' ) ) {
 			$bn_editor = wp_enqueue_code_editor( array( 'type' => 'text/css' ) );
 			if ( false !== $bn_editor ) {
 				wp_add_inline_script(

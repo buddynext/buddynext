@@ -1636,8 +1636,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					new Field(
 						array(
 							'key'   => 'buddynext_auth_panel_image',
-							'type'  => 'url',
-							'label' => __( 'Panel banner image URL', 'buddynext' ),
+							'type'  => 'media',
+							'label' => __( 'Panel banner image', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -2487,11 +2487,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			3
 		);
 
-		$this->render_text_row(
+		self::render_media_row(
 			'buddynext_auth_panel_image',
-			__( 'Panel banner image URL', 'buddynext' ),
+			__( 'Panel banner image', 'buddynext' ),
 			buddynext_auth_panel_value( 'buddynext_auth_panel_image' ),
-			__( 'A full-bleed banner image behind the panel. Defaults to the built-in network-textured gradient.', 'buddynext' )
+			__( 'A full-bleed banner image behind the panel. Pick one from the media library or paste an image URL. Defaults to the built-in network-textured gradient.', 'buddynext' ),
+			__( 'Select image', 'buddynext' )
 		);
 
 		$this->render_text_row(
