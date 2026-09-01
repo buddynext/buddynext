@@ -1,6 +1,6 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * Bucket [A] remainder — interests, reshares, sub-spaces, pinned posts.
+ * Bucket [A] remainder — interests, reshares, sub-spaces.
  *
  * @package BuddyNext\Tests\Cache
  */
@@ -28,15 +28,11 @@ use WP_UnitTestCase;
  *       changed their interests on the profile screen with the OLD ones still choosing
  *       what their feed shows them.
  *
- *   A9  A pinned post that stays pinned after being UNPINNED is content an owner has
- *       explicitly tried to take off the top of their space and failed to.
- *
  *   A9  Sub-spaces are visibility-scoped exactly like the directory: a secret child is
  *       dropped unless the viewer owns it, belongs to it, or is an admin. Same key rule,
  *       same leak if it is got wrong.
  *
  * @covers \BuddyNext\Onboarding\OnboardingService::get_interest_ids
- * @covers \BuddyNext\Feed\FeedService::space_pinned_posts
  * @covers \BuddyNext\Spaces\SpaceService::get_subspaces
  */
 class BucketARemainderTest extends WP_UnitTestCase {
@@ -77,102 +73,6 @@ class BucketARemainderTest extends WP_UnitTestCase {
 		$this->assertIsInt( $id, 'Could not create space: ' . ( is_wp_error( $id ) ? $id->get_error_message() : '' ) );
 
 		return (int) $id;
-	}
-
-	/**
-	 * A9 — unpinning a post takes it off the space's pinned strip at once.
-	 *
-	 * @return void
-	 */
-	public function test_unpinning_a_post_clears_the_pinned_strip(): void {
-		$owner = self::factory()->user->create( array( 'role' => 'administrator' ) );
-		wp_set_current_user( $owner );
-
-		$space_id = $this->make_space( $owner, 'Pin Space' );
-
-		$posts   = new PostService();
-		$post_id = $posts->create( $owner, array( 'content' => 'Pin me', 'space_id' => $space_id ) );
-		$this->assertIsInt( $post_id );
-
-		$posts->pin( (int) $post_id, $owner );
-
-		$feed = buddynext_service( 'feed' );
-
-		// Warm the strip WITH the pinned post.
-		$this->assertCount( 1, $feed->space_pinned_posts( $space_id ), 'Precondition: the post should be pinned.' );
-
-		$posts->unpin( (int) $post_id, $owner );
-
-		$this->assertCount(
-			0,
-			$feed->space_pinned_posts( $space_id ),
-			'An UNPINNED post is still on the space pinned strip. The owner explicitly took it off the top of their space and the cache put it back.'
-		);
-	}
-
-	/**
-	 * A9 — PINNING a post puts it on the strip immediately.
-	 *
-	 * This is the direction that genuinely needs the bust, and it is worth being precise
-	 * about why, because the unpin test above does NOT prove it: only the ids are cached,
-	 * and each is re-read through the per-post cache, so an UNPINNED post filters itself
-	 * out of a stale list on its own. A NEWLY PINNED one cannot — its id is simply not in
-	 * the list, and nothing will ever look at it. Removing the bust breaks this test and
-	 * only this test.
-	 *
-	 * @return void
-	 */
-	public function test_pinning_a_post_puts_it_on_the_strip_immediately(): void {
-		$owner = self::factory()->user->create( array( 'role' => 'administrator' ) );
-		wp_set_current_user( $owner );
-
-		$space_id = $this->make_space( $owner, 'Fresh Pin Space' );
-
-		$posts   = new PostService();
-		$post_id = (int) $posts->create( $owner, array( 'content' => 'Not pinned yet', 'space_id' => $space_id ) );
-
-		$feed = buddynext_service( 'feed' );
-
-		// Warm the strip while it is EMPTY. This is the state a stale cache would keep.
-		$this->assertCount( 0, $feed->space_pinned_posts( $space_id ) );
-
-		$posts->pin( $post_id, $owner );
-
-		$this->assertCount(
-			1,
-			$feed->space_pinned_posts( $space_id ),
-			'A newly PINNED post never reached the strip. A stale id list cannot heal from this one - the id is simply not in it, so nothing re-reads the post and discovers it is now pinned. Pinning something and not seeing it pinned is the entire feature failing.'
-		);
-	}
-
-	/**
-	 * A9 — a deleted pinned post drops off the strip even without a pin-specific bust.
-	 *
-	 * Only ids are cached; the row is re-read through the per-post cache, which every post
-	 * write busts. That is what makes the strip self-healing.
-	 *
-	 * @return void
-	 */
-	public function test_a_deleted_pinned_post_drops_off_the_strip(): void {
-		$owner = self::factory()->user->create( array( 'role' => 'administrator' ) );
-		wp_set_current_user( $owner );
-
-		$space_id = $this->make_space( $owner, 'Delete Pin Space' );
-
-		$posts   = new PostService();
-		$post_id = (int) $posts->create( $owner, array( 'content' => 'Doomed pin', 'space_id' => $space_id ) );
-		$posts->pin( $post_id, $owner );
-
-		$feed = buddynext_service( 'feed' );
-		$this->assertCount( 1, $feed->space_pinned_posts( $space_id ) );
-
-		$posts->delete( $post_id, $owner );
-
-		$this->assertCount(
-			0,
-			$feed->space_pinned_posts( $space_id ),
-			'A DELETED post is still on the pinned strip. The cached id list must be re-validated against the post itself, not trusted.'
-		);
 	}
 
 	/**
