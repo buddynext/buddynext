@@ -45,9 +45,7 @@ Two rules apply:
 
 ### Pinning a post
 
-A member can pin one of their own posts to the top of their profile so visitors see it first. Inside a space, a space organizer can pin a post to the top of that space. Free allows one pin per surface; Pro raises this (see Free vs Pro).
-
-A pinned space post also appears in a compact pinned-posts strip at the top of the space feed. Anyone with permission to unpin it (the post's owner or a site administrator) sees an **Unpin** control right on that strip, so they can lift the pin without having to find the original post first.
+A member can pin one of their own posts to the top of their profile so visitors see it first. Pinning is profile-only: inside a space, important content is featured through **Announcements** instead (admin-controlled, dismissible, and able to expire on their own - see Activity Feed). Free allows one pin on a profile; Pro raises this (see Free vs Pro).
 
 ### Drafts
 
@@ -90,4 +88,4 @@ The composer itself, including the schedule clock, link previews, emoji picker, 
 Pro adds two things on top:
 
 - **Scheduled posts management** - a queue view of everything a member has lined up, plus an admin screen (BuddyNext > Campaigns > Scheduled Posts) where the owner can see every scheduled post on the site and cancel it or publish it immediately. Free schedules and reschedules a post from the composer and the post's own edit form; Pro is where the queue is managed as a whole.
-- **Multi-pin** - pin more than one post to a profile or space at a time. Free allows a single pin per surface.
+- **Multi-pin** - pin more than one post to a profile at a time. Free allows a single profile pin.
