@@ -161,6 +161,20 @@ if [ ! -d node_modules/@playwright ] && ! command -v npx >/dev/null 2>&1; then
 	exit 2
 fi
 
+# Seed the fixture users the specs log in as, exactly like BN_WP_PATH above: it
+# used to be nobody's job. ~20 two-actor spaces specs autologin as BN_TEST_OTHER_USER
+# (default 'alice'); on a site where that account was never created, every one of
+# them fails at the login fixture ("autologin as alice did not establish a session
+# cookie") and reports ~40 phantom regressions that look like broken space
+# membership but are just a missing precondition. seed-e2e.sh is idempotent, so
+# running it every time is safe; a failure to seed is surfaced, not swallowed.
+if [ -f bin/seed-e2e.sh ]; then
+	echo "journey run: seeding e2e fixture users ..."
+	if ! bash bin/seed-e2e.sh >/dev/null 2>&1; then
+		echo "journey run: WARNING — bin/seed-e2e.sh did not complete; two-actor specs may fail at login." >&2
+	fi
+fi
+
 REPORT="$(mktemp -t bn-journey-XXXXXX.json)"
 trap 'rm -f "$REPORT"' EXIT
 
