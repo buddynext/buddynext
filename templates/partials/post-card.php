@@ -244,10 +244,13 @@ $can_delete = $is_own_post || ( $current_user_id > 0 && buddynext_can( $current_
  * badge, no order change), so it is not offered there either. Same rule as
  * $show_pin_badge above, so the control and its badge cannot disagree.
  */
-// Own post, on the member's own profile. No space pin, and no admin/moderator
-// pinning of a member's post — that is the member's own curation. Mirrors the
-// server gate in PostService::pin().
-$can_pin    = $is_own_post && 'profile' === $context;
+// Own NON-space post, on the member's own profile. A space post ($bn_space_id > 0)
+// can never be pinned (PostService::pin() returns pin_not_allowed_in_space), and
+// such a post also appears in the member's own profile feed — so it must be
+// excluded here too, or the control renders where it can only 403. No admin/
+// moderator pinning of a member's post either — that is the member's own
+// curation. Mirrors the server gate in PostService::pin().
+$can_pin    = $is_own_post && 'profile' === $context && 0 === $bn_space_id;
 $can_report = ( $current_user_id > 0 && ! $is_own_post );
 
 // Reactions are a site-owner-toggleable feature (Settings → Features, default on).
