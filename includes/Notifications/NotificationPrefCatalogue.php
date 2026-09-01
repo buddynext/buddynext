@@ -207,8 +207,10 @@ class NotificationPrefCatalogue {
 				'description'        => __( 'A space owner or moderator removed media you shared from the space. You keep your own copy.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
 				'default_on_site'    => true,
-				'default_email_freq' => 'immediate',
-				'can_email'          => true,
+				// A quick, low-stakes unlink (the member keeps their own copy) - the
+				// in-app bell is enough, no email. can_email=false, no template needed.
+				'default_email_freq' => 'off',
+				'can_email'          => false,
 			),
 			'bn.announcement'             => array(
 				'label'              => __( 'Announcements', 'buddynext' ),
