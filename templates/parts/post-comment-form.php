@@ -126,6 +126,7 @@ do_action( 'buddynext_part_post_comment_form_before', $args );
 		data-variant="primary"
 		data-size="sm"
 		data-wp-on--click="actions.submitComment"
+		data-wp-bind--disabled="context.commentSubmitting"
 		aria-label="<?php esc_attr_e( 'Post comment', 'buddynext' ); ?>"
 	>
 		<?php buddynext_icon( 'send' ); ?>

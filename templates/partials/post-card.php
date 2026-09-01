@@ -491,6 +491,7 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 		echo wp_json_encode(
 			array(
 				'postId'            => $bn_post_id,
+				'commentSubmitting' => false,
 				'spaceId'           => $bn_space_id,
 				'authorId'          => $post_author_id,
 				'currentUserId'     => $current_user_id,

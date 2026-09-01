@@ -2251,6 +2251,16 @@ store( 'buddynext/post-card', {
 				return;
 			}
 
+			// Block re-entry while a submit is in flight. Without this, rapid clicks
+			// on the send button each fire their own POST /comments before the first
+			// resolves, posting the same comment several times. The flag is set
+			// synchronously here — before the first yield — so the next click sees it
+			// and returns; the send button also binds its disabled state to it.
+			if ( ctx.commentSubmitting ) {
+				return;
+			}
+			ctx.commentSubmitting = true;
+
 			// Helper: render an inline alert above the comment textarea.
 			const showInlineError = ( msg, code, appealUrl ) => {
 				if ( ! inputEl ) {
@@ -2331,6 +2341,8 @@ store( 'buddynext/post-card', {
 				}
 			} catch ( _e ) {
 				showInlineError( t( 'networkError', 'Network error. Try again.' ) );
+			} finally {
+				ctx.commentSubmitting = false;
 			}
 		},
 		* votePoll( event ) {
