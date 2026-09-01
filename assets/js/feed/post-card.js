@@ -2388,14 +2388,32 @@ store( 'buddynext/post-card', {
 		},
 		* dismissAnnouncement() {
 			const ctx = getContext();
+			let res = null;
 			try {
-				yield restFetch( '/feed/announcements/' + ctx.postId + '/dismiss', {
+				res = yield restFetch( '/feed/announcements/' + ctx.postId + '/dismiss', {
 					method:  'POST',
 					nonce:   ctx.dismissNonce,
 					toastOnError: false,
 				} );
-			} catch ( _e ) {}
-			document.querySelector( '.bn-post-card--announcement' )?.remove();
+			} catch ( _e ) {
+				res = null;
+			}
+			// Only hide the card once the server has RECORDED the dismissal.
+			// Removing it optimistically (as before) made a failed write — a stale
+			// nonce, a transient 5xx — look dismissed while bn_dismissed_announcements
+			// got no row, so the announcement silently reappeared on the next reload
+			// and no error was ever shown. Scope the removal to THIS announcement's
+			// post id so a second announcement on the page is not collaterally hidden.
+			if ( res && res.ok ) {
+				document.querySelector(
+					'.bn-post-card--announcement[data-post-id="' + ctx.postId + '"]'
+				)?.remove();
+			} else {
+				bnToast(
+					t( 'announcementDismissFailed', 'Could not dismiss this announcement. Please try again.' ),
+					{ tone: 'danger' }
+				);
+			}
 		},
 		// Admin-only: end the announcement for everyone (expire its pin now).
 		* endAnnouncement() {
