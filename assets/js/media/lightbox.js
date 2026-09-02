@@ -100,6 +100,51 @@
 	}
 
 	// ── REST ────────────────────────────────────────────────────────────────
+
+	/*
+	 * ONE PHOTO, ONE SET OF REACTIONS.
+	 *
+	 * A photo in the feed is two objects: a MediaVerse media item and the
+	 * BuddyNext post it was posted in. Each has its own reaction store, and the
+	 * lightbox used to write the media one - so a reaction left here was
+	 * invisible on the feed card, and the post's own reactions were invisible
+	 * here (Basecamp 10259250229). The comment side of the same split was
+	 * already closed by mirroring lightbox comments into the post thread.
+	 *
+	 * So: when the media has a BuddyNext post parent, the lightbox reads and
+	 * writes the POST reaction, which is the one a member sees everywhere else.
+	 * Media with no post parent - the library, DM media - keeps the MediaVerse
+	 * path, because there is no post to speak for it.
+	 *
+	 * currentPostId is resolved per item from /media/{id}/space-context, the
+	 * call the lightbox already makes on every open.
+	 */
+	var currentPostId = 0;
+
+	// The BuddyNext namespace, for the objects BuddyNext owns. `api()` below
+	// talks to the media engine.
+	function bnApi( path, opts ) {
+		opts = opts || {};
+		var init = {
+			nonce: cfg.nonce || '',
+			method: opts.method,
+			toastOnError: false,
+		};
+		if ( opts.json ) { init.body = opts.json; }
+		return window.buddynextRest.restFetch( path, init ).then( function ( res ) {
+			return res.ok ? ( res.data || {} ) : Promise.reject( res );
+		} );
+	}
+
+	/** Normalise a BuddyNext reaction payload into the shape applyReactions() reads. */
+	function bnReactionShape( r ) {
+		var counts = {};
+		( ( r && r.summary ) || [] ).forEach( function ( row ) {
+			if ( row && row.slug ) { counts[ row.slug ] = parseInt( row.count, 10 ) || 0; }
+		} );
+		return { counts: counts, user_reaction: ( r && r.has_reacted ) ? ( r.emoji || null ) : null };
+	}
+
 	function api( path, opts ) {
 		opts = opts || {};
 		var init = {
@@ -228,9 +273,12 @@
 			} ).catch( function () {} );
 		}
 
-		// Reactions.
+		// Reactions. currentPostId is not known yet on the first paint (the
+		// context call is in flight), so read the media's own reactions now and
+		// let loadPostContext() re-read from the post when it turns out to have
+		// one. The second read only happens for media that IS a post.
 		api( '/media/' + id + '/reactions' ).then( function ( r ) {
-			if ( current === id ) { applyReactions( r ); }
+			if ( current === id && 0 === currentPostId ) { applyReactions( r ); }
 		} ).catch( function () {} );
 
 		// Comments.
@@ -349,17 +397,33 @@
 		currentSpaceId = 0;
 		if ( panel.unlink ) { panel.unlink.hidden = true; }
 		syncMore();
-		if ( LOGGED_IN && panel.unlink && current ) {
+		currentPostId = 0;
+		// Runs for every viewer now, not only where an unlink control exists: the
+		// same response carries the post parent that decides which object the
+		// reactions belong to.
+		if ( LOGGED_IN && current ) {
 			var forId = current;
 			window.buddynextRest.restFetch( '/media/' + current + '/space-context', {
 				nonce: cfg.nonce || '', method: 'GET', toastOnError: false,
 			} ).then( function ( res ) {
 				// Ignore a stale response if the viewer already moved to another item.
-				if ( forId !== current || ! res || ! res.ok || ! res.data || ! res.data.can_unlink ) { return; }
-				currentSpaceId = parseInt( res.data.space_id, 10 ) || 0;
-				if ( currentSpaceId > 0 ) {
-					panel.unlink.hidden = false;
-					syncMore();
+				if ( forId !== current || ! res || ! res.ok || ! res.data ) { return; }
+
+				if ( panel.unlink && res.data.can_unlink ) {
+					currentSpaceId = parseInt( res.data.space_id, 10 ) || 0;
+					if ( currentSpaceId > 0 ) {
+						panel.unlink.hidden = false;
+						syncMore();
+					}
+				}
+
+				currentPostId = parseInt( res.data.post_id, 10 ) || 0;
+				if ( currentPostId > 0 ) {
+					// This photo is a feed post: show the post's reactions, which
+					// is what the member sees on the card.
+					bnApi( '/reactions?object_type=post&object_id=' + currentPostId ).then( function ( r ) {
+						if ( forId === current ) { applyReactions( bnReactionShape( r ) ); }
+					} ).catch( function () {} );
 				}
 			} );
 		}
@@ -419,12 +483,28 @@
 
 	function react( type ) {
 		if ( ! requireLogin() || ! current ) { return; }
+		var id = current;
+
+		// A photo that is a feed post reacts as the POST, so the chip the member
+		// leaves here is the chip they see on the card. BuddyNext's toggle is one
+		// call that both flips and returns the new summary, and it is idempotent
+		// per member, so there is no separate delete branch.
+		if ( currentPostId > 0 ) {
+			var postId = currentPostId;
+			bnApi( '/reactions/toggle', {
+				method: 'POST',
+				json: { object_type: 'post', object_id: postId, emoji: type },
+			} ).then( function ( r ) {
+				if ( current === id ) { applyReactions( bnReactionShape( r ) ); }
+			} ).catch( function () {} );
+			return;
+		}
+
 		var btn = overlay.querySelector( '.bn-lightbox__reaction[data-reaction="' + type + '"]' );
 		var wasActive = btn && btn.classList.contains( 'is-active' );
 		var req = wasActive
 			? api( '/media/' + current + '/reactions', { method: 'DELETE' } )
 			: api( '/media/' + current + '/reactions', { method: 'POST', json: { reaction_type: type } } );
-		var id = current;
 		req.then( function () {
 			return api( '/media/' + id + '/reactions' );
 		} ).then( function ( r ) {

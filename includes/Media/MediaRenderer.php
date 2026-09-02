@@ -121,6 +121,28 @@ class MediaRenderer {
 	}
 
 	/**
+	 * The BuddyNext post a single media item was posted in, if any.
+	 *
+	 * The one-id case of source_post_map(), which owns the lookup and its cache.
+	 * Exposed because the media lightbox has to know whether the photo it is
+	 * showing is also a feed post: when it is, its reactions belong to the POST,
+	 * not to the media item, and answering that question anywhere else would be
+	 * a second copy of this query.
+	 *
+	 * @param int $media_id Media id.
+	 * @return int Source post id, or 0 when the media is not in any post.
+	 */
+	public static function source_post_id( int $media_id ): int {
+		if ( $media_id <= 0 ) {
+			return 0;
+		}
+
+		$map = self::source_post_map( array( $media_id ) );
+
+		return isset( $map[ $media_id ]['post_id'] ) ? (int) $map[ $media_id ]['post_id'] : 0;
+	}
+
+	/**
 	 * Map a bounded set of media ids to the BuddyNext post each came from.
 	 *
 	 * One query for the whole gallery (never per tile). Media stores its source

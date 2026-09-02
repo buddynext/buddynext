@@ -277,7 +277,16 @@ class ReactionController extends BaseRestController {
 			return new WP_REST_Response( array( 'count' => 0 ), 200 );
 		}
 
-		$data = array( 'count' => $service->count( $object_type, $object_id ) );
+		$count = $service->count( $object_type, $object_id );
+		$data  = array(
+			'count'   => $count,
+			// Same per-type breakdown the toggle returns. A client that renders the
+			// chip strip needs it on FIRST paint too, not only after a toggle - the
+			// media lightbox reads this endpoint when it opens on a photo that is
+			// also a feed post, and without the breakdown it could show a total but
+			// not which reactions made it up.
+			'summary' => $this->reaction_summary( $service, $object_type, $object_id, $count ),
+		);
 
 		if ( is_user_logged_in() ) {
 			$user_id             = get_current_user_id();
