@@ -1198,6 +1198,13 @@ select.bn-text-input {
 	justify-content: flex-end;
 	gap: var(--bn-a-s3);
 	margin-top: var(--bn-a-s2);
+
+	/* Same rhythm every .bn-settings-section keeps, so a section hooked in
+	   after the save bar cannot butt against it. Without this the bar's
+	   bottom border and the next card's top border meet at 0px and read as
+	   one doubled line - visible on Payment Gateways (Tax), Push (Test push),
+	   Paywall (Gate a Space Behind a Plan) and AI Moderation. */
+	margin-bottom: var(--bn-a-s5);
 }
 
 .bn-save-msg {
