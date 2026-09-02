@@ -1010,7 +1010,30 @@ class NotificationMessageService {
 				return PageRouter::activity_url();
 
 			case 'bn.new_report':
-				// Moderator-facing — send them to the community moderation surface.
+				// Moderator-facing — but "moderator" is two different people here,
+				// and sending both to the same place 404s one of them.
+				//
+				// A report inside a space fans out to that space's owners and
+				// moderators as well as to site admins (ModerationListener::
+				// on_report_created()). The community-admin hub is gated on the
+				// SITE-WIDE ability buddynext-spaces/moderate (PageRouter:598-602),
+				// which a space owner does not have — so the one notification a
+				// space owner ever receives about their own space opened a 404
+				// (Basecamp 10264117698). Their queue is the space's own moderation
+				// page, which already lists the report with its actions.
+				//
+				// Site moderators keep the hub: it aggregates every space.
+				$report_space_id = isset( $data['space_id'] ) ? (int) $data['space_id'] : 0;
+				$report_viewer   = $viewer_id > 0 ? $viewer_id : get_current_user_id();
+				if ( $report_space_id > 0
+					&& ! buddynext_can( $report_viewer, 'buddynext-spaces/moderate' ) ) {
+					$report_space_link = PageRouter::space_url( $report_space_id );
+					// space_url() falls back to the spaces hub for a missing space;
+					// only append the moderation segment to a real space URL.
+					if ( PageRouter::spaces_url() !== $report_space_link ) {
+						return add_query_arg( 'bn_mtab', 'reports', $report_space_link . 'moderation/' );
+					}
+				}
 				return PageRouter::community_admin_url();
 
 			case 'bn.badge_awarded':
