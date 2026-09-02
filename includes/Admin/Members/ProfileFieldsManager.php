@@ -1673,7 +1673,28 @@ class ProfileFieldsManager {
 							<input type="hidden" name="action" value="bn_update_profile_group">
 							<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 							<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
-							<select class="bn-pf-head-select bn-pf-vis-grp" name="visibility" data-bn-autosubmit title="<?php esc_attr_e( 'Group visibility', 'buddynext' ); ?>">
+							<?php
+							/*
+							 * The hint carries the whole model, because the control cannot.
+							 *
+							 * This select and the per-field select two rows down offer the
+							 * IDENTICAL option list and mean opposite things: the group is a
+							 * CEILING (ProfileService::effective_visibility(), owner decision
+							 * 2026-08-09), the field is the value. An owner sets the section to
+							 * Public, sees every field row still reading "Members only", and
+							 * reasonably concludes the setting is broken - then reports that
+							 * the About tab is invisible to logged-out visitors, which is the
+							 * ceiling working exactly as designed (Basecamp 10264258439).
+							 *
+							 * The model IS explained once, on the Add Field form, which is
+							 * collapsed by default and so is never read by an owner managing
+							 * fields that already exist. Said here, on the control itself, in
+							 * the same explanatory-title form the member-type select below
+							 * already uses - the header row is a toolbar with no space for a
+							 * description paragraph.
+							 */
+							?>
+							<select class="bn-pf-head-select bn-pf-vis-grp" name="visibility" data-bn-autosubmit title="<?php esc_attr_e( 'Maximum visibility for this section - a field inside it can be more private than this, never more public. Setting a section to Public does not publish the fields inside it.', 'buddynext' ); ?>">
 								<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
 									<option value="<?php echo esc_attr( $vis_val ); ?>" <?php selected( $group['visibility'], $vis_val ); ?>>
 										<?php echo esc_html( $vis_lbl ); ?>
