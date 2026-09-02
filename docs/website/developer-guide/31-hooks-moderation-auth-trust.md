@@ -96,6 +96,27 @@ These fire after a moderator (or an auto-action) acts on content or a member. Tr
 
 > **Note:** Some events have two flavours. The `buddynext_user_*` suspension events are the moderation-domain canonical events; the `buddynext_member_*` variants are the member-domain mirrors fired from the admin Members screens. Hook whichever matches where you need to react; do not assume both fire on every code path.
 
+## Reporter-side visibility (1.1.6)
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_reporter_hidden_statuses` | filter | Building a member's feed, resolving which report statuses keep the reported content hidden from the member who reported it | `string[] $statuses, int $viewer_id` |
+
+Reporting something removes it from the reporter's own feed, and by default it stays gone for **every** report status - including `dismissed` and `resolved`.
+
+That default is deliberate. Reporting is a statement about what the member wants in their own feed, and a moderator disagreeing about the content does not change what that member asked for. Dismissing a report therefore does not put the post back in front of the person who reported it. This matches Facebook, X and Instagram, and it matches the promise the UI already makes when it removes the card on report.
+
+An owner who reads a dismissal as "we checked, it is fine, show it again" can drop `dismissed` (and/or `resolved`) from the list:
+
+```php
+add_filter( 'buddynext_reporter_hidden_statuses', function ( array $statuses, int $viewer_id ): array {
+    // Treat a dismissed report as "no longer hidden" on this site.
+    return array_values( array_diff( $statuses, array( 'dismissed' ) ) );
+}, 10, 2 );
+```
+
+This filter only affects the reporter's own view. It never reveals content moderation has actually removed, and it never hides content from anyone else.
+
 ## Moderation-queue render seams
 
 The admin moderation queue and the member-facing report modal expose theming seams so you can add columns, row actions, or panel content without forking the templates.

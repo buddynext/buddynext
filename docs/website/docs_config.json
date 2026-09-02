@@ -253,7 +253,8 @@
         "developer-guide/51-coming-from-buddypress.md",
         "developer-guide/52-extending-interactivity-stores.md",
         "developer-guide/53-membership-grant-bridges.md",
-        "developer-guide/54-mediaverse-surface-ownership.md"
+        "developer-guide/54-mediaverse-surface-ownership.md",
+        "developer-guide/55-member-identity-seams.md"
       ]
     }
   ]
