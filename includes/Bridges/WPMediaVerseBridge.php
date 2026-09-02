@@ -194,7 +194,17 @@ class WPMediaVerseBridge {
 		// has turned the drive on (mvs_documents_tab, off by default).
 		// BuddyNext is the avatar authority across the suite, so it answers the
 		// flag MediaVerse publishes about avatars.
-		add_filter( 'mvs_profile_data', array( $this, 'profile_avatar_flag' ), 10, 2 );
+		//
+		// This answers `mvs_has_custom_avatar`, NOT `mvs_profile_data`. The
+		// profile payload was the wrong seam: it fixed get_profile() and nothing
+		// else, while every MediaVerse TEMPLATE calls has_custom_avatar()
+		// directly (dashboard-content.php, profile-edit.php, Shortcodes.php and
+		// Pro's pinterest/profile.php). So the REST payload said the member had
+		// an avatar and the screens they actually looked at still asked them to
+		// upload one. MediaVerse builds the payload key FROM has_custom_avatar(),
+		// so answering the boolean fixes the payload too - one seam, one answer,
+		// and no way for the two to disagree again.
+		add_filter( 'mvs_has_custom_avatar', array( $this, 'profile_avatar_flag' ), 10, 2 );
 
 		add_filter( 'mvs_document_drive_access', array( $this, 'space_drive_access' ), 10, 4 );
 		add_filter( 'mvs_document_drive_visible', array( $this, 'space_drive_visible' ), 10, 4 );
@@ -2438,26 +2448,20 @@ class WPMediaVerseBridge {
 	 * site's fallback as the member's answer can never ask for the one thing it
 	 * most wants.
 	 *
-	 * @param mixed $profile MediaVerse profile payload.
+	 * @param mixed $has     MediaVerse's own answer, from its avatar store.
 	 * @param int   $user_id Member.
-	 * @return mixed
+	 * @return bool
 	 */
-	public function profile_avatar_flag( $profile, $user_id ) {
-		if ( ! is_array( $profile ) || (int) $user_id <= 0 ) {
-			return $profile;
-		}
-
-		if ( ! empty( $profile['has_custom_avatar'] ) ) {
-			return $profile;
+	public function profile_avatar_flag( $has, $user_id ) {
+		if ( ! empty( $has ) || (int) $user_id <= 0 ) {
+			return $has;
 		}
 
 		$avatars = buddynext_service( 'avatars' );
 		if ( ! is_object( $avatars ) || ! method_exists( $avatars, 'has_custom_avatar' ) ) {
-			return $profile;
+			return $has;
 		}
 
-		$profile['has_custom_avatar'] = $avatars->has_custom_avatar( (int) $user_id );
-
-		return $profile;
+		return $avatars->has_custom_avatar( (int) $user_id );
 	}
 }
