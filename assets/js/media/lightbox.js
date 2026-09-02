@@ -121,6 +121,18 @@
 	 */
 	var currentPostId = 0;
 
+	/**
+	 * Paint the POST's reaction summary onto the chip strip.
+	 *
+	 * `forMediaId` guards against a stale response repainting a photo the
+	 * viewer has already scrolled past.
+	 */
+	function paintPostReactions( forMediaId, postId ) {
+		bnApi( '/reactions?object_type=post&object_id=' + postId ).then( function ( r ) {
+			if ( forMediaId === current ) { applyReactions( bnReactionShape( r ) ); }
+		} ).catch( function () {} );
+	}
+
 	// The BuddyNext namespace, for the objects BuddyNext owns. `api()` below
 	// talks to the media engine.
 	function bnApi( path, opts ) {
@@ -400,7 +412,24 @@
 		currentSpaceId = 0;
 		if ( panel.unlink ) { panel.unlink.hidden = true; }
 		syncMore();
-		currentPostId = 0;
+		// Seed the post parent from the TILE, which already carries it, instead of
+		// waiting for space-context to tell us. The reaction state then paints one
+		// request after open rather than two chained ones.
+		//
+		// Measured before this: the chip strip read "not reacted" for 200-300ms on
+		// every open of a photo the member HAD reacted to, on a warm local site -
+		// longer over a real network. A control that briefly states the opposite of
+		// the truth is the thing our own standard forbids, and it is what made
+		// J-562 (reaction persists across reopen) flaky.
+		//
+		// space-context still runs and still owns the answer: it is authoritative
+		// for media reached without a tile (a direct link, the DM viewer) and it
+		// corrects this seed if they ever disagree.
+		var seededItem = gallery[ index ] || null;
+		currentPostId  = ( seededItem && seededItem.postId ) ? seededItem.postId : 0;
+		if ( LOGGED_IN && currentPostId > 0 ) {
+			paintPostReactions( current, currentPostId );
+		}
 		// Runs for every viewer now, not only where an unlink control exists: the
 		// same response carries the post parent that decides which object the
 		// reactions belong to.
@@ -420,13 +449,16 @@
 					}
 				}
 
-				currentPostId = parseInt( res.data.post_id, 10 ) || 0;
+				var resolvedPostId = parseInt( res.data.post_id, 10 ) || 0;
+				var alreadySeeded  = ( resolvedPostId > 0 && resolvedPostId === currentPostId );
+				currentPostId      = resolvedPostId;
 				if ( currentPostId > 0 ) {
-					// This photo is a feed post: show the post's reactions, which
-					// is what the member sees on the card.
-					bnApi( '/reactions?object_type=post&object_id=' + currentPostId ).then( function ( r ) {
-						if ( forId === current ) { applyReactions( bnReactionShape( r ) ); }
-					} ).catch( function () {} );
+					// Only fetch when the tile did not already tell us, or told us
+					// something different - otherwise this is a second request for an
+					// answer already on screen.
+					if ( ! alreadySeeded ) {
+						paintPostReactions( forId, currentPostId );
+					}
 
 					// ...and the post's bookmark, which is what Save writes. The
 					// same response carries it, so the control paints its real
