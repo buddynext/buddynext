@@ -101,12 +101,12 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 
 | Can it... | Status | How |
 |---|---|---|
-| Offer a REST API? | YES | 222 routes under `buddynext/v1`; catalogued in `docs/api/openapi.json` (208 paths) |
+| Offer a REST API? | YES | 224 routes under `buddynext/v1`; catalogued in `docs/api/openapi.json` (210 paths) |
 | Send outbound webhooks? | YES | opt-in. `bn_outbound_webhooks` + log; 4 `/webhooks` routes |
 | Be extended by other plugins? | YES | 1,292 documented hooks; `NavRegistry`, `buddynext_companions`, `buddynext_integrations` |
 | Integrate with Wbcom plugins? | YES | bridges for WPMediaVerse (DM), Jetonomy (forums), Gamification, Career Board, Learnomy, Listora, Eventonomy, WB Member Blog - each self-guards and is individually toggleable |
 | Run background work at scale? | YES | 36 scheduled jobs: 24 on Action Scheduler, 12 on WP-Cron |
-| Manage it from WP-CLI? | YES | 6 commands under `wp buddynext` (`demo`, `cert`, `handles`, `qa-fixtures`, `repair-space-owners`, `repair-discussion-visibility`) |
+| Manage it from WP-CLI? | YES | 6 commands under `wp buddynext` (`demo`, `cert`, `handles`, `repair-space-owners`, `repair-discussion-visibility`, `reconcile-media-privacy`) |
 | Stay fast at 100k members? | YES | list surfaces paginate and count via `COUNT(*)`; the leaderboard N+1 was removed in 1.1.1 |
 
 ## Deliberately not in free

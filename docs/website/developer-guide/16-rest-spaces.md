@@ -100,9 +100,9 @@ Served by `FeedController`.
 |---|---|---|---|
 | GET | `/spaces/{id}/feed` | Public | Return the activity feed for a space. |
 
-## Discovery, pinned, and structure
+## Discovery and structure
 
-Served by `SpaceController`. These read routes power the directory's suggested-spaces rail, the space-home pinned strip, and sub-space navigation.
+Served by `SpaceController`. These read routes power the directory's suggested-spaces rail and sub-space navigation.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
@@ -110,8 +110,6 @@ Served by `SpaceController`. These read routes power the directory's suggested-s
 | GET | `/spaces/{id}/subspaces` | Public | Visibility-scoped child spaces of a parent. Query: `page` (default 1), `per_page` (default 24, capped at 50). Returns `{ subspaces, total, page, per_page }`. A secret parent returns `404`; a private parent returns `403` to non-members. |
 
 > `/spaces/suggestions` and `/spaces/fields` are registered **before** the `/spaces/{id}` route so their literal path segments are matched unambiguously; because the `{id}` pattern is `[\d]+`, the words `suggestions` and `fields` can never collide with it.
-
-The viewer's per-post reaction/bookmark/vote state for the pinned set is fetched separately through `GET /feed/viewer-state?post_ids=` (see REST: Feed and Posts) rather than being inlined here.
 
 ## Custom fields
 

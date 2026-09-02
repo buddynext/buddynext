@@ -58,9 +58,9 @@ add_filter(
 
 ## Recipe 2 - Raise the pin cap
 
-**Goal:** let some users pin more than one post per scope (the Free default is 1 pinned post per profile and per space).
+**Goal:** let some users pin more than one post (the Free default is 1 pinned post per profile; pinning is profile-only - space content is featured through Announcements).
 
-**Seam:** `buddynext_post_pin_limit`. It is read in `PostService` as `apply_filters( 'buddynext_post_pin_limit', 1, $space_id, $user_id )`, so you receive the target scope and the acting user and can decide per case. This is the seam Pro's `ProPinService` uses to lift the cap for premium members.
+**Seam:** `buddynext_post_pin_limit`. It is read in `PostService` as `apply_filters( 'buddynext_post_pin_limit', 1, null, $user_id )`, so you receive the acting user and can decide per case. This is the seam Pro's `ProPinService` uses to lift the cap for premium members.
 
 ```php
 add_filter(
@@ -77,7 +77,7 @@ add_filter(
 );
 ```
 
-`$space_id` is `null` for a profile pin and the space ID for a space pin, so you can set different caps per surface.
+`$space_id` is always `null` (pinning is profile-only); the third parameter is kept for the filter's stable signature so Pro can still raise a member's cap.
 
 ---
 

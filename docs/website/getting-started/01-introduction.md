@@ -47,7 +47,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | **Activity and posting** | Text, link, and poll posts | Free | Free |
 | | Photo and file posts (via WPMediaVerse) | Free | Free |
 | | React, comment, share, bookmark, report | Free | Free |
-| | Pin 1 post per space or profile | Free | Free |
+| | Pin 1 post to your profile | Free | Free |
 | | Edit and delete your own posts | Free | Free |
 | | Admin site-wide announcement | Free | Free |
 | | Schedule a post for a future date, and reschedule it later | Free | Free |

@@ -63,7 +63,7 @@ Remove from space is an *unlink*, not a delete. The item leaves the space and re
 
 ## The Files tab (documents)
 
-A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and other attachments), alongside the Media tab. It is a separate per-space switch - **Manage space -> Files tab** - and is **off by default**. It needs the WPMediaVerse documents feature to be active, and by default the tab is visible to signed-in members only.
+A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and other attachments), alongside the Media tab. It is a separate per-space switch - **Manage space -> Files tab** - and is **off by default**. It needs WPMediaVerse Pro's documents feature to be active, and by default the tab is visible to signed-in members only.
 
 Files behave like Media on a space drive: any contributor can upload a document to the space, and **Remove** on a space Files tab is the same *unlink* as above - the document returns to the owner's own Files as private, it is not deleted. (On a member's *own* Files tab, Remove **deletes** the document, with WPMediaVerse's 30-day restore window.)
 
