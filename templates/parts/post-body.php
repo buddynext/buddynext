@@ -229,9 +229,12 @@ do_action( 'buddynext_part_post_body_before', $args );
 			<?php
 			// Media grid — BN-native markup with engine-resolved signed URLs
 			// (broadcast TTL). Handles photo, video, and audio tiles by media
-			// type; MediaRenderer escapes all URLs/attributes. The 'media' type
-			// shares this path (mixed photo/video/audio) — BuddyNext owns the
-			// UX, so there is no MediaVerse-side hydration.
+			// type; MediaRenderer escapes all URLs/attributes. BuddyNext owns
+			// the UX, so there is no MediaVerse-side hydration.
+			//
+			// The 'media' type no longer shares this path — it goes to the typed
+			// seam below (see the note there) and picks its grid up from the
+			// attached-media rule at the end of this file.
 			if ( ! empty( $bn_body_media_ids ) ) {
 				echo \BuddyNext\Media\MediaRenderer::grid( array_map( 'absint', (array) $bn_body_media_ids ), (int) $args['bn_post_id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer escapes all URLs/attributes internally.
 			}
@@ -573,9 +576,21 @@ do_action( 'buddynext_part_post_body_before', $args );
 	 * Rendered here rather than added to each branch so the rule is one rule: a new
 	 * post type gets its media shown by existing, instead of silently dropping it
 	 * until someone notices. Types listed below already present their own media —
-	 * photo/media as the grid, file as the file list — and are the only exclusions.
+	 * photo as the grid, file as the file list — and are the only exclusions.
+	 *
+	 * `media` WAS excluded here, on the reading that the type presents its own
+	 * media. That is true of exactly one of its two producers. The bridge's
+	 * upload card owns nothing: it carries a link and no media_ids, so it renders
+	 * through the typed seam and the `! empty()` guard on this line skips it
+	 * anyway. But MediaController::announce_space_album_upload() posts the same
+	 * type with REAL media_ids and no link ("Added photos to <album>"), and that
+	 * card fell between the two rules — declined by the typed renderer for having
+	 * no link, excluded from here for its type. A member uploaded photos to a
+	 * space album and the space saw a sentence with no photos (Basecamp
+	 * 10264427766). Dropping `media` from the exclusion list is enough: the
+	 * guard on this line is what separates the two producers, not the type.
 	 */
-	if ( ! empty( $bn_body_media_ids ) && ! in_array( $bn_body_post_type, array( 'photo', 'media', 'file' ), true ) ) {
+	if ( ! empty( $bn_body_media_ids ) && ! in_array( $bn_body_post_type, array( 'photo', 'file' ), true ) ) {
 		echo \BuddyNext\Media\MediaRenderer::grid( array_map( 'absint', (array) $bn_body_media_ids ), (int) $args['bn_post_id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer escapes all URLs/attributes internally.
 	}
 	?>
