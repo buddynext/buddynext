@@ -122,7 +122,7 @@ add_filter( 'buddynext_reaction_meta', function ( array $meta, string $slug ): a
 
 ### Raise the pin cap for premium members
 
-Free allows one pinned post per scope (a profile or a single space). Return a higher integer to lift the cap. `$space_id` is null for profile pins.
+Free allows one pinned post per profile (pinning is profile-only). Return a higher integer to lift the cap. `$space_id` is always null.
 
 ```php
 add_filter( 'buddynext_post_pin_limit', function ( int $limit, ?int $space_id, int $user_id ): int {
