@@ -97,6 +97,43 @@ done
 # Only a literal that closes the call is a slug. An earlier draft matched
 # `buddynext_icon( 'following' === $relation ? 'user-plus' : 'users' )` and
 # reported 'following' as missing — the comparison operand, not the icon.
+# WHERE WE LOOK. Free's own source, plus the Pro plugin when it is checked out
+# beside us: Pro renders through Free's IconService and Free's icon set, has no
+# icon set of its own and no check script of its own, so a slug Pro references
+# could not be caught by any gate. That is how the Insights DAU tile shipped
+# with a blank glyph. A missing Pro checkout only narrows the scan.
+SCAN_ROOTS="includes templates blocks"
+for pro_root in ../buddynext-pro ../../buddynext-pro; do
+	[ -d "$pro_root/includes" ] || continue
+	SCAN_ROOTS="$SCAN_ROOTS $pro_root/includes"
+	[ -d "$pro_root/templates" ] && SCAN_ROOTS="$SCAN_ROOTS $pro_root/templates"
+	break
+done
+
+# TWO SHAPES, NOT ONE.
+#
+# A slug reaches IconService either as the literal that closes a call, or as an
+# array value handed to a template or a descriptor:
+#
+#     buddynext_icon( 'users' )                 <- shape 1
+#     'title_icon' => 'compass'                 <- shape 2
+#
+# Only shape 1 was checked, and BOTH live misses this script ever shipped past
+# were shape 2: 'compass' in the Explore sidebar and 'activity' in the Pro
+# Insights DAU tile. The second grep keeps the closing-quote anchor so the
+# capture is the VALUE, never the key.
+call_slugs="$(
+	grep -rhoE "(buddynext_icon|buddynext_get_icon|IconService::render)\(\s*'[a-z0-9_-]+'\s*[,)]" \
+		--include='*.php' $SCAN_ROOTS 2>/dev/null \
+		| grep -oE "'[a-z0-9_-]+'" | tr -d "'"
+)"
+array_slugs="$(
+	grep -rhoE "'(title_icon|icon|icon_slug|nav_icon|tab_icon)'[[:space:]]*=>[[:space:]]*'[a-z0-9_-]+'" \
+		--include='*.php' $SCAN_ROOTS 2>/dev/null \
+		| grep -oE "=>[[:space:]]*'[a-z0-9_-]+'" | grep -oE "'[a-z0-9_-]+'" | tr -d "'"
+)"
+all_slugs="$(printf '%s\n%s\n' "$call_slugs" "$array_slugs" | grep -v '^$' | sort -u)"
+
 missing_refs=0
 while IFS= read -r ref; do
 	[ -n "$ref" ] || continue
@@ -119,11 +156,7 @@ while IFS= read -r ref; do
 			;;
 	esac
 	missing_refs=$((missing_refs + 1))
-done < <(
-	grep -rhoE "(buddynext_icon|buddynext_get_icon|IconService::render)\(\s*'[a-z0-9_-]+'\s*[,)]" \
-		--include='*.php' includes templates blocks 2>/dev/null \
-		| grep -oE "'[a-z0-9_-]+'" | tr -d "'" | sort -u
-)
+done <<< "$all_slugs"
 
 if [ "$missing_refs" -gt 0 ]; then
 	fails=$((fails + missing_refs))
