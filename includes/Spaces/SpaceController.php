@@ -575,6 +575,7 @@ class SpaceController extends BaseRestController {
 		$media_id = (int) $request->get_param( 'media_id' );
 		$user_id  = get_current_user_id();
 		$repo     = MediaClient::repo();
+		$post_id  = MediaRenderer::source_post_id( $media_id );
 
 		$space_id   = 0;
 		$can_unlink = false;
@@ -608,7 +609,22 @@ class SpaceController extends BaseRestController {
 				// one set of reactions wherever a member meets it. Answered here
 				// because the lightbox already calls this endpoint on every open -
 				// the alternative was a second request per photo.
-				'post_id'    => MediaRenderer::source_post_id( $media_id ),
+				'post_id'    => $post_id,
+				// Whether the viewer has bookmarked that post, for the same reason
+				// and by the same argument as post_id above.
+				//
+				// The lightbox's Save control used to write a MediaVerse Pro
+				// COLLECTION while the identical-looking Save on the feed card
+				// wrote a BuddyNext bookmark - two stores behind one icon, so a
+				// member who saved a photo in the lightbox found nothing in their
+				// saved list (Basecamp 10259604003). Save is now the post's
+				// bookmark, and a toggle has to know its own state before the
+				// member touches it or the first click reads as a no-op.
+				//
+				// False for a guest and for media with no post parent (library,
+				// DM), where the control does not render at all.
+				'bookmarked' => $post_id > 0 && $user_id > 0
+					&& buddynext_service( 'bookmarks' )->is_bookmarked( $user_id, $post_id ),
 			),
 			200
 		);

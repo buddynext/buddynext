@@ -648,15 +648,6 @@ body.bn-lightbox-open { overflow: hidden; }
 	font-size: var( --bn-text-sm, 0.875rem );
 	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
 }
-.bn-lightbox__collection {
-	display: flex;
-	align-items: center;
-	gap: var( --bn-s2, 8px );
-	font-size: var( --bn-text-sm, 0.875rem );
-	/* 40px tap target on touch without inflating the visual row. */
-	min-block-size: 40px;
-}
-
 .bn-lightbox__comment-login {
 	margin: 0;
 	padding-block-start: var( --bn-s2, 8px );

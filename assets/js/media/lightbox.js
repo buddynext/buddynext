@@ -79,7 +79,7 @@
 		}
 		if ( panel.block ) { panel.block.addEventListener( 'click', blockAuthor ); }
 		if ( panel.edit ) { panel.edit.addEventListener( 'click', function () { closeMenu(); openEditPanel(); } ); }
-		if ( panel.save ) { panel.save.addEventListener( 'click', openSavePanel ); }
+		if ( panel.save ) { panel.save.addEventListener( 'click', toggleSave ); }
 		if ( panel.unlink ) { panel.unlink.addEventListener( 'click', unlinkFromSpace ); }
 		// The ⋯ overflow: toggle on the trigger, close on outside-click / Escape and
 		// after any item is chosen.
@@ -375,11 +375,14 @@
 		// owner true, another member false, anonymous false. Re-deriving "is this
 		// mine" here would be a second copy of a rule the server already answers.
 		if ( panel.edit ) { panel.edit.hidden = ! ( LOGGED_IN && m && m.can_edit ); }
-		// Collections are Pro. Hidden from guests; disabled with a reason (not
-		// removed) once a probe has shown the route is absent.
+		// Save bookmarks the POST this photo belongs to, so it lands in the same
+		// saved list the feed card's Save writes to. Media with no post parent -
+		// the library, DM media - has nothing to bookmark, so the control does not
+		// render there at all rather than offering a save with no object. Revealed
+		// by the space-context response once the post parent is known.
 		if ( panel.save ) {
-			panel.save.hidden = ! LOGGED_IN;
-			if ( saveUnavailable ) { markSaveUnavailable(); }
+			panel.save.hidden = true;
+			setSaved( false );
 		}
 
 		var mine = ! currentAuthorId || currentAuthorId === ( parseInt( cfg.userId, 10 ) || 0 );
@@ -424,6 +427,15 @@
 					bnApi( '/reactions?object_type=post&object_id=' + currentPostId ).then( function ( r ) {
 						if ( forId === current ) { applyReactions( bnReactionShape( r ) ); }
 					} ).catch( function () {} );
+
+					// ...and the post's bookmark, which is what Save writes. The
+					// same response carries it, so the control paints its real
+					// state on first render instead of starting at "not saved"
+					// and making the member's first click look like a no-op.
+					if ( panel.save ) {
+						panel.save.hidden = false;
+						setSaved( !! res.data.bookmarked );
+					}
 				}
 			} );
 		}
@@ -978,110 +990,47 @@
 	}
 
 	/**
-	 * Save-to-collection. Pro surface: the route lives in mvs-pro, so a Free-only
-	 * site 404s here.
+	 * Save = bookmark the POST this photo belongs to.
 	 *
-	 * It used to answer that 404 by setting `panel.save.hidden = true` — the
-	 * control the member had just clicked deleted itself, with no message and no
-	 * saved item, which reads as a broken plugin rather than as an absent add-on
-	 * (Basecamp 10259604003). It now says why, once, and stays put: the button
-	 * goes disabled with the reason as its title and the panel shows the same
-	 * sentence. The flag is per page load, so a member who clicks a second photo
-	 * gets the state immediately instead of a second round trip to the same 404.
+	 * It used to open a MediaVerse Pro COLLECTIONS panel. That put two different
+	 * stores behind one icon: the identical-looking Save on the feed card writes
+	 * a BuddyNext bookmark, so a member who saved a photo from the lightbox found
+	 * nothing in their saved list, and on a site without MediaVerse Pro the
+	 * control answered its own 404 by deleting itself mid-click (Basecamp
+	 * 10259604003). Collections are MediaVerse's feature and stay MediaVerse's;
+	 * BuddyNext does not need one at this end, so this surface is gone rather
+	 * than repaired.
+	 *
+	 * One icon, one object, one saved list. The button only renders when the
+	 * media has a post parent - there is nothing to bookmark otherwise - so
+	 * there is no unavailable state left to explain.
 	 */
-	var saveUnavailable = false;
-
-	function markSaveUnavailable() {
-		saveUnavailable = true;
-		if ( ! panel.save ) { return; }
-		panel.save.disabled = true;
-		panel.save.setAttribute( 'aria-disabled', 'true' );
-		panel.save.title = I18N.saveNoPro || 'Saving to a collection needs MediaVerse Pro.';
+	function setSaved( on ) {
+		var btn = panel.save;
+		if ( ! btn ) { return; }
+		btn.setAttribute( 'aria-pressed', on ? 'true' : 'false' );
+		var label = on ? ( I18N.saved || 'Saved' ) : ( I18N.save || 'Save' );
+		btn.setAttribute( 'aria-label', label );
+		btn.title = label;
 	}
 
-	function saveUnavailableNote( host ) {
-		var note = document.createElement( 'p' );
-		note.className = 'bn-lightbox__panel-note';
-		note.textContent = I18N.saveNoPro || 'Saving to a collection needs MediaVerse Pro.';
-		host.appendChild( note );
-	}
+	function toggleSave() {
+		if ( ! requireLogin() || ! currentPostId ) { return; }
 
-	function openSavePanel() {
-		var host = extraPanel();
-		if ( ! host || ! current ) { return; }
+		var postId = currentPostId;
+		var was    = panel.save && 'true' === panel.save.getAttribute( 'aria-pressed' );
+		setSaved( ! was ); // Optimistic, same as the heart above.
 
-		if ( saveUnavailable ) {
-			saveUnavailableNote( host );
-			return;
-		}
-
-		var loading = document.createElement( 'p' );
-		loading.className = 'bn-lightbox__panel-note';
-		loading.textContent = I18N.posting || 'Loading…';
-		host.appendChild( loading );
-
-		var id = current;
-		window.buddynextRest.restFetch( '/media/' + id + '/collections', {
-			base: ( cfg.mvsRest || '' ).replace( /\/mvs\/v1\/?$/, '/mvs-pro/v1' ),
-			nonce: cfg.nonce || '',
-			toastOnError: false,
-		} ).then( function ( res ) {
-			if ( current !== id ) {
-				closeExtraPanel();
-				return;
-			}
-			if ( ! res.ok ) {
-				markSaveUnavailable();
-				host.textContent = '';
-				saveUnavailableNote( host );
-				return;
-			}
-			renderCollections( host, id, res.data || {} );
-		} ).catch( function () {
-			markSaveUnavailable();
-			host.textContent = '';
-			saveUnavailableNote( host );
-		} );
-	}
-
-	function renderCollections( host, mediaId, status ) {
-		clear( host );
-		var list = ( status.collections && status.collections.length ) ? status.collections : [];
-		if ( ! list.length ) {
-			// Deliberately not "No collections yet" — the engine returns only
-			// MANUAL collections here, because a smart collection fills itself from
-			// its rules and cannot be added to by hand. A member with two smart
-			// collections and no manual ones would read "none yet" as a bug.
-			var none = document.createElement( 'p' );
-			none.className = 'bn-lightbox__panel-note';
-			none.textContent = __( 'No collections you can add to. Smart collections fill themselves from their rules.' );
-			host.appendChild( none );
-		}
-		list.forEach( function ( col ) {
-			var row = document.createElement( 'label' );
-			row.className = 'bn-lightbox__collection';
-			var box = document.createElement( 'input' );
-			box.type = 'checkbox';
-			box.checked = !! col.member;
-			box.addEventListener( 'change', function () {
-				window.buddynextRest.restFetch( '/media/' + mediaId + '/collections', {
-					base: ( cfg.mvsRest || '' ).replace( /\/mvs\/v1\/?$/, '/mvs-pro/v1' ),
-					nonce: cfg.nonce || '',
-					method: 'POST',
-					body: { collection_id: col.id, member: box.checked },
-					toastOnError: false,
-				} ).catch( function () { box.checked = ! box.checked; } );
+		bnApi( '/posts/' + postId + '/bookmark', { method: was ? 'DELETE' : 'POST' } )
+			.then( function () {
+				// A stale response must not repaint a photo the member has since
+				// scrolled past.
+				if ( postId !== currentPostId ) { return; }
+				notify( was ? ( I18N.removedFromSaved || 'Removed from saved' ) : ( I18N.saved || 'Saved' ), 'success' );
+			} )
+			.catch( function () {
+				if ( postId === currentPostId ) { setSaved( was ); }
 			} );
-			var name = document.createElement( 'span' );
-			name.textContent = col.title || ( '#' + col.id );
-			row.appendChild( box );
-			row.appendChild( name );
-			host.appendChild( row );
-		} );
-		var actions = document.createElement( 'div' );
-		actions.className = 'bn-lightbox__panel-actions';
-		actions.appendChild( commentAction( __( 'Done' ), 'cancel', closeExtraPanel ) );
-		host.appendChild( actions );
 	}
 
 	function reloadComments() {
