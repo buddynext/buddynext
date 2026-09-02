@@ -37,7 +37,7 @@ As soon as both plugins are active, the integration is on and published listings
 
 ### Display settings
 
-Listora gets a card on the **Platform > Integration Display** tab, with the same switches every integration has:
+Listora gets a card on the **Platform > Integration Settings** tab, with the same switches every integration has:
 
 | Setting | What it does | Default |
 |---|---|---|

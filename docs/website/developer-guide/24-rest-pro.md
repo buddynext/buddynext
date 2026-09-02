@@ -2,7 +2,7 @@
 
 The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 63 registered routes (across the controllers under `includes/`). This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and plans, moderation rules, AI assistance, scheduled posts, push, saved searches, the member portfolio, Learnomy course links, and the realtime + payment-gateway (Stripe / PayPal) webhook endpoints.
 
-![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-settings.webp)
+![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-general.webp)
 
 ![The BuddyNext admin dashboard the Pro REST namespace populates and reads](../images/admin-overview.webp)
 

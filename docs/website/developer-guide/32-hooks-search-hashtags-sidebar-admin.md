@@ -105,7 +105,7 @@ Each metric on the this-week stats card defaults to `null` so a gamification plu
 
 ## Admin information-architecture seams
 
-The admin hub owns the BuddyNext top-level menu and arranges every settings tab into a fixed set of sections (Settings, Platform, Members, Spaces, Engagement, Notifications, Realtime and Push, Campaigns, Moderation, Auto-Moderation, Monetization). A section appears in the sub-menu only once a tab is registered into it.
+The admin hub owns the BuddyNext top-level menu and arranges every settings tab into a fixed set of sections (Settings, Platform, Members, Spaces, Engagement, Notifications, Realtime and Push, Campaigns, Moderation, Moderation Tools, Monetization). A section appears in the sub-menu only once a tab is registered into it.
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|

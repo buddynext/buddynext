@@ -4,7 +4,7 @@ WPMediaVerse is the companion plugin that brings private messaging and richer me
 
 ![BuddyNext private messaging powered by the WPMediaVerse companion plugin](../images/direct-messaging.webp)
 
-![BuddyNext admin Platform Integrations tab showing the MediaVerse companion](../images/admin-integrations.webp)
+![BuddyNext admin Platform Add-ons tab showing the MediaVerse companion](../images/admin-integrations.webp)
 
 BuddyNext is the social layer your members already know; WPMediaVerse is the messaging and media engine working quietly underneath it. Because BuddyNext presents that engine through its own screens, sending a message or sharing a photo feels like a native part of the community, not a second plugin.
 
@@ -51,7 +51,7 @@ A **Media** link appears in the BuddyNext left navigation rail, pointing to the 
 
 WPMediaVerse installs from inside BuddyNext - no manual upload or plugin search.
 
-1. Go to **BuddyNext > Platform > Integrations**.
+1. Go to **BuddyNext > Platform > Add-ons**.
 2. Find **MediaVerse** under **Companion plugins**. Its description reads "Direct messaging, media galleries, and social feeds."
 3. Select **Install free**. BuddyNext pulls the plugin from the Wbcom store and installs it for you. The card then shows **Active**.
 

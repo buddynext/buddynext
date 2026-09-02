@@ -8,7 +8,7 @@ Reactions let members respond to a post or comment with an emoji instead of typi
 
 ![The "see who reacted" popover — each member who reacted, with their avatar, name and the emoji they chose](../images/reactors-popover.webp)
 
-![The reaction palette, under the Social tab's Activity Feed section, where the site owner chooses which reactions members can use](../images/admin-reactions.webp)
+![The reaction palette, under the Social tab's Activity Feed section, where the site owner chooses which reactions members can use](../images/admin-social.webp)
 
 ## Why use it
 

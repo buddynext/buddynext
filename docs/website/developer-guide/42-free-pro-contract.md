@@ -2,7 +2,7 @@
 
 This page documents how BuddyNext Free and BuddyNext Pro couple: the service-container keys Pro consumes and rebinds, the Free filter and action seams Pro hooks, which cross-plugin hooks are frozen, and the shared-table ownership rule. Every list here is derived from the code and is verified by a test (`FreeProContractTest`) that fails when the code and this page drift apart. If you are building a Pro module, a vertical pack, or a third-party addon that sits on top of the free/pro pair, this is the contract you must respect so an update to either plugin does not break your code.
 
-![The Pro admin settings that sit on the Free/Pro container and hook contract documented here](../images/admin-settings.webp)
+![The Pro admin settings that sit on the Free/Pro container and hook contract documented here](../images/admin-general.webp)
 
 ![The Platform Features admin tab shared across the Free/Pro coupling this contract page defines](../images/admin-features.webp)
 

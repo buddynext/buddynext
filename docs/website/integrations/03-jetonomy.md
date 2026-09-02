@@ -4,7 +4,7 @@ Jetonomy is the companion plugin that gives your community proper discussion boa
 
 ![A BuddyNext space home where Jetonomy adds a forum tab for discussions](../images/space-home.webp)
 
-![BuddyNext admin Platform Integrations tab showing the Jetonomy companion](../images/admin-integrations.webp)
+![BuddyNext admin Platform Add-ons tab showing the Jetonomy companion](../images/admin-integrations.webp)
 
 Your feed and spaces stay exactly as they are; Jetonomy simply adds discussion boards alongside them. BuddyNext ties the two together so forums feel like a natural part of the community rather than a bolt-on.
 
@@ -46,7 +46,7 @@ When someone replies to a member's discussion, that member gets a BuddyNext noti
 
 Jetonomy installs from inside BuddyNext - no manual upload or plugin search.
 
-1. Go to **BuddyNext > Platform > Integrations**.
+1. Go to **BuddyNext > Platform > Add-ons**.
 2. Find **Jetonomy** under **Companion plugins**. Its description reads "Forum-style threaded discussions and Q&A boards."
 3. Select **Install free**. BuddyNext pulls the plugin from the Wbcom store and installs it. The card then shows **Active**.
 
@@ -57,7 +57,7 @@ If Jetonomy is already installed but switched off, the same row shows an **Activ
 
 ### Display settings
 
-Once Jetonomy is active, it gets a card on the **Platform > Integration Display** tab, alongside every other integration. (This is the same per-integration screen that also controls the Discussions navigation tab.)
+Once Jetonomy is active, it gets a card on the **Platform > Integration Settings** tab, alongside every other integration. (This is the same per-integration screen that also controls the Discussions navigation tab.)
 
 | Setting | What it does | Default |
 |---|---|---|

@@ -4,7 +4,7 @@ An announcement is an admin post that pins to the top of every member's home fee
 
 ![A BuddyNext home feed with an admin announcement pinned above the regular activity](../images/community-activity-feed.webp)
 
-![Platform - Features admin tab where the announcements feature is enabled (announcements are managed from the Engagement - Announcements tab)](../images/admin-features.webp)
+![Engagement - Announcements admin tab, where each announcement is created, featured to the top of the feed, or ended](../images/admin-announcements.webp)
 
 ## Why use it
 

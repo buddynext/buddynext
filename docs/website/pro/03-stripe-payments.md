@@ -2,7 +2,7 @@
 
 Stripe is the payment gateway BuddyNext Pro uses to take real payments for memberships. You connect your Stripe account once, and from then on members can buy a plan with a card, manage their own billing, and have their access kept in sync automatically as payments succeed or fail.
 
-![The Monetization Payments admin tab where you connect your Stripe API keys and webhook](../images/admin-stripe.webp)
+![The Monetization Payments admin tab where you connect your Stripe API keys and webhook](../images/admin-payments.webp)
 
 ![What members see - the pricing page where they pick a plan and check out via Stripe](../images/membership-pricing.webp)
 
@@ -63,7 +63,7 @@ If it says **Connected** but you have not finished the webhook step, the badge t
 
 ### Step 2: Add the webhook in Stripe
 
-A webhook is how Stripe tells your site when a payment succeeds, renews, or fails, so access stays in sync. The Stripe tab shows a webhook address for you to copy. In your Stripe dashboard, under Developers then Webhooks, add a new endpoint and paste in that address.
+A webhook is how Stripe tells your site when a payment succeeds, renews, or fails, so access stays in sync. The Payment Gateways tab shows a webhook address for you to copy. In your Stripe dashboard, under Developers then Webhooks, add a new endpoint and paste in that address.
 
 When Stripe asks which events to send, choose the subscription and invoice events. After Stripe creates the endpoint, it shows you a signing secret - copy that back into the Webhook signing secret field on the Stripe tab and save.
 

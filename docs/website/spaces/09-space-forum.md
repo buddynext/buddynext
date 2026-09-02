@@ -36,7 +36,7 @@ The forum is delivered by the Jetonomy companion plugin. There is almost nothing
 
 ### Install the Jetonomy companion
 
-1. In the BuddyNext admin, open **Platform > Integrations**.
+1. In the BuddyNext admin, open **Platform > Add-ons**.
 2. Find Jetonomy in the companion list and install it with one click. BuddyNext handles the download and activation for you - there is no manual upload or plugin search.
 3. Once Jetonomy is active, the **Discussions** tab appears on spaces (and on member profiles) automatically. No per-space switch is required - each space's forum is created on demand the first time its Discussions tab is opened.
 
@@ -44,7 +44,7 @@ The forum is delivered by the Jetonomy companion plugin. There is almost nothing
 
 ### Feed sync setting
 
-One setting controls whether forum activity flows into the activity feed. It lives on the **Integration Display** tab in the BuddyNext admin (Platform > Integrations), as the Jetonomy row's "Post to the activity feed" toggle.
+One setting controls whether forum activity flows into the activity feed. It lives on the **Integration Settings** tab in the BuddyNext admin (Platform > Add-ons), as the Jetonomy row's "Post to the activity feed" toggle.
 
 | Setting | What it does | Default |
 |---|---|---|
