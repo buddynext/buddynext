@@ -114,7 +114,7 @@ The admin hub owns the BuddyNext top-level menu and arranges every settings tab 
 | `bn_admin_hub_default_icon_map` | filter | The fallback tab-slug -> icon map is resolved | `array $map` |
 | `bn_admin_hub_pages` | filter | The admin page catalogue (used by the command-palette index) is built | `array $catalogue` |
 | `buddynext_settings_tab_subtitles` | filter | Per-tab subtitle strings shown under the tab heading | `array $subtitles` |
-| `buddynext_admin_license_tab_content` | action | The Settings > License tab renders (Pro hooks its activate/deactivate form here) | - |
+| `buddynext_admin_license_tab_content` | action | The Get Started > License tab renders (Pro hooks its activate/deactivate form here) | - |
 | `buddynext_profile_field_types` | filter | The available custom-profile-field type list is built | `array $types` |
 | `buddynext_profile_field_type_labels` | filter | Field-type labels for the admin UI | `array $labels` |
 | `buddynext_before_edit_member_form` / `_after_edit_member_form` | action | Around the admin member-edit form | `int $user_id, WP_User $wp_user` |

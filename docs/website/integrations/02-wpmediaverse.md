@@ -66,6 +66,17 @@ The moment WPMediaVerse is active alongside BuddyNext, the bridge between them a
 
 There are no BuddyNext settings to fill in for this companion. Who can message whom is controlled by your existing BuddyNext privacy and moderation rules (see Direct Messaging and Blocking and Muting), not by a separate WPMediaVerse panel.
 
+One BuddyNext setting does apply to media, on **Settings > General**:
+
+**Media links** decides where a link to a photo or video takes the viewer. Members post media as activity updates, so there are two sensible destinations:
+
+| Choice | What happens |
+|---|---|
+| Open the activity it was posted in (default) | A media item's own `/media/` page redirects to the post it was shared in. Media is never exposed as a separate public URL, and viewers stay in the feed where the comments and reactions are. |
+| Open a dedicated media page | Each item keeps its own standalone page, which suits gallery-style sites where the image is the destination rather than the conversation around it. |
+
+The setting is only available while WPMediaVerse is active - without the companion there is no media page for it to control, so it appears switched off.
+
 One default is changed for you, and it is worth knowing about:
 
 **Media reporting is turned on.** Installed on its own, WPMediaVerse ships with member reporting switched off. That is a reasonable default for a media library on a site that may have no moderators at all. A community is the opposite case: a site where members upload photos and videos and *nobody* can report one has no abuse path. So when BuddyNext is active, media reporting is on. You do not have to do anything.

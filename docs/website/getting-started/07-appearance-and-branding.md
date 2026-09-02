@@ -1,6 +1,6 @@
 # Appearance and Branding
 
-Appearance and Branding is where you make the community look like yours - your logo at the top of the navigation, your brand color running through buttons and links, and a default light or dark theme for visitors who have not chosen one. Most of it is a couple of fields and a color swatch, so a new community can carry your identity in minutes. The controls sit across **BuddyNext > Settings > General** (name and brand color) and **BuddyNext > Settings > Appearance** (logo, default theme, custom CSS).
+Appearance and Branding is where you make the community look like yours - your logo at the top of the navigation, your brand color running through buttons and links, and a default light or dark theme for visitors who have not chosen one. Most of it is a couple of fields and a color swatch, so a new community can carry your identity in minutes. The controls sit across **BuddyNext > Settings > General** (community name) and **BuddyNext > Settings > Appearance** (logo, brand color, default theme, custom CSS).
 
 ![The BuddyNext admin Appearance tab with logo, default theme and custom CSS options](../images/admin-appearance.webp)
 
@@ -14,7 +14,7 @@ Set under **Settings > General**, the **Community Name** is how your community r
 
 ## Brand color
 
-Also under **Settings > General**, **Brand color** is your community's accent. It is used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick a color, or paste a hex code if you have an exact brand value. One color change re-themes the whole community consistently - you do not style each element by hand.
+Under **Settings > Appearance**, **Brand color** is your community's accent. It is used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick a color, or paste a hex code if you have an exact brand value. One color change re-themes the whole community consistently - you do not style each element by hand.
 
 ## Logo
 
