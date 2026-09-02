@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.1.6
+Stable tag: 1.1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -56,6 +56,27 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.1.7 - September 2026 =
+
+Fixes from a full audit of 1.1.6: the media lightbox now acts on the post a photo belongs to, externally billed members see the price they were actually charged, and several admin screens stop misreporting what they are showing. Lockstep with BuddyNext Pro 1.1.7 - install and test both together.
+
+* Improve  - The Save control in the media lightbox now bookmarks the post the photo belongs to, so it lands in the same saved list as Save on the feed card. It previously saved to a WPMediaVerse Pro collection, and removed itself from the screen when that was unavailable.
+* Improve  - A profile field group's visibility control now says that it is a ceiling: a field inside it can be more private, never more public, and setting a section to Public does not publish the fields inside it.
+* Fix      - Reactions left in the media lightbox now apply to the post, so they appear on the feed card and are counted once. They previously went to a separate media store and were visible only inside the lightbox.
+* Fix      - A member with a BuddyNext avatar is no longer asked to upload a profile picture on WPMediaVerse screens. Requires WPMediaVerse 2.4.0 or later.
+* Fix      - Photos added to a space album appear in the activity post again instead of the post rendering as text only.
+* Fix      - A space owner or space moderator clicking a reported-content notification now reaches that space's moderation panel instead of a 404. The emailed link is corrected too.
+* Fix      - Deleting a profile field or group opens a confirmation dialog instead of expanding the table row, which made the warning about permanently deleting stored member values almost unreadable.
+* Fix      - The invite list on Members > Invites uses the full width of the screen and scrolls sideways when it needs to, instead of being squeezed into a narrow form column.
+* Fix      - The Realtime and Push settings section is hidden when neither feature is enabled. Webhooks moved to Platform, alongside Integrations and Tools.
+* Fix      - The Explore sidebar's Browse card and the Insights daily-active tile render their icons instead of blank space.
+* Fix      - The settings save bar no longer sits flush against the section below it.
+* Fix      - Builder-generated CSS is kept on BuddyNext hub routes.
+* Dev      - The icon gate reads array-key icon slugs and scans BuddyNext Pro, so a missing icon fails the build rather than rendering as nothing.
+* Dev      - New filter buddynext_can_view_explore gates the Explore deck before it is built.
+* Compat   - Aligned with BuddyNext Pro 1.1.7. Install both updates together.
+* Compat   - Aligned with WPMediaVerse 2.4.0 for the avatar flag seam.
 
 = 1.1.6 - September 2026 =
 
