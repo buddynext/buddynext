@@ -109,6 +109,10 @@ class MediaAssets {
 					// Read by lightbox.js when the clipboard API is unavailable; the key
 					// was missing so the manual-copy prompt always rendered its English fallback.
 					'copyManual'  => __( 'Copy this link: ', 'buddynext' ),
+					// Shown in the Save panel when the collections route is absent
+					// (MediaVerse Pro not installed). The control used to delete
+					// itself on click instead, which reads as a broken button.
+					'saveNoPro'     => __( 'Saving to a collection needs MediaVerse Pro. Use the bookmark on the post to save it.', 'buddynext' ),
 					// Moderator "Remove from space" (unlink) confirm + result toasts.
 					'unlinkConfirm' => __( 'Remove this from the space? The member keeps their own copy.', 'buddynext' ),
 					'unlinkDone'    => __( 'Removed from the space.', 'buddynext' ),

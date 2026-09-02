@@ -327,8 +327,12 @@
 		// owner true, another member false, anonymous false. Re-deriving "is this
 		// mine" here would be a second copy of a rule the server already answers.
 		if ( panel.edit ) { panel.edit.hidden = ! ( LOGGED_IN && m && m.can_edit ); }
-		// Collections are Pro. Probed once per open; hidden when the route is absent.
-		if ( panel.save ) { panel.save.hidden = ! LOGGED_IN; }
+		// Collections are Pro. Hidden from guests; disabled with a reason (not
+		// removed) once a probe has shown the route is absent.
+		if ( panel.save ) {
+			panel.save.hidden = ! LOGGED_IN;
+			if ( saveUnavailable ) { markSaveUnavailable(); }
+		}
 
 		var mine = ! currentAuthorId || currentAuthorId === ( parseInt( cfg.userId, 10 ) || 0 );
 		// cfg.canReport mirrors WPMediaVerse's `mvs_reports_enabled` filter. If a site turns
@@ -895,12 +899,41 @@
 
 	/**
 	 * Save-to-collection. Pro surface: the route lives in mvs-pro, so a Free-only
-	 * site 404s here and the control removes itself rather than offering a save
-	 * that cannot happen.
+	 * site 404s here.
+	 *
+	 * It used to answer that 404 by setting `panel.save.hidden = true` — the
+	 * control the member had just clicked deleted itself, with no message and no
+	 * saved item, which reads as a broken plugin rather than as an absent add-on
+	 * (Basecamp 10259604003). It now says why, once, and stays put: the button
+	 * goes disabled with the reason as its title and the panel shows the same
+	 * sentence. The flag is per page load, so a member who clicks a second photo
+	 * gets the state immediately instead of a second round trip to the same 404.
 	 */
+	var saveUnavailable = false;
+
+	function markSaveUnavailable() {
+		saveUnavailable = true;
+		if ( ! panel.save ) { return; }
+		panel.save.disabled = true;
+		panel.save.setAttribute( 'aria-disabled', 'true' );
+		panel.save.title = I18N.saveNoPro || 'Saving to a collection needs MediaVerse Pro.';
+	}
+
+	function saveUnavailableNote( host ) {
+		var note = document.createElement( 'p' );
+		note.className = 'bn-lightbox__panel-note';
+		note.textContent = I18N.saveNoPro || 'Saving to a collection needs MediaVerse Pro.';
+		host.appendChild( note );
+	}
+
 	function openSavePanel() {
 		var host = extraPanel();
 		if ( ! host || ! current ) { return; }
+
+		if ( saveUnavailable ) {
+			saveUnavailableNote( host );
+			return;
+		}
 
 		var loading = document.createElement( 'p' );
 		loading.className = 'bn-lightbox__panel-note';
@@ -913,15 +946,21 @@
 			nonce: cfg.nonce || '',
 			toastOnError: false,
 		} ).then( function ( res ) {
-			if ( ! res.ok || current !== id ) {
-				if ( panel.save ) { panel.save.hidden = true; }
+			if ( current !== id ) {
 				closeExtraPanel();
+				return;
+			}
+			if ( ! res.ok ) {
+				markSaveUnavailable();
+				host.textContent = '';
+				saveUnavailableNote( host );
 				return;
 			}
 			renderCollections( host, id, res.data || {} );
 		} ).catch( function () {
-			if ( panel.save ) { panel.save.hidden = true; }
-			closeExtraPanel();
+			markSaveUnavailable();
+			host.textContent = '';
+			saveUnavailableNote( host );
 		} );
 	}
 
