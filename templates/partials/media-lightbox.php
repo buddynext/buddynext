@@ -112,8 +112,13 @@ $bn_lb_can_interact = is_user_logged_in();
 					<button type="button" class="bn-lightbox__action" data-bn-lb-share aria-label="<?php esc_attr_e( 'Share', 'buddynext' ); ?>" title="<?php esc_attr_e( 'Share', 'buddynext' ); ?>">
 						<?php buddynext_icon( 'share' ); ?>
 					</button>
-						<?php // Collections are a Pro surface; the JS hides this when the endpoint is absent. ?>
-					<button type="button" class="bn-lightbox__action" data-bn-lb-save hidden aria-label="<?php esc_attr_e( 'Save', 'buddynext' ); ?>" title="<?php esc_attr_e( 'Save', 'buddynext' ); ?>">
+						<?php
+						// Bookmarks the POST this photo belongs to - the same object,
+						// and the same saved list, as the Save on the feed card. The JS
+						// reveals it only once the media is known to have a post parent,
+						// because library and DM media have nothing to bookmark.
+						?>
+					<button type="button" class="bn-lightbox__action" data-bn-lb-save hidden aria-pressed="false" aria-label="<?php esc_attr_e( 'Save', 'buddynext' ); ?>" title="<?php esc_attr_e( 'Save', 'buddynext' ); ?>">
 						<?php buddynext_icon( 'bookmark' ); ?>
 					</button>
 					<?php endif; ?>

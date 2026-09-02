@@ -99,24 +99,29 @@ class MediaAssets {
 				'canReport'     => (bool) apply_filters( 'mvs_reports_enabled', false ),
 				'reactionTypes' => array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' ),
 				'i18n'          => array(
-					'view'        => __( 'view', 'buddynext' ),
-					'views'       => __( 'views', 'buddynext' ),
-					'favorite'    => __( 'Favorite', 'buddynext' ),
-					'favorited'   => __( 'Favorited', 'buddynext' ),
-					'noComments'  => __( 'No comments on this photo yet.', 'buddynext' ),
-					'loginPrompt' => __( 'Log in to react and comment.', 'buddynext' ),
-					'posting'     => __( 'Posting…', 'buddynext' ),
+					'view'             => __( 'view', 'buddynext' ),
+					'views'            => __( 'views', 'buddynext' ),
+					'favorite'         => __( 'Favorite', 'buddynext' ),
+					'favorited'        => __( 'Favorited', 'buddynext' ),
+					'noComments'       => __( 'No comments on this photo yet.', 'buddynext' ),
+					'loginPrompt'      => __( 'Log in to react and comment.', 'buddynext' ),
+					'posting'          => __( 'Posting…', 'buddynext' ),
 					// Read by lightbox.js when the clipboard API is unavailable; the key
 					// was missing so the manual-copy prompt always rendered its English fallback.
-					'copyManual'  => __( 'Copy this link: ', 'buddynext' ),
-					// Shown in the Save panel when the collections route is absent
-					// (MediaVerse Pro not installed). The control used to delete
-					// itself on click instead, which reads as a broken button.
-					'saveNoPro'     => __( 'Saving to a collection needs MediaVerse Pro. Use the bookmark on the post to save it.', 'buddynext' ),
+					'copyManual'       => __( 'Copy this link: ', 'buddynext' ),
+					// The lightbox Save control. It bookmarks the POST the photo
+					// belongs to, so these are deliberately the same words the feed
+					// card's Save uses - one icon, one saved list, one vocabulary.
+					// It used to open a MediaVerse Pro collections panel and needed
+					// a string explaining why it could not; there is no such state
+					// now, because the control only renders where a post exists.
+					'save'             => __( 'Save', 'buddynext' ),
+					'saved'            => __( 'Saved', 'buddynext' ),
+					'removedFromSaved' => __( 'Removed from saved', 'buddynext' ),
 					// Moderator "Remove from space" (unlink) confirm + result toasts.
-					'unlinkConfirm' => __( 'Remove this from the space? The member keeps their own copy.', 'buddynext' ),
-					'unlinkDone'    => __( 'Removed from the space.', 'buddynext' ),
-					'unlinkFail'    => __( 'Could not remove it from the space.', 'buddynext' ),
+					'unlinkConfirm'    => __( 'Remove this from the space? The member keeps their own copy.', 'buddynext' ),
+					'unlinkDone'       => __( 'Removed from the space.', 'buddynext' ),
+					'unlinkFail'       => __( 'Could not remove it from the space.', 'buddynext' ),
 				),
 			)
 		);
