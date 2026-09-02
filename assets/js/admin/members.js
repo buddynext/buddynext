@@ -32,8 +32,24 @@
 		var cancelEls = modal.querySelectorAll( '[data-bn-confirm-cancel]' );
 		var reasonWrap  = modal.querySelector( '[data-bn-confirm-reason-wrap]' );
 		var reasonField = modal.querySelector( '[data-bn-confirm-reason-field]' );
+		var tokenWrap   = modal.querySelector( '[data-bn-confirm-token-wrap]' );
+		var tokenField  = modal.querySelector( '[data-bn-confirm-token-field]' );
+		var tokenLabel  = modal.querySelector( '[data-bn-confirm-token-label]' );
 
 		var pendingForm = null;
+
+		/**
+		 * Whether the typed token authorises the action.
+		 *
+		 * Mirrors the server rule exactly (the item name, or the literal word
+		 * DELETE, case-insensitive and trimmed) so the button never enables on
+		 * something the handler would then refuse.
+		 */
+		function tokenAccepts( token, typed ) {
+			var v = ( typed || '' ).trim().toLowerCase();
+			if ( '' === v ) { return false; }
+			return 'delete' === v || v === ( token || '' ).trim().toLowerCase();
+		}
 
 		function open( form ) {
 			pendingForm = form;
@@ -51,15 +67,49 @@
 				reasonWrap.hidden = ! wantsReason;
 				if ( reasonField ) { reasonField.value = ''; }
 			}
-			backdrop.hidden = false;
-			if ( confirmEl ) {
-				window.setTimeout( function () { confirmEl.focus(); }, 0 );
+			// Type-to-confirm. Reset on every open so a token typed for one item
+			// cannot authorise the next one.
+			var token = form.getAttribute( 'data-bn-confirm-token' ) || '';
+			if ( tokenWrap ) {
+				tokenWrap.hidden = '' === token;
+				if ( tokenField ) { tokenField.value = ''; }
+				if ( tokenLabel ) {
+					tokenLabel.textContent = form.getAttribute( 'data-bn-confirm-token-label' ) || '';
+				}
 			}
+			if ( confirmEl ) { confirmEl.disabled = '' !== token; }
+
+			backdrop.hidden = false;
+			// Focus the control the person has to act on: the token box when
+			// there is one, otherwise the (enabled) confirm button.
+			window.setTimeout( function () {
+				if ( '' !== token && tokenField ) {
+					tokenField.focus();
+				} else if ( confirmEl ) {
+					confirmEl.focus();
+				}
+			}, 0 );
 		}
 
 		function close() {
 			pendingForm = null;
 			backdrop.hidden = true;
+			if ( tokenField ) { tokenField.value = ''; }
+			if ( confirmEl ) { confirmEl.disabled = false; }
+		}
+
+		if ( tokenField ) {
+			tokenField.addEventListener( 'input', function () {
+				if ( ! pendingForm || ! confirmEl ) { return; }
+				var token = pendingForm.getAttribute( 'data-bn-confirm-token' ) || '';
+				confirmEl.disabled = '' !== token && ! tokenAccepts( token, tokenField.value );
+			} );
+			// Enter in the token box should confirm, not submit the page.
+			tokenField.addEventListener( 'keydown', function ( e ) {
+				if ( 'Enter' !== e.key ) { return; }
+				e.preventDefault();
+				if ( confirmEl && ! confirmEl.disabled ) { confirmEl.click(); }
+			} );
 		}
 
 		document.querySelectorAll( 'form[data-bn-confirm="1"]' ).forEach( function ( form ) {
@@ -75,6 +125,19 @@
 		if ( confirmEl ) {
 			confirmEl.addEventListener( 'click', function () {
 				if ( pendingForm ) {
+					// Carry the typed token into the submitting form under the name
+					// the server handler reads. The server re-checks it; this only
+					// moves what the person typed to where it is verified.
+					if ( tokenWrap && ! tokenWrap.hidden && tokenField ) {
+						var tokenInput = pendingForm.querySelector( 'input[name="bn_confirm_text"]' );
+						if ( ! tokenInput ) {
+							tokenInput = document.createElement( 'input' );
+							tokenInput.type = 'hidden';
+							tokenInput.name = 'bn_confirm_text';
+							pendingForm.appendChild( tokenInput );
+						}
+						tokenInput.value = tokenField.value;
+					}
 					// Carry the optional reason into the submitting form as a hidden
 					// field so the server handler can persist it.
 					if ( reasonWrap && ! reasonWrap.hidden && reasonField ) {

@@ -1884,7 +1884,7 @@ class Members extends AdminPageBase {
 			</div><!-- .bn-ss-body -->
 		</div><!-- .bn-settings-section -->
 
-		<?php $this->render_confirm_modal(); ?>
+		<?php self::render_confirm_modal(); ?>
 		<?php
 	}
 
@@ -1892,11 +1892,19 @@ class Members extends AdminPageBase {
 	 * Render the shared destructive-confirm modal scaffold.
 	 *
 	 * The modal is hidden until activated by a form carrying data-bn-confirm="1".
-	 * JS in assets/js/admin/members.js wires open/close behaviour.
+	 * JS in assets/js/admin/members.js wires open/close behaviour, and that
+	 * bundle is enqueued for the whole buddynext-members page, so any tab on it
+	 * can render this scaffold and use the modal.
+	 *
+	 * Static because it is exactly that: one dialog, shared. The Profile Fields
+	 * tab renders it too rather than growing a second one - it used to reveal
+	 * its delete confirmation INLINE, which forced a 64px table column open to
+	 * ~450px and wrapped the impact warning to one or two words per line
+	 * (Basecamp 10264027382).
 	 *
 	 * @return void
 	 */
-	private function render_confirm_modal(): void {
+	public static function render_confirm_modal(): void {
 		?>
 		<div id="bn-members-confirm-modal" class="bn-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="bn-members-confirm-title" hidden>
 			<div class="bn-modal__panel" data-tone="danger" data-size="sm">
@@ -1914,6 +1922,20 @@ class Members extends AdminPageBase {
 				<div class="bn-field bn-modal__reason" data-bn-confirm-reason-wrap hidden>
 					<label class="bn-label" for="bn-members-confirm-reason"><?php esc_html_e( 'Reason (optional, shown in the moderation log)', 'buddynext' ); ?></label>
 					<textarea id="bn-members-confirm-reason" class="bn-textarea" rows="3" data-bn-confirm-reason-field></textarea>
+				</div>
+				<?php
+				/*
+				 * Type-to-confirm, for actions that destroy stored member data.
+				 * Shown only for a form that carries data-bn-confirm-token; the
+				 * accept button stays disabled until the typed value matches that
+				 * token or the literal word DELETE. This is a speed bump, not the
+				 * guard - the server re-checks the same token after the nonce
+				 * (ProfileFieldsManager::confirm_text_matches()).
+				 */
+				?>
+				<div class="bn-field bn-modal__token" data-bn-confirm-token-wrap hidden>
+					<label class="bn-label" for="bn-members-confirm-token" data-bn-confirm-token-label></label>
+					<input type="text" id="bn-members-confirm-token" class="bn-input" autocomplete="off" data-bn-confirm-token-field>
 				</div>
 				<div class="bn-modal__foot">
 					<button type="button" class="bn-btn" data-variant="ghost" data-bn-confirm-cancel>
