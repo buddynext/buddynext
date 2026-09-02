@@ -311,7 +311,7 @@ class InviteManager {
 				</div>
 			</div>
 
-			<div class="bn-settings-section bn-a-narrow-form">
+			<div class="bn-settings-section">
 				<div class="bn-ss-header">
 					<span class="bn-ss-title"><?php esc_html_e( 'Invitations', 'buddynext' ); ?></span>
 					<span class="bn-ss-count"><?php echo esc_html( (string) $total ); ?></span>
@@ -346,6 +346,16 @@ class InviteManager {
 						<p><?php esc_html_e( 'No invitations match this filter.', 'buddynext' ); ?></p>
 					<?php endif; ?>
 				<?php else : ?>
+					<?php
+					/*
+					 * Same scroll container the Members roster uses. Six columns plus a
+					 * two-button action cell cannot fit a phone, and this was the only
+					 * BuddyNext admin table without the escape hatch - it was also the
+					 * only one wrapped in bn-a-narrow-form, so it had neither the width
+					 * nor the scroll (Basecamp 10263619349).
+					 */
+					?>
+					<div class="bn-table-wrap__scroll">
 					<table class="widefat">
 						<thead>
 							<tr>
@@ -421,6 +431,7 @@ class InviteManager {
 					<?php endforeach; ?>
 					</tbody>
 				</table>
+					</div>
 					<?php
 					\BuddyNext\Admin\AdminPageBase::render_pagination(
 						$paged,
