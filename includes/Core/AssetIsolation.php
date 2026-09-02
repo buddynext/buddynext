@@ -148,6 +148,37 @@ class AssetIsolation {
 		 */
 		$prefixes = array_merge( $prefixes, PluginIsolation::frontend_asset_prefixes() );
 
+		/*
+		 * GENERATED assets, which do not live in the producing plugin's directory.
+		 *
+		 * Keeping a plugin's own folder is only half the plugin. Every page builder
+		 * COMPILES its layout to the uploads directory and enqueues it from there --
+		 * Elementor to `uploads/elementor/css/post-<id>.css`, Beaver Builder to
+		 * `uploads/bb-plugin/cache/`, Divi to `uploads/et-cache/` -- and the same is
+		 * true of the CSS/JS combiners. Matching only `plugins/<slug>/` therefore kept
+		 * a builder half-dressed: its widget base CSS survived, the template's actual
+		 * columns, spacing and typography did not, so a themed header and footer
+		 * collapsed to an unstyled stack on hub routes while looking correct on every
+		 * other page of the same site.
+		 *
+		 * Allowed as ONE prefix rather than a per-plugin `uploads/<slug>/` mapping,
+		 * because that mapping is a directory-name guess that is already wrong for two
+		 * of the four builders above and would need extending for every builder after
+		 * them -- the hardcoded-list trap PluginIsolation's discovery pass exists to
+		 * avoid.
+		 *
+		 * Safe by construction, not by allow-list. Isolation strips plugins at
+		 * `option_active_plugins`, BEFORE they load, so a stripped plugin registers no
+		 * hooks and enqueues nothing at all. Anything queued from uploads therefore
+		 * came from code this request deliberately kept. The one loaded-but-stripped
+		 * group is our own family, whose content BuddyNext renders itself -- and it
+		 * serves no enqueued asset from uploads, so nothing it owns rides in here.
+		 */
+		$uploads = wp_get_upload_dir();
+		if ( isset( $uploads['baseurl'] ) && is_string( $uploads['baseurl'] ) && '' !== $uploads['baseurl'] ) {
+			$prefixes[] = trailingslashit( $uploads['baseurl'] );
+		}
+
 		/**
 		 * Filter the allowed asset-source URL prefixes on BuddyNext routes.
 		 *
