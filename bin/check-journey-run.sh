@@ -170,7 +170,15 @@ fi
 # admin, say) ~25 profile/owner specs report phantom regressions. Derive it from
 # the site instead of assuming a name — same lesson as BN_BASE_URL and BN_WP_PATH.
 if [ -z "${BN_TEST_USER:-}" ]; then
-	resolved_user="$(wp --path="$BN_WP_PATH" user get 1 --field=user_login 2>/dev/null | tr -d '[:space:]')"
+	# tail -n 1 because the VALUE is the last line, not the whole output. PHP
+	# startup warnings (a mismatched imagick/xdebug build, say) are printed on
+	# STDOUT, so 2>/dev/null does not remove them, and `tr -d [:space:]` then
+	# glued the warning and the login into one string:
+	#   BN_TEST_USER=Warning:PHPStartup:Unabletoload...online0varundubey
+	# which is not an account, so every spec that logs in as it or builds
+	# urls.member(BN_TEST_USER) got a 404 profile - the exact phantom-regression
+	# class the note above describes, reintroduced by an unrelated PHP warning.
+	resolved_user="$(wp --path="$BN_WP_PATH" user get 1 --field=user_login 2>/dev/null | tail -n 1 | tr -d '[:space:]')"
 	if [ -n "$resolved_user" ]; then
 		BN_TEST_USER="$resolved_user"
 		export BN_TEST_USER
