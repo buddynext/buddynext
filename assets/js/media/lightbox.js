@@ -287,7 +287,11 @@
 		Promise.resolve(
 			typeof window.bnConfirm === 'function'
 				? window.bnConfirm( { title: msg, tone: 'danger' } )
-				: window.confirm( msg )
+				// The accessible bnConfirm is exposed on window by shell/dialog.js.
+				// If it is somehow not loaded we do NOT fall back to a native
+				// window.confirm on a member-facing surface - skip the action, the
+				// same way Block and Report no-op when their dialog is absent.
+				: Promise.resolve( false )
 		).then( function ( ok ) {
 			if ( ! ok ) { return; }
 			window.buddynextRest.restFetch( '/spaces/' + currentSpaceId + '/media/' + current + '/unlink', {

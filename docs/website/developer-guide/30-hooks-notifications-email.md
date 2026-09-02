@@ -35,12 +35,22 @@ Key contract rules:
 | `buddynext_notification_force_on_site` | filter | When checking the recipient's in-app preference, to force-send a critical type | `bool $force, int $recipient_id, string $type, array $data` |
 | `buddynext_transactional_notification_types` | filter | Resolving which notification types are **transactional**, meaning they bypass the member's email preferences entirely and always send. The core set is `email_verify` and `welcome`. Add a type here only when the member genuinely cannot opt out of it - the case this was opened for is Pro's upcoming-renewal notice, where EU and California auto-renewal rules require advance notice before a card is charged. The returned array is cast to strings, de-duplicated and emptied of blanks. | `string[] $types` |
 | `buddynext_notification_created` | action | After a notification row is inserted or merged into an unread group | `int $notification_id, int $recipient_id, array $data` |
+| `buddynext_notification_ungroupable_types` | filter | Resolving which notification types must never collapse into a grouped row | `string[] $types` |
 
 Details:
 
 - `buddynext_notification_should_send` defaults to `true`. Return `false` to drop the notification silently before it reaches the database or any channel. Pro AI fatigue detection uses this to suppress low-signal notifications.
 - `buddynext_notification_send_at` defaults to `null` (send now). Return a MySQL / ISO 8601 datetime string to mark the notification for deferred delivery. Free stores the value in the row's `data` JSON; Pro acts on it for quiet-hours and digest batching.
 - `buddynext_notification_force_on_site` defaults to `false`. Unknown or system types already default to on-site = true, so critical notices are never suppressed by an absent preference; this filter is the escape hatch for forcing a normally-opt-out type through.
+- `buddynext_notification_ungroupable_types` defaults to an empty array. A type belongs on this list when each occurrence is individually actionable or individually meaningful - a direct message is not "3 messages", it is three things you have to read. Grouping is per PAGE: repeats that span a page boundary stay separate, because aggregating in SQL would break the keyset cursor the list pages on. The visible item count therefore varies per page, while the cursor still advances by ROWS, so nothing is skipped.
+
+  ```php
+  add_filter( 'buddynext_notification_ungroupable_types', function ( array $types ): array {
+      $types[] = 'my_plugin_approval_request'; // each one needs its own decision
+      return $types;
+  } );
+  ```
+
 - `buddynext_notification_created` is the canonical "a notification happened" signal. The `$type` lives at `$data['type']`. Note the parameter order: `$notification_id, $recipient_id, $data` (the data array, not a bare type string).
 
 ## Preference hooks
