@@ -181,10 +181,21 @@ class AdminHub {
 		// them under Notifications on the reasoning that a webhook is "a delivery
 		// channel"; reading the resulting tab list settled it the other way —
 		// Notifications, Email, Email Templates, Email Log are all things a MEMBER
-		// receives, and Webhooks among them reads as misfiled. Realtime & Push is
-		// the same idea as a webhook: something the site sends outward, now.
+		// receives, and Webhooks among them reads as misfiled.
+		//
+		// They live under Platform rather than Realtime & Push, which was the
+		// first home. Realtime & Push is a Pro section that is meant to hide
+		// itself when neither feature is on (see the comment above
+		// 'settings:realtime'), and it can only do that at ZERO registered tabs
+		// — build_menu() has no other hide rule. Free registers Webhooks
+		// unconditionally, so parking it there kept an empty-in-spirit section
+		// alive on every install: an owner with realtime and push off still saw
+		// a "Realtime & Push" group whose entire contents was one tab that is
+		// neither. Platform is where the other machine-facing surfaces already
+		// live (Integrations, Tools), so the tab is at home and the Pro section
+		// can hide as designed.
 		'settings:webhooks'             => array(
-			'section'  => 'realtime',
+			'section'  => 'platform',
 			'position' => 50,
 		),
 
