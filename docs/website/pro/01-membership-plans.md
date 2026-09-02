@@ -2,7 +2,7 @@
 
 Membership plans are the plans, free or paid, that you offer your community. Each plan carries a price, a billing schedule, and a set of perks (the features and limits it unlocks), and members subscribe to a plan to get what it includes.
 
-![The Monetization Plans admin tab where you define membership plans, pricing, and perks](../images/admin-plans.webp)
+![The Monetization Plans admin tab where you define membership plans, pricing, and perks](../images/admin-tiers.webp)
 
 ![The member-facing pricing page - each plan with its price, perks and a subscribe button](../images/membership-pricing.webp)
 
