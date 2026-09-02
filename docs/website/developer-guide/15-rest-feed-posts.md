@@ -14,7 +14,7 @@ In short:
 - Write routes require an authenticated user (`require_auth`); the controller returns a `401 rest_not_logged_in` when the caller is a guest.
 - Feed reads use cursor pagination via `?cursor=` and `?per_page=` (max 50). List reads on comments and shares use `?page=` and `?per_page=`.
 - Several feed routes are additionally gated by an owner setting (`buddynext_public_explore`): when a guest hits explore while that option is off, the route returns `401 rest_explore_members_only`.
-- Reactions and Comments writes are gated by their feature switch (Settings > Features). When the feature is off the toggle/create routes return `403`.
+- Reactions and Comments writes are gated by their feature switch (Platform > Features). When the feature is off the toggle/create routes return `403`.
 
 > **Note:** The `Auth` column below reflects the route's `permission_callback`. A value of `auth` means an authenticated user is required; `public` means the route is readable by guests; `admin` means `manage_options`; `moderator` currently resolves to `manage_options`. Capability checks inside a handler (for example the role-mapped `buddynext-feed/create-post` check on post creation) are noted under the relevant route.
 

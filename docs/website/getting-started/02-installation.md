@@ -63,7 +63,7 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 - **Order matters.** Install and activate the free plugin first, then Pro, then any companions. Pro requires the free plugin to be active.
 - **No build step.** BuddyNext and Pro ship with everything they need. You never have to run a build command or install developer dependencies.
 - **Companions are independent.** Removing a companion only disables the feature it powered (for example, deactivating WPMediaVerse hides the Messages tab). The rest of BuddyNext keeps working.
-- **Updates.** Free updates arrive like any WordPress plugin. Pro updates require an active license key entered under Settings > License.
+- **Updates.** Free updates arrive like any WordPress plugin. Pro updates require an active license key entered under Get Started > License.
 
 ## What's next
 

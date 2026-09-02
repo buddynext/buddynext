@@ -4,7 +4,7 @@ Every post carries a privacy level that decides who can see it. Members choose t
 
 ![A BuddyNext activity feed where each post shows the audience the author chose when sharing it](../images/community-activity-feed.webp)
 
-![The site owner sets the default post audience with the Default post visibility control, under the Social tab's Activity Feed section](../images/admin-privacy.webp)
+![The site owner sets the default post audience with the Default post visibility control, under the Social tab's Activity Feed section](../images/admin-social.webp)
 
 ## Why use it
 

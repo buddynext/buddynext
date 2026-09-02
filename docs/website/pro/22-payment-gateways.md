@@ -2,7 +2,7 @@
 
 BuddyNext Pro is built to work with whichever payment gateway you connect, not just one. You enable the gateways you want on a single Payment Gateways tab, each shows its own status, and checkout routes members to your preferred gateway. Alongside the built-in Stripe integration, Pro ships a PayPal gateway, a Gamification Points gateway, and a Test sandbox - all configured in the same place.
 
-![The Monetization Payments admin tab listing every payment gateway with its own enable toggle and status badge](../images/admin-stripe.webp)
+![The Monetization Payments admin tab listing every payment gateway with its own enable toggle and status badge](../images/admin-payments.webp)
 
 ![What members see - the pricing page where they pick a plan and check out through the gateway you offer](../images/membership-pricing.webp)
 

@@ -121,7 +121,7 @@ The `Upgrade` and `Connection` headers are the part people miss - without them t
 
 ## Connect it to BuddyNext
 
-In WP Admin, go to **BuddyNext → Settings → Realtime** and fill in:
+In WP Admin, go to **BuddyNext → Realtime & Push → Realtime** and fill in:
 
 | Field | Value |
 |---|---|

@@ -35,7 +35,7 @@ A section appears in the sidebar **only when at least one visible tab is registe
 | `buddynext-moderation` | submenu | Moderation | `moderation` |
 | `buddynext-upgrade` | submenu | Upgrade | `upgrade` (free-only "Free vs Pro" tab) |
 
-`default_sections()` declares 12 sections (Settings, Platform, Members, Spaces, Engagement, Notifications, Realtime & Push, Campaigns, Moderation, Auto-Moderation, Monetization, Upgrade), and only sections with at least one registered tab render. The four that register no tabs in free (Realtime & Push, Campaigns, Auto-Moderation, Monetization) stay hidden until Pro is active. Integrations is not its own section - it is a tab (origin `settings:integrations`) placed into the Platform section by the placement map.
+`default_sections()` declares 12 sections (Settings, Platform, Members, Spaces, Engagement, Notifications, Realtime & Push, Campaigns, Moderation, Moderation Tools, Monetization, Upgrade), and only sections with at least one registered tab render. The four that register no tabs in free (Realtime & Push, Campaigns, Moderation Tools, Monetization) stay hidden until Pro is active. Integrations is not its own section - it is a tab (origin `settings:integrations`) placed into the Platform section by the placement map.
 
 ### Pro (18 pages)
 

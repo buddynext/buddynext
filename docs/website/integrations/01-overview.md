@@ -2,7 +2,7 @@
 
 Integrations let your community grow into messaging, forums, gamification, jobs, courses, and listings whenever you are ready - no setup work, no code, nothing to wire together by hand. Each one is optional and stays off until you turn it on, so you add features only as your members need them.
 
-![BuddyNext admin Platform Integrations tab where owners enable optional companion integrations](../images/admin-integrations.webp)
+![BuddyNext admin Platform Add-ons tab where owners enable optional companion integrations](../images/admin-integrations.webp)
 
 ## Why use it
 
@@ -40,7 +40,7 @@ Every integration is a bridge: BuddyNext checks whether the companion plugin is 
 
 ### Find the integrations screen
 
-Open BuddyNext and go to **Platform > Integrations**. Each companion shows as a card with its name, a one-line description of what it adds, and its current state:
+Open BuddyNext and go to **Platform > Add-ons**. Each companion shows as a card with its name, a one-line description of what it adds, and its current state:
 
 - Active - the companion is installed and running, and the integration is live.
 - Inactive - the companion is installed but not activated. Activate it to turn the integration on.
@@ -64,9 +64,9 @@ An integration is only active when its companion plugin is active. Bridges are o
 
 Some integrations also expose their own per-feature toggles (for example, whether forum activity appears in the feed). Those live on the integration's own page.
 
-### Choose where each integration appears (Integration Display)
+### Choose where each integration appears (Integration Settings)
 
-Enabling an integration decides *that* it runs; **Platform > Integration Display** decides *where members see it*. Each connected integration gets its own card with plain switches:
+Enabling an integration decides *that* it runs; **Platform > Integration Settings** decides *where members see it*. Each connected integration gets its own card with plain switches:
 
 - **Show in navigation** - adds (or removes) the integration's tab in member navigation.
 - **Post to the activity feed** - whether that integration's events (new discussions, new listings, new media, and so on) appear in the community feed.
@@ -77,7 +77,7 @@ This is the screen to visit when you want a companion's data without its menu cl
 
 > **Note:** **Include in search** behaves differently from the other two, and the difference matters. Switching it off does not just stop *new* content being indexed - it also removes the content already in the search index. That is the honest behaviour: a search switch that left old results behind would be a switch that does not work. Switch it back on and the content is indexed again as members create or update it. Nothing is deleted from the companion plugin itself; only the search index is affected.
 
-![Platform - Integration Display, one card per connected integration with navigation and feed switches](../images/admin-integration-display.webp)
+![Platform - Integration Settings, one card per connected integration with navigation and feed switches](../images/admin-integration-display.webp)
 
 ## Good to know
 

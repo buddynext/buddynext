@@ -2,7 +2,7 @@
 
 BuddyNext Pro lets you run discount codes and apply a flat tax to membership purchases. Both are worked out by BuddyNext itself before any payment gateway is called, so a coupon or tax line produces the same final charge whichever gateway a member uses, and both appear as clear lines on the member's checkout and invoice.
 
-![The Monetization section, where coupons have their own tab and tax settings sit with the payment gateways](../images/admin-paywall.webp)
+![The Monetization section, where coupons have their own tab and tax settings sit with the payment gateways](../images/admin-coupons.webp)
 
 ![The member-facing pricing page where a plan's price, discount, and tax lead into checkout](../images/membership-pricing.webp)
 

@@ -39,7 +39,7 @@ There is nothing to assemble. The Portfolio tab is built into Pro and fills itse
 
 1. Make sure BuddyNext Pro is active.
 2. Install and activate the companion apps you want - Career Board, WB Listora, or Learnomy.
-3. On the Platform → Integration Display tab, each integration has the usual switches (show in navigation, post to the feed, include in search). Its Portfolio panel appears automatically once the app is active and a member has content.
+3. On the Platform → Integration Settings tab, each integration has the usual switches (show in navigation, post to the feed, include in search). Its Portfolio panel appears automatically once the app is active and a member has content.
 
 Each integration's own behaviour - what a job or listing or course does - is configured in that app, not here. The Portfolio tab only decides how a member's activity from those apps is shown on their profile.
 

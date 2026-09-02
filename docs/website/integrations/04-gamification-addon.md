@@ -4,7 +4,7 @@ WB Gamification is the companion plugin that rewards your members for taking par
 
 ![The BuddyNext admin overview showing community engagement driven by WB Gamification](../images/admin-overview.webp)
 
-![BuddyNext admin Platform Integrations tab for connecting the WB Gamification companion plugin](../images/admin-integrations.webp)
+![BuddyNext admin Platform Add-ons tab for connecting the WB Gamification companion plugin](../images/admin-integrations.webp)
 
 This page covers connecting the two plugins and where the rewards show up. For the member-facing detail (how the Achievements tab, badges, points, levels, and leaderboard look and behave), see the Gamification page under Engagement.
 
@@ -56,7 +56,7 @@ Where members see their rewards:
 
 That is the whole connection. Once both plugins are active and the actions have points, members start earning the moment they participate.
 
-This integration has no settings of its own in BuddyNext. BuddyNext hosts its own community leaderboard page automatically, and links to it from the **Leaderboard** item in the left navigation rail - there is no leaderboard page to create or select. You can hide the Leaderboard link (and the Achievements feed activity) from the **Platform > Integration Display** tab if you would rather not surface them.
+This integration has no settings of its own in BuddyNext. BuddyNext hosts its own community leaderboard page automatically, and links to it from the **Leaderboard** item in the left navigation rail - there is no leaderboard page to create or select. You can hide the Leaderboard link (and the Achievements feed activity) from the **Platform > Integration Settings** tab if you would rather not surface them.
 
 ## Good to know
 

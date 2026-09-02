@@ -2,7 +2,7 @@
 
 White-label branding replaces BuddyNext's identity with your own across the WordPress admin - a brand name and a logo in place of "BuddyNext." Your team (or your client, if you run an agency) sees their own name in the menu and their own logo in the admin header and in every BuddyNext email, not the name of a plugin they have never heard of.
 
-![The White-label settings where you set the brand name and logo](../images/admin-appearance.webp)
+![The White-label settings where you set the brand name and logo](../images/admin-white-label.webp)
 
 > **Changed in 1.0.7:** White-label is now backend-only - a brand name and a logo. Brand color, fonts, custom CSS, and per-space branding overrides have been removed; the community front end always follows your active theme. See Per-space branding for what changed there.
 

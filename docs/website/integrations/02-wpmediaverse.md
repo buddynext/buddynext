@@ -4,7 +4,7 @@ WPMediaVerse is the companion plugin that brings private messaging and richer me
 
 ![BuddyNext private messaging powered by the WPMediaVerse companion plugin](../images/direct-messaging.webp)
 
-![BuddyNext admin Platform Integrations tab showing the MediaVerse companion](../images/admin-integrations.webp)
+![BuddyNext admin Platform Add-ons tab showing the MediaVerse companion](../images/admin-integrations.webp)
 
 BuddyNext is the social layer your members already know; WPMediaVerse is the messaging and media engine working quietly underneath it. Because BuddyNext presents that engine through its own screens, sending a message or sharing a photo feels like a native part of the community, not a second plugin.
 
@@ -51,7 +51,7 @@ A **Media** link appears in the BuddyNext left navigation rail, pointing to the 
 
 WPMediaVerse installs from inside BuddyNext - no manual upload or plugin search.
 
-1. Go to **BuddyNext > Platform > Integrations**.
+1. Go to **BuddyNext > Platform > Add-ons**.
 2. Find **MediaVerse** under **Companion plugins**. Its description reads "Direct messaging, media galleries, and social feeds."
 3. Select **Install free**. BuddyNext pulls the plugin from the Wbcom store and installs it for you. The card then shows **Active**.
 
@@ -65,6 +65,17 @@ If the plugin is already installed but switched off, the same row shows an **Act
 The moment WPMediaVerse is active alongside BuddyNext, the bridge between them attaches automatically. There is nothing further to configure for basic messaging - the engine's own chat panel, standalone messages page, and notifications step aside so BuddyNext owns the experience. Members get direct messaging, media in posts, and the Media sidebar link with no extra setup.
 
 There are no BuddyNext settings to fill in for this companion. Who can message whom is controlled by your existing BuddyNext privacy and moderation rules (see Direct Messaging and Blocking and Muting), not by a separate WPMediaVerse panel.
+
+One BuddyNext setting does apply to media, on **Settings > General**:
+
+**Media links** decides where a link to a photo or video takes the viewer. Members post media as activity updates, so there are two sensible destinations:
+
+| Choice | What happens |
+|---|---|
+| Open the activity it was posted in (default) | A media item's own `/media/` page redirects to the post it was shared in. Media is never exposed as a separate public URL, and viewers stay in the feed where the comments and reactions are. |
+| Open a dedicated media page | Each item keeps its own standalone page, which suits gallery-style sites where the image is the destination rather than the conversation around it. |
+
+The setting is only available while WPMediaVerse is active - without the companion there is no media page for it to control, so it appears switched off.
 
 One default is changed for you, and it is worth knowing about:
 

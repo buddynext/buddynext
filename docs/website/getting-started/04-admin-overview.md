@@ -111,4 +111,4 @@ Each section has its own deep-dive in this documentation:
 - For who can join and how members are managed, see the Members documentation.
 - For communities, categories, and membership rules, see the Spaces documentation.
 - For reactions, notifications, email, and moderation, see the matching feature pages.
-- For Pro sections (Realtime & Push, Campaigns, Auto-Moderation, Monetization), see the BuddyNext Pro documentation. (Insights is a free feature - see Community Insights in Getting Started.)
+- For Pro sections (Realtime & Push, Campaigns, Moderation Tools, Monetization), see the BuddyNext Pro documentation. (Insights is a free feature - see Community Insights in Getting Started.)
