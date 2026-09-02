@@ -32,6 +32,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Spaces;
 
 use BuddyNext\REST\BaseRestController;
+use BuddyNext\Media\MediaRenderer;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
 use BuddyNext\Media\MediaClient;
@@ -596,6 +597,18 @@ class SpaceController extends BaseRestController {
 			array(
 				'space_id'   => $space_id,
 				'can_unlink' => $can_unlink,
+				// The BuddyNext post this media was posted in, when there is one.
+				//
+				// The lightbox opens on a photo that is very often ALSO a feed
+				// post, and the two carry different social objects: a reaction
+				// left in the lightbox was a MediaVerse media reaction, invisible
+				// on the feed card, while the post's own reactions were invisible
+				// in the lightbox (Basecamp 10259250229). Telling the client which
+				// post it is looking at lets it act on the post, so one photo has
+				// one set of reactions wherever a member meets it. Answered here
+				// because the lightbox already calls this endpoint on every open -
+				// the alternative was a second request per photo.
+				'post_id'    => MediaRenderer::source_post_id( $media_id ),
 			),
 			200
 		);

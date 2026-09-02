@@ -1673,7 +1673,28 @@ class ProfileFieldsManager {
 							<input type="hidden" name="action" value="bn_update_profile_group">
 							<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 							<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
-							<select class="bn-pf-head-select bn-pf-vis-grp" name="visibility" data-bn-autosubmit title="<?php esc_attr_e( 'Group visibility', 'buddynext' ); ?>">
+							<?php
+							/*
+							 * The hint carries the whole model, because the control cannot.
+							 *
+							 * This select and the per-field select two rows down offer the
+							 * IDENTICAL option list and mean opposite things: the group is a
+							 * CEILING (ProfileService::effective_visibility(), owner decision
+							 * 2026-08-09), the field is the value. An owner sets the section to
+							 * Public, sees every field row still reading "Members only", and
+							 * reasonably concludes the setting is broken - then reports that
+							 * the About tab is invisible to logged-out visitors, which is the
+							 * ceiling working exactly as designed (Basecamp 10264258439).
+							 *
+							 * The model IS explained once, on the Add Field form, which is
+							 * collapsed by default and so is never read by an owner managing
+							 * fields that already exist. Said here, on the control itself, in
+							 * the same explanatory-title form the member-type select below
+							 * already uses - the header row is a toolbar with no space for a
+							 * description paragraph.
+							 */
+							?>
+							<select class="bn-pf-head-select bn-pf-vis-grp" name="visibility" data-bn-autosubmit title="<?php esc_attr_e( 'Maximum visibility for this section - a field inside it can be more private than this, never more public. Setting a section to Public does not publish the fields inside it.', 'buddynext' ); ?>">
 								<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
 									<option value="<?php echo esc_attr( $vis_val ); ?>" <?php selected( $group['visibility'], $vis_val ); ?>>
 										<?php echo esc_html( $vis_lbl ); ?>
@@ -1747,41 +1768,39 @@ class ProfileFieldsManager {
 							$del_nonce    = wp_create_nonce( 'bn_delete_profile_group_' . $gid );
 							$grp_affected = (int) ( $impact_counts['groups'][ $gid ] ?? 0 );
 							?>
+							<?php
+							$grp_confirm_body = $grp_affected > 0
+								? sprintf(
+									/* translators: 1: number of members with stored values, 2: name of the group being deleted. */
+									_n(
+										'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
+										'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',
+										$grp_affected,
+										'buddynext'
+									),
+									$grp_affected,
+									$group['label']
+								)
+								: sprintf(
+									/* translators: %s: name of the group being deleted. */
+									__( 'Delete the section "%s"? No member has stored a value in it.', 'buddynext' ),
+									$group['label']
+								);
+							?>
 							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form"
+								data-bn-confirm="1"
+								data-bn-confirm-title="<?php esc_attr_e( 'Delete section', 'buddynext' ); ?>"
+								data-bn-confirm-body="<?php echo esc_attr( $grp_confirm_body ); ?>"
+								data-bn-confirm-label="<?php esc_attr_e( 'Delete section', 'buddynext' ); ?>"
 								<?php if ( $grp_affected > 0 ) : ?>
-									data-bn-confirm-label="<?php echo esc_attr( $group['label'] ); ?>"
+									data-bn-confirm-token="<?php echo esc_attr( $group['label'] ); ?>"
+									data-bn-confirm-token-label="<?php esc_attr_e( 'Type the section name or DELETE to confirm', 'buddynext' ); ?>"
 								<?php endif; ?>
 							>
 								<input type="hidden" name="action" value="bn_delete_profile_group">
 								<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 								<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $del_nonce ); ?>">
-								<button type="button" class="bn-pf-del-group-btn bn-del-trigger"><?php esc_html_e( 'Delete Group', 'buddynext' ); ?></button>
-								<?php if ( $grp_affected > 0 ) : ?>
-									<span class="bn-del-impact" hidden>
-										<span class="bn-del-impact-text">
-											<?php
-											echo esc_html(
-												sprintf(
-													/* translators: 1: number of members with stored values, 2: name of the item being deleted. */
-													_n(
-														'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
-														'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',
-														$grp_affected,
-														'buddynext'
-													),
-													$grp_affected,
-													$group['label']
-												)
-											);
-											?>
-										</span>
-										<input type="text" name="bn_confirm_text" class="bn-del-confirm-input"
-											autocomplete="off"
-											aria-label="<?php esc_attr_e( 'Type the name or DELETE to confirm', 'buddynext' ); ?>">
-									</span>
-								<?php endif; ?>
-								<button type="submit" class="bn-del-confirm" style="display:none;" <?php disabled( $grp_affected > 0 ); ?>><?php esc_html_e( 'Yes, delete', 'buddynext' ); ?></button>
-								<button type="button" class="bn-del-cancel" style="display:none;"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+								<button type="submit" class="bn-pf-del-group-btn"><?php esc_html_e( 'Delete Group', 'buddynext' ); ?></button>
 							</form>
 						<?php endif; ?>
 					</div><!-- .bn-pf-head-actions -->
@@ -1924,41 +1943,39 @@ class ProfileFieldsManager {
 											<span class="bn-badge" data-tone="neutral" title="<?php esc_attr_e( 'Core field - used by search and member cards. It cannot be deleted.', 'buddynext' ); ?>"><?php esc_html_e( 'Core', 'buddynext' ); ?></span>
 										<?php else : ?>
 											<?php $fld_affected = (int) ( $impact_counts['fields'][ $fid ] ?? 0 ); ?>
+											<?php
+											$fld_confirm_body = $fld_affected > 0
+												? sprintf(
+													/* translators: 1: number of members with stored values, 2: name of the field being deleted. */
+													_n(
+														'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
+														'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',
+														$fld_affected,
+														'buddynext'
+													),
+													$fld_affected,
+													$field['label']
+												)
+												: sprintf(
+													/* translators: %s: name of the field being deleted. */
+													__( 'Delete the field "%s"? No member has stored a value in it.', 'buddynext' ),
+													$field['label']
+												);
+											?>
 											<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form"
+												data-bn-confirm="1"
+												data-bn-confirm-title="<?php esc_attr_e( 'Delete field', 'buddynext' ); ?>"
+												data-bn-confirm-body="<?php echo esc_attr( $fld_confirm_body ); ?>"
+												data-bn-confirm-label="<?php esc_attr_e( 'Delete field', 'buddynext' ); ?>"
 												<?php if ( $fld_affected > 0 ) : ?>
-													data-bn-confirm-label="<?php echo esc_attr( $field['label'] ); ?>"
+													data-bn-confirm-token="<?php echo esc_attr( $field['label'] ); ?>"
+													data-bn-confirm-token-label="<?php esc_attr_e( 'Type the field name or DELETE to confirm', 'buddynext' ); ?>"
 												<?php endif; ?>
 											>
 												<input type="hidden" name="action" value="bn_delete_profile_field">
 												<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
 												<?php wp_nonce_field( 'bn_delete_profile_field_' . $fid ); ?>
-												<button type="button" class="bn-pf-del-field bn-del-trigger" title="<?php esc_attr_e( 'Remove field', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
-												<?php if ( $fld_affected > 0 ) : ?>
-													<span class="bn-del-impact" hidden>
-														<span class="bn-del-impact-text">
-															<?php
-															echo esc_html(
-																sprintf(
-																	/* translators: 1: number of members with stored values, 2: name of the item being deleted. */
-																	_n(
-																		'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
-																		'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',
-																		$fld_affected,
-																		'buddynext'
-																	),
-																	$fld_affected,
-																	$field['label']
-																)
-															);
-															?>
-														</span>
-														<input type="text" name="bn_confirm_text" class="bn-del-confirm-input"
-															autocomplete="off"
-															aria-label="<?php esc_attr_e( 'Type the name or DELETE to confirm', 'buddynext' ); ?>">
-													</span>
-												<?php endif; ?>
-												<button type="submit" class="bn-del-confirm" style="display:none;" <?php disabled( $fld_affected > 0 ); ?>><?php esc_html_e( 'Delete?', 'buddynext' ); ?></button>
-												<button type="button" class="bn-del-cancel" style="display:none;"><?php esc_html_e( 'No', 'buddynext' ); ?></button>
+												<button type="submit" class="bn-pf-del-field" title="<?php esc_attr_e( 'Remove field', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
 											</form>
 										<?php endif; ?>
 									</div>
@@ -2384,5 +2401,11 @@ class ProfileFieldsManager {
 
 		</div><!-- .bn-pf-wrap -->
 		<?php
+		/*
+		 * The shared destructive-confirm dialog, the same one the Members roster
+		 * uses. members.js is enqueued for the whole buddynext-members page, so
+		 * the wiring is already here; only the scaffold had to follow.
+		 */
+		\BuddyNext\Admin\Members::render_confirm_modal();
 	}
 }

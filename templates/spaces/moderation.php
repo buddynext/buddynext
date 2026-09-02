@@ -607,10 +607,31 @@ $mod_privacy = array(
 						</li>
 					</ul>
 					<footer class="bn-space-mod__scope-foot">
-						<a href="<?php echo esc_url( buddynext_community_admin_url() ); ?>" class="bn-space-mod__scope-link">
-							<?php esc_html_e( 'Request platform-wide admin access', 'buddynext' ); ?>
-							<?php buddynext_icon( 'arrow-right' ); ?>
-						</a>
+						<?php
+						/*
+						 * Only link the hub to someone who can open it.
+						 *
+						 * This panel exists to tell a SPACE moderator what they cannot do,
+						 * and the hub it linked to is gated on the site-wide ability
+						 * buddynext-spaces/moderate (PageRouter:598-602). So the link 404d
+						 * for its entire audience: a site admin never reads this panel, and
+						 * nobody else can open the destination. Found alongside the report
+						 * notification with the same cause (Basecamp 10264117698).
+						 *
+						 * A site moderator who does land here still gets the link. Everyone
+						 * else gets the sentence without a dead end attached.
+						 */
+						if ( buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) :
+							?>
+							<a href="<?php echo esc_url( buddynext_community_admin_url() ); ?>" class="bn-space-mod__scope-link">
+								<?php esc_html_e( 'Open Community admin', 'buddynext' ); ?>
+								<?php buddynext_icon( 'arrow-right' ); ?>
+							</a>
+						<?php else : ?>
+							<p class="bn-space-mod__scope-note">
+								<?php esc_html_e( 'A site administrator can grant platform-wide moderation.', 'buddynext' ); ?>
+							</p>
+						<?php endif; ?>
 					</footer>
 				</div>
 			</aside>

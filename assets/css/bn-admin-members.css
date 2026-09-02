@@ -991,25 +991,14 @@
 	margin: 0;
 }
 
-/* Delete forms hold trigger + impact panel + confirm/cancel: keep the pieces
-   on one centered row (wrapping as a unit when the impact panel reveals). */
+/* A delete form is now just its trigger - the confirmation moved to the shared
+   modal - so it only has to sit on the toolbar row like the other controls. */
 .bn-pf-inline-form.bn-del-form {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-a-s2);
 	flex-wrap: wrap;
 	justify-content: flex-end;
-}
-
-/* Confirming state: the impact box + Yes/Cancel would otherwise crowd and
-   overlap the toolbar controls (visibility / member-type / reorder / Add Field)
-   inside the wrapping flex row. Breaking the form onto its own full-width line
-   drops the confirmation cleanly below the toolbar, right-aligned to match it. */
-.bn-pf-head-actions .bn-del-form.is-confirming {
-	flex-basis: 100%;
-	align-items: center;
-	justify-content: flex-end;
-	margin-top: var(--bn-a-s2);
 }
 
 .bn-pf-req-wrap {
@@ -1101,83 +1090,11 @@
 	outline-offset: var(--bn-a-outline-offset);
 }
 
-.bn-del-confirm {
-	background: var(--bn-a-red-bg);
-	border: 1px solid var(--bn-a-red);
-	color: var(--bn-a-red);
-	padding: 3px var(--bn-a-s3);
-	border-radius: var(--bn-a-r-sm);
-	cursor: pointer;
-	font-size: var(--bn-a-text-sm);
-	font-weight: var(--bn-a-fw-semibold);
-}
-
-.bn-del-confirm:hover {
-	background: var(--bn-a-red);
-	color: var(--bn-a-bg);
-}
-
-.bn-del-cancel {
-	background: none;
-	border: 1px solid var(--bn-a-border);
-	color: var(--bn-a-text-3);
-	padding: 3px var(--bn-a-s2);
-	border-radius: var(--bn-a-r-sm);
-	cursor: pointer;
-	font-size: var(--bn-a-text-sm);
-	margin-inline-start: 2px;
-}
-
-.bn-del-cancel:hover {
-	background: var(--bn-a-bg-subtle);
-}
-
-.bn-del-confirm:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-	background: var(--bn-a-red-bg);
-	color: var(--bn-a-red);
-}
-
-/* Impact-confirm: revealed with the confirm/cancel step when the delete would
-   destroy stored member values. Type-to-confirm input gates the confirm button. */
-.bn-del-impact {
-	display: inline-flex;
-	flex-direction: column;
-	gap: var(--bn-a-s1);
-	max-width: 320px;
-	padding: var(--bn-a-s2) var(--bn-a-s3);
-	background: var(--bn-a-red-bg);
-	border: 1px solid var(--bn-a-red);
-	border-radius: var(--bn-a-r-sm);
-	text-align: start;
-}
-
-.bn-del-impact[hidden] {
-	display: none;
-}
-
-.bn-del-impact-text {
-	color: var(--bn-a-red);
-	font-size: var(--bn-a-text-sm);
-	font-weight: var(--bn-a-fw-semibold);
-	line-height: 1.4;
-}
-
-.bn-del-confirm-input {
-	width: 100%;
-	padding: 3px var(--bn-a-s2);
-	border: 1px solid var(--bn-a-red);
-	border-radius: var(--bn-a-r-sm);
-	background: var(--bn-a-bg);
-	color: var(--bn-a-text-1);
-	font-size: var(--bn-a-text-sm);
-}
-
-.bn-del-confirm-input:focus-visible {
-	outline: 2px solid var(--bn-a-red);
-	outline-offset: var(--bn-a-outline-offset);
-}
+/* The inline delete confirmation (.bn-del-confirm / .bn-del-cancel /
+   .bn-del-impact / .bn-del-confirm-input) lived here. It was replaced by the
+   shared destructive modal that the Members roster already used, so the rules
+   went with it - keeping them would have been styling for markup that no
+   template emits (Basecamp 10264027382). */
 
 .bn-pf-ef-panel {
 	padding: var(--bn-a-s5);

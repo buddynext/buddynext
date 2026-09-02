@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Moderation;
 
 use BuddyNext\Contracts\ListenerInterface;
+use BuddyNext\Core\PageRouter;
 
 /**
  * Registers moderation action hooks and routes them to NotificationService / EmailSender.
@@ -749,6 +750,12 @@ class ModerationListener implements ListenerInterface {
 			return;
 		}
 
+		// Two audiences, two queues. A site moderator reviews everything from the
+		// wp-admin queue; a space owner or moderator has no access to it at all
+		// (it is manage_options-gated, so the link 403s for them) and reviews
+		// their own space from the space moderation page. Sending both the same
+		// URL is what made a space owner's only report notification a dead end
+		// — 404 in the bell, 403 from the email (Basecamp 10264117698).
 		$queue_url     = admin_url( 'admin.php?page=buddynext-moderation' );
 		$notifications = buddynext_service( 'notifications' );
 		$email_sender  = buddynext_service( 'email_sender' );
@@ -761,10 +768,21 @@ class ModerationListener implements ListenerInterface {
 		);
 
 		foreach ( array_keys( $recipients ) as $recipient_id ) {
+			// Site moderators get the aggregate wp-admin queue. Everyone else on
+			// this list is here because they moderate THIS space, so they get the
+			// space's own reports tab — a page they can actually open.
+			$recipient_url = $queue_url;
+			if ( $space_id > 0 && ! buddynext_can( $recipient_id, 'buddynext-spaces/moderate' ) ) {
+				$space_link = PageRouter::space_url( $space_id );
+				if ( PageRouter::spaces_url() !== $space_link ) {
+					$recipient_url = add_query_arg( 'bn_mtab', 'reports', $space_link . 'moderation/' );
+				}
+			}
+
 			// 'action_url' is top-level so the email's {{action_url}} token points
-			// at the moderation queue. The notification create is the single email
-			// trigger; direct send only when the in-app notification was
-			// suppressed for that recipient.
+			// at the queue that recipient can open. The notification create is the
+			// single email trigger; direct send only when the in-app notification
+			// was suppressed for that recipient.
 			$created = $notifications->create(
 				array(
 					'recipient_id' => $recipient_id,
@@ -774,10 +792,14 @@ class ModerationListener implements ListenerInterface {
 					'object_id'    => $object_id,
 					'group_key'    => 'report_created_' . $report_id,
 					'data'         => array(
-						'message' => $message,
-						'url'     => $queue_url,
+						'message'  => $message,
+						'url'      => $recipient_url,
+						// Read by NotificationMessageService::url_for() so the bell
+						// resolves the same split at render time, for a recipient
+						// whose abilities may have changed since the fan-out.
+						'space_id' => $space_id,
 					),
-					'action_url'   => $queue_url,
+					'action_url'   => $recipient_url,
 				)
 			);
 
@@ -788,7 +810,8 @@ class ModerationListener implements ListenerInterface {
 					array(
 						'object_type' => $object_type,
 						'object_id'   => $object_id,
-						'action_url'  => $queue_url,
+						'space_id'    => $space_id,
+						'action_url'  => $recipient_url,
 					)
 				);
 			}
