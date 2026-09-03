@@ -188,14 +188,19 @@ if [ "${SKIP_RELEASE_GATE:-0}" != 1 ]; then
 		echo "release gate FAILED: flow-audit did not run — CLI not found. Set FLOW_AUDIT_CLI to .../build/flow-audit-cli.js, or SKIP_FLOW_AUDIT=1 to bypass deliberately." >&2
 		exit 1
 	fi
-	if [ -n "${BN_WP_PATH:-}" ] && command -v wp >/dev/null 2>&1; then
+	# SKIP_CERT is checked FIRST. It used to sit in the elif, which made the
+	# documented bypass unreachable in the only case that matters: with
+	# BN_WP_PATH set the first branch always won, so the escape hatch the header
+	# advertises did nothing and the only way past a red cert was to unset the
+	# path - which silently disables this gate rather than declaring it skipped.
+	if [ "${SKIP_CERT:-0}" = 1 ]; then
+		echo "release gate: cert BYPASSED (SKIP_CERT=1)" >&2
+	elif [ -n "${BN_WP_PATH:-}" ] && command -v wp >/dev/null 2>&1; then
 		echo "release gate: wp buddynext cert…"
 		if ! wp --path="$BN_WP_PATH" buddynext cert >/dev/null 2>&1; then
 			echo "release gate FAILED: functional certification failed — run: wp --path=\"$BN_WP_PATH\" buddynext cert" >&2
 			exit 1
 		fi
-	elif [ "${SKIP_CERT:-0}" = 1 ]; then
-		echo "release gate: cert BYPASSED (SKIP_CERT=1)" >&2
 	else
 		# FATAL, same reasoning as flow-audit above. Card 10158857250 made
 		# `wp buddynext cert` exit non-zero when it proves nothing; that hardening
