@@ -303,10 +303,39 @@ usort( $bn_tag_list, static fn( $a, $b ) => strcmp( $a['name'], $b['name'] ) );
 // the constant is somehow undefined, which cannot happen here (this script
 // already refuses to run outside WordPress with a live REST server, so the
 // plugin is loaded), but costs nothing to keep.
-$bn_info            = (array) ( $bn_config['info'] ?? array( 'title' => 'BuddyNext REST API' ) );
-$bn_info['version'] = defined( 'BUDDYNEXT_VERSION' )
-	? (string) BUDDYNEXT_VERSION
-	: (string) ( $bn_info['version'] ?? '0.0.0' );
+$bn_info = (array) ( $bn_config['info'] ?? array( 'title' => 'BuddyNext REST API' ) );
+
+// HEADER first, constant second - the order Eventonomy's generator settled on
+// and the one the release skill names. The plugin header is what WordPress
+// itself reads for update checks, so it is the canonical version; the constant
+// is a second source for a directory not named after its plugin, where
+// <dir>/<dir>.php cannot resolve. Do not put the constant first: the two can
+// disagree mid-bump, and the header is the one customers' sites act on.
+//
+// No config fallback and no '0.0.0' default. A hand-maintained version in the
+// config is exactly the value that rotted two releases behind on Learnomy, and
+// a silent default makes the spec claim a version that was never true - harder
+// to notice than a failed build, because the freshness gate cannot see it: that
+// gate regenerates and diffs, so a stale stamp matches itself and passes.
+$bn_main_file   = dirname( __DIR__ ) . '/buddynext.php';
+$bn_spec_version = '';
+if ( is_readable( $bn_main_file ) ) {
+	$bn_headers      = get_file_data( $bn_main_file, array( 'version' => 'Version' ), 'plugin' );
+	$bn_spec_version = trim( (string) ( $bn_headers['version'] ?? '' ) );
+}
+if ( '' === $bn_spec_version && defined( 'BUDDYNEXT_VERSION' ) ) {
+	$bn_spec_version = (string) BUDDYNEXT_VERSION;
+}
+if ( '' === $bn_spec_version ) {
+	fwrite(
+		STDERR,
+		"Cannot resolve the spec version: no Version header at {$bn_main_file} and no\n"
+		. "BUDDYNEXT_VERSION constant. Fix the plugin header - do NOT reintroduce a\n"
+		. "hand-maintained version in openapi.config.json.\n"
+	);
+	exit( 1 );
+}
+$bn_info['version'] = $bn_spec_version;
 
 $bn_doc = array(
 	'openapi'    => '3.1.0',
