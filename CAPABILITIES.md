@@ -34,7 +34,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Show a preview card for a pasted link? | YES | `PostController::link_preview` + `PostService::og_meta`; the scrape runs off the member's request (`buddynext_async_fetch_link_meta`), so a slow or dead link never blocks the post |
 | Open a post permalink with its replies visible? | YES | `templates/feed/single-post.php` seeds `commentsOpen` for `context === 'single'`; paging is the same control as the feed |
 | Let members react, comment and reply? | YES | `bn_reactions`, `bn_comments`; 4 `/reactions` + 3 `/comments` routes |
-| Bookmark and reshare posts? | YES | `bn_bookmarks`, `bn_shares` |
+| Bookmark and reshare posts? | YES | `bn_bookmarks`, `bn_shares`. 1.1.7: Save in the media lightbox bookmarks the POST the photo belongs to, so it lands in the same saved list as Save on the feed card - it previously wrote a WPMediaVerse Pro collection, a different store behind an identical icon. Reactions left in the lightbox likewise apply to the post and are counted once |
 | Follow people, and connect mutually? | YES | `bn_follows` (follow) and `bn_connections` (request/accept) are separate graphs |
 | Block another member? | YES | `bn_blocks`; enforced on feed, comments and DM |
 | Group content into spaces? | YES | 32 `/spaces` routes, `bn_spaces` + `bn_space_members` + `bn_space_meta` |
