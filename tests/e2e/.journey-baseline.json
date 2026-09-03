@@ -3,11 +3,13 @@
   "project": "desktop",
   "known_failing": [
     "explore/trending.spec.ts::trending page renders posts + hashtag chips",
-    "moderation/queue.spec.ts::admin queue page renders"
+    "moderation/queue.spec.ts::admin queue page renders",
+    "profile/hero-actions.spec.ts::J-743 Share → Share to feed creates a post referencing the profile"
   ],
   "_reasons": {
     "explore/trending.spec.ts::trending page renders posts + hashtag chips": "Pre-existing. Needs seeded trending data the fixture does not create.",
     "moderation/queue.spec.ts::admin queue page renders": "Pre-existing. Needs a moderation queue with content.",
-    "_recovered_2026-09-01": "The five card-10211458045 specs (J-550 announcement-dismiss, J-513 announcement, J-510 audience-picker, J-504 reactors, J-720 profile-tabs) were REMOVED from the baseline: they all pass now. Their original 'first-navigation timeout' cause was the hard-coded dev host in playwright.config.ts (fixed: the base URL resolves from the tester's Local site). J-513/J-510 then surfaced a second, harness-only cause - the specs resolved the non-owner member and the author id from a hard-coded 'varundubey' that does not exist on every site; the gate now exports BN_TEST_OTHER_USER (the seeded subscriber) and audience-picker resolves the author from BN_TEST_USER. J-550 and J-504 also carried real code fixes this release. All five verified passing locally with the gate's env (seeded users, BN_TEST_USER=user 1, BN_TEST_OTHER_USER=alice)."
+    "_recovered_2026-09-01": "The five card-10211458045 specs (J-550 announcement-dismiss, J-513 announcement, J-510 audience-picker, J-504 reactors, J-720 profile-tabs) were REMOVED from the baseline: they all pass now. Their original 'first-navigation timeout' cause was the hard-coded dev host in playwright.config.ts (fixed: the base URL resolves from the tester's Local site). J-513/J-510 then surfaced a second, harness-only cause - the specs resolved the non-owner member and the author id from a hard-coded 'varundubey' that does not exist on every site; the gate now exports BN_TEST_OTHER_USER (the seeded subscriber) and audience-picker resolves the author from BN_TEST_USER. J-550 and J-504 also carried real code fixes this release. All five verified passing locally with the gate's env (seeded users, BN_TEST_USER=user 1, BN_TEST_OTHER_USER=alice).",
+    "profile/hero-actions.spec.ts::J-743 Share → Share to feed creates a post referencing the profile": "The feature this covers no longer has an entry point. The profile hero's Share-to-feed link is gone - nothing in includes/, assets/, templates/ or blocks/ builds a ?mention= URL any more - while the RECEIVING half is still live: assets/js/feed/composer.js:449 still reads ?mention= and pre-fills the composer, reachable only by typing the URL by hand. So this is a half-removed feature, not a flaky spec, and it fails identically on the v1.1.6 tag. Baselined rather than rewritten because a rewrite could only assert that nothing happens. Un-baseline when the owner decides: restore an entry point, or delete the orphaned composer handling and retire this journey."
   }
 }

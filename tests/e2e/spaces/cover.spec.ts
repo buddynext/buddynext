@@ -21,7 +21,15 @@ import {
  * Throwaway space, deleted in `finally`.
  */
 test.describe('spaces / cover upload + remove (J-603)', () => {
+    // The cover is an <img>, not a background-image. space-hero.php says why:
+    // rendering it as an element lets the owner's focal point pan and zoom it
+    // (object-position + transform:scale) the way a member cover does, with the
+    // gradient on .bn-sh-hero__cover left as the no-image fallback. Asserting a
+    // background-image therefore failed on upload - and passed VACUOUSLY on
+    // remove, because a style that never exists can never be found.
     const heroCover = '.bn-sh-hero__cover';
+    const heroCoverHasImage = '.bn-sh-hero__cover--has-image';
+    const heroCoverImg = '.bn-sh-hero__cover-img';
 
     test('J-603 cover upload shows on the hero; remove reverts it', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
@@ -43,9 +51,8 @@ test.describe('spaces / cover upload + remove (J-603)', () => {
 
             // EFFECT on the rendered hero: the cover paints as a background-image.
             await page.goto(`/spaces/${space.slug}/`);
-            await expect(page.locator(heroCover)).toHaveAttribute('style', /background-image/i, {
-                timeout: 10_000,
-            });
+            await expect(page.locator(heroCoverHasImage)).toBeVisible({ timeout: 10_000 });
+            await expect(page.locator(heroCoverImg)).toHaveAttribute('src', /\S/, { timeout: 10_000 });
 
             // REMOVE (counterpart).
             const del = await bnApi(page, 'DELETE', `/spaces/${space.id}/cover`);
@@ -54,10 +61,12 @@ test.describe('spaces / cover upload + remove (J-603)', () => {
             res = await getSpace(page, space.id);
             expect((res.data as SpaceRow).cover_image_url ?? '').toBe('');
 
-            // EFFECT: reloaded hero no longer carries a background-image style.
+            // EFFECT: the reloaded hero drops the image and falls back to the
+            // gradient - the modifier class and the <img> are both gone.
             await page.goto(`/spaces/${space.slug}/`);
-            const style = (await page.locator(heroCover).first().getAttribute('style')) ?? '';
-            expect(style).not.toMatch(/background-image/i);
+            await expect(page.locator(heroCover).first()).toBeVisible();
+            await expect(page.locator(heroCoverHasImage)).toHaveCount(0);
+            await expect(page.locator(heroCoverImg)).toHaveCount(0);
         } finally {
             await deleteSpaceApi(page, space.id);
         }

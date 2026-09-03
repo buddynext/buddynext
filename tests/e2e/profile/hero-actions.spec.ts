@@ -64,8 +64,16 @@ const CONNECT_BTN = 'button[data-wp-on--click="actions.connect"]';
 const WITHDRAW_BTN = 'button[data-wp-on--click="actions.withdrawRequest"]';
 const MORE_TRIGGER = '.bn-pf-more-trigger';
 const RESTRICT_ITEM = 'button[data-wp-on--click="actions.toggleRestrict"]';
-const SHARE_TOGGLE = '.bn-share-menu-wrap button[data-wp-on--click="actions.toggleShareMenu"]';
-const COPY_LINK_ITEM = '.bn-share-menu-wrap button[data-wp-on--click="actions.copyProfileLink"]';
+// The share menu was folded into the More menu. profile-actions-overflow.php
+// says why: the owner bar used actions.shareProfile and the member view used
+// actions.copyProfileLink for the same intent, and shareProfile is strictly
+// better - it opens the OS share sheet via navigator.share where that exists
+// and falls back to the clipboard where it does not, so "Copy link" was the
+// fallback masquerading as a separate feature. Neither .bn-share-menu-wrap nor
+// actions.copyProfileLink exists any more, so this spec failed on the first
+// click and never reached what it is named for: that the permalink resolves.
+const SHARE_TOGGLE = MORE_TRIGGER;
+const COPY_LINK_ITEM = '.bn-more-menu button[data-wp-on--click="actions.shareProfile"]';
 const SHARE_TO_FEED = '.bn-share-menu-wrap a[href*="mention="]';
 const PRIVATE_CARD = '.bn-profile-private';
 

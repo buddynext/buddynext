@@ -41,8 +41,18 @@ const B_NAME = 'BN E2E Target';
 const HERO = '.bn-pf-hero';
 const MORE_WRAP = '.bn-more-menu-wrap';
 const MORE_TRIGGER = '.bn-pf-more-trigger';
-const FOLLOW_BTN = 'button[data-wp-on--click="actions.follow"]';
-const UNFOLLOW_BTN = 'button[data-wp-on--click="actions.unfollow"]';
+// One control, not two. `actions.follow` and `actions.unfollow` do not exist
+// anywhere in the plugin - every follow control in every template emits
+// `actions.toggleFollow`, and expresses which way it will go through
+// aria-pressed (and its accessible name). The old selectors matched nothing,
+// so this spec failed at the FIRST assertion and never reached the unfollow
+// behaviour it is named for.
+//
+// The spec reloads before each assertion, so the server-rendered aria-pressed
+// is authoritative at the point it is read.
+const TOGGLE_FOLLOW = 'button[data-wp-on--click="actions.toggleFollow"]';
+const FOLLOW_BTN = `${TOGGLE_FOLLOW}[aria-pressed="false"]`;
+const UNFOLLOW_BTN = `${TOGGLE_FOLLOW}[aria-pressed="true"]`;
 const CONNECT_BTN = 'button[data-wp-on--click="actions.connect"]';
 const ACCEPT_BTN = 'button[data-wp-on--click="actions.acceptRequest"]';
 const DECLINE_BTN = 'button[data-wp-on--click="actions.declineRequest"]';
