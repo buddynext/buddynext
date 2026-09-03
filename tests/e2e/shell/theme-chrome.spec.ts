@@ -41,6 +41,12 @@ test.describe('shell / theme chrome', () => {
         await page.goto(urls.feed);
         await expect(page.locator(sel.app)).toBeVisible();
 
+        // journey-selector-allow: negative guard - .bn-topbar must match NOTHING.
+        // The BN-owned topbar was removed (bn-base.css sets --bn-topbar-h to 0 and
+        // says so), and this asserts it stays removed inside the app shell. A
+        // selector that matches nothing is the POINT of a count-zero assertion, so
+        // it is declared here rather than read as spec rot - but note the guard is
+        // weak by nature: it cannot distinguish "correctly absent" from "renamed".
         const bnTopbar = await page.locator(`${sel.app} .bn-topbar`).count();
         expect(bnTopbar).toBe(0);
     });

@@ -154,6 +154,18 @@ else
 	note "bin/check-rest-boundary.sh missing"
 fi
 
+# 3b. Journey selectors — a spec must not assert markup the product removed
+section "Journey selectors (spec vs product)"
+if [ -x bin/check-journey-selectors.sh ]; then
+	if bin/check-journey-selectors.sh; then
+		:
+	else
+		fail "a journey spec asserts markup that no longer exists"
+	fi
+else
+	note "bin/check-journey-selectors.sh missing"
+fi
+
 # 3a-. Stylesheet dependency graph — every front-end sheet reaches bn-base
 section "Stylesheet deps (bn-base reachable)"
 if [ -x bin/check-style-deps.sh ]; then

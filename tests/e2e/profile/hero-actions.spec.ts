@@ -74,7 +74,11 @@ const RESTRICT_ITEM = 'button[data-wp-on--click="actions.toggleRestrict"]';
 // click and never reached what it is named for: that the permalink resolves.
 const SHARE_TOGGLE = MORE_TRIGGER;
 const COPY_LINK_ITEM = '.bn-more-menu button[data-wp-on--click="actions.shareProfile"]';
-const SHARE_TO_FEED = '.bn-share-menu-wrap a[href*="mention="]';
+// journey-selector-allow: the profile Share-to-feed entry point was removed and
+// nothing builds a ?mention= URL any more, while composer.js still reads one.
+// J-743 is baselined on that finding; this selector stays so the journey can be
+// un-baselined the day an entry point comes back.
+const SHARE_TO_FEED = '.bn-share-menu-wrap a[href*="mention="]'; // journey-selector-allow: entry point removed, J-743 baselined on that finding
 const PRIVATE_CARD = '.bn-profile-private';
 
 // A valid 4x4 PNG (correct IDAT CRC — ImageMagick rejects a malformed one),
