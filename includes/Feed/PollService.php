@@ -124,6 +124,27 @@ class PollService {
 		}
 		$option_id = (int) ( $filtered['option_id'] ?? $option_id );
 
+		// The option must belong to THIS poll. Without this, a crafted option_id
+		// from another poll sails through: bn_poll_votes and the vote_count UPDATE
+		// below both key on option_id alone, so a foreign option inflates the other
+		// poll's tally. Reject before any write.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$option_in_poll = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_poll_options WHERE id = %d AND post_id = %d",
+				$option_id,
+				$post_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( 1 !== $option_in_poll ) {
+			return new WP_Error(
+				'invalid_option',
+				__( 'That option does not belong to this poll.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Fetch existing vote (returns option_id or null).
 		$existing_option_id = $wpdb->get_var(
@@ -187,8 +208,9 @@ class PollService {
 				$wpdb->prepare(
 					"UPDATE {$wpdb->prefix}bn_poll_options
 					 SET vote_count = vote_count + 1
-					 WHERE id = %d",
-					$option_id
+					 WHERE id = %d AND post_id = %d",
+					$option_id,
+					$post_id
 				)
 			);
 		}
