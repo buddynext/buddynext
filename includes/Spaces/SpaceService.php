@@ -1252,6 +1252,18 @@ class SpaceService {
 		$wpdb->delete( $wpdb->prefix . 'bn_space_bans', array( 'space_id' => $space_id ), array( '%d' ) );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $wpdb->prefix . 'bn_reports', array( 'space_id' => $space_id ), array( '%d' ) );
+		// Space-scoped notifications (join/join-request/ownership rows keyed
+		// object_type='space', object_id=space_id in NotificationListener) must go
+		// with the space, or members keep bell entries that open a 404.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_notifications',
+			array(
+				'object_type' => 'space',
+				'object_id'   => $space_id,
+			),
+			array( '%s', '%d' )
+		);
 		// bn_mod_log is append-only (ModerationLogService) - the permanent audit
 		// trail must outlive the space it references, so its rows are NOT deleted
 		// here. The log reader never joins to the space row.
