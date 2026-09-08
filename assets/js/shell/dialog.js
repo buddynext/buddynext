@@ -140,7 +140,7 @@ function buildModalFrame( opts ) {
  * @param {HTMLElement} container The modal panel.
  * @return {() => void} Cleanup function — call to remove the listener.
  */
-function trapFocus( container ) {
+export function trapFocus( container ) {
 	function onKey( ev ) {
 		if ( ev.key !== 'Tab' ) {
 			return;
