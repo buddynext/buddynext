@@ -352,6 +352,18 @@ class MediaController extends BaseRestController {
 			'privacy'     => $this->sanitize_privacy( (string) $request->get_param( 'privacy' ) ),
 		);
 
+		// A media title/description (caption) is user-authored public text, so it
+		// runs the same banned-words / blocklist scan as a post or comment — a
+		// blocked word cannot be smuggled in as a caption. Hard block rejects; a
+		// flag verdict is allowed through (reactive moderation).
+		$bn_media_text = trim( $args['title'] . ' ' . $args['description'] );
+		if ( '' !== $bn_media_text ) {
+			$bn_media_scan = buddynext_service( 'safeguard' )->check_content( $bn_media_text, '', $user_id, 0, 'create' );
+			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_media_scan ) && is_wp_error( $bn_media_scan ) ) {
+				return $bn_media_scan;
+			}
+		}
+
 		// WHICH SPACE this upload belongs to, when the composer is posting into one.
 		// The engine resolves the drive from this (mvs_media_drive, answered by
 		// WPMediaVerseBridge::space_media_drive), and the drive is what makes
@@ -637,6 +649,14 @@ class MediaController extends BaseRestController {
 			return new WP_Error( 'bn_album_title_required', __( 'An album needs a name.', 'buddynext' ), array( 'status' => 422 ) );
 		}
 
+		// Album name + description run the banned-words / blocklist scan too, so a
+		// blocked word cannot be moved into an album title. Hard block rejects.
+		$bn_album_text = trim( $title . ' ' . (string) $request->get_param( 'description' ) );
+		$bn_album_scan = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), 0, 'create' );
+		if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_album_scan ) && is_wp_error( $bn_album_scan ) ) {
+			return $bn_album_scan;
+		}
+
 		$album_id = $svc->create(
 			get_current_user_id(),
 			array(
@@ -674,6 +694,14 @@ class MediaController extends BaseRestController {
 		$title = sanitize_text_field( (string) $request->get_param( 'title' ) );
 		if ( '' === $title ) {
 			return new WP_Error( 'bn_album_title_required', __( 'An album needs a name.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		// Album name + description run the banned-words / blocklist scan too, so a
+		// blocked word cannot be moved into an album title. Hard block rejects.
+		$bn_album_text = trim( $title . ' ' . (string) $request->get_param( 'description' ) );
+		$bn_album_scan = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), 0, 'create' );
+		if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_album_scan ) && is_wp_error( $bn_album_scan ) ) {
+			return $bn_album_scan;
 		}
 
 		$album_id = $svc->create(

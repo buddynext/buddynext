@@ -464,6 +464,15 @@ class CommentService {
 			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
+		// Re-scan on edit — a banned word (or a Pro keyword/ML blocklist hit) must
+		// not slip in via an edit any more than on create. Mirror create(): a hard
+		// block rejects the edit, a flag verdict is allowed through (reactive
+		// moderation reports it rather than pre-blocking).
+		$bn_edit_scan = buddynext_service( 'safeguard' )->check_content( $content, '', $user_id, 0, 'edit' );
+		if ( ! SafeguardService::is_flag_verdict( $bn_edit_scan ) && is_wp_error( $bn_edit_scan ) ) {
+			return $bn_edit_scan;
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

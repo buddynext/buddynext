@@ -386,6 +386,18 @@ class SpaceService {
 			: (int) get_option( 'buddynext_space_default_category', 0 );
 		$category_id = $category_id > 0 ? $category_id : null;
 
+		// Banned-words / blocklist scan on the space's public text (name +
+		// description), so a rule enforced on posts and comments cannot be evaded
+		// by putting the text in a space name or description. Hard block rejects;
+		// a flag verdict is allowed through (reactive moderation).
+		$bn_space_text = trim( (string) ( $data['name'] ?? '' ) . ' ' . (string) ( $data['description'] ?? '' ) );
+		if ( '' !== $bn_space_text ) {
+			$bn_space_scan = buddynext_service( 'safeguard' )->check_content( $bn_space_text, '', $owner_id, 0, 'create' );
+			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_space_scan ) && is_wp_error( $bn_space_scan ) ) {
+				return $bn_space_scan;
+			}
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_spaces',
@@ -499,6 +511,17 @@ class SpaceService {
 		// privacy. Was buddynext-manage-space, which includes moderators.
 		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to update this space.', 'buddynext' ) );
+		}
+
+		// Re-scan the space's public text on edit, so a banned word cannot be
+		// introduced by renaming the space or rewriting its description after
+		// creation. Hard block rejects; a flag verdict is allowed through.
+		$bn_space_text = trim( (string) ( $data['name'] ?? '' ) . ' ' . (string) ( $data['description'] ?? '' ) );
+		if ( '' !== $bn_space_text ) {
+			$bn_space_scan = buddynext_service( 'safeguard' )->check_content( $bn_space_text, '', $user_id, $space_id, 'edit' );
+			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_space_scan ) && is_wp_error( $bn_space_scan ) ) {
+				return $bn_space_scan;
+			}
 		}
 
 		global $wpdb;
