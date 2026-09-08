@@ -152,7 +152,28 @@ final class RestHoldGate implements ListenerInterface {
 			return false;
 		}
 
-		return $this->is_unverified_under_full_enforcement( $user_id ) || $this->needs_2fa_enrolment( $user_id );
+		return $this->is_unverified_under_full_enforcement( $user_id )
+			|| $this->needs_2fa_enrolment( $user_id )
+			|| $this->is_suspended( $user_id );
+	}
+
+	/**
+	 * Whether the member is under an action-blocking suspension.
+	 *
+	 * Reads the canonical bn_user_suspensions table via ModerationService, the
+	 * same source the web gates and moderation queue use.
+	 *
+	 * @param int $user_id Member.
+	 * @return bool
+	 */
+	private function is_suspended( int $user_id ): bool {
+		if ( $user_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+		$moderation = buddynext_service( 'moderation' );
+		return is_object( $moderation )
+			&& method_exists( $moderation, 'is_suspended' )
+			&& $moderation->is_suspended( $user_id );
 	}
 
 	/**
@@ -186,6 +207,22 @@ final class RestHoldGate implements ListenerInterface {
 		// inside.
 		if ( preg_match( '#^/buddynext/v1/auth(?:/|$)#', $route ) ) {
 			return $result;
+		}
+
+		// A suspended member keeps read access and the appeal flow, but is blocked
+		// from every write action (follow / connect / join / create space / edit
+		// profile / report / vote). Enforced here at the single REST chokepoint so
+		// no write path can miss it, rather than in each service. Reads (GET) and
+		// the appeal-submission route stay open. DM lives on the partner (MVS)
+		// surface and is held separately via current_member_is_held().
+		if ( in_array( $request->get_method(), array( 'POST', 'PUT', 'PATCH', 'DELETE' ), true )
+			&& ! preg_match( '#^/buddynext/v1/me/appeals(?:/|$)#', $route )
+			&& $this->is_suspended( $user_id ) ) {
+			return new WP_Error(
+				'buddynext_suspended',
+				__( 'Your account is suspended, so you cannot do that right now. You can appeal from your account.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		$hold = $this->hold_for( $user_id, $route );
