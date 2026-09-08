@@ -463,6 +463,56 @@ function buddynext_object_exists( string $object_type, int $object_id ): ?bool {
 }
 
 /**
+ * Validate that an (object_type, object_id) pair is a legitimate write target.
+ *
+ * The shared front door for every write that names an object it does not own —
+ * reactions, comments and reports. Each used to accept whatever object_type a
+ * caller sent (sanitize_key() only), so a bogus type or a nonexistent id still
+ * wrote a row: phantom reactions, junk reports, counters and notifications
+ * against objects that never existed. The rule lives here, once, instead of
+ * being re-derived (or forgotten) at each write path.
+ *
+ * Two failure modes, two statuses:
+ *   - a type not in the caller's closed enum  -> 422 (the request is malformed)
+ *   - a known type whose object is gone/absent -> 404 (nothing to act on)
+ *
+ * Existence is only asserted for types BuddyNext owns (post, comment, space,
+ * user). For a type it cannot check — a WPMediaVerse 'media' object, or an
+ * add-on's own type registered into the enum via filter — buddynext_object_exists()
+ * returns null, and this ALLOWS the write: "I cannot prove it is gone" is not
+ * "it is gone", and refusing there would break every partner target. The enum
+ * itself is the closed gate; existence is a second check only where we can.
+ *
+ * @since 1.2.0
+ *
+ * @param string        $object_type Object type slug (unsanitised is fine).
+ * @param int           $object_id   Object id.
+ * @param array<string> $allowed     Closed enum of accepted types for this context.
+ * @return true|\WP_Error True when the target is valid; WP_Error (422/404) otherwise.
+ */
+function buddynext_validate_object_target( string $object_type, int $object_id, array $allowed ): bool|\WP_Error {
+	$object_type = sanitize_key( $object_type );
+
+	if ( $object_id <= 0 || ! in_array( $object_type, $allowed, true ) ) {
+		return new \WP_Error(
+			'invalid_object_type',
+			__( 'That is not something you can act on.', 'buddynext' ),
+			array( 'status' => 422 )
+		);
+	}
+
+	if ( false === buddynext_object_exists( $object_type, $object_id ) ) {
+		return new \WP_Error(
+			'object_not_found',
+			__( 'That content no longer exists.', 'buddynext' ),
+			array( 'status' => 404 )
+		);
+	}
+
+	return true;
+}
+
+/**
  * Resolve a page of moderation objects in one pass, before rendering them.
  *
  * One query per TYPE instead of one per row. Call this with every (type, id)

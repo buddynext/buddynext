@@ -48,6 +48,18 @@ class InteractionGuard {
 	 * @return true|WP_Error True when allowed; WP_Error('forbidden', …, 403) when refused.
 	 */
 	public static function check( int $actor_id, string $object_type, int $object_id ): bool|WP_Error {
+		// (0) The target must be a real object of a type engagement is allowed
+		// against. Without this, a bogus object_type or a nonexistent id wrote a
+		// junk reaction/comment row (with phantom counters and notifications) and
+		// slipped past the block check below, which resolves author 0 for an
+		// unknown type and then waves it through. Closed enum, extensible via
+		// filter so a partner (e.g. WPMediaVerse 'media') registers its own type.
+		$allowed = (array) apply_filters( 'buddynext_engagement_object_types', array( 'post', 'comment', 'media' ) );
+		$valid   = buddynext_validate_object_target( $object_type, $object_id, $allowed );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+
 		// (1) Suspension is object-type-agnostic: a suspended member cannot
 		// react or comment on anything.
 		if ( self::is_suspended( $actor_id ) ) {

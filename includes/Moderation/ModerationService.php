@@ -258,6 +258,48 @@ class ModerationService {
 	}
 
 	/**
+	 * Resolve the author of a reportable object, for the self-report guard.
+	 *
+	 * Returns the user id that owns the target, or 0 when it has no resolvable
+	 * author (a type we do not own, or an object that is gone). A 'user' target
+	 * IS its own author — reporting user #5 is self-reporting when the reporter is
+	 * user #5. Degrades to 0 (no self-report block) when services are unavailable,
+	 * so the guard never fatals the report path.
+	 *
+	 * @param string $object_type Sanitised object type.
+	 * @param int    $object_id   Object id.
+	 * @return int Owning user id, or 0 when unresolvable.
+	 */
+	private function report_target_author( string $object_type, int $object_id ): int {
+		if ( $object_id <= 0 ) {
+			return 0;
+		}
+
+		if ( 'user' === $object_type ) {
+			return $object_id;
+		}
+
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return 0;
+		}
+
+		if ( 'post' === $object_type ) {
+			$posts = buddynext_service( 'post_service' );
+			return $posts instanceof \BuddyNext\Feed\PostService ? (int) $posts->get_author_id( $object_id ) : 0;
+		}
+
+		if ( 'comment' === $object_type ) {
+			$comments = buddynext_service( 'comments' );
+			if ( $comments instanceof \BuddyNext\Comments\CommentService ) {
+				$comment = $comments->get( $object_id );
+				return null !== $comment ? (int) $comment['user_id'] : 0;
+			}
+		}
+
+		return 0;
+	}
+
+	/**
 	 * Submit a report on an object.
 	 *
 	 * Each user may only report a given object once (UNIQUE KEY enforced at DB).
@@ -281,6 +323,47 @@ class ModerationService {
 		// maxlength, but a direct REST/API caller bypasses that; truncate once so
 		// the stored row and the returned row agree.
 		$notes = mb_substr( sanitize_textarea_field( $notes ), 0, self::NOTE_MAX_LENGTH );
+
+		$object_type = sanitize_key( $object_type );
+
+		// The controller comment long claimed this method validated the target; it
+		// did not — only sanitize_key() ran, so a report against object_type 'zzz'
+		// id 999999999 wrote a row that no moderator could ever action. Closed
+		// enum + existence check, sharing the same front door as reactions and
+		// comments (buddynext_validate_object_target). 422 for a bogus type, 404
+		// for a target that is gone.
+		$allowed = (array) apply_filters( 'buddynext_reportable_object_types', array( 'post', 'comment', 'user', 'message', 'media' ) );
+		$valid   = buddynext_validate_object_target( $object_type, $object_id, $allowed );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+
+		// You cannot report your own content. Reporting yourself is either a
+		// mistake or an attempt to pad an object's report count toward auto-hide;
+		// either way it is never a real safety signal.
+		if ( $reporter_id > 0 && $reporter_id === $this->report_target_author( $object_type, $object_id ) ) {
+			return new WP_Error(
+				'cannot_report_own',
+				__( 'You cannot report your own content.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		// Per-reporter rate limit so one account cannot machine-gun the queue
+		// (option buddynext_report_rate_limit, default 10/min; 0 disables). Same
+		// shared RateLimiter the comment path uses: atomic incr, object-cache
+		// backed, transient fallback.
+		$report_rate_limit = (int) get_option( 'buddynext_report_rate_limit', 10 );
+		if ( $report_rate_limit > 0 && $reporter_id > 0 ) {
+			$rate_bucket = 'bn_report_rate_' . $reporter_id . '_' . (int) floor( time() / MINUTE_IN_SECONDS );
+			if ( \BuddyNext\Core\RateLimiter::hit( $rate_bucket, 2 * MINUTE_IN_SECONDS ) > $report_rate_limit ) {
+				return new WP_Error(
+					'rate_limited',
+					__( 'You are reporting too quickly. Please wait a moment.', 'buddynext' ),
+					array( 'status' => 429 )
+				);
+			}
+		}
 
 		global $wpdb;
 
@@ -364,15 +447,36 @@ class ModerationService {
 		if ( 'post' === sanitize_key( $object_type ) ) {
 			$auto_hide_threshold = (int) get_option( 'buddynext_auto_hide_threshold', 5 );
 			if ( $auto_hide_threshold > 0 ) {
+				/**
+				 * Minimum account age (days) a reporter must have before their report
+				 * counts toward auto-hide. Without it, N brand-new sockpuppet accounts
+				 * could each file one report and hide any post with no moderator ever
+				 * involved — the brigading hole this card closed. Established members
+				 * (and the system reporter, id 0) still trigger auto-hide normally.
+				 *
+				 * @since 1.2.0
+				 *
+				 * @param int $days Minimum account age in days. Default 7.
+				 */
+				$min_age_days = (int) apply_filters( 'buddynext_auto_hide_min_account_age_days', 7 );
+				$age_cutoff   = gmdate( 'Y-m-d H:i:s', time() - ( max( 0, $min_age_days ) * DAY_IN_SECONDS ) );
+
+				// Distinct reporters (one row per reporter — the dup guard above
+				// enforces that) whose account is older than the cutoff, plus the
+				// system reporter (id 0, the safeguard auto-report, always trusted).
+				// Only OPEN reports count: without the status filter, dismissed or
+				// resolved lifetime reports were tallied, so a single new report could
+				// re-hide content a moderator had already cleared.
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$report_total = (int) $wpdb->get_var(
 					$wpdb->prepare(
-						// Only OPEN reports count toward auto-hide. Without the status
-						// filter, dismissed/resolved lifetime reports were tallied, so a
-						// single new report could re-hide content a moderator had already
-						// cleared once the lifetime total crossed the threshold.
-						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id = %d AND status IN ( 'pending', 'escalated' )",
-						$object_id
+						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports r
+						 LEFT JOIN {$wpdb->users} u ON u.ID = r.reporter_id
+						 WHERE r.object_type = 'post' AND r.object_id = %d
+						   AND r.status IN ( 'pending', 'escalated' )
+						   AND ( r.reporter_id = 0 OR ( u.user_registered IS NOT NULL AND u.user_registered <= %s ) )",
+						$object_id,
+						$age_cutoff
 					)
 				);
 				if ( $report_total >= $auto_hide_threshold ) {
