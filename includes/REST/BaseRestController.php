@@ -186,7 +186,15 @@ abstract class BaseRestController {
 	 * @return true|WP_Error
 	 */
 	public function require_moderator(): bool|WP_Error {
-		return $this->require_admin();
+		if ( ( new \BuddyNext\Core\RoleService() )->can_moderate_site( get_current_user_id() ) ) {
+			return true;
+		}
+
+		return new WP_Error(
+			'rest_forbidden',
+			__( 'You do not have permission to do that.', 'buddynext' ),
+			array( 'status' => current_user_can( 'read' ) ? 403 : 401 )
+		);
 	}
 
 	/**

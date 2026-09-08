@@ -64,7 +64,10 @@ class PermissionService {
 		'buddynext-moderation/report'       => 'member',
 		'buddynext-moderation/review-queue' => 'moderator',
 		'buddynext-moderation/issue-strike' => 'moderator',
-		'buddynext-moderation/suspend-user' => 'admin',
+		// Site-wide moderators have full moderation authority (product decision):
+		// suspend is a moderator power, not admin-only. Space-scoped suspension is
+		// still resolved separately per space.
+		'buddynext-moderation/suspend-user' => 'moderator',
 		// Space-scoped capabilities — resolved by can_moderate_space() /
 		// can_manage_space() / can_own_space().
 		'buddynext-moderate-space'          => null,

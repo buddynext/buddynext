@@ -97,7 +97,7 @@ class ModerationController extends BaseRestController {
 				array(
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => array( $this, 'list_reports' ),
-					'permission_callback' => array( $this, 'require_admin' ),
+					'permission_callback' => array( $this, 'require_moderator' ),
 					'args'                => array(
 						'object_type' => array(
 							'required'          => true,
@@ -224,7 +224,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_moderation_log' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_moderator' ),
 				'args'                => array(
 					'user_id'  => array(
 						'type'              => 'integer',
@@ -305,7 +305,7 @@ class ModerationController extends BaseRestController {
 				array(
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => array( $this, 'get_user_strikes' ),
-					'permission_callback' => array( $this, 'require_admin' ),
+					'permission_callback' => array( $this, 'require_moderator' ),
 					'args'                => array(
 						'id' => array(
 							'required' => true,
@@ -317,7 +317,7 @@ class ModerationController extends BaseRestController {
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
 					'callback'            => array( $this, 'issue_strike' ),
-					'permission_callback' => array( $this, 'require_admin' ),
+					'permission_callback' => array( $this, 'require_moderator' ),
 					'args'                => array(
 						'id'     => array(
 							'required' => true,
@@ -341,7 +341,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( $this, 'reverse_strike' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_moderator' ),
 			)
 		);
 
@@ -352,7 +352,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( $this, 'suspend_user' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_moderator' ),
 				'args'                => array(
 					'id'            => array(
 						'required' => true,
@@ -470,7 +470,7 @@ class ModerationController extends BaseRestController {
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
 					'callback'            => array( $this, 'shadow_ban_user' ),
-					'permission_callback' => array( $this, 'require_admin' ),
+					'permission_callback' => array( $this, 'require_moderator' ),
 					'args'                => array(
 						'id' => array(
 							'required' => true,
@@ -482,7 +482,7 @@ class ModerationController extends BaseRestController {
 				array(
 					'methods'             => WP_REST_Server::DELETABLE,
 					'callback'            => array( $this, 'remove_shadow_ban' ),
-					'permission_callback' => array( $this, 'require_admin' ),
+					'permission_callback' => array( $this, 'require_moderator' ),
 					'args'                => array(
 						'id' => array(
 							'required' => true,
@@ -501,7 +501,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::DELETABLE,
 				'callback'            => array( $this, 'delete_suspension' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_moderator' ),
 				'args'                => array(
 					'id' => array(
 						'required' => true,
@@ -519,7 +519,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_user_suspension' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_moderator' ),
 				'args'                => array(
 					'id' => array(
 						'required' => true,
@@ -580,7 +580,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'list_user_warnings' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_moderator' ),
 				'args'                => array(
 					'id' => array(
 						'required' => true,
@@ -598,7 +598,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_shadow_ban_status' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_moderator' ),
 				'args'                => array(
 					'id' => array(
 						'required' => true,
@@ -616,7 +616,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'list_user_suspensions' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_moderator' ),
 				'args'                => array(
 					'id' => array(
 						'required' => true,
@@ -790,7 +790,7 @@ class ModerationController extends BaseRestController {
 				array(
 					'methods'             => WP_REST_Server::EDITABLE,
 					'callback'            => array( $this, 'set_content_warning' ),
-					'permission_callback' => array( $this, 'require_admin' ),
+					'permission_callback' => array( $this, 'require_moderator' ),
 					'args'                => array(
 						'id'                   => array(
 							'required'          => true,
@@ -1109,8 +1109,9 @@ class ModerationController extends BaseRestController {
 			$args['reason'] = sanitize_key( (string) $reason_param );
 		}
 
-		// Non-site-admin moderators may only see reports for their own spaces.
-		if ( ! current_user_can( 'manage_options' ) ) {
+		// Space-only moderators see reports for their own spaces; site-wide
+		// moderators (and admins) see everything.
+		if ( ! $this->moderates_site() ) {
 			$args['space_ids'] = $service->get_moderated_space_ids( get_current_user_id() );
 		}
 
@@ -1133,7 +1134,7 @@ class ModerationController extends BaseRestController {
 		$offset   = ( $page - 1 ) * $per_page;
 
 		$space_ids = array();
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! $this->moderates_site() ) {
 			$space_ids = ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() );
 		}
 
@@ -1211,7 +1212,7 @@ class ModerationController extends BaseRestController {
 	 * @return true|WP_Error
 	 */
 	private function guard_pending_scope( int $post_id ) {
-		if ( current_user_can( 'manage_options' ) ) {
+		if ( $this->moderates_site() ) {
 			return true;
 		}
 		$post     = ( new \BuddyNext\Feed\PostService() )->get( $post_id );
@@ -1237,7 +1238,7 @@ class ModerationController extends BaseRestController {
 	 * @return true|WP_Error
 	 */
 	private function guard_report_scope( int $report_id ) {
-		if ( current_user_can( 'manage_options' ) ) {
+		if ( $this->moderates_site() ) {
 			return true;
 		}
 		$report   = ( new ModerationService() )->get_report( $report_id );
@@ -1415,11 +1416,25 @@ class ModerationController extends BaseRestController {
 	}
 
 	/**
+	 * Whether the current user has site-wide moderation authority.
+	 *
+	 * WordPress admins and community moderators/admins (bn_community_role) act
+	 * across the whole community; everyone else is space-scoped. One predicate so
+	 * a site moderator behaves identically everywhere a handler previously keyed
+	 * off manage_options alone.
+	 *
+	 * @return bool
+	 */
+	private function moderates_site(): bool {
+		return ( new \BuddyNext\Core\RoleService() )->can_moderate_site( get_current_user_id() );
+	}
+
+	/**
 	 * Permission callback for the moderation queue endpoint.
 	 *
-	 * Site admins (manage_options) pass unconditionally. Space moderators who
-	 * hold an owner or moderator role in at least one space also pass — the
-	 * get_queue() handler will then scope the results to their spaces only.
+	 * Site admins and site-wide community moderators pass unconditionally. Space
+	 * moderators who hold an owner or moderator role in at least one space also
+	 * pass — the get_queue() handler then scopes the results to their spaces only.
 	 *
 	 * @return bool|WP_Error
 	 */
@@ -1428,7 +1443,7 @@ class ModerationController extends BaseRestController {
 			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
 		}
 
-		if ( current_user_can( 'manage_options' ) ) {
+		if ( $this->moderates_site() ) {
 			return true;
 		}
 
@@ -1491,7 +1506,7 @@ class ModerationController extends BaseRestController {
 		$actor_id = get_current_user_id();
 
 		if (
-			! current_user_can( 'manage_options' )
+			! $this->moderates_site()
 			&& ! ( $space_id > 0 && buddynext_can( $actor_id, 'buddynext-spaces/moderate', array( 'space_id' => $space_id ) ) )
 		) {
 			return new WP_Error( 'bn_forbidden', __( 'You cannot warn this member.', 'buddynext' ), array( 'status' => 403 ) );

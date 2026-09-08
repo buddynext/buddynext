@@ -56,6 +56,29 @@ class RoleService {
 	}
 
 	/**
+	 * Whether a user holds SITE-WIDE moderation authority.
+	 *
+	 * True for a WordPress admin (manage_options) and for any user whose
+	 * community role is moderator or above. This is the one predicate the
+	 * moderation REST routes and handlers use to decide "may act across the whole
+	 * community" — as opposed to space-scoped moderation, which is resolved per
+	 * space via SpaceMemberService. An admin promotes anyone to this authority
+	 * with the Community Role dropdown on the Members screen (bn_community_role).
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return bool
+	 */
+	public function can_moderate_site( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+		return self::ROLE_HIERARCHY[ $this->get_role( $user_id ) ] >= self::ROLE_HIERARCHY['moderator'];
+	}
+
+	/**
 	 * Set the community role for a user.
 	 *
 	 * Fires the buddynext_role_changed action after persisting.
