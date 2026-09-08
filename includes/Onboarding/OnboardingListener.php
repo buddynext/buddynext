@@ -28,13 +28,128 @@ class OnboardingListener implements ListenerInterface {
 	 * bootstrapped, so buddynext_service() is available to every handler.
 	 */
 	public function register(): void {
-		add_action( 'user_register', array( $this, 'on_user_register_schedule_nudges' ), 15, 1 );
 		add_action( 'user_register', array( $this, 'reconcile_invites_on_register' ), 16, 1 );
 		add_action( 'buddynext_onboarding_completed', array( $this, 'on_onboarding_completed_cancel_nudges' ), 10, 1 );
+		// Legacy per-user events (pre-1.2.0) still fire this until the upgrade
+		// unschedules them; keep the handler so any in-flight ones still send.
 		add_action( 'bn_onboarding_nudge_24h', array( $this, 'handle_onboarding_nudge' ), 10, 1 );
 		add_action( 'bn_onboarding_nudge_72h', array( $this, 'handle_onboarding_nudge' ), 10, 1 );
 		add_action( 'template_redirect', array( $this, 'maybe_redirect_to_onboarding' ), 5 );
 		add_action( 'buddynext_async_send_invite_email', array( $this, 'handle_async_invite_email' ), 10, 1 );
+
+		// One recurring Action Scheduler sweep replaces the two per-user WP-Cron
+		// events that used to be scheduled on every registration — those grew the
+		// autoloaded cron option without bound (305 KB after 1,500 signups).
+		add_action( self::NUDGE_SWEEP_HOOK, array( $this, 'run_nudge_sweep' ) );
+		add_action( 'init', array( __CLASS__, 'arm_nudge_sweep' ) );
+	}
+
+	/**
+	 * Recurring Action Scheduler hook that sends due onboarding nudges.
+	 */
+	public const NUDGE_SWEEP_HOOK = 'buddynext_onboarding_nudge_sweep';
+
+	/**
+	 * Action Scheduler group (shared with the rest of BuddyNext's jobs).
+	 */
+	private const NUDGE_SWEEP_GROUP = 'buddynext';
+
+	/**
+	 * User-meta flags recording that each nudge has been sent, so the sweep never
+	 * re-sends. Set even when the send is skipped (already onboarded) so the user
+	 * drops out of the candidate set.
+	 */
+	private const META_24H = '_bn_nudge_24h_sent';
+
+	/**
+	 * 72-hour nudge sent flag. See META_24H.
+	 */
+	private const META_72H = '_bn_nudge_72h_sent';
+
+	/**
+	 * Arm the recurring nudge sweep exactly once.
+	 *
+	 * Mirrors LogRetentionService::arm(): self-arming, guarded so it does not
+	 * re-enqueue on every request. Every 6 hours is frequent enough that a user
+	 * is caught inside the 24h-wide due window below.
+	 *
+	 * @return void
+	 */
+	public static function arm_nudge_sweep(): void {
+		if ( ! function_exists( 'as_has_scheduled_action' ) || ! function_exists( 'as_schedule_recurring_action' ) ) {
+			return;
+		}
+
+		if ( as_has_scheduled_action( self::NUDGE_SWEEP_HOOK, array(), self::NUDGE_SWEEP_GROUP ) ) {
+			return;
+		}
+
+		as_schedule_recurring_action(
+			time() + HOUR_IN_SECONDS,
+			6 * HOUR_IN_SECONDS,
+			self::NUDGE_SWEEP_HOOK,
+			array(),
+			self::NUDGE_SWEEP_GROUP
+		);
+	}
+
+	/**
+	 * Send the 24h and 72h onboarding nudges to users who are due one.
+	 *
+	 * Selects by registration date within a bounded window (so the query is
+	 * cheap regardless of total user count, and a user registered weeks ago is
+	 * never mass-nudged on upgrade) and skips anyone already nudged or already
+	 * onboarded. A per-user meta flag is set after processing so nobody is
+	 * considered twice. Batched to keep one pass bounded.
+	 *
+	 * @return void
+	 */
+	public function run_nudge_sweep(): void {
+		// 24h nudge: registered between 48h and 24h ago. 72h nudge: 96h to 72h
+		// ago. The lower bound bounds the candidate set; the flag prevents repeats.
+		$this->run_nudge_window( self::META_24H, 2 * DAY_IN_SECONDS, DAY_IN_SECONDS );
+		$this->run_nudge_window( self::META_72H, 4 * DAY_IN_SECONDS, 3 * DAY_IN_SECONDS );
+	}
+
+	/**
+	 * Process one nudge window: registered between $max_ago and $min_ago, no flag.
+	 *
+	 * @param string $meta_key Flag meta key set once a user is processed.
+	 * @param int    $max_ago  Oldest registration age to consider (seconds).
+	 * @param int    $min_ago  Youngest registration age to consider (seconds).
+	 * @return void
+	 */
+	private function run_nudge_window( string $meta_key, int $max_ago, int $min_ago ): void {
+		$users = get_users(
+			array(
+				'number'     => 200,
+				'fields'     => 'ID',
+				'date_query' => array(
+					array(
+						'column'    => 'user_registered',
+						'after'     => gmdate( 'Y-m-d H:i:s', time() - $max_ago ),
+						'before'    => gmdate( 'Y-m-d H:i:s', time() - $min_ago ),
+						'inclusive' => true,
+					),
+				),
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Bounded by the date_query window above (a 24h registration slice), so the NOT EXISTS runs against a small candidate set, never the full user table.
+				'meta_query' => array(
+					array(
+						'key'     => $meta_key,
+						'compare' => 'NOT EXISTS',
+					),
+				),
+			)
+		);
+
+		foreach ( $users as $user_id ) {
+			$user_id = (int) $user_id;
+			// handle_onboarding_nudge() bails on already-onboarded users, so this
+			// both sends the due nudge and no-ops the rest. Either way we stamp the
+			// flag so the user leaves the candidate set for good.
+			$this->handle_onboarding_nudge( $user_id );
+			update_user_meta( $user_id, $meta_key, 1 );
+		}
 	}
 
 	/**
@@ -167,25 +282,6 @@ class OnboardingListener implements ListenerInterface {
 
 		wp_safe_redirect( $onboarding_url );
 		exit;
-	}
-
-	/**
-	 * Schedule 24h and 72h nudge emails when a new user registers.
-	 *
-	 * @param int $user_id Newly registered user ID.
-	 */
-	public function on_user_register_schedule_nudges( int $user_id ): void {
-		// Guard against duplicate scheduling: user_register can fire more than
-		// once per user (re-registration flows, importers, repeated calls), and
-		// each unguarded schedule queued another nudge — observed stacking 79x and
-		// sending that many emails. Only schedule when no event for this exact
-		// user is already pending.
-		if ( ! wp_next_scheduled( 'bn_onboarding_nudge_24h', array( $user_id ) ) ) {
-			wp_schedule_single_event( time() + DAY_IN_SECONDS, 'bn_onboarding_nudge_24h', array( $user_id ) );
-		}
-		if ( ! wp_next_scheduled( 'bn_onboarding_nudge_72h', array( $user_id ) ) ) {
-			wp_schedule_single_event( time() + ( 3 * DAY_IN_SECONDS ), 'bn_onboarding_nudge_72h', array( $user_id ) );
-		}
 	}
 
 	/**

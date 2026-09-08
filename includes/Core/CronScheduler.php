@@ -284,6 +284,15 @@ class CronScheduler {
 		// 6. The remaining recurring jobs migrate from native WP-Cron to Action
 		// Scheduler automatically: schedule_events() -> maybe_schedule() clears each
 		// legacy WP-Cron event and registers the AS action on the next wp_loaded.
+
+		// 7. Drop the per-user onboarding nudge events. Two single events were armed
+		// on EVERY registration (bn_onboarding_nudge_24h/_72h with the user id as an
+		// arg), so the autoloaded cron option grew without bound — 305 KB after
+		// 1,500 signups. They are replaced by one recurring Action Scheduler sweep
+		// (OnboardingListener::run_nudge_sweep). wp_unschedule_hook removes ALL
+		// events for each hook regardless of their per-user args in one call.
+		wp_unschedule_hook( 'bn_onboarding_nudge_24h' );
+		wp_unschedule_hook( 'bn_onboarding_nudge_72h' );
 	}
 
 	/**

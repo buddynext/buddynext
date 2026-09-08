@@ -78,9 +78,10 @@ final class ScheduledPostsPublisher {
 			}
 		);
 
-		if ( ! wp_next_scheduled( self::SWEEP_HOOK ) ) {
-			wp_schedule_event( time() + HOUR_IN_SECONDS, 'hourly', self::SWEEP_HOOK );
-		}
+		// The hourly safety-net sweep is NOT scheduled unconditionally any more: on
+		// a site that never schedules a post it was an idle hourly event forever.
+		// arm() now schedules the sweep only while scheduled posts exist and clears
+		// it when the last one publishes, so an idle site carries no sweep event.
 	}
 
 	/**
@@ -108,7 +109,16 @@ final class ScheduledPostsPublisher {
 		wp_clear_scheduled_hook( self::HOOK );
 
 		if ( null === $next ) {
-			return; // No scheduled posts — stay disarmed.
+			// No scheduled posts — stay fully disarmed, including the hourly
+			// safety-net sweep. Nothing to publish means nothing to sweep.
+			wp_clear_scheduled_hook( self::SWEEP_HOOK );
+			return;
+		}
+
+		// Scheduled posts exist — keep the hourly safety-net sweep alive so a
+		// dropped single-event (DB restore, cleared hook) never strands a post.
+		if ( ! wp_next_scheduled( self::SWEEP_HOOK ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'hourly', self::SWEEP_HOOK );
 		}
 
 		// scheduled_at is stored in UTC; strtotime() treats a bare datetime as UTC.
