@@ -3514,12 +3514,15 @@ class Installer {
 				user_id BIGINT(20) UNSIGNED NOT NULL,
 				type VARCHAR(64) NOT NULL,
 				digest_date DATE DEFAULT NULL,
+				status VARCHAR(10) NOT NULL DEFAULT 'sent',
+				error TEXT DEFAULT NULL,
 				sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY         user_type (user_id, type, digest_date),
 				KEY         type (type),
 				KEY         purge_window (sent_at),
-				KEY         type_id (type, id)
+				KEY         type_id (type, id),
+				KEY         status_window (status, sent_at)
 			) {$cs};",
 
 			/*

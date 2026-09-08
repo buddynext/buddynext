@@ -53,6 +53,7 @@ class EmailDispatchListener implements ListenerInterface {
 	public function register(): void {
 		add_action( 'buddynext_notification_created', array( $this, 'on_notification_created' ), 10, 3 );
 		add_action( 'buddynext_send_notification_email', array( $this, 'on_send_notification_email' ), 10, 3 );
+		add_action( 'buddynext_retry_notification_email', array( $this, 'on_retry_notification_email' ), 10, 3 );
 		add_action( 'init', array( $this, 'handle_unsubscribe_request' ) );
 		add_action( 'wp_footer', array( $this, 'render_unsubscribe_status_notice' ) );
 	}
@@ -103,6 +104,22 @@ class EmailDispatchListener implements ListenerInterface {
 	 */
 	public function on_send_notification_email( int $user_id, string $notification_type, array $data ): void {
 		$this->sender->send_now( $user_id, $notification_type, $data );
+	}
+
+	/**
+	 * Action Scheduler callback: the single retry of a previously-failed send.
+	 *
+	 * Passes $is_retry = true so a still-failing send does not schedule yet
+	 * another retry — a permanently broken mailer costs two attempts, not an
+	 * unbounded queue.
+	 *
+	 * @param int    $user_id           Recipient user ID.
+	 * @param string $notification_type Notification type key.
+	 * @param array  $data              Notification data payload.
+	 * @return void
+	 */
+	public function on_retry_notification_email( int $user_id, string $notification_type, array $data ): void {
+		$this->sender->send_now( $user_id, $notification_type, $data, true );
 	}
 
 	/**

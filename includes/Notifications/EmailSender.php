@@ -247,9 +247,10 @@ class EmailSender {
 	 * @param int    $user_id           Recipient user ID.
 	 * @param string $notification_type Notification type key.
 	 * @param array  $data              Notification data payload.
+	 * @param bool   $is_retry          True when this is the single scheduled retry, so it does not schedule another.
 	 * @return bool True when the email was handed off to wp_mail(), false otherwise.
 	 */
-	public function send_now( int $user_id, string $notification_type, array $data ): bool {
+	public function send_now( int $user_id, string $notification_type, array $data, bool $is_retry = false ): bool {
 		// Composed-email path: campaign and drip-step senders author the subject
 		// and body per message and pass them in $data. These are first-class
 		// emails — the authored content IS the email — so they do not require a
@@ -346,9 +347,29 @@ class EmailSender {
 			self::LOG_HANDLED_BY_CALLER
 		);
 
-		// One row, with the real type and the known user id. See
-		// LOG_HANDLED_BY_CALLER for why the inner logger has to be told to stand down.
-		$this->log_sent( $user_id, $notification_type );
+		// One row, with the real type, the known user id, and the TRUTH about
+		// whether it sent. This used to log 'sent' unconditionally, so on a host
+		// with a broken mailer every one of the 44 transactional types was
+		// recorded as delivered while nothing left the box. See
+		// LOG_HANDLED_BY_CALLER for why the inner logger has to stand down.
+		$this->log_sent( $user_id, $notification_type, $sent ? 'sent' : 'failed', $sent ? null : self::$last_error );
+
+		// Retry once, later, for a failure that may be transient (greylisting, a
+		// briefly-down relay). One retry only: the $is_retry guard stops the
+		// retry from scheduling its own retry, so a permanently broken mailer
+		// costs two attempts, not an unbounded queue.
+		if ( ! $sent && ! $is_retry && function_exists( 'as_schedule_single_action' ) ) {
+			as_schedule_single_action(
+				time() + ( 5 * MINUTE_IN_SECONDS ),
+				'buddynext_retry_notification_email',
+				array(
+					'user_id'           => $user_id,
+					'notification_type' => $notification_type,
+					'data'              => $data,
+				),
+				'buddynext'
+			);
+		}
 
 		// Report the actual wp_mail() outcome so callers (broadcast/drip) can
 		// record a truthful sent/failed status instead of assuming success.
@@ -465,6 +486,25 @@ class EmailSender {
 	public const LOG_HANDLED_BY_CALLER = '__caller_logs__';
 
 	/**
+	 * The wp_mail_failed error message from the most recent send_with_identity()
+	 * call, or null when it succeeded. Captured per-send so a caller that logs on
+	 * its own behalf (send_now, the digest cron) can record WHY a send failed
+	 * rather than a bare "failed".
+	 *
+	 * @var string|null
+	 */
+	private static ?string $last_error = null;
+
+	/**
+	 * The reason the most recent send failed, or null when it succeeded.
+	 *
+	 * @return string|null
+	 */
+	public static function last_error(): ?string {
+		return self::$last_error;
+	}
+
+	/**
 	 * Dispatch an email through wp_mail() with the BuddyNext sender identity.
 	 *
 	 * Applies the configured From name and From address (Settings → Email) via
@@ -538,7 +578,20 @@ class EmailSender {
 			}
 		}
 
+		// Capture the reason wp_mail() fails. PHPMailer throws internally and WP
+		// turns it into the wp_mail_failed action; without listening we only get a
+		// bare false, and the log said "sent" for a mail that never left the host.
+		self::$last_error = null;
+		$capture          = static function ( $wp_error ) {
+			if ( $wp_error instanceof \WP_Error ) {
+				self::$last_error = $wp_error->get_error_message();
+			}
+		};
+		add_action( 'wp_mail_failed', $capture );
+
 		$sent = wp_mail( $to, $subject, $body, $headers );
+
+		remove_action( 'wp_mail_failed', $capture );
 
 		if ( null !== $name_filter ) {
 			remove_filter( 'wp_mail_from_name', $name_filter, $bn_identity_priority );
@@ -549,8 +602,15 @@ class EmailSender {
 
 		// Record the send in bn_email_log so identity sends (auth lifecycle,
 		// invites, 2FA, reset, test) appear in the log alongside template emails.
-		if ( $sent && self::LOG_HANDLED_BY_CALLER !== $log_type ) {
-			self::log_identity_send( $to, '' !== $log_type ? $log_type : 'transactional' );
+		// Both outcomes are logged now: a failed identity send used to leave no
+		// row at all (silent), so an owner on a broken mailer saw nothing.
+		if ( self::LOG_HANDLED_BY_CALLER !== $log_type ) {
+			self::log_identity_send(
+				$to,
+				'' !== $log_type ? $log_type : 'transactional',
+				$sent ? 'sent' : 'failed',
+				$sent ? null : self::$last_error
+			);
 		}
 
 		return $sent;
@@ -560,11 +620,13 @@ class EmailSender {
 	 * Log an identity send to bn_email_log, resolving the recipient to a user id
 	 * (0 when the address has no matching account).
 	 *
-	 * @param string $to   Recipient email address.
-	 * @param string $type Log type label.
+	 * @param string      $to     Recipient email address.
+	 * @param string      $type   Log type label.
+	 * @param string      $status Delivery status ('sent' or 'failed').
+	 * @param string|null $error  Failure reason, or null on success.
 	 * @return void
 	 */
-	private static function log_identity_send( string $to, string $type ): void {
+	private static function log_identity_send( string $to, string $type, string $status = 'sent', ?string $error = null ): void {
 		$user    = get_user_by( 'email', $to );
 		$user_id = $user instanceof \WP_User ? (int) $user->ID : 0;
 
@@ -576,9 +638,11 @@ class EmailSender {
 				'user_id'     => $user_id,
 				'type'        => $type,
 				'digest_date' => null,
+				'status'      => 'failed' === $status ? 'failed' : 'sent',
+				'error'       => null !== $error ? mb_substr( $error, 0, 2000 ) : null,
 				'sent_at'     => current_time( 'mysql', true ),
 			),
-			array( '%d', '%s', '%s', '%s' )
+			array( '%d', '%s', '%s', '%s', '%s', '%s' )
 		);
 	}
 
@@ -858,11 +922,13 @@ class EmailSender {
 	/**
 	 * Write a send record to bn_email_log.
 	 *
-	 * @param int    $user_id User who received the email.
-	 * @param string $type    Notification type key.
+	 * @param int         $user_id User who received the email.
+	 * @param string      $type    Notification type key.
+	 * @param string      $status  Delivery status ('sent' or 'failed').
+	 * @param string|null $error   Failure reason, or null on success.
 	 * @return void
 	 */
-	private function log_sent( int $user_id, string $type ): void {
+	private function log_sent( int $user_id, string $type, string $status = 'sent', ?string $error = null ): void {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -872,9 +938,11 @@ class EmailSender {
 				'user_id'     => $user_id,
 				'type'        => $type,
 				'digest_date' => null,
+				'status'      => 'failed' === $status ? 'failed' : 'sent',
+				'error'       => null !== $error ? mb_substr( $error, 0, 2000 ) : null,
 				'sent_at'     => current_time( 'mysql', true ),
 			),
-			array( '%d', '%s', '%s', '%s' )
+			array( '%d', '%s', '%s', '%s', '%s', '%s' )
 		);
 	}
 

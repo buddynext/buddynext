@@ -79,6 +79,8 @@ class CronService {
 			$sent = $this->send_digest_email( $user_id, $template, $notifications );
 			if ( $sent ) {
 				$this->log_digest( $user_id, 'bn.daily_digest' );
+			} else {
+				$this->log_digest_failure( $user_id, 'bn.daily_digest' );
 			}
 		}
 
@@ -127,6 +129,8 @@ class CronService {
 			$sent = $this->send_digest_email( $user_id, $template, $notifications );
 			if ( $sent ) {
 				$this->log_digest( $user_id, 'bn.weekly_digest' );
+			} else {
+				$this->log_digest_failure( $user_id, 'bn.weekly_digest' );
 			}
 		}
 
@@ -692,11 +696,15 @@ class CronService {
 		// Route through EmailSender's shared identity helper so the digest
 		// carries the same From name/address + Reply-To as every other
 		// BuddyNext email (Settings → Email), instead of wp_mail()'s defaults.
+		// LOG_HANDLED_BY_CALLER: the digest loop owns the bn_email_log row (it
+		// carries digest_date for the duplicate-send guard), so the sender must
+		// not also write a 'transactional' row — that double-logged every digest.
 		return EmailSender::send_with_identity(
 			$user->user_email,
 			$subject,
 			EmailSender::brand_wrap( $body, $subject ),
-			EmailSender::build_identity_headers()
+			EmailSender::build_identity_headers(),
+			EmailSender::LOG_HANDLED_BY_CALLER
 		);
 	}
 
@@ -720,8 +728,39 @@ class CronService {
 				'user_id'     => $user_id,
 				'type'        => $type,
 				'digest_date' => gmdate( 'Y-m-d' ),
+				'status'      => 'sent',
 			),
-			array( '%d', '%s', '%s' )
+			array( '%d', '%s', '%s', '%s' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Record a FAILED digest send in bn_email_log.
+	 *
+	 * The digest_date is deliberately left NULL: the duplicate-send guard matches
+	 * on (user_id, type, digest_date = today), so a failed row with today's date
+	 * would suppress the next cron run's natural retry. A NULL-dated failed row
+	 * gives the owner visibility of the failure without blocking re-send.
+	 *
+	 * @param int    $user_id Recipient user ID.
+	 * @param string $type    Email template type key.
+	 * @return void
+	 */
+	private function log_digest_failure( int $user_id, string $type ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_email_log',
+			array(
+				'user_id'     => $user_id,
+				'type'        => $type,
+				'digest_date' => null,
+				'status'      => 'failed',
+				'error'       => null !== EmailSender::last_error() ? mb_substr( (string) EmailSender::last_error(), 0, 2000 ) : null,
+			),
+			array( '%d', '%s', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
