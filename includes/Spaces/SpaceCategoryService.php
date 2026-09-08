@@ -80,6 +80,34 @@ class SpaceCategoryService {
 	}
 
 	/**
+	 * IDs of categories hidden from the directory (show_in_dir = 0).
+	 *
+	 * The directory scope builder uses these to exclude their spaces from the
+	 * public grid, the "Popular this week" rail and the REST list - the flag was
+	 * only ever honored for the category chips, never for the space list itself.
+	 * Reserved hubs (e.g. Wellbee Circles) depend on this exclusion. Cached in the
+	 * shared group and invalidated on any category write via invalidate().
+	 *
+	 * @return int[] Category IDs whose spaces must not appear in the directory.
+	 */
+	public function get_hidden_ids(): array {
+		$hit = wp_cache_get( 'hidden_ids', self::CACHE_GROUP );
+		if ( false !== $hit ) {
+			return (array) $hit;
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_space_categories';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- LITERAL query; only the table name (a prefix constant) is interpolated, no value.
+		$ids = array_map( 'intval', (array) $wpdb->get_col( "SELECT id FROM {$table} WHERE show_in_dir = 0" ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+
+		wp_cache_set( 'hidden_ids', $ids, self::CACHE_GROUP, self::CACHE_TTL );
+		return $ids;
+	}
+
+	/**
 	 * Return all categories with a live space-count per row.
 	 *
 	 * Cached with a short TTL: the global category+count list is rendered on the
@@ -151,6 +179,8 @@ class SpaceCategoryService {
 		// show_in_dir off leaves the category sitting in the directory until the TTL expires -
 		// the toggle would look like it still does nothing.
 		wp_cache_delete( 'visible_counts', self::CACHE_GROUP );
+		// The hidden-id set feeds the directory space-list exclusion; same staleness trap.
+		wp_cache_delete( 'hidden_ids', self::CACHE_GROUP );
 	}
 
 	/**

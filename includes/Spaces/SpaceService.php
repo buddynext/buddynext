@@ -1634,6 +1634,22 @@ class SpaceService {
 			$params[] = $category_id;
 		}
 
+		// Category-level directory curation: a category flagged show_in_dir = 0 is
+		// hidden from the PUBLIC directory (grid + "Popular this week" rail + REST
+		// list), and its spaces go with it. The flag was only ever honored for the
+		// category chips, never the space list. Reserved hubs (e.g. Wellbee Circles)
+		// depend on this exclusion, so it applies to site admins too - it is category
+		// curation, not per-space privacy. Scope: public directory only - an explicit
+		// category chip overrides (show that category on request), and member-scoped
+		// ("my spaces") lists are unaffected. Ids are integer-cast, injection-safe.
+		if ( $category_id <= 0 && $member_id <= 0 ) {
+			$hidden_categories = ( new SpaceCategoryService() )->get_hidden_ids();
+			if ( $hidden_categories ) {
+				$hidden_in = implode( ',', array_map( 'absint', $hidden_categories ) );
+				$where[]   = "( category_id IS NULL OR category_id NOT IN ({$hidden_in}) )";
+			}
+		}
+
 		// Top-level directory browse shows root spaces only — sub-spaces are
 		// discovered from their parent, so 50k spaces never flatten into one grid.
 		// Member-scoped lists ("my spaces") and search are unaffected.
