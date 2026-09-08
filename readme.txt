@@ -2,7 +2,7 @@
 Contributors: wbcomdesigns
 Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
-Tested up to: 6.9
+Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
 Stable tag: 1.1.7
