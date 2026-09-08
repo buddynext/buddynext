@@ -329,6 +329,57 @@ class Members extends AdminPageBase {
 	}
 
 	/**
+	 * Transient holding the cached KPI header counts.
+	 */
+	private const STATS_CACHE = 'bn_members_kpi';
+
+	/**
+	 * The four KPI header counts, cached together.
+	 *
+	 * Each card ran its own query on every roster render: count_users() (a full
+	 * usermeta capability scan — the expensive one at scale), a 7-day
+	 * WP_User_Query COUNT, a suspended COUNT, and a bn_presence COUNT. These are
+	 * approximate dashboard figures, not transactional, so a 5-minute cache is
+	 * the right trade: the admin still sees near-live numbers, the queries stop
+	 * firing on every page/sort/filter. Cleared immediately on suspend/unsuspend
+	 * so the Suspended card reflects an action the admin just took.
+	 *
+	 * @return array{total:int,active:int,new_week:int,suspended:int}
+	 */
+	private function header_stats(): array {
+		$cached = get_transient( self::STATS_CACHE );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$active = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_presence WHERE last_active >= %d",
+				time() - ( 30 * DAY_IN_SECONDS )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$stats = array(
+			'total'     => $this->get_member_count(),
+			'active'    => $active,
+			'new_week'  => $this->get_new_this_week_count(),
+			'suspended' => (int) $this->list_members(
+				array(
+					'status'   => 'suspended',
+					'per_page' => 1,
+				)
+			)['total'],
+		);
+
+		set_transient( self::STATS_CACHE, $stats, 5 * MINUTE_IN_SECONDS );
+
+		return $stats;
+	}
+
+	/**
 	 * Return the total number of registered users.
 	 *
 	 * @return int
@@ -414,6 +465,8 @@ class Members extends AdminPageBase {
 		 * @param int $actor_id  Admin user who performed the suspension.
 		 */
 		do_action( 'buddynext_member_suspended', $user_id, $actor_id );
+
+		delete_transient( self::STATS_CACHE );
 	}
 
 	/**
@@ -467,6 +520,8 @@ class Members extends AdminPageBase {
 		 * @param int $actor_id User who lifted the suspension.
 		 */
 		do_action( 'buddynext_member_unsuspended', $user_id, get_current_user_id() );
+
+		delete_transient( self::STATS_CACHE );
 	}
 
 	/**
@@ -1491,27 +1546,14 @@ class Members extends AdminPageBase {
 		$members = $data['members'];
 		$pages   = $data['pages'];
 
-		$susp_data       = $this->list_members(
-			array(
-				'status'   => 'suspended',
-				'per_page' => 1,
-			)
-		);
-		$suspended_count = $susp_data['total'];
-
-		// Active = seen in the last 30 days (bn_presence, the same source as
-		// the roster's Last Active column). The old Total-minus-suspended math
-		// read 1,530/1,530 forever on a healthy site - a stat that never moves
-		// tells the owner nothing.
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$active_count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_presence WHERE last_active >= %d",
-				time() - ( 30 * DAY_IN_SECONDS )
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// KPI header counts, cached together (see header_stats). Active = seen in
+		// the last 30 days (bn_presence, the same source as the roster's Last
+		// Active column). The old Total-minus-suspended math read 1,530/1,530
+		// forever on a healthy site - a stat that never moves tells the owner
+		// nothing.
+		$stats           = $this->header_stats();
+		$active_count    = $stats['active'];
+		$suspended_count = $stats['suspended'];
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$action = sanitize_key( wp_unslash( $_GET['action'] ?? '' ) );
@@ -1563,7 +1605,7 @@ class Members extends AdminPageBase {
 		<div class="bn-stat-grid">
 			<div class="bn-stat">
 				<div class="bn-stat__label"><?php esc_html_e( 'Total Members', 'buddynext' ); ?></div>
-				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $this->get_member_count() ) ); ?></div>
+				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $stats['total'] ) ); ?></div>
 			</div>
 			<div class="bn-stat">
 				<div class="bn-stat__label"><?php esc_html_e( 'Active (30 days)', 'buddynext' ); ?></div>
@@ -1571,7 +1613,7 @@ class Members extends AdminPageBase {
 			</div>
 			<div class="bn-stat">
 				<div class="bn-stat__label"><?php esc_html_e( 'New This Week', 'buddynext' ); ?></div>
-				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $this->get_new_this_week_count() ) ); ?></div>
+				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $stats['new_week'] ) ); ?></div>
 			</div>
 			<div class="bn-stat">
 				<div class="bn-stat__label"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></div>

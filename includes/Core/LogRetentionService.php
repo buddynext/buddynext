@@ -1,6 +1,8 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * Log retention — age-purge for bn_notifications and bn_email_log.
+ * Log retention — age-purge for bn_notifications, bn_email_log, the webhook
+ * delivery logs (bn_outbound_webhook_log, bn_webhook_log) and stale bn_presence
+ * rows.
  *
  * THE SOLE OWNER of these two tables' retention. It was not always: CronService also
  * pruned both, weekly, under the separate `buddynext_data_retention_days` option — the
@@ -162,7 +164,7 @@ class LogRetentionService {
 	/**
 	 * Delete aged rows from both log tables, in batches.
 	 *
-	 * @return array{notifications:int,email_log:int} Rows deleted, per table.
+	 * @return array{notifications:int,email_log:int,webhook_log:int,presence:int} Rows deleted, per table.
 	 */
 	public function purge(): array {
 		global $wpdb;
@@ -174,6 +176,8 @@ class LogRetentionService {
 		$deleted = array(
 			'notifications' => 0,
 			'email_log'     => 0,
+			'webhook_log'   => 0,
+			'presence'      => 0,
 		);
 
 		// Read notifications older than the owner's window.
@@ -194,12 +198,33 @@ class LogRetentionService {
 			$read_cutoff
 		);
 
+		// Webhook delivery logs (outbound calls + inbound access-webhook receipts)
+		// are append-only and otherwise grow forever. Same class of unbounded log
+		// as the email log, so they follow the same window.
+		$deleted['webhook_log'] += $this->delete_batched(
+			"DELETE FROM {$wpdb->prefix}bn_outbound_webhook_log WHERE created_at < %s LIMIT %d",
+			$read_cutoff
+		);
+		$deleted['webhook_log'] += $this->delete_batched(
+			"DELETE FROM {$wpdb->prefix}bn_webhook_log WHERE created_at < %s LIMIT %d",
+			$read_cutoff
+		);
+
+		// Presence rows for members who have not been seen within the window. One
+		// row per user, replaced on their next visit — purging a stale row only
+		// drops a "last seen months ago" marker, never anything a member relies on.
+		// last_active is an INT unix timestamp, so the cutoff is bound with %d.
+		$deleted['presence'] += $this->delete_batched(
+			"DELETE FROM {$wpdb->prefix}bn_presence WHERE last_active < %d LIMIT %d",
+			(string) ( time() - ( $window * DAY_IN_SECONDS ) )
+		);
+
 		/**
 		 * Fires after a retention purge, so a site can log or monitor it.
 		 *
 		 * @since 1.0.8
 		 *
-		 * @param array{notifications:int,email_log:int} $deleted Rows removed per table.
+		 * @param array{notifications:int,email_log:int,webhook_log:int,presence:int} $deleted Rows removed per table.
 		 * @param int                                    $window  The window used, in days.
 		 */
 		do_action( 'buddynext_logs_purged', $deleted, $window );

@@ -42,6 +42,7 @@ class ToolsTab {
 		add_action( 'admin_post_bn_tools_export', array( $this, 'handle_export' ) );
 		add_action( 'admin_post_bn_tools_import', array( $this, 'handle_import' ) );
 		add_action( 'admin_post_bn_tools_reindex_search', array( $this, 'handle_reindex_search' ) );
+		add_action( 'admin_post_bn_tools_run_queue', array( $this, 'handle_run_queue' ) );
 
 		AdminHub::register_tab(
 			'settings',
@@ -113,11 +114,19 @@ class ToolsTab {
 						<p>
 							<strong><?php esc_html_e( 'Background tasks are not running.', 'buddynext' ); ?></strong>
 							<?php
-							printf(
-								/* translators: %d: number of overdue scheduled tasks. */
-								esc_html__( 'WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled task(s) are overdue. Add a server-level cron job so the queue is processed:', 'buddynext' ),
-								(int) $health['overdue']
-							);
+							if ( empty( $health['loopback_ok'] ) ) {
+								printf(
+									/* translators: %d: number of overdue scheduled tasks. */
+									esc_html__( 'This site cannot make a loopback request to itself, so the background-task runner never starts, and %d scheduled task(s) are overdue. This is usually a firewall, a localhost DNS issue, or HTTP authentication on staging. Add a server-level cron job so the queue is processed regardless:', 'buddynext' ),
+									(int) $health['overdue']
+								);
+							} else {
+								printf(
+									/* translators: %d: number of overdue scheduled tasks. */
+									esc_html__( 'WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled task(s) are overdue. Add a server-level cron job so the queue is processed:', 'buddynext' ),
+									(int) $health['overdue']
+								);
+							}
 							?>
 						</p>
 						<p><code><?php echo esc_html( $command ); ?></code></p>
@@ -144,6 +153,24 @@ class ToolsTab {
 						?>
 					</p>
 				<?php endif; ?>
+
+				<p class="bn-av-section-desc bn-bgjobs-counts">
+					<?php
+					printf(
+						/* translators: 1: pending task count, 2: failed task count. */
+						esc_html__( 'Queue: %1$s pending, %2$s failed.', 'buddynext' ),
+						'<strong>' . esc_html( number_format_i18n( (int) $health['pending'] ) ) . '</strong>',
+						'<strong>' . esc_html( number_format_i18n( (int) $health['failed'] ) ) . '</strong>'
+					);
+					?>
+				</p>
+
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="bn_tools_run_queue">
+					<?php wp_nonce_field( 'bn_tools_run_queue' ); ?>
+					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Run now', 'buddynext' ); ?></button>
+					<span class="description"><?php esc_html_e( 'Processes a batch of the queue immediately. Useful to clear a backlog without waiting for the next scheduled run.', 'buddynext' ); ?></span>
+				</form>
 			</div>
 		</div>
 
@@ -438,6 +465,26 @@ class ToolsTab {
 	}
 
 	/**
+	 * Process a batch of the background queue immediately.
+	 *
+	 * Runs Action Scheduler's own bounded queue runner (respects its time and
+	 * memory limits, so it cannot run away), letting an owner clear a backlog on
+	 * demand instead of waiting for the next scheduled pass. No-op when Action
+	 * Scheduler is unavailable.
+	 *
+	 * @return void
+	 */
+	public function handle_run_queue(): void {
+		$this->guard( 'bn_tools_run_queue' );
+
+		if ( class_exists( '\ActionScheduler_QueueRunner' ) ) {
+			\ActionScheduler_QueueRunner::instance()->run();
+		}
+
+		$this->redirect_back( 'queue_ran' );
+	}
+
+	/**
 	 * Flush the BuddyNext cache group.
 	 *
 	 * @return void
@@ -646,6 +693,8 @@ class ToolsTab {
 				return __( 'Cache flushed.', 'buddynext' );
 			case 'search_reindexing':
 				return __( 'Search index rebuild started. It runs in the background and may take a few minutes on large communities.', 'buddynext' );
+			case 'queue_ran':
+				return __( 'Processed a batch of background tasks. Large backlogs clear over several runs.', 'buddynext' );
 			case 'imported':
 				return __( 'Settings imported.', 'buddynext' );
 			case 'import_empty':

@@ -107,6 +107,12 @@ class CronScheduler {
 	 */
 	public const GROUP = 'buddynext';
 
+	/**
+	 * Transient that limits schedule_events() to one Action Scheduler check per
+	 * hour instead of once per request. See schedule_events().
+	 */
+	public const SCHEDULE_GUARD = 'bn_cron_scheduled';
+
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -170,6 +176,17 @@ class CronScheduler {
 	 * @return void
 	 */
 	public function schedule_events(): void {
+		// maybe_schedule() does an as_next_scheduled_action() lookup per job — six
+		// DB reads. Running them on every wp_loaded (including non-BN admin and
+		// front-end pages) is pure overhead once the jobs are armed, so a short
+		// transient limits the whole check to once an hour. If a job is ever
+		// unscheduled it re-arms within the hour, which is fine for recurring
+		// housekeeping. ponytail: transient guard, re-checks hourly.
+		if ( get_transient( self::SCHEDULE_GUARD ) ) {
+			return;
+		}
+		set_transient( self::SCHEDULE_GUARD, 1, HOUR_IN_SECONDS );
+
 		$this->maybe_schedule( self::JOB_DAILY_DIGEST, 'daily' );
 		$this->maybe_schedule( self::JOB_WEEKLY_DIGEST, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_TOKENS, 'daily' );
@@ -278,12 +295,24 @@ class CronScheduler {
 	 * to drive it — then scheduled actions pile up overdue and nothing processes
 	 * them. This detects that case so the admin can be told to add a server cron.
 	 *
-	 * @return array{wp_cron_disabled: bool, as_available: bool, overdue: int, stalled: bool}
+	 * @return array{wp_cron_disabled: bool, as_available: bool, overdue: int, stalled: bool, loopback_ok: bool, pending: int, failed: int}
 	 */
 	public static function health(): array {
 		$wp_cron_disabled = defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON;
 		$as_available     = function_exists( 'as_get_scheduled_actions' ) && function_exists( 'as_get_datetime_object' );
 		$overdue          = 0;
+		$pending          = 0;
+		$failed           = 0;
+
+		if ( $as_available && class_exists( '\ActionScheduler_Store' ) ) {
+			// Whole-queue counts (all groups, not just ours) — the panel answers
+			// "is the background queue backed up?", and a pile of stuck core/email
+			// actions is exactly what the owner needs to see. COUNT queries, not
+			// row fetches, so they stay cheap regardless of queue size.
+			$store   = \ActionScheduler::store();
+			$pending = (int) $store->query_actions( array( 'status' => \ActionScheduler_Store::STATUS_PENDING ), 'count' );
+			$failed  = (int) $store->query_actions( array( 'status' => \ActionScheduler_Store::STATUS_FAILED ), 'count' );
+		}
 
 		if ( $as_available ) {
 			// Pending actions whose scheduled time passed over an hour ago — a
@@ -302,15 +331,63 @@ class CronScheduler {
 			$overdue = is_array( $ids ) ? count( $ids ) : 0;
 		}
 
+		$loopback_ok = self::loopback_ok();
+
 		return array(
 			'wp_cron_disabled' => $wp_cron_disabled,
 			'as_available'     => $as_available,
 			'overdue'          => $overdue,
-			// Stalled only when nothing is driving the queue: WP-Cron off AND
-			// actions overdue. A few overdue actions with WP-Cron on just means a
-			// quiet, low-traffic site, cleared on the next visit.
-			'stalled'          => $wp_cron_disabled && $overdue > 0,
+			'pending'          => $pending,
+			'failed'           => $failed,
+			'loopback_ok'      => $loopback_ok,
+			// Stalled when nothing can drive the queue AND work is piling up.
+			// Two ways nothing drives it: WP-Cron explicitly disabled, or the
+			// loopback request the async runner depends on cannot reach the site
+			// (firewall, localhost DNS, HTTP auth) — the latter is invisible to a
+			// DISABLE_WP_CRON check, which is exactly the blind spot this reports.
+			'stalled'          => ( $wp_cron_disabled || ! $loopback_ok ) && $overdue > 0,
 		);
+	}
+
+	/**
+	 * Whether the site can make a loopback HTTP request to itself.
+	 *
+	 * The WP-Cron and Action Scheduler async runners both fire a non-blocking
+	 * loopback request to spawn the background process. When loopback is broken
+	 * (a firewall blocking self-requests, localhost not resolving, basic-auth on
+	 * staging) the runner never starts and jobs pile up silently — with
+	 * DISABLE_WP_CRON still false, so the usual check says all is well.
+	 *
+	 * Mirrors WP core's Site Health loopback test (POST to admin-ajax.php with a
+	 * no-op action). Cached for 15 minutes because it is a blocking round-trip we
+	 * do not want on every admin render. ponytail: transient cache, 15-min TTL.
+	 *
+	 * @return bool True if the loopback succeeded (or could not be tested).
+	 */
+	private static function loopback_ok(): bool {
+		$cached = get_transient( 'bn_cron_loopback_ok' );
+		if ( false !== $cached ) {
+			return '1' === $cached;
+		}
+
+		$response = wp_remote_post(
+			admin_url( 'admin-ajax.php' ),
+			array(
+				'timeout'   => 10,
+				'blocking'  => true,
+				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
+				'body'      => array( 'action' => 'nopriv_bn_loopback_noop' ),
+				'cookies'   => isset( $_COOKIE ) && is_array( $_COOKIE ) ? $_COOKIE : array(),
+			)
+		);
+
+		// admin-ajax returns 400 ("0") for an unknown action — that is a *reached*
+		// site, which is all we are testing. Only a WP_Error (connection refused,
+		// timeout, DNS failure) means loopback is genuinely broken.
+		$ok = ! is_wp_error( $response );
+		set_transient( 'bn_cron_loopback_ok', $ok ? '1' : '0', 15 * MINUTE_IN_SECONDS );
+
+		return $ok;
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────
