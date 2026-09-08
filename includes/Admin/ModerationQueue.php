@@ -43,6 +43,8 @@ class ModerationQueue {
 		add_action( 'admin_post_bn_mod_user_action', array( $this, 'handle_user_action' ) );
 		add_action( 'admin_post_bn_mod_appeal_action', array( $this, 'handle_appeal_action' ) );
 		add_action( 'admin_post_bn_mod_premod_action', array( $this, 'handle_premod_action' ) );
+		add_action( 'admin_post_bn_mod_log_export', array( $this, 'handle_export_log' ) );
+		add_action( 'admin_post_bn_mod_run_now', array( $this, 'handle_run_now' ) );
 
 		// Pending approval queue first — it is proactive (clear held posts so they
 		// go live) rather than reactive like reports. Hidden by AdminHub when the
@@ -650,19 +652,28 @@ class ModerationQueue {
 	 * @return void
 	 */
 	public function render_log(): void {
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filter/notice params on an admin screen; every value is sanitized here and escaped at output.
-		$page = isset( $_GET['log_page'] ) ? max( 1, absint( wp_unslash( $_GET['log_page'] ) ) ) : 1;
-		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		$filters  = self::log_filters();
+		$page     = $filters['page'];
 		$per_page = 30;
 		$result   = ( new \BuddyNext\Moderation\ModerationLogService() )->get_log(
-			array(
-				'page'     => $page,
-				'per_page' => $per_page,
+			array_merge(
+				$filters['query'],
+				array(
+					'page'     => $page,
+					'per_page' => $per_page,
+				)
 			)
 		);
 		$items    = (array) ( $result['items'] ?? array() );
 		$total    = (int) ( $result['total'] ?? 0 );
 		$pages    = (int) ceil( $total / $per_page );
+
+		// Notices for the Run-now / export flow.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice flag; the actions themselves are nonce-checked.
+		$bn_flag = isset( $_GET['bn_modlog'] ) ? sanitize_key( wp_unslash( $_GET['bn_modlog'] ) ) : '';
+		if ( 'ran' === $bn_flag ) {
+			AdminPageBase::render_notice( __( 'Moderation jobs queued to run now.', 'buddynext' ), 'success' );
+		}
 		?>
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
@@ -670,6 +681,7 @@ class ModerationQueue {
 				<span class="bn-ss-count"><?php echo esc_html( (string) $total ); ?></span>
 			</div>
 			<div class="bn-ss-body">
+				<?php $this->render_log_toolbar( $filters ); ?>
 				<?php if ( empty( $items ) ) : ?>
 					<div class="bn-empty">
 						<p class="bn-empty__title"><?php esc_html_e( 'No moderator actions have been recorded yet', 'buddynext' ); ?></p>
@@ -747,6 +759,191 @@ class ModerationQueue {
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Parse the moderation-log filter GET params into get_log() args + a page.
+	 *
+	 * Read-only screen params; the destructive actions (export, run-now) are
+	 * nonce-checked in their own handlers.
+	 *
+	 * @return array{page:int, query:array<string,mixed>}
+	 */
+	private static function log_filters(): array {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filters on an admin screen, sanitized here and escaped at output.
+		$page   = isset( $_GET['log_page'] ) ? max( 1, absint( wp_unslash( $_GET['log_page'] ) ) ) : 1;
+		$action = isset( $_GET['log_action'] ) ? sanitize_key( wp_unslash( $_GET['log_action'] ) ) : '';
+		$actor  = isset( $_GET['log_actor'] ) ? absint( wp_unslash( $_GET['log_actor'] ) ) : 0;
+		$since  = isset( $_GET['log_since'] ) ? sanitize_text_field( wp_unslash( $_GET['log_since'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$query = array();
+		if ( '' !== $action ) {
+			$query['action'] = $action;
+		}
+		if ( $actor > 0 ) {
+			$query['user_id'] = $actor; // get_log() filters on target_user_id.
+		}
+		if ( '' !== $since ) {
+			$query['since'] = $since;
+		}
+
+		return array(
+			'page'  => $page,
+			'query' => $query,
+		);
+	}
+
+	/**
+	 * The moderation-log toolbar: action/member/date filters, CSV export of the
+	 * filtered set, and a Run-now button for the background moderation jobs.
+	 *
+	 * @param array{page:int, query:array<string,mixed>} $filters Active filters.
+	 * @return void
+	 */
+	private function render_log_toolbar( array $filters ): void {
+		$q          = $filters['query'];
+		$actions    = array(
+			'warn'              => __( 'Warning', 'buddynext' ),
+			'suspend'           => __( 'Suspension', 'buddynext' ),
+			'unsuspend'         => __( 'Unsuspension', 'buddynext' ),
+			'shadow_ban'        => __( 'Shadow ban', 'buddynext' ),
+			'dismiss_report'    => __( 'Report dismissed', 'buddynext' ),
+			'escalate_report'   => __( 'Report escalated', 'buddynext' ),
+			'resolve_report'    => __( 'Report resolved', 'buddynext' ),
+			'remove_content'    => __( 'Content removed', 'buddynext' ),
+			'ai_remove_content' => __( 'AI: content removed', 'buddynext' ),
+			'ai_escalate'       => __( 'AI: escalated', 'buddynext' ),
+			'ai_dismiss'        => __( 'AI: dismissed', 'buddynext' ),
+		);
+		$cur_action = (string) ( $q['action'] ?? '' );
+		$cur_actor  = (int) ( $q['user_id'] ?? 0 );
+		$cur_since  = (string) ( $q['since'] ?? '' );
+		$export_url = wp_nonce_url(
+			add_query_arg(
+				array_filter(
+					array(
+						'action'     => 'bn_mod_log_export',
+						'log_action' => $cur_action,
+						'log_actor'  => $cur_actor ?: '',
+						'log_since'  => $cur_since,
+					)
+				),
+				admin_url( 'admin-post.php' )
+			),
+			'bn_mod_log_export'
+		);
+		?>
+		<div class="bn-toolbar bn-modlog-toolbar">
+			<form method="get" class="bn-modlog-filters">
+				<?php // Preserve the admin page/tab routing so the filtered view stays on this tab. ?>
+				<?php foreach ( array( 'page', 'tab' ) as $bn_keep ) : ?>
+					<?php // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+					<?php if ( isset( $_GET[ $bn_keep ] ) ) : ?>
+						<input type="hidden" name="<?php echo esc_attr( $bn_keep ); ?>" value="<?php echo esc_attr( sanitize_text_field( wp_unslash( $_GET[ $bn_keep ] ) ) ); ?>">
+					<?php endif; ?>
+				<?php endforeach; ?>
+				<select name="log_action" class="bn-select" aria-label="<?php esc_attr_e( 'Filter by action', 'buddynext' ); ?>">
+					<option value=""><?php esc_html_e( 'All actions', 'buddynext' ); ?></option>
+					<?php foreach ( $actions as $bn_slug => $bn_label ) : ?>
+						<option value="<?php echo esc_attr( $bn_slug ); ?>" <?php selected( $cur_action, $bn_slug ); ?>><?php echo esc_html( $bn_label ); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<input type="number" name="log_actor" class="bn-input" min="0" value="<?php echo esc_attr( $cur_actor ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Member ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by target member ID', 'buddynext' ); ?>">
+				<input type="date" name="log_since" class="bn-input" value="<?php echo esc_attr( $cur_since ); ?>" aria-label="<?php esc_attr_e( 'Show entries since', 'buddynext' ); ?>">
+				<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Filter', 'buddynext' ); ?></button>
+			</form>
+			<div class="bn-modlog-actions">
+				<a class="bn-btn" data-variant="ghost" href="<?php echo esc_url( $export_url ); ?>"><?php esc_html_e( 'Export CSV', 'buddynext' ); ?></a>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-modlog-runnow">
+					<input type="hidden" name="action" value="bn_mod_run_now">
+					<?php wp_nonce_field( 'bn_mod_run_now' ); ?>
+					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Run now', 'buddynext' ); ?></button>
+				</form>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Stream the filtered moderation log as a CSV download (admin only).
+	 *
+	 * @return void
+	 */
+	public function handle_export_log(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'buddynext' ), 403 );
+		}
+		check_admin_referer( 'bn_mod_log_export' );
+
+		$filters = self::log_filters();
+		$log     = new \BuddyNext\Moderation\ModerationLogService();
+
+		nocache_headers();
+		header( 'Content-Type: text/csv; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename=moderation-log-' . gmdate( 'Ymd-His' ) . '.csv' );
+
+		$out = fopen( 'php://output', 'w' );
+		fputcsv( $out, array( 'When (UTC)', 'Moderator', 'Action', 'Target member', 'Object type', 'Object ID', 'Space ID', 'Note' ) );
+
+		// Page through so a large log never loads whole into memory.
+		$page = 1;
+		do {
+			$result = $log->get_log(
+				array_merge(
+					$filters['query'],
+					array(
+						'page'     => $page,
+						'per_page' => 100,
+					)
+				)
+			);
+			$items  = (array) ( $result['items'] ?? array() );
+			foreach ( $items as $row ) {
+				fputcsv(
+					$out,
+					array(
+						(string) ( $row['created_at'] ?? '' ),
+						buddynext_member_label( (int) ( $row['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ),
+						(string) ( $row['action'] ?? '' ),
+						buddynext_member_label( (int) ( $row['target_user_id'] ?? 0 ) ),
+						(string) ( $row['object_type'] ?? '' ),
+						(int) ( $row['object_id'] ?? 0 ),
+						(int) ( $row['space_id'] ?? 0 ),
+						(string) ( $row['note'] ?? '' ),
+					)
+				);
+			}
+			++$page;
+		} while ( ! empty( $items ) && (int) ( $result['total'] ?? 0 ) > ( $page - 1 ) * 100 );
+
+		fclose( $out );
+		exit;
+	}
+
+	/**
+	 * Run the background moderation jobs now (admin only): fires
+	 * buddynext_run_moderation_jobs, which the AI sweep (Pro) and retention
+	 * cleanup hook into, then returns to the log with a notice.
+	 *
+	 * @return void
+	 */
+	public function handle_run_now(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'buddynext' ), 403 );
+		}
+		check_admin_referer( 'bn_mod_run_now' );
+
+		/**
+		 * Fires when an admin clicks "Run now" on the moderation log — an on-demand
+		 * trigger for the moderation background jobs (the Pro AI sweep, retention
+		 * cleanup). Nothing runs on a free-only install with no listeners, which is
+		 * correct: there is no AI sweep to run.
+		 */
+		do_action( 'buddynext_run_moderation_jobs' );
+
+		wp_safe_redirect( add_query_arg( 'bn_modlog', 'ran', AdminHub::tab_url( 'moderation', 'log' ) ) );
+		exit;
 	}
 
 	// ── Action handlers ─────────────────────────────────────────────────────
