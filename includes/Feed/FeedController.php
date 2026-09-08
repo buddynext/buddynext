@@ -341,18 +341,105 @@ class FeedController extends BaseRestController {
 	}
 
 	/**
+	 * Apply the members-only paywall to one enriched item for the current viewer.
+	 *
+	 * The author of the post, and any viewer the access filter grants, see the
+	 * post unchanged. Everyone else gets `is_locked = true`, the body replaced by
+	 * a teaser (a fraction of the words, owner-tunable, nothing for short posts),
+	 * media stripped, and a `members_only_cta` describing how to gain access.
+	 *
+	 * Free→Pro seam: the access decision defaults to "any logged-in member" and
+	 * the CTA to a login prompt for guests; Pro filters both — requiring a paid
+	 * entitlement via `buddynext_members_only_has_access` and supplying a
+	 * "become a member" CTA (hidden when no plan is buyable) via
+	 * `buddynext_members_only_cta`.
+	 *
+	 * @param array<string,mixed> $item   Enriched post item.
+	 * @param int                 $viewer Current user ID (0 = guest).
+	 * @param bool                $format Whether buddynext_format_content() is available.
+	 * @return array<string,mixed>
+	 */
+	private function apply_members_only_gate( array $item, int $viewer, bool $format ): array {
+		$author_id = absint( $item['user_id'] ?? 0 );
+		$post_ctx  = array(
+			'id'           => absint( $item['id'] ?? 0 ),
+			'user_id'      => $author_id,
+			'space_id'     => $item['space_id'] ?? null,
+			'members_only' => true,
+		);
+
+		// Author always sees their own post; otherwise ask the access filter. Free
+		// default: any logged-in member has access (guests do not). Pro narrows this
+		// to a paid entitlement.
+		$has_access = ( $viewer > 0 && $viewer === $author_id )
+			|| (bool) apply_filters( 'buddynext_members_only_has_access', ( $viewer > 0 ), $viewer, $post_ctx );
+
+		$item['is_locked'] = ! $has_access;
+		if ( $has_access ) {
+			return $item;
+		}
+
+		$teaser               = $this->members_only_teaser( wp_strip_all_tags( (string) ( $item['content'] ?? '' ) ) );
+		$item['content']      = $teaser;
+		$item['content_html'] = $format ? buddynext_format_content( $teaser ) : $teaser;
+		$item['media_ids']    = array(); // Do not leak the media that sits behind the wall.
+
+		/**
+		 * Filter the call-to-action shown on a locked members-only post.
+		 *
+		 * Return an array with 'label' and 'url' (empty array to hide it). Free
+		 * offers guests a login prompt; Pro supplies a "become a member" CTA and
+		 * returns an empty array when no plan is buyable.
+		 *
+		 * @param array $cta      Default CTA.
+		 * @param int   $viewer   Current user ID.
+		 * @param array $post_ctx Minimal post context.
+		 */
+		$default_cta = ( $viewer > 0 )
+			? array() // Logged-in but unentitled = a Pro (paid) case; Pro fills the CTA.
+			: array(
+				'label' => __( 'Log in to view', 'buddynext' ),
+				'url'   => wp_login_url(),
+			);
+		$item['members_only_cta'] = (array) apply_filters( 'buddynext_members_only_cta', $default_cta, $viewer, $post_ctx );
+
+		return $item;
+	}
+
+	/**
+	 * Build the teaser shown for a locked members-only post.
+	 *
+	 * A fraction of the body's words (owner-tunable via
+	 * buddynext_members_only_teaser_fraction / the option, default 25%). Posts
+	 * under 40 words show nothing — a short post is all teaser otherwise.
+	 *
+	 * @param string $text Plain-text post body.
+	 * @return string Teaser, or '' when nothing should be shown.
+	 */
+	private function members_only_teaser( string $text ): string {
+		$words = preg_split( '/\s+/', trim( $text ), -1, PREG_SPLIT_NO_EMPTY );
+		$count = is_array( $words ) ? count( $words ) : 0;
+		if ( $count < 40 ) {
+			return '';
+		}
+		$fraction = (float) apply_filters(
+			'buddynext_members_only_teaser_fraction',
+			(float) get_option( 'buddynext_members_only_teaser_fraction', 0.25 )
+		);
+		$fraction = max( 0.0, min( 1.0, $fraction ) );
+		$take     = (int) floor( $count * $fraction );
+		if ( $take < 1 ) {
+			return '';
+		}
+		return implode( ' ', array_slice( $words, 0, $take ) ) . '…';
+	}
+
+	/**
 	 * The viewer-relative block for one post.
 	 *
-	 * Built here for both the feed and GET /feed/viewer-state, because the two used
-	 * to construct it independently and had already drifted: the refresh route never
-	 * carried my_share, so an app that re-polled state lost the un-share affordance
-	 * on every card it refreshed.
-	 *
-	 * Everything here is VOLATILE — it can change without the post changing, which is
-	 * what makes it worth re-polling. can_edit is deliberately NOT here: authorship
-	 * does not change between two polls of the same post, so it belongs with the
-	 * initial shape (see enrich_items_for_rest) and re-sending it on every refresh
-	 * would be waste.
+	 * Built for both the feed and GET /feed/viewer-state. VOLATILE state worth
+	 * re-polling; can_edit is deliberately NOT here (authorship rides the initial
+	 * shape in enrich_items_for_rest, not the refresh route).
 	 *
 	 * @param int   $post_id Post.
 	 * @param array $maps    Output of prime_viewer_maps().
@@ -514,6 +601,15 @@ class FeedController extends BaseRestController {
 			$item['content_html'] = $format
 				? buddynext_format_content( (string) ( $item['content'] ?? '' ) )
 				: (string) ( $item['content'] ?? '' );
+
+			// Members-only gate: a paywalled post keeps its author + meta for
+			// everyone, but its body collapses to a teaser + a locked flag for a
+			// viewer without access. Applied here, in the single feed builder, so
+			// every surface (home / space / explore / profile / single / bookmark /
+			// shared-embed) gates identically and web + app get the same shape.
+			if ( ! empty( $item['members_only'] ) ) {
+				$item = $this->apply_members_only_gate( $item, $viewer, $format );
+			}
 
 			$item['viewer_state'] = $this->viewer_state_for( $pid, $maps ) + array(
 				// Stable, so it rides the initial shape only and not the refresh route.

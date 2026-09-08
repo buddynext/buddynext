@@ -465,6 +465,11 @@ class PostService {
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Members-only is an OWNER control, not a per-author one: only a site admin,
+		// or an owner/moderator of the post's space, may paywall a post. A regular
+		// member's request to set it is ignored (forced 0).
+		$bn_members_only = ( ! empty( $data['members_only'] ) && $this->can_gate_post( $user_id, (int) ( $data['space_id'] ?? 0 ) ) ) ? 1 : 0;
+
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_posts',
 			array(
@@ -479,6 +484,7 @@ class PostService {
 				'status'               => $status,
 				'content_warning'      => ! empty( $data['content_warning'] ) ? 1 : 0,
 				'content_warning_type' => $data['content_warning_type'] ?? null,
+				'members_only'         => $bn_members_only,
 				'scheduled_at'         => $data['scheduled_at'] ?? null,
 				'is_announcement'      => 'announcement' === $type ? 1 : 0,
 				'site_pin_expires_at'  => $pin_expires,
@@ -493,7 +499,7 @@ class PostService {
 				// engagement. Bumped to NOW() on each reaction/comment/share.
 				'last_activity_at'     => $bn_last_activity,
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -1282,6 +1288,27 @@ class PostService {
 	}
 
 	/**
+	 * Whether a user may set the members-only flag on a post.
+	 *
+	 * Members-only is an owner control: a site admin (manage_options) may gate any
+	 * post; an owner or moderator of the post's space may gate posts in that space.
+	 * A regular author cannot paywall their own post.
+	 *
+	 * @param int $user_id  Author making the request.
+	 * @param int $space_id Post's space (0 = profile/site feed).
+	 * @return bool
+	 */
+	public function can_gate_post( int $user_id, int $space_id ): bool {
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+		if ( $space_id > 0 && function_exists( 'buddynext_can' ) ) {
+			return (bool) buddynext_can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) );
+		}
+		return false;
+	}
+
+	/**
 	 * Resolve the visibility WP_Error a viewer should receive for a single post.
 	 *
 	 * Single source of truth for the per-post privacy gate that PostController::get_post()
@@ -1770,6 +1797,17 @@ class PostService {
 		if ( array_key_exists( 'content_warning_type', $data ) ) {
 			$fields['content_warning_type'] = $data['content_warning_type'] ?? null;
 			$formats[]                      = '%s';
+		}
+		if ( array_key_exists( 'members_only', $data ) ) {
+			// Only a site admin or the space's owner/moderator may change the
+			// paywall flag; a plain author's request is ignored (the current value
+			// is left untouched rather than forced off).
+			$mo_existing = $this->get( $post_id );
+			$mo_space    = $mo_existing ? (int) ( $mo_existing['space_id'] ?? 0 ) : 0;
+			if ( $this->can_gate_post( $user_id, $mo_space ) ) {
+				$fields['members_only'] = ! empty( $data['members_only'] ) ? 1 : 0;
+				$formats[]              = '%d';
+			}
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3366,6 +3404,7 @@ class PostService {
 			'is_announcement'      => (int) ( $row['is_announcement'] ?? 0 ),
 			'content_warning'      => (bool) ( $row['content_warning'] ?? false ),
 			'content_warning_type' => $row['content_warning_type'] ?? null,
+			'members_only'         => (bool) ( $row['members_only'] ?? false ),
 			// Lifecycle status (published | pending | scheduled | draft). Feeds only
 			// ever return published rows, but the create response exposes it so the
 			// composer can tell when pre-moderation held a post instead of publishing.

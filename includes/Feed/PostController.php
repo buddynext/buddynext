@@ -64,6 +64,11 @@ class PostController extends BaseRestController {
 						'description' => __( 'Audience: public, followers, connections, private.', 'buddynext' ),
 						'required'    => false,
 					),
+					'members_only'            => array(
+						'type'        => 'boolean',
+						'description' => __( 'Paywall the post to members. Honoured only for owners / space admins.', 'buddynext' ),
+						'required'    => false,
+					),
 					'space_id'                => array(
 						'type'        => 'integer',
 						'description' => __( 'Target space ID; 0 or omitted posts to the global feed.', 'buddynext' ),
@@ -242,6 +247,9 @@ class PostController extends BaseRestController {
 			'poll_end_date'           => $request->get_param( 'poll_end_date' ),
 			'content_warning'         => (bool) $request->get_param( 'content_warning' ),
 			'content_warning_type'    => $this->sanitize_warning_type( $request->get_param( 'content_warning_type' ) ),
+			// Owner control; PostService::create() ignores it unless the author may
+			// gate this post (site admin, or owner/moderator of its space).
+			'members_only'            => (bool) $request->get_param( 'members_only' ),
 			'scheduled_at'            => $request->get_param( 'scheduled_at' ),
 			// Optional announcement expiry (UTC datetime); only honoured for type=announcement.
 			'announcement_expires_at' => $request->get_param( 'announcement_expires_at' ),
@@ -422,6 +430,10 @@ class PostController extends BaseRestController {
 		}
 		if ( null !== $request->get_param( 'privacy' ) ) {
 			$data['privacy'] = sanitize_key( $request->get_param( 'privacy' ) );
+		}
+		if ( null !== $request->get_param( 'members_only' ) ) {
+			// PostService::update() re-checks gating authority before persisting.
+			$data['members_only'] = (bool) $request->get_param( 'members_only' );
 		}
 		// A reschedule. Same capability as setting a schedule in the first place — otherwise
 		// this is a back door into scheduling for anyone who can edit. PostService::update()

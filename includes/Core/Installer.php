@@ -3309,6 +3309,7 @@ class Installer {
 				is_announcement TINYINT(1) NOT NULL DEFAULT 0,
 				content_warning TINYINT(1) NOT NULL DEFAULT 0,
 				content_warning_type VARCHAR(32) DEFAULT NULL,
+				members_only TINYINT(1) NOT NULL DEFAULT 0,
 				site_pin_expires_at DATETIME DEFAULT NULL,
 				edited_at DATETIME DEFAULT NULL,
 				scheduled_at DATETIME DEFAULT NULL,
