@@ -599,7 +599,7 @@ getting the member count wrong.
 ```php
 $members = new \BuddyNext\Spaces\SpaceMemberService();
 $mod     = new \BuddyNext\Moderation\ModerationService();
-$posts   = buddynext_service( 'posts' );
+$posts   = buddynext_service( 'post_service' );
 
 $space_ids = array( 12, 19, 44 );   // the spaces this owner runs
 
