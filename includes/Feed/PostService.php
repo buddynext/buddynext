@@ -1374,6 +1374,23 @@ class PostService {
 			}
 		}
 
+		// Gate 3b — connections-only privacy. Author, a first-degree connection and
+		// admins may read; everyone else gets a 403. 'connections' is a real privacy
+		// enum (Installer) but was only ever applied as a feed-audience filter, so
+		// the single-post gate — and every side action that routes through it
+		// (share/react/comment/vote via is_post_hidden_from_viewer) — let anyone read
+		// a connections-only post.
+		if ( 'connections' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $viewer_is_admin ) {
+			$connections = new \BuddyNext\SocialGraph\ConnectionService();
+			if ( ! ( $viewer_id > 0 && $connections->are_connected( $viewer_id, $author_id ) ) ) {
+				return new WP_Error(
+					'post_forbidden',
+					__( 'You do not have permission to view this post.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+		}
+
 		// Gate 4 — private posts (author-only).
 		if ( 'private' === ( $post['privacy'] ?? '' ) && ! $is_author ) {
 			return new WP_Error(
@@ -1470,17 +1487,18 @@ class PostService {
 			return array();
 		}
 
-		$blocks     = function_exists( 'buddynext_service' )
+		$blocks      = function_exists( 'buddynext_service' )
 			? buddynext_service( 'blocks' )
 			: new \BuddyNext\SocialGraph\BlockService();
-		$follows    = function_exists( 'buddynext_service' )
+		$follows     = function_exists( 'buddynext_service' )
 			? buddynext_service( 'follows' )
 			: new \BuddyNext\SocialGraph\FollowService();
-		$spaces     = new \BuddyNext\Spaces\SpaceService();
-		$moderation = function_exists( 'buddynext_service' )
+		$spaces      = new \BuddyNext\Spaces\SpaceService();
+		$moderation  = function_exists( 'buddynext_service' )
 			? buddynext_service( 'moderation' )
 			: new \BuddyNext\Moderation\ModerationService();
-		$is_admin   = $viewer > 0 && user_can( $viewer, 'manage_options' );
+		$connections = new \BuddyNext\SocialGraph\ConnectionService();
+		$is_admin    = $viewer > 0 && user_can( $viewer, 'manage_options' );
 
 		$visible       = array();
 		$space_visible = array();
@@ -1526,6 +1544,14 @@ class PostService {
 			// "Only Me") stays author-only even for admins.
 			if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $is_admin ) {
 				if ( ! ( $viewer > 0 && $follows->is_following( $viewer, $author_id ) ) ) {
+					continue;
+				}
+			}
+
+			// Gate 3b — connections-only privacy (mirrors visibility_error()): drop
+			// unless the viewer is a first-degree connection of the author.
+			if ( 'connections' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $is_admin ) {
+				if ( ! ( $viewer > 0 && $connections->are_connected( $viewer, $author_id ) ) ) {
 					continue;
 				}
 			}
