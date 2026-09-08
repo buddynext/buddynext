@@ -4081,3 +4081,50 @@ a.bn-composer__error-retry[hidden] { display: none; }
 		width: 100%;
 	}
 }
+
+/* Members-only lock notice — shown under a paywalled post's teaser for a viewer
+   without access. Tokens only, so it adapts to dark mode and RTL with no
+   overrides; row layout stacks under 480px. */
+.bn-post-card__members-lock {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--bn-s3);
+	margin-block-start: var(--bn-s4);
+	padding: var(--bn-s4);
+	border: 1px solid var(--bn-border);
+	border-radius: var(--bn-r-lg);
+	background: color-mix(in srgb, var(--bn-accent) 7%, var(--bn-surface));
+}
+
+.bn-post-card__members-lock-icon {
+	display: inline-flex;
+	color: var(--bn-accent);
+}
+
+.bn-post-card__members-lock-icon svg {
+	width: 20px;
+	height: 20px;
+}
+
+.bn-post-card__members-lock-text {
+	flex: 1 1 auto;
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+
+.bn-post-card__members-lock-cta {
+	flex: 0 0 auto;
+}
+
+@media (max-width: 480px) {
+	.bn-post-card__members-lock {
+		align-items: flex-start;
+	}
+
+	.bn-post-card__members-lock-cta {
+		width: 100%;
+		text-align: center;
+	}
+}

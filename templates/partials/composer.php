@@ -77,6 +77,19 @@ if ( buddynext_feature_enabled( 'announcements' ) ) {
 	}
 }
 
+// Members-only gate — the same authority the server enforces in
+// PostService::can_gate_post(): a site admin may paywall any post; a space
+// owner/moderator may paywall posts in their space. A plain author cannot, so
+// the toggle is hidden for them rather than offered and then ignored.
+$composer_can_gate = current_user_can( 'manage_options' );
+if ( ! $composer_can_gate && $composer_space && function_exists( 'buddynext_can' ) ) {
+	$composer_can_gate = (bool) buddynext_can(
+		$composer_user_id,
+		'buddynext-moderate-space',
+		array( 'space_id' => $composer_space )
+	);
+}
+
 // Suspension is stated up front, not discovered by failing.
 //
 // A suspended member got a fully normal composer — no banner, no disabled state
@@ -180,6 +193,8 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'hasPro'                => $composer_has_pro,
 				'userId'                => get_current_user_id(),
 				'isAdmin'               => $composer_can_announce,
+				'canGate'               => $composer_can_gate,
+				'membersOnly'           => false,
 				'announcementExpiresAt' => '',
 				'draftStatus'           => '',
 				'hasDraft'              => false,
@@ -501,6 +516,17 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 					aria-label="<?php esc_attr_e( 'Post as announcement', 'buddynext' ); ?>"
 					title="<?php echo esc_attr( $composer_space ? __( 'Post as announcement (pinned to the top of this space)', 'buddynext' ) : __( 'Post as announcement (pinned to everyone\'s feed)', 'buddynext' ) ); ?>">
 					<?php buddynext_icon( 'megaphone' ); ?>
+				</button>
+			<?php endif; ?>
+
+			<?php if ( $composer_can_gate ) : ?>
+				<button class="bn-composer__tool"
+					type="button"
+					data-wp-bind--aria-pressed="state.membersOnly"
+					data-wp-on--click="actions.toggleMembersOnly"
+					aria-label="<?php esc_attr_e( 'Members only', 'buddynext' ); ?>"
+					title="<?php esc_attr_e( 'Members only — non-members see a teaser and a join prompt', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'lock' ); ?>
 				</button>
 			<?php endif; ?>
 

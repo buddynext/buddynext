@@ -1309,6 +1309,87 @@ class PostService {
 	}
 
 	/**
+	 * Resolve the members-only paywall for a post + viewer.
+	 *
+	 * The ONE place the gate is decided, so the REST/app feed
+	 * (FeedController::enrich_items_for_rest) and the web SSR post card
+	 * (partials/post-card.php) behave identically and neither can leak a gated
+	 * body the other hides. Returns whether the viewer is locked out and, if so,
+	 * the teaser to show in place of the body and the call-to-action.
+	 *
+	 * Free→Pro seam: access defaults to "any logged-in member" and the CTA to a
+	 * guest login prompt; Pro filters buddynext_members_only_has_access (paid
+	 * entitlement) and buddynext_members_only_cta (buyable-plan "become a member",
+	 * hidden when nothing is on sale).
+	 *
+	 * @param array $post   A hydrated post (needs id, user_id, space_id, content, members_only).
+	 * @param int   $viewer Current user ID (0 = guest).
+	 * @return array{locked:bool,teaser:string,cta:array<string,string>}
+	 */
+	public function members_only_gate( array $post, int $viewer ): array {
+		$open = array(
+			'locked' => false,
+			'teaser' => '',
+			'cta'    => array(),
+		);
+		if ( empty( $post['members_only'] ) ) {
+			return $open;
+		}
+
+		$author_id = (int) ( $post['user_id'] ?? 0 );
+		$post_ctx  = array(
+			'id'           => (int) ( $post['id'] ?? 0 ),
+			'user_id'      => $author_id,
+			'space_id'     => $post['space_id'] ?? null,
+			'members_only' => true,
+		);
+
+		$has_access = ( $viewer > 0 && $viewer === $author_id )
+			|| (bool) apply_filters( 'buddynext_members_only_has_access', ( $viewer > 0 ), $viewer, $post_ctx );
+		if ( $has_access ) {
+			return $open;
+		}
+
+		$default_cta = ( $viewer > 0 )
+			? array()
+			: array(
+				'label' => __( 'Log in to view', 'buddynext' ),
+				'url'   => wp_login_url(),
+			);
+
+		return array(
+			'locked' => true,
+			'teaser' => $this->members_only_teaser( wp_strip_all_tags( (string) ( $post['content'] ?? '' ) ) ),
+			'cta'    => (array) apply_filters( 'buddynext_members_only_cta', $default_cta, $viewer, $post_ctx ),
+		);
+	}
+
+	/**
+	 * Teaser shown for a locked members-only post: a fraction of the body's words
+	 * (owner-tunable, default 25%), nothing for posts under 40 words.
+	 *
+	 * @param string $text Plain-text post body.
+	 * @return string
+	 */
+	public function members_only_teaser( string $text ): string {
+		$words = preg_split( '/\s+/', trim( $text ), -1, PREG_SPLIT_NO_EMPTY );
+		$count = is_array( $words ) ? count( $words ) : 0;
+		if ( $count < 40 ) {
+			return '';
+		}
+		$fraction = (float) apply_filters(
+			'buddynext_members_only_teaser_fraction',
+			(float) get_option( 'buddynext_members_only_teaser_fraction', 0.25 )
+		);
+		$fraction = max( 0.0, min( 1.0, $fraction ) );
+		$take     = (int) floor( $count * $fraction );
+		if ( $take < 1 ) {
+			return '';
+		}
+		return implode( ' ', array_slice( $words, 0, $take ) ) . '…';
+	}
+
+	/**
 	 * Resolve the visibility WP_Error a viewer should receive for a single post.
 	 *
 	 * Single source of truth for the per-post privacy gate that PostController::get_post()

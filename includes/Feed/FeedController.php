@@ -360,78 +360,18 @@ class FeedController extends BaseRestController {
 	 * @return array<string,mixed>
 	 */
 	private function apply_members_only_gate( array $item, int $viewer, bool $format ): array {
-		$author_id = absint( $item['user_id'] ?? 0 );
-		$post_ctx  = array(
-			'id'           => absint( $item['id'] ?? 0 ),
-			'user_id'      => $author_id,
-			'space_id'     => $item['space_id'] ?? null,
-			'members_only' => true,
-		);
-
-		// Author always sees their own post; otherwise ask the access filter. Free
-		// default: any logged-in member has access (guests do not). Pro narrows this
-		// to a paid entitlement.
-		$has_access = ( $viewer > 0 && $viewer === $author_id )
-			|| (bool) apply_filters( 'buddynext_members_only_has_access', ( $viewer > 0 ), $viewer, $post_ctx );
-
-		$item['is_locked'] = ! $has_access;
-		if ( $has_access ) {
+		$gate              = buddynext_service( 'post_service' )->members_only_gate( $item, $viewer );
+		$item['is_locked'] = $gate['locked'];
+		if ( ! $gate['locked'] ) {
 			return $item;
 		}
 
-		$teaser               = $this->members_only_teaser( wp_strip_all_tags( (string) ( $item['content'] ?? '' ) ) );
-		$item['content']      = $teaser;
-		$item['content_html'] = $format ? buddynext_format_content( $teaser ) : $teaser;
-		$item['media_ids']    = array(); // Do not leak the media that sits behind the wall.
-
-		/**
-		 * Filter the call-to-action shown on a locked members-only post.
-		 *
-		 * Return an array with 'label' and 'url' (empty array to hide it). Free
-		 * offers guests a login prompt; Pro supplies a "become a member" CTA and
-		 * returns an empty array when no plan is buyable.
-		 *
-		 * @param array $cta      Default CTA.
-		 * @param int   $viewer   Current user ID.
-		 * @param array $post_ctx Minimal post context.
-		 */
-		$default_cta = ( $viewer > 0 )
-			? array() // Logged-in but unentitled = a Pro (paid) case; Pro fills the CTA.
-			: array(
-				'label' => __( 'Log in to view', 'buddynext' ),
-				'url'   => wp_login_url(),
-			);
-		$item['members_only_cta'] = (array) apply_filters( 'buddynext_members_only_cta', $default_cta, $viewer, $post_ctx );
+		$item['content']          = $gate['teaser'];
+		$item['content_html']     = $format ? buddynext_format_content( $gate['teaser'] ) : $gate['teaser'];
+		$item['media_ids']        = array(); // Do not leak the media that sits behind the wall.
+		$item['members_only_cta'] = $gate['cta'];
 
 		return $item;
-	}
-
-	/**
-	 * Build the teaser shown for a locked members-only post.
-	 *
-	 * A fraction of the body's words (owner-tunable via
-	 * buddynext_members_only_teaser_fraction / the option, default 25%). Posts
-	 * under 40 words show nothing — a short post is all teaser otherwise.
-	 *
-	 * @param string $text Plain-text post body.
-	 * @return string Teaser, or '' when nothing should be shown.
-	 */
-	private function members_only_teaser( string $text ): string {
-		$words = preg_split( '/\s+/', trim( $text ), -1, PREG_SPLIT_NO_EMPTY );
-		$count = is_array( $words ) ? count( $words ) : 0;
-		if ( $count < 40 ) {
-			return '';
-		}
-		$fraction = (float) apply_filters(
-			'buddynext_members_only_teaser_fraction',
-			(float) get_option( 'buddynext_members_only_teaser_fraction', 0.25 )
-		);
-		$fraction = max( 0.0, min( 1.0, $fraction ) );
-		$take     = (int) floor( $count * $fraction );
-		if ( $take < 1 ) {
-			return '';
-		}
-		return implode( ' ', array_slice( $words, 0, $take ) ) . '…';
 	}
 
 	/**

@@ -53,6 +53,21 @@ $bn_post_type   = $bn_post['type'] ?? 'text';
 $bn_space_id    = absint( $bn_post['space_id'] ?? 0 );
 $post_author_id = absint( $bn_post['user_id'] ?? 0 );
 $post_content   = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
+
+// Members-only paywall (SSR). Uses the SAME gate as the REST/app feed
+// (PostService::members_only_gate), so the web card and the app card hide
+// exactly the same body. When locked, the body becomes the teaser and a lock
+// notice + CTA render below it (see the $bn_members_locked block).
+$bn_members_locked = false;
+$bn_members_cta    = array();
+if ( ! empty( $bn_post['members_only'] ) ) {
+	$bn_mo_gate = buddynext_service( 'post_service' )->members_only_gate( $bn_post, $current_user_id );
+	if ( $bn_mo_gate['locked'] ) {
+		$bn_members_locked = true;
+		$bn_members_cta    = $bn_mo_gate['cta'];
+		$post_content      = $bn_mo_gate['teaser'];
+	}
+}
 $post_privacy   = $bn_post['privacy'] ?? 'public';
 $post_privacy   = in_array( $post_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
 	? $post_privacy
@@ -116,6 +131,12 @@ if ( ! function_exists( 'bn_post_card_to_array' ) ) {
 $media_ids    = bn_post_card_to_array( $bn_post['media_ids'] ?? null );
 $link_url     = $bn_post['link_url'] ?? '';
 $link_meta    = bn_post_card_to_array( $bn_post['link_meta'] ?? null );
+// A locked members-only post shows no media or link preview behind the wall.
+if ( $bn_members_locked ) {
+	$media_ids = array();
+	$link_url  = '';
+	$link_meta = array();
+}
 $poll_options = is_array( $bn_post['poll_options'] ?? null ) ? $bn_post['poll_options'] : array();
 
 // Content warning.
@@ -372,6 +393,7 @@ $privacy_icons  = array(
 	'space_members' => buddynext_get_icon( 'lock' ),
 	'private'       => buddynext_get_icon( 'lock' ),
 );
+
 /*
  * Public is the DEFAULT audience, so saying so on every card states a constant
  * - and a marker that is always present is a marker nobody reads, including on
@@ -750,6 +772,20 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 			'shared_post'       => $shared_post,
 		)
 	);
+
+	if ( $bn_members_locked ) :
+		?>
+		<div class="bn-post-card__members-lock" role="note">
+			<span class="bn-post-card__members-lock-icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></span>
+			<p class="bn-post-card__members-lock-text"><?php esc_html_e( 'This post is for members.', 'buddynext' ); ?></p>
+			<?php if ( ! empty( $bn_members_cta['url'] ) && ! empty( $bn_members_cta['label'] ) ) : ?>
+				<a class="bn-btn bn-post-card__members-lock-cta" data-variant="primary" data-size="sm" href="<?php echo esc_url( (string) $bn_members_cta['url'] ); ?>">
+					<?php echo esc_html( (string) $bn_members_cta['label'] ); ?>
+				</a>
+			<?php endif; ?>
+		</div>
+		<?php
+	endif;
 
 	// The reaction-summary chip strip shows existing reactions; suppress it when
 	// the site owner has disabled the Reactions feature so no reaction surface

@@ -358,6 +358,8 @@ function resetComposerSubForms( ctx ) {
 	ctx.scheduledAt           = '';
 	ctx.announcementExpiresAt = '';
 
+	ctx.membersOnly = false;
+
 	// Clear any attached document so the next post starts empty.
 	ctx.documentId        = 0;
 	ctx.documentName      = '';
@@ -595,6 +597,9 @@ store( 'buddynext/post-composer', {
 		},
 		get isAnnouncement() {
 			try { return getContext().composerType === 'announcement'; } catch ( _e ) { return false; }
+		},
+		get membersOnly() {
+			try { return !! getContext().membersOnly; } catch ( _e ) { return false; }
 		},
 		get isNotAnnouncement() {
 			try { return getContext().composerType !== 'announcement'; } catch ( _e ) { return true; }
@@ -1080,6 +1085,10 @@ store( 'buddynext/post-composer', {
 			const raw = ( event && event.target && event.target.value ) || '';
 			ctx.announcementExpiresAt = raw ? toUtcSqlDatetime( raw ) : '';
 		},
+		toggleMembersOnly() {
+			const ctx       = getContext();
+			ctx.membersOnly = ! ctx.membersOnly;
+		},
 		onInput( event ) {
 			const ctx     = getContext();
 			ctx.content   = event.target.value;
@@ -1179,6 +1188,12 @@ store( 'buddynext/post-composer', {
 			// Admin announcement: carry the optional auto-expire datetime.
 			if ( ctx.composerType === 'announcement' && ctx.announcementExpiresAt ) {
 				body.announcement_expires_at = ctx.announcementExpiresAt;
+			}
+
+			// Members-only paywall. Only meaningful for a gating author (the toggle
+			// is hidden otherwise, and the server re-checks), so send it only when set.
+			if ( ctx.membersOnly ) {
+				body.members_only = true;
 			}
 
 			// Attach media IDs from WPMediaVerse uploads (stored in module-level state).
