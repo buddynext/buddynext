@@ -577,9 +577,11 @@ class FeedController extends BaseRestController {
 
 	/**
 	 * Attach an enriched `shared_post` to every re-share item, honouring the viewer's
-	 * visibility gates (a private / blocked / secret-space original is embedded as null so a
-	 * client shows "post unavailable", never the content). Originals are enriched one level
-	 * deep — a share of a share does not recurse.
+	 * visibility gates. An original that is deleted, private, blocked or in a secret space
+	 * is embedded as `array( 'unavailable' => true )` (never the content, and never null so
+	 * the client can tell a dead re-share from a non-share), and the client draws the "no
+	 * longer available" card. Originals are enriched one level deep — a share of a share does
+	 * not recurse.
 	 *
 	 * @param array<int,array<string,mixed>> $items  Enriched items, edited in place.
 	 * @param int                            $viewer Current user ID.
@@ -617,8 +619,19 @@ class FeedController extends BaseRestController {
 		}
 
 		foreach ( $items as &$item ) {
-			$sid                 = absint( $item['shared_post_id'] ?? 0 );
-			$item['shared_post'] = ( $sid && isset( $by_id[ $sid ] ) ) ? $by_id[ $sid ] : null;
+			$sid = absint( $item['shared_post_id'] ?? 0 );
+			if ( ! $sid ) {
+				// Not a re-share — leave shared_post absent.
+				continue;
+			}
+			// A re-share whose original is deleted or not visible to this viewer
+			// gets an explicit unavailable marker, never null. null read as "this
+			// isn't a share" and the app rendered an empty quoted box; the marker
+			// tells the client to draw the "no longer available" card (the same
+			// tombstone the SSR feed shows) while keeping the resharer's own
+			// commentary. Deleted vs not-visible is deliberately not distinguished,
+			// so a private original is never leaked.
+			$item['shared_post'] = $by_id[ $sid ] ?? array( 'unavailable' => true );
 		}
 		unset( $item );
 	}
