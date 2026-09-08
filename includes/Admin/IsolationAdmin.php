@@ -81,6 +81,10 @@ class IsolationAdmin {
 				'name'        => (string) ( $installed[ $basename ]['Name'] ?? $basename ),
 				'description' => (string) ( $installed[ $basename ]['Description'] ?? '' ),
 				'by_owner'    => in_array( $basename, $owner, true ) ? '1' : '',
+				// A security / access / backup / membership plugin is kept by default
+				// but stays overridable (unlike the locked in-house floor), so the row
+				// is rendered as an enabled, pre-checked switch with a warning.
+				'security'    => in_array( $basename, PluginIsolation::security_plugins(), true ) ? '1' : '',
 			);
 
 			if ( in_array( $basename, $allowed, true ) ) {
@@ -122,6 +126,31 @@ class IsolationAdmin {
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-admin-hub__form-bare">
 			<input type="hidden" name="action" value="bn_isolation_save">
 			<?php wp_nonce_field( 'bn_isolation_save' ); ?>
+
+			<div class="bn-settings-section">
+				<div class="bn-ss-header">
+					<span class="bn-ss-title"><?php esc_html_e( 'Route isolation', 'buddynext' ); ?></span>
+				</div>
+				<div class="bn-ss-body">
+					<div class="bn-toggle-row">
+						<div class="bn-toggle-row__copy">
+							<span class="bn-toggle-row__label"><?php esc_html_e( 'Enable route isolation', 'buddynext' ); ?></span>
+							<p class="bn-field-hint"><?php esc_html_e( 'When off, every plugin loads on BuddyNext pages as normal. Turn off only if isolation is causing a problem — large communities load faster with it on.', 'buddynext' ); ?></p>
+						</div>
+						<label class="bn-toggle-label">
+							<input
+								type="checkbox"
+								name="isolation_enabled"
+								value="1"
+								role="switch"
+								<?php checked( PluginIsolation::is_enabled() ); ?>
+								aria-label="<?php esc_attr_e( 'Enable route isolation on BuddyNext pages', 'buddynext' ); ?>"
+							>
+							<span class="bn-toggle--inline"></span>
+						</label>
+					</div>
+				</div>
+			</div>
 
 			<div class="bn-settings-section">
 				<div class="bn-ss-header">
@@ -168,20 +197,34 @@ class IsolationAdmin {
 						</div>
 					<?php else : ?>
 						<?php foreach ( $bn_groups['kept'] as $bn_file => $bn_row ) : ?>
+							<?php
+							// A security plugin is kept by default but stays overridable, so it
+							// renders as an enabled, pre-checked switch with a warning — never as
+							// the locked "always kept" in-house floor.
+							$bn_is_security = '1' === $bn_row['security'];
+							$bn_is_locked   = '' === $bn_row['by_owner'] && ! $bn_is_security;
+							?>
 							<div class="bn-toggle-row">
 								<div class="bn-toggle-row__copy">
-									<span class="bn-toggle-row__label"><?php echo esc_html( $bn_row['name'] ); ?></span>
+									<span class="bn-toggle-row__label">
+										<?php echo esc_html( $bn_row['name'] ); ?>
+										<?php if ( $bn_is_security ) : ?>
+											<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Security / access', 'buddynext' ); ?></span>
+										<?php endif; ?>
+									</span>
 									<p class="bn-field-hint">
 										<?php
 										echo esc_html( $bn_file );
-										if ( '' === $bn_row['by_owner'] ) {
+										if ( $bn_is_security ) {
+											echo ' — ' . esc_html__( 'recommended to keep; turning this off removes its protection on community pages', 'buddynext' );
+										} elseif ( $bn_is_locked ) {
 											echo ' — ' . esc_html__( 'always kept', 'buddynext' );
 										}
 										?>
 									</p>
 								</div>
 								<label class="bn-toggle-label">
-									<?php if ( '' === $bn_row['by_owner'] ) : ?>
+									<?php if ( $bn_is_locked ) : ?>
 										<input type="checkbox" checked disabled role="switch" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: plugin name. */ __( '%s is always kept active on BuddyNext pages', 'buddynext' ), $bn_row['name'] ) ); ?>">
 									<?php else : ?>
 										<input
@@ -248,6 +291,22 @@ class IsolationAdmin {
 		sort( $keep );
 
 		$ok = update_option( PluginIsolation::OPTION_KEEP, $keep, false );
+
+		// Master switch. Absent checkbox = off.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified above by check_admin_referer().
+		update_option( PluginIsolation::OPTION_ENABLED, empty( $_POST['isolation_enabled'] ) ? '0' : '1', false );
+
+		// Security plugins are kept by default; an ACTIVE one the owner left
+		// UN-checked is an explicit opt-out (strip it). Recorded so active_security_kept()
+		// stops keeping it, while a checked one clears any prior opt-out.
+		$active_now = (array) get_option( 'active_plugins', array() );
+		$optout     = array();
+		foreach ( PluginIsolation::security_plugins() as $sec ) {
+			if ( in_array( $sec, $active_now, true ) && ! in_array( $sec, $keep, true ) ) {
+				$optout[] = $sec;
+			}
+		}
+		update_option( PluginIsolation::OPTION_SECURITY_OPTOUT, array_values( array_unique( $optout ) ), false );
 
 		// The mirror the mu-plugin reads is rebuilt from the owner list, so the
 		// change takes effect on the very next front-end request rather than

@@ -230,6 +230,115 @@ class PluginIsolation {
 	);
 
 	/**
+	 * Security / access / backup / membership plugins kept alive by DEFAULT.
+	 *
+	 * These enforce on non-output hooks — authenticate, template_redirect,
+	 * rest_api_init, login_init — and render nothing on a normal page, so the
+	 * front-end-output scan (scan_frontend_hooks) never sees them and would strip
+	 * them on hub routes. Silently disabling a firewall, a 2FA gate, a login
+	 * limiter, a backup job or a membership paywall on the community's front door
+	 * is a security/access incident, not a performance trade-off, so an ACTIVE
+	 * plugin on this list is kept by default. Unlike the consent floor it is
+	 * overridable: an owner who really wants to strip one un-checks it on the
+	 * Plugin-isolation screen (recorded in OPTION_SECURITY_OPTOUT). The list is
+	 * filterable (buddynext_isolation_security_plugins) because we cannot see every
+	 * install's security stack.
+	 */
+	private const SECURITY_PLUGINS = array(
+		// Firewalls / malware / hardening.
+		'wordfence/wordfence.php',
+		'better-wp-security/better-wp-security.php',
+		'ithemes-security-pro/ithemes-security-pro.php',
+		'sucuri-scanner/sucuri.php',
+		'all-in-one-wp-security-and-firewall/wp-security.php',
+		'wp-cerber/wp-cerber.php',
+		'ninjafirewall/ninjafirewall.php',
+		'malcare-security/malcare.php',
+		// Login / brute-force / 2FA.
+		'limit-login-attempts-reloaded/limit-login-attempts-reloaded.php',
+		'two-factor/two-factor.php',
+		'wp-2fa/wp-2fa.php',
+		'miniorange-2-factor-authentication/miniorange_2_factor_settings.php',
+		'google-authenticator/google-authenticator.php',
+		'duo-wordpress/duo_wordpress.php',
+		// Backup (data-loss protection).
+		'updraftplus/updraftplus.php',
+		'backwpup/backwpup.php',
+		'duplicator/duplicator.php',
+		// Membership / access control (stripping breaks paid access).
+		'paid-memberships-pro/paid-memberships-pro.php',
+		'members/members.php',
+		'restrict-content-pro/restrict-content-pro.php',
+		'memberpress/memberpress.php',
+	);
+
+	/**
+	 * Master on/off switch for route isolation (owner-controlled, default ON).
+	 *
+	 * @var string
+	 */
+	public const OPTION_ENABLED = 'buddynext_isolation_enabled';
+
+	/**
+	 * Security plugins the owner has explicitly opted to strip (override of the
+	 * SECURITY_PLUGINS default-keep).
+	 *
+	 * @var string
+	 */
+	public const OPTION_SECURITY_OPTOUT = 'buddynext_isolation_security_optout';
+
+	/**
+	 * Whether route isolation is enabled. Default ON; filterable.
+	 *
+	 * @return bool
+	 */
+	public static function is_enabled(): bool {
+		$enabled = '0' !== (string) get_option( self::OPTION_ENABLED, '1' );
+
+		/**
+		 * Filter whether front-end plugin isolation runs at all.
+		 *
+		 * @param bool $enabled Owner setting (default true).
+		 */
+		return (bool) apply_filters( 'buddynext_isolation_enabled', $enabled );
+	}
+
+	/**
+	 * Known security / access plugin basenames (filterable).
+	 *
+	 * @return array<int,string>
+	 */
+	public static function security_plugins(): array {
+		return array_values(
+			array_unique(
+				array_filter(
+					array_map(
+						static fn( $p ): string => is_string( $p ) ? trim( $p ) : '',
+						(array) apply_filters( 'buddynext_isolation_security_plugins', self::SECURITY_PLUGINS )
+					)
+				)
+			)
+		);
+	}
+
+	/**
+	 * Active security plugins kept by default, minus any the owner opted to strip.
+	 *
+	 * @return array<int,string>
+	 */
+	public static function active_security_kept(): array {
+		$optout = (array) get_option( self::OPTION_SECURITY_OPTOUT, array() );
+		$active = (array) get_option( 'active_plugins', array() );
+		$kept   = array();
+		foreach ( self::security_plugins() as $basename ) {
+			if ( in_array( $basename, $active, true ) && ! in_array( $basename, $optout, true ) ) {
+				$kept[] = $basename;
+			}
+		}
+		return $kept;
+	}
+
+	/**
 	 * The owner's extra keep-alive basenames, sanitised.
 	 *
 	 * @return array<int,string>
@@ -304,6 +413,7 @@ class PluginIsolation {
 		$base = array_merge(
 			self::CORE_INTEGRATIONS,
 			self::TRANSLATION_PLUGINS,
+			self::active_security_kept(),
 			self::owner_keep_list(),
 			self::menu_dependency_plugins()
 		);
@@ -333,6 +443,12 @@ class PluginIsolation {
 		 *
 		 * @param array<int,string> $plugins In-house integration basenames.
 		 */
+		// Master switch off → nothing is isolated: allow every active plugin, so the
+		// mirror the mu-plugin reads strips none of them.
+		if ( ! self::is_enabled() ) {
+			return array_values( array_unique( array_map( 'strval', (array) get_option( 'active_plugins', array() ) ) ) );
+		}
+
 		$plugins = array_merge( self::explicitly_listed(), self::detected_frontend_plugins() );
 
 		$plugins = array_values(
