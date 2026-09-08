@@ -1552,6 +1552,12 @@ class SpaceService {
 		$member_id   = isset( $args['member'] ) ? absint( $args['member'] ) : 0;
 		$viewer_id   = isset( $args['viewer'] ) ? absint( $args['viewer'] ) : 0;
 		$is_admin    = ! empty( $args['is_admin'] );
+		// Optional name search, honoured alongside category_id/type/orderby and in
+		// the COUNT (rows + total share this scope). Accepts 'search' or 'name'.
+		$search = isset( $args['search'] ) ? trim( (string) $args['search'] ) : '';
+		if ( '' === $search && isset( $args['name'] ) ) {
+			$search = trim( (string) $args['name'] );
+		}
 
 		// Member-scoped lists ("my spaces") can be narrowed to the viewer's
 		// relationship: 'manage' = spaces they own or moderate, 'joined' = plain
@@ -1648,6 +1654,14 @@ class SpaceService {
 				$hidden_in = implode( ',', array_map( 'absint', $hidden_categories ) );
 				$where[]   = "( category_id IS NULL OR category_id NOT IN ({$hidden_in}) )";
 			}
+		}
+
+		// Name search — a plain LIKE, scoped by whatever category/type filters are
+		// already in $where. esc_like() so a literal % or _ in the term matches
+		// itself; the %s placeholder is filled from $params.
+		if ( '' !== $search ) {
+			$where[]  = 'name LIKE %s';
+			$params[] = '%' . $wpdb->esc_like( $search ) . '%';
 		}
 
 		// Top-level directory browse shows root spaces only — sub-spaces are
