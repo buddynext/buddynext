@@ -1861,6 +1861,26 @@ class PostService {
 			),
 			array( '%s', '%d' )
 		);
+		// Before removing this post's comments, sweep every row keyed to those
+		// COMMENT ids — reactions, notifications and reports with
+		// object_type='comment'. The post-level deletes here only clear
+		// object_type='post' rows, so each comment's own reactions/notifications/
+		// reports would otherwise be left orphaned (card 10264292876). Ids are
+		// absint-cast, so the inlined IN lists are injection-safe.
+		$comment_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id = %d",
+				$post_id
+			)
+		);
+		if ( $comment_ids ) {
+			$comment_in = implode( ',', array_map( 'absint', $comment_ids ) );
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $comment_in is an absint-mapped id list, injection-safe.
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'comment' AND object_id IN ({$comment_in})" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'comment' AND object_id IN ({$comment_in})" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'comment' AND object_id IN ({$comment_in})" );
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		}
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_comments',
 			array(
