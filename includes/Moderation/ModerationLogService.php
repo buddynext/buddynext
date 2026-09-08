@@ -47,6 +47,10 @@ class ModerationLogService {
 		$object_id      = isset( $context['object_id'] ) ? (int) $context['object_id'] : null;
 		$target_user_id = isset( $context['target_user_id'] ) ? (int) $context['target_user_id'] : null;
 		$note           = isset( $context['note'] ) ? sanitize_textarea_field( (string) $context['note'] ) : null;
+		// The schema, get_log()'s filter and the space Moderation tab all key on
+		// space_id, but this writer dropped it - so every space-scoped tab read
+		// came back empty. 0 = a site-level (non-space) action.
+		$space_id = isset( $context['space_id'] ) ? (int) $context['space_id'] : 0;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
@@ -58,13 +62,14 @@ class ModerationLogService {
 				'object_id'      => $object_id,
 				'target_user_id' => $target_user_id,
 				'note'           => $note,
+				'space_id'       => $space_id,
 				// Explicit UTC: the column default is CURRENT_TIMESTAMP, which is
 				// the MySQL SERVER timezone - on non-UTC servers rows rendered
 				// hours in the future ("in 5 hours"). PHP-side writes are UTC
 				// everywhere else in the plugin.
 				'created_at'     => gmdate( 'Y-m-d H:i:s' ),
 			),
-			array( '%d', '%s', '%s', '%d', '%d', '%s', '%s' )
+			array( '%d', '%s', '%s', '%d', '%d', '%s', '%d', '%s' )
 		);
 
 		return (int) $wpdb->insert_id;

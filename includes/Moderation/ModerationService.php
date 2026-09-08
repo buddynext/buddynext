@@ -1024,22 +1024,20 @@ class ModerationService {
 			);
 		}
 
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_mod_log',
+		// Route through the single audited writer (which records space_id + a UTC
+		// created_at) instead of a bespoke insert that dropped both — the missing
+		// space_id is why warnings never appeared on the space Moderation tab.
+		( new ModerationLogService() )->log(
+			$actor_id,
+			'warn',
 			array(
-				'actor_id'       => $actor_id,
-				'action'         => 'warn',
 				'object_type'    => 'user',
 				'object_id'      => $user_id,
 				'target_user_id' => $user_id,
-				'note'           => sanitize_textarea_field( $reason ),
-			),
-			array( '%d', '%s', '%s', '%d', '%d', '%s' )
+				'note'           => $reason,
+				'space_id'       => $space_id,
+			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		/**
 		 * Fires after a formal warning is issued to a user.

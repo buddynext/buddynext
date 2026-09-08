@@ -920,6 +920,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'object_id'   => $report_id,
 				'object_type' => 'report',
+				'space_id'    => (int) ( ( $service->get_report( $report_id ) ?: array() )['space_id'] ?? 0 ),
 			)
 		);
 
@@ -954,6 +955,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'object_id'   => $report_id,
 				'object_type' => 'report',
+				'space_id'    => (int) ( ( $service->get_report( $report_id ) ?: array() )['space_id'] ?? 0 ),
 			)
 		);
 
@@ -988,6 +990,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'object_id'   => $report_id,
 				'object_type' => 'report',
+				'space_id'    => (int) ( ( $service->get_report( $report_id ) ?: array() )['space_id'] ?? 0 ),
 			)
 		);
 
@@ -1022,6 +1025,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'object_id'   => $report_id,
 				'object_type' => 'report',
+				'space_id'    => (int) ( ( $service->get_report( $report_id ) ?: array() )['space_id'] ?? 0 ),
 			)
 		);
 
