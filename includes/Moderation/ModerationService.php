@@ -2586,17 +2586,19 @@ class ModerationService {
 
 		global $wpdb;
 
-		// Fetch user_id + current status for the hook and the re-resolve guard.
+		// Fetch user_id, status and the appealed suspension for the hook, the
+		// re-resolve guard, and the lift.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT user_id, status FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
+				"SELECT user_id, status, suspension_id FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
 				$appeal_id
 			),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$user_id = (int) ( $row['user_id'] ?? 0 );
+		$user_id       = (int) ( $row['user_id'] ?? 0 );
+		$suspension_id = (int) ( $row['suspension_id'] ?? 0 );
 
 		// Appeal row does not exist (appeals are always filed by a real user, so
 		// user_id is never 0 for a genuine row). Report it instead of updating
@@ -2617,29 +2619,41 @@ class ModerationService {
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Populate BOTH legacy audit column pairs — reviewed_*/reviewer_note and
+		// resolved_*/admin_note — so the trail is complete no matter which entry
+		// point (REST resolve, wp-admin, or approve/deny) decided the appeal now
+		// that both routes funnel through here.
+		$now = current_time( 'mysql', true ); // UTC, matches created_at.
 		$wpdb->update(
 			$wpdb->prefix . 'bn_appeals',
 			array(
 				'status'        => $decision,
 				'reviewed_by'   => $actor_id,
+				'resolved_by'   => $actor_id,
 				'reviewer_note' => sanitize_textarea_field( $reviewer_note ),
-				// UTC, to match created_at and the file's timestamp invariant.
-				'reviewed_at'   => current_time( 'mysql', true ),
+				'admin_note'    => sanitize_textarea_field( $reviewer_note ),
+				'reviewed_at'   => $now,
+				'resolved_at'   => $now,
 			),
 			array( 'id' => $appeal_id ),
-			array( '%s', '%d', '%s', '%s' ),
+			array( '%s', '%d', '%d', '%s', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// An approved appeal must actually restore the member — lifting their
-		// active suspension is the whole point of granting the appeal. A
-		// "not suspended" result is ignored on purpose: the suspension may have
-		// already expired between filing and review, but the appeal decision
-		// still stands. unsuspend_user() fires buddynext_user_unsuspended, which
-		// notifies the member their account is back.
+		// An approved appeal must lift the EXACT suspension that was appealed —
+		// set lifted_at on appeal.suspension_id, not "the most recent active one",
+		// or approving an appeal for suspension A while a later suspension B exists
+		// would lift B and leave A. A "not suspended" outcome is fine: the
+		// suspension may have expired between filing and review, but the decision
+		// still stands. Legacy appeals with no linked suspension fall back to
+		// lifting the member's current active suspension.
 		if ( 'approved' === $decision ) {
-			$this->unsuspend_user( $user_id, $actor_id );
+			if ( $suspension_id > 0 ) {
+				$this->lift_suspension_by_id( $suspension_id, $actor_id, $user_id );
+			} else {
+				$this->unsuspend_user( $user_id, $actor_id );
+			}
 		}
 
 		/**
@@ -3278,88 +3292,12 @@ class ModerationService {
 	 * @return bool|WP_Error True on success or WP_Error on validation/DB failure.
 	 */
 	public function decide_appeal( int $appeal_id, string $decision, string $admin_note = '', int $resolved_by = 0 ): bool|WP_Error {
-		if ( ! in_array( $decision, self::APPEAL_DECISIONS, true ) ) {
-			return new WP_Error( 'invalid_decision', __( 'Decision must be "approved" or "denied".', 'buddynext' ) );
-		}
-
-		if ( $appeal_id <= 0 ) {
-			return new WP_Error( 'invalid_appeal', __( 'Invalid appeal ID.', 'buddynext' ) );
-		}
-
-		global $wpdb;
-
-		// Load the appeal's owner and the suspension it targets so an approval
-		// can actually lift the suspension (set lifted_at), not just flip status.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$appeal = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT user_id, suspension_id FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
-				$appeal_id
-			),
-			ARRAY_A
-		);
-
-		// The appeal must exist. Without this guard, $wpdb->update() below returns
-		// 0 (no rows matched) which the false-only error check treats as success,
-		// so the endpoint returned 200 and fired buddynext_appeal_resolved with
-		// user_id=0 for a non-existent appeal. Bail with 404 instead.
-		if ( null === $appeal ) {
-			return new WP_Error(
-				'appeal_not_found',
-				__( 'Appeal not found.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
-		}
-
-		$user_id       = isset( $appeal['user_id'] ) ? (int) $appeal['user_id'] : 0;
-		$suspension_id = isset( $appeal['suspension_id'] ) ? (int) $appeal['suspension_id'] : 0;
-
-		// bn_appeals carries two legacy audit column pairs — resolved_*/admin_note
-		// (written here) and reviewed_*/reviewer_note (written by resolve_appeal()).
-		// Until the two resolution paths are consolidated, populate BOTH so the audit
-		// trail is complete regardless of which endpoint decided the appeal.
-		$now     = current_time( 'mysql', true ); // UTC, to match created_at and resolved_today.
-		$actor   = $resolved_by > 0 ? $resolved_by : null;
-		$note    = sanitize_textarea_field( $admin_note );
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'bn_appeals',
-			array(
-				'status'        => $decision,
-				'admin_note'    => $note,
-				'reviewer_note' => $note,
-				'resolved_by'   => $actor,
-				'reviewed_by'   => $actor,
-				'resolved_at'   => $now,
-				'reviewed_at'   => $now,
-			),
-			array( 'id' => $appeal_id ),
-			array( '%s', '%s', '%s', '%d', '%d', '%s', '%s' ),
-			array( '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( false === $updated || '' !== $wpdb->last_error ) {
-			return new WP_Error( 'db_error', $wpdb->last_error );
-		}
-
-		// An approved appeal must lift the suspension that was appealed. Set
-		// lifted_at directly on the appealed suspension row (not just "most
-		// recent active") so the correct record is cleared even when several
-		// historical suspensions exist.
-		if ( 'approved' === $decision && $suspension_id > 0 ) {
-			$this->lift_suspension_by_id( $suspension_id, $resolved_by, $user_id );
-		}
-
-		/**
-		 * Fires after an appeal is resolved.
-		 *
-		 * @param int    $appeal_id Appeal ID.
-		 * @param int    $user_id   User whose appeal was resolved.
-		 * @param string $decision  'approved' or 'denied'.
-		 */
-		do_action( 'buddynext_appeal_resolved', $appeal_id, $user_id, $decision );
-
-		return true;
+		// Consolidated: resolve_appeal() is the single appeal-resolution routine —
+		// it carries the pending-status guard (a decided appeal cannot be flipped)
+		// AND lifts the exact appealed suspension by id. This method is the
+		// approve/deny entry point and simply delegates so both paths behave
+		// identically. Parameter order differs: (appeal, actor, decision, note).
+		return $this->resolve_appeal( $appeal_id, $resolved_by, $decision, $admin_note );
 	}
 
 	/**
