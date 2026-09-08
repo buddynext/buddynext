@@ -494,7 +494,10 @@ class SpaceService {
 			return new WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ) );
 		}
 
-		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+		// Space configuration (name, type/secret, category, rules) is owner-only —
+		// a moderator moderates content, they do not rename the space or change its
+		// privacy. Was buddynext-manage-space, which includes moderators.
+		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to update this space.', 'buddynext' ) );
 		}
 

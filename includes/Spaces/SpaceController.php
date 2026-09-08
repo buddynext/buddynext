@@ -684,7 +684,7 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'Only the space owner can change permissions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 

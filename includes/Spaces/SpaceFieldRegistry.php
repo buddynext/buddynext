@@ -462,8 +462,11 @@ final class SpaceFieldRegistry {
 			return false;
 		}
 
-		// The owner (and a site admin) may write anything.
-		if ( buddynext_can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+		// Only the owner (and a site admin) may write ANY field. A moderator was
+		// riding buddynext-manage-space here, which let them write owner-only fields
+		// too; owner-authority is buddynext-own-space. Moderators fall through to the
+		// per-field writable_by check below.
+		if ( buddynext_can( $user_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return true;
 		}
 
