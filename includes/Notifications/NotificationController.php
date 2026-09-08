@@ -440,8 +440,17 @@ class NotificationController extends BaseRestController {
 		}
 
 		$valid_freq = array( 'immediate', 'daily', 'weekly', 'off' );
-		$errors     = array();
+		// The type key must be a known notification type. all() carries the
+		// Pro/bridge-extended catalogue (it applies buddynext_notification_prefs_catalogue),
+		// so registered partner types validate too. Without this, set_all_prefs()
+		// stored every key as-is, so {"prefs":{...}} wrote a junk type='prefs' row.
+		$valid_types = array_keys( ( new NotificationPrefCatalogue() )->all() );
+		$errors      = array();
 		foreach ( $body as $type => $entry ) {
+			if ( ! in_array( (string) $type, $valid_types, true ) ) {
+				$errors[ (string) $type ] = __( 'Unknown notification type.', 'buddynext' );
+				continue;
+			}
 			if ( ! is_array( $entry ) ) {
 				$errors[ (string) $type ] = __( 'Each preference must be an object.', 'buddynext' );
 				continue;
