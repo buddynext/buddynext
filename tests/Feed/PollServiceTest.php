@@ -126,4 +126,85 @@ class PollServiceTest extends \WP_UnitTestCase {
 
 		$this->assertNull( $voted );
 	}
+
+	/**
+	 * The Tools "Repair & recount poll votes" remedy purges a cross-linked vote row
+	 * (one that predates the ownership guard) and reconciles every counter from the
+	 * surviving, correctly-linked votes — without touching a sibling poll's real
+	 * counts (card 10264292330).
+	 *
+	 * @return void
+	 */
+	public function test_recount_purges_cross_linked_votes_and_reconciles(): void {
+		global $wpdb;
+
+		// A second poll (B) with its own options.
+		$poll_b     = $this->posts->create(
+			$this->alice,
+			array(
+				'type'    => 'poll',
+				'content' => 'Second poll?',
+				'options' => array( 'B-one', 'B-two' ),
+			)
+		);
+		$post_b     = $this->posts->get( $poll_b );
+		$b_option_1 = (int) $post_b['poll_options'][0]['id'];
+
+		// A legitimate vote on poll B keeps its real count at 1.
+		$this->service->vote( $this->bob, $poll_b, $b_option_1 );
+		$this->assertSame( 1, $this->option_count( $b_option_1 ), 'B option should start at one real vote.' );
+
+		// Simulate PRE-guard corruption: a vote row on poll A carrying poll B's
+		// option id, plus the inflated counter that the old unscoped increment left
+		// on B. (The current guard rejects this at write time; the row can only
+		// exist from before the fix.)
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_poll_votes',
+			array(
+				'post_id'   => $this->poll_id, // poll A
+				'user_id'   => $this->carol,
+				'option_id' => $b_option_1,    // belongs to poll B
+			)
+		);
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_poll_options SET vote_count = vote_count + 1 WHERE id = %d",
+				$b_option_1
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		$this->assertSame( 2, $this->option_count( $b_option_1 ), 'B option should be inflated to two before repair.' );
+
+		$result = $this->service->recount_all_poll_votes();
+
+		$this->assertGreaterThanOrEqual( 1, $result['deleted'], 'The cross-linked row must be purged.' );
+		$this->assertSame( 1, $this->option_count( $b_option_1 ), 'B option must reconcile back to its one real vote.' );
+		$this->assertSame( 0, $this->option_count( $this->option_a ), 'Poll A option A had no real votes.' );
+
+		// The cross-linked row is gone.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$orphans = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_poll_votes WHERE post_id = %d AND option_id = %d",
+				$this->poll_id,
+				$b_option_1
+			)
+		);
+		$this->assertSame( 0, $orphans, 'The cross-linked vote row must no longer exist.' );
+	}
+
+	/**
+	 * Read an option's stored vote_count.
+	 *
+	 * @param int $option_id Option id.
+	 * @return int
+	 */
+	private function option_count( int $option_id ): int {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT vote_count FROM {$wpdb->prefix}bn_poll_options WHERE id = %d", $option_id )
+		);
+	}
 }

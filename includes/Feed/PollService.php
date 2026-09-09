@@ -395,7 +395,7 @@ class PollService {
 		// pair does not name a real option in that poll. Such a row counts toward
 		// no legitimate option and wrongly occupies the voter's one-vote slot on a
 		// poll they never truly voted in.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$deleted = (int) $wpdb->query(
 			"DELETE v FROM {$wpdb->prefix}bn_poll_votes v
 			 LEFT JOIN {$wpdb->prefix}bn_poll_options o
@@ -404,23 +404,55 @@ class PollService {
 		);
 
 		// (2) Reconcile every option's vote_count from the surviving, correctly
-		// linked votes — one set-based UPDATE for the whole table. The post_id join
-		// means an inflated counter from the pre-guard bug corrects itself.
-		$recounted = (int) $wpdb->query(
-			"UPDATE {$wpdb->prefix}bn_poll_options o
-			 SET o.vote_count = (
-			     SELECT COUNT(*) FROM {$wpdb->prefix}bn_poll_votes v
-			     WHERE v.option_id = o.id AND v.post_id = o.post_id
-			 )"
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// linked votes. Done in bounded PAGES of polls rather than one whole-table
+		// UPDATE with a per-row correlated subquery: on a site with thousands of
+		// polls that single statement was a long write lock run synchronously in an
+		// admin-post request, with a plausible PHP timeout (card 10264292330). Each
+		// page's UPDATE is scoped to its post_id set, so no statement locks the
+		// whole table, and only the polls actually touched have their result cache
+		// invalidated — replacing the site-wide wp_cache_flush() that dropped Redis
+		// and everything else on one admin click.
+		// ponytail: bounded loop in-request; move to Action Scheduler fan-out if a
+		// site ever has enough polls that even the paged loop times out.
+		$recounted = 0;
+		$batch     = 500;
+		$offset    = 0;
+		do {
+			$post_ids = array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT DISTINCT post_id FROM {$wpdb->prefix}bn_poll_options
+						 ORDER BY post_id LIMIT %d OFFSET %d",
+						$batch,
+						$offset
+					)
+				)
+			);
+			$found = count( $post_ids );
+			if ( 0 === $found ) {
+				break;
+			}
 
-		// Per-poll result/vote caches are now stale. No group flush exists for this
-		// cache group, and a rare owner-triggered repair does not justify walking
-		// every poll id to delete keys individually.
-		// ponytail: full flush on a manual repair; per-poll key deletion if this
-		// ever runs on a hot path.
-		wp_cache_flush();
+			// $post_ids are ints from the DB; safe to inline as an IN() list.
+			$in         = implode( ',', $post_ids );
+			$recounted += (int) $wpdb->query(
+				"UPDATE {$wpdb->prefix}bn_poll_options o
+				 SET o.vote_count = (
+				     SELECT COUNT(*) FROM {$wpdb->prefix}bn_poll_votes v
+				     WHERE v.option_id = o.id AND v.post_id = o.post_id
+				 )
+				 WHERE o.post_id IN ({$in})"
+			);
+
+			// Invalidate only these polls' result caches (see clear_cache()).
+			foreach ( $post_ids as $pid ) {
+				wp_cache_delete( "results_{$pid}", self::CACHE_GROUP );
+			}
+
+			$offset += $batch;
+		} while ( $found === $batch );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array(
 			'deleted'   => $deleted,
