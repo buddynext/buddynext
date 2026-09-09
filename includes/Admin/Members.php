@@ -466,6 +466,19 @@ class Members extends AdminPageBase {
 		 */
 		do_action( 'buddynext_member_suspended', $user_id, $actor_id );
 
+		// Audit trail. The wp-admin Members screen suspended without recording a
+		// bn_mod_log row, so a site owner could not see what this screen did (the
+		// REST + queue + bulk + AI paths all log; this one did not). Site-level
+		// action, so space_id is left at its 0 default (card 10264294456).
+		( new \BuddyNext\Moderation\ModerationLogService() )->log(
+			$actor_id,
+			'suspend_user',
+			array(
+				'target_user_id' => $user_id,
+				'note'           => $reason,
+			)
+		);
+
 		delete_transient( self::STATS_CACHE );
 	}
 
@@ -520,6 +533,14 @@ class Members extends AdminPageBase {
 		 * @param int $actor_id User who lifted the suspension.
 		 */
 		do_action( 'buddynext_member_unsuspended', $user_id, get_current_user_id() );
+
+		// Audit trail — same reasoning as suspend_member(): record the wp-admin
+		// action so the Moderation Log shows who lifted the suspension (card 10264294456).
+		( new \BuddyNext\Moderation\ModerationLogService() )->log(
+			get_current_user_id(),
+			'unsuspend_user',
+			array( 'target_user_id' => $user_id )
+		);
 
 		delete_transient( self::STATS_CACHE );
 	}
