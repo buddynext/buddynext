@@ -1352,10 +1352,12 @@ class ModerationController extends BaseRestController {
 		$result = ( new ModerationService() )->resolve_appeal( $appeal_id, $actor_id, $decision, $reviewer_note );
 
 		if ( is_wp_error( $result ) ) {
-			$code   = $result->get_error_code();
-			$status = 'forbidden' === $code ? 403 : 400;
-			$result->add_data( array( 'status' => $status ) );
-			return $result;
+			// Preserve the status the service set (403 forbidden, 409
+			// appeal_not_pending, 404 not found) and only fall back to 400 when it
+			// expressed none. The old 'forbidden' ? 403 : 400 mapping flattened the
+			// service's 409 for an already-resolved appeal down to a 400, so the
+			// resolve route disagreed with the approve/deny route on the same error.
+			return $this->preserve_status( $result, 400 );
 		}
 
 		( new ModerationLogService() )->log(

@@ -2679,11 +2679,15 @@ class ModerationService {
 	 */
 	public function resolve_appeal( int $appeal_id, int $actor_id, string $decision, string $reviewer_note = '' ): bool|WP_Error {
 		if ( ! user_can( $actor_id, 'manage_options' ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to resolve appeals.', 'buddynext' ) );
+			// Carry the 403 on the error itself so every route reports it correctly.
+			// The REST resolve route now preserves the service's status rather than
+			// flattening everything that is not 'forbidden' to 400 — which is what
+			// had been downgrading appeal_not_pending's 409 to a 400.
+			return new WP_Error( 'forbidden', __( 'You do not have permission to resolve appeals.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		if ( ! in_array( $decision, self::APPEAL_DECISIONS, true ) ) {
-			return new WP_Error( 'invalid_decision', __( 'Decision must be "approved" or "denied".', 'buddynext' ) );
+			return new WP_Error( 'invalid_decision', __( 'Decision must be "approved" or "denied".', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
 		global $wpdb;
@@ -2706,7 +2710,7 @@ class ModerationService {
 		// user_id is never 0 for a genuine row). Report it instead of updating
 		// zero rows and returning a false success.
 		if ( $user_id <= 0 ) {
-			return new WP_Error( 'bn_appeal_not_found', __( 'That appeal no longer exists.', 'buddynext' ) );
+			return new WP_Error( 'bn_appeal_not_found', __( 'That appeal no longer exists.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// An appeal is resolved exactly once. Without this guard a second resolve
