@@ -903,6 +903,202 @@ class ConnectionService {
 	}
 
 	/**
+	 * Build the keyset WHERE fragment for a (created_at DESC, id DESC) cursor.
+	 *
+	 * The bn_connections table has a surrogate id, so (created_at, id) is a fully
+	 * deterministic keyset. Returns the SQL fragment plus its bound params.
+	 *
+	 * @param string|null $cursor Opaque CursorCodec cursor, or null for page 1.
+	 * @return array{0:string,1:array<int,int|string>} [ where_fragment, params ].
+	 */
+	private function connection_cursor_where( ?string $cursor ): array {
+		$data = ( null !== $cursor && '' !== $cursor ) ? \BuddyNext\Core\CursorCodec::decode( $cursor ) : null;
+		if ( null === $data ) {
+			return array( '', array() );
+		}
+		return array(
+			'AND ( created_at < %s OR ( created_at = %s AND id < %d ) )',
+			array( $data['created_at'], $data['created_at'], $data['id'] ),
+		);
+	}
+
+	/**
+	 * Slice a keyset result set and mint the next cursor from the last kept row.
+	 *
+	 * @param array<int,array<string,mixed>> $rows     Rows fetched (per_page + 1 of them).
+	 * @param int                            $per_page Page size.
+	 * @param string                         $id_key   Projected id column ('peer_id'|'recipient_id'|'requester_id').
+	 * @return array{ids: int[], next_cursor: string|null}
+	 */
+	private function connection_keyset_result( array $rows, int $per_page, string $id_key ): array {
+		$has_more    = count( $rows ) > $per_page;
+		$rows        = $has_more ? array_slice( $rows, 0, $per_page ) : $rows;
+		$next_cursor = null;
+		if ( $has_more && ! empty( $rows ) ) {
+			$last        = end( $rows );
+			$next_cursor = \BuddyNext\Core\CursorCodec::encode( (string) $last['row_created_at'], (int) $last['row_id'] );
+		}
+		return array(
+			'ids'         => array_map( static fn ( array $r ): int => (int) $r[ $id_key ], $rows ),
+			'next_cursor' => $next_cursor,
+		);
+	}
+
+	/**
+	 * Keyset page of a user's accepted connections, newest first.
+	 *
+	 * Scale replacement for connections() — a load-more cursor page instead of a
+	 * deep OFFSET. The projection returns the PEER id, so the query also selects
+	 * created_at + id for the cursor. Cached per (viewer, page-size, cursor).
+	 * Card 10284805802.
+	 *
+	 * @param int         $user_id  The connection owner.
+	 * @param string|null $cursor   Prior page's cursor, or null for page 1.
+	 * @param int         $per_page Rows per page.
+	 * @return array{ids: int[], next_cursor: string|null} Peer user IDs, newest first.
+	 */
+	public function connections_keyset( int $user_id, ?string $cursor = null, int $per_page = 24 ): array {
+		global $wpdb;
+
+		$user_id  = absint( $user_id );
+		$per_page = max( 1, min( 100, $per_page ) );
+		if ( $user_id <= 0 ) {
+			return array(
+				'ids'         => array(),
+				'next_cursor' => null,
+			);
+		}
+
+		$cache_key = 'connections_ks_' . $user_id . '_' . $per_page . '_' . ( null !== $cursor && '' !== $cursor ? md5( $cursor ) : 'first' ) . '_v' . $this->version( $user_id );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		list( $cursor_where, $cursor_params ) = $this->connection_cursor_where( $cursor );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END AS peer_id,
+				        created_at AS row_created_at, id AS row_id
+				 FROM {$wpdb->prefix}bn_connections
+				 WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
+				 {$cursor_where}
+				 ORDER BY created_at DESC, id DESC
+				 LIMIT %d",
+				...array_merge( array( $user_id, $user_id, $user_id ), $cursor_params, array( $per_page + 1 ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$result = $this->connection_keyset_result( (array) $rows, $per_page, 'peer_id' );
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+		return $result;
+	}
+
+	/**
+	 * Keyset page of recipient IDs for pending requests sent by the user, newest first.
+	 *
+	 * Scale replacement for pending_sent(). Card 10284805802.
+	 *
+	 * @param int         $user_id  The requesting user.
+	 * @param string|null $cursor   Prior page's cursor, or null for page 1.
+	 * @param int         $per_page Rows per page.
+	 * @return array{ids: int[], next_cursor: string|null} Recipient user IDs, newest first.
+	 */
+	public function pending_sent_keyset( int $user_id, ?string $cursor = null, int $per_page = 24 ): array {
+		global $wpdb;
+
+		$user_id  = absint( $user_id );
+		$per_page = max( 1, min( 100, $per_page ) );
+		if ( $user_id <= 0 ) {
+			return array(
+				'ids'         => array(),
+				'next_cursor' => null,
+			);
+		}
+
+		$cache_key = 'pending_sent_ks_' . $user_id . '_' . $per_page . '_' . ( null !== $cursor && '' !== $cursor ? md5( $cursor ) : 'first' ) . '_v' . $this->version( $user_id );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		list( $cursor_where, $cursor_params ) = $this->connection_cursor_where( $cursor );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT recipient_id, created_at AS row_created_at, id AS row_id
+				 FROM {$wpdb->prefix}bn_connections
+				 WHERE requester_id = %d AND status = 'pending'
+				 {$cursor_where}
+				 ORDER BY created_at DESC, id DESC
+				 LIMIT %d",
+				...array_merge( array( $user_id ), $cursor_params, array( $per_page + 1 ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$result = $this->connection_keyset_result( (array) $rows, $per_page, 'recipient_id' );
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+		return $result;
+	}
+
+	/**
+	 * Keyset page of requester IDs for pending requests received by the user, newest first.
+	 *
+	 * Scale replacement for pending_received(). Card 10284805802.
+	 *
+	 * @param int         $user_id  The recipient user.
+	 * @param string|null $cursor   Prior page's cursor, or null for page 1.
+	 * @param int         $per_page Rows per page.
+	 * @return array{ids: int[], next_cursor: string|null} Requester user IDs, newest first.
+	 */
+	public function pending_received_keyset( int $user_id, ?string $cursor = null, int $per_page = 24 ): array {
+		global $wpdb;
+
+		$user_id  = absint( $user_id );
+		$per_page = max( 1, min( 100, $per_page ) );
+		if ( $user_id <= 0 ) {
+			return array(
+				'ids'         => array(),
+				'next_cursor' => null,
+			);
+		}
+
+		$cache_key = 'pending_received_ks_' . $user_id . '_' . $per_page . '_' . ( null !== $cursor && '' !== $cursor ? md5( $cursor ) : 'first' ) . '_v' . $this->version( $user_id );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		list( $cursor_where, $cursor_params ) = $this->connection_cursor_where( $cursor );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT requester_id, created_at AS row_created_at, id AS row_id
+				 FROM {$wpdb->prefix}bn_connections
+				 WHERE recipient_id = %d AND status = 'pending'
+				 {$cursor_where}
+				 ORDER BY created_at DESC, id DESC
+				 LIMIT %d",
+				...array_merge( array( $user_id ), $cursor_params, array( $per_page + 1 ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$result = $this->connection_keyset_result( (array) $rows, $per_page, 'requester_id' );
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+		return $result;
+	}
+
+	/**
 	 * Return the notes attached to pending requests received by a user, keyed by requester.
 	 *
 	 * The note a member writes on a connection request is stored on the connection

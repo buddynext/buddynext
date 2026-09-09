@@ -1429,6 +1429,213 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Build the shared active-member filter WHERE fragment (block + role +
+	 * optional search + optional suspension), so the keyset readers below apply
+	 * the SAME gates as get_members()/count_members() without re-authoring them.
+	 *
+	 * Search touches the joined wp_users columns (u.*), so it is only valid where
+	 * the caller's query joins wp_users — get_member_ids has no join, so it passes
+	 * $with_search = false.
+	 *
+	 * @param int                  $viewer_id   Viewer (0 = none); non-zero excludes blocked users.
+	 * @param array<string, mixed> $args        role / search / exclude_suspended refinements.
+	 * @param bool                 $with_search Whether to apply the u.* name search.
+	 * @return string SQL fragment beginning with a leading space, or ''.
+	 */
+	private function member_filters_sql( int $viewer_id, array $args, bool $with_search ): string {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql  = $this->member_block_where( $viewer_id );
+		$role = isset( $args['role'] ) ? (string) $args['role'] : '';
+		if ( in_array( $role, self::ALLOWED_ROLES, true ) ) {
+			$sql .= $wpdb->prepare( ' AND sm.role = %s', $role );
+		}
+		if ( $with_search ) {
+			$search = isset( $args['search'] ) ? trim( (string) $args['search'] ) : '';
+			if ( '' !== $search ) {
+				$like = '%' . $wpdb->esc_like( $search ) . '%';
+				$sql .= $wpdb->prepare(
+					' AND ( u.display_name LIKE %s OR u.user_login LIKE %s OR u.user_nicename LIKE %s )',
+					$like,
+					$like,
+					$like
+				);
+			}
+		}
+		if ( ! empty( $args['exclude_suspended'] ) ) {
+			$sql .= ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
+		}
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return $sql;
+	}
+
+	/**
+	 * Keyset roster page — the scale replacement for get_members()'s OFFSET read.
+	 *
+	 * Same gates and same hydrated row shape as get_members(), but seeks to the
+	 * cursor on (joined_at, user_id) instead of skipping OFFSET rows, so page N of
+	 * a 50k roster costs the same as page 1. The original ORDER BY was joined_at
+	 * only (non-unique); the keyset adds sm.user_id as the tiebreak so pages never
+	 * skip or repeat a member who shares a joined_at. Card 10284805802.
+	 *
+	 * @param int                  $space_id  Space ID.
+	 * @param int                  $viewer_id Viewer (0 = none).
+	 * @param string|null          $cursor    Prior page's cursor, or null for page 1.
+	 * @param int                  $per_page  Rows per page (clamped to MAX_MEMBERS_PER_QUERY).
+	 * @param array<string, mixed> $args      role / search / exclude_suspended refinements.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
+	 */
+	public function get_members_keyset( int $space_id, int $viewer_id = 0, ?string $cursor = null, int $per_page = 24, array $args = array() ): array {
+		$space_id = absint( $space_id );
+		$per_page = ( $per_page <= 0 ) ? 24 : min( $per_page, self::MAX_MEMBERS_PER_QUERY );
+		if ( $space_id <= 0 ) {
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+			);
+		}
+
+		$cache_key = 'members_ks_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $per_page, (string) $cursor, $args ) ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+
+		$filters       = $this->member_filters_sql( $viewer_id, $args, true );
+		$cursor_data   = ( null !== $cursor && '' !== $cursor ) ? \BuddyNext\Core\CursorCodec::decode( $cursor ) : null;
+		$cursor_where  = '';
+		$cursor_params = array();
+		if ( null !== $cursor_data ) {
+			$cursor_where  = ' AND ( sm.joined_at > %s OR ( sm.joined_at = %s AND sm.user_id > %d ) )';
+			$cursor_params = array( $cursor_data['created_at'], $cursor_data['created_at'], $cursor_data['id'] );
+		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT sm.user_id, sm.role, sm.joined_at, u.display_name, u.user_nicename
+				 FROM {$wpdb->prefix}bn_space_members sm
+				 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
+				 WHERE sm.space_id = %d AND sm.status = 'active'
+				   {$filters}{$cursor_where}
+				 ORDER BY sm.joined_at ASC, sm.user_id ASC
+				 LIMIT %d",
+				...array_merge( array( $space_id ), $cursor_params, array( $per_page + 1 ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$rows        = (array) $rows;
+		$has_more    = count( $rows ) > $per_page;
+		$rows        = $has_more ? array_slice( $rows, 0, $per_page ) : $rows;
+		$next_cursor = null;
+		if ( $has_more && ! empty( $rows ) ) {
+			$last        = end( $rows );
+			$next_cursor = \BuddyNext\Core\CursorCodec::encode( (string) $last['joined_at'], (int) $last['user_id'] );
+		}
+
+		$this->prime_roster_users( $rows );
+
+		$items = array_map(
+			fn( $r ) => array(
+				'user_id'       => (int) $r['user_id'],
+				'role'          => $r['role'],
+				'joined_at'     => $r['joined_at'],
+				'display_name'  => (string) ( $r['display_name'] ?? '' ),
+				'user_nicename' => (string) ( $r['user_nicename'] ?? '' ),
+				'avatar_url'    => get_avatar_url( (int) $r['user_id'], array( 'size' => 96 ) ),
+			),
+			$rows
+		);
+
+		$result = array(
+			'items'       => $items,
+			'next_cursor' => $next_cursor,
+		);
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
+	}
+
+	/**
+	 * Keyset ID-only page — the scale replacement for get_member_ids()'s OFFSET
+	 * walk. ORDER BY sm.user_id (unique), so the cursor is a single user_id and a
+	 * full walk never repeats or skips a row. Card 10284805802.
+	 *
+	 * @param int                  $space_id  Space ID.
+	 * @param int                  $viewer_id Viewer (0 = none).
+	 * @param string|null          $cursor    Prior page's cursor, or null for page 1.
+	 * @param int                  $per_page  Page size (clamped to MAX_MEMBER_IDS_PER_QUERY).
+	 * @param array<string, mixed> $args      role / exclude_suspended refinements.
+	 * @return array{ids: int[], next_cursor: string|null}
+	 */
+	public function get_member_ids_keyset( int $space_id, int $viewer_id = 0, ?string $cursor = null, int $per_page = 0, array $args = array() ): array {
+		$space_id = absint( $space_id );
+		$per_page = ( $per_page <= 0 ) ? self::MAX_MEMBER_IDS_PER_QUERY : min( $per_page, self::MAX_MEMBER_IDS_PER_QUERY );
+		if ( $space_id <= 0 ) {
+			return array(
+				'ids'         => array(),
+				'next_cursor' => null,
+			);
+		}
+
+		$cache_key = 'member_ids_ks_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $per_page, (string) $cursor, $args ) ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+
+		$filters       = $this->member_filters_sql( $viewer_id, $args, false );
+		$cursor_data   = ( null !== $cursor && '' !== $cursor ) ? \BuddyNext\Core\CursorCodec::decode( $cursor ) : null;
+		$cursor_where  = '';
+		$cursor_params = array();
+		if ( null !== $cursor_data ) {
+			$cursor_where  = ' AND sm.user_id > %d';
+			$cursor_params = array( $cursor_data['id'] );
+		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT sm.user_id
+				 FROM {$wpdb->prefix}bn_space_members sm
+				 WHERE sm.space_id = %d AND sm.status = 'active'
+				   {$filters}{$cursor_where}
+				 ORDER BY sm.user_id ASC
+				 LIMIT %d",
+				...array_merge( array( $space_id ), $cursor_params, array( $per_page + 1 ) )
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$ids         = array_map( 'intval', (array) $ids );
+		$has_more    = count( $ids ) > $per_page;
+		$ids         = $has_more ? array_slice( $ids, 0, $per_page ) : $ids;
+		$next_cursor = null;
+		if ( $has_more && ! empty( $ids ) ) {
+			// user_id-only keyset: encode with an empty created_at slot; decode reads id.
+			$next_cursor = \BuddyNext\Core\CursorCodec::encode( '', (int) end( $ids ) );
+		}
+
+		$result = array(
+			'ids'         => $ids,
+			'next_cursor' => $next_cursor,
+		);
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
+	}
+
+	/**
 	 * Prime the user cache for a roster page.
 	 *
 	 * The get_avatar_url() call resolves the user behind each id, so mapping it over a page of

@@ -1342,6 +1342,125 @@ class FollowService {
 	}
 
 	/**
+	 * Keyset page of a bn_follows relation — the scale replacement for the
+	 * OFFSET readers above (paged_followers / paged_following / pending_followers).
+	 *
+	 * Deep OFFSET walks and discards every skipped row (page 4,000 of a 100k
+	 * follower list reads 96,000 index entries to return 24). Keyset seeks
+	 * straight to the cursor on the (match_col, status, created_at) index and
+	 * reads only the page. The cursor is the last row's (created_at, id) via the
+	 * canonical CursorCodec, so pages never skip or repeat a row even as rows are
+	 * inserted between requests.
+	 *
+	 * @param string      $select_col The projected + tiebreak id column ('follower_id'|'following_id').
+	 * @param string      $match_col  The filtered owner column ('following_id'|'follower_id').
+	 * @param int         $user_id    Owner of the relation.
+	 * @param string      $status     'approved' | 'pending'.
+	 * @param string      $direction  'DESC' (newest first) | 'ASC' (oldest first, pending inbox).
+	 * @param string|null $cursor     Opaque cursor from a prior page, or null for page 1.
+	 * @param int         $per_page   Rows per page.
+	 * @param int         $max        Ceiling on per_page.
+	 * @return array{ids: int[], next_cursor: string|null}
+	 */
+	private function follows_keyset_page( string $select_col, string $match_col, int $user_id, string $status, string $direction, ?string $cursor, int $per_page, int $max = 100 ): array {
+		global $wpdb;
+
+		$user_id  = absint( $user_id );
+		$per_page = max( 1, min( $max, $per_page ) );
+		if ( $user_id <= 0 ) {
+			return array(
+				'ids'         => array(),
+				'next_cursor' => null,
+			);
+		}
+
+		// $select_col, $match_col and $direction are internal literals from this
+		// class's own callers (never request input), so they are safe to
+		// interpolate; every value is bound through prepare().
+		$op            = ( 'ASC' === $direction ) ? '>' : '<';
+		$cursor_data   = ( null !== $cursor && '' !== $cursor ) ? \BuddyNext\Core\CursorCodec::decode( $cursor ) : null;
+		$cursor_where  = '';
+		$cursor_params = array();
+		if ( null !== $cursor_data ) {
+			$cursor_where  = "AND ( created_at {$op} %s OR ( created_at = %s AND {$select_col} {$op} %d ) )";
+			$cursor_params = array( $cursor_data['created_at'], $cursor_data['created_at'], $cursor_data['id'] );
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT {$select_col} AS rel_id, created_at
+				 FROM {$wpdb->prefix}bn_follows
+				 WHERE {$match_col} = %d AND status = %s
+				 {$cursor_where}
+				 ORDER BY created_at {$direction}, {$select_col} {$direction}
+				 LIMIT %d",
+				...array_merge( array( $user_id, $status ), $cursor_params, array( $per_page + 1 ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$rows        = (array) $rows;
+		$has_more    = count( $rows ) > $per_page;
+		$rows        = $has_more ? array_slice( $rows, 0, $per_page ) : $rows;
+		$next_cursor = null;
+		if ( $has_more && ! empty( $rows ) ) {
+			$last        = end( $rows );
+			$next_cursor = \BuddyNext\Core\CursorCodec::encode( (string) $last['created_at'], (int) $last['rel_id'] );
+		}
+
+		return array(
+			'ids'         => array_map( static fn ( array $r ): int => (int) $r['rel_id'], $rows ),
+			'next_cursor' => $next_cursor,
+		);
+	}
+
+	/**
+	 * Keyset page of a user's approved followers, newest first.
+	 *
+	 * The scale replacement for paged_followers(): a load-more cursor page instead
+	 * of a deep OFFSET. Card 10284805802.
+	 *
+	 * @param int         $user_id  The user being followed.
+	 * @param string|null $cursor   Prior page's cursor, or null for page 1.
+	 * @param int         $per_page Rows per page.
+	 * @return array{ids: int[], next_cursor: string|null} Follower user IDs, newest first.
+	 */
+	public function paged_followers_keyset( int $user_id, ?string $cursor = null, int $per_page = 24 ): array {
+		return $this->follows_keyset_page( 'follower_id', 'following_id', $user_id, 'approved', 'DESC', $cursor, $per_page );
+	}
+
+	/**
+	 * Keyset page of the people a user follows, newest first.
+	 *
+	 * The scale replacement for paged_following(). Card 10284805802.
+	 *
+	 * @param int         $user_id  The user doing the following.
+	 * @param string|null $cursor   Prior page's cursor, or null for page 1.
+	 * @param int         $per_page Rows per page.
+	 * @return array{ids: int[], next_cursor: string|null} Followed user IDs, newest first.
+	 */
+	public function paged_following_keyset( int $user_id, ?string $cursor = null, int $per_page = 24 ): array {
+		return $this->follows_keyset_page( 'following_id', 'follower_id', $user_id, 'approved', 'DESC', $cursor, $per_page );
+	}
+
+	/**
+	 * Keyset page of pending follow requests TO this user, oldest first.
+	 *
+	 * The scale replacement for pending_followers(). Oldest-first so the owner
+	 * works the inbox in arrival order; the 200 ceiling stays. Card 10284805802.
+	 *
+	 * @param int         $owner_id Owner of the private account.
+	 * @param string|null $cursor   Prior page's cursor, or null for page 1.
+	 * @param int         $per_page Rows per page (ceiling 200).
+	 * @return array{ids: int[], next_cursor: string|null} Follower user IDs, oldest first.
+	 */
+	public function pending_followers_keyset( int $owner_id, ?string $cursor = null, int $per_page = 200 ): array {
+		return $this->follows_keyset_page( 'follower_id', 'following_id', $owner_id, 'pending', 'ASC', $cursor, $per_page, 200 );
+	}
+
+	/**
 	 * Number of pending follow requests for the user.
 	 *
 	 * Cheap dedicated count used by the request-inbox badge.
