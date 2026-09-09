@@ -42,6 +42,15 @@ class PresetActivation {
 	/** The admin-post action for the owner's manual retry. */
 	public const RETRY_ACTION = 'buddynext_retry_preset_activation';
 
+	/**
+	 * One-shot transient carrying a manual retry's outcome ('ok'|'fail') across the
+	 * post-retry redirect, so the notice reports success/failure. Without it a retry
+	 * on a cron-ENABLED firewalled host was silent: run() reschedules (attempts<24)
+	 * WITHOUT setting OPT_GAVE_UP, so the gave_up-gated notice vanished and the owner
+	 * could not tell the retry failed (card 10264291915 RFT round 4).
+	 */
+	private const RETRY_RESULT_TRANSIENT = 'buddynext_preset_retry_result';
+
 	/** Give up after this many failures (~a day at hourly backoff). */
 	private const MAX_ATTEMPTS = 24;
 
@@ -61,7 +70,14 @@ class PresetActivation {
 	 */
 	public static function register(): void {
 		add_action( 'admin_init', array( self::class, 'maybe_schedule' ) );
-		add_action( self::HOOK, array( self::class, 'run' ) );
+		// Wrap run() so the cron callback returns nothing — run() now returns bool
+		// (consumed by the manual retry), and an action callback must not return.
+		add_action(
+			self::HOOK,
+			static function (): void {
+				self::run();
+			}
+		);
 		add_action( 'admin_notices', array( self::class, 'maybe_render_notice' ) );
 		add_action( 'admin_post_' . self::RETRY_ACTION, array( self::class, 'handle_retry' ) );
 	}
@@ -125,11 +141,13 @@ class PresetActivation {
 	 * counter and reschedule hourly until the ceiling, then stop and record that
 	 * we gave up so the notice can surface it.
 	 *
-	 * @return void
+	 * @return bool True when the licence is (or is now) activated; false on a
+	 *              failed attempt. Used by the owner's manual retry to report the
+	 *              outcome; the cron/action callers ignore it.
 	 */
-	public static function run(): void {
+	public static function run(): bool {
 		if ( get_option( self::OPT_ACTIVATED ) ) {
-			return;
+			return true;
 		}
 
 		update_option( 'buddynext_license_key', self::PRESET_KEY, false );
@@ -157,7 +175,7 @@ class PresetActivation {
 			update_option( self::OPT_ACTIVATED, 1, false );
 			delete_option( self::OPT_ATTEMPTS );
 			delete_option( self::OPT_GAVE_UP );
-			return;
+			return true;
 		}
 
 		$attempts = (int) get_option( self::OPT_ATTEMPTS, 0 ) + 1;
@@ -171,13 +189,14 @@ class PresetActivation {
 			if ( ! wp_next_scheduled( self::HOOK ) ) {
 				wp_schedule_single_event( time() + HOUR_IN_SECONDS, self::HOOK );
 			}
-			return;
+			return false;
 		}
 
 		// Ceiling reached (or no cron to retry with): stop, and record when so the
 		// owner notice can explain. maybe_schedule() now sees OPT_GAVE_UP and will not
 		// silently re-arm.
 		update_option( self::OPT_GAVE_UP, time(), false );
+		return false;
 	}
 
 	/**
@@ -192,16 +211,46 @@ class PresetActivation {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		$gave_up = (int) get_option( self::OPT_GAVE_UP, 0 );
-		if ( get_option( self::OPT_ACTIVATED ) || $gave_up <= 0 ) {
+
+		// A just-completed manual retry stamps its outcome; consume it once.
+		$retry_result = get_transient( self::RETRY_RESULT_TRANSIENT );
+		if ( false !== $retry_result ) {
+			delete_transient( self::RETRY_RESULT_TRANSIENT );
+		}
+
+		// Report a successful retry so the owner is not left guessing whether their
+		// click worked (card 10264291915 RFT round 4).
+		if ( 'ok' === $retry_result ) {
+			printf(
+				'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
+				esc_html__( 'BuddyNext is now authorised to download plugin updates.', 'buddynext' )
+			);
 			return;
 		}
 
-		$when = sprintf(
-			/* translators: %s: human-readable time difference, e.g. "2 hours". */
-			__( 'last tried %s ago', 'buddynext' ),
-			human_time_diff( $gave_up, time() )
-		);
+		if ( get_option( self::OPT_ACTIVATED ) ) {
+			return;
+		}
+
+		$gave_up      = (int) get_option( self::OPT_GAVE_UP, 0 );
+		$retry_failed = ( 'fail' === $retry_result );
+
+		// Show the actionable notice when activation has given up OR a manual retry
+		// just failed. The second case is the round-4 fix: on a cron-ENABLED
+		// firewalled host a failed run() reschedules WITHOUT setting OPT_GAVE_UP, so
+		// the gave_up-gated notice would vanish and the owner could not tell the
+		// retry failed.
+		if ( $gave_up <= 0 && ! $retry_failed ) {
+			return;
+		}
+
+		$when = $gave_up > 0
+			? sprintf(
+				/* translators: %s: human-readable time difference, e.g. "2 hours". */
+				__( 'last tried %s ago', 'buddynext' ),
+				human_time_diff( $gave_up, time() )
+			)
+			: __( 'the retry just failed', 'buddynext' );
 		$retry_url = wp_nonce_url(
 			add_query_arg( 'action', self::RETRY_ACTION, admin_url( 'admin-post.php' ) ),
 			self::RETRY_ACTION
@@ -236,7 +285,12 @@ class PresetActivation {
 
 		delete_option( self::OPT_GAVE_UP );
 		delete_option( self::OPT_ATTEMPTS );
-		self::run();
+		$ok = self::run();
+
+		// Record the outcome across the redirect so maybe_render_notice() can report
+		// it — a failed retry on a cron-enabled host reschedules without OPT_GAVE_UP,
+		// so the outcome would otherwise be invisible (card 10264291915 RFT round 4).
+		set_transient( self::RETRY_RESULT_TRANSIENT, $ok ? 'ok' : 'fail', MINUTE_IN_SECONDS );
 
 		wp_safe_redirect( wp_get_referer() ? wp_get_referer() : admin_url() );
 		exit;
