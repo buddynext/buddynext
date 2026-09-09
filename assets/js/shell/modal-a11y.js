@@ -7,10 +7,11 @@
  * and was trapped by the next dialog with the same visual language.
  *
  * This is THE primitive, and it is store-agnostic. Every BuddyNext modal renders
- * as a `.bn-modal-backdrop` that Interactivity shows/hides by toggling the
- * `hidden` attribute. This controller watches that attribute across the whole
- * document: when a modal opens it moves focus in, traps Tab, and remembers the
- * opener; when it closes it releases the trap and returns focus. One document
+ * as a `.bn-modal-backdrop` that Interactivity shows/hides by toggling either the
+ * `hidden` attribute or an `is-hidden` CSS class (see isHidden()). This controller
+ * watches both across the whole document: when a modal opens it moves focus in,
+ * traps Tab, and remembers the opener; when it closes it releases the trap and
+ * returns focus. One document
  * Escape handler closes the topmost open modal through that modal's own close
  * control — the store-bound `.bn-modal__close`, or the backdrop — so no
  * per-store code is needed and every modal, present and future, behaves the
@@ -31,11 +32,20 @@ const openModals = new Map();
 /**
  * Whether a backdrop is currently hidden (closed).
  *
+ * BuddyNext modals hide themselves TWO ways: most toggle the `hidden` attribute
+ * (data-wp-bind--hidden), but the DM modals and the media-tab modals toggle an
+ * `is-hidden` CSS class instead (data-wp-class--is-hidden). Keying on `hidden`
+ * alone made boot() treat every class-toggled backdrop as OPEN at page load — five
+ * ghost modals on /messages/ kept openModals permanently non-empty, so Escape was
+ * captured and routed into a hidden panel instead of reaching the member's actual
+ * context (card 10264295485 round-3). Recognise both conventions here, at the one
+ * seam, so a modal is correctly seen as closed no matter which its template uses.
+ *
  * @param {Element} el Backdrop element.
  * @return {boolean}
  */
 function isHidden( el ) {
-	return el.hasAttribute( 'hidden' );
+	return el.hasAttribute( 'hidden' ) || el.classList.contains( 'is-hidden' );
 }
 
 /**
@@ -205,10 +215,14 @@ function boot() {
 			}
 		} );
 	} );
+	// Watch BOTH hide conventions: the `hidden` attribute and the `is-hidden` class
+	// (see isHidden()). The callback filters to .bn-modal-backdrop before doing any
+	// work, so the extra `class` mutations from unrelated elements are a cheap
+	// matches() no-op.
 	observer.observe( document.body, {
 		subtree: true,
 		attributes: true,
-		attributeFilter: [ 'hidden' ],
+		attributeFilter: [ 'hidden', 'class' ],
 	} );
 
 	// Any modal that is already open at load (rare — most start hidden).
