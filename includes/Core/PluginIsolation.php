@@ -751,6 +751,30 @@ class PluginIsolation {
 	);
 
 	/**
+	 * Auth / login ENFORCEMENT hooks. A plugin hooking these is gating
+	 * authentication, not drawing the page, so the front-end-output scan never sees
+	 * it — yet stripping it on hub routes silently disables a BESPOKE firewall /
+	 * login limiter / 2FA gate that the named SECURITY_PLUGINS floor cannot know
+	 * about (card 10264291719). Detecting these keeps such a plugin loaded on BN
+	 * routes without the owner listing it.
+	 *
+	 * Kept DELIBERATELY NARROW — only hooks specific to authentication/login. Broad
+	 * lifecycle hooks (init, template_redirect, pre_get_posts, rest_api_init) are
+	 * excluded on purpose: nearly every plugin uses them, so detecting on them would
+	 * keep everything and defeat isolation entirely.
+	 *
+	 * @var string[]
+	 */
+	private const SECURITY_ENFORCEMENT_HOOKS = array(
+		'authenticate',
+		'wp_authenticate',
+		'wp_authenticate_user',
+		'wp_login_failed',
+		'login_init',
+		'login_form',
+	);
+
+	/**
 	 * Asset-URL prefixes for the plugins discovery decided are front-end renderers.
 	 *
 	 * THE SECOND HALF OF ISOLATION. Keeping a plugin LOADED is only half the job:
@@ -951,7 +975,12 @@ class PluginIsolation {
 		$found      = array();
 		$plugin_dir = wp_normalize_path( WP_PLUGIN_DIR );
 
-		foreach ( self::FRONTEND_OUTPUT_HOOKS as $hook ) {
+		// Output hooks (the plugin draws the page) OR auth-enforcement hooks (it
+		// gates login/access) both mean "must stay loaded on a hub route" — a
+		// bespoke security plugin is detected the same way a bespoke theme-builder
+		// is, without the owner listing it (card 10264291719).
+		$scan_hooks = array_merge( self::FRONTEND_OUTPUT_HOOKS, self::SECURITY_ENFORCEMENT_HOOKS );
+		foreach ( $scan_hooks as $hook ) {
 			if ( empty( $wp_filter[ $hook ] ) || ! $wp_filter[ $hook ] instanceof \WP_Hook ) {
 				continue;
 			}
