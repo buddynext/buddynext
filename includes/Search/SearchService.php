@@ -1664,6 +1664,22 @@ class SearchService {
 			if ( $post && 'share' === (string) ( $post['type'] ?? '' ) ) {
 				$bn_orig_id = (int) ( $post['shared_post_id'] ?? 0 );
 				if ( $bn_orig_id > 0 && null === $posts->get( $bn_orig_id ) ) {
+					// New deletes de-index the reshare via SearchIndexListener, but a
+					// reshare left dangling by a PRE-release delete was never de-indexed:
+					// this filter drops it from the rendered rows on every search while
+					// `total` (the pre-enrichment SQL count) keeps counting it — a badge
+					// that says 6 over 4 cards, empty pages with live pagination, forever,
+					// because dropping the row here never removed it from the index. Turn
+					// the drop into a lazy repair: schedule the same async de-index the
+					// delete path uses, so the index and the total converge over reads and
+					// this dead row stops being re-filtered (card 10264292524). Idempotent
+					// and self-limiting — once de-indexed the row never reaches here again.
+					if ( function_exists( 'as_enqueue_async_action' ) ) {
+						as_enqueue_async_action( 'buddynext_async_deindex_post', array( $post_id ), 'buddynext' );
+					} else {
+						/** Fired by SearchIndexListener to drop one post from the index. */
+						do_action( 'buddynext_async_deindex_post', $post_id );
+					}
 					continue;
 				}
 			}
