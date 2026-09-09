@@ -48,8 +48,7 @@ $share_modal_nonce = wp_create_nonce( 'wp_rest' );
 	?>
 	'
 	data-wp-bind--hidden="!state.open"
-	data-wp-on-document--bn-open-share-modal="actions.receiveOpen"
-	data-wp-on-document--bn-close-share-modal="actions.close">
+	data-wp-on-document--bn-open-share-modal="actions.receiveOpen">
 	<div
 		class="bn-modal__panel bn-share-modal__panel"
 		role="dialog"

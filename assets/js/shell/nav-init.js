@@ -16,6 +16,13 @@
  * re-run — pass { once: true } so it binds on initial load only.
  */
 
+// Side-effect import: load the one modal keyboard-accessibility primitive
+// wherever a store loads. modal-a11y installs a document-level observer once and
+// needs no per-feature wiring, so importing it here — from the module every
+// store already depends on — makes every modal in the product keyboard- and
+// screen-reader-accessible with no code in the feature stores themselves.
+import '@buddynext/modal-a11y';
+
 /**
  * Bind an init function to initial load and (unless `once`) every client nav.
  *

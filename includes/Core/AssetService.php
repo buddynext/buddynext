@@ -581,13 +581,28 @@ class AssetService {
 			$this->module_version( 'js/shell/popover.js' )
 		);
 
+		// `@buddynext/modal-a11y` is the ONE modal keyboard-accessibility primitive:
+		// focus-in, focus-trap, focus-return and Escape-to-close for every
+		// .bn-modal-backdrop, store-agnostic, so features render modal markup and do
+		// not each re-solve dialog behaviour. It is a side-effect import of nav-init
+		// (below), so it loads once wherever any feature store loads — i.e. wherever
+		// a modal can appear — and its observer persists across client navigations.
+		wp_register_script_module(
+			'@buddynext/modal-a11y',
+			$this->assets_url . 'js/shell/modal-a11y.js',
+			array( array( 'id' => '@buddynext/shell-dialog' ) ),
+			$this->module_version( 'js/shell/modal-a11y.js' )
+		);
+
 		// `@buddynext/nav-init` exposes onNavReady() — the uniform init binder
 		// every store uses so imperative setup re-runs after a client-side
-		// navigation (buddynext:navigated), not only on DOMContentLoaded.
+		// navigation (buddynext:navigated), not only on DOMContentLoaded. It also
+		// side-effect-imports modal-a11y so the modal primitive loads everywhere a
+		// store does.
 		wp_register_script_module(
 			'@buddynext/nav-init',
 			$this->assets_url . 'js/shell/nav-init.js',
-			array(),
+			array( array( 'id' => '@buddynext/modal-a11y' ) ),
 			$this->module_version( 'js/shell/nav-init.js' )
 		);
 

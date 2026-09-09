@@ -14,64 +14,12 @@
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
 import { t, prependFeedCard } from '@buddynext/feed-shared';
-import { trapFocus } from '@buddynext/shell-dialog';
 
-// Accessibility state for the open modal. Kept at module scope because the
-// open (receiveOpen) and every close path (close / repost / copyLink) are
-// separate store actions that must share one trap + one remembered trigger.
-let _shareTrapRelease = null;
-let _shareTrigger     = null;
-let _shareOnEscape    = null;
-
-/**
- * Make the open share modal a proper dialog: move focus into it, trap Tab
- * inside it (reusing the shell dialog's trapFocus), and close on Escape.
- * Remembers the element that had focus so it can be restored on close.
- */
-function activateShareA11y() {
-	_shareTrigger = document.activeElement;
-	// The panel is toggled visible by state.open on the same tick; focus it once
-	// the browser has painted it, or focus() is a no-op on a hidden element.
-	window.requestAnimationFrame( function () {
-		const panel = document.querySelector( '.bn-share-modal__panel' );
-		if ( ! panel ) {
-			return;
-		}
-		if ( ! panel.hasAttribute( 'tabindex' ) ) {
-			panel.setAttribute( 'tabindex', '-1' );
-		}
-		panel.focus();
-		_shareTrapRelease = trapFocus( panel );
-	} );
-
-	_shareOnEscape = function ( ev ) {
-		if ( 'Escape' === ev.key ) {
-			ev.preventDefault();
-			// Close via the store (the template binds this event to actions.close),
-			// so open-state and the a11y teardown run through one path.
-			document.dispatchEvent( new CustomEvent( 'bn-close-share-modal' ) );
-		}
-	};
-	document.addEventListener( 'keydown', _shareOnEscape );
-}
-
-/**
- * Tear down the trap + Escape listener and return focus to the trigger.
- */
-function deactivateShareA11y() {
-	if ( _shareTrapRelease ) {
-		_shareTrapRelease();
-		_shareTrapRelease = null;
-	}
-	if ( _shareOnEscape ) {
-		document.removeEventListener( 'keydown', _shareOnEscape );
-		_shareOnEscape = null;
-	}
-	if ( _shareTrigger && typeof _shareTrigger.focus === 'function' ) {
-		_shareTrigger.focus();
-	}
-	_shareTrigger = null;
-}
+// Focus-trap, Escape-to-close and focus-return are handled for EVERY modal by
+// the shared shell/modal-a11y controller (it watches .bn-modal-backdrop), so
+// this store only manages open/close state and the share/repost/copy actions.
+// Share used to carry its own module-scope trap — a third modal pattern that
+// leaked a keydown listener on a repeated open; that is all gone now.
 
 store( 'buddynext/share-modal', {
 	state: {
@@ -127,14 +75,12 @@ store( 'buddynext/share-modal', {
 			// input-only, so resetting ctx.note alone leaves the old value on
 			// screen).
 			document.querySelectorAll( '.bn-share-modal .bn-share-modal__note' ).forEach( function ( ta ) { ta.value = ''; } );
-			activateShareA11y();
 		},
 		close() {
 			const ctx = getContext();
 			ctx.open  = false;
 			ctx.busy  = false;
 			ctx.error = '';
-			deactivateShareA11y();
 		},
 		onNoteInput( event ) {
 			const ctx = getContext();
@@ -157,7 +103,6 @@ store( 'buddynext/share-modal', {
 					ctx.open = false;
 					ctx.busy = false;
 					ctx.note = '';
-					deactivateShareA11y();
 					// Prepend the server-rendered repost card in place (no reload),
 					// mirroring the composer. Fall back to a reload only when no card
 					// html came back or there's no feed list on this page.
@@ -194,7 +139,6 @@ store( 'buddynext/share-modal', {
 				if ( window.bnToast ) { window.bnToast( t( 'linkCopied', 'Link copied' ), 'success' ); }
 				ctx.open  = false;
 				ctx.busy  = false;
-				deactivateShareA11y();
 			} catch ( _e ) {
 				ctx.error = t( 'linkCopyFailed', 'Could not copy link.' );
 				ctx.busy  = false;
