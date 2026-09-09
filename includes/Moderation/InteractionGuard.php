@@ -53,8 +53,17 @@ class InteractionGuard {
 		// junk reaction/comment row (with phantom counters and notifications) and
 		// slipped past the block check below, which resolves author 0 for an
 		// unknown type and then waves it through. Closed enum, extensible via
-		// filter so a partner (e.g. WPMediaVerse 'media') registers its own type.
-		$allowed = (array) apply_filters( 'buddynext_engagement_object_types', array( 'post', 'comment', 'media' ) );
+		// filter so a partner registers its own type.
+		//
+		// 'media' is NOT in the default: BuddyNext core owns no media objects
+		// (they belong to WPMediaVerse), and buddynext_object_exists() cannot
+		// verify a type it does not own — it returns null, which this guard
+		// treats as "cannot prove gone = allow". So a default 'media' let
+		// {object_type:'media', object_id:999999} write a junk row on any site
+		// without the partner. WPMediaVerse re-registers 'media' via the filter
+		// (alongside its own existence resolver); on a site without it, 'media'
+		// is now an unknown type and is refused with 422.
+		$allowed = (array) apply_filters( 'buddynext_engagement_object_types', array( 'post', 'comment' ) );
 		$valid   = buddynext_validate_object_target( $object_type, $object_id, $allowed );
 		if ( is_wp_error( $valid ) ) {
 			return $valid;

@@ -170,6 +170,21 @@ class CommentService {
 		// this object, or was not soft-deleted (orphan rows that never render),
 		// and ignored MAX_REPLY_DEPTH entirely (only list() folded the display).
 		if ( null !== $parent_id && $parent_id > 0 ) {
+			// Enum-check the reply's OWN (object_type, object_id). InteractionGuard
+			// runs its checks against the parent — ('comment', $parent_id) — so on a
+			// reply the caller-supplied target never reaches the closed enum. Without
+			// this, a bogus object_type or a deleted root object rode in on the reply
+			// path; and because the parent-match check below requires the reply's type
+			// to equal the parent's, a surviving legacy object_type='bogus' comment
+			// was still a valid reply parent, so the junk subtree could keep growing.
+			// Validating the reply's own type here makes 'bogus' fail with 422, which
+			// closes that growth path without a data-cleanup migration.
+			$bn_reply_allowed = (array) apply_filters( 'buddynext_engagement_object_types', array( 'post', 'comment' ) );
+			$bn_reply_valid   = buddynext_validate_object_target( $object_type, $object_id, $bn_reply_allowed );
+			if ( is_wp_error( $bn_reply_valid ) ) {
+				return $bn_reply_valid;
+			}
+
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$bn_parent = $wpdb->get_row( $wpdb->prepare( "SELECT parent_id, object_type, object_id, is_deleted FROM {$wpdb->prefix}bn_comments WHERE id = %d", $parent_id ), ARRAY_A );
 			if ( null === $bn_parent
