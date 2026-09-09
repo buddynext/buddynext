@@ -205,7 +205,7 @@ do_action( 'buddynext_part_member_directory_filter_bar_before', $args );
 					aria-selected="<?php echo '' === $bn_current_type ? 'true' : 'false'; ?>"
 					data-type-slug=""
 					data-wp-on--click="actions.selectMemberType"
-				><?php esc_html_e( 'All members', 'buddynext' ); ?></button>
+				><?php esc_html_e( 'All types', 'buddynext' ); ?></button>
 				<?php foreach ( $bn_type_options as $bn_type_option ) : ?>
 					<?php
 					$bn_chip_bg     = (string) $bn_type_option['color'];
