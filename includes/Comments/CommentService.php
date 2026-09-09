@@ -179,7 +179,7 @@ class CommentService {
 			// was still a valid reply parent, so the junk subtree could keep growing.
 			// Validating the reply's own type here makes 'bogus' fail with 422, which
 			// closes that growth path without a data-cleanup migration.
-			$bn_reply_allowed = (array) apply_filters( 'buddynext_engagement_object_types', array( 'post', 'comment' ) );
+			$bn_reply_allowed = \BuddyNext\Moderation\InteractionGuard::allowed_object_types();
 			$bn_reply_valid   = buddynext_validate_object_target( $object_type, $object_id, $bn_reply_allowed );
 			if ( is_wp_error( $bn_reply_valid ) ) {
 				return $bn_reply_valid;

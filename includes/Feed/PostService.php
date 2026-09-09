@@ -1606,9 +1606,24 @@ class PostService {
 		if ( 'comment' === $object_type && function_exists( 'buddynext_service' ) ) {
 			$comments = buddynext_service( 'comments' );
 			if ( $comments instanceof \BuddyNext\Comments\CommentService ) {
-				$comment = $comments->get( $object_id );
-				if ( null !== $comment && 'post' === (string) ( $comment['object_type'] ?? '' ) ) {
-					return (int) $comment['object_id'];
+				// Walk UP the reply chain to the root post. A top-level comment points
+				// at ('post', post_id); a nested reply points at ('comment', parent_id),
+				// so resolving one level only handled top-level comments — a reaction on
+				// a reply-to-a-reply resolved to 0 and skipped the visibility gate, so it
+				// could be placed on a reply under a post in a space the actor cannot see
+				// (card 10264292715). Bounded so a corrupt ancestry cycle cannot spin.
+				$current_type = 'comment';
+				$current_id   = $object_id;
+				for ( $depth = 0; $depth < 20 && 'comment' === $current_type && $current_id > 0; $depth++ ) {
+					$comment = $comments->get( $current_id );
+					if ( null === $comment ) {
+						return 0;
+					}
+					$current_type = (string) ( $comment['object_type'] ?? '' );
+					$current_id   = (int) ( $comment['object_id'] ?? 0 );
+				}
+				if ( 'post' === $current_type && $current_id > 0 ) {
+					return $current_id;
 				}
 			}
 		}
