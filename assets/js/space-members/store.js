@@ -36,8 +36,12 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 		closeMenuOnOutside( event ) {
 			const ctx = getContext();
 			if ( ! ctx.menuOpen ) { return; }
+			// The kebab wrapper is emitted as .bn-md-card__menu-wrap (the shared
+			// member-card menu), not .bn-space-members__menu-wrap — the old selector
+			// never matched, so an inside-the-wrapper click that was not on a control
+			// still closed the menu (card 10280272637 RFT round 4).
 			const wrap = event && event.target
-				? event.target.closest( '.bn-space-members__menu-wrap' )
+				? event.target.closest( '.bn-md-card__menu-wrap' )
 				: null;
 			const current = event && event.currentTarget ? event.currentTarget : null;
 			if ( wrap && wrap === current ) { return; }

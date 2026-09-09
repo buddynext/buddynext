@@ -44,7 +44,26 @@ if ( null === $space ) {
 	return;
 }
 
+// Self-enqueue the buddynext/space-members store so the roster's interactive
+// islands (the manage kebab, prev/next) hydrate wherever this part is rendered —
+// not only on the space route. The module is registered globally on
+// wp_enqueue_scripts, so this is a route-agnostic enqueue; WordPress dedupes it
+// with the route-level enqueue on the space page. Without this a reuse behind
+// another header (e.g. Wellbee Circles) would render the kebab and leave it dead
+// (card 10280272637 RFT round 4). Enqueuing during the_content prints the module
+// in the footer, which is in time.
+$bn_assets = function_exists( 'buddynext_service' ) ? buddynext_service( 'assets' ) : null;
+if ( $bn_assets instanceof \BuddyNext\Core\AssetService ) {
+	$bn_assets->enqueue( 'space-members' );
+}
+
 // ── Current viewer ──────────────────────────────────────────────────────────────
+// The roster gate AND the management affordances (remove / change-role) are all
+// driven by this one resolved viewer — $viewer_id when a consumer passes it, else
+// the current user. Capability and logged-in checks below therefore key on
+// $current_user_id via user_can(), NOT current_user_can()/is_user_logged_in(),
+// so a consumer that renders another member's roster gets that member's
+// affordances rather than the actual request user's (card 10280272637 RFT round 4).
 $current_user_id = isset( $viewer_id ) ? absint( $viewer_id ) : get_current_user_id();
 
 // ── Roster gate (the ONE resolver, shared with GET /spaces/{id}/members) ─────────
@@ -122,7 +141,7 @@ usort(
 $bn_viewer_role   = $current_user_id > 0
 	? $bn_member_svc->get_role( $space_id, $current_user_id )
 	: '';
-$bn_is_site_admin = current_user_can( 'manage_options' );
+$bn_is_site_admin = $current_user_id > 0 && user_can( $current_user_id, 'manage_options' );
 $bn_can_remove    = $current_user_id > 0 && ( in_array( $bn_viewer_role, array( 'owner', 'moderator' ), true ) || $bn_is_site_admin );
 $bn_can_set_role  = $current_user_id > 0 && ( 'owner' === $bn_viewer_role || $bn_is_site_admin );
 
@@ -366,7 +385,7 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 
 						<div class="bn-md-card__actions">
 							<a href="<?php echo esc_url( $member_url ); ?>" class="bn-btn" data-variant="ghost" data-size="sm"><?php esc_html_e( 'View', 'buddynext' ); ?></a>
-							<?php if ( is_user_logged_in() && $current_user_id !== $member_id ) : ?>
+							<?php if ( $current_user_id > 0 && $current_user_id !== $member_id ) : ?>
 								<a
 									href="<?php echo esc_url( PageRouter::messages_url() ); ?>"
 									class="bn-btn"
