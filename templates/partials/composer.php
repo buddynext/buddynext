@@ -519,7 +519,8 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				</button>
 			<?php endif; ?>
 
-			<?php if ( $composer_can_gate ) : ?>
+			<?php // In a SPACE there is no audience dropdown (posts go to space members), so the members-only gate stays a tool-row toggle there. In the main feed it is folded into the audience list below instead of being a second, contradictory control. ?>
+			<?php if ( $composer_can_gate && $composer_space ) : ?>
 				<button class="bn-composer__tool"
 					type="button"
 					data-wp-bind--aria-pressed="state.membersOnly"
@@ -612,6 +613,21 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 								</span>
 							</button>
 						</li>
+						<?php // Members-only is an audience level for owners/space admins: publicly listed, but non-members see only a teaser + join prompt. Only rendered for a member who is allowed to gate. ?>
+						<?php if ( $composer_can_gate ) : ?>
+							<li role="option" data-wp-bind--aria-selected="state.isPrivacyMembers">
+								<button type="button"
+									class="bn-composer__privacy-opt"
+									data-privacy="members"
+									data-wp-on--click="actions.setPrivacy">
+									<?php buddynext_icon( 'lock' ); ?>
+									<span class="bn-composer__privacy-opt-label">
+										<strong><?php esc_html_e( 'Members only', 'buddynext' ); ?></strong>
+										<small><?php esc_html_e( 'Non-members see a teaser and a join prompt.', 'buddynext' ); ?></small>
+									</span>
+								</button>
+							</li>
+						<?php endif; ?>
 						<li role="option" data-wp-bind--aria-selected="state.isPrivacyPrivate">
 							<button type="button"
 								class="bn-composer__privacy-opt"

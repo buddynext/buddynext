@@ -255,6 +255,7 @@ function privacyLabels() {
 		public:        t( 'privacyPublic', 'Public' ),
 		followers:     t( 'privacyFollowers', 'Followers' ),
 		connections:   t( 'privacyConnections', 'Connections' ),
+		members:       t( 'privacyMembers', 'Members only' ),
 		private:       t( 'privacyPrivate', 'Only me' ),
 		space_members: t( 'privacySpaceMembers', 'Space members' ),
 	};
@@ -685,6 +686,9 @@ store( 'buddynext/post-composer', {
 		},
 		get isPrivacyConnections() {
 			try { return getContext().privacy === 'connections'; } catch ( _e ) { return false; }
+		},
+		get isPrivacyMembers() {
+			try { return getContext().privacy === 'members'; } catch ( _e ) { return false; }
 		},
 		get isPrivacyPrivate() {
 			try { return getContext().privacy === 'private'; } catch ( _e ) { return false; }
@@ -1169,10 +1173,17 @@ store( 'buddynext/post-composer', {
 				}
 			}
 
+			// "Members only" is folded into the audience list (main feed) as a fifth
+			// option: it is a paywall on top of PUBLIC visibility (publicly listed,
+			// non-members see a teaser), not a distinct visibility scope. So map the
+			// selection back to privacy=public + members_only for the server, which
+			// still takes the two fields separately.
+			const isMembersAudience = ctx.privacy === 'members';
+
 			// Collect poll options and media attachments.
 			const body = {
 				content,
-				privacy: ctx.privacy || 'public',
+				privacy: isMembersAudience ? 'public' : ( ctx.privacy || 'public' ),
 				type:    ctx.composerType || 'text',
 			};
 
@@ -1190,9 +1201,10 @@ store( 'buddynext/post-composer', {
 				body.announcement_expires_at = ctx.announcementExpiresAt;
 			}
 
-			// Members-only paywall. Only meaningful for a gating author (the toggle
-			// is hidden otherwise, and the server re-checks), so send it only when set.
-			if ( ctx.membersOnly ) {
+			// Members-only paywall. Set either from the main-feed audience selection
+			// ('members') or the in-space lock toggle (ctx.membersOnly). Only meaningful
+			// for a gating author — the server re-checks — so send it only when set.
+			if ( isMembersAudience || ctx.membersOnly ) {
 				body.members_only = true;
 			}
 
