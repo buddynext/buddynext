@@ -111,10 +111,11 @@ class ConnectionController extends BaseRestController {
 						'default'           => 20,
 						'sanitize_callback' => 'absint',
 					),
-					'page'     => array(
-						'type'              => 'integer',
-						'default'           => 1,
-						'sanitize_callback' => 'absint',
+					'cursor'   => array(
+						'type'              => 'string',
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+						'description'       => 'Opaque keyset cursor from a prior response next_cursor. Omit for the first page.',
 					),
 				),
 			)
@@ -371,22 +372,22 @@ class ConnectionController extends BaseRestController {
 	public function get_connections( WP_REST_Request $request ): WP_REST_Response {
 		$current_id = get_current_user_id();
 		$per_page   = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
-		$page       = max( 1, (int) $request->get_param( 'page' ) );
+		$cursor     = (string) $request->get_param( 'cursor' );
 
-		$service     = buddynext_service( 'connections' );
-		$connections = $service->connections( $current_id, $per_page, ( $page - 1 ) * $per_page );
+		$service = buddynext_service( 'connections' );
+		$result  = $service->connections_keyset( $current_id, ( '' !== $cursor ? $cursor : null ), $per_page );
 
 		$body = array(
-			'total'    => $service->connection_count( $current_id ),
-			'page'     => $page,
-			'per_page' => $per_page,
+			'total'       => $service->connection_count( $current_id ),
+			'per_page'    => $per_page,
+			'next_cursor' => $result['next_cursor'],
 		);
 		// expand=members hydrates the page into enriched member cards in one batch.
-		$expanded = $this->maybe_expand_members( $request, $connections, $current_id );
+		$expanded = $this->maybe_expand_members( $request, $result['ids'], $current_id );
 		if ( null !== $expanded ) {
 			$body['items'] = $expanded;
 		} else {
-			$body['ids'] = $connections;
+			$body['ids'] = $result['ids'];
 		}
 
 		return new WP_REST_Response( $body, 200 );

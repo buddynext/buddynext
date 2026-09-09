@@ -60,10 +60,11 @@ class FollowController extends BaseRestController {
 						'default'           => 20,
 						'sanitize_callback' => 'absint',
 					),
-					'page'     => array(
-						'type'              => 'integer',
-						'default'           => 1,
-						'sanitize_callback' => 'absint',
+					'cursor'   => array(
+						'type'              => 'string',
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+						'description'       => 'Opaque keyset cursor from a prior response next_cursor. Omit for the first page.',
 					),
 				),
 			)
@@ -82,10 +83,11 @@ class FollowController extends BaseRestController {
 						'default'           => 20,
 						'sanitize_callback' => 'absint',
 					),
-					'page'     => array(
-						'type'              => 'integer',
-						'default'           => 1,
-						'sanitize_callback' => 'absint',
+					'cursor'   => array(
+						'type'              => 'string',
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+						'description'       => 'Opaque keyset cursor from a prior response next_cursor. Omit for the first page.',
 					),
 				),
 			)
@@ -337,22 +339,16 @@ class FollowController extends BaseRestController {
 		}
 
 		$per_page = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
-		$page     = max( 1, (int) $request->get_param( 'page' ) );
+		$cursor   = (string) $request->get_param( 'cursor' );
 
-		$service   = buddynext_service( 'follows' );
-		$followers = $service->get_followers(
-			$user_id,
-			array(
-				'per_page' => $per_page,
-				'page'     => $page,
-			)
-		);
+		$service = buddynext_service( 'follows' );
+		$result  = $service->paged_followers_keyset( $user_id, ( '' !== $cursor ? $cursor : null ), $per_page );
 
-		$ids  = $this->filter_blocked( $followers, $viewer_id );
+		$ids  = $this->filter_blocked( $result['ids'], $viewer_id );
 		$body = array(
-			'total'    => $service->follower_count( $user_id ),
-			'page'     => $page,
-			'per_page' => $per_page,
+			'total'       => $service->follower_count( $user_id ),
+			'per_page'    => $per_page,
+			'next_cursor' => $result['next_cursor'],
 		);
 		// expand=members hydrates the page into enriched member cards in one batch
 		// (no N+1); otherwise the endpoint keeps its ids-only default.
@@ -383,22 +379,16 @@ class FollowController extends BaseRestController {
 		}
 
 		$per_page = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
-		$page     = max( 1, (int) $request->get_param( 'page' ) );
+		$cursor   = (string) $request->get_param( 'cursor' );
 
-		$service   = buddynext_service( 'follows' );
-		$following = $service->get_following(
-			$user_id,
-			array(
-				'per_page' => $per_page,
-				'page'     => $page,
-			)
-		);
+		$service = buddynext_service( 'follows' );
+		$result  = $service->paged_following_keyset( $user_id, ( '' !== $cursor ? $cursor : null ), $per_page );
 
-		$ids      = $this->filter_blocked( $following, $viewer_id );
+		$ids      = $this->filter_blocked( $result['ids'], $viewer_id );
 		$body     = array(
-			'total'    => $service->following_count( $user_id ),
-			'page'     => $page,
-			'per_page' => $per_page,
+			'total'       => $service->following_count( $user_id ),
+			'per_page'    => $per_page,
+			'next_cursor' => $result['next_cursor'],
 		);
 		$expanded = $this->maybe_expand_members( $request, $ids, $viewer_id );
 		if ( null !== $expanded ) {
