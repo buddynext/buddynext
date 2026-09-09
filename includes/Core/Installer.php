@@ -339,8 +339,16 @@ class Installer {
 	 *      additive, no backfill) AND the cron/nudge migration that was stranded behind the
 	 *      same early return. schema_intact() now also compares columns so a future column
 	 *      added without a bump is caught here instead of in production.
+	 *
+	 *  50: New bn_onboarding_nudges queue table (card 10264295353). The onboarding
+	 *      nudge sweep no longer range-scans wp_users.user_registered; it reads a
+	 *      per-user (user_id, kind, due_at, sent) queue enqueued at registration. An
+	 *      upgrading site needs the table created before enqueue_nudges() runs, so the
+	 *      bump makes maybe_upgrade() run the dbDelta that adds it (creating a table is
+	 *      additive; existing members simply have no rows and are nudged from their
+	 *      next registration onward, matching the retired baseline behaviour).
 	 */
-	private const SCHEMA_VERSION = 49;
+	private const SCHEMA_VERSION = 50;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
