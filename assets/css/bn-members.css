@@ -664,7 +664,10 @@
 .bn-md-strip__form .bn-select { inline-size: auto; }
 
 .bn-md-strip__search {
-	flex: 1 1 260px;
+	/* Full-width so the search sits on its own row and the compact controls
+		(type / online / sort / view) flow onto a single toolbar row beneath it,
+		instead of the search sharing a row and pushing sort+view to a third. */
+	flex: 1 1 100%;
 	min-width: 0;
 	position: relative;
 	display: flex;

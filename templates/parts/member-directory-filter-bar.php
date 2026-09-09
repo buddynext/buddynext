@@ -181,54 +181,30 @@ do_action( 'buddynext_part_member_directory_filter_bar_before', $args );
 
 		<?php
 		/*
-		 * Member types as a CHIP ROW, matching the Spaces directory's category
-		 * chips. These are twin screens and used to disagree: Spaces showed its
-		 * taxonomy, Members hid the identical control behind a dropdown, so on a
-		 * site with three member types most people never learned the filter was
-		 * there.
+		 * Member-type filter as a compact SELECT that sits in the toolbar row
+		 * beside Online-only / sort / view — one control band instead of a
+		 * separate full-width chip row above it. The relationship scope (All
+		 * members / Following / Connections) is the primary tab row; folding the
+		 * secondary type filter into the toolbar keeps the strip to three bands
+		 * (tabs / search / toolbar) and stops it reading as two stacked navs.
 		 *
-		 * .bn-tabs is the shared strip primitive, so this inherits the scroll
-		 * behaviour and the scroll-driven edge fade already used by the feed and
-		 * notification tabs - an owner adding twenty member types gets a
-		 * scrollable row with a visible hint, not a broken layout.
-		 *
-		 * The store has read `data-type-slug` since the old pill row, so the
-		 * action needs no change to accept these.
+		 * selectMemberType already accepts a <select> (its `value` branch), so no
+		 * store change is needed.
 		 */
 		?>
 		<?php if ( ! empty( $bn_type_options ) ) : ?>
-			<nav class="bn-tabs bn-md-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter members by type', 'buddynext' ); ?>">
-				<button
-					type="button"
-					class="bn-tab bn-md-chip"
-					role="tab"
-					aria-selected="<?php echo '' === $bn_current_type ? 'true' : 'false'; ?>"
-					data-type-slug=""
-					data-wp-on--click="actions.selectMemberType"
-				><?php esc_html_e( 'All types', 'buddynext' ); ?></button>
+			<select
+				class="bn-select bn-md-strip__type"
+				aria-label="<?php esc_attr_e( 'Filter members by type', 'buddynext' ); ?>"
+				data-wp-on--change="actions.selectMemberType"
+			>
+				<option value="" <?php selected( '', $bn_current_type ); ?>><?php esc_html_e( 'All types', 'buddynext' ); ?></option>
 				<?php foreach ( $bn_type_options as $bn_type_option ) : ?>
-					<?php
-					$bn_chip_bg     = (string) $bn_type_option['color'];
-					$bn_chip_fg     = (string) $bn_type_option['fg'];
-					$bn_chip_swatch = ( '' !== $bn_chip_bg && '' !== $bn_chip_fg )
-						? ' style="' . esc_attr( sprintf( 'background:%1$s;color:%2$s;', $bn_chip_bg, $bn_chip_fg ) ) . '"'
-						: '';
-					?>
-					<button
-						type="button"
-						class="bn-tab bn-md-chip"
-						role="tab"
-						aria-selected="<?php echo $bn_current_type === $bn_type_option['slug'] ? 'true' : 'false'; ?>"
-						data-type-slug="<?php echo esc_attr( $bn_type_option['slug'] ); ?>"
-						data-wp-on--click="actions.selectMemberType"
-					>
-						<?php if ( '' !== $bn_chip_swatch ) : ?>
-							<span class="bn-md-chip__swatch" aria-hidden="true"<?php echo $bn_chip_swatch; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped attribute string built from esc_attr(). ?>></span>
-						<?php endif; ?>
+					<option value="<?php echo esc_attr( $bn_type_option['slug'] ); ?>" <?php selected( $bn_type_option['slug'], $bn_current_type ); ?>>
 						<?php echo esc_html( $bn_type_option['label'] ); ?>
-					</button>
+					</option>
 				<?php endforeach; ?>
-			</nav>
+			</select>
 		<?php endif; ?>
 
 		<label class="bn-md-strip__online">
