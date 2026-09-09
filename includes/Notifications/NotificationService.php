@@ -77,6 +77,66 @@ class NotificationService {
 	}
 
 	/**
+	 * Delete every notification that points at one now-deleted object, and bust the
+	 * affected recipients' cached counts.
+	 *
+	 * This is the WRITE side of the orphan problem, and the reason the read-side
+	 * filter_resolvable() is not enough on its own: the read filter hides a dead row
+	 * from a page, but the row is still in the table, so unread_count()/count_for_user()
+	 * and the pager keep counting it — a bell reading "3" over a list of two, a
+	 * page-of-7 pager that renders empty pages (card 10264293036). Removing the rows
+	 * when their object dies keeps the plain COUNT(*) accurate with no per-render
+	 * existence probe. Recipients are gathered BEFORE the delete so their 30s count
+	 * cache can be busted (a raw delete alone would leave the badge stale).
+	 *
+	 * NotificationListener wires this to buddynext_post_deleted and
+	 * buddynext_comment_deleted; SpaceService::delete() already does the equivalent
+	 * inline for a space. Object types match what the listeners store (see
+	 * NotificationListener) and what buddynext_object_exists() understands.
+	 *
+	 * @param string $object_type Object type the notifications reference (e.g. 'post', 'comment').
+	 * @param int    $object_id   Object id.
+	 * @return int Rows deleted.
+	 */
+	public function delete_for_object( string $object_type, int $object_id ): int {
+		global $wpdb;
+
+		$object_type = sanitize_key( $object_type );
+		$object_id   = (int) $object_id;
+		if ( '' === $object_type || $object_id <= 0 ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$recipients = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT recipient_id FROM {$wpdb->prefix}bn_notifications
+				 WHERE object_type = %s AND object_id = %d",
+				$object_type,
+				$object_id
+			)
+		);
+
+		if ( empty( $recipients ) ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = $wpdb->delete(
+			$wpdb->prefix . 'bn_notifications',
+			array(
+				'object_type' => $object_type,
+				'object_id'   => $object_id,
+			),
+			array( '%s', '%d' )
+		);
+
+		$this->forget_counts_for( array_map( 'intval', $recipients ) );
+
+		return (int) $deleted;
+	}
+
+	/**
 	 * Drop notification rows whose target object no longer exists.
 	 *
 	 * The defensive read side: a bell row that opens a 404 is worse than a missing

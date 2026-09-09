@@ -219,17 +219,89 @@ class LogRetentionService {
 			(string) ( time() - ( $window * DAY_IN_SECONDS ) )
 		);
 
+		// Orphaned notifications — rows whose target object is GONE. NotificationService
+		// deletes these at the moment of deletion (on buddynext_post_deleted /
+		// _comment_deleted, and SpaceService inline), so this daily pass only drains
+		// legacy rows and any created by a path those hooks do not cover (a direct DB
+		// delete, a failed cascade). It is the WRITE-side companion to the read-side
+		// filter_resolvable(): the read gate hides a dead row from a page, but the row
+		// stays in the table and every COUNT(*)/pager keeps counting it (card
+		// 10264293036). Set-based and batched, over the types BuddyNext can prove gone
+		// (post/comment/space); partner types it cannot check are left alone, exactly
+		// as the read gate keeps a "cannot tell" row. Counts self-heal on the 30s cache
+		// TTL after this off-request pass — no per-user bust needed here.
+		$deleted['orphaned_notifications']  = $this->delete_orphans_batched( 'post', 'bn_posts' );
+		$deleted['orphaned_notifications'] += $this->delete_orphans_batched( 'comment', 'bn_comments' );
+		$deleted['orphaned_notifications'] += $this->delete_orphans_batched( 'space', 'bn_spaces' );
+
 		/**
 		 * Fires after a retention purge, so a site can log or monitor it.
 		 *
 		 * @since 1.0.8
 		 *
-		 * @param array{notifications:int,email_log:int,webhook_log:int,presence:int} $deleted Rows removed per table.
+		 * @param array{notifications:int,email_log:int,webhook_log:int,presence:int,orphaned_notifications:int} $deleted Rows removed per table.
 		 * @param int                                    $window  The window used, in days.
 		 */
 		do_action( 'buddynext_logs_purged', $deleted, $window );
 
 		return $deleted;
+	}
+
+	/**
+	 * Batch-delete notifications of one type whose target row no longer exists.
+	 *
+	 * A LEFT JOIN … IS NULL anti-join (not NOT IN, which materialises the whole id
+	 * set), bounded by LIMIT and the same per-run batch cap as delete_batched(). The
+	 * $table is a hardcoded, code-derived table slug — never user input.
+	 *
+	 * @param string $object_type Notification object_type slug (e.g. 'post').
+	 * @param string $table       Owning table WITHOUT prefix (e.g. 'bn_posts').
+	 * @return int Rows deleted.
+	 */
+	private function delete_orphans_batched( string $object_type, string $table ): int {
+		global $wpdb;
+
+		$owner  = $wpdb->prefix . preg_replace( '/[^a-z0-9_]/', '', $table );
+		$notifs = $wpdb->prefix . 'bn_notifications';
+		$total  = 0;
+
+		// SELECT the orphan ids (LEFT JOIN anti-join, bounded by LIMIT) then delete them
+		// by id. A multi-table DELETE cannot take a LIMIT in MySQL, so batching is done
+		// on the SELECT and the delete is a plain single-table IN() — index-driven on
+		// the PRIMARY key.
+		// $owner/$notifs are code-derived table names; $object_type and the id list are
+		// bound. The interpolated names defeat the per-line sniff on a multi-line
+		// prepare(), so the block is disabled and re-enabled around the two queries.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		for ( $i = 0; $i < self::MAX_BATCHES_PER_RUN; $i++ ) {
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT n.id FROM {$notifs} n
+					 LEFT JOIN {$owner} o ON o.id = n.object_id
+					 WHERE n.object_type = %s AND o.id IS NULL
+					 LIMIT %d",
+					$object_type,
+					self::BATCH
+				)
+			);
+
+			if ( empty( $ids ) ) {
+				break;
+			}
+
+			$ids          = array_map( 'intval', $ids );
+			$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+			$total       += (int) $wpdb->query(
+				$wpdb->prepare( "DELETE FROM {$notifs} WHERE id IN ( {$placeholders} )", $ids )
+			);
+
+			if ( count( $ids ) < self::BATCH ) {
+				break;
+			}
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		return $total;
 	}
 
 	/**
@@ -249,8 +321,9 @@ class LogRetentionService {
 
 		$total = 0;
 
+		// $sql is a caller-supplied literal with a %s cutoff + %d limit; both are bound.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		for ( $i = 0; $i < self::MAX_BATCHES_PER_RUN; $i++ ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 			$rows = (int) $wpdb->query( $wpdb->prepare( $sql, $cutoff, self::BATCH ) );
 
 			$total += $rows;
@@ -260,6 +333,7 @@ class LogRetentionService {
 				break;
 			}
 		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
 		return $total;
 	}

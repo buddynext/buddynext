@@ -2082,6 +2082,14 @@ class PostService {
 			return;
 		}
 
+		// Recipients whose notification rows this cascade removes — gathered before
+		// the deletes so their cached unread/unseen counts can be busted afterwards.
+		// The rows go via raw $wpdb here, which bypasses NotificationService's own
+		// cache invalidation; without this bust the bell keeps showing a count that
+		// includes notifications whose post was just deleted, for up to the 30s TTL —
+		// the "3 over a list of 2" mismatch (card 10264293036).
+		$notif_recipients = array();
+
 		foreach ( array_chunk( $post_ids, self::CASCADE_CHUNK ) as $chunk ) {
 			$in = implode( ',', array_map( 'absint', $chunk ) );
 
@@ -2095,7 +2103,8 @@ class PostService {
 			// of thousands of comments.
 			$comment_ids = array_values( array_filter( array_map( 'absint', (array) $comment_ids ) ) );
 			foreach ( array_chunk( $comment_ids, self::CASCADE_CHUNK ) as $comment_chunk ) {
-				$cin = implode( ',', array_map( 'absint', $comment_chunk ) );
+				$cin              = implode( ',', array_map( 'absint', $comment_chunk ) );
+				$notif_recipients = array_merge( $notif_recipients, (array) $wpdb->get_col( "SELECT DISTINCT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'comment' AND object_id IN ({$cin})" ) );
 				$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'comment' AND object_id IN ({$cin})" );
 				$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'comment' AND object_id IN ({$cin})" );
 				$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'comment' AND object_id IN ({$cin})" );
@@ -2109,9 +2118,18 @@ class PostService {
 			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_shares WHERE post_id IN ({$in})" );
 			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE post_id IN ({$in})" );
 			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id IN ({$in})" );
+			$notif_recipients = array_merge( $notif_recipients, (array) $wpdb->get_col( "SELECT DISTINCT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" ) );
 			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" );
 			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id IN ({$in})" );
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		}
+
+		$notif_recipients = array_values( array_unique( array_map( 'intval', $notif_recipients ) ) );
+		if ( $notif_recipients && function_exists( 'buddynext_service' ) ) {
+			$bn_notifications = buddynext_service( 'notifications' );
+			if ( $bn_notifications instanceof \BuddyNext\Notifications\NotificationService ) {
+				$bn_notifications->forget_counts_for( $notif_recipients );
+			}
 		}
 	}
 

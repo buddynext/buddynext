@@ -69,6 +69,16 @@ class NotificationListener implements ListenerInterface {
 		add_action( 'buddynext_post_shared', array( $this, 'on_post_shared' ), 10, 3 );
 		add_action( 'buddynext_user_mentioned', array( $this, 'on_user_mentioned' ), 10, 3 );
 
+		// Comment deletion — CommentService::delete() fires this hook but does not
+		// itself remove the bell rows that pointed at the comment (a reaction on it),
+		// so they would orphan: a dead row hidden by the read filter yet still counted
+		// by the badge/pager. Drop them and bust the recipients' counts here (card
+		// 10264293036). The POST path does not need a listener — PostService's
+		// cascade_post_children() already deletes both the post- and comment-keyed
+		// notification rows AND busts their recipients' counts; a space does the
+		// equivalent inline in SpaceService::delete().
+		add_action( 'buddynext_comment_deleted', array( $this, 'on_comment_deleted' ), 10, 1 );
+
 		// Spaces.
 		add_action( 'buddynext_space_join_requested', array( $this, 'on_space_join_requested' ), 10, 2 );
 		add_action( 'buddynext_space_join_approved', array( $this, 'on_space_join_approved' ), 10, 3 );
@@ -449,6 +459,20 @@ class NotificationListener implements ListenerInterface {
 				'group_key'    => 'mention_' . $mentioned_user_id . '_' . $context_id,
 			)
 		);
+	}
+
+	/**
+	 * A comment was deleted: remove the bell rows that pointed at it (a reaction on a
+	 * comment stores object_type='comment', object_id=comment_id).
+	 *
+	 * @param int $comment_id Deleted comment id.
+	 * @return void
+	 */
+	public function on_comment_deleted( int $comment_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+		buddynext_service( 'notifications' )->delete_for_object( 'comment', $comment_id );
 	}
 
 	/**
