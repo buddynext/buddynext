@@ -141,7 +141,7 @@ class SafeguardService {
 			return $domain;
 		}
 
-		$tag = $this->check_banned_hashtags( $content );
+		$tag = $this->check_banned_hashtags( $content, $object_label );
 		if ( is_wp_error( $tag ) ) {
 			return $tag;
 		}
@@ -266,10 +266,11 @@ class SafeguardService {
 	 * The admin hint states "Posts using these tags are rejected" - this gate
 	 * makes that true (previously the tag was only silently un-indexed).
 	 *
-	 * @param string $content Post content.
+	 * @param string $content      Content to inspect.
+	 * @param string $object_label What is being written ('post', 'comment', …), for the message.
 	 * @return true|WP_Error True when clean; WP_Error(422) when a banned tag is present.
 	 */
-	private function check_banned_hashtags( string $content ): bool|WP_Error {
+	private function check_banned_hashtags( string $content, string $object_label = 'post' ): bool|WP_Error {
 		if ( '' === trim( $content ) || ! class_exists( '\\BuddyNext\\Hashtags\\HashtagService' ) ) {
 			return true;
 		}
@@ -277,7 +278,11 @@ class SafeguardService {
 		if ( '' !== $slug ) {
 			return new WP_Error(
 				'banned_hashtag',
-				__( 'This post uses a hashtag that is not allowed.', 'buddynext' ),
+				sprintf(
+					/* translators: %s: the object being written, e.g. post, comment, direct message. */
+					__( 'Your %s uses a hashtag that is not allowed here.', 'buddynext' ),
+					$object_label
+				),
 				array( 'status' => 422 )
 			);
 		}

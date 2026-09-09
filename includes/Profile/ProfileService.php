@@ -703,7 +703,7 @@ class ProfileService {
 			if ( ! is_string( $value ) || '' === trim( $value ) ) {
 				continue;
 			}
-			if ( is_wp_error( $guard->check_content( $value, '', $user_id, 0, 'create' ) ) ) {
+			if ( is_wp_error( $guard->check_content( $value, '', $user_id, 0, 'create', 'profile field' ) ) ) {
 				$fields[ (string) $key ] = $message;
 			}
 		}
@@ -751,7 +751,7 @@ class ProfileService {
 			if ( '' !== $profile_text ) {
 				$guard = buddynext_service( 'safeguard' );
 				if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
-					$verdict = $guard->check_content( $profile_text, '', $user_id, 0, 'create' );
+					$verdict = $guard->check_content( $profile_text, '', $user_id, 0, 'create', 'profile' );
 
 					// A flag saves the profile and reports the member for review; only
 					// a hard block refuses the save. This returned the WP_Error for both

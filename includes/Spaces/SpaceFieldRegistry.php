@@ -535,7 +535,14 @@ final class SpaceFieldRegistry {
 			// number / url / colour is not prose and is skipped. A hard block rejects
 			// the field; a flag verdict is allowed through (reactive moderation).
 			// Card 10264294340.
-			if ( in_array( (string) ( $field['type'] ?? '' ), array( 'text', 'textarea' ), true )
+			//
+			// The banned-words list itself is EXCLUDED: it is the safeguard config, not
+			// member prose, and the settings form posts the whole list back on every
+			// save — so scanning it against the stored list matches its own words and
+			// rejects, locking the owner out of ever adding a second banned word or
+			// re-saving the list (round-3 regression).
+			if ( 'banned_words' !== (string) ( $field['key'] ?? '' )
+				&& in_array( (string) ( $field['type'] ?? '' ), array( 'text', 'textarea' ), true )
 				&& '' !== (string) $clean
 				&& function_exists( 'buddynext_service' ) ) {
 				$bn_field_scan = buddynext_service( 'safeguard' )->check_content( (string) $clean, '', (int) $actor_id, $space_id, 'edit', 'space field' );

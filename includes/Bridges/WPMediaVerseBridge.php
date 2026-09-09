@@ -1053,7 +1053,7 @@ class WPMediaVerseBridge {
 
 		$guard = buddynext_service( 'safeguard' );
 		if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
-			$verdict = $guard->check_content( $content, '', $sender_id, 0, 'create' );
+			$verdict = $guard->check_content( $content, '', $sender_id, 0, 'create', 'direct message' );
 
 			// A flag lets the message send and files a report once it has an ID (see
 			// on_message_sent) — the reactive model, same as posts and comments. Only
