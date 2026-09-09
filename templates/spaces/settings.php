@@ -342,9 +342,19 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_permissions_nonce'] )
 		// live here (and silently coerced a bad value to a default) are gone.
 		$bn_perm_values = array(
 			'require_join_approval' => isset( $_POST['require_join_approval'] ) ? '1' : '0',
-			'who_can_post'          => isset( $_POST['who_can_post'] ) ? sanitize_key( wp_unslash( $_POST['who_can_post'] ) ) : 'members',
-			'who_can_invite'        => isset( $_POST['who_can_invite'] ) ? sanitize_key( wp_unslash( $_POST['who_can_invite'] ) ) : 'mods',
 		);
+
+			// who_can_post / who_can_invite are OWNER-only (CoreSpaceFields
+			// writable_by => 'owner'): they set the space's baseline posting and invite
+			// rights, not day-to-day moderation. Added to the payload ONLY for an owner
+			// so a moderator's save omits them and no longer aborts atomically on a
+			// field it cannot write. They used to be sent UNCONDITIONALLY, defaulting
+			// even when the (now read-only) select submitted nothing, so every
+			// moderator save on this panel failed entirely (card 10264293210).
+			if ( $bn_is_space_owner ) {
+				$bn_perm_values['who_can_post']   = isset( $_POST['who_can_post'] ) ? sanitize_key( wp_unslash( $_POST['who_can_post'] ) ) : 'members';
+				$bn_perm_values['who_can_invite'] = isset( $_POST['who_can_invite'] ) ? sanitize_key( wp_unslash( $_POST['who_can_invite'] ) ) : 'mods';
+			}
 
 		// Auto-join is OWNER-only: it decides who is pulled into this space
 		// automatically at signup, which is reach across the whole site's membership,

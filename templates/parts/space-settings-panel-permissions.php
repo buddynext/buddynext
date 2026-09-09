@@ -123,9 +123,18 @@ do_action( 'buddynext_part_space_settings_panel_permissions_before', $args );
 			<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Who can post, invite, and join this space.', 'buddynext' ); ?></p>
 		</header>
 
+		<?php
+		// who_can_post / who_can_invite are OWNER-only (CoreSpaceFields writable_by =>
+		// 'owner'), and the save path only accepts them from an owner. Render them
+		// read-only + explain why for a moderator, so the control is not "live but
+		// silently refused" — the dead-control the panel exists to prevent (card
+		// 10264293210). A disabled select also does not submit, so it can never abort
+		// a moderator's atomic save.
+		$bn_owner_only_lock = ! $bn_is_space_owner;
+		?>
 		<div class="bn-space-settings__field">
 			<label for="bn_who_can_post"><?php esc_html_e( 'Who can post', 'buddynext' ); ?></label>
-			<select id="bn_who_can_post" name="who_can_post" class="bn-select">
+			<select id="bn_who_can_post" name="who_can_post" class="bn-select" <?php disabled( $bn_owner_only_lock ); ?>>
 				<option value="members" <?php selected( $bn_who_can_post, 'members' ); ?>>
 					<?php esc_html_e( 'All members', 'buddynext' ); ?>
 				</option>
@@ -136,11 +145,14 @@ do_action( 'buddynext_part_space_settings_panel_permissions_before', $args );
 					<?php esc_html_e( 'Owner only (announcements)', 'buddynext' ); ?>
 				</option>
 			</select>
+			<?php if ( $bn_owner_only_lock ) : ?>
+				<p class="bn-space-settings__hint"><?php esc_html_e( 'Only the space owner can change who may post.', 'buddynext' ); ?></p>
+			<?php endif; ?>
 		</div>
 
 		<div class="bn-space-settings__field">
 			<label for="bn_who_can_invite"><?php esc_html_e( 'Who can invite new members', 'buddynext' ); ?></label>
-			<select id="bn_who_can_invite" name="who_can_invite" class="bn-select">
+			<select id="bn_who_can_invite" name="who_can_invite" class="bn-select" <?php disabled( $bn_owner_only_lock ); ?>>
 				<option value="members" <?php selected( $bn_who_can_invite, 'members' ); ?>>
 					<?php esc_html_e( 'All members', 'buddynext' ); ?>
 				</option>
@@ -151,6 +163,9 @@ do_action( 'buddynext_part_space_settings_panel_permissions_before', $args );
 					<?php esc_html_e( 'Owner only', 'buddynext' ); ?>
 				</option>
 			</select>
+			<?php if ( $bn_owner_only_lock ) : ?>
+				<p class="bn-space-settings__hint"><?php esc_html_e( 'Only the space owner can change who may invite new members.', 'buddynext' ); ?></p>
+			<?php endif; ?>
 		</div>
 
 		<?php
