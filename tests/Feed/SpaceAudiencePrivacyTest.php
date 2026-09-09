@@ -99,6 +99,13 @@ class SpaceAudiencePrivacyTest extends \WP_UnitTestCase {
 
 		$this->token = 'zqx' . wp_rand();
 
+		// First media id per privacy (a second, +100, is attached alongside it).
+		$media_seed = array(
+			'public'      => 11,
+			'connections' => 12,
+			'followers'   => 13,
+		);
+
 		foreach ( array( 'public', 'connections', 'followers' ) as $privacy ) {
 			$post_id = $this->posts->create(
 				$this->author,
@@ -111,6 +118,16 @@ class SpaceAudiencePrivacyTest extends \WP_UnitTestCase {
 			);
 			$this->assertIsInt( $post_id, 'Could not create the ' . $privacy . ' post.' );
 			$this->post_ids[ $privacy ] = $post_id;
+
+			// Attach media directly on the column (create() strips media the author
+			// does not own in WPMediaVerse; the space media readers only key off this
+			// JSON + the post audience, not ownership). Distinct ids per privacy so a
+			// leak is identifiable. Mirrors how SpaceMediaEndpointTest seeds.
+			$wpdb->update(
+				$wpdb->prefix . 'bn_posts',
+				array( 'media_ids' => wp_json_encode( array( $media_seed[ $privacy ], $media_seed[ $privacy ] + 100 ) ) ),
+				array( 'id' => $post_id )
+			);
 
 			// Warm the search index synchronously (the listener is async in prod).
 			( new SearchIndexListener() )->async_index_post( $post_id, $this->author );
@@ -193,5 +210,66 @@ class SpaceAudiencePrivacyTest extends \WP_UnitTestCase {
 			$this->assertContains( $this->post_ids['connections'], $ids, "Connections post missing from {$label} after connecting." );
 			$this->assertNotContains( $this->post_ids['followers'], $ids, "Followers post LEAKED into {$label} (viewer is not a follower)." );
 		}
+	}
+
+	/**
+	 * The space Media readers (rows + flat ids) are sibling readers of bn_posts and
+	 * were viewer-independent, so a connections/followers post's images rendered on
+	 * the Media tab to every space member even though the feed hid the post (card
+	 * 10264292078 round 4). They now carry the same audience clause: a non-connection
+	 * space-mate sees only the public post's row and its media ids.
+	 *
+	 * @return void
+	 */
+	public function test_space_media_readers_hide_non_visible_posts(): void {
+		$row_post_ids = array_map(
+			static fn( array $r ): int => (int) $r['post_id'],
+			$this->feed->space_media_rows( $this->space, $this->viewer, 50, 0 )
+		);
+		$this->assertContains( $this->post_ids['public'], $row_post_ids, 'Public media row missing.' );
+		$this->assertNotContains( $this->post_ids['connections'], $row_post_ids, 'Connections media row LEAKED.' );
+		$this->assertNotContains( $this->post_ids['followers'], $row_post_ids, 'Followers media row LEAKED.' );
+
+		$ids = $this->feed->space_media_ids( $this->space, $this->viewer, 60 );
+		$this->assertContains( 11, $ids, 'Public media id missing.' );
+		$this->assertContains( 111, $ids, 'Public media id (second) missing.' );
+		$this->assertNotContains( 12, $ids, 'Connections media id LEAKED.' );
+		$this->assertNotContains( 13, $ids, 'Followers media id LEAKED.' );
+	}
+
+	/**
+	 * The count/list drift: space_post_count() and space_media_post_count() drove the
+	 * space header stat and the Media tab total viewer-independently, so the header
+	 * said 3 while the feed showed 1. Both counts now match the audience-gated list.
+	 *
+	 * @return void
+	 */
+	public function test_space_counts_match_the_visible_list(): void {
+		// Non-connected space-mate: only the public post (and its media) is visible.
+		$this->assertSame( 1, $this->feed->space_post_count( $this->space, $this->viewer ), 'Post count over-counts hidden posts.' );
+		$this->assertSame( 1, $this->feed->space_media_post_count( $this->space, $this->viewer ), 'Media post count over-counts hidden posts.' );
+
+		// Author sees all three.
+		$this->assertSame( 3, $this->feed->space_post_count( $this->space, $this->author ), 'Author should see all posts.' );
+		$this->assertSame( 3, $this->feed->space_media_post_count( $this->space, $this->author ), 'Author should see all media posts.' );
+	}
+
+	/**
+	 * No over-restriction on the media readers/counts either: once connected, the
+	 * connections post's media + count appear, followers stays hidden.
+	 *
+	 * @return void
+	 */
+	public function test_space_media_and_counts_widen_after_connecting(): void {
+		$connections = new ConnectionService();
+		$connections->send_request( $this->author, $this->viewer );
+		$connections->accept_request( $this->viewer, $this->author );
+
+		$ids = $this->feed->space_media_ids( $this->space, $this->viewer, 60 );
+		$this->assertContains( 12, $ids, 'Connections media id missing after connecting.' );
+		$this->assertNotContains( 13, $ids, 'Followers media id LEAKED (viewer is not a follower).' );
+
+		$this->assertSame( 2, $this->feed->space_post_count( $this->space, $this->viewer ), 'Count should widen to public + connections.' );
+		$this->assertSame( 2, $this->feed->space_media_post_count( $this->space, $this->viewer ), 'Media count should widen to public + connections.' );
 	}
 }

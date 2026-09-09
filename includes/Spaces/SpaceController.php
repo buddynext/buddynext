@@ -1915,8 +1915,8 @@ class SpaceController extends BaseRestController {
 		$page     = max( 1, (int) $request->get_param( 'page' ) );
 
 		$feed  = buddynext_service( 'feed' );
-		$total = (int) $feed->space_media_post_count( $space_id );
-		$rows  = $feed->space_media_rows( $space_id, $per_page, ( $page - 1 ) * $per_page );
+		$total = (int) $feed->space_media_post_count( $space_id, $viewer_id );
+		$rows  = $feed->space_media_rows( $space_id, $viewer_id, $per_page, ( $page - 1 ) * $per_page );
 
 		// Prime the engine's row cache once for the whole page instead of letting
 		// descriptor() fire a query per tile.

@@ -62,7 +62,7 @@ $bn_sh_is_guest   = 0 === (int) $bn_sh_viewer;
 
 // Header stats — Members / Posts (when > 0) / Created, mirroring the space home.
 $bn_sh_member_count = (int) ( $bn_sh_record['member_count'] ?? 0 );
-$bn_sh_post_count   = (int) buddynext_service( 'feed' )->space_post_count( $bn_sh_space_id );
+$bn_sh_post_count   = (int) buddynext_service( 'feed' )->space_post_count( $bn_sh_space_id, $bn_sh_viewer );
 $bn_sh_stats        = array();
 if ( $bn_sh_member_count > 0 ) {
 	$bn_sh_stats[] = array(

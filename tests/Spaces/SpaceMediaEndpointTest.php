@@ -207,7 +207,7 @@ class SpaceMediaEndpointTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_posts_without_attachments_are_excluded(): void {
-		$rows = buddynext_service( 'feed' )->space_media_rows( $this->spaces['open'], 50, 0 );
+		$rows = buddynext_service( 'feed' )->space_media_rows( $this->spaces['open'], $this->owner, 50, 0 );
 
 		$this->assertCount( 3, $rows );
 		foreach ( $rows as $row ) {
@@ -230,8 +230,8 @@ class SpaceMediaEndpointTest extends \WP_UnitTestCase {
 		$this->assertSame( 2, $page_one['data']['total_pages'] );
 		$this->assertSame( 2, $page_one['data']['per_page'] );
 
-		$this->assertCount( 2, buddynext_service( 'feed' )->space_media_rows( $this->spaces['open'], 2, 0 ) );
-		$this->assertCount( 1, buddynext_service( 'feed' )->space_media_rows( $this->spaces['open'], 2, 2 ) );
+		$this->assertCount( 2, buddynext_service( 'feed' )->space_media_rows( $this->spaces['open'], $this->owner, 2, 0 ) );
+		$this->assertCount( 1, buddynext_service( 'feed' )->space_media_rows( $this->spaces['open'], $this->owner, 2, 2 ) );
 
 		$this->assertSame( 200, $page_two['status'] );
 	}
@@ -258,7 +258,7 @@ class SpaceMediaEndpointTest extends \WP_UnitTestCase {
 	public function test_per_page_is_capped(): void {
 		$this->assertCount(
 			3,
-			buddynext_service( 'feed' )->space_media_rows( $this->spaces['open'], 5000, 0 ),
+			buddynext_service( 'feed' )->space_media_rows( $this->spaces['open'], $this->owner, 5000, 0 ),
 			'The cap must clamp, not error.'
 		);
 	}

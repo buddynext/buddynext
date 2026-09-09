@@ -2287,28 +2287,34 @@ class FeedService {
 	 * the row through PostService::hydrate() so callers get the canonical shape
 	 * rather than a hand-built row.
 	 *
-	 * @param int $space_id Space ID.
+	 * @param int $space_id  Space ID.
+	 * @param int $viewer_id Viewer user ID (0 = logged out). Gates the post's own
+	 *                       audience so a pinned followers/connections post is not
+	 *                       shown to a space member outside that audience (card
+	 *                       10264292078).
 	 * @return array<string,mixed>|null
 	 */
-	public function space_pinned_post( int $space_id ): ?array {
+	public function space_pinned_post( int $space_id, int $viewer_id ): ?array {
 		if ( $space_id <= 0 ) {
 			return null;
 		}
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_posts
 				 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				   AND {$audience_sql}
 				 ORDER BY created_at DESC
 				 LIMIT 1",
-				$space_id
+				array_merge( array( $space_id ), $audience_params )
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		return is_array( $row ) ? $this->post_service->hydrate( $row ) : null;
 	}
@@ -2384,49 +2390,66 @@ class FeedService {
 	/**
 	 * Count published, live (non-future) posts in a space.
 	 *
-	 * @param int $space_id Space ID.
+	 * @param int $space_id  Space ID.
+	 * @param int $viewer_id Viewer user ID (0 = logged out). The count is gated by
+	 *                       the same per-post audience clause as the space feed, so
+	 *                       the header/badge figure matches the list a viewer can
+	 *                       actually see instead of over-counting narrowed-audience
+	 *                       posts (card 10264292078).
 	 * @return int
 	 */
-	public function space_post_count( int $space_id ): int {
+	public function space_post_count( int $space_id, int $viewer_id ): int {
 		if ( $space_id <= 0 ) {
 			return 0;
 		}
 
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (int) $wpdb->get_var(
+		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
 				 WHERE space_id = %d AND status = 'published'
-				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())",
-				$space_id
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				   AND {$audience_sql}",
+				array_merge( array( $space_id ), $audience_params )
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		return $count;
 	}
 
 	/**
 	 * Count published, live posts in a space that carry at least one media
 	 * attachment — the figure the space "Media" tab badge shows.
 	 *
-	 * @param int $space_id Space ID.
+	 * @param int $space_id  Space ID.
+	 * @param int $viewer_id Viewer user ID (0 = logged out). Gated by the same
+	 *                       per-post audience clause as space_media_rows(), so the
+	 *                       Media tab total matches the tiles the viewer can see
+	 *                       (card 10264292078).
 	 * @return int
 	 */
-	public function space_media_post_count( int $space_id ): int {
+	public function space_media_post_count( int $space_id, int $viewer_id ): int {
 		if ( $space_id <= 0 ) {
 			return 0;
 		}
 
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (int) $wpdb->get_var(
+		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
 				 WHERE space_id = %d AND status = 'published'
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''",
-				$space_id
+				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''
+				   AND {$audience_sql}",
+				array_merge( array( $space_id ), $audience_params )
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		return $count;
 	}
 
 	/**
@@ -2454,12 +2477,17 @@ class FeedService {
 	 * Each row carries the post it came from so the caller can deep-link a tile
 	 * back to its post without a second query.
 	 *
-	 * @param int $space_id Space ID.
-	 * @param int $limit    Posts per page (1-100).
-	 * @param int $offset   Post offset.
+	 * @param int $space_id  Space ID.
+	 * @param int $viewer_id Viewer user ID (0 = logged out). ANDs the shared
+	 *                       per-post audience clause into the SQL so a
+	 *                       followers/connections post's media never renders to a
+	 *                       space member outside that audience, and pagination stays
+	 *                       exact (card 10264292078).
+	 * @param int $limit     Posts per page (1-100).
+	 * @param int $offset    Post offset.
 	 * @return array<int, array{post_id:int,user_id:int,created_at:string,media_ids:array<int,int>}>
 	 */
-	public function space_media_rows( int $space_id, int $limit = 24, int $offset = 0 ): array {
+	public function space_media_rows( int $space_id, int $viewer_id, int $limit = 24, int $offset = 0 ): array {
 		if ( $space_id <= 0 ) {
 			return array();
 		}
@@ -2468,22 +2496,22 @@ class FeedService {
 		$offset = max( 0, $offset );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, user_id, created_at, media_ids FROM {$wpdb->prefix}bn_posts
 				 WHERE space_id = %d AND status = 'published'
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''
+				   AND {$audience_sql}
 				 ORDER BY created_at DESC, id DESC
 				 LIMIT %d OFFSET %d",
-				$space_id,
-				$limit,
-				$offset
+				array_merge( array( $space_id ), $audience_params, array( $limit, $offset ) )
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		$out = array();
 		foreach ( (array) $rows as $row ) {
@@ -2524,30 +2552,37 @@ class FeedService {
 	 * several attachments) and flattens their media_ids JSON arrays before
 	 * trimming to $limit unique IDs. For a paginated grid use space_media_rows().
 	 *
-	 * @param int $space_id Space ID.
-	 * @param int $limit    Max media IDs to return (1-100). Default 24.
+	 * @param int $space_id  Space ID.
+	 * @param int $viewer_id Viewer user ID (0 = logged out). ANDs the shared
+	 *                       per-post audience clause so a followers/connections
+	 *                       post's media is excluded for a member outside that
+	 *                       audience before the per-item media gate runs (card
+	 *                       10264292078).
+	 * @param int $limit     Max media IDs to return (1-100). Default 24.
 	 * @return array<int,int>
 	 */
-	public function space_media_ids( int $space_id, int $limit = 24 ): array {
+	public function space_media_ids( int $space_id, int $viewer_id, int $limit = 24 ): array {
 		if ( $space_id <= 0 ) {
 			return array();
 		}
 		$limit = max( 1, min( 100, $limit ) );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT media_ids FROM {$wpdb->prefix}bn_posts
 				 WHERE space_id = %d AND status = 'published'
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''
+				   AND {$audience_sql}
 				 ORDER BY created_at DESC
 				 LIMIT 60",
-				$space_id
+				array_merge( array( $space_id ), $audience_params )
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		$media_ids = array();
 		foreach ( (array) $rows as $json ) {

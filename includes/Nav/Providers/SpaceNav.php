@@ -184,7 +184,7 @@ final class SpaceNav {
 				'label'    => __( 'Feed', 'buddynext' ),
 				'priority' => 10,
 				'url'      => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'feed' ),
-				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'feed' )->space_post_count( $c->subject_id ),
+				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'feed' )->space_post_count( $c->subject_id, $c->viewer_id ),
 				'render'   => function ( NavContext $c ): void {
 					$this->render_feed_panel( $c->subject_id, $c->viewer_id );
 				},
@@ -744,7 +744,7 @@ final class SpaceNav {
 				'bn_mt_space_id'  => $space_id,
 				'bn_mt_owner_id'  => 0,
 				'bn_mt_is_owner'  => \BuddyNext\Media\Galleries::can_create_space_album( $space_id, $viewer ),
-				'bn_mt_media_ids' => (array) buddynext_service( 'feed' )->space_media_ids( $space_id, 24 ),
+				'bn_mt_media_ids' => (array) buddynext_service( 'feed' )->space_media_ids( $space_id, $viewer, 24 ),
 			)
 		);
 	}
