@@ -664,10 +664,13 @@
 .bn-md-strip__form .bn-select { inline-size: auto; }
 
 .bn-md-strip__search {
-	/* Full-width so the search sits on its own row and the compact controls
-		(type / online / sort / view) flow onto a single toolbar row beneath it,
-		instead of the search sharing a row and pushing sort+view to a third. */
-	flex: 1 1 100%;
+	/* A moderate search box that shares the toolbar row with the filter controls,
+		rather than spanning the whole column — on desktop a full-width search reads
+		as sparse. It grows to take the slack up to a cap; the compact controls
+		(type / online / sort / view) sit beside it and wrap below on narrow
+		columns and mobile. */
+	flex: 1 1 260px;
+	max-inline-size: 420px;
 	min-width: 0;
 	position: relative;
 	display: flex;
