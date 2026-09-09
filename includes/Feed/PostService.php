@@ -1972,78 +1972,14 @@ class PostService {
 			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id )
 		);
 
-		// Cascade-delete all child rows before removing the post.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete( $wpdb->prefix . 'bn_poll_votes', array( 'post_id' => $post_id ), array( '%d' ) );
-		$wpdb->delete( $wpdb->prefix . 'bn_poll_options', array( 'post_id' => $post_id ), array( '%d' ) );
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_reactions',
-			array(
-				'object_type' => 'post',
-				'object_id'   => $post_id,
-			),
-			array( '%s', '%d' )
-		);
-		// Before removing this post's comments, sweep every row keyed to those
-		// COMMENT ids — reactions, notifications and reports with
-		// object_type='comment'. The post-level deletes here only clear
-		// object_type='post' rows, so each comment's own reactions/notifications/
-		// reports would otherwise be left orphaned (card 10264292876). Ids are
-		// absint-cast, so the inlined IN lists are injection-safe.
-		$comment_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id = %d",
-				$post_id
-			)
-		);
-		if ( $comment_ids ) {
-			$comment_in = implode( ',', array_map( 'absint', $comment_ids ) );
-			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $comment_in is an absint-mapped id list, injection-safe.
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'comment' AND object_id IN ({$comment_in})" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'comment' AND object_id IN ({$comment_in})" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'comment' AND object_id IN ({$comment_in})" );
-			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
-		}
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_comments',
-			array(
-				'object_type' => 'post',
-				'object_id'   => $post_id,
-			),
-			array( '%s', '%d' )
-		);
-		$wpdb->delete( $wpdb->prefix . 'bn_shares', array( 'post_id' => $post_id ), array( '%d' ) );
-		$wpdb->delete( $wpdb->prefix . 'bn_bookmarks', array( 'post_id' => $post_id ), array( '%d' ) );
+		// Cascade every child row keyed to this post (and to its comments) before
+		// the post itself is removed. The full sweep lives in one shared routine so
+		// every delete path clears the same rows — delete_by_link_meta_int() routes
+		// through it too. See cascade_post_children() for what is and is not swept.
+		$this->cascade_post_children( array( $post_id ) );
 
-		// Cascade the remaining post references so no orphan rows survive a delete.
-		$wpdb->delete( $wpdb->prefix . 'bn_post_hashtags', array( 'post_id' => $post_id ), array( '%d' ) );
-		// Announcement dismissals live in user_meta (bn_dismissed_announcements),
-		// not a table, so there is nothing to cascade here. A stale post ID left
-		// in a user's dismissed-array is harmless — the post is gone and can
-		// never render.
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_notifications',
-			array(
-				'object_type' => 'post',
-				'object_id'   => $post_id,
-			),
-			array( '%s', '%d' )
-		);
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_reports',
-			array(
-				'object_type' => 'post',
-				'object_id'   => $post_id,
-			),
-			array( '%s', '%d' )
-		);
-		// bn_mod_log is append-only by design (ModerationLogService) - it is the
-		// permanent moderation audit trail and must survive the deletion of the
-		// content it references. Do NOT delete its rows here; the log reader never
-		// joins to the object, so an orphaned object_id is harmless.
-
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
@@ -2061,6 +1997,84 @@ class PostService {
 		}
 
 		return true;
+	}
+
+	/**
+	 * How many post/comment ids to name in one `... IN (...)` sweep.
+	 *
+	 * The cascade runs a fixed set of DELETEs per chunk, so a bulk delete of an
+	 * integration's 5,000 cards becomes a handful of bounded statements instead of
+	 * one enormous IN list (which blows past max_allowed_packet and holds a wide
+	 * lock). A card delete passes a single id and never chunks.
+	 */
+	private const CASCADE_CHUNK = 500;
+
+	/**
+	 * Delete every child row that hangs off a set of posts — the one cascade all
+	 * delete paths share.
+	 *
+	 * Sweeps, keyed by post id: poll votes/options, shares, bookmarks, hashtags,
+	 * and the object_type='post' rows in reactions, notifications and reports.
+	 * Then, keyed by each post's COMMENT ids: the object_type='comment' rows in
+	 * reactions, notifications and reports (card 10264292876 — a post delete used
+	 * to leave these behind), before the comments themselves. bn_posts is NOT
+	 * touched here; the caller removes the post row(s) and fires
+	 * buddynext_post_deleted so the search index and other listeners clean up.
+	 *
+	 * Deliberately NOT swept: bn_mod_log is the append-only moderation audit trail
+	 * and must outlive the content it references; the log reader never joins to the
+	 * object, so an orphaned object_id there is harmless. Announcement dismissals
+	 * live in user_meta, not a table, and a stale id in that array can never render.
+	 *
+	 * ponytail: no wrapping transaction — a single-post delete is small, and the
+	 * read side already drops notifications whose object no longer resolves (card
+	 * 10264293036), so a partial sweep is invisible to members. Add one if bulk
+	 * bridge deletes ever need cross-table atomicity.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @param array<int,int> $post_ids Post ids whose children to remove.
+	 * @return void
+	 */
+	private function cascade_post_children( array $post_ids ): void {
+		global $wpdb;
+
+		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+		if ( empty( $post_ids ) ) {
+			return;
+		}
+
+		foreach ( array_chunk( $post_ids, self::CASCADE_CHUNK ) as $chunk ) {
+			$in = implode( ',', array_map( 'absint', $chunk ) );
+
+			// Comment ids for these posts, gathered before the comments go, so the
+			// comment-keyed sweep below has its targets.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $in is an absint-mapped id list, injection-safe.
+			$comment_ids = $wpdb->get_col( "SELECT id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})" );
+
+			// Comment-keyed child rows first (reactions/notifications/reports whose
+			// object_type='comment'), chunked the same way for a post carrying tens
+			// of thousands of comments.
+			$comment_ids = array_values( array_filter( array_map( 'absint', (array) $comment_ids ) ) );
+			foreach ( array_chunk( $comment_ids, self::CASCADE_CHUNK ) as $comment_chunk ) {
+				$cin = implode( ',', array_map( 'absint', $comment_chunk ) );
+				$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'comment' AND object_id IN ({$cin})" );
+				$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'comment' AND object_id IN ({$cin})" );
+				$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'comment' AND object_id IN ({$cin})" );
+			}
+
+			// Post-keyed child rows.
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_poll_votes WHERE post_id IN ({$in})" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_poll_options WHERE post_id IN ({$in})" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'post' AND object_id IN ({$in})" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_shares WHERE post_id IN ({$in})" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE post_id IN ({$in})" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id IN ({$in})" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id IN ({$in})" );
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		}
 	}
 
 	/**
@@ -2255,10 +2269,17 @@ class PostService {
 
 		global $wpdb;
 
+		// Resolve the matching posts FIRST, then route them through the shared
+		// cascade. The old bare `DELETE FROM bn_posts` removed the post rows and
+		// left every child row (comment reactions, notifications, reports, poll
+		// data, shares, bookmarks, hashtags) orphaned — the exact class card
+		// 10264292876 exists to close, on the one delete path that never used the
+		// cascade. Reading id + space_id also lets the per-post hook fire so the
+		// search index and other buddynext_post_deleted listeners drop the card.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$deleted = (int) $wpdb->query(
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"DELETE FROM {$wpdb->prefix}bn_posts
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
 				 WHERE type = %s
 				   AND link_meta IS NOT NULL
 				   AND JSON_VALID( link_meta )
@@ -2266,9 +2287,48 @@ class PostService {
 				$type,
 				'$.' . $meta_key,
 				$value
-			)
+			),
+			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		if ( empty( $rows ) ) {
+			return 0;
+		}
+
+		$post_ids  = array_map( static fn( array $r ): int => (int) $r['id'], $rows );
+		$space_ids = array();
+		foreach ( $rows as $r ) {
+			$sid = (int) $r['space_id'];
+			if ( $sid > 0 ) {
+				$space_ids[ $sid ] = true;
+			}
+		}
+
+		// Clear children, then the post rows themselves (chunked to match).
+		$this->cascade_post_children( $post_ids );
+
+		$deleted = 0;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $in is an absint-mapped id list, injection-safe.
+		foreach ( array_chunk( $post_ids, self::CASCADE_CHUNK ) as $chunk ) {
+			$in       = implode( ',', array_map( 'absint', $chunk ) );
+			$deleted += (int) $wpdb->query( "DELETE FROM {$wpdb->prefix}bn_posts WHERE id IN ({$in})" );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+
+		// Bust caches and fire the delete hook per post so listeners (search index,
+		// trending, streaks, webhooks, hashtags, embeddings, analytics) clean up —
+		// a system delete, so user id 0.
+		foreach ( $post_ids as $pid ) {
+			wp_cache_delete( "post_{$pid}", self::CACHE_GROUP );
+			/** Documented in delete(). */
+			do_action( 'buddynext_post_deleted', $pid, 0 );
+		}
+
+		// One invalidation per affected space (documented in create()).
+		foreach ( array_keys( $space_ids ) as $sid ) {
+			do_action( 'buddynext_space_posts_changed', $sid );
+		}
 
 		return $deleted;
 	}
