@@ -1550,7 +1550,18 @@ class ModerationController extends BaseRestController {
 			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
-		( new ModerationService() )->set_shadow_ban( $user_id );
+		// Use the actor-aware shadow_ban() (not the set_shadow_ban() primitive),
+		// so the buddynext_user_shadow_banned hook fires with the real moderator id
+		// instead of actor 0 — every listener otherwise records a human action as a
+		// system one (card 10264294189). The route permission_callback already
+		// admits only a moderator; the method re-checks is_site_moderator() and we
+		// surface any refusal. The explicit log() below stays — nothing on the hook
+		// writes bn_mod_log (the listener only re-indexes search), so this is the
+		// audit row, and it already carries the correct current-user actor.
+		$bn_result = ( new ModerationService() )->shadow_ban( $user_id, get_current_user_id() );
+		if ( is_wp_error( $bn_result ) ) {
+			return $bn_result;
+		}
 
 		( new ModerationLogService() )->log( get_current_user_id(), 'shadow_ban', array( 'target_user_id' => $user_id ) );
 
@@ -1576,7 +1587,12 @@ class ModerationController extends BaseRestController {
 			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
-		( new ModerationService() )->remove_shadow_ban( $user_id );
+		// Actor-aware unshadow_ban() so the removal hook fires with the real
+		// moderator id, not actor 0 (card 10264294189). Audit log() kept below.
+		$bn_result = ( new ModerationService() )->unshadow_ban( $user_id, get_current_user_id() );
+		if ( is_wp_error( $bn_result ) ) {
+			return $bn_result;
+		}
 
 		( new ModerationLogService() )->log( get_current_user_id(), 'remove_shadow_ban', array( 'target_user_id' => $user_id ) );
 
