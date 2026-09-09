@@ -34,8 +34,19 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 FREE = os.path.dirname(HERE)
 PRO = os.environ.get("BUDDYNEXT_PRO_PATH", os.path.join(os.path.dirname(FREE), "buddynext-pro"))
-COOKBOOK = os.path.join(FREE, "docs", "website", "developer-guide", "41-extending-cookbook.md")
+COOKBOOK_DIR = os.path.join(FREE, "docs", "website", "developer-guide")
 BASELINE = os.path.join(HERE, "check-cookbook-hooks.baseline")
+
+
+def cookbook_files():
+    """Every developer-guide cookbook doc, not just the extending recipes.
+
+    A wrong hook/service name can drift in ANY recipe doc — the drifts this gate
+    was filed to catch were in 23-rest-webhooks.md and 28-hooks-*.md, which the
+    single-file scan never looked at (card 10264294920). Sorted for stable output.
+    """
+    import glob
+    return sorted(glob.glob(os.path.join(COOKBOOK_DIR, "*.md")))
 
 HOOK_CALL = re.compile(
     r"\b(?:add_action|add_filter|apply_filters|apply_filters_ref_array|do_action|do_action_ref_array)\s*\(\s*'([a-z0-9_]+)'"
@@ -62,10 +73,29 @@ def walk_php(root):
 
 
 def collect_defined(roots):
-    """Every hook name fired and every service id bound across the given repos."""
-    hooks, services = set(), set()
+    """Every hook name fired and every service id bound across the given repos.
+
+    Beyond string-literal hook calls, this also resolves two real patterns the
+    earlier version missed and false-flagged (card 10264294920):
+
+      - Constant/variable hook names — apply_filters( self::FILTER_MANIFEST, … )
+        where `FILTER_MANIFEST = 'buddynext_pwa_manifest'`. Any buddynext_* string
+        literal ASSIGNED in the source is treated as a known name, so a recipe that
+        names the real hook resolves; a typo that appears nowhere still fails.
+      - Dynamic hooks — apply_filters( "buddynext_feature_{$slug}", … ). The static
+        prefix (`buddynext_feature_`) is captured so a concrete example like
+        buddynext_feature_sidebar resolves.
+
+    Returns (hooks, services, dynamic_prefixes).
+    """
+    hooks, services, prefixes = set(), set(), set()
     fire = re.compile(r"\b(?:do_action|do_action_ref_array|apply_filters|apply_filters_ref_array)\s*\(\s*'([a-z0-9_]+)'")
     bind = re.compile(r"->(?:bind|singleton|instance)\s*\(\s*'([a-z0-9_]+)'")
+    # A buddynext_* string literal assigned to a const or variable (a hook name held
+    # in a constant, e.g. `const FILTER_MANIFEST = 'buddynext_pwa_manifest';`).
+    assign = re.compile(r"=\s*'((?:buddynext_|buddynextpro_)[a-z0-9_]+)'")
+    # A dynamic hook: "buddynext_..._{$var}" — capture the static prefix.
+    dynamic = re.compile(r'"((?:buddynext_|buddynextpro_)[a-z0-9_]*?)\{\$')
     for root in roots:
         if not os.path.isdir(root):
             continue
@@ -73,7 +103,9 @@ def collect_defined(roots):
             src = read(php)
             hooks.update(fire.findall(src))
             services.update(bind.findall(src))
-    return hooks, services
+            hooks.update(assign.findall(src))
+            prefixes.update(dynamic.findall(src))
+    return hooks, services, prefixes
 
 
 def load_baseline():
@@ -88,23 +120,33 @@ def load_baseline():
 
 
 def main():
-    if not os.path.isfile(COOKBOOK):
-        print(f"cookbook not found at {COOKBOOK}", file=sys.stderr)
+    files = cookbook_files()
+    if not files:
+        print(f"no cookbook docs found under {COOKBOOK_DIR}", file=sys.stderr)
         return 1
 
-    defined_hooks, defined_services = collect_defined([FREE, PRO])
+    defined_hooks, defined_services, dynamic_prefixes = collect_defined([FREE, PRO])
     baseline = load_baseline()
 
+    def hook_known(name):
+        if name in defined_hooks or name in baseline:
+            return True
+        return any(pref and name.startswith(pref) for pref in dynamic_prefixes)
+
     problems = []
-    for block in FENCE.findall(read(COOKBOOK)):
-        for name in HOOK_CALL.findall(block):
-            if not name.startswith(BUDDYNEXT_PREFIX):
-                continue  # WP core / partner hook, out of scope.
-            if name not in defined_hooks and name not in baseline:
-                problems.append(f"hook '{name}' is used in a cookbook recipe but fired nowhere in Free or Pro")
-        for sid in SERVICE_CALL.findall(block):
-            if sid not in defined_services and sid not in baseline:
-                problems.append(f"service id '{sid}' is used in a cookbook recipe but bound nowhere in Free or Pro")
+    hook_refs = 0
+    for path in files:
+        rel = os.path.basename(path)
+        for block in FENCE.findall(read(path)):
+            for name in HOOK_CALL.findall(block):
+                if not name.startswith(BUDDYNEXT_PREFIX):
+                    continue  # WP core / partner hook, out of scope.
+                hook_refs += 1
+                if not hook_known(name):
+                    problems.append(f"{rel}: hook '{name}' is used in a recipe but fired nowhere in Free or Pro")
+            for sid in SERVICE_CALL.findall(block):
+                if sid not in defined_services and sid not in baseline:
+                    problems.append(f"{rel}: service id '{sid}' is used in a recipe but bound nowhere in Free or Pro")
 
     problems = sorted(set(problems))
     if problems:
@@ -118,8 +160,7 @@ def main():
         )
         return 1
 
-    hook_refs = sum(1 for b in FENCE.findall(read(COOKBOOK)) for _ in HOOK_CALL.findall(b))
-    print(f"cookbook hooks clean — every buddynext_* hook/service a recipe calls resolves in Free or Pro ({hook_refs} hook refs, {len(defined_services)} services known)")
+    print(f"cookbook hooks clean — every buddynext_* hook/service a recipe calls resolves in Free or Pro ({hook_refs} hook refs across {len(files)} docs, {len(defined_services)} services known)")
     return 0
 
 
