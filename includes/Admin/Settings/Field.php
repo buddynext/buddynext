@@ -240,12 +240,16 @@ final class Field {
 	/**
 	 * Resolved sanitize callback: the per-field override, else the type default.
 	 *
-	 * For a number field that declares min and/or max, the resolved sanitizer
-	 * CLAMPS to those bounds rather than using the bare absint default. min/max
-	 * were previously enforced only as HTML attributes, so a hand-crafted POST
-	 * persisted out-of-range values (e.g. a 0-100 percent saved as 500). Clamping
-	 * on save makes the stored value honour the same bounds the UI shows, for every
-	 * number field at once (card 10285238883).
+	 * A field that declares min and/or max CLAMPS to those bounds on save rather
+	 * than using the bare type default. min/max were previously enforced only as
+	 * HTML attributes, so a hand-crafted POST (or a settings-import/migration tool)
+	 * persisted out-of-range values that the consumer then acted on.
+	 *
+	 * - number: clamp the integer directly (card 10285238883).
+	 * - optional_limit: keep the type's own _limited handling (0 = limit off, which
+	 *   must NOT be clamped up to min), then clamp the active value. The bare
+	 *   sanitizer honoured neither bound, so e.g. data_retention_days (max 3650)
+	 *   persisted 999999 (card 10287133334). One place, both branches.
 	 *
 	 * @return callable|string
 	 */
@@ -254,21 +258,41 @@ final class Field {
 			return $this->sanitize;
 		}
 
-		if ( 'number' === $this->type && ( null !== $this->min || null !== $this->max ) ) {
-			$min = $this->min;
-			$max = $this->max;
+		$min        = $this->min;
+		$max        = $this->max;
+		$has_bounds = ( null !== $min || null !== $max );
+
+		if ( 'number' === $this->type && $has_bounds ) {
 			return static function ( $value ) use ( $min, $max ): int {
-				$n = (int) $value;
-				if ( null !== $min ) {
-					$n = max( $min, $n );
-				}
-				if ( null !== $max ) {
-					$n = min( $max, $n );
-				}
-				return $n;
+				return self::clamp_to_bounds( (int) $value, $min, $max );
+			};
+		}
+
+		if ( 'optional_limit' === $this->type && $has_bounds ) {
+			return static function ( $value ) use ( $min, $max ): int {
+				$n = FieldTypes::sanitize_optional_limit( $value );
+				return 0 === $n ? 0 : self::clamp_to_bounds( $n, $min, $max );
 			};
 		}
 
 		return FieldTypes::sanitizer( $this->type );
+	}
+
+	/**
+	 * Clamp an integer into declared [min, max] bounds (either bound may be null).
+	 *
+	 * @param int      $n   Value to clamp.
+	 * @param int|null $min Lower bound, or null for none.
+	 * @param int|null $max Upper bound, or null for none.
+	 * @return int
+	 */
+	private static function clamp_to_bounds( int $n, ?int $min, ?int $max ): int {
+		if ( null !== $min ) {
+			$n = max( $min, $n );
+		}
+		if ( null !== $max ) {
+			$n = min( $max, $n );
+		}
+		return $n;
 	}
 }

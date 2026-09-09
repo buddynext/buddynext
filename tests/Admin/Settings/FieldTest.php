@@ -148,4 +148,68 @@ class FieldTest extends \WP_UnitTestCase {
 		$sanitize = $field->sanitizer();
 		$this->assertSame( 1, $sanitize( 0 ), '0 must clamp to 1 (no accidental suspend-on-first-strike).' );
 	}
+
+	/**
+	 * Run a field's resolved sanitizer inside the sanitize_option_{key} filter, so
+	 * the optional_limit type resolves the option name from current_filter() and
+	 * reads $_POST[{key}_limited] exactly as WordPress drives it on save.
+	 *
+	 * @param Field $field   The field whose sanitizer to run.
+	 * @param mixed $value   Raw posted value.
+	 * @param bool  $limited Whether the "_limited" toggle is checked.
+	 * @return int
+	 */
+	private function run_sanitizer( Field $field, $value, bool $limited ): int {
+		$key = $field->key;
+		$cb  = $field->sanitizer();
+		add_filter( "sanitize_option_{$key}", $cb, 10, 1 );
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- test harness sets the posted toggle directly.
+		$_POST = $limited ? array( $key . '_limited' => '1' ) : array();
+		$out   = (int) apply_filters( "sanitize_option_{$key}", $value );
+		remove_filter( "sanitize_option_{$key}", $cb, 10 );
+		$_POST = array();
+		return $out;
+	}
+
+	/**
+	 * The optional_limit type honours the same declared max as number (card
+	 * 10287133334): the "limit on" branch was previously bounded only by max(1,…),
+	 * so a crafted POST persisted any integer past the declared max.
+	 *
+	 * @return void
+	 */
+	public function test_optional_limit_clamps_to_declared_max_when_on(): void {
+		$field = new Field(
+			array(
+				'key' => 'buddynext_data_retention_days',
+				'type' => 'optional_limit',
+				'min' => 0,
+				'max' => 3650,
+			)
+		);
+
+		$this->assertSame( 3650, $this->run_sanitizer( $field, 999999, true ), 'Above-max clamps to the declared max.' );
+		$this->assertSame( 500, $this->run_sanitizer( $field, 500, true ), 'In-range value is kept.' );
+	}
+
+	/**
+	 * The optional_limit "limit off" branch (toggle unchecked) still stores 0 and
+	 * is NEVER clamped up to min — 0 means "no limit", not an out-of-range value.
+	 *
+	 * @return void
+	 */
+	public function test_optional_limit_off_stores_zero_and_is_not_clamped(): void {
+		$field = new Field(
+			array(
+				'key' => 'buddynext_reg_rate_limit',
+				'type' => 'optional_limit',
+				'min' => 0,
+				'max' => 100,
+			)
+		);
+
+		$this->assertSame( 0, $this->run_sanitizer( $field, 999999, false ), 'Toggle off stores 0 (limit disabled), unclamped.' );
+		$this->assertSame( 100, $this->run_sanitizer( $field, 5000, true ), 'Toggle on clamps to the declared max.' );
+		$this->assertSame( 1, $this->run_sanitizer( $field, 0, true ), 'On + 0 keeps the max(1,…) floor.' );
+	}
 }
