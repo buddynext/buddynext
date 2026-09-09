@@ -54,6 +54,14 @@ var discussionSearchTimer = null;
 var parentSearchTimer     = null;
 
 /**
+ * Candidate parents the server returns per page (SpaceService::eligible_parents()
+ * default LIMIT). A full page is the signal that more matches exist, so the
+ * picker can offer a "keep typing" affordance. Keep in step with that default.
+ * @type {number}
+ */
+var PARENT_PAGE = 20;
+
+/**
  * Mark the space-settings form that owns `el` dirty so the sticky savebar
  * appears — used by the Discussion picker, which mutates a hidden field the
  * form's input/change listeners don't otherwise see.
@@ -215,6 +223,27 @@ async function renderParentResults( picker, q ) {
 
 	// Preserve the current selection when it survived the rebuild.
 	if ( select.querySelector( 'option[value="' + selected + '"]' ) ) { select.value = selected; }
+
+	// Empty / partial-page affordance. Without it, a search that matches nothing
+	// and a search that matched more than one page both just show a short list,
+	// and the owner cannot tell "no such space" from "keep typing" — the exact
+	// ambiguity the RFT verdict flagged. The server returns up to PARENT_PAGE
+	// eligible candidates (cap now filtered in SQL, so a full page really means
+	// more exist), so length is a reliable signal.
+	var status = picker.querySelector( '[data-bn-parent-status]' );
+	if ( status ) {
+		var qShown = q.trim();
+		if ( 0 === items.length && '' !== qShown ) {
+			status.textContent = t( 'parentNoMatch', 'No top-level spaces you manage match that name.' );
+			status.hidden = false;
+		} else if ( items.length >= PARENT_PAGE ) {
+			status.textContent = t( 'parentMoreExist', 'Showing the first matches — keep typing to narrow the list.' );
+			status.hidden = false;
+		} else {
+			status.textContent = '';
+			status.hidden = true;
+		}
+	}
 }
 
 /**

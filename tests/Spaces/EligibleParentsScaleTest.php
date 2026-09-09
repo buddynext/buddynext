@@ -96,6 +96,88 @@ class EligibleParentsScaleTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Insert a sub-space under a parent and return its id.
+	 *
+	 * @param int    $owner_id  Owner user id.
+	 * @param int    $parent_id Parent root id.
+	 * @param string $name      Space name.
+	 * @return int
+	 */
+	private function make_child( int $owner_id, int $parent_id, string $name ): int {
+		global $wpdb;
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_spaces',
+			array(
+				'name'        => $name,
+				'slug'        => sanitize_title( $name ) . '-' . wp_generate_password( 6, false ),
+				'owner_id'    => $owner_id,
+				'parent_id'   => $parent_id,
+				'is_archived' => 0,
+				'type'        => 'public',
+			),
+			array( '%s', '%s', '%d', '%d', '%d', '%s' )
+		);
+		return (int) $wpdb->insert_id;
+	}
+
+	/**
+	 * With a per-parent sub-space cap set, a root already at the cap is filtered
+	 * out IN SQL — before LIMIT — so it neither appears as a candidate nor eats a
+	 * result slot, and the read stays bounded (no per-row count_subspaces() N+1).
+	 *
+	 * Guards the RFT edge: the cap used to be a per-row PHP filter applied AFTER
+	 * LIMIT, so capped-out roots sorting first could push valid parents past the
+	 * page with no way to reach them.
+	 *
+	 * @return void
+	 */
+	public function test_sub_space_cap_is_filtered_in_sql_before_limit(): void {
+		global $wpdb;
+
+		update_option( 'buddynext_space_allow_sub', '1' );
+		update_option( 'buddynext_space_max_sub_spaces', 2 );
+
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$mover = $this->make_root( $admin, 'Mover' );
+
+		// Two capped-out roots sorting FIRST (AAA…), each already holding 2 children.
+		$full1 = $this->make_root( $admin, 'AAA Full 1' );
+		$full2 = $this->make_root( $admin, 'AAA Full 2' );
+		foreach ( array( $full1, $full2 ) as $full ) {
+			$this->make_child( $admin, $full, 'child a' );
+			$this->make_child( $admin, $full, 'child b' );
+		}
+
+		// Two under-cap roots sorting LAST (ZZZ…).
+		$open1 = $this->make_root( $admin, 'ZZZ Open 1' );
+		$open2 = $this->make_root( $admin, 'ZZZ Open 2' );
+
+		$service = new SpaceService();
+
+		// Small LIMIT: the capped roots sort first, so a post-LIMIT PHP filter would
+		// have dropped them and returned fewer than the opens. SQL filtering keeps
+		// the opens in.
+		$ids = array_map(
+			static fn( array $row ): int => (int) $row['id'],
+			$service->eligible_parents( $mover, $admin, '', 3 )
+		);
+
+		$this->assertContains( $open1, $ids, 'An under-cap root must be offered.' );
+		$this->assertContains( $open2, $ids, 'An under-cap root must be offered.' );
+		$this->assertNotContains( $full1, $ids, 'A capped-out root must be filtered in SQL.' );
+		$this->assertNotContains( $full2, $ids, 'A capped-out root must be filtered in SQL.' );
+
+		// The cap join adds a single grouped scan, not a per-candidate query.
+		$service->eligible_parents( $mover, $admin, '', 20 );
+		$before = $wpdb->num_queries;
+		$service->eligible_parents( $mover, $admin, '', 20 );
+		$used = $wpdb->num_queries - $before;
+		$this->assertLessThanOrEqual( 3, $used, "cap-on read used {$used} queries — the cap must not re-query per candidate." );
+
+		delete_option( 'buddynext_space_max_sub_spaces' );
+	}
+
+	/**
 	 * Permission is filtered in SQL: a member (not owner/moderator) sees nothing.
 	 *
 	 * @return void

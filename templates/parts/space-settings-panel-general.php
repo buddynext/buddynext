@@ -373,6 +373,8 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 							><?php echo esc_html( (string) $bn_parent['name'] ); ?></option>
 						<?php endforeach; ?>
 					</select>
+					<?php // Live search status: distinguishes "no space matches your search" from "there are more than this page — keep typing". Populated by renderParentResults(); empty and hidden until a search runs. ?>
+					<p class="bn-space-settings__hint bn-parent-picker__status" role="status" aria-live="polite" data-bn-parent-status hidden></p>
 				</div>
 				<p class="bn-space-settings__hint">
 					<?php esc_html_e( 'Choose a space to nest this one under, or move it back to the top level. Only spaces you manage are listed. Start typing to search when there are many. Members and content are never moved — only where the space sits.', 'buddynext' ); ?>

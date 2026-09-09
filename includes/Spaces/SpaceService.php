@@ -2355,6 +2355,29 @@ class SpaceService {
 			$args[] = $user_id;
 		}
 
+		// When a per-parent sub-space cap is set, filter it IN SQL rather than per
+		// row after the fact. The old per-row count_subspaces() had two faults the
+		// RFT verdict caught: it was an N+1 (up to LIMIT extra queries), and it ran
+		// AFTER the LIMIT — so a capped-out root still consumed one of the 20 slots
+		// and the picker could return fewer than LIMIT candidates with no way to
+		// page to the ones it dropped, leaving a valid parent unreachable. A grouped
+		// child-count derived table (one indexed scan on parent_id, not one query
+		// per candidate) lets the cap live in WHERE, so LIMIT now applies to the
+		// already-eligible set and always yields up to LIMIT real candidates. Only
+		// added when a cap is actually set, so the uncapped path keeps the plain
+		// dir_name-index plan with no join.
+		$cap_join  = '';
+		$cap_where = '';
+		if ( $max_sub > 0 ) {
+			$cap_join  = "LEFT JOIN (
+				SELECT parent_id, COUNT(*) AS sub_count
+				FROM {$wpdb->prefix}bn_spaces
+				WHERE parent_id IS NOT NULL
+				GROUP BY parent_id
+			) sc ON sc.parent_id = s.id";
+			$cap_where = ' AND COALESCE( sc.sub_count, 0 ) < %d';
+		}
+
 		// Roots are canonically parent_id IS NULL (create() and detach both write
 		// NULL; nothing writes 0). Using IS NULL — not "IS NULL OR = 0" — lets the
 		// dir_name (parent_id, name) index serve the ORDER BY name LIMIT directly,
@@ -2368,13 +2391,19 @@ class SpaceService {
 			$args[] = '%' . $wpdb->esc_like( $search ) . '%';
 		}
 
+		// Cap placeholder binds after the WHERE values, before LIMIT — matching the
+		// order the clauses appear in the final SQL.
+		if ( $max_sub > 0 ) {
+			$args[] = $max_sub;
+		}
+
 		$args[] = $limit;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Bounded (LIMIT), permission-scoped read for one settings screen; $join/$where are literal clauses, values bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT s.id, s.name FROM {$wpdb->prefix}bn_spaces s {$join}
-				 WHERE {$where}
+				"SELECT s.id, s.name FROM {$wpdb->prefix}bn_spaces s {$join} {$cap_join}
+				 WHERE {$where}{$cap_where}
 				 ORDER BY s.name ASC
 				 LIMIT %d",
 				$args
@@ -2385,17 +2414,8 @@ class SpaceService {
 
 		$out = array();
 		foreach ( (array) $rows as $row ) {
-			$candidate = (int) $row['id'];
-
-			// The per-parent sub-space cap is the one check left in PHP, and it is
-			// now bounded: at most LIMIT rows, so at most LIMIT count queries, not
-			// one per root space on the site.
-			if ( $max_sub > 0 && $this->count_subspaces( $candidate ) >= $max_sub ) {
-				continue;
-			}
-
 			$out[] = array(
-				'id'   => $candidate,
+				'id'   => (int) $row['id'],
 				'name' => (string) $row['name'],
 			);
 		}
