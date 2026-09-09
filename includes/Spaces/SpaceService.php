@@ -2032,17 +2032,11 @@ class SpaceService {
 		$limit  = max( 1, min( 50, $limit ) );
 		$offset = max( 0, $offset );
 
+		// The hidden-category exclusion (a reserved hub such as a Wellbee Circle must
+		// not surface on its visible parent's rail) is applied inside
+		// subspace_visibility_filter() so this LIST and count_visible_subspaces()/
+		// count_visible_subspaces_for() share ONE definition and cannot diverge.
 		list( $where, $params ) = $this->subspace_visibility_where( $parent_id, $viewer_id, $is_admin );
-
-		// A sub-space rail is a discovery surface, so it honours category curation
-		// like the directory does: a child in a show_in_dir = 0 category (a reserved
-		// hub such as a Wellbee Circle) must not surface on its visible parent's
-		// rail. Applies to admins too — category curation, not per-space privacy. A
-		// member still reaches such a space directly or via "my spaces".
-		$hidden_clause = $this->hidden_category_directory_clause();
-		if ( '1=1' !== $hidden_clause ) {
-			$where[] = $hidden_clause;
-		}
 
 		$where_sql = 'WHERE ' . implode( ' AND ', $where );
 		$params[]  = $limit;
@@ -2183,6 +2177,19 @@ class SpaceService {
 					$where[] = "type NOT IN ( {$placeholders} )";
 				}
 			}
+		}
+
+		// Category curation, applied to the LIST and the COUNT from this one place so
+		// they can never diverge (the promise the class docblock above makes): a child
+		// in a show_in_dir = 0 category (a reserved hub such as a Wellbee Circle) is
+		// excluded from a sub-space rail AND from its "N sub-spaces" count. Unlike the
+		// secret-type scope above this is NOT an admin bypass — it is curation, not
+		// per-space privacy — so it sits outside the ! $is_admin guard. The clause is a
+		// self-contained integer-cast IN() list (no bound params), and is '1=1' when
+		// nothing is hidden. Card 10280255044.
+		$hidden_clause = $this->hidden_category_directory_clause();
+		if ( '1=1' !== $hidden_clause ) {
+			$where[] = $hidden_clause;
 		}
 
 		return array( $where, $params );
