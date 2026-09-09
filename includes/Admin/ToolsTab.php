@@ -465,14 +465,13 @@ class ToolsTab {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer().
 		$what    = isset( $_POST['what'] ) ? sanitize_key( wp_unslash( (string) $_POST['what'] ) ) : '';
 		$counter = new CounterService();
-		global $wpdb;
 
 		switch ( $what ) {
 			case 'space_members':
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				foreach ( (array) $wpdb->get_col( "SELECT id FROM {$wpdb->prefix}bn_spaces" ) as $id ) {
-					$counter->recount_space_members( (int) $id );
-				}
+				// Set-based reconcile of every space's member_count in one drift-guarded
+				// UPDATE ... LEFT JOIN (scale-safe — the old per-space loop ran one COUNT
+				// per space and timed out on large sites).
+				$counter->recount_all_space_members();
 				break;
 			case 'follow_counts':
 				// Set-based reconcile of every existing counter row (scale-safe — the
@@ -484,11 +483,10 @@ class ToolsTab {
 				$counter->recount_all_connection_counts();
 				break;
 			case 'post_engagement':
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				foreach ( (array) $wpdb->get_col( "SELECT id FROM {$wpdb->prefix}bn_posts" ) as $id ) {
-					$counter->recount_post_reactions( (int) $id );
-					$counter->recount_post_comments( (int) $id );
-				}
+				// Set-based reconcile of BOTH reaction_count and comment_count across
+				// every post in two UPDATE ... LEFT JOIN passes (scale-safe — the old
+				// per-post loop ran two COUNTs per post). Empty arg = all posts.
+				( new \BuddyNext\Feed\PostService() )->recount_counters();
 				break;
 			case 'poll_votes':
 				// Purge cross-linked votes and reconcile every option's counter in

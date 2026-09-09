@@ -440,16 +440,18 @@ class BookmarkService {
 		$post_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : new PostService();
 		$visible_ids  = $post_service->filter_visible( $post_ids, $user_id );
 
-		$items = array();
-		foreach ( $post_ids as $pid ) {
-			if ( ! in_array( $pid, $visible_ids, true ) ) {
-				continue;
-			}
-			$post = $post_service->get( $pid );
-			if ( null !== $post ) {
-				$items[] = $post;
-			}
-		}
+		// Keep bookmark order, drop the ids the visibility gate removed, then hydrate
+		// the whole page in ONE query via get_many() instead of one get() per row
+		// (the N+1 this page used to run). get_many() preserves the id order it is
+		// given and skips any post that no longer exists.
+		$ordered_visible = array_values(
+			array_filter(
+				array_map( 'intval', $post_ids ),
+				static fn ( int $pid ): bool => in_array( $pid, $visible_ids, true )
+			)
+		);
+
+		$items = $post_service->get_many( $ordered_visible );
 
 		return array(
 			'items'       => $items,

@@ -350,8 +350,15 @@ class Installer {
 	 *      CronScheduler::run_cron_migration(), which clears the retired recurring
 	 *      sweep action and drops the now-unused table on any install that ran 50.
 	 *      No new table is created here; the dbDelta pass is a no-op beyond the drop.
+	 *
+	 *  52: Scale sweep (card 10284805802). Adds bn_space_members KEY
+	 *      user_status_joined (user_id, status, joined_at) so the "my spaces" reads
+	 *      (spaces_for_user / membership_rows: WHERE user_id + status='active' ORDER
+	 *      BY joined_at DESC) satisfy the sort from the index instead of filesorting
+	 *      every active membership. dbDelta ADDs the KEY (the existing user_status is
+	 *      its strict prefix and stays; dropping it would need a non-dbDelta ALTER).
 	 */
-	private const SCHEMA_VERSION = 51;
+	private const SCHEMA_VERSION = 52;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3561,6 +3568,7 @@ class Installer {
 				PRIMARY KEY       (space_id, user_id),
 				KEY               user_role (user_id, role),
 				KEY               user_status (user_id, status),
+				KEY               user_status_joined (user_id, status, joined_at),
 				KEY               space_status (space_id, status, joined_at),
 				KEY               pending_all (status, joined_at)
 			) {$cs};",
