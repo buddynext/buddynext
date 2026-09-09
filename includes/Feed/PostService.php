@@ -2010,14 +2010,31 @@ class PostService {
 			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id )
 		);
 
-		// Cascade every child row keyed to this post (and to its comments) before
-		// the post itself is removed. The full sweep lives in one shared routine so
-		// every delete path clears the same rows — delete_by_link_meta_int() routes
-		// through it too. See cascade_post_children() for what is and is not swept.
+		// Cascade every child row keyed to this post (and to its comments), then the
+		// post itself, INSIDE one transaction so the delete is all-or-nothing. The
+		// child sweep + the row delete are several statements; a PHP timeout or fatal
+		// between them (the realistic "mid-way failure" on a post carrying thousands
+		// of comments) used to leave orphaned reactions/comments/notifications behind.
+		// InnoDB rolls an uncommitted transaction back on a dropped connection, so a
+		// death before COMMIT leaves the post and all its children intact rather than
+		// half-swept; a query error rolls back explicitly. All bn_ tables are InnoDB
+		// (on a non-transactional engine these are harmless no-ops). Card 10264292876.
+		// The full sweep lives in one shared routine so every delete path clears the
+		// same rows — delete_by_link_meta_int() routes through it too.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		$wpdb->query( 'START TRANSACTION' );
 		$this->cascade_post_children( array( $post_id ) );
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
+		if ( '' !== (string) $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error(
+				'post_delete_failed',
+				__( 'The post could not be deleted. Please try again.', 'buddynext' ),
+				array( 'status' => 500 )
+			);
+		}
+		$wpdb->query( 'COMMIT' );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
