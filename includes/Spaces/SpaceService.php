@@ -2302,11 +2302,13 @@ class SpaceService {
 	 * children would end up three deep). Callers should read that empty list as
 	 * "no move is possible", and say why.
 	 *
-	 * @param int $space_id The space being moved.
-	 * @param int $user_id  Acting user.
+	 * @param int    $space_id The space being moved.
+	 * @param int    $user_id  Acting user.
+	 * @param string $search   Optional name filter for the search-as-you-type picker.
+	 * @param int    $limit    Max candidates to return (bounded 1-50; default 20).
 	 * @return array<int,array{id:int,name:string}> Candidate parents, by name.
 	 */
-	public function eligible_parents( int $space_id, int $user_id ): array {
+	public function eligible_parents( int $space_id, int $user_id, string $search = '', int $limit = 20 ): array {
 		$space_id = absint( $space_id );
 		$user_id  = absint( $user_id );
 
@@ -2325,30 +2327,61 @@ class SpaceService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bounded owner-scoped read on an indexed column, for one settings screen.
+		$limit    = max( 1, min( 50, $limit ) );
+		$is_admin = user_can( $user_id, 'manage_options' );
+		$max_sub  = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
+
+		// Permission filtered IN SQL, not per row. This used to load EVERY root
+		// space and call permissions->can() on each — hundreds to tens of
+		// thousands of queries on a large community, so the settings page would
+		// not open at scale. A site admin manages every space; anyone else needs an
+		// active owner/moderator membership on the candidate root, which is exactly
+		// what buddynext-manage-space resolves to (PermissionService::can_manage_space).
+		// Bounded by LIMIT and searchable, so the picker is a typeahead, not a dump.
+		$args = array();
+		$join = '';
+		if ( ! $is_admin ) {
+			$join   = "INNER JOIN {$wpdb->prefix}bn_space_members m
+				ON m.space_id = s.id AND m.user_id = %d
+				AND m.status = 'active' AND m.role IN ( 'owner', 'moderator' )";
+			$args[] = $user_id;
+		}
+
+		// Roots are canonically parent_id IS NULL (create() and detach both write
+		// NULL; nothing writes 0). Using IS NULL — not "IS NULL OR = 0" — lets the
+		// dir_name (parent_id, name) index serve the ORDER BY name LIMIT directly,
+		// so there is no filesort over every root space at scale.
+		$where  = 's.parent_id IS NULL AND s.id <> %d AND s.is_archived = 0';
+		$args[] = $space_id;
+
+		$search = trim( $search );
+		if ( '' !== $search ) {
+			$where .= ' AND s.name LIKE %s';
+			$args[] = '%' . $wpdb->esc_like( $search ) . '%';
+		}
+
+		$args[] = $limit;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Bounded (LIMIT), permission-scoped read for one settings screen; $join/$where are literal clauses, values bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, name FROM {$wpdb->prefix}bn_spaces
-				 WHERE ( parent_id IS NULL OR parent_id = 0 )
-				   AND id <> %d
-				   AND is_archived = 0
-				 ORDER BY name ASC",
-				$space_id
+				"SELECT s.id, s.name FROM {$wpdb->prefix}bn_spaces s {$join}
+				 WHERE {$where}
+				 ORDER BY s.name ASC
+				 LIMIT %d",
+				$args
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		$max_sub = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
-		$out     = array();
-
+		$out = array();
 		foreach ( (array) $rows as $row ) {
 			$candidate = (int) $row['id'];
 
-			// Owner-only, exactly as the service enforces on save.
-			if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $candidate ) ) ) {
-				continue;
-			}
-
+			// The per-parent sub-space cap is the one check left in PHP, and it is
+			// now bounded: at most LIMIT rows, so at most LIMIT count queries, not
+			// one per root space on the site.
 			if ( $max_sub > 0 && $this->count_subspaces( $candidate ) >= $max_sub ) {
 				continue;
 			}

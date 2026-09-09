@@ -51,6 +51,7 @@ function bnSavebarRollback( form ) {
 
 /** Debounce handle for the Discussion search box. @type {number} */
 var discussionSearchTimer = null;
+var parentSearchTimer     = null;
 
 /**
  * Mark the space-settings form that owns `el` dirty so the sticky savebar
@@ -168,6 +169,52 @@ function setDiscussionEnabled( picker, enabled ) {
 	var row    = picker && picker.closest( '.bn-toggle-row' );
 	var toggle = row && row.querySelector( 'input[name="bn_discussion_enabled"]' );
 	if ( toggle ) { toggle.checked = !! enabled; }
+}
+
+/**
+ * Search-as-you-type for the "move under parent" picker. Fetches bounded,
+ * permission-scoped candidate parents from the server and rebuilds the select's
+ * dynamic options, keeping the pinned ones (Top level + the current parent) so a
+ * save can never silently detach. Server-side LIMIT keeps this fast at 20k+
+ * spaces — the picker never loads every root space.
+ *
+ * @param {Element} picker The [data-bn-parent-picker] wrapper.
+ * @param {string}  q      Name query.
+ */
+async function renderParentResults( picker, q ) {
+	var select  = picker.querySelector( '[data-bn-parent-select]' );
+	var spaceId = picker.getAttribute( 'data-space-id' );
+	if ( ! select || ! spaceId ) { return; }
+
+	var res = await restFetch(
+		'/spaces/' + spaceId + '/eligible-parents?q=' + encodeURIComponent( q ),
+		{ method: 'GET', nonce: resolveNonce(), toastOnError: false }
+	);
+	if ( ! res.ok ) {
+		if ( window.bnToast ) {
+			window.bnToast( t( 'parentSearchFailed', 'Could not search spaces. Check your connection and try again.' ), 'danger' );
+		}
+		return;
+	}
+
+	var items    = ( res.data && res.data.items ) || [];
+	var selected = select.value;
+
+	// Drop the previous result options; keep the pinned Top-level + current parent.
+	Array.prototype.slice.call( select.options ).forEach( function ( opt ) {
+		if ( 'true' !== opt.getAttribute( 'data-pinned' ) ) { select.removeChild( opt ); }
+	} );
+
+	items.forEach( function ( row ) {
+		if ( select.querySelector( 'option[value="' + row.id + '"]' ) ) { return; }
+		var opt = document.createElement( 'option' );
+		opt.value = String( row.id );
+		opt.textContent = row.name;
+		select.appendChild( opt );
+	} );
+
+	// Preserve the current selection when it survived the rebuild.
+	if ( select.querySelector( 'option[value="' + selected + '"]' ) ) { select.value = selected; }
 }
 
 /**
@@ -1377,6 +1424,26 @@ var storeInstance = store( 'buddynext/spaces', {
 			clearTimeout( discussionSearchTimer );
 			discussionSearchTimer = setTimeout( function () {
 				renderDiscussionResults( picker, q );
+			}, 250 );
+		},
+
+		/**
+		 * Debounced search as the owner types in the parent-space picker.
+		 * Rebuilds the select from a bounded, permission-scoped server query so
+		 * the picker scales to very large communities.
+		 *
+		 * @param {Event} event input on the parent search box.
+		 */
+		parentSearch: function ( event ) {
+			var input = event && event.target && event.target.closest( '[data-bn-parent-search]' );
+			if ( ! input ) { return; }
+			var picker = input.closest( '[data-bn-parent-picker]' );
+			if ( ! picker ) { return; }
+
+			var q = ( input.value || '' ).trim();
+			clearTimeout( parentSearchTimer );
+			parentSearchTimer = setTimeout( function () {
+				renderParentResults( picker, q );
 			}, 250 );
 		},
 

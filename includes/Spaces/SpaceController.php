@@ -214,6 +214,26 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// Search-as-you-type source for the "move under parent" picker on the
+		// space-settings screen — bounded + permission-scoped in SQL so it stays
+		// fast at 20k+ spaces (card 10264295263). Registered before '/spaces/{id}'.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/eligible-parents',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_eligible_parents' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'q' => array(
+						'type'              => 'string',
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)',
@@ -664,6 +684,37 @@ class SpaceController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'pref' => $pref ), 200 );
+	}
+
+	/**
+	 * Search-as-you-type candidate parent spaces for the move-under-parent picker.
+	 *
+	 * Gated on manage rights over the space being edited; the candidate list itself
+	 * is permission-scoped and bounded inside SpaceService::eligible_parents().
+	 *
+	 * @param WP_REST_Request $request Incoming request ('q' = search term).
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_eligible_parents( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+
+		if ( ! buddynext_can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You cannot manage this space.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$items = ( new SpaceService() )->eligible_parents(
+			$space_id,
+			$user_id,
+			(string) $request->get_param( 'q' ),
+			20
+		);
+
+		return new WP_REST_Response( array( 'items' => $items ), 200 );
 	}
 
 	/**

@@ -328,35 +328,54 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 
 			<?php else : ?>
 				<?php // Owner-only for the same reason as Category above — re-parenting is structural, and SpaceService::update() rejects a moderator. ?>
-				<select name="space_parent_id" id="space_parent_id" class="bn-select"
-					<?php disabled( ! $args['is_space_owner'] ); ?>
-				>
-					<option value="0" <?php selected( $bn_current_parent, 0 ); ?>>
-						<?php esc_html_e( 'Top level (no parent)', 'buddynext' ); ?>
-					</option>
-
-					<?php // The current parent, when it is not itself a move candidate (a root the actor does not manage). Keeping it selectable makes "leave it where it is" a real choice; without it, saving would detach. ?>
-					<?php if ( $bn_current_parent > 0 && ! $bn_parent_in_list ) : ?>
-						<option value="<?php echo esc_attr( (string) $bn_current_parent ); ?>" selected>
-							<?php
-							echo esc_html(
-								null !== $bn_parent_now && '' !== (string) ( $bn_parent_now['name'] ?? '' )
-									? (string) $bn_parent_now['name']
-									: __( 'Current parent space', 'buddynext' )
-							);
-							?>
+				<?php
+				// Search-as-you-type wrapper. The server returns only a bounded page
+				// of candidate parents (LIMIT 20), permission-filtered in SQL, so the
+				// picker scales to a very large community instead of loading every
+				// root space. Without JS the select still carries that first bounded
+				// page plus the pinned options, so the control degrades gracefully.
+				?>
+				<div class="bn-parent-picker" data-bn-parent-picker data-space-id="<?php echo esc_attr( (string) ( $bn_space->id ?? 0 ) ); ?>">
+					<input
+						type="search"
+						class="bn-input bn-parent-picker__search"
+						placeholder="<?php esc_attr_e( 'Search top-level spaces…', 'buddynext' ); ?>"
+						aria-label="<?php esc_attr_e( 'Search top-level spaces to nest this one under', 'buddynext' ); ?>"
+						autocomplete="off"
+						data-bn-parent-search
+						data-wp-on--input="actions.parentSearch"
+						<?php disabled( ! $args['is_space_owner'] ); ?>
+					>
+					<select name="space_parent_id" id="space_parent_id" class="bn-select" data-bn-parent-select
+						<?php disabled( ! $args['is_space_owner'] ); ?>
+					>
+						<option value="0" data-pinned="true" <?php selected( $bn_current_parent, 0 ); ?>>
+							<?php esc_html_e( 'Top level (no parent)', 'buddynext' ); ?>
 						</option>
-					<?php endif; ?>
 
-					<?php foreach ( $bn_eligible_parents as $bn_parent ) : ?>
-						<option
-							value="<?php echo esc_attr( (string) $bn_parent['id'] ); ?>"
-							<?php selected( $bn_current_parent, (int) $bn_parent['id'] ); ?>
-						><?php echo esc_html( (string) $bn_parent['name'] ); ?></option>
-					<?php endforeach; ?>
-				</select>
+						<?php // The current parent, when it is not itself a move candidate (a root the actor does not manage). Pinned so search never drops it — keeping it selectable makes "leave it where it is" a real choice; without it, saving would detach. ?>
+						<?php if ( $bn_current_parent > 0 && ! $bn_parent_in_list ) : ?>
+							<option value="<?php echo esc_attr( (string) $bn_current_parent ); ?>" data-pinned="true" selected>
+								<?php
+								echo esc_html(
+									null !== $bn_parent_now && '' !== (string) ( $bn_parent_now['name'] ?? '' )
+										? (string) $bn_parent_now['name']
+										: __( 'Current parent space', 'buddynext' )
+								);
+								?>
+							</option>
+						<?php endif; ?>
+
+						<?php foreach ( $bn_eligible_parents as $bn_parent ) : ?>
+							<option
+								value="<?php echo esc_attr( (string) $bn_parent['id'] ); ?>"
+								<?php selected( $bn_current_parent, (int) $bn_parent['id'] ); ?>
+							><?php echo esc_html( (string) $bn_parent['name'] ); ?></option>
+						<?php endforeach; ?>
+					</select>
+				</div>
 				<p class="bn-space-settings__hint">
-					<?php esc_html_e( 'Choose a space to nest this one under, or move it back to the top level. Only spaces you manage are listed. Members and content are never moved — only where the space sits.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Choose a space to nest this one under, or move it back to the top level. Only spaces you manage are listed. Start typing to search when there are many. Members and content are never moved — only where the space sits.', 'buddynext' ); ?>
 				</p>
 			<?php endif; ?>
 		</div>
