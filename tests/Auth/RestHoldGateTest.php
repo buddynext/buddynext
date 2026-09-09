@@ -179,6 +179,34 @@ class RestHoldGateTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Lifting the suspension restores writes: the same write that was held returns
+	 * to its handler (no gate 403 + appeal_url). The gate holds by HTTP method at
+	 * the rest_pre_dispatch chokepoint, so it is route-agnostic across the namespace
+	 * — a single write route is representative of "every write route" (card
+	 * 10264293681).
+	 *
+	 * @return void
+	 */
+	public function test_unsuspending_restores_writes(): void {
+		wp_set_current_user( $this->member );
+		$this->suspend_member();
+
+		list( $held_status, $held_data ) = $this->react_response();
+		$this->assertSame( 403, $held_status, 'Precondition: the write is held while suspended.' );
+		$this->assertNotEmpty( $held_data['data']['appeal_url'] ?? '', 'Precondition: the hold carries appeal_url.' );
+
+		// unsuspend() is the mechanism-level lift (no actor permission guard) — the
+		// test only needs the suspended STATE cleared, not to exercise moderator auth.
+		( new \BuddyNext\Moderation\ModerationService() )->unsuspend( $this->member );
+
+		list( $status, $data ) = $this->react_response();
+		$this->assertFalse(
+			403 === $status && ! empty( $data['data']['appeal_url'] ?? '' ),
+			'After unsuspend the gate must no longer hold the write with an appeal_url.'
+		);
+	}
+
+	/**
 	 * The appeal route the web UI actually posts to (/buddynext/v1/appeals) must be
 	 * reachable for a suspended member — the carve-out was on /me/appeals, which the
 	 * UI does not call, so the appeal was unreachable (a locked room).

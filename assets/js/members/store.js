@@ -469,15 +469,20 @@ async function delegatedFollow( card, btn, cfg ) {
 	const was  = card.dataset.following === '1';
 	card.dataset.following = was ? '0' : '1';
 	paintFollowBtn( btn, ! was );
-	try {
-		const res = await restFetch( '/users/' + uid + '/follow', {
-			method: was ? 'DELETE' : 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
-		} );
-		if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
+	const res = await restFetch( '/users/' + uid + '/follow', {
+		method: was ? 'DELETE' : 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
+	} );
+	if ( res.ok ) {
 		bnToast( was ? fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), name ) : fmt( t( 'toastNowFollowing', 'Now following @%s' ), name ), { tone: 'success' } );
-	} catch ( _e ) {
-		card.dataset.following = was ? '1' : '0';
-		paintFollowBtn( btn, was );
+		return;
+	}
+	// Failed: roll the optimistic paint back. rest-client already surfaced the
+	// "review your account status" toast for a hold/suspension refusal, so only add
+	// the generic retry toast otherwise — a suspended member must not be told to
+	// "try again" at a follow that can never succeed (card 10264293681).
+	card.dataset.following = was ? '1' : '0';
+	paintFollowBtn( btn, was );
+	if ( ! res.suspended ) {
 		bnToast( was ? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name ) : fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name ), { tone: 'danger' } );
 	}
 }
@@ -917,19 +922,26 @@ const membersStore = store( 'buddynext/members', {
 					nonce:        restNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
-				bnToast(
-					wasFollow ? fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), name ) : fmt( t( 'toastNowFollowing', 'Now following @%s' ), name ),
-					{ tone: 'success' }
-				);
-			} catch ( _e ) {
-				ctx.isFollowing = wasFollow;
-				bnToast(
-					wasFollow
-						? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name )
-						: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name ),
-					{ tone: 'danger' }
-				);
+				if ( res.ok ) {
+					bnToast(
+						wasFollow ? fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), name ) : fmt( t( 'toastNowFollowing', 'Now following @%s' ), name ),
+						{ tone: 'success' }
+					);
+				} else {
+					ctx.isFollowing = wasFollow;
+					// rest-client already surfaced the "review your account status"
+					// toast for a hold/suspension; only add the generic retry toast
+					// otherwise, so a suspended member is not told to "try again" at a
+					// follow that can never succeed (card 10264293681).
+					if ( ! res.suspended ) {
+						bnToast(
+							wasFollow
+								? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name )
+								: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name ),
+							{ tone: 'danger' }
+						);
+					}
+				}
 			} finally {
 				ctx.busy = false;
 			}
@@ -957,11 +969,17 @@ const membersStore = store( 'buddynext/members', {
 						body:         { note: note },
 						toastOnError: false,
 					} );
-					if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
-					bnToast( fmt( t( 'toastConnectionSent', 'Connection request sent to @%s' ), name ), { tone: 'success' } );
-				} catch ( _e ) {
-					ctx.connection = 'none';
-					bnToast( fmt( t( 'toastCouldNotSendRequest', 'Could not send request to @%s. Try again.' ), name ), { tone: 'danger' } );
+					if ( res.ok ) {
+						bnToast( fmt( t( 'toastConnectionSent', 'Connection request sent to @%s' ), name ), { tone: 'success' } );
+					} else {
+						ctx.connection = 'none';
+						// rest-client already surfaced the appeal toast for a hold/
+						// suspension; only add the generic retry toast otherwise
+						// (card 10264293681).
+						if ( ! res.suspended ) {
+							bnToast( fmt( t( 'toastCouldNotSendRequest', 'Could not send request to @%s. Try again.' ), name ), { tone: 'danger' } );
+						}
+					}
 				} finally {
 					ctx.busy = false;
 				}

@@ -2176,8 +2176,14 @@ class ModerationService {
 			'forbidden',
 			$message,
 			array(
-				'status'     => 403,
-				'appeal_url' => \BuddyNext\Core\PageRouter::account_status_url(),
+				'status'       => 403,
+				'appeal_url'   => \BuddyNext\Core\PageRouter::account_status_url(),
+				// Translated here so the shell REST client can render the appeal link
+				// without reaching into a feature module for a t() dictionary — a held
+				// member who hits ANY write wall (follow, connect, join, …) gets the
+				// same "review your account status" affordance, not a dead "try again"
+				// toast (card 10264293681).
+				'appeal_label' => __( 'Review your account status', 'buddynext' ),
 			)
 		);
 	}

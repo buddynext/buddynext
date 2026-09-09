@@ -270,12 +270,33 @@ function performRequest( path, opts, isRetry ) {
 export async function restFetch( path, opts ) {
 	opts = opts || {};
 	const result = await performRequest( path, opts, false );
-	if ( ! result.ok && opts.toastOnError !== false ) {
-		bnToast(
-			( result.data && result.data.message ) ||
-				'Something went wrong. Please try again.',
-			{ tone: 'danger' }
-		);
+	if ( ! result.ok ) {
+		// A hold/suspension refusal ships an appeal_url (ModerationService::
+		// suspension_error). Surface it — with the "review your account status" link
+		// — even when the caller opted out of the generic toast for optimistic
+		// rollback: a held member being told to "try again" at a write that can never
+		// succeed, with no path to appeal, is the bug (card 10264293681). Flagged on
+		// the result (result.suspended) so a caller CAN suppress its own toast.
+		const info = ( result.data && result.data.data ) || {};
+		if ( info.appeal_url ) {
+			result.suspended = true;
+			bnToast(
+				( result.data && result.data.message ) || 'Your account is on hold.',
+				{
+					tone: 'danger',
+					action: {
+						href: info.appeal_url,
+						label: info.appeal_label || 'Review your account status',
+					},
+				}
+			);
+		} else if ( opts.toastOnError !== false ) {
+			bnToast(
+				( result.data && result.data.message ) ||
+					'Something went wrong. Please try again.',
+				{ tone: 'danger' }
+			);
+		}
 	}
 	return result;
 }
