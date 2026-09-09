@@ -74,11 +74,20 @@ final class PreModerationService {
 			return false;
 		}
 
-		// Never hold staff: admins and anyone with the moderation capability.
-		// buddynext_moderate is the plugin's own optional moderator capability, exposed
-		// so site owners can grant moderation to a non-admin role; it has no core meta map.
-		if ( user_can( $user_id, 'manage_options' ) || user_can( $user_id, 'buddynext_moderate' ) ) { // phpcs:ignore WordPress.WP.Capabilities.Unknown -- plugin-own custom moderator capability.
+		// Never hold staff: administrators and site-wide community moderators. The
+		// old code checked a `buddynext_moderate` capability that NOTHING grants —
+		// moderators are promoted via the community-role system (bn_community_role),
+		// not a WP capability — so a promoted moderator's own posts were still held
+		// (card 10264294189). Route through the same predicate the moderation
+		// service authorises against.
+		if ( user_can( $user_id, 'manage_options' ) ) {
 			return false;
+		}
+		if ( function_exists( 'buddynext_service' ) ) {
+			$bn_roles = buddynext_service( 'roles' );
+			if ( $bn_roles instanceof \BuddyNext\Core\RoleService && $bn_roles->can_moderate_site( $user_id ) ) {
+				return false;
+			}
 		}
 
 		/**

@@ -1015,7 +1015,8 @@ class ModerationService {
 	public function set_post_content_warning( int $post_id, bool $has_warning, string $warning_type, int $actor_id = 0 ): ?bool {
 		$actor_id = $actor_id > 0 ? $actor_id : get_current_user_id();
 
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		// A site-wide community moderator, not only a WP admin (card 10264294189).
+		if ( ! $this->is_site_moderator( $actor_id ) ) {
 			return false;
 		}
 
@@ -1058,7 +1059,7 @@ class ModerationService {
 	 * @return int|WP_Error Inserted strike ID or WP_Error.
 	 */
 	public function issue_strike( int $user_id, int $actor_id, string $reason = '' ): int|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( ! $this->is_site_moderator( $actor_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ) );
 		}
 
@@ -1166,7 +1167,7 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function reverse_strike( int $strike_id, int $actor_id ): bool|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( ! $this->is_site_moderator( $actor_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to reverse strikes.', 'buddynext' ) );
 		}
 
@@ -1706,7 +1707,11 @@ class ModerationService {
 	 * @return bool
 	 */
 	private function can_action_report( int $actor_id, int $report_id ): bool {
-		if ( user_can( $actor_id, 'manage_options' ) ) {
+		// A site administrator OR a site-wide community moderator may action any
+		// report; a space moderator may action reports in their own space. The
+		// site-moderator branch is what this card added — a promoted moderator who
+		// owns no space could not dismiss/resolve a report before (card 10264294189).
+		if ( $this->is_site_moderator( $actor_id ) ) {
 			return true;
 		}
 
@@ -1717,6 +1722,28 @@ class ModerationService {
 		}
 
 		return $this->actor_moderates_space( $actor_id, (int) ( $report['space_id'] ?? 0 ) );
+	}
+
+	/**
+	 * Whether an actor may take SITE-WIDE moderation actions.
+	 *
+	 * True for a WordPress administrator (manage_options) OR a member promoted to
+	 * the site moderator community role. This is the single seam every site-wide
+	 * moderation action authorises against: the REST routes were opened to
+	 * community moderators, but the service methods still hard-gated on
+	 * manage_options, so a promoted moderator passed the route and was refused one
+	 * layer down (card 10264294189). Appeals deliberately do NOT use this — they
+	 * stay admin-only (separation of duties from the actions they review).
+	 *
+	 * @param int $actor_id Acting user id (0 = system, which is never a moderator here).
+	 * @return bool
+	 */
+	private function is_site_moderator( int $actor_id ): bool {
+		if ( $actor_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+		$roles = buddynext_service( 'roles' );
+		return $roles instanceof \BuddyNext\Core\RoleService && $roles->can_moderate_site( $actor_id );
 	}
 
 	/**
@@ -1877,8 +1904,21 @@ class ModerationService {
 		// path resolves it from get_current_user_id() (ModerationController:1266,
 		// behind require_admin) or from the admin queue's own actor. A 0 can only be
 		// passed by server code.
-		if ( $actor_id > 0 && ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( $actor_id > 0 && ! $this->is_site_moderator( $actor_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend users.', 'buddynext' ) );
+		}
+
+		// An INDEFINITE suspension (no fixed term) is an administrator power. A
+		// community moderator may suspend for a bounded duration but not
+		// permanently — the heaviest, open-ended sanction stays with the admin
+		// (card 10264294189). $opts['duration_days'] null/0 means "no expiry".
+		$bn_duration_opt = isset( $opts['duration_days'] ) ? absint( $opts['duration_days'] ) : 0;
+		if ( $actor_id > 0 && $bn_duration_opt <= 0 && ! user_can( $actor_id, 'manage_options' ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only an administrator can suspend a member indefinitely. Set a duration to suspend as a moderator.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		// Don't stack a second active suspension on an already-suspended user —
@@ -1953,7 +1993,7 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function unsuspend_user( int $user_id, int $actor_id ): bool|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( ! $this->is_site_moderator( $actor_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to lift suspensions.', 'buddynext' ) );
 		}
 
@@ -2003,8 +2043,10 @@ class ModerationService {
 	 */
 	public function shadow_ban( int $user_id, int $actor_id, string $reason = '' ): bool|WP_Error {
 		// Authorise the declared actor, not whoever happens to be the current
-		// user — the method takes an explicit $actor_id and must check that.
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		// user — the method takes an explicit $actor_id and must check that. A
+		// site-wide community moderator qualifies, not just a WP admin (card
+		// 10264294189).
+		if ( ! $this->is_site_moderator( $actor_id ) ) {
 			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -2030,8 +2072,9 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function unshadow_ban( int $user_id, int $actor_id ): bool|WP_Error {
-		// Authorise the declared actor, not the current user (see shadow_ban).
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		// Authorise the declared actor, not the current user (see shadow_ban). A
+		// site-wide community moderator qualifies (card 10264294189).
+		if ( ! $this->is_site_moderator( $actor_id ) ) {
 			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
