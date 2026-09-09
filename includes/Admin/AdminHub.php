@@ -1493,10 +1493,18 @@ class AdminHub {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only screen routing.
 		$active_slug = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		// A REQUESTED tab that is not registered is a misroute — usually a stale
+		// link to a tab that was renamed or moved. Falling back to the first tab is
+		// right, but doing it SILENTLY is the bug: the owner clicks a button naming a
+		// specific task, lands on an unrelated tab, and has no signal they were sent
+		// to the wrong place (harder to notice than the 403 this replaced). Remember
+		// it so the content can say so.
+		$bn_requested_tab = $active_slug;
 		if ( ! isset( $tabs[ $active_slug ] ) ) {
 			$active_slug = (string) array_key_first( $tabs );
 		}
-		$active = $tabs[ $active_slug ];
+		$bn_tab_misrouted = ( '' !== $bn_requested_tab && $bn_requested_tab !== $active_slug && ! isset( $tabs[ $bn_requested_tab ] ) );
+		$active           = $tabs[ $active_slug ];
 
 		if ( ! current_user_can( $active['cap'] ) ) {
 			wp_die( esc_html__( 'You do not have permission to view this tab.', 'buddynext' ) );
@@ -1517,6 +1525,21 @@ class AdminHub {
 		$this->render_subhead( $active );
 		$main_classes = 'bn-admin-hub__main ' . ( $is_wide ? 'bn-admin-hub__main--wide' : 'bn-admin-hub__main--full' );
 		printf( '<main class="%s" id="bn-admin-hub-panel" role="region" tabindex="0">', esc_attr( $main_classes ) );
+
+		// Tell the owner when they were misrouted, instead of silently swapping the
+		// destination (card 10264294727).
+		if ( $bn_tab_misrouted ) {
+			printf(
+				'<div class="notice notice-warning"><p>%s</p></div>',
+				esc_html(
+					sprintf(
+						/* translators: %s: the tab actually shown. */
+						__( 'That setting has moved — showing “%s” instead. The link you followed pointed at a tab that no longer exists.', 'buddynext' ),
+						(string) $active['label']
+					)
+				)
+			);
+		}
 		call_user_func( $active['render'] );
 		echo '</main>';
 		echo '</div><!-- .bn-admin-hub__content -->';
