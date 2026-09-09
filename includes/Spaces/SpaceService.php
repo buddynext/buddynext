@@ -1290,6 +1290,14 @@ class SpaceService {
 			),
 			array( '%s', '%d' )
 		);
+		// The raw delete above bypasses NotificationService's own cache bust, so the
+		// affected members' unread/unseen counts would stay inflated until their 30s
+		// TTL lapsed — the bell showing "3" over a list of two. Bust them now with the
+		// member/ban ids already gathered above.
+		$bn_notifications = function_exists( 'buddynext_service' ) ? buddynext_service( 'notifications' ) : null;
+		if ( $bn_notifications instanceof \BuddyNext\Notifications\NotificationService ) {
+			$bn_notifications->forget_counts_for( $affected_user_ids );
+		}
 		// bn_mod_log is append-only (ModerationLogService) - the permanent audit
 		// trail must outlive the space it references, so its rows are NOT deleted
 		// here. The log reader never joins to the space row.

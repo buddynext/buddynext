@@ -58,6 +58,76 @@ class NotificationService {
 	}
 
 	/**
+	 * Drop cached counts for a set of users.
+	 *
+	 * For callers that delete notification rows OUTSIDE this service (a bulk
+	 * $wpdb->delete on space teardown, say) and must still refresh the affected
+	 * members' bells — otherwise the unread badge stays inflated until the 30s TTL
+	 * lapses and shows a count higher than the list it opens.
+	 *
+	 * @param array<int,int> $user_ids Recipients whose counts to forget.
+	 * @return void
+	 */
+	public function forget_counts_for( array $user_ids ): void {
+		foreach ( array_unique( array_map( 'intval', $user_ids ) ) as $bn_uid ) {
+			if ( $bn_uid > 0 ) {
+				$this->forget_counts( $bn_uid );
+			}
+		}
+	}
+
+	/**
+	 * Drop notification rows whose target object no longer exists.
+	 *
+	 * The defensive read side: a bell row that opens a 404 is worse than a missing
+	 * one, and rows can be orphaned by paths this service cannot see (a space or
+	 * post removed outside our cascades, a failed cascade, a direct DB delete). We
+	 * only drop a row when BuddyNext can PROVE the object is gone — buddynext_object_exists()
+	 * returns false for a type it owns (post, comment, space, user); a null (a type
+	 * it cannot check, e.g. a partner object) is kept, since "cannot tell" is not
+	 * "gone". The page's objects are primed first so this is a few queries per type,
+	 * not one per row.
+	 *
+	 * @param array<int,array<string,mixed>> $rows Raw notification rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function filter_resolvable( array $rows ): array {
+		if ( empty( $rows ) || ! function_exists( 'buddynext_object_exists' ) ) {
+			return $rows;
+		}
+
+		if ( function_exists( 'buddynext_prime_object_labels' ) ) {
+			$pairs = array();
+			foreach ( $rows as $bn_row ) {
+				$bn_type = (string) ( $bn_row['object_type'] ?? '' );
+				$bn_id   = (int) ( $bn_row['object_id'] ?? 0 );
+				if ( '' !== $bn_type && $bn_id > 0 ) {
+					$pairs[] = array( $bn_type, $bn_id );
+				}
+			}
+			if ( $pairs ) {
+				buddynext_prime_object_labels( $pairs );
+			}
+		}
+
+		return array_values(
+			array_filter(
+				$rows,
+				static function ( $bn_row ): bool {
+					$bn_type = (string) ( $bn_row['object_type'] ?? '' );
+					$bn_id   = (int) ( $bn_row['object_id'] ?? 0 );
+					if ( '' === $bn_type || $bn_id <= 0 ) {
+						return true; // No object to resolve — keep (e.g. a system notice).
+					}
+					// Keep when it exists (true) or is unknowable (null); drop only a
+					// confirmed-gone object (false).
+					return false !== buddynext_object_exists( $bn_type, $bn_id );
+				}
+			)
+		);
+	}
+
+	/**
 	 * Create a notification.
 	 *
 	 * If $data contains a non-empty group_key and an unread notification with
@@ -608,7 +678,7 @@ class NotificationService {
 		// trailing sentinel row to trim and no cursor to emit.
 		if ( $use_offset ) {
 			return array(
-				'items'       => $this->group_page( array_map( array( $this, 'hydrate' ), $rows ) ),
+				'items'       => $this->group_page( array_map( array( $this, 'hydrate' ), $this->filter_resolvable( $rows ) ) ),
 				'next_cursor' => null,
 			);
 		}
@@ -619,13 +689,16 @@ class NotificationService {
 			$rows = array_slice( $rows, 0, $per_page );
 		}
 
-		$items = $this->group_page( array_map( array( $this, 'hydrate' ), $rows ) );
-
+		// Compute the cursor from the TRUE page boundary before the existence filter
+		// runs, so paging advances by the real last row even if it is an orphan that
+		// gets hidden — otherwise the next page would re-fetch from a stale point.
 		$next_cursor = null;
 		if ( $has_more && ! empty( $rows ) ) {
 			$last        = end( $rows );
 			$next_cursor = base64_encode( $last['created_at'] . '|' . $last['id'] ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 		}
+
+		$items = $this->group_page( array_map( array( $this, 'hydrate' ), $this->filter_resolvable( $rows ) ) );
 
 		return array(
 			'items'       => $items,
@@ -718,8 +791,8 @@ class NotificationService {
 				// The NEWEST occurrence represents the group - it is already first,
 				// because the query orders created_at DESC - so the group sorts by
 				// its most recent activity, which is what a reader expects.
-				$item['group_size']  = 1;
-				$item['group_ids']   = array( (int) $item['id'] );
+				$item['group_size']   = 1;
+				$item['group_ids']    = array( (int) $item['id'] );
 				$item['group_actors'] = array();
 				if ( ! empty( $item['sender_id'] ) ) {
 					$item['group_actors'][] = (int) $item['sender_id'];
