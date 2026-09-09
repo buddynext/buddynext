@@ -1112,16 +1112,24 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function warn( int $user_id, int $actor_id, string $reason = '', int $space_id = 0 ): bool|WP_Error {
-		$actor_is_admin = user_can( $actor_id, 'manage_options' );
-		if ( ! $actor_is_admin && ! $this->actor_moderates_space( $actor_id, $space_id ) ) {
+		// A SITE moderator (manage_options, or a bn_community_role >= moderator) may
+		// warn site-wide, exactly like the other six sanction mutators — warn() was
+		// the one that still gated on space moderation alone, so a site moderator who
+		// moderates no particular space got a 403 from the Warn button the queue
+		// renders for them (card 10264294189). A SPACE-only moderator is still allowed
+		// for the space they moderate.
+		$actor_is_site_mod = $this->is_site_moderator( $actor_id );
+		if ( ! $actor_is_site_mod && ! ( $space_id > 0 && $this->actor_moderates_space( $actor_id, $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue warnings.', 'buddynext' ) );
 		}
 
-		// A space moderator's authority is scoped to their space: they may warn a
+		// A space-only moderator's authority is scoped to their space: they may warn a
 		// member OF that space, not any user id they name. Without this target
 		// check a Space-A moderator could warn anyone on the site - admins included -
-		// simply by passing space_id=A. Site admins (manage_options) stay unscoped.
-		if ( ! $actor_is_admin && ! ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $user_id ) ) {
+		// simply by passing space_id=A. A site moderator (admin or community role)
+		// stays unscoped, so a site-level warn (space_id=0) is not gated on the
+		// meaningless "member of space 0" check.
+		if ( ! $actor_is_site_mod && ! ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $user_id ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'You can only warn members of a space you moderate.', 'buddynext' ),

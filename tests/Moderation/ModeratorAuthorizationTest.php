@@ -59,6 +59,18 @@ class ModeratorAuthorizationTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A site moderator can issue a site-level warning; a plain member cannot. warn()
+	 * was the one sanction mutator that still gated on space moderation alone, so a
+	 * site moderator who moderates no particular space got a 403 (card 10264294189).
+	 *
+	 * @return void
+	 */
+	public function test_site_moderator_can_warn_member_cannot(): void {
+		$this->assertFalse( is_wp_error( $this->mod->warn( $this->victim, $this->moderator, 'x' ) ), 'A site moderator may issue a site-level warning.' );
+		$this->assertWPError( $this->mod->warn( $this->victim, $this->member, 'x' ), 'A plain member may not warn.' );
+	}
+
+	/**
 	 * A site moderator can shadow-ban; a plain member cannot.
 	 *
 	 * @return void
