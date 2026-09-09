@@ -62,6 +62,10 @@ class Members extends AdminPageBase {
 			array(
 				'subtitle' => __( 'Manage your community members', 'buddynext' ),
 				'action'   => $this->build_export_action(),
+				// Nested tabs this page renders off the same ?tab= var (see
+				// render_page()). Declared so the hub router treats them as valid links
+				// to this tab, not misroutes (card 10264294727).
+				'subtabs'  => array( 'members', 'profile-fields', 'avatar-settings', 'member-types', 'invites', 'pending' ),
 			)
 		);
 

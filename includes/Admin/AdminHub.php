@@ -1014,6 +1014,12 @@ class AdminHub {
 			'order'    => count( self::$tabs[ $section ] ?? array() ),
 			'subtitle' => isset( $args['subtitle'] ) ? (string) $args['subtitle'] : '',
 			'action'   => isset( $args['action'] ) ? (string) $args['action'] : '',
+			// Nested tab slugs this tab's own page consumes via the SAME ?tab= var
+			// (e.g. Members: invites, profile-fields). They are not hub tabs, so the
+			// misroute guard in render_section() would otherwise flag them as broken
+			// links; declaring them here tells the router the slug is valid and which
+			// hub tab owns it (card 10264294727).
+			'subtabs'  => isset( $args['subtabs'] ) && is_array( $args['subtabs'] ) ? array_map( 'sanitize_key', $args['subtabs'] ) : array(),
 		);
 
 		// Claim the old standalone page slug, if this tab replaced one.
@@ -1517,10 +1523,23 @@ class AdminHub {
 		// to the wrong place (harder to notice than the 403 this replaced). Remember
 		// it so the content can say so.
 		$bn_requested_tab = $active_slug;
+		$bn_tab_misrouted = false;
 		if ( ! isset( $tabs[ $active_slug ] ) ) {
-			$active_slug = (string) array_key_first( $tabs );
+			// The requested slug is not a hub tab. It may be a NESTED tab that a hub
+			// tab's own page consumes through the same ?tab= var (Members: invites,
+			// profile-fields, …). Route to the owning hub tab so the nav highlights it
+			// and the page renders the nested panel — that link is valid, do NOT warn.
+			// Only a slug no tab claims is a real misroute (a renamed/removed tab).
+			$bn_owner = '';
+			foreach ( $tabs as $bn_tab_slug => $bn_tab_def ) {
+				if ( in_array( $active_slug, (array) ( $bn_tab_def['subtabs'] ?? array() ), true ) ) {
+					$bn_owner = (string) $bn_tab_slug;
+					break;
+				}
+			}
+			$active_slug      = '' !== $bn_owner ? $bn_owner : (string) array_key_first( $tabs );
+			$bn_tab_misrouted = ( '' === $bn_owner && '' !== $bn_requested_tab );
 		}
-		$bn_tab_misrouted = ( '' !== $bn_requested_tab && $bn_requested_tab !== $active_slug && ! isset( $tabs[ $bn_requested_tab ] ) );
 		$active           = $tabs[ $active_slug ];
 
 		if ( ! current_user_can( $active['cap'] ) ) {
