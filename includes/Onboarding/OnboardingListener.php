@@ -81,6 +81,34 @@ class OnboardingListener implements ListenerInterface {
 			return;
 		}
 
+		// Action Scheduler no-ops (with a _doing_it_wrong) when a single action is
+		// scheduled BEFORE it boots on init. A user created that early — an importer
+		// or SSO plugin registering users on plugins_loaded — would otherwise get no
+		// nudges at all (the retired wp_schedule_single_event worked at any hook
+		// depth). Defer to action_scheduler_init when AS has not booted yet; in the
+		// normal case (registration well after init) it has, so schedule immediately.
+		if ( did_action( 'action_scheduler_init' ) ) {
+			$this->schedule_nudges( $user_id );
+			return;
+		}
+		add_action(
+			'action_scheduler_init',
+			function () use ( $user_id ) {
+				$this->schedule_nudges( $user_id );
+			}
+		);
+	}
+
+	/**
+	 * Schedule the two per-user nudge actions, deduped against a pending action.
+	 *
+	 * Split from enqueue_nudges() so it can run either immediately or deferred to
+	 * action_scheduler_init without duplicating the scheduling logic.
+	 *
+	 * @param int $user_id Newly-registered user.
+	 * @return void
+	 */
+	private function schedule_nudges( int $user_id ): void {
 		$args = array( $user_id );
 		foreach ( $this->nudge_hooks() as $hook => $offset ) {
 			if ( function_exists( 'as_next_scheduled_action' )

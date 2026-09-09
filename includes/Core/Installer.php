@@ -1916,6 +1916,17 @@ class Installer {
 
 		self::install_mu_plugin();
 
+		// Run the cron migration on the ACTIVATION path too, not only through
+		// maybe_upgrade(). A ZIP-upload update (deactivate -> replace -> activate)
+		// calls run() directly, which stamps buddynext_schema_version, so the later
+		// admin_init maybe_upgrade() early-returns and its run_cron_migration() never
+		// fires. That left an upgraded site with the retired legacy nudge events, the
+		// brief bn_onboarding_nudges table, and the idle publish sweep still around
+		// (cards 10264295353 / 10264291719). run_cron_migration() is idempotent and
+		// each step guards on the current schedule/table state, so calling it here on
+		// every activation — fresh or upgrade — is safe.
+		CronScheduler::run_cron_migration();
+
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
 	}
 
