@@ -1377,9 +1377,13 @@ class PostService {
 		if ( $count < 40 ) {
 			return '';
 		}
+		// Owner control: Settings -> Activity Feed -> "Members-only teaser length (%)",
+		// stored as a 0-100 percent (default 25). The developer filter still wins on
+		// top for a site that wants per-context logic.
+		$percent  = (int) get_option( 'buddynext_members_only_teaser_percent', 25 );
 		$fraction = (float) apply_filters(
 			'buddynext_members_only_teaser_fraction',
-			(float) get_option( 'buddynext_members_only_teaser_fraction', 0.25 )
+			max( 0.0, min( 1.0, $percent / 100 ) )
 		);
 		$fraction = max( 0.0, min( 1.0, $fraction ) );
 		$take     = (int) floor( $count * $fraction );

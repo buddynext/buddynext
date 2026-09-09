@@ -973,6 +973,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
+							'key'     => 'buddynext_members_only_teaser_percent',
+							'type'    => 'number',
+							'label'   => __( 'Members-only teaser length (%)', 'buddynext' ),
+							'default' => 25,
+							'min'     => 0,
+							'max'     => 100,
+							'hint'    => __( 'How much of a members-only post a non-member sees as a preview, as a percentage of its length. 0 shows only the lock notice; the preview is never shorter than a few words.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
 							'key'             => 'buddynext_reactions_palette',
 							'type'            => 'custom',
 							'render_callback' => array( $this, 'render_reaction_palette' ),
