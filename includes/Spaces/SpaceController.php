@@ -263,7 +263,7 @@ class SpaceController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_space_members' ),
 				'permission_callback' => '__return_true',
-				'args'                => $this->member_pagination_args(),
+				'args'                => $this->member_keyset_args(),
 			)
 		);
 
@@ -1823,6 +1823,32 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * Keyset pagination args for the /members route.
+	 *
+	 * Deliberately NOT the page/offset shape of member_pagination_args() (which
+	 * the /pending-requests route still uses for the bounded join-request inbox):
+	 * the roster is keyset-paginated for scale, so it takes an opaque `cursor`
+	 * from the prior response's X-BN-Next-Cursor header. A legacy `page` param is
+	 * simply ignored, degrading to the first page rather than erroring.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function member_keyset_args(): array {
+		return array(
+			'cursor'   => array(
+				'type'        => 'string',
+				'description' => 'Opaque keyset cursor from a prior response X-BN-Next-Cursor header. Omit for the first page.',
+			),
+			'per_page' => array(
+				'type'    => 'integer',
+				'default' => 50,
+				'minimum' => 1,
+				'maximum' => 100,
+			),
+		);
+	}
+
+	/**
 	 * GET /spaces/{id}/media — the space's shared photos and attachments.
 	 *
 	 * The web Media tab derived its grid from the feed, so the app had no way to
@@ -1962,24 +1988,22 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		// Pagination is opt-in: with no per_page the full roster is returned
-		// (backward-compatible). A paginating client passes page/per_page and
-		// reads the total from the X-WP-Total header — the response body stays a
-		// bare members array.
+		// Keyset pagination: the client passes the opaque `cursor` from the prior
+		// response's X-BN-Next-Cursor header (absent = first page). The body stays a
+		// bare members array (unchanged contract); the next cursor rides a header, so
+		// a client that only reads the array is unaffected. X-WP-Total is kept for
+		// clients that show a roster count. A stray legacy `page` param is ignored.
 		$member_service = new SpaceMemberService();
-		// Always paginate — a member list is never returned unbounded. An absent /
-		// non-positive per_page defaults to a sane page rather than the old "all" path
-		// (which loaded a full 50k roster); the real total comes from count_members.
-		$per_page = (int) $request->get_param( 'per_page' );
-		$per_page = $per_page > 0 ? min( 100, $per_page ) : 50;
-		$page     = max( 1, (int) $request->get_param( 'page' ) );
+		$per_page       = (int) $request->get_param( 'per_page' );
+		$per_page       = $per_page > 0 ? min( 100, $per_page ) : 50;
+		$cursor         = (string) $request->get_param( 'cursor' );
 
-		$members = $member_service->get_members( $space_id, $viewer_id, $per_page, ( $page - 1 ) * $per_page );
-		$total   = $member_service->count_members( $space_id, $viewer_id );
+		$page  = $member_service->get_members_keyset( $space_id, $viewer_id, ( '' !== $cursor ? $cursor : null ), $per_page );
+		$total = $member_service->count_members( $space_id, $viewer_id );
 
-		$response = new WP_REST_Response( $members, 200 );
+		$response = new WP_REST_Response( $page['items'], 200 );
 		$response->header( 'X-WP-Total', (string) $total );
-		$response->header( 'X-WP-TotalPages', (string) ( (int) ceil( $total / $per_page ) ) );
+		$response->header( 'X-BN-Next-Cursor', (string) ( $page['next_cursor'] ?? '' ) );
 
 		return $response;
 	}

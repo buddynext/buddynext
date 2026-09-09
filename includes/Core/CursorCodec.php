@@ -5,7 +5,14 @@
  * Every cursor-paginated feed (activity feed, hashtag feed, …) uses the same
  * opaque cursor format so encoding/decoding lives in exactly one place:
  *
- *   cursor = base64( "{created_at}|{id}" )
+ *   cursor = base64url( "{created_at}|{id}" )   (no +/= — URL-safe)
+ *
+ * The encoding is URL-safe base64 (+/ -> -_, padding stripped) because cursors
+ * ride in URL query args on the server-rendered prev/next surfaces, and
+ * add_query_arg() silently corrupts standard-base64 '=' padding — a dropped '='
+ * decoded to the wrong pivot and the page fell back to page 1 (card 10284805802).
+ * decode() still accepts a standard-base64 cursor, so any cursor minted before
+ * this change keeps working.
  *
  * Consolidated from the previously-duplicated FeedService::decode_cursor and
  * HashtagService::decode_feed_cursor implementations.
@@ -39,7 +46,9 @@ final class CursorCodec {
 	 */
 	public static function encode( string $created_at, int $id, ?int $tier = null ): string {
 		$raw = $created_at . '|' . $id . ( null !== $tier ? '|' . $tier : '' );
-		return base64_encode( $raw ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		// URL-safe base64: +/ -> -_ and strip '=' padding so add_query_arg() cannot
+		// corrupt it (a lost '=' broke keyset pagination — card 10284805802).
+		return rtrim( strtr( base64_encode( $raw ), '+/', '-_' ), '=' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 	}
 
 	/**
@@ -49,7 +58,14 @@ final class CursorCodec {
 	 * @return array{created_at: string, id: int, tier: int|null}|null Null when the cursor is malformed.
 	 */
 	public static function decode( string $cursor ): ?array {
-		$raw = base64_decode( $cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+		// Accept URL-safe (-_ , unpadded) AND legacy standard base64: normalise the
+		// alphabet, then restore '=' padding to a multiple of 4 for strict decode.
+		$normalized = strtr( $cursor, '-_', '+/' );
+		$remainder  = strlen( $normalized ) % 4;
+		if ( 0 !== $remainder ) {
+			$normalized .= str_repeat( '=', 4 - $remainder );
+		}
+		$raw = base64_decode( $normalized, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
 		if ( false === $raw ) {
 			return null;
 		}

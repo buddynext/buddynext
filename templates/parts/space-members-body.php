@@ -66,28 +66,39 @@ if ( ! in_array( $bn_sm_role, array( 'owner', 'moderator', 'member' ), true ) ) 
 	$bn_sm_role = '';
 }
 
-// ── Pagination ──────────────────────────────────────────────────────────────────
+// ── Cursor pagination (keyset) ────────────────────────────────────────────────
+// Deep OFFSET is replaced by a keyset cursor carried in the URL (?bn_after=), so
+// page N of a 50k roster costs the same as page 1. Each page is a FULL server
+// render: the card islands (the manage kebab) hydrate normally. A client-side
+// "load more" that injected fetched cards would leave those islands inert — the
+// WP Interactivity constraint documented in assets/js/feed/shared.js — so we
+// paginate by navigation, not by DOM append. "Next" is a plain link carrying the
+// next cursor; "Previous" is the browser's own history (each page is a real URL).
 $bn_per_page = 24;
-$bn_paged    = max( 1, absint( get_query_var( 'paged', 1 ) ) );
-$bn_offset   = ( $bn_paged - 1 ) * $bn_per_page;
+$bn_after    = isset( $_GET['bn_after'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_after'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
-// ── Fetch members via the service (search / role / suspension via args) ──────────
-// The list AND the total honour the SAME filters so pagination never drifts:
-// get_members() + count_members() share the args array (exclude_suspended folds
-// in ModerationService::moderation_exclude_sql() — no inline NOT EXISTS SQL here).
-// Both queries are skipped entirely when the roster is gated.
+// exclude_suspended folds in ModerationService::moderation_exclude_sql() via the
+// service. The query is skipped entirely when the roster is gated. The header
+// (space-header.php) already shows the member COUNT, so the body runs no COUNT(*).
 $bn_member_args = array(
 	'search'            => $bn_sm_search,
 	'role'              => $bn_sm_role,
 	'exclude_suspended' => true,
 );
 
-$bn_member_rows = $bn_can_view_roster
-	? $bn_member_svc->get_members( $space_id, $current_user_id, $bn_per_page, $bn_offset, $bn_member_args )
-	: array();
+$bn_page = $bn_can_view_roster
+	? $bn_member_svc->get_members_keyset( $space_id, $current_user_id, ( '' !== $bn_after ? $bn_after : null ), $bn_per_page, $bn_member_args )
+	: array(
+		'items'       => array(),
+		'next_cursor' => null,
+	);
 
-// get_members() orders by join date; re-group owner → moderator → member in PHP to
-// preserve the previous visual order without a FIELD() sort in the service.
+$bn_member_rows = $bn_page['items'];
+$bn_next_cursor = $bn_page['next_cursor'];
+
+// Re-group owner → moderator → member WITHIN the page for display. The keyset
+// order and next_cursor come from the service's joined_at ordering and are
+// untouched by this presentational re-sort.
 $bn_role_rank = array(
 	'owner'     => 0,
 	'moderator' => 1,
@@ -105,11 +116,6 @@ usort(
 	}
 );
 
-// Filtered total — matches the listed rows so the page count is correct.
-$total_members = $bn_can_view_roster
-	? $bn_member_svc->count_members( $space_id, $current_user_id, $bn_member_args )
-	: 0;
-$total_pages   = (int) ceil( $total_members / $bn_per_page );
 
 // ── Viewer management capability (mirrors SpaceController permissions) ────────────
 // Remove member: owner/moderator or site admin. Change role: owner or site admin only.
@@ -154,7 +160,7 @@ if ( ! function_exists( 'bn_space_role_meta' ) ) {
 }
 
 // Build filter base URL — preserves query args other than role/q/paged.
-$bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged' ) );
+$bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn_after' ) );
 ?>
 <div
 	class="bn-sh-stack bn-space-members"
@@ -204,7 +210,7 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged' ) );
 			<?php
 			// Preserve any path-routing query vars other than the filters we own.
 			foreach ( $_GET as $bn_q_key => $bn_q_val ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-				if ( in_array( $bn_q_key, array( 'bn_sm_q', 'bn_sm_role', 'paged' ), true ) ) {
+				if ( in_array( $bn_q_key, array( 'bn_sm_q', 'bn_sm_role', 'paged', 'bn_after' ), true ) ) {
 					continue;
 				}
 				printf(
@@ -393,43 +399,36 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged' ) );
 		<?php endif; ?>
 	</div>
 
-		<?php if ( $total_pages > 1 ) : ?>
+		<?php
+		// Keyset prev/next. "Next" carries the opaque cursor of the last row on this
+		// page (?bn_after=), preserving the active filters and dropping any stale
+		// paged/bn_after. "Previous" is the browser's own history — every page is a
+		// distinct URL, so history.back() lands on the exact previous page fully
+		// hydrated (actions.goBack); on a deep link with no history it falls back to
+		// the first page via the href. The nav shows only when a move is possible.
+		$bn_page_base = remove_query_arg( array( 'paged', 'bn_after' ) );
+		$bn_has_prev  = ( '' !== $bn_after );
+		$bn_has_next  = ( null !== $bn_next_cursor );
+		?>
+		<?php if ( $bn_has_prev || $bn_has_next ) : ?>
 		<nav class="bn-space-members__pagination" aria-label="<?php esc_attr_e( 'Members page navigation', 'buddynext' ); ?>">
-			<?php if ( $bn_paged > 1 ) : ?>
+			<?php if ( $bn_has_prev ) : ?>
 				<a
-					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged - 1 ) ); ?>"
+					href="<?php echo esc_url( $bn_page_base ); ?>"
 					class="bn-btn"
 					data-variant="ghost"
 					data-size="sm"
-					aria-label="<?php esc_attr_e( 'Previous page', 'buddynext' ); ?>"
-				><?php buddynext_icon( 'chevron-left' ); ?></a>
+					data-wp-on--click="actions.goBack"
+				><?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
 			<?php endif; ?>
 
-			<?php
-			$bn_page_start = max( 1, $bn_paged - 2 );
-			$bn_page_end   = min( $total_pages, $bn_paged + 2 );
-			for ( $page_num = $bn_page_start; $page_num <= $bn_page_end; $page_num++ ) :
-				?>
-				<?php if ( $page_num === $bn_paged ) : ?>
-					<span class="bn-btn" data-variant="primary" data-size="sm" aria-current="page"><?php echo esc_html( (string) $page_num ); ?></span>
-				<?php else : ?>
-					<a
-						href="<?php echo esc_url( add_query_arg( 'paged', $page_num ) ); ?>"
-						class="bn-btn"
-						data-variant="ghost"
-						data-size="sm"
-					><?php echo esc_html( (string) $page_num ); ?></a>
-				<?php endif; ?>
-			<?php endfor; ?>
-
-			<?php if ( $bn_paged < $total_pages ) : ?>
+			<?php if ( $bn_has_next ) : ?>
 				<a
-					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged + 1 ) ); ?>"
+					href="<?php echo esc_url( add_query_arg( 'bn_after', $bn_next_cursor, $bn_page_base ) ); ?>"
 					class="bn-btn"
 					data-variant="ghost"
 					data-size="sm"
-					aria-label="<?php esc_attr_e( 'Next page', 'buddynext' ); ?>"
-				><?php buddynext_icon( 'chevron-right' ); ?></a>
+				><?php esc_html_e( 'Next', 'buddynext' ); ?> <?php buddynext_icon( 'chevron-right' ); ?></a>
 			<?php endif; ?>
 		</nav>
 	<?php endif; ?>

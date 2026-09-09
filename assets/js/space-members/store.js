@@ -44,6 +44,20 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 			ctx.menuOpen = false;
 		},
 
+		// Roster "Previous": keyset pages are forward-only, but every page is a real
+		// navigation, so the browser's own Back lands on the exact previous page
+		// fully hydrated. Use it when we arrived from a same-origin page; otherwise
+		// let the link's href fall through to the first page (a deep link with no
+		// usable history).
+		goBack( event ) {
+			try {
+				if ( document.referrer && 0 === document.referrer.indexOf( window.location.origin ) ) {
+					if ( event && typeof event.preventDefault === 'function' ) { event.preventDefault(); }
+					window.history.back();
+				}
+			} catch ( _e ) { /* fall through to the href. */ }
+		},
+
 		* removeMember( event ) {
 			const ctx = getContext();
 			const btn = event.target.closest( '[data-user-id]' );
