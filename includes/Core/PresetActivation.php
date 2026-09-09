@@ -80,9 +80,43 @@ class PresetActivation {
 		if ( get_option( self::OPT_ACTIVATED ) || get_option( self::OPT_GAVE_UP ) ) {
 			return;
 		}
+
+		// DISABLE_WP_CRON with no system cron is the card's own silent-failure case: a
+		// scheduled single event would never fire, so run() would never execute,
+		// OPT_GAVE_UP would never be written, and the owner would see nothing forever.
+		// Drive the attempt INLINE from this admin request instead. run() sets
+		// OPT_GAVE_UP on failure under disabled cron (see run()), so the next
+		// admin_init early-returns above and this runs at most once — and the give-up
+		// notice (admin_notices, later this same request) surfaces immediately
+		// (card 10264291915).
+		if ( self::cron_is_disabled() ) {
+			self::run();
+			return;
+		}
+
 		if ( ! wp_next_scheduled( self::HOOK ) ) {
 			wp_schedule_single_event( time() + 30, self::HOOK );
 		}
+	}
+
+	/**
+	 * Whether WP-Cron is disabled, so a scheduled event cannot be relied on to fire.
+	 *
+	 * @return bool
+	 */
+	private static function cron_is_disabled(): bool {
+		/**
+		 * Whether WP-Cron cannot be relied on to fire a scheduled event.
+		 *
+		 * Defaults to the DISABLE_WP_CRON constant. A site that sets that constant but
+		 * DOES run a real system cron can return false to keep the scheduled-event
+		 * path (and its bounded hourly retry) instead of the inline give-up.
+		 *
+		 * @since 1.2.0
+		 *
+		 * @param bool $disabled True when a scheduled event cannot be relied on.
+		 */
+		return (bool) apply_filters( 'buddynext_wp_cron_disabled', defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON );
 	}
 
 	/**
@@ -129,15 +163,20 @@ class PresetActivation {
 		$attempts = (int) get_option( self::OPT_ATTEMPTS, 0 ) + 1;
 		update_option( self::OPT_ATTEMPTS, $attempts, false );
 
-		if ( $attempts < self::MAX_ATTEMPTS ) {
+		// On a DISABLE_WP_CRON host there is no reliable auto-retry — a rescheduled
+		// event would never fire — so a single failure gives up NOW rather than
+		// pretending 24 hourly retries will happen. The owner sees the actionable
+		// notice on this same admin load and can Retry manually (card 10264291915).
+		if ( ! self::cron_is_disabled() && $attempts < self::MAX_ATTEMPTS ) {
 			if ( ! wp_next_scheduled( self::HOOK ) ) {
 				wp_schedule_single_event( time() + HOUR_IN_SECONDS, self::HOOK );
 			}
 			return;
 		}
 
-		// Ceiling reached: stop, and record when so the owner notice can explain.
-		// maybe_schedule() now sees OPT_GAVE_UP and will not silently re-arm.
+		// Ceiling reached (or no cron to retry with): stop, and record when so the
+		// owner notice can explain. maybe_schedule() now sees OPT_GAVE_UP and will not
+		// silently re-arm.
 		update_option( self::OPT_GAVE_UP, time(), false );
 	}
 
