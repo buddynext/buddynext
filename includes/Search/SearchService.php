@@ -1592,6 +1592,17 @@ class SearchService {
 			}
 			$post = $posts->get( $post_id );
 
+			// A reshare whose ORIGINAL has been deleted is a dead end from search:
+			// the feed renders it as an "unavailable" card, but a search hit that
+			// opens to nothing reads as broken. Drop it from results — a reshare with
+			// commentary still matched here even after the original was gone.
+			if ( $post && 'share' === (string) ( $post['type'] ?? '' ) ) {
+				$bn_orig_id = (int) ( $post['shared_post_id'] ?? 0 );
+				if ( $bn_orig_id > 0 && null === $posts->get( $bn_orig_id ) ) {
+					continue;
+				}
+			}
+
 			$author_id   = $post ? (int) $post['user_id'] : (int) ( $item['author_id'] ?? 0 );
 			$author_user = $author_id ? get_userdata( $author_id ) : null;
 			$author_name = $author_user ? $author_user->display_name : __( 'Unknown', 'buddynext' );
