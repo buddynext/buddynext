@@ -150,6 +150,14 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 		$wpdb->query( $wpdb->prepare( "DELETE FROM `{$bn_as_actions}` WHERE hook LIKE %s", $wpdb->esc_like( 'buddynext' ) . '%' ) );
 	}
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+	// The isolation mu-plugin (buddynext-isolation.php) filters option_active_plugins
+	// on front-end routes. Left behind, it keeps stripping plugins with BuddyNext
+	// itself deleted — an invisible, unremovable-from-the-UI side effect. Delete it.
+	$bn_mu = WP_CONTENT_DIR . '/mu-plugins/buddynext-isolation.php';
+	if ( is_file( $bn_mu ) ) {
+		wp_delete_file( $bn_mu );
+	}
 };
 
 // One owner-controlled data policy (audit Decision 6). By DEFAULT a plugin

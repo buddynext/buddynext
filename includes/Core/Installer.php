@@ -1011,7 +1011,39 @@ class Installer {
 		// v45: retire the media cards that should never have been published.
 		self::purge_retired_media_cards( $wpdb->prefix );
 
+		// v49: plugin isolation now ships OFF. Preserve ON for a site that was
+		// already running the previous default-ON build and had configured it.
+		self::maybe_preserve_isolation_state();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Preserve an upgrading site's isolation ON state (v49).
+	 *
+	 * Isolation flipped from default-ON to default-OFF (owner Decision 1). A fresh
+	 * install should start OFF, but a site that was running the ON default and had
+	 * actually configured isolation — a non-empty owner keep list, or an explicit
+	 * security opt-out — must not silently lose it. Both are distinguished by the
+	 * enabled option being UNSET (a configured site never wrote it under the old
+	 * default) combined with evidence of configuration. Runs once: after it writes
+	 * the option, the branch never matches again.
+	 *
+	 * @return void
+	 */
+	private static function maybe_preserve_isolation_state(): void {
+		$sentinel = '__bn_unset__';
+		if ( $sentinel !== (string) get_option( \BuddyNext\Core\PluginIsolation::OPTION_ENABLED, $sentinel ) ) {
+			return; // Already set (by the owner or a prior run) — leave it.
+		}
+
+		$has_keep_list = array() !== (array) get_option( \BuddyNext\Core\PluginIsolation::OPTION_KEEP, array() );
+		$has_optout    = array() !== (array) get_option( \BuddyNext\Core\PluginIsolation::OPTION_SECURITY_OPTOUT, array() );
+
+		if ( $has_keep_list || $has_optout ) {
+			update_option( \BuddyNext\Core\PluginIsolation::OPTION_ENABLED, '1' );
+		}
+		// Otherwise leave it unset so the new default (OFF) applies.
 	}
 
 	/**

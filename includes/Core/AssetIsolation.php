@@ -52,10 +52,20 @@ class AssetIsolation {
 			return;
 		}
 
+		// The master plugin-isolation switch governs asset isolation too. Without
+		// this, turning isolation OFF still dequeued every plugin's CSS/JS on BN
+		// routes — so plugins executed with their stylesheets stripped, the exact
+		// breakage AssetIsolation exists to avoid, now reachable from the owner
+		// toggle. Assets are never isolated when plugin isolation is off.
+		if ( ! PluginIsolation::is_enabled() ) {
+			return;
+		}
+
 		/**
 		 * Filter whether asset isolation runs on BuddyNext routes.
 		 *
-		 * @param bool $enabled Default true.
+		 * @param bool $enabled Default true (further gated by the master
+		 *                      plugin-isolation switch above).
 		 */
 		if ( ! (bool) apply_filters( 'buddynext_asset_isolation_enabled', true ) ) {
 			return;

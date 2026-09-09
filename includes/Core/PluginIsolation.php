@@ -288,12 +288,19 @@ class PluginIsolation {
 	public const OPTION_SECURITY_OPTOUT = 'buddynext_isolation_security_optout';
 
 	/**
-	 * Whether route isolation is enabled. Default ON; filterable.
+	 * Whether route isolation is enabled. Default OFF; filterable.
+	 *
+	 * Ships OFF (owner Decision 1): stripping plugins on the community routes is a
+	 * sharp tool that surprises owners when a plugin they rely on goes missing, so
+	 * it is opt-in. Sites that were already running the previous default-ON build
+	 * and had configured a keep list have their ON state preserved on upgrade
+	 * (Installer::maybe_preserve_isolation_state), so this flip never silently
+	 * changes behaviour for a site that actually uses isolation.
 	 *
 	 * @return bool
 	 */
 	public static function is_enabled(): bool {
-		$enabled = '0' !== (string) get_option( self::OPTION_ENABLED, '1' );
+		$enabled = '1' === (string) get_option( self::OPTION_ENABLED, '0' );
 
 		/**
 		 * Filter whether front-end plugin isolation runs at all.
