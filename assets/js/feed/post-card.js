@@ -318,6 +318,14 @@ const BN_REACTION_SCROLL_CLOSE_PX = 24;
  * @return {void}
  */
 function reactionFailureToast( res, fallback ) {
+	// A suspension refusal already surfaced the appeal toast centrally in
+	// rest-client (it sets res.suspended and toasts the appeal link even on
+	// toastOnError:false). Building our own here stacks a second, identical toast
+	// that the UI collapses to one stamped "x2" (card 10264293681 RFT round 4).
+	// Let the central appeal toast stand — matches members/store.js follow/connect.
+	if ( res && res.suspended ) {
+		return;
+	}
 	const data      = ( res && res.data ) || {};
 	const message   = data.message ? String( data.message ) : fallback;
 	const appealUrl = ( data.data && data.data.appeal_url ) || '';
@@ -2372,10 +2380,13 @@ store( 'buddynext/post-card', {
 							pct:   total > 0 ? Math.round( ( r.vote_count / total ) * 100 ) : 0,
 						} ) );
 					}
-				} else {
+				} else if ( ! ( res && res.suspended ) ) {
 					// A closed / rejected poll answers with a real reason ("This
 					// poll has closed.", "You have already voted."). Dropping it
-					// left the option looking simply unclickable — surface it.
+					// left the option looking simply unclickable — surface it. A
+					// suspension refusal is skipped here because rest-client already
+					// toasted the appeal link centrally, else the two stack to "x2"
+					// (card 10264293681 RFT round 4).
 					const data = res.data || {};
 					bnToast(
 						data.message || t( 'voteFailed', 'Could not record your vote. Try again.' ),
