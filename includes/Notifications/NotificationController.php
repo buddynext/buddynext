@@ -421,8 +421,10 @@ class NotificationController extends BaseRestController {
 	 * are objects with optional on_site (bool) and email_freq (string) fields.
 	 * Example: {"bn.new_follower": {"on_site": true, "email_freq": "daily"}}
 	 *
-	 * Returns 422 on any invalid email_freq value (must be one of immediate /
-	 * daily / weekly / off).
+	 * Returns 422 (invalid_notification_prefs) when a key is not a known catalogue
+	 * type, an entry is not an object, or email_freq is not one of immediate /
+	 * daily / weekly / off. The error carries per-key reasons in `params` and the
+	 * valid catalogue keys in `valid_types` so a client can recover.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
@@ -461,12 +463,20 @@ class NotificationController extends BaseRestController {
 		}
 
 		if ( ! empty( $errors ) ) {
+			// The error must name the real problem and let the client recover. The
+			// old code hardcoded invalid_email_freq / "invalid email_freq value" for
+			// EVERY error — so the app's most likely mistake (posting the GET prefs
+			// response back wrapped in `prefs`, this card's own repro) returned an
+			// error blaming a field the caller never sent. Report a generic
+			// prefs-invalid code, keep the precise per-key reasons in `params`, and
+			// return the valid catalogue keys so the client can show the real state.
 			return new WP_Error(
-				'invalid_email_freq',
-				__( 'One or more preferences had an invalid email_freq value.', 'buddynext' ),
+				'invalid_notification_prefs',
+				__( 'One or more notification preferences were invalid.', 'buddynext' ),
 				array(
-					'status' => 422,
-					'params' => $errors,
+					'status'      => 422,
+					'params'      => $errors,
+					'valid_types' => $valid_types,
 				)
 			);
 		}

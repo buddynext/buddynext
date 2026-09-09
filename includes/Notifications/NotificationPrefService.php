@@ -204,6 +204,18 @@ class NotificationPrefService {
 	public function set_pref( int $user_id, string $type, array $data ): void {
 		global $wpdb;
 
+		// Seam guard: the catalogue is the source of truth for what a preference
+		// type may be, so an unknown type never reaches the table no matter which
+		// caller asked. The controller returns a friendly 422 listing the valid
+		// keys; this is the backstop that makes "the ONLY writer" genuinely closed,
+		// so a future or Pro caller cannot re-open the junk-row hole (card
+		// 10264293350 — the guard belongs at the seam, not only on the route).
+		// all() applies the buddynext_notification_prefs_catalogue filter, so
+		// partner-registered types still validate.
+		if ( ! array_key_exists( $type, ( new NotificationPrefCatalogue() )->all() ) ) {
+			return;
+		}
+
 		// Both keys are optional: a partial update is the natural call - turning one
 		// type off in-app without touching its email cadence is exactly what the
 		// prefs UI and any integration does. Default FIRST, then validate. Folding
@@ -285,6 +297,15 @@ class NotificationPrefService {
 			);
 		}
 
+		// Drop any row whose type is not in the catalogue. Junk a pre-seam caller
+		// wrote (card 10264293350's repro left type='prefs' and the like) stays
+		// physically in the table but never surfaces here, so the member's pref
+		// list and the digest mailer never act on a type that resolves to nothing.
+		// This is the read-side half that closes the card without a data migration
+		// (which the pre-release rule forbids) — the same inert-orphan approach
+		// used for orphaned notifications and shares.
+		$prefs = array_intersect_key( $prefs, ( new NotificationPrefCatalogue() )->all() );
+
 		wp_cache_set( $cache_key, $prefs, self::CACHE_GROUP, self::CACHE_TTL );
 
 		/**
@@ -311,8 +332,10 @@ class NotificationPrefService {
 	 *   on_site    (bool)   — whether to show in-app notification.
 	 *   email_freq (string) — one of 'immediate', 'daily', 'weekly', 'off'.
 	 *
-	 * Unknown keys within each value are ignored. Unknown notification types
-	 * are stored as-is to be forward-compatible with new types.
+	 * Unknown keys within each value are ignored. Unknown notification types are
+	 * skipped by set_pref() (the catalogue is the source of truth), so a bad type
+	 * never reaches the table — extensibility comes from registering the type via
+	 * the buddynext_notification_prefs_catalogue filter, not from free-form writes.
 	 *
 	 * @param int   $user_id   User ID.
 	 * @param array $prefs_map Associative array of type => {on_site?, email_freq?}.
