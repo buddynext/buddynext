@@ -240,9 +240,35 @@ final class Field {
 	/**
 	 * Resolved sanitize callback: the per-field override, else the type default.
 	 *
+	 * For a number field that declares min and/or max, the resolved sanitizer
+	 * CLAMPS to those bounds rather than using the bare absint default. min/max
+	 * were previously enforced only as HTML attributes, so a hand-crafted POST
+	 * persisted out-of-range values (e.g. a 0-100 percent saved as 500). Clamping
+	 * on save makes the stored value honour the same bounds the UI shows, for every
+	 * number field at once (card 10285238883).
+	 *
 	 * @return callable|string
 	 */
 	public function sanitizer() {
-		return $this->sanitize ?? FieldTypes::sanitizer( $this->type );
+		if ( null !== $this->sanitize ) {
+			return $this->sanitize;
+		}
+
+		if ( 'number' === $this->type && ( null !== $this->min || null !== $this->max ) ) {
+			$min = $this->min;
+			$max = $this->max;
+			return static function ( $value ) use ( $min, $max ): int {
+				$n = (int) $value;
+				if ( null !== $min ) {
+					$n = max( $min, $n );
+				}
+				if ( null !== $max ) {
+					$n = min( $max, $n );
+				}
+				return $n;
+			};
+		}
+
+		return FieldTypes::sanitizer( $this->type );
 	}
 }

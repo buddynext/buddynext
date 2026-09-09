@@ -978,8 +978,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'label'   => __( 'Members-only teaser length (%)', 'buddynext' ),
 							'default' => 25,
 							'min'     => 0,
-							'max'     => 100,
-							'hint'    => __( 'How much of a members-only post a non-member sees as a preview, as a percentage of its length. 0 shows only the lock notice; the preview is never shorter than a few words.', 'buddynext' ),
+							// Capped at 95, not 100: at 100 the "teaser" is the whole
+							// post and the paywall stops gating while still showing the
+							// locked CTA — a silent no-op. A members-only preview always
+							// keeps something back (card 10285238883).
+							'max'     => 95,
+							'hint'    => __( 'How much of a members-only post a non-member sees as a preview, as a percentage of its length. Capped at 95% so the gate always keeps something back; 0 shows only the lock notice. The preview is never shorter than a few words.', 'buddynext' ),
 						)
 					),
 					new Field(

@@ -1365,8 +1365,18 @@ class PostService {
 	}
 
 	/**
+	 * The most of a members-only post that may ever be shown as a teaser.
+	 *
+	 * A teaser exists to withhold the rest, so it is capped below 1.0 — the gate
+	 * must always keep something back, no matter what the owner setting or the
+	 * teaser-fraction filter asks for. 0.95 leaves at least a twentieth locked.
+	 */
+	public const MEMBERS_ONLY_TEASER_MAX = 0.95;
+
+	/**
 	 * Teaser shown for a locked members-only post: a fraction of the body's words
-	 * (owner-tunable, default 25%), nothing for posts under 40 words.
+	 * (owner-tunable, default 25%, capped at MEMBERS_ONLY_TEASER_MAX), nothing for
+	 * posts under 40 words.
 	 *
 	 * @param string $text Plain-text post body.
 	 * @return string
@@ -1380,12 +1390,20 @@ class PostService {
 		// Owner control: Settings -> Activity Feed -> "Members-only teaser length (%)",
 		// stored as a 0-100 percent (default 25). The developer filter still wins on
 		// top for a site that wants per-context logic.
+		//
+		// The fraction is capped at MEMBERS_ONLY_TEASER_MAX (0.95), NOT 1.0: a
+		// members-only teaser must by definition always withhold SOMETHING, or the
+		// locked CTA renders next to the entire post body and the paywall is a
+		// no-op. At 100% (which the slider used to accept, and a hand-crafted POST
+		// could still persist) every word was returned as the "teaser" — one drag
+		// disabled the whole feature. Capping here is the backstop; the setting's
+		// max and its sanitizer also stop the owner reaching 100 (card 10285238883).
 		$percent  = (int) get_option( 'buddynext_members_only_teaser_percent', 25 );
 		$fraction = (float) apply_filters(
 			'buddynext_members_only_teaser_fraction',
-			max( 0.0, min( 1.0, $percent / 100 ) )
+			max( 0.0, min( self::MEMBERS_ONLY_TEASER_MAX, $percent / 100 ) )
 		);
-		$fraction = max( 0.0, min( 1.0, $fraction ) );
+		$fraction = max( 0.0, min( self::MEMBERS_ONLY_TEASER_MAX, $fraction ) );
 		$take     = (int) floor( $count * $fraction );
 		if ( $take < 1 ) {
 			return '';

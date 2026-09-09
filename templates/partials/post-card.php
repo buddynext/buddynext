@@ -411,6 +411,19 @@ $privacy_label  = ( 'public' !== $post_privacy && isset( $privacy_labels[ $post_
 	: '';
 $privacy_icon   = '' !== $privacy_label ? ( $privacy_icons[ $post_privacy ] ?? '' ) : '';
 
+/*
+ * A members-only post is stored privacy='public' + members_only=1, so the
+ * audience rule above produces no marker — yet it is a narrowed audience just
+ * like Followers or Connections, and having been folded into that same audience
+ * list it is the one option whose choice otherwise leaves the author no visible
+ * confirmation. Show the lock + "Members only", taking precedence over the
+ * (public) privacy value (card 10285238883).
+ */
+if ( ! empty( $bn_post['members_only'] ) ) {
+	$privacy_label = esc_html__( 'Members only', 'buddynext' );
+	$privacy_icon  = buddynext_get_icon( 'lock' );
+}
+
 // ── Content warning label ──────────────────────────────────────────────────────
 $cw_labels  = array(
 	'nsfw'     => esc_html__( 'NSFW', 'buddynext' ),
