@@ -1204,8 +1204,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'number',
 							'label'   => __( 'Auto-hide after N reports', 'buddynext' ),
 							'default' => 5,
-							'min'     => 1,
-							'hint'    => __( 'Content is hidden automatically once it reaches this number of reports. Reviewable in the moderation queue.', 'buddynext' ),
+							// 0 is a real value here — the consumer
+							// (ModerationService, guarded by `if ( $threshold > 0 )`)
+							// treats 0 as "auto-hide off". min must be 0, not 1: the
+							// save-time clamp added for card 10285238883 would otherwise
+							// force a stored 0 up to 1 on the next Moderation-tab save,
+							// silently flipping auto-hide from OFF to "hide after a
+							// single report". The strike thresholds keep min 1 on
+							// purpose — their consumer has no 0-guard, so 0 there would
+							// mean "act on the first strike", not "off".
+							'min'     => 0,
+							'hint'    => __( 'Content is hidden automatically once it reaches this number of reports. Reviewable in the moderation queue. Set to 0 to turn automatic hiding off.', 'buddynext' ),
 						)
 					),
 					new Field(

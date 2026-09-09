@@ -416,10 +416,13 @@ $privacy_icon   = '' !== $privacy_label ? ( $privacy_icons[ $post_privacy ] ?? '
  * audience rule above produces no marker — yet it is a narrowed audience just
  * like Followers or Connections, and having been folded into that same audience
  * list it is the one option whose choice otherwise leaves the author no visible
- * confirmation. Show the lock + "Members only", taking precedence over the
- * (public) privacy value (card 10285238883).
+ * confirmation. Show the lock + "Members only" — but only when the audience rule
+ * produced NO marker (the normal case: members-only is stored privacy='public').
+ * If a narrower privacy (followers / connections / private) is somehow also set,
+ * that stricter marker is the more important one and is kept rather than
+ * overwritten (card 10285238883).
  */
-if ( ! empty( $bn_post['members_only'] ) ) {
+if ( '' === $privacy_label && ! empty( $bn_post['members_only'] ) ) {
 	$privacy_label = esc_html__( 'Members only', 'buddynext' );
 	$privacy_icon  = buddynext_get_icon( 'lock' );
 }
