@@ -200,73 +200,11 @@ add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrad
 add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_refresh_mu_plugin' ) );
 
 // Activate the preset key against the store once per site so update downloads
-// are authorised. The activation call runs in the BACKGROUND (a scheduled
-// single event), never on the admin page the owner is looking at: the previous
-// version fired a blocking wp_remote_post( timeout: 15 ) on EVERY admin_init
-// until it succeeded, adding up to 15s to every wp-admin page indefinitely when
-// the store was unreachable. admin_init now only SCHEDULES the attempt.
-add_action(
-	'admin_init',
-	static function (): void {
-		if ( get_option( 'buddynext_preset_activated' ) ) {
-			return;
-		}
-		if ( ! wp_next_scheduled( 'buddynext_activate_preset_key' ) ) {
-			wp_schedule_single_event( time() + 30, 'buddynext_activate_preset_key' );
-		}
-	}
-);
-
-// Background activation. Runs in the cron request, not the owner's page load.
-// On failure it retries with an hourly backoff, bounded, instead of hammering
-// on every admin load. It deliberately does NOT write any tracking-consent
-// option: usage tracking is the EDD SDK's own opt-in (default off, toggled by
-// the owner on the license screen). Forcing it on here was consent the owner
-// never gave.
-add_action(
-	'buddynext_activate_preset_key',
-	static function (): void {
-		if ( get_option( 'buddynext_preset_activated' ) ) {
-			return;
-		}
-
-		$preset_key = 'buddynext9a3c7e1d5f2b8a4c6e0d9b7f1a2c8e55';
-		update_option( 'buddynext_license_key', $preset_key, false );
-
-		$response = wp_remote_post(
-			'https://wbcomdesigns.com',
-			array(
-				'timeout' => 15,
-				'body'    => array(
-					'edd_action' => 'activate_license',
-					'license'    => $preset_key,
-					'item_id'    => 1664401,
-					'url'        => home_url(),
-				),
-			)
-		);
-
-		$ok = false;
-		if ( ! is_wp_error( $response ) ) {
-			$body = json_decode( wp_remote_retrieve_body( $response ), true );
-			$ok   = 'valid' === ( $body['license'] ?? '' );
-		}
-
-		if ( $ok ) {
-			update_option( 'buddynext_preset_activated', 1, false );
-			delete_option( 'buddynext_preset_activation_attempts' );
-			return;
-		}
-
-		// Bounded hourly retry — never on the admin page, and it gives up after a
-		// day rather than trying forever.
-		$attempts = (int) get_option( 'buddynext_preset_activation_attempts', 0 ) + 1;
-		update_option( 'buddynext_preset_activation_attempts', $attempts, false );
-		if ( $attempts < 24 && ! wp_next_scheduled( 'buddynext_activate_preset_key' ) ) {
-			wp_schedule_single_event( time() + HOUR_IN_SECONDS, 'buddynext_activate_preset_key' );
-		}
-	}
-);
+// are authorised. The remote call runs in the BACKGROUND (a scheduled single
+// event), never on the admin page the owner is looking at, retries on a bounded
+// hourly backoff, and surfaces an actionable notice if it gives up rather than
+// failing silently. See PresetActivation for the full rationale.
+\BuddyNext\Core\PresetActivation::register();
 
 /**
  * Check whether a user holds a BuddyNext capability.
