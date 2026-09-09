@@ -770,8 +770,12 @@ class PluginIsolation {
 		'wp_authenticate',
 		'wp_authenticate_user',
 		'wp_login_failed',
-		'login_init',
-		'login_form',
+		// login_init / login_form were dropped (card 10264291719 RFT round 4):
+		// wp-login.php is never a BN-isolated route, so they never help there, and
+		// detected_frontend_plugins() accumulates across contexts — a single
+		// login-page scan would permanently add every plugin with a login hook to
+		// the detected set. The four auth hooks above still matter on BN's own
+		// /login/ hub, which IS an isolated route.
 	);
 
 	/**

@@ -1051,7 +1051,7 @@ class Installer {
 	 */
 	private static function maybe_preserve_isolation_state(): void {
 		$sentinel = '__bn_unset__';
-		if ( $sentinel !== (string) get_option( \BuddyNext\Core\PluginIsolation::OPTION_ENABLED, $sentinel ) ) {
+		if ( (string) get_option( \BuddyNext\Core\PluginIsolation::OPTION_ENABLED, $sentinel ) !== $sentinel ) {
 			return; // Already set (by the owner or a prior run) — leave it.
 		}
 
@@ -1926,6 +1926,12 @@ class Installer {
 		// each step guards on the current schedule/table state, so calling it here on
 		// every activation — fresh or upgrade — is safe.
 		CronScheduler::run_cron_migration();
+
+		// Same activation gap for the isolation-state preserve (card 10264291719 RFT
+		// round 4): a ZIP-upload update runs run() but not maybe_upgrade(), so a site
+		// that had configured route isolation under the old default-ON build would
+		// silently lose it. Run it here too; it is sentinel-guarded to run once.
+		self::maybe_preserve_isolation_state();
 
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
 	}
@@ -4271,6 +4277,17 @@ if ( buddynext_mu_is_bn_request() ) {
 			// reading "keep in sync"; a comment is not a sync mechanism. The literal
 			// array is still needed because a mu-plugin runs before plugins load and
 			// cannot call into the class - but it is now derived, not maintained.
+			// Master switch, read DIRECTLY (card 10264291719 RFT round 4). When
+			// isolation is off we strip nothing. Reading buddynext_isolation_enabled
+			// here, not inferring "off" from the buddynext_isolation_plugins mirror,
+			// makes off deterministic: that mirror is refreshed on init:20, one hook
+			// AFTER this filter runs, so the first front-end request after an update
+			// can still read a stale mirror and strip with isolation off. Default '0'
+			// (off), matching PluginIsolation::is_enabled().
+			if ( '1' !== (string) get_option( 'buddynext_isolation_enabled', '0' ) ) {
+				return $plugins;
+			}
+
 			$essentials = @@BN_MU_ESSENTIALS@@;
 
 			// Plus any dynamic / 3rd-party additions BuddyNext mirrors into the
