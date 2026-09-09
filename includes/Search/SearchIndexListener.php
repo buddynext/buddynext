@@ -128,6 +128,25 @@ class SearchIndexListener implements ListenerInterface {
 	 */
 	public function on_post_deleted( int $post_id ): void {
 		$this->dispatch( 'buddynext_async_deindex_post', array( $post_id ) );
+
+		// A reshare of this post is now a dead end — the shared original is gone, so a
+		// search hit opens to an "unavailable" card. Deindex the reshares at the
+		// SOURCE (here), not by filtering them out on every read: the read-time filter
+		// left the search count and pager counting rows the list dropped, so the Posts
+		// tab read "6" over 4 cards and a page of all-dead reshares rendered empty. The
+		// reshare POST still exists and still renders in the feed as unavailable; it
+		// only leaves search. Card 10264292524.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$bn_reshare_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE type = 'share' AND shared_post_id = %d",
+				$post_id
+			)
+		);
+		foreach ( $bn_reshare_ids as $bn_reshare_id ) {
+			$this->dispatch( 'buddynext_async_deindex_post', array( (int) $bn_reshare_id ) );
+		}
 	}
 
 	/**
