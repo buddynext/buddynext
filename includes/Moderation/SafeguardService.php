@@ -125,10 +125,13 @@ class SafeguardService {
 	 *                         create-time rule counts bn_posts rows - but it would silently exempt
 	 *                         those three surfaces from any future create-time rule. The caller
 	 *                         knows which it is, so the caller says so.
+	 * @param string $object_label What is being written ('post', 'comment', 'space name',
+	 *                         'poll option', 'caption', 'space field'), so a banned-word
+	 *                         rejection names the object instead of always saying "post".
 	 * @return true|WP_Error
 	 */
-	public function check_content( string $content, string $url = '', int $user_id = 0, int $space_id = 0, string $context = 'edit' ): bool|WP_Error {
-		$banned = $this->check_banned_words( $content, $space_id );
+	public function check_content( string $content, string $url = '', int $user_id = 0, int $space_id = 0, string $context = 'edit', string $object_label = 'post' ): bool|WP_Error {
+		$banned = $this->check_banned_words( $content, $space_id, $object_label );
 		if ( is_wp_error( $banned ) ) {
 			return $banned;
 		}
@@ -162,11 +165,14 @@ class SafeguardService {
 	 * censored ordinary conversation with a message naming no word. An owner who
 	 * does want variants writes a `*` (see banned_word_pattern()).
 	 *
-	 * @param string $content  Post content to inspect.
-	 * @param int    $space_id Target space ID (0 = site feed; skips per-space list).
+	 * @param string $content      Post content to inspect.
+	 * @param int    $space_id     Target space ID (0 = site feed; skips per-space list).
+	 * @param string $object_label What is being written ('post', 'comment', 'space name',
+	 *                             'poll option', 'caption', …), so the rejection names the
+	 *                             object instead of always saying "post".
 	 * @return true|WP_Error
 	 */
-	private function check_banned_words( string $content, int $space_id = 0 ): bool|WP_Error {
+	private function check_banned_words( string $content, int $space_id = 0, string $object_label = 'post' ): bool|WP_Error {
 		$raw = (string) get_option( 'buddynext_banned_words', '' );
 
 		if ( $space_id > 0 ) {
@@ -190,7 +196,11 @@ class SafeguardService {
 
 		return new WP_Error(
 			'banned_word',
-			__( 'Your post contains a prohibited word.', 'buddynext' ),
+			sprintf(
+				/* translators: %s: the thing being written — post, comment, space name, poll option, caption. */
+				__( 'Your %s contains a word that is not allowed here.', 'buddynext' ),
+				$object_label
+			),
 			array( 'status' => 422 )
 		);
 	}

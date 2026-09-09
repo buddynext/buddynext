@@ -529,6 +529,22 @@ final class SpaceFieldRegistry {
 				continue;
 			}
 
+			// Free-text fields carry user prose, so a banned word could otherwise be
+			// moved into a space custom field to survive the comment/post scans. Run
+			// the same safeguard (per-space list applies via $space_id); a select /
+			// number / url / colour is not prose and is skipped. A hard block rejects
+			// the field; a flag verdict is allowed through (reactive moderation).
+			// Card 10264294340.
+			if ( in_array( (string) ( $field['type'] ?? '' ), array( 'text', 'textarea' ), true )
+				&& '' !== (string) $clean
+				&& function_exists( 'buddynext_service' ) ) {
+				$bn_field_scan = buddynext_service( 'safeguard' )->check_content( (string) $clean, '', (int) $actor_id, $space_id, 'edit', 'space field' );
+				if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_field_scan ) && is_wp_error( $bn_field_scan ) ) {
+					$errors[ $field['key'] ] = $bn_field_scan->get_error_message();
+					continue;
+				}
+			}
+
 			$validated[ $field['key'] ] = array(
 				'field' => $field,
 				'value' => $clean,

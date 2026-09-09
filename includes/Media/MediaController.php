@@ -358,7 +358,7 @@ class MediaController extends BaseRestController {
 		// flag verdict is allowed through (reactive moderation).
 		$bn_media_text = trim( $args['title'] . ' ' . $args['description'] );
 		if ( '' !== $bn_media_text ) {
-			$bn_media_scan = buddynext_service( 'safeguard' )->check_content( $bn_media_text, '', $user_id, 0, 'create' );
+			$bn_media_scan = buddynext_service( 'safeguard' )->check_content( $bn_media_text, '', $user_id, 0, 'create', 'caption' );
 			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_media_scan ) && is_wp_error( $bn_media_scan ) ) {
 				return $bn_media_scan;
 			}
@@ -652,7 +652,7 @@ class MediaController extends BaseRestController {
 		// Album name + description run the banned-words / blocklist scan too, so a
 		// blocked word cannot be moved into an album title. Hard block rejects.
 		$bn_album_text = trim( $title . ' ' . (string) $request->get_param( 'description' ) );
-		$bn_album_scan = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), 0, 'create' );
+		$bn_album_scan = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), 0, 'create', 'album' );
 		if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_album_scan ) && is_wp_error( $bn_album_scan ) ) {
 			return $bn_album_scan;
 		}
@@ -699,7 +699,7 @@ class MediaController extends BaseRestController {
 		// Album name + description run the banned-words / blocklist scan too, so a
 		// blocked word cannot be moved into an album title. Hard block rejects.
 		$bn_album_text = trim( $title . ' ' . (string) $request->get_param( 'description' ) );
-		$bn_album_scan = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), 0, 'create' );
+		$bn_album_scan = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), 0, 'create', 'album' );
 		if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_album_scan ) && is_wp_error( $bn_album_scan ) ) {
 			return $bn_album_scan;
 		}

@@ -369,6 +369,26 @@ class PostService {
 			}
 		}
 
+		// Poll OPTIONS are user-authored text too, but only $data['content'] was
+		// scanned above — a banned word in an option published unchecked. Scan each
+		// option through the same safeguard (per-space list applies via
+		// $target_space_id); a hard block rejects the whole poll, a flag verdict is
+		// allowed through like the body (reactive moderation). Card 10264294340.
+		if ( 'poll' === $type ) {
+			foreach ( (array) ( $data['options'] ?? array() ) as $bn_poll_raw ) {
+				$bn_poll_text = is_array( $bn_poll_raw )
+					? (string) ( $bn_poll_raw['label'] ?? $bn_poll_raw['text'] ?? $bn_poll_raw['option_text'] ?? '' )
+					: (string) $bn_poll_raw;
+				if ( '' === trim( $bn_poll_text ) ) {
+					continue;
+				}
+				$bn_poll_scan = $this->get_safeguard()->check_content( $bn_poll_text, '', $user_id, $target_space_id, 'create', 'poll option' );
+				if ( ! SafeguardService::is_flag_verdict( $bn_poll_scan ) && is_wp_error( $bn_poll_scan ) ) {
+					return $bn_poll_scan;
+				}
+			}
+		}
+
 		/**
 		 * Filter post data before it is written on create.
 		 *

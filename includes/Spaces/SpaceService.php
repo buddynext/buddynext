@@ -392,7 +392,7 @@ class SpaceService {
 		// a flag verdict is allowed through (reactive moderation).
 		$bn_space_text = trim( (string) ( $data['name'] ?? '' ) . ' ' . (string) ( $data['description'] ?? '' ) );
 		if ( '' !== $bn_space_text ) {
-			$bn_space_scan = buddynext_service( 'safeguard' )->check_content( $bn_space_text, '', $owner_id, 0, 'create' );
+			$bn_space_scan = buddynext_service( 'safeguard' )->check_content( $bn_space_text, '', $owner_id, 0, 'create', 'space name' );
 			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_space_scan ) && is_wp_error( $bn_space_scan ) ) {
 				return $bn_space_scan;
 			}
@@ -518,7 +518,7 @@ class SpaceService {
 		// creation. Hard block rejects; a flag verdict is allowed through.
 		$bn_space_text = trim( (string) ( $data['name'] ?? '' ) . ' ' . (string) ( $data['description'] ?? '' ) );
 		if ( '' !== $bn_space_text ) {
-			$bn_space_scan = buddynext_service( 'safeguard' )->check_content( $bn_space_text, '', $user_id, $space_id, 'edit' );
+			$bn_space_scan = buddynext_service( 'safeguard' )->check_content( $bn_space_text, '', $user_id, $space_id, 'edit', 'space name' );
 			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_space_scan ) && is_wp_error( $bn_space_scan ) ) {
 				return $bn_space_scan;
 			}

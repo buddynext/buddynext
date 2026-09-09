@@ -119,7 +119,7 @@ class CommentService {
 		// Scan the comment body for banned words (and Pro keyword/ML blocklists via
 		// the buddynext_safeguard_check filter). Posts run the full safeguard suite;
 		// comments previously ran none of it, so banned words slipped through.
-		$bn_comment_scan = buddynext_service( 'safeguard' )->check_content( $content, '', $user_id, 0, 'create' );
+		$bn_comment_scan = buddynext_service( 'safeguard' )->check_content( $content, '', $user_id, 0, 'create', 'comment' );
 		$bn_flag_reason  = '';
 
 		// A flag publishes and reports; only a hard block rejects. This branch used
@@ -483,7 +483,7 @@ class CommentService {
 		// not slip in via an edit any more than on create. Mirror create(): a hard
 		// block rejects the edit, a flag verdict is allowed through (reactive
 		// moderation reports it rather than pre-blocking).
-		$bn_edit_scan = buddynext_service( 'safeguard' )->check_content( $content, '', $user_id, 0, 'edit' );
+		$bn_edit_scan = buddynext_service( 'safeguard' )->check_content( $content, '', $user_id, 0, 'edit', 'comment' );
 		if ( ! SafeguardService::is_flag_verdict( $bn_edit_scan ) && is_wp_error( $bn_edit_scan ) ) {
 			return $bn_edit_scan;
 		}
