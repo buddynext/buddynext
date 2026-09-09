@@ -285,23 +285,30 @@ class CronScheduler {
 		// Scheduler automatically: schedule_events() -> maybe_schedule() clears each
 		// legacy WP-Cron event and registers the AS action on the next wp_loaded.
 
-		// 7. Drop the per-user onboarding nudge events. Two single events were armed
-		// on EVERY registration (bn_onboarding_nudge_24h/_72h with the user id as an
-		// arg), so the autoloaded cron option grew without bound — 305 KB after
-		// 1,500 signups. They are replaced by one recurring Action Scheduler sweep
-		// (OnboardingListener::run_nudge_sweep). wp_unschedule_hook removes ALL
-		// events for each hook regardless of their per-user args in one call.
+		// 7. Onboarding nudges now schedule per-user Action Scheduler single actions at
+		// registration (bn_onboarding_nudge_24h/_72h with the user id as an arg). Clear
+		// the two litter sources this replaces, both idempotent no-ops once gone. First,
+		// the pre-1.2.0 native WP-Cron single events for the same hooks — the original
+		// unbounded-cron-option bug (305 KB after 1,500 signups). Second, the brief
+		// recurring buddynext_onboarding_nudge_sweep AS action from the queue-table
+		// approach that this supersedes — a recurring action whose listener is gone
+		// would otherwise fire into nothing forever, exactly the permanent litter step 5
+		// clears. New members are covered from their next registration onward (the AS
+		// actions schedule on user_register), which matches the retired baseline
+		// behaviour of not retroactively nudging the existing community, so no baseline
+		// stamp is needed.
 		wp_unschedule_hook( 'bn_onboarding_nudge_24h' );
 		wp_unschedule_hook( 'bn_onboarding_nudge_72h' );
+		if ( function_exists( 'as_unschedule_all_actions' ) ) {
+			as_unschedule_all_actions( 'buddynext_onboarding_nudge_sweep', array(), self::GROUP );
+		}
 
-		// Stamp the sweep's baseline so it never re-nudges anyone the legacy events
-		// already covered — everyone registered before this upgrade. Without it the
-		// transition cohort (registered 24-96h before the update, still holding a
-		// live legacy event or an already-sent one) would be nudged a second time by
-		// the new sweep. add_option, not update_option: only the FIRST upgrade sets
-		// it, so a later re-run cannot move the line forward and silently skip a day
-		// of genuinely new members.
-		add_option( \BuddyNext\Onboarding\OnboardingListener::NUDGE_BASELINE_OPTION, time() );
+		// Drop the short-lived queue table (empty on any install that carried it — it
+		// only ever held in-flight rows the sweep drained). dbDelta never drops, so the
+		// removal lives here. IF EXISTS keeps it a no-op on installs that never had it.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}bn_onboarding_nudges" );
 	}
 
 	/**

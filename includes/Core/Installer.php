@@ -340,15 +340,18 @@ class Installer {
 	 *      same early return. schema_intact() now also compares columns so a future column
 	 *      added without a bump is caught here instead of in production.
 	 *
-	 *  50: New bn_onboarding_nudges queue table (card 10264295353). The onboarding
-	 *      nudge sweep no longer range-scans wp_users.user_registered; it reads a
-	 *      per-user (user_id, kind, due_at, sent) queue enqueued at registration. An
-	 *      upgrading site needs the table created before enqueue_nudges() runs, so the
-	 *      bump makes maybe_upgrade() run the dbDelta that adds it (creating a table is
-	 *      additive; existing members simply have no rows and are nudged from their
-	 *      next registration onward, matching the retired baseline behaviour).
+	 *  50: Added a bn_onboarding_nudges queue table + recurring sweep for onboarding
+	 *      nudges (card 10264295353). Superseded by 51 before any release — see below.
+	 *
+	 *  51: Reverted the 50 queue table. It reimplemented a slice of Action Scheduler,
+	 *      which BuddyNext already bundles and depends on, so onboarding nudges now
+	 *      schedule two per-user Action Scheduler single actions at registration
+	 *      (OnboardingListener::enqueue_nudges) instead. The bump runs
+	 *      CronScheduler::run_cron_migration(), which clears the retired recurring
+	 *      sweep action and drops the now-unused table on any install that ran 50.
+	 *      No new table is created here; the dbDelta pass is a no-op beyond the drop.
 	 */
-	private const SCHEMA_VERSION = 50;
+	private const SCHEMA_VERSION = 51;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3372,20 +3375,6 @@ class Installer {
 				KEY          follower_recent (following_id, created_at),
 				KEY          follow_created (created_at),
 				KEY          following_recent (follower_id, status, created_at)
-			) {$cs};",
-
-			// Onboarding-nudge queue. One row per (user, nudge kind); enqueued at
-			// registration with the moment the nudge is due, so the recurring sweep
-			// selects due, unsent rows off the (sent, due_at) index instead of
-			// range-scanning the unindexed wp_users.user_registered on every run — the
-			// 100k-member concern on card 10264295353.
-			"CREATE TABLE {$p}bn_onboarding_nudges (
-				user_id BIGINT(20) UNSIGNED NOT NULL,
-				kind VARCHAR(8) NOT NULL,
-				due_at DATETIME NOT NULL,
-				sent TINYINT(1) NOT NULL DEFAULT 0,
-				PRIMARY KEY  (user_id, kind),
-				KEY          due_queue (sent, due_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_connections (

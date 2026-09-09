@@ -1,12 +1,14 @@
 <?php
 /**
- * Onboarding nudges are driven by an indexed queue table, not a wp_users scan.
+ * Onboarding nudges are scheduled through Action Scheduler, not WP-Cron and not a
+ * bespoke queue table.
  *
- * Card 10264295353: the per-user WP-Cron events (the original unbounded-cron bug)
- * were replaced by a sweep, but that sweep range-scanned the unindexed
- * wp_users.user_registered — the 100k-member concern. Nudges are now enqueued at
- * registration into bn_onboarding_nudges (indexed on sent, due_at) and the sweep
- * drains due, unsent rows off that index.
+ * Card 10264295353: the original bug was two per-user WP-Cron single events queued
+ * on every registration, which grew the autoloaded `cron` option without bound at
+ * scale. A queue table + recurring sweep was tried, then dropped — it reimplemented
+ * a slice of Action Scheduler, which BuddyNext already depends on. Nudges are now two
+ * per-user Action Scheduler single actions (bn_onboarding_nudge_24h / _72h), scheduled
+ * at registration and unscheduled when the member onboards.
  *
  * @package BuddyNext\Tests\Onboarding
  */
@@ -15,15 +17,13 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Tests\Onboarding;
 
-use BuddyNext\Core\Installer;
 use BuddyNext\Onboarding\OnboardingListener;
 use WP_UnitTestCase;
 
 /**
- * The bn_onboarding_nudges queue: enqueue, due-only sweep, prune, cancel.
+ * Onboarding nudges: scheduled, idempotent, and cancelled on completion.
  *
  * @covers \BuddyNext\Onboarding\OnboardingListener::enqueue_nudges
- * @covers \BuddyNext\Onboarding\OnboardingListener::run_nudge_sweep
  * @covers \BuddyNext\Onboarding\OnboardingListener::on_onboarding_completed_cancel_nudges
  */
 class NudgeQueueTest extends WP_UnitTestCase {
@@ -39,71 +39,95 @@ class NudgeQueueTest extends WP_UnitTestCase {
 	 */
 	public function set_up(): void {
 		parent::set_up();
-		Installer::install_schema();
+		if ( ! function_exists( 'as_schedule_single_action' ) || ! function_exists( 'as_next_scheduled_action' ) ) {
+			$this->markTestSkipped( 'Action Scheduler is not loaded in this harness.' );
+		}
 		$this->listener = new OnboardingListener();
 		$this->user     = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		// A fixture user_register may already have fired enqueue if the listener is
+		// registered globally; clear so each test starts from a known state.
+		$this->unschedule_all();
 	}
 
 	/**
-	 * @return array<int,array<string,string>>
+	 * @return void
 	 */
-	private function rows(): array {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (array) $wpdb->get_results(
-			$wpdb->prepare( "SELECT kind, sent FROM {$wpdb->prefix}bn_onboarding_nudges WHERE user_id = %d ORDER BY kind", $this->user ),
-			ARRAY_A
-		);
+	public function tear_down(): void {
+		$this->unschedule_all();
+		parent::tear_down();
 	}
 
 	/**
-	 * Registration enqueues both nudges, unsent and due in the future.
+	 * Drop any pending nudge actions for the fixture user.
 	 *
 	 * @return void
 	 */
-	public function test_enqueue_creates_two_future_rows(): void {
-		$this->listener->enqueue_nudges( $this->user );
-		$rows = $this->rows();
-		$this->assertCount( 2, $rows, 'Two nudges (24h, 72h) are queued.' );
-		$this->assertSame( array( '0', '0' ), array_map( static fn( $r ) => (string) $r['sent'], $rows ), 'Both start unsent.' );
+	private function unschedule_all(): void {
+		foreach ( array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) as $hook ) {
+			as_unschedule_action( $hook, array( $this->user ), 'buddynext' );
+		}
 	}
 
 	/**
-	 * Enqueuing is idempotent — a duplicate user_register does not double-queue.
+	 * True when the given nudge hook is pending for the fixture user.
+	 *
+	 * @param string $hook Nudge hook name.
+	 * @return bool
+	 */
+	private function is_pending( string $hook ): bool {
+		return false !== as_next_scheduled_action( $hook, array( $this->user ), 'buddynext' );
+	}
+
+	/**
+	 * Registration schedules both nudges as pending Action Scheduler actions.
+	 *
+	 * @return void
+	 */
+	public function test_enqueue_schedules_both_nudges(): void {
+		$this->listener->enqueue_nudges( $this->user );
+		$this->assertTrue( $this->is_pending( 'bn_onboarding_nudge_24h' ), 'The 24h nudge is scheduled.' );
+		$this->assertTrue( $this->is_pending( 'bn_onboarding_nudge_72h' ), 'The 72h nudge is scheduled.' );
+	}
+
+	/**
+	 * The 72h nudge is scheduled later than the 24h one (right offsets, not both now).
+	 *
+	 * @return void
+	 */
+	public function test_nudges_are_scheduled_at_their_offsets(): void {
+		$this->listener->enqueue_nudges( $this->user );
+		$at24 = (int) as_next_scheduled_action( 'bn_onboarding_nudge_24h', array( $this->user ), 'buddynext' );
+		$at72 = (int) as_next_scheduled_action( 'bn_onboarding_nudge_72h', array( $this->user ), 'buddynext' );
+		// as_next_scheduled_action returns the timestamp when passed a specific action
+		// signature. The 72h nudge must be due strictly after the 24h nudge.
+		$this->assertGreaterThan( $at24, $at72, 'The 72h nudge is due after the 24h nudge.' );
+	}
+
+	/**
+	 * Enqueuing is idempotent — a duplicate user_register does not double-schedule.
 	 *
 	 * @return void
 	 */
 	public function test_enqueue_is_idempotent(): void {
 		$this->listener->enqueue_nudges( $this->user );
 		$this->listener->enqueue_nudges( $this->user );
-		$this->assertCount( 2, $this->rows(), 'Still exactly two rows after a repeat register.' );
+
+		foreach ( array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) as $hook ) {
+			$pending = as_get_scheduled_actions(
+				array(
+					'hook'   => $hook,
+					'args'   => array( $this->user ),
+					'group'  => 'buddynext',
+					'status' => \ActionScheduler_Store::STATUS_PENDING,
+				),
+				'ids'
+			);
+			$this->assertCount( 1, (array) $pending, "Exactly one {$hook} action after a repeat register." );
+		}
 	}
 
 	/**
-	 * The sweep sends only DUE rows; a future row is left untouched.
-	 *
-	 * @return void
-	 */
-	public function test_sweep_sends_due_prunes_and_skips_future(): void {
-		global $wpdb;
-		$table = $wpdb->prefix . 'bn_onboarding_nudges';
-		$this->listener->enqueue_nudges( $this->user );
-
-		// Make only the 24h nudge due; leave 72h in the future.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET due_at = '2000-01-01 00:00:00' WHERE user_id = %d AND kind = '24h'", $this->user ) );
-
-		$this->listener->run_nudge_sweep();
-
-		$rows = $this->rows();
-		// The due 24h row was sent then pruned; the future 72h row remains unsent.
-		$this->assertCount( 1, $rows, 'Only the future nudge remains after the sweep.' );
-		$this->assertSame( '72h', $rows[0]['kind'], 'The remaining row is the not-yet-due 72h nudge.' );
-		$this->assertSame( '0', (string) $rows[0]['sent'], 'The future nudge is still unsent.' );
-	}
-
-	/**
-	 * Onboarding early cancels the member's pending queued nudges.
+	 * Onboarding completion cancels the member's pending nudges.
 	 *
 	 * @return void
 	 */
@@ -111,8 +135,7 @@ class NudgeQueueTest extends WP_UnitTestCase {
 		$this->listener->enqueue_nudges( $this->user );
 		$this->listener->on_onboarding_completed_cancel_nudges( $this->user );
 
-		foreach ( $this->rows() as $row ) {
-			$this->assertSame( '1', (string) $row['sent'], 'Pending nudges are marked sent when the member onboards.' );
-		}
+		$this->assertFalse( $this->is_pending( 'bn_onboarding_nudge_24h' ), 'The 24h nudge was cancelled.' );
+		$this->assertFalse( $this->is_pending( 'bn_onboarding_nudge_72h' ), 'The 72h nudge was cancelled.' );
 	}
 }
