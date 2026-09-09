@@ -357,8 +357,13 @@ class Installer {
 	 *      BY joined_at DESC) satisfy the sort from the index instead of filesorting
 	 *      every active membership. dbDelta ADDs the KEY (the existing user_status is
 	 *      its strict prefix and stays; dropping it would need a non-dbDelta ALTER).
+	 *
+	 *  53: Adds bn_mod_log KEY action_time (action, created_at) — the space
+	 *      Moderation tab's action-type dropdown drives WHERE action = %s ORDER BY
+	 *      created_at on a never-pruned table, previously an unindexed scan +
+	 *      filesort (card 10264294456). dbDelta ADDs the KEY.
 	 */
-	private const SCHEMA_VERSION = 52;
+	private const SCHEMA_VERSION = 53;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3926,7 +3931,8 @@ class Installer {
 				KEY            target_user (target_user_id),
 				KEY            created (created_at),
 				KEY            space (space_id),
-				KEY            object (object_type, object_id)
+				KEY            object (object_type, object_id),
+				KEY            action_time (action, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_user_strikes (

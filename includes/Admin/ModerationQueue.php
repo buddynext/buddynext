@@ -1067,7 +1067,19 @@ class ModerationQueue {
 			'escalate' => 'escalate_report',
 		);
 		if ( ! is_wp_error( $result ) && isset( $report_actions[ $op ] ) ) {
-			( new \BuddyNext\Moderation\ModerationLogService() )->log( $actor, $report_actions[ $op ], array( 'report_id' => $report_id ) );
+			// Carry the report's space_id so a space report actioned from wp-admin
+			// shows on THAT space's Moderation tab, not only the site log — the
+			// space tab filters on space_id and this writer defaulted it to 0
+			// (card 10264294456 RFT round 4). Mirrors Pro's BulkModService.
+			$report_row = $service->get_report( $report_id );
+			( new \BuddyNext\Moderation\ModerationLogService() )->log(
+				$actor,
+				$report_actions[ $op ],
+				array(
+					'report_id' => $report_id,
+					'space_id'  => (int) ( ( is_array( $report_row ) ? $report_row : array() )['space_id'] ?? 0 ),
+				)
+			);
 		}
 
 		$this->redirect_back( 'reports', $result );
@@ -1160,6 +1172,16 @@ class ModerationQueue {
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		$service = new \BuddyNext\Feed\PostService();
 
+		// Capture the pending post's space BEFORE the action (reject removes the row),
+		// so a space's premod action is logged against THAT space's Moderation tab,
+		// not only the site log — the tab filters on space_id and this writer
+		// defaulted it to 0 (card 10264294456 RFT round 4). Status-agnostic PK read.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$bn_pending_space_id = $post_id > 0
+			? (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ) )
+			: 0;
+
 		$result    = true;
 		$op_action = '';
 		if ( 'approve' === $op ) {
@@ -1178,7 +1200,14 @@ class ModerationQueue {
 		}
 
 		if ( ! is_wp_error( $result ) && '' !== $op_action ) {
-			( new \BuddyNext\Moderation\ModerationLogService() )->log( get_current_user_id(), $op_action, array( 'post_id' => $post_id ) );
+			( new \BuddyNext\Moderation\ModerationLogService() )->log(
+				get_current_user_id(),
+				$op_action,
+				array(
+					'post_id'  => $post_id,
+					'space_id' => $bn_pending_space_id,
+				)
+			);
 		}
 
 		$this->redirect_back( 'pending', $result );
