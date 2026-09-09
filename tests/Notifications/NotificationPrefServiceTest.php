@@ -139,4 +139,48 @@ class NotificationPrefServiceTest extends \WP_UnitTestCase {
 
 		$this->assertTrue( $pref_other['on_site'] );
 	}
+
+	/**
+	 * The digest email's one-click unsubscribe writes (user, 'digest', off). 'digest'
+	 * is an INTERNAL suppression pseudo-type, not a member catalogue key, so the
+	 * set_pref() seam guard must let it through (else the unsubscribe is a silent
+	 * no-op and the member keeps receiving digests — card 10264293350). It must NOT
+	 * surface in the prefs UI.
+	 *
+	 * @return void
+	 */
+	public function test_digest_unsubscribe_pseudo_type_persists_but_is_hidden_from_ui(): void {
+		global $wpdb;
+		$this->service->set_pref( $this->user_id, 'digest', array( 'email_freq' => 'off' ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$freq = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT email_freq FROM {$wpdb->prefix}bn_notification_prefs WHERE user_id = %d AND type = 'digest'",
+				$this->user_id
+			)
+		);
+		$this->assertSame( 'off', $freq, 'The digest unsubscribe row must persist so the digest cron suppresses on it.' );
+		$this->assertArrayNotHasKey( 'digest', $this->service->get_all_prefs( $this->user_id ), 'digest is internal and must not appear in the prefs UI.' );
+	}
+
+	/**
+	 * A type that is neither a catalogue entry nor an internal pseudo-type must
+	 * still be rejected — the junk-row hole the guard closed stays closed.
+	 *
+	 * @return void
+	 */
+	public function test_set_pref_still_rejects_a_junk_type(): void {
+		global $wpdb;
+		$this->service->set_pref( $this->user_id, 'totally_made_up', array( 'email_freq' => 'off' ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notification_prefs WHERE user_id = %d AND type = 'totally_made_up'",
+				$this->user_id
+			)
+		);
+		$this->assertSame( 0, $count, 'A non-catalogue, non-internal type must never reach the table.' );
+	}
 }

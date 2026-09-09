@@ -34,6 +34,23 @@ class NotificationPrefService {
 	private const VALID_FREQ = array( 'immediate', 'daily', 'weekly', 'off' );
 
 	/**
+	 * Internal suppression pseudo-types the PLATFORM writes itself, which are not
+	 * member-facing catalogue entries but must still persist and be honoured.
+	 *
+	 * 'digest' is the one the digest email signs into its unsubscribe token
+	 * (CronService); the one-click unsubscribe writes (user, 'digest',
+	 * email_freq='off') and the digest mailer suppresses on that exact row. It is
+	 * deliberately kept OUT of NotificationPrefCatalogue so it never appears in the
+	 * prefs UI (get_all_prefs() intersects with the catalogue), but the set_pref()
+	 * seam guard must let it through or the unsubscribe link is a silent no-op and
+	 * the member keeps receiving digests (card 10264293350 — the 2026-07-06
+	 * customer complaint, reintroduced when the junk-type guard landed).
+	 *
+	 * @var string[]
+	 */
+	private const INTERNAL_TYPES = array( 'digest' );
+
+	/**
 	 * Map of notification type slug → the Settings → Notifications "default"
 	 * option that governs its initial on_site state. When a user has no explicit
 	 * pref row for one of these types, the site owner's default applies instead
@@ -212,7 +229,8 @@ class NotificationPrefService {
 		// 10264293350 — the guard belongs at the seam, not only on the route).
 		// all() applies the buddynext_notification_prefs_catalogue filter, so
 		// partner-registered types still validate.
-		if ( ! array_key_exists( $type, ( new NotificationPrefCatalogue() )->all() ) ) {
+		if ( ! array_key_exists( $type, ( new NotificationPrefCatalogue() )->all() )
+			&& ! in_array( $type, self::INTERNAL_TYPES, true ) ) {
 			return;
 		}
 
