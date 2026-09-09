@@ -145,6 +145,57 @@ class EmailLog {
 	}
 
 	/**
+	 * Human label for an email type key.
+	 *
+	 * The Type column and its filter listed raw event keys (bn.post_commented,
+	 * bn.user_unsuspended) — thousands of rows the owner had to decode. Known keys
+	 * get a friendly label; anything else (a partner type, a composed campaign) is
+	 * humanised from the slug so the column is never a bare bn.* string.
+	 *
+	 * @param string $type Stored type key.
+	 * @return string
+	 */
+	private function type_label( string $type ): string {
+		$map = array(
+			'transactional'           => __( 'Account email', 'buddynext' ),
+			'email_verify'            => __( 'Email verification', 'buddynext' ),
+			'welcome'                 => __( 'Welcome', 'buddynext' ),
+			'membership'              => __( 'Membership', 'buddynext' ),
+			'bn.new_follower'         => __( 'New follower', 'buddynext' ),
+			'bn.connection_requested' => __( 'Connection request', 'buddynext' ),
+			'bn.connection_accepted'  => __( 'Connection accepted', 'buddynext' ),
+			'bn.mention'              => __( 'Mention', 'buddynext' ),
+			'bn.post_reacted'         => __( 'Post reaction', 'buddynext' ),
+			'bn.post_commented'       => __( 'New comment', 'buddynext' ),
+			'bn.post_shared'          => __( 'Post shared', 'buddynext' ),
+			'bn.new_message'          => __( 'New message', 'buddynext' ),
+			'bn.space_invite'         => __( 'Space invite', 'buddynext' ),
+			'bn.space_join_requested' => __( 'Space join request', 'buddynext' ),
+			'bn.member_suspended'     => __( 'Member suspended', 'buddynext' ),
+			'bn.user_unsuspended'     => __( 'Member unsuspended', 'buddynext' ),
+			'bn.user_warned'          => __( 'Member warned', 'buddynext' ),
+			'bn.strike_warning'       => __( 'Strike warning', 'buddynext' ),
+			'bn.new_report'           => __( 'New report', 'buddynext' ),
+			'bn.appeal_resolved'      => __( 'Appeal resolved', 'buddynext' ),
+			'bn.content_removed'      => __( 'Content removed', 'buddynext' ),
+			'bn.announcement'         => __( 'Announcement', 'buddynext' ),
+			'bn.onboarding_nudge'     => __( 'Onboarding reminder', 'buddynext' ),
+			'bn.daily_digest'         => __( 'Daily digest', 'buddynext' ),
+			'bn.weekly_digest'        => __( 'Weekly digest', 'buddynext' ),
+			'bn.subscription_expired' => __( 'Subscription expired', 'buddynext' ),
+			'bn.subscription_granted' => __( 'Subscription granted', 'buddynext' ),
+		);
+
+		if ( isset( $map[ $type ] ) ) {
+			return $map[ $type ];
+		}
+		if ( '' === $type ) {
+			return '—';
+		}
+		return ucfirst( str_replace( array( 'bn.', '_' ), array( '', ' ' ), $type ) );
+	}
+
+	/**
 	 * Render the Email Log tab.
 	 *
 	 * @return void
@@ -255,7 +306,7 @@ class EmailLog {
 							<a href="<?php echo esc_url( add_query_arg( array( 'log_type' => $t ), remove_query_arg( 'paged', $tab_url_status ) ) ); ?>"
 								class="bn-segment__item<?php echo $type_filter === $t ? ' is-active' : ''; ?>"
 								aria-selected="<?php echo $type_filter === $t ? 'true' : 'false'; ?>">
-								<?php echo esc_html( $t ); ?>
+								<?php echo esc_html( $this->type_label( $t ) ); ?>
 							</a>
 						<?php endforeach; ?>
 					</div>
@@ -316,7 +367,7 @@ class EmailLog {
 										<span class="bn-text-muted"><?php esc_html_e( 'Guest / unknown', 'buddynext' ); ?></span>
 									<?php endif; ?>
 								</td>
-								<td><code><?php echo esc_html( (string) $row->type ); ?></code></td>
+								<td><span title="<?php echo esc_attr( (string) $row->type ); ?>"><?php echo esc_html( $this->type_label( (string) $row->type ) ); ?></span></td>
 								<td>
 									<?php $is_failed = 'failed' === (string) $row->status; ?>
 									<span class="bn-badge" data-tone="<?php echo $is_failed ? 'danger' : 'success'; ?>">

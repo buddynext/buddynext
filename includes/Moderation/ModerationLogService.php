@@ -167,6 +167,7 @@ class ModerationLogService {
 		global $wpdb;
 
 		$user_id  = isset( $args['user_id'] ) ? (int) $args['user_id'] : 0;
+		$actor_id = isset( $args['actor_id'] ) ? (int) $args['actor_id'] : 0;
 		$action   = isset( $args['action'] ) ? sanitize_key( (string) $args['action'] ) : '';
 		$space_id = isset( $args['space_id'] ) ? (int) $args['space_id'] : 0;
 		$since    = '';
@@ -185,6 +186,10 @@ class ModerationLogService {
 		if ( $user_id > 0 ) {
 			$where[]  = 'target_user_id = %d';
 			$params[] = $user_id;
+		}
+		if ( $actor_id > 0 ) {
+			$where[]  = 'actor_id = %d';
+			$params[] = $actor_id;
 		}
 		if ( '' !== $action ) {
 			$where[]  = 'action = %s';

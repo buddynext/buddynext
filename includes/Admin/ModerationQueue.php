@@ -733,7 +733,10 @@ class ModerationQueue {
 							<tr>
 								<td><?php echo esc_html( $this->ago( (string) ( $row['created_at'] ?? '' ) ) ); ?></td>
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ) ); ?></td>
-								<td><code><?php echo esc_html( (string) ( $row['action'] ?? '' ) ); ?></code></td>
+								<td>
+								<?php $bn_action_slug = (string) ( $row['action'] ?? '' ); ?>
+								<span class="bn-badge" data-tone="neutral" title="<?php echo esc_attr( $bn_action_slug ); ?>"><?php echo esc_html( $this->action_label( $bn_action_slug ) ); ?></span>
+							</td>
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['target_user_id'] ?? 0 ) ) ); ?></td>
 								<td><?php echo esc_html( $object ); ?></td>
 								<td><?php echo esc_html( (string) ( $row['note'] ?? '' ) ); ?></td>
@@ -773,7 +776,14 @@ class ModerationQueue {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filters on an admin screen, sanitized here and escaped at output.
 		$page   = isset( $_GET['log_page'] ) ? max( 1, absint( wp_unslash( $_GET['log_page'] ) ) ) : 1;
 		$action = isset( $_GET['log_action'] ) ? sanitize_key( wp_unslash( $_GET['log_action'] ) ) : '';
+		// Three distinct member/space filters. The old single 'log_actor' input was
+		// LABELLED as a member filter but silently filtered by TARGET, so "what has
+		// moderator X done?" returned rows where X was the victim. Now: log_target
+		// filters the target member, log_actor filters the moderator (actor), and
+		// log_space filters the space — each with its own visible label below.
+		$target = isset( $_GET['log_target'] ) ? absint( wp_unslash( $_GET['log_target'] ) ) : 0;
 		$actor  = isset( $_GET['log_actor'] ) ? absint( wp_unslash( $_GET['log_actor'] ) ) : 0;
+		$space  = isset( $_GET['log_space'] ) ? absint( wp_unslash( $_GET['log_space'] ) ) : 0;
 		$since  = isset( $_GET['log_since'] ) ? sanitize_text_field( wp_unslash( $_GET['log_since'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
@@ -781,8 +791,14 @@ class ModerationQueue {
 		if ( '' !== $action ) {
 			$query['action'] = $action;
 		}
+		if ( $target > 0 ) {
+			$query['user_id'] = $target; // get_log() filters on target_user_id.
+		}
 		if ( $actor > 0 ) {
-			$query['user_id'] = $actor; // get_log() filters on target_user_id.
+			$query['actor_id'] = $actor;
+		}
+		if ( $space > 0 ) {
+			$query['space_id'] = $space;
 		}
 		if ( '' !== $since ) {
 			$query['since'] = $since;
@@ -801,9 +817,18 @@ class ModerationQueue {
 	 * @param array{page:int, query:array<string,mixed>} $filters Active filters.
 	 * @return void
 	 */
-	private function render_log_toolbar( array $filters ): void {
-		$q          = $filters['query'];
-		$actions    = array(
+	/**
+	 * Human labels for moderation-log action slugs.
+	 *
+	 * ONE map, so the filter dropdown, the Action column and the CSV export all
+	 * read the same way. The column used to print the raw slug (dismiss_report)
+	 * while the filter above it showed the label ("Report dismissed"), so an owner
+	 * could not tell they were the same thing.
+	 *
+	 * @return array<string,string>
+	 */
+	private function action_labels(): array {
+		return array(
 			'warn'              => __( 'Warning', 'buddynext' ),
 			'suspend'           => __( 'Suspension', 'buddynext' ),
 			'unsuspend'         => __( 'Unsuspension', 'buddynext' ),
@@ -816,8 +841,30 @@ class ModerationQueue {
 			'ai_escalate'       => __( 'AI: escalated', 'buddynext' ),
 			'ai_dismiss'        => __( 'AI: dismissed', 'buddynext' ),
 		);
+	}
+
+	/**
+	 * Label for one action slug, with a humanised fallback for anything not in the
+	 * map (a partner-registered action, say) so the column never shows a bare slug.
+	 *
+	 * @param string $slug Action slug.
+	 * @return string
+	 */
+	private function action_label( string $slug ): string {
+		$labels = $this->action_labels();
+		if ( isset( $labels[ $slug ] ) ) {
+			return $labels[ $slug ];
+		}
+		return '' === $slug ? '—' : ucfirst( str_replace( '_', ' ', $slug ) );
+	}
+
+	private function render_log_toolbar( array $filters ): void {
+		$q          = $filters['query'];
+		$actions    = $this->action_labels();
 		$cur_action = (string) ( $q['action'] ?? '' );
-		$cur_actor  = (int) ( $q['user_id'] ?? 0 );
+		$cur_target = (int) ( $q['user_id'] ?? 0 );
+		$cur_actor  = (int) ( $q['actor_id'] ?? 0 );
+		$cur_space  = (int) ( $q['space_id'] ?? 0 );
 		$cur_since  = (string) ( $q['since'] ?? '' );
 		$export_url = wp_nonce_url(
 			add_query_arg(
@@ -825,7 +872,9 @@ class ModerationQueue {
 					array(
 						'action'     => 'bn_mod_log_export',
 						'log_action' => $cur_action,
+						'log_target' => $cur_target ?: '',
 						'log_actor'  => $cur_actor ?: '',
+						'log_space'  => $cur_space ?: '',
 						'log_since'  => $cur_since,
 					)
 				),
@@ -849,7 +898,9 @@ class ModerationQueue {
 						<option value="<?php echo esc_attr( $bn_slug ); ?>" <?php selected( $cur_action, $bn_slug ); ?>><?php echo esc_html( $bn_label ); ?></option>
 					<?php endforeach; ?>
 				</select>
-				<input type="number" name="log_actor" class="bn-input" min="0" value="<?php echo esc_attr( $cur_actor ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Member ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by target member ID', 'buddynext' ); ?>">
+				<input type="number" name="log_actor" class="bn-input" min="0" value="<?php echo esc_attr( $cur_actor ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Moderator ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by moderator (actor) ID', 'buddynext' ); ?>">
+				<input type="number" name="log_target" class="bn-input" min="0" value="<?php echo esc_attr( $cur_target ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Target member ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by target member ID', 'buddynext' ); ?>">
+				<input type="number" name="log_space" class="bn-input" min="0" value="<?php echo esc_attr( $cur_space ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Space ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by space ID', 'buddynext' ); ?>">
 				<input type="date" name="log_since" class="bn-input" value="<?php echo esc_attr( $cur_since ); ?>" aria-label="<?php esc_attr_e( 'Show entries since', 'buddynext' ); ?>">
 				<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Filter', 'buddynext' ); ?></button>
 			</form>
@@ -905,7 +956,7 @@ class ModerationQueue {
 					array(
 						(string) ( $row['created_at'] ?? '' ),
 						buddynext_member_label( (int) ( $row['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ),
-						(string) ( $row['action'] ?? '' ),
+						$this->action_label( (string) ( $row['action'] ?? '' ) ),
 						buddynext_member_label( (int) ( $row['target_user_id'] ?? 0 ) ),
 						(string) ( $row['object_type'] ?? '' ),
 						(int) ( $row['object_id'] ?? 0 ),

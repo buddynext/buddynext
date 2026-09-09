@@ -160,7 +160,10 @@ class IsolationAdmin {
 				<div class="bn-ss-body">
 					<?php if ( empty( $bn_groups['stripped'] ) ) : ?>
 						<div class="bn-empty">
-							<p><?php esc_html_e( 'Every active plugin is currently kept on BuddyNext pages.', 'buddynext' ); ?></p>
+							<p><?php esc_html_e( 'Nothing is being unloaded right now — every active plugin qualified to be kept.', 'buddynext' ); ?></p>
+							<p class="bn-field-hint">
+								<?php esc_html_e( 'A plugin is kept when it is a core dependency, a security or access plugin, or something that draws part of the page (it enqueues assets or hooks the header/footer). The plugins that isolation removes are back-office tools that add nothing to a community page — if you have none of those active, there is nothing to unload and this feature has no effect until you do.', 'buddynext' ); ?>
+							</p>
 						</div>
 					<?php else : ?>
 						<?php foreach ( $bn_groups['stripped'] as $bn_file => $bn_row ) : ?>
