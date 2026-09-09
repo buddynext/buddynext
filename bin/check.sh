@@ -373,6 +373,13 @@ py_gate bin/check-hook-docs.py "hook-doc drift — regenerate the table from the
 section "Public hook docs"
 py_gate bin/check-public-hook-docs.py "a hook promised with @since is missing from docs/website/developer-guide/"
 
+# check-public-hook-docs.py gates code -> docs (a promised hook must be documented).
+# check-cookbook-hooks.py gates docs -> code for the RECIPES: a buddynext_* hook or
+# service a cookbook recipe tells a developer to call must actually exist, so a
+# recipe cannot ship pointing at a filter/service that no-ops (card 10264294920).
+section "Cookbook hooks resolve"
+py_gate bin/check-cookbook-hooks.py "a cookbook recipe calls a buddynext_* hook/service that exists nowhere in Free or Pro"
+
 # 3b-i-b. Interactivity directive paths — BLOCKING, and green as of this commit.
 #
 # A directive value is resolved as a PROPERTY PATH (optionally prefixed with one "!"), never

@@ -316,7 +316,11 @@ do_action( 'buddynext_part_member_card_before', $args );
 	</div>
 
 	<?php
-	$bn_md_meta = (string) apply_filters( 'buddynext_member_card_meta_html', '', $bn_member_id, $args );
+	// Third arg is a small, CONSISTENT context array — the same shape the space
+	// roster passes — not this template's raw $args. The two surfaces used to pass
+	// different shapes ($args here, the member row there), so a listener written to
+	// the documented signature broke on one of them (card 10264294920).
+	$bn_md_meta = (string) apply_filters( 'buddynext_member_card_meta_html', '', $bn_member_id, array( 'context' => 'member_directory' ) );
 	if ( '' !== $bn_md_meta ) :
 		?>
 		<div class="bn-md-card__meta-overlay"><?php echo $bn_md_meta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped by hooked plugin per filter contract ?></div>

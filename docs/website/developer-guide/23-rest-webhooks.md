@@ -51,7 +51,7 @@ curl -X POST 'https://example.com/wp-json/buddynext/v1/webhooks' \
   --cookie 'wordpress_logged_in_...=...' \
   -d '{
     "url": "https://hooks.example.net/buddynext",
-    "events": ["buddynext_post_created", "buddynext_user_followed"]
+    "events": ["post.created", "user.followed"]
   }'
 ```
 

@@ -370,7 +370,10 @@ $mem_privacy = array(
 							<?php
 							// Member labels (Pro) via the shared member-card meta seam, so
 							// they show in the space roster like the directory + search.
-							$bn_sm_labels = (string) apply_filters( 'buddynext_member_card_meta_html', '', $member_id, $member );
+							// Same CONSISTENT context-array shape as the member-directory card,
+							// so a listener on this filter sees one contract on both surfaces
+							// (was passing the member row here, $args there — card 10264294920).
+							$bn_sm_labels = (string) apply_filters( 'buddynext_member_card_meta_html', '', $member_id, array( 'context' => 'space_roster' ) );
 							if ( '' !== $bn_sm_labels ) {
 								// Chip markup is wp_kses'd inside IconService::render_emoji().
 								echo '<div class="bn-md-card__labels">' . $bn_sm_labels . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped

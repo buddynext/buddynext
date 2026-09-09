@@ -111,7 +111,7 @@ Six member-facing surfaces apply a render filter so an external plugin (typicall
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_member_card_meta_html` | filter | Rendering a member-directory / search-members card (meta chip below the handle) | `string $html, int $user_id, array $args` |
+| `buddynext_member_card_meta_html` | filter | Rendering a member-directory / search-members card, or a space roster card (meta chip below the handle) | `string $html, int $user_id, array $context` (context carries `context` => `member_directory` \| `space_roster`) |
 | `buddynext_member_card_min_bio_remainder` | filter | Deciding whether the tail of a bio is worth showing under an identical headline (default `12` characters) | `int $min, string $bio, string $headline` |
 | `buddynext_post_byline_meta_html` | filter | Rendering a feed card byline (inline chip beside the author name) | `string $html, int $author_id, int $post_id` |
 | `buddynext_profile_hero_badges_html` | filter | Rendering the profile hero badges row under the display name | `string $html, int $user_id` |
