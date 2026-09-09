@@ -1432,12 +1432,24 @@ class AdminHub {
 			}
 		}
 		if ( $bn_has_license ) {
-			global $submenu;
-			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- appending a deep-link entry, not overriding core state.
-			$submenu[ self::TOP_SLUG ][] = array(
+			// Registered via add_submenu_page(), NOT a raw $submenu[][] append, so it
+			// passes through core's capability check. A raw append adds the row
+			// UNCONDITIONALLY, which kept $submenu['buddynext'] non-empty for a
+			// low-privilege user; core prunes the childless parent only when its
+			// submenu is empty (wp-admin/includes/menu.php:194-197), and its own
+			// submenu cap-prune runs BEFORE admin_menu, so it never sees a row added
+			// here — the BuddyNext top-level menu survived for a subscriber and
+			// dead-ended in a 403 (card 10264294635). add_submenu_page() returns
+			// early without adding the row when the user lacks the cap, so the parent
+			// is now pruned for them. The menu_slug is a full deep-link URL to the
+			// License tab (which add_submenu_page links to directly); no callback,
+			// since the tab owns the screen.
+			add_submenu_page(
+				self::TOP_SLUG,
+				esc_html__( 'License', 'buddynext' ),
 				esc_html__( 'License', 'buddynext' ),
 				'manage_options',
-				esc_url( self::tab_url( 'settings', 'license' ) ),
+				esc_url( self::tab_url( 'settings', 'license' ) )
 			);
 		}
 
@@ -1453,12 +1465,17 @@ class AdminHub {
 			}
 		}
 		if ( '' !== $bn_int_section ) {
-			global $submenu;
-			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- appending a deep-link entry, not overriding core state.
-			$submenu[ self::TOP_SLUG ][] = array(
+			// add_submenu_page() rather than a raw $submenu[][] append, for the same
+			// reason as License above: a raw append is not cap-checked and keeps the
+			// parent alive as a 403 dead-end for a low-privilege user; this is skipped
+			// for them and links directly to the Add-ons tab via its deep-link URL
+			// (card 10264294635).
+			add_submenu_page(
+				self::TOP_SLUG,
+				esc_html__( 'Add-ons', 'buddynext' ),
 				esc_html__( 'Add-ons', 'buddynext' ),
 				'manage_options',
-				esc_url( self::tab_url( $bn_int_section, 'integrations' ) ),
+				esc_url( self::tab_url( $bn_int_section, 'integrations' ) )
 			);
 		}
 	}
