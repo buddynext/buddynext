@@ -139,4 +139,79 @@ class OrphanNotificationCleanupTest extends WP_UnitTestCase {
 
 		$this->assertSame( 0, $this->rows_for_post( $ghost ), 'The daily sweep must remove a notification whose post is gone.' );
 	}
+
+	/**
+	 * Count notification rows keyed to an arbitrary (object_type, object_id).
+	 *
+	 * @param string $type Object type.
+	 * @param int    $id   Object id.
+	 * @return int
+	 */
+	private function rows_for( string $type, int $id ): int {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE object_type = %s AND object_id = %d",
+				$type,
+				$id
+			)
+		);
+	}
+
+	/**
+	 * Deleting a space removes its space-keyed notifications — including one held by
+	 * a member who had LEFT the space (a recipient the old inline delete busted no
+	 * cache for). SpaceService routes through NotificationService::delete_for_object,
+	 * which gathers recipients from the table itself (card 10264293036).
+	 *
+	 * @return void
+	 */
+	public function test_deleting_a_space_removes_a_leavers_notification(): void {
+		$leaver = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$spaces = new \BuddyNext\Spaces\SpaceService();
+		$space  = $spaces->create(
+			$this->author,
+			array( 'name' => 'Doomed', 'slug' => 'doomed-' . wp_rand( 1000, 9999 ), 'type' => 'open' )
+		);
+		$this->assertIsInt( $space );
+
+		global $wpdb;
+		// The leaver is NOT a current member/ban — only a recipient in the table.
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_notifications',
+			array( 'recipient_id' => $leaver, 'sender_id' => $this->author, 'type' => 'bn.space', 'object_type' => 'space', 'object_id' => $space, 'is_read' => 0, 'created_at' => current_time( 'mysql', true ) ),
+			array( '%d', '%d', '%s', '%s', '%d', '%d', '%s' )
+		);
+		$this->assertSame( 1, $this->rows_for( 'space', (int) $space ), 'Precondition: the space notification exists.' );
+
+		$spaces->delete( (int) $space, $this->author );
+
+		$this->assertSame( 0, $this->rows_for( 'space', (int) $space ), 'The space notification must go with the space, leaver included.' );
+	}
+
+	/**
+	 * Deleting a member removes a notification that NAMES them as its object even
+	 * when neither the recipient nor the sender is that member (a third party
+	 * acted) — the recipient/sender clauses alone missed it (card 10264293036).
+	 *
+	 * @return void
+	 */
+	public function test_deleting_a_member_removes_notifications_naming_them(): void {
+		$victim = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$third  = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+
+		global $wpdb;
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_notifications',
+			array( 'recipient_id' => $this->author, 'sender_id' => $third, 'type' => 'bn.connection', 'object_type' => 'user', 'object_id' => $victim, 'is_read' => 0, 'created_at' => current_time( 'mysql', true ) ),
+			array( '%d', '%d', '%s', '%s', '%d', '%d', '%s' )
+		);
+		$this->assertSame( 1, $this->rows_for( 'user', $victim ), 'Precondition: the naming notification exists.' );
+
+		require_once ABSPATH . 'wp-admin/includes/user.php';
+		wp_delete_user( $victim );
+
+		$this->assertSame( 0, $this->rows_for( 'user', $victim ), 'A notification naming the deleted member must be removed.' );
+	}
 }

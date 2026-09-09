@@ -1283,23 +1283,29 @@ class SpaceService {
 		$wpdb->delete( $wpdb->prefix . 'bn_reports', array( 'space_id' => $space_id ), array( '%d' ) );
 		// Space-scoped notifications (join/join-request/ownership rows keyed
 		// object_type='space', object_id=space_id in NotificationListener) must go
-		// with the space, or members keep bell entries that open a 404.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_notifications',
-			array(
-				'object_type' => 'space',
-				'object_id'   => $space_id,
-			),
-			array( '%s', '%d' )
-		);
-		// The raw delete above bypasses NotificationService's own cache bust, so the
-		// affected members' unread/unseen counts would stay inflated until their 30s
-		// TTL lapsed — the bell showing "3" over a list of two. Bust them now with the
-		// member/ban ids already gathered above.
+		// with the space, or members keep bell entries that open a 404. Route through
+		// the canonical NotificationService::delete_for_object(), which gathers the
+		// recipients FROM THE NOTIFICATION TABLE and busts their count caches. The
+		// old inline raw delete busted only $affected_user_ids (current members +
+		// bans), so a member who had LEFT the space still held a space notification,
+		// got the row deleted, but no cache bust — a stale badge for the 30s TTL
+		// (card 10264293036). A leaver is a recipient in the table but not in
+		// $affected_user_ids, so only delete_for_object() covers them.
 		$bn_notifications = function_exists( 'buddynext_service' ) ? buddynext_service( 'notifications' ) : null;
 		if ( $bn_notifications instanceof \BuddyNext\Notifications\NotificationService ) {
-			$bn_notifications->forget_counts_for( $affected_user_ids );
+			$bn_notifications->delete_for_object( 'space', $space_id );
+		} else {
+			// Service unavailable (e.g. a minimal bootstrap): still remove the rows so
+			// they cannot open a 404, even without the cache bust.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->delete(
+				$wpdb->prefix . 'bn_notifications',
+				array(
+					'object_type' => 'space',
+					'object_id'   => $space_id,
+				),
+				array( '%s', '%d' )
+			);
 		}
 		// bn_mod_log is append-only (ModerationLogService) - the permanent audit
 		// trail must outlive the space it references, so its rows are NOT deleted

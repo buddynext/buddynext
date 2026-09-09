@@ -90,9 +90,10 @@ class NotificationService {
 	 * cache can be busted (a raw delete alone would leave the badge stale).
 	 *
 	 * NotificationListener wires this to buddynext_post_deleted and
-	 * buddynext_comment_deleted; SpaceService::delete() already does the equivalent
-	 * inline for a space. Object types match what the listeners store (see
-	 * NotificationListener) and what buddynext_object_exists() understands.
+	 * buddynext_comment_deleted; SpaceService::delete() calls it with ('space', id)
+	 * so a space's join/ownership notifications go with the space. Object types match
+	 * what the listeners store (see NotificationListener) and what
+	 * buddynext_object_exists() understands.
 	 *
 	 * @param string $object_type Object type the notifications reference (e.g. 'post', 'comment').
 	 * @param int    $object_id   Object id.

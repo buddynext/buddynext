@@ -233,6 +233,12 @@ class LogRetentionService {
 		$deleted['orphaned_notifications']  = $this->delete_orphans_batched( 'post', 'bn_posts' );
 		$deleted['orphaned_notifications'] += $this->delete_orphans_batched( 'comment', 'bn_comments' );
 		$deleted['orphaned_notifications'] += $this->delete_orphans_batched( 'space', 'bn_spaces' );
+		// 'user'-keyed rows (follow/connection notifications naming a member) whose
+		// member is gone. wp_delete_user -> MemberCleanupService already removes these
+		// at delete time; this is the backstop for a raw DB delete that fired no hook
+		// (card 10264293036). The owner table is WordPress core wp_users, whose PK is
+		// ID — MySQL column names are case-insensitive, so the join's o.id resolves.
+		$deleted['orphaned_notifications'] += $this->delete_orphans_batched( 'user', 'users' );
 
 		/**
 		 * Fires after a retention purge, so a site can log or monitor it.

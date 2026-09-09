@@ -223,9 +223,16 @@ class MemberCleanupService {
 				'sweep' => true,
 			),
 
-			// Notifications: theirs, and the ones they caused.
+			// Notifications: theirs, the ones they caused, AND the ones that NAME them
+			// as the target object. A follow/connection notification is keyed
+			// object_type='user', object_id=<that member> (NotificationListener); when
+			// object_id is the deleted member but neither recipient nor sender is (e.g.
+			// a third party acted), the recipient/sender clauses miss it and the row is
+			// left pointing at a gone member — hidden by filter_resolvable() but still
+			// counted, a bell "3" over a list of 2 (card 10264293036, same shape as the
+			// post/comment/space cascades).
 			'bn_notifications'           => array(
-				'where' => 'recipient_id = %d OR sender_id = %d',
+				'where' => "recipient_id = %d OR sender_id = %d OR ( object_type = 'user' AND object_id = %d )",
 				'sweep' => true,
 			),
 			'bn_notification_prefs'      => array(
