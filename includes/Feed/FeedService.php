@@ -676,6 +676,38 @@ class FeedService {
 	}
 
 	/**
+	 * The per-viewer post-audience predicate, shared by the home 'spaces' blend and
+	 * the single-space feed so both gate a narrowed-audience post identically.
+	 *
+	 * A post inside a space still carries its own audience: 'public' / 'space_members'
+	 * are visible to any space member, but 'followers' / 'connections' are limited to
+	 * the author's followers / connections and 'private' to the author. Returns a
+	 * bracketed SQL fragment (bare column refs on bn_posts, no alias) plus its ordered
+	 * %d params, so it can be AND-ed onto any query already scoped to a space.
+	 *
+	 * @param int $viewer_id Viewer user ID.
+	 * @return array{0:string,1:array<int>} SQL fragment + ordered params (5).
+	 */
+	private function post_audience_clause( int $viewer_id ): array {
+		global $wpdb;
+
+		$sql = "(
+			privacy IN ('public','space_members')
+			OR user_id = %d
+			OR ( privacy = 'followers' AND user_id IN (
+				SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND status = 'approved'
+			) )
+			OR ( privacy = 'connections' AND user_id IN (
+				SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END
+				FROM {$wpdb->prefix}bn_connections
+				WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
+			) )
+		)";
+
+		return array( $sql, array( $viewer_id, $viewer_id, $viewer_id, $viewer_id, $viewer_id ) );
+	}
+
+	/**
 	 * Build the source-blend WHERE clause + bound params for a home-feed filter.
 	 *
 	 * Returns a pair of [SQL fragment with %d placeholders, ordered params].
@@ -697,11 +729,18 @@ class FeedService {
 				break;
 
 			case 'spaces':
+				// Membership scopes WHICH spaces, but a post's own audience still
+				// applies inside a space: a 'followers'/'connections' post made into a
+				// joined space must not be shown to every member, only to the author's
+				// followers/connections (card 10264292078). The audience predicate is
+				// shared with the single-space feed via post_audience_clause().
+				[ $audience_sql, $audience_params ] = $this->post_audience_clause( $user_id );
+
 				$sql    = "space_id IN (
 					SELECT space_id FROM {$wpdb->prefix}bn_space_members
 					WHERE user_id = %d AND status = 'active'
-				)";
-				$params = array( $user_id );
+				) AND {$audience_sql}";
+				$params = array_merge( array( $user_id ), $audience_params );
 				break;
 
 			case 'network':
@@ -1866,6 +1905,16 @@ class FeedService {
 
 		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), self::MAX_PER_PAGE ) );
 
+		// Privacy gate, in SQL so pagination stays exact. The space scope alone would
+		// list a post made INTO this space with a narrowed audience (connections /
+		// followers / private) with its full body to every member — the single entry
+		// points 403'd but the feed card printed the content (card 10264292078). The
+		// audience predicate is the SAME one the home 'spaces' blend uses
+		// (post_audience_clause), so both surfaces gate a post identically. Gating in
+		// SQL (rather than filtering the fetched page) keeps the per_page+1 "has more"
+		// sentinel honest — a page full of narrowed posts cannot truncate pagination.
+		[ $audience_where, $audience_params ] = $this->post_audience_clause( $viewer_id );
+
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
 		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
 		// posts this viewer reported); its params are bound below.
@@ -1874,22 +1923,23 @@ class FeedService {
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE space_id = %d
 			   AND status = 'published'
+			   AND {$audience_where}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
 			   {$hidden_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( array( $space_id ), $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $space_id ), $audience_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		// $sql was fully prepared by $wpdb->prepare() in the block above.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-		$rows = $wpdb->get_results( $sql, ARRAY_A );
+		$rows = (array) $wpdb->get_results( $sql, ARRAY_A );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
-		$result = $this->paginate( (array) $rows, $per_page );
+		$result = $this->paginate( $rows, $per_page );
 
 		/**
 		 * Fire an impression event for each post shown in the space feed.

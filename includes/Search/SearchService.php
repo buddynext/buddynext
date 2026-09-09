@@ -1262,6 +1262,23 @@ class SearchService {
 			(array) $rows
 		);
 
+		// Post-audience gate. The index stores visibility as public/private only, so a
+		// private space re-exposes its clamped content to members via the space clause
+		// in $visibility_where — a coarse match that cannot tell a public-in-a-private-
+		// space post (a member SHOULD find it) from a connections/followers post that
+		// merely lives in the same space (a non-connection must NOT). The index carries
+		// no privacy column to gate that in SQL, so post/media rows are re-checked
+		// against the SAME read gate the feed and single-post paths use. This is the
+		// one place that can leak a body via search — the row's `content` is returned
+		// here — so it is closed here (card 10264292078).
+		//
+		// ponytail: dropping rows leaves `total` counting the pre-gate matches, so a
+		// viewer whose query hits relationship-private posts in their own spaces sees a
+		// slightly high count. That is the secure direction (never a leaked body) and
+		// the index cannot answer the audience question to fix the count without a
+		// schema change; revisit if a privacy column is ever added to the index.
+		$items = $this->drop_hidden_posts( $items, $viewer_id );
+
 		/**
 		 * Filter each search result item before the set is returned.
 		 *
@@ -1445,6 +1462,54 @@ class SearchService {
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_values( array_unique( array_map( 'intval', (array) $rows ) ) );
+	}
+
+	/**
+	 * Drop post/media search items the viewer is not entitled to read.
+	 *
+	 * The index cannot express post audience (public/private only), so the SQL
+	 * visibility gate lets a connections/followers post in one of the viewer's
+	 * spaces through. Re-check every post/media row against PostService's canonical
+	 * per-viewer gate — the same one the feed uses — in one batched call. Non-post
+	 * rows (user, space) carry their own index visibility and pass through unchanged.
+	 *
+	 * @param array[] $items     search() items (object_type / object_id / ...).
+	 * @param int     $viewer_id Viewing user ID, or 0 for a guest.
+	 * @return array[] The input with hidden post/media rows removed.
+	 */
+	private function drop_hidden_posts( array $items, int $viewer_id ): array {
+		$posts    = buddynext_service( 'post_service' );
+		$post_ids = array();
+		foreach ( $items as $item ) {
+			if ( 'post' === ( $item['object_type'] ?? '' ) ) {
+				$post_ids[] = (int) ( $item['object_id'] ?? 0 );
+			}
+		}
+
+		if ( empty( $post_ids ) ) {
+			return $items;
+		}
+
+		// A row is dropped only when it resolves to a REAL post the viewer may not
+		// read — that is the audience leak this closes. An index row that no longer
+		// resolves (a post deleted before its async de-index ran) is an orphan-index
+		// concern, not a privacy question; enrich already renders it from the row's
+		// own author, so it is left alone rather than silently vanished here.
+		$existing = array_values( array_filter( $post_ids, static fn( int $id ): bool => null !== $posts->get( $id ) ) );
+		$hidden   = array_flip( array_diff( $existing, $posts->filter_visible( $existing, $viewer_id ) ) );
+
+		if ( empty( $hidden ) ) {
+			return $items;
+		}
+
+		return array_values(
+			array_filter(
+				$items,
+				static fn( array $item ): bool =>
+					'post' !== ( $item['object_type'] ?? '' )
+					|| ! isset( $hidden[ (int) ( $item['object_id'] ?? 0 ) ] )
+			)
+		);
 	}
 
 	/**
