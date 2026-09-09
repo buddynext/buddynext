@@ -194,12 +194,29 @@ class SafeguardService {
 			return true;
 		}
 
+		// Translate the object label before interpolating it, so a localized site
+		// does not render a half-translated sentence — an English literal ('caption',
+		// 'album', …) inside a __()'d string (card 10264294340 RFT round 4). Unknown
+		// labels fall back to the raw string rather than showing nothing.
+		$bn_labels = array(
+			'post'           => __( 'post', 'buddynext' ),
+			'comment'        => __( 'comment', 'buddynext' ),
+			'caption'        => __( 'caption', 'buddynext' ),
+			'album'          => __( 'album name', 'buddynext' ),
+			'space field'    => __( 'space field', 'buddynext' ),
+			'space name'     => __( 'space name', 'buddynext' ),
+			'direct message' => __( 'direct message', 'buddynext' ),
+			'profile field'  => __( 'profile field', 'buddynext' ),
+			'poll option'    => __( 'poll option', 'buddynext' ),
+		);
+		$bn_label  = $bn_labels[ $object_label ] ?? $object_label;
+
 		return new WP_Error(
 			'banned_word',
 			sprintf(
-				/* translators: %s: the thing being written — post, comment, space name, poll option, caption. */
+				/* translators: %s: the localized thing being written — post, comment, space name, poll option, caption. */
 				__( 'Your %s contains a word that is not allowed here.', 'buddynext' ),
-				$object_label
+				$bn_label
 			),
 			array( 'status' => 422 )
 		);

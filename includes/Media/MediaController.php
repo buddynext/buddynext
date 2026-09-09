@@ -356,9 +356,14 @@ class MediaController extends BaseRestController {
 		// runs the same banned-words / blocklist scan as a post or comment — a
 		// blocked word cannot be smuggled in as a caption. Hard block rejects; a
 		// flag verdict is allowed through (reactive moderation).
+		// Resolve the target space BEFORE the caption scan so the space's OWN banned
+		// words apply to a media caption, not only the site-wide list — this passed 0
+		// while resolving the space 16 lines below (card 10264294340 RFT round 4).
+		$bn_space_id = absint( $request->get_param( 'space_id' ) );
+
 		$bn_media_text = trim( $args['title'] . ' ' . $args['description'] );
 		if ( '' !== $bn_media_text ) {
-			$bn_media_scan = buddynext_service( 'safeguard' )->check_content( $bn_media_text, '', $user_id, 0, 'create', 'caption' );
+			$bn_media_scan = buddynext_service( 'safeguard' )->check_content( $bn_media_text, '', $user_id, $bn_space_id, 'create', 'caption' );
 			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_media_scan ) && is_wp_error( $bn_media_scan ) ) {
 				return $bn_media_scan;
 			}
@@ -374,7 +379,6 @@ class MediaController extends BaseRestController {
 		// Passing it does not grant anything. The engine re-checks drive access on
 		// whatever the bridge answers and falls back to the personal drive unless
 		// the member may contribute to that space.
-		$bn_space_id = absint( $request->get_param( 'space_id' ) );
 		if ( $bn_space_id > 0 ) {
 			$args['space_id'] = $bn_space_id;
 		}
@@ -652,7 +656,8 @@ class MediaController extends BaseRestController {
 		// Album name + description run the banned-words / blocklist scan too, so a
 		// blocked word cannot be moved into an album title. Hard block rejects.
 		$bn_album_text = trim( $title . ' ' . (string) $request->get_param( 'description' ) );
-		$bn_album_scan = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), 0, 'create', 'album' );
+		// Scan against THIS space's banned words too, not just the site list (card 10264294340 RFT round 4).
+		$bn_album_scan = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), $space_id, 'create', 'album' );
 		if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_album_scan ) && is_wp_error( $bn_album_scan ) ) {
 			return $bn_album_scan;
 		}
