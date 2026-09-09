@@ -1695,10 +1695,9 @@ class SpaceService {
 		// category chip overrides (show that category on request), and member-scoped
 		// ("my spaces") lists are unaffected. Ids are integer-cast, injection-safe.
 		if ( $category_id <= 0 && $member_id <= 0 ) {
-			$hidden_categories = ( new SpaceCategoryService() )->get_hidden_ids();
-			if ( $hidden_categories ) {
-				$hidden_in = implode( ',', array_map( 'absint', $hidden_categories ) );
-				$where[]   = "( category_id IS NULL OR category_id NOT IN ({$hidden_in}) )";
+			$hidden_clause = $this->hidden_category_directory_clause();
+			if ( '1=1' !== $hidden_clause ) {
+				$where[] = $hidden_clause;
 			}
 		}
 
@@ -1743,6 +1742,34 @@ class SpaceService {
 			'member_id'       => $member_id,
 			'member_role_sql' => $member_role_sql,
 		);
+	}
+
+	/**
+	 * SQL predicate that drops spaces in a show_in_dir = 0 category from a public
+	 * directory-style listing.
+	 *
+	 * Category-level directory curation: a category flagged show_in_dir = 0 is
+	 * hidden from every public discovery surface — the grid, "Popular this week",
+	 * "Suggested for you", name search, and the sub-space rails — and its spaces go
+	 * with it. Reserved hubs (e.g. Wellbee Circles) depend on this, so it applies to
+	 * site admins too: it is category curation, not per-space privacy. The one seam
+	 * that decides WHICH categories are hidden; each caller decides WHEN to apply it
+	 * (an explicit category chip or a member-scoped "my spaces" list opts out).
+	 *
+	 * Ids are integer-cast, so the interpolated IN list is injection-safe. Returns
+	 * the literal '1=1' when nothing is hidden, so it is always safe to AND.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return string A WHERE-clause fragment, or '1=1' when no category is hidden.
+	 */
+	private function hidden_category_directory_clause(): string {
+		$hidden = ( new SpaceCategoryService() )->get_hidden_ids();
+		if ( ! $hidden ) {
+			return '1=1';
+		}
+		$hidden_in = implode( ',', array_map( 'absint', $hidden ) );
+		return "( category_id IS NULL OR category_id NOT IN ({$hidden_in}) )";
 	}
 
 	/**
@@ -1806,6 +1833,15 @@ class SpaceService {
 			$params[] = $archive_param;
 		}
 
+		// Honour category-level directory curation here too. search() builds its own
+		// WHERE, so a show_in_dir = 0 category was excluded from the grid but a
+		// reserved-hub space (a Wellbee Circle) was still reachable by typing its
+		// name — defeating the exclusion's whole purpose. Applies to the PUBLIC
+		// search only; the member-scoped "my spaces" search shows a member their own
+		// spaces regardless (same opt-out as the directory's member_id branch). No
+		// placeholders — the clause inlines integer-cast ids.
+		$hidden_sql = $member_id > 0 ? '1=1' : $this->hidden_category_directory_clause();
+
 		// Mine-scope placeholders follow the exclude- and archive-scope ones, before the LIKEs.
 		if ( $member_id > 0 ) {
 			$params[] = $member_id;
@@ -1825,7 +1861,7 @@ class SpaceService {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_spaces
-				 WHERE {$exclude_sql} AND {$archive_sql} AND {$mine_sql} AND (name LIKE %s OR description LIKE %s)
+				 WHERE {$exclude_sql} AND {$archive_sql} AND {$mine_sql} AND {$hidden_sql} AND (name LIKE %s OR description LIKE %s)
 				 ORDER BY member_count DESC
 				 LIMIT %d OFFSET %d",
 				...$params
@@ -1994,9 +2030,20 @@ class SpaceService {
 		$offset = max( 0, $offset );
 
 		list( $where, $params ) = $this->subspace_visibility_where( $parent_id, $viewer_id, $is_admin );
-		$where_sql              = 'WHERE ' . implode( ' AND ', $where );
-		$params[]               = $limit;
-		$params[]               = $offset;
+
+		// A sub-space rail is a discovery surface, so it honours category curation
+		// like the directory does: a child in a show_in_dir = 0 category (a reserved
+		// hub such as a Wellbee Circle) must not surface on its visible parent's
+		// rail. Applies to admins too — category curation, not per-space privacy. A
+		// member still reaches such a space directly or via "my spaces".
+		$hidden_clause = $this->hidden_category_directory_clause();
+		if ( '1=1' !== $hidden_clause ) {
+			$where[] = $hidden_clause;
+		}
+
+		$where_sql = 'WHERE ' . implode( ' AND ', $where );
+		$params[]  = $limit;
+		$params[]  = $offset;
 
 		// Runs on every space page (the sub-spaces rail and the tab panel). Like the
 		// directory, it is VISIBILITY-SCOPED — a secret child is dropped unless the viewer
