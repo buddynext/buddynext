@@ -1667,7 +1667,7 @@ class SpaceController extends BaseRestController {
 		// Owner-only: which fields become tabs is a structural decision about the
 		// space, not a moderation one.
 		if ( empty( $result['errors'] ) && null !== $request->get_param( 'tabs' )
-			&& buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+			&& buddynext_service( 'permissions' )->can( $user_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			$tabs = array_map( 'strval', (array) $request->get_param( 'tabs' ) );
 			SpaceFieldRegistry::instance()->set_promoted_tabs( $space_id, $tabs );
 		}

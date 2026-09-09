@@ -89,7 +89,11 @@ final class CoreSpaceFields {
 				'section'     => 'permissions',
 				'sort_order'  => 20,
 				'visibility'  => 'members',
-				'writable_by' => 'moderator',
+				// Owner-only: locking posting to owner-only (or otherwise changing who
+				// may post) is a structural control over the space, not a moderation
+				// action. A moderator could previously lock the whole space to
+				// owner-only posting (card 10264293210).
+				'writable_by' => 'owner',
 				'core'        => true,
 			)
 		);
@@ -107,7 +111,9 @@ final class CoreSpaceFields {
 				'section'     => 'permissions',
 				'sort_order'  => 30,
 				'visibility'  => 'members',
-				'writable_by' => 'moderator',
+				// Owner-only, same class as who_can_post: who may invite members is a
+				// structural control, not a moderation one (card 10264293210).
+				'writable_by' => 'owner',
 				'core'        => true,
 			)
 		);

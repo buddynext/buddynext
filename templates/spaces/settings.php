@@ -60,7 +60,12 @@ if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings',
 // accident of which code path each field happened to take.
 $bn_field_registry = \BuddyNext\Spaces\SpaceFieldRegistry::instance();
 $bn_actor_id       = get_current_user_id();
-$bn_is_space_owner = buddynext_can( $bn_actor_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) );
+// own-space (owner only), NOT manage-space (owner OR moderator): this value drives
+// every disabled() call across the settings panels, so using manage-space rendered
+// owner-only fields (name, rules, category, parent, auto-join, integrations) as
+// EDITABLE for a moderator, who then filled them in and got a 403 on save. The
+// panels' own "read-only for a moderator" comments were false (card 10264293210).
+$bn_is_space_owner = buddynext_can( $bn_actor_id, 'buddynext-own-space', array( 'space_id' => $space_id ) );
 
 // Services own every read/write below; the template holds no SQL. The
 // settings parts expect `$space` as an object carrying the joined

@@ -681,7 +681,10 @@ class SpaceService {
 		if ( null === $space ) {
 			return new WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
-		if ( ! buddynext_service( 'permissions' )->can( $actor_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+		// own-space (owner only), like delete() and rename: archiving drops the space
+		// from every listing — the "make it disappear" outcome this card is about — so
+		// it is an owner decision, not a moderation one (card 10264293210).
+		if ( ! buddynext_service( 'permissions' )->can( $actor_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to archive this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		if ( ! empty( $space['is_archived'] ) === $archived ) {
