@@ -67,6 +67,25 @@ class OnboardingListener implements ListenerInterface {
 	private const META_72H = '_bn_nudge_72h_sent';
 
 	/**
+	 * Option holding the moment the recurring sweep took over from the legacy
+	 * per-user cron events, set once by the upgrade migration. The sweep never
+	 * nudges anyone registered before it, which is what prevents the transition
+	 * cohort being nudged twice. Absent (0) on a fresh install.
+	 */
+	public const NUDGE_BASELINE_OPTION = 'bn_onboarding_nudge_baseline';
+
+	/**
+	 * Users processed per batch while draining a window.
+	 */
+	private const NUDGE_BATCH = 200;
+
+	/**
+	 * Safety ceiling on users processed per window per run. A backlog beyond this
+	 * drains over the next 6-hourly runs instead of one long request.
+	 */
+	private const NUDGE_MAX_PER_RUN = 5000;
+
+	/**
 	 * Arm the recurring nudge sweep exactly once.
 	 *
 	 * Mirrors LogRetentionService::arm(): self-arming, guarded so it does not
@@ -120,36 +139,60 @@ class OnboardingListener implements ListenerInterface {
 	 * @return void
 	 */
 	private function run_nudge_window( string $meta_key, int $max_ago, int $min_ago ): void {
-		$users = get_users(
-			array(
-				'number'     => 200,
-				'fields'     => 'ID',
-				'date_query' => array(
-					array(
-						'column'    => 'user_registered',
-						'after'     => gmdate( 'Y-m-d H:i:s', time() - $max_ago ),
-						'before'    => gmdate( 'Y-m-d H:i:s', time() - $min_ago ),
-						'inclusive' => true,
-					),
-				),
-				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Bounded by the date_query window above (a 24h registration slice), so the NOT EXISTS runs against a small candidate set, never the full user table.
-				'meta_query' => array(
-					array(
-						'key'     => $meta_key,
-						'compare' => 'NOT EXISTS',
-					),
-				),
-			)
-		);
+		// Never look back before the upgrade baseline. On a site updated from a
+		// build that still armed the legacy per-user events, those events (or their
+		// already-fired sends) cover everyone who registered before the update — so
+		// starting the new sweep at the baseline is what stops the transition cohort
+		// being nudged twice. Fresh installs have no baseline (0), so this is a no-op
+		// there and the window is the plain 24h slice.
+		$baseline = (int) get_option( self::NUDGE_BASELINE_OPTION, 0 );
+		$after    = gmdate( 'Y-m-d H:i:s', max( time() - $max_ago, $baseline ) );
+		$before   = gmdate( 'Y-m-d H:i:s', time() - $min_ago );
 
-		foreach ( $users as $user_id ) {
-			$user_id = (int) $user_id;
-			// handle_onboarding_nudge() bails on already-onboarded users, so this
-			// both sends the due nudge and no-ops the rest. Either way we stamp the
-			// flag so the user leaves the candidate set for good.
-			$this->handle_onboarding_nudge( $user_id );
-			update_user_meta( $user_id, $meta_key, 1 );
-		}
+		// Drain the window in batches WITHOUT a fixed ceiling: stamping the flag on
+		// each processed user removes them from the next batch's NOT EXISTS set, so
+		// successive pages advance by themselves (a keyset by the flag, not a deep
+		// OFFSET). The old hard 'number' => 200 silently dropped everyone past the
+		// first 200 on a signup spike — a permanent miss, not a delay. A per-run
+		// safety cap still bounds one pass; a genuine backlog drains over the next
+		// 6-hourly runs.
+		$processed = 0;
+		do {
+			$users = get_users(
+				array(
+					'number'     => self::NUDGE_BATCH,
+					'fields'     => 'ID',
+					'orderby'    => 'ID',
+					'order'      => 'ASC',
+					'date_query' => array(
+						array(
+							'column'    => 'user_registered',
+							'after'     => $after,
+							'before'    => $before,
+							'inclusive' => true,
+						),
+					),
+					// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Bounded by the date_query window above (a 24h registration slice), so the NOT EXISTS runs against a small candidate set, never the full user table.
+					'meta_query' => array(
+						array(
+							'key'     => $meta_key,
+							'compare' => 'NOT EXISTS',
+						),
+					),
+				)
+			);
+
+			$batch_size = count( $users );
+			foreach ( $users as $user_id ) {
+				$user_id = (int) $user_id;
+				// handle_onboarding_nudge() bails on already-onboarded users, so this
+				// both sends the due nudge and no-ops the rest. Either way we stamp the
+				// flag so the user leaves the candidate set for good.
+				$this->handle_onboarding_nudge( $user_id );
+				update_user_meta( $user_id, $meta_key, 1 );
+				++$processed;
+			}
+		} while ( self::NUDGE_BATCH === $batch_size && $processed < self::NUDGE_MAX_PER_RUN );
 	}
 
 	/**

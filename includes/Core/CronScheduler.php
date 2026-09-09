@@ -293,6 +293,15 @@ class CronScheduler {
 		// events for each hook regardless of their per-user args in one call.
 		wp_unschedule_hook( 'bn_onboarding_nudge_24h' );
 		wp_unschedule_hook( 'bn_onboarding_nudge_72h' );
+
+		// Stamp the sweep's baseline so it never re-nudges anyone the legacy events
+		// already covered — everyone registered before this upgrade. Without it the
+		// transition cohort (registered 24-96h before the update, still holding a
+		// live legacy event or an already-sent one) would be nudged a second time by
+		// the new sweep. add_option, not update_option: only the FIRST upgrade sets
+		// it, so a later re-run cannot move the line forward and silently skip a day
+		// of genuinely new members.
+		add_option( \BuddyNext\Onboarding\OnboardingListener::NUDGE_BASELINE_OPTION, time() );
 	}
 
 	/**
