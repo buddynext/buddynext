@@ -25,6 +25,7 @@ use BuddyNext\Core\CacheService;
 use BuddyNext\Core\CounterService;
 use BuddyNext\Core\CronScheduler;
 use BuddyNext\Demo\DemoAdmin;
+use BuddyNext\Feed\PollService;
 
 /**
  * Renders the Tools tab and handles its maintenance actions.
@@ -345,6 +346,7 @@ class ToolsTab {
 					$this->recount_button( 'follow_counts', __( 'Recount follow counts', 'buddynext' ) );
 					$this->recount_button( 'connection_counts', __( 'Recount connection counts', 'buddynext' ) );
 					$this->recount_button( 'post_engagement', __( 'Recount post reactions & comments', 'buddynext' ) );
+					$this->recount_button( 'poll_votes', __( 'Repair & recount poll votes', 'buddynext' ) );
 					?>
 				</div>
 			</div>
@@ -487,6 +489,12 @@ class ToolsTab {
 					$counter->recount_post_reactions( (int) $id );
 					$counter->recount_post_comments( (int) $id );
 				}
+				break;
+			case 'poll_votes':
+				// Purge cross-linked votes and reconcile every option's counter in
+				// two set-based passes — the owner-facing repair for polls corrupted
+				// before the vote() option-ownership guard landed.
+				( new PollService() )->recount_all_poll_votes();
 				break;
 		}
 

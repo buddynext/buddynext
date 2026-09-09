@@ -171,12 +171,22 @@ class PollService {
 				array( '%d', '%d' )
 			);
 			if ( $removed > 0 ) {
+				// Scope the decrement by post_id, exactly like the increment below.
+				// $existing_option_id is read straight off the user's stored vote row,
+				// which — for a row poisoned before the vote() guard landed — can be a
+				// foreign poll's option. Without the post_id clause, changing or
+				// toggling off such a vote decremented the OTHER poll's counter. With
+				// it, a poisoned option (post_id != this poll) matches nothing and the
+				// foreign counter is left alone; the bad vote row is still removed. The
+				// increment already carried AND post_id, so this closes the last
+				// unscoped write.
 				$wpdb->query(
 					$wpdb->prepare(
 						"UPDATE {$wpdb->prefix}bn_poll_options
 						 SET vote_count = GREATEST(1, vote_count) - 1
-						 WHERE id = %d",
-						(int) $existing_option_id
+						 WHERE id = %d AND post_id = %d",
+						(int) $existing_option_id,
+						$post_id
 					)
 				);
 			}
@@ -360,5 +370,61 @@ class PollService {
 		}
 
 		return $map;
+	}
+
+	/**
+	 * Reconcile every poll's denormalised counters and purge cross-linked votes.
+	 *
+	 * Owner-facing repair for polls corrupted before the vote() option-ownership
+	 * guard landed: a vote cast with a foreign poll's option id left a
+	 * cross-linked bn_poll_votes row and, on older builds, an inflated vote_count
+	 * on the other poll's option. Both are fixed here in two set-based passes so
+	 * the operation is scale-safe (no per-poll loop) and needs no schema
+	 * migration — the owner runs it from Tools when a poll's percentages look
+	 * wrong. Replaces the one-off cleanup migration the RFT verdict asked for,
+	 * per the no-DB-migrations-pre-release rule.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return array{deleted:int, recounted:int} Vote rows purged and option rows reconciled.
+	 */
+	public function recount_all_poll_votes(): array {
+		global $wpdb;
+
+		// (1) Purge cross-linked votes: any vote row whose (option_id, post_id)
+		// pair does not name a real option in that poll. Such a row counts toward
+		// no legitimate option and wrongly occupies the voter's one-vote slot on a
+		// poll they never truly voted in.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = (int) $wpdb->query(
+			"DELETE v FROM {$wpdb->prefix}bn_poll_votes v
+			 LEFT JOIN {$wpdb->prefix}bn_poll_options o
+			        ON o.id = v.option_id AND o.post_id = v.post_id
+			 WHERE o.id IS NULL"
+		);
+
+		// (2) Reconcile every option's vote_count from the surviving, correctly
+		// linked votes — one set-based UPDATE for the whole table. The post_id join
+		// means an inflated counter from the pre-guard bug corrects itself.
+		$recounted = (int) $wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_poll_options o
+			 SET o.vote_count = (
+			     SELECT COUNT(*) FROM {$wpdb->prefix}bn_poll_votes v
+			     WHERE v.option_id = o.id AND v.post_id = o.post_id
+			 )"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// Per-poll result/vote caches are now stale. No group flush exists for this
+		// cache group, and a rare owner-triggered repair does not justify walking
+		// every poll id to delete keys individually.
+		// ponytail: full flush on a manual repair; per-poll key deletion if this
+		// ever runs on a hot path.
+		wp_cache_flush();
+
+		return array(
+			'deleted'   => $deleted,
+			'recounted' => $recounted,
+		);
 	}
 }
