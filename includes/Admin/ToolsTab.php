@@ -43,6 +43,7 @@ class ToolsTab {
 		add_action( 'admin_post_bn_tools_import', array( $this, 'handle_import' ) );
 		add_action( 'admin_post_bn_tools_reindex_search', array( $this, 'handle_reindex_search' ) );
 		add_action( 'admin_post_bn_tools_run_queue', array( $this, 'handle_run_queue' ) );
+		add_action( 'admin_post_bn_tools_uninstall_policy', array( $this, 'handle_uninstall_policy' ) );
 
 		AdminHub::register_tab(
 			'settings',
@@ -78,6 +79,7 @@ class ToolsTab {
 		$this->render_repair_section();
 		$this->render_cache_section();
 		$this->render_export_import_section();
+		$this->render_uninstall_policy_section();
 
 		// Demo data lives here too — same engine, rendered by its own class.
 		( new DemoAdmin() )->render_section();
@@ -410,6 +412,45 @@ class ToolsTab {
 		<?php
 	}
 
+	/**
+	 * Data-on-uninstall policy — one owner-controlled switch (audit Decision 6).
+	 *
+	 * Off by default: deleting the plugin keeps every community table and member
+	 * profile, because an accidental deactivate-then-delete must never be an
+	 * irreversible data wipe. Turned on, uninstall removes all BuddyNext content
+	 * (free + Pro read the same option) — except financial records (invoices,
+	 * subscriptions), which are always retained.
+	 *
+	 * @return void
+	 */
+	private function render_uninstall_policy_section(): void {
+		$bn_delete = (bool) get_option( 'buddynext_delete_data_on_uninstall', false );
+		?>
+		<div class="bn-settings-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Data on uninstall', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<p class="bn-av-section-desc">
+					<?php esc_html_e( 'Controls what happens to your community data if BuddyNext is ever deleted from the Plugins screen. This is separate from deactivating — deactivating never touches data.', 'buddynext' ); ?>
+				</p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="bn_tools_uninstall_policy">
+					<?php wp_nonce_field( 'bn_tools_uninstall_policy' ); ?>
+					<label class="bn-checkbox-row">
+						<input type="checkbox" name="delete_data" value="1" <?php checked( $bn_delete ); ?>>
+						<span><?php esc_html_e( 'Delete all BuddyNext data when the plugin is uninstalled', 'buddynext' ); ?></span>
+					</label>
+					<p class="description">
+						<?php esc_html_e( 'Default is off — a delete keeps your spaces, posts, members and settings so a reinstall restores everything. Turn this on only if you want deleting the plugin to permanently erase all community content. Financial records (invoices and subscriptions) are always kept.', 'buddynext' ); ?>
+					</p>
+					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Save', 'buddynext' ); ?></button>
+				</form>
+			</div>
+		</div>
+		<?php
+	}
+
 	// ── Handlers ────────────────────────────────────────────────────────────
 
 	/**
@@ -462,6 +503,21 @@ class ToolsTab {
 		$this->guard( 'bn_tools_reindex_search' );
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
 		$this->redirect_back( 'search_reindexing' );
+	}
+
+	/**
+	 * Save the data-on-uninstall policy option.
+	 *
+	 * @return void
+	 */
+	public function handle_uninstall_policy(): void {
+		$this->guard( 'bn_tools_uninstall_policy' );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- guard() verifies the nonce.
+		$delete = isset( $_POST['delete_data'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['delete_data'] ) );
+		update_option( 'buddynext_delete_data_on_uninstall', $delete ? 1 : 0 );
+
+		$this->redirect_back( $delete ? 'uninstall_wipe_on' : 'uninstall_wipe_off' );
 	}
 
 	/**
@@ -695,6 +751,10 @@ class ToolsTab {
 				return __( 'Search index rebuild started. It runs in the background and may take a few minutes on large communities.', 'buddynext' );
 			case 'queue_ran':
 				return __( 'Processed a batch of background tasks. Large backlogs clear over several runs.', 'buddynext' );
+			case 'uninstall_wipe_on':
+				return __( 'Saved. Deleting BuddyNext will now erase all community data (except financial records).', 'buddynext' );
+			case 'uninstall_wipe_off':
+				return __( 'Saved. Deleting BuddyNext will keep your community data so a reinstall restores it.', 'buddynext' );
 			case 'imported':
 				return __( 'Settings imported.', 'buddynext' );
 			case 'import_empty':
