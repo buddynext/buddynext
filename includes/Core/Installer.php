@@ -328,8 +328,19 @@ class Installer {
 	 *      lightbox comment made on that specific media item, mirrored into the post
 	 *      thread by WPMediaVerseBridge::sync_lightbox_comment() so the feed can render
 	 *      "on photo N of M" attribution. dbDelta ADD-COLUMNs it on upgrade; additive.
+	 * v49: covers TWO column additions that shipped earlier on the 1.2.0 branch WITHOUT
+	 *      bumping this constant, so maybe_upgrade() early-returned and the dbDelta never
+	 *      ran on updated (vs reactivated) sites — Unknown-column fatals on every post and
+	 *      email send (release blocker, RFT pass 2026-09-09):
+	 *        - bn_posts.members_only TINYINT(1) (the members-only gate, PostService writes it)
+	 *        - bn_email_log.status VARCHAR(10) + error TEXT + KEY status_window (delivery
+	 *          status + failure reason, EmailSender writes them)
+	 *      Bumping to 49 makes maybe_upgrade() run the dbDelta (which ADD-COLUMNs both,
+	 *      additive, no backfill) AND the cron/nudge migration that was stranded behind the
+	 *      same early return. schema_intact() now also compares columns so a future column
+	 *      added without a bump is caught here instead of in production.
 	 */
-	private const SCHEMA_VERSION = 48;
+	private const SCHEMA_VERSION = 49;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -657,13 +668,87 @@ class Installer {
 		$sql = 'SELECT COUNT(*) FROM information_schema.tables
 			WHERE table_schema = DATABASE() AND table_name IN ( ' . $placeholders . ' )';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders
 		$found = (int) $wpdb->get_var( $wpdb->prepare( $sql, $names ) );
+
+		if ( count( $names ) !== $found ) {
+			self::$schema_check_result = false;
+			return false;
+		}
+
+		// Columns too, not just tables. This check only ever counted TABLES, so a
+		// column ADDED to the dbDelta schema without a SCHEMA_VERSION bump was never
+		// created on an UPDATED (vs reactivated) site — maybe_upgrade() early-returned
+		// on it. That shipped a release blocker on the 1.2.0 branch (Unknown-column on
+		// every post + email send). Comparing each owned table's live column count to
+		// what its CREATE TABLE declares makes the mistake self-heal: a shortfall means
+		// "not intact", so maybe_upgrade() re-runs the dbDelta that ADD-COLUMNs it.
+		$expected_cols = self::expected_column_counts();
+		if ( array() !== $expected_cols ) {
+			$actual = (array) $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT table_name AS t, COUNT(*) AS c FROM information_schema.columns
+					 WHERE table_schema = DATABASE() AND table_name IN ( {$placeholders} )
+					 GROUP BY table_name",
+					$names
+				),
+				OBJECT_K
+			);
+			foreach ( $expected_cols as $bn_table => $bn_want ) {
+				$bn_have = isset( $actual[ $bn_table ] ) ? (int) $actual[ $bn_table ]->c : 0;
+				if ( $bn_have < $bn_want ) {
+					self::$schema_check_result = false;
+					return false;
+				}
+			}
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
-		self::$schema_check_result = count( $names ) === $found;
+		self::$schema_check_result = true;
 
 		return self::$schema_check_result;
+	}
+
+	/**
+	 * Expected column count per owned table, parsed from the CREATE TABLE schema.
+	 *
+	 * The schema() DDL is the single source of truth, so deriving the count from it
+	 * (rather than a hand-maintained list) means a new column is covered the moment
+	 * it is declared. A column line has a SQL type as its second token; index/key
+	 * lines start with PRIMARY/UNIQUE/KEY/INDEX/CONSTRAINT/FOREIGN and are skipped.
+	 * Undercounting is harmless (never a false "not intact"); the type list is kept
+	 * complete so it never overcounts.
+	 *
+	 * @return array<string,int> Prefixed table name => declared column count.
+	 */
+	private static function expected_column_counts(): array {
+		global $wpdb;
+
+		$types = 'TINYINT|SMALLINT|MEDIUMINT|INT|BIGINT|DECIMAL|NUMERIC|FLOAT|DOUBLE|BIT'
+			. '|CHAR|VARCHAR|TINYTEXT|TEXT|MEDIUMTEXT|LONGTEXT|DATE|DATETIME|TIMESTAMP|TIME|YEAR'
+			. '|ENUM|SET|JSON|TINYBLOB|BLOB|MEDIUMBLOB|LONGBLOB|BINARY|VARBINARY';
+
+		$out = array();
+		foreach ( self::schema( $wpdb->prefix, '' ) as $bn_stmt ) {
+			if ( ! preg_match( '/CREATE\s+TABLE\s+`?([A-Za-z0-9_]+)`?\s*\(/i', (string) $bn_stmt, $bn_m ) ) {
+				continue;
+			}
+			$bn_count = 0;
+			foreach ( preg_split( '/\r?\n/', (string) $bn_stmt ) as $bn_line ) {
+				$bn_line = trim( (string) $bn_line );
+				if ( '' === $bn_line || preg_match( '/^(PRIMARY\s+KEY|UNIQUE\s+KEY|KEY|INDEX|CONSTRAINT|FOREIGN\s+KEY|CREATE\s+TABLE|\))/i', $bn_line ) ) {
+					continue;
+				}
+				if ( preg_match( '/^`?[A-Za-z_][A-Za-z0-9_]*`?\s+(' . $types . ')\b/i', $bn_line ) ) {
+					++$bn_count;
+				}
+			}
+			if ( $bn_count > 0 ) {
+				$out[ $bn_m[1] ] = $bn_count;
+			}
+		}
+
+		return $out;
 	}
 
 	/**
