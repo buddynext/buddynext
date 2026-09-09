@@ -163,15 +163,20 @@ final class CoreSpaceFields {
 		$registry->register(
 			'banned_words',
 			array(
-				'label'       => __( 'Banned words', 'buddynext' ),
-				'description' => __( 'One word or phrase per line. Posts containing these are held for review.', 'buddynext' ),
-				'type'        => 'textarea',
-				'default'     => '',
-				'section'     => 'moderation',
-				'sort_order'  => 10,
-				'visibility'  => 'members',
-				'writable_by' => 'moderator',
-				'core'        => true,
+				'label'          => __( 'Banned words', 'buddynext' ),
+				'description'    => __( 'One word or phrase per line. Posts containing these are held for review.', 'buddynext' ),
+				'type'           => 'textarea',
+				'default'        => '',
+				'section'        => 'moderation',
+				'sort_order'     => 10,
+				'visibility'     => 'members',
+				'writable_by'    => 'moderator',
+				'core'           => true,
+				// This IS the banned-words config, not member prose — exclude it from the
+				// safeguard scan, or saving the list scans it against itself and locks the
+				// owner out of adding a second word (card 10264294340). Any future config
+				// text field opts out the same way rather than being special-cased by key.
+				'safeguard_scan' => false,
 			)
 		);
 

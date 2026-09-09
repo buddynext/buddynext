@@ -122,30 +122,35 @@ final class SpaceFieldRegistry {
 		}
 
 		$field = array(
-			'key'          => $key,
-			'label'        => isset( $args['label'] ) ? (string) $args['label'] : ucfirst( str_replace( '_', ' ', $key ) ),
-			'description'  => isset( $args['description'] ) ? (string) $args['description'] : '',
-			'type'         => $type,
-			'single'       => ! isset( $args['single'] ) || (bool) $args['single'],
-			'show_in_rest' => ! isset( $args['show_in_rest'] ) || (bool) $args['show_in_rest'],
+			'key'            => $key,
+			'label'          => isset( $args['label'] ) ? (string) $args['label'] : ucfirst( str_replace( '_', ' ', $key ) ),
+			'description'    => isset( $args['description'] ) ? (string) $args['description'] : '',
+			'type'           => $type,
+			'single'         => ! isset( $args['single'] ) || (bool) $args['single'],
+			'show_in_rest'   => ! isset( $args['show_in_rest'] ) || (bool) $args['show_in_rest'],
 			// Only text-capable types can back a searchable mirror.
-			'searchable'   => ! empty( $args['searchable'] ) && FieldType::is_text_searchable( $type ),
-			'visibility'   => $visibility,
+			'searchable'     => ! empty( $args['searchable'] ) && FieldType::is_text_searchable( $type ),
+			'visibility'     => $visibility,
 			// owner | moderator. The authority is a property of the FIELD, not of the
 			// surface writing it — that is the whole point. The settings screen and the
 			// REST route both consult can_write(), so they cannot drift apart and
 			// produce the split-brain this replaces (a moderator who could rewrite
 			// who_can_post from the template but got a 403 for the same field over REST).
-			'writable_by'  => $writable_by,
-			'section'      => isset( $args['section'] ) ? sanitize_key( (string) $args['section'] ) : 'general',
-			'sort_order'   => isset( $args['sort_order'] ) ? (int) $args['sort_order'] : 10,
-			'options'      => isset( $args['options'] ) && is_array( $args['options'] ) ? $args['options'] : array(),
-			'is_required'  => ! empty( $args['is_required'] ),
-			'default'      => $args['default'] ?? '',
+			'writable_by'    => $writable_by,
+			'section'        => isset( $args['section'] ) ? sanitize_key( (string) $args['section'] ) : 'general',
+			'sort_order'     => isset( $args['sort_order'] ) ? (int) $args['sort_order'] : 10,
+			'options'        => isset( $args['options'] ) && is_array( $args['options'] ) ? $args['options'] : array(),
+			'is_required'    => ! empty( $args['is_required'] ),
+			// Text/textarea fields are scanned for banned words on save (card
+			// 10264294340). A field that is itself safeguard config, not member prose
+			// — the banned-words list — opts out with safeguard_scan => false, or it
+			// scans against its own stored list and locks the owner out. Defaults true.
+			'safeguard_scan' => ! isset( $args['safeguard_scan'] ) || (bool) $args['safeguard_scan'],
+			'default'        => $args['default'] ?? '',
 			// BuddyNext's own built-in fields set core=true; they have bespoke
 			// settings UI. Third-party fields (core=false) surface in the generic
 			// "Custom fields" settings panel via get_custom_fields().
-			'core'         => ! empty( $args['core'] ),
+			'core'           => ! empty( $args['core'] ),
 		);
 
 		$this->fields[ $key ] = $field;
@@ -536,12 +541,14 @@ final class SpaceFieldRegistry {
 			// the field; a flag verdict is allowed through (reactive moderation).
 			// Card 10264294340.
 			//
-			// The banned-words list itself is EXCLUDED: it is the safeguard config, not
-			// member prose, and the settings form posts the whole list back on every
-			// save — so scanning it against the stored list matches its own words and
-			// rejects, locking the owner out of ever adding a second banned word or
-			// re-saving the list (round-3 regression).
-			if ( 'banned_words' !== (string) ( $field['key'] ?? '' )
+			// A field opts out of the scan with 'safeguard_scan' => false at registration
+			// (the banned-words list does — it is the safeguard config, not member prose,
+			// and the settings form posts the whole list back on every save, so scanning
+			// it against the stored list matches its own words and rejects, locking the
+			// owner out of adding a second word: round-3 regression). Keying on the flag
+			// rather than the field key means any future config text field is covered
+			// without a special case (round-4).
+			if ( false !== ( $field['safeguard_scan'] ?? true )
 				&& in_array( (string) ( $field['type'] ?? '' ), array( 'text', 'textarea' ), true )
 				&& '' !== (string) $clean
 				&& function_exists( 'buddynext_service' ) ) {
