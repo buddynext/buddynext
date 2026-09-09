@@ -29,6 +29,12 @@ class OnboardingListener implements ListenerInterface {
 	 */
 	public function register(): void {
 		add_action( 'user_register', array( $this, 'reconcile_invites_on_register' ), 16, 1 );
+		// Enqueue the two onboarding nudges the moment the member registers, each with
+		// its due time, so the recurring sweep reads a small indexed queue instead of
+		// range-scanning wp_users on every run (card 10264295353). Only registrations
+		// AFTER this ships are queued, which naturally replaces the old baseline guard
+		// that kept the sweep from nudging pre-existing members.
+		add_action( 'user_register', array( $this, 'enqueue_nudges' ), 17, 1 );
 		add_action( 'buddynext_onboarding_completed', array( $this, 'on_onboarding_completed_cancel_nudges' ), 10, 1 );
 		// Legacy per-user events (pre-1.2.0) still fire this until the upgrade
 		// unschedules them; keep the handler so any in-flight ones still send.
@@ -53,18 +59,6 @@ class OnboardingListener implements ListenerInterface {
 	 * Action Scheduler group (shared with the rest of BuddyNext's jobs).
 	 */
 	private const NUDGE_SWEEP_GROUP = 'buddynext';
-
-	/**
-	 * User-meta flags recording that each nudge has been sent, so the sweep never
-	 * re-sends. Set even when the send is skipped (already onboarded) so the user
-	 * drops out of the candidate set.
-	 */
-	private const META_24H = '_bn_nudge_24h_sent';
-
-	/**
-	 * 72-hour nudge sent flag. See META_24H.
-	 */
-	private const META_72H = '_bn_nudge_72h_sent';
 
 	/**
 	 * Option holding the moment the recurring sweep took over from the legacy
@@ -124,75 +118,93 @@ class OnboardingListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function run_nudge_sweep(): void {
-		// 24h nudge: registered between 48h and 24h ago. 72h nudge: 96h to 72h
-		// ago. The lower bound bounds the candidate set; the flag prevents repeats.
-		$this->run_nudge_window( self::META_24H, 2 * DAY_IN_SECONDS, DAY_IN_SECONDS );
-		$this->run_nudge_window( self::META_72H, 4 * DAY_IN_SECONDS, 3 * DAY_IN_SECONDS );
-	}
+		global $wpdb;
 
-	/**
-	 * Process one nudge window: registered between $max_ago and $min_ago, no flag.
-	 *
-	 * @param string $meta_key Flag meta key set once a user is processed.
-	 * @param int    $max_ago  Oldest registration age to consider (seconds).
-	 * @param int    $min_ago  Youngest registration age to consider (seconds).
-	 * @return void
-	 */
-	private function run_nudge_window( string $meta_key, int $max_ago, int $min_ago ): void {
-		// Never look back before the upgrade baseline. On a site updated from a
-		// build that still armed the legacy per-user events, those events (or their
-		// already-fired sends) cover everyone who registered before the update — so
-		// starting the new sweep at the baseline is what stops the transition cohort
-		// being nudged twice. Fresh installs have no baseline (0), so this is a no-op
-		// there and the window is the plain 24h slice.
-		$baseline = (int) get_option( self::NUDGE_BASELINE_OPTION, 0 );
-		$after    = gmdate( 'Y-m-d H:i:s', max( time() - $max_ago, $baseline ) );
-		$before   = gmdate( 'Y-m-d H:i:s', time() - $min_ago );
+		$table = $wpdb->prefix . 'bn_onboarding_nudges';
 
-		// Drain the window in batches WITHOUT a fixed ceiling: stamping the flag on
-		// each processed user removes them from the next batch's NOT EXISTS set, so
-		// successive pages advance by themselves (a keyset by the flag, not a deep
-		// OFFSET). The old hard 'number' => 200 silently dropped everyone past the
-		// first 200 on a signup spike — a permanent miss, not a delay. A per-run
-		// safety cap still bounds one pass; a genuine backlog drains over the next
-		// 6-hourly runs.
+		// Drain due, unsent nudges off the (sent, due_at) index — no wp_users scan.
+		// Batched with a per-run cap; a backlog drains over the next runs. Marking a
+		// row sent removes it from the next batch, so pages advance by themselves.
 		$processed = 0;
 		do {
-			$users = get_users(
-				array(
-					'number'     => self::NUDGE_BATCH,
-					'fields'     => 'ID',
-					'orderby'    => 'ID',
-					'order'      => 'ASC',
-					'date_query' => array(
-						array(
-							'column'    => 'user_registered',
-							'after'     => $after,
-							'before'    => $before,
-							'inclusive' => true,
-						),
-					),
-					// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Bounded by the date_query window above (a 24h registration slice), so the NOT EXISTS runs against a small candidate set, never the full user table.
-					'meta_query' => array(
-						array(
-							'key'     => $meta_key,
-							'compare' => 'NOT EXISTS',
-						),
-					),
-				)
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT user_id, kind FROM {$table}
+					 WHERE sent = 0 AND due_at <= UTC_TIMESTAMP()
+					 ORDER BY due_at ASC, user_id ASC
+					 LIMIT %d",
+					self::NUDGE_BATCH
+				),
+				ARRAY_A
 			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-			$batch_size = count( $users );
-			foreach ( $users as $user_id ) {
-				$user_id = (int) $user_id;
-				// handle_onboarding_nudge() bails on already-onboarded users, so this
-				// both sends the due nudge and no-ops the rest. Either way we stamp the
-				// flag so the user leaves the candidate set for good.
+			$batch_size = count( (array) $rows );
+			foreach ( (array) $rows as $row ) {
+				$user_id = (int) $row['user_id'];
+				// handle_onboarding_nudge() sends the due nudge and no-ops an
+				// already-onboarded user; either way the row is marked sent so it
+				// leaves the queue for good.
 				$this->handle_onboarding_nudge( $user_id );
-				update_user_meta( $user_id, $meta_key, 1 );
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->update(
+					$table,
+					array( 'sent' => 1 ),
+					array(
+						'user_id' => $user_id,
+						'kind'    => (string) $row['kind'],
+					),
+					array( '%d' ),
+					array( '%d', '%s' )
+				);
 				++$processed;
 			}
 		} while ( self::NUDGE_BATCH === $batch_size && $processed < self::NUDGE_MAX_PER_RUN );
+
+		// Prune sent rows so the queue does not grow without bound. Bounded per run.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE sent = 1 LIMIT %d", self::NUDGE_MAX_PER_RUN ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	/**
+	 * Queue a member's two onboarding nudges (24h, 72h) at registration.
+	 *
+	 * INSERT IGNORE against the (user_id, kind) primary key, so a duplicate
+	 * user_register (or a re-run) never double-queues. due_at is the registration
+	 * moment plus the offset; the recurring sweep sends each when UTC_TIMESTAMP()
+	 * reaches it. Card 10264295353.
+	 *
+	 * @param int $user_id Newly-registered user.
+	 * @return void
+	 */
+	public function enqueue_nudges( int $user_id ): void {
+		global $wpdb;
+
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		$table = $wpdb->prefix . 'bn_onboarding_nudges';
+		$now   = time();
+		$due   = array(
+			'24h' => DAY_IN_SECONDS,
+			'72h' => 3 * DAY_IN_SECONDS,
+		);
+		foreach ( $due as $kind => $offset ) {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO {$table} ( user_id, kind, due_at, sent ) VALUES ( %d, %s, %s, 0 )",
+					$user_id,
+					$kind,
+					gmdate( 'Y-m-d H:i:s', $now + $offset )
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		}
 	}
 
 	/**
@@ -351,8 +363,25 @@ class OnboardingListener implements ListenerInterface {
 	 * @param int $user_id User who completed onboarding.
 	 */
 	public function on_onboarding_completed_cancel_nudges( int $user_id ): void {
+		// Legacy per-user events (pre-1.2.0 sites, until the migration unschedules them).
 		wp_clear_scheduled_hook( 'bn_onboarding_nudge_24h', array( $user_id ) );
 		wp_clear_scheduled_hook( 'bn_onboarding_nudge_72h', array( $user_id ) );
+
+		// Cancel this member's still-pending queued nudges — they onboarded, so the
+		// remaining nudges would no-op anyway; marking them sent drops them from the
+		// sweep now (card 10264295353).
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_onboarding_nudges',
+			array( 'sent' => 1 ),
+			array(
+				'user_id' => (int) $user_id,
+				'sent'    => 0,
+			),
+			array( '%d' ),
+			array( '%d', '%d' )
+		);
 	}
 
 	/**

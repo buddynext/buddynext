@@ -3366,6 +3366,20 @@ class Installer {
 				KEY          following_recent (follower_id, status, created_at)
 			) {$cs};",
 
+			// Onboarding-nudge queue. One row per (user, nudge kind); enqueued at
+			// registration with the moment the nudge is due, so the recurring sweep
+			// selects due, unsent rows off the (sent, due_at) index instead of
+			// range-scanning the unindexed wp_users.user_registered on every run — the
+			// 100k-member concern on card 10264295353.
+			"CREATE TABLE {$p}bn_onboarding_nudges (
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				kind VARCHAR(8) NOT NULL,
+				due_at DATETIME NOT NULL,
+				sent TINYINT(1) NOT NULL DEFAULT 0,
+				PRIMARY KEY  (user_id, kind),
+				KEY          due_queue (sent, due_at)
+			) {$cs};",
+
 			"CREATE TABLE {$p}bn_connections (
 				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				requester_id BIGINT(20) UNSIGNED NOT NULL,
