@@ -770,23 +770,29 @@ class ModerationService {
 	/**
 	 * Dismiss a report (no action taken — false positive).
 	 *
-	 * @param int $report_id Report to dismiss.
-	 * @param int $actor_id  Admin acting on the report.
+	 * @param int      $report_id   Report to dismiss.
+	 * @param int      $actor_id    Admin acting on the report (authority).
+	 * @param int|null $resolved_by Actor to RECORD on the row; null = $actor_id.
+	 *                              Pass 0 for an automated/system action so the
+	 *                              queue shows System, not an admin (card 10264294554).
 	 * @return true|WP_Error
 	 */
-	public function dismiss( int $report_id, int $actor_id ): bool|WP_Error {
-		return $this->set_status( $report_id, $actor_id, 'dismissed' );
+	public function dismiss( int $report_id, int $actor_id, ?int $resolved_by = null ): bool|WP_Error {
+		return $this->set_status( $report_id, $actor_id, 'dismissed', $resolved_by );
 	}
 
 	/**
 	 * Escalate a report for senior review.
 	 *
-	 * @param int $report_id Report to escalate.
-	 * @param int $actor_id  Admin acting on the report.
+	 * @param int      $report_id   Report to escalate.
+	 * @param int      $actor_id    Admin acting on the report (authority).
+	 * @param int|null $resolved_by Actor to RECORD on the row; null = $actor_id.
+	 *                              Pass 0 for an automated/system escalation (card
+	 *                              10264294554).
 	 * @return true|WP_Error
 	 */
-	public function escalate( int $report_id, int $actor_id ): bool|WP_Error {
-		return $this->set_status( $report_id, $actor_id, 'escalated' );
+	public function escalate( int $report_id, int $actor_id, ?int $resolved_by = null ): bool|WP_Error {
+		return $this->set_status( $report_id, $actor_id, 'escalated', $resolved_by );
 	}
 
 	/**
@@ -814,11 +820,15 @@ class ModerationService {
 	 * is left open and a WP_Error is returned: reporting "resolved" for content
 	 * that is still live is worse than reporting the failure.
 	 *
-	 * @param int $report_id Report whose content to remove.
-	 * @param int $actor_id  Admin or space moderator acting on the report.
+	 * @param int      $report_id   Report whose content to remove.
+	 * @param int      $actor_id    Admin or space moderator acting on the report (authority).
+	 * @param int|null $resolved_by Actor to RECORD on the report row; null = $actor_id.
+	 *                              Pass 0 for an automated/system takedown so the queue
+	 *                              shows System, not an admin (card 10264294554). The
+	 *                              takedown itself still runs under $actor_id's authority.
 	 * @return true|WP_Error
 	 */
-	public function remove_content( int $report_id, int $actor_id ): bool|WP_Error {
+	public function remove_content( int $report_id, int $actor_id, ?int $resolved_by = null ): bool|WP_Error {
 		if ( ! $this->can_action_report( $actor_id, $report_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to remove content.', 'buddynext' ) );
 		}
@@ -844,7 +854,7 @@ class ModerationService {
 			);
 		}
 
-		return $this->set_status( $report_id, $actor_id, 'resolved' );
+		return $this->set_status( $report_id, $actor_id, 'resolved', $resolved_by );
 	}
 
 	/**
@@ -2873,15 +2883,26 @@ class ModerationService {
 	 * reports raised inside a space they moderate (the space Moderation tab and
 	 * the space-scoped site queue both show them exactly those reports).
 	 *
-	 * @param int    $report_id Report ID.
-	 * @param int    $actor_id  Admin or space moderator acting.
-	 * @param string $status    New status.
+	 * @param int      $report_id   Report ID.
+	 * @param int      $actor_id    Admin or space moderator acting (authority).
+	 * @param string   $status      New status.
+	 * @param int|null $resolved_by Actor to RECORD on the row; null = $actor_id. Pass
+	 *                              0 for an automated/system action (card 10264294554).
 	 * @return true|WP_Error
 	 */
-	private function set_status( int $report_id, int $actor_id, string $status ): bool|WP_Error {
+	private function set_status( int $report_id, int $actor_id, string $status, ?int $resolved_by = null ): bool|WP_Error {
 		if ( ! $this->can_action_report( $actor_id, $report_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to action reports.', 'buddynext' ) );
 		}
+
+		// The actor who must hold the authority to act, and the actor RECORDED on the
+		// row, are usually the same person — but not always. An automated AI action
+		// runs under an admin's authority (remove_content needs manage_options) yet
+		// must be recorded as the system (resolved_by 0), so the moderation queue does
+		// not name a real admin as the person who actioned it (card 10264294554). A
+		// caller passing $resolved_by overrides only the RECORDED actor, never the
+		// authorization above.
+		$recorded_actor = null === $resolved_by ? $actor_id : $resolved_by;
 
 		global $wpdb;
 
@@ -2927,7 +2948,7 @@ class ModerationService {
 				 SET status = %s, resolved_by = %d, resolved_at = %s
 				 WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated')",
 				$status,
-				$actor_id,
+				$recorded_actor,
 				current_time( 'mysql', true ), // UTC, to match created_at and the resolved_today query.
 				(string) $target['object_type'],
 				(int) $target['object_id']
