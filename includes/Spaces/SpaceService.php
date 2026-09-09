@@ -2426,10 +2426,16 @@ class SpaceService {
 		$cap_join  = '';
 		$cap_where = '';
 		if ( $max_sub > 0 ) {
+			// is_archived = 0 so this count matches count_subspaces() (:2300), which
+			// the enforcement path validate_parent_move() -> count_subspaces() uses.
+			// Without it the picker counted archived children the service ignores, so
+			// a root at its cap whose children are all archived was withheld from the
+			// picker while PATCH /spaces/{id} to it still succeeded — the mirror-exactly
+			// promise in this method's docblock, inverted (card 10264295263 round-3).
 			$cap_join  = "LEFT JOIN (
 				SELECT parent_id, COUNT(*) AS sub_count
 				FROM {$wpdb->prefix}bn_spaces
-				WHERE parent_id IS NOT NULL
+				WHERE parent_id IS NOT NULL AND is_archived = 0
 				GROUP BY parent_id
 			) sc ON sc.parent_id = s.id";
 			$cap_where = ' AND COALESCE( sc.sub_count, 0 ) < %d';

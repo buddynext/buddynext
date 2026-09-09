@@ -178,6 +178,45 @@ class EligibleParentsScaleTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The SQL cap must count only what the enforcement path counts. count_subspaces()
+	 * — which validate_parent_move() caps against — excludes archived children, so the
+	 * picker's cap must too. Otherwise a root at cap whose children are all archived
+	 * is withheld from the picker while a PATCH to it would succeed (card 10264295263
+	 * round-3: the mirror-exactly promise, inverted).
+	 *
+	 * @return void
+	 */
+	public function test_capped_root_with_archived_children_is_offered(): void {
+		global $wpdb;
+
+		update_option( 'buddynext_space_allow_sub', '1' );
+		update_option( 'buddynext_space_max_sub_spaces', 2 );
+
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$mover = $this->make_root( $admin, 'Mover' );
+		$root  = $this->make_root( $admin, 'Root With Archived Kids' );
+
+		// Two children, both archived — the enforcement count_subspaces() ignores them.
+		foreach ( array( 'arch a', 'arch b' ) as $name ) {
+			$child = $this->make_child( $admin, $root, $name );
+			$wpdb->update( $wpdb->prefix . 'bn_spaces', array( 'is_archived' => 1 ), array( 'id' => $child ), array( '%d' ), array( '%d' ) );
+		}
+
+		$service = new SpaceService();
+
+		$this->assertSame( 0, $service->count_subspaces( $root ), 'Enforcement count excludes archived children.' );
+
+		$ids = array_map(
+			static fn( array $row ): int => (int) $row['id'],
+			$service->eligible_parents( $mover, $admin, '', 20 )
+		);
+
+		$this->assertContains( $root, $ids, 'A root whose only children are archived is under cap, so the picker must offer it.' );
+
+		delete_option( 'buddynext_space_max_sub_spaces' );
+	}
+
+	/**
 	 * Permission is filtered in SQL: a member (not owner/moderator) sees nothing.
 	 *
 	 * @return void

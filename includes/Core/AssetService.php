@@ -1370,6 +1370,12 @@ class AssetService {
 					'subspacesCount'                  => __( '%d sub-spaces', 'buddynext' ),
 					'pagerLabel'                      => __( 'Spaces directory pages', 'buddynext' ),
 					'nextPage'                        => __( 'Next ›', 'buddynext' ),
+					// Parent-space picker (space settings). Read by spaces/store.js via
+					// t() but never injected, so they always fell through to English
+					// (card 10264295263 round-3).
+					'parentSearchFailed'              => __( 'Could not search spaces. Check your connection and try again.', 'buddynext' ),
+					'parentNoMatch'                   => __( 'No top-level spaces you manage match that name.', 'buddynext' ),
+					'parentMoreExist'                 => __( 'Showing the first matches — keep typing to narrow the list.', 'buddynext' ),
 				),
 			)
 		);
