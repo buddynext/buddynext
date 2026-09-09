@@ -829,14 +829,34 @@ class ModerationQueue {
 	 */
 	private function action_labels(): array {
 		return array(
-			'warn'              => __( 'Warning', 'buddynext' ),
-			'suspend'           => __( 'Suspension', 'buddynext' ),
-			'unsuspend'         => __( 'Unsuspension', 'buddynext' ),
+			// Member sanctions. 'suspend' (automatic, from the strike threshold) and
+			// 'suspend_user' (a moderator/admin acting directly) are BOTH written and
+			// are distinct slugs — labelled distinctly so filtering by one does not
+			// silently drop the other (card 10284912236). The dead 'unsuspend' slug
+			// nothing ever wrote is gone; the real one is 'unsuspend_user'.
+			'issue_strike'      => __( 'Strike issued', 'buddynext' ),
+			'reverse_strike'    => __( 'Strike reversed', 'buddynext' ),
+			'suspend_user'      => __( 'Suspended', 'buddynext' ),
+			'suspend'           => __( 'Suspended (automatic)', 'buddynext' ),
+			'unsuspend_user'    => __( 'Unsuspended', 'buddynext' ),
+			'perma_ban'         => __( 'Permanent ban', 'buddynext' ),
 			'shadow_ban'        => __( 'Shadow ban', 'buddynext' ),
+			'remove_shadow_ban' => __( 'Shadow ban removed', 'buddynext' ),
+			// Space sanctions.
+			'space_ban'         => __( 'Banned from space', 'buddynext' ),
+			'space_unban'       => __( 'Space ban lifted', 'buddynext' ),
+			// Reports + content.
 			'dismiss_report'    => __( 'Report dismissed', 'buddynext' ),
 			'escalate_report'   => __( 'Report escalated', 'buddynext' ),
 			'resolve_report'    => __( 'Report resolved', 'buddynext' ),
 			'remove_content'    => __( 'Content removed', 'buddynext' ),
+			'approve_pending'   => __( 'Post approved', 'buddynext' ),
+			'reject_pending'    => __( 'Post rejected', 'buddynext' ),
+			// Appeals.
+			'approve_appeal'    => __( 'Appeal approved', 'buddynext' ),
+			'deny_appeal'       => __( 'Appeal denied', 'buddynext' ),
+			'resolve_appeal'    => __( 'Appeal resolved', 'buddynext' ),
+			// AI sweep (pro), written with the ai_ prefix + the system actor.
 			'ai_remove_content' => __( 'AI: content removed', 'buddynext' ),
 			'ai_escalate'       => __( 'AI: escalated', 'buddynext' ),
 			'ai_dismiss'        => __( 'AI: dismissed', 'buddynext' ),
