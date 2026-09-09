@@ -127,6 +127,80 @@ class RestHoldGateTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The gate's reaction response (status + error payload), so a suspend test can
+	 * assert the error shape, not only the status.
+	 *
+	 * @return array{0:int,1:array<string,mixed>}
+	 */
+	private function react_response(): array {
+		$request = new WP_REST_Request( 'POST', '/buddynext/v1/reactions/toggle' );
+		$request->set_param( 'object_type', 'post' );
+		$request->set_param( 'object_id', $this->post_id );
+		$request->set_param( 'emoji', 'like' );
+		$response = $this->server->dispatch( $request );
+		return array( $response->get_status(), (array) $response->get_data() );
+	}
+
+	/**
+	 * Mark the member verified and suspend them, so a suspension test is not
+	 * confounded by the unverified hold.
+	 *
+	 * @return void
+	 */
+	private function suspend_member(): void {
+		update_user_meta( $this->member, 'buddynext_email_verified', 1 );
+		// Actor 0 = system suspend, which skips the actor permission guard.
+		( new \BuddyNext\Moderation\ModerationService() )->suspend_user(
+			$this->member,
+			0,
+			'test',
+			array( 'duration_days' => 30 )
+		);
+	}
+
+	/**
+	 * A suspended member is blocked from a write, with the established error shape
+	 * (code 'forbidden' + appeal_url) — not a bespoke code with no appeal link.
+	 *
+	 * @return void
+	 */
+	public function test_suspended_member_is_blocked_from_a_write_with_appeal_url(): void {
+		wp_set_current_user( $this->member );
+		$this->suspend_member();
+
+		list( $status, $data ) = $this->react_response();
+
+		$this->assertSame( 403, $status, 'A suspended member cannot write.' );
+		$this->assertSame( 'forbidden', $data['code'] ?? '', 'The suspension error keeps the established code.' );
+		$this->assertNotEmpty(
+			$data['data']['appeal_url'] ?? '',
+			'The suspension error must carry appeal_url so the client can link to the appeal.'
+		);
+	}
+
+	/**
+	 * The appeal route the web UI actually posts to (/buddynext/v1/appeals) must be
+	 * reachable for a suspended member — the carve-out was on /me/appeals, which the
+	 * UI does not call, so the appeal was unreachable (a locked room).
+	 *
+	 * @return void
+	 */
+	public function test_suspended_member_can_reach_the_appeal_route(): void {
+		wp_set_current_user( $this->member );
+		$this->suspend_member();
+
+		$response = $this->server->dispatch( new WP_REST_Request( 'POST', '/buddynext/v1/appeals' ) );
+
+		// The gate must NOT block it. The controller may 400 on a missing
+		// suspension_id, but it must not be the suspension 403 — that is the bug.
+		$this->assertNotSame(
+			403,
+			$response->get_status(),
+			'The appeal route must not be suspension-blocked; the UI posts to /appeals.'
+		);
+	}
+
+	/**
 	 * The hold this class was written for.
 	 *
 	 * @return void

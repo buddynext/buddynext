@@ -152,9 +152,25 @@ final class RestHoldGate implements ListenerInterface {
 			return false;
 		}
 
-		return $this->is_unverified_under_full_enforcement( $user_id )
-			|| $this->needs_2fa_enrolment( $user_id )
-			|| $this->is_suspended( $user_id );
+		// Unverified email / 2FA-enrolment hold the WHOLE partner surface — a member
+		// who has not finished onboarding should not read partner content either.
+		if ( $this->is_unverified_under_full_enforcement( $user_id ) || $this->needs_2fa_enrolment( $user_id ) ) {
+			return true;
+		}
+
+		// Suspension is a WRITE freeze — reads stay open (owner decision 3). The
+		// partner gate is boolean, so scope by the actual HTTP method here: a
+		// suspended member is held from a partner WRITE (a DM send, a media upload)
+		// but not from a partner READ (browsing media, reading a thread). Without
+		// this a suspension wrongly blocked the entire mvs/v1 surface, GETs included.
+		if ( $this->is_suspended( $user_id ) ) {
+			$method = isset( $_SERVER['REQUEST_METHOD'] )
+				? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) )
+				: 'GET';
+			return in_array( $method, array( 'POST', 'PUT', 'PATCH', 'DELETE' ), true );
+		}
+
+		return false;
 	}
 
 	/**
@@ -213,15 +229,22 @@ final class RestHoldGate implements ListenerInterface {
 		// from every write action (follow / connect / join / create space / edit
 		// profile / report / vote). Enforced here at the single REST chokepoint so
 		// no write path can miss it, rather than in each service. Reads (GET) and
-		// the appeal-submission route stay open. DM lives on the partner (MVS)
-		// surface and is held separately via current_member_is_held().
+		// two carve-outs stay open. First, the appeal routes: the web UI posts to
+		// /buddynext/v1/appeals (NOT /me/appeals — that mismatch made the appeal
+		// UNREACHABLE, the locked room this class exists to avoid), so both forms
+		// are allowed. Second, the 2FA-enrolment routes, so a suspended member the
+		// site is also forcing into 2FA can still complete it (same reason /auth is
+		// open). DM lives on the partner (MVS) surface and is held separately via
+		// current_member_is_held(), which now scopes the suspension hold to writes.
 		if ( in_array( $request->get_method(), array( 'POST', 'PUT', 'PATCH', 'DELETE' ), true )
-			&& ! preg_match( '#^/buddynext/v1/me/appeals(?:/|$)#', $route )
+			&& ! preg_match( '#^/buddynext/v1/(?:me/)?appeals(?:/|$)#', $route )
+			&& ! preg_match( '#^/buddynext/v1/account/2fa(?:/|$)#', $route )
 			&& $this->is_suspended( $user_id ) ) {
-			return new WP_Error(
-				'buddynext_suspended',
-				__( 'Your account is suspended, so you cannot do that right now. You can appeal from your account.', 'buddynext' ),
-				array( 'status' => 403 )
+			// The established suspension error shape (code 'forbidden' + appeal_url),
+			// the same one the three original service surfaces return, so a client
+			// keying on appeal_url gets the link and the code does not vary by surface.
+			return \BuddyNext\Moderation\ModerationService::suspension_error(
+				__( 'Your account is suspended, so you cannot do that right now. You can appeal from your account.', 'buddynext' )
 			);
 		}
 
