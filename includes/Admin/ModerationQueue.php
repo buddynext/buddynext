@@ -878,6 +878,14 @@ class ModerationQueue {
 		return '' === $slug ? '—' : ucfirst( str_replace( '_', ' ', $slug ) );
 	}
 
+	/**
+	 * Render the moderation-log filter toolbar: action dropdown, moderator / target
+	 * / space id inputs, a since-date, and the CSV export + run-now controls.
+	 *
+	 * @param array $filters Resolved filter state (the 'query' key holds the
+	 *                       current action / user_id / actor_id / space_id / since).
+	 * @return void
+	 */
 	private function render_log_toolbar( array $filters ): void {
 		$q          = $filters['query'];
 		$actions    = $this->action_labels();
