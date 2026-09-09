@@ -23,6 +23,18 @@ use BuddyNext\Admin\Members\MemberDisplay;
 class Members extends AdminPageBase {
 
 	/**
+	 * The Members hub's nested sub-tab slugs.
+	 *
+	 * ONE source for both the hub-tab registration (register_tab 'subtabs') and the
+	 * render whitelist below, so adding a nested tab in one place without the other
+	 * can no longer reinstate the AdminHub "unknown slug" false positive that routed
+	 * a valid sub-tab to a warning (card 10264294727).
+	 *
+	 * @var string[]
+	 */
+	private const SUBTABS = array( 'members', 'profile-fields', 'avatar-settings', 'member-types', 'invites', 'pending' );
+
+	/**
 	 * Default items per page for member listing.
 	 */
 	private const DEFAULT_PER_PAGE = 20;
@@ -65,7 +77,7 @@ class Members extends AdminPageBase {
 				// Nested tabs this page renders off the same ?tab= var (see
 				// render_page()). Declared so the hub router treats them as valid links
 				// to this tab, not misroutes (card 10264294727).
-				'subtabs'  => array( 'members', 'profile-fields', 'avatar-settings', 'member-types', 'invites', 'pending' ),
+				'subtabs'  => self::SUBTABS,
 			)
 		);
 
@@ -1323,7 +1335,7 @@ class Members extends AdminPageBase {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'members' ) );
-		if ( ! in_array( $active_tab, array( 'members', 'profile-fields', 'avatar-settings', 'member-types', 'invites', 'pending' ), true ) ) {
+		if ( ! in_array( $active_tab, self::SUBTABS, true ) ) {
 			$active_tab = 'members';
 		}
 
