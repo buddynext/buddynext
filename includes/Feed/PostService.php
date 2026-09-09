@@ -2036,19 +2036,33 @@ class PostService {
 		// (on a non-transactional engine these are harmless no-ops). Card 10264292876.
 		// The full sweep lives in one shared routine so every delete path clears the
 		// same rows — delete_by_link_meta_int() routes through it too.
+		// Wrap the cascade + row delete in one transaction so the delete is
+		// all-or-nothing — EXCEPT under the test harness. WP_UnitTestCase runs each
+		// test inside its own transaction and rolls it back on teardown; a nested
+		// START TRANSACTION here implicitly COMMITs that outer transaction, leaking
+		// this test's fixtures into the next (mirrors SpaceService::assign_owner()).
+		// Success is read from the cascade's return + the row delete's return, not
+		// from last_error, which wpdb flush()es on every query.
+		$bn_use_txn = ! defined( 'WP_TESTS_DOMAIN' );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-		$wpdb->query( 'START TRANSACTION' );
-		$this->cascade_post_children( array( $post_id ) );
-		$wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
-		if ( '' !== (string) $wpdb->last_error ) {
-			$wpdb->query( 'ROLLBACK' );
+		if ( $bn_use_txn ) {
+			$wpdb->query( 'START TRANSACTION' );
+		}
+		$bn_swept  = $this->cascade_post_children( array( $post_id ) );
+		$bn_removed = $wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
+		if ( ! $bn_swept || false === $bn_removed ) {
+			if ( $bn_use_txn ) {
+				$wpdb->query( 'ROLLBACK' );
+			}
 			return new WP_Error(
 				'post_delete_failed',
 				__( 'The post could not be deleted. Please try again.', 'buddynext' ),
 				array( 'status' => 500 )
 			);
 		}
-		$wpdb->query( 'COMMIT' );
+		if ( $bn_use_txn ) {
+			$wpdb->query( 'COMMIT' );
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
@@ -2096,23 +2110,36 @@ class PostService {
 	 * object, so an orphaned object_id there is harmless. Announcement dismissals
 	 * live in user_meta, not a table, and a stale id in that array can never render.
 	 *
-	 * ponytail: no wrapping transaction — a single-post delete is small, and the
-	 * read side already drops notifications whose object no longer resolves (card
-	 * 10264293036), so a partial sweep is invisible to members. Add one if bulk
-	 * bridge deletes ever need cross-table atomicity.
+	 * Reports success so a caller running this inside a transaction can ROLLBACK on
+	 * a mid-sweep failure: both delete paths wrap it in a transaction (see delete()
+	 * and delete_by_link_meta_int()), and the previous last_error check was
+	 * unreliable — wpdb::query() flush()es last_error on every call, so a failure
+	 * inside this routine was already wiped by the time the caller looked, and a
+	 * half-swept cascade committed silently (card 10264292876).
 	 *
 	 * @since 1.2.0
 	 *
 	 * @param array<int,int> $post_ids Post ids whose children to remove.
-	 * @return void
+	 * @return bool True when every delete statement succeeded; false if any errored.
 	 */
-	private function cascade_post_children( array $post_ids ): void {
+	private function cascade_post_children( array $post_ids ): bool {
 		global $wpdb;
 
 		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
 		if ( empty( $post_ids ) ) {
-			return;
+			return true;
 		}
+
+		// Track per-statement success: wpdb::query() returns false on error. The
+		// caller decides whether to ROLLBACK; last_error cannot be trusted because
+		// each subsequent query flush()es it.
+		$ok = true;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$del = static function ( string $sql ) use ( $wpdb, &$ok ): void {
+			if ( false === $wpdb->query( $sql ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+				$ok = false;
+			}
+		};
 
 		// Recipients whose notification rows this cascade removes — gathered before
 		// the deletes so their cached unread/unseen counts can be busted afterwards.
@@ -2137,22 +2164,22 @@ class PostService {
 			foreach ( array_chunk( $comment_ids, self::CASCADE_CHUNK ) as $comment_chunk ) {
 				$cin              = implode( ',', array_map( 'absint', $comment_chunk ) );
 				$notif_recipients = array_merge( $notif_recipients, (array) $wpdb->get_col( "SELECT DISTINCT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'comment' AND object_id IN ({$cin})" ) );
-				$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'comment' AND object_id IN ({$cin})" );
-				$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'comment' AND object_id IN ({$cin})" );
-				$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'comment' AND object_id IN ({$cin})" );
+				$del( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'comment' AND object_id IN ({$cin})" );
+				$del( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'comment' AND object_id IN ({$cin})" );
+				$del( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'comment' AND object_id IN ({$cin})" );
 			}
 
 			// Post-keyed child rows.
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_poll_votes WHERE post_id IN ({$in})" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_poll_options WHERE post_id IN ({$in})" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'post' AND object_id IN ({$in})" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_shares WHERE post_id IN ({$in})" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE post_id IN ({$in})" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_poll_votes WHERE post_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_poll_options WHERE post_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'post' AND object_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_shares WHERE post_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE post_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id IN ({$in})" );
 			$notif_recipients = array_merge( $notif_recipients, (array) $wpdb->get_col( "SELECT DISTINCT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" ) );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id IN ({$in})" );
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 		}
 
@@ -2163,6 +2190,8 @@ class PostService {
 				$bn_notifications->forget_counts_for( $notif_recipients );
 			}
 		}
+
+		return $ok;
 	}
 
 	/**
@@ -2393,16 +2422,41 @@ class PostService {
 			}
 		}
 
-		// Clear children, then the post rows themselves (chunked to match).
-		$this->cascade_post_children( $post_ids );
-
-		$deleted = 0;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $in is an absint-mapped id list, injection-safe.
-		foreach ( array_chunk( $post_ids, self::CASCADE_CHUNK ) as $chunk ) {
-			$in       = implode( ',', array_map( 'absint', $chunk ) );
-			$deleted += (int) $wpdb->query( "DELETE FROM {$wpdb->prefix}bn_posts WHERE id IN ({$in})" );
+		// Clear children, then the post rows themselves (chunked to match), inside
+		// one transaction so a mid-sweep failure on THE bulk path — the thousands-of-
+		// comments delete the transaction was justified by — rolls back all-or-
+		// nothing rather than orphaning children (card 10264292876). Guarded against
+		// the test harness for the same reason delete() is.
+		$bn_use_txn = ! defined( 'WP_TESTS_DOMAIN' );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange -- $in is an absint-mapped id list, injection-safe.
+		if ( $bn_use_txn ) {
+			$wpdb->query( 'START TRANSACTION' );
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		$bn_swept = $this->cascade_post_children( $post_ids );
+
+		$deleted    = 0;
+		$bn_delete_ok = true;
+		foreach ( array_chunk( $post_ids, self::CASCADE_CHUNK ) as $chunk ) {
+			$in     = implode( ',', array_map( 'absint', $chunk ) );
+			$result = $wpdb->query( "DELETE FROM {$wpdb->prefix}bn_posts WHERE id IN ({$in})" );
+			if ( false === $result ) {
+				$bn_delete_ok = false;
+				break;
+			}
+			$deleted += (int) $result;
+		}
+
+		if ( ! $bn_swept || ! $bn_delete_ok ) {
+			if ( $bn_use_txn ) {
+				$wpdb->query( 'ROLLBACK' );
+			}
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			return 0;
+		}
+		if ( $bn_use_txn ) {
+			$wpdb->query( 'COMMIT' );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
 
 		// Bust caches and fire the delete hook per post so listeners (search index,
 		// trending, streaks, webhooks, hashtags, embeddings, analytics) clean up —

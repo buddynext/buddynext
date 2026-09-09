@@ -362,8 +362,14 @@ class Installer {
 	 *      Moderation tab's action-type dropdown drives WHERE action = %s ORDER BY
 	 *      created_at on a never-pruned table, previously an unindexed scan +
 	 *      filesort (card 10264294456). dbDelta ADDs the KEY.
+	 *
+	 *  54: Adds bn_notifications KEY object_ref (object_type, object_id) — every
+	 *      notification cleanup path (space/post/comment delete cascade + the daily
+	 *      orphan sweep) filters on that column pair, previously a full table scan
+	 *      per delete, run inside the delete transaction holding gap locks (cards
+	 *      10264293036 / 10264292876). dbDelta ADDs the KEY.
 	 */
-	private const SCHEMA_VERSION = 53;
+	private const SCHEMA_VERSION = 54;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3642,7 +3648,8 @@ class Installer {
 				PRIMARY KEY  (id),
 				KEY          bell (recipient_id, is_read, created_at),
 				KEY          recipient_group (recipient_id, group_key),
-				KEY          purge_window (is_read, created_at)
+				KEY          purge_window (is_read, created_at),
+				KEY          object_ref (object_type, object_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_notification_prefs (

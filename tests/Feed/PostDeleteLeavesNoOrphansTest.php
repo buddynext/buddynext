@@ -74,6 +74,11 @@ class PostDeleteLeavesNoOrphansTest extends WP_UnitTestCase {
 		$wpdb->insert( $wpdb->prefix . 'bn_notifications', array( 'recipient_id' => $this->author, 'sender_id' => $other, 'type' => 'bn.comment_reacted', 'object_type' => 'comment', 'object_id' => $comment_id, 'is_read' => 0, 'created_at' => current_time( 'mysql', true ) ), array( '%d', '%d', '%s', '%s', '%d', '%d', '%s' ) );
 		$wpdb->insert( $wpdb->prefix . 'bn_shares', array( 'post_id' => $post_id, 'user_id' => $other, 'created_at' => current_time( 'mysql', true ) ), array( '%d', '%d', '%s' ) );
 		$wpdb->insert( $wpdb->prefix . 'bn_bookmarks', array( 'post_id' => $post_id, 'user_id' => $other, 'created_at' => current_time( 'mysql', true ) ), array( '%d', '%d', '%s' ) );
+		// Reports (post- AND comment-keyed) and a hashtag link — both swept by the
+		// cascade but previously unasserted here (card 10264292876 round 4).
+		$wpdb->insert( $wpdb->prefix . 'bn_reports', array( 'reporter_id' => $other, 'object_type' => 'post', 'object_id' => $post_id, 'reason' => 'spam', 'status' => 'pending', 'created_at' => current_time( 'mysql', true ) ), array( '%d', '%s', '%d', '%s', '%s', '%s' ) );
+		$wpdb->insert( $wpdb->prefix . 'bn_reports', array( 'reporter_id' => $other, 'object_type' => 'comment', 'object_id' => $comment_id, 'reason' => 'spam', 'status' => 'pending', 'created_at' => current_time( 'mysql', true ) ), array( '%d', '%s', '%d', '%s', '%s', '%s' ) );
+		$wpdb->insert( $wpdb->prefix . 'bn_post_hashtags', array( 'post_id' => $post_id, 'object_type' => 'post', 'hashtag_id' => 424242, 'created_at' => current_time( 'mysql', true ) ), array( '%d', '%s', '%d', '%s' ) );
 
 		// A poll vote on one of the post's options (create() already made the options).
 		$opt = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_poll_options WHERE post_id = %d LIMIT 1", $post_id ) );
@@ -94,6 +99,9 @@ class PostDeleteLeavesNoOrphansTest extends WP_UnitTestCase {
 			'bookmarks'             => "SELECT COUNT(*) FROM {$wpdb->prefix}bn_bookmarks WHERE post_id={$post_id}",
 			'poll_options'          => "SELECT COUNT(*) FROM {$wpdb->prefix}bn_poll_options WHERE post_id={$post_id}",
 			'poll_votes'            => "SELECT COUNT(*) FROM {$wpdb->prefix}bn_poll_votes WHERE post_id={$post_id}",
+			'reports(post)'         => "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type='post' AND object_id={$post_id}",
+			'reports(comment)'      => "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type='comment' AND object_id={$comment_id}",
+			'post_hashtags'         => "SELECT COUNT(*) FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id={$post_id}",
 			'post'                  => "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE id={$post_id}",
 		);
 		foreach ( $counts as $label => $sql ) {
