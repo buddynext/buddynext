@@ -699,7 +699,11 @@ class SpaceController extends BaseRestController {
 		$space_id = (int) $request->get_param( 'id' );
 		$user_id  = get_current_user_id();
 
-		if ( ! buddynext_can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+		// Match the authority of the ACTION this picker feeds: update()'s parent-move
+		// is gated on buddynext-own-space, so gating the eligible-parents list on the
+		// broader buddynext-manage-space was a dead affordance — a moderator could open
+		// the picker but every move it offered 403'd (card 10264293210 RFT round 4).
+		if ( ! buddynext_can( $user_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'You cannot manage this space.', 'buddynext' ),
@@ -735,18 +739,26 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
-			return new WP_Error( 'forbidden', __( 'Only the space owner can change permissions.', 'buddynext' ), array( 'status' => 403 ) );
+		// Gate PER FIELD through the registry, not on a blanket buddynext-own-space
+		// check. require_join_approval is writable_by => 'moderator' (CoreSpaceFields),
+		// and the web settings panel saves it through the registry (can_write), so a
+		// moderator could set it on the web UI but got 403 for the identical field over
+		// REST — the same field, two authorities across two doors (card 10264293210 RFT
+		// round 4). Route the write through SpaceFieldRegistry::save_for_space(), which
+		// consults can_write() per field, so the two doors can no longer disagree.
+		$registry = SpaceFieldRegistry::instance();
+		$param    = $request->get_param( 'require_join_approval' );
+
+		if ( null !== $param && ! $registry->can_write( 'require_join_approval', $space_id, $user_id ) ) {
+			return new WP_Error( 'forbidden', __( 'You cannot change this space setting.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
-		$bools = array(
-			'require_join_approval' => 'require_join_approval',
-		);
-		foreach ( $bools as $key => $opt ) {
-			$param = $request->get_param( $key );
-			if ( null !== $param ) {
-				update_space_meta( $space_id, $opt, $param ? '1' : '0' );
-			}
+		$values = array();
+		if ( null !== $param ) {
+			$values['require_join_approval'] = $param ? '1' : '0';
+		}
+		if ( array() !== $values ) {
+			$registry->save_for_space( $space_id, $values, $user_id );
 		}
 
 		return new WP_REST_Response(

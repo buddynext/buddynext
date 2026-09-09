@@ -340,9 +340,22 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_permissions_nonce'] )
 		// everyone who can reach this screen. The registry sanitises each value
 		// against its registered type, so the hand-rolled allow-lists that used to
 		// live here (and silently coerced a bad value to a default) are gone.
-		$bn_perm_values = array(
-			'require_join_approval' => isset( $_POST['require_join_approval'] ) ? '1' : '0',
-		);
+		$bn_perm_values = array();
+
+		// "Require approval to join" has a control ONLY on space types whose
+		// join_method is 'direct' — the permissions panel renders the checkbox
+		// solely under $bn_approval_is_live ('direct' === join_method). On a
+		// request / invite / secret type the checkbox is not on the form, so reading
+		// $_POST for it always yields '0'; adding it to the payload unconditionally
+		// meant a save on such a space SILENTLY CLEARED the flag — and post the
+		// who_can_* owner-gating fix this is the ONLY field in a moderator's payload,
+		// so a moderator's save on a private space did nothing but zero it (card
+		// 10264293210 RFT round 4). Include it only when its control was rendered,
+		// mirroring the panel's own condition.
+		$bn_join_method = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $space->type ?? 'open' ) );
+		if ( 'direct' === $bn_join_method ) {
+			$bn_perm_values['require_join_approval'] = isset( $_POST['require_join_approval'] ) ? '1' : '0';
+		}
 
 		// who_can_post / who_can_invite are OWNER-only (CoreSpaceFields
 		// writable_by => 'owner'): they set the space's baseline posting and invite
