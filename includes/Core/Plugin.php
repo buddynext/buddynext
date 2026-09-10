@@ -995,6 +995,7 @@ class Plugin {
 		$container->bind( 'member_directory', fn() => new MemberDirectoryService() );
 		$container->bind( 'spaces', fn() => new SpaceService() );
 		$container->bind( 'space_members', fn() => new SpaceMemberService() );
+		$container->bind( 'cross_space_activity', fn() => new \BuddyNext\Spaces\CrossSpaceActivityService() );
 		$container->bind( 'notifications', fn() => new NotificationService() );
 		$container->bind( 'shell_nav', fn() => new \BuddyNext\Nav\ShellNavService() );
 		$container->bind( 'notification_prefs', fn() => new NotificationPrefService() );
