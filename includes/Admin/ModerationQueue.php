@@ -834,6 +834,12 @@ class ModerationQueue {
 			// are distinct slugs — labelled distinctly so filtering by one does not
 			// silently drop the other (card 10284912236). The dead 'unsuspend' slug
 			// nothing ever wrote is gone; the real one is 'unsuspend_user'.
+			// 'warn' is a high-volume, filterable sanction written by
+			// ModerationService::warn(); without a label the dropdown and the column
+			// badge disagreed for it (card 10284912236 item 1). 'warned' is the legacy
+			// slug some older rows carry.
+			'warn'              => __( 'Warning issued', 'buddynext' ),
+			'warned'            => __( 'Warning issued', 'buddynext' ),
 			'issue_strike'      => __( 'Strike issued', 'buddynext' ),
 			'reverse_strike'    => __( 'Strike reversed', 'buddynext' ),
 			'suspend_user'      => __( 'Suspended', 'buddynext' ),

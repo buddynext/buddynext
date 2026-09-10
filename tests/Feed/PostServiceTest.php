@@ -278,4 +278,32 @@ class PostServiceTest extends \WP_UnitTestCase {
 		$this->assertWPError( $result );
 		$this->assertSame( 'poll_requires_options', $result->get_error_code() );
 	}
+
+	/**
+	 * Privacy is normalised to a valid ENUM member at the service, so the composer
+	 * pseudo-value 'members' (and any bad value) can never reach bn_posts.privacy as
+	 * an empty string and destroy the post's audience (card 10284912236 item 3).
+	 *
+	 * @return void
+	 */
+	public function test_create_normalises_privacy_to_a_valid_enum(): void {
+		global $wpdb;
+
+		$cases = array(
+			'members'       => 'public',       // UI pseudo-value -> public.
+			'garbage_value' => 'public',       // unknown -> configured default (public).
+			'connections'   => 'connections',  // valid -> unchanged.
+			'private'       => 'private',       // valid -> unchanged.
+			'space_members' => 'space_members', // valid -> unchanged.
+		);
+
+		foreach ( $cases as $input => $expected ) {
+			$id = $this->service->create( $this->alice, array( 'type' => 'text', 'content' => 'x', 'privacy' => $input ) );
+			$this->assertIsInt( $id, "create() should succeed for privacy={$input}" );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$stored = (string) $wpdb->get_var( $wpdb->prepare( "SELECT privacy FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ) );
+			$this->assertSame( $expected, $stored, "privacy={$input} must store as {$expected}, never ''." );
+			$this->assertNotSame( '', $stored, 'Privacy must never be stored as an empty ENUM value.' );
+		}
+	}
 }

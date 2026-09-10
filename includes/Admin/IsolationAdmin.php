@@ -118,9 +118,20 @@ class IsolationAdmin {
 		}
 
 		$bn_groups = $this->classify();
+		// Isolation ships OFF by default (opt-in). The panel copy used to assert in the
+		// present tense that other plugins "are not loaded" — affirmatively FALSE while
+		// the toggle is off, when every plugin IS loaded. Branch the copy on the real
+		// state so it never lies (card 10284912236 item 4).
+		$bn_isolation_on = PluginIsolation::is_enabled();
 		?>
 		<p class="bn-field-hint">
-			<?php esc_html_e( 'On BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) other plugins are not loaded. This keeps the community fast on large sites. Anything that has to change what members see on those pages — a translation or terminology override, a consent banner, a tracking script — must be kept active here, or it will simply have no effect on those pages.', 'buddynext' ); ?>
+			<?php
+			if ( $bn_isolation_on ) {
+				esc_html_e( 'On BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) other plugins are not loaded. This keeps the community fast on large sites. Anything that has to change what members see on those pages — a translation or terminology override, a consent banner, a tracking script — must be kept active here, or it will simply have no effect on those pages.', 'buddynext' );
+			} else {
+				esc_html_e( 'Route isolation is currently OFF, so every plugin loads on BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) as normal. Turn it on to stop loading the plugins listed below on those pages and keep large communities fast. Anything that must change what members see there — a translation or terminology override, a consent banner, a tracking script — should be kept active here so it keeps working once isolation is on.', 'buddynext' );
+			}
+			?>
 		</p>
 
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-admin-hub__form-bare">
@@ -154,7 +165,15 @@ class IsolationAdmin {
 
 			<div class="bn-settings-section">
 				<div class="bn-ss-header">
-					<span class="bn-ss-title"><?php esc_html_e( 'Not loaded on BuddyNext pages', 'buddynext' ); ?></span>
+					<span class="bn-ss-title">
+						<?php
+						echo esc_html(
+							$bn_isolation_on
+								? __( 'Not loaded on BuddyNext pages', 'buddynext' )
+								: __( 'Would not be loaded on BuddyNext pages (isolation is off)', 'buddynext' )
+						);
+						?>
+					</span>
 					<span class="bn-badge" data-tone="warn"><?php echo esc_html( (string) count( $bn_groups['stripped'] ) ); ?></span>
 				</div>
 				<div class="bn-ss-body">

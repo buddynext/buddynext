@@ -261,6 +261,25 @@ function privacyLabels() {
 	};
 }
 
+/**
+ * Resolve the composer's audience selection into the server payload.
+ *
+ * 'members' (Members only) is a composer PSEUDO-audience: it means privacy=public
+ * plus a members_only teaser flag, and the bn_posts.privacy ENUM has no 'members'.
+ * Every send path must map it here instead of sending 'members' raw — the voice
+ * submit and a restored draft used to send it raw, which the server truncated to
+ * an empty privacy and destroyed the post's audience (card 10284912236 item 3).
+ * The server normalises as a backstop; this keeps the two client send paths from
+ * drifting apart again.
+ *
+ * @param {string} p Selected privacy value.
+ * @return {{ privacy: string, membersOnly: boolean }}
+ */
+function audiencePayload( p ) {
+	const isMembers = 'members' === p;
+	return { privacy: isMembers ? 'public' : ( p || 'public' ), membersOnly: isMembers };
+}
+
 /* ── Composer drafts (localStorage-backed) ───────────────────────────────
  * Stored as JSON at `bn_composer_draft_{user_id}`. We debounce writes by
  * 1.5s after the last keystroke to avoid hammering localStorage on every
@@ -1175,15 +1194,17 @@ store( 'buddynext/post-composer', {
 
 			// "Members only" is folded into the audience list (main feed) as a fifth
 			// option: it is a paywall on top of PUBLIC visibility (publicly listed,
-			// non-members see a teaser), not a distinct visibility scope. So map the
-			// selection back to privacy=public + members_only for the server, which
-			// still takes the two fields separately.
-			const isMembersAudience = ctx.privacy === 'members';
+			// non-members see a teaser), not a distinct visibility scope. audiencePayload()
+			// maps the selection back to privacy=public + members_only for the server,
+			// which still takes the two fields separately — the SAME helper the voice
+			// path uses, so the two cannot drift (card 10284912236 item 3).
+			const audience         = audiencePayload( ctx.privacy );
+			const isMembersAudience = audience.membersOnly;
 
 			// Collect poll options and media attachments.
 			const body = {
 				content,
-				privacy: isMembersAudience ? 'public' : ( ctx.privacy || 'public' ),
+				privacy: audience.privacy,
 				type:    ctx.composerType || 'text',
 			};
 
@@ -1438,16 +1459,21 @@ store( 'buddynext/post-composer', {
 			}
 			ctx.voiceError = '';
 			ctx.submitting = true;
+			// Map the audience like the text path — never send 'members' raw.
+			const voiceAudience = audiencePayload( ctx.privacy );
 			const body = {
 				type:      'voice_room',
 				content:   ( fields.title + ( fields.description ? '\n\n' + fields.description : '' ) ).trim(),
-				privacy:   ctx.privacy || 'public',
+				privacy:   voiceAudience.privacy,
 				link_meta: {
 					title:        fields.title,
 					scheduled_at: fields.scheduled_at,
 					duration:     parseInt( fields.duration || '30', 10 ),
 				},
 			};
+			if ( voiceAudience.membersOnly ) {
+				body.members_only = true;
+			}
 			// Carry the space context so a scheduled voice room lands in the space
 			// feed (mirrors submit()); otherwise space_id is null and it only
 			// shows in the global feed.

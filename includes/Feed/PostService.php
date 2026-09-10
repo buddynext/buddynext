@@ -176,10 +176,42 @@ class PostService {
 	public const LINK_META_HOOK = 'buddynext_async_fetch_link_meta';
 
 	/**
+	 * Coerce a privacy value to a valid bn_posts.privacy ENUM member.
+	 *
+	 * The composer offers a "Members only" chip whose value is 'members', a UI
+	 * pseudo-value that means "any signed-in member" = public in this model. The
+	 * text composer mapped it to 'public' client-side, but the voice-room submit and
+	 * a restored draft sent 'members' raw — and the privacy ENUM
+	 * (public/followers/connections/space_members/private) has no 'members', so a
+	 * non-strict INSERT truncated it to '' and destroyed the post's audience (card
+	 * 10284912236 item 3). Normalising at the service — the choke point every write
+	 * path passes through — makes the corruption unreachable regardless of client:
+	 * 'members' becomes 'public', and any other unrecognised value falls back to the
+	 * configured default rather than an invalid empty string.
+	 *
+	 * @param string $privacy Requested privacy value.
+	 * @return string A valid ENUM member.
+	 */
+	private static function normalize_privacy( string $privacy ): string {
+		$valid = array( 'public', 'followers', 'connections', 'space_members', 'private' );
+		if ( 'members' === $privacy ) {
+			return 'public';
+		}
+		if ( in_array( $privacy, $valid, true ) ) {
+			return $privacy;
+		}
+		$default = (string) get_option( 'buddynext_default_post_privacy', 'public' );
+		return in_array( $default, $valid, true ) ? $default : 'public';
+	}
+
+	/**
 	 * Create a new post.
 	 *
 	 * For poll posts, $data['options'] must be an array of 2–5 non-empty strings (max 5 enforced).
 	 * The buddynext_post_created action fires after successful creation.
+	 *
+	 * Privacy is normalised through normalize_privacy() below so a UI pseudo-value
+	 * ('members') or a bad value can never reach the ENUM column as ''.
 	 *
 	 * @param int   $user_id Author user ID.
 	 * @param array $data    Post fields: type, content, privacy, space_id, media_ids,
@@ -500,7 +532,7 @@ class PostService {
 				'media_ids'            => $media_ids,
 				'link_url'             => $data['link_url'] ?? null,
 				'link_meta'            => $link_meta,
-				'privacy'              => $data['privacy'] ?? (string) get_option( 'buddynext_default_post_privacy', 'public' ),
+				'privacy'              => self::normalize_privacy( $data['privacy'] ?? (string) get_option( 'buddynext_default_post_privacy', 'public' ) ),
 				'status'               => $status,
 				'content_warning'      => ! empty( $data['content_warning'] ) ? 1 : 0,
 				'content_warning_type' => $data['content_warning_type'] ?? null,
@@ -1925,7 +1957,7 @@ class PostService {
 		}
 
 		if ( isset( $data['privacy'] ) ) {
-			$fields['privacy'] = $data['privacy'];
+			$fields['privacy'] = self::normalize_privacy( (string) $data['privacy'] );
 			$formats[]         = '%s';
 		}
 		if ( array_key_exists( 'content_warning', $data ) ) {
