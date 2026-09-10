@@ -332,7 +332,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				?>
 			</h1>
 			<p class="bn-ep-subtitle"><?php esc_html_e( 'How others see you across the community.', 'buddynext' ); ?></p>
-			<a class="bn-btn bn-ep-settings-link" data-variant="ghost" data-size="sm" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::settings_url() ); ?>">
+			<a class="bn-btn bn-ep-settings-link" data-variant="secondary" data-size="sm" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::settings_url() ); ?>">
 				<?php esc_html_e( 'Account & settings', 'buddynext' ); ?>
 				<?php buddynext_icon( 'chevron-right' ); ?>
 			</a>

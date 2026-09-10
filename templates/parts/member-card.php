@@ -512,7 +512,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 				<button
 					type="button"
 					class="bn-btn"
-					data-variant="ghost"
+					data-variant="secondary"
 					data-size="sm"
 					data-wp-on--click="actions.declineConnection"
 					data-wp-bind--aria-busy="context.busy"

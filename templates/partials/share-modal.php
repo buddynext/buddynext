@@ -91,7 +91,7 @@ $share_modal_nonce = wp_create_nonce( 'wp_rest' );
 				</button>
 				<button type="button"
 					class="bn-btn bn-share-modal__copy"
-					data-variant="ghost"
+					data-variant="secondary"
 					data-size="md"
 					data-wp-on--click="actions.copyLink"
 					data-wp-bind--disabled="state.busy">
