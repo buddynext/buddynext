@@ -136,6 +136,20 @@ class AssetIsolation {
 			get_template_directory_uri(),     // Parent theme.
 			get_stylesheet_directory_uri(),   // Child theme.
 			BUDDYNEXT_URL,                    // BuddyNext.
+			// Web-font CDNs. A theme's typography is frequently delivered from a
+			// font host rather than the theme directory: Reign/BuddyX enqueue the
+			// customizer-selected Google font from fonts.googleapis.com (with the
+			// face files on fonts.gstatic.com), and bunny.net is the common
+			// GDPR-friendly drop-in. Stripping these left the site's configured
+			// font resolving to a system fallback on hub routes only — computed
+			// font-family stayed correct, but the @font-face never loaded.
+			// BuddyNext's own faces are self-hosted inside the plugin, which masked
+			// this until a site set a custom font. These hosts serve only
+			// stylesheets and font files, never behaviour, so keeping them does not
+			// weaken isolation (card 10281403015).
+			'https://fonts.googleapis.com/',  // Google Fonts CSS.
+			'https://fonts.gstatic.com/',     // Google Fonts face files.
+			'https://fonts.bunny.net/',       // Bunny Fonts (GDPR-friendly mirror).
 		);
 
 		if ( defined( 'BUDDYNEXTPRO_PLUGIN_URL' ) ) {
