@@ -1050,6 +1050,17 @@ class FieldType {
 				return self::render_simple_input( 'date', $field, (string) $value, $name, $id, $required );
 
 			case 'number':
+				// Year fields (e.g. Education Start/End Year) store a plain year on
+				// purpose (see entry_daterange() + EntryDaterangeTest::test_education_uses_year_keys)
+				// but were rendered as a bare, unbounded spinner. Give a year-keyed
+				// field sane bounds so it reads as a year picker, without changing the
+				// stored value or the field type (card 10285715373). Owner-set bounds,
+				// if any, win.
+				if ( 1 === preg_match( '/_year$/', isset( $field['field_key'] ) ? (string) $field['field_key'] : '' ) ) {
+					$field['min']  = $field['min'] ?? 1900;
+					$field['max']  = $field['max'] ?? ( (int) gmdate( 'Y' ) + 10 );
+					$field['step'] = $field['step'] ?? 1;
+				}
 				return self::render_simple_input( 'number', $field, (string) $value, $name, $id, $required );
 
 			case 'url':
@@ -1091,13 +1102,24 @@ class FieldType {
 	private static function render_simple_input( string $html_type, array $field, string $value, string $name, string $id, string $required ): string {
 		$placeholder = isset( $field['placeholder'] ) ? (string) $field['placeholder'] : '';
 
+		// Optional numeric bounds — emitted only when the field declares min/max/step,
+		// so a plain text/number field is unchanged. A year field carries these so it
+		// renders as a BOUNDED spinner instead of an unbounded one (card 10285715373).
+		$bounds = '';
+		foreach ( array( 'min', 'max', 'step' ) as $bn_bound ) {
+			if ( isset( $field[ $bn_bound ] ) && '' !== (string) $field[ $bn_bound ] ) {
+				$bounds .= sprintf( ' %s="%s"', $bn_bound, esc_attr( (string) $field[ $bn_bound ] ) );
+			}
+		}
+
 		return sprintf(
-			'<input type="%1$s" class="bn-input bn-field-%1$s" id="%2$s" name="%3$s" value="%4$s"%5$s%6$s />',
+			'<input type="%1$s" class="bn-input bn-field-%1$s" id="%2$s" name="%3$s" value="%4$s"%5$s%6$s%7$s />',
 			esc_attr( $html_type ),
 			esc_attr( $id ),
 			esc_attr( $name ),
 			esc_attr( $value ),
 			'' !== $placeholder ? ' placeholder="' . esc_attr( $placeholder ) . '"' : '',
+			$bounds,
 			$required
 		);
 	}
