@@ -291,6 +291,7 @@ if ( 'invite' === $bn_reg_mode ) {
 				 */
 				?>
 				<div class="bn-auth-notice bn-auth-notice--pending" role="status" aria-live="polite"
+					hidden
 					data-wp-bind--hidden="!state.pending">
 					<p class="bn-auth-notice__title"><?php esc_html_e( 'Your account is awaiting approval', 'buddynext' ); ?></p>
 					<p class="bn-auth-notice__body" data-wp-text="state.pendingMessage"></p>
