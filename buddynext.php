@@ -1495,6 +1495,14 @@ function buddynext_get_emoji( string $slug, string $css_class = '', ?string $alt
  * @return string HTML-safe content with linked tags and mentions.
  */
 function buddynext_format_content( string $content ): string {
+	// Every caller passes STORED content, which is persisted wp_kses_post-escaped —
+	// so a bare '&' is already '&amp;' in the DB (comments and posts alike). The
+	// htmlspecialchars() below would then re-encode that to '&amp;amp;' and render a
+	// literal '&amp;' in the browser (card 10280255141). Decode entities first so
+	// the escape is applied exactly ONCE, whatever the caller passes — idempotent on
+	// raw text (nothing to decode) and correct on pre-escaped text.
+	$content = html_entity_decode( $content, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
+
 	// Encode only the three characters dangerous in HTML text content (<, >, &).
 	// esc_html() also encodes apostrophes to &#039; which wp_kses() then
 	// double-encodes (&→&amp;), causing the entity to display literally in the

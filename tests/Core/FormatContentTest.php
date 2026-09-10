@@ -74,4 +74,28 @@ class FormatContentTest extends \WP_UnitTestCase {
 	public function test_plain_text_unchanged(): void {
 		$this->assertSame( 'just some words', buddynext_format_content( 'just some words' ) );
 	}
+
+	/**
+	 * An ampersand is encoded exactly ONCE whether the caller passes raw text or the
+	 * wp_kses_post-escaped stored value — no more '&amp;amp;' rendering as a literal
+	 * '&amp;' (card 10280255141).
+	 *
+	 * @return void
+	 */
+	public function test_ampersand_is_encoded_exactly_once(): void {
+		$this->assertSame( 'Tom &amp; Jerry', buddynext_format_content( 'Tom & Jerry' ), 'Raw ampersand encodes once.' );
+		$this->assertSame( 'Tom &amp; Jerry', buddynext_format_content( 'Tom &amp; Jerry' ), 'Pre-escaped ampersand must not double-encode.' );
+		$this->assertStringNotContainsString( '&amp;amp;', buddynext_format_content( 'A & B &amp; C' ) );
+	}
+
+	/**
+	 * The decode step must not open an XSS hole: an escaped or raw tag is re-escaped,
+	 * never emitted as a live element.
+	 *
+	 * @return void
+	 */
+	public function test_tags_are_re_escaped_not_executed(): void {
+		$this->assertSame( '&lt;script&gt;x&lt;/script&gt;', buddynext_format_content( '&lt;script&gt;x&lt;/script&gt;' ) );
+		$this->assertSame( '&lt;b&gt;raw&lt;/b&gt;', buddynext_format_content( '<b>raw</b>' ) );
+	}
 }
