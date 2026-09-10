@@ -497,9 +497,35 @@ body.bn-lightbox-open { overflow: hidden; }
 	font-size: var( --bn-text-sm, 0.875rem );
 	line-height: var( --bn-leading-snug, 1.4 );
 }
-.bn-lightbox__comment { font-size: var( --bn-text-sm, 0.875rem ); line-height: 1.45; }
-.bn-lightbox__comment-author { margin-inline-end: 6px; }
-.bn-lightbox__comment-text { color: var( --bn-ink-2, oklch( 40% 0.01 0 ) ); }
+/* Comment row: avatar on the left, author/text/actions stacked beside it, with
+   clear separation between comments (card 10268182721). */
+.bn-lightbox__comment {
+	display: flex;
+	gap: var( --bn-s2, 8px );
+	align-items: flex-start;
+	font-size: var( --bn-text-sm, 0.875rem );
+	line-height: 1.45;
+	padding-block: var( --bn-s2, 8px );
+	border-block-start: 1px solid var( --bn-line-faint, oklch( 95% 0.003 0 ) );
+}
+.bn-lightbox__comment:first-child { border-block-start: 0; }
+.bn-lightbox__comment-avatar {
+	inline-size: 32px;
+	block-size: 32px;
+	border-radius: 50%;
+	object-fit: cover;
+	flex: 0 0 auto;
+}
+.bn-lightbox__comment-main {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-inline-size: 0;
+	flex: 1 1 auto;
+}
+.bn-lightbox__comment-author { font-weight: 600; color: var( --bn-ink, oklch( 20% 0.01 0 ) ); }
+.bn-lightbox__comment-text { color: var( --bn-ink-2, oklch( 40% 0.01 0 ) ); overflow-wrap: anywhere; }
+.bn-lightbox__comment-main .bn-lightbox__comment-actions { margin-block-start: 2px; }
 
 /* Per-comment controls — Edit / Delete / Save / Cancel.
  *

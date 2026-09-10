@@ -799,6 +799,28 @@
 		var row = document.createElement( 'div' );
 		row.className = 'bn-lightbox__comment';
 
+		// Avatar on the left. The engine sends author_avatar (a real get_avatar_url)
+		// per comment; render it when present so the thread reads as a social
+		// conversation, not flat text. The row still lays out correctly without one
+		// (card 10268182721).
+		var avatarUrl = c.author_avatar || ( c.author_data && c.author_data.avatar ) || '';
+		if ( avatarUrl ) {
+			var av = document.createElement( 'img' );
+			av.className = 'bn-lightbox__comment-avatar';
+			av.src = avatarUrl;
+			av.alt = '';
+			av.width = 32;
+			av.height = 32;
+			av.loading = 'lazy';
+			row.appendChild( av );
+		}
+
+		// Author, text and actions grouped in a column beside the avatar, so the
+		// author reads as a label above its comment and the Edit/Delete controls
+		// sit underneath as secondary actions instead of inline with the text.
+		var main = document.createElement( 'div' );
+		main.className = 'bn-lightbox__comment-main';
+
 		var name = document.createElement( 'strong' );
 		name.className = 'bn-lightbox__comment-author';
 		name.textContent = c.author_name || c.author || c.name || '';
@@ -807,8 +829,9 @@
 		body.className = 'bn-lightbox__comment-text';
 		body.textContent = c.content || c.comment_content || c.text || '';
 
-		row.appendChild( name );
-		row.appendChild( body );
+		main.appendChild( name );
+		main.appendChild( body );
+		row.appendChild( main );
 
 		if ( ! c.can_edit && ! c.can_delete ) {
 			return row;
@@ -828,7 +851,7 @@
 			} ) );
 		}
 
-		row.appendChild( actions );
+		main.appendChild( actions );
 		return row;
 	}
 
