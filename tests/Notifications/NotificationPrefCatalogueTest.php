@@ -210,4 +210,33 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 
 		return array_values( array_unique( $m[1] ?? array() ) );
 	}
+
+	/**
+	 * When the site owner defaults a type OFF, resolve_for_user() (the settings-page
+	 * source) must reflect that for a member with no stored choice — matching the
+	 * delivery path, not the blanket catalogue "on" (card 10268684581).
+	 *
+	 * @return void
+	 */
+	public function test_resolve_for_user_honours_the_admin_default(): void {
+		$catalogue = new NotificationPrefCatalogue();
+
+		// Baseline: 'New follower' defaults on.
+		$this->assertTrue( $catalogue->effective_default_on_site( 'bn.new_follower' ) );
+		$before = $catalogue->resolve_for_user( array() );
+		$this->assertTrue( (bool) $before['bn.new_follower']['on_site'] );
+
+		// Owner turns the default off.
+		update_option( 'buddynext_notif_default_follow', '0' );
+
+		$this->assertFalse( $catalogue->effective_default_on_site( 'bn.new_follower' ), 'The effective default must follow the owner option.' );
+		$after = $catalogue->resolve_for_user( array() );
+		$this->assertFalse( (bool) $after['bn.new_follower']['on_site'], 'The settings page must show the type OFF once the owner defaults it off.' );
+
+		// A member who explicitly turned it back ON still wins over the admin default.
+		$stored = $catalogue->resolve_for_user( array( 'bn.new_follower' => array( 'on_site' => true ) ) );
+		$this->assertTrue( (bool) $stored['bn.new_follower']['on_site'], 'A stored member choice overrides the admin default.' );
+
+		delete_option( 'buddynext_notif_default_follow' );
+	}
 }

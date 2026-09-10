@@ -51,23 +51,6 @@ class NotificationPrefService {
 	private const INTERNAL_TYPES = array( 'digest' );
 
 	/**
-	 * Map of notification type slug → the Settings → Notifications "default"
-	 * option that governs its initial on_site state. When a user has no explicit
-	 * pref row for one of these types, the site owner's default applies instead
-	 * of a blanket "on". Types not listed here fall back to the catalogue's own
-	 * default_on_site.
-	 */
-	private const ADMIN_DEFAULT_OPTION = array(
-		'bn.new_follower'         => 'buddynext_notif_default_follow',
-		'bn.connection_requested' => 'buddynext_notif_default_connection',
-		'bn.connection_accepted'  => 'buddynext_notif_default_connection',
-		'bn.post_reacted'         => 'buddynext_notif_default_reaction',
-		'bn.post_commented'       => 'buddynext_notif_default_comment',
-		'bn.mention'              => 'buddynext_notif_default_mention',
-		'bn.space_join_requested' => 'buddynext_notif_default_space_join',
-	);
-
-	/**
 	 * Catalogue instance (lazy), used to source per-type default_on_site /
 	 * default_email_freq when a user has no explicit pref row.
 	 *
@@ -92,23 +75,11 @@ class NotificationPrefService {
 		$catalogue = $this->catalogue->all();
 		$entry     = $catalogue[ $type ] ?? array();
 
-		$on_site    = isset( $entry['default_on_site'] ) ? (bool) $entry['default_on_site'] : true;
+		// One source of truth for the on-site default (catalogue default overridden by
+		// the site-owner option) shared with the settings-page display path, so the
+		// two can never diverge (card 10268684581).
+		$on_site    = $this->catalogue->effective_default_on_site( $type );
 		$email_freq = isset( $entry['default_email_freq'] ) ? (string) $entry['default_email_freq'] : 'immediate';
-
-		if ( isset( self::ADMIN_DEFAULT_OPTION[ $type ] ) ) {
-			// Apply the site-owner default whenever the option EXISTS. Only an
-			// absent option (null) means "never configured" and falls back to the
-			// catalogue default — the toggle's hidden 0 field guarantees every
-			// save persists a value. A stored boolean false comes back from the
-			// options table as an empty string, so '' here is an explicit OFF, not
-			// "unset"; rest_sanitize_boolean() maps '' / '0' / false → false and
-			// '1' / true → true. The previous '' !== guard treated a saved-OFF as
-			// unset, so turning a default toggle off had no effect.
-			$admin_val = get_option( self::ADMIN_DEFAULT_OPTION[ $type ], null );
-			if ( null !== $admin_val ) {
-				$on_site = (bool) rest_sanitize_boolean( $admin_val );
-			}
-		}
 
 		return array(
 			'on_site'    => $on_site,

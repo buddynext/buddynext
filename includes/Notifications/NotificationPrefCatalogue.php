@@ -37,6 +37,51 @@ class NotificationPrefCatalogue {
 	public const GROUP_GROWTH     = 'growth';
 
 	/**
+	 * Per-type site-owner "default on" option. When the owner turns a type's
+	 * default off in Settings, that option holds the override for members who have
+	 * not chosen for themselves. Lives here (the type-config holder) so BOTH the
+	 * delivery path (NotificationPrefService::default_pref) and the settings-page
+	 * display path (resolve_for_user) read one source and cannot diverge — the
+	 * settings page used to ignore it and show a type ON that the owner had
+	 * defaulted OFF (card 10268684581).
+	 *
+	 * @var array<string,string>
+	 */
+	private const ADMIN_DEFAULT_OPTION = array(
+		'bn.new_follower'         => 'buddynext_notif_default_follow',
+		'bn.connection_requested' => 'buddynext_notif_default_connection',
+		'bn.connection_accepted'  => 'buddynext_notif_default_connection',
+		'bn.post_reacted'         => 'buddynext_notif_default_reaction',
+		'bn.post_commented'       => 'buddynext_notif_default_comment',
+		'bn.mention'              => 'buddynext_notif_default_mention',
+		'bn.space_join_requested' => 'buddynext_notif_default_space_join',
+	);
+
+	/**
+	 * The effective on-site default for a type: the catalogue default, overridden
+	 * by the site-owner's per-type default option when that option EXISTS. An absent
+	 * option (null) means "never configured" and keeps the catalogue default. A
+	 * stored boolean false comes back as '' — an explicit OFF, not "unset" — so
+	 * rest_sanitize_boolean maps '' / '0' / false -> false and '1' / true -> true.
+	 *
+	 * @param string $slug Type slug.
+	 * @return bool
+	 */
+	public function effective_default_on_site( string $slug ): bool {
+		$entry    = $this->all()[ $slug ] ?? array();
+		$on_site  = (bool) ( $entry['default_on_site'] ?? true );
+
+		if ( isset( self::ADMIN_DEFAULT_OPTION[ $slug ] ) ) {
+			$admin_val = get_option( self::ADMIN_DEFAULT_OPTION[ $slug ], null );
+			if ( null !== $admin_val ) {
+				$on_site = (bool) rest_sanitize_boolean( $admin_val );
+			}
+		}
+
+		return $on_site;
+	}
+
+	/**
 	 * Return the full type catalogue keyed by type slug.
 	 *
 	 * Each entry: {
@@ -553,7 +598,9 @@ class NotificationPrefCatalogue {
 	public function resolve_for_user( array $stored ): array {
 		$out = array();
 		foreach ( $this->all() as $slug => $entry ) {
-			$on_site    = (bool) ( $entry['default_on_site'] ?? true );
+			// The site-owner's per-type default (Settings) is the base a member with no
+			// stored choice sees — the same base the delivery path uses (card 10268684581).
+			$on_site    = $this->effective_default_on_site( $slug );
 			$email_freq = (string) ( $entry['default_email_freq'] ?? 'immediate' );
 
 			if ( isset( $stored[ $slug ] ) && is_array( $stored[ $slug ] ) ) {
