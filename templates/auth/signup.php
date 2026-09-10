@@ -636,8 +636,43 @@ if ( 'invite' === $bn_reg_mode ) {
 					 * privacy link alone does not make a consent checkbox meaningful.
 					 */
 					?>
+					<?php if ( $bn_challenge_on ) : ?>
+						<div class="bn-auth-field">
+							<label class="bn-auth-label" for="bn-signup-challenge">
+								<?php echo esc_html( (string) $bn_challenge['question'] ); ?>
+							</label>
+							<input class="bn-input"
+								type="text"
+								id="bn-signup-challenge"
+								name="challenge_answer"
+								inputmode="numeric"
+								autocomplete="off"
+								required
+								aria-describedby="bn-signup-challenge-hint"
+								data-wp-bind--disabled="state.submitting"
+								data-wp-bind--aria-invalid="state.challengeInvalid"
+								data-wp-on--input="actions.setChallengeAnswer" />
+							<span class="bn-auth-hint" id="bn-signup-challenge-hint">
+								<?php esc_html_e( 'A quick check to keep out automated sign-ups.', 'buddynext' ); ?>
+							</span>
+							<span class="bn-auth-field__msg"
+								data-wp-bind--hidden="!state.challengeError"
+								data-wp-text="state.challengeError"></span>
+						</div>
+					<?php endif; ?>
+
 					<?php if ( ! empty( $bn_requirements['terms'] ) && ! empty( $bn_legal_links ) ) : ?>
-					<div class="bn-auth-field bn-auth-field--check">
+						<?php
+						/*
+						* A single consent checkbox is a plain full-width field, so it
+						* left-aligns with every other field. The --check modifier is the
+						* login row's TWO-item layout (Remember me <-> Forgot password) whose
+						* space-between centres a lone item here instead of anchoring it left
+						* (card 10285797078). The checkbox/label pairing lives on
+						* .bn-auth-check, so dropping --check changes only the row alignment.
+						*/
+						?>
+					<div class="bn-auth-field">
 						<label class="bn-auth-check">
 							<input type="checkbox"
 								name="terms_agreed"
@@ -679,31 +714,6 @@ if ( 'invite' === $bn_reg_mode ) {
 							data-wp-bind--hidden="!state.termsError"
 							data-wp-text="state.termsError"></span>
 					</div>
-					<?php endif; ?>
-
-					<?php if ( $bn_challenge_on ) : ?>
-						<div class="bn-auth-field">
-							<label class="bn-auth-label" for="bn-signup-challenge">
-								<?php echo esc_html( (string) $bn_challenge['question'] ); ?>
-							</label>
-							<input class="bn-input"
-								type="text"
-								id="bn-signup-challenge"
-								name="challenge_answer"
-								inputmode="numeric"
-								autocomplete="off"
-								required
-								aria-describedby="bn-signup-challenge-hint"
-								data-wp-bind--disabled="state.submitting"
-								data-wp-bind--aria-invalid="state.challengeInvalid"
-								data-wp-on--input="actions.setChallengeAnswer" />
-							<span class="bn-auth-hint" id="bn-signup-challenge-hint">
-								<?php esc_html_e( 'A quick check to keep out automated sign-ups.', 'buddynext' ); ?>
-							</span>
-							<span class="bn-auth-field__msg"
-								data-wp-bind--hidden="!state.challengeError"
-								data-wp-text="state.challengeError"></span>
-						</div>
 					<?php endif; ?>
 
 					<?php /* Honeypot: hidden from people, irresistible to bots. */ ?>
