@@ -741,10 +741,15 @@ final class SpaceNav {
 		buddynext_get_template(
 			'partials/media-tab.php',
 			array(
-				'bn_mt_space_id'  => $space_id,
-				'bn_mt_owner_id'  => 0,
-				'bn_mt_is_owner'  => \BuddyNext\Media\Galleries::can_create_space_album( $space_id, $viewer ),
-				'bn_mt_media_ids' => (array) buddynext_service( 'feed' )->space_media_ids( $space_id, $viewer, 24 ),
+				'bn_mt_space_id'       => $space_id,
+				'bn_mt_owner_id'       => 0,
+				'bn_mt_is_owner'       => \BuddyNext\Media\Galleries::can_create_space_album( $space_id, $viewer ),
+				'bn_mt_media_ids'      => (array) buddynext_service( 'feed' )->space_media_ids( $space_id, $viewer, 24 ),
+				// Honour the Albums integration toggle here like ProfileNav does. Without
+				// this, media-tab.php defaults the flag to true when it is absent, so the
+				// Albums sub-tab rendered on Spaces even with the toggle off (card
+				// 10268330095) — the shared resolver that ProfileNav consumes, skipped.
+				'bn_mt_albums_enabled' => buddynext_integration_enabled( 'media', 'nav', 'albums' ),
 			)
 		);
 	}
