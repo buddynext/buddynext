@@ -1661,19 +1661,19 @@ class AdminHub {
 			'campaigns'     => 'pro/',
 			'moderation'    => 'moderation/',
 			'automod'       => 'pro/14-auto-moderation/',
-			'monetization'  => 'pro/01-membership-tiers/',
+			'monetization'  => 'pro/01-membership-plans/',
 		);
 		$tab_overrides    = array(
 			'members'       => array(
 				'registration' => 'accounts-access/01-registration/',
-				'roles'        => 'members/05-roles-and-capabilities/',
+				'roles'        => 'members/12-roles-and-permissions/',
 				'privacy'      => 'accounts-access/08-privacy-and-data/',
 				'labels'       => 'pro/08-member-labels/',
-				'directory'    => 'members/03-member-directory/',
+				'directory'    => 'members/04-member-directory/',
 			),
 			'notifications' => array(
-				'email'     => 'messaging-notifications/03-email-system/',
-				'templates' => 'messaging-notifications/03-email-system/',
+				'email'     => 'messaging-notifications/04-email-system/',
+				'templates' => 'messaging-notifications/04-email-system/',
 			),
 			'campaigns'     => array(
 				'broadcasts' => 'pro/12-broadcast-email/',
@@ -1692,7 +1692,7 @@ class AdminHub {
 			),
 			'engagement'    => array(
 				'reactions' => 'community/04-reactions/',
-				'insights'  => 'pro/19-analytics/',
+				'insights'  => 'pro/11-analytics/',
 			),
 			'monetization'  => array(
 				'stripe'  => 'pro/03-stripe-payments/',
