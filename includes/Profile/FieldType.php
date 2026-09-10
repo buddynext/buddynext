@@ -114,6 +114,25 @@ class FieldType {
 				'is_date'               => true,
 				'is_searchable_capable' => false,
 			),
+			// A plain calendar YEAR (e.g. an education start/end year), stored as the
+			// year string — not a full date. Renders as a bounded number spinner via
+			// the type's own default_field config (html_input + min/max/step), so it
+			// needs no core render case and no render filter: any registered type may
+			// declare default_field to ship sane input defaults. Bounds are computed
+			// per request so "max" tracks the current year.
+			'year'                    => array(
+				'label'                 => __( 'Year', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+				'default_field'         => array(
+					'html_input' => 'number',
+					'min'        => 1900,
+					'max'        => (int) gmdate( 'Y' ) + 10,
+					'step'       => 1,
+				),
+				'sample_value'          => '2016',
+			),
 			'boolean'                 => array(
 				'label'                 => __( 'Yes / No', 'buddynext' ),
 				'value_kind'            => 'bool',
@@ -147,6 +166,9 @@ class FieldType {
 				'value_kind'            => 'multi',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
+				// Stored one bn_profile_values row per pick, so it opts into the
+				// multi-entry storage path via this flag (not a hardcoded slug check).
+				'multi_entry'           => true,
 			),
 			// Choices come LIVE from the owner's member types. Same live-options
 			// contract as category_multiselect, but the values are member-type SLUGS
@@ -221,7 +243,18 @@ class FieldType {
 				// hardcoded list in two places (PHP + JS) that drift apart.
 				'is_date'               => ! empty( $descriptor['is_date'] ),
 				'is_searchable_capable' => ! empty( $descriptor['is_searchable_capable'] ),
+				// One bn_profile_values row per value (vs a single joined string). A
+				// registry flag so a new per-row type opts in without editing a
+				// hardcoded slug check in is_multi_entry().
+				'multi_entry'           => ! empty( $descriptor['multi_entry'] ),
 			);
+
+			// Default input config a simple type ships so it renders without a
+			// render filter: html_input plus any attributes (min/max/step/…). Merged
+			// into the field at render time, with owner/field-set values winning.
+			if ( isset( $descriptor['default_field'] ) && is_array( $descriptor['default_field'] ) ) {
+				$normalised[ $slug ]['default_field'] = $descriptor['default_field'];
+			}
 
 			// A representative stored value, declared by the type itself.
 			//
@@ -753,7 +786,10 @@ class FieldType {
 	 * @return bool
 	 */
 	public static function is_multi_entry( string $type ): bool {
-		return 'category_multiselect' === $type;
+		// Registry-driven: a type opts into one-row-per-value storage with the
+		// `multi_entry` descriptor flag, so a new per-row type works without editing
+		// this literal; category_multiselect ships the flag.
+		return ! empty( self::types()[ $type ]['multi_entry'] );
 	}
 
 	/**
@@ -818,7 +854,11 @@ class FieldType {
 	 * @return bool
 	 */
 	public static function is_multiselect_family( string $type ): bool {
-		return in_array( $type, array( 'multiselect', 'category_multiselect', 'member_type_multiselect' ), true );
+		// Registry-driven: any type whose descriptor declares value_kind 'multi' is a
+		// multi-value family, so display chips / searchable-text / rest_value treat a
+		// new multi type the same way presentation_for() already does — no hardcoded
+		// slug list to drift. The three built-ins all declare value_kind 'multi'.
+		return 'multi' === ( self::types()[ $type ]['value_kind'] ?? '' );
 	}
 
 	/**
@@ -981,6 +1021,22 @@ class FieldType {
 		$id       = self::input_id( $name );
 		$required = ! empty( $field['is_required'] ) ? ' required' : '';
 
+		// A type may ship default input config (an html_input plus attributes like
+		// min/max/step) via its registry descriptor's `default_field`, so a simple
+		// new type renders with sane defaults and needs no render filter. Merged into
+		// the field here; owner/field-set values always win (they are left untouched).
+		$type_meta = self::types()[ $type ] ?? array();
+		if ( isset( $type_meta['default_field'] ) && is_array( $type_meta['default_field'] ) ) {
+			foreach ( $type_meta['default_field'] as $bn_dkey => $bn_dval ) {
+				if ( 'html_input' === $bn_dkey ) {
+					continue;
+				}
+				if ( ! isset( $field[ $bn_dkey ] ) || '' === (string) $field[ $bn_dkey ] ) {
+					$field[ $bn_dkey ] = $bn_dval;
+				}
+			}
+		}
+
 		// G1: owner-authored placeholder (bn_profile_fields.placeholder). The
 		// simple <input> types read it inside render_simple_input(); textarea
 		// needs it here. Empty = no attribute at all.
@@ -1050,17 +1106,6 @@ class FieldType {
 				return self::render_simple_input( 'date', $field, (string) $value, $name, $id, $required );
 
 			case 'number':
-				// Year fields (e.g. Education Start/End Year) store a plain year on
-				// purpose (see entry_daterange() + EntryDaterangeTest::test_education_uses_year_keys)
-				// but were rendered as a bare, unbounded spinner. Give a year-keyed
-				// field sane bounds so it reads as a year picker, without changing the
-				// stored value or the field type (card 10285715373). Owner-set bounds,
-				// if any, win.
-				if ( 1 === preg_match( '/_year$/', isset( $field['field_key'] ) ? (string) $field['field_key'] : '' ) ) {
-					$field['min']  = $field['min'] ?? 1900;
-					$field['max']  = $field['max'] ?? ( (int) gmdate( 'Y' ) + 10 );
-					$field['step'] = $field['step'] ?? 1;
-				}
 				return self::render_simple_input( 'number', $field, (string) $value, $name, $id, $required );
 
 			case 'url':
@@ -1083,8 +1128,16 @@ class FieldType {
 				);
 
 			case 'text':
-			default:
 				return self::render_simple_input( 'text', $field, (string) $value, $name, $id, $required );
+
+			default:
+				// A registered type that declares default_field.html_input renders as
+				// that simple input (e.g. 'year' → number, with its min/max/step already
+				// merged above); anything else degrades safely to a text input.
+				$bn_html_input = isset( $type_meta['default_field']['html_input'] )
+					? (string) $type_meta['default_field']['html_input']
+					: 'text';
+				return self::render_simple_input( $bn_html_input, $field, (string) $value, $name, $id, $required );
 		}
 	}
 
@@ -1854,7 +1907,11 @@ class FieldType {
 	 * @return bool
 	 */
 	private static function is_date_type( string $type ): bool {
-		return in_array( $type, array( 'date', 'date_extended' ), true );
+		// Registry-driven: a type declaring the `is_date` descriptor flag gets the
+		// date formatting AND privacy masking here, so a registered date-family type
+		// (e.g. Pro's date_extended) is never left unmasked because a literal list
+		// forgot it. Built-in 'date' and Pro 'date_extended' both declare is_date.
+		return ! empty( self::types()[ $type ]['is_date'] );
 	}
 
 	/**

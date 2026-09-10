@@ -871,6 +871,11 @@ class Installer {
 		// installs stop depending on the silent resolve_type() text fallback.
 		self::maybe_migrate_wizard_preset_types();
 
+		// Converge the seeded Education Start/End Year fields from 'number' to the
+		// dedicated 'year' type, so existing installs get the bounded year control
+		// too (new installs already seed 'year'). Same plain-year storage.
+		self::maybe_migrate_year_fields();
+
 		// v46: unwrap {address,lat,lng} values left on text-like fields by a REST
 		// type change that predated convert_field_values() being wired there.
 		self::maybe_repair_stranded_location_values();
@@ -1502,6 +1507,27 @@ class Installer {
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'boolean' WHERE type = 'checkbox'" );
+
+		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+	}
+
+	/**
+	 * Converge the seeded Education Start/End Year fields from 'number' to 'year'.
+	 *
+	 * They were seeded as bare 'number' and rendered an unbounded spinner; the
+	 * registered 'year' type renders a bounded year control while storing the same
+	 * plain year string, so member values are preserved. Scoped to the two seeded
+	 * field_keys AND only while still 'number', so an owner who deliberately retyped
+	 * them is never overridden. Idempotent — a no-op once no such rows remain
+	 * (card 10285715373).
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_year_fields(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'year' WHERE type = 'number' AND field_key IN ( 'edu_start_year', 'edu_end_year' )" );
 
 		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
 	}
@@ -3126,8 +3152,8 @@ class Installer {
 			array( 'education', 'edu_institution', 'Institution', 'text', 0, 0, 1 ),
 			array( 'education', 'edu_degree', 'Degree', 'text', 0, 0, 2 ),
 			array( 'education', 'edu_field', 'Field of Study', 'text', 0, 0, 3 ),
-			array( 'education', 'edu_start_year', 'Start Year', 'number', 0, 0, 4 ),
-			array( 'education', 'edu_end_year', 'End Year', 'number', 0, 0, 5 ),
+			array( 'education', 'edu_start_year', 'Start Year', 'year', 0, 0, 4 ),
+			array( 'education', 'edu_end_year', 'End Year', 'year', 0, 0, 5 ),
 			array( 'education', 'edu_current', 'Currently Attending', 'boolean', 0, 0, 6 ),
 
 			// skills (flat). Key renamed interests->skills in v17 (the canonical
