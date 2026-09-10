@@ -441,14 +441,26 @@ class TokenService {
 	}
 
 	/**
-	 * Build the host-theme palette-adoption block, or '' when no supported
-	 * theme is active.
+	 * Build the host-theme adoption block, or '' when no supported theme is
+	 * active.
 	 *
-	 * Emitted with a single-attribute `[data-bn-theme]` selector — same
-	 * (0,1,0) specificity as the dark block but later in source order, so the
-	 * host palette wins in BOTH light and dark. That is intentional: the host
-	 * theme already carries the correct per-mode colour in its own variables,
-	 * so BuddyNext follows it rather than applying its built-in dark shift.
+	 * COLOUR tokens are emitted under a single-attribute `[data-bn-theme]`
+	 * selector — same (0,1,0) specificity as the dark block but later in source
+	 * order, so the host palette wins in BOTH light and dark. That is
+	 * intentional: the host theme already carries the correct per-mode colour in
+	 * its own variables, so BuddyNext follows it rather than applying its
+	 * built-in dark shift.
+	 *
+	 * The FONT tokens (`--bn-theme-font` / `--bn-theme-heading-font`) are emitted
+	 * separately at `:root`, NOT under `[data-bn-theme]`. They carry no per-mode
+	 * value, and gating them behind `[data-bn-theme]` meant they were unset on
+	 * integrated-plugin pages that don't stamp that attribute (WPMediaVerse
+	 * `body.mvs-page`, Jetonomy `.jt-app`). The takeover CSS forces those
+	 * surfaces to `font-family: var(--font-body)`, which chains through
+	 * `--bn-font-ui` → `--bn-theme-font`; with the token unset it fell back to
+	 * BuddyNext's own Inter, so the site's configured theme font was ignored on
+	 * exactly the partner surfaces the takeover governs (card 10281337562).
+	 * Emitting them at `:root` makes the theme font apply everywhere.
 	 *
 	 * @return string CSS block (with leading newlines) or empty string.
 	 */
@@ -475,16 +487,37 @@ class TokenService {
 			return '';
 		}
 
-		$declarations = '';
-		foreach ( $map as $property => $value ) {
-			$declarations .= sprintf( "\t%s: %s;\n", (string) $property, (string) $value );
+		// Split font tokens (global, :root) from colour tokens ([data-bn-theme]).
+		$font_keys  = array( '--bn-theme-font', '--bn-theme-heading-font' );
+		$font_map   = array_intersect_key( $map, array_flip( $font_keys ) );
+		$colour_map = array_diff_key( $map, array_flip( $font_keys ) );
+		$css        = '';
+
+		if ( ! empty( $font_map ) ) {
+			$font_declarations = '';
+			foreach ( $font_map as $property => $value ) {
+				$font_declarations .= sprintf( "\t%s: %s;\n", (string) $property, (string) $value );
+			}
+			$css .= sprintf(
+				"\n\n/* Host-theme font adoption (global — reaches integrated-plugin pages) — %s */\n:root {\n%s}",
+				$template,
+				$font_declarations
+			);
 		}
 
-		return sprintf(
-			"\n\n/* Host-theme palette adoption — %s */\n[data-bn-theme] {\n%s}",
-			$template,
-			$declarations
-		);
+		if ( ! empty( $colour_map ) ) {
+			$declarations = '';
+			foreach ( $colour_map as $property => $value ) {
+				$declarations .= sprintf( "\t%s: %s;\n", (string) $property, (string) $value );
+			}
+			$css .= sprintf(
+				"\n\n/* Host-theme palette adoption — %s */\n[data-bn-theme] {\n%s}",
+				$template,
+				$declarations
+			);
+		}
+
+		return $css;
 	}
 
 	/**
