@@ -84,8 +84,12 @@ if ( '' === $bn_rail_active && 'feed' === $hub ) {
 }
 // Explore shares the feed hub but is the public/discovery feed (distinct from the
 // personal Activity feed), so it owns the rail's active state on /activity/explore/
-// instead of the Activity row.
-if ( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_action', '' ) ) {
+// instead of the Activity row. Search results (/activity/search/) are reached from
+// the Explore hero search bar and belong to that discovery context, so they keep
+// Explore lit too — otherwise the rail fell back to Feed and lost the context the
+// searcher came from (card 10289668593).
+if ( 'feed' === $hub
+	&& in_array( (string) get_query_var( 'bn_activity_action', '' ), array( 'explore', 'search' ), true ) ) {
 	$bn_rail_active = 'explore';
 }
 
