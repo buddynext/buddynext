@@ -356,16 +356,15 @@ class SpaceService {
 			}
 
 			// Enforce the configured per-parent sub-space cap (Settings → Spaces →
-			// "Max Sub-Spaces"). 0 = unlimited.
+			// "Max Sub-Spaces"). 0 = unlimited. Counts through count_subspaces() so all
+			// three cap sites agree: this create() gate, validate_parent_move()'s
+			// enforcement, and the eligible-parents picker all exclude ARCHIVED
+			// children. The inline count here omitted is_archived = 0, so a root at cap
+			// whose children were all archived was offered by the picker and accepted a
+			// move but refused a create — three surfaces, two answers (card 10264295263).
 			$max_sub = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
 			if ( $max_sub > 0 ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$existing_sub = (int) $wpdb->get_var(
-					$wpdb->prepare(
-						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces WHERE parent_id = %d",
-						$parent_id
-					)
-				);
+				$existing_sub = $this->count_subspaces( $parent_id );
 				if ( $existing_sub >= $max_sub ) {
 					return new WP_Error(
 						'max_sub_spaces_exceeded',
