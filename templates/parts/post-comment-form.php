@@ -71,11 +71,21 @@ $bn_cf_placeholder = (string) $args['placeholder'];
 $current_display_name = (string) get_the_author_meta( 'display_name', $bn_cf_user_id );
 $name_for_initials    = '' !== $current_display_name ? $current_display_name : 'U';
 $current_initials     = implode( '', array_map( static fn( string $w ): string => strtoupper( mb_substr( $w, 0, 1 ) ), explode( ' ', $name_for_initials ) ) );
+// Render the member's real avatar, with initials as the fallback — the composer
+// does this; the comment box showed initials only until the comment was posted
+// (card 10286243565).
+$bn_cf_avatar = get_avatar_url( $bn_cf_user_id, array( 'size' => 76 ) );
 
 do_action( 'buddynext_part_post_comment_form_before', $args );
 ?>
 <div class="<?php echo esc_attr( $bn_class ); ?>">
-	<span class="bn-avatar bn-comment-form__avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( mb_substr( $current_initials, 0, 2 ) ); ?></span>
+	<span class="bn-avatar bn-comment-form__avatar" data-size="sm" aria-hidden="true">
+		<?php if ( $bn_cf_avatar ) : ?>
+			<img src="<?php echo esc_url( $bn_cf_avatar ); ?>" alt="" width="28" height="28" loading="lazy">
+		<?php else : ?>
+			<?php echo esc_html( mb_substr( $current_initials, 0, 2 ) ); ?>
+		<?php endif; ?>
+	</span>
 	<label for="bn-comment-input-<?php echo absint( $bn_cf_post_id ); ?>" class="screen-reader-text">
 		<?php esc_html_e( 'Write a comment', 'buddynext' ); ?>
 	</label>
