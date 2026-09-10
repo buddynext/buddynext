@@ -58,9 +58,13 @@ final class UserLinks {
 	 * The new item then appears in the Appearance → Menus metabox, the header
 	 * dropdown, and resolves per-user in every menu — no core change needed.
 	 *
+	 * @param bool $for_admin True to build the list for the admin nav editor, which
+	 *                        keeps items an owner has hidden (so they stay
+	 *                        toggleable); false (default) for the frontend list,
+	 *                        which drops hidden items (card 10286076480).
 	 * @return array<int,array{token:string,label:string,icon:string,visibility:string,callback?:callable,url?:string}>
 	 */
-	public static function catalogue(): array {
+	public static function catalogue( bool $for_admin = false ): array {
 		$items = array(
 			array(
 				'token'      => '#bn-profile',
@@ -182,9 +186,17 @@ final class UserLinks {
 		 * `#bn-` token and may provide a `callback` ( callable( int $user_id ):
 		 * string ) or a static `url` so it resolves per-member everywhere.
 		 *
-		 * @param array<int,array<string,mixed>> $items Catalogue rows.
+		 * @param array<int,array<string,mixed>> $items     Catalogue rows.
+		 * @param bool                           $for_admin True when the catalogue is
+		 *                                                  being built for the admin nav
+		 *                                                  editor, which needs EVERY
+		 *                                                  built-in item present even when
+		 *                                                  hidden — so the owner can
+		 *                                                  un-hide it — rather than the
+		 *                                                  frontend list that drops hidden
+		 *                                                  items (card 10286076480).
 		 */
-		return (array) apply_filters( 'buddynext_user_links', $items );
+		return (array) apply_filters( 'buddynext_user_links', $items, $for_admin );
 	}
 
 	/**

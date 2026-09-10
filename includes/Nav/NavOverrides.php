@@ -52,7 +52,7 @@ final class NavOverrides {
 		// apply to the resolved registry items (id-keyed), per surface.
 		add_filter( 'buddynext_nav_items', array( $this, 'apply_nav_items' ), 20, 2 );
 		add_filter( 'buddynext_mobile_nav_items', array( $this, 'apply_mobile_items' ), 20, 2 );
-		add_filter( 'buddynext_user_links', array( $this, 'apply_user_links' ), 20 );
+		add_filter( 'buddynext_user_links', array( $this, 'apply_user_links' ), 20, 2 );
 	}
 
 	/**
@@ -580,16 +580,28 @@ final class NavOverrides {
 	 * Runs at priority 20 so a site's own `buddynext_user_links` callback at the default 10 is
 	 * still the developer-level override, and still wins on anything it sets.
 	 *
-	 * @param array<int,array<string,mixed>> $items Catalogue rows.
+	 * @param array<int,array<string,mixed>> $items     Catalogue rows.
+	 * @param bool                           $for_admin True when building the list for
+	 *                                                  the admin nav editor, which keeps
+	 *                                                  hidden items so they stay
+	 *                                                  toggleable (card 10286076480).
 	 * @return array<int,array<string,mixed>>
 	 */
-	public function apply_user_links( $items ): array {
+	public function apply_user_links( $items, $for_admin = false ): array {
 		$items     = (array) $items;
 		$overrides = $this->overrides( 'account' );
 
 		if ( empty( $overrides ) ) {
 			return $items;
 		}
+
+		// The admin nav editor needs EVERY built-in item present even when hidden, so
+		// the owner can toggle it back on — get_tabs_for_scope() marks it hidden for
+		// the editor's toggle state. Dropping hidden items here (correct for the
+		// frontend header) made the item vanish from the editor with no way to un-hide
+		// it (card 10286076480). So for the editor, skip only the hidden-DROP; still
+		// apply label/order overrides and still append the owner's custom links below.
+		$bn_drop_hidden = ! $for_admin;
 
 		$slug_of = static function ( array $item ): string {
 			return sanitize_key( ltrim( str_replace( '#bn-', '', (string) ( $item['token'] ?? '' ) ), '-' ) );
@@ -608,8 +620,10 @@ final class NavOverrides {
 			$ov   = isset( $overrides[ $slug ] ) ? (array) $overrides[ $slug ] : array();
 
 			// Hidden, or denied by the item's capability/login gate. Log out is locked in the
-			// admin (no hide toggle), so a member can always sign out.
-			if ( 'logout' !== $slug && ( ! empty( $ov['hidden'] ) || $this->tab_denied( $ov ) ) ) {
+			// admin (no hide toggle), so a member can always sign out. The editor keeps
+			// hidden items (see $bn_drop_hidden) but a capability/login denial still drops
+			// them — those are not owner-toggleable.
+			if ( 'logout' !== $slug && ( ( $bn_drop_hidden && ! empty( $ov['hidden'] ) ) || $this->tab_denied( $ov ) ) ) {
 				continue;
 			}
 

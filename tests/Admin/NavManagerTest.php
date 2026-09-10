@@ -34,6 +34,31 @@ class NavManagerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Hiding an account item must NOT remove it from the admin editor — the owner
+	 * has to be able to toggle it back on. The frontend header still drops it.
+	 * Card 10286076480: hiding an item deleted it from the editor forever.
+	 *
+	 * @return void
+	 */
+	public function test_hidden_account_item_stays_toggleable_in_the_editor(): void {
+		( new \BuddyNext\Nav\NavOverrides() )->register(); // Hooks apply_user_links.
+		update_option( 'buddynext_nav_overrides_account', array( 'edit-profile' => array( 'hidden' => true ) ) );
+
+		$tabs = $this->nav->get_tabs_for_scope( 'account' );
+		$edit = array_values( array_filter( $tabs, static fn( array $t ): bool => 'edit-profile' === ( $t['slug'] ?? '' ) ) );
+
+		$this->assertNotEmpty( $edit, 'A hidden account item must still appear in the admin editor.' );
+		$this->assertTrue( (bool) ( $edit[0]['hidden'] ?? false ), 'It must be marked hidden so the toggle reads OFF.' );
+
+		// The frontend header (catalogue with no argument) still drops the hidden item.
+		$front = \BuddyNext\Nav\UserLinks::catalogue();
+		$present = (bool) array_filter( $front, static fn( array $i ): bool => '#bn-edit-profile' === ( $i['token'] ?? '' ) );
+		$this->assertFalse( $present, 'The frontend header must still drop a hidden item.' );
+
+		delete_option( 'buddynext_nav_overrides_account' );
+	}
+
+	/**
 	 * Register() adds the admin_menu hook.
 	 */
 	public function test_register_adds_admin_menu_hook(): void {

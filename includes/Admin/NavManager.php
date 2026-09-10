@@ -944,7 +944,10 @@ class NavManager extends AdminPageBase {
 		$rows  = array();
 		$order = 0;
 
-		foreach ( \BuddyNext\Nav\UserLinks::catalogue() as $item ) {
+		// for_admin: the editor must see every built-in account item even when the
+		// owner has hidden it, so it stays toggleable — the frontend header still gets
+		// the hidden-dropped list from catalogue() with no argument (card 10286076480).
+		foreach ( \BuddyNext\Nav\UserLinks::catalogue( true ) as $item ) {
 			$token = (string) ( $item['token'] ?? '' );
 			$slug  = sanitize_key( ltrim( str_replace( '#bn-', '', $token ), '-' ) );
 
