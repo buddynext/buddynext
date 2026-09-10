@@ -312,7 +312,11 @@ class PageRouter {
 			&& ! is_user_logged_in()
 			&& ! (bool) get_option( 'buddynext_public_explore', true )
 		) {
-			wp_safe_redirect( self::auth_url() );
+			// Return to explore after login rather than a dead-end auth screen
+			// (card 10281747733).
+			global $wp;
+			$bn_return = home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) );
+			wp_safe_redirect( add_query_arg( 'redirect_to', rawurlencode( $bn_return ), self::auth_url() ) );
 			exit;
 		}
 
@@ -500,7 +504,15 @@ class PageRouter {
 				|| ( $is_home_feed && in_array( $feed_section, $guarded_feed_sections, true ) );
 
 			if ( $needs_login ) {
-				wp_safe_redirect( self::auth_url() );
+				// Carry the requested page as redirect_to so login lands the guest back
+				// where they were headed — not on a dead-end auth screen. Fixes every
+				// guest link caught by this gate at once (a member-card avatar/name link
+				// to a profile on a login-required People hub, say), rather than each
+				// template having to append redirect_to itself (card 10281747733). Same
+				// capture the private-community gate above uses.
+				global $wp;
+				$bn_return = home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) );
+				wp_safe_redirect( add_query_arg( 'redirect_to', rawurlencode( $bn_return ), self::auth_url() ) );
 				exit;
 			}
 		}
