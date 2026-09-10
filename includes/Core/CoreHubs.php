@@ -91,5 +91,38 @@ final class CoreHubs {
 		 * @param HubRegistry $reg The shared hub registry.
 		 */
 		do_action( 'buddynext_register_hubs', $reg );
+
+		self::persist_hub_slugs( $reg );
+	}
+
+	/**
+	 * Persist the live slug of every registered hub (core + addon) into an
+	 * autoloaded option, so the isolation mu-plugin can cover addon hub routes.
+	 *
+	 * The mu-plugin runs BEFORE the plugin (and this registry) boots, so it cannot
+	 * read HubRegistry live; it reads this option instead. An addon hub (e.g. a
+	 * Circles hub at /circles/) registers on buddynext_register_hubs, which fires
+	 * one request too late for that same request's mu-plugin, but from the next
+	 * request on its route gets the same isolation coverage as a core hub (card
+	 * 10276700689). Written only when the slug set actually changes, so it is not a
+	 * write on every boot.
+	 *
+	 * @param HubRegistry $reg The populated hub registry.
+	 * @return void
+	 */
+	private static function persist_hub_slugs( HubRegistry $reg ): void {
+		$slugs = array();
+		foreach ( $reg->all() as $descriptor ) {
+			$slug = trim( (string) get_option( $descriptor->slug_option, $descriptor->default_slug ) );
+			if ( '' !== $slug ) {
+				$slugs[] = $slug;
+			}
+		}
+		$slugs   = array_values( array_unique( $slugs ) );
+		$encoded = (string) wp_json_encode( $slugs );
+
+		if ( get_option( 'buddynext_hub_slugs', '' ) !== $encoded ) {
+			update_option( 'buddynext_hub_slugs', $encoded, true );
+		}
 	}
 }

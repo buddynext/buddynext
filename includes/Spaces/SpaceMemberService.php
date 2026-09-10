@@ -1934,31 +1934,49 @@ class SpaceMemberService {
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
-			return $cached;
+			$rows = $cached;
+		} else {
+			global $wpdb;
+
+			// s.category_id is selected so a consumer of the filter below can drop a
+			// category-flagged space (an addon hub, e.g. Wellbee Circles) without a
+			// per-row lookup — the row already carries the category.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT s.id, s.name, s.slug, s.category_id, sm.role
+					 FROM {$wpdb->prefix}bn_spaces s
+					 INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id
+					 WHERE sm.user_id = %d AND sm.status = 'active'
+					 ORDER BY sm.joined_at DESC
+					 LIMIT %d",
+					$user_id,
+					$limit
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			$rows = is_array( $rows ) ? $rows : array();
+
+			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT s.id, s.name, s.slug, sm.role
-				 FROM {$wpdb->prefix}bn_spaces s
-				 INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id
-				 WHERE sm.user_id = %d AND sm.status = 'active'
-				 ORDER BY sm.joined_at DESC
-				 LIMIT %d",
-				$user_id,
-				$limit
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		$rows = is_array( $rows ) ? $rows : array();
-
-		wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
-
-		return $rows;
+		/**
+		 * Filter the member's "My spaces" summary rows before they render — the rail
+		 * flyout (templates/shell/rail.php), the profile "Member of" list, and the
+		 * profile sidebar all read this method, so filtering here covers every
+		 * surface at once. An addon hub drops its own category-flagged spaces so they
+		 * do not leak into the native Spaces UI; each row carries category_id, so the
+		 * exclusion needs no extra query. Applied on both the cached and freshly
+		 * queried path (card 10276700689).
+		 *
+		 * @since 1.2.0
+		 *
+		 * @param array<int,object> $rows    Space rows (id, name, slug, category_id, role).
+		 * @param int               $user_id The member whose spaces these are.
+		 * @param int               $limit   Row cap the caller requested.
+		 */
+		return apply_filters( 'buddynext_membership_rows', $rows, $user_id, $limit );
 	}
 
 	/**
@@ -1982,23 +2000,35 @@ class SpaceMemberService {
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return (int) $cached;
+			$count = (int) $cached;
+		} else {
+			global $wpdb;
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
+					$user_id
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
-				$user_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
-
-		return $count;
+		/**
+		 * Filter the member's active-membership count — the "My spaces" badge — so it
+		 * stays consistent with buddynext_membership_rows(): an addon hub that hides
+		 * its category-flagged spaces from the list nets the same spaces out of the
+		 * count here, or the badge reads a total the list does not show (card
+		 * 10276700689).
+		 *
+		 * @since 1.2.0
+		 *
+		 * @param int $count   Active membership count.
+		 * @param int $user_id The member.
+		 */
+		return (int) apply_filters( 'buddynext_membership_count', $count, $user_id );
 	}
 
 	/**

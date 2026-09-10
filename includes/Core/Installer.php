@@ -4247,6 +4247,22 @@ function buddynext_mu_is_bn_request() {
 		}
 	}
 
+	// Addon hub slugs (e.g. a Circles hub at /circles/). These cannot live in the
+	// fixed map above because other plugins register them at boot; CoreHubs writes
+	// the live slug of every registered hub into this autoloaded option after
+	// buddynext_register_hubs fires, so an addon hub route gets the same isolation
+	// coverage as a core hub (card 10276700689).
+	$bn_hub_slugs = json_decode( (string) get_option( 'buddynext_hub_slugs', '[]' ), true );
+	if ( is_array( $bn_hub_slugs ) ) {
+		foreach ( $bn_hub_slugs as $bn_slug ) {
+			$bn_slug = trim( (string) $bn_slug );
+			if ( '' !== $bn_slug && ( $path === $bn_slug || 0 === strpos( $path, $bn_slug . '/' ) ) ) {
+				$result = true;
+				return true;
+			}
+		}
+	}
+
 	$result = false;
 	return false;
 }
