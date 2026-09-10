@@ -1467,12 +1467,21 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
    every BuddyNext control uses the theme UI font instead of the OS default, rather
    than each control (privacy dropdown options, comment action buttons, …) having to
    declare font-family and some being missed (cards 10281446723, 10281148124).
-   Scoped to .bn-wrap so it never touches the theme's or another plugin's controls. */
-.bn-wrap button,
-.bn-wrap input,
-.bn-wrap select,
-.bn-wrap textarea,
-.bn-wrap optgroup {
+
+   Scoped to .bn-app — the front-end root the shells actually render
+   (templates/shell/hub-shell.php, auth-shell.php). The first pass scoped this to
+   .bn-wrap, a class that appears on ZERO front-end pages, so the rule matched
+   nothing and both cards bounced (comment buttons + composer privacy options still
+   rendered the OS font). .bn-app wraps every BuddyNext front-end surface (feed,
+   composer, comments, settings) and nothing the theme or another plugin owns, and
+   the bare-element specificity means any control that sets its own font still wins.
+   Guarded by tests/Theme/ControlFontResetTest.php so a dead selector cannot pass
+   again. */
+.bn-app button,
+.bn-app input,
+.bn-app select,
+.bn-app textarea,
+.bn-app optgroup {
 	font-family: inherit;
 }
 
