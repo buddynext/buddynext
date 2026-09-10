@@ -228,6 +228,17 @@
 
 .bn-md-card {
 	position: relative;
+	/* Trap the card's positioned children in their OWN stacking context. Without
+	   this the card is position:relative with z-index:auto — NOT a stacking
+	   context — so .bn-md-card__avatar-link (z-index:1) and .bn-md-card__menu-wrap
+	   (z-index:3) escaped to the root context and painted OVER any overlay whose
+	   own stacking context sits at the root at level auto — e.g. the Create
+	   sub-space modal, which lives inside the position:sticky right rail and is
+	   therefore trapped at auto there. isolation:isolate is the purpose-built
+	   one-liner for "make a stacking context without inventing a z-index"; it
+	   re-scopes the avatar/kebab inside the card and leaves the open-menu
+	   :has(){z-index:5} reordering below intact (card 10290393915). */
+	isolation: isolate;
 	display: flex;
 	flex-direction: column;
 	padding: 0;
@@ -1015,8 +1026,9 @@
 }
 
 /* When a card's menu is open, raise that card above its siblings. Each
-	.bn-md-card is position:relative (its own stacking context), so without this
-	the dropdown is painted under the following row instead of overlaying it. */
+	.bn-md-card is its own stacking context (via isolation:isolate above), so
+	raising it here reorders it against sibling cards and the open dropdown
+	overlays the following row instead of painting under it. */
 .bn-md-card:has( .bn-md-card__menu[aria-expanded="true"] ) {
 	z-index: 5;
 }
