@@ -1162,6 +1162,128 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * List DISTINCT active members across a set of spaces, paginated — the
+	 * cross-space companion to count_distinct_members().
+	 *
+	 * An addon hub (e.g. Wellbee Circles) needs a platform-wide, paginated member
+	 * list scoped to ITS category's spaces without querying bn_space_members
+	 * directly (card 10264292... 10276234622). count_distinct_members() gives the
+	 * count; every list method was single-space. One user in several of the spaces
+	 * is ONE row: GROUP BY user_id, earliest joined_at, highest role (owner >
+	 * moderator > member, which is also the alphabetical MAX), and the set of space
+	 * ids they belong to. Names join wp_users in the same query — no per-row lookup
+	 * (big-site: real COUNT for total, bounded LIMIT/OFFSET, indexed (space_id,
+	 * status), one user query).
+	 *
+	 * @param array<string,mixed> $args Keys: space_ids (int[], the spaces to list
+	 *                                  across, takes precedence); category_id (int,
+	 *                                  resolve space_ids from this non-archived space
+	 *                                  category when space_ids is empty); page (int,
+	 *                                  1-based, default 1); per_page (int, 1-100,
+	 *                                  default 20); role (string, restrict to one
+	 *                                  membership role); search (string, LIKE match on
+	 *                                  display_name / user_login / user_nicename).
+	 * @return array{items: array<int, array{user_id:int, space_ids:int[], role:string, joined_at:string, display_name:string, user_nicename:string}>, total: int}
+	 */
+	public function list_members_across_spaces( array $args ): array {
+		global $wpdb;
+
+		$space_ids = isset( $args['space_ids'] ) ? (array) $args['space_ids'] : array();
+		$space_ids = array_values( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ) );
+
+		// Resolve a category to its (non-archived) space ids when space_ids was not
+		// given directly, so the addon can pass its circle category and nothing else.
+		$category_id = isset( $args['category_id'] ) ? absint( $args['category_id'] ) : 0;
+		if ( empty( $space_ids ) && $category_id > 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$space_ids = array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_spaces WHERE category_id = %d AND is_archived = 0", $category_id )
+				)
+			);
+		}
+
+		if ( empty( $space_ids ) ) {
+			return array(
+				'items' => array(),
+				'total' => 0,
+			);
+		}
+
+		$per_page = max( 1, min( 100, isset( $args['per_page'] ) ? (int) $args['per_page'] : 20 ) );
+		$page     = max( 1, isset( $args['page'] ) ? (int) $args['page'] : 1 );
+		$offset   = ( $page - 1 ) * $per_page;
+		$role     = isset( $args['role'] ) ? sanitize_key( (string) $args['role'] ) : '';
+		$search   = isset( $args['search'] ) ? trim( (string) $args['search'] ) : '';
+
+		// One WHERE, shared by the COUNT and the page, so total always matches the
+		// list under the same role/search filter.
+		$placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+		$where        = "sm.space_id IN ($placeholders) AND sm.status = 'active'";
+		$params       = $space_ids;
+
+		if ( '' !== $role ) {
+			$where   .= ' AND sm.role = %s';
+			$params[] = $role;
+		}
+		if ( '' !== $search ) {
+			$like     = '%' . $wpdb->esc_like( $search ) . '%';
+			$where   .= ' AND ( u.display_name LIKE %s OR u.user_login LIKE %s OR u.user_nicename LIKE %s )';
+			$params[] = $like;
+			$params[] = $like;
+			$params[] = $like;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$total = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT sm.user_id)
+				 FROM {$wpdb->prefix}bn_space_members sm
+				 JOIN {$wpdb->users} u ON u.ID = sm.user_id
+				 WHERE {$where}",
+				$params
+			)
+		);
+
+		$rows = $total > 0 ? (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT sm.user_id,
+				        MIN(sm.joined_at) AS joined_at,
+				        MAX(sm.role) AS role,
+				        GROUP_CONCAT(DISTINCT sm.space_id) AS space_ids,
+				        u.display_name, u.user_nicename
+				 FROM {$wpdb->prefix}bn_space_members sm
+				 JOIN {$wpdb->users} u ON u.ID = sm.user_id
+				 WHERE {$where}
+				 GROUP BY sm.user_id, u.display_name, u.user_nicename
+				 ORDER BY joined_at ASC, sm.user_id ASC
+				 LIMIT %d OFFSET %d",
+				array_merge( $params, array( $per_page, $offset ) )
+			),
+			ARRAY_A
+		) : array();
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$items = array();
+		foreach ( $rows as $r ) {
+			$items[] = array(
+				'user_id'       => (int) $r['user_id'],
+				'space_ids'     => array_values( array_filter( array_map( 'intval', explode( ',', (string) ( $r['space_ids'] ?? '' ) ) ) ) ),
+				'role'          => (string) ( $r['role'] ?? '' ),
+				'joined_at'     => (string) ( $r['joined_at'] ?? '' ),
+				'display_name'  => (string) ( $r['display_name'] ?? '' ),
+				'user_nicename' => (string) ( $r['user_nicename'] ?? '' ),
+			);
+		}
+
+		return array(
+			'items' => $items,
+			'total' => $total,
+		);
+	}
+
+	/**
 	 * Pending join requests waiting across these spaces, in one query.
 	 *
 	 * The batched sibling of `count_pending_requests( int $space_id )` further down,
