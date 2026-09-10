@@ -1462,6 +1462,20 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	box-sizing: border-box;
 }
 
+/* Form controls don't inherit font-family from their container — the UA gives
+   <button>/<input>/<select>/<textarea> their own system font. Reset it once here so
+   every BuddyNext control uses the theme UI font instead of the OS default, rather
+   than each control (privacy dropdown options, comment action buttons, …) having to
+   declare font-family and some being missed (cards 10281446723, 10281148124).
+   Scoped to .bn-wrap so it never touches the theme's or another plugin's controls. */
+.bn-wrap button,
+.bn-wrap input,
+.bn-wrap select,
+.bn-wrap textarea,
+.bn-wrap optgroup {
+	font-family: inherit;
+}
+
 /* ── Base element styles ────────────────────────────────────────────────── */
 
 .bn-wrap {
