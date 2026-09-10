@@ -454,7 +454,9 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 									class="bn-prefs-chip"
 									data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 									data-pref="<?php echo esc_attr( $pref_value ); ?>"
+									data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'chipSpaceId' => (int) $space_id, 'chipPref' => $pref_value ) ) ); ?>"
 									aria-pressed="<?php echo $is_active ? 'true' : 'false'; ?>"
+									data-wp-bind--aria-pressed="state.spaceChipActive"
 									data-wp-on--click="actions.setSpacePref">
 									<?php echo esc_html( $pref_label ); ?>
 								</button>

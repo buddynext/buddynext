@@ -178,6 +178,16 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 			var entry = ctx && ctx.prefs ? ctx.prefs[ ctx.prefType ] : null;
 			return !! ( entry && entry.email_freq === ctx.chipFreq );
 		},
+		// Space "All / Mentions only / None" chip: reactive like rowFreqActive. The
+		// chip carried only a static server-rendered aria-pressed, so clicking it
+		// updated ctx.spacePrefs but nothing repainted the selected chip until a page
+		// reload (card 10285969776). Bound to this getter, the pressed state follows
+		// the store immediately.
+		get spaceChipActive() {
+			var ctx = getContext();
+			var current = ctx && ctx.spacePrefs ? ctx.spacePrefs[ ctx.chipSpaceId ] : null;
+			return current === ctx.chipPref;
+		},
 	},
 	callbacks: {
 		init() {
