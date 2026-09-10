@@ -359,7 +359,15 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 											id="bn-pref-on-site-<?php echo esc_attr( $type_slug ); ?>"
 											data-type="<?php echo esc_attr( $type_slug ); ?>"
 											<?php checked( (bool) $resolved_row['on_site'] ); ?>
+											<?php
+											// Master In-app channel off → this per-type toggle cannot deliver,
+											// so disable it (the server already suppresses it; this makes the
+											// UI say so). Static for first paint; the store getter keeps it in
+											// sync as the master toggle flips (card 10268273537).
+											disabled( isset( $channels['in_app'] ) && false === $channels['in_app'] );
+											?>
 											data-wp-bind--checked="state.rowOnSite"
+											data-wp-bind--disabled="state.inAppOff"
 											data-wp-on--change="actions.setOnSite">
 										<span class="bn-prefs-toggle__label"><?php esc_html_e( 'In-app', 'buddynext' ); ?></span>
 									</label>
@@ -372,6 +380,14 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 												// Digests off site-wide → the chip cannot deliver anything, so it
 												// is disabled rather than left as a choice that sends nothing.
 												$freq_dead = ! $digests_enabled && in_array( $freq_value, $digest_freqs, true );
+												// Master Email channel off → the whole email column cannot deliver,
+												// so every frequency chip is disabled too (card 10268273537). Kept
+												// separate from $freq_dead so the title explains the right reason.
+												$email_off  = isset( $channels['email'] ) && false === $channels['email'];
+												$chip_dead  = $freq_dead || $email_off;
+												$chip_title = $email_off
+													? __( 'Email notifications are off. Turn on the Email channel above to choose a frequency.', 'buddynext' )
+													: __( 'Digest emails are turned off for this community.', 'buddynext' );
 												?>
 												<button type="button"
 													class="bn-prefs-chip"
@@ -380,12 +396,13 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 													data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'chipFreq' => $freq_value ) ) ); ?>"
 													aria-pressed="<?php echo $is_active ? 'true' : 'false'; ?>"
 													data-wp-bind--aria-pressed="state.rowFreqActive"
+													data-wp-bind--disabled="state.emailFreqDisabled"
 													<?php
-													if ( $freq_dead ) :
+													if ( $chip_dead ) :
 														?>
 														disabled
 														aria-disabled="true"
-														title="<?php esc_attr_e( 'Digest emails are turned off for this community.', 'buddynext' ); ?>"
+														title="<?php echo esc_attr( $chip_title ); ?>"
 														<?php
 													endif;
 													?>

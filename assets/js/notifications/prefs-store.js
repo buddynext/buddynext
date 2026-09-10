@@ -188,6 +188,27 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 			var current = ctx && ctx.spacePrefs ? ctx.spacePrefs[ ctx.chipSpaceId ] : null;
 			return current === ctx.chipPref;
 		},
+		// Master-channel → per-type disabling. The Channels card advertises
+		// "Turning a channel off mutes every type for that delivery surface" and
+		// the server enforces it, but the per-type controls stayed fully live,
+		// implying they still applied. These getters grey the child controls when
+		// their master channel is off, so the UI matches the (already correct)
+		// server behaviour (card 10268273537).
+		get inAppOff() {
+			var ctx = getContext();
+			return !! ( ctx && ctx.channels && ctx.channels.in_app === false );
+		},
+		// Email-frequency chip: disabled when the Email master channel is off OR
+		// (the existing gate) when this chip is a digest frequency and digests are
+		// off site-wide. Combined here so binding disabled does not clobber the
+		// server-rendered digest-dead state.
+		get emailFreqDisabled() {
+			var ctx = getContext();
+			if ( ctx && ctx.channels && ctx.channels.email === false ) {
+				return true;
+			}
+			return !! ( ctx && ctx.digestsEnabled === false && DIGEST_FREQ.indexOf( ctx.chipFreq ) !== -1 );
+		},
 	},
 	callbacks: {
 		init() {

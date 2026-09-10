@@ -519,6 +519,18 @@
 	cursor: not-allowed;
 }
 
+/* Per-type In-app toggle greys out when its master In-app channel is off, so it
+   reads as inactive to match the chip pattern above and the server behaviour that
+   already mutes it. Scoped to .bn-prefs-toggle so the master channel switches
+   (.bn-prefs-channel) are never affected. (card 10268273537) */
+.bn-prefs-toggle:has( input[type="checkbox"]:disabled ) {
+	opacity: 0.45;
+}
+
+.bn-prefs-toggle input[type="checkbox"]:disabled {
+	cursor: not-allowed;
+}
+
 .bn-prefs-row__warn {
 	margin: var(--bn-s1) 0 0;
 	inline-size: 100%;
