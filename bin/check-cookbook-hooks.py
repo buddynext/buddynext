@@ -91,11 +91,33 @@ def collect_defined(roots):
     hooks, services, prefixes = set(), set(), set()
     fire = re.compile(r"\b(?:do_action|do_action_ref_array|apply_filters|apply_filters_ref_array)\s*\(\s*'([a-z0-9_]+)'")
     bind = re.compile(r"->(?:bind|singleton|instance)\s*\(\s*'([a-z0-9_]+)'")
-    # A buddynext_* string literal assigned to a const or variable (a hook name held
-    # in a constant, e.g. `const FILTER_MANIFEST = 'buddynext_pwa_manifest';`).
-    assign = re.compile(r"=\s*'((?:buddynext_|buddynextpro_)[a-z0-9_]+)'")
     # A dynamic hook: "buddynext_..._{$var}" — capture the static prefix.
     dynamic = re.compile(r'"((?:buddynext_|buddynextpro_)[a-z0-9_]*?)\{\$')
+
+    # Hooks held in a CONSTANT/PROPERTY, e.g. `const FILTER_MANIFEST =
+    # 'buddynext_pwa_manifest';` then `apply_filters( self::FILTER_MANIFEST, … )`.
+    # The old rule accepted ANY `= 'buddynext_*'` literal as a hook, so 17 option/
+    # cache/transient KEYS (buddynext_isolation_keep, buddynext_mu_plugin_sig,
+    # buddynext_schema_failure, …) registered as valid hook names — a recipe that
+    # named one of them as a filter would wrongly pass, the exact drift class this
+    # gate exists to catch (card 10264294920). Now a held literal counts only when
+    # its holder is actually PASSED to a hook function (directly or via self:: /
+    # static:: / $this->), which is what makes it a hook rather than an option key.
+    #   name_to_literals: NAME -> {literal, …} for every buddynext_* held in a
+    #                     const or property (set-valued so a name reused across
+    #                     classes keeps both, erring toward accept as before).
+    #   hook_ref_names:   identifiers passed as the hook name to a hook function.
+    held_decl = re.compile(
+        r"(?:const\s+|(?:private|protected|public|static|var|final|readonly)\s+(?:const\s+|(?:static\s+)?\$)|\$(?:this->)?)"
+        r"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*'((?:buddynext_|buddynextpro_)[a-z0-9_]+)'"
+    )
+    hook_by_ref = re.compile(
+        r"\b(?:add_action|add_filter|apply_filters|apply_filters_ref_array|do_action|do_action_ref_array)"
+        r"\s*\(\s*(?:self::|static::|\$this->)?\$?([A-Za-z_][A-Za-z0-9_]*)"
+    )
+
+    name_to_literals = {}
+    hook_ref_names = set()
     for root in roots:
         if not os.path.isdir(root):
             continue
@@ -103,8 +125,14 @@ def collect_defined(roots):
             src = read(php)
             hooks.update(fire.findall(src))
             services.update(bind.findall(src))
-            hooks.update(assign.findall(src))
             prefixes.update(dynamic.findall(src))
+            for name, literal in held_decl.findall(src):
+                name_to_literals.setdefault(name, set()).add(literal)
+            hook_ref_names.update(hook_by_ref.findall(src))
+
+    for name, literals in name_to_literals.items():
+        if name in hook_ref_names:
+            hooks.update(literals)
     return hooks, services, prefixes
 
 
