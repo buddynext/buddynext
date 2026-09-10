@@ -123,6 +123,32 @@
 }
 .bn-media-tile--audio .bn-media-tile__audio-icon { color: var( --bn-ink-3, oklch( 58% 0.008 0 ) ); }
 .bn-media-tile--audio .bn-media-tile__audio-icon svg { width: 2rem; height: 2rem; }
+/* The music icon doubles as the "open details" button (opens the lightbox — the
+   same manage/privacy surface image and video tiles use). Reset the native button
+   chrome so it still reads as the icon; it is the only clickable-to-open affordance
+   because the <audio controls> below it owns its own clicks (playback). */
+.bn-media-tile__audio-open {
+	appearance: none;
+	padding: 0;
+	border: 0;
+	background: none;
+	cursor: pointer;
+	color: inherit;
+	line-height: 0;
+	border-radius: var( --bn-radius-sm, 6px );
+}
+.bn-media-tile__audio-open:focus-visible {
+	outline: 2px solid var( --bn-accent, currentColor );
+	outline-offset: 3px;
+}
+/* Audio on the lightbox stage: no image to fill the frame, so center a
+   comfortable-width player. The base .bn-lightbox__media height:auto (meant for
+   img/video with intrinsic dimensions) collapses a native <audio> to 0 on the
+   centered flex stage, so pin the player's own height. */
+audio.bn-lightbox__media {
+	width: min( 90%, 30rem );
+	height: 54px;
+}
 .bn-media-tile__audio-title {
 	max-width: 100%;
 	font-size: var( --bn-text-sm, 0.875rem );

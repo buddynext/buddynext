@@ -290,8 +290,17 @@ class MediaRenderer {
 
 		if ( 'audio' === $type ) {
 			$audio_title = '' !== $alt ? '<span class="bn-media-tile__audio-title">' . $alt . '</span>' : '';
-			return '<div class="bn-media-tile bn-media-tile--audio" data-bn-media-id="' . $id . '" data-media-type="audio">'
-				. '<span class="bn-media-tile__audio-icon" aria-hidden="true">' . IconService::render( 'music', '' ) . '</span>'
+			// The music icon is the OPEN affordance — the same lightbox image/video
+			// tiles open, so audio reaches the identical MediaVerse detail/manage
+			// surface (privacy, delete, reactions, comments) instead of being the one
+			// type with no way to change privacy (card 10268294892). It stays a
+			// separate element (a <button>, not a wrapper around the tile) so the
+			// native <audio controls> keeps playing inline on the tile — "play on the
+			// same spot" is unchanged — and so both the collage and single-post-card
+			// grid layouts, which target .bn-media-tile__audio-icon directly, are
+			// untouched. data-media-src gives the lightbox the file to load.
+			return '<div class="bn-media-tile bn-media-tile--audio" data-bn-media-id="' . $id . '" data-media-type="audio" data-media-src="' . $full . '"' . $post_attr . '>'
+				. '<button type="button" class="bn-media-tile__audio-icon bn-media-tile__audio-open" aria-label="' . esc_attr__( 'Open audio details', 'buddynext' ) . '">' . IconService::render( 'music', '' ) . '</button>'
 				. '<div class="bn-media-tile__audio-body">'
 				. $audio_title
 				. '<audio class="bn-media-tile__audio-player" controls preload="none" src="' . $full . '"></audio>'

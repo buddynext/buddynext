@@ -203,6 +203,14 @@
 			el.controls = true; el.autoplay = true; el.playsInline = true;
 			if ( item.poster ) { el.setAttribute( 'poster', item.poster ); }
 			el.setAttribute( 'src', item.src );
+		} else if ( 'audio' === item.type ) {
+			// No frame to show — a labelled player on the stage. Not autoplayed:
+			// the tile may already be playing, and the lightbox is opened to manage
+			// (privacy/delete) as often as to listen.
+			el = document.createElement( 'audio' );
+			el.controls = true;
+			el.setAttribute( 'preload', 'metadata' );
+			el.setAttribute( 'src', item.src );
 		} else {
 			el = document.createElement( 'img' );
 			el.setAttribute( 'src', item.src );
@@ -1124,19 +1132,28 @@
 		if ( gallery[ index ].id ) { loadPanel( gallery[ index ].id ); }
 	}
 
-	// Delegated open — image/video tiles only (audio plays inline).
+	// Openable media types. Audio is included so it reaches the same detail/manage
+	// surface as image/video (privacy, delete, reactions) — it was the one type with
+	// no path to its privacy control (card 10268294892).
+	function isOpenableType( type ) {
+		return 'image' === type || 'video' === type || 'audio' === type;
+	}
+
+	// Delegated open. Audio keeps its inline native player, so a click on that
+	// player must PLAY, not open — skip clicks that land inside an <audio>/<video>
+	// element (its own controls). The music icon and the rest of the tile still open.
 	document.addEventListener( 'click', function ( e ) {
 		var tile = e.target.closest( '.bn-media-tile[data-bn-media-id]' );
 		if ( ! tile ) { return; }
+		if ( e.target.closest( 'audio, video' ) ) { return; }
 		var type = tile.getAttribute( 'data-media-type' );
-		if ( 'image' !== type && 'video' !== type ) { return; }
+		if ( ! isOpenableType( type ) ) { return; }
 		e.preventDefault();
 		var grid  = tile.closest( '[data-bn-media-grid]' ) || tile.parentElement;
 		var tiles = Array.prototype.slice.call(
 			grid.querySelectorAll( '.bn-media-tile[data-bn-media-id]' )
 		).filter( function ( t ) {
-			var ty = t.getAttribute( 'data-media-type' );
-			return 'image' === ty || 'video' === ty;
+			return isOpenableType( t.getAttribute( 'data-media-type' ) );
 		} );
 		open( tiles, tiles.indexOf( tile ) );
 	} );
