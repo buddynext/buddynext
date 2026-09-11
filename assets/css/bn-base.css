@@ -3265,6 +3265,16 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink-3);
 	line-height: 1.45;
 }
+/* A toggle the site policy has locked (e.g. search-engine visibility when the
+   community keeps profiles out of search). The switch reads as inert so it is
+   not mistaken for interactive; the copy that explains why stays legible. */
+.bn-toggle-row--disabled .bn-toggle {
+	opacity: 0.5;
+	pointer-events: none;
+}
+.bn-toggle-row--disabled .bn-toggle-row__label {
+	color: var(--bn-ink-3);
+}
 
 /* ── Modal / dialog ─────────────────────────────────────────────────── */
 .bn-modal-backdrop {
