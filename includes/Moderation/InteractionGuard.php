@@ -79,6 +79,33 @@ class InteractionGuard {
 			return $valid;
 		}
 
+		// (0b) State, not existence. buddynext_validate_object_target() only proves
+		// the ROW is present; a comment soft-deleted via CommentService::delete()
+		// keeps its row (is_deleted = 1) so the thread stays intact, and reacting to
+		// or replying under that tombstone produced a phantom counter on a "[deleted]"
+		// comment (card 10264292715). A removed POST is caught by the visibility gate
+		// below (its status is no longer readable), so only the comment case needs an
+		// explicit check here.
+		if ( 'comment' === $object_type && self::comment_is_deleted( $object_id ) ) {
+			return new WP_Error(
+				'object_deleted',
+				__( 'This content has been deleted and can no longer be reacted to or replied to.', 'buddynext' ),
+				array( 'status' => 410 )
+			);
+		}
+
+		// (0c) Visibility. This gate used to live ONLY in the REST controllers, so a
+		// non-REST writer (WP-CLI, a bridge, an admin bulk action) reacting or
+		// commenting bypassed space-privacy and post-visibility entirely
+		// (card 10264292715). Enforcing it here — the one seam every engagement write
+		// funnels through — closes that. The REST controllers keep their own 404 check
+		// in front of the service, so the member-facing response is unchanged; this is
+		// the backstop for every other caller.
+		$hidden = self::target_hidden_from( $actor_id, $object_type, $object_id );
+		if ( $hidden instanceof WP_Error ) {
+			return $hidden;
+		}
+
 		// (1) Suspension is object-type-agnostic: a suspended member cannot
 		// react or comment on anything.
 		if ( self::is_suspended( $actor_id ) ) {
@@ -100,6 +127,74 @@ class InteractionGuard {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Whether a comment target has been soft-deleted (tombstoned).
+	 *
+	 * CommentService::delete() sets is_deleted = 1 rather than removing the row, so
+	 * the thread stays intact; get() returns the tombstone with its is_deleted flag.
+	 * Degrades to "not deleted" (allow) when comments are unavailable, matching the
+	 * fail-open pattern of the other resolvers here.
+	 *
+	 * @param int $object_id Comment ID.
+	 * @return bool True when the comment exists and is soft-deleted.
+	 */
+	private static function comment_is_deleted( int $object_id ): bool {
+		if ( $object_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$comments = buddynext_service( 'comments' );
+		if ( ! $comments instanceof \BuddyNext\Comments\CommentService ) {
+			return false;
+		}
+
+		$comment = $comments->get( $object_id );
+
+		return null !== $comment && ! empty( $comment['is_deleted'] );
+	}
+
+	/**
+	 * Whether the engaged object's root post is hidden from the acting user.
+	 *
+	 * Resolves the target to its owning post (a comment walks up its reply chain
+	 * via PostService::resolve_post_id) and runs the same visibility_error() the
+	 * post read gates use, against the ACTOR as the viewer. Returns a 404-style
+	 * error — mirroring the REST controllers' existence-hiding choice — so a member
+	 * cannot confirm the existence of content in a space they cannot see. Degrades
+	 * to null (allow) when the post service is unavailable or the target has no
+	 * gateable post.
+	 *
+	 * @param int    $actor_id    The user attempting the interaction (the viewer).
+	 * @param string $object_type Object type being engaged with.
+	 * @param int    $object_id   Object ID being engaged with.
+	 * @return WP_Error|null Error when hidden; null when visible or unresolvable.
+	 */
+	private static function target_hidden_from( int $actor_id, string $object_type, int $object_id ): ?WP_Error {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return null;
+		}
+
+		$posts = buddynext_service( 'post_service' );
+		if ( ! $posts instanceof PostService ) {
+			return null;
+		}
+
+		$post_id = $posts->resolve_post_id( $object_type, $object_id );
+		if ( $post_id <= 0 ) {
+			return null;
+		}
+
+		if ( ! $posts->visibility_error( $post_id, $actor_id ) instanceof WP_Error ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'object_not_found',
+			__( 'That content is not available.', 'buddynext' ),
+			array( 'status' => 404 )
+		);
 	}
 
 	/**
