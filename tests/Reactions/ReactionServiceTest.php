@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Reactions;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Feed\PostService;
 use BuddyNext\Reactions\ReactionService;
 
 /**
@@ -26,7 +27,26 @@ class ReactionServiceTest extends \WP_UnitTestCase {
 		Installer::run();
 		$this->service = new ReactionService();
 		$this->user_id = self::factory()->user->create();
-		$this->post_id = 1; // Synthetic post ID — no need for a real bn_posts row.
+		// A real post: react() runs an object-existence check (buddynext_validate_object_target),
+		// so the old synthetic id 1 is rejected and every reaction is refused.
+		$this->post_id = (int) ( new PostService() )->create(
+			self::factory()->user->create(),
+			array(
+				'content' => 'reactable content',
+				'type'    => 'text',
+			)
+		);
+	}
+
+	/** A fresh real post to react to (react() now requires the object to exist). */
+	private function make_post(): int {
+		return (int) ( new PostService() )->create(
+			self::factory()->user->create(),
+			array(
+				'content' => 'reactable content',
+				'type'    => 'text',
+			)
+		);
 	}
 
 	public function test_react_returns_true(): void {
@@ -163,15 +183,18 @@ class ReactionServiceTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_get_user_emoji_map_batches_reactions(): void {
-		$this->service->react( $this->user_id, 'post', 101, 'like' );
-		$this->service->react( $this->user_id, 'post', 103, 'love' );
+		$p1 = $this->make_post();
+		$p2 = $this->make_post();
+		$p3 = $this->make_post();
+		$this->service->react( $this->user_id, 'post', $p1, 'like' );
+		$this->service->react( $this->user_id, 'post', $p3, 'love' );
 
-		$map = $this->service->get_user_emoji_map( $this->user_id, 'post', array( 101, 102, 103 ) );
+		$map = $this->service->get_user_emoji_map( $this->user_id, 'post', array( $p1, $p2, $p3 ) );
 
 		// Reacted posts return their emoji; the un-reacted one is present but null.
-		$this->assertSame( 'like', $map[101] );
-		$this->assertNull( $map[102] );
-		$this->assertSame( 'love', $map[103] );
+		$this->assertSame( 'like', $map[ $p1 ] );
+		$this->assertNull( $map[ $p2 ] );
+		$this->assertSame( 'love', $map[ $p3 ] );
 	}
 
 	/**
