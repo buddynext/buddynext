@@ -240,15 +240,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		 */
 		do_action( 'buddynext_admin_license_tab_content' );
 
-		// On a Free-only install nothing hooks the action above, so the SDK's
-		// tracking opt-in (which normally rides inside Pro's license form) is
-		// unreachable - the owner has no way to see or withdraw usage tracking.
-		// Render a Free-side opt-in control in that case so consent is always
-		// visible and revocable, defaulting off (card 10264291915). When Pro is
-		// active it owns this control, so we do not duplicate it.
-		if ( ! has_action( 'buddynext_admin_license_tab_content' ) ) {
-			$this->render_tracking_consent_control();
-		}
+		// Always render the usage-tracking control — on EVERY install, Pro or not.
+		// It reads and writes buddynext_license_key_allow_tracking, the key the SDK
+		// actually transmits; Pro's license form carries its own opt-in for a
+		// DIFFERENT key that is not the one sent, so gating this on "Pro absent" left
+		// the transmitted key with no revoke surface on the whole paid install base
+		// (card 10264291915). Defaults off; consent is always visible and revocable.
+		$this->render_tracking_consent_control();
 	}
 
 	/**

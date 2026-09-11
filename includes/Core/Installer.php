@@ -1943,6 +1943,11 @@ class Installer {
 		// never on an upgrade or reactivation.
 		$is_fresh_install = false === get_option( 'buddynext_db_version', false );
 
+		// Capture the schema version BEFORE it is stamped below, so the consent
+		// clear at the end of run() can tell a pre-1.2.0 upgrade from a same-version
+		// reactivation (card 10264291915).
+		$stored_schema = (int) get_option( 'buddynext_schema_version', 0 );
+
 		// Create/upgrade every bn_* table. Split out so the PHPUnit bootstrap can
 		// create the schema without the first-run seeds / hub pages / mu-plugin
 		// that follow (which would otherwise collide with test fixtures).
@@ -2084,6 +2089,14 @@ class Installer {
 		// that had configured route isolation under the old default-ON build would
 		// silently lose it. Run it here too; it is sentinel-guarded to run once.
 		self::maybe_preserve_isolation_state();
+
+		// Same activation gap for the tracking-consent clear (card 10264291915): a
+		// ZIP-upload update or a deactivate/reactivate runs run() but not
+		// maybe_upgrade() (whose early-return skips it once the schema matches), so a
+		// pre-1.2.0 site that wrote allowed:true without consent would keep it. Run it
+		// here with the schema captured BEFORE the stamp above; it is scoped to a
+		// pre-1.2.0 upgrade and is idempotent.
+		self::maybe_clear_unconsented_tracking( $stored_schema );
 
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
 	}
