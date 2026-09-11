@@ -31,6 +31,17 @@ class EligibleParentsScaleTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Installer::install_schema();
+
+		// The bn_* tables carry no ENGINE clause, so on the test DB's
+		// non-transactional storage they survive WP_UnitTestCase's rollback:
+		// root spaces from earlier tests (and earlier runs) leak into
+		// eligible_parents() and break the LIMIT-bounded, alphabetically ordered
+		// assertions below. Start each test from an empty space graph.
+		global $wpdb;
+		foreach ( array( 'bn_spaces', 'bn_space_members' ) as $table ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			$wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}{$table}" );
+		}
 	}
 
 	/**

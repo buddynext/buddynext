@@ -58,20 +58,20 @@ class MissingInvalidationTest extends WP_UnitTestCase {
 		$user_id = self::factory()->user->create();
 		$service = new NotificationPrefService();
 
-		$service->set_pref( $user_id, 'mention', array( 'on_site' => 1, 'email_freq' => 'immediate' ) );
+		$service->set_pref( $user_id, 'bn.mention', array( 'on_site' => 1, 'email_freq' => 'immediate' ) );
 
 		// Warm all_prefs_{uid} — this is the copy the mailer reads.
 		$before = $service->get_all_prefs( $user_id );
-		$this->assertSame( 'immediate', (string) ( $before['mention']['email_freq'] ?? '' ) );
+		$this->assertSame( 'immediate', (string) ( $before['bn.mention']['email_freq'] ?? '' ) );
 
 		// The member clicks "unsubscribe" — a SINGLE pref write.
-		$service->set_pref( $user_id, 'mention', array( 'on_site' => 1, 'email_freq' => 'off' ) );
+		$service->set_pref( $user_id, 'bn.mention', array( 'on_site' => 1, 'email_freq' => 'off' ) );
 
 		$after = $service->get_all_prefs( $user_id );
 
 		$this->assertSame(
 			'off',
-			(string) ( $after['mention']['email_freq'] ?? '' ),
+			(string) ( $after['bn.mention']['email_freq'] ?? '' ),
 			'The unsubscribe did not reach the preference set the mailer reads. set_pref() busted only the per-type key, so the member keeps getting the email they just turned off until the TTL expires.'
 		);
 	}

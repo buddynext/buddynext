@@ -31,6 +31,22 @@ use BuddyNext\Core\PluginIsolation;
 class PluginIsolationAllowListTest extends \WP_UnitTestCase {
 
 	/**
+	 * Enable isolation so the allow-list logic under test actually runs.
+	 *
+	 * Isolation ships OFF by default (commit c6d63cf3). While off,
+	 * integration_plugins() short-circuits to the full active-plugins list and
+	 * never assembles the curated allow-list — the essentials floor, in-house
+	 * family, owner keep list and Pro filter seam these tests assert on. Turning
+	 * it on is the precondition for the behaviour, not a change to it.
+	 *
+	 * @return void
+	 */
+	public function set_up(): void {
+		parent::set_up();
+		update_option( PluginIsolation::OPTION_ENABLED, '1', false );
+	}
+
+	/**
 	 * Reset the owner list between tests.
 	 *
 	 * @return void
@@ -38,6 +54,7 @@ class PluginIsolationAllowListTest extends \WP_UnitTestCase {
 	public function tear_down(): void {
 		delete_option( PluginIsolation::OPTION_KEEP );
 		delete_option( PluginIsolation::OPTION );
+		delete_option( PluginIsolation::OPTION_ENABLED );
 		parent::tear_down();
 	}
 

@@ -32,6 +32,19 @@ class SetupWizardTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
+
+		// The bn_* tables have no ENGINE clause and are not rolled back on the
+		// test DB, so profile-field rows seeded before edu_start_year/edu_end_year
+		// became the registered 'year' type (they were once bare 'number') persist
+		// as 'number'. Installer::run() will not re-converge them: the seed is
+		// idempotent and the convergence migration is version-gated and already
+		// recorded as applied. A fresh install seeds 'year' directly, so this only
+		// bites a long-lived DB. Run the idempotent convergence so the seed the
+		// convergence test reads is canonical on any DB (a no-op on a fresh one).
+		$migrate = new \ReflectionMethod( Installer::class, 'maybe_migrate_year_fields' );
+		$migrate->setAccessible( true );
+		$migrate->invoke( null );
+
 		$this->wizard = new SetupWizard();
 		delete_option( 'buddynext_setup_complete' );
 		delete_option( 'buddynext_setup_step' );

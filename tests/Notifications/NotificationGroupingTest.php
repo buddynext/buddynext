@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Notifications;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Feed\PostService;
 use BuddyNext\Notifications\NotificationService;
 
 /**
@@ -24,6 +25,19 @@ class NotificationGroupingTest extends \WP_UnitTestCase {
 
 	private NotificationService $service;
 
+	/**
+	 * Logical object id (as written in the tests) -> real bn_posts id.
+	 *
+	 * list_for_user() now drops rows whose object no longer exists
+	 * (filter_resolvable), so the notifications must point at posts that really
+	 * exist. Each distinct logical id gets its own real post, preserving the
+	 * "same object groups / different objects stay apart" relationships the
+	 * grouping tests assert on.
+	 *
+	 * @var array<int,int>
+	 */
+	private array $post_map = array();
+
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
@@ -31,17 +45,38 @@ class NotificationGroupingTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Resolve a logical object id to a real post id, creating it once.
+	 *
+	 * @param int $logical Object id used within a test.
+	 * @return int Real bn_posts id.
+	 */
+	private function real_post( int $logical ): int {
+		if ( ! isset( $this->post_map[ $logical ] ) ) {
+			$this->post_map[ $logical ] = (int) ( new PostService() )->create(
+				self::factory()->user->create(),
+				array(
+					'content' => 'notifiable content',
+					'type'    => 'text',
+				)
+			);
+		}
+
+		return $this->post_map[ $logical ];
+	}
+
+	/**
 	 * Insert a notification row directly, bypassing create()'s listeners.
 	 *
 	 * @param int    $recipient Recipient.
 	 * @param string $type      Type slug.
-	 * @param int    $object_id Object.
+	 * @param int    $object_id Object (logical id; mapped to a real post).
 	 * @param int    $sender    Actor.
 	 * @param int    $is_read   Read flag.
 	 * @return void
 	 */
 	private function seed( int $recipient, string $type, int $object_id, int $sender, int $is_read = 0 ): void {
 		global $wpdb;
+		$real_id = $this->real_post( $object_id );
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_notifications',
 			array(
@@ -49,8 +84,8 @@ class NotificationGroupingTest extends \WP_UnitTestCase {
 				'sender_id'    => $sender,
 				'type'         => $type,
 				'object_type'  => 'post',
-				'object_id'    => $object_id,
-				'group_key'    => $type . '-' . $object_id . '-' . $sender,
+				'object_id'    => $real_id,
+				'group_key'    => $type . '-' . $real_id . '-' . $sender,
 				'is_read'      => $is_read,
 			),
 			array( '%d', '%d', '%s', '%s', '%d', '%s', '%d' )

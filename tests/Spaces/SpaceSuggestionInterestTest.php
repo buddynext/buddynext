@@ -46,6 +46,19 @@ class SpaceSuggestionInterestTest extends \WP_UnitTestCase {
 		// Seed the profile fields (including the system interests field) —
 		// the bootstrap installs schema only.
 		\BuddyNext\Core\Installer::run();
+
+		// The bn_* tables carry no ENGINE clause, so on the test DB's
+		// non-transactional storage they are NOT rolled back between tests:
+		// spaces seeded by earlier tests (and earlier runs) leak into the
+		// suggestion pool. A large pool trips buddynext_sample_ranked()'s
+		// per-load shuffle, so the ranking assertions below become
+		// non-deterministic. Start each test from an empty space graph.
+		global $wpdb;
+		foreach ( array( 'bn_spaces', 'bn_space_members', 'bn_space_categories' ) as $table ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			$wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}{$table}" );
+		}
+
 		$this->service  = new SpaceSuggestionService();
 		$this->owner_id = self::factory()->user->create();
 	}

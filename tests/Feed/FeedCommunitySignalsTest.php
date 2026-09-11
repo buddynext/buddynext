@@ -54,6 +54,24 @@ class FeedCommunitySignalsTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Create a real post to react to.
+	 *
+	 * react() now validates that the object exists (buddynext_validate_object_target),
+	 * so a synthetic post id is refused and no reaction row lands. Seed a real one.
+	 *
+	 * @return int Real bn_posts id.
+	 */
+	private function make_post(): int {
+		return (int) ( new PostService() )->create(
+			self::factory()->user->create(),
+			array(
+				'content' => 'reactable content',
+				'type'    => 'text',
+			)
+		);
+	}
+
+	/**
 	 * The presence map answers for every id asked, including the never-seen.
 	 */
 	public function test_last_active_map_returns_entry_for_every_requested_id(): void {
@@ -107,7 +125,7 @@ class FeedCommunitySignalsTest extends \WP_UnitTestCase {
 	 */
 	public function test_top_reactors_map_is_keyed_by_post_and_capped(): void {
 		$owner = self::factory()->user->create();
-		$post  = 501;
+		$post  = $this->make_post();
 
 		$expected_first = 0;
 		for ( $i = 0; $i < 6; $i++ ) {
@@ -130,7 +148,7 @@ class FeedCommunitySignalsTest extends \WP_UnitTestCase {
 	public function test_top_reactors_map_carries_renderable_identity(): void {
 		$owner   = self::factory()->user->create();
 		$reactor = self::factory()->user->create( array( 'display_name' => 'Amina Rahman' ) );
-		$post    = 502;
+		$post    = $this->make_post();
 		$this->reactions->react( $reactor, 'post', $post, 'like' );
 
 		$map = $this->reactions->top_reactors_map( 'post', array( $post ), array( $post => $owner ), 3 );
@@ -163,7 +181,7 @@ class FeedCommunitySignalsTest extends \WP_UnitTestCase {
 		$owner      = self::factory()->user->create();
 		$restricted = self::factory()->user->create();
 		$onlooker   = self::factory()->user->create();
-		$post       = 504;
+		$post       = $this->make_post();
 
 		( new BlockService() )->restrict( $owner, $restricted );
 		$this->reactions->react( $restricted, 'post', $post, 'like' );
@@ -247,7 +265,7 @@ class FeedCommunitySignalsTest extends \WP_UnitTestCase {
 	public function test_top_reactors_map_backfills_stack_past_hidden_reactors(): void {
 		$owner    = self::factory()->user->create();
 		$onlooker = self::factory()->user->create();
-		$post     = 700;
+		$post     = $this->make_post();
 		$blocks   = new BlockService();
 
 		// Three restricted reactors land most recently, three visible ones before them.

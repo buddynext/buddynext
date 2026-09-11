@@ -80,11 +80,11 @@ class NotificationPrefServiceTest extends \WP_UnitTestCase {
 	public function test_set_pref_with_only_email_freq_defaults_on_site(): void {
 		$this->service->set_pref(
 			$this->user_id,
-			'bn.post_liked',
+			'bn.post_reacted',
 			array( 'email_freq' => 'weekly' )
 		);
 
-		$pref = $this->service->get_pref( $this->user_id, 'bn.post_liked' );
+		$pref = $this->service->get_pref( $this->user_id, 'bn.post_reacted' );
 
 		$this->assertTrue( $pref['on_site'] );
 		$this->assertSame( 'weekly', $pref['email_freq'] );
@@ -103,7 +103,7 @@ class NotificationPrefServiceTest extends \WP_UnitTestCase {
 	public function test_set_pref_updates_existing(): void {
 		$this->service->set_pref(
 			$this->user_id,
-			'bn.post_liked',
+			'bn.post_reacted',
 			array(
 				'on_site'    => true,
 				'email_freq' => 'weekly',
@@ -112,14 +112,14 @@ class NotificationPrefServiceTest extends \WP_UnitTestCase {
 
 		$this->service->set_pref(
 			$this->user_id,
-			'bn.post_liked',
+			'bn.post_reacted',
 			array(
 				'on_site'    => false,
 				'email_freq' => 'off',
 			)
 		);
 
-		$pref = $this->service->get_pref( $this->user_id, 'bn.post_liked' );
+		$pref = $this->service->get_pref( $this->user_id, 'bn.post_reacted' );
 
 		$this->assertFalse( $pref['on_site'] );
 		$this->assertSame( 'off', $pref['email_freq'] );
@@ -135,7 +135,7 @@ class NotificationPrefServiceTest extends \WP_UnitTestCase {
 			)
 		);
 
-		$pref_other = $this->service->get_pref( $this->user_id, 'bn.post_liked' );
+		$pref_other = $this->service->get_pref( $this->user_id, 'bn.post_reacted' );
 
 		$this->assertTrue( $pref_other['on_site'] );
 	}

@@ -96,6 +96,9 @@ final class StateReset implements BeforeTestHook {
 			'names'  => array(),
 		),
 		\BuddyNext\Core\HeadMeta::class                   => array( 'emitted' => false ),
+		// The last email-send error, set per send(). A test that asserts on a
+		// failed send must not read the previous test's error message.
+		\BuddyNext\Notifications\EmailSender::class        => array( 'last_error' => null ),
 		\BuddyNext\Core\PageRouter::class                 => array(
 			'rendering'     => null,
 			'title_claimed' => false,
