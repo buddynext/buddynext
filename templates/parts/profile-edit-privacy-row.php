@@ -23,6 +23,9 @@
  * @var array  $options     Optional. Audience options as key => label.
  * @var string $input_id    Optional. Override DOM id for the `<select>`.
  * @var string $label_id    Optional. Override DOM id for the label (toggle variant).
+ * @var bool   $disabled    Optional. Toggle variant only. When true the switch is
+ *                          rendered non-interactive (a policy elsewhere makes it
+ *                          inert); `$description` should explain why.
  * @var array  $classes     Optional. Extra CSS classes appended to the root element.
  *
  * Fires:
@@ -46,6 +49,7 @@ $args = array(
 	'options'     => isset( $options ) && is_array( $options ) ? $options : array(),
 	'input_id'    => isset( $input_id ) ? (string) $input_id : '',
 	'label_id'    => isset( $label_id ) ? (string) $label_id : '',
+	'disabled'    => isset( $disabled ) ? (bool) $disabled : false,
 	'classes'     => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -102,7 +106,7 @@ if ( $bn_is_select ) :
 		<select class="bn-input"
 			id="<?php echo esc_attr( $bn_input_id ); ?>"
 			name="<?php echo esc_attr( $bn_key ); ?>"
-			data-wp-on--change="actions.markDirty">
+			data-wp-on--change="actions.savePrivacyField">
 			<?php foreach ( (array) $args['options'] as $bn_opt_key => $bn_opt_label ) : ?>
 				<option value="<?php echo esc_attr( (string) $bn_opt_key ); ?>" <?php selected( $bn_value, (string) $bn_opt_key ); ?>>
 					<?php echo esc_html( (string) $bn_opt_label ); ?>
@@ -112,10 +116,11 @@ if ( $bn_is_select ) :
 	</div>
 	<?php
 else :
-	$bn_checked = (bool) $args['value'];
-	$bn_desc    = (string) $args['description'];
+	$bn_checked  = (bool) $args['value'];
+	$bn_desc     = (string) $args['description'];
+	$bn_disabled = (bool) $args['disabled'];
 	?>
-	<div class="<?php echo esc_attr( $bn_class ); ?>">
+	<div class="<?php echo esc_attr( $bn_class ) . ( $bn_disabled ? ' bn-toggle-row--disabled' : '' ); ?>">
 		<div class="bn-toggle-row__copy">
 			<div class="bn-toggle-row__label" id="<?php echo esc_attr( $bn_label_id ); ?>">
 				<?php echo esc_html( $bn_label ); ?>
@@ -131,8 +136,14 @@ else :
 			role="switch"
 			aria-labelledby="<?php echo esc_attr( $bn_label_id ); ?>"
 			aria-checked="<?php echo $bn_checked ? 'true' : 'false'; ?>"
+			<?php if ( $bn_disabled ) : ?>
+			disabled
+			aria-disabled="true"
+			<?php else : ?>
 			data-pref="<?php echo esc_attr( $bn_key ); ?>"
-			data-wp-on--click="actions.togglePref">
+			data-wp-on--click="actions.togglePref"
+			<?php endif; ?>
+		>
 		</button>
 	</div>
 	<?php
