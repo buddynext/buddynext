@@ -89,8 +89,8 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						data-wp-bind--hidden="state.slugStatusHidden"
 						data-wp-class--bn-ep-slug-ok="state.slugIsOk"
 						data-wp-class--bn-ep-slug-err="state.slugIsTaken">
-						<span data-wp-bind--hidden="!state.slugIsOk"><?php buddynext_icon( 'check' ); ?></span>
-						<span data-wp-bind--hidden="!state.slugIsTaken"><?php esc_html_e( 'Taken', 'buddynext' ); ?></span>
+						<span hidden data-wp-bind--hidden="!state.slugIsOk"><?php buddynext_icon( 'check' ); ?></span>
+						<span hidden data-wp-bind--hidden="!state.slugIsTaken"><?php esc_html_e( 'Taken', 'buddynext' ); ?></span>
 					</span>
 					<?php // The other half of what this field controls, shown rather than explained. ?>
 					<span class="bn-ep-slug-handle" data-wp-text="state.slugHandlePreview" aria-hidden="true">@<?php echo esc_html( $profile_slug ); ?></span>
@@ -102,7 +102,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 					data-wp-on--click="actions.saveSlug"
 					data-wp-bind--disabled="state.slugSaveDisabled">
 					<span data-wp-bind--hidden="context.slugSaved"><?php esc_html_e( 'Update handle', 'buddynext' ); ?></span>
-					<span data-wp-bind--hidden="!context.slugSaved"><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Saved', 'buddynext' ); ?></span>
+					<span hidden data-wp-bind--hidden="!context.slugSaved"><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Saved', 'buddynext' ); ?></span>
 				</button>
 			</div>
 		</div>

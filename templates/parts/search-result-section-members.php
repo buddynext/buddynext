@@ -172,7 +172,7 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 						data-wp-on--click="actions.toggleFollow"
 						data-wp-bind--aria-pressed="context.following">
 						<span data-wp-bind--hidden="context.following"><?php esc_html_e( 'Follow', 'buddynext' ); ?></span>
-						<span data-wp-bind--hidden="!context.following"><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
+						<span hidden data-wp-bind--hidden="!context.following"><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
 					</button>
 				<?php endif; ?>
 			</article>

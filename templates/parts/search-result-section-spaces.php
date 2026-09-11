@@ -178,7 +178,7 @@ do_action( 'buddynext_part_search_result_section_spaces_before', $args );
 						data-wp-on--click="actions.toggleSpaceMembership"
 						data-wp-bind--aria-pressed="context.joined">
 						<span data-wp-bind--hidden="context.joined"><?php esc_html_e( 'Join', 'buddynext' ); ?></span>
-						<span data-wp-bind--hidden="!context.joined"><?php esc_html_e( 'Joined', 'buddynext' ); ?></span>
+						<span hidden data-wp-bind--hidden="!context.joined"><?php esc_html_e( 'Joined', 'buddynext' ); ?></span>
 					</button>
 				<?php endif; ?>
 			</article>
