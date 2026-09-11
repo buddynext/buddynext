@@ -212,6 +212,34 @@ class PluginIsolationAllowListTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The generated mu-plugin never strips a plugin a KEPT plugin declares as
+	 * required. Stripping a parent (WooCommerce) while keeping a dependant
+	 * (WooCommerce Subscriptions) fatals every BuddyNext route with a 500, because
+	 * the dependant loads and calls a class the stripped parent never defined -
+	 * before any BuddyNext code can catch it (card 10296851425). The fail-safe
+	 * reads WordPress's own `Requires Plugins:` registry and removes such parents
+	 * from the strip set, so a stale mirror degrades to "stripped less than asked",
+	 * never a fatal. Assert the generated FILE carries it, since that is what runs.
+	 *
+	 * @return void
+	 */
+	public function test_the_generated_mu_plugin_never_strips_a_kept_dependency(): void {
+		$method  = new \ReflectionMethod( \BuddyNext\Core\Installer::class, 'mu_plugin_content' );
+		$content = (string) $method->invoke( null );
+
+		// It consults the Requires Plugins header registry…
+		$this->assertStringContainsString( 'Requires Plugins', $content );
+		$this->assertStringContainsString( 'get_file_data', $content );
+		// …and filters the strip set by what kept plugins require, before the diff.
+		$this->assertStringContainsString( '$required_slugs', $content );
+		$this->assertMatchesRegularExpression(
+			'/required_slugs.*array_diff\(\s*\$plugins,\s*\$strip\s*\)/s',
+			$content,
+			'The dependency fail-safe must run BEFORE the final strip diff, or a stripped parent still fatals its kept dependant.'
+		);
+	}
+
+	/**
 	 * The mu-plugin's floor is DERIVED from essentials(), not typed twice.
 	 *
 	 * It used to be a second hand-written array inside the mu-plugin source, kept

@@ -4494,6 +4494,55 @@ if ( buddynext_mu_is_bn_request() ) {
 				return $plugins;
 			}
 
+			// Dependency fail-safe: never strip a plugin that a KEPT plugin declares
+			// as required via its `Requires Plugins:` header (WP 6.5+). WordPress
+			// plugins are not independent — a dependant whose parent is filtered out
+			// fatals at load, before any BuddyNext code can catch it, taking every
+			// community route down with a 500 (stripping WooCommerce while keeping
+			// WooCommerce Subscriptions is the common shape). We read the same registry
+			// core uses to block deactivating a needed parent, so a stale mirror
+			// degrades to "stripped less than asked", never a fatal (card 10296851425).
+			// Per-request static cache: option_active_plugins is filtered many times per
+			// request, so we must not re-read every kept plugin's header each time.
+			static $bn_required_slugs_cache = array();
+			$kept     = array_values( array_diff( $plugins, $strip ) );
+			$kept_key = md5( implode( '|', $kept ) );
+			if ( ! isset( $bn_required_slugs_cache[ $kept_key ] ) ) {
+				$required_slugs = array();
+				foreach ( $kept as $kept_file ) {
+					$kept_path = WP_PLUGIN_DIR . '/' . $kept_file;
+					if ( ! is_readable( $kept_path ) ) {
+						continue;
+					}
+					$dep = get_file_data( $kept_path, array( 'RequiresPlugins' => 'Requires Plugins' ) );
+					if ( empty( $dep['RequiresPlugins'] ) ) {
+						continue;
+					}
+					foreach ( explode( ',', $dep['RequiresPlugins'] ) as $req_slug ) {
+						$req_slug = trim( $req_slug );
+						if ( '' !== $req_slug ) {
+							$required_slugs[ $req_slug ] = true;
+						}
+					}
+				}
+				$bn_required_slugs_cache[ $kept_key ] = $required_slugs;
+			}
+			$required_slugs = $bn_required_slugs_cache[ $kept_key ];
+			if ( ! empty( $required_slugs ) ) {
+				$strip = array_values(
+					array_filter(
+						$strip,
+						static function ( $strip_file ) use ( $required_slugs ) {
+							// Plugin file "woocommerce/woocommerce.php" -> slug "woocommerce".
+							return ! isset( $required_slugs[ strtok( (string) $strip_file, '/' ) ] );
+						}
+					)
+				);
+				if ( empty( $strip ) ) {
+					return $plugins;
+				}
+			}
+
 			// Keep every active plugin except the owner's explicit strip choices.
 			return array_values( array_diff( $plugins, $strip ) );
 		}
