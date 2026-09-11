@@ -1407,13 +1407,11 @@ class ModerationController extends BaseRestController {
 			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
 		}
 
-		if ( $this->moderates_site() ) {
-			return true;
-		}
-
-		// Allow access if the user moderates at least one space.
-		$space_ids = ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() );
-		if ( ! empty( $space_ids ) ) {
+		// One predicate, shared with the queue template, so the route and the page
+		// agree: a site-wide queue reviewer OR a space owner/moderator passes; the
+		// get_queue() handler scopes a space moderator's results to their spaces
+		// (card 10264294189).
+		if ( ( new ModerationService() )->can_view_queue( get_current_user_id() ) ) {
 			return true;
 		}
 

@@ -18,6 +18,8 @@ namespace BuddyNext\Tests\Moderation;
 use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Moderation\ModerationController;
 use BuddyNext\Core\PermissionService;
+use BuddyNext\Spaces\SpaceService;
+use BuddyNext\Spaces\SpaceMemberService;
 use WP_REST_Server;
 use WP_REST_Request;
 use WP_UnitTestCase;
@@ -264,5 +266,54 @@ class ModeratorAuthorizationTest extends WP_UnitTestCase {
 			$response->get_status(),
 			'A member with no moderation ability must get 403 from the strike route, never 500.'
 		);
+	}
+
+	/**
+	 * A space-only moderator (no site authority) may view the queue, and a plain
+	 * member may not — on the SHARED predicate that the route and the template
+	 * both consult. The bug was a 200 from GET /reports/queue while the template
+	 * refused to draw the page as "Access Restricted" (card 10264294189); pinning
+	 * can_view_queue() keeps the two surfaces in agreement.
+	 *
+	 * @return void
+	 */
+	public function test_space_only_moderator_may_view_queue_member_may_not(): void {
+		$spaces  = new SpaceService();
+		$members = new SpaceMemberService();
+
+		$owner    = (int) self::factory()->user->create();
+		$space_id = (int) $spaces->create(
+			$owner,
+			array(
+				'name' => 'Queue Access Space',
+				'slug' => 'queue-access-space',
+				'type' => 'open',
+			)
+		);
+		$members->join( $space_id, $this->member );
+
+		global $wpdb;
+		$wpdb->update(
+			$wpdb->prefix . 'bn_space_members',
+			array( 'role' => 'moderator' ),
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $this->member,
+			)
+		);
+		wp_cache_flush();
+
+		// Shared predicate: space moderator yes, site community moderator yes,
+		// a plain member (the victim, subscriber, no space role) no.
+		$this->assertTrue( $this->mod->can_view_queue( $this->member ), 'A space moderator must be able to view the queue.' );
+		$this->assertTrue( $this->mod->can_view_queue( $this->moderator ), 'A site community moderator must be able to view the queue.' );
+		$this->assertFalse( $this->mod->can_view_queue( $this->victim ), 'A plain member must not be able to view the queue.' );
+
+		// Route agrees: space moderator gets 200, plain member gets 403.
+		wp_set_current_user( $this->member );
+		$this->assertSame( 200, rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/reports/queue' ) )->get_status(), 'The space moderator must get 200 from the queue route.' );
+
+		wp_set_current_user( $this->victim );
+		$this->assertSame( 403, rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/reports/queue' ) )->get_status(), 'A plain member must get 403 from the queue route.' );
 	}
 }

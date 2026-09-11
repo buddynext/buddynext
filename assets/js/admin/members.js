@@ -32,6 +32,8 @@
 		var cancelEls = modal.querySelectorAll( '[data-bn-confirm-cancel]' );
 		var reasonWrap  = modal.querySelector( '[data-bn-confirm-reason-wrap]' );
 		var reasonField = modal.querySelector( '[data-bn-confirm-reason-field]' );
+		var durationWrap  = modal.querySelector( '[data-bn-confirm-duration-wrap]' );
+		var durationField = modal.querySelector( '[data-bn-confirm-duration-field]' );
 		var tokenWrap   = modal.querySelector( '[data-bn-confirm-token-wrap]' );
 		var tokenField  = modal.querySelector( '[data-bn-confirm-token-field]' );
 		var tokenLabel  = modal.querySelector( '[data-bn-confirm-token-label]' );
@@ -66,6 +68,13 @@
 				var wantsReason = form.getAttribute( 'data-bn-confirm-reason' ) === '1';
 				reasonWrap.hidden = ! wantsReason;
 				if ( reasonField ) { reasonField.value = ''; }
+			}
+			// Optional suspension-length field — shown only for forms that opt in
+			// (data-bn-confirm-duration). Reset to indefinite on every open.
+			if ( durationWrap ) {
+				var wantsDuration = form.getAttribute( 'data-bn-confirm-duration' ) === '1';
+				durationWrap.hidden = ! wantsDuration;
+				if ( durationField ) { durationField.value = '0'; }
 			}
 			// Type-to-confirm. Reset on every open so a token typed for one item
 			// cannot authorise the next one.
@@ -149,6 +158,18 @@
 							pendingForm.appendChild( hidden );
 						}
 						hidden.value = reasonField.value;
+					}
+					// Carry the chosen suspension length into the submitting form as a
+					// hidden field the server handler reads (0 = indefinite).
+					if ( durationWrap && ! durationWrap.hidden && durationField ) {
+						var durInput = pendingForm.querySelector( 'input[name="duration_days"]' );
+						if ( ! durInput ) {
+							durInput = document.createElement( 'input' );
+							durInput.type = 'hidden';
+							durInput.name = 'duration_days';
+							pendingForm.appendChild( durInput );
+						}
+						durInput.value = durationField.value;
 					}
 					pendingForm.dataset.bnConfirmed = '1';
 					pendingForm.submit();

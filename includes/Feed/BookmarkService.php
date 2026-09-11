@@ -13,6 +13,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Feed;
 
+use BuddyNext\Core\CursorCodec;
+
 /**
  * Manages private post bookmarks.
  */
@@ -428,8 +430,11 @@ class BookmarkService {
 
 		$next_cursor = null;
 		if ( $has_more && ! empty( $rows ) ) {
-			$last        = end( $rows );
-			$next_cursor = base64_encode( $last['bookmark_created_at'] . '|' . $last['post_id'] ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+			$last = end( $rows );
+			// The shared keyset codec: URL-safe, unpadded base64 that survives an
+			// add_query_arg() roundtrip (a lost '=' from the old hand-rolled
+			// base64_encode corrupted two-thirds of post ids — card 10284805802).
+			$next_cursor = CursorCodec::encode( (string) $last['bookmark_created_at'], (int) $last['post_id'] );
 		}
 
 		// Re-apply the canonical post-visibility gate, then hydrate the survivors
@@ -470,21 +475,19 @@ class BookmarkService {
 			return null;
 		}
 
-		$raw = base64_decode( $cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+		// Decode through the shared keyset codec (accepts URL-safe unpadded AND
+		// legacy standard base64), then reject an empty/non-numeric pivot the way
+		// this inbox always has. CursorCodec keys the id as 'id'; this service's
+		// SQL binds it as 'post_id' (card 10284805802).
+		$decoded = CursorCodec::decode( $cursor );
 
-		if ( false === $raw ) {
-			return null;
-		}
-
-		$parts = explode( '|', $raw, 2 );
-
-		if ( 2 !== count( $parts ) || '' === $parts[0] || ! ctype_digit( $parts[1] ) ) {
+		if ( null === $decoded || '' === $decoded['created_at'] || $decoded['id'] <= 0 ) {
 			return null;
 		}
 
 		return array(
-			'created_at' => $parts[0],
-			'post_id'    => (int) $parts[1],
+			'created_at' => $decoded['created_at'],
+			'post_id'    => $decoded['id'],
 		);
 	}
 }

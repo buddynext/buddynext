@@ -1717,6 +1717,32 @@ class ModerationService {
 	}
 
 	/**
+	 * Whether a user may view the moderation queue (report queue + pending approvals).
+	 *
+	 * The SINGLE predicate the REST route (ModerationController::require_queue_access)
+	 * and the queue template (templates/moderation/queue.php) share, so a space-only
+	 * moderator gets both the 200 and a drawn page instead of a 200 the template
+	 * refuses to render as "Access Restricted" (card 10264294189). Two ways in:
+	 * site-wide authority to review the queue, OR ownership/moderation of at least
+	 * one space (the get_queue() handler then scopes the results to those spaces).
+	 * A plain member holds neither and is refused on both surfaces.
+	 *
+	 * @param int $user_id User to check (0 = never).
+	 * @return bool
+	 */
+	public function can_view_queue( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		if ( $this->is_site_moderator( $user_id, 'buddynext-moderation/review-queue' ) ) {
+			return true;
+		}
+
+		return ! empty( $this->get_moderated_space_ids( $user_id ) );
+	}
+
+	/**
 	 * Return the space IDs in which a user holds an owner or moderator role.
 	 *
 	 * Used by ModerationController to scope the report queue for non-admin moderators.
@@ -2310,6 +2336,63 @@ class ModerationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $count > 0;
+	}
+
+	/**
+	 * IDs of every currently-suspended user (active, unexpired).
+	 *
+	 * The canonical list behind any "show suspended members" surface, so the
+	 * admin Members screen no longer hand-queries bn_user_suspensions itself
+	 * (card 10296532578). Predicate mirrors is_suspended() exactly.
+	 *
+	 * @return int[] Suspended user IDs (may be empty).
+	 */
+	public function active_suspended_user_ids(): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			"SELECT DISTINCT user_id
+			 FROM {$wpdb->prefix}bn_user_suspensions
+			 WHERE lifted_at IS NULL
+			   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'absint', (array) $ids );
+	}
+
+	/**
+	 * Of the given user IDs, those with an active (unexpired) suspension.
+	 *
+	 * A batch is_suspended() for a page of members — one query instead of one
+	 * per row (card 10296532578). Predicate mirrors is_suspended() exactly.
+	 *
+	 * @param int[] $user_ids User IDs to test.
+	 * @return int[] The subset that is currently suspended.
+	 */
+	public function filter_active_suspended( array $user_ids ): array {
+		$user_ids = array_values( array_filter( array_map( 'absint', $user_ids ) ) );
+		if ( empty( $user_ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+		$placeholders = implode( ',', array_fill( 0, count( $user_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE user_id IN ({$placeholders})
+				   AND lifted_at IS NULL
+				   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())",
+				...$user_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		return array_map( 'absint', (array) $ids );
 	}
 
 	/**
