@@ -64,6 +64,9 @@ class NotificationPrefServiceChannelsTest extends \WP_UnitTestCase {
 		$this->assertNotEmpty( $prefs );
 		$this->assertSame( $space_id, $prefs[0]['space_id'] );
 		$this->assertSame( 'Notify Space', $prefs[0]['name'] );
-		$this->assertSame( 'all', $prefs[0]['pref'] );
+		// A fresh join defaults to the quieter 'mentions_only' level (owner ruling,
+		// card 10294398101 item 7) - members opt UP to all-posts rather than being
+		// silently subscribed to every post.
+		$this->assertSame( 'mentions_only', $prefs[0]['pref'] );
 	}
 }
