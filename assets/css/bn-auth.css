@@ -859,6 +859,12 @@ body.bn-hub-auth .bn-auth-page {
 .bn-auth-check {
 	display: inline-flex;
 	align-items: center;
+	/* The label is the real tap target (it wraps a 13px checkbox and stays
+	   clickable full-width), so it must clear the 40px tap floor - the same
+	   --bn-tap token the .bn-btn primitive uses. Without this the row was 23px,
+	   under both --bn-tap and WCAG 2.5.8's 24px. Shared by signup consent and
+	   the login Remember-me row (both use this class). */
+	min-block-size: var(--bn-tap, 40px);
 	gap: var(--bn-s2);
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-2);
