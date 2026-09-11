@@ -139,7 +139,7 @@ if ( ! empty( $bn_context_items ) ) :
 			'key'   => 'feed',
 			'url'   => $bn_nav_urls['feed'],
 			'icon'  => 'home',
-			'label' => __( 'Feed', 'buddynext' ),
+			'label' => __( 'Activity', 'buddynext' ),
 			'show'  => true,
 		),
 		array(
@@ -165,7 +165,7 @@ if ( ! empty( $bn_context_items ) ) :
 			'key'         => 'notifications',
 			'url'         => $bn_nav_urls['notifications'],
 			'icon'        => 'bell',
-			'label'       => __( 'Alerts', 'buddynext' ),
+			'label'       => __( 'Notifications', 'buddynext' ),
 			'show'        => $bn_nav_current_user > 0,
 			'badge'       => true,
 			'badge_count' => $bn_unread_notifs,

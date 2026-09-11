@@ -839,7 +839,7 @@ class Plugin {
 
 		$pages = array(
 			array(
-				'title' => __( 'Feed', 'buddynext' ),
+				'title' => __( 'Activity', 'buddynext' ),
 				'url'   => PageRouter::activity_url(),
 			),
 			array(

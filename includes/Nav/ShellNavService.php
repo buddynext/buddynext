@@ -69,7 +69,7 @@ class ShellNavService {
 		$items = array(
 			array(
 				'key'   => 'feed',
-				'label' => __( 'Feed', 'buddynext' ),
+				'label' => __( 'Activity', 'buddynext' ),
 				'url'   => PageRouter::activity_url(),
 				'icon'  => 'home',
 				'show'  => true,

@@ -992,7 +992,7 @@ class NavManager extends AdminPageBase {
 		return array(
 			array(
 				'slug'        => 'feed',
-				'label'       => __( 'Feed', 'buddynext' ),
+				'label'       => __( 'Activity', 'buddynext' ),
 				'order'       => 10,
 				'icon'        => 'tab-feed',
 				'description' => __( 'Home feed (inherits main nav page)', 'buddynext' ),
@@ -1017,7 +1017,7 @@ class NavManager extends AdminPageBase {
 			),
 			array(
 				'slug'        => 'notifications',
-				'label'       => __( 'Alerts', 'buddynext' ),
+				'label'       => __( 'Notifications', 'buddynext' ),
 				'order'       => 40,
 				'icon'        => 'tab-notifications',
 				'description' => __( 'Notification badge', 'buddynext' ),
@@ -2291,7 +2291,7 @@ class NavManager extends AdminPageBase {
 		return array(
 			array(
 				'slug'        => 'feed',
-				'label'       => __( 'Feed', 'buddynext' ),
+				'label'       => __( 'Activity', 'buddynext' ),
 				'order'       => 10,
 				'icon'        => 'tab-feed',
 				'description' => __( 'Main community feed', 'buddynext' ),
