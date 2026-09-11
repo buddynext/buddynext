@@ -87,6 +87,15 @@ class OnboardingListener implements ListenerInterface {
 		// nudges at all (the retired wp_schedule_single_event worked at any hook
 		// depth). Defer to action_scheduler_init when AS has not booted yet; in the
 		// normal case (registration well after init) it has, so schedule immediately.
+		//
+		// SCOPE, so the next reader does not over-trust this defer: it only rescues a
+		// signup that lands after register() has attached this user_register listener
+		// (Plugin::init(), on the `init` hook) but before AS finishes booting — i.e.
+		// roughly plugins_loaded:15 -> init:1. A user created EARLIER than register()
+		// runs (muplugins_loaded, or an early plugins_loaded before this plugin inits)
+		// never fires enqueue_nudges() at all, so it gets no nudge. That is the
+		// owner-accepted ceiling of the two-single-actions-per-signup design (card
+		// 10264295353); widen it only by registering user_register earlier, not here.
 		if ( did_action( 'action_scheduler_init' ) ) {
 			$this->schedule_nudges( $user_id );
 			return;
