@@ -115,6 +115,41 @@ class CrossSpaceActivityTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A contributor whose rows only land on page 1 must still have its count in
+	 * the total on EVERY page — the pager total must not shrink as an admin pages
+	 * through the log (card 10276234812). A contributed row with id '0' must also
+	 * survive (empty() would have dropped it).
+	 *
+	 * @return void
+	 */
+	public function test_contributed_total_holds_across_pages(): void {
+		add_filter(
+			'buddynext_cross_space_activity_rows',
+			static function ( array $rows, array $space_ids, int $fetch, int $offset ): array {
+				if ( $offset > 0 ) {
+					return $rows; // The contributor is exhausted past page 1.
+				}
+				return array_merge(
+					$rows,
+					array( array( 'id' => '0', 'icon' => 'credit-card', 'avatar' => '', 'text' => 'Sam paid', 'occurred_at_utc' => gmdate( 'Y-m-d H:i:s', time() + 10 ) ) )
+				);
+			},
+			10,
+			4
+		);
+		add_filter( 'buddynext_cross_space_activity_total', static fn( int $t ): int => $t + 1 );
+
+		$page1 = $this->activity->recent( array( 'category_id' => 888, 'per_page' => 1, 'page' => 1 ) );
+		$page2 = $this->activity->recent( array( 'category_id' => 888, 'per_page' => 1, 'page' => 2 ) );
+
+		$this->assertSame( 3, $page1['total'], 'Two built-in rows plus one contributed.' );
+		$this->assertSame( $page1['total'], $page2['total'], 'The total must not shrink when the contributor has no rows for a deep page.' );
+
+		$ids = array_map( static fn( array $r ): string => (string) $r['id'], $page1['items'] );
+		$this->assertContains( '0', $ids, 'A contributed row with id 0 is not silently dropped.' );
+	}
+
+	/**
 	 * An empty space set is a well-formed empty result — no query, no error.
 	 *
 	 * @return void

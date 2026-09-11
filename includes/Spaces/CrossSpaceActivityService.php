@@ -92,24 +92,35 @@ class CrossSpaceActivityService {
 		 *
 		 * @since 1.2.0
 		 *
+		 * Return your newest rows up to $fetch (the service merges + sorts + slices
+		 * centrally); $offset and $per_page are passed so a contributor can bound its
+		 * own query, but returning the newest $fetch is always correct.
+		 *
+		 * @since 1.2.0
+		 *
 		 * @param array<int,array<string,mixed>> $extra     Rows to contribute (default none).
 		 * @param int[]                          $space_ids Spaces in scope.
 		 * @param int                            $fetch     Per-source recent-row ceiling.
+		 * @param int                            $offset    Row offset of the requested page.
+		 * @param int                            $per_page  Rows per page.
 		 */
-		$extra = (array) apply_filters( 'buddynext_cross_space_activity_rows', array(), $space_ids, $fetch );
+		$extra = (array) apply_filters( 'buddynext_cross_space_activity_rows', array(), $space_ids, $fetch, $offset, $per_page );
 		if ( ! empty( $extra ) ) {
 			$rows = array_merge( $rows, $this->normalise_extra( $extra ) );
-
-			/**
-			 * Add the contributed rows' total so the pager count stays honest.
-			 *
-			 * @since 1.2.0
-			 *
-			 * @param int   $extra_total Additional total from contributed rows (default 0).
-			 * @param int[] $space_ids   Spaces in scope.
-			 */
-			$total += (int) apply_filters( 'buddynext_cross_space_activity_total', 0, $space_ids );
 		}
+
+		/**
+		 * Add the contributed rows' total so the pager count stays honest. Fired
+		 * UNCONDITIONALLY (not only when this page received contributed rows) — a
+		 * contributor's rows land on page 1 but its count must hold on every page,
+		 * or the total shrinks as an admin pages through the log (card 10276234812).
+		 *
+		 * @since 1.2.0
+		 *
+		 * @param int   $extra_total Additional total from contributed rows (default 0).
+		 * @param int[] $space_ids   Spaces in scope.
+		 */
+		$total += (int) apply_filters( 'buddynext_cross_space_activity_total', 0, $space_ids );
 
 		// Newest first, id as the stable tie-break, then the requested page.
 		usort(
@@ -258,7 +269,10 @@ class CrossSpaceActivityService {
 	private function normalise_extra( array $extra ): array {
 		$out = array();
 		foreach ( $extra as $row ) {
-			if ( ! is_array( $row ) || empty( $row['id'] ) || empty( $row['occurred_at_utc'] ) ) {
+			// A row id of 0 or '0' is legitimate — only a missing id or timestamp is
+			// a malformed contribution. empty() would have silently dropped id '0',
+			// the worst way for a consumer to lose a row (card 10276234812).
+			if ( ! is_array( $row ) || ! isset( $row['id'] ) || '' === (string) $row['id'] || empty( $row['occurred_at_utc'] ) ) {
 				continue;
 			}
 			$out[] = array(
@@ -308,6 +322,11 @@ class CrossSpaceActivityService {
 		if ( empty( $ids ) ) {
 			return array();
 		}
+		// Prime the whole set's user + usermeta cache in one pass so the loop below
+		// reads from cache instead of firing get_userdata() per row — a 20-row page
+		// over 5 spaces was issuing ~21 user queries (card 10276234812).
+		cache_users( $ids );
+
 		$avatars = new AvatarService();
 		$map     = array();
 		foreach ( $ids as $id ) {
