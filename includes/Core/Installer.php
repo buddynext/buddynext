@@ -376,8 +376,11 @@ class Installer {
 	 *      10264294456). Also adds bn_poll_options UNIQUE KEY post_option
 	 *      (post_id, id) so a poll option can never be double-counted / mis-attributed
 	 *      across posts (card 10264292330). dbDelta ADDs both keys.
+	 *  56: data purge only (no schema change) — drop bn_reactions rows whose target
+	 *      object was hard-deleted, so orphaned reactions stop inflating counts
+	 *      (card 10264292715). Runs maybe_purge_orphan_reactions() on upgrade.
 	 */
-	private const SCHEMA_VERSION = 55;
+	private const SCHEMA_VERSION = 56;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -902,6 +905,14 @@ class Installer {
 		// interests->skills field-key rename runs inside run(), BEFORE the
 		// profile seeder — see maybe_migrate_skills_field_key.
 		self::maybe_purge_orphan_interest_meta();
+
+		// v56: drop bn_reactions rows whose target object no longer exists. The
+		// write-time guard (buddynext_validate_object_target / InteractionGuard) now
+		// prevents NEW orphans, but pre-existing rows (a reaction on a comment that
+		// was later hard-deleted) linger and inflate counts. A version-gated DATA
+		// purge like maybe_purge_orphan_interest_meta above — not a schema change
+		// (card 10264292715).
+		self::maybe_purge_orphan_reactions();
 
 		// v22: backfill bn_spaces.last_active_at from each space's newest post
 		// (one grouped query). New activity keeps it current via PostService.
@@ -1789,6 +1800,40 @@ class Installer {
 	private static function maybe_purge_orphan_interest_meta(): void {
 		delete_metadata( 'user', 0, 'bn_interests', '', true );
 		delete_metadata( 'user', 0, 'bn_onboarding_interests', '', true );
+	}
+
+	/**
+	 * One-time cleanup: delete bn_reactions rows pointing at a target that no
+	 * longer exists.
+	 *
+	 * A reaction on a comment or post that was later hard-deleted leaves an orphan
+	 * row that still counts toward reaction totals. Write-time validation now blocks
+	 * NEW orphans, but the pre-existing puddle needs draining. Two anti-joins over
+	 * the indexed object columns (comment + post targets); media and other types are
+	 * left untouched. Idempotent — a re-run finds nothing to delete. Version-gated
+	 * DATA purge, not a schema change (card 10264292715).
+	 *
+	 * @return void
+	 */
+	private static function maybe_purge_orphan_reactions(): void {
+		global $wpdb;
+
+		$reactions = $wpdb->prefix . 'bn_reactions';
+		$comments  = $wpdb->prefix . 'bn_comments';
+		$posts     = $wpdb->prefix . 'bn_posts';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"DELETE r FROM {$reactions} r
+			 LEFT JOIN {$comments} c ON c.id = r.object_id
+			 WHERE r.object_type = 'comment' AND c.id IS NULL"
+		);
+		$wpdb->query(
+			"DELETE r FROM {$reactions} r
+			 LEFT JOIN {$posts} p ON p.id = r.object_id
+			 WHERE r.object_type = 'post' AND p.id IS NULL"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**
