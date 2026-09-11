@@ -753,6 +753,23 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'forbidden', __( 'You cannot change this space setting.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		// require_join_approval only means anything on a DIRECT-join space: request /
+		// invite / secret types manage joins their own way, so the flag would sit inert
+		// in the table and mislead a later reader. The web settings panel renders the
+		// checkbox only when join_method is 'direct' and writes it only then; match that
+		// guard here so the two doors agree and REST cannot write an inert flag on a
+		// non-direct space (card 10264293210).
+		if ( null !== $param ) {
+			$join_method = SpaceTypeRegistry::instance()->join_method( (string) ( $space['type'] ?? 'open' ) );
+			if ( 'direct' !== $join_method ) {
+				return new WP_Error(
+					'require_join_approval_not_applicable',
+					__( 'Join approval applies only to direct-join spaces; this space type manages joins its own way.', 'buddynext' ),
+					array( 'status' => 422 )
+				);
+			}
+		}
+
 		$values = array();
 		if ( null !== $param ) {
 			$values['require_join_approval'] = $param ? '1' : '0';

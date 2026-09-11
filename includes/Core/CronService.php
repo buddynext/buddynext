@@ -457,11 +457,23 @@ class CronService {
 	private function get_digest_user_ids( string $freq, int $after_id = 0 ): array {
 		global $wpdb;
 
+		// Only catalogue types enrol a member in a digest. A junk/legacy row (a type
+		// no longer in the catalogue) that happens to carry email_freq='daily' would
+		// otherwise pull the member into the digest scan even though nothing surfaces
+		// it in the prefs UI — the read-side inert-orphan rule applied to the mailer
+		// too (card 10264293350). The IN list is the catalogue keys, which includes
+		// 'digest' itself so a member who re-subscribes (digest=daily/weekly) enrols.
+		$catalogue_types = array_keys( ( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->all() );
+		if ( empty( $catalogue_types ) ) {
+			return array();
+		}
+		$type_placeholders = implode( ', ', array_fill( 0, count( $catalogue_types ), '%s' ) );
+
 		// Keyset cursor on user_id (not a bare LIMIT) so successive runs page through
 		// EVERY digest-frequency user. The old `LIMIT 200` with no cursor returned the
 		// same first ~200 users every run and starved everyone past them; the caller
 		// chains the next chunk via Action Scheduler keyed on the last user_id here.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		// The NOT EXISTS honours the digest email's own unsubscribe link, which
 		// writes a (user, 'digest', email_freq='off') row. Without it that row
 		// was written but never read — the member kept receiving digests after
@@ -472,18 +484,17 @@ class CronService {
 				"SELECT DISTINCT p.user_id
 				   FROM {$wpdb->prefix}bn_notification_prefs p
 				  WHERE p.email_freq = %s AND p.user_id > %d
+				    AND p.type IN ( {$type_placeholders} )
 				    AND NOT EXISTS (
 						SELECT 1 FROM {$wpdb->prefix}bn_notification_prefs px
 						 WHERE px.user_id = p.user_id AND px.type = 'digest' AND px.email_freq = 'off'
 					)
 				  ORDER BY p.user_id ASC
 				  LIMIT %d",
-				$freq,
-				$after_id,
-				self::DIGEST_USER_CAP
+				array_merge( array( $freq, $after_id ), $catalogue_types, array( self::DIGEST_USER_CAP ) )
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		return array_map( 'intval', (array) $raw );
 	}

@@ -345,6 +345,10 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 								'email_freq' => 'immediate',
 							);
 							$can_email    = (bool) ( $entry['can_email'] ?? true );
+								// Email-only rows (e.g. the digest master switch) have no in-app
+								// channel, so the In-app toggle is hidden and only the email
+								// frequency is offered (card 10264293350).
+								$email_only = (bool) ( $entry['email_only'] ?? false );
 							?>
 							<div class="bn-prefs-row" role="listitem" data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'prefType' => $type_slug ) ) ); ?>">
 								<div class="bn-prefs-row__copy">
@@ -354,6 +358,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 									<p class="bn-prefs-row__desc"><?php echo esc_html( (string) ( $entry['description'] ?? '' ) ); ?></p>
 								</div>
 								<div class="bn-prefs-row__controls">
+									<?php if ( ! $email_only ) : ?>
 									<label class="bn-prefs-toggle">
 										<input type="checkbox"
 											id="bn-pref-on-site-<?php echo esc_attr( $type_slug ); ?>"
@@ -371,8 +376,9 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 											data-wp-on--change="actions.setOnSite">
 										<span class="bn-prefs-toggle__label"><?php esc_html_e( 'In-app', 'buddynext' ); ?></span>
 									</label>
+									<?php endif; ?>
 
-									<?php if ( $can_email ) : ?>
+									<?php if ( $can_email || $email_only ) : ?>
 										<span class="bn-prefs-freq__caption" id="bn-prefs-freq-cap-<?php echo esc_attr( $type_slug ); ?>"><?php esc_html_e( 'Email', 'buddynext' ); ?></span>
 										<div class="bn-prefs-freq" role="radiogroup" aria-labelledby="bn-prefs-freq-cap-<?php echo esc_attr( $type_slug ); ?>">
 											<?php

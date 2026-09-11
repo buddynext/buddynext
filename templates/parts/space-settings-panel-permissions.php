@@ -17,14 +17,16 @@
  *   - `auto_join_member_types` (array)  Owner-only (see $is_space_owner).
  *   - `space_id`              (int)
  *   - `space_url`             (string) Cancel-link URL.
- * @var bool   $is_space_owner       Required. Whether the viewer owns the space. The
- *                                   thresholds on this panel (who can post / invite,
- *                                   join approval) are moderator-writable; the AUTO-JOIN
- *                                   controls are owner-only, because auto-join reaches
- *                                   across the whole site's membership rather than
- *                                   moderating the people already in the space. They are
- *                                   not rendered for a moderator. Defaults to false: a
- *                                   caller that forgets to pass it gets the safe view.
+ * @var bool   $is_space_owner       Required. Whether the viewer owns the space. On this
+ *                                   panel join approval is moderator-writable, while who
+ *                                   can post / invite and the AUTO-JOIN controls are
+ *                                   owner-only — structural controls (who may post or
+ *                                   invite, and auto-join reaching across the whole
+ *                                   site's membership) rather than moderating the people
+ *                                   already in the space (card 10264293210). The
+ *                                   owner-only controls are not rendered for a moderator.
+ *                                   Defaults to false: a caller that forgets to pass it
+ *                                   gets the safe view.
  * @var array  $classes              Optional. Extra CSS classes appended to `.bn-card`.
  *
  * Fires:

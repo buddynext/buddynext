@@ -141,15 +141,20 @@ class NotificationPrefServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The digest email's one-click unsubscribe writes (user, 'digest', off). 'digest'
-	 * is an INTERNAL suppression pseudo-type, not a member catalogue key, so the
-	 * set_pref() seam guard must let it through (else the unsubscribe is a silent
-	 * no-op and the member keeps receiving digests — card 10264293350). It must NOT
-	 * surface in the prefs UI.
+	 * The digest email's one-click unsubscribe writes (user, 'digest', off), and
+	 * that row must both PERSIST (the cron suppresses on it) AND stay VISIBLE in the
+	 * prefs so the member can re-subscribe.
+	 *
+	 * 'digest' is now a real, member-facing catalogue entry (the "Email digests"
+	 * master switch), not an internal pseudo-type. Before this fix it was hidden
+	 * from get_all_prefs(), so the unsubscribe was a one-way door with no way back
+	 * short of a DB edit (card 10264293350). The row persisting is what the cron's
+	 * NOT EXISTS(type='digest', email_freq='off') suppressor reads; the row being
+	 * visible is what lets the settings UI + REST offer daily/weekly to re-subscribe.
 	 *
 	 * @return void
 	 */
-	public function test_digest_unsubscribe_pseudo_type_persists_but_is_hidden_from_ui(): void {
+	public function test_digest_unsubscribe_persists_and_stays_resubscribable(): void {
 		global $wpdb;
 		$this->service->set_pref( $this->user_id, 'digest', array( 'email_freq' => 'off' ) );
 
@@ -161,7 +166,10 @@ class NotificationPrefServiceTest extends \WP_UnitTestCase {
 			)
 		);
 		$this->assertSame( 'off', $freq, 'The digest unsubscribe row must persist so the digest cron suppresses on it.' );
-		$this->assertArrayNotHasKey( 'digest', $this->service->get_all_prefs( $this->user_id ), 'digest is internal and must not appear in the prefs UI.' );
+
+		$prefs = $this->service->get_all_prefs( $this->user_id );
+		$this->assertArrayHasKey( 'digest', $prefs, 'digest must surface in the prefs so a member can re-subscribe.' );
+		$this->assertSame( 'off', $prefs['digest']['email_freq'], 'The visible digest control must show the off (unsubscribed) state.' );
 	}
 
 	/**

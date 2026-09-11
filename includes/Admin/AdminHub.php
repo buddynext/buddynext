@@ -530,6 +530,11 @@ class AdminHub {
 		// runs after the admin_menu pass that registers the tabs (and therefore
 		// their legacy_page declarations), but still before anything renders.
 		add_action( 'admin_init', array( $this, 'redirect_legacy_pages' ), 11 );
+		// Forward a stale in-section tab URL to the section the IA map relocated the
+		// tab to (e.g. moderation:log -> automod:log), instead of the misroute
+		// notice. Same priority-11 reasoning: tabs + placement are registered by now,
+		// nothing has rendered (card 10264294456).
+		add_action( 'admin_init', array( $this, 'redirect_relocated_tabs' ), 11 );
 		// Hide empty-label submenu rows (Pro legacy entries) via inline
 		// admin CSS — we can't `unset` them from $submenu because WP's
 		// permission check (`get_plugin_page_hook()`) walks that array
@@ -1092,6 +1097,68 @@ class AdminHub {
 	}
 
 	/**
+	 * Forward a stale in-section tab URL to where the IA map relocated the tab.
+	 *
+	 * The `bn_admin_hub_tab_placement` map lets a tab register against its domain
+	 * section and be RELOCATED to a different section for the final layout — e.g.
+	 * ModerationQueue registers ( 'moderation', 'log' ) but the map places it under
+	 * `automod`, so the tab actually renders at page=buddynext-automod&tab=log. A
+	 * link (or bookmark) to the pre-relocation URL page=buddynext-moderation&tab=log
+	 * asks the moderation section for a tab it no longer owns, so render_section()
+	 * showed the "that setting has moved" notice and fell back to the first tab. The
+	 * tab still exists; only its section changed. Resolve the requested
+	 * `<section>:<tab>` through the same placement map and, when it points at a
+	 * different section that really registered the tab, redirect there — one seam
+	 * that covers every relocated tab, not just log (card 10264294456).
+	 *
+	 * @return void
+	 */
+	public function redirect_relocated_tabs(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- routing a GET request by page/tab; reads only, changes no state.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( (string) $_GET['page'] ) ) : '';
+		$tab  = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
+		if ( '' === $page || '' === $tab ) {
+			return;
+		}
+
+		$section = $this->section_from_slug( $page );
+		if ( null === $section ) {
+			return; // Not a hub section page — leave legacy-page handling to its own pass.
+		}
+
+		// Already a real tab of the requested section — nothing to forward.
+		if ( isset( self::get_tabs( $section )[ $tab ] ) ) {
+			return;
+		}
+
+		$rule = self::tab_placement()[ $section . ':' . $tab ] ?? null;
+		if ( ! is_array( $rule ) || empty( $rule['section'] ) ) {
+			return; // No relocation rule — a genuine misroute; render_section() warns.
+		}
+
+		$dest = (string) $rule['section'];
+		if ( $dest === $section || ! isset( self::get_tabs( $dest )[ $tab ] ) ) {
+			return; // Same section, or the tab is not actually registered there.
+		}
+
+		// Carry every other scalar arg through so flash flags still reach the body.
+		$carry = wp_unslash( (array) $_GET );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		unset( $carry['page'], $carry['tab'] );
+		$extra = array_map( 'sanitize_text_field', array_filter( $carry, 'is_scalar' ) );
+
+		// tab_url() applies the same placement remap, so passing the ORIGIN section
+		// yields the destination page slug + tab.
+		$url = self::tab_url( $section, $tab, $extra );
+		if ( admin_url( 'admin.php' ) === $url ) {
+			return; // Unknown section — don't bounce into a dead end.
+		}
+
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
 	 * Return a sensible default Lucide icon slug for a tab whose registration
 	 * didn't pass one. Falls back to a generic icon for unmapped slugs.
 	 *
@@ -1540,7 +1607,7 @@ class AdminHub {
 			$active_slug      = '' !== $bn_owner ? $bn_owner : (string) array_key_first( $tabs );
 			$bn_tab_misrouted = ( '' === $bn_owner && '' !== $bn_requested_tab );
 		}
-		$active           = $tabs[ $active_slug ];
+		$active = $tabs[ $active_slug ];
 
 		if ( ! current_user_can( $active['cap'] ) ) {
 			wp_die( esc_html__( 'You do not have permission to view this tab.', 'buddynext' ) );

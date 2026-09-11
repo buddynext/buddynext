@@ -47,10 +47,12 @@ if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings',
 }
 
 // This screen admits a MODERATOR. It does not follow that a moderator may change
-// everything on it — moderation settings are their job (who can post, who can
-// invite, join approval, banned words, the notification default); identity, reach
-// and structure are the owner's (name, description, type, rules, category, the
-// integrations, and who is auto-joined at signup).
+// everything on it — moderation settings are their job (join approval, banned
+// words, the notification default); identity, reach and structure are the owner's
+// (name, description, type, rules, category, the integrations, who can post, who
+// can invite, and who is auto-joined at signup). Who-can-post / who-can-invite are
+// owner-only: locking who may post or invite is a structural control over the
+// space, not a moderation action (card 10264293210).
 //
 // Every write below goes through SpaceFieldRegistry, which decides per FIELD via
 // can_write() — the same authority the REST route uses. Until this existed the two
@@ -336,10 +338,14 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_permissions_nonce'] )
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_permissions_nonce'] ) ), 'bn_space_permissions_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		// Moderation thresholds — a moderator's job, so they are in this set for
-		// everyone who can reach this screen. The registry sanitises each value
-		// against its registered type, so the hand-rolled allow-lists that used to
-		// live here (and silently coerced a bad value to a default) are gone.
+		// Permission fields read from the panel for everyone who can reach this
+		// screen. The registry enforces per-field writable_by on save — who_can_post
+		// and who_can_invite are OWNER-only (structural), while join approval / the
+		// notification default are moderator-writable — so a moderator's write to an
+		// owner-only field is rejected there, not filtered out here. The registry also
+		// sanitises each value against its registered type, so the hand-rolled
+		// allow-lists that used to live here (and silently coerced a bad value to a
+		// default) are gone.
 		$bn_perm_values = array();
 
 		// "Require approval to join" has a control ONLY on space types whose
@@ -859,8 +865,9 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'auto_join_on_signup'    => $auto_join_on_signup,
 						'auto_join_member_types' => $auto_join_member_types,
 					),
-					// The moderation thresholds on this panel are moderator-writable;
-					// the auto-join controls are owner-only and are hidden for a
+					// On this panel, join approval is moderator-writable, while
+					// who_can_post / who_can_invite and the auto-join controls are
+					// owner-only (structural). The auto-join controls are hidden for a
 					// moderator instead of being shown and then rejected.
 					'is_space_owner'       => $bn_is_space_owner,
 				),

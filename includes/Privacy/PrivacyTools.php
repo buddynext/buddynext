@@ -1023,10 +1023,19 @@ class PrivacyTools implements ListenerInterface {
 			return array();
 		}
 
+		// Resolve each stored row's raw type slug to its human catalogue label so the
+		// export reads meaningfully instead of exposing an internal slug. The digest
+		// master switch ('digest') is a catalogue entry and resolves to "Email
+		// digests"; any pre-catalogue junk slug with no entry falls back to the raw
+		// type rather than being dropped (card 10264293350).
+		$catalogue = ( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->all();
+
 		$data = array();
 		foreach ( $rows as $row ) {
+			$type   = (string) $row['type'];
+			$label  = isset( $catalogue[ $type ]['label'] ) ? (string) $catalogue[ $type ]['label'] : $type;
 			$data[] = array(
-				'name'  => (string) $row['type'],
+				'name'  => $label,
 				'value' => sprintf(
 					/* translators: 1: on-site flag, 2: email frequency. */
 					__( 'on-site: %1$s, email: %2$s', 'buddynext' ),

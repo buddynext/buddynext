@@ -126,6 +126,47 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The digest master switch is a real, member-facing catalogue entry.
+	 *
+	 * Class-preventing guard for card 10264293350 (digest unsubscribe was a
+	 * one-way door). The one-click unsubscribe writes a (user, 'digest',
+	 * email_freq='off') row and the cron suppresses on it; if 'digest' is not a
+	 * catalogue entry then get_all_prefs()/resolve_for_user() intersect it away
+	 * and the REST validator rejects it, so no member-facing control can ever turn
+	 * digests back on. Keeping it catalogued with email_only (so the settings page
+	 * renders the frequency selector as the re-subscribe control) is what makes the
+	 * control exist on the web and in REST. can_email is FALSE: the switch gates the
+	 * bn.daily_digest / bn.weekly_digest sends rather than sending itself, so it
+	 * needs no seeded template.
+	 *
+	 * @return void
+	 */
+	public function test_digest_master_switch_is_catalogued_and_resubscribable(): void {
+		$catalogue = ( new NotificationPrefCatalogue() )->all();
+
+		$this->assertArrayHasKey(
+			'digest',
+			$catalogue,
+			'digest must be a catalogue entry or the unsubscribe is a one-way door.'
+		);
+		$this->assertFalse( $catalogue['digest']['can_email'], 'digest gates the daily/weekly sends; it does not send itself, so it needs no template.' );
+		$this->assertTrue( ! empty( $catalogue['digest']['email_only'] ), 'digest is email-only: the frequency selector is its re-subscribe control.' );
+
+		// The re-subscribe row must be present even for a member with NO stored
+		// prefs — that is the exact case after an unsubscribe writes only the
+		// digest=off suppressor.
+		$resolved = ( new NotificationPrefCatalogue() )->resolve_for_user( array() );
+		$this->assertArrayHasKey( 'digest', $resolved, 'settings UI + REST must render a digest control by default.' );
+
+		// A stored digest=off (the unsubscribe state) surfaces so the member sees
+		// it is off and can flip it back.
+		$off = ( new NotificationPrefCatalogue() )->resolve_for_user(
+			array( 'digest' => array( 'email_freq' => 'off' ) )
+		);
+		$this->assertSame( 'off', $off['digest']['email_freq'] );
+	}
+
+	/**
 	 * Fills tier defaults when the user has no stored rows.
 	 *
 	 * @return void
