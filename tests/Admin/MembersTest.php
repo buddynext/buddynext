@@ -33,6 +33,13 @@ class MembersTest extends \WP_UnitTestCase {
 		parent::set_up();
 		Installer::run();
 		$this->members = new Members();
+
+		// The Members screen is admin-only (handle_suspend/handle_unsuspend gate on
+		// manage_options), and suspend/unsuspend now route through the canonical
+		// ModerationService mutators, which authorise the acting user. Act as an
+		// administrator here so the tests exercise the real caller identity rather
+		// than the anonymous actor the old hand-rolled writes assumed (card 10296532578).
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 	}
 
 	/**
@@ -122,6 +129,10 @@ class MembersTest extends \WP_UnitTestCase {
 	public function test_unsuspend_fires_action(): void {
 		$fired   = false;
 		$user_id = $this->factory->user->create();
+		// Must be suspended first: the canonical mutator fires the hook only when a
+		// row is actually lifted (it no longer fires "unsuspended" when nothing was
+		// suspended, which the old hand-rolled path did — card 10296532578).
+		$this->members->suspend_member( $user_id );
 		add_action(
 			'buddynext_member_unsuspended',
 			function ( $id ) use ( &$fired, $user_id ) {
@@ -132,6 +143,31 @@ class MembersTest extends \WP_UnitTestCase {
 		);
 		$this->members->unsuspend_member( $user_id );
 		$this->assertTrue( $fired );
+	}
+
+	/**
+	 * A Members-screen suspend writes the same bn_mod_log row shape as the queue
+	 * (action 'suspend_user', target the member) and honours a duration - proving
+	 * it routes through ModerationService::suspend_user() rather than the old
+	 * hand-rolled insert (card 10296532578).
+	 */
+	public function test_suspend_member_logs_and_supports_duration(): void {
+		$moderation = buddynext_service( 'moderation' );
+		$user_id    = $this->factory->user->create();
+
+		$this->members->suspend_member( $user_id, 'spamming links', 7 );
+
+		// Audit row, same shape the queue writes.
+		$log = ( new \BuddyNext\Moderation\ModerationLogService() )->get_log_for_user( $user_id );
+		$this->assertNotEmpty( $log, 'A Members-screen suspend must write a bn_mod_log row.' );
+		$this->assertSame( 'suspend_user', $log[0]['action'], 'The logged action must match the queue shape.' );
+		$this->assertSame( $user_id, $log[0]['target_user_id'], 'The log row must target the suspended member.' );
+
+		// Duration reached the suspension row.
+		$active = $moderation->get_active_suspension( $user_id );
+		$this->assertNotNull( $active, 'The member must be suspended.' );
+		$this->assertSame( 7, $active['duration_days'], 'The chosen duration must reach the suspension row.' );
+		$this->assertNotNull( $active['expires_at'], 'A bounded suspension must carry an expiry.' );
 	}
 
 	/**

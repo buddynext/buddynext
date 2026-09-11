@@ -2339,6 +2339,63 @@ class ModerationService {
 	}
 
 	/**
+	 * IDs of every currently-suspended user (active, unexpired).
+	 *
+	 * The canonical list behind any "show suspended members" surface, so the
+	 * admin Members screen no longer hand-queries bn_user_suspensions itself
+	 * (card 10296532578). Predicate mirrors is_suspended() exactly.
+	 *
+	 * @return int[] Suspended user IDs (may be empty).
+	 */
+	public function active_suspended_user_ids(): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			"SELECT DISTINCT user_id
+			 FROM {$wpdb->prefix}bn_user_suspensions
+			 WHERE lifted_at IS NULL
+			   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'absint', (array) $ids );
+	}
+
+	/**
+	 * Of the given user IDs, those with an active (unexpired) suspension.
+	 *
+	 * A batch is_suspended() for a page of members — one query instead of one
+	 * per row (card 10296532578). Predicate mirrors is_suspended() exactly.
+	 *
+	 * @param int[] $user_ids User IDs to test.
+	 * @return int[] The subset that is currently suspended.
+	 */
+	public function filter_active_suspended( array $user_ids ): array {
+		$user_ids = array_values( array_filter( array_map( 'absint', $user_ids ) ) );
+		if ( empty( $user_ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+		$placeholders = implode( ',', array_fill( 0, count( $user_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE user_id IN ({$placeholders})
+				   AND lifted_at IS NULL
+				   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())",
+				...$user_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		return array_map( 'absint', (array) $ids );
+	}
+
+	/**
 	 * Build a SQL fragment that excludes suspended and shadow-banned users.
 	 *
 	 * The single canonical moderation-exclusion builder, keyed on a caller-named

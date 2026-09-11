@@ -212,16 +212,9 @@ class Members extends AdminPageBase {
 		}
 
 		if ( 'suspended' === $status ) {
-			global $wpdb;
-
-			// Fetch IDs of currently suspended users from the authoritative table.
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$suspended_ids = $wpdb->get_col(
-				"SELECT DISTINCT user_id
-				 FROM {$wpdb->prefix}bn_user_suspensions
-				 WHERE lifted_at IS NULL
-				   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
-			);
+			// IDs of currently suspended users, from the canonical moderation
+			// service rather than a hand-rolled suspensions query (card 10296532578).
+			$suspended_ids = ( new \BuddyNext\Moderation\ModerationService() )->active_suspended_user_ids();
 
 			if ( empty( $suspended_ids ) ) {
 				return array(
@@ -231,7 +224,7 @@ class Members extends AdminPageBase {
 				);
 			}
 
-			$query_args['include'] = array_map( 'absint', $suspended_ids );
+			$query_args['include'] = $suspended_ids;
 		}
 
 		// Last-active ordering lives in bn_presence, which WP_User_Query cannot
@@ -283,18 +276,12 @@ class Members extends AdminPageBase {
 		$presence_map  = array();
 		if ( ! empty( $result_ids ) ) {
 			global $wpdb;
-			$int_ids      = array_map( 'intval', $result_ids );
-			$placeholders = implode( ',', array_fill( 0, count( $int_ids ), '%d' ) );
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			// Which of this page's members are suspended, in one batch through the
+			// canonical moderation service rather than a hand-rolled suspensions
+			// query (card 10296532578).
 			$suspended_set = array_flip(
-				(array) $wpdb->get_col(
-					$wpdb->prepare(
-						"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions WHERE user_id IN ({$placeholders}) AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())",
-						...$int_ids
-					)
-				)
+				( new \BuddyNext\Moderation\ModerationService() )->filter_active_suspended( $result_ids )
 			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 			// Prime usermeta cache for this batch — prevents extra queries during
 			// avatar rendering and any meta reads that follow in template loops.
@@ -302,6 +289,8 @@ class Members extends AdminPageBase {
 
 			// Batch presence in one indexed read (was a per-row bn_last_active meta
 			// lookup) so the loop below issues no per-row presence query.
+			$int_ids      = array_map( 'intval', $result_ids );
+			$placeholders = implode( ',', array_fill( 0, count( $int_ids ), '%d' ) );
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 			$presence_rows = (array) $wpdb->get_results(
 				$wpdb->prepare(
@@ -432,67 +421,29 @@ class Members extends AdminPageBase {
 	/**
 	 * Suspend a community member.
 	 *
-	 * Writes a row to bn_user_suspensions (hide_posts=0 — an action restriction
-	 * that leaves the member's existing content visible) and fires both
-	 * buddynext_user_suspended (canonical — EventListener listens here for
-	 * email/notification dispatch) and the legacy buddynext_member_suspended hook
-	 * for any third-party listeners.
+	 * Routed through the canonical mutator ModerationService::suspend_user(), the
+	 * single writer of the suspensions table: it fires buddynext_user_suspended +
+	 * the legacy buddynext_member_suspended hook, writes the bn_mod_log audit row,
+	 * enforces the admin-only-indefinite rule, is idempotent on an already-active
+	 * suspension, and resolves the member's open reports. This screen used to
+	 * hand-roll the insert, the hooks and the log, which drifted from that mutator
+	 * (card 10296532578). An admin passes the mutator's permission checks via the
+	 * manage_options bypass; a positive $duration_days lets a non-admin path stay
+	 * within the bounded-suspension rule.
 	 *
-	 * The bn_user_suspensions table is the single source of truth for suspension
-	 * state; the old bn_suspended usermeta was retired (it created a split-brain
-	 * where admin-panel suspensions hid content that REST/queue ones did not).
-	 *
-	 * @param int    $user_id WordPress user ID.
-	 * @param string $reason  Optional reason recorded with the suspension.
+	 * @param int    $user_id       WordPress user ID.
+	 * @param string $reason        Optional reason recorded with the suspension.
+	 * @param int    $duration_days Suspension length in days; 0 = indefinite (admin only).
 	 * @return void
 	 */
-	public function suspend_member( int $user_id, string $reason = '' ): void {
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_user_suspensions',
-			array(
-				'user_id'      => $user_id,
-				'suspended_by' => get_current_user_id(),
-				'reason'       => $reason,
-				'hide_posts'   => 0,
-			),
-			array( '%d', '%d', '%s', '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	public function suspend_member( int $user_id, string $reason = '', int $duration_days = 0 ): void {
+		$opts = $duration_days > 0 ? array( 'duration_days' => $duration_days ) : array();
 
-		$actor_id = get_current_user_id();
-
-		/**
-		 * Fires after an admin suspends a member via the Members panel.
-		 * Signature matches ModerationService::suspend() so EventListener picks it up.
-		 *
-		 * @param int    $user_id     Suspended user ID.
-		 * @param int    $actor_id    Admin who performed the suspension.
-		 * @param string $reason      Reason string (empty for panel suspensions).
-		 * @param null   $expires_at  NULL = indefinite suspension.
-		 */
-		do_action( 'buddynext_user_suspended', $user_id, $actor_id, $reason, null );
-
-		/**
-		 * Legacy hook — kept for backwards compatibility with third-party listeners.
-		 *
-		 * @param int $user_id   Suspended user ID.
-		 * @param int $actor_id  Admin user who performed the suspension.
-		 */
-		do_action( 'buddynext_member_suspended', $user_id, $actor_id );
-
-		// Audit trail. The wp-admin Members screen suspended without recording a
-		// bn_mod_log row, so a site owner could not see what this screen did (the
-		// REST + queue + bulk + AI paths all log; this one did not). Site-level
-		// action, so space_id is left at its 0 default (card 10264294456).
-		( new \BuddyNext\Moderation\ModerationLogService() )->log(
-			$actor_id,
-			'suspend_user',
-			array(
-				'target_user_id' => $user_id,
-				'note'           => $reason,
-			)
+		( new \BuddyNext\Moderation\ModerationService() )->suspend_user(
+			$user_id,
+			get_current_user_id(),
+			$reason,
+			$opts
 		);
 
 		delete_transient( self::STATS_CACHE );
@@ -501,62 +452,17 @@ class Members extends AdminPageBase {
 	/**
 	 * Lift the suspension for a community member.
 	 *
-	 * Marks the most-recent active bn_user_suspensions row as lifted and fires
-	 * both buddynext_user_unsuspended (canonical) and the legacy
-	 * buddynext_member_unsuspended hook. (The retired bn_suspended usermeta is no
-	 * longer written or read; a one-time upgrade step clears any stray values.)
+	 * Routed through the canonical mutator ModerationService::unsuspend_user(),
+	 * which marks the most-recent active row lifted, fires both
+	 * buddynext_user_unsuspended and the legacy buddynext_member_unsuspended hook
+	 * (with the correct 2-arg arity), and writes the bn_mod_log audit row. This
+	 * screen used to hand-roll all of that (card 10296532578).
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return void
 	 */
 	public function unsuspend_member( int $user_id ): void {
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_user_suspensions
-				 SET lifted_at = %s, lifted_by = %d
-				 WHERE user_id = %d AND lifted_at IS NULL
-				 ORDER BY id DESC
-				 LIMIT 1",
-				current_time( 'mysql' ),
-				get_current_user_id(),
-				$user_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		/**
-		 * Fires after an admin lifts a suspension.
-		 * Signature matches ModerationService::unsuspend_user() so EventListener
-		 * sends the confirmation email/notification.
-		 *
-		 * @param int $user_id Unsuspended user ID.
-		 */
-		do_action( 'buddynext_user_unsuspended', $user_id );
-
-		/**
-		 * Legacy hook — kept for backwards compatibility with third-party listeners.
-		 *
-		 * Fires with BOTH arguments. ModerationService fires this with ( $user_id, $actor_id );
-		 * this site used to pass $user_id alone. WordPress gives a callback only as many
-		 * arguments as the firing site supplied, so a listener registered with the documented 2
-		 * args and a typed signature took an ArgumentCountError — a fatal — whenever a
-		 * suspension was lifted from wp-admin rather than through moderation. The arity is part
-		 * of the contract and must not vary by call site.
-		 *
-		 * @param int $user_id  Unsuspended user ID.
-		 * @param int $actor_id User who lifted the suspension.
-		 */
-		do_action( 'buddynext_member_unsuspended', $user_id, get_current_user_id() );
-
-		// Audit trail — same reasoning as suspend_member(): record the wp-admin
-		// action so the Moderation Log shows who lifted the suspension (card 10264294456).
-		( new \BuddyNext\Moderation\ModerationLogService() )->log(
-			get_current_user_id(),
-			'unsuspend_user',
-			array( 'target_user_id' => $user_id )
-		);
+		( new \BuddyNext\Moderation\ModerationService() )->unsuspend_user( $user_id, get_current_user_id() );
 
 		delete_transient( self::STATS_CACHE );
 	}
@@ -658,10 +564,11 @@ class Members extends AdminPageBase {
 
 		check_admin_referer( 'bn_suspend_member' );
 
-		$user_id = absint( wp_unslash( $_POST['user_id'] ?? 0 ) );
-		$reason  = isset( $_POST['reason'] ) ? sanitize_textarea_field( wp_unslash( $_POST['reason'] ) ) : '';
+		$user_id  = absint( wp_unslash( $_POST['user_id'] ?? 0 ) );
+		$reason   = isset( $_POST['reason'] ) ? sanitize_textarea_field( wp_unslash( $_POST['reason'] ) ) : '';
+		$duration = absint( wp_unslash( $_POST['duration_days'] ?? 0 ) );
 		if ( $user_id > 0 ) {
-			$this->suspend_member( $user_id, $reason );
+			$this->suspend_member( $user_id, $reason, $duration );
 		}
 
 		wp_safe_redirect(
@@ -1911,6 +1818,7 @@ class Members extends AdminPageBase {
 														action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 														data-bn-confirm="1"
 														data-bn-confirm-reason="1"
+														data-bn-confirm-duration="1"
 														data-bn-confirm-title="<?php esc_attr_e( 'Suspend this member?', 'buddynext' ); ?>"
 														data-bn-confirm-body="<?php /* translators: %s: member display name. */ echo esc_attr( sprintf( __( 'Suspend %s? They will lose posting access until the suspension is lifted.', 'buddynext' ), $member['display'] ) ); ?>"
 														data-bn-confirm-label="<?php esc_attr_e( 'Suspend member', 'buddynext' ); ?>">
@@ -2001,6 +1909,16 @@ class Members extends AdminPageBase {
 				<div class="bn-field bn-modal__reason" data-bn-confirm-reason-wrap hidden>
 					<label class="bn-label" for="bn-members-confirm-reason"><?php esc_html_e( 'Reason (optional, shown in the moderation log)', 'buddynext' ); ?></label>
 					<textarea id="bn-members-confirm-reason" class="bn-textarea" rows="3" data-bn-confirm-reason-field></textarea>
+				</div>
+				<div class="bn-field bn-modal__duration" data-bn-confirm-duration-wrap hidden>
+					<label class="bn-label" for="bn-members-confirm-duration"><?php esc_html_e( 'Suspension length', 'buddynext' ); ?></label>
+					<select id="bn-members-confirm-duration" class="bn-input" data-bn-confirm-duration-field>
+						<option value="0"><?php esc_html_e( 'Indefinite (until lifted)', 'buddynext' ); ?></option>
+						<option value="1"><?php esc_html_e( '1 day', 'buddynext' ); ?></option>
+						<option value="7"><?php esc_html_e( '7 days', 'buddynext' ); ?></option>
+						<option value="30"><?php esc_html_e( '30 days', 'buddynext' ); ?></option>
+						<option value="90"><?php esc_html_e( '90 days', 'buddynext' ); ?></option>
+					</select>
 				</div>
 				<?php
 				/*
