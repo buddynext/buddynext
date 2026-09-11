@@ -15,7 +15,21 @@
         "getting-started/06-community-insights.md",
         "getting-started/07-appearance-and-branding.md",
         "getting-started/08-tools-and-maintenance.md",
-        "getting-started/09-object-cache-at-scale.md"
+        "getting-started/09-object-cache-at-scale.md",
+        "getting-started/10-feature-directory.md"
+      ]
+    },
+    {
+      "slug": "recipes-bnext",
+      "name": "Recipes",
+      "docs": [
+        "recipes/01-launch-a-paid-community.md",
+        "recipes/02-private-client-space.md",
+        "recipes/03-moderate-at-scale.md",
+        "recipes/04-migrate-from-buddypress.md",
+        "recipes/05-grow-with-email.md",
+        "recipes/06-reward-and-retain-members.md",
+        "recipes/07-white-label-your-community.md"
       ]
     },
     {
