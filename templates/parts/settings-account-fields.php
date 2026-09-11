@@ -27,8 +27,13 @@ if ( ! is_user_logged_in() ) {
 $user_id = get_current_user_id();
 
 // Account-section setup vars, computed locally so this part is self-contained.
-$twofa_enabled     = \BuddyNext\Auth\TwoFactorService::is_enabled( $user_id );
-$profile_slug      = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+$twofa_enabled = \BuddyNext\Auth\TwoFactorService::is_enabled( $user_id );
+// Prefill from the SAME resolver the /edit page uses (PageRouter::member_handle:
+// bn_profile_slug meta, else the user_nicename fallback). Reading the raw meta
+// alone left the field blank for any member whose handle was never written to
+// bn_profile_slug — while /edit showed their nicename @handle — so the account
+// screen looked like they had no handle at all (card 10294398101, item 5).
+$profile_slug      = \BuddyNext\Core\PageRouter::member_handle( $user_id );
 $profile_url       = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 $pending_email     = (string) get_user_meta( $user_id, 'bn_pending_email', true );
 $rest_nonce        = wp_create_nonce( 'wp_rest' );
@@ -80,7 +85,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						autocomplete="off"
 						spellcheck="false"
 						value="<?php echo esc_attr( $profile_slug ); ?>"
-						placeholder="<?php esc_attr_e( 'your-custom-url', 'buddynext' ); ?>"
+						placeholder="<?php esc_attr_e( 'handle', 'buddynext' ); ?>"
 						aria-describedby="bn-ep-slug-hint bn-ep-slug-status"
 						data-wp-bind--aria-invalid="state.slugIsTaken"
 						data-wp-on--input="actions.checkSlug" />

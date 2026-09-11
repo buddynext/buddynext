@@ -1821,7 +1821,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'   => self::OPTION_WEBHOOK_SECRET,
 							'type'  => 'secret',
 							'label' => __( 'Shared Secret', 'buddynext' ),
-							'hint'  => __( 'Verifies inbound access requests only. Outgoing webhooks are signed with the per-endpoint secret set under Registered endpoints.', 'buddynext' ),
+							'hint'  => __( 'Verifies inbound access requests only. Outgoing webhooks are signed with the per-endpoint secret set under Outbound endpoints.', 'buddynext' ),
 						)
 					),
 				)
@@ -3078,8 +3078,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return void
 	 */
 	private function render_tab_webhooks(): void {
-		$this->open_section( __( 'Webhook Secret', 'buddynext' ) );
-
+		// Two labelled groups so the "Webhooks feature is off" notice below scopes
+		// itself to the OUTBOUND endpoints only. The inbound access webhook (shared
+		// secret + signature verification) is ALWAYS active — it does not depend on
+		// the Webhooks feature toggle — so grouping the secret and signature controls
+		// above the notice made them look feature-gated too (card 10294398101 item 10).
+		$this->open_section( __( 'Inbound access webhook (always active)', 'buddynext' ) );
+		?>
+		<p class="bn-field-hint">
+			<?php esc_html_e( 'These settings secure the inbound POST buddynext/v1/webhook/access endpoint. They stay active whether or not the Webhooks feature is enabled — that toggle governs only the outbound endpoints below.', 'buddynext' ); ?>
+		</p>
+		<?php
 		$webhook_secret = (string) get_option( self::OPTION_WEBHOOK_SECRET, '' );
 		$has_secret     = '' !== $webhook_secret;
 		?>
@@ -3116,23 +3125,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				<?php
 				// State-aware: the button reads "Generate" until a secret exists, then "Rotate".
 				if ( $has_secret ) {
-					esc_html_e( 'Verifies INBOUND requests to POST buddynext/v1/webhook/access, which is the only thing this secret does. Outgoing webhooks are signed with the secret you set on each endpoint under Registered endpoints, not with this one - do not copy this value into Slack or Zapier. Click Rotate for a new strong secret, then Save; the old value stops working immediately, so update whatever calls that endpoint. Left blank, the inbound endpoint refuses every request.', 'buddynext' );
+					esc_html_e( 'Verifies INBOUND requests to POST buddynext/v1/webhook/access, which is the only thing this secret does. Outgoing webhooks are signed with the secret you set on each endpoint under Outbound endpoints, not with this one - do not copy this value into Slack or Zapier. Click Rotate for a new strong secret, then Save; the old value stops working immediately, so update whatever calls that endpoint. Left blank, the inbound endpoint refuses every request.', 'buddynext' );
 				} else {
-					esc_html_e( 'Verifies INBOUND requests to POST buddynext/v1/webhook/access, which is the only thing this secret does. Outgoing webhooks are signed with the secret you set on each endpoint under Registered endpoints, not with this one - do not copy this value into Slack or Zapier. Click Generate, then Save, and give the value to whatever service calls that endpoint. Left blank, the inbound endpoint refuses every request.', 'buddynext' );
+					esc_html_e( 'Verifies INBOUND requests to POST buddynext/v1/webhook/access, which is the only thing this secret does. Outgoing webhooks are signed with the secret you set on each endpoint under Outbound endpoints, not with this one - do not copy this value into Slack or Zapier. Click Generate, then Save, and give the value to whatever service calls that endpoint. Left blank, the inbound endpoint refuses every request.', 'buddynext' );
 				}
 				?>
 			</span>
 			<span class="bn-secret-msg" role="status" aria-live="polite" data-bn-secret-msg></span>
 		</div>
 		<?php
-		$this->close_section();
-
-		$this->open_section( __( 'Signature verification', 'buddynext' ) );
-
 		// On by default (1.1.6): get_option( …, true ) mirrors the enforcement
 		// default in AccessWebhookController::verify_signature(), so the toggle shows
 		// the actual state on an upgraded site with no stored row (strict). An owner
 		// mid-migration turns it OFF to keep accepting the legacy body-only scheme.
+		// Rendered in the SAME inbound section as the shared secret — both govern the
+		// always-on inbound endpoint.
 		$this->render_toggle_row(
 			\BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES,
 			__( 'Require replay-proof webhook signatures', 'buddynext' ),
@@ -3162,7 +3169,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$webhooks_on = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'webhooks' );
 
 		if ( ! $webhooks_on ) {
-			$this->open_section( __( 'Registered endpoints', 'buddynext' ) );
+			$this->open_section( __( 'Outbound endpoints (requires Webhooks feature)', 'buddynext' ) );
 			$features_url = admin_url( 'admin.php?page=buddynext-platform&tab=features' );
 			echo '<div class="bn-card"><p class="bn-field-hint">';
 			printf(
@@ -3183,7 +3190,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$rest_url      = rest_url( 'buddynext/v1/webhooks' );
 		$rest_nonce    = wp_create_nonce( 'wp_rest' );
 
-		$this->open_section( __( 'Registered endpoints', 'buddynext' ) );
+		$this->open_section( __( 'Outbound endpoints (requires Webhooks feature)', 'buddynext' ) );
 		?>
 		<div class="bn-card"
 			data-bn-webhooks

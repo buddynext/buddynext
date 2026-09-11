@@ -114,7 +114,7 @@ class IntegrationControlsAdmin {
 										<p class="bn-field-hint">
 											<?php
 											/* translators: %s: integration name. */
-											printf( esc_html__( 'New %s events appear in the community feed.', 'buddynext' ), esc_html( $bn_label ) );
+											printf( esc_html__( 'New activity from %s appears in the community feed.', 'buddynext' ), esc_html( $bn_label ) );
 											?>
 										</p>
 									</div>

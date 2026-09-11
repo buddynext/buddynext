@@ -48,6 +48,21 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 		$this->assertTrue( $this->service->is_member( $this->space_id, $user_id ) );
 	}
 
+	public function test_new_member_defaults_to_quieter_notifications(): void {
+		// Owner ruling (card 10294398101 item 7): a new member is NOT silently
+		// subscribed to every post — they start on 'mentions_only' and opt UP to
+		// 'all'. Guards against a regression of the default back to 'all'.
+		$user_id = self::factory()->user->create();
+
+		$this->service->join( $this->space_id, $user_id );
+
+		$this->assertSame(
+			'mentions_only',
+			$this->service->get_notification_pref( $this->space_id, $user_id ),
+			'A member joining a space (owner default unset) must default to mentions_only, not all.'
+		);
+	}
+
 	public function test_duplicate_join_is_safe(): void {
 		$user_id = self::factory()->user->create();
 

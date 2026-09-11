@@ -64,7 +64,7 @@ $args = array(
 	'tabs'                 => isset( $tabs ) ? (array) $tabs : array(
 		'all'      => __( 'All', 'buddynext' ),
 		'unread'   => __( 'Unread', 'buddynext' ),
-		'requests' => __( 'Requests', 'buddynext' ),
+		'requests' => __( 'Message requests', 'buddynext' ),
 	),
 	'classes'              => isset( $classes ) ? (array) $classes : array(),
 );

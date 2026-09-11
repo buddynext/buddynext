@@ -117,7 +117,7 @@ do_action( 'buddynext_part_notifications_hero_before', $args );
 			href="<?php echo esc_url( PageRouter::notification_prefs_url() ); ?>"
 			aria-label="<?php esc_attr_e( 'Notification preferences', 'buddynext' ); ?>">
 			<?php buddynext_icon( 'settings' ); ?>
-			<?php esc_html_e( 'Settings', 'buddynext' ); ?>
+			<?php esc_html_e( 'Notification preferences', 'buddynext' ); ?>
 		</a>
 	</div>
 </header>

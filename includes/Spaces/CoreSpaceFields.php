@@ -186,7 +186,11 @@ final class CoreSpaceFields {
 			array(
 				'label'       => __( 'Default notifications for new members', 'buddynext' ),
 				'type'        => 'select',
-				'default'     => 'all',
+				// Owner ruling (card 10294398101, item 7): a new member defaults to the
+				// QUIETER level (mentions only) and opts UP to all activity, rather than
+				// being silently subscribed to every post the moment they join. Owners can
+				// still raise the default per space with this setting.
+				'default'     => 'mentions_only',
 				'options'     => array(
 					'all'           => __( 'All activity', 'buddynext' ),
 					'mentions_only' => __( 'Mentions only', 'buddynext' ),
