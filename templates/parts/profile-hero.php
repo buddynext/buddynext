@@ -149,11 +149,19 @@ $bn_pf_can_follow = true;
 // already exists. ConnectionService enforces this server-side too.
 $bn_pf_can_connect = true;
 if ( $bn_pf_viewer && ! $bn_pf_is_owner ) {
-	$bn_pf_privacy     = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
-	$bn_pf_can_follow  = ! $bn_pf_privacy || ! method_exists( $bn_pf_privacy, 'can_follow' )
-		|| (bool) $bn_pf_privacy->can_follow( $bn_pf_viewer, $bn_pf_uid );
-	$bn_pf_can_connect = ! $bn_pf_privacy || ! method_exists( $bn_pf_privacy, 'can_connect' )
-		|| (bool) $bn_pf_privacy->can_connect( $bn_pf_viewer, $bn_pf_uid );
+	$bn_pf_privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+	// A suspended viewer keeps read access but loses write affordances, so both
+	// buttons must hide. Gated through buddynext_can() - the same seam the follow
+	// and connection services enforce on - so this server-rendered surface stays
+	// in step with the REST payload and the member directory rather than showing a
+	// control that 403s on click.
+	$bn_pf_may_write   = ! function_exists( 'buddynext_can' ) || buddynext_can( $bn_pf_viewer, 'buddynext-connections/follow' );
+	$bn_pf_can_follow  = $bn_pf_may_write
+		&& ( ! $bn_pf_privacy || ! method_exists( $bn_pf_privacy, 'can_follow' )
+			|| (bool) $bn_pf_privacy->can_follow( $bn_pf_viewer, $bn_pf_uid ) );
+	$bn_pf_can_connect = $bn_pf_may_write
+		&& ( ! $bn_pf_privacy || ! method_exists( $bn_pf_privacy, 'can_connect' )
+			|| (bool) $bn_pf_privacy->can_connect( $bn_pf_viewer, $bn_pf_uid ) );
 }
 
 do_action( 'buddynext_part_profile_hero_before', $args );

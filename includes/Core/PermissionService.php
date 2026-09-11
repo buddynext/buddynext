@@ -124,6 +124,20 @@ class PermissionService {
 	);
 
 	/**
+	 * The only capabilities a suspended member keeps. Everything else is a write
+	 * and is denied while the member is suspended. This is an allow-list on
+	 * purpose: an unclassified new capability defaults to "write", so adding one
+	 * without touching this list fails safe (a suspended member cannot use it)
+	 * rather than fails open.
+	 *
+	 * @var string[]
+	 */
+	private const READ_CAPS = array(
+		'buddynext-profile/view',
+		'buddynext-moderation/review-queue',
+	);
+
+	/**
 	 * Check whether a user holds a capability.
 	 *
 	 * @param int    $user_id    WordPress user ID.
@@ -155,6 +169,16 @@ class PermissionService {
 			$result = false;
 		} elseif ( $user && $user->has_cap( 'manage_options' ) ) {
 			$result = true;
+		} elseif ( $this->is_write_capability( $capability ) && $this->writer_is_held( $user_id ) ) {
+			// A suspended member keeps read access and the appeal flow but is denied
+			// every write ability. Enforced at this single seam - every permission
+			// gate in the plugin flows through can() - so the UI (which reads
+			// buddynext_can() to decide whether to render a write control) and the
+			// service (which reads it to allow the action) cannot disagree: the
+			// control hides AND the write refuses from one source of truth, instead
+			// of a control that renders then 403s on click. Admins are exempt above;
+			// the appeal and auth flows do not gate on buddynext_can().
+			$result = false;
 		} elseif ( 'buddynext-moderate-space' === $capability ) {
 			$space_id = isset( $context['space_id'] ) ? (int) $context['space_id'] : 0;
 			$result   = $space_id > 0 && $this->can_moderate_space( $user_id, $space_id );
@@ -183,6 +207,36 @@ class PermissionService {
 		 * @param array  $context    Optional context array.
 		 */
 		return (bool) apply_filters( 'buddynext_user_can', $result, $user_id, $capability, $context );
+	}
+
+	/**
+	 * Whether a capability is a write/action (anything not in READ_CAPS).
+	 *
+	 * @param string $capability Capability slug.
+	 * @return bool
+	 */
+	private function is_write_capability( string $capability ): bool {
+		return ! in_array( $capability, self::READ_CAPS, true );
+	}
+
+	/**
+	 * Whether the member is currently suspended, so write abilities are withheld.
+	 *
+	 * Read through the moderation service (the data-access owner) rather than a
+	 * raw query, so suspension has one definition. Guests are never "held" here -
+	 * their zero-grant is decided in can().
+	 *
+	 * @param int $user_id Member.
+	 * @return bool
+	 */
+	private function writer_is_held( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		$moderation = buddynext_service( 'moderation' );
+		return is_object( $moderation )
+			&& method_exists( $moderation, 'is_suspended' )
+			&& $moderation->is_suspended( $user_id );
 	}
 
 	/**

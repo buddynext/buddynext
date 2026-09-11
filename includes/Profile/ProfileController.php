@@ -1025,7 +1025,11 @@ class ProfileController extends BaseRestController {
 		 * it uses, so the app can drop that request. Both are false for a guest
 		 * and on one's own profile, where neither question means anything.
 		 */
-		if ( $viewer_id && empty( $profile['is_self'] ) ) {
+		// A suspended viewer keeps read access but loses write affordances, so the
+		// follow control must not offer itself. Gated through buddynext_can() - the
+		// same seam the follow service enforces on - so the profile cannot show a
+		// Follow button that then 403s, and stays in step with the member directory.
+		if ( $viewer_id && empty( $profile['is_self'] ) && buddynext_can( $viewer_id, 'buddynext-connections/follow' ) ) {
 			$privacy = buddynext_service( 'privacy' );
 
 			$profile['is_pending'] = $follows instanceof \BuddyNext\SocialGraph\FollowService

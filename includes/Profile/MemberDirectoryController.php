@@ -264,6 +264,13 @@ class MemberDirectoryController extends BaseRestController {
 			$muted_set      = buddynext_service( 'blocks' )->muted_map( $viewer_id, $ids );
 		}
 
+		// A suspended viewer keeps read access but loses every write affordance, so
+		// the interaction controls (follow / connect / message) must not render.
+		// Resolved once here (not per row) through buddynext_can() - the same seam
+		// the write services enforce on - so a control cannot show on the directory
+		// while the action 403s, and cannot drift from the profile surface.
+		$viewer_may_interact = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-connections/follow' );
+
 		/** Mirror the directory prime hook so Pro add-ons batch their per-member data. */
 		do_action( 'buddynext_directory_members_primed', $ids, $viewer_id );
 
@@ -290,7 +297,7 @@ class MemberDirectoryController extends BaseRestController {
 				'follower_count'          => '' === $follower_meta ? 0 : (int) $follower_meta,
 				'mutual_connection_count' => count( (array) ( $mutual[ $uid ] ?? array() ) ),
 			);
-			$items[]       = $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either, $muted_set );
+			$items[]       = $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either, $muted_set, $viewer_may_interact );
 		}
 
 		return $items;
@@ -305,9 +312,10 @@ class MemberDirectoryController extends BaseRestController {
 	 * @param array<int, string>   $connection_map Viewer↔peer status, peer-uid keyed.
 	 * @param array<int, true>     $blocked_either Peers in a block relationship with the viewer.
 	 * @param array<int, true>     $muted_set      Peers the viewer has muted (uid keyed).
+	 * @param bool                 $viewer_may_interact Whether the viewer may send write interactions (false when suspended); gates the follow/connect/message affordances.
 	 * @return array<string, mixed>
 	 */
-	private function shape_item( array $row, int $viewer_id, array $following_set = array(), array $connection_map = array(), array $blocked_either = array(), array $muted_set = array() ): array {
+	private function shape_item( array $row, int $viewer_id, array $following_set = array(), array $connection_map = array(), array $blocked_either = array(), array $muted_set = array(), bool $viewer_may_interact = true ): array {
 		$uid          = (int) ( $row['user_id'] ?? 0 );
 		$display_name = (string) ( $row['display_name'] ?? '' );
 		$user         = get_user_by( 'id', $uid );
@@ -350,7 +358,7 @@ class MemberDirectoryController extends BaseRestController {
 		$conn_status  = null;
 		$is_self      = ( $viewer_id === $uid );
 		$messages_url = '';
-		$can_interact = ( $viewer_id > 0 && ! $is_self );
+		$can_interact = ( $viewer_may_interact && ! $is_self );
 
 		if ( $can_interact ) {
 			$is_following = isset( $following_set[ $uid ] );
