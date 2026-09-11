@@ -85,11 +85,19 @@ class Insights {
 								'delta' => sprintf( __( '+%d this week', 'buddynext' ), $m['members_new_7d'] ),
 								'trend' => $m['members_new_7d'] > 0 ? 'up' : 'flat',
 							),
-							array(
-								'label' => __( 'Active (30 days)', 'buddynext' ),
-								'value' => number_format_i18n( $m['members_active_30d'] ),
-								'delta' => $this->percent_label( $m['members_active_30d'], $m['members_total'] ),
-							),
+							// Rolling-30-day active count. When Pro Analytics is on it
+							// renders a DAU/WAU/MAU strip below (on buddynext_insights_after)
+							// with its own defined windows, so drop this tile rather than
+							// show two undefined "active" numbers for one idea on one
+							// screen (card 10294398101 item 2). Window named in the label
+							// so it never reads as an undefined figure when it does show.
+							...( buddynext_feature_enabled( 'analytics' ) ? array() : array(
+								array(
+									'label' => __( 'Active, last 30 days', 'buddynext' ),
+									'value' => number_format_i18n( $m['members_active_30d'] ),
+									'delta' => $this->percent_label( $m['members_active_30d'], $m['members_total'] ),
+								),
+							) ),
 							array(
 								'label' => __( 'Posts', 'buddynext' ),
 								'value' => number_format_i18n( $m['posts_total'] ),
