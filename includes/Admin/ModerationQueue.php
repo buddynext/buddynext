@@ -896,6 +896,22 @@ class ModerationQueue {
 		$q          = $filters['query'];
 		$actions    = $this->action_labels();
 		$cur_action = (string) ( $q['action'] ?? '' );
+
+		// Legacy slugs folded into a canonical option (e.g. 'warned' -> 'warn')
+		// are dropped from the dropdown so it shows ONE "Warning issued" rather
+		// than two identical entries that each silently hide the other's rows. The
+		// column badge still labels every slug via action_labels(); get_log()
+		// expands the canonical slug to match every folded one (card 10284912236
+		// item 1).
+		$aliased_out = array();
+		foreach ( \BuddyNext\Moderation\ModerationLogService::action_aliases() as $bn_canonical => $bn_slugs ) {
+			foreach ( $bn_slugs as $bn_alias ) {
+				if ( $bn_alias !== $bn_canonical ) {
+					$aliased_out[ $bn_alias ] = true;
+				}
+			}
+		}
+
 		$cur_target = (int) ( $q['user_id'] ?? 0 );
 		$cur_actor  = (int) ( $q['actor_id'] ?? 0 );
 		$cur_space  = (int) ( $q['space_id'] ?? 0 );
@@ -929,6 +945,9 @@ class ModerationQueue {
 				<select name="log_action" class="bn-select" aria-label="<?php esc_attr_e( 'Filter by action', 'buddynext' ); ?>">
 					<option value=""><?php esc_html_e( 'All actions', 'buddynext' ); ?></option>
 					<?php foreach ( $actions as $bn_slug => $bn_label ) : ?>
+						<?php if ( isset( $aliased_out[ $bn_slug ] ) ) : ?>
+							<?php continue; ?>
+						<?php endif; ?>
 						<option value="<?php echo esc_attr( $bn_slug ); ?>" <?php selected( $cur_action, $bn_slug ); ?>><?php echo esc_html( $bn_label ); ?></option>
 					<?php endforeach; ?>
 				</select>

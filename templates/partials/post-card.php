@@ -69,7 +69,7 @@ if ( ! empty( $bn_post['members_only'] ) ) {
 	}
 }
 $post_privacy = $bn_post['privacy'] ?? 'public';
-$post_privacy = in_array( $post_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
+$post_privacy = in_array( $post_privacy, PostService::valid_privacy_values(), true )
 	? $post_privacy
 	: 'public';
 $is_pinned    = ! empty( $bn_post['is_pinned'] );

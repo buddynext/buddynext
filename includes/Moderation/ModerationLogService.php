@@ -147,6 +147,24 @@ class ModerationLogService {
 	}
 
 	/**
+	 * Canonical action slug => every stored slug it should match.
+	 *
+	 * Some actions were written under more than one slug across releases: a
+	 * warning is 'warn' today but older rows carry the legacy 'warned'. Both must
+	 * read as one thing in the log, so the admin filter offers a SINGLE option for
+	 * the canonical slug and get_log() expands it to every slug listed here — no
+	 * row is hidden, and the dropdown shows one "Warning issued", not two. Keyed by
+	 * canonical slug; each value MUST include the canonical slug itself.
+	 *
+	 * @return array<string, string[]>
+	 */
+	public static function action_aliases(): array {
+		return array(
+			'warn' => array( 'warn', 'warned' ),
+		);
+	}
+
+	/**
 	 * Return a paginated slice of the moderation log, newest first, with
 	 * optional filters. Powers the admin-only GET /moderation/log REST route.
 	 *
@@ -192,8 +210,21 @@ class ModerationLogService {
 			$params[] = $actor_id;
 		}
 		if ( '' !== $action ) {
-			$where[]  = 'action = %s';
-			$params[] = $action;
+			// A canonical slug expands to every stored slug it stands for (e.g.
+			// 'warn' also matches the legacy 'warned'), so filtering by the single
+			// dropdown option never silently omits an aliased action's rows.
+			$aliases = self::action_aliases();
+			if ( isset( $aliases[ $action ] ) ) {
+				$slugs        = $aliases[ $action ];
+				$placeholders = implode( ', ', array_fill( 0, count( $slugs ), '%s' ) );
+				$where[]      = "action IN ( {$placeholders} )";
+				foreach ( $slugs as $slug ) {
+					$params[] = $slug;
+				}
+			} else {
+				$where[]  = 'action = %s';
+				$params[] = $action;
+			}
 		}
 		if ( $space_id > 0 ) {
 			$where[]  = 'space_id = %d';

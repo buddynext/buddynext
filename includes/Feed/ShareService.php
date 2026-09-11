@@ -148,7 +148,7 @@ class ShareService {
 				$post_id
 			)
 		);
-		$privacy          = in_array( $original_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
+		$privacy          = in_array( $original_privacy, PostService::valid_privacy_values(), true )
 			? $original_privacy
 			: 'public';
 
