@@ -446,11 +446,13 @@ final class SpaceFieldRegistry {
 	 * calls on the SAME screen enforced nothing at all. The result was a moderator who
 	 * could not rename a space but COULD rewrite who is allowed to post in it.
 	 *
-	 * The rule now: moderation is the moderator's job (who_can_post, who_can_invite,
-	 * require_join_approval, banned_words, the notification default). Identity, reach
-	 * and structure are the owner's (name, description, type, rules, category, the
-	 * integrations, and who is auto-joined at signup). A field declares which it is;
-	 * the surface does not get to decide.
+	 * The rule now: moderation is the moderator's job (require_join_approval,
+	 * banned_words, the notification default). Identity, reach and structure are the
+	 * owner's (name, description, type, rules, category, the integrations,
+	 * who_can_post, who_can_invite, and who is auto-joined at signup) — who may post
+	 * or invite is a structural control over the space, not a moderation action
+	 * (card 10264293210). A field declares which it is; the surface does not get to
+	 * decide.
 	 *
 	 * Site admins pass everything (PermissionService short-circuits `manage_options`).
 	 *

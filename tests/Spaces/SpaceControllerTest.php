@@ -81,6 +81,64 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 404, $response->get_status() );
 	}
 
+	/**
+	 * PUT /permissions rejects require_join_approval on a NON-direct space.
+	 *
+	 * Class-preventing guard for card 10264293210: require_join_approval is only
+	 * meaningful on a direct-join space (the web panel renders + writes the checkbox
+	 * only then). A private space joins by 'request', so the REST route must not
+	 * write an inert flag — it returns 422, matching the web form's guard.
+	 *
+	 * @return void
+	 */
+	public function test_permissions_rejects_join_approval_on_non_direct_space(): void {
+		wp_set_current_user( $this->owner_id );
+
+		$space_id = $this->space_service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Space',
+				'slug' => 'private-space-perm',
+				'type' => 'private', // join_method = 'request', not 'direct'.
+			)
+		);
+
+		$request = new WP_REST_Request( 'PUT', '/buddynext/v1/spaces/' . $space_id . '/permissions' );
+		$request->set_body_params( array( 'require_join_approval' => true ) );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 422, $response->get_status() );
+		$this->assertSame( 'require_join_approval_not_applicable', $response->get_data()['code'] ?? '' );
+	}
+
+	/**
+	 * PUT /permissions accepts require_join_approval on a direct-join space.
+	 *
+	 * The complement to the guard: an open space joins directly, so the flag is
+	 * meaningful and the write succeeds.
+	 *
+	 * @return void
+	 */
+	public function test_permissions_accepts_join_approval_on_direct_space(): void {
+		wp_set_current_user( $this->owner_id );
+
+		$space_id = $this->space_service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Open Space',
+				'slug' => 'open-space-perm',
+				'type' => 'open', // join_method = 'direct'.
+			)
+		);
+
+		$request = new WP_REST_Request( 'PUT', '/buddynext/v1/spaces/' . $space_id . '/permissions' );
+		$request->set_body_params( array( 'require_join_approval' => true ) );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 1, (int) ( $response->get_data()['require_join_approval'] ?? 0 ) );
+	}
+
 	public function test_update_space_requires_auth(): void {
 		$space_id = $this->space_service->create(
 			$this->owner_id,
