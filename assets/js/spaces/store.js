@@ -2439,6 +2439,26 @@ function rebuildReactivePager( totalPages ) {
 	container.appendChild( nav );
 }
 
+/**
+ * Update the directory header count to match the currently rendered grid.
+ * Scoped to the spaces directory head so it never touches another section head.
+ * Uses singular/plural pairs from the i18n dictionary (the store has no plural
+ * engine) and says "N results" while a filter is active, "N spaces available"
+ * otherwise — the same two-numbers-one-source rule the members roster uses.
+ *
+ * @param {boolean} filtered Whether any search/scope/category filter is active.
+ * @param {number}  count    The count to show, from the same response as the rows.
+ */
+function updateDirectorySubtitle( filtered, count ) {
+	var el = document.querySelector( '.bn-sd-stack .bn-section-head__subtitle' );
+	if ( ! el ) { return; }
+	var one  = filtered ? t( 'sdResultsOne', '%s result' ) : t( 'sdAvailableOne', '%s space available' );
+	var many = filtered ? t( 'sdResultsMany', '%s results' ) : t( 'sdAvailableMany', '%s spaces available' );
+	var tpl  = ( 1 === count ) ? one : many;
+	var num  = ( count && count.toLocaleString ) ? count.toLocaleString() : String( count );
+	el.textContent = tpl.replace( '%s', num );
+}
+
 async function executeSpacesFilter() {
 	if ( bnSpacesFilterAbort ) {
 		try { bnSpacesFilterAbort.abort(); } catch ( _e ) {}
@@ -2512,6 +2532,15 @@ async function executeSpacesFilter() {
 			}
 			setDirectoryUiState( 'ready' );
 		}
+
+		// Keep the header count honest. It is SSR-rendered once and would otherwise
+		// keep the unfiltered "N spaces available" while the grid below re-renders to
+		// a filtered set (card 10297104779). Write it from the SAME response that
+		// produced the rows: the paginated (non-search) path carries payload.total;
+		// the search path is a bare array, so its length is the count on screen.
+		var isFiltered    = !! ( state.q || state.mine || state.categoryId );
+		var subtitleCount = ( payload && 'number' === typeof payload.total ) ? payload.total : rows.length;
+		updateDirectorySubtitle( isFiltered, subtitleCount );
 
 		// Update URL state without reload for shareable links. Scope + category
 		// are written as bn_scope / bn_cat (slug) so a reload re-renders the same
