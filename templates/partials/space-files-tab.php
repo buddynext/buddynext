@@ -59,8 +59,13 @@ $bn_sf_can_write = isset( $bn_sf_can_write ) ? (bool) $bn_sf_can_write : false;
 // offered only to a contributor (can_write) when documents are enabled + writable.
 $bn_sf_doc_config = isset( $bn_sf_doc_config ) && is_array( $bn_sf_doc_config ) ? $bn_sf_doc_config : array();
 $bn_sf_can_upload = $bn_sf_can_write && ! empty( $bn_sf_doc_config['enabled'] ) && ! $bn_sf_is_search;
-$bn_sf_folder     = isset( $bn_sf_folder ) ? (int) $bn_sf_folder : 0;
-$bn_sf_up_i18n    = (string) wp_json_encode(
+// A viewer the drive grants write to, but for whom the composer is off because
+// documents are read-only on this site (unlicensed MVS Pro — writes 403), would
+// otherwise meet a silent read-only tab. Show a one-line explanation instead.
+$bn_sf_docs_read_only = ! empty( $bn_sf_docs_read_only );
+$bn_sf_show_ro_notice = $bn_sf_can_write && ! $bn_sf_can_upload && ! $bn_sf_is_search && $bn_sf_docs_read_only;
+$bn_sf_folder         = isset( $bn_sf_folder ) ? (int) $bn_sf_folder : 0;
+$bn_sf_up_i18n        = (string) wp_json_encode(
 	array(
 		'uploading' => __( 'Uploading…', 'buddynext' ),
 		'done'      => __( 'Uploaded.', 'buddynext' ),
@@ -243,6 +248,16 @@ if ( $bn_sf_is_space ) {
 				aria-label="<?php esc_attr_e( 'Choose a file to upload', 'buddynext' ); ?>">
 			<p class="bn-files-upload__status" data-bn-file-upload-status role="status" aria-live="polite" hidden></p>
 		</div>
+	<?php elseif ( $bn_sf_show_ro_notice ) : ?>
+		<p class="bn-files__notice" data-bn-files-readonly>
+			<?php
+			echo esc_html(
+				$bn_sf_is_space
+					? __( 'You can add files to this space, but uploads are turned off on this site right now. Ask an administrator to activate the media add-on.', 'buddynext' )
+					: __( 'Uploads are turned off on this site right now. Ask an administrator to activate the media add-on.', 'buddynext' )
+			);
+			?>
+		</p>
 	<?php endif; ?>
 
 	<?php if ( $bn_sf_is_search ) : ?>

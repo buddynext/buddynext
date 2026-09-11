@@ -103,29 +103,40 @@ trait RendersDriveFiles {
 			return;
 		}
 
+		// Document upload config (enabled/accept/max_size). `enabled` folds in the
+		// per-viewer write capability: it is false when documents are read-only
+		// for this viewer (unlicensed MVS Pro, where writes 403). Capture it once
+		// so the template can tell "this viewer may contribute but the site is
+		// read-only" (documents present, composer off) from "documents disabled".
+		$doc_config     = WPMediaVerseBridge::document_composer_config();
+		$docs_read_only = WPMediaVerseBridge::documents_available() && empty( $doc_config['enabled'] );
+
 		buddynext_get_template(
 			'partials/space-files-tab.php',
 			array(
-				'bn_sf_space_id'     => $drive_id,
-				'bn_sf_drive_type'   => $drive_type,
-				'bn_sf_base_url'     => $base_url,
-				'bn_sf_folders'      => $view['folders'],
-				'bn_sf_documents'    => $view['documents'],
-				'bn_sf_breadcrumbs'  => $view['breadcrumbs'],
-				'bn_sf_folder'       => $view['folder'],
-				'bn_sf_page'         => $view['page'],
-				'bn_sf_pages'        => $view['pages'],
-				'bn_sf_total'        => $view['total'],
-				'bn_sf_folder_page'  => $view['folder_page'],
-				'bn_sf_folder_pages' => $view['folder_pages'],
-				'bn_sf_folder_total' => $view['folder_total'],
-				'bn_sf_can_write'    => $view['can_write'],
-				'bn_sf_can_moderate' => $can_moderate,
-				// Document upload config (enabled/accept/max_size). Drives the Files-tab
-				// uploader the same way the activity composer's attach control is
-				// configured, so a contributor can add a file from the Files tab itself
-				// (into the current drive + folder) rather than only via a post.
-				'bn_sf_doc_config'   => WPMediaVerseBridge::document_composer_config(),
+				'bn_sf_space_id'       => $drive_id,
+				'bn_sf_drive_type'     => $drive_type,
+				'bn_sf_base_url'       => $base_url,
+				'bn_sf_folders'        => $view['folders'],
+				'bn_sf_documents'      => $view['documents'],
+				'bn_sf_breadcrumbs'    => $view['breadcrumbs'],
+				'bn_sf_folder'         => $view['folder'],
+				'bn_sf_page'           => $view['page'],
+				'bn_sf_pages'          => $view['pages'],
+				'bn_sf_total'          => $view['total'],
+				'bn_sf_folder_page'    => $view['folder_page'],
+				'bn_sf_folder_pages'   => $view['folder_pages'],
+				'bn_sf_folder_total'   => $view['folder_total'],
+				'bn_sf_can_write'      => $view['can_write'],
+				'bn_sf_can_moderate'   => $can_moderate,
+				// Drives the Files-tab uploader the same way the activity composer's
+				// attach control is configured, so a contributor can add a file from
+				// the Files tab itself (into the current drive + folder).
+				'bn_sf_doc_config'     => $doc_config,
+				// A member the drive grants write to, on a read-only (unlicensed)
+				// site, would otherwise meet a silent read-only Files tab. The
+				// template shows an explanatory notice instead (card 10256943808).
+				'bn_sf_docs_read_only' => $docs_read_only,
 			)
 		);
 	}
