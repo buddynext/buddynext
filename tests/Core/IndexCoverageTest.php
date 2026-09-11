@@ -151,6 +151,27 @@ class IndexCoverageTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Table bn_mod_log — never pruned; the space Moderation tab filters it hard.
+	 *
+	 * The space tab reads WHERE space_id = %d AND action = %s ORDER BY created_at
+	 * DESC. The single-column space (space_id) and action_time (action, created_at)
+	 * keys cannot satisfy that combined predicate + sort, so MySQL row-filtered and
+	 * filesorted a growing table (card 10264294456). The composite seeks both
+	 * equalities and reads created_at already in order.
+	 *
+	 * @return void
+	 */
+	public function test_bn_mod_log_space_tab_index(): void {
+		$idx = $this->indexes( 'bn_mod_log' );
+
+		$this->assertSame(
+			array( 'space_id', 'action', 'created_at' ),
+			$idx['space_action_time'] ?? array(),
+			'The space Moderation tab (space_id + action, ORDER BY created_at) filesorts without this composite.'
+		);
+	}
+
+	/**
 	 * Table bn_follows — one row per follow.
 	 *
 	 * @return void

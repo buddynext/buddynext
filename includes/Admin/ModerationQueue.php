@@ -1048,6 +1048,17 @@ class ModerationQueue {
 		$actor   = get_current_user_id();
 		$service = new ModerationService();
 
+		// Read the report's space_id BEFORE running the action. An action can remove
+		// the reported content and, in future, the report row itself; reading after
+		// the switch then returns null and the log row defaults space_id to 0, so the
+		// action vanishes from that space's Moderation tab (which filters on
+		// space_id). The premod path already reads before acting; do the same here
+		// (card 10264294456). Captured for every op — the log below only uses it for
+		// the report_actions ops, but capturing unconditionally keeps it correct if
+		// the switch grows.
+		$report_row      = $service->get_report( $report_id );
+		$report_space_id = (int) ( ( is_array( $report_row ) ? $report_row : array() )['space_id'] ?? 0 );
+
 		$result = true;
 		switch ( $op ) {
 			case 'dismiss':
@@ -1073,17 +1084,15 @@ class ModerationQueue {
 			'escalate' => 'escalate_report',
 		);
 		if ( ! is_wp_error( $result ) && isset( $report_actions[ $op ] ) ) {
-			// Carry the report's space_id so a space report actioned from wp-admin
-			// shows on THAT space's Moderation tab, not only the site log — the
-			// space tab filters on space_id and this writer defaulted it to 0
-			// (card 10264294456 RFT round 4). Mirrors Pro's BulkModService.
-			$report_row = $service->get_report( $report_id );
+			// space_id read pre-action above, so a space report actioned from wp-admin
+			// shows on THAT space's Moderation tab, not only the site log. Mirrors
+			// Pro's BulkModService.
 			( new \BuddyNext\Moderation\ModerationLogService() )->log(
 				$actor,
 				$report_actions[ $op ],
 				array(
 					'report_id' => $report_id,
-					'space_id'  => (int) ( ( is_array( $report_row ) ? $report_row : array() )['space_id'] ?? 0 ),
+					'space_id'  => $report_space_id,
 				)
 			);
 		}

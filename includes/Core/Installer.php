@@ -368,8 +368,16 @@ class Installer {
 	 *      orphan sweep) filters on that column pair, previously a full table scan
 	 *      per delete, run inside the delete transaction holding gap locks (cards
 	 *      10264293036 / 10264292876). dbDelta ADDs the KEY.
+	 *
+	 *  55: Adds bn_mod_log KEY space_action_time (space_id, action, created_at) —
+	 *      the space Moderation tab reads WHERE space_id = %d AND action = %s ORDER
+	 *      BY created_at DESC, which the space (space_id) / action_time (action,…)
+	 *      single-column keys could not satisfy without a filesort (card
+	 *      10264294456). Also adds bn_poll_options UNIQUE KEY post_option
+	 *      (post_id, id) so a poll option can never be double-counted / mis-attributed
+	 *      across posts (card 10264292330). dbDelta ADDs both keys.
 	 */
-	private const SCHEMA_VERSION = 54;
+	private const SCHEMA_VERSION = 55;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3965,7 +3973,8 @@ class Installer {
 				KEY            created (created_at),
 				KEY            space (space_id),
 				KEY            object (object_type, object_id),
-				KEY            action_time (action, created_at)
+				KEY            action_time (action, created_at),
+				KEY            space_action_time (space_id, action, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_user_strikes (
