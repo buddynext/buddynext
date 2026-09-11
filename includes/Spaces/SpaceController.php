@@ -2034,6 +2034,13 @@ class SpaceController extends BaseRestController {
 		$response->header( 'X-WP-Total', (string) $total );
 		$response->header( 'X-BN-Next-Cursor', (string) ( $page['next_cursor'] ?? '' ) );
 
+		// This route moved from offset paging to per_page + cursor like its siblings
+		// (/users/{id}/followers etc.). An old app build still sending `page` would
+		// otherwise get page one back forever with no signal, looping duplicate
+		// appends. Emit the same Deprecation/Warning pair the sibling routes emit so
+		// the stale client fails loud instead of silently (card 10284805802).
+		$this->flag_deprecated_page_param( $request, $response );
+
 		return $response;
 	}
 
