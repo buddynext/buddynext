@@ -92,13 +92,27 @@ if ( ! in_array( $bn_sm_role, array( 'owner', 'moderator', 'member' ), true ) ) 
 // "load more" that injected fetched cards would leave those islands inert — the
 // WP Interactivity constraint documented in assets/js/feed/shared.js — so we
 // paginate by navigation, not by DOM append. "Next" is a plain link carrying the
-// next cursor; "Previous" is the browser's own history (each page is a real URL).
+// next cursor + breadcrumb trail; "Previous" walks that trail back one page (see
+// the pagination block below), so each page is a real, shareable URL.
 $bn_per_page = 24;
 $bn_after    = isset( $_GET['bn_after'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_after'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
+// Backward-nav breadcrumb. Keyset pagination has no cheap "page N-1" cursor, so
+// each page carries the trail of prior-page cursors (?bn_prev=, comma-separated,
+// page 1 omitted since it has no cursor). "Previous" pops the last entry to land
+// on the EXACT prior page even with JS off — the earlier href fell back to the
+// FIRST page, silently dropping the reader to page 1 (card 10280272637). Cursors
+// are URL-safe base64 (CursorCodec: A-Za-z0-9-_ only, no comma), so comma is a
+// safe delimiter.
+$bn_prev_raw   = isset( $_GET['bn_prev'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_prev'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_prev_trail = \BuddyNext\Core\CursorCodec::parse_trail( $bn_prev_raw );
+
 // exclude_suspended folds in ModerationService::moderation_exclude_sql() via the
 // service. The query is skipped entirely when the roster is gated. The header
-// (space-header.php) already shows the member COUNT, so the body runs no COUNT(*).
+// (space-header.php) shows the space's denormalised member COUNT, which is right
+// for the whole roster but drifts once a filter/search narrows the grid — so the
+// body runs a matching COUNT(*) ONLY when filtering (see $bn_result_count below),
+// never on the default unfiltered view.
 $bn_member_args = array(
 	'search'            => $bn_sm_search,
 	'role'              => $bn_sm_role,
@@ -114,6 +128,18 @@ $bn_page = $bn_can_view_roster
 
 $bn_member_rows = $bn_page['items'];
 $bn_next_cursor = $bn_page['next_cursor'];
+
+// Filtered result total. When a search/role filter is active the header's
+// denormalised member_count no longer matches the roster (it counts the whole
+// space, not the block/suspension/search-filtered subset), so a search that
+// returns 2 cards still showed "31 Members" (card 10280272637). count_members()
+// runs the SAME WHERE as the grid (member_block_where + moderation_exclude_sql +
+// role + search), so this total can never drift from the cards. Computed only
+// while filtering; the unfiltered roster keeps trusting the header count.
+$bn_is_filtered  = ( '' !== $bn_sm_search || '' !== $bn_sm_role );
+$bn_result_count = ( $bn_can_view_roster && $bn_is_filtered )
+	? $bn_member_svc->count_members( $space_id, $current_user_id, $bn_member_args )
+	: null;
 
 // Re-group owner → moderator → member WITHIN the page for display. The keyset
 // order and next_cursor come from the service's joined_at ordering and are
@@ -269,6 +295,18 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 		</form>
 	</div>
 
+		<?php if ( null !== $bn_result_count ) : ?>
+		<p class="bn-space-members__result-count" role="status" aria-live="polite">
+			<?php
+			printf(
+				/* translators: %s: number of members matching the active filter/search. */
+				esc_html( _n( '%s result', '%s results', $bn_result_count, 'buddynext' ) ),
+				esc_html( number_format_i18n( $bn_result_count ) )
+			);
+			?>
+		</p>
+	<?php endif; ?>
+
 	<!-- Members grid -->
 	<div
 		class="bn-space-members__grid"
@@ -420,20 +458,47 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 
 		<?php
 		// Keyset prev/next. "Next" carries the opaque cursor of the last row on this
-		// page (?bn_after=), preserving the active filters and dropping any stale
-		// paged/bn_after. "Previous" is the browser's own history — every page is a
-		// distinct URL, so history.back() lands on the exact previous page fully
-		// hydrated (actions.goBack); on a deep link with no history it falls back to
-		// the first page via the href. The nav shows only when a move is possible.
-		$bn_page_base = remove_query_arg( array( 'paged', 'bn_after' ) );
+		// page (?bn_after=) plus the breadcrumb trail (?bn_prev=), preserving the
+		// active filters and dropping any stale paged cursor. "Previous" walks the
+		// trail back to the exact prior page (real page N-1 href); with JS,
+		// actions.goBack still prefers history.back() when we arrived same-origin.
+		// The nav shows only when a move is possible.
+		$bn_page_base = remove_query_arg( array( 'paged', 'bn_after', 'bn_prev' ) );
 		$bn_has_prev  = ( '' !== $bn_after );
 		$bn_has_next  = ( null !== $bn_next_cursor );
+
+		// "Previous" href: pop the last cursor off the trail. The popped cursor is
+		// the prior page's bn_after (absent => page 1); the remainder stays the
+		// trail. This is the real page N-1 URL, so JS-off navigation is correct;
+		// with JS, actions.goBack still prefers history.back() when we arrived from
+		// a same-origin page.
+		$bn_prev_href = $bn_page_base;
+		if ( $bn_has_prev ) {
+			$bn_prev_step = \BuddyNext\Core\CursorCodec::pop_trail( $bn_prev_trail );
+			if ( '' !== $bn_prev_step['after'] ) {
+				$bn_prev_href = add_query_arg( 'bn_after', $bn_prev_step['after'], $bn_page_base );
+			}
+			if ( '' !== $bn_prev_step['trail'] ) {
+				$bn_prev_href = add_query_arg( 'bn_prev', $bn_prev_step['trail'], $bn_prev_href );
+			}
+		}
+
+		// "Next" href: push the current page's cursor onto the trail (page 1's
+		// empty cursor is not stored), so the next page can walk back to this one.
+		$bn_next_href = $bn_page_base;
+		if ( $bn_has_next ) {
+			$bn_next_trail = \BuddyNext\Core\CursorCodec::push_trail( $bn_prev_trail, $bn_after );
+			$bn_next_href  = add_query_arg( 'bn_after', $bn_next_cursor, $bn_page_base );
+			if ( '' !== $bn_next_trail ) {
+				$bn_next_href = add_query_arg( 'bn_prev', $bn_next_trail, $bn_next_href );
+			}
+		}
 		?>
 		<?php if ( $bn_has_prev || $bn_has_next ) : ?>
 		<nav class="bn-space-members__pagination" aria-label="<?php esc_attr_e( 'Members page navigation', 'buddynext' ); ?>">
 			<?php if ( $bn_has_prev ) : ?>
 				<a
-					href="<?php echo esc_url( $bn_page_base ); ?>"
+					href="<?php echo esc_url( $bn_prev_href ); ?>"
 					class="bn-btn"
 					data-variant="ghost"
 					data-size="sm"
@@ -443,7 +508,7 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 
 			<?php if ( $bn_has_next ) : ?>
 				<a
-					href="<?php echo esc_url( add_query_arg( 'bn_after', $bn_next_cursor, $bn_page_base ) ); ?>"
+					href="<?php echo esc_url( $bn_next_href ); ?>"
 					class="bn-btn"
 					data-variant="ghost"
 					data-size="sm"

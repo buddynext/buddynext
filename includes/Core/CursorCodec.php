@@ -84,4 +84,54 @@ final class CursorCodec {
 			'tier'       => isset( $parts[2] ) && is_numeric( $parts[2] ) ? (int) $parts[2] : null,
 		);
 	}
+
+	/**
+	 * Parse a URL-carried keyset back-navigation trail.
+	 *
+	 * Keyset pagination is forward-only, so a page cannot cheaply compute its
+	 * predecessor's cursor. Instead each server-rendered page carries the trail
+	 * of the cursors that led to it (?bn_prev=, comma-separated). Page 1 has no
+	 * cursor, so it is never stored — an empty raw value means "no trail" (page 1
+	 * or page 2). Cursors are URL-safe base64 (encode()), so they never contain a
+	 * comma and the comma delimiter is unambiguous.
+	 *
+	 * @param string $raw Raw ?bn_prev= value.
+	 * @return string[] Ordered list of prior-page cursors (oldest first), possibly empty.
+	 */
+	public static function parse_trail( string $raw ): array {
+		return ( '' !== $raw ) ? explode( ',', $raw ) : array();
+	}
+
+	/**
+	 * Trail to carry on the "Next" link: the current trail plus this page's own
+	 * cursor. Page 1's cursor is empty and is not stored (its predecessor line is
+	 * "no trail"), which keeps the page-1 sentinel out of the trail entirely.
+	 *
+	 * @param string[] $trail   Current page's inbound trail (from parse_trail()).
+	 * @param string   $current This page's own bn_after cursor ('' on page 1).
+	 * @return string Comma-joined trail for the next page's ?bn_prev= ('' => omit the arg).
+	 */
+	public static function push_trail( array $trail, string $current ): string {
+		if ( '' !== $current ) {
+			$trail[] = $current;
+		}
+		return implode( ',', $trail );
+	}
+
+	/**
+	 * Step the trail back one page for the "Previous" link. Pops the last cursor
+	 * (the previous page's bn_after; '' => the previous page is page 1) and
+	 * returns the shortened trail that page should carry.
+	 *
+	 * @param string[] $trail Current page's inbound trail (from parse_trail()).
+	 * @return array{after: string, trail: string} Previous page's bn_after ('' = page 1)
+	 *                                              and its comma-joined ?bn_prev= ('' => omit).
+	 */
+	public static function pop_trail( array $trail ): array {
+		$after = ( array_pop( $trail ) ?? '' );
+		return array(
+			'after' => (string) $after,
+			'trail' => implode( ',', $trail ),
+		);
+	}
 }
