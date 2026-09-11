@@ -1146,6 +1146,7 @@ class AssetService {
 					'voiceRoomScheduled'        => __( 'Voice room scheduled', 'buddynext' ),
 					'voiceScheduleFailed'       => __( 'Could not schedule the voice room. Try again.', 'buddynext' ),
 					'privacyPublic'             => __( 'Public', 'buddynext' ),
+					'privacyMembers'            => __( 'Members only', 'buddynext' ),
 					'privacyFollowers'          => __( 'Followers', 'buddynext' ),
 					'privacyConnections'        => __( 'Connections', 'buddynext' ),
 					'privacyPrivate'            => __( 'Only me', 'buddynext' ),
@@ -1487,11 +1488,54 @@ class AssetService {
 			'buddynext/media-albums',
 			array(
 				'i18n' => array(
-					'detailFailed'   => __( 'Could not load this album.', 'buddynext' ),
-					'pickerFailed'   => __( 'Could not load your media.', 'buddynext' ),
-					'loadFailedBody' => __( 'Something went wrong. Check your connection and try again.', 'buddynext' ),
-					'retry'          => __( 'Try again', 'buddynext' ),
-					'reorderFailed'  => __( 'Could not save the new order. Your photos were put back.', 'buddynext' ),
+					'detailFailed'            => __( 'Could not load this album.', 'buddynext' ),
+					'pickerFailed'            => __( 'Could not load your media.', 'buddynext' ),
+					'loadFailedBody'          => __( 'Something went wrong. Check your connection and try again.', 'buddynext' ),
+					'retry'                   => __( 'Try again', 'buddynext' ),
+					'reorderFailed'           => __( 'Could not save the new order. Your photos were put back.', 'buddynext' ),
+					// Album CRUD + media picker toasts and dialogs. Read by
+					// media/albums-store.js via t() but were never injected, so
+					// they always rendered the English JS fallback.
+					'albumCreated'            => __( 'Album created.', 'buddynext' ),
+					'albumSaved'              => __( 'Album updated.', 'buddynext' ),
+					'albumDeleted'            => __( 'Album deleted.', 'buddynext' ),
+					'createFailed'            => __( 'Could not save the album.', 'buddynext' ),
+					'deleteFailed'            => __( 'Could not delete the album.', 'buddynext' ),
+					'confirmDeleteAlbumTitle' => __( 'Delete this album?', 'buddynext' ),
+					'confirmDeleteAlbumBody'  => __( 'The photos stay in your media.', 'buddynext' ),
+					'delete'                  => __( 'Delete', 'buddynext' ),
+					'emptyAlbum'              => __( 'This album is empty.', 'buddynext' ),
+					'added'                   => __( 'Added to album.', 'buddynext' ),
+					'addFailed'               => __( 'Could not add media.', 'buddynext' ),
+					'removeFromAlbum'         => __( 'Remove from album', 'buddynext' ),
+					'confirmRemove'           => __( 'Remove this from the album?', 'buddynext' ),
+					'removedFromAlbum'        => __( 'Removed from album.', 'buddynext' ),
+					'removeFailed'            => __( 'Could not remove.', 'buddynext' ),
+					'setCover'                => __( 'Set as cover', 'buddynext' ),
+					'coverSet'                => __( 'Cover updated.', 'buddynext' ),
+					'coverFailed'             => __( 'Could not set the cover.', 'buddynext' ),
+					'uploadFailed'            => __( 'Could not upload that file.', 'buddynext' ),
+					'uploadedOne'             => __( 'Uploaded and selected. Choose Add to put it in the album.', 'buddynext' ),
+					'uploadedMany'            => __( 'Uploaded and selected. Choose Add to put them in the album.', 'buddynext' ),
+					'uploadedSharedOne'       => __( 'Uploaded and shared to your feed. Choose Add to also put it in the album.', 'buddynext' ),
+					'uploadedSharedMany'      => __( 'Uploaded and shared to your feed. Choose Add to also put them in the album.', 'buddynext' ),
+				),
+			)
+		);
+		// media/upload-store.js reads the buddynext/media namespace, which had no
+		// i18n injected at all - every one of these rendered the English fallback.
+		wp_interactivity_state(
+			'buddynext/media',
+			array(
+				'i18n' => array(
+					'empty'                 => __( 'No media uploaded yet.', 'buddynext' ),
+					'remove'                => __( 'Remove', 'buddynext' ),
+					'removed'               => __( 'Media removed.', 'buddynext' ),
+					'removeFailed'          => __( 'Could not remove.', 'buddynext' ),
+					'confirmDeleteTitle'    => __( 'Remove this media?', 'buddynext' ),
+					'confirmDeleteBody'     => __( 'This cannot be undone.', 'buddynext' ),
+					/* translators: %s: comma-separated list of space album names the media also belongs to. */
+					'confirmDeleteInSpaces' => __( 'It will also be removed from these space albums: %s', 'buddynext' ),
 				),
 			)
 		);
