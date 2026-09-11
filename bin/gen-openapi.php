@@ -171,8 +171,14 @@ foreach ( $bn_namespaces as $bn_namespace ) {
 			continue; // The namespace index route itself.
 		}
 
-		$bn_tpl                  = $bn_templatize( $bn_rel );
-		$bn_oa_path              = $bn_tpl['path'];
+		$bn_tpl = $bn_templatize( $bn_rel );
+		// With more than one namespace in the document the server is the bare REST
+		// root, so each path must carry its namespace or a client cannot tell which
+		// base it belongs to (Free under /buddynext/v1, Pro under /buddynext-pro/v1).
+		// With a single namespace the server already carries it, so paths stay
+		// namespace-relative (unchanged behaviour).
+		$bn_multi_ns             = count( $bn_namespaces ) > 1;
+		$bn_oa_path              = ( $bn_multi_ns ? $bn_prefix : '' ) . $bn_tpl['path'];
 		$bn_path_par             = $bn_tpl['params'];
 		$bn_tag                  = $bn_tag_pre . $bn_tag_for( $bn_rel, $bn_tag_rules, $bn_fallb_tag );
 		$bn_tags_seen[ $bn_tag ] = true;
@@ -203,7 +209,7 @@ foreach ( $bn_namespaces as $bn_namespace ) {
 				$bn_op = array(
 					'tags'        => array( $bn_tag ),
 					'operationId' => strtolower( $bn_method ) . preg_replace( '/[^A-Za-z0-9]+/', '_', $bn_oa_path ),
-					'summary'     => $bn_method . ' ' . $bn_prefix . $bn_oa_path,
+					'summary'     => $bn_method . ' ' . $bn_prefix . $bn_tpl['path'],
 					'parameters'  => $bn_path_par,
 					'responses'   => array(
 						'200' => array( 'description' => 'Success.' ),
