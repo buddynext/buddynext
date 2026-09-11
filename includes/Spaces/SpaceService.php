@@ -237,6 +237,41 @@ class SpaceService {
 	}
 
 	/**
+	 * Run the banned-words / blocklist scan over a space's name and description.
+	 *
+	 * Name and description are scanned as separate calls so the rejection copy
+	 * names the field the offending word is actually in - a word typed into the
+	 * description is reported as "space description", not "space name" (card
+	 * 10264294340). A hard block returns the WP_Error; a flag verdict is allowed
+	 * through (reactive moderation reports it). Empty fields are skipped.
+	 *
+	 * @param array  $data     Space data carrying optional 'name' and 'description'.
+	 * @param int    $user_id  Author whose content is being scanned.
+	 * @param int    $space_id Space id for the per-space banned list (0 on create).
+	 * @param string $context  Scan context, 'create' or 'edit'.
+	 * @return null|WP_Error WP_Error on a hard block, null when clean or flagged.
+	 */
+	private function scan_space_text( array $data, int $user_id, int $space_id, string $context ): ?WP_Error {
+		$safeguard = buddynext_service( 'safeguard' );
+		$fields    = array(
+			'space name'        => trim( (string) ( $data['name'] ?? '' ) ),
+			'space description' => trim( (string) ( $data['description'] ?? '' ) ),
+		);
+
+		foreach ( $fields as $label => $text ) {
+			if ( '' === $text ) {
+				continue;
+			}
+			$scan = $safeguard->check_content( $text, '', $user_id, $space_id, $context, $label );
+			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $scan ) && is_wp_error( $scan ) ) {
+				return $scan;
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Create a new space.
 	 *
 	 * @param int   $owner_id Creator/owner user ID.
@@ -396,16 +431,15 @@ class SpaceService {
 			: (int) get_option( 'buddynext_space_default_category', 0 );
 		$category_id = $category_id > 0 ? $category_id : null;
 
-		// Banned-words / blocklist scan on the space's public text (name +
-		// description), so a rule enforced on posts and comments cannot be evaded
-		// by putting the text in a space name or description. Hard block rejects;
+		// Banned-words / blocklist scan on the space's public text, so a rule
+		// enforced on posts and comments cannot be evaded by putting the text in a
+		// space name or description. Name and description are scanned separately so
+		// the rejection copy names the field the word was actually in ("space
+		// description", not "space name") - card 10264294340. Hard block rejects;
 		// a flag verdict is allowed through (reactive moderation).
-		$bn_space_text = trim( (string) ( $data['name'] ?? '' ) . ' ' . (string) ( $data['description'] ?? '' ) );
-		if ( '' !== $bn_space_text ) {
-			$bn_space_scan = buddynext_service( 'safeguard' )->check_content( $bn_space_text, '', $owner_id, 0, 'create', 'space name' );
-			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_space_scan ) && is_wp_error( $bn_space_scan ) ) {
-				return $bn_space_scan;
-			}
+		$bn_space_scan = $this->scan_space_text( $data, $owner_id, 0, 'create' );
+		if ( is_wp_error( $bn_space_scan ) ) {
+			return $bn_space_scan;
 		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -525,13 +559,12 @@ class SpaceService {
 
 		// Re-scan the space's public text on edit, so a banned word cannot be
 		// introduced by renaming the space or rewriting its description after
-		// creation. Hard block rejects; a flag verdict is allowed through.
-		$bn_space_text = trim( (string) ( $data['name'] ?? '' ) . ' ' . (string) ( $data['description'] ?? '' ) );
-		if ( '' !== $bn_space_text ) {
-			$bn_space_scan = buddynext_service( 'safeguard' )->check_content( $bn_space_text, '', $user_id, $space_id, 'edit', 'space name' );
-			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_space_scan ) && is_wp_error( $bn_space_scan ) ) {
-				return $bn_space_scan;
-			}
+		// creation. Name and description are scanned separately so the rejection
+		// copy names the correct field (card 10264294340). Hard block rejects; a
+		// flag verdict is allowed through.
+		$bn_space_scan = $this->scan_space_text( $data, $user_id, $space_id, 'edit' );
+		if ( is_wp_error( $bn_space_scan ) ) {
+			return $bn_space_scan;
 		}
 
 		global $wpdb;

@@ -813,7 +813,12 @@ class Installer {
 	 * @return void
 	 */
 	public static function maybe_upgrade(): void {
-		if ( (int) get_option( 'buddynext_schema_version', 0 ) === self::SCHEMA_VERSION
+		// Captured before run() below stamps buddynext_schema_version to the current
+		// value - a couple of the option-cleanup steps key on how far behind the
+		// site actually was, and would otherwise read the just-written new number.
+		$bn_stored_schema = (int) get_option( 'buddynext_schema_version', 0 );
+
+		if ( self::SCHEMA_VERSION === $bn_stored_schema
 			&& self::schema_intact() ) {
 			return;
 		}
@@ -1057,6 +1062,16 @@ class Installer {
 		// already running the previous default-ON build and had configured it.
 		self::maybe_preserve_isolation_state();
 
+		// Clear the tracking-consent flag that pre-1.2.0 wrote WITHOUT consent.
+		// Builds before 1.2.0 set buddynext_license_key_allow_tracking to
+		// allowed:true on every preset-key/license activation, with no opt-in UI at
+		// all - so any true value on such a site was never consented to (card
+		// 10264291915). 1.2.0 removes that write and hands the opt-in to the SDK's
+		// own checkbox (default off), so clearing here restores the correct default
+		// without touching a genuine post-1.2.0 opt-in: a site that could have
+		// opted in is already at the current schema and never reaches this step.
+		self::maybe_clear_unconsented_tracking( $bn_stored_schema );
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 	}
 
@@ -1090,6 +1105,47 @@ class Installer {
 			update_option( \BuddyNext\Core\PluginIsolation::OPTION_ENABLED, '1', true );
 		}
 		// Otherwise leave it unset so the new default (OFF) applies.
+	}
+
+	/**
+	 * Clear a tracking-consent flag pre-1.2.0 wrote without consent (card 10264291915).
+	 *
+	 * Builds before 1.2.0 set buddynext_license_key_allow_tracking to allowed:true
+	 * on every preset-key / license activation, with no opt-in control anywhere -
+	 * so usage tracking was enabled on the owner's behalf without them ever being
+	 * asked. 1.2.0 removes that write and hands the opt-in to the SDK's own
+	 * checkbox (default off). This resets the flag to allowed:false on an upgrading
+	 * site so the corrected default takes effect, and the owner re-enables it only
+	 * by their own explicit choice on the License tab.
+	 *
+	 * Scoped to sites upgrading from a pre-1.2.0 schema ($stored_schema below the
+	 * current SCHEMA_VERSION at the time this shipped): a site new enough to have a
+	 * genuine SDK opt-in is already at the current schema and short-circuits
+	 * maybe_upgrade() before this runs, so a real opt-in is never clobbered. Only
+	 * the 'allowed' flag is flipped; the stored timestamp is left as the record of
+	 * when the non-consented value was written. Idempotent - allowed:false matches
+	 * nothing on a second pass.
+	 *
+	 * @param int $stored_schema The buddynext_schema_version recorded before this upgrade ran.
+	 * @return void
+	 */
+	private static function maybe_clear_unconsented_tracking( int $stored_schema ): void {
+		// 55 was the schema at the release that shipped this fix; a genuine SDK
+		// opt-in only exists on sites already at or past it, and those never reach
+		// this step. Below it means an older build that could only have written the
+		// flag automatically.
+		if ( $stored_schema >= 55 ) {
+			return;
+		}
+
+		$option = 'buddynext_license_key_allow_tracking';
+		$data   = get_option( $option );
+		if ( ! is_array( $data ) || empty( $data['allowed'] ) ) {
+			return;
+		}
+
+		$data['allowed'] = false;
+		update_option( $option, $data );
 	}
 
 	/**

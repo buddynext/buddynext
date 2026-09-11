@@ -75,6 +75,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_buddynext_apply_recommended', array( $this, 'handle_apply_recommended' ) );
 		add_action( 'admin_post_buddynext_dismiss_recommended', array( $this, 'handle_dismiss_recommended' ) );
+		add_action( 'admin_post_buddynext_save_tracking_consent', array( $this, 'handle_save_tracking_consent' ) );
 
 		// The users_can_register mirror lives in Auth\CoreRegistration, which boots
 		// on every request. Hooking it here meant it only ran in wp-admin, so a mode
@@ -234,9 +235,91 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		/**
 		 * Fires inside the Settings > License tab.
 		 *
-		 * BuddyNext Pro hooks this to render its license activation form.
+		 * BuddyNext Pro hooks this to render its license activation form, which
+		 * carries the SDK's own usage-tracking opt-in checkbox.
 		 */
 		do_action( 'buddynext_admin_license_tab_content' );
+
+		// On a Free-only install nothing hooks the action above, so the SDK's
+		// tracking opt-in (which normally rides inside Pro's license form) is
+		// unreachable - the owner has no way to see or withdraw usage tracking.
+		// Render a Free-side opt-in control in that case so consent is always
+		// visible and revocable, defaulting off (card 10264291915). When Pro is
+		// active it owns this control, so we do not duplicate it.
+		if ( ! has_action( 'buddynext_admin_license_tab_content' ) ) {
+			$this->render_tracking_consent_control();
+		}
+	}
+
+	/**
+	 * Render the Free-side usage-tracking opt-in control.
+	 *
+	 * A single nonce-protected checkbox that reads and writes the same
+	 * buddynext_license_key_allow_tracking option the SDK uses, in the SDK's
+	 * array shape. Default off: tracking is only ever enabled by the owner
+	 * explicitly ticking this box and saving. Shown only on a Free-only install,
+	 * where Pro's license form (which normally hosts the SDK checkbox) is absent.
+	 *
+	 * @return void
+	 */
+	private function render_tracking_consent_control(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice routing.
+		$saved = isset( $_GET['bn_tracking'] ) ? sanitize_key( wp_unslash( (string) $_GET['bn_tracking'] ) ) : '';
+		if ( 'saved' === $saved ) {
+			AdminPageBase::render_notice( __( 'Your usage-tracking preference has been saved.', 'buddynext' ), 'success' );
+		}
+
+		$data    = get_option( 'buddynext_license_key_allow_tracking' );
+		$allowed = is_array( $data ) && ! empty( $data['allowed'] );
+		?>
+		<div class="bn-card">
+			<h2><?php esc_html_e( 'Usage tracking', 'buddynext' ); ?></h2>
+			<p>
+				<?php esc_html_e( 'Help improve BuddyNext by sharing anonymous usage data. This is off by default and never sent unless you turn it on here.', 'buddynext' ); ?>
+			</p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="buddynext_save_tracking_consent">
+				<?php wp_nonce_field( 'buddynext_save_tracking_consent' ); ?>
+				<label>
+					<input type="checkbox" name="allow_tracking" value="1" <?php checked( $allowed ); ?>>
+					<?php esc_html_e( 'Allow BuddyNext to collect anonymous usage data.', 'buddynext' ); ?>
+				</label>
+				<p>
+					<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save preference', 'buddynext' ); ?></button>
+				</p>
+			</form>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Persist the Free-side usage-tracking opt-in preference.
+	 *
+	 * Writes buddynext_license_key_allow_tracking in the SDK's array shape so the
+	 * SDK's own get_allow_tracking() reads it. The flag is only ever true when the
+	 * owner ticked the box on this submit - an unchecked box writes allowed:false.
+	 *
+	 * @return void
+	 */
+	public function handle_save_tracking_consent(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+		check_admin_referer( 'buddynext_save_tracking_consent' );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified above.
+		$allowed = ! empty( $_POST['allow_tracking'] );
+
+		update_option(
+			'buddynext_license_key_allow_tracking',
+			array(
+				'allowed'   => $allowed,
+				'timestamp' => time(),
+			)
+		);
+
+		wp_safe_redirect( AdminHub::tab_url( 'settings', 'license', array( 'bn_tracking' => 'saved' ) ) );
+		exit;
 	}
 
 	/**

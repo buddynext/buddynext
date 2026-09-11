@@ -86,6 +86,9 @@
             "name": "Pro: Payments"
         },
         {
+            "name": "Pro: Push Notifications"
+        },
+        {
             "name": "Pro: Realtime"
         },
         {
@@ -1801,6 +1804,210 @@
                 }
             }
         },
+        "/buddynext-pro/v1/events/headcounts": {
+            "get": {
+                "tags": [
+                    "Pro: Misc"
+                ],
+                "operationId": "get_buddynext_pro_v1_events_headcounts",
+                "summary": "GET /buddynext-pro/v1/events/headcounts",
+                "parameters": [
+                    {
+                        "name": "ids",
+                        "in": "query",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    }
+                }
+            }
+        },
+        "/buddynext-pro/v1/events/member/{id}": {
+            "get": {
+                "tags": [
+                    "Pro: Misc"
+                ],
+                "operationId": "get_buddynext_pro_v1_events_member_id_",
+                "summary": "GET /buddynext-pro/v1/events/member/{id}",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "bucket",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "default": 12
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    }
+                }
+            }
+        },
+        "/buddynext-pro/v1/events/space/{id}": {
+            "get": {
+                "tags": [
+                    "Pro: Misc"
+                ],
+                "operationId": "get_buddynext_pro_v1_events_space_id_",
+                "summary": "GET /buddynext-pro/v1/events/space/{id}",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "default": 12
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    }
+                }
+            }
+        },
+        "/buddynext-pro/v1/events/{id}/rsvp": {
+            "get": {
+                "tags": [
+                    "Pro: Misc"
+                ],
+                "operationId": "get_buddynext_pro_v1_events_id_rsvp",
+                "summary": "GET /buddynext-pro/v1/events/{id}/rsvp",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Pro: Misc"
+                ],
+                "operationId": "post_buddynext_pro_v1_events_id_rsvp",
+                "summary": "POST /buddynext-pro/v1/events/{id}/rsvp",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "action": {
+                                        "type": "string",
+                                        "enum": [
+                                            "going",
+                                            "maybe",
+                                            "retract"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "action"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/buddynext-pro/v1/labels": {
             "get": {
                 "tags": [
@@ -2561,6 +2768,264 @@
                         "in": "query",
                         "required": true,
                         "description": "",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/buddynext-pro/v1/me/push-prefs": {
+            "get": {
+                "tags": [
+                    "Pro: Push Notifications"
+                ],
+                "operationId": "get_buddynext_pro_v1_me_push_prefs",
+                "summary": "GET /buddynext-pro/v1/me/push-prefs",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Pro: Push Notifications"
+                ],
+                "operationId": "post_buddynext_pro_v1_me_push_prefs",
+                "summary": "POST /buddynext-pro/v1/me/push-prefs",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Pro: Push Notifications"
+                ],
+                "operationId": "put_buddynext_pro_v1_me_push_prefs",
+                "summary": "PUT /buddynext-pro/v1/me/push-prefs",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Pro: Push Notifications"
+                ],
+                "operationId": "patch_buddynext_pro_v1_me_push_prefs",
+                "summary": "PATCH /buddynext-pro/v1/me/push-prefs",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/buddynext-pro/v1/me/push-tokens": {
+            "get": {
+                "tags": [
+                    "Pro: Push Notifications"
+                ],
+                "operationId": "get_buddynext_pro_v1_me_push_tokens",
+                "summary": "GET /buddynext-pro/v1/me/push-tokens",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Pro: Push Notifications"
+                ],
+                "operationId": "post_buddynext_pro_v1_me_push_tokens",
+                "summary": "POST /buddynext-pro/v1/me/push-tokens",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "token": {
+                                        "type": "string",
+                                        "description": "Device push token."
+                                    },
+                                    "platform": {
+                                        "type": "string",
+                                        "enum": [
+                                            "web",
+                                            "ios",
+                                            "android"
+                                        ],
+                                        "default": "web",
+                                        "description": "Device platform."
+                                    },
+                                    "device_label": {
+                                        "type": "string",
+                                        "description": "Optional human-readable device label."
+                                    }
+                                },
+                                "required": [
+                                    "token"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/buddynext-pro/v1/me/push-tokens/test": {
+            "post": {
+                "tags": [
+                    "Pro: Push Notifications"
+                ],
+                "operationId": "post_buddynext_pro_v1_me_push_tokens_test",
+                "summary": "POST /buddynext-pro/v1/me/push-tokens/test",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/buddynext-pro/v1/me/push-tokens/{id}": {
+            "delete": {
+                "tags": [
+                    "Pro: Push Notifications"
+                ],
+                "operationId": "delete_buddynext_pro_v1_me_push_tokens_id_",
+                "summary": "DELETE /buddynext-pro/v1/me/push-tokens/{id}",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
                         "schema": {
                             "type": "integer"
                         }

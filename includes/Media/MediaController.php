@@ -998,6 +998,25 @@ class MediaController extends BaseRestController {
 			$album_fields['description'] = sanitize_textarea_field( (string) $desc );
 		}
 
+		// Renaming an album must run the same banned-words / blocklist scan as
+		// creating one, or a blocked word rejected on create is reintroduced by
+		// editing the title or description afterwards - the create siblings scan
+		// (create_space_album, create_album), this edit path did not (card
+		// 10264294340). Scan against THIS album's space list too, not just the
+		// site list, so a space's own rule applies. Hard block rejects; a flag
+		// verdict is allowed through (reactive moderation reports it), mirroring
+		// create.
+		if ( ! empty( $album_fields ) ) {
+			$bn_album_text = trim( ( $album_fields['title'] ?? '' ) . ' ' . ( $album_fields['description'] ?? '' ) );
+			if ( '' !== $bn_album_text ) {
+				$bn_album_space = Galleries::album_space( $album_id );
+				$bn_album_scan  = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), $bn_album_space, 'edit', 'album' );
+				if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_album_scan ) && is_wp_error( $bn_album_scan ) ) {
+					return $bn_album_scan;
+				}
+			}
+		}
+
 		if ( ! empty( $album_fields ) ) {
 			$album_service = class_exists( '\\WPMediaVerse\\Core\\Plugin' )
 				? \WPMediaVerse\Core\Plugin::container()->get( 'albums' )
