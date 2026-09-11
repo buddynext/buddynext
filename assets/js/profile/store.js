@@ -837,17 +837,17 @@ async function doSave( ctx ) {
 			// saveProfile's .then() left a window where a re-render could surface
 			// the unsaved-changes prompt after a fully successful save.
 			syncDirtyAttr( false );
-			bnToast( ( window.bnI18n && window.bnI18n.profileSaved ) || t( 'profileSaved', 'Profile saved' ), { tone: 'success' } );
+			bnToast( t( 'profileSaved', 'Profile saved' ), { tone: 'success' } );
 			setTimeout( function () { ctx.saved = false; }, 3000 );
 		} else if ( res.status === 422 && json && json.errors ) {
 			ctx.errors = json.errors;
 			surfaceFieldErrors( json.errors );
-			bnToast( ( window.bnI18n && window.bnI18n.fieldsNeedAttention ) || t( 'fieldsNeedAttention', 'Some fields need attention' ), { tone: 'danger' } );
+			bnToast( t( 'fieldsNeedAttention', 'Some fields need attention' ), { tone: 'danger' } );
 		} else {
-			bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
+			bnToast( t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
 		}
 	} catch ( _e ) {
-		bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
+		bnToast( t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
 	} finally {
 		ctx.saving = false;
 	}
@@ -1344,7 +1344,7 @@ const profileStore = store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
-				bnToast( ( window.bnI18n && window.bnI18n.socialUnlinked ) || t( 'socialUnlinked', 'Account unlinked' ), { tone: 'success' } );
+				bnToast( t( 'socialUnlinked', 'Account unlinked' ), { tone: 'success' } );
 				var row = btn.closest( '.bn-social-link' );
 				if ( row ) {
 					var a = document.createElement( 'a' );
@@ -1356,7 +1356,7 @@ const profileStore = store( 'buddynext/profile', {
 					btn.replaceWith( a );
 				}
 			} catch ( _e ) {
-				bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || t( 'socialUnlinkFailed', 'Could not unlink. Try again.' ), { tone: 'danger' } );
+				bnToast( t( 'socialUnlinkFailed', 'Could not unlink. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1380,9 +1380,9 @@ const profileStore = store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
-				bnToast( ( window.bnI18n && window.bnI18n.memberTypeSaved ) || t( 'memberTypeSaved', 'Member type updated' ), { tone: 'success' } );
+				bnToast( t( 'memberTypeSaved', 'Member type updated' ), { tone: 'success' } );
 			} catch ( _e ) {
-				bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || t( 'memberTypeFailed', 'Could not update member type' ), { tone: 'danger' } );
+				bnToast( t( 'memberTypeFailed', 'Could not update member type' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1414,13 +1414,13 @@ const profileStore = store( 'buddynext/profile', {
 					throw new Error( 'http_' + res.status );
 				}
 				bnToast(
-					( window.bnI18n && window.bnI18n.prefSaved ) || t( 'prefSaved', 'Preference saved' ),
+					t( 'prefSaved', 'Preference saved' ),
 					{ tone: 'success' }
 				);
 			} catch ( _e ) {
 				btn.setAttribute( 'aria-checked', prev ? 'true' : 'false' );
 				bnToast(
-					( window.bnI18n && window.bnI18n.saveFailed ) || t( 'saveFailed', 'Could not save. Please try again.' ),
+					t( 'saveFailed', 'Could not save. Please try again.' ),
 					{ tone: 'danger' }
 				);
 			}
@@ -2268,7 +2268,7 @@ const profileStore = store( 'buddynext/profile', {
 					bnToast( t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not send verification email. Try again.', { tone: 'danger' } );
+				bnToast( t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.emailChangeSubmitting = false;
 			}
@@ -2428,7 +2428,7 @@ const profileStore = store( 'buddynext/profile', {
 					bnToast( t( 'passwordChangeFailed', 'Could not change password. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not change password. Try again.', { tone: 'danger' } );
+				bnToast( t( 'passwordChangeFailed', 'Could not change password. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.passwordChangeSubmitting = false;
 			}

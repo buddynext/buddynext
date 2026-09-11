@@ -76,7 +76,7 @@ import '@buddynext/feed-post-card';
 		endMarker.setAttribute( 'role', 'status' );
 		var text = document.createElement( 'span' );
 		text.className   = 'bn-feed-end__text';
-		text.textContent = ( window.bnI18n && window.bnI18n.feedEnd ) || t( 'feedEnd', "You've reached the end." );
+		text.textContent = t( 'feedEnd', "You've reached the end." );
 		endMarker.appendChild( text );
 		if ( trigger.parentNode ) {
 			trigger.parentNode.replaceChild( endMarker, trigger );
@@ -92,7 +92,7 @@ import '@buddynext/feed-post-card';
 		btn.type            = 'button';
 		btn.className       = 'bn-btn bn-load-more__btn';
 		btn.dataset.variant = 'secondary';
-		btn.textContent     = ( window.bnI18n && window.bnI18n.feedRetry ) || t( 'retry', 'Retry' );
+		btn.textContent     = t( 'retry', 'Retry' );
 		btn.addEventListener( 'click', function () {
 			trigger.removeChild( btn );
 			restartFn();
