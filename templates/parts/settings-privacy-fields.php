@@ -37,8 +37,13 @@ $privacy_audiences = array(
 // Profile-view / follow / connect gates use their own vocabularies (enforced
 // by PrivacyService::can_view_profile / can_follow / can_connect). Kept as
 // distinct option sets so each select offers only the values its gate honours.
+// "Who can see my profile" is the only gate a logged-out visitor can reach
+// (the follow / connect / DM / mention gates below only ever apply to a
+// signed-in member acting on you), so this is where "Everyone" has to say
+// whether it includes the open internet - the one question the card flagged as
+// the only one that matters here.
 $privacy_visibility_options = array(
-	'public'      => __( 'Everyone', 'buddynext' ),
+	'public'      => __( 'Everyone, including logged-out visitors', 'buddynext' ),
 	'followers'   => __( 'My followers', 'buddynext' ),
 	'connections' => __( 'My connections', 'buddynext' ),
 	'private'     => __( 'Only me', 'buddynext' ),
@@ -110,9 +115,23 @@ $bn_capture = static function ( string $part, array $vars ): string {
 	return (string) ob_get_clean();
 };
 
+// Site-wide search-engine indexing policy. A member profile (the "people" hub)
+// is eligible for indexing ONLY under the 'all' policy; 'public_posts' (the
+// shipped default) and 'none' force noindex on every profile upstream
+// (\BuddyNext\Core\PageRouter adds it via wp_robots), so the per-member opt-in
+// below cannot take effect. When the policy excludes profiles we disable the
+// toggle and explain why, rather than offering an opt-in that silently does
+// nothing. We never flip the site setting from here - that is the owner's call.
+$bn_indexing_policy    = (string) get_option( 'buddynext_google_indexing', 'public_posts' );
+$bn_profiles_indexable = ( 'all' === $bn_indexing_policy );
+$bn_search_hint        = $bn_profiles_indexable
+	? __( 'When off, search engines are asked not to list your profile.', 'buddynext' )
+	: __( "Your community's settings currently keep all member profiles out of search engines.", 'buddynext' );
+
 // Privacy section — audience + gate selects, then toggles. Each
-// select row carries its own option set (index 6); toggle rows
-// pass an empty set, which the partial reads as the toggle variant.
+// select row carries its own option set (index 6); toggle rows pass an empty
+// set (the partial reads that as the toggle variant) and an optional disabled
+// flag (index 7).
 $privacy_rows = array(
 	array( 'select', 'bn_privacy_profile_visibility', __( 'Who can see my profile', 'buddynext' ), $privacy_profile_visibility, 'bn-ep-privacy-visibility', '', $privacy_visibility_options ),
 	array( 'select', 'bn_privacy_who_can_follow', __( 'Who can follow me', 'buddynext' ), $privacy_who_can_follow, 'bn-ep-privacy-follow', '', $privacy_follow_options ),
@@ -120,8 +139,8 @@ $privacy_rows = array(
 	array( 'select', 'bn_privacy_dm', __( 'Who can direct-message me', 'buddynext' ), $privacy_dm, 'bn-ep-privacy-dm', '', $privacy_audiences ),
 	array( 'select', 'bn_privacy_mention', __( 'Who can @mention me in posts', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', '', $privacy_audiences ),
 	array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( 'Only approved followers see your posts. New follows arrive as requests you can accept or decline.', 'buddynext' ), array() ),
-	array( 'toggle', 'bn_privacy_show_in_directory', __( 'Show me in the member directory', 'buddynext' ), $privacy_show_in_directory, 'bn-ep-privacy-dir-lbl', __( 'Turn off to hide from /members/.', 'buddynext' ), array() ),
-	array( 'toggle', 'bn_privacy_search_indexable', __( 'Show my profile to search engines', 'buddynext' ), $privacy_search_indexable, 'bn-ep-privacy-search-lbl', __( 'When off, your profile carries noindex.', 'buddynext' ), array() ),
+	array( 'toggle', 'bn_privacy_show_in_directory', __( 'Show me in the member directory', 'buddynext' ), $privacy_show_in_directory, 'bn-ep-privacy-dir-lbl', __( 'Turn off to keep your profile out of the Members directory.', 'buddynext' ), array() ),
+	array( 'toggle', 'bn_privacy_search_indexable', __( 'Show my profile to search engines', 'buddynext' ), $privacy_search_indexable, 'bn-ep-privacy-search-lbl', $bn_search_hint, array(), ! $bn_profiles_indexable ),
 );
 
 // "Hide my profile views" only does something when Pro's profile-view tracking
@@ -143,6 +162,7 @@ foreach ( $privacy_rows as $r ) {
 			'input_id'    => $is_select ? $r[4] : '',
 			'label_id'    => $is_select ? '' : $r[4],
 			'description' => $r[5],
+			'disabled'    => ! empty( $r[7] ),
 		)
 	);
 }
@@ -150,7 +170,7 @@ buddynext_get_template(
 	'parts/profile-edit-section.php',
 	array(
 		'title'        => __( 'Privacy', 'buddynext' ),
-		'subtitle'     => __( 'Control who sees what across the community.', 'buddynext' ),
+		'subtitle'     => __( 'Control who sees what across the community. Each change saves as soon as you make it.', 'buddynext' ),
 		'title_id'     => 'bn-ep-privacy-title',
 		'body_classes' => array( 'bn-ep-privacy-body' ),
 		'body_html'    => $privacy_html,

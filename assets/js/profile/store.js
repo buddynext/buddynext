@@ -1331,6 +1331,39 @@ const profileStore = store( 'buddynext/profile', {
 			}
 		},
 
+		/* Save one privacy audience/gate <select> the instant it changes.
+		 *
+		 * Settings → Privacy uses a single save model: every control — the
+		 * boolean toggles (actions.togglePref) and these audience selects —
+		 * persists as soon as it changes, so the screen carries no Save/Cancel
+		 * bar. This mirrors the per-space notifications card ("Saves immediately
+		 * when you choose an option"). PUTs only the changed key to /me/profile;
+		 * the <select> already displays the chosen value, so there is no
+		 * optimistic state to roll back — on failure we toast and the member can
+		 * re-choose.
+		 *
+		 * @param {Event} event The select's change event.
+		 * @return {void}
+		 */
+		async savePrivacyField( event ) {
+			var sel = event.target;
+			if ( ! sel || ! sel.name ) { return; }
+			var payload = {};
+			payload[ sel.name ] = sel.value;
+			try {
+				var res = await restFetch( '/me/profile', {
+					method:       'PUT',
+					nonce:        nonce(),
+					body:         payload,
+					toastOnError: false,
+				} );
+				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				bnToast( t( 'prefSaved', 'Preference saved' ), { tone: 'success' } );
+			} catch ( _e ) {
+				bnToast( t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
+			}
+		},
+
 		/* Unlink a connected social provider from the current account.
 		 * DELETEs /me/social/{provider} and swaps the row's button back to Connect. */
 		async unlinkSocial( event ) {

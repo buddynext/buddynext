@@ -29,7 +29,19 @@ $bn_blocked_ids    = (array) buddynext_service( 'blocks' )->blocked_users( $user
 $bn_muted_ids      = (array) buddynext_service( 'blocks' )->muted_users( $user_id );
 $bn_restricted_ids = (array) buddynext_service( 'blocks' )->restricted_users( $user_id );
 
-$bn_relations_html = '';
+// Define each state up front: "restricted" has no common meaning and the three
+// read as interchangeable without this. Wording verified against BlockService
+// (block/restrict/mute docblocks) so the copy matches what the code actually
+// does — notably a restricted person can still see and reply to your posts;
+// you just stop seeing their comments, messages and notifications.
+$bn_relations_html = '<dl class="bn-ep-relations-legend">'
+	. '<div class="bn-ep-relations-legend__item"><dt>' . esc_html__( 'Blocked', 'buddynext' ) . '</dt>'
+	. '<dd>' . esc_html__( "They can't see your profile or posts, and can't follow, message or mention you.", 'buddynext' ) . '</dd></div>'
+	. '<div class="bn-ep-relations-legend__item"><dt>' . esc_html__( 'Restricted', 'buddynext' ) . '</dt>'
+	. '<dd>' . esc_html__( "They can still see and reply to your posts, but you no longer see their comments, messages or notifications - and they aren't told.", 'buddynext' ) . '</dd></div>'
+	. '<div class="bn-ep-relations-legend__item"><dt>' . esc_html__( 'Muted', 'buddynext' ) . '</dt>'
+	. '<dd>' . esc_html__( "You stop seeing their activity. They aren't told.", 'buddynext' ) . '</dd></div>'
+	. '</dl>';
 
 if ( ! empty( $bn_blocked_ids ) || ! empty( $bn_muted_ids ) || ! empty( $bn_restricted_ids ) ) {
 	$bn_render_row = static function ( int $target_id, string $action ): string {
@@ -104,7 +116,7 @@ if ( ! empty( $bn_blocked_ids ) || ! empty( $bn_muted_ids ) || ! empty( $bn_rest
 
 	$bn_relations_html .= '</div>';
 } else {
-	$bn_relations_html = '<p class="bn-ep-relations__empty">' . esc_html__( "You haven't blocked, restricted, or muted anyone.", 'buddynext' ) . '</p>';
+	$bn_relations_html .= '<p class="bn-ep-relations__empty">' . esc_html__( "You haven't blocked, restricted, or muted anyone.", 'buddynext' ) . '</p>';
 }
 
 // `id` is the stable deep-link anchor (#bn-settings-relations) used by the

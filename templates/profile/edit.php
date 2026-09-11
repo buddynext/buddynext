@@ -47,6 +47,35 @@ if ( ! $profile_user ) {
 	wp_die( esc_html__( 'Profile not found.', 'buddynext' ) );
 }
 
+// Suspension is stated up front, not discovered by failing on Save.
+//
+// The write is already frozen centrally (RestHoldGate 403s PUT /me/profile) and
+// the profile hero's "Edit profile" button is hidden, but /members/<user>/edit/
+// stays reachable from the left rail and the account menu. Rendering the full
+// form + save bar to a suspended member sends them to fill in 9 fields and only
+// learn on Save that they cannot save. So we replace the whole editor with the
+// reason and the way out, mirroring templates/partials/composer.php.
+//
+// Keyed on the VIEWER, not the profile owner: RestHoldGate freezes writes for
+// the suspended requester, so a (non-suspended) admin editing a suspended
+// member's profile is unaffected and can still moderate.
+if ( function_exists( 'buddynext_service' ) && buddynext_service( 'moderation' )->is_suspended( $current_user_id ) ) {
+	?>
+	<div class="bn-ep-wrap">
+		<div class="bn-composer bn-composer--blocked" role="status">
+			<p class="bn-composer__blocked-text">
+				<?php esc_html_e( 'Your account is suspended, so you cannot edit your profile right now.', 'buddynext' ); ?>
+			</p>
+			<a class="bn-btn bn-composer__blocked-action"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::account_status_url() ); ?>">
+				<?php esc_html_e( 'Review your account status', 'buddynext' ); ?>
+			</a>
+		</div>
+	</div>
+	<?php
+	return;
+}
+
 $display_name      = $profile_user->display_name;
 $profile_email_raw = $profile_user->user_email;
 // The @handle badge shows the member's PUBLIC handle (bn_profile_slug ?: user_nicename) -

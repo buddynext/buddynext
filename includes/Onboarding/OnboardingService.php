@@ -122,7 +122,7 @@ class OnboardingService {
 		);
 		$steps[] = array(
 			'key'   => 'people',
-			'label' => __( 'People', 'buddynext' ),
+			'label' => __( 'Follows', 'buddynext' ),
 			'icon'  => 'users',
 		);
 		$steps[] = array(
