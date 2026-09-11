@@ -16,7 +16,9 @@
         "getting-started/07-appearance-and-branding.md",
         "getting-started/08-tools-and-maintenance.md",
         "getting-started/09-object-cache-at-scale.md",
-        "getting-started/10-feature-directory.md"
+        "getting-started/10-feature-directory.md",
+        "getting-started/11-what-you-can-build.md",
+        "getting-started/12-ways-to-make-money.md"
       ]
     },
     {
@@ -169,6 +171,7 @@
       "slug": "pro-bnext",
       "name": "Pro Features",
       "docs": [
+        "pro/00-overview.md",
         "pro/01-membership-plans.md",
         "pro/02-gated-spaces.md",
         "pro/03-stripe-payments.md",

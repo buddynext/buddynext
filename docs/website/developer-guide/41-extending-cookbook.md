@@ -591,6 +591,92 @@ $posts = buddynext_service( 'post_service' )->get_many( $post_ids );   // PostSe
 
 ---
 
+## Recipe 16 - Register a custom profile field type from code
+
+Recipe 9 added a field of an *existing* type. This one adds a brand-new **field type** - the way BuddyNext Pro adds its Location, Conditional, and File types. A type is registered in one place (the engine) and given behaviour through a small set of filters; the admin field picker and every render/sanitize path then treat it like a built-in.
+
+There are two registries, and a complete type touches both:
+
+- **`buddynext_field_types`** - the engine registry (`Profile\FieldType::types()`), the source of truth for a type's metadata and the render/sanitize pipeline. **Register here or your type degrades to a plain text input.**
+- **`buddynext_profile_field_types`** - the admin field-type dropdown (`Admin\Members\ProfileFieldsManager`). Register here so an owner can actually pick your type when building a field. Omit it to ship a type that existing fields can use but owners cannot newly select (that is how Pro withholds a type while keeping old fields working).
+
+```php
+add_action( 'plugins_loaded', function () {
+
+    // 1) Register the type with the engine. The descriptor's four required keys
+    //    are label, value_kind ('scalar' | 'multi' | 'bool'), is_choice, and
+    //    is_searchable_capable. sample_value is what lets the conformance suite
+    //    prove your type renders its own storage - supply a representative one.
+    add_filter( 'buddynext_field_types', function ( array $types ): array {
+        $types['twitter_handle'] = array(
+            'label'                 => __( 'Twitter handle', 'my-addon' ),
+            'value_kind'            => 'scalar',
+            'is_choice'             => false,
+            'is_searchable_capable' => true,
+            'sample_value'          => '@example',
+        );
+        return $types;
+    } );
+
+    // 2) Offer it in the admin field-type dropdown.
+    add_filter( 'buddynext_profile_field_types', function ( array $types ): array {
+        $types[] = 'twitter_handle';
+        return $types;
+    } );
+    add_filter( 'buddynext_profile_field_type_labels', function ( array $labels ): array {
+        $labels['twitter_handle'] = __( 'Twitter handle', 'my-addon' );
+        return $labels;
+    } );
+
+    // 3) Sanitize on save. Return the stored value; return '' to reject.
+    add_filter( 'buddynext_field_sanitize', function ( $handled, array $field, $raw ) {
+        if ( 'twitter_handle' !== ( $field['type'] ?? '' ) ) {
+            return $handled; // Not ours - pass through untouched.
+        }
+        return '@' . ltrim( sanitize_text_field( (string) $raw ), '@' );
+    }, 10, 3 );
+
+    // 4) Render the input on the profile edit form. Return the field HTML.
+    add_filter( 'buddynext_field_render_input', function ( $handled, array $field, $value, $name ) {
+        if ( 'twitter_handle' !== ( $field['type'] ?? '' ) ) {
+            return $handled;
+        }
+        return sprintf(
+            '<input type="text" name="%s" value="%s" placeholder="@handle" />',
+            esc_attr( $name ),
+            esc_attr( (string) $value )
+        );
+    }, 10, 4 );
+
+    // 5) Render the display value on the profile. Return the display HTML.
+    add_filter( 'buddynext_field_render_display', function ( $handled, array $field, $value ) {
+        if ( 'twitter_handle' !== ( $field['type'] ?? '' ) ) {
+            return $handled;
+        }
+        $handle = ltrim( (string) $value, '@' );
+        return sprintf(
+            '<a href="https://twitter.com/%s" rel="nofollow">@%1$s</a>',
+            esc_attr( $handle )
+        );
+    }, 10, 3 );
+
+    // 6) (Optional) Feed the search index a plain-text form of the value, since
+    //    this type declared is_searchable_capable => true.
+    add_filter( 'buddynext_field_searchable_text', function ( $text, array $field, $value ) {
+        if ( 'twitter_handle' !== ( $field['type'] ?? '' ) ) {
+            return $text;
+        }
+        return ltrim( (string) $value, '@' );
+    }, 10, 3 );
+} );
+```
+
+Each render/sanitize filter is passed `null` (or the running value) as its first argument and **must return the untouched argument for types that are not yours** - returning your own value unconditionally would hijack every other type. For a type that needs its own options box in the admin (a choice list, a format setting), also hook the `buddynext_profile_field_type_options` action, which fires inside the field editor for the selected type.
+
+**Reference implementation:** BuddyNext Pro's `Profile\AdvancedFieldTypes` (engine registration for Location, Conditional, advanced Number/Multi-select, and an extended Date) and `Admin\AdvancedFieldsAdmin` (the dropdown labels and the per-type options box) are the complete, shipping example of this recipe.
+
+---
+
 ## Notes and gotchas
 
 - **Filters return, actions react.** A filter that returns nothing erases the value. An action's return value is ignored.
