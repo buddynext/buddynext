@@ -68,11 +68,11 @@ if ( ! empty( $bn_post['members_only'] ) ) {
 		$post_content      = $bn_mo_gate['teaser'];
 	}
 }
-$post_privacy   = $bn_post['privacy'] ?? 'public';
-$post_privacy   = in_array( $post_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
+$post_privacy = $bn_post['privacy'] ?? 'public';
+$post_privacy = in_array( $post_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
 	? $post_privacy
 	: 'public';
-$is_pinned      = ! empty( $bn_post['is_pinned'] );
+$is_pinned    = ! empty( $bn_post['is_pinned'] );
 // The "Pinned" badge is surface-relative: a post is pinned to a member's PROFILE
 // strip, never to the global home/explore/single/bookmarks feed — and no longer
 // to a space (spaces surface important content through Announcements, not pins).
@@ -128,9 +128,9 @@ if ( ! function_exists( 'bn_post_card_to_array' ) ) {
 		return array();
 	}
 }
-$media_ids    = bn_post_card_to_array( $bn_post['media_ids'] ?? null );
-$link_url     = $bn_post['link_url'] ?? '';
-$link_meta    = bn_post_card_to_array( $bn_post['link_meta'] ?? null );
+$media_ids = bn_post_card_to_array( $bn_post['media_ids'] ?? null );
+$link_url  = $bn_post['link_url'] ?? '';
+$link_meta = bn_post_card_to_array( $bn_post['link_meta'] ?? null );
 // A locked members-only post shows no media or link preview behind the wall.
 if ( $bn_members_locked ) {
 	$media_ids = array();
@@ -211,6 +211,10 @@ if (
 	$current_user_id > 0
 	&& ! $is_own_post
 	&& $post_author_id > 0
+	// A suspended member cannot follow (POST /users/{id}/follow 403s), so the
+	// byline Follow must hide like every other write control — same
+	// buddynext_can( follow ) seam the profile hero and member directory use.
+	&& ( ! function_exists( 'buddynext_can' ) || buddynext_can( $current_user_id, 'buddynext-connections/follow' ) )
 	&& (bool) apply_filters( 'buddynext_byline_show_follow', true, $post_author_id, $bn_post_id )
 ) {
 	if ( ! isset( $GLOBALS['bn_byline_follow_memo'] ) ) {
@@ -271,8 +275,19 @@ $can_delete = $is_own_post || ( $current_user_id > 0 && buddynext_can( $current_
 // excluded here too, or the control renders where it can only 403. No admin/
 // moderator pinning of a member's post either — that is the member's own
 // curation. Mirrors the server gate in PostService::pin().
-$can_pin    = $is_own_post && 'profile' === $context && 0 === $bn_space_id;
-$can_report = ( $current_user_id > 0 && ! $is_own_post );
+$can_pin = $is_own_post && 'profile' === $context && 0 === $bn_space_id;
+
+// A suspended member keeps read access but loses every write affordance (owner
+// decision 3, card 10264293681). Resolve that write gate ONCE here, through the
+// same buddynext_can() seam the REST engagement routes enforce on, and AND it
+// into every interaction control below — so a held member sees no button that
+// would 403 on click, from one source of truth rather than a per-control
+// suspension check the next new control would forget to add. Normal members hold
+// buddynext-feed/interact (member cap), so nothing changes for them.
+$bn_can_interact = ( $current_user_id > 0
+	&& ( ! function_exists( 'buddynext_can' ) || buddynext_can( $current_user_id, 'buddynext-feed/interact' ) ) );
+
+$can_report = ( $current_user_id > 0 && ! $is_own_post && $bn_can_interact );
 
 // Reactions are a site-owner-toggleable feature (Settings → Features, default on).
 // When the owner disables it the React button + emoji picker and the engagement
@@ -281,7 +296,7 @@ $can_report = ( $current_user_id > 0 && ! $is_own_post );
 $bn_reactions_enabled = ! function_exists( 'buddynext_service' )
 	|| ! is_object( buddynext_service( 'features' ) )
 	|| buddynext_service( 'features' )->is_enabled( 'reactions' );
-$can_react            = ( $current_user_id > 0 && $bn_reactions_enabled );
+$can_react            = ( $current_user_id > 0 && $bn_reactions_enabled && $bn_can_interact );
 
 // Comments are a site-owner-toggleable feature (Settings → Features, default on).
 // When the owner disables it the Comment button, the comment composer, and the
@@ -290,13 +305,13 @@ $can_react            = ( $current_user_id > 0 && $bn_reactions_enabled );
 $bn_comments_enabled = ! function_exists( 'buddynext_service' )
 	|| ! is_object( buddynext_service( 'features' ) )
 	|| buddynext_service( 'features' )->is_enabled( 'comments' );
-$can_comment         = ( $current_user_id > 0 && $bn_comments_enabled );
+$can_comment         = ( $current_user_id > 0 && $bn_comments_enabled && $bn_can_interact );
 
 // Re-shares and bookmarks are site-owner toggles (BuddyNext → Social). When the
 // owner disables a feature the corresponding action control must disappear, not
 // just no-op — both default ON when the option is unset.
-$can_share    = ( $current_user_id > 0 && buddynext_feature_enabled( 'shares' ) );
-$can_bookmark = ( $current_user_id > 0 && buddynext_feature_enabled( 'bookmarks' ) );
+$can_share    = ( $current_user_id > 0 && buddynext_feature_enabled( 'shares' ) && $bn_can_interact );
+$can_bookmark = ( $current_user_id > 0 && buddynext_feature_enabled( 'bookmarks' ) && $bn_can_interact );
 
 // A post that is not published yet has nothing to engage with. React, Comment,
 // Share and Save render on the author's own Scheduled and Pending tabs, and none
@@ -323,7 +338,7 @@ $share_nonce    = $rest_nonce;
 $bookmark_nonce = $rest_nonce;
 $report_nonce   = $can_report ? $rest_nonce : '';
 $dismiss_nonce  = $is_announcement ? $rest_nonce : '';
-$poll_nonce     = ( 'poll' === $bn_post_type && $current_user_id > 0 ) ? $rest_nonce : '';
+$poll_nonce     = ( 'poll' === $bn_post_type && $current_user_id > 0 && $bn_can_interact ) ? $rest_nonce : '';
 
 // ── Poll totals + reactive context ─────────────────────────────────────────────
 $poll_total_votes   = 0;
@@ -406,10 +421,12 @@ $privacy_icons  = array(
  * marker on every post overrides this template - it is theme-overridable like
  * every other one, which is why this needs no filter of its own.
  */
-$privacy_label  = ( 'public' !== $post_privacy && isset( $privacy_labels[ $post_privacy ] ) )
+$privacy_label = ( 'public' !== $post_privacy && isset( $privacy_labels[ $post_privacy ] ) )
 	? esc_html( $privacy_labels[ $post_privacy ] )
 	: '';
-$privacy_icon   = '' !== $privacy_label ? ( $privacy_icons[ $post_privacy ] ?? '' ) : '';
+// $post_privacy is validated to one of the five keys above, and $privacy_icons
+// carries all five, so the offset always exists here — no null-coalesce needed.
+$privacy_icon = '' !== $privacy_label ? $privacy_icons[ $post_privacy ] : '';
 
 /*
  * A members-only post is stored privacy='public' + members_only=1, so the
@@ -781,6 +798,10 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 				'my_voted_option_id' => $my_voted_option_id,
 				'closed'             => $poll_closed,
 				'end_date'           => $poll_end_date,
+				// A suspended member reads results but cannot vote. Carried as a
+				// distinct flag (not folded into 'closed') so the option buttons
+				// disable without the misleading "Poll closed" label.
+				'can_vote'           => $bn_can_interact,
 			),
 			'media_attachments' => $media_ids,
 			'is_pinned'         => $is_pinned,
@@ -856,7 +877,13 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 			)
 		);
 
-		if ( $current_user_id > 0 ) {
+		// Gate the composer on $can_comment, not merely "logged in": that flag
+		// already folds in the comments feature toggle AND the suspension write
+		// gate ($bn_can_interact), so a suspended member sees the comment thread
+		// (a read) on the auto-expanded permalink but no composer to write into it.
+		// Without this the Comment BUTTON hid while the permalink still surfaced the
+		// composer that 403s on submit.
+		if ( $can_comment ) {
 			buddynext_get_template(
 				'parts/post-comment-form.php',
 				array(

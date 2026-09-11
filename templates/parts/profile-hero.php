@@ -114,23 +114,30 @@ $bn_class   = trim(
 	)
 );
 
-$bn_pf_uid           = (int) $args['profile_user_id'];
-$bn_pf_viewer        = (int) $args['viewer_id'];
-$bn_pf_cover         = (string) $args['cover_url'];
-$bn_pf_avatar        = (string) $args['avatar_url'];
-$bn_pf_name          = (string) $args['display_name'];
-$bn_pf_slug          = (string) $args['username'];
-$bn_pf_pronouns      = (string) $args['pronouns'];
-$bn_pf_headline      = (string) $args['headline'];
-$bn_pf_bio           = (string) $args['bio'];
-$bn_pf_hero_meta     = (array) $args['hero_meta'];
-$bn_pf_joined        = (string) $args['joined'];
-$bn_pf_mutual        = (int) $args['mutual_count'];
-$bn_pf_degree        = (string) $args['degree_badge'];
-$bn_pf_member_type   = (array) $args['member_type'];
-$bn_pf_social        = (array) $args['social_links'];
-$bn_pf_is_owner      = (bool) $args['is_owner'];
-$bn_pf_can_edit      = (bool) $args['can_edit_any'];
+$bn_pf_uid         = (int) $args['profile_user_id'];
+$bn_pf_viewer      = (int) $args['viewer_id'];
+$bn_pf_cover       = (string) $args['cover_url'];
+$bn_pf_avatar      = (string) $args['avatar_url'];
+$bn_pf_name        = (string) $args['display_name'];
+$bn_pf_slug        = (string) $args['username'];
+$bn_pf_pronouns    = (string) $args['pronouns'];
+$bn_pf_headline    = (string) $args['headline'];
+$bn_pf_bio         = (string) $args['bio'];
+$bn_pf_hero_meta   = (array) $args['hero_meta'];
+$bn_pf_joined      = (string) $args['joined'];
+$bn_pf_mutual      = (int) $args['mutual_count'];
+$bn_pf_degree      = (string) $args['degree_badge'];
+$bn_pf_member_type = (array) $args['member_type'];
+$bn_pf_social      = (array) $args['social_links'];
+$bn_pf_is_owner    = (bool) $args['is_owner'];
+$bn_pf_can_edit    = (bool) $args['can_edit_any'];
+// Whether the owner may edit their own profile right now. A suspended member
+// reads their profile but cannot change it (PUT /me/profile 403s), so every
+// own-edit affordance (Edit cover, avatar edit, the Edit-profile button) hides
+// through the same buddynext_can() seam the write enforces on.
+$bn_pf_can_edit_own  = ! $bn_pf_is_owner
+	|| ! function_exists( 'buddynext_can' )
+	|| buddynext_can( $bn_pf_viewer, 'buddynext-profile/edit-own' );
 $bn_pf_is_online     = (bool) $args['is_online'];
 $bn_pf_is_following  = (bool) $args['is_following'];
 $bn_pf_follow_pend   = (bool) $args['follow_pending'];
@@ -193,7 +200,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 					alt=""
 					style="<?php echo esc_attr( $bn_pf_img_style ); ?>" />
 			<?php endif; ?>
-			<?php if ( $bn_pf_is_owner ) : ?>
+			<?php if ( $bn_pf_is_owner && $bn_pf_can_edit_own ) : ?>
 				<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() . '#cover' ); ?>"
 					class="bn-pf-cover__edit"
 					aria-label="<?php esc_attr_e( 'Edit cover photo', 'buddynext' ); ?>">
@@ -226,7 +233,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 					}
 					?>
 				</span>
-				<?php if ( $bn_pf_is_owner ) : ?>
+				<?php if ( $bn_pf_is_owner && $bn_pf_can_edit_own ) : ?>
 					<a class="bn-pf-avatar-edit"
 						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() . '#avatar' ); ?>"
 						aria-label="<?php esc_attr_e( 'Edit avatar', 'buddynext' ); ?>"

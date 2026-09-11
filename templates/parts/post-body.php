@@ -101,7 +101,13 @@ $bn_poll_options   = isset( $bn_body_poll['options'] ) && is_array( $bn_body_pol
 $bn_poll_total     = isset( $bn_body_poll['total_votes'] ) ? absint( $bn_body_poll['total_votes'] ) : 0;
 $bn_poll_my_vote   = isset( $bn_body_poll['my_voted_option_id'] ) ? absint( $bn_body_poll['my_voted_option_id'] ) : 0;
 $bn_poll_closed    = ! empty( $bn_body_poll['closed'] );
-$bn_shared_post    = is_array( $args['shared_post'] ) ? $args['shared_post'] : null;
+// Voting is offered only when the poll is open AND the viewer may vote. can_vote
+// defaults true (back-compat with any caller that omits it); a suspended member
+// gets false, so the options disable exactly as a closed poll does but without
+// the "Poll closed" label, which only $bn_poll_closed shows.
+$bn_poll_can_vote = ! isset( $bn_body_poll['can_vote'] ) || ! empty( $bn_body_poll['can_vote'] );
+$bn_poll_votable  = ! $bn_poll_closed && $bn_poll_can_vote;
+$bn_shared_post   = is_array( $args['shared_post'] ) ? $args['shared_post'] : null;
 
 /*
  * PREVIEW vs READ.
@@ -359,7 +365,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 					<button
 						type="button"
 						class="bn-post-card__poll-option<?php echo $opt_voted ? ' is-voted' : ''; ?><?php echo $bn_poll_closed ? ' is-closed' : ''; ?>"
-						<?php if ( ! $bn_poll_closed ) : ?>
+						<?php if ( $bn_poll_votable ) : ?>
 						data-wp-context='<?php echo wp_json_encode( array( 'optionId' => $opt_id ) ); ?>'
 						data-wp-bind--class="state.pollOptionBtnClass"
 						data-wp-on--click="actions.votePoll"

@@ -34,7 +34,15 @@ $bn_pf_social  = isset( $social_links ) && is_array( $social_links ) ? $social_l
 $bn_pf_noop_fv = static fn( string $group_key, string $field_key ): string => ''; // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter -- default fallback signature.
 $bn_pf_get_fv  = isset( $get_fv ) && is_callable( $get_fv ) ? $get_fv : $bn_pf_noop_fv;
 
-if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
+// A suspended member cannot edit their profile, so this entire "finish your
+// profile" widget — every task links to the edit screen — is a dead-end for
+// them. Hide it through the same buddynext_can() edit-own seam the Edit
+// controls on the hero use, so a held member sees no prompt to do what the
+// server will refuse.
+$bn_pf_may_edit = ! function_exists( 'buddynext_can' )
+	|| buddynext_can( get_current_user_id(), 'buddynext-profile/edit-own' );
+
+if ( $bn_pf_is_own && null !== $bn_pf_comp && $bn_pf_may_edit ) :
 	$edit_url = \BuddyNext\Core\PageRouter::edit_profile_url();
 	?>
 	<?php

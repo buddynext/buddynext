@@ -2579,6 +2579,16 @@ class SpaceMemberService {
 	public function can_join( array|object $space, int $user_id ): bool {
 		$space_row = is_object( $space ) ? (array) $space : $space;
 
+		// A suspended member reads spaces but cannot join one (POST /spaces/{id}/join
+		// 403s at RestHoldGate), so the Join / Request CTA must hide rather than 403
+		// on click. Routed through the same buddynext_can() seam every other write
+		// hides on; the space_id context also lets a space-banned member be refused
+		// here. Guests (user_id 0) are unaffected — they get the "Log in to join" CTA.
+		if ( $user_id > 0 && function_exists( 'buddynext_can' )
+			&& ! buddynext_can( $user_id, 'buddynext-spaces/join', array( 'space_id' => (int) ( $space_row['id'] ?? 0 ) ) ) ) {
+			return false;
+		}
+
 		return (bool) apply_filters( 'buddynext_can_join_space', true, $space_row, $user_id, 'join' );
 	}
 

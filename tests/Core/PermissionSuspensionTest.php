@@ -31,6 +31,7 @@ class PermissionSuspensionTest extends \WP_UnitTestCase {
 	 */
 	private const WRITE_CAPS = array(
 		'buddynext-feed/create-post',
+		'buddynext-feed/interact',
 		'buddynext-comments/create',
 		'buddynext-connections/follow',
 		'buddynext-connections/connect',

@@ -40,6 +40,15 @@ class PermissionService {
 		'buddynext-profile/edit-any'        => 'admin',
 		'buddynext-profile/view'            => null,
 		'buddynext-feed/create-post'        => 'member',
+		// Umbrella "may engage with content" ability for the lightweight
+		// interaction controls that have no cap of their own (react, share,
+		// bookmark, poll-vote). Member-level so every member in good standing
+		// holds it; because it routes through can(), a suspended member is denied
+		// it along with every other write, which is how those controls hide.
+		// Decoupled from create-post on purpose: an owner who restricts posting
+		// should not thereby strip reactions, and an owner who wants a read-only
+		// community can map THIS to a higher role to hide them all at once.
+		'buddynext-feed/interact'           => 'member',
 		// There was no comment capability at all. Pro's AI reply checked buddynext_can( $u,
 		// 'comment' ) — an unmapped slug, so passes_role_check() returned false for every
 		// member and the feature was dead for exactly the people it was for. It is NOT a

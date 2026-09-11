@@ -82,12 +82,22 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 
 <?php // ── Owner: their own profile ────────────────────────────────────────── ?>
 <?php if ( $bn_pa_is_owner ) : ?>
+	<?php
+	// A suspended member reads their own profile but cannot edit it (PUT /me/profile
+	// 403s at RestHoldGate), so the Edit control must hide rather than 403 on click.
+	// Gated through the same buddynext_can() seam the profile write enforces on —
+	// edit-own is a member cap, withheld from a suspended member like every write.
+	$bn_pa_can_edit_own = ! function_exists( 'buddynext_can' )
+		|| buddynext_can( $bn_pa_viewer, 'buddynext-profile/edit-own' );
+	?>
 	<div class="bn-pf-actions">
+		<?php if ( $bn_pa_can_edit_own ) : ?>
 		<a class="bn-btn" data-variant="primary" data-size="sm"
 			href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>">
 			<?php buddynext_icon( 'edit' ); ?>
 			<span><?php esc_html_e( 'Edit profile', 'buddynext' ); ?></span>
 		</a>
+		<?php endif; ?>
 		<?php
 		buddynext_get_template(
 			'parts/profile-actions-overflow.php',

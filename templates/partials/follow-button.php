@@ -52,6 +52,16 @@ if ( ! $viewer_id || $viewer_id === $user_id ) {
 	return;
 }
 
+// Write guard — a suspended member cannot follow (POST /users/{id}/follow 403s at
+// the permission seam), so the button must not render on ANY surface that draws
+// this canonical partial (feed byline, member cards, People to Follow,
+// leaderboard). Gated through the same buddynext_can() seam FollowService
+// enforces on, so the control hides everywhere at once instead of 403-ing on
+// click. Sits beside the existing block and privacy short-circuits above.
+if ( function_exists( 'buddynext_can' ) && ! buddynext_can( $viewer_id, 'buddynext-connections/follow' ) ) {
+	return;
+}
+
 // Block guard — render nothing if either party has blocked the other. A bulk
 // caller can resolve this for the whole list in one query (blocking_either_map)
 // and pass the answer, exactly as with $known_following below.
