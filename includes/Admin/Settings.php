@@ -2289,11 +2289,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					&& array_key_exists( 'presence_met', $feature )
 					&& ! $feature['presence_met'];
 
+				// The badge describes the SHIP DEFAULT (from $tier), not the live
+				// toggle state ($current) beside it. Word it as "… by default" so it
+				// can never be misread as "this feature is currently on/off" when the
+				// owner has toggled against the default. Mandatory is the one case the
+				// badge and reality always agree, so it keeps the present-tense
+				// "Always on".
 				$badge_label = $is_mandatory
 					? __( 'Always on', 'buddynext' )
 					: ( \BuddyNext\Core\FeatureRegistry::TIER_DEFAULT_ON === $tier
-						? __( 'Default on', 'buddynext' )
-						: __( 'Opt-in', 'buddynext' )
+						? __( 'On by default', 'buddynext' )
+						: __( 'Off by default', 'buddynext' )
 					);
 				$badge_tone  = $is_mandatory ? 'accent' : ( \BuddyNext\Core\FeatureRegistry::TIER_DEFAULT_ON === $tier ? 'success' : 'info' );
 
