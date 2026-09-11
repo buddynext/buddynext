@@ -23,6 +23,7 @@ use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Search\SearchIndexListener;
 use BuddyNext\Search\SearchService;
+use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
 use BuddyNext\SocialGraph\FollowService;
 use BuddyNext\Spaces\SpaceService;
@@ -271,5 +272,78 @@ class SpaceAudiencePrivacyTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 2, $this->feed->space_post_count( $this->space, $this->viewer ), 'Count should widen to public + connections.' );
 		$this->assertSame( 2, $this->feed->space_media_post_count( $this->space, $this->viewer ), 'Media count should widen to public + connections.' );
+	}
+
+	/**
+	 * The audience clause alone was not enough: the space feed also drops posts by
+	 * authors this viewer BLOCKED and by suspended authors, but the media/count
+	 * readers applied only the audience clause — so a blocked member's tiles still
+	 * rendered on the Media tab and the header over-counted (card 10264292078, the
+	 * fix-first leak). The readers now AND in excluded_users_where() +
+	 * viewer_hidden_where(), the same two fragments the feed uses.
+	 *
+	 * @return void
+	 */
+	public function test_media_and_counts_exclude_blocked_and_hidden_authors(): void {
+		global $wpdb;
+
+		// A third space member whose PUBLIC post + media the viewer sees by default.
+		$other = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $this->space,
+				'user_id'  => $other,
+				'role'     => 'member',
+				'status'   => 'active',
+			)
+		);
+		$other_post = $this->posts->create(
+			$other,
+			array(
+				'content'  => 'other body ' . $this->token,
+				'space_id' => $this->space,
+				'privacy'  => 'public',
+				'type'     => 'text',
+			)
+		);
+		$this->assertIsInt( $other_post, 'Could not create the co-member post.' );
+		$wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'media_ids' => wp_json_encode( array( 20, 120 ) ) ),
+			array( 'id' => $other_post )
+		);
+
+		// Baseline: a public post by a co-member the viewer has NOT blocked is visible
+		// (author-public + other-public = two visible media posts).
+		wp_cache_flush();
+		$rows = array_map(
+			static fn( array $r ): int => (int) $r['post_id'],
+			$this->feed->space_media_rows( $this->space, $this->viewer, 50, 0 )
+		);
+		$this->assertContains( $other_post, $rows, 'Co-member public media should be visible before blocking.' );
+		$this->assertSame( 2, $this->feed->space_media_post_count( $this->space, $this->viewer ), 'Two public media posts before blocking.' );
+
+		// Viewer blocks the author: the Media tab must not render their tiles and the
+		// counts must drop. This is the fix-first leak — not a count mismatch, a
+		// blocked member's content appearing.
+		( new BlockService() )->block( $this->viewer, $other );
+		wp_cache_flush();
+
+		$rows = array_map(
+			static fn( array $r ): int => (int) $r['post_id'],
+			$this->feed->space_media_rows( $this->space, $this->viewer, 50, 0 )
+		);
+		$this->assertNotContains( $other_post, $rows, 'Blocked author media tile LEAKED into the Media tab.' );
+		$this->assertNotContains( 20, $this->feed->space_media_ids( $this->space, $this->viewer, 60 ), 'Blocked author media id LEAKED.' );
+		$this->assertSame( 1, $this->feed->space_post_count( $this->space, $this->viewer ), 'Post count still includes a blocked author.' );
+		$this->assertSame( 1, $this->feed->space_media_post_count( $this->space, $this->viewer ), 'Media count still includes a blocked author.' );
+
+		// A suspended author (hide_posts) is dropped too, exactly as the feed drops
+		// them — the viewer's last visible post was the author's public one.
+		buddynext_service( 'moderation' )->suspend_user( $this->author, 1, 'phpunit', array( 'hide_posts' => 1 ) );
+		wp_cache_flush();
+		$this->assertSame( 0, $this->feed->space_post_count( $this->space, $this->viewer ), 'Suspended author still counted.' );
+		$this->assertSame( 0, $this->feed->space_media_post_count( $this->space, $this->viewer ), 'Suspended author media still counted.' );
 	}
 }

@@ -331,10 +331,12 @@ class FeedService {
 			$viewer_id
 		);
 
-		$statuses = array_values( array_intersect(
-			array_map( 'strval', $statuses ),
-			array( 'pending', 'escalated', 'dismissed', 'resolved' )
-		) );
+		$statuses = array_values(
+			array_intersect(
+				array_map( 'strval', $statuses ),
+				array( 'pending', 'escalated', 'dismissed', 'resolved' )
+			)
+		);
 
 		if ( array() === $statuses ) {
 			return array( $where, $params );
@@ -1007,7 +1009,7 @@ class FeedService {
 		$excluded_where = $this->excluded_users_where();
 
 		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
-		[ $source_where, $source_params ]         = $this->home_source_clause( $filter, $user_id );
+		[ $source_where, $source_params ] = $this->home_source_clause( $filter, $user_id );
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
 		// COUNT A BOUNDED WINDOW, NOT THE WHOLE TAIL.
@@ -1105,7 +1107,7 @@ class FeedService {
 		$excluded_where = $this->excluded_users_where();
 
 		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
-		[ $source_where, $source_params ]         = $this->home_source_clause( $filter, $user_id );
+		[ $source_where, $source_params ] = $this->home_source_clause( $filter, $user_id );
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
 		$sql = "SELECT COALESCE(MAX(id), 0)
@@ -2301,6 +2303,11 @@ class FeedService {
 
 		global $wpdb;
 		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
+		// Same two exclusions as the space feed, so a pinned post by a suspended or
+		// viewer-blocked author never renders when this reader is revived (card
+		// 10264292078).
+		$excluded_where                   = $this->excluded_users_where();
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
@@ -2308,9 +2315,11 @@ class FeedService {
 				 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   AND {$audience_sql}
+				   {$excluded_where}
+				   {$hidden_where}
 				 ORDER BY created_at DESC
 				 LIMIT 1",
-				array_merge( array( $space_id ), $audience_params )
+				array_merge( array( $space_id ), $audience_params, $hidden_params )
 			),
 			ARRAY_A
 		);
@@ -2405,14 +2414,21 @@ class FeedService {
 
 		global $wpdb;
 		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
+		// Match space_feed_uncached() exactly: also drop suspended/shadow-banned
+		// authors and the viewer's blocked/muted authors, so the header figure equals
+		// the list length instead of over-counting (card 10264292078).
+		$excluded_where                   = $this->excluded_users_where();
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
 				 WHERE space_id = %d AND status = 'published'
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-				   AND {$audience_sql}",
-				array_merge( array( $space_id ), $audience_params )
+				   AND {$audience_sql}
+				   {$excluded_where}
+				   {$hidden_where}",
+				array_merge( array( $space_id ), $audience_params, $hidden_params )
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
@@ -2437,6 +2453,10 @@ class FeedService {
 
 		global $wpdb;
 		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
+		// Same two exclusions as space_media_rows(), so the Media-tab badge equals the
+		// tiles the viewer actually sees (card 10264292078).
+		$excluded_where                   = $this->excluded_users_where();
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -2444,8 +2464,10 @@ class FeedService {
 				 WHERE space_id = %d AND status = 'published'
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''
-				   AND {$audience_sql}",
-				array_merge( array( $space_id ), $audience_params )
+				   AND {$audience_sql}
+				   {$excluded_where}
+				   {$hidden_where}",
+				array_merge( array( $space_id ), $audience_params, $hidden_params )
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
@@ -2497,6 +2519,15 @@ class FeedService {
 
 		global $wpdb;
 		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
+		// The audience clause gates only NARROWED-audience posts (connections /
+		// followers). The space feed drops two more sets that this reader must drop
+		// too, or a blocked member's images still tile the Media tab and the count
+		// over-reports (card 10264292078): posts by suspended / shadow-banned authors
+		// (excluded_users_where) and posts by authors THIS viewer blocked or muted
+		// (viewer_hidden_where). Same two fragments space_feed_uncached() ANDs in, so
+		// the tiles, the media count and the feed can never disagree.
+		$excluded_where                   = $this->excluded_users_where();
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -2505,9 +2536,11 @@ class FeedService {
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''
 				   AND {$audience_sql}
+				   {$excluded_where}
+				   {$hidden_where}
 				 ORDER BY created_at DESC, id DESC
 				 LIMIT %d OFFSET %d",
-				array_merge( array( $space_id ), $audience_params, array( $limit, $offset ) )
+				array_merge( array( $space_id ), $audience_params, $hidden_params, array( $limit, $offset ) )
 			),
 			ARRAY_A
 		);
@@ -2569,6 +2602,10 @@ class FeedService {
 
 		global $wpdb;
 		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
+		// Same two exclusions as space_media_rows() so the flat gallery never surfaces
+		// a suspended or viewer-blocked author's media (card 10264292078).
+		$excluded_where                   = $this->excluded_users_where();
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
@@ -2577,9 +2614,11 @@ class FeedService {
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''
 				   AND {$audience_sql}
+				   {$excluded_where}
+				   {$hidden_where}
 				 ORDER BY created_at DESC
 				 LIMIT 60",
-				array_merge( array( $space_id ), $audience_params )
+				array_merge( array( $space_id ), $audience_params, $hidden_params )
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
