@@ -190,7 +190,19 @@ class IsolationAdmin {
 				<div class="bn-ss-body">
 					<?php if ( empty( $bn_groups['stripped'] ) ) : ?>
 						<div class="bn-empty">
-							<p><?php esc_html_e( 'Nothing is being unloaded right now — every active plugin qualified to be kept.', 'buddynext' ); ?></p>
+							<p>
+								<?php
+								// Branch on the real state: with isolation OFF nothing is
+								// ever unloaded, so the present-tense "every plugin
+								// qualified to be kept" read as false (card 10284912236
+								// item 2).
+								if ( $bn_isolation_on ) {
+									esc_html_e( 'Nothing is being unloaded right now — every active plugin qualified to be kept.', 'buddynext' );
+								} else {
+									esc_html_e( 'Nothing would be unloaded — every active plugin qualifies to be kept.', 'buddynext' );
+								}
+								?>
+							</p>
 							<p class="bn-field-hint">
 								<?php esc_html_e( 'A plugin is kept when it is a core dependency, a security or access plugin, or something that draws part of the page (it enqueues assets or hooks the header/footer). The plugins that isolation removes are back-office tools that add nothing to a community page — if you have none of those active, there is nothing to unload and this feature has no effect until you do.', 'buddynext' ); ?>
 							</p>
@@ -220,7 +232,19 @@ class IsolationAdmin {
 
 			<div class="bn-settings-section">
 				<div class="bn-ss-header">
-					<span class="bn-ss-title"><?php esc_html_e( 'Kept on BuddyNext pages', 'buddynext' ); ?></span>
+					<span class="bn-ss-title">
+						<?php
+						// With isolation OFF every plugin loads normally, so "Kept on
+						// BuddyNext pages" (which implies others are being stripped)
+						// read as false. Branch it like the sibling header above
+						// (card 10284912236 item 2).
+						echo esc_html(
+							$bn_isolation_on
+								? __( 'Kept on BuddyNext pages', 'buddynext' )
+								: __( 'Would be kept on BuddyNext pages (isolation is off)', 'buddynext' )
+						);
+						?>
+					</span>
 					<span class="bn-badge" data-tone="success"><?php echo esc_html( (string) count( $bn_groups['kept'] ) ); ?></span>
 				</div>
 				<div class="bn-ss-body">
@@ -325,9 +349,14 @@ class IsolationAdmin {
 
 		$ok = update_option( PluginIsolation::OPTION_KEEP, $keep, false );
 
-		// Master switch. Absent checkbox = off.
+		// Master switch. Absent checkbox = off. Autoloaded (true): the mu-plugin
+		// and is_enabled() read it on every front-end request, so it must ride the
+		// autoloaded-options cache rather than hitting the DB each time. This used
+		// to write autoload=false while Installer wrote it autoloaded, so after an
+		// owner saved this screen the switch fell out of the autoload set and every
+		// request did a standalone lookup (card 10264291719).
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified above by check_admin_referer().
-		update_option( PluginIsolation::OPTION_ENABLED, empty( $_POST['isolation_enabled'] ) ? '0' : '1', false );
+		update_option( PluginIsolation::OPTION_ENABLED, empty( $_POST['isolation_enabled'] ) ? '0' : '1', true );
 
 		// Security plugins are kept by default; an ACTIVE one the owner left
 		// UN-checked is an explicit opt-out (strip it). Recorded so active_security_kept()

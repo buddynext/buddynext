@@ -176,6 +176,21 @@ class PostService {
 	public const LINK_META_HOOK = 'buddynext_async_fetch_link_meta';
 
 	/**
+	 * The valid members of the bn_posts.privacy ENUM.
+	 *
+	 * ONE source for the whitelist that guards every write and read of a post's
+	 * privacy. It was re-authored as a literal in three places (this service,
+	 * ShareService, and the post-card template); a value added to the ENUM but
+	 * missed in one copy would silently downgrade posts to 'public' there. Mirrors
+	 * the schema in Installer::schema() (card 10284912236 item 3).
+	 *
+	 * @return string[] Valid ENUM members, in schema order.
+	 */
+	public static function valid_privacy_values(): array {
+		return array( 'public', 'followers', 'connections', 'space_members', 'private' );
+	}
+
+	/**
 	 * Coerce a privacy value to a valid bn_posts.privacy ENUM member.
 	 *
 	 * The composer offers a "Members only" chip whose value is 'members', a UI
@@ -193,7 +208,7 @@ class PostService {
 	 * @return string A valid ENUM member.
 	 */
 	private static function normalize_privacy( string $privacy ): string {
-		$valid = array( 'public', 'followers', 'connections', 'space_members', 'private' );
+		$valid = self::valid_privacy_values();
 		if ( 'members' === $privacy ) {
 			return 'public';
 		}

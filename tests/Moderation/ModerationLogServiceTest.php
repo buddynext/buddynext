@@ -81,4 +81,45 @@ class ModerationLogServiceTest extends \WP_UnitTestCase {
 		$this->assertCount( 1, $entries );
 		$this->assertSame( 'remove_content', $entries[0]['action'] );
 	}
+
+	/**
+	 * Filtering by the canonical 'warn' slug must also return rows written under
+	 * the legacy 'warned' slug — the single dropdown option can never hide the
+	 * other's rows (card 10284912236 item 1).
+	 *
+	 * @return void
+	 */
+	public function test_get_log_action_filter_expands_aliases(): void {
+		$actor = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$this->service->log( $actor, 'warn', array( 'target_user_id' => $this->target_id ) );
+		$this->service->log( $actor, 'warned', array( 'target_user_id' => $this->target_id ) );
+		$this->service->log( $actor, 'issue_strike', array( 'target_user_id' => $this->target_id ) );
+
+		// Scope to this test's actor so the append-only table's prior rows do not
+		// interfere; the point is that the single 'warn' filter matches BOTH slugs.
+		$result  = $this->service->get_log( array( 'action' => 'warn', 'actor_id' => $actor ) );
+		$actions = wp_list_pluck( $result['items'], 'action' );
+
+		$this->assertSame( 2, $result['total'] );
+		$this->assertContains( 'warn', $actions );
+		$this->assertContains( 'warned', $actions );
+		$this->assertNotContains( 'issue_strike', $actions );
+	}
+
+	/**
+	 * A non-aliased slug still filters to exactly itself.
+	 *
+	 * @return void
+	 */
+	public function test_get_log_action_filter_without_alias_is_exact(): void {
+		$actor = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$this->service->log( $actor, 'issue_strike', array( 'target_user_id' => $this->target_id ) );
+		$this->service->log( $actor, 'warn', array( 'target_user_id' => $this->target_id ) );
+
+		$result  = $this->service->get_log( array( 'action' => 'issue_strike', 'actor_id' => $actor ) );
+		$actions = wp_list_pluck( $result['items'], 'action' );
+
+		$this->assertSame( 1, $result['total'] );
+		$this->assertSame( array( 'issue_strike' ), $actions );
+	}
 }

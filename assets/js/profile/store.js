@@ -2336,10 +2336,10 @@ const profileStore = store( 'buddynext/profile', {
 					// with what the next page load shows.
 					window.setTimeout( function () { window.location.reload(); }, 700 );
 				} else {
-					bnToast( ( json && json.message ) || t( 'verifyEmailFailed', 'Could not verify. Try again.' ), { tone: 'danger' } );
+					bnToast( ( json && json.message ) || t( 'verifyConfirmFailed', 'Could not verify. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( t( 'verifyEmailFailed', 'Could not verify. Try again.' ), { tone: 'danger' } );
+				bnToast( t( 'verifyConfirmFailed', 'Could not verify. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.verifySubmitting = false;
 			}

@@ -1189,6 +1189,11 @@ class AssetService {
 					'announcementDismissFailed' => __( 'Could not dismiss this announcement. Please try again.', 'buddynext' ),
 					'mediaBadType'              => __( 'Only images, video and audio can be attached.', 'buddynext' ),
 					'mediaTooLarge'             => __( 'That file is too large to upload.', 'buddynext' ),
+					// post-card.js appends this on a comment thread that hit the
+					// DESCENDANT_CAP so a capped thread no longer presents itself as
+					// complete. It was read via t() but injected nowhere, so every
+					// non-English site saw the English fallback (card 10294229408).
+					'repliesTruncated'          => __( "Some replies aren't shown.", 'buddynext' ),
 				),
 			)
 		);
@@ -1318,6 +1323,16 @@ class AssetService {
 					'post'                            => __( 'Post', 'buddynext' ),
 					'cancel'                          => __( 'Cancel', 'buddynext' ),
 					'posting'                         => __( 'Posting…', 'buddynext' ),
+					// Cover-reposition modal (media/cover-reposition.js). The modal
+					// takes its translator from whichever store opened it — profile
+					// AND spaces (spaces/store.js:3322) — so its keys have to live in
+					// both dictionaries. They were only in i18n_profile, so the space
+					// cover modal rendered English on every locale (card 10294029304
+					// Gap B).
+					'repositionCover'                 => __( 'Reposition cover photo', 'buddynext' ),
+					'coverDragHint'                   => __( 'Drag to reposition · scroll or use the slider to zoom', 'buddynext' ),
+					'zoom'                            => __( 'Zoom', 'buddynext' ),
+					'apply'                           => __( 'Apply', 'buddynext' ),
 					'reportPost'                      => __( 'Report post', 'buddynext' ),
 					'reportSubmitted'                 => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
 					'couldNotSubmitReport'            => __( 'Could not submit report. Try again.', 'buddynext' ),
@@ -1643,6 +1658,13 @@ class AssetService {
 					'reportSubmitted'                  => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
 					'checkInboxConfirm'                => __( 'Check your inbox to confirm.', 'buddynext' ),
 					'verifyEmailFailed'                => __( 'Could not send verification email. Try again.', 'buddynext' ),
+					// The "confirm my email with a code" path is a different action
+					// from sending the email, but both call sites reused
+					// verifyEmailFailed with a second English fallback ("Could not
+					// verify."), so a translated site showed the send-email wording
+					// where English showed the verify wording. Its own key so each
+					// action reads correctly on every locale (card 10294029304 Gap C).
+					'verifyConfirmFailed'              => __( 'Could not verify. Try again.', 'buddynext' ),
 					'emailVerified'                    => __( 'Your email address is now marked as verified.', 'buddynext' ),
 					'pwTooShort'                       => __( 'Too short', 'buddynext' ),
 					'pwWeak'                           => __( 'Weak', 'buddynext' ),

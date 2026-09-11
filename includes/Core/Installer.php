@@ -1083,7 +1083,11 @@ class Installer {
 		$has_optout    = array() !== (array) get_option( \BuddyNext\Core\PluginIsolation::OPTION_SECURITY_OPTOUT, array() );
 
 		if ( $has_keep_list || $has_optout ) {
-			update_option( \BuddyNext\Core\PluginIsolation::OPTION_ENABLED, '1' );
+			// Autoloaded (true), consistent with the admin-screen write: the master
+			// switch is read on every front-end request by the mu-plugin and
+			// is_enabled(), so it must stay in the autoloaded-options set (card
+			// 10264291719).
+			update_option( \BuddyNext\Core\PluginIsolation::OPTION_ENABLED, '1', true );
 		}
 		// Otherwise leave it unset so the new default (OFF) applies.
 	}
