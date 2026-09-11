@@ -409,6 +409,16 @@ class ModerationQueue {
 				// deleted target is named as deleted on both surfaces.
 				$bn_label = buddynext_object_label( $object_type, $object_id );
 
+				// The worklist has to be workable FROM THE ROW: show the first line of
+				// the reported content and the author's name, so a moderator can judge
+				// remove/strike/suspend without opening "View content" for every row
+				// (card 10297106255). The id is kept for the developer, demoted to a
+				// muted reference below — never the only thing on screen. Falls back to
+				// the id label for types with no text body (a reported member, a
+				// media-only post).
+				$bn_excerpt = $this->object_excerpt( $object_type, $object_id );
+				$bn_author  = $author_id > 0 ? get_userdata( $author_id ) : null;
+
 				// false = we checked and it is gone; null = not ours to answer (a
 				// message, or a type an add-on claimed). Only a definite false
 				// suppresses anything, so an unknowable type keeps every control.
@@ -419,11 +429,25 @@ class ModerationQueue {
 				// whatever now occupies that id.
 				$bn_view_url = $bn_missing ? '' : $this->object_view_url( $object_type, $object_id );
 				?>
-				<strong><?php echo esc_html( $bn_label ); ?></strong>
+				<strong><?php echo esc_html( '' !== $bn_excerpt ? $bn_excerpt : $bn_label ); ?></strong>
+				<?php if ( $bn_author instanceof \WP_User ) : ?>
+					<span class="bn-mod-author">
+						<?php
+						printf(
+							/* translators: %s: display name of the content's author. */
+							esc_html__( 'by %s', 'buddynext' ),
+							esc_html( $bn_author->display_name )
+						);
+						?>
+					</span>
+				<?php endif; ?>
 				<?php if ( '' !== $bn_view_url ) : ?>
 					<a class="bn-mod-view-link" href="<?php echo esc_url( $bn_view_url ); ?>" target="_blank" rel="noopener">
 						<?php esc_html_e( 'View content', 'buddynext' ); ?>
 					</a>
+				<?php endif; ?>
+				<?php if ( '' !== $bn_excerpt ) : ?>
+					<span class="description bn-mod-object-ref"><?php echo esc_html( $bn_label ); ?></span>
 				<?php endif; ?>
 				<?php if ( $escalated ) : ?>
 					<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Escalated', 'buddynext' ); ?></span>
@@ -1479,6 +1503,39 @@ class ModerationQueue {
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return 0;
+	}
+
+	/**
+	 * A short, plain-text first line of the reported content, so a moderator can
+	 * judge a row without opening every item. Returns '' for types with no text
+	 * body (a reported member, a media-only post), where the caller falls back to
+	 * the type label. Mirrors object_author()'s per-type lookup (card 10297106255).
+	 *
+	 * @param string $object_type Reported object type.
+	 * @param int    $object_id   Reported object ID.
+	 * @return string Truncated, tag-stripped first line, or '' when none.
+	 */
+	private function object_excerpt( string $object_type, int $object_id ): string {
+		if ( $object_id <= 0 ) {
+			return '';
+		}
+		global $wpdb;
+		$content = '';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off admin queue render; prepared; not a hot path.
+		if ( 'post' === $object_type ) {
+			$content = (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
+		} elseif ( 'comment' === $object_type ) {
+			$content = (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}bn_comments WHERE id = %d", $object_id ) );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( '' === $content ) {
+			return '';
+		}
+		$content = trim( (string) preg_replace( '/\s+/', ' ', wp_strip_all_tags( $content ) ) );
+		if ( '' === $content ) {
+			return '';
+		}
+		return (string) mb_strimwidth( $content, 0, 80, '…' );
 	}
 
 	/**
