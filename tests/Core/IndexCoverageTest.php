@@ -151,6 +151,35 @@ class IndexCoverageTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Table bn_poll_options — a UNIQUE (post_id, id) pins option→poll attribution.
+	 *
+	 * Votes JOIN on (option_id, post_id); a UNIQUE post_option (post_id, id) makes
+	 * that pair a candidate key so an option can never be double-counted or
+	 * mis-attributed across posts, and gives the vote JOIN / integrity checks an
+	 * index to seek (card 10264292330).
+	 *
+	 * @return void
+	 */
+	public function test_bn_poll_options_unique_post_option(): void {
+		$idx = $this->indexes( 'bn_poll_options' );
+
+		$this->assertSame(
+			array( 'post_id', 'id' ),
+			$idx['post_option'] ?? array(),
+			'post_option (post_id, id) must exist so option→poll attribution is a candidate key.'
+		);
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows      = (array) $wpdb->get_results( "SHOW INDEX FROM {$wpdb->prefix}bn_poll_options WHERE Key_name = 'post_option'", ARRAY_A );
+		$non_unique = null;
+		foreach ( $rows as $row ) {
+			$non_unique = (int) $row['Non_unique'];
+		}
+		$this->assertSame( 0, $non_unique, 'post_option must be a UNIQUE key, not a plain index.' );
+	}
+
+	/**
 	 * Table bn_mod_log — never pruned; the space Moderation tab filters it hard.
 	 *
 	 * The space tab reads WHERE space_id = %d AND action = %s ORDER BY created_at

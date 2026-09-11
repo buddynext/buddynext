@@ -396,12 +396,44 @@ class PollService {
 		// no legitimate option and wrongly occupies the voter's one-vote slot on a
 		// poll they never truly voted in.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		// Capture the (user_id, post_id) pairs BEFORE the delete so the per-viewer
+		// "you voted" cache (uservote_{uid}_{pid}) can be evicted for the very voters
+		// this purge removes — otherwise a purged voter keeps seeing "you voted" for
+		// up to the Redis TTL, and a poll whose options were ALL deleted never enters
+		// the pass-2 recount loop (it selects from bn_poll_options), so its results
+		// cache would never be touched either (card 10264292330).
+		// ponytail: loads all orphan pairs into memory; orphans are a data anomaly a
+		// repair run mops up, not a steady-state volume, so this is bounded in
+		// practice. Page it if a site ever proves otherwise.
+		$orphans = (array) $wpdb->get_results(
+			"SELECT v.user_id, v.post_id FROM {$wpdb->prefix}bn_poll_votes v
+			 LEFT JOIN {$wpdb->prefix}bn_poll_options o
+			        ON o.id = v.option_id AND o.post_id = v.post_id
+			 WHERE o.id IS NULL",
+			ARRAY_A
+		);
+
 		$deleted = (int) $wpdb->query(
 			"DELETE v FROM {$wpdb->prefix}bn_poll_votes v
 			 LEFT JOIN {$wpdb->prefix}bn_poll_options o
 			        ON o.id = v.option_id AND o.post_id = v.post_id
 			 WHERE o.id IS NULL"
 		);
+
+		// Evict the purged voters' per-viewer vote cache and the affected polls'
+		// result cache. results_{pid} is repeated for polls that DO reach pass-2, but
+		// wp_cache_delete is idempotent and this is the only path that covers polls
+		// with zero surviving options.
+		foreach ( $orphans as $orphan ) {
+			$o_uid = (int) ( $orphan['user_id'] ?? 0 );
+			$o_pid = (int) ( $orphan['post_id'] ?? 0 );
+			if ( $o_pid > 0 ) {
+				wp_cache_delete( "results_{$o_pid}", self::CACHE_GROUP );
+				if ( $o_uid > 0 ) {
+					wp_cache_delete( "uservote_{$o_uid}_{$o_pid}", self::CACHE_GROUP );
+				}
+			}
+		}
 
 		// (2) Reconcile every option's vote_count from the surviving, correctly
 		// linked votes. Done in bounded PAGES of polls rather than one whole-table
@@ -429,7 +461,7 @@ class PollService {
 					)
 				)
 			);
-			$found = count( $post_ids );
+			$found    = count( $post_ids );
 			if ( 0 === $found ) {
 				break;
 			}

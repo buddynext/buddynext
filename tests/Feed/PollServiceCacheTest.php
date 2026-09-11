@@ -104,6 +104,43 @@ class PollServiceCacheTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * recount_all_poll_votes() evicts a purged voter's per-viewer vote cache.
+	 *
+	 * Class-preventing guard for card 10264292330: the recount loop only busted
+	 * results_{pid}, so a voter whose cross-linked vote the recount PURGES kept
+	 * seeing "you voted" (uservote_{uid}_{pid}) until the TTL expired. Poison a
+	 * real vote into a cross-linked orphan, prime the per-viewer cache from it, run
+	 * the recount, and the viewer must read "no vote" — not the stale cached one.
+	 *
+	 * @return void
+	 */
+	public function test_recount_clears_purged_voter_uservote_cache(): void {
+		$this->service->vote( $this->voter, $this->poll_id, $this->option_a );
+
+		global $wpdb;
+		$foreign = 999999; // An option id no bn_poll_options row owns → cross-linked.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_poll_votes SET option_id = %d WHERE post_id = %d AND user_id = %d",
+				$foreign,
+				$this->poll_id,
+				$this->voter
+			)
+		);
+
+		// Prime the per-viewer "you voted" cache from the poisoned row.
+		$this->assertSame( $foreign, $this->service->user_vote( $this->voter, $this->poll_id ) );
+
+		$this->service->recount_all_poll_votes();
+
+		$this->assertNull(
+			$this->service->user_vote( $this->voter, $this->poll_id ),
+			'A purged voter must not keep seeing "you voted" from a stale uservote cache.'
+		);
+	}
+
+	/**
 	 * A repeat read with no vote is served from cache (identical payload).
 	 *
 	 * @return void

@@ -3572,6 +3572,7 @@ class Installer {
 				vote_count INT UNSIGNED NOT NULL DEFAULT 0,
 				end_date DATETIME DEFAULT NULL,
 				PRIMARY KEY   (id),
+				UNIQUE KEY    post_option (post_id, id),
 				KEY           post_options (post_id, display_order)
 			) {$cs};",
 
