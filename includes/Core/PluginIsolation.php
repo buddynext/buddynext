@@ -147,18 +147,58 @@ class PluginIsolation {
 	 * @return array<int,string> Plugin basenames, de-duplicated.
 	 */
 	public static function essentials(): array {
+		// The in-house family we ship and own — a small, knowable set. This is the
+		// "never strip" FLOOR, not an allowlist: isolation now KEEPS every active
+		// plugin by default and strips only the ones the owner explicitly picks
+		// (owner_strip_list()), so a firewall / paywall / consent / translation
+		// plugin is never auto-stripped by a list we tried to guess. We cannot
+		// enumerate WordPress's 60k+ plugins, so we do not try — the owner decides
+		// for their own site from its active plugins (card 10264291719).
 		return array_values(
 			array_unique(
 				array_merge(
 					self::SELF_PLUGINS,
 					self::CORE_INTEGRATIONS,
 					self::APP_INTEGRATIONS,
-					self::OPERATIONAL_PLUGINS,
-					self::TRANSLATION_PLUGINS,
-					self::CONSENT_PLUGINS
+					self::OPERATIONAL_PLUGINS
 				)
 			)
 		);
+	}
+
+	/**
+	 * Owner-managed option: plugin basenames the owner chose to SKIP (strip) on
+	 * BuddyNext routes. The denylist that drives isolation now — everything active
+	 * that is NOT in here (and not in the essentials floor) is kept.
+	 */
+	public const OPTION_STRIP = 'buddynext_isolation_strip';
+
+	/**
+	 * The owner's explicit strip choices, sanitised and with the in-house family
+	 * removed so it can never be stripped even if an option was hand-edited.
+	 *
+	 * @return string[] Plugin basenames to strip on BuddyNext routes.
+	 */
+	public static function owner_strip_list(): array {
+		$stored = get_option( self::OPTION_STRIP, array() );
+		if ( is_string( $stored ) ) {
+			$decoded = json_decode( $stored, true );
+			$stored  = is_array( $decoded ) ? $decoded : array();
+		}
+		if ( ! is_array( $stored ) ) {
+			return array();
+		}
+
+		$strip = array();
+		foreach ( $stored as $basename ) {
+			$basename = (string) $basename;
+			if ( '' !== $basename ) {
+				$strip[] = $basename;
+			}
+		}
+
+		// Safety floor: the in-house family is never stripped, whatever the option says.
+		return array_values( array_diff( array_unique( $strip ), self::essentials() ) );
 	}
 
 	/**
@@ -1064,21 +1104,24 @@ class PluginIsolation {
 	}
 
 	/**
-	 * Mirror the canonical allow-list into the option the mu-plugin reads.
+	 * Mirror the owner's STRIP list into the option the mu-plugin reads.
 	 *
-	 * Guarded: the option is only written when the computed list actually differs,
-	 * so an unchanged site does not write on every request.
+	 * The mu-plugin runs before plugins load and cannot call into this class, so
+	 * the owner's strip choices are mirrored into an autoloaded option it reads.
+	 * Guarded: written only when the computed list actually differs, and autoloaded
+	 * (third arg true) so the mu-plugin's read rides the alloptions cache with no
+	 * extra query on every front-end request (card 10264291719).
 	 *
 	 * @return void
 	 */
 	public function sync_option(): void {
-		$desired = self::integration_plugins();
+		$desired = self::owner_strip_list();
 		$stored  = json_decode( (string) get_option( self::OPTION, '' ), true );
 
 		if ( is_array( $stored ) && $stored === $desired ) {
 			return;
 		}
 
-		update_option( self::OPTION, (string) wp_json_encode( $desired ), false );
+		update_option( self::OPTION, (string) wp_json_encode( $desired ), true );
 	}
 }

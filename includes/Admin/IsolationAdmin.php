@@ -11,7 +11,7 @@
  * writing code — and no way to even discover WHY.
  *
  * This screen shows exactly which active plugins are being stripped and lets the
- * owner keep any of them. Choices are stored in PluginIsolation::OPTION_KEEP and
+ * owner skip any of them. Choices are stored in PluginIsolation::OPTION_STRIP and
  * merged into the mirror option the isolation mu-plugin already reads, so nothing
  * about the mu-plugin has to change and an older on-disk copy keeps working.
  *
@@ -62,8 +62,8 @@ class IsolationAdmin {
 
 		$installed = get_plugins();
 		$active    = (array) get_option( 'active_plugins', array() );
-		$allowed   = PluginIsolation::integration_plugins();
-		$owner     = PluginIsolation::owner_keep_list();
+		$family    = PluginIsolation::essentials();       // in-house floor, locked kept.
+		$strip     = PluginIsolation::owner_strip_list();  // the owner's explicit skip choices.
 
 		$kept     = array();
 		$stripped = array();
@@ -71,26 +71,23 @@ class IsolationAdmin {
 		foreach ( $active as $basename ) {
 			$basename = (string) $basename;
 
-			// BuddyNext itself is the mu-plugin's hard safety floor; listing it as
-			// a togglable row would offer the owner a switch that does nothing.
-			if ( in_array( $basename, array( 'buddynext/buddynext.php', 'buddynext-pro/buddynext-pro.php' ), true ) ) {
+			// The in-house family is the mu-plugin's hard safety floor; a togglable
+			// row would offer the owner a switch that does nothing, so it is not
+			// listed here (it is described as always-kept in the screen copy).
+			if ( in_array( $basename, $family, true ) ) {
 				continue;
 			}
 
 			$row = array(
 				'name'        => (string) ( $installed[ $basename ]['Name'] ?? $basename ),
 				'description' => (string) ( $installed[ $basename ]['Description'] ?? '' ),
-				'by_owner'    => in_array( $basename, $owner, true ) ? '1' : '',
-				// A security / access / backup / membership plugin is kept by default
-				// but stays overridable (unlike the locked in-house floor), so the row
-				// is rendered as an enabled, pre-checked switch with a warning.
-				'security'    => in_array( $basename, PluginIsolation::security_plugins(), true ) ? '1' : '',
 			);
 
-			if ( in_array( $basename, $allowed, true ) ) {
-				$kept[ $basename ] = $row;
-			} else {
+			// Keep-by-default: a plugin is stripped only when the owner has ticked it.
+			if ( in_array( $basename, $strip, true ) ) {
 				$stripped[ $basename ] = $row;
+			} else {
+				$kept[ $basename ] = $row;
 			}
 		}
 
@@ -174,125 +171,56 @@ class IsolationAdmin {
 				</div>
 			</div>
 
+			<?php
+			// One list of every OTHER active plugin, each with a "skip on BuddyNext
+			// routes" toggle. Keep-by-default: unchecked = kept; the owner ticks the
+			// heavy back-office plugins they want skipped. The in-house family is the
+			// always-kept floor and is not listed. We do not classify third-party
+			// plugins ourselves — a firewall/paywall/consent plugin is never skipped
+			// unless the owner ticks it (card 10264291719).
+			$bn_all = $bn_groups['kept'] + $bn_groups['stripped'];
+			ksort( $bn_all );
+			$bn_stripped = $bn_groups['stripped'];
+			?>
 			<div class="bn-settings-section">
 				<div class="bn-ss-header">
-					<span class="bn-ss-title">
-						<?php
-						echo esc_html(
-							$bn_isolation_on
-								? __( 'Not loaded on BuddyNext pages', 'buddynext' )
-								: __( 'Would not be loaded on BuddyNext pages (isolation is off)', 'buddynext' )
-						);
-						?>
-					</span>
-					<span class="bn-badge" data-tone="warn"><?php echo esc_html( (string) count( $bn_groups['stripped'] ) ); ?></span>
+					<span class="bn-ss-title"><?php esc_html_e( 'Plugins on this site', 'buddynext' ); ?></span>
+					<span class="bn-badge" data-tone="warn"><?php echo esc_html( (string) count( $bn_stripped ) ); ?></span>
 				</div>
 				<div class="bn-ss-body">
-					<?php if ( empty( $bn_groups['stripped'] ) ) : ?>
+					<p class="bn-field-hint">
+						<?php esc_html_e( 'BuddyNext and the Wbcom family are always kept. Every other active plugin is kept on community pages unless you switch it off here — turn off only heavy back-office plugins a community page does not need. Leave security, membership, consent and translation plugins on.', 'buddynext' ); ?>
+					</p>
+					<?php if ( empty( $bn_all ) ) : ?>
 						<div class="bn-empty">
-							<p>
-								<?php
-								// Branch on the real state: with isolation OFF nothing is
-								// ever unloaded, so the present-tense "every plugin
-								// qualified to be kept" read as false (card 10284912236
-								// item 2).
-								if ( $bn_isolation_on ) {
-									esc_html_e( 'Nothing is being unloaded right now — every active plugin qualified to be kept.', 'buddynext' );
-								} else {
-									esc_html_e( 'Nothing would be unloaded — every active plugin qualifies to be kept.', 'buddynext' );
-								}
-								?>
-							</p>
-							<p class="bn-field-hint">
-								<?php esc_html_e( 'A plugin is kept when it is a core dependency, a security or access plugin, or something that draws part of the page (it enqueues assets or hooks the header/footer). The plugins that isolation removes are back-office tools that add nothing to a community page — if you have none of those active, there is nothing to unload and this feature has no effect until you do.', 'buddynext' ); ?>
-							</p>
+							<p><?php esc_html_e( 'No other plugins are active on this site, so there is nothing to skip.', 'buddynext' ); ?></p>
 						</div>
 					<?php else : ?>
-						<?php foreach ( $bn_groups['stripped'] as $bn_file => $bn_row ) : ?>
+						<?php foreach ( $bn_all as $bn_file => $bn_row ) : ?>
+							<?php $bn_skipped = isset( $bn_stripped[ $bn_file ] ); ?>
 							<div class="bn-toggle-row">
 								<div class="bn-toggle-row__copy">
 									<span class="bn-toggle-row__label"><?php echo esc_html( $bn_row['name'] ); ?></span>
-									<p class="bn-field-hint"><?php echo esc_html( $bn_file ); ?></p>
-								</div>
-								<label class="bn-toggle-label">
-									<input
-										type="checkbox"
-										name="keep[]"
-										value="<?php echo esc_attr( $bn_file ); ?>"
-										role="switch"
-										aria-label="<?php echo esc_attr( sprintf( /* translators: %s: plugin name. */ __( 'Keep %s active on BuddyNext pages', 'buddynext' ), $bn_row['name'] ) ); ?>"
-									>
-									<span class="bn-toggle--inline"></span>
-								</label>
-							</div>
-						<?php endforeach; ?>
-					<?php endif; ?>
-				</div>
-			</div>
-
-			<div class="bn-settings-section">
-				<div class="bn-ss-header">
-					<span class="bn-ss-title">
-						<?php
-						// With isolation OFF every plugin loads normally, so "Kept on
-						// BuddyNext pages" (which implies others are being stripped)
-						// read as false. Branch it like the sibling header above
-						// (card 10284912236 item 2).
-						echo esc_html(
-							$bn_isolation_on
-								? __( 'Kept on BuddyNext pages', 'buddynext' )
-								: __( 'Would be kept on BuddyNext pages (isolation is off)', 'buddynext' )
-						);
-						?>
-					</span>
-					<span class="bn-badge" data-tone="success"><?php echo esc_html( (string) count( $bn_groups['kept'] ) ); ?></span>
-				</div>
-				<div class="bn-ss-body">
-					<?php if ( empty( $bn_groups['kept'] ) ) : ?>
-						<div class="bn-empty">
-							<p><?php esc_html_e( 'No other plugins are being kept yet.', 'buddynext' ); ?></p>
-						</div>
-					<?php else : ?>
-						<?php foreach ( $bn_groups['kept'] as $bn_file => $bn_row ) : ?>
-							<?php
-							// A security plugin is kept by default but stays overridable, so it
-							// renders as an enabled, pre-checked switch with a warning — never as
-							// the locked "always kept" in-house floor.
-							$bn_is_security = '1' === $bn_row['security'];
-							$bn_is_locked   = '' === $bn_row['by_owner'] && ! $bn_is_security;
-							?>
-							<div class="bn-toggle-row">
-								<div class="bn-toggle-row__copy">
-									<span class="bn-toggle-row__label">
-										<?php echo esc_html( $bn_row['name'] ); ?>
-										<?php if ( $bn_is_security ) : ?>
-											<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Security / access', 'buddynext' ); ?></span>
-										<?php endif; ?>
-									</span>
 									<p class="bn-field-hint">
 										<?php
 										echo esc_html( $bn_file );
-										if ( $bn_is_security ) {
-											echo ' — ' . esc_html__( 'recommended to keep; turning this off removes its protection on community pages', 'buddynext' );
-										} elseif ( $bn_is_locked ) {
-											echo ' — ' . esc_html__( 'always kept', 'buddynext' );
+										if ( $bn_skipped && $bn_isolation_on ) {
+											echo ' — ' . esc_html__( 'skipped on BuddyNext pages', 'buddynext' );
+										} elseif ( $bn_skipped ) {
+											echo ' — ' . esc_html__( 'will be skipped once isolation is on', 'buddynext' );
 										}
 										?>
 									</p>
 								</div>
 								<label class="bn-toggle-label">
-									<?php if ( $bn_is_locked ) : ?>
-										<input type="checkbox" checked disabled role="switch" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: plugin name. */ __( '%s is always kept active on BuddyNext pages', 'buddynext' ), $bn_row['name'] ) ); ?>">
-									<?php else : ?>
-										<input
-											type="checkbox"
-											name="keep[]"
-											value="<?php echo esc_attr( $bn_file ); ?>"
-											checked
-											role="switch"
-											aria-label="<?php echo esc_attr( sprintf( /* translators: %s: plugin name. */ __( 'Keep %s active on BuddyNext pages', 'buddynext' ), $bn_row['name'] ) ); ?>"
-										>
-									<?php endif; ?>
+									<input
+										type="checkbox"
+										name="strip[]"
+										value="<?php echo esc_attr( $bn_file ); ?>"
+										role="switch"
+										<?php checked( $bn_skipped ); ?>
+										aria-label="<?php echo esc_attr( sprintf( /* translators: %s: plugin name. */ __( 'Skip %s on BuddyNext pages', 'buddynext' ), $bn_row['name'] ) ); ?>"
+									>
 									<span class="bn-toggle--inline"></span>
 								</label>
 							</div>
@@ -309,12 +237,12 @@ class IsolationAdmin {
 	}
 
 	/**
-	 * Persist the owner's keep-alive selection.
+	 * Persist the owner's skip (strip) selection.
 	 *
-	 * Only basenames that are genuinely installed are stored, so a stale form or a
-	 * hand-crafted POST cannot seed the allow-list with arbitrary strings. Entries
-	 * already on the built-in floor are dropped rather than duplicated — the floor
-	 * is applied at read time regardless.
+	 * Only genuinely-installed basenames are stored, so a stale form or a
+	 * hand-crafted POST cannot seed the strip list with arbitrary strings. The
+	 * in-house family is dropped rather than stored — owner_strip_list() applies
+	 * that safety floor at read time regardless, so it can never be stripped.
 	 *
 	 * @return void
 	 */
@@ -329,48 +257,37 @@ class IsolationAdmin {
 		}
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-		$submitted = isset( $_POST['keep'] ) && is_array( $_POST['keep'] ) ? wp_unslash( $_POST['keep'] ) : array();
+		$submitted = isset( $_POST['strip'] ) && is_array( $_POST['strip'] ) ? wp_unslash( $_POST['strip'] ) : array();
 
 		$installed = get_plugins();
-		$keep      = array();
+		$family    = PluginIsolation::essentials();
+		$strip     = array();
 
 		foreach ( $submitted as $basename ) {
 			$basename = is_string( $basename ) ? trim( $basename ) : '';
 
-			if ( '' === $basename || ! isset( $installed[ $basename ] ) ) {
+			// Genuinely installed, and never the in-house family (belt-and-braces —
+			// owner_strip_list() also removes the family at read time).
+			if ( '' === $basename || ! isset( $installed[ $basename ] ) || in_array( $basename, $family, true ) ) {
 				continue;
 			}
 
-			$keep[] = $basename;
+			$strip[] = $basename;
 		}
 
-		$keep = array_values( array_unique( $keep ) );
-		sort( $keep );
+		$strip = array_values( array_unique( $strip ) );
+		sort( $strip );
 
-		$ok = update_option( PluginIsolation::OPTION_KEEP, $keep, false );
+		$ok = update_option( PluginIsolation::OPTION_STRIP, $strip, false );
 
 		// Master switch. Absent checkbox = off. Autoloaded (true): the mu-plugin
 		// and is_enabled() read it on every front-end request, so it must ride the
-		// autoloaded-options cache rather than hitting the DB each time. This used
-		// to write autoload=false while Installer wrote it autoloaded, so after an
-		// owner saved this screen the switch fell out of the autoload set and every
-		// request did a standalone lookup (card 10264291719).
+		// autoloaded-options cache rather than hitting the DB each time (card
+		// 10264291719).
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified above by check_admin_referer().
 		update_option( PluginIsolation::OPTION_ENABLED, empty( $_POST['isolation_enabled'] ) ? '0' : '1', true );
 
-		// Security plugins are kept by default; an ACTIVE one the owner left
-		// UN-checked is an explicit opt-out (strip it). Recorded so active_security_kept()
-		// stops keeping it, while a checked one clears any prior opt-out.
-		$active_now = (array) get_option( 'active_plugins', array() );
-		$optout     = array();
-		foreach ( PluginIsolation::security_plugins() as $sec ) {
-			if ( in_array( $sec, $active_now, true ) && ! in_array( $sec, $keep, true ) ) {
-				$optout[] = $sec;
-			}
-		}
-		update_option( PluginIsolation::OPTION_SECURITY_OPTOUT, array_values( array_unique( $optout ) ), false );
-
-		// The mirror the mu-plugin reads is rebuilt from the owner list, so the
+		// The mirror the mu-plugin reads is rebuilt from the owner strip list, so the
 		// change takes effect on the very next front-end request rather than
 		// whenever the next `init` sync happens to run.
 		( new PluginIsolation() )->sync_option();
@@ -378,7 +295,7 @@ class IsolationAdmin {
 		wp_safe_redirect(
 			add_query_arg(
 				'bn_isolation',
-				$ok || PluginIsolation::owner_keep_list() === $keep ? 'saved' : 'error',
+				$ok || PluginIsolation::owner_strip_list() === $strip ? 'saved' : 'error',
 				AdminHub::tab_url( 'settings', 'plugin-isolation' )
 			)
 		);

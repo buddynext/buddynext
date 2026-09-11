@@ -151,15 +151,21 @@ class PluginIsolationAllowListTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_the_mirror_option_carries_the_owner_choice(): void {
-		update_option( PluginIsolation::OPTION_KEEP, array( 'some-tracker/some-tracker.php' ), false );
+		// The mirror now carries the owner's STRIP choices (keep-by-default). A
+		// family plugin placed in the option must be dropped by the safety floor.
+		update_option(
+			PluginIsolation::OPTION_STRIP,
+			array( 'heavy-backoffice/heavy-backoffice.php', 'buddynext/buddynext.php' ),
+			false
+		);
 
 		( new PluginIsolation() )->sync_option();
 
 		$mirror = json_decode( (string) get_option( PluginIsolation::OPTION, '' ), true );
 
 		$this->assertIsArray( $mirror );
-		$this->assertContains( 'some-tracker/some-tracker.php', $mirror );
-		$this->assertContains( 'loco-translate/loco.php', $mirror );
+		$this->assertContains( 'heavy-backoffice/heavy-backoffice.php', $mirror, 'The owner strip choice must reach the mu-plugin.' );
+		$this->assertNotContains( 'buddynext/buddynext.php', $mirror, 'The in-house family must never be in the strip mirror.' );
 	}
 
 	/**
@@ -185,19 +191,24 @@ class PluginIsolationAllowListTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The generated mu-plugin carries the same floor, so a first request — before
-	 * any sync has run — already keeps translation plugins alive.
+	 * The generated mu-plugin carries the in-house family as its hard safety floor,
+	 * so a first request — before any sync — never strips a family plugin. Under
+	 * keep-by-default it strips nothing else until the owner opts a plugin in, so
+	 * third-party plugins (translation, security, etc.) are NOT in the floor.
 	 *
 	 * @return void
 	 */
 	public function test_the_generated_mu_plugin_carries_the_same_floor(): void {
 		// Reflection rather than widening the method's visibility: the mu-plugin
 		// body is an implementation detail of the installer, not an API.
-		$method = new \ReflectionMethod( \BuddyNext\Core\Installer::class, 'mu_plugin_content' );
+		$method  = new \ReflectionMethod( \BuddyNext\Core\Installer::class, 'mu_plugin_content' );
 		$content = (string) $method->invoke( null );
 
-		$this->assertStringContainsString( 'loco-translate/loco.php', $content );
-		$this->assertStringContainsString( 'sitepress-multilingual-cms/sitepress.php', $content );
+		// The in-house family floor is present…
+		$this->assertStringContainsString( 'buddynext/buddynext.php', $content );
+		$this->assertStringContainsString( 'wpmediaverse/wpmediaverse.php', $content );
+		// …and it keeps everything else by default (array_diff, not array_intersect).
+		$this->assertStringContainsString( 'array_diff( $plugins, $strip )', $content );
 	}
 
 	/**

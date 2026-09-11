@@ -1094,10 +1094,11 @@ class Installer {
 			return; // Already set (by the owner or a prior run) — leave it.
 		}
 
-		$has_keep_list = array() !== (array) get_option( \BuddyNext\Core\PluginIsolation::OPTION_KEEP, array() );
-		$has_optout    = array() !== (array) get_option( \BuddyNext\Core\PluginIsolation::OPTION_SECURITY_OPTOUT, array() );
+		// Evidence the owner configured isolation: a non-empty strip list (the
+		// plugins they chose to skip on BuddyNext routes).
+		$has_strip_list = array() !== (array) get_option( \BuddyNext\Core\PluginIsolation::OPTION_STRIP, array() );
 
-		if ( $has_keep_list || $has_optout ) {
+		if ( $has_strip_list ) {
 			// Autoloaded (true), consistent with the admin-screen write: the master
 			// switch is read on every front-end request by the mu-plugin and
 			// is_enabled(), so it must stay in the autoloaded-options set (card
@@ -2014,10 +2015,11 @@ class Installer {
 
 		self::create_hub_pages();
 
-		// Seed the integration allow-list option BEFORE writing the mu-plugin, so the
-		// data-driven mu-plugin already finds the in-house family on its first run.
-		// PluginIsolation::sync_option() keeps it current (incl. Pro) at runtime.
-		update_option( PluginIsolation::OPTION, (string) wp_json_encode( PluginIsolation::integration_plugins() ), false );
+		// Seed the strip-list mirror (autoloaded) BEFORE writing the mu-plugin. It is
+		// the owner's explicit skip choices — empty on a fresh install, so isolation
+		// strips nothing until the owner opts a plugin in. sync_option() keeps it
+		// current at runtime.
+		update_option( PluginIsolation::OPTION, (string) wp_json_encode( PluginIsolation::owner_strip_list() ), true );
 
 		self::install_mu_plugin();
 
@@ -4415,23 +4417,27 @@ if ( buddynext_mu_is_bn_request() ) {
 
 			$essentials = @@BN_MU_ESSENTIALS@@;
 
-			// Plus any dynamic / 3rd-party additions BuddyNext mirrors into the
-			// `buddynext_isolation_plugins` option. Read via the options API so it
-			// rides the object cache (Redis/Memcached) instead of a raw query. The
-			// hard-coded family above is the floor; this merge only adds extras a
-			// filter contributed at runtime.
-			$stored       = get_option( 'buddynext_isolation_plugins', '' );
-			$integrations = is_string( $stored ) ? json_decode( $stored, true ) : $stored;
-			if ( ! is_array( $integrations ) ) {
-				$integrations = array();
+			// Keep-by-default. Isolation strips ONLY the plugins the owner explicitly
+			// chose to skip on BuddyNext routes, mirrored (autoloaded, so this read
+			// rides the alloptions/object cache) into `buddynext_isolation_plugins`.
+			// We do not maintain a curated allow-list of third-party plugins — there
+			// are 60k+ and any list is incomplete — so a firewall, paywall, consent
+			// or translation plugin is NEVER stripped unless the owner named it.
+			$stored = get_option( 'buddynext_isolation_plugins', '' );
+			$strip  = is_string( $stored ) ? json_decode( $stored, true ) : $stored;
+			if ( ! is_array( $strip ) ) {
+				$strip = array();
 			}
 
-			$whitelist = apply_filters(
-				'buddynext_isolation_whitelist',
-				array_values( array_unique( array_merge( $essentials, $integrations ) ) )
-			);
+			// Hard safety floor: the in-house family is never stripped, whatever the
+			// mirror says — the mu-plugin can run against a stale option.
+			$strip = array_values( array_diff( $strip, $essentials ) );
+			if ( empty( $strip ) ) {
+				return $plugins;
+			}
 
-			return array_values( array_intersect( $plugins, $whitelist ) );
+			// Keep every active plugin except the owner's explicit strip choices.
+			return array_values( array_diff( $plugins, $strip ) );
 		}
 	);
 }
