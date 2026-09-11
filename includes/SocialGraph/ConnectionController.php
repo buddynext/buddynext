@@ -430,6 +430,13 @@ class ConnectionController extends BaseRestController {
 			$body['ids'] = $pending;
 		}
 
-		return new WP_REST_Response( $body, 200 );
+		$response = new WP_REST_Response( $body, 200 );
+		// This inbox still pages by offset, but `page` is deprecated in favour of
+		// the cursor convention the sibling follow/connection lists moved to, so an
+		// old client that keeps sending it fails loud with the same Deprecation +
+		// Warning signal the siblings emit rather than silently (card 10284805802).
+		$this->flag_deprecated_page_param( $request, $response );
+
+		return $response;
 	}
 }

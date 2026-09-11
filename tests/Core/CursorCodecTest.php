@@ -50,6 +50,32 @@ class CursorCodecTest extends \WP_UnitTestCase {
 		$this->assertNull( CursorCodec::decode( base64_encode( 'no-separator' ) ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 	}
 
+	/**
+	 * A cursor survives an add_query_arg() roundtrip.
+	 *
+	 * The old hand-rolled base64 kept '=' padding, which add_query_arg() dropped,
+	 * corrupting the pivot for two-thirds of ids (card 10284805802). This is the
+	 * roundtrip every cursor consumer relies on, bookmarks included, now that
+	 * BookmarkService encodes/decodes through this codec.
+	 *
+	 * @return void
+	 */
+	public function test_survives_add_query_arg_roundtrip(): void {
+		// Ids that force '=' padding under standard base64.
+		foreach ( array( 2, 22, 222 ) as $id ) {
+			$cursor = CursorCodec::encode( '2026-08-04 10:00:00', $id );
+			$url    = add_query_arg( array( 'cursor' => $cursor ), 'https://example.test/feed' );
+
+			$query = array();
+			wp_parse_str( (string) wp_parse_url( $url, PHP_URL_QUERY ), $query );
+			$decoded = CursorCodec::decode( (string) ( $query['cursor'] ?? '' ) );
+
+			$this->assertNotNull( $decoded, "Cursor for id {$id} did not survive add_query_arg()." );
+			$this->assertSame( $id, $decoded['id'], "Cursor for id {$id} decoded to the wrong pivot." );
+			$this->assertSame( '2026-08-04 10:00:00', $decoded['created_at'] );
+		}
+	}
+
 	public function test_parse_trail_empty_is_no_trail(): void {
 		$this->assertSame( array(), CursorCodec::parse_trail( '' ) );
 		$this->assertSame( array( 'c1' ), CursorCodec::parse_trail( 'c1' ) );
