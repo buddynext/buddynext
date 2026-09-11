@@ -51,11 +51,34 @@ class PresetActivation {
 	 */
 	private const RETRY_RESULT_TRANSIENT = 'buddynext_preset_retry_result';
 
-	/** Give up after this many failures (~a day at hourly backoff). */
+	/**
+	 * Give up after this many failures (~a day at hourly backoff).
+	 *
+	 * The hourly-x24-then-stop back-off is OWNER-ACCEPTED (card 10264291915): a
+	 * firewalled host retries quietly for about a day, then surfaces the actionable
+	 * give-up notice rather than hammering the store forever. Do not shorten it into
+	 * an aggressive retry loop.
+	 */
 	private const MAX_ATTEMPTS = 24;
 
-	/** Remote timeout, seconds. Short: this is a fire-and-forget authorisation. */
+	/**
+	 * Remote timeout, seconds. Short: this is a fire-and-forget authorisation.
+	 *
+	 * The bounded 5s blocking call on the owner's admin page (inline path only, at
+	 * most once per admin load until give-up) is OWNER-ACCEPTED (card 10264291915) —
+	 * the trade for surfacing the failure immediately on a dead-cron host. Keep it
+	 * short; do not raise it back toward the original 15s.
+	 */
 	private const TIMEOUT = 5;
+
+	/**
+	 * An armed event overdue by more than this is treated as a dead cron.
+	 *
+	 * A working WP-Cron (even a slow one) fires a due single event within minutes,
+	 * so an hour of grace never false-positives a healthy host; a blocked-loopback
+	 * host leaves the same timestamp overdue forever.
+	 */
+	private const OVERDUE_GRACE = HOUR_IN_SECONDS;
 
 	/** The baked-in Free preset key. */
 	private const PRESET_KEY = 'buddynext9a3c7e1d5f2b8a4c6e0d9b7f1a2c8e55';
@@ -97,12 +120,14 @@ class PresetActivation {
 			return;
 		}
 
-		// DISABLE_WP_CRON with no system cron is the card's own silent-failure case: a
-		// scheduled single event would never fire, so run() would never execute,
-		// OPT_GAVE_UP would never be written, and the owner would see nothing forever.
+		// A cron that cannot fire is the card's own silent-failure case: a scheduled
+		// single event never fires, so run() never executes, OPT_GAVE_UP is never
+		// written, and the owner sees nothing forever. cron_is_disabled() catches
+		// both shapes of it — DISABLE_WP_CRON with no system cron, AND a blocked
+		// loopback that armed the event and left it overdue (constant undefined).
 		// Drive the attempt INLINE from this admin request instead. run() sets
-		// OPT_GAVE_UP on failure under disabled cron (see run()), so the next
-		// admin_init early-returns above and this runs at most once — and the give-up
+		// OPT_GAVE_UP on failure under a dead cron (see run()), so the next admin_init
+		// early-returns above and this runs at most once per load — and the give-up
 		// notice (admin_notices, later this same request) surfaces immediately
 		// (card 10264291915).
 		if ( self::cron_is_disabled() ) {
@@ -116,15 +141,37 @@ class PresetActivation {
 	}
 
 	/**
-	 * Whether WP-Cron is disabled, so a scheduled event cannot be relied on to fire.
+	 * Whether WP-Cron cannot be relied on to fire this activation event.
+	 *
+	 * Two ways it cannot fire: DISABLE_WP_CRON is set with no system cron behind it,
+	 * OR the loopback that drives WP-Cron is blocked — the constant is undefined, the
+	 * event arms, and then nothing ever runs it. The second case has no constant to
+	 * read, so it is detected from the symptom: an armed event whose scheduled time
+	 * is more than OVERDUE_GRACE in the past never fired, which on a working host is
+	 * impossible (a due single event fires within minutes). Either way the caller
+	 * runs the attempt inline and run() gives up on the first failure instead of
+	 * scheduling a retry that would never fire (card 10264291915).
 	 *
 	 * @return bool
 	 */
 	private static function cron_is_disabled(): bool {
+		$disabled = defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON;
+
+		if ( ! $disabled ) {
+			$next = wp_next_scheduled( self::HOOK );
+			// A single event is unscheduled by WP just before it fires, so inside a
+			// real cron run wp_next_scheduled() is already false here — this only
+			// trips for an event that armed and then sat there unfired.
+			if ( false !== $next && $next < ( time() - self::OVERDUE_GRACE ) ) {
+				$disabled = true;
+			}
+		}
+
 		/**
 		 * Whether WP-Cron cannot be relied on to fire a scheduled event.
 		 *
-		 * Defaults to the DISABLE_WP_CRON constant. A site that sets that constant but
+		 * Defaults to the DISABLE_WP_CRON constant OR a detected dead cron (an armed
+		 * event overdue past the grace window). A site that sets DISABLE_WP_CRON but
 		 * DOES run a real system cron can return false to keep the scheduled-event
 		 * path (and its bounded hourly retry) instead of the inline give-up.
 		 *
@@ -132,7 +179,7 @@ class PresetActivation {
 		 *
 		 * @param bool $disabled True when a scheduled event cannot be relied on.
 		 */
-		return (bool) apply_filters( 'buddynext_wp_cron_disabled', defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON );
+		return (bool) apply_filters( 'buddynext_wp_cron_disabled', $disabled );
 	}
 
 	/**
@@ -271,9 +318,17 @@ class PresetActivation {
 	}
 
 	/**
-	 * Owner-triggered retry: clear the give-up + attempt state and run the
-	 * activation immediately (in this request is fine — it is the owner's own
-	 * click, and the 5s timeout bounds it), then redirect back.
+	 * Owner-triggered retry: clear the give-up latch and run the activation
+	 * immediately (in this request is fine — it is the owner's own click, and the 5s
+	 * timeout bounds it), then redirect back.
+	 *
+	 * The running attempt count is deliberately PRESERVED across a retry. Deleting it
+	 * reset the counter on every click, so a host that stays blocked could be retried
+	 * forever without ever re-latching the MAX_ATTEMPTS give-up state — the give-up
+	 * notice appeared once and then vanished on the next click. Keeping the count lets
+	 * a still-blocked host reach (or immediately re-reach) give-up: run() re-arms the
+	 * latch as soon as attempts is at the ceiling. A genuine success still clears the
+	 * count via run()'s own success branch (card 10264291915).
 	 *
 	 * @return void
 	 */
@@ -283,8 +338,9 @@ class PresetActivation {
 		}
 		check_admin_referer( self::RETRY_ACTION );
 
+		// Clear only the give-up latch so run() actually attempts again; the attempt
+		// count carries over so repeated retries still converge on give-up.
 		delete_option( self::OPT_GAVE_UP );
-		delete_option( self::OPT_ATTEMPTS );
 		$ok = self::run();
 
 		// Record the outcome across the redirect so maybe_render_notice() can report
