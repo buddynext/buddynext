@@ -1717,6 +1717,32 @@ class ModerationService {
 	}
 
 	/**
+	 * Whether a user may view the moderation queue (report queue + pending approvals).
+	 *
+	 * The SINGLE predicate the REST route (ModerationController::require_queue_access)
+	 * and the queue template (templates/moderation/queue.php) share, so a space-only
+	 * moderator gets both the 200 and a drawn page instead of a 200 the template
+	 * refuses to render as "Access Restricted" (card 10264294189). Two ways in:
+	 * site-wide authority to review the queue, OR ownership/moderation of at least
+	 * one space (the get_queue() handler then scopes the results to those spaces).
+	 * A plain member holds neither and is refused on both surfaces.
+	 *
+	 * @param int $user_id User to check (0 = never).
+	 * @return bool
+	 */
+	public function can_view_queue( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		if ( $this->is_site_moderator( $user_id, 'buddynext-moderation/review-queue' ) ) {
+			return true;
+		}
+
+		return ! empty( $this->get_moderated_space_ids( $user_id ) );
+	}
+
+	/**
 	 * Return the space IDs in which a user holds an owner or moderator role.
 	 *
 	 * Used by ModerationController to scope the report queue for non-admin moderators.

@@ -2,7 +2,8 @@
 /**
  * Moderation queue template (v2).
  *
- * Restricted to users with the buddynext-moderation/review-queue ability.
+ * Restricted to users who may view the queue (ModerationService::can_view_queue):
+ * a site-wide queue reviewer OR a space owner/moderator, matching the REST route.
  * Lists pending reports from bn_reports with severity classification,
  * reporter stacks, and inline actions:
  *   - Dismiss, Remove content, Warn user, Strike user, Suspend account.
@@ -35,8 +36,12 @@ use BuddyNext\Profile\AvatarService;
 
 $current_user_id = get_current_user_id();
 
-// Access gate — must have review-queue ability.
-if ( ! $current_user_id || ! buddynext_can( $current_user_id, 'buddynext-moderation/review-queue' ) ) {
+// Access gate — the SAME predicate the REST route (require_queue_access) uses,
+// so the page draws for exactly whoever the route serves a queue to: a site-wide
+// queue reviewer OR a space owner/moderator (scoped to their spaces). Gating only
+// on review-queue here left a space-only moderator with a 200 from the API but an
+// "Access Restricted" panel (card 10264294189).
+if ( ! $current_user_id || ! ( new \BuddyNext\Moderation\ModerationService() )->can_view_queue( $current_user_id ) ) {
 	?>
 	<div class="bn-mod-restricted" role="alert">
 		<div class="bn-mod-restricted__panel">
