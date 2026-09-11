@@ -6,6 +6,7 @@
       "slug": "getting-started-bnext",
       "name": "Getting Started",
       "docs": [
+        "getting-started/00-start-here.md",
         "getting-started/01-introduction.md",
         "getting-started/02-installation.md",
         "getting-started/03-admin-setup-wizard.md",
