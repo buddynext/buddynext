@@ -1424,15 +1424,20 @@ class ModerationController extends BaseRestController {
 	/**
 	 * Whether the current user has site-wide moderation authority.
 	 *
-	 * WordPress admins and community moderators/admins (bn_community_role) act
-	 * across the whole community; everyone else is space-scoped. One predicate so
-	 * a site moderator behaves identically everywhere a handler previously keyed
-	 * off manage_options alone.
+	 * WordPress admins, community moderators/admins (bn_community_role), and any
+	 * member granted a moderation ability act across the whole community;
+	 * everyone else is space-scoped. Routed through the coarse ability gate
+	 * ({@see BaseRestController::holds_moderation_authority()}) rather than a
+	 * direct RoleService::can_moderate_site() call, so the queue-access, report-
+	 * scope and warn guards honour a Roles & Capabilities grant/regrade the same
+	 * way the queue UI does — the direct role call could reach neither
+	 * (card 10264294189). The report/warn service calls still enforce the precise
+	 * per-action ability, so this admits without widening authority.
 	 *
 	 * @return bool
 	 */
 	private function moderates_site(): bool {
-		return ( new \BuddyNext\Core\RoleService() )->can_moderate_site( get_current_user_id() );
+		return $this->holds_moderation_authority( get_current_user_id() );
 	}
 
 	/**

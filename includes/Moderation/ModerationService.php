@@ -830,7 +830,7 @@ class ModerationService {
 	 */
 	public function remove_content( int $report_id, int $actor_id, ?int $resolved_by = null ): bool|WP_Error {
 		if ( ! $this->can_action_report( $actor_id, $report_id ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to remove content.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You do not have permission to remove content.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		$report = $this->get_report( $report_id );
@@ -1070,7 +1070,7 @@ class ModerationService {
 	 */
 	public function issue_strike( int $user_id, int $actor_id, string $reason = '' ): int|WP_Error {
 		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/issue-strike' ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		global $wpdb;
@@ -1130,7 +1130,7 @@ class ModerationService {
 		// for the space they moderate.
 		$actor_is_site_mod = $this->is_site_moderator( $actor_id );
 		if ( ! $actor_is_site_mod && ! ( $space_id > 0 && $this->actor_moderates_space( $actor_id, $space_id ) ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to issue warnings.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You do not have permission to issue warnings.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		// A space-only moderator's authority is scoped to their space: they may warn a
@@ -1186,7 +1186,7 @@ class ModerationService {
 	 */
 	public function reverse_strike( int $strike_id, int $actor_id ): bool|WP_Error {
 		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/issue-strike' ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to reverse strikes.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You do not have permission to reverse strikes.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		global $wpdb;
@@ -2906,7 +2906,7 @@ class ModerationService {
 	 */
 	private function set_status( int $report_id, int $actor_id, string $status, ?int $resolved_by = null ): bool|WP_Error {
 		if ( ! $this->can_action_report( $actor_id, $report_id ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to action reports.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You do not have permission to action reports.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		// The actor who must hold the authority to act, and the actor RECORDED on the

@@ -179,15 +179,68 @@ abstract class BaseRestController {
 	}
 
 	/**
-	 * Require a community moderator (currently site managers).
+	 * Moderation abilities that qualify a member to reach the moderation surface.
 	 *
-	 * Distinct method name so moderator-gated routes read clearly and can gain
-	 * space-moderator semantics later without touching every controller.
+	 * Holding ANY one clears the coarse route gate ({@see self::require_moderator()}
+	 * and {@see \BuddyNext\Moderation\ModerationController::moderates_site()}). The
+	 * SERVICE mutator then re-checks the SPECIFIC ability for the action taken
+	 * (issue_strike -> issue-strike, suspend -> suspend-user, dismiss -> dismiss),
+	 * so this coarse gate never widens what an ability authorises — it only stops
+	 * the route from refusing a member the Roles & Capabilities system has granted.
+	 * Before this, the guards read RoleService::can_moderate_site() directly, which
+	 * no ability grant or regrade could reach, so a member granted (or a moderator
+	 * regraded on) an ability saw the queue's buttons and every click 403'd
+	 * (card 10264294189).
+	 *
+	 * @var string[]
+	 */
+	protected const MODERATION_ABILITIES = array(
+		'buddynext-moderation/review-queue',
+		'buddynext-moderation/issue-strike',
+		'buddynext-moderation/suspend-user',
+		'buddynext-moderation/dismiss',
+	);
+
+	/**
+	 * Whether a user holds any moderation ability (the coarse moderation gate).
+	 *
+	 * Routed through buddynext_can() — the canonical 4-layer permission entry
+	 * point (manage_options bypass, role map, per-user grant, buddynext_user_can
+	 * filter) — so a WordPress admin, a community moderator (role map), and a
+	 * member granted a single ability all pass, exactly as the queue UI decides
+	 * which buttons to render. See {@see self::MODERATION_ABILITIES}.
+	 *
+	 * @param int $user_id User to check (0 = never a moderator).
+	 * @return bool
+	 */
+	protected function holds_moderation_authority( int $user_id ): bool {
+		if ( $user_id <= 0 || ! function_exists( 'buddynext_can' ) ) {
+			return false;
+		}
+
+		foreach ( self::MODERATION_ABILITIES as $ability ) {
+			if ( buddynext_can( $user_id, $ability ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Require a community moderator (site managers, community moderators, or a
+	 * member granted a moderation ability).
+	 *
+	 * The coarse route gate: it admits anyone holding a moderation ability
+	 * ({@see self::holds_moderation_authority()}); the handler's service call then
+	 * enforces the precise per-action ability. A member with no moderation ability
+	 * at all is refused here (403), never reaching a handler that would otherwise
+	 * return the service's status-less WP_Error as a 500.
 	 *
 	 * @return true|WP_Error
 	 */
 	public function require_moderator(): bool|WP_Error {
-		if ( ( new \BuddyNext\Core\RoleService() )->can_moderate_site( get_current_user_id() ) ) {
+		if ( $this->holds_moderation_authority( get_current_user_id() ) ) {
 			return true;
 		}
 

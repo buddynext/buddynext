@@ -16,10 +16,15 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Moderation;
 
 use BuddyNext\Moderation\ModerationService;
+use BuddyNext\Moderation\ModerationController;
+use BuddyNext\Core\PermissionService;
+use WP_REST_Server;
+use WP_REST_Request;
 use WP_UnitTestCase;
 
 /**
  * @covers \BuddyNext\Moderation\ModerationService
+ * @covers \BuddyNext\REST\BaseRestController
  */
 class ModeratorAuthorizationTest extends WP_UnitTestCase {
 
@@ -46,6 +51,23 @@ class ModeratorAuthorizationTest extends WP_UnitTestCase {
 		$this->victim    = self::factory()->user->create( array( 'role' => 'subscriber' ) );
 
 		buddynext_service( 'roles' )->set_role( $this->moderator, 'moderator' );
+
+		// A live REST server so the route-level tests dispatch through the real
+		// permission_callback + handler + service stack — the layer the earlier
+		// service-only guards never exercised, which is why this card round-tripped.
+		global $wp_rest_server;
+		$wp_rest_server = new WP_REST_Server();
+		do_action( 'rest_api_init', $wp_rest_server );
+		( new ModerationController() )->register_routes();
+	}
+
+	/**
+	 * @return void
+	 */
+	public function tear_down(): void {
+		global $wp_rest_server;
+		$wp_rest_server = null;
+		parent::tear_down();
 	}
 
 	/**
@@ -194,6 +216,53 @@ class ModeratorAuthorizationTest extends WP_UnitTestCase {
 		$this->assertFalse(
 			buddynext_can( $this->member, 'buddynext-moderation/dismiss' ),
 			'A plain member does not hold the dismiss ability.'
+		);
+	}
+
+	/**
+	 * ROUTE-LEVEL guard — the layer the six earlier bounces never tested.
+	 *
+	 * The card's exact acceptance: grant a PLAIN member the issue-strike ability
+	 * (the real per-user grant path — a bn_ability_* user_meta entry) and POST to
+	 * the strike route. The route's permission_callback (require_moderator) used to
+	 * read RoleService::can_moderate_site() directly, which no grant could reach, so
+	 * the queue rendered the Strike button and the click 403'd. It must now return
+	 * 201, proving the grant clears the route guard, not merely the service.
+	 *
+	 * @return void
+	 */
+	public function test_route_grant_issue_strike_ability_returns_201_for_member(): void {
+		update_user_meta( $this->member, PermissionService::ability_meta_key( 'buddynext-moderation/issue-strike' ), '0' );
+
+		wp_set_current_user( $this->member );
+		$request = new WP_REST_Request( 'POST', "/buddynext/v1/users/{$this->victim}/strikes" );
+		$request->set_param( 'reason', 'spam' );
+		$response = rest_do_request( $request );
+
+		$this->assertSame(
+			201,
+			$response->get_status(),
+			'A member granted the issue-strike ability must be able to POST a strike at the ROUTE, not just the service.'
+		);
+	}
+
+	/**
+	 * The other direction of the same guard: a member holding NO moderation ability
+	 * is refused at the route with 403 — NOT the 500 the handler produced when it
+	 * returned the service's status-less forbidden WP_Error raw (card 10264294189).
+	 *
+	 * @return void
+	 */
+	public function test_route_member_without_ability_gets_403_not_500(): void {
+		wp_set_current_user( $this->member );
+		$request = new WP_REST_Request( 'POST', "/buddynext/v1/users/{$this->victim}/strikes" );
+		$request->set_param( 'reason', 'spam' );
+		$response = rest_do_request( $request );
+
+		$this->assertSame(
+			403,
+			$response->get_status(),
+			'A member with no moderation ability must get 403 from the strike route, never 500.'
 		);
 	}
 }
