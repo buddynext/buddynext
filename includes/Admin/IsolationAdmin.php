@@ -349,9 +349,14 @@ class IsolationAdmin {
 
 		$ok = update_option( PluginIsolation::OPTION_KEEP, $keep, false );
 
-		// Master switch. Absent checkbox = off.
+		// Master switch. Absent checkbox = off. Autoloaded (true): the mu-plugin
+		// and is_enabled() read it on every front-end request, so it must ride the
+		// autoloaded-options cache rather than hitting the DB each time. This used
+		// to write autoload=false while Installer wrote it autoloaded, so after an
+		// owner saved this screen the switch fell out of the autoload set and every
+		// request did a standalone lookup (card 10264291719).
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified above by check_admin_referer().
-		update_option( PluginIsolation::OPTION_ENABLED, empty( $_POST['isolation_enabled'] ) ? '0' : '1', false );
+		update_option( PluginIsolation::OPTION_ENABLED, empty( $_POST['isolation_enabled'] ) ? '0' : '1', true );
 
 		// Security plugins are kept by default; an ACTIVE one the owner left
 		// UN-checked is an explicit opt-out (strip it). Recorded so active_security_kept()

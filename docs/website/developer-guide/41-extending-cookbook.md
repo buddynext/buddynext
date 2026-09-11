@@ -552,11 +552,12 @@ add_filter(
 
 Swap the basename for your consent plugin: `cookie-law-info/cookie-law-info.php` (CookieYes), `complianz-gdpr/complianz-gpdr.php` (Complianz), `cookiebot/cookiebot.php` (Cookiebot). The same two-filter pattern keeps any must-run plugin alive on community pages - security headers, affiliate tracking the owner has consent for, and so on. Use it sparingly: every plugin allowed through gives up part of the memory saving isolation exists to provide.
 
-Three more isolation seams exist for less common needs:
+Two more isolation seams exist for less common needs:
 
 - `buddynext_isolation_plugins` (string[]) - the MAIN plugin's keep-list filter, applied when BuddyNext computes and stores which plugins survive isolation. This is the seam Pro integrations use, and the one to hook from a normal plugin. It is NOT interchangeable with `buddynext_isolation_whitelist` above: that one is applied inside the isolation mu-plugin before regular plugins load, so it is the only one that can rescue a plugin from a mu-plugin (which is why Recipe 13 uses it); this one is read into the stored keep-list the mu-plugin then honours.
-- `buddynext_isolation_enabled` (bool) - the master switch. Return `false` to turn plugin isolation off entirely for a request (or a whole site) without touching the owner setting. Use this only if isolation is actively breaking a page you cannot fix with the per-plugin filter above.
 - `buddynext_isolation_security_plugins` (string[]) - the list of security/access plugins that are *always* kept on community routes, filterable so you can add a security plugin BuddyNext does not recognise (or remove one). Security and access-control plugins are kept by default precisely because silently unloading them on the pages members use most is a safety risk; extend this list rather than the general keep-list when the plugin is a security control.
+
+There is no runtime filter for the master on/off switch. It is the owner setting under **Platform > Plugin isolation** and nothing else: the plugin-strip enforcer is the isolation mu-plugin, which runs before any plugin loads and so can never see a PHP filter. A former `buddynext_isolation_enabled` filter reached only the asset side, which desynced the two layers, so it was removed. To keep a plugin alive on community routes, use the keep-list filters above (which the mu-plugin honours) rather than trying to force the whole feature off.
 
 ---
 

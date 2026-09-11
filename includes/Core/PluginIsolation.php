@@ -288,7 +288,7 @@ class PluginIsolation {
 	public const OPTION_SECURITY_OPTOUT = 'buddynext_isolation_security_optout';
 
 	/**
-	 * Whether route isolation is enabled. Default OFF; filterable.
+	 * Whether route isolation is enabled. Default OFF; owner setting only.
 	 *
 	 * Ships OFF (owner Decision 1): stripping plugins on the community routes is a
 	 * sharp tool that surprises owners when a plugin they rely on goes missing, so
@@ -300,14 +300,18 @@ class PluginIsolation {
 	 * @return bool
 	 */
 	public static function is_enabled(): bool {
-		$enabled = '1' === (string) get_option( self::OPTION_ENABLED, '0' );
-
-		/**
-		 * Filter whether front-end plugin isolation runs at all.
-		 *
-		 * @param bool $enabled Owner setting (default true).
-		 */
-		return (bool) apply_filters( 'buddynext_isolation_enabled', $enabled );
+		// Read the RAW option, with no filter layered on top. The plugin-strip
+		// enforcer is the isolation mu-plugin, which runs before any plugin loads
+		// and therefore can never see a PHP filter — it reads this same raw option
+		// directly (Installer::mu_plugin_content). A 'buddynext_isolation_enabled'
+		// filter here only ever reached AssetIsolation (which gates on this
+		// method), so forcing it desynced the two layers: force it false and
+		// plugins were still stripped; force it true and assets were stripped while
+		// plugins were not — the exact split-brain this feature exists to avoid
+		// (card 10264291719). The filter could not structurally do half its job, so
+		// it is gone; the owner setting plus the per-plugin keep-list and security
+		// filters (which the mu-plugin CAN honour) are the supported controls.
+		return '1' === (string) get_option( self::OPTION_ENABLED, '0' );
 	}
 
 	/**
