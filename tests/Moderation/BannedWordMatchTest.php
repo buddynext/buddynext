@@ -234,4 +234,25 @@ class BannedWordMatchTest extends \WP_UnitTestCase {
 
 		$this->assertFalse( $this->blocked( 'anything at all' ), 'Content was refused with no banned words configured.' );
 	}
+
+	/**
+	 * The rejection copy names the field the word is in, not always "album name".
+	 *
+	 * An album title and description are scanned as separate calls, each with its
+	 * own object label, so a banned word only in the description is reported as
+	 * "album description" and one in the title as "album name" (card 10264294340).
+	 *
+	 * @return void
+	 */
+	public function test_album_field_labels_name_the_right_field(): void {
+		$this->ban( 'ass' );
+
+		$title_error = $this->safeguard->check_content( 'you are an ass', '', 0, 0, 'create', 'album name' );
+		$this->assertWPError( $title_error, 'A banned word in an album title was not rejected.' );
+		$this->assertStringContainsString( 'album name', $title_error->get_error_message(), 'The album-title rejection did not name the title.' );
+
+		$desc_error = $this->safeguard->check_content( 'you are an ass', '', 0, 0, 'create', 'album description' );
+		$this->assertWPError( $desc_error, 'A banned word in an album description was not rejected.' );
+		$this->assertStringContainsString( 'album description', $desc_error->get_error_message(), 'The album-description rejection named the wrong field.' );
+	}
 }

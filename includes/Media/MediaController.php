@@ -618,6 +618,43 @@ class MediaController extends BaseRestController {
 	}
 
 	/**
+	 * Run the banned-words / blocklist scan over an album's title and description.
+	 *
+	 * Title and description are scanned as separate calls so the rejection copy
+	 * names the field the offending word is actually in - a word typed into the
+	 * description is reported as "album description", not "album name" (card
+	 * 10264294340). This mirrors SpaceService::scan_space_text(). A hard block
+	 * returns the WP_Error; a flag verdict is allowed through (reactive
+	 * moderation reports it). Empty fields are skipped.
+	 *
+	 * @param string $title       Album title (may be empty).
+	 * @param string $description Album description (may be empty).
+	 * @param int    $user_id     Author whose content is being scanned.
+	 * @param int    $space_id    Space id for the per-space banned list (0 for the personal library).
+	 * @param string $context     Scan context, 'create' or 'edit'.
+	 * @return WP_Error|null WP_Error on a hard block, null when clean or flagged.
+	 */
+	private function scan_album_text( string $title, string $description, int $user_id, int $space_id, string $context ): ?WP_Error {
+		$safeguard = buddynext_service( 'safeguard' );
+		$fields    = array(
+			'album name'        => trim( $title ),
+			'album description' => trim( $description ),
+		);
+
+		foreach ( $fields as $label => $text ) {
+			if ( '' === $text ) {
+				continue;
+			}
+			$scan = $safeguard->check_content( $text, '', $user_id, $space_id, $context, $label );
+			if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $scan ) && is_wp_error( $scan ) ) {
+				return $scan;
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * POST /spaces/{id}/albums — create an album owned by a space.
 	 *
 	 * Creating an empty album posts nothing to the feed; that happens when
@@ -653,12 +690,13 @@ class MediaController extends BaseRestController {
 			return new WP_Error( 'bn_album_title_required', __( 'An album needs a name.', 'buddynext' ), array( 'status' => 422 ) );
 		}
 
-		// Album name + description run the banned-words / blocklist scan too, so a
-		// blocked word cannot be moved into an album title. Hard block rejects.
-		$bn_album_text = trim( $title . ' ' . (string) $request->get_param( 'description' ) );
-		// Scan against THIS space's banned words too, not just the site list (card 10264294340 RFT round 4).
-		$bn_album_scan = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), $space_id, 'create', 'album' );
-		if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_album_scan ) && is_wp_error( $bn_album_scan ) ) {
+		// Album name and description run the banned-words / blocklist scan too, so
+		// a blocked word cannot be moved into an album title or description. Each
+		// field is scanned under its own label so the rejection names the right
+		// one (card 10264294340). Scan against THIS space's banned words too, not
+		// just the site list (card 10264294340 RFT round 4).
+		$bn_album_scan = $this->scan_album_text( $title, (string) $request->get_param( 'description' ), get_current_user_id(), $space_id, 'create' );
+		if ( is_wp_error( $bn_album_scan ) ) {
 			return $bn_album_scan;
 		}
 
@@ -701,11 +739,13 @@ class MediaController extends BaseRestController {
 			return new WP_Error( 'bn_album_title_required', __( 'An album needs a name.', 'buddynext' ), array( 'status' => 422 ) );
 		}
 
-		// Album name + description run the banned-words / blocklist scan too, so a
-		// blocked word cannot be moved into an album title. Hard block rejects.
-		$bn_album_text = trim( $title . ' ' . (string) $request->get_param( 'description' ) );
-		$bn_album_scan = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), 0, 'create', 'album' );
-		if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_album_scan ) && is_wp_error( $bn_album_scan ) ) {
+		// Album name and description run the banned-words / blocklist scan too, so
+		// a blocked word cannot be moved into an album title or description. Each
+		// field is scanned under its own label so the rejection names the right
+		// one (card 10264294340). A personal-library album has no space, so the
+		// site-wide list applies (space_id 0).
+		$bn_album_scan = $this->scan_album_text( $title, (string) $request->get_param( 'description' ), get_current_user_id(), 0, 'create' );
+		if ( is_wp_error( $bn_album_scan ) ) {
 			return $bn_album_scan;
 		}
 
@@ -1007,13 +1047,10 @@ class MediaController extends BaseRestController {
 		// verdict is allowed through (reactive moderation reports it), mirroring
 		// create.
 		if ( ! empty( $album_fields ) ) {
-			$bn_album_text = trim( ( $album_fields['title'] ?? '' ) . ' ' . ( $album_fields['description'] ?? '' ) );
-			if ( '' !== $bn_album_text ) {
-				$bn_album_space = Galleries::album_space( $album_id );
-				$bn_album_scan  = buddynext_service( 'safeguard' )->check_content( $bn_album_text, '', get_current_user_id(), $bn_album_space, 'edit', 'album' );
-				if ( ! \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $bn_album_scan ) && is_wp_error( $bn_album_scan ) ) {
-					return $bn_album_scan;
-				}
+			$bn_album_space = Galleries::album_space( $album_id );
+			$bn_album_scan  = $this->scan_album_text( (string) ( $album_fields['title'] ?? '' ), (string) ( $album_fields['description'] ?? '' ), get_current_user_id(), $bn_album_space, 'edit' );
+			if ( is_wp_error( $bn_album_scan ) ) {
+				return $bn_album_scan;
 			}
 		}
 

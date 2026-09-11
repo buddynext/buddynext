@@ -203,6 +203,8 @@ class SafeguardService {
 			'comment'           => __( 'comment', 'buddynext' ),
 			'caption'           => __( 'caption', 'buddynext' ),
 			'album'             => __( 'album name', 'buddynext' ),
+			'album name'        => __( 'album name', 'buddynext' ),
+			'album description' => __( 'album description', 'buddynext' ),
 			'space field'       => __( 'space field', 'buddynext' ),
 			'space name'        => __( 'space name', 'buddynext' ),
 			'space description' => __( 'space description', 'buddynext' ),
