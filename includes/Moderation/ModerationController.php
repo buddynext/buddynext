@@ -914,15 +914,7 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
-		( new ModerationLogService() )->log(
-			$actor_id,
-			'dismiss_report',
-			array(
-				'object_id'   => $report_id,
-				'object_type' => 'report',
-				'space_id'    => (int) ( ( $service->get_report( $report_id ) ?: array() )['space_id'] ?? 0 ),
-			)
-		);
+		// Audit row is written inside dismiss() -> set_status() (card 10264294456).
 
 		return new WP_REST_Response( array( 'dismissed' => true ), 200 );
 	}
@@ -949,15 +941,7 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
-		( new ModerationLogService() )->log(
-			$actor_id,
-			'escalate_report',
-			array(
-				'object_id'   => $report_id,
-				'object_type' => 'report',
-				'space_id'    => (int) ( ( $service->get_report( $report_id ) ?: array() )['space_id'] ?? 0 ),
-			)
-		);
+		// Audit row is written inside escalate() -> set_status() (card 10264294456).
 
 		return new WP_REST_Response( array( 'escalated' => true ), 200 );
 	}
@@ -984,15 +968,7 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
-		( new ModerationLogService() )->log(
-			$actor_id,
-			'resolve_report',
-			array(
-				'object_id'   => $report_id,
-				'object_type' => 'report',
-				'space_id'    => (int) ( ( $service->get_report( $report_id ) ?: array() )['space_id'] ?? 0 ),
-			)
-		);
+		// Audit row is written inside resolve() -> set_status() (card 10264294456).
 
 		return new WP_REST_Response( array( 'resolved' => true ), 200 );
 	}
@@ -1019,15 +995,7 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
-		( new ModerationLogService() )->log(
-			$actor_id,
-			'remove_content',
-			array(
-				'object_id'   => $report_id,
-				'object_type' => 'report',
-				'space_id'    => (int) ( ( $service->get_report( $report_id ) ?: array() )['space_id'] ?? 0 ),
-			)
-		);
+		// Audit row is written inside remove_content() -> set_status() (card 10264294456).
 
 		return new WP_REST_Response( array( 'removed' => true ), 200 );
 	}
@@ -1050,14 +1018,7 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
-		( new ModerationLogService() )->log(
-			$actor_id,
-			'issue_strike',
-			array(
-				'target_user_id' => $user_id,
-				'note'           => $reason,
-			)
-		);
+		// Audit row is written inside issue_strike() (card 10264294456).
 
 		return new WP_REST_Response( array( 'strike_id' => $result ), 201 );
 	}
@@ -1071,7 +1032,6 @@ class ModerationController extends BaseRestController {
 	public function reverse_strike( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$service   = new ModerationService();
 		$strike_id = (int) $request->get_param( 'sid' );
-		$user_id   = (int) $request->get_param( 'id' );
 		$actor_id  = get_current_user_id();
 
 		$result = $service->reverse_strike( $strike_id, $actor_id );
@@ -1080,7 +1040,7 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
-		( new ModerationLogService() )->log( $actor_id, 'reverse_strike', array( 'target_user_id' => $user_id ) );
+		// Audit row is written inside reverse_strike() (card 10264294456).
 
 		return new WP_REST_Response( array( 'reversed' => true ), 200 );
 	}
@@ -1305,14 +1265,7 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
-		( new ModerationLogService() )->log(
-			$actor_id,
-			'suspend_user',
-			array(
-				'target_user_id' => $user_id,
-				'note'           => $reason,
-			)
-		);
+		// Audit row is written inside suspend_user() (card 10264294456).
 
 		return new WP_REST_Response( array( 'suspension_id' => $result ), 201 );
 	}
@@ -1560,15 +1513,12 @@ class ModerationController extends BaseRestController {
 		// instead of actor 0 — every listener otherwise records a human action as a
 		// system one (card 10264294189). The route permission_callback already
 		// admits only a moderator; the method re-checks is_site_moderator() and we
-		// surface any refusal. The explicit log() below stays — nothing on the hook
-		// writes bn_mod_log (the listener only re-indexes search), so this is the
-		// audit row, and it already carries the correct current-user actor.
+		// surface any refusal. shadow_ban() now writes the audit row itself
+		// (card 10264294456).
 		$bn_result = ( new ModerationService() )->shadow_ban( $user_id, get_current_user_id() );
 		if ( is_wp_error( $bn_result ) ) {
 			return $bn_result;
 		}
-
-		( new ModerationLogService() )->log( get_current_user_id(), 'shadow_ban', array( 'target_user_id' => $user_id ) );
 
 		return new WP_REST_Response(
 			array(
@@ -1593,13 +1543,12 @@ class ModerationController extends BaseRestController {
 		}
 
 		// Actor-aware unshadow_ban() so the removal hook fires with the real
-		// moderator id, not actor 0 (card 10264294189). Audit log() kept below.
+		// moderator id, not actor 0 (card 10264294189). It now writes the audit row
+		// itself (card 10264294456).
 		$bn_result = ( new ModerationService() )->unshadow_ban( $user_id, get_current_user_id() );
 		if ( is_wp_error( $bn_result ) ) {
 			return $bn_result;
 		}
-
-		( new ModerationLogService() )->log( get_current_user_id(), 'remove_shadow_ban', array( 'target_user_id' => $user_id ) );
 
 		return new WP_REST_Response(
 			array(
@@ -1627,7 +1576,7 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
-		( new ModerationLogService() )->log( $actor_id, 'unsuspend_user', array( 'target_user_id' => $user_id ) );
+		// Audit row is written inside unsuspend_user() (card 10264294456).
 
 		return new WP_REST_Response(
 			array(

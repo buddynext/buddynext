@@ -152,6 +152,46 @@ class ReportSystemActorTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Logging is consolidated into set_status(): a report action writes exactly ONE
+	 * bn_mod_log row (no caller double-log), with the canonical slug, the report's
+	 * space_id, and the recorded actor — and an AI action (resolved_by 0 + an audit
+	 * descriptor) records actor 0 with the ai_ slug (card 10264294456).
+	 *
+	 * @return void
+	 */
+	public function test_report_action_logs_exactly_one_row_at_the_seam(): void {
+		global $wpdb;
+
+		$human = $this->seed_report( 9401 );
+		$this->assertTrue( $this->service->dismiss( $human, $this->admin ), 'Human dismiss should succeed.' );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$human_rows = $wpdb->get_results(
+			$wpdb->prepare( "SELECT actor_id, action FROM {$wpdb->prefix}bn_mod_log WHERE object_type = 'report' AND object_id = %d", $human ),
+			ARRAY_A
+		);
+		$this->assertCount( 1, $human_rows, 'A dismiss must write exactly one audit row (no caller double-log).' );
+		$this->assertSame( 'dismiss_report', $human_rows[0]['action'] );
+		$this->assertSame( $this->admin, (int) $human_rows[0]['actor_id'] );
+
+		// AI-style: authority = admin, recorded = 0, with an ai_ audit descriptor.
+		$ai = $this->seed_report( 9402 );
+		$this->assertTrue(
+			$this->service->dismiss( $ai, $this->admin, 0, array( 'action' => 'ai_dismiss', 'note' => 'auto' ) ),
+			'System dismiss should succeed.'
+		);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ai_rows = $wpdb->get_results(
+			$wpdb->prepare( "SELECT actor_id, action FROM {$wpdb->prefix}bn_mod_log WHERE object_type = 'report' AND object_id = %d", $ai ),
+			ARRAY_A
+		);
+		$this->assertCount( 1, $ai_rows, 'An AI dismiss must write exactly one audit row.' );
+		$this->assertSame( 'ai_dismiss', $ai_rows[0]['action'], 'The AI action slug is preserved.' );
+		$this->assertSame( 0, (int) $ai_rows[0]['actor_id'], 'The AI action records the system actor (0).' );
+	}
+
+	/**
 	 * Re-actioning an already-actioned report returns already_resolved rather than
 	 * true — the signal the AI sweep guards log_ai() on so a re-swept, already
 	 * 'escalated' report writes no duplicate audit row every cadence.

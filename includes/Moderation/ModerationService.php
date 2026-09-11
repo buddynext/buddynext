@@ -574,25 +574,21 @@ class ModerationService {
 							? max( 1, (int) $auto_action['duration_days'] )
 							: 7;
 
+						// suspend_user() now owns the audit write (card 10264294456), so
+						// pass the rule-driven action slug + note through its $audit
+						// descriptor instead of a separate log() here — one row, no
+						// double-log, and the automated 'suspend' slug is preserved
+						// distinct from the manual 'suspend_user'.
 						$this->suspend_user(
 							(int) $auto_action['user_id'],
 							0, // System actor — same convention as `warn` above.
 							(string) ( $auto_action['reason'] ?? '' ),
-							array( 'duration_days' => $bn_duration )
-						);
-
-						// suspend_user() is shared with the manual path (which logs at
-						// the moderation queue), so log the rule-driven suspension here
-						// rather than inside the primitive - otherwise a manual suspend
-						// would be logged twice while this one is not logged at all.
-						( new ModerationLogService() )->log(
-							0,
-							'suspend',
+							array( 'duration_days' => $bn_duration ),
 							array(
-								'object_type'    => 'user',
-								'object_id'      => (int) $auto_action['user_id'],
-								'target_user_id' => (int) $auto_action['user_id'],
-								'note'           => 'Automated rule suspension: ' . (string) ( $auto_action['reason'] ?? '' ),
+								'action'      => 'suspend',
+								'object_type' => 'user',
+								'object_id'   => (int) $auto_action['user_id'],
+								'note'        => 'Automated rule suspension: ' . (string) ( $auto_action['reason'] ?? '' ),
 							)
 						);
 					}
@@ -775,10 +771,12 @@ class ModerationService {
 	 * @param int|null $resolved_by Actor to RECORD on the row; null = $actor_id.
 	 *                              Pass 0 for an automated/system action so the
 	 *                              queue shows System, not an admin (card 10264294554).
+	 * @param array    $audit       Audit-log overrides (see set_status()); a caller
+	 *                              with a specific action/note (Pro AI) passes them.
 	 * @return true|WP_Error
 	 */
-	public function dismiss( int $report_id, int $actor_id, ?int $resolved_by = null ): bool|WP_Error {
-		return $this->set_status( $report_id, $actor_id, 'dismissed', $resolved_by );
+	public function dismiss( int $report_id, int $actor_id, ?int $resolved_by = null, array $audit = array() ): bool|WP_Error {
+		return $this->set_status( $report_id, $actor_id, 'dismissed', $resolved_by, $audit );
 	}
 
 	/**
@@ -789,21 +787,24 @@ class ModerationService {
 	 * @param int|null $resolved_by Actor to RECORD on the row; null = $actor_id.
 	 *                              Pass 0 for an automated/system escalation (card
 	 *                              10264294554).
+	 * @param array    $audit       Audit-log overrides (see set_status()).
 	 * @return true|WP_Error
 	 */
-	public function escalate( int $report_id, int $actor_id, ?int $resolved_by = null ): bool|WP_Error {
-		return $this->set_status( $report_id, $actor_id, 'escalated', $resolved_by );
+	public function escalate( int $report_id, int $actor_id, ?int $resolved_by = null, array $audit = array() ): bool|WP_Error {
+		return $this->set_status( $report_id, $actor_id, 'escalated', $resolved_by, $audit );
 	}
 
 	/**
 	 * Resolve a report (content actioned, reporter notified).
 	 *
-	 * @param int $report_id Report to resolve.
-	 * @param int $actor_id  Admin acting on the report.
+	 * @param int      $report_id   Report to resolve.
+	 * @param int      $actor_id    Admin acting on the report.
+	 * @param int|null $resolved_by Actor to RECORD on the row; null = $actor_id.
+	 * @param array    $audit       Audit-log overrides (see set_status()).
 	 * @return true|WP_Error
 	 */
-	public function resolve( int $report_id, int $actor_id ): bool|WP_Error {
-		return $this->set_status( $report_id, $actor_id, 'resolved' );
+	public function resolve( int $report_id, int $actor_id, ?int $resolved_by = null, array $audit = array() ): bool|WP_Error {
+		return $this->set_status( $report_id, $actor_id, 'resolved', $resolved_by, $audit );
 	}
 
 	/**
@@ -826,11 +827,20 @@ class ModerationService {
 	 *                              Pass 0 for an automated/system takedown so the queue
 	 *                              shows System, not an admin (card 10264294554). The
 	 *                              takedown itself still runs under $actor_id's authority.
+	 * @param array    $audit       Audit-log overrides (see set_status()). Defaults the
+	 *                              action slug to 'remove_content' rather than the
+	 *                              status-derived 'resolve_report'.
 	 * @return true|WP_Error
 	 */
-	public function remove_content( int $report_id, int $actor_id, ?int $resolved_by = null ): bool|WP_Error {
+	public function remove_content( int $report_id, int $actor_id, ?int $resolved_by = null, array $audit = array() ): bool|WP_Error {
 		if ( ! $this->can_action_report( $actor_id, $report_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to remove content.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		// The action this logs as is 'remove_content', not the 'resolved' status's
+		// default slug — unless a specialised caller (Pro AI) named its own.
+		if ( ! isset( $audit['action'] ) ) {
+			$audit['action'] = 'remove_content';
 		}
 
 		$report = $this->get_report( $report_id );
@@ -854,7 +864,7 @@ class ModerationService {
 			);
 		}
 
-		return $this->set_status( $report_id, $actor_id, 'resolved', $resolved_by );
+		return $this->set_status( $report_id, $actor_id, 'resolved', $resolved_by, $audit );
 	}
 
 	/**
@@ -1098,6 +1108,17 @@ class ModerationService {
 		 */
 		do_action( 'buddynext_strike_issued', $strike_id, $user_id, $actor_id );
 
+		// Audit at the mutator, not the caller — so REST and the wp-admin queue (and
+		// any future caller) all record one row without repeating it (card 10264294456).
+		( new ModerationLogService() )->log(
+			$actor_id,
+			'issue_strike',
+			array(
+				'target_user_id' => $user_id,
+				'note'           => $reason,
+			)
+		);
+
 		return $strike_id;
 	}
 
@@ -1194,14 +1215,15 @@ class ModerationService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// A missing or already-reversed strike must not report success. Confirm an
 		// active row exists first, otherwise the caller got 200 {"reversed":true}
-		// while nothing changed.
-		$active = (int) $wpdb->get_var(
+		// while nothing changed. Read the struck user in the same query so the audit
+		// row (written at the end) can name the target (card 10264294456).
+		$strike_user = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_strikes WHERE id = %d AND is_reversed = 0",
+				"SELECT user_id FROM {$wpdb->prefix}bn_user_strikes WHERE id = %d AND is_reversed = 0",
 				$strike_id
 			)
 		);
-		if ( 0 === $active ) {
+		if ( null === $strike_user ) {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			return new WP_Error(
 				'strike_not_found',
@@ -1230,6 +1252,12 @@ class ModerationService {
 				array( 'status' => 500 )
 			);
 		}
+
+		( new ModerationLogService() )->log(
+			$actor_id,
+			'reverse_strike',
+			array( 'target_user_id' => (int) $strike_user )
+		);
 
 		return true;
 	}
@@ -1920,9 +1948,14 @@ class ModerationService {
 	 * @param int                  $actor_id Admin performing the suspension.
 	 * @param string               $reason   Reason for suspension.
 	 * @param array<string, mixed> $opts     Optional suspension options.
+	 * @param array<string, mixed> $audit    Audit-log overrides. Defaults to action
+	 *                                       'suspend_user', note = $reason, target =
+	 *                                       $user_id. The rules engine passes action
+	 *                                       'suspend' + its own note for an automated
+	 *                                       rule suspension (card 10264294456).
 	 * @return int|WP_Error Suspension ID or WP_Error on permission failure.
 	 */
-	public function suspend_user( int $user_id, int $actor_id, string $reason = '', array $opts = array() ): int|WP_Error {
+	public function suspend_user( int $user_id, int $actor_id, string $reason = '', array $opts = array(), array $audit = array() ): int|WP_Error {
 		// actor_id 0 is the SYSTEM actor — an automated moderation rule, not a person.
 		// It is the same convention apply_auto_actions() already uses for `warn`
 		// (do_action( 'buddynext_user_warned', $uid, 0, ... )).
@@ -2006,6 +2039,26 @@ class ModerationService {
 		 */
 		do_action( 'buddynext_user_suspended', $user_id, $actor_id, $reason, $expires_at );
 
+		// Audit at the mutator (card 10264294456). Logged only on a genuine new
+		// suspension — the idempotent re-suspend above returns early, so a no-op no
+		// longer writes a misleading row. Manual callers get action 'suspend_user'
+		// with $reason; the rules engine passes action 'suspend' + a rule note and the
+		// user object ref.
+		$suspend_context = array( 'target_user_id' => $user_id );
+		$suspend_note    = (string) ( $audit['note'] ?? $reason );
+		if ( '' !== $suspend_note ) {
+			$suspend_context['note'] = $suspend_note;
+		}
+		if ( isset( $audit['object_type'] ) ) {
+			$suspend_context['object_type'] = (string) $audit['object_type'];
+			$suspend_context['object_id']   = (int) ( $audit['object_id'] ?? $user_id );
+		}
+		( new ModerationLogService() )->log(
+			$actor_id,
+			(string) ( $audit['action'] ?? 'suspend_user' ),
+			$suspend_context
+		);
+
 		// Suspending a member actions every open report ABOUT that member — the
 		// strongest available action was taken, so their user-object reports must
 		// not linger open in the queue (the "suspend from a report leaves it open"
@@ -2062,6 +2115,12 @@ class ModerationService {
 		do_action( 'buddynext_member_unsuspended', $user_id, $actor_id );
 		do_action( 'buddynext_user_unsuspended', $user_id );
 
+		( new ModerationLogService() )->log(
+			$actor_id,
+			'unsuspend_user',
+			array( 'target_user_id' => $user_id )
+		);
+
 		return true;
 	}
 
@@ -2093,6 +2152,12 @@ class ModerationService {
 		 */
 		do_action( 'buddynext_user_shadow_banned', $user_id, $actor_id, $reason );
 
+		( new ModerationLogService() )->log(
+			$actor_id,
+			'shadow_ban',
+			array( 'target_user_id' => $user_id )
+		);
+
 		return true;
 	}
 
@@ -2119,6 +2184,12 @@ class ModerationService {
 		 * @param int $removed_by Moderator user ID.
 		 */
 		do_action( 'buddynext_user_shadow_ban_removed', $user_id, $actor_id );
+
+		( new ModerationLogService() )->log(
+			$actor_id,
+			'remove_shadow_ban',
+			array( 'target_user_id' => $user_id )
+		);
 
 		return true;
 	}
@@ -2886,7 +2957,9 @@ class ModerationService {
 		);
 
 		if ( $report_id > 0 ) {
-			$this->set_status( $report_id, $actor_id, 'resolved' );
+			// $audit = null: the suspension is the audited event; the reports it clears
+			// are a side effect and were never separately logged before consolidation.
+			$this->set_status( $report_id, $actor_id, 'resolved', null, null );
 		}
 	}
 
@@ -2897,14 +2970,23 @@ class ModerationService {
 	 * reports raised inside a space they moderate (the space Moderation tab and
 	 * the space-scoped site queue both show them exactly those reports).
 	 *
-	 * @param int      $report_id   Report ID.
-	 * @param int      $actor_id    Admin or space moderator acting (authority).
-	 * @param string   $status      New status.
-	 * @param int|null $resolved_by Actor to RECORD on the row; null = $actor_id. Pass
-	 *                              0 for an automated/system action (card 10264294554).
+	 * @param int        $report_id   Report ID.
+	 * @param int        $actor_id    Admin or space moderator acting (authority).
+	 * @param string     $status      New status.
+	 * @param int|null   $resolved_by Actor to RECORD on the row; null = $actor_id.
+	 *                                Pass 0 for an automated/system action
+	 *                                (card 10264294554).
+	 * @param array|null $audit       Audit-log descriptor. array() (default) writes
+	 *                                one bn_mod_log row at this seam so no caller can
+	 *                                forget it (card 10264294456); keys 'action',
+	 *                                'note', 'object_type', 'object_id' override the
+	 *                                defaults (a report ref with the status-derived
+	 *                                slug). null SUPPRESSES the row — used only by an
+	 *                                internal cascade whose parent action is already
+	 *                                audited. space_id is always taken from the report.
 	 * @return true|WP_Error
 	 */
-	private function set_status( int $report_id, int $actor_id, string $status, ?int $resolved_by = null ): bool|WP_Error {
+	private function set_status( int $report_id, int $actor_id, string $status, ?int $resolved_by = null, ?array $audit = array() ): bool|WP_Error {
 		if ( ! $this->can_action_report( $actor_id, $report_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to action reports.', 'buddynext' ), array( 'status' => 403 ) );
 		}
@@ -2928,7 +3010,7 @@ class ModerationService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$target = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT object_type, object_id FROM {$wpdb->prefix}bn_reports WHERE id = %d",
+				"SELECT object_type, object_id, space_id FROM {$wpdb->prefix}bn_reports WHERE id = %d",
 				$report_id
 			),
 			ARRAY_A
@@ -3036,6 +3118,36 @@ class ModerationService {
 				$recorded_actor,
 				(string) $target['object_type'],
 				(int) $target['object_id']
+			);
+		}
+
+		// Audit at the seam. Every report-status change writes exactly one bn_mod_log
+		// row HERE, so no caller — REST, wp-admin queue, Pro bulk, Pro AI — can forget
+		// it, and the space_id is always carried from the report so the row reaches the
+		// space Moderation tab (card 10264294456). The recorded actor is $recorded_actor
+		// (0 for a system/AI action), matching the report row and the reporter
+		// notification. $audit === null suppresses the row for an internal cascade whose
+		// parent action is already audited (resolve_open_user_reports, run by
+		// suspend_user). This runs only after a successful, non-duplicate update — the
+		// already_resolved / db_error / forbidden paths returned above.
+		if ( null !== $audit ) {
+			$default_slug = array(
+				'dismissed' => 'dismiss_report',
+				'escalated' => 'escalate_report',
+				'resolved'  => 'resolve_report',
+			);
+			$context      = array(
+				'object_type' => (string) ( $audit['object_type'] ?? 'report' ),
+				'object_id'   => (int) ( $audit['object_id'] ?? $report_id ),
+				'space_id'    => (int) ( $target['space_id'] ?? 0 ),
+			);
+			if ( ! empty( $audit['note'] ) ) {
+				$context['note'] = (string) $audit['note'];
+			}
+			( new ModerationLogService() )->log(
+				$recorded_actor,
+				(string) ( $audit['action'] ?? ( $default_slug[ $status ] ?? $status ) ),
+				$context
 			);
 		}
 
