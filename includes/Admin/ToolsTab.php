@@ -92,9 +92,11 @@ class ToolsTab {
 	 * Background tasks (Action Scheduler) health + system-cron guidance.
 	 *
 	 * Background jobs run automatically on a normal install. This surfaces a
-	 * clear, actionable note ONLY when the site has WP-Cron disabled and tasks
-	 * are piling up overdue — the one case where the admin must add a server
-	 * cron for digests, cleanups, scheduled posts, and emails to keep running.
+	 * clear, actionable note when the runner is stalled (loopback/WP-Cron
+	 * disabled with tasks overdue) so the admin can add a server cron, and a
+	 * separate warning with an Action Scheduler log link when any task has
+	 * failed — a failed count is never left under a reassuring "running
+	 * automatically" verdict.
 	 *
 	 * @return void
 	 */
@@ -135,6 +137,29 @@ class ToolsTab {
 						<p><code><?php echo esc_html( $command ); ?></code></p>
 						<p class="description">
 							<?php esc_html_e( 'Run that on your server (or ask your host) to fire WordPress cron every 5 minutes. This is a server change, not a plugin setting — BuddyNext never disables WordPress cron for you.', 'buddynext' ); ?>
+						</p>
+					</div>
+				<?php elseif ( (int) $health['failed'] > 0 ) : ?>
+					<?php
+					// The queue is running, but some jobs have failed and will not
+					// retry on their own. A failed count must never sit under a
+					// reassuring "running automatically / no action needed" verdict —
+					// surface it with a link to the Action Scheduler log to inspect.
+					$bn_as_log_url = admin_url( 'tools.php?page=action-scheduler&status=failed' );
+					?>
+					<div class="bn-notice bn-notice-warning">
+						<p>
+							<strong><?php esc_html_e( 'Some background tasks have failed.', 'buddynext' ); ?></strong>
+							<?php
+							printf(
+								/* translators: %d: number of failed scheduled tasks. */
+								esc_html__( '%d scheduled task(s) failed and will not run again on their own. Review the failures in the Action Scheduler log and retry or clear them:', 'buddynext' ),
+								(int) $health['failed']
+							);
+							?>
+						</p>
+						<p>
+							<a href="<?php echo esc_url( $bn_as_log_url ); ?>"><?php esc_html_e( 'View the Action Scheduler log', 'buddynext' ); ?></a>
 						</p>
 					</div>
 				<?php elseif ( $health['wp_cron_disabled'] ) : ?>

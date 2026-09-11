@@ -1334,22 +1334,22 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						array(
 							'key'          => 'buddynext_duplicate_post_window',
 							'type'         => 'optional_limit',
-							'toggle_label' => __( 'Hold duplicate posts for review', 'buddynext' ),
+							'toggle_label' => __( 'Flag duplicate posts', 'buddynext' ),
 							'label'        => __( 'Duplicate post window (minutes)', 'buddynext' ),
 							'default'      => 0,
 							'min'          => 0,
-							'hint'         => __( 'Hold a post for review when the member has already posted identical content within this many minutes.', 'buddynext' ),
+							'hint'         => __( 'When the member has already posted identical content within this many minutes, the post publishes immediately and files a report in Moderation > Reports.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
 							'key'          => 'buddynext_new_member_post_threshold',
 							'type'         => 'optional_limit',
-							'toggle_label' => __( 'Review posts from new members', 'buddynext' ),
+							'toggle_label' => __( 'Flag posts from new members', 'buddynext' ),
 							'label'        => __( 'New member review threshold', 'buddynext' ),
 							'default'      => 0,
 							'min'          => 0,
-							'hint'         => __( 'Posts by members with fewer than this many published posts are held for review.', 'buddynext' ),
+							'hint'         => __( 'Posts by members with fewer than this many published posts publish immediately and file a report in Moderation > Reports.', 'buddynext' ),
 						)
 					),
 				)

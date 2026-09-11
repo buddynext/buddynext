@@ -146,7 +146,18 @@ class IsolationAdmin {
 					<div class="bn-toggle-row">
 						<div class="bn-toggle-row__copy">
 							<span class="bn-toggle-row__label"><?php esc_html_e( 'Enable route isolation', 'buddynext' ); ?></span>
-							<p class="bn-field-hint"><?php esc_html_e( 'When off, every plugin loads on BuddyNext pages as normal. Turn off only if isolation is causing a problem — large communities load faster with it on.', 'buddynext' ); ?></p>
+							<p class="bn-field-hint">
+								<?php
+								// Branch on the real state so the hint never assumes the
+								// wrong starting point. fde88ee5 branched the intro
+								// paragraph but left this string present-tense-on.
+								if ( $bn_isolation_on ) {
+									esc_html_e( 'Route isolation is on. Turn it off only if isolation is causing a problem — large communities load faster with it on.', 'buddynext' );
+								} else {
+									esc_html_e( 'Route isolation is off, so every plugin loads on BuddyNext pages as normal. Turn it on to stop loading the plugins listed below there — large communities load faster with it on.', 'buddynext' );
+								}
+								?>
+							</p>
 						</div>
 						<label class="bn-toggle-label">
 							<input
