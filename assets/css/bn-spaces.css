@@ -3698,6 +3698,14 @@ a.bn-sh-statpill:focus-visible {
 	align-items: flex-start;
 	margin-block-start: var(--bn-s4);
 }
+/* With no sub-spaces, the panel shows the centred empty state; centre the CTA
+   under it too so the "Add sub-space" button is not stranded bottom-left
+   (card 10290773702). A populated list has no .bn-empty-state, so the CTA keeps
+   its flex-start alignment there. */
+.bn-space-subspaces:has( .bn-empty-state ) .bn-space-subspaces__cta {
+	align-items: center;
+	text-align: center;
+}
 
 .bn-space-subspaces__add {
 	min-height: var(--bn-tap, 40px);

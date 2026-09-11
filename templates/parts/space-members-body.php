@@ -385,7 +385,13 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 						</div>
 					<?php endif; ?>
 
-					<div class="bn-md-card__cover" data-tone="<?php echo esc_attr( $role_meta['tone'] ); ?>" aria-hidden="true"></div>
+					<?php
+					// Resolve the member's uploaded cover (per-user → site default → none),
+					// the same seam the /members/ directory card uses, so a member's cover
+					// shows here too instead of only the tone gradient (card 10290498358).
+					$bn_sm_cover = function_exists( 'buddynext_user_cover_url' ) ? buddynext_user_cover_url( (int) $member_id ) : '';
+					?>
+					<div class="bn-md-card__cover" data-tone="<?php echo esc_attr( $role_meta['tone'] ); ?>"<?php echo '' !== $bn_sm_cover ? ' style="background-image:url(\'' . esc_url( $bn_sm_cover ) . '\')"' : ''; ?> aria-hidden="true"></div>
 
 					<a href="<?php echo esc_url( $member_url ); ?>" class="bn-md-card__avatar-link" tabindex="-1" aria-hidden="true">
 						<span class="bn-avatar bn-md-card__avatar" data-size="xl">
@@ -422,12 +428,12 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 						<?php endif; ?>
 
 						<div class="bn-md-card__actions">
-							<a href="<?php echo esc_url( $member_url ); ?>" class="bn-btn" data-variant="ghost" data-size="sm"><?php esc_html_e( 'View', 'buddynext' ); ?></a>
+							<a href="<?php echo esc_url( $member_url ); ?>" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'View', 'buddynext' ); ?></a>
 							<?php if ( $current_user_id > 0 && $current_user_id !== $member_id ) : ?>
 								<a
 									href="<?php echo esc_url( PageRouter::messages_url() ); ?>"
 									class="bn-btn"
-									data-variant="ghost"
+									data-variant="secondary"
 									data-size="sm"
 									aria-label="
 									<?php
