@@ -1930,10 +1930,20 @@ class SpaceMemberService {
 		}
 		$limit = max( 1, min( 50, $limit ) );
 
+		// Over-fetch a bounded ceiling so the addon filter below (which drops
+		// category-flagged spaces, e.g. Wellbee Circles) sees the FULL membership set
+		// BEFORE the cap. Filtering an already-LIMITed list left the flyout short of
+		// its own badge — the badge counts the same visible set (card 10276700689).
+		// The rail only ever renders a handful; count_memberships() gives the true
+		// total for the "See all" link.
+		$fetch = 200; // ponytail: fixed ceiling; keyset if a member ever exceeds it.
+
 		// The "My spaces" rail flyout runs this on EVERY hub page a logged-in member
 		// loads, alongside its count. Two queries on every page of the site, for a list
-		// that only changes when the member joins or leaves something.
-		$cache_key = 'membership_rows_v' . self::membership_summary_version( $user_id ) . "_{$user_id}_{$limit}";
+		// that only changes when the member joins or leaves something. Cache the
+		// unfiltered ceiling once per member (not per requested limit); the addon
+		// filter + the slice run per call so an exclusion change is never served stale.
+		$cache_key = 'membership_rows_v' . self::membership_summary_version( $user_id ) . "_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
@@ -1954,7 +1964,7 @@ class SpaceMemberService {
 					 ORDER BY sm.joined_at DESC
 					 LIMIT %d",
 					$user_id,
-					$limit
+					$fetch
 				)
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1979,7 +1989,11 @@ class SpaceMemberService {
 		 * @param int               $user_id The member whose spaces these are.
 		 * @param int               $limit   Row cap the caller requested.
 		 */
-		return apply_filters( 'buddynext_membership_rows', $rows, $user_id, $limit );
+		$rows = apply_filters( 'buddynext_membership_rows', $rows, $user_id, $limit );
+
+		// Slice to the requested cap AFTER the addon exclusion, so a member always
+		// sees up to $limit VISIBLE spaces, not $limit-minus-hidden.
+		return array_slice( $rows, 0, $limit );
 	}
 
 	/**

@@ -106,6 +106,79 @@ class AddonHubSeamsTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The addon filter runs BEFORE the row cap, so a member always sees up to
+	 * `limit` VISIBLE spaces — not `limit` minus however many of the newest
+	 * memberships were hidden circles. The old code LIMITed first, so filtering
+	 * an already-truncated set left the flyout short of its own badge
+	 * (card 10276700689).
+	 *
+	 * @return void
+	 */
+	public function test_membership_rows_filter_applies_before_the_cap(): void {
+		$user  = self::factory()->user->create();
+		$plain = array();
+		for ( $i = 0; $i < 4; $i++ ) {
+			$plain[] = $this->join_space( $user, null );
+		}
+		// The two NEWEST memberships are hidden circles.
+		$this->join_space( $user, 777 );
+		$this->join_space( $user, 777 );
+
+		add_filter(
+			'buddynext_membership_rows',
+			static fn( array $rows ): array => array_values(
+				array_filter( $rows, static fn( $r ): bool => 777 !== (int) ( $r->category_id ?? 0 ) )
+			)
+		);
+
+		// Cap 5, 4 visible: all four show even though the 2 newest rows are hidden.
+		$rows = $this->members->membership_rows( $user, 5 );
+		$this->assertCount( 4, $rows, 'All visible spaces show; the filter ran before the cap.' );
+
+		// Cap 1 returns the newest VISIBLE space, never an empty list because the
+		// newest membership happened to be a hidden circle.
+		$one = $this->members->membership_rows( $user, 1 );
+		$this->assertCount( 1, $one );
+		$this->assertContains( (int) $one[0]->id, $plain, 'The single row is a visible (plain) space.' );
+	}
+
+	/**
+	 * A reserved-hub category (show_in_dir = 0) is fenced out of the member-scoped
+	 * "my spaces" list AND its total, not just the public directory — so the rail's
+	 * "See all" page agrees with the rail flyout that already hides those spaces
+	 * (card 10276700689). An explicit category request still returns them.
+	 *
+	 * @return void
+	 */
+	public function test_my_spaces_list_and_total_hide_a_reserved_hub_category(): void {
+		global $wpdb;
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_space_categories',
+			array( 'name' => 'Circles', 'slug' => 'circles-' . wp_rand( 1000, 9999 ), 'show_in_dir' => 0 ),
+			array( '%s', '%s', '%d' )
+		);
+		$hidden_cat = (int) $wpdb->insert_id;
+		wp_cache_flush(); // drop any warm 'hidden_ids' cache from an earlier query.
+
+		$user     = self::factory()->user->create();
+		$plain    = $this->join_space( $user, null );
+		$circle   = $this->join_space( $user, $hidden_cat );
+		$spaces   = new \BuddyNext\Spaces\SpaceService();
+
+		$result = $spaces->list_spaces_with_total( array( 'member' => $user, 'per_page' => 20 ) );
+		$ids    = array_map( static fn( $r ): int => (int) ( is_array( $r ) ? $r['id'] : $r->id ), $result['items'] );
+
+		$this->assertContains( $plain, $ids, 'A plain space stays in my-spaces.' );
+		$this->assertNotContains( $circle, $ids, 'A reserved-hub space is fenced out of my-spaces.' );
+		$this->assertSame( 1, (int) $result['total'], 'The total nets out the hidden space too.' );
+
+		// The hub's own page (explicit category) still reaches its spaces.
+		$hub = $spaces->list_spaces_with_total( array( 'category_id' => $hidden_cat, 'per_page' => 20 ) );
+		$hub_ids = array_map( static fn( $r ): int => (int) ( is_array( $r ) ? $r['id'] : $r->id ), $hub['items'] );
+		$this->assertContains( $circle, $hub_ids, 'An explicit category request still returns the hub spaces.' );
+	}
+
+	/**
 	 * Registering hubs persists every hub's live slug into buddynext_hub_slugs —
 	 * including a hub an addon registers on buddynext_register_hubs — so the
 	 * isolation mu-plugin can cover its route.

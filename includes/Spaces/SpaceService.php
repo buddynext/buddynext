@@ -1756,15 +1756,16 @@ class SpaceService {
 			$params[] = $category_id;
 		}
 
-		// Category-level directory curation: a category flagged show_in_dir = 0 is
-		// hidden from the PUBLIC directory (grid + "Popular this week" rail + REST
-		// list), and its spaces go with it. The flag was only ever honored for the
-		// category chips, never the space list. Reserved hubs (e.g. Wellbee Circles)
-		// depend on this exclusion, so it applies to site admins too - it is category
-		// curation, not per-space privacy. Scope: public directory only - an explicit
-		// category chip overrides (show that category on request), and member-scoped
-		// ("my spaces") lists are unaffected. Ids are integer-cast, injection-safe.
-		if ( $category_id <= 0 && $member_id <= 0 ) {
+		// Category-level curation: a category flagged show_in_dir = 0 is a reserved
+		// hub (e.g. Wellbee Circles) whose spaces are fenced out of the native Spaces
+		// UI and reached only through the hub's own page. It applies to site admins
+		// too - curation, not per-space privacy. Scope: every general listing,
+		// INCLUDING the member-scoped "my spaces" list and its count, so the rail
+		// flyout (which drops the same spaces via buddynext_membership_rows), the
+		// "See all" page it links to, and the badge all agree (card 10276700689).
+		// The ONLY override is an explicit category chip - the hub's own page passes
+		// its category_id and still shows its spaces. Ids are integer-cast, safe.
+		if ( $category_id <= 0 ) {
 			$hidden_clause = $this->hidden_category_directory_clause();
 			if ( '1=1' !== $hidden_clause ) {
 				$where[] = $hidden_clause;
