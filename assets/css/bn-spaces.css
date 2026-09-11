@@ -2796,7 +2796,13 @@ a.bn-sh-statpill:focus-visible {
 	}
 
 	.bn-space-members__grid {
-		grid-template-columns: repeat(2, 1fr);
+		/* Inherit the base repeat(auto-fill, minmax(220px, 1fr)) rather than force
+		   two columns: repeat(2, 1fr) is repeat(2, minmax(auto, 1fr)), and `auto` is
+		   min-content, so a long unbreakable handle set a ~207px floor on its column
+		   and the two tracks overflowed a 390px viewport (doc scrollWidth 424). The
+		   base auto-fill/fixed-min gives a single column at 390px — matching the
+		   member directory — and 2-up only where the width actually fits it, so it
+		   never overflows (card 10296770660). Keep the tighter mobile gap. */
 		gap: var(--bn-s3);
 	}
 
