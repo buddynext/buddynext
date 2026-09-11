@@ -245,6 +245,14 @@ function updateReactionSummary( cardEl, body ) {
 // infinite nesting). Server enforces the same cap during list().
 const COMMENT_MAX_DEPTH = 5;
 
+// Top-level comments fetched per page (initial load AND each "View more"
+// click). One source so the request size and the `shown = page * perPage`
+// arithmetic in bnRenderCommentPage can never drift. The REST endpoint's own
+// default stays 20 (a distinct contract for the app/API); the web client
+// deliberately asks for a shorter first fold so a long thread does not open
+// far down the page.
+const COMMENT_FIRST_PAGE = 6;
+
 // The reaction picker is anchored to its post card and opens upward, so when
 // the card scrolls up under the sticky header an open picker overlaps the
 // header. Track the open picker's context and dismiss it on scroll (the
@@ -1187,7 +1195,7 @@ function bnRenderCommentPage( listEl, data, ctx ) {
 	const items   = data.items || [];
 	const total   = Number( data.total ) || items.length;
 	const page    = Number( data.page ) || Number( listEl.dataset.page ) || 1;
-	const perPage = Number( data.per_page ) || 20;
+	const perPage = Number( data.per_page ) || COMMENT_FIRST_PAGE;
 
 	// Drop any prior load-more button before appending this page's items.
 	const oldBtn = listEl.querySelector( '.bn-comment-loadmore' );
@@ -1226,7 +1234,7 @@ async function bnLoadMoreComments( listEl, ctx, btn ) {
 
 	try {
 		const res = await restFetch(
-			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20&page=' + nextPage,
+			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=' + COMMENT_FIRST_PAGE + '&page=' + nextPage,
 			{ nonce: ctx.reactNonce, toastOnError: false }
 		);
 		if ( res.ok ) {
@@ -1267,7 +1275,7 @@ function* bnLoadComments( ctx ) {
 
 	try {
 		const res = yield restFetch(
-			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20&page=1',
+			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=' + COMMENT_FIRST_PAGE + '&page=1',
 			{ nonce: ctx.reactNonce, toastOnError: false }
 		);
 		while ( listEl.firstChild ) {
