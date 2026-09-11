@@ -13,7 +13,9 @@ Pro's `buddynext-pro/v1` namespace is intentionally out of scope here.
 | File | Purpose | Edit by hand? |
 |---|---|---|
 | `openapi.config.json` | Generator input: `info` block, `servers`, security schemes, and the path-prefix to tag rules. | Yes - this is the source of the non-generated metadata. |
-| `openapi.json` | Generated OpenAPI 3.1 document. Overwritten on every run. | **No** - regenerate instead. |
+| `openapi.json` | Generated OpenAPI 3.1 document (Free `buddynext/v1` only). Overwritten on every run. | **No** - regenerate instead. |
+| `openapi.combined.config.json` | Generator input for the combined Free+Pro document (both namespaces, per-namespace tag prefixes). | Yes - metadata only. |
+| `openapi.combined.json` | Generated Free+Pro document, used by the buddynext.com API reference. Overwritten on every run. | **No** - regenerate instead. |
 
 ## Regenerate
 
@@ -33,6 +35,29 @@ audit. To run just the generator, load it with `wp eval "require …"` (not
 ```bash
 wp eval "require '$PWD/bin/gen-openapi.php';"
 ```
+
+### Combined Free+Pro spec (`openapi.combined.json`)
+
+The combined spec is a snapshot of whatever the generating site has registered,
+and route registration is **feature-gated**: Pro's push routes register only when
+the `push` feature is on, its event routes only when Eventonomy is active, and the
+Learnomy / gamification / webhooks integration routes only when those partners are
+enabled. Generate it on a **fully-enabled install** (Pro active, every Pro module
+toggle on, and the integration plugins active), or the artifact silently drops the
+gated routes - the gap that shipped 8 missing Pro paths (card 10294149957).
+
+The combined config has no `output` key of its own, so pass the destination via
+`BN_OPENAPI_OUT`:
+
+```bash
+BN_OPENAPI_CONFIG="$PWD/docs/api/openapi.combined.config.json" \
+BN_OPENAPI_OUT="$PWD/docs/api/openapi.combined.json" \
+wp eval "putenv('BN_OPENAPI_CONFIG='.getenv('BN_OPENAPI_CONFIG')); putenv('BN_OPENAPI_OUT='.getenv('BN_OPENAPI_OUT')); require '$PWD/bin/gen-openapi.php';"
+```
+
+Because it is generated straight from the live registry, a spec-vs-registry diff
+is empty in both directions by construction. Regenerate on the same fully-enabled
+install after any route change so it stays that way.
 
 ## Reachability audit
 
