@@ -204,6 +204,8 @@ add_filter( 'buddynext_notification_should_send', static function ( bool $should
 
 **Seam:** `buddynext_can_join_space`. It runs in `SpaceMemberService` for both the direct-join and the request-to-join paths, receiving the resolved space row, the user, and the action. Return `false` to block. This is the seam Pro uses for gated spaces.
 
+> **Runnable, tested snippet:** a copy-paste, live-verified version is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `roles-caps/gate-space-join.php` (a hold-flag gate you can adapt to a capability or plan check). Drop it in `wp-content/mu-plugins/` and it works as-is.
+
 ```php
 add_filter(
     'buddynext_can_join_space',
@@ -593,7 +595,9 @@ $posts = buddynext_service( 'post_service' )->get_many( $post_ids );   // PostSe
 
 ## Recipe 16 - Register a custom profile field type from code
 
-Recipe 9 added a field of an *existing* type. This one adds a brand-new **field type** - the way BuddyNext Pro adds its Location, Conditional, and File types. A type is registered in one place (the engine) and given behaviour through a small set of filters; the admin field picker and every render/sanitize path then treat it like a built-in.
+Recipe 9 added a field of an *existing* type. This one adds a brand-new **field type** - the way BuddyNext Pro adds its Location, Conditional, and File types.
+
+> **Runnable, tested snippet:** a copy-paste, live-verified version of this recipe is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `profile-fields/register-custom-field-type.php`. Drop it in `wp-content/mu-plugins/` and it works as-is. A type is registered in one place (the engine) and given behaviour through a small set of filters; the admin field picker and every render/sanitize path then treat it like a built-in.
 
 There are two registries, and a complete type touches both:
 
