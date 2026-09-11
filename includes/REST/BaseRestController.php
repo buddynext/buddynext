@@ -15,6 +15,7 @@ namespace BuddyNext\REST;
 
 use WP_Error;
 use WP_REST_Request;
+use WP_REST_Response;
 
 /**
  * Permission helpers shared across REST controllers.
@@ -331,5 +332,45 @@ abstract class BaseRestController {
 			__( 'Post not found.', 'buddynext' ),
 			array( 'status' => 404 )
 		);
+	}
+
+	/**
+	 * Flag a `page` param on a keyset (cursor) route as deprecated, loudly.
+	 *
+	 * The followers / following / connections lists moved from offset paging to
+	 * per_page + cursor. `page` is no longer read, but an old app build that still
+	 * sends it would otherwise get page one back for every value and loop forever on
+	 * the first cursor page with no signal that anything is wrong. So a request that
+	 * carries `page` gets a standard Deprecation + Warning header pair AND a
+	 * `deprecated` note in the payload — the old client fails loud instead of looping
+	 * silently. The route deliberately does NOT register `page`, so this is the only
+	 * place it is acknowledged (card 10284805802).
+	 *
+	 * @param WP_REST_Request  $request  Incoming request.
+	 * @param WP_REST_Response $response Response to stamp; its data gains a `deprecated` note.
+	 * @return void
+	 */
+	protected function flag_deprecated_page_param( WP_REST_Request $request, WP_REST_Response $response ): void {
+		$page = $request->get_param( 'page' );
+		if ( null === $page || '' === (string) $page ) {
+			return;
+		}
+
+		$message = __( 'The "page" parameter is no longer supported on this route. Use "per_page" with the "cursor" from a prior response\'s next_cursor.', 'buddynext' );
+
+		// RFC 8594 Deprecation + RFC 7234 Warning, so a native HTTP client sees it in
+		// the headers without parsing the body.
+		$response->header( 'Deprecation', 'true' );
+		$response->header( 'Warning', '299 - "' . str_replace( '"', "'", $message ) . '"' );
+
+		$data = $response->get_data();
+		if ( is_array( $data ) ) {
+			$data['deprecated'] = array(
+				'param'   => 'page',
+				'use'     => 'cursor',
+				'message' => $message,
+			);
+			$response->set_data( $data );
+		}
 	}
 }

@@ -12,12 +12,14 @@
  * @package BuddyNext
  *
  * @var string      $relation     Required. 'followers' | 'following' | 'connections'.
- * @var WP_User[]   $members      Capped member list for the grid.
+ * @var WP_User[]   $members      Keyset page of members for the grid.
  * @var WP_User[]   $pending      Owner-only pending requests (follow or connection).
  * @var array       $pending_notes Owner-only. requester_id => note, for connection requests.
  * @var int         $viewer_id    Current viewer user ID.
  * @var bool        $is_owner     Whether the viewer owns this profile.
  * @var string      $display_name Profile display name (empty states).
+ * @var string|null $next_cursor  Keyset cursor for the next page, or null on the last page.
+ * @var bool        $has_prev     Whether the viewer is on a page beyond the first.
  */
 
 declare( strict_types=1 );
@@ -31,6 +33,8 @@ $bn_pp_notes    = isset( $pending_notes ) && is_array( $pending_notes ) ? $pendi
 $bn_pp_viewer   = isset( $viewer_id ) ? (int) $viewer_id : 0;
 $bn_pp_is_owner = ! empty( $is_owner );
 $bn_pp_name     = isset( $display_name ) ? (string) $display_name : '';
+$bn_pp_next     = isset( $next_cursor ) && '' !== (string) $next_cursor ? (string) $next_cursor : null;
+$bn_pp_has_prev = ! empty( $has_prev );
 
 // Pending requests are connection-style only for the connections tab; followers
 // use the follow-request store. Following has no inbox.
@@ -200,4 +204,39 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 			?>
 		</div>
 	</div>
+<?php endif; ?>
+
+<?php
+// Keyset prev/next, reusing the space-members roster model: every page is a real
+// URL (?bn_after=), so a member with any number of followers is reachable through
+// the pager, not just the first page. "Next" carries the opaque cursor of the last
+// row on this page. "Previous" is the browser's own history (each page is a real
+// URL) via the shared space-members store's goBack, with a first-page href
+// fallback; it is offered only past the first page. Full-page navigation, not DOM
+// append, because the member-grid cards hydrate Interactivity islands (Follow /
+// Connect / kebab) that an injected fetch would leave inert.
+if ( $bn_pp_has_prev || null !== $bn_pp_next ) :
+	$bn_pp_base = remove_query_arg( 'bn_after' );
+	?>
+	<nav
+		class="bn-pagination"
+		data-wp-interactive="buddynext/space-members"
+		data-wp-context="{}"
+		aria-label="<?php echo esc_attr( sprintf( /* translators: %s: relation name (followers / following / connections). */ __( '%s pages', 'buddynext' ), $bn_pp_relation ) ); ?>"
+	>
+		<?php if ( $bn_pp_has_prev ) : ?>
+			<a
+				href="<?php echo esc_url( $bn_pp_base ); ?>"
+				class="bn-page-btn"
+				data-wp-on--click="actions.goBack"
+			><?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
+		<?php endif; ?>
+
+		<?php if ( null !== $bn_pp_next ) : ?>
+			<a
+				href="<?php echo esc_url( add_query_arg( 'bn_after', $bn_pp_next, $bn_pp_base ) ); ?>"
+				class="bn-page-btn"
+			><?php esc_html_e( 'Next', 'buddynext' ); ?> <?php buddynext_icon( 'chevron-right' ); ?></a>
+		<?php endif; ?>
+	</nav>
 <?php endif; ?>

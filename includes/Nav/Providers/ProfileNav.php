@@ -490,8 +490,14 @@ final class ProfileNav {
 	}
 
 	/**
-	 * People panel (followers / following / connections) — the capped member grid
-	 * + the owner-only pending-request inbox for that relation.
+	 * People panel (followers / following / connections) — the keyset-paged member
+	 * grid + the owner-only pending-request inbox for that relation.
+	 *
+	 * Reachability: the grid is a keyset cursor page (bn_after in the URL), reusing
+	 * the same load-more model the space roster ships — one seam for all three
+	 * relations — so every follower / following / connection is reachable via the
+	 * pager, not just the first capped 60 (card 10284805802). The owner-only pending
+	 * inbox is shown on the first page only.
 	 *
 	 * @param NavContext $c        Context.
 	 * @param string     $relation followers | following | connections.
@@ -503,25 +509,33 @@ final class ProfileNav {
 		$follow   = buddynext_service( 'follows' );
 		$conn     = buddynext_service( 'connections' );
 
+		// Keyset cursor carried in the URL (?bn_after=), the same param + model the
+		// space-members roster uses. Read-only GET, no nonce.
+		$per_page = 24;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET cursor for keyset pagination.
+		$after  = isset( $_GET['bn_after'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_after'] ) ) : '';
+		$cursor = '' !== $after ? $after : null;
+
 		$members       = array();
 		$pending       = array();
 		$pending_notes = array();
+		$next_cursor   = null;
 		if ( 'followers' === $relation ) {
-			// Ask the DB for 60, rather than loading every follower and slicing 60 off
-			// the front. On a popular account the old form scanned 100k+ rows to build
-			// a list it then threw away.
-			$members = $this->ids_to_users( $follow->paged_followers( $uid, 60, 0 ) );
-			if ( $is_owner ) {
+			$page        = $follow->paged_followers_keyset( $uid, $cursor, $per_page );
+			$members     = $this->ids_to_users( (array) $page['ids'] );
+			$next_cursor = $page['next_cursor'];
+			if ( $is_owner && null === $cursor ) {
 				$pending = $this->ids_to_users( (array) $follow->pending_followers( $uid ) );
 			}
 		} elseif ( 'following' === $relation ) {
-			// Same reason as the followers branch above: ask the DB for 60 rather than loading the
-			// member's entire follow set and slicing 60 off the front. paged_following() did not
-			// exist when that fix landed, so this branch kept the bug the comment describes.
-			$members = $this->ids_to_users( $follow->paged_following( $uid, 60, 0 ) );
+			$page        = $follow->paged_following_keyset( $uid, $cursor, $per_page );
+			$members     = $this->ids_to_users( (array) $page['ids'] );
+			$next_cursor = $page['next_cursor'];
 		} else {
-			$members = $this->ids_to_users( (array) $conn->connections( $uid, 60, 0 ) );
-			if ( $is_owner ) {
+			$page        = $conn->connections_keyset( $uid, $cursor, $per_page );
+			$members     = $this->ids_to_users( (array) $page['ids'] );
+			$next_cursor = $page['next_cursor'];
+			if ( $is_owner && null === $cursor ) {
 				$pending_ids = (array) $conn->pending_received( $uid, 60, 0 );
 				$pending     = $this->ids_to_users( $pending_ids );
 
@@ -530,6 +544,13 @@ final class ProfileNav {
 				// whole page (Basecamp 10244757451).
 				$pending_notes = $conn->pending_notes_for( $uid, $pending_ids );
 			}
+		}
+
+		// The pager's "Previous" reuses the space-members store's goBack (history-back
+		// with a first-page href fallback); enqueue that module so it hydrates here too.
+		$bn_assets = buddynext_service( 'assets' );
+		if ( $bn_assets instanceof \BuddyNext\Core\AssetService ) {
+			$bn_assets->enqueue( 'space-members' );
 		}
 
 		buddynext_get_template(
@@ -542,6 +563,8 @@ final class ProfileNav {
 				'viewer_id'     => $c->viewer_id,
 				'is_owner'      => $is_owner,
 				'display_name'  => $this->display_name( $uid ),
+				'next_cursor'   => $next_cursor,
+				'has_prev'      => null !== $cursor,
 			)
 		);
 	}

@@ -342,9 +342,14 @@ class FollowController extends BaseRestController {
 		$cursor   = (string) $request->get_param( 'cursor' );
 
 		$service = buddynext_service( 'follows' );
-		$result  = $service->paged_followers_keyset( $user_id, ( '' !== $cursor ? $cursor : null ), $per_page );
+		$result  = $this->filled_keyset_page(
+			static fn( ?string $c, int $pp ): array => $service->paged_followers_keyset( $user_id, $c, $pp ),
+			( '' !== $cursor ? $cursor : null ),
+			$per_page,
+			$viewer_id
+		);
 
-		$ids  = $this->filter_blocked( $result['ids'], $viewer_id );
+		$ids  = $result['ids'];
 		$body = array(
 			'total'       => $service->follower_count( $user_id ),
 			'per_page'    => $per_page,
@@ -359,7 +364,9 @@ class FollowController extends BaseRestController {
 			$body['ids'] = $ids;
 		}
 
-		return new WP_REST_Response( $body, 200 );
+		$response = new WP_REST_Response( $body, 200 );
+		$this->flag_deprecated_page_param( $request, $response );
+		return $response;
 	}
 
 	/**
@@ -382,9 +389,14 @@ class FollowController extends BaseRestController {
 		$cursor   = (string) $request->get_param( 'cursor' );
 
 		$service = buddynext_service( 'follows' );
-		$result  = $service->paged_following_keyset( $user_id, ( '' !== $cursor ? $cursor : null ), $per_page );
+		$result  = $this->filled_keyset_page(
+			static fn( ?string $c, int $pp ): array => $service->paged_following_keyset( $user_id, $c, $pp ),
+			( '' !== $cursor ? $cursor : null ),
+			$per_page,
+			$viewer_id
+		);
 
-		$ids      = $this->filter_blocked( $result['ids'], $viewer_id );
+		$ids      = $result['ids'];
 		$body     = array(
 			'total'       => $service->following_count( $user_id ),
 			'per_page'    => $per_page,
@@ -397,7 +409,9 @@ class FollowController extends BaseRestController {
 			$body['ids'] = $ids;
 		}
 
-		return new WP_REST_Response( $body, 200 );
+		$response = new WP_REST_Response( $body, 200 );
+		$this->flag_deprecated_page_param( $request, $response );
+		return $response;
 	}
 
 	/**
@@ -439,6 +453,47 @@ class FollowController extends BaseRestController {
 			'user_not_found',
 			__( 'User not found.', 'buddynext' ),
 			array( 'status' => 404 )
+		);
+	}
+
+	/**
+	 * A keyset page whose block-filtering can never strand the walk.
+	 *
+	 * Block-filtering (filter_blocked()) runs AFTER the keyset page is cut, so a page
+	 * whose every id is block-hidden used to come back as ids:[] with a NON-null
+	 * next_cursor. A client that stops on an empty page then truncated the whole list
+	 * at the first fully-blocked page. This advances through fully-blocked pages until
+	 * at least one id survives (or the walk is exhausted), so an empty result ALWAYS
+	 * carries a null cursor. Keyset semantics are intact: next_cursor is always a real
+	 * sub-page boundary, and a partial page (some survivors) is returned as-is.
+	 *
+	 * The `total` stays the true relationship count on purpose. A block-adjusted total
+	 * would leak, to the viewer, that someone in the list is in a block relationship
+	 * with them, and would disagree with the count pill every other surface shows.
+	 *
+	 * @param callable    $page_fn   fn(?string $cursor, int $per_page): array{ids:int[], next_cursor:?string}.
+	 * @param string|null $cursor    Incoming cursor (null for the first page).
+	 * @param int         $per_page  Page size.
+	 * @param int         $viewer_id Current viewer, for block filtering.
+	 * @return array{ids:int[], next_cursor:string|null}
+	 */
+	private function filled_keyset_page( callable $page_fn, ?string $cursor, int $per_page, int $viewer_id ): array {
+		$page = $page_fn( $cursor, $per_page );
+		$ids  = $this->filter_blocked( (array) ( $page['ids'] ?? array() ), $viewer_id );
+		$next = $page['next_cursor'] ?? null;
+
+		// Loop only while the page is entirely blocked AND more pages remain. Bounded
+		// by the viewer's block-list size, which is human-scale; a genuinely enormous
+		// block list is walked in one request rather than truncating the list.
+		while ( empty( $ids ) && null !== $next ) {
+			$page = $page_fn( $next, $per_page );
+			$ids  = $this->filter_blocked( (array) ( $page['ids'] ?? array() ), $viewer_id );
+			$next = $page['next_cursor'] ?? null;
+		}
+
+		return array(
+			'ids'         => $ids,
+			'next_cursor' => $next,
 		);
 	}
 

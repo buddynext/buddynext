@@ -390,7 +390,11 @@ class ConnectionController extends BaseRestController {
 			$body['ids'] = $result['ids'];
 		}
 
-		return new WP_REST_Response( $body, 200 );
+		$response = new WP_REST_Response( $body, 200 );
+		// This route is per_page + cursor; an old client still sending `page` gets a
+		// loud deprecation signal instead of silently looping on page one.
+		$this->flag_deprecated_page_param( $request, $response );
+		return $response;
 	}
 
 	/**
