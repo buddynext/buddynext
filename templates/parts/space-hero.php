@@ -268,9 +268,6 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-size="sm"
 					data-current-state="joined"
 					data-wp-on--click="actions.leaveSpace"
-					data-bn-confirm="<?php esc_attr_e( 'Leave this space? You can rejoin at any time.', 'buddynext' ); ?>"
-					data-bn-confirm-title="<?php esc_attr_e( 'Leave space?', 'buddynext' ); ?>"
-					data-bn-confirm-ok="<?php esc_attr_e( 'Leave space', 'buddynext' ); ?>"
 					aria-label="<?php esc_attr_e( 'Joined - click to leave', 'buddynext' ); ?>"
 				><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Joined', 'buddynext' ); ?></button>
 

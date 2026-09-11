@@ -978,6 +978,19 @@ var storeInstance = store( 'buddynext/spaces', {
 			var spaceId = resolveSpaceId( btn );
 			if ( ! spaceId ) { return; }
 
+			// Confirm at the ACTION seam, not per template: the hero, the directory
+			// card, the space-directory block and the client-rendered cards all
+			// dispatch here, so a mis-tap is guarded on every one of them by
+			// construction — no data-bn-confirm attribute to add (or, on the hero,
+			// to break) route by route (card 10294398101 item 1).
+			var confirmed = await bnConfirmDialog( {
+				title:   t( 'leaveSpaceTitle', 'Leave this space?' ),
+				message: t( 'leaveSpaceConfirm', 'You will stop seeing its posts and can join again later.' ),
+				ok:      t( 'leaveSpaceOk', 'Leave' ),
+				cancel:  t( 'cancel', 'Cancel' ),
+			} );
+			if ( ! confirmed ) { return; }
+
 			var origText = btn ? btn.textContent : '';
 			if ( btn ) { btn.disabled = true; btn.textContent = '\u2026'; }
 
@@ -2914,6 +2927,12 @@ function closeAllSpaceModals() {
 var BN_CONFIRM_FLAG = 'data-bn-confirm-acknowledged';
 var bnConfirmBackdrop = null;
 var bnConfirmRefs = null;
+// When a promise-based confirm (bnConfirmDialog) is open, this holds its resolver.
+// It lets an action `await` a confirmation at the SEAM every control shares, instead
+// of relying on a per-template data-bn-confirm attribute one route can forget (or,
+// as on the space hero, one where the markup gate swallowed the click but never
+// showed a modal — card 10294398101 item 1).
+var bnConfirmResolve = null;
 
 function buildConfirmModal() {
 	var backdrop = document.createElement( 'div' );
@@ -3008,6 +3027,50 @@ function closeConfirmModal() {
 	}
 }
 
+/**
+ * Programmatic confirm: open the shared modal and resolve true/false on the
+ * owner's choice. Any action can `await bnConfirmDialog(...)` before a
+ * destructive step, so every control that dispatches to that action is guarded
+ * by construction — no per-template attribute to forget.
+ *
+ * @param {Object} opts title/message/ok/cancel text.
+ * @return {Promise<boolean>} Resolves true when confirmed, false otherwise.
+ */
+function bnConfirmDialog( opts ) {
+	opts = opts || {};
+	// If a previous programmatic confirm is somehow still open, decline it.
+	if ( bnConfirmResolve ) { settleConfirmDialog( false ); }
+
+	var refs = ensureConfirmModal();
+	refs.title.textContent   = opts.title || t( 'pleaseConfirm', 'Please confirm' );
+	refs.message.textContent = opts.message || '';
+	refs.ok.textContent      = opts.ok || t( 'confirm', 'Confirm' );
+	refs.cancel.textContent  = opts.cancel || t( 'cancel', 'Cancel' );
+	// Not a click-replay confirm — clear any trigger id so the OK handler resolves
+	// the promise below instead of re-clicking a markup trigger.
+	delete refs.backdrop.dataset.bnConfirmTriggerId;
+
+	refs.backdrop.hidden = false;
+	refs.ok.focus();
+
+	return new Promise( function ( resolve ) { bnConfirmResolve = resolve; } );
+}
+
+/**
+ * Resolve a pending programmatic confirm and close the modal.
+ *
+ * @param {boolean} confirmed Whether the owner confirmed.
+ * @return {boolean} True when a programmatic confirm was pending (and handled).
+ */
+function settleConfirmDialog( confirmed ) {
+	if ( ! bnConfirmResolve ) { return false; }
+	var resolve = bnConfirmResolve;
+	bnConfirmResolve = null;
+	closeConfirmModal();
+	resolve( !! confirmed );
+	return true;
+}
+
 function resumeConfirmedClick() {
 	if ( ! bnConfirmBackdrop ) { return; }
 	var triggerId = bnConfirmBackdrop.dataset.bnConfirmTriggerId;
@@ -3026,13 +3089,14 @@ document.addEventListener( 'click', function ( event ) {
 	if ( event.target.closest( '[data-bn-confirm-ok]' ) ) {
 		event.preventDefault();
 		event.stopImmediatePropagation();
-		resumeConfirmedClick();
+		// A programmatic confirm resolves its promise; a markup confirm replays.
+		if ( ! settleConfirmDialog( true ) ) { resumeConfirmedClick(); }
 		return;
 	}
 	if ( event.target.closest( '[data-bn-confirm-cancel]' ) ) {
 		event.preventDefault();
 		event.stopImmediatePropagation();
-		closeConfirmModal();
+		if ( ! settleConfirmDialog( false ) ) { closeConfirmModal(); }
 		return;
 	}
 
@@ -3061,7 +3125,8 @@ document.addEventListener( 'click', function ( event ) {
 	}
 	var confirmBackdrop = event.target.closest( '.bn-modal-backdrop[data-bn-confirm-modal]' );
 	if ( confirmBackdrop && event.target === confirmBackdrop ) {
-		closeConfirmModal();
+		// Backdrop click = cancel; resolve a pending programmatic confirm as false.
+		if ( ! settleConfirmDialog( false ) ) { closeConfirmModal(); }
 	}
 }, true );
 
@@ -3069,7 +3134,10 @@ document.addEventListener( 'keydown', function ( event ) {
 	if ( 'Escape' === event.key ) {
 		var openBackdrop = document.querySelector( '[data-bn-modal]:not([hidden])' );
 		if ( openBackdrop ) { closeAllSpaceModals(); }
-		if ( bnConfirmBackdrop && ! bnConfirmBackdrop.hidden ) { closeConfirmModal(); }
+		if ( bnConfirmBackdrop && ! bnConfirmBackdrop.hidden ) {
+			// Escape = cancel; resolve a pending programmatic confirm as false.
+			if ( ! settleConfirmDialog( false ) ) { closeConfirmModal(); }
+		}
 	}
 } );
 
