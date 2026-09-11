@@ -338,6 +338,21 @@ final class SpaceNav {
 			return;
 		}
 
+		// Presentation-grade everywhere. This wrapper is the public embed seam — a
+		// space feed rendered on a NON-space surface (a dashboard, another plugin's
+		// Activity tab). Those pages never hit the space route's asset enqueue, so
+		// .bn-sh-feed (the card gap) and .bn-sh-guest-cta (the join card) rendered
+		// unstyled — cards flush together and the CTA read as an empty box
+		// (card 10297213961). Enqueue the feed + spaces styles the panel needs, the
+		// same way ProfileNav does for the profile activity embed. bn-spaces pulls
+		// bn-members via its declared dependency; a native space page already has
+		// these, so this is a no-op there.
+		$bn_assets = buddynext_service( 'assets' );
+		if ( $bn_assets instanceof \BuddyNext\Core\AssetService ) {
+			$bn_assets->enqueue( 'feed' );
+			$bn_assets->enqueue( 'spaces' );
+		}
+
 		if ( \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space_row, $viewer_id ) ) {
 			$this->render_feed_panel( $space_id, $viewer_id );
 			return;

@@ -244,7 +244,20 @@ if ( '' !== $bn_wrap_class ) {
 			<p class="bn-sh-guest-cta__lede"><?php esc_html_e( 'Only the space owner and moderators can post here. You can still react and reply.', 'buddynext' ); ?></p>
 		</div>
 	</div>
-<?php elseif ( $bn_is_guest ) : ?>
+<?php elseif ( $bn_is_guest && (bool) apply_filters( 'buddynext_space_feed_show_guest_cta', true, $bn_space_id ) ) : ?>
+	<?php
+	/**
+	 * Filter whether the logged-out "Join to participate / Log in" card shows in
+	 * the space feed. Defaults to true (the native space page wants it). An
+	 * embedder rendering the feed on a page that already carries its own login /
+	 * join affordance can return false for a clean, read-only guest feed with no
+	 * redundant action box (card 10297213961).
+	 *
+	 * @since 1.2.0
+	 * @param bool $show     Whether to render the guest CTA.
+	 * @param int  $space_id The space being rendered.
+	 */
+	?>
 	<div class="bn-card bn-sh-guest-cta">
 		<div class="bn-sh-guest-cta__icon" aria-hidden="true"><?php buddynext_icon( 'log-in' ); ?></div>
 		<div class="bn-sh-guest-cta__copy">
