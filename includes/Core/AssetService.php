@@ -1283,7 +1283,7 @@ class AssetService {
 		wp_interactivity_state(
 			'buddynext/spaces',
 			array(
-				'i18n' => array(
+				'i18n'       => array(
 					// Inline check-icon SVG so the JS membership-button swap can
 					// rebuild the "Joined" state with its leading icon (matching the
 					// SSR markup) instead of clobbering it with a text-only label.
@@ -1388,6 +1388,10 @@ class AssetService {
 					'discussionSearchFailed'          => __( 'Could not search discussions. Check your connection and try again.', 'buddynext' ),
 					'joinRequested'                   => __( 'Request sent — you’ll be notified when it’s approved.', 'buddynext' ),
 				),
+				// Parent-picker page size, injected so the JS "keep typing to narrow"
+				// affordance (fired when a full page returns) stays in step with the
+				// server default instead of a hardcoded copy (card 10264295263).
+				'parentPage' => \BuddyNext\Spaces\SpaceService::ELIGIBLE_PARENTS_PAGE,
 			)
 		);
 	}

@@ -78,6 +78,17 @@ class SpaceService {
 	public const TYPE_SECRET = 'secret';
 
 	/**
+	 * Candidate parents returned per page by eligible_parents().
+	 *
+	 * The ONE source of truth for the parent-move picker's page size. The REST
+	 * controller passes it, eligible_parents() defaults to it, and it is injected
+	 * into the spaces Interactivity state so the JS "keep typing to narrow" affordance
+	 * (which fires when a full page comes back) stays in step with the server. A full
+	 * page is the signal that more matches exist. Card 10264295263.
+	 */
+	public const ELIGIBLE_PARENTS_PAGE = 20;
+
+	/**
 	 * Whether a slug is reserved for a spaces-hub route and so cannot be used as a
 	 * space slug (defence-in-depth alongside rewrite-rule ordering — e.g. `mine`
 	 * shadows /spaces/mine/). Filterable via buddynext_reserved_space_slugs so
@@ -688,6 +699,24 @@ class SpaceService {
 		}
 		if ( ! empty( $space['is_archived'] ) === $archived ) {
 			return true; // Already in the requested state.
+		}
+
+		// Depth guard on the un-archive path. count_subspaces() and validate_parent_move()'s
+		// has_children check both count ARCHIVED-OUT, so a root whose children are all
+		// archived reads as childless and can be moved under another root — leaving its
+		// archived children two levels down. set_archived() then only flipped a flag, so
+		// un-archiving such a child resurrected the exact three-level tree the depth cap
+		// exists to prevent. Refuse it: if this space sits under a parent that is itself
+		// a sub-space, restoring it would make a three-level active chain (card 10264295263).
+		if ( ! $archived ) {
+			$parent_id = (int) ( $space['parent_id'] ?? 0 );
+			if ( $parent_id > 0 && $this->parent_id_of( $parent_id ) > 0 ) {
+				return new WP_Error(
+					'max_depth_exceeded',
+					__( 'Restoring this sub-space would nest spaces three levels deep. Move its parent to the top level first.', 'buddynext' ),
+					array( 'status' => 422 )
+				);
+			}
 		}
 
 		global $wpdb;
@@ -2309,6 +2338,37 @@ class SpaceService {
 	}
 
 	/**
+	 * The parent id of a space, or 0 when it is a root (or does not exist).
+	 *
+	 * The shared depth primitive the cap sites all reason about: "how deep is this
+	 * space in the tree?". Archive state is irrelevant to depth — a space's position
+	 * is fixed by parent_id whether or not it is archived — so, unlike
+	 * count_subspaces(), this reads the raw column. Used by set_archived() to refuse
+	 * an un-archive that would resurrect a three-level tree. create() and
+	 * validate_parent_move() keep their own row fetch because they also need to
+	 * distinguish a missing parent from a root (parent_not_found).
+	 *
+	 * @param int $space_id Space whose parent to read.
+	 * @return int Parent space id, or 0 for a root / unknown space.
+	 */
+	public function parent_id_of( int $space_id ): int {
+		global $wpdb;
+
+		$space_id = absint( $space_id );
+		if ( $space_id <= 0 ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT parent_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
+				$space_id
+			)
+		);
+	}
+
+	/**
 	 * A compact summary of a space's parent, for breadcrumb navigation.
 	 *
 	 * Reads the cached parent row (no extra join on list rows), returning just the
@@ -2375,10 +2435,10 @@ class SpaceService {
 	 * @param int    $space_id The space being moved.
 	 * @param int    $user_id  Acting user.
 	 * @param string $search   Optional name filter for the search-as-you-type picker.
-	 * @param int    $limit    Max candidates to return (bounded 1-50; default 20).
+	 * @param int    $limit    Max candidates to return (bounded 1-50; default ELIGIBLE_PARENTS_PAGE).
 	 * @return array<int,array{id:int,name:string}> Candidate parents, by name.
 	 */
-	public function eligible_parents( int $space_id, int $user_id, string $search = '', int $limit = 20 ): array {
+	public function eligible_parents( int $space_id, int $user_id, string $search = '', int $limit = self::ELIGIBLE_PARENTS_PAGE ): array {
 		$space_id = absint( $space_id );
 		$user_id  = absint( $user_id );
 

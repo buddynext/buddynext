@@ -375,6 +375,20 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 					</select>
 					<?php // Live search status: distinguishes "no space matches your search" from "there are more than this page — keep typing". Populated by renderParentResults(); empty and hidden until a search runs. ?>
 					<p class="bn-space-settings__hint bn-parent-picker__status" role="status" aria-live="polite" data-bn-parent-status hidden></p>
+					<?php // Without JS the search box is inert, so the select shows only the first bounded page. Tell a JS-off owner the list is truncated and how to reach the rest. ?>
+					<noscript>
+						<p class="bn-space-settings__hint">
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: %d: number of top-level spaces listed without JavaScript. */
+									__( 'Only the first %d top-level spaces are listed here. Enable JavaScript to search across all of them.', 'buddynext' ),
+									(int) \BuddyNext\Spaces\SpaceService::ELIGIBLE_PARENTS_PAGE
+								)
+							);
+							?>
+						</p>
+					</noscript>
 				</div>
 				<p class="bn-space-settings__hint">
 					<?php esc_html_e( 'Choose a space to nest this one under, or move it back to the top level. Only spaces you manage are listed. Start typing to search when there are many. Members and content are never moved — only where the space sits.', 'buddynext' ); ?>

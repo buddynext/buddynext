@@ -54,9 +54,11 @@ var discussionSearchTimer = null;
 var parentSearchTimer     = null;
 
 /**
- * Candidate parents the server returns per page (SpaceService::eligible_parents()
- * default LIMIT). A full page is the signal that more matches exist, so the
- * picker can offer a "keep typing" affordance. Keep in step with that default.
+ * Candidate parents the server returns per page (SpaceService::ELIGIBLE_PARENTS_PAGE).
+ * A full page is the signal that more matches exist, so the picker offers a "keep
+ * typing" affordance. Injected server-side into the buddynext/spaces state (read
+ * below, once the store is created) so it can never drift from the server default;
+ * this literal is only the fallback used if that state is absent.
  * @type {number}
  */
 var PARENT_PAGE = 20;
@@ -2075,6 +2077,13 @@ var storeInstance = store( 'buddynext/spaces', {
 // The server merges the injected dictionary into this namespace's state; read
 // it once here so every helper above (via t()/fmt()) shares one translated table.
 I18N = ( storeInstance.state && storeInstance.state.i18n ) || {};
+
+// Parent-picker page size, injected server-side (SpaceService::ELIGIBLE_PARENTS_PAGE)
+// so the "keep typing to narrow" affordance stays in step with the server. Falls
+// back to the literal default above when the state is absent.
+if ( storeInstance.state && Number( storeInstance.state.parentPage ) > 0 ) {
+	PARENT_PAGE = Number( storeInstance.state.parentPage );
+}
 
 /* ── Spaces directory filter helpers ─────────────────────────────── */
 

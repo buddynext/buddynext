@@ -715,7 +715,7 @@ class SpaceController extends BaseRestController {
 			$space_id,
 			$user_id,
 			(string) $request->get_param( 'q' ),
-			20
+			SpaceService::ELIGIBLE_PARENTS_PAGE
 		);
 
 		return new WP_REST_Response( array( 'items' => $items ), 200 );
