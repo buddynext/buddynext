@@ -1069,7 +1069,7 @@ class ModerationService {
 	 * @return int|WP_Error Inserted strike ID or WP_Error.
 	 */
 	public function issue_strike( int $user_id, int $actor_id, string $reason = '' ): int|WP_Error {
-		if ( ! $this->is_site_moderator( $actor_id ) ) {
+		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/issue-strike' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ) );
 		}
 
@@ -1185,7 +1185,7 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function reverse_strike( int $strike_id, int $actor_id ): bool|WP_Error {
-		if ( ! $this->is_site_moderator( $actor_id ) ) {
+		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/issue-strike' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to reverse strikes.', 'buddynext' ) );
 		}
 
@@ -1729,7 +1729,7 @@ class ModerationService {
 		// report; a space moderator may action reports in their own space. The
 		// site-moderator branch is what this card added — a promoted moderator who
 		// owns no space could not dismiss/resolve a report before (card 10264294189).
-		if ( $this->is_site_moderator( $actor_id ) ) {
+		if ( $this->is_site_moderator( $actor_id, 'buddynext-moderation/dismiss' ) ) {
 			return true;
 		}
 
@@ -1743,25 +1743,39 @@ class ModerationService {
 	}
 
 	/**
-	 * Whether an actor may take SITE-WIDE moderation actions.
+	 * Whether an actor may take a SITE-WIDE moderation action.
 	 *
-	 * True for a WordPress administrator (manage_options) OR a member promoted to
-	 * the site moderator community role. This is the single seam every site-wide
-	 * moderation action authorises against: the REST routes were opened to
-	 * community moderators, but the service methods still hard-gated on
-	 * manage_options, so a promoted moderator passed the route and was refused one
-	 * layer down (card 10264294189). Appeals deliberately do NOT use this — they
-	 * stay admin-only (separation of duties from the actions they review).
+	 * Routed through buddynext_can() — the canonical 4-layer permission entry point
+	 * (manage_options bypass, role map, per-user grant, buddynext_user_can filter) —
+	 * exactly like its sibling actor_moderates_space(), rather than a direct
+	 * RoleService::can_moderate_site() call. Two consequences the direct call could
+	 * not give (card 10264294189):
 	 *
-	 * @param int $actor_id Acting user id (0 = system, which is never a moderator here).
+	 *  - The UI and the service now read the SAME truth. The moderation queue renders
+	 *    each control from buddynext_can( '<the action ability>' ); the mutator now
+	 *    authorises against that same ability. So an owner who regrades or grants a
+	 *    moderation ability in Roles & Capabilities changes the button AND the route
+	 *    together — before, a regrade hid the button while the route still 200'd, and
+	 *    a grant showed the button while the service 403'd.
+	 *  - The capability is per action, so issue-strike, suspend-user, review-queue
+	 *    (Dismiss / Warn / content) and dismiss can each be regraded independently.
+	 *
+	 * A WordPress administrator still passes every check (manage_options bypass lives
+	 * inside can()). Appeals deliberately do NOT use this — they stay admin-only
+	 * (separation of duties from the actions they review). The indefinite-suspension
+	 * carve-out in suspend_user() is a separate manage_options gate and is unaffected.
+	 *
+	 * @param int    $actor_id   Acting user id (0 = system, which is never a moderator here).
+	 * @param string $capability Moderation ability this action authorises against
+	 *                           (defaults to review-queue: the "can act in the queue"
+	 *                           baseline for actions with no finer-grained ability).
 	 * @return bool
 	 */
-	private function is_site_moderator( int $actor_id ): bool {
-		if ( $actor_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+	private function is_site_moderator( int $actor_id, string $capability = 'buddynext-moderation/review-queue' ): bool {
+		if ( $actor_id <= 0 || ! function_exists( 'buddynext_can' ) ) {
 			return false;
 		}
-		$roles = buddynext_service( 'roles' );
-		return $roles instanceof \BuddyNext\Core\RoleService && $roles->can_moderate_site( $actor_id );
+		return buddynext_can( $actor_id, $capability );
 	}
 
 	/**
@@ -1922,7 +1936,7 @@ class ModerationService {
 		// path resolves it from get_current_user_id() (ModerationController:1266,
 		// behind require_admin) or from the admin queue's own actor. A 0 can only be
 		// passed by server code.
-		if ( $actor_id > 0 && ! $this->is_site_moderator( $actor_id ) ) {
+		if ( $actor_id > 0 && ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend users.', 'buddynext' ) );
 		}
 
@@ -2011,7 +2025,7 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function unsuspend_user( int $user_id, int $actor_id ): bool|WP_Error {
-		if ( ! $this->is_site_moderator( $actor_id ) ) {
+		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to lift suspensions.', 'buddynext' ) );
 		}
 
@@ -2064,7 +2078,7 @@ class ModerationService {
 		// user — the method takes an explicit $actor_id and must check that. A
 		// site-wide community moderator qualifies, not just a WP admin (card
 		// 10264294189).
-		if ( ! $this->is_site_moderator( $actor_id ) ) {
+		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
 			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -2092,7 +2106,7 @@ class ModerationService {
 	public function unshadow_ban( int $user_id, int $actor_id ): bool|WP_Error {
 		// Authorise the declared actor, not the current user (see shadow_ban). A
 		// site-wide community moderator qualifies (card 10264294189).
-		if ( ! $this->is_site_moderator( $actor_id ) ) {
+		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
 			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 

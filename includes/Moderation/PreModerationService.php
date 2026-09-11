@@ -78,16 +78,12 @@ final class PreModerationService {
 		// old code checked a `buddynext_moderate` capability that NOTHING grants —
 		// moderators are promoted via the community-role system (bn_community_role),
 		// not a WP capability — so a promoted moderator's own posts were still held
-		// (card 10264294189). Route through the same predicate the moderation
-		// service authorises against.
-		if ( user_can( $user_id, 'manage_options' ) ) {
+		// (card 10264294189). Route through buddynext_can() (which folds in the
+		// manage_options bypass, the role map and per-user grants) so this exemption
+		// tracks the SAME ability the moderation queue and its actions authorise
+		// against — an owner who regrades review-queue changes both together.
+		if ( function_exists( 'buddynext_can' ) && buddynext_can( $user_id, 'buddynext-moderation/review-queue' ) ) {
 			return false;
-		}
-		if ( function_exists( 'buddynext_service' ) ) {
-			$bn_roles = buddynext_service( 'roles' );
-			if ( $bn_roles instanceof \BuddyNext\Core\RoleService && $bn_roles->can_moderate_site( $user_id ) ) {
-				return false;
-			}
 		}
 
 		/**

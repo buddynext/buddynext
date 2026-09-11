@@ -72,6 +72,13 @@ class PermissionService {
 		'buddynext-connections/connect'     => 'member',
 		'buddynext-moderation/report'       => 'member',
 		'buddynext-moderation/review-queue' => 'moderator',
+		// Acting on a report (dismiss / resolve / escalate / remove content). Its own
+		// ability, distinct from review-queue (seeing the queue), so an owner can let
+		// a role read the queue without resolving reports. The moderation queue's
+		// Dismiss / Remove buttons render from this ability and ModerationService
+		// authorises report actions against it, so the two never diverge (card
+		// 10264294189).
+		'buddynext-moderation/dismiss'      => 'moderator',
 		'buddynext-moderation/issue-strike' => 'moderator',
 		// Site-wide moderators have full moderation authority (product decision):
 		// suspend is a moderator power, not admin-only. Space-scoped suspension is

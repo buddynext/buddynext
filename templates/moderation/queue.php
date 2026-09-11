@@ -612,6 +612,8 @@ do_action( 'buddynext_moderation_queue_before' );
 								?>
 							</button>
 
+							<?php // Dismiss + Remove resolve a report, so they read the dismiss ability the service authorises them against — not the page-level review-queue — keeping button and route in step (card 10264294189). ?>
+							<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/dismiss' ) ) : ?>
 							<button type="button"
 								class="bn-btn"
 								data-variant="ghost"
@@ -622,7 +624,7 @@ do_action( 'buddynext_moderation_queue_before' );
 								<?php esc_html_e( 'Dismiss', 'buddynext' ); ?>
 							</button>
 
-							<?php if ( in_array( $obj_type, array( 'post', 'comment', 'message' ), true ) ) : ?>
+								<?php if ( in_array( $obj_type, array( 'post', 'comment', 'message' ), true ) ) : ?>
 								<button type="button"
 									class="bn-btn"
 									data-variant="danger"
@@ -634,6 +636,7 @@ do_action( 'buddynext_moderation_queue_before' );
 									<?php buddynext_icon( 'trash' ); ?>
 									<?php esc_html_e( 'Remove content', 'buddynext' ); ?>
 								</button>
+							<?php endif; ?>
 							<?php endif; ?>
 
 							<?php

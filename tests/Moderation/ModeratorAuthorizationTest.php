@@ -105,4 +105,95 @@ class ModeratorAuthorizationTest extends WP_UnitTestCase {
 			'An administrator may suspend indefinitely.'
 		);
 	}
+
+	/**
+	 * The core of the round-5 bounce: the sanction mutators authorised against
+	 * RoleService::can_moderate_site() directly while the queue rendered its buttons
+	 * from buddynext_can( '<ability>' ), so an owner who regraded an ability in Roles
+	 * & Capabilities moved the BUTTON but not the ROUTE (card 10264294189). Now that
+	 * every mutator routes through buddynext_can(), a regrade must move both together
+	 * — and per action, so a different ability is untouched.
+	 *
+	 * The buddynext_user_can filter is the same seam the role map and per-user grants
+	 * resolve through, so denying issue-strike here reproduces exactly what a regrade
+	 * to "admins only" does at runtime, without warming the memoised role map.
+	 *
+	 * @return void
+	 */
+	public function test_regrading_an_ability_moves_button_and_route_together(): void {
+		// Baseline: the moderator holds issue-strike (the ability the button reads).
+		$this->assertTrue(
+			buddynext_can( $this->moderator, 'buddynext-moderation/issue-strike' ),
+			'A moderator holds issue-strike by default.'
+		);
+
+		$moderator = $this->moderator;
+		$deny      = static function ( $result, $uid, $cap ) use ( $moderator ) {
+			return ( 'buddynext-moderation/issue-strike' === $cap && (int) $uid === $moderator ) ? false : $result;
+		};
+		add_filter( 'buddynext_user_can', $deny, 10, 3 );
+
+		// UI (the ability) AND the route (the service) now BOTH refuse — no divergence.
+		$this->assertFalse(
+			buddynext_can( $this->moderator, 'buddynext-moderation/issue-strike' ),
+			'The button ability must reflect the regrade.'
+		);
+		$this->assertWPError(
+			$this->mod->issue_strike( $this->victim, $this->moderator, 'x' ),
+			'The strike route must refuse once the ability is regraded away — before this fix it returned a strike id.'
+		);
+
+		// Per-action granularity: suspend-user is a different ability and is untouched.
+		$this->assertIsInt(
+			$this->mod->suspend_user( $this->victim, $this->moderator, 'x', array( 'duration_days' => 7 ) ),
+			'A different ability stays granted after regrading issue-strike.'
+		);
+
+		remove_filter( 'buddynext_user_can', $deny, 10 );
+	}
+
+	/**
+	 * The mirror direction: granting a moderation ability to a plain member (as the
+	 * per-user grant path does) must reach the SERVICE, not just the button. Before
+	 * the fix the grant showed the button while the mutator 403'd.
+	 *
+	 * @return void
+	 */
+	public function test_granting_an_ability_reaches_the_service(): void {
+		$member = $this->member;
+		$grant  = static function ( $result, $uid, $cap ) use ( $member ) {
+			return ( 'buddynext-moderation/issue-strike' === $cap && (int) $uid === $member ) ? true : $result;
+		};
+		add_filter( 'buddynext_user_can', $grant, 10, 3 );
+
+		$this->assertTrue(
+			buddynext_can( $this->member, 'buddynext-moderation/issue-strike' ),
+			'The granted member holds the ability.'
+		);
+		$this->assertIsInt(
+			$this->mod->issue_strike( $this->victim, $this->member, 'x' ),
+			'A member granted issue-strike must be able to strike — the grant must reach the service.'
+		);
+
+		remove_filter( 'buddynext_user_can', $grant, 10 );
+	}
+
+	/**
+	 * Report actions (Dismiss / Remove content) now authorise against a dedicated
+	 * buddynext-moderation/dismiss ability — the one the card noted was missing from
+	 * ROLE_MAP — distinct from review-queue, and the queue's Dismiss/Remove buttons
+	 * read the same ability. A moderator holds it; a plain member does not.
+	 *
+	 * @return void
+	 */
+	public function test_dismiss_ability_is_moderator_gated(): void {
+		$this->assertTrue(
+			buddynext_can( $this->moderator, 'buddynext-moderation/dismiss' ),
+			'A moderator holds the dismiss ability.'
+		);
+		$this->assertFalse(
+			buddynext_can( $this->member, 'buddynext-moderation/dismiss' ),
+			'A plain member does not hold the dismiss ability.'
+		);
+	}
 }
