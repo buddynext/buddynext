@@ -122,4 +122,33 @@ class ModerationLogServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, $result['total'] );
 		$this->assertSame( array( 'issue_strike' ), $actions );
 	}
+
+	/**
+	 * actor_id = 0 is a VALID, explicit filter — "what did the AI/system do?" — not
+	 * "no filter". The old actor_id > 0 gate read 0 as unfiltered and returned the
+	 * whole table (card 10264294456).
+	 *
+	 * @return void
+	 */
+	public function test_get_log_actor_zero_returns_only_system_rows(): void {
+		$this->service->log( 0, 'ai_dismiss', array( 'object_type' => 'post', 'object_id' => 1 ) );
+		$this->service->log( 0, 'ai_remove_content', array( 'object_type' => 'post', 'object_id' => 2 ) );
+		$this->service->log( $this->admin_id, 'dismiss_report', array( 'object_type' => 'report', 'object_id' => 3 ) );
+
+		$system = $this->service->get_log( array( 'actor_id' => 0 ) );
+		$this->assertSame( 2, $system['total'], 'actor_id 0 must return only the two system rows.' );
+		foreach ( $system['items'] as $row ) {
+			$this->assertSame( 0, $row['actor_id'], 'Every row must be a system (actor 0) row.' );
+		}
+
+		$this->assertSame( 1, $this->service->get_log( array( 'actor_id' => $this->admin_id ) )['total'], 'A specific actor filters to their rows.' );
+
+		// No actor filter returns strictly MORE than the actor-0 slice — proving 0 is
+		// a real filter value, not the "return everything" the old > 0 gate produced.
+		$this->assertGreaterThan(
+			$system['total'],
+			$this->service->get_log( array() )['total'],
+			'Omitting actor_id must return more than the actor-0 filter.'
+		);
+	}
 }

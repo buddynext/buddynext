@@ -782,8 +782,11 @@ class ModerationQueue {
 		// filters the target member, log_actor filters the moderator (actor), and
 		// log_space filters the space — each with its own visible label below.
 		$target = isset( $_GET['log_target'] ) ? absint( wp_unslash( $_GET['log_target'] ) ) : 0;
-		$actor  = isset( $_GET['log_actor'] ) ? absint( wp_unslash( $_GET['log_actor'] ) ) : 0;
-		$space  = isset( $_GET['log_space'] ) ? absint( wp_unslash( $_GET['log_space'] ) ) : 0;
+		// Raw (not absint) so an explicit "0" is distinguishable from an empty field:
+		// 0 is the SYSTEM/AI actor and a valid filter ("what did the AI do?"), while
+		// an empty field means all actors (card 10264294456).
+		$actor_raw = isset( $_GET['log_actor'] ) ? sanitize_text_field( wp_unslash( $_GET['log_actor'] ) ) : '';
+		$space     = isset( $_GET['log_space'] ) ? absint( wp_unslash( $_GET['log_space'] ) ) : 0;
 		$since  = isset( $_GET['log_since'] ) ? sanitize_text_field( wp_unslash( $_GET['log_since'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
@@ -794,8 +797,8 @@ class ModerationQueue {
 		if ( $target > 0 ) {
 			$query['user_id'] = $target; // get_log() filters on target_user_id.
 		}
-		if ( $actor > 0 ) {
-			$query['actor_id'] = $actor;
+		if ( '' !== $actor_raw && is_numeric( $actor_raw ) ) {
+			$query['actor_id'] = (int) $actor_raw; // 0 = System/AI (automated actions).
 		}
 		if ( $space > 0 ) {
 			$query['space_id'] = $space;
@@ -1071,13 +1074,10 @@ class ModerationQueue {
 		// the reported content and, in future, the report row itself; reading after
 		// the switch then returns null and the log row defaults space_id to 0, so the
 		// action vanishes from that space's Moderation tab (which filters on
-		// space_id). The premod path already reads before acting; do the same here
-		// (card 10264294456). Captured for every op — the log below only uses it for
-		// the report_actions ops, but capturing unconditionally keeps it correct if
-		// the switch grows.
-		$report_row      = $service->get_report( $report_id );
-		$report_space_id = (int) ( ( is_array( $report_row ) ? $report_row : array() )['space_id'] ?? 0 );
-
+		// space_id). Each report mutator now writes its own bn_mod_log row at the
+		// set_status() seam, resolving space_id from the report itself, so a space
+		// report actioned from wp-admin reaches that space's Moderation tab without a
+		// separate log() here (card 10264294456).
 		$result = true;
 		switch ( $op ) {
 			case 'dismiss':
@@ -1092,28 +1092,6 @@ class ModerationQueue {
 			case 'escalate':
 				$result = $service->escalate( $report_id, $actor );
 				break;
-		}
-
-		// Audit trail: log the successful action (mirrors the REST controller's
-		// action names) so admin-queue actions appear in bn_mod_log too.
-		$report_actions = array(
-			'dismiss'  => 'dismiss_report',
-			'resolve'  => 'resolve_report',
-			'remove'   => 'remove_content',
-			'escalate' => 'escalate_report',
-		);
-		if ( ! is_wp_error( $result ) && isset( $report_actions[ $op ] ) ) {
-			// space_id read pre-action above, so a space report actioned from wp-admin
-			// shows on THAT space's Moderation tab, not only the site log. Mirrors
-			// Pro's BulkModService.
-			( new \BuddyNext\Moderation\ModerationLogService() )->log(
-				$actor,
-				$report_actions[ $op ],
-				array(
-					'report_id' => $report_id,
-					'space_id'  => $report_space_id,
-				)
-			);
 		}
 
 		$this->redirect_back( 'reports', $result );
@@ -1148,14 +1126,8 @@ class ModerationQueue {
 				break;
 		}
 
-		$user_actions = array(
-			'strike'    => 'issue_strike',
-			'suspend'   => 'suspend_user',
-			'unsuspend' => 'unsuspend_user',
-		);
-		if ( ! is_wp_error( $result ) && isset( $user_actions[ $op ] ) ) {
-			( new \BuddyNext\Moderation\ModerationLogService() )->log( $actor, $user_actions[ $op ], array( 'target_user_id' => $user_id ) );
-		}
+		// issue_strike() / suspend_user() / unsuspend_user() each write their own
+		// bn_mod_log row now (card 10264294456), so no log() call here.
 
 		$this->redirect_back( $tab, $result );
 	}

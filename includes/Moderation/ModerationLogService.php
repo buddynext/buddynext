@@ -171,6 +171,8 @@ class ModerationLogService {
 	 * @param array $args {
 	 *     Optional query args.
 	 *     @type int    $user_id  Filter to entries targeting this user (0 = all).
+	 *     @type int    $actor_id Filter to entries BY this actor. Present = filter
+	 *                            (0 = system/AI actions); omit for all actors.
 	 *     @type string $action   Filter to a single action slug ('' = all).
 	 *     @type int    $space_id Filter to entries scoped to this space (0 = all).
 	 *     @type string $since    Only entries at/after this datetime ('' = all).
@@ -184,11 +186,17 @@ class ModerationLogService {
 	public function get_log( array $args = array() ): array {
 		global $wpdb;
 
-		$user_id  = isset( $args['user_id'] ) ? (int) $args['user_id'] : 0;
-		$actor_id = isset( $args['actor_id'] ) ? (int) $args['actor_id'] : 0;
-		$action   = isset( $args['action'] ) ? sanitize_key( (string) $args['action'] ) : '';
-		$space_id = isset( $args['space_id'] ) ? (int) $args['space_id'] : 0;
-		$since    = '';
+		$user_id = isset( $args['user_id'] ) ? (int) $args['user_id'] : 0;
+		// actor_id = 0 is the SYSTEM/AI actor, a VALID filter value ("show me what
+		// the AI did"), not "no filter". Keying the clause on actor_id > 0 read a 0
+		// as "unfiltered" and returned the whole table (card 10264294456). Filter
+		// whenever the key is present and numeric, so 0 filters for system rows and
+		// an absent/empty key means all actors.
+		$has_actor_filter = isset( $args['actor_id'] ) && is_numeric( $args['actor_id'] );
+		$actor_id         = $has_actor_filter ? (int) $args['actor_id'] : 0;
+		$action           = isset( $args['action'] ) ? sanitize_key( (string) $args['action'] ) : '';
+		$space_id         = isset( $args['space_id'] ) ? (int) $args['space_id'] : 0;
+		$since            = '';
 		if ( ! empty( $args['since'] ) ) {
 			$ts = strtotime( (string) $args['since'] );
 			if ( false !== $ts ) {
@@ -205,7 +213,7 @@ class ModerationLogService {
 			$where[]  = 'target_user_id = %d';
 			$params[] = $user_id;
 		}
-		if ( $actor_id > 0 ) {
+		if ( $has_actor_filter ) {
 			$where[]  = 'actor_id = %d';
 			$params[] = $actor_id;
 		}
