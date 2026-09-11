@@ -68,8 +68,8 @@ class NotificationPrefCatalogue {
 	 * @return bool
 	 */
 	public function effective_default_on_site( string $slug ): bool {
-		$entry    = $this->all()[ $slug ] ?? array();
-		$on_site  = (bool) ( $entry['default_on_site'] ?? true );
+		$entry   = $this->all()[ $slug ] ?? array();
+		$on_site = (bool) ( $entry['default_on_site'] ?? true );
 
 		if ( isset( self::ADMIN_DEFAULT_OPTION[ $slug ] ) ) {
 			$admin_val = get_option( self::ADMIN_DEFAULT_OPTION[ $slug ], null );
@@ -92,6 +92,8 @@ class NotificationPrefCatalogue {
 	 *   default_on_site   bool    - implicit default for the on_site channel.
 	 *   default_email_freq string - implicit default email frequency.
 	 *   can_email         bool    - whether the type produces a transactional email.
+	 *   moderator_only    bool    - optional; when true the prefs UI hides the row
+	 *                               from non-moderators (see grouped()).
 	 * }
 	 *
 	 * @return array<string, array<string, mixed>>
@@ -343,11 +345,14 @@ class NotificationPrefCatalogue {
 			),
 			'bn.appeal_submitted'         => array(
 				'label'              => __( 'Appeal received', 'buddynext' ),
-				'description'        => __( 'Your appeal was received and is under review.', 'buddynext' ),
+				'description'        => __( 'A member appealed a moderation action and it is awaiting review.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
 				'default_on_site'    => true,
 				'default_email_freq' => 'off',
 				'can_email'          => false,
+				// Sent only to site administrators (ModerationListener::on_appeal_submitted),
+				// so the prefs row is hidden from members who could never receive it.
+				'moderator_only'     => true,
 			),
 			'bn.appeal_resolved'          => array(
 				'label'              => __( 'Appeal resolved', 'buddynext' ),
@@ -372,6 +377,10 @@ class NotificationPrefCatalogue {
 				'default_on_site'    => true,
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
+				// Sent only to site admins and space owners/moderators
+				// (ModerationListener::notify_moderators_of_report), so the prefs row is
+				// hidden from members who could never receive it.
+				'moderator_only'     => true,
 			),
 			'bn.post_approved'            => array(
 				'label'              => __( 'Post approved', 'buddynext' ),
@@ -534,7 +543,12 @@ class NotificationPrefCatalogue {
 	/**
 	 * Return catalogue entries grouped by their `group` field.
 	 *
-	 * Group order is fixed and matches the order the prefs UI renders.
+	 * Group order is fixed and matches the order the prefs UI renders. Rows a
+	 * type marks `moderator_only` are dropped for viewers who cannot moderate the
+	 * site, so a plain member is not offered a preference for a notification only
+	 * moderators ever receive. `all()` is deliberately left unfiltered — the
+	 * delivery and validation paths must still know every type regardless of who
+	 * is acting when a notification is composed.
 	 *
 	 * @return array<string, array<int, array<string, mixed>>>
 	 */
@@ -548,7 +562,16 @@ class NotificationPrefCatalogue {
 			self::GROUP_GROWTH     => array(),
 		);
 
+		// Same receivable-capability gate the moderation REST routes use, so the
+		// prefs UI shows a moderator-only row to exactly the users who can receive
+		// it (WP admins plus community moderators — not a bare manage_options check,
+		// which would miss community-role moderators).
+		$can_moderate = ( new \BuddyNext\Core\RoleService() )->can_moderate_site( get_current_user_id() );
+
 		foreach ( $this->all() as $entry ) {
+			if ( ! empty( $entry['moderator_only'] ) && ! $can_moderate ) {
+				continue;
+			}
 			$group = isset( $entry['group'] ) ? (string) $entry['group'] : self::GROUP_GROWTH;
 			if ( ! isset( $groups[ $group ] ) ) {
 				$groups[ $group ] = array();
@@ -568,7 +591,7 @@ class NotificationPrefCatalogue {
 	public function group_label( string $group ): string {
 		switch ( $group ) {
 			case self::GROUP_SOCIAL:
-				return __( 'Social graph', 'buddynext' );
+				return __( 'Follows and connections', 'buddynext' );
 			case self::GROUP_FEED:
 				return __( 'Feed activity', 'buddynext' );
 			case self::GROUP_SPACES:

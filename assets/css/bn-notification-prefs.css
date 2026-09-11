@@ -303,6 +303,15 @@
 	color: var(--bn-ink-2);
 }
 
+/* Visible caption for the email-frequency segmented control, mirroring the
+   In-app toggle's own label so the email column is not an unlabelled row of
+   chips. It doubles as the radiogroup's accessible name (aria-labelledby). */
+.bn-prefs-freq__caption {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	align-self: center;
+}
+
 /* ── Chip groups (email frequency + per-space pref) ───────────────────── */
 .bn-prefs-freq,
 .bn-prefs-space__controls {
@@ -560,6 +569,12 @@
 	.bn-prefs-space__controls .bn-prefs-chip {
 		flex: 1 1 auto;
 		min-inline-size: 0;
+		/* 40px minimum touch target on mobile — the chips carried only text
+		   padding, so a mistap was easy. Flex-centres the label at that height. */
+		min-block-size: 40px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		padding-inline: var(--bn-s2);
 		text-align: center;
 	}

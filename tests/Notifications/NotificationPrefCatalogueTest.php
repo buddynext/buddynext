@@ -239,4 +239,50 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 
 		delete_option( 'buddynext_notif_default_follow' );
 	}
+
+	/**
+	 * Flatten grouped() into a slug list.
+	 *
+	 * @param array<string, array<int, array<string, mixed>>> $grouped Grouped catalogue.
+	 * @return array<int, string>
+	 */
+	private function grouped_slugs( array $grouped ): array {
+		$slugs = array();
+		foreach ( $grouped as $entries ) {
+			foreach ( $entries as $entry ) {
+				$slugs[] = (string) ( $entry['slug'] ?? '' );
+			}
+		}
+		return $slugs;
+	}
+
+	/**
+	 * grouped() hides moderator-only rows from a plain member but shows them to an
+	 * admin, while all() keeps every type for both (delivery must not be filtered).
+	 *
+	 * @return void
+	 */
+	public function test_grouped_hides_moderator_only_rows_from_members(): void {
+		$catalogue = new NotificationPrefCatalogue();
+
+		// all() always carries the moderator-only types — delivery relies on it.
+		$this->assertArrayHasKey( 'bn.new_report', $catalogue->all() );
+		$this->assertArrayHasKey( 'bn.appeal_submitted', $catalogue->all() );
+
+		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $member );
+		$member_slugs = $this->grouped_slugs( $catalogue->grouped() );
+		$this->assertNotContains( 'bn.new_report', $member_slugs, 'A member must not see the moderator-only "New reports to review" row.' );
+		$this->assertNotContains( 'bn.appeal_submitted', $member_slugs, 'A member must not see the moderator-only "Appeal received" row.' );
+		// A recipient-facing moderation row is still shown.
+		$this->assertContains( 'bn.member_suspended', $member_slugs, 'Member-facing moderation rows stay visible.' );
+
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin );
+		$admin_slugs = $this->grouped_slugs( $catalogue->grouped() );
+		$this->assertContains( 'bn.new_report', $admin_slugs, 'A moderator must see the moderator-only rows.' );
+		$this->assertContains( 'bn.appeal_submitted', $admin_slugs, 'A moderator must see the moderator-only rows.' );
+
+		wp_set_current_user( 0 );
+	}
 }

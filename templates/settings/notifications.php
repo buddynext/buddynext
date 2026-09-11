@@ -373,7 +373,8 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 									</label>
 
 									<?php if ( $can_email ) : ?>
-										<div class="bn-prefs-freq" role="radiogroup" aria-label="<?php esc_attr_e( 'Email frequency', 'buddynext' ); ?>">
+										<span class="bn-prefs-freq__caption" id="bn-prefs-freq-cap-<?php echo esc_attr( $type_slug ); ?>"><?php esc_html_e( 'Email', 'buddynext' ); ?></span>
+										<div class="bn-prefs-freq" role="radiogroup" aria-labelledby="bn-prefs-freq-cap-<?php echo esc_attr( $type_slug ); ?>">
 											<?php
 											foreach ( $freq_options as $freq_value => $freq_label ) :
 												$is_active = ( $resolved_row['email_freq'] === $freq_value );
@@ -471,7 +472,18 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 									class="bn-prefs-chip"
 									data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 									data-pref="<?php echo esc_attr( $pref_value ); ?>"
-									data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'chipSpaceId' => (int) $space_id, 'chipPref' => $pref_value ) ) ); ?>"
+									data-wp-context="
+									<?php
+									echo esc_attr(
+										(string) wp_json_encode(
+											array(
+												'chipSpaceId' => (int) $space_id,
+												'chipPref' => $pref_value,
+											)
+										)
+									);
+									?>
+														"
 									aria-pressed="<?php echo $is_active ? 'true' : 'false'; ?>"
 									data-wp-bind--aria-pressed="state.spaceChipActive"
 									data-wp-on--click="actions.setSpacePref">
