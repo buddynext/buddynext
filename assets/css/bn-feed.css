@@ -2338,6 +2338,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	cursor: default;
 }
 
+/* "Some replies aren't shown" — the server capped the reply tree for this page. */
+.bn-comment-truncated {
+	margin-block-start: var(--bn-s2);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-xs);
+	text-align: center;
+}
+
 /* Inline comment-submit error rail above the textarea. */
 .bn-comment-submit-error {
 	display: flex;

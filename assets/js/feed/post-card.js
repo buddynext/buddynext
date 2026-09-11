@@ -1197,9 +1197,12 @@ function bnRenderCommentPage( listEl, data, ctx ) {
 	const page    = Number( data.page ) || Number( listEl.dataset.page ) || 1;
 	const perPage = Number( data.per_page ) || COMMENT_FIRST_PAGE;
 
-	// Drop any prior load-more button before appending this page's items.
+	// Drop any prior load-more button and truncation notice before appending
+	// this page's items (both are re-derived from the response below).
 	const oldBtn = listEl.querySelector( '.bn-comment-loadmore' );
 	if ( oldBtn ) listEl.removeChild( oldBtn );
+	const oldNote = listEl.querySelector( '.bn-comment-truncated' );
+	if ( oldNote ) listEl.removeChild( oldNote );
 
 	items.forEach( ( comment ) => {
 		listEl.appendChild(
@@ -1216,6 +1219,17 @@ function bnRenderCommentPage( listEl, data, ctx ) {
 		btn.textContent = t( 'viewMoreComments', 'View more comments' ) + ' (' + remaining + ')';
 		btn.addEventListener( 'click', () => bnLoadMoreComments( listEl, ctx, btn ) );
 		listEl.appendChild( btn );
+	}
+
+	// The server caps how many deep replies one page loads and flags it with
+	// replies_truncated; surface it so a capped thread is not presented as the
+	// whole conversation (the flag was otherwise read by nothing).
+	if ( data.replies_truncated ) {
+		const note = document.createElement( 'p' );
+		note.className = 'bn-comment-truncated';
+		note.setAttribute( 'role', 'note' );
+		note.textContent = t( 'repliesTruncated', 'Some replies aren’t shown.' );
+		listEl.appendChild( note );
 	}
 }
 
