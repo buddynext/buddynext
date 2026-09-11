@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Moderation;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Feed\PostService;
 use BuddyNext\Moderation\ModerationService;
 
 /**
@@ -28,7 +29,34 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 		$this->service  = new ModerationService();
 		$this->admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		$this->user_id  = self::factory()->user->create();
-		$this->post_id  = 42;
+		// A real reportable post, authored by someone OTHER than the reporter, so
+		// report() clears both its existence check (buddynext_validate_object_target
+		// -> buddynext_object_exists) and its "cannot report your own content" guard.
+		// The old hardcoded id 42 never existed, so report() 404'd once that
+		// existence check was added and every report-backed test failed at the fixture.
+		$bn_author      = self::factory()->user->create();
+		$this->post_id  = (int) ( new PostService() )->create(
+			$bn_author,
+			array(
+				'content' => 'reportable content',
+				'type'    => 'text',
+			)
+		);
+	}
+
+	/**
+	 * A fresh, real reportable post authored by a new user. Reports must target a
+	 * real object now that report() runs an existence check, so tests that need
+	 * several distinct reportable things mint them here instead of guessing ids.
+	 */
+	private function make_post(): int {
+		return (int) ( new PostService() )->create(
+			self::factory()->user->create(),
+			array(
+				'content' => 'reportable content',
+				'type'    => 'text',
+			)
+		);
 	}
 
 	public function test_warn_writes_single_mod_log_row(): void {
@@ -246,7 +274,7 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 	public function test_get_queue_excludes_non_pending(): void {
 		// Two distinct pieces of content; dismissing one must not hide the other.
 		$report_a = $this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
-		$this->service->report( $this->user_id, 'user', 99, 'harassment' );
+		$this->service->report( $this->user_id, 'user', self::factory()->user->create(), 'harassment' );
 
 		$this->service->dismiss( $report_a, $this->admin_id );
 
@@ -258,7 +286,7 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 
 	public function test_get_queue_filters_by_object_type(): void {
 		$this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
-		$this->service->report( $this->user_id, 'user', 99, 'harassment' );
+		$this->service->report( $this->user_id, 'user', self::factory()->user->create(), 'harassment' );
 
 		$result = $this->service->get_queue( array( 'object_type' => 'post' ) );
 
@@ -269,7 +297,7 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 	public function test_get_queue_filters_by_reason(): void {
 		$other = self::factory()->user->create();
 		$this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
-		$this->service->report( $other, 'post', $this->post_id + 1, 'harassment' );
+		$this->service->report( $other, 'post', $this->make_post(), 'harassment' );
 
 		$result = $this->service->get_queue( array( 'reason' => 'spam' ) );
 
@@ -281,7 +309,7 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 		$users = array();
 		for ( $i = 0; $i < 5; $i++ ) {
 			$users[] = self::factory()->user->create();
-			$this->service->report( $users[ $i ], 'post', $this->post_id + $i, 'spam' );
+			$this->service->report( $users[ $i ], 'post', $this->make_post(), 'spam' );
 		}
 
 		$result = $this->service->get_queue(

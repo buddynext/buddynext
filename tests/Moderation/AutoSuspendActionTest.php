@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Moderation;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Feed\PostService;
 use BuddyNext\Moderation\ModerationService;
 
 /**
@@ -69,9 +70,19 @@ class AutoSuspendActionTest extends \WP_UnitTestCase {
 		$inject = static fn(): array => array( $action );
 
 		$reporter = (int) self::factory()->user->create();
+		// A real post to report: report() now runs an existence check, so the old
+		// hardcoded id 1 404'd and apply_auto_actions() (which runs only after a
+		// report lands) never fired — the auto-action under test never ran.
+		$post_id = (int) ( new PostService() )->create(
+			(int) self::factory()->user->create(),
+			array(
+				'content' => 'auto-action target',
+				'type'    => 'text',
+			)
+		);
 
 		add_filter( 'buddynext_moderation_auto_actions', $inject, 10, 0 );
-		$this->service->report( $reporter, 'post', 1, 'spam' );
+		$this->service->report( $reporter, 'post', $post_id, 'spam' );
 		remove_filter( 'buddynext_moderation_auto_actions', $inject, 10 );
 	}
 

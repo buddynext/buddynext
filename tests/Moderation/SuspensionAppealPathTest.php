@@ -24,6 +24,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Tests\Moderation;
 
+use BuddyNext\Comments\CommentService;
 use BuddyNext\Core\Installer;
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Feed\PostService;
@@ -207,8 +208,20 @@ class SuspensionAppealPathTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_the_reaction_path_carries_the_appeal_url(): void {
-		foreach ( array( 'post', 'comment' ) as $object_type ) {
-			$result = InteractionGuard::check( $this->member, $object_type, $this->post );
+		// A real target per type: InteractionGuard::check() validates the object
+		// exists BEFORE the suspension check, so passing the post's id as a "comment"
+		// returned object_not_found instead of the suspension error. Give the comment
+		// case a real comment on that post.
+		$author  = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$comment = (int) ( new CommentService() )->create( $author, 'post', $this->post, 'A comment to react to.' );
+
+		$targets = array(
+			'post'    => $this->post,
+			'comment' => $comment,
+		);
+
+		foreach ( $targets as $object_type => $object_id ) {
+			$result = InteractionGuard::check( $this->member, $object_type, $object_id );
 
 			$this->assertInstanceOf( WP_Error::class, $result, $object_type . ' reactions were not refused.' );
 			$this->assertSame(

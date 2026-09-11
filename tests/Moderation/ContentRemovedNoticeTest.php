@@ -103,7 +103,12 @@ class ContentRemovedNoticeTest extends \WP_UnitTestCase {
 	 * @return bool|WP_Error Whatever remove_content() returned.
 	 */
 	private function report_and_remove( string $object_type, int $object_id ) {
-		$report_id = $this->moderation->report( $this->admin, $object_type, $object_id, 'spam' );
+		// Report as a throwaway user, never the content's author. report() forbids
+		// reporting your own content, and one of these tests removes content the
+		// admin authored themselves — the admin is only the REMOVER here, so the
+		// reporter must be someone else for the fixture to be created at all.
+		$reporter  = (int) self::factory()->user->create();
+		$report_id = $this->moderation->report( $reporter, $object_type, $object_id, 'spam' );
 		$this->assertIsInt( $report_id, 'The report fixture was not created.' );
 
 		return $this->moderation->remove_content( $report_id, $this->admin );
@@ -220,8 +225,14 @@ class ContentRemovedNoticeTest extends \WP_UnitTestCase {
 			}
 		);
 
-		$report_id = $this->moderation->report( $this->admin, 'widget', 4242, 'spam' );
-		$result    = $this->moderation->remove_content( $report_id, $this->admin );
+		// A reportable type that remove_content has no handler for: you suspend a
+		// user, you do not "remove" them, so remove_object() returns false and the
+		// method must surface bn_removal_unsupported without announcing a takedown.
+		// (Was 'widget' 4242 — a bogus type report() now rejects before this method
+		// is ever reached, which is why the fixture never got here.)
+		$reported_user = (int) self::factory()->user->create();
+		$report_id     = $this->moderation->report( $this->admin, 'user', $reported_user, 'spam' );
+		$result        = $this->moderation->remove_content( $report_id, $this->admin );
 
 		$this->assertInstanceOf( WP_Error::class, $result, 'An unremovable type reported success.' );
 		$this->assertSame( 'bn_removal_unsupported', $result->get_error_code() );

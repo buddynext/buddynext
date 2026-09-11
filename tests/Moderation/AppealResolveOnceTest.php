@@ -12,6 +12,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Moderation;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Feed\PostService;
 use BuddyNext\Moderation\ModerationService;
 
 /**
@@ -54,7 +55,16 @@ class AppealResolveOnceTest extends \WP_UnitTestCase {
 
 	public function test_dismissed_reports_do_not_count_toward_auto_hide(): void {
 		update_option( 'buddynext_auto_hide_threshold', 3 );
-		$post_id = 4242;
+		// A real post: the pending report() below runs an existence check, so the old
+		// hardcoded id 4242 404'd and never created the one open report this asserts.
+		// The three dismissed rows are inserted directly, so they need no live object.
+		$post_id = (int) ( new PostService() )->create(
+			self::factory()->user->create(),
+			array(
+				'content' => 'auto-hide target',
+				'type'    => 'text',
+			)
+		);
 
 		global $wpdb;
 		// Three DISMISSED lifetime reports on the same post.
