@@ -167,7 +167,7 @@ $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 // in-app + email default on; push defaults to whether Pro Push is installed.
 $channel_prefs  = get_user_meta( $ob_user_id, 'bn_channel_prefs', true );
 $channel_prefs  = is_array( $channel_prefs ) ? $channel_prefs : array();
-$push_available = class_exists( '\\BuddyNextPro\\Push\\PushDispatcher' );
+$push_available = buddynext_push_available();
 $initial_email  = array_key_exists( 'email', $channel_prefs ) ? (bool) $channel_prefs['email'] : true;
 $initial_in_app = array_key_exists( 'in_app', $channel_prefs ) ? (bool) $channel_prefs['in_app'] : true;
 $initial_push   = array_key_exists( 'push', $channel_prefs ) ? (bool) $channel_prefs['push'] : $push_available;

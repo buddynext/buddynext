@@ -509,7 +509,7 @@ class NotificationController extends BaseRestController {
 		$user_id = get_current_user_id();
 		$stored  = ( new NotificationPrefService() )->get_channel_prefs( $user_id );
 
-		$push_available = class_exists( '\\BuddyNextPro\\Push\\PushDispatcher' );
+		$push_available = buddynext_push_available();
 
 		$channels = array(
 			'in_app' => array_key_exists( 'in_app', $stored ) ? (bool) $stored['in_app'] : true,

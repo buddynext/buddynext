@@ -518,6 +518,32 @@ function buddynext_feature_enabled( string $slug, bool $fallback = true ): bool 
 }
 
 /**
+ * Whether the push notification channel is available to offer a member.
+ *
+ * Push needs both the Pro push module (the PushDispatcher class) AND a
+ * configured provider — an FCM/web-push project the owner has set up. Without
+ * the provider the channel toggle would do nothing, so every surface that
+ * offers push (settings, onboarding, the app REST payload) gates on this one
+ * helper rather than a bare class_exists, which used to leave a dead toggle on
+ * a Pro site whose owner had not configured push yet. Pro answers the
+ * `buddynext_push_available` filter with its real configured state.
+ *
+ * @return bool True when push can actually deliver.
+ */
+function buddynext_push_available(): bool {
+	// The Pro push module must be present AND its feature switched on — with the
+	// feature off, Pro never registers the dispatcher (or the availability
+	// filter below), so nothing could deliver a push.
+	if ( ! class_exists( '\\BuddyNextPro\\Push\\PushDispatcher' ) || ! buddynext_feature_enabled( 'push', false ) ) {
+		return false;
+	}
+
+	// Pro (when the feature is on) answers with its configured state: a provider
+	// must actually be set up, or the toggle would be a dead control.
+	return (bool) apply_filters( 'buddynext_push_available', true );
+}
+
+/**
  * Register a profile field programmatically (no database write).
  *
  * The field is injected into the live group/field tree via the

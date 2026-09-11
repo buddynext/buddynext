@@ -64,7 +64,7 @@ $resolved     = $catalogue_service->resolve_for_user( $stored_prefs );
 $groups       = $catalogue_service->grouped();
 
 // Channels: usermeta bn_channel_prefs, defaults driven by push availability.
-$push_available  = class_exists( '\\BuddyNextPro\\Push\\PushDispatcher' );
+$push_available  = buddynext_push_available();
 $stored_channels = get_user_meta( $current_user_id, 'bn_channel_prefs', true );
 if ( ! is_array( $stored_channels ) ) {
 	$stored_channels = array();
