@@ -17,6 +17,14 @@ Announcements, already a YES row), the media lightbox and its comment sync are r
 existing media/comment capabilities, the Space Media and Files tabs extend the space media/document
 capabilities, and per-plan Explore gating is a BuddyNext Pro entitlement. This is a targeted review,
 not a full row-by-row re-verification - unnamed rows still trace to 1.1.3.
+**Partial update 2026-09-12 (1.2.0):** structural re-verification against the 1.2.0 code - the table
+set (FREE unchanged since 1.1.3; PRO adds `bn_invoices` and `bn_plan_gateway_map`, both already
+rowed), admin slugs (unchanged), and the flagged 1.1.6 areas. Fixes applied: the plugin-isolation
+row now describes the keep-all-by-default `buddynext_isolation_strip` denylist the 1.1.6 redesign
+shipped (it had described the retired allow-list); a free Insights row was added under Owner
+administration and the Pro analytics row narrowed to "deep event analytics"; the appeals route count
+corrected 4 -> 5. Numeric counts (routes, hooks, jobs, openapi paths) still trace to
+`audit/manifest.summary.json` and were not re-tallied in this pass.
 **Source of truth order:** `audit/manifest.summary.json` > this file > the code.
 Regenerate both with `/wp-plugin-onboard --refresh`.
 
@@ -79,7 +87,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 |---|---|---|
 | Let members report content? | YES | `bn_reports`, 6 `/reports` routes |
 | Warn, suspend or shadow-ban? | YES | `bn_user_strikes`, `bn_user_suspensions`, `bn_mod_log` |
-| Let a suspended member appeal? | YES | `bn_appeals`, 4 `/appeals` routes; the appeal page stays reachable while suspended |
+| Let a suspended member appeal? | YES | `bn_appeals`, 5 `/appeals` routes; the appeal page stays reachable while suspended |
 | Rate-limit abuse? | PARTIAL | `bn_rate_limits` table backs it on every site; the fast object-cache path needs Redis or Memcached |
 | Filter banned words / safeguards? | YES | `Moderation\SafeguardService` |
 | Review a queue of reports in wp-admin? | YES | moderation screens under the `buddynext` hub |
@@ -95,7 +103,8 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Re-theme without touching CSS? | YES | one `--bn-hue` drives the OKLCH accent ramp via `Theme\TokenService` |
 | Override templates in a theme? | YES | `{theme}/buddynext/` |
 | Choose its page slugs? | YES | `buddynext_slug_*` / `buddynext_page_*` option pairs |
-| Control which plugins load on community routes? | YES | `Core\PluginIsolation` with an owner-managed `buddynext_isolation_keep` allow-list |
+| See at-a-glance community numbers? | YES | `Admin\Insights` - member, post and space counts plus growth, as a Growth-section tab and a wp-admin dashboard widget (5-min cached, computed from BuddyNext's own tables). Deep event-level analytics stays Pro |
+| Control which plugins load on community routes? | YES | `Core\PluginIsolation`, master switch `buddynext_isolation_enabled`. Since 1.1.6 it keeps every active plugin by default and the owner picks which to skip on community routes via the `buddynext_isolation_strip` denylist (an in-house plugin family is never stripped). The former `buddynext_isolation_keep` allow-list is now only a never-strip floor, not the owner's control |
 
 ## Platform and integration
 
@@ -115,7 +124,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 |---|---|---|
 | Charge for membership? | PRO | tiers, Stripe, PayPal, coupons, tax, invoices |
 | Send broadcast email or drip sequences? | PRO | |
-| Show community analytics? | PRO | |
+| Show deep event analytics? | PRO | free ships at-a-glance Insights (see Owner administration); Pro adds event-level analytics |
 | Send push notifications? | PRO | |
 | Push live updates over websockets? | PRO | free uses REST polling - 5s active, adaptive |
 | White-label the plugin? | PRO | |

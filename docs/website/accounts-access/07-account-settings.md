@@ -4,7 +4,7 @@ Your account settings are where you control how you sign in and who you have shu
 
 ![The Edit Profile screen - change cover photo and avatar, display name, headline, bio and profile fields, with a live preview](../images/profile-edit.webp)
 
-![The account security panel - vanity profile URL, change email, change password, two-factor authentication, and sign out everywhere](../images/account-security.webp)
+![The account security panel - Handle, change email, change password, two-factor authentication, and sign out everywhere](../images/account-security.webp)
 
 ![Members - Privacy & Data admin tab with the account-related privacy and data controls](../images/admin-privacy.webp)
 
@@ -61,7 +61,7 @@ For the full walkthrough (setting up an authenticator app, confirming your first
 
 ## View and manage blocked and muted people
 
-From the same settings area you can review everyone you have blocked, muted, or restricted, and undo any of them.
+On the **Privacy** tab of your settings (alongside the Account tab) you can review everyone you have blocked, muted, or restricted, and undo any of them.
 
 - **Blocked** people cannot see your content or contact you, and you do not see theirs.
 - **Muted** people stay connected to you, but their content is hidden from your view.

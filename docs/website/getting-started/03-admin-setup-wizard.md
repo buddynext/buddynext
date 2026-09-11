@@ -1,6 +1,6 @@
 # Admin Setup Wizard
 
-The Setup Wizard is the first thing BuddyNext shows you after the plugin is active, and it is the fastest way to a working community. In a few minutes it walks you through the handful of decisions that turn a fresh install into a real place to invite people: what to call it, how people join, what profiles look like, which notifications are on, how spaces are organized, and which pages members visit. Every choice comes with a sensible default, so you can click straight through and still end up with a complete, usable community - then fine-tune later if you want to.
+The Setup Wizard is the first thing BuddyNext shows you after the plugin is active, and it is the fastest way to a working community. In a few minutes it walks you through the handful of decisions that turn a fresh install into a real place to invite people: what to call it, how people join, what profiles look like, how spaces are organized, and which pages members visit. Every choice comes with a sensible default, so you can click straight through and still end up with a complete, usable community - then fine-tune later if you want to.
 
 ![BuddyNext admin dashboard overview shown after completing the Setup Wizard](../images/admin-overview.webp)
 
@@ -8,7 +8,7 @@ The Setup Wizard is the first thing BuddyNext shows you after the plugin is acti
 
 ## What it is
 
-The wizard is an eight-step guided setup that opens automatically the first time BuddyNext is active. Until you finish it, a **Run the setup wizard** link stays in the wp-admin notice area; you can also reach it directly at `wp-admin/admin.php?page=buddynext-setup`. It is built for the community owner, not for developers. Each step asks one plain-language question, shows a short hint, and tells you exactly where the setting lives afterward so you never feel locked in.
+The wizard is a seven-step guided setup that opens automatically the first time BuddyNext is active. Until you finish it, a **Run the setup wizard** link stays in the wp-admin notice area; you can also reach it directly at `wp-admin/admin.php?page=buddynext-setup`. It is built for the community owner, not for developers. Each step asks one plain-language question, shows a short hint, and tells you exactly where the setting lives afterward so you never feel locked in.
 
 You stay in control of the pace:
 
@@ -30,12 +30,11 @@ A community has a lot of moving parts - registration rules, profile fields, noti
 |------|--------|-----------------|
 | 1 | **Branding** | Your community name and a single brand color. The name appears in headers, emails, and the browser tab. The color drives primary buttons, links, and focus states. |
 | 2 | **Registration** | How new members get in (see the registration modes below) and whether to require email verification before a member can post or react. |
-| 3 | **Profile Fields** | Which optional profile groups to add. Headline, bio, and location are already on. Extras (Social Links, Work Experience, Education, Skills) are all pre-checked - leave them as-is or uncheck what you do not want. (Interests are added automatically from your space categories, so they are not a choice here.) |
-| 4 | **Notifications** | Which notifications are on by default for every new member: new follower, reactions, comments, mentions, and connection requests. Members can override their own later. |
-| 5 | **Spaces** | Starter categories for organizing spaces. Comes pre-filled with General, Announcements, Help & Support, and Off-topic. Edit the comma-separated list or clear it to set categories up later. |
-| 6 | **Pages** | Creates the core community pages - Community Feed, Members, and Spaces - with editable URL slugs. Pages that already exist are shown with a **Created** badge and are skipped, so nothing is duplicated. |
-| 7 | **Addons** | Review the companion plugins that extend BuddyNext. If you can install plugins, each one is pre-selected and **Continue** installs and activates it. Already-active plugins show as connected. Uncheck anything you do not want. |
-| 8 | **Done** | Confirms your community is ready. From here you can go to the dashboard to start inviting members, or open the front end to see what members will see. |
+| 3 | **Profile Fields** | A review of the profile groups your community will start with - Headline, bio, and location, plus extras such as Social Links, Work Experience, Education, and Skills. This step lists them so you know what members will fill in; you shape the actual fields later under Members - Profile Fields. (Interests are added automatically from your space categories.) |
+| 4 | **Spaces** | Starter categories for organizing spaces. Comes pre-filled with General, Announcements, Help & Support, and Off-topic. Edit the comma-separated list or clear it to set categories up later. |
+| 5 | **Pages** | Creates the core community pages - Community Feed, Members, and Spaces - with editable URL slugs. Pages that already exist are shown with a **Created** badge and are skipped, so nothing is duplicated. |
+| 6 | **Addons** | Review the companion plugins that extend BuddyNext. They are off by default - if you can install plugins, tick the ones you want and **Continue** installs and activates them. Already-active plugins show as connected. |
+| 7 | **Done** | Confirms your community is ready. From here you can go to the dashboard to start inviting members, or open the front end to see what members will see. |
 
 ### Registration modes (Step 2)
 
@@ -53,7 +52,7 @@ The same step has a **Require email verification** switch. With it on, members m
 
 ### What finishing does
 
-Reaching Step 8 and choosing **Finish setup** / **Go to dashboard** marks the wizard complete and applies everything you chose: your branding and registration options are saved, the profile groups you kept are created, your default notification preferences are stored, your space categories are added, and the core pages are published with the links you set, ready to use straight away.
+Reaching Step 7 and choosing **Finish setup** / **Go to dashboard** marks the wizard complete and applies everything you chose: your branding and registration options are saved, the starter profile groups are created, your space categories are added, and the core pages are published with the links you set, ready to use straight away.
 
 ## Re-running the wizard and where settings live afterward
 
@@ -67,7 +66,6 @@ After setup, every choice has a permanent home in the admin:
 | Brand color | Settings - Appearance |
 | Registration mode and email verification | Members - Registration |
 | Profile field groups | Members - Profile Fields |
-| Default notifications | Notifications section |
 | Space categories | Spaces - Directory, Categories sub-tab |
 | Page slugs | Settings - Pages & URLs |
 | Companion plugins | Platform - Integrations, and the WordPress Plugins screen |
