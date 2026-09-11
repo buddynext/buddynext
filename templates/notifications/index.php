@@ -393,7 +393,7 @@ $initial_context = wp_json_encode(
 		// must not remove the two things only they could filter.
 		array(
 			'key'   => 'follow',
-			'label' => __( 'People', 'buddynext' ),
+			'label' => __( 'Follows', 'buddynext' ),
 			'count' => $follow_unread,
 		),
 		array(

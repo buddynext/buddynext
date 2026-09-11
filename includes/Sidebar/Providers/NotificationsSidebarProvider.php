@@ -85,7 +85,7 @@ class NotificationsSidebarProvider {
 			),
 			array(
 				'key'   => 'follow',
-				'label' => __( 'People', 'buddynext' ),
+				'label' => __( 'Follows', 'buddynext' ),
 				'icon'  => 'users',
 				'count' => $follow_unread,
 			),
@@ -114,7 +114,7 @@ class NotificationsSidebarProvider {
 				'count' => $comment_unread,
 			),
 			'follow'   => array(
-				'label' => __( 'People', 'buddynext' ),
+				'label' => __( 'Follows', 'buddynext' ),
 				'icon'  => 'users',
 				'count' => $follow_unread,
 			),
