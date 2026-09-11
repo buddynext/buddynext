@@ -107,6 +107,51 @@ class ReportSystemActorTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The reporter's `bn.report_resolved` notification carries sender_id = 0 for a
+	 * system/AI action, so the member who reported the post is not shown an admin's
+	 * avatar for what the AI did. The $resolved_by seam fixed the log row and the
+	 * report row; this pins the third surface — the notification (card 10264294554).
+	 *
+	 * @return void
+	 */
+	public function test_system_action_notifies_reporter_with_sender_zero(): void {
+		global $wpdb;
+
+		$reporter  = self::factory()->user->create();
+		$object_id = 9101;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_reports',
+			array(
+				'object_type' => 'post',
+				'object_id'   => $object_id,
+				'reporter_id' => $reporter,
+				'reason'      => 'spam',
+				'status'      => 'pending',
+				'created_at'  => current_time( 'mysql', true ),
+			)
+		);
+		$report_id = (int) $wpdb->insert_id;
+
+		// System-attributed dismiss (the AI sweep path: admin authority, recorded 0).
+		$this->assertTrue( $this->service->dismiss( $report_id, $this->admin, 0 ), 'System dismiss should succeed.' );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$sender = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT sender_id FROM {$wpdb->prefix}bn_notifications
+				 WHERE recipient_id = %d AND type = %s",
+				$reporter,
+				'bn.report_resolved'
+			)
+		);
+
+		$this->assertNotNull( $sender, 'The reporter must receive a bn.report_resolved notification.' );
+		$this->assertSame( 0, (int) $sender, 'A system/AI action must notify the reporter with sender_id 0, not an admin.' );
+	}
+
+	/**
 	 * Re-actioning an already-actioned report returns already_resolved rather than
 	 * true — the signal the AI sweep guards log_ai() on so a re-swept, already
 	 * 'escalated' report writes no duplicate audit row every cadence.

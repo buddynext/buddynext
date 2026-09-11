@@ -3024,10 +3024,16 @@ class ModerationService {
 
 		// Tell the reporters we reviewed their report (respecting their prefs — the
 		// notification service consults on_site/channel prefs before creating).
+		// Pass $recorded_actor, NOT $actor_id: the notification's sender_id is the
+		// avatar the reporting member sees, and for an AI/system action $actor_id is
+		// only the ADMIN whose authority ran the takedown — showing them names a real
+		// person for what the AI did. $recorded_actor is 0 for a system action (and
+		// equals $actor_id for a human one), so the reporter sees "System", matching
+		// the log row and the report row (card 10264294554).
 		if ( ! empty( $reporter_ids ) ) {
 			$this->notify_reporters_reviewed(
 				$reporter_ids,
-				$actor_id,
+				$recorded_actor,
 				(string) $target['object_type'],
 				(int) $target['object_id']
 			);
@@ -3040,15 +3046,18 @@ class ModerationService {
 	 * Notify each reporter that their report was reviewed (resolved/dismissed).
 	 * The `bn.report_resolved` type is deliberately outcome-neutral ("we reviewed
 	 * your report") so it fits both resolve and dismiss without leaking the moderator's
-	 * decision. Idempotent per content via the group key. Skips the actor themselves.
+	 * decision. Idempotent per content via the group key. Skips the sender themselves.
 	 *
 	 * @param int[]  $reporter_ids Distinct reporter user IDs.
-	 * @param int    $actor_id     Moderator who actioned the report.
+	 * @param int    $sender_id    Actor RECORDED on the action (0 = system/AI). Becomes
+	 *                             the notification sender_id — the avatar the reporter
+	 *                             sees — so an AI action shows "System", never an admin
+	 *                             (card 10264294554).
 	 * @param string $object_type  Reported content type.
 	 * @param int    $object_id    Reported content ID.
 	 * @return void
 	 */
-	private function notify_reporters_reviewed( array $reporter_ids, int $actor_id, string $object_type, int $object_id ): void {
+	private function notify_reporters_reviewed( array $reporter_ids, int $sender_id, string $object_type, int $object_id ): void {
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
@@ -3059,13 +3068,13 @@ class ModerationService {
 
 		foreach ( array_unique( $reporter_ids ) as $reporter_id ) {
 			$reporter_id = (int) $reporter_id;
-			if ( $reporter_id <= 0 || $reporter_id === $actor_id ) {
+			if ( $reporter_id <= 0 || $reporter_id === $sender_id ) {
 				continue;
 			}
 			$notifications->create(
 				array(
 					'recipient_id' => $reporter_id,
-					'sender_id'    => $actor_id,
+					'sender_id'    => $sender_id,
 					'type'         => 'bn.report_resolved',
 					'object_type'  => $object_type,
 					'object_id'    => $object_id,
