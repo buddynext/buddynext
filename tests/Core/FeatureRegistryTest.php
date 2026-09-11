@@ -187,6 +187,44 @@ class FeatureRegistryTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Every dependency slug resolves to a human label via by_group().
+	 *
+	 * The Features admin renders each row's "Requires: …" line by looking a
+	 * feature's depends_on slugs up in the same slug→label map its rows use
+	 * (built from by_group()). If a feature ever declares a dependency on a slug
+	 * that carries no label, that line falls back to the raw slug — the exact
+	 * regression card 10294387033 reported. Assert the map covers every
+	 * dependency and yields a real label (not the slug echoed back).
+	 *
+	 * @return void
+	 */
+	public function test_every_dependency_slug_resolves_to_a_label(): void {
+		$groups      = $this->registry->by_group();
+		$slug_labels = array();
+		foreach ( $groups as $features ) {
+			foreach ( $features as $feature ) {
+				$slug_labels[ (string) $feature['slug'] ] = (string) $feature['label'];
+			}
+		}
+
+		foreach ( $this->registry->catalog() as $feature ) {
+			foreach ( (array) ( $feature['depends_on'] ?? array() ) as $dep_slug ) {
+				$dep_slug = (string) $dep_slug;
+				$this->assertArrayHasKey(
+					$dep_slug,
+					$slug_labels,
+					"Dependency '{$dep_slug}' has no entry in the feature label map."
+				);
+				$this->assertNotSame(
+					$dep_slug,
+					$slug_labels[ $dep_slug ],
+					"Dependency '{$dep_slug}' renders as a raw slug instead of a human label."
+				);
+			}
+		}
+	}
+
+	/**
 	 * A third party registers a feature via the buddynext_features filter.
 	 *
 	 * @return void

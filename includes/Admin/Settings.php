@@ -2218,6 +2218,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$state    = (array) get_option( 'buddynext_features', array() );
 		$groups   = $registry->by_group();
 
+		// Dependency lists (`depends_on`) hold feature slugs; render them with the
+		// same human labels the rows themselves show (resolved via
+		// FeatureRegistry::labels() inside by_group()) so the "Requires: …" line
+		// reads "Activity feed", not the raw "feed" slug.
+		$slug_labels = array();
+		foreach ( $groups as $group_features ) {
+			foreach ( $group_features as $group_feature ) {
+				$slug_labels[ (string) $group_feature['slug'] ] = (string) $group_feature['label'];
+			}
+		}
+
 		// Integration bridges are configured on the Integrations tab (per-aspect
 		// toggles), not here — the Features tab has no 'bridges' group.
 		$group_labels = array(
@@ -2307,10 +2318,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						<?php elseif ( ! empty( $feature['depends_on'] ) ) : ?>
 							<p class="bn-feature-row__deps">
 								<?php
+								$dep_labels = array();
+								foreach ( (array) $feature['depends_on'] as $dep_slug ) {
+									$dep_slug     = (string) $dep_slug;
+									$dep_labels[] = $slug_labels[ $dep_slug ] ?? $dep_slug;
+								}
 								printf(
-									/* translators: %s: list of dependency slugs */
+									/* translators: %s: list of required feature names */
 									esc_html__( 'Requires: %s', 'buddynext' ),
-									esc_html( implode( ', ', $feature['depends_on'] ) )
+									esc_html( implode( ', ', $dep_labels ) )
 								);
 								?>
 							</p>
