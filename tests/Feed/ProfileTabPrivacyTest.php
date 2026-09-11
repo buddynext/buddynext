@@ -70,12 +70,19 @@ class ProfileTabPrivacyTest extends \WP_UnitTestCase {
 
 		$posts = new PostService();
 
+		// Create the post PUBLIC so the replier can legitimately reply + like it,
+		// then lock it to private. This is the only way a reaction/comment on a
+		// private post can exist: the InteractionGuard visibility gate now refuses
+		// interacting with content the actor cannot see (card 10264292715), so a
+		// stranger can never react to an already-private post. The Replies/Likes
+		// tab filter must still hide the now-private parent from strangers and show
+		// it to its own author — which is exactly what these tests assert.
 		$this->private_post = (int) $posts->create(
 			$this->author,
 			array(
 				'content' => 'SECRET private plans',
 				'type'    => 'text',
-				'privacy' => 'private',
+				'privacy' => 'public',
 			)
 		);
 		$this->public_post  = (int) $posts->create(
@@ -94,6 +101,9 @@ class ProfileTabPrivacyTest extends \WP_UnitTestCase {
 		$reactions = buddynext_service( 'reactions' );
 		$reactions->react( $this->replier, 'post', $this->private_post, 'like' );
 		$reactions->react( $this->replier, 'post', $this->public_post, 'like' );
+
+		// Now lock the parent down; the reply + like made while it was public remain.
+		$posts->update( $this->private_post, $this->author, array( 'privacy' => 'private' ) );
 	}
 
 	/**
