@@ -2778,9 +2778,11 @@ a.bn-space-row:hover .bn-space-name {
 	border-radius: var(--bn-r-full);
 	flex-shrink: 0;
 }
-.bn-ep-vis-dot--public    { background: var(--bn-success); }
-.bn-ep-vis-dot--followers { background: var(--bn-accent); }
-.bn-ep-vis-dot--private   { background: var(--bn-ink-3); }
+.bn-ep-vis-dot--public      { background: var(--bn-success); }
+.bn-ep-vis-dot--members     { background: var(--bn-info); }
+.bn-ep-vis-dot--followers   { background: var(--bn-accent); }
+.bn-ep-vis-dot--connections { background: var(--bn-warn); }
+.bn-ep-vis-dot--private     { background: var(--bn-ink-3); }
 .bn-ep-vis-label {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-2);

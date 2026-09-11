@@ -136,6 +136,13 @@ do_action( 'buddynext_part_profile_edit_sidebar_before', $args );
 			</div>
 		</div>
 		<div class="bn-ep-vis-row">
+			<span class="bn-ep-vis-dot bn-ep-vis-dot--members" aria-hidden="true"></span>
+			<div class="bn-ep-vis-label">
+				<strong><?php esc_html_e( 'Members', 'buddynext' ); ?></strong>
+				<span><?php esc_html_e( 'any logged-in member', 'buddynext' ); ?></span>
+			</div>
+		</div>
+		<div class="bn-ep-vis-row">
 			<span class="bn-ep-vis-dot bn-ep-vis-dot--followers" aria-hidden="true"></span>
 			<div class="bn-ep-vis-label">
 				<strong><?php esc_html_e( 'Followers', 'buddynext' ); ?></strong>

@@ -36,7 +36,21 @@ ob_start();
 			<button type="button" class="bn-btn bn-ep-segmented__btn" data-variant="ghost" data-size="sm"
 				data-bn-action="set-font-scale" data-scale="120">A++</button>
 		</div>
-		<p class="bn-ep-field-help"><?php esc_html_e( 'Scales BuddyNext text on this device. Light or dark mode is set by your theme.', 'buddynext' ); ?></p>
+		<p class="bn-ep-field-help">
+			<?php
+			// The header light/dark toggle is provided by BuddyX / BuddyX Pro /
+			// Reign (BuddyNext follows it via the token bridge); a generic theme
+			// has no such control. Point at the toggle only when one is actually
+			// present — otherwise "set by your theme" stays correct. Reuse the
+			// shared community-theme check so this reads the same source of truth
+			// as the setup checklist and Get Started home.
+			if ( class_exists( '\BuddyNext\Admin\SetupChecklist' ) && \BuddyNext\Admin\SetupChecklist::using_recommended_theme() ) {
+				esc_html_e( 'Scales BuddyNext text on this device. Use the light/dark toggle in the header to switch appearance.', 'buddynext' );
+			} else {
+				esc_html_e( 'Scales BuddyNext text on this device. Light or dark mode is set by your theme.', 'buddynext' );
+			}
+			?>
+		</p>
 	</div>
 </div>
 <?php
