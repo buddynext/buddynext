@@ -562,7 +562,13 @@ body.admin-bar .bn-app__rail {
 		grid-column: -2;
 		position: static;
 		align-self: stretch;
-		padding-inline: 0;
+		/* Keep the same inline gutter the content column has, so the reflowed rail's
+		   cards line up with the post cards instead of running edge-to-edge — the
+		   desktop rail padding was doing double duty (rail separation + card gutter),
+		   and dropping it to 0 stranded the sidebar cards at the screen edge while
+		   content cards kept their 12px (card 10296670080). Vertical separation from
+		   content is now the border-block-start below. */
+		padding-inline: var(--bn-s3);
 		border-inline-start: 0;
 		border-block-start: 1px solid var(--bn-line);
 	}

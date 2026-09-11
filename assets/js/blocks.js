@@ -430,7 +430,7 @@
 			textControl( 'placeholder', __( 'Placeholder text', 'buddynext' ) ),
 			selectControl( 'searchIn', __( 'Search in', 'buddynext' ), [
 				{ value: 'all', label: __( 'Everything', 'buddynext' ) },
-				{ value: 'members', label: __( 'People', 'buddynext' ) },
+				{ value: 'members', label: __( 'Members', 'buddynext' ) },
 				{ value: 'spaces', label: __( 'Spaces', 'buddynext' ) },
 				{ value: 'posts', label: __( 'Posts', 'buddynext' ) },
 			] ),
