@@ -236,21 +236,25 @@ class PostService {
 		 * direct API caller (a script, the app mid-bug, someone spamming the
 		 * feed) walked straight past it.
 		 *
-		 * "Content" is any of the four things a card can be built from, because
-		 * a photo post, a poll and a shared link are all legitimately
-		 * text-empty. Checking `content` alone would reject them.
+		 * "Content" is any of the five things a card can be built from, because
+		 * a photo post, a poll, a shared link and an attached document are all
+		 * legitimately text-empty. Checking `content` alone would reject them.
+		 * PostController resolves a document attachment to type='document' with
+		 * the document reference in link_meta before we get here, so an empty
+		 * body carrying only a document is a real post, not an empty one.
 		 *
 		 * Placed before the verification and space gates on purpose: this is a
 		 * malformed request, not a permission failure, and answering 400 first
 		 * avoids telling an unverified caller their email is the problem when
 		 * the body was empty anyway.
 		 */
-		$bn_has_text  = '' !== trim( wp_strip_all_tags( (string) ( $data['content'] ?? '' ) ) );
-		$bn_has_media = ! empty( $data['media_ids'] ) && is_array( $data['media_ids'] );
-		$bn_has_poll  = ! empty( $data['options'] ) && is_array( $data['options'] );
-		$bn_has_link  = '' !== trim( (string) ( $data['link_url'] ?? '' ) );
+		$bn_has_text     = '' !== trim( wp_strip_all_tags( (string) ( $data['content'] ?? '' ) ) );
+		$bn_has_media    = ! empty( $data['media_ids'] ) && is_array( $data['media_ids'] );
+		$bn_has_poll     = ! empty( $data['options'] ) && is_array( $data['options'] );
+		$bn_has_link     = '' !== trim( (string) ( $data['link_url'] ?? '' ) );
+		$bn_has_document = 'document' === ( $data['type'] ?? '' ) && ! empty( $data['link_meta'] );
 
-		if ( ! $bn_has_text && ! $bn_has_media && ! $bn_has_poll && ! $bn_has_link ) {
+		if ( ! $bn_has_text && ! $bn_has_media && ! $bn_has_poll && ! $bn_has_link && ! $bn_has_document ) {
 			return new WP_Error(
 				'empty_post',
 				__( 'Add something to your post before sharing it.', 'buddynext' ),
@@ -2080,7 +2084,7 @@ class PostService {
 		if ( $bn_use_txn ) {
 			$wpdb->query( 'START TRANSACTION' );
 		}
-		$bn_swept  = $this->cascade_post_children( array( $post_id ) );
+		$bn_swept   = $this->cascade_post_children( array( $post_id ) );
 		$bn_removed = $wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
 		if ( ! $bn_swept || false === $bn_removed ) {
 			if ( $bn_use_txn ) {
@@ -2466,7 +2470,7 @@ class PostService {
 		}
 		$bn_swept = $this->cascade_post_children( $post_ids );
 
-		$deleted    = 0;
+		$deleted      = 0;
 		$bn_delete_ok = true;
 		foreach ( array_chunk( $post_ids, self::CASCADE_CHUNK ) as $chunk ) {
 			$in     = implode( ',', array_map( 'absint', $chunk ) );
