@@ -384,9 +384,12 @@ class SpaceSidebarProvider {
 	 * Renders the "Sub-spaces" card body: the child-space list (or a manager-only
 	 * empty-state hint), the "Add sub-space" CTA, and the create-sub-space modal.
 	 *
-	 * The modal is a fixed-position backdrop (DOM location is functionally
-	 * irrelevant to it — same contract as the former inline partial), so keeping
-	 * it inside this card's body does not change behaviour.
+	 * The create-sub-space modal is a fixed-position backdrop, but it is NOT
+	 * emitted inside this card — the card lives in aside.bn-app__right, which is
+	 * position:sticky and therefore a stacking context that trapped the modal
+	 * below the theme's sticky header. It is portalled to the shell root via
+	 * wp_footer instead (see the render body). The CTA button stays here; the
+	 * store queries the modal document-wide.
 	 *
 	 * @param object                         $space          Hydrated space object.
 	 * @param int                            $space_id       Space id.
@@ -487,19 +490,37 @@ class SpaceSidebarProvider {
 				<?php endif; ?>
 			</div>
 			<?php
+			// Portal the create-sub-space modal to the shell root (page footer)
+			// instead of emitting it inside aside.bn-app__right. The right rail is
+			// position:sticky (bn-shell.css ~:251), which opens a stacking context
+			// that traps the modal's z-index below the theme's sticky header, so the
+			// modal title and close button were painted over (card 10294123874).
+			// Rendering at body root keeps the modal in the root stacking context —
+			// the same reason every other bn-modal (feed / space hero) is unaffected,
+			// none of them live under the sticky aside. The opener button stays in the
+			// rail; actions.openCreate queries [data-bn-modal] document-wide, so the
+			// modal's DOM location is irrelevant to the open/submit flow, and rendering
+			// server-side (never moving a hydrated node) keeps Interactivity hydration
+			// intact. This render_subspaces() runs once per single-space page, so the
+			// wp_footer callback (and thus the modal) is registered at most once —
+			// preserving the partial's "at most one instance per page" contract.
 			if ( function_exists( 'buddynext_get_template' ) ) {
-				echo '<div data-wp-interactive="buddynext/spaces">';
-				buddynext_get_template(
-					'partials/create-space-modal.php',
-					array(
-						'categories'   => $sub_categories,
-						'fixed_parent' => (object) array(
-							'id'   => $space_id,
-							'name' => (string) $space->name,
-						),
-					)
+				$bn_modal_ctx = array(
+					'categories'   => $sub_categories,
+					'fixed_parent' => (object) array(
+						'id'   => $space_id,
+						'name' => (string) $space->name,
+					),
 				);
-				echo '</div>';
+				add_action(
+					'wp_footer',
+					static function () use ( $bn_modal_ctx ): void {
+						echo '<div data-wp-interactive="buddynext/spaces">';
+						buddynext_get_template( 'partials/create-space-modal.php', $bn_modal_ctx );
+						echo '</div>';
+					},
+					20
+				);
 			}
 		endif;
 	}
