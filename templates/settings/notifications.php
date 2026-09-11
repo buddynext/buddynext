@@ -378,7 +378,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 									</label>
 									<?php endif; ?>
 
-									<?php if ( $can_email ) : ?>
+									<?php if ( $can_email || $email_only ) : ?>
 										<span class="bn-prefs-freq__caption" id="bn-prefs-freq-cap-<?php echo esc_attr( $type_slug ); ?>"><?php esc_html_e( 'Email', 'buddynext' ); ?></span>
 										<div class="bn-prefs-freq" role="radiogroup" aria-labelledby="bn-prefs-freq-cap-<?php echo esc_attr( $type_slug ); ?>">
 											<?php

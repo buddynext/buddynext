@@ -133,9 +133,11 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 	 * email_freq='off') row and the cron suppresses on it; if 'digest' is not a
 	 * catalogue entry then get_all_prefs()/resolve_for_user() intersect it away
 	 * and the REST validator rejects it, so no member-facing control can ever turn
-	 * digests back on. Keeping it catalogued (with can_email so the email
-	 * frequency renders, and email_only so no meaningless in-app toggle shows) is
-	 * what makes the re-subscribe control exist on the settings page and in REST.
+	 * digests back on. Keeping it catalogued with email_only (so the settings page
+	 * renders the frequency selector as the re-subscribe control) is what makes the
+	 * control exist on the web and in REST. can_email is FALSE: the switch gates the
+	 * bn.daily_digest / bn.weekly_digest sends rather than sending itself, so it
+	 * needs no seeded template.
 	 *
 	 * @return void
 	 */
@@ -147,8 +149,8 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 			$catalogue,
 			'digest must be a catalogue entry or the unsubscribe is a one-way door.'
 		);
-		$this->assertTrue( $catalogue['digest']['can_email'], 'digest must render an email-frequency control.' );
-		$this->assertTrue( ! empty( $catalogue['digest']['email_only'] ), 'digest is email-only (no in-app channel).' );
+		$this->assertFalse( $catalogue['digest']['can_email'], 'digest gates the daily/weekly sends; it does not send itself, so it needs no template.' );
+		$this->assertTrue( ! empty( $catalogue['digest']['email_only'] ), 'digest is email-only: the frequency selector is its re-subscribe control.' );
 
 		// The re-subscribe row must be present even for a member with NO stored
 		// prefs — that is the exact case after an unsubscribe writes only the

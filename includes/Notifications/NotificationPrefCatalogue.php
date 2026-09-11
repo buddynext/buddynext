@@ -463,15 +463,25 @@ class NotificationPrefCatalogue {
 			// it and the settings UI + REST render an on/off control — otherwise the
 			// unsubscribe was a one-way door with no member-facing way back
 			// (card 10264293350). 'off' suppresses; 'daily'/'weekly' re-enrols on that
-			// cadence. email_only: there is no in-app digest, so the prefs UI hides the
-			// In-app toggle for this row and shows only the email frequency.
+			// cadence.
+			//
+			// can_email is FALSE: this switch does not itself SEND a mail. The actual
+			// digest sends are bn.daily_digest / bn.weekly_digest (their own templates);
+			// this row only GATES them, and the cron reads the suppressor row directly
+			// (raw SQL NOT EXISTS), never through can_email(). Marking it emailable
+			// would demand a seeded 'digest' template that nothing ever sends.
+			//
+			// email_only: there is no in-app digest, so the prefs UI hides the In-app
+			// toggle and — because the control IS the email frequency — renders the
+			// frequency selector for this row even though can_email is false (the
+			// template treats email_only OR can_email as "show the frequency").
 			'digest'                      => array(
 				'label'              => __( 'Email digests', 'buddynext' ),
 				'description'        => __( 'A periodic email roundup of your unread notifications. Set to Off to stop all digest emails; choose Daily or Weekly to resume.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,
 				'default_on_site'    => false,
 				'default_email_freq' => 'daily',
-				'can_email'          => true,
+				'can_email'          => false,
 				'email_only'         => true,
 			),
 			'bn.media_favorited'          => array(
@@ -637,7 +647,7 @@ class NotificationPrefCatalogue {
 	 * render every row without overlaying defaults client-side.
 	 *
 	 * @param array<string, array{on_site: bool, email_freq: string}> $stored Per-user stored prefs.
-	 * @return array<string, array{on_site: bool, email_freq: string, label: string, group: string, can_email: bool}>
+	 * @return array<string, array{on_site: bool, email_freq: string, label: string, group: string, can_email: bool, email_only: bool, description: string}>
 	 */
 	public function resolve_for_user( array $stored ): array {
 		$out = array();
@@ -662,6 +672,11 @@ class NotificationPrefCatalogue {
 				'label'       => (string) ( $entry['label'] ?? $slug ),
 				'group'       => (string) ( $entry['group'] ?? self::GROUP_GROWTH ),
 				'can_email'   => (bool) ( $entry['can_email'] ?? true ),
+				// email_only rows (e.g. the digest master switch) carry no in-app
+				// channel: their only control is the email frequency. Surfaced so app
+				// clients render the frequency selector for them even though can_email
+				// is false, matching the web settings screen.
+				'email_only'  => (bool) ( $entry['email_only'] ?? false ),
 				'description' => (string) ( $entry['description'] ?? '' ),
 			);
 		}

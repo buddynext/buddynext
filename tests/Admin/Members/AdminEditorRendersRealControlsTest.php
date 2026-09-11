@@ -418,6 +418,15 @@ class AdminEditorRendersRealControlsTest extends \WP_UnitTestCase {
 	public function test_a_category_group_is_editable_not_read_only(): void {
 		$this->seed_flat_field( 'category_multiselect', 'qa_cats' );
 
+		// A category_multiselect renders its editable checkbox grid only when space
+		// categories EXIST (FieldType::category_options()); with none it correctly
+		// shows an empty state, not an input. Seed one through the service so this
+		// test asserts the editable path deterministically. create() also busts the
+		// buddynext_space_cats object cache, so a stale-empty 'all' entry left by an
+		// earlier test in the same process (the object cache is not rolled back with
+		// the DB transaction) cannot make category_options() read empty here.
+		( new \BuddyNext\Spaces\SpaceCategoryService() )->create( array( 'name' => 'QA Editable Category' ) );
+
 		$html = $this->render_admin_editor();
 
 		$this->assertStringNotContainsString(
