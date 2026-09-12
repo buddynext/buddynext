@@ -57,6 +57,69 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
+= 1.2.0 - September 2026 =
+
+An audit-driven release: members-only posts, owner control over plugin isolation and uninstall data, stronger moderation tools, and a broad sweep of mobile, privacy and large-community fixes. Lockstep with BuddyNext Pro 1.2.0 - install and test both together.
+
+* New      - Members-only posts: a member can address a post to logged-in members only from the composer, and it stays hidden from guests and from search.
+* New      - Plugin isolation lets the site owner choose which other plugins load on community pages, and stays off by default so every plugin keeps running until you opt in.
+* New      - An uninstall data policy lets the owner decide whether community data is kept or removed when the plugin is uninstalled, and data is kept by default.
+* New      - Guests are invited to join from the landing and discovery pages, and links that previously dead-ended for a logged-out visitor now lead to the right place.
+* New      - A community moderator can be given moderation authority across the whole site, not only inside the spaces they moderate.
+* New      - The moderation log can be filtered, exported to CSV, and have its background jobs run on demand from the admin.
+* New      - Background-job and data-retention status is shown in the admin hub.
+* New      - Owners can set how much of a members-only post a non-member sees before the join prompt.
+* Improve  - The members directory filters by member type from a compact dropdown in the toolbar, with an "All types" reset.
+* Improve  - The members directory search field is capped to a readable width instead of stretching across the whole screen.
+* Improve  - The composer footer is at most two rows on mobile with no stranded icon, and comment and reply actions collapse to an icon bar.
+* Improve  - The activity hub is renamed Activity, the alerts area is renamed Notifications, and the notifications "People" filter is renamed "Follows".
+* Improve  - Comment threads show six replies inline before paging, and a truncated thread says so.
+* Improve  - The share dialog closes on Escape, keeps keyboard focus inside it, and returns focus to the trigger when it closes.
+* Improve  - A guest's "View profile" link opens the profile directly instead of routing through the login page.
+* Improve  - Sub-spaces show the same directory card as top-level spaces, including privacy and join controls.
+* Improve  - Large communities load follower, following, connection and space-member lists faster through cursor-based paging.
+* Improve  - The Privacy settings screen saves as one form and drops a toggle that did nothing.
+* Improve  - Onboarding nudges are scheduled through Action Scheduler instead of a separate queue table.
+* Improve  - Failed community emails are recorded and the owner is alerted, instead of the failure passing silently.
+* Improve  - Tracking that was never consented to is cleared, the revoke control is always shown, and tracking is no longer forced on at activation.
+* Fix      - The direct-message recipient picker no longer offers members who cannot be messaged, and its list pages correctly.
+* Fix      - A long member handle no longer forces the members directory to scroll sideways.
+* Fix      - The search button on a space feed no longer stretches full-width on mobile.
+* Fix      - The messages, notifications and avatar controls in the header line up with the theme's own header icons.
+* Fix      - BuddyNext form controls use the theme's own font again, including on pages shared with WPMediaVerse and Jetonomy, and the theme web font is no longer stripped on community pages.
+* Fix      - The comment box shows the commenter's real avatar, top-aligned, and its text is the same size as the comments below it.
+* Fix      - Comment and post text no longer shows a doubled "&amp;amp;" where an entity was encoded twice.
+* Fix      - A year profile field renders as a bounded selector instead of an unlimited number spinner.
+* Fix      - The sign-up terms checkbox is centered and the human check is ordered after it.
+* Fix      - Member avatars and menus no longer paint over the "Create sub-space" dialog.
+* Fix      - Audio uploads now have a path to their privacy and settings.
+* Fix      - Per-type notification toggles are disabled when their channel's master switch is off, and moderator-only rows are hidden from ordinary members.
+* Fix      - Search results highlight Explore in the navigation rail instead of Feed.
+* Fix      - A suspended member no longer sees write controls across the feed, spaces and profile, and is shown the appeal path instead of a generic "try again".
+* Fix      - Space member counts stay in step with the active filter, and the previous-page link points to the right page.
+* Fix      - The "Create sub-space" dialog is no longer trapped behind the sticky sidebar.
+* Fix      - Poll vote counts recount correctly, a vote is scoped to its own poll, and an option cannot be duplicated.
+* Fix      - A post's reshares are removed from search and marked unavailable when the original post is deleted.
+* Fix      - Deleting a post cleans up its comments, reactions and notifications in one safe pass.
+* Fix      - Space configuration such as renaming, locking or archiving stays owner-only and is no longer available to moderators.
+* Fix      - A space whose join requests are gated no longer loses its approval requirement by accident.
+* Fix      - Plugin isolation no longer removes a plugin that a kept plugin depends on, which had caused an error on every community page.
+* Fix      - Reported content is named by its text in the moderation screens instead of by a database id.
+* Fix      - The spaces directory header count matches the filtered grid, and categories hidden from the directory stay hidden in search and in sub-space rails.
+* Fix      - Admin help text no longer describes behaviour the plugin does not perform, feature dependencies are listed by name, and a feature badge can no longer be misread as a live toggle.
+* Fix      - The Insights screen shows a single active-member figure instead of two.
+* Fix      - Banned-word checks cover album titles and descriptions, poll options and space fields, and no longer flag the banned-word list against itself.
+* Fix      - The albums integration toggle is honoured on a space's Media tab.
+* Fix      - A hidden account-navigation item can still be toggled in the admin editor.
+* Fix      - A dialog opened from the media lightbox is clickable, because modals now recognise both the hidden attribute and the is-hidden class.
+* Fix      - The "awaiting approval" notice no longer flashes before the page settles.
+* Security - Posts limited to connections, or narrowed to an audience inside a space, are enforced on the server so they cannot be seen by people outside that audience.
+* Security - Reactions, comments and reports confirm that their target exists and is permitted before they are recorded.
+* Dev      - New filter seams let a companion hub plugin coexist with the Spaces UI and read cross-space members and activity.
+* Dev      - A combined Free and Pro OpenAPI specification is published with namespaced paths.
+* Compat   - Tested up to WordPress 7.1.
+* Compat   - Aligned with BuddyNext Pro 1.2.0. Install both updates together.
+
 = 1.1.7 - September 2026 =
 
 Fixes from a full audit of 1.1.6: the media lightbox now acts on the post a photo belongs to, externally billed members see the price they were actually charged, and several admin screens stop misreporting what they are showing. Lockstep with BuddyNext Pro 1.1.7 - install and test both together.
