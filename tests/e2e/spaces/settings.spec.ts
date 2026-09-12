@@ -1,5 +1,13 @@
 import { test, expect } from '../_fixtures/auth.fixture';
-import { getSpace, createSpaceApi, deleteSpaceApi, bnApi, type SpaceRow } from '../_fixtures/spaces-rest';
+import {
+    getSpace,
+    createSpaceApi,
+    deleteSpaceApi,
+    bnApi,
+    loginContextAs,
+    ensureOnboarded,
+    type SpaceRow,
+} from '../_fixtures/spaces-rest';
 
 /**
  * J-52 space general settings save + J-54 moderation queue — UPGRADED to
@@ -71,19 +79,27 @@ test.describe('spaces / settings + moderation', () => {
         }
     });
 
-    test('J-54 moderation queue lists a genuinely reported post', async ({ authenticatedPage: page }) => {
+    test('J-54 moderation queue lists a genuinely reported post', async ({
+        authenticatedPage: page,
+        browser,
+        baseURL,
+    }) => {
         // Per-spec selectors: the space moderation report card + empty state.
         const reportCard = 'article.bn-space-mod__report';
         const emptyState = '.bn-space-mod__empty';
+        const other = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
         const stamp = Date.now().toString().slice(-8);
         const space = await createSpaceApi(page, { name: `E2E Mod ${stamp}`, type: 'open' });
         let postId = 0;
         let reportId = 0;
+        // A member cannot report their own content (cannot_report_own), so a SECOND
+        // member files the report against the owner's post; the owner then sees it
+        // in the space queue.
+        let reporter: Awaited<ReturnType<typeof loginContextAs>> | null = null;
 
         try {
-            // Seed a real post in the space, then file a real report against it —
-            // the exact write path post-card.js uses (object_type=post + space_id).
+            // Owner seeds a real post in the space.
             const created = await bnApi(page, 'POST', '/posts', {
                 type: 'text',
                 content: `reportable post ${stamp}`,
@@ -93,7 +109,11 @@ test.describe('spaces / settings + moderation', () => {
             postId = Number((created.data as { id?: number }).id);
             expect(postId).toBeGreaterThan(0);
 
-            const report = await bnApi(page, 'POST', '/reports', {
+            // A different member files a real report against it (the exact write
+            // path post-card.js uses: object_type=post + space_id).
+            reporter = await loginContextAs(browser, baseURL, other);
+            await ensureOnboarded(reporter.page);
+            const report = await bnApi(reporter.page, 'POST', '/reports', {
                 object_type: 'post',
                 object_id: postId,
                 reason: 'spam',
@@ -128,6 +148,9 @@ test.describe('spaces / settings + moderation', () => {
             }
             if (postId > 0) {
                 await bnApi(page, 'DELETE', `/posts/${postId}`);
+            }
+            if (reporter) {
+                await reporter.ctx.close();
             }
             await deleteSpaceApi(page, space.id);
         }

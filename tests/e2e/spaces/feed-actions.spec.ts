@@ -1,5 +1,5 @@
 import { test, expect } from '../_fixtures/auth.fixture';
-import { createSpaceApi, deleteSpaceApi, bnApi } from '../_fixtures/spaces-rest';
+import { createSpaceApi, deleteSpaceApi, bnApi, loginContextAs, ensureOnboarded } from '../_fixtures/spaces-rest';
 import { wp } from '../_fixtures/wp';
 
 /**
@@ -150,11 +150,19 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
 
     test('J-683 reporting a space post files it into the moderation queue', async ({
         authenticatedPage: page,
+        browser,
+        baseURL,
     }) => {
+        const other = process.env.BN_TEST_OTHER_USER ?? 'alice';
         const { space, postId } = await seedSpacePost(page, 'Report');
         let reportId = 0;
+        // A member cannot report their own content, so a second member reports the
+        // owner's post; the owner (moderator) then sees it in the queue.
+        let reporter: Awaited<ReturnType<typeof loginContextAs>> | null = null;
         try {
-            const report = await bnApi(page, 'POST', '/reports', {
+            reporter = await loginContextAs(browser, baseURL, other);
+            await ensureOnboarded(reporter.page);
+            const report = await bnApi(reporter.page, 'POST', '/reports', {
                 object_type: 'post',
                 object_id: postId,
                 reason: 'spam',
@@ -164,8 +172,8 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
             reportId = Number((report.data as { id?: number }).id);
             expect(reportId).toBeGreaterThan(0);
 
-            // EFFECT: the report is retrievable in the moderation queue, keyed to
-            // the reported post.
+            // EFFECT: the report is retrievable in the moderation queue (read as the
+            // space owner), keyed to the reported post.
             const queue = await bnApi(page, 'GET', '/reports/queue?per_page=100&object_type=post');
             expect(queue.status).toBe(200);
             const items = (queue.data as { items?: Array<{ id: number; object_id: number }> }).items ?? [];
@@ -178,6 +186,9 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
                 await bnApi(page, 'POST', `/reports/${reportId}/dismiss`);
             }
             await bnApi(page, 'DELETE', `/posts/${postId}`);
+            if (reporter) {
+                await reporter.ctx.close();
+            }
             await deleteSpaceApi(page, space.id);
         }
     });

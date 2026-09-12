@@ -111,15 +111,18 @@ test.describe('profile / bridge-tab degrade (effect-based)', () => {
 
     test('J-749 Portfolio (Pro suite) tab degrades to absent when its nav toggle is off', async ({ page }, testInfo) => {
         // The Portfolio tab shows only when a suite integration contributes a
-        // VISIBLE panel for the member (SuiteProfile::visible_panels). Learnomy's
-        // panels are owner-only credential shelves, so the toggle that retires the
-        // tab is the learnomy nav integration.
+        // VISIBLE panel for the member (SuiteProfile::visible_panels). On this
+        // harness the sole visible panel for user 1 is Career Board's Jobs shelf
+        // (Learnomy's are owner-only credential shelves that stay empty without
+        // enrolments), so the toggle that actually retires the tab is the
+        // careerboard nav integration — turning it off empties the panel set and
+        // the aggregate Portfolio tab retires with it.
         await assertBridgeDegrade(
             page,
             testInfo,
-            'buddynext_integration_learnomy_nav',
+            'buddynext_integration_careerboard_nav',
             'portfolio',
-            'No suite integration contributes a visible Portfolio panel for this member on the harness (varundubey has no Learnomy/Career-Board credentials), so the Portfolio tab is not registered — cannot assert its retire path here.'
+            'No suite integration contributes a visible Portfolio panel for this member on the harness (no Career-Board jobs/resume or Learnomy credentials), so the Portfolio tab is not registered — cannot assert its retire path here.'
         );
     });
 });

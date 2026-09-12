@@ -187,7 +187,15 @@ test.describe('profile / edit', () => {
         await expect(page.locator('#bn-ep-privacy-dm')).toBeVisible();
         await expect(page.locator('#bn-ep-privacy-mention')).toBeVisible();
         await expect(page.locator('[data-pref="bn_privacy_show_in_directory"]')).toBeVisible();
-        await expect(page.locator('[data-pref="bn_privacy_search_indexable"]')).toBeVisible();
+        // The search-indexable toggle ROW always renders, but its `data-pref`
+        // (and the togglePref binding) is emitted only when the switch is
+        // interactive. On a site whose buddynext_google_indexing policy is not
+        // 'all' (the shipped default 'public_posts'), the row renders DISABLED on
+        // purpose - offering an opt-in that upstream noindex would ignore is worse
+        // than showing it inert with an explanation (profile-edit-privacy-row.php).
+        // Assert the row is present via its always-rendered label id, not the
+        // interactive-only data-pref, which would demand the toggle never disable.
+        await expect(page.locator('#bn-ep-privacy-search-lbl')).toBeVisible();
         await expect(page.locator('[data-pref="bn_pro_hide_profile_views"]')).toBeVisible();
     });
 

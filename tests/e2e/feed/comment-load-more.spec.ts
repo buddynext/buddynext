@@ -9,19 +9,20 @@ import { readRestNonce, postIdOfCard, deletePostRest, restPost } from '../_fixtu
  * page, I can load the older ones." The coverage matrix had "Load-more
  * comments" MISSING.
  *
- * Effect-based: the spec seeds 23 comments (> the page size of 20) on a post,
- * opens the thread, asserts the first page renders exactly 20 comment cards
- * plus a "View more comments" control, clicks it, and asserts the rendered
- * count grows past 20 (the older page actually loaded from
- * GET /comments?page=2). A pager wired to nothing would leave the count at 20
- * and fail. Post deleted in `finally` (its comments go with it).
+ * Effect-based: the spec seeds 8 comments (> the first-page size of 6) on a
+ * post, opens the thread, asserts the first page renders exactly 6 comment
+ * cards plus a "View more comments" control, clicks it, and asserts the
+ * rendered count grows past 6 (the older page actually loaded from
+ * GET /comments?page=2). A pager wired to nothing would leave the count at 6
+ * and fail. The first-page size is COMMENT_FIRST_PAGE (post-card.js). Post
+ * deleted in `finally` (its comments go with it).
  */
 test.describe('feed / comment load-more', () => {
     const commentList = '.bn-comment-list';
     const commentCard = '.bn-comment-card';
     const loadMore = '.bn-comment-loadmore';
-    const PAGE_SIZE = 20;
-    const SEED = 23;
+    const PAGE_SIZE = 6; // COMMENT_FIRST_PAGE in assets/js/feed/post-card.js
+    const SEED = 8;
 
     test('J-519 a thread past one page loads older comments on demand', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);

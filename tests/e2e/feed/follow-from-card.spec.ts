@@ -24,13 +24,14 @@ test.describe('feed / follow from card', () => {
     const followPill = '.bn-post-card__follow .bn-follow-btn';
 
     test('J-515 following a card author creates the follow relationship', async ({ authenticatedPage: page, browser }, testInfo) => {
-        const authorSlug = await resolveOtherMemberSlug(page, 'varundubey');
+        const selfLogin = process.env.BN_TEST_USER ?? 'varundubey';
+        const authorSlug = await resolveOtherMemberSlug(page, selfLogin);
         if (!authorSlug) {
             softSkip(testInfo, 'No other member to author the followed post.');
             return;
         }
 
-        const meId = await userId('varundubey');
+        const meId = await userId(selfLogin);
         const authorId = await userId(authorSlug);
         expect(meId).toBeGreaterThan(0);
         expect(authorId).toBeGreaterThan(0);

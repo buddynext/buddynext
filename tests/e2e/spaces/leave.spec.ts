@@ -14,7 +14,7 @@ import {
  *
  * A second actor (a seeded member, not the owner) joins an owner-created space,
  * then leaves it through the REAL hero control (the "Joined" button →
- * actions.leaveSpace → DELETE /spaces/{id}/join).
+ * actions.leaveSpace → confirm modal → POST /spaces/{id}/leave).
  *
  * EFFECT (not presence): after leaving, a reload shows the hero back to a "Join"
  * control (data-current-state="join"), and a REST GET as that member reports
@@ -50,8 +50,14 @@ test.describe('spaces / leave (J-605)', () => {
             await actor.page.goto(`/spaces/${space.slug}/`);
             const joined = actor.page.locator(joinedBtn).first();
             await expect(joined).toBeVisible({ timeout: 10_000 });
-            actor.page.once('dialog', (d) => void d.accept()); // some builds confirm
             await joined.click();
+
+            // leaveSpace confirms at the action seam via the in-page bnConfirmDialog
+            // modal (NOT a native browser dialog), so accept it by clicking the
+            // modal's OK button; only then does POST /spaces/{id}/leave fire.
+            const confirmOk = actor.page.locator('[data-bn-confirm-ok]').first();
+            await expect(confirmOk).toBeVisible({ timeout: 5_000 });
+            await confirmOk.click();
 
             // EFFECT: membership is gone in REST...
             await expect

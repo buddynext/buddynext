@@ -22,12 +22,13 @@ test.describe('feed / filter tabs', () => {
     const tab = (slug: string) => `.bn-feed-filter-tab[data-filter="${slug}"]`;
 
     test('J-521 Following excludes a non-followed author that For-you shows', async ({ authenticatedPage: page, browser }, testInfo) => {
-        const authorSlug = await resolveOtherMemberSlug(page, 'varundubey');
+        const selfLogin = process.env.BN_TEST_USER ?? 'varundubey';
+        const authorSlug = await resolveOtherMemberSlug(page, selfLogin);
         if (!authorSlug) {
             softSkip(testInfo, 'No other member to author the discovery post.');
             return;
         }
-        const meId = await userId('varundubey');
+        const meId = await userId(selfLogin);
         const authorId = await userId(authorSlug);
         expect(meId).toBeGreaterThan(0);
         expect(authorId).toBeGreaterThan(0);
