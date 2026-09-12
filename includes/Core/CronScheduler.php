@@ -402,7 +402,9 @@ class CronScheduler {
 				'blocking'  => true,
 				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
 				'body'      => array( 'action' => 'nopriv_bn_loopback_noop' ),
-				'cookies'   => isset( $_COOKIE ) && is_array( $_COOKIE ) ? $_COOKIE : array(),
+				// $_COOKIE is always a defined array; forward the current request's
+				// cookies to the loopback exactly as WP core's cron spawner does.
+				'cookies'   => $_COOKIE,
 			)
 		);
 

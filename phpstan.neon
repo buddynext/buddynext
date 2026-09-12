@@ -24,6 +24,11 @@ parameters:
         # one takes ( $hook, $args, $group, $unique, $priority ), and OutboundWebhookService
         # passes the 4th.
         - libs/action-scheduler/functions.php
+        # The queue-health panel (CronScheduler::health) calls \ActionScheduler::store()
+        # to count pending/failed actions. The facade class lives outside functions.php,
+        # so scan its real source too (same honest-signatures reason as above) rather than
+        # stub it. scanFiles exposes the symbol without analysing the file for errors.
+        - libs/action-scheduler/classes/abstracts/ActionScheduler.php
     bootstrapFiles:
         - vendor/szepeviktor/phpstan-wordpress/bootstrap.php
         - phpstan-bootstrap.php
