@@ -583,6 +583,8 @@ if ( $spaces->can_join( $space, get_current_user_id() ) ) {
 
 This exists because Free cannot know what Pro will decide. Surfaces used to offer Join to anyone looking at an open space, including members a listener was certain to refuse - on a plan-gated space that produced a screen telling the member they needed a paid plan, with two buttons beside it inviting them to join anyway. Asking the gate is the only way to know the offer is real. The same reasoning applies to any control you render on someone else's behalf.
 
+> **Runnable, tested snippet:** a copy-paste, live-verified version is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `roles-caps/ask-the-gate.php`. Drop it in `wp-content/mu-plugins/` and it works as-is.
+
 ## Recipe 15 - Hydrate a batch of posts in one query (1.1.5)
 
 Looping `get()` over a list of post ids issues one query per row. At a page of 20 that is 20 round trips for data a single `IN()` answers.
@@ -594,6 +596,8 @@ $posts = buddynext_service( 'post_service' )->get_many( $post_ids );   // PostSe
 `get_many( array $post_ids ): array` returns hydrated posts **in the order you asked for**, not table order, because the caller's order is usually meaningful - relevance, for one - and the database loses it. Ids with no row are skipped rather than returned as blanks, so do not assume the result is the same length as the input.
 
 **It is a fetch, not a gate.** Visibility is deliberately not applied. Pass the ids through `filter_visible()` first, exactly as the feed does, or you will hand a member content they cannot see.
+
+> **Runnable, tested snippet:** a copy-paste, live-verified version (this batch fetch plus the `filter_visible()` gate that must precede it — Recipe 8's "consume a service" pattern) is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `services/consume-a-service.php`. Drop it in `wp-content/mu-plugins/` and it works as-is.
 
 ---
 
