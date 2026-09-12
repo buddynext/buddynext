@@ -4692,3 +4692,25 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		gap: var(--bn-s2);
 	}
 }
+
+/* ── Guest "Join the community" banner ───────────────────────────────────────
+   Shared component (templates/parts/guest-cta.php) shown to logged-out visitors
+   on explore, the members and spaces directories, and a single shared post. Lives
+   in bn-base — which every surface loads — because the part is cross-surface; it
+   used to live in bn-explore.css and rendered unstyled everywhere else (card
+   10297709339). */
+.bn-guest-banner {
+	position: relative;
+	background: linear-gradient(135deg, var(--brand), var(--brand-hover));
+	color: var(--bn-accent-fg, #fff);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s5);
+	margin-bottom: var(--bn-s5);
+}
+.bn-guest-banner h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--fw-bold); margin-bottom: var(--bn-s1); }
+.bn-guest-banner p  { font-size: var(--text-sm); opacity: 0.9; margin-bottom: var(--bn-s4); line-height: 1.6; }
+.bn-banner-btns     { display: flex; gap: var(--bn-s2); flex-wrap: wrap; }
+.bn-guest-banner .bn-btn[data-variant="primary"] { background: var(--bg); color: var(--brand); }
+.bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: var(--bg-subtle); }
+.bn-guest-banner .bn-btn[data-variant="ghost"] { color: var(--bg); border-color: rgba(255, 255, 255, 0.5); background: transparent; }
+.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: rgba(255, 255, 255, 0.15); }

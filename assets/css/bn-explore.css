@@ -111,22 +111,10 @@
 .bn-explore-hero__search-input:focus { outline: 2px solid transparent; outline-offset: 2px; }
 .bn-explore-hero__search-input::placeholder { color: var(--text-3); }
 
-/* ── Guest banner ────────────────────────────────────────────────────────── */
-.bn-guest-banner {
-	position: relative;
-	background: linear-gradient(135deg, var(--brand), var(--brand-hover));
-	color: var(--bn-accent-fg, #fff);
-	border-radius: var(--bn-r-lg);
-	padding: var(--bn-s5);
-	margin-bottom: var(--bn-s5);
-}
-.bn-guest-banner h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--fw-bold); margin-bottom: var(--bn-s1); }
-.bn-guest-banner p  { font-size: var(--text-sm); opacity: 0.9; margin-bottom: var(--bn-s4); line-height: 1.6; }
-.bn-banner-btns     { display: flex; gap: var(--bn-s2); flex-wrap: wrap; }
-.bn-guest-banner .bn-btn[data-variant="primary"] { background: var(--bg); color: var(--brand); }
-.bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: var(--bg-subtle); }
-.bn-guest-banner .bn-btn[data-variant="ghost"] { color: var(--bg); border-color: rgba(255, 255, 255, 0.5); background: transparent; }
-.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: rgba(255, 255, 255, 0.15); }
+/* The guest banner (.bn-guest-banner) moved to bn-base.css when parts/guest-cta.php
+   was extracted for reuse across explore, the directories and the single post —
+   its styles must live in a sheet every surface loads, not this explore-only one
+   (card 10297709339). */
 
 /* ── Filter row (in-page entity-type filters) ────────────────────────────── */
 .bn-explore-filters {
