@@ -404,11 +404,21 @@ do_action( 'buddynext_part_member_card_before', $args );
 
 	<div class="bn-md-card__actions">
 		<?php if ( 0 === $bn_viewer_id ) : ?>
+			<?php
+			// Viewing a profile is navigation, not an action — link straight to it,
+			// the same as the members-showcase block and the logged-in "actions off"
+			// branch below. A guest only ever reaches this card on a public community;
+			// when the owner turns on private-community mode (buddynext_private_community),
+			// PageRouter redirects the guest to login before any hub renders, so a
+			// per-card sign-in detour here was both redundant and inconsistent with the
+			// profile being openly viewable by URL on a public site. Follow / Connect /
+			// Message — the real actions — still route to login on their own.
+			?>
 			<a
 				class="bn-btn"
 				data-variant="primary"
 				data-size="sm"
-				href="<?php echo esc_url( add_query_arg( 'redirect_to', $bn_profile_url, \BuddyNext\Core\PageRouter::auth_url() ) ); ?>"
+				href="<?php echo esc_url( $bn_profile_url ); ?>"
 			>
 				<?php esc_html_e( 'View profile', 'buddynext' ); ?>
 			</a>
