@@ -87,6 +87,8 @@ add_filter(
 
 **Seam:** the `webhooks` service. BuddyNext's own `OutboundWebhookListener` does nothing more than call `buddynext_service( 'webhooks' )->dispatch( $event_slug, $payload )` from each core action handler - your addon does the same with its own slug. Delivery is queued to Action Scheduler, fanned out only to endpoints subscribed to that slug, signed, logged, and retried with backoff. You write one line.
 
+> **Runnable, tested snippet:** a copy-paste, live-verified version is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `integrations/dispatch-webhook-event.php`. Drop it in `wp-content/mu-plugins/` and it works as-is.
+
 ```php
 add_action( 'my_addon_course_completed', static function ( int $user_id, int $course_id ): void {
     buddynext_service( 'webhooks' )->dispatch(
@@ -113,6 +115,8 @@ Endpoints that subscribe to *all* events (an empty event list) receive your slug
 **Seam:** `buddynext_safeguard_check`. In `SafeguardService::check()` it runs after the built-in IP, banned-word, blocked-domain, rate-limit, and banned-hashtag gates, and **before** the duplicate-content and new-member gates - those two return a hold-for-review verdict, and a hold must never outrank a hard block. Return `true` to allow, or a `WP_Error` to reject - the `WP_Error` message is shown to the user. The same filter runs on edits via `check_content()`, so your rule covers edited content too.
 
 This is the seam the Pro Moderation Rules engine attaches its keyword blocklists and ML scoring to. Banned-word lists are configured through that rules engine, not by adding `check_*()` methods to `SafeguardService`.
+
+> **Runnable, tested snippet:** a copy-paste, live-verified version is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `hooks/block-content-at-submit.php` (both a content rule and a create-time cooldown, with the `is_wp_error` passthrough). Drop it in `wp-content/mu-plugins/` and it works as-is.
 
 The filter takes **five** arguments. The fifth, `$context`, is `'create'` or `'edit'`, and it is the one you have to think about: if your rule counts an author's recent activity (a rate limit, flood control, a cooldown), it must skip `'edit'`. An edit is not a new post, and re-asking the question there locks an author who has hit your cap out of editing the posts they already published. Content rules - banned words, links, ML scoring - should keep running on edits, or editing becomes a way to smuggle content past you.
 
