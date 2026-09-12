@@ -216,7 +216,7 @@ export const urls = {
     notifications: '/notifications/',
     onboarding: '/onboarding/',
     adminSettings: '/wp-admin/admin.php?page=buddynext-settings',
-    adminModeration: '/wp-admin/admin.php?page=buddynext-moderation',
+    adminModeration: '/wp-admin/admin.php?page=buddynext-moderation&tab=reports',
     adminCustomDomains: '/wp-admin/admin.php?page=buddynext-domains',
     adminEmailEditor: '/wp-admin/admin.php?page=buddynext-emails',
 } as const;
