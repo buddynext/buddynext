@@ -10,7 +10,7 @@
         "license": {
             "name": "GPL-2.0-or-later"
         },
-        "version": "1.1.7"
+        "version": "1.2.0"
     },
     "servers": [
         {
@@ -5673,6 +5673,16 @@
                         "schema": {
                             "type": "integer",
                             "default": 20
+                        }
+                    },
+                    {
+                        "name": "messageable",
+                        "in": "query",
+                        "required": false,
+                        "description": "When true, exclude members the current viewer cannot direct-message (mvs_can_send_message) - used by the DM recipient picker so it never offers someone the send route would refuse.",
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
                         }
                     }
                 ],
