@@ -310,6 +310,17 @@ $bn_subtitle = sprintf(
 	);
 	?>
 
+	<?php if ( 0 === $current_user_id ) : ?>
+		<?php
+		// A guest can browse every space but was never invited to join (card
+		// 10297709530). Show the shared join card once, above the directory.
+		buddynext_get_template(
+			'parts/guest-cta.php',
+			array( 'lede' => __( 'Create an account to join spaces, post, and reply.', 'buddynext' ) )
+		);
+		?>
+	<?php endif; ?>
+
 	<?php
 	buddynext_get_template(
 		'parts/filter-strip.php',

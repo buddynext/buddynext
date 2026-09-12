@@ -194,18 +194,9 @@ $bn_explore_filters = array(
 			</div>
 		</section>
 
-		<!-- Guest join banner -->
+		<!-- Guest join banner (shared component, reused on the directories + single post) -->
 		<?php if ( $is_guest ) : ?>
-			<div class="bn-guest-banner" role="banner">
-				<h3><?php esc_html_e( 'Join the community', 'buddynext' ); ?></h3>
-				<p>
-					<?php esc_html_e( "You're browsing as a guest. Create an account to post, follow people, and join spaces.", 'buddynext' ); ?>
-				</p>
-				<div class="bn-banner-btns">
-					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::signup_url() ); ?>" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Sign up free', 'buddynext' ); ?></a>
-					<a href="<?php echo esc_url( add_query_arg( 'redirect_to', get_permalink(), \BuddyNext\Core\PageRouter::auth_url() ) ); ?>" class="bn-btn" data-variant="ghost"><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
-				</div>
-			</div>
+			<?php buddynext_get_template( 'parts/guest-cta.php' ); ?>
 		<?php endif; ?>
 
 		<!-- Filter row: in-page entity-type filters -->

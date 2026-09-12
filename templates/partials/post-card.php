@@ -859,7 +859,15 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 	?>
 
 	<!-- Comments expand region -->
-	<?php if ( $bn_comments_enabled ) : ?>
+	<?php
+	// Only render the comments region when there is something to put in it for this
+	// viewer: existing comments to read, OR a composer to write. Without this, a guest
+	// on the auto-expanded single-post permalink (commentsOpen, no composer) with zero
+	// comments got the region's border-top with no content beneath it — a 13px void
+	// closing the card on a dead end (card 10297709339). A member always keeps it (the
+	// composer makes $can_comment true, so they can add the first comment).
+	?>
+	<?php if ( $bn_comments_enabled && ( $comment_count > 0 || $can_comment ) ) : ?>
 	<div
 		class="bn-post-card__comments"
 		hidden

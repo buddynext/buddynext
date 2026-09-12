@@ -165,6 +165,18 @@ $bn_rest_nonce = wp_create_nonce( 'wp_rest' );
 			'partials/share-modal.php',
 			array( 'current_user_id' => $bn_viewer_id )
 		);
+	} else {
+		// A shared post link is the page most first-time visitors land on (a DM, a
+		// Slack message, an X post) — and for a guest it ended on a dead end with no
+		// route in (card 10297709339). Invite them to join, returning here after
+		// login. Uses the shared guest-CTA component (explore + the directories).
+		buddynext_get_template(
+			'parts/guest-cta.php',
+			array(
+				'lede'     => __( 'Create an account to reply, react, and follow people across the community.', 'buddynext' ),
+				'redirect' => PageRouter::post_url( (int) $bn_post_record['id'] ),
+			)
+		);
 	}
 	?>
 </article>

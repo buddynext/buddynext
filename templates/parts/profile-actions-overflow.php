@@ -33,7 +33,12 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $bn_ov_profile = isset( $profile_url ) ? (string) $profile_url : '';
-$bn_ov_mention = isset( $mention_url ) ? (string) $mention_url : '';
+// "Share to feed" composes a post mentioning this member, so it needs a logged-in
+// author. For a guest it dead-ended — the link went to /activity/?mention=, which
+// redirects a guest to explore with the mention dropped and no composer to use
+// (card 10297709530). Empty it for guests so the item is hidden, exactly as Block,
+// Report and Message already are; a guest keeps "Share profile", which works for them.
+$bn_ov_mention = ( isset( $mention_url ) && is_user_logged_in() ) ? (string) $mention_url : '';
 $bn_ov_safety  = ! empty( $show_safety );
 $bn_ov_edit    = isset( $edit_url ) ? (string) $edit_url : '';
 $bn_ov_message = isset( $message_url ) ? (string) $message_url : '';

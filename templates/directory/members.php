@@ -471,6 +471,17 @@ if ( $current_user_id > 0 ) {
 		<?php endif; ?>
 	</div>
 
+	<?php if ( 0 === $current_user_id ) : ?>
+		<?php
+		// A guest can browse every member but was never invited to join (card
+		// 10297709530). Show the shared join card once, above the grid.
+		buddynext_get_template(
+			'parts/guest-cta.php',
+			array( 'lede' => __( 'Create an account to follow and message members, and join the conversation.', 'buddynext' ) )
+		);
+		?>
+	<?php endif; ?>
+
 	<?php
 	buddynext_get_template(
 		'parts/member-directory-grid.php',
