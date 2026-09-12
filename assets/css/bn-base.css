@@ -2787,7 +2787,15 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	body.bn-page input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="range"]):not([type="color"]),
 	body.bn-page textarea,
 	body.bn-page select {
-		font-size: max(16px, var(--bn-text-md)) !important;
+		/* Floor at the iOS 16px anti-zoom threshold, tracking the field family's
+		   own default size (--bn-text-sm, what .bn-input uses) so a text-scale
+		   preference still grows fields for a11y. Using --bn-text-md here inflated
+		   EVERY touch/small-screen field to 19.2px (16px x the 1.2 text-scale) —
+		   larger than the desktop field size and, visibly, larger than the posted
+		   comment it sits under, so the comment composer read a size bigger than
+		   the comments below it. max() keeps the 16px iOS floor; --bn-text-sm keeps
+		   it from ballooning past the design size. */
+		font-size: max(16px, var(--bn-text-sm)) !important;
 	}
 }
 

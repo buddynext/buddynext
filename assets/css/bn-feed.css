@@ -1982,6 +1982,37 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	stroke-width: 2;
 }
 
+/* The char counter + emoji + send, grouped so they move as a unit: inline at the
+   bottom-end of the row on desktop, and dropped to a full-width second row on
+   narrow screens so the textarea keeps the whole first row. Modeled on the activity
+   composer, which puts the textarea first and its actions on their own row below. */
+.bn-comment-form__actions {
+	display: flex;
+	align-items: flex-end;
+	gap: var(--bn-s2);
+	flex-shrink: 0;
+}
+
+/* Mobile: give the textarea the full first row (with the avatar) so text flows
+   across it instead of wrapping word-by-word in a sliver, and move the actions to
+   a right-aligned second row within thumb reach. */
+@media (max-width: 640px) {
+	.bn-comment-form {
+		flex-wrap: wrap;
+	}
+	/* Keep the textarea grow-from-zero (basis 0, like desktop) so it shares the first
+	   row with the avatar instead of an `auto` basis wrapping the avatar to its own
+	   line; the actions below take a full-width second row. */
+	.bn-comment-form__input {
+		flex: 1 1 0;
+	}
+	.bn-comment-form__actions {
+		flex-basis: 100%;
+		justify-content: flex-end;
+		align-items: center;
+	}
+}
+
 .bn-comment-count {
 	display: inline-block;
 	min-inline-size: 22px;

@@ -115,32 +115,41 @@ do_action( 'buddynext_part_post_comment_form_before', $args );
 	 * the JS was written to prefer.
 	 */
 	?>
-	<span class="bn-comment-form__char-counter-slot" aria-live="polite"></span>
-	<?php if ( (bool) get_option( 'buddynext_enable_emoji_picker', true ) ) : ?>
-		<?php // Same option-gated picker the composer offers; the setting promises the comment editor too. The shared initEmojiPicker() binds any .bn-emoji-trigger and inserts into the target resolved within this .bn-comment-form. ?>
+	<?php
+	// The char counter, emoji trigger and send button are grouped so they move as a
+	// unit: inline at the end of the row on desktop, and dropped to a full-width
+	// second row on mobile so the textarea gets the whole first row and text does not
+	// wrap word-by-word in a sliver (card: mobile composer). The slot keeps its class
+	// so attachCharCounter() still finds it.
+	?>
+	<div class="bn-comment-form__actions">
+		<span class="bn-comment-form__char-counter-slot" aria-live="polite"></span>
+		<?php if ( (bool) get_option( 'buddynext_enable_emoji_picker', true ) ) : ?>
+			<?php // Same option-gated picker the composer offers; the setting promises the comment editor too. The shared initEmojiPicker() binds any .bn-emoji-trigger and inserts into the target resolved within this .bn-comment-form. ?>
+			<button
+				type="button"
+				class="bn-emoji-trigger bn-comment__emoji-trigger bn-comment-form__emoji"
+				data-bn-emoji-target=".bn-comment-form__input"
+				aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>"
+				aria-haspopup="true"
+				aria-expanded="false"
+				title="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>"
+			>
+				<?php buddynext_icon( 'smile' ); ?>
+			</button>
+		<?php endif; ?>
 		<button
 			type="button"
-			class="bn-emoji-trigger bn-comment__emoji-trigger bn-comment-form__emoji"
-			data-bn-emoji-target=".bn-comment-form__input"
-			aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>"
-			aria-haspopup="true"
-			aria-expanded="false"
-			title="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>"
+			class="bn-btn bn-comment-form__submit"
+			data-variant="primary"
+			data-size="sm"
+			data-wp-on--click="actions.submitComment"
+			data-wp-bind--disabled="context.commentSubmitting"
+			aria-label="<?php esc_attr_e( 'Post comment', 'buddynext' ); ?>"
 		>
-			<?php buddynext_icon( 'smile' ); ?>
+			<?php buddynext_icon( 'send' ); ?>
 		</button>
-	<?php endif; ?>
-	<button
-		type="button"
-		class="bn-btn bn-comment-form__submit"
-		data-variant="primary"
-		data-size="sm"
-		data-wp-on--click="actions.submitComment"
-		data-wp-bind--disabled="context.commentSubmitting"
-		aria-label="<?php esc_attr_e( 'Post comment', 'buddynext' ); ?>"
-	>
-		<?php buddynext_icon( 'send' ); ?>
-	</button>
+	</div>
 </div>
 
 <?php

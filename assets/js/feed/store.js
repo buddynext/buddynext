@@ -516,6 +516,12 @@ function enhanceCommentForms( root ) {
 		textarea.dataset.bnCharMax = '1000';
 		attachCharCounter( textarea );
 		attachMentionHashtagTypeahead( textarea );
+		// Grow the field with its content (up to the CSS max-height, then it scrolls
+		// internally) so a multi-line comment is fully visible, the way the post
+		// composer's textarea does — it was never wired here, so the comment box stayed
+		// one row and clipped/scrolled longer comments.
+		textarea.addEventListener( 'input', () => autoResizeTextarea( textarea ) );
+		autoResizeTextarea( textarea );
 	} );
 }
 
