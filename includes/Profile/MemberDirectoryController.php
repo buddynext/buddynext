@@ -44,6 +44,13 @@ use WP_REST_Response;
 class MemberDirectoryController extends BaseRestController {
 
 	/**
+	 * How many extra source pages the messageable (recipient-picker) mode may
+	 * scan to fill one page of DM-able candidates before returning has_more. Caps
+	 * the work when most members near a search term have DMs off.
+	 */
+	private const MESSAGEABLE_MAX_SCANS = 6;
+
+	/**
 	 * Register routes.
 	 */
 	public function register_routes(): void {
@@ -162,12 +169,86 @@ class MemberDirectoryController extends BaseRestController {
 		// Member-type + following + connection filtering are all applied inside
 		// list_members() so pagination and totals stay correct.
 
-		$rows = (array) $page['items'];
+		$rows  = (array) $page['items'];
+		$items = $this->prime_and_shape_members( $rows, $viewer_id );
 
-		// Prime per-row lookups in bulk to avoid an N+1 across the page. One
-		// query each primes the user cache (get_user_by), the usermeta cache
-		// (member_type), the viewer's following set, the viewer↔peer connection
-		// statuses, and the viewer's block relationships.
+		// Recipient-picker mode: the DM composer asks for candidates the viewer can
+		// actually message, so a member who has turned DMs off (or any pair the send
+		// route would 403 with dms_disabled) is never offered and then refused once a
+		// message is typed (card 10297758738). mvs_can_send_message is the SAME
+		// predicate the send path enforces, so the picker and the send route cannot
+		// drift.
+		if ( $viewer_id > 0 && (bool) $request->get_param( 'messageable' ) ) {
+			$can_message = static function ( array $item ) use ( $viewer_id ): bool {
+				$uid = (int) ( $item['user_id'] ?? 0 );
+				return $uid > 0 && (bool) apply_filters( 'mvs_can_send_message', true, $viewer_id, $uid );
+			};
+
+			// Page OVER the predicate, not under it. mvs_can_send_message is a PHP
+			// filter (BN + MVS hook it), not a SQL clause, so it can only run after the
+			// query. Filtering a single already-paginated page let a page come back
+			// EMPTY while messageable matches sat on later pages — and the composer
+			// fetches one page and does not follow the cursor, so the member saw "No
+			// people found" with many messageable members (card 10297758738 bounce).
+			// Keep pulling source pages until we have a full page of messageable
+			// candidates, the source runs out, or the scan cap trips (so a community
+			// where DMs-off is common cannot turn one picker search into an unbounded
+			// scan).
+			$collected   = array_values( array_filter( $items, $can_message ) );
+			$have        = count( $collected );
+			$next_cursor = $page['next_cursor'] ?? null;
+			$scans       = 0;
+			while ( $have < $per_page && null !== $next_cursor && $scans < self::MESSAGEABLE_MAX_SCANS ) {
+				$more_page = $directory->list_members( $viewer_id, $next_cursor, $per_page, $filters );
+				$more_rows = (array) ( $more_page['items'] ?? array() );
+				if ( ! $more_rows ) {
+					$next_cursor = null;
+					break;
+				}
+				$collected   = array_merge(
+					$collected,
+					array_values( array_filter( $this->prime_and_shape_members( $more_rows, $viewer_id ), $can_message ) )
+				);
+				$have        = count( $collected );
+				$next_cursor = $more_page['next_cursor'] ?? null;
+				++$scans;
+			}
+
+			// has_more replaces total in this mode: an exact messageable count is not
+			// cheap, and a total carried over from the unfiltered query contradicted the
+			// list it described. More may exist if the source cursor is still live or we
+			// collected an overflow beyond this page.
+			$has_more = $have > $per_page || null !== $next_cursor;
+
+			return new WP_REST_Response(
+				array(
+					'items'       => array_slice( $collected, 0, $per_page ),
+					'next_cursor' => $has_more ? $next_cursor : null,
+					'has_more'    => $has_more,
+				)
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'items'       => $items,
+				'next_cursor' => $page['next_cursor'] ?? null,
+				'total'       => (int) ( $page['total'] ?? 0 ),
+			)
+		);
+	}
+
+	/**
+	 * Prime per-row lookups in bulk (no N+1) and shape a page of member rows into
+	 * the /members item shape. Extracted so the recipient-picker (messageable) mode
+	 * can shape more than one source page while it pages over the send-permission
+	 * predicate.
+	 *
+	 * @param array<int,array<string,mixed>> $rows      Member rows from list_members().
+	 * @param int                            $viewer_id Current viewer.
+	 * @return array<int,array<string,mixed>> Shaped member items.
+	 */
+	private function prime_and_shape_members( array $rows, int $viewer_id ): array {
 		$page_ids = array_values(
 			array_filter(
 				array_map( static fn( $row ) => (int) ( $row['user_id'] ?? 0 ), $rows )
@@ -183,33 +264,23 @@ class MemberDirectoryController extends BaseRestController {
 			update_meta_cache( 'user', $page_ids );
 
 			if ( $viewer_id > 0 ) {
-				// Batched and page-scoped, like the two lines below it.
-				//
-				// This used to be array_fill_keys( follows->following( $viewer_id ), true ) — it
-				// pulled the viewer's ENTIRE follow set out of the database on every directory page
-				// view, to answer an isset() check for the 20 members actually on screen. Its two
-				// neighbours (statuses_for, blocking_either_map) were already batched against
-				// $page_ids; this line sat between them still loading everything.
-				//
-				// array_filter() is load-bearing: following_map() returns target_id => bool and
-				// KEEPS the false entries, so isset() alone would report every member on the page as
-				// followed. Filtering to the truthy keys preserves the isset() semantics shape_item()
-				// relies on.
+				// following_map() returns target_id => bool and KEEPS the false entries;
+				// array_filter() reduces to the truthy keys so shape_item()'s isset()
+				// check does not read every member on the page as followed. Page-scoped,
+				// like statuses_for() / blocking_either_map() / muted_map() beside it.
 				$following_set  = array_filter( buddynext_service( 'follows' )->following_map( $viewer_id, $page_ids ) );
 				$connection_map = buddynext_service( 'connections' )->statuses_for( $viewer_id, $page_ids );
 				$blocked_either = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $page_ids );
-				// SSR reads the mute state (member-card.php) and the JS reads
-				// item.is_muted for the kebab label — but the REST payload never
-				// carried it, so a reactive card always rendered "Mute", even for a
-				// member the viewer had already muted, and the action then un-muted
-				// somebody it had just offered to mute. Page-scoped, one query.
+				// The kebab "Mute/Unmute" label reads item.is_muted; without priming it
+				// a reactive card always rendered "Mute" and then un-muted a member it
+				// had just offered to mute. Page-scoped, one query.
 				$muted_set = buddynext_service( 'blocks' )->muted_map( $viewer_id, $page_ids );
 			}
 
 			/**
 			 * Fires with the page's member IDs after core bulk-priming, so add-ons
-			 * (e.g. Pro member labels) can batch-prime their own per-member data in
-			 * one query before shape_item() runs per row.
+			 * (e.g. Pro member labels) can batch-prime their own per-member data in one
+			 * query before shape_item() runs per row.
 			 *
 			 * @param int[] $page_ids  Member user IDs on this page.
 			 * @param int   $viewer_id Current viewer.
@@ -217,37 +288,9 @@ class MemberDirectoryController extends BaseRestController {
 			do_action( 'buddynext_directory_members_primed', $page_ids, $viewer_id );
 		}
 
-		$items = array_map(
+		return array_map(
 			fn( $row ) => $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either, $muted_set ),
 			$rows
-		);
-
-		// Recipient-picker mode: the DM composer asks for candidates the viewer can
-		// actually message, so a member who has turned DMs off (or any pair the send
-		// route would 403 with dms_disabled) is never offered and then refused after
-		// the message is typed (card 10297758738). mvs_can_send_message is the SAME
-		// predicate the send path enforces — running it over the candidate list keeps
-		// ONE rule for "can A message B" instead of a picker rule and a send rule that
-		// drift. Opt-in (the default directory listing is unchanged) and per-candidate
-		// over a small search page, so no cost to the directory itself.
-		if ( $viewer_id > 0 && (bool) $request->get_param( 'messageable' ) ) {
-			$items = array_values(
-				array_filter(
-					$items,
-					static function ( $item ) use ( $viewer_id ) {
-						$uid = (int) ( $item['user_id'] ?? 0 );
-						return $uid > 0 && (bool) apply_filters( 'mvs_can_send_message', true, $viewer_id, $uid );
-					}
-				)
-			);
-		}
-
-		return new WP_REST_Response(
-			array(
-				'items'       => $items,
-				'next_cursor' => $page['next_cursor'] ?? null,
-				'total'       => (int) ( $page['total'] ?? 0 ),
-			)
 		);
 	}
 
