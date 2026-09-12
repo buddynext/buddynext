@@ -33,6 +33,64 @@ const REACTION_FALLBACK_GLYPH =
 	'<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/>' +
 	'<line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg></span>';
 
+/**
+ * Lucide glyphs for the comment action row, as inline SVG strings (the file has
+ * no JS icon helper — icons are authored inline, same as REACTION_FALLBACK_GLYPH
+ * above). Sized by CSS, not the markup, so one width rule covers every use.
+ * Paths match the plugin's server-side Lucide set (buddynext_icon()).
+ */
+const BN_ICON = ( inner ) =>
+	'<svg class="bn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" ' +
+	'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+	'stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+const BN_ICONS = {
+	reply:  BN_ICON( '<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>' ),
+	edit:   BN_ICON( '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>' ),
+	delete: BN_ICON( '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>' ),
+	pin:    BN_ICON( '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>' ),
+	report: BN_ICON( '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>' ),
+	send:   BN_ICON( '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>' ),
+	check:  BN_ICON( '<path d="M20 6 9 17l-5-5"/>' ),
+	x:      BN_ICON( '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>' ),
+};
+
+/**
+ * Fill a comment action button with an icon + a text label, so the label shows on
+ * desktop and CSS swaps in the icon under 640px (the six-action row would
+ * otherwise wrap onto a second line on a phone). Keeps an aria-label so the
+ * icon-only mobile state stays accessible.
+ *
+ * @param {HTMLElement} btn     Button to populate.
+ * @param {string}      iconKey Key into BN_ICONS.
+ * @param {string}      label   Visible/aria label.
+ */
+function setCommentAction( btn, iconKey, label ) {
+	btn.replaceChildren();
+	const ico = document.createElement( 'span' );
+	ico.className = 'bn-comment__act-ico';
+	ico.innerHTML = BN_ICONS[ iconKey ] || '';
+	const txt = document.createElement( 'span' );
+	txt.className = 'bn-comment__act-txt';
+	txt.textContent = label;
+	btn.append( ico, txt );
+	btn.setAttribute( 'aria-label', label );
+}
+
+/**
+ * Update just the text label of a button built by setCommentAction(), leaving its
+ * icon intact — for the Pin/Report controls that relabel after an action.
+ *
+ * @param {HTMLElement} btn   Button.
+ * @param {string}      label New label.
+ */
+function setCommentActionLabel( btn, label ) {
+	const txt = btn.querySelector( '.bn-comment__act-txt' );
+	if ( txt ) {
+		txt.textContent = label;
+	}
+	btn.setAttribute( 'aria-label', label );
+}
+
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
 /**
@@ -768,7 +826,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const replyBtn = document.createElement( 'button' );
 		replyBtn.type = 'button';
 		replyBtn.className = 'bn-comment__reply-btn';
-		replyBtn.textContent = t( 'reply', 'Reply' );
+		setCommentAction( replyBtn, 'reply', t( 'reply', 'Reply' ) );
 		actions.appendChild( replyBtn );
 	}
 
@@ -777,7 +835,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const editBtn = document.createElement( 'button' );
 		editBtn.type = 'button';
 		editBtn.className = 'bn-comment__edit-btn';
-		editBtn.textContent = t( 'edit', 'Edit' );
+		setCommentAction( editBtn, 'edit', t( 'edit', 'Edit' ) );
 		editBtn.addEventListener( 'click', () => {
 			if ( body.querySelector( '.bn-comment__edit-form' ) ) {
 				return;
@@ -791,11 +849,14 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			const saveBtn = document.createElement( 'button' );
 			saveBtn.type = 'button';
 			saveBtn.className = 'bn-comment-form__submit';
-			saveBtn.textContent = t( 'save', 'Save' );
+			// Circular icon submit (the class sizes a 40px circle around a 16px
+			// glyph) - a text word crammed into that circle was the old look.
+			saveBtn.innerHTML = BN_ICONS.check;
+			saveBtn.setAttribute( 'aria-label', t( 'save', 'Save' ) );
 			const cancelBtn = document.createElement( 'button' );
 			cancelBtn.type = 'button';
 			cancelBtn.className = 'bn-comment__reply-cancel';
-			cancelBtn.textContent = t( 'cancel', 'Cancel' );
+			setCommentAction( cancelBtn, 'x', t( 'cancel', 'Cancel' ) );
 			editForm.appendChild( ta );
 			// Footer action row so the emoji trigger + Save + Cancel sit on one
 			// line instead of each stretching full-width down the column (the
@@ -882,7 +943,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const delBtn = document.createElement( 'button' );
 		delBtn.type = 'button';
 		delBtn.className = 'bn-comment__delete-btn';
-		delBtn.textContent = t( 'delete', 'Delete' );
+		setCommentAction( delBtn, 'delete', t( 'delete', 'Delete' ) );
 		delBtn.addEventListener( 'click', async () => {
 			const ok = await bnConfirm( {
 				title: t( 'deleteCommentTitle', 'Delete this comment?' ),
@@ -917,7 +978,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const pinBtn = document.createElement( 'button' );
 		pinBtn.type = 'button';
 		pinBtn.className = 'bn-comment__pin-btn';
-		pinBtn.textContent = comment.pinned ? t( 'unpin', 'Unpin' ) : t( 'pin', 'Pin' );
+		setCommentAction( pinBtn, 'pin', comment.pinned ? t( 'unpin', 'Unpin' ) : t( 'pin', 'Pin' ) );
 		pinBtn.addEventListener( 'click', async () => {
 			const wasPinned = wrap.classList.contains( 'bn-comment-card--pinned' );
 			try {
@@ -928,7 +989,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				} );
 				if ( res.ok ) {
 					wrap.classList.toggle( 'bn-comment-card--pinned', ! wasPinned );
-					pinBtn.textContent = wasPinned ? t( 'pin', 'Pin' ) : t( 'unpin', 'Unpin' );
+					setCommentActionLabel( pinBtn, wasPinned ? t( 'pin', 'Pin' ) : t( 'unpin', 'Unpin' ) );
 					const existing = header.querySelector( '.bn-comment__pinned-badge' );
 					if ( wasPinned && existing ) {
 						existing.remove();
@@ -954,8 +1015,9 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const reportBtn = document.createElement( 'button' );
 		reportBtn.type = 'button';
 		reportBtn.className = 'bn-comment__report-btn';
+		setCommentAction( reportBtn, 'report', t( 'report', 'Report' ) );
+		// Keep the more descriptive aria-label (setCommentAction sets a terse one).
 		reportBtn.setAttribute( 'aria-label', t( 'reportComment', 'Report this comment' ) );
-		reportBtn.textContent = t( 'report', 'Report' );
 		reportBtn.addEventListener( 'click', async () => {
 			const result = await bnReportDialog( {
 				title: t( 'reportComment', 'Report this comment' ),
@@ -981,7 +1043,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				const markReported = () => {
 					reportBtn.disabled = true;
 					reportBtn.classList.add( 'is-reported' );
-					reportBtn.textContent = t( 'reported', 'Reported' );
+					setCommentActionLabel( reportBtn, t( 'reported', 'Reported' ) );
 				};
 				if ( res.ok || res.status === 201 ) {
 					markReported();
@@ -1024,13 +1086,15 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		replySubmit.type = 'button';
 		replySubmit.className = 'bn-comment-form__submit';
 		replySubmit.setAttribute( 'aria-label', t( 'postReply', 'Post reply' ) );
-		replySubmit.textContent = t( 'reply', 'Reply' );
+		// Circular send-icon submit, matching the main comment composer, instead of
+		// the word "Reply" squeezed into the 40px circle.
+		replySubmit.innerHTML = BN_ICONS.send;
 		replyForm.appendChild( replySubmit );
 
 		const replyCancel = document.createElement( 'button' );
 		replyCancel.type = 'button';
 		replyCancel.className = 'bn-comment__reply-cancel';
-		replyCancel.textContent = t( 'cancel', 'Cancel' );
+		setCommentAction( replyCancel, 'x', t( 'cancel', 'Cancel' ) );
 		replyForm.appendChild( replyCancel );
 
 		body.appendChild( replyForm );
