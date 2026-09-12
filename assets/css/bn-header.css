@@ -14,6 +14,9 @@
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s2, 0.5rem);
+	/* When placed as one wrapped unit, centre on the host header's cross axis
+	   regardless of the theme container's own alignment (see .bn-header-msg). */
+	align-self: center;
 }
 
 /* ── Logged-out: Log In / Register ──────────────────────────────────────── */
@@ -56,6 +59,13 @@
 .bn-header-msg {
 	position: relative;
 	display: inline-flex;
+	/* Centre on the host header's cross axis regardless of how the theme aligns
+	   its icon row. Reign drops these into .reign-navbar-user, a flex container
+	   with align-items:normal (top-aligns), so our 40px buttons sat ~5px above
+	   Reign's own icons (which center in .reign-nav-top-bar). align-self makes the
+	   widget own its vertical alignment instead of inheriting the host's; inert
+	   when the parent is not flex. */
+	align-self: center;
 }
 
 .bn-notification-bell-link,
@@ -131,6 +141,10 @@
 	   .reign-user-toggler at mobile) squeeze the control — that clipped the
 	   avatar to an 8px-wide teal sliver at 390px. */
 	flex-shrink: 0;
+	/* Centre on the host header's cross axis (see .bn-header-msg above): Reign's
+	   .reign-navbar-user top-aligns its children, which left the avatar a few px
+	   above Reign's own icons. */
+	align-self: center;
 }
 
 .bn-header-user__avatar {
