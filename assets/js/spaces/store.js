@@ -2452,7 +2452,7 @@ function rebuildReactivePager( totalPages ) {
 function updateDirectorySubtitle( filtered, count ) {
 	var el = document.querySelector( '.bn-sd-stack .bn-section-head__subtitle' );
 	if ( ! el ) { return; }
-	var one  = filtered ? t( 'sdResultsOne', '%s result' ) : t( 'sdAvailableOne', '%s space available' );
+	var one  = filtered ? t( 'sdResultsOne', '1 result' ) : t( 'sdAvailableOne', '1 space available' );
 	var many = filtered ? t( 'sdResultsMany', '%s results' ) : t( 'sdAvailableMany', '%s spaces available' );
 	var tpl  = ( 1 === count ) ? one : many;
 	var num  = ( count && count.toLocaleString ) ? count.toLocaleString() : String( count );

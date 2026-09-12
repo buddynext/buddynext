@@ -1384,12 +1384,10 @@ class AssetService {
 					// client-side re-render (SSR count would otherwise go stale on
 					// search — card 10297104779). Singular/plural pairs so the JS can
 					// pick the right form without a plural engine.
-					/* translators: %s: number of spaces. */
-					'sdAvailableOne'                  => __( '%s space available', 'buddynext' ),
+					'sdAvailableOne'                  => __( '1 space available', 'buddynext' ),
 					/* translators: %s: number of spaces. */
 					'sdAvailableMany'                 => __( '%s spaces available', 'buddynext' ),
-					/* translators: %s: number of matching spaces. */
-					'sdResultsOne'                    => __( '%s result', 'buddynext' ),
+					'sdResultsOne'                    => __( '1 result', 'buddynext' ),
 					/* translators: %s: number of matching spaces. */
 					'sdResultsMany'                   => __( '%s results', 'buddynext' ),
 					'couldNotUploadCover'             => __( 'Could not upload cover.', 'buddynext' ),

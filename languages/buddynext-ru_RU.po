@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.2.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-09-12T17:50:59+00:00\n"
+"POT-Creation-Date: 2026-09-12T19:02:47+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -117,7 +117,7 @@ msgstr[2] "%d м назад"
 
 #. translators: %d: number of hours.
 #: buddynext.php:1728 includes/Core/AssetService.php:1017
-#: includes/Core/AssetService.php:1942
+#: includes/Core/AssetService.php:1940
 #, php-format
 msgid "%dh ago"
 msgid_plural "%dh ago"
@@ -197,7 +197,7 @@ msgstr ""
 msgid "Filter"
 msgstr "Фильтр"
 
-#: includes/Admin/ActivityAdmin.php:186 includes/Core/AssetService.php:1977
+#: includes/Admin/ActivityAdmin.php:186 includes/Core/AssetService.php:1975
 #: templates/partials/media-upload-composer.php:146
 #: templates/parts/space-feed-panel.php:228
 msgid "Clear"
@@ -329,7 +329,7 @@ msgstr ""
 #: includes/Admin/Members/MemberTypesManager.php:290
 #: includes/Admin/Spaces.php:369 includes/Admin/Spaces.php:533
 #: includes/Admin/Spaces.php:688 includes/Core/AssetService.php:1029
-#: includes/Core/AssetService.php:1498 includes/Core/AssetService.php:1544
+#: includes/Core/AssetService.php:1496 includes/Core/AssetService.php:1542
 #: templates/partials/media-tab.php:69 templates/partials/media-tab.php:199
 #: templates/parts/dm-delete-modal.php:81
 #: templates/parts/dm-request-banner.php:42
@@ -347,7 +347,7 @@ msgstr "Удалить"
 #: includes/Admin/Members/ProfileFieldsManager.php:2395
 #: includes/Admin/NavManager.php:1916 includes/Admin/Spaces.php:687
 #: includes/Admin/Spaces.php:850 includes/Core/AssetService.php:1027
-#: includes/Core/AssetService.php:1328 includes/Core/AssetService.php:1596
+#: includes/Core/AssetService.php:1328 includes/Core/AssetService.php:1594
 #: includes/Core/PageRouter.php:1500
 #: templates/partials/block-confirm-modal.php:73
 #: templates/partials/create-space-modal.php:234
@@ -603,7 +603,7 @@ msgstr "Платформа"
 #: includes/Admin/Members/MemberTypesManager.php:245
 #: includes/Admin/ModerationQueue.php:203 includes/Admin/NavManager.php:867
 #: includes/Admin/NavManager.php:2327 includes/Admin/Spaces.php:382
-#: includes/Admin/Spaces.php:464 includes/Core/AssetService.php:1718
+#: includes/Admin/Spaces.php:464 includes/Core/AssetService.php:1716
 #: includes/Core/CoreHubs.php:58 includes/Core/PageRouter.php:723
 #: includes/Core/PageRouter.php:786 includes/Core/Plugin.php:850
 #: includes/Core/SurfaceMeta.php:87 includes/Nav/Providers/SpaceNav.php:196
@@ -775,9 +775,9 @@ msgstr "Выбрать изображение"
 #: includes/Admin/Members/AvatarSettings.php:88
 #: includes/Admin/Members/AvatarSettings.php:292
 #: includes/Admin/Members/AvatarSettings.php:352
-#: includes/Admin/Settings.php:3405 includes/Core/AssetService.php:1570
-#: includes/Core/AssetService.php:1650 includes/Core/AssetService.php:1751
-#: includes/Core/AssetService.php:2024 templates/community-admin.php:939
+#: includes/Admin/Settings.php:3405 includes/Core/AssetService.php:1568
+#: includes/Core/AssetService.php:1648 includes/Core/AssetService.php:1749
+#: includes/Core/AssetService.php:2022 templates/community-admin.php:939
 #: templates/partials/composer.php:308
 #: templates/partials/media-upload-composer.php:55
 #: templates/partials/space-file-single.php:113
@@ -1666,7 +1666,7 @@ msgstr ""
 msgid "Post shared"
 msgstr ""
 
-#: includes/Admin/EmailLog.php:171 includes/Core/AssetService.php:1445
+#: includes/Admin/EmailLog.php:171 includes/Core/AssetService.php:1443
 #: templates/messages/native.php:182 templates/parts/dm-compose-modal.php:38
 #: templates/parts/dm-rail.php:272
 msgid "New message"
@@ -1952,7 +1952,7 @@ msgstr "Реакции"
 
 #: includes/Admin/Insights.php:121 includes/Admin/NavManager.php:841
 #: includes/Admin/RolesTab.php:62 includes/Admin/Settings.php:1081
-#: includes/Core/AssetService.php:1155 includes/Core/AssetService.php:1720
+#: includes/Core/AssetService.php:1155 includes/Core/AssetService.php:1718
 #: includes/Nav/Providers/ProfileNav.php:107
 #: includes/Nav/Providers/ProfileNav.php:263
 #: templates/directory/members.php:349 templates/partials/composer.php:617
@@ -2062,7 +2062,7 @@ msgstr ""
 
 #: includes/Admin/IntegrationControlsAdmin.php:90
 #: includes/Admin/Settings.php:3034 includes/Core/AssetService.php:947
-#: includes/Core/AssetService.php:1220 includes/Core/AssetService.php:1662
+#: includes/Core/AssetService.php:1220 includes/Core/AssetService.php:1660
 #: templates/blocks/connection-button.php:134
 #: templates/partials/connection-button.php:159
 #: templates/parts/member-card.php:498 templates/parts/profile-actions.php:261
@@ -2235,7 +2235,7 @@ msgstr "Запись"
 #: includes/Admin/ModerationQueue.php:576
 #: includes/Admin/ModerationQueue.php:631
 #: includes/Admin/ModerationQueue.php:642 includes/Core/AssetService.php:1346
-#: includes/Core/AssetService.php:1456 includes/Messages/MessagesData.php:165
+#: includes/Core/AssetService.php:1454 includes/Messages/MessagesData.php:165
 #: includes/Privacy/PrivacyTools.php:815 includes/Privacy/PrivacyTools.php:873
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:541
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:592
@@ -2278,7 +2278,7 @@ msgstr[2] "Модераторы"
 
 #: includes/Admin/Members.php:641 includes/Admin/Members.php:710
 #: includes/Admin/Members/MemberDisplay.php:56
-#: includes/Core/AssetService.php:1455 includes/Core/PageRouter.php:783
+#: includes/Core/AssetService.php:1453 includes/Core/PageRouter.php:783
 #: includes/Messages/MessagesData.php:165
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:551
 #: templates/community-admin.php:303 templates/community-admin.php:468
@@ -2456,7 +2456,7 @@ msgid "Bulk actions"
 msgstr "Массовые действия"
 
 #: includes/Admin/Members.php:1634 includes/Admin/Members.php:1829
-#: includes/Core/AssetService.php:1772
+#: includes/Core/AssetService.php:1770
 msgid "Suspend"
 msgstr "Приостановить"
 
@@ -2467,7 +2467,7 @@ msgstr "Восстановить"
 
 #: includes/Admin/Members.php:1637 includes/Admin/ModerationQueue.php:241
 #: includes/Admin/Spaces.php:371 includes/Core/AssetService.php:1339
-#: includes/Core/AssetService.php:1597 templates/parts/filter-strip.php:201
+#: includes/Core/AssetService.php:1595 templates/parts/filter-strip.php:201
 #: templates/parts/filter-strip.php:206
 msgid "Apply"
 msgstr "Применить"
@@ -2490,7 +2490,7 @@ msgstr ""
 
 #: includes/Admin/Members.php:1659 includes/Admin/Members.php:1764
 #: includes/Core/AssetService.php:1167 includes/Core/AssetService.php:1301
-#: includes/Core/AssetService.php:1825 includes/Privacy/PrivacyTools.php:941
+#: includes/Core/AssetService.php:1823 includes/Privacy/PrivacyTools.php:941
 #: templates/onboarding/index.php:539
 #: templates/parts/search-result-section-spaces.php:181
 #: templates/parts/space-directory-card.php:206
@@ -2664,7 +2664,7 @@ msgstr "Зарегистрирован"
 
 #: includes/Admin/Members/ApprovalManager.php:280
 #: includes/Admin/ModerationQueue.php:368
-#: includes/Admin/ModerationQueue.php:657 includes/Core/AssetService.php:1780
+#: includes/Admin/ModerationQueue.php:657 includes/Core/AssetService.php:1778
 #: templates/community-admin.php:1083
 #: templates/parts/profile/people-panel.php:159
 #: templates/spaces/moderation.php:512
@@ -2895,7 +2895,7 @@ msgstr ""
 "Не удалось отправить приглашение повторно — оно может больше не существовать."
 
 #: includes/Admin/Members/InviteManager.php:254
-#: includes/Core/AssetService.php:1370 includes/Core/AssetService.php:2036
+#: includes/Core/AssetService.php:1370 includes/Core/AssetService.php:2034
 msgid "Invitation sent."
 msgstr "Приглашение отправлено."
 
@@ -3010,7 +3010,7 @@ msgstr[1] "Участники"
 msgstr[2] "Участники"
 
 #: includes/Admin/Members/MemberDisplay.php:118
-#: includes/Core/AssetService.php:1936
+#: includes/Core/AssetService.php:1934
 msgid "Just now"
 msgstr "Только что"
 
@@ -3452,7 +3452,7 @@ msgstr ""
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1607
 #: includes/Admin/Settings.php:1009 includes/Core/AssetService.php:1152
-#: includes/Core/AssetService.php:1305 includes/Core/AssetService.php:1717
+#: includes/Core/AssetService.php:1305 includes/Core/AssetService.php:1715
 #: templates/partials/composer.php:576 templates/partials/composer.php:593
 #: templates/partials/explore-card.php:158 templates/partials/media-tab.php:247
 #: templates/partials/media-upload-composer.php:135
@@ -3482,7 +3482,7 @@ msgstr "Только подключения"
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1611
 #: includes/Admin/Settings.php:1012 includes/Core/AssetService.php:1156
-#: includes/Core/AssetService.php:1721 templates/partials/composer.php:644
+#: includes/Core/AssetService.php:1719 templates/partials/composer.php:644
 #: templates/partials/media-tab.php:249
 #: templates/partials/media-upload-composer.php:138
 #: templates/partials/post-card.php:402
@@ -4096,7 +4096,7 @@ msgstr "Апелляция"
 msgid "Decision"
 msgstr "Решение"
 
-#: includes/Admin/ModerationQueue.php:658 includes/Core/AssetService.php:1785
+#: includes/Admin/ModerationQueue.php:658 includes/Core/AssetService.php:1783
 #: templates/community-admin.php:1021
 msgid "Deny"
 msgstr "Отклонить"
@@ -4433,7 +4433,7 @@ msgid "Posts the member has liked"
 msgstr "Посты, которые понравились участнику"
 
 #: includes/Admin/NavManager.php:825 includes/Core/AssetService.php:1154
-#: includes/Core/AssetService.php:1719 includes/Nav/Providers/ProfileNav.php:88
+#: includes/Core/AssetService.php:1717 includes/Nav/Providers/ProfileNav.php:88
 #: includes/Nav/Providers/ProfileNav.php:276
 #: templates/blocks/profile-header.php:89 templates/partials/composer.php:605
 #: templates/partials/media-upload-composer.php:136
@@ -4446,7 +4446,7 @@ msgid "Members following this member"
 msgstr "Участники, следящие за этим участником"
 
 #: includes/Admin/NavManager.php:833 includes/Core/AssetService.php:921
-#: includes/Core/AssetService.php:1218 includes/Core/AssetService.php:1827
+#: includes/Core/AssetService.php:1218 includes/Core/AssetService.php:1825
 #: includes/Nav/Providers/ProfileNav.php:98
 #: includes/Nav/Providers/ProfileNav.php:288
 #: templates/blocks/follow-button.php:52 templates/blocks/profile-header.php:93
@@ -4532,7 +4532,7 @@ msgstr "Значок уведомления"
 
 #. translators: %s: member display name.
 #: includes/Admin/NavManager.php:1028 includes/Admin/NavManager.php:2354
-#: includes/Core/AssetService.php:1631 includes/Core/PageRouter.php:896
+#: includes/Core/AssetService.php:1629 includes/Core/PageRouter.php:896
 #: includes/Nav/ShellNavService.php:119
 #: includes/Onboarding/OnboardingService.php:106 templates/partials/nav.php:186
 #: templates/parts/dm-thread-header.php:153
@@ -7002,14 +7002,14 @@ msgid ""
 msgstr ""
 
 #: includes/Admin/Settings.php:3212 includes/Admin/Settings.php:3214
-#: includes/Core/AssetService.php:2076 templates/auth/login.php:161
+#: includes/Core/AssetService.php:2074 templates/auth/login.php:161
 #: templates/auth/login.php:164 templates/auth/signup.php:478
 #: templates/auth/signup.php:481 templates/gamification/leaderboard.php:381
 #: assets/js/admin/settings.js:393 assets/js/blocks.js:406
 msgid "Show"
 msgstr "Показать"
 
-#: includes/Admin/Settings.php:3213 includes/Core/AssetService.php:2075
+#: includes/Admin/Settings.php:3213 includes/Core/AssetService.php:2073
 #: templates/auth/login.php:162 templates/auth/signup.php:479
 #: assets/js/admin/settings.js:379 assets/js/admin/settings.js:392
 msgid "Hide"
@@ -7886,7 +7886,7 @@ msgstr ""
 
 #: includes/Auth/ApprovalGuard.php:92 includes/Auth/ApprovalGuard.php:110
 #: includes/Auth/AuthController.php:923 includes/Auth/SocialLogin.php:1376
-#: includes/Core/AssetService.php:2133
+#: includes/Core/AssetService.php:2131
 msgid "Your account is awaiting administrator approval."
 msgstr "Ваш аккаунт ожидает одобрения администратора."
 
@@ -7913,7 +7913,7 @@ msgstr ""
 msgid "Account not found."
 msgstr "Аккаунт не найден."
 
-#: includes/Auth/AuthController.php:577 includes/Core/AssetService.php:1694
+#: includes/Auth/AuthController.php:577 includes/Core/AssetService.php:1692
 msgid "Enter your current password."
 msgstr "Введите свой текущий пароль."
 
@@ -7921,11 +7921,11 @@ msgstr "Введите свой текущий пароль."
 msgid "Current password does not match."
 msgstr "Текущий пароль не совпадает."
 
-#: includes/Auth/AuthController.php:584 includes/Core/AssetService.php:1695
+#: includes/Auth/AuthController.php:584 includes/Core/AssetService.php:1693
 msgid "Enter a new password."
 msgstr "Введите новый пароль."
 
-#: includes/Auth/AuthController.php:586 includes/Core/AssetService.php:1696
+#: includes/Auth/AuthController.php:586 includes/Core/AssetService.php:1694
 msgid "Use at least 8 characters."
 msgstr "Используйте не менее 8 символов."
 
@@ -7945,7 +7945,7 @@ msgstr "Это уже ваша электронная почта."
 msgid "An account with that email already exists."
 msgstr "Аккаунт с этой электронной почтой уже существует."
 
-#: includes/Auth/AuthController.php:676 includes/Core/AssetService.php:1678
+#: includes/Auth/AuthController.php:676 includes/Core/AssetService.php:1676
 msgid "Check your inbox to confirm."
 msgstr "Проверьте свой почтовый ящик для подтверждения."
 
@@ -7963,7 +7963,7 @@ msgid "Please enter your email or username and your password."
 msgstr ""
 "Пожалуйста, введите вашу электронную почту или имя пользователя и пароль."
 
-#: includes/Auth/AuthController.php:984 includes/Core/AssetService.php:2097
+#: includes/Auth/AuthController.php:984 includes/Core/AssetService.php:2095
 msgid "Invalid email or password."
 msgstr "Неверная электронная почта или пароль."
 
@@ -8014,7 +8014,7 @@ msgstr "Вы должны принять Условия обслуживания
 
 #. translators: %s: field label.
 #: includes/Auth/AuthController.php:1391 includes/Auth/AuthController.php:1615
-#: includes/Core/AssetService.php:1645
+#: includes/Core/AssetService.php:1643
 #: includes/Profile/ProfileController.php:1618
 #: includes/Profile/ProfileController.php:1640
 #: includes/Profile/ProfileService.php:876
@@ -8095,7 +8095,7 @@ msgstr "Письмо подтверждения отправлено."
 msgid "Your email address is already verified."
 msgstr "Ваш адрес электронной почты уже проверен."
 
-#: includes/Auth/AuthController.php:1996 includes/Core/AssetService.php:1687
+#: includes/Auth/AuthController.php:1996 includes/Core/AssetService.php:1685
 msgid "Your email address is now marked as verified."
 msgstr ""
 
@@ -9210,16 +9210,16 @@ msgstr "Alex"
 msgid "Jordan Lee"
 msgstr "Jordan Lee"
 
-#: includes/Core/AssetService.php:902 includes/Core/AssetService.php:1844
-#: includes/Core/AssetService.php:2099 includes/Core/AssetService.php:2128
-#: includes/Core/AssetService.php:2150 includes/Core/AssetService.php:2168
+#: includes/Core/AssetService.php:902 includes/Core/AssetService.php:1842
+#: includes/Core/AssetService.php:2097 includes/Core/AssetService.php:2126
+#: includes/Core/AssetService.php:2148 includes/Core/AssetService.php:2166
 #: templates/messages/native.php:185
 #: templates/partials/space-file-single.php:116
 msgid "Something went wrong. Please try again."
 msgstr "Что-то пошло не так. Пожалуйста, попробуйте снова."
 
 #: includes/Core/AssetService.php:920 includes/Core/AssetService.php:1217
-#: includes/Core/AssetService.php:1826 templates/blocks/follow-button.php:54
+#: includes/Core/AssetService.php:1824 templates/blocks/follow-button.php:54
 #: templates/onboarding/index.php:640 templates/partials/follow-button.php:145
 #: templates/parts/hashtag-sidebar-related.php:148
 #: templates/parts/member-card.php:476 templates/parts/profile-actions.php:165
@@ -9305,7 +9305,7 @@ msgid "Could not decline request. Try again."
 msgstr "Не удалось отклонить запрос. Попробуйте снова."
 
 #: includes/Core/AssetService.php:946 includes/Core/AssetService.php:1219
-#: includes/Core/AssetService.php:1637
+#: includes/Core/AssetService.php:1635
 #: templates/blocks/connection-button.php:166
 #: templates/partials/connection-button.php:192
 #: templates/parts/member-card.php:502 templates/parts/profile-actions.php:247
@@ -9448,13 +9448,13 @@ msgstr "(отредактировано)"
 msgid " (edited)"
 msgstr " (отредактировано)"
 
-#: includes/Core/AssetService.php:1037 includes/Core/AssetService.php:1574
+#: includes/Core/AssetService.php:1037 includes/Core/AssetService.php:1572
 #: templates/partials/media-upload-composer.php:58
 msgid "This cannot be undone."
 msgstr "Это нельзя отменить."
 
-#: includes/Core/AssetService.php:1038 includes/Core/AssetService.php:1901
-#: includes/Core/AssetService.php:2005 assets/js/admin/settings.js:135
+#: includes/Core/AssetService.php:1038 includes/Core/AssetService.php:1899
+#: includes/Core/AssetService.php:2003 assets/js/admin/settings.js:135
 msgid "Network error. Try again."
 msgstr "Ошибка сети. Попробуйте снова."
 
@@ -9625,13 +9625,13 @@ msgid "Report this post"
 msgstr "Пожаловаться на этот пост"
 
 #: includes/Core/AssetService.php:1077 includes/Core/AssetService.php:1277
-#: includes/Core/AssetService.php:1341 includes/Core/AssetService.php:1677
+#: includes/Core/AssetService.php:1341 includes/Core/AssetService.php:1675
 msgid "Report submitted. Thanks for keeping the community safe."
 msgstr ""
 "Жалоба отправлена. Спасибо, что помогаете сохранить безопасность сообщества."
 
 #: includes/Core/AssetService.php:1078 includes/Core/AssetService.php:1278
-#: includes/Core/AssetService.php:1342 includes/Core/AssetService.php:1676
+#: includes/Core/AssetService.php:1342 includes/Core/AssetService.php:1674
 msgid "Could not submit report. Try again."
 msgstr "Не удалось отправить жалобу. Попробуйте еще раз."
 
@@ -9807,7 +9807,7 @@ msgstr "Не удалось переповторно опубликовать. �
 msgid "Link copied"
 msgstr "Ссылка скопирована"
 
-#: includes/Core/AssetService.php:1131 includes/Core/AssetService.php:1665
+#: includes/Core/AssetService.php:1131 includes/Core/AssetService.php:1663
 msgid "Could not copy link."
 msgstr "Не удалось скопировать ссылку."
 
@@ -9836,7 +9836,7 @@ msgstr "Не удалось опубликовать ваш пост. Попро
 msgid "You don’t have permission to post here."
 msgstr "У вас нет разрешения публиковать здесь."
 
-#: includes/Core/AssetService.php:1139 includes/Core/AssetService.php:2149
+#: includes/Core/AssetService.php:1139 includes/Core/AssetService.php:2147
 msgid "Verification email sent. Check your inbox."
 msgstr "Письмо с подтверждением отправлено. Проверьте входящие."
 
@@ -10055,21 +10055,21 @@ msgstr "Просмотреть профиль"
 msgid "Message"
 msgstr "Сообщение"
 
-#: includes/Core/AssetService.php:1227 includes/Core/AssetService.php:1609
+#: includes/Core/AssetService.php:1227 includes/Core/AssetService.php:1607
 #: templates/parts/member-card.php:237
 #: templates/parts/profile-actions-overflow.php:121
 msgid "Mute"
 msgstr "Отключить звук"
 
-#: includes/Core/AssetService.php:1228 includes/Core/AssetService.php:1608
+#: includes/Core/AssetService.php:1228 includes/Core/AssetService.php:1606
 #: templates/parts/member-card.php:237
 #: templates/parts/notifications-sidecard-muted.php:128
 #: templates/parts/settings-relations.php:58
 msgid "Unmute"
 msgstr "Включить звук"
 
-#: includes/Core/AssetService.php:1229 includes/Core/AssetService.php:1486
-#: includes/Core/AssetService.php:1613
+#: includes/Core/AssetService.php:1229 includes/Core/AssetService.php:1484
+#: includes/Core/AssetService.php:1611
 #: templates/partials/block-confirm-modal.php:81
 #: templates/partials/media-lightbox.php:157
 #: templates/parts/member-block-modal.php:76
@@ -10135,7 +10135,7 @@ msgid "Could not update mute state. Try again."
 msgstr "Не удалось обновить состояние отключения звука. Попробуйте еще раз."
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1272 includes/Core/AssetService.php:1484
+#: includes/Core/AssetService.php:1272 includes/Core/AssetService.php:1482
 #: templates/partials/block-confirm-modal.php:38
 #, php-format
 msgid "Block %s?"
@@ -10153,7 +10153,7 @@ msgstr "Заблокировать этого участника?"
 msgid "@%s blocked"
 msgstr "@%s заблокирован."
 
-#: includes/Core/AssetService.php:1276 includes/Core/AssetService.php:1675
+#: includes/Core/AssetService.php:1276 includes/Core/AssetService.php:1673
 msgid "Could not block. Try again."
 msgstr "Не удалось заблокировать. Попробуйте еще раз."
 
@@ -10162,7 +10162,7 @@ msgid "Could not load members. Check your connection and try again."
 msgstr ""
 "Не удалось загрузить участников. Проверьте подключение и попробуйте еще раз."
 
-#: includes/Core/AssetService.php:1300 includes/Core/AssetService.php:1824
+#: includes/Core/AssetService.php:1300 includes/Core/AssetService.php:1822
 #: templates/onboarding/index.php:539
 #: templates/parts/search-result-section-spaces.php:180
 #: templates/parts/space-directory-card.php:240
@@ -10183,12 +10183,12 @@ msgstr "Присоединено — нажмите, чтобы выйти"
 msgid "Request pending - click to cancel"
 msgstr "Запрос ожидает — нажмите, чтобы отменить"
 
-#: includes/Core/AssetService.php:1308 includes/Core/AssetService.php:1452
+#: includes/Core/AssetService.php:1308 includes/Core/AssetService.php:1450
 msgid "1 member"
 msgstr "1 участник"
 
 #. translators: %d: number of members.
-#: includes/Core/AssetService.php:1310 includes/Core/AssetService.php:1454
+#: includes/Core/AssetService.php:1310 includes/Core/AssetService.php:1452
 #, php-format
 msgid "%d members"
 msgstr "%d участников"
@@ -10217,15 +10217,15 @@ msgstr ""
 msgid "Invitation accepted."
 msgstr "Приглашение принято."
 
-#: includes/Core/AssetService.php:1320 includes/Core/AssetService.php:1898
+#: includes/Core/AssetService.php:1320 includes/Core/AssetService.php:1896
 msgid "Could not accept the invitation."
 msgstr "Не удалось принять приглашение."
 
-#: includes/Core/AssetService.php:1321 includes/Core/AssetService.php:1899
+#: includes/Core/AssetService.php:1321 includes/Core/AssetService.php:1897
 msgid "Invitation declined."
 msgstr "Приглашение отклонено."
 
-#: includes/Core/AssetService.php:1322 includes/Core/AssetService.php:1900
+#: includes/Core/AssetService.php:1322 includes/Core/AssetService.php:1898
 msgid "Could not decline the invitation."
 msgstr "Не удалось отклонить приглашение."
 
@@ -10245,17 +10245,17 @@ msgstr "Не удалось одобрить запрос."
 msgid "Could not decline the request."
 msgstr "Не удалось отклонить запрос."
 
-#: includes/Core/AssetService.php:1336 includes/Core/AssetService.php:1599
+#: includes/Core/AssetService.php:1336 includes/Core/AssetService.php:1597
 msgid "Reposition cover photo"
 msgstr "Переместить фото обложки"
 
-#: includes/Core/AssetService.php:1337 includes/Core/AssetService.php:1600
+#: includes/Core/AssetService.php:1337 includes/Core/AssetService.php:1598
 msgid "Drag to reposition · scroll or use the slider to zoom"
 msgstr ""
 "Перетащите для переместить · прокрутите или используйте ползунок для "
 "масштабирования"
 
-#: includes/Core/AssetService.php:1338 includes/Core/AssetService.php:1595
+#: includes/Core/AssetService.php:1338 includes/Core/AssetService.php:1593
 msgid "Zoom"
 msgstr "Масштаб"
 
@@ -10356,11 +10356,11 @@ msgstr "Не удалось обновить предпочтение уведо
 msgid "Notification preference saved."
 msgstr "Предпочтение уведомления сохранено."
 
-#: includes/Core/AssetService.php:1369 includes/Core/AssetService.php:2035
+#: includes/Core/AssetService.php:1369 includes/Core/AssetService.php:2033
 msgid "Enter a username or email address."
 msgstr "Введите имя пользователя или адрес электронной почты."
 
-#: includes/Core/AssetService.php:1371 includes/Core/AssetService.php:2037
+#: includes/Core/AssetService.php:1371 includes/Core/AssetService.php:2035
 msgid "Could not send the invitation."
 msgstr "Не удалось отправить приглашение."
 
@@ -10397,245 +10397,232 @@ msgstr ""
 msgid "You will stop seeing its posts and can join again later."
 msgstr ""
 
-#: includes/Core/AssetService.php:1382 includes/Core/AssetService.php:1464
+#: includes/Core/AssetService.php:1382 includes/Core/AssetService.php:1462
 #: templates/messages/native.php:188
 msgid "Leave"
 msgstr "Выход"
 
-#. translators: %s: number of spaces.
-#. translators: %s: total number of spaces.
-#: includes/Core/AssetService.php:1388 templates/spaces/directory.php:280
-#, php-format
-msgid "%s space available"
-msgid_plural "%s spaces available"
-msgstr[0] "%s пространство доступно"
-msgstr[1] "%s пространства доступны"
-msgstr[2] "%s пространств доступны"
+#: includes/Core/AssetService.php:1387
+msgid "1 space available"
+msgstr ""
 
 #. translators: %s: number of spaces.
-#: includes/Core/AssetService.php:1390
+#: includes/Core/AssetService.php:1389
 #, php-format
 msgid "%s spaces available"
 msgstr ""
 
-#. translators: %s: number of matching spaces.
-#. translators: %s: number of members matching the active filter/search.
-#: includes/Core/AssetService.php:1392
-#: templates/parts/space-members-body.php:303
-#, php-format
-msgid "%s result"
-msgid_plural "%s results"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+#: includes/Core/AssetService.php:1390
+msgid "1 result"
+msgstr ""
 
 #. translators: %s: number of matching spaces.
-#: includes/Core/AssetService.php:1394
+#: includes/Core/AssetService.php:1392
 #, php-format
 msgid "%s results"
 msgstr ""
 
-#: includes/Core/AssetService.php:1395
+#: includes/Core/AssetService.php:1393
 msgid "Could not upload cover."
 msgstr "Не удалось загрузить обложку."
 
-#: includes/Core/AssetService.php:1396 includes/Core/AssetService.php:1553
+#: includes/Core/AssetService.php:1394 includes/Core/AssetService.php:1551
 #: templates/partials/media-tab.php:73
 msgid "Cover updated."
 msgstr "Обложка обновлена."
 
-#: includes/Core/AssetService.php:1397
+#: includes/Core/AssetService.php:1395
 msgid "Could not remove cover."
 msgstr "Не удалось удалить обложку."
 
-#: includes/Core/AssetService.php:1398
+#: includes/Core/AssetService.php:1396
 msgid "Cover removed."
 msgstr "Обложка удалена."
 
-#: includes/Core/AssetService.php:1399 templates/partials/media-tab.php:296
+#: includes/Core/AssetService.php:1397 templates/partials/media-tab.php:296
 #: templates/partials/media-upload-composer.php:152
 #: templates/partials/space-files-tab.php:70
 msgid "Uploading…"
 msgstr "Загрузка…"
 
-#: includes/Core/AssetService.php:1400
+#: includes/Core/AssetService.php:1398
 msgid "Could not upload icon."
 msgstr "Не удалось загрузить значок."
 
-#: includes/Core/AssetService.php:1401
+#: includes/Core/AssetService.php:1399
 msgid "Icon updated."
 msgstr "Значок обновлен."
 
-#: includes/Core/AssetService.php:1402
+#: includes/Core/AssetService.php:1400
 msgid "Could not remove icon."
 msgstr "Не удалось удалить значок."
 
-#: includes/Core/AssetService.php:1403
+#: includes/Core/AssetService.php:1401
 msgid "Icon removed."
 msgstr "Значок удален."
 
-#: includes/Core/AssetService.php:1404 assets/js/admin/settings.js:203
+#: includes/Core/AssetService.php:1402 assets/js/admin/settings.js:203
 #: assets/js/admin/settings.js:234
 msgid "Network error."
 msgstr "Ошибка сети."
 
-#: includes/Core/AssetService.php:1405
+#: includes/Core/AssetService.php:1403
 msgid "Network error. Please try again."
 msgstr "Ошибка сети. Пожалуйста, попробуйте еще раз."
 
 #. translators: %d: number of sub-spaces
-#: includes/Core/AssetService.php:1409
+#: includes/Core/AssetService.php:1407
 #, php-format
 msgid "%d sub-space"
 msgstr "%d под-Space"
 
 #. translators: %d: number of sub-spaces
-#: includes/Core/AssetService.php:1411
+#: includes/Core/AssetService.php:1409
 #, php-format
 msgid "%d sub-spaces"
 msgstr "%d под-Space"
 
-#: includes/Core/AssetService.php:1412 templates/spaces/directory.php:665
+#: includes/Core/AssetService.php:1410 templates/spaces/directory.php:665
 msgid "Spaces directory pages"
 msgstr "Страницы каталога пространств"
 
-#: includes/Core/AssetService.php:1413
+#: includes/Core/AssetService.php:1411
 msgid "Next ›"
 msgstr "Далее ›"
 
-#: includes/Core/AssetService.php:1417
+#: includes/Core/AssetService.php:1415
 msgid "Could not search spaces. Check your connection and try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1418
+#: includes/Core/AssetService.php:1416
 msgid "No top-level spaces you manage match that name."
 msgstr ""
 
-#: includes/Core/AssetService.php:1419
+#: includes/Core/AssetService.php:1417
 msgid "Showing the first matches — keep typing to narrow the list."
 msgstr ""
 
-#: includes/Core/AssetService.php:1422
+#: includes/Core/AssetService.php:1420
 msgid "Could not search discussions. Check your connection and try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1423
+#: includes/Core/AssetService.php:1421
 msgid "Request sent — you’ll be notified when it’s approved."
 msgstr ""
 
-#: includes/Core/AssetService.php:1444 templates/messages/native.php:183
+#: includes/Core/AssetService.php:1442 templates/messages/native.php:183
 #: templates/parts/dm-compose-modal.php:48
 msgid "New group"
 msgstr "Новая группа"
 
-#: includes/Core/AssetService.php:1446
+#: includes/Core/AssetService.php:1444
 msgid "Search for a person to message."
 msgstr "Поиск человека для отправки сообщения."
 
-#: includes/Core/AssetService.php:1447
+#: includes/Core/AssetService.php:1445
 msgid "No people found."
 msgstr "Люди не найдены."
 
-#: includes/Core/AssetService.php:1451
+#: includes/Core/AssetService.php:1449
 msgid "Could not search right now. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1457 includes/Messages/MessagesData.php:166
+#: includes/Core/AssetService.php:1455 includes/Messages/MessagesData.php:166
 #: templates/messages/native.php:193 templates/parts/space-members-body.php:377
 msgid "Make member"
 msgstr "Сделать участником"
 
-#: includes/Core/AssetService.php:1458 includes/Messages/MessagesData.php:166
+#: includes/Core/AssetService.php:1456 includes/Messages/MessagesData.php:166
 #: templates/messages/native.php:192
 msgid "Make admin"
 msgstr "Сделать администратором"
 
-#: includes/Core/AssetService.php:1459
+#: includes/Core/AssetService.php:1457
 msgid "Group renamed."
 msgstr "Группа переименована."
 
-#: includes/Core/AssetService.php:1460
+#: includes/Core/AssetService.php:1458
 msgid "Something went wrong."
 msgstr "Что-то пошло не так."
 
-#: includes/Core/AssetService.php:1461
+#: includes/Core/AssetService.php:1459
 msgid "Could not create the group."
 msgstr "Не удалось создать группу."
 
-#: includes/Core/AssetService.php:1462 templates/messages/native.php:186
+#: includes/Core/AssetService.php:1460 templates/messages/native.php:186
 msgid "Leave this group?"
 msgstr "Покинуть эту группу?"
 
-#: includes/Core/AssetService.php:1463 templates/messages/native.php:187
+#: includes/Core/AssetService.php:1461 templates/messages/native.php:187
 msgid "You will stop receiving messages from this conversation."
 msgstr "Вы перестанете получать сообщения из этого разговора."
 
-#: includes/Core/AssetService.php:1465 templates/parts/dm-message.php:153
+#: includes/Core/AssetService.php:1463 templates/parts/dm-message.php:153
 msgid "Attachment"
 msgstr "Приложение"
 
-#: includes/Core/AssetService.php:1468
+#: includes/Core/AssetService.php:1466
 msgid "Could not attach that file. Try a different one."
 msgstr ""
 
-#: includes/Core/AssetService.php:1469 templates/parts/dm-info-panel.php:83
+#: includes/Core/AssetService.php:1467 templates/parts/dm-info-panel.php:83
 msgid "No photos shared yet."
 msgstr "Фотографий еще не поделены."
 
-#: includes/Core/AssetService.php:1470
+#: includes/Core/AssetService.php:1468
 msgid "No photos to share yet."
 msgstr "Нет фотографий для совместного использования."
 
-#: includes/Core/AssetService.php:1471
+#: includes/Core/AssetService.php:1469
 msgid "Close emoji picker"
 msgstr "Закрыть выбор эмодзи"
 
-#: includes/Core/AssetService.php:1472
+#: includes/Core/AssetService.php:1470
 msgid "You can no longer message this person."
 msgstr "Вы больше не можете отправлять сообщения этому человеку."
 
-#: includes/Core/AssetService.php:1473
+#: includes/Core/AssetService.php:1471
 msgid "This person isn’t accepting messages right now."
 msgstr "Этот человек сейчас не принимает сообщения."
 
-#: includes/Core/AssetService.php:1474
+#: includes/Core/AssetService.php:1472
 msgid "This person only accepts messages from their connections."
 msgstr "Этот человек принимает сообщения только от своих контактов."
 
-#: includes/Core/AssetService.php:1475
+#: includes/Core/AssetService.php:1473
 msgid "You’re sending messages too quickly — please wait a moment."
 msgstr ""
 "Вы отправляете сообщения слишком быстро — пожалуйста, подождите момент."
 
-#: includes/Core/AssetService.php:1476
+#: includes/Core/AssetService.php:1474
 msgid "That message is too long to send."
 msgstr "Это сообщение слишком длинное для отправки."
 
-#: includes/Core/AssetService.php:1477
+#: includes/Core/AssetService.php:1475
 msgid "You can no longer post to this conversation."
 msgstr "Вы больше не можете публиковать в этом разговоре."
 
-#: includes/Core/AssetService.php:1478
+#: includes/Core/AssetService.php:1476
 msgid "Your message couldn’t be sent. Please try again."
 msgstr "Ваше сообщение не удалось отправить. Пожалуйста, попробуйте еще раз."
 
-#: includes/Core/AssetService.php:1479
+#: includes/Core/AssetService.php:1477
 msgid "Report this message"
 msgstr "Пожаловаться на это сообщение"
 
-#: includes/Core/AssetService.php:1480
+#: includes/Core/AssetService.php:1478
 msgid "Message reported. Our moderators will review it."
 msgstr "Сообщение зафиксировано. Наши модераторы его проверят."
 
-#: includes/Core/AssetService.php:1481
+#: includes/Core/AssetService.php:1479
 msgid "Could not report this message. Try again."
 msgstr "Не удалось сообщить об этом сообщении. Попробуйте еще раз."
 
-#: includes/Core/AssetService.php:1482
+#: includes/Core/AssetService.php:1480
 msgid "this member"
 msgstr "этот участник"
 
-#: includes/Core/AssetService.php:1485
+#: includes/Core/AssetService.php:1483
 msgid ""
 "They will not be able to message you, and you will not see each other across "
 "the community. You can unblock them later from their profile."
@@ -10644,34 +10631,34 @@ msgstr ""
 "всему сообществу. Вы можете разблокировать их позже с их профиля."
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1488
+#: includes/Core/AssetService.php:1486
 #, php-format
 msgid "%s blocked."
 msgstr "%s заблокирован."
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1490
+#: includes/Core/AssetService.php:1488
 #, php-format
 msgid "Could not block %s. Try again."
 msgstr "Не удалось заблокировать %s. Попробуйте еще раз."
 
-#: includes/Core/AssetService.php:1491
+#: includes/Core/AssetService.php:1489
 msgid "Report this conversation"
 msgstr "Пожаловаться на этот разговор"
 
-#: includes/Core/AssetService.php:1492
+#: includes/Core/AssetService.php:1490
 msgid "Reported. Our moderators will review it."
 msgstr "Сообщено. Наши модераторы это проверят."
 
-#: includes/Core/AssetService.php:1493
+#: includes/Core/AssetService.php:1491
 msgid "Could not submit the report. Try again."
 msgstr "Не удалось отправить отчет. Попробуйте еще раз."
 
-#: includes/Core/AssetService.php:1496
+#: includes/Core/AssetService.php:1494
 msgid "Delete this message?"
 msgstr "Удалить это сообщение?"
 
-#: includes/Core/AssetService.php:1497
+#: includes/Core/AssetService.php:1495
 msgid ""
 "This removes the message for everyone and leaves a \"message deleted\" note. "
 "This cannot be undone."
@@ -10679,23 +10666,23 @@ msgstr ""
 "Это удаляет сообщение для всех и оставляет заметку \"сообщение удалено\". "
 "Это невозможно отменить."
 
-#: includes/Core/AssetService.php:1499
+#: includes/Core/AssetService.php:1497
 msgid "This message was deleted"
 msgstr "Это сообщение было удалено"
 
-#: includes/Core/AssetService.php:1500
+#: includes/Core/AssetService.php:1498
 msgid "You can only delete your own messages."
 msgstr "Вы можете удалять только свои сообщения."
 
-#: includes/Core/AssetService.php:1501
+#: includes/Core/AssetService.php:1499
 msgid "Could not delete the message. Try again."
 msgstr "Не удалось удалить сообщение. Попробуйте ещё раз."
 
-#: includes/Core/AssetService.php:1502
+#: includes/Core/AssetService.php:1500
 msgid "Unsend this message?"
 msgstr "Отозвать это сообщение?"
 
-#: includes/Core/AssetService.php:1503
+#: includes/Core/AssetService.php:1501
 msgid ""
 "This removes the message for everyone, with no trace. Unsend only works for "
 "a short time after sending."
@@ -10703,324 +10690,324 @@ msgstr ""
 "Это удаляет сообщение для всех без следов. Отозвание работает только "
 "короткое время после отправки."
 
-#: includes/Core/AssetService.php:1504
+#: includes/Core/AssetService.php:1502
 msgid "Unsend"
 msgstr "Отозвать"
 
-#: includes/Core/AssetService.php:1505
+#: includes/Core/AssetService.php:1503
 msgid "The time to unsend this message has passed. You can still delete it."
 msgstr ""
 "Время для отозвания этого сообщения истекло. Вы все еще можете его удалить."
 
-#: includes/Core/AssetService.php:1506
+#: includes/Core/AssetService.php:1504
 msgid "You can only unsend your own messages."
 msgstr "Вы можете отозвать только свои сообщения."
 
-#: includes/Core/AssetService.php:1507
+#: includes/Core/AssetService.php:1505
 msgid "Could not unsend the message. Try again."
 msgstr "Не удалось отозвать сообщение. Попробуйте ещё раз."
 
-#: includes/Core/AssetService.php:1511
+#: includes/Core/AssetService.php:1509
 msgid "Could not delete this conversation. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1529
+#: includes/Core/AssetService.php:1527
 msgid "Could not load this album."
 msgstr ""
 
-#: includes/Core/AssetService.php:1530
+#: includes/Core/AssetService.php:1528
 msgid "Could not load your media."
 msgstr ""
 
-#: includes/Core/AssetService.php:1531
+#: includes/Core/AssetService.php:1529
 msgid "Something went wrong. Check your connection and try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1532 includes/PWA/PwaService.php:475
+#: includes/Core/AssetService.php:1530 includes/PWA/PwaService.php:475
 #: templates/notifications/index.php:458
 msgid "Try again"
 msgstr "Попробуйте ещё раз"
 
-#: includes/Core/AssetService.php:1533
+#: includes/Core/AssetService.php:1531
 msgid "Could not save the new order. Your photos were put back."
 msgstr ""
 
-#: includes/Core/AssetService.php:1537 templates/partials/media-tab.php:63
+#: includes/Core/AssetService.php:1535 templates/partials/media-tab.php:63
 msgid "Album created."
 msgstr "Альбом создан."
 
-#: includes/Core/AssetService.php:1538 templates/partials/media-tab.php:64
+#: includes/Core/AssetService.php:1536 templates/partials/media-tab.php:64
 msgid "Album updated."
 msgstr "Альбом обновлен."
 
-#: includes/Core/AssetService.php:1539 templates/partials/media-tab.php:70
+#: includes/Core/AssetService.php:1537 templates/partials/media-tab.php:70
 msgid "Album deleted."
 msgstr "Альбом удален."
 
-#: includes/Core/AssetService.php:1540 templates/partials/media-tab.php:65
+#: includes/Core/AssetService.php:1538 templates/partials/media-tab.php:65
 msgid "Could not save the album."
 msgstr "Не удалось сохранить альбом."
 
-#: includes/Core/AssetService.php:1541 templates/partials/media-tab.php:71
+#: includes/Core/AssetService.php:1539 templates/partials/media-tab.php:71
 msgid "Could not delete the album."
 msgstr "Не удалось удалить альбом."
 
-#: includes/Core/AssetService.php:1542 templates/partials/media-tab.php:67
+#: includes/Core/AssetService.php:1540 templates/partials/media-tab.php:67
 msgid "Delete this album?"
 msgstr "Удалить этот альбом?"
 
-#: includes/Core/AssetService.php:1543 templates/partials/media-tab.php:68
+#: includes/Core/AssetService.php:1541 templates/partials/media-tab.php:68
 msgid "The photos stay in your media."
 msgstr "Фотографии остаются в вашей медиатеке."
 
-#: includes/Core/AssetService.php:1545 templates/partials/media-tab.php:80
+#: includes/Core/AssetService.php:1543 templates/partials/media-tab.php:80
 msgid "This album is empty."
 msgstr "Этот альбом пуст."
 
-#: includes/Core/AssetService.php:1546 templates/partials/media-tab.php:75
+#: includes/Core/AssetService.php:1544 templates/partials/media-tab.php:75
 msgid "Added to album."
 msgstr "Добавлено в альбом."
 
-#: includes/Core/AssetService.php:1547 templates/partials/media-tab.php:76
+#: includes/Core/AssetService.php:1545 templates/partials/media-tab.php:76
 msgid "Could not add media."
 msgstr "Не удалось добавить медиа."
 
-#: includes/Core/AssetService.php:1548 templates/partials/media-tab.php:81
+#: includes/Core/AssetService.php:1546 templates/partials/media-tab.php:81
 msgid "Remove from album"
 msgstr "Удалить из альбома"
 
-#: includes/Core/AssetService.php:1549 templates/partials/media-tab.php:82
+#: includes/Core/AssetService.php:1547 templates/partials/media-tab.php:82
 msgid "Remove this from the album?"
 msgstr "Удалить это из альбома?"
 
-#: includes/Core/AssetService.php:1550 templates/partials/media-tab.php:83
+#: includes/Core/AssetService.php:1548 templates/partials/media-tab.php:83
 msgid "Removed from album."
 msgstr "Удалено из альбома."
 
-#: includes/Core/AssetService.php:1551 includes/Core/AssetService.php:1572
+#: includes/Core/AssetService.php:1549 includes/Core/AssetService.php:1570
 #: templates/partials/media-tab.php:84
 #: templates/partials/media-upload-composer.php:62
 msgid "Could not remove."
 msgstr "Не удалось удалить."
 
-#: includes/Core/AssetService.php:1552 templates/partials/media-tab.php:72
+#: includes/Core/AssetService.php:1550 templates/partials/media-tab.php:72
 msgid "Set as cover"
 msgstr "Установить как обложку"
 
-#: includes/Core/AssetService.php:1554 templates/partials/media-tab.php:74
+#: includes/Core/AssetService.php:1552 templates/partials/media-tab.php:74
 msgid "Could not set the cover."
 msgstr "Не удалось установить обложку."
 
-#: includes/Core/AssetService.php:1555 templates/partials/media-tab.php:77
+#: includes/Core/AssetService.php:1553 templates/partials/media-tab.php:77
 msgid "Could not upload that file."
 msgstr ""
 
-#: includes/Core/AssetService.php:1556 templates/partials/media-tab.php:78
+#: includes/Core/AssetService.php:1554 templates/partials/media-tab.php:78
 msgid "Uploaded and selected. Choose Add to put it in the album."
 msgstr ""
 
-#: includes/Core/AssetService.php:1557 templates/partials/media-tab.php:79
+#: includes/Core/AssetService.php:1555 templates/partials/media-tab.php:79
 msgid "Uploaded and selected. Choose Add to put them in the album."
 msgstr ""
 
-#: includes/Core/AssetService.php:1558
+#: includes/Core/AssetService.php:1556
 msgid ""
 "Uploaded and shared to your feed. Choose Add to also put it in the album."
 msgstr ""
 
-#: includes/Core/AssetService.php:1559
+#: includes/Core/AssetService.php:1557
 msgid ""
 "Uploaded and shared to your feed. Choose Add to also put them in the album."
 msgstr ""
 
-#: includes/Core/AssetService.php:1569 templates/partials/media-tab.php:137
+#: includes/Core/AssetService.php:1567 templates/partials/media-tab.php:137
 #: templates/partials/media-upload-composer.php:54
 msgid "No media uploaded yet."
 msgstr "Медиа еще не загружена."
 
-#: includes/Core/AssetService.php:1571
+#: includes/Core/AssetService.php:1569
 #: templates/partials/media-upload-composer.php:61
 msgid "Media removed."
 msgstr "Медиа удалена."
 
-#: includes/Core/AssetService.php:1573
+#: includes/Core/AssetService.php:1571
 #: templates/partials/media-upload-composer.php:57
 msgid "Remove this media?"
 msgstr "Удалить эту медиа?"
 
 #. translators: %s: comma-separated list of space album names the media also belongs to.
 #. translators: %s: comma-separated list of space album names.
-#: includes/Core/AssetService.php:1576
+#: includes/Core/AssetService.php:1574
 #: templates/partials/media-upload-composer.php:60
 #, php-format
 msgid "It will also be removed from these space albums: %s"
 msgstr ""
 
-#: includes/Core/AssetService.php:1593
+#: includes/Core/AssetService.php:1591
 msgid "Crop avatar"
 msgstr "Обрезать аватар"
 
-#: includes/Core/AssetService.php:1594
+#: includes/Core/AssetService.php:1592
 msgid "Position your avatar"
 msgstr "Разместите свой аватар"
 
-#: includes/Core/AssetService.php:1598
+#: includes/Core/AssetService.php:1596
 msgid "Could not process the image. Try a different file."
 msgstr "Не удалось обработать изображение. Попробуйте другой файл."
 
-#: includes/Core/AssetService.php:1601
+#: includes/Core/AssetService.php:1599
 msgid "This field"
 msgstr "Это поле"
 
-#: includes/Core/AssetService.php:1602
+#: includes/Core/AssetService.php:1600
 msgid "Avatar could not be saved"
 msgstr "Аватар не удалось сохранить"
 
-#: includes/Core/AssetService.php:1603
+#: includes/Core/AssetService.php:1601
 msgid "Cover could not be saved"
 msgstr "Обложку не удалось сохранить"
 
-#: includes/Core/AssetService.php:1604
+#: includes/Core/AssetService.php:1602
 msgid "Profile saved"
 msgstr "Профиль сохранен"
 
-#: includes/Core/AssetService.php:1605
+#: includes/Core/AssetService.php:1603
 msgid "Some fields need attention"
 msgstr "Некоторые поля требуют внимания"
 
-#: includes/Core/AssetService.php:1606
+#: includes/Core/AssetService.php:1604
 msgid "Could not save. Please try again."
 msgstr "Не удалось сохранить. Пожалуйста, попробуйте еще раз."
 
-#: includes/Core/AssetService.php:1607 includes/Profile/FieldType.php:1432
+#: includes/Core/AssetService.php:1605 includes/Profile/FieldType.php:1432
 #: templates/parts/profile/about-panel.php:170
 msgid "Present"
 msgstr "По настоящее время"
 
-#: includes/Core/AssetService.php:1610
+#: includes/Core/AssetService.php:1608
 #: templates/parts/settings-relations.php:56
 msgid "Unrestrict"
 msgstr "Снять ограничение"
 
-#: includes/Core/AssetService.php:1611
+#: includes/Core/AssetService.php:1609
 #: templates/parts/profile-actions-overflow.php:127
 msgid "Restrict"
 msgstr "Ограничить"
 
-#: includes/Core/AssetService.php:1612
+#: includes/Core/AssetService.php:1610
 #: templates/parts/settings-relations.php:54
 msgid "Unblock"
 msgstr "Разблокировать"
 
 #. translators: %d: number of remaining two-factor backup codes (singular).
-#: includes/Core/AssetService.php:1615
+#: includes/Core/AssetService.php:1613
 #, php-format
 msgid "%d backup code left."
 msgstr "%d резервный код остался."
 
 #. translators: %d: number of remaining two-factor backup codes (plural).
-#: includes/Core/AssetService.php:1617
+#: includes/Core/AssetService.php:1615
 #, php-format
 msgid "%d backup codes left."
 msgstr "%d резервных кодов осталось."
 
-#: includes/Core/AssetService.php:1618
+#: includes/Core/AssetService.php:1616
 msgid "Your data export has downloaded."
 msgstr "Ваш экспорт данных загружен."
 
-#: includes/Core/AssetService.php:1619
+#: includes/Core/AssetService.php:1617
 msgid "Could not export your data. Please try again."
 msgstr "Не удалось экспортировать ваши данные. Пожалуйста, попробуйте снова."
 
-#: includes/Core/AssetService.php:1620
+#: includes/Core/AssetService.php:1618
 msgid "Delete your account?"
 msgstr "Удалить ваш аккаунт?"
 
-#: includes/Core/AssetService.php:1621
+#: includes/Core/AssetService.php:1619
 msgid ""
 "This permanently deletes your account and removes your data. This cannot be "
 "undone."
 msgstr ""
 "Это навсегда удалит ваш аккаунт и удалит ваши данные. Это нельзя отменить."
 
-#: includes/Core/AssetService.php:1622
+#: includes/Core/AssetService.php:1620
 #: templates/parts/settings-privacy-fields.php:204
 msgid "Delete my account"
 msgstr "Удалить мой аккаунт"
 
-#: includes/Core/AssetService.php:1627
+#: includes/Core/AssetService.php:1625
 msgid "Your password"
 msgstr ""
 
-#: includes/Core/AssetService.php:1628
+#: includes/Core/AssetService.php:1626
 msgid "Enter your password to confirm."
 msgstr ""
 
-#: includes/Core/AssetService.php:1629
+#: includes/Core/AssetService.php:1627
 msgid "Could not delete your account."
 msgstr "Не удалось удалить ваш аккаунт."
 
-#: includes/Core/AssetService.php:1630
+#: includes/Core/AssetService.php:1628
 msgid "Could not delete your account. Please try again."
 msgstr "Не удалось удалить ваш аккаунт. Пожалуйста, попробуйте снова."
 
-#: includes/Core/AssetService.php:1632
+#: includes/Core/AssetService.php:1630
 msgid "Profile link copied"
 msgstr "Ссылка профиля скопирована"
 
-#: includes/Core/AssetService.php:1633
+#: includes/Core/AssetService.php:1631
 msgid "Could not copy. Long-press the URL."
 msgstr "Не удалось скопировать. Нажмите и удерживайте URL."
 
 #. translators: %s: profile URL.
-#: includes/Core/AssetService.php:1635
+#: includes/Core/AssetService.php:1633
 #, php-format
 msgid "Copy this link: %s"
 msgstr "Скопируйте эту ссылку: %s"
 
-#: includes/Core/AssetService.php:1636
+#: includes/Core/AssetService.php:1634
 msgid "Account unlinked"
 msgstr "Аккаунт отвязан"
 
-#: includes/Core/AssetService.php:1638
+#: includes/Core/AssetService.php:1636
 msgid "Could not unlink. Try again."
 msgstr "Не удалось отвязать. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1639
+#: includes/Core/AssetService.php:1637
 msgid "Member type updated"
 msgstr "Тип члена обновлен"
 
-#: includes/Core/AssetService.php:1640
+#: includes/Core/AssetService.php:1638
 msgid "Could not update member type"
 msgstr "Не удалось обновить тип члена"
 
-#: includes/Core/AssetService.php:1641
+#: includes/Core/AssetService.php:1639
 msgid "Preference saved"
 msgstr "Предпочтение сохранено"
 
-#: includes/Core/AssetService.php:1642
+#: includes/Core/AssetService.php:1640
 #: includes/Profile/ProfileController.php:1433
 msgid "Display name is required."
 msgstr "Отображаемое имя обязательно."
 
-#: includes/Core/AssetService.php:1643
+#: includes/Core/AssetService.php:1641
 #: includes/Profile/ProfileController.php:1474
 msgid "Enter a valid URL (https://example.com)."
 msgstr "Введите действительный URL (https://example.com)."
 
-#: includes/Core/AssetService.php:1646
+#: includes/Core/AssetService.php:1644
 msgid "Avatar ready — click Save changes to keep it"
 msgstr "Аватар готов — нажмите «Сохранить изменения», чтобы сохранить его"
 
-#: includes/Core/AssetService.php:1647
+#: includes/Core/AssetService.php:1645
 msgid "Could not prepare image. Try again."
 msgstr "Не удалось подготовить изображение. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1648
+#: includes/Core/AssetService.php:1646
 msgid "Remove profile photo?"
 msgstr "Удалить фотографию профиля?"
 
-#: includes/Core/AssetService.php:1649
+#: includes/Core/AssetService.php:1647
 msgid ""
 "Your photo will be replaced with your initials. You can upload a new one any "
 "time."
@@ -11028,80 +11015,80 @@ msgstr ""
 "Ваша фотография будет заменена вашими инициалами. Вы можете загрузить новую "
 "в любое время."
 
-#: includes/Core/AssetService.php:1651
+#: includes/Core/AssetService.php:1649
 msgid "Profile photo removed"
 msgstr "Фотография профиля удалена"
 
-#: includes/Core/AssetService.php:1652
+#: includes/Core/AssetService.php:1650
 msgid "Could not remove your photo. Try again."
 msgstr "Не удалось удалить вашу фотографию. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1653
+#: includes/Core/AssetService.php:1651
 msgid "Cover ready — click Save changes to keep it"
 msgstr "Обложка готова — нажмите «Сохранить изменения», чтобы сохранить её"
 
-#: includes/Core/AssetService.php:1654
+#: includes/Core/AssetService.php:1652
 msgid "Followed"
 msgstr "Подписан"
 
-#: includes/Core/AssetService.php:1655
+#: includes/Core/AssetService.php:1653
 msgid "Could not follow. Try again."
 msgstr "Не удалось подписаться. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1656
+#: includes/Core/AssetService.php:1654
 msgid "Unfollowed"
 msgstr "Отписан"
 
-#: includes/Core/AssetService.php:1657
+#: includes/Core/AssetService.php:1655
 msgid "Could not unfollow. Try again."
 msgstr "Не удалось отписаться. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1658 includes/Core/PageRouter.php:1523
+#: includes/Core/AssetService.php:1656 includes/Core/PageRouter.php:1523
 msgid ""
 "Add a personal message to your connection request, or send it without one."
 msgstr ""
 "Добавьте личное сообщение к вашему запросу на подключение или отправьте его "
 "без одного."
 
-#: includes/Core/AssetService.php:1659
+#: includes/Core/AssetService.php:1657
 msgid "Connection request sent"
 msgstr "Запрос на подключение отправлен"
 
-#: includes/Core/AssetService.php:1660
+#: includes/Core/AssetService.php:1658
 msgid "Could not send request"
 msgstr "Не удалось отправить запрос"
 
-#: includes/Core/AssetService.php:1661
+#: includes/Core/AssetService.php:1659
 msgid "Request withdrawn"
 msgstr "Запрос отозван"
 
-#: includes/Core/AssetService.php:1663
+#: includes/Core/AssetService.php:1661
 msgid "Request declined"
 msgstr "Запрос отклонен"
 
-#: includes/Core/AssetService.php:1664
+#: includes/Core/AssetService.php:1662
 msgid "Disconnected"
 msgstr "Отключен"
 
-#: includes/Core/AssetService.php:1666
+#: includes/Core/AssetService.php:1664
 msgid "Unmuted"
 msgstr "Звук включен"
 
-#: includes/Core/AssetService.php:1667
+#: includes/Core/AssetService.php:1665
 #: templates/parts/settings-relations.php:42
 #: templates/parts/settings-relations.php:105
 msgid "Muted"
 msgstr "Звук отключен"
 
-#: includes/Core/AssetService.php:1668
+#: includes/Core/AssetService.php:1666
 msgid "Could not update mute state"
 msgstr "Не удалось обновить состояние отключения звука"
 
-#: includes/Core/AssetService.php:1669
+#: includes/Core/AssetService.php:1667
 msgid "No longer restricted"
 msgstr "Больше не ограничено"
 
-#: includes/Core/AssetService.php:1670
+#: includes/Core/AssetService.php:1668
 msgid ""
 "Restricted. They can still see your profile, but their comments are hidden "
 "from others."
@@ -11109,158 +11096,158 @@ msgstr ""
 "Ограничено. Они по-прежнему могут видеть ваш профиль, но их комментарии "
 "скрыты от других."
 
-#: includes/Core/AssetService.php:1671
+#: includes/Core/AssetService.php:1669
 msgid "Could not update restrict state"
 msgstr "Не удалось обновить состояние ограничения"
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1673
+#: includes/Core/AssetService.php:1671
 #, php-format
 msgid "%s blocked"
 msgstr "%s заблокирован"
 
-#: includes/Core/AssetService.php:1674
+#: includes/Core/AssetService.php:1672
 msgid "Member blocked"
 msgstr "Участник заблокирован"
 
-#: includes/Core/AssetService.php:1679
+#: includes/Core/AssetService.php:1677
 msgid "Could not send verification email. Try again."
 msgstr "Не удалось отправить письмо с подтверждением. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1686
+#: includes/Core/AssetService.php:1684
 msgid "Could not verify. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1688
+#: includes/Core/AssetService.php:1686
 msgid "Too short"
 msgstr "Слишком коротко"
 
-#: includes/Core/AssetService.php:1689 includes/Core/AssetService.php:2071
-#: includes/Core/AssetService.php:2119
+#: includes/Core/AssetService.php:1687 includes/Core/AssetService.php:2069
+#: includes/Core/AssetService.php:2117
 msgid "Weak"
 msgstr "Слабо"
 
-#: includes/Core/AssetService.php:1690 includes/Core/AssetService.php:2072
-#: includes/Core/AssetService.php:2120
+#: includes/Core/AssetService.php:1688 includes/Core/AssetService.php:2070
+#: includes/Core/AssetService.php:2118
 msgid "Fair"
 msgstr "Среднее"
 
-#: includes/Core/AssetService.php:1691 includes/Core/AssetService.php:2073
-#: includes/Core/AssetService.php:2121
+#: includes/Core/AssetService.php:1689 includes/Core/AssetService.php:2071
+#: includes/Core/AssetService.php:2119
 msgid "Good"
 msgstr "Хорошо"
 
-#: includes/Core/AssetService.php:1692 includes/Core/AssetService.php:2074
-#: includes/Core/AssetService.php:2122
+#: includes/Core/AssetService.php:1690 includes/Core/AssetService.php:2072
+#: includes/Core/AssetService.php:2120
 msgid "Strong"
 msgstr "Сильно"
 
-#: includes/Core/AssetService.php:1693
+#: includes/Core/AssetService.php:1691
 msgid "Excellent"
 msgstr "Отлично"
 
-#: includes/Core/AssetService.php:1697
+#: includes/Core/AssetService.php:1695
 msgid "Passwords do not match."
 msgstr "Пароли не совпадают."
 
-#: includes/Core/AssetService.php:1698
+#: includes/Core/AssetService.php:1696
 msgid "Password updated."
 msgstr "Пароль обновлен."
 
-#: includes/Core/AssetService.php:1699
+#: includes/Core/AssetService.php:1697
 msgid "Could not change password. Try again."
 msgstr "Не удалось изменить пароль. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1700
+#: includes/Core/AssetService.php:1698
 msgid "Signed out of every other session."
 msgstr "Вышли со всех остальных сеансов."
 
-#: includes/Core/AssetService.php:1701
+#: includes/Core/AssetService.php:1699
 msgid "Could not sign out everywhere. Try again."
 msgstr "Не удалось выйти отовсюду. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1702
+#: includes/Core/AssetService.php:1700
 msgid "Could not start setup. Try again."
 msgstr "Не удалось начать установку. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1703
+#: includes/Core/AssetService.php:1701
 msgid "That code did not match."
 msgstr "Этот код не совпадает."
 
-#: includes/Core/AssetService.php:1704
+#: includes/Core/AssetService.php:1702
 msgid "Something went wrong. Try again."
 msgstr "Что-то пошло не так. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1705
+#: includes/Core/AssetService.php:1703
 #: templates/parts/settings-account-fields.php:302
 msgid "Two-factor authentication is on."
 msgstr "Двухфакторная аутентификация включена."
 
-#: includes/Core/AssetService.php:1706
+#: includes/Core/AssetService.php:1704
 msgid "QR code for your authenticator app"
 msgstr ""
 
-#: includes/Core/AssetService.php:1707
+#: includes/Core/AssetService.php:1705
 msgid "Enter your password."
 msgstr "Введите ваш пароль."
 
-#: includes/Core/AssetService.php:1708
+#: includes/Core/AssetService.php:1706
 msgid "Could not regenerate codes."
 msgstr "Не удалось заново создать коды."
 
-#: includes/Core/AssetService.php:1709
+#: includes/Core/AssetService.php:1707
 msgid "Two-factor authentication is off."
 msgstr "Двухфакторная аутентификация отключена."
 
-#: includes/Core/AssetService.php:1710
+#: includes/Core/AssetService.php:1708
 msgid "Could not turn off two-factor."
 msgstr "Не удалось отключить двухфакторную аутентификацию."
 
-#: includes/Core/AssetService.php:1711
+#: includes/Core/AssetService.php:1709
 msgid "Unblocked"
 msgstr "Разблокирован"
 
-#: includes/Core/AssetService.php:1712
+#: includes/Core/AssetService.php:1710
 msgid "Could not unblock"
 msgstr "Не удалось разблокировать"
 
-#: includes/Core/AssetService.php:1716 templates/profile/edit.php:274
+#: includes/Core/AssetService.php:1714 templates/profile/edit.php:274
 msgid "Who can see this field"
 msgstr "Кто может видеть это поле"
 
-#: includes/Core/AssetService.php:1726
+#: includes/Core/AssetService.php:1724
 msgid "Remove cover photo?"
 msgstr ""
 
-#: includes/Core/AssetService.php:1727
+#: includes/Core/AssetService.php:1725
 msgid "Your cover photo will be cleared. You can upload a new one any time."
 msgstr ""
 
-#: includes/Core/AssetService.php:1728
+#: includes/Core/AssetService.php:1726
 msgid "Cover photo removed"
 msgstr ""
 
-#: includes/Core/AssetService.php:1729
+#: includes/Core/AssetService.php:1727
 msgid "Could not remove your cover. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1730
+#: includes/Core/AssetService.php:1728
 msgid "Follow request sent"
 msgstr ""
 
-#: includes/Core/AssetService.php:1731
+#: includes/Core/AssetService.php:1729
 msgid "Follow request withdrawn"
 msgstr ""
 
-#: includes/Core/AssetService.php:1748
+#: includes/Core/AssetService.php:1746
 msgid "Could not dismiss the report. Try again."
 msgstr "Не удалось отклонить отчет. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1749
+#: includes/Core/AssetService.php:1747
 msgid "Remove this content?"
 msgstr "Удалить это содержимое?"
 
-#: includes/Core/AssetService.php:1750
+#: includes/Core/AssetService.php:1748
 msgid ""
 "The reported item will be taken down from public view and the report marked "
 "resolved."
@@ -11268,44 +11255,44 @@ msgstr ""
 "Указанный элемент будет удален из открытого доступа, а отчет будет помечен "
 "как разрешенный."
 
-#: includes/Core/AssetService.php:1752
+#: includes/Core/AssetService.php:1750
 msgid "Content removed."
 msgstr "Содержимое удалено."
 
-#: includes/Core/AssetService.php:1753
+#: includes/Core/AssetService.php:1751
 msgid "Could not remove the content. Try again."
 msgstr "Не удалось удалить содержимое. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1754 includes/Core/AssetService.php:1794
+#: includes/Core/AssetService.php:1752 includes/Core/AssetService.php:1792
 msgid "Warning sent."
 msgstr "Предупреждение отправлено."
 
-#: includes/Core/AssetService.php:1755
+#: includes/Core/AssetService.php:1753
 msgid "Could not warn the user."
 msgstr "Не удалось предупредить пользователя."
 
-#: includes/Core/AssetService.php:1756
+#: includes/Core/AssetService.php:1754
 msgid "Strike issued."
 msgstr "Предупреждение выдано."
 
-#: includes/Core/AssetService.php:1757
+#: includes/Core/AssetService.php:1755
 msgid "Could not issue a strike."
 msgstr "Не удалось выдать предупреждение."
 
-#: includes/Core/AssetService.php:1761
+#: includes/Core/AssetService.php:1759
 msgid "Strike reversed."
 msgstr ""
 
-#: includes/Core/AssetService.php:1762
+#: includes/Core/AssetService.php:1760
 msgid "Could not reverse the strike. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1763
+#: includes/Core/AssetService.php:1761
 msgid "This member has no active strikes."
 msgstr ""
 
 #. translators: %d: number of strikes.
-#: includes/Core/AssetService.php:1765 templates/moderation/queue.php:526
+#: includes/Core/AssetService.php:1763 templates/moderation/queue.php:526
 #: templates/spaces/moderation.php:324
 #, php-format
 msgid "%d strike"
@@ -11315,13 +11302,13 @@ msgstr[1] "%d предупреждения"
 msgstr[2] "%d предупреждений"
 
 #. translators: %d: number of active strikes.
-#: includes/Core/AssetService.php:1767
+#: includes/Core/AssetService.php:1765
 #, php-format
 msgid "%d strikes"
 msgstr ""
 
 #. translators: %d: number of active strikes.
-#: includes/Core/AssetService.php:1769 templates/moderation/queue.php:699
+#: includes/Core/AssetService.php:1767 templates/moderation/queue.php:699
 #, php-format
 msgid "Reverse the most recent strike (%d active)"
 msgid_plural "Reverse the most recent strike (%d active)"
@@ -11329,11 +11316,11 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: includes/Core/AssetService.php:1770
+#: includes/Core/AssetService.php:1768
 msgid "Suspend this user?"
 msgstr "Приостановить этого пользователя?"
 
-#: includes/Core/AssetService.php:1771
+#: includes/Core/AssetService.php:1769
 msgid ""
 "They will be unable to post or interact for 7 days, and their posts will be "
 "hidden."
@@ -11341,466 +11328,466 @@ msgstr ""
 "Они не смогут публиковать или взаимодействовать в течение 7 дней, и их посты "
 "будут скрыты."
 
-#: includes/Core/AssetService.php:1773
+#: includes/Core/AssetService.php:1771
 msgid "User suspended for 7 days."
 msgstr "Пользователь приостановлен на 7 дней."
 
-#: includes/Core/AssetService.php:1774
+#: includes/Core/AssetService.php:1772
 msgid "Could not suspend the user."
 msgstr "Не удалось приостановить пользователя."
 
-#: includes/Core/AssetService.php:1775
+#: includes/Core/AssetService.php:1773
 msgid "Please describe why you are appealing (at least 10 characters)."
 msgstr "Пожалуйста, опишите, почему вы обращаетесь (минимум 10 символов)."
 
-#: includes/Core/AssetService.php:1776
+#: includes/Core/AssetService.php:1774
 msgid "Your appeal has been submitted."
 msgstr "Ваша апелляция была подана."
 
-#: includes/Core/AssetService.php:1777
+#: includes/Core/AssetService.php:1775
 msgid "Could not submit your appeal. Try again."
 msgstr "Не удалось подать вашу апелляцию. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1778
+#: includes/Core/AssetService.php:1776
 msgid "Approve this appeal?"
 msgstr "Одобрить эту апелляцию?"
 
-#: includes/Core/AssetService.php:1779
+#: includes/Core/AssetService.php:1777
 msgid "The member’s suspension will be lifted and they will be notified."
 msgstr "Приостановка участника будет снята, и он будет уведомлен."
 
-#: includes/Core/AssetService.php:1781
+#: includes/Core/AssetService.php:1779
 msgid "Appeal approved — suspension lifted."
 msgstr "Апелляция одобрена — приостановка снята."
 
-#: includes/Core/AssetService.php:1782
+#: includes/Core/AssetService.php:1780
 msgid "Could not approve the appeal. Try again."
 msgstr "Не удалось одобрить апелляцию. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1783
+#: includes/Core/AssetService.php:1781
 msgid "Deny this appeal?"
 msgstr "Отклонить эту апелляцию?"
 
-#: includes/Core/AssetService.php:1784
+#: includes/Core/AssetService.php:1782
 msgid ""
 "The suspension stays in place. The member will be notified of the decision."
 msgstr "Приостановка остается в силе. Участник будет уведомлен о решении."
 
-#: includes/Core/AssetService.php:1786
+#: includes/Core/AssetService.php:1784
 msgid "Appeal denied."
 msgstr "Апелляция отклонена."
 
-#: includes/Core/AssetService.php:1787
+#: includes/Core/AssetService.php:1785
 msgid "Could not deny the appeal. Try again."
 msgstr "Не удалось отклонить апелляцию. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1788
+#: includes/Core/AssetService.php:1786
 msgid "Remove this member from the space?"
 msgstr "Удалить этого участника из Space?"
 
-#: includes/Core/AssetService.php:1789 includes/Core/AssetService.php:2023
+#: includes/Core/AssetService.php:1787 includes/Core/AssetService.php:2021
 msgid "They will lose access to this space immediately."
 msgstr "Они сразу потеряют доступ к этому Space."
 
-#: includes/Core/AssetService.php:1795
+#: includes/Core/AssetService.php:1793
 msgid "Could not warn the member."
 msgstr ""
 
-#: includes/Core/AssetService.php:1796
+#: includes/Core/AssetService.php:1794
 msgid "Could not remove the member from this space. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1797
+#: includes/Core/AssetService.php:1795
 msgid "Could not approve the join request. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1798
+#: includes/Core/AssetService.php:1796
 msgid "Could not decline the join request. Try again."
 msgstr ""
 
 #. translators: 1: current step number, 2: total step count
-#: includes/Core/AssetService.php:1816
+#: includes/Core/AssetService.php:1814
 #, php-format
 msgid "Step %1$s of %2$s"
 msgstr "Шаг %1$s из %2$s"
 
-#: includes/Core/AssetService.php:1817
+#: includes/Core/AssetService.php:1815
 msgid "Display name must be at least 2 characters."
 msgstr "Отображаемое имя должно содержать минимум 2 символа."
 
-#: includes/Core/AssetService.php:1818 templates/auth/signup.php:407
+#: includes/Core/AssetService.php:1816 templates/auth/signup.php:407
 #: templates/onboarding/index.php:821
 msgid "Your name"
 msgstr "Ваше имя"
 
-#: includes/Core/AssetService.php:1819
+#: includes/Core/AssetService.php:1817
 msgid "@username"
 msgstr "@имя_пользователя"
 
-#: includes/Core/AssetService.php:1820 templates/onboarding/index.php:829
+#: includes/Core/AssetService.php:1818 templates/onboarding/index.php:829
 msgid "Add a short bio so people know what you're into."
 msgstr "Добавьте краткую биографию, чтобы люди знали, что вас интересует."
 
-#: includes/Core/AssetService.php:1821
+#: includes/Core/AssetService.php:1819
 msgid "Checking…"
 msgstr "Проверка…"
 
-#: includes/Core/AssetService.php:1822
+#: includes/Core/AssetService.php:1820
 msgid "Available"
 msgstr "Доступно"
 
-#: includes/Core/AssetService.php:1823
+#: includes/Core/AssetService.php:1821
 #: templates/parts/settings-account-fields.php:98
 msgid "Taken"
 msgstr "Занято"
 
-#: includes/Core/AssetService.php:1828
+#: includes/Core/AssetService.php:1826
 msgid "Skipped. You can fill in your profile any time."
 msgstr ""
 
-#: includes/Core/AssetService.php:1829
+#: includes/Core/AssetService.php:1827
 msgid "Joined the space."
 msgstr "Присоединились к Space."
 
-#: includes/Core/AssetService.php:1830
+#: includes/Core/AssetService.php:1828
 msgid "Left the space."
 msgstr "Покинули Space."
 
-#: includes/Core/AssetService.php:1831
+#: includes/Core/AssetService.php:1829
 msgid "Could not update space. Please try again."
 msgstr "Не удалось обновить Space. Пожалуйста, попробуйте снова."
 
-#: includes/Core/AssetService.php:1832
+#: includes/Core/AssetService.php:1830
 msgid "Following."
 msgstr "Подписан."
 
-#: includes/Core/AssetService.php:1833
+#: includes/Core/AssetService.php:1831
 msgid "Unfollowed."
 msgstr "Отписан."
 
-#: includes/Core/AssetService.php:1834
+#: includes/Core/AssetService.php:1832
 msgid "Could not update follow. Please try again."
 msgstr "Не удалось обновить подписку. Пожалуйста, попробуйте снова."
 
 #. translators: %s: maximum upload size in megabytes.
-#: includes/Core/AssetService.php:1836
+#: includes/Core/AssetService.php:1834
 #, php-format
 msgid "Image too large. Max %sMB."
 msgstr ""
 
 #. translators: 1: maximum megapixels, 2: maximum pixels on a single side
-#: includes/Core/AssetService.php:1838
+#: includes/Core/AssetService.php:1836
 #, php-format
 msgid ""
 "That image is too large to process (over %1$s megapixels or %2$s pixels on a "
 "side). Please choose a smaller photo."
 msgstr ""
 
-#: includes/Core/AssetService.php:1839
+#: includes/Core/AssetService.php:1837
 msgid "Could not upload photo. Please try again."
 msgstr "Не удалось загрузить фотографию. Пожалуйста, попробуйте снова."
 
-#: includes/Core/AssetService.php:1840
+#: includes/Core/AssetService.php:1838
 msgid "Profile photo updated."
 msgstr "Фотография профиля обновлена."
 
-#: includes/Core/AssetService.php:1841
+#: includes/Core/AssetService.php:1839
 msgid "You are all set. Welcome aboard!"
 msgstr "Все готово. Добро пожаловать на борт!"
 
-#: includes/Core/AssetService.php:1842
+#: includes/Core/AssetService.php:1840
 msgid "Could not finish onboarding. Please try again."
 msgstr "Не удалось завершить адаптацию. Пожалуйста, попробуйте снова."
 
-#: includes/Core/AssetService.php:1843
+#: includes/Core/AssetService.php:1841
 msgid "Could not save your interests. Please try again."
 msgstr "Не удалось сохранить ваши интересы. Пожалуйста, попробуйте ещё раз."
 
-#: includes/Core/AssetService.php:1849
+#: includes/Core/AssetService.php:1847
 msgid ""
 "Your profile could not be saved. Please check your details and try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1850
+#: includes/Core/AssetService.php:1848
 msgid "That username is already taken. Please choose another."
 msgstr ""
 
-#: includes/Core/AssetService.php:1851
+#: includes/Core/AssetService.php:1849
 msgid "Your notification settings could not be saved. Please try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1894
+#: includes/Core/AssetService.php:1892
 msgid "Could not mark all as read."
 msgstr "Не удалось отметить все как прочитанные."
 
-#: includes/Core/AssetService.php:1895
+#: includes/Core/AssetService.php:1893
 msgid "Could not mark this notification as read."
 msgstr "Не удалось отметить это уведомление как прочитанное."
 
-#: includes/Core/AssetService.php:1896
+#: includes/Core/AssetService.php:1894
 msgid "Could not dismiss. Try again."
 msgstr "Не удалось отклонить. Попробуйте снова."
 
-#: includes/Core/AssetService.php:1897
+#: includes/Core/AssetService.php:1895
 msgid "Invitation accepted — you have joined the space."
 msgstr "Приглашение принято — вы присоединились к Space."
 
 #. translators: %s is the formatted number of unread notifications (e.g. "12" or "99+").
-#: includes/Core/AssetService.php:1911
+#: includes/Core/AssetService.php:1909
 #: templates/parts/notifications-hero.php:96
 #, php-format
 msgid "%s unread"
 msgstr ""
 
-#: includes/Core/AssetService.php:1914
+#: includes/Core/AssetService.php:1912
 msgid "Could not update those requests."
 msgstr ""
 
 #. translators: 1: number handled, 2: number no longer pending.
-#: includes/Core/AssetService.php:1916
+#: includes/Core/AssetService.php:1914
 #, php-format
 msgid "%1$d handled, %2$d no longer pending."
 msgstr ""
 
 #. translators: %d: number of members approved.
-#: includes/Core/AssetService.php:1918
+#: includes/Core/AssetService.php:1916
 #, php-format
 msgid "%d members approved."
 msgstr ""
 
 #. translators: %d: number of requests declined.
-#: includes/Core/AssetService.php:1920
+#: includes/Core/AssetService.php:1918
 #, php-format
 msgid "%d requests declined."
 msgstr ""
 
 #. translators: %d: number of seconds
-#: includes/Core/AssetService.php:1938
+#: includes/Core/AssetService.php:1936
 #, php-format
 msgid "%ds ago"
 msgstr "%d сек назад"
 
 #. translators: %d: number of minutes
-#: includes/Core/AssetService.php:1940
+#: includes/Core/AssetService.php:1938
 #, php-format
 msgid "%d min ago"
 msgstr "%d мин назад"
 
-#: includes/Core/AssetService.php:1943
+#: includes/Core/AssetService.php:1941
 #: templates/parts/profile-edit-save-bar.php:37
 #: templates/settings/notifications.php:526
 msgid "Saving..."
 msgstr "Сохранение..."
 
-#: includes/Core/AssetService.php:1944
+#: includes/Core/AssetService.php:1942
 #: templates/parts/profile-edit-save-bar.php:80
 #: templates/settings/notifications.php:521 templates/spaces/settings.php:1003
 msgid "Unsaved changes"
 msgstr "Несохраненные изменения"
 
 #. translators: %s: relative time the prefs were last saved (e.g. "2 min ago")
-#: includes/Core/AssetService.php:1946
+#: includes/Core/AssetService.php:1944
 #, php-format
 msgid "Saved %s"
 msgstr "Сохранено %s"
 
-#: includes/Core/AssetService.php:1947
+#: includes/Core/AssetService.php:1945
 msgid "Space preference saved."
 msgstr "Предпочтение Space сохранено."
 
-#: includes/Core/AssetService.php:1948
+#: includes/Core/AssetService.php:1946
 msgid "Could not save space preference."
 msgstr "Не удалось сохранить предпочтение Space."
 
-#: includes/Core/AssetService.php:1949
+#: includes/Core/AssetService.php:1947
 msgid "Could not save preferences."
 msgstr "Не удалось сохранить предпочтения."
 
-#: includes/Core/AssetService.php:1950
+#: includes/Core/AssetService.php:1948
 msgid "Preferences saved."
 msgstr "Предпочтения сохранены."
 
-#: includes/Core/AssetService.php:1953
+#: includes/Core/AssetService.php:1951
 msgid "You will no longer receive newsletters or announcements."
 msgstr ""
 
-#: includes/Core/AssetService.php:1954
+#: includes/Core/AssetService.php:1952
 msgid "You will receive newsletters and announcements again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1955
+#: includes/Core/AssetService.php:1953
 msgid "Could not update your broadcast email preference."
 msgstr ""
 
-#: includes/Core/AssetService.php:1972
+#: includes/Core/AssetService.php:1970
 msgid "Please name this search first."
 msgstr "Пожалуйста, сначала назовите этот поиск."
 
-#: includes/Core/AssetService.php:1973
+#: includes/Core/AssetService.php:1971
 msgid "Search saved."
 msgstr "Поиск сохранен."
 
-#: includes/Core/AssetService.php:1974
+#: includes/Core/AssetService.php:1972
 msgid "Could not save. Saved searches require BuddyNext Pro."
 msgstr "Не удалось сохранить. Сохраненные поиски требуют BuddyNext Pro."
 
-#: includes/Core/AssetService.php:1975
+#: includes/Core/AssetService.php:1973
 msgid "Recent searches"
 msgstr "Недавние поиски"
 
-#: includes/Core/AssetService.php:1976
+#: includes/Core/AssetService.php:1974
 msgid "Recent:"
 msgstr "Недавние:"
 
-#: includes/Core/AssetService.php:1978
+#: includes/Core/AssetService.php:1976
 msgid "Search suggestions"
 msgstr "Предложения поиска"
 
-#: includes/Core/AssetService.php:2000
+#: includes/Core/AssetService.php:1998
 msgid "Could not update follow state. Try again."
 msgstr "Не удалось обновить состояние подписки. Попробуйте снова."
 
 #. translators: %s: hashtag slug (without the leading #)
-#: includes/Core/AssetService.php:2002
+#: includes/Core/AssetService.php:2000
 #, php-format
 msgid "Unfollowed #%s"
 msgstr "Отписаны #%s"
 
 #. translators: %s: hashtag slug (without the leading #)
-#: includes/Core/AssetService.php:2004
+#: includes/Core/AssetService.php:2002
 #, php-format
 msgid "Following #%s"
 msgstr "Подписаны на #%s"
 
-#: includes/Core/AssetService.php:2022
+#: includes/Core/AssetService.php:2020
 msgid "Remove this member?"
 msgstr "Удалить этого участника?"
 
-#: includes/Core/AssetService.php:2025
+#: includes/Core/AssetService.php:2023
 msgid "Could not remove member. Try again."
 msgstr "Не удалось удалить участника. Попробуйте снова."
 
-#: includes/Core/AssetService.php:2026
+#: includes/Core/AssetService.php:2024
 msgid "Could not update role. Try again."
 msgstr "Не удалось обновить роль. Попробуйте снова."
 
-#: includes/Core/AssetService.php:2027
+#: includes/Core/AssetService.php:2025
 msgid "Ban this member?"
 msgstr "Забанить этого участника?"
 
-#: includes/Core/AssetService.php:2028
+#: includes/Core/AssetService.php:2026
 msgid "They will be removed and blocked from rejoining this space."
 msgstr ""
 "Они будут удалены и заблокированы от повторного присоединения к этому Space."
 
-#: includes/Core/AssetService.php:2029
+#: includes/Core/AssetService.php:2027
 #: templates/parts/space-settings-panel-members.php:196
 msgid "Ban"
 msgstr "Забанить"
 
-#: includes/Core/AssetService.php:2030
+#: includes/Core/AssetService.php:2028
 msgid "Could not ban member. Try again."
 msgstr "Не удалось забанить участника. Попробуйте снова."
 
-#: includes/Core/AssetService.php:2031
+#: includes/Core/AssetService.php:2029
 msgid "Unban this member?"
 msgstr ""
 
-#: includes/Core/AssetService.php:2032
+#: includes/Core/AssetService.php:2030
 msgid "They will be able to request or join this space again."
 msgstr ""
 
-#: includes/Core/AssetService.php:2033
+#: includes/Core/AssetService.php:2031
 #: templates/parts/space-settings-panel-members.php:245
 msgid "Unban"
 msgstr ""
 
-#: includes/Core/AssetService.php:2034
+#: includes/Core/AssetService.php:2032
 msgid "Could not unban member. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:2053
+#: includes/Core/AssetService.php:2051
 msgid "Fields saved."
 msgstr "Поля сохранены."
 
-#: includes/Core/AssetService.php:2054
+#: includes/Core/AssetService.php:2052
 msgid "Could not save the fields. Try again."
 msgstr "Не удалось сохранить поля. Попробуйте снова."
 
 #. translators: %s: masked email address the code was sent to
-#: includes/Core/AssetService.php:2094
+#: includes/Core/AssetService.php:2092
 #, php-format
 msgid "Code sent to %s"
 msgstr "Код отправлен на %s"
 
-#: includes/Core/AssetService.php:2095
+#: includes/Core/AssetService.php:2093
 msgid "Code sent — check your email"
 msgstr "Код отправлен — проверьте вашу электронную почту"
 
-#: includes/Core/AssetService.php:2096
+#: includes/Core/AssetService.php:2094
 msgid "Enter your email and password to sign in."
 msgstr "Введите ваш адрес электронной почты и пароль для входа."
 
-#: includes/Core/AssetService.php:2098
+#: includes/Core/AssetService.php:2096
 msgid "Signed in."
 msgstr "Вошли в систему."
 
-#: includes/Core/AssetService.php:2100
+#: includes/Core/AssetService.php:2098
 msgid "That code was not correct."
 msgstr "Этот код был неправильным."
 
-#: includes/Core/AssetService.php:2101
+#: includes/Core/AssetService.php:2099
 msgid "If your session is still valid, a code is on its way."
 msgstr "Если ваш сеанс все еще действителен, код уже в пути."
 
-#: includes/Core/AssetService.php:2102
+#: includes/Core/AssetService.php:2100
 msgid "Could not send the code. Try your authenticator app."
 msgstr "Не удалось отправить код. Попробуйте приложение для аутентификации."
 
-#: includes/Core/AssetService.php:2123
+#: includes/Core/AssetService.php:2121
 msgid "Please fill in your email, username, and password."
 msgstr ""
 "Пожалуйста, заполните вашу электронную почту, имя пользователя и пароль."
 
-#: includes/Core/AssetService.php:2124
+#: includes/Core/AssetService.php:2122
 msgid "Please agree to the Terms of Service and Privacy Policy to continue."
 msgstr ""
 "Пожалуйста, согласитесь с условиями обслуживания и политикой "
 "конфиденциальности, чтобы продолжить."
 
-#: includes/Core/AssetService.php:2125
+#: includes/Core/AssetService.php:2123
 msgid "Please answer the verification question."
 msgstr "Пожалуйста, ответьте на вопрос проверки."
 
-#: includes/Core/AssetService.php:2126
+#: includes/Core/AssetService.php:2124
 msgid "Could not create your account."
 msgstr "Не удалось создать вашу учетную запись."
 
-#: includes/Core/AssetService.php:2127
+#: includes/Core/AssetService.php:2125
 msgid "Account created. Welcome aboard!"
 msgstr "Учетная запись создана. Добро пожаловать на борт!"
 
-#: includes/Core/AssetService.php:2132
+#: includes/Core/AssetService.php:2130
 msgid "Please choose a username."
 msgstr ""
 
-#: includes/Core/AssetService.php:2166
+#: includes/Core/AssetService.php:2164
 msgid "Please enter your email or username."
 msgstr "Пожалуйста, введите ваш адрес электронной почты или имя пользователя."
 
-#: includes/Core/AssetService.php:2167
+#: includes/Core/AssetService.php:2165
 msgid "If an account matches, a reset link is on its way."
 msgstr "Если учетная запись совпадает, ссылка для сброса уже в пути."
 
-#: includes/Core/AssetService.php:2169
+#: includes/Core/AssetService.php:2167
 msgid "Please choose a new password."
 msgstr "Пожалуйста, выберите новый пароль."
 
-#: includes/Core/AssetService.php:2170
+#: includes/Core/AssetService.php:2168
 msgid "Could not reset your password."
 msgstr "Не удалось сбросить ваш пароль."
 
-#: includes/Core/AssetService.php:2171
+#: includes/Core/AssetService.php:2169
 msgid "Password updated. Please sign in."
 msgstr "Пароль обновлен. Пожалуйста, войдите."
 
@@ -21609,6 +21596,15 @@ msgstr "Все роли"
 msgid "Reset"
 msgstr "Сброс"
 
+#. translators: %s: number of members matching the active filter/search.
+#: templates/parts/space-members-body.php:303
+#, php-format
+msgid "%s result"
+msgid_plural "%s results"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
 #: templates/parts/space-members-body.php:379
 #: templates/parts/space-settings-panel-members.php:161
 msgid "Make moderator"
@@ -22656,6 +22652,15 @@ msgstr "Самые новые"
 #: templates/spaces/directory.php:265
 msgid "A → Z"
 msgstr "A → Z"
+
+#. translators: %s: total number of spaces.
+#: templates/spaces/directory.php:280
+#, php-format
+msgid "%s space available"
+msgid_plural "%s spaces available"
+msgstr[0] "%s пространство доступно"
+msgstr[1] "%s пространства доступны"
+msgstr[2] "%s пространств доступны"
 
 #: templates/spaces/directory.php:319
 msgid "Create an account to join spaces, post, and reply."

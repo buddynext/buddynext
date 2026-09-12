@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.2.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-09-12T17:50:59+00:00\n"
+"POT-Creation-Date: 2026-09-12T19:02:47+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -115,7 +115,7 @@ msgstr[1] "%d minuten geleden"
 
 #. translators: %d: number of hours.
 #: buddynext.php:1728 includes/Core/AssetService.php:1017
-#: includes/Core/AssetService.php:1942
+#: includes/Core/AssetService.php:1940
 #, php-format
 msgid "%dh ago"
 msgid_plural "%dh ago"
@@ -193,7 +193,7 @@ msgstr ""
 msgid "Filter"
 msgstr "Filteren"
 
-#: includes/Admin/ActivityAdmin.php:186 includes/Core/AssetService.php:1977
+#: includes/Admin/ActivityAdmin.php:186 includes/Core/AssetService.php:1975
 #: templates/partials/media-upload-composer.php:146
 #: templates/parts/space-feed-panel.php:228
 msgid "Clear"
@@ -324,7 +324,7 @@ msgstr ""
 #: includes/Admin/Members/MemberTypesManager.php:290
 #: includes/Admin/Spaces.php:369 includes/Admin/Spaces.php:533
 #: includes/Admin/Spaces.php:688 includes/Core/AssetService.php:1029
-#: includes/Core/AssetService.php:1498 includes/Core/AssetService.php:1544
+#: includes/Core/AssetService.php:1496 includes/Core/AssetService.php:1542
 #: templates/partials/media-tab.php:69 templates/partials/media-tab.php:199
 #: templates/parts/dm-delete-modal.php:81
 #: templates/parts/dm-request-banner.php:42
@@ -342,7 +342,7 @@ msgstr "Verwijderen"
 #: includes/Admin/Members/ProfileFieldsManager.php:2395
 #: includes/Admin/NavManager.php:1916 includes/Admin/Spaces.php:687
 #: includes/Admin/Spaces.php:850 includes/Core/AssetService.php:1027
-#: includes/Core/AssetService.php:1328 includes/Core/AssetService.php:1596
+#: includes/Core/AssetService.php:1328 includes/Core/AssetService.php:1594
 #: includes/Core/PageRouter.php:1500
 #: templates/partials/block-confirm-modal.php:73
 #: templates/partials/create-space-modal.php:234
@@ -597,7 +597,7 @@ msgstr "Platform"
 #: includes/Admin/Members/MemberTypesManager.php:245
 #: includes/Admin/ModerationQueue.php:203 includes/Admin/NavManager.php:867
 #: includes/Admin/NavManager.php:2327 includes/Admin/Spaces.php:382
-#: includes/Admin/Spaces.php:464 includes/Core/AssetService.php:1718
+#: includes/Admin/Spaces.php:464 includes/Core/AssetService.php:1716
 #: includes/Core/CoreHubs.php:58 includes/Core/PageRouter.php:723
 #: includes/Core/PageRouter.php:786 includes/Core/Plugin.php:850
 #: includes/Core/SurfaceMeta.php:87 includes/Nav/Providers/SpaceNav.php:196
@@ -768,9 +768,9 @@ msgstr "Afbeelding selecteren"
 #: includes/Admin/Members/AvatarSettings.php:88
 #: includes/Admin/Members/AvatarSettings.php:292
 #: includes/Admin/Members/AvatarSettings.php:352
-#: includes/Admin/Settings.php:3405 includes/Core/AssetService.php:1570
-#: includes/Core/AssetService.php:1650 includes/Core/AssetService.php:1751
-#: includes/Core/AssetService.php:2024 templates/community-admin.php:939
+#: includes/Admin/Settings.php:3405 includes/Core/AssetService.php:1568
+#: includes/Core/AssetService.php:1648 includes/Core/AssetService.php:1749
+#: includes/Core/AssetService.php:2022 templates/community-admin.php:939
 #: templates/partials/composer.php:308
 #: templates/partials/media-upload-composer.php:55
 #: templates/partials/space-file-single.php:113
@@ -1655,7 +1655,7 @@ msgstr ""
 msgid "Post shared"
 msgstr ""
 
-#: includes/Admin/EmailLog.php:171 includes/Core/AssetService.php:1445
+#: includes/Admin/EmailLog.php:171 includes/Core/AssetService.php:1443
 #: templates/messages/native.php:182 templates/parts/dm-compose-modal.php:38
 #: templates/parts/dm-rail.php:272
 msgid "New message"
@@ -1941,7 +1941,7 @@ msgstr "Reacties"
 
 #: includes/Admin/Insights.php:121 includes/Admin/NavManager.php:841
 #: includes/Admin/RolesTab.php:62 includes/Admin/Settings.php:1081
-#: includes/Core/AssetService.php:1155 includes/Core/AssetService.php:1720
+#: includes/Core/AssetService.php:1155 includes/Core/AssetService.php:1718
 #: includes/Nav/Providers/ProfileNav.php:107
 #: includes/Nav/Providers/ProfileNav.php:263
 #: templates/directory/members.php:349 templates/partials/composer.php:617
@@ -2051,7 +2051,7 @@ msgstr ""
 
 #: includes/Admin/IntegrationControlsAdmin.php:90
 #: includes/Admin/Settings.php:3034 includes/Core/AssetService.php:947
-#: includes/Core/AssetService.php:1220 includes/Core/AssetService.php:1662
+#: includes/Core/AssetService.php:1220 includes/Core/AssetService.php:1660
 #: templates/blocks/connection-button.php:134
 #: templates/partials/connection-button.php:159
 #: templates/parts/member-card.php:498 templates/parts/profile-actions.php:261
@@ -2224,7 +2224,7 @@ msgstr "Item"
 #: includes/Admin/ModerationQueue.php:576
 #: includes/Admin/ModerationQueue.php:631
 #: includes/Admin/ModerationQueue.php:642 includes/Core/AssetService.php:1346
-#: includes/Core/AssetService.php:1456 includes/Messages/MessagesData.php:165
+#: includes/Core/AssetService.php:1454 includes/Messages/MessagesData.php:165
 #: includes/Privacy/PrivacyTools.php:815 includes/Privacy/PrivacyTools.php:873
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:541
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:592
@@ -2265,7 +2265,7 @@ msgstr[1] "Moderators"
 
 #: includes/Admin/Members.php:641 includes/Admin/Members.php:710
 #: includes/Admin/Members/MemberDisplay.php:56
-#: includes/Core/AssetService.php:1455 includes/Core/PageRouter.php:783
+#: includes/Core/AssetService.php:1453 includes/Core/PageRouter.php:783
 #: includes/Messages/MessagesData.php:165
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:551
 #: templates/community-admin.php:303 templates/community-admin.php:468
@@ -2438,7 +2438,7 @@ msgid "Bulk actions"
 msgstr "Bulkacties"
 
 #: includes/Admin/Members.php:1634 includes/Admin/Members.php:1829
-#: includes/Core/AssetService.php:1772
+#: includes/Core/AssetService.php:1770
 msgid "Suspend"
 msgstr "Opschorten"
 
@@ -2449,7 +2449,7 @@ msgstr "Heffen"
 
 #: includes/Admin/Members.php:1637 includes/Admin/ModerationQueue.php:241
 #: includes/Admin/Spaces.php:371 includes/Core/AssetService.php:1339
-#: includes/Core/AssetService.php:1597 templates/parts/filter-strip.php:201
+#: includes/Core/AssetService.php:1595 templates/parts/filter-strip.php:201
 #: templates/parts/filter-strip.php:206
 msgid "Apply"
 msgstr "Toepassen"
@@ -2472,7 +2472,7 @@ msgstr ""
 
 #: includes/Admin/Members.php:1659 includes/Admin/Members.php:1764
 #: includes/Core/AssetService.php:1167 includes/Core/AssetService.php:1301
-#: includes/Core/AssetService.php:1825 includes/Privacy/PrivacyTools.php:941
+#: includes/Core/AssetService.php:1823 includes/Privacy/PrivacyTools.php:941
 #: templates/onboarding/index.php:539
 #: templates/parts/search-result-section-spaces.php:181
 #: templates/parts/space-directory-card.php:206
@@ -2647,7 +2647,7 @@ msgstr "Geregistreerd"
 
 #: includes/Admin/Members/ApprovalManager.php:280
 #: includes/Admin/ModerationQueue.php:368
-#: includes/Admin/ModerationQueue.php:657 includes/Core/AssetService.php:1780
+#: includes/Admin/ModerationQueue.php:657 includes/Core/AssetService.php:1778
 #: templates/community-admin.php:1083
 #: templates/parts/profile/people-panel.php:159
 #: templates/spaces/moderation.php:512
@@ -2881,7 +2881,7 @@ msgstr ""
 "niet meer."
 
 #: includes/Admin/Members/InviteManager.php:254
-#: includes/Core/AssetService.php:1370 includes/Core/AssetService.php:2036
+#: includes/Core/AssetService.php:1370 includes/Core/AssetService.php:2034
 msgid "Invitation sent."
 msgstr "Uitnodiging verzonden."
 
@@ -2995,7 +2995,7 @@ msgstr[0] "Medewerker"
 msgstr[1] "Medewerkers"
 
 #: includes/Admin/Members/MemberDisplay.php:118
-#: includes/Core/AssetService.php:1936
+#: includes/Core/AssetService.php:1934
 msgid "Just now"
 msgstr "Zojuist"
 
@@ -3437,7 +3437,7 @@ msgstr ""
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1607
 #: includes/Admin/Settings.php:1009 includes/Core/AssetService.php:1152
-#: includes/Core/AssetService.php:1305 includes/Core/AssetService.php:1717
+#: includes/Core/AssetService.php:1305 includes/Core/AssetService.php:1715
 #: templates/partials/composer.php:576 templates/partials/composer.php:593
 #: templates/partials/explore-card.php:158 templates/partials/media-tab.php:247
 #: templates/partials/media-upload-composer.php:135
@@ -3467,7 +3467,7 @@ msgstr "Alleen verbindingen"
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1611
 #: includes/Admin/Settings.php:1012 includes/Core/AssetService.php:1156
-#: includes/Core/AssetService.php:1721 templates/partials/composer.php:644
+#: includes/Core/AssetService.php:1719 templates/partials/composer.php:644
 #: templates/partials/media-tab.php:249
 #: templates/partials/media-upload-composer.php:138
 #: templates/partials/post-card.php:402
@@ -4078,7 +4078,7 @@ msgstr "Bezwaar"
 msgid "Decision"
 msgstr "Besluit"
 
-#: includes/Admin/ModerationQueue.php:658 includes/Core/AssetService.php:1785
+#: includes/Admin/ModerationQueue.php:658 includes/Core/AssetService.php:1783
 #: templates/community-admin.php:1021
 msgid "Deny"
 msgstr "Weigeren"
@@ -4412,7 +4412,7 @@ msgid "Posts the member has liked"
 msgstr "Berichten die het lid leuk vindt"
 
 #: includes/Admin/NavManager.php:825 includes/Core/AssetService.php:1154
-#: includes/Core/AssetService.php:1719 includes/Nav/Providers/ProfileNav.php:88
+#: includes/Core/AssetService.php:1717 includes/Nav/Providers/ProfileNav.php:88
 #: includes/Nav/Providers/ProfileNav.php:276
 #: templates/blocks/profile-header.php:89 templates/partials/composer.php:605
 #: templates/partials/media-upload-composer.php:136
@@ -4425,7 +4425,7 @@ msgid "Members following this member"
 msgstr "Leden die dit lid volgen"
 
 #: includes/Admin/NavManager.php:833 includes/Core/AssetService.php:921
-#: includes/Core/AssetService.php:1218 includes/Core/AssetService.php:1827
+#: includes/Core/AssetService.php:1218 includes/Core/AssetService.php:1825
 #: includes/Nav/Providers/ProfileNav.php:98
 #: includes/Nav/Providers/ProfileNav.php:288
 #: templates/blocks/follow-button.php:52 templates/blocks/profile-header.php:93
@@ -4511,7 +4511,7 @@ msgstr "Meldingsbadge"
 
 #. translators: %s: member display name.
 #: includes/Admin/NavManager.php:1028 includes/Admin/NavManager.php:2354
-#: includes/Core/AssetService.php:1631 includes/Core/PageRouter.php:896
+#: includes/Core/AssetService.php:1629 includes/Core/PageRouter.php:896
 #: includes/Nav/ShellNavService.php:119
 #: includes/Onboarding/OnboardingService.php:106 templates/partials/nav.php:186
 #: templates/parts/dm-thread-header.php:153
@@ -6958,14 +6958,14 @@ msgid ""
 msgstr ""
 
 #: includes/Admin/Settings.php:3212 includes/Admin/Settings.php:3214
-#: includes/Core/AssetService.php:2076 templates/auth/login.php:161
+#: includes/Core/AssetService.php:2074 templates/auth/login.php:161
 #: templates/auth/login.php:164 templates/auth/signup.php:478
 #: templates/auth/signup.php:481 templates/gamification/leaderboard.php:381
 #: assets/js/admin/settings.js:393 assets/js/blocks.js:406
 msgid "Show"
 msgstr "Weergeven"
 
-#: includes/Admin/Settings.php:3213 includes/Core/AssetService.php:2075
+#: includes/Admin/Settings.php:3213 includes/Core/AssetService.php:2073
 #: templates/auth/login.php:162 templates/auth/signup.php:479
 #: assets/js/admin/settings.js:379 assets/js/admin/settings.js:392
 msgid "Hide"
@@ -7842,7 +7842,7 @@ msgstr ""
 
 #: includes/Auth/ApprovalGuard.php:92 includes/Auth/ApprovalGuard.php:110
 #: includes/Auth/AuthController.php:923 includes/Auth/SocialLogin.php:1376
-#: includes/Core/AssetService.php:2133
+#: includes/Core/AssetService.php:2131
 msgid "Your account is awaiting administrator approval."
 msgstr "Je account wacht op goedkeuring van een beheerder."
 
@@ -7869,7 +7869,7 @@ msgstr ""
 msgid "Account not found."
 msgstr "Account niet gevonden."
 
-#: includes/Auth/AuthController.php:577 includes/Core/AssetService.php:1694
+#: includes/Auth/AuthController.php:577 includes/Core/AssetService.php:1692
 msgid "Enter your current password."
 msgstr "Voer je huidige wachtwoord in."
 
@@ -7877,11 +7877,11 @@ msgstr "Voer je huidige wachtwoord in."
 msgid "Current password does not match."
 msgstr "Huidig wachtwoord komt niet overeen."
 
-#: includes/Auth/AuthController.php:584 includes/Core/AssetService.php:1695
+#: includes/Auth/AuthController.php:584 includes/Core/AssetService.php:1693
 msgid "Enter a new password."
 msgstr "Voer een nieuw wachtwoord in."
 
-#: includes/Auth/AuthController.php:586 includes/Core/AssetService.php:1696
+#: includes/Auth/AuthController.php:586 includes/Core/AssetService.php:1694
 msgid "Use at least 8 characters."
 msgstr "Gebruik minstens 8 tekens."
 
@@ -7901,7 +7901,7 @@ msgstr "Dat is al je e-mailadres."
 msgid "An account with that email already exists."
 msgstr "Er bestaat al een account met dat e-mailadres."
 
-#: includes/Auth/AuthController.php:676 includes/Core/AssetService.php:1678
+#: includes/Auth/AuthController.php:676 includes/Core/AssetService.php:1676
 msgid "Check your inbox to confirm."
 msgstr "Controleer je inbox om te bevestigen."
 
@@ -7918,7 +7918,7 @@ msgstr ""
 msgid "Please enter your email or username and your password."
 msgstr "Voer je e-mailadres of gebruikersnaam en je wachtwoord in."
 
-#: includes/Auth/AuthController.php:984 includes/Core/AssetService.php:2097
+#: includes/Auth/AuthController.php:984 includes/Core/AssetService.php:2095
 msgid "Invalid email or password."
 msgstr "Ongeldig e-mailadres of wachtwoord."
 
@@ -7968,7 +7968,7 @@ msgstr "Je moet de Servicevoorwaarden accepteren om door te gaan."
 
 #. translators: %s: field label.
 #: includes/Auth/AuthController.php:1391 includes/Auth/AuthController.php:1615
-#: includes/Core/AssetService.php:1645
+#: includes/Core/AssetService.php:1643
 #: includes/Profile/ProfileController.php:1618
 #: includes/Profile/ProfileController.php:1640
 #: includes/Profile/ProfileService.php:876
@@ -8050,7 +8050,7 @@ msgstr "Verificatie-e-mail verzonden."
 msgid "Your email address is already verified."
 msgstr "Je e-mailadres is al geverifieerd."
 
-#: includes/Auth/AuthController.php:1996 includes/Core/AssetService.php:1687
+#: includes/Auth/AuthController.php:1996 includes/Core/AssetService.php:1685
 msgid "Your email address is now marked as verified."
 msgstr ""
 
@@ -9164,16 +9164,16 @@ msgstr "Alex"
 msgid "Jordan Lee"
 msgstr "Jordan Lee"
 
-#: includes/Core/AssetService.php:902 includes/Core/AssetService.php:1844
-#: includes/Core/AssetService.php:2099 includes/Core/AssetService.php:2128
-#: includes/Core/AssetService.php:2150 includes/Core/AssetService.php:2168
+#: includes/Core/AssetService.php:902 includes/Core/AssetService.php:1842
+#: includes/Core/AssetService.php:2097 includes/Core/AssetService.php:2126
+#: includes/Core/AssetService.php:2148 includes/Core/AssetService.php:2166
 #: templates/messages/native.php:185
 #: templates/partials/space-file-single.php:116
 msgid "Something went wrong. Please try again."
 msgstr "Er is iets fout gegaan. Probeer het opnieuw."
 
 #: includes/Core/AssetService.php:920 includes/Core/AssetService.php:1217
-#: includes/Core/AssetService.php:1826 templates/blocks/follow-button.php:54
+#: includes/Core/AssetService.php:1824 templates/blocks/follow-button.php:54
 #: templates/onboarding/index.php:640 templates/partials/follow-button.php:145
 #: templates/parts/hashtag-sidebar-related.php:148
 #: templates/parts/member-card.php:476 templates/parts/profile-actions.php:165
@@ -9259,7 +9259,7 @@ msgid "Could not decline request. Try again."
 msgstr "Kon verzoek niet weigeren. Probeer het opnieuw."
 
 #: includes/Core/AssetService.php:946 includes/Core/AssetService.php:1219
-#: includes/Core/AssetService.php:1637
+#: includes/Core/AssetService.php:1635
 #: templates/blocks/connection-button.php:166
 #: templates/partials/connection-button.php:192
 #: templates/parts/member-card.php:502 templates/parts/profile-actions.php:247
@@ -9403,13 +9403,13 @@ msgstr "(bewerkt)"
 msgid " (edited)"
 msgstr " (bewerkt)"
 
-#: includes/Core/AssetService.php:1037 includes/Core/AssetService.php:1574
+#: includes/Core/AssetService.php:1037 includes/Core/AssetService.php:1572
 #: templates/partials/media-upload-composer.php:58
 msgid "This cannot be undone."
 msgstr "Dit kan niet ongedaan worden gemaakt."
 
-#: includes/Core/AssetService.php:1038 includes/Core/AssetService.php:1901
-#: includes/Core/AssetService.php:2005 assets/js/admin/settings.js:135
+#: includes/Core/AssetService.php:1038 includes/Core/AssetService.php:1899
+#: includes/Core/AssetService.php:2003 assets/js/admin/settings.js:135
 msgid "Network error. Try again."
 msgstr "Netwerkfout. Probeer het opnieuw."
 
@@ -9580,12 +9580,12 @@ msgid "Report this post"
 msgstr "Rapporteer dit bericht"
 
 #: includes/Core/AssetService.php:1077 includes/Core/AssetService.php:1277
-#: includes/Core/AssetService.php:1341 includes/Core/AssetService.php:1677
+#: includes/Core/AssetService.php:1341 includes/Core/AssetService.php:1675
 msgid "Report submitted. Thanks for keeping the community safe."
 msgstr "Rapport ingediend. Bedankt dat je de community veilig houdt."
 
 #: includes/Core/AssetService.php:1078 includes/Core/AssetService.php:1278
-#: includes/Core/AssetService.php:1342 includes/Core/AssetService.php:1676
+#: includes/Core/AssetService.php:1342 includes/Core/AssetService.php:1674
 msgid "Could not submit report. Try again."
 msgstr "Kon rapport niet indienen. Probeer het opnieuw."
 
@@ -9761,7 +9761,7 @@ msgstr "Kon niet opnieuw posten. Probeer opnieuw."
 msgid "Link copied"
 msgstr "Link gekopieerd"
 
-#: includes/Core/AssetService.php:1131 includes/Core/AssetService.php:1665
+#: includes/Core/AssetService.php:1131 includes/Core/AssetService.php:1663
 msgid "Could not copy link."
 msgstr "Link kon niet gekopieerd worden."
 
@@ -9790,7 +9790,7 @@ msgstr "Je bericht kon niet gepubliceerd worden. Probeer opnieuw."
 msgid "You don’t have permission to post here."
 msgstr "Je hebt geen toestemming om hier te posten."
 
-#: includes/Core/AssetService.php:1139 includes/Core/AssetService.php:2149
+#: includes/Core/AssetService.php:1139 includes/Core/AssetService.php:2147
 msgid "Verification email sent. Check your inbox."
 msgstr "Verificatie-e-mail verzonden. Controleer je inbox."
 
@@ -10009,21 +10009,21 @@ msgstr "Profiel bekijken"
 msgid "Message"
 msgstr "Bericht sturen"
 
-#: includes/Core/AssetService.php:1227 includes/Core/AssetService.php:1609
+#: includes/Core/AssetService.php:1227 includes/Core/AssetService.php:1607
 #: templates/parts/member-card.php:237
 #: templates/parts/profile-actions-overflow.php:121
 msgid "Mute"
 msgstr "Dempen"
 
-#: includes/Core/AssetService.php:1228 includes/Core/AssetService.php:1608
+#: includes/Core/AssetService.php:1228 includes/Core/AssetService.php:1606
 #: templates/parts/member-card.php:237
 #: templates/parts/notifications-sidecard-muted.php:128
 #: templates/parts/settings-relations.php:58
 msgid "Unmute"
 msgstr "Geluid aan"
 
-#: includes/Core/AssetService.php:1229 includes/Core/AssetService.php:1486
-#: includes/Core/AssetService.php:1613
+#: includes/Core/AssetService.php:1229 includes/Core/AssetService.php:1484
+#: includes/Core/AssetService.php:1611
 #: templates/partials/block-confirm-modal.php:81
 #: templates/partials/media-lightbox.php:157
 #: templates/parts/member-block-modal.php:76
@@ -10089,7 +10089,7 @@ msgid "Could not update mute state. Try again."
 msgstr "Kon dempstatus niet bijwerken. Probeer opnieuw."
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1272 includes/Core/AssetService.php:1484
+#: includes/Core/AssetService.php:1272 includes/Core/AssetService.php:1482
 #: templates/partials/block-confirm-modal.php:38
 #, php-format
 msgid "Block %s?"
@@ -10107,7 +10107,7 @@ msgstr "Dit lid blokkeren?"
 msgid "@%s blocked"
 msgstr "@%s geblokkeerd"
 
-#: includes/Core/AssetService.php:1276 includes/Core/AssetService.php:1675
+#: includes/Core/AssetService.php:1276 includes/Core/AssetService.php:1673
 msgid "Could not block. Try again."
 msgstr "Kon niet blokkeren. Probeer opnieuw."
 
@@ -10115,7 +10115,7 @@ msgstr "Kon niet blokkeren. Probeer opnieuw."
 msgid "Could not load members. Check your connection and try again."
 msgstr "Kon leden niet laden. Controleer je verbinding en probeer opnieuw."
 
-#: includes/Core/AssetService.php:1300 includes/Core/AssetService.php:1824
+#: includes/Core/AssetService.php:1300 includes/Core/AssetService.php:1822
 #: templates/onboarding/index.php:539
 #: templates/parts/search-result-section-spaces.php:180
 #: templates/parts/space-directory-card.php:240
@@ -10136,12 +10136,12 @@ msgstr "Deelgenomen - klik om te verlaten"
 msgid "Request pending - click to cancel"
 msgstr "Aanvraag in afwachting - klik om te annuleren"
 
-#: includes/Core/AssetService.php:1308 includes/Core/AssetService.php:1452
+#: includes/Core/AssetService.php:1308 includes/Core/AssetService.php:1450
 msgid "1 member"
 msgstr "1 lid"
 
 #. translators: %d: number of members.
-#: includes/Core/AssetService.php:1310 includes/Core/AssetService.php:1454
+#: includes/Core/AssetService.php:1310 includes/Core/AssetService.php:1452
 #, php-format
 msgid "%d members"
 msgstr "%d leden"
@@ -10171,15 +10171,15 @@ msgstr ""
 msgid "Invitation accepted."
 msgstr "Uitnodiging geaccepteerd."
 
-#: includes/Core/AssetService.php:1320 includes/Core/AssetService.php:1898
+#: includes/Core/AssetService.php:1320 includes/Core/AssetService.php:1896
 msgid "Could not accept the invitation."
 msgstr "Kon de uitnodiging niet accepteren."
 
-#: includes/Core/AssetService.php:1321 includes/Core/AssetService.php:1899
+#: includes/Core/AssetService.php:1321 includes/Core/AssetService.php:1897
 msgid "Invitation declined."
 msgstr "Uitnodiging afgeslagen."
 
-#: includes/Core/AssetService.php:1322 includes/Core/AssetService.php:1900
+#: includes/Core/AssetService.php:1322 includes/Core/AssetService.php:1898
 msgid "Could not decline the invitation."
 msgstr "Kon de uitnodiging niet afslaan."
 
@@ -10199,17 +10199,17 @@ msgstr "Kon de aanvraag niet goedkeuren."
 msgid "Could not decline the request."
 msgstr "Kon de aanvraag niet afwijzen."
 
-#: includes/Core/AssetService.php:1336 includes/Core/AssetService.php:1599
+#: includes/Core/AssetService.php:1336 includes/Core/AssetService.php:1597
 msgid "Reposition cover photo"
 msgstr "Plaats omslagfoto opnieuw"
 
-#: includes/Core/AssetService.php:1337 includes/Core/AssetService.php:1600
+#: includes/Core/AssetService.php:1337 includes/Core/AssetService.php:1598
 msgid "Drag to reposition · scroll or use the slider to zoom"
 msgstr ""
 "Sleep om opnieuw in te stellen · scrol of gebruik de schuifregelaar om in te "
 "zoomen"
 
-#: includes/Core/AssetService.php:1338 includes/Core/AssetService.php:1595
+#: includes/Core/AssetService.php:1338 includes/Core/AssetService.php:1593
 msgid "Zoom"
 msgstr "Inzoomen"
 
@@ -10310,11 +10310,11 @@ msgstr "Kon notificatievoorkeur niet bijwerken."
 msgid "Notification preference saved."
 msgstr "Notificatievoorkeur opgeslagen."
 
-#: includes/Core/AssetService.php:1369 includes/Core/AssetService.php:2035
+#: includes/Core/AssetService.php:1369 includes/Core/AssetService.php:2033
 msgid "Enter a username or email address."
 msgstr "Voer een gebruikersnaam of e-mailadres in."
 
-#: includes/Core/AssetService.php:1371 includes/Core/AssetService.php:2037
+#: includes/Core/AssetService.php:1371 includes/Core/AssetService.php:2035
 msgid "Could not send the invitation."
 msgstr "Kon de uitnodiging niet verzenden."
 
@@ -10351,242 +10351,231 @@ msgstr ""
 msgid "You will stop seeing its posts and can join again later."
 msgstr ""
 
-#: includes/Core/AssetService.php:1382 includes/Core/AssetService.php:1464
+#: includes/Core/AssetService.php:1382 includes/Core/AssetService.php:1462
 #: templates/messages/native.php:188
 msgid "Leave"
 msgstr "Verlaten"
 
-#. translators: %s: number of spaces.
-#. translators: %s: total number of spaces.
-#: includes/Core/AssetService.php:1388 templates/spaces/directory.php:280
-#, php-format
-msgid "%s space available"
-msgid_plural "%s spaces available"
-msgstr[0] "%s ruimte beschikbaar"
-msgstr[1] "%s ruimtes beschikbaar"
+#: includes/Core/AssetService.php:1387
+msgid "1 space available"
+msgstr ""
 
 #. translators: %s: number of spaces.
-#: includes/Core/AssetService.php:1390
+#: includes/Core/AssetService.php:1389
 #, php-format
 msgid "%s spaces available"
 msgstr ""
 
-#. translators: %s: number of matching spaces.
-#. translators: %s: number of members matching the active filter/search.
-#: includes/Core/AssetService.php:1392
-#: templates/parts/space-members-body.php:303
-#, php-format
-msgid "%s result"
-msgid_plural "%s results"
-msgstr[0] ""
-msgstr[1] ""
+#: includes/Core/AssetService.php:1390
+msgid "1 result"
+msgstr ""
 
 #. translators: %s: number of matching spaces.
-#: includes/Core/AssetService.php:1394
+#: includes/Core/AssetService.php:1392
 #, php-format
 msgid "%s results"
 msgstr ""
 
-#: includes/Core/AssetService.php:1395
+#: includes/Core/AssetService.php:1393
 msgid "Could not upload cover."
 msgstr "Kon omslag niet uploaden."
 
-#: includes/Core/AssetService.php:1396 includes/Core/AssetService.php:1553
+#: includes/Core/AssetService.php:1394 includes/Core/AssetService.php:1551
 #: templates/partials/media-tab.php:73
 msgid "Cover updated."
 msgstr "Omslag bijgewerkt."
 
-#: includes/Core/AssetService.php:1397
+#: includes/Core/AssetService.php:1395
 msgid "Could not remove cover."
 msgstr "Kon omslag niet verwijderen."
 
-#: includes/Core/AssetService.php:1398
+#: includes/Core/AssetService.php:1396
 msgid "Cover removed."
 msgstr "Omslag verwijderd."
 
-#: includes/Core/AssetService.php:1399 templates/partials/media-tab.php:296
+#: includes/Core/AssetService.php:1397 templates/partials/media-tab.php:296
 #: templates/partials/media-upload-composer.php:152
 #: templates/partials/space-files-tab.php:70
 msgid "Uploading…"
 msgstr "Uploaden…"
 
-#: includes/Core/AssetService.php:1400
+#: includes/Core/AssetService.php:1398
 msgid "Could not upload icon."
 msgstr "Kon pictogram niet uploaden."
 
-#: includes/Core/AssetService.php:1401
+#: includes/Core/AssetService.php:1399
 msgid "Icon updated."
 msgstr "Pictogram bijgewerkt."
 
-#: includes/Core/AssetService.php:1402
+#: includes/Core/AssetService.php:1400
 msgid "Could not remove icon."
 msgstr "Kon pictogram niet verwijderen."
 
-#: includes/Core/AssetService.php:1403
+#: includes/Core/AssetService.php:1401
 msgid "Icon removed."
 msgstr "Pictogram verwijderd."
 
-#: includes/Core/AssetService.php:1404 assets/js/admin/settings.js:203
+#: includes/Core/AssetService.php:1402 assets/js/admin/settings.js:203
 #: assets/js/admin/settings.js:234
 msgid "Network error."
 msgstr "Netwerkfout."
 
-#: includes/Core/AssetService.php:1405
+#: includes/Core/AssetService.php:1403
 msgid "Network error. Please try again."
 msgstr "Netwerkfout. Probeer alstublieft opnieuw."
 
 #. translators: %d: number of sub-spaces
-#: includes/Core/AssetService.php:1409
+#: includes/Core/AssetService.php:1407
 #, php-format
 msgid "%d sub-space"
 msgstr "%d sub-space"
 
 #. translators: %d: number of sub-spaces
-#: includes/Core/AssetService.php:1411
+#: includes/Core/AssetService.php:1409
 #, php-format
 msgid "%d sub-spaces"
 msgstr "%d sub-spaces"
 
-#: includes/Core/AssetService.php:1412 templates/spaces/directory.php:665
+#: includes/Core/AssetService.php:1410 templates/spaces/directory.php:665
 msgid "Spaces directory pages"
 msgstr "Paginabladering ruimtegids"
 
-#: includes/Core/AssetService.php:1413
+#: includes/Core/AssetService.php:1411
 msgid "Next ›"
 msgstr "Volgende ›"
 
-#: includes/Core/AssetService.php:1417
+#: includes/Core/AssetService.php:1415
 msgid "Could not search spaces. Check your connection and try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1418
+#: includes/Core/AssetService.php:1416
 msgid "No top-level spaces you manage match that name."
 msgstr ""
 
-#: includes/Core/AssetService.php:1419
+#: includes/Core/AssetService.php:1417
 msgid "Showing the first matches — keep typing to narrow the list."
 msgstr ""
 
-#: includes/Core/AssetService.php:1422
+#: includes/Core/AssetService.php:1420
 msgid "Could not search discussions. Check your connection and try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1423
+#: includes/Core/AssetService.php:1421
 msgid "Request sent — you’ll be notified when it’s approved."
 msgstr ""
 
-#: includes/Core/AssetService.php:1444 templates/messages/native.php:183
+#: includes/Core/AssetService.php:1442 templates/messages/native.php:183
 #: templates/parts/dm-compose-modal.php:48
 msgid "New group"
 msgstr "Nieuwe groep"
 
-#: includes/Core/AssetService.php:1446
+#: includes/Core/AssetService.php:1444
 msgid "Search for a person to message."
 msgstr "Zoek naar een persoon om te berichten."
 
-#: includes/Core/AssetService.php:1447
+#: includes/Core/AssetService.php:1445
 msgid "No people found."
 msgstr "Geen personen gevonden."
 
-#: includes/Core/AssetService.php:1451
+#: includes/Core/AssetService.php:1449
 msgid "Could not search right now. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1457 includes/Messages/MessagesData.php:166
+#: includes/Core/AssetService.php:1455 includes/Messages/MessagesData.php:166
 #: templates/messages/native.php:193 templates/parts/space-members-body.php:377
 msgid "Make member"
 msgstr "Maak lid"
 
-#: includes/Core/AssetService.php:1458 includes/Messages/MessagesData.php:166
+#: includes/Core/AssetService.php:1456 includes/Messages/MessagesData.php:166
 #: templates/messages/native.php:192
 msgid "Make admin"
 msgstr "Maak beheerder"
 
-#: includes/Core/AssetService.php:1459
+#: includes/Core/AssetService.php:1457
 msgid "Group renamed."
 msgstr "Groep hernoemd."
 
-#: includes/Core/AssetService.php:1460
+#: includes/Core/AssetService.php:1458
 msgid "Something went wrong."
 msgstr "Er is iets fout gegaan."
 
-#: includes/Core/AssetService.php:1461
+#: includes/Core/AssetService.php:1459
 msgid "Could not create the group."
 msgstr "Kon de groep niet maken."
 
-#: includes/Core/AssetService.php:1462 templates/messages/native.php:186
+#: includes/Core/AssetService.php:1460 templates/messages/native.php:186
 msgid "Leave this group?"
 msgstr "Deze groep verlaten?"
 
-#: includes/Core/AssetService.php:1463 templates/messages/native.php:187
+#: includes/Core/AssetService.php:1461 templates/messages/native.php:187
 msgid "You will stop receiving messages from this conversation."
 msgstr "Je stopt met het ontvangen van berichten uit dit gesprek."
 
-#: includes/Core/AssetService.php:1465 templates/parts/dm-message.php:153
+#: includes/Core/AssetService.php:1463 templates/parts/dm-message.php:153
 msgid "Attachment"
 msgstr "Bijlage"
 
-#: includes/Core/AssetService.php:1468
+#: includes/Core/AssetService.php:1466
 msgid "Could not attach that file. Try a different one."
 msgstr ""
 
-#: includes/Core/AssetService.php:1469 templates/parts/dm-info-panel.php:83
+#: includes/Core/AssetService.php:1467 templates/parts/dm-info-panel.php:83
 msgid "No photos shared yet."
 msgstr "Nog geen foto's gedeeld."
 
-#: includes/Core/AssetService.php:1470
+#: includes/Core/AssetService.php:1468
 msgid "No photos to share yet."
 msgstr "Nog geen foto's om te delen."
 
-#: includes/Core/AssetService.php:1471
+#: includes/Core/AssetService.php:1469
 msgid "Close emoji picker"
 msgstr "Emoji-kiezer sluiten"
 
-#: includes/Core/AssetService.php:1472
+#: includes/Core/AssetService.php:1470
 msgid "You can no longer message this person."
 msgstr "Je kunt deze persoon niet meer berichten."
 
-#: includes/Core/AssetService.php:1473
+#: includes/Core/AssetService.php:1471
 msgid "This person isn’t accepting messages right now."
 msgstr "Deze persoon accepteert momenteel geen berichten."
 
-#: includes/Core/AssetService.php:1474
+#: includes/Core/AssetService.php:1472
 msgid "This person only accepts messages from their connections."
 msgstr "Deze persoon accepteert alleen berichten van hun verbindingen."
 
-#: includes/Core/AssetService.php:1475
+#: includes/Core/AssetService.php:1473
 msgid "You’re sending messages too quickly — please wait a moment."
 msgstr "Je verstuurt berichten te snel — wacht even."
 
-#: includes/Core/AssetService.php:1476
+#: includes/Core/AssetService.php:1474
 msgid "That message is too long to send."
 msgstr "Dit bericht is te lang om te verzenden."
 
-#: includes/Core/AssetService.php:1477
+#: includes/Core/AssetService.php:1475
 msgid "You can no longer post to this conversation."
 msgstr "Je kunt niet meer op dit gesprek plaatsen."
 
-#: includes/Core/AssetService.php:1478
+#: includes/Core/AssetService.php:1476
 msgid "Your message couldn’t be sent. Please try again."
 msgstr "Je bericht kon niet worden verzonden. Probeer alstublieft opnieuw."
 
-#: includes/Core/AssetService.php:1479
+#: includes/Core/AssetService.php:1477
 msgid "Report this message"
 msgstr "Dit bericht rapporteren"
 
-#: includes/Core/AssetService.php:1480
+#: includes/Core/AssetService.php:1478
 msgid "Message reported. Our moderators will review it."
 msgstr "Bericht gemeld. Onze moderators zullen het beoordelen."
 
-#: includes/Core/AssetService.php:1481
+#: includes/Core/AssetService.php:1479
 msgid "Could not report this message. Try again."
 msgstr "Kon dit bericht niet rapporteren. Probeer opnieuw."
 
-#: includes/Core/AssetService.php:1482
+#: includes/Core/AssetService.php:1480
 msgid "this member"
 msgstr "dit lid"
 
-#: includes/Core/AssetService.php:1485
+#: includes/Core/AssetService.php:1483
 msgid ""
 "They will not be able to message you, and you will not see each other across "
 "the community. You can unblock them later from their profile."
@@ -10595,34 +10584,34 @@ msgstr ""
 "gemeenschap. Je kunt ze later deblokkeren via hun profiel."
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1488
+#: includes/Core/AssetService.php:1486
 #, php-format
 msgid "%s blocked."
 msgstr "%s geblokkeerd."
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1490
+#: includes/Core/AssetService.php:1488
 #, php-format
 msgid "Could not block %s. Try again."
 msgstr "Kon %s niet blokkeren. Probeer opnieuw."
 
-#: includes/Core/AssetService.php:1491
+#: includes/Core/AssetService.php:1489
 msgid "Report this conversation"
 msgstr "Dit gesprek rapporteren"
 
-#: includes/Core/AssetService.php:1492
+#: includes/Core/AssetService.php:1490
 msgid "Reported. Our moderators will review it."
 msgstr "Gemeld. Onze moderators zullen het beoordelen."
 
-#: includes/Core/AssetService.php:1493
+#: includes/Core/AssetService.php:1491
 msgid "Could not submit the report. Try again."
 msgstr "Kon het rapport niet indienen. Probeer opnieuw."
 
-#: includes/Core/AssetService.php:1496
+#: includes/Core/AssetService.php:1494
 msgid "Delete this message?"
 msgstr "Dit bericht verwijderen?"
 
-#: includes/Core/AssetService.php:1497
+#: includes/Core/AssetService.php:1495
 msgid ""
 "This removes the message for everyone and leaves a \"message deleted\" note. "
 "This cannot be undone."
@@ -10630,23 +10619,23 @@ msgstr ""
 "Dit verwijdert het bericht voor iedereen en laat een \"bericht verwijderd\"-"
 "opmerking achter. Dit kan niet ongedaan worden gemaakt."
 
-#: includes/Core/AssetService.php:1499
+#: includes/Core/AssetService.php:1497
 msgid "This message was deleted"
 msgstr "Dit bericht is verwijderd"
 
-#: includes/Core/AssetService.php:1500
+#: includes/Core/AssetService.php:1498
 msgid "You can only delete your own messages."
 msgstr "Je kunt alleen je eigen berichten verwijderen."
 
-#: includes/Core/AssetService.php:1501
+#: includes/Core/AssetService.php:1499
 msgid "Could not delete the message. Try again."
 msgstr "Het bericht kon niet worden verwijderd. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1502
+#: includes/Core/AssetService.php:1500
 msgid "Unsend this message?"
 msgstr "Dit bericht terugsturen?"
 
-#: includes/Core/AssetService.php:1503
+#: includes/Core/AssetService.php:1501
 msgid ""
 "This removes the message for everyone, with no trace. Unsend only works for "
 "a short time after sending."
@@ -10654,241 +10643,241 @@ msgstr ""
 "Dit verwijdert het bericht voor iedereen, zonder spoor. Terugsturen werkt "
 "alleen kort na verzending."
 
-#: includes/Core/AssetService.php:1504
+#: includes/Core/AssetService.php:1502
 msgid "Unsend"
 msgstr "Terugsturen"
 
-#: includes/Core/AssetService.php:1505
+#: includes/Core/AssetService.php:1503
 msgid "The time to unsend this message has passed. You can still delete it."
 msgstr ""
 "De tijd om dit bericht terug te sturen is voorbij. Je kunt het nog steeds "
 "verwijderen."
 
-#: includes/Core/AssetService.php:1506
+#: includes/Core/AssetService.php:1504
 msgid "You can only unsend your own messages."
 msgstr "Je kunt alleen je eigen berichten terugsturen."
 
-#: includes/Core/AssetService.php:1507
+#: includes/Core/AssetService.php:1505
 msgid "Could not unsend the message. Try again."
 msgstr "Het bericht kon niet worden teruggestuurd. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1511
+#: includes/Core/AssetService.php:1509
 msgid "Could not delete this conversation. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1529
+#: includes/Core/AssetService.php:1527
 msgid "Could not load this album."
 msgstr ""
 
-#: includes/Core/AssetService.php:1530
+#: includes/Core/AssetService.php:1528
 msgid "Could not load your media."
 msgstr ""
 
-#: includes/Core/AssetService.php:1531
+#: includes/Core/AssetService.php:1529
 msgid "Something went wrong. Check your connection and try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1532 includes/PWA/PwaService.php:475
+#: includes/Core/AssetService.php:1530 includes/PWA/PwaService.php:475
 #: templates/notifications/index.php:458
 msgid "Try again"
 msgstr "Probeer opnieuw"
 
-#: includes/Core/AssetService.php:1533
+#: includes/Core/AssetService.php:1531
 msgid "Could not save the new order. Your photos were put back."
 msgstr ""
 
-#: includes/Core/AssetService.php:1537 templates/partials/media-tab.php:63
+#: includes/Core/AssetService.php:1535 templates/partials/media-tab.php:63
 msgid "Album created."
 msgstr "Album gemaakt."
 
-#: includes/Core/AssetService.php:1538 templates/partials/media-tab.php:64
+#: includes/Core/AssetService.php:1536 templates/partials/media-tab.php:64
 msgid "Album updated."
 msgstr "Album bijgewerkt."
 
-#: includes/Core/AssetService.php:1539 templates/partials/media-tab.php:70
+#: includes/Core/AssetService.php:1537 templates/partials/media-tab.php:70
 msgid "Album deleted."
 msgstr "Album verwijderd."
 
-#: includes/Core/AssetService.php:1540 templates/partials/media-tab.php:65
+#: includes/Core/AssetService.php:1538 templates/partials/media-tab.php:65
 msgid "Could not save the album."
 msgstr "Kon het album niet opslaan."
 
-#: includes/Core/AssetService.php:1541 templates/partials/media-tab.php:71
+#: includes/Core/AssetService.php:1539 templates/partials/media-tab.php:71
 msgid "Could not delete the album."
 msgstr "Kon het album niet verwijderen."
 
-#: includes/Core/AssetService.php:1542 templates/partials/media-tab.php:67
+#: includes/Core/AssetService.php:1540 templates/partials/media-tab.php:67
 msgid "Delete this album?"
 msgstr "Dit album verwijderen?"
 
-#: includes/Core/AssetService.php:1543 templates/partials/media-tab.php:68
+#: includes/Core/AssetService.php:1541 templates/partials/media-tab.php:68
 msgid "The photos stay in your media."
 msgstr "De foto's blijven in je media."
 
-#: includes/Core/AssetService.php:1545 templates/partials/media-tab.php:80
+#: includes/Core/AssetService.php:1543 templates/partials/media-tab.php:80
 msgid "This album is empty."
 msgstr "Dit album is leeg."
 
-#: includes/Core/AssetService.php:1546 templates/partials/media-tab.php:75
+#: includes/Core/AssetService.php:1544 templates/partials/media-tab.php:75
 msgid "Added to album."
 msgstr "Toegevoegd aan album."
 
-#: includes/Core/AssetService.php:1547 templates/partials/media-tab.php:76
+#: includes/Core/AssetService.php:1545 templates/partials/media-tab.php:76
 msgid "Could not add media."
 msgstr "Kon media niet toevoegen."
 
-#: includes/Core/AssetService.php:1548 templates/partials/media-tab.php:81
+#: includes/Core/AssetService.php:1546 templates/partials/media-tab.php:81
 msgid "Remove from album"
 msgstr "Uit album verwijderen"
 
-#: includes/Core/AssetService.php:1549 templates/partials/media-tab.php:82
+#: includes/Core/AssetService.php:1547 templates/partials/media-tab.php:82
 msgid "Remove this from the album?"
 msgstr "Dit uit het album verwijderen?"
 
-#: includes/Core/AssetService.php:1550 templates/partials/media-tab.php:83
+#: includes/Core/AssetService.php:1548 templates/partials/media-tab.php:83
 msgid "Removed from album."
 msgstr "Uit album verwijderd."
 
-#: includes/Core/AssetService.php:1551 includes/Core/AssetService.php:1572
+#: includes/Core/AssetService.php:1549 includes/Core/AssetService.php:1570
 #: templates/partials/media-tab.php:84
 #: templates/partials/media-upload-composer.php:62
 msgid "Could not remove."
 msgstr "Kon niet verwijderen."
 
-#: includes/Core/AssetService.php:1552 templates/partials/media-tab.php:72
+#: includes/Core/AssetService.php:1550 templates/partials/media-tab.php:72
 msgid "Set as cover"
 msgstr "Instellen als omslag"
 
-#: includes/Core/AssetService.php:1554 templates/partials/media-tab.php:74
+#: includes/Core/AssetService.php:1552 templates/partials/media-tab.php:74
 msgid "Could not set the cover."
 msgstr "Kon de omslag niet instellen."
 
-#: includes/Core/AssetService.php:1555 templates/partials/media-tab.php:77
+#: includes/Core/AssetService.php:1553 templates/partials/media-tab.php:77
 msgid "Could not upload that file."
 msgstr ""
 
-#: includes/Core/AssetService.php:1556 templates/partials/media-tab.php:78
+#: includes/Core/AssetService.php:1554 templates/partials/media-tab.php:78
 msgid "Uploaded and selected. Choose Add to put it in the album."
 msgstr ""
 
-#: includes/Core/AssetService.php:1557 templates/partials/media-tab.php:79
+#: includes/Core/AssetService.php:1555 templates/partials/media-tab.php:79
 msgid "Uploaded and selected. Choose Add to put them in the album."
 msgstr ""
 
-#: includes/Core/AssetService.php:1558
+#: includes/Core/AssetService.php:1556
 msgid ""
 "Uploaded and shared to your feed. Choose Add to also put it in the album."
 msgstr ""
 
-#: includes/Core/AssetService.php:1559
+#: includes/Core/AssetService.php:1557
 msgid ""
 "Uploaded and shared to your feed. Choose Add to also put them in the album."
 msgstr ""
 
-#: includes/Core/AssetService.php:1569 templates/partials/media-tab.php:137
+#: includes/Core/AssetService.php:1567 templates/partials/media-tab.php:137
 #: templates/partials/media-upload-composer.php:54
 msgid "No media uploaded yet."
 msgstr "Nog geen media geüpload."
 
-#: includes/Core/AssetService.php:1571
+#: includes/Core/AssetService.php:1569
 #: templates/partials/media-upload-composer.php:61
 msgid "Media removed."
 msgstr "Medium verwijderd."
 
-#: includes/Core/AssetService.php:1573
+#: includes/Core/AssetService.php:1571
 #: templates/partials/media-upload-composer.php:57
 msgid "Remove this media?"
 msgstr "Deze media verwijderen?"
 
 #. translators: %s: comma-separated list of space album names the media also belongs to.
 #. translators: %s: comma-separated list of space album names.
-#: includes/Core/AssetService.php:1576
+#: includes/Core/AssetService.php:1574
 #: templates/partials/media-upload-composer.php:60
 #, php-format
 msgid "It will also be removed from these space albums: %s"
 msgstr ""
 
-#: includes/Core/AssetService.php:1593
+#: includes/Core/AssetService.php:1591
 msgid "Crop avatar"
 msgstr "Avatar bijsnijden"
 
-#: includes/Core/AssetService.php:1594
+#: includes/Core/AssetService.php:1592
 msgid "Position your avatar"
 msgstr "Plaats je avatar"
 
-#: includes/Core/AssetService.php:1598
+#: includes/Core/AssetService.php:1596
 msgid "Could not process the image. Try a different file."
 msgstr "Kon de afbeelding niet verwerken. Probeer een ander bestand."
 
-#: includes/Core/AssetService.php:1601
+#: includes/Core/AssetService.php:1599
 msgid "This field"
 msgstr "Dit veld"
 
-#: includes/Core/AssetService.php:1602
+#: includes/Core/AssetService.php:1600
 msgid "Avatar could not be saved"
 msgstr "Avatar kon niet worden opgeslagen"
 
-#: includes/Core/AssetService.php:1603
+#: includes/Core/AssetService.php:1601
 msgid "Cover could not be saved"
 msgstr "Omslag kon niet worden opgeslagen"
 
-#: includes/Core/AssetService.php:1604
+#: includes/Core/AssetService.php:1602
 msgid "Profile saved"
 msgstr "Profiel opgeslagen"
 
-#: includes/Core/AssetService.php:1605
+#: includes/Core/AssetService.php:1603
 msgid "Some fields need attention"
 msgstr "Sommige velden hebben aandacht nodig"
 
-#: includes/Core/AssetService.php:1606
+#: includes/Core/AssetService.php:1604
 msgid "Could not save. Please try again."
 msgstr "Kon niet opslaan. Probeer alstublieft opnieuw."
 
-#: includes/Core/AssetService.php:1607 includes/Profile/FieldType.php:1432
+#: includes/Core/AssetService.php:1605 includes/Profile/FieldType.php:1432
 #: templates/parts/profile/about-panel.php:170
 msgid "Present"
 msgstr "Heden"
 
-#: includes/Core/AssetService.php:1610
+#: includes/Core/AssetService.php:1608
 #: templates/parts/settings-relations.php:56
 msgid "Unrestrict"
 msgstr "Beperking opheffen"
 
-#: includes/Core/AssetService.php:1611
+#: includes/Core/AssetService.php:1609
 #: templates/parts/profile-actions-overflow.php:127
 msgid "Restrict"
 msgstr "Beperken"
 
-#: includes/Core/AssetService.php:1612
+#: includes/Core/AssetService.php:1610
 #: templates/parts/settings-relations.php:54
 msgid "Unblock"
 msgstr "Deblokkeren"
 
 #. translators: %d: number of remaining two-factor backup codes (singular).
-#: includes/Core/AssetService.php:1615
+#: includes/Core/AssetService.php:1613
 #, php-format
 msgid "%d backup code left."
 msgstr "%d backupcode over."
 
 #. translators: %d: number of remaining two-factor backup codes (plural).
-#: includes/Core/AssetService.php:1617
+#: includes/Core/AssetService.php:1615
 #, php-format
 msgid "%d backup codes left."
 msgstr "%d backupcodes over."
 
-#: includes/Core/AssetService.php:1618
+#: includes/Core/AssetService.php:1616
 msgid "Your data export has downloaded."
 msgstr "Je data-export is gedownload."
 
-#: includes/Core/AssetService.php:1619
+#: includes/Core/AssetService.php:1617
 msgid "Could not export your data. Please try again."
 msgstr "Je data kon niet worden geëxporteerd. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1620
+#: includes/Core/AssetService.php:1618
 msgid "Delete your account?"
 msgstr "Je account verwijderen?"
 
-#: includes/Core/AssetService.php:1621
+#: includes/Core/AssetService.php:1619
 msgid ""
 "This permanently deletes your account and removes your data. This cannot be "
 "undone."
@@ -10896,84 +10885,84 @@ msgstr ""
 "Dit verwijdert je account permanent en verwijdert je gegevens. Dit kan niet "
 "ongedaan worden gemaakt."
 
-#: includes/Core/AssetService.php:1622
+#: includes/Core/AssetService.php:1620
 #: templates/parts/settings-privacy-fields.php:204
 msgid "Delete my account"
 msgstr "Mijn account verwijderen"
 
-#: includes/Core/AssetService.php:1627
+#: includes/Core/AssetService.php:1625
 msgid "Your password"
 msgstr ""
 
-#: includes/Core/AssetService.php:1628
+#: includes/Core/AssetService.php:1626
 msgid "Enter your password to confirm."
 msgstr ""
 
-#: includes/Core/AssetService.php:1629
+#: includes/Core/AssetService.php:1627
 msgid "Could not delete your account."
 msgstr "Je account kon niet worden verwijderd."
 
-#: includes/Core/AssetService.php:1630
+#: includes/Core/AssetService.php:1628
 msgid "Could not delete your account. Please try again."
 msgstr "Je account kon niet worden verwijderd. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1632
+#: includes/Core/AssetService.php:1630
 msgid "Profile link copied"
 msgstr "Profiellink gekopieerd"
 
-#: includes/Core/AssetService.php:1633
+#: includes/Core/AssetService.php:1631
 msgid "Could not copy. Long-press the URL."
 msgstr "Kon niet kopiëren. Houd de URL ingedrukt."
 
 #. translators: %s: profile URL.
-#: includes/Core/AssetService.php:1635
+#: includes/Core/AssetService.php:1633
 #, php-format
 msgid "Copy this link: %s"
 msgstr "Kopieer deze link: %s"
 
-#: includes/Core/AssetService.php:1636
+#: includes/Core/AssetService.php:1634
 msgid "Account unlinked"
 msgstr "Account ontkoppeld"
 
-#: includes/Core/AssetService.php:1638
+#: includes/Core/AssetService.php:1636
 msgid "Could not unlink. Try again."
 msgstr "Kon niet ontkoppelen. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1639
+#: includes/Core/AssetService.php:1637
 msgid "Member type updated"
 msgstr "Lidtype bijgewerkt"
 
-#: includes/Core/AssetService.php:1640
+#: includes/Core/AssetService.php:1638
 msgid "Could not update member type"
 msgstr "Lidtype kon niet worden bijgewerkt"
 
-#: includes/Core/AssetService.php:1641
+#: includes/Core/AssetService.php:1639
 msgid "Preference saved"
 msgstr "Voorkeur opgeslagen"
 
-#: includes/Core/AssetService.php:1642
+#: includes/Core/AssetService.php:1640
 #: includes/Profile/ProfileController.php:1433
 msgid "Display name is required."
 msgstr "Weergavenaam is verplicht."
 
-#: includes/Core/AssetService.php:1643
+#: includes/Core/AssetService.php:1641
 #: includes/Profile/ProfileController.php:1474
 msgid "Enter a valid URL (https://example.com)."
 msgstr "Voer een geldige URL in (https://example.com)."
 
-#: includes/Core/AssetService.php:1646
+#: includes/Core/AssetService.php:1644
 msgid "Avatar ready — click Save changes to keep it"
 msgstr "Avatar klaar — klik Wijzigingen opslaan om het te behouden"
 
-#: includes/Core/AssetService.php:1647
+#: includes/Core/AssetService.php:1645
 msgid "Could not prepare image. Try again."
 msgstr "Afbeelding kon niet worden voorbereid. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1648
+#: includes/Core/AssetService.php:1646
 msgid "Remove profile photo?"
 msgstr "Profielfoto verwijderen?"
 
-#: includes/Core/AssetService.php:1649
+#: includes/Core/AssetService.php:1647
 msgid ""
 "Your photo will be replaced with your initials. You can upload a new one any "
 "time."
@@ -10981,80 +10970,80 @@ msgstr ""
 "Je foto wordt vervangen door je initialen. Je kunt op elk moment een nieuw "
 "uploaden."
 
-#: includes/Core/AssetService.php:1651
+#: includes/Core/AssetService.php:1649
 msgid "Profile photo removed"
 msgstr "Profielfoto verwijderd"
 
-#: includes/Core/AssetService.php:1652
+#: includes/Core/AssetService.php:1650
 msgid "Could not remove your photo. Try again."
 msgstr "Je foto kon niet worden verwijderd. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1653
+#: includes/Core/AssetService.php:1651
 msgid "Cover ready — click Save changes to keep it"
 msgstr "Cover klaar — klik Wijzigingen opslaan om het te behouden"
 
-#: includes/Core/AssetService.php:1654
+#: includes/Core/AssetService.php:1652
 msgid "Followed"
 msgstr "Gevolgd"
 
-#: includes/Core/AssetService.php:1655
+#: includes/Core/AssetService.php:1653
 msgid "Could not follow. Try again."
 msgstr "Kon niet volgen. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1656
+#: includes/Core/AssetService.php:1654
 msgid "Unfollowed"
 msgstr "Niet meer gevolgd"
 
-#: includes/Core/AssetService.php:1657
+#: includes/Core/AssetService.php:1655
 msgid "Could not unfollow. Try again."
 msgstr "Kon niet ontvolgen. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1658 includes/Core/PageRouter.php:1523
+#: includes/Core/AssetService.php:1656 includes/Core/PageRouter.php:1523
 msgid ""
 "Add a personal message to your connection request, or send it without one."
 msgstr ""
 "Voeg een persoonlijk bericht toe aan je verbindingsverzoek of verstuur het "
 "zonder."
 
-#: includes/Core/AssetService.php:1659
+#: includes/Core/AssetService.php:1657
 msgid "Connection request sent"
 msgstr "Verbindingsverzoek verzonden"
 
-#: includes/Core/AssetService.php:1660
+#: includes/Core/AssetService.php:1658
 msgid "Could not send request"
 msgstr "Verzoek kon niet worden verzonden"
 
-#: includes/Core/AssetService.php:1661
+#: includes/Core/AssetService.php:1659
 msgid "Request withdrawn"
 msgstr "Verzoek ingetrokken"
 
-#: includes/Core/AssetService.php:1663
+#: includes/Core/AssetService.php:1661
 msgid "Request declined"
 msgstr "Verzoek afgewezen"
 
-#: includes/Core/AssetService.php:1664
+#: includes/Core/AssetService.php:1662
 msgid "Disconnected"
 msgstr "Verbroken"
 
-#: includes/Core/AssetService.php:1666
+#: includes/Core/AssetService.php:1664
 msgid "Unmuted"
 msgstr "Gedempt opgeheven"
 
-#: includes/Core/AssetService.php:1667
+#: includes/Core/AssetService.php:1665
 #: templates/parts/settings-relations.php:42
 #: templates/parts/settings-relations.php:105
 msgid "Muted"
 msgstr "Gedempt"
 
-#: includes/Core/AssetService.php:1668
+#: includes/Core/AssetService.php:1666
 msgid "Could not update mute state"
 msgstr "Dempstatus kon niet worden bijgewerkt"
 
-#: includes/Core/AssetService.php:1669
+#: includes/Core/AssetService.php:1667
 msgid "No longer restricted"
 msgstr "Niet langer beperkt"
 
-#: includes/Core/AssetService.php:1670
+#: includes/Core/AssetService.php:1668
 msgid ""
 "Restricted. They can still see your profile, but their comments are hidden "
 "from others."
@@ -11062,158 +11051,158 @@ msgstr ""
 "Beperkt. Ze kunnen je profiel nog steeds zien, maar hun opmerkingen zijn "
 "verborgen voor anderen."
 
-#: includes/Core/AssetService.php:1671
+#: includes/Core/AssetService.php:1669
 msgid "Could not update restrict state"
 msgstr "Beperkingsstatus kon niet worden bijgewerkt"
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1673
+#: includes/Core/AssetService.php:1671
 #, php-format
 msgid "%s blocked"
 msgstr "%s geblokkeerd"
 
-#: includes/Core/AssetService.php:1674
+#: includes/Core/AssetService.php:1672
 msgid "Member blocked"
 msgstr "Lid geblokkeerd"
 
-#: includes/Core/AssetService.php:1679
+#: includes/Core/AssetService.php:1677
 msgid "Could not send verification email. Try again."
 msgstr "Verificatie-e-mail kon niet worden verzonden. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1686
+#: includes/Core/AssetService.php:1684
 msgid "Could not verify. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1688
+#: includes/Core/AssetService.php:1686
 msgid "Too short"
 msgstr "Te kort"
 
-#: includes/Core/AssetService.php:1689 includes/Core/AssetService.php:2071
-#: includes/Core/AssetService.php:2119
+#: includes/Core/AssetService.php:1687 includes/Core/AssetService.php:2069
+#: includes/Core/AssetService.php:2117
 msgid "Weak"
 msgstr "Zwak"
 
-#: includes/Core/AssetService.php:1690 includes/Core/AssetService.php:2072
-#: includes/Core/AssetService.php:2120
+#: includes/Core/AssetService.php:1688 includes/Core/AssetService.php:2070
+#: includes/Core/AssetService.php:2118
 msgid "Fair"
 msgstr "Matig"
 
-#: includes/Core/AssetService.php:1691 includes/Core/AssetService.php:2073
-#: includes/Core/AssetService.php:2121
+#: includes/Core/AssetService.php:1689 includes/Core/AssetService.php:2071
+#: includes/Core/AssetService.php:2119
 msgid "Good"
 msgstr "Goed"
 
-#: includes/Core/AssetService.php:1692 includes/Core/AssetService.php:2074
-#: includes/Core/AssetService.php:2122
+#: includes/Core/AssetService.php:1690 includes/Core/AssetService.php:2072
+#: includes/Core/AssetService.php:2120
 msgid "Strong"
 msgstr "Sterk"
 
-#: includes/Core/AssetService.php:1693
+#: includes/Core/AssetService.php:1691
 msgid "Excellent"
 msgstr "Uitstekend"
 
-#: includes/Core/AssetService.php:1697
+#: includes/Core/AssetService.php:1695
 msgid "Passwords do not match."
 msgstr "Wachtwoorden komen niet overeen."
 
-#: includes/Core/AssetService.php:1698
+#: includes/Core/AssetService.php:1696
 msgid "Password updated."
 msgstr "Wachtwoord bijgewerkt."
 
-#: includes/Core/AssetService.php:1699
+#: includes/Core/AssetService.php:1697
 msgid "Could not change password. Try again."
 msgstr "Wachtwoord kon niet worden gewijzigd. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1700
+#: includes/Core/AssetService.php:1698
 msgid "Signed out of every other session."
 msgstr "Afgemeld van elke andere sessie."
 
-#: includes/Core/AssetService.php:1701
+#: includes/Core/AssetService.php:1699
 msgid "Could not sign out everywhere. Try again."
 msgstr "Kon niet overal afmelden. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1702
+#: includes/Core/AssetService.php:1700
 msgid "Could not start setup. Try again."
 msgstr "Kon de instellingen niet starten. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1703
+#: includes/Core/AssetService.php:1701
 msgid "That code did not match."
 msgstr "Die code kwam niet overeen."
 
-#: includes/Core/AssetService.php:1704
+#: includes/Core/AssetService.php:1702
 msgid "Something went wrong. Try again."
 msgstr "Er is iets fout gegaan. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1705
+#: includes/Core/AssetService.php:1703
 #: templates/parts/settings-account-fields.php:302
 msgid "Two-factor authentication is on."
 msgstr "Twee-factor authenticatie is ingeschakeld."
 
-#: includes/Core/AssetService.php:1706
+#: includes/Core/AssetService.php:1704
 msgid "QR code for your authenticator app"
 msgstr ""
 
-#: includes/Core/AssetService.php:1707
+#: includes/Core/AssetService.php:1705
 msgid "Enter your password."
 msgstr "Voer je wachtwoord in."
 
-#: includes/Core/AssetService.php:1708
+#: includes/Core/AssetService.php:1706
 msgid "Could not regenerate codes."
 msgstr "Codes konden niet opnieuw worden gegenereerd."
 
-#: includes/Core/AssetService.php:1709
+#: includes/Core/AssetService.php:1707
 msgid "Two-factor authentication is off."
 msgstr "Twee-factor authenticatie is uitgeschakeld."
 
-#: includes/Core/AssetService.php:1710
+#: includes/Core/AssetService.php:1708
 msgid "Could not turn off two-factor."
 msgstr "Kon twee-factor niet uitschakelen."
 
-#: includes/Core/AssetService.php:1711
+#: includes/Core/AssetService.php:1709
 msgid "Unblocked"
 msgstr "Gedeblokkeerd"
 
-#: includes/Core/AssetService.php:1712
+#: includes/Core/AssetService.php:1710
 msgid "Could not unblock"
 msgstr "Kon niet deblokkeren"
 
-#: includes/Core/AssetService.php:1716 templates/profile/edit.php:274
+#: includes/Core/AssetService.php:1714 templates/profile/edit.php:274
 msgid "Who can see this field"
 msgstr "Wie kan dit veld zien"
 
-#: includes/Core/AssetService.php:1726
+#: includes/Core/AssetService.php:1724
 msgid "Remove cover photo?"
 msgstr ""
 
-#: includes/Core/AssetService.php:1727
+#: includes/Core/AssetService.php:1725
 msgid "Your cover photo will be cleared. You can upload a new one any time."
 msgstr ""
 
-#: includes/Core/AssetService.php:1728
+#: includes/Core/AssetService.php:1726
 msgid "Cover photo removed"
 msgstr ""
 
-#: includes/Core/AssetService.php:1729
+#: includes/Core/AssetService.php:1727
 msgid "Could not remove your cover. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1730
+#: includes/Core/AssetService.php:1728
 msgid "Follow request sent"
 msgstr ""
 
-#: includes/Core/AssetService.php:1731
+#: includes/Core/AssetService.php:1729
 msgid "Follow request withdrawn"
 msgstr ""
 
-#: includes/Core/AssetService.php:1748
+#: includes/Core/AssetService.php:1746
 msgid "Could not dismiss the report. Try again."
 msgstr "Het rapport kon niet worden gesloten. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1749
+#: includes/Core/AssetService.php:1747
 msgid "Remove this content?"
 msgstr "Deze inhoud verwijderen?"
 
-#: includes/Core/AssetService.php:1750
+#: includes/Core/AssetService.php:1748
 msgid ""
 "The reported item will be taken down from public view and the report marked "
 "resolved."
@@ -11221,44 +11210,44 @@ msgstr ""
 "Het gerapporteerde item wordt uit zicht verwijderd en het rapport gemarkeerd "
 "als opgelost."
 
-#: includes/Core/AssetService.php:1752
+#: includes/Core/AssetService.php:1750
 msgid "Content removed."
 msgstr "Inhoud verwijderd."
 
-#: includes/Core/AssetService.php:1753
+#: includes/Core/AssetService.php:1751
 msgid "Could not remove the content. Try again."
 msgstr "Inhoud kon niet worden verwijderd. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1754 includes/Core/AssetService.php:1794
+#: includes/Core/AssetService.php:1752 includes/Core/AssetService.php:1792
 msgid "Warning sent."
 msgstr "Waarschuwing verzonden."
 
-#: includes/Core/AssetService.php:1755
+#: includes/Core/AssetService.php:1753
 msgid "Could not warn the user."
 msgstr "Kon de gebruiker niet waarschuwen."
 
-#: includes/Core/AssetService.php:1756
+#: includes/Core/AssetService.php:1754
 msgid "Strike issued."
 msgstr "Waarschuwing uitgegeven."
 
-#: includes/Core/AssetService.php:1757
+#: includes/Core/AssetService.php:1755
 msgid "Could not issue a strike."
 msgstr "Kon geen waarschuwing geven."
 
-#: includes/Core/AssetService.php:1761
+#: includes/Core/AssetService.php:1759
 msgid "Strike reversed."
 msgstr ""
 
-#: includes/Core/AssetService.php:1762
+#: includes/Core/AssetService.php:1760
 msgid "Could not reverse the strike. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1763
+#: includes/Core/AssetService.php:1761
 msgid "This member has no active strikes."
 msgstr ""
 
 #. translators: %d: number of strikes.
-#: includes/Core/AssetService.php:1765 templates/moderation/queue.php:526
+#: includes/Core/AssetService.php:1763 templates/moderation/queue.php:526
 #: templates/spaces/moderation.php:324
 #, php-format
 msgid "%d strike"
@@ -11267,24 +11256,24 @@ msgstr[0] "%d waarschuwing"
 msgstr[1] "%d waarschuwingen"
 
 #. translators: %d: number of active strikes.
-#: includes/Core/AssetService.php:1767
+#: includes/Core/AssetService.php:1765
 #, php-format
 msgid "%d strikes"
 msgstr ""
 
 #. translators: %d: number of active strikes.
-#: includes/Core/AssetService.php:1769 templates/moderation/queue.php:699
+#: includes/Core/AssetService.php:1767 templates/moderation/queue.php:699
 #, php-format
 msgid "Reverse the most recent strike (%d active)"
 msgid_plural "Reverse the most recent strike (%d active)"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Core/AssetService.php:1770
+#: includes/Core/AssetService.php:1768
 msgid "Suspend this user?"
 msgstr "Deze gebruiker onderbreken?"
 
-#: includes/Core/AssetService.php:1771
+#: includes/Core/AssetService.php:1769
 msgid ""
 "They will be unable to post or interact for 7 days, and their posts will be "
 "hidden."
@@ -11292,470 +11281,470 @@ msgstr ""
 "Ze kunnen 7 dagen lang niet posten of interacteren, en hun berichten worden "
 "verborgen."
 
-#: includes/Core/AssetService.php:1773
+#: includes/Core/AssetService.php:1771
 msgid "User suspended for 7 days."
 msgstr "Gebruiker voor 7 dagen onderbroken."
 
-#: includes/Core/AssetService.php:1774
+#: includes/Core/AssetService.php:1772
 msgid "Could not suspend the user."
 msgstr "Kon de gebruiker niet onderbreken."
 
-#: includes/Core/AssetService.php:1775
+#: includes/Core/AssetService.php:1773
 msgid "Please describe why you are appealing (at least 10 characters)."
 msgstr ""
 "Beschrijf alstublieft waarom je bezwaar aantekent (minstens 10 tekens)."
 
-#: includes/Core/AssetService.php:1776
+#: includes/Core/AssetService.php:1774
 msgid "Your appeal has been submitted."
 msgstr "Je bezwaar is ingediend."
 
-#: includes/Core/AssetService.php:1777
+#: includes/Core/AssetService.php:1775
 msgid "Could not submit your appeal. Try again."
 msgstr "Je bezwaar kon niet worden ingediend. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1778
+#: includes/Core/AssetService.php:1776
 msgid "Approve this appeal?"
 msgstr "Dit bezwaar goedkeuren?"
 
-#: includes/Core/AssetService.php:1779
+#: includes/Core/AssetService.php:1777
 msgid "The member’s suspension will be lifted and they will be notified."
 msgstr ""
 "De schorsing van het lid wordt opgeheven en ze worden ervan op de hoogte "
 "gesteld."
 
-#: includes/Core/AssetService.php:1781
+#: includes/Core/AssetService.php:1779
 msgid "Appeal approved — suspension lifted."
 msgstr "Bezwaar goedgekeurd — schorsing opgeheven."
 
-#: includes/Core/AssetService.php:1782
+#: includes/Core/AssetService.php:1780
 msgid "Could not approve the appeal. Try again."
 msgstr "Kon het bezwaar niet goedkeuren. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1783
+#: includes/Core/AssetService.php:1781
 msgid "Deny this appeal?"
 msgstr "Dit bezwaar afwijzen?"
 
-#: includes/Core/AssetService.php:1784
+#: includes/Core/AssetService.php:1782
 msgid ""
 "The suspension stays in place. The member will be notified of the decision."
 msgstr ""
 "De schorsing blijft van kracht. Het lid wordt op de hoogte gesteld van de "
 "beslissing."
 
-#: includes/Core/AssetService.php:1786
+#: includes/Core/AssetService.php:1784
 msgid "Appeal denied."
 msgstr "Bezwaar afgewezen."
 
-#: includes/Core/AssetService.php:1787
+#: includes/Core/AssetService.php:1785
 msgid "Could not deny the appeal. Try again."
 msgstr "Kon het bezwaar niet afwijzen. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1788
+#: includes/Core/AssetService.php:1786
 msgid "Remove this member from the space?"
 msgstr "Dit lid uit de ruimte verwijderen?"
 
-#: includes/Core/AssetService.php:1789 includes/Core/AssetService.php:2023
+#: includes/Core/AssetService.php:1787 includes/Core/AssetService.php:2021
 msgid "They will lose access to this space immediately."
 msgstr "Ze verliezen onmiddellijk toegang tot deze ruimte."
 
-#: includes/Core/AssetService.php:1795
+#: includes/Core/AssetService.php:1793
 msgid "Could not warn the member."
 msgstr ""
 
-#: includes/Core/AssetService.php:1796
+#: includes/Core/AssetService.php:1794
 msgid "Could not remove the member from this space. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1797
+#: includes/Core/AssetService.php:1795
 msgid "Could not approve the join request. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1798
+#: includes/Core/AssetService.php:1796
 msgid "Could not decline the join request. Try again."
 msgstr ""
 
 #. translators: 1: current step number, 2: total step count
-#: includes/Core/AssetService.php:1816
+#: includes/Core/AssetService.php:1814
 #, php-format
 msgid "Step %1$s of %2$s"
 msgstr "Stap %1$s van %2$s"
 
-#: includes/Core/AssetService.php:1817
+#: includes/Core/AssetService.php:1815
 msgid "Display name must be at least 2 characters."
 msgstr "Weergavenaam moet minstens 2 tekens lang zijn."
 
-#: includes/Core/AssetService.php:1818 templates/auth/signup.php:407
+#: includes/Core/AssetService.php:1816 templates/auth/signup.php:407
 #: templates/onboarding/index.php:821
 msgid "Your name"
 msgstr "Je naam"
 
-#: includes/Core/AssetService.php:1819
+#: includes/Core/AssetService.php:1817
 msgid "@username"
 msgstr "@gebruikersnaam"
 
-#: includes/Core/AssetService.php:1820 templates/onboarding/index.php:829
+#: includes/Core/AssetService.php:1818 templates/onboarding/index.php:829
 msgid "Add a short bio so people know what you're into."
 msgstr "Voeg een korte bio toe zodat mensen weten waar je interesse in hebt."
 
-#: includes/Core/AssetService.php:1821
+#: includes/Core/AssetService.php:1819
 msgid "Checking…"
 msgstr "Controleren…"
 
-#: includes/Core/AssetService.php:1822
+#: includes/Core/AssetService.php:1820
 msgid "Available"
 msgstr "Beschikbaar"
 
-#: includes/Core/AssetService.php:1823
+#: includes/Core/AssetService.php:1821
 #: templates/parts/settings-account-fields.php:98
 msgid "Taken"
 msgstr "In gebruik"
 
-#: includes/Core/AssetService.php:1828
+#: includes/Core/AssetService.php:1826
 msgid "Skipped. You can fill in your profile any time."
 msgstr ""
 
-#: includes/Core/AssetService.php:1829
+#: includes/Core/AssetService.php:1827
 msgid "Joined the space."
 msgstr "De ruimte toegetreden."
 
-#: includes/Core/AssetService.php:1830
+#: includes/Core/AssetService.php:1828
 msgid "Left the space."
 msgstr "De ruimte verlaten."
 
-#: includes/Core/AssetService.php:1831
+#: includes/Core/AssetService.php:1829
 msgid "Could not update space. Please try again."
 msgstr "Ruimte kon niet worden bijgewerkt. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1832
+#: includes/Core/AssetService.php:1830
 msgid "Following."
 msgstr "Volgen."
 
-#: includes/Core/AssetService.php:1833
+#: includes/Core/AssetService.php:1831
 msgid "Unfollowed."
 msgstr "Niet meer gevolgd."
 
-#: includes/Core/AssetService.php:1834
+#: includes/Core/AssetService.php:1832
 msgid "Could not update follow. Please try again."
 msgstr "Volgen kon niet worden bijgewerkt. Probeer het opnieuw."
 
 #. translators: %s: maximum upload size in megabytes.
-#: includes/Core/AssetService.php:1836
+#: includes/Core/AssetService.php:1834
 #, php-format
 msgid "Image too large. Max %sMB."
 msgstr ""
 
 #. translators: 1: maximum megapixels, 2: maximum pixels on a single side
-#: includes/Core/AssetService.php:1838
+#: includes/Core/AssetService.php:1836
 #, php-format
 msgid ""
 "That image is too large to process (over %1$s megapixels or %2$s pixels on a "
 "side). Please choose a smaller photo."
 msgstr ""
 
-#: includes/Core/AssetService.php:1839
+#: includes/Core/AssetService.php:1837
 msgid "Could not upload photo. Please try again."
 msgstr "Foto kon niet worden geüpload. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1840
+#: includes/Core/AssetService.php:1838
 msgid "Profile photo updated."
 msgstr "Profielfoto bijgewerkt."
 
-#: includes/Core/AssetService.php:1841
+#: includes/Core/AssetService.php:1839
 msgid "You are all set. Welcome aboard!"
 msgstr "Je bent helemaal klaar. Welkom aan boord!"
 
-#: includes/Core/AssetService.php:1842
+#: includes/Core/AssetService.php:1840
 msgid "Could not finish onboarding. Please try again."
 msgstr "Kon het onboarding niet voltooien. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1843
+#: includes/Core/AssetService.php:1841
 msgid "Could not save your interests. Please try again."
 msgstr "Je interesses konden niet worden opgeslagen. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1849
+#: includes/Core/AssetService.php:1847
 msgid ""
 "Your profile could not be saved. Please check your details and try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1850
+#: includes/Core/AssetService.php:1848
 msgid "That username is already taken. Please choose another."
 msgstr ""
 
-#: includes/Core/AssetService.php:1851
+#: includes/Core/AssetService.php:1849
 msgid "Your notification settings could not be saved. Please try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1894
+#: includes/Core/AssetService.php:1892
 msgid "Could not mark all as read."
 msgstr "Kon niet alles als gelezen markeren."
 
-#: includes/Core/AssetService.php:1895
+#: includes/Core/AssetService.php:1893
 msgid "Could not mark this notification as read."
 msgstr "Kon deze melding niet als gelezen markeren."
 
-#: includes/Core/AssetService.php:1896
+#: includes/Core/AssetService.php:1894
 msgid "Could not dismiss. Try again."
 msgstr "Kon niet sluiten. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:1897
+#: includes/Core/AssetService.php:1895
 msgid "Invitation accepted — you have joined the space."
 msgstr "Uitnodiging geaccepteerd — je bent lid van de ruimte."
 
 #. translators: %s is the formatted number of unread notifications (e.g. "12" or "99+").
-#: includes/Core/AssetService.php:1911
+#: includes/Core/AssetService.php:1909
 #: templates/parts/notifications-hero.php:96
 #, php-format
 msgid "%s unread"
 msgstr ""
 
-#: includes/Core/AssetService.php:1914
+#: includes/Core/AssetService.php:1912
 msgid "Could not update those requests."
 msgstr ""
 
 #. translators: 1: number handled, 2: number no longer pending.
-#: includes/Core/AssetService.php:1916
+#: includes/Core/AssetService.php:1914
 #, php-format
 msgid "%1$d handled, %2$d no longer pending."
 msgstr ""
 
 #. translators: %d: number of members approved.
-#: includes/Core/AssetService.php:1918
+#: includes/Core/AssetService.php:1916
 #, php-format
 msgid "%d members approved."
 msgstr ""
 
 #. translators: %d: number of requests declined.
-#: includes/Core/AssetService.php:1920
+#: includes/Core/AssetService.php:1918
 #, php-format
 msgid "%d requests declined."
 msgstr ""
 
 #. translators: %d: number of seconds
-#: includes/Core/AssetService.php:1938
+#: includes/Core/AssetService.php:1936
 #, php-format
 msgid "%ds ago"
 msgstr "%ds geleden"
 
 #. translators: %d: number of minutes
-#: includes/Core/AssetService.php:1940
+#: includes/Core/AssetService.php:1938
 #, php-format
 msgid "%d min ago"
 msgstr "%d min geleden"
 
-#: includes/Core/AssetService.php:1943
+#: includes/Core/AssetService.php:1941
 #: templates/parts/profile-edit-save-bar.php:37
 #: templates/settings/notifications.php:526
 msgid "Saving..."
 msgstr "Opslaan…"
 
-#: includes/Core/AssetService.php:1944
+#: includes/Core/AssetService.php:1942
 #: templates/parts/profile-edit-save-bar.php:80
 #: templates/settings/notifications.php:521 templates/spaces/settings.php:1003
 msgid "Unsaved changes"
 msgstr "Niet-opgeslagen wijzigingen"
 
 #. translators: %s: relative time the prefs were last saved (e.g. "2 min ago")
-#: includes/Core/AssetService.php:1946
+#: includes/Core/AssetService.php:1944
 #, php-format
 msgid "Saved %s"
 msgstr "%s opgeslagen"
 
-#: includes/Core/AssetService.php:1947
+#: includes/Core/AssetService.php:1945
 msgid "Space preference saved."
 msgstr "Ruimtevoorkeur opgeslagen."
 
-#: includes/Core/AssetService.php:1948
+#: includes/Core/AssetService.php:1946
 msgid "Could not save space preference."
 msgstr "Ruimtevoorkeur kon niet worden opgeslagen."
 
-#: includes/Core/AssetService.php:1949
+#: includes/Core/AssetService.php:1947
 msgid "Could not save preferences."
 msgstr "Voorkeuren konden niet worden opgeslagen."
 
-#: includes/Core/AssetService.php:1950
+#: includes/Core/AssetService.php:1948
 msgid "Preferences saved."
 msgstr "Voorkeuren opgeslagen."
 
-#: includes/Core/AssetService.php:1953
+#: includes/Core/AssetService.php:1951
 msgid "You will no longer receive newsletters or announcements."
 msgstr ""
 
-#: includes/Core/AssetService.php:1954
+#: includes/Core/AssetService.php:1952
 msgid "You will receive newsletters and announcements again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1955
+#: includes/Core/AssetService.php:1953
 msgid "Could not update your broadcast email preference."
 msgstr ""
 
-#: includes/Core/AssetService.php:1972
+#: includes/Core/AssetService.php:1970
 msgid "Please name this search first."
 msgstr "Geef deze zoekopdracht eerst een naam."
 
-#: includes/Core/AssetService.php:1973
+#: includes/Core/AssetService.php:1971
 msgid "Search saved."
 msgstr "Zoekopdracht opgeslagen."
 
-#: includes/Core/AssetService.php:1974
+#: includes/Core/AssetService.php:1972
 msgid "Could not save. Saved searches require BuddyNext Pro."
 msgstr "Kon niet opslaan. Opgeslagen zoekopdrachten vereisen BuddyNext Pro."
 
-#: includes/Core/AssetService.php:1975
+#: includes/Core/AssetService.php:1973
 msgid "Recent searches"
 msgstr "Recente zoekopdrachten"
 
-#: includes/Core/AssetService.php:1976
+#: includes/Core/AssetService.php:1974
 msgid "Recent:"
 msgstr "Recent:"
 
-#: includes/Core/AssetService.php:1978
+#: includes/Core/AssetService.php:1976
 msgid "Search suggestions"
 msgstr "Zoeksuggesties"
 
-#: includes/Core/AssetService.php:2000
+#: includes/Core/AssetService.php:1998
 msgid "Could not update follow state. Try again."
 msgstr "Volgstatus kon niet worden bijgewerkt. Probeer het opnieuw."
 
 #. translators: %s: hashtag slug (without the leading #)
-#: includes/Core/AssetService.php:2002
+#: includes/Core/AssetService.php:2000
 #, php-format
 msgid "Unfollowed #%s"
 msgstr "Niet meer gevolgd #%s"
 
 #. translators: %s: hashtag slug (without the leading #)
-#: includes/Core/AssetService.php:2004
+#: includes/Core/AssetService.php:2002
 #, php-format
 msgid "Following #%s"
 msgstr "Volgen #%s"
 
-#: includes/Core/AssetService.php:2022
+#: includes/Core/AssetService.php:2020
 msgid "Remove this member?"
 msgstr "Dit lid verwijderen?"
 
-#: includes/Core/AssetService.php:2025
+#: includes/Core/AssetService.php:2023
 msgid "Could not remove member. Try again."
 msgstr "Lid kon niet worden verwijderd. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:2026
+#: includes/Core/AssetService.php:2024
 msgid "Could not update role. Try again."
 msgstr "Rol kon niet worden bijgewerkt. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:2027
+#: includes/Core/AssetService.php:2025
 msgid "Ban this member?"
 msgstr "Dit lid blokkeren?"
 
-#: includes/Core/AssetService.php:2028
+#: includes/Core/AssetService.php:2026
 msgid "They will be removed and blocked from rejoining this space."
 msgstr ""
 "Ze worden verwijderd en geblokkeerd om deze ruimte opnieuw toe te treden."
 
-#: includes/Core/AssetService.php:2029
+#: includes/Core/AssetService.php:2027
 #: templates/parts/space-settings-panel-members.php:196
 msgid "Ban"
 msgstr "Blokkeren"
 
-#: includes/Core/AssetService.php:2030
+#: includes/Core/AssetService.php:2028
 msgid "Could not ban member. Try again."
 msgstr "Kon lid niet blokkeren. Probeer het opnieuw."
 
-#: includes/Core/AssetService.php:2031
+#: includes/Core/AssetService.php:2029
 msgid "Unban this member?"
 msgstr ""
 
-#: includes/Core/AssetService.php:2032
+#: includes/Core/AssetService.php:2030
 msgid "They will be able to request or join this space again."
 msgstr ""
 
-#: includes/Core/AssetService.php:2033
+#: includes/Core/AssetService.php:2031
 #: templates/parts/space-settings-panel-members.php:245
 msgid "Unban"
 msgstr ""
 
-#: includes/Core/AssetService.php:2034
+#: includes/Core/AssetService.php:2032
 msgid "Could not unban member. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:2053
+#: includes/Core/AssetService.php:2051
 msgid "Fields saved."
 msgstr "Velden opgeslagen."
 
-#: includes/Core/AssetService.php:2054
+#: includes/Core/AssetService.php:2052
 msgid "Could not save the fields. Try again."
 msgstr "Velden konden niet worden opgeslagen. Probeer het opnieuw."
 
 #. translators: %s: masked email address the code was sent to
-#: includes/Core/AssetService.php:2094
+#: includes/Core/AssetService.php:2092
 #, php-format
 msgid "Code sent to %s"
 msgstr "Code verzonden naar %s"
 
-#: includes/Core/AssetService.php:2095
+#: includes/Core/AssetService.php:2093
 msgid "Code sent — check your email"
 msgstr "Code verzonden — controleer je e-mail"
 
-#: includes/Core/AssetService.php:2096
+#: includes/Core/AssetService.php:2094
 msgid "Enter your email and password to sign in."
 msgstr "Voer je e-mail en wachtwoord in om je aan te melden."
 
-#: includes/Core/AssetService.php:2098
+#: includes/Core/AssetService.php:2096
 msgid "Signed in."
 msgstr "Aangemeld."
 
-#: includes/Core/AssetService.php:2100
+#: includes/Core/AssetService.php:2098
 msgid "That code was not correct."
 msgstr "Die code was niet correct."
 
-#: includes/Core/AssetService.php:2101
+#: includes/Core/AssetService.php:2099
 msgid "If your session is still valid, a code is on its way."
 msgstr "Als je sessie nog geldig is, is een code onderweg."
 
-#: includes/Core/AssetService.php:2102
+#: includes/Core/AssetService.php:2100
 msgid "Could not send the code. Try your authenticator app."
 msgstr "Kon de code niet verzenden. Probeer je authenticator-app."
 
-#: includes/Core/AssetService.php:2123
+#: includes/Core/AssetService.php:2121
 msgid "Please fill in your email, username, and password."
 msgstr "Vul alstublieft je e-mail, gebruikersnaam en wachtwoord in."
 
-#: includes/Core/AssetService.php:2124
+#: includes/Core/AssetService.php:2122
 msgid "Please agree to the Terms of Service and Privacy Policy to continue."
 msgstr ""
 "Accepteer alstublieft de Servicevoorwaarden en het Privacybeleid om door te "
 "gaan."
 
-#: includes/Core/AssetService.php:2125
+#: includes/Core/AssetService.php:2123
 msgid "Please answer the verification question."
 msgstr "Beantwoord alstublieft de verificatievraag."
 
-#: includes/Core/AssetService.php:2126
+#: includes/Core/AssetService.php:2124
 msgid "Could not create your account."
 msgstr "Je account kon niet worden aangemaakt."
 
-#: includes/Core/AssetService.php:2127
+#: includes/Core/AssetService.php:2125
 msgid "Account created. Welcome aboard!"
 msgstr "Account aangemaakt. Welkom aan boord!"
 
-#: includes/Core/AssetService.php:2132
+#: includes/Core/AssetService.php:2130
 msgid "Please choose a username."
 msgstr ""
 
-#: includes/Core/AssetService.php:2166
+#: includes/Core/AssetService.php:2164
 msgid "Please enter your email or username."
 msgstr "Voer alstublieft je e-mail of gebruikersnaam in."
 
-#: includes/Core/AssetService.php:2167
+#: includes/Core/AssetService.php:2165
 msgid "If an account matches, a reset link is on its way."
 msgstr "Als een account overeenkomt, is een resetkoppeling onderweg."
 
-#: includes/Core/AssetService.php:2169
+#: includes/Core/AssetService.php:2167
 msgid "Please choose a new password."
 msgstr "Kies alstublieft een nieuw wachtwoord."
 
-#: includes/Core/AssetService.php:2170
+#: includes/Core/AssetService.php:2168
 msgid "Could not reset your password."
 msgstr "Je wachtwoord kon niet worden hersteld."
 
-#: includes/Core/AssetService.php:2171
+#: includes/Core/AssetService.php:2169
 msgid "Password updated. Please sign in."
 msgstr "Wachtwoord bijgewerkt. Meld je aan."
 
@@ -21480,6 +21469,14 @@ msgstr "Alle rollen"
 msgid "Reset"
 msgstr "Reinigen"
 
+#. translators: %s: number of members matching the active filter/search.
+#: templates/parts/space-members-body.php:303
+#, php-format
+msgid "%s result"
+msgid_plural "%s results"
+msgstr[0] ""
+msgstr[1] ""
+
 #: templates/parts/space-members-body.php:379
 #: templates/parts/space-settings-panel-members.php:161
 msgid "Make moderator"
@@ -22524,6 +22521,14 @@ msgstr "Nieuwste"
 #: templates/spaces/directory.php:265
 msgid "A → Z"
 msgstr "A → Z"
+
+#. translators: %s: total number of spaces.
+#: templates/spaces/directory.php:280
+#, php-format
+msgid "%s space available"
+msgid_plural "%s spaces available"
+msgstr[0] "%s ruimte beschikbaar"
+msgstr[1] "%s ruimtes beschikbaar"
 
 #: templates/spaces/directory.php:319
 msgid "Create an account to join spaces, post, and reply."
