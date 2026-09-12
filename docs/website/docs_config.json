@@ -50,7 +50,8 @@
         "whats-new/10-whats-new-in-1-1-4.md",
         "whats-new/11-whats-new-in-1-1-5.md",
         "whats-new/12-whats-new-in-1-1-6.md",
-        "whats-new/13-whats-new-in-1-1-7.md"
+        "whats-new/13-whats-new-in-1-1-7.md",
+        "whats-new/14-whats-new-in-1-2-0.md"
       ]
     },
     {
@@ -75,7 +76,8 @@
         "accounts-access/05-two-factor-authentication.md",
         "accounts-access/06-member-onboarding.md",
         "accounts-access/07-account-settings.md",
-        "accounts-access/08-privacy-and-data.md"
+        "accounts-access/08-privacy-and-data.md",
+        "accounts-access/09-guest-experience.md"
       ]
     },
     {

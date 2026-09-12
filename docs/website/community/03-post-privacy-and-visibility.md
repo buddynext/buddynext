@@ -14,7 +14,7 @@ For owners, privacy controls are what make a community feel safe rather than exp
 
 ## The privacy levels
 
-A member picks one of these audiences when posting. The first four are the choices in the composer's audience menu; the fifth applies automatically to posts made inside a space.
+A member picks one of these audiences when posting. Public, Followers, Connections and Only me appear in every member's audience menu. Members only is offered to site admins and space managers. Space members applies automatically to posts made inside a space.
 
 | Level | Who can see the post |
 |-------|----------------------|
@@ -22,10 +22,13 @@ A member picks one of these audiences when posting. The first four are the choic
 | Followers | The author and any member who follows the author at the time they view it. |
 | Connections | The author and the author's accepted connections. |
 | Only me | The author alone. Useful for drafts and private notes. |
+| Members only | Any logged-in member. Logged-out visitors see only a short teaser plus a prompt to join, never the full post. Offered to site admins and space managers. |
 | Space members | For posts made inside a space, the members of that space. Hidden and secret spaces restrict this further to active members only. |
 
 
 When a member does not pick a level, the post takes the community's default audience, which the owner sets (see Setting it up). Inside a space, the default audience is the space's members.
+
+A Members-only post stays publicly listed, but a logged-out visitor sees only its opening portion followed by a prompt to sign in or join, never the whole post. The owner sets how much shows in that teaser with the members-only teaser control (25 percent by default). Members only is an audience level, not plan-gating: it separates logged-in members from the public, whereas the Pro Content Protection feature restricts a post to a paid plan.
 
 ## How visibility is enforced (for members)
 

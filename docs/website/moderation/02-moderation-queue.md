@@ -64,6 +64,8 @@ Two more outcomes exist for a report's lifecycle:
 
 Every moderation decision - dismiss, remove, warn, strike, suspend - is written to a permanent moderation log. The log is the audit trail of who did what and when, so a community can answer "why was this removed" and review its moderators' decisions over time.
 
+You can filter the log and export it to CSV, for a compliance record or an outside review. The background jobs that maintain moderation report their status - and how long log entries are kept - in the admin hub's tools, where you can also run them on demand if you need the queue processed right now rather than waiting for the next scheduled pass.
+
 ## The pending-content view
 
 The queue's default view is the pending list: items that have been reported and are waiting for a decision. As members flag content, new rows appear here. Working the pending list down to zero is the day-to-day job of moderation.

@@ -27,7 +27,7 @@ A member types into the composer and clicks Share. The post is created and appea
 
 ### Choosing who sees a post
 
-Before sharing, a member picks an audience from the privacy menu in the composer: Public, Followers, Connections, or Only me. When posting inside a space, the audience is the space's members. The full meaning of each level and how it is enforced is covered in Post Privacy and Visibility.
+Before sharing, a member picks an audience from the privacy menu in the composer: Public, Followers, Connections, or Only me. Site admins and space managers get a fifth option, Members only, which keeps the post publicly listed but shows logged-out visitors only a short teaser and a prompt to join. When posting inside a space, the audience is the space's members. The full meaning of each level and how it is enforced is covered in Post Privacy and Visibility.
 
 
 ### Editing and deleting your own posts

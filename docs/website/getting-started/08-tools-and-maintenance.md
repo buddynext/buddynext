@@ -26,4 +26,16 @@ Global search reads a single index of members, posts, and spaces. Normally Buddy
 
 If search ever looks empty or out of date - it returns nothing, or misses recent content - this panel shows the index status and a **Rebuild** button. Rebuilding re-reads your content and restores the fast full-text index. The panel also shows how many rows are indexed, whether the fast full-text index is present, and when the last full rebuild ran, so you can tell at a glance whether a rebuild is worth doing.
 
+## Plugin isolation
+
+Some plugins do their heaviest work on every page, or add markup and scripts that only matter on their own screens. Plugin isolation lets you choose which other plugins load on BuddyNext's own community pages (the activity feed, spaces, member profiles), so they run where they are needed and stay out of the way where they are not.
+
+It is **off by default** - every plugin keeps running everywhere until you turn isolation on and pick what to skip - so nothing changes on your site until you opt in. When it is on, BuddyNext will never remove a plugin that a plugin you kept depends on, so you cannot accidentally break a feature by isolating the plugin underneath it. Reach for this only if a specific plugin is slowing your community pages or interfering with them; most sites never need it.
+
+## Uninstall and your data
+
+Deleting a plugin from WordPress can mean two different things: remove the plugin's files, or remove the files and everything it ever stored. This setting lets you decide which one BuddyNext does.
+
+Data is **kept by default**. If you deactivate and delete BuddyNext - by accident, or to reinstall - your spaces, posts, members' community data and settings are still there when you bring it back. If you would rather a delete also wipe BuddyNext's data, switch the policy to remove it. Financial records such as orders and payments are always retained regardless of the setting, so your accounting history is never lost to an uninstall.
+
 > **Note:** These are diagnostic tools grouped under **Advanced** for a reason - you do not need them during normal running. Reach for this screen when something feels off (search comes up empty, a digest did not go out) rather than as part of routine setup.

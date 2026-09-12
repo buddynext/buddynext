@@ -54,13 +54,13 @@ Open the space settings and go to the Notifications tab.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Default notification preference for new members | The notification level applied to a member when they first join this space: All activity, Mentions only, or None. Members can change it later. | All activity |
+| Default notification preference for new members | The notification level applied to a member when they first join this space: All activity, Mentions only, or None. Members can change it later. | Mentions only |
 
-> **Tip:** For a high-traffic announcement-style space, consider setting the default to Mentions only so new members are not overwhelmed on day one. For a small working space, All activity keeps everyone in the loop.
+> **Tip:** New members start on Mentions only, so a busy space does not overwhelm anyone on day one. For a small working space where everyone should see everything, consider raising the default to All activity to keep the whole group in the loop.
 
 ## Good to know
 
-- The default for any member who has not changed their own setting is All activity.
+- The default for any member who has not changed their own setting is Mentions only.
 - The member control lives in two synced places: the bell control in the space header, and the "Spaces you are in" section of the notification preferences page.
 - The "Spaces you are in" list only shows spaces you are an active member of. Pending requests and spaces you have left do not appear.
 - Choosing a level in the preferences page saves right away, with no extra confirmation step.

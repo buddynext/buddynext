@@ -63,8 +63,8 @@ The profile sidebar is context-aware. It changes depending on whether a member i
 
 The notifications page gets tools to make a busy inbox manageable:
 
-- **Quick filters** - Unread only, Mentions of you, People, Spaces.
-- **By type** - a breakdown across Mentions, Reactions, Comments, People, Spaces, and Messages.
+- **Quick filters** - Unread only, Mentions of you, Follows, Spaces.
+- **By type** - a breakdown across Mentions, Reactions, Comments, Follows, Spaces, and Messages.
 - **Recent actors** - the people behind recent notifications.
 - **Notification preferences** - a shortcut to the member's notification settings.
 - **This week** - a short summary of the week's activity.

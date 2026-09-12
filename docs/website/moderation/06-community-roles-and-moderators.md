@@ -6,7 +6,7 @@ Your community has three roles that decide who can help run it - **member**, **m
 
 ## Why use it
 
-A community with one owner and a few hundred members does not scale. You cannot read every post, clear every report, and answer every join request yourself. Promoting a trusted member to moderator hands them the day-to-day work - clearing the moderation queue, removing spam, pinning the posts that matter - while the decisions that should stay with you, like changing what each role is allowed to do or suspending an account, stay with you and your admins.
+A community with one owner and a few hundred members does not scale. You cannot read every post, clear every report, and answer every join request yourself. Promoting a trusted member to moderator hands them the day-to-day work - clearing the moderation queue, removing spam, pinning the posts that matter - while the decisions that should stay with you, like changing what each role is allowed to do, stay with you and your admins.
 
 These roles are **community-wide**. A moderator here can moderate anywhere in the community, not just one space. (Spaces have their own separate owner / moderator / member roles for running a single space - see [Roles, Moderators, and Permissions](../spaces/05-roles-and-moderators.md).)
 
@@ -22,7 +22,7 @@ Each role can do everything the role below it can, plus more. The table lists th
 | Remove any post and pin posts | No | Yes | Yes |
 | Issue strikes | No | Yes | Yes |
 | Moderate, manage, and delete any space | No | Yes | Yes |
-| Suspend a member | No | No | Yes |
+| Suspend a member | No | Yes | Yes |
 | Edit any member's profile | No | No | Yes |
 | Promote members to moderator or admin | No | No | Yes |
 

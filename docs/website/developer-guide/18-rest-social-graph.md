@@ -11,7 +11,7 @@ This page documents the social-graph REST surface in BuddyNext free: following, 
 - All write routes apply a capability gate in addition to the auth check: follow/unfollow gate on `buddynext-connections/follow`, connect/withdraw gate on `buddynext-connections/connect`. A user whose role is denied the capability gets a `403` even when logged in.
 - Block state is enforced on relationship writes: following or connecting with a user who blocks (or is blocked by) you returns `403 buddynext_blocked`.
 - Targeting a non-existent user id returns `404 buddynext_user_not_found`.
-- List routes (`/me/connections`, `/me/connection-requests`, followers, following) accept `page` and `per_page` query args and paginate server-side.
+- List routes take `per_page`; `/users/{id}/followers`, `/users/{id}/following`, and `/me/connections` are keyset-paginated - pass `cursor` from the previous response's `next_cursor` - while `/me/connection-requests` still uses `page`.
 
 See the REST contract page (`14-rest-contract`) for the shared envelope, pagination headers, error shape, and nonce handling that apply to every route below.
 
@@ -45,7 +45,7 @@ A connection is a mutual, two-sided relationship (request, then accept). An opti
 | POST | `/users/{id}/connect/decline` | Auth | Decline an incoming connection request from this user. |
 | GET | `/users/{id}/connection/status` | Auth | The current user's connection status with this user. |
 | GET | `/users/{id}/mutual-connections` | Auth | User ids connected to both the viewer and this user. |
-| GET | `/me/connections` | Auth | The current user's connections (paginated; `page`, `per_page`). |
+| GET | `/me/connections` | Auth | The current user's connections (keyset-paginated; `cursor`, `per_page`). |
 | GET | `/me/connection-requests` | Auth | Incoming connection requests awaiting the current user (paginated). |
 
 > **Note:** Connection requests are approved or declined through the per-peer `/users/{id}/connect/accept` and `/users/{id}/connect/decline` routes. There are no separate `/me/connection-requests/{id}/approve|reject` endpoints; the peer id in the connect path is the actor on the other side of the request.
@@ -130,4 +130,4 @@ The recipient then accepts with `POST /users/{your_id}/connect/accept` or declin
 - **Block precedence.** `is_blocking_either()` is checked before any follow or connect write; a block by either party short-circuits the relationship with `403 buddynext_blocked`.
 - **Public vs Auth listing.** Follower/following lists and follow-suggestions reflect public-graph reads; `/users/{id}/followers` and `/users/{id}/following` are public, while `/follow-suggestions` is per-user and requires auth.
 - **Account type drives the UI flow.** Read `/users/{id}/account-type` (or the `pending` flag in the follow response) to decide whether to show "Follow" or "Request to follow".
-- **Pagination.** List routes accept `page` (default 1) and `per_page` (default 20 for connections/requests) and return paginated results; do not assume the full set in one call.
+- **Pagination.** The followers, following, and `/me/connections` routes are keyset-paginated: pass `cursor` (from the prior response's `next_cursor`) and `per_page`, and read `next_cursor` and `total` from the response. `/me/connection-requests` still uses `page` (default 1) and `per_page` (default 20). Do not assume the full set in one call.

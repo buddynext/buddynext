@@ -13,7 +13,7 @@ The onboarding wizard is a guided first-session flow that opens right after a ne
 1. **Profile** - set a display name, write a short bio, claim a username/handle, and upload an avatar.
 2. **Interests** - pick topics from your community's space categories; these personalize the member's suggestions and feed (see [Member Interests](../members/11-interests.md)).
 3. **Spaces** - join suggested spaces with one click.
-4. **People** - follow suggested members.
+4. **Follows** - follow suggested members.
 5. **Notifications** - choose how to be notified (email, in-app, push).
 
 The member can move forward and back through the steps, or skip the wizard entirely at any point. When they finish, BuddyNext lands them on their own profile - the thing they just built.
@@ -48,7 +48,7 @@ Your community's topics appear as tappable chips - pick the ones you care about,
 
 You will see a set of suggested spaces. Tap **Join** on any that interest you - each one joins instantly, right there in the wizard. You can join as many or as few as you like. The wizard only suggests open spaces here; private spaces use a request-to-join flow from the spaces directory instead.
 
-### Step 4 - People
+### Step 4 - Follows
 
 Suggested members are listed here. Tap **Follow** to start following anyone. Following someone means their posts show up in your feed, so picking a few here gives you a feed worth reading from your very first visit.
 

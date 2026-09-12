@@ -89,7 +89,9 @@ The role map holds 22 generic capabilities:
 | `buddynext-moderation/report` | `member` |
 | `buddynext-moderation/review-queue` | `moderator` |
 | `buddynext-moderation/issue-strike` | `moderator` |
-| `buddynext-moderation/suspend-user` | `admin` |
+| `buddynext-moderation/suspend-user` | `moderator` |
+
+> **A site-wide moderator holds full moderation authority.** Clearing the queue, issuing strikes, suspending, shadow-banning, and warnings are all moderator powers. Only appeals, and editing what each role is allowed to do, remain admin-only.
 
 > **`buddynext-spaces/create` has one option that overrides its default.** The legacy Spaces-tab "who can create spaces" setting is folded into the role map: when `get_option( 'buddynext_space_creation_role' )` is `'admin'`, the map default flips from `member` to `admin`. The default (`'member'`) leaves the map untouched. It is applied inside `role_map()` so it composes with the Roles and Capabilities tab instead of fighting it.
 

@@ -10,7 +10,7 @@ All routes live under the `buddynext/v1` namespace. They follow the shared respo
 
 - **Auth.** Routes marked `Public` use `__return_true` and need no authentication. Routes marked `Auth` require a logged-in user (cookie + `X-WP-Nonce`, or an application password). Routes marked `Owner/Mod` additionally check space ownership or `manage_options`. Routes marked `manage_options` require a site administrator.
 - **Space types drive behaviour.** `open` spaces join immediately (`{"joined": true}`); `private` spaces create a pending request (`{"requested": true}`); `secret` spaces are invite-only and return `403` unless the caller holds a pending invite.
-- **Pagination.** List routes accept `page` and `per_page`. `GET /spaces` caps `per_page` at 50 (default 12). Member and pending-request lists use the shared member-pagination args and return total counts in `X-WP-Total` / `X-WP-TotalPages` headers.
+- **Pagination.** List routes accept `page` and `per_page`. `GET /spaces` caps `per_page` at 50 (default 12). The members roster (`GET /spaces/{id}/members`) is keyset-paginated: pass `cursor` + `per_page` and read the next cursor from the `X-BN-Next-Cursor` header (`X-WP-Total` is still sent; there is no `X-WP-TotalPages` for the roster). Pending-request lists remain page-based.
 - **Bans are canonical on the plural route.** Space bans are served by the Moderation controller at `/spaces/{id}/bans`. The old singular `/ban` routes were removed.
 
 > The Spaces surface spans two controllers: `SpaceController` (lifecycle, membership, images, preferences) and `ModerationController` (the three ban routes). The space feed is served by `FeedController`.

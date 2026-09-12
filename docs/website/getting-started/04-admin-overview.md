@@ -93,7 +93,7 @@ Two slots stay pinned and show a fixed handle instead of a draggable one:
 - The centre **Create** button, which is only dead-centre while it has the same number of tabs on each side of it.
 - **Profile**, the fixed last slot.
 
-Everything else in the bar (Feed, Spaces, Alerts, and any tab a plugin adds) reorders freely around them, and the front-end bar honours the order you save.
+Everything else in the bar (Activity, Spaces, Notifications, and any tab a plugin adds) reorders freely around them, and the front-end bar honours the order you save.
 
 ## Jump to any setting with the command palette
 
