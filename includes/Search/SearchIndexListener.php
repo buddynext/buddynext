@@ -341,6 +341,30 @@ class SearchIndexListener implements ListenerInterface {
 	}
 
 	/**
+	 * The search-index visibility for a post row.
+	 *
+	 * A post is publicly searchable ONLY when its own privacy is 'public', it is
+	 * not a members-only post, and its author's account is not followers-only.
+	 * The guest search gate is literally `visibility = 'public'`, so anything that
+	 * is not visible to a logged-out visitor must be indexed 'private' or its body
+	 * leaks: a members-only post (the 1.2.0 audience gate, bn_posts.members_only)
+	 * is exactly that - visible to members, never to guests - and was previously
+	 * indexed 'public' because this decision read privacy alone. The single seam
+	 * both the per-post and bulk indexers call, so the two can never disagree.
+	 *
+	 * @param array<string,mixed> $row A bn_posts row carrying privacy, members_only, user_id.
+	 * @return string 'public' or 'private'.
+	 */
+	private static function post_index_visibility( array $row ): string {
+		$author_id = (int) ( $row['user_id'] ?? 0 );
+		$is_public = 'public' === ( $row['privacy'] ?? '' )
+			&& empty( $row['members_only'] )
+			&& ! buddynext_service( 'follows' )->is_private_account( $author_id );
+
+		return $is_public ? 'public' : 'private';
+	}
+
+	/**
 	 * Synchronous fallback: index a single post.
 	 *
 	 * Reads post data from bn_posts and upserts it into bn_search_index.
@@ -359,7 +383,7 @@ class SearchIndexListener implements ListenerInterface {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, user_id, content, privacy, status, space_id
+				"SELECT id, user_id, content, privacy, members_only, status, space_id
 				 FROM {$wpdb->prefix}bn_posts
 				 WHERE id = %d",
 				$post_id
@@ -371,11 +395,8 @@ class SearchIndexListener implements ListenerInterface {
 			return;
 		}
 
-		$author_id = (int) $row['user_id'];
-		// A private (followers-only) account's posts must never surface in global
-		// search, even when the post's own privacy is 'public' — only followers
-		// see their content, via the feed, not the public index.
-		$visibility = ( 'public' === $row['privacy'] && ! buddynext_service( 'follows' )->is_private_account( $author_id ) ) ? 'public' : 'private';
+		$author_id  = (int) $row['user_id'];
+		$visibility = self::post_index_visibility( $row );
 		$content    = wp_strip_all_tags( (string) $row['content'] );
 
 		buddynext_service( 'search' )->index(
@@ -495,7 +516,7 @@ class SearchIndexListener implements ListenerInterface {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, user_id, content, privacy, status, space_id
+					"SELECT id, user_id, content, privacy, members_only, status, space_id
 					 FROM {$wpdb->prefix}bn_posts
 					 WHERE status = 'published' AND id > %d
 					 ORDER BY id ASC
@@ -508,8 +529,7 @@ class SearchIndexListener implements ListenerInterface {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			foreach ( (array) $rows as $row ) {
-				$author_id  = (int) $row['user_id'];
-				$visibility = ( 'public' === $row['privacy'] && ! buddynext_service( 'follows' )->is_private_account( $author_id ) ) ? 'public' : 'private';
+				$visibility = self::post_index_visibility( $row );
 
 				$search_service->index(
 					'post',
