@@ -1931,7 +1931,12 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	gap: var(--bn-s2);
 }
 
-.bn-comment-form__avatar { flex-shrink: 0; }
+/* Top-align the commenter's avatar with the first line of the textarea. The row is
+   align-items: flex-end so the emoji + circular send button sit at the bottom-right
+   (reachable after typing), but that dropped the small avatar to the bottom of a tall
+   empty textarea, orphaned in the corner. align-self restores the natural composer
+   read: avatar top-left by the cursor, actions bottom-right. */
+.bn-comment-form__avatar { flex-shrink: 0; align-self: flex-start; margin-top: var(--bn-s1); }
 
 .bn-comment-form__input,
 .bn-comment__reply-input {
