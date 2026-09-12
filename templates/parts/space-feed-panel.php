@@ -271,8 +271,19 @@ if ( '' !== $bn_wrap_class ) {
 			data-size="md"
 		><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
 	</div>
-<?php elseif ( ! $bn_is_member && ! $bn_is_pending && 'open' === $bn_space->type && buddynext_service( 'space_members' )->can_join( $bn_space, get_current_user_id() ) ) : ?>
-	<?php // can_join() asks the same gate the join itself runs, so this card is only offered when the invitation is real. See space-hero.php. ?>
+<?php elseif ( ! $bn_is_guest && ! $bn_is_member && ! $bn_is_pending && 'open' === $bn_space->type && buddynext_service( 'space_members' )->can_join( $bn_space, get_current_user_id() ) ) : ?>
+	<?php
+	// Logged-in non-members only. A guest is already handled by the $bn_is_guest
+	// branch above, whose "Log in" link carries the auth redirect. Without the
+	// ! $bn_is_guest guard, a logged-out visitor fell through to here and got a
+	// "Join space" button wired to actions.joinSpace with no login redirect — a
+	// dead button that does nothing when clicked. It also meant the
+	// buddynext_space_feed_show_guest_cta filter could not deliver its promised
+	// "no CTA for guests": suppressing the guest branch just fell through to this
+	// one (card 10297213961, QA round 2).
+	// can_join() asks the same gate the join itself runs, so this card is only
+	// offered when the invitation is real. See space-hero.php.
+	?>
 	<div class="bn-card bn-sh-guest-cta">
 		<div class="bn-sh-guest-cta__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
 		<div class="bn-sh-guest-cta__copy">
