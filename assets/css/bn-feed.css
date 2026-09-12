@@ -3051,6 +3051,31 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	flex-wrap: wrap;
 }
 
+/* The icon tools wrap together as one left-aligned cluster (flex:1 fills the row
+   so the submit cluster is pushed to the end). Internal wrap keeps the icons tidy
+   on a narrow width instead of one icon stranding on a second row next to Post. */
+.bn-composer__tool-group {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* Char counter + audience chip + draft + Post, kept together and pinned right.
+   margin-inline-start:auto right-aligns it on a wide row and, when the row is too
+   narrow to hold both clusters, drops the whole cluster to its own line still
+   right-aligned — no split, no stranded control. */
+.bn-composer__submit-row {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--bn-s2);
+	margin-inline-start: auto;
+	flex-shrink: 0;
+}
+
 .bn-composer__tool {
 	width: 32px;
 	height: 32px;
@@ -3074,8 +3099,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-composer__tool .bn-icon,
 .bn-composer__tool svg { width: 18px; height: 18px; }
 
-
-.bn-composer__spacer { flex: 1; }
 
 .bn-composer__privacy {
 	display: inline-flex;
@@ -3975,6 +3998,13 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	   row with the Post button on mobile and pushes the audience chip onto its
 	   own line. Let the label size to its content here. */
 	.bn-composer__privacy-chip strong { min-inline-size: auto; }
+
+	/* Mobile: all tool icons on ONE row (bn-base.css frees their min-width at this
+	   breakpoint so they shrink to ~41px and fit), then Post on its own full-width
+	   row below — a two-row composer, every tool visible, no wrap, no scroll. */
+	.bn-composer__tool-group { flex-wrap: nowrap; gap: var(--bn-s2); }
+	.bn-composer__tool { flex: 0 1 auto; }
+	.bn-composer__submit-row { flex-basis: 100%; }
 }
 
 /* ── End-of-feed marker ────────────────────────────────────────────────────

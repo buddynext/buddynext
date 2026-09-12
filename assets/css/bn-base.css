@@ -4528,6 +4528,24 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	}
 }
 
+/* Composer toolbar: on a phone the seven 44px tool targets cannot all share one
+   row, so the toolbar wrapped to two rows (three once Post drops below). Release
+   ONLY the min-width at phone widths so the icons may shrink just enough to fit a
+   single row (they hold ~41px, still a comfortable target) — the composer is then
+   at most two rows: tools, then Post. Height/target stay 44px. Matches the touch
+   rule's full selector list so it wins the same cascade the 44px lock does (equal
+   specificity, later in the file), including the :hover/:focus variants so the
+   width does not snap back on interaction. */
+@media (max-width: 640px) {
+	.bn-app .bn-composer__tool,
+	.bn-app .bn-composer__tool:hover,
+	.bn-app .bn-composer__tool:focus,
+	.bn-app .bn-composer__tool:active,
+	.bn-app .bn-composer__tool:focus-visible {
+		min-width: 0;
+	}
+}
+
 /* ════════════════════════════════════════════════════════════════════════
  * Tap-target expansion for the small overlay "remove" badges
  *

@@ -453,6 +453,9 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 
 		<div class="bn-composer__tools">
 
+			<?php // Icon tools grouped so they wrap together as one left-aligned cluster instead of a single icon (e.g. the space members-only lock) stranding on a second row beside Post. ?>
+			<div class="bn-composer__tool-group">
+
 			<?php if ( $composer_media_enabled ) : ?>
 			<button class="bn-composer__tool"
 				type="button"
@@ -553,9 +556,12 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			echo $bn_composer_tools;
 			?>
 
-			<span class="bn-composer__char-counter-slot" aria-live="polite"></span>
+			</div><!-- .bn-composer__tool-group -->
 
-			<span class="bn-composer__spacer"></span>
+			<?php // Right cluster: char counter + audience chip + draft + Post, kept together and right-aligned. On a narrow width it drops to its own row as a unit rather than splitting. ?>
+			<div class="bn-composer__submit-row">
+
+			<span class="bn-composer__char-counter-slot" aria-live="polite"></span>
 
 			<?php if ( ! $composer_space ) : ?>
 				<div class="bn-composer__privacy-wrap">
@@ -672,6 +678,8 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				<span class="bn-composer__submit-label"
 					data-wp-text="state.submitLabel"><?php esc_html_e( 'Post', 'buddynext' ); ?></span>
 			</button>
+
+			</div><!-- .bn-composer__submit-row -->
 
 		</div>
 
