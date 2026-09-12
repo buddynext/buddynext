@@ -1714,7 +1714,10 @@ const messagesStore = store( 'buddynext/messages', {
 			if ( '' === term ) { list.replaceChildren(); return; }
 			composeSearchTimer = setTimeout( async () => {
 				try {
-					const res = await restFetch( '/members?per_page=8&search=' + encodeURIComponent( term ), {
+					// messageable=1: the picker must not offer members the send route would
+				// refuse with dms_disabled — it applies the same mvs_can_send_message
+				// predicate server-side (card 10297758738).
+				const res = await restFetch( '/members?per_page=8&messageable=1&search=' + encodeURIComponent( term ), {
 						base: ctx.bnRest,
 						nonce: ctx.nonce,
 						toastOnError: false,
@@ -1795,7 +1798,10 @@ const messagesStore = store( 'buddynext/messages', {
 
 			composeSearchTimer = setTimeout( async () => {
 				try {
-					const res = await restFetch( '/members?per_page=8&search=' + encodeURIComponent( term ), {
+					// messageable=1: the picker must not offer members the send route would
+				// refuse with dms_disabled — it applies the same mvs_can_send_message
+				// predicate server-side (card 10297758738).
+				const res = await restFetch( '/members?per_page=8&messageable=1&search=' + encodeURIComponent( term ), {
 						base: ctx.bnRest,
 						nonce: ctx.nonce,
 						toastOnError: false,

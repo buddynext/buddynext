@@ -93,6 +93,11 @@ class MemberDirectoryController extends BaseRestController {
 						'sanitize_callback' => 'absint',
 						'default'           => 20,
 					),
+					'messageable' => array(
+						'type'        => 'boolean',
+						'default'     => false,
+						'description' => 'When true, exclude members the current viewer cannot direct-message (mvs_can_send_message) - used by the DM recipient picker so it never offers someone the send route would refuse.',
+					),
 				),
 			)
 		);
@@ -216,6 +221,26 @@ class MemberDirectoryController extends BaseRestController {
 			fn( $row ) => $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either, $muted_set ),
 			$rows
 		);
+
+		// Recipient-picker mode: the DM composer asks for candidates the viewer can
+		// actually message, so a member who has turned DMs off (or any pair the send
+		// route would 403 with dms_disabled) is never offered and then refused after
+		// the message is typed (card 10297758738). mvs_can_send_message is the SAME
+		// predicate the send path enforces — running it over the candidate list keeps
+		// ONE rule for "can A message B" instead of a picker rule and a send rule that
+		// drift. Opt-in (the default directory listing is unchanged) and per-candidate
+		// over a small search page, so no cost to the directory itself.
+		if ( $viewer_id > 0 && (bool) $request->get_param( 'messageable' ) ) {
+			$items = array_values(
+				array_filter(
+					$items,
+					static function ( $item ) use ( $viewer_id ) {
+						$uid = (int) ( $item['user_id'] ?? 0 );
+						return $uid > 0 && (bool) apply_filters( 'mvs_can_send_message', true, $viewer_id, $uid );
+					}
+				)
+			);
+		}
 
 		return new WP_REST_Response(
 			array(
