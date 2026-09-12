@@ -174,9 +174,21 @@ class CategoryMultiselectTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_unknown_and_invalid_ids_are_dropped(): void {
+		// The sharp case is a NEGATIVE id whose absolute value is a real category:
+		// -Cooking. absint(-Cooking) === Cooking would smuggle it back in as a valid
+		// pick, so only a signed (int) cast rejects it. Using a real category's id
+		// (not a fixed literal like -3) makes this deterministic instead of depending
+		// on whether category 3 happens to exist in this run's seed order.
 		$this->service->save_profile(
 			$this->user_id,
-			array( 'test_interests' => array( $this->cats['Chess'], 999999, 'nonsense', -3 ) )
+			array(
+				'test_interests' => array(
+					$this->cats['Chess'],
+					999999,                        // unknown id
+					'nonsense',                    // non-numeric
+					-$this->cats['Cooking'],       // negative of a REAL category
+				),
+			)
 		);
 
 		$rows = $this->value_rows();

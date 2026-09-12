@@ -1772,14 +1772,17 @@ class FieldType {
 				return implode( ',', $valid );
 
 			case 'category_multiselect':
-				// Values are category IDs: absint each and keep only IDs that
-				// exist in the live taxonomy (deleted/unknown categories are
-				// silently dropped — the signal degrades, nothing errors).
+				// Values are category IDs: keep only positive integers that exist in
+				// the live taxonomy (deleted/unknown categories are silently dropped —
+				// the signal degrades, nothing errors). Cast with (int), NOT absint():
+				// absint(-3) is 3, which would smuggle a negative input in as the real
+				// category 3 whenever category 3 exists. A non-numeric value casts to 0
+				// and is dropped by the > 0 guard.
 				$live     = self::options( $field );
 				$incoming = is_array( $raw ) ? $raw : explode( ',', (string) $raw );
 				$valid    = array();
 				foreach ( $incoming as $one ) {
-					$id = is_scalar( $one ) ? absint( $one ) : 0;
+					$id = is_numeric( $one ) ? (int) $one : 0;
 					if ( $id > 0 && isset( $live[ (string) $id ] ) && ! in_array( (string) $id, $valid, true ) ) {
 						$valid[] = (string) $id;
 					}
