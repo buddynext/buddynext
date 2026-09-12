@@ -655,27 +655,48 @@ final class SpaceNav {
 		$context = new NavContext( 'space', $space_id, $viewer_id );
 		$sub_max = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
 
+		$service   = new SpaceService();
+		$subspaces = $service->get_subspaces(
+			$space_id,
+			24,
+			0,
+			$viewer_id,
+			user_can( $viewer_id, 'manage_options' )
+		);
+
+		// Sub-spaces render the SAME card as the top-level directory (compact
+		// variant) rather than a bespoke minimal list, so a child carries the same
+		// privacy badge and Join / Request / Member control the directory does. That
+		// needs two lookups the directory already does per card: the viewer's
+		// membership in each child (batched into ONE query, so it stays O(1) on a
+		// space with the maximum sub-spaces), and the category map for the badge.
+		$sub_ids        = array_values( array_filter( array_map( static fn ( $s ): int => (int) ( $s['id'] ?? 0 ), $subspaces ) ) );
+		$membership_map = ( $viewer_id > 0 && $sub_ids )
+			? ( new SpaceMemberService() )->membership_map( $viewer_id, $sub_ids )
+			: array();
+
+		$cat_by_id = array();
+		foreach ( $service->categories_with_counts( 0, true ) as $bn_cat_row ) {
+			$cat_by_id[ (int) $bn_cat_row['id'] ] = $bn_cat_row;
+		}
+
 		buddynext_get_template(
 			'parts/space-subspaces-panel.php',
 			array(
-				'space_id'   => $space_id,
-				'viewer_id'  => $viewer_id,
-				'subspaces'  => ( new SpaceService() )->get_subspaces(
-					$space_id,
-					24,
-					0,
-					$viewer_id,
-					user_can( $viewer_id, 'manage_options' )
-				),
-				'can_manage' => $this->can_add_subspace( $context ),
+				'space_id'       => $space_id,
+				'viewer_id'      => $viewer_id,
+				'subspaces'      => $subspaces,
+				'membership_map' => $membership_map,
+				'cat_by_id'      => $cat_by_id,
+				'can_manage'     => $this->can_add_subspace( $context ),
 				// The per-parent cap, so the panel can say "2 of 3 used" and disable the
 				// button AT the limit instead of letting the manager fill in the whole
 				// modal and then be refused by the server. Counted with count_subspaces()
 				// (every child), never the visibility-scoped list, so a secret child the
 				// viewer cannot see still counts against the cap - exactly as the create
 				// path enforces it.
-				'sub_max'    => $sub_max,
-				'sub_used'   => $sub_max > 0 ? ( new SpaceService() )->count_subspaces( $space_id ) : 0,
+				'sub_max'        => $sub_max,
+				'sub_used'       => $sub_max > 0 ? $service->count_subspaces( $space_id ) : 0,
 			)
 		);
 	}

@@ -3634,69 +3634,9 @@ a.bn-sh-statpill:focus-visible {
    throughout, so dark mode and RTL come for free.
    ------------------------------------------------------------------------- */
 
-.bn-space-subspaces__list {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: var(--bn-s3);
-	margin: 0;
-	padding: 0;
-	list-style: none;
-}
-
-.bn-space-subspaces__item {
-	padding: 0;
-	overflow: hidden;
-}
-
-.bn-space-subspaces__link {
-	display: flex;
-	align-items: flex-start;
-	gap: var(--bn-s3);
-	min-width: 0;
-	padding: var(--bn-s3);
-	border-radius: var(--bn-r-md);
-	text-decoration: none;
-	color: inherit;
-	transition: background-color 0.14s ease;
-}
-
-.bn-space-subspaces__link:hover,
-.bn-space-subspaces__link:focus-visible {
-	background: var(--bn-sunken);
-	text-decoration: none;
-	color: inherit;
-}
-
-.bn-space-subspaces__emblem {
-	flex-shrink: 0;
-	border-radius: var(--bn-r-md);
-	color: var( --bn-accent-fg, #fff );
-	font-weight: var(--bn-fw-bold);
-}
-
-.bn-space-subspaces__body {
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
-	gap: var(--bn-s1);
-}
-
-.bn-space-subspaces__name {
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink);
-}
-
-.bn-space-subspaces__desc {
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-2);
-	overflow-wrap: anywhere;
-}
-
-.bn-space-subspaces__meta {
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-}
+/* Children render the shared directory card (.bn-sd-card, compact) inside
+   .bn-sd-grid, so the card, emblem, badge and Join/Request control are styled by
+   the directory's own rules — no second card stylesheet to keep in sync. */
 
 .bn-space-subspaces__cta {
 	display: flex;
@@ -3720,10 +3660,6 @@ a.bn-sh-statpill:focus-visible {
 /* Phones: one column, and the CTA goes full width so it clears the 40px tap
    target comfortably. This tab is the ONLY sub-space entry point at this width. */
 @media (max-width: 640px) {
-	.bn-space-subspaces__list {
-		grid-template-columns: minmax(0, 1fr);
-	}
-
 	.bn-space-subspaces__cta,
 	.bn-space-subspaces__add {
 		width: 100%;
