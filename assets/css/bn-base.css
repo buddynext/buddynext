@@ -4701,16 +4701,21 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
    10297709339). */
 .bn-guest-banner {
 	position: relative;
-	background: linear-gradient(135deg, var(--brand), var(--brand-hover));
-	color: var(--bn-accent-fg, #fff);
+	/* A soft brand-tinted card that fits the surrounding white cards rather than a
+	   full-saturation brand block — the brand shows as a gentle wash + accent border
+	   and carries into the primary button, so the invitation reads premium on any
+	   brand hue (a strong red brand looked like a warning as a solid block). */
+	background: color-mix(in oklch, var(--brand) 8%, var(--surface));
+	color: var(--text-1);
+	border: 1px solid color-mix(in oklch, var(--brand) 22%, var(--border));
 	border-radius: var(--bn-r-lg);
 	padding: var(--bn-s5);
 	margin-bottom: var(--bn-s5);
 }
-.bn-guest-banner h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--fw-bold); margin-bottom: var(--bn-s1); }
-.bn-guest-banner p  { font-size: var(--text-sm); opacity: 0.9; margin-bottom: var(--bn-s4); line-height: 1.6; }
+.bn-guest-banner h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--fw-bold); margin-bottom: var(--bn-s1); color: var(--text-1); }
+.bn-guest-banner p  { font-size: var(--text-sm); color: var(--text-2); margin-bottom: var(--bn-s4); line-height: 1.6; }
 .bn-banner-btns     { display: flex; gap: var(--bn-s2); flex-wrap: wrap; }
-.bn-guest-banner .bn-btn[data-variant="primary"] { background: var(--bg); color: var(--brand); }
-.bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: var(--bg-subtle); }
-.bn-guest-banner .bn-btn[data-variant="ghost"] { color: var(--bg); border-color: rgba(255, 255, 255, 0.5); background: transparent; }
-.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: rgba(255, 255, 255, 0.15); }
+.bn-guest-banner .bn-btn[data-variant="primary"] { background: var(--brand); color: var(--bn-accent-fg, #fff); border-color: var(--brand); }
+.bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
+.bn-guest-banner .bn-btn[data-variant="ghost"] { color: var(--text-1); border-color: var(--border); background: transparent; }
+.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: var(--bg-hover); }
