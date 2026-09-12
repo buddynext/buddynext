@@ -4,6 +4,20 @@ BuddyNext is large on purpose. The free plugin is a complete community platform,
 
 This page is the map. If you read one page first, read this one. It shows you the whole landscape at a glance, the handful of things to set up in your first hour, and an "I want to..." index that points straight to the exact guide for whatever you are trying to do. Everything here links into the deeper pages - come back to this map whenever you are not sure where something lives.
 
+## Start by who you are
+
+BuddyNext serves several kinds of people, and each one starts differently. Find your row, follow the flow, then open the guide it points to.
+
+| You are | Your starting flow | Start here |
+|---|---|---|
+| **The site owner / admin** (setting the community up) | Install and activate (no key needed) -> run the eight-step setup wizard -> set your logo, colours and pages -> create the first space -> decide open or paid. | [Your first hour](#your-first-hour), then [Admin Setup Wizard](03-admin-setup-wizard.md) |
+| **A new member** (joining a community) | Register or use social login -> verify your email (if the owner turned it on) -> the welcome wizard walks you through profile, interests, spaces to join, people to follow, and notifications -> you land on your own profile with a feed worth reading. | [New-Member Onboarding](../accounts-access/06-member-onboarding.md) |
+| **A space owner / moderator** (running one community inside the site) | Create a space and choose its privacy (public, private or secret) -> invite or approve members -> post and pin, and keep it healthy from the space's own moderation queue. | [Creating a Space](../spaces/02-creating-a-space.md), then [Moderation Queue](../moderation/02-moderation-queue.md) |
+| **A visitor** (not signed in yet) | Browse the public feed, spaces directory and member directory -> when you reach members-only or private content you are invited to sign up -> join and the member flow above takes over. | [Guest Experience](../accounts-access/09-guest-experience.md), then [Registration](../accounts-access/01-registration.md) |
+| **A developer** (building on or customizing it) | Read the architecture overview -> use the REST API that backs every surface, the hooks and filters, template overrides and custom blocks. | [Developer Guide](../developer-guide/01-overview.md) |
+
+Everything below expands the **owner** path in detail; the links above take members, moderators, visitors and developers straight to theirs.
+
 ## The landscape at a glance
 
 Everything BuddyNext can do, grouped. Free is complete on its own; Pro adds the growth and business layer on top. Nothing in Free is taken away when you upgrade.
