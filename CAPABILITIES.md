@@ -11,9 +11,11 @@ moved, so the header claimed a 1.1.3 review of content that already described 1.
 re-verified in that pass, and 1.1.6 has since added notification and email-template work. Treat
 every row as last checked at 1.1.3 unless it names a later version.
 **2026-09-13 (1.2.0 re-tag):** the audit manifest was regenerated against the shipped 1.2.0 code
-(REST 225, hooks 1379) and re-committed to the shelf. The only code committed since the 1.2.0
-capability-matrix freshness pass is capability-neutral - the cert-harness post-id resolution and a
-directory-count i18n string ("1 result") - so the buyer-facing rows stand as current for 1.2.0.
+(REST 225, hooks 1379) and re-committed to the shelf. Two pre-tag fixes landed since the 1.2.0
+capability-matrix freshness pass: a members-only post's body no longer leaks to guests via search
+(the "members-only posts" row is now correctly enforced on the search surface too, not only the
+feed/single-post views), and three PHPStan errors that had CI red were resolved. Neither adds or
+removes a buyer capability, so the rows below stand as current for 1.2.0.
 **Partial update 2026-09-01 (1.1.6):** the manifest was fully regenerated for the 1.1.6 release, and
 the capabilities touched by the 1.1.6 feed/media/spaces work were reviewed against the code. None
 add or remove a buyer capability: post pinning is now profile-only (spaces feature content through
