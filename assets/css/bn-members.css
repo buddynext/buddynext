@@ -244,6 +244,10 @@
 	padding: 0;
 	text-align: start;
 	transition: transform var(--bn-dur-fast) var(--bn-ease);
+	/* Grid item: allow it to shrink to its track so unbreakable card content (a
+	   long handle) truncates rather than forcing the track — and the grid — wider
+	   than the viewport. */
+	min-width: 0;
 }
 
 .bn-md-card:hover {
@@ -314,6 +318,9 @@
 	gap: var(--bn-s1);
 	padding: 40px var(--bn-s4) var(--bn-s4);
 	flex: 1;
+	/* Let the text column shrink to the card width so a long handle/name truncates
+	   or wraps instead of widening the card past its grid track. */
+	min-width: 0;
 }
 
 .bn-md-card__avatar {
@@ -340,6 +347,10 @@
 	align-items: baseline;
 	gap: 6px;
 	flex-wrap: wrap;
+	/* Break a long single-token display name (e.g. a machine handle used as a
+	   name) instead of letting it widen the card. */
+	overflow-wrap: anywhere;
+	max-width: 100%;
 }
 
 /* Connection degree badge — appears next to the member name on the
@@ -385,6 +396,15 @@
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 	margin: 0;
+	/* A long unbroken handle (e.g. @wcb_seed_employer_bmukghc3c8) has a min-content
+	   wider than the 220px grid track. With the grid item's default min-width:auto
+	   that widened the card past its column and pushed the whole directory into
+	   horizontal scroll at tablet widths. Truncate it to the card width instead
+	   (the card + body get min-width:0 so this bounds against the track). */
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .bn-md-card__headline {
