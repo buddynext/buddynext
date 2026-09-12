@@ -495,7 +495,11 @@ class AssetService {
 			'bn-onboarding',
 			'bn-gamification',
 			'bn-moderation',
-			'bn-connections',
+			// bn-connections removed: the file no longer exists (its styles moved into
+			// bn-members / bn-profile), but the handle stayed registered here and 404'd
+			// wherever it was pulled in. Nothing enqueues 'connections' as a feature, and
+			// the connections sub-route already loads bn-profile, so there is nothing to
+			// re-home.
 			'bn-header',
 			'bn-settings',
 			'bn-media-upload',
