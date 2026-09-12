@@ -154,6 +154,24 @@ class CertRunner {
 			}
 			$covered[ $id ] = true;
 
+			// Routes that act on a post (share, bookmark) carry a {post} placeholder;
+			// resolve it to a real post id so the probe reaches the feature gate
+			// instead of a post_not_found in front of it. Hardcoding "1" made these
+			// oracles 404 on any seed whose post ids do not start at 1.
+			if ( false !== strpos( $route, '{post}' ) ) {
+				$probe = $this->probe_post_id();
+				if ( 0 === $probe ) {
+					$rows[] = array(
+						'check'  => 'contract',
+						'entity' => $id,
+						'status' => 'hole',
+						'detail' => 'no post available to probe the {post} route (seed a post first)',
+					);
+					continue;
+				}
+				$route = str_replace( '{post}', (string) $probe, $route );
+			}
+
 			$snapshot = $this->snapshot( $id, $kind );
 			$this->set_state( $id, $kind, false );
 			$off = $this->dispatch( $route, $method, $params );
@@ -286,6 +304,20 @@ class CertRunner {
 				'code'   => 'throwable:' . $t->getMessage(),
 			);
 		}
+	}
+
+	/**
+	 * Resolve an existing post id for oracle routes that carry a {post} placeholder
+	 * (share, bookmark). Any real post works: the oracle asserts the feature gate,
+	 * which runs before the probe would meaningfully mutate. Returns 0 on an empty
+	 * site, which the caller reports as a hole rather than a false failure.
+	 *
+	 * @return int
+	 */
+	private function probe_post_id(): int {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return (int) $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}bn_posts ORDER BY id ASC LIMIT 1" );
 	}
 
 	/**
