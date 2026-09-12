@@ -70,3 +70,20 @@ test-results/
 # phpcs.xml silently wins over it (PHPCS prefers the non-.dist name), which is
 # exactly how the .dist config sat dead in this repo. Keep local overrides here.
 phpcs.xml
+
+# QA working state — internal, never in this PUBLIC repo.
+# plan/ holds the Basecamp ledger: the project id, column ids and a full cached
+# copy of every card on the board (16MB, 2,597 cards at the 1.2.0 cycle). It is
+# untracked by habit today, which is one `git add -A` away from publishing the
+# internal board. The canonical copy lives on the Pro shelf with the rest of the
+# internal QA material (buddynext-pro/free-internal/).
+/plan/
+
+# QA persona bootstrap. Creates local test users with a deterministic password
+# convention, so it is dev tooling that should not ship in a public plugin. It
+# stays in the working copy because wp-card-qa Step 1 invokes it from here; the
+# canonical copy is on the Pro shelf.
+/bin/qa-fixtures.sh
+
+# Python bytecode from the QA extractor scripts.
+__pycache__/
