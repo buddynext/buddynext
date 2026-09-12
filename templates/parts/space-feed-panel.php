@@ -121,9 +121,27 @@ $bn_wrap_class = trim(
 
 do_action( 'buddynext_part_space_feed_panel_before', $args );
 
-if ( '' !== $bn_wrap_class ) {
-	echo '<div class="' . esc_attr( $bn_wrap_class ) . '">';
-}
+// Declare the Interactivity region on the panel itself, not only on the page
+// wrapper (spaces/home.php). render_feed() renders this part on non-space embed
+// pages that have no wrapper, so without this every buddynext/spaces control —
+// join / leave, the in-space search, the notification-level control — got the
+// markup and the script but nothing to bind them, and did nothing when clicked
+// (card 10297748056). On a native space page this nests inside the wrapper's
+// identical region, which the Interactivity API resolves by letting the inner
+// declaration win for its subtree. restNonce/restUrl are the exact context the
+// store's resolveNonce() / restFetch() read, mirroring the wrapper.
+$bn_panel_context = (string) wp_json_encode(
+	array(
+		'restNonce' => wp_create_nonce( 'wp_rest' ),
+		'restUrl'   => rest_url( 'buddynext/v1' ),
+	)
+);
+printf(
+	'<div class="%s" data-wp-interactive="buddynext/spaces" data-space-id="%s" data-wp-context=\'%s\'>',
+	esc_attr( trim( 'bn-space-feed-panel ' . $bn_wrap_class ) ),
+	esc_attr( (string) $bn_space_id ),
+	esc_attr( $bn_panel_context )
+);
 ?>
 
 <?php if ( $bn_is_archived ) : ?>
@@ -392,8 +410,6 @@ $bn_pager_url = static function ( int $page ) use ( $bn_search_query, $bn_search
 <?php endif; ?>
 
 <?php
-if ( '' !== $bn_wrap_class ) {
-	echo '</div>';
-}
+echo '</div>'; // Always close the region root opened above.
 
 do_action( 'buddynext_part_space_feed_panel_after', $args );
