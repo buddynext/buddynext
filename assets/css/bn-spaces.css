@@ -3723,7 +3723,20 @@ a.bn-sh-statpill:focus-visible {
 		flex: 1 1 100%;
 	}
 
+	/* "Clear" renders only while searching (space-feed-panel.php), so the state
+	   every member lands on has exactly ONE button — and flex:1 stretched that
+	   lone Search into a full-width solid-brand block that pushed the composer
+	   and the whole feed below the fold. Size a single button to its content and
+	   pin it to the row end (like the composer's Post button). */
 	.bn-space-search .bn-btn {
+		flex: 0 1 auto;
+	}
+	.bn-space-search button.bn-btn {
+		margin-inline-start: auto;
+	}
+	/* While searching there are two buttons (Search + Clear); let them share the
+	   row as before. The auto-margin above is inert once the buttons grow. */
+	.bn-space-search:has( .bn-btn + .bn-btn ) .bn-btn {
 		flex: 1 1 0;
 	}
 }
