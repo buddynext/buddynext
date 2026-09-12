@@ -313,7 +313,7 @@ class PluginIsolation {
 	);
 
 	/**
-	 * Master on/off switch for route isolation (owner-controlled, default ON).
+	 * Master on/off switch for route isolation (owner-controlled, default OFF).
 	 *
 	 * @var string
 	 */

@@ -25,6 +25,8 @@ When a member sets a type to Daily or Weekly, BuddyNext does not send that event
 
 A member who reads everything as it happens in-app may receive an empty period and get no digest at all, which is intended - BuddyNext does not send a digest with nothing in it.
 
+A member who has turned community email off entirely can turn it back on from their notification preferences with a single re-subscribe control, without having to reset each notification type one by one.
+
 
 ## Setting it up (for owners)
 
