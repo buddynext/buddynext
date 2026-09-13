@@ -52,6 +52,49 @@ class MembersSidebarProviderTest extends WP_UnitTestCase {
 		$this->assertArrayNotHasKey( 'chrome', $by_id['members-online-now'] );
 	}
 
+	public function test_new_members_and_spotlight_cards_always_render(): void {
+		// The always-on cards carry the column when presence and personalization
+		// are empty, so they must appear even for a logged-out visitor.
+		self::factory()->user->create_many( 3 );
+		wp_set_current_user( 0 );
+
+		$widgets = ( new MembersSidebarProvider() )->widgets( array(), 'members' );
+		$by_id   = array();
+		foreach ( $widgets as $widget ) {
+			$by_id[ $widget['id'] ] = $widget;
+		}
+
+		$this->assertArrayHasKey( 'members-new', $by_id, 'New members card always renders when the directory has members.' );
+		$this->assertArrayHasKey( 'members-spotlight', $by_id, 'Member spotlight always renders when the directory has members.' );
+		$this->assertSame( 'New members', $by_id['members-new']['title'] );
+		$this->assertSame( 'Member spotlight', $by_id['members-spotlight']['title'] );
+		// Titled cards — registry default chrome, never chrome => false.
+		$this->assertArrayNotHasKey( 'chrome', $by_id['members-new'] );
+		$this->assertArrayNotHasKey( 'chrome', $by_id['members-spotlight'] );
+	}
+
+	public function test_spotlight_is_deterministic_within_a_day(): void {
+		// The spotlight rotates by UTC date, so two reads on the same day must
+		// feature the same member (stable within a day, fresh across days).
+		self::factory()->user->create_many( 5 );
+		wp_set_current_user( 0 );
+
+		$pick = static function (): string {
+			$widgets = ( new MembersSidebarProvider() )->widgets( array(), 'members' );
+			foreach ( $widgets as $widget ) {
+				if ( 'members-spotlight' === $widget['id'] ) {
+					ob_start();
+					call_user_func( $widget['render'] );
+					return (string) ob_get_clean();
+				}
+			}
+			return '';
+		};
+
+		$this->assertNotSame( '', $pick() );
+		$this->assertSame( $pick(), $pick(), 'The spotlight is stable within a single UTC day.' );
+	}
+
 	public function test_discovery_widgets_are_self_chromed_when_present(): void {
 		// People-to-follow / what's-happening are self-chromed (chrome => false).
 		// Their data comes from the sidebar_widgets service, which may be empty in

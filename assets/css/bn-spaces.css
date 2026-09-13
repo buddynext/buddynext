@@ -721,6 +721,35 @@
 	font-weight: var(--bn-fw-normal);
 }
 
+/* Community pulse — compact stat rows in the spaces-directory sidebar. */
+.bn-sd-pulse {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.bn-sd-pulse__row {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.bn-sd-pulse__value {
+	font-size: 18px;
+	font-weight: var(--bn-fw-bold, 700);
+	color: var(--bn-ink-1);
+	line-height: 1;
+	min-width: 2ch;
+}
+
+.bn-sd-pulse__label {
+	font-size: 13px;
+	color: var(--bn-ink-3);
+}
+
 /* ── Space home ──────────────────────────────────────────────────────
  * v2 prototype: docs/v2 Plans/v2/space-home.html.
  * ──────────────────────────────────────────────────────────────────── */
