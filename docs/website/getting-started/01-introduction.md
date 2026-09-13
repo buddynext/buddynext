@@ -124,5 +124,6 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 
 ## What's next
 
-- See Installing BuddyNext for requirements, installing the free plugin, adding Pro with the one-click installer, and the optional companion plugins.
-- After installation, the setup wizard walks you through naming your community, choosing default pages, and configuring registration. The installation page points you to it, and the Admin Setup Wizard page covers it step by step.
+- See [Installing BuddyNext](02-installation.md) for requirements, installing the free plugin, adding Pro with the one-click installer, and the optional companion plugins.
+- Not sure which theme to use? [Choosing Your Theme](02a-choosing-a-theme.md) settles it - BuddyNext works with any theme.
+- After installation, the setup wizard walks you through naming your community, choosing default pages, and configuring registration. The [installation page](02-installation.md) points you to it, and the [Admin Setup Wizard](03-admin-setup-wizard.md) page covers it step by step.

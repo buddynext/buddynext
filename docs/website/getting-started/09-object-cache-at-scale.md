@@ -58,7 +58,7 @@ If your host offers Redis, take it. If it does not, SQLite Object Cache is a rea
 
 ## An argument worth stating plainly
 
-BuddyNext requires PHP 8.2 and WordPress 6.9. Those floors already exclude most hosting that could not offer an object cache.
+BuddyNext requires PHP 8.1 and WordPress 6.9. Those floors already exclude most hosting that could not offer an object cache.
 
 So we do not hedge: **at scale, a persistent object cache is the expected setup.** Designing caching around hosts that cannot provide one would mean designing for a host that also cannot meet our PHP and WordPress requirements. Below a few thousand members it genuinely does not matter, and BuddyNext will not nag you about it.
 

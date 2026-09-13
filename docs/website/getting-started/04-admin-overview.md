@@ -107,8 +107,8 @@ Press **Cmd + K** (Mac) or **Ctrl + K** (Windows / Linux) anywhere in wp-admin, 
 
 Each section has its own deep-dive in this documentation:
 
-- New install? Start with the Admin Setup Wizard - it walks you through the most important Settings, Members, Spaces, and Notifications choices in one flow.
-- For who can join and how members are managed, see the Members documentation.
-- For communities, categories, and membership rules, see the Spaces documentation.
-- For reactions, notifications, email, and moderation, see the matching feature pages.
-- For Pro sections (Realtime & Push, Campaigns, Moderation Tools, Monetization), see the BuddyNext Pro documentation. (Insights is a free feature - see Community Insights in Getting Started.)
+- New install? Start with the [Admin Setup Wizard](03-admin-setup-wizard.md) - it walks you through the most important Settings, Members, Spaces, and Notifications choices in one flow.
+- For who can join and how members are managed, see the [Members documentation](../members/01-member-profiles.md).
+- For communities, categories, and membership rules, see the [Spaces documentation](../spaces/01-spaces-overview.md).
+- For reactions, notifications, email, and moderation, see the [Activity Feed](../community/01-activity-feed.md), [Notifications](../messaging-notifications/02-notifications.md), and [Moderation Queue](../moderation/02-moderation-queue.md) pages.
+- For Pro sections (Realtime & Push, Campaigns, Moderation Tools, Monetization), see the [BuddyNext Pro documentation](../pro/01-membership-plans.md). (Insights is a free feature - see [Community Insights](06-community-insights.md).)
