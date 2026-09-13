@@ -16,6 +16,7 @@
         "getting-started/06-community-insights.md",
         "getting-started/07-appearance-and-branding.md",
         "getting-started/08-tools-and-maintenance.md",
+        "getting-started/08a-plugin-isolation.md",
         "getting-started/09-object-cache-at-scale.md",
         "getting-started/10-feature-directory.md",
         "getting-started/11-what-you-can-build.md",

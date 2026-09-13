@@ -15,6 +15,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 - [Community Insights](06-community-insights.md) - the built-in activity numbers **(Free)**
 - [Appearance and Branding](07-appearance-and-branding.md) - colours, logo, look and feel **(Free)**
 - [Tools and Maintenance](08-tools-and-maintenance.md) - health checks and utilities **(Free)**
+- [Plugin Isolation](08a-plugin-isolation.md) - choose which plugins load on community pages **(Free)**
 - [Object Cache at Scale](09-object-cache-at-scale.md) - keep large communities fast **(Free)**
 
 ## Recipes (goal-based walkthroughs)
