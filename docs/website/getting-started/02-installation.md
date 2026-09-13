@@ -67,5 +67,7 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 
 ## What's next
 
+Not sure which theme to use with BuddyNext - BuddyX, BuddyX Pro, or Reign? BuddyNext works with any theme, so this is a quick, no-wrong-answer decision: see [Choosing Your Theme](02a-choosing-a-theme.md).
+
 After activation, the **Setup Wizard** runs on first visit and walks you through naming your community, choosing default pages, and configuring member registration and onboarding. Reopen it any time at `wp-admin/admin.php?page=buddynext-setup` to revisit those choices.
 

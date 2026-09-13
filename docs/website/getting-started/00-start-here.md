@@ -49,11 +49,12 @@ Everything BuddyNext can do, grouped. Free is complete on its own; Pro adds the 
 Do these in order and you will have a real, branded community ready for members. Each step is a few minutes.
 
 1. **Install and activate.** The free plugin works the moment it is active - no key to enter. See [Installation](02-installation.md).
-2. **Run the setup wizard.** An eight-step first-run wizard sets your pages, roles and defaults. See [Admin Setup Wizard](03-admin-setup-wizard.md).
-3. **Make it yours.** Set your logo, colours and appearance. See [Appearance and Branding](07-appearance-and-branding.md).
-4. **Place your community.** Put the feed, directory and spaces where you want them with blocks or shortcodes. See [Shortcodes and Placement](05-shortcodes-and-placement.md).
-5. **Create your first space and invite people.** Give members somewhere to gather on day one. See [Creating a Space](../spaces/02-creating-a-space.md).
-6. **Decide open or paid (optional).** If you plan to charge, set up plans and a gateway now. See [Membership Plans](../pro/01-membership-plans.md).
+2. **Pick a theme (or keep yours).** BuddyNext works with any theme; BuddyX (free), BuddyX Pro, and Reign are the community-tuned options. See [Choosing Your Theme](02a-choosing-a-theme.md).
+3. **Run the setup wizard.** An eight-step first-run wizard sets your pages, roles and defaults. See [Admin Setup Wizard](03-admin-setup-wizard.md).
+4. **Make it yours.** Set your logo, colours and appearance. See [Appearance and Branding](07-appearance-and-branding.md).
+5. **Place your community.** Put the feed, directory and spaces where you want them with blocks or shortcodes. See [Shortcodes and Placement](05-shortcodes-and-placement.md).
+6. **Create your first space and invite people.** Give members somewhere to gather on day one. See [Creating a Space](../spaces/02-creating-a-space.md).
+7. **Decide open or paid (optional).** If you plan to charge, set up plans and a gateway now. See [Membership Plans](../pro/01-membership-plans.md).
 
 ## "I want to..."
 
