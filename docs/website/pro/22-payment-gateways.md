@@ -1,12 +1,12 @@
 # Payment Gateways
 
-BuddyNext Pro is built to work with whichever payment gateway you connect, not just one. You enable the gateways you want on a single Payment Gateways tab, each shows its own status, and checkout routes members to your preferred gateway. Alongside the built-in Stripe integration, Pro ships a PayPal gateway, a Gamification Points gateway, and a Test sandbox - all configured in the same place.
+BuddyNext Pro is built to work with whichever payment gateway you connect, not just one. You enable the gateways you want on a single Payment Gateways tab, each shows its own status, and checkout routes members to your preferred gateway. Alongside the built-in Stripe integration, Pro ships a PayPal gateway, a Gamification Points gateway, an Offline payment method, and a Test sandbox - all configured in the same place.
 
 ![The Monetization Payments admin tab listing every payment gateway with its own enable toggle and status badge](../images/admin-payments.webp)
 
 ![What members see - the pricing page where they pick a plan and check out through the gateway you offer](../images/membership-pricing.webp)
 
-> **Before you start:** These gateways come with BuddyNext Pro. You need Pro active and the Monetization layer turned on (Platform → Features, "Memberships & monetization"), then open BuddyNext settings, Monetization section, Payment Gateways tab. This page covers the shared gateway model plus PayPal, Points, and the Test sandbox. Stripe has its own page - see Stripe Payments.
+> **Before you start:** These gateways come with BuddyNext Pro. You need Pro active and the Monetization layer turned on (Platform → Features, "Memberships & monetization"), then open BuddyNext settings, Monetization section, Payment Gateways tab. This page covers the shared gateway model plus PayPal, Points, the Offline method, and the Test sandbox. Stripe has its own page - see Stripe Payments.
 
 ## Why use it
 
@@ -81,6 +81,12 @@ The Points gateway appears on the Payment Gateways tab only when WB Gamification
 A plan is redeemable with points only when you give it a points price greater than zero (set on the plan - see Membership Plans). Redemption is instant: the points are debited and access is granted in the same request, with no webhook involved.
 
 > **Note:** A money coupon cannot reduce a points redemption. Points are not a cash rail, so there is no amount for a percentage or fixed discount to come out of. Tax is likewise a money concept and does not apply to a points redemption.
+
+## Offline payments
+
+The Offline method covers money paid outside the site - a bank transfer, cheque, cash, or an invoice settled elsewhere. Unlike the other gateways, it is not a checkout rail a member starts: it is an **admin action**. You record the payment against a member's plan yourself, and BuddyNext grants access. Use it when a customer pays you directly and you want their membership to reflect it without a card ever touching the site.
+
+You can rename it (for example to "Bank transfer" or "Invoice") so the label members and admins see matches how you actually take the payment.
 
 ## Test sandbox
 

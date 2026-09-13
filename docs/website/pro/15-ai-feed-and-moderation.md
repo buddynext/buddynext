@@ -61,7 +61,7 @@ Open BuddyNext > AI Feed. This page covers ranking, semantic search, and smart r
 | Enable smart replies | When on, and a provider is connected, members see a "Suggest replies" button by the comment box. | Off |
 | Daily suggestion limit per member | How many smart-reply requests each member may make per day before the button reports the limit is reached. Resets daily. Clamped to 1-10000. | 50 |
 
-> **Note:** Semantic search is a related AI feature on this same page. It re-ranks search results by meaning, not just keywords. It is covered in more depth under Advanced Search; the rows above are included here for completeness because they live on the AI Feed screen.
+> **Note:** Semantic search is a related AI feature on this same page. It re-ranks search results by meaning, not just keywords, and its settings live here on the AI Feed screen alongside the feed-ranking controls. (For the everyday, non-AI search filters members use, see Advanced Search.)
 
 ### Step 3: configure the AI Moderation page
 

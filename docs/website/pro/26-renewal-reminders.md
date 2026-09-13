@@ -25,7 +25,7 @@ Members on a **past-due** subscription are deliberately left out. They have alre
 
 ## Setting it up (for owners)
 
-The controls live on the Billing screen under Monetization, in the Renewal reminders card.
+The controls live on the **Subscriptions** tab under Monetization, in the Renewal reminders card.
 
 | Setting | What it does | Default |
 |---|---|---|
