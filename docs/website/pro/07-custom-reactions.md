@@ -75,3 +75,8 @@ The six default reactions, the reaction picker, and reaction counting are all pa
 
 Custom Reactions - adding emoji beyond the default six - is a Pro feature. Pro adds your custom reactions to Free's reaction list, so everything stays consistent across the website and any connected app.
 > **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Plans.
+
+## Related
+
+- [Reactions](../community/04-reactions.md) - the free reaction set this extends.
+- [Membership Plans](01-membership-plans.md) - custom reactions can be a plan perk.

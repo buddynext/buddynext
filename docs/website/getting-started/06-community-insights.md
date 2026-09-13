@@ -34,3 +34,9 @@ BuddyNext also adds a small **BuddyNext community** widget to the standard WordP
 Community Insights covers the essentials every owner needs and is part of the free plugin. If you want deeper reporting - trends over longer periods, breakdowns, and more detailed engagement views - that lives in BuddyNext Pro Analytics. Insights is the quick daily read; Analytics is the full report. See the Pro documentation for what Analytics adds.
 
 > **Note:** Every number here is calculated from your own community data on your own site. Nothing is sent anywhere, and there is nothing to set up - the figures appear as soon as members start using the community.
+
+## Related
+
+- [Admin Overview](04-admin-overview.md) - where Insights sits in the admin.
+- [Tools and Maintenance](08-tools-and-maintenance.md) - the other Platform health screens.
+- [Analytics](../pro/11-analytics.md) - the deeper reporting Pro adds on top of Insights.

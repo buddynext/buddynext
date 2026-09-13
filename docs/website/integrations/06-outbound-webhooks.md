@@ -110,3 +110,9 @@ Pro removes the limit, so you can add as many destinations as you need and send 
 - The signing secret is shown only when you add the destination and cannot be displayed again or rotated; delete and re-add to change it.
 - A switched-off destination is not deleted - it stays in your list as inactive until you remove it or re-add it.
 - Removing a destination also removes its delivery log.
+
+## Related
+
+- [Integrations Overview](01-overview.md) - how every companion plugin connects.
+- [Webhooks REST Contract](../developer-guide/23-rest-webhooks.md) - the signature and payload details for developers.
+- [Unlimited Webhooks](../pro/19-unlimited-webhooks.md) - the Pro upgrade that removes the one-destination limit.

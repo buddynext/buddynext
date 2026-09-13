@@ -112,3 +112,10 @@ Taking real payments is part of BuddyNext Pro. BuddyNext Free has no checkout or
 - For PayPal: a PayPal app (Client ID and Secret) and a PayPal webhook.
 - For Points: WB Gamification active, and the gateway switched on.
 - At least one membership plan with a price (or a points price) set on it.
+
+## Related
+
+- [Stripe Payments](03-stripe-payments.md) - the built-in Stripe gateway in detail.
+- [Membership Plans](01-membership-plans.md) - the plans each gateway charges for.
+- [Coupons and Tax](23-coupons-and-tax.md) - discounts and tax applied before any gateway is charged.
+- [Gamification](../engagement/01-gamification.md) - the points economy the Points gateway spends.

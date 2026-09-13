@@ -64,3 +64,10 @@ There is nothing to configure to use Bulk Moderation. The page is available to a
 ## Free vs Pro
 
 Bulk Moderation is a Pro feature. The free plugin includes the report queue and single-item moderation actions (dismiss, remove, warn, suspend) - you act on one item at a time. Pro adds the bulk page that applies those same actions to many reports or many users in one submit. For AI-assisted scoring of content and the automated review of the report queue, see AI Feed and Moderation. For keyword, link, and rate-limit rules that act automatically, see Auto-Moderation.
+
+## Related
+
+- [Moderation Queue](../moderation/02-moderation-queue.md) - the single-item queue these actions batch.
+- [Auto-Moderation Rules](14-auto-moderation.md) - rules that flag content before you review it.
+- [AI Feed and Moderation](15-ai-feed-and-moderation.md) - AI scoring of the report queue.
+- [User Moderation](../moderation/03-user-moderation.md) - the warn and suspend actions applied in bulk.

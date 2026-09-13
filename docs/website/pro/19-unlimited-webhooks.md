@@ -54,3 +54,8 @@ There is nothing extra to switch on. Once Pro is active, the "Register endpoint"
 | Per-endpoint events, secret, and delivery log | Yes | Yes |
 
 The engine is entirely free. Pro is the upgrade you reach for the moment your community needs to talk to more than one external system at a time.
+
+## Related
+
+- [Outbound Webhooks](../integrations/06-outbound-webhooks.md) - the full webhook engine and setup, shared with Free.
+- [Integrations Overview](../integrations/01-overview.md) - other ways to connect external services.

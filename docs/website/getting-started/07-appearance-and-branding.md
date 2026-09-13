@@ -31,3 +31,10 @@ BuddyNext does not add its own light/dark switch. Instead it follows the toggle 
 For finer visual tweaks, the **Custom CSS** box under Settings > Appearance lets you add your own styles. It is injected on community pages after the theme's own styles. Where you can, use BuddyNext's built-in design variables (for example the accent color variable) so your tweaks track your brand color and dark mode automatically instead of fighting them.
 
 > **Note:** Because the whole community reads from one brand color and one set of design tokens, small branding changes ripple everywhere at once. Set your color and logo first, then only reach for Custom CSS if you need something the standard controls do not cover.
+
+## Related
+
+- [Admin Setup Wizard](03-admin-setup-wizard.md) - sets your name and brand color on first run.
+- [Choosing a Theme](02a-choosing-a-theme.md) - the host theme whose light/dark toggle BuddyNext follows.
+- [Admin Overview](04-admin-overview.md) - where the Appearance and General settings live.
+- [Design System Tokens](../developer-guide/46-design-system-tokens.md) - the variables to use in Custom CSS.

@@ -104,3 +104,9 @@ The result message tells you what happened:
 Push Notifications are a Pro feature. The free plugin shows in-app notifications and can send notification emails, but it cannot deliver to a browser or mobile device when the member is off-site. Pro adds the Firebase delivery layer, the web push enrollment panel, the per-type push toggles, and the admin self-test.
 
 For the related real-time transport that updates the notification bell and feed live while a member is on the site, see Real-time WebSocket.
+
+## Related
+
+- [Real-time WebSocket](18-realtime-websocket.md) - live updates while a member is on the site.
+- [PWA](../engagement/04-pwa.md) - installing the community to a phone home screen.
+- [Notification Preferences](../messaging-notifications/03-notification-preferences.md) - where members opt in and choose types.

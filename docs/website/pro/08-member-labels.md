@@ -68,3 +68,9 @@ When a label is assigned to or removed from a member, the change requires admini
 ## Free vs Pro
 
 Member Labels is a Pro feature in full - the labels themselves, the admin screen, the profile and byline chips, and the ability to assign them are all part of BuddyNext Pro. Pro adds the chips into the profile and byline using BuddyNext Free's display seams, so labels appear in the right places without any changes to Free.
+
+## Related
+
+- [Advanced Search](10-advanced-search.md) - filter members by the labels you assign.
+- [Member Directory](../members/04-member-directory.md) - where labels appear next to names.
+- [Broadcast Email](12-broadcast-email.md) - target a campaign by member label.

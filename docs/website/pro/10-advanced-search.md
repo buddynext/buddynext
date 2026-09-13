@@ -68,3 +68,9 @@ Free search covers the unified search across members, posts, spaces, and hashtag
 
 Pro adds the five member filters (plan, space, label, joined after, active within) by extending the free search, plus per-member saved searches. The filters draw their options from your community's real plans, spaces, and labels, so what you can filter by always matches what your site has.
 > **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Plans.
+
+## Related
+
+- [Search](../community/12-search.md) - the base search these filters extend.
+- [Member Labels](08-member-labels.md) - one of the attributes you can filter by.
+- [Membership Plans](01-membership-plans.md) - advanced search can be a plan perk.

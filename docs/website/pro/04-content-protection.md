@@ -79,3 +79,9 @@ The locked card non-members see has a heading, a short note, and a call-to-actio
 ## Free vs Pro
 
 Content Protection - the members-only post toggle, the `[buddynext_members_only]` shortcode, the locked card, and the shared call-to-action - is part of BuddyNext Pro. It builds on the same memberships as gated spaces, so see Membership Plans and Gated Spaces for how access is defined and Stripe Payments for how members pay to unlock it.
+
+## Related
+
+- [Membership Plans](01-membership-plans.md) - define the plans that unlock protected content.
+- [Gated Spaces](02-gated-spaces.md) - lock a whole space instead of a single post.
+- [Stripe Payments](03-stripe-payments.md) - how members pay to unlock protected content.

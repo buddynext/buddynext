@@ -41,3 +41,9 @@ White-label branding is a Pro feature in its entirety - free BuddyNext always ru
 |---|---|---|
 | Admin brand name and logo | No | Yes |
 | Branded email header | No | Yes |
+
+## Related
+
+- [Per-space Branding](21-space-branding.md) - what changed for per-space overrides in 1.0.7.
+- [Appearance and Branding](../getting-started/07-appearance-and-branding.md) - the front-end branding the theme controls.
+- [White-label Your Community](../recipes/07-white-label-your-community.md) - the agency setup recipe.

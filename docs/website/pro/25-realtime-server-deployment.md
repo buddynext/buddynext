@@ -157,3 +157,8 @@ For an end-to-end check, open the community in two browsers, log in as different
 ## Scaling
 
 One instance handles far more than most communities need. When you outgrow it, run several instances behind a load balancer sharing one Redis - which is why Redis is the recommended storage from the start. Nothing changes in BuddyNext: it still points at one hostname.
+
+## Related
+
+- [Real-time WebSocket](18-realtime-websocket.md) - what the feature does and what each setting means.
+- [Push Notifications](17-push-notifications.md) - off-site delivery alongside live updates.

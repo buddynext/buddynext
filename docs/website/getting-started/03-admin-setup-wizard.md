@@ -71,3 +71,10 @@ After setup, every choice has a permanent home in the admin:
 | Companion plugins | Platform - Integrations, and the WordPress Plugins screen |
 
 For the full map of the admin and where each of those sections lives, see the Admin Overview.
+
+## Related
+
+- [Installation](02-installation.md) - getting BuddyNext active before the wizard runs.
+- [Admin Overview](04-admin-overview.md) - the full map of where each setting lives afterward.
+- [Appearance and Branding](07-appearance-and-branding.md) - refine the name and brand color the wizard set.
+- [Integrations Overview](../integrations/01-overview.md) - configure the companion plugins the Addons step offers.

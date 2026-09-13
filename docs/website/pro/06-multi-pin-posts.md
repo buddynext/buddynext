@@ -44,3 +44,9 @@ Pinning itself — the Pin and Unpin actions, the top-of-profile placement, and 
 Pro's addition here is the higher cap: up to 10 pinned posts per profile. Nothing else about pinning changes, so the workflow members already know stays the same; there is simply room for more highlights.
 
 > **Note:** The profile pin cap is a plan perk. If you have turned Memberships on **and** chosen a default plan, each member gets the number of profile pins their plan grants (the shipped Free plan grants 1). With Memberships off (the default), every member gets the full 10. See Membership Plans.
+
+## Related
+
+- [Announcements](../community/11-announcements.md) - the space equivalent of pinning.
+- [Member Profiles](../members/01-member-profiles.md) - where pinned posts sit.
+- [Membership Plans](01-membership-plans.md) - the profile pin cap can be a plan perk.

@@ -19,3 +19,8 @@ Per-space branding is not available in either Free or Pro as of 1.0.7.
 | | Free | Pro |
 |---|---|---|
 | Per-space logo, color, font, custom CSS | No | No (removed in 1.0.7) |
+
+## Related
+
+- [White-label Branding](20-white-label.md) - where branding lives now.
+- [Appearance and Branding](../getting-started/07-appearance-and-branding.md) - the theme-driven front-end branding.

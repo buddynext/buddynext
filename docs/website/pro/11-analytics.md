@@ -92,3 +92,8 @@ You do not need to do anything for this; it is a background job. It matters only
 ## Free vs Pro
 
 Analytics is a Pro feature in full. BuddyNext Free records community activity and powers the live surfaces members use, but the analytics dashboard - the DAU/WAU/MAU cards, content and member rankings, space health, cohorts, funnel, CSV export, and the member-facing profile-views panel - is part of Pro.
+
+## Related
+
+- [Community Insights](../getting-started/06-community-insights.md) - the free at-a-glance summary the dashboard renders below.
+- [Membership Plans](01-membership-plans.md) - the member profile-views panel can be a plan perk.

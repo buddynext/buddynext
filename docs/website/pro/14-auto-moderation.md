@@ -113,3 +113,10 @@ These ship ready to use. Toggle them on or off and adjust their settings like an
 ## Free vs Pro
 
 The free plugin ships the core Content Safeguards - the always-on checks that protect submission, plus the moderator report queue and manual actions. Auto-Moderation Rules is the Pro layer on top: the configurable rule engine (keyword, link, rate-limit, and report-threshold rules), severities, priorities, and the built-in defaults. For automatic classification that scores content with AI rather than matching fixed keywords, see AI Moderation.
+
+## Related
+
+- [Content Safeguards](../moderation/05-content-safeguards.md) - the free always-on checks these rules layer on.
+- [AI Feed and Moderation](15-ai-feed-and-moderation.md) - AI scoring instead of fixed keywords.
+- [Bulk Moderation](16-bulk-moderation.md) - act on many flagged items at once.
+- [Moderation Queue](../moderation/02-moderation-queue.md) - where flagged content waits for review.

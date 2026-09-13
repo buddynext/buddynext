@@ -81,3 +81,9 @@ Pro adds the management layer around that clock:
 - Owner-validated scheduling, rescheduling, and cancelling, with clear errors for a past date, a non-owner cancel, or a post that is not actually scheduled.
 - A member-facing list of their own scheduled posts, with reschedule and cancel.
 - The admin **Scheduled Posts** queue listing every waiting post community-wide, paginated, with Publish Now, Cancel, and Publish Overdue Posts Now.
+
+## Related
+
+- [Post Composer](../community/02-post-composer.md) - the schedule clock in the composer this builds on.
+- [Activity Feed](../community/01-activity-feed.md) - where a scheduled post lands when it publishes.
+- [Membership Plans](01-membership-plans.md) - scheduling can be a plan perk.

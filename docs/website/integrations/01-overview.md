@@ -90,3 +90,10 @@ This is the screen to visit when you want a companion's data without its menu cl
 ## Outbound webhooks
 
 Beyond these plugin integrations, BuddyNext can also send your community's events to any external system over a webhook - useful for automation tools like Zapier, Make, or n8n, or for syncing members into a CRM. See Outbound Webhooks for how to register an endpoint and subscribe to events.
+
+## Related
+
+- [WPMediaVerse](02-wpmediaverse.md) - the companion that powers direct messaging and media.
+- [Jetonomy](03-jetonomy.md) - forum-style discussion boards for your spaces.
+- [Outbound Webhooks](06-outbound-webhooks.md) - send community events to external tools.
+- [Activity Feed](../community/01-activity-feed.md) - where most integrations surface their content.

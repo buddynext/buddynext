@@ -60,3 +60,10 @@ The Portfolio tab and the suite integrations that feed it are part of BuddyNext 
 - BuddyNext Pro active alongside BuddyNext.
 - At least one companion app active: Career Board, WB Listora, or Learnomy.
 - Members with content in those apps (a job, a listing, a course) for their Portfolio tab to appear.
+
+## Related
+
+- [Career Board](../integrations/05-career-board.md) - one of the apps that fills the Portfolio tab.
+- [Learnomy](../integrations/08-learnomy.md) - courses and certificates shown in the tab.
+- [Listora](../integrations/07-listora.md) - directory listings shown in the tab.
+- [Member Profiles](../members/01-member-profiles.md) - the profile the tab lives on.

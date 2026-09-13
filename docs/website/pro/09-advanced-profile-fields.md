@@ -103,3 +103,9 @@ The free plugin ships the core field types (text, textarea, select, checkbox, an
 
 Pro adds the five field types documented here - extended date, location, advanced multi-select, advanced number, and conditional - by extending the free field engine. No free field type changes; Pro only adds to the type list and the per-type options.
 > **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Plans.
+
+## Related
+
+- [Profile Fields](../members/02-profile-fields.md) - the base field builder these types extend.
+- [Member Profiles](../members/01-member-profiles.md) - where the filled-in fields appear.
+- [Membership Plans](01-membership-plans.md) - advanced fields can be a plan perk.

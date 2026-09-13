@@ -100,3 +100,9 @@ Each campaign has a Recipients view that breaks delivery down by status - how ma
 ## Free vs Pro
 
 Broadcast email is a Pro feature. BuddyNext Free sends transactional and notification email tied to community activity (for example, a notification that someone followed you). The ability to compose a standalone campaign, target it to a segment, send a test, dispatch it in batches, and give members per-campaign and all-broadcasts unsubscribe controls is part of Pro.
+
+## Related
+
+- [Drip Sequences](13-drip-sequences.md) - an automated timed series rather than a one-off send.
+- [Notification Preferences](../messaging-notifications/03-notification-preferences.md) - where members manage the broadcast opt-out.
+- [Grow with Email](../recipes/05-grow-with-email.md) - use broadcasts and drips together.

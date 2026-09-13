@@ -103,3 +103,10 @@ WPMediaVerse Pro extends the messaging engine with:
 - **Real-time delivery** - messages arrive live without waiting for a refresh.
 
 These are engine-level upgrades. Activating WPMediaVerse Pro lights them up inside the same BuddyNext messaging experience; you do not change anything in BuddyNext itself to use them.
+
+## Related
+
+- [Integrations Overview](01-overview.md) - how every companion plugin connects.
+- [Direct Messaging](../messaging-notifications/01-direct-messaging.md) - the member messaging experience this engine powers.
+- [Blocking and Muting](../members/08-blocking-and-muting.md) - the rules that decide who can message whom.
+- [Profile Media and Albums](../members/10-profile-media-and-albums.md) - where shared media appears on profiles.

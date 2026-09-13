@@ -96,3 +96,10 @@ Both the AI Feed and AI Moderation screens show a live connection status for you
 ## Free vs Pro
 
 AI feed ranking, AI moderation, smart replies, and semantic search are Pro features. In the free plugin the home feed is newest-first, search uses the built-in full-text index, and moderation is reactive (members report content, moderators review it) plus the standard content safeguards. The Pro moderation rules engine that the classifier runs alongside is described under Auto-Moderation. Acting on many reports or members at once is covered in Bulk Moderation.
+
+## Related
+
+- [Auto-Moderation Rules](14-auto-moderation.md) - the rules engine the classifier runs alongside.
+- [Bulk Moderation](16-bulk-moderation.md) - action many AI-flagged reports at once.
+- [Activity Feed](../community/01-activity-feed.md) - the feed AI ranking re-orders.
+- [Advanced Search](10-advanced-search.md) - the everyday non-AI search filters.

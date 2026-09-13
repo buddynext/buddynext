@@ -53,3 +53,10 @@ This integration has no settings of its own in BuddyNext. The learning experienc
 ## Free vs Pro
 
 The Learnomy community integration is part of BuddyNext Pro. The Learnomy plugin itself is separate and runs on its own, but surfacing its course completions and certificates inside the BuddyNext community - the feed activity, the profile's Continue Learning panel, and notification gathering described above - requires BuddyNext Pro.
+
+## Related
+
+- [Integrations Overview](01-overview.md) - how every companion plugin connects.
+- [Activity Feed](../community/01-activity-feed.md) - where course completions and certificates appear.
+- [Notifications](../messaging-notifications/02-notifications.md) - the bell that gathers course notifications.
+- [Member Profiles](../members/01-member-profiles.md) - the profile the Continue Learning panel joins.

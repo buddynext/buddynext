@@ -124,3 +124,10 @@ Returning subscribers can open the Stripe billing portal from your site. The por
 ## Free vs Pro
 
 Membership gating exists at the model level in the platform: a space can require an ability, and the paywall can point members to an external page to upgrade. Stripe payments - taking the card, hosted checkout, the billing portal, automatic price provisioning from the plan, and the subscription lifecycle synced from Stripe webhooks - are part of BuddyNext Pro. See Membership Plans and Gated Spaces for how access is defined, and Content Protection for locking individual posts and pages behind the same memberships.
+
+## Related
+
+- [Payment Gateways](22-payment-gateways.md) - the shared gateway model and the other gateways.
+- [Membership Plans](01-membership-plans.md) - define the plans Stripe charges for.
+- [Coupons and Tax](23-coupons-and-tax.md) - discounts and tax applied before Stripe is charged.
+- [Content Protection](04-content-protection.md) - lock posts behind the plans Stripe sells.

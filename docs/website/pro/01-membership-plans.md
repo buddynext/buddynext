@@ -244,3 +244,10 @@ Within Pro, taking real payments needs a payment gateway. Pro is built to work w
 
 - BuddyNext Pro active alongside BuddyNext.
 - A connected payment gateway (the included Stripe integration, or another connected gateway) to charge members through checkout. Without one, you can still define plans and grant access by hand while you finish setting up.
+
+## Related
+
+- [Gated Spaces](02-gated-spaces.md) - require an active plan to enter a space.
+- [Payment Gateways](22-payment-gateways.md) - connect a gateway so members can pay for a plan.
+- [Ways to Make Money](../getting-started/12-ways-to-make-money.md) - choose between subscriptions, gated spaces, and paywalls.
+- [Launch a Paid Community](../recipes/01-launch-a-paid-community.md) - set plans up end to end.

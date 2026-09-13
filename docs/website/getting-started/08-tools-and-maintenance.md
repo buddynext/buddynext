@@ -39,3 +39,10 @@ Deleting a plugin from WordPress can mean two different things: remove the plugi
 Data is **kept by default**. If you deactivate and delete BuddyNext - by accident, or to reinstall - your spaces, posts, members' community data and settings are still there when you bring it back. If you would rather a delete also wipe BuddyNext's data, switch the policy to remove it. Financial records such as orders and payments are always retained regardless of the setting, so your accounting history is never lost to an uninstall.
 
 > **Note:** These are diagnostic tools grouped under **Advanced** for a reason - you do not need them during normal running. Reach for this screen when something feels off (search comes up empty, a digest did not go out) rather than as part of routine setup.
+
+## Related
+
+- [Plugin Isolation](08a-plugin-isolation.md) - the full detail on the isolation control summarized here.
+- [Object Cache at Scale](09-object-cache-at-scale.md) - setting up the persistent cache this screen checks for.
+- [Community Insights](06-community-insights.md) - the other admin health-and-status read.
+- [Admin Overview](04-admin-overview.md) - where the Platform Tools screen sits.

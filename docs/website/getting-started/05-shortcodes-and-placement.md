@@ -103,3 +103,10 @@ Places the logged-in member's header controls - the notifications bell, the mess
 ## For developers
 
 This page is the placement guide for site owners and builders. If you are looking for the full technical reference - every shortcode with its parameters, the surfaces it can route to, and notes on theme integration - see the Shortcodes reference in the Developer Guide.
+
+## Related
+
+- [Admin Overview](04-admin-overview.md) - where the community pages the wizard created live.
+- [Appearance and Branding](07-appearance-and-branding.md) - styling that carries onto placed surfaces.
+- [Shortcodes Reference](../developer-guide/50-shortcodes.md) - every shortcode with its full parameters.
+- [Blocks Reference](../developer-guide/34-blocks-reference.md) - the block editor equivalents of these surfaces.

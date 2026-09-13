@@ -87,3 +87,9 @@ You can edit a step, reorder steps, and remove a step from the editor. Because e
 ## Free vs Pro
 
 Drip Sequences is a Pro feature in full - the sequence builder, triggers, step scheduling, automatic and manual enrollment, and the delivery engine. The free plugin sends transactional and notification email but does not offer timed, multi-step sequences. For one-off newsletters to a segment rather than a timed series, see Broadcast Email.
+
+## Related
+
+- [Broadcast Email](12-broadcast-email.md) - one-off campaigns rather than a timed series.
+- [Member Onboarding](../accounts-access/06-member-onboarding.md) - the onboarding-completed trigger that can enroll members.
+- [Grow with Email](../recipes/05-grow-with-email.md) - the email-growth recipe.

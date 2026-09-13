@@ -53,3 +53,9 @@ If you are upgrading and you want reminders, this is the one setting you have to
 ## Free vs Pro
 
 Renewal reminders are a Pro feature, because they exist only where there is a paid membership to renew. Free BuddyNext has no billing, so there is nothing to remind anyone about.
+
+## Related
+
+- [Membership Plans](01-membership-plans.md) - the subscriptions these reminders count down.
+- [Stripe Payments](03-stripe-payments.md) - the renewals and past-due states behind the emails.
+- [Email System](../messaging-notifications/04-email-system.md) - the templates these reminders use.

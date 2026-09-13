@@ -68,3 +68,10 @@ This integration has no settings of its own in BuddyNext. BuddyNext hosts its ow
 ## Free vs Pro
 
 The WB Gamification integration ships in BuddyNext free. You need the WB Gamification plugin installed and active for any of it to appear. No BuddyNext Pro features are required for this integration.
+
+## Related
+
+- [Integrations Overview](01-overview.md) - how every companion plugin connects.
+- [Gamification](../engagement/01-gamification.md) - the member-facing badges, points, and levels.
+- [Leaderboard](../engagement/02-leaderboard.md) - the community ranking this integration links to.
+- [Activity Feed](../community/01-activity-feed.md) - where credential badges are announced.

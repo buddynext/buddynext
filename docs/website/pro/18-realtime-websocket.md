@@ -89,3 +89,10 @@ The Realtime page has a **Test connection** button. It pings your configured ser
 The real-time WebSocket transport is a Pro feature. The free plugin keeps every live surface working over REST polling - the bell, the feed's new-posts indicator, presence, and directory online status all function without Pro, just on a polling cadence. Pro swaps in the WebSocket transport so the same events arrive instantly, and provides the admin connection settings, the channel authorization, and the connection self-test.
 
 For delivering notifications to a member's device when they are not on the site at all, see Push Notifications.
+
+## Related
+
+- [Deploying a realtime server](25-realtime-server-deployment.md) - stand up the WebSocket server.
+- [Push Notifications](17-push-notifications.md) - reach members when they are off-site.
+- [Direct Messaging](../messaging-notifications/01-direct-messaging.md) - messages that arrive live over the socket.
+- [Realtime Updates](../engagement/03-realtime-updates.md) - the free polling transport this upgrades.

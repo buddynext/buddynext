@@ -67,3 +67,10 @@ The job board's own behavior - who can post, application rules, resume options -
 ## Free vs Pro
 
 The Career Board community integration is part of BuddyNext Pro. The Career Board plugin itself is separate and runs on its own, but surfacing its jobs and resumes inside the BuddyNext community - the feed activity, community search, notification mirroring, and profile panels described above - requires BuddyNext Pro.
+
+## Related
+
+- [Integrations Overview](01-overview.md) - how every companion plugin connects.
+- [Activity Feed](../community/01-activity-feed.md) - where new jobs and resumes appear.
+- [Search](../community/12-search.md) - where published jobs become findable.
+- [Member Profiles](../members/01-member-profiles.md) - the profile the jobs and resume panels join.

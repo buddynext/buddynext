@@ -83,3 +83,10 @@ There is nothing to pre-build for space forums. A space's forum is created the f
 The free Jetonomy companion delivers everything described above: the Discussions area, per-space forums, threaded replies, voting, mentions, reply notifications, feed sync, and the two-way sync between feed comments and forum replies.
 
 Jetonomy's own paid plan extends the forum engine itself (for example its private-messaging extension). Inside a BuddyNext community, direct messaging is owned by BuddyNext through the WPMediaVerse companion, so when BuddyNext messaging is available it takes over the Messages area and Jetonomy's messaging extension steps aside - members get one consistent inbox rather than two. See WPMediaVerse and Direct Messaging for how messaging is provided.
+
+## Related
+
+- [Integrations Overview](01-overview.md) - how every companion plugin connects.
+- [Space Forum](../spaces/09-space-forum.md) - the per-space forum this integration adds.
+- [Activity Feed](../community/01-activity-feed.md) - where new discussions appear as cards.
+- [WPMediaVerse](02-wpmediaverse.md) - the companion that owns direct messaging.

@@ -88,3 +88,10 @@ Below the global defaults, the Paywall tab lists every gated space with the plan
 Gating spaces behind a membership, the paywall prompt, and the per-space override settings are all BuddyNext Pro and depend on Membership Plans. BuddyNext Free has open and request-to-join spaces but no membership-based gating.
 
 Within Pro, both linking a space to a plan and the paywall prompt are managed from the admin Paywall tab. A visible badge on gated spaces is planned but not part of the current release.
+
+## Related
+
+- [Membership Plans](01-membership-plans.md) - define the plans a gated space can require.
+- [Content Protection](04-content-protection.md) - lock individual posts with the same memberships.
+- [Spaces Overview](../spaces/01-spaces-overview.md) - how spaces work before you gate one.
+- [Stripe Payments](03-stripe-payments.md) - take payment when a member hits the paywall.

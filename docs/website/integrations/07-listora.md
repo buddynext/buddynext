@@ -62,3 +62,10 @@ The directory's own behavior - who can list, the categories, the listing fields 
 ## Free vs Pro
 
 The Listora community integration is part of BuddyNext Pro. The Listora plugin itself is separate and runs on its own, but surfacing its listings inside the BuddyNext community - the feed activity and community search described above - requires BuddyNext Pro.
+
+## Related
+
+- [Integrations Overview](01-overview.md) - how every companion plugin connects.
+- [Activity Feed](../community/01-activity-feed.md) - where new listings appear.
+- [Search](../community/12-search.md) - where published listings become findable.
+- [Member Profiles](../members/01-member-profiles.md) - the profile the Listings panel joins.

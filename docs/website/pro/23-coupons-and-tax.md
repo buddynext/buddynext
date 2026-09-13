@@ -83,3 +83,9 @@ Coupons and tax are part of BuddyNext Pro's Monetization layer. BuddyNext Free h
 - BuddyNext Pro active alongside BuddyNext, with the Monetization layer turned on.
 - At least one paid membership plan for a coupon to discount or tax to apply to.
 - A connected payment gateway to take the final charge (see Payment Gateways).
+
+## Related
+
+- [Membership Plans](01-membership-plans.md) - the plans a coupon discounts or tax applies to.
+- [Payment Gateways](22-payment-gateways.md) - the gateways the final amount is charged through.
+- [Stripe Payments](03-stripe-payments.md) - the Stripe setup that takes the charge.
