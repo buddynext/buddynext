@@ -2,19 +2,22 @@
 /**
  * Spaces-directory right-sidebar provider (Free core).
  *
- * Registers the three titled sidebar cards — suggested, your spaces, popular
- * — that formerly lived inline in `templates/spaces/directory.php` as a
- * single `buddynext_right_sidebar` callback. Distinct from FeedSidebarProvider
- * and ExploreSidebarProvider: these descriptors use the registry's DEFAULT
- * chrome (no `chrome => false`), so each `render` closure echoes ONLY the
- * inner `<ul>` body and SidebarRegistry wraps it in `parts/sidebar-card.php`
- * using the descriptor's `title`/`icon` — same pattern as Task 6's
- * MembersSidebarProvider.
+ * Ships a full, ready-made sidebar for the Spaces directory so the column is
+ * never a single thin card — BuddyNext exposes no widget-add UI, so each page
+ * must carry its own relevant defaults. Registers up to five titled cards:
+ * "Suggested for you" (personalized), "Your spaces" (managed + joined),
+ * "New spaces" (recently created), "Popular this week" (most-joined) and
+ * "Community pulse" (a compact stats strip). "Suggested" and "Your spaces"
+ * are member-only and skip when empty; "New spaces", "Popular this week" and
+ * "Community pulse" always render (guest and member) so the directory reads
+ * as a living community out of the box.
  *
- * "Suggested for you" and "Popular this week" are mutually exclusive: the
- * popular descriptor is added only when suggested did not render (guest, or
- * a logged-in member with no suggestions yet), reproducing the original
- * `$bn_suggested_shown` gate exactly.
+ * These descriptors formerly lived inline in `templates/spaces/directory.php`
+ * as a single `buddynext_right_sidebar` callback. They use the registry's
+ * DEFAULT chrome (no `chrome => false`), so each `render` closure echoes ONLY
+ * the inner body and SidebarRegistry wraps it in `parts/sidebar-card.php`
+ * using the descriptor's `title`/`icon` — same pattern as MembersSidebarProvider.
+ * Owners who want a leaner column drop any card via `buddynext_sidebar_widgets`.
  *
  * @package BuddyNext\Sidebar\Providers
  */
@@ -61,7 +64,6 @@ class SpacesDirectorySidebarProvider {
 		$current_user_id = get_current_user_id();
 		$space_service   = new SpaceService();
 		$cat_by_id       = $this->categories_by_id( $space_service );
-		$suggested_shown = false;
 
 		// Card: Suggested for you (members only) — personalized discovery (social
 		// proof + category affinity + popularity). Empty (member already in
@@ -72,8 +74,6 @@ class SpacesDirectorySidebarProvider {
 			$suggested = ( new SpaceSuggestionService() )->suggest( $current_user_id, 5 );
 
 			if ( ! empty( $suggested ) ) {
-				$suggested_shown = true;
-
 				$descriptors[] = array(
 					'id'       => 'spaces-suggested',
 					'priority' => 20,
@@ -122,34 +122,76 @@ class SpacesDirectorySidebarProvider {
 			}
 		}
 
-		// Card: Popular this week — shown to logged-out visitors (who can't get
-		// suggestions) and as the fallback for a logged-in member with no
-		// suggestions. Suppressed when "Suggested for you" rendered, so the two
-		// never overlap.
-		if ( ! $suggested_shown ) {
-			$featured = $space_service->list_spaces(
-				array(
-					'type'     => 'open',
-					'orderby'  => 'member_count',
-					'order'    => 'DESC',
-					'per_page' => 5,
-					'viewer'   => $current_user_id,
-					'is_admin' => current_user_can( 'manage_options' ),
-				)
+		// Card: New spaces — the most recently created spaces, so the directory
+		// always surfaces fresh activity even for a member who already sees
+		// personalized suggestions. A discovery card, distinct from the
+		// popularity-ordered "Popular this week" below.
+		$newest = $space_service->list_spaces(
+			array(
+				'type'     => 'open',
+				'orderby'  => 'created_at',
+				'order'    => 'DESC',
+				'per_page' => 4,
+				'viewer'   => $current_user_id,
+				'is_admin' => current_user_can( 'manage_options' ),
+			)
+		);
+		if ( ! empty( $newest ) ) {
+			$descriptors[] = array(
+				'id'       => 'spaces-new',
+				'priority' => 35,
+				'surfaces' => self::SURFACES,
+				'title'    => __( 'New spaces', 'buddynext' ),
+				'icon'     => 'clock',
+				'render'   => function () use ( $newest, $cat_by_id ): void {
+					$this->render_space_list( $newest, $cat_by_id );
+				},
 			);
+		}
 
-			if ( ! empty( $featured ) ) {
-				$descriptors[] = array(
-					'id'       => 'spaces-popular',
-					'priority' => 40,
-					'surfaces' => self::SURFACES,
-					'title'    => __( 'Popular this week', 'buddynext' ),
-					'icon'     => 'star',
-					'render'   => function () use ( $featured, $cat_by_id ): void {
-						$this->render_space_list( $featured, $cat_by_id );
-					},
-				);
-			}
+		// Card: Popular this week — the most-joined open spaces. Always shown
+		// (guest AND member): "Suggested for you" is personalized affinity while
+		// this is community-wide popularity, so the two answer different
+		// questions and are worth showing together. Owners who ship a leaner
+		// sidebar can drop it via the buddynext_sidebar_widgets filter.
+		$featured = $space_service->list_spaces(
+			array(
+				'type'     => 'open',
+				'orderby'  => 'member_count',
+				'order'    => 'DESC',
+				'per_page' => 5,
+				'viewer'   => $current_user_id,
+				'is_admin' => current_user_can( 'manage_options' ),
+			)
+		);
+		if ( ! empty( $featured ) ) {
+			$descriptors[] = array(
+				'id'       => 'spaces-popular',
+				'priority' => 40,
+				'surfaces' => self::SURFACES,
+				'title'    => __( 'Popular this week', 'buddynext' ),
+				'icon'     => 'star',
+				'render'   => function () use ( $featured, $cat_by_id ): void {
+					$this->render_space_list( $featured, $cat_by_id );
+				},
+			);
+		}
+
+		// Card: Community pulse — a compact stats strip so the directory sidebar
+		// carries a sense of scale (how many spaces, how open the community is)
+		// even before any list renders. Always shown.
+		$pulse = $this->community_pulse( $space_service, $current_user_id );
+		if ( $pulse['spaces'] > 0 ) {
+			$descriptors[] = array(
+				'id'       => 'spaces-pulse',
+				'priority' => 50,
+				'surfaces' => self::SURFACES,
+				'title'    => __( 'Community pulse', 'buddynext' ),
+				'icon'     => 'activity',
+				'render'   => function () use ( $pulse ): void {
+					$this->render_pulse( $pulse );
+				},
+			);
 		}
 
 		return $descriptors;
@@ -289,5 +331,80 @@ class SpacesDirectorySidebarProvider {
 			</ul>
 			<?php
 		endforeach;
+	}
+
+	/**
+	 * Compute the directory-scale figures for the "Community pulse" card:
+	 * total visible spaces, how many are open to join, and the combined
+	 * membership across them. Reads through SpaceService so the sidebar never
+	 * touches bn_ tables directly.
+	 *
+	 * @param SpaceService $space_service Space service instance.
+	 * @param int          $viewer_id     Current viewer (0 for guests).
+	 * @return array{spaces:int,open:int,members:int}
+	 */
+	private function community_pulse( SpaceService $space_service, int $viewer_id ): array {
+		$is_admin = current_user_can( 'manage_options' );
+
+		$all  = $space_service->list_spaces_with_total(
+			array(
+				'viewer'   => $viewer_id,
+				'is_admin' => $is_admin,
+				'per_page' => 100,
+			)
+		);
+		$open = $space_service->list_spaces_with_total(
+			array(
+				'type'     => 'open',
+				'viewer'   => $viewer_id,
+				'is_admin' => $is_admin,
+				'per_page' => 1,
+			)
+		);
+
+		$rows    = isset( $all['items'] ) && is_array( $all['items'] ) ? $all['items'] : array();
+		$members = 0;
+		foreach ( $rows as $row ) {
+			$members += isset( $row['member_count'] ) ? (int) $row['member_count'] : 0;
+		}
+
+		return array(
+			'spaces'  => isset( $all['total'] ) ? (int) $all['total'] : count( $rows ),
+			'open'    => isset( $open['total'] ) ? (int) $open['total'] : 0,
+			'members' => $members,
+		);
+	}
+
+	/**
+	 * Render the "Community pulse" body: three compact stat rows.
+	 *
+	 * @param array{spaces:int,open:int,members:int} $pulse Precomputed figures.
+	 * @return void
+	 */
+	private function render_pulse( array $pulse ): void {
+		$stats = array(
+			array(
+				'value' => $pulse['spaces'],
+				'label' => _n( 'space', 'spaces', $pulse['spaces'], 'buddynext' ),
+			),
+			array(
+				'value' => $pulse['open'],
+				'label' => __( 'open to join', 'buddynext' ),
+			),
+			array(
+				'value' => $pulse['members'],
+				'label' => _n( 'membership', 'memberships', $pulse['members'], 'buddynext' ),
+			),
+		);
+		?>
+		<ul class="bn-sd-pulse">
+			<?php foreach ( $stats as $stat ) : ?>
+				<li class="bn-sd-pulse__row">
+					<span class="bn-sd-pulse__value"><?php echo esc_html( number_format_i18n( (int) $stat['value'] ) ); ?></span>
+					<span class="bn-sd-pulse__label"><?php echo esc_html( (string) $stat['label'] ); ?></span>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+		<?php
 	}
 }
