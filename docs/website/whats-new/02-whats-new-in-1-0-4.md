@@ -72,4 +72,4 @@ See the [Pro membership guide](../pro/01-membership-plans.md) for the full pictu
 
 For developers: add-on plugins can now register their own community hubs through the new `HubRegistry` (pages, rewrite rules, templates in one registration) and their own template directories via the `buddynext_template_locations` filter. The bundled Action Scheduler moved to 4.0.0, and every member-delete path funnels through one canonical purge event - including the WordPress GDPR eraser. Both plugins now require PHP 8.1.
 
-The full changelog for both plugins is on each GitHub release: [BuddyNext 1.0.4](https://github.com/buddynext/buddynext/releases/tag/v1.0.4) and [BuddyNext Pro 1.0.4](https://github.com/buddynext/buddynext-pro/releases/tag/v1.0.4).
+The full BuddyNext changelog is on its GitHub release: [BuddyNext 1.0.4](https://github.com/buddynext/buddynext/releases/tag/v1.0.4). BuddyNext Pro's changelog is on its [release-notes page](https://wbcomdesigns.com/release-notes/buddynext-pro/), since the Pro repository is private.
