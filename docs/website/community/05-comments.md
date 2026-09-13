@@ -68,3 +68,9 @@ The feature toggle lives under Platform > Features. The comment rate limit lives
 ## Free vs Pro
 
 Posting comments, threaded replies up to five levels, editing and deleting your own comments, reacting to comments, moderator pinning, the comments feature toggle, and the comment rate limit are all part of free BuddyNext.
+
+## Related
+
+- [Reactions](04-reactions.md) - reacting to a comment the same way as a post
+- [Post Composer](02-post-composer.md) - where the comment rate limit is set
+- [Moderating a Member](../moderation/03-user-moderation.md) - how suspensions block commenting

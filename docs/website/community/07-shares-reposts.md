@@ -52,3 +52,9 @@ When the setting is off, the share action no longer appears and members cannot r
 - **You must be logged in.** Resharing is a member action. A logged-out visitor cannot reshare a post, so the share menu is only useful to signed-in members.
 - **Sharing a reshare shares the original.** The share action is available on reshare cards too, but sharing one amplifies the original post rather than making a copy of a copy. Credit always points back to the original author, and there are no endless reshare chains.
 - **One share per post.** You can reshare a given post once, with or without a comment. A second attempt is declined with "You have already shared this post." To share it again, remove your existing reshare first.
+
+## Related
+
+- [Activity Feed](01-activity-feed.md) - where reshare cards land
+- [Post Composer](02-post-composer.md) - the composer whose posts get reshared
+- [Bookmarks](08-bookmarks.md) - the private-save action on the same post card

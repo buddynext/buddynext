@@ -55,3 +55,9 @@ You can delete a category from the Categories section. Deleting a category remov
 ## Free vs Pro
 
 Space categories, including the directory filter, the default-category setting, and category colors and icons, are part of the free plugin.
+
+## Related
+
+- [Creating and Managing a Space](02-creating-a-space.md) - picking a category and the default-category setting
+- [Spaces](01-spaces-overview.md) - the directory categories filter
+- [Member Interests](../members/11-interests.md) - how categories become interest choices

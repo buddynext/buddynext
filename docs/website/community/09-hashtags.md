@@ -77,3 +77,9 @@ Add the Trending Hashtags block to any page, post, or block-themed template to s
 ## Free vs Pro
 
 Hashtags - auto-creation, the feed page, follow and unfollow, the 24-hour trending list, the `#` autocomplete, and the Trending Hashtags block - are all part of free BuddyNext. There is no separate Pro hashtag feature; Pro adds value elsewhere in the platform.
+
+## Related
+
+- [Explore](13-explore.md) - where trending hashtags surface
+- [Search](12-search.md) - finding hashtags alongside members, posts, and spaces
+- [Per-surface sidebar widgets](14-sidebar-widgets.md) - the Trending Topics discovery card

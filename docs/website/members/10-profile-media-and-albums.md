@@ -83,3 +83,10 @@ Media reporting is on by default on a BuddyNext site, and there is nothing to sw
 ## Free vs Pro
 
 Everything on this page - uploading photos and videos, per-item privacy, and the full set of album actions (create, add and remove media, set a cover, reorder, rename, change privacy, and delete) - is part of BuddyNext free, as long as the WPMediaVerse companion plugin is active.
+
+## Related
+
+- [WPMediaVerse](../integrations/02-wpmediaverse.md) - the companion plugin that stores and processes media
+- [Blocking and Muting](08-blocking-and-muting.md) - the block action available in the media lightbox
+- [Reporting Content](../moderation/01-reporting-content.md) - where reported media lands for moderators
+- [Space Media and Albums](../spaces/10-space-media-and-albums.md) - the same gallery inside a space

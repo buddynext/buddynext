@@ -48,3 +48,9 @@ A few details worth knowing:
 ## Free vs Pro
 
 The profile completion bar is part of BuddyNext free.
+
+## Related
+
+- [Custom Profile Fields](02-profile-fields.md) - the fields the completion score is calculated from
+- [Member Profiles](01-member-profiles.md) - the profile the completion bar sits on
+- [New-Member Onboarding Wizard](../accounts-access/06-member-onboarding.md) - the first push toward a complete profile

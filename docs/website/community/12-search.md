@@ -108,3 +108,10 @@ Pro adds advanced member filters on the search page. When BuddyNext Pro is activ
 - Active within a chosen number of days
 
 Pro also adds saved searches, so a member can save a filter combination and re-run it later. These filters apply when there is a query and do not change the free behavior - when Pro is inactive, the advanced card is hidden and core search keeps working. The space filter only ever offers spaces the viewer already belongs to, so the advanced filters stay privacy-aware.
+
+## Related
+
+- [Explore](13-explore.md) - the public discovery deck alongside search
+- [Custom Profile Fields](../members/02-profile-fields.md) - which fields search can match, and how far
+- [Hashtags](09-hashtags.md) - the hashtag results search returns
+- [Advanced Member Search (Pro)](../pro/10-advanced-search.md) - the Pro filters on the results page

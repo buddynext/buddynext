@@ -54,3 +54,9 @@ When the setting is off, the poll tool no longer appears in the composer and mem
 - **The question is required.** A poll posts as a normal feed post whose text is the question, so an empty question is not allowed.
 - **Results are live.** There is no "submit" step and no waiting. The moment a vote lands, every viewer's card reflects the new totals on their next view.
 - **Optional closing date.** A poll can carry a closing date and time, set in the composer's "Poll ends" field. Once that time passes, the poll stops accepting votes and the card shows a "Poll closed" state; the results stay visible. Leave the field blank and the poll stays open and votable for as long as the post exists.
+
+## Related
+
+- [Post Composer](02-post-composer.md) - where a poll is created
+- [Activity Feed](01-activity-feed.md) - where the poll card and live results appear
+- [Reactions](04-reactions.md) - the other low-effort way members engage with a post

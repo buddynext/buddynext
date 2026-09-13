@@ -95,3 +95,10 @@ To remove a default avatar or cover image you previously set, use the remove con
 ## Free vs Pro
 
 Everything on this page - viewing profiles, editing display name and bio, avatar and cover uploads, custom fields with per-field privacy, claiming a handle with live availability checking, and the profile header and member card blocks - is part of BuddyNext free.
+
+## Related
+
+- [Custom Profile Fields](02-profile-fields.md) - the fields that fill out the profile below the header
+- [Profile Completion](03-profile-completion.md) - the bar that nudges members to finish their profile
+- [Following Members](06-following.md) - the one-way follow relationship the profile buttons trigger
+- [Connecting With Members](07-connections.md) - the two-way connection the profile also offers

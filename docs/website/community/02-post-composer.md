@@ -89,3 +89,10 @@ Pro adds two things on top:
 
 - **Scheduled posts management** - a queue view of everything a member has lined up, plus an admin screen (BuddyNext > Campaigns > Scheduled Posts) where the owner can see every scheduled post on the site and cancel it or publish it immediately. Free schedules and reschedules a post from the composer and the post's own edit form; Pro is where the queue is managed as a whole.
 - **Multi-pin** - pin more than one post to a profile at a time. Free allows a single profile pin.
+
+## Related
+
+- [Post Privacy and Visibility](03-post-privacy-and-visibility.md) - the audience menu in the composer
+- [Polls](06-polls.md) - the poll post type the composer creates
+- [Scheduled posts](../pro/05-scheduled-posts.md) - the Pro queue for managing scheduled posts
+- [Multiple pinned posts](../pro/06-multi-pin-posts.md) - pinning more than one post on a profile

@@ -64,3 +64,9 @@ The one owner-facing control that touches following is the notification default 
 The Follow control renders automatically in profile context - the profile header and member cards - so members get a one-click Follow / Following button, including the pending state for follow requests on private accounts, without any setup. The standalone Follow button block is no longer offered in the block inserter.
 
 The control only does something for a logged-in member viewing another member - it will not offer a self-follow.
+
+## Related
+
+- [Connecting With Members](07-connections.md) - the two-way relationship following pairs with
+- [Blocking and Muting](08-blocking-and-muting.md) - why a block cuts off following both ways
+- [Member Interests](11-interests.md) - how interests power the follow suggestions

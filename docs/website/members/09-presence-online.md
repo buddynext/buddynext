@@ -45,3 +45,9 @@ There is currently no per-member privacy control to hide your online status. Pre
 ## Free vs Pro
 
 Everything described here - the online indicators, the "active recently" window, the automatic heartbeat, and the "Online now" directory view - works in free BuddyNext over standard polling. Pro can upgrade the transport underneath to push real-time updates over a live connection, but it uses the same presence signal, so the indicators and behavior members see are the same. Presence never breaks or disappears without Pro; Pro only makes the updates feel more instant.
+
+## Related
+
+- [Member Directory](04-member-directory.md) - the Online now filter and most-active sort
+- [Direct Messaging](../messaging-notifications/01-direct-messaging.md) - the messaging rail that shows presence
+- [Near-Real-Time Updates](../engagement/03-realtime-updates.md) - how presence stays current across the site

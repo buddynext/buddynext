@@ -67,3 +67,9 @@ Logged-in members can always see Explore regardless of this setting.
 ## Free vs Pro
 
 Explore - the public-activity discovery deck, its type filters, and the public explore visibility setting - is included free. There is no separate Pro version of Explore; Pro features such as advanced filtering live on the Search page rather than on the Explore deck (see Search).
+
+## Related
+
+- [Activity Feed](01-activity-feed.md) - the personalized Home feed Explore complements
+- [Search](12-search.md) - where the Pro advanced filters live instead
+- [Member Interests](../members/11-interests.md) - how interests shape what Explore suggests

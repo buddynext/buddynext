@@ -115,3 +115,10 @@ Both emails are scheduled the moment a member registers. As soon as the member c
 - **Already done.** Once a member finishes or skips, the wizard never shows again. Re-opening the page just sends them on to their profile.
 - **Guests cannot access it.** Onboarding is for signed-in members only. Logged-out visitors are not shown the wizard.
 - **It is reliable.** Finishing saves every step together, so a member's choices are kept even if their connection drops during the redirect.
+
+## Related
+
+- [Member Interests](../members/11-interests.md) - the interests picked in the wizard's Interests step
+- [Notification Preferences](../messaging-notifications/03-notification-preferences.md) - the channels the Notifications step sets
+- [Email Verification](04-email-verification.md) - the gate that can run before onboarding starts
+- [Membership Plans](../pro/01-membership-plans.md) - the optional upgrade offer in the final step

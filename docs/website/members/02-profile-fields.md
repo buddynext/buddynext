@@ -157,3 +157,10 @@ Pro adds six advanced field types for communities that need richer data capture:
 - Conditional (fields that show or hide based on another field's answer)
 
 These advanced types are registered by the Pro add-on and become available in the same field type picker once Pro is active. For the full list and setup, see Advanced Profile Fields.
+
+## Related
+
+- [The Profile About Tab](13-about-tab.md) - where the fields you define are laid out for viewers
+- [Member Interests](11-interests.md) - the one profile field with a system role
+- [Advanced Profile Field Types (Pro)](../pro/09-advanced-profile-fields.md) - the six extra field types Pro adds
+- [Member Directory](04-member-directory.md) - how searchable fields feed directory search

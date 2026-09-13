@@ -71,3 +71,9 @@ Pro adds outbound email that goes beyond the per-member activity digest:
 - **Space-level digests** - digests scoped to activity within a space, for members who follow that space.
 
 All of these use the same branded wrapper and sender identity as the free emails. For the full picture of editable templates, sender identity, and the branded wrapper, see Transactional Email System.
+
+## Related
+
+- [Notification Preferences](03-notification-preferences.md) - where a member sets a type to daily or weekly
+- [Transactional Email System](04-email-system.md) - the branded wrapper and template editor digests use
+- [Broadcast Email](../pro/12-broadcast-email.md) - the Pro campaign email beyond activity digests

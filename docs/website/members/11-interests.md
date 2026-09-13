@@ -39,3 +39,10 @@ You can view (but not edit) each member's picks from the admin member profile - 
 - The Interests profile field is a protected system field: it cannot be deleted from the profile-fields editor, because suggestions and feed ranking depend on it.
 - A member with no picks simply gets the default (non-personalized) suggestions - nothing breaks.
 - Categories you rename update everywhere; categories you delete disappear from members' picks gracefully.
+
+## Related
+
+- [Space Categories](../spaces/08-space-categories.md) - the categories interests are drawn from
+- [Explore](../community/13-explore.md) - where picked interests shape suggestions
+- [Following Members](06-following.md) - how interests rank the people suggested to you
+- [New-Member Onboarding Wizard](../accounts-access/06-member-onboarding.md) - where members first pick interests

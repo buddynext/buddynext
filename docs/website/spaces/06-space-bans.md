@@ -63,3 +63,9 @@ The one related space setting is the default notification preference for new mem
 ## Free vs Pro
 
 Space bans, the per-space ban list, and unbanning are all included in the free plugin. There is no Pro upgrade required to ban a member from a space.
+
+## Related
+
+- [Managing Space Members](04-managing-members.md) - removing a member versus banning them
+- [Roles, Moderators, and Permissions](05-roles-and-moderators.md) - who can ban and unban
+- [Moderating a Member](../moderation/03-user-moderation.md) - site-wide enforcement beyond one space

@@ -78,3 +78,9 @@ For exactly what each action does and how to apply it from someone's profile, se
 - **Sign out of all devices is immediate and total.** It ends every other session, including the one you may have forgotten on another computer. You will stay signed in on the device you are using to trigger it.
 - **Administrators are handled separately.** Site administrators manage their own access through WordPress and some member-facing destructive actions are intentionally not available to them here.
 - **Blocking is reversible.** Nothing in the blocked, muted, or restricted lists is permanent - you can clear any entry whenever you change your mind.
+
+## Related
+
+- [Two-Factor Authentication](05-two-factor-authentication.md) - the full 2FA setup walkthrough
+- [Blocking and Muting](../members/08-blocking-and-muting.md) - what the blocked, muted, and restricted lists do
+- [Privacy and Data](08-privacy-and-data.md) - data export, account deletion, and audience controls

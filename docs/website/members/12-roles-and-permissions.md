@@ -48,3 +48,9 @@ The permissions here are community-wide - they set the baseline for the whole si
 > **Note:** Because a higher role inherits everything below it, you only ever set the lowest role that should have an action. You do not need to grant the same permission again at each higher level.
 
 > **Note:** This tab lives in the **Advanced** area of the Members section. On a brand-new community the sensible defaults already suit most owners - open this screen only when you want to tighten or loosen a specific action.
+
+## Related
+
+- [Roles, Moderators, and Permissions](../spaces/05-roles-and-moderators.md) - the space-level roles inside a single space
+- [Community Roles and Moderators](../moderation/06-community-roles-and-moderators.md) - the community moderation team
+- [Moderation Queue](../moderation/02-moderation-queue.md) - the report queue these permissions gate

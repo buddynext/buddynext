@@ -93,3 +93,9 @@ This matches the standard expectation that deleting an account removes the perso
 - **What gets removed.** Deletion erases everything tied to the member: profile, preferences, follows, connections, blocks, and their own posts and comments. It is a complete erasure, not a hide, with no option to retain the content.
 - **Administrators are protected.** A site administrator cannot delete their own account through the member-facing tool, so you cannot accidentally lock yourself out of your own community. Administrator accounts are managed through WordPress.
 - **Consent and indexing are community-wide.** The cookie banner and the search-engine indexing policy apply to the whole community. Individual members can still choose to hide their own profile from search engines in their Privacy settings.
+
+## Related
+
+- [The Guest Experience](09-guest-experience.md) - what a logged-out visitor sees, and Private Community
+- [Account Settings](07-account-settings.md) - the login and access side of a member's account
+- [Post Privacy and Visibility](../community/03-post-privacy-and-visibility.md) - how per-post audience is enforced

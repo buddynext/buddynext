@@ -99,3 +99,9 @@ The **BuddyNext > Spaces > Directory** roster in wp-admin gained two owner tools
 ## Free vs Pro
 
 Viewing members, inviting, the pending-requests queue, approving and declining, and removing members are all part of BuddyNext Free. Pro layers additional moderation tooling (such as bulk moderation and rule-based auto-moderation) on top of the same roster, but the core member-management flow described here needs nothing beyond Free.
+
+## Related
+
+- [Roles, Moderators, and Permissions](05-roles-and-moderators.md) - who may approve, invite, and remove
+- [Space Bans](06-space-bans.md) - blocking a removed member from rejoining
+- [Space Types and Privacy](03-space-types-and-privacy.md) - how the type decides the join flow

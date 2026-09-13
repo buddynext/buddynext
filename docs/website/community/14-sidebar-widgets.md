@@ -97,3 +97,9 @@ The per-surface sidebar is on by default and needs no configuration. Cards popul
 ## Free vs Pro
 
 The per-surface sidebar and all of its discovery cards are part of Free. The only Pro addition is the live community pulse card on Explore; every other card - trending, people, spaces, space details, notification filters, hashtag cards - works the same on Free and Pro. Integrations can add their own cards to any surface (for example a "their events" card on a visited profile) through the same sidebar system.
+
+## Related
+
+- [Activity Feed](01-activity-feed.md) - the feed the discovery cards sit beside
+- [Explore](13-explore.md) - the community-heartbeat cards, including the Pro pulse
+- [Notifications](../messaging-notifications/02-notifications.md) - the filters and summary on the notifications sidebar

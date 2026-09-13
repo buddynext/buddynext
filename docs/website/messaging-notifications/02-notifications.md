@@ -88,3 +88,9 @@ The bell ships as part of the user menu, which you place in your header with the
 ## Free vs Pro
 
 In-app notifications, the bell, the full Notifications page, grouping, filtering, and automatic background refresh are all part of the free plugin. The free build keeps the bell current by checking for new activity on a short interval, which is enough to feel live for most communities. Pro adds instant web push so a member is alerted even when the tab is not open - see Push Notifications.
+
+## Related
+
+- [Notification Preferences](03-notification-preferences.md) - choosing which events notify you and how
+- [Push Notifications](../pro/17-push-notifications.md) - the Pro web-push channel beyond the bell
+- [Near-Real-Time Updates](../engagement/03-realtime-updates.md) - how the bell count keeps itself current

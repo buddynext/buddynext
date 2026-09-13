@@ -64,3 +64,9 @@ The list is ordered newest first and paginated at 25 rows a page, with the total
 ## Free vs Pro
 
 The Activity admin screen, its filters, and the view, edit and delete actions are all part of BuddyNext free. Pro adds the wider moderation tooling around it - bulk moderation, the moderation rules engine, and AI-assisted review - but browsing and managing activity from the admin does not require Pro.
+
+## Related
+
+- [Moderation Queue](02-moderation-queue.md) - the report-driven counterpart to this admin list
+- [Announcements](../community/11-announcements.md) - the admin posts this screen can find and edit
+- [Bulk Moderation](../pro/16-bulk-moderation.md) - the wider Pro moderation tooling

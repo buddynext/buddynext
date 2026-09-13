@@ -72,3 +72,9 @@ Direct messaging is controlled from Settings > General, in the Direct Messaging 
 1:1 direct messaging is free, as long as the WPMediaVerse companion plugin is installed and active. That covers starting a conversation, sending messages, marking conversations read, and sharing media in a message.
 
 Read receipts, group messages (more than two people in one conversation), and instant live delivery are not part of the free plan. They come with WPMediaVerse Pro. On the free engine, new messages surface through the notification bell, which refreshes on a short interval, rather than arriving the very instant they are sent.
+
+## Related
+
+- [WPMediaVerse](../integrations/02-wpmediaverse.md) - the companion plugin that stores and delivers messages
+- [Blocking and Muting](../members/08-blocking-and-muting.md) - how a block prevents messaging
+- [Notifications](02-notifications.md) - the bell alert a new message triggers

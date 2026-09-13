@@ -67,3 +67,9 @@ Posting and invite permissions live on the space's Permissions settings panel.
 ## Free vs Pro
 
 The three roles, promoting and demoting moderators, the capability split, "Who can post" and invite permissions, and transferring ownership are all part of BuddyNext Free. Pro adds higher-volume moderation tooling - such as bulk moderation actions and rule-based auto-moderation - that builds on these same roles, but the role model and permissions described here need nothing beyond Free.
+
+## Related
+
+- [Managing Space Members](04-managing-members.md) - the roster the moderator tools act on
+- [Space Bans](06-space-bans.md) - the stronger step beyond removing a member
+- [Roles and Permissions](../members/12-roles-and-permissions.md) - the community-wide baseline these sit under

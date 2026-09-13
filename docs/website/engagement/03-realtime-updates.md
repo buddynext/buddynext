@@ -51,3 +51,9 @@ There are no settings to enable or tune this feature. It activates automatically
 The free plugin uses short-interval polling for the bell, the feed pill, and presence. That keeps the community feeling current with no extra infrastructure.
 
 Pro adds a true live connection: updates are pushed the instant they happen, rather than waiting for the next check. With Pro, notifications, feed activity, and presence arrive immediately, and live messaging is delivered in real time. The same surfaces behave exactly as they do on the free plugin - they simply update faster. For the instant-delivery upgrade, see Realtime (Pro).
+
+## Related
+
+- [Notifications](../messaging-notifications/02-notifications.md) - the bell count these updates refresh
+- [Online Presence](../members/09-presence-online.md) - the presence signal that stays current
+- [Real-time WebSocket](../pro/18-realtime-websocket.md) - the Pro upgrade to instant push

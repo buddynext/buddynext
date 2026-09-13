@@ -112,3 +112,10 @@ You decide which profile fields show on the sign-up form. Go to **BuddyNext > Me
 - **Spam guards never get in a real person's way.** A genuine member always sees normal field errors first; the spam protections only kick in on suspicious submissions, so they stay invisible to legitimate sign-ups.
 - **Domain allow-list is exact.** Only addresses ending in a listed domain can register when the allow-list is set, which is handy for a company or campus community.
 - **Social sign-up.** If you enable social login, people can create an account with a provider like Google instead of filling in the form. See the Social Login page.
+
+## Related
+
+- [Login](02-login.md) - the returning-member side of the same branded form
+- [Social Login](03-social-login.md) - letting people sign up with Google, Facebook, and others
+- [Email Verification](04-email-verification.md) - the confirm-your-address step after sign-up
+- [New-Member Onboarding Wizard](06-member-onboarding.md) - where new members land once registered

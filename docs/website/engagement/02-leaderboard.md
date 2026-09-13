@@ -65,3 +65,9 @@ The leaderboard is part of gamification, so its setup is the gamification setup:
 ## Free vs Pro
 
 The leaderboard is available in the free plugin and does not require BuddyNext Pro. It needs the WB Gamification companion to supply the rankings, but not a Pro license.
+
+## Related
+
+- [Gamification: points, badges, and levels](01-gamification.md) - how the points behind the board are earned
+- [WB Gamification](../integrations/04-gamification-addon.md) - the companion plugin that supplies rankings
+- [Per-surface sidebar widgets](../community/14-sidebar-widgets.md) - where the leaderboard spotlight appears

@@ -98,3 +98,10 @@ Space behavior is configured under the Spaces settings tab. These controls set t
 Everything on this page is part of BuddyNext free: the directory, the three space types, join and leave flows, the space feed, member management, and the blocks for placing spaces on your own pages.
 
 BuddyNext Pro adds **membership-gated spaces** - spaces that require a paid plan or specific entitlement to join. These build on the same space framework but add a paywall in front of the join action. See Space Types and Privacy and the Gated Spaces documentation for how paid access works.
+
+## Related
+
+- [Creating and Managing a Space](02-creating-a-space.md) - starting, editing, and running a space
+- [Space Types and Privacy](03-space-types-and-privacy.md) - the Open, Private, and Secret models
+- [Space Categories](08-space-categories.md) - the directory filter members browse by
+- [Gated Spaces](../pro/02-gated-spaces.md) - putting a paid membership in front of a space

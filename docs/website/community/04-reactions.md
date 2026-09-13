@@ -65,3 +65,9 @@ The feature toggle lives under Platform > Features. The reaction palette lives u
 The six reactions, react/swap/remove, the counts, and the who-reacted list are all part of free BuddyNext.
 
 Custom Reactions are a Pro feature. With Pro, an owner can define their own reaction emoji from the admin and add them to the set members can choose from, on top of the standard six. The combined set (the six defaults plus custom reactions) is capped so the picker stays usable. See Custom Reactions for the setup steps.
+
+## Related
+
+- [Comments](05-comments.md) - the same reactions apply to comments
+- [Custom Reactions](../pro/07-custom-reactions.md) - defining your own reaction emoji in Pro
+- [Gamification: points, badges, and levels](../engagement/01-gamification.md) - the points a reaction can award

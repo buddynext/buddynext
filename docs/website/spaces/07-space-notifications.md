@@ -69,3 +69,9 @@ Open the space settings and go to the Notifications tab.
 ## Free vs Pro
 
 Per-space notification preferences, the in-space bell control, the bulk "Spaces you are in" view, and the owner default are all part of the free plugin.
+
+## Related
+
+- [Notification Preferences](../messaging-notifications/03-notification-preferences.md) - the Spaces you are in section
+- [Notifications](../messaging-notifications/02-notifications.md) - the alerts these levels control
+- [Mentions](../community/10-mentions.md) - what the Mentions only level delivers

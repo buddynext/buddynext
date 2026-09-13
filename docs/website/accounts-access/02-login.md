@@ -54,3 +54,10 @@ There is no separate login settings tab - login shares the welcome panel and the
 - **Pending and unverified members.** A member awaiting admin approval cannot sign in until approved. A member with email verification required can sign in only as far as the verification screen until they confirm.
 - **Sign out everywhere.** From their account settings, a member can end every active session on all devices at once - useful if they signed in on a shared or lost device.
 - **Social sign-in.** If you enable social login, the matching provider buttons appear on the login form too. See the Social Login page.
+
+## Related
+
+- [Registration](01-registration.md) - the create-account side of the same form
+- [Social Login](03-social-login.md) - the provider sign-in buttons on the login form
+- [Two-Factor Authentication](05-two-factor-authentication.md) - the one-time code step at sign-in
+- [Content Safeguards](../moderation/05-content-safeguards.md) - where the blocked-IP list lives

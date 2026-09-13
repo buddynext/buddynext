@@ -44,3 +44,9 @@ When the setting is off, the Save action no longer appears on post cards.
 - **Lost-access saves are hidden.** If you saved a post and later lose access to it - the author blocked you, the post moved into a space you cannot see, or the content was removed - it no longer shows in your bookmarks hub. The hub re-checks who you can see each time it loads, so it never shows you something you are not allowed to view.
 - **Empty state.** A member who has not saved anything yet sees a friendly empty message in the hub with a prompt to browse the feed, rather than a blank page.
 - **You must be logged in.** Saving is a member action, so the Save control only does something for signed-in members.
+
+## Related
+
+- [Activity Feed](01-activity-feed.md) - the feed the Save action sits on
+- [Shares and reposts](07-shares-reposts.md) - the public counterpart to a private save
+- [Post Privacy and Visibility](03-post-privacy-and-visibility.md) - why a saved post can drop out of the hub

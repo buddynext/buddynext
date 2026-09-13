@@ -69,3 +69,10 @@ Strike thresholds and the report auto-hide limit live in the Moderation settings
 ## Free vs Pro
 
 The full warn, strike, suspend, shadow-ban, and automatic-threshold system described here is included in BuddyNext free. Pro adds advanced moderation tooling on top - bulk moderation, a moderation rules engine, and member labels - but the per-member actions and the strike ladder are part of the free plugin.
+
+## Related
+
+- [Moderation Queue](02-moderation-queue.md) - where these actions are triggered
+- [Appeals](04-appeals.md) - how a suspended member disputes a decision
+- [Content Safeguards](05-content-safeguards.md) - the automatic rules that feed strikes
+- [Auto-Moderation Rules](../pro/14-auto-moderation.md) - the Pro rules engine on top of safeguards

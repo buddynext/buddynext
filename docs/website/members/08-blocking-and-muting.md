@@ -68,3 +68,9 @@ What an owner should know:
 ## Free vs Pro
 
 Block, mute, and restrict are all part of free BuddyNext. There is no Pro upgrade required for any of the three member-facing self-protection tools described here.
+
+## Related
+
+- [Following Members](06-following.md) - the follow relationship a block cuts off
+- [Reporting Content](../moderation/01-reporting-content.md) - escalating to moderators when a block is not enough
+- [Direct Messaging](../messaging-notifications/01-direct-messaging.md) - the messages a block prevents

@@ -91,3 +91,9 @@ Choose the level deliberately:
 - **Email fallback is time-limited.** An emailed sign-in code is valid for a short window. If it expires, request a new one from the sign-in screen.
 - **Re-enrolling.** To move 2FA to a new app or device, turn 2FA off (this asks for your password), then set it up again from scratch. Setting up fresh always produces a new set of backup codes.
 - **Codes are checked on your device's clock.** Authenticator codes are time-based, so keep your phone's time accurate (automatic time is fine). A small amount of clock drift is tolerated.
+
+## Related
+
+- [Account Settings](07-account-settings.md) - where members set up and manage 2FA
+- [Login](02-login.md) - the one-time code step at sign-in
+- [Registration](01-registration.md) - requiring 2FA for chosen roles

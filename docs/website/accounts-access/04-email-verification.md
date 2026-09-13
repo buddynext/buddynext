@@ -98,3 +98,9 @@ The message that carries the confirmation link is a standard BuddyNext email, se
 - **Resending replaces the old link.** Each resend issues a fresh link and clears the previous pending one, so only the newest link works. Always tell members to use the most recent email.
 - **Already verified.** If a member who is already verified tries to resend, BuddyNext tells them their address is already confirmed and does not send another email.
 - **Verification off.** If you never turn the feature on, or leave the require toggle off, every account counts as verified automatically and members go straight into the community after sign-up.
+
+## Related
+
+- [Registration](01-registration.md) - where verification fits in the sign-up flow
+- [New-Member Onboarding Wizard](06-member-onboarding.md) - what happens once a member verifies
+- [Transactional Email System](../messaging-notifications/04-email-system.md) - the branded shell the verification email uses

@@ -107,3 +107,10 @@ Pro adds outbound email that goes beyond per-event transactional mail:
 - **Drip sequences** - automated multi-step email sequences (for example, an onboarding series) that enroll members and send over time.
 
 Broadcast and drip emails use the same branded wrapper and sender identity as the free transactional emails, so everything you send stays visually consistent. See Email Digests for how batched activity emails work in both Free and Pro.
+
+## Related
+
+- [Notification Preferences](03-notification-preferences.md) - how members choose which emails they get
+- [Email Digests](05-email-digests.md) - the batched daily and weekly activity emails
+- [Broadcast Email](../pro/12-broadcast-email.md) - the Pro one-off campaign email
+- [Drip Sequences](../pro/13-drip-sequences.md) - the Pro automated email series

@@ -81,3 +81,10 @@ The feed is available as an editor block, so you can place it on any page or bui
 Free includes the complete feed: Home with all four filter tabs, the public Explore view, single-post permalinks, the "N new posts" pill, infinite scroll, and the announcement banner.
 
 Pro adds AI relevance ranking to the For you tab. In Free, For you is ordered chronologically with a connections-first weighting; in Pro it is re-ranked so the posts most likely to matter to each member rise to the top. Everything else in this page is the same in both editions.
+
+## Related
+
+- [Post Composer](02-post-composer.md) - the box that publishes into the feed
+- [Post Privacy and Visibility](03-post-privacy-and-visibility.md) - the audience rules the feed enforces
+- [Explore](13-explore.md) - the public, community-wide discovery view
+- [Announcements](11-announcements.md) - the admin banner pinned above the stream

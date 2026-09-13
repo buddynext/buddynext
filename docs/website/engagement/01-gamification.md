@@ -76,3 +76,9 @@ WB Gamification publishes a hub page that hosts the leaderboard and badge views.
 ## Free vs Pro
 
 Gamification works the same whether or not BuddyNext Pro is active. It depends on the WB Gamification companion, not on the Pro license. The actions BuddyNext reports, the profile tiles, the leaderboard, and the badge and level notifications are all available in the free plugin once WB Gamification is installed.
+
+## Related
+
+- [The community leaderboard](02-leaderboard.md) - the ranked board that reads these points
+- [WB Gamification](../integrations/04-gamification-addon.md) - the companion plugin that owns scoring
+- [Reactions](../community/04-reactions.md) - one of the actions that awards points

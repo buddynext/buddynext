@@ -49,3 +49,9 @@ A few rules keep this safe:
 The table above is the starting point, not a fixed rule. Open **Members > Roles & Capabilities** to change the minimum role each ability needs - for example, letting members create spaces, or requiring admin to pin a post. Every ability in the community reads from this one place, so a change here applies everywhere at once.
 
 For the full list of abilities and how to override them in code, see [Roles and Capabilities](../developer-guide/39-roles-and-capabilities.md) in the developer guide.
+
+## Related
+
+- [Roles and Permissions](../members/12-roles-and-permissions.md) - tuning what each community role may do
+- [Moderation Queue](02-moderation-queue.md) - the queue moderators are promoted to work
+- [Moderating a Member](03-user-moderation.md) - the enforcement actions a moderator can take

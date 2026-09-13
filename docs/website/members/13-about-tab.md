@@ -52,3 +52,9 @@ The header already shows the spine of Basic Info - name, headline, bio, pronouns
 ## Free vs Pro
 
 The schema-driven About tab - every field group and field type laid out by kind, custom groups included, repeating sections as entry cards, and per-field privacy enforced on read - is part of BuddyNext free. Pro's advanced field types (such as Location and Conditional) render on the About tab through the same engine once Pro is active; see Advanced Profile Fields.
+
+## Related
+
+- [Custom Profile Fields](02-profile-fields.md) - the groups and field types the About tab lays out
+- [Member Profiles](01-member-profiles.md) - the profile header the About tab sits under
+- [Advanced Profile Field Types (Pro)](../pro/09-advanced-profile-fields.md) - the Pro field types that render here too

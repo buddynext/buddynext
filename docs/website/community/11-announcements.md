@@ -56,3 +56,9 @@ An administrator can end an announcement at any time from the Engagement → Ann
 | Announcements pinned at once | One (newest, or the admin-featured one) | One (newest, or the admin-featured one) |
 
 Announcements themselves work the same in Free and Pro. Pro adds a separate capability for ordinary feed posts: it lifts Free's single-pinned-post limit so up to 10 posts can be pinned at once (on a profile). That pinned-post feature is distinct from the site-wide announcement above. (Pinning is profile-only; inside a space, use an Announcement to feature a post.)
+
+## Related
+
+- [Activity Feed](01-activity-feed.md) - the home feed the banner pins to
+- [Post Composer](02-post-composer.md) - creating a post as an announcement
+- [Multiple pinned posts](../pro/06-multi-pin-posts.md) - the separate Pro pinned-post feature

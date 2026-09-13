@@ -64,3 +64,10 @@ The checks that apply at read time:
 ## Free vs Pro
 
 Per-post privacy levels and their enforcement are fully part of Free. There is no Pro upgrade required to set a post's audience or to keep private content private; the visibility resolver that protects every surface is the same in both editions.
+
+## Related
+
+- [Post Composer](02-post-composer.md) - where a member picks the post audience
+- [Activity Feed](01-activity-feed.md) - the surface these rules gate, plus public Explore
+- [Blocking and Muting](../members/08-blocking-and-muting.md) - how a block hides posts both ways
+- [Content Protection](../pro/04-content-protection.md) - the Pro plan-gating beyond Members only

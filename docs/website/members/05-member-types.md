@@ -67,3 +67,9 @@ If a type has **Allow members to self-assign** turned on, members can set it the
 Member types - creating types, assigning them, self-selectable types, the directory type filter, and the type color and icon badges - are included in BuddyNext free.
 
 Editorial **Member Labels** are a Pro addition and serve a different purpose. Where a member type is the member's category (one per member, and what the directory filters by), Member Labels are owner-applied editorial badges such as Verified, Expert, or Staff that you can stack on top of a member's type - they appear on profiles and post bylines to signal standing and trust. If you want recognition badges layered over your member types, see Member Labels.
+
+## Related
+
+- [Member Directory](04-member-directory.md) - where type badges and the type filter appear
+- [Custom Profile Fields](02-profile-fields.md) - limiting a field section to one member type
+- [Member Labels](../pro/08-member-labels.md) - Pro editorial badges you stack on top of a type

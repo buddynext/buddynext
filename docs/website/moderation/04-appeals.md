@@ -46,3 +46,9 @@ Moderators see pending appeals in the Appeals admin area and resolve each one wi
 ## Free vs Pro
 
 The appeals workflow described here - submit, review, approve or deny, and lift-on-approval - is part of BuddyNext free. Pro extends moderation with its own rules and tooling, but the member's right to appeal a suspension and a moderator's ability to resolve it are included in the free plugin.
+
+## Related
+
+- [Moderating a Member](03-user-moderation.md) - the suspensions an appeal disputes
+- [Moderation Queue](02-moderation-queue.md) - where moderators work reported content
+- [Community Roles and Moderators](06-community-roles-and-moderators.md) - who can resolve an appeal

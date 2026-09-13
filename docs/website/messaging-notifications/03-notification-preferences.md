@@ -82,3 +82,10 @@ Every type that is not in the table above ships with its own sensible default bu
 ## Free vs Pro
 
 Per-type control, the on-site and email channels, email frequency, the optional sound, per-space new-post preferences, and the owner defaults are all part of the free plugin. Pro adds the Push channel - instant browser web push - which then appears as its own toggle in this same preferences screen. See Push Notifications for setup, and Email System for how email and digest delivery work.
+
+## Related
+
+- [Notifications](02-notifications.md) - the in-app alerts these preferences govern
+- [Email Digests](05-email-digests.md) - batching a type into a daily or weekly roundup
+- [Push Notifications](../pro/17-push-notifications.md) - the Pro Push channel this screen adds
+- [Broadcast Email](../pro/12-broadcast-email.md) - the newsletter switch this screen controls

@@ -45,3 +45,9 @@ The one related owner-facing control is the default for mention notifications: w
 |---|---|---|
 | Default mention notification | Whether mention notifications are on by default for members. Each member can override it in their own notification settings. | On |
 
+
+## Related
+
+- [Notifications](../messaging-notifications/02-notifications.md) - the alert a mention delivers
+- [Notification Preferences](../messaging-notifications/03-notification-preferences.md) - the per-member mention default
+- [Comments](05-comments.md) - mentions work the same in a reply
