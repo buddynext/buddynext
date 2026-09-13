@@ -2,6 +2,8 @@
 
 A space can hold a gallery of its own. The Media tab on a space collects the photos and videos shared in that space, and its Albums view lets the space keep named sets - "Meetup photos," "Product shots," "Season one" - that belong to the space rather than to any one member.
 
+![The Albums view on a space's Media tab, showing a space album with its item count](../images/space-media-albums.webp)
+
 This is the space-level counterpart to [Profile Media and Albums](../members/10-profile-media-and-albums.md). The two work the same way on purpose: same gallery, same uploader, same album controls. What changes is who owns the album and who is allowed to see it.
 
 ## Why use it

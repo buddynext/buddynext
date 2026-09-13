@@ -2,6 +2,8 @@
 
 Most people meet your community before they join it. A visitor lands on a shared post, browses what is public, and decides whether this is a place worth signing up for. BuddyNext gives that logged-out visitor a clear, welcoming path in rather than a wall or a series of dead ends.
 
+![A logged-out guest browsing the Explore page, with a "Join the community" prompt and Sign up / Log in buttons](../images/guest-experience.webp)
+
 ## What a visitor sees
 
 A logged-out visitor can see everything you have made public - public posts, the Explore discovery surface, public spaces and member profiles - and is invited to join at the natural moments:
