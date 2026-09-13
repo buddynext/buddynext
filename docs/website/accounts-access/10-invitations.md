@@ -69,8 +69,11 @@ The Invites tab lists every invitation with when it was sent and its status:
 | Status | Meaning |
 |--------|---------|
 | **Pending** | Sent, not yet accepted. |
-| **Registered** | The person signed up using the invitation. |
+| **Accepted** | The person signed up using the invitation. |
+| **Expired** | The 7-day link lapsed before it was used. Resend to issue a fresh one. |
 | **Bounced** | The invitation email could not be delivered. |
+
+The tab also has a status filter (Pending, Expired, Accepted, Bounced, All) so you can jump straight to, say, everyone who has not accepted yet.
 
 For any invitation you can:
 

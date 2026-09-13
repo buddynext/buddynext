@@ -38,13 +38,13 @@ These five are the providers BuddyNext ships and walks you through setting up. T
 
 ## Setting it up (for owners)
 
-Social login is configured under **BuddyNext > Members > Registration & Login**, in the Social Login section. For each network you want to offer, you create a free app on that provider's site, paste two keys into BuddyNext, and copy one redirect link back into the provider. No coding is required.
+Social login is configured under **BuddyNext > Members > Registration & Login**, in the Social Login section. For each network you want to offer, you create a free app on that provider's site, paste the provider's keys into BuddyNext (two for most providers, four for Apple), and copy one redirect link back into the provider. No coding is required.
 
 ### Steps for each provider
 
 1. **Open the provider card** for Google, Facebook, Apple, GitHub, or Discord on the Social Login section.
 2. **Copy the redirect link** shown on the card and paste it into your provider app's "redirect" or "callback URL" field. Each card includes a step-by-step "How to get your keys" guide and a button that opens the provider's developer site.
-3. **Paste the Client ID and Client Secret** the provider gives you into the two fields on the card.
+3. **Paste the Client ID and Client Secret** the provider gives you into the two fields on the card. **Apple is the exception:** its card asks for a Services ID (the Client ID), a Team ID, a Key ID, and a `.p8` private key instead of a Client Secret - paste all four.
 4. **Turn on "Show this button"** to make the provider live on your login and sign-up screens.
 
 A button only appears for members once a provider is both enabled and has both keys filled in. The card shows its status as **Active** (enabled with keys), **Configured (off)** (keys saved but the button is hidden), or **Not set up** (no keys yet).
