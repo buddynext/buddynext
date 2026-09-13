@@ -34,3 +34,9 @@ Welcome to our refreshed community. It is faster, cleaner, and easier to use - b
 If something looks unfamiliar, give it a moment - most things are right where you would expect, just with a fresh look. If you get stuck, reach out to the community team and we will point you in the right direction.
 
 Glad to have you here.
+
+## Where to go next
+
+- [Your profile](../members/01-member-profiles.md) - set up your profile again in the new layout.
+- [The activity feed](../community/01-activity-feed.md) - how posting, reactions, and comments work now.
+- [Spaces](../spaces/01-spaces-overview.md) - find and join the groups that matter to you.

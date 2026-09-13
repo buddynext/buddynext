@@ -45,6 +45,6 @@ We have kept this honest. Where something is provided by a companion plugin or i
 
 ## What's next
 
-- See Does BuddyNext Replace BuddyPress? for how BuddyNext and your current platform relate.
-- See the Concept Glossary to translate BuddyBoss terms into BuddyNext terms.
-- See Moving Your Existing Members and Content for what carries over today and the recommended approach.
+- See [Does BuddyNext Replace BuddyPress?](01-buddynext-vs-buddypress.md) for how BuddyNext and your current platform relate.
+- See the [Concept Glossary](02-concept-glossary.md) to translate BuddyBoss terms into BuddyNext terms.
+- See [Moving Your Existing Members and Content](04-migrating-your-data.md) for what carries over today and the recommended approach.

@@ -29,6 +29,6 @@ Read it as "the thing you called X is now called Y, and here is what changed for
 
 ## What's next
 
-- See Does BuddyNext Replace BuddyPress? if you are still deciding whether to switch.
-- See the BuddyBoss Feature Comparison for a capability-by-capability breakdown of where each feature lives.
-- See What Changed for Members - a short page you can hand to your community after you switch.
+- See [Does BuddyNext Replace BuddyPress?](01-buddynext-vs-buddypress.md) if you are still deciding whether to switch.
+- See the [BuddyBoss Feature Comparison](03-buddyboss-feature-parity.md) for a capability-by-capability breakdown of where each feature lives.
+- See [What Changed for Members](05-what-changed-for-members.md) - a short page you can hand to your community after you switch.

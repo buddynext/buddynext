@@ -31,7 +31,7 @@ Two nice details: a BuddyBoss group album arrives as a space-owned album rather 
 
 **It tells you exactly what arrived.** Every domain reports what it wrote against what the source held, and gives a plain-sentence reason for anything it did not write. A domain you chose to leave out reads "skipped by choice", never as a shortfall. Migration checks run from the admin screen, so you do not need WP-CLI to verify the result. Before a run starts, the source panel names the content this importer cannot carry, per kind, so there are no surprises afterwards.
 
-You can run it from the importer screen or from WP-CLI, where `migrate-all` takes `--only` and `--skip` for the same per-domain choice.
+You can run it from the importer screen or from WP-CLI. The command is `wp buddynext-import migrate-all`, and it takes `--only` and `--skip` for the same per-domain choice - for example `wp buddynext-import migrate-all --skip=messages,media` or `wp buddynext-import migrate-all --only=reactions` (which pulls in its parent domains automatically).
 
 > **Rehearse on a staging site or a local copy first.** Re-running never duplicates anything, but an import **cannot be undone from inside the plugin** - reversing it means restoring a backup. Practise the run somewhere safe, read the report, then do it for real.
 
@@ -77,6 +77,6 @@ If you need an overlap while you set things up, keep it short. Running two commu
 
 ## What's next
 
-- See What Changed for Members for a friendly page you can share with your community.
-- See the Concept Glossary so your members recognize the new names for familiar features.
-- See Does BuddyNext Replace BuddyPress? for how the two platforms relate during the switch.
+- See [What Changed for Members](05-what-changed-for-members.md) for a friendly page you can share with your community.
+- See the [Concept Glossary](02-concept-glossary.md) so your members recognize the new names for familiar features.
+- See [Does BuddyNext Replace BuddyPress?](01-buddynext-vs-buddypress.md) for how the two platforms relate during the switch.

@@ -47,6 +47,6 @@ One thing to know up front: because the two systems keep separate storage, Buddy
 
 ## What's next
 
-- See the Concept Glossary to translate the BuddyPress and BuddyBoss terms you already know into BuddyNext terms.
-- See the BuddyBoss Feature Comparison for a capability-by-capability breakdown.
-- See Moving Your Existing Members and Content for what carries over when you switch, and what the recommended fresh-start approach looks like today.
+- See the [Concept Glossary](02-concept-glossary.md) to translate the BuddyPress and BuddyBoss terms you already know into BuddyNext terms.
+- See the [BuddyBoss Feature Comparison](03-buddyboss-feature-parity.md) for a capability-by-capability breakdown.
+- See [Moving Your Existing Members and Content](04-migrating-your-data.md) for what carries over when you switch, and what the recommended fresh-start approach looks like today.
