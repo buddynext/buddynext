@@ -62,7 +62,7 @@ class SpacesDirectorySidebarProviderTest extends WP_UnitTestCase {
 		}
 	}
 
-	public function test_logged_in_with_suggestions_hides_popular(): void {
+	public function test_logged_in_shows_suggested_and_popular_together(): void {
 		$owner = self::factory()->user->create();
 		( new SpaceService() )->create(
 			$owner,
@@ -83,8 +83,13 @@ class SpacesDirectorySidebarProviderTest extends WP_UnitTestCase {
 		$widgets = ( new SpacesDirectorySidebarProvider() )->widgets( array(), 'spaces' );
 		$ids     = wp_list_pluck( $widgets, 'id' );
 
+		// Personalized affinity (suggested) and community-wide popularity answer
+		// different questions, so both render together — the directory sidebar is
+		// never a single thin card. The always-on discovery + pulse cards join them.
 		$this->assertContains( 'spaces-suggested', $ids );
-		$this->assertNotContains( 'spaces-popular', $ids, 'Suggested and popular must be mutually exclusive.' );
+		$this->assertContains( 'spaces-popular', $ids, 'Popular renders alongside Suggested, not instead of it.' );
+		$this->assertContains( 'spaces-new', $ids );
+		$this->assertContains( 'spaces-pulse', $ids );
 
 		$by_id = array();
 		foreach ( $widgets as $widget ) {
@@ -92,10 +97,42 @@ class SpacesDirectorySidebarProviderTest extends WP_UnitTestCase {
 		}
 		$this->assertSame( 'Suggested for you', $by_id['spaces-suggested']['title'] );
 		$this->assertSame( 'sparkles', $by_id['spaces-suggested']['icon'] );
+		$this->assertSame( 'New spaces', $by_id['spaces-new']['title'] );
+		$this->assertSame( 'Community pulse', $by_id['spaces-pulse']['title'] );
 
 		foreach ( $widgets as $widget ) {
 			$this->assertArrayNotHasKey( 'chrome', $widget );
 		}
+	}
+
+	public function test_community_pulse_reports_space_and_membership_scale(): void {
+		$owner = self::factory()->user->create();
+		( new SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Pulse Space',
+				'slug' => 'pulse-space',
+				'type' => 'open',
+			)
+		);
+
+		wp_set_current_user( 0 );
+
+		$widgets = ( new SpacesDirectorySidebarProvider() )->widgets( array(), 'spaces' );
+		$by_id   = array();
+		foreach ( $widgets as $widget ) {
+			$by_id[ $widget['id'] ] = $widget;
+		}
+
+		$this->assertArrayHasKey( 'spaces-pulse', $by_id, 'The pulse card renders whenever the directory has spaces.' );
+
+		ob_start();
+		call_user_func( $by_id['spaces-pulse']['render'] );
+		$body = (string) ob_get_clean();
+
+		// Three labelled stat rows: spaces, open to join, memberships.
+		$this->assertStringContainsString( 'bn-sd-pulse', $body );
+		$this->assertStringContainsString( 'open to join', $body );
 	}
 
 	public function test_logged_in_yours_card_lists_managed_and_joined_spaces(): void {
