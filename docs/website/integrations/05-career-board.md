@@ -27,9 +27,11 @@ The job board itself - submitting a job, browsing listings, applying, withdrawin
 
 - **A new job appears in the feed.** When a member publishes a job, BuddyNext posts a feed activity announcing it and linking out to the job's Career Board page. Members can see new openings as they scroll the feed.
 - **Jobs are searchable in the community.** Each published job is added to community search, so a member searching for a role or skill finds open jobs alongside people and spaces.
-- **"Open to work" resumes appear in the feed.** When a member publishes a resume and marks it public, BuddyNext posts an "open to work" activity linking to their resume. Private resumes are never broadcast.
-- **Job notifications land in one place.** Career Board's own notifications (an application received, a status change, and so on) are mirrored into the BuddyNext notification center, so a member has a single bell for everything across the community. Career Board's own notifications and emails keep working too.
-- **Jobs and resumes show on the profile.** A member's jobs and public resume appear as portfolio panels on their BuddyNext profile, linking out to the Career Board pages, so a profile reflects their professional activity.
+- **"Open to work" resumes appear in the feed.** When a member publishes a resume and marks it public, BuddyNext posts an "open to work" activity linking to their resume. Private resumes are never broadcast. *(Resumes are a Career Board **Pro** feature - with the free Career Board there are no resumes to surface.)*
+- **Job notifications land in one place.** Career Board's own notifications (an application received, a status change, and so on) are mirrored into the BuddyNext notification center, so a member has a single bell for everything across the community. Career Board's own notifications and emails keep working too. *(Notification mirroring needs Career Board **Pro**.)*
+- **Jobs and resumes show on the profile.** A member's jobs appear as a portfolio panel on their BuddyNext profile, and with Career Board Pro their public resume does too, linking out to the Career Board pages, so a profile reflects their professional activity.
+
+> **Note:** Job posting and its feed/profile/search surfacing work with the free Career Board. Resumes, the "open to work" card, and notification mirroring require **Career Board Pro** (alongside BuddyNext Pro).
 
 When a job posting expires, its feed activity is removed automatically, so the feed only shows live openings.
 

@@ -30,7 +30,7 @@ The feed side needs no integration at all. BuddyNext's site tracking publishes a
 2. In Member Blog's settings, map its **dashboard page** - the front-end page where members write and manage their posts. BuddyNext reads this to build the "Write a new article" link.
 3. That is all. The Articles tab appears on member profiles automatically.
 
-To hide the tab across the site, turn off the **nav** aspect of the **Blog posts** integration under **BuddyNext > Integrations**. That control also governs the article cards in the feed, because both surfaces show the same thing: the member's WordPress posts.
+To hide the tab across the site, turn off the **nav** aspect of the **Blog posts** integration under **BuddyNext > Platform > Integration Settings**. That control also governs the article cards in the feed, because both surfaces show the same thing: the member's WordPress posts.
 
 > **Note:** The tab appears only when Member Blog is active. Without it, members have no front-end way to write, so the tab would be empty for everyone except administrators - and the "Write a new article" link would have nowhere to point.
 

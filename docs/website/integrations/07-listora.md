@@ -25,6 +25,7 @@ The directory itself - submitting a listing, browsing the directory, editing or 
 
 - **A new listing appears in the feed.** When a member publishes a directory listing, BuddyNext posts a feed activity announcing it and linking out to the listing's Listora page. Members can see new listings as they scroll the feed.
 - **Listings are searchable in the community.** Each published listing is added to community search, so a member searching for a business, service, or place finds it alongside people and spaces.
+- **A member's listings show on their profile.** BuddyNext adds a Listings panel to the member's profile Portfolio, so anyone viewing the profile sees what that member has listed, linking out to each listing's Listora page.
 - **Listings come down automatically.** When a listing leaves public view - it is unpublished, set to draft or pending, or deleted - its community surfacing is removed too, so the feed and search only show listings that are actually live.
 
 > **Note:** Submitting, editing, and managing listings happen on Listora's screens. BuddyNext does not replace those - it surfaces the results in the community.
