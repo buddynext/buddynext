@@ -82,6 +82,8 @@ An audit-driven release: members-only posts, owner control over plugin isolation
 * Improve  - Onboarding nudges are scheduled through Action Scheduler instead of a separate queue table.
 * Improve  - Failed community emails are recorded and the owner is alerted, instead of the failure passing silently.
 * Improve  - Tracking that was never consented to is cleared, the revoke control is always shown, and tracking is no longer forced on at activation.
+* Improve  - Every community page ships a full set of relevant sidebar cards by default, so the spaces and members directories no longer thin out to a single card when a section has no data yet.
+* Improve  - The member directory sidebar adds a New members list and a daily-rotating Member spotlight, and the spaces directory adds New spaces, Popular this week and a Community pulse, to keep the community front and centre.
 * Fix      - The direct-message recipient picker no longer offers members who cannot be messaged, and its list pages correctly.
 * Fix      - A long member handle no longer forces the members directory to scroll sideways.
 * Fix      - The search button on a space feed no longer stretches full-width on mobile.
