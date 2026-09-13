@@ -68,4 +68,28 @@ if ( function_exists( "buddynext_service" ) ) {
 }
 ' >/dev/null 2>&1 || log 'member-type best-effort step skipped'
 
+# 4. A couple of hashtag posts so the explore/trending list has content. The demo
+#    seeder (step 1) creates posts but none with hashtags, so the trending page
+#    rendered empty and its journey was baselined. Seed via PostService (never raw
+#    SQL) and index synchronously so a trending chip exists on a fresh site.
+#    Idempotent via an option marker; best-effort so it never fails the seed.
+"${WP[@]}" eval '
+if ( ! function_exists( "buddynext_service" ) || get_option( "bn_e2e_trending_seeded" ) ) {
+	return;
+}
+try {
+	$posts = new \BuddyNext\Feed\PostService();
+	$hash  = new \BuddyNext\Hashtags\HashtagListener();
+	foreach ( array( "Welcome to the community #welcome #community", "Great to have everyone here #community" ) as $body ) {
+		$pid = $posts->create( 1, array( "content" => $body, "privacy" => "public" ) );
+		if ( ! is_wp_error( $pid ) ) {
+			$hash->async_index_hashtags( "post", (int) $pid, "" );
+		}
+	}
+	update_option( "bn_e2e_trending_seeded", 1 );
+} catch ( \Throwable $e ) {
+	// Non-fatal: leave the trending spec baselined rather than break the whole seed.
+}
+' >/dev/null 2>&1 || log 'trending-fixture best-effort step skipped'
+
 log 'done'
