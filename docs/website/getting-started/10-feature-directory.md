@@ -38,6 +38,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 - [Account Settings](../accounts-access/07-account-settings.md) **(Free)**
 - [Privacy and Data](../accounts-access/08-privacy-and-data.md) **(Free)**
 - [The Guest Experience](../accounts-access/09-guest-experience.md) - what a logged-out visitor sees **(Free)**
+- [Inviting People](../accounts-access/10-invitations.md) - single and bulk invitations **(Free)**
 
 ## Community and the feed
 

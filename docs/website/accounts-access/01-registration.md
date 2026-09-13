@@ -99,7 +99,7 @@ You decide which profile fields show on the sign-up form. Go to **BuddyNext > Me
 
 ### Manage invitations and approvals
 
-- **Invitations.** When using Invite Only mode, manage invites under **BuddyNext > Members > Invites** - create, resend, and revoke them there. (There is a shortcut button on the Registration & Login settings tab.)
+- **Invitations.** When using Invite Only mode, manage invites under **BuddyNext > Members > Invites** - create, resend, and revoke them there. (There is a shortcut button on the Registration & Login settings tab.) For the full walkthrough, including bulk CSV invites and tracking, see [Inviting People to Your Community](10-invitations.md).
 - **Approvals.** In Admin Approval mode, pending accounts wait for review. Approve them from the Members admin screen; until then they cannot sign in.
 
 ![The Invites manager where owners send and track invitations](../images/admin-invites.webp)
