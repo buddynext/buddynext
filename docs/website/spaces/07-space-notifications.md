@@ -6,7 +6,7 @@ Each member chooses how much a space notifies them: every bit of activity, only 
 
 ![Notifications screen reflecting the activity members receive from their spaces](../images/notifications.webp)
 
-![Notifications - Notifications admin tab with the default notification settings members inherit for spaces](../images/admin-notifications.webp)
+![The admin Notifications tab, where site-wide notification defaults and channels are configured](../images/admin-notifications.webp)
 
 ## Why use it
 

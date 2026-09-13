@@ -43,12 +43,12 @@ The composer accepts more than text. A member can attach media to a message so t
 
 ## Setting it up (for owners)
 
-Direct messaging is controlled from Settings > General, in the Direct Messaging section. Both settings live there.
+Direct messaging has two controls, in two places. The **Enable direct messaging** switch is the *Direct messages* feature toggle under **Platform > Features**. The **Who can DM me** default lives under **Settings > General**, in the Direct Messaging section.
 
 | Setting | What it does | Default |
 |---|---|---|
 | Enable direct messaging | Turns private 1:1 messaging on or off for the whole community. When off, every messaging entry point (the inbox, the profile and directory "Message" buttons, the header icon, and the Messages nav item) is hidden. This setting requires the WPMediaVerse plugin to be active; while WPMediaVerse is not active the toggle is disabled and cannot be turned on. | On |
-| Who can DM me (default) | The default privacy applied to new accounts: who is allowed to start a message with a member. Options are Everyone, Members only, Connections only, and No one. Members can override this in their own privacy settings. | Members only |
+| Who can DM me (default) | The default privacy applied to new accounts: who is allowed to start a message with a member. Options are Everyone, Members only, Connections only, and No one. Members can override this in their own privacy settings. | Everyone |
 
 > **Tip:** "Who can DM me (default)" only sets the starting value for new members. Each member can change their own preference afterward, so this controls the community default, not a hard rule.
 

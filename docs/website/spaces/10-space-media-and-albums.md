@@ -24,7 +24,7 @@ The Media tab is off by default and is enabled per space, so a space that is onl
 
 The tab appears in the space's tab strip next to Feed, Members and About.
 
-> **Note:** Space media needs the media engine (WPMediaVerse) active on the site, and the site-wide media integration switched on under **BuddyNext > Integrations**. Without those the tab does not appear even when the per-space setting is on.
+> **Note:** Space media needs the media engine (WPMediaVerse) active on the site, and the site-wide media integration switched on under **BuddyNext > Platform > Integration Settings**. Without those the tab does not appear even when the per-space setting is on.
 
 ## The two views
 

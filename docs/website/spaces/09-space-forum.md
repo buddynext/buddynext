@@ -44,7 +44,7 @@ The forum is delivered by the Jetonomy companion plugin. There is almost nothing
 
 ### Feed sync setting
 
-One setting controls whether forum activity flows into the activity feed. It lives on the **Integration Settings** tab in the BuddyNext admin (Platform > Add-ons), as the Jetonomy row's "Post to the activity feed" toggle.
+One setting controls whether forum activity flows into the activity feed. It lives on the **Integration Settings** tab in the BuddyNext admin (Platform > Integration Settings), as the Jetonomy row's "Post to the activity feed" toggle.
 
 | Setting | What it does | Default |
 |---|---|---|
