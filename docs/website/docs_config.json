@@ -217,7 +217,8 @@
         "integrations/06-outbound-webhooks.md",
         "integrations/07-listora.md",
         "integrations/08-learnomy.md",
-        "integrations/09-member-blog.md"
+        "integrations/09-member-blog.md",
+        "integrations/10-eventonomy.md"
       ]
     },
     {

@@ -165,6 +165,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 - [Listora](../integrations/07-listora.md) - listings **(Free)**
 - [Learnomy](../integrations/08-learnomy.md) - courses **(Free)**
 - [Member Blog](../integrations/09-member-blog.md) **(Free)**
+- [Eventonomy](../integrations/10-eventonomy.md) - events and RSVPs **(Free)**
 
 ## Migrating from BuddyPress or BuddyBoss
 

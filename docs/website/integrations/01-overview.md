@@ -30,7 +30,7 @@ BuddyNext keeps a catalog of companion plugins it knows how to work with. Each o
 | Listora | Directory listings - members publish and manage their own listings. | Member listings surfaced in the feed and on profiles. |
 | WB Member Blog | Front-end publishing - members write and manage WordPress posts without wp-admin. | An Articles tab on member profiles, plus article cards in the feed. |
 
-Most integrations have their own setup page in this section - open the page for the one you want for the full walkthrough of its settings and member experience. (Eventonomy surfaces through BuddyNext Pro the same way; its dedicated page is on the way - until then, its row above is the summary.)
+Each integration has its own setup page in this section - open the page for the one you want for the full walkthrough of its settings and member experience.
 
 > **Note:** Direct messaging in BuddyNext is provided by MediaVerse. BuddyNext renders the messaging interface, but the underlying engine lives in MediaVerse - so messaging only appears once MediaVerse is installed and active.
 
