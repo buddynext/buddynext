@@ -9,6 +9,8 @@ social pages stay fast, while the rest of your site runs every plugin as normal.
 It is off by default, and when you do turn it on, it keeps every plugin unless you
 say otherwise - so it never surprises you by silently disabling something.
 
+![The Plugin isolation screen under BuddyNext > Platform, with route isolation off and the per-plugin skip list](../images/plugin-isolation.webp)
+
 ## Why it exists
 
 A WordPress site often runs a page-builder, a forms plugin, a shop, an SEO suite,

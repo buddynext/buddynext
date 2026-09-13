@@ -2,6 +2,8 @@
 
 Renewal reminders warn a member before their membership renews or ends. Two different things are happening, so they are two different emails: one tells a member their card is about to be charged again, the other tells them their access is about to run out. Sending the wrong one is worse than sending nothing.
 
+![The Renewal reminders settings - the send toggle and the comma-separated "days before" offsets that decide when each reminder fires](../images/renewal-reminders.webp)
+
 ## Why use it
 
 A silent renewal is the single most common cause of a chargeback and an angry support ticket. The member forgot they subscribed, sees an unexplained charge, and disputes it - and a dispute costs more than the payment was worth. A short note a few days beforehand turns that into either a renewal they expected or a cancellation you keep the goodwill from.

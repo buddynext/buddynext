@@ -2,6 +2,8 @@
 
 [WB Member Blog](https://wbcomdesigns.com/downloads/buddypress-member-blog/) lets your members write and manage WordPress posts from the front end, without ever seeing wp-admin. When it is active, BuddyNext adds an **Articles** tab to every member profile listing what that member has published, and gives the member a route back to the dashboard where they write.
 
+![The Articles tab on a member's profile, listing the posts that member has published from the front end](../images/integration-member-blog.webp)
+
 ## Why use it
 
 A community where members only comment is a community with one publisher. Letting members write long-form gives them somewhere to put the thing that does not fit in a post - a tutorial, a trip report, a case study - and gives everyone else a reason to look at their profile.

@@ -4,6 +4,8 @@ Real-time WebSocket (Pro) needs a server that speaks the Pusher protocol. This p
 
 If you only want to know what the feature does and what each setting means, see [Real-time WebSocket](18-realtime-websocket.md).
 
+![The Realtime settings screen - the server setup guide and the Host, App ID, Key and Secret connection fields with a Test connection button](../images/realtime-server.webp)
+
 ## Which server should I run?
 
 Any Pusher-compatible server works. The settings in BuddyNext are just protocol connection parameters - host, app id, key, secret - so they are identical whichever you choose.

@@ -4,6 +4,8 @@ Listora is the companion plugin that adds directory listings to your community -
 
 Bringing Listora into your community needs BuddyNext Pro. The Listora plugin works on its own without Pro - you simply will not get the community surfacing described below until Pro is active.
 
+![The BuddyNext Add-ons screen showing Listora connected alongside the rest of the Wbcom family, with its listings surfaced in the feed and on profiles](../images/integration-listora.webp)
+
 ## Why use it
 
 A directory turns a community into a resource. Members do not just talk to each other - they list the things they offer and find the things they need, all in a place they already trust.

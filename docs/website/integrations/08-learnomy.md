@@ -4,6 +4,8 @@ Learnomy is the companion plugin that adds courses and certificates to your comm
 
 Bringing Learnomy into your community needs BuddyNext Pro. The Learnomy plugin works on its own without Pro - you simply will not get the community surfacing described below until Pro is active.
 
+![Learnomy's surfacing controls under BuddyNext > Platform > Integration Settings - navigation, feed activity, and the Learning, Certifications and Teaching profile sub-tabs](../images/integration-learnomy.webp)
+
 ## Why use it
 
 Learning is more motivating when it is shared. A member who completes a course or earns a credential has done something worth recognizing, and a community is exactly where that recognition belongs.
