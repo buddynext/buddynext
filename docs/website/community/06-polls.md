@@ -6,7 +6,7 @@ A poll is a post that asks members a question and lets them choose from a short 
 
 ![A poll card showing the question, options as result bars with percentages, and the total vote count](../images/poll-card.webp)
 
-![The BuddyNext admin settings, where the "Allow polls" control lives under the Social tab's Activity Feed section](../images/admin-features.webp)
+![The BuddyNext Platform > Features tab, where the "Polls" feature toggle turns the poll composer on or off](../images/admin-features.webp)
 
 ## Why use it
 
@@ -43,7 +43,7 @@ Polls are on by default. There is a single setting that controls whether members
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Allow polls | Lets members attach a poll to their posts. Turn it off to remove the poll tool from the composer for everyone. | On |
+| Polls (Platform > Features) | Lets members attach a poll to their posts. Turn it off to remove the poll tool from the composer for everyone. | On |
 
 When the setting is off, the poll tool no longer appears in the composer and members post only regular text, link, and photo updates.
 

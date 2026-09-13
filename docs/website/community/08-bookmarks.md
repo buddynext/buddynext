@@ -34,7 +34,7 @@ Bookmarks are on by default. One setting controls whether members can save posts
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Allow bookmarks | Lets members save posts to a private bookmarks list. Turn it off to remove the Save action from post cards. | On |
+| Bookmarks (Platform > Features) | Lets members save posts to a private bookmarks list. Turn it off to remove the Save action from post cards. | On |
 
 When the setting is off, the Save action no longer appears on post cards.
 

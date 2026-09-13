@@ -43,7 +43,7 @@ Resharing is on by default. One setting controls it.
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Allow re-shares | Lets members share other members' posts to their own feed. Turn it off to remove the share action from post cards. | On |
+| Re-shares (Platform > Features) | Lets members share other members' posts to their own feed. Turn it off to remove the share action from post cards. | On |
 
 When the setting is off, the share action no longer appears and members cannot repost or quote each other's posts.
 

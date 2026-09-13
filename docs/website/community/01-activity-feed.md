@@ -59,9 +59,9 @@ The feed works out of the box. Two owner settings shape its behavior, and a few 
 |---------|--------------|---------|
 | Public Explore feed | Whether the Explore feed is visible to the public, including logged-out visitors. Turn this off to keep all activity behind sign-in. | On |
 | Default post visibility | The audience a new post gets when the member does not pick one. See Post Privacy and Visibility for the available levels. | Public |
-| Allow polls | Whether members can create poll posts in the feed. | On |
-| Allow re-shares | Whether the share action appears on posts. | On |
-| Allow bookmarks | Whether the bookmark action appears on posts. | On |
+| Polls | Whether members can create poll posts in the feed. This is a feature toggle under **Platform > Features**, not a feed setting. | On |
+| Re-shares | Whether the share action appears on posts. Toggled under **Platform > Features**. | On |
+| Bookmarks | Whether the bookmark action appears on posts. Toggled under **Platform > Features**. | On |
 
 > **Tip:** If you run a members-only community, turn off the public Explore feed. Members still get their full Home feed after signing in; only the logged-out public view goes away.
 

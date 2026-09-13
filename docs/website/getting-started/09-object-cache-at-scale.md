@@ -31,7 +31,7 @@ The rate-limiting row is worth calling out, because it is a correctness point ra
 
 ## Do I have one?
 
-**In BuddyNext:** Settings → Tools → Object cache. The panel reports the status directly, and past a few thousand members it will tell you if one is missing.
+**In BuddyNext:** Platform → Tools → Object cache. The panel reports the status directly, and past a few thousand members it will tell you if one is missing.
 
 **In WordPress:** Tools → Site Health → Info → Caching.
 

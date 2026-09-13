@@ -4,8 +4,6 @@ BuddyNext keeps key parts of your community current without a page refresh: the 
 
 ![The BuddyNext community activity feed updating in near real time with new posts](../images/community-activity-feed.webp)
 
-![BuddyNext admin Realtime Push tab where owners configure live updates](../images/admin-push.webp)
-
 ## Why use it
 
 A community feels alive when it reacts to people. If a member has to reload the page to find out someone replied, mentioned them, or posted something new, the conversation stalls and they leave. Timely updates close that gap: the bell nudges them back to a reply, the "new posts" pill tells them the feed has moved on, and the presence dot shows who is around to talk to right now.
