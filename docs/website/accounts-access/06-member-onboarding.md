@@ -62,6 +62,10 @@ Choose how the community reaches you. Toggle each delivery channel on or off:
 | Email | Notifications sent to your inbox. |
 | Push | Browser or device push notifications. |
 
+### Step 6 - Membership
+
+The final step is an optional upgrade offer: the Pro plan, its benefits, and its price, next to a clear **Maybe later - continue free** button. It appears only when the site has membership plans configured, and nobody is forced to pay to finish onboarding - a member can continue on the free path with one click and upgrade later from their settings. For the member-facing walkthrough of this and every other screen, see [The Member Journey, Screen by Screen](../members/00-member-journey.md).
+
 ### Skipping
 
 You are never forced through the wizard. A **Skip** option is available on every step. Skipping closes the wizard and marks onboarding as done, so it will not reappear on your next visit.

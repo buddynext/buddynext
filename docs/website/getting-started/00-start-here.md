@@ -10,7 +10,7 @@ BuddyNext serves several kinds of people, and each one starts differently. Find 
 
 | You are | Your starting flow | Start here |
 |---|---|---|
-| **The site owner / admin** (setting the community up) | Install and activate (no key needed) -> run the eight-step setup wizard -> set your logo, colours and pages -> create the first space -> decide open or paid. | [Your first hour](#your-first-hour), then [Admin Setup Wizard](03-admin-setup-wizard.md) |
+| **The site owner / admin** (setting the community up) | Install and activate (no key needed) -> run the seven-step setup wizard -> set your logo, colours and pages -> create the first space -> decide open or paid. | [Your first hour](#your-first-hour), then [Admin Setup Wizard](03-admin-setup-wizard.md) |
 | **A new member** (joining a community) | Register or use social login -> verify your email (if the owner turned it on) -> the welcome wizard walks you through profile, interests, spaces to join, people to follow, and notifications -> you land on your own profile with a feed worth reading. | [New-Member Onboarding](../accounts-access/06-member-onboarding.md) |
 | **A space owner / moderator** (running one community inside the site) | Create a space and choose its privacy (public, private or secret) -> invite or approve members -> post and pin, and keep it healthy from the space's own moderation queue. | [Creating a Space](../spaces/02-creating-a-space.md), then [Moderation Queue](../moderation/02-moderation-queue.md) |
 | **A visitor** (not signed in yet) | Browse the public feed, spaces directory and member directory -> when you reach members-only or private content you are invited to sign up -> join and the member flow above takes over. | [Guest Experience](../accounts-access/09-guest-experience.md), then [Registration](../accounts-access/01-registration.md) |
@@ -50,7 +50,7 @@ Do these in order and you will have a real, branded community ready for members.
 
 1. **Install and activate.** The free plugin works the moment it is active - no key to enter. See [Installation](02-installation.md).
 2. **Pick a theme (or keep yours).** BuddyNext works with any theme; BuddyX (free), BuddyX Pro, and Reign are the community-tuned options. See [Choosing Your Theme](02a-choosing-a-theme.md).
-3. **Run the setup wizard.** An eight-step first-run wizard sets your pages, roles and defaults. See [Admin Setup Wizard](03-admin-setup-wizard.md).
+3. **Run the setup wizard.** A seven-step first-run wizard sets your pages, roles and defaults. See [Admin Setup Wizard](03-admin-setup-wizard.md).
 4. **Make it yours.** Set your logo, colours and appearance. See [Appearance and Branding](07-appearance-and-branding.md).
 5. **Place your community.** Put the feed, directory and spaces where you want them with blocks or shortcodes. See [Shortcodes and Placement](05-shortcodes-and-placement.md).
 6. **Create your first space and invite people.** Give members somewhere to gather on day one. See [Creating a Space](../spaces/02-creating-a-space.md).
@@ -58,7 +58,7 @@ Do these in order and you will have a real, branded community ready for members.
 
 ## "I want to..."
 
-Jump straight to the goal you have in mind. (Some goals cross several features; step-by-step recipes that stitch them together are on the way.)
+Jump straight to the goal you have in mind. (Some goals cross several features; step-by-step recipes that stitch them together are in the [Recipes](../recipes/01-launch-a-paid-community.md) section.)
 
 - **...launch a paid community** - [Membership Plans](../pro/01-membership-plans.md), then [Stripe Payments](../pro/03-stripe-payments.md), then [Gated Spaces](../pro/02-gated-spaces.md).
 - **...run a private or invite-only space** - [Space Types and Privacy](../spaces/03-space-types-and-privacy.md), and to charge for it, [Gated Spaces](../pro/02-gated-spaces.md).

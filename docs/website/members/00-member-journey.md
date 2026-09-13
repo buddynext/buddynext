@@ -2,7 +2,7 @@
 
 This is the path a brand-new person walks from the moment they land on your community to their first post - every screen, in order, with what they see and do. Use it to understand the out-of-the-box experience, to decide what to change, and to explain the flow to your own members.
 
-The whole journey is four stages: **sign up**, a **six-step welcome wizard**, and the **member home** they land on. Nothing here needs configuration - it is what every BuddyNext community does on a fresh install.
+The whole journey is three stages: **sign up**, a **six-step welcome wizard**, and the **member home** they land on. Nothing here needs configuration - it is what every BuddyNext community does on a fresh install.
 
 ---
 
@@ -72,20 +72,6 @@ Finishing the wizard drops the new member on **their own profile**, set up to nu
 ![The new member's profile with a Profile Strength completion checklist](../images/member-profile-strength.webp)
 
 The right rail shows a **Profile Strength** ring with a checklist - Add Basic Info, Social Links, Work Experience, Skills, a profile photo, a cover image - with **Interests already ticked off** from the wizard. Alongside it sit **People to follow** and **Trending topics**, and the composer ("What's on your mind?") is right there. The member has a clear, low-pressure list of what to do next and everything they need to make their first post.
-
----
-
-## What could be better
-
-The flow is genuinely strong - focused, skippable, and it never leaves the member on an empty screen. A few honest refinements from walking it end to end as a new member:
-
-- **The live preview never reflects interests.** On the Interests step (and every step after), the preview card still reads "Add a short bio so people know what you're into," even after topics are chosen. Reflecting the picked interests in the preview would make the personalisation feel real in the moment.
-- **"Continue" is silently gated on the Interests step.** With no topic selected, the **Continue** button looks active but does nothing - the member has to pick a chip or use **Skip for now**. A disabled state, or a one-line hint, would remove the dead click.
-- **The word-based spam check can trip non-native speakers.** "What is four plus three?" is harder to parse than "4 + 3". A digit form (or a per-community toggle) would be gentler on a global audience.
-- **Onboarding ends on an upsell.** The last thing a brand-new member sees is a paid plan. It is honest (the free path is one clear click), but ending on a short "You're all set - here's what to do first" celebration, with the upgrade offered afterwards, would leave a warmer first impression.
-- **They land on their profile, not the feed.** Landing on the Profile Strength checklist is a deliberate, defensible nudge toward completion - just know that a member expecting to see the community feed first meets their own empty profile instead.
-
-None of these are blockers; they are the polish that turns a good first session into a great one.
 
 ---
 
