@@ -37,6 +37,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 - [Member Onboarding](../accounts-access/06-member-onboarding.md) **(Free)**
 - [Account Settings](../accounts-access/07-account-settings.md) **(Free)**
 - [Privacy and Data](../accounts-access/08-privacy-and-data.md) **(Free)**
+- [The Guest Experience](../accounts-access/09-guest-experience.md) - what a logged-out visitor sees **(Free)**
 
 ## Community and the feed
 
@@ -57,6 +58,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 
 ## Members and profiles
 
+- [The Member Journey, Screen by Screen](../members/00-member-journey.md) - the whole first-run path, screen by screen **(Free)**
 - [Member Profiles](../members/01-member-profiles.md) **(Free)**
 - [Profile Fields](../members/02-profile-fields.md) **(Free)** - advanced fields **(Pro)**
 - [Profile Completion](../members/03-profile-completion.md) **(Free)**
@@ -113,6 +115,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 
 ## Pro: monetization and memberships
 
+- [What BuddyNext Pro Adds](../pro/00-overview.md) - the Pro application layer at a glance **(Pro)**
 - [Membership Plans](../pro/01-membership-plans.md) **(Pro)**
 - [Gated Spaces](../pro/02-gated-spaces.md) **(Pro)**
 - [Stripe Payments](../pro/03-stripe-payments.md) **(Pro)**
