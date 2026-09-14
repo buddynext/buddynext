@@ -24,56 +24,64 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit( 1 );
 }
 
-$bn_class = '\\BuddyNext\\Rest\\ResponseSchema';
-if ( ! class_exists( $bn_class ) ) {
-	fwrite( STDERR, "check-openapi: ResponseSchema registry not found.\n" );
+// Free + Pro registries, each keyed by its REST namespace prefix. Pro is only
+// present when the Pro plugin is active (combined spec); absent = Free-only.
+$bn_registries = array(
+	'/buddynext/v1'     => '\\BuddyNext\\REST\\ResponseSchema',
+	'/buddynext-pro/v1' => '\\BuddyNextPro\\REST\\ResponseSchema',
+);
+$bn_present = array_filter( $bn_registries, 'class_exists' );
+if ( ! $bn_present ) {
+	fwrite( STDERR, "check-openapi: no ResponseSchema registry found.\n" );
 	exit( 1 );
 }
 
 // Introspect as an administrator so viewer-gated fields are present.
 wp_set_current_user( 1 );
 
-$bn_map      = $bn_class::map();
-$bn_checked  = array();
-$bn_drift    = array();
-$bn_skipped  = array();
+$bn_checked = array();
+$bn_drift   = array();
+$bn_skipped = array();
 
-foreach ( $bn_map as $bn_entry ) {
-	$bn_resource = (string) ( $bn_entry['resource'] ?? '' );
-	$bn_shape    = (string) ( $bn_entry['shape'] ?? 'item' );
-	$bn_path     = (string) ( $bn_entry['path'] ?? '' );
+foreach ( $bn_present as $bn_ns => $bn_class ) {
+	foreach ( (array) $bn_class::map() as $bn_entry ) {
+		$bn_resource = (string) ( $bn_entry['resource'] ?? '' );
+		$bn_shape    = (string) ( $bn_entry['shape'] ?? 'item' );
+		$bn_path     = (string) ( $bn_entry['path'] ?? '' );
+		$bn_key      = $bn_ns . ':' . $bn_resource;
 
-	// Check each resource once, via a LIST route (no id needed); the list item is
-	// the resource shape. Resources with only item routes are noted as unchecked.
-	if ( isset( $bn_checked[ $bn_resource ] ) || 'item' === $bn_shape ) {
-		continue;
+		// Check each resource once, via a LIST route (no id needed); the list item
+		// is the resource shape. Item-only resources are noted as unchecked.
+		if ( isset( $bn_checked[ $bn_key ] ) || 'item' === $bn_shape ) {
+			continue;
+		}
+
+		$bn_req  = new WP_REST_Request( 'GET', $bn_ns . $bn_path );
+		$bn_req->set_param( 'per_page', 5 );
+		$bn_resp = rest_do_request( $bn_req );
+		if ( $bn_resp->is_error() ) {
+			$bn_skipped[ $bn_resource ] = 'route error ' . $bn_resp->as_error()->get_error_code();
+			continue;
+		}
+
+		$bn_data = $bn_resp->get_data();
+		$bn_item = ( 'paginated' === $bn_shape ) ? ( $bn_data['items'][0] ?? null ) : ( is_array( $bn_data ) ? ( $bn_data[0] ?? null ) : null );
+		if ( ! is_array( $bn_item ) ) {
+			$bn_skipped[ $bn_resource ] = 'no rows to introspect (seed data)';
+			continue;
+		}
+
+		$bn_live     = array_keys( $bn_item );
+		$bn_schema   = (array) $bn_class::$bn_resource();
+		$bn_declared = array_keys( (array) ( $bn_schema['properties'] ?? array() ) );
+
+		$bn_undocumented = array_values( array_diff( $bn_live, $bn_declared ) );
+		$bn_stale        = array_values( array_diff( $bn_declared, $bn_live ) );
+		if ( $bn_undocumented || $bn_stale ) {
+			$bn_drift[ $bn_resource ] = array( 'undocumented' => $bn_undocumented, 'stale' => $bn_stale );
+		}
+		$bn_checked[ $bn_key ] = true;
 	}
-
-	$bn_req  = new WP_REST_Request( 'GET', '/buddynext/v1' . $bn_path );
-	$bn_req->set_param( 'per_page', 5 );
-	$bn_resp = rest_do_request( $bn_req );
-	if ( $bn_resp->is_error() ) {
-		$bn_skipped[ $bn_resource ] = 'route error ' . $bn_resp->as_error()->get_error_code();
-		continue;
-	}
-
-	$bn_data = $bn_resp->get_data();
-	$bn_item = ( 'paginated' === $bn_shape ) ? ( $bn_data['items'][0] ?? null ) : ( is_array( $bn_data ) ? ( $bn_data[0] ?? null ) : null );
-	if ( ! is_array( $bn_item ) ) {
-		$bn_skipped[ $bn_resource ] = 'no rows to introspect (seed data)';
-		continue;
-	}
-
-	$bn_live     = array_keys( $bn_item );
-	$bn_schema   = (array) $bn_class::$bn_resource();
-	$bn_declared = array_keys( (array) ( $bn_schema['properties'] ?? array() ) );
-
-	$bn_undocumented = array_values( array_diff( $bn_live, $bn_declared ) );
-	$bn_stale        = array_values( array_diff( $bn_declared, $bn_live ) );
-	if ( $bn_undocumented || $bn_stale ) {
-		$bn_drift[ $bn_resource ] = array( 'undocumented' => $bn_undocumented, 'stale' => $bn_stale );
-	}
-	$bn_checked[ $bn_resource ] = true;
 }
 
 if ( $bn_drift ) {

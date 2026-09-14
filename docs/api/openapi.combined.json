@@ -86,9 +86,6 @@
             "name": "Pro: Payments"
         },
         {
-            "name": "Pro: Push Notifications"
-        },
-        {
             "name": "Pro: Realtime"
         },
         {
@@ -192,7 +189,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AnalyticsCohort"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -251,7 +255,17 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/AnalyticsContent"
+                                    }
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -436,7 +450,14 @@
                 "summary": "GET /buddynext-pro/v1/analytics/overview",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AnalyticsOverview"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -617,7 +638,17 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Broadcast"
+                                    }
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -712,7 +743,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Broadcast"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -1166,7 +1204,17 @@
                 "summary": "GET /buddynext-pro/v1/drip-sequences",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/DripSequence"
+                                    }
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -2017,7 +2065,17 @@
                 "summary": "GET /buddynext-pro/v1/labels",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/MemberLabel"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -2640,7 +2698,14 @@
                 "summary": "GET /buddynext-pro/v1/me/email-preferences",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailPreferences"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -2775,265 +2840,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            }
-        },
-        "/buddynext-pro/v1/me/push-prefs": {
-            "get": {
-                "tags": [
-                    "Pro: Push Notifications"
-                ],
-                "operationId": "get_buddynext_pro_v1_me_push_prefs",
-                "summary": "GET /buddynext-pro/v1/me/push-prefs",
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            },
-            "post": {
-                "tags": [
-                    "Pro: Push Notifications"
-                ],
-                "operationId": "post_buddynext_pro_v1_me_push_prefs",
-                "summary": "POST /buddynext-pro/v1/me/push-prefs",
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            },
-            "put": {
-                "tags": [
-                    "Pro: Push Notifications"
-                ],
-                "operationId": "put_buddynext_pro_v1_me_push_prefs",
-                "summary": "PUT /buddynext-pro/v1/me/push-prefs",
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            },
-            "patch": {
-                "tags": [
-                    "Pro: Push Notifications"
-                ],
-                "operationId": "patch_buddynext_pro_v1_me_push_prefs",
-                "summary": "PATCH /buddynext-pro/v1/me/push-prefs",
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            }
-        },
-        "/buddynext-pro/v1/me/push-tokens": {
-            "get": {
-                "tags": [
-                    "Pro: Push Notifications"
-                ],
-                "operationId": "get_buddynext_pro_v1_me_push_tokens",
-                "summary": "GET /buddynext-pro/v1/me/push-tokens",
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            },
-            "post": {
-                "tags": [
-                    "Pro: Push Notifications"
-                ],
-                "operationId": "post_buddynext_pro_v1_me_push_tokens",
-                "summary": "POST /buddynext-pro/v1/me/push-tokens",
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "token": {
-                                        "type": "string",
-                                        "description": "Device push token."
-                                    },
-                                    "platform": {
-                                        "type": "string",
-                                        "enum": [
-                                            "web",
-                                            "ios",
-                                            "android"
-                                        ],
-                                        "default": "web",
-                                        "description": "Device platform."
-                                    },
-                                    "device_label": {
-                                        "type": "string",
-                                        "description": "Optional human-readable device label."
-                                    }
-                                },
-                                "required": [
-                                    "token"
-                                ]
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PlanChangeQuote"
+                                }
                             }
                         }
-                    }
-                }
-            }
-        },
-        "/buddynext-pro/v1/me/push-tokens/test": {
-            "post": {
-                "tags": [
-                    "Pro: Push Notifications"
-                ],
-                "operationId": "post_buddynext_pro_v1_me_push_tokens_test",
-                "summary": "POST /buddynext-pro/v1/me/push-tokens/test",
-                "responses": {
-                    "200": {
-                        "description": "Success."
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            }
-        },
-        "/buddynext-pro/v1/me/push-tokens/{id}": {
-            "delete": {
-                "tags": [
-                    "Pro: Push Notifications"
-                ],
-                "operationId": "delete_buddynext_pro_v1_me_push_tokens_id_",
-                "summary": "DELETE /buddynext-pro/v1/me/push-tokens/{id}",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success."
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -3061,7 +2875,17 @@
                 "summary": "GET /buddynext-pro/v1/me/saved-searches",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SavedSearch"
+                                    }
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -3407,7 +3231,14 @@
                 "summary": "GET /buddynext-pro/v1/me/scheduled-posts",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ScheduledPosts"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -3435,7 +3266,17 @@
                 "summary": "GET /buddynext-pro/v1/me/subscriptions",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Subscription"
+                                    }
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -3594,7 +3435,14 @@
                 "summary": "GET /buddynext-pro/v1/membership/gateways",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Gateway"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -3608,7 +3456,17 @@
                 "summary": "GET /buddynext-pro/v1/membership/plans",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/MembershipPlan"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -3749,7 +3607,17 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ModRule"
+                                    }
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -4672,7 +4540,17 @@
                 "summary": "GET /buddynext-pro/v1/tiers",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Tier"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -4959,7 +4837,14 @@
                 "summary": "GET /buddynext/v1/account/2fa",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TwofaStatus"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -5257,7 +5142,14 @@
                 "summary": "GET /buddynext/v1/app/config",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AppConfig"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -6591,7 +6483,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedComment"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -7343,7 +7242,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedPost"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -8767,7 +8673,14 @@
                 "summary": "GET /buddynext/v1/me/drafts",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Draft"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -9400,7 +9313,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedNotification"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -10372,7 +10292,17 @@
                 "summary": "GET /buddynext/v1/member-types",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/MemberType"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -10564,11 +10494,28 @@
                             "type": "integer",
                             "default": 20
                         }
+                    },
+                    {
+                        "name": "messageable",
+                        "in": "query",
+                        "required": false,
+                        "description": "When true, exclude members the current viewer cannot direct-message (mvs_can_send_message) - used by the DM recipient picker so it never offers someone the send route would refuse.",
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedMember"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -10839,7 +10786,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Post"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -11354,7 +11308,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Poll"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -12183,7 +12144,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedReaction"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -12411,7 +12379,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedModerationReport"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -12830,7 +12805,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SearchResult"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -13013,7 +12995,17 @@
                 "summary": "GET /buddynext/v1/space-categories",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SpaceCategory"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -13444,7 +13436,17 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Space"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -13590,7 +13592,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SpaceDetail"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -15255,7 +15264,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Achievement"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -15650,7 +15666,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Connection"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -15879,7 +15902,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FollowEdge"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -16960,7 +16990,17 @@
                 "summary": "GET /buddynext/v1/webhooks",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Webhook"
+                                    }
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -17356,6 +17396,1812 @@
                 "type": "http",
                 "scheme": "basic",
                 "description": "Non-browser clients (the native app, integrations) authenticate with a WordPress Application Password over HTTP Basic."
+            }
+        },
+        "schemas": {
+            "TwofaStatus": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "required": {
+                        "type": "boolean"
+                    },
+                    "backup_remaining": {
+                        "type": "integer"
+                    },
+                    "methods": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "email_fallback": {
+                        "type": "boolean"
+                    },
+                    "challenge": {
+                        "type": "object"
+                    }
+                }
+            },
+            "FollowEdge": {
+                "type": "object",
+                "properties": {
+                    "is_following": {
+                        "type": "boolean"
+                    },
+                    "is_pending": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "AppConfig": {
+                "type": "object",
+                "properties": {
+                    "contract_version": {
+                        "type": "integer"
+                    },
+                    "app_enabled": {
+                        "type": "boolean"
+                    },
+                    "pro_active": {
+                        "type": "boolean"
+                    },
+                    "min_app_version": {
+                        "type": "string"
+                    },
+                    "branding": {
+                        "type": "object"
+                    },
+                    "features": {
+                        "type": "object"
+                    },
+                    "integrations": {
+                        "type": "object"
+                    },
+                    "limits": {
+                        "type": "object"
+                    },
+                    "time": {
+                        "type": "object"
+                    },
+                    "locale": {
+                        "type": "object"
+                    },
+                    "legal": {
+                        "type": "object"
+                    },
+                    "auth": {
+                        "type": "object"
+                    },
+                    "realtime": {
+                        "type": "object"
+                    }
+                }
+            },
+            "Connection": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "connection": {
+                        "type": "object",
+                        "properties": {
+                            "state": {
+                                "type": "string"
+                            },
+                            "can_message": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            },
+            "Post": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "space_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "shared_post_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "media_ids": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "link_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uri"
+                    },
+                    "link_meta": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "privacy": {
+                        "type": "string"
+                    },
+                    "reaction_count": {
+                        "type": "integer"
+                    },
+                    "comment_count": {
+                        "type": "integer"
+                    },
+                    "share_count": {
+                        "type": "integer"
+                    },
+                    "is_pinned": {
+                        "type": "integer"
+                    },
+                    "is_announcement": {
+                        "type": "integer"
+                    },
+                    "content_warning": {
+                        "type": "boolean"
+                    },
+                    "content_warning_type": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "members_only": {
+                        "type": "boolean"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "site_pin_expires_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "edited_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "scheduled_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    },
+                    "author": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "display_name": {
+                                "type": "string"
+                            },
+                            "avatar_url": {
+                                "type": "string",
+                                "format": "uri"
+                            },
+                            "is_online": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "top_reactors": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "content_html": {
+                        "type": "string"
+                    },
+                    "viewer_state": {
+                        "type": "object",
+                        "properties": {
+                            "my_reaction": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "is_bookmarked": {
+                                "type": "boolean"
+                            },
+                            "my_voted_option_id": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "my_share": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ]
+                            },
+                            "can_edit": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "media": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaginatedPost": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Post"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "Poll": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "option_text": {
+                                    "type": "string"
+                                },
+                                "display_order": {
+                                    "type": "integer"
+                                },
+                                "vote_count": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "Draft": {
+                "type": "object",
+                "properties": {
+                    "payload": {
+                        "type": "object"
+                    }
+                }
+            },
+            "Member": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "handle": {
+                        "type": "string"
+                    },
+                    "headline": {
+                        "type": "string"
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "cover_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "profile_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "messages_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "bio_excerpt": {
+                        "type": "string"
+                    },
+                    "is_online": {
+                        "type": "boolean"
+                    },
+                    "follower_count": {
+                        "type": "integer"
+                    },
+                    "mutual_count": {
+                        "type": "integer"
+                    },
+                    "member_type": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "is_self": {
+                        "type": "boolean"
+                    },
+                    "can_interact": {
+                        "type": "boolean"
+                    },
+                    "can_follow": {
+                        "type": "boolean"
+                    },
+                    "can_connect": {
+                        "type": "boolean"
+                    },
+                    "is_following": {
+                        "type": "boolean"
+                    },
+                    "is_muted": {
+                        "type": "boolean"
+                    },
+                    "connection": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "labels": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "PaginatedMember": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Member"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "SearchResult": {
+                "type": "object",
+                "properties": {
+                    "grouped": {
+                        "type": "boolean"
+                    },
+                    "results": {
+                        "type": "object",
+                        "properties": {
+                            "types": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string"
+                                        },
+                                        "total": {
+                                            "type": "integer"
+                                        },
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "object_type": {
+                                                        "type": "string"
+                                                    },
+                                                    "object_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "content": {
+                                                        "type": "string"
+                                                    },
+                                                    "author_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string"
+                                                    },
+                                                    "created_at_gmt": {
+                                                        "type": "string"
+                                                    },
+                                                    "url": {
+                                                        "type": "string",
+                                                        "format": "uri"
+                                                    },
+                                                    "subtitle": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "SpaceCategory": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "color": {
+                        "type": "string"
+                    },
+                    "text_color": {
+                        "type": "string"
+                    },
+                    "icon_svg": {
+                        "type": "string"
+                    },
+                    "sort_order": {
+                        "type": "integer"
+                    },
+                    "show_in_dir": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "Space": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "category_id": {
+                        "type": "integer"
+                    },
+                    "parent_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "owner_id": {
+                        "type": "integer"
+                    },
+                    "member_count": {
+                        "type": "integer"
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "cover_image_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "rules": {
+                        "type": "string"
+                    },
+                    "required_ability": {
+                        "type": "string"
+                    },
+                    "is_archived": {
+                        "type": "boolean"
+                    },
+                    "archived_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "viewer_role": {
+                        "type": "string"
+                    },
+                    "category_name": {
+                        "type": "string"
+                    },
+                    "category_slug": {
+                        "type": "string"
+                    },
+                    "subspace_count": {
+                        "type": "integer"
+                    },
+                    "cover_tone": {
+                        "type": "string"
+                    },
+                    "type_label": {
+                        "type": "string"
+                    },
+                    "type_tone": {
+                        "type": "string"
+                    },
+                    "join_method": {
+                        "type": "string"
+                    },
+                    "membership_role": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "membership_status": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "can_invite": {
+                        "type": "boolean"
+                    },
+                    "can_manage": {
+                        "type": "boolean"
+                    },
+                    "can_edit_space": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "SpaceDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "category_id": {
+                        "type": "integer"
+                    },
+                    "parent_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "owner_id": {
+                        "type": "integer"
+                    },
+                    "member_count": {
+                        "type": "integer"
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "cover_image_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "rules": {
+                        "type": "string"
+                    },
+                    "required_ability": {
+                        "type": "string"
+                    },
+                    "is_archived": {
+                        "type": "boolean"
+                    },
+                    "archived_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "viewer_role": {
+                        "type": "string"
+                    },
+                    "fields": {
+                        "type": [
+                            "object",
+                            "array"
+                        ]
+                    },
+                    "parent": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "subspace_count": {
+                        "type": "integer"
+                    },
+                    "join_method": {
+                        "type": "string"
+                    },
+                    "membership_role": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "membership_status": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "can_invite": {
+                        "type": "boolean"
+                    },
+                    "can_manage": {
+                        "type": "boolean"
+                    },
+                    "can_edit_space": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "Notification": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "sender_id": {
+                        "type": "integer"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "object_type": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "object_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "group_key": {
+                        "type": "string"
+                    },
+                    "group_count": {
+                        "type": "integer"
+                    },
+                    "group_size": {
+                        "type": "integer"
+                    },
+                    "group_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "group_actors": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "is_read": {
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "object"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "icon": {
+                        "type": "string"
+                    },
+                    "tone": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "actor_name": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaginatedNotification": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Notification"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "Reaction": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "emoji": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaginatedReaction": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Reaction"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "Comment": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "object_type": {
+                        "type": "string"
+                    },
+                    "object_id": {
+                        "type": "integer"
+                    },
+                    "parent_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "is_edited": {
+                        "type": "boolean"
+                    },
+                    "is_deleted": {
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    },
+                    "replies": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "author_name": {
+                        "type": "string"
+                    },
+                    "author_avatar_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "like_count": {
+                        "type": "integer"
+                    },
+                    "viewer_liked": {
+                        "type": "boolean"
+                    },
+                    "viewer_reaction": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "can_edit": {
+                        "type": "boolean"
+                    },
+                    "can_delete": {
+                        "type": "boolean"
+                    },
+                    "can_pin": {
+                        "type": "boolean"
+                    },
+                    "is_pinned": {
+                        "type": "boolean"
+                    },
+                    "author_meta_html": {
+                        "type": "string"
+                    },
+                    "content_html": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaginatedComment": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Comment"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "ModerationReport": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "reporter_id": {
+                        "type": "integer"
+                    },
+                    "object_type": {
+                        "type": "string"
+                    },
+                    "object_id": {
+                        "type": "integer"
+                    },
+                    "space_id": {
+                        "type": "integer"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "reasons": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "report_count": {
+                        "type": "integer"
+                    },
+                    "reporter_count": {
+                        "type": "integer"
+                    },
+                    "notes": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "resolved_by": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "resolved_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaginatedModerationReport": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ModerationReport"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "MemberType": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "color": {
+                        "type": "string"
+                    },
+                    "text_color": {
+                        "type": "string"
+                    },
+                    "icon_svg": {
+                        "type": "string"
+                    },
+                    "sort_order": {
+                        "type": "integer"
+                    },
+                    "show_in_dir": {
+                        "type": "boolean"
+                    },
+                    "self_select": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "Webhook": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "has_secret": {
+                        "type": "boolean"
+                    },
+                    "events": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "is_active": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "Achievement": {
+                "type": "object",
+                "properties": {
+                    "has_standing": {
+                        "type": "boolean"
+                    },
+                    "standing": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "icon": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "badges": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "image_url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                },
+                                "is_credential": {
+                                    "type": "boolean"
+                                },
+                                "earned_at": {
+                                    "type": "string"
+                                },
+                                "share_url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "MembershipPlan": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": "number"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "billing_type": {
+                        "type": "string"
+                    },
+                    "billing_interval": {
+                        "type": "string"
+                    },
+                    "is_free": {
+                        "type": "boolean"
+                    },
+                    "annual_price": {
+                        "type": "number"
+                    },
+                    "annual_enabled": {
+                        "type": "boolean"
+                    },
+                    "annual_savings": {
+                        "type": "number"
+                    },
+                    "annual_savings_pct": {
+                        "type": "integer"
+                    },
+                    "buyable": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "Gateway": {
+                "type": "object",
+                "properties": {
+                    "gateways": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "supports": {
+                                    "type": "object",
+                                    "properties": {
+                                        "one_time": {
+                                            "type": "boolean"
+                                        },
+                                        "subscription": {
+                                            "type": "boolean"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "preferred": {
+                        "type": "string"
+                    }
+                }
+            },
+            "Tier": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "sort_order": {
+                        "type": "integer"
+                    },
+                    "price": {
+                        "type": "number"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "billing_type": {
+                        "type": "string"
+                    },
+                    "billing_interval": {
+                        "type": "string"
+                    },
+                    "annual_price": {
+                        "type": "number"
+                    },
+                    "annual_enabled": {
+                        "type": "boolean"
+                    },
+                    "trial_days": {
+                        "type": "integer"
+                    },
+                    "is_free": {
+                        "type": "boolean"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "entitlements": {
+                        "type": [
+                            "object",
+                            "array"
+                        ]
+                    },
+                    "points_price": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "Subscription": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "tier_id": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "started_at": {
+                        "type": "string"
+                    },
+                    "expires_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "external_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "billing_interval": {
+                        "type": "string"
+                    },
+                    "tier_slug": {
+                        "type": "string"
+                    },
+                    "tier_name": {
+                        "type": "string"
+                    },
+                    "tier_is_free": {
+                        "type": "boolean"
+                    },
+                    "tier_price": {
+                        "type": "number"
+                    },
+                    "capabilities": {
+                        "type": "object",
+                        "properties": {
+                            "can_buy": {
+                                "type": "boolean"
+                            },
+                            "can_change": {
+                                "type": "boolean"
+                            },
+                            "can_cancel": {
+                                "type": "boolean"
+                            },
+                            "can_update_payment": {
+                                "type": "boolean"
+                            },
+                            "billed_by": {
+                                "type": "string"
+                            },
+                            "source": {
+                                "type": "string"
+                            },
+                            "source_label": {
+                                "type": "string"
+                            },
+                            "manage_url": {
+                                "type": "string",
+                                "format": "uri"
+                            },
+                            "reason": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "PlanChangeQuote": {
+                "type": "object",
+                "properties": {
+                    "allowed": {
+                        "type": "boolean"
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "from_plan": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "to_plan": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "remaining_days": {
+                        "type": "integer"
+                    },
+                    "extra_days": {
+                        "type": "integer"
+                    },
+                    "new_expires_at": {
+                        "type": "string"
+                    },
+                    "currency": {
+                        "type": "string"
+                    }
+                }
+            },
+            "Broadcast": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "subject": {
+                        "type": "string"
+                    },
+                    "body_html": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "segment_filter": {
+                        "type": "object"
+                    },
+                    "scheduled_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "sent_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_by": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "scheduled_at_gmt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "sent_at_gmt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                }
+            },
+            "DripSequence": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "trigger": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "delay_days": {
+                                    "type": "integer"
+                                },
+                                "template_slug": {
+                                    "type": "string"
+                                },
+                                "subject": {
+                                    "type": "string"
+                                },
+                                "body_html": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "EmailPreferences": {
+                "type": "object",
+                "properties": {
+                    "unsubscribed_all_broadcasts": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "ModRule": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "rule_type": {
+                        "type": "string"
+                    },
+                    "config": {
+                        "type": "object"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "priority": {
+                        "type": "integer"
+                    },
+                    "is_default": {
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    }
+                }
+            },
+            "MemberLabel": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "color": {
+                        "type": "string"
+                    },
+                    "icon": {
+                        "type": "string"
+                    },
+                    "sort_order": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "member_count": {
+                        "type": "integer"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ScheduledPosts": {
+                "type": "object",
+                "properties": {
+                    "posts": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "user_id": {
+                                    "type": "integer"
+                                },
+                                "space_id": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ]
+                                },
+                                "type": {
+                                    "type": "string"
+                                },
+                                "content": {
+                                    "type": "string"
+                                },
+                                "privacy": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "scheduled_at": {
+                                    "type": "string"
+                                },
+                                "created_at": {
+                                    "type": "string"
+                                },
+                                "created_at_gmt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                "scheduled_at_gmt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                }
+                            }
+                        }
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "AnalyticsOverview": {
+                "type": "object",
+                "properties": {
+                    "dau": {
+                        "type": "integer"
+                    },
+                    "wau": {
+                        "type": "integer"
+                    },
+                    "mau": {
+                        "type": "integer"
+                    },
+                    "growth": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "date": {
+                                    "type": "string"
+                                },
+                                "registrations": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "AnalyticsContent": {
+                "type": "object",
+                "properties": {
+                    "target_id": {
+                        "type": "integer"
+                    },
+                    "engagement": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "AnalyticsCohort": {
+                "type": "object",
+                "properties": {
+                    "period": {
+                        "type": "string"
+                    },
+                    "cohorts": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "cohort_label": {
+                                    "type": "string"
+                                },
+                                "cohort_size": {
+                                    "type": "integer"
+                                },
+                                "retention_pct": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "integer"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "SavedSearch": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "query_args": {
+                        "type": "object"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "last_run_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
             }
         }
     }
