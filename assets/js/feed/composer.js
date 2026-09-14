@@ -1115,6 +1115,13 @@ store( 'buddynext/post-composer', {
 		onInput( event ) {
 			const ctx     = getContext();
 			ctx.content   = event.target.value;
+			// The member is fixing the thing the error complained about — retract
+			// the banner as they type, don't leave it up until the next Post click.
+			if ( ctx.errorMessage ) {
+				ctx.errorMessage   = '';
+				ctx.errorAppealUrl = '';
+				ctx.errorRetryable = true;
+			}
 			autoResizeTextarea( event.target );
 			scheduleDraftSave( ctx );
 			maybeDetectLink( ctx );
