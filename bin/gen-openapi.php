@@ -152,9 +152,20 @@ $bn_arg_schema = static function ( array $arg ): array {
 // 400k+ target installs, so the spec is generated from PHP here, not by attaching
 // schema callbacks to ~280 live routes). map() says which route+method returns
 // which resource and in what shape; the resource methods return WP item schemas.
-$bn_resp_class = '\\BuddyNext\\REST\\ResponseSchema';
-$bn_resp_map   = class_exists( $bn_resp_class ) ? $bn_resp_class::map() : array();
-$bn_schemas    = array(); // Accumulated components.schemas, keyed by component name.
+// Free + Pro registries (Pro is only present when the Pro plugin is active, e.g.
+// when generating the combined Free+Pro spec). map() entries merge; resource
+// methods are resolved from whichever registry defines them.
+$bn_resp_classes = array_values( array_filter(
+	array( '\\BuddyNext\\REST\\ResponseSchema', '\\BuddyNextPro\\REST\\ResponseSchema' ),
+	'class_exists'
+) );
+$bn_resp_map = array();
+foreach ( $bn_resp_classes as $bn_rc ) {
+	foreach ( (array) $bn_rc::map() as $bn_me ) {
+		$bn_resp_map[] = $bn_me;
+	}
+}
+$bn_schemas = array(); // Accumulated components.schemas, keyed by component name.
 
 // Component name for a resource title, e.g. 'member' -> 'Member', 'app-config' -> 'AppConfig'.
 $bn_comp_name = static function ( string $title ): string {
@@ -191,11 +202,17 @@ $bn_wp_to_oa = static function ( array $wp ) use ( &$bn_wp_to_oa ): array {
 
 // Register a resource's item schema under components.schemas (once) and return
 // its component name. Returns '' when the resource method is absent.
-$bn_register_resource = static function ( string $resource ) use ( $bn_resp_class, &$bn_schemas, $bn_comp_name, $bn_wp_to_oa ): string {
-	if ( ! class_exists( $bn_resp_class ) || ! method_exists( $bn_resp_class, $resource ) ) {
+$bn_register_resource = static function ( string $resource ) use ( $bn_resp_classes, &$bn_schemas, $bn_comp_name, $bn_wp_to_oa ): string {
+	$wp = null;
+	foreach ( $bn_resp_classes as $bn_rc ) {
+		if ( method_exists( $bn_rc, $resource ) ) {
+			$wp = (array) $bn_rc::$resource();
+			break;
+		}
+	}
+	if ( null === $wp ) {
 		return '';
 	}
-	$wp    = (array) $bn_resp_class::$resource();
 	$title = (string) ( $wp['title'] ?? $resource );
 	$name  = $bn_comp_name( $title );
 	if ( ! isset( $bn_schemas[ $name ] ) ) {
