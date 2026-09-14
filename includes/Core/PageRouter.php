@@ -241,6 +241,19 @@ class PageRouter {
 			exit;
 		}
 
+		// Theme search box (core ?s=) finds no community content: members, spaces
+		// and activity live in custom tables, invisible to a core wp_posts query,
+		// so a visitor's search returns an empty theme results page. Route the core
+		// search to BuddyNext's own search, which does cover community content.
+		// Filterable so an owner who prefers the theme's native search can opt out.
+		if ( is_search() && is_main_query()
+			&& '' === (string) get_query_var( 'bn_hub', '' )
+			&& apply_filters( 'buddynext_route_core_search', true )
+		) {
+			wp_safe_redirect( self::search_url( get_search_query() ) );
+			exit;
+		}
+
 		$hub = (string) get_query_var( 'bn_hub', '' );
 		if ( '' === $hub ) {
 			// When a BuddyNext hub page is set as the WordPress static front
