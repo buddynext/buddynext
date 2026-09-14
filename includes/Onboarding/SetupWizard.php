@@ -771,7 +771,7 @@ class SetupWizard {
 		$this->render_step_head(
 			__( 'What should your community be called?', 'buddynext' ),
 			__( 'A name and a single brand colour. You can refine the rest of your theme later.', 'buddynext' ),
-			__( 'Editable later in Settings → Branding.', 'buddynext' )
+			__( 'Editable later in Settings → Appearance.', 'buddynext' )
 		);
 		?>
 
