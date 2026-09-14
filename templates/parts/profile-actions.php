@@ -265,7 +265,14 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 		// Message shows as its own control from 641px up; below that it moves into
 		// the overflow so the remaining three controls have room for their labels.
 		// See profile-actions-overflow.php for the measurement.
-		$bn_pa_message_url = \BuddyNext\Messages\MessagesData::entry_enabled()
+		// Gate on BOTH the site-wide switch AND the per-pair check the member
+		// directory uses (mvs_can_send_message) — otherwise the CTA shows on a
+		// profile the viewer cannot actually message (blocked either way, DM off
+		// for that pair), and the send route then refuses. Same predicate the
+		// directory's recipient picker applies.
+		$bn_pa_can_message = \BuddyNext\Messages\MessagesData::entry_enabled()
+			&& (bool) apply_filters( 'mvs_can_send_message', true, get_current_user_id(), (int) $bn_pa_uid );
+		$bn_pa_message_url = $bn_pa_can_message
 			? add_query_arg( 'with', $bn_pa_uid, \BuddyNext\Core\PageRouter::messages_url() )
 			: '';
 		?>

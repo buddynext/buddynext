@@ -785,11 +785,16 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 			// READ on its own page — those want opposite things from a long post.
 			'context'           => $context,
 			'link_preview'      => array(
-				'url'    => $link_url,
-				'title'  => $link_title,
-				'desc'   => $link_desc,
-				'thumb'  => $link_thumb,
-				'domain' => $link_domain,
+				'url'      => $link_url,
+				'title'    => $link_title,
+				'desc'     => $link_desc,
+				'thumb'    => $link_thumb,
+				'domain'   => $link_domain,
+				// Carry the bridge media id so WPMediaVerseBridge::hydrate_media_preview()
+				// can run per-viewer media hydration. Without it the hydrator bails at
+				// its media_id <= 0 guard and the bridge card renders verb-only
+				// (regression of 10242691205).
+				'media_id' => (int) ( $link_meta['media_id'] ?? 0 ),
 			),
 			'link_meta'         => $link_meta,
 			'poll_data'         => array(
