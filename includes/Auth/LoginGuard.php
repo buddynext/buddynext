@@ -114,10 +114,11 @@ final class LoginGuard implements ListenerInterface {
 	/**
 	 * Refuse the sign-in when the client IP is on the blocklist.
 	 *
-	 * Returns the refusal even when $user is already a WP_Error: a blocked network
-	 * is told its network is blocked, not whether the password it guessed was
-	 * right. Anything that is not a signed-in user (null, an existing error) needs
-	 * no further gate, so only a WP_User is inspected.
+	 * Only a would-be-successful sign-in is inspected: the method early-returns
+	 * $user untouched unless it is a WP_User. Anything that is not a signed-in
+	 * user (null, or an existing WP_Error from an earlier filter) passes through
+	 * unchanged — a failed/incomplete authentication needs no further gate, and
+	 * this guard does not convert one error into another.
 	 *
 	 * @param null|WP_User|WP_Error $user User, error, or null from earlier filters.
 	 * @return null|WP_User|WP_Error The user untouched, or a blocked_ip error.
