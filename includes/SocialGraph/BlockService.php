@@ -558,6 +558,13 @@ class BlockService {
 			return false;
 		}
 
+		// Presence is hidden from logged-out visitors (owner decision) — this is
+		// the single seam every dot surface that routes through is_user_online() /
+		// is_user_online_at() shares (directory cards, profile hero, DM, feed).
+		if ( ! \BuddyNext\Realtime\PresenceService::visible_to_viewer( $viewer_id ) ) {
+			return false;
+		}
+
 		if ( $viewer_id > 0 && $viewer_id !== $target_id ) {
 			// Restrict is one-directional by design: the viewer limited what they
 			// see of this person.

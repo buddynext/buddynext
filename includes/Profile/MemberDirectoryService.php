@@ -252,7 +252,13 @@ class MemberDirectoryService {
 		$connection_status = isset( $filters['connection_status'] ) ? (string) $filters['connection_status'] : 'everyone';
 		$relation          = isset( $filters['relation'] ) ? (string) $filters['relation'] : '';
 		$online_only       = ! empty( $filters['online_only'] );
-		$sort              = isset( $filters['sort'] ) ? (string) $filters['sort'] : 'newest';
+		// Presence is hidden from logged-out visitors (owner decision). "Online
+		// only" narrows the list to currently-online members, which discloses
+		// presence indirectly, so it is ignored for a viewer who can't see it.
+		if ( $online_only && ! PresenceService::visible_to_viewer( (int) $viewer_id ) ) {
+			$online_only = false;
+		}
+		$sort = isset( $filters['sort'] ) ? (string) $filters['sort'] : 'newest';
 
 		/**
 		 * Filter the member-directory query args before the SQL is built.
@@ -996,7 +1002,10 @@ class MemberDirectoryService {
 		}
 
 		// Online filter — indexed bn_presence range, EXISTS not a 30-50k IN list.
-		if ( ! empty( $args['online_only'] ) ) {
+		// Skipped for a viewer who can't see presence (logged-out, owner decision),
+		// so the count path matches list_members' own gated online_only and an
+		// anonymous visitor cannot narrow the community to its online members.
+		if ( ! empty( $args['online_only'] ) && PresenceService::visible_to_viewer( $viewer_id ) ) {
 			$online_window = PresenceService::ONLINE_WINDOW;
 			$clauses[]     = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - {$online_window} )";
 		}
@@ -1111,6 +1120,13 @@ class MemberDirectoryService {
 	public function online_among( array $user_ids ): array {
 		global $wpdb;
 
+		// Presence is hidden from logged-out visitors (owner decision). The SSR
+		// member cards and the REST list read their online dot from here, so gate
+		// this batch producer the same as the per-row is_user_online_at() seam.
+		if ( ! PresenceService::visible_to_viewer( get_current_user_id() ) ) {
+			return array();
+		}
+
 		$ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
 		if ( empty( $ids ) ) {
 			return array();
@@ -1213,6 +1229,13 @@ class MemberDirectoryService {
 	 */
 	public function online_now( int $viewer_id = 0, int $limit = 6 ): array {
 		global $wpdb;
+
+		// Presence is hidden from logged-out visitors (owner decision). The sidebar
+		// passes viewer 0 for an anonymous request; return nothing so the provider
+		// drops the "Online now" card entirely rather than exposing who is online.
+		if ( ! PresenceService::visible_to_viewer( $viewer_id ) ) {
+			return array();
+		}
 
 		$limit = max( 1, min( 50, $limit ) );
 

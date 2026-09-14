@@ -36,6 +36,13 @@ class OnlineMembersWidget extends \WP_Widget {
 	 * @return void
 	 */
 	public function widget( $args, $instance ): void { // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable
+		// Presence is hidden from logged-out visitors (owner decision). Render
+		// nothing at all for an anonymous viewer — an empty "Online Members" box
+		// would both leak the surface and mislead ("nobody online" vs "hidden").
+		if ( ! \BuddyNext\Realtime\PresenceService::visible_to_viewer( get_current_user_id() ) ) {
+			return;
+		}
+
 		$title = apply_filters( 'widget_title', $instance['title'] ?? __( 'Online Members', 'buddynext' ) );
 		$limit = absint( $instance['limit'] ?? 5 );
 
