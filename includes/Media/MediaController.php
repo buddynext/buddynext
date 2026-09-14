@@ -841,7 +841,9 @@ class MediaController extends BaseRestController {
 			}
 		}
 
-		$media_ids = array_values( array_unique( array_filter( array_map( 'absint', (array) $request->get_param( 'media_ids' ) ) ) ) );
+		// intval + >0, not absint: absint(-5)=5 would silently operate on a
+		// different real media id fed from the request.
+		$media_ids = array_values( array_unique( array_filter( array_map( 'intval', (array) $request->get_param( 'media_ids' ) ), static fn( int $id ): bool => $id > 0 ) ) );
 		if ( empty( $media_ids ) ) {
 			return new WP_Error( 'bn_album_no_media', __( 'No media to add.', 'buddynext' ), array( 'status' => 422 ) );
 		}
@@ -1152,7 +1154,9 @@ class MediaController extends BaseRestController {
 		}
 
 		// Numeric keys become the 0-indexed positions the engine expects.
-		$order = array_values( array_filter( array_map( 'absint', (array) $request->get_param( 'order' ) ) ) );
+		// intval + >0, not absint: a negative album-order id would otherwise be
+		// coerced to a different real media id.
+		$order = array_values( array_filter( array_map( 'intval', (array) $request->get_param( 'order' ) ), static fn( int $id ): bool => $id > 0 ) );
 
 		$svc = MediaClient::albums();
 		if ( $svc && method_exists( $svc, 'reorder' ) ) {

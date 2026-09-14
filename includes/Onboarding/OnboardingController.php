@@ -350,7 +350,10 @@ class OnboardingController {
 			$space_members = buddynext_service( 'space_members' );
 			$space_service = buddynext_service( 'spaces' );
 			if ( $space_members && method_exists( $space_members, 'join' ) ) {
-				foreach ( array_map( 'absint', $spaces ) as $space_id ) {
+				// intval, not absint: absint(-5)=5 would pass the <=0 guard below and
+				// join a DIFFERENT real space. intval keeps a negative negative so the
+				// guard rejects it.
+				foreach ( array_map( 'intval', $spaces ) as $space_id ) {
 					if ( $space_id <= 0 ) {
 						continue;
 					}
@@ -376,7 +379,9 @@ class OnboardingController {
 		if ( ! empty( $user_ids ) && function_exists( 'buddynext_service' ) ) {
 			$follows = buddynext_service( 'follows' );
 			if ( $follows && method_exists( $follows, 'follow' ) ) {
-				foreach ( array_map( 'absint', $user_ids ) as $follow_id ) {
+				// intval, not absint: absint(-5)=5 would pass the >0 guard below and
+				// follow a DIFFERENT real member.
+				foreach ( array_map( 'intval', $user_ids ) as $follow_id ) {
 					if ( $follow_id > 0 && $follow_id !== $user_id ) {
 						$follows->follow( $user_id, $follow_id );
 					}
