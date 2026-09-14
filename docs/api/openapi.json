@@ -5688,7 +5688,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedMember"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -8564,7 +8571,17 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Space"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -8710,7 +8727,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SpaceDetail"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -12476,6 +12500,326 @@
                 "type": "http",
                 "scheme": "basic",
                 "description": "Non-browser clients (the native app, integrations) authenticate with a WordPress Application Password over HTTP Basic."
+            }
+        },
+        "schemas": {
+            "Member": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "handle": {
+                        "type": "string"
+                    },
+                    "headline": {
+                        "type": "string"
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "cover_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "profile_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "messages_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "bio_excerpt": {
+                        "type": "string"
+                    },
+                    "is_online": {
+                        "type": "boolean"
+                    },
+                    "follower_count": {
+                        "type": "integer"
+                    },
+                    "mutual_count": {
+                        "type": "integer"
+                    },
+                    "member_type": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "is_self": {
+                        "type": "boolean"
+                    },
+                    "can_interact": {
+                        "type": "boolean"
+                    },
+                    "can_follow": {
+                        "type": "boolean"
+                    },
+                    "can_connect": {
+                        "type": "boolean"
+                    },
+                    "is_following": {
+                        "type": "boolean"
+                    },
+                    "is_muted": {
+                        "type": "boolean"
+                    },
+                    "connection": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "labels": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "PaginatedMember": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Member"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "Space": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "category_id": {
+                        "type": "integer"
+                    },
+                    "parent_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "owner_id": {
+                        "type": "integer"
+                    },
+                    "member_count": {
+                        "type": "integer"
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "cover_image_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "rules": {
+                        "type": "string"
+                    },
+                    "required_ability": {
+                        "type": "string"
+                    },
+                    "is_archived": {
+                        "type": "boolean"
+                    },
+                    "archived_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "viewer_role": {
+                        "type": "string"
+                    },
+                    "category_name": {
+                        "type": "string"
+                    },
+                    "category_slug": {
+                        "type": "string"
+                    },
+                    "subspace_count": {
+                        "type": "integer"
+                    },
+                    "cover_tone": {
+                        "type": "string"
+                    },
+                    "type_label": {
+                        "type": "string"
+                    },
+                    "type_tone": {
+                        "type": "string"
+                    },
+                    "join_method": {
+                        "type": "string"
+                    },
+                    "membership_role": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "membership_status": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "can_invite": {
+                        "type": "boolean"
+                    },
+                    "can_manage": {
+                        "type": "boolean"
+                    },
+                    "can_edit_space": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "SpaceDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "category_id": {
+                        "type": "integer"
+                    },
+                    "parent_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "owner_id": {
+                        "type": "integer"
+                    },
+                    "member_count": {
+                        "type": "integer"
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "cover_image_url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "rules": {
+                        "type": "string"
+                    },
+                    "required_ability": {
+                        "type": "string"
+                    },
+                    "is_archived": {
+                        "type": "boolean"
+                    },
+                    "archived_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "viewer_role": {
+                        "type": "string"
+                    },
+                    "fields": {
+                        "type": [
+                            "object",
+                            "array"
+                        ]
+                    },
+                    "parent": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "subspace_count": {
+                        "type": "integer"
+                    },
+                    "join_method": {
+                        "type": "string"
+                    },
+                    "membership_role": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "membership_status": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "can_invite": {
+                        "type": "boolean"
+                    },
+                    "can_manage": {
+                        "type": "boolean"
+                    },
+                    "can_edit_space": {
+                        "type": "boolean"
+                    }
+                }
             }
         }
     }

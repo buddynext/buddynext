@@ -41,6 +41,14 @@ if ! wp ${WP_ARGS[@]+"${WP_ARGS[@]}"} eval "require '${PLUGIN_DIR}/bin/gen-opena
 	exit 1
 fi
 
+# Drift gate: the ResponseSchema registry must still match the live API, or the
+# spec we just generated documents a shape the API no longer returns.
+echo "• Checking OpenAPI response-schema drift against the live API…"
+if ! wp ${WP_ARGS[@]+"${WP_ARGS[@]}"} eval "require '${PLUGIN_DIR}/bin/check-openapi.php';"; then
+	echo "✗ sync-api-docs: response-schema drift - fix includes/Rest/ResponseSchema.php." >&2
+	exit 1
+fi
+
 if [ -f "${PLUGIN_DIR}/tests/audit/rest-reachability.php" ]; then
 	echo "• Running REST reachability audit…"
 	if ! wp "${WP_ARGS[@]}" eval "require '${PLUGIN_DIR}/tests/audit/rest-reachability.php';"; then

@@ -147,6 +147,102 @@ $bn_arg_schema = static function ( array $arg ): array {
 	return $schema;
 };
 
+// ── Response schemas (build-time only, from the ResponseSchema registry) ──────
+// The registry is the single source: no runtime route wiring (BuddyNext ships to
+// 400k+ target installs, so the spec is generated from PHP here, not by attaching
+// schema callbacks to ~280 live routes). map() says which route+method returns
+// which resource and in what shape; the resource methods return WP item schemas.
+$bn_resp_class = '\\BuddyNext\\REST\\ResponseSchema';
+$bn_resp_map   = class_exists( $bn_resp_class ) ? $bn_resp_class::map() : array();
+$bn_schemas    = array(); // Accumulated components.schemas, keyed by component name.
+
+// Component name for a resource title, e.g. 'member' -> 'Member', 'app-config' -> 'AppConfig'.
+$bn_comp_name = static function ( string $title ): string {
+	return str_replace( ' ', '', ucwords( str_replace( array( '-', '_' ), ' ', $title ) ) );
+};
+
+// Convert a WP item schema to an OpenAPI 3.1 schema (drop WP-only keys; 3.1
+// accepts type arrays, so union types like ['object','null'] pass through).
+$bn_wp_to_oa = static function ( array $wp ) use ( &$bn_wp_to_oa ): array {
+	$out = array();
+	if ( isset( $wp['type'] ) ) {
+		$out['type'] = $wp['type'];
+	}
+	if ( isset( $wp['format'] ) ) {
+		$out['format'] = $wp['format'];
+	}
+	if ( isset( $wp['enum'] ) ) {
+		$out['enum'] = $wp['enum'];
+	}
+	if ( isset( $wp['description'] ) ) {
+		$out['description'] = $wp['description'];
+	}
+	if ( isset( $wp['properties'] ) && is_array( $wp['properties'] ) ) {
+		$out['properties'] = array();
+		foreach ( $wp['properties'] as $bn_k => $bn_v ) {
+			$out['properties'][ $bn_k ] = is_array( $bn_v ) ? $bn_wp_to_oa( $bn_v ) : array();
+		}
+	}
+	if ( isset( $wp['items'] ) && is_array( $wp['items'] ) ) {
+		$out['items'] = $bn_wp_to_oa( $wp['items'] );
+	}
+	return $out;
+};
+
+// Register a resource's item schema under components.schemas (once) and return
+// its component name. Returns '' when the resource method is absent.
+$bn_register_resource = static function ( string $resource ) use ( $bn_resp_class, &$bn_schemas, $bn_comp_name, $bn_wp_to_oa ): string {
+	if ( ! class_exists( $bn_resp_class ) || ! method_exists( $bn_resp_class, $resource ) ) {
+		return '';
+	}
+	$wp    = (array) $bn_resp_class::$resource();
+	$title = (string) ( $wp['title'] ?? $resource );
+	$name  = $bn_comp_name( $title );
+	if ( ! isset( $bn_schemas[ $name ] ) ) {
+		$bn_schemas[ $name ] = $bn_wp_to_oa( $wp );
+	}
+	return $name;
+};
+
+// Register (once) the Paginated<Resource> envelope component and return its name.
+$bn_register_paginated = static function ( string $item_name ) use ( &$bn_schemas ): string {
+	$name = 'Paginated' . $item_name;
+	if ( ! isset( $bn_schemas[ $name ] ) ) {
+		$bn_schemas[ $name ] = array(
+			'type'       => 'object',
+			'properties' => array(
+				'items'       => array( 'type' => 'array', 'items' => array( '$ref' => '#/components/schemas/' . $item_name ) ),
+				'next_cursor' => array( 'type' => array( 'string', 'null' ) ),
+				'total'       => array( 'type' => 'integer' ),
+			),
+		);
+	}
+	return $name;
+};
+
+// Build the OpenAPI 200-body schema for a mapped (method, path), or null.
+$bn_response_schema_for = static function ( string $method, string $rel_path ) use ( $bn_resp_map, $bn_register_resource, $bn_register_paginated ): ?array {
+	foreach ( $bn_resp_map as $bn_entry ) {
+		if ( strtoupper( (string) ( $bn_entry['method'] ?? '' ) ) !== $method
+			|| (string) ( $bn_entry['path'] ?? '' ) !== $rel_path ) {
+			continue;
+		}
+		$item = $bn_register_resource( (string) ( $bn_entry['resource'] ?? '' ) );
+		if ( '' === $item ) {
+			return null;
+		}
+		$shape = (string) ( $bn_entry['shape'] ?? 'item' );
+		if ( 'paginated' === $shape ) {
+			return array( '$ref' => '#/components/schemas/' . $bn_register_paginated( $item ) );
+		}
+		if ( 'array' === $shape ) {
+			return array( 'type' => 'array', 'items' => array( '$ref' => '#/components/schemas/' . $item ) );
+		}
+		return array( '$ref' => '#/components/schemas/' . $item );
+	}
+	return null;
+};
+
 $bn_server = rest_get_server();
 $bn_routes = $bn_server->get_routes();
 
@@ -276,6 +372,18 @@ foreach ( $bn_namespaces as $bn_namespace ) {
 					unset( $bn_op['parameters'] );
 				}
 
+				// Typed 200 body from the ResponseSchema registry (no-op when the
+				// route is not mapped, so the spec stays honest as the map grows).
+				$bn_resp_schema = $bn_response_schema_for( $bn_method, $bn_tpl['path'] );
+				if ( null !== $bn_resp_schema ) {
+					$bn_op['responses']['200'] = array(
+						'description' => 'Success.',
+						'content'     => array(
+							'application/json' => array( 'schema' => $bn_resp_schema ),
+						),
+					);
+				}
+
 				$bn_paths[ $bn_oa_path ][ strtolower( $bn_method ) ] = $bn_op;
 				++$bn_op_count;
 			}
@@ -351,6 +459,7 @@ $bn_doc = array(
 	'paths'      => $bn_paths,
 	'components' => array(
 		'securitySchemes' => (array) ( $bn_config['securitySchemes'] ?? array() ),
+		'schemas'         => $bn_schemas,
 	),
 );
 
