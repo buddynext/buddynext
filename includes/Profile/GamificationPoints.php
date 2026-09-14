@@ -115,7 +115,7 @@ class GamificationPoints {
 		echo '</div>';
 
 		if ( empty( $rows ) ) {
-			echo '<p class="bn-achievements__empty">' . esc_html__( 'No points yet — start contributing to earn your first points.', 'buddynext' ) . '</p>';
+			echo '<p class="bn-achievements__empty">' . esc_html__( 'No points yet: start contributing to earn your first points.', 'buddynext' ) . '</p>';
 			echo '</div>';
 			return;
 		}

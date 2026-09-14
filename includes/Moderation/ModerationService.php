@@ -605,7 +605,7 @@ class ModerationService {
 							__METHOD__,
 							sprintf(
 								/* translators: %s: the unhandled moderation action slug. */
-								esc_html__( 'Unhandled automated moderation action "%s" — it was configured, and nothing ran.', 'buddynext' ),
+								esc_html__( 'Unhandled automated moderation action "%s": it was configured, and nothing ran.', 'buddynext' ),
 								esc_html( $action_slug )
 							),
 							'1.0.8'

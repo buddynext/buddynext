@@ -221,10 +221,10 @@ class ProfileFieldsManager {
 	 */
 	private static function date_display_choices(): array {
 		return array(
-			'date'       => __( 'Full date — Jan 15, 1990', 'buddynext' ),
-			'month_year' => __( 'Month & Year — Jan 1990', 'buddynext' ),
-			'year'       => __( 'Year only — 1990', 'buddynext' ),
-			'age'        => __( 'Calculated age — 34 years old', 'buddynext' ),
+			'date'       => __( 'Full date: Jan 15, 1990', 'buddynext' ),
+			'month_year' => __( 'Month & Year: Jan 1990', 'buddynext' ),
+			'year'       => __( 'Year only: 1990', 'buddynext' ),
+			'age'        => __( 'Calculated age: 34 years old', 'buddynext' ),
 		);
 	}
 
@@ -1541,7 +1541,7 @@ class ProfileFieldsManager {
 		} elseif ( 'deleted' === $bn_pf_notice ) {
 			AdminPageBase::render_notice( __( 'Deleted.', 'buddynext' ), 'success' );
 		} elseif ( 'error' === $bn_pf_notice ) {
-			AdminPageBase::render_notice( __( 'Not saved — please check the field name and try again.', 'buddynext' ), 'error' );
+			AdminPageBase::render_notice( __( 'Not saved: please check the field name and try again.', 'buddynext' ), 'error' );
 		} elseif ( 'locked' === $bn_pf_notice ) {
 			AdminPageBase::render_notice( __( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ), 'error' );
 		} elseif ( 'move_entries' === $bn_pf_notice ) {
@@ -2119,7 +2119,7 @@ class ProfileFieldsManager {
 													class="bn-pf-opts-textarea"
 													rows="6"
 													placeholder="<?php esc_attr_e( 'Option 1', 'buddynext' ); ?>"><?php echo esc_textarea( $opts_text ); ?></textarea>
-												<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom — each on its own line.', 'buddynext' ); ?></p>
+												<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom, each on its own line.', 'buddynext' ); ?></p>
 											</div>
 											<?php
 											/**
@@ -2271,7 +2271,7 @@ class ProfileFieldsManager {
 								class="bn-pf-opts-textarea"
 								rows="5"
 								placeholder="<?php esc_attr_e( 'Option 1', 'buddynext' ); ?>"></textarea>
-							<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom — each on its own line.', 'buddynext' ); ?></p>
+							<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom, each on its own line.', 'buddynext' ); ?></p>
 						</div>
 						<?php
 						/**

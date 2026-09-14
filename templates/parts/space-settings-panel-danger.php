@@ -188,7 +188,7 @@ do_action( 'buddynext_part_space_settings_panel_danger_before', $args );
 		<?php if ( empty( $bn_xfer_candidates ) ) : ?>
 			<div class="bn-modal__body">
 				<p>
-					<?php esc_html_e( 'There is nobody to transfer this space to — you are its only active member.', 'buddynext' ); ?>
+					<?php esc_html_e( 'There is nobody to transfer this space to: you are its only active member.', 'buddynext' ); ?>
 				</p>
 				<p>
 					<?php esc_html_e( 'Invite someone and wait for them to join, then transfer ownership to them. If you simply want to shut the space down, delete it instead.', 'buddynext' ); ?>
@@ -210,7 +210,7 @@ do_action( 'buddynext_part_space_settings_panel_danger_before', $args );
 					<?php esc_html_e( 'New owner', 'buddynext' ); ?>
 				</label>
 				<select id="bn_transfer_target" class="bn-select" data-bn-transfer-target>
-					<option value=""><?php esc_html_e( '— Pick an active member —', 'buddynext' ); ?></option>
+					<option value=""><?php esc_html_e( '- Pick an active member -', 'buddynext' ); ?></option>
 					<?php foreach ( $bn_xfer_candidates as $bn_xc ) : ?>
 						<option value="<?php echo esc_attr( (string) $bn_xc->user_id ); ?>">
 							<?php echo esc_html( $bn_xc->display_name ); ?>

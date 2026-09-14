@@ -428,7 +428,7 @@ do_action( 'buddynext_moderation_queue_before' );
 				} elseif ( 'user' === $obj_type ) {
 					$content_excerpt = __( 'User profile reported.', 'buddynext' );
 				} elseif ( 'message' === $obj_type ) {
-					$content_excerpt = __( 'Private message — content not shown to protect privacy.', 'buddynext' );
+					$content_excerpt = __( 'Private message: content not shown to protect privacy.', 'buddynext' );
 				}
 
 				// Time ago + ISO datetime.

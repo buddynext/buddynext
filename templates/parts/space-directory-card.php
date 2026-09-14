@@ -202,7 +202,7 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 					data-current-state="joined"
 					data-wp-on--click="actions.leaveSpace"
 					data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-					aria-label="<?php esc_attr_e( 'Joined — click to leave', 'buddynext' ); ?>"
+					aria-label="<?php esc_attr_e( 'Joined: click to leave', 'buddynext' ); ?>"
 				><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Joined', 'buddynext' ); ?></button>
 
 			<?php elseif ( $is_pending ) : ?>
@@ -213,7 +213,7 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 					data-current-state="pending"
 					data-wp-on--click="actions.cancelJoinRequest"
 					data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-					aria-label="<?php esc_attr_e( 'Request pending — click to cancel', 'buddynext' ); ?>"
+					aria-label="<?php esc_attr_e( 'Request pending: click to cancel', 'buddynext' ); ?>"
 				><?php esc_html_e( 'Requested', 'buddynext' ); ?></button>
 
 			<?php elseif ( ! buddynext_service( 'space_members' )->can_join( $bn_dc_space, $bn_dc_uid ) ) : ?>

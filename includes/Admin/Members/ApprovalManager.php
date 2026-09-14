@@ -206,7 +206,7 @@ class ApprovalManager {
 				<?php
 				switch ( $notice ) {
 					case 'approved':
-						esc_html_e( 'Member approved — they can now sign in.', 'buddynext' );
+						esc_html_e( 'Member approved: they can now sign in.', 'buddynext' );
 						break;
 					case 'rejected':
 						esc_html_e( 'Pending member rejected and removed.', 'buddynext' );

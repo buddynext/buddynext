@@ -158,7 +158,7 @@ do_action( 'buddynext_part_sidebar_greeting_streak_before', $args );
 				echo wp_kses(
 					sprintf(
 						/* translators: %s: e.g. "5 days in a row" — already-localized via _n() above */
-						__( "You've been showing up. <strong>%s</strong> — best streak this month.", 'buddynext' ),
+						__( "You've been showing up. <strong>%s</strong>: best streak this month.", 'buddynext' ),
 						$bn_streak_label
 					),
 					array( 'strong' => array() )
@@ -167,7 +167,7 @@ do_action( 'buddynext_part_sidebar_greeting_streak_before', $args );
 				echo wp_kses(
 					sprintf(
 						/* translators: %s: e.g. "3 days in a row" */
-						__( 'On a roll — <strong>%s</strong>. Keep it going.', 'buddynext' ),
+						__( 'On a roll: <strong>%s</strong>. Keep it going.', 'buddynext' ),
 						$bn_streak_label
 					),
 					array( 'strong' => array() )
@@ -193,7 +193,7 @@ do_action( 'buddynext_part_sidebar_greeting_streak_before', $args );
 			}
 			$bn_cell_aria = sprintf(
 				/* translators: 1: date, 2: active/inactive */
-				_x( '%1$s — %2$s', 'streak cell aria label', 'buddynext' ),
+				_x( '%1$s: %2$s', 'streak cell aria label', 'buddynext' ),
 				date_i18n( get_option( 'date_format' ), strtotime( $bn_cell['date'] ) ),
 				$bn_cell['active']
 					? __( 'active', 'buddynext' )

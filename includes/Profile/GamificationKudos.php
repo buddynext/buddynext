@@ -93,7 +93,7 @@ class GamificationKudos {
 		$err  = isset( $_GET['kudos_err'] ) ? sanitize_text_field( wp_unslash( $_GET['kudos_err'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		if ( $sent ) {
-			echo '<div class="bn-notice bn-notice--success">' . esc_html__( 'Kudos sent — nice!', 'buddynext' ) . '</div>';
+			echo '<div class="bn-notice bn-notice--success">' . esc_html__( 'Kudos sent: nice!', 'buddynext' ) . '</div>';
 		} elseif ( '' !== $err ) {
 			echo '<div class="bn-notice bn-notice--error">' . esc_html( $this->error_message( $err ) ) . '</div>';
 		}
@@ -156,8 +156,8 @@ class GamificationKudos {
 		if ( empty( $rows ) ) {
 			echo '<p class="bn-achievements__empty">' . esc_html(
 				$is_self
-					? __( 'No kudos yet — keep helping others and it will come.', 'buddynext' )
-					: __( 'No kudos yet — be the first to recognise them.', 'buddynext' )
+					? __( 'No kudos yet: keep helping others and it will come.', 'buddynext' )
+					: __( 'No kudos yet: be the first to recognise them.', 'buddynext' )
 			) . '</p>';
 			echo '</div>';
 			return;
@@ -291,7 +291,7 @@ class GamificationKudos {
 			return $result;
 		}
 		if ( false === $result ) {
-			return new \WP_Error( 'kudos_failed', __( 'Could not send kudos right now — you may have hit the limit.', 'buddynext' ) );
+			return new \WP_Error( 'kudos_failed', __( 'Could not send kudos right now: you may have hit the limit.', 'buddynext' ) );
 		}
 		return true;
 	}
@@ -309,7 +309,7 @@ class GamificationKudos {
 			case 'wb_gam_kudos_invalid_user':
 				return __( 'You cannot send kudos to that member.', 'buddynext' );
 			case 'wb_gam_kudos_cooldown':
-				return __( 'You have already sent kudos to this member recently — try again later.', 'buddynext' );
+				return __( 'You have already sent kudos to this member recently: try again later.', 'buddynext' );
 			default:
 				return __( 'Could not send kudos right now. Please try again.', 'buddynext' );
 		}

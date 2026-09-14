@@ -248,7 +248,7 @@ class InviteManager {
 						esc_html_e( 'Invalid invite ID.', 'buddynext' );
 						break;
 					case 'resend_failed':
-						esc_html_e( 'Could not resend the invite — it may no longer exist.', 'buddynext' );
+						esc_html_e( 'Could not resend the invite: it may no longer exist.', 'buddynext' );
 						break;
 					case 'invited_one':
 						esc_html_e( 'Invitation sent.', 'buddynext' );
@@ -263,7 +263,7 @@ class InviteManager {
 						esc_html_e( 'Invitation revoked.', 'buddynext' );
 						break;
 					case 'revoke_failed':
-						esc_html_e( 'Could not revoke the invite — it may no longer exist.', 'buddynext' );
+						esc_html_e( 'Could not revoke the invite: it may no longer exist.', 'buddynext' );
 						break;
 				}
 				?>

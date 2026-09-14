@@ -331,7 +331,7 @@ $updated_iso = gmdate( 'c' );
 					<span class="bn-lb-level__label">
 						<?php
 						// translators: 1: current level, 2: current points, 3: target milestone points.
-						echo esc_html( sprintf( __( 'Level %1$d — %2$s / %3$s points', 'buddynext' ), $current_level, number_format_i18n( $current_user_pts ), number_format_i18n( $next_milestone_pts ) ) );
+						echo esc_html( sprintf( __( 'Level %1$d: %2$s / %3$s points', 'buddynext' ), $current_level, number_format_i18n( $current_user_pts ), number_format_i18n( $next_milestone_pts ) ) );
 						?>
 					</span>
 					<span class="bn-lb-level__remaining">

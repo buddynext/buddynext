@@ -1280,7 +1280,7 @@ class FieldType {
 			return sprintf(
 				'<div class="bn-field-membertype is-set"><span class="bn-membertype-badge">%1$s</span> <span class="bn-field-hint">%2$s</span></div>',
 				esc_html( $label ),
-				esc_html__( 'Set by the community — contact an admin to change it.', 'buddynext' )
+				esc_html__( 'Set by the community: contact an admin to change it.', 'buddynext' )
 			);
 		}
 

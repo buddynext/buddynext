@@ -111,7 +111,7 @@ class ToolsTab {
 			</div>
 			<div class="bn-ss-body">
 				<p class="bn-av-section-desc">
-					<?php esc_html_e( 'Digests, cleanups, scheduled posts, and emails run on Action Scheduler in the background. On a normal site these run automatically — no setup needed.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Digests, cleanups, scheduled posts, and emails run on Action Scheduler in the background. On a normal site these run automatically: no setup needed.', 'buddynext' ); ?>
 				</p>
 
 				<?php if ( $health['stalled'] ) : ?>
@@ -136,7 +136,7 @@ class ToolsTab {
 						</p>
 						<p><code><?php echo esc_html( $command ); ?></code></p>
 						<p class="description">
-							<?php esc_html_e( 'Run that on your server (or ask your host) to fire WordPress cron every 5 minutes. This is a server change, not a plugin setting — BuddyNext never disables WordPress cron for you.', 'buddynext' ); ?>
+							<?php esc_html_e( 'Run that on your server (or ask your host) to fire WordPress cron every 5 minutes. This is a server change, not a plugin setting: BuddyNext never disables WordPress cron for you.', 'buddynext' ); ?>
 						</p>
 					</div>
 				<?php elseif ( (int) $health['failed'] > 0 ) : ?>
@@ -221,7 +221,7 @@ class ToolsTab {
 				?>
 				<?php if ( wp_using_ext_object_cache() ) : ?>
 					<p class="bn-av-section-desc">
-						<?php esc_html_e( 'Status: a persistent object cache is active. BuddyNext\'s cached values (member directory, counts, lists) survive between requests — this is the recommended setup at scale.', 'buddynext' ); ?>
+						<?php esc_html_e( 'Status: a persistent object cache is active. BuddyNext\'s cached values (member directory, counts, lists) survive between requests: this is the recommended setup at scale.', 'buddynext' ); ?>
 					</p>
 				<?php elseif ( $bn_oc_users >= $bn_oc_threshold ) : ?>
 					<div class="bn-notice bn-notice-warning">
@@ -230,7 +230,7 @@ class ToolsTab {
 							<?php
 							printf(
 								/* translators: %s: formatted member count. */
-								esc_html__( 'This site has %s members. BuddyNext caching still works within a single page load, but cached values are not shared between requests, so unread counts, the member directory and feed page 1 hit the database on every request. Install a persistent object cache — Redis or Memcached — to keep them fast.', 'buddynext' ),
+								esc_html__( 'This site has %s members. BuddyNext caching still works within a single page load, but cached values are not shared between requests, so unread counts, the member directory and feed page 1 hit the database on every request. Install a persistent object cache: Redis or Memcached: to keep them fast.', 'buddynext' ),
 								esc_html( number_format_i18n( $bn_oc_users ) )
 							);
 							?>
@@ -251,7 +251,7 @@ class ToolsTab {
 						<?php
 						printf(
 							/* translators: 1: formatted member count, 2: formatted threshold. */
-							esc_html__( 'No persistent object cache is installed. At %1$s members that is fine — BuddyNext caches within each page load. Past roughly %2$s members a persistent cache (Redis or Memcached) becomes the recommended setup, and this panel will say so.', 'buddynext' ),
+							esc_html__( 'No persistent object cache is installed. At %1$s members that is fine: BuddyNext caches within each page load. Past roughly %2$s members a persistent cache (Redis or Memcached) becomes the recommended setup, and this panel will say so.', 'buddynext' ),
 							esc_html( number_format_i18n( $bn_oc_users ) ),
 							esc_html( number_format_i18n( $bn_oc_threshold ) )
 						);
@@ -293,7 +293,7 @@ class ToolsTab {
 			</div>
 			<div class="bn-ss-body">
 				<p class="bn-av-section-desc">
-					<?php esc_html_e( 'Global search reads a unified index of members, posts, and spaces. If it looks empty or out of date — search returns nothing or misses recent content — rebuild it here.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Global search reads a unified index of members, posts, and spaces. If it looks empty or out of date: search returns nothing or misses recent content: rebuild it here.', 'buddynext' ); ?>
 				</p>
 
 				<?php if ( $empty ) : ?>
@@ -459,7 +459,7 @@ class ToolsTab {
 			</div>
 			<div class="bn-ss-body">
 				<p class="bn-av-section-desc">
-					<?php esc_html_e( 'Controls what happens to your community data if BuddyNext is ever deleted from the Plugins screen. This is separate from deactivating — deactivating never touches data.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Controls what happens to your community data if BuddyNext is ever deleted from the Plugins screen. This is separate from deactivating: deactivating never touches data.', 'buddynext' ); ?>
 				</p>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="bn_tools_uninstall_policy">
@@ -469,7 +469,7 @@ class ToolsTab {
 						<span><?php esc_html_e( 'Delete all BuddyNext data when the plugin is uninstalled', 'buddynext' ); ?></span>
 					</label>
 					<p class="description">
-						<?php esc_html_e( 'Default is off — a delete keeps your spaces, posts, members and settings so a reinstall restores everything. Turn this on only if you want deleting the plugin to permanently erase all community content. Financial records (invoices and subscriptions) are always kept.', 'buddynext' ); ?>
+						<?php esc_html_e( 'Default is off: a delete keeps your spaces, posts, members and settings so a reinstall restores everything. Turn this on only if you want deleting the plugin to permanently erase all community content. Financial records (invoices and subscriptions) are always kept.', 'buddynext' ); ?>
 					</p>
 					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Save', 'buddynext' ); ?></button>
 				</form>

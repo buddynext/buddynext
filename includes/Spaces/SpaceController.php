@@ -1351,7 +1351,7 @@ class SpaceController extends BaseRestController {
 				array(
 					'status' => 422,
 					'params' => array(
-						'visibility' => __( 'This request asks for two different space types at once — `type` and `visibility` disagree. Send one of them.', 'buddynext' ),
+						'visibility' => __( 'This request asks for two different space types at once: `type` and `visibility` disagree. Send one of them.', 'buddynext' ),
 					),
 				)
 			);

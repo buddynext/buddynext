@@ -180,7 +180,7 @@ if ( $bn_sf_is_space ) {
 	$bn_sf_rm_i18n     = (string) wp_json_encode(
 		array(
 			'confirmTitle' => __( 'Remove from this space?', 'buddynext' ),
-			'confirmBody'  => __( 'The file returns to its owner’s own Files — it is not deleted. They can remove it from there.', 'buddynext' ),
+			'confirmBody'  => __( 'The file returns to its owner’s own Files: it is not deleted. They can remove it from there.', 'buddynext' ),
 			'confirm'      => __( 'Remove', 'buddynext' ),
 			'cancel'       => __( 'Cancel', 'buddynext' ),
 			'done'         => __( 'File removed from the space.', 'buddynext' ),
@@ -452,7 +452,7 @@ if ( $bn_sf_is_space ) {
 				<span class="bn-files__pager-status">
 					<?php
 					/* translators: 1: current folder page, 2: total folder pages. */
-					echo esc_html( sprintf( __( 'Folders — page %1$s of %2$s', 'buddynext' ), number_format_i18n( $bn_sf_fpage ), number_format_i18n( $bn_sf_fpages ) ) );
+					echo esc_html( sprintf( __( 'Folders: page %1$s of %2$s', 'buddynext' ), number_format_i18n( $bn_sf_fpage ), number_format_i18n( $bn_sf_fpages ) ) );
 					?>
 				</span>
 				<?php if ( $bn_sf_fpage < $bn_sf_fpages ) : ?>

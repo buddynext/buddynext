@@ -127,7 +127,7 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 				echo esc_attr(
 					sprintf(
 						/* translators: %d: profile completion percentage. */
-						__( 'Profile %d%% complete — finish to make it discoverable', 'buddynext' ),
+						__( 'Profile %d%% complete: finish to make it discoverable', 'buddynext' ),
 						$bn_pa_pct
 					)
 				);

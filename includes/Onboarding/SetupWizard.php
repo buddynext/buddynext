@@ -927,7 +927,7 @@ class SetupWizard {
 
 		$this->render_step_head(
 			__( 'What member profiles include', 'buddynext' ),
-			__( 'These field groups are set up and ready. Add, rename, reorder or remove any of them whenever you like — nothing here is fixed.', 'buddynext' ),
+			__( 'These field groups are set up and ready. Add, rename, reorder or remove any of them whenever you like: nothing here is fixed.', 'buddynext' ),
 			__( 'Manage them in Members → Profile Fields.', 'buddynext' )
 		);
 
@@ -1076,7 +1076,7 @@ class SetupWizard {
 
 		$this->render_step_head(
 			__( 'How should spaces be organised?', 'buddynext' ),
-			__( 'Spaces are themed rooms (Help, Announcements, Off-topic…). Pick some starter categories — your members can suggest more later.', 'buddynext' ),
+			__( 'Spaces are themed rooms (Help, Announcements, Off-topic…). Pick some starter categories: your members can suggest more later.', 'buddynext' ),
 			__( 'Editable later in Spaces → Categories.', 'buddynext' )
 		);
 		?>
@@ -1140,7 +1140,7 @@ class SetupWizard {
 
 		$this->render_step_head(
 			__( 'Set up the pages members will visit', 'buddynext' ),
-			__( 'BuddyNext needs a few core pages to host the feed, member directory, and spaces. We’ll create them with sensible URLs — adjust if you need to.', 'buddynext' ),
+			__( 'BuddyNext needs a few core pages to host the feed, member directory, and spaces. We’ll create them with sensible URLs: adjust if you need to.', 'buddynext' ),
 			__( 'Slugs editable later in Settings → Pages.', 'buddynext' )
 		);
 		?>
@@ -1249,7 +1249,7 @@ class SetupWizard {
 		$this->render_step_head(
 			__( 'What’s powering your community?', 'buddynext' ),
 			$can_install && $pending > 0
-				? __( 'These companion plugins extend BuddyNext. Tick only the ones you want — Continue installs and activates those, and nothing else. You can add the rest any time.', 'buddynext' )
+				? __( 'These companion plugins extend BuddyNext. Tick only the ones you want: Continue installs and activates those, and nothing else. You can add the rest any time.', 'buddynext' )
 				: __( 'These companion plugins extend BuddyNext. Anything already active integrates automatically.', 'buddynext' ),
 			$can_install
 				? __( 'Installs the free editions from wbcomdesigns.com. You can manage them later under Plugins.', 'buddynext' )
@@ -1311,7 +1311,7 @@ class SetupWizard {
 						if ( $bn_active ) {
 							esc_html_e( 'Active', 'buddynext' );
 						} elseif ( 'inactive' === $bn_status ) {
-							esc_html_e( 'Installed — will activate', 'buddynext' );
+							esc_html_e( 'Installed: will activate', 'buddynext' );
 						} else {
 							// What Continue will DO, not what the row currently is. "Not
 							// installed" describes the past; this row's whole risk is that

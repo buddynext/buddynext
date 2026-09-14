@@ -391,7 +391,7 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 					</noscript>
 				</div>
 				<p class="bn-space-settings__hint">
-					<?php esc_html_e( 'Choose a space to nest this one under, or move it back to the top level. Only spaces you manage are listed. Start typing to search when there are many. Members and content are never moved — only where the space sits.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Choose a space to nest this one under, or move it back to the top level. Only spaces you manage are listed. Start typing to search when there are many. Members and content are never moved: only where the space sits.', 'buddynext' ); ?>
 				</p>
 			<?php endif; ?>
 		</div>

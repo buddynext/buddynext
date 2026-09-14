@@ -1637,7 +1637,7 @@ class AdminHub {
 				esc_html(
 					sprintf(
 						/* translators: %s: the tab actually shown. */
-						__( 'That setting has moved — showing “%s” instead. The link you followed pointed at a tab that no longer exists.', 'buddynext' ),
+						__( 'That setting has moved: showing “%s” instead. The link you followed pointed at a tab that no longer exists.', 'buddynext' ),
 						(string) $active['label']
 					)
 				)

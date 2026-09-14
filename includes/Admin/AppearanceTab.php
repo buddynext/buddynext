@@ -97,7 +97,7 @@ class AppearanceTab {
 						'bn_brand_color',
 						__( 'Brand color', 'buddynext' ),
 						$brand,
-						__( 'Your community accent — used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick, or paste a hex code.', 'buddynext' )
+						__( 'Your community accent: used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick, or paste a hex code.', 'buddynext' )
 					);
 					?>
 				</div>

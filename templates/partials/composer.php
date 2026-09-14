@@ -529,7 +529,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 					data-wp-bind--aria-pressed="state.membersOnly"
 					data-wp-on--click="actions.toggleMembersOnly"
 					aria-label="<?php esc_attr_e( 'Members only', 'buddynext' ); ?>"
-					title="<?php esc_attr_e( 'Members only — non-members see a teaser and a join prompt', 'buddynext' ); ?>">
+					title="<?php esc_attr_e( 'Members only: non-members see a teaser and a join prompt', 'buddynext' ); ?>">
 					<?php buddynext_icon( 'lock' ); ?>
 				</button>
 			<?php endif; ?>

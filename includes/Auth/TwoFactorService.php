@@ -249,7 +249,7 @@ class TwoFactorService {
 	public static function confirm_enrollment( int $user_id, string $code ): array|WP_Error {
 		$pending = (string) get_user_meta( $user_id, self::META_PENDING, true );
 		if ( '' === $pending ) {
-			return new WP_Error( 'bn_2fa_no_pending', __( 'Start the setup again — the previous attempt expired.', 'buddynext' ) );
+			return new WP_Error( 'bn_2fa_no_pending', __( 'Start the setup again: the previous attempt expired.', 'buddynext' ) );
 		}
 		if ( ! self::verify_totp( $pending, $code ) ) {
 			return new WP_Error( 'bn_2fa_bad_code', __( 'That code did not match. Check your authenticator app and try again.', 'buddynext' ) );

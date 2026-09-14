@@ -288,7 +288,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 
 			<?php /* Stage: show one-time backup codes. */ ?>
 			<div class="bn-2fa-stage" data-wp-bind--hidden="!state.twofaShowBackup">
-				<p class="bn-2fa-desc"><strong><?php esc_html_e( 'Save your backup codes.', 'buddynext' ); ?></strong> <?php esc_html_e( 'Each works once if you cannot use your authenticator. Store them somewhere safe — they will not be shown again.', 'buddynext' ); ?></p>
+				<p class="bn-2fa-desc"><strong><?php esc_html_e( 'Save your backup codes.', 'buddynext' ); ?></strong> <?php esc_html_e( 'Each works once if you cannot use your authenticator. Store them somewhere safe: they will not be shown again.', 'buddynext' ); ?></p>
 				<ul class="bn-2fa-codes">
 					<template data-wp-each="context.twofaBackupCodes">
 						<li data-wp-text="context.item"></li>
@@ -334,8 +334,8 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 				'onboarding',
 				__( 'Profile setup', 'buddynext' ),
 				$onboarding_complete
-					? __( 'Run the setup wizard again — profile, interests, spaces to join, people to follow, and notification channels.', 'buddynext' )
-					: __( 'Finish the setup wizard — profile, interests, spaces to join, people to follow, and notification channels.', 'buddynext' ),
+					? __( 'Run the setup wizard again: profile, interests, spaces to join, people to follow, and notification channels.', 'buddynext' )
+					: __( 'Finish the setup wizard: profile, interests, spaces to join, people to follow, and notification channels.', 'buddynext' ),
 				$onboarding_complete ? __( 'Run setup again', 'buddynext' ) : __( 'Finish setting up', 'buddynext' ),
 				'',
 				$onboarding_url,

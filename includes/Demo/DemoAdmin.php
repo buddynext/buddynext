@@ -55,7 +55,7 @@ class DemoAdmin {
 			</div>
 			<div class="bn-ss-body">
 				<p class="bn-av-section-desc">
-					<?php esc_html_e( 'Populate the community with realistic members, spaces, posts, comments, reactions, follows and connections — using bundled offline images. Use it to evaluate every surface on a fresh install, then remove it all with one click.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Populate the community with realistic members, spaces, posts, comments, reactions, follows and connections: using bundled offline images. Use it to evaluate every surface on a fresh install, then remove it all with one click.', 'buddynext' ); ?>
 				</p>
 
 				<?php if ( $seeded ) : ?>

@@ -124,9 +124,9 @@ class IsolationAdmin {
 		<p class="bn-field-hint">
 			<?php
 			if ( $bn_isolation_on ) {
-				esc_html_e( 'On BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) other plugins are not loaded. This keeps the community fast on large sites. Anything that has to change what members see on those pages — a translation or terminology override, a consent banner, a tracking script — must be kept active here, or it will simply have no effect on those pages.', 'buddynext' );
+				esc_html_e( 'On BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) other plugins are not loaded. This keeps the community fast on large sites. Anything that has to change what members see on those pages: a translation or terminology override, a consent banner, a tracking script: must be kept active here, or it will simply have no effect on those pages.', 'buddynext' );
 			} else {
-				esc_html_e( 'Route isolation is currently OFF, so every plugin loads on BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) as normal. Turn it on to stop loading the plugins listed below on those pages and keep large communities fast. Anything that must change what members see there — a translation or terminology override, a consent banner, a tracking script — should be kept active here so it keeps working once isolation is on.', 'buddynext' );
+				esc_html_e( 'Route isolation is currently OFF, so every plugin loads on BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) as normal. Turn it on to stop loading the plugins listed below on those pages and keep large communities fast. Anything that must change what members see there: a translation or terminology override, a consent banner, a tracking script: should be kept active here so it keeps working once isolation is on.', 'buddynext' );
 			}
 			?>
 		</p>
@@ -149,9 +149,9 @@ class IsolationAdmin {
 								// wrong starting point. fde88ee5 branched the intro
 								// paragraph but left this string present-tense-on.
 								if ( $bn_isolation_on ) {
-									esc_html_e( 'Route isolation is on. Turn it off only if isolation is causing a problem — large communities load faster with it on.', 'buddynext' );
+									esc_html_e( 'Route isolation is on. Turn it off only if isolation is causing a problem: large communities load faster with it on.', 'buddynext' );
 								} else {
-									esc_html_e( 'Route isolation is off, so every plugin loads on BuddyNext pages as normal. Turn it on to stop loading the plugins listed below there — large communities load faster with it on.', 'buddynext' );
+									esc_html_e( 'Route isolation is off, so every plugin loads on BuddyNext pages as normal. Turn it on to stop loading the plugins listed below there: large communities load faster with it on.', 'buddynext' );
 								}
 								?>
 							</p>
@@ -189,7 +189,7 @@ class IsolationAdmin {
 				</div>
 				<div class="bn-ss-body">
 					<p class="bn-field-hint">
-						<?php esc_html_e( 'BuddyNext and the Wbcom family are always kept. Every other active plugin is kept on community pages unless you switch it off here — turn off only heavy back-office plugins a community page does not need. Leave security, membership, consent and translation plugins on.', 'buddynext' ); ?>
+						<?php esc_html_e( 'BuddyNext and the Wbcom family are always kept. Every other active plugin is kept on community pages unless you switch it off here: turn off only heavy back-office plugins a community page does not need. Leave security, membership, consent and translation plugins on.', 'buddynext' ); ?>
 					</p>
 					<?php if ( empty( $bn_all ) ) : ?>
 						<div class="bn-empty">
@@ -205,9 +205,9 @@ class IsolationAdmin {
 										<?php
 										echo esc_html( $bn_file );
 										if ( $bn_skipped && $bn_isolation_on ) {
-											echo ' — ' . esc_html__( 'skipped on BuddyNext pages', 'buddynext' );
+											echo ': ' . esc_html__( 'skipped on BuddyNext pages', 'buddynext' );
 										} elseif ( $bn_skipped ) {
-											echo ' — ' . esc_html__( 'will be skipped once isolation is on', 'buddynext' );
+											echo ': ' . esc_html__( 'will be skipped once isolation is on', 'buddynext' );
 										}
 										?>
 									</p>

@@ -212,13 +212,13 @@ class CoreRegistration {
 			$explain  = __( 'BuddyNext registration is set to Closed, but WordPress still allows anyone to register. New accounts can still be created.', 'buddynext' );
 		} elseif ( 'invite' === $mode ) {
 			$headline = __( 'BuddyNext: your invitations are not working.', 'buddynext' );
-			$explain  = __( 'Invite Only still needs WordPress registration switched on: an invited person creates their account through the normal signup form. With it off, every invitation fails with "Registration is closed on this community" — your invites are not working. Your community stays private either way, because only people holding a valid invitation can get through.', 'buddynext' );
+			$explain  = __( 'Invite Only still needs WordPress registration switched on: an invited person creates their account through the normal signup form. With it off, every invitation fails with "Registration is closed on this community": your invites are not working. Your community stays private either way, because only people holding a valid invitation can get through.', 'buddynext' );
 		} elseif ( 'approval' === $mode ) {
 			$headline = __( 'BuddyNext: nobody can request an account.', 'buddynext' );
 			$explain  = __( 'Admin Approval still needs WordPress registration switched on: a request is created through the normal signup form and then waits for your review. With it off, nobody can even submit a request. Your community stays gated either way, because you approve every account.', 'buddynext' );
 		} else {
 			$headline = __( 'BuddyNext: every signup is being refused.', 'buddynext' );
-			$explain  = __( 'WordPress registration is switched off, so every signup is being refused — even though BuddyNext shows registration as open. Members trying to join are being turned away.', 'buddynext' );
+			$explain  = __( 'WordPress registration is switched off, so every signup is being refused: even though BuddyNext shows registration as open. Members trying to join are being turned away.', 'buddynext' );
 		}
 
 		// The inline warning is read IN CONTEXT, with the mode selector directly
