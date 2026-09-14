@@ -60,7 +60,6 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | Space feed, members, forum, and media tabs | Free | Free |
 | | Private (invite-only) spaces | - | Pro |
 | | Gated spaces (membership-controlled) | - | Pro |
-| | Post approval queue per space | - | Pro |
 | | Paywall preview and member plans | - | Pro |
 | | Per-space custom branding | - | Pro |
 | **Members and profiles** | Follow, connect, block | Free | Free |
