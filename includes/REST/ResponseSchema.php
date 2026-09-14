@@ -56,6 +56,23 @@ final class ResponseSchema {
 			array( 'method' => 'GET', 'path' => '/members',     'resource' => 'member', 'shape' => 'paginated' ),
 			array( 'method' => 'GET', 'path' => '/spaces',      'resource' => 'space',  'shape' => 'array' ),
 			array( 'method' => 'GET', 'path' => '/spaces/{id}', 'resource' => 'space_detail', 'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/feed/home',                    'resource' => 'post',              'shape' => 'paginated' ),
+			array( 'method' => 'GET', 'path' => '/posts/{id}',                   'resource' => 'post',              'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/comments',                     'resource' => 'comment',           'shape' => 'paginated' ),
+			array( 'method' => 'GET', 'path' => '/reactions/list',               'resource' => 'reaction',          'shape' => 'paginated' ),
+			array( 'method' => 'GET', 'path' => '/posts/{id}/poll',              'resource' => 'poll',              'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/me/drafts',                    'resource' => 'draft',             'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/users/{id}/connection/status', 'resource' => 'connection',        'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/users/{id}/follow/status',     'resource' => 'follow_edge',       'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/member-types',                 'resource' => 'member_type',       'shape' => 'array' ),
+			array( 'method' => 'GET', 'path' => '/search',                       'resource' => 'search_result',     'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/users/{id}/achievements',      'resource' => 'achievement',       'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/me/notifications',             'resource' => 'notification',      'shape' => 'paginated' ),
+			array( 'method' => 'GET', 'path' => '/reports/queue',                'resource' => 'moderation_report', 'shape' => 'paginated' ),
+			array( 'method' => 'GET', 'path' => '/webhooks',                     'resource' => 'webhook',           'shape' => 'array' ),
+			array( 'method' => 'GET', 'path' => '/app/config',                   'resource' => 'app_config',        'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/account/2fa',                  'resource' => 'twofa_status',      'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/space-categories',             'resource' => 'space_category',    'shape' => 'array' ),
 		);
 	}
 
@@ -203,4 +220,499 @@ final class ResponseSchema {
 			),
 		);
 	}
+
+	/**
+	 * A feed/post item (GET /feed/home, GET /posts/{id}, and the other feed
+	 * routes). List item and single-post detail return the identical key set,
+	 * so one schema serves both — there is no separate post_detail.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function post(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'post',
+			'type'       => 'object',
+			'properties' => array(
+				'id'                   => array( 'type' => 'integer' ),
+				'user_id'              => array( 'type' => 'integer' ),
+				'space_id'             => array( 'type' => array( 'integer', 'null' ) ),
+				'shared_post_id'       => array( 'type' => array( 'integer', 'null' ) ),
+				'type'                 => array( 'type' => 'string' ),
+				'content'              => array( 'type' => 'string' ),
+				'media_ids'            => array( 'type' => array( 'array', 'null' ), 'items' => array( 'type' => 'integer' ) ),
+				'link_url'             => array( 'type' => array( 'string', 'null' ), 'format' => 'uri' ),
+				'link_meta'            => array( 'type' => array( 'object', 'null' ) ),
+				'privacy'              => array( 'type' => 'string' ),
+				'reaction_count'       => array( 'type' => 'integer' ),
+				'comment_count'        => array( 'type' => 'integer' ),
+				'share_count'          => array( 'type' => 'integer' ),
+				'is_pinned'            => array( 'type' => 'integer' ),
+				'is_announcement'      => array( 'type' => 'integer' ),
+				'content_warning'      => array( 'type' => 'boolean' ),
+				'content_warning_type' => array( 'type' => array( 'string', 'null' ) ),
+				'members_only'         => array( 'type' => 'boolean' ),
+				'status'               => array( 'type' => 'string' ),
+				'site_pin_expires_at'  => array( 'type' => array( 'string', 'null' ) ),
+				'edited_at'            => array( 'type' => array( 'string', 'null' ) ),
+				'scheduled_at'         => array( 'type' => array( 'string', 'null' ) ),
+				'created_at'           => array( 'type' => 'string' ),
+				'updated_at'           => array( 'type' => 'string' ),
+				'author'               => array(
+					'type'       => 'object',
+					'properties' => array(
+						'id'           => array( 'type' => 'integer' ),
+						'display_name' => array( 'type' => 'string' ),
+						'avatar_url'   => array( 'type' => 'string', 'format' => 'uri' ),
+						'is_online'    => array( 'type' => 'boolean' ),
+					),
+				),
+				'top_reactors'         => array( 'type' => 'array', 'items' => array( 'type' => 'object' ) ),
+				'content_html'         => array( 'type' => 'string' ),
+				'viewer_state'         => array(
+					'type'       => 'object',
+					'properties' => array(
+						'my_reaction'        => array( 'type' => array( 'string', 'null' ) ),
+						'is_bookmarked'      => array( 'type' => 'boolean' ),
+						'my_voted_option_id' => array( 'type' => array( 'integer', 'null' ) ),
+						'my_share'           => array( 'type' => array( 'object', 'null' ) ),
+						'can_edit'           => array( 'type' => 'boolean' ),
+					),
+				),
+				'media'                => array( 'type' => 'array', 'items' => array( 'type' => 'object' ) ),
+				'created_at_gmt'       => array( 'type' => 'string', 'format' => 'date-time' ),
+				'updated_at_gmt'       => array( 'type' => 'string', 'format' => 'date-time' ),
+			),
+		);
+	}
+
+	/**
+	 * A comment item (GET /comments — requires object_type + object_id). Envelope
+	 * is {items,total,replies_truncated}; `replies` nests this same shape.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function comment(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'comment',
+			'type'       => 'object',
+			'properties' => array(
+				'id'                => array( 'type' => 'integer' ),
+				'user_id'           => array( 'type' => 'integer' ),
+				'object_type'       => array( 'type' => 'string' ),
+				'object_id'         => array( 'type' => 'integer' ),
+				'parent_id'         => array( 'type' => array( 'integer', 'null' ) ),
+				'content'           => array( 'type' => 'string' ),
+				'is_edited'         => array( 'type' => 'boolean' ),
+				'is_deleted'        => array( 'type' => 'boolean' ),
+				'created_at'        => array( 'type' => 'string' ),
+				'updated_at'        => array( 'type' => 'string' ),
+				'replies'           => array( 'type' => 'array', 'items' => array( 'type' => 'object' ) ),
+				'author_name'       => array( 'type' => 'string' ),
+				'author_avatar_url' => array( 'type' => 'string', 'format' => 'uri' ),
+				'like_count'        => array( 'type' => 'integer' ),
+				'viewer_liked'      => array( 'type' => 'boolean' ),
+				'viewer_reaction'   => array( 'type' => array( 'string', 'null' ) ),
+				'can_edit'          => array( 'type' => 'boolean' ),
+				'can_delete'        => array( 'type' => 'boolean' ),
+				'can_pin'           => array( 'type' => 'boolean' ),
+				'is_pinned'         => array( 'type' => 'boolean' ),
+				'author_meta_html'  => array( 'type' => 'string' ),
+				'content_html'      => array( 'type' => 'string' ),
+				'created_at_gmt'    => array( 'type' => 'string', 'format' => 'date-time' ),
+				'updated_at_gmt'    => array( 'type' => 'string', 'format' => 'date-time' ),
+			),
+		);
+	}
+
+	/**
+	 * A reactor entry (GET /reactions/list — requires object_type + object_id).
+	 * Envelope {items,total}; each item is a member who reacted + emoji slug.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function reaction(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'reaction',
+			'type'       => 'object',
+			'properties' => array(
+				'user_id'        => array( 'type' => 'integer' ),
+				'display_name'   => array( 'type' => 'string' ),
+				'avatar_url'     => array( 'type' => 'string', 'format' => 'uri' ),
+				'emoji'          => array( 'type' => 'string' ),
+				'created_at'     => array( 'type' => 'string' ),
+				'created_at_gmt' => array( 'type' => 'string', 'format' => 'date-time' ),
+			),
+		);
+	}
+
+	/**
+	 * A poll result set (GET /posts/{id}/poll). Sole key `results` is the ordered
+	 * option list with live vote counts.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function poll(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'poll',
+			'type'       => 'object',
+			'properties' => array(
+				'results' => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'id'            => array( 'type' => 'integer' ),
+							'option_text'   => array( 'type' => 'string' ),
+							'display_order' => array( 'type' => 'integer' ),
+							'vote_count'    => array( 'type' => 'integer' ),
+						),
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * The current user's composer draft (GET /me/drafts). {payload:<object>}; the
+	 * payload is stored verbatim from the client composer, so it is a freeform object.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function draft(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'draft',
+			'type'       => 'object',
+			'properties' => array(
+				'payload' => array( 'type' => 'object' ),
+			),
+		);
+	}
+
+	/**
+	 * A connection status object (GET /users/{id}/connection/status).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function connection(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'connection',
+			'type'       => 'object',
+			'properties' => array(
+				'status'     => array( 'type' => array( 'string', 'null' ) ),
+				'connection' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'state'       => array( 'type' => 'string' ),
+						'can_message' => array( 'type' => 'boolean' ),
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * A follow-edge status object (GET /users/{id}/follow/status).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function follow_edge(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'follow-edge',
+			'type'       => 'object',
+			'properties' => array(
+				'is_following' => array( 'type' => 'boolean' ),
+				'is_pending'   => array( 'type' => 'boolean' ),
+			),
+		);
+	}
+
+	/**
+	 * A member type (GET /member-types) — directory taxonomy term with styling.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function member_type(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'member-type',
+			'type'       => 'object',
+			'properties' => array(
+				'id'          => array( 'type' => 'integer' ),
+				'slug'        => array( 'type' => 'string' ),
+				'name'        => array( 'type' => 'string' ),
+				'description' => array( 'type' => 'string' ),
+				'color'       => array( 'type' => 'string' ),
+				'text_color'  => array( 'type' => 'string' ),
+				'icon_svg'    => array( 'type' => 'string' ),
+				'sort_order'  => array( 'type' => 'integer' ),
+				'show_in_dir' => array( 'type' => 'boolean' ),
+				'self_select' => array( 'type' => 'boolean' ),
+			),
+		);
+	}
+
+	/**
+	 * A grouped search result container (GET /search?q=). `results.types[]` groups
+	 * hits by object type; each hit is a lightweight object reference.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function search_result(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'search-result',
+			'type'       => 'object',
+			'properties' => array(
+				'grouped' => array( 'type' => 'boolean' ),
+				'results' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'types' => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'type'    => array( 'type' => 'string' ),
+									'total'   => array( 'type' => 'integer' ),
+									'results' => array(
+										'type'  => 'array',
+										'items' => array(
+											'type'       => 'object',
+											'properties' => array(
+												'object_type'    => array( 'type' => 'string' ),
+												'object_id'      => array( 'type' => 'integer' ),
+												'title'          => array( 'type' => 'string' ),
+												'content'        => array( 'type' => 'string' ),
+												'author_id'      => array( 'type' => 'integer' ),
+												'created_at'     => array( 'type' => 'string' ),
+												'created_at_gmt' => array( 'type' => 'string' ),
+												'url'            => array( 'type' => 'string', 'format' => 'uri' ),
+												'subtitle'       => array( 'type' => 'string' ),
+											),
+										),
+									),
+								),
+							),
+						),
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * A member's achievements container (GET /users/{id}/achievements) — standing
+	 * stats + earned badges/credentials.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function achievement(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'achievement',
+			'type'       => 'object',
+			'properties' => array(
+				'has_standing' => array( 'type' => 'boolean' ),
+				'standing'     => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'icon'  => array( 'type' => 'string' ),
+							'label' => array( 'type' => 'string' ),
+							'value' => array( 'type' => 'string' ),
+						),
+					),
+				),
+				'badges'       => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'id'            => array( 'type' => 'string' ),
+							'name'          => array( 'type' => 'string' ),
+							'image_url'     => array( 'type' => 'string', 'format' => 'uri' ),
+							'is_credential' => array( 'type' => 'boolean' ),
+							'earned_at'     => array( 'type' => 'string' ),
+							'share_url'     => array( 'type' => 'string', 'format' => 'uri' ),
+						),
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * A notification list item (GET /me/notifications).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function notification(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'notification',
+			'type'       => 'object',
+			'properties' => array(
+				'id'             => array( 'type' => 'integer' ),
+				'sender_id'      => array( 'type' => 'integer' ),
+				'type'           => array( 'type' => 'string' ),
+				'object_type'    => array( 'type' => array( 'string', 'null' ) ),
+				'object_id'      => array( 'type' => array( 'integer', 'null' ) ),
+				'group_key'      => array( 'type' => 'string' ),
+				'group_count'    => array( 'type' => 'integer' ),
+				'group_size'     => array( 'type' => 'integer' ),
+				'group_ids'      => array( 'type' => 'array', 'items' => array( 'type' => 'integer' ) ),
+				'group_actors'   => array( 'type' => 'array', 'items' => array( 'type' => 'object' ) ),
+				'is_read'        => array( 'type' => 'boolean' ),
+				'created_at'     => array( 'type' => 'string' ),
+				'data'           => array( 'type' => 'object' ),
+				'message'        => array( 'type' => 'string' ),
+				'url'            => array( 'type' => 'string', 'format' => 'uri' ),
+				'icon'           => array( 'type' => 'string' ),
+				'tone'           => array( 'type' => 'string' ),
+				'label'          => array( 'type' => 'string' ),
+				'actor_name'     => array( 'type' => 'string' ),
+				'created_at_gmt' => array( 'type' => 'string', 'format' => 'date-time' ),
+			),
+		);
+	}
+
+	/**
+	 * A moderation queue report item (GET /reports/queue) — grouped pending report
+	 * on an object, with aggregated reason/reporter counts.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function moderation_report(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'moderation-report',
+			'type'       => 'object',
+			'properties' => array(
+				'id'             => array( 'type' => 'integer' ),
+				'reporter_id'    => array( 'type' => 'integer' ),
+				'object_type'    => array( 'type' => 'string' ),
+				'object_id'      => array( 'type' => 'integer' ),
+				'space_id'       => array( 'type' => 'integer' ),
+				'reason'         => array( 'type' => 'string' ),
+				'reasons'        => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+				'report_count'   => array( 'type' => 'integer' ),
+				'reporter_count' => array( 'type' => 'integer' ),
+				'notes'          => array( 'type' => 'string' ),
+				'status'         => array( 'type' => 'string' ),
+				'resolved_by'    => array( 'type' => array( 'integer', 'null' ) ),
+				'resolved_at'    => array( 'type' => array( 'string', 'null' ) ),
+				'created_at'     => array( 'type' => 'string' ),
+				'created_at_gmt' => array( 'type' => 'string', 'format' => 'date-time' ),
+			),
+		);
+	}
+
+	/**
+	 * A webhook subscription (GET /webhooks). NB: the live API returns `id` and
+	 * `is_active` as numeric STRINGS ("1"), matched here rather than idealized.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function webhook(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'webhook',
+			'type'       => 'object',
+			'properties' => array(
+				'id'             => array( 'type' => 'string' ),
+				'label'          => array( 'type' => 'string' ),
+				'url'            => array( 'type' => 'string', 'format' => 'uri' ),
+				'has_secret'     => array( 'type' => 'boolean' ),
+				'events'         => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+				'is_active'      => array( 'type' => 'string' ),
+				'created_at'     => array( 'type' => 'string' ),
+				'updated_at'     => array( 'type' => 'string' ),
+				'created_at_gmt' => array( 'type' => 'string', 'format' => 'date-time' ),
+				'updated_at_gmt' => array( 'type' => 'string', 'format' => 'date-time' ),
+			),
+		);
+	}
+
+	/**
+	 * The mobile app bootstrap config (GET /app/config). Nested groups are opaque
+	 * config maps (not resources), declared as objects.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function app_config(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'app-config',
+			'type'       => 'object',
+			'properties' => array(
+				'contract_version' => array( 'type' => 'integer' ),
+				'app_enabled'      => array( 'type' => 'boolean' ),
+				'pro_active'       => array( 'type' => 'boolean' ),
+				'min_app_version'  => array( 'type' => 'string' ),
+				'branding'         => array( 'type' => 'object' ),
+				'features'         => array( 'type' => 'object' ),
+				'integrations'     => array( 'type' => 'object' ),
+				'limits'           => array( 'type' => 'object' ),
+				'time'             => array( 'type' => 'object' ),
+				'locale'           => array( 'type' => 'object' ),
+				'legal'            => array( 'type' => 'object' ),
+				'auth'             => array( 'type' => 'object' ),
+				'realtime'         => array( 'type' => 'object' ),
+			),
+		);
+	}
+
+	/**
+	 * Current user's two-factor status (GET /account/2fa).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function twofa_status(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'twofa-status',
+			'type'       => 'object',
+			'properties' => array(
+				'enabled'          => array( 'type' => 'boolean' ),
+				'required'         => array( 'type' => 'boolean' ),
+				'backup_remaining' => array( 'type' => 'integer' ),
+				'methods'          => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+				'email_fallback'   => array( 'type' => 'boolean' ),
+				'challenge'        => array( 'type' => 'object' ),
+			),
+		);
+	}
+
+	/**
+	 * A space category (GET /space-categories) — directory taxonomy term.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function space_category(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'space-category',
+			'type'       => 'object',
+			'properties' => array(
+				'id'          => array( 'type' => 'integer' ),
+				'name'        => array( 'type' => 'string' ),
+				'slug'        => array( 'type' => 'string' ),
+				'description' => array( 'type' => 'string' ),
+				'color'       => array( 'type' => 'string' ),
+				'text_color'  => array( 'type' => 'string' ),
+				'icon_svg'    => array( 'type' => 'string' ),
+				'sort_order'  => array( 'type' => 'integer' ),
+				'show_in_dir' => array( 'type' => 'boolean' ),
+			),
+		);
+	}
+
 }
