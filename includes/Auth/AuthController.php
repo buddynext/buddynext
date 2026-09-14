@@ -634,6 +634,15 @@ class AuthController {
 			);
 		}
 
+		// Every request here fires a verification email to an attacker-supplied
+		// address, so this is a mail-abuse / bombing surface like lost/reset —
+		// throttle it the same way. per_ip_only so rotating the target inbox
+		// cannot dodge the cap.
+		$limited = $this->rate_limit_guard( 'change_email', (string) $user_id, true );
+		if ( is_wp_error( $limited ) ) {
+			return $limited;
+		}
+
 		$errors = array();
 
 		if ( '' === $candidate || ! is_email( $candidate ) ) {
