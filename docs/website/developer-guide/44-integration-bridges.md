@@ -225,6 +225,16 @@ Career Board is two Pro files (jobs are an application layer on the social core,
 
 **Identity:** Career Board exposes no profile-URL / display-name / avatar filter (only generic `wcb_rest_prepare_*` REST shapers), so there is no seam to fill the way Jetonomy/MediaVerse are filled. Job/resume cards and profile panels are BuddyNext-rendered and already use BuddyNext identity; WCB's own `/jobs/` board and company pages remain WCB's surface. Whether to also own identity there (by rewriting author/employer fields in `wcb_rest_prepare_*`) is an open owner decision, tracked as a Basecamp card.
 
+## Learnomy bridge (registered in Pro)
+
+Learnomy is a custom-table LMS. Its Space (B2B team) and cohort models are Pro (`learnomy-pro`). Multiple files:
+
+- **`LearnomyCommunityLink`** — the richest space link in the suite. A BuddyNext Space is linked to a Learnomy **course**, **Learnomy Space**, or **cohort** (link stored in `bn_space_meta`: `learnomy_link_type` / `_id` / `_managed`). Membership flows in one direction (Learnomy → community): `learnomy_student_enrolled`/`_unenrolled`, `learnomy_pro_space_member_added`/`_removed`/**`_suspended`/`_resumed`**, `learnomy_pro_cohort_member_added`/`_removed` add/revoke the member on the linked Space (managed-only, so independent joiners are untouched). Setting a link runs an Action-Scheduler **backfill** to enrol existing members; source deletion (`learnomy_course_deleted` / `_pro_space_deleted` / `_pro_cohort_deleted`) releases the link. Reverse lookup: `linked_bn_spaces( $type, $id )` (public). Suspension mirrors as a revoke so a suspended member loses community access.
+- **`LearnomyBridge`** — outcome activity: `learnomy_course_completed` → "completed a course" card, `learnomy_certificate_issued` → "earned a certificate" card (verify-URL). Enrolment/progress produce no activity (outcomes only). The card is stamped with `linked_space_id( $course_id )`, so a completion in a linked course shows in **both** the member's profile **and** the linked Space's feed; unlinked courses stay profile/main-feed scoped.
+- **`LearnomyLinkController`** (REST `/learnomy-link*`), **`LearnomyMembershipGrant`** (a membership plan grants a Space), **`LearnomyAdminBridge`** (Community tab on the Learnomy-Space admin), **`LearnomySocial`** (profile enrolled / certifications / teaching panels), **`LearnomyFrontendBridge`**.
+
+**Known gaps (carded):** Learnomy-Space **sub-groups** (`lrn_pro_space_groups`) and **learning paths** are not yet linkable to a BuddyNext Space; Learnomy-Space **roles** are not mapped to BuddyNext-Space roles (members join as plain members).
+
 ## PWA
 
 `PwaService` (`includes/PWA/PwaService.php`) is a first-party service, not a companion bridge, but it follows the same opt-out pattern. It is always wired (`Plugin::init()`), and on the front end it:
