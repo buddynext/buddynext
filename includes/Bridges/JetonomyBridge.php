@@ -1688,11 +1688,15 @@ class JetonomyBridge {
 	public function register_integration( array $items ): array {
 		if ( class_exists( 'Jetonomy\Jetonomy' ) ) {
 			$items['jetonomy'] = array(
-				'label'      => __( 'Jetonomy', 'buddynext' ),
-				'version'    => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
-				'has_nav'    => true,
-				'has_feed'   => true,
-				'has_search' => true,
+				'label'          => __( 'Jetonomy', 'buddynext' ),
+				'version'        => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
+				// No hard floor evidenced for the model/action seams this bridge
+				// consumes, so none is declared (an invented floor would be worse
+				// than an honest null). Tested against the current release, 1.9.7.
+				'tested_version' => '1.9.7',
+				'has_nav'        => true,
+				'has_feed'       => true,
+				'has_search'     => true,
 			);
 		}
 		return $items;

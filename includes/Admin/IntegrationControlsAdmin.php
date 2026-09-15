@@ -25,28 +25,6 @@ namespace BuddyNext\Admin;
 class IntegrationControlsAdmin {
 
 	/**
-	 * Minimum partner version each integration needs for ALL its wired features
-	 * to work. Below the floor the partner is present (the toggle shows on) but
-	 * newer seams the bridge calls silently do nothing, so the status screen
-	 * shows an "Update needed" warning instead of a false "Active".
-	 *
-	 * Keyed by the integration key registered into `buddynext_integrations`.
-	 * Only integrations that actually call a version-gated partner API appear;
-	 * content bridges that touch no partner API (jetonomy, listora, blog) need
-	 * no floor. Interim central home until each bridge declares its own floor
-	 * in its `register_integration()` entry (a `min_version` key).
-	 *
-	 * @var array<string,string>
-	 */
-	private const MIN_PARTNER_VERSION = array(
-		'media'        => '2.4.0', // Collections/document-drive/trash seams.
-		'eventonomy'   => '1.6.0', // Typed card, headcount, inline RSVP.
-		'learnomy'     => '1.9.4', // learnomy_student_unenrolled -> access revoke.
-		'careerboard'  => '1.4.3', // wcb_notification_created mirror.
-		'gamification' => '1.6.3', // Toast skip-reason behaviour.
-	);
-
-	/**
 	 * Wire the save handler and register the tab. Called from Plugin::init().
 	 *
 	 * @return void
@@ -106,14 +84,24 @@ class IntegrationControlsAdmin {
 					$bn_label   = (string) ( $entry['label'] ?? $key );
 					$bn_subtabs = (array) ( $entry['subtabs'] ?? array() );
 					$bn_version = (string) ( $entry['version'] ?? '' );
-					$bn_floor   = self::MIN_PARTNER_VERSION[ $key ] ?? '';
-					$bn_stale   = ( '' !== $bn_floor && '' !== $bn_version && version_compare( $bn_version, $bn_floor, '<' ) );
+					// Floor and tested-version now come from the bridge's own
+					// registry entry, not a central map here. Below the floor the
+					// bridge's wired seams no-op ("Update needed"); above the
+					// tested version the partner has shipped past what the bridge
+					// was built for, so newer capabilities may not be wired yet
+					// ("Update available" — informational, the bridge still works).
+					$bn_floor  = (string) ( $entry['min_version'] ?? '' );
+					$bn_tested = (string) ( $entry['tested_version'] ?? '' );
+					$bn_stale  = ( '' !== $bn_floor && '' !== $bn_version && version_compare( $bn_version, $bn_floor, '<' ) );
+					$bn_behind = ( ! $bn_stale && '' !== $bn_tested && '' !== $bn_version && version_compare( $bn_version, $bn_tested, '>' ) );
 					?>
 					<div class="bn-settings-section">
 						<div class="bn-ss-header">
 							<span class="bn-ss-title"><?php echo esc_html( $bn_label ); ?></span>
 							<?php if ( $bn_stale ) : ?>
 								<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Update needed', 'buddynext' ); ?></span>
+							<?php elseif ( $bn_behind ) : ?>
+								<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Update available', 'buddynext' ); ?></span>
 							<?php else : ?>
 								<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 							<?php endif; ?>
@@ -128,6 +116,13 @@ class IntegrationControlsAdmin {
 											esc_html__( 'Version %1$s installed — update to %2$s or newer to enable every feature this integration offers.', 'buddynext' ),
 											esc_html( $bn_version ),
 											esc_html( $bn_floor )
+										);
+									} elseif ( $bn_behind ) {
+										printf(
+											/* translators: 1: installed partner version, 2: version the bridge was built for. */
+											esc_html__( 'Version %1$s installed. This integration was built for %2$s; the partner is newer, so its latest features may not be wired yet — this bridge is due a refresh.', 'buddynext' ),
+											esc_html( $bn_version ),
+											esc_html( $bn_tested )
 										);
 									} else {
 										/* translators: %s: installed partner version. */

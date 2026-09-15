@@ -106,14 +106,17 @@ class MemberBlogBridge {
 			),
 			$existing,
 			array(
-				'has_nav' => true,
+				'has_nav'        => true,
 				// BlogPostListener registers this key with a null version, because
 				// site tracking is core - there is no plugin behind it to name. Once
 				// Member Blog IS present it is the thing supplying the surface, so
 				// report its version: /app/config publishes these so a mobile client
 				// can gate a module on the build actually installed, and a null there
 				// means the app cannot tell an old Member Blog from no Member Blog.
-				'version' => self::available() ? BUDDYPRESS_MEMBER_BLOG_VERSION : ( $existing['version'] ?? null ),
+				'version'        => self::available() ? BUDDYPRESS_MEMBER_BLOG_VERSION : ( $existing['version'] ?? null ),
+				// Only meaningful when Member Blog is the thing supplying the
+				// surface; core site-tracking has no partner release to test.
+				'tested_version' => self::available() ? '4.0.1' : ( $existing['tested_version'] ?? null ),
 			)
 		);
 

@@ -72,7 +72,9 @@ final class IntegrationRegistry {
 		 * stable slug. Register only when the integration's plugin is active.
 		 *
 		 * Entry keys: `label`, `version` (the partner plugin's own version constant,
-		 * or omit when unknown), `has_nav`, `has_feed`, `has_search`, `subtabs`.
+		 * or omit when unknown), `min_version` (floor for the bridge's wired seams),
+		 * `tested_version` (the partner release the bridge was last verified against),
+		 * `has_nav`, `has_feed`, `has_search`, `rest_namespace`, `subtabs`.
 		 *
 		 * @param array<string,array<string,mixed>> $items Entries keyed by integration key.
 		 */
@@ -96,10 +98,24 @@ final class IntegrationRegistry {
 			// never a guess. Clients must treat null as "cannot version-gate".
 			$version = isset( $entry['version'] ) ? trim( (string) $entry['version'] ) : '';
 
+			// Staleness metadata, both null-safe like `version`:
+			// - `min_version`: the floor below which the bridge's wired seams
+			// silently no-op. Each bridge declares its own floor here instead
+			// of a central map in the admin screen.
+			// - `tested_version`: the partner release this bridge was last built
+			// and verified against. When the installed `version` exceeds it,
+			// the partner has shipped past what the bridge was written for, so
+			// the bridge may not use the partner's newest capabilities — a
+			// staleness signal, not a fault. Null = "not tracked".
+			$min_version    = isset( $entry['min_version'] ) ? trim( (string) $entry['min_version'] ) : '';
+			$tested_version = isset( $entry['tested_version'] ) ? trim( (string) $entry['tested_version'] ) : '';
+
 			$out[ $key ] = array(
 				'key'            => $key,
 				'label'          => isset( $entry['label'] ) && '' !== (string) $entry['label'] ? (string) $entry['label'] : ucfirst( $key ),
 				'version'        => '' !== $version ? sanitize_text_field( $version ) : null,
+				'min_version'    => '' !== $min_version ? sanitize_text_field( $min_version ) : null,
+				'tested_version' => '' !== $tested_version ? sanitize_text_field( $tested_version ) : null,
 				'has_nav'        => ! empty( $entry['has_nav'] ),
 				'has_feed'       => ! empty( $entry['has_feed'] ),
 				// Whether this integration writes into the search index. Only integrations

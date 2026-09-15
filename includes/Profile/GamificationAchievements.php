@@ -58,6 +58,10 @@ class GamificationAchievements {
 				$items['gamification'] = array(
 					'label'          => __( 'Gamification', 'buddynext' ),
 					'version'        => defined( 'WB_GAM_VERSION' ) ? WB_GAM_VERSION : null,
+					// Floor: 1.6.3 introduced the toast skip-reason behaviour the
+					// bridge relies on. Tested against the current release, 1.6.4.
+					'min_version'    => '1.6.3',
+					'tested_version' => '1.6.4',
 					'has_nav'        => true,
 					'has_feed'       => true,
 

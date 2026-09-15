@@ -961,11 +961,15 @@ class WPMediaVerseBridge {
 	public function register_integration( array $items ): array {
 		if ( MediaClient::available() ) {
 			$items['media'] = array(
-				'label'    => __( 'Media', 'buddynext' ),
-				'version'  => defined( 'MVS_VERSION' ) ? MVS_VERSION : null,
-				'has_nav'  => true,
-				'has_feed' => true,
-				'subtabs'  => array(
+				'label'          => __( 'Media', 'buddynext' ),
+				'version'        => defined( 'MVS_VERSION' ) ? MVS_VERSION : null,
+				// Floor: 2.4.0 added the collections / document-drive / trash seams
+				// the bridge wires. Tested against the current release, 2.5.0.
+				'min_version'    => '2.4.0',
+				'tested_version' => '2.5.0',
+				'has_nav'        => true,
+				'has_feed'       => true,
+				'subtabs'        => array(
 					'albums' => __( 'Albums', 'buddynext' ),
 				),
 			);

@@ -204,6 +204,12 @@ class Plugin {
 			// WordPress's own nicename rules.
 			\WP_CLI::add_command( 'buddynext handles', new \BuddyNext\Profile\HandleCommand() );
 
+			// Bridge staleness gate: reports every integration bridge's version
+			// state against its partner (below-floor / partner-ahead-of-tested),
+			// so bridges don't silently rot as partners ship. CI-runnable
+			// (`--strict` fails on a partner newer than the bridge was built for).
+			\WP_CLI::add_command( 'buddynext bridge-status', new \BuddyNext\Integrations\BridgeStatusCommand() );
+
 			// QA fixtures — the ugly states the customer demo must never contain
 			// (expired invites, orphaned space owners, cancelled subscriptions,
 			// rows backdated past the retention windows) plus the big-site scale
