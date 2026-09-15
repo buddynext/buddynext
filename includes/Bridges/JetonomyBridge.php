@@ -105,6 +105,11 @@ class JetonomyBridge {
 		// jetonomy_after_create_post fires ($post_id, $space_id) — 2 args only.
 		add_action( 'jetonomy_after_create_post', array( $this, 'on_post_created' ), 10, 2 );
 
+		// jetonomy_post_updated fires ($post_id, $space_id, $user_id) on edit — keep
+		// the discussion's feed card + search row in sync with the new title/body and
+		// any public<->private transition. Reply edits already sync; posts did not.
+		add_action( 'jetonomy_post_updated', array( $this, 'on_post_updated' ), 10, 2 );
+
 		// jetonomy_post_deleted fires ($post_id, $space_id, $user_id) — 3 args.
 		add_action( 'jetonomy_post_deleted', array( $this, 'on_post_deleted' ), 10, 3 );
 
@@ -178,6 +183,79 @@ class JetonomyBridge {
 		// automatically if BN messaging is disabled. Left untouched in wp-admin so
 		// the Jetonomy extensions screen still reflects/saves the real setting.
 		add_filter( 'option_jetonomy_pro_extensions', array( $this, 'suppress_jetonomy_messaging' ) );
+
+		// Member identity is BuddyNext's when BN is the community (BN is master).
+		// Jetonomy added these seams in 1.9.3 specifically for a host like BN to
+		// fill; unfilled, a @mention and every profile link inside a discussion
+		// resolve to Jetonomy's own profile page instead of the member's BN
+		// profile, fragmenting one identity across two places. Point them at BN:
+		// the emit filter (user_handle) and the resolve filter are a required
+		// PAIR — whatever claims a handle on emit must claim it on resolve, or the
+		// composer offers a mention the parser cannot resolve.
+		add_filter( 'jetonomy_profile_url', array( $this, 'filter_jetonomy_profile_url' ), 10, 2 );
+		add_filter( 'jetonomy_user_handle', array( $this, 'filter_jetonomy_user_handle' ), 10, 2 );
+		add_filter( 'jetonomy_resolve_mention_handles', array( $this, 'filter_jetonomy_resolve_mention_handles' ), 10, 2 );
+	}
+
+	/**
+	 * Point a Jetonomy profile link at the member's BuddyNext profile.
+	 *
+	 * @param string $url     Jetonomy's default profile URL.
+	 * @param int    $user_id User the link is for.
+	 * @return string The BN profile URL, or Jetonomy's default if BN cannot build one.
+	 */
+	public function filter_jetonomy_profile_url( $url, $user_id ) {
+		$bn = \BuddyNext\Core\PageRouter::profile_url( (int) $user_id );
+		return '' !== $bn ? $bn : (string) $url;
+	}
+
+	/**
+	 * Emit the member's BuddyNext handle as their Jetonomy @handle.
+	 *
+	 * Paired with filter_jetonomy_resolve_mention_handles(): the handle emitted
+	 * here is exactly what Handle::resolve() reads back, so a mention composed in
+	 * a discussion resolves to the same member on both sides.
+	 *
+	 * @param string $handle Jetonomy's default handle (user_nicename).
+	 * @param mixed  $user   The WP_User the handle is for.
+	 * @return string The member's BN handle, or Jetonomy's default.
+	 */
+	public function filter_jetonomy_user_handle( $handle, $user ) {
+		if ( $user instanceof \WP_User && $user->ID > 0 ) {
+			$bn = Handle::current( (int) $user->ID );
+			if ( '' !== $bn ) {
+				return $bn;
+			}
+		}
+		return (string) $handle;
+	}
+
+	/**
+	 * Resolve discussion @handles the BuddyNext way (custom slug + user-{id}).
+	 *
+	 * Jetonomy resolves a handle as user_nicename; BuddyNext's Handle::resolve()
+	 * also honours a member's custom slug (bn_profile_slug) and the reserved
+	 * user-{id} form, which plain nicename resolution misses. Fills only handles
+	 * Jetonomy (or a higher-priority filter) left unresolved, so it augments
+	 * rather than overrides.
+	 *
+	 * @param mixed $map     Handle => user-id map resolved so far.
+	 * @param mixed $handles Raw handles (no leading '@') to resolve.
+	 * @return array<string,int> The augmented map.
+	 */
+	public function filter_jetonomy_resolve_mention_handles( $map, $handles ) {
+		$map = is_array( $map ) ? $map : array();
+		foreach ( (array) $handles as $raw ) {
+			$handle = (string) $raw;
+			if ( '' === $handle || isset( $map[ $handle ] ) ) {
+				continue;
+			}
+			$user = Handle::resolve( $handle );
+			if ( $user instanceof \WP_User ) {
+				$map[ $handle ] = (int) $user->ID;
+			}
+		}
+		return $map;
 	}
 
 	/**
@@ -363,6 +441,111 @@ class JetonomyBridge {
 
 		// A new discussion changes the author's profile count/list and the space's
 		// count/list — drop those cached reads so the next view is accurate.
+		$this->invalidate_member_caches( $author_id );
+		$this->invalidate_space_caches( $space_id );
+	}
+
+	/**
+	 * Keep a discussion's BuddyNext surfaces in sync when it is EDITED.
+	 *
+	 * Hooked on: jetonomy_post_updated( int $post_id, int $space_id, int $user_id ).
+	 * on_post_created mirrors a topic into the feed + search on create and
+	 * on_post_deleted tears it down on delete, but an EDIT went unnoticed — the
+	 * feed card kept the original title/excerpt and the search row the original
+	 * body, while reply edits already synced (sync_reply_edit_to_feed). This
+	 * closes that asymmetry and also handles a visibility flip: a topic edited
+	 * from public to private/draft must lose its public card, and one flipped
+	 * public must gain one.
+	 *
+	 * The feed card is refreshed IN PLACE via its link_meta (title/description),
+	 * so the activity keeps its date, reactions and comments — never a
+	 * remove+republish that would resurface the post and drop its engagement.
+	 * Mentions are deliberately NOT re-notified on edit (matching the reply-edit
+	 * path): re-firing them would spam every mentioned member on every save.
+	 *
+	 * @param int $post_id  Jetonomy discussion ID.
+	 * @param int $space_id Jetonomy forum ID.
+	 * @return void
+	 */
+	public function on_post_updated( int $post_id, int $space_id ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT author_id, title, content_plain, is_private, status FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1",
+				$post_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( null === $post ) {
+			return;
+		}
+
+		$author_id = (int) $post->author_id;
+		$title     = (string) $post->title;
+		$content   = (string) $post->content_plain;
+		$url       = $this->discussion_url( $post_id, $space_id );
+		if ( '' === $url ) {
+			return;
+		}
+
+		$is_public = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status );
+
+		// Search index: re-assert the row against the new title/body/visibility.
+		// Drop first, then re-index only when still public — this handles a
+		// public->private edit (row gone) and a body change (row refreshed) alike.
+		if ( buddynext_integration_enabled( 'jetonomy', 'search' ) ) {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->delete(
+				$wpdb->prefix . 'bn_search_index',
+				array(
+					'object_type' => 'discussion',
+					'object_id'   => $post_id,
+				),
+				array( '%s', '%d' )
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			if ( $is_public ) {
+				( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, 'public', $this->space_id_for_forum( $space_id ) );
+			}
+		}
+
+		// Feed card: refresh in place, add if newly public, remove if no longer public.
+		if ( buddynext_integration_enabled( 'jetonomy', 'feed' )
+			&& (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
+			if ( $is_public ) {
+				$excerpt = wp_trim_words( wp_strip_all_tags( $content ), 30, '…' );
+				// refresh() merges into the card's link_meta (title/description are
+				// what the card renders) and returns false when no card matched —
+				// i.e. the topic was private/draft before and now needs one.
+				$refreshed = IntegrationActivity::refresh(
+					$url,
+					'discussion',
+					array(
+						'title'       => $title,
+						'description' => $excerpt,
+					)
+				);
+				if ( ! $refreshed ) {
+					IntegrationActivity::publish(
+						$author_id,
+						__( 'started a discussion', 'buddynext' ),
+						$url,
+						$title,
+						'discussion',
+						$excerpt,
+						$this->space_id_for_forum( $space_id )
+					);
+				}
+			} else {
+				// Edited from public to private / draft / trash — pull the card that
+				// leaked into the public feed while it was public.
+				IntegrationActivity::remove( $url, 'discussion' );
+			}
+		}
+
 		$this->invalidate_member_caches( $author_id );
 		$this->invalidate_space_caches( $space_id );
 	}
