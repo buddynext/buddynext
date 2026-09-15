@@ -56,6 +56,41 @@ A third-party bridge attaches the same way - hook `buddynext_load_bridges` and w
 | `BuddyXBridge` | BuddyX theme | `'buddyx' === get_template()` | always wired | `buddyx_is_full_width_page` (provide) so plugin pages escape the theme's `.container` wrapper |
 | `PwaService` (PWA, not a companion bridge) | none (first-party) | always wired | n/a | Serves the web-app manifest + service worker; opt-out filter `buddynext_pwa_register_sw` |
 
+## Version floors and the staleness gate
+
+A bridge is written against a specific version of its partner. Two failure modes follow: the partner can be **older** than a seam the bridge needs (the seam silently no-ops), or **newer** than the version the bridge was built for (the bridge may not use the partner's newest capabilities and can drift toward broken). Both are surfaced instead of left to rot.
+
+Each bridge declares two version fields in its `buddynext_integrations` registry entry, both normalized null-safe by `IntegrationRegistry::all()` (Pro suite bridges declare them via `AbstractSuitePanelProvider::integration_min_version()` / `integration_tested_version()`):
+
+- **`min_version`** — the floor below which the bridge's wired seams no-op. Declared per bridge (there is no central map).
+- **`tested_version`** — the partner release the bridge was last built and verified against.
+
+Three surfaces read them:
+
+1. **Integration Settings** (Settings -> Integration Settings) shows one badge per integration: *Active*, *Update needed* (installed `< min_version`), or *Update available* (installed `> tested_version` — informational; the bridge still works, it is due a refresh).
+2. **CLI gate** `wp buddynext bridge-status` walks the registry and prints installed / floor / tested / state per bridge. It exits non-zero when any bridge is below its floor; `--strict` also fails when a partner is ahead of `tested_version`. Run it in CI so bridges cannot silently fall behind as partners ship.
+3. Per-bridge deep audits (what the partner offers vs what the bridge consumes) are tracked as Basecamp cards, not in code.
+
+Current declared values (update the row when you re-verify a bridge against a new partner release):
+
+| Integration | Partner constant | `min_version` | `tested_version` |
+|---|---|---|---|
+| `media` | `MVS_VERSION` | 2.4.0 | 2.5.0 |
+| `gamification` | `WB_GAM_VERSION` | 1.6.3 | 1.6.4 |
+| `careerboard` | `WCB_VERSION` | 1.4.3 | 1.6.0 |
+| `learnomy` | `LEARNOMY_VERSION` | 1.9.4 | 1.9.5 |
+| `eventonomy` | `EVENTONOMY_VERSION` | 1.6.0 | 1.6.0 |
+| `jetonomy` | `JETONOMY_VERSION` | (none) | 1.9.7 |
+| `listora` | `WB_LISTORA_VERSION` | (none) | 1.6.0 |
+| `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.0.1 |
+
+## Identity takeover (BuddyNext is master)
+
+Where a partner renders a member's name, @handle, avatar or profile link on a shared surface, BuddyNext owns that identity: one profile link, one name, one mention system across the whole site. A partner exposes filter seams for a host to claim; the bridge fills them so the partner defers to BuddyNext.
+
+- **Jetonomy** fills all five identity seams (`JetonomyBridge`): `jetonomy_profile_url` -> `PageRouter::profile_url`, `jetonomy_user_handle` + `jetonomy_resolve_mention_handles` -> BuddyNext `Handle` (matched emit/resolve pair, incl. custom slug + reserved `user-{id}`), `jetonomy_user_display_name` -> WP `display_name`, and `jetonomy_profile_action_url` -> BuddyNext profile / edit / notification screens (`badges` / `digest` stay on Jetonomy). Avatars come through WP `pre_get_avatar_data` where BuddyNext's `AvatarService` (priority 50/99) already wins.
+- **WPMediaVerse** fills `mvs_user_profile_url` -> BuddyNext profile and reports `mvs_has_custom_avatar`; its display name defaults to WP `display_name` already, and a single-media page redirects to the source BuddyNext activity by default, so identity there is native BuddyNext.
+
 ## JetonomyBridge
 
 Routes Jetonomy forum events into BuddyNext search, the activity feed, the navigation rail, profile and space tabs, and the notification center. Active only when `Jetonomy\Jetonomy` exists.
