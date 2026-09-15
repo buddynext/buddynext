@@ -116,7 +116,11 @@ class MemberBlogBridge {
 				'version'        => self::available() ? BUDDYPRESS_MEMBER_BLOG_VERSION : ( $existing['version'] ?? null ),
 				// Only meaningful when Member Blog is the thing supplying the
 				// surface; core site-tracking has no partner release to test.
-				'tested_version' => self::available() ? '4.0.1' : ( $existing['tested_version'] ?? null ),
+				// Verified against 4.1.0: both consumed symbols (Member_Blog_Compat::
+				// get_dashboard_url, bp_member_blog_get_settings) are unchanged, and
+				// 4.1.0's additions are Member-Blog-internal (composer/email/REST),
+				// none consumed here.
+				'tested_version' => self::available() ? '4.1.0' : ( $existing['tested_version'] ?? null ),
 			)
 		);
 
