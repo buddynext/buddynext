@@ -187,7 +187,7 @@ class GamificationBridge {
 			$user_id,
 			/* translators: %s: badge name. */
 			sprintf( __( 'earned the %s badge', 'buddynext' ), $name ),
-			$this->badge_share_url( $badge_id, $user_id ),
+			$this->badge_activity_url( $badge_id, $user_id ),
 			$name,
 			'badge'
 		);
@@ -209,19 +209,26 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Public share URL for a badge.
+	 * Feed-card link for an earned badge — the member's own BuddyNext Achievements
+	 * tab, NOT wb-gamification's public share page.
 	 *
-	 * Mirrors WB Gamification's `\WBGam\Engine\BadgeSharePage::get_share_url()` —
-	 * the canonical share-page rewrite (`gamification/badge/{id}/{uid}/share/`).
+	 * The badge already lives on the member's profile here — this IS their
+	 * profile — so BuddyNext needs no separate "share" step to surface it, and
+	 * wb-gamification's share page is gated to publicly-shared badges (an un-shared
+	 * badge there 404s / redirects to the profile anyway). Linking to the
+	 * Achievements tab lands on a surface that always exists at award time
+	 * (the tab shows whenever the member has standing) and that BuddyNext owns.
+	 *
+	 * A per-badge fragment keeps the link unique so IntegrationActivity's
+	 * dedup-on-link_url still stores one card per badge (a bare profile URL would
+	 * collide across every badge and suppress all but the first).
 	 *
 	 * @param string $badge_id Badge slug.
 	 * @param int    $user_id  Member.
 	 * @return string
 	 */
-	private function badge_share_url( string $badge_id, int $user_id ): string {
-		if ( is_callable( array( '\WBGam\Engine\BadgeSharePage', 'get_share_url' ) ) ) {
-			return (string) \WBGam\Engine\BadgeSharePage::get_share_url( $badge_id, $user_id );
-		}
-		return home_url( 'gamification/badge/' . $badge_id . '/' . $user_id . '/share/' ); // bn-route-ok: wb-gam's fixed share rewrite, fallback only.
+	private function badge_activity_url( string $badge_id, int $user_id ): string {
+		$base = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ) . 'achievements/';
+		return $base . '#badge-' . rawurlencode( $badge_id );
 	}
 }
