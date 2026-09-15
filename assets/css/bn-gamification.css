@@ -208,6 +208,28 @@
 	padding-inline-start: 0;
 }
 
+/* Your-position pin — the viewer's own row when they rank below the visible
+   page, set off from the top-N list with a labelled divider. */
+.bn-lb-yourpos {
+	margin-top: var(--bn-s5);
+	padding-top: var(--bn-s4);
+	border-top: 1px dashed var(--bn-line);
+}
+
+.bn-lb-yourpos__label {
+	display: block;
+	margin-bottom: var(--bn-s2);
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--bn-ink-3);
+}
+
+.bn-lb-yourpos .bn-lb-list {
+	margin-bottom: 0;
+}
+
 .bn-lb-row {
 	display: grid;
 	grid-template-columns: 56px auto 1fr auto auto;

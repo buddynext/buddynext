@@ -137,6 +137,12 @@ if ( $current_user_id > 0 && ! empty( $bn_lb_user_ids ) ) {
 // Current user stats from the read API.
 $current_user_pts  = $current_user_id ? (int) wb_gam_get_user_points( $current_user_id ) : 0;
 $current_user_rank = 0;
+// Whether the viewer's own row is on the visible page. When it is not (they rank
+// below the window), a pinned "You" row is shown after the list so everyone can
+// see where they stand — the core of the large-community "your position" need.
+$bn_self_in_list = false;
+// The viewer's period-scoped points, for the pinned row (matches the list rows).
+$bn_self_pts = 0;
 
 // Resolve the current user's rank from the returned leaderboard rows first
 // (cheap — already loaded), then fall back to the engine's true rank when the
@@ -146,6 +152,8 @@ if ( $current_user_id ) {
 	foreach ( $leaderboard as $row ) {
 		if ( (int) ( $row['user_id'] ?? 0 ) === $current_user_id ) {
 			$current_user_rank = (int) ( $row['rank'] ?? 0 );
+			$bn_self_pts       = (int) ( $row['points'] ?? 0 );
+			$bn_self_in_list   = true;
 			break;
 		}
 	}
@@ -154,6 +162,7 @@ if ( $current_user_id ) {
 		$rank_data = \WBGam\Engine\LeaderboardEngine::get_user_rank( $current_user_id, $api_period );
 		if ( is_array( $rank_data ) && isset( $rank_data['rank'] ) && $current_user_pts > 0 ) {
 			$current_user_rank = (int) $rank_data['rank'];
+			$bn_self_pts       = (int) ( $rank_data['points'] ?? 0 );
 		}
 	}
 }
@@ -632,6 +641,74 @@ $updated_iso = gmdate( 'c' );
 				</li>
 			<?php endforeach; ?>
 		</ol>
+
+		<?php
+		// Your position — pinned when the viewer ranks below the visible page, so a
+		// member at #5,000 still sees where they stand (and can jump to their
+		// profile). Only when they are NOT already listed above.
+		if ( $current_user_id && $current_user_rank > 0 && ! $bn_self_in_list ) :
+			$bn_self_user   = get_userdata( $current_user_id );
+			$bn_self_name   = $bn_self_user ? $bn_self_user->display_name : __( 'You', 'buddynext' );
+			$bn_self_url    = \BuddyNext\Core\PageRouter::profile_url( $current_user_id );
+			$bn_self_avatar = get_avatar(
+				$current_user_id,
+				72,
+				'',
+				$bn_self_name,
+				array(
+					'class'      => 'bn-avatar',
+					'extra_attr' => 'data-size="md"',
+				)
+			);
+			?>
+			<div class="bn-lb-yourpos">
+				<span class="bn-lb-yourpos__label"><?php esc_html_e( 'Your position', 'buddynext' ); ?></span>
+				<ol class="bn-lb-list" start="<?php echo esc_attr( (string) $current_user_rank ); ?>">
+					<li>
+						<article class="bn-card bn-lb-row" data-interactive data-self>
+							<span class="bn-lb-row__rank" data-tone="ink">
+								<?php echo esc_html( '#' . number_format_i18n( $current_user_rank ) ); ?>
+							</span>
+							<div class="bn-lb-row__who">
+								<?php
+								echo wp_kses(
+									$bn_self_avatar,
+									array(
+										'img' => array(
+											'src'       => true,
+											'srcset'    => true,
+											'sizes'     => true,
+											'alt'       => true,
+											'class'     => true,
+											'width'     => true,
+											'height'    => true,
+											'loading'   => true,
+											'decoding'  => true,
+											'data-size' => true,
+										),
+									)
+								);
+								?>
+								<div class="bn-lb-row__id">
+									<a class="bn-lb-row__name" href="<?php echo esc_url( $bn_self_url ); ?>">
+										<?php echo esc_html( $bn_self_name ); ?>
+										<span class="bn-lb-row__self-pill"><?php esc_html_e( 'You', 'buddynext' ); ?></span>
+									</a>
+								</div>
+							</div>
+							<span aria-hidden="true"></span>
+							<div class="bn-lb-row__points">
+								<span class="bn-lb-row__points-val"><?php echo esc_html( number_format_i18n( $bn_self_pts ) ); ?></span>
+								<span class="bn-lb-row__points-unit"><?php esc_html_e( 'pts', 'buddynext' ); ?></span>
+							</div>
+							<span aria-hidden="true"></span>
+						</article>
+					</li>
+				</ol>
+			</div>
+			<?php
+		endif;
+		?>
 
 	<?php endif; // End: leaderboard data check. ?>
 
