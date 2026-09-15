@@ -196,6 +196,7 @@ class JetonomyBridge {
 		add_filter( 'jetonomy_user_handle', array( $this, 'filter_jetonomy_user_handle' ), 10, 2 );
 		add_filter( 'jetonomy_resolve_mention_handles', array( $this, 'filter_jetonomy_resolve_mention_handles' ), 10, 2 );
 		add_filter( 'jetonomy_user_display_name', array( $this, 'filter_jetonomy_user_display_name' ), 10, 2 );
+		add_filter( 'jetonomy_profile_action_url', array( $this, 'filter_jetonomy_profile_action_url' ), 10, 3 );
 	}
 
 	/**
@@ -279,6 +280,42 @@ class JetonomyBridge {
 			return (string) $user->display_name;
 		}
 		return (string) $name;
+	}
+
+	/**
+	 * Route Jetonomy's profile-action deep-links at the BuddyNext screens.
+	 *
+	 * Jetonomy links "view profile", "edit profile" and "notification settings"
+	 * (admin bar, user-panel block, notification deep-links) at its OWN profile
+	 * sub-screens. When BN owns identity those must land on BN's screens instead,
+	 * or a member editing their profile from a discussion ends up on a second,
+	 * disconnected editor. Only the actions BN actually provides are remapped;
+	 * `badges` and `digest` are Jetonomy-specific (its own badge system and email
+	 * digest, which BN does not mirror) so they stay on Jetonomy, exactly as the
+	 * filter's own contract advises.
+	 *
+	 * @param string $url     Jetonomy's default action URL.
+	 * @param string $action  Action key: profile|edit|notification-settings|badges|digest.
+	 * @param int    $user_id User the action is for.
+	 * @return string The BN screen URL, or Jetonomy's default when BN has no equivalent.
+	 */
+	public function filter_jetonomy_profile_action_url( $url, $action, $user_id ) {
+		$uid = (int) $user_id;
+		switch ( (string) $action ) {
+			case 'profile':
+				$bn = \BuddyNext\Core\PageRouter::profile_url( $uid );
+				break;
+			case 'edit':
+				$bn = \BuddyNext\Core\PageRouter::edit_profile_url( $uid );
+				break;
+			case 'notification-settings':
+				$bn = \BuddyNext\Core\PageRouter::notification_prefs_url();
+				break;
+			default:
+				// badges / digest: Jetonomy-specific, no BN equivalent — leave them.
+				return (string) $url;
+		}
+		return '' !== $bn ? $bn : (string) $url;
 	}
 
 	/**
