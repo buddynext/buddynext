@@ -195,6 +195,7 @@ class JetonomyBridge {
 		add_filter( 'jetonomy_profile_url', array( $this, 'filter_jetonomy_profile_url' ), 10, 2 );
 		add_filter( 'jetonomy_user_handle', array( $this, 'filter_jetonomy_user_handle' ), 10, 2 );
 		add_filter( 'jetonomy_resolve_mention_handles', array( $this, 'filter_jetonomy_resolve_mention_handles' ), 10, 2 );
+		add_filter( 'jetonomy_user_display_name', array( $this, 'filter_jetonomy_user_display_name' ), 10, 2 );
 	}
 
 	/**
@@ -256,6 +257,28 @@ class JetonomyBridge {
 			}
 		}
 		return $map;
+	}
+
+	/**
+	 * Show the member's BuddyNext name on Jetonomy bylines.
+	 *
+	 * Without this, Jetonomy's own name format wins — e.g. it renders
+	 * "Alex Rivera @alex-rivera" on a discussion byline while every other
+	 * BuddyNext surface shows "Alex Rivera". Two names for one member is the
+	 * split identity BN-is-master exists to prevent, so the byline is pinned to
+	 * the same display_name BuddyNext shows everywhere else (member directory,
+	 * profile, feed). Jetonomy keeps its own Anonymous / [deleted] handling —
+	 * this only governs a real, named member.
+	 *
+	 * @param string $name Jetonomy's resolved name.
+	 * @param mixed  $user The WP_User the name is for.
+	 * @return string The BuddyNext member name, or Jetonomy's default.
+	 */
+	public function filter_jetonomy_user_display_name( $name, $user ) {
+		if ( $user instanceof \WP_User && $user->ID > 0 && '' !== (string) $user->display_name ) {
+			return (string) $user->display_name;
+		}
+		return (string) $name;
 	}
 
 	/**
