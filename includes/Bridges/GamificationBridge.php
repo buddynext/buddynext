@@ -66,6 +66,30 @@ class GamificationBridge {
 		// this purpose and nothing was hooking it, so BN was answering a question it
 		// should have been forwarding.
 		add_filter( 'buddynext_user_activity_streak', array( $this, 'canonical_streak' ), 10, 2 );
+
+		// BuddyNext is the master community. When wb-gamification can't show a badge
+		// on its own share page (un-earned / un-published), it would redirect to its
+		// OWN profile page; fill its seam so the visitor lands on the BuddyNext
+		// profile instead. BuddyNext's task lives here in the bridge, not in the
+		// partner — wb-gamification only exposes the filter.
+		add_filter( 'wb_gam_badge_share_redirect_url', array( $this, 'badge_share_redirect_url' ), 10, 2 );
+	}
+
+	/**
+	 * Redirect wb-gamification's badge-share fallback to the BuddyNext profile.
+	 *
+	 * @param string $url     wb-gamification's default redirect URL.
+	 * @param int    $user_id Badge owner.
+	 * @return string BuddyNext profile URL, or the partner default if unresolvable.
+	 */
+	public function badge_share_redirect_url( $url, $user_id ): string {
+		$uid = (int) $user_id;
+		if ( $uid <= 0 ) {
+			return (string) $url;
+		}
+
+		$bn_profile = \BuddyNext\Core\PageRouter::profile_url( $uid );
+		return '' !== $bn_profile ? $bn_profile : (string) $url;
 	}
 
 	/**
