@@ -73,6 +73,29 @@ class GamificationBridge {
 		// profile instead. BuddyNext's task lives here in the bridge, not in the
 		// partner — wb-gamification only exposes the filter.
 		add_filter( 'wb_gam_badge_share_redirect_url', array( $this, 'badge_share_redirect_url' ), 10, 2 );
+
+		// Same reasoning for wb-gamification's standalone /u/ member profile: BN
+		// owns the member profile (Achievements / Points / Kudos render there), so
+		// point its /u/ page at the BN profile. wb-gamification exposes the filter;
+		// the bridge fills it.
+		add_filter( 'wb_gam_profile_redirect_url', array( $this, 'profile_redirect_url' ), 10, 2 );
+	}
+
+	/**
+	 * Point wb-gamification's standalone /u/ profile at the BuddyNext profile.
+	 *
+	 * @param string $url     wb-gamification's default (empty = render own page).
+	 * @param int    $user_id Profile owner.
+	 * @return string BuddyNext profile URL, or the incoming default if unresolvable.
+	 */
+	public function profile_redirect_url( $url, $user_id ): string {
+		$uid = (int) $user_id;
+		if ( $uid <= 0 ) {
+			return (string) $url;
+		}
+
+		$bn_profile = \BuddyNext\Core\PageRouter::profile_url( $uid );
+		return '' !== $bn_profile ? $bn_profile : (string) $url;
 	}
 
 	/**
