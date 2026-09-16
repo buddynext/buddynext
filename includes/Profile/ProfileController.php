@@ -312,6 +312,38 @@ class ProfileController extends BaseRestController {
 	private const FIELD_VISIBILITY = array( 'public', 'members', 'followers', 'connections', 'private' );
 
 	/**
+	 * Keep an existing field's add-on configuration (string-keyed options) when a
+	 * REST update replaces its choice list.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param int                     $field_id Field being updated.
+	 * @param array<int, string>|null $options  Normalised incoming choice list.
+	 * @return array<int|string, mixed>|null
+	 */
+	private static function carry_addon_options( int $field_id, ?array $options ): ?array {
+		foreach ( buddynext_service( 'profiles' )->get_fields() as $group ) {
+			foreach ( (array) ( $group['fields'] ?? array() ) as $field ) {
+				if ( (int) ( $field['id'] ?? 0 ) !== $field_id || ! is_array( $field['options'] ?? null ) ) {
+					continue;
+				}
+
+				$addon = array_filter(
+					$field['options'],
+					static function ( $key ): bool {
+						return is_string( $key );
+					},
+					ARRAY_FILTER_USE_KEY
+				);
+
+				return empty( $addon ) ? $options : array_merge( (array) $options, $addon );
+			}
+		}
+
+		return $options;
+	}
+
+	/**
 	 * Normalise a submitted options payload to the array the service stores.
 	 *
 	 * Accepts the admin textarea's newline-separated string and a JSON array
@@ -2080,6 +2112,12 @@ class ProfileController extends BaseRestController {
 
 		if ( null !== $request->get_param( 'options' ) ) {
 			$data['options'] = self::normalise_field_options( $request->get_param( 'options' ) );
+
+			// `options` over REST is the CHOICE LIST. Add-ons keep their per-field
+			// configuration (units, limits, display rules) as string keys in the same
+			// JSON column, so replacing the column wholesale silently deleted that
+			// configuration whenever an app edited a field's choices. Carry it over.
+			$data['options'] = self::carry_addon_options( $id, $data['options'] );
 		}
 
 		$sort_order = $request->get_param( 'sort_order' );

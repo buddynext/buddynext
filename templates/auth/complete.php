@@ -155,7 +155,9 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url();
 								1
 							);
 							?>
-							<div class="bn-auth-field">
+							<?php // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- field_wrapper_attributes() escapes. ?>
+							<div class="bn-auth-field"<?php echo FieldType::field_wrapper_attributes( $bn_rf, 0 ); ?>>
+							<?php // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 								<label class="bn-auth-label" for="<?php echo esc_attr( $bn_rf_id ); ?>">
 									<?php echo esc_html( (string) $bn_rf['label'] ); ?>
 									<span class="bn-auth-required" aria-hidden="true">*</span>
@@ -169,9 +171,6 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url();
 								<?php if ( '' !== (string) ( $bn_rf['description'] ?? '' ) ) : ?>
 									<span class="bn-auth-hint"><?php echo esc_html( (string) $bn_rf['description'] ); ?></span>
 								<?php endif; ?>
-								<span class="bn-auth-field__msg"
-									data-wp-bind--hidden="!state.fieldError_<?php echo esc_attr( $bn_rf_name ); ?>"
-									data-wp-text="state.fieldError_<?php echo esc_attr( $bn_rf_name ); ?>"></span>
 							</div>
 						<?php endforeach; ?>
 

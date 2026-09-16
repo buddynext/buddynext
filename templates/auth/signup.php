@@ -560,7 +560,9 @@ if ( 'invite' === $bn_reg_mode ) {
 							}
 						}
 						?>
-						<div class="bn-auth-field">
+						<?php // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- field_wrapper_attributes() escapes. ?>
+						<div class="bn-auth-field"<?php echo \BuddyNext\Profile\FieldType::field_wrapper_attributes( $bn_reg_field, 0 ); ?>>
+						<?php // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 							<?php if ( $bn_rf_group ) : ?>
 							<span class="bn-auth-label" id="<?php echo esc_attr( $bn_rf_label_id ); ?>">
 								<?php echo esc_html( (string) $bn_reg_field['label'] ); ?>

@@ -285,8 +285,26 @@ class RegistrationPolicy {
 			$missing[] = 'terms';
 		}
 
+		// The submission keyed by field_key, the shape every other profile save
+		// hands `buddynext_profile_field_is_active`.
+		$by_field_key = array();
+		foreach ( $data as $data_key => $data_value ) {
+			if ( is_string( $data_key ) && str_starts_with( $data_key, 'bn_field_' ) ) {
+				$by_field_key[ substr( $data_key, strlen( 'bn_field_' ) ) ] = $data_value;
+			}
+		}
+
 		foreach ( $req['fields'] as $field ) {
 			if ( empty( $field['is_required'] ) ) {
+				continue;
+			}
+
+			// A field that does not apply to this submission (hidden by an add-on's
+			// rule, or not available to a prospect) cannot be required of them - the
+			// same predicate the profile save paths ask, so signup cannot dead-end on
+			// a question the form never showed.
+			/** This filter is documented in includes/Profile/ProfileService.php */
+			if ( false === apply_filters( 'buddynext_profile_field_is_active', true, $field, $by_field_key, 0 ) ) {
 				continue;
 			}
 

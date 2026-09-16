@@ -17,10 +17,7 @@
 ( function () {
 	'use strict';
 
-	// Translation runtime — available for any user-facing string added later.
-	// All current labels/confirm text are server-rendered (PHP-translated), so
-	// nothing here is wrapped today; the import keeps the script i18n-ready.
-	// eslint-disable-next-line no-unused-vars
+	// Translation runtime for the few messages this script writes itself.
 	var __ = ( window.wp && window.wp.i18n && window.wp.i18n.__ ) ? window.wp.i18n.__ : function ( s ) { return s; };
 
 	// The field-type registry, localised by ProfileFieldsManager as
@@ -82,6 +79,7 @@
 		} );
 		if ( isHidden ) {
 			row.style.display = 'table-row';
+			row.scrollIntoView( { block: 'nearest', behavior: 'smooth' } );
 		}
 	}
 
@@ -131,6 +129,37 @@
 	// delete forms now carry data-bn-confirm and open the shared destructive
 	// dialog that members.js already drives (Basecamp 10264027382), so nothing
 	// on this screen reveals a confirmation in place any more.
+
+	// A choice field (Dropdown, Radio, Multi-select) saved without options renders an
+	// empty control members cannot answer - and a required one blocks every profile
+	// save. Stop it at the owner's Save instead.
+	document.addEventListener( 'submit', function ( e ) {
+		var form = e.target;
+		var typeSelect = form && form.querySelector ? form.querySelector( 'select[name="type"][data-bn-pf-opts-wrap]' ) : null;
+		if ( ! typeSelect ) {
+			return;
+		}
+		var textarea = form.querySelector( 'textarea[name="options"]' );
+		var slot = form.querySelector( '[data-bn-pf-options-error]' );
+		var missing = isChoiceType( typeSelect.value ) && textarea && '' === textarea.value.trim();
+		if ( ! missing ) {
+			if ( slot ) {
+				slot.hidden = true;
+			}
+			return;
+		}
+		e.preventDefault();
+		if ( ! slot ) {
+			slot = document.createElement( 'p' );
+			slot.className = 'bn-pf-form-error';
+			slot.setAttribute( 'data-bn-pf-options-error', '' );
+			slot.setAttribute( 'role', 'alert' );
+			form.insertBefore( slot, form.querySelector( '.bn-pf-af-actions' ) );
+		}
+		slot.hidden = false;
+		slot.textContent = __( 'Add at least one option, one per line. Members cannot answer this field without options.', 'buddynext' );
+		textarea.focus();
+	} );
 
 	// Auto-submit visibility / required inline forms when the control changes.
 	document.addEventListener( 'change', function ( e ) {

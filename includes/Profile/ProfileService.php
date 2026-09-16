@@ -1274,6 +1274,21 @@ class ProfileService {
 		}
 
 		/**
+		 * Fires after a profile save has committed.
+		 *
+		 * Every entry point (member REST save, admin member editor, onboarding,
+		 * registration, importers) funnels through save_profile(), so this is the one
+		 * place an add-on can react to "this member's profile values changed" - e.g.
+		 * to clear answers to questions that no longer apply to them.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param int                  $user_id Member whose profile was saved.
+		 * @param array<string, mixed> $data    The submitted payload, keyed by field_key.
+		 */
+		do_action( 'buddynext_profile_saved', $user_id, $data );
+
+		/**
 		 * Refresh the member's search index entry.
 		 *
 		 * Fired HERE, in the service that performs the write, rather than only in
@@ -1295,6 +1310,24 @@ class ProfileService {
 		do_action( 'buddynext_index_user', $user_id );
 
 		return true;
+	}
+
+	/**
+	 * Field display order: the owner's sort_order, then creation order (id).
+	 *
+	 * The same order the Profile Fields screen lists them in. Sorting on sort_order
+	 * alone left ties in query order, and the query returns a field with no stored
+	 * value (NULL entry_index) before one with a value - so an unanswered field
+	 * jumped above answered ones, and a follow-up question could render above the
+	 * question it depends on.
+	 *
+	 * @param array<string, mixed> $a Field.
+	 * @param array<string, mixed> $b Field.
+	 * @return int
+	 */
+	private static function compare_field_order( array $a, array $b ): int {
+		return array( (int) ( $a['sort_order'] ?? 0 ), (int) ( $a['field_id'] ?? 0 ) )
+			<=> array( (int) ( $b['sort_order'] ?? 0 ), (int) ( $b['field_id'] ?? 0 ) );
 	}
 
 	/**
@@ -1867,7 +1900,7 @@ class ProfileService {
 				foreach ( $entries as $entry_fields ) {
 					$entry_fields += $schema;
 					$sorted        = array_values( $entry_fields );
-					usort( $sorted, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
+					usort( $sorted, array( self::class, 'compare_field_order' ) );
 
 					$entry_vis = null;
 					foreach ( $sorted as $sorted_field ) {
@@ -1918,7 +1951,7 @@ class ProfileService {
 				}
 
 				$flat_fields = array_values( $flat_fields );
-				usort( $flat_fields, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
+				usort( $flat_fields, array( self::class, 'compare_field_order' ) );
 				$out['fields'] = $flat_fields;
 			}
 
@@ -3244,6 +3277,42 @@ class ProfileService {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+	}
+
+	/**
+	 * Members holding a stored value in any of the given fields, one page at a time.
+	 *
+	 * Keyset-paginated on user_id so a background job can walk every member with an
+	 * answer at any site size without deep OFFSET scans.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param int[] $field_ids     Field ids.
+	 * @param int   $after_user_id Return only user ids greater than this (0 = from the start).
+	 * @param int   $limit         Page size (1-500).
+	 * @return int[] Ascending user ids.
+	 */
+	public function user_ids_with_field_values( array $field_ids, int $after_user_id, int $limit ): array {
+		$field_ids = array_values( array_filter( array_map( 'intval', $field_ids ) ) );
+		if ( empty( $field_ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$limit        = max( 1, min( 500, $limit ) );
+		$placeholders = implode( ', ', array_fill( 0, count( $field_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_profile_values WHERE field_id IN ({$placeholders}) AND user_id > %d ORDER BY user_id ASC LIMIT %d",
+				...array_merge( $field_ids, array( $after_user_id, $limit ) )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**

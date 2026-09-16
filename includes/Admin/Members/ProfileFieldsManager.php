@@ -189,6 +189,82 @@ class ProfileFieldsManager {
 	}
 
 	/**
+	 * Fields set up in a way members cannot complete, listed at the top of the screen.
+	 *
+	 * A half-configured field does not fail loudly - a Dropdown with no options just
+	 * renders an empty control, and a required one silently blocks every profile save.
+	 * The owner is the one who can fix it, so it is surfaced here rather than to
+	 * members as an error.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param array<int, array<string, mixed>> $groups Group tree from get_fields().
+	 * @return void
+	 */
+	private function render_setup_issues( array $groups ): void {
+		$issues = array();
+		$types  = \BuddyNext\Profile\FieldType::types();
+
+		foreach ( $groups as $group ) {
+			foreach ( (array) ( $group['fields'] ?? array() ) as $field ) {
+				$type = (string) ( $field['type'] ?? '' );
+				if ( ! empty( $types[ $type ]['is_choice'] ) && array() === \BuddyNext\Profile\FieldType::choices( $field ) ) {
+					$issues[] = array(
+						'field_id' => (int) $field['id'],
+						'message'  => empty( $field['is_required'] )
+							? __( 'has no options, so members cannot answer it.', 'buddynext' )
+							: __( 'is required but has no options, so members cannot save their profile.', 'buddynext' ),
+					);
+				}
+			}
+		}
+
+		/**
+		 * Filter the list of profile fields that need the owner's attention.
+		 *
+		 * Add-ons append problems with their own settings on the same fields.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param array<int, array{field_id: int, message: string}> $issues Issues so far.
+		 * @param array<int, array<string, mixed>>                  $groups Group tree.
+		 */
+		$issues = (array) apply_filters( 'buddynext_profile_field_setup_issues', $issues, $groups );
+		if ( array() === $issues ) {
+			return;
+		}
+
+		$labels = array();
+		foreach ( $groups as $group ) {
+			foreach ( (array) ( $group['fields'] ?? array() ) as $field ) {
+				$labels[ (int) $field['id'] ] = (string) $field['label'];
+			}
+		}
+		?>
+		<div class="bn-alert bn-pf-setup-issues" data-tone="warning" role="status">
+			<span class="bn-alert__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
+			<div class="bn-alert__body">
+				<p class="bn-alert__title"><?php esc_html_e( 'Some profile fields need attention', 'buddynext' ); ?></p>
+				<ul class="bn-pf-setup-issues__list">
+					<?php foreach ( $issues as $issue ) : ?>
+						<?php
+						$issue_id = (int) ( $issue['field_id'] ?? 0 );
+						if ( ! isset( $labels[ $issue_id ] ) ) {
+							continue;
+						}
+						?>
+						<li>
+							<span><strong><?php echo esc_html( $labels[ $issue_id ] ); ?></strong> <?php echo esc_html( (string) ( $issue['message'] ?? '' ) ); ?></span>
+							<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-pf-toggle-edit="<?php echo esc_attr( 'bn-ef-row-' . $issue_id ); ?>"><?php esc_html_e( 'Fix', 'buddynext' ); ?></button>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Slugs of field types that need an options editor (select/radio/multiselect).
 	 *
 	 * @since 1.0.0
@@ -703,6 +779,20 @@ class ProfileFieldsManager {
 					break;
 			}
 		}
+
+		/**
+		 * Filter the sanitised per-field add-on options posted under bn_field_options[*].
+		 *
+		 * The loop above only understands scalar values. An add-on that posts
+		 * structured configuration (e.g. a JSON-encoded rule set) sanitises and
+		 * decodes its own keys here. Return null or an empty array for "nothing".
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param array<string, mixed> $out Sanitised options so far.
+		 * @param array<string, mixed> $raw Raw (unslashed) posted bn_field_options.
+		 */
+		$out = (array) apply_filters( 'buddynext_profile_field_options_sanitize', $out, $raw );
 
 		return ! empty( $out ) ? $out : null;
 	}
@@ -1625,6 +1715,8 @@ class ProfileFieldsManager {
 
 		<div class="bn-pf-wrap">
 
+		<?php $this->render_setup_issues( $groups ); ?>
+
 		<?php foreach ( $groups as $gi => $group ) : ?>
 			<?php
 			$gid          = absint( $group['id'] );
@@ -1884,7 +1976,20 @@ class ProfileFieldsManager {
 								</td>
 
 								<!-- Field name -->
-								<td><span class="bn-pf-field-name"><?php echo esc_html( $field['label'] ); ?></span></td>
+								<td>
+									<span class="bn-pf-field-name"><?php echo esc_html( $field['label'] ); ?></span>
+									<?php
+									/**
+									 * Fires after a field's name in the field list - for status badges.
+									 *
+									 * @since 1.2.1
+									 *
+									 * @param array<string, mixed> $field Field row.
+									 * @param array<string, mixed> $group Group row.
+									 */
+									do_action( 'buddynext_profile_field_row_badges', $field, $group );
+									?>
+								</td>
 
 								<!-- Type -->
 								<td><span class="bn-badge" data-tone="neutral"><?php echo esc_html( $type_lbl ); ?></span></td>
@@ -2145,6 +2250,23 @@ class ProfileFieldsManager {
 											<table class="bn-pf-hook-rows"><tbody>
 												<?php do_action( 'buddynext_profile_field_type_options', (string) $field['type'], $field ); ?>
 											</tbody></table>
+											<?php
+											/**
+											 * Fires in a field's edit panel for EVERY field type.
+											 *
+											 * Unlike buddynext_profile_field_type_options (per type, table
+											 * rows), this is for settings that apply to any field. Output is
+											 * rendered verbatim inside the form; post values under
+											 * bn_field_options[*] and sanitise them on
+											 * buddynext_profile_field_options_sanitize.
+											 *
+											 * @since 1.2.1
+											 *
+											 * @param array<string, mixed> $field Field row being edited.
+											 * @param array<string, mixed> $group Group the field belongs to.
+											 */
+											do_action( 'buddynext_profile_field_settings', $field, $group );
+											?>
 											<!-- Date display config (shown for date / daterange types) -->
 											<div id="bn-ef-date-<?php echo absint( $fid ); ?>" class="bn-pf-opts-wrap" style="<?php echo $is_date_type ? '' : 'display:none;'; ?>">
 												<label for="bn-ef-date-d-<?php echo absint( $fid ); ?>">
@@ -2292,6 +2414,10 @@ class ProfileFieldsManager {
 						<table class="bn-pf-hook-rows"><tbody>
 							<?php do_action( 'buddynext_profile_field_type_options', '', array() ); ?>
 						</tbody></table>
+						<?php
+						/** This action is documented in the edit panel above. An empty $field means a new field. */
+						do_action( 'buddynext_profile_field_settings', array(), $group );
+						?>
 						<!-- Date display config -->
 						<div id="bn-af-date-<?php echo absint( $gid ); ?>" class="bn-pf-opts-wrap" style="display:none;">
 							<label for="bn-af-date-d-<?php echo absint( $gid ); ?>">

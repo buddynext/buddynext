@@ -955,8 +955,67 @@ class FieldType {
 	 * @return bool
 	 */
 	public static function is_profile_field_active( array $field, int $user_id ): bool {
-		/** This filter is documented in includes/Profile/ProfileService.php */
+		/** This filter is documented in includes/Profile/ProfileService.php. An EMPTY $data means "render check", not a submission. */
 		return (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field, array(), $user_id );
+	}
+
+	/**
+	 * Attributes for the element that wraps ONE profile field on a member form.
+	 *
+	 * Every form that renders profile fields (profile edit, signup, complete-profile,
+	 * the admin member editor) builds its own wrapper markup, so there was no single
+	 * place an add-on could mark a field up — e.g. to hide it until another field
+	 * holds a value. This is that place. Free contributes the field key, which lets
+	 * client code find a field's controls regardless of how each form names its
+	 * inputs (`key`, `bn_field_key`, `key[]`).
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param array $field   Field definition (needs `field_key`).
+	 * @param int   $user_id Member the form is for. 0 = anonymous (signup).
+	 * @return string Attribute string with a leading space, already escaped.
+	 */
+	public static function field_wrapper_attributes( array $field, int $user_id ): string {
+		$attrs = ' data-bn-field-key="' . esc_attr( (string) ( $field['field_key'] ?? '' ) ) . '"';
+
+		/**
+		 * Filter extra attributes for a profile field's form wrapper.
+		 *
+		 * Return an escaped attribute string with a leading space (e.g.
+		 * ` data-foo="bar" hidden`). Appended after Free's own attributes.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param string $extra   Extra attributes. Default ''.
+		 * @param array  $field   Field definition.
+		 * @param int    $user_id Member the form is for. 0 = anonymous (signup).
+		 */
+		return $attrs . (string) apply_filters( 'buddynext_profile_field_wrapper_attributes', '', $field, $user_id );
+	}
+
+	/**
+	 * Attributes for the element that wraps a profile field GROUP (section) on a
+	 * member form that renders sections (profile edit, admin member editor).
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param array $group   Group definition (needs `id`, `group_key`).
+	 * @param int   $user_id Member the form is for.
+	 * @return string Attribute string with a leading space, already escaped.
+	 */
+	public static function group_wrapper_attributes( array $group, int $user_id ): string {
+		$attrs = ' data-bn-group-key="' . esc_attr( (string) ( $group['group_key'] ?? '' ) ) . '"';
+
+		/**
+		 * Filter extra attributes for a profile group's form wrapper.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param string $extra   Extra attributes. Default ''.
+		 * @param array  $group   Group definition.
+		 * @param int    $user_id Member the form is for.
+		 */
+		return $attrs . (string) apply_filters( 'buddynext_profile_group_wrapper_attributes', '', $group, $user_id );
 	}
 
 	/**

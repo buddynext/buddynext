@@ -704,6 +704,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					}
 
 					$bn_body_html .= '<div class="' . esc_attr( $bn_field_cls ) . '"'
+						. \BuddyNext\Profile\FieldType::field_wrapper_attributes( $bn_field, $user_id )
 						. ' data-wp-class--bn-ep-field--error="context.errors.' . esc_attr( $bn_fkey ) . '">';
 					// `for` must be the id render_input() actually gave the control (see
 					// FieldType::input_id), and is omitted for the group types, which
@@ -730,8 +731,9 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				buddynext_get_template(
 					'parts/profile-edit-section.php',
 					array(
-						'title'     => $bn_glabel,
-						'body_html' => $bn_body_html,
+						'title'      => $bn_glabel,
+						'body_html'  => $bn_body_html,
+						'attributes' => \BuddyNext\Profile\FieldType::group_wrapper_attributes( $bn_group, $user_id ),
 					)
 				);
 			}

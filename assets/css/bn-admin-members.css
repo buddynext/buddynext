@@ -1238,6 +1238,43 @@
 	accent-color: var(--bn-a-brand);
 }
 
+.bn-pf-setup-issues__list {
+	display: grid;
+	gap: var(--bn-a-s2);
+	margin: var(--bn-a-s3) 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bn-pf-setup-issues__list li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-a-s3);
+	margin: 0;
+	padding-block-start: var(--bn-a-s2);
+	border-block-start: 1px solid var(--bn-a-border-soft);
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+	line-height: 1.5;
+}
+
+.bn-pf-setup-issues__list strong {
+	color: var(--bn-a-text-1);
+	font-weight: var(--bn-a-fw-semibold);
+}
+
+.bn-pf-setup-issues__list .bn-btn {
+	flex-shrink: 0;
+}
+
+.bn-pf-form-error {
+	margin: var(--bn-a-s3) 0 0;
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-red);
+}
+
 .bn-pf-af-actions {
 	display: flex;
 	gap: var(--bn-a-s2);
@@ -1394,6 +1431,11 @@
 	.bn-pf-table th:nth-child(4),
 	.bn-pf-table td:nth-child(4) {
 		display: none;
+	}
+
+	.bn-pf-setup-issues__list li {
+		flex-direction: column;
+		align-items: flex-start;
 	}
 }
 
@@ -1629,6 +1671,17 @@
 	background: var(--bn-a-red-bg);
 	border: 1px solid transparent;
 	border-inline-start: 3px solid var(--bn-a-red);
+}
+
+/* Warning tone: something is set up wrong but nothing is broken yet. Same
+   anatomy as the error alert so every "needs attention" message reads alike. */
+.bn-alert[data-tone="warning"] {
+	background: var(--bn-a-amber-bg);
+	border-inline-start-color: var(--bn-a-amber);
+}
+
+.bn-alert[data-tone="warning"] .bn-alert__icon {
+	color: var(--bn-a-amber);
 }
 
 .bn-alert__icon {

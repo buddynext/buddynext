@@ -67,7 +67,8 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | Custom profile fields | Free | Free |
 | | Filterable member directory | Free | Free |
 | | Online status indicators | Free | Free |
-| | Advanced profile fields (date, location, file, conditional) | - | Pro |
+| | Advanced profile fields (date, location, multi-select, number) | - | Pro |
+| | Conditional logic for profile fields (show a field only when another answer matches) | - | Pro |
 | | Custom member labels (Verified, Expert, Staff) | - | Pro |
 | | Member segments, tags, and CSV export | - | Pro |
 | | Profile completeness score and prompts | Free | Free |

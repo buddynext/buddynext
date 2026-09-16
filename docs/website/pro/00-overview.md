@@ -44,7 +44,8 @@ Free lets you set colours and a logo. Pro lets you brand the whole thing and sha
 - **Space branding** - give flagship or client spaces their own header and identity. [Space Branding](21-space-branding.md)
 - **Custom reactions** - replace the default reaction set with reactions that fit your community's voice. [Custom Reactions](07-custom-reactions.md)
 - **Member labels** - assign titles or badges (Founder, Expert, Verified) that appear next to a member's name. [Member Labels](08-member-labels.md)
-- **Advanced profile fields** - richer field types beyond the free set - a map location, a conditional field, an advanced multi-select. [Advanced Profile Fields](09-advanced-profile-fields.md)
+- **Advanced profile fields** - richer field types beyond the free set - a map location, an advanced multi-select, an advanced number with units. [Advanced Profile Fields](09-advanced-profile-fields.md)
+- **Conditional logic for profile fields** - show a field only when a member picks a certain answer, on the profile and at registration. [Conditional Logic for Profile Fields](27-conditional-profile-fields.md)
 - **Advanced search and multi-pin** - stronger member search, and pinning more than one post. [Advanced Search](10-advanced-search.md), [Multi-Pin Posts](06-multi-pin-posts.md)
 
 ## 5. Connect the wider business suite
