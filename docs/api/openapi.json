@@ -5752,6 +5752,57 @@
                 }
             }
         },
+        "/members/{id}/blog": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_members_id_blog",
+                "summary": "GET /buddynext/v1/members/{id}/blog",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "default": 10
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MemberBlog"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/members/{id}/discussions": {
             "get": {
                 "tags": [
@@ -5772,6 +5823,37 @@
                 "responses": {
                     "200": {
                         "description": "Success."
+                    }
+                }
+            }
+        },
+        "/members/{id}/gamification": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_members_id_gamification",
+                "summary": "GET /buddynext/v1/members/{id}/gamification",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Gamification"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -13787,6 +13869,47 @@
                     }
                 }
             },
+            "Gamification": {
+                "type": "object",
+                "properties": {
+                    "available": {
+                        "type": "boolean"
+                    },
+                    "has_standing": {
+                        "type": "boolean"
+                    },
+                    "points": {
+                        "type": "integer"
+                    },
+                    "current_streak": {
+                        "type": "integer"
+                    },
+                    "badges": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "description": {
+                                    "type": "string"
+                                },
+                                "image_url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                },
+                                "is_credential": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             "Achievement": {
                 "type": "object",
                 "properties": {
@@ -13834,6 +13957,72 @@
                                 "share_url": {
                                     "type": "string",
                                     "format": "uri"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "MemberBlog": {
+                "type": "object",
+                "properties": {
+                    "available": {
+                        "type": "boolean"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "is_owner": {
+                        "type": "boolean"
+                    },
+                    "total": {
+                        "type": "integer"
+                    },
+                    "page": {
+                        "type": "integer"
+                    },
+                    "total_pages": {
+                        "type": "integer"
+                    },
+                    "dashboard_url": {
+                        "type": "string"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "title": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                },
+                                "date": {
+                                    "type": "string"
+                                },
+                                "date_display": {
+                                    "type": "string"
+                                },
+                                "excerpt": {
+                                    "type": "string"
+                                },
+                                "cover": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "format": "uri"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_label": {
+                                    "type": "string"
                                 }
                             }
                         }

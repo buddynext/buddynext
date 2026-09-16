@@ -73,6 +73,8 @@ final class ResponseSchema {
 			array( 'method' => 'GET', 'path' => '/app/config',                   'resource' => 'app_config',        'shape' => 'item' ),
 			array( 'method' => 'GET', 'path' => '/account/2fa',                  'resource' => 'twofa_status',      'shape' => 'item' ),
 			array( 'method' => 'GET', 'path' => '/space-categories',             'resource' => 'space_category',    'shape' => 'array' ),
+			array( 'method' => 'GET', 'path' => '/members/{id}/gamification',    'resource' => 'gamification',      'shape' => 'item' ),
+			array( 'method' => 'GET', 'path' => '/members/{id}/blog',            'resource' => 'member_blog',       'shape' => 'item' ),
 		);
 	}
 
@@ -128,6 +130,79 @@ final class ResponseSchema {
 				'is_muted'       => array( 'type' => 'boolean' ),
 				'connection'     => array( 'type' => array( 'object', 'null' ) ),
 				'labels'         => array( 'type' => 'array', 'items' => array( 'type' => 'object' ) ),
+			),
+		);
+	}
+
+	/**
+	 * Member gamification standing (GET /members/{id}/gamification) — the
+	 * Achievements panel read model. Mirrors GamificationAchievements::standing_data().
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function gamification(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'gamification',
+			'type'       => 'object',
+			'properties' => array(
+				'available'      => array( 'type' => 'boolean' ),
+				'has_standing'   => array( 'type' => 'boolean' ),
+				'points'         => array( 'type' => 'integer' ),
+				'current_streak' => array( 'type' => 'integer' ),
+				'badges'         => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'id'            => array( 'type' => 'string' ),
+							'name'          => array( 'type' => 'string' ),
+							'description'   => array( 'type' => 'string' ),
+							'image_url'     => array( 'type' => 'string', 'format' => 'uri' ),
+							'is_credential' => array( 'type' => 'boolean' ),
+						),
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * Member articles panel (GET /members/{id}/blog) — the Articles tab read
+	 * model. Mirrors MemberBlogBridge::articles_data().
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function member_blog(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'member-blog',
+			'type'       => 'object',
+			'properties' => array(
+				'available'     => array( 'type' => 'boolean' ),
+				'enabled'       => array( 'type' => 'boolean' ),
+				'is_owner'      => array( 'type' => 'boolean' ),
+				'total'         => array( 'type' => 'integer' ),
+				'page'          => array( 'type' => 'integer' ),
+				'total_pages'   => array( 'type' => 'integer' ),
+				'dashboard_url' => array( 'type' => 'string' ),
+				'items'         => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'id'           => array( 'type' => 'integer' ),
+							'title'        => array( 'type' => 'string' ),
+							'url'          => array( 'type' => 'string', 'format' => 'uri' ),
+							'date'         => array( 'type' => 'string' ),
+							'date_display' => array( 'type' => 'string' ),
+							'excerpt'      => array( 'type' => 'string' ),
+							'cover'        => array( 'type' => array( 'string', 'null' ), 'format' => 'uri' ),
+							'status'       => array( 'type' => 'string' ),
+							'status_label' => array( 'type' => 'string' ),
+						),
+					),
+				),
 			),
 		);
 	}
