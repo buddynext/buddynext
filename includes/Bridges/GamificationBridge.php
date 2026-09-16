@@ -42,6 +42,15 @@ class GamificationBridge {
 		// participation badges never spam the feed.
 		add_action( 'wb_gam_badge_awarded', array( $this, 'on_badge_awarded_activity' ), 10, 3 );
 
+		// REST read model for the member's standing (points/streak/badges) so the
+		// app + developers render the Achievements panel from data, not HTML.
+		add_action(
+			'rest_api_init',
+			static function (): void {
+				( new GamificationRestController() )->register_routes();
+			}
+		);
+
 		// Render the badge feed card through Free's typed-card seam, so it shows the
 		// uniform integration bridge card (icon + "Badge" + linked name) instead of
 		// the plain-text fallback — the same one job/listing/course use.
