@@ -95,7 +95,7 @@ class BridgeStatusCommand {
 			WP_CLI::error(
 				sprintf(
 					/* translators: %d: count of integrations below their floor. */
-					_n( '%d integration is below its partner floor — a wired feature is silently off. Update the partner.', '%d integrations are below their partner floor — wired features are silently off. Update the partners.', $below_floor, 'buddynext' ),
+					_n( '%d integration is below its partner floor, so a wired feature is silently off. Update the partner.', '%d integrations are below their partner floor, so wired features are silently off. Update the partners.', $below_floor, 'buddynext' ),
 					$below_floor
 				)
 			);
@@ -105,7 +105,7 @@ class BridgeStatusCommand {
 		if ( $behind > 0 ) {
 			$message = sprintf(
 				/* translators: %d: count of integrations whose partner is newer than tested. */
-				_n( '%d integration has a partner newer than the version its bridge was built for — the bridge is due a refresh.', '%d integrations have a partner newer than the version their bridge was built for — those bridges are due a refresh.', $behind, 'buddynext' ),
+				_n( '%d integration has a partner newer than the version its bridge was built for. The bridge is due a refresh.', '%d integrations have a partner newer than the version their bridge was built for. Those bridges are due a refresh.', $behind, 'buddynext' ),
 				$behind
 			);
 			if ( $strict ) {

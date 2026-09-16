@@ -113,14 +113,14 @@ class IntegrationControlsAdmin {
 									if ( $bn_stale ) {
 										printf(
 											/* translators: 1: installed partner version, 2: required minimum version. */
-											esc_html__( 'Version %1$s installed — update to %2$s or newer to enable every feature this integration offers.', 'buddynext' ),
+											esc_html__( 'Version %1$s installed. Update to %2$s or newer to enable every feature this integration offers.', 'buddynext' ),
 											esc_html( $bn_version ),
 											esc_html( $bn_floor )
 										);
 									} elseif ( $bn_behind ) {
 										printf(
 											/* translators: 1: installed partner version, 2: version the bridge was built for. */
-											esc_html__( 'Version %1$s installed. This integration was built for %2$s; the partner is newer, so its latest features may not be wired yet — this bridge is due a refresh.', 'buddynext' ),
+											esc_html__( 'Version %1$s installed. This integration was built for %2$s; the partner is newer, so its latest features may not be wired yet. This bridge is due a refresh.', 'buddynext' ),
 											esc_html( $bn_version ),
 											esc_html( $bn_tested )
 										);
