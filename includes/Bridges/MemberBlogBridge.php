@@ -61,6 +61,16 @@ class MemberBlogBridge {
 	public function init(): void {
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
 		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
+
+		// REST read model for the member's articles so the app + developers render
+		// the Articles panel from data, not HTML. The handler self-reports
+		// available/enabled, so it is safe to register unconditionally.
+		add_action(
+			'rest_api_init',
+			static function (): void {
+				( new MemberBlogRestController() )->register_routes();
+			}
+		);
 	}
 
 	/**
@@ -239,6 +249,76 @@ class MemberBlogBridge {
 		);
 
 		wp_reset_postdata();
+	}
+
+	/**
+	 * The Articles panel as a plain data array — the same posts + pagination the
+	 * profile tab renders, shaped for JSON so the app and developers read the
+	 * panel without scraping HTML. Honours the same author/type/status rules
+	 * (drafts and pending only reach the owner or an editor).
+	 *
+	 * @param int $user_id   Profile owner.
+	 * @param int $viewer_id Viewer (0 = logged out).
+	 * @param int $page      Page (1-based).
+	 * @param int $per_page  Per page (1-50).
+	 * @return array<string,mixed> { available, enabled, is_owner, total, page, total_pages, dashboard_url, items[] }
+	 */
+	public function articles_data( int $user_id, int $viewer_id, int $page = 1, int $per_page = 10 ): array {
+		$available = self::available();
+		$enabled   = ! function_exists( 'buddynext_integration_enabled' ) || (bool) buddynext_integration_enabled( self::INTEGRATION, 'nav' );
+		$is_owner  = $viewer_id > 0 && $viewer_id === $user_id;
+		$out       = array(
+			'available'     => $available,
+			'enabled'       => $enabled,
+			'is_owner'      => $is_owner,
+			'total'         => 0,
+			'page'          => max( 1, $page ),
+			'total_pages'   => 0,
+			'dashboard_url' => '',
+			'items'         => array(),
+		);
+		if ( $user_id <= 0 || ! $available || ! $enabled ) {
+			return $out;
+		}
+		$page     = max( 1, $page );
+		$per_page = max( 1, min( 50, $per_page ) );
+
+		$query = new \WP_Query(
+			array(
+				'author'                 => $user_id,
+				'post_type'              => $this->tracked_types(),
+				'post_status'            => $this->visible_statuses( $user_id, $viewer_id ),
+				'posts_per_page'         => $per_page,
+				'paged'                  => $page,
+				'ignore_sticky_posts'    => true,
+				'update_post_term_cache' => false,
+			)
+		);
+
+		$items = array();
+		foreach ( $query->posts as $post ) {
+			$status  = (string) $post->post_status;
+			$obj     = get_post_status_object( $status );
+			$cover   = get_the_post_thumbnail_url( $post, 'medium' );
+			$items[] = array(
+				'id'           => (int) $post->ID,
+				'title'        => (string) get_the_title( $post ),
+				'url'          => (string) get_permalink( $post ),
+				'date'         => (string) get_the_date( 'c', $post ),
+				'date_display' => (string) get_the_date( '', $post ),
+				'excerpt'      => wp_trim_words( wp_strip_all_tags( (string) get_the_excerpt( $post ) ), 28 ),
+				'cover'        => $cover ? (string) $cover : null,
+				'status'       => $status,
+				'status_label' => $obj ? (string) $obj->label : $status,
+			);
+		}
+		wp_reset_postdata();
+
+		$out['total']         = (int) $query->found_posts;
+		$out['total_pages']   = (int) $query->max_num_pages;
+		$out['items']         = $items;
+		$out['dashboard_url'] = $is_owner ? $this->dashboard_url( $user_id ) : '';
+		return $out;
 	}
 
 	/**
