@@ -155,11 +155,13 @@ $bn_arg_schema = static function ( array $arg ): array {
 // Free + Pro registries (Pro is only present when the Pro plugin is active, e.g.
 // when generating the combined Free+Pro spec). map() entries merge; resource
 // methods are resolved from whichever registry defines them.
-$bn_resp_classes = array_values( array_filter(
-	array( '\\BuddyNext\\REST\\ResponseSchema', '\\BuddyNextPro\\REST\\ResponseSchema' ),
-	'class_exists'
-) );
-$bn_resp_map = array();
+$bn_resp_classes = array_values(
+	array_filter(
+		array( '\\BuddyNext\\REST\\ResponseSchema', '\\BuddyNextPro\\REST\\ResponseSchema' ),
+		'class_exists'
+	)
+);
+$bn_resp_map     = array();
 foreach ( $bn_resp_classes as $bn_rc ) {
 	foreach ( (array) $bn_rc::map() as $bn_me ) {
 		$bn_resp_map[] = $bn_me;
@@ -188,10 +190,24 @@ $bn_wp_to_oa = static function ( array $wp ) use ( &$bn_wp_to_oa ): array {
 	if ( isset( $wp['description'] ) ) {
 		$out['description'] = $wp['description'];
 	}
+	if ( isset( $wp['additionalProperties'] ) ) {
+		$out['additionalProperties'] = $wp['additionalProperties'];
+	}
 	if ( isset( $wp['properties'] ) && is_array( $wp['properties'] ) ) {
 		$out['properties'] = array();
+		$bn_ts_keys        = class_exists( '\\BuddyNext\\Core\\Dates' ) ? \BuddyNext\Core\Dates::timestamp_keys() : array();
 		foreach ( $wp['properties'] as $bn_k => $bn_v ) {
 			$out['properties'][ $bn_k ] = is_array( $bn_v ) ? $bn_wp_to_oa( $bn_v ) : array();
+			// Core\Dates adds an ISO `<key>_gmt` sibling to these keys on every
+			// BuddyNext response, so document it wherever the key appears.
+			$bn_gmt = $bn_k . '_gmt';
+			if ( in_array( (string) $bn_k, $bn_ts_keys, true ) && ! isset( $wp['properties'][ $bn_gmt ] ) ) {
+				$out['properties'][ $bn_gmt ] = array(
+					'type'        => 'string',
+					'format'      => 'date-time',
+					'description' => sprintf( 'ISO 8601 UTC form of %s; present when %s is set.', $bn_k, $bn_k ),
+				);
+			}
 		}
 	}
 	if ( isset( $wp['items'] ) && is_array( $wp['items'] ) ) {
@@ -228,13 +244,26 @@ $bn_register_paginated = static function ( string $item_name ) use ( &$bn_schema
 		$bn_schemas[ $name ] = array(
 			'type'       => 'object',
 			'properties' => array(
-				'items'       => array( 'type' => 'array', 'items' => array( '$ref' => '#/components/schemas/' . $item_name ) ),
+				'items'       => array(
+					'type'  => 'array',
+					'items' => array( '$ref' => '#/components/schemas/' . $item_name ),
+				),
 				'next_cursor' => array( 'type' => array( 'string', 'null' ) ),
 				'total'       => array( 'type' => 'integer' ),
 			),
 		);
 	}
 	return $name;
+};
+
+// Media type of a mapped route's 200 body (text routes declare their own).
+$bn_content_type_for = static function ( string $method, string $rel_path ) use ( $bn_resp_map ): string {
+	foreach ( $bn_resp_map as $bn_entry ) {
+		if ( strtoupper( (string) ( $bn_entry['method'] ?? '' ) ) === $method && (string) ( $bn_entry['path'] ?? '' ) === $rel_path ) {
+			return (string) ( $bn_entry['content_type'] ?? 'application/json' );
+		}
+	}
+	return 'application/json';
 };
 
 // Build the OpenAPI 200-body schema for a mapped (method, path), or null.
@@ -244,21 +273,30 @@ $bn_response_schema_for = static function ( string $method, string $rel_path ) u
 			|| (string) ( $bn_entry['path'] ?? '' ) !== $rel_path ) {
 			continue;
 		}
+		$shape = (string) ( $bn_entry['shape'] ?? 'item' );
+		if ( 'text' === $shape ) {
+			// Not JSON (an HTML page, a script): the body is a string of content_type.
+			return array( 'type' => 'string' );
+		}
 		$item = $bn_register_resource( (string) ( $bn_entry['resource'] ?? '' ) );
 		if ( '' === $item ) {
 			return null;
 		}
-		$shape = (string) ( $bn_entry['shape'] ?? 'item' );
 		if ( 'paginated' === $shape ) {
 			return array( '$ref' => '#/components/schemas/' . $bn_register_paginated( $item ) );
 		}
 		if ( 'array' === $shape ) {
-			return array( 'type' => 'array', 'items' => array( '$ref' => '#/components/schemas/' . $item ) );
+			return array(
+				'type'  => 'array',
+				'items' => array( '$ref' => '#/components/schemas/' . $item ),
+			);
 		}
 		return array( '$ref' => '#/components/schemas/' . $item );
 	}
 	return null;
 };
+
+require __DIR__ . '/openapi-all-routes.php';
 
 $bn_server = rest_get_server();
 $bn_routes = $bn_server->get_routes();
@@ -392,11 +430,15 @@ foreach ( $bn_namespaces as $bn_namespace ) {
 				// Typed 200 body from the ResponseSchema registry (no-op when the
 				// route is not mapped, so the spec stays honest as the map grows).
 				$bn_resp_schema = $bn_response_schema_for( $bn_method, $bn_tpl['path'] );
+				if ( null === $bn_resp_schema && 'GET' !== $bn_method ) {
+					// A write with no mapped resource still answers with a JSON object.
+					$bn_resp_schema = array( '$ref' => '#/components/schemas/' . $bn_register_resource( 'action_result' ) );
+				}
 				if ( null !== $bn_resp_schema ) {
 					$bn_op['responses']['200'] = array(
 						'description' => 'Success.',
 						'content'     => array(
-							'application/json' => array( 'schema' => $bn_resp_schema ),
+							$bn_content_type_for( $bn_method, $bn_tpl['path'] ) => array( 'schema' => $bn_resp_schema ),
 						),
 					);
 				}
@@ -448,7 +490,7 @@ $bn_info = (array) ( $bn_config['info'] ?? array( 'title' => 'BuddyNext REST API
 // a silent default makes the spec claim a version that was never true - harder
 // to notice than a failed build, because the freshness gate cannot see it: that
 // gate regenerates and diffs, so a stale stamp matches itself and passes.
-$bn_main_file   = dirname( __DIR__ ) . '/buddynext.php';
+$bn_main_file    = dirname( __DIR__ ) . '/buddynext.php';
 $bn_spec_version = '';
 if ( is_readable( $bn_main_file ) ) {
 	$bn_headers      = get_file_data( $bn_main_file, array( 'version' => 'Version' ), 'plugin' );

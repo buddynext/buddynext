@@ -41,11 +41,19 @@ if ! wp ${WP_ARGS[@]+"${WP_ARGS[@]}"} eval "require '${PLUGIN_DIR}/bin/gen-opena
 	exit 1
 fi
 
+# The combined Free + Pro spec (what the developer reference publishes). The gate
+# below compares against it, so it is regenerated in the same run.
+echo "• Generating docs/api/openapi.combined.json (Free + Pro)…"
+if ! BN_OPENAPI_CONFIG="${PLUGIN_DIR}/docs/api/openapi.combined.config.json" wp ${WP_ARGS[@]+"${WP_ARGS[@]}"} eval "require '${PLUGIN_DIR}/bin/gen-openapi.php';"; then
+	echo "✗ sync-api-docs: combined generator failed." >&2
+	exit 1
+fi
+
 # Drift gate: the ResponseSchema registry must still match the live API, or the
 # spec we just generated documents a shape the API no longer returns.
 echo "• Checking OpenAPI response-schema drift against the live API…"
 if ! wp ${WP_ARGS[@]+"${WP_ARGS[@]}"} eval "require '${PLUGIN_DIR}/bin/check-openapi.php';"; then
-	echo "✗ sync-api-docs: response-schema drift - fix includes/Rest/ResponseSchema.php." >&2
+	echo "✗ sync-api-docs: OpenAPI gate failed (untyped operations, stale spec or field drift) - see above." >&2
 	exit 1
 fi
 
@@ -57,4 +65,4 @@ if [ -f "${PLUGIN_DIR}/tests/audit/rest-reachability.php" ]; then
 	fi
 fi
 
-echo "✓ sync-api-docs: docs/api/openapi.json is up to date."
+echo "✓ sync-api-docs: docs/api/openapi.json and openapi.combined.json are up to date."
