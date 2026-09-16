@@ -668,7 +668,7 @@ class SetupWizard {
 							admin_url( 'admin.php' )
 						);
 						?>
-						<li class="bn-wizard__step" data-state="<?php echo esc_attr( $state ); ?>"<?php echo $current_aria; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- value is a fixed literal. ?>>
+						<li class="bn-wizard__step" data-state="<?php echo esc_attr( $state ); ?>" title="<?php echo esc_attr( $label ); ?>"<?php echo $current_aria; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- value is a fixed literal. ?>>
 							<?php if ( $bn_wiz_visitable ) : ?>
 								<a class="bn-wizard__step-link" href="<?php echo esc_url( $bn_wiz_step_url ); ?>">
 							<?php endif; ?>
