@@ -307,7 +307,18 @@ $updated_iso = gmdate( 'c' );
 				<div class="bn-stat">
 					<span class="bn-stat__label">
 						<span class="bn-lb-stat__icon" aria-hidden="true"><?php buddynext_icon( 'crown' ); ?></span>
-						<?php esc_html_e( 'Your rank', 'buddynext' ); ?>
+						<?php
+						// The rank comes from the selected tab while the points and level
+						// beside it are all-time, so the rank names its period: "#2" next to
+						// all-time points read as the member's overall standing.
+						if ( 'week' === $period ) {
+							esc_html_e( 'Your rank this week', 'buddynext' );
+						} elseif ( 'month' === $period ) {
+							esc_html_e( 'Your rank this month', 'buddynext' );
+						} else {
+							esc_html_e( 'Your rank all time', 'buddynext' );
+						}
+						?>
 					</span>
 					<span class="bn-stat__value">
 						<?php echo $current_user_rank > 0 ? esc_html( '#' . number_format_i18n( $current_user_rank ) ) : esc_html__( 'Unranked', 'buddynext' ); ?>
