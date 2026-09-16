@@ -21,6 +21,10 @@
  * @var string $album_creators        Optional. 'members' (default) or 'admins' - who may
  *                                    create albums in this space. Uploading INTO an
  *                                    existing album stays open to members either way.
+ * @var bool   $events_tab            Optional. Current value of the Events-tab toggle.
+ * @var string $event_creators        Optional. 'members' (default) or 'admins' - who may
+ *                                    add events to this space. Rows render only when the
+ *                                    Eventonomy bridge (Pro) has registered the field.
  * @var bool   $is_space_owner        Required. Whether the viewer owns the space. This
  *                                    panel is owner-only (it decides whether the space
  *                                    has a discussion, a media tab, and whether its
@@ -51,6 +55,8 @@ $args = array(
 	'mvs_media_tab'         => isset( $mvs_media_tab ) ? (bool) $mvs_media_tab : false,
 	'mvs_documents_tab'     => isset( $mvs_documents_tab ) ? (bool) $mvs_documents_tab : false,
 	'album_creators'        => isset( $album_creators ) ? (string) $album_creators : 'members',
+	'events_tab'            => isset( $events_tab ) ? (bool) $events_tab : false,
+	'event_creators'        => isset( $event_creators ) ? (string) $event_creators : 'members',
 	'is_space_owner'        => isset( $is_space_owner ) ? (bool) $is_space_owner : false,
 	'classes'               => isset( $classes ) ? (array) $classes : array(),
 );
@@ -68,6 +74,13 @@ $bn_push_to_feed      = ! empty( $args['integrations_settings']['push_to_feed'] 
 $bn_mvs_media_tab     = (bool) $args['mvs_media_tab'];
 $bn_mvs_documents_tab = (bool) $args['mvs_documents_tab'];
 $bn_documents_ready   = \BuddyNext\Bridges\WPMediaVerseBridge::documents_available();
+
+// Events (Eventonomy) toggles render only when the field is registered — i.e.
+// the Eventonomy bridge (BuddyNext Pro) is active. No hard dependency on Pro:
+// absent the field, the rows simply do not appear, and the composer skips them.
+$bn_events_available = null !== \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_field( 'events_tab' );
+$bn_events_tab       = (bool) $args['events_tab'];
+$bn_event_creators   = (string) $args['event_creators'];
 
 // Discussion (Jetonomy) — opt-in per Space, never mandatory. A Space owns ONE
 // dedicated discussion for its lifetime: before it exists the owner sees a picker
@@ -259,6 +272,35 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Only organisers can create albums', 'buddynext' ); ?>">
 				<input type="checkbox" class="bn-space-settings__toggle-input" name="album_creators_admins" value="1" <?php checked( 'admins' === $args['album_creators'] ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+	<?php endif; ?>
+
+	<?php
+	// Events (Eventonomy). The Events tab is opt-in per Space (default off), the
+	// same shape as Media/Files. "Only organisers can add events" is the space's
+	// moderation lever: because editing an event stays with its author, an owner
+	// who wants a curated calendar controls it at the door instead.
+	?>
+	<?php if ( $bn_events_available ) : ?>
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Events tab', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show an Events tab so members can see and add events for this space.', 'buddynext' ); ?></div>
+			</div>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Events tab', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="events_tab" value="1" <?php checked( $bn_events_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Only organisers can add events', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'When off, any member can add an event to this space. When on, only organisers can.', 'buddynext' ); ?></div>
+			</div>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Only organisers can add events', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="event_creators_admins" value="1" <?php checked( 'admins' === $bn_event_creators ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>

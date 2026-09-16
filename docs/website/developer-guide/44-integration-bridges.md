@@ -241,9 +241,31 @@ Learnomy is a custom-table LMS. Its Space (B2B team) and cohort models are Pro (
 
 - **Feed activity, space-scoped:** `evnm_after_create_event` → "scheduled an event", `evnm_after_create_rsvp`/`_update_rsvp` (status `going`) → "is attending". Both `IntegrationActivity::publish(..., (int) $event['space_id'], ...)`, so an event bound to a Space posts to that Space's feed AND the member's profile; unbound events stay profile/main-feed. `evnm_event_status_changed` publishes on → published and removes on cancel; `evnm_after_delete_event` removes.
 - **Edit sync:** `on_event_updated` → `publish_event_surfaces`, which re-indexes search and, when `publish()` dedups an existing card (returns 0), calls `IntegrationActivity::refresh()` to update the card in place. Note the refresh payload must include `title` + `description` alongside `event_card_meta()` (image/date/venue) — the card's headline and preview are `link_meta['title']`/`['description']`, which `event_card_meta` does not carry; passing only the meta refreshed the date/venue but left the headline stale (fixed on 1.2.1).
-- **Surfaces:** profile **Events** tab (Organizing / Going / Interested / Maybe), space **Events** tab (`render_space_events` + `EventBuckets::resolve_space`), left-rail item, an upcoming-events sidebar widget, and notification mirroring via `evnm_notification_dispatch`.
+- **Surfaces:** profile **Events** tab (Organizing / Going / Interested / Maybe), space **Events** tab (`render_space_events` — a **List / Calendar** toggle + **Create event** button), left-rail item, an upcoming-events sidebar widget, and notification mirroring via `evnm_notification_dispatch`.
 - **Identity:** Eventonomy's `evnm_user_display_names` default is already WP `display_name` (= BuddyNext's), avatars use core `get_avatar()` (BuddyNext's `AvatarService` wins), and event pages are Eventonomy's own surface (linked via `evnm_event_permalink`) — so nothing to take over.
 - **No double activity:** Eventonomy Pro ships its own BuddyPress `ActivityRecorder`, but it is guarded on `function_exists( 'bp_activity_add' )` / `bp_is_active()` and is inert on a BuddyNext (non-BuddyPress) site — only this bridge records activity.
+
+### Space Events module (create-in-space)
+
+Eventonomy's own group-events UX (`GroupEventStamp` + `EventsGroupTab`) binds to classic BuddyPress **groups** (`bp_get_current_group_id`, `groups_*`), which never resolve for a BuddyNext **Space**. `SpaceEventStamp` (`includes/Integrations/Eventonomy/SpaceEventStamp.php`) is the Space-equivalent: it feeds the same three Eventonomy seams so a member can create an event from a Space and have it auto-bound, without picking a space. Without it, nothing writes a Space `space_id` through the UI and the space Events tab has no feeder.
+
+- `evnm_event_editor_fields` — on the create URL carrying `?bn_space={id}`, injects `space_id` (NEW events only) so it rides the editor block's context into `POST /events`. Auto-bind, no picker.
+- `evnm_user_can_bind_space` — authorises a bind to a **real BN space id only** (returns the prior decision otherwise, never vouching for another layer's ids). Re-checked on create AND update, so a forged `?bn_space` is refused server-side.
+- `evnm_available_spaces` — offers the member's own bindable spaces to the editor picker.
+- **Create button** links to `evnm_event_create_link` (the dashboard `/manage-events/?evnm_section=create` URL) + `bn_space`, NOT the Submit Event page — that page 302-redirects and drops query args, so `bn_space` would be lost.
+- **Authorisation** mirrors `Galleries::can_create_space_album`: admin always; space manager/moderator always; any active member unless the owner set the per-space `event_creators` field to `admins`. Also gated on Eventonomy's own `evnm_user_can_create_events`.
+
+**List / Calendar views** (`render_space_events`, view carried in `?bn_eview`):
+
+- **List** (default) — BuddyNext's own `render_event_grid` + pager over `EventBuckets::resolve_space` (matches the hub's card styling), or an inviting empty state.
+- **Calendar** — reuses Eventonomy's own `eventonomy/calendar` block via `render_block( [ 'spaceId' => $space_id ] )`, exactly as Eventonomy Pro's group tab does; the block's `render.php` maps `spaceId` → `space_id` in its range query, so the month grid is scoped to this space. No reimplemented calendar. Verified embedded in the hub: the block's Interactivity region hydrates (month nav works), events link out to their Eventonomy pages, and it is responsive (mobile agenda layout) and dark-mode-cohesive out of the box. The toggle links are ordinary full-load navigations so the block hydrates cleanly; degrades to the list if the block is unregistered.
+
+**Per-space owner controls** (fields registered by the bridge on `buddynext_register_space_fields`, rendered in the space Settings → Integrations panel guarded by `SpaceFieldRegistry::get_field('events_tab')`):
+
+- `events_tab` (boolean, default `0`) — show the Events tab in this space. Mirrors `mvs_media_tab`/`mvs_documents_tab`; the space nav item is gated on it, so the tab is owner-opt-in (shown even when empty, so members can create the first event).
+- `event_creators` (select, default `members`; `members`|`admins`) — who may add events. Because editing an event stays **author-only** (Eventonomy's `Capabilities::user_can_manage_event`, unchanged — a space owner gets no edit rights over a member's event), this "organisers only" setting is the space's moderation lever: curate at the door.
+
+**Visibility:** an event created in a space defaults to Eventonomy's `public` visibility (the creator can change it), and `resolve_space` already queries `visibility='public'`, so the space tab and the global calendar both show it — a private space's events are therefore public unless the creator narrows them.
 
 ## PWA
 
