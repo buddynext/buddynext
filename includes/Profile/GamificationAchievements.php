@@ -672,6 +672,16 @@ class GamificationAchievements {
 
 		$date_format = (string) get_option( 'date_format', 'M j, Y' );
 
+		// Which earned badges this viewer can open. wb-gamification shows a badge's
+		// share page to its owner and admins, and to anyone else only once the
+		// member has published it; otherwise the page redirects back to this
+		// profile, so linking an unpublished tile sent visitors round in a loop.
+		// One query for the published set rather than one per tile.
+		$viewer        = get_current_user_id();
+		$sees_all      = $viewer > 0 && ( $viewer === $member_id || user_can( $viewer, 'manage_options' ) );
+		$can_check     = is_callable( array( '\WBGam\Engine\BadgeShare', 'shared_badges' ) );
+		$published_ids = ( ! $sees_all && $can_check ) ? array_flip( \WBGam\Engine\BadgeShare::shared_badges( $member_id ) ) : array();
+
 		echo '<ul class="bn-achievements__grid" role="list">';
 		foreach ( $all as $badge ) {
 			$is_earned = ! empty( $badge['earned'] );
@@ -681,8 +691,9 @@ class GamificationAchievements {
 			$image     = isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '';
 			$is_cr     = ! empty( $badge['is_credential'] );
 			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? date_i18n( $date_format, (int) strtotime( (string) $badge['earned_at'] ) ) : '';
-			// Only earned badges have a public share page; locked ones are static.
-			$url = ( $is_earned && '' !== $id ) ? $this->badge_share_url( $id, $member_id ) : '';
+			// Only earned badges the viewer can open get a link; the rest are static.
+			$can_open = $is_earned && '' !== $id && ( $sees_all || ! $can_check || isset( $published_ids[ $id ] ) );
+			$url      = $can_open ? $this->badge_share_url( $id, $member_id ) : '';
 
 			$classes = 'bn-achievements__badge';
 			if ( $is_cr ) {
@@ -695,7 +706,10 @@ class GamificationAchievements {
 			// The description doubles as the "how to earn it" hint on locked badges.
 			$title = '' !== $desc ? ' title="' . esc_attr( $desc ) . '"' : '';
 
-			echo '<li class="' . esc_attr( $classes ) . '"' . $title . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $title pre-escaped above.
+			// The anchor the feed's "earned a badge" card links to (#badge-{id}).
+			$anchor = '' !== $id ? ' id="' . esc_attr( 'badge-' . $id ) . '"' : '';
+
+			echo '<li class="' . esc_attr( $classes ) . '"' . $anchor . $title . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $anchor and $title pre-escaped above.
 			if ( '' !== $url ) {
 				echo '<a class="bn-achievements__badge-link" href="' . esc_url( $url ) . '">';
 			} else {

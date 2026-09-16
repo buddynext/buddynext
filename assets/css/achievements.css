@@ -117,6 +117,16 @@
 	font-size: var(--bn-text-sm);
 }
 
+/* A badge linked from the feed (#badge-{id}) lands clear of the sticky header. */
+.bn-achievements__badge {
+	scroll-margin-top: calc(var(--bn-shell-chrome, 0px) + var(--bn-s4));
+}
+
+.bn-achievements__badge:target .bn-achievements__badge-link {
+	border-color: var(--bn-accent);
+	box-shadow: 0 0 0 3px var(--bn-accent-soft);
+}
+
 /* Badge grid. */
 .bn-achievements__grid {
 	list-style: none;
