@@ -263,7 +263,13 @@ Eventonomy's own group-events UX (`GroupEventStamp` + `EventsGroupTab`) binds to
 **Per-space owner controls** (fields registered by the bridge on `buddynext_register_space_fields`, rendered in the space Settings → Integrations panel guarded by `SpaceFieldRegistry::get_field('events_tab')`):
 
 - `events_tab` (boolean, default `0`) — show the Events tab in this space. Mirrors `mvs_media_tab`/`mvs_documents_tab`; the space nav item is gated on it, so the tab is owner-opt-in (shown even when empty, so members can create the first event).
-- `event_creators` (select, default `members`; `members`|`admins`) — who may add events. Because editing an event stays **author-only** (Eventonomy's `Capabilities::user_can_manage_event`, unchanged — a space owner gets no edit rights over a member's event), this "organisers only" setting is the space's moderation lever: curate at the door.
+- `event_creators` (select, default `members`; `members`|`admins`) — who may add events. Editing an event's **content** stays **author-only** (Eventonomy's `Capabilities::user_can_manage_event`, unchanged — a space owner gets no edit rights over a member's event). This setting is the "who may add" door.
+
+**Organiser moderation — "Remove from space" (unlink).** The removal half of space control: a space owner/manager/moderator (or site admin) can detach any event bound to their space, in the space Events **List** view. It never deletes or edits the event — it sets `space_id` to `0`, so the event survives as the author's own personal/public event and simply leaves the space.
+
+- Authority: `SpaceEventStamp::can_moderate_space_events()` (space `buddynext-manage-space`/`buddynext-moderate-space`, or `manage_options`) — a **space** authority, deliberately separate from event authorship. `unbind_from_space()` also verifies the event is currently bound to *that* space, then calls Eventonomy's public `EventService::update( $id, ['space_id'=>0] )` (no table writes). Eventonomy's own `authorize_space_binding` always permits an unbind (`space_id<=0`); the author-gate is only in its REST controller, so BN authorises the organiser itself.
+- Two entry points (portfolio rule): a progressive `<details>` two-step **POST form** on the web (nonce; works without JS; handled on `template_redirect` with a PRG redirect + status notice), and `POST buddynext-pro/v1/spaces/{space_id}/events/{event_id}/unbind` for the app. The control renders only for organisers, only in List view, and never inside the row link.
+- The `on_event_updated` hook then re-syncs surfaces — the space feed card follows `space_id` to 0.
 
 **Visibility:** an event created in a space defaults to Eventonomy's `public` visibility (the creator can change it), and `resolve_space` already queries `visibility='public'`, so the space tab and the global calendar both show it — a private space's events are therefore public unless the creator narrows them.
 
