@@ -2105,9 +2105,11 @@ class PostService {
 		// row that knew its space_id is gone. Anything caching a per-space aggregate
 		// over posts needs this to invalidate.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$bn_deleted_space_id = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id )
+		$bn_deleted_row      = $wpdb->get_row(
+			$wpdb->prepare( "SELECT space_id, user_id, type, shared_post_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ),
+			ARRAY_A
 		);
+		$bn_deleted_space_id = (int) ( $bn_deleted_row['space_id'] ?? 0 );
 
 		// Cascade every child row keyed to this post (and to its comments), then the
 		// post itself, INSIDE one transaction so the delete is all-or-nothing. The
@@ -2150,6 +2152,14 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		// A repost IS the share. Deleting it un-shares for its author (not the
+		// moderator who may be deleting it): the original's count drops and the
+		// author may share it again, instead of a count that never goes down and
+		// a 409 "already shared" on a share that no longer exists.
+		if ( 'share' === ( $bn_deleted_row['type'] ?? '' ) && (int) ( $bn_deleted_row['shared_post_id'] ?? 0 ) > 0 ) {
+			( new ShareService() )->unshare( (int) $bn_deleted_row['user_id'], (int) $bn_deleted_row['shared_post_id'] );
+		}
 
 		/**
 		 * Fires after a post is deleted.

@@ -207,8 +207,8 @@ class ShareService {
 	/**
 	 * Remove a user's share of a post.
 	 *
-	 * Decrements the share_count (floor 0) on the original post.
-	 * Silently succeeds if no share row exists.
+	 * Decrements the share_count (floor 0) on the original post and deletes the
+	 * member's repost card of it. Silently succeeds if no share row exists.
 	 *
 	 * @param int $user_id User who shared the post.
 	 * @param int $post_id Original post.
@@ -230,6 +230,22 @@ class ShareService {
 		if ( $deleted ) {
 			( new PostService() )->adjust_share_count( $post_id, -1 );
 			self::flush_shares( $user_id );
+		}
+
+		// Un-sharing also removes the member's repost card, so the feed never
+		// shows a share the count no longer includes. PostService::delete() calls
+		// back into here once the card is gone; the record is already removed by
+		// then, so that call changes nothing.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write path, must read the live rows.
+		$repost_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'share' AND shared_post_id = %d",
+				$user_id,
+				$post_id
+			)
+		);
+		foreach ( array_map( 'intval', (array) $repost_ids ) as $repost_id ) {
+			( new PostService() )->delete( $repost_id, $user_id );
 		}
 	}
 
