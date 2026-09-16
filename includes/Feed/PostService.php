@@ -1359,6 +1359,39 @@ class PostService {
 	}
 
 	/**
+	 * Whether a post card renders text the feed's inline editor can edit.
+	 *
+	 * The Edit control and the editor must agree. The editor edits the card's
+	 * text body, and not every card has one: a photo, file, link, poll or share
+	 * with no caption renders none, and a typed card drawn by a bridge renderer
+	 * (a blog article, a forum discussion) is edited at its source, not here.
+	 * Offering Edit on those failed on click with "This post cannot be edited".
+	 *
+	 * Mirrors the branches in templates/parts/post-body.php.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param string $type    Post type.
+	 * @param string $content Post content.
+	 * @return bool
+	 */
+	public static function has_editable_text( string $type, string $content ): bool {
+		if ( in_array( $type, array( 'text', 'activity', 'announcement' ), true ) ) {
+			return true;
+		}
+		if ( in_array( $type, array( 'photo', 'file', 'link', 'share', 'poll' ), true ) ) {
+			return '' !== trim( $content );
+		}
+		// A forum discussion card shows the topic from its forum; edit it there.
+		if ( 'discussion' === $type ) {
+			return false;
+		}
+		// Any other type: a registered renderer owns the body; without one the
+		// template falls back to the plain text body.
+		return ! has_filter( 'buddynext_render_post_body_' . $type );
+	}
+
+	/**
 	 * Whether a user may set the members-only flag on a post.
 	 *
 	 * Members-only is an owner control: a site admin (manage_options) may gate any

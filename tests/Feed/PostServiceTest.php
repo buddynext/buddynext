@@ -306,4 +306,30 @@ class PostServiceTest extends \WP_UnitTestCase {
 			$this->assertNotSame( '', $stored, 'Privacy must never be stored as an empty ENUM value.' );
 		}
 	}
+
+	/**
+	 * Edit is offered only on cards whose text the inline editor can edit.
+	 *
+	 * @return void
+	 */
+	public function test_has_editable_text_matches_what_the_card_renders(): void {
+		$this->assertTrue( PostService::has_editable_text( 'text', '' ) );
+		$this->assertTrue( PostService::has_editable_text( 'announcement', 'Hello' ) );
+
+		foreach ( array( 'photo', 'file', 'link', 'share', 'poll' ) as $type ) {
+			$this->assertTrue( PostService::has_editable_text( $type, 'A caption' ), "$type with a caption is editable" );
+			$this->assertFalse( PostService::has_editable_text( $type, "  \n" ), "$type without a caption has no text to edit" );
+		}
+
+		$this->assertFalse( PostService::has_editable_text( 'discussion', 'Topic' ), 'a forum discussion is edited in the forum' );
+
+		// A typed card drawn by a renderer (blog article, forum discussion) is edited at its source.
+		$renderer = static function () {
+			return '<div>card</div>';
+		};
+		add_filter( 'buddynext_render_post_body_qa_typed', $renderer );
+		$this->assertFalse( PostService::has_editable_text( 'qa_typed', 'Body' ) );
+		remove_filter( 'buddynext_render_post_body_qa_typed', $renderer );
+		$this->assertTrue( PostService::has_editable_text( 'qa_typed', 'Body' ), 'no renderer: plain text body' );
+	}
 }

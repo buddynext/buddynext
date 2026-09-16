@@ -250,7 +250,8 @@ if ( ! $is_admin && ! $bn_is_unpublished ) {
 		$within_edit_window = $created_ts > 0 && ( time() - $created_ts ) <= $edit_window * MINUTE_IN_SECONDS;
 	}
 }
-$can_edit = ( $is_own_post && $within_edit_window ) || $is_admin;
+$can_edit = ( ( $is_own_post && $within_edit_window ) || $is_admin )
+	&& \BuddyNext\Feed\PostService::has_editable_text( (string) $bn_post_type, (string) ( $bn_post['content'] ?? '' ) );
 // Mirror the server (PostController::delete_post): deleting your own post is
 // always allowed; deleting anyone else's requires buddynext-feed/delete-any-post.
 // buddynext_can() already grants that to WP admins (manage_options bypass) AND
