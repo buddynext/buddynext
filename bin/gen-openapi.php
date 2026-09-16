@@ -197,7 +197,9 @@ $bn_wp_to_oa = static function ( array $wp ) use ( &$bn_wp_to_oa ): array {
 		$out['properties'] = array();
 		$bn_ts_keys        = class_exists( '\\BuddyNext\\Core\\Dates' ) ? \BuddyNext\Core\Dates::timestamp_keys() : array();
 		foreach ( $wp['properties'] as $bn_k => $bn_v ) {
-			$out['properties'][ $bn_k ] = is_array( $bn_v ) ? $bn_wp_to_oa( $bn_v ) : array();
+			$bn_prop = is_array( $bn_v ) ? $bn_wp_to_oa( $bn_v ) : array();
+			// An empty schema means "any value"; it must encode as {} not [].
+			$out['properties'][ $bn_k ] = array() === $bn_prop ? new stdClass() : $bn_prop;
 			// Core\Dates adds an ISO `<key>_gmt` sibling to these keys on every
 			// BuddyNext response, so document it wherever the key appears.
 			$bn_gmt = $bn_k . '_gmt';
@@ -211,7 +213,8 @@ $bn_wp_to_oa = static function ( array $wp ) use ( &$bn_wp_to_oa ): array {
 		}
 	}
 	if ( isset( $wp['items'] ) && is_array( $wp['items'] ) ) {
-		$out['items'] = $bn_wp_to_oa( $wp['items'] );
+		$bn_items     = $bn_wp_to_oa( $wp['items'] );
+		$out['items'] = array() === $bn_items ? new stdClass() : $bn_items;
 	}
 	return $out;
 };

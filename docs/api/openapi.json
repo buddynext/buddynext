@@ -14795,7 +14795,7 @@
                                 "created": {
                                     "type": "integer"
                                 },
-                                "last_used": [],
+                                "last_used": {},
                                 "current": {
                                     "type": "boolean"
                                 }
@@ -14864,7 +14864,7 @@
                     "per_page": {
                         "type": "integer"
                     },
-                    "next_cursor": [],
+                    "next_cursor": {},
                     "ids": {
                         "type": [
                             "array",
@@ -15030,7 +15030,7 @@
                     "per_page": {
                         "type": "integer"
                     },
-                    "next_cursor": [],
+                    "next_cursor": {},
                     "ids": {
                         "type": [
                             "array",
@@ -15433,7 +15433,7 @@
             "FeedViewerState": {
                 "type": "object",
                 "properties": {
-                    "states": [],
+                    "states": {},
                     "requested": {
                         "type": "integer"
                     },
@@ -15468,17 +15468,17 @@
                     "user_id": {
                         "type": "integer"
                     },
-                    "space_id": [],
-                    "shared_post_id": [],
+                    "space_id": {},
+                    "shared_post_id": {},
                     "type": {
                         "type": "string"
                     },
                     "content": {
                         "type": "string"
                     },
-                    "media_ids": [],
-                    "link_url": [],
-                    "link_meta": [],
+                    "media_ids": {},
+                    "link_url": {},
+                    "link_meta": {},
                     "privacy": {
                         "type": "string"
                     },
@@ -15500,15 +15500,15 @@
                     "content_warning": {
                         "type": "boolean"
                     },
-                    "content_warning_type": [],
+                    "content_warning_type": {},
                     "members_only": {
                         "type": "boolean"
                     },
                     "status": {
                         "type": "string"
                     },
-                    "site_pin_expires_at": [],
-                    "edited_at": [],
+                    "site_pin_expires_at": {},
+                    "edited_at": {},
                     "edited_at_gmt": {
                         "type": "string",
                         "format": "date-time",
@@ -15552,7 +15552,7 @@
                     "viewer_state": {
                         "type": "object",
                         "properties": {
-                            "my_reaction": [],
+                            "my_reaction": {},
                             "is_bookmarked": {
                                 "type": "boolean"
                             },
@@ -15644,7 +15644,7 @@
                                 "created_at": {
                                     "type": "string"
                                 },
-                                "expires_at": [],
+                                "expires_at": {},
                                 "expires_at_gmt": {
                                     "type": "string",
                                     "format": "date-time",
@@ -15690,7 +15690,7 @@
             "PostsMyVote": {
                 "type": "object",
                 "properties": {
-                    "option_id": []
+                    "option_id": {}
                 }
             },
             "MeBookmarks": {
@@ -15826,7 +15826,7 @@
                                 "type": {
                                     "type": "string"
                                 },
-                                "options": [],
+                                "options": {},
                                 "description": {
                                     "type": "string"
                                 },
@@ -15872,7 +15872,7 @@
                     "cover_url": {
                         "type": "string"
                     },
-                    "cover_focal": [],
+                    "cover_focal": {},
                     "completion": {
                         "type": "object",
                         "properties": {
@@ -15980,7 +15980,7 @@
                             "is_suspended": {
                                 "type": "boolean"
                             },
-                            "suspension": [],
+                            "suspension": {},
                             "is_shadow_banned": {
                                 "type": "boolean"
                             }
@@ -16065,7 +16065,7 @@
                                 "type": {
                                     "type": "string"
                                 },
-                                "options": [],
+                                "options": {},
                                 "description": {
                                     "type": "string"
                                 },
@@ -16111,7 +16111,7 @@
                     "cover_url": {
                         "type": "string"
                     },
-                    "cover_focal": [],
+                    "cover_focal": {},
                     "completion": {
                         "type": "object",
                         "properties": {
@@ -16161,7 +16161,7 @@
             "MeProfileSlug": {
                 "type": "object",
                 "properties": {
-                    "slug": [],
+                    "slug": {},
                     "url": {
                         "type": "string",
                         "format": "uri"
@@ -18706,7 +18706,7 @@
                     "has_reacted": {
                         "type": "boolean"
                     },
-                    "emoji": []
+                    "emoji": {}
                 }
             },
             "Reaction": {
@@ -18950,17 +18950,17 @@
                                 "user_id": {
                                     "type": "integer"
                                 },
-                                "space_id": [],
-                                "shared_post_id": [],
+                                "space_id": {},
+                                "shared_post_id": {},
                                 "type": {
                                     "type": "string"
                                 },
                                 "content": {
                                     "type": "string"
                                 },
-                                "media_ids": [],
-                                "link_url": [],
-                                "link_meta": [],
+                                "media_ids": {},
+                                "link_url": {},
+                                "link_meta": {},
                                 "privacy": {
                                     "type": "string"
                                 },
@@ -18982,21 +18982,21 @@
                                 "content_warning": {
                                     "type": "boolean"
                                 },
-                                "content_warning_type": [],
+                                "content_warning_type": {},
                                 "members_only": {
                                     "type": "boolean"
                                 },
                                 "status": {
                                     "type": "string"
                                 },
-                                "site_pin_expires_at": [],
-                                "edited_at": [],
+                                "site_pin_expires_at": {},
+                                "edited_at": {},
                                 "edited_at_gmt": {
                                     "type": "string",
                                     "format": "date-time",
                                     "description": "ISO 8601 UTC form of edited_at; present when edited_at is set."
                                 },
-                                "scheduled_at": [],
+                                "scheduled_at": {},
                                 "scheduled_at_gmt": {
                                     "type": "string",
                                     "format": "date-time",
@@ -19402,15 +19402,15 @@
                     "reason": {
                         "type": "string"
                     },
-                    "duration_days": [],
+                    "duration_days": {},
                     "hide_posts": {
                         "type": "string"
                     },
                     "expires_at": {
                         "type": "string"
                     },
-                    "lifted_at": [],
-                    "lifted_by": [],
+                    "lifted_at": {},
+                    "lifted_by": {},
                     "created_at": {
                         "type": "string"
                     },
@@ -19436,7 +19436,7 @@
                             "object"
                         ]
                     },
-                    "suspension": []
+                    "suspension": {}
                 }
             },
             "UsersWarnings": {
@@ -19478,7 +19478,7 @@
                     "reason": {
                         "type": "string"
                     },
-                    "duration_days": [],
+                    "duration_days": {},
                     "hide_posts": {
                         "type": "string"
                     },
