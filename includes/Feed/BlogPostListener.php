@@ -223,15 +223,84 @@ class BlogPostListener implements ListenerInterface {
 			$author,
 			'',
 			IntegrationActivity::published_permalink( $post ),
-			$this->title_for( $post ),
+			self::title_for( $post ),
 			self::TYPE,
-			$this->excerpt_for( $post ),
+			self::excerpt_for( $post ),
 			0,
 			array(
-				'image'            => $this->image_for( $post ),
+				'image'            => self::image_for( $post ),
 				self::META_POST_ID => (int) $post->ID,
 			)
 		);
+	}
+
+	/**
+	 * The card's title, excerpt, cover and link, read from the source post now.
+	 *
+	 * The card stores a copy taken at publish time, and nothing ever refreshed it:
+	 * a featured image added after publishing (the usual order in an editor, and
+	 * what front-end post plugins do by calling set_post_thumbnail() right after
+	 * wp_insert_post()) never appeared, and an edited title stayed old. The source
+	 * post is local and already queried, so every reader - feed card, Explore,
+	 * REST, share previews - gets the live values through PostService::hydrate().
+	 * The stored copy remains the fallback when the source post is gone.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param array<string, mixed> $meta Stored link_meta of an article card.
+	 * @return array<string, mixed>
+	 */
+	public static function live_link_meta( array $meta ): array {
+		$post_id = (int) ( $meta[ self::META_POST_ID ] ?? 0 );
+		$post    = $post_id > 0 ? get_post( $post_id ) : null;
+		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status ) {
+			return $meta;
+		}
+
+		$image = self::image_for( $post );
+
+		return array_merge(
+			$meta,
+			array(
+				'url'         => IntegrationActivity::published_permalink( $post ),
+				'title'       => self::title_for( $post ),
+				'description' => self::excerpt_for( $post ),
+				'image'       => $image,
+				'thumbnail'   => $image,
+			)
+		);
+	}
+
+	/**
+	 * Load the source posts (and their featured images) of a page of rows at once.
+	 *
+	 * Keeps live_link_meta() from costing queries per card on a feed page.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param array<int, array<string, mixed>> $rows Raw bn_posts rows.
+	 * @return void
+	 */
+	public static function prime_sources( array $rows ): void {
+		$ids = array();
+		foreach ( $rows as $row ) {
+			if ( self::TYPE !== ( $row['type'] ?? '' ) ) {
+				continue;
+			}
+			$meta = is_string( $row['link_meta'] ?? null ) ? json_decode( (string) $row['link_meta'], true ) : ( $row['link_meta'] ?? null );
+			if ( is_array( $meta ) && ! empty( $meta[ self::META_POST_ID ] ) ) {
+				$ids[] = (int) $meta[ self::META_POST_ID ];
+			}
+		}
+		if ( array() === $ids ) {
+			return;
+		}
+
+		_prime_post_caches( $ids, false, true );
+		$thumbs = array_filter( array_map( 'get_post_thumbnail_id', $ids ) );
+		if ( array() !== $thumbs ) {
+			_prime_post_caches( array_map( 'intval', $thumbs ), false, true );
+		}
 	}
 
 	/**
@@ -286,7 +355,7 @@ class BlogPostListener implements ListenerInterface {
 	 * @param \WP_Post $post Source post.
 	 * @return string
 	 */
-	private function title_for( \WP_Post $post ): string {
+	private static function title_for( \WP_Post $post ): string {
 		return (string) get_the_title( $post );
 	}
 
@@ -303,7 +372,7 @@ class BlogPostListener implements ListenerInterface {
 	 * @param \WP_Post $post Source post.
 	 * @return string
 	 */
-	private function excerpt_for( \WP_Post $post ): string {
+	private static function excerpt_for( \WP_Post $post ): string {
 		$excerpt = (string) $post->post_excerpt;
 
 		if ( '' === trim( $excerpt ) ) {
@@ -319,7 +388,7 @@ class BlogPostListener implements ListenerInterface {
 	 * @param \WP_Post $post Source post.
 	 * @return string Image URL, or '' when the post has no featured image.
 	 */
-	private function image_for( \WP_Post $post ): string {
+	private static function image_for( \WP_Post $post ): string {
 		$url = get_the_post_thumbnail_url( $post, 'medium_large' );
 
 		return is_string( $url ) ? $url : '';

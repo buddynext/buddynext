@@ -2264,6 +2264,7 @@ class FeedService {
 			$rows = array_slice( $rows, 0, $per_page );
 		}
 
+		BlogPostListener::prime_sources( $rows );
 		$items = array_map(
 			fn( $row ) => $this->post_service->hydrate( $row ),
 			$rows

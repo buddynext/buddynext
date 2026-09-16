@@ -3793,6 +3793,11 @@ class PostService {
 			$post['poll_options'] = $this->fetch_poll_options( (int) $row['id'] );
 		}
 
+		// A blog article card shows its source post as it is now, not as it was at publish.
+		if ( BlogPostListener::TYPE === $post['type'] && is_array( $post['link_meta'] ) ) {
+			$post['link_meta'] = BlogPostListener::live_link_meta( $post['link_meta'] );
+		}
+
 		return $post;
 	}
 
