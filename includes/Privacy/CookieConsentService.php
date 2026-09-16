@@ -4,7 +4,8 @@
  *
  * Renders a dismissible cookie-consent banner on the front end when the
  * Settings → Privacy → "Cookie Consent Banner" option is enabled. Dismissal is
- * remembered in a first-party cookie so a returning visitor is not nagged again.
+ * remembered in a first-party cookie holding the version acknowledged, so a
+ * returning visitor is not asked again until the notice or the policy changes.
  *
  * @package BuddyNext\Privacy
  */
@@ -37,6 +38,25 @@ class CookieConsentService {
 	}
 
 	/**
+	 * Version of what the visitor is agreeing to.
+	 *
+	 * Built from the notice text and the privacy policy page, including when
+	 * that page was last edited. Acknowledging stores this version, so editing
+	 * the notice or the policy shows the notice to everyone again.
+	 *
+	 * @return string
+	 */
+	private function version(): string {
+		$page_id = (int) get_option( 'wp_page_for_privacy_policy' );
+		$parts   = array(
+			(string) get_option( 'buddynext_cookie_consent_text', '' ),
+			(string) $page_id,
+			$page_id > 0 ? (string) get_post_field( 'post_modified_gmt', $page_id ) : '',
+		);
+		return substr( md5( implode( '|', $parts ) ), 0, 12 );
+	}
+
+	/**
 	 * Register hooks. No-op unless the banner is enabled.
 	 *
 	 * @return void
@@ -52,17 +72,13 @@ class CookieConsentService {
 	/**
 	 * Enqueue the banner behaviour script on the front end.
 	 *
-	 * Only loads when the banner will actually render (the visitor has not yet
-	 * acknowledged it), so returning visitors pay no JS cost. The script is in
-	 * assets/js/privacy/consent-banner.js — no inline script (UX-audit F2 rule).
+	 * Loads for every visitor while the notice is on: whether this visitor
+	 * already acknowledged is decided in the browser, so a page cache can never
+	 * store a copy without the notice. Tiny classic script, in the footer.
 	 *
 	 * @return void
 	 */
 	public function enqueue_assets(): void {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only cookie presence check, no state change.
-		if ( isset( $_COOKIE[ self::COOKIE ] ) ) {
-			return;
-		}
 		wp_enqueue_script(
 			'bn-cookie-consent',
 			BUDDYNEXT_URL . 'assets/js/privacy/consent-banner.js',
@@ -73,16 +89,12 @@ class CookieConsentService {
 	}
 
 	/**
-	 * Output the banner — only when the visitor has not already acknowledged it.
+	 * Output the banner, hidden; the script reveals it unless the visitor's
+	 * cookie holds the current version.
 	 *
 	 * @return void
 	 */
 	public function render(): void {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only cookie presence check, no state change.
-		if ( isset( $_COOKIE[ self::COOKIE ] ) ) {
-			return;
-		}
-
 		$privacy_url = (int) get_option( 'wp_page_for_privacy_policy' ) > 0
 			? get_privacy_policy_url()
 			: '';
@@ -95,7 +107,13 @@ class CookieConsentService {
 		$custom_policy = trim( (string) get_option( 'buddynext_cookie_consent_policy_label', '' ) );
 		$policy_label  = '' !== $custom_policy ? $custom_policy : __( 'Privacy policy', 'buddynext' );
 		?>
-		<div class="bn-cookie-consent" role="region" aria-label="<?php esc_attr_e( 'Cookie notice', 'buddynext' ); ?>" data-bn-cookie-consent data-cookie-name="<?php echo esc_attr( self::COOKIE ); ?>" hidden>
+		<?php
+		// The notice renders on every page, but the host-theme palette only applies
+		// under [data-bn-theme], which <html> carries on BuddyNext pages alone. The
+		// attribute here keeps the site's colours on ordinary pages too; "inherit"
+		// matches no light/dark rule, so the page's own mode still flows in.
+		?>
+		<div class="bn-cookie-consent" data-bn-theme="inherit" role="region" aria-label="<?php esc_attr_e( 'Cookie notice', 'buddynext' ); ?>" data-bn-cookie-consent data-cookie-name="<?php echo esc_attr( self::COOKIE ); ?>" data-cookie-version="<?php echo esc_attr( $this->version() ); ?>" hidden>
 			<p class="bn-cookie-consent__text">
 				<?php echo esc_html( $message ); ?>
 				<?php if ( '' !== $privacy_url ) : ?>

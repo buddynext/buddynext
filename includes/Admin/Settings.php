@@ -250,6 +250,29 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * Hint for the cookie notice's link label, naming the page it links to.
+	 *
+	 * The notice reuses the WordPress privacy policy page rather than asking for
+	 * its own link, so the hint says which page that is and where it is set.
+	 *
+	 * @return string
+	 */
+	public static function cookie_policy_link_hint(): string {
+		$page_id = (int) get_option( 'wp_page_for_privacy_policy' );
+		$title   = $page_id > 0 && 'publish' === get_post_status( $page_id ) ? get_the_title( $page_id ) : '';
+
+		if ( '' === $title ) {
+			return __( 'The link goes to the privacy policy page chosen in WordPress Settings > Privacy. No published page is chosen there yet, so the notice shows no link.', 'buddynext' );
+		}
+
+		return sprintf(
+			/* translators: %s: privacy policy page title. */
+			__( 'The link goes to "%s", the privacy policy page chosen in WordPress Settings > Privacy. Change the page there. Leave this blank for the default label ("Privacy policy").', 'buddynext' ),
+			$title
+		);
+	}
+
+	/**
 	 * Render the Free-side usage-tracking opt-in control.
 	 *
 	 * A single nonce-protected checkbox that reads and writes the same
@@ -741,11 +764,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_cookie_consent_policy_label',
-							'type'    => 'text',
-							'label'   => __( 'Privacy-policy link label', 'buddynext' ),
-							'hint'    => __( 'Text of the link to your privacy policy (shown only when a Privacy Policy page is set in Settings → Privacy). Leave blank for the default ("Privacy policy").', 'buddynext' ),
-							'default' => '',
+							'key'           => 'buddynext_cookie_consent_policy_label',
+							'type'          => 'text',
+							'label'         => __( 'Privacy-policy link label', 'buddynext' ),
+							'hint_callback' => array( self::class, 'cookie_policy_link_hint' ),
+							'default'       => '',
 						)
 					),
 				)

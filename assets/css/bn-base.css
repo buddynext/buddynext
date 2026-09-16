@@ -4620,6 +4620,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		inset-block-end: var(--bn-s2);
 		flex-direction: column;
 		align-items: stretch;
+		gap: var(--bn-s3);
+	}
+
+	/* The desktop 16rem basis is a WIDTH; stacked it became a 16rem HEIGHT and
+	   the notice covered half a phone screen with blank space. */
+	.bn-cookie-consent__text {
+		flex: none;
 	}
 
 	.bn-cookie-consent .bn-btn {
