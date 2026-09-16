@@ -61,6 +61,17 @@ A field whose deciding question has not been answered yet stays hidden, for both
 | **Conditional logic** | The field has a rule. Hover it to read the rule. |
 | **Condition needs attention** | The field the rule depends on was deleted, can no longer decide, or lost the answers the rule checks. Until you fix it, the field is shown to everyone, so no member is ever blocked. |
 
+The same problems, plus a registration setup that means a field would never show at signup, are listed in the **Some profile fields need attention** notice at the top of the Profile Fields screen. Each one has a **Fix** button that opens the field.
+
+### What the builder will not let you save
+
+| Situation | Message shown above Save |
+|---|---|
+| The rule has no field picked or no answers ticked | Asks you to finish the rule. |
+| The field is asked on registration but the field that decides is not | Asks you to add that field to registration too, or stop asking this one there. |
+| You untick registration on a field that registration fields depend on | Names the fields that depend on it. |
+| The answers are member types members cannot pick themselves at signup | Asks you to stop asking the field at signup, or pick answers members can choose. |
+
 ## Good to know
 
 - **Changing a rule later** (for example from "Manager or Director" to "Manager") removes answers that no longer apply in small background batches, so large communities stay fast.
@@ -85,6 +96,22 @@ A field whose deciding question has not been answered yet stays hidden, for both
 ```
 
 `op` is `in` (is) or `not_in` (is not). `kind` is `single`, `multi` or `boolean` (Yes / No answers are `1` and `0`). A field is shown when the member's answer to `key` matches; an unanswered `key` hides it. Rules that no longer apply are left out for visitors; administrators also see them with a `problem` explaining why.
+
+### Hooks it is built on
+
+Conditional logic uses only public Free hooks, so another add-on can build the same kind of feature:
+
+| Hook | Used for |
+|---|---|
+| `buddynext_profile_field_settings` | The "Only show this field when" builder in the field panel |
+| `buddynext_profile_field_options_sanitize` | Validating and storing the rule in the field's `options['conditions']` |
+| `buddynext_profile_field_row_badges` | The **Conditional logic** / **Condition needs attention** badges |
+| `buddynext_profile_field_setup_issues` | Problems listed in the "need attention" notice |
+| `buddynext_profile_field_wrapper_attributes` / `buddynext_profile_group_wrapper_attributes` | The rule on each form field, and `hidden` for the first paint |
+| `buddynext_profile_field_is_active` | Not requiring a hidden field (profile save and registration) |
+| `buddynext_profile_saved`, `buddynext_member_type_assigned`, `buddynext_member_type_removed` | Clearing answers to fields that became hidden |
+
+Full signatures: [Hooks: members, profiles and social](../developer-guide/28-hooks-members-profiles-social.md).
 
 ## Related
 

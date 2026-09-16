@@ -603,7 +603,7 @@ $posts = buddynext_service( 'post_service' )->get_many( $post_ids );   // PostSe
 
 ## Recipe 16 - Register a custom profile field type from code
 
-Recipe 9 added a field of an *existing* type. This one adds a brand-new **field type** - the way BuddyNext Pro adds its Location, Conditional, and File types.
+Recipe 9 added a field of an *existing* type. This one adds a brand-new **field type** - the way BuddyNext Pro adds its Location and advanced Number types.
 
 > **Runnable, tested snippet:** a copy-paste, live-verified version of this recipe is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `profile-fields/register-custom-field-type.php`. Drop it in `wp-content/mu-plugins/` and it works as-is. A type is registered in one place (the engine) and given behaviour through a small set of filters; the admin field picker and every render/sanitize path then treat it like a built-in.
 
@@ -685,7 +685,7 @@ add_action( 'plugins_loaded', function () {
 
 Each render/sanitize filter is passed `null` (or the running value) as its first argument and **must return the untouched argument for types that are not yours** - returning your own value unconditionally would hijack every other type. For a type that needs its own options box in the admin (a choice list, a format setting), also hook the `buddynext_profile_field_type_options` action, which fires inside the field editor for the selected type.
 
-**Reference implementation:** BuddyNext Pro's `Profile\AdvancedFieldTypes` (engine registration for Location, Conditional, advanced Number/Multi-select, and an extended Date) and `Admin\AdvancedFieldsAdmin` (the dropdown labels and the per-type options box) are the complete, shipping example of this recipe.
+**Reference implementation:** BuddyNext Pro's `Profile\AdvancedFieldTypes` (engine registration for Location, advanced Number/Multi-select, and an extended Date) and `Admin\AdvancedFieldsAdmin` (the dropdown labels and the per-type options box) are the complete, shipping example of this recipe.
 
 ---
 

@@ -165,6 +165,12 @@ Two rules that make the difference between a correct client and a plausible one:
 | GET, PUT, DELETE | `/me/saved-searches/{id}` | Logged in | Get, update, or delete a saved search. |
 | POST | `/me/saved-searches/{id}/run` | Logged in | Execute a saved search. |
 
+### Profile field conditional logic
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/profile-conditions` | Public | Every field's show/hide rule (`field_id`, `field_key`, `condition {key, kind, op, values}`, `summary`). Rules that no longer apply are left out for visitors; administrators also get them with a `problem`. Read-only; rules are edited in the Profile Fields screen. See [Conditional Logic for Profile Fields](../pro/27-conditional-profile-fields.md). |
+
 ### Member portfolio
 
 | Method | Path | Auth | Purpose |

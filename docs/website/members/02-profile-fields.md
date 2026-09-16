@@ -132,13 +132,28 @@ Since 1.0.4 the profile form is fully yours to shape:
 - **Show on registration, set once.** The add-field form now includes the "Show on the registration form" checkbox directly, so you decide whether a new field collects a value at signup while you are creating it, instead of adding the field first and coming back to turn it on.
 - **Field types explain themselves.** The add-field form describes what each type does as you pick it - for example, that Dropdown, Radio, and Multi-select let members choose from the options you define below, while Yes / No is a single checkbox and the rest are free text. You no longer have to guess which type fits before trying it.
 
+## Fields that need attention (1.2.1)
+
+When a field is set up in a way that stops members from answering it, the Profile Fields screen shows a **Some profile fields need attention** notice at the top. Each problem names the field, says what is wrong, and has a **Fix** button that opens that field's panel. The notice stays until the problem is fixed.
+
+| Problem | What members experience |
+|---|---|
+| A Dropdown, Radio or Checkboxes field has no options | Nobody can answer it. If it is required, members cannot save their profile. |
+| A conditional field is asked on the registration form but the field that decides is not (Pro) | It never shows at signup. |
+| A conditional field depends on member types members cannot choose at signup (Pro) | It never shows at signup. |
+| A condition's field was deleted or lost the answers it checks (Pro) | The field is shown to everyone until you fix it. |
+
+The field panel also blocks saving a Dropdown, Radio or Checkboxes field with no options, with a message just above the Save button.
+
+On the registration and "Almost there" forms, a problem with an answer (a missing required field, for example) is shown under that field and the cursor moves to it, instead of a general message at the top of the form.
+
 ## Good to know
 
 - **Visibility is enforced by relationship, not by hiding in the page.** When a profile is read, BuddyNext checks the viewer's relationship to the owner (logged-out, follower, connection, or the owner themselves) and drops any field the viewer is not allowed to see before the value ever leaves the server. A Private field never appears for anyone but the owner.
 - **The member's own choice decides, capped by the group ceiling.** A field's effective visibility is the member's own per-field choice, capped by the group ceiling. New fields start at Members only; each member can then open their own field up to the ceiling (including Public) or narrow it to Only me.
 - **Required is enforced.** Since 1.0.4, saving a profile with a required field left empty is rejected with a clear message next to that field. Required fields also count against the member's profile completion score.
 - **Required only applies where the field is actually shown.** If you limit a group to one member type and mark a field in it required, members of every other type are not asked for it and are not blocked by it. (Before 1.0.8 they were told a field was missing that they could not see and could never fill in, which left them unable to save their profile at all.)
-- **A field's type survives an edit made while Pro is inactive.** Editing a field whose type is provided by an add-on (a Pro type such as Location or Conditional) no longer silently resets it to Text when that add-on happens to be switched off. Deactivate Pro, edit a field's label, reactivate Pro, and the field is still the type you built.
+- **A field's type survives an edit made while Pro is inactive.** Editing a field whose type is provided by an add-on (a Pro type such as Location) no longer silently resets it to Text when that add-on happens to be switched off. Deactivate Pro, edit a field's label, reactivate Pro, and the field is still the type you built.
 - **Bad values are skipped, not rejected.** If a member enters a value that does not fit the field type (for example letters in a Number field), that one value is not stored and the rest of the profile still saves. The member is not shown an inline error for the skipped field today.
 - **Empty profiles hide the feature.** A field with no value does not render on the profile view. A brand-new community with empty profiles will look sparse until members fill fields in, which is why setting a few fields to show on registration is worth doing.
 - **The starter set is yours to keep or change.** BuddyNext seeds a few groups (Basic Info, Social Links, Work Experience, Education, Skills, and Interests) so you are not starting from a blank slate. You can edit, reorder, or extend them - see [Member Interests](11-interests.md) for the one field with a system role.
@@ -147,20 +162,21 @@ Since 1.0.4 the profile form is fully yours to shape:
 
 The free plan covers the basics: the everyday field types listed above (text, paragraph, number, URL, email, phone, date, yes/no, dropdown, radio, multi-select, and colour), grouped into sections with visibility, required, searchable, and show-on-registration controls. For a typical community a handful of well-chosen fields is enough to get started.
 
-Pro adds six advanced field types for communities that need richer data capture:
+Pro adds four advanced field types for communities that need richer data capture:
 
-- Extended date (date ranges and finer date handling)
+- Extended date (finer date handling)
 - Location (structured place data)
-- File (advanced file handling)
 - Multi-select (advanced multi-choice)
 - Advanced number (numeric fields with extra rules)
-- Conditional (fields that show or hide based on another field's answer)
 
-These advanced types are registered by the Pro add-on and become available in the same field type picker once Pro is active. For the full list and setup, see Advanced Profile Fields.
+These advanced types are registered by the Pro add-on and become available in the same field type picker once Pro is active. For the full list and setup, see [Advanced Profile Fields](../pro/09-advanced-profile-fields.md).
+
+Pro also adds **conditional logic**. It is an option on a field, not a field type: tick "Only show this field when" in the field's panel and the field shows only when another field has a certain answer (for example "Beard style" only when Gender is Male). See [Conditional Logic for Profile Fields](../pro/27-conditional-profile-fields.md).
 
 ## Related
 
 - [The Profile About Tab](13-about-tab.md) - where the fields you define are laid out for viewers
 - [Member Interests](11-interests.md) - the one profile field with a system role
-- [Advanced Profile Field Types (Pro)](../pro/09-advanced-profile-fields.md) - the six extra field types Pro adds
+- [Advanced Profile Field Types (Pro)](../pro/09-advanced-profile-fields.md) - the four extra field types Pro adds
+- [Conditional Logic for Profile Fields (Pro)](../pro/27-conditional-profile-fields.md) - show a field only when another answer matches
 - [Member Directory](04-member-directory.md) - how searchable fields feed directory search
