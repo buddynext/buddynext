@@ -7239,49 +7239,6 @@
                 ]
             }
         },
-        "/members/{id}/gamification": {
-            "get": {
-                "tags": [
-                    "Members and Profiles"
-                ],
-                "operationId": "get_members_id_gamification",
-                "summary": "GET /buddynext/v1/members/{id}/gamification",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success.",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Gamification"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid or missing parameter."
-                    }
-                },
-                "security": [
-                    {},
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            }
-        },
         "/moderation/log": {
             "get": {
                 "tags": [
@@ -21088,47 +21045,6 @@
                                 },
                                 "purpose": {
                                     "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "Gamification": {
-                "type": "object",
-                "properties": {
-                    "available": {
-                        "type": "boolean"
-                    },
-                    "has_standing": {
-                        "type": "boolean"
-                    },
-                    "points": {
-                        "type": "integer"
-                    },
-                    "current_streak": {
-                        "type": "integer"
-                    },
-                    "badges": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "string"
-                                },
-                                "name": {
-                                    "type": "string"
-                                },
-                                "description": {
-                                    "type": "string"
-                                },
-                                "image_url": {
-                                    "type": "string",
-                                    "format": "uri"
-                                },
-                                "is_credential": {
-                                    "type": "boolean"
                                 }
                             }
                         }

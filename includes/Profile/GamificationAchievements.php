@@ -317,51 +317,6 @@ class GamificationAchievements {
 	}
 
 	/**
-	 * Member gamification standing as a plain data array — the same figures the
-	 * Achievements tab renders (points, current streak, earned badges). Exposed
-	 * so the REST layer (and the app) can read the panel without scraping HTML.
-	 * wb-gamification remains the single source; this only assembles + shapes.
-	 *
-	 * @param int $member_id Member.
-	 * @return array<string,mixed> { available, has_standing, points, current_streak, badges[] }
-	 */
-	public function standing_data( int $member_id ): array {
-		if ( $member_id <= 0 || ! function_exists( 'wb_gam_get_user_points' ) ) {
-			return array(
-				'available'      => function_exists( 'wb_gam_get_user_points' ),
-				'has_standing'   => false,
-				'points'         => 0,
-				'current_streak' => 0,
-				'badges'         => array(),
-			);
-		}
-		$streak = 0;
-		if ( function_exists( 'wb_gam_get_user_streak' ) ) {
-			$s      = (array) wb_gam_get_user_streak( $member_id );
-			$streak = isset( $s['current_streak'] ) ? (int) $s['current_streak'] : 0;
-		}
-		$badges = array_map(
-			static function ( array $b ): array {
-				return array(
-					'id'            => (string) ( $b['id'] ?? '' ),
-					'name'          => (string) ( $b['name'] ?? '' ),
-					'description'   => (string) ( $b['description'] ?? '' ),
-					'image_url'     => (string) ( $b['image_url'] ?? ( $b['image'] ?? '' ) ),
-					'is_credential' => ! empty( $b['is_credential'] ),
-				);
-			},
-			$this->badges( $member_id )
-		);
-		return array(
-			'available'      => true,
-			'has_standing'   => $this->has_standing( $member_id ),
-			'points'         => (int) wb_gam_get_user_points( $member_id ),
-			'current_streak' => $streak,
-			'badges'         => $badges,
-		);
-	}
-
-	/**
 	 * Earned badges, credential badges first.
 	 *
 	 * @param int $member_id Member.

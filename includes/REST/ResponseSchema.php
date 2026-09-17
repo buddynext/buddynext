@@ -175,12 +175,6 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
-				'path'     => '/members/{id}/gamification',
-				'resource' => 'gamification',
-				'shape'    => 'item',
-			),
-			array(
-				'method'   => 'GET',
 				'path'     => '/members/{id}/blog',
 				'resource' => 'member_blog',
 				'shape'    => 'item',
@@ -797,42 +791,6 @@ final class ResponseSchema {
 				'labels'         => array(
 					'type'  => 'array',
 					'items' => array( 'type' => 'object' ),
-				),
-			),
-		);
-	}
-
-	/**
-	 * Member gamification standing (GET /members/{id}/gamification) — the
-	 * Achievements panel read model. Mirrors GamificationAchievements::standing_data().
-	 *
-	 * @return array<string,mixed>
-	 */
-	public static function gamification(): array {
-		return array(
-			'$schema'    => 'http://json-schema.org/draft-04/schema#',
-			'title'      => 'gamification',
-			'type'       => 'object',
-			'properties' => array(
-				'available'      => array( 'type' => 'boolean' ),
-				'has_standing'   => array( 'type' => 'boolean' ),
-				'points'         => array( 'type' => 'integer' ),
-				'current_streak' => array( 'type' => 'integer' ),
-				'badges'         => array(
-					'type'  => 'array',
-					'items' => array(
-						'type'       => 'object',
-						'properties' => array(
-							'id'            => array( 'type' => 'string' ),
-							'name'          => array( 'type' => 'string' ),
-							'description'   => array( 'type' => 'string' ),
-							'image_url'     => array(
-								'type'   => 'string',
-								'format' => 'uri',
-							),
-							'is_credential' => array( 'type' => 'boolean' ),
-						),
-					),
 				),
 			),
 		);
