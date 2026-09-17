@@ -12,6 +12,56 @@ import '@buddynext/feed-share-modal';
 import '@buddynext/feed-composer';
 import '@buddynext/feed-post-card';
 
+/* ── Continuous-scroll observer (module-level, re-armable) ──────────────────
+ * The Load-more control auto-advances the feed when it scrolls near the
+ * viewport. It used to rely on data-wp-init re-running on a freshly swapped-in
+ * control after each page, but the Interactivity router REUSES the same <a>
+ * node across a region swap, so data-wp-init never fired again and auto-scroll
+ * stalled after the first automatic load until the member clicked (card
+ * 10312822451). A single module-level observer, re-armed by loadMore() after
+ * every swap, keeps it going; when the last page renders no control, the
+ * re-arm finds nothing and auto-advance stops cleanly. */
+let bnLoadMoreObserver = null;
+let bnLoadMoreFiring   = false;
+
+function bnArmLoadMore() {
+	if ( typeof window.IntersectionObserver !== 'function' ) {
+		return; // No observer support: the link still works as a click.
+	}
+	// Honour reduced-motion by leaving auto-advance off — an unexpected stream of
+	// new content is exactly the motion that setting asks us not to start.
+	if ( window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) {
+		return;
+	}
+	const el = document.querySelector( '.bn-load-more__btn' );
+	if ( bnLoadMoreObserver ) {
+		bnLoadMoreObserver.disconnect();
+	}
+	if ( ! el ) {
+		return; // No control (last page reached): nothing left to auto-load.
+	}
+	bnLoadMoreFiring   = false;
+	bnLoadMoreObserver = new window.IntersectionObserver(
+		( entries ) => {
+			if ( bnLoadMoreFiring || ! entries.some( ( e ) => e.isIntersecting ) ) {
+				return;
+			}
+			const cur = document.querySelector( '.bn-load-more__btn' );
+			if ( ! cur || ! cur.isConnected ) {
+				bnLoadMoreObserver.disconnect();
+				return;
+			}
+			// Guard against a second fetch while one swap is in flight; loadMore()
+			// re-arms after it settles. rootMargin fetches a screen early.
+			bnLoadMoreFiring = true;
+			bnLoadMoreObserver.disconnect();
+			cur.click();
+		},
+		{ rootMargin: '600px 0px' }
+	);
+	bnLoadMoreObserver.observe( el );
+}
+
 /* -- i18n -------------------------------------------------------------- */
 /* t(), fmt() and the shared i18n table now live in ./shared.js so every split
  * store file (tabs.js, share-modal.js, …) reads one instance. The dictionary is
@@ -296,6 +346,12 @@ const feedStore = store( 'buddynext/feed', {
 				document.dispatchEvent(
 					new CustomEvent( 'buddynext:navigated', { detail: { href } } )
 				);
+
+				// Re-arm continuous scroll on the swapped-in control (the router reuses
+				// the same node, so its data-wp-init does not fire again). On the last
+				// page there is no control and bnArmLoadMore() stops cleanly. Deferred a
+				// frame so it observes the settled post-swap layout. (Card 10312822451.)
+				window.requestAnimationFrame( () => bnArmLoadMore() );
 			} catch ( _e ) {
 				// Router unavailable or the swap failed — do what the link would have done.
 				window.location.href = href;
@@ -318,33 +374,10 @@ const feedStore = store( 'buddynext/feed', {
 		 * flight — the sentinel can stay intersecting across the swap.
 		 */
 		initLoadMore() {
-			const { ref } = getElement();
-			if ( ! ref || typeof window.IntersectionObserver !== 'function' ) {
-				return; // No observer support: the link still works as a click.
-			}
-			// Honour reduced-motion by leaving auto-advance off — an unexpected stream of
-			// new content is exactly the kind of motion that setting asks us not to start.
-			if ( window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) {
-				return;
-			}
-
-			let firing = false;
-			const observer = new window.IntersectionObserver(
-				( entries ) => {
-					if ( firing || ! entries.some( ( e ) => e.isIntersecting ) ) {
-						return;
-					}
-					if ( ! ref.isConnected ) {
-						observer.disconnect();
-						return;
-					}
-					firing = true;
-					observer.disconnect(); // The swap brings a fresh control with its own observer.
-					ref.click();
-				},
-				{ rootMargin: '600px 0px' }
-			);
-			observer.observe( ref );
+			// First paint arms the module-level observer; loadMore() re-arms it after
+			// each region swap (the router reuses this node, so data-wp-init does not
+			// run again). See bnArmLoadMore().
+			bnArmLoadMore();
 		},
 
 		setFilter( event ) {
