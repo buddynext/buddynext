@@ -106,11 +106,14 @@ class IntegrationActivity {
 					'type'      => $type,
 					'content'   => $content,
 					'space_id'  => $space_id > 0 ? $space_id : null,
-					// Integration activities link OUT to a public partner page (a
-					// public Jetonomy discussion, a job posting, etc.), so they are
-					// inherently public. Set it explicitly rather than inheriting the
-					// site's default-post-privacy option, which may be blank.
-					'privacy'   => 'public',
+					// A card with no space links OUT to a public partner page (a public
+					// Jetonomy discussion, a job posting, etc.) and is inherently public.
+					// A card scoped to a SPACE must inherit the space's privacy instead
+					// of being stamped 'public' - a bare 'public' on a private/secret
+					// space's card leaked it onto Explore and profiles (card 10312981296).
+					// 'space_members' lets the feed's space-readability guard decide:
+					// open space -> everyone, private/secret -> members only.
+					'privacy'   => $space_id > 0 ? 'space_members' : 'public',
 					'link_url'  => $link_url,
 					'link_meta' => self::normalise_link_meta(
 						array_merge(
