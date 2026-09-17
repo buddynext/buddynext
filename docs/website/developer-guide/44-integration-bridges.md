@@ -212,7 +212,7 @@ A non-photo media upload (video / audio) becomes a `'media'` integration feed ca
 | `mvs_media_restored` | `on_media_restored` - re-publish the card (reference-only, so it reconstructs exactly; idempotent by URL) |
 | `mvs_media_privacy_changed` | *not hooked* - privacy is resolved at render instead: `hydrate_media_preview()` gates BOTH title and cover behind `PrivacyService::can_view()`, so a viewer who may not see the media gets the coverless, titleless compact card. Per viewer, for every transition - a blunt privacy-change withdrawal would also hide members-scoped media from members who may still see it. |
 
-Documents have their own twin (`mvs_document_trashed` -> `on_document_trashed`); photos are native posts, not bridge cards. Known gap: `mvs_document_restored` is not yet hooked - re-adding a trashed document's composer card is lossy (that card carries the member's own post text), so it awaits an owner ruling rather than a silent reconstruction.
+Documents have their own trash hook (`mvs_document_trashed` -> `on_document_trashed`), which removes the shared document card; photos are native posts, not bridge cards. There is deliberately **no** document-restore mirror: `mvs_document_restored` is left unhooked (owner decision 2026-09-17). Trashing a document removes its share, and a member who wants it back re-shares it - simpler than re-adding a card whose original post text is already gone.
 
 ### Media rail item
 
