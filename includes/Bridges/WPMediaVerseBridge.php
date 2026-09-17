@@ -1914,12 +1914,7 @@ class WPMediaVerseBridge {
 		// file just loses the link — so the row needs to know which it is. The REST
 		// item already carries its home drive, so this costs no query.
 		if ( 'space' === $drive_type ) {
-			foreach ( $documents as $i => $doc ) {
-				$home_type = isset( $doc['drive_type'] ) ? (string) $doc['drive_type'] : '';
-				$home_id   = isset( $doc['drive_id'] ) ? (int) $doc['drive_id'] : 0;
-
-				$documents[ $i ]['is_linked'] = ! ( 'space' === $home_type && $home_id === $drive_id );
-			}
+			$documents = self::flag_linked_documents( $documents, $drive_id );
 		}
 
 		// The current viewer's write level on this drive. The Files tab is a
@@ -1964,6 +1959,31 @@ class WPMediaVerseBridge {
 			'folder_page'  => $folder_page,
 			'can_write'    => in_array( $access, array( 'write', 'own' ), true ),
 		);
+	}
+
+	/**
+	 * Flag which listed documents are LINKED into a space rather than living there.
+	 *
+	 * A file whose home drive is NOT this space (its `drive` is a user drive, or a
+	 * different space) got here through mvs_media_spaces, so the Files tab removes
+	 * it by dropping the link, not by re-homing. The REST item carries its home
+	 * drive as `drive => { type, id }`, so this costs no query. Shared by the
+	 * browse and search paths so both mark rows the same way.
+	 *
+	 * @param array<int,array<string,mixed>> $documents REST document items.
+	 * @param int                            $space_id  The space drive being listed.
+	 * @return array<int,array<string,mixed>> The same items, each with `is_linked`.
+	 */
+	private static function flag_linked_documents( array $documents, int $space_id ): array {
+		foreach ( $documents as $i => $doc ) {
+			$drive     = isset( $doc['drive'] ) && is_array( $doc['drive'] ) ? $doc['drive'] : array();
+			$home_type = isset( $drive['type'] ) ? (string) $drive['type'] : '';
+			$home_id   = isset( $drive['id'] ) ? (int) $drive['id'] : 0;
+
+			$documents[ $i ]['is_linked'] = ! ( 'space' === $home_type && $home_id === $space_id );
+		}
+
+		return $documents;
 	}
 
 	/**
@@ -2094,8 +2114,15 @@ class WPMediaVerseBridge {
 		}
 		$data  = (array) $res->get_data();
 		$index = isset( $data['index'] ) && is_array( $data['index'] ) ? $data['index'] : array();
+		$items = isset( $data['items'] ) && is_array( $data['items'] ) ? $data['items'] : array();
+		// Search covers files LINKED into a space too (SearchService unions them),
+		// so mark them the same way the browse listing does — the row's Remove and
+		// badge depend on it.
+		if ( 'space' === $drive_type ) {
+			$items = self::flag_linked_documents( $items, $drive_id );
+		}
 		return array(
-			'items' => isset( $data['items'] ) && is_array( $data['items'] ) ? $data['items'] : array(),
+			'items' => $items,
 			'total' => isset( $data['total'] ) ? (int) $data['total'] : 0,
 			'pages' => isset( $data['pages'] ) ? max( 1, (int) $data['pages'] ) : 1,
 			'page'  => $page,
