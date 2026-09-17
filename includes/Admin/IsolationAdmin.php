@@ -182,12 +182,18 @@ class IsolationAdmin {
 			ksort( $bn_all );
 			$bn_stripped = $bn_groups['stripped'];
 			?>
-			<div class="bn-settings-section">
+			<div class="bn-settings-section<?php echo $bn_isolation_on ? '' : ' is-inactive'; ?>">
 				<div class="bn-ss-header">
 					<span class="bn-ss-title"><?php esc_html_e( 'Plugins on this site', 'buddynext' ); ?></span>
-					<span class="bn-badge" data-tone="warn"><?php echo esc_html( (string) count( $bn_stripped ) ); ?></span>
+					<?php // Off => nothing is actually skipped, so the count is neutral, not a warning. ?>
+					<span class="bn-badge" data-tone="<?php echo $bn_isolation_on ? 'warn' : 'neutral'; ?>"><?php echo esc_html( (string) count( $bn_stripped ) ); ?></span>
 				</div>
 				<div class="bn-ss-body">
+					<?php if ( ! $bn_isolation_on ) : ?>
+						<p class="bn-field-hint bn-field-hint--muted">
+							<?php esc_html_e( 'Route isolation is off, so these choices are not in effect yet. They take effect when route isolation is on. You can still set them up here.', 'buddynext' ); ?>
+						</p>
+					<?php endif; ?>
 					<p class="bn-field-hint">
 						<?php esc_html_e( 'BuddyNext and the Wbcom family are always kept. Every other active plugin is kept on community pages unless you switch it off here: turn off only heavy back-office plugins a community page does not need. Leave security, membership, consent and translation plugins on.', 'buddynext' ); ?>
 					</p>
