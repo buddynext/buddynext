@@ -12,6 +12,65 @@
 	--bn-files-row-min: var(--bn-s12);
 }
 
+/* ── Toolbar: search + upload + link on one row ─────────────────────────────
+ * Search grows; Upload and Link a file are compact buttons beside it. Wraps to
+ * stacked, full-width controls under 640px so nothing is cramped on a phone. */
+.bn-files__toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	/* Stretch so Upload and Link a file are the SAME height as the search field
+	 * and its button - the row reads as one control strip, not mismatched pills. */
+	align-items: stretch;
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s3);
+}
+
+.bn-files__toolbar .bn-files__search {
+	flex: 1 1 16rem;
+	min-width: 0;
+	margin-block-end: 0;
+}
+
+/* A compact secondary action (Upload, Link a file), matched to the search
+ * field's height so the row reads as one control strip. */
+.bn-files__tool-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	white-space: nowrap;
+	cursor: pointer;
+	list-style: none;
+}
+
+.bn-files__tool-btn::-webkit-details-marker {
+	display: none;
+}
+
+.bn-files__tool-btn:hover,
+.bn-files__tool-btn:focus-visible {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+	outline: 2px solid transparent;
+}
+
+.bn-files__tool-icon {
+	display: inline-flex;
+	inline-size: 1em;
+	block-size: 1em;
+}
+
+.bn-files__tool-icon svg {
+	inline-size: 100%;
+	block-size: 100%;
+}
+
 /* ── Search ─────────────────────────────────────────────────────────────── */
 .bn-files__search {
 	display: flex;
@@ -880,61 +939,35 @@ a.bn-files__name:focus-visible {
    A dropzone that files a document straight into this drive + folder, so a
    contributor can add one from the Files tab (not only via an activity post).
    Same token-driven treatment as the media composer's dropzone. */
+/* Upload is a compact toolbar button; a file can still be dropped on it (the
+ * whole control is the drop target, highlighted while dragging). The transient
+ * "Uploading…" status floats below the button so it never grows the row. */
 .bn-files-upload {
-	margin-block-end: var( --bn-s4, 16px );
+	position: relative;
+	display: inline-flex;
 }
-.bn-files-upload__zone {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: var( --bn-s2, 8px );
-	inline-size: 100%;
-	padding: var( --bn-s5, 20px ) var( --bn-s4, 16px );
-	border: 1px dashed var( --bn-line, oklch( 88% 0.01 0 ) );
-	border-radius: var( --bn-r-lg, 12px );
-	background: var( --bn-sunken, oklch( 97% 0.004 0 ) );
-	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
-	cursor: pointer;
-	text-align: center;
-	transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
-}
-.bn-files-upload__zone:hover,
-.bn-files-upload__zone:focus-visible {
-	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
-	color: var( --bn-ink-2, oklch( 40% 0.01 0 ) );
-	outline: 2px solid transparent;
-	outline-offset: 2px;
-}
-.bn-files-upload.is-drag .bn-files-upload__zone {
-	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+.bn-files-upload.is-drag .bn-files__tool-btn {
+	border-color: var( --bn-accent );
 	background: var( --bn-accent-50, oklch( 95% 0.03 264 ) );
-	color: var( --bn-ink, oklch( 22% 0.01 0 ) );
+	color: var( --bn-accent );
 }
-.bn-files-upload.is-uploading .bn-files-upload__zone {
+.bn-files-upload.is-uploading .bn-files__tool-btn {
 	opacity: 0.6;
 	pointer-events: none;
 }
-.bn-files-upload__icon {
-	display: inline-flex;
-	inline-size: var( --bn-s8, 32px );
-	block-size: var( --bn-s8, 32px );
-	color: var( --bn-accent, oklch( 58% 0.13 264 ) );
-}
-.bn-files-upload__icon svg { inline-size: 100%; block-size: 100%; }
-.bn-files-upload__title {
-	font-weight: var( --bn-fw-semibold, 600 );
-	color: var( --bn-ink, oklch( 22% 0.01 0 ) );
-}
-.bn-files-upload__hint {
-	font-size: var( --bn-text-sm, 0.875rem );
-	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
-}
 .bn-files-upload__status {
-	margin-block: var( --bn-s2, 8px ) 0;
+	position: absolute;
+	inset-block-start: calc( 100% + var( --bn-s1, 4px ) );
+	inset-inline-start: 0;
+	margin: 0;
+	padding: var( --bn-s1, 4px ) var( --bn-s2, 8px );
+	border-radius: var( --bn-r-sm );
+	background: var( --bn-surface );
+	box-shadow: var( --bn-shadow-1, 0 1px 3px rgba( 0, 0, 0, 0.12 ) );
 	font-size: var( --bn-text-sm, 0.875rem );
-	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
-	text-align: center;
+	color: var( --bn-ink-3 );
+	white-space: nowrap;
+	z-index: 3;
 }
 
 /* ── Link a file (secondary to upload) + the "Linked" row badge ──────────────
@@ -942,32 +975,12 @@ a.bn-files__name:focus-visible {
  * control is a secondary button (summary) that opens an inline popover; the
  * row badge marks files that live elsewhere and are only linked here. All
  * values come from the --bn-* tokens, so both follow the theme + dark mode. */
+/* The toggle reuses .bn-files__tool-btn for its look; only the open-state accent
+ * and the floating popover are specific to it. The popover is absolutely
+ * positioned under the toggle so opening it never grows the toolbar row. */
 .bn-files-link {
-	margin-block-end: var(--bn-s3);
-}
-
-.bn-files-link__toggle {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s1);
-	padding: var(--bn-s2) var(--bn-s3);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-md);
-	background: var(--bn-surface);
-	color: var(--bn-ink);
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-semibold);
-	cursor: pointer;
-	list-style: none;
-}
-
-.bn-files-link__toggle::-webkit-details-marker {
-	display: none;
-}
-
-.bn-files-link__toggle:hover {
-	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	position: relative;
+	display: flex;
 }
 
 .bn-files-link[open] .bn-files-link__toggle {
@@ -975,19 +988,34 @@ a.bn-files__name:focus-visible {
 	color: var(--bn-accent);
 }
 
-.bn-files-link__icon {
-	display: inline-flex;
-	width: 1em;
-	height: 1em;
-}
-
 .bn-files-link__pop {
-	margin-block-start: var(--bn-s2);
+	position: absolute;
+	inset-block-start: calc(100% + var(--bn-s1));
+	inset-inline-end: 0;
+	inline-size: min(28rem, 92vw);
 	padding: var(--bn-s3);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
 	background: var(--bn-surface);
-	max-width: 32rem;
+	box-shadow: var(--bn-shadow-2, 0 4px 16px rgba(0, 0, 0, 0.14));
+	z-index: 4;
+}
+
+/* On a phone the toolbar wraps; the Link button takes its own row and its
+ * popover drops IN FLOW below it (full width) rather than floating off the
+ * right edge, where it would be clipped. */
+@media (max-width: 640px) {
+	.bn-files-link {
+		flex: 1 1 100%;
+		display: block;
+	}
+
+	.bn-files-link__pop {
+		position: static;
+		inline-size: auto;
+		margin-block-start: var(--bn-s2);
+		box-shadow: none;
+	}
 }
 
 .bn-files-link__label {

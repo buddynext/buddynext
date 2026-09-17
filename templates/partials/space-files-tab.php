@@ -226,43 +226,87 @@ if ( $bn_sf_is_space ) {
 	<?php endif; ?>
 >
 
-	<form class="bn-files__search" method="get" action="<?php echo esc_url( $bn_sf_base_url ); ?>" role="search">
-		<label class="screen-reader-text" for="bn-files-q"><?php echo esc_html( $bn_sf_is_space ? __( 'Search files in this space', 'buddynext' ) : __( 'Search your files', 'buddynext' ) ); ?></label>
-		<input type="search" id="bn-files-q" name="bn_q" class="bn-files__search-input" value="<?php echo esc_attr( $bn_sf_search_q ); ?>" placeholder="<?php esc_attr_e( 'Search files…', 'buddynext' ); ?>" autocomplete="off">
-		<button type="submit" class="bn-files__search-btn"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
-	</form>
+	<?php
+	// Search, Upload and Link a file share ONE compact toolbar row rather than
+	// stacking (a full-width search, a tall drop zone, then a lone Link button
+	// wasted most of the width). Upload is a button here; a file can still be
+	// dropped on it. The row wraps to stacked controls under 640px.
+	$bn_sf_drive_param = ( $bn_sf_is_space ? 'space' : 'user' ) . ':' . (int) $bn_sf_space_id;
+	?>
+	<div class="bn-files__toolbar">
+		<form class="bn-files__search" method="get" action="<?php echo esc_url( $bn_sf_base_url ); ?>" role="search">
+			<label class="screen-reader-text" for="bn-files-q"><?php echo esc_html( $bn_sf_is_space ? __( 'Search files in this space', 'buddynext' ) : __( 'Search your files', 'buddynext' ) ); ?></label>
+			<input type="search" id="bn-files-q" name="bn_q" class="bn-files__search-input" value="<?php echo esc_attr( $bn_sf_search_q ); ?>" placeholder="<?php esc_attr_e( 'Search files…', 'buddynext' ); ?>" autocomplete="off">
+			<button type="submit" class="bn-files__search-btn"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
+		</form>
 
-	<?php if ( $bn_sf_can_upload ) : ?>
-		<?php
-		// Upload straight into THIS drive + folder, the same way the Media tab has
-		// its own composer. The engine's document endpoint (/mvs-pro/v1/documents/
-		// upload) takes a `drive` = "type:id" and a `folder`, both carried here so a
-		// file lands where the viewer is looking. A space upload is filed as `space`
-		// privacy so the whole space can see it without a second step.
-		$bn_sf_drive_param = ( $bn_sf_is_space ? 'space' : 'user' ) . ':' . (int) $bn_sf_space_id;
-		?>
-		<div class="bn-files-upload"
-			data-bn-file-upload
-			data-bn-url="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents/upload' ) ); ?>"
-			data-bn-drive="<?php echo esc_attr( $bn_sf_drive_param ); ?>"
-			data-bn-folder="<?php echo esc_attr( (string) $bn_sf_folder ); ?>"
-			data-bn-privacy="<?php echo esc_attr( $bn_sf_is_space ? 'space' : 'private' ); ?>"
-			data-bn-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
-			data-bn-max="<?php echo esc_attr( (string) ( (int) ( $bn_sf_doc_config['max_size'] ?? 0 ) ) ); ?>"
-			data-bn-strings="<?php echo esc_attr( $bn_sf_up_i18n ); ?>">
-			<button type="button" class="bn-files-upload__zone" data-bn-file-upload-trigger>
-				<span class="bn-files-upload__icon" aria-hidden="true"><?php buddynext_icon( 'upload' ); ?></span>
-				<span class="bn-files-upload__title"><?php esc_html_e( 'Drag a file here or click to upload', 'buddynext' ); ?></span>
-				<span class="bn-files-upload__hint">
-					<?php echo esc_html( $bn_sf_is_space ? __( 'Shared with this space', 'buddynext' ) : __( 'Added to your files', 'buddynext' ) ); ?>
-				</span>
-			</button>
-			<input type="file" class="bn-files-upload__input" data-bn-file-upload-input
-				accept="<?php echo esc_attr( (string) ( $bn_sf_doc_config['accept'] ?? '' ) ); ?>" hidden
-				aria-label="<?php esc_attr_e( 'Choose a file to upload', 'buddynext' ); ?>">
-			<p class="bn-files-upload__status" data-bn-file-upload-status role="status" aria-live="polite" hidden></p>
-		</div>
-	<?php elseif ( $bn_sf_show_ro_notice ) : ?>
+		<?php if ( $bn_sf_can_upload ) : ?>
+			<div class="bn-files-upload"
+				data-bn-file-upload
+				data-bn-url="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents/upload' ) ); ?>"
+				data-bn-drive="<?php echo esc_attr( $bn_sf_drive_param ); ?>"
+				data-bn-folder="<?php echo esc_attr( (string) $bn_sf_folder ); ?>"
+				data-bn-privacy="<?php echo esc_attr( $bn_sf_is_space ? 'space' : 'private' ); ?>"
+				data-bn-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+				data-bn-max="<?php echo esc_attr( (string) ( (int) ( $bn_sf_doc_config['max_size'] ?? 0 ) ) ); ?>"
+				data-bn-strings="<?php echo esc_attr( $bn_sf_up_i18n ); ?>">
+				<button type="button" class="bn-files__tool-btn" data-bn-file-upload-trigger
+					title="<?php echo esc_attr( $bn_sf_is_space ? __( 'Upload a file to this space (or drop one here)', 'buddynext' ) : __( 'Upload a file (or drop one here)', 'buddynext' ) ); ?>">
+					<span class="bn-files__tool-icon" aria-hidden="true"><?php buddynext_icon( 'upload' ); ?></span>
+					<span><?php esc_html_e( 'Upload', 'buddynext' ); ?></span>
+				</button>
+				<input type="file" class="bn-files-upload__input" data-bn-file-upload-input
+					accept="<?php echo esc_attr( (string) ( $bn_sf_doc_config['accept'] ?? '' ) ); ?>" hidden
+					aria-label="<?php esc_attr_e( 'Choose a file to upload', 'buddynext' ); ?>">
+				<p class="bn-files-upload__status" data-bn-file-upload-status role="status" aria-live="polite" hidden></p>
+			</div>
+		<?php endif; ?>
+
+		<?php if ( $bn_sf_is_space && $bn_sf_can_write && ! $bn_sf_is_search ) : ?>
+			<?php
+			// Link an EXISTING file into this space (secondary to upload). The
+			// member pastes a file's link; the server resolves it, checks they own
+			// it and may write here, and adds it to this space's Files without a
+			// copy. Any member who may contribute here may link; removing others'
+			// links stays a moderator action (checked per row).
+			$bn_sf_link_i18n = (string) wp_json_encode(
+				array(
+					'linking' => __( 'Linking…', 'buddynext' ),
+					'done'    => __( 'File linked to this space.', 'buddynext' ),
+					'empty'   => __( 'Paste a file link first.', 'buddynext' ),
+					'fail'    => __( 'That file could not be linked.', 'buddynext' ),
+				)
+			);
+			?>
+			<details class="bn-files-link">
+				<summary class="bn-files__tool-btn bn-files-link__toggle">
+					<span class="bn-files__tool-icon" aria-hidden="true"><?php buddynext_icon( 'link' ); ?></span>
+					<?php esc_html_e( 'Link a file', 'buddynext' ); ?>
+				</summary>
+				<div class="bn-files-link__pop"
+					data-bn-file-link
+					data-bn-url="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents/link' ) ); ?>"
+					data-bn-space="<?php echo esc_attr( (string) (int) $bn_sf_space_id ); ?>"
+					data-bn-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+					data-bn-strings="<?php echo esc_attr( $bn_sf_link_i18n ); ?>">
+					<label class="bn-files-link__label" for="bn-files-link-input">
+						<?php esc_html_e( 'Paste the link to a file you own', 'buddynext' ); ?>
+					</label>
+					<div class="bn-files-link__row">
+						<input type="url" id="bn-files-link-input" class="bn-files-link__input"
+							data-bn-file-link-input inputmode="url" autocomplete="off"
+							placeholder="<?php esc_attr_e( 'https://…/media/your-file/', 'buddynext' ); ?>">
+						<button type="button" class="bn-files-link__submit" data-bn-file-link-submit>
+							<?php esc_html_e( 'Link', 'buddynext' ); ?>
+						</button>
+					</div>
+					<p class="bn-files-link__status" data-bn-file-link-status role="status" aria-live="polite" hidden></p>
+				</div>
+			</details>
+		<?php endif; ?>
+	</div>
+
+	<?php if ( ! $bn_sf_can_upload && $bn_sf_show_ro_notice ) : ?>
 		<p class="bn-files__notice" data-bn-files-readonly>
 			<?php
 			echo esc_html(
@@ -272,49 +316,6 @@ if ( $bn_sf_is_space ) {
 			);
 			?>
 		</p>
-	<?php endif; ?>
-
-	<?php if ( $bn_sf_is_space && $bn_sf_can_write && ! $bn_sf_is_search ) : ?>
-		<?php
-		// Link an EXISTING file into this space (secondary to upload). The member
-		// pastes a file's link; the server resolves it, checks they own it and may
-		// write here, and adds it to this space's Files without a copy. Any member
-		// who may contribute here may link; removing others' links stays a
-		// moderator action (checked per row).
-		$bn_sf_link_i18n = (string) wp_json_encode(
-			array(
-				'linking' => __( 'Linking…', 'buddynext' ),
-				'done'    => __( 'File linked to this space.', 'buddynext' ),
-				'empty'   => __( 'Paste a file link first.', 'buddynext' ),
-				'fail'    => __( 'That file could not be linked.', 'buddynext' ),
-			)
-		);
-		?>
-		<details class="bn-files-link">
-			<summary class="bn-files-link__toggle">
-				<span class="bn-files-link__icon" aria-hidden="true"><?php buddynext_icon( 'link' ); ?></span>
-				<?php esc_html_e( 'Link a file', 'buddynext' ); ?>
-			</summary>
-			<div class="bn-files-link__pop"
-				data-bn-file-link
-				data-bn-url="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents/link' ) ); ?>"
-				data-bn-space="<?php echo esc_attr( (string) (int) $bn_sf_space_id ); ?>"
-				data-bn-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
-				data-bn-strings="<?php echo esc_attr( $bn_sf_link_i18n ); ?>">
-				<label class="bn-files-link__label" for="bn-files-link-input">
-					<?php esc_html_e( 'Paste the link to a file you own', 'buddynext' ); ?>
-				</label>
-				<div class="bn-files-link__row">
-					<input type="url" id="bn-files-link-input" class="bn-files-link__input"
-						data-bn-file-link-input inputmode="url" autocomplete="off"
-						placeholder="<?php esc_attr_e( 'https://…/media/your-file/', 'buddynext' ); ?>">
-					<button type="button" class="bn-files-link__submit" data-bn-file-link-submit>
-						<?php esc_html_e( 'Link', 'buddynext' ); ?>
-					</button>
-				</div>
-				<p class="bn-files-link__status" data-bn-file-link-status role="status" aria-live="polite" hidden></p>
-			</div>
-		</details>
 	<?php endif; ?>
 
 	<?php if ( $bn_sf_is_search ) : ?>
