@@ -207,6 +207,24 @@ class WPMediaVerseBridge {
 		add_filter( 'mvs_has_custom_avatar', array( $this, 'profile_avatar_flag' ), 10, 2 );
 
 		add_filter( 'mvs_document_drive_access', array( $this, 'space_drive_access' ), 10, 4 );
+		/*
+		 * NOT DEAD CODE, though a sweep will read them that way. These three answer
+		 * live MVS REST seams that BuddyNext's OWN Files tab happens to bypass
+		 * because it renders server-side (drive_view_core), so nothing here calls
+		 * them - but the engine still fires them for the app and any API client:
+		 *
+		 * - drive_visible: the 403-vs-404 refusal on GET a drive
+		 *   (AbstractDocumentController). Without our answer a joinable space drive
+		 *   returns a misleading 404 and the frozen `mvs_drive_forbidden` (403,
+		 *   "exists, join to see") becomes unreachable - a hole in the contract,
+		 *   not a leak (a secret space stays 404 by default).
+		 * - drives_for_user + drive_label: the drive picker / discovery on
+		 *   GET /drives (DocumentController) - how a client lists and names the
+		 *   space drives a member may write to. Our Files tab knows its own drive
+		 *   already, so it never asks; a mobile client has no other way.
+		 *
+		 * Do not remove them because grep finds no in-tree caller.
+		 */
 		add_filter( 'mvs_document_drive_visible', array( $this, 'space_drive_visible' ), 10, 4 );
 		add_filter( 'mvs_document_drives_for_user', array( $this, 'space_drives_for_user' ), 10, 2 );
 		add_filter( 'mvs_document_drive_label', array( $this, 'space_drive_label' ), 10, 3 );
