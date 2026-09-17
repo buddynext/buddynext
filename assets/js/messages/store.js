@@ -1432,8 +1432,14 @@ const messagesStore = store( 'buddynext/messages', {
 					}
 					const opt = e.target.closest( '[data-emoji-char]' );
 					if ( opt ) {
-						insertAtCursor( document.getElementById( 'bn-dm-input' ), opt.dataset.emojiChar );
-						closeEmojiPop( pop );
+						// Keep the picker open for several picks (the close button,
+						// outside-click and Esc still dismiss it); refocus the input so
+						// the caret stays put. (Card 10258511674.)
+						const dmInput = document.getElementById( 'bn-dm-input' );
+						insertAtCursor( dmInput, opt.dataset.emojiChar );
+						if ( dmInput && typeof dmInput.focus === 'function' ) {
+							dmInput.focus();
+						}
 					}
 				} );
 			}

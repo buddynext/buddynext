@@ -1310,8 +1310,15 @@ function initEmojiPicker() {
 		const option = e.target.closest( '.bn-emoji-popover__option' );
 		if ( option && panel && ! panel.hidden && activeTrigger ) {
 			e.preventDefault();
-			bnInsertAtCaret( resolveTarget( activeTrigger ), option.dataset.emojiChar );
-			closePanel();
+			const emojiTarget = resolveTarget( activeTrigger );
+			bnInsertAtCaret( emojiTarget, option.dataset.emojiChar );
+			// Keep the picker open for several picks in a row (the behaviour of
+			// Facebook, X and LinkedIn); outside-click, Escape and the trigger toggle
+			// still dismiss it. Refocus the field so the caret stays where the next
+			// pick or keystroke lands. (Card 10258511674.)
+			if ( emojiTarget && typeof emojiTarget.focus === 'function' ) {
+				emojiTarget.focus();
+			}
 			return;
 		}
 
