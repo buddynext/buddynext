@@ -94,6 +94,7 @@ class BlogPostListener implements ListenerInterface {
 		// detectable.
 		add_action( 'wp_after_insert_post', array( $this, 'on_after_insert' ), 10, 4 );
 		add_action( 'before_delete_post', array( $this, 'on_delete' ) );
+		add_action( 'buddynext_user_verified', array( $this, 'on_user_verified' ) );
 		add_filter( 'buddynext_render_post_body_' . self::TYPE, array( $this, 'render_card' ), 10, 2 );
 		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
 	}
@@ -169,6 +170,56 @@ class BlogPostListener implements ListenerInterface {
 		if ( ! $is_published || $was_published ) {
 			return;
 		}
+
+		$this->publish_card( $post );
+	}
+
+	/**
+	 * Publish the cards a newly verified member's posts could not get earlier.
+	 *
+	 * A site that requires email verification holds an unverified member's
+	 * activity, so a post they published first got no card, and nothing tried
+	 * again: the article never reached the community even after they verified.
+	 * Their recent published posts are offered once more here; publish_card()
+	 * skips any that already have one.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param int $user_id The member who just verified.
+	 * @return void
+	 */
+	public function on_user_verified( $user_id ): void {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		// ponytail: the 20 most recent posts; older ones stay off the feed, where a
+		// weeks-old article would be stale news anyway.
+		$posts = get_posts(
+			array(
+				'author'         => $user_id,
+				'post_type'      => $this->tracked_types(),
+				'post_status'    => 'publish',
+				'posts_per_page' => 20,
+				'orderby'        => 'date',
+				'order'          => 'ASC',
+				'no_found_rows'  => true,
+			)
+		);
+
+		foreach ( $posts as $post ) {
+			$this->publish_card( $post );
+		}
+	}
+
+	/**
+	 * Publish the activity card for a public post, once.
+	 *
+	 * @param \WP_Post $post Source post.
+	 * @return void
+	 */
+	private function publish_card( \WP_Post $post ): void {
 
 		// ...and never a SECOND card for the same article, whatever route the
 		// post takes. Keyed on the post id rather than the link, because

@@ -73,4 +73,33 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame( $meta, BlogPostListener::live_link_meta( $meta ) );
 	}
+
+	/**
+	 * A post published before the author verified reaches the feed once they do.
+	 *
+	 * @return void
+	 */
+	public function test_post_published_before_verification_gets_its_card_on_verify(): void {
+		update_option( 'buddynext_email_verify', 1 );
+		$author  = self::factory()->user->create( array( 'role' => 'author' ) );
+		$post_id = (int) wp_insert_post(
+			array(
+				'post_title'   => 'Written before verifying',
+				'post_content' => 'Body.',
+				'post_status'  => 'publish',
+				'post_author'  => $author,
+			)
+		);
+
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $post_id ), 'held while unverified' );
+
+		( new \BuddyNext\Auth\VerificationService() )->mark_verified( $author );
+		$card = BlogPostListener::card_id_for_post( $post_id );
+		$this->assertGreaterThan( 0, $card, 'published once the member verifies' );
+
+		do_action( 'buddynext_user_verified', $author );
+		$this->assertSame( $card, BlogPostListener::card_id_for_post( $post_id ), 'never a second card' );
+
+		delete_option( 'buddynext_email_verify' );
+	}
 }
