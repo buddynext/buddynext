@@ -227,11 +227,13 @@ if ( $bn_sf_is_space ) {
 >
 
 	<?php
-	// Search, Upload and Link a file share ONE compact toolbar row rather than
-	// stacking (a full-width search, a tall drop zone, then a lone Link button
-	// wasted most of the width). Upload is a button here; a file can still be
-	// dropped on it. The row wraps to stacked controls under 640px.
+	// Search, Upload and Link a file share ONE compact toolbar strip. On a wide
+	// screen all three sit on one line; when the row is too narrow, search keeps
+	// the top line and Upload + Link drop TOGETHER onto the next line (grouped in
+	// .bn-files__tools) rather than stacking one-per-row with dead space beside
+	// each. Upload is a button; a file can still be dropped on it.
 	$bn_sf_drive_param = ( $bn_sf_is_space ? 'space' : 'user' ) . ':' . (int) $bn_sf_space_id;
+	$bn_sf_has_link    = $bn_sf_is_space && $bn_sf_can_write && ! $bn_sf_is_search;
 	?>
 	<div class="bn-files__toolbar">
 		<form class="bn-files__search" method="get" action="<?php echo esc_url( $bn_sf_base_url ); ?>" role="search">
@@ -240,7 +242,10 @@ if ( $bn_sf_is_space ) {
 			<button type="submit" class="bn-files__search-btn"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
 		</form>
 
-		<?php if ( $bn_sf_can_upload ) : ?>
+		<?php if ( $bn_sf_can_upload || $bn_sf_has_link ) : ?>
+		<div class="bn-files__tools">
+
+			<?php if ( $bn_sf_can_upload ) : ?>
 			<div class="bn-files-upload"
 				data-bn-file-upload
 				data-bn-url="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents/upload' ) ); ?>"
@@ -262,22 +267,22 @@ if ( $bn_sf_is_space ) {
 			</div>
 		<?php endif; ?>
 
-		<?php if ( $bn_sf_is_space && $bn_sf_can_write && ! $bn_sf_is_search ) : ?>
-			<?php
-			// Link an EXISTING file into this space (secondary to upload). The
-			// member pastes a file's link; the server resolves it, checks they own
-			// it and may write here, and adds it to this space's Files without a
-			// copy. Any member who may contribute here may link; removing others'
-			// links stays a moderator action (checked per row).
-			$bn_sf_link_i18n = (string) wp_json_encode(
-				array(
-					'linking' => __( 'Linking…', 'buddynext' ),
-					'done'    => __( 'File linked to this space.', 'buddynext' ),
-					'empty'   => __( 'Paste a file link first.', 'buddynext' ),
-					'fail'    => __( 'That file could not be linked.', 'buddynext' ),
-				)
-			);
-			?>
+			<?php if ( $bn_sf_has_link ) : ?>
+				<?php
+				// Link an EXISTING file into this space (secondary to upload). The
+				// member pastes a file's link; the server resolves it, checks they own
+				// it and may write here, and adds it to this space's Files without a
+				// copy. Any member who may contribute here may link; removing others'
+				// links stays a moderator action (checked per row).
+				$bn_sf_link_i18n = (string) wp_json_encode(
+					array(
+						'linking' => __( 'Linking…', 'buddynext' ),
+						'done'    => __( 'File linked to this space.', 'buddynext' ),
+						'empty'   => __( 'Paste a file link first.', 'buddynext' ),
+						'fail'    => __( 'That file could not be linked.', 'buddynext' ),
+					)
+				);
+				?>
 			<details class="bn-files-link">
 				<summary class="bn-files__tool-btn bn-files-link__toggle">
 					<span class="bn-files__tool-icon" aria-hidden="true"><?php buddynext_icon( 'link' ); ?></span>
@@ -303,6 +308,8 @@ if ( $bn_sf_is_space ) {
 					<p class="bn-files-link__status" data-bn-file-link-status role="status" aria-live="polite" hidden></p>
 				</div>
 			</details>
+		<?php endif; ?>
+		</div>
 		<?php endif; ?>
 	</div>
 

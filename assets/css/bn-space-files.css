@@ -16,6 +16,7 @@
  * Search grows; Upload and Link a file are compact buttons beside it. Wraps to
  * stacked, full-width controls under 640px so nothing is cramped on a phone. */
 .bn-files__toolbar {
+	position: relative;
 	display: flex;
 	flex-wrap: wrap;
 	/* Stretch so Upload and Link a file are the SAME height as the search field
@@ -29,6 +30,16 @@
 	flex: 1 1 16rem;
 	min-width: 0;
 	margin-block-end: 0;
+}
+
+/* Upload + Link a file stay TOGETHER: on one line when the toolbar is wide, and
+ * dropping onto the next line side by side when it is narrow - never one button
+ * per row with dead space beside each. */
+.bn-files__tools {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	gap: var(--bn-s2);
 }
 
 /* A compact secondary action (Upload, Link a file), matched to the search
@@ -978,8 +989,11 @@ a.bn-files__name:focus-visible {
 /* The toggle reuses .bn-files__tool-btn for its look; only the open-state accent
  * and the floating popover are specific to it. The popover is absolutely
  * positioned under the toggle so opening it never grows the toolbar row. */
+/* display:flex lets the summary stretch to the row height; it is deliberately
+ * NOT a positioning context, so the popover below anchors to .bn-files__toolbar
+ * (the full-width strip) and is pinned to its right edge, capped to its width -
+ * it can never float off-screen at any width, on any wrap. */
 .bn-files-link {
-	position: relative;
 	display: flex;
 }
 
@@ -992,30 +1006,13 @@ a.bn-files__name:focus-visible {
 	position: absolute;
 	inset-block-start: calc(100% + var(--bn-s1));
 	inset-inline-end: 0;
-	inline-size: min(28rem, 92vw);
+	inline-size: min(28rem, 100%);
 	padding: var(--bn-s3);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
 	background: var(--bn-surface);
 	box-shadow: var(--bn-shadow-2, 0 4px 16px rgba(0, 0, 0, 0.14));
 	z-index: 4;
-}
-
-/* On a phone the toolbar wraps; the Link button takes its own row and its
- * popover drops IN FLOW below it (full width) rather than floating off the
- * right edge, where it would be clipped. */
-@media (max-width: 640px) {
-	.bn-files-link {
-		flex: 1 1 100%;
-		display: block;
-	}
-
-	.bn-files-link__pop {
-		position: static;
-		inline-size: auto;
-		margin-block-start: var(--bn-s2);
-		box-shadow: none;
-	}
 }
 
 .bn-files-link__label {
