@@ -82,13 +82,17 @@ class HeroIdentityFieldRestoreTest extends \WP_UnitTestCase {
 
 		$after = $this->field( 'pronouns' );
 		$this->assertNotNull( $after );
-		foreach ( array( 'group_id', 'field_key', 'label', 'type', 'sort_order', 'visibility' ) as $column ) {
+		foreach ( array( 'group_id', 'field_key', 'label', 'type', 'sort_order' ) as $column ) {
 			$this->assertSame(
 				(string) $before[ $column ],
 				(string) $after[ $column ],
 				"Restored pronouns.{$column} must match the seeded definition."
 			);
 		}
+		// Visibility is compared with the seeder's rule, not the row it replaced: a
+		// test database created before 4626cdcb still holds pronouns seeded public,
+		// while the seeder (and so the restore) now starts it members-only.
+		$this->assertSame( 'members', (string) $after['visibility'], 'Restored pronouns.visibility must match the seeded default.' );
 	}
 
 	public function test_a_field_the_owner_deleted_is_not_resurrected(): void {

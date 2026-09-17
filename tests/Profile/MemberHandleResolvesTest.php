@@ -231,7 +231,9 @@ class MemberHandleResolvesTest extends WP_UnitTestCase {
 		);
 
 		$mine = null;
-		foreach ( ( new MemberDirectoryService() )->online_now( 0, 6 ) as $row ) {
+		// A signed-in viewer: logged-out visitors see no presence (a57e37f2).
+		$viewer = self::factory()->user->create();
+		foreach ( ( new MemberDirectoryService() )->online_now( $viewer, 6 ) as $row ) {
 			if ( (int) $row['ID'] === $user_id ) {
 				$mine = $row;
 				break;

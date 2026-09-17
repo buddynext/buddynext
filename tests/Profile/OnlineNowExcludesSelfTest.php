@@ -91,7 +91,9 @@ class OnlineNowExcludesSelfTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * A logged-out visitor has no self to exclude, so nobody is dropped.
+	 * A logged-out visitor has no self to exclude, so nobody is dropped - on a
+	 * site that shows presence publicly. By default logged-out visitors see no
+	 * presence at all (owner decision, a57e37f2).
 	 *
 	 * @return void
 	 */
@@ -99,6 +101,10 @@ class OnlineNowExcludesSelfTest extends WP_UnitTestCase {
 		$a = (int) self::factory()->user->create();
 		$this->mark_online( $a );
 
+		$this->assertSame( array(), $this->ids( 0 ), 'hidden from logged-out visitors by default' );
+
+		add_filter( 'buddynext_presence_visible_to_anonymous', '__return_true' );
 		$this->assertContains( $a, $this->ids( 0 ) );
+		remove_filter( 'buddynext_presence_visible_to_anonymous', '__return_true' );
 	}
 }
