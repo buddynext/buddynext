@@ -171,19 +171,40 @@ function bindActions( root ) {
 	// One action per tab: 'unlink' on a space drive (the file leaves the space and
 	// returns to its owner's Files — a POST to .../{id}/unlink), or 'delete' on the
 	// owner's own drive (trash the document — a DELETE to .../{id}).
-	const action   = root.getAttribute( 'data-bn-action' ) || 'delete';
-	const endpoint = root.getAttribute( 'data-bn-endpoint' ) || '';
-	const nonce    = root.getAttribute( 'data-bn-nonce' ) || '';
-	const t        = parseStrings( root );
+	const rootAction = root.getAttribute( 'data-bn-action' ) || 'delete';
+	const endpoint   = root.getAttribute( 'data-bn-endpoint' ) || '';
+	const nonce      = root.getAttribute( 'data-bn-nonce' ) || '';
+	const rootT      = parseStrings( root );
 	if ( ! endpoint ) {
 		return;
 	}
-	const isUnlink = 'unlink' === action;
 
 	root.querySelectorAll( '[data-bn-file-remove]' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', async function () {
 			const id = parseInt( btn.getAttribute( 'data-bn-id' ), 10 ) || 0;
 			if ( ! id ) {
+				return;
+			}
+
+			// A LINKED file overrides the tab-wide action on its own button: it is
+			// removed by dropping the space link (DELETE its `data-bn-detach` URL),
+			// not by re-homing. Everything else falls back to the tab default.
+			const action = btn.getAttribute( 'data-bn-action' ) || rootAction;
+			const t      = btn.getAttribute( 'data-bn-strings' ) ? parseStrings( btn ) : rootT;
+
+			let url;
+			let method;
+			if ( 'unlink-space' === action ) {
+				url    = btn.getAttribute( 'data-bn-detach' ) || '';
+				method = 'DELETE';
+			} else if ( 'unlink' === action ) {
+				url    = endpoint + id + '/unlink';
+				method = 'POST';
+			} else {
+				url    = endpoint + id;
+				method = 'DELETE';
+			}
+			if ( ! url ) {
 				return;
 			}
 
@@ -200,8 +221,8 @@ function bindActions( root ) {
 
 			btn.disabled = true;
 			try {
-				const res = await fetch( isUnlink ? endpoint + id + '/unlink' : endpoint + id, {
-					method:      isUnlink ? 'POST' : 'DELETE',
+				const res = await fetch( url, {
+					method,
 					credentials: 'same-origin',
 					headers:     { 'X-WP-Nonce': nonce },
 				} );
@@ -224,7 +245,90 @@ function bindActions( root ) {
 	} );
 }
 
+/**
+ * Wire the "Link a file" control: paste a file link, POST it to the ref-based
+ * attach route, reload on success. Any member who may contribute to the space
+ * sees this; the server decides whether this particular file may be linked and
+ * returns a specific message when it may not.
+ *
+ * @param {HTMLElement} box The `[data-bn-file-link]` popover container.
+ */
+function bindLink( box ) {
+	if ( box._bnFileLinkBound ) {
+		return;
+	}
+	box._bnFileLinkBound = true;
+
+	const url     = box.getAttribute( 'data-bn-url' ) || '';
+	const spaceId = parseInt( box.getAttribute( 'data-bn-space' ), 10 ) || 0;
+	const nonce   = box.getAttribute( 'data-bn-nonce' ) || '';
+	const t       = parseStrings( box );
+	const input   = box.querySelector( '[data-bn-file-link-input]' );
+	const submit  = box.querySelector( '[data-bn-file-link-submit]' );
+	const status  = box.querySelector( '[data-bn-file-link-status]' );
+	if ( ! url || ! spaceId || ! input || ! submit ) {
+		return;
+	}
+
+	const say = function ( msg, isError ) {
+		if ( ! status ) {
+			return;
+		}
+		status.textContent = msg;
+		status.hidden = ! msg;
+		status.classList.toggle( 'is-error', !! isError );
+	};
+
+	const run = async function () {
+		const ref = ( input.value || '' ).trim();
+		if ( ! ref ) {
+			say( t.empty || 'Paste a file link first.', true );
+			return;
+		}
+
+		submit.disabled = true;
+		say( t.linking || 'Linking…', false );
+		try {
+			const res = await fetch( url, {
+				method:      'POST',
+				credentials: 'same-origin',
+				headers:     { 'X-WP-Nonce': nonce, 'Content-Type': 'application/json' },
+				body:        JSON.stringify( { ref, space_id: spaceId } ),
+			} );
+			if ( res.ok ) {
+				if ( typeof bnToast === 'function' ) {
+					bnToast( t.done || 'File linked to this space.', { tone: 'success' } );
+				}
+				window.location.reload();
+				return;
+			}
+			// A wrong or unreachable file gets the server's specific reason
+			// (not this file, not yours, already here), so the member can fix it.
+			let msg = t.fail || 'That file could not be linked.';
+			try {
+				const data = await res.json();
+				if ( data && data.message ) {
+					msg = data.message;
+				}
+			} catch ( e ) {}
+			say( msg, true );
+		} catch ( e ) {
+			say( t.fail || 'That file could not be linked.', true );
+		}
+		submit.disabled = false;
+	};
+
+	submit.addEventListener( 'click', run );
+	input.addEventListener( 'keydown', function ( e ) {
+		if ( 'Enter' === e.key ) {
+			e.preventDefault();
+			run();
+		}
+	} );
+}
+
 onNavReady( function () {
 	document.querySelectorAll( '[data-bn-file-upload]' ).forEach( bind );
 	document.querySelectorAll( '[data-bn-files-actions]' ).forEach( bindActions );
+	document.querySelectorAll( '[data-bn-file-link]' ).forEach( bindLink );
 } );

@@ -936,3 +936,128 @@ a.bn-files__name:focus-visible {
 	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
 	text-align: center;
 }
+
+/* ── Link a file (secondary to upload) + the "Linked" row badge ──────────────
+ * A file already on the site can be added to this space without a copy. The
+ * control is a secondary button (summary) that opens an inline popover; the
+ * row badge marks files that live elsewhere and are only linked here. All
+ * values come from the --bn-* tokens, so both follow the theme + dark mode. */
+.bn-files-link {
+	margin-block-end: var(--bn-s3);
+}
+
+.bn-files-link__toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	cursor: pointer;
+	list-style: none;
+}
+
+.bn-files-link__toggle::-webkit-details-marker {
+	display: none;
+}
+
+.bn-files-link__toggle:hover {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+}
+
+.bn-files-link[open] .bn-files-link__toggle {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+}
+
+.bn-files-link__icon {
+	display: inline-flex;
+	width: 1em;
+	height: 1em;
+}
+
+.bn-files-link__pop {
+	margin-block-start: var(--bn-s2);
+	padding: var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-surface);
+	max-width: 32rem;
+}
+
+.bn-files-link__label {
+	display: block;
+	margin-block-end: var(--bn-s1);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-files-link__row {
+	display: flex;
+	gap: var(--bn-s2);
+	flex-wrap: wrap;
+}
+
+.bn-files-link__input {
+	flex: 1 1 16rem;
+	min-width: 0;
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-files-link__input:focus {
+	border-color: var(--bn-accent);
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 1px;
+}
+
+.bn-files-link__submit {
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 0;
+	border-radius: var(--bn-r-md);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	cursor: pointer;
+}
+
+.bn-files-link__submit:hover {
+	background: var(--bn-accent-600);
+}
+
+.bn-files-link__submit:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.bn-files-link__status {
+	margin: var(--bn-s2) 0 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-files-link__status.is-error {
+	color: var(--bn-danger, #b3261e);
+}
+
+.bn-files__badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 var(--bn-s1);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-sm);
+	color: var(--bn-ink-4);
+	font-size: var(--bn-text-xs, 0.75rem);
+	font-weight: var(--bn-fw-semibold);
+	line-height: 1.6;
+}

@@ -211,6 +211,14 @@ class WPMediaVerseBridge {
 		add_filter( 'mvs_document_drives_for_user', array( $this, 'space_drives_for_user' ), 10, 2 );
 		add_filter( 'mvs_document_drive_label', array( $this, 'space_drive_label' ), 10, 3 );
 
+		// Who may MODERATE a space's linked files (remove another member's "Link
+		// file" link). The drive-access ladder above maps BOTH member and
+		// moderator to 'write', so it cannot answer moderation on its own — this
+		// separates a space's moderators/owner from its rank-and-file members,
+		// the same way Eventonomy's evnm_user_can_unbind_space does. A regular
+		// member can still remove their OWN link; Pro checks file ownership too.
+		add_filter( 'mvs_document_can_moderate_space', array( $this, 'space_files_can_moderate' ), 10, 3 );
+
 		// The fifth drive filter (MV Pro froze it in 2.4.0). Documents got a drive
 		// at ingest from day one; media never did, so every upload landed on the
 		// uploader's personal drive and `space` privacy was unreachable for media.
@@ -1573,6 +1581,40 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Answer MediaVerse: may this member moderate a space's linked files?
+	 *
+	 * True for the space's owner or a moderator, and for a site admin. False for
+	 * a plain member (they may add files and remove their OWN links, but not
+	 * another member's). Fail-closed: a non-space drive, an unknown space, or a
+	 * signed-out viewer all resolve to false.
+	 *
+	 * @param bool $can      Incoming default (false).
+	 * @param int  $space_id Space id (the space drive's id).
+	 * @param int  $user_id  Viewer.
+	 * @return bool
+	 */
+	public function space_files_can_moderate( $can, $space_id, $user_id ): bool {
+		$space_id = (int) $space_id;
+		$user_id  = (int) $user_id;
+
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return (bool) $can;
+		}
+
+		if ( null === self::drive_space( 'space', $space_id ) ) {
+			return (bool) $can;
+		}
+
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		$role = buddynext_service( 'space_members' )->get_role( $space_id, $user_id );
+
+		return in_array( $role, array( 'owner', 'moderator' ), true );
+	}
+
+	/**
 	 * Answer MVS: which drive does this upload belong on.
 	 *
 	 * Read from an EXPLICIT `space_id` on the write args rather than inferred from
@@ -1864,6 +1906,21 @@ class WPMediaVerseBridge {
 		$documents   = (array) $docs_res->get_data();
 		$doc_headers = $docs_res->get_headers();
 		$fol_headers = $folders_res->get_headers();
+
+		// Mark which documents are LINKED into this space rather than living here.
+		// A space drive lists both its own files (home drive = this space) and
+		// files linked in from elsewhere (mvs_media_spaces). The Files tab removes
+		// them differently — a native file re-homes to its owner's drive, a linked
+		// file just loses the link — so the row needs to know which it is. The REST
+		// item already carries its home drive, so this costs no query.
+		if ( 'space' === $drive_type ) {
+			foreach ( $documents as $i => $doc ) {
+				$home_type = isset( $doc['drive_type'] ) ? (string) $doc['drive_type'] : '';
+				$home_id   = isset( $doc['drive_id'] ) ? (int) $doc['drive_id'] : 0;
+
+				$documents[ $i ]['is_linked'] = ! ( 'space' === $home_type && $home_id === $drive_id );
+			}
+		}
 
 		// The current viewer's write level on this drive. The Files tab is a
 		// browse/download view, not an uploader — contribution arrives through the
