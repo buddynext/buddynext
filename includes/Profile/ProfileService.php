@@ -2932,8 +2932,8 @@ class ProfileService {
 				$affected
 			),
 			array(
-				'status'            => 409,
-				'affected_members'  => $affected,
+				'status'           => 409,
+				'affected_members' => $affected,
 			)
 		);
 	}

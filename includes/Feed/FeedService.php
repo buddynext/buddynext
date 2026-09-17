@@ -2043,10 +2043,9 @@ class FeedService {
 			return false;
 		}
 
-		$can_bootstrap = user_can( $viewer_id, 'manage_options' )
-			|| user_can( $viewer_id, 'buddynext_invite_members' );
-
-		if ( ! $can_bootstrap ) {
+		// Only someone who can invite may be told to invite; site invites are an
+		// admin action (InviteController requires manage_options).
+		if ( ! user_can( $viewer_id, 'manage_options' ) ) {
 			return false;
 		}
 

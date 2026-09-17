@@ -282,6 +282,7 @@ class ProfileController extends BaseRestController {
 				),
 				$args
 			);
+
 			$args['type']['default']        = 'text';
 			$args['is_required']['default'] = false;
 			$args['sort_order']['default']  = 0;
