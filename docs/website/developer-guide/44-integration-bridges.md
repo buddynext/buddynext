@@ -205,6 +205,25 @@ This tells WPMediaVerse to suppress its own floating chat panel, standalone mess
 
 `inject_media_nav_item()` adds a "Media" link to the BuddyNext left rail, resolving the engine's mapped Explore page (`mvs_page_explore`) and falling back to `/media/`. This only adds a link on BuddyNext's own pages - it never alters a WPMediaVerse page.
 
+### Space Files: link a file into more than one space
+
+A document has one home drive (`mvs_media_index.drive_type`/`drive_id`). A member can add an existing file to additional spaces without a copy - the same many-to-many model Eventonomy uses for events. The join table `mvs_media_spaces (media_id, space_id, added_by, added_at)` lives in WPMediaVerse (Migrator v33); `MediaRepository::drive_documents()` unions a space drive's own rows with the rows linked in, and `SearchService` unions them into that space's search. Cleanup is automatic - the table is in `MediaRepository::MEDIA_CHILD_TABLES`, so deleting the file drops its links too.
+
+Requires WPMediaVerse + WPMediaVerse Pro 2.5.1 alongside this BuddyNext release.
+
+Authorization reuses the drive-access seam plus one new filter:
+
+| Filter | Answered by BuddyNext with | Governs |
+| --- | --- | --- |
+| `mvs_document_drive_access` | owner -> `own`, moderator/member -> `write`, viewer -> `read` (`space_drive_access`) | Who may **link** (needs `write` on the target space) and read the space drive. |
+| `mvs_document_can_moderate_space` | true for a space owner/moderator or site admin (`space_files_can_moderate`, fail-closed) | Who may **remove another member's** link. A member may always remove their own; the file owner may always remove their file. |
+
+Because both a member and a moderator resolve to drive `write`, moderation cannot be read off the drive level alone - the new filter is what separates them (the same reason Eventonomy added `evnm_user_can_unbind_space`).
+
+Linking grants that space's members **view** access to the file (`PermissionService::permission_from_space_link` returns `view` for anyone who can reach a linked space), exactly as a file uploaded straight into the space is visible - and to nobody outside that space's audience. Home-drive privacy is unchanged everywhere else.
+
+Pro REST (all under `mvs-pro/v1`): `POST /documents/{id}/spaces` and `POST /documents/link` (`{ ref, space_id }`, where `ref` is a URL, slug, or id) attach; `DELETE /documents/{id}/spaces/{space_id}` detaches. The BuddyNext space Files tab renders a "Link a file" control and marks linked rows with a `Linked` badge; a linked row's Remove drops the link (the original file stays put), while a native space file's Remove re-homes it to the owner's drive.
+
 ## GamificationBridge and GamificationBridgeListener
 
 The gamification integration is split into a write-side bridge (BuddyNext events -> engine), an inbound listener (engine events -> BuddyNext notifications), and an Achievements profile tab. BuddyNext ships zero gamification logic. It surfaces credential badges in the feed, mirrors badge and level events into notifications, and renders the engine's public read API for the Achievements tab. Point awards for BuddyNext activity are defined in the wb-gamification plugin's own BuddyNext manifest. The full contract is documented on the **Gamification Engine Seam** page; in summary:
