@@ -201,6 +201,19 @@ This tells WPMediaVerse to suppress its own floating chat panel, standalone mess
 
 `bn_follows` (BuddyNext) and `mvs_follows` (WPMediaVerse) are kept in sync in both directions so a member's follow state is identical on either profile. The bridge listens on `mvs_user_followed/unfollowed` and `buddynext_user_followed/unfollowed`; a re-entrancy guard (`$mirroring_follow`) plus an `is_following()` short-circuit prevent the mirror from looping back on itself.
 
+### Media feed-card lifecycle
+
+A non-photo media upload (video / audio) becomes a `'media'` integration feed card keyed on the media permalink, storing only the media id - title and cover resolve at render, per viewer, so they never go stale or leak. The bridge keeps that card honest across the media's whole lifecycle:
+
+| WPMediaVerse fires | Bridge does |
+| --- | --- |
+| `mvs_media_deleted` (hard delete) | `on_media_deleted` - withdraw the card (and any composer document card by id) |
+| `mvs_media_trashed` (soft delete) | `on_media_trashed` - withdraw the card by permalink (reversible) |
+| `mvs_media_restored` | `on_media_restored` - re-publish the card (reference-only, so it reconstructs exactly; idempotent by URL) |
+| `mvs_media_privacy_changed` | *not hooked* - privacy is resolved at render instead: `hydrate_media_preview()` gates BOTH title and cover behind `PrivacyService::can_view()`, so a viewer who may not see the media gets the coverless, titleless compact card. Per viewer, for every transition - a blunt privacy-change withdrawal would also hide members-scoped media from members who may still see it. |
+
+Documents have their own twin (`mvs_document_trashed` -> `on_document_trashed`); photos are native posts, not bridge cards. Known gap: `mvs_document_restored` is not yet hooked - re-adding a trashed document's composer card is lossy (that card carries the member's own post text), so it awaits an owner ruling rather than a silent reconstruction.
+
 ### Media rail item
 
 `inject_media_nav_item()` adds a "Media" link to the BuddyNext left rail, resolving the engine's mapped Explore page (`mvs_page_explore`) and falling back to `/media/`. This only adds a link on BuddyNext's own pages - it never alters a WPMediaVerse page.
