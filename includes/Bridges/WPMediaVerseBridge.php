@@ -310,6 +310,21 @@ class WPMediaVerseBridge {
 		// linger after its document was gone; remove it here by id.
 		add_action( 'mvs_document_trashed', array( $this, 'on_document_trashed' ), 10, 1 );
 
+		// The MEDIA half of the same lifecycle. WPMediaVerse fires mvs_media_trashed
+		// / mvs_media_restored with the SAME three args as mvs_media_deleted, built
+		// so this bridge can withdraw the mirrored 'media' feed card on trash and
+		// re-add it on restore. Trash is the everyday "delete" from the app and its
+		// UI; without this a trashed video or audio upload leaves a feed card that
+		// points at content now in the bin. Restore re-publishes the card - it
+		// stores only a reference to the media (see publish_media_activity), so it
+		// reconstructs exactly, and publish is idempotent by URL. Privacy is NOT
+		// mirrored here: the card resolves per viewer at render (hydrate_media_
+		// preview), which is strictly more correct than a blunt privacy-change
+		// withdrawal that would also hide a members-scoped upload from the members
+		// who may still see it.
+		add_action( 'mvs_media_trashed', array( $this, 'on_media_trashed' ), 10, 3 );
+		add_action( 'mvs_media_restored', array( $this, 'on_media_restored' ), 10, 3 );
+
 		// Media links resolve to the activity the item was posted in, not a
 		// dedicated /media/{slug}/ page — every upload already becomes an activity
 		// (photo post or media card), so a standalone public page per item is
@@ -560,6 +575,20 @@ class WPMediaVerseBridge {
 			return $args;
 		}
 
+		// PRIVACY IS RESOLVED HERE, PER VIEWER. If the media's privacy was tightened
+		// after posting (public -> members / private / space), the person reading
+		// the feed may no longer be allowed to see it. The cover is already gated by
+		// get_thumbnail_url_for_viewer() below, but the TITLE was not - so a file
+		// renamed-then-locked still printed its current name to everyone. Gate both
+		// on can_view(): a viewer who may not see the media gets the coverless,
+		// titleless compact card (the generic verb plus the link), never its
+		// contents. Degrades open only when the privacy service is absent.
+		$privacy = MediaClient::privacy();
+		if ( is_object( $privacy ) && method_exists( $privacy, 'can_view' )
+			&& ! $privacy->can_view( $media_id, get_current_user_id() ) ) {
+			return $args;
+		}
+
 		if ( method_exists( $repo, 'get' ) ) {
 			$title = (string) $repo->get( $media_id, 'title' );
 			if ( '' !== $title ) {
@@ -627,6 +656,58 @@ class WPMediaVerseBridge {
 		if ( $media_id > 0 ) {
 			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
 		}
+	}
+
+	/**
+	 * Withdraw the media feed card when its source is TRASHED (soft delete).
+	 *
+	 * Same withdrawal as on_media_deleted's URL path, but reversible: the card
+	 * comes back through on_media_restored(). Only the 'media' card (video /
+	 * audio) is keyed on the permalink - documents are handled by
+	 * on_document_trashed(), and photos are native posts, not bridge cards, so a
+	 * remove() keyed on the media permalink is a no-op for both. The permalink is
+	 * carried on the hook because the row is already trashed by the time it fires.
+	 *
+	 * @param int    $media_id  Trashed media id (unused; the card is keyed on URL).
+	 * @param int    $author_id Author (unused here).
+	 * @param string $permalink The media's public permalink, as posted.
+	 * @return void
+	 */
+	public function on_media_trashed( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		$permalink = (string) $permalink;
+		if ( '' !== $permalink ) {
+			IntegrationActivity::remove( $permalink, 'media' );
+		}
+	}
+
+	/**
+	 * Re-add the media feed card when its source is RESTORED from the trash.
+	 *
+	 * Undoes on_media_trashed(). publish_media_activity() stores only a reference
+	 * to the media (id + permalink), so re-running it rebuilds the card exactly as
+	 * it was, and it is idempotent by URL (a double restore is a no-op). It also
+	 * re-applies every gate the original publish had - the media/feed toggle, the
+	 * "photos become native posts / documents are not feed material / already
+	 * attached" skips - so nothing is announced now that would not have been then.
+	 *
+	 * @param int    $media_id  Restored media id.
+	 * @param int    $author_id Author user id.
+	 * @param string $permalink The media's permalink (unused; resolved in publish).
+	 * @return void
+	 */
+	public function on_media_restored( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		$media_id  = (int) $media_id;
+		$author_id = (int) $author_id;
+		if ( $media_id <= 0 || $author_id <= 0 ) {
+			return;
+		}
+
+		$repo = MediaClient::repo();
+		$type = ( is_object( $repo ) && method_exists( $repo, 'get' ) )
+			? (string) $repo->get( $media_id, 'media_type' )
+			: '';
+
+		$this->publish_media_activity( $media_id, $author_id, $type );
 	}
 
 	/**
