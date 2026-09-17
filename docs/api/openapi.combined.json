@@ -6302,6 +6302,129 @@
                         "appPassword": []
                     }
                 ]
+            },
+            "post": {
+                "tags": [
+                    "Pro: Members and Profiles"
+                ],
+                "operationId": "post_buddynext_pro_v1_users_id_subscriptions",
+                "summary": "POST /buddynext-pro/v1/users/{id}/subscriptions",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "tier_id": {
+                                        "type": "integer"
+                                    },
+                                    "expires_at": {
+                                        "type": "string",
+                                        "description": "Optional ISO/MySQL datetime when the comp ends; omit for no expiry."
+                                    }
+                                },
+                                "required": [
+                                    "tier_id"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/buddynext-pro/v1/users/{id}/subscriptions/{sub_id}/cancel": {
+            "post": {
+                "tags": [
+                    "Pro: Members and Profiles"
+                ],
+                "operationId": "post_buddynext_pro_v1_users_id_subscriptions_sub_id_cancel",
+                "summary": "POST /buddynext-pro/v1/users/{id}/subscriptions/{sub_id}/cancel",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "sub_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/buddynext-pro/v1/users/{user_id}/labels": {
