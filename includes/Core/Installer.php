@@ -393,7 +393,7 @@ class Installer {
 	 *
 	 * @var string
 	 */
-	private const FLAG_CONVERGENCE = '2026-08-header-fields';
+	private const FLAG_CONVERGENCE = '2026-09-repeater-system-fields';
 
 	/**
 	 * Option holding the last applied FLAG_CONVERGENCE stamp.
@@ -3498,6 +3498,20 @@ class Installer {
 			"UPDATE `{$p}bn_profile_groups`
 			    SET is_system = 1
 			  WHERE group_key IN ('basic_info', 'interests')
+			    AND is_system = 0"
+		);
+
+		// The built-in work/education repeater fields the "currently working /
+		// attending" end-date toggle is wired to (work_current <-> work_end_date,
+		// edu_current <-> edu_end_year). The toggle JS pairs them by key, so
+		// deleting one and re-adding it (which mints a new key like
+		// currently_working) silently breaks the toggle with no way back from the
+		// admin. Lock them is_system like the bio/headline spine so they cannot be
+		// deleted into that state. See card 10312499657.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_fields`
+			    SET is_system = 1
+			  WHERE field_key IN ('work_current', 'work_end_date', 'edu_current', 'edu_end_year')
 			    AND is_system = 0"
 		);
 
