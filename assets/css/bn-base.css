@@ -2781,12 +2781,16 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 
    Selected by TYPE rather than by our own classes, because most fields never
    take .bn-input: the composer, the DM bar, the comment box, the auth fields.
-   Scoped to body.bn-page so it stops at our own surfaces and never restyles the
-   host theme's pages. */
+   Scoped to fields inside a BuddyNext container (any element below <body> with a
+   bn- class: the .bn-app shell, and portals such as the media lightbox), never
+   the host theme's own controls on our pages. Scoping to body.bn-page alone
+   enlarged the theme's hidden header search input from 14px to 16px, which
+   pushed it past a 390px screen and made every BuddyNext page scroll sideways
+   on a phone (found by journey J-817). */
 @media (pointer: coarse), (max-width: 768px) {
-	body.bn-page input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="range"]):not([type="color"]),
-	body.bn-page textarea,
-	body.bn-page select {
+	body.bn-page :is([class^="bn-"], [class*=" bn-"]) input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="range"]):not([type="color"]),
+	body.bn-page :is([class^="bn-"], [class*=" bn-"]) textarea,
+	body.bn-page :is([class^="bn-"], [class*=" bn-"]) select {
 		/* Floor at the iOS 16px anti-zoom threshold, tracking the field family's
 		   own default size (--bn-text-sm, what .bn-input uses) so a text-scale
 		   preference still grows fields for a11y. Using --bn-text-md here inflated
