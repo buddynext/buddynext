@@ -74,7 +74,8 @@ final class SpaceNav {
 			return $items;
 		}
 
-		// Slot promoted tabs just after About (40), before Moderation (50).
+		// Slot promoted tabs in the content band (after About 28 / the opt-in
+		// content tabs), before Moderation (50).
 		$priority = 41;
 		foreach ( $fields as $field ) {
 			$key        = (string) $field['key'];
