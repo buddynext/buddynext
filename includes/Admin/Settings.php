@@ -921,7 +921,16 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 								'dedicated' => __( 'Open a dedicated media page', 'buddynext' ),
 							),
 							'disabled_callback' => static fn() => ! class_exists( 'WPMediaVerse\\Core\\Plugin' ),
-							'hint'              => __( 'Members post media as activity updates. "Open the activity" keeps every media link inside the feed: its /media/ page redirects to the post it was shared in, so media is not exposed as a separate public URL. "Open a dedicated media page" keeps a standalone page per item, for gallery-style sites.', 'buddynext' ),
+							// Explain WHY the control is greyed out when WPMediaVerse is
+							// inactive, instead of a disabled dropdown with no reason
+							// (card 10245026515).
+							'hint_callback'     => static function (): string {
+								$bn_media_hint = __( 'Members post media as activity updates. "Open the activity" keeps every media link inside the feed: its /media/ page redirects to the post it was shared in, so media is not exposed as a separate public URL. "Open a dedicated media page" keeps a standalone page per item, for gallery-style sites.', 'buddynext' );
+								if ( ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) {
+									return __( 'Needs WPMediaVerse. Activate it to choose how media links open.', 'buddynext' ) . ' ' . $bn_media_hint;
+								}
+								return $bn_media_hint;
+							},
 						)
 					),
 				)
