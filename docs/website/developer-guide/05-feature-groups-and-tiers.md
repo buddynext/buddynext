@@ -50,7 +50,7 @@ The registry catalogs 20 features, organized into display groups (`core`, `commu
 | `auth` | mandatory | core | - | Custom login + registration pages and the email-verification handshake. |
 | `search` | mandatory | core | - | Unified FULLTEXT index across posts, users, spaces, hashtags. |
 | `moderation` | mandatory | core | - | Reports, strikes, suspensions, appeals - the integrity layer. |
-| `spaces` | default_on | community | - | Topic-scoped sub-communities with their own posts, members, settings. |
+| `spaces` | mandatory | community | - | Topic-scoped sub-communities with their own posts, members, settings. Always on: member, profile and URL paths resolve spaces, so it cannot be toggled off. |
 | `hashtags` | default_on | community | feed | Extract #tags, build trending lists, per-tag feeds. |
 | `reactions` | default_on | community | feed | Emoji reactions on posts and comments. |
 | `comments` | default_on | community | feed | Threaded comments on posts. |
@@ -72,7 +72,7 @@ The registry catalogs 20 features, organized into display groups (`core`, `commu
 
 Each feature group ties together four kinds of surface. The audit manifest (`features.featureGroups`) records exactly which routes, templates, options, and admin pages belong to each group. Examples from the current manifest:
 
-- **Routes** - REST endpoints under `buddynext/v1`. `feed` owns 11 (`/feed/home`, `/feed/explore`, `/feed/announcements/{id}/dismiss`, ...); `spaces` owns 28; `webhooks` owns 5. A disabled feature's controller is never registered, so its routes 404.
+- **Routes** - REST endpoints under `buddynext/v1`. `feed` owns 11 (`/feed/home`, `/feed/explore`, `/feed/announcements/{id}/dismiss`, ...); `spaces` owns 28; `webhooks` owns 5. Note: `REST/Router` registers its controllers unconditionally; only `webhooks` is wrapped in an `is_enabled()` check. A toggleable feature is disabled at the UI + hub layer (nav hidden, hub route redirected - see below), not by unregistering its REST controller, so its endpoints still answer for a direct API caller. Enforce a disabled feature's access rule in the controller's permission callback, never by assuming the route is absent.
 - **Templates** - the hub templates and partials the feature renders. `spaces` ships 28 templates, `profile` 24, `sidebar` 12. A disabled feature's templates are never reached because the route or the `Container::has()` guard short-circuits first.
 - **Options** - the settings the feature persists. Examples: `spaces` -> `buddynext_space_creation_role`, `buddynext_space_max_sub_spaces`, `buddynext_notif_default_space_join`; `reactions` -> `buddynext_enabled_reactions`; `hashtags` -> `buddynext_banned_hashtags`; `comments` -> `buddynext_notif_default_comment`; `webhooks` -> `buddynext_webhook_secret`; `feed`/`jetonomy` -> `buddynext_jetonomy_feed_sync`.
 - **Admin pages** - the dedicated wp-admin screens. Only `spaces` registers one in the manifest (`buddynext-spaces`); the other features expose their settings inside the shared BuddyNext settings tabs rather than a standalone page.
@@ -95,11 +95,11 @@ if ( $container->has( 'sidebar_widgets' ) ) {
 
 ## How toggling a feature removes its UI and REST surface
 
-Turning a feature off has to remove the whole surface at once - the REST endpoints, the nav links, and the hub routes - so a member never lands on a half-disabled page. BuddyNext enforces this at three points:
+Turning a toggleable feature off removes it from the member's path - the nav links and the hub route - so a member never lands on a half-disabled page. BuddyNext enforces this at these points:
 
-1. **Service + listener never bind.** When `is_enabled()` is false the feature's container keys are never registered, so nothing downstream can resolve them.
-2. **REST routes never register.** Each feature's controller is registered by `REST/Router` only while the feature is bound, so a disabled feature's routes return 404 rather than an empty 200.
-3. **Hub routes redirect.** `PageRouter::dispatch_hub_template()` re-checks the registry for the toggleable hubs and bounces visitors away from a disabled surface. For example, when `spaces` is off, `/spaces/` redirects to the activity hub; the same guard protects `onboarding`, the `hashtags` per-tag feed, and (via `MessagesData::entry_enabled()`) the `wpmediaverse`-backed messages hub.
+1. **Service + listener may not bind.** A feature whose Service/Cache is registered behind an `is_enabled()` guard in `register_services()` (e.g. `sidebar`, `webhooks`) leaves its container keys unregistered when off, so nothing downstream resolves them. Not every feature is wired this way - many controllers are plain and always constructed.
+2. **REST controllers mostly register unconditionally.** `REST/Router::register_routes()` constructs every controller regardless of feature state; only `webhooks` is gated by `is_enabled('webhooks')`. So a disabled feature's endpoints usually still respond to a direct API caller - the toggle is a UI/hub control, not a route kill-switch. A route that must be closed when its feature is off enforces that in its own permission callback.
+3. **Hub routes redirect.** `PageRouter::dispatch_hub_template()` re-checks the registry for the toggleable hubs and bounces visitors away from a disabled surface. For example, when a toggleable hub is off, its `/hub/` path redirects to the activity hub; the same guard protects `onboarding`, the `hashtags` per-tag feed, and (via `MessagesData::entry_enabled()`) the `wpmediaverse`-backed messages hub. (`spaces` is mandatory, so it is never in this set.)
 
 Templates that optionally use a feature follow the plug-and-play degradation pattern - check `Container::has()`, and fall back to an empty result when the feature is absent:
 
