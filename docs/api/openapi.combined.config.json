@@ -9,7 +9,8 @@
       "url": "https://wbcomdesigns.com"
     },
     "license": {
-      "name": "GPL-2.0-or-later"
+      "name": "GPL-2.0-or-later",
+      "identifier": "GPL-2.0-or-later"
     }
   },
   "servers": [
@@ -348,5 +349,32 @@
   ],
   "tagPrefixes": {
     "buddynext-pro/v1": "Pro: "
+  },
+  "tagDescriptions": {
+    "AI": "AI moderation and reply suggestions (Pro).",
+    "Admin": "Site-owner tools: companions, slug checks and admin-only lookups.",
+    "Advanced Moderation": "Moderation rules and bulk moderation (Pro).",
+    "Advanced Search": "Saved searches (Pro).",
+    "Analytics": "Community, content, member and space analytics (Pro).",
+    "App Shell": "PWA manifest, service worker, offline page and shell navigation.",
+    "Auth": "Sign-in, registration, verification, app passwords and two-factor settings.",
+    "Email (Broadcast & Drip)": "Broadcast campaigns, drip sequences and member email preferences (Pro).",
+    "Feed and Posts": "Activity feeds, posts, comments, reactions, polls and link previews.",
+    "Integrations": "Links between BuddyNext and partner plugins such as Learnomy and Eventonomy.",
+    "Media and Albums": "Member and space media, albums and media usage.",
+    "Member Management": "Member labels (Pro).",
+    "Members and Profiles": "Member directory, profiles, profile fields and groups, member types, drafts, bookmarks and account data.",
+    "Membership": "Plans, subscriptions, checkout and billing (Pro).",
+    "Misc": "Endpoints not grouped under another tag.",
+    "Moderation and Trust": "Reports, appeals, strikes, suspensions and the moderation log.",
+    "Notifications": "Notifications, notification preferences and channels.",
+    "Payments": "Payment gateway webhooks and checkout sessions (Pro).",
+    "Push Notifications": "Push device tokens and push preferences (Pro).",
+    "Realtime": "Realtime connection authentication (Pro).",
+    "Scheduled Posts": "Posts scheduled for later (Pro).",
+    "Search and Hashtags": "Search, suggestions and hashtags.",
+    "Social Graph": "Follows, connections, blocks, mutes, restrictions and kudos.",
+    "Spaces": "Spaces, space categories, members, requests and space feeds.",
+    "Webhooks": "Outbound webhooks and their delivery log."
   }
 }

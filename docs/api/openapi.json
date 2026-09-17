@@ -8,7 +8,8 @@
             "url": "https://wbcomdesigns.com"
         },
         "license": {
-            "name": "GPL-2.0-or-later"
+            "name": "GPL-2.0-or-later",
+            "identifier": "GPL-2.0-or-later"
         },
         "version": "1.2.0"
     },
@@ -20,43 +21,56 @@
     ],
     "tags": [
         {
-            "name": "Admin"
+            "name": "Admin",
+            "description": "Site-owner tools: companions, slug checks and admin-only lookups."
         },
         {
-            "name": "App Shell"
+            "name": "App Shell",
+            "description": "PWA manifest, service worker, offline page and shell navigation."
         },
         {
-            "name": "Auth"
+            "name": "Auth",
+            "description": "Sign-in, registration, verification, app passwords and two-factor settings."
         },
         {
-            "name": "Feed and Posts"
+            "name": "Feed and Posts",
+            "description": "Activity feeds, posts, comments, reactions, polls and link previews."
         },
         {
-            "name": "Media and Albums"
+            "name": "Media and Albums",
+            "description": "Member and space media, albums and media usage."
         },
         {
-            "name": "Members and Profiles"
+            "name": "Members and Profiles",
+            "description": "Member directory, profiles, profile fields and groups, member types, drafts, bookmarks and account data."
         },
         {
-            "name": "Misc"
+            "name": "Misc",
+            "description": "Endpoints not grouped under another tag."
         },
         {
-            "name": "Moderation and Trust"
+            "name": "Moderation and Trust",
+            "description": "Reports, appeals, strikes, suspensions and the moderation log."
         },
         {
-            "name": "Notifications"
+            "name": "Notifications",
+            "description": "Notifications, notification preferences and channels."
         },
         {
-            "name": "Search and Hashtags"
+            "name": "Search and Hashtags",
+            "description": "Search, suggestions and hashtags."
         },
         {
-            "name": "Social Graph"
+            "name": "Social Graph",
+            "description": "Follows, connections, blocks, mutes, restrictions and kudos."
         },
         {
-            "name": "Spaces"
+            "name": "Spaces",
+            "description": "Spaces, space categories, members, requests and space feeds."
         },
         {
-            "name": "Webhooks"
+            "name": "Webhooks",
+            "description": "Outbound webhooks and their delivery log."
         }
     ],
     "paths": {
@@ -118,6 +132,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -170,6 +187,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -222,6 +242,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -330,6 +353,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -395,6 +421,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -425,7 +454,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/app/strings": {
@@ -445,8 +483,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -493,6 +543,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -569,6 +622,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -614,6 +670,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -672,6 +731,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -730,6 +792,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -790,6 +855,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -848,6 +916,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -906,6 +977,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -966,6 +1040,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -1020,8 +1097,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1062,8 +1151,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1106,6 +1207,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -1249,6 +1353,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -1294,6 +1401,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -1329,6 +1439,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -1381,6 +1494,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -1431,8 +1547,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1477,8 +1605,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1516,7 +1656,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/auth/register": {
@@ -1536,8 +1685,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1600,8 +1761,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1643,7 +1816,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/auth/reset-password": {
@@ -1663,8 +1845,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1744,8 +1938,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1894,6 +2100,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -1989,8 +2198,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/comments/{id}": {
@@ -2026,6 +2247,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2086,6 +2310,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2146,6 +2373,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2206,6 +2436,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2251,6 +2484,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2294,6 +2530,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2339,6 +2578,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2404,6 +2646,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2469,6 +2714,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2526,6 +2774,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2623,6 +2874,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2668,6 +2922,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2759,6 +3016,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2866,6 +3126,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2919,6 +3182,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -2982,6 +3248,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3028,6 +3297,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3074,6 +3346,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3133,6 +3408,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3193,6 +3471,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3238,6 +3519,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3293,6 +3577,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3357,6 +3644,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3402,6 +3692,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3445,6 +3738,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3503,6 +3799,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3573,6 +3872,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3639,6 +3941,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3685,6 +3990,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3765,6 +4073,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3808,6 +4119,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3853,6 +4167,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3906,6 +4223,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3951,6 +4271,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -3986,6 +4309,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -4174,6 +4500,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -4245,6 +4574,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -4302,6 +4634,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -4359,6 +4694,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -4497,6 +4835,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -4695,6 +5036,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -4740,6 +5084,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -4797,6 +5144,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -4865,6 +5215,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -4962,6 +5315,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5007,6 +5363,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5074,6 +5433,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5299,6 +5661,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5515,6 +5880,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5560,6 +5928,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5603,6 +5974,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5648,6 +6022,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5691,6 +6068,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5761,6 +6141,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5863,6 +6246,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -5927,6 +6313,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -6098,6 +6487,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -6182,6 +6574,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -6239,6 +6634,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -6284,6 +6682,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -6432,6 +6833,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -6465,7 +6869,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -6534,6 +6947,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -6577,6 +6993,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -6698,8 +7117,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/members/{id}/blog": {
@@ -6749,8 +7180,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/members/{id}/discussions": {
@@ -6780,8 +7223,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/members/{id}/gamification": {
@@ -6811,8 +7266,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/moderation/log": {
@@ -6878,6 +7345,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -6935,6 +7405,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -6970,6 +7443,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7086,8 +7562,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "put": {
                 "tags": [
@@ -7121,6 +7609,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7164,6 +7655,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7209,6 +7703,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7254,6 +7751,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7297,6 +7797,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7336,8 +7839,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -7371,6 +7886,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7435,6 +7953,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7499,6 +8020,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7565,6 +8089,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7610,6 +8137,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7653,6 +8183,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7692,8 +8225,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/posts/{id}/reject": {
@@ -7729,6 +8274,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7788,6 +8336,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7831,6 +8382,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7876,6 +8430,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -7906,7 +8463,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -7930,6 +8496,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8035,6 +8604,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8125,6 +8697,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8170,6 +8745,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8221,7 +8799,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -8245,6 +8832,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8323,6 +8913,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8386,6 +8979,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8431,6 +9027,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8498,6 +9097,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8528,7 +9130,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/pwa/offline": {
@@ -8549,7 +9160,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/pwa/sw": {
@@ -8570,7 +9190,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/reactions": {
@@ -8610,8 +9239,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/reactions/list": {
@@ -8661,8 +9302,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/reactions/toggle": {
@@ -8688,6 +9341,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8743,7 +9399,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/reports": {
@@ -8769,6 +9434,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8855,6 +9523,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8930,6 +9601,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -8975,6 +9649,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9020,6 +9697,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9063,6 +9743,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9106,6 +9789,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9151,6 +9837,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9196,6 +9885,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9239,6 +9931,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9282,6 +9977,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9406,8 +10104,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/search/members": {
@@ -9522,8 +10232,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/search/suggest": {
@@ -9564,8 +10286,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/shell-nav": {
@@ -9596,8 +10330,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/space-categories": {
@@ -9621,7 +10367,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -9645,6 +10400,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9727,6 +10485,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9802,6 +10563,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9877,6 +10641,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -9952,6 +10719,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10096,8 +10866,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -10121,6 +10903,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10193,7 +10978,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/spaces/suggestions": {
@@ -10234,6 +11028,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10273,8 +11070,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "put": {
                 "tags": [
@@ -10308,6 +11117,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10351,6 +11163,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10410,8 +11225,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -10445,6 +11272,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10490,6 +11320,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10535,6 +11368,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10578,6 +11414,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10623,6 +11462,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10666,6 +11508,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10711,6 +11556,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10754,6 +11602,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10828,6 +11679,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10873,6 +11727,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10916,6 +11773,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10970,6 +11830,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11025,6 +11888,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11083,8 +11949,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/spaces/{id}/fields": {
@@ -11120,6 +11998,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11165,6 +12046,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11210,6 +12094,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11255,6 +12142,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11298,6 +12188,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11343,6 +12236,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11388,6 +12284,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11447,8 +12346,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/spaces/{id}/media/{media_id}/unlink": {
@@ -11492,6 +12403,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11553,8 +12467,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/spaces/{id}/members/decide-bulk": {
@@ -11590,6 +12516,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11667,6 +12596,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11720,6 +12652,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11773,6 +12708,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11826,6 +12764,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11871,6 +12812,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11914,6 +12858,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -11978,6 +12925,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12023,6 +12973,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12062,8 +13015,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/spaces/{id}/transfer": {
@@ -12099,6 +13064,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12144,6 +13112,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12189,6 +13160,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12228,8 +13202,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/users/{id}/albums": {
@@ -12285,6 +13271,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12330,6 +13319,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12373,6 +13365,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12418,6 +13413,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12461,6 +13459,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12506,6 +13507,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12564,6 +13568,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12609,6 +13616,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12654,6 +13664,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12699,6 +13712,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12744,6 +13760,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12787,6 +13806,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12845,8 +13867,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/users/{id}/follow": {
@@ -12882,6 +13916,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12925,6 +13962,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -12970,6 +14010,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13029,8 +14072,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/users/{id}/following": {
@@ -13080,8 +14135,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/users/{id}/media": {
@@ -13137,6 +14204,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13176,8 +14246,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "put": {
                 "tags": [
@@ -13211,6 +14293,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13271,6 +14356,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13316,6 +14404,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13359,6 +14450,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13424,6 +14518,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13463,8 +14560,20 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             },
             "put": {
                 "tags": [
@@ -13498,6 +14607,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13543,6 +14655,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13586,6 +14701,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13631,6 +14749,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13674,6 +14795,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13717,6 +14841,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13762,6 +14889,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13805,6 +14935,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13873,6 +15006,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13918,6 +15054,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -13983,6 +15122,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14028,6 +15170,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14076,6 +15221,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14121,6 +15269,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14190,6 +15341,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14220,7 +15374,16 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/webhooks": {
@@ -14282,6 +15445,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14354,6 +15520,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14397,6 +15566,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14463,6 +15635,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14529,6 +15704,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14617,6 +15795,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -14662,6 +15843,9 @@
                     },
                     "403": {
                         "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [

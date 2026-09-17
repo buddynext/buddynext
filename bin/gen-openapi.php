@@ -370,7 +370,11 @@ foreach ( $bn_namespaces as $bn_namespace ) {
 					),
 				);
 
-				if ( ! $bn_public ) {
+				if ( $bn_public ) {
+					// Anyone may call it; a signed-in caller authenticates the same way
+					// and may get viewer-specific fields. `{}` marks auth as optional.
+					$bn_op['security'] = array( new stdClass(), array( 'cookieAuth' => array() ), array( 'appPassword' => array() ) );
+				} else {
 					$bn_op['security']         = array( array( 'cookieAuth' => array() ), array( 'appPassword' => array() ) );
 					$bn_op['responses']['401'] = array( 'description' => 'Not authenticated.' );
 					$bn_op['responses']['403'] = array( 'description' => 'Authenticated but not permitted.' );
@@ -430,6 +434,12 @@ foreach ( $bn_namespaces as $bn_namespace ) {
 					unset( $bn_op['parameters'] );
 				}
 
+				// WordPress answers 400 (rest_invalid_param / rest_missing_callback_param)
+				// whenever an argument fails validation.
+				if ( ! empty( $bn_op['parameters'] ) || isset( $bn_op['requestBody'] ) ) {
+					$bn_op['responses']['400'] = array( 'description' => 'Invalid or missing parameter.' );
+				}
+
 				// Typed 200 body from the ResponseSchema registry (no-op when the
 				// route is not mapped, so the spec stays honest as the map grows).
 				$bn_resp_schema = $bn_response_schema_for( $bn_method, $bn_tpl['path'] );
@@ -456,8 +466,15 @@ foreach ( $bn_namespaces as $bn_namespace ) {
 ksort( $bn_paths );
 
 $bn_tag_list = array();
+$bn_tag_desc = (array) ( $bn_config['tagDescriptions'] ?? array() );
 foreach ( array_keys( $bn_tags_seen ) as $bn_t ) {
-	$bn_tag_list[] = array( 'name' => $bn_t );
+	$bn_tag = array( 'name' => $bn_t );
+	// A namespace prefix ("Pro: ") shares the description of the base tag.
+	$bn_base = preg_replace( '/^[^:]+:\s+/', '', $bn_t );
+	if ( isset( $bn_tag_desc[ $bn_t ] ) || isset( $bn_tag_desc[ $bn_base ] ) ) {
+		$bn_tag['description'] = (string) ( $bn_tag_desc[ $bn_t ] ?? $bn_tag_desc[ $bn_base ] );
+	}
+	$bn_tag_list[] = $bn_tag;
 }
 usort( $bn_tag_list, static fn( $a, $b ) => strcmp( $a['name'], $b['name'] ) );
 
