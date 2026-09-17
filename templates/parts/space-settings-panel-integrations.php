@@ -134,7 +134,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 <div class="<?php echo esc_attr( $bn_class ); ?>">
 	<header class="bn-space-settings__panel-head">
 		<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Integrations', 'buddynext' ); ?></h2>
-		<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Turn on optional features for this Space.', 'buddynext' ); ?></p>
+		<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Turn on optional features for this space.', 'buddynext' ); ?></p>
 	</header>
 
 	<?php
@@ -155,9 +155,9 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			<div class="bn-toggle-row__desc">
 				<?php
 				if ( $bn_disc_has ) {
-					esc_html_e( 'This Space has its own discussion area for threaded conversations.', 'buddynext' );
+					esc_html_e( 'This space has its own discussion area for threaded conversations.', 'buddynext' );
 				} else {
-					esc_html_e( 'Give this Space its own discussion area. Turn the switch on and a discussion is created for it automatically.', 'buddynext' );
+					esc_html_e( 'Give this space its own discussion area. Turn the switch on and a discussion is created for it automatically.', 'buddynext' );
 				}
 				?>
 			</div>
@@ -225,7 +225,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
 			<div class="bn-toggle-row__label"><?php esc_html_e( 'Share activity to the main feed', 'buddynext' ); ?></div>
-			<div class="bn-toggle-row__desc"><?php esc_html_e( 'When on, new posts and discussion topics from this Space also appear in the main activity feed. When off, they stay inside this Space.', 'buddynext' ); ?></div>
+			<div class="bn-toggle-row__desc"><?php esc_html_e( 'When on, new posts and discussion topics from this space also appear in the main activity feed. When off, they stay inside this space.', 'buddynext' ); ?></div>
 		</div>
 		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Share activity to the main feed', 'buddynext' ); ?>">
 			<input type="checkbox" class="bn-space-settings__toggle-input" name="push_to_feed" value="1" <?php checked( $bn_push_to_feed ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
@@ -236,7 +236,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
 			<div class="bn-toggle-row__label"><?php esc_html_e( 'Media tab', 'buddynext' ); ?></div>
-			<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Media tab for uploading and sharing files in this space.', 'buddynext' ); ?></div>
+			<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Media tab so members can share photos and videos in this space.', 'buddynext' ); ?></div>
 			<?php if ( ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) : ?>
 				<p class="bn-space-settings__hint">
 					<?php esc_html_e( 'Media sharing is unavailable on this site right now.', 'buddynext' ); ?>
@@ -325,7 +325,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		<div class="bn-toggle-row">
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Businesses tab', 'buddynext' ); ?></div>
-				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Businesses tab where members submit a listing they own for the space team to approve and showcase.', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Businesses tab so members can submit a listing they own for the team to approve and showcase.', 'buddynext' ); ?></div>
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Businesses tab', 'buddynext' ); ?>">
 				<input type="checkbox" class="bn-space-settings__toggle-input" name="listora_listings_tab" value="1" <?php checked( $bn_biz_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
