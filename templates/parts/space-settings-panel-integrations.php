@@ -25,6 +25,9 @@
  * @var string $event_creators        Optional. 'members' (default) or 'admins' - who may
  *                                    add events to this space. Rows render only when the
  *                                    Eventonomy bridge (Pro) has registered the field.
+ * @var bool   $listora_listings_tab  Optional. Current value of the Businesses-tab toggle.
+ *                                    Renders only when the Listora space-showcase bridge
+ *                                    (Pro) has registered the field.
  * @var bool   $is_space_owner        Required. Whether the viewer owns the space. This
  *                                    panel is owner-only (it decides whether the space
  *                                    has a discussion, a media tab, and whether its
@@ -57,6 +60,7 @@ $args = array(
 	'album_creators'        => isset( $album_creators ) ? (string) $album_creators : 'members',
 	'events_tab'            => isset( $events_tab ) ? (bool) $events_tab : false,
 	'event_creators'        => isset( $event_creators ) ? (string) $event_creators : 'members',
+	'listora_listings_tab'  => isset( $listora_listings_tab ) ? (bool) $listora_listings_tab : false,
 	'is_space_owner'        => isset( $is_space_owner ) ? (bool) $is_space_owner : false,
 	'classes'               => isset( $classes ) ? (array) $classes : array(),
 );
@@ -81,6 +85,12 @@ $bn_documents_ready   = \BuddyNext\Bridges\WPMediaVerseBridge::documents_availab
 $bn_events_available = null !== \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_field( 'events_tab' );
 $bn_events_tab       = (bool) $args['events_tab'];
 $bn_event_creators   = (string) $args['event_creators'];
+
+// Businesses (WB Listora). Same shape as Events/Media: the toggle renders only
+// when the field is registered — i.e. the Listora space-showcase bridge (Pro)
+// is active. Absent the field the row does not appear and the composer skips it.
+$bn_biz_available = null !== \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_field( 'listora_listings_tab' );
+$bn_biz_tab       = (bool) $args['listora_listings_tab'];
 
 // Discussion (Jetonomy) — opt-in per Space, never mandatory. A Space owns ONE
 // dedicated discussion for its lifetime: before it exists the owner sees a picker
@@ -301,6 +311,24 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Only organisers can add events', 'buddynext' ); ?>">
 				<input type="checkbox" class="bn-space-settings__toggle-input" name="event_creators_admins" value="1" <?php checked( 'admins' === $bn_event_creators ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+	<?php endif; ?>
+
+	<?php
+	// Businesses (WB Listora). Opt-in per Space (default off), same shape as
+	// Media/Files/Events. Members submit a listing they own and the space team
+	// approves it before it shows in the Businesses tab.
+	?>
+	<?php if ( $bn_biz_available ) : ?>
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Businesses tab', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Businesses tab where members submit a listing they own for the space team to approve and showcase.', 'buddynext' ); ?></div>
+			</div>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Businesses tab', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="listora_listings_tab" value="1" <?php checked( $bn_biz_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>

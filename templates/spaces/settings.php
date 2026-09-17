@@ -227,6 +227,14 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 					$bn_integration_values['event_creators'] = isset( $_POST['event_creators_admins'] ) ? 'admins' : 'members';
 				}
 
+				// Businesses (WB Listora). Only write when the field is registered — i.e.
+				// the Listora space-showcase bridge (Pro) is active — so saving this tab
+				// with it absent does not zero the owner's choice, the same guard the
+				// toggles above use for their plugins.
+				if ( null !== $bn_field_registry->get_field( 'listora_listings_tab' ) ) {
+					$bn_integration_values['listora_listings_tab'] = isset( $_POST['listora_listings_tab'] ) ? '1' : '0';
+				}
+
 				// Report what the registry actually did. Discarding this result is how a
 				// rejected write — can_write(), or a value a sanitiser refused — still
 				// rendered "Saved". The permissions panel below already reads it; this
@@ -488,6 +496,7 @@ $mvs_documents_tab     = (bool) buddynext_get_space_field( $space_id, 'mvs_docum
 $album_creators        = (string) buddynext_get_space_field( $space_id, 'album_creators' );
 $events_tab            = (bool) buddynext_get_space_field( $space_id, 'events_tab' );
 $event_creators        = (string) buddynext_get_space_field( $space_id, 'event_creators' );
+$listora_listings_tab  = (bool) buddynext_get_space_field( $space_id, 'listora_listings_tab' );
 $jetonomy_forum_id     = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 
 // Discussion (Jetonomy) status for the opt-in per-Space control. The link picker
@@ -859,6 +868,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					'album_creators'        => $album_creators,
 					'events_tab'            => $events_tab,
 					'event_creators'        => $event_creators,
+					'listora_listings_tab'  => $listora_listings_tab,
 					// Owner-only panel. Passed so it can render read-only for a
 					// moderator rather than show controls that would not save — a
 					// control that silently does nothing is worse than no control.
