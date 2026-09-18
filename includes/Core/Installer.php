@@ -408,8 +408,17 @@ class Installer {
 	 *  56: data purge only (no schema change) — drop bn_reactions rows whose target
 	 *      object was hard-deleted, so orphaned reactions stop inflating counts
 	 *      (card 10264292715). Runs maybe_purge_orphan_reactions() on upgrade.
+	 *  58: bn_comments gains is_hidden TINYINT(1) NOT NULL DEFAULT 0 — the reversible
+	 *      "Under review" state a reported comment enters at the auto-hide threshold,
+	 *      the comment mirror of a post's status='under_review' (card 10312729096).
+	 *      Distinct from is_deleted (moderator takedown): a hidden comment is dropped
+	 *      for other members and excluded from the post's comment_count, but still
+	 *      shown (labelled) to its author and to moderators, and comes back when the
+	 *      reports are cleared. reply_lookup gains is_hidden so a parent's replies
+	 *      filter on it. dbDelta ADD-COLUMNs it on upgrade; additive, all existing
+	 *      rows correct as 0 (visible), no backfill.
 	 */
-	private const SCHEMA_VERSION = 57;
+	private const SCHEMA_VERSION = 58;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -4032,6 +4041,7 @@ class Installer {
 				content TEXT NOT NULL,
 				is_edited TINYINT(1) NOT NULL DEFAULT 0,
 				is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+				is_hidden TINYINT(1) NOT NULL DEFAULT 0,
 				sync_reply_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				media_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -4041,7 +4051,7 @@ class Installer {
 				KEY         user (user_id),
 				KEY         deleted (is_deleted),
 				KEY         sync_reply (sync_reply_id),
-				KEY         reply_lookup (parent_id, is_deleted),
+				KEY         reply_lookup (parent_id, is_deleted, is_hidden),
 				KEY         user_recent (user_id, created_at)
 			) {$cs};",
 

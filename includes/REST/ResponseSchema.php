@@ -1056,6 +1056,10 @@ final class ResponseSchema {
 				'content'           => array( 'type' => 'string' ),
 				'is_edited'         => array( 'type' => 'boolean' ),
 				'is_deleted'        => array( 'type' => 'boolean' ),
+				// Auto-hidden by the report threshold ("Under review"). Only ever true
+				// for the comment's author and moderators; other viewers never receive
+				// the comment at all, so they never see this field set.
+				'is_hidden'         => array( 'type' => 'boolean' ),
 				'created_at'        => array( 'type' => 'string' ),
 				'updated_at'        => array( 'type' => 'string' ),
 				'replies'           => array(

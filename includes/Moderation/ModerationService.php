@@ -439,12 +439,15 @@ class ModerationService {
 		 */
 		do_action( 'buddynext_report_created', $report_id, sanitize_key( $object_type ), $object_id, $reporter_id );
 
-		// Auto-hide: once a post accrues enough distinct reports, pull it out of
-		// public view into the moderation queue. Enforces the Settings →
-		// Moderation → "Auto-Hide Threshold" setting (0 = disabled). Moves the post
-		// to its own 'under_review' status; it used to reuse pre-moderation's
-		// 'pending', which put it in the Pending tab too — see auto_hide_post().
-		if ( 'post' === sanitize_key( $object_type ) ) {
+		// Auto-hide: once a post OR comment accrues enough distinct reports, pull it
+		// out of public view into the moderation queue. Enforces the Settings →
+		// Moderation → "Auto-Hide Threshold" setting (0 = disabled), shared by both
+		// (no separate comment threshold, by decision). A post moves to its own
+		// 'under_review' status; a comment sets is_hidden (its reversible mirror,
+		// distinct from the is_deleted takedown) — see auto_hide_post() /
+		// auto_hide_comment().
+		$hide_type = sanitize_key( $object_type );
+		if ( in_array( $hide_type, array( 'post', 'comment' ), true ) ) {
 			$auto_hide_threshold = (int) get_option( 'buddynext_auto_hide_threshold', 5 );
 			if ( $auto_hide_threshold > 0 ) {
 				/**
@@ -472,15 +475,20 @@ class ModerationService {
 					$wpdb->prepare(
 						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports r
 						 LEFT JOIN {$wpdb->users} u ON u.ID = r.reporter_id
-						 WHERE r.object_type = 'post' AND r.object_id = %d
+						 WHERE r.object_type = %s AND r.object_id = %d
 						   AND r.status IN ( 'pending', 'escalated' )
 						   AND ( r.reporter_id = 0 OR ( u.user_registered IS NOT NULL AND u.user_registered <= %s ) )",
+						$hide_type,
 						$object_id,
 						$age_cutoff
 					)
 				);
 				if ( $report_total >= $auto_hide_threshold ) {
-					$this->auto_hide_post( $object_id );
+					if ( 'post' === $hide_type ) {
+						$this->auto_hide_post( $object_id );
+					} else {
+						$this->auto_hide_comment( $object_id );
+					}
 				}
 			}
 		}
@@ -761,6 +769,88 @@ class ModerationService {
 			 */
 			do_action( 'buddynext_post_auto_hidden', $post_id );
 		}
+	}
+
+	/**
+	 * Auto-hide a comment that reached the report threshold.
+	 *
+	 * The comment mirror of auto_hide_post(): it sets is_hidden — a reversible
+	 * "Under review" state — because bn_comments has no status column. Guarded on a
+	 * currently VISIBLE, non-deleted comment so it never revives a takedown
+	 * (is_deleted) and never double-fires. The post's comment_count is recounted (it
+	 * now excludes hidden comments) so the public count drops with the comment,
+	 * while the moderation queue keeps the open reports for a human decision.
+	 *
+	 * @param int $comment_id Comment to hide.
+	 * @return void
+	 */
+	private function auto_hide_comment( int $comment_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 1 WHERE id = %d AND is_hidden = 0 AND is_deleted = 0",
+				$comment_id
+			)
+		);
+
+		if ( $updated > 0 ) {
+			$this->reconcile_comment_post_count( $comment_id );
+
+			/**
+			 * Fires when a comment is auto-hidden after reaching the report threshold.
+			 *
+			 * @param int $comment_id The comment that was hidden.
+			 * @param int $actor_id   Who hid it (0 = the automatic report threshold).
+			 */
+			do_action( 'buddynext_comment_hidden', $comment_id, 0 );
+		}
+	}
+
+	/**
+	 * Recount the parent post's comment_count for a comment that changed visibility.
+	 *
+	 * Hiding or restoring a comment moves the post's public comment tally, which
+	 * excludes hidden (and deleted) comments. Resolve the comment's post and route
+	 * through the one counter that every other path uses, so the number can never
+	 * drift from the nightly reconcile. A no-op for a non-post comment thread.
+	 *
+	 * @param int $comment_id Comment whose parent post count should be recounted.
+	 * @return void
+	 */
+	private function reconcile_comment_post_count( int $comment_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT object_type, object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d",
+				$comment_id
+			),
+			ARRAY_A
+		);
+
+		if ( is_array( $row ) && 'post' === (string) $row['object_type'] && function_exists( 'buddynext_service' ) ) {
+			buddynext_service( 'counters' )->recount_post_comments( (int) $row['object_id'] );
+		}
+	}
+
+	/**
+	 * Whether a viewer may see and act on hidden ("Under review") content in a space.
+	 *
+	 * The same scope the report queue uses: a site-wide community moderator (or
+	 * administrator) sees hidden content anywhere; a space owner/moderator sees it in
+	 * their own space. Exposed so the comment read layer can decide who a hidden
+	 * comment is still shown to (its author aside, which the caller handles).
+	 *
+	 * @param int $viewer_id Viewer to check.
+	 * @param int $space_id  Space the content lives in (0 = not space-scoped).
+	 * @return bool
+	 */
+	public function can_moderate_space_content( int $viewer_id, int $space_id ): bool {
+		return $this->is_site_moderator( $viewer_id, 'buddynext-moderation/review-queue' )
+			|| $this->actor_moderates_space( $viewer_id, $space_id );
 	}
 
 	/**
@@ -3184,6 +3274,34 @@ class ModerationService {
 				 * @param int $actor_id Moderator who cleared the reports.
 				 */
 				do_action( 'buddynext_post_restored', $restore_post_id, $actor_id );
+			}
+		}
+
+		// The comment mirror of the post restore above: clearing a reported comment's
+		// reports lifts its auto-hide. The is_hidden = 1 guard restores ONLY the
+		// auto-hide, never a takedown (is_deleted), and the post's comment_count is
+		// recounted so the comment comes back into the public count with it.
+		if ( 'comment' === (string) $target['object_type'] && in_array( $status, array( 'resolved', 'dismissed' ), true ) ) {
+			$restore_comment_id = (int) $target['object_id'];
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$restored = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 0 WHERE id = %d AND is_hidden = 1",
+					$restore_comment_id
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			if ( $restored > 0 ) {
+				$this->reconcile_comment_post_count( $restore_comment_id );
+				/**
+				 * Fires when an auto-hidden comment is restored after its reports are cleared.
+				 *
+				 * @param int $comment_id The restored comment.
+				 * @param int $actor_id   Moderator who cleared the reports.
+				 */
+				do_action( 'buddynext_comment_restored', $restore_comment_id, $actor_id );
 			}
 		}
 

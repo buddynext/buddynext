@@ -94,6 +94,18 @@ class InteractionGuard {
 			);
 		}
 
+		// (0b-ii) Under review. A comment auto-hidden by reports (is_hidden) is frozen
+		// the same way a tombstone is: no new reactions or replies accrue on it while a
+		// moderator decides. Its author and moderators can still SEE it (that gating
+		// lives in CommentService); nobody, the author included, engages with it.
+		if ( 'comment' === $object_type && self::comment_is_hidden( $object_id ) ) {
+			return new WP_Error(
+				'object_under_review',
+				__( 'This comment is under review and cannot be reacted to or replied to right now.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// (0c) Visibility. This gate used to live ONLY in the REST controllers, so a
 		// non-REST writer (WP-CLI, a bridge, an admin bulk action) reacting or
 		// commenting bypassed space-privacy and post-visibility entirely
@@ -153,6 +165,32 @@ class InteractionGuard {
 		$comment = $comments->get( $object_id );
 
 		return null !== $comment && ! empty( $comment['is_deleted'] );
+	}
+
+	/**
+	 * Whether a comment has been auto-hidden ("Under review") by the report threshold.
+	 *
+	 * The reversible sibling of comment_is_deleted(): is_hidden freezes engagement
+	 * while the reports are open, then clears when a moderator resolves them. Degrades
+	 * to "not hidden" (allow) when comments are unavailable, matching the fail-open
+	 * pattern of the other resolvers here.
+	 *
+	 * @param int $object_id Comment ID.
+	 * @return bool True when the comment exists and is under review.
+	 */
+	private static function comment_is_hidden( int $object_id ): bool {
+		if ( $object_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$comments = buddynext_service( 'comments' );
+		if ( ! $comments instanceof \BuddyNext\Comments\CommentService ) {
+			return false;
+		}
+
+		$comment = $comments->get( $object_id );
+
+		return null !== $comment && ! empty( $comment['is_hidden'] );
 	}
 
 	/**

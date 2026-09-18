@@ -2076,6 +2076,26 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	border-radius: var(--bn-r-sm);
 }
 
+/* Under review: a reported comment the author/moderator still sees while it is
+   hidden from everyone else. Muted card + a warning-toned badge, so it reads as
+   held-for-moderation rather than normal content. */
+.bn-comment-card--under-review {
+	opacity: 0.85;
+}
+
+.bn-comment-card--under-review .bn-comment__content {
+	color: var(--bn-ink-2);
+}
+
+.bn-comment__review-badge {
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	color: var(--bn-warning, #8a6d00);
+	background: var(--bn-warning-soft, rgba(180, 130, 0, 0.12));
+	padding: 0 var(--bn-s2);
+	border-radius: var(--bn-r-sm);
+}
+
 .bn-comment__edited {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);

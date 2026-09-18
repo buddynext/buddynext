@@ -1057,6 +1057,7 @@ class AssetService {
 					'postReply'                 => __( 'Post reply', 'buddynext' ),
 					'commentDeleted'            => __( 'This comment was deleted.', 'buddynext' ),
 					'commentDeletedToast'       => __( 'Comment deleted', 'buddynext' ),
+					'commentUnderReview'        => __( 'Under review', 'buddynext' ),
 					'commentDeleteFailed'       => __( 'Could not delete comment. Try again.', 'buddynext' ),
 					'commentUpdated'            => __( 'Comment updated', 'buddynext' ),
 					'commentUpdateFailed'       => __( 'Could not update comment. Try again.', 'buddynext' ),

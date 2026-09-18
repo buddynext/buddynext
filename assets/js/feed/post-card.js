@@ -474,6 +474,12 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	if ( comment.is_deleted ) {
 		wrap.classList.add( 'bn-comment-card--deleted' );
 	}
+	// Under review: this comment reached the client only because the viewer is its
+	// author or a moderator (the server drops it for everyone else). Keep the
+	// content, mark it, and freeze its actions below.
+	if ( comment.is_hidden ) {
+		wrap.classList.add( 'bn-comment-card--under-review' );
+	}
 
 	// Avatar: the member's avatar image when the REST payload provides one
 	// (author_avatar_url, BN-managed via AvatarService), with the initials circle
@@ -527,6 +533,12 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		pinBadge.textContent = t( 'pinned', 'Pinned' );
 		header.appendChild( pinBadge );
 	}
+	if ( comment.is_hidden ) {
+		const reviewBadge = document.createElement( 'span' );
+		reviewBadge.className = 'bn-comment__review-badge';
+		reviewBadge.textContent = t( 'commentUnderReview', 'Under review' );
+		header.appendChild( reviewBadge );
+	}
 	const timeEl = document.createElement( 'time' );
 	timeEl.className = 'bn-comment__time';
 	timeEl.textContent = timeAgo( comment.created_at );
@@ -560,15 +572,20 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	actions.className = 'bn-comment__actions';
 	body.appendChild( actions );
 
+	// A comment under review is frozen the same way a deleted one is: its content
+	// stays visible to the author/moderator, but no edit, delete, pin, reply or
+	// report control renders on it while a moderator decides (the server enforces
+	// the same in InteractionGuard, so a hand-built request is refused too).
+	const isFrozen    = comment.is_deleted || comment.is_hidden;
 	const isOwn       = parseInt( comment.user_id, 10 ) === currentUserId;
-	const canEdit     = ( comment.can_edit ?? isOwn ) && ! comment.is_deleted;
-	const canDelete   = ( comment.can_delete ?? isOwn ) && ! comment.is_deleted;
-	const canPin      = !! comment.can_pin && ! comment.is_deleted;
+	const canEdit     = ( comment.can_edit ?? isOwn ) && ! isFrozen;
+	const canDelete   = ( comment.can_delete ?? isOwn ) && ! isFrozen;
+	const canPin      = !! comment.can_pin && ! isFrozen;
 	// Reply is allowed at every depth — beyond MAX_DEPTH the new reply
 	// attaches to the deepest visible ancestor (fold-back) so the indent
 	// doesn't keep growing. The server flattens consistently when listing.
-	const canReply    = currentUserId > 0 && ! comment.is_deleted;
-	const canReport   = currentUserId > 0 && ! isOwn && ! comment.is_deleted;
+	const canReply    = currentUserId > 0 && ! isFrozen;
+	const canReport   = currentUserId > 0 && ! isOwn && ! isFrozen;
 
 	// React button — opens a 6-emoji picker on hover or click. Matches the
 	// post-card reaction picker (templates/parts/post-actions.php). Emoji
@@ -582,7 +599,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	// REST toggle 403.
 	const bnReactList    = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
 	const bnReactionsOn  = ! bnReactList || bnReactList.dataset.reactionsEnabled !== '0';
-	if ( ! comment.is_deleted && bnReactionsOn ) {
+	if ( ! isFrozen && bnReactionsOn ) {
 		// Resolve the owner-enabled reaction set (and each slug's label/glyph) via
 		// the comment-list container keyed by postId. wrap.closest() can't be used
 		// here because the wrap is not yet attached to the DOM at this point.

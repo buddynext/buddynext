@@ -1237,11 +1237,13 @@ class PostService {
 				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
 				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 				 WHERE c.user_id = %d
+				   AND ( c.is_hidden = 0 OR c.user_id = %d )
 				   AND p.status = 'published'
 				   AND ( p.privacy = 'public' OR p.user_id = %d )
 				 ORDER BY c.created_at DESC
 				 LIMIT %d",
 				$user_id,
+				$viewer_id,
 				$viewer_id,
 				$limit
 			),
@@ -2868,6 +2870,7 @@ class PostService {
 			     SELECT object_id, COUNT(*) AS cnt
 			       FROM {$wpdb->prefix}bn_comments
 			      WHERE is_deleted = 0
+			        AND is_hidden = 0
 			        AND object_type = 'post'{$scope_inner}
 			      GROUP BY object_id
 			 ) c ON c.object_id = p.id

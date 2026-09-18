@@ -361,6 +361,16 @@ class CommentController extends BaseRestController {
 				$comment['viewer_reaction'] = null;
 			}
 
+			// Under review (auto-hidden by reports): this comment reached the payload
+			// only because the viewer is its author or a moderator — CommentService
+			// drops it for everyone else. Keep the content but flag it so the client
+			// shows the "Under review" label and freezes reply/react/report on it, and
+			// it can never be pinned while hidden.
+			$comment['is_hidden'] = ! empty( $comment['is_hidden'] );
+			if ( $comment['is_hidden'] ) {
+				$comment['can_pin'] = false;
+			}
+
 			// Display-ready HTML: escapes the user content, then linkifies
 			// @mentions and #hashtags via the same formatter the post body uses,
 			// so the client renders comment bodies with markup instead of raw
