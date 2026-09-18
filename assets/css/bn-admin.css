@@ -1121,6 +1121,16 @@ select.bn-text-input {
 	pointer-events: none;
 }
 
+/* A select disabled because a required plugin is inactive — reads as unavailable,
+   matching the toggle rows. The disabled attribute also blocks input + submission. */
+.bn-field.is-disabled label,
+.bn-field.is-disabled .bn-select-input {
+	opacity: 0.55;
+}
+.bn-field.is-disabled .bn-select-input {
+	pointer-events: none;
+}
+
 .bn-tl-label {
 	flex: 1;
 }
