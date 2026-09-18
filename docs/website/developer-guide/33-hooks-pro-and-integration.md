@@ -52,7 +52,7 @@ The table lists every hook Pro fires. Names are exact.
 | `buddynextpro_renewal_reminder_batch` | filter | How many subscriptions one reminder sweep processes. Default 500, floored at 1. Raise it on a large community whose sweep is not keeping pace. | `int $batch` | (none) |
 | `buddynext_adopt_discussion_space` | filter | Before provisioning a new Jetonomy space for a BuddyNext space, asking whether an existing forum should be adopted instead. Asked rather than assumed, because this side cannot know why a space already exists | `int $forum_id, int $space_id, array $space` | `buddynext-pro` |
 | `buddynext_space_discussion_provisioned` | action | A discussion was provisioned for a BuddyNext space - the other half of the adopt guard above | `int $space_id, int $forum_id` | `buddynext-pro` |
-| `buddynext_onboarding_steps` | filter | The onboarding wizard's step list, so an add-on can append its own step (this is how Pro inserts the membership-plan step) | (none) | `buddynext-pro` |
+| `buddynext_onboarding_steps` | filter | The onboarding wizard's step list. Two things are supported: **append** an add-on step (this is how Pro inserts the membership-plan step), and **remove** any of the three optional core steps - `interests`, `spaces`, `people`. Profile and Notifications are identity and delivery choices and stay; removing every step falls back to the core list. Reordering is not supported (each section's markup and save handler pair by position). Entries missing key/label/icon, or duplicating a key, are dropped. | `array<int, array{key,label,icon}> $steps` | `buddynext-pro` |
 | `buddynext_setup_wizard_steps` | filter | The ADMIN setup wizard's step list (the sibling of `buddynext_onboarding_steps`), a keyed registry so an add-on can append, remove, or reorder steps without editing core. Each entry needs a `label` and a callable `render`, with an optional `save`; entries missing key/label, with a non-callable render, or a duplicate key are dropped. The last entry is the finish step. Progress is stored as the step KEY, so changing the list never corrupts an in-flight wizard | `array $steps` (key => `[label, render, save]`) | (none) |
 | `buddynext_gamification_show_skip_toast` | filter | Whether to show a skip toast when gamification declines an award (cooldown, daily cap, weekly cap). Defaults to `false`: a member is not told an action they completed earned nothing | `bool $show, array $event, int $user_id, string $reason` | (none) |
 | `buddynext_media_service` | filter | A WPMediaVerse container service is resolved. The single seam into the media boundary - returning an object here takes over resolution | `object\|null $resolved, string $key` | (none) |
@@ -63,6 +63,18 @@ The table lists every hook Pro fires. Names are exact.
 | `buddynext_head_meta` | filter | A surface descriptor before BuddyNext renders its head meta. Return an empty array to suppress BuddyNext's head output for that surface entirely | `array $descriptor` | (none) |
 
 > **Note:** `buddynext_ability_granted` is fired with two arguments by Pro's Stripe `WebhookController` and with three (the extra `$source`) by Free's `AccessWebhookController`. Always register your callback for the lowest arg count you need (`add_action( 'buddynext_ability_granted', $cb, 10, 2 )`) so it works regardless of which producer fires.
+
+**Removing an optional onboarding step.** Drop the entry whose `key` you don't want; the wizard renumbers and the finish flow is unchanged:
+
+```php
+// Skip the "Follow people" step during onboarding.
+add_filter( 'buddynext_onboarding_steps', function ( array $steps ): array {
+	return array_values( array_filter(
+		$steps,
+		fn( $step ) => 'people' !== ( $step['key'] ?? '' )
+	) );
+} );
+```
 
 ### Custom reactions
 

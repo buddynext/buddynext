@@ -478,6 +478,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		</section>
 		<?php endif; ?>
 
+		<?php if ( isset( $step_pos['spaces'] ) ) : ?>
 		<!-- ── Step <?php echo esc_html( (string) $step_pos['spaces'] ); ?>: Spaces ── -->
 		<section class="bn-ob-step"
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
@@ -572,7 +573,9 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			</div>
 
 		</section>
+		<?php endif; ?>
 
+		<?php if ( isset( $step_pos['people'] ) ) : ?>
 		<!-- ── Step <?php echo esc_html( (string) $step_pos['people'] ); ?>: Follow People ── -->
 		<section class="bn-ob-step"
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
@@ -674,6 +677,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			</div>
 
 		</section>
+		<?php endif; ?>
 
 		<!-- ── Step <?php echo esc_html( (string) $step_pos['notifications'] ); ?>: Notifications ── -->
 		<section class="bn-ob-step"

@@ -131,16 +131,23 @@ class OnboardingService {
 			'icon'  => 'bell',
 		);
 
+		// The core list, kept so a filter that strips everything falls back to a
+		// working wizard rather than an empty shell.
+		$default = $steps;
+
 		/**
 		 * Filter the onboarding wizard's step list.
 		 *
-		 * Lets an addon append its own step(s) - e.g. Pro's membership plan
-		 * step. Appended entries render their section via the
-		 * `buddynext_onboarding_render_extra_steps` action in
-		 * templates/onboarding/index.php; the core steps above are the
-		 * template's own sections and must not be removed or reordered here
-		 * (their markup is position-bound). Entries missing key/label/icon,
-		 * or duplicating an existing key, are dropped.
+		 * Two things are supported: APPENDING an addon step (e.g. Pro's
+		 * membership plan step, whose section renders via the
+		 * `buddynext_onboarding_render_extra_steps` action), and REMOVING any of
+		 * the three OPTIONAL core steps - Interests, Spaces, People (Follows) -
+		 * each of which the template renders behind an isset() position guard.
+		 * Profile and Notifications are identity and delivery choices and are
+		 * expected to stay; if a filter removes every step the core list is used
+		 * instead. REORDERING is not supported: each section's markup and save
+		 * handler pair by position. Entries missing key/label/icon, or
+		 * duplicating an existing key, are dropped.
 		 *
 		 * @since 1.1.0
 		 *
@@ -160,6 +167,13 @@ class OnboardingService {
 			}
 			$seen[ $key ] = true;
 			$clean[]      = $step;
+		}
+
+		// A filter that removed every core step (or left nothing renderable) must
+		// not produce an empty wizard - fall back to the core list. This also
+		// keeps range() below well-formed (range( 1, 0 ) is not a valid 1..N).
+		if ( empty( $clean ) ) {
+			$clean = $default;
 		}
 
 		// 1-based positions — the template binds each section to its position.
