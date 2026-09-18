@@ -160,7 +160,20 @@ class PluginIsolation {
 					self::SELF_PLUGINS,
 					self::CORE_INTEGRATIONS,
 					self::APP_INTEGRATIONS,
-					self::OPERATIONAL_PLUGINS
+					self::OPERATIONAL_PLUGINS,
+					// Hard never-strip floors. Stripping a firewall, 2FA gate, login
+					// limiter, backup job, membership paywall or a consent/GDPR banner
+					// on the community's front door is a security / access / compliance
+					// incident, not a performance trade-off - so these can never be
+					// stripped, whatever the owner ticks. They were documented as floors
+					// but essentials() (the ONE list the strip path subtracts, and the
+					// mu-plugin hardcodes) did not include them, so an owner could strip
+					// their own firewall or cookie banner with no warning (card
+					// 10317870342). Being in essentials() also drops them from the
+					// strippable list on the isolation screen, so the switch is never
+					// even offered.
+					self::SECURITY_PLUGINS,
+					self::CONSENT_PLUGINS
 				)
 			)
 		);
@@ -278,11 +291,11 @@ class PluginIsolation {
 	 * them on hub routes. Silently disabling a firewall, a 2FA gate, a login
 	 * limiter, a backup job or a membership paywall on the community's front door
 	 * is a security/access incident, not a performance trade-off, so an ACTIVE
-	 * plugin on this list is kept by default. Unlike the consent floor it is
-	 * overridable: an owner who really wants to strip one un-checks it on the
-	 * Plugin-isolation screen (recorded in OPTION_SECURITY_OPTOUT). The list is
-	 * filterable (buddynext_isolation_security_plugins) because we cannot see every
-	 * install's security stack.
+	 * plugin on this list is a HARD never-strip floor: essentials() includes it, so
+	 * it cannot be stripped whatever the owner ticks and is not offered as a
+	 * strippable row (card 10317870342). The list is filterable
+	 * (buddynext_isolation_security_plugins) because we cannot see every install's
+	 * security stack.
 	 */
 	private const SECURITY_PLUGINS = array(
 		// Firewalls / malware / hardening.
@@ -318,14 +331,6 @@ class PluginIsolation {
 	 * @var string
 	 */
 	public const OPTION_ENABLED = 'buddynext_isolation_enabled';
-
-	/**
-	 * Security plugins the owner has explicitly opted to strip (override of the
-	 * SECURITY_PLUGINS default-keep).
-	 *
-	 * @var string
-	 */
-	public const OPTION_SECURITY_OPTOUT = 'buddynext_isolation_security_optout';
 
 	/**
 	 * Whether route isolation is enabled. Default OFF; owner setting only.
@@ -378,11 +383,10 @@ class PluginIsolation {
 	 * @return array<int,string>
 	 */
 	public static function active_security_kept(): array {
-		$optout = (array) get_option( self::OPTION_SECURITY_OPTOUT, array() );
 		$active = (array) get_option( 'active_plugins', array() );
 		$kept   = array();
 		foreach ( self::security_plugins() as $basename ) {
-			if ( in_array( $basename, $active, true ) && ! in_array( $basename, $optout, true ) ) {
+			if ( in_array( $basename, $active, true ) ) {
 				$kept[] = $basename;
 			}
 		}

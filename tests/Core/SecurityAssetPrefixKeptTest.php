@@ -32,7 +32,6 @@ class SecurityAssetPrefixKeptTest extends WP_UnitTestCase {
 	public function tear_down(): void {
 		update_option( 'active_plugins', $this->orig_active );
 		update_option( PluginIsolation::DETECTED_OPTION, $this->orig_detected );
-		delete_option( PluginIsolation::OPTION_SECURITY_OPTOUT );
 		parent::tear_down();
 	}
 
