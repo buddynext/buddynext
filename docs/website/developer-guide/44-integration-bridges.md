@@ -81,7 +81,7 @@ Current declared values (update the row when you re-verify a bridge against a ne
 | `learnomy` | `LEARNOMY_VERSION` | 1.9.4 | 1.9.5 |
 | `eventonomy` | `EVENTONOMY_VERSION` | 1.6.0 | 1.6.0 |
 | `jetonomy` | `JETONOMY_VERSION` | (none) | 1.9.7 |
-| `listora` | `WB_LISTORA_VERSION` | (none) | 1.6.0 |
+| `listora` | `WB_LISTORA_VERSION` | (none) | 1.8.0 |
 | `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.1.0 |
 
 ## Identity takeover (BuddyNext is master)

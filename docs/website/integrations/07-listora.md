@@ -50,6 +50,22 @@ Listora gets a card on the **Platform > Integration Settings** tab, with the sam
 
 The directory's own behavior - who can list, the categories, the listing fields - is configured in Listora, not here. These switches only decide where the results show up inside your community.
 
+## Businesses in a space
+
+Beyond surfacing new listings in the feed and search, Listora can run a curated business directory inside a space. A space owner turns it on for their space, members submit a listing they own, and the space team approves it before it appears. It is the same idea as the Media, Files and Events tabs: an optional, per-space surface the owner opts into.
+
+**Turning it on (space owner).** In a space's Settings > Integrations, switch on the Businesses tab (off by default). A Businesses tab then appears in that space. Nothing else is required; there is no separate provisioning step.
+
+**Submitting (member).** On the Businesses tab, a member picks one of their own published listings and submits it to the space. It waits for the team's approval and the member is told it is pending. To keep the review queue usable, a member can have only a limited number of submissions awaiting review in one space at a time (five by default), so no one can flood it.
+
+**Approving (space team).** The space owner, a space moderator, or a site admin sees a review queue on the tab and approves or rejects each submission. Nothing appears in the showcase until the team approves it.
+
+**The showcase.** Approved businesses appear as compact cards - name, one category and location line, a verified badge, rating, owner and image - each linking out to the full listing on Listora for the complete detail. The showcase never reproduces the whole listing in the space; it is a directory that sends people to the source. The space team can remove a card at any time.
+
+**Visibility follows the space.** The Businesses tab respects the space's own privacy. An open space's directory is visible to anyone who can see the space; a private or secret space's directory is visible only to its members. The site-wide Listora **Show in navigation** switch (Platform > Integration Settings) is the master control: with it off, no space shows a Businesses tab.
+
+**Requirements.** Needs BuddyNext Pro and WB Listora 1.8.0 or newer (the release that added the space-listings storage and its REST endpoints). Without them the Businesses tab simply does not appear, and the rest of the Listora integration - feed, search, the profile Listings panel - is unaffected. Listora still owns the listings themselves; this feature only decides which of them a space showcases.
+
 ## Good to know
 
 - **Listings appear and disappear with their public status.** BuddyNext keys off the listing's WordPress publish status: a listing becomes a feed and search entry when it goes public, and that entry is removed when the listing leaves public view or is deleted. There is no separate approval step to wire - public status is the signal.
@@ -61,7 +77,7 @@ The directory's own behavior - who can list, the categories, the listing fields 
 
 ## Free vs Pro
 
-The Listora community integration is part of BuddyNext Pro. The Listora plugin itself is separate and runs on its own, but surfacing its listings inside the BuddyNext community - the feed activity and community search described above - requires BuddyNext Pro.
+The Listora community integration is part of BuddyNext Pro. The Listora plugin itself is separate and runs on its own, but surfacing its listings inside the BuddyNext community - the feed activity, community search, and the in-space Businesses directory described above - requires BuddyNext Pro. The in-space directory additionally needs WB Listora 1.8.0 or newer.
 
 ## Related
 
@@ -69,3 +85,4 @@ The Listora community integration is part of BuddyNext Pro. The Listora plugin i
 - [Activity Feed](../community/01-activity-feed.md) - where new listings appear.
 - [Search](../community/12-search.md) - where published listings become findable.
 - [Member Profiles](../members/01-member-profiles.md) - the profile the Listings panel joins.
+- [Spaces overview](../spaces/01-spaces-overview.md) - where the Businesses tab lives, alongside Media, Files and Events.
