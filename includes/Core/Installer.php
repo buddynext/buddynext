@@ -163,6 +163,25 @@ class Installer {
 	);
 
 	/**
+	 * The options pointing at the hub backing pages (published WP pages that
+	 * carry a [buddynext_*] shortcode), one per hub with backing_page === true in
+	 * CoreHubs. delete_hub_pages() removes these pages on an opt-in full-wipe
+	 * uninstall. Hardcoded rather than derived from HubRegistry because uninstall
+	 * loads this class file alone, without the autoloader that would boot the
+	 * registry; HubPageOptionsDriftTest keeps the two in lockstep.
+	 *
+	 * @var string[]
+	 */
+	public const HUB_PAGE_OPTIONS = array(
+		'buddynext_page_activity',
+		'buddynext_page_people',
+		'buddynext_page_spaces',
+		'buddynext_page_messages',
+		'buddynext_page_notifications',
+		'buddynext_page_auth',
+	);
+
+	/**
 	 * Filename for the mu-plugin that provides front-end plugin isolation.
 	 */
 	private const MU_PLUGIN_SLUG = 'buddynext-isolation.php';
@@ -4677,5 +4696,26 @@ MUPLUGIN;
 		// version still matches). Clearing the sentinel makes PageRouter perform
 		// the complete flush on the next normal request, after the rules exist.
 		delete_option( 'buddynext_router_version' );
+	}
+
+	/**
+	 * Delete the hub backing pages on an opt-in full-wipe uninstall.
+	 *
+	 * The companion to create_hub_pages(): reads each buddynext_page_* pointer
+	 * (HUB_PAGE_OPTIONS) and force-deletes that WP page, so a full wipe does not
+	 * leave published pages carrying dead [buddynext_*] shortcodes behind. Called
+	 * from uninstall.php ONLY on the opt-in path ($bn_delete_data === true) and
+	 * BEFORE the option sweep removes the pointers; the default uninstall path
+	 * leaves owner-visible pages in place, per WordPress convention.
+	 *
+	 * @return void
+	 */
+	public static function delete_hub_pages(): void {
+		foreach ( self::HUB_PAGE_OPTIONS as $option ) {
+			$page_id = (int) get_option( $option, 0 );
+			if ( $page_id > 0 && 'page' === get_post_type( $page_id ) ) {
+				wp_delete_post( $page_id, true );
+			}
+		}
 	}
 }

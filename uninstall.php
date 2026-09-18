@@ -180,6 +180,10 @@ $bn_delete_data = (bool) get_option( 'buddynext_delete_data_on_uninstall', false
 $bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_meta, $bn_purge_infrastructure, $bn_delete_data ) {
 	$bn_purge_infrastructure();
 	if ( $bn_delete_data ) {
+		// Remove the hub backing pages (published WP pages holding [buddynext_*]
+		// shortcodes) BEFORE $bn_purge_meta() sweeps away their buddynext_page_*
+		// pointers. Opt-in full wipe only; the default path leaves them in place.
+		\BuddyNext\Core\Installer::delete_hub_pages();
 		$bn_drop_tables( $prefix );
 		$bn_purge_meta();
 	} else {
