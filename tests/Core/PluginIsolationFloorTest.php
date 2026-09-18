@@ -126,6 +126,24 @@ class PluginIsolationFloorTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The dependency scan skips the in-house family floor: it only reads the
+	 * Requires-Plugins header of the THIRD-PARTY kept plugins, because a family
+	 * plugin is always kept and only requires other family plugins - so scanning
+	 * the whole active set on every hub route is what the fix removes, and it does
+	 * so without a cross-request cache or a front-end write (card 10317874510).
+	 *
+	 * @return void
+	 */
+	public function test_the_dependency_scan_skips_the_family_floor(): void {
+		$content = $this->mu_plugin_source();
+
+		// The scan set is kept MINUS the essentials floor.
+		$this->assertStringContainsString( 'array_diff( array_diff( $plugins, $strip ), $essentials )', $content );
+		// And it does NOT reach for a persistent option cache / front-end write.
+		$this->assertStringNotContainsString( 'buddynext_isolation_required_slugs', $content );
+	}
+
+	/**
 	 * The mu-plugin's floor is DERIVED from essentials(), not typed twice — every
 	 * basename in the canonical floor appears in the generated file.
 	 *

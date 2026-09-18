@@ -4643,14 +4643,22 @@ if ( buddynext_mu_is_bn_request() ) {
 			// WooCommerce Subscriptions is the common shape). We read the same registry
 			// core uses to block deactivating a needed parent, so a stale mirror
 			// degrades to "stripped less than asked", never a fatal (card 10296851425).
-			// Per-request static cache: option_active_plugins is filtered many times per
-			// request, so we must not re-read every kept plugin's header each time.
+			// Scan only the THIRD-PARTY kept plugins. Our in-house family (the
+			// $essentials floor) is always kept, and its members only ever require
+			// each other - every Pro plugin requires its own free base, which is
+			// itself in the floor - so a family plugin can never require a strippable
+			// plugin, and reading its header is wasted work. Excluding the floor
+			// shrinks the scan from ~every active plugin to just the third-party
+			// plugins the owner kept, which is what bounds the per-request cost -
+			// no cross-request cache, no front-end write (card 10317874510). The
+			// per-request static still avoids re-reading within a request, since
+			// option_active_plugins is filtered many times.
 			static $bn_required_slugs_cache = array();
-			$kept     = array_values( array_diff( $plugins, $strip ) );
-			$kept_key = md5( implode( '|', $kept ) );
-			if ( ! isset( $bn_required_slugs_cache[ $kept_key ] ) ) {
+			$scan     = array_values( array_diff( array_diff( $plugins, $strip ), $essentials ) );
+			$scan_key = md5( implode( '|', $scan ) );
+			if ( ! isset( $bn_required_slugs_cache[ $scan_key ] ) ) {
 				$required_slugs = array();
-				foreach ( $kept as $kept_file ) {
+				foreach ( $scan as $kept_file ) {
 					$kept_path = WP_PLUGIN_DIR . '/' . $kept_file;
 					if ( ! is_readable( $kept_path ) ) {
 						continue;
@@ -4666,9 +4674,9 @@ if ( buddynext_mu_is_bn_request() ) {
 						}
 					}
 				}
-				$bn_required_slugs_cache[ $kept_key ] = $required_slugs;
+				$bn_required_slugs_cache[ $scan_key ] = $required_slugs;
 			}
-			$required_slugs = $bn_required_slugs_cache[ $kept_key ];
+			$required_slugs = $bn_required_slugs_cache[ $scan_key ];
 			if ( ! empty( $required_slugs ) ) {
 				$strip = array_values(
 					array_filter(
