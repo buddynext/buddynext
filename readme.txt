@@ -41,7 +41,7 @@ BuddyNext is the free community OS. Three core integrations ship as companion pl
 
 No Composer or build step is required - runtime dependencies are bundled.
 
-BuddyNext recommends a PHP `memory_limit` of at least 256 MB. With the full plugin family active (Pro, WPMediaVerse and the integrations) the 128 MB default can be exhausted and a request may fail; Tools > Site Health flags a low limit.
+BuddyNext recommends a PHP `memory_limit` of at least 512 MB. With the full plugin family active (Pro, WPMediaVerse and the integrations) the 128 MB default can be exhausted and a request may fail; Tools > Site Health flags a low limit.
 
 == Frequently Asked Questions ==
 

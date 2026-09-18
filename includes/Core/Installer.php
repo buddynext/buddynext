@@ -189,7 +189,7 @@ class Installer {
 	 *
 	 * @var int
 	 */
-	public const MEMORY_FLOOR_MB = 256;
+	public const MEMORY_FLOOR_MB = 512;
 
 	/**
 	 * Filename for the mu-plugin that provides front-end plugin isolation.

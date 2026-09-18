@@ -169,10 +169,11 @@ class InstallerTest extends \WP_UnitTestCase {
 		$original = ini_get( 'memory_limit' );
 
 		$cases = array(
-			'128M' => 'recommended',
-			'256M' => 'good',
-			'512M' => 'good',
-			'-1'   => 'good',
+			'128M'  => 'recommended',
+			'256M'  => 'recommended',
+			'512M'  => 'good',
+			'1024M' => 'good',
+			'-1'    => 'good',
 		);
 		foreach ( $cases as $limit => $expected ) {
 			@ini_set( 'memory_limit', $limit ); // phpcs:ignore WordPress.PHP.IniSet.memory_limit_Disallowed -- test-only, restored below.

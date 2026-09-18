@@ -16,13 +16,13 @@ A clean install is what makes BuddyNext work the moment you switch it on. Activa
 |-------------|---------|
 | WordPress | 6.9 or newer |
 | PHP | 8.1 or newer |
-| PHP memory_limit | 256 MB recommended (128 MB can be exhausted with the full family active) |
+| PHP memory_limit | 512 MB recommended (128 MB can be exhausted with the full family active) |
 | Database | MySQL 5.7+ or MariaDB 10.3+ (standard WordPress) |
 | Permalinks | Pretty permalinks enabled (any setting other than Plain) |
 
 > **Note:** BuddyNext uses pretty-permalink URLs for its community pages. If your site is set to Plain permalinks, switch to any other option under Settings > Permalinks before or right after activation.
 
-> **Memory:** With BuddyNext, its Pro layer and the media/integration plugins all active, PHP's 128 MB default can run out mid-request. Set `memory_limit` to at least 256 MB in `php.ini` or `wp-config.php` (`define( 'WP_MEMORY_LIMIT', '256M' );`). **Tools > Site Health** shows a recommendation when your limit is below this.
+> **Memory:** With BuddyNext, its Pro layer and the media/integration plugins all active, PHP's 128 MB default can run out mid-request. Set `memory_limit` to at least 512 MB in `php.ini` or `wp-config.php` (`define( 'WP_MEMORY_LIMIT', '512M' );`). **Tools > Site Health** shows a recommendation when your limit is below this.
 
 ## Steps: install the free plugin
 
