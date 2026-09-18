@@ -96,6 +96,19 @@ class PageRouter {
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
+
+		// Make a mapped hub page answer is_page()/is_singular() BEFORE
+		// template_redirect runs, so any code that keys on conditional tags at that
+		// point sees the real page. The critical consumer is a membership/access
+		// gate: "redirect non-members to the login page, exempt it via is_page()"
+		// only works if is_page() is true on the login hub. dispatch_hub_template()
+		// (template_redirect) is too late - a gate on the same hook, registered from
+		// an mu-plugin, runs first - so this sits on `wp`, which fires once after the
+		// query is resolved and before any template_redirect handler. Without it a
+		// gate cannot recognise its own login target and redirects it to itself
+		// forever: ERR_TOO_MANY_REDIRECTS (card 10317628894).
+		add_action( 'wp', array( $this, 'align_hub_page_conditionals' ) );
+
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
 
 		// Hub pages render from a virtual WP_Post (ID 0), so core's admin-bar
@@ -214,6 +227,52 @@ class PageRouter {
 		}
 
 		return '';
+	}
+
+	/**
+	 * Align conditional tags with a hub's mapped page, on `wp` (before
+	 * template_redirect).
+	 *
+	 * A hub whose slug maps to a real page IS that page for is_page()/is_singular()
+	 * purposes. The BuddyNext rewrite deliberately blanks pagename and sets
+	 * post__in=[0] so the synthetic hub post renders, which leaves is_page() FALSE.
+	 * dispatch_hub_template() restores the page identity, but only on
+	 * template_redirect - after a membership gate on the same hook (loaded from an
+	 * mu-plugin, so registered first) has already run its is_page() check and failed
+	 * it. Doing it here, on `wp`, means the gate sees the login hub as its own login
+	 * page and exempts it, instead of redirecting it to itself forever
+	 * (ERR_TOO_MANY_REDIRECTS - card 10317628894). Only touches the query
+	 * conditionals; the synthetic post still backs the render.
+	 *
+	 * @return void
+	 */
+	public function align_hub_page_conditionals(): void {
+		if ( is_admin() ) {
+			return;
+		}
+
+		$hub = (string) get_query_var( 'bn_hub', '' );
+		if ( '' === $hub ) {
+			return;
+		}
+
+		$page_id = self::hub_page_id( $hub );
+		if ( $page_id <= 0 ) {
+			return;
+		}
+
+		$page = get_post( $page_id );
+		if ( ! $page instanceof \WP_Post ) {
+			return;
+		}
+
+		global $wp_query;
+		$wp_query->queried_object    = $page;
+		$wp_query->queried_object_id = $page_id;
+		$wp_query->is_page           = true;
+		$wp_query->is_singular       = true;
+		$wp_query->is_home           = false;
+		$wp_query->is_404            = false;
 	}
 
 	/**
@@ -384,8 +443,48 @@ class PageRouter {
 		if ( 'auth' === $hub && is_user_logged_in() ) {
 			$auth_action = (string) get_query_var( 'bn_auth_action', '' );
 			if ( ! in_array( $auth_action, array( 'verify', 'connect-app' ), true ) ) {
-				wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
-				exit;
+				// Loop guard. A membership/access gate can redirect a logged-in
+				// non-member TO the login page and then reject the activity feed we
+				// bounce them to, sending them straight back - an infinite auth <->
+				// feed ping-pong that locks the user out (card 10317628894, Loop B).
+				// We cannot see the gate, so we detect our OWN repeated bounce: after
+				// bouncing once we drop a short-lived per-user marker; if the same
+				// user returns to the auth hub while it is still set, we stop bouncing
+				// and let the auth hub render, breaking the loop. A normal signed-in
+				// visitor is bounced exactly once, as before. Filterable so a site can
+				// disable the bounce outright.
+				// ponytail: 15s transient loop-breaker; good enough because the loop
+				// resolves within one round-trip. A gate that bounces slower than 15s
+				// is not a loop a human would hit.
+				$bn_uid        = get_current_user_id();
+				$bn_bounce_key = 'bn_auth_bounce_' . $bn_uid;
+				$bn_looping    = false !== get_transient( $bn_bounce_key );
+
+				/**
+				 * Filter whether a signed-in visitor is redirected off the auth hub.
+				 *
+				 * Default true on the first visit, false once a bounce loop is
+				 * detected. Return false to keep signed-in users on the login/signup
+				 * surface (e.g. a site whose membership gate renders an upgrade
+				 * prompt there).
+				 *
+				 * @since 1.2.1
+				 *
+				 * @param bool $redirect Whether to redirect to the activity feed.
+				 * @param int  $user_id  The signed-in user.
+				 */
+				$bn_should_bounce = (bool) apply_filters( 'buddynext_redirect_logged_in_from_auth', ! $bn_looping, $bn_uid );
+
+				if ( $bn_should_bounce ) {
+					set_transient( $bn_bounce_key, 1, 15 );
+					wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
+					exit;
+				}
+
+				// Loop detected: fall through and let the auth hub render. The marker
+				// is left to expire on its own, so every hit inside the window
+				// resolves to a rendered page instead of re-arming the bounce and
+				// re-entering the loop.
 			}
 		}
 
