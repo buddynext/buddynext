@@ -182,6 +182,16 @@ class Installer {
 	);
 
 	/**
+	 * Recommended PHP memory floor, in MB. The full family (BuddyNext + Pro +
+	 * WPMediaVerse + the integrations) can exhaust PHP's 128M default and fatal;
+	 * the Site Health memory test recommends at least this much, and the readme /
+	 * docs state the same figure.
+	 *
+	 * @var int
+	 */
+	public const MEMORY_FLOOR_MB = 256;
+
+	/**
 	 * Filename for the mu-plugin that provides front-end plugin isolation.
 	 */
 	private const MU_PLUGIN_SLUG = 'buddynext-isolation.php';
@@ -467,9 +477,63 @@ class Installer {
 					'label' => __( 'BuddyNext database tables', 'buddynext' ),
 					'test'  => array( self::class, 'site_health_schema_test' ),
 				);
+				$tests['direct']['buddynext_memory'] = array(
+					'label' => __( 'BuddyNext memory limit', 'buddynext' ),
+					'test'  => array( self::class, 'site_health_memory_test' ),
+				);
 
 				return $tests;
 			}
+		);
+	}
+
+	/**
+	 * Site Health: recommend at least MEMORY_FLOOR_MB of PHP memory.
+	 *
+	 * PHP's 128M default can fatal once the whole family is active, so this
+	 * surfaces a "recommended" (not critical - WordPress itself runs below the
+	 * floor) result when memory_limit is under it. An unlimited (-1) or
+	 * unreadable limit is treated as sufficient rather than flagged.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function site_health_memory_test(): array {
+		$floor   = self::MEMORY_FLOOR_MB * MB_IN_BYTES;
+		$current = wp_convert_hr_to_bytes( (string) ini_get( 'memory_limit' ) );
+		$badge   = array(
+			'label' => __( 'BuddyNext', 'buddynext' ),
+			'color' => 'blue',
+		);
+
+		if ( $current <= 0 || $current >= $floor ) {
+			return array(
+				'label'       => __( 'BuddyNext has enough PHP memory', 'buddynext' ),
+				'status'      => 'good',
+				'badge'       => $badge,
+				'description' => '<p>' . sprintf(
+					/* translators: %d: recommended memory floor in MB. */
+					esc_html__( 'PHP memory_limit is at or above the %d MB BuddyNext recommends with the full plugin family active.', 'buddynext' ),
+					self::MEMORY_FLOOR_MB
+				) . '</p>',
+				'test'        => 'buddynext_memory',
+			);
+		}
+
+		return array(
+			'label'       => sprintf(
+				/* translators: %d: recommended memory floor in MB. */
+				__( 'BuddyNext recommends at least %d MB of PHP memory', 'buddynext' ),
+				self::MEMORY_FLOOR_MB
+			),
+			'status'      => 'recommended',
+			'badge'       => $badge,
+			'description' => '<p>' . sprintf(
+				/* translators: 1: current memory_limit (e.g. 128M), 2: recommended floor in MB. */
+				esc_html__( 'PHP memory_limit is %1$s. With BuddyNext, its Pro layer and the media/integration plugins all active, a request can exhaust that and fail with a fatal error. Raise memory_limit to at least %2$d MB in php.ini or wp-config.php.', 'buddynext' ),
+				(string) ini_get( 'memory_limit' ),
+				self::MEMORY_FLOOR_MB
+			) . '</p>',
+			'test'        => 'buddynext_memory',
 		);
 	}
 
