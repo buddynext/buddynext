@@ -17985,6 +17985,9 @@
                             "null"
                         ]
                     },
+                    "landing_tab": {
+                        "type": "string"
+                    },
                     "subspace_count": {
                         "type": "integer"
                     },

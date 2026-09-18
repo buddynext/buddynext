@@ -2862,4 +2862,93 @@ class SpaceService {
 		 */
 		return (array) apply_filters( 'buddynext_prepare_space', $space, $row );
 	}
+
+	/**
+	 * Which tab a space opens on for this viewer.
+	 *
+	 * One resolver for the template and REST so the two never disagree. Order:
+	 *   1. An explicit tab in the URL (/spaces/{slug}/{tab}/) wins as-is - the
+	 *      caller still runs it through its renderable fallback, exactly as before.
+	 *   2. A viewer who cannot read a private space's content lands on About
+	 *      (public identity: description, rules, Join), never a locked Feed.
+	 *   3. The space's own default_tab setting, when it is still a visible tab.
+	 *   4. Otherwise the first tab in the resolved nav order (the site owner's
+	 *      Settings > Navigation order).
+	 * Steps 2-4 are then passed through the buddynext_space_default_tab filter; an
+	 * explicit URL tab is not.
+	 *
+	 * @param array<string,mixed>               $space     Hydrated/raw space row (needs id).
+	 * @param int                               $viewer_id Current viewer user id.
+	 * @param array<int,\BuddyNext\Nav\NavItem> $nav_items The resolved primary nav items for this viewer.
+	 * @param string                            $url_tab   The tab named in the URL, or '' when none.
+	 * @return string The tab id to open on.
+	 */
+	public function landing_tab( array $space, int $viewer_id, array $nav_items, string $url_tab = '' ): string {
+		// 1. An explicit URL tab wins outright and is not filtered.
+		if ( '' !== $url_tab ) {
+			return $url_tab;
+		}
+
+		$tab = $this->resolve_default_landing_tab( $space, $viewer_id, $nav_items );
+
+		/**
+		 * Filter the tab a space opens on when the URL names none.
+		 *
+		 * Runs for the default (steps 2-4), never for an explicit URL tab. Return
+		 * a tab id; a value the viewer cannot see is caught by the renderable
+		 * fallback, so a bad filter can never blank the space.
+		 *
+		 * @param string              $tab       The resolved default tab id.
+		 * @param array<string,mixed> $space     The space row.
+		 * @param int                 $viewer_id The viewer.
+		 */
+		return (string) apply_filters( 'buddynext_space_default_tab', $tab, $space, $viewer_id );
+	}
+
+	/**
+	 * The default landing tab (steps 2-4 of landing_tab()).
+	 *
+	 * @param array<string,mixed>               $space     Space row (needs id).
+	 * @param int                               $viewer_id Viewer id.
+	 * @param array<int,\BuddyNext\Nav\NavItem> $nav_items Resolved primary nav items.
+	 * @return string
+	 */
+	private function resolve_default_landing_tab( array $space, int $viewer_id, array $nav_items ): string {
+		// 2. A non-member of a private space lands on the public About tab.
+		if ( ! SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
+			return 'about';
+		}
+
+		// The tabs the space home renders INLINE for this viewer, in nav order. A
+		// landing tab has to be one the home template can paint itself; the
+		// dedicated-page tabs (Members, Moderation) have their own URLs and are not
+		// landing targets here (opening a space on those is a separate follow-up).
+		$first      = '';
+		$renderable = array();
+		foreach ( $nav_items as $item ) {
+			if ( ! is_object( $item ) || ! method_exists( $item, 'has_render' ) || ! $item->has_render() ) {
+				continue;
+			}
+			$id                = (string) $item->id;
+			$renderable[ $id ] = true;
+			if ( '' === $first ) {
+				$first = $id;
+			}
+		}
+
+		// 3. The space's own choice, when it is still a visible, inline tab (a
+		// choice later hidden or removed falls through to the site default below).
+		$space_id = (int) ( $space['id'] ?? 0 );
+		$raw      = $space_id > 0 ? get_space_meta( $space_id, 'default_tab', true ) : '';
+		// A stored value that no longer maps to a valid option reads back as a
+		// WP_Error (or non-string); treat that, like a hidden tab, as "unset" and
+		// fall through to the site default.
+		$default = is_string( $raw ) ? sanitize_key( $raw ) : '';
+		if ( '' !== $default && isset( $renderable[ $default ] ) ) {
+			return $default;
+		}
+
+		// 4. The first inline tab in the resolved nav order (the site owner's order).
+		return '' !== $first ? $first : 'feed';
+	}
 }

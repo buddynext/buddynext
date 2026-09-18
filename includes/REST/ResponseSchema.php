@@ -883,6 +883,7 @@ final class ResponseSchema {
 				'viewer_role'       => array( 'type' => 'string' ),
 				'fields'            => array( 'type' => array( 'object', 'array' ) ),
 				'parent'            => array( 'type' => array( 'object', 'null' ) ),
+				'landing_tab'       => array( 'type' => 'string' ),
 				'subspace_count'    => array( 'type' => 'integer' ),
 				'join_method'       => array( 'type' => 'string' ),
 				'membership_role'   => array( 'type' => array( 'string', 'null' ) ),

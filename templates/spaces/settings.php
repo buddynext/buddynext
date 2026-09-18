@@ -318,6 +318,23 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			}
 		}
 
+		// "Space opens on" rides the general panel but is a registered field, so it
+		// saves through the registry, which sanitises the tab id, enforces its
+		// owner-only writable_by and rejects a value outside the registered tab set.
+		if ( 'error' !== $save_notice && isset( $_POST['space_default_tab'] ) ) {
+			$bn_default_tab_result = $bn_field_registry->save_for_space(
+				$space_id,
+				array( 'default_tab' => sanitize_key( wp_unslash( (string) $_POST['space_default_tab'] ) ) ),
+				$bn_actor_id
+			);
+			if ( empty( $bn_default_tab_result['errors'] ) ) {
+				$bn_wrote_something = true;
+			} else {
+				$save_notice           = 'error';
+				$bn_save_error_message = (string) reset( $bn_default_tab_result['errors'] );
+			}
+		}
+
 		if ( 'error' !== $save_notice ) {
 			if ( ! empty( $update_data ) ) {
 				// Route through the service: validation, cache invalidation and the

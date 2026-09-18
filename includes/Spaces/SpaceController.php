@@ -1527,6 +1527,16 @@ class SpaceController extends BaseRestController {
 		$space['can_manage']     = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $bn_space_id ) );
 		$space['can_edit_space'] = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-manage-space', array( 'space_id' => $bn_space_id ) );
 
+		// The tab the app should open this space on for the current viewer — the
+		// same resolver the web space page uses, so the two never disagree. A REST
+		// fetch names no URL tab, so this is the resolved default (private-space
+		// non-member → About, the space's own choice, or the first tab). Computed on
+		// the single-space read only; the directory list never builds nav per row.
+		$bn_landing_nav       = buddynext_nav(
+			new \BuddyNext\Nav\NavContext( 'space', $bn_space_id, $viewer_id, (string) ( $space['membership_role'] ?? '' ) )
+		);
+		$space['landing_tab'] = ( new SpaceService() )->landing_tab( $space, $viewer_id, $bn_landing_nav->layer( 'primary' ) );
+
 		return new WP_REST_Response( $space, 200 );
 	}
 

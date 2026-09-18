@@ -1115,6 +1115,9 @@ class NavManager extends AdminPageBase {
 					<!-- Space Tabs scope panel -->
 					<div class="bn-scope-panel" data-scope-panel="space" hidden>
 						<?php $this->render_nav_section( 'space', $space_tabs, __( 'Space Tabs', 'buddynext' ), __( '- Space detail pages', 'buddynext' ) ); ?>
+						<p class="description">
+							<?php esc_html_e( 'Spaces open on the first tab in this list. A space owner can choose a different starting tab in their space settings.', 'buddynext' ); ?>
+						</p>
 					</div>
 
 					<!-- Mobile Bottom Nav scope panel -->

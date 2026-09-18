@@ -93,9 +93,24 @@ if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $bn_space_row, $curren
 // at the tab body below; do not reintroduce a blanket gate around the whole body.
 $gate_feed = ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $bn_space_row, $current_user_id );
 
-// Clean-URL active tab: /spaces/{slug}/{tab}/ → bn_space_action. Defaults to feed.
-$active_tab = (string) get_query_var( 'bn_space_action', '' );
-$active_tab = '' !== $active_tab ? sanitize_key( $active_tab ) : 'feed';
+// Clean-URL tab named in the URL: /spaces/{slug}/{tab}/ → bn_space_action ('' = none).
+$bn_url_tab = sanitize_key( (string) get_query_var( 'bn_space_action', '' ) );
+
+// Space navigation comes from the unified registry (SpaceNav + bridges), gated,
+// counted and ordered for THIS viewer's role — the same nav system + renderer the
+// member profile uses. Built here (before the landing-tab resolver and the sidebar)
+// so both see the same, viewer-gated tab list. Rendered as clean-URL tabs by
+// parts/nav-bar.php.
+$bn_space_role = $is_member && isset( $membership->role ) ? (string) $membership->role : '';
+$bn_space_ctx  = new \BuddyNext\Nav\NavContext( 'space', (int) $space_id, (int) $current_user_id, $bn_space_role );
+$bn_space_nav  = buddynext_nav( $bn_space_ctx );
+$bn_nav_items  = $bn_space_nav->layer( 'primary' );
+
+// The tab this viewer opens on: an explicit URL tab wins; otherwise the resolved
+// default (a non-member of a private space gets About, then the space's own
+// "Space opens on" choice, then the first tab in the site's Navigation order).
+// A stale/hidden result is normalised to a renderable panel by the fallback below.
+$active_tab = buddynext_service( 'spaces' )->landing_tab( $bn_space_row, (int) $current_user_id, $bn_nav_items, $bn_url_tab );
 
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 
@@ -122,14 +137,6 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 do_action( 'buddynext_space_home_before', $space_id, $current_user_id );
 
 // ── Render ───────────────────────────────────────────────────────────────────
-
-// Space navigation comes from the unified registry (SpaceNav + bridges), gated,
-// counted and ordered for THIS viewer's role — the same nav system + renderer the
-// member profile uses. Rendered as clean-URL tabs by parts/nav-bar.php.
-$bn_space_role = $is_member && isset( $membership->role ) ? (string) $membership->role : '';
-$bn_space_ctx  = new \BuddyNext\Nav\NavContext( 'space', (int) $space_id, (int) $current_user_id, $bn_space_role );
-$bn_space_nav  = buddynext_nav( $bn_space_ctx );
-$bn_nav_items  = $bn_space_nav->layer( 'primary' );
 
 // Normalize the active tab to a panel the registry can actually render. A tab that
 // is hidden for this viewer/space (Media when the option is off, Discussions when

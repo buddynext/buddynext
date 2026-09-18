@@ -107,6 +107,16 @@ These settings live under the plugin's Spaces settings. They set the platform-wi
 
 The admin Spaces page has two sections: a Spaces list and Categories. The Spaces list shows every space with its type, member count, and archived state, and lets you delete spaces (individually or in bulk) and open a space's own settings to manage it. The Categories section is where you build and order the directory categories - see Space Categories.
 
+## Choose which tab a space opens on
+
+By default a space opens on its Feed. You can change the starting tab - the tab bar itself (which tabs, their labels and order) stays the same for every space; only the tab a visitor lands on can differ.
+
+**Site owner (all spaces).** A space opens on the first tab in your **Settings > Navigation > Space Tabs** order that the visitor can see. Move **About** to the top of that list and every space opens on About; the tab bar and the landing tab always agree. There is no separate switch - the Navigation order is the site-wide default.
+
+**Space owner (one space).** In a space's **Settings > General**, the **"Space opens on"** control lets the owner pick a different starting tab for that space alone - Feed, About, Sub-spaces or Media. Leave it on **Site default** to follow the site-wide order. Links to a specific tab or post (for example a shared `/spaces/{slug}/members/` URL or a post permalink) are never affected.
+
+A non-member who opens a private space always lands on **About** - its description, rules and the Join button - rather than a locked Feed.
+
 ## Good to know
 
 - A space always has at least one owner; the owner is also the first member.

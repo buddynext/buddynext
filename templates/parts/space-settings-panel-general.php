@@ -278,6 +278,49 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 	</div>
 
 	<div class="bn-space-settings__field">
+		<label for="space_default_tab"><?php esc_html_e( 'Space opens on', 'buddynext' ); ?></label>
+		<?php
+		// The starting tab for this space. The tab bar itself is site-wide (Settings >
+		// Navigation), so the choices are the site-wide space tabs, in the owner's
+		// order, minus any turned off site-wide. Empty = follow the site default (the
+		// first tab). Owner-only, like Category above; the registry re-checks on save.
+		$bn_default_tab = (string) buddynext_get_space_field( (int) ( $bn_space->id ?? 0 ), 'default_tab' );
+		// The valid landing tabs are the field's registered options (the inline
+		// tabs); intersect with the resolved nav for the owner's labels + to drop
+		// any tab turned off site-wide.
+		$bn_dt_field  = \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_field( 'default_tab' );
+		$bn_dt_valid  = is_array( $bn_dt_field ) && is_array( $bn_dt_field['options'] ?? null ) ? $bn_dt_field['options'] : array();
+		$bn_land_tabs = array();
+		foreach ( (array) buddynext_service( 'admin_nav' )->get_tabs_for_scope( 'space' ) as $bn_lt ) {
+			if ( ! empty( $bn_lt['hidden'] ) ) {
+				continue;
+			}
+			$bn_lt_slug = sanitize_key( (string) ( $bn_lt['slug'] ?? '' ) );
+			if ( '' === $bn_lt_slug || ! array_key_exists( $bn_lt_slug, $bn_dt_valid ) ) {
+				continue;
+			}
+			$bn_land_tabs[ $bn_lt_slug ] = (string) ( $bn_lt['label'] ?? $bn_lt_slug );
+		}
+		$bn_first_slug  = (string) ( array_key_first( $bn_land_tabs ) ?? '' );
+		$bn_first_label = '' !== $bn_first_slug ? $bn_land_tabs[ $bn_first_slug ] : __( 'the first tab', 'buddynext' );
+		?>
+		<select name="space_default_tab" id="space_default_tab" class="bn-select" <?php disabled( ! $args['is_space_owner'] ); ?>>
+			<option value="" <?php selected( '', $bn_default_tab ); ?>>
+				<?php
+				/* translators: %s: the site default landing tab name. */
+				printf( esc_html__( 'Site default (currently: %s)', 'buddynext' ), esc_html( $bn_first_label ) );
+				?>
+			</option>
+			<?php foreach ( $bn_land_tabs as $bn_lt_slug => $bn_lt_label ) : ?>
+				<option value="<?php echo esc_attr( $bn_lt_slug ); ?>" <?php selected( $bn_lt_slug, $bn_default_tab ); ?>>
+					<?php echo esc_html( $bn_lt_label ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
+		<p class="bn-space-settings__hint"><?php esc_html_e( 'The tab people land on when they open this space. Links to a specific tab or post are not affected.', 'buddynext' ); ?></p>
+	</div>
+
+	<div class="bn-space-settings__field">
 		<label for="space_category_id"><?php esc_html_e( 'Category', 'buddynext' ); ?></label>
 		<?php
 		// Owner-only, like name / description / rules directly above. Category is
