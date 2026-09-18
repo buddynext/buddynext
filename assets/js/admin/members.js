@@ -497,11 +497,42 @@
 		}
 	}
 
+	// ── Pending-approval "View submitted data" dialog ────────────────────
+	// Opens the per-member <dialog> holding the sign-up fields they submitted, so
+	// an admin can see what someone answered before approving or rejecting. Native
+	// <dialog>.showModal() gives the backdrop, Esc and focus trap for free.
+	function initApprovalDetails() {
+		document.addEventListener( 'click', function ( e ) {
+			var open = e.target.closest( '[data-bn-approval-view]' );
+			if ( open ) {
+				var dlg = document.getElementById(
+					'bn-approval-details-' + open.getAttribute( 'data-bn-approval-view' )
+				);
+				if ( dlg && typeof dlg.showModal === 'function' ) {
+					dlg.showModal();
+				}
+				return;
+			}
+			if ( e.target.closest( '[data-bn-approval-close]' ) ) {
+				var d = e.target.closest( 'dialog' );
+				if ( d && typeof d.close === 'function' ) {
+					d.close();
+				}
+				return;
+			}
+			// Click on the dialog element itself (the backdrop, outside the panel).
+			if ( e.target.matches && e.target.matches( 'dialog.bn-approval-details' ) ) {
+				e.target.close();
+			}
+		} );
+	}
+
 	ready( function () {
 		initConfirmModal();
 		initEditTabs();
 		initRepeaters();
 		initProfileFieldBuilder();
 		initRemoveMediaToggles();
+		initApprovalDetails();
 	} );
 }() );

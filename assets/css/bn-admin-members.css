@@ -1814,3 +1814,31 @@
 .bn-ss-body .bn-field textarea {
 	margin-inline: 0;
 }
+
+/* Pending-approval "View submitted data" dialog. Native <dialog> reset so the
+ * inner .bn-modal__panel is the visible card; card 10218111458. */
+dialog.bn-approval-details {
+	border: 0;
+	padding: 0;
+	background: transparent;
+	max-width: min(92vw, 34rem);
+	color: inherit;
+}
+dialog.bn-approval-details::backdrop {
+	background: rgba(0, 0, 0, 0.45);
+}
+.bn-approval-details__list {
+	margin: 0;
+}
+.bn-approval-details__list dt {
+	font-weight: var(--bn-fw-semibold, 600);
+	margin-block-start: var(--bn-s3, 12px);
+}
+.bn-approval-details__list dt:first-child {
+	margin-block-start: 0;
+}
+.bn-approval-details__list dd {
+	margin: 0;
+	color: var(--bn-ink-2, #444);
+	white-space: pre-wrap;
+}
