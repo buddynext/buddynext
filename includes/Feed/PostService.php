@@ -3690,6 +3690,90 @@ class PostService {
 	}
 
 	/**
+	 * Hide a post from the feed, or restore it — the moderator action behind the
+	 * admin Activity screen's bulk Hide/Restore.
+	 *
+	 * Hiding flips a published post to 'under_review', the exact state the feed
+	 * already suppresses and the report auto-hide uses; restoring flips it back.
+	 * Only a published post can be hidden and only an under_review one restored, so
+	 * a post already in the target state (or deleted by someone else) is a no-op
+	 * reported as done, never an error. Busts the post cache, records the action in
+	 * the moderation log with the acting admin, and fires the same
+	 * buddynext_post_auto_hidden / buddynext_post_restored hooks the report path
+	 * uses. Restoring does NOT touch the post's open reports.
+	 *
+	 * @param int  $post_id  Post to hide or restore.
+	 * @param bool $hidden   True to hide (publish → under_review), false to restore.
+	 * @param int  $actor_id The moderator/admin acting.
+	 * @return bool|WP_Error True when done (including a no-op); WP_Error if the
+	 *                       actor may not moderate the post.
+	 */
+	public function set_hidden( int $post_id, bool $hidden, int $actor_id ): bool|WP_Error {
+		if ( ! $this->can_moderate_post( $post_id, $actor_id ) ) {
+			return new WP_Error(
+				'cannot_moderate_post',
+				__( 'You do not have permission to moderate this post.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		global $wpdb;
+
+		$from = $hidden ? 'published' : 'under_review';
+		$to   = $hidden ? 'under_review' : 'published';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$changed = (int) $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET status = %s WHERE id = %d AND status = %s",
+				$to,
+				$post_id,
+				$from
+			)
+		);
+
+		if ( $changed > 0 ) {
+			wp_cache_delete( "post_{$post_id}", 'buddynext_posts' );
+			$this->log_hidden_action( $post_id, $hidden ? 'post_hidden' : 'post_restored', $actor_id );
+
+			if ( $hidden ) {
+				do_action( 'buddynext_post_auto_hidden', $post_id );
+			} else {
+				do_action( 'buddynext_post_restored', $post_id, $actor_id );
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Record a Hide/Restore in the moderation log with the acting admin, scoped to
+	 * the post's space so the space Moderation tab shows it.
+	 *
+	 * @param int    $post_id  Post acted on.
+	 * @param string $action   'post_hidden' or 'post_restored'.
+	 * @param int    $actor_id The acting admin/moderator.
+	 * @return void
+	 */
+	private function log_hidden_action( int $post_id, string $action, int $actor_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id )
+		);
+
+		( new \BuddyNext\Moderation\ModerationLogService() )->log(
+			$actor_id,
+			$action,
+			array(
+				'post_id'  => $post_id,
+				'space_id' => $space_id,
+			)
+		);
+	}
+
+	/**
 	 * Insert poll options for a new poll post.
 	 *
 	 * @param int      $post_id  Post ID.
