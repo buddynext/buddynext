@@ -175,6 +175,10 @@ class SchemaSelfHealTest extends \WP_UnitTestCase {
 	 */
 	public function test_an_intact_schema_is_not_reinstalled(): void {
 		update_option( 'buddynext_schema_version', $this->current_schema_version() );
+		// A truly intact site has also applied the current one-shot flag correction;
+		// maybe_upgrade() proceeds while one is pending (that is its whole point), so
+		// the no-op invariant only holds once the stamp is current too.
+		update_option( 'buddynext_profile_flag_convergence', $this->current_flag_convergence() );
 
 		$queries_before = get_num_queries();
 		Installer::maybe_upgrade();
@@ -225,5 +229,16 @@ class SchemaSelfHealTest extends \WP_UnitTestCase {
 		$ref = new \ReflectionClass( Installer::class );
 
 		return (int) $ref->getConstant( 'SCHEMA_VERSION' );
+	}
+
+	/**
+	 * Read FLAG_CONVERGENCE without widening its visibility.
+	 *
+	 * @return string
+	 */
+	private function current_flag_convergence(): string {
+		$ref = new \ReflectionClass( Installer::class );
+
+		return (string) $ref->getConstant( 'FLAG_CONVERGENCE' );
 	}
 }

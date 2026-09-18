@@ -889,12 +889,31 @@ class Installer {
 	}
 
 	/**
+	 * Whether the current one-shot profile-flag correction has already been applied.
+	 *
+	 * FLAG_CONVERGENCE ships flag corrections (e.g. locking a seeded field as
+	 * is_system) independently of the schema version - that is its whole purpose.
+	 * But converge_seeded_field_flags() runs inside run(), and maybe_upgrade() skips
+	 * run() entirely when the schema version already matches. So a flag-only
+	 * correction shipped WITHOUT a schema bump never reached a site whose schema was
+	 * already current (it only landed as a side effect of an unrelated schema bump).
+	 * Gating the early return on this too lets a pending correction run on its own.
+	 * The stamp makes it self-limiting: once applied, this returns true and the early
+	 * return holds again.
+	 *
+	 * @return bool
+	 */
+	private static function profile_flags_converged(): bool {
+		return self::FLAG_CONVERGENCE === get_option( self::FLAG_CONVERGENCE_OPTION, '' );
+	}
+
+	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION,
 	 * or when a table it claims to have created is missing.
 	 *
 	 * Hooked on admin_init so a plain plugin update (no reactivation) still picks
-	 * up column/table changes. Cheap no-op once the versions match and the schema
-	 * is intact.
+	 * up column/table changes. Cheap no-op once the versions match, the schema is
+	 * intact, and no one-shot profile-flag correction is pending.
 	 *
 	 * @return void
 	 */
@@ -905,7 +924,8 @@ class Installer {
 		$bn_stored_schema = (int) get_option( 'buddynext_schema_version', 0 );
 
 		if ( self::SCHEMA_VERSION === $bn_stored_schema
-			&& self::schema_intact() ) {
+			&& self::schema_intact()
+			&& self::profile_flags_converged() ) {
 			return;
 		}
 
