@@ -409,7 +409,7 @@ class Installer {
 	 *      object was hard-deleted, so orphaned reactions stop inflating counts
 	 *      (card 10264292715). Runs maybe_purge_orphan_reactions() on upgrade.
 	 */
-	private const SCHEMA_VERSION = 56;
+	private const SCHEMA_VERSION = 57;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -2446,15 +2446,22 @@ class Installer {
 				// composite each sort filesorts every load — fatal at 20-30k
 				// member-created spaces per site. Index the two dominant orders:
 				// popularity (member_count, the default) and alphabetical (name).
-				// "Recently active" sort is intentionally NOT built (it would need a
-				// denormalized activity column maintained on every space post — an
-				// ongoing background cost we chose to skip).
 				'dir_popular'  => 'ADD KEY dir_popular (parent_id, member_count)',
 				'dir_name'     => 'ADD KEY dir_name (parent_id, name(150))',
 				// v13: the "Newest" sort (parent_id IS NULL ORDER BY created_at DESC).
 				// created_at is immutable after insert, so this index is write-once —
 				// a pure read win with no ongoing maintenance.
 				'dir_recent'   => 'ADD KEY dir_recent (parent_id, created_at)',
+				// The "Active" sort (parent_id IS NULL ORDER BY last_active_at DESC,
+				// created_at DESC). last_active_at IS now maintained - on a new space
+				// post and, throttled to one write per 5 minutes per space, on a new
+				// comment on a space post - so the directory can order by where the
+				// conversation is happening now. created_at is the third column so the
+				// FULL ORDER BY (incl. the NULLs-last / same-timestamp tie-break) is an
+				// index backward scan, filesort-free at 30k spaces - a 2-column index
+				// would still filesort every tie group, and ties are common (a shared
+				// timestamp, and the whole not-yet-active NULL tail).
+				'dir_active'   => 'ADD KEY dir_active (parent_id, last_active_at, created_at)',
 				// The wp-admin Spaces list is a DIFFERENT access pattern from the
 				// front-end directory above: it does not scope by parent_id, so none
 				// of the (parent_id, …) composites can serve it. Its leading column
@@ -3833,6 +3840,7 @@ class Installer {
 				KEY                dir_popular (parent_id, member_count),
 				KEY                dir_name (parent_id, name(150)),
 				KEY                dir_recent (parent_id, created_at),
+				KEY                dir_active (parent_id, last_active_at, created_at),
 				KEY                admin_type (type, created_at),
 				KEY                admin_recent (created_at),
 				KEY                admin_active (last_active_at)

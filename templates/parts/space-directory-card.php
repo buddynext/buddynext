@@ -42,6 +42,8 @@ $bn_dc_membership = isset( $membership ) && is_array( $membership ) ? $membershi
 $bn_dc_uid        = isset( $current_user_id ) ? (int) $current_user_id : 0;
 $bn_dc_cat_by_id  = isset( $cat_by_id ) && is_array( $cat_by_id ) ? $cat_by_id : array();
 $bn_dc_subspaces  = isset( $subspace_count ) ? (int) $subspace_count : 0;
+// Non-empty only when the directory is sorted by "Active" (see directory.php).
+$bn_dc_active = isset( $active_label ) ? (string) $active_label : '';
 
 // Two presentation knobs, both defaulted to the directory's own card so every
 // existing caller is byte-identical. The featured-space block is the only caller
@@ -166,6 +168,9 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 				printf( esc_html( _n( '%s member', '%s members', (int) ( $bn_dc_space['member_count'] ?? 0 ), 'buddynext' ) ), esc_html( $member_count ) );
 				?>
 			</span>
+			<?php if ( '' !== $bn_dc_active ) : ?>
+				<span class="bn-sd-card__stat bn-sd-card__stat--active"><?php echo esc_html( $bn_dc_active ); ?></span>
+			<?php endif; ?>
 			<?php if ( $bn_dc_subspaces > 0 ) : ?>
 				<span class="bn-sd-card__stat">
 					<?php

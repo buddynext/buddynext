@@ -1436,6 +1436,110 @@ class SpaceService {
 	}
 
 	/**
+	 * The canonical directory sort map: alias => [ column, direction ].
+	 *
+	 * ONE source of truth for the sort aliases, read by both the SSR directory
+	 * grid (templates/spaces/directory.php) and the REST list filter
+	 * (SpaceController::list_spaces), so the two can never disagree on what a sort
+	 * means again. 'active' resolves to last_active_at; build_list_scope() gives it
+	 * the NULLs-last, created_at-tie-broken ORDER BY that the dir_active index
+	 * serves. Popular is the default.
+	 *
+	 * @return array<string, array{0:string,1:string}>
+	 */
+	public static function sort_map(): array {
+		return array(
+			'popular'      => array( 'member_count', 'DESC' ),
+			'active'       => array( 'last_active_at', 'DESC' ),
+			'newest'       => array( 'created_at', 'DESC' ),
+			'alphabetical' => array( 'name', 'ASC' ),
+		);
+	}
+
+	/**
+	 * Write-throttle window (seconds) for the comment-driven activity stamp.
+	 *
+	 * @var int
+	 */
+	private const ACTIVITY_THROTTLE_SECONDS = 300;
+
+	/**
+	 * Object-cache group for the per-space activity write throttle.
+	 *
+	 * @var string
+	 */
+	private const ACTIVITY_THROTTLE_GROUP = 'buddynext_space_activity';
+
+	/**
+	 * Bump a space's last_active_at when a comment lands on one of its posts.
+	 *
+	 * A new post already stamps last_active_at (run_post_published_effects); this
+	 * extends the "Active" directory sort to count comments too. A busy thread must
+	 * not write on every reply, so it reuses presence's write-throttle shape -
+	 * object cache first, transient fallback, TTL = the window - to at most one
+	 * write per ACTIVITY_THROTTLE_SECONDS per space. Only comments on a POST count;
+	 * a comment on anything else is ignored. Hooked on buddynext_comment_created.
+	 *
+	 * @param int    $comment_id  New comment id (unused; fixed by the hook signature).
+	 * @param string $object_type What the comment is attached to.
+	 * @param int    $object_id   The commented object's id (a post id when relevant).
+	 * @param int    $user_id     Commenter id (unused; fixed by the hook signature).
+	 * @return void
+	 */
+	public function touch_activity_from_comment( int $comment_id, string $object_type, int $object_id, int $user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $comment_id/$user_id are fixed by the buddynext_comment_created signature.
+		if ( 'post' !== $object_type || $object_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id )
+		);
+		if ( $space_id <= 0 || $this->activity_throttled( $space_id ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_spaces',
+			array( 'last_active_at' => gmdate( 'Y-m-d H:i:s' ) ),
+			array( 'id' => $space_id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+		$this->mark_activity_throttled( $space_id );
+	}
+
+	/**
+	 * Whether this space's activity stamp was written within the throttle window.
+	 *
+	 * @param int $space_id Space id.
+	 * @return bool
+	 */
+	private function activity_throttled( int $space_id ): bool {
+		if ( wp_using_ext_object_cache() ) {
+			return false !== wp_cache_get( 'space_' . $space_id, self::ACTIVITY_THROTTLE_GROUP );
+		}
+		return false !== get_transient( 'bn_space_activity_' . $space_id );
+	}
+
+	/**
+	 * Start the throttle window for a space's activity stamp.
+	 *
+	 * @param int $space_id Space id.
+	 * @return void
+	 */
+	private function mark_activity_throttled( int $space_id ): void {
+		if ( wp_using_ext_object_cache() ) {
+			// The TTL IS the throttle - a write cache with nothing to invalidate.
+			wp_cache_set( 'space_' . $space_id, 1, self::ACTIVITY_THROTTLE_GROUP, self::ACTIVITY_THROTTLE_SECONDS );
+			return;
+		}
+		set_transient( 'bn_space_activity_' . $space_id, 1, self::ACTIVITY_THROTTLE_SECONDS );
+	}
+
+	/**
 	 * Return a paginated list of spaces.
 	 *
 	 * Supported args:
@@ -1466,6 +1570,7 @@ class SpaceService {
 		$where_sql       = $scope['where_sql'];
 		$orderby         = $scope['orderby'];
 		$order           = $scope['order'];
+		$order_sql       = $scope['order_sql'];
 		$per_page        = $scope['per_page'];
 		$offset          = $scope['offset'];
 
@@ -1487,7 +1592,7 @@ class SpaceService {
 		if ( $member_id > 0 ) {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT s.*, sm.role AS viewer_role FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'{$member_role_sql} {$where_sql} ORDER BY s.{$orderby} {$order} LIMIT %d OFFSET %d",
+					"SELECT s.*, sm.role AS viewer_role FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'{$member_role_sql} {$where_sql} ORDER BY {$order_sql} LIMIT %d OFFSET %d",
 					$member_id,
 					...$params
 				),
@@ -1496,7 +1601,7 @@ class SpaceService {
 		} else {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d",
+					"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY {$order_sql} LIMIT %d OFFSET %d",
 					...$params
 				),
 				ARRAY_A
@@ -1655,7 +1760,7 @@ class SpaceService {
 	 * its bound params, the validated orderby/order, and the resolved pagination.
 	 *
 	 * @param array<string, mixed> $args Query arguments (see list_spaces()).
-	 * @return array{where_sql: string, params: array<int, mixed>, orderby: string, order: string, per_page: int, offset: int, member_id: int, member_role_sql: string}
+	 * @return array{where_sql: string, params: array<int, mixed>, orderby: string, order: string, order_sql: string, per_page: int, offset: int, member_id: int, member_role_sql: string}
 	 */
 	private function list_query_scope( array $args ): array {
 		global $wpdb;
@@ -1687,10 +1792,23 @@ class SpaceService {
 			$member_role_sql = " AND sm.role = 'member'";
 		}
 
-		$allowed_orderby = array( 'member_count', 'name', 'created_at' );
+		$allowed_orderby = array( 'member_count', 'name', 'created_at', 'last_active_at' );
 		$raw_orderby     = isset( $args['orderby'] ) ? (string) $args['orderby'] : 'member_count';
 		$orderby         = in_array( $raw_orderby, $allowed_orderby, true ) ? $raw_orderby : 'member_count';
 		$order           = isset( $args['order'] ) && 'ASC' === strtoupper( (string) $args['order'] ) ? 'ASC' : 'DESC';
+
+		// The full, whitelisted ORDER BY expression. Every column here lives only on
+		// bn_spaces (bn_space_members has none of them, not even id), so the
+		// expression is unambiguous unqualified in both the member-join and the plain
+		// query. "Active" sort: most-recently-active first; spaces with no activity
+		// yet (last_active_at IS NULL) sort LAST under DESC, tie-broken by created_at,
+		// then by id so pagination is STABLE even when two spaces share a timestamp
+		// (bulk-created spaces share created_at to the second, and the whole no-activity
+		// tail shares NULL). id is the InnoDB PK, appended to dir_active's leaf, so the
+		// full order is still a backward index scan - filesort-free at 30k spaces.
+		$order_sql = 'last_active_at' === $orderby
+			? 'last_active_at DESC, created_at DESC, id DESC'
+			: $orderby . ' ' . $order;
 
 		$params = array();
 		$where  = array();
@@ -1808,6 +1926,7 @@ class SpaceService {
 			'params'          => $params,
 			'orderby'         => $orderby,
 			'order'           => $order,
+			'order_sql'       => $order_sql,
 			'per_page'        => $per_page,
 			'offset'          => $offset,
 			'member_id'       => $member_id,
@@ -2846,6 +2965,11 @@ class SpaceService {
 			'is_archived'      => ! empty( $row['is_archived'] ),
 			'archived_at'      => $row['archived_at'] ?? null,
 			'created_at'       => $row['created_at'] ?? '',
+			// When the space was last active - a new post, or a throttled comment on
+			// one. Powers the directory "Active" sort and its per-card "Active N ago"
+			// label, and lets the app order/label the same way. Null until first
+			// activity ("No activity yet").
+			'last_active_at'   => $row['last_active_at'] ?? null,
 			// Present only on member-scoped lists (the viewer's role in the space:
 			// owner | moderator | member). Null elsewhere. Lets clients group
 			// "spaces you manage" vs "spaces you've joined" without a second query.

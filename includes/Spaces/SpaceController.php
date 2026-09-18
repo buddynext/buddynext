@@ -918,12 +918,7 @@ class SpaceController extends BaseRestController {
 		$orderby = sanitize_key( (string) ( null !== $orderby_param ? $orderby_param : 'member_count' ) );
 		$order   = sanitize_key( (string) ( null !== $order_param ? $order_param : 'DESC' ) );
 
-		$sort_alias_map = array(
-			'popular'      => array( 'member_count', 'DESC' ),
-			'active'       => array( 'member_count', 'DESC' ),
-			'newest'       => array( 'created_at', 'DESC' ),
-			'alphabetical' => array( 'name', 'ASC' ),
-		);
+		$sort_alias_map = SpaceService::sort_map();
 		if ( isset( $sort_alias_map[ $orderby ] ) ) {
 			list( $orderby, $order ) = $sort_alias_map[ $orderby ];
 		}

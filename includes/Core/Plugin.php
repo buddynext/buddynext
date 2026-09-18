@@ -489,6 +489,10 @@ class Plugin {
 		// Bust per-viewer space-suggestion caches on membership / follow changes.
 		( new \BuddyNext\Spaces\SpaceSuggestionListener() )->register();
 
+		// A comment on a space post counts as space activity (directory "Active"
+		// sort), throttled to one write per space per 5 minutes.
+		add_action( 'buddynext_comment_created', array( buddynext_service( 'spaces' ), 'touch_activity_from_comment' ), 10, 4 );
+
 		// Bust per-viewer follow- + space-suggestion caches on interest edits.
 		( new InterestListener() )->register();
 
