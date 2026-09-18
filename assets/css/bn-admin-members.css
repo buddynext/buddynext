@@ -1815,30 +1815,109 @@
 	margin-inline: 0;
 }
 
-/* Pending-approval "View submitted data" dialog. Native <dialog> reset so the
- * inner .bn-modal__panel is the visible card; card 10218111458. */
+/* Pending-approval "View submitted data" popup (card 10218111458). Native
+ * <dialog> reset + a clean card: member heading, muted uppercase field labels,
+ * readable values, scrollable body. */
 dialog.bn-approval-details {
 	border: 0;
 	padding: 0;
 	background: transparent;
-	max-width: min(92vw, 34rem);
+	width: min(92vw, 30rem);
+	max-width: 92vw;
 	color: inherit;
 }
 dialog.bn-approval-details::backdrop {
-	background: rgba(0, 0, 0, 0.45);
+	background: rgba(15, 23, 42, 0.5);
+}
+.bn-approval-details__panel {
+	display: flex;
+	flex-direction: column;
+	max-height: min(80vh, 40rem);
+	background: var(--bn-surface, #fff);
+	border-radius: var(--bn-r-lg, 12px);
+	box-shadow: var(--bn-shadow-2, 0 10px 30px rgba(0, 0, 0, 0.18));
+	overflow: hidden;
+}
+.bn-approval-details__head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--bn-s3, 12px);
+	padding: var(--bn-s4, 16px) var(--bn-s4, 16px) var(--bn-s3, 12px);
+	border-bottom: 1px solid var(--bn-line, #e5e7eb);
+}
+.bn-approval-details__title {
+	margin: 0;
+	font-size: var(--bn-text-lg, 1.0625rem);
+	font-weight: var(--bn-fw-semibold, 600);
+	line-height: 1.3;
+	color: var(--bn-ink, #1f2937);
+}
+.bn-approval-details__sub {
+	margin: 2px 0 0;
+	font-size: var(--bn-text-sm, 0.8125rem);
+	color: var(--bn-ink-3, #6b7280);
+}
+.bn-approval-details__close {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 2rem;
+	block-size: 2rem;
+	padding: 0;
+	border: 0;
+	border-radius: var(--bn-r-md, 8px);
+	background: transparent;
+	color: var(--bn-ink-3, #6b7280);
+	cursor: pointer;
+}
+.bn-approval-details__close:hover {
+	background: var(--bn-sunken, #f3f4f6);
+	color: var(--bn-ink, #1f2937);
+}
+.bn-approval-details__body {
+	padding: var(--bn-s3, 12px) var(--bn-s4, 16px) var(--bn-s4, 16px);
+	overflow-y: auto;
 }
 .bn-approval-details__list {
+	display: grid;
+	gap: var(--bn-s3, 12px);
 	margin: 0;
 }
-.bn-approval-details__list dt {
+.bn-approval-details__item {
+	margin: 0;
+}
+.bn-approval-details__label {
+	margin: 0 0 2px;
+	font-size: var(--bn-text-xs, 0.75rem);
 	font-weight: var(--bn-fw-semibold, 600);
-	margin-block-start: var(--bn-s3, 12px);
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	color: var(--bn-ink-4, #9ca3af);
 }
-.bn-approval-details__list dt:first-child {
-	margin-block-start: 0;
-}
-.bn-approval-details__list dd {
+.bn-approval-details__value {
 	margin: 0;
-	color: var(--bn-ink-2, #444);
+	font-size: var(--bn-text-sm, 0.875rem);
+	color: var(--bn-ink, #1f2937);
 	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+/* Beat .bn-admin-hub__main h2, which styles every admin h2 as a monospace
+ * uppercase chip - our dialog title is a plain member-name heading. */
+dialog.bn-approval-details .bn-approval-details__title {
+	display: block;
+	margin: 0;
+	padding: 0;
+	background: none;
+	border: 0;
+	border-radius: 0;
+	font-family: var(--bn-font-ui, inherit);
+	font-size: var(--bn-text-lg, 1.0625rem);
+	font-weight: var(--bn-fw-semibold, 600);
+	letter-spacing: normal;
+	text-transform: none;
+	line-height: 1.3;
+	color: var(--bn-ink, #1f2937);
 }

@@ -338,27 +338,32 @@ class ApprovalManager {
 								<a href="<?php echo esc_url( $reject_url ); ?>" class="bn-text-danger" data-bn-confirm="<?php esc_attr_e( 'Reject and permanently delete this pending account?', 'buddynext' ); ?>" data-bn-confirm-tone="danger"><?php esc_html_e( 'Reject', 'buddynext' ); ?></a>
 								<?php if ( ! empty( $bn_submitted ) ) : ?>
 									<?php // What the member submitted at sign-up. A native <dialog> (its own top layer, backdrop, Esc, focus trap); members.js opens it. ?>
-									<dialog class="bn-modal bn-approval-details" id="bn-approval-details-<?php echo esc_attr( (string) $user->ID ); ?>">
-										<div class="bn-modal__panel" data-size="md">
-											<div class="bn-modal__head">
-												<h2 class="bn-modal__title">
-													<?php
-													printf(
-														/* translators: %s: member display name. */
-														esc_html__( '%s - sign-up details', 'buddynext' ),
-														esc_html( $user->display_name )
-													);
-													?>
-												</h2>
-												<button type="button" class="bn-modal__close" data-bn-approval-close aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>">
+									<dialog class="bn-approval-details" id="bn-approval-details-<?php echo esc_attr( (string) $user->ID ); ?>">
+										<div class="bn-approval-details__panel">
+											<header class="bn-approval-details__head">
+												<div class="bn-approval-details__heading">
+													<h2 class="bn-approval-details__title"><?php echo esc_html( $user->display_name ); ?></h2>
+													<p class="bn-approval-details__sub">
+														<?php
+														printf(
+															/* translators: %s: member email address. */
+															esc_html__( 'Sign-up details - %s', 'buddynext' ),
+															esc_html( $user->user_email )
+														);
+														?>
+													</p>
+												</div>
+												<button type="button" class="bn-approval-details__close" data-bn-approval-close aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>">
 													<?php buddynext_icon( 'x' ); ?>
 												</button>
-											</div>
-											<div class="bn-modal__body">
+											</header>
+											<div class="bn-approval-details__body">
 												<dl class="bn-approval-details__list">
 													<?php foreach ( $bn_submitted as $bn_field ) : ?>
-														<dt><?php echo esc_html( $bn_field['label'] ); ?></dt>
-														<dd><?php echo esc_html( $bn_field['value'] ); ?></dd>
+														<div class="bn-approval-details__item">
+															<dt class="bn-approval-details__label"><?php echo esc_html( $bn_field['label'] ); ?></dt>
+															<dd class="bn-approval-details__value"><?php echo esc_html( $bn_field['value'] ); ?></dd>
+														</div>
 													<?php endforeach; ?>
 												</dl>
 											</div>
