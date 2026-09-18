@@ -1806,9 +1806,16 @@ class SpaceService {
 		// (bulk-created spaces share created_at to the second, and the whole no-activity
 		// tail shares NULL). id is the InnoDB PK, appended to dir_active's leaf, so the
 		// full order is still a backward index scan - filesort-free at 30k spaces.
+		//
+		// Popular (member_count), Newest (created_at) and A-Z (name) get the SAME
+		// id tie-break: without it MySQL orders equal-value rows non-deterministically,
+		// so across paginated requests a space can shift pages and be shown twice or
+		// skipped (Popular is the worst - hundreds of spaces can share a member_count).
+		// id matches the primary sort's direction and is the trailing column of the
+		// dir_popular / dir_recent / dir_name indexes, so the scan stays filesort-free.
 		$order_sql = 'last_active_at' === $orderby
 			? 'last_active_at DESC, created_at DESC, id DESC'
-			: $orderby . ' ' . $order;
+			: $orderby . ' ' . $order . ', id ' . $order;
 
 		$params = array();
 		$where  = array();
@@ -2052,7 +2059,7 @@ class SpaceService {
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_spaces
 				 WHERE {$exclude_sql} AND {$archive_sql} AND {$mine_sql} AND {$hidden_sql} AND (name LIKE %s OR description LIKE %s)
-				 ORDER BY member_count DESC
+				 ORDER BY member_count DESC, id DESC
 				 LIMIT %d OFFSET %d",
 				...$params
 			),
@@ -2249,7 +2256,10 @@ class SpaceService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY member_count DESC, name ASC LIMIT %d OFFSET %d",
+				// id DESC is the final unique tie-break so this paginated rail is STABLE
+				// when two sub-spaces share both member_count and name (same class as the
+				// directory sorts, card 10317488684).
+				"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY member_count DESC, name ASC, id DESC LIMIT %d OFFSET %d",
 				$params
 			),
 			ARRAY_A

@@ -122,6 +122,63 @@ class SpaceActiveSortTest extends WP_UnitTestCase {
 		$this->assertLessThan( $pos[ $first ], $pos[ $second ] );
 	}
 
+	/**
+	 * Popular (member_count), Newest (created_at) and A-Z (name) must each carry the
+	 * same id tie-break the Active sort got, or two spaces sharing the sort value
+	 * order non-deterministically and pagination skips/duplicates at scale
+	 * (card 10317488684). DESC sorts break to id DESC (higher id first); the ASC
+	 * A-Z sort breaks to id ASC (lower id first).
+	 *
+	 * @return void
+	 */
+	public function test_non_active_sorts_break_ties_by_id(): void {
+		global $wpdb;
+		// Distinct names so the slugs don't collide on create; created_at is already
+		// tied by the seed args.
+		$first  = $this->seed_space( 'Tie One', null, '2026-05-01 09:00:00' );
+		$second = $this->seed_space( 'Tie Two', null, '2026-05-01 09:00:00' );
+
+		// Now force the remaining sort keys equal: same member_count, same name. With
+		// created_at already tied, id is the only discriminator left for every sort.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_spaces SET member_count = 7, name = 'Zzz Tie' WHERE id IN ( %d, %d )",
+				$first,
+				$second
+			)
+		);
+
+		foreach ( array( 'member_count', 'created_at' ) as $orderby ) {
+			$order = $this->order_ids( array( 'orderby' => $orderby ) );
+			$pos   = array_flip( $order );
+			$this->assertLessThan(
+				$pos[ $first ],
+				$pos[ $second ],
+				$orderby . ' DESC must break the tie to id DESC (higher id first).'
+			);
+		}
+
+		// A-Z is ASC, so the tie breaks the other way: lower id first.
+		$alpha = $this->order_ids( array( 'orderby' => 'name', 'order' => 'ASC' ) );
+		$apos  = array_flip( $alpha );
+		$this->assertLessThan(
+			$apos[ $second ],
+			$apos[ $first ],
+			'name ASC must break the tie to id ASC (lower id first).'
+		);
+	}
+
+	/**
+	 * The ordered id list for an arbitrary sort argument set.
+	 *
+	 * @param array<string,mixed> $args list_spaces() arguments.
+	 * @return array<int,int>
+	 */
+	private function order_ids( array $args ): array {
+		return array_map( static fn( $r ) => (int) $r['id'], $this->spaces->list_spaces( $args ) );
+	}
+
 	public function test_comment_on_space_post_stamps_activity(): void {
 		global $wpdb;
 		$space_id = $this->seed_space( 'Talkative', '2026-01-01 00:00:00', '2026-01-01 00:00:00' );
