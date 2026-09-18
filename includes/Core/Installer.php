@@ -4487,6 +4487,22 @@ function buddynext_mu_is_bn_request() {
 	$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- raw comparison only, never output.
 	$path        = ltrim( strtok( $request_uri, '?' ), '/' );
 
+	// A WordPress install in a SUBDIRECTORY (home is example.com/community) makes
+	// every REQUEST_URI carry that base, so /community/activity/ has 'community' as
+	// its first segment - never a hub slug - and route isolation would silently
+	// never fire while the toggle shows ON, while the asset layer (rewrite-based)
+	// still isolates: a split brain (card 10317871293). Strip the home base first,
+	// derived at runtime from the options API so it is self-healing if the site
+	// moves, and segment matching then works at root and in a subdirectory alike.
+	$bn_home_path = trim( (string) parse_url( (string) get_option( 'home', '' ), PHP_URL_PATH ), '/' );
+	if ( '' !== $bn_home_path ) {
+		if ( $path === $bn_home_path ) {
+			$path = '';
+		} elseif ( 0 === strpos( $path, $bn_home_path . '/' ) ) {
+			$path = ltrim( substr( $path, strlen( $bn_home_path ) ), '/' );
+		}
+	}
+
 	if ( '' === $path ) {
 		$result = false;
 		return false;
