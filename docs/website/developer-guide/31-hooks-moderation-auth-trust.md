@@ -81,6 +81,10 @@ These fire after a moderator (or an auto-action) acts on content or a member. Tr
 |---|---|---|---|
 | `buddynext_report_created` | action | A member submits a report | `int $report_id, string $object_type, int $object_id, int $reporter_id` |
 | `buddynext_content_removed` | action | Reported content is removed (by a moderator or an auto-action) | `string $object_type, int $object_id, int $actor_id` |
+| `buddynext_post_auto_hidden` | action | A post reaches the report threshold and is put "Under review" (reversible; not a takedown) | `int $post_id` |
+| `buddynext_post_restored` | action | An auto-hidden post is restored when its reports are cleared | `int $post_id, int $actor_id` |
+| `buddynext_comment_hidden` | action | A comment reaches the report threshold and is put "Under review" (the comment mirror of `buddynext_post_auto_hidden`) | `int $comment_id, int $actor_id` (actor `0` = the automatic threshold) |
+| `buddynext_comment_restored` | action | An auto-hidden comment is restored when its reports are cleared | `int $comment_id, int $actor_id` |
 | `buddynext_user_warned` | action | A member is issued a warning | `int $user_id, int $actor_id, string $reason` |
 | `buddynext_strike_issued` | action | A strike is recorded against a member | `int $strike_id, int $user_id, int $actor_id` |
 | `buddynext_user_suspended` | action | A member is suspended | `int $user_id, int $actor_id, string $reason, ?string $expires_at` |
