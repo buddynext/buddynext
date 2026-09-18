@@ -498,6 +498,133 @@ class ProfileService {
 	}
 
 	/**
+	 * Fetch one profile group row straight from the table.
+	 *
+	 * Unfiltered DB truth (no virtual/registered-field layer): the admin field
+	 * builder needs the stored row before an edit/delete, which the cached,
+	 * filtered get_groups() view cannot give. Null when absent.
+	 *
+	 * @param int $id Profile group id.
+	 * @return array<string,mixed>|null
+	 */
+	public function get_group( int $id ): ?array {
+		if ( $id <= 0 ) {
+			return null;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction FROM {$wpdb->prefix}bn_profile_groups WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $row ) ? $row : null;
+	}
+
+	/**
+	 * Fetch one profile field row straight from the table.
+	 *
+	 * Unfiltered DB truth — used where the admin needs a field's stored type,
+	 * group or label before an edit/delete, which the cached/filtered get_fields()
+	 * view cannot give. Null when absent.
+	 *
+	 * @param int $id Profile field id.
+	 * @return array<string,mixed>|null
+	 */
+	public function get_field( int $id ): ?array {
+		if ( $id <= 0 ) {
+			return null;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, show_in_header, is_system, visibility, sort_order FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $row ) ? $row : null;
+	}
+
+	/**
+	 * Ids of every field in a group.
+	 *
+	 * @param int $group_id Profile group id.
+	 * @return int[]
+	 */
+	public function field_ids_in_group( int $group_id ): array {
+		if ( $group_id <= 0 ) {
+			return array();
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d", $group_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * The next free sort_order for a field appended to a group (MAX + 1, or 0 for
+	 * an empty group).
+	 *
+	 * @param int $group_id Profile group id.
+	 * @return int
+	 */
+	public function next_field_sort_order( int $group_id ): int {
+		if ( $group_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$max = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COALESCE(MAX(sort_order), -1) FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d", $group_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $max + 1;
+	}
+
+	/**
+	 * A table-wide unique field_key derived from a base key.
+	 *
+	 * The field_key column is UNIQUE, but labels repeat (a "Level" field in
+	 * several groups), so a colliding base gets a numeric suffix (_2, _3 …) until
+	 * it is free. This hands create_field() a key its INSERT lands rather than
+	 * IGNORE-ing into a silent no-op.
+	 *
+	 * @param string $base_key Candidate key (sanitised again here).
+	 * @return string Free key (the base itself when already unique); '' for an empty base.
+	 */
+	public function unique_field_key( string $base_key ): string {
+		$base_key = sanitize_key( $base_key );
+		if ( '' === $base_key ) {
+			return '';
+		}
+
+		global $wpdb;
+		$key    = $base_key;
+		$suffix = 2;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		while ( (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE field_key = %s", $key )
+		) > 0 ) {
+			$key = $base_key . '_' . $suffix;
+			++$suffix;
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $key;
+	}
+
+	/**
 	 * Create a new profile group.
 	 *
 	 * @param array $data Group data: group_key, label, type, visibility, sort_order.
@@ -2701,6 +2828,15 @@ class ProfileService {
 			$format[]             = '%d';
 		}
 
+		// Which member type (if any) the group is limited to. array_key_exists, not
+		// isset: null is the meaningful "clear the restriction" value. The caller
+		// validates the slug is live; this only sanitises and writes it.
+		if ( array_key_exists( 'type_restriction', $data ) ) {
+			$restriction                = $data['type_restriction'];
+			$update['type_restriction'] = ( null === $restriction || '' === $restriction ) ? null : sanitize_key( (string) $restriction );
+			$format[]                   = '%s';
+		}
+
 		if ( empty( $update ) ) {
 			return;
 		}
@@ -2717,6 +2853,38 @@ class ProfileService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_groups', self::CACHE_GROUP );
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
+	}
+
+	/**
+	 * Re-point every group restricted to one member-type slug at another slug, or
+	 * clear it with null. One statement — used when a member type is renamed
+	 * (slug -> new slug) or deleted (slug -> null), so MemberTypeService writes the
+	 * type_restriction column through the service that owns it rather than raw.
+	 * Flushes the definition cache that column lives in.
+	 *
+	 * @param string|null $from_slug Slug the groups are currently restricted to.
+	 * @param string|null $to_slug   New slug, or null to clear the restriction.
+	 * @return void
+	 */
+	public function reassign_type_restriction( ?string $from_slug, ?string $to_slug ): void {
+		$from_slug = null === $from_slug ? '' : sanitize_key( $from_slug );
+		if ( '' === $from_slug ) {
+			return;
+		}
+		$to_value = ( null === $to_slug || '' === $to_slug ) ? null : sanitize_key( $to_slug );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_profile_groups',
+			array( 'type_restriction' => $to_value ),
+			array( 'type_restriction' => $from_slug ),
+			array( '%s' ),
+			array( '%s' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		self::flush_definition_cache();
 	}
 
 	/**

@@ -340,25 +340,16 @@ class MemberTypeService {
 			do_action( 'buddynext_member_type_removed', (int) $user_id, $type['slug'] );
 		}
 
-		// Clear profile group restrictions that referenced this type's slug.
-		$groups_table = $wpdb->prefix . 'bn_profile_groups';
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
-			$groups_table,
-			array( 'type_restriction' => null ),
-			array( 'type_restriction' => $type['slug'] ),
-			array( '%s' ),
-			array( '%s' )
-		);
+		// Clear profile group restrictions that referenced this type's slug —
+		// through ProfileService, the owner of bn_profile_groups.type_restriction.
+		// It flushes the group/field definition cache the column lives in, so the
+		// groups do not stay restricted to a type that no longer exists.
+		buddynext_service( 'profiles' )->reassign_type_restriction( $type['slug'], null );
 
 		// Delete the type row.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $wpdb->prefix . 'bn_member_types', array( 'id' => $id ), array( '%d' ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		// The cached group/field definitions carry the type_restriction column we
-		// just cleared — flush them or the groups stay restricted to a type that
-		// no longer exists until the caches expire.
-		\BuddyNext\Profile\ProfileService::flush_definition_cache();
 
 		$this->cache->delete( 'bn_member_types_all' );
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
@@ -806,19 +797,10 @@ class MemberTypeService {
 			return;
 		}
 
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
-			$wpdb->prefix . 'bn_profile_groups',
-			array( 'type_restriction' => $new_slug ),
-			array( 'type_restriction' => $old_slug ),
-			array( '%s' ),
-			array( '%s' )
-		);
-
-		// The cached group/field definitions carry type_restriction — flush them or
-		// the rename stays invisible until the caches expire.
-		\BuddyNext\Profile\ProfileService::flush_definition_cache();
+		// Re-point restricted groups from the old slug to the new one through
+		// ProfileService, the owner of bn_profile_groups.type_restriction. It
+		// flushes the group/field definition cache that column lives in, so the
+		// rename does not stay invisible until the caches expire.
+		buddynext_service( 'profiles' )->reassign_type_restriction( $old_slug, $new_slug );
 	}
 }
