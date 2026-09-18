@@ -881,9 +881,18 @@ class PluginIsolation {
 		$declared_base = array_merge(
 			self::CORE_INTEGRATIONS,
 			self::TRANSLATION_PLUGINS,
+			self::active_security_kept(),
 			self::owner_keep_list(),
 			self::menu_dependency_plugins()
 		);
+		// $pro_family is meant to be ONLY what the buddynext_isolation_plugins filter
+		// adds (Pro's Career Board / Listora / Learnomy), recovered as the delta the
+		// filter introduced over the base list. explicitly_listed() also folds in
+		// active_security_kept(), so that list has to appear in $declared_base too -
+		// otherwise every active security plugin falls into $pro_family, then into
+		// $own below, and its asset prefix is skipped: its CSS/JS is dequeued on hub
+		// routes while the plugin stays loaded - a firewall/2FA/paywall UI that renders
+		// but cannot style or script itself (card 10317869252).
 		$pro_family    = array_diff( self::explicitly_listed(), $declared_base );
 
 		$own = array_map(
