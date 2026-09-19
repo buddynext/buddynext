@@ -4579,9 +4579,13 @@ function buddynext_mu_is_bn_request() {
 		return $result;
 	}
 
-	// Parse the bare path from REQUEST_URI and strip the leading slash.
+	// Parse the bare path from REQUEST_URI and strip the leading slash. Decode
+	// percent-encoding first: the slugs and home base are compared as plain text, so
+	// a request for /%61ctivity/ (a browser or client that encoded a normal segment)
+	// would otherwise never match its hub slug and route isolation would silently
+	// skip it (card 10317871293, second path).
 	$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- raw comparison only, never output.
-	$path        = ltrim( strtok( $request_uri, '?' ), '/' );
+	$path        = ltrim( rawurldecode( (string) strtok( $request_uri, '?' ) ), '/' );
 
 	// A WordPress install in a SUBDIRECTORY (home is example.com/community) makes
 	// every REQUEST_URI carry that base, so /community/activity/ has 'community' as

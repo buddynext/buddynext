@@ -91,4 +91,31 @@ class IsolationSubdirRouteTest extends WP_UnitTestCase {
 	public function test_root_install_ignores_a_non_hub_route(): void {
 		$this->assertFalse( $this->run_matcher( 'http://example.test', '/shop/' ) );
 	}
+
+	/**
+	 * A percent-encoded hub segment still matches — the matcher decodes the path
+	 * before comparing, so /%61ctivity/ (activity) is detected as a hub route
+	 * instead of silently skipping isolation (card 10317871293, second path).
+	 *
+	 * @return void
+	 */
+	public function test_percent_encoded_hub_segment_is_detected(): void {
+		$this->assertTrue(
+			$this->run_matcher( 'http://example.test', '/%61ctivity/' ),
+			'a percent-encoded hub route must decode and match'
+		);
+	}
+
+	/**
+	 * The same, under a subdirectory install: both the base strip and the slug
+	 * match run on the decoded path.
+	 *
+	 * @return void
+	 */
+	public function test_percent_encoded_hub_segment_is_detected_under_subdirectory(): void {
+		$this->assertTrue(
+			$this->run_matcher( 'http://example.test/community', '/community/%61ctivity/' ),
+			'a percent-encoded hub route under a subdirectory must decode and match'
+		);
+	}
 }
