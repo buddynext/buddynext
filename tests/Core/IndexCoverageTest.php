@@ -238,4 +238,36 @@ class IndexCoverageTest extends WP_UnitTestCase {
 			'following (following_id, status) is the exact leftmost prefix of pending_inbox — it never earned its write cost.'
 		);
 	}
+
+	/**
+	 * Table bn_spaces — the directory sort indexes. The A-Z sort filesorted at scale
+	 * even with parent_id IS NULL because dir_name shipped as a PREFIX (parent_id,
+	 * name(150)): a prefix cannot satisfy ORDER BY name, so MySQL sorted the whole
+	 * visible set. It must be the FULL column plus the id tie-break so the sort is a
+	 * pure index scan (card 10312614032). The three numeric sorts get id from the
+	 * trailing PK, but a prefix index cannot, which is why only this one broke.
+	 *
+	 * @return void
+	 */
+	public function test_bn_spaces_dir_name_is_full_column_with_id(): void {
+		global $wpdb;
+
+		$idx = $this->indexes( 'bn_spaces' );
+		$this->assertSame(
+			array( 'parent_id', 'name', 'id' ),
+			$idx['dir_name'] ?? array(),
+			'dir_name must carry the full name column AND the id tie-break, or the A-Z sort filesorts.'
+		);
+
+		// The column list above does not reveal a PREFIX (name(150) still lists as
+		// "name"), and a prefix on name is exactly what re-breaks the sort — so assert
+		// Sub_part IS NULL for the name column of dir_name.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sub_part = $wpdb->get_var(
+			"SELECT SUB_PART FROM information_schema.STATISTICS
+			 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$wpdb->prefix}bn_spaces'
+			   AND INDEX_NAME = 'dir_name' AND COLUMN_NAME = 'name'"
+		);
+		$this->assertNull( $sub_part, 'dir_name.name must index the FULL column (no prefix), or ORDER BY name filesorts.' );
+	}
 }

@@ -60,7 +60,7 @@ class MigrationVersionGuardTest extends \WP_UnitTestCase {
 	 *
 	 * @var int
 	 */
-	private const MIGRATIONS_LOCKED_AT_VERSION = 58;
+	private const MIGRATIONS_LOCKED_AT_VERSION = 59;
 
 	/**
 	 * Read every `private static function maybe_migrate_*` name defined in

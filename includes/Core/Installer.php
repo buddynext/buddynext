@@ -417,8 +417,14 @@ class Installer {
 	 *      reports are cleared. reply_lookup gains is_hidden so a parent's replies
 	 *      filter on it. dbDelta ADD-COLUMNs it on upgrade; additive, all existing
 	 *      rows correct as 0 (visible), no backfill.
+	 *  59: bn_spaces.dir_name widened from the (parent_id, name(150)) PREFIX to the
+	 *      full (parent_id, name, id). A prefix index cannot satisfy ORDER BY name, so
+	 *      the A-Z directory sort filesorted at scale while the numeric sorts did not
+	 *      (card 10312614032). dbDelta cannot alter an existing index, so
+	 *      maybe_widen_indexes() drops and recreates it on upgrade; read-only index
+	 *      change, no data touched.
 	 */
-	private const SCHEMA_VERSION = 58;
+	private const SCHEMA_VERSION = 59;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -2482,7 +2488,14 @@ class Installer {
 				// member-created spaces per site. Index the two dominant orders:
 				// popularity (member_count, the default) and alphabetical (name).
 				'dir_popular'  => 'ADD KEY dir_popular (parent_id, member_count)',
-				'dir_name'     => 'ADD KEY dir_name (parent_id, name(150))',
+				// FULL name column + id, never a name(150) PREFIX: a prefix index cannot
+				// satisfy ORDER BY name (MySQL cannot order by a truncated value), so the
+				// A-Z sort filesorted at scale even with parent_id IS NULL while the three
+				// numeric sorts did not (their trailing PK gives the id tie-break; a prefix
+				// cannot). id is explicit so the `name ASC, id ASC` order is a pure index
+				// scan (card 10312614032). Widened from the prefix on existing installs by
+				// maybe_widen_indexes().
+				'dir_name'     => 'ADD KEY dir_name (parent_id, name, id)',
 				// v13: the "Newest" sort (parent_id IS NULL ORDER BY created_at DESC).
 				// created_at is immutable after insert, so this index is write-once —
 				// a pure read win with no ongoing maintenance.
@@ -2619,6 +2632,12 @@ class Installer {
 		// table => [ index, [columns...], the column whose late addition widened it ].
 		$widenings = array(
 			array( $p . 'bn_comments', 'reply_lookup', array( 'parent_id', 'is_deleted', 'is_hidden' ), 'is_hidden' ),
+			// dir_name shipped as a PREFIX index (parent_id, name(150)); a prefix cannot
+			// order by name, so the A-Z directory sort filesorted at scale. Recreate it
+			// full-column with the id tie-break (parent_id, name, id). Detected by the
+			// absence of `id` from the index — the prefix version does not carry it
+			// (card 10312614032).
+			array( $p . 'bn_spaces', 'dir_name', array( 'parent_id', 'name', 'id' ), 'id' ),
 		);
 
 		foreach ( $widenings as $w ) {
@@ -3953,7 +3972,7 @@ class Installer {
 				KEY                parent (parent_id),
 				KEY                is_archived (is_archived),
 				KEY                dir_popular (parent_id, member_count),
-				KEY                dir_name (parent_id, name(150)),
+				KEY                dir_name (parent_id, name, id),
 				KEY                dir_recent (parent_id, created_at),
 				KEY                dir_active (parent_id, last_active_at, created_at),
 				KEY                admin_type (type, created_at),
