@@ -8,7 +8,7 @@ import {
 } from '../_fixtures/db.fixture';
 
 /**
- * Restore defaults (card 9995933507).
+ * J-818-settings-restore-defaults (card 9995933507).
  *
  * The owner changes three config settings AND the banned words on the Moderation
  * tab, then clicks "Restore defaults". The confirm dialog must list exactly the

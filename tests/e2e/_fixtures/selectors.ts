@@ -190,7 +190,11 @@ export const urls = {
     home: '/',
     auth: '/login/',
     login: '/login/',
-    signup: '/signup/',
+    // Signup is a SUB-route of the auth hub: PageRouter registers
+    // `^{auth-slug}/signup/?$` (auth slug defaults to `login`), so the canonical
+    // URL is `/login/signup/`. A bare `/signup/` has no rewrite rule and 404s -
+    // which is why the two signup specs were self-skipping as "form absent".
+    signup: '/login/signup/',
     lostPassword: '/wp-login.php?action=lostpassword',
     feed: '/activity/',
     explore: '/activity/explore/',

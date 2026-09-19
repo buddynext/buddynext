@@ -1,20 +1,33 @@
 import { test, expect } from '@playwright/test';
 import { sel, urls } from '../_fixtures/selectors';
+import { seedLoginUser, LOGIN_PASSWORD, dbSeedingAvailable } from '../_fixtures/db.fixture';
 
 /**
  * J-07-login + J-08-login-with-2fa + J-09-password-reset.
  */
 test.describe('auth / login', () => {
-    test('redirects guest from /activity/ to auth', async ({ page }) => {
+    test('guest is kept off the authenticated feed', async ({ page }) => {
         await page.context().clearCookies();
         await page.goto(urls.feed, { waitUntil: 'domcontentloaded' });
         const url = page.url();
-        expect(/auth|wp-login\.php/.test(url)).toBeTruthy();
+        // A logged-out visitor never lands on the bare personal /activity/ feed.
+        // Both correct gated outcomes count: the auth hub (/login/ - BuddyNext's
+        // auth slug, or wp-login.php) on a private community, or the public
+        // /activity/explore/ on a public one. The old assertion hardcoded `/auth/`,
+        // a slug BuddyNext never uses, so it failed on every configuration.
+        expect(/\/login\/|wp-login\.php|\/explore\//.test(url)).toBeTruthy();
     });
 
     test('login form accepts valid credentials and sets cookie', async ({ page }) => {
-        const user = process.env.BN_TEST_USER ?? 'varundubey';
-        const pass = process.env.BN_TEST_PASS ?? 'password';
+        // Seed a dedicated verified member with known credentials when WP-CLI is
+        // available, so the real wp-login flow is deterministic on any site. Fall
+        // back to the canonical env user where seeding is off (CI supplies both).
+        let user = process.env.BN_TEST_USER ?? 'varundubey';
+        let pass = process.env.BN_TEST_PASS ?? 'password';
+        if (dbSeedingAvailable() && !process.env.BN_TEST_USER) {
+            user = await seedLoginUser();
+            pass = LOGIN_PASSWORD;
+        }
 
         await page.goto('/wp-login.php');
         await page.fill(sel.loginUser, user);
@@ -33,12 +46,16 @@ test.describe('auth / login', () => {
         await expect(page.locator(sel.lostPasswordForm).first()).toBeVisible();
     });
 
-    test.fixme(
-        process.env.BN_PRO !== '1',
-        'J-08-login-with-2fa  -  2FA is a Pro-only feature; set BN_PRO=1 to unmask.',
-    );
     test('login prompts for TOTP when 2FA enabled (Pro)', async ({ page }) => {
-        // Active only when BN_PRO=1.
+        // Pro gate INSIDE the test body so it masks only this test. As a bare
+        // `test.fixme(cond, ...)` at describe scope it silently skipped the three
+        // free tests above (guest redirect, login+cookie, lost-password) on every
+        // non-Pro build - core auth paths that must always run. (Same trap the
+        // edit.spec.ts J-36 note documents.)
+        test.fixme(
+            process.env.BN_PRO !== '1',
+            'J-08-login-with-2fa  -  2FA is a Pro-only feature; set BN_PRO=1 to unmask.',
+        );
         await page.goto('/wp-login.php');
         await page.fill(sel.loginUser, process.env.BN_TEST_USER_2FA ?? 'varundubey_2fa');
         await page.fill(sel.loginPass, process.env.BN_TEST_PASS_2FA ?? 'password');

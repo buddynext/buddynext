@@ -82,6 +82,34 @@ export function dbSeedingAvailable(): boolean {
 /** Known password set on a seeded verify member, so a spec can also prove login. */
 export const VERIFY_PASSWORD = 'bn-e2e-verify-pass-9271';
 
+/** Known credentials for a seeded, already-verified member used by the real-login spec. */
+export const LOGIN_MEMBER = 'bn_e2e_login';
+export const LOGIN_PASSWORD = 'bn-e2e-login-pass-5501';
+
+/**
+ * Seed a real, email-verified member with known credentials and return its login.
+ *
+ * The login spec exercises the REAL wp-login flow, so it needs a user that
+ * actually exists with a password the test knows. Hardcoding a canonical name
+ * (varundubey) works only on sites where that account happens to exist; this
+ * creates/repairs a dedicated one so the spec is deterministic on any site with
+ * WP-CLI seeding. Marks the member verified so a verification-enforcing site
+ * does not block the login.
+ */
+export async function seedLoginUser(login: string = LOGIN_MEMBER): Promise<string> {
+    const php = [
+        `$login = ${JSON.stringify(login)};`,
+        `$u = get_user_by('login', $login);`,
+        `$uid = $u ? (int) $u->ID : (int) wp_create_user($login, ${JSON.stringify(LOGIN_PASSWORD)}, $login . '@bn-e2e.test');`,
+        `wp_set_password(${JSON.stringify(LOGIN_PASSWORD)}, $uid);`,
+        `update_user_meta($uid, 'buddynext_email_verified', '1');`,
+        `delete_user_meta($uid, 'buddynext_verify_pending');`,
+        `echo $uid;`,
+    ].join(' ');
+    await wp(['eval', php]);
+    return login;
+}
+
 export async function seedVerifyToken(userLogin: string): Promise<string> {
     const php = [
         `$login = ${JSON.stringify(userLogin)};`,
