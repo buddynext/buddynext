@@ -77,7 +77,7 @@ $bn_invite       = '' !== $bn_invite_token ? ( new \BuddyNext\Onboarding\InviteS
 // the form should not even render — show an invite-required notice unless the
 // visitor arrived with a valid, unconsumed invitation token. Mirrors the
 // AuthController::register() gate so the two never disagree.
-$bn_reg_mode = (string) get_option( 'buddynext_reg_mode', 'open' );
+$bn_reg_mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
 if ( 'invite' === $bn_reg_mode ) {
 	if ( null === $bn_invite ) {
 		// Dead end guard: the visitor has NO account (that's the whole point of this

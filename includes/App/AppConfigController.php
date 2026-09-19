@@ -308,7 +308,7 @@ class AppConfigController {
 	 * @return array{app_name:string,accent_color:string,logo_url:string,login_bg_url:string,color_scheme_default:string}
 	 */
 	private function branding(): array {
-		$accent = (string) sanitize_hex_color( (string) get_option( 'buddynext_brand_color', '' ) );
+		$accent = (string) sanitize_hex_color( (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND ) );
 
 		// Appearance's own opt-in rule: empty or the legacy default means the
 		// owner never picked an accent. Pass the absence through rather than

@@ -779,7 +779,7 @@ class SetupWizard {
 		 * indigo the site is actually using. Nothing is written unless the owner picks
 		 * a colour, so accepting the default still leaves the tokens in charge.
 		 */
-		$brand_color = (string) get_option( 'buddynext_brand_color', '' );
+		$brand_color = (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND );
 		if ( '' === $brand_color || strtolower( $brand_color ) === \BuddyNext\Theme\Appearance::DEFAULT_BRAND ) {
 			$brand_color = \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX;
 		}

@@ -48,6 +48,26 @@ $page_files = array(
 );
 
 /**
+ * Yield every .php file under a root, skipping vendor/node_modules/tests.
+ *
+ * @param string $root Directory.
+ * @return \Generator<string>
+ */
+function walk_php( string $root ): \Generator {
+	$it = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $root, \FilesystemIterator::SKIP_DOTS ) );
+	foreach ( $it as $file ) {
+		$path = $file->getPathname();
+		if ( substr( $path, -4 ) !== '.php' ) {
+			continue;
+		}
+		if ( preg_match( '#/(vendor|node_modules|tests)/#', $path ) ) {
+			continue;
+		}
+		yield $path;
+	}
+}
+
+/**
  * Extract every `new Field( array( ... ) )` descriptor body from PHP source, using
  * brace matching so a nested array in a descriptor does not end it early.
  *
@@ -115,6 +135,84 @@ function bn_descriptor_key( string $body ): ?string {
 	return null;
 }
 
+// ── Part 2: no re-authored fallback drift ──────────────────────────────────────
+//
+// Options that were consolidated onto ONE canonical default: every get_option() of
+// them must reference that canonical (a const or helper) rather than re-type a
+// literal, or the drift the card fixed silently returns. `marker` is a substring
+// the canonical fallback contains; `baseline` lists file basenames where a read
+// deliberately passes something else because it is an EXISTENCE check ("has the
+// owner set this?"), not a value read.
+$guarded = array(
+	'buddynext_brand_color'   => array(
+		'marker'   => 'DEFAULT_BRAND',
+		'baseline' => array( 'SetupChecklist.php' ), // false is an existence check (is a brand set).
+	),
+	'buddynext_reg_mode'      => array(
+		'marker'   => 'buddynext_default_reg_mode',
+		'baseline' => array( 'Installer.php', 'SetupChecklist.php' ), // false is an existence check (configured yet).
+	),
+);
+
+/**
+ * Blank out comments/docblocks while preserving line numbers, so a get_option()
+ * example inside a docblock is never mistaken for a real read.
+ *
+ * @param string $src PHP source.
+ * @return string
+ */
+function bn_strip_comments( string $src ): string {
+	$out = '';
+	foreach ( token_get_all( $src ) as $token ) {
+		if ( is_array( $token ) ) {
+			if ( T_COMMENT === $token[0] || T_DOC_COMMENT === $token[0] ) {
+				$out .= str_repeat( "\n", substr_count( $token[1], "\n" ) );
+				continue;
+			}
+			$out .= $token[1];
+		} else {
+			$out .= $token;
+		}
+	}
+	return $out;
+}
+
+/**
+ * Extract each get_option( '<option>', <fallback> ) read of one option, with its
+ * fallback text (balanced to the call's close paren) and line.
+ *
+ * @param string $src    PHP source.
+ * @param string $option Option name.
+ * @return array<int, array{fallback:string, line:int}>
+ */
+function bn_get_option_reads( string $src, string $option ): array {
+	$out    = array();
+	$needle = 'get_option(';
+	$len    = strlen( $src );
+	$off    = 0;
+	while ( false !== ( $pos = strpos( $src, $needle, $off ) ) ) {
+		$i     = $pos + strlen( $needle );
+		$depth = 1;
+		while ( $i < $len && $depth > 0 ) {
+			if ( '(' === $src[ $i ] ) {
+				++$depth;
+			} elseif ( ')' === $src[ $i ] ) {
+				--$depth;
+			}
+			++$i;
+		}
+		$call = substr( $src, $pos, $i - $pos );
+		$off  = $i;
+		if ( preg_match( "/get_option\\(\\s*'" . preg_quote( $option, '/' ) . "'\\s*,(.*)\\)\\s*$/s", $call, $m ) ) {
+			$out[] = array(
+				'fallback' => trim( $m[1] ),
+				'line'     => substr_count( $src, "\n", 0, $pos ) + 1,
+			);
+		}
+	}
+	return $out;
+}
+
 $violations = array();
 $inventory  = array();
 
@@ -157,6 +255,39 @@ foreach ( $page_files as $file ) {
 	}
 }
 
+// Part 2 scan: walk both repos and flag any re-authored fallback for a guarded option.
+$drift = array();
+foreach ( array( $free, $pro ) as $root ) {
+	if ( ! is_dir( $root ) ) {
+		continue;
+	}
+	$repo = basename( $root );
+	foreach ( walk_php( $root ) as $file ) {
+		if ( basename( $file ) === 'check-option-defaults.php' ) {
+			continue; // Don't flag this gate's own $guarded literals.
+		}
+		$src = bn_strip_comments( (string) file_get_contents( $file ) );
+		foreach ( $guarded as $option => $rule ) {
+			if ( false === strpos( $src, $option ) ) {
+				continue;
+			}
+			if ( in_array( basename( $file ), $rule['baseline'], true ) ) {
+				continue; // Deliberate existence-check read.
+			}
+			foreach ( bn_get_option_reads( $src, $option ) as $read ) {
+				if ( false === strpos( $read['fallback'], $rule['marker'] ) ) {
+					$drift[] = array(
+						'file'   => $repo . '/' . ltrim( str_replace( $root, '', $file ), '/' ),
+						'line'   => $read['line'],
+						'option' => $option,
+						'marker' => $rule['marker'],
+					);
+				}
+			}
+		}
+	}
+}
+
 if ( in_array( '--inventory', $argv, true ) ) {
 	usort(
 		$inventory,
@@ -179,17 +310,34 @@ if ( in_array( '--inventory', $argv, true ) ) {
 	exit( 0 );
 }
 
+$failed = false;
+
 if ( ! empty( $violations ) ) {
+	$failed = true;
 	echo "Owner settings with no declared default and no 'resettable' => false reason:\n\n";
 	foreach ( $violations as $v ) {
 		echo "  {$v['file']}:{$v['line']}: '{$v['key']}' — add a 'default' => ... , or 'resettable' => false if it is owner data.\n";
 	}
 	echo "\nEvery owner setting must ship one declared default (so every get_option inherits it),\n";
 	echo "unless it is owner data that must never be reset (site name, banned words, sender\n";
-	echo "identity, secrets/keys, page mappings, brand images) — those get 'resettable' => false.\n";
+	echo "identity, secrets/keys, page mappings, brand images) — those get 'resettable' => false.\n\n";
+}
+
+if ( ! empty( $drift ) ) {
+	$failed = true;
+	echo "get_option() fallbacks that drift from the one canonical default:\n\n";
+	foreach ( $drift as $d ) {
+		echo "  {$d['file']}:{$d['line']}: '{$d['option']}' fallback must reference the canonical default ({$d['marker']}), not a re-typed literal.\n";
+	}
+	echo "\nUse the ONE declared default (the const or helper) as the fallback so a consolidated\n";
+	echo "option cannot silently split again. A deliberate existence check belongs in the gate's\n";
+	echo "baseline for that option.\n";
+}
+
+if ( $failed ) {
 	exit( 1 );
 }
 
 $registered = count( array_filter( $inventory, static fn( $r ) => $r['registered'] ) );
-echo "option-defaults gate: OK — every driver-registered owner setting declares a default or is marked never-reset ({$registered} settings).\n";
+echo "option-defaults gate: OK — every driver-registered owner setting declares a default or is marked never-reset ({$registered} settings); guarded fallbacks stay canonical.\n";
 exit( 0 );

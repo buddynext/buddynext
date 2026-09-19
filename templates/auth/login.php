@@ -30,7 +30,7 @@ defined( 'ABSPATH' ) || exit;
 // no public signup (invitees arrive via their invite link, /signup/?invite=).
 // Linking when either gate is closed would send visitors to a dead end.
 $registration_open = (bool) get_option( 'users_can_register' )
-	&& 'invite' !== (string) get_option( 'buddynext_reg_mode', 'open' );
+	&& 'invite' !== (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
 
 // Pre-fill from query params (e.g. ?login=failed redirect).
 $login_error = '';

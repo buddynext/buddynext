@@ -117,7 +117,7 @@ class Appearance {
 	 * @return void
 	 */
 	public function attach_accent(): void {
-		$hex = sanitize_hex_color( (string) get_option( 'buddynext_brand_color', '' ) );
+		$hex = sanitize_hex_color( (string) get_option( 'buddynext_brand_color', self::DEFAULT_BRAND ) );
 		// Opt-in: empty or the legacy default = inherit the theme/native palette.
 		if ( ! $hex || strtolower( $hex ) === self::DEFAULT_BRAND ) {
 			return;
