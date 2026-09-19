@@ -33,6 +33,18 @@ class AdminHub {
 	private const TOP_SLUG = 'buddynext';
 
 	/**
+	 * Section page slugs retired by an IA change, mapped to the section their tabs
+	 * moved to. redirect_relocated_tabs() forwards a live bookmark to the old page
+	 * on to the tab's new home, so a moved section never dead-ends a saved link.
+	 *
+	 * @var array<string, string>
+	 */
+	private const RETIRED_SECTION_SLUGS = array(
+		// "Moderation Tools" merged into Moderation (card 10114177928).
+		'buddynext-automod' => 'moderation',
+	);
+
+	/**
 	 * Default sections, in sidebar order. Filterable via
 	 * `bn_admin_hub_sections` so an extension can add or rename a section
 	 * without editing this file.
@@ -48,21 +60,16 @@ class AdminHub {
 			// Get Started owns the top-level `buddynext` slug so a fresh install
 			// lands on orientation (welcome + checklist + demo) instead of the
 			// Settings form. Settings keeps all its tabs at its own slug below.
+			// Order follows the owner's journey (card 10114177928): set up, bring in
+			// people, give them places to meet, then what they do, how they hear about
+			// it, keeping it healthy, and money. Configuration (Platform, Settings)
+			// sits at the bottom, where owners go occasionally; Upgrade is last (it is
+			// a link out).
 			'get-started'   => array(
 				'slug'  => 'buddynext',
 				'label' => __( 'Get Started', 'buddynext' ),
 				'icon'  => 'sparkles',
 				'top'   => true,
-			),
-			'settings'      => array(
-				'slug'  => 'buddynext-settings',
-				'label' => __( 'Settings', 'buddynext' ),
-				'icon'  => 'settings',
-			),
-			'platform'      => array(
-				'slug'  => 'buddynext-platform',
-				'label' => __( 'Platform', 'buddynext' ),
-				'icon'  => 'layers',
 			),
 			'members'       => array(
 				'slug'  => 'buddynext-members',
@@ -84,35 +91,40 @@ class AdminHub {
 				'label' => __( 'Notifications', 'buddynext' ),
 				'icon'  => 'bell',
 			),
-			'realtime'      => array(
-				'slug'  => 'buddynext-realtime',
-				'label' => __( 'Realtime & Push', 'buddynext' ),
-				'icon'  => 'zap',
+			// Moderation now holds the whole surface: the queue a moderator works
+			// (Overview, Pending, Reports, Suspensions, Appeals) followed by the tools
+			// (Rules, AI, Bulk, Log). The former "Moderation Tools" (automod) section
+			// wrapper was retired and its four tabs merged in — one place to keep a
+			// community healthy instead of two.
+			'moderation'    => array(
+				'slug'  => 'buddynext-moderation',
+				'label' => __( 'Moderation', 'buddynext' ),
+				'icon'  => 'shield',
+			),
+			'monetization'  => array(
+				'slug'  => 'buddynext-monetization',
+				'label' => __( 'Monetization', 'buddynext' ),
+				'icon'  => 'store',
 			),
 			'campaigns'     => array(
 				'slug'  => 'buddynext-campaigns',
 				'label' => __( 'Campaigns', 'buddynext' ),
 				'icon'  => 'megaphone',
 			),
-			'moderation'    => array(
-				'slug'  => 'buddynext-moderation',
-				'label' => __( 'Moderation', 'buddynext' ),
-				'icon'  => 'shield',
+			'realtime'      => array(
+				'slug'  => 'buddynext-realtime',
+				'label' => __( 'Realtime & Push', 'buddynext' ),
+				'icon'  => 'zap',
 			),
-			// "Moderation Tools", not "Auto-Moderation". The section now holds Rules,
-			// AI Moderation, Bulk Moderation and the Moderation Log — and the log
-			// records EVERY moderation action, not just automated ones, so filing it
-			// under a name that says "auto" would misdescribe it. The key and slug
-			// are unchanged, so no URL moves and no site loses its place.
-			'automod'       => array(
-				'slug'  => 'buddynext-automod',
-				'label' => __( 'Moderation Tools', 'buddynext' ),
-				'icon'  => 'filter',
+			'platform'      => array(
+				'slug'  => 'buddynext-platform',
+				'label' => __( 'Platform', 'buddynext' ),
+				'icon'  => 'layers',
 			),
-			'monetization'  => array(
-				'slug'  => 'buddynext-monetization',
-				'label' => __( 'Monetization', 'buddynext' ),
-				'icon'  => 'store',
+			'settings'      => array(
+				'slug'  => 'buddynext-settings',
+				'label' => __( 'Settings', 'buddynext' ),
+				'icon'  => 'settings',
 			),
 			'upgrade'       => array(
 				'slug'  => 'buddynext-upgrade',
@@ -322,27 +334,25 @@ class AdminHub {
 			'section'  => 'moderation',
 			'position' => 50,
 		),
-		// Bulk actions and the action log join the automated rules under Moderation
-		// Tools, leaving Moderation itself as the QUEUE a moderator works through:
-		// Controls, Pending, Reports, Suspensions, Appeals. Seven tabs was two jobs
-		// in one list — deciding policy, and doing the day's work.
-		'moderation:bulk'               => array(
-			'section'  => 'automod',
+		// The former "Moderation Tools" tabs, merged into Moderation after the
+		// queue (card 10114177928). Order a moderator works: the queue first
+		// (Overview…Appeals, positions 10-50 above), then the tools — Rules, AI,
+		// Bulk, Log. Rules and AI are Pro (hidden in free); Bulk and Log are free.
+		'moderation:rules'              => array(
+			'section'  => 'moderation',
 			'position' => 60,
 		),
-		'moderation:log'                => array(
-			'section'  => 'automod',
+		'moderation:ai'                 => array(
+			'section'  => 'moderation',
 			'position' => 70,
 		),
-
-		// Auto-Moderation (Pro). Hidden in free.
-		'moderation:rules'              => array(
-			'section'  => 'automod',
-			'position' => 10,
+		'moderation:bulk'               => array(
+			'section'  => 'moderation',
+			'position' => 80,
 		),
-		'moderation:ai'                 => array(
-			'section'  => 'automod',
-			'position' => 20,
+		'moderation:log'                => array(
+			'section'  => 'moderation',
+			'position' => 90,
 		),
 
 		// Monetization (Pro). Hidden in free.
@@ -1490,6 +1500,40 @@ class AdminHub {
 					}
 				);
 			}
+		}
+
+		// Retired section pages: a section removed by an IA change (e.g. "Moderation
+		// Tools" merged into Moderation, card 10114177928) still has live bookmarks
+		// and doc links to ?page=<old-slug>. Keep the slug REACHABLE as an unlinked
+		// page — same null-parent idiom as above, so it populates $_registered_pages
+		// and WP serves it instead of a 403 — and redirect on render, when every tab
+		// is registered, to the tab's new home (or the successor section for a bare
+		// URL). Doing it in the render callback, not admin_init, is what makes the tab
+		// lookup reliable: the placement + registration are complete by then.
+		foreach ( self::RETIRED_SECTION_SLUGS as $bn_retired_slug => $bn_retired_dest ) {
+			$bn_dest = (string) $bn_retired_dest;
+			add_submenu_page(
+				null,
+				'',
+				'',
+				'manage_options',
+				$bn_retired_slug,
+				static function () use ( $bn_dest ): void {
+					// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET routing of a retired page slug; changes no state.
+					$bn_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
+					if ( '' !== $bn_tab && isset( self::get_tabs( $bn_dest )[ $bn_tab ] ) ) {
+						$bn_carry = wp_unslash( (array) $_GET );
+						unset( $bn_carry['page'], $bn_carry['tab'] );
+						$bn_extra = array_map( 'sanitize_text_field', array_filter( $bn_carry, 'is_scalar' ) );
+						wp_safe_redirect( self::tab_url( $bn_dest, $bn_tab, $bn_extra ) );
+						exit;
+					}
+					// phpcs:enable WordPress.Security.NonceVerification.Recommended
+					$bn_slug = self::section_slug( $bn_dest );
+					wp_safe_redirect( '' !== $bn_slug ? admin_url( 'admin.php?page=' . $bn_slug ) : admin_url( 'admin.php?page=' . self::TOP_SLUG ) );
+					exit;
+				}
+			);
 		}
 
 		// License lives as a tab inside a section, which buries the one screen
