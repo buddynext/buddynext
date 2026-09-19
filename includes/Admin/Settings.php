@@ -261,6 +261,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					'title'     => __( 'Restore default settings?', 'buddynext' ),
 					'confirm'   => __( 'Restore defaults', 'buddynext' ),
 					'cancel'    => __( 'Cancel', 'buddynext' ),
+					'close'     => __( 'Close', 'buddynext' ),
 					'intro'     => __( 'These settings on this tab will return to their defaults:', 'buddynext' ),
 					'current'   => __( 'now', 'buddynext' ),
 					'toDefault' => __( 'default', 'buddynext' ),

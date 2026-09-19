@@ -104,10 +104,17 @@
 			body.appendChild( field );
 		}
 
-		var foot      = el( 'footer', { 'class': 'bn-dialog__foot' } );
-		var cancelBtn = el( 'button', { type: 'button', 'class': 'bn-dialog__cancel' }, opts.cancelLabel || __( 'Cancel', 'buddynext' ) );
+		var foot = el( 'footer', { 'class': 'bn-dialog__foot' } );
+		// An EXPLICIT empty cancelLabel requests a single-button, dismiss-only dialog
+		// (e.g. a "nothing to do" acknowledgement) — otherwise the empty label fell
+		// through to the default "Cancel" and sat next to an ok button whose label was
+		// also "Cancel", showing two identical buttons (card 10320607233). Omitting
+		// cancelLabel entirely still gives the default Cancel.
+		var cancelBtn = '' === opts.cancelLabel
+			? null
+			: el( 'button', { type: 'button', 'class': 'bn-dialog__cancel' }, opts.cancelLabel || __( 'Cancel', 'buddynext' ) );
 		var okBtn     = el( 'button', { type: 'button', 'class': 'bn-dialog__ok',     'data-tone': tone }, opts.okLabel || __( 'Confirm', 'buddynext' ) );
-		foot.appendChild( cancelBtn );
+		if ( cancelBtn ) { foot.appendChild( cancelBtn ); }
 		foot.appendChild( okBtn );
 
 		dialog.appendChild( head );
@@ -177,7 +184,7 @@
 			m.okBtn.addEventListener( 'click', function () {
 				if ( satisfied() ) { close( true ); }
 			} );
-			m.cancelBtn.addEventListener( 'click', function () { close( false ); } );
+			if ( m.cancelBtn ) { m.cancelBtn.addEventListener( 'click', function () { close( false ); } ); }
 			m.backdrop.addEventListener( 'click', function ( e ) {
 				if ( e.target === m.backdrop ) { close( false ); }
 			} );
@@ -527,7 +534,9 @@
 				title:       t.title || __( 'Restore default settings?', 'buddynext' ),
 				message:     t.noChange || __( 'This tab already uses the default settings.', 'buddynext' ),
 				tone:        'neutral',
-				okLabel:     t.cancel || __( 'OK', 'buddynext' ),
+				// One dismiss button. Nothing changes, so this is an acknowledgement,
+				// not a choice — a distinct "Close", never a second "Cancel".
+				okLabel:     t.close || __( 'Close', 'buddynext' ),
 				cancelLabel: '',
 			} );
 			return;
