@@ -145,6 +145,56 @@ Each scope stores the owner's hide / relabel / reorder / capability-gate choices
 
 The page assignments are kept out of the nav-override options on purpose: `handle_save_nav()` only writes display overrides, so `PageRouter` and other services can read a hub's slug without knowing anything about the nav system.
 
+## Defaults and "Restore defaults"
+
+Every owner setting declares ONE default, in the `Field` descriptor, and that single source drives three things: the `register_setting()` default, the value every `get_option()` reads back, and what a tab's "Restore defaults" resets to. A gate (`bin/check-option-defaults.php`, run from `bin/check.sh` in both repos) fails the build if a driver-registered setting has no declared default and no `resettable => false` reason - so a new setting cannot drift in.
+
+### Declare a default
+
+```php
+new Field( array(
+    'key'     => 'myplugin_widget_limit',
+    'type'    => 'number',
+    'label'   => __( 'Widgets per page', 'my-plugin' ),
+    'default' => 20,
+) );
+```
+
+For a default that is genuinely dynamic (it follows another value), declare a `default_callback` instead of `default` - it is resolved once when the option is registered, so `get_option()` still inherits one value:
+
+```php
+'default_callback' => static fn() => get_option( 'posts_per_page', 10 ),
+```
+
+Read the option with NO inline fallback where the Settings API is active (admin), or pass the SAME declared default (a const or helper) everywhere else - never a re-typed literal. The gate flags a `get_option()` whose fallback drifts from the canonical one.
+
+### Mark owner data as never-reset
+
+"Restore defaults" is for CONFIGURATION. Owner DATA - a site name, banned-word list, sender identity, API keys, page mappings, uploaded images - is never reset and needs no default. Mark it:
+
+```php
+new Field( array(
+    'key'        => 'myplugin_api_key',
+    'type'       => 'secret',
+    'label'      => __( 'API key', 'my-plugin' ),
+    'resettable' => false,
+) );
+```
+
+A `resettable => false` field satisfies the gate without a default, never appears in the Restore dialog, and is left exactly as the owner set it.
+
+### What an add-on gets for free
+
+Implement `BuddyNext\Contracts\ProvidesSettings` and call `SettingsRegistry::register( $this )` in your page's `register()`. Your fields then flow through `SettingsDriver` exactly like the first-party ones: `register_setting()` with your declared defaults, ⌘K search, and - for any tab that has resettable fields - the shared **Restore defaults** button, its confirm dialog listing exactly what would change, and the reset itself. React to a reset with:
+
+```php
+add_action( 'buddynext_settings_tab_reset', function ( $tab, $keys, $user_id ) {
+    // Clear a derived cache after the owner restores your tab, etc.
+}, 10, 3 );
+```
+
+Add your tab with `AdminHub::register_tab( '<section>', '<slug>', … )`; register a whole dedicated section for your add-on with the `bn_admin_hub_sections` filter (see "Add a new top-level section" below) if you do not want to sit inside an existing one.
+
 ## Examples
 
 ### Relocate or hide a tab from a mu-plugin

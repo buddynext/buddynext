@@ -126,6 +126,32 @@ export async function setRegistrationMode(mode: 'open' | 'invite' | 'closed'): P
     return previous;
 }
 
+/** Set a wp_options value through WP-CLI (for seeding a spec's starting state). */
+export async function setOption(name: string, value: string): Promise<void> {
+    await wp(['option', 'update', name, value]);
+}
+
+/** Delete a wp_options value through WP-CLI, so it falls back to its declared default. */
+export async function deleteOption(name: string): Promise<void> {
+    try {
+        await wp(['option', 'delete', name]);
+    } catch {
+        // Already absent — nothing to delete.
+    }
+}
+
+/** Read a wp_options value; '' when the option does not exist. */
+export async function getOption(name: string): Promise<string> {
+    let out: string;
+    try {
+        out = await wp(['option', 'get', name]);
+    } catch {
+        return '';
+    }
+    const lines = out.split('\n').map((l) => l.trim()).filter((l) => l !== '' && !/^(Warning|Deprecated|Notice):/.test(l));
+    return lines.length ? lines[lines.length - 1] : '';
+}
+
 /**
  * Read a user meta value through WP-CLI, so a spec can assert an EFFECT (the
  * verified flag flipping) rather than a screen string. Returns the last non-empty
