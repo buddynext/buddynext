@@ -112,6 +112,11 @@ class JetonomyBridge {
 
 		// jetonomy_post_deleted fires ($post_id, $space_id, $user_id) — 3 args.
 		add_action( 'jetonomy_post_deleted', array( $this, 'on_post_deleted' ), 10, 3 );
+		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
+		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
+		// from the soft delete above. Mirrors jetonomy_after_delete_reply, which
+		// the reply side already hooks.
+		add_action( 'jetonomy_after_delete_post', array( $this, 'on_post_hard_deleted' ), 10, 1 );
 
 		// Inject a Discussions link into the BuddyNext left navigation rail.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_discussions_nav_item' ) );
@@ -480,7 +485,8 @@ class JetonomyBridge {
 					$title,
 					'discussion',
 					$excerpt,
-					$this->space_id_for_forum( $space_id )
+					$this->space_id_for_forum( $space_id ),
+					array( 'post_id' => $post_id )
 				);
 			}
 		}
@@ -587,12 +593,19 @@ class JetonomyBridge {
 				// it also covers an ordinary edit of an already-published card. It
 				// returns false only when NO card exists at all — the topic was
 				// private/draft from the start and now needs its first card.
+				// Stamp post_id alongside the rendered fields so the card carries the
+				// one identifier that survives a hard delete (Post::delete fires
+				// jetonomy_after_delete_post with only the id, and by then the
+				// jt_posts/jt_spaces rows the URL is built from are gone). refresh()
+				// merges, so this also backfills post_id onto a card published before
+				// the stamp existed the first time its discussion is edited.
 				$refreshed = IntegrationActivity::refresh(
 					$url,
 					'discussion',
 					array(
 						'title'       => $title,
 						'description' => $excerpt,
+						'post_id'     => $post_id,
 					)
 				);
 				if ( ! $restored && ! $refreshed ) {
@@ -603,7 +616,8 @@ class JetonomyBridge {
 						$title,
 						'discussion',
 						$excerpt,
-						$this->space_id_for_forum( $space_id )
+						$this->space_id_for_forum( $space_id ),
+						array( 'post_id' => $post_id )
 					);
 				}
 			} else {
@@ -672,6 +686,50 @@ class JetonomyBridge {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$this->invalidate_member_caches( $author_id );
 		$this->invalidate_space_caches( $space_id );
+	}
+
+	/**
+	 * Permanently remove a discussion's BuddyNext surfaces when the jt_posts row is
+	 * PURGED (not trashed).
+	 *
+	 * Hooked on: jetonomy_after_delete_post( int $post_id ), fired by Post::delete()
+	 * — the hard delete behind empty-trash, `wp jetonomy content delete`, and any
+	 * programmatic purge. This is a genuine, irreversible delete, so the card is
+	 * REMOVED (unlike the reversible trash path in on_post_deleted, which withdraws).
+	 *
+	 * Post::delete() deletes the jt_posts row BEFORE firing this action and passes
+	 * only the id — the discussion URL (built from jt_posts.slug + jt_spaces.slug) is
+	 * already gone, so the card cannot be found by link_url. It is found instead by
+	 * the post_id stamped into its link_meta at publish/refresh. remove_by_meta()
+	 * cascades the card's comments and their child rows and fires
+	 * buddynext_post_deleted, so nothing is orphaned.
+	 *
+	 * @param int $post_id Purged Jetonomy discussion ID.
+	 * @return void
+	 */
+	public function on_post_hard_deleted( int $post_id ): void {
+		if ( $post_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// Remove the feed card (and cascade its comments/reactions/etc) by the
+		// stamped id — the only handle left once the source row is gone.
+		IntegrationActivity::remove_by_meta( 'discussion', 'post_id', $post_id );
+
+		// Drop the search-index entry. Keyed on object_id, so it needs no URL; a
+		// harmless no-op when a prior trash (on_post_deleted) already removed it.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_search_index',
+			array(
+				'object_type' => 'discussion',
+				'object_id'   => $post_id,
+			),
+			array( '%s', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**

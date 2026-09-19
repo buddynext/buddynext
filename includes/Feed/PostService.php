@@ -2354,9 +2354,19 @@ class PostService {
 	 *
 	 * Used by integration bridges (e.g. Career Board) to remove the feed card
 	 * for an external object — a job posting, listing, etc. — when that object
-	 * is removed or expires upstream. Keeps raw `bn_posts` access inside the
-	 * service layer so bridges (including Pro bridges) never query Free tables
-	 * directly.
+	 * is permanently removed or expires upstream. Keeps raw `bn_posts` access
+	 * inside the service layer so bridges (including Pro bridges) never query
+	 * Free tables directly.
+	 *
+	 * Routes through the shared cascade so a bridge's permanent delete clears
+	 * the card's children (comments and their reactions/notifications/reports,
+	 * plus post-keyed reactions, poll data, shares, bookmarks, hashtags,
+	 * notifications, reports) rather than orphaning them — the URL-keyed twin of
+	 * delete_by_link_meta_int(), which already did this (card 10264292876). A
+	 * bare `DELETE FROM bn_posts` here left every commenter's row dangling on any
+	 * remove() path (media, listing, course, job, resume). Fires
+	 * buddynext_post_deleted per card so the search index and other listeners
+	 * drop it too.
 	 *
 	 * @param string $type     Post type marker (e.g. 'job_post').
 	 * @param string $link_url Canonical link the card points at.
@@ -2369,16 +2379,81 @@ class PostService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$deleted = (int) $wpdb->delete(
-			$wpdb->prefix . 'bn_posts',
-			array(
-				'type'     => $type,
-				'link_url' => $link_url,
+		// Resolve the matching cards FIRST, then route them through the shared
+		// cascade (see delete_by_link_meta_int for the rationale). A single
+		// (type, link_url) usually names one card, but a set is handled the same
+		// way so a duplicate never leaves half its children behind.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s",
+				$type,
+				$link_url
 			),
-			array( '%s', '%s' )
+			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( empty( $rows ) ) {
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			return 0;
+		}
+
+		$post_ids  = array_map( static fn( array $r ): int => (int) $r['id'], $rows );
+		$space_ids = array();
+		foreach ( $rows as $r ) {
+			$sid = (int) $r['space_id'];
+			if ( $sid > 0 ) {
+				$space_ids[ $sid ] = true;
+			}
+		}
+
+		// Clear children, then the card rows, inside one transaction so a
+		// mid-sweep failure rolls back all-or-nothing. Guarded against the test
+		// harness for the same reason delete() is.
+		$bn_use_txn = ! defined( 'WP_TESTS_DOMAIN' );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange -- $in is an absint-mapped id list, injection-safe.
+		if ( $bn_use_txn ) {
+			$wpdb->query( 'START TRANSACTION' );
+		}
+		$bn_swept = $this->cascade_post_children( $post_ids );
+
+		$deleted      = 0;
+		$bn_delete_ok = true;
+		foreach ( array_chunk( $post_ids, self::CASCADE_CHUNK ) as $chunk ) {
+			$in     = implode( ',', array_map( 'absint', $chunk ) );
+			$result = $wpdb->query( "DELETE FROM {$wpdb->prefix}bn_posts WHERE id IN ({$in})" );
+			if ( false === $result ) {
+				$bn_delete_ok = false;
+				break;
+			}
+			$deleted += (int) $result;
+		}
+
+		if ( ! $bn_swept || ! $bn_delete_ok ) {
+			if ( $bn_use_txn ) {
+				$wpdb->query( 'ROLLBACK' );
+			}
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			return 0;
+		}
+		if ( $bn_use_txn ) {
+			$wpdb->query( 'COMMIT' );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+
+		// Bust caches and fire the delete hook per card so listeners (search
+		// index, trending, streaks, webhooks, hashtags, analytics) clean up — a
+		// system delete, so user id 0.
+		foreach ( $post_ids as $pid ) {
+			wp_cache_delete( "post_{$pid}", self::CACHE_GROUP );
+			/** Documented in delete(). */
+			do_action( 'buddynext_post_deleted', $pid, 0 );
+		}
+
+		// One invalidation per affected space (documented in create()).
+		foreach ( array_keys( $space_ids ) as $sid ) {
+			do_action( 'buddynext_space_posts_changed', $sid );
+		}
 
 		return $deleted;
 	}

@@ -390,4 +390,45 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$this->assertSame( 2, $published_70(), 'both event-70 cards are back on the feed' );
 		$this->assertSame( $before, $ids_70(), 'the SAME card ids — no duplicates, no orphaned comments' );
 	}
+
+	/**
+	 * remove() (the URL path) cascades the card's comments and their child rows, not
+	 * just the bn_posts row. A permanent bridge delete — a listing/course/event/
+	 * discussion purged upstream — used to drop the card and leave every commenter's
+	 * bn_comments row (and its reactions/notifications/reports) dangling. delete_by_link
+	 * now routes through the same cascade delete_by_link_meta_int already used.
+	 *
+	 * @return void
+	 */
+	public function test_remove_by_link_cascades_the_cards_comments(): void {
+		global $wpdb;
+
+		$url = 'https://example.test/listing/42/';
+		$id  = IntegrationActivity::publish( $this->member_id, 'listed a business', $url, 'Cafe', 'listing' );
+		$this->assertIsInt( $id );
+
+		$other = self::factory()->user->create();
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_comments',
+			array( 'object_type' => 'post', 'object_id' => $id, 'user_id' => $other, 'content' => 'nice' ),
+			array( '%s', '%d', '%d', '%s' )
+		);
+		$comment_id = (int) $wpdb->insert_id;
+		$this->assertGreaterThan( 0, $comment_id );
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_reactions',
+			array( 'object_type' => 'comment', 'object_id' => $comment_id, 'user_id' => $other, 'emoji' => 'like' ),
+			array( '%s', '%d', '%d', '%s' )
+		);
+
+		$this->assertSame( 1, IntegrationActivity::remove( $url, 'listing' ), 'the card is removed' );
+
+		$card_left    = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ) );
+		$comment_left = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id = %d", $id ) );
+		$react_left   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'comment' AND object_id = %d", $comment_id ) );
+
+		$this->assertSame( 0, $card_left, 'the card row is gone' );
+		$this->assertSame( 0, $comment_left, 'the comment is cascaded, not orphaned' );
+		$this->assertSame( 0, $react_left, 'the comment reaction is cascaded, not orphaned' );
+	}
 }
