@@ -183,20 +183,7 @@ final class SettingsDriver {
 
 		$section = isset( $_POST['section'] ) ? sanitize_key( wp_unslash( (string) $_POST['section'] ) ) : '';
 
-		// Reset only the options that actually differ from their default, so the
-		// count reported back matches the dialog's "what will change" list and a
-		// no-op reset touches nothing. Deleting the row lets the registered default
-		// (static or default_callback) apply on the next read.
-		$keys = array();
-		foreach ( self::resettable_fields_for_tab( $tab ) as $key => $field ) {
-			$default = $field->resolve_default();
-			if ( self::scalarise( get_option( $key, $default ) ) === self::scalarise( $default ) ) {
-				continue;
-			}
-			delete_option( $key );
-			$keys[] = $key;
-		}
-
+		$keys    = self::reset_tab( $tab );
 		$user_id = get_current_user_id();
 
 		/**
@@ -217,6 +204,29 @@ final class SettingsDriver {
 		}
 		wp_safe_redirect( $redirect );
 		exit;
+	}
+
+	/**
+	 * Reset a tab's resettable options that differ from their default, and return
+	 * the option names that changed. The pure core of the handler: no HTTP, no
+	 * redirect, no capability check — deletes each differing resettable option so its
+	 * declared default applies on the next read. Non-resettable owner data and
+	 * options already at default are left alone.
+	 *
+	 * @param string $tab Tab slug.
+	 * @return string[] Option names reset.
+	 */
+	public static function reset_tab( string $tab ): array {
+		$keys = array();
+		foreach ( self::resettable_fields_for_tab( $tab ) as $key => $field ) {
+			$default = $field->resolve_default();
+			if ( self::scalarise( get_option( $key, $default ) ) === self::scalarise( $default ) ) {
+				continue;
+			}
+			delete_option( $key );
+			$keys[] = $key;
+		}
+		return $keys;
 	}
 
 	/**
