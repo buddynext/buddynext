@@ -148,6 +148,18 @@ class SearchController extends \BuddyNext\REST\BaseRestController {
 						'default'           => '',
 						'sanitize_callback' => 'sanitize_text_field',
 					),
+					// Alias of `search`. The sibling search routes (/search, /search/suggest)
+					// take `q`, so a caller reusing that convention here would otherwise be
+					// silently dropped by WP and return the unfiltered first page (card
+					// 10320545977). Accepting both makes every BuddyNext search route filter
+					// on `q`, and `search` stays for back-compat.
+					'q'                 => array(
+						'description'       => __( 'Alias of `search`: filter members by name or username (partial match).', 'buddynext' ),
+						'type'              => 'string',
+						'required'          => false,
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
 					'location'          => array(
 						'description'       => __( 'Filter members by location (partial match).', 'buddynext' ),
 						'type'              => 'string',
@@ -415,8 +427,15 @@ class SearchController extends \BuddyNext\REST\BaseRestController {
 		$cursor    = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
 		$per_page  = min( (int) ( $request->get_param( 'per_page' ) ?? 20 ), 50 );
 
+		// Prefer `search`; fall back to its `q` alias so a caller using either the
+		// route's own name or the /search convention filters correctly.
+		$member_query = (string) ( $request->get_param( 'search' ) ?? '' );
+		if ( '' === $member_query ) {
+			$member_query = (string) ( $request->get_param( 'q' ) ?? '' );
+		}
+
 		$filters = array(
-			'search'            => sanitize_text_field( (string) ( $request->get_param( 'search' ) ?? '' ) ),
+			'search'            => sanitize_text_field( $member_query ),
 			'location'          => sanitize_text_field( (string) ( $request->get_param( 'location' ) ?? '' ) ),
 			'skills'            => sanitize_text_field( (string) ( $request->get_param( 'skills' ) ?? '' ) ),
 			'space_id'          => absint( $request->get_param( 'space_id' ) ?? 0 ),
