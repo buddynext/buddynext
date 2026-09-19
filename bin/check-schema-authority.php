@@ -153,7 +153,23 @@ foreach ( $bn_files as $bn_file ) {
 			}
 		}
 
-		// Shape 2: nearest preceding table assignment.
+		// Shape 2: the ADD COLUMN sits in a `'bn_table' => array( 'col' => 'ADD
+		// COLUMN ...' )` map keyed by the table-name literal (maybe_alter_tables'
+		// $table_columns). Attribute it to the nearest preceding array key that
+		// names a DECLARED table. Checked before the positional variable fallback,
+		// which cannot see an array-literal key and so misattributed these to an
+		// unrelated table whose variable happened to be assigned earlier.
+		if ( '' === $bn_table
+			&& preg_match_all( "/'([a-z0-9_]+)'\s*=>\s*array\s*\(/", substr( $bn_src, 0, $bn_offset ), $bn_keys, PREG_SET_ORDER ) ) {
+			for ( $bn_k = count( $bn_keys ) - 1; $bn_k >= 0; $bn_k-- ) {
+				if ( isset( $bn_declared[ $bn_keys[ $bn_k ][1] ] ) ) {
+					$bn_table = $bn_keys[ $bn_k ][1];
+					break;
+				}
+			}
+		}
+
+		// Shape 3: nearest preceding table variable assignment (positional).
 		if ( '' === $bn_table ) {
 			foreach ( $bn_assign as $bn_a ) {
 				if ( (int) $bn_a[1][1] < $bn_offset ) {
