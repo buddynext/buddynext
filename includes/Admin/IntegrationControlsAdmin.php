@@ -89,7 +89,7 @@ class IntegrationControlsAdmin {
 					// bridge's wired seams no-op ("Update needed"); above the
 					// tested version the partner has shipped past what the bridge
 					// was built for, so newer capabilities may not be wired yet
-					// ("Update available" — informational, the bridge still works).
+					// ("Newer partner" — informational, the bridge still works and is due a refresh).
 					$bn_floor  = (string) ( $entry['min_version'] ?? '' );
 					$bn_tested = (string) ( $entry['tested_version'] ?? '' );
 					$bn_stale  = ( '' !== $bn_floor && '' !== $bn_version && version_compare( $bn_version, $bn_floor, '<' ) );
@@ -101,7 +101,8 @@ class IntegrationControlsAdmin {
 							<?php if ( $bn_stale ) : ?>
 								<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Update needed', 'buddynext' ); ?></span>
 							<?php elseif ( $bn_behind ) : ?>
-								<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Update available', 'buddynext' ); ?></span>
+								<?php // "Newer partner", not "Update available": the PARTNER is ahead of the bridge, so the owner has nothing to update - it is BuddyNext's bridge that is due a refresh. The old label sent owners to Plugins to update an already-current plugin (card 10320537769). ?>
+								<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Newer partner', 'buddynext' ); ?></span>
 							<?php else : ?>
 								<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 							<?php endif; ?>

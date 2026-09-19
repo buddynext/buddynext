@@ -67,7 +67,7 @@ Each bridge declares two version fields in its `buddynext_integrations` registry
 
 Three surfaces read them:
 
-1. **Integration Settings** (Settings -> Integration Settings) shows one badge per integration: *Active*, *Update needed* (installed `< min_version`), or *Update available* (installed `> tested_version` — informational; the bridge still works, it is due a refresh).
+1. **Integration Settings** (Settings -> Integration Settings) shows one badge per integration: *Active*, *Update needed* (installed `< min_version`), or *Newer partner* (installed `> tested_version` — informational; the partner is ahead of the bridge, which still works and is due a refresh).
 2. **CLI gate** `wp buddynext bridge-status` walks the registry and prints installed / floor / tested / state per bridge. It exits non-zero when any bridge is below its floor; `--strict` also fails when a partner is ahead of `tested_version`. Run it in CI so bridges cannot silently fall behind as partners ship.
 3. Per-bridge deep audits (what the partner offers vs what the bridge consumes) are tracked as Basecamp cards, not in code.
 
