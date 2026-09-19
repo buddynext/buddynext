@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { sel, urls } from '../_fixtures/selectors';
+import { setRegistrationMode, dbSeedingAvailable } from '../_fixtures/db.fixture';
 
 /**
  * J-04-signup.
@@ -15,6 +16,23 @@ import { sel, urls } from '../_fixtures/selectors';
  * the journey fixme rather than asserting against a non-existent form.
  */
 test.describe('auth / signup', () => {
+    // Open self-registration for the run so the signup form actually renders, then
+    // restore whatever the site had. Without this the specs skip on any site with
+    // users_can_register=0 and the submit path is never exercised. Only when WP-CLI
+    // seeding is available (CI, or BN_WP_PATH locally); otherwise the in-test
+    // form-visibility guard still keeps the run honest.
+    let bnPrevRegistration: 'open' | 'invite' | 'closed' = 'open';
+    test.beforeAll(async () => {
+        if (dbSeedingAvailable()) {
+            bnPrevRegistration = (await setRegistrationMode('open')) as 'open' | 'invite' | 'closed';
+        }
+    });
+    test.afterAll(async () => {
+        if (dbSeedingAvailable()) {
+            await setRegistrationMode(bnPrevRegistration);
+        }
+    });
+
     test('shows registration form on /signup/', async ({ page }) => {
         await page.goto(urls.signup, { waitUntil: 'domcontentloaded' });
 

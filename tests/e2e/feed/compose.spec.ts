@@ -116,7 +116,7 @@ test.describe('feed / compose', () => {
 
         const pollBtn = page.locator(sel.composerModePoll).first();
         if (!(await pollBtn.isVisible().catch(() => false))) {
-            test.fixme(true, 'Poll mode not yet wired in this build  -  fixme until composer exposes data-composer-mode="poll".');
+            test.fixme(true, 'J-14: poll mode not yet wired in this build  -  fixme until the composer exposes data-composer-mode="poll".');
             return;
         }
 

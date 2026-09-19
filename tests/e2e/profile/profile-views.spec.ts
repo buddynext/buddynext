@@ -14,7 +14,7 @@ test.describe('profile / who-viewed widget (Pro P5.3)', () => {
     // Verified on a clean install: another member viewing the profile still left
     // view_count() at 0 with analytics off. Skipped rather than deleted so the
     // missing fixture stays visible instead of reading as a product failure.
-    test.fixme(true, 'Needs the analytics feature enabled AND a seeded profile view.');
+    test.fixme(true, 'J-30: needs the analytics feature enabled AND a seeded profile view (own card - product dependency).');
 
     test('widget renders on own profile', async ({ authenticatedPage: page }) => {
         const user = process.env.BN_TEST_USER ?? 'varundubey';
