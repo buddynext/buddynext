@@ -186,6 +186,19 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		if ( isset( $_GET['settings-updated'] ) && 'true' === sanitize_text_field( wp_unslash( $_GET['settings-updated'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			add_settings_error( 'buddynext_messages', 'buddynext_settings_saved', __( 'Settings saved.', 'buddynext' ), 'updated' );
 		}
+		// Restore-defaults confirmation — the handler redirects back with ?bn_reset=N.
+		if ( isset( $_GET['bn_reset'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$bn_reset_n = (int) $_GET['bn_reset']; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			add_settings_error(
+				'buddynext_messages',
+				'buddynext_settings_reset',
+				$bn_reset_n > 0
+					/* translators: %d: number of settings restored to their default. */
+					? sprintf( _n( '%d setting restored to its default.', '%d settings restored to their defaults.', $bn_reset_n, 'buddynext' ), $bn_reset_n )
+					: __( 'This tab already used the default settings.', 'buddynext' ),
+				'updated'
+			);
+		}
 		settings_errors( 'buddynext_messages' );
 
 		// Tabs with no Settings-API inputs render bare — no options.php form,
@@ -216,6 +229,58 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			?>
 			<?php $this->render_save_bar(); ?>
 		</form>
+		<?php
+		$this->render_restore_defaults( $slug );
+	}
+
+	/**
+	 * Render the "Restore defaults" footer for a settings tab.
+	 *
+	 * Shown only when the tab has at least one resettable, driver-registered
+	 * setting. It sits below the Save bar, away from Save, and posts to the shared
+	 * SettingsDriver handler. A tiny inline script gates the submit behind the shared
+	 * confirm dialog, which lists exactly which settings would change (and says the
+	 * tab is already at defaults when nothing differs) so the reset is never a
+	 * surprise. Owner-data (resettable => false) is never listed and never reset.
+	 *
+	 * @param string $slug Tab slug.
+	 * @return void
+	 */
+	private function render_restore_defaults( string $slug ): void {
+		$fields = \BuddyNext\Admin\Settings\SettingsDriver::resettable_fields_for_tab( $slug );
+		if ( empty( $fields ) ) {
+			return;
+		}
+
+		$preview = \BuddyNext\Admin\Settings\SettingsDriver::tab_reset_preview( $slug );
+		$payload = wp_json_encode(
+			array(
+				'changes'   => $preview['changes'],
+				'unchanged' => $preview['unchanged'],
+				'i18n'      => array(
+					'title'     => __( 'Restore default settings?', 'buddynext' ),
+					'confirm'   => __( 'Restore defaults', 'buddynext' ),
+					'cancel'    => __( 'Cancel', 'buddynext' ),
+					'intro'     => __( 'These settings on this tab will return to their defaults:', 'buddynext' ),
+					'current'   => __( 'now', 'buddynext' ),
+					'toDefault' => __( 'default', 'buddynext' ),
+					'noChange'  => __( 'This tab already uses the default settings. Nothing to restore.', 'buddynext' ),
+					'ownerNote' => __( 'Your data (names, banned words, keys, page mappings) is never reset.', 'buddynext' ),
+				),
+			)
+		);
+		?>
+		<div class="bn-settings-restore">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-restore__form">
+				<input type="hidden" name="action" value="<?php echo esc_attr( \BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION ); ?>">
+				<input type="hidden" name="tab" value="<?php echo esc_attr( $slug ); ?>">
+				<input type="hidden" name="section" value="settings">
+				<?php wp_nonce_field( \BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION . '_' . $slug ); ?>
+				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-restore-defaults="<?php echo esc_attr( (string) $payload ); ?>">
+					<?php esc_html_e( 'Restore defaults', 'buddynext' ); ?>
+				</button>
+			</form>
+		</div>
 		<?php
 	}
 
@@ -2068,6 +2133,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// those descriptors. The three array options below are registered
 		// explicitly because they carry bespoke composite UI.
 		SettingsDriver::register_page( $this, 'buddynext' );
+		// Wire the shared "Restore defaults" admin-post handler once (idempotent).
+		SettingsDriver::boot();
 
 		// FeatureRegistry catalog persisted as a single map of slug=>bool.
 		// Mandatory features are filtered out by the registry; only

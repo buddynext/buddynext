@@ -97,3 +97,13 @@
 .bn-settings select.bn-input {
 	min-block-size: 40px;
 }
+
+/* Restore-defaults footer: a low-emphasis action below the Save bar, clearly
+   separated from it so it is never mistaken for Save (card 9995933507). */
+.bn-settings-restore {
+	margin-top: var(--bn-s4, 1rem);
+	padding-top: var(--bn-s4, 1rem);
+	border-top: 1px solid var(--bn-line, #e2e4e7);
+	display: flex;
+	justify-content: flex-end;
+}
