@@ -185,8 +185,19 @@ class IsolationAdmin {
 			<div class="bn-settings-section<?php echo $bn_isolation_on ? '' : ' is-inactive'; ?>">
 				<div class="bn-ss-header">
 					<span class="bn-ss-title"><?php esc_html_e( 'Plugins on this site', 'buddynext' ); ?></span>
-					<?php // Off => nothing is actually skipped, so the count is neutral, not a warning. ?>
-					<span class="bn-badge" data-tone="<?php echo $bn_isolation_on ? 'warn' : 'neutral'; ?>"><?php echo esc_html( (string) count( $bn_stripped ) ); ?></span>
+					<?php
+					// The badge counts the plugins TICKED to skip, not the plugins on the
+					// site — a bare number here read as "0 plugins on this site" above a
+					// list of five (card 10320514650). Label what it counts. Off => nothing
+					// is actually skipped yet, so the count stays neutral, not a warning.
+					$bn_skip_count = count( $bn_stripped );
+					?>
+					<span class="bn-badge" data-tone="<?php echo $bn_isolation_on ? 'warn' : 'neutral'; ?>">
+						<?php
+						/* translators: %d: number of plugins the owner has selected to skip on BuddyNext routes. */
+						echo esc_html( sprintf( _n( '%d to skip', '%d to skip', $bn_skip_count, 'buddynext' ), $bn_skip_count ) );
+						?>
+					</span>
 				</div>
 				<div class="bn-ss-body">
 					<?php if ( ! $bn_isolation_on ) : ?>
