@@ -1201,7 +1201,17 @@ class Installer {
 		// opted in is already at the current schema and never reaches this step.
 		self::maybe_clear_unconsented_tracking( $bn_stored_schema );
 
-		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+		// run() is authoritative on the schema version: it stamps it when the schema
+		// is healthy and deliberately WITHHOLDS it when install_schema() recorded a
+		// failure (a missing table/column, or an index widen that did not take).
+		// Re-stamping unconditionally here overrode that withhold, marking a broken
+		// schema as fully upgraded - and because schema_intact() never issues SHOW
+		// INDEX, a failed widen was then never retried on any later request (cards
+		// 10320909157 / 10320514361). So only advance the version when run() left no
+		// failure recorded; otherwise leave it behind so the next pass retries.
+		if ( false === get_option( self::SCHEMA_FAILURE_OPTION, false ) ) {
+			update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+		}
 	}
 
 	/**
