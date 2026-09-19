@@ -380,6 +380,13 @@ py_gate bin/check-public-hook-docs.py "a hook promised with @since is missing fr
 section "Cookbook hooks resolve"
 py_gate bin/check-cookbook-hooks.py "a cookbook recipe calls a buddynext_* hook/service that exists nowhere in Free or Pro"
 
+# check-tab-url.py gates admin CTA routing: every AdminHub::tab_url('section','tab')
+# must resolve to a tab actually registered + placed in that section, so a moved or
+# renamed subtab is a build failure, not a live owner CTA that lands on the wrong
+# screen (the class behind the monetization 403 — cards 10264294727 / 10264294456).
+section "Admin tab_url() resolves"
+py_gate bin/check-tab-url.py "an AdminHub::tab_url() call points at a tab that is not registered in that section"
+
 # 3b-i-b. Interactivity directive paths — BLOCKING, and green as of this commit.
 #
 # A directive value is resolved as a PROPERTY PATH (optionally prefixed with one "!"), never
