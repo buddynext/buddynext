@@ -339,4 +339,55 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame( 1, $survives, 'event 600 is not matched by a 60 removal (exact id, not a LIKE)' );
 	}
+
+	/**
+	 * withdraw_by_meta()/restore_by_meta() move every card for one partner id between
+	 * hidden and live WITHOUT deleting — an event's organizer + attendee cards
+	 * withdrawn together when it is cancelled and restored together when reinstated,
+	 * same ids and comments. A different id sharing a digit prefix is untouched.
+	 *
+	 * @return void
+	 */
+	public function test_withdraw_and_restore_by_meta_move_the_whole_set_reversibly(): void {
+		global $wpdb;
+
+		IntegrationActivity::publish( $this->member_id, 'scheduled an event', 'https://example.test/ev/a/', 'A', 'event', '', 0, array( 'event_id' => 70 ) );
+		IntegrationActivity::publish( $this->member_id, 'is attending', 'https://example.test/ev/a/?bn_rsvp=5', 'A', 'event', '', 0, array( 'event_id' => 70 ) );
+		IntegrationActivity::publish( $this->member_id, 'scheduled an event', 'https://example.test/ev/b/', 'B', 'event', '', 0, array( 'event_id' => 700 ) );
+
+		$published_70 = static function () use ( $wpdb ): int {
+			return (int) $wpdb->get_var(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts p
+				 WHERE type = 'event' AND status = 'published'
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, '$.event_id' ) ) AS UNSIGNED ) = 70"
+			);
+		};
+		$ids_70 = static function () use ( $wpdb ): array {
+			return array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					"SELECT id FROM {$wpdb->prefix}bn_posts
+					 WHERE type = 'event'
+					   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, '$.event_id' ) ) AS UNSIGNED ) = 70
+					 ORDER BY id"
+				)
+			);
+		};
+
+		$this->assertSame( 2, $published_70(), 'both event-70 cards start on the feed' );
+		$before = $ids_70();
+
+		// Withdraw the whole event-70 set.
+		$this->assertSame( 2, IntegrationActivity::withdraw_by_meta( 'event', 'event_id', 70 ) );
+		$this->assertSame( 0, $published_70(), 'both event-70 cards leave the feed' );
+		$this->assertSame( $before, $ids_70(), 'the rows are preserved, not deleted' );
+		// A prefix-sharing id (700) is untouched by a 70 withdrawal.
+		$status_700 = (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$wpdb->prefix}bn_posts WHERE type = 'event' AND link_url = %s", 'https://example.test/ev/b/' ) );
+		$this->assertSame( 'published', $status_700, 'event 700 is not touched by a 70 withdrawal (exact id, not a LIKE)' );
+
+		// Restore the set — same ids, back on the feed.
+		$this->assertSame( 2, IntegrationActivity::restore_by_meta( 'event', 'event_id', 70 ) );
+		$this->assertSame( 2, $published_70(), 'both event-70 cards are back on the feed' );
+		$this->assertSame( $before, $ids_70(), 'the SAME card ids — no duplicates, no orphaned comments' );
+	}
 }

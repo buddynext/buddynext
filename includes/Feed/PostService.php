@@ -2504,6 +2504,51 @@ class PostService {
 	}
 
 	/**
+	 * Move every card of a type between two statuses, matched by an integer field in
+	 * `link_meta` — the by-meta counterpart of transition_link_status(), for a bridge
+	 * whose per-entity cards are keyed by a stamped id (e.g. every card of an event by
+	 * its event_id) rather than by URL.
+	 *
+	 * The reversible alternative to delete_by_link_meta_int(): flip status instead of
+	 * deleting, so a withdrawn set (an event's organizer + attendee cards while it is
+	 * cancelled) survives to be restored when the entity is public again. Guarded on
+	 * the current status ($from) so it never fights moderation.
+	 *
+	 * @param string $type     Post type marker (e.g. 'event').
+	 * @param string $meta_key link_meta field name (e.g. 'event_id').
+	 * @param int    $value    Value to match.
+	 * @param string $from     Status the card must currently be in.
+	 * @param string $to       Status to move it to.
+	 * @return int Rows moved.
+	 */
+	public function transition_link_meta_status( string $type, string $meta_key, int $value, string $from, string $to ): int {
+		if ( '' === $type || '' === $meta_key || '' === $from || '' === $to ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$moved = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET status = %s
+				 WHERE type = %s AND status = %s
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
+				$to,
+				$type,
+				$from,
+				'$.' . $meta_key,
+				$value
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return is_int( $moved ) ? $moved : 0;
+	}
+
+	/**
 	 * Delete every post of a type whose `link_meta` carries an integer field equal
 	 * to a value — e.g. remove all of an integration's cards for one source entity
 	 * by the id it stamped on them.

@@ -312,6 +312,43 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Withdraw EVERY card a partner entity stamped with an id (the reversible
+	 * counterpart of remove_by_meta): flip each from 'published' to 'draft', hidden
+	 * from every feed but preserved, so a later restore_by_meta() brings the whole set
+	 * back. For an entity whose per-item cards are keyed by a shared id — an event's
+	 * organizer card plus each attendee's — withdrawn together when the event is
+	 * cancelled and restored together when it is reinstated.
+	 *
+	 * @param string $type     Card post type (e.g. 'event').
+	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
+	 * @param int    $value    The partner id whose cards to withdraw.
+	 * @return int Rows withdrawn.
+	 */
+	public static function withdraw_by_meta( string $type, string $meta_key, int $value ): int {
+		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
+			return 0;
+		}
+		return ( new PostService() )->transition_link_meta_status( $type, $meta_key, $value, 'published', 'draft' );
+	}
+
+	/**
+	 * Bring back every card withdraw_by_meta() withdrew for a partner id — flip each
+	 * 'draft' card back to 'published', same ids/dates/comments. Cards a moderator
+	 * moved to under_review are left alone.
+	 *
+	 * @param string $type     Card post type (e.g. 'event').
+	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
+	 * @param int    $value    The partner id whose cards to restore.
+	 * @return int Rows restored.
+	 */
+	public static function restore_by_meta( string $type, string $meta_key, int $value ): int {
+		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
+			return 0;
+		}
+		return ( new PostService() )->transition_link_meta_status( $type, $meta_key, $value, 'draft', 'published' );
+	}
+
+	/**
 	 * Render the uniform integration feed card for a typed bridge post.
 	 *
 	 * The single card style every bridge shares: an icon + a source label + the
