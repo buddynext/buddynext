@@ -2339,6 +2339,12 @@ class Installer {
 		// INFORMATION_SCHEMA existence check. Safe to run on every activation.
 		self::maybe_alter_tables( $wpdb->prefix );
 
+		// Widen indexes whose column set changed in a later schema. dbDelta only
+		// CREATES a missing index; it cannot alter one already present, so a widened
+		// index has to be dropped and recreated directly. Runs AFTER the column
+		// back-fills so any column a widened index references already exists.
+		self::maybe_widen_indexes( $wpdb->prefix );
+
 		// FULLTEXT index for the search service. Skipped under the PHPUnit harness:
 		// WP_UnitTestCase wraps each test in a transaction that is rolled back, and
 		// InnoDB FULLTEXT does not index uncommitted rows, so MATCH ... AGAINST would
@@ -2587,6 +2593,54 @@ class Installer {
 	}
 
 	/**
+	 * Recreate indexes whose column set widened in a later schema.
+	 *
+	 * WordPress's dbDelta only ever CREATES a missing index; it cannot alter one
+	 * already present. So when a shipped index gains a column (here
+	 * bn_comments.reply_lookup went from (parent_id, is_deleted) to
+	 * (parent_id, is_deleted, is_hidden) in schema 58), dbDelta on an existing
+	 * install could never apply the change: it
+	 * kept re-issuing the ADD on every maybe_upgrade() — which runs on admin_init —
+	 * and the wider index the reply-visibility query needs was never in place. That
+	 * is both the idempotence failure (dbDelta never converges) and a hot-path cost
+	 * (a failed ALTER every admin request).
+	 *
+	 * Each entry drops the stale index and recreates it in one atomic ALTER, only
+	 * when it exists but does not yet cover the added column. No-op on a fresh
+	 * install (dbDelta creates the index at full width) and on one already widened.
+	 * Runs after {@see maybe_alter_tables()} so the referenced column exists.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_widen_indexes( string $p ): void {
+		global $wpdb;
+
+		// table => [ index, [columns...], the column whose late addition widened it ].
+		$widenings = array(
+			array( $p . 'bn_comments', 'reply_lookup', array( 'parent_id', 'is_deleted', 'is_hidden' ), 'is_hidden' ),
+		);
+
+		foreach ( $widenings as $w ) {
+			list( $table, $index, $columns, $added ) = $w;
+
+			// Only act when the index is present but predates the added column, and
+			// the column itself exists (so the recreate cannot reference a missing one).
+			if ( ! self::index_exists( $table, $index )
+				|| ! self::column_exists( $table, $added )
+				|| self::index_covers_column( $table, $index, $added ) ) {
+				continue;
+			}
+
+			// Index/column names are identifiers, not prepare() placeholders; every
+			// part here is a hardcoded constant, so there is no untrusted input.
+			$cols = implode( ', ', $columns );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` DROP INDEX `{$index}`, ADD KEY `{$index}` ({$cols})" );
+		}
+	}
+
+	/**
 	 * Whether an ENUM column already permits a given value.
 	 *
 	 * Reads COLUMN_TYPE (e.g. `enum('published','draft')`) and looks for the
@@ -2670,6 +2724,38 @@ class Installer {
 				DB_NAME,
 				$table,
 				$index
+			)
+		);
+
+		return null !== $found;
+	}
+
+	/**
+	 * Whether a named index on a table already covers a given column.
+	 *
+	 * Lets a fixup tell an index that needs widening (a column added to it in a
+	 * later schema) from one already carrying that column, so the drop-and-recreate
+	 * only fires when it actually has to. dbDelta cannot alter an existing index, so
+	 * widening one on a pre-existing table has to be done directly.
+	 *
+	 * @param string $table  Fully-prefixed table name.
+	 * @param string $index  Index name.
+	 * @param string $column Column the index should include.
+	 * @return bool
+	 */
+	private static function index_covers_column( string $table, string $index, string $column ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND INDEX_NAME = %s AND COLUMN_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$table,
+				$index,
+				$column
 			)
 		);
 
