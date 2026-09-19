@@ -65,28 +65,28 @@ class AdminHub {
 			// it, keeping it healthy, and money. Configuration (Platform, Settings)
 			// sits at the bottom, where owners go occasionally; Upgrade is last (it is
 			// a link out).
-			'get-started'   => array(
+			'get-started'          => array(
 				'slug'  => 'buddynext',
 				'label' => __( 'Get Started', 'buddynext' ),
 				'icon'  => 'sparkles',
 				'top'   => true,
 			),
-			'members'       => array(
+			'members'              => array(
 				'slug'  => 'buddynext-members',
 				'label' => __( 'Members', 'buddynext' ),
 				'icon'  => 'users',
 			),
-			'spaces'        => array(
+			'spaces'               => array(
 				'slug'  => 'buddynext-spaces',
 				'label' => __( 'Spaces', 'buddynext' ),
 				'icon'  => 'grid',
 			),
-			'engagement'    => array(
+			'engagement'           => array(
 				'slug'  => 'buddynext-engagement',
 				'label' => __( 'Engagement', 'buddynext' ),
 				'icon'  => 'heart',
 			),
-			'notifications' => array(
+			'notifications'        => array(
 				'slug'  => 'buddynext-notifications',
 				'label' => __( 'Notifications', 'buddynext' ),
 				'icon'  => 'bell',
@@ -96,37 +96,47 @@ class AdminHub {
 			// (Rules, AI, Bulk, Log). The former "Moderation Tools" (automod) section
 			// wrapper was retired and its four tabs merged in — one place to keep a
 			// community healthy instead of two.
-			'moderation'    => array(
+			'moderation'           => array(
 				'slug'  => 'buddynext-moderation',
 				'label' => __( 'Moderation', 'buddynext' ),
 				'icon'  => 'shield',
 			),
-			'monetization'  => array(
+			'monetization'         => array(
 				'slug'  => 'buddynext-monetization',
 				'label' => __( 'Monetization', 'buddynext' ),
 				'icon'  => 'store',
 			),
-			'campaigns'     => array(
+			'campaigns'            => array(
 				'slug'  => 'buddynext-campaigns',
 				'label' => __( 'Campaigns', 'buddynext' ),
 				'icon'  => 'megaphone',
 			),
-			'realtime'      => array(
+			'realtime'             => array(
 				'slug'  => 'buddynext-realtime',
 				'label' => __( 'Realtime & Push', 'buddynext' ),
 				'icon'  => 'zap',
 			),
-			'platform'      => array(
+			'platform'             => array(
 				'slug'  => 'buddynext-platform',
 				'label' => __( 'Platform', 'buddynext' ),
 				'icon'  => 'layers',
 			),
-			'settings'      => array(
+			// Integration Settings is its own top-level section, not a tab under
+			// Platform (owner decision 3 on card 10114177928): managing the family
+			// bridges is a distinct owner task from the raw platform plumbing
+			// (Features, Add-ons, Tools, Webhooks, Plugin isolation). It sits next to
+			// Platform, in the configuration band at the bottom.
+			'integration-settings' => array(
+				'slug'  => 'buddynext-integration-settings',
+				'label' => __( 'Integration Settings', 'buddynext' ),
+				'icon'  => 'link',
+			),
+			'settings'             => array(
 				'slug'  => 'buddynext-settings',
 				'label' => __( 'Settings', 'buddynext' ),
 				'icon'  => 'settings',
 			),
-			'upgrade'       => array(
+			'upgrade'              => array(
 				'slug'  => 'buddynext-upgrade',
 				'label' => __( 'Upgrade', 'buddynext' ),
 				'icon'  => 'rocket',
@@ -181,8 +191,16 @@ class AdminHub {
 			'position' => 20,
 		),
 		'settings:integration-controls' => array(
-			'section'  => 'platform',
-			'position' => 25,
+			'section'  => 'integration-settings',
+			'position' => 10,
+		),
+		// A live bookmark to the tab's transient home under Platform (where it sat
+		// earlier in the 1.2.1 IA reorg, before it earned its own section) forwards
+		// to the new section via redirect_relocated_tabs(). The stable registration
+		// URL (settings:integration-controls) is already covered by the settings row
+		// above; this covers the platform one.
+		'platform:integration-controls' => array(
+			'section' => 'integration-settings',
 		),
 		'settings:tools'                => array(
 			'section'  => 'platform',
@@ -1771,7 +1789,6 @@ class AdminHub {
 			'realtime'      => 'engagement/03-realtime-updates/',
 			'campaigns'     => 'pro/',
 			'moderation'    => 'moderation/',
-			'automod'       => 'pro/14-auto-moderation/',
 			'monetization'  => 'pro/01-membership-plans/',
 		);
 		$tab_overrides    = array(

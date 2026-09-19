@@ -41,6 +41,7 @@ class RelocatedTabRedirectTest extends WP_UnitTestCase {
 		'campaigns',
 		'realtime',
 		'platform',
+		'integration-settings',
 		'settings',
 		'upgrade',
 	);
@@ -121,5 +122,26 @@ class RelocatedTabRedirectTest extends WP_UnitTestCase {
 
 		$this->assertStringContainsString( 'page=buddynext-moderation', $url );
 		$this->assertStringContainsString( 'tab=reports', $url );
+	}
+
+	/**
+	 * Integration Settings is its own top-level section, and the integration-controls
+	 * tab resolves there — not under Platform (owner decision 3, card 10114177928).
+	 *
+	 * @return void
+	 */
+	public function test_integration_controls_lives_in_its_own_section(): void {
+		$this->assertContains( 'integration-settings', array_keys( AdminHub::sections() ), 'Integration Settings must be a top-level section.' );
+
+		// The tab registers under `settings`; its URL must now resolve to the new
+		// Integration Settings page, and no longer to Platform.
+		$url = AdminHub::tab_url( 'settings', 'integration-controls' );
+		$this->assertStringContainsString( 'page=buddynext-integration-settings', $url, 'integration-controls must render under Integration Settings.' );
+		$this->assertStringContainsString( 'tab=integration-controls', $url );
+		$this->assertStringNotContainsString( 'page=buddynext-platform', $url, 'integration-controls must no longer resolve under Platform.' );
+
+		// The former Platform home of the tab forwards to the new section too.
+		$from_platform = AdminHub::tab_url( 'platform', 'integration-controls' );
+		$this->assertStringContainsString( 'page=buddynext-integration-settings', $from_platform, 'a Platform bookmark for the tab forwards to Integration Settings.' );
 	}
 }
