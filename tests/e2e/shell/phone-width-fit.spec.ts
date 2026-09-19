@@ -64,3 +64,75 @@ test('J-817 no page scrolls sideways at phone width', async ({ page }, testInfo)
         }
     }
 });
+
+/**
+ * J-819 the composer submit row fits a phone screen with a restored draft.
+ *
+ * The submit row holds the character count, privacy chip and Post, and fits on one
+ * line — until a restored draft adds the "Draft restored" notice + discard button,
+ * which pushed Post off the right edge and gave the page sideways scroll
+ * (card 10320487920). At phone width the draft cluster must drop to its own line so
+ * Post stays fully on-screen and the page does not scroll sideways.
+ *
+ * Runs on the mobile project only (390px).
+ */
+test('J-819 composer submit row fits phone width with a restored draft', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile', 'Phone-width journey.');
+    await loginAs(page, MEMBER);
+    await page.goto('/activity/');
+    await page.waitForLoadState('load');
+
+    const result = await page.evaluate(() => {
+        const draft = document.querySelector('.bn-composer__draft') as HTMLElement | null;
+        const status = document.querySelector('.bn-composer__draft-status');
+        const discard = document.querySelector('.bn-composer__draft-discard') as HTMLElement | null;
+        const post = document.querySelector('.bn-composer__submit') as HTMLElement | null;
+        if (!draft || !post) {
+            return { ok: false as const };
+        }
+        // Force the "Draft restored" state the composer shows after leaving and
+        // returning to a started post (Interactivity normally toggles `hidden`).
+        draft.hidden = false;
+        draft.removeAttribute('hidden');
+        if (status) {
+            status.textContent = 'Draft restored';
+        }
+        if (discard) {
+            discard.hidden = false;
+            discard.removeAttribute('hidden');
+        }
+        void draft.offsetWidth;
+        const vw = window.innerWidth;
+        const postRect = post.getBoundingClientRect();
+        const draftRect = draft.getBoundingClientRect();
+        return {
+            ok: true as const,
+            overflow: document.documentElement.scrollWidth - vw,
+            postRight: Math.round(postRect.right),
+            vw,
+            postFullyVisible: postRect.right <= vw + 1 && postRect.left >= -1,
+            draftReadable: (status?.textContent ?? '').trim().length > 0,
+            // The fix drops the draft cluster to its OWN line above the controls at
+            // phone width; measuring this (rather than a theme-specific overflow) makes
+            // the guard hold on any theme, including ones whose composer would not have
+            // overflowed. Without the fix the draft sits inline with Post (same line).
+            draftOnItsOwnLine: Math.round(draftRect.bottom) <= Math.round(postRect.top) + 1,
+        };
+    });
+
+    expect(result.ok, 'the activity composer is present for a signed-in member').toBeTruthy();
+    if (!result.ok) {
+        return;
+    }
+    // Outcome: with the draft showing, the page still does not scroll sideways and
+    // Post is fully on-screen.
+    expect(
+        result.overflow,
+        `page must not scroll sideways with a restored draft (Post right=${result.postRight}, viewport=${result.vw})`
+    ).toBeLessThanOrEqual(1);
+    expect(result.postFullyVisible, 'the Post button is fully inside the viewport').toBeTruthy();
+    expect(result.draftReadable, 'the Draft restored notice is still readable').toBeTruthy();
+    // Mechanism (theme-independent): the draft cluster is on its own line above the
+    // controls, which is what keeps Post on-screen however wide the theme's composer.
+    expect(result.draftOnItsOwnLine, 'the draft cluster drops to its own line at phone width').toBeTruthy();
+});
