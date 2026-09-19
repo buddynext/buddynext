@@ -577,9 +577,16 @@ class JetonomyBridge {
 			&& (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
 			if ( $is_public ) {
 				$excerpt = wp_trim_words( wp_strip_all_tags( $content ), 30, '…' );
+				// Bring back a card that a previous unpublish WITHDREW (set to draft) —
+				// the same id, original date, reactions and comments — rather than
+				// minting a new one that resurfaces a months-old thread as new and
+				// orphans every reply keyed on the old card id (card 10320560928).
+				$restored = IntegrationActivity::restore( $url, 'discussion' );
 				// refresh() merges into the card's link_meta (title/description are
-				// what the card renders) and returns false when no card matched —
-				// i.e. the topic was private/draft before and now needs one.
+				// what the card renders) and matches the card whatever its status, so
+				// it also covers an ordinary edit of an already-published card. It
+				// returns false only when NO card exists at all — the topic was
+				// private/draft from the start and now needs its first card.
 				$refreshed = IntegrationActivity::refresh(
 					$url,
 					'discussion',
@@ -588,7 +595,7 @@ class JetonomyBridge {
 						'description' => $excerpt,
 					)
 				);
-				if ( ! $refreshed ) {
+				if ( ! $restored && ! $refreshed ) {
 					IntegrationActivity::publish(
 						$author_id,
 						__( 'started a discussion', 'buddynext' ),
@@ -600,9 +607,12 @@ class JetonomyBridge {
 					);
 				}
 			} else {
-				// Edited from public to private / draft / trash — pull the card that
-				// leaked into the public feed while it was public.
-				IntegrationActivity::remove( $url, 'discussion' );
+				// Edited from public to private / draft / trash — WITHDRAW the card
+				// (reversible: it goes to 'draft', hidden from every feed but its row,
+				// date and comments preserved) rather than deleting it. A later
+				// republish restores this exact card. Deleting instead destroyed the
+				// card and orphaned its comments (card 10320560928).
+				IntegrationActivity::withdraw( $url, 'discussion' );
 			}
 		}
 
@@ -611,11 +621,18 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Remove a deleted Jetonomy discussion from BuddyNext surfaces.
+	 * Withdraw a TRASHED Jetonomy discussion from BuddyNext surfaces, reversibly.
 	 *
 	 * Hooked on: jetonomy_post_deleted( int $post_id, int $space_id, int $user_id )
 	 *
-	 * Deletes the bn_search_index entry and the discussion's feed activity.
+	 * Despite the hook name, jetonomy "delete" is a SOFT delete — the REST endpoint
+	 * runs Post::update( status => trash ), the jt_posts row survives, and restoring
+	 * from trash is Post::update( status => publish ), which fires jetonomy_post_updated
+	 * and lands in on_post_updated(). So this drops the search-index entry (re-added on
+	 * restore by on_post_updated) and WITHDRAWS the feed card rather than deleting it:
+	 * the card goes to 'draft' (hidden from every feed) with its id, date, reactions and
+	 * comments intact, and a restore brings the exact same card back. Deleting instead
+	 * destroyed the card and orphaned every comment on it (card 10320560928).
 	 *
 	 * @param int $post_id  Jetonomy discussion ID.
 	 * @param int $space_id Jetonomy space ID (used to rebuild the discussion URL).
@@ -626,6 +643,7 @@ class JetonomyBridge {
 
 		// Remove from search index. Jetonomy "delete" is a soft-delete (status →
 		// trash), so the jt_posts/jt_spaces rows still exist and the URL resolves.
+		// on_post_updated() re-indexes it when the discussion is restored to public.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_search_index',
@@ -637,10 +655,11 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// Remove the feed activity for this discussion.
+		// Withdraw (not delete) the feed card, so a restore from trash brings back
+		// this exact card and its comments rather than minting a new one.
 		$url = $this->discussion_url( $post_id, $space_id );
 		if ( '' !== $url ) {
-			IntegrationActivity::remove( $url, 'discussion' );
+			IntegrationActivity::withdraw( $url, 'discussion' );
 		}
 
 		// Deleting a discussion drops the author's published count — invalidate the

@@ -2459,6 +2459,51 @@ class PostService {
 	}
 
 	/**
+	 * Move an integration card between two statuses, matched by type + external link.
+	 *
+	 * The reversible alternative to delete_by_link() for a partner entity that was
+	 * withdrawn rather than destroyed (a discussion set back to draft, a media item
+	 * trashed): flip the card's status instead of deleting the row, so its id, date,
+	 * reactions and comments survive the round trip. `readable => false` statuses are
+	 * kept out of every feed (feeds filter status='published'), so a 'draft' card is
+	 * hidden exactly as a deleted one was, but comes back on restore.
+	 *
+	 * The transition is guarded on the CURRENT status ($from), which is what keeps it
+	 * from fighting moderation: a card a moderator hid to 'under_review' is neither
+	 * 'published' (so withdraw skips it) nor 'draft' (so restore skips it), and an
+	 * author toggling the source cannot override that hold.
+	 *
+	 * @param string $type     Post type marker (e.g. 'discussion').
+	 * @param string $link_url Canonical link the card points at.
+	 * @param string $from     Status the card must currently be in for the move to apply.
+	 * @param string $to       Status to move it to.
+	 * @return int Rows moved (0 when no card matched in the $from status).
+	 */
+	public function transition_link_status( string $type, string $link_url, string $from, string $to ): int {
+		if ( '' === $type || '' === $link_url || '' === $from || '' === $to ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$moved = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'status' => $to ),
+			array(
+				'type'     => $type,
+				'link_url' => $link_url,
+				'status'   => $from,
+			),
+			array( '%s' ),
+			array( '%s', '%s', '%s' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_int( $moved ) ? $moved : 0;
+	}
+
+	/**
 	 * Delete every post of a type whose `link_meta` carries an integer field equal
 	 * to a value — e.g. remove all of an integration's cards for one source entity
 	 * by the id it stamped on them.

@@ -207,6 +207,7 @@ class WPMediaVerseBridge {
 		add_filter( 'mvs_has_custom_avatar', array( $this, 'profile_avatar_flag' ), 10, 2 );
 
 		add_filter( 'mvs_document_drive_access', array( $this, 'space_drive_access' ), 10, 4 );
+
 		/*
 		 * NOT DEAD CODE, though a sweep will read them that way. These three answer
 		 * live MVS REST seams that BuddyNext's OWN Files tab happens to bypass
@@ -694,7 +695,11 @@ class WPMediaVerseBridge {
 	public function on_media_trashed( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
 		$permalink = (string) $permalink;
 		if ( '' !== $permalink ) {
-			IntegrationActivity::remove( $permalink, 'media' );
+			// Withdraw, not delete: trash is reversible (on_media_restored), so the
+			// card goes to 'draft' — hidden from feeds but its id, date, reactions and
+			// comments preserved — and restore brings back the exact same card rather
+			// than orphaning its comments and resurfacing it as new (card 10320560928).
+			IntegrationActivity::withdraw( $permalink, 'media' );
 		}
 	}
 
@@ -713,10 +718,20 @@ class WPMediaVerseBridge {
 	 * @param string $permalink The media's permalink (unused; resolved in publish).
 	 * @return void
 	 */
-	public function on_media_restored( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+	public function on_media_restored( $media_id, $author_id = 0, $permalink = '' ): void {
 		$media_id  = (int) $media_id;
 		$author_id = (int) $author_id;
 		if ( $media_id <= 0 || $author_id <= 0 ) {
+			return;
+		}
+
+		// Bring back the exact card on_media_trashed withdrew — same id, date and
+		// comments. Only fall through to a fresh publish when there was no withdrawn
+		// card to restore (e.g. the media/feed toggle was off when it was trashed, so
+		// a card was never created), where publish_media_activity re-applies every
+		// gate the original publish had.
+		$permalink = (string) $permalink;
+		if ( '' !== $permalink && IntegrationActivity::restore( $permalink, 'media' ) ) {
 			return;
 		}
 

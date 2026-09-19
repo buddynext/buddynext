@@ -210,6 +210,48 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Withdraw a card whose partner entity was UNPUBLISHED, not destroyed.
+	 *
+	 * The reversible counterpart to remove(): a discussion set back to draft, a
+	 * media item trashed. Instead of deleting the row — which drops the card's id,
+	 * date, reactions and every comment members left on it, then forces a brand-new
+	 * card (dated now) if the entity is republished — this flips the card to 'draft',
+	 * which is hidden from every feed but preserved for restore(). Only a currently
+	 * 'published' card is withdrawn, so a moderator's under_review hold is never
+	 * disturbed. Idempotent: a second withdraw is a no-op.
+	 *
+	 * @param string $link_url The partner page the card links to.
+	 * @param string $type     Post type the card was stored as (same as at publish()).
+	 * @return bool True when a live card was withdrawn.
+	 */
+	public static function withdraw( string $link_url, string $type = 'link' ): bool {
+		if ( '' === $link_url ) {
+			return false;
+		}
+		return ( new PostService() )->transition_link_status( '' !== $type ? $type : 'link', $link_url, 'published', 'draft' ) > 0;
+	}
+
+	/**
+	 * Bring back a card withdrawn by withdraw() when its partner entity is republished.
+	 *
+	 * Flips a 'draft' card back to 'published' IN PLACE — same id, same original date,
+	 * same reactions and comments — so a public → draft → public round trip no longer
+	 * resurfaces the thread as new or orphans its replies. Only a 'draft' card is
+	 * restored, so a card a moderator moved to under_review stays hidden. Returns
+	 * false when no withdrawn card matched (the caller then publishes a fresh one).
+	 *
+	 * @param string $link_url The partner page the card links to.
+	 * @param string $type     Post type the card was stored as.
+	 * @return bool True when a withdrawn card was restored.
+	 */
+	public static function restore( string $link_url, string $type = 'link' ): bool {
+		if ( '' === $link_url ) {
+			return false;
+		}
+		return ( new PostService() )->transition_link_status( '' !== $type ? $type : 'link', $link_url, 'draft', 'published' ) > 0;
+	}
+
+	/**
 	 * Re-write the stored snapshot on a card that already exists.
 	 *
 	 * The companion publish() needs — and the reason a bridge cannot simply "publish
