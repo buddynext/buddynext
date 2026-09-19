@@ -2330,14 +2330,22 @@ class Installer {
 
 			$after = (string) $wpdb->last_error;
 
-			if ( '' !== $after && $after !== $before ) {
+			// A "Duplicate key name" is NOT an install failure: the index already
+			// exists. dbDelta cannot ALTER an index, so when a key's declaration has
+			// widened away from the one already on the table (dir_name / reply_lookup
+			// mid-upgrade), dbDelta re-issues the ADD and MySQL refuses with this
+			// error — while the key is present the whole time. Recording it withheld
+			// the version stamp for an index maybe_widen_indexes() then recreated
+			// correctly in the SAME pass, and armed the one-hour back-off (card
+			// 10320726618). The honesty check after maybe_widen_indexes() re-records a
+			// real failure if a widen we own did not actually take; a genuinely
+			// missing table/column still records here.
+			if ( '' !== $after && $after !== $before && ! self::schema_error_is_benign( $after ) ) {
 				$table            = preg_match( '/CREATE TABLE ([a-z0-9_]+)/i', $sql, $m ) ? $m[1] : '?';
 				$errors[ $table ] = $after;
 			}
 		}
 		$wpdb->suppress_errors( false );
-
-		self::$last_schema_errors = $errors;
 
 		// Idempotent column back-fills for existing installs. dbDelta handles
 		// most additive changes, but enum/charset edge cases on older MySQL can
@@ -2350,6 +2358,25 @@ class Installer {
 		// index has to be dropped and recreated directly. Runs AFTER the column
 		// back-fills so any column a widened index references already exists.
 		self::maybe_widen_indexes( $wpdb->prefix );
+
+		// Honesty check for the benign "Duplicate key name" filter in the dbDelta
+		// loop above: those errors were dropped because maybe_widen_indexes() owns the
+		// widened indexes and has just recreated them. If a widen it was meant to
+		// apply did NOT take — the index still exists but predates its widening column
+		// — the schema really is wrong, so record it as a genuine failure and let
+		// run() withhold the version stamp. Only fires when the table and column both
+		// exist (an upgrade), so a fresh install whose CREATE TABLE already carries
+		// the full index never trips it.
+		foreach ( self::index_widenings( $wpdb->prefix ) as $bn_widening ) {
+			list( $bn_wtable, $bn_windex, , $bn_wadded ) = $bn_widening;
+			if ( self::index_exists( $bn_wtable, $bn_windex )
+				&& self::column_exists( $bn_wtable, $bn_wadded )
+				&& ! self::index_covers_column( $bn_wtable, $bn_windex, $bn_wadded ) ) {
+				$errors[ $bn_wtable ] = sprintf( "Index '%s' was not widened to cover '%s'", $bn_windex, $bn_wadded );
+			}
+		}
+
+		self::$last_schema_errors = $errors;
 
 		// FULLTEXT index for the search service. Skipped under the PHPUnit harness:
 		// WP_UnitTestCase wraps each test in a transaction that is rolled back, and
@@ -2626,11 +2653,42 @@ class Installer {
 	 * @param string $p Table prefix.
 	 * @return void
 	 */
-	private static function maybe_widen_indexes( string $p ): void {
-		global $wpdb;
+	/**
+	 * Whether a dbDelta error is benign — a condition install_schema() must NOT
+	 * record as a schema failure (which would withhold the version stamp and arm
+	 * the one-hour back-off).
+	 *
+	 * "Duplicate key name" is the only such case: it means the index already
+	 * EXISTS, so nothing is missing. dbDelta cannot ALTER an index, so once a key's
+	 * declared columns widen away from the one already on the table (dir_name,
+	 * reply_lookup mid-upgrade) dbDelta re-issues the ADD and MySQL refuses with
+	 * this error — while the key is present throughout, and maybe_widen_indexes()
+	 * recreates it in the SAME pass. A genuinely missing table or column produces a
+	 * different error and stays a real failure. The honesty check after
+	 * maybe_widen_indexes() still catches a widen that did not take (card
+	 * 10320726618).
+	 *
+	 * @param string $error The MySQL error text captured after a dbDelta pass.
+	 * @return bool True when the error must not count as a schema failure.
+	 */
+	private static function schema_error_is_benign( string $error ): bool {
+		return 1 === preg_match( '/Duplicate key name/i', $error );
+	}
 
+	/**
+	 * The indexes whose declared column set widened in a later schema.
+	 *
+	 * One source of truth, shared by maybe_widen_indexes() (which recreates them) and
+	 * install_schema()'s post-pass honesty check (which confirms the recreate took).
+	 * Each entry is [ fully-prefixed table, index name, full column list, the column
+	 * whose late addition widened it ].
+	 *
+	 * @param string $p Table prefix.
+	 * @return array<int,array{0:string,1:string,2:array<int,string>,3:string}>
+	 */
+	private static function index_widenings( string $p ): array {
 		// table => [ index, [columns...], the column whose late addition widened it ].
-		$widenings = array(
+		return array(
 			array( $p . 'bn_comments', 'reply_lookup', array( 'parent_id', 'is_deleted', 'is_hidden' ), 'is_hidden' ),
 			// dir_name shipped as a PREFIX index (parent_id, name(150)); a prefix cannot
 			// order by name, so the A-Z directory sort filesorted at scale. Recreate it
@@ -2639,6 +2697,22 @@ class Installer {
 			// (card 10312614032).
 			array( $p . 'bn_spaces', 'dir_name', array( 'parent_id', 'name', 'id' ), 'id' ),
 		);
+	}
+
+	/**
+	 * Recreate any index whose declared column set widened in a later schema.
+	 *
+	 * A widened index has to be dropped and recreated directly, because dbDelta only
+	 * CREATES a missing index and cannot alter one already present. Shares its target
+	 * list with install_schema()'s post-pass honesty check via {@see index_widenings()}.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_widen_indexes( string $p ): void {
+		global $wpdb;
+
+		$widenings = self::index_widenings( $p );
 
 		foreach ( $widenings as $w ) {
 			list( $table, $index, $columns, $added ) = $w;
