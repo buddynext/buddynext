@@ -333,6 +333,16 @@ else
 	note "bin/check-schema-authority.php missing"
 fi
 
+if [ -f bin/check-option-defaults.php ]; then
+	if php bin/check-option-defaults.php >/dev/null 2>&1; then
+		ok "option defaults hold — every owner setting declares one default or is marked never-reset"
+	else
+		fail "option-default drift — run: php bin/check-option-defaults.php"
+	fi
+else
+	note "bin/check-option-defaults.php missing"
+fi
+
 if [ -f bin/check-mediaverse-surfaces.php ]; then
 	if php bin/check-mediaverse-surfaces.php >/dev/null 2>&1; then
 		ok "MediaVerse surface ownership holds — no MV assets on BN pages, placeholder avatars stay last, comment controls follow the engine's flags"

@@ -50,7 +50,7 @@ final class SettingsDriver {
 				// row is never written). Fields with no declared default keep their
 				// read-site inline fallback (which may be dynamic) untouched.
 				if ( $field->has_default ) {
-					$args['default'] = $field->default;
+					$args['default'] = $field->resolve_default();
 				}
 				register_setting( $group, $field->key, $args );
 			}
