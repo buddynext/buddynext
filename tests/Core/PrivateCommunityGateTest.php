@@ -95,6 +95,41 @@ class PrivateCommunityGateTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Gate on: a guest cannot bypass it by changing the route's case.
+	 *
+	 * WordPress dispatches routes case-insensitively (WP_REST_Server matches with
+	 * the `i` flag), so /BuddyNext/v1/Spaces reaches the same __return_true
+	 * controller /buddynext/v1/spaces does. A case-sensitive namespace test let the
+	 * mixed-case path through as "not ours" — anonymous read of a private community
+	 * (Zoho #41763). Every case variant must be gated.
+	 */
+	public function test_gate_on_blocks_mixed_case_data_routes(): void {
+		update_option( PrivateCommunity::OPTION, true );
+		wp_set_current_user( 0 );
+
+		foreach ( array( '/BuddyNext/v1/Spaces', '/BUDDYNEXT/V1/SPACES', '/buddynext/v1/Spaces/Fields', '/BuddyNext-Pro/v1/Members' ) as $route ) {
+			$result = PrivateCommunity::gate_rest( null, null, new WP_REST_Request( 'GET', $route ) );
+			$this->assertInstanceOf( \WP_Error::class, $result, "{$route} (a case variant of a data route) must be gated." );
+			$this->assertSame( 'buddynext_private_community', $result->get_error_code() );
+		}
+	}
+
+	/**
+	 * Gate on: an exempt surface stays open in ANY case — normalising the route
+	 * without normalising the exempt prefixes would wrongly gate /BuddyNext/v1/Auth
+	 * and lock a guest out of logging in.
+	 */
+	public function test_gate_on_keeps_mixed_case_auth_surface_open(): void {
+		update_option( PrivateCommunity::OPTION, true );
+		wp_set_current_user( 0 );
+
+		foreach ( array( '/BuddyNext/v1/Auth/Login', '/BUDDYNEXT/V1/AUTH/NONCE', '/BuddyNext/v1/PWA/manifest' ) as $route ) {
+			$result = PrivateCommunity::gate_rest( null, null, new WP_REST_Request( 'GET', $route ) );
+			$this->assertNull( $result, "{$route} (a case variant of an exempt route) must stay reachable." );
+		}
+	}
+
+	/**
 	 * The exemption is the /pwa/ segment exactly — a lookalike prefix in the
 	 * same namespace is still gated.
 	 */

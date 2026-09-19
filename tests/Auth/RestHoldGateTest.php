@@ -330,6 +330,32 @@ class RestHoldGateTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The hold cannot be slipped by changing the route's case.
+	 *
+	 * WordPress dispatches routes case-insensitively, so /BuddyNext/v1/Reactions/Toggle
+	 * reaches the same handler the lower-case route does. A case-sensitive namespace
+	 * test in the gate read the mixed-case path as "not ours" and let the held
+	 * member's request through — the same class as the private-community case bypass
+	 * (Zoho #41763). The "full" unverified hold is the clean probe: nothing in
+	 * ReactionService checks verification (that is why this suite reacts to test the
+	 * gate), so a 403 on a mixed-case reaction route is the gate's answer alone.
+	 *
+	 * @return void
+	 */
+	public function test_the_hold_is_not_bypassed_by_changing_the_route_case(): void {
+		update_option( 'buddynext_verify_enforcement', 'full' );
+		wp_set_current_user( $this->member );
+
+		$request = new WP_REST_Request( 'POST', '/BuddyNext/v1/Reactions/Toggle' );
+		$request->set_param( 'object_type', 'post' );
+		$request->set_param( 'object_id', $this->post_id );
+		$request->set_param( 'emoji', 'like' );
+		$status = $this->server->dispatch( $request )->get_status();
+
+		$this->assertSame( 403, $status, 'A mixed-case route must still be held for an unverified member under full enforcement.' );
+	}
+
+	/**
 	 * Non-BuddyNext namespaces are never touched.
 	 *
 	 * @return void

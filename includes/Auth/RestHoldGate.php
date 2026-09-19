@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace BuddyNext\Auth;
 
 use BuddyNext\Contracts\ListenerInterface;
+use BuddyNext\Core\RestRoute;
 use WP_Error;
 use WP_REST_Request;
 
@@ -205,7 +206,12 @@ final class RestHoldGate implements ListenerInterface {
 			return $result;
 		}
 
-		$route = (string) $request->get_route();
+		// Normalise once: WordPress dispatches routes case-insensitively, so without
+		// this a held/suspended member could bypass the hold (and the write block
+		// below) by changing the route's case — the same class as the private-
+		// community bypass (Zoho #41763). Every lower-cased pattern below, and
+		// hold_for(), then match the normalised route.
+		$route = RestRoute::normalize( $request );
 		if ( ! preg_match( '#^/buddynext(?:-pro)?/v1/#', $route ) ) {
 			return $result;
 		}
