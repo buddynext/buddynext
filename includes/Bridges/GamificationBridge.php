@@ -38,9 +38,15 @@ class GamificationBridge {
 
 		// Broadcast credential badges to the feed (social proof). The user-facing
 		// notification is handled separately by GamificationBridgeListener; this is
-		// the public engagement surface. Gated to credential badges so tiny
-		// participation badges never spam the feed.
-		add_action( 'wb_gam_badge_awarded', array( $this, 'on_badge_awarded_activity' ), 10, 3 );
+		// the public engagement surface. Broadcast on the member's explicit SHARE, not
+		// on award: wb-gamification 1.6.4 made badges private until the member presses
+		// Share (wb_gam_badge_shared / _unshared). Broadcasting on award published a
+		// credential to the public feed BEFORE the member consented (card 10303345360).
+		// Still gated to credential badges so tiny participation badges never spam the
+		// feed. Unshare WITHDRAWS the card reversibly (draft), so a re-share brings the
+		// same card — id, date, reactions, comments — back rather than minting a new one.
+		add_action( 'wb_gam_badge_shared', array( $this, 'on_badge_shared_activity' ), 10, 2 );
+		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
 
 		// Render the badge feed card through Free's typed-card seam, so it shows the
 		// uniform integration bridge card (icon + "Badge" + linked name) instead of
@@ -205,19 +211,23 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Post a feed activity when a member earns a CREDENTIAL badge.
+	 * Post a feed activity when a member SHARES a credential badge.
 	 *
-	 * Real hook: `wb_gam_badge_awarded( int $user_id, array $def, string $badge_id )`.
-	 * `$def` is the badge definition row (carries `name` + `is_credential`). Links
-	 * to the badge's public share page. Idempotent per share URL via
-	 * IntegrationActivity, so a re-award never duplicates the card.
+	 * Real hook: `wb_gam_badge_shared( int $user_id, string $badge_id )` — fired only
+	 * when the member presses Share, so this never publishes before consent. The badge
+	 * definition (name + is_credential) is resolved from the member's own badges via
+	 * the partner's public getter, since the share hook carries only the id.
 	 *
-	 * @param int    $user_id  Member who earned the badge.
-	 * @param array  $def      Badge definition row.
+	 * Reversible: a card a prior unshare WITHDREW (set to 'draft') is RESTORED here —
+	 * same id, date, reactions and comments — rather than minting a new one, so a
+	 * share -> unshare -> re-share cycle keeps its engagement. Idempotent per share URL.
+	 *
+	 * @param int    $user_id  Member who shared the badge.
 	 * @param string $badge_id Badge slug.
+	 * @return void
 	 */
-	public function on_badge_awarded_activity( int $user_id, array $def, string $badge_id ): void {
-		if ( $user_id <= 0 || empty( $def['is_credential'] ) ) {
+	public function on_badge_shared_activity( int $user_id, string $badge_id ): void {
+		if ( $user_id <= 0 || '' === $badge_id ) {
 			return;
 		}
 		// Owner control: respect the Gamification activity toggle (Integrations).
@@ -225,19 +235,71 @@ class GamificationBridge {
 			return;
 		}
 
+		$def = $this->badge_definition( $user_id, $badge_id );
+		// Gated to credential badges so tiny participation badges never spam the feed.
+		if ( null === $def || empty( $def['is_credential'] ) ) {
+			return;
+		}
 		$name = isset( $def['name'] ) ? (string) $def['name'] : '';
 		if ( '' === $name ) {
 			return;
 		}
 
+		$url = $this->badge_activity_url( $badge_id, $user_id );
+		if ( IntegrationActivity::restore( $url, 'badge' ) ) {
+			return;
+		}
 		IntegrationActivity::publish(
 			$user_id,
 			/* translators: %s: badge name. */
 			sprintf( __( 'earned the %s badge', 'buddynext' ), $name ),
-			$this->badge_activity_url( $badge_id, $user_id ),
+			$url,
 			$name,
 			'badge'
 		);
+	}
+
+	/**
+	 * Withdraw a member's shared-badge card when they UNSHARE it.
+	 *
+	 * Real hook: `wb_gam_badge_unshared( int $user_id, string $badge_id )`. Withdraws
+	 * the card reversibly (to 'draft', hidden from every feed but its row, date and
+	 * comments preserved) rather than deleting it, so a later re-share restores this
+	 * exact card. A no-op when no card exists for the badge (a non-credential badge, or
+	 * one shared while the feed toggle was off).
+	 *
+	 * @param int    $user_id  Member who unshared the badge.
+	 * @param string $badge_id Badge slug.
+	 * @return void
+	 */
+	public function on_badge_unshared_activity( int $user_id, string $badge_id ): void {
+		if ( $user_id <= 0 || '' === $badge_id ) {
+			return;
+		}
+		IntegrationActivity::withdraw( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
+	}
+
+	/**
+	 * The member's own row for one badge (carries `name` + `is_credential`), or null.
+	 *
+	 * Resolved through the partner's public getter — never a direct table read — and
+	 * scoped to badges the member actually holds, so it also confirms the share is for
+	 * a real, earned badge.
+	 *
+	 * @param int    $user_id  Member.
+	 * @param string $badge_id Badge slug.
+	 * @return array<string,mixed>|null
+	 */
+	private function badge_definition( int $user_id, string $badge_id ): ?array {
+		if ( ! function_exists( 'wb_gam_get_user_badges' ) ) {
+			return null;
+		}
+		foreach ( (array) wb_gam_get_user_badges( $user_id ) as $badge ) {
+			if ( is_array( $badge ) && isset( $badge['id'] ) && (string) $badge['id'] === $badge_id ) {
+				return $badge;
+			}
+		}
+		return null;
 	}
 
 	/**

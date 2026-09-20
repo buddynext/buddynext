@@ -47,54 +47,77 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A credential badge award broadcasts a feed activity (social proof).
+	 * A credential badge broadcasts on the member's SHARE (consent), never on award;
+	 * unsharing withdraws it reversibly and re-sharing restores the same card.
+	 *
+	 * wb-gamification 1.6.4 made badges private until the member presses Share, so
+	 * broadcasting on award published a credential before the member consented (card
+	 * 10303345360). The share hook carries only (user_id, badge_id); the bridge
+	 * resolves the def from the member's own badges (stubbed here via the wb_gam store).
 	 */
-	public function test_credential_badge_awarded_posts_feed_activity(): void {
+	public function test_shared_credential_badge_broadcasts_and_unshare_withdraws(): void {
 		global $wpdb;
 		$user = self::factory()->user->create();
-
-		do_action(
-			'wb_gam_badge_awarded',
-			$user,
+		$GLOBALS['wb_gam_test']['badges'][ $user ] = array(
 			array(
+				'id'            => 'top-contributor',
 				'name'          => 'Top Contributor',
-				'is_credential' => 1,
+				'is_credential' => true,
 			),
-			'top-contributor'
 		);
 
-		$url      = home_url( 'gamification/badge/top-contributor/' . $user . '/share/' );
-		$activity = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge' AND link_url = %s",
-				$user,
-				$url
-			)
-		);
-		$this->assertSame( 1, $activity );
+		$published = function () use ( $wpdb, $user ): int {
+			return (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge' AND status = 'published'", $user )
+			);
+		};
+		$card_id   = function () use ( $wpdb, $user ): int {
+			return (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge' LIMIT 1", $user )
+			);
+		};
+
+		// Award alone must NOT broadcast — the badge is private until the member shares.
+		do_action( 'wb_gam_badge_awarded', $user, array( 'name' => 'Top Contributor', 'is_credential' => 1 ), 'top-contributor' );
+		$this->assertSame( 0, $published(), 'awarding must not broadcast before the member shares' );
+
+		// Sharing broadcasts it.
+		do_action( 'wb_gam_badge_shared', $user, 'top-contributor' );
+		$this->assertSame( 1, $published(), 'sharing a credential badge broadcasts a feed card' );
+		$shared_id = $card_id();
+		$this->assertGreaterThan( 0, $shared_id );
+
+		// Unsharing withdraws it reversibly: hidden from feeds but the row is preserved.
+		do_action( 'wb_gam_badge_unshared', $user, 'top-contributor' );
+		$this->assertSame( 0, $published(), 'unsharing withdraws the card from every feed' );
+		$this->assertSame( $shared_id, $card_id(), 'the card row is preserved on unshare, not deleted' );
+
+		// Re-sharing restores the SAME card, never a duplicate.
+		do_action( 'wb_gam_badge_shared', $user, 'top-contributor' );
+		$this->assertSame( 1, $published(), 're-sharing restores the card' );
+		$this->assertSame( $shared_id, $card_id(), 're-share brings back the same card, no duplicate' );
 	}
 
 	/**
-	 * A non-credential badge does not broadcast to the feed.
+	 * A non-credential badge does not broadcast to the feed, even when shared.
 	 */
-	public function test_non_credential_badge_posts_no_activity(): void {
+	public function test_non_credential_shared_badge_posts_no_activity(): void {
 		global $wpdb;
 		$user = self::factory()->user->create();
-
-		do_action(
-			'wb_gam_badge_awarded',
-			$user,
+		$GLOBALS['wb_gam_test']['badges'][ $user ] = array(
 			array(
+				'id'            => 'first-login',
 				'name'          => 'First Login',
-				'is_credential' => 0,
+				'is_credential' => false,
 			),
-			'first-login'
 		);
+
+		do_action( 'wb_gam_badge_shared', $user, 'first-login' );
 
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge'", $user )
 		);
-		$this->assertSame( 0, $count, 'only credential badges broadcast to the feed' );
+		$this->assertSame( 0, $count, 'only credential badges broadcast to the feed, even on share' );
 	}
 
 	/**
