@@ -2541,6 +2541,13 @@ button.bn-btn-danger:hover {
 	flex-direction: column;
 	gap: 2px;
 	min-width: 0;
+	align-items: flex-start;
+}
+
+/* Row badges (Featured, Archived) sit inline at their own width — the column
+   flex above would otherwise stretch them across the whole Space cell. */
+.bn-space-row-info .bn-badge {
+	align-self: flex-start;
 }
 
 .bn-row-meta {
