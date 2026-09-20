@@ -476,15 +476,30 @@ class MemberDirectoryService {
 
 				case 'most_active':
 				case 'online':
-					if ( isset( $cursor_data['last_active'], $cursor_data['id'] ) ) {
+					if ( isset( $cursor_data['id'] ) ) {
+						// The cursor carries only the pivot member's id, never their raw
+						// last_active. A card shows presence as a privacy-aware boolean
+						// (is_user_online_at), so putting the exact timestamp in the cursor
+						// leaked a precision the card withholds — and did so even for a
+						// member who has HIDDEN their presence. Resolve the pivot value
+						// server-side from the id instead: a PRIMARY-KEY lookup on
+						// bn_presence (user_id is the PK), not a scan, so no new cost at
+						// scale. A legacy cursor that still carries last_active is honoured
+						// directly so pages in flight during deploy do not break.
+						$pivot_id     = (int) $cursor_data['id'];
+						$pivot_active = isset( $cursor_data['last_active'] )
+							? (int) $cursor_data['last_active']
+							// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+							: (int) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(last_active, 0) FROM {$wpdb->prefix}bn_presence WHERE user_id = %d", $pivot_id ) );
+
 						// COALESCE must mirror the ORDER BY — a user with no bn_presence
 						// row is NULL from the LEFT JOIN, and a NULL comparison yields NULL
 						// (never TRUE), so the row would slip past the cursor and repeat on
 						// every page (infinite loop). COALESCE to 0 keeps the keyset total.
 						$where_clauses[] = '(COALESCE(pres.last_active, 0) < %d OR (COALESCE(pres.last_active, 0) = %d AND u.ID < %d))';
-						$params[]        = (int) $cursor_data['last_active'];
-						$params[]        = (int) $cursor_data['last_active'];
-						$params[]        = (int) $cursor_data['id'];
+						$params[]        = $pivot_active;
+						$params[]        = $pivot_active;
+						$params[]        = $pivot_id;
 					}
 					break;
 
@@ -1515,12 +1530,13 @@ class MemberDirectoryService {
 
 			case 'most_active':
 			case 'online':
-				// last_active comes from the SELECTed bn_presence column (COALESCE'd to
-				// 0 for members with no presence row) — no per-row lookup.
-				$last_active = (string) ( (int) ( $row['last_active'] ?? 0 ) );
-				$data        = array(
-					'last_active' => $last_active,
-					'id'          => (int) $row['ID'],
+				// Only the pivot member's id — NOT their last_active. A cursor is
+				// handed to the client, and the raw presence timestamp is more than a
+				// card reveals (it shows a privacy-aware online dot, not a time), so it
+				// must not travel in the cursor. list_members() resolves the boundary
+				// value from this id by a PRIMARY-KEY lookup on bn_presence.
+				$data = array(
+					'id' => (int) $row['ID'],
 				);
 				break;
 

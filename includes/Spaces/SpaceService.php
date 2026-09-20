@@ -2902,57 +2902,9 @@ class SpaceService {
 	}
 
 	/**
-	 * Return pending join requests for a space, enriched with member identity.
-	 *
-	 * Joins wp_users so the moderation "pending members" tab renders a name and
-	 * email without a per-row lookup. Pagination is mandatory here (the request
-	 * queue is shown in bounded batches). Use count_pending_joins() for the
-	 * matching total. The unbounded user_id-only variant lives on
-	 * {@see SpaceMemberService::get_pending_requests()}.
-	 *
-	 * @param int $space_id Space ID.
-	 * @param int $limit    Max rows to return. Capped at 100.
-	 * @param int $offset   Row offset.
-	 * @return array[] Each item: user_id, display_name, user_email, requested_at.
-	 */
-	public function get_pending_join_requests( int $space_id, int $limit, int $offset ): array {
-		global $wpdb;
-
-		$limit  = max( 1, min( 100, $limit ) );
-		$offset = max( 0, $offset );
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT sm.user_id, sm.joined_at, u.display_name, u.user_email
-				 FROM {$wpdb->prefix}bn_space_members sm
-				 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
-				 WHERE sm.space_id = %d AND sm.status = 'pending'
-				 ORDER BY sm.joined_at ASC
-				 LIMIT %d OFFSET %d",
-				$space_id,
-				$limit,
-				$offset
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return array_map(
-			static fn( $r ) => array(
-				'user_id'      => (int) $r['user_id'],
-				'display_name' => (string) $r['display_name'],
-				'user_email'   => (string) $r['user_email'],
-				'requested_at' => (string) $r['joined_at'],
-			),
-			(array) $rows
-		);
-	}
-
-	/**
 	 * Count pending join requests for a space, without loading the rows.
 	 *
-	 * Matches get_pending_join_requests()'s filter so the count and the page
+	 * Matches get_pending_join_requests_all()'s filter so the count and the page
 	 * never disagree.
 	 *
 	 * @param int $space_id Space ID.
@@ -2995,7 +2947,7 @@ class SpaceService {
 	 * member and space identity in one query so the cross-space admin queue
 	 * renders without a per-row lookup.
 	 *
-	 * The cross-space counterpart to {@see get_pending_join_requests()}; ordered
+	 * The cross-space counterpart to {@see get_pending_join_requests_all()}; ordered
 	 * oldest-first so the longest-waiting request surfaces at the top.
 	 *
 	 * @param int $limit Max rows to return. Capped at 100.

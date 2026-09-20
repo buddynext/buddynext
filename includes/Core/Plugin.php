@@ -1190,9 +1190,13 @@ class Plugin {
 			return new \WP_Error( 'logo_size', __( 'Logo exceeds the 2MB limit.', 'buddynext' ) );
 		}
 
-		$check   = wp_check_filetype_and_ext( (string) ( $file['tmp_name'] ?? '' ), (string) ( $file['name'] ?? '' ) );
-		$allowed = array( 'image/png', 'image/jpeg', 'image/webp', 'image/svg+xml' );
-		$type    = (string) ( $check['type'] ?: ( $file['type'] ?? '' ) ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found -- SVG often returns empty from fileinfo.
+		$check = wp_check_filetype_and_ext( (string) ( $file['tmp_name'] ?? '' ), (string) ( $file['name'] ?? '' ) );
+		// SVG is deliberately NOT allowed: it is an XML document that can carry a
+		// <script>, so an uploaded logo would be a stored-XSS vector served inline
+		// to every visitor, and BuddyNext ships no SVG sanitizer. Raster formats
+		// only; a site that truly needs an SVG logo can add one through the theme.
+		$allowed = array( 'image/png', 'image/jpeg', 'image/webp' );
+		$type    = (string) $check['type'];
 		if ( ! in_array( $type, $allowed, true ) ) {
 			return new \WP_Error( 'logo_type', __( 'Logo file type not allowed.', 'buddynext' ) );
 		}
