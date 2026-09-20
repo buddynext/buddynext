@@ -328,6 +328,83 @@ class Spaces extends AdminPageBase {
 			</div>
 		</div>
 
+		<?php
+		// ── Featured spaces picker ──────────────────────────────────────────
+		// Owner-curated, ordered. Add/remove is also possible from the list below
+		// (row "…" menu); this section owns REORDER + a search-to-add, saved via
+		// POST /settings/featured-spaces. Hydrate the current featured ids in order
+		// (admin sees all types for management).
+		$bn_featured_limit = \BuddyNext\Spaces\FeaturedSpaces::limit();
+		$bn_featured_rows  = array();
+		if ( ! empty( $bn_featured_ids ) ) {
+			$bn_fs_list = ( new \BuddyNext\Spaces\SpaceService() )->list_spaces(
+				array(
+					'include_space_ids' => $bn_featured_ids,
+					'is_admin'          => true,
+					'viewer'            => get_current_user_id(),
+					'per_page'          => count( $bn_featured_ids ),
+				)
+			);
+			$bn_fs_by = array();
+			foreach ( $bn_fs_list as $bn_fs_r ) {
+				$bn_fs_by[ (int) $bn_fs_r['id'] ] = $bn_fs_r;
+			}
+			foreach ( $bn_featured_ids as $bn_fs_id ) {
+				if ( isset( $bn_fs_by[ $bn_fs_id ] ) ) {
+					$bn_featured_rows[] = $bn_fs_by[ $bn_fs_id ];
+				}
+			}
+		}
+		?>
+		<div class="bn-settings-section bn-featured-picker"
+			data-bn-featured-picker
+			data-limit="<?php echo esc_attr( (string) $bn_featured_limit ); ?>"
+			data-rest="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>"
+			data-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Featured spaces', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<p class="bn-field-hint">
+					<?php
+					printf(
+						/* translators: %d: maximum number of featured spaces. */
+						esc_html__( 'Shown first in the Spaces directory sidebar and in new-member onboarding. Private and secret spaces are only shown to people who can see them. Up to %d spaces.', 'buddynext' ),
+						(int) $bn_featured_limit
+					);
+					?>
+				</p>
+				<ol class="bn-featured-picker__list" data-bn-featured-list>
+					<?php foreach ( $bn_featured_rows as $bn_fs_row ) : ?>
+						<li class="bn-featured-picker__item" data-space-id="<?php echo esc_attr( (string) $bn_fs_row['id'] ); ?>" draggable="true">
+							<span class="bn-featured-picker__grip" aria-hidden="true"><?php echo \BuddyNext\Core\IconService::render( 'grip-vertical' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- kses-safe SVG. ?></span>
+							<span class="bn-featured-picker__name"><?php echo esc_html( (string) ( $bn_fs_row['name'] ?? '' ) ); ?></span>
+							<span class="bn-featured-picker__actions">
+								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-bn-featured-up aria-label="<?php esc_attr_e( 'Move up', 'buddynext' ); ?>">&#8593;</button>
+								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-bn-featured-down aria-label="<?php esc_attr_e( 'Move down', 'buddynext' ); ?>">&#8595;</button>
+								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-bn-featured-remove aria-label="<?php esc_attr_e( 'Remove from featured', 'buddynext' ); ?>">&times;</button>
+							</span>
+						</li>
+					<?php endforeach; ?>
+				</ol>
+				<p class="bn-featured-picker__empty" data-bn-featured-empty <?php echo empty( $bn_featured_rows ) ? '' : 'hidden'; ?>>
+					<?php
+					printf(
+						/* translators: %d: maximum number of featured spaces. */
+						esc_html__( 'Feature up to %d spaces to guide new members. Search below, or use the “…” menu on any space in the list.', 'buddynext' ),
+						(int) $bn_featured_limit
+					);
+					?>
+				</p>
+				<div class="bn-featured-picker__add">
+					<label class="screen-reader-text" for="bn-featured-search"><?php esc_html_e( 'Add a space by name', 'buddynext' ); ?></label>
+					<input type="search" id="bn-featured-search" class="bn-input" data-bn-featured-search autocomplete="off" placeholder="<?php esc_attr_e( 'Add a space by name…', 'buddynext' ); ?>">
+					<div class="bn-featured-picker__results" data-bn-featured-results hidden role="listbox"></div>
+				</div>
+				<p class="bn-featured-picker__status" data-bn-featured-status role="status" aria-live="polite"></p>
+			</div>
+		</div>
+
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
 				<span class="bn-ss-title"><?php esc_html_e( 'Spaces', 'buddynext' ); ?></span>
