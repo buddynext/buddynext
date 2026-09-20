@@ -394,6 +394,32 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// Featured spaces (site owner). Owner-only read + write of the curated,
+		// ordered list; the same option every member-facing surface resolves from.
+		register_rest_route(
+			'buddynext/v1',
+			'/settings/featured-spaces',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'get_featured_spaces' ),
+					'permission_callback' => array( $this, 'require_admin' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'save_featured_spaces' ),
+					'permission_callback' => array( $this, 'require_admin' ),
+					'args'                => array(
+						'ids' => array(
+							'type'     => 'array',
+							'required' => true,
+							'items'    => array( 'type' => 'integer' ),
+						),
+					),
+				),
+			)
+		);
+
 		// Spec-conformant approve/decline endpoints: POST /spaces/{id}/members/{user_id}/approve|decline.
 		register_rest_route(
 			'buddynext/v1',
@@ -2421,6 +2447,74 @@ class SpaceController extends BaseRestController {
 		);
 
 		return new WP_REST_Response( array( 'invite_link' => $link ), 200 );
+	}
+
+	/**
+	 * GET the site owner's featured spaces — the ordered ids + hydrated rows.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function get_featured_spaces( WP_REST_Request $request ): WP_REST_Response {
+		unset( $request );
+		return new WP_REST_Response( $this->featured_spaces_payload(), 200 );
+	}
+
+	/**
+	 * Replace the featured list with a validated, ordered set (owner only).
+	 *
+	 * @param WP_REST_Request $request Incoming request. Body: `ids` (ordered int[]).
+	 * @return WP_REST_Response
+	 */
+	public function save_featured_spaces( WP_REST_Request $request ): WP_REST_Response {
+		$ids = array_map( 'absint', (array) $request->get_param( 'ids' ) );
+		FeaturedSpaces::set_ids( $ids );
+		return new WP_REST_Response( $this->featured_spaces_payload(), 200 );
+	}
+
+	/**
+	 * Build the featured-spaces admin payload: the stored ids, hydrated rows in
+	 * owner order (admin sees all types for management), and the cap.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function featured_spaces_payload(): array {
+		$ids  = FeaturedSpaces::get_ids();
+		$rows = array();
+
+		if ( ! empty( $ids ) ) {
+			$list  = ( new SpaceService() )->list_spaces(
+				array(
+					'include_space_ids' => $ids,
+					'viewer'            => get_current_user_id(),
+					'is_admin'          => true,
+					'per_page'          => count( $ids ),
+				)
+			);
+			$by_id = array();
+			foreach ( $list as $row ) {
+				$by_id[ (int) $row['id'] ] = $row;
+			}
+			foreach ( $ids as $id ) {
+				if ( isset( $by_id[ $id ] ) ) {
+					$r      = $by_id[ $id ];
+					$rows[] = array(
+						'id'           => (int) $r['id'],
+						'name'         => (string) ( $r['name'] ?? '' ),
+						'slug'         => (string) ( $r['slug'] ?? '' ),
+						'member_count' => (int) ( $r['member_count'] ?? 0 ),
+						'avatar_url'   => (string) ( $r['avatar_url'] ?? '' ),
+						'type'         => (string) ( $r['type'] ?? 'open' ),
+					);
+				}
+			}
+		}
+
+		return array(
+			'ids'    => $ids,
+			'spaces' => $rows,
+			'limit'  => FeaturedSpaces::limit(),
+		);
 	}
 
 	/**

@@ -1540,6 +1540,100 @@ class SpaceService {
 	}
 
 	/**
+	 * Resolve the featured spaces for a viewer — the single source of truth for
+	 * every surface (directory sidebar, mobile strip, onboarding, suggestions).
+	 *
+	 * Order of resolution:
+	 *   1. The owner's curated list (`buddynext_featured_spaces`), in the owner's order.
+	 *   2. If the owner curated nothing, the auto-join-on-signup spaces (no
+	 *      member-type filter), ordered by member_count DESC — still the owner's
+	 *      "everyone belongs here" choice.
+	 *   3. If both are empty, an empty array (surfaces hide their Featured block).
+	 *
+	 * Always visibility- and archive-scoped to the viewer (hydration goes through
+	 * list_spaces with `viewer`, which drops archived/secret spaces they cannot
+	 * see), then re-checked after the surface filter so a filter can never expose
+	 * a hidden space. Rows come back in the resolved order (list_spaces IN() does
+	 * not preserve order, so owner rows are reordered here).
+	 *
+	 * @param int    $viewer_id Viewer user ID (0 = logged out).
+	 * @param int    $limit     Max spaces. 0 = the configured limit.
+	 * @param string $surface   Surface tag for the filter ('sidebar'|'directory_mobile'|'onboarding'|'suggestions').
+	 * @return array[] Hydrated space rows in resolved order.
+	 */
+	public function featured_spaces( int $viewer_id, int $limit = 0, string $surface = 'sidebar' ): array {
+		$limit = $limit > 0 ? $limit : FeaturedSpaces::limit();
+
+		$curated  = true;
+		$ids      = FeaturedSpaces::get_ids();
+		if ( empty( $ids ) ) {
+			$curated = false;
+			$ids     = ( new AutoJoinService() )->spaces_for_signup();
+		}
+		$ids = array_slice( array_values( $ids ), 0, $limit );
+
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+		$rows     = $this->list_spaces(
+			array(
+				'include_space_ids' => $ids,
+				'viewer'            => $viewer_id,
+				'is_admin'          => $is_admin,
+				'roots_only'        => true,
+				'per_page'          => count( $ids ),
+			)
+		);
+
+		// Featured never shows an archived space, even to the owner or an admin
+		// (list_spaces shows THEM their own archived spaces elsewhere by design).
+		$rows = array_values( array_filter( $rows, static fn( $r ) => empty( $r['is_archived'] ) ) );
+
+		if ( $curated ) {
+			// Owner order — list_spaces IN() does not preserve it.
+			$by_id = array();
+			foreach ( $rows as $row ) {
+				$by_id[ (int) $row['id'] ] = $row;
+			}
+			$ordered = array();
+			foreach ( $ids as $id ) {
+				if ( isset( $by_id[ $id ] ) ) {
+					$ordered[] = $by_id[ $id ];
+				}
+			}
+			$rows = $ordered;
+		}
+		// Fallback path keeps list_spaces' member_count DESC order.
+
+		/**
+		 * Filter the final featured-space list for a surface.
+		 *
+		 * Runs after visibility filtering; the result is visibility-filtered again
+		 * below, so a listener can reorder/trim/add but can never expose a space
+		 * the viewer must not see.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param array[] $rows      Hydrated space rows.
+		 * @param int     $viewer_id Viewer user ID.
+		 * @param string  $surface   Surface tag.
+		 */
+		$rows = (array) apply_filters( 'buddynext_featured_spaces', $rows, $viewer_id, $surface );
+
+		// Re-assert visibility on whatever the filter returned.
+		$rows = array_values(
+			array_filter(
+				$rows,
+				static fn( $row ) => is_array( $row ) && SpaceVisibility::can_view_space( $row, $viewer_id )
+			)
+		);
+
+		return array_slice( $rows, 0, $limit );
+	}
+
+	/**
 	 * Return a paginated list of spaces.
 	 *
 	 * Supported args:
