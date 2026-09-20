@@ -3871,3 +3871,73 @@ a.bn-sh-statpill:focus-visible {
 		flex: 1 1 100%;
 	}
 }
+
+/* ── Phone-only Featured strip (directory) ──────────────────────────────────
+   The sidebar Featured card is display:none <=640px, so mobile shows this
+   compact horizontal scroller instead. Hidden above 640px. */
+.bn-sd-featured-strip {
+	display: none;
+}
+
+@media (max-width: 640px) {
+	.bn-sd-featured-strip {
+		display: block;
+		margin-block-end: var(--bn-s4);
+	}
+
+	.bn-sd-featured-strip__title {
+		display: flex;
+		align-items: center;
+		gap: var(--bn-s1);
+		margin: 0 0 var(--bn-s2);
+		font-size: var(--bn-text-sm);
+		font-weight: var(--bn-fw-semibold);
+		color: var(--bn-ink-2);
+	}
+
+	.bn-sd-featured-strip__scroll {
+		display: flex;
+		gap: var(--bn-s3);
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		-webkit-overflow-scrolling: touch;
+		padding-block-end: var(--bn-s1);
+	}
+
+	.bn-sd-featured-strip__card {
+		flex: 0 0 auto;
+		width: 9.5rem;
+		scroll-snap-align: start;
+		display: flex;
+		flex-direction: column;
+		gap: var(--bn-s2);
+		padding: var(--bn-s3);
+		border: 1px solid var(--bn-border);
+		border-radius: var(--bn-radius, 8px);
+		background: var(--bn-surface, var(--bn-canvas));
+	}
+
+	.bn-sd-featured-strip__link {
+		display: flex;
+		flex-direction: column;
+		gap: var(--bn-s1);
+		text-decoration: none;
+		color: inherit;
+	}
+
+	.bn-sd-featured-strip__name {
+		font-weight: var(--bn-fw-semibold);
+		color: var(--bn-ink-1);
+		font-size: var(--bn-text-sm);
+		line-height: var(--bn-leading-snug);
+	}
+
+	.bn-sd-featured-strip__count {
+		font-size: var(--bn-fs-xs);
+		color: var(--bn-ink-3);
+	}
+
+	.bn-sd-featured-strip__join {
+		width: 100%;
+	}
+}

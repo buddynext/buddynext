@@ -440,6 +440,55 @@ $bn_subtitle = sprintf(
 		<?php endif; ?>
 	</div>
 
+	<?php
+	// Phone-only Featured strip. The right sidebar (which carries the Featured
+	// card on desktop/tablet) is display:none at <=640px, so mobile gets its own
+	// compact horizontal scroller of the same featured spaces. Hidden above 640px
+	// by CSS. Server-rendered; self-hides when nothing is featured.
+	$bn_sd_featured = ( new \BuddyNext\Spaces\SpaceService() )->featured_spaces( get_current_user_id(), 6, 'directory_mobile' );
+	if ( ! empty( $bn_sd_featured ) ) :
+		?>
+		<section class="bn-sd-featured-strip" aria-label="<?php esc_attr_e( 'Featured spaces', 'buddynext' ); ?>">
+			<h2 class="bn-sd-featured-strip__title"><?php buddynext_icon( 'star' ); ?> <?php esc_html_e( 'Featured spaces', 'buddynext' ); ?></h2>
+			<div class="bn-sd-featured-strip__scroll">
+				<?php
+				foreach ( $bn_sd_featured as $bn_sd_fs ) :
+					$bn_sd_fs_id    = (int) ( $bn_sd_fs['id'] ?? 0 );
+					$bn_sd_fs_count = (int) ( $bn_sd_fs['member_count'] ?? 0 );
+					$bn_sd_fs_av    = (string) ( $bn_sd_fs['avatar_url'] ?? '' );
+					?>
+					<article class="bn-sd-featured-strip__card" data-space-id="<?php echo esc_attr( (string) $bn_sd_fs_id ); ?>">
+						<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::space_url( $bn_sd_fs_id ) ); ?>" class="bn-sd-featured-strip__link">
+							<span class="bn-avatar bn-sd-featured-strip__avatar" data-size="md" aria-hidden="true">
+								<?php if ( '' !== $bn_sd_fs_av ) : ?>
+									<img src="<?php echo esc_url( $bn_sd_fs_av ); ?>" alt="" width="48" height="48" loading="lazy" decoding="async">
+								<?php endif; ?>
+							</span>
+							<span class="bn-sd-featured-strip__name"><?php echo esc_html( (string) ( $bn_sd_fs['name'] ?? '' ) ); ?></span>
+							<span class="bn-sd-featured-strip__count">
+								<?php
+								/* translators: %d: member count. */
+								echo esc_html( sprintf( _n( '%d member', '%d members', $bn_sd_fs_count, 'buddynext' ), $bn_sd_fs_count ) );
+								?>
+							</span>
+						</a>
+						<button
+							type="button"
+							class="bn-btn bn-sd-featured-strip__join"
+							data-variant="primary"
+							data-size="sm"
+							data-current-state="join"
+							data-space-id="<?php echo esc_attr( (string) $bn_sd_fs_id ); ?>"
+							data-wp-on--click="actions.joinSpace"
+						><?php esc_html_e( 'Join', 'buddynext' ); ?></button>
+					</article>
+				<?php endforeach; ?>
+			</div>
+		</section>
+		<?php
+	endif;
+	?>
+
 	<div class="bn-sd-loading" data-bn-loading hidden aria-hidden="true">
 		<?php for ( $bn_skel_i = 0; $bn_skel_i < 6; $bn_skel_i++ ) : ?>
 			<div class="bn-sd-skeleton" aria-hidden="true">
