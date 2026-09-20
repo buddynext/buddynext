@@ -291,4 +291,17 @@ Core consumers to copy from: `includes/Admin/Spaces.php`, `includes/Admin/Member
 - **Origin section vs final section.** Always register against your tab's domain origin and let the placement map decide the final location. Resolve URLs and active-state through `AdminHub::tab_url()` / `is_tab_active()`, which apply the same placement, so a relocated tab keeps its assets and links.
 - **Per-tab save scope.** Because options are grouped per tab, saving one tab never overwrites another tab's options. Add new settings as `Field` descriptors in the relevant `Settings::fields_*()` method; `SettingsDriver` registers them under `buddynext_{tab}` and runs their sanitizer on save.
 
+## Provider secrets are encrypted at rest (Pro)
+
+Provider credentials — the FCM service-account JSON, the Soketi secret, the Stripe and PayPal secret keys, the AI embedding key — are **encrypted before they are written to the options table**. A plain database export (or a plugin that dumps options) no longer reveals them.
+
+How it works, and its honest limit:
+
+- Encryption is transparent at the option layer: an `option_{key}` filter decrypts on read and a `pre_update_option_{key}` filter encrypts on write, so every `get_option()` / `update_option()` caller keeps working unchanged. The stored value is prefixed `bnpsec:v1:` and uses AES-256-GCM.
+- The key is derived from your site's wp-config **salts** — so it lives outside the database. That defeats the realistic threat, a leaked DB backup, but **not** a full server compromise where `wp-config.php` is readable too. This is defense-in-depth, not a vault.
+- **Salt rotation.** Because the default key comes from the salts, regenerating them makes the stored secrets undecryptable. The plugin fails **closed** — a decrypt miss returns empty, so the feature reads as "needs setup" rather than breaking with a corrupt credential — and you re-enter the key. To make secrets survive salt rotation, define a stable `BUDDYNEXT_SECRETS_KEY` in `wp-config.php`; it is used as the encryption key instead of the salts.
+- Admin fields for secrets render **blank with a "Saved" badge**, never re-emitting the stored value into the page HTML. Leaving a field blank keeps the saved secret; entering a new value replaces it. To clear a secret entirely, use the feature's own remove/disconnect control.
+
+Existing plaintext secrets are migrated to the encrypted form once, automatically, on upgrade.
+
 See also Roles and Capabilities for the `manage_options`-vs-community-role distinction these screens rely on.
