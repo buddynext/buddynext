@@ -3656,6 +3656,47 @@ a.bn-sh-statpill:focus-visible {
 	}
 }
 
+/* Space-owner "Last 30 days" analytics row (Pro, via
+   buddynext_space_admin_after_stats). Reuses the .bn-space-admin__stat tile, but
+   its own grid modifier because it carries four tiles, not three: 4 columns on
+   desktop, 2 on tablet, 1 on phone. Tokens only, so dark mode + RTL are free. */
+.bn-space-admin__analytics {
+	margin-block-start: var(--bn-s5);
+}
+
+.bn-space-admin__analytics-title {
+	margin: 0 0 var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+}
+
+.bn-space-admin__stats--analytics {
+	grid-template-columns: repeat(4, 1fr);
+	margin-block-start: 0;
+}
+
+.bn-space-admin__analytics-empty {
+	margin: 0;
+	padding: var(--bn-s4);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	background: var(--bn-surface);
+	border-radius: var(--bn-radius-base);
+}
+
+@media (max-width: 900px) {
+	.bn-space-admin__stats--analytics {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+@media (max-width: 640px) {
+	.bn-space-admin__stats--analytics {
+		grid-template-columns: 1fr;
+	}
+}
+
 /* ── Sub-spaces panel (space tab) ─────────────────────────────────────────────
    The viewport-independent home for a space's children. Their only entry point
    used to be the right-sidebar card, which is display:none below 1024px — so on

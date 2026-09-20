@@ -186,6 +186,26 @@ add_filter( 'buddynext_featured_spaces', function ( array $spaces, int $viewer_i
 - Featured spaces the member has not joined are boosted in feed/explore suggestions via the existing `buddynext_space_suggestions` filter (behind the member's strongest personal matches).
 - REST: `GET`/`POST /spaces/... ` — see `16-rest-spaces.md` (`/settings/featured-spaces`).
 
+## Space admin page
+
+The space admin page (`/spaces/{slug}/admin/`) renders an "at a glance" stats row (Members, Pending requests, Open reports) and, right after it, an action for add-ons to append their own stat tiles for the people who manage the space.
+
+```php
+// Append a stat tile after the space-admin at-a-glance row.
+// Fires only on a page the viewer can already manage (owner, moderators, admins).
+add_action( 'buddynext_space_admin_after_stats', function ( int $space_id, int $viewer_id ): void {
+    // Reuse the shared tile markup so the surface stays consistent:
+    echo '<div class="bn-space-admin__stats" role="list">';
+    echo '  <div class="bn-card bn-space-admin__stat" role="listitem">';
+    echo '    <span class="bn-space-admin__stat-value">' . esc_html( my_metric( $space_id ) ) . '</span>';
+    echo '    <span class="bn-space-admin__stat-label">' . esc_html__( 'My metric', 'my-plugin' ) . '</span>';
+    echo '  </div>';
+    echo '</div>';
+}, 10, 2 );
+```
+
+BuddyNext Pro uses this seam to render its "Last 30 days" analytics row (new members, left, net growth, posts) for space owners; with Pro inactive the page is unchanged. `$viewer_id` has already passed the manage-space capability gate, so the hook never fires for a member.
+
 ## Notes / gotchas
 
 - **Free vs Pro.** Every hook here is fired by Free. `buddynext_can_join_space` plus `buddynext_space_join_denied_data` are the documented gated-spaces / paywall seam that Pro builds on; `buddynext_space_types` is the extension point for new space kinds.
