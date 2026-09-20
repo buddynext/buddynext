@@ -157,11 +157,13 @@ class MemberBlogBridge {
 				// words. An icon here is not a nicer tab, it is the only tab that
 				// looks different.
 				//
-				// Note this is NOT contradicted by JetonomyBridge registering
-				// `message-square` for Discussions: there is no message-square.svg in
-				// assets/icons, so that declaration renders nothing and has always
-				// been dead. `file-text` DOES exist, so copying the pattern from
-				// Discussions produced the one tab in the strip with an icon.
+				// This used to note that JetonomyBridge's `message-square` was
+				// harmless because no such SVG existed, so the declaration rendered
+				// nothing. That stopped being true on 2026-08-12, when a sweep for
+				// referenced-but-unbundled Lucide icons added the file and silently
+				// gave Discussions the only icon in the strip. Both declarations are
+				// now gone. Do not reintroduce one here: a nav icon is a decision
+				// for the whole strip, not for one tab.
 				// After Discussions (60), before the Portfolio cluster - authored
 				// long-form sits with the member's other social content.
 				'priority'  => 65,
