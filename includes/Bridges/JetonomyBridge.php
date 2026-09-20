@@ -1956,7 +1956,6 @@ class JetonomyBridge {
 				'surface'   => 'profile',
 				'layer'     => 'primary',
 				'label'     => __( 'Discussions', 'buddynext' ),
-				'icon'      => 'message-square',
 				'priority'  => 60,
 				'condition' => $jetonomy_active,
 				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'discussions/',
@@ -1981,7 +1980,6 @@ class JetonomyBridge {
 				'surface'   => 'space',
 				'layer'     => 'primary',
 				'label'     => __( 'Discussions', 'buddynext' ),
-				'icon'      => 'message-square',
 				'priority'  => 35,
 				// Per-space: only when THIS space's owner has enabled its dedicated
 				// discussion. A space with none (or with it toggled off) shows no tab.
