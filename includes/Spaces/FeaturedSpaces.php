@@ -92,6 +92,46 @@ class FeaturedSpaces {
 	}
 
 	/**
+	 * Boost featured spaces in the feed/explore suggestion ranking.
+	 *
+	 * Hooked on `buddynext_space_suggestions` (runs post-cache, like the follow
+	 * reranker). Featured spaces the member has NOT joined are inserted BEHIND the
+	 * member's two strongest personal matches — a nudge, not a takeover. Already-
+	 * joined featured spaces are excluded (suggestions are places to join), and
+	 * SpaceSuggestionService re-checks visibility on whatever this returns.
+	 *
+	 * @param int[] $ranked_ids Suggested space ids in rank order.
+	 * @param int   $user_id    The member the suggestions are for.
+	 * @return int[]
+	 */
+	public static function boost_suggestions( array $ranked_ids, int $user_id ): array {
+		$ranked   = array_values( array_filter( array_map( 'intval', $ranked_ids ) ) );
+		$featured = self::get_ids();
+		if ( $user_id <= 0 || empty( $featured ) ) {
+			return $ranked;
+		}
+
+		$joined = array();
+		if ( function_exists( 'buddynext_service' ) ) {
+			$members = buddynext_service( 'space_members' );
+			if ( $members && method_exists( $members, 'spaces_for_user' ) ) {
+				$joined = array_map( 'intval', (array) $members->spaces_for_user( $user_id ) );
+			}
+		}
+
+		// Featured the member hasn't joined and the engine hasn't already ranked.
+		$inject = array_values( array_diff( $featured, $ranked, $joined ) );
+		if ( empty( $inject ) ) {
+			return $ranked;
+		}
+
+		$head = array_slice( $ranked, 0, 2 ); // strongest personal matches stay first
+		$tail = array_slice( $ranked, 2 );
+
+		return array_values( array_unique( array_merge( $head, $inject, $tail ) ) );
+	}
+
+	/**
 	 * Filter a list of ids down to spaces that still exist and are not archived,
 	 * preserving the input order.
 	 *

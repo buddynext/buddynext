@@ -12,6 +12,7 @@ namespace BuddyNext\Tests\Spaces;
 use BuddyNext\Core\Installer;
 use BuddyNext\Spaces\FeaturedSpaces;
 use BuddyNext\Spaces\SpaceService;
+use BuddyNext\Spaces\SpaceMemberService;
 use WP_REST_Request;
 
 /**
@@ -158,6 +159,27 @@ class FeaturedSpacesTest extends \WP_Test_REST_TestCase {
 		$b = $this->make_space( 'v-b' );
 		$stored = FeaturedSpaces::set_ids( array( $b, $b, 999999, $a ) );
 		$this->assertSame( array( $b, $a ), $stored );
+	}
+
+	/** @covers boost_suggestions: featured (not joined) injected behind top-2, joined excluded. */
+	public function test_boost_suggestions(): void {
+		$s = array();
+		foreach ( range( 1, 5 ) as $n ) {
+			$s[ $n ] = $this->make_space( 'bs-' . $n );
+		}
+		// Rank = personal matches s1,s2,s3; feature s4 (not joined) + s5 (joined).
+		$member = self::factory()->user->create();
+		( new SpaceMemberService() )->join( $s[5], $member );
+		FeaturedSpaces::set_ids( array( $s[4], $s[5] ) );
+
+		$out = FeaturedSpaces::boost_suggestions( array( $s[1], $s[2], $s[3] ), $member );
+
+		// s4 injected after the top two; s5 (joined) not injected.
+		$this->assertSame( array( $s[1], $s[2], $s[4], $s[3] ), $out );
+		$this->assertNotContains( $s[5], $out );
+
+		// No featured / logged-out → unchanged.
+		$this->assertSame( array( $s[1], $s[2] ), FeaturedSpaces::boost_suggestions( array( $s[1], $s[2] ), 0 ) );
 	}
 
 	/** @covers Plan item: a non-admin gets 403 on the REST route. */

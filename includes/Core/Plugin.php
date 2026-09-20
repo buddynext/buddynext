@@ -495,6 +495,10 @@ class Plugin {
 		// still owes onboarding, is remembered across the wizard.
 		add_action( 'template_redirect', array( \BuddyNext\Spaces\SpaceInviteLinkService::class, 'prime_from_request' ), 4 );
 
+		// Featured spaces get a nudge in feed/explore suggestions (post-cache
+		// reranker, behind the member's strongest personal matches).
+		add_filter( 'buddynext_space_suggestions', array( \BuddyNext\Spaces\FeaturedSpaces::class, 'boost_suggestions' ), 10, 2 );
+
 		// Invite-link cleanup: drop a member's "joined via link" marker when they
 		// leave a space, and across every space on account purge / GDPR erase.
 		// Space deletion already clears all bn_space_meta for the space.
