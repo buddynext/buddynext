@@ -423,8 +423,18 @@ class Installer {
 	 *      (card 10312614032). dbDelta cannot alter an existing index, so
 	 *      maybe_widen_indexes() drops and recreates it on upgrade; read-only index
 	 *      change, no data touched.
+	 *  60: the four bn_spaces directory-sort indexes (dir_popular / dir_name /
+	 *      dir_recent / dir_active) re-led on is_archived instead of parent_id. The
+	 *      directory query the wire actually issues filters on is_archived = 0 (+ a type
+	 *      negation) and only ADDS parent_id IS NULL for the roots-only default; the
+	 *      Include-sub-spaces view drops parent_id entirely, which a parent_id-led index
+	 *      cannot serve, so it filesorted every sort at scale, and roots Newest filesorted
+	 *      too. Leading on the is_archived equality (present in both shapes), then the
+	 *      order column + id, lets ONE index set serve both views filesort-free — a space
+	 *      and a sub-space are the same object (card 10312614032). maybe_widen_indexes()
+	 *      recreates them on upgrade; read-only index change, no data touched.
 	 */
-	private const SCHEMA_VERSION = 59;
+	private const SCHEMA_VERSION = 60;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -2522,31 +2532,36 @@ class Installer {
 				// v12: the directory browses ROOTS ordered by one of a few sorts
 				// (WHERE parent_id IS NULL ORDER BY <col>). Without a (parent_id,<col>)
 				// composite each sort filesorts every load — fatal at 20-30k
-				// member-created spaces per site. Index the two dominant orders:
-				// popularity (member_count, the default) and alphabetical (name).
-				'dir_popular'  => 'ADD KEY dir_popular (parent_id, member_count)',
+				// member-created spaces per site. Index the directory sorts on the shape
+				// the query REALLY has (captured off the wire, card 10312614032):
+				// WHERE is_archived = 0 AND type NOT IN ('secret') [AND parent_id IS NULL]
+				// ORDER BY <col>, id.
+				// The "Include sub-spaces" toggle drops the parent_id predicate, so a
+				// parent_id-led index could not serve that view at all - it filesorted
+				// every sort at scale - and even the roots (parent_id IS NULL) view's
+				// Newest sort filesorted because the optimizer preferred dir_active over
+				// the created_at index. A space and a sub-space are the same object, so
+				// both views must scale. is_archived = 0 is an equality present in BOTH
+				// shapes, so leading with it lets ONE index serve roots and all-spaces
+				// alike: the order column comes next, id is the stable tie-break, and
+				// parent_id IS NULL / the type negation apply as residuals with no
+				// filesort. EXPLAIN at 6k spaces: every sort, both views -> index scan,
+				// no filesort. Redefined from the old (parent_id, ...) form on existing
+				// installs by maybe_widen_indexes(); child (parent_id = X) lookups keep
+				// their own `parent` index.
+				'dir_popular'  => 'ADD KEY dir_popular (is_archived, member_count, id)',
 				// FULL name column + id, never a name(150) PREFIX: a prefix index cannot
-				// satisfy ORDER BY name (MySQL cannot order by a truncated value), so the
-				// A-Z sort filesorted at scale even with parent_id IS NULL while the three
-				// numeric sorts did not (their trailing PK gives the id tie-break; a prefix
-				// cannot). id is explicit so the `name ASC, id ASC` order is a pure index
-				// scan (card 10312614032). Widened from the prefix on existing installs by
-				// maybe_widen_indexes().
-				'dir_name'     => 'ADD KEY dir_name (parent_id, name, id)',
-				// v13: the "Newest" sort (parent_id IS NULL ORDER BY created_at DESC).
-				// created_at is immutable after insert, so this index is write-once —
-				// a pure read win with no ongoing maintenance.
-				'dir_recent'   => 'ADD KEY dir_recent (parent_id, created_at)',
-				// The "Active" sort (parent_id IS NULL ORDER BY last_active_at DESC,
-				// created_at DESC). last_active_at IS now maintained - on a new space
-				// post and, throttled to one write per 5 minutes per space, on a new
-				// comment on a space post - so the directory can order by where the
-				// conversation is happening now. created_at is the third column so the
-				// FULL ORDER BY (incl. the NULLs-last / same-timestamp tie-break) is an
-				// index backward scan, filesort-free at 30k spaces - a 2-column index
-				// would still filesort every tie group, and ties are common (a shared
-				// timestamp, and the whole not-yet-active NULL tail).
-				'dir_active'   => 'ADD KEY dir_active (parent_id, last_active_at, created_at)',
+				// satisfy ORDER BY name (MySQL cannot order by a truncated value).
+				'dir_name'     => 'ADD KEY dir_name (is_archived, name, id)',
+				// "Newest": ORDER BY created_at DESC, id DESC. created_at is immutable
+				// after insert, so this index is write-once.
+				'dir_recent'   => 'ADD KEY dir_recent (is_archived, created_at, id)',
+				// "Active": ORDER BY last_active_at DESC, created_at DESC, id DESC.
+				// last_active_at is maintained on a new space post and (throttled to one
+				// write / 5 min / space) on a comment on a space post. created_at + id
+				// trail so the full ORDER BY (incl. the NULLs-last / same-timestamp
+				// tie-break) is a filesort-free index scan at 30k spaces.
+				'dir_active'   => 'ADD KEY dir_active (is_archived, last_active_at, created_at, id)',
 				// The wp-admin Spaces list is a DIFFERENT access pattern from the
 				// front-end directory above: it does not scope by parent_id, so none
 				// of the (parent_id, …) composites can serve it. Its leading column
@@ -2700,12 +2715,17 @@ class Installer {
 		// table => [ index, [columns...], the column whose late addition widened it ].
 		return array(
 			array( $p . 'bn_comments', 'reply_lookup', array( 'parent_id', 'is_deleted', 'is_hidden' ), 'is_hidden' ),
-			// dir_name shipped as a PREFIX index (parent_id, name(150)); a prefix cannot
-			// order by name, so the A-Z directory sort filesorted at scale. Recreate it
-			// full-column with the id tie-break (parent_id, name, id). Detected by the
-			// absence of `id` from the index — the prefix version does not carry it
-			// (card 10312614032).
-			array( $p . 'bn_spaces', 'dir_name', array( 'parent_id', 'name', 'id' ), 'id' ),
+			// The four directory-sort indexes were re-led on is_archived (from the old
+			// parent_id lead) so ONE index set serves both the roots-only default and the
+			// Include-sub-spaces view of the directory, filesort-free at scale — a space
+			// and a sub-space are the same object (card 10312614032). Recreated on
+			// existing installs here (dbDelta cannot alter an index); detected by the
+			// absence of is_archived from the current index. `id` trails every one for a
+			// stable pagination tie-break.
+			array( $p . 'bn_spaces', 'dir_popular', array( 'is_archived', 'member_count', 'id' ), 'is_archived' ),
+			array( $p . 'bn_spaces', 'dir_name', array( 'is_archived', 'name', 'id' ), 'is_archived' ),
+			array( $p . 'bn_spaces', 'dir_recent', array( 'is_archived', 'created_at', 'id' ), 'is_archived' ),
+			array( $p . 'bn_spaces', 'dir_active', array( 'is_archived', 'last_active_at', 'created_at', 'id' ), 'is_archived' ),
 		);
 	}
 
@@ -4055,10 +4075,10 @@ class Installer {
 				KEY                category (category_id),
 				KEY                parent (parent_id),
 				KEY                is_archived (is_archived),
-				KEY                dir_popular (parent_id, member_count),
-				KEY                dir_name (parent_id, name, id),
-				KEY                dir_recent (parent_id, created_at),
-				KEY                dir_active (parent_id, last_active_at, created_at),
+				KEY                dir_popular (is_archived, member_count, id),
+				KEY                dir_name (is_archived, name, id),
+				KEY                dir_recent (is_archived, created_at, id),
+				KEY                dir_active (is_archived, last_active_at, created_at, id),
 				KEY                admin_type (type, created_at),
 				KEY                admin_recent (created_at),
 				KEY                admin_active (last_active_at)
