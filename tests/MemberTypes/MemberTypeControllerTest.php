@@ -216,4 +216,88 @@ class MemberTypeControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 200, $response->get_status() );
 		$this->assertNull( $response->get_data() );
 	}
+
+	// ── SECURITY regression: the public member-type route must not leak the badge
+	// of a member whose profile the viewer may not see (class 14, seam alignment
+	// with ProfileController::get_profile). See free-internal security shelf. ──
+
+	/**
+	 * Create a uniquely-slugged type, assign it to regular_user_id, and make that
+	 * profile followers-only so a non-follower stranger cannot view it.
+	 *
+	 * @return string The assigned type slug.
+	 */
+	private function assign_type_and_hide_profile(): string {
+		$slug    = 'staff-' . strtolower( wp_generate_password( 8, false, false ) );
+		$type_id = $this->service->create(
+			array(
+				'slug' => $slug,
+				'name' => 'Staff',
+			)
+		);
+		$this->assertIsInt( $type_id );
+		$this->service->assign_type( $this->regular_user_id, $type_id, $this->admin_id );
+
+		// followers-only → a non-follower stranger cannot view the profile.
+		buddynext_service( 'privacy' )->set_preference( $this->regular_user_id, 'profile_visibility', 'followers' );
+
+		return $slug;
+	}
+
+	public function test_hidden_members_type_is_not_disclosed_to_anonymous(): void {
+		$this->assign_type_and_hide_profile();
+
+		wp_set_current_user( 0 );
+		$response = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/users/' . $this->regular_user_id . '/member-type' ) );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertNull( $response->get_data(), 'An anonymous caller read the member type of a followers-only profile.' );
+	}
+
+	public function test_hidden_members_type_is_not_disclosed_to_another_member(): void {
+		$this->assign_type_and_hide_profile();
+		$stranger = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+
+		wp_set_current_user( $stranger );
+		$response = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/users/' . $this->regular_user_id . '/member-type' ) );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertNull( $response->get_data() );
+	}
+
+	public function test_owner_still_reads_their_own_type(): void {
+		$slug = $this->assign_type_and_hide_profile();
+
+		wp_set_current_user( $this->regular_user_id );
+		$own = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/users/' . $this->regular_user_id . '/member-type' ) );
+		$this->assertSame( $slug, $own->get_data()['slug'] ?? null );
+	}
+
+	public function test_a_follower_reads_the_type_of_a_followers_only_profile(): void {
+		$slug     = $this->assign_type_and_hide_profile();
+		$follower = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		buddynext_service( 'follows' )->follow( $follower, $this->regular_user_id );
+
+		wp_set_current_user( $follower );
+		$response = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/users/' . $this->regular_user_id . '/member-type' ) );
+
+		$this->assertSame( $slug, $response->get_data()['slug'] ?? null, 'An approved follower should read the badge the gate allows.' );
+	}
+
+	public function test_public_profile_type_is_still_visible_to_all(): void {
+		$slug    = 'verified-' . strtolower( wp_generate_password( 8, false, false ) );
+		$type_id = $this->service->create(
+			array(
+				'slug' => $slug,
+				'name' => 'Verified',
+			)
+		);
+		$this->service->assign_type( $this->regular_user_id, (int) $type_id, $this->admin_id );
+		// profile_visibility defaults to 'public' — no preference set.
+
+		wp_set_current_user( 0 );
+		$response = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/users/' . $this->regular_user_id . '/member-type' ) );
+
+		$this->assertSame( $slug, $response->get_data()['slug'] ?? null );
+	}
 }

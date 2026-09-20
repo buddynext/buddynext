@@ -271,13 +271,49 @@ class MemberTypeController extends BaseRestController {
 	 */
 	public function get_user_type( WP_REST_Request $request ): WP_REST_Response {
 		$user_id = absint( $request->get_param( 'id' ) );
-		$type    = $this->service->get_user_type( $user_id );
+
+		// SECURITY: this route is public (permission_callback __return_true) because a
+		// member type is a public-facing badge for members whose profile the viewer may
+		// see. But without a per-object gate it handed every member's classification
+		// (Staff / Moderator / Verified …) to anyone walking the id space, including a
+		// viewer the target has blocked and a stranger looking at a private account —
+		// while the SAME value served inside ProfileController::get_profile sits behind
+		// can_view_profile(). Gate this seam with the canonical profile-visibility check
+		// and return the neutral "no type" answer when the viewer may not see the
+		// profile, so denial is indistinguishable from "no badge assigned".
+		if ( ! $this->viewer_can_see_profile( $user_id ) ) {
+			return new WP_REST_Response( null, 200 );
+		}
+
+		$type = $this->service->get_user_type( $user_id );
 
 		if ( ! $type ) {
 			return new WP_REST_Response( null, 200 );
 		}
 
 		return rest_ensure_response( $this->prepare_type_for_response( $type ) );
+	}
+
+	/**
+	 * May the current viewer see this member's profile (and therefore their badge)?
+	 *
+	 * The canonical block + public/followers/connections gate, shared with
+	 * ProfileController and GamificationAchievements. Fails closed.
+	 *
+	 * @param int $member_id The profile being read.
+	 * @return bool
+	 */
+	private function viewer_can_see_profile( int $member_id ): bool {
+		if ( $member_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$privacy = buddynext_service( 'privacy' );
+		if ( ! $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
+			return false;
+		}
+
+		return $privacy->can_view_profile( get_current_user_id(), $member_id );
 	}
 
 	/**
