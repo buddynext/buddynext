@@ -89,6 +89,29 @@ Both routes use the `require_auth` permission callback; the `can_invite()` check
 
 `status` is `active`, `expired`, or `limit_reached`. Timestamps are GMT; the REST layer also adds ISO-8601 `*_gmt` variants. A visitor joins by opening `url` and calling `POST /spaces/{id}/join` with the `invite` token (above).
 
+## Featured spaces
+
+Owner-curated, ordered spaces shown first in the directory sidebar, the phone strip and onboarding. Managed by a site admin; the same option every member-facing surface resolves from via `SpaceService::featured_spaces()`.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/settings/featured-spaces` | Auth (`manage_options`) | Current featured ids + hydrated rows in owner order + the cap. |
+| POST | `/settings/featured-spaces` | Auth (`manage_options`) | Replace with a validated, ordered set. Body: `ids` (ordered int[]); missing/archived ids are dropped, de-duplicated, capped at `buddynext_featured_spaces_limit` (default 6, 1–12). |
+
+Response shape:
+
+```json
+{
+  "ids": [12, 8],
+  "spaces": [
+    { "id": 12, "name": "…", "slug": "…", "member_count": 34, "avatar_url": "…", "type": "open" }
+  ],
+  "limit": 6
+}
+```
+
+Non-admins receive `403`. The resolver/filters are documented in `29-hooks-spaces.md`.
+
 ## Bans
 
 Served by `ModerationController`. The permission callback `require_space_owner_or_admin` requires the caller to be logged in and either a site administrator (`manage_options`) or the space owner/manager.

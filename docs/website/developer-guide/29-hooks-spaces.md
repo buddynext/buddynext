@@ -161,6 +161,31 @@ add_action( 'buddynext_space_member_joined', function ( int $space_id, int $user
 }, 10, 3 );
 ```
 
+## Featured spaces
+
+Owner-curated spaces shown first in the directory sidebar, the phone strip, and onboarding. Two filters tune them; both are applied by `SpaceService::featured_spaces()`.
+
+```php
+// Raise or lower how many spaces an owner may feature (default 6, clamped 1–12).
+add_filter( 'buddynext_featured_spaces_limit', fn () => 10 );
+
+// Adjust the final featured list PER SURFACE. Runs AFTER visibility filtering and
+// its result is visibility-checked again, so you can reorder/trim/add but can
+// never surface a space the viewer must not see. $surface is one of
+// 'sidebar' | 'directory_mobile' | 'onboarding' | 'suggestions'.
+add_filter( 'buddynext_featured_spaces', function ( array $spaces, int $viewer_id, string $surface ): array {
+    if ( 'onboarding' === $surface ) {
+        // e.g. cap onboarding to the top 3.
+        return array_slice( $spaces, 0, 3 );
+    }
+    return $spaces;
+}, 10, 3 );
+```
+
+- The directory sidebar "Featured" card is registered via `buddynext_sidebar_widgets` with id `spaces-featured` (priority 10) — remove or reorder it there.
+- Featured spaces the member has not joined are boosted in feed/explore suggestions via the existing `buddynext_space_suggestions` filter (behind the member's strongest personal matches).
+- REST: `GET`/`POST /spaces/... ` — see `16-rest-spaces.md` (`/settings/featured-spaces`).
+
 ## Notes / gotchas
 
 - **Free vs Pro.** Every hook here is fired by Free. `buddynext_can_join_space` plus `buddynext_space_join_denied_data` are the documented gated-spaces / paywall seam that Pro builds on; `buddynext_space_types` is the extension point for new space kinds.
