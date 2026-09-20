@@ -4,11 +4,12 @@
  *
  * Ships a full, ready-made sidebar for the Spaces directory so the column is
  * never a single thin card — BuddyNext exposes no widget-add UI, so each page
- * must carry its own relevant defaults. Registers up to five titled cards:
- * "Suggested for you" (personalized), "Your spaces" (managed + joined),
- * "New spaces" (recently created), "Popular this week" (most-joined) and
- * "Community pulse" (a compact stats strip). "Suggested" and "Your spaces"
- * are member-only and skip when empty; "New spaces", "Popular this week" and
+ * must carry its own relevant defaults. Registers up to six titled cards:
+ * "Featured" (owner-curated, shown first), "Suggested for you" (personalized),
+ * "Your spaces" (managed + joined), "New spaces" (recently created),
+ * "Popular spaces" (most-joined) and "Community pulse" (a compact stats strip).
+ * "Featured" self-hides when nothing is featured; "Suggested" and "Your spaces"
+ * are member-only and skip when empty; "New spaces", "Popular spaces" and
  * "Community pulse" always render (guest and member) so the directory reads
  * as a living community out of the box.
  *
@@ -65,11 +66,29 @@ class SpacesDirectorySidebarProvider {
 		$space_service   = new SpaceService();
 		$cat_by_id       = $this->categories_by_id( $space_service );
 
+		// Card: Featured — the site owner's curated spaces (or the auto-join
+		// fallback), shown FIRST (priority 10) so a new member's starting point is
+		// the owner's choice, not a near-random ranking. Self-hides when nothing is
+		// featured. Guest AND member; max 5 rows like the other sidebar cards.
+		$featured_spaces = $space_service->featured_spaces( $current_user_id, 5, 'sidebar' );
+		if ( ! empty( $featured_spaces ) ) {
+			$descriptors[] = array(
+				'id'       => 'spaces-featured',
+				'priority' => 10,
+				'surfaces' => self::SURFACES,
+				'title'    => __( 'Featured', 'buddynext' ),
+				'icon'     => 'star',
+				'render'   => function () use ( $featured_spaces, $cat_by_id ): void {
+					$this->render_space_list( $featured_spaces, $cat_by_id );
+				},
+			);
+		}
+
 		// Card: Suggested for you (members only) — personalized discovery (social
 		// proof + category affinity + popularity). Empty (member already in
 		// everything / nothing fits) → the descriptor is not added, and
-		// "Popular this week" below shows as the fallback. Logged-out visitors
-		// get "Popular this week" only.
+		// "Popular spaces" below shows as the fallback. Logged-out visitors
+		// get "Popular spaces" only.
 		if ( $current_user_id ) {
 			$suggested = ( new SpaceSuggestionService() )->suggest( $current_user_id, 5 );
 
@@ -125,7 +144,7 @@ class SpacesDirectorySidebarProvider {
 		// Card: New spaces — the most recently created spaces, so the directory
 		// always surfaces fresh activity even for a member who already sees
 		// personalized suggestions. A discovery card, distinct from the
-		// popularity-ordered "Popular this week" below.
+		// popularity-ordered "Popular spaces" below.
 		$newest = $space_service->list_spaces(
 			array(
 				'type'     => 'open',
@@ -149,12 +168,13 @@ class SpacesDirectorySidebarProvider {
 			);
 		}
 
-		// Card: Popular this week — the most-joined open spaces. Always shown
-		// (guest AND member): "Suggested for you" is personalized affinity while
-		// this is community-wide popularity, so the two answer different
-		// questions and are worth showing together. Owners who ship a leaner
-		// sidebar can drop it via the buddynext_sidebar_widgets filter.
-		$featured = $space_service->list_spaces(
+		// Card: Popular spaces — the most-joined open spaces (all-time member
+		// count, not a weekly window). Always shown (guest AND member): "Suggested
+		// for you" is personalized affinity while this is community-wide
+		// popularity, so the two answer different questions and are worth showing
+		// together. Owners who ship a leaner sidebar can drop it via the
+		// buddynext_sidebar_widgets filter.
+		$popular = $space_service->list_spaces(
 			array(
 				'type'     => 'open',
 				'orderby'  => 'member_count',
@@ -164,15 +184,15 @@ class SpacesDirectorySidebarProvider {
 				'is_admin' => current_user_can( 'manage_options' ),
 			)
 		);
-		if ( ! empty( $featured ) ) {
+		if ( ! empty( $popular ) ) {
 			$descriptors[] = array(
 				'id'       => 'spaces-popular',
 				'priority' => 40,
 				'surfaces' => self::SURFACES,
-				'title'    => __( 'Popular this week', 'buddynext' ),
+				'title'    => __( 'Popular spaces', 'buddynext' ),
 				'icon'     => 'star',
-				'render'   => function () use ( $featured, $cat_by_id ): void {
-					$this->render_space_list( $featured, $cat_by_id );
+				'render'   => function () use ( $popular, $cat_by_id ): void {
+					$this->render_space_list( $popular, $cat_by_id );
 				},
 			);
 		}
@@ -250,7 +270,7 @@ class SpacesDirectorySidebarProvider {
 
 	/**
 	 * Renders a flat `<ul>` of spaces with name + member-count meta — the
-	 * shared row shape used by "Suggested for you" and "Popular this week".
+	 * shared row shape used by "Suggested for you" and "Popular spaces".
 	 *
 	 * @param array<int,array<string,mixed>> $spaces    Hydrated space rows.
 	 * @param array<int,array<string,mixed>> $cat_by_id Category id → row map.
