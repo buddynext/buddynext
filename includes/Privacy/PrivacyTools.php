@@ -1260,11 +1260,28 @@ class PrivacyTools implements ListenerInterface {
 	 */
 	public function erase( string $email_address, int $page = 1 ): array {
 		unset( $page ); // Progress is derived from what is left in the tables, not from a page number.
+		global $wpdb;
+
+		// Email-keyed PII, erased FIRST and regardless of whether an account exists.
+		// bn_invites stores an invited person's email + first name and is not tied
+		// to a WP user — an invitee may never have registered, and a member who was
+		// invited before joining still has their invite row keyed by email, not id.
+		// The canonical user purge below is keyed on the user id, so it never saw
+		// this table; without an email-keyed branch an invited non-member's address
+		// was unreachable by erasure entirely. Keyed on the indexed email column.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$invites_removed = (int) $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_invites WHERE email = %s",
+				$email_address
+			)
+		) > 0;
+
 		$user = get_user_by( 'email', $email_address );
 
 		if ( ! $user instanceof \WP_User ) {
 			return array(
-				'items_removed'  => false,
+				'items_removed'  => $invites_removed,
 				'items_retained' => false,
 				'messages'       => array(),
 				'done'           => true,
@@ -1295,7 +1312,7 @@ class PrivacyTools implements ListenerInterface {
 		$residue = array_filter( $cleanup->residue( (int) $user->ID ) );
 
 		return array(
-			'items_removed'  => $removed,
+			'items_removed'  => $removed || $invites_removed,
 			'items_retained' => false,
 			'messages'       => array(),
 			'done'           => array() === $residue,
