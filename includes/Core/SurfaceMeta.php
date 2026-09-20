@@ -172,11 +172,31 @@ final class SurfaceMeta {
 		}
 
 		$name = (string) $space['name'];
+		$type = (string) $space['type'];
+
+		// A SECRET space the current viewer cannot see must not be described at
+		// all — not its name, not its existence. Its whole model is that a stranger
+		// cannot confirm it is there; naming it in og:/twitter: tags (which
+		// link-preview crawlers scrape) breaks that even when the visible body says
+		// only "invite no longer valid". A member, or someone holding a valid
+		// unlocked invite, passes can_view_space and gets the normal card below.
+		// Private spaces are exempt: their name is already public in the directory
+		// and search, so a not-viewable private space keeps the name + generic
+		// description it has always had.
+		$space['id'] = $space_id;
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_SECRET === $type
+			&& ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $space, get_current_user_id() ) ) {
+			return array(
+				'url'     => PageRouter::space_url( $space_id ),
+				'title'   => self::community_name(),
+				'noindex' => true,
+			);
+		}
 
 		// Private and secret spaces exist, and their NAME is already on the
 		// membership screens, but their description, imagery and index presence
 		// are not public property.
-		$is_restricted = in_array( (string) $space['type'], array( 'private', 'secret' ), true );
+		$is_restricted = in_array( $type, array( 'private', 'secret' ), true );
 
 		if ( $is_restricted ) {
 			/* translators: %s: space name. */

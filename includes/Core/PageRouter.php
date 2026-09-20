@@ -673,11 +673,22 @@ class PageRouter {
 				// A link-bearing URL to a space the viewer still cannot see means the
 				// invite link is invalid, expired, reset, or used up (a valid one is
 				// unlocked by SpaceInviteLinkService::prime_from_request before this
-				// gate). Answer with a 200 "no longer valid" page that reveals none of
-				// the space's content — never a 404, which would be a dead end for
-				// someone the owner meant to let in.
+				// gate). For a PRIVATE space — whose name is already public in the
+				// directory and search — answer with a 200 "no longer valid" page
+				// rather than a dead-end 404, so someone the owner meant to let in can
+				// ask for a fresh link.
+				//
+				// A SECRET space is different: its whole model is non-discoverability,
+				// so an invalid token must behave exactly like no token — a 404 — or
+				// appending any ?invite=x to the URL turns a 404 into a 200 and
+				// confirms the secret slug is a real space (an existence oracle, and
+				// the head meta then named it). A valid token unlocks a secret space
+				// before this gate, so only a genuine invite ever reveals it.
 				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public shareable invite link (GET navigation), not a state change.
-				if ( '' !== ( isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( $_GET['invite'] ) ) : '' ) ) {
+				$bn_has_invite = '' !== ( isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( $_GET['invite'] ) ) : '' );
+				$bn_is_secret  = is_array( $bn_gate_space )
+					&& \BuddyNext\Spaces\SpaceService::TYPE_SECRET === (string) ( $bn_gate_space['type'] ?? '' );
+				if ( $bn_has_invite && ! $bn_is_secret ) {
 					$template = 'spaces/invite-invalid.php';
 				} else {
 					$this->send_404();
