@@ -559,6 +559,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/spaces/{id}/invite-link',
+				'resource' => 'spaces_invite_link',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/spaces/{id}/members',
 				'resource' => 'spaces_members',
 				'shape'    => 'array',
@@ -5265,6 +5271,36 @@ final class ResponseSchema {
 			'properties' => array(
 				'pref' => array(
 					'type' => 'string',
+				),
+			),
+		);
+	}
+
+	/**
+	 * Response of GET/POST /spaces/{id}/invite-link.
+	 *
+	 * `invite_link` is null when no link exists; otherwise the current link.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function spaces_invite_link(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'spaces-invite-link',
+			'type'       => 'object',
+			'properties' => array(
+				'invite_link' => array(
+					'type'       => array( 'object', 'null' ),
+					'properties' => array(
+						'url'        => array( 'type' => 'string' ),
+						'token'      => array( 'type' => 'string' ),
+						'expires'    => array( 'type' => 'string' ),
+						'expires_at' => array( 'type' => array( 'string', 'null' ) ),
+						'max_uses'   => array( 'type' => 'integer' ),
+						'uses'       => array( 'type' => 'integer' ),
+						'status'     => array( 'type' => 'string' ),
+						'created_at' => array( 'type' => array( 'string', 'null' ) ),
+					),
 				),
 			),
 		);

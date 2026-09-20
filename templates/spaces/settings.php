@@ -674,6 +674,28 @@ if ( ! empty( \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_custom_field
 	);
 }
 
+// Invite-link tab — shown only to actors who can invite (owner/mod per the
+// who_can_invite setting, or a site admin), slotted right after Members. The
+// panel itself re-checks can_invite() at the service layer, so this only decides
+// whether the tab is offered.
+$bn_can_invite = ( new \BuddyNext\Spaces\SpaceMemberService() )->can_invite( $space_id, $bn_actor_id );
+if ( $bn_can_invite ) {
+	$bn_members_pos = array_search( 'members', array_column( $builtin_tabs, 'slug' ), true );
+	$bn_invite_at   = false === $bn_members_pos ? count( $builtin_tabs ) - 1 : $bn_members_pos + 1;
+	array_splice(
+		$builtin_tabs,
+		$bn_invite_at,
+		0,
+		array(
+			array(
+				'slug'  => 'invite',
+				'label' => __( 'Invite link', 'buddynext' ),
+				'icon'  => 'link',
+			),
+		)
+	);
+}
+
 // Apply the canonical tab-registry filter once at composer level so Pro and
 // bridge-registered tabs (e.g. P6.2 Brand tab) are recognized as valid
 // `bn_stab` values before the active-tab validator runs. The part fires the
@@ -942,6 +964,18 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'space_id' => $space_id,
 						'members'  => $space_members,
 						'bans'     => $space_bans,
+					),
+				),
+			),
+			'invite'        => array(
+				'parts/space-settings-panel-invite.php',
+				array(
+					'space'           => $space,
+					'invite_settings' => array(
+						'space_id'    => $space_id,
+						// SSR the current link so the panel renders its real state with
+						// no loading flash; create/reset reload the tab to re-render.
+						'invite_link' => ( new \BuddyNext\Spaces\SpaceInviteLinkService() )->get( $space_id ),
 					),
 				),
 			),

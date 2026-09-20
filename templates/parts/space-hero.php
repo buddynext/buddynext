@@ -300,6 +300,22 @@ do_action( 'buddynext_part_space_hero_before', $args );
 				// private when it is open.
 				?>
 
+			<?php elseif ( \BuddyNext\Spaces\SpaceVisibility::is_unlocked_via_invite( (int) ( $bn_space->id ?? 0 ) ) ) : ?>
+				<?php
+				// A valid shareable invite link opened this space: the owner chose to
+				// let link-holders in directly, so show "Join space" wired to joinSpace
+				// (which forwards the ?invite= token) regardless of type — no approval
+				// step, even on a private or secret space. The paywall gate above still
+				// runs first, so a paid space is not bypassed.
+				?>
+				<button
+					class="bn-btn"
+					data-variant="primary"
+					data-size="sm"
+					data-current-state="join"
+					data-wp-on--click="actions.joinSpace"
+				><?php esc_html_e( 'Join space', 'buddynext' ); ?></button>
+
 			<?php elseif ( 'open' === $bn_space->type ) : ?>
 				<button
 					class="bn-btn"

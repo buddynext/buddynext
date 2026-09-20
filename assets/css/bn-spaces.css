@@ -3784,3 +3784,90 @@ a.bn-sh-statpill:focus-visible {
 	font-size: var(--bn-text-sm);
 	font-variant-numeric: tabular-nums;
 }
+
+/* ── Invite-link settings panel ─────────────────────────────────────────────
+   The "Invite link" space-settings tab: create form, link display + copy,
+   reset. Token-driven, so dark mode and RTL follow the shared foundation. */
+.bn-invite-panel__create {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-invite-panel__fields {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s4);
+}
+
+.bn-invite-panel__field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 12rem;
+	flex: 1 1 12rem;
+}
+
+.bn-invite-panel__field-label {
+	font-size: var(--bn-fs-xs);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+}
+
+.bn-invite-panel__link {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	align-items: flex-start;
+}
+
+.bn-invite-panel__url-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	width: 100%;
+}
+
+.bn-invite-panel__url {
+	flex: 1 1 16rem;
+	min-width: 0;
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-fs-xs);
+}
+
+.bn-invite-panel__meta {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	margin: 0;
+}
+
+.bn-invite-panel__status {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+/* Owner/mod-only "Joined via invite link" flag on a member card. */
+.bn-md-card__via-link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-fs-xs);
+}
+
+.bn-md-card__via-link svg {
+	width: 0.9em;
+	height: 0.9em;
+}
+
+@media (max-width: 480px) {
+	.bn-invite-panel__field {
+		flex-basis: 100%;
+	}
+
+	.bn-invite-panel__url-row .bn-btn {
+		flex: 1 1 100%;
+	}
+}

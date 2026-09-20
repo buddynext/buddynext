@@ -10115,6 +10115,16 @@
                         }
                     },
                     {
+                        "name": "q",
+                        "in": "query",
+                        "required": false,
+                        "description": "Alias of `search`: filter members by name or username (partial match).",
+                        "schema": {
+                            "type": "string",
+                            "default": ""
+                        }
+                    },
+                    {
                         "name": "location",
                         "in": "query",
                         "required": false,
@@ -12064,6 +12074,131 @@
                         "appPassword": []
                     }
                 ]
+            }
+        },
+        "/spaces/{id}/invite-link": {
+            "get": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "get_spaces_id_invite_link",
+                "summary": "GET /buddynext/v1/spaces/{id}/invite-link",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SpacesInviteLink"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "post_spaces_id_invite_link",
+                "summary": "POST /buddynext/v1/spaces/{id}/invite-link",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "expires": {
+                                        "type": "string",
+                                        "enum": [
+                                            "1d",
+                                            "7d",
+                                            "30d",
+                                            "never"
+                                        ],
+                                        "default": "7d"
+                                    },
+                                    "max_uses": {
+                                        "type": "integer",
+                                        "enum": [
+                                            0,
+                                            1,
+                                            10,
+                                            100
+                                        ],
+                                        "default": 0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         "/spaces/{id}/join": {
@@ -18173,6 +18308,59 @@
                     }
                 }
             },
+            "SpacesInviteLink": {
+                "type": "object",
+                "properties": {
+                    "invite_link": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "properties": {
+                            "url": {
+                                "type": "string"
+                            },
+                            "token": {
+                                "type": "string"
+                            },
+                            "expires": {
+                                "type": "string"
+                            },
+                            "expires_at": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "expires_at_gmt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "ISO 8601 UTC form of expires_at; present when expires_at is set."
+                            },
+                            "max_uses": {
+                                "type": "integer"
+                            },
+                            "uses": {
+                                "type": "integer"
+                            },
+                            "status": {
+                                "type": "string"
+                            },
+                            "created_at": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "created_at_gmt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "ISO 8601 UTC form of created_at; present when created_at is set."
+                            }
+                        }
+                    }
+                }
+            },
             "SpacesNotificationPref": {
                 "type": "object",
                 "properties": {
@@ -19955,6 +20143,9 @@
                         "type": "boolean"
                     },
                     "is_deleted": {
+                        "type": "boolean"
+                    },
+                    "is_hidden": {
                         "type": "boolean"
                     },
                     "created_at": {

@@ -670,8 +670,19 @@ class PageRouter {
 		if ( 'spaces' === $hub && ! empty( $context['space_id'] ) ) {
 			$bn_gate_space = ( new \BuddyNext\Spaces\SpaceService() )->get( (int) $context['space_id'] );
 			if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $bn_gate_space, get_current_user_id() ) ) {
-				$this->send_404();
-				return;
+				// A link-bearing URL to a space the viewer still cannot see means the
+				// invite link is invalid, expired, reset, or used up (a valid one is
+				// unlocked by SpaceInviteLinkService::prime_from_request before this
+				// gate). Answer with a 200 "no longer valid" page that reveals none of
+				// the space's content — never a 404, which would be a dead end for
+				// someone the owner meant to let in.
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public shareable invite link (GET navigation), not a state change.
+				if ( '' !== ( isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( $_GET['invite'] ) ) : '' ) ) {
+					$template = 'spaces/invite-invalid.php';
+				} else {
+					$this->send_404();
+					return;
+				}
 			}
 		}
 

@@ -71,6 +71,52 @@ class OnboardingService {
 	}
 
 	/**
+	 * Whether the onboarding wizard is REQUIRED for this member right now.
+	 *
+	 * The single source of truth for "would onboarding gate this member",
+	 * shared by the front-end redirect gate (OnboardingListener) and the REST
+	 * join gate, so web and app enforce it identically. Covers the three
+	 * substantive conditions: the feature is enabled, the member has not
+	 * completed onboarding, and the member is not grandfathered (registered
+	 * before onboarding first went live). Navigation-only concerns (loop
+	 * guards, hub exemptions, 2FA holds) stay in the listener.
+	 *
+	 * @param int $user_id WordPress user ID (0 is never required).
+	 * @return bool
+	 */
+	public function is_required_for( int $user_id ): bool {
+		if ( $user_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		if ( ! buddynext_service( 'features' )->is_enabled( 'onboarding' ) ) {
+			return false;
+		}
+
+		if ( $this->is_complete( $user_id ) ) {
+			return false;
+		}
+
+		// Grandfather the existing community: the wizard is for *new* members and
+		// must never retroactively trap members who registered before onboarding
+		// was switched on. Record the moment the gate first goes live and only
+		// require members who registered at or after it.
+		$gate_since = (int) get_option( 'buddynext_onboarding_gate_since', 0 );
+		if ( 0 === $gate_since ) {
+			$gate_since = time();
+			update_option( 'buddynext_onboarding_gate_since', $gate_since );
+		}
+
+		$user_obj   = get_userdata( $user_id );
+		$registered = $user_obj ? (int) strtotime( (string) $user_obj->user_registered . ' UTC' ) : 0;
+		if ( $registered > 0 && $registered < $gate_since ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
 	 * Get the current wizard step for a user (1-based).
 	 *
 	 * Clamped to the number of steps this SITE renders (step_list(), which drops

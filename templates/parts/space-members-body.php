@@ -171,6 +171,13 @@ $bn_is_site_admin = $current_user_id > 0 && user_can( $current_user_id, 'manage_
 $bn_can_remove    = $current_user_id > 0 && ( in_array( $bn_viewer_role, array( 'owner', 'moderator' ), true ) || $bn_is_site_admin );
 $bn_can_set_role  = $current_user_id > 0 && ( 'owner' === $bn_viewer_role || $bn_is_site_admin );
 
+// "Joined via invite link" markers are visible to owners/moderators/admins only.
+// Fetched once for the whole roster (no per-row query) and only for a privileged
+// viewer, so a regular member never triggers the lookup.
+$bn_joined_via_link = $bn_can_remove
+	? ( new \BuddyNext\Spaces\SpaceInviteLinkService() )->joined_via_link_map( $space_id )
+	: array();
+
 if ( ! function_exists( 'bn_space_role_meta' ) ) {
 	/**
 	 * Return tone + label for a space member role.
@@ -425,6 +432,11 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 
 						<?php if ( '' !== $joined_formatted ) : ?>
 							<p class="bn-md-card__meta"><?php echo esc_html( $joined_formatted ); ?></p>
+						<?php endif; ?>
+
+						<?php // Owner/moderator/admin-only: flag members who came in via the shareable link. ?>
+						<?php if ( isset( $bn_joined_via_link[ $member_id ] ) ) : ?>
+							<p class="bn-md-card__meta bn-md-card__via-link"><?php buddynext_icon( 'link' ); ?> <?php esc_html_e( 'Joined via invite link', 'buddynext' ); ?></p>
 						<?php endif; ?>
 
 						<div class="bn-md-card__actions">

@@ -49,6 +49,41 @@ defined( 'ABSPATH' ) || exit;
 final class SpaceVisibility {
 
 	/**
+	 * Request-scoped set of space IDs unlocked for viewing by a valid invite link.
+	 *
+	 * Populated once per request by SpaceInviteLinkService::prime_from_request()
+	 * when a valid ?invite= token is opened, so a link-holder may reach a hidden
+	 * (secret/invite-only) space's home page — header + About + a Join button —
+	 * without being able to see it in listings or read its members-only content
+	 * (can_view_content is deliberately NOT unlocked here).
+	 *
+	 * @var array<int, true>
+	 */
+	private static array $invite_unlocked = array();
+
+	/**
+	 * Mark a space as viewable for this request because a valid invite link was opened.
+	 *
+	 * @param int $space_id Space unlocked by the link.
+	 * @return void
+	 */
+	public static function unlock_via_invite( int $space_id ): void {
+		if ( $space_id > 0 ) {
+			self::$invite_unlocked[ $space_id ] = true;
+		}
+	}
+
+	/**
+	 * Whether a space was unlocked for this request by a valid invite link.
+	 *
+	 * @param int $space_id Space to check.
+	 * @return bool
+	 */
+	public static function is_unlocked_via_invite( int $space_id ): bool {
+		return isset( self::$invite_unlocked[ $space_id ] );
+	}
+
+	/**
 	 * Whether the viewer may know the space exists (and open its pages).
 	 *
 	 * Secret (hidden) spaces are leak-proof: a non-member gets a hard 404 and we
@@ -62,6 +97,13 @@ final class SpaceVisibility {
 	public static function can_view_space( ?array $space, int $viewer_id ): bool {
 		if ( null === $space ) {
 			return false;
+		}
+
+		// A valid invite link opened this request unlocks the space's home page
+		// (header + About + Join) for any type, including hidden ones — the owner
+		// chose to share it. Content/roster gates are unchanged.
+		if ( self::is_unlocked_via_invite( (int) ( $space['id'] ?? 0 ) ) ) {
+			return true;
 		}
 
 		if ( ! SpaceTypeRegistry::instance()->is_hidden_from_non_members( self::type( $space ) ) ) {

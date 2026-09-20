@@ -1313,6 +1313,14 @@ class AssetService {
 					'paywallBecomeMember'             => __( 'Become a Member', 'buddynext' ),
 					'paywallNotConfigured'            => __( 'Membership purchase is not configured yet. Please check back soon.', 'buddynext' ),
 					'couldNotJoin'                    => __( 'Could not join this space.', 'buddynext' ),
+					// Invite-link panel (space settings).
+					'inviteSaved'                     => __( 'Invite link ready.', 'buddynext' ),
+					'inviteSaveFailed'                => __( 'Could not save the invite link.', 'buddynext' ),
+					'inviteCopied'                    => __( 'Copied', 'buddynext' ),
+					'inviteCopyFailed'                => __( 'Could not copy. Select the link and copy it manually.', 'buddynext' ),
+					'inviteResetTitle'                => __( 'Reset the invite link?', 'buddynext' ),
+					'inviteResetBody'                 => __( 'The current link stops working immediately and a new one is created.', 'buddynext' ),
+					'inviteResetConfirm'              => __( 'Reset link', 'buddynext' ),
 					// requestJoin's failure branch. It suppresses the shared error
 					// toast, so without this a rejected request (a banned member, say)
 					// only flickered the button and said nothing.

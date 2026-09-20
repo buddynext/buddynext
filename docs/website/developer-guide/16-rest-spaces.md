@@ -48,7 +48,7 @@ The create route's permission callback is `require_space_creation_role`: the cal
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/spaces/{id}/join` | Auth | Join (open) or request to join (private); invite-only for secret. |
+| POST | `/spaces/{id}/join` | Auth | Join (open) or request to join (private); invite-only for secret. Accepts an optional `invite` token (see Invite links). |
 | DELETE | `/spaces/{id}/join` | Auth | Leave the space (same handler as the leave route). |
 | POST | `/spaces/{id}/leave` | Auth | Leave the space. |
 | POST | `/spaces/{id}/join/cancel` | Auth | Withdraw a pending join request. |
@@ -58,6 +58,36 @@ Join outcomes by space type:
 - **Open** - membership becomes active immediately. Response: `{"joined": true}`.
 - **Private** - a pending request is created. Response: `{"requested": true}`.
 - **Secret** - `403` unless the caller already has a pending `invited` status, in which case the invite is accepted and the response is `{"joined": true}`.
+
+**Invite token (`invite`).** When the body carries a valid `invite` token for this space, the join takes the direct path regardless of type - membership becomes active immediately (`{"joined": true}`) with no approval and no invite-only check. A valid token does NOT bypass a space ban, the paid-space gate (`buddynext_can_join_space`), or onboarding: a member who still owes onboarding gets `403 onboarding_incomplete`. An invalid, expired, reset, or used-up token returns `403 invite_link_invalid`.
+
+## Invite links
+
+One shareable invite link per space, managed by anyone who passes `SpaceMemberService::can_invite()` (owner/moderator per the `who_can_invite` setting, or a site admin). Stored in `bn_space_meta` (no dedicated table). See the user guide, "Invite people with a link".
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/spaces/{id}/invite-link` | Auth (can_invite) | Return the current link, or `{"invite_link": null}` when none exists. |
+| POST | `/spaces/{id}/invite-link` | Auth (can_invite) | Create or reset the link (a reset issues a fresh token, killing the old one). Body: `expires` (`1d`\|`7d`\|`30d`\|`never`, default `7d`), `max_uses` (`0`\|`1`\|`10`\|`100`, `0` = unlimited). |
+
+Both routes use the `require_auth` permission callback; the `can_invite()` check is enforced inside the handler, so a non-inviter receives a `403`. The link object is:
+
+```json
+{
+  "invite_link": {
+    "url": "https://example.com/spaces/book-club/?invite=…",
+    "token": "…32 chars…",
+    "expires": "7d",
+    "expires_at": "2026-10-01 12:00:00",
+    "max_uses": 0,
+    "uses": 3,
+    "status": "active",
+    "created_at": "2026-09-24 12:00:00"
+  }
+}
+```
+
+`status` is `active`, `expired`, or `limit_reached`. Timestamps are GMT; the REST layer also adds ISO-8601 `*_gmt` variants. A visitor joins by opening `url` and calling `POST /spaces/{id}/join` with the `invite` token (above).
 
 ## Bans
 

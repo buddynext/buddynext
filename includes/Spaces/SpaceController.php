@@ -362,6 +362,38 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// Shareable invite link: read the current link, or create/reset it. Both
+		// require login at the route and are gated to can_invite() in the handler
+		// (owner/mod per the who_can_invite space setting).
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/invite-link',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'get_invite_link' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'save_invite_link' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+					'args'                => array(
+						'expires'  => array(
+							'type'    => 'string',
+							'enum'    => array( '1d', '7d', '30d', 'never' ),
+							'default' => '7d',
+						),
+						'max_uses' => array(
+							'type'    => 'integer',
+							'enum'    => array( 0, 1, 10, 100 ),
+							'default' => 0,
+						),
+					),
+				),
+			)
+		);
+
 		// Spec-conformant approve/decline endpoints: POST /spaces/{id}/members/{user_id}/approve|decline.
 		register_rest_route(
 			'buddynext/v1',
@@ -2154,6 +2186,54 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
+		// Shareable invite link: a valid token is itself the authorization to join
+		// directly, skipping the space's normal approval / invite-only routing —
+		// the same "invitation = authorization" principle as the standing
+		// invitation below. It still does NOT bypass the ban above, onboarding, or
+		// the paid-space gate (buddynext_can_join_space runs inside join()).
+		$invite_token = (string) ( $request->get_param( 'invite' ) ?? '' );
+		if ( '' !== $invite_token ) {
+			// Already an active member — no-op, and crucially do not consume a use
+			// or set a "joined via link" marker for someone who was already in.
+			if ( 'active' === $members->get_status( $space_id, $user_id ) ) {
+				return new WP_REST_Response( array( 'joined' => true ), 200 );
+			}
+
+			$links = new SpaceInviteLinkService();
+
+			$valid = $links->validate( $space_id, $invite_token );
+			if ( is_wp_error( $valid ) ) {
+				return $valid;
+			}
+
+			// Onboarding is required for everyone; a link never skips it. Apps hit
+			// this gate too, so they cannot bypass the wizard via the token.
+			if ( buddynext_service( 'onboarding' )->is_required_for( $user_id ) ) {
+				return new WP_Error(
+					'onboarding_incomplete',
+					__( 'Please finish setting up your account before joining this space.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+
+			// Reserve a use atomically (the real cap gate under concurrency) before
+			// the join; release it if the join is then refused.
+			$reserved = $links->consume( $space_id );
+			if ( is_wp_error( $reserved ) ) {
+				return $reserved;
+			}
+
+			$result = $members->join( $space_id, $user_id );
+			if ( is_wp_error( $result ) ) {
+				$links->refund( $space_id );
+				return $this->preserve_status( $result, 400 );
+			}
+
+			$links->mark_joined( $space_id, $user_id );
+
+			return new WP_REST_Response( array( 'joined' => true ), 200 );
+		}
+
 		// A standing invitation: accepting it joins directly, regardless of the
 		// space's normal join method. Without this, an invited user on a
 		// request-to-join (private) space would be routed through request_join()
@@ -2270,6 +2350,77 @@ class SpaceController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'cancelled' => true ), 200 );
+	}
+
+	/**
+	 * Get the space's current shareable invite link (owner/mod only).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_invite_link( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+
+		if ( null === ( new SpaceService() )->get( $space_id ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		if ( ! ( new SpaceMemberService() )->can_invite( $space_id, $user_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can manage the invite link.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return new WP_REST_Response(
+			array( 'invite_link' => ( new SpaceInviteLinkService() )->get( $space_id ) ),
+			200
+		);
+	}
+
+	/**
+	 * Create or reset the space's shareable invite link (owner/mod only).
+	 *
+	 * A reset is just another create: the old token is discarded immediately and
+	 * a new one is issued with the submitted settings, and the use counter resets.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function save_invite_link( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+
+		if ( null === ( new SpaceService() )->get( $space_id ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		if ( ! ( new SpaceMemberService() )->can_invite( $space_id, $user_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can manage the invite link.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$link = ( new SpaceInviteLinkService() )->create(
+			$space_id,
+			$user_id,
+			(string) $request->get_param( 'expires' ),
+			(int) $request->get_param( 'max_uses' )
+		);
+
+		return new WP_REST_Response( array( 'invite_link' => $link ), 200 );
 	}
 
 	/**

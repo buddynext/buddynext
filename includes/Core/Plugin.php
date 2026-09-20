@@ -489,6 +489,32 @@ class Plugin {
 		// Bust per-viewer space-suggestion caches on membership / follow changes.
 		( new \BuddyNext\Spaces\SpaceSuggestionListener() )->register();
 
+		// Shareable invite links: inspect ?invite= before the onboarding gate
+		// (template_redirect:5) and the space visibility gate (dispatch:10), so a
+		// valid link unlocks the space home for the request and, for a member who
+		// still owes onboarding, is remembered across the wizard.
+		add_action( 'template_redirect', array( \BuddyNext\Spaces\SpaceInviteLinkService::class, 'prime_from_request' ), 4 );
+
+		// Invite-link cleanup: drop a member's "joined via link" marker when they
+		// leave a space, and across every space on account purge / GDPR erase.
+		// Space deletion already clears all bn_space_meta for the space.
+		add_action(
+			'buddynext_space_member_left',
+			static function ( $space_id, $user_id ): void {
+				( new \BuddyNext\Spaces\SpaceInviteLinkService() )->forget_member( (int) $space_id, (int) $user_id );
+			},
+			10,
+			2
+		);
+		add_action(
+			'buddynext_purge_user_data',
+			static function ( $user_id ): void {
+				( new \BuddyNext\Spaces\SpaceInviteLinkService() )->forget_member_everywhere( (int) $user_id );
+			},
+			10,
+			1
+		);
+
 		// A comment on a space post counts as space activity (directory "Active"
 		// sort), throttled to one write per space per 5 minutes.
 		add_action( 'buddynext_comment_created', array( buddynext_service( 'spaces' ), 'touch_activity_from_comment' ), 10, 4 );
