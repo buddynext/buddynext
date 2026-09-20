@@ -1689,6 +1689,10 @@ class PostService {
 			return $object_id;
 		}
 
+		if ( ! $this->governs_engagement_type( $object_type ) ) {
+			return 0;
+		}
+
 		if ( 'comment' === $object_type && function_exists( 'buddynext_service' ) ) {
 			$comments = buddynext_service( 'comments' );
 			if ( $comments instanceof \BuddyNext\Comments\CommentService ) {
@@ -1715,6 +1719,23 @@ class PostService {
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Whether this post-privacy gate governs a given engagement object type.
+	 *
+	 * The engagement read/write gates ({@see \BuddyNext\REST\BaseRestController})
+	 * ask this before trusting {@see self::resolve_post_id()}: a type this gate does
+	 * NOT govern must be treated as hidden by default, not served — so a new
+	 * reactable/commentable object added without teaching the resolver about it
+	 * fails safe instead of silently skipping post-privacy. Keep this set in sync
+	 * with the branches in resolve_post_id() above.
+	 *
+	 * @param string $object_type Engagement object type.
+	 * @return bool True when resolve_post_id() knows how to map this type to a post.
+	 */
+	public function governs_engagement_type( string $object_type ): bool {
+		return in_array( $object_type, array( 'post', 'comment' ), true );
 	}
 
 	/**
