@@ -310,8 +310,23 @@ const onboardingStore = store( 'buddynext/onboarding', {
 							method: 'POST',
 							body:   { step: c.step || 1, data: {} },
 						} )
-							.catch( () => {} )
-							.then( () => { window.location.reload(); } );
+							.then( ( sr ) => {
+								// Only reload once the step pointer is actually saved:
+								// the server re-renders the next step from it. The old
+								// code swallowed the result and reloaded regardless, so
+								// whenever this write did not land the server re-rendered
+								// step 1 with blank inputs — the "bounced back to step 1"
+								// report. The interests are already saved above, so on
+								// failure we surface an error and stay put; Continue can
+								// be retried without re-entering anything.
+								if ( ! sr.ok ) { throw new Error( reason( sr, '' ) ); }
+								window.location.reload();
+							} )
+							.catch( ( err ) => {
+								c.saving = false;
+								c.error  = ( err && err.message ) || t( 'toastInterestsSaveFailed', 'Could not save your interests. Please try again.' );
+								toast( c.error, 'danger' );
+							} );
 					} else {
 						c.saving = false;
 					}
