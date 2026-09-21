@@ -4103,13 +4103,16 @@ class PostService {
 		// The space's type, so a card can tell a genuinely narrowed audience from
 		// one the space does not enforce (an open space treats 'space_members' as
 		// public — owner decision, card 10313019984 — so its lock badge would lie).
-		// Prefer a joined column; otherwise resolve once per DISTINCT space and memo
-		// it, so a feed spanning several spaces costs one cached lookup each, never
-		// one per post.
+		// Prefer a joined column; otherwise read it from SpaceService::get(), which
+		// is object-cached per space and invalidated when a space is updated — so a
+		// feed spanning several spaces costs one cached lookup each (never one per
+		// post) AND never serves a stale type after an open→private change, which a
+		// process-lifetime static memo would.
 		if ( isset( $row['space_type'] ) ) {
 			$post['space_type'] = (string) $row['space_type'];
-		} elseif ( $post['space_id'] ) {
-			$post['space_type'] = self::space_type_for( (int) $post['space_id'] );
+		} elseif ( $post['space_id'] && function_exists( 'buddynext_service' ) ) {
+			$space              = buddynext_service( 'spaces' )->get( (int) $post['space_id'] );
+			$post['space_type'] = is_array( $space ) ? (string) ( $space['type'] ?? '' ) : '';
 		} else {
 			$post['space_type'] = '';
 		}
@@ -4124,29 +4127,6 @@ class PostService {
 		}
 
 		return $post;
-	}
-
-	/**
-	 * Per-request memo of space id => type, so hydrating a feed that spans several
-	 * spaces resolves each space's type at most once (and SpaceService caches it).
-	 *
-	 * @var array<int, string>
-	 */
-	private static $space_type_memo = array();
-
-	/**
-	 * The type ('open' | 'private' | 'secret') of a space, memoised per request.
-	 *
-	 * @param int $space_id Space id.
-	 * @return string Space type, '' when the space is gone or unresolvable.
-	 */
-	private static function space_type_for( int $space_id ): string {
-		if ( ! isset( self::$space_type_memo[ $space_id ] ) ) {
-			$space                              = function_exists( 'buddynext_service' ) ? buddynext_service( 'spaces' )->get( $space_id ) : null;
-			self::$space_type_memo[ $space_id ] = is_array( $space ) ? (string) ( $space['type'] ?? '' ) : '';
-		}
-
-		return self::$space_type_memo[ $space_id ];
 	}
 
 	/**
