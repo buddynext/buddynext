@@ -189,6 +189,37 @@ if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' )
 	);
 }
 
+// Version skew, the direction only Free can see. Pro guards Free-older-than-Pro
+// from its own boot; the reverse — Pro OLDER than Free, i.e. the owner updated
+// BuddyNext but not BuddyNext Pro — is invisible to Pro (it cannot know a future
+// Free's version), so Free warns. Checked at admin_notices, by when both plugins
+// are loaded and BUDDYNEXTPRO_VERSION (if Pro is active) is defined. They ship in
+// lockstep, so this stays silent unless a partial update left them mismatched. A
+// warning, not an error: Free still works and Pro degrades gracefully, but the
+// owner should update Pro to match.
+add_action(
+	'admin_notices',
+	static function (): void {
+		if ( ! defined( 'BUDDYNEXTPRO_VERSION' ) || ! defined( 'BUDDYNEXT_VERSION' ) ) {
+			return;
+		}
+		if ( ! version_compare( BUDDYNEXTPRO_VERSION, BUDDYNEXT_VERSION, '<' ) ) {
+			return;
+		}
+		printf(
+			'<div class="notice notice-warning"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: 1: installed BuddyNext Pro version, 2: installed BuddyNext version */
+					__( 'BuddyNext Pro %1$s is older than BuddyNext %2$s. Update BuddyNext Pro to match, so the two stay in step.', 'buddynext' ),
+					BUDDYNEXTPRO_VERSION,
+					BUDDYNEXT_VERSION
+				)
+			)
+		);
+	}
+);
+
 // Apply pending DB schema upgrades on a plain plugin update (no deactivate/
 // reactivate needed). Cheap no-op once the stored schema revision matches.
 add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
