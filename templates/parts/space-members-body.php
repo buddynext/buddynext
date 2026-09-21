@@ -440,7 +440,12 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 						<?php endif; ?>
 
 						<div class="bn-md-card__actions">
-							<a href="<?php echo esc_url( $member_url ); ?>" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'View', 'buddynext' ); ?></a>
+							<a href="<?php echo esc_url( $member_url ); ?>" class="bn-btn" data-variant="primary" data-size="sm" aria-label="
+								<?php
+									/* translators: %s: member display name. */
+									printf( esc_attr__( 'View %s', 'buddynext' ), esc_attr( $member_name ) );
+								?>
+							"><?php esc_html_e( 'View', 'buddynext' ); ?></a>
 							<?php if ( $current_user_id > 0 && $current_user_id !== $member_id ) : ?>
 								<a
 									href="<?php echo esc_url( PageRouter::messages_url() ); ?>"
