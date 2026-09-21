@@ -1609,6 +1609,22 @@ class ProfileService {
 
 		$type = (string) ( $field['type'] ?? '' );
 
+		// A location stores a {address, lat, lng} JSON blob. Like a reduced date, the
+		// exact point must not leave the server in `value`: a member who shares a
+		// location expects others to see their area (the address they chose), not
+		// their cm-precision coordinates. The owner still edits the exact point via
+		// value_raw; everyone else — the About panel, REST, the app — gets the
+		// readable address, and the About panel's map link then points at that area
+		// rather than the pin. Pro's buddynext_field_rest_value shaper is the single
+		// decoder for this (location_display_text); with Pro inactive there is no
+		// location type, so the filter returns null and the value passes through.
+		if ( 'location' === $type ) {
+			$reduced = apply_filters( 'buddynext_field_rest_value', null, $field, $value );
+			if ( null !== $reduced ) {
+				return $reduced;
+			}
+		}
+
 		if ( ! in_array( $type, array( 'date', 'date_extended' ), true ) ) {
 			return $value;
 		}
