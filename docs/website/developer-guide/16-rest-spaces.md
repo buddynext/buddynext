@@ -27,6 +27,18 @@ All routes live under the `buddynext/v1` namespace. They follow the shared respo
 
 The create route's permission callback is `require_space_creation_role`: the caller must be logged in and hold a role permitted to create spaces (configured on the Roles and Capabilities tab). Update and delete enforce owner/manage checks inside the service layer.
 
+### Plan gating fields (Pro)
+
+When BuddyNext Pro is active, a space payload (`GET /spaces` and `GET /spaces/{id}`) carries which membership plans open it, so a client can render its own paywall without re-deriving the rule:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `gate_plans` | `string[]` | Slugs of every plan that opens this space (many-to-many). Empty when the space is not plan-gated. A member holding any of these plans - or a plan with the all-access `spaces.gated_access` entitlement - may enter. |
+| `is_gated` | `bool` | `true` when the space is gated by at least one plan. |
+| `required_ability` | `string` | **Deprecated.** The legacy single-plan gate (`tier:{slug}`), carried for one release as the first of `gate_plans`. Read `gate_plans`/`is_gated` instead; do not write it. |
+
+The gating is authored from the Monetization admin (either the Paywall tab's space gate or a plan's "Spaces this plan unlocks" field) - both write the same relationship. Access itself is always decided server-side, so these fields are for display only; a join is still checked on `POST /spaces/{id}/join`.
+
 ## Membership and roles
 
 | Method | Path | Auth | Purpose |

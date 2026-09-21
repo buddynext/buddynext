@@ -24,31 +24,35 @@ For the member, a gated space is a clear boundary: this is part of what your mem
 
 ### What gates a space
 
-A space is gated when you tie it to a membership plan. Only members holding that plan can join it. For example, a space gated behind your Premium plan can only be joined by Premium members.
+A space is gated when you tie it to one or more membership plans. Any member holding one of those plans can join it. For example, a space opened by both your Basic and Premium plans can be joined by Basic members and Premium members alike, while a space opened only by Premium is Premium-only.
+
+This works both ways: one plan can unlock several spaces, and one space can be opened by several plans. You set the same relationship from either direction (see Setting it up), and the two screens always agree.
 
 When a space is gated:
 
-- A member on the matching plan (or on a plan that grants the Gated Space Access perk) can join normally.
-- A member without it is blocked, and the join is never recorded.
+- A member on any of the plans that open it (or on a plan that grants the Gated Space Access perk) can join normally.
+- A member without any of them is blocked, and the join is never recorded.
 
-The Gated Space Access perk is the all-access pass. A plan that grants it lets its subscribers into any gated space, whatever specific plan each space asks for. Use it when you want one plan to unlock everything, instead of matching each space to its own plan.
+The Gated Space Access perk is the all-access pass. A plan that grants it lets its subscribers into any gated space, whatever specific plans each space asks for. Use it when you want one plan to unlock everything, instead of listing spaces on the plan.
 
 ### What a blocked member sees
 
-When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. The button either starts checkout (when a gateway price is linked to the required plan) or points to the call-to-action link you set. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
+When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. When a space is opened by more than one plan, the prompt names them cheapest-first (for example "Available on Basic or Premium"), so the member sees the most affordable way in. A member who already holds any plan that opens the space - or an all-access plan - is never shown the paywall. The button either starts checkout (when a gateway price is linked to a required plan) or points to the call-to-action link you set. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
 
 
 ## Setting it up (for owners)
 
 Gating a space is a two-part setup: mark the space as gated, then configure the paywall prompt members see.
 
-### Step 1: Mark the space as gated
+### Step 1: Choose which plans open the space
 
-Open BuddyNext in wp-admin, go to the Monetization section, and choose the Paywall tab. Below the paywall prompt settings you'll find the **Gate a Space Behind a Plan** control: pick a space, choose the plan a member needs to join it, and select **Apply gate**. To open a space back up, choose **No gate (open)** and apply. Spaces that are already gated are marked in the picker.
+You can set this from either direction - both edit the same relationship, so whichever you use, the other screen shows the result.
 
-The space picker shows 50 spaces at a time and has a **search box** next to it - type part of a space name to find the one you want. On a community with hundreds or thousands of spaces, search rather than scroll. The table of already-gated spaces below is paginated too, showing the page you are on and the total number of gated spaces.
+**From the space (Monetization > Paywall).** Below the paywall prompt settings you'll find the space gate: pick a space, then tick every plan that should open it (a space can list more than one), and select **Apply gate**. To open a space back up, clear all the plans and apply. Spaces that are already gated are marked in the picker. The picker shows 50 spaces at a time with a **search box** next to it - on a community with hundreds or thousands of spaces, search rather than scroll. The table of already-gated spaces below is paginated, showing the page you are on and the total number of gated spaces.
 
-Once a space is linked to the plan you want (for example, the Premium plan), everything else - the join check, the paywall, and the per-space settings row on the Paywall tab - works automatically.
+**From the plan (Monetization > Plans > Edit).** Each plan's edit screen has a **Spaces this plan unlocks** field: search for a space by name and add it as a chip; the members on that plan can then enter it. Adding a space that is currently open warns you first, since it puts that space behind the plan. When the plan carries the **All gated spaces** perk, this field is turned off (the plan already opens every gated space) and your existing choices are kept.
+
+Once a space is linked to the plans you want, everything else - the join check, the paywall, and the per-space settings row on the Paywall tab - works automatically.
 
 One limitation to know about:
 
