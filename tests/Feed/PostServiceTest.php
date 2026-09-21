@@ -368,4 +368,34 @@ class PostServiceTest extends \WP_UnitTestCase {
 		$plain_post = $this->service->get( $plain_id );
 		$this->assertSame( '', $plain_post['space_type'], 'a non-space post carries an empty space type' );
 	}
+
+	/**
+	 * A third-party feed card type registers through the filter instead of forking
+	 * PostService (card 10264296011): the type is accepted by create(), the
+	 * built-ins are never dropped even by a filter that returns an empty set.
+	 */
+	public function test_allowed_types_filter_adds_a_type_without_dropping_built_ins(): void {
+		// A custom type is rejected until it is registered.
+		$rejected = $this->service->create( $this->alice, array( 'type' => 'petition', 'content' => 'x' ) );
+		$this->assertWPError( $rejected );
+
+		$add = static function ( array $types ): array {
+			$types[] = 'petition';
+			return $types;
+		};
+		add_filter( 'buddynext_feed_allowed_post_types', $add );
+		$this->assertContains( 'petition', PostService::allowed_types() );
+		$this->assertContains( 'text', PostService::allowed_types(), 'built-ins remain' );
+		$accepted = $this->service->create( $this->alice, array( 'type' => 'petition', 'content' => 'x' ) );
+		$this->assertIsInt( $accepted );
+		remove_filter( 'buddynext_feed_allowed_post_types', $add );
+
+		// A filter that tries to WIPE the set cannot remove the built-ins.
+		$wipe = static function (): array {
+			return array();
+		};
+		add_filter( 'buddynext_feed_allowed_post_types', $wipe );
+		$this->assertContains( 'text', PostService::allowed_types(), 'a filter cannot drop a core type' );
+		remove_filter( 'buddynext_feed_allowed_post_types', $wipe );
+	}
 }

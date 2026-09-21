@@ -159,6 +159,34 @@ class PostService {
 	);
 
 	/**
+	 * The post types the feed accepts, as an extension point.
+	 *
+	 * The built-in set (ALLOWED_TYPES) is the source of truth for everything BN
+	 * and its first-party bridges ship; an integration that needs its own feed
+	 * card type registers it through the `buddynext_feed_allowed_post_types`
+	 * filter instead of forking the plugin. Only string types are kept, and the
+	 * built-ins can never be removed (a filter may add, not drop, so a misbehaving
+	 * add-on cannot disable a core type). The type still has to be rendered — a
+	 * registered type with no card renderer falls back to the plain text card.
+	 *
+	 * @return string[] The accepted post types.
+	 */
+	public static function allowed_types(): array {
+		/**
+		 * Filter the post types the feed accepts.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param string[] $types The built-in post types.
+		 */
+		$types = (array) apply_filters( 'buddynext_feed_allowed_post_types', self::ALLOWED_TYPES );
+
+		$extra = array_values( array_filter( $types, 'is_string' ) );
+
+		return array_values( array_unique( array_merge( self::ALLOWED_TYPES, $extra ) ) );
+	}
+
+	/**
 	 * Cache group for post data.
 	 */
 	private const CACHE_GROUP = 'buddynext_posts';
@@ -236,7 +264,7 @@ class PostService {
 	public function create( int $user_id, array $data ): int|WP_Error {
 		$type = $data['type'] ?? 'text';
 
-		if ( ! in_array( $type, self::ALLOWED_TYPES, true ) ) {
+		if ( ! in_array( $type, self::allowed_types(), true ) ) {
 			return new WP_Error(
 				'invalid_post_type',
 				/* translators: %s: submitted post type */
