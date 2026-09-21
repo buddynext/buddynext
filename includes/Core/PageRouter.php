@@ -878,10 +878,26 @@ class PageRouter {
 			}
 		}
 
-		// Bookmarks hub: override the bare "Activity Feed" title with a
-		// dedicated label so the document <title> reads "Bookmarks · BuddyNext".
-		if ( 'feed' === $hub && 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' ) ) {
-			$hub_title = __( 'Bookmarks', 'buddynext' );
+		// Feed hub sub-surfaces each get their own document title, so the browser
+		// tab, the SEO bot and the screen-reader page announcement name the right
+		// surface instead of the bare "Activity Feed" hub default. Mirrors the
+		// per-action auth titles above and follows the same resolution order as
+		// resolve_feed_template(). 'search' sets its own title from the search
+		// template, and the default (feed/home.php) keeps the "Activity Feed" title.
+		if ( 'feed' === $hub ) {
+			$feed_section = (string) get_query_var( 'bn_feed_section', '' );
+			$feed_action  = (string) get_query_var( 'bn_activity_action', '' );
+			if ( 'bookmarks' === $feed_section ) {
+				$hub_title = __( 'Bookmarks', 'buddynext' );
+			} elseif ( 'account-status' === $feed_section ) {
+				$hub_title = __( 'Account status', 'buddynext' );
+			} elseif ( 'explore' === $feed_action ) {
+				$hub_title = __( 'Explore', 'buddynext' );
+			} elseif ( 'leaderboard' === $feed_action ) {
+				$hub_title = __( 'Leaderboard', 'buddynext' );
+			} elseif ( 'hashtag' === $feed_action ) {
+				$hub_title = __( 'Hashtag', 'buddynext' );
+			}
 		}
 
 		// Specialise the title for per-space surfaces. Mirrors the
