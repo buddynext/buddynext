@@ -332,4 +332,40 @@ class PostServiceTest extends \WP_UnitTestCase {
 		remove_filter( 'buddynext_render_post_body_qa_typed', $renderer );
 		$this->assertTrue( PostService::has_editable_text( 'qa_typed', 'Body' ), 'no renderer: plain text body' );
 	}
+
+	/**
+	 * hydrate() carries the space's type, so a card can tell a genuinely narrowed
+	 * audience from one an open space does not enforce (card 10322304407): the lock
+	 * badge for a 'space_members' post in an OPEN space would otherwise lie.
+	 */
+	public function test_hydrate_carries_space_type(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$this->admin,
+			array(
+				'name' => 'Hydrate Type ' . wp_generate_password( 6, false, false ),
+				'slug' => 'hydrate-type-' . strtolower( wp_generate_password( 8, false, false ) ),
+				'type' => 'open',
+			)
+		);
+		$this->assertGreaterThan( 0, $space_id );
+
+		$post_id = $this->service->create(
+			$this->admin,
+			array(
+				'type'     => 'text',
+				'content'  => 'In an open space',
+				'space_id' => $space_id,
+				'privacy'  => 'space_members',
+			)
+		);
+		$this->assertIsInt( $post_id );
+
+		$space_post = $this->service->get( $post_id );
+		$this->assertSame( 'open', $space_post['space_type'], 'a space post should hydrate its space type' );
+
+		// A non-space post reports no space type (the marker logic then never fires).
+		$plain_id   = $this->service->create( $this->admin, array( 'type' => 'text', 'content' => 'No space' ) );
+		$plain_post = $this->service->get( $plain_id );
+		$this->assertSame( '', $plain_post['space_type'], 'a non-space post carries an empty space type' );
+	}
 }

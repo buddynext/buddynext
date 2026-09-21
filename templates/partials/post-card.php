@@ -422,7 +422,18 @@ $privacy_icons  = array(
  * marker on every post overrides this template - it is theme-overridable like
  * every other one, which is why this needs no filter of its own.
  */
-$privacy_label = ( 'public' !== $post_privacy && isset( $privacy_labels[ $post_privacy ] ) )
+
+/*
+ * 'space_members' in an OPEN space is not narrower than the default: an open
+ * space lets anyone read its posts (FeedService::explore_space_where(), owner
+ * decision 2026-09-17, card 10313019984). Showing a lock there is a false
+ * confirmation to the author that they narrowed the audience — they did not — so
+ * suppress the marker in that one case. followers / connections / private stay
+ * genuinely narrower and keep their markers.
+ */
+$bn_space_type      = (string) ( $bn_post['space_type'] ?? '' );
+$bn_privacy_is_open = 'space_members' === $post_privacy && 'open' === $bn_space_type;
+$privacy_label      = ( 'public' !== $post_privacy && ! $bn_privacy_is_open && isset( $privacy_labels[ $post_privacy ] ) )
 	? esc_html( $privacy_labels[ $post_privacy ] )
 	: '';
 // $post_privacy is validated to one of the five keys above, and $privacy_icons
