@@ -3010,14 +3010,21 @@ class SpaceService {
 			'cover_image_url'  => $row['cover_image_url'] ?? null,
 			'rules'            => $row['rules'] ?? null,
 			// The Pro entitlement gate on the space (`tier:<slug>`), or null when the
-			// space is ungated. REST already ACCEPTS this on PUT, and Pro admin writes
-			// it — but it was never returned, so no client could tell a space was
-			// paywalled. The native app cannot render a gated space if it cannot see
-			// that the space is gated. It is not a secret: the whole point of a paywall
-			// is that the person outside it is told what would let them in.
+			// space is ungated. DEPRECATED in favour of `gate_plans`: a space can now
+			// be opened by several plans, and this carries only the first for one
+			// release of app back-compat. Prefer `gate_plans` + `is_gated`.
 			'required_ability' => isset( $row['required_ability'] ) && '' !== (string) $row['required_ability']
 				? (string) $row['required_ability']
 				: null,
+			// The plans that open this space, as slugs (many-to-many). Free derives a
+			// single-plan baseline from required_ability; Pro's `buddynext_prepare_space`
+			// listener replaces it with the full list from SpacePlanAccess. Empty = not
+			// plan-gated. `is_gated` is the cheap "is there any paywall?" flag a client
+			// checks before caring which plans.
+			'gate_plans'       => ( isset( $row['required_ability'] ) && 0 === strpos( (string) $row['required_ability'], 'tier:' ) )
+				? array( sanitize_key( substr( (string) $row['required_ability'], 5 ) ) )
+				: array(),
+			'is_gated'         => isset( $row['required_ability'] ) && '' !== (string) $row['required_ability'],
 			'is_archived'      => ! empty( $row['is_archived'] ),
 			'archived_at'      => $row['archived_at'] ?? null,
 			'created_at'       => $row['created_at'] ?? '',
