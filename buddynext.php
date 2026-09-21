@@ -200,6 +200,12 @@ if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' )
 add_action(
 	'admin_notices',
 	static function (): void {
+		// Only people who could actually update the plugin should see this — a
+		// subscriber reaching wp-admin (profile.php) can neither act on it nor make
+		// sense of it, and on an open community it just reads as a broken site.
+		if ( ! current_user_can( 'update_plugins' ) ) {
+			return;
+		}
 		if ( ! defined( 'BUDDYNEXTPRO_VERSION' ) || ! defined( 'BUDDYNEXT_VERSION' ) ) {
 			return;
 		}
