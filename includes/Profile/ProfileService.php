@@ -997,7 +997,14 @@ class ProfileService {
 						// sub-field submitted empty is rejected (the stored value is
 						// never cleared) and reported in the error map — every caller
 						// (REST, admin editor, onboarding) gets the same contract.
-						if ( ! empty( $field_def['is_required'] ) && '' === $sanitized_val ) {
+						//
+						// Gated by the SAME predicate the flat branch uses: a sub-field
+						// hidden by conditional logic, or in a group the member's type
+						// excludes, is not theirs to fill and must not be required of them
+						// (the conditional-hidden 422 + Zoho #40859 fixes, which had been
+						// applied to flat fields only).
+						if ( $this->required_rule_active( $field_def, $data, $user_id )
+							&& ! empty( $field_def['is_required'] ) && '' === $sanitized_val ) {
 							$field_errors[ "{$key}[{$entry_index}][{$field_key}]" ] = sprintf(
 								/* translators: %s: field label. */
 								__( '%s is required.', 'buddynext' ),
@@ -1196,24 +1203,10 @@ class ProfileService {
 			// Note this gates the required CHECK only, not the write. An inactive field's
 			// value still persists exactly as it does today on the self-edit path (where
 			// the controller skips validation and save_profile then writes it), so this
-			// removes the spurious 422 without changing what lands in the database.
-			$field_active = (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field, $data, $user_id );
-
-			// A field belonging to a group locked to a member type this member does not hold is not
-			// theirs to fill — it is never rendered for them — so it cannot be required OF them.
-			//
-			// Zoho #40859: set a field required, restrict its group to one member type, and every
-			// member of every other type was told "Birthday is required." for a field that was not
-			// on their screen and never would be. No action available to them cleared it. They
-			// could not save their profile again, ever.
-			//
-			// The REST controller already asked this question. The PERSISTENCE layer — the one the
-			// admin member editor and onboarding call directly — never did, so the same bug was
-			// fixed on one entry point while still shipping on the other two. Both now call the one
-			// predicate.
-			if ( ! $this->field_applies_to_user( $field, $user_id ) ) {
-				$field_active = false;
-			}
+			// removes the spurious 422 without changing what lands in the database. The
+			// repeater sub-field branch above asks the SAME predicate, so the conditional
+			// + member-type skip can never hold on one branch and not the other.
+			$field_active = $this->required_rule_active( $field, $data, $user_id );
 
 			// G3: enforce is_required at the persistence layer (Bugs card
 			// 10055873101). Submitting an empty value for a required field is
@@ -1507,24 +1500,35 @@ class ProfileService {
 	}
 
 	/**
-	 * Does this field apply to this member at all?
+	 * Whether a field's is_required rule should be enforced against THIS user and
+	 * submission.
 	 *
+	 * A field hidden by conditional logic (the buddynext_profile_field_is_active seam
+	 * Pro hooks), or belonging to a group the member's type/plan excludes, is not
+	 * theirs to fill and must not be required of them. Both save branches — flat
+	 * fields and repeater sub-fields — ask this ONE predicate, so the
+	 * conditional-hidden 422 fix and Zoho #40859 cannot hold on one branch while the
+	 * other still ships the bug.
+	 *
+	 * @param array<string, mixed> $field_def Field (or repeater sub-field) definition.
+	 * @param array<string, mixed> $data      The full submission (a rule's trigger may live in it).
+	 * @param int                  $user_id   Member whose profile is being saved.
+	 * @return bool Whether the required rule applies to this user + submission.
+	 */
+	private function required_rule_active( array $field_def, array $data, int $user_id ): bool {
+		$active = (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field_def, $data, $user_id );
+
+		if ( ! $this->field_applies_to_user( $field_def, $user_id ) ) {
+			$active = false;
+		}
+
+		return $active;
+	}
+
+	/**
 	 * A profile group can be restricted to a single member type. A member who does not hold that
 	 * type never sees the group, so none of its fields exist for them — and a field that does not
 	 * exist for you cannot be REQUIRED of you.
-	 *
-	 * That was the bug (Zoho #40859): set a field required, restrict its group to one member type,
-	 * and every member of every OTHER type is told "Birthday is required." for a field that is not
-	 * on their screen and never will be. There is no action available to them that clears it. They
-	 * cannot save their profile again — ever. It is the worst shape a validation bug can take,
-	 * because the member cannot even see what they are being blamed for.
-	 *
-	 * This predicate is the single answer to that question, deliberately. The REST controller had
-	 * grown its own copy of the check while the persistence layer — the one the ADMIN member editor
-	 * and onboarding actually call — had none, so the same bug was fixed on one entry point and
-	 * still shipping on the other two. One predicate, three callers, no drift.
-	 *
-	 * An empty restriction means "applies to everyone", which is the default and the common case.
 	 *
 	 * @param array<string, mixed> $field_def Flat field definition (must carry group_type_restriction).
 	 * @param int                  $user_id   Member whose profile is being saved.
