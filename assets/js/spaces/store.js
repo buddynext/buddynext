@@ -3364,6 +3364,22 @@ document.addEventListener( 'keydown', function ( event ) {
 	// carries a fresh wp_rest nonce we use for every cover/icon REST call.
 	var imageNonce = ( generalForm.getAttribute( 'data-rest-nonce' ) ) || resolveNonce();
 
+	// Brand colour: the picker is live only when "use a custom colour" is ticked,
+	// so an owner never picks a colour the save then discards (an unticked save
+	// stores ''). Owner-only is enforced server-side — when the checkbox itself is
+	// disabled (a non-owner) we leave the picker's server-set disabled untouched.
+	( function () {
+		var enable = generalForm.querySelector( 'input[name="space_brand_color_enabled"]' );
+		var picker = generalForm.querySelector( 'input[name="space_brand_color"]' );
+		if ( ! enable || ! picker ) { return; }
+		function syncBrandPicker() {
+			if ( enable.disabled ) { return; }
+			picker.disabled = ! enable.checked;
+		}
+		enable.addEventListener( 'change', syncBrandPicker );
+		syncBrandPicker();
+	}() );
+
 	// A throwaway file input drives the OS picker; we never keep a value in it.
 	function pickFile( onChosen ) {
 		var picker = document.createElement( 'input' );

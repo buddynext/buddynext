@@ -250,9 +250,16 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 	// the field registry in settings.php). An <input type="color"> cannot hold an
 	// empty value, so a paired checkbox toggles between the custom colour and the
 	// default tone derived from the space id.
-	$bn_brand_color  = (string) buddynext_get_space_field( (int) ( $bn_space->id ?? 0 ), 'brand_color' );
-	$bn_brand_on     = '' !== $bn_brand_color;
-	$bn_brand_swatch = $bn_brand_on ? $bn_brand_color : '#2563eb';
+	$bn_brand_color = (string) buddynext_get_space_field( (int) ( $bn_space->id ?? 0 ), 'brand_color' );
+	$bn_brand_on    = '' !== $bn_brand_color;
+	// When no custom colour is set the space uses the site's default accent (the
+	// hero emits no per-space brand var), so show THAT in the swatch rather than a
+	// literal blue the space never actually renders.
+	$bn_site_brand = (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND );
+	if ( '' === $bn_site_brand ) {
+		$bn_site_brand = \BuddyNext\Theme\Appearance::DEFAULT_BRAND;
+	}
+	$bn_brand_swatch = $bn_brand_on ? $bn_brand_color : $bn_site_brand;
 	?>
 	<div class="bn-space-settings__field">
 		<label for="space_brand_color"><?php esc_html_e( 'Brand colour', 'buddynext' ); ?></label>
@@ -272,7 +279,7 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			name="space_brand_color"
 			class="bn-space-settings__color"
 			value="<?php echo esc_attr( $bn_brand_swatch ); ?>"
-			<?php disabled( ! $args['is_space_owner'] ); ?>
+			<?php disabled( ! $bn_brand_on || ! $args['is_space_owner'] ); ?>
 		/>
 		<p class="bn-space-settings__hint"><?php esc_html_e( 'Sets the space accent. Leave unchecked to use the default colour derived from the space.', 'buddynext' ); ?></p>
 	</div>
