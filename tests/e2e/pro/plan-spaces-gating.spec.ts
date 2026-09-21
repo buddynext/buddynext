@@ -29,8 +29,6 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 
 	let spaceA = { id: 0, slug: '', name: '' };
 	let spaceB = { id: 0, slug: '', name: '' };
-	let basicMemberId = 0;
-	let premiumMemberId = 0;
 
 	test.beforeAll(async ({ browser }) => {
 		// Two owner-set plans, cheapest first so the paywall names Basic before Premium.
@@ -49,8 +47,8 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 		// Pro's subscription-backed capability resolution). Then finish onboarding, or
 		// /spaces/{slug}/ 302s them to the wizard and the access checks test the
 		// redirect instead of the gate.
-		basicMemberId = await ensureUser(M_BASIC, `${M_BASIC}@example.test`, 'E2E Basic Member');
-		premiumMemberId = await ensureUser(M_PREMIUM, `${M_PREMIUM}@example.test`, 'E2E Premium Member');
+		await ensureUser(M_BASIC, `${M_BASIC}@example.test`, 'E2E Basic Member');
+		await ensureUser(M_PREMIUM, `${M_PREMIUM}@example.test`, 'E2E Premium Member');
 		// Resolve the members BY LOGIN inside PHP (never interpolate a JS id, which
 		// can arrive NaN and silently subscribe user 0 — the member then exists but
 		// holds no plan and is denied everywhere).
@@ -85,12 +83,20 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 	});
 
 	test.afterAll(async () => {
+		// Self-cleaning: drop the throwaway plans (rows + tier), their subscriptions,
+		// and the test members, all resolved by slug/login so nothing accumulates
+		// across CI runs (the global qa-reset does not remove membership tiers).
 		await wp([
 			'eval',
-			`\\BuddyNextPro\\Membership\\SpacePlanAccess::forget_plan( '${BASIC}' );` +
-				` \\BuddyNextPro\\Membership\\SpacePlanAccess::forget_plan( '${PREMIUM}' );` +
-				` global $wpdb; $wpdb->delete( $wpdb->prefix . 'bn_subscriptions', array( 'user_id' => ${basicMemberId} ) );` +
-				` $wpdb->delete( $wpdb->prefix . 'bn_subscriptions', array( 'user_id' => ${premiumMemberId} ) );` +
+			`$tsvc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
+				` global $wpdb;` +
+				` foreach ( array( '${BASIC}', '${PREMIUM}' ) as $slug ) {` +
+				`   \\BuddyNextPro\\Membership\\SpacePlanAccess::forget_plan( $slug );` +
+				`   $t = $tsvc->get_tier_by_slug( $slug );` +
+				`   if ( $t ) { $wpdb->delete( $wpdb->prefix . 'bn_subscriptions', array( 'tier_id' => (int) $t['id'] ) ); $tsvc->delete_tier( (int) $t['id'] ); }` +
+				` }` +
+				` require_once ABSPATH . 'wp-admin/includes/user.php';` +
+				` foreach ( array( '${M_BASIC}', '${M_PREMIUM}' ) as $login ) { $u = get_user_by( 'login', $login ); if ( $u ) { wp_delete_user( (int) $u->ID ); } }` +
 				` \\BuddyNextPro\\Membership\\MembershipCapabilities::flush();`,
 		]);
 		// Best-effort: drop the throwaway spaces.
