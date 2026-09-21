@@ -46,6 +46,16 @@ class SpaceInviteLinkService {
 	private const JOINED_PREFIX = 'joined_via_link_';
 
 	/**
+	 * Prefix for the per-member "already holds a use of the CURRENT link" marker.
+	 *
+	 * A use is one distinct person, not one join event: this marker is set when a
+	 * member consumes a slot and — unlike JOINED_PREFIX — SURVIVES a leave, so the
+	 * same person leaving and re-joining cannot burn the cap twice. It is cleared
+	 * for everyone when the link is reset (create()), so the new link counts fresh.
+	 */
+	private const SLOT_PREFIX = 'invite_slot_';
+
+	/**
 	 * WordPress metadata object-cache group for meta_type 'bn_space'.
 	 */
 	private const META_CACHE_GROUP = 'bn_space_meta';
@@ -170,6 +180,20 @@ class SpaceInviteLinkService {
 		update_space_meta( $space_id, self::META_LINK, $record );
 		update_space_meta( $space_id, self::META_USES, 0 );
 
+		// A reset issues a new token and a fresh cap, so the per-person "slot held"
+		// markers from the OLD link must go — otherwise everyone who used the old
+		// link would be treated as already-counted on the new one.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_space_meta WHERE bn_space_id = %d AND meta_key LIKE %s",
+				$space_id,
+				$wpdb->esc_like( self::SLOT_PREFIX ) . '%'
+			)
+		);
+		wp_cache_delete( $space_id, self::META_CACHE_GROUP );
+
 		return $this->to_public( $space_id, $record, 0 );
 	}
 
@@ -282,6 +306,56 @@ class SpaceInviteLinkService {
 	}
 
 	/**
+	 * Reserve a use for a specific member, counting DISTINCT people.
+	 *
+	 * Re-validates the token first (closing the small window where a reset lands
+	 * between the caller's validate() and here — the old token stops working
+	 * immediately, as the reset guarantee promises). Then, if this member already
+	 * holds a slot on the current link, it takes no new use (a leave+rejoin, or any
+	 * repeat, does not burn the cap again). Otherwise it consumes one slot
+	 * atomically. Call mark_slot() only after the join actually succeeds.
+	 *
+	 * @param int    $space_id Space the link belongs to.
+	 * @param int    $user_id  Member joining.
+	 * @param string $token    Token presented with the join.
+	 * @return int|WP_Error 1 = a new use was consumed (refund on join failure),
+	 *                       0 = the member already held a slot (nothing to refund),
+	 *                       WP_Error = invalid/expired/reset token or cap reached.
+	 */
+	public function reserve_slot( int $space_id, int $user_id, string $token ): int|WP_Error {
+		$valid = $this->validate( $space_id, $token );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+
+		// Distinct people, not join events: a member who already used this link keeps
+		// their slot across a leave, so re-joining takes no new use.
+		if ( '' !== (string) get_space_meta( $space_id, self::SLOT_PREFIX . $user_id, true ) ) {
+			return 0;
+		}
+
+		$consumed = $this->consume( $space_id );
+		if ( is_wp_error( $consumed ) ) {
+			return $consumed;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Record that a member now holds a use of the current link (survives leave).
+	 *
+	 * Set only AFTER the join succeeds, so a refused join leaves no phantom slot.
+	 *
+	 * @param int $space_id Space joined.
+	 * @param int $user_id  Member who consumed a slot.
+	 * @return void
+	 */
+	public function mark_slot( int $space_id, int $user_id ): void {
+		update_space_meta( $space_id, self::SLOT_PREFIX . $user_id, time() );
+	}
+
+	/**
 	 * Release a previously reserved use (floored at zero).
 	 *
 	 * Used when a use was consumed but the join was then refused (e.g. the
@@ -386,12 +460,15 @@ class SpaceInviteLinkService {
 	public function forget_member_everywhere( int $user_id ): void {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_space_meta',
-			array( 'meta_key' => self::JOINED_PREFIX . $user_id ),
-			array( '%s' )
-		);
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- exact-key deletes on the indexed meta_key, purge path.
+		foreach ( array( self::JOINED_PREFIX . $user_id, self::SLOT_PREFIX . $user_id ) as $meta_key ) {
+			$wpdb->delete(
+				$wpdb->prefix . 'bn_space_meta',
+				array( 'meta_key' => $meta_key ),
+				array( '%s' )
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 	}
 
 	/**

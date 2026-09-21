@@ -292,4 +292,56 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		delete_option( 'buddynext_features' );
 		delete_option( 'buddynext_onboarding_gate_since' );
 	}
+
+	/**
+	 * A use is one distinct person: the same member reserving twice (a leave then
+	 * rejoin) takes only one slot, so one holder cannot exhaust a capped link.
+	 */
+	public function test_reserve_slot_counts_distinct_people(): void {
+		$link = $this->make_link( '7d', 10 );
+		$a    = self::factory()->user->create();
+		$b    = self::factory()->user->create();
+
+		// A takes one use; a rejoin (reserve again after mark_slot) takes NO further
+		// use — one person cannot burn the cap by leave+rejoin.
+		$this->assertSame( 1, $this->links->reserve_slot( $this->space_id, $a, $link['token'] ) );
+		$this->links->mark_slot( $this->space_id, $a );
+		$this->assertSame( 0, $this->links->reserve_slot( $this->space_id, $a, $link['token'] ) );
+		$this->assertSame( '1', (string) get_space_meta( $this->space_id, 'invite_link_uses', true ) );
+
+		// A DIFFERENT person does take a use; their rejoin again does not.
+		$this->assertSame( 1, $this->links->reserve_slot( $this->space_id, $b, $link['token'] ) );
+		$this->links->mark_slot( $this->space_id, $b );
+		$this->assertSame( 0, $this->links->reserve_slot( $this->space_id, $b, $link['token'] ) );
+		$this->assertSame( '2', (string) get_space_meta( $this->space_id, 'invite_link_uses', true ) );
+	}
+
+	/**
+	 * Resetting the link clears the per-person slot markers, so a member who used the
+	 * old link counts fresh against the new one.
+	 */
+	public function test_reset_clears_slot_markers(): void {
+		$first = $this->make_link( '7d', 1 );
+		$a     = self::factory()->user->create();
+		$this->assertSame( 1, $this->links->reserve_slot( $this->space_id, $a, $first['token'] ) );
+		$this->links->mark_slot( $this->space_id, $a );
+
+		$second = $this->make_link( '7d', 1 ); // reset
+		$this->assertSame( '0', (string) get_space_meta( $this->space_id, 'invite_link_uses', true ) );
+		$this->assertSame( 1, $this->links->reserve_slot( $this->space_id, $a, $second['token'] ) );
+	}
+
+	/**
+	 * reserve_slot re-checks the token, so a link reset between validate() and the
+	 * reservation refuses the stale token (the TOCTOU window).
+	 */
+	public function test_reserve_slot_rejects_a_token_reset_after_validate(): void {
+		$first = $this->make_link( '7d', 0 );
+		$a     = self::factory()->user->create();
+		$this->assertTrue( $this->links->validate( $this->space_id, $first['token'] ) );
+
+		$this->make_link( '7d', 0 ); // reset lands after validate()
+
+		$this->assertWPError( $this->links->reserve_slot( $this->space_id, $a, $first['token'] ) );
+	}
 }

@@ -2243,18 +2243,32 @@ class SpaceController extends BaseRestController {
 			}
 
 			// Reserve a use atomically (the real cap gate under concurrency) before
-			// the join; release it if the join is then refused.
-			$reserved = $links->consume( $space_id );
+			// the join; release it if the join is then refused. Counts DISTINCT
+			// people: reserve_slot re-checks the token (so a reset takes effect at
+			// once) and takes no new use for a member who already holds a slot on
+			// this link (a leave+rejoin cannot burn the cap twice). Already-active
+			// members returned above at the top of this branch, so this path is only
+			// a genuine (re)join.
+			$reserved = $links->reserve_slot( $space_id, $user_id, $invite_token );
 			if ( is_wp_error( $reserved ) ) {
 				return $reserved;
 			}
 
 			$result = $members->join( $space_id, $user_id );
 			if ( is_wp_error( $result ) ) {
-				$links->refund( $space_id );
+				// Only refund a use we actually took (1); a returning member (0) held
+				// their existing slot, so there is nothing to give back.
+				if ( 1 === $reserved ) {
+					$links->refund( $space_id );
+				}
 				return $this->preserve_status( $result, 400 );
 			}
 
+			// Persist the per-person slot only after a successful join, so a refused
+			// join leaves no phantom slot. Skip when the member already held one.
+			if ( 1 === $reserved ) {
+				$links->mark_slot( $space_id, $user_id );
+			}
 			$links->mark_joined( $space_id, $user_id );
 
 			return new WP_REST_Response( array( 'joined' => true ), 200 );
@@ -2396,7 +2410,13 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		if ( ! ( new SpaceMemberService() )->can_invite( $space_id, $user_id ) ) {
+		// The shareable link is a public, direct-join broadcast + reset control, not a
+		// targeted invite, so it is gated on managing the space (owner/mod) — the same
+		// gate as the settings panel that shows it — NOT who_can_invite. Otherwise a
+		// space set to "all members can invite" let any member mint a public join link
+		// into a private/secret space and reset the owner's link, from an API the panel
+		// they cannot see.
+		if ( ! buddynext_can( $user_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only the space owner or a moderator can manage the invite link.', 'buddynext' ),
@@ -2431,7 +2451,10 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		if ( ! ( new SpaceMemberService() )->can_invite( $space_id, $user_id ) ) {
+		// Gated on managing the space (owner/mod), not who_can_invite — see the note
+		// in get_invite_link(). Minting/resetting the public shareable link is a
+		// manage-settings action, distinct from sending a targeted invite.
+		if ( ! buddynext_can( $user_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only the space owner or a moderator can manage the invite link.', 'buddynext' ),
@@ -2632,10 +2655,16 @@ class SpaceController extends BaseRestController {
 		$actor_id = get_current_user_id();
 		$decision = (string) $request->get_param( 'decision' );
 
-		$user_ids = array_values( array_unique( array_filter( array_map(
-			'absint',
-			(array) $request->get_param( 'user_ids' )
-		) ) ) );
+		$user_ids = array_values(
+			array_unique(
+				array_filter(
+					array_map(
+						'absint',
+						(array) $request->get_param( 'user_ids' )
+					)
+				)
+			)
+		);
 
 		if ( array() === $user_ids ) {
 			return new WP_Error(
@@ -2668,9 +2697,9 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		$members  = new SpaceMemberService();
-		$done     = array();
-		$failed   = array();
+		$members = new SpaceMemberService();
+		$done    = array();
+		$failed  = array();
 
 		foreach ( $user_ids as $user_id ) {
 			$result = 'approve' === $decision
