@@ -811,6 +811,16 @@ class ProfileFieldsManager {
 			$value = sanitize_text_field( $value );
 			$label = sanitize_text_field( '' !== trim( (string) $label ) ? $label : $value );
 
+			// Multi-value fields store their picks as a comma-joined string, so a
+			// comma inside a choice VALUE splits into two bogus tokens and the
+			// member's selection is dropped/garbled. Slugify a value that carries the
+			// delimiter to a safe token (the LABEL keeps the comma for display).
+			// Comma-free values are left byte-identical, so existing configs re-save
+			// unchanged and no member's stored selection is orphaned.
+			if ( false !== strpos( $value, ',' ) ) {
+				$value = sanitize_title( $value );
+			}
+
 			if ( '' !== $value ) {
 				$choices[] = array(
 					'value' => $value,
