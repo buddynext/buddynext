@@ -52,6 +52,26 @@ Eventonomy gets a card on the **Platform > Integration Settings** tab, with the 
 
 The event experience itself - who can create events, RSVP rules, calendar display - is configured in Eventonomy, not here. These switches only decide where the results show up inside your community.
 
+## Events in a space
+
+Beyond the profile Events tab and community-wide surfacing, a space can run its own events board on an **Events** tab.
+
+**Turning it on (space owner).** In a space's Settings > Integrations, switch on the Events tab (off by default). Once on, the tab appears even before any event exists, so members always have somewhere to create the first one.
+
+**Who can add an event.** A second per-space setting decides whether any active member can create an event for the space or only space admins/moderators (default: members). Editing an event's own content, once it exists, always stays with the event's author - the space setting only controls who may add a new one.
+
+**Creating from the space.** The tab's **Create event** button opens Eventonomy's own event editor with the space pre-selected, so a member creates an event without hunting for a space picker - the new event is bound to the space automatically.
+
+**List or Calendar.** The tab offers two views: a **List** of upcoming events styled like the rest of the community hub (the default), and a **Calendar** month view powered by Eventonomy's own calendar. A toggle at the top of the tab switches between them.
+
+**Linking an existing event into a space.** An event can belong to more than one space. On the tab, **Link event** lets an authorized member paste the URL of an existing, published, public event to add it to the space - the original event is untouched and still belongs to wherever it was created.
+
+**Removing an event from a space (unlink, not delete).** A space owner, moderator, or site admin can remove any event from their space's List view. This only detaches the event from that space - it is never deleted and stays fully intact everywhere else it appears: its own Eventonomy page, the organizer's profile, and any other space it is linked to.
+
+**Visibility.** The Events tab itself follows the space's own privacy - a private or secret space's Events tab is visible only to its members. Individual events default to Eventonomy's own "public" visibility when created, though, so an event created in a private space is still publicly visible unless its creator changes that - the space's privacy does not automatically narrow an event's own visibility setting.
+
+**Requirements.** Needs BuddyNext Pro. Linking an event into more than one space additionally needs Eventonomy 1.7.0 or newer (the release that added it); the Events tab itself, the List/Calendar toggle, and single-space creation work with earlier Eventonomy releases.
+
 ## Good to know
 
 - **Notifications are collect-only.** BuddyNext gathers Eventonomy's notifications into its center for convenience but does not re-send them by email. Eventonomy owns its own emails, so members are not notified twice.
@@ -60,7 +80,7 @@ The event experience itself - who can create events, RSVP rules, calendar displa
 
 ## Free vs Pro
 
-The Eventonomy community integration is part of BuddyNext Pro. The Eventonomy plugin itself is separate and runs on its own, but surfacing its events and RSVPs inside the BuddyNext community - the feed cards, community search, profile Events tab, and notification gathering described above - requires BuddyNext Pro.
+The Eventonomy community integration is part of BuddyNext Pro. The Eventonomy plugin itself is separate and runs on its own, but surfacing its events and RSVPs inside the BuddyNext community - the feed cards, community search, profile Events tab, the per-space Events tab, and notification gathering described above - requires BuddyNext Pro.
 
 ## Related
 
@@ -68,3 +88,4 @@ The Eventonomy community integration is part of BuddyNext Pro. The Eventonomy pl
 - [Activity Feed](../community/01-activity-feed.md) - where new events and RSVPs appear.
 - [Search](../community/12-search.md) - where published events become findable.
 - [Notifications](../messaging-notifications/02-notifications.md) - the bell that gathers event notifications.
+- [Spaces overview](../spaces/01-spaces-overview.md) - where the Events tab lives, alongside Media, Files and Businesses.

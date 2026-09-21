@@ -50,7 +50,7 @@ Free lets you set colours and a logo. Pro lets you brand the whole thing and sha
 
 ## 5. Connect the wider business suite
 
-Pro is also the bridge to the rest of the Wbcom suite, so a course, an event, a job board, or a listing directory becomes part of the same community rather than a separate silo. [Suite Portfolio](24-suite-portfolio.md).
+Pro is also the bridge to the rest of the Wbcom suite, so a course, an event, a job board, or a listing directory becomes part of the same community rather than a separate silo. [Suite Portfolio](24-suite-portfolio.md), [Suite Notification Aggregation](28-suite-notifications.md).
 
 ## What stays the same
 

@@ -35,7 +35,7 @@ Defined in `buddynext.php`, it resolves the `permissions` service from the conta
 Two hard-deny short-circuits run before the layers above:
 
 - A user who is **space-banned** (a row in `bn_space_bans`, or a `bn_space_members` row with `status = 'banned'`) is denied every `buddynext-spaces/*` capability when a `space_id` is in context, regardless of role.
-- The space-scoped capabilities `buddynext-moderate-space` and `buddynext-manage-space` bypass the generic role map and resolve through dedicated methods that read the caller's role in that specific space.
+- The space-scoped capabilities `buddynext-moderate-space`, `buddynext-manage-space`, and `buddynext-own-space` bypass the generic role map and resolve through dedicated methods that read the caller's role in that specific space.
 
 ### The role hierarchy
 
@@ -104,7 +104,7 @@ The role map holds 22 generic capabilities:
 > } );
 > ```
 
-Two additional space-scoped capabilities - `buddynext-moderate-space` and `buddynext-manage-space` - are resolved by dedicated per-space methods (`can_moderate_space()` / `can_manage_space()`) and are not part of the generic role map. `buddynext-moderate-space` is granted to a space `owner` or `moderator`; `buddynext-manage-space` only to the space `owner`.
+Three additional space-scoped capabilities - `buddynext-moderate-space`, `buddynext-manage-space`, and `buddynext-own-space` - are resolved by dedicated per-space methods (`can_moderate_space()` / `can_manage_space()` / `can_own_space()`) and are not part of the generic role map. `buddynext-moderate-space` and `buddynext-manage-space` are both granted to a space `owner` OR `moderator` (owner decision, 2026-07-30: moderators can manage space settings, they just cannot remove the owner or delete the space); `buddynext-own-space` is the strictly owner-only gate, split out for the two things a moderator must never do because neither is reversible from their side: delete the space, and change who owns it (transfer ownership, assign a new owner). An earlier version of this page said `buddynext-manage-space` was owner-only; it was widened to include moderators and `buddynext-own-space` was split out to keep the owner-only actions gated correctly.
 
 > Ability slugs may contain `/` and `-`. The grant meta key translates those to `_`, so `buddynext-feed/pin-post` is stored as `bn_ability_buddynext_feed_pin_post`. Use `PermissionService::ability_meta_key( $slug )` to build the key rather than hand-rolling it.
 

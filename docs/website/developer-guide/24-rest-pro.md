@@ -1,6 +1,6 @@
 # REST: Pro namespace
 
-The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 63 registered routes (across the controllers under `includes/`). This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and plans, moderation rules, AI assistance, scheduled posts, push, saved searches, the member portfolio, Learnomy course links, and the realtime + payment-gateway (Stripe / PayPal) webhook endpoints.
+The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with over 70 registered routes (across the controllers under `includes/`) and growing - read `/wp-json/buddynext-pro/v1` on a live install rather than trusting a count in prose. This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and plans, moderation rules, AI assistance, scheduled posts, push, saved searches, the member portfolio, Learnomy course links, and the realtime + payment-gateway (Stripe / PayPal) webhook endpoints.
 
 ![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-general.webp)
 
@@ -12,7 +12,7 @@ The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 63 reg
 
 - **The namespace is `buddynext-pro/v1`**, not `buddynext/v1`. All paths below are prefixed with `/wp-json/buddynext-pro/v1`.
 - **Most routes are admin- or owner-gated.** Campaign, moderation-rule, label-admin, analytics-overview, and AI-classify routes require an admin capability. Member-scoped routes (anything under `/me/...`, own subscriptions, saved searches, push) require login. A few are public reads.
-- **The payment-webhook routes are open at the permission layer but signed at the payload layer:** `/stripe/webhook`, `/stripe/membership-webhook`, and `/paypal/membership-webhook` register `permission_callback => __return_true` and are authorised entirely by verifying the provider's signature on the payload. `/realtime/auth` is login-gated and additionally enforces per-channel access. See the highlight below - "open" does not mean "unauthenticated trust".
+- **The payment-webhook routes are open at the permission layer but signed at the payload layer:** `/stripe/membership-webhook` and `/paypal/membership-webhook` register `permission_callback => __return_true` and are authorised entirely by verifying the provider's signature on the payload. `/realtime/auth` is login-gated and additionally enforces per-channel access. See the highlight below - "open" does not mean "unauthenticated trust".
 
 Source of truth: the controllers under `includes/` in the Pro plugin - grep `register_rest_route(` for the `buddynext-pro/v1` namespace.
 
@@ -20,12 +20,11 @@ Source of truth: the controllers under `includes/` in the Pro plugin - grep `reg
 
 | Method | Path | Permission gate | How it is actually authorised |
 |---|---|---|---|
-| POST | `/stripe/webhook` | `none` (public) | Verifies the `Stripe-Signature` header against the configured webhook secret via `\Stripe\Webhook::constructEvent()`; rejects with `stripe_invalid_signature` on mismatch and `stripe_webhook_secret_missing` when no secret is set. Handled in `Stripe/WebhookController`. |
-| POST | `/stripe/membership-webhook` | `none` (public) | The membership gateway's own Stripe webhook receiver. Signature-verified inside the handler. Handled in `Payments/Gateways/Stripe/StripeGateway`. |
+| POST | `/stripe/membership-webhook` | `none` (public) | Verifies the `Stripe-Signature` header against the configured webhook secret via `\Stripe\Webhook::constructEvent()`; rejects with `stripe_invalid_signature` on mismatch and `stripe_webhook_secret_missing` when no secret is set. Registered by `Payments/Gateways/Stripe/StripeGateway::register_webhook_route()`; certain invoice event types are delegated internally to `Stripe/WebhookController`'s dispatch logic rather than being a separate route. |
 | POST | `/paypal/membership-webhook` | `none` (public) | The membership gateway's PayPal webhook receiver; verifies the event via PayPal's `verify-webhook-signature` API before processing. Handled in `Payments/Gateways/PayPal/PayPalGateway`. |
 | POST | `/realtime/auth` | `require_logged_in` | Mints a Soketi/Pusher channel auth signature `key:hmac_sha256(socket_id:channel, secret)` - but only after confirming the current user may access the requested private channel. Handled in `Realtime/AuthController`. |
 
-`/stripe/webhook` has no WordPress capability check because Stripe calls it server-to-server with no session; its trust comes entirely from the HMAC signature on the payload. `/realtime/auth` is login-gated and additionally enforces per-channel access before returning the signature, so a logged-in user cannot subscribe to a channel they are not entitled to.
+`/stripe/membership-webhook` has no WordPress capability check because Stripe calls it server-to-server with no session; its trust comes entirely from the HMAC signature on the payload. `/realtime/auth` is login-gated and additionally enforces per-channel access before returning the signature, so a logged-in user cannot subscribe to a channel they are not entitled to.
 
 ## Routes by domain
 
@@ -40,10 +39,14 @@ Plans are the membership plans. Plan CRUD lives under `/tiers`; the buyer-facing
 | GET | `/membership/plans` | Public | List purchasable plans. |
 | GET | `/membership/gateways` | Public | List enabled payment gateways. |
 | POST | `/membership/checkout` | Logged in | Start a checkout for a plan (`plan_id`, optional `gateway`, `mode`, `coupon`, `country`). |
+| GET | `/membership/checkout-nonce` | Public | Mint a checkout CSRF nonce for an anonymous visitor. Public by design: a nonce is session-bound CSRF protection, not a secret, and anonymous checkout (which registers the account on submit) needs to work while logged out. |
+| POST | `/membership/register` | Public | Register + buy in one call, for the native app's paid-signup funnel where `/membership/checkout` (which requires a session) has no account to attach to. Re-dispatches into Free's `POST /auth/register` first - so the spam guard, registration policy, approval hold, 2FA, and session issuer all still run with no second copy - then hands the new member to the same `run_checkout()` the web form uses. Body: `plan_id` (required), optional `gateway`, `mode`. |
 | POST | `/membership/quote` | Logged in | Return a price quote (subtotal, tax, discount, total) for a plan without charging. |
 | POST | `/me/billing-portal` | Logged in | Create a billing-portal session for the current user. |
 | GET | `/me/subscriptions` | Logged in | Current user's subscriptions. Each row carries a `capabilities` block - see below. |
 | POST | `/me/subscriptions/{id}/cancel` | Logged in | Cancel one of the current user's subscriptions. |
+| GET | `/me/plan-change/quote` | Logged in | Price a plan change (upgrade/downgrade proration) for the caller's own subscription. Body/query: `plan_id`. Distinct from `/membership/quote`, which prices a NEW purchase, not a change to an existing subscription. |
+| POST | `/me/plan-change` | Logged in | Move the caller's own subscription onto a different plan. Body: `plan_id` (required), `plan_interval` (`month` / `year`, default `month` - honoured only when the target plan sells that interval). |
 | GET | `/users/{id}/subscriptions` | Admin | A user's subscription history. |
 
 #### The `capabilities` block on `/me/subscriptions`
@@ -86,6 +89,12 @@ Two rules that make the difference between a correct client and a plausible one:
 | GET | `/users/{user_id}/labels` | Public | Get a user's labels. |
 | POST, DELETE | `/users/{user_id}/labels/{slug}` | Admin (`manage_options`) | Assign / unassign a label to a user. |
 
+### Admin member search
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/admin/member-search` | Admin (`manage_options`) | Member lookup for the wp-admin "Add order" screen. Query: `q` (required). A search-and-return-matches picker rather than a `<select>` of every member, which would ship tens of megabytes of markup on a large community. |
+
 ### Analytics
 
 | Method | Path | Auth | Purpose |
@@ -116,6 +125,7 @@ Two rules that make the difference between a correct client and a plausible one:
 | GET, POST | `/broadcasts` | Admin | List broadcast campaigns; create one. |
 | GET, PUT, DELETE | `/broadcasts/{id}` | Admin | Get, update, or delete a broadcast. |
 | POST | `/broadcasts/{id}/dispatch` | Admin | Send a broadcast now. |
+| POST | `/broadcasts/{id}/cancel` | Admin | Cancel a broadcast that is queued or mid-send. |
 | GET | `/broadcasts/{id}/stats` | Admin | Delivery / engagement stats for a broadcast. |
 | GET | `/broadcasts/{id}/preview` | Admin | Render a preview of the broadcast. |
 | POST | `/broadcasts/{id}/test-send` | Admin | Send a test copy of the broadcast. |
@@ -188,14 +198,26 @@ Course-space linking for the Learnomy integration (`Integrations/Learnomy/Learno
 | POST | `/learnomy-link/create` | Course creator | Create a linked course (requires create capability). |
 | DELETE | `/learnomy-link/{space}` | Logged in | Remove the course link for a space. |
 
+### Eventonomy bridge: events
+
+The member/space Events surface for the native app (`Integrations/Eventonomy/EventsRestController`), mirroring what the profile/space Events tabs render server-side so web and app draw the same buckets from the same `EventBuckets` source. BN-namespaced (`buddynext-pro/v1`) deliberately, not eventonomy-pro's BuddyPress-only `eventonomy/v1/member-events` route, which never registers without BuddyPress. Registered only when Eventonomy is active. Routes are public at the permission layer; privacy is enforced inside `EventBuckets` by viewer id (owner-only buckets self-hide for other viewers), matching the tab behaviour.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/events/member/{id}` | Public (privacy in handler) | A member's event buckets (upcoming/past, hosting/attending). |
+| GET | `/events/space/{id}` | Public (privacy in handler) | A space's linked events. |
+| GET | `/events/{id}/rsvp` | Public | Read the caller's RSVP state for one event. |
+| GET | `/events/headcounts` | Public | Batch RSVP headcounts for a set of event ids. Query: `ids` (required). |
+| POST | `/spaces/{space_id}/events/link` | Logged in | Link an existing event to a space. |
+| POST | `/spaces/{space_id}/events/{event_id}/unbind` | Logged in | Remove an event's link to a space. |
+
 ### Realtime and payment webhooks
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | POST | `/realtime/auth` | Logged in (+ per-channel check) | Mint a realtime channel auth signature. See open-but-signed above. |
 | POST | `/realtime/test-connection` | Admin | Test the realtime connection. |
-| POST | `/stripe/webhook` | Public (signature-verified) | Handle Stripe events (`Stripe/WebhookController`). See open-but-signed above. |
-| POST | `/stripe/membership-webhook` | Public (signature-verified) | Membership gateway Stripe webhook receiver (`Payments/Gateways/Stripe/StripeGateway`). |
+| POST | `/stripe/membership-webhook` | Public (signature-verified) | Membership gateway Stripe webhook receiver (`Payments/Gateways/Stripe/StripeGateway`). See open-but-signed above. |
 | POST | `/paypal/membership-webhook` | Public (signature-verified) | Membership gateway PayPal webhook receiver (`Payments/Gateways/PayPal/PayPalGateway`). |
 
 ## Example: create a checkout session
@@ -214,4 +236,4 @@ The handler (`Membership/CheckoutController::handle_checkout`) takes a required 
 
 - **Mixed-permission routes.** `/tiers`, `/tiers/{id}`, and `/labels` register more than one method with different gates - the GET read is public or member-facing, the write (POST/PUT/DELETE) is admin. Treat the "Auth" column as per-method.
 - **Pro requires Free.** These routes only register when Pro is active, and they read Free data (spaces, posts, follows, analytics tables) through Free services. The namespaces stay separate: Free is `buddynext/v1`, Pro is `buddynext-pro/v1`.
-- **Webhook secret is a setup precondition.** `/stripe/webhook` returns `stripe_webhook_secret_missing` until the Stripe webhook secret is configured in the membership settings - that is required setup, not a fault.
+- **Webhook secret is a setup precondition.** `/stripe/membership-webhook` returns `stripe_webhook_secret_missing` until the Stripe webhook secret is configured in the membership settings - that is required setup, not a fault.

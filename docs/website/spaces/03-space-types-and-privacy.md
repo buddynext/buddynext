@@ -53,6 +53,15 @@ The space does not appear in the directory or in any public space list, so non-m
 
 A member can leave any space from its page regardless of type. An owner can also ban a member from a space; a banned member cannot rejoin until they are unbanned.
 
+## How space privacy affects a post's reach
+
+A space's privacy type does not just gate the join button - it also decides whether a post made inside the space can ever surface outside it, on the public Explore feed or on the author's own profile. Space privacy always wins over whatever audience the individual post carries:
+
+- **Posts in a Private or Secret space never leak out.** Even if a post were somehow marked "Public," it still will not appear on Explore or on the author's profile to a visitor who is not a member of that space. The only readers are active members of the space (and the author, everywhere).
+- **Posts in an Open space can surface.** Because anyone may already read an open space, its posts are eligible to appear on Explore and on the author's profile, provided the post's own audience is at least "Public" or "Space members" - a post the author narrowed further, to Followers, Connections, or Only me, still stays narrower.
+
+This is enforced the same way everywhere a post could appear - the space's type is checked before the post's own privacy level, not instead of it. See [Post Privacy and Visibility](../community/03-post-privacy-and-visibility.md) for the full set of audience levels and how they combine, and [Explore](../community/13-explore.md) for the public discovery feed this protects.
+
 ## Setting it up (for owners)
 
 The privacy type is set per space on the space's own settings page (Privacy panel). For the site-wide default applied to every newly created space, use the Spaces settings tab.
@@ -70,6 +79,7 @@ The privacy type is set per space on the space's own settings page (Privacy pane
 - **Private content is genuinely gated - but its identity is not.** A non-member of a private space can read the About tab (name, description, house rules, moderators) so they can judge whether to ask for a place. The feed and the member content stay locked until they are approved. The gate is about content, not about who runs the space.
 - **Require approval to join is an Open-space setting.** It is shown only on Open spaces, where it turns instant joins into reviewed requests. Private and secret spaces do not offer it because their type already answers the question.
 - **The owner is always a member.** Whoever creates a space is its owner and first member, regardless of type.
+- **Space privacy beats post privacy on public surfaces.** A Private or Secret space's posts never reach Explore or a member's profile for a non-member, no matter what audience the post itself carries. See How space privacy affects a post's reach above.
 
 ## Free vs Pro
 

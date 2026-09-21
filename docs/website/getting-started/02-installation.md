@@ -50,7 +50,7 @@ Pro is delivered through a built-in one-click installer, not a manual upload. Yo
 
 ## Optional companion plugins
 
-These companion plugins extend specific BuddyNext features. They are all optional - install only the ones whose features you want. Each installs through the same one-click flow under **BuddyNext > Platform > Add-ons**.
+These companion plugins extend specific BuddyNext features. They are all optional - install only the ones whose features you want. Each installs through the same one-click flow under **BuddyNext > Platform > Add-ons** (the same catalog the setup wizard's Addons step offers).
 
 | Companion | What it adds | Required for |
 |-----------|--------------|--------------|
@@ -58,6 +58,10 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 | **Jetonomy** | Discussions and forums | The optional Forum tab inside spaces |
 | **WB Gamification** | Points, badges, and levels | Member rewards and reputation |
 | **Career Board** | A jobs and applications board | Posting and applying to jobs in your community |
+| **Learnomy** | Courses, lessons, and quizzes (a full LMS) | Completed courses and certificates shown on member profiles |
+| **Listora** | Directory listings members can publish | Member listings surfaced in the feed and on profiles |
+| **Eventonomy** | Events, RSVPs, and calendars | Events as feed cards and attended events on member profiles |
+| **WB Member Blog** | Front-end post publishing without wp-admin | The Articles tab on member profiles and article cards in the feed |
 
 > **Tip:** WPMediaVerse is the one most communities add first, because it powers both private messaging and photo posts. Its free version is enough to get started; the Pro features (group messaging, read receipts, real-time delivery) come bundled with BuddyNext Pro.
 

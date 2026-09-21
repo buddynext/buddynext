@@ -38,6 +38,8 @@ You can rename the pricing slug, or point it at a different page, from Settings 
 
 The pricing page lists every active plan with its name, description, price, and billing interval. Each paid plan has its own button that starts checkout; the free plan is marked as the member's current plan. The button submits a standard form, so the buy flow works even with JavaScript disabled. After a member completes checkout, they are returned to their Settings > Membership tab with a confirmation, and their subscription becomes active.
 
+A visitor who is not logged in and picks a paid plan is sent to registration first, carrying that plan with them. Once they create their account, they land straight in checkout for the plan they picked rather than back on the pricing table - so choosing a plan and signing up feels like one continuous step, not two separate ones.
+
 To show the pricing table somewhere else as well - a marketing landing page, for example - drop this shortcode on any page:
 
 ```text
@@ -50,6 +52,7 @@ The member's billing area shows their current plan, price and interval, status, 
 
 - **Payment history** with a **downloadable invoice** for every charge, showing the 24 most recent.
 - **Cancel** - protected by a proper confirmation dialog. Cancelling keeps access until the paid period ends; the plan shows as cancelling until then, and afterwards the member lands in a lapsed state (free plan) rather than being cut off mid-period.
+- **Change plan (1.1.6)** - switch to a different paid plan without cancelling first. The page shows every other plan the member could move to, so they pick and confirm from their own billing area.
 
 To surface a compact version of this plan summary on another page, the shortcode remains available:
 
@@ -184,6 +187,27 @@ There is no single "extend" button in the Subscriptions table. A subscription's 
 
 So extending access is a matter of the next successful payment or a renewed grant, not a date you edit by hand in this table.
 
+### Changing plan mid-cycle (1.1.6)
+
+A member does not have to cancel one plan and buy another to move between paid plans. From Settings > Membership they can switch directly, and BuddyNext converts whatever time is left on their current plan into time on the new one - **no money changes hands for the switch itself**. Moving to a cheaper plan buys more days; moving to a pricier one buys fewer. This is deliberately not a refund-and-recharge: half of BuddyNext's memberships are billed by another system entirely (WooCommerce, a plan granted through Learnomy, and so on), and a rule that only works when BuddyNext holds the card would mean two different products. Converting time works the same way no matter who took the original payment.
+
+A change is refused, with a plain-language reason, when:
+
+- The member is still in a free trial (nothing has been paid for yet to convert).
+- Their current plan never expires (a lifetime grant) - there is no remaining time to move, so this needs a manual switch.
+- Either plan is a one-time purchase with no billing term.
+- Either plan is priced in points rather than money, or the two plans use different currencies.
+- Their current plan has already expired - at that point it is a new purchase, not a conversion.
+- The target is a free plan, since there is no price to convert the remaining time into.
+
+Every other move is allowed instantly. The same conversion logic runs behind the member's own Settings > Membership screen and the REST endpoints (`GET /buddynext-pro/v1/me/plan-change/quote` and `POST /buddynext-pro/v1/me/plan-change`) an app would use, so the website and a connected app can never disagree about what a switch is worth.
+
+### Granting access without a purchase
+
+Not every member ends up on a plan through checkout. An owner (or the mobile app, acting on the owner's behalf) can put a member on any plan directly - the same door a paid checkout uses, so the entitlements, the gated spaces it opens, and the one-active-plan rule all behave exactly as they would for a real subscription. This is a cap-gated, administrator-only REST action (`POST /buddynext-pro/v1/users/{id}/subscriptions`, with a matching `.../subscriptions/{sub_id}/cancel` to revoke it immediately); there is no separate wp-admin button for it today, so an owner without a developer uses it through whatever admin tool calls the endpoint on their behalf. A subscription created this way is recorded with the source **Manual**, exactly like the source column described above.
+
+Separately, the Plans tab shows a **Plans granted by other systems** panel whenever a bridge to another Wbcom app or a supported third-party system (WooCommerce, Paid Memberships Pro, and the like) is active. It lists, read-only, which purchase or level on that system currently maps to which BuddyNext plan - so you can see at a glance that, say, a WooCommerce product grants your Premium plan, without visiting that system's own screen. A mapping that points at a plan you have since deleted is called out so you can fix it. The mapping itself is configured on each system's own screen, not here.
+
 ### The printable invoice
 
 Every charge in a member's payment history has a printable invoice behind it. The member opens it from Settings > Membership and prints it or saves it as a PDF.
@@ -248,6 +272,7 @@ Within Pro, taking real payments needs a payment gateway. Pro is built to work w
 ## Related
 
 - [Gated Spaces](02-gated-spaces.md) - require an active plan to enter a space.
+- [Learnomy integration](../integrations/08-learnomy.md) - map a plan to Learnomy course or space access, so buying a plan grants the learning too.
 - [Payment Gateways](22-payment-gateways.md) - connect a gateway so members can pay for a plan.
 - [Ways to Make Money](../getting-started/12-ways-to-make-money.md) - choose between subscriptions, gated spaces, and paywalls.
 - [Launch a Paid Community](../recipes/01-launch-a-paid-community.md) - set plans up end to end.

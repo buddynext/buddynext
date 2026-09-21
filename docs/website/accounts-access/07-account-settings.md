@@ -77,6 +77,7 @@ For exactly what each action does and how to apply it from someone's profile, se
 - **Email changes are confirmed, not instant.** A new email address only becomes active after you confirm it from that address. This protects you if someone types the wrong address or tries to hijack the account.
 - **Sign out of all devices is immediate and total.** It ends every other session, including the one you may have forgotten on another computer. You will stay signed in on the device you are using to trigger it.
 - **Administrators are handled separately.** Site administrators manage their own access through WordPress and some member-facing destructive actions are intentionally not available to them here.
+- **An administrator can also change these for you.** If you are locked out of your email or need a role, handle, or display name corrected, an administrator can update your account directly from the admin - see [Editing a Member from the Admin](../members/14-admin-editing-a-member.md). This does not extend to your password or two-factor setup, which stay yours to manage.
 - **Blocking is reversible.** Nothing in the blocked, muted, or restricted lists is permanent - you can clear any entry whenever you change your mind.
 
 ## Related

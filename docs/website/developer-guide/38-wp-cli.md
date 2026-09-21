@@ -1,6 +1,6 @@
 # WP-CLI Commands
 
-BuddyNext registers up to six WP-CLI command namespaces in Free: `wp buddynext demo` (the demo-data seeder), `wp buddynext cert` (the functional-certification harness), `wp buddynext repair-space-owners` (a one-off orphan sweep), `wp buddynext repair-discussion-visibility` (a one-off visibility sweep for discussions provisioned before visibility was derived from the space type), `wp buddynext handles` (check / repair member handles that mentions cannot parse), and `wp buddynext qa-fixtures` (deterministic QA data - **development trees only**). All are registered in `Plugin::init()` and load only when WP-CLI is running. This page documents their subcommands, what they seed or verify, and example invocations.
+BuddyNext registers these WP-CLI command namespaces in Free, all in `Plugin::init()` and loaded only when WP-CLI is running: `wp buddynext demo` (the demo-data seeder), `wp buddynext cert` (the functional-certification harness), `wp buddynext repair-space-owners` (a one-off orphan sweep), `wp buddynext repair-discussion-visibility` (a one-off visibility sweep for discussions provisioned before visibility was derived from the space type), `wp buddynext reconcile-media-privacy` (bring stored media privacy back in line with its post), `wp buddynext handles` (check / repair / reconcile member handles that mentions cannot parse), `wp buddynext bridge-status` (report integration-bridge version freshness), and `wp buddynext qa-fixtures` plus `wp buddynext qa-reset` (deterministic QA data and harness cleanup - **development trees only**). This page documents their subcommands, what they seed or verify, and example invocations.
 
 ![The Platform > Tools admin tab for maintenance and CLI-adjacent operations](../images/admin-tools.webp)
 
@@ -179,6 +179,73 @@ wp buddynext repair-space-owners --dry-run
 wp buddynext repair-space-owners
 ```
 
+## wp buddynext repair-discussion-visibility
+
+A one-off sweep for Jetonomy discussions provisioned by the space-forum bridge before a discussion's visibility was derived from its space's type. It walks the affected rows and recomputes visibility from the current space type, chunked so it survives a large install.
+
+| Flag | What it does |
+|---|---|
+| `--dry-run` | Report what would change without writing anything. |
+
+```bash
+wp buddynext repair-discussion-visibility --dry-run
+wp buddynext repair-discussion-visibility
+```
+
+## wp buddynext reconcile-media-privacy
+
+Brings already-stored media privacy back in line with the post it belongs to. `WPMediaVerseBridge::on_post_privacy_changed` keeps new and edited posts in sync live; this repairs media stored under a post whose audience it never matched on a site that ran an earlier version - the "Only me" leak (a private post's photo serving at the default `public`) and the space leak (`space_members` collapsing onto `members`, so a photo posted into a secret space was readable by any signed-in member). Only ever tightens a privacy level, never loosens one, so it is idempotent and safe to re-run.
+
+| Flag | What it does |
+|---|---|
+| `--dry-run` | Report what would change without writing anything. |
+
+```bash
+wp buddynext reconcile-media-privacy --dry-run
+wp buddynext reconcile-media-privacy
+```
+
+## wp buddynext handles
+
+Finds and repairs member handles (`user_nicename`) that fall outside the mentionable charset - a state WordPress and BuddyNext's own signup can never produce, but a direct-database migration from another platform can. An affected member is silently unmentionable: `@name@example-com` parses as `name` followed by `example-com`, and neither resolves. Their profile still works, which is why the fault goes unnoticed until someone reports a member who "does not come up".
+
+| Subcommand | What it does |
+|---|---|
+| `check` | List members whose handle cannot be mentioned, with the nicename the repair would write. |
+| `repair` | Normalise unmentionable handles to what WordPress itself would have written. Dry-run by default (rewrites profile URLs); pass `--yes` to apply. |
+| `reconcile` | Fix members with two divergent identities (handle vs. nicename). `--prefer=<handle\|nicename>` (default `handle`) picks which one survives. Dry-run by default; pass `--yes` to apply. |
+
+```bash
+wp buddynext handles check
+wp buddynext handles repair --yes
+wp buddynext handles reconcile --prefer=nicename --yes
+```
+
+## wp buddynext bridge-status
+
+Reports the freshness of every registered integration bridge against its partner plugin - the recurring staleness gate. Each bridge declares a `min_version` (the floor it needs) and a `tested_version` (the partner release it was last verified against) in the `buddynext_integrations` registry; this command compares those against the partner version actually installed, so a bridge cannot silently rot as its partner ships new releases. Intended to run in CI as well as by hand.
+
+| Status | Meaning |
+|---|---|
+| `ok` | The installed partner version is at or above the floor and at or below the tested version. |
+| `below-floor` | The installed partner version is older than the bridge's declared floor. Always a failure. |
+| `partner-ahead` | The installed partner version is newer than what the bridge was verified against. A warning unless `--strict` is passed. |
+
+| Flag | What it does |
+|---|---|
+| `--strict` | Treat `partner-ahead` as a failure too, not just a warning. |
+
+```bash
+wp buddynext bridge-status
+wp buddynext bridge-status --strict
+```
+
+See the Integration Bridges page for the registry shape and per-bridge floors this command reads.
+
+## wp buddynext qa-reset
+
+**Development trees only** - lives in `dev/`, absent from a packaged install, same guard as `qa-fixtures` below. Removes what the Playwright e2e harnesses left behind on a shared site. Unlike `qa-fixtures cleanup` (which deletes exactly the ids it wrote from its own manifest), the e2e specs create data the way a member does - through the UI and REST - and leave no manifest, so this command matches by content pattern instead. Every pattern is anchored (`^`) so a member's own content is never caught, it reports and changes nothing unless `--yes` is passed, and an account that can administer the site is never deleted under any pattern - it is reported as needing a person instead.
+
 ## wp buddynext qa-fixtures
 
 Deterministic QA data: the ugly states a customer demo must never contain (expired invites, orphaned space owners, cancelled subscriptions, rows backdated past the retention windows) plus big-site scale data.
@@ -215,6 +282,10 @@ wp buddynext qa-fixtures cleanup
 
 - `demo` and `cert` declare `@when after_wp_load`, so WordPress is fully loaded before they run - they have access to services, settings, and the REST router.
 - `cert` writes a ledger as a side effect of every run, so CI and the MCP can read the last result without re-running the gate.
-- `demo` and `cert` are Free commands. Pro registers one WP-CLI command of its own - `wp buddynext-pro cert` (`\BuddyNextPro\Cert\CertCommand`, added in the Pro `Plugin::init()`) - the same functional-certification harness scoped to Pro's gated features. It takes the same optional `contract` / `boot` positional and `--porcelain` flag. Free's `cert` oracle covers gated features in Free.
+- `demo` and `cert` are Free commands. Pro registers four WP-CLI commands of its own, all in the Pro `Plugin::init()`:
+  - `wp buddynext-pro cert` (`\BuddyNextPro\Cert\CertCommand`) - the same functional-certification harness scoped to Pro's gated features. Takes the same optional `contract` / `boot` positional and `--porcelain` flag. Free's `cert` oracle covers gated features in Free.
+  - `wp buddynext-pro repair-orphan-subscriptions` - one-off sweep for subscription rows left behind by members deleted before `UserCleanupListener::purge_non_financial_subscriptions()` shipped (that listener stops new orphans accumulating but only fires during a live deletion). Reuses the listener's own "has no money behind it" predicate rather than restating it. Dry-run by default; pass `--yes` to apply.
+  - `wp buddynext-pro repair-entitlements` - re-syncs tier-ability grants with the subscriptions that justify them, for drift `SubscriptionService`'s live re-issue-on-write cannot retroactively fix: an auto-renewing subscription whose grant still carries its first period's expiry, an admin extension/comp that kept the pre-extension date, or a refunded/revoked subscription that kept its grant because the expiry cron only sweeps active/cancelled/past-due rows. Dry-run by default; pass `--yes` to apply.
+  - `wp buddynext-pro reconcile-memberships` - re-derives every bridge-granted membership from its partner's current state rather than trusting missed events. See the Membership Grant Bridges page for the full contract and flags (`--source=`, `--user=`, `--execute`).
 
 See also the Cron and Async Jobs page for the scheduled-job surface these tools run alongside.

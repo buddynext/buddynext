@@ -31,7 +31,7 @@ Renders a native date picker. The member picks a day from the calendar control i
 
 ### Location (map)
 
-Renders an address box with a map below it. Whatever the member types is what gets saved - they do not have to pick a suggestion from the lookup for their address to stick. If the lookup does recognise the place, its latitude and longitude are stored alongside the address, so the data is usable for distance or directory work later. If it does not, the address is still saved as the member wrote it.
+Renders an address box with a map below it. Whatever the member types is what gets saved - they do not have to pick a suggestion from the lookup for their address to stick. If the lookup recognises the place, its latitude and longitude are stored so the member's own map pin is preserved when they edit the field. Other members, and every app or API client, only ever see the address the member chose - the area, never the exact coordinates. If the lookup does not recognise the place, the address is still saved as the member wrote it.
 
 A set location can be cleared. The **Remove** control next to the field empties it, in the same way the avatar and cover image can be removed.
 
@@ -60,7 +60,7 @@ Pro field types appear in the same field builder you use for free fields, under 
 
 | Setting | What it controls | Default |
 |---|---|---|
-| (none) | The location type has no extra options to configure. It renders an address box plus map and stores address with coordinates. | - |
+| (none) | The location type has no extra options to configure. It renders an address box plus map and stores the address with the owner's map coordinates; other members and the API see the address only, never the exact coordinates. | - |
 
 ### Multi-select (advanced)
 

@@ -2,15 +2,18 @@
 /**
  * BuddyNext shortcode registration service — Hub + Endpoint model.
  *
- * Registers exactly five hub shortcodes. Each shortcode reads the current
+ * Registers eight hub shortcodes. Each shortcode reads the current
  * hub query vars (set by PageRouter::set_hub_vars) and routes to the correct
  * template for the active endpoint.
  *
- *   [buddynext_activity]      Activity hub — feed, explore, hashtag, search, leaderboard
- *   [buddynext_people]        People hub   — directory, profile, edit, connections
- *   [buddynext_spaces]        Spaces hub   — directory, space home, members, settings, etc.
- *   [buddynext_messages]      Messages hub — list, thread, requests (auth-gated)
- *   [buddynext_notifications] Notifications (auth-gated)
+ *   [buddynext_activity]        Activity hub — feed, explore, hashtag, search, leaderboard
+ *   [buddynext_people]          People hub   — directory, profile, edit, connections
+ *   [buddynext_spaces]          Spaces hub   — directory, space home, members, settings, etc.
+ *   [buddynext_messages]        Messages hub — list, thread, requests (auth-gated)
+ *   [buddynext_notifications]   Notifications (auth-gated)
+ *   [buddynext_auth]            Auth — login, register, password reset
+ *   [buddynext_community_admin] Community admin surface
+ *   [buddynext_search]          Global search
  *
  * @package BuddyNext\Shortcodes
  * @since   1.0.0

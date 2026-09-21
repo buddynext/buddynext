@@ -48,7 +48,7 @@ Web address, Text colour, Sort order, and Icon live under the Advanced section o
 
 ### Assigning a type to a member
 
-Open a member from the admin members list and use the **Member Type** dropdown in the Edit Member view. Choose a type to assign it, or choose "No type" to remove the assignment. A member has at most one type at a time.
+Open a member from the admin members list and use the **Member Type** dropdown in the Edit Member view (see [Editing a Member from the Admin](14-admin-editing-a-member.md)). Choose a type to assign it, or choose "No type" to remove the assignment. A member has at most one type at a time.
 
 ### Self-selectable types
 
@@ -73,3 +73,4 @@ Editorial **Member Labels** are a Pro addition and serve a different purpose. Wh
 - [Member Directory](04-member-directory.md) - where type badges and the type filter appear
 - [Custom Profile Fields](02-profile-fields.md) - limiting a field section to one member type
 - [Member Labels](../pro/08-member-labels.md) - Pro editorial badges you stack on top of a type
+- [Editing a Member from the Admin](14-admin-editing-a-member.md) - the Edit Member view the type dropdown lives on

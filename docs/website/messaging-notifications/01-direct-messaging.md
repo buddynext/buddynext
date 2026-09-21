@@ -63,6 +63,7 @@ Direct messaging has two controls, in two places. The **Enable direct messaging*
 - **Unread message badge.** Since 1.0.7 the header Messages icon carries its own unread count, right beside the notification bell, so a member sees at a glance whether they have new direct messages without opening the inbox.
 
 - Messaging needs the WPMediaVerse companion plugin. BuddyNext is the interface and the privacy layer; WPMediaVerse is the engine that stores and delivers the messages. If WPMediaVerse is not active, the messaging settings are unavailable and members will not see messaging entry points. For how to install and connect it, see the WPMediaVerse integration page.
+- **Messages go through the same content safeguards as posts.** A message containing a site-wide banned word or a blocked link domain is rejected outright, the same as a post - the sender sees why. (Because a message is not posted into a space, a space's own banned-word list is not checked.) See Content Safeguards.
 - Blocking prevents messaging. If a member has blocked someone, that person cannot send them a message - the block is checked on every send. The sender is told why the send was refused, so a block, a "No one" preference, and a "Connections only" preference each produce an accurate notice rather than a generic error.
 - Privacy preferences are enforced on send. A member set to "Connections only" can be reached only by people they are connected with; a member set to "No one" cannot be reached by direct message at all. Site administrators can always reach members regardless of these preferences.
 - The empty state is normal. A brand-new account with no conversations sees an empty inbox until someone messages them or they start a conversation.
@@ -78,3 +79,4 @@ Read receipts, group messages (more than two people in one conversation), and in
 - [WPMediaVerse](../integrations/02-wpmediaverse.md) - the companion plugin that stores and delivers messages
 - [Blocking and Muting](../members/08-blocking-and-muting.md) - how a block prevents messaging
 - [Notifications](02-notifications.md) - the bell alert a new message triggers
+- [Content Safeguards](../moderation/05-content-safeguards.md) - the banned-word and blocked-link checks messages also run through

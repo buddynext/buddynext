@@ -16,7 +16,9 @@ For the people you invite, a link is the shortest path in: open it, sign in or s
 
 ## How it works (for owners and moderators)
 
-The invite link lives in **Space settings, on the Invite link tab**. You see it if you are the space owner, a moderator, or a site admin (whoever the space's "who can invite" setting allows).
+The invite link lives in **Space settings, on the Invite link tab**. You see it if you are the space owner, a moderator, or a site admin.
+
+> **Note:** Creating and resetting the link is always an owner/moderator (or site admin) action, even when the space's "who can invite" setting is opened up to all members. Per-person invites and the shareable link are different things: "who can invite" only decides who can send a targeted invite to one person (see Managing Space Members). The link is a public, direct-join broadcast for the whole space, so minting or resetting it stays with whoever manages the space's settings.
 
 ### Creating the link
 

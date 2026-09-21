@@ -41,7 +41,7 @@ Two things behave differently here, and both are deliberate:
 
 ### Choosing a reason
 
-Every report needs one reason. BuddyNext offers one fixed set of seven reasons, and the **same list is used for every kind of content** — a post, a comment, a message, or a profile — so moderators see consistent, comparable labels in the queue:
+Every report needs one reason. BuddyNext offers one fixed set of seven reasons, and the **same list is used for every kind of content** - a post, a comment, a message, or a profile - so moderators see consistent, comparable labels in the queue:
 
 | Reason | Use it for |
 |---|---|

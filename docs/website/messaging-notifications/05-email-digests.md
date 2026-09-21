@@ -59,6 +59,7 @@ Because the work runs in the background on a schedule, it does not slow down the
 - **Already-read items are skipped.** The digest only includes notifications the member has not already seen in-app.
 - **Digests respect Off.** A type set to Off is never emailed at all - not immediately and not in a digest.
 - **No double-sends.** Each member gets at most one daily digest per day and one weekly digest per week, regardless of how often the background job runs.
+- **Companion-plugin notifications never appear in a digest.** Badges, level-ups, and media reactions and mentions are display-only - the partner plugin that generated them owns its own email - so they are excluded from the daily and weekly rollup the same way they are excluded from immediate email. See Notifications.
 
 ## Free vs Pro
 

@@ -84,6 +84,7 @@ The bell ships as part of the user menu, which you place in your header with the
 - Grouped rows count as one notification toward the unread badge, no matter how many events they represent.
 - Notifications between blocked members are never created, so neither side can use them to reach the other.
 - **Declining a connection request is silent.** A member is told when their request is accepted, and told nothing when it is not. There is no "your request was declined" notification, by design: turning someone down should not cost them a notification, and it should not put the person who declined on the spot. The request simply goes away.
+- **Notifications from a companion plugin are display-only.** Badges and level-ups (from WB Gamification), reactions and mentions on media (from WPMediaVerse), and forum replies, mentions, and accepted answers (from Jetonomy) all show up in your notification center so everything lands in one place - but BuddyNext never emails you about them, immediately or in a digest. The partner plugin that generated the event owns its own email, and mirroring it into an email here would mean two emails for the same thing. These types show an on-site toggle in your preferences but no email-frequency selector, because there is no email to schedule.
 
 ## Free vs Pro
 

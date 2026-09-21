@@ -80,6 +80,8 @@ Only the owner or a site admin can delete a space.
 
 A space has exactly one owner. The current owner (or a site admin) can transfer ownership to another member of the space. After the transfer, the new member is the owner and gains the owner's full control over the space; the previous owner stays a member unless they leave. Transfer is the right tool when a founder steps back or hands a space to a new lead.
 
+If an owner's account is deleted or removed from the site (including a GDPR erasure) before they transfer ownership themselves, the space is never left ownerless: it automatically passes to that space's longest-serving active moderator. If the space has no moderator, it falls to a site administrator instead. In the rare case neither is available, the space is flagged internally as needing an owner rather than left pointing at a deleted account; a site administrator can transfer it to a member once one is available, since admins can manage any space regardless of their own role in it.
+
 ### Sub-spaces
 
 A space can contain sub-spaces - child spaces nested one level under a parent. This suits a parent community that needs dedicated rooms, for example a "Design" parent with "UI", "Research", and "Branding" sub-spaces under it. Only someone who manages the parent space can add a sub-space to it. Nesting is limited to two levels (a parent and its direct children); a sub-space cannot itself have sub-spaces. The owner settings below control whether sub-spaces are allowed at all and how many a single parent may have.

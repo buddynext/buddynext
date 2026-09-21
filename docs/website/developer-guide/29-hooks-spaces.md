@@ -70,6 +70,9 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | `buddynext_space_join_declined` | action | A pending join request is declined | `int $space_id, int $user_id, int $actor_id` |
 | `buddynext_space_join_request_cancelled` | action | A member cancels their own pending request | `int $space_id, int $user_id` |
 | `buddynext_space_join_denied_data` | filter | A gated join/request is denied, to build the error payload | `array $data, int $space_id, int $user_id, array $space, string $action` |
+| `buddynext_space_joined_via_link` | action | A member joins a space through its shareable invite link (see REST: Spaces, Invite links) | `int $space_id, int $user_id` |
+| `buddynext_space_can_invite` | filter | After the per-space `who_can_invite` gate, whether a user may invite others to a space | `bool $can, int $space_id, int $inviter_id, string $inviter_role` |
+| `buddynext_space_can_post` | filter | After the per-space `who_can_post` gate, whether a user may post in a space. Lets an add-on apply conditional rules, e.g. require an active membership tier to post | `bool $can, int $space_id, int $user_id, string $role` (`role` is `owner`\|`moderator`\|`member`) |
 
 > **Note:** When a request is approved, both `buddynext_space_join_approved` and `buddynext_space_member_joined` fire (in that order). The first is the moderation event; the second is the "this user is now an active member" event, identical to the one fired on a direct join.
 
@@ -85,6 +88,17 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | `buddynext_space_notification_pref_updated` | action | A member changes their per-space notification preference | `int $space_id, int $user_id, string $pref` (`'all'`, `'mentions_only'`, `'none'`) |
 
 > **Warning:** A ban removes the membership, so it fires `buddynext_space_member_removed` and `buddynext_space_user_banned` together. If you maintain a banned-users list, listen to `buddynext_space_user_banned` specifically; if you only need to react to "this user is no longer in the space" (for example, busting a sidebar cache), listen to `buddynext_space_member_removed` and you will cover both removals and bans.
+
+## Ownership succession
+
+Resolved by `SpaceSuccession` when a space's owner is removed (leaves, is removed, or is deleted as a user) and the space needs a new owner. The default heir is the longest-tenured active moderator; a site administrator is the last-resort fallback.
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_space_successor_id` | filter | A heir is being resolved for a space losing its owner. Return `0` to leave the space ownerless (flagged with the `needs_owner` space meta) instead of auto-assigning one | `int $heir, int $space_id, int $outgoing_owner_id` |
+| `buddynext_space_successor_fallback_user_id` | filter | No moderator heir was found, resolving the last-resort site-admin fallback | `int $fallback, int $space_id` |
+
+The outgoing owner is never accepted as a valid heir, and a heir id that does not resolve to a real user is treated as `0` (none), regardless of what either filter returns.
 
 ## Space types
 

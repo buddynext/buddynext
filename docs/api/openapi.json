@@ -10269,6 +10269,90 @@
                 ]
             }
         },
+        "/settings/featured-spaces": {
+            "get": {
+                "tags": [
+                    "Misc"
+                ],
+                "operationId": "get_settings_featured_spaces",
+                "summary": "GET /buddynext/v1/settings/featured-spaces",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Misc"
+                ],
+                "operationId": "post_settings_featured_spaces",
+                "summary": "POST /buddynext/v1/settings/featured-spaces",
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "ids"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/shell-nav": {
             "get": {
                 "tags": [
@@ -17895,6 +17979,15 @@
                     "required_ability": {
                         "type": "string"
                     },
+                    "gate_plans": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "is_gated": {
+                        "type": "boolean"
+                    },
                     "is_archived": {
                         "type": "boolean"
                     },
@@ -18083,6 +18176,15 @@
                     },
                     "required_ability": {
                         "type": "string"
+                    },
+                    "gate_plans": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "is_gated": {
+                        "type": "boolean"
                     },
                     "is_archived": {
                         "type": "boolean"

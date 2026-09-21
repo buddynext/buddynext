@@ -195,6 +195,48 @@
                 ]
             }
         },
+        "/buddynext-pro/v1/admin/plan-space-search": {
+            "get": {
+                "tags": [
+                    "Pro: Admin"
+                ],
+                "operationId": "get_buddynext_pro_v1_admin_plan_space_search",
+                "summary": "GET /buddynext-pro/v1/admin/plan-space-search",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext-pro/v1/ai/classify": {
             "post": {
                 "tags": [
@@ -16801,6 +16843,90 @@
                 ]
             }
         },
+        "/buddynext/v1/settings/featured-spaces": {
+            "get": {
+                "tags": [
+                    "Misc"
+                ],
+                "operationId": "get_buddynext_v1_settings_featured_spaces",
+                "summary": "GET /buddynext/v1/settings/featured-spaces",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Misc"
+                ],
+                "operationId": "post_buddynext_v1_settings_featured_spaces",
+                "summary": "POST /buddynext/v1/settings/featured-spaces",
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "ids"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/buddynext/v1/shell-nav": {
             "get": {
                 "tags": [
@@ -24427,6 +24553,15 @@
                     "required_ability": {
                         "type": "string"
                     },
+                    "gate_plans": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "is_gated": {
+                        "type": "boolean"
+                    },
                     "is_archived": {
                         "type": "boolean"
                     },
@@ -24615,6 +24750,15 @@
                     },
                     "required_ability": {
                         "type": "string"
+                    },
+                    "gate_plans": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "is_gated": {
+                        "type": "boolean"
                     },
                     "is_archived": {
                         "type": "boolean"

@@ -49,6 +49,18 @@ The **media lightbox** is the one exception, and it is deliberate: it is a brows
 
 `{id}` and `{media_id}` match `[\d]+` and are sanitized with `absint`.
 
+### Space-scoped media
+
+Mirrors the member-level media/album routes, but the owner is a space rather than a person.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/spaces/{id}/media` | public | Media-bearing posts in the space, paginated (`page`, `per_page` up to 100) - each post may carry several attachments |
+| GET | `/spaces/{id}/albums` | public, gated in handler | List a space's albums. Anonymous-readable like the sibling `/spaces/{id}/media` route - a fully open space's albums must read the same for a logged-out visitor as for a member, so the route uses `__return_true` and enforces visibility inside the handler rather than 401-ing every guest. |
+| POST | `/spaces/{id}/media/{media_id}/unlink` | require_auth (moderator gate in handler) | Unlink one media item from the space's drive; the item itself is not deleted |
+| GET | `/media/{media_id}/space-context` | require_auth | Lightweight lookup the media lightbox calls on open: is this item on a space drive, and may the viewer moderate that space? Used to decide whether to draw the "Unlink from space" menu item at all, rather than showing it everywhere and 403-ing on click |
+| GET | `/me/media/{media_id}/usage` | require_auth | Where a media item the caller owns is currently used (profile, cover, post attachment, album, space drive) |
+
 ## Privacy mapping
 
 Media uploads use the same audience vocabulary the post composer offers, because a batch upload becomes a feed post and the member picks the post audience. That vocabulary is mapped to the engine's media-file privacy on the way in. Albums use the engine's album vocabulary directly.

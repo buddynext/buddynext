@@ -165,9 +165,11 @@ The free plan covers the basics: the everyday field types listed above (text, pa
 Pro adds four advanced field types for communities that need richer data capture:
 
 - Extended date (finer date handling)
-- Location (structured place data)
+- Location (a map picker that stores an address plus its coordinates)
 - Multi-select (advanced multi-choice)
 - Advanced number (numeric fields with extra rules)
+
+A Location field only ever publishes the member's chosen **address** to other people, connected apps, and the API - never the exact coordinates. The member's precise point is theirs alone, used to draw their own map picker when they come back to edit it; everyone else, including a "connections only" viewer who otherwise qualifies to see the field, gets the readable place name.
 
 These advanced types are registered by the Pro add-on and become available in the same field type picker once Pro is active. For the full list and setup, see [Advanced Profile Fields](../pro/09-advanced-profile-fields.md).
 

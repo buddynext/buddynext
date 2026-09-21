@@ -47,6 +47,7 @@ The gating is authored from the Monetization admin (either the Paywall tab's spa
 | GET | `/spaces/{id}/pending-requests` | Auth (owner/mod) | List pending join requests (paginated). |
 | POST | `/spaces/{id}/members/{user_id}/approve` | Auth (owner/mod) | Approve a pending join request. |
 | POST | `/spaces/{id}/members/{user_id}/decline` | Auth (owner/mod) | Decline a pending join request. |
+| POST | `/spaces/{id}/members/decide-bulk` | Auth (owner/mod) | Approve or decline several pending requests in one call. Body: `user_ids` (int[], required), `decision` (`approve` or `decline`, required). |
 | POST | `/spaces/{id}/approve-request` | Auth (owner/mod) | Legacy approve route (kept for backwards compatibility). |
 | PUT | `/spaces/{id}/members/{user_id}/role` | Auth (owner/mod) | Change a member's role within the space. |
 | DELETE | `/spaces/{id}/members/{user_id}` | Auth (owner/mod) | Remove a member from the space. |
@@ -165,6 +166,8 @@ Served by `FeedController`.
 |---|---|---|---|
 | GET | `/spaces/{id}/feed` | Public | Return the activity feed for a space. |
 
+Space-scoped media and albums (`GET /spaces/{id}/media`, `GET /spaces/{id}/albums`, `POST /spaces/{id}/media/{media_id}/unlink`, `GET /media/{media_id}/space-context`) are registered here in `SpaceController` but documented on the REST: Media and Albums page, alongside the member-level media routes they mirror.
+
 ## Discovery and structure
 
 Served by `SpaceController`. These read routes power the directory's suggested-spaces rail and sub-space navigation.
@@ -173,6 +176,7 @@ Served by `SpaceController`. These read routes power the directory's suggested-s
 |---|---|---|---|
 | GET | `/spaces/suggestions` | Auth | Ranked suggested spaces for the current viewer. Query: `limit` (default 6, capped at 24). Returns directory-shaped rows (category, membership state, sub-space count, cover tone) - the same card the directory renders. |
 | GET | `/spaces/{id}/subspaces` | Public | Visibility-scoped child spaces of a parent. Query: `page` (default 1), `per_page` (default 24, capped at 50). Returns `{ subspaces, total, page, per_page }`. A secret parent returns `404`; a private parent returns `403` to non-members. |
+| GET | `/spaces/{id}/eligible-parents` | Auth | Candidate parent spaces for the "move this space" picker - spaces the caller manages (`buddynext-own-space`) that are not archived, not already a sub-space at the max-depth limit, and not the space itself. Query: `q` (search, optional). |
 
 > `/spaces/suggestions` and `/spaces/fields` are registered **before** the `/spaces/{id}` route so their literal path segments are matched unambiguously; because the `{id}` pattern is `[\d]+`, the words `suggestions` and `fields` can never collide with it.
 

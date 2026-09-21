@@ -85,18 +85,26 @@ Places the BuddyNext login and registration forms on whatever page you put it on
 
 Places a front-end management panel for your community managers - a site-wide overview with moderation tools that does not require going into wp-admin. It is visible only to administrators and community moderators; everyone else is not shown the controls. Put it on a private or restricted page meant for your team.
 
-### Header user menu
+### Community search bar
 
 ```
-[buddynext_user_menu]
+[buddynext_search]
 ```
 
-Places the logged-in member's header controls - the notifications bell, the messages icon, and the member's avatar with a quick-links dropdown (profile, account, log out). This is meant for a header, menu area, or widget rather than the body of a page, so members always have their personal controls within reach. It appears only when a member is logged in.
+Places a search form that submits to the community search results page - the classic-theme equivalent of the block editor's search-bar block. Two optional attributes: `placeholder` for the input's placeholder text, and `type` to scope the search (`all`, `members`, `spaces`, or `posts`). For example:
+
+```
+[buddynext_search placeholder="Search the community..." type="members"]
+```
+
+This is a single search form, not a full hub, so it renders inline wherever you place it rather than taking over the page. It does not replace your theme's own `?s=` WordPress search - it is a separate entry point into community search specifically.
+
+> **Note:** The logged-in header controls (notification bell, messages icon, and avatar dropdown) are placed with the **Header User Menu** block in the block editor, not a shortcode. See the [Blocks Reference](../developer-guide/34-blocks-reference.md) if you are building a classic-theme header and need that surface outside the block editor.
 
 ## Tips for placing surfaces
 
 - **One main surface per page.** Give the activity feed, the directory, a space, messages, and notifications their own pages rather than stacking several full surfaces on one page. They are full experiences, not small widgets.
-- **The header user menu is the exception.** It is designed to sit in a header or sidebar alongside other content, not on its own page.
+- **The search bar is the exception.** It is a small inline form meant to sit in a header, sidebar, or widget area alongside other content, not on its own page.
 - **Logged-in surfaces prompt guests to log in.** Messages, notifications, and the community admin panel show a sign-in prompt to visitors who are not logged in, so it is safe to link to them from anywhere.
 - **Styling comes along automatically.** When you drop a shortcode onto an ordinary page, BuddyNext loads its styling for that surface so it looks right even outside the standard community pages.
 

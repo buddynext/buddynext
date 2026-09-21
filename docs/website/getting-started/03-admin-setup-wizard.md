@@ -32,9 +32,9 @@ A community has a lot of moving parts - registration rules, profile fields, noti
 | 2 | **Registration** | How new members get in (see the registration modes below) and whether to require email verification before a member can post or react. |
 | 3 | **Profile Fields** | A review of the profile groups your community will start with - Headline, bio, and location, plus extras such as Social Links, Work Experience, Education, and Skills. This step lists them so you know what members will fill in; you shape the actual fields later under Members - Profile Fields. (Interests are added automatically from your space categories.) |
 | 4 | **Spaces** | Starter categories for organizing spaces. Comes pre-filled with General, Announcements, Help & Support, and Off-topic. Edit the comma-separated list or clear it to set categories up later. |
-| 5 | **Pages** | Creates the core community pages - Community Feed, Members, and Spaces - with editable URL slugs. Pages that already exist are shown with a **Created** badge and are skipped, so nothing is duplicated. |
-| 6 | **Addons** | Review the companion plugins that extend BuddyNext. They are off by default - if you can install plugins, tick the ones you want and **Continue** installs and activates them. Already-active plugins show as connected. |
-| 7 | **Done** | Confirms your community is ready. From here you can go to the dashboard to start inviting members, or open the front end to see what members will see. |
+| 5 | **Pages** | Creates the core community pages - Community Feed, Members, and Spaces - with editable URL slugs. Pages that already exist are shown with a **Created** badge and are skipped, so nothing is duplicated. If your site is still showing the default blog as its front page, this step also offers a **Make the community feed my home page** switch (off by default); it never appears, and never touches your front page, once you have already set one. |
+| 6 | **Addons** | Review the companion plugins that extend BuddyNext. None are pre-checked - tick only the ones you want, and **Continue** installs and activates just those. Already-active plugins show as connected and need no action. |
+| 7 | **Done** | Confirms your community is ready. If the community has no content yet, an **Add sample content** button seeds demo members, spaces, and posts so you can see the layout populated (removable later from Platform - Tools). From here you can go to the dashboard to start inviting members, or open the front end to see what members will see. |
 
 ### Registration modes (Step 2)
 
@@ -46,7 +46,9 @@ This is your main lever for who can join. Pick one:
 | **Invite only** | New members need an invite link. | Private circles. |
 | **Admin approval** | Anyone can apply, and admins review each request. | Communities where curation matters. |
 
-The same step has a **Require email verification** switch. With it on, members must confirm their email before they can post or react.
+The same step has a **Require email verification** switch. With it on, members must confirm their email before they can post or react. Only turn this on if the site can actually send email - the wizard links to a real test send (Notifications > Email Templates) so you can confirm delivery first, because a site that cannot send mail would lock every new member out at signup with no way in.
+
+Step 2 also has a separate **Private community** switch, distinct from the registration mode above: registration controls who can *join*, this controls who can *view*. Turned on, every BuddyNext page and its REST data require login, and logged-out visitors are sent to the login page - only login, register, and password-reset stay public. It defaults off (public), and lives afterward under **Members - Privacy**.
 
 > **Note:** Open registration is the default. If you choose Invite only or Admin approval and want to be sure walk-in signups are fully closed, also turn off WordPress core registration under **Settings - General** in wp-admin.
 
@@ -65,6 +67,7 @@ After setup, every choice has a permanent home in the admin:
 | Community name | Settings - General |
 | Brand color | Settings - Appearance |
 | Registration mode and email verification | Members - Registration |
+| Private community switch | Members - Privacy |
 | Profile field groups | Members - Profile Fields |
 | Space categories | Spaces - Directory, Categories sub-tab |
 | Page slugs | Settings - Pages & URLs |
