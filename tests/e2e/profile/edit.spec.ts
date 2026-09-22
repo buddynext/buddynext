@@ -1,7 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
+import { loginAs } from '../_fixtures/actor';
 import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
-import { userId, getUserMeta, setUserMeta, deleteUserMeta } from '../_fixtures/wp';
+import { userId, ensureUser, getUserMeta, setUserMeta, deleteUserMeta, displayName, wp } from '../_fixtures/wp';
 import { openMemberSession } from '../_fixtures/feed-wave1.helpers';
 
 // A valid 4x4 PNG (correct IDAT CRC — ImageMagick rejects a malformed one),
@@ -15,9 +16,12 @@ const PNG_IMG = Buffer.from(
  * J-33 avatar upload, J-34 bio edit, J-35 custom fields, J-36 theme picker.
  *
  * Covers: cap-give-members-a-profile-with-custom-fields, cap-set-your-own-display-name-avatar-cover-photo-and-headline
- * Roles: admin
- * Note: every test uses the authenticatedPage fixture, which is always the
- * admin owner (varundubey/BN_TEST_USER) - no member session is exercised.
+ * Roles: admin, member
+ * Note: most tests use the authenticatedPage fixture, which is always the
+ * admin owner (varundubey/BN_TEST_USER). J-34-member is the exception: it logs
+ * in as B (bn_e2e_target, a plain subscriber) via loginAs() and drives B's own
+ * display-name save, closing the (capability, member) cell for
+ * cap-set-your-own-display-name-avatar-cover-photo-and-headline.
  */
 test.describe('profile / edit', () => {
     const user = process.env.BN_TEST_USER ?? 'varundubey';
@@ -59,6 +63,51 @@ test.describe('profile / edit', () => {
         const reloaded = page.locator('textarea[name="bio"], textarea[name="description"], [data-field="bio"] textarea').first();
         if (await reloaded.isVisible().catch(() => false)) {
             await expect(reloaded).toHaveValue(value);
+        }
+    });
+
+    /**
+     * J-34-member — a plain MEMBER (not the admin owner) sets their own display
+     * name and it persists, at phone width. Same PUT /me/profile round-trip as
+     * J-34, walked as B (subscriber) on B's own edit form.
+     */
+    test('J-34-member a plain member sets their own display name (mobile 390px)', async ({ page }) => {
+        const bLogin = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
+        const bId = await ensureUser(bLogin, 'bn_e2e_target@example.com', 'BN E2E Target');
+        expect(bId, `member "${bLogin}" must exist`).toBeGreaterThan(0);
+        await setUserMeta(bId, 'bn_onboarding_complete', '1');
+
+        const original = await displayName(bId);
+        const value = `E2E Member ${Date.now().toString().slice(-6)}`;
+
+        try {
+            await page.setViewportSize({ width: 390, height: 844 });
+            await loginAs(page, bLogin);
+            await page.goto(urls.memberEdit(bLogin));
+            await expect(page.locator(sel.app)).toBeVisible();
+
+            const name = page.locator('#bn-ep-name');
+            await expect(name).toBeVisible();
+            await name.fill(value);
+
+            await Promise.all([
+                page.waitForResponse(
+                    (r) => r.url().includes('/me/profile') && r.request().method() === 'PUT' && r.status() === 200,
+                    { timeout: 15000 }
+                ),
+                page.locator('button[type="submit"], .bn-btn[data-action="save"]').first().click(),
+            ]);
+
+            // Effect: the member's own display-name change is written server-side.
+            expect(
+                await displayName(bId),
+                'a plain member\'s own display-name change must persist server-side'
+            ).toBe(value);
+
+            await page.goto(urls.memberEdit(bLogin));
+            await expect(page.locator('#bn-ep-name')).toHaveValue(value);
+        } finally {
+            await wp(['user', 'update', String(bId), `--display_name=${original}`]);
         }
     });
 

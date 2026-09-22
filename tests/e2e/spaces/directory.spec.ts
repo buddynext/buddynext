@@ -1,15 +1,24 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
-import { createSpaceApi, deleteSpaceApi } from '../_fixtures/spaces-rest';
+import {
+    createSpaceApi,
+    deleteSpaceApi,
+    bnApi,
+    loginContextAs,
+    ensureOnboarded,
+    type SpaceRow,
+} from '../_fixtures/spaces-rest';
 
 /**
  * J-37 spaces directory, J-38 category filter, J-39 search.
  *
  * Covers: cap-group-content-into-spaces, cap-categorise-spaces, cap-search-members-spaces-and-posts
- * Roles: admin
+ * Roles: admin, member
  */
 test.describe('spaces / directory', () => {
+    const other = process.env.BN_TEST_OTHER_USER ?? 'alice';
+
     // The card name lives in `.bn-sd-card__name` (space-directory-card.php:136).
     const CARD_NAME = '.bn-sd-card__name';
 
@@ -97,5 +106,62 @@ test.describe('spaces / directory', () => {
             const empty = await page.locator(sel.spaceDirectoryEmpty).isVisible().catch(() => false);
             return now !== before || empty;
         }, { timeout: 5_000 }).toBeTruthy();
+    });
+
+    test('J-38 member: filtering the directory by category shows only that category\'s space', async ({
+        authenticatedPage: page,
+        browser,
+        baseURL,
+    }, testInfo) => {
+        const stamp = Date.now().toString().slice(-8);
+
+        // Setup (owner-only: category CRUD needs manage_options) — not the action
+        // under test. The category is fresh, so it starts with exactly one space.
+        const catRes = await bnApi(page, 'POST', '/space-categories', { name: `E2E Cat ${stamp}` });
+        expect(catRes.status, `create category failed: ${JSON.stringify(catRes.data)}`).toBe(201);
+        const category = catRes.data as { id: number; slug: string };
+        expect(category.id, 'created category carried no id').toBeGreaterThan(0);
+
+        const inName = `E2E Dir InCat ${stamp}`;
+        const outName = `E2E Dir OutCat ${stamp}`;
+        const inCat = await bnApi(page, 'POST', '/spaces', { name: inName, type: 'open', category_id: category.id });
+        expect(inCat.status, `create categorized space failed: ${JSON.stringify(inCat.data)}`).toBe(201);
+        const inCatId = Number((inCat.data as SpaceRow).id);
+        const outCat = await createSpaceApi(page, { name: outName, type: 'open' });
+
+        const actor = await loginContextAs(browser, baseURL, other);
+
+        try {
+            await ensureOnboarded(actor.page);
+
+            // Member action: open the directory as a NON-owner viewer, at phone
+            // width, then click the new category's chip.
+            await actor.page.setViewportSize({ width: 390, height: 844 });
+            await actor.page.goto(urls.spaces, { waitUntil: 'domcontentloaded' });
+
+            const chip = actor.page.locator(`${sel.spaceFilter}[data-bn-cat-slug="${category.slug}"]`);
+            if (!(await chip.isVisible().catch(() => false))) {
+                softSkip(testInfo, `Category chip for "${category.slug}" did not render on this harness.`);
+                return;
+            }
+            await chip.click();
+            await expect(chip).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
+
+            // EFFECT: the categorized space is in the filtered result, the
+            // uncategorized one is not — not "a chip lit up", the actual list.
+            await expect(
+                actor.page.locator(sel.spaceCard).filter({ hasText: inName }),
+                `directory filtered by category did not show "${inName}"`
+            ).toBeVisible({ timeout: 10_000 });
+            await expect(
+                actor.page.locator(sel.spaceCard).filter({ hasText: outName }),
+                `directory filtered by category still showed "${outName}"`
+            ).toHaveCount(0);
+        } finally {
+            await actor.ctx.close();
+            await deleteSpaceApi(page, inCatId);
+            await deleteSpaceApi(page, outCat.id);
+            await bnApi(page, 'DELETE', `/space-categories/${category.id}`);
+        }
     });
 });

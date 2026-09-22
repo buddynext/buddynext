@@ -1,15 +1,18 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
+import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
 
 type FeedHome = { items?: Array<{ id: number; type?: string; link_url?: string }> };
 
+const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
+
 /**
  * J-12 text post, J-13 link post, J-14 poll, J-15 event.
  *
  * Covers: cap-post-text-links-images-video-and-polls, cap-show-a-preview-card-for-a-pasted-link
- * Roles: admin
+ * Roles: admin, member
  */
 test.describe('feed / compose', () => {
     // B1 link/oEmbed preview — scoped selectors, kept out of shared selectors.ts.
@@ -39,6 +42,41 @@ test.describe('feed / compose', () => {
             const after = await textarea.inputValue().catch(() => '');
             expect(after).toBe('');
         });
+    });
+
+    /**
+     * J-12 member leg. The admin-only walk above proves the composer write path
+     * works for a site owner, who bypasses most capability gates — it says
+     * nothing about the ordinary subscriber who actually lives in the feed.
+     * Effect-based the same way: a real subscriber composes, and the post must
+     * still be there after a full reload (server-rendered, not an optimistic
+     * card that never persisted).
+     */
+    test('J-12 member  -  a member composes a text post and it appears in the feed', async ({ page }) => {
+        await loginAs(page, MEMBER_LOGIN);
+        await page.goto(urls.feed);
+        const composer = page.locator(sel.composer).first();
+        await expect(composer).toBeVisible();
+
+        const stamp = Date.now().toString().slice(-6);
+        const content = `e2e member text ${stamp}`;
+
+        const textarea = page.locator(sel.composerTextarea).first();
+        await expect(textarea).toBeVisible();
+        await textarea.fill(content);
+
+        const submit = page.locator(sel.composerSubmit).first();
+        await expect(submit).toBeVisible();
+        await submit.click();
+
+        await expect(page.locator(sel.postCard).filter({ hasText: content }).first())
+            .toBeVisible({ timeout: 8_000 });
+
+        // Persistence: reload so the card is server-rendered, not the optimistic
+        // one the composer prepends before the write round-trips.
+        await page.goto(urls.feed);
+        await expect(page.locator(sel.postCard).filter({ hasText: content }).first())
+            .toBeVisible({ timeout: 10_000 });
     });
 
     /**

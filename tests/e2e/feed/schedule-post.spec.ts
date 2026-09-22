@@ -1,7 +1,10 @@
 import { test, expect } from '../_fixtures/auth.fixture';
+import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce } from '../_fixtures/feed-wave1.helpers';
 import { wp, dbScalar, tablePrefix } from '../_fixtures/wp';
+
+const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
 /**
  * J-512 composer schedule-a-post (B1).
@@ -18,7 +21,7 @@ import { wp, dbScalar, tablePrefix } from '../_fixtures/wp';
  * `finally` by id so a scheduled post never lingers in the seed.
  *
  * Covers: cap-schedule-a-post-to-publish-later
- * Roles: admin
+ * Roles: admin, member
  */
 test.describe('feed / composer schedule', () => {
     // Composer toolbar schedule tool + its datetime field (partials/composer.php).
@@ -66,6 +69,57 @@ test.describe('feed / composer schedule', () => {
             expect(new Date(schedAt.replace(' ', 'T') + 'Z').getTime()).toBeGreaterThan(Date.now());
 
             // Effect 2 — it is NOT in the live home feed right now.
+            await page.goto(urls.feed);
+            await expect(page.locator(sel.postCard).filter({ hasText: content })).toHaveCount(0);
+        } finally {
+            if (postId > 0) {
+                const p = await tablePrefix();
+                await wp(['db', 'query', `DELETE FROM ${p}bn_posts WHERE id=${postId};`]).catch(() => '');
+            }
+        }
+    });
+
+    /**
+     * J-512 member leg. Scheduling is the member's own composer promise
+     * ("a post I schedule for later is NOT in the feed now") — the admin walk
+     * bypasses no capability here, but a member is who actually plans posts
+     * ahead, so a regression scoped to the non-admin write path (e.g. an owner
+     * check on the scheduled row) would only show up walking as a member.
+     */
+    test('J-512 member  -  a member-scheduled post is held and stays out of the feed now', async ({ page }) => {
+        await loginAs(page, MEMBER_LOGIN);
+        const stamp = Date.now().toString().slice(-6);
+        const content = `j512m member scheduled ${stamp}`;
+        let postId = 0;
+
+        try {
+            await page.goto(urls.feed);
+            const composer = page.locator(sel.composer).first();
+            await expect(composer).toBeVisible();
+            await readRestNonce(page);
+
+            const ta = page.locator(sel.composerTextarea).first();
+            await ta.fill(content);
+
+            await page.locator(scheduleTool).first().click();
+            const dt = page.locator(scheduleInput).first();
+            await expect(dt).toBeVisible({ timeout: 5_000 });
+            await dt.fill('2035-06-01T10:00');
+
+            await page.locator(sel.composerSubmit).first().click();
+            await expect(ta).toHaveValue('', { timeout: 10_000 });
+
+            const p = await tablePrefix();
+            const row = await dbScalar(
+                `SELECT CONCAT(id,'|',status,'|',COALESCE(scheduled_at,'')) FROM ${p}bn_posts WHERE content LIKE '%${content}%' ORDER BY id DESC LIMIT 1;`
+            );
+            expect(row, 'scheduled row exists').not.toBe('');
+            const [idStr, status, schedAt] = row.split('|');
+            postId = parseInt(idStr, 10) || 0;
+            expect(status, 'stored status').toBe('scheduled');
+            expect(schedAt, 'scheduled_at is set').not.toBe('');
+            expect(new Date(schedAt.replace(' ', 'T') + 'Z').getTime()).toBeGreaterThan(Date.now());
+
             await page.goto(urls.feed);
             await expect(page.locator(sel.postCard).filter({ hasText: content })).toHaveCount(0);
         } finally {

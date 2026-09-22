@@ -1,7 +1,10 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
+import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
+
+const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
 /**
  * J-503 media upload in the composer (B1).
@@ -19,7 +22,7 @@ import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-w
  * we softSkip with a clear reason rather than a false pass.
  *
  * Covers: cap-post-text-links-images-video-and-polls
- * Roles: admin
+ * Roles: admin, member
  */
 test.describe('feed / media upload', () => {
     const pickMedia = '.bn-composer__tools .bn-composer__tool[data-wp-on--click="actions.pickMedia"]';
@@ -71,6 +74,53 @@ test.describe('feed / media upload', () => {
             createdId = await postIdOfCard(page, caption);
             await expect(card.locator(cardMedia).first()).toBeVisible({ timeout: 10_000 });
             // And a real <img> tile, not just an empty media wrapper.
+            await expect(card.locator('.bn-media-tile__img, .bn-post-card__media img').first()).toBeVisible();
+        } finally {
+            await deletePostRest(page.request, nonce, createdId).catch(() => {});
+        }
+    });
+
+    /**
+     * J-503 member leg. Same effect bar as the admin walk, from an ordinary
+     * subscriber's composer: the attached image is on the resulting post — a
+     * real media tile, not a line of text — after a full reload.
+     */
+    test('J-503 member  -  a member-attached image renders as media on the resulting post', async ({ page }, testInfo) => {
+        await loginAs(page, MEMBER_LOGIN);
+        let createdId = 0;
+        let nonce = '';
+        const stamp = Date.now().toString().slice(-6);
+        const caption = `j503m member photo ${stamp}`;
+
+        try {
+            await page.goto(urls.feed);
+            await expect(page.locator(sel.composer).first()).toBeVisible();
+            nonce = await readRestNonce(page);
+
+            const picker = page.locator(pickMedia).first();
+            if (!(await picker.isVisible().catch(() => false))) {
+                softSkip(testInfo, 'Image tool absent — WPMediaVerse media engine is not active on this site.');
+                return;
+            }
+
+            await page.locator(sel.composerTextarea).first().fill(caption);
+
+            const [chooser] = await Promise.all([
+                page.waitForEvent('filechooser'),
+                picker.click(),
+            ]);
+            await chooser.setFiles({ name: `j503m-${stamp}.png`, mimeType: 'image/png', buffer: pngBuffer });
+
+            await expect(page.locator(mediaThumbReady).first()).toBeVisible({ timeout: 20_000 });
+
+            await page.locator(sel.composerSubmit).first().click();
+            await expect(page.locator(sel.postCard).filter({ hasText: caption }).first()).toBeVisible({ timeout: 10_000 });
+
+            await page.goto(urls.feed);
+            const card = page.locator(sel.postCard).filter({ hasText: caption }).first();
+            await expect(card).toBeVisible({ timeout: 10_000 });
+            createdId = await postIdOfCard(page, caption);
+            await expect(card.locator(cardMedia).first()).toBeVisible({ timeout: 10_000 });
             await expect(card.locator('.bn-media-tile__img, .bn-post-card__media img').first()).toBeVisible();
         } finally {
             await deletePostRest(page.request, nonce, createdId).catch(() => {});

@@ -1,12 +1,18 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
-import { createSpaceApi, deleteSpaceApi, bnApi } from '../_fixtures/spaces-rest';
+import {
+    createSpaceApi,
+    deleteSpaceApi,
+    bnApi,
+    loginContextAs,
+    ensureOnboarded,
+} from '../_fixtures/spaces-rest';
 
 /**
  * J-690..J-692 — Space TAB RENDER (C4), Wave-4 NEW, effect-based.
  *
  * Covers: cap-integrate-with-wbcom-plugins, cap-give-a-space-its-own-photo-albums, cap-group-content-into-spaces
- * Roles: admin
+ * Roles: admin, member
  *
  * Wave-3 covered the About tab (J-664) and left the bridge/custom tabs as honest
  * gaps. jetonomy + wpmediaverse are active on this harness, so the bridge tabs
@@ -26,6 +32,8 @@ import { createSpaceApi, deleteSpaceApi, bnApi } from '../_fixtures/spaces-rest'
  * deleted in `finally`.
  */
 test.describe('spaces / tab render (J-690..J-692)', () => {
+    const other = process.env.BN_TEST_OTHER_USER ?? 'alice';
+
     // The registered core field keys (SpaceFieldRegistry core=true). A tab needs a
     // NON-core textarea/url field; `banned_words` is core so it is excluded here.
     const CORE_FIELD_KEYS = new Set([
@@ -154,6 +162,68 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
             // EFFECT: the media shell is painted (tab is live, not absent/gated).
             await expect(shell).toBeVisible();
         } finally {
+            await deleteSpaceApi(page, space.id);
+        }
+    });
+
+    test('J-692 member: a joined member sees the space\'s photo albums; a non-member is refused', async ({
+        authenticatedPage: page,
+        browser,
+        baseURL,
+    }, testInfo) => {
+        const stamp = Date.now().toString().slice(-8);
+        const space = await createSpaceApi(page, { name: `E2E MediaTabMember ${stamp}`, type: 'private' });
+        const actor = await loginContextAs(browser, baseURL, other);
+
+        try {
+            await ensureOnboarded(actor.page);
+
+            const save = await bnApi(page, 'POST', `/spaces/${space.id}/fields`, {
+                fields: { mvs_media_tab: '1' },
+            });
+            expect(save.status, `enable media tab failed: ${JSON.stringify(save.data)}`).toBe(200);
+
+            // Non-member: the private space's content gate refuses the media feed
+            // before the media-tab-specific gate is ever reached.
+            const beforeJoin = await bnApi(actor.page, 'GET', `/spaces/${space.id}/media`);
+            expect(beforeJoin.status, 'a non-member must not read a private space media feed').toBe(404);
+            expect((beforeJoin.data as { code?: string }).code).toBe('space_not_found');
+
+            // Join (request + owner approve — same round trip as J-607).
+            const req = await bnApi(actor.page, 'POST', `/spaces/${space.id}/join`);
+            expect(req.status, `request failed: ${JSON.stringify(req.data)}`).toBe(200);
+            const queue = await bnApi(page, 'GET', `/spaces/${space.id}/pending-requests`);
+            const uid = Number(
+                ((queue.data as { items?: { user_id: number }[] }).items ?? [])[0]?.user_id ?? 0
+            );
+            expect(uid, 'owner does not see the pending request').toBeGreaterThan(0);
+            const approve = await bnApi(page, 'POST', `/spaces/${space.id}/members/${uid}/approve`);
+            expect(approve.status, `approve failed: ${JSON.stringify(approve.data)}`).toBe(200);
+
+            const afterJoin = await bnApi(actor.page, 'GET', `/spaces/${space.id}/media`);
+            if (afterJoin.status !== 200) {
+                softSkip(
+                    testInfo,
+                    `Media tab not available for a joined member on this harness (code=${
+                        (afterJoin.data as { code?: string }).code ?? afterJoin.status
+                    }); WPMediaVerse engine/integration not resolvable here.`
+                );
+                return;
+            }
+            // EFFECT: the member's own view now carries the album/media payload
+            // (per their membership) — not the 404 a non-member gets.
+            expect((afterJoin.data as { items?: unknown[] }).items).toBeDefined();
+
+            // Also confirm it PAINTS for the member, at phone width — a 200 that
+            // never reaches the screen is not "sees" it.
+            await actor.page.setViewportSize({ width: 390, height: 844 });
+            await actor.page.goto(`/spaces/${space.slug}/media/`, { waitUntil: 'domcontentloaded' });
+            await expect(
+                actor.page.locator('.bn-media-shell').first(),
+                'Media tab did not render for a joined member (390px)'
+            ).toBeVisible({ timeout: 10_000 });
+        } finally {
+            await actor.ctx.close();
             await deleteSpaceApi(page, space.id);
         }
     });

@@ -1,7 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
+import { loginAs } from '../_fixtures/actor';
 import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
-import { userId, tablePrefix, dbCount, wp } from '../_fixtures/wp';
+import { userId, ensureUser, setUserMeta, getUserMeta, deleteUserMeta, tablePrefix, dbCount, wp } from '../_fixtures/wp';
 import type { Page } from '@playwright/test';
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
@@ -41,16 +42,26 @@ async function countMemberCards(page: Page): Promise<number> {
  * J-24-directory-members + J-27-directory-follow-from-card + J-28-directory-mute-from-card.
  *
  * Covers: cap-follow-people-and-connect-mutually, cap-show-a-member-s-cover-photo-on-their-directory-card
- * Roles: admin
+ * Roles: admin, member
  * Note: the base cap-show-a-member-s-cover-photo-on-their-directory-card pin
  * is a loose fit - J-24 only proves the directory renders cards/empty-state,
  * not the cover-photo promise specifically; no closer row exists for "browse
  * the member directory" itself. J-27 (follow from card) is the direct fit for
  * follow-people-and-connect-mutually. J-28 (mute from card) has no matching
- * row and is left unpinned. Every test uses the authenticatedPage fixture
- * (admin owner only) - no member-role viewer of the directory is walked.
+ * row and is left unpinned. J-24-member is the direct fit for
+ * cap-show-a-member-s-cover-photo-on-their-directory-card: it seeds a real
+ * cover on A and asserts it PAINTS on A's card while a plain member (B)
+ * browses the directory. All other tests use the authenticatedPage fixture
+ * (admin owner only).
  */
 test.describe('directory / members', () => {
+    const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
+
+    test.beforeAll(async () => {
+        const bId = await ensureUser(B_LOGIN, 'bn_e2e_target@example.com', 'BN E2E Target');
+        expect(bId, `member "${B_LOGIN}" must exist`).toBeGreaterThan(0);
+        await setUserMeta(bId, 'bn_onboarding_complete', '1');
+    });
     test('members directory renders cards or empty state', async ({ authenticatedPage: page }, testInfo) => {
         await page.goto(urls.members);
         await expect(page.locator(sel.app)).toBeVisible();
@@ -146,5 +157,57 @@ test.describe('directory / members', () => {
 
         const mute = page.locator(`${sel.memberCardMute}, [role="menuitem"]:has-text("Mute")`).first();
         await expect(mute).toBeVisible({ timeout: 3_000 });
+    });
+
+    /**
+     * J-24-member — a member's seeded cover photo actually PAINTS on their
+     * directory card, walked by a plain MEMBER browsing the directory, at
+     * phone width. MemberDirectoryController::shape_item() sends cover_url via
+     * buddynext_user_cover_url() and member-card.php renders it as the card's
+     * background-image; this asserts the rendered attribute, not just that the
+     * card exists.
+     */
+    test('J-24-member a member sees a seeded cover photo render on a directory card (mobile 390px)', async ({ page }, testInfo) => {
+        const targetLogin = A_LOGIN;
+        const targetId = await userId(targetLogin);
+        expect(targetId, `target "${targetLogin}" must exist`).toBeGreaterThan(0);
+        const seedCover = 'http://buddynext-dev.local/wp-content/uploads/bn-e2e-directory-cover.jpg';
+        const origCover = await getUserMeta(targetId, 'buddynext_cover_url');
+        await setUserMeta(targetId, 'buddynext_cover_url', seedCover);
+
+        try {
+            await page.setViewportSize({ width: 390, height: 844 });
+            await loginAs(page, B_LOGIN);
+            await page.goto(urls.members);
+
+            if ((await countMemberCards(page)) === 0) {
+                softSkip(testInfo, 'Directory is genuinely empty (empty state shown).');
+                return;
+            }
+
+            const card = page
+                .locator(sel.memberCard)
+                .filter({ has: page.locator(`a[href*="/members/${targetLogin}"]`) })
+                .first();
+            await expect(card, `the seeded member "${targetLogin}" must have a directory card`).toBeVisible({
+                timeout: 5_000,
+            });
+
+            // Effect: the seeded cover URL is painted as the card's background-image
+            // (member-card.php:255), not merely a tone gradient.
+            const cover = card.locator('.bn-md-card__cover').first();
+            await expect(cover).toBeVisible();
+            const style = (await cover.getAttribute('style')) ?? '';
+            expect(
+                style,
+                'the seeded cover photo must render as the card background-image'
+            ).toContain(seedCover);
+        } finally {
+            if (origCover) {
+                await setUserMeta(targetId, 'buddynext_cover_url', origCover);
+            } else {
+                await deleteUserMeta(targetId, 'buddynext_cover_url');
+            }
+        }
     });
 });

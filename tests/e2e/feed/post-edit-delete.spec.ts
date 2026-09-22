@@ -1,6 +1,9 @@
 import { test, expect } from '../_fixtures/auth.fixture';
+import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
 import type { Page } from '@playwright/test';
+
+const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
 /**
  * J-77 post edit + delete — the "past create" half J-12 never tested.
@@ -17,7 +20,7 @@ import type { Page } from '@playwright/test';
  *
  * Covers: cap-edit-or-delete-your-own-post
  * despite this being one of the most essential post-lifecycle promises.
- * Roles: admin
+ * Roles: admin, member
  */
 test.describe('feed / post edit + delete', () => {
     const editInput = '.bn-post-card__edit-input';
@@ -109,6 +112,47 @@ test.describe('feed / post edit + delete', () => {
             await expect(cardWith(page, edited)).toHaveCount(0);
         } finally {
             // Leave the feed as found — remove either title if anything survived.
+            await page.goto(urls.feed);
+            await deletePost(page, edited).catch(() => {});
+            await deletePost(page, original).catch(() => {});
+        }
+    });
+
+    /**
+     * J-77 member leg. The admin above owns `manage_options` and edits/deletes
+     * their own post through the same code path a member's edit-own-post
+     * capability check must also clear (CommentService/PostService owner
+     * checks, not a capability the admin happens to bypass). A regression that
+     * only breaks the ordinary-owner branch of that check would pass the admin
+     * walk and fail here.
+     */
+    test('J-77 member  -  a member edits their own post and deletes it, both persisting after reload', async ({ page }) => {
+        await loginAs(page, MEMBER_LOGIN);
+        const stamp = Date.now().toString().slice(-6);
+        const original = `j77m member original ${stamp}`;
+        const edited = `j77m member EDITED ${stamp}`;
+
+        try {
+            await composePost(page, original);
+
+            await menuAction(page, original, /Edit/);
+            const input = page.locator(editInput).first();
+            await expect(input).toBeVisible();
+            await expect(input).toHaveValue(original);
+            await input.fill(edited);
+            await page.locator('.bn-post-card__edit-actions').getByRole('button', { name: 'Save', exact: true }).first().click();
+
+            // Round-trip: after a full reload the EDITED text is the post and the
+            // original is gone — proven as the member's own session, not admin's.
+            await page.goto(urls.feed);
+            await expect(cardWith(page, edited).first()).toBeVisible({ timeout: 10_000 });
+            await expect(cardWith(page, original)).toHaveCount(0);
+
+            // Delete: gone from the feed after reload.
+            await deletePost(page, edited);
+            await page.goto(urls.feed);
+            await expect(cardWith(page, edited)).toHaveCount(0);
+        } finally {
             await page.goto(urls.feed);
             await deletePost(page, edited).catch(() => {});
             await deletePost(page, original).catch(() => {});
