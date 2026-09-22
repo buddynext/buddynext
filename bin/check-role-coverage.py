@@ -52,6 +52,17 @@ ESSENTIAL = re.compile(
 )
 
 
+# Promises that are real, but NOT a browser usability journey - they need a
+# different kind of proof, so they are out of the admin+member gate rather than
+# faked with a shallow walk. Matched as a substring of the capability question.
+GATE_EXCLUDE = (
+    'stay fast at 100k',          # load/scale test, not a Playwright walk
+    'send mobile push',           # device delivery, not the browser
+    'connect a native mobile app',  # app pairing/token, not a browser journey
+    'rank the feed with ai',      # ranking QUALITY is non-deterministic (the toggle is tested elsewhere)
+)
+
+
 def slug(text):
     return re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
 
@@ -158,7 +169,8 @@ def main():
     caps = read_capabilities(root / 'CAPABILITIES.md') + \
         read_capabilities(pro / 'CAPABILITIES.md')
 
-    essential = [q for q in caps if ESSENTIAL.search(q)]
+    essential = [q for q in caps if ESSENTIAL.search(q)
+                 and not any(x in q.lower() for x in GATE_EXCLUDE)]
     gaps = []          # (question, [missing roles])
     partial = []       # (question, have, need)
     for q in essential:
