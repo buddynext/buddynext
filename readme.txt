@@ -59,6 +59,32 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
+= 1.2.1 - September 2026 =
+
+Featured spaces and shareable invite links to grow a community, an admin menu reorganised around the owner's journey, stronger privacy and security, and a broad reliability sweep. Lockstep with BuddyNext Pro 1.2.1 - install and test both together.
+
+* New      - Featured spaces: an owner can feature spaces so new members see them first, from the wp-admin directory, the setup checklist, the onboarding wizard and a phone-only directory strip.
+* New      - Shareable space invite links: one link lets people join a space directly, with a per-person single-use cap and an expiry, working for logged-in members, logged-out visitors and existing members alike.
+* New      - Every settings tab has a "Restore defaults" that resets only that tab and leaves member data untouched.
+* New      - Space owners can add their own analytics to the space admin screen through a new seam.
+* Improve  - The wp-admin menu is reorganised to follow the owner's journey, Moderation Tools is merged into Moderation, and Integration Settings is promoted to its own section.
+* Improve  - The spaces directory stays fast on large communities through indexed sorts and stable tie-breaks.
+* Improve  - The update-available notice is shown only to users who can update plugins, and warns when BuddyNext Pro is older than BuddyNext.
+* Improve  - Integration feed cards are withdrawn and restored when a partner item is unpublished or reinstated, instead of being deleted.
+* Improve  - Member search accepts "q" as well as "search" on the members endpoint.
+* Improve  - The onboarding wizard no longer reloads a step until the change has saved.
+* Fix      - A location profile field shows the address or area to other members and the API, never the member's exact coordinates.
+* Fix      - Reported comments are auto-hidden the same way reported posts are.
+* Fix      - A multi-select choice value that contains a comma is stored safely.
+* Fix      - Repeater required sub-fields respect conditional logic and member-type visibility.
+* Fix      - An open space no longer shows a lock badge on a members-only post.
+* Security - REST route matching is case-normalised so the private-community gate cannot be bypassed with a different-cased URL.
+* Security - An invite record's email can be erased and ages out on its own, for GDPR.
+* Security - An invalid invite to a secret space no longer confirms the space exists or names it.
+* Security - The public member-type route is gated by profile visibility.
+* Dev      - New extension points: buddynext_feed_allowed_post_types and buddynext_space_admin_after_stats.
+* Compat   - Aligned with BuddyNext Pro 1.2.1. Install both updates together.
+
 = 1.2.0 - September 2026 =
 
 An audit-driven release: members-only posts, owner control over plugin isolation and uninstall data, stronger moderation tools, and a broad sweep of mobile, privacy and large-community fixes. Lockstep with BuddyNext Pro 1.2.0 - install and test both together.
