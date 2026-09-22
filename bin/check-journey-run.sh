@@ -39,8 +39,16 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-BASELINE="tests/e2e/.journey-baseline.json"
 PROJECT="${BN_JOURNEY_PROJECT:-desktop}"
+# Per-project baselines: desktop keeps the original path (back-compat with
+# build-release.sh and existing history); ipad/mobile get their own file, so each
+# shipping viewport is gated against its OWN known-failing set rather than
+# desktop's. Run all three every release: BN_JOURNEY_PROJECT=desktop|ipad|mobile.
+if [ "$PROJECT" = "desktop" ]; then
+	BASELINE="tests/e2e/.journey-baseline.json"
+else
+	BASELINE="tests/e2e/.journey-baseline-${PROJECT}.json"
+fi
 
 # ── Reachability ──────────────────────────────────────────────────────────────
 # A missing site SKIPS, loudly, and does not fail the run: contributors commit on
@@ -213,12 +221,48 @@ if [ -z "${BN_TEST_OTHER_USER:-}" ]; then
 fi
 
 REPORT="$(mktemp -t bn-journey-XXXXXX.json)"
-trap 'rm -f "$REPORT"' EXIT
+REPORTDIR="$(mktemp -d -t bn-journey-XXXXXX)"
+trap 'rm -f "$REPORT"; rm -rf "$REPORTDIR"' EXIT
 
-echo "journey run: ${PROJECT} against ${BN_BASE_URL} ..."
-# The runner's own exit code is deliberately ignored: a non-zero exit only says
-# "something failed", which is the question the baseline answers properly below.
-npx playwright test --project="$PROJECT" --reporter=json > "$REPORT" 2>/dev/null || true
+# Run ONE TEST FOLDER AT A TIME, not the whole suite in a single process.
+#
+# All ~300 specs in one `npx playwright test` exhausts memory on a laptop-class
+# machine and gets OOM-reaped mid-run (observed 2026-09-22: killed at 309/312,
+# ~13MB free). A per-folder loop keeps each Playwright process small — it
+# launches, runs one folder's ~10-35 specs, and exits, freeing its browser pool
+# before the next folder — so the full pass fits under the memory ceiling and is
+# safe to run on EVERY release, not just once.
+#
+# BN_JOURNEY_WORKERS=1 (default) is deterministic and side-steps the shared-site
+# state collisions that state-mutating specs (auth options, tier entitlements)
+# hit at higher concurrency against ONE database — a full-suite workers=4 run
+# reported 4 false failures that all passed serially. Override for an isolated
+# site with more RAM.
+WORKERS="${BN_JOURNEY_WORKERS:-1}"
+echo "journey run: ${PROJECT} against ${BN_BASE_URL} (per-folder, workers=${WORKERS}) ..."
+for bn_folder in tests/e2e/*/; do
+	bn_name="$(basename "$bn_folder")"
+	case "$bn_name" in _*) continue ;; esac
+	[ -n "$(find "$bn_folder" -name '*.spec.ts' -print -quit 2>/dev/null)" ] || continue
+	# Per-folder exit code is ignored on purpose — the merged report + baseline
+	# below is the real verdict, exactly as when this ran the whole suite at once.
+	npx playwright test "$bn_folder" --project="$PROJECT" --workers="$WORKERS" --reporter=json \
+		> "$REPORTDIR/$bn_name.json" 2>/dev/null || true
+done
+
+# Merge the per-folder JSON reports into one $REPORT so the comparator below is
+# unchanged — it still sees a single report with every suite.
+REPORTDIR="$REPORTDIR" REPORT="$REPORT" python3 <<'PY'
+import json, glob, os
+rd, out = os.environ['REPORTDIR'], os.environ['REPORT']
+merged = {'suites': []}
+for f in sorted(glob.glob(os.path.join(rd, '*.json'))):
+    try:
+        merged['suites'].extend(json.load(open(f)).get('suites', []))
+    except Exception:
+        pass
+json.dump(merged, open(out, 'w'))
+PY
 
 if [ ! -s "$REPORT" ]; then
 	echo "journey run FAILED: Playwright produced no report." >&2

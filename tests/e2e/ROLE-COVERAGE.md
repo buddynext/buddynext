@@ -71,3 +71,31 @@ Scope of the gate is the ESSENTIAL (daily-use) promises from `CAPABILITIES.md`,
 across admin + member. The long tail (edge promises, moderator/anon) is tracked
 but does not block a release yet - the gate turns on for the core first, once the
 existing journeys are pinned, so it never lands as a wall of red nobody can act on.
+
+## Running the journeys every release (execution, not just coverage)
+
+`check-role-coverage.py` proves a journey EXISTS for each promise+role; it does
+not run them. The execution gate is `bin/check-journey-run.sh`, and it is meant
+to run on EVERY release across every shipping viewport:
+
+```
+BN_JOURNEY_PROJECT=desktop bin/check-journey-run.sh
+BN_JOURNEY_PROJECT=ipad    bin/check-journey-run.sh
+BN_JOURNEY_PROJECT=mobile  bin/check-journey-run.sh
+```
+
+Each run auto-detects the site, the WP path, user 1, and seeds `alice`, then runs
+the suite **one test folder at a time** (never the whole suite in one process -
+that OOM-reaps on a laptop; observed killed at 309/312) at **workers=1** (memory-
+safe and free of the shared-site state collisions that auth/membership option
+specs hit at higher concurrency). It gates each viewport against its own
+baseline (`.journey-baseline.json` for desktop, `.journey-baseline-<project>.json`
+for the rest): a spec failing that is NOT baselined is a regression (fail); a
+baselined spec that now passes must be removed from the baseline (fail). Seed the
+per-viewport baselines once with `BN_JOURNEY_PROJECT=<project> bin/check-journey-run.sh --update`.
+
+**Triage rule when a run is red:** a failure is a SPEC bug (selector, missing
+plan/entitlement setup, race, wrong URL) far more often than a product bug - the
+first full run found 18 real failures and every one was a spec bug. Fix the spec
+so it asserts the real effect; only when the product is genuinely broken do you
+leave the test red and file a card. Never weaken a test to make it pass.
