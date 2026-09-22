@@ -129,7 +129,12 @@ def read_specs(e2e_dirs):
         if not d.exists():
             continue
         for spec in d.rglob('*.spec.ts'):
-            head = spec.read_text(encoding='utf-8', errors='ignore')[:2500]
+            text = spec.read_text(encoding='utf-8', errors='ignore')
+            # The whole leading /** ... */ docblock, however long - not a fixed
+            # byte window. A Covers:/Roles: block placed past a 2500-char cutoff
+            # read as a false GAP even though the pin was there (hero-actions).
+            end = text.find('*/')
+            head = text[:end + 2] if end != -1 else text[:4000]
             rm, cm = ROLES_RE.search(head), COVERS_RE.search(head)
             if not (rm and cm):
                 continue

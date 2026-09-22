@@ -16,6 +16,27 @@ import { sel } from '../_fixtures/selectors';
 /**
  * Wave-4 PROFILE hero actions — EFFECT-BASED (J-740..J-746).
  *
+ * Covers: cap-follow-people-and-connect-mutually, cap-block-another-member, cap-restrict-a-member-without-them-knowing, cap-let-a-member-keep-a-private-profile
+ * Roles: admin, member, anon
+ * Note: J-741 admin+member (A withdraws, B's inbox read via a real session);
+ * J-744 restrict is pinned against block-another-member as the closest
+ * existing promise (no separate "restrict" row exists), walked admin(A)→
+ * member(B); J-744-member repeats the same walk member(B)→member(P), the
+ * actual "member restricts another member" leg cap-restrict-a-member-
+ * without-them-knowing promises; J-745 walks anon (a fresh guest context);
+ * J-746 walks member (B is the non-permitted viewer). J-740/J-742/J-743
+ * (cover upload, share links) do not map to any current CAPABILITIES.md row
+ * and are left unpinned.
+ *
+ * NOTE ON PIN PLACEMENT: check-role-coverage.py only scans the first 2500
+ * chars of each spec for `Covers:`/`Roles:`, and its regexes don't cross
+ * newlines - both lines must sit near the top of this docblock (as above),
+ * on one line each, or the pin is invisible to the coverage report even
+ * though the tests below actually walk it. This block was previously
+ * further down (past the 2500-char cutoff) with the 4th capability wrapped
+ * onto its own line, so cap-restrict-a-member-without-them-knowing[member]
+ * silently reported as a GAP despite J-744-member proving it below.
+ *
  * Closes the last WEAK/MISSING A1 + A4 rows the coverage re-scan flagged on the
  * profile hero (templates/parts/profile-hero.php). Every test asserts the REAL
  * server consequence — a usermeta written, a relationship row created/removed,
@@ -43,19 +64,6 @@ import { sel } from '../_fixtures/selectors';
  * seeded private subscriber viewed BY B. Selectors are declared locally (repo
  * rule: never edit the shared selectors.ts). Every mutation is reverted so
  * reruns are idempotent regardless of how the previous run exited.
- *
- * Covers: cap-follow-people-and-connect-mutually, cap-block-another-member, cap-restrict-a-member-without-them-knowing
- * cap-let-a-member-keep-a-private-profile
- * Roles: admin, member, anon
- * Note: J-741 admin+member (A withdraws, B's inbox read via a real session);
- * J-744 restrict is pinned against block-another-member as the closest
- * existing promise (no separate "restrict" row exists), walked admin(A)→
- * member(B); J-744-member repeats the same walk member(B)→member(P), the
- * actual "member restricts another member" leg cap-restrict-a-member-
- * without-them-knowing promises; J-745 walks anon (a fresh guest context);
- * J-746 walks member (B is the non-permitted viewer). J-740/J-742/J-743
- * (cover upload, share links) do not map to any current CAPABILITIES.md row
- * and are left unpinned.
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
