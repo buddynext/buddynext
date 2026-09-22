@@ -9,6 +9,7 @@ import {
     setOption,
     deleteOption,
     getUserMeta,
+    resetRegistrationRateLimit,
     VERIFY_PASSWORD,
 } from '../_fixtures/db.fixture';
 
@@ -21,7 +22,8 @@ import {
  * The pieces already exist as separate specs (auth/signup.spec.ts,
  * auth/verify.spec.ts, onboarding/wizard.spec.ts) but nothing walked them back
  * to back as ONE journey: an anonymous visitor registers, confirms their email,
- * runs the onboarding wizard, and actually lands on the feed. This is the
+ * runs the onboarding wizard, and actually lands somewhere real (their own
+ * profile by default, or the feed on a reconfigured site). This is the
  * journey a real new member lives through once; a broken link anywhere in that
  * chain (a redirect that strands them mid-wizard, a verify link that 404s) is
  * invisible to the per-piece specs, which each start from a hand-seeded state
@@ -55,6 +57,7 @@ test.describe('onboarding / new member journey', () => {
             prevRegMode = (await setRegistrationMode('open')) as 'open' | 'invite' | 'closed';
             prevEmailVerify = await getOption('buddynext_email_verify');
             await setOption('buddynext_email_verify', '1');
+            await resetRegistrationRateLimit();
         }
     });
 
@@ -69,7 +72,7 @@ test.describe('onboarding / new member journey', () => {
         }
     });
 
-    test('anon registers, verifies, completes the wizard, and lands on the feed', async ({ page }, testInfo) => {
+    test('anon registers, verifies, completes the wizard, and lands somewhere real', async ({ page }, testInfo) => {
         // ── 1. Anon registers via the real signup form ──────────────────────
         await page.goto(urls.signup, { waitUntil: 'domcontentloaded' });
 
@@ -100,11 +103,46 @@ test.describe('onboarding / new member journey', () => {
             await terms.check().catch(() => undefined);
         }
 
+        // The in-house human-check arithmetic question is ON BY DEFAULT
+        // (RegistrationGuard::challenge_enabled(), templates/auth/signup.php:641)
+        // and rejects the submit client-side without an answer — this spec used
+        // to silently ignore the field and fail every run against a default
+        // install ("Please answer the verification question."). The question is
+        // rendered as words ("What is three plus seven?", 1-9 each,
+        // RegistrationGuard::number_word()) and verified server-side as a bare
+        // integer, so parse the words out of the label and fill the sum.
+        const challengeInput = page.locator('#bn-signup-challenge');
+        if (await challengeInput.first().isVisible().catch(() => false)) {
+            const question = (await page.locator('label[for="bn-signup-challenge"]').first().textContent().catch(() => '')) ?? '';
+            const wordValues: Record<string, number> = {
+                one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+            };
+            const sum = (question.toLowerCase().match(/\b(one|two|three|four|five|six|seven|eight|nine)\b/g) ?? [])
+                .reduce((total, word) => total + (wordValues[word] ?? 0), 0);
+            await challengeInput.first().fill(String(sum));
+        }
+
+        // RegistrationGuard::too_fast() scores any submit under MIN_SECONDS (2s)
+        // since the form's time-trap token was issued as spam (+100, auto-blocked
+        // with "Your sign-up looked automated") — a real visitor takes longer than
+        // Playwright's instant fill to read+type the form, so wait it out here
+        // rather than fighting the guard the way a bot would.
+        await page.waitForTimeout(2_100);
+
+        // submitSignup() (assets/js/auth/signup-store.js) preventDefaults the
+        // form and POSTs /auth/register over fetch; the page only navigates
+        // once that async call resolves and the store does
+        // `window.location.href = ...`. No navigation is in flight at the
+        // moment of the click, so `Promise.all([waitForLoadState(...), click()])`
+        // resolved immediately against the CURRENT (already-loaded) page and
+        // asserted before the REST round trip ever finished - the assertion
+        // below always saw the pre-submit URL. Wait for the real URL change
+        // instead of a load-state event that already happened.
         const submit = page.locator(sel.loginSubmit).first();
-        await Promise.all([
-            page.waitForLoadState('domcontentloaded'),
-            submit.click(),
-        ]);
+        await submit.click();
+        await page
+            .waitForURL((url) => !/\/signup\/?$/.test(url.pathname), { timeout: 15_000 })
+            .catch(() => undefined);
 
         // Real effect: registration created a session AND redirected somewhere
         // real (verify-pending notice, or straight to onboarding on a site with
@@ -149,11 +187,13 @@ test.describe('onboarding / new member journey', () => {
         }
         await expect(page.locator(sel.onboardingShell).first()).toBeVisible({ timeout: 10_000 });
 
-        // Every step offers "Skip for now" (data-wp-on--click="actions.skipStep"),
+        // Most steps offer "Skip for now" (data-wp-on--click="actions.skipStep"),
         // and skipping the LAST step finalizes onboarding and redirects to the
-        // feed itself (assets/js/onboarding/store.js skipStep()) — so driving
-        // Skip alone, repeatedly, is enough to complete the wizard without
-        // guessing at each step's required fields.
+        // feed itself (assets/js/onboarding/store.js skipStep()). The
+        // notifications step is the one exception (templates/onboarding/index.php:766-793)
+        // — it has no Skip button at all, only Back and Finish/Continue, since
+        // its toggles already have sensible defaults — so the walk also drives
+        // Continue (actions.nextStep) when Skip is not on the page.
         for (let i = 0; i < 8; i++) {
             if (/\/activity\/?/.test(new URL(page.url()).pathname)) {
                 break;
@@ -181,13 +221,36 @@ test.describe('onboarding / new member journey', () => {
                 }
                 continue;
             }
+            const continueBtn = activeStep.locator('[data-wp-on--click="actions.nextStep"]');
+            if (await continueBtn.first().isVisible().catch(() => false)) {
+                const beforeStep = await activeStep.getAttribute('data-step');
+                await continueBtn.first().click();
+                if (beforeStep !== null) {
+                    await expect(page.locator(`.bn-ob-step[data-step="${beforeStep}"]`))
+                        .toBeHidden({ timeout: 5_000 })
+                        .catch(() => undefined);
+                }
+                continue;
+            }
             // No known control on this step — stop rather than guess at fields.
             softSkip(testInfo, `Wizard step ${await activeStep.getAttribute('data-step')} has neither Skip nor Finish visible — stopping the auto-walk.`);
             break;
         }
 
-        // ── 4. Lands on the feed ─────────────────────────────────────────────
-        await expect(page).toHaveURL(/\/activity/, { timeout: 15_000 });
+        // ── 4. Lands somewhere real ──────────────────────────────────────────
+        // OnboardingController::complete() deliberately lands a first-time
+        // finisher on their OWN PROFILE by default - "the thing they just built
+        // in the wizard" - rather than the feed (includes/Onboarding/
+        // OnboardingController.php:414-417, RedirectSettings::onboarding()
+        // fallback = PageRouter::profile_url()). An owner can reconfigure the
+        // destination in Settings > Registration & Login. The feed is still a
+        // valid outcome (a reconfigured site, or a wizard whose last step was a
+        // Skip rather than Finish - skipStep() does redirect to the feed), so
+        // accept either rather than hardcoding the profile-only default.
+        const finalPath = new URL(page.url()).pathname;
+        const landedOnProfile = new RegExp(`/members/${login}/?$`).test(finalPath);
+        const landedOnFeed = /\/activity\/?/.test(finalPath);
+        expect(landedOnProfile || landedOnFeed, `unexpected post-onboarding URL: ${page.url()}`).toBeTruthy();
         await expect(page.locator(sel.app)).toBeVisible({ timeout: 10_000 });
     });
 });

@@ -53,8 +53,16 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
         return Number(
             await wp([
                 'eval',
-                `$subs = ( new \\BuddyNextPro\\Membership\\SubscriptionService() )->get_active_subscriptions( ${userId} );` +
-                    ` echo (int) ( $subs[0]['tier_id'] ?? 0 );`,
+                // get_active_subscriptions()[0] is UNORDERED (creation order) - a
+                // member onboarded onto the site's default free plan then holds
+                // that row alongside any paid one, and [0] would read back the
+                // old default plan instead of the plan just switched to.
+                // effective_subscription() is the ranked accessor (paid beats
+                // free, dearer beats cheaper, newest breaks ties) - the same one
+                // EntitlementRegistry uses - so it is the correct "what plan is
+                // this member actually on" read.
+                `$sub = ( new \\BuddyNextPro\\Membership\\SubscriptionService() )->effective_subscription( ${userId} );` +
+                    ` echo (int) ( $sub['tier_id'] ?? 0 );`,
             ])
         );
     }
@@ -92,8 +100,16 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
                 ` ( new \\BuddyNext\\Onboarding\\OnboardingService() )->finish( ${adminTargetId} );` +
                 // The self-service member starts on Plan A, mid-cycle, so the
                 // quote/apply proration below has real remaining days to move.
+                // Source 'offline' (not 'manual'): MembershipCapabilities::classify()
+                // only grants can_change to a subscription billed through a
+                // registered gateway (MembershipCapabilities.php ~204-213) - 'manual'
+                // is a comp with nothing to bill, so the self-service panel
+                // correctly renders "given to you by the site" with no Switch
+                // option for it. 'offline' is always registered (Plugin.php's
+                // OfflineGateway) specifically so a site-billed-but-not-electronic
+                // subscription still counts as ours to change.
                 ` ( new \\BuddyNextPro\\Membership\\SubscriptionService() )->create_subscription(` +
-                `   ${selfMemberId}, ${tierA.id}, 'manual', gmdate( 'Y-m-d H:i:s', time() + 15 * DAY_IN_SECONDS ), '', 'active'` +
+                `   ${selfMemberId}, ${tierA.id}, 'offline', gmdate( 'Y-m-d H:i:s', time() + 15 * DAY_IN_SECONDS ), '', 'active'` +
                 ` );` +
                 ` \\BuddyNextPro\\Membership\\MembershipCapabilities::flush();`,
         ]);
@@ -137,9 +153,16 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
 
         await switchForm.first().getByRole('button', { name: /^switch$/i }).click();
 
-        const confirmOk = page.locator('[data-bn-confirm-ok]').first();
-        await expect(confirmOk, 'the shared confirm modal should appear').toBeVisible({ timeout: 5_000 });
-        await confirmOk.click();
+        // `[data-bn-confirm-ok]` is the trigger FORM's own config attribute
+        // (its value is the button label, e.g. "Move") - it is not the
+        // rendered modal's button, so it resolves to the original (now
+        // backdrop-covered) form and the click never lands. The shared
+        // bnConfirm() dialog renders as `.bn-modal-backdrop`; scope to that
+        // and find its button by accessible role + label, same pattern as
+        // feed/comment-delete.spec.ts.
+        const confirmModal = page.locator('.bn-modal-backdrop').last();
+        await expect(confirmModal, 'the shared confirm modal should appear').toBeVisible({ timeout: 5_000 });
+        await confirmModal.getByRole('button', { name: 'Move', exact: true }).click();
 
         // EFFECT: the member is actually on Plan B now, not just told they would be.
         await expect

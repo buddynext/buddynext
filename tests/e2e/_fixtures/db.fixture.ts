@@ -133,6 +133,33 @@ export async function seedVerifyToken(userLogin: string): Promise<string> {
     return match[0];
 }
 
+/** Known credentials for a seeded, 2FA-enabled member used by the TOTP-challenge spec. */
+export const TWO_FACTOR_MEMBER = 'bn_e2e_2fa';
+export const TWO_FACTOR_PASSWORD = 'bn-e2e-2fa-pass-3387';
+
+/**
+ * Seed a real member with two-factor authentication turned on and return its
+ * login. Writes the same user meta TwoFactorService::confirm_enrollment() would
+ * (bn_2fa_enabled + bn_2fa_secret) rather than driving the real TOTP enrolment
+ * REST flow — this spec only needs is_enabled() to be true so
+ * TwoFactorLoginGuard::interpose_challenge() fires; it never needs a working
+ * secret to compute a real code.
+ */
+export async function seedTwoFactorUser(login: string = TWO_FACTOR_MEMBER): Promise<string> {
+    const php = [
+        `$login = ${JSON.stringify(login)};`,
+        `$u = get_user_by('login', $login);`,
+        `$uid = $u ? (int) $u->ID : (int) wp_create_user($login, ${JSON.stringify(TWO_FACTOR_PASSWORD)}, $login . '@bn-e2e.test');`,
+        `wp_set_password(${JSON.stringify(TWO_FACTOR_PASSWORD)}, $uid);`,
+        `update_user_meta($uid, 'buddynext_email_verified', '1');`,
+        `update_user_meta($uid, 'bn_2fa_enabled', '1');`,
+        `update_user_meta($uid, 'bn_2fa_secret', 'JBSWY3DPEHPK3PXP');`,
+        `echo $uid;`,
+    ].join(' ');
+    await wp(['eval', php]);
+    return login;
+}
+
 /**
  * Set BuddyNext's registration MODE (buddynext_reg_mode: open | invite | closed)
  * and return the PREVIOUS mode so a spec can restore it in afterAll. This is the
@@ -157,6 +184,23 @@ export async function setRegistrationMode(mode: 'open' | 'invite' | 'closed'): P
 /** Set a wp_options value through WP-CLI (for seeding a spec's starting state). */
 export async function setOption(name: string, value: string): Promise<void> {
     await wp(['option', 'update', name, value]);
+}
+
+/**
+ * Clear RegistrationGuard's per-IP sign-up rate-limit counter (bn_reg_rl_*
+ * rows in wp_bn_rate_limits — see includes/Core/RateLimiter.php).
+ *
+ * RATE_MAX is 5 registrations/hour/IP (RegistrationGuard::RATE_PREFIX). A
+ * spec that registers a real account every run trips this after a handful of
+ * repeated local runs against the same dev site — the same IP that just
+ * exercised the endpoint five times gets "Too many sign-up attempts", which
+ * looks exactly like the guard's real spam-block response and is easy to
+ * mistake for a broken journey. Clearing it before the run keeps the spec
+ * deterministic regardless of how many times it (or another spec hitting the
+ * same endpoint) ran in the last hour on this box.
+ */
+export async function resetRegistrationRateLimit(): Promise<void> {
+    await wp(['eval', 'global $wpdb; $wpdb->query("DELETE FROM {$wpdb->prefix}bn_rate_limits WHERE rl_key LIKE \'bn_reg_rl_%\'");']);
 }
 
 /** Delete a wp_options value through WP-CLI, so it falls back to its declared default. */

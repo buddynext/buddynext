@@ -41,6 +41,9 @@ async function php(code: string): Promise<string> {
 type Ids = { group: number; field: number; relaxed: number[] };
 let ids: Ids | null = null;
 let memberId = 0;
+let tierId = 0;
+
+const TIER_SLUG = 'bn-e2e-advfield-tier';
 
 test.beforeAll(async () => {
     test.skip(process.env.BN_PRO !== '1', 'Advanced profile field types ship in BuddyNext Pro.');
@@ -48,7 +51,37 @@ test.beforeAll(async () => {
     memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Adv Field Member');
     await wp(['user', 'meta', 'update', String(memberId), 'bn_onboarding_complete', '1']);
 
+    // Advanced field TYPES (number_advanced, date_extended, location,
+    // multi_select_advanced) are individually gated by the `profile.advanced_fields`
+    // entitlement (EntitlementGates::gate_profile_field_limit(), catalog default
+    // FALSE) - a member on the site's default plan renders "Not available on your
+    // current plan." with no input, same as any other plan-withheld field. The
+    // field TYPE existing is fixture setup, but the member also needs a plan that
+    // actually grants it, or there is nothing to fill in.
     const out = await php(`
+        $ps = buddynext_service( 'profiles' );
+        global $wpdb;
+
+        $existing_tier = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_membership_tiers WHERE slug = %s", '${TIER_SLUG}' ) );
+        if ( $existing_tier ) {
+            $wpdb->delete( $wpdb->prefix . 'bn_subscriptions', array( 'tier_id' => (int) $existing_tier ) );
+            ( new \\BuddyNextPro\\Membership\\MembershipTierService() )->delete_tier( (int) $existing_tier );
+        }
+        $tier_id = (int) ( new \\BuddyNextPro\\Membership\\MembershipTierService() )->create_tier(
+            '${TIER_SLUG}', 'E2E Adv Field Tier', '', 0,
+            array( 'status' => 'active', 'price' => 2.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',
+                'entitlements' => array( 'profile.advanced_fields' => true ) )
+        );
+        ( new \\BuddyNextPro\\Membership\\SubscriptionService() )->create_subscription(
+            ${memberId}, $tier_id, 'offline', gmdate( 'Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS ), '', 'active'
+        );
+        \\BuddyNextPro\\Membership\\MembershipCapabilities::flush();
+        echo 'TIER_ID:' . $tier_id;
+    `);
+    tierId = Number((out.match(/TIER_ID:(\d+)/) ?? [])[1] ?? 0);
+    expect(tierId, 'the E2E advanced-fields tier should be created').toBeGreaterThan(0);
+
+    const out2 = await php(`
         $ps = buddynext_service( 'profiles' );
         global $wpdb;
 
@@ -88,11 +121,18 @@ test.beforeAll(async () => {
         echo wp_json_encode( array( 'group' => $group, 'field' => $field, 'relaxed' => $relaxed ) );
     `);
 
-    ids = JSON.parse(out.slice(out.indexOf('{'))) as Ids;
+    ids = JSON.parse(out2.slice(out2.indexOf('{'))) as Ids;
     expect(ids.field, 'the number_advanced fixture field must be created').toBeGreaterThan(0);
 });
 
 test.afterAll(async () => {
+    if (tierId) {
+        await php(`
+            global $wpdb;
+            $wpdb->delete( $wpdb->prefix . 'bn_subscriptions', array( 'tier_id' => ${tierId} ) );
+            ( new \\BuddyNextPro\\Membership\\MembershipTierService() )->delete_tier( ${tierId} );
+        `).catch(() => undefined);
+    }
     if (!ids) {
         return;
     }

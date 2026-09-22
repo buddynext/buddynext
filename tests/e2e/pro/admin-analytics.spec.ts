@@ -147,6 +147,11 @@ test.describe('J-977 per-member engagement', () => {
         // guarantees this member ranks first regardless of what else is on the box.
         const out = await php(`
             add_filter( 'buddynextpro_analytics_rate_limit', static fn() => 0 );
+            global $wpdb;
+            // Idempotent: a prior interrupted run may have left this member's own
+            // ping events behind, which would otherwise be counted TWICE against
+            // an expected total computed from the seed loop alone.
+            $wpdb->delete( $wpdb->prefix . 'bn_analytics_events', array( 'actor_id' => ${memberId}, 'event_type' => 'e2e.engagement.ping' ) );
             $current_max = 0;
             $rows = ( new \\BuddyNextPro\\Analytics\\AnalyticsService() )->top_members( 1 );
             if ( ! empty( $rows ) ) { $current_max = (int) $rows[0]['event_count']; }
@@ -155,12 +160,19 @@ test.describe('J-977 per-member engagement', () => {
                 \\BuddyNextPro\\Analytics\\AnalyticsCollector::record( 'e2e.engagement.ping', ${memberId}, null, null, array() );
             }
             wp_cache_flush();
+            // The admin card's row total is this member's REAL, total event count
+            // (GROUP BY actor_id, every event_type) - not just the ${'e2e.engagement.ping'}
+            // rows this fixture added. A brand-new member normally has none of its
+            // own, but asserting the loop count directly assumes that rather than
+            // verifying it; reading it back is the same one query the admin page
+            // itself runs, so the assertion cannot drift from server truth.
+            $actual = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_analytics_events WHERE actor_id = %d", ${memberId} ) );
             echo wp_json_encode( array(
                 'target'        => $target,
                 // Same formatter the admin table itself uses (number_format_i18n),
                 // so the assertion cannot be tripped up by a thousands separator on
                 // a box with a lot of pre-existing organic activity.
-                'expectedCount' => number_format_i18n( $target ),
+                'expectedCount' => number_format_i18n( $actual ),
             ) );
         `);
 

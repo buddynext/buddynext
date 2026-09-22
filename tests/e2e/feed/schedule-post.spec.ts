@@ -2,7 +2,7 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce } from '../_fixtures/feed-wave1.helpers';
-import { wp, dbScalar, tablePrefix } from '../_fixtures/wp';
+import { wp, dbScalar, tablePrefix, userId } from '../_fixtures/wp';
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -85,8 +85,50 @@ test.describe('feed / composer schedule', () => {
      * bypasses no capability here, but a member is who actually plans posts
      * ahead, so a regression scoped to the non-admin write path (e.g. an owner
      * check on the scheduled row) would only show up walking as a member.
+     *
+     * On a Pro + monetization site, scheduling is plan-gated: Free's
+     * 'buddynext-feed/schedule-post' capability is answered by the member's
+     * plan via EntitlementGates::gate_capability(), and the catalogue default
+     * for 'content.scheduled_posts' is false (EntitlementRegistry.php) - a
+     * deliberate Pro monetization gate, not a bug. The admin leg above passes
+     * without any of this because EntitlementGates::is_exempt() bypasses the
+     * gate for admins/owners; a plain member is not exempt. So this leg grants
+     * the member an active subscription on a throwaway tier that explicitly
+     * includes the entitlement, matching how membership-explore-gate.spec.ts
+     * proves an analogous plan-gated capability, then removes only that
+     * subscription + tier in `finally` - MEMBER_LOGIN is a shared fixture user
+     * reused across the suite and must come out exactly as it went in.
      */
     test('J-512 member  -  a member-scheduled post is held and stays out of the feed now', async ({ page }) => {
+        const memberId = await userId(MEMBER_LOGIN);
+        expect(memberId, `member "${MEMBER_LOGIN}" must resolve to a user id`).toBeGreaterThan(0);
+
+        const TIER_SLUG = 'bn-e2e-schedule-post-plan';
+        let tierId = 0;
+        if (process.env.BN_PRO === '1') {
+            tierId = Number(
+                await wp([
+                    'eval',
+                    `if ( ! class_exists( '\\\\BuddyNextPro\\\\Membership\\\\MembershipTierService' ) ) { echo 0; exit; }` +
+                        ` $svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
+                        ` $existing = $svc->get_tier_by_slug( '${TIER_SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
+                        ` echo (int) $svc->create_tier( '${TIER_SLUG}', 'E2E Schedule Post Plan', '', 0, array(` +
+                        `   'status' => 'active', 'price' => 1.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',` +
+                        `   'entitlements' => array( 'content.scheduled_posts' => true )` +
+                        ` ) );`,
+                ]).catch(() => '0')
+            );
+            if (tierId > 0) {
+                await wp([
+                    'eval',
+                    `$sub = new \\BuddyNextPro\\Membership\\SubscriptionService();` +
+                        ` $exp = gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS );` +
+                        ` $sub->create_subscription( ${memberId}, ${tierId}, 'manual', $exp, '', 'active' );` +
+                        ` \\BuddyNextPro\\Membership\\MembershipCapabilities::flush();`,
+                ]);
+            }
+        }
+
         await loginAs(page, MEMBER_LOGIN);
         const stamp = Date.now().toString().slice(-6);
         const content = `j512m member scheduled ${stamp}`;
@@ -126,6 +168,15 @@ test.describe('feed / composer schedule', () => {
             if (postId > 0) {
                 const p = await tablePrefix();
                 await wp(['db', 'query', `DELETE FROM ${p}bn_posts WHERE id=${postId};`]).catch(() => '');
+            }
+            if (tierId > 0) {
+                await wp([
+                    'eval',
+                    `global $wpdb;` +
+                        ` $wpdb->delete( $wpdb->prefix . 'bn_subscriptions', array( 'tier_id' => ${tierId}, 'user_id' => ${memberId} ) );` +
+                        ` ( new \\BuddyNextPro\\Membership\\MembershipTierService() )->delete_tier( ${tierId} );` +
+                        ` \\BuddyNextPro\\Membership\\MembershipCapabilities::flush();`,
+                ]).catch(() => undefined);
             }
         }
     });

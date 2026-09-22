@@ -194,6 +194,21 @@ test.describe('directory / members', () => {
                 .locator(sel.memberCard)
                 .filter({ has: page.locator(`a[href*="/members/${targetLogin}"]`) })
                 .first();
+
+            // Default sort is "newest" (per MemberDirectoryController) and the seeded
+            // target here is often the longest-registered account on a seeded site
+            // (e.g. admin, user id 1) - it can sit on the last page of 130+ members,
+            // never rendered on page 1. Search for it by login so the assertion below
+            // proves the cover renders on the actual card, not on "whatever card the
+            // default sort happens to put first".
+            if ((await card.count()) === 0) {
+                const input = page.locator(sel.directorySearch).first();
+                if (await input.isVisible().catch(() => false)) {
+                    await input.fill(targetLogin);
+                    await expect.poll(() => card.count(), { timeout: 5_000 }).toBeGreaterThan(0);
+                }
+            }
+
             await expect(card, `the seeded member "${targetLogin}" must have a directory card`).toBeVisible({
                 timeout: 5_000,
             });

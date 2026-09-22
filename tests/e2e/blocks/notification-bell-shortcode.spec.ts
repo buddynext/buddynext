@@ -87,7 +87,15 @@ test.describe('blocks / notification-bell shortcode (J-804)', () => {
         try {
             await page.goto(rec.url, { waitUntil: 'domcontentloaded' });
 
-            const bell = page.locator('.bn-block-notification-bell').first();
+            // The theme header renders its own (shortcode/template-path) bell twice —
+            // once for desktop nav, once for the mobile icon row that's CSS-hidden at
+            // desktop width — neither of which carries a "wp-block-*" class because
+            // they never go through get_block_wrapper_attributes(). Target the block
+            // actually authored into the page content by its block wrapper class, so
+            // this leg proves the get_block_wrapper_attributes() branch specifically
+            // instead of whichever header copy happens to sit first in DOM order.
+            const bell = page.locator('.bn-block-notification-bell.wp-block-buddynext-notification-bell');
+            await expect(bell).toHaveCount(1);
             await expect(bell).toBeVisible({ timeout: 10_000 });
             await expect(bell.locator('a.bn-notification-bell-link')).toHaveCount(1);
 

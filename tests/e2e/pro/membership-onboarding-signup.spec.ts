@@ -91,7 +91,7 @@ test.describe('pro / sell a plan during onboarding', () => {
             waitUntil: 'domcontentloaded',
         });
 
-        const row = page.locator('tr', { hasText: tierName }).or(page.locator('.bnpro-tier-card', { hasText: tierName }));
+        const row = page.locator('tr', { hasText: tierName }).or(page.locator('.bnpro-plan-card', { hasText: tierName }));
         await expect(row.first(), 'the plan created for signup should be listed').toBeVisible({ timeout: 10_000 });
         await expect(row.first()).toContainText(/active/i);
     });

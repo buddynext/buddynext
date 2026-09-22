@@ -3,6 +3,7 @@ import { loginAs } from '../_fixtures/actor';
 import { softSkip } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
+import { wp } from '../_fixtures/wp';
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -33,6 +34,15 @@ type ReactionCount = { count: number; has_reacted?: boolean; emoji?: string | nu
  * The custom reaction is removed via the admin "Remove" form in `finally`,
  * leaving the reaction palette as found.
  *
+ * `buddynext_reaction_types` carries a SECOND hook the member leg must satisfy:
+ * `EntitlementGates::gate_reaction_set()` (priority 20, after Pro's own merge at
+ * 10) truncates the merged list to `limits.reactions_set` entries for anyone
+ * not exempt - the catalog default is 6 (PlanSeeder.php), i.e. exactly the
+ * built-in set, so a member on the site's default plan never sees ANY custom
+ * chip regardless of how many the admin has added. The member fixture
+ * temporarily grants MEMBER_LOGIN an unlimited (0) `limits.reactions_set`
+ * subscription for the run, removed in `finally`.
+ *
  * Covers: cap-add-custom-reactions-beyond-the-defaults
  * Roles: admin, member
  */
@@ -45,15 +55,36 @@ test.describe('pro / custom reactions', () => {
     const reactionRow = (slug: string) => `tr:has(code:text-is("${slug}"))`;
     const removeButton = (slug: string) =>
         `${reactionRow(slug)} form:has(input[name="action"][value="buddynextpro_remove_custom_reaction"]) button[type="submit"]`;
+    const TIER_SLUG = 'bn-e2e-custom-reactions-tier';
 
     test('J-952 an admin-added custom reaction is a real, pickable reaction for a member', async ({ authenticatedPage: page }, testInfo) => {
         let slug = '';
         let createdId = 0;
         let nonce = '';
+        let tierId = 0;
         const stamp = Date.now().toString().slice(-6);
         const label = `J952 Reaction ${stamp}`;
 
         try {
+            const out = await wp([
+                'eval',
+                `global $wpdb;` +
+                    ` $member = get_user_by( 'login', '${MEMBER_LOGIN}' );` +
+                    ` if ( ! $member ) { echo 'TIER_ID:0'; return; }` +
+                    ` $tsvc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
+                    ` $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_membership_tiers WHERE slug = %s", '${TIER_SLUG}' ) );` +
+                    ` if ( $existing ) { $wpdb->delete( $wpdb->prefix . 'bn_subscriptions', array( 'tier_id' => (int) $existing ) ); $tsvc->delete_tier( (int) $existing ); }` +
+                    ` $tier_id = (int) $tsvc->create_tier( '${TIER_SLUG}', 'E2E Custom Reactions Tier', '', 0,` +
+                    `   array( 'status' => 'active', 'price' => 2.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',` +
+                    `     'entitlements' => array( 'limits.reactions_set' => 0 ) ) );` +
+                    ` ( new \\BuddyNextPro\\Membership\\SubscriptionService() )->create_subscription(` +
+                    `   $member->ID, $tier_id, 'offline', gmdate( 'Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS ), '', 'active' );` +
+                    ` \\BuddyNextPro\\Membership\\MembershipCapabilities::flush();` +
+                    ` echo 'TIER_ID:' . $tier_id;`,
+            ]);
+            tierId = Number((out.match(/TIER_ID:(\d+)/) ?? [])[1] ?? 0);
+            expect(tierId, 'the E2E custom-reactions tier should be created and assigned').toBeGreaterThan(0);
+
             // ── Admin: add a custom reaction ────────────────────────────────
             await page.goto(reactionsAdminUrl);
             const radio = page.locator(emojiRadio).first();
@@ -64,7 +95,12 @@ test.describe('pro / custom reactions', () => {
             await expect(radio).toBeVisible({ timeout: 10_000 });
             slug = (await radio.getAttribute('value')) ?? '';
             expect(slug, 'emoji radio rendered with no value attribute').toBeTruthy();
-            await radio.check();
+            // The tile's <img> sits on top of the radio inside the same
+            // `.bn-cr-emoji-tile` <label> and always intercepts the pointer,
+            // so `.check()` on the input directly times out. Click the
+            // wrapping label instead, exactly what a real user does.
+            await radio.locator('xpath=ancestor::label').first().click();
+            await expect(radio, 'the emoji tile should now be selected').toBeChecked();
             await page.locator('#buddynextpro_label').fill(label);
             await page.locator(addSubmit).first().click();
 
@@ -103,16 +139,28 @@ test.describe('pro / custom reactions', () => {
             await expect.poll(async () => (await readReaction()).emoji, { timeout: 8_000 }).toBe(slug);
         } finally {
             await deletePostRest(page.request, nonce, createdId).catch(() => {});
+            if (tierId) {
+                await wp([
+                    'eval',
+                    `global $wpdb; $wpdb->delete( $wpdb->prefix . 'bn_subscriptions', array( 'tier_id' => ${tierId} ) );` +
+                        ` ( new \\BuddyNextPro\\Membership\\MembershipTierService() )->delete_tier( ${tierId} );`,
+                ]).catch(() => undefined);
+            }
             if (slug) {
                 await page.goto(reactionsAdminUrl).catch(() => {});
                 const remove = page.locator(removeButton(slug)).first();
                 if (await remove.isVisible().catch(() => false)) {
                     // Remove is gated by the shared JS confirm dialog (data-bn-confirm),
                     // not a native window.confirm — accept it via its own OK button.
+                    // The shared shell dialog (assets/js/shell/dialog.js) renders as
+                    // `.bn-modal-backdrop` with a plain `.bn-btn` OK button (no
+                    // `.bn-dialog-backdrop`/`.bn-dialog__ok` — those classes don't
+                    // exist anywhere in this codebase), so target it by role + the
+                    // confirm label ("Remove") instead.
                     await remove.click().catch(() => {});
-                    const dialog = page.locator('.bn-dialog-backdrop');
+                    const dialog = page.locator('.bn-modal-backdrop').last();
                     if (await dialog.isVisible({ timeout: 3_000 }).catch(() => false)) {
-                        await dialog.locator('.bn-dialog__ok').click().catch(() => {});
+                        await dialog.getByRole('button', { name: 'Remove', exact: true }).click().catch(() => {});
                     }
                 }
             }

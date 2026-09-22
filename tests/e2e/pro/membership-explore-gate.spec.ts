@@ -20,10 +20,16 @@ import { wp, ensureUser } from '../_fixtures/wp';
  * plan and saving - the same screen `membership-profile-field-groups.spec.ts`
  * drives for `profile.locked_groups`, a different entitlement on it.
  *
- * MEMBER: `templates/feed/explore.php` reads `buddynext_can_view_explore`
- * before building the deck at all; when false it renders Free's locked
- * empty-state instead ("Explore is not available on your plan") rather than
- * an empty deck, which this distinguishes from "no content to show".
+ * MEMBER: `EntitlementGates::gate_page_routes()` runs first (`template_redirect`,
+ * priority 20) and, on a site with something to sell (this fixture's tiers are
+ * both paid), 302s a restricted member straight to the pricing page with
+ * `?bn_locked=social.explore` before `templates/feed/explore.php` ever renders -
+ * so that is the effect this test observes. The template's OWN first-paint
+ * gate (`buddynext_can_view_explore` -> the "Explore is not available on your
+ * plan" empty-state) is the fallback for a site with NOTHING to sell, where the
+ * redirect gate has nowhere useful to send the member and deliberately no-ops
+ * (`upgrade_url()` returns ''); that path is exercised by a different fixture,
+ * not this one.
  */
 test.describe('pro / gate the Explore feed behind a plan', () => {
     test.fixme(process.env.BN_PRO !== '1', 'The social.explore entitlement gate only exists when Pro is active.');
@@ -104,7 +110,14 @@ test.describe('pro / gate the Explore feed behind a plan', () => {
         await expect(exploreToggle, 'the Explore Feed entitlement toggle should render').toBeVisible();
         await expect(exploreToggle, 'Explore is included by default').toBeChecked();
 
-        await exploreToggle.uncheck();
+        // The checkbox has `pointer-events: none` (assets/css/bn-admin.css)
+        // - this is a standard CSS toggle-switch pattern where the wrapping
+        // <label> is the real click target and forwards activation to the
+        // native input, exactly as a real user's click does. Playwright's
+        // `.uncheck()` targets the input directly and times out because the
+        // visible `.bn-toggle--inline` span always intercepts the pointer.
+        await exploreToggle.locator('xpath=ancestor::label').first().click();
+        await expect(exploreToggle, 'Explore should now be unchecked').not.toBeChecked();
         await page.locator('.bnpro-plan-form__save').first().click();
         await page.waitForLoadState('domcontentloaded');
 
@@ -135,12 +148,21 @@ test.describe('pro / gate the Explore feed behind a plan', () => {
 
             await page.goto(`/?autologin=${MEMBER_RESTRICTED}`, { waitUntil: 'domcontentloaded' });
             await page.goto(EXPLORE_URL, { waitUntil: 'domcontentloaded' });
-            await expect(page.getByText(/explore is not available on your plan/i)).toBeVisible({ timeout: 10_000 });
+            // Both fixture tiers are paid (site has something to sell), so
+            // gate_page_routes() 302s the restricted member to the pricing
+            // page with ?bn_locked=social.explore before explore.php ever
+            // renders - that redirect, not an in-place locked message, is the
+            // real, observable effect here.
+            expect(page.url(), 'a restricted member should be redirected off Explore to the upgrade page').toContain(
+                'bn_locked=social.explore'
+            );
             await expect(page.locator('.bn-explore-grid')).toHaveCount(0);
 
             await page.goto(`/?autologin=${MEMBER_INCLUDED}`, { waitUntil: 'domcontentloaded' });
             await page.goto(EXPLORE_URL, { waitUntil: 'domcontentloaded' });
-            await expect(page.getByText(/explore is not available on your plan/i)).toHaveCount(0);
+            expect(page.url(), 'an included member should stay on Explore, not be redirected').not.toContain(
+                'bn_locked'
+            );
             await expect(page.locator('.bn-explore-hero__title, .bn-explore-grid').first()).toBeVisible({
                 timeout: 10_000,
             });
