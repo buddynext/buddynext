@@ -31,7 +31,7 @@ import {
  * These read the LIVE profile-hero markup (templates/parts/profile-hero.php) and
  * its report/block modals (templates/partials/*.php).
  *
- * Covers: cap-follow-people-and-connect-mutually, cap-block-another-member,
+ * Covers: cap-follow-people-and-connect-mutually, cap-block-another-member, cap-mute-a-member-s-posts-without-blocking-them
  * cap-let-members-report-content
  * Roles: admin, member
  * Note: J-700/J-703 (follow/disconnect) and J-704/J-706 (block/mute) run as

@@ -14,7 +14,7 @@ const PNG_IMG = Buffer.from(
 /**
  * J-33 avatar upload, J-34 bio edit, J-35 custom fields, J-36 theme picker.
  *
- * Covers: cap-give-members-a-profile-with-custom-fields
+ * Covers: cap-give-members-a-profile-with-custom-fields, cap-set-your-own-display-name-avatar-cover-photo-and-headline
  * Roles: admin
  * Note: every test uses the authenticatedPage fixture, which is always the
  * admin owner (varundubey/BN_TEST_USER) - no member session is exercised.

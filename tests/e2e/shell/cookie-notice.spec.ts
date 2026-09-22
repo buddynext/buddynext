@@ -5,7 +5,7 @@ import { wp } from '../_fixtures/wp';
 /**
  * J-810 built-in cookie notice (Privacy & Data > Cookie Consent).
  *
- * Covers: none - no CAPABILITIES.md row names the built-in cookie-consent
+ * Covers: cap-show-a-built-in-cookie-consent-notice
  * notice, though `buddynext_cookie_consent` is a real, code-verified,
  * owner-configurable option. Flagging as friction.
  * Roles: anon

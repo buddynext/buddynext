@@ -18,7 +18,7 @@ import { userId } from '../_fixtures/wp';
  *
  * Selectors are declared locally (repo rule) from templates/parts/profile-edit-hero.php.
  *
- * Covers: cap-give-members-a-profile-with-custom-fields
+ * Covers: cap-give-members-a-profile-with-custom-fields, cap-set-your-own-display-name-avatar-cover-photo-and-headline
  * Roles: admin
  * Note: loose fit - the headline is a core hero field, not a custom profile
  * field, but the edit-and-persist promise is the same PUT /me/profile path;

@@ -5,7 +5,7 @@ import { resolveOtherMemberSlug } from '../_fixtures/precondition';
 /**
  * J-620 — Shareable space invite link (Spaces 1.2.1).
  *
- * Covers: cap-group-content-into-spaces
+ * Covers: cap-group-content-into-spaces, cap-invite-people-to-a-space-with-a-shareable-link
  * Roles: admin, member
  *
  * Member journey, driven through the REAL UI:

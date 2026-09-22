@@ -44,7 +44,7 @@ import { sel } from '../_fixtures/selectors';
  * rule: never edit the shared selectors.ts). Every mutation is reverted so
  * reruns are idempotent regardless of how the previous run exited.
  *
- * Covers: cap-follow-people-and-connect-mutually, cap-block-another-member,
+ * Covers: cap-follow-people-and-connect-mutually, cap-block-another-member, cap-restrict-a-member-without-them-knowing
  * cap-let-a-member-keep-a-private-profile
  * Roles: admin, member, anon
  * Note: J-741 admin+member (A withdraws, B's inbox read via a real session);

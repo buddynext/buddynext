@@ -5,7 +5,7 @@ import { createPage, deletePage } from '../_fixtures/wp';
  * J-804 — the notification bell renders cleanly via the [buddynext_user_menu]
  * shortcode (outside a block render).
  *
- * Covers: none - no CAPABILITIES.md row names the in-app notification bell /
+ * Covers: cap-get-a-header-user-menu-and-notification-bell-in-any-theme
  * [buddynext_user_menu] shortcode; only Pro's mobile-push row exists, a
  * different feature. Flagging as friction.
  * Roles: member

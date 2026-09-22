@@ -20,7 +20,7 @@ import { userId, dbScalar, tablePrefix, resetPair } from '../_fixtures/wp';
  * picker that flips its own label but posts 'public' anyway would fail both
  * legs. The post is deleted in `finally` so the feed is left as found.
  *
- * Covers: none pinned — CAPABILITIES.md has no audience/privacy promise row
+ * Covers: cap-choose-who-can-see-a-post
  * (see ROLE-COVERAGE report: candidate gap in the census, not in the spec).
  * Roles: admin, member
  */

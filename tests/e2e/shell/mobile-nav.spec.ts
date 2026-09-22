@@ -4,7 +4,7 @@ import { sel, urls } from '../_fixtures/selectors';
 /**
  * J-65-mobile-bottom-nav.
  *
- * Covers: none - adjacent to cap-work-on-a-phone, but that row's How is
+ * Covers: cap-work-on-a-phone-across-the-whole-front-end-not-just-admin
  * scoped to admin listings; no CAPABILITIES.md row states that the front-end
  * app shell (rail / bottom-nav) itself works on a phone. Flagging as friction.
  * Roles: member

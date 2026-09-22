@@ -4,7 +4,7 @@ import { sel, urls } from '../_fixtures/selectors';
 /**
  * J-29-profile-view-own.
  *
- * Covers: cap-give-members-a-profile-with-custom-fields
+ * Covers: cap-give-members-a-profile-with-custom-fields, cap-set-your-own-display-name-avatar-cover-photo-and-headline
  * Roles: admin
  * Note: loose fit - a smoke check that the profile hero/stats/tabs render at
  * all, not specifically the custom-fields promise; no closer row exists. Only

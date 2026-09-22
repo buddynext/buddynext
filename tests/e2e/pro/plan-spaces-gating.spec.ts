@@ -7,7 +7,7 @@ import { createSpaceApi, deleteSpaceApi, ensureOnboarded } from '../_fixtures/sp
 /**
  * J-821 — one plan opens several spaces; a space is opened by several plans.
  *
- * Covers: none - no CAPABILITIES.md row names gating a SPACE behind a
+ * Covers: cap-gate-a-whole-space-behind-one-or-more-membership-plans
  * membership plan (SpacePlanAccess, the plan-edit "Spaces this plan unlocks"
  * picker, Paywall per-space overrides). "Gate content behind membership?" names
  * the [buddynext_members_only] shortcode / Membership\ContentProtection, a

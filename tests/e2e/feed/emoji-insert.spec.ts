@@ -20,7 +20,7 @@ type FeedHome = { items?: Array<{ id: number; content?: string }> };
  * the button is not rendered and the spec soft-skips on that real precondition.
  * The post is deleted in finally.
  *
- * Covers: none pinned — CAPABILITIES.md has no emoji-picker promise row.
+ * Covers: cap-add-emoji-to-a-post-from-the-composer
  * Roles: admin
  */
 test.describe('feed / emoji insert', () => {

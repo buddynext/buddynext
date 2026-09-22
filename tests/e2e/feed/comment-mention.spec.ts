@@ -27,7 +27,7 @@ type NotifResponse = { items?: Notif[] };
  * notification passes a presence check and fails this. The host post (and its
  * comment) is deleted in `finally`.
  *
- * Covers: none pinned — CAPABILITIES.md has no @mention/notification promise row.
+ * Covers: cap-mention-another-member-with-and-notify-them
  * Roles: admin, member
  */
 test.describe('feed / @mention in comment', () => {

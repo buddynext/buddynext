@@ -4,7 +4,7 @@ import { createSpaceApi, deleteSpaceApi, bnApi, getSpace, type SpaceRow } from '
 /**
  * J-623 — Create a sub-space (C4).
  *
- * Covers: cap-group-content-into-spaces
+ * Covers: cap-group-content-into-spaces, cap-archive-and-restore-a-space-or-create-a-sub-space-under-it
  * Roles: admin
  *
  * A manager of a parent space creates a child space (POST /spaces with

@@ -15,7 +15,7 @@ import type { Page } from '@playwright/test';
  * fails here. The post is always deleted at the end, so the feed is left as
  * found even on a mid-test failure.
  *
- * Covers: none pinned — CAPABILITIES.md has no edit/delete-own-post promise row,
+ * Covers: cap-edit-or-delete-your-own-post
  * despite this being one of the most essential post-lifecycle promises.
  * Roles: admin
  */

@@ -5,7 +5,7 @@ import { createPage, deletePage } from '../_fixtures/wp';
  * J-805 — [buddynext_community_admin] sidebar tabs stay on the page they are placed
  * on, instead of 404-ing to a hardcoded hub slug.
  *
- * Covers: none - no CAPABILITIES.md row documents the [buddynext_community_admin]
+ * Covers: cap-give-the-owner-a-front-end-community-admin-surface-off-wp-ad
  * front-end shortcode; it is a different surface from the wp-admin AdminHub that
  * "Administer everything from one menu?" names. Flagging as friction.
  * Roles: admin

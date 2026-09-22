@@ -12,7 +12,7 @@ import {
 /**
  * J-662 / J-663 — Accept and decline a space invitation (invitee side).
  *
- * Covers: cap-group-content-into-spaces
+ * Covers: cap-group-content-into-spaces, cap-invite-people-to-a-space-with-a-shareable-link
  * Roles: admin, member
  *
  * These are the invitee counterparts of the owner-side Invite (J-606). The owner

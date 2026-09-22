@@ -5,7 +5,7 @@ import { urls } from '../_fixtures/selectors';
 /**
  * J-622 — Per-space notification preference (C4).
  *
- * Covers: cap-group-content-into-spaces
+ * Covers: cap-group-content-into-spaces, cap-set-a-per-space-notification-preference
  * Roles: admin
  *
  * A member sets their notification preference for a space

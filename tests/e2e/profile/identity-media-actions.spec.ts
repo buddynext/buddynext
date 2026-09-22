@@ -29,7 +29,7 @@ import {
  *
  * Selectors are declared locally (repo rule) from templates/parts/profile-edit-hero.php.
  *
- * Covers: cap-give-members-a-profile-with-custom-fields
+ * Covers: cap-give-members-a-profile-with-custom-fields, cap-set-your-own-display-name-avatar-cover-photo-and-headline
  * Roles: admin
  * Note: loose fit - avatar/cover/display-name are core identity fields, not
  * custom profile fields, but they round-trip through the same /me/profile +

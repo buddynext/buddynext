@@ -11,7 +11,7 @@ import {
 /**
  * J-606 — Invite a member (owner).
  *
- * Covers: cap-group-content-into-spaces
+ * Covers: cap-group-content-into-spaces, cap-invite-people-to-a-space-with-a-shareable-link
  * Roles: admin, member
  *
  * Member action: the owner invites a seeded user to a private space

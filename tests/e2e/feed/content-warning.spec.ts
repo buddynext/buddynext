@@ -17,7 +17,7 @@ import { readRestNonce, restPost, deletePostRest } from '../_fixtures/feed-wave1
  * reveal button wired to nothing would leave the overlay visible and fail. Post
  * deleted in `finally`.
  *
- * Covers: none pinned — CAPABILITIES.md has no content-warning/sensitive-content promise row.
+ * Covers: cap-blur-a-post-behind-a-content-warning-the-reader-reveals
  * Roles: admin
  */
 test.describe('feed / content warning reveal', () => {

@@ -16,7 +16,7 @@ import type { Page, Locator } from '@playwright/test';
  * reload, so a pin that flips the DOM but never persists (POST /pin silently
  * failing) fails here.
  *
- * Covers: none pinned — CAPABILITIES.md has no post-pinning promise row.
+ * Covers: cap-pin-a-post-to-a-profile-or-pin-a-comment-on-a-post
  * Roles: admin
  */
 test.describe('feed / pin + unpin', () => {

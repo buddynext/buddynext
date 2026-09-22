@@ -21,7 +21,7 @@ import type { Page } from '@playwright/test';
  * comes back un-pinned after the reload and fails here. The host post is deleted
  * in `finally`, which also clears its comment + pin option.
  *
- * Covers: none pinned — CAPABILITIES.md has no comment/post pinning promise row.
+ * Covers: cap-pin-a-post-to-a-profile-or-pin-a-comment-on-a-post
  * Roles: admin
  */
 test.describe('feed / pin comment', () => {

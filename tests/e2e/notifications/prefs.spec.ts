@@ -5,7 +5,7 @@ import { urls } from '../_fixtures/selectors';
 /**
  * J-51 notification preferences.
  *
- * Covers: none - CAPABILITIES.md (free) has no row for in-app notification
+ * Covers: cap-see-in-app-notifications-mark-them-read-and-set-preferences
  * preferences - see FRICTION in the role-coverage report.
  * Roles: member
  *

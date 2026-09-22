@@ -5,7 +5,7 @@ import { loginAs } from '../_fixtures/actor';
 /**
  * J-817 pages fit a phone screen.
  *
- * Covers: none - same front-end-shell gap as shell/mobile-nav.spec.ts (no
+ * Covers: cap-work-on-a-phone-across-the-whole-front-end-not-just-admin
  * CAPABILITIES.md row states the app shell itself works on a phone). Also
  * covers J-819 later in this file (same gap).
  * Roles: member

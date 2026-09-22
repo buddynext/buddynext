@@ -4,7 +4,7 @@ import { sel, urls } from '../_fixtures/selectors';
 /**
  * J-64-theme-chrome-above-below + J-67-no-second-bn-topbar.
  *
- * Covers: none - "Override templates in a theme?" / "Re-theme without touching
+ * Covers: cap-work-on-a-phone-across-the-whole-front-end-not-just-admin
  * CSS?" name styling and template overrides, not this shell-placement contract
  * (theme header/footer wrap the app, no duplicate BN topbar). No CAPABILITIES.md
  * row names the latter. Flagging as friction.

@@ -5,7 +5,7 @@ import { urls } from '../_fixtures/selectors';
 /**
  * J-122-notification-reactive-tabs.
  *
- * Covers: none - CAPABILITIES.md (free) has no row for in-app notifications -
+ * Covers: cap-see-in-app-notifications-mark-them-read-and-set-preferences
  * see FRICTION in the role-coverage report.
  * Roles: member
  *

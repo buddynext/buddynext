@@ -5,7 +5,7 @@ import { BREAKPOINT } from '../_fixtures/viewports';
 /**
  * J-66-rail-collapse-breakpoints.
  *
- * Covers: none - same front-end-shell gap as shell/mobile-nav.spec.ts (no
+ * Covers: cap-work-on-a-phone-across-the-whole-front-end-not-just-admin
  * CAPABILITIES.md row states the app shell itself works on a phone/tablet).
  * Roles: member
  *

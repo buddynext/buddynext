@@ -6,7 +6,7 @@ import { wp, ensureUser } from '../_fixtures/wp';
 /**
  * J-808 profile field conditional logic (member), J-809 conditional logic builder (owner).
  *
- * Covers: none - no CAPABILITIES.md row in free or Pro names field-level
+ * Covers: cap-show-or-hide-a-profile-field-based-on-another-field-s-answer
  * conditional logic. The nearest existing row, "Add advanced profile fields?",
  * names field TYPES (file, location, date-extended, multi-select, number); this
  * feature is a cross-field visibility rule on any field type, a different
