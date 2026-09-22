@@ -3,7 +3,7 @@ import { createSpaceApi, deleteSpaceApi, ensureOnboarded, getSpace, loginContext
 import { resolveOtherMemberSlug } from '../_fixtures/precondition';
 
 /**
- * J-620 — Shareable space invite link (Spaces 1.2.1).
+ * J-611 — Shareable space invite link (Spaces 1.2.1).
  *
  * Covers: cap-group-content-into-spaces, cap-invite-people-to-a-space-with-a-shareable-link
  * Roles: admin, member
@@ -26,14 +26,14 @@ import { resolveOtherMemberSlug } from '../_fixtures/precondition';
  * Runs under every configured project (desktop + mobile) — selectors are
  * layout-agnostic. The throwaway space is deleted in `finally`.
  */
-test.describe('spaces / invite link (J-620)', () => {
+test.describe('spaces / invite link (J-611)', () => {
 	const panel = '[data-bn-invite-panel]';
 	const createBtn = 'button[data-wp-on--click="actions.createInviteLink"]';
 	const resetBtn = 'button[data-wp-on--click="actions.resetInviteLink"]';
 	const urlField = '[data-bn-invite-url]';
 	const joinCta = 'button[data-current-state="join"]';
 
-	test('J-620 owner creates a link, a member joins directly, and is flagged joined-via-link', async ({
+	test('J-611 owner creates a link, a member joins directly, and is flagged joined-via-link', async ({
 		authenticatedPage: page,
 		browser,
 	}, testInfo) => {
@@ -90,7 +90,14 @@ test.describe('spaces / invite link (J-620)', () => {
 			// Confirm the reset in the shared confirm dialog.
 			const confirm = page.locator('.bn-modal-backdrop button[data-variant="danger"], .bn-modal-backdrop button:has-text("Reset link")').first();
 			await expect(confirm).toBeVisible({ timeout: 5_000 });
-			await confirm.click();
+
+			// The field already holds the OLD url at this point (unlike step 1,
+			// where it did not exist until created), so waiting on its visibility
+			// is a no-op and reads a stale value: `resetInviteLink` (assets/js/
+			// spaces/store.js) POSTs, then calls `window.location.reload()` on
+			// success - the actual signal that the new token has landed is that
+			// full-page reload, not the field's (already-true) visibility.
+			await Promise.all([page.waitForEvent('load'), confirm.click()]);
 
 			await expect(page.locator(urlField)).toBeVisible({ timeout: 15_000 });
 			const resetUrl = await page.locator(urlField).inputValue();

@@ -117,10 +117,17 @@ test.describe('spaces / edit privacy (J-601)', () => {
             const feedBefore = await bnApi(actor.page, 'GET', `/spaces/${privateSpace.id}/feed`);
             expect(feedBefore.status, 'a non-member must not read a private space feed').toBe(403);
 
-            await actor.page.goto(`/spaces/${privateSpace.slug}/`, { waitUntil: 'domcontentloaded' });
+            // The bare space URL is NOT where the gate shows: a non-member's
+            // landing tab is deliberately 'about' (SpaceService::
+            // resolve_default_landing_tab() step 2 - About is public by design,
+            // per templates/spaces/home.php's `buddynext_space_public_tabs`
+            // filter, default ['about']). The gate lives on the Feed tab, so the
+            // explicit URL tab (`/feed/`, which wins over the landing-tab
+            // resolver) is what exercises it.
+            await actor.page.goto(`/spaces/${privateSpace.slug}/feed/`, { waitUntil: 'domcontentloaded' });
             await expect(
                 actor.page.locator('.bn-sh-gate'),
-                'private space content gate did not render for a non-member (390px)'
+                'private space content gate did not render for a non-member on the Feed tab (390px)'
             ).toBeVisible({ timeout: 10_000 });
 
             // Request to join, owner approves — the same round trip J-607 proves.
@@ -138,10 +145,10 @@ test.describe('spaces / edit privacy (J-601)', () => {
             const feedAfter = await bnApi(actor.page, 'GET', `/spaces/${privateSpace.id}/feed`);
             expect(feedAfter.status, 'a joined member must read the private space feed').toBe(200);
 
-            await actor.page.goto(`/spaces/${privateSpace.slug}/`, { waitUntil: 'domcontentloaded' });
+            await actor.page.goto(`/spaces/${privateSpace.slug}/feed/`, { waitUntil: 'domcontentloaded' });
             await expect(
                 actor.page.locator('.bn-sh-gate'),
-                'content gate still showing for a joined member (390px)'
+                'content gate still showing for a joined member on the Feed tab (390px)'
             ).toHaveCount(0);
         } finally {
             await actor.ctx.close();

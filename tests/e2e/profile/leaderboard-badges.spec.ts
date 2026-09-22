@@ -26,6 +26,7 @@ import { wp } from '../_fixtures/wp';
 test.describe.configure({ mode: 'serial' });
 
 let memberLogin = '';
+let profilePath = '';
 let badgeId = '';
 let publishedCount = 0;
 
@@ -42,15 +43,21 @@ test.beforeAll(async () => {
             global $wpdb;
             $row = $wpdb->get_row( "SELECT b.user_id, b.badge_id FROM {$wpdb->prefix}wb_gam_user_badges b JOIN {$wpdb->users} u ON u.ID = b.user_id WHERE b.user_id > 1 ORDER BY b.user_id LIMIT 1", ARRAY_A );
             $login = $row ? get_userdata( (int) $row['user_id'] )->user_login : '';
+            // The profile URL is keyed on bn_profile_slug/user_nicename, NOT
+            // user_login (\\BuddyNext\\Core\\PageRouter::profile_url()) - a seeded
+            // demo account here has a login ('lrn_demo_maya') that differs from its
+            // nicename ('maya-chen'), so building the URL from the login 404s.
+            $profile = $row ? \\BuddyNext\\Core\\PageRouter::profile_url( (int) $row['user_id'] ) : '';
             $published = $row ? count( \\WBGam\\Engine\\BadgeShare::shared_badges( (int) $row['user_id'] ) ) : 0;
             if ( $row ) { update_user_meta( (int) $row['user_id'], 'bn_onboarding_complete', '1' ); }
-            echo wp_json_encode( array( 'login' => $login, 'badge' => $row['badge_id'] ?? '', 'published' => $published ) );
+            echo wp_json_encode( array( 'login' => $login, 'profile' => $profile, 'badge' => $row['badge_id'] ?? '', 'published' => $published ) );
         `)
     );
     memberLogin = pick.login;
+    profilePath = pick.profile;
     badgeId = pick.badge;
     publishedCount = Number(pick.published);
-    test.skip(!memberLogin || !badgeId, 'No member with an earned badge on this site.');
+    test.skip(!memberLogin || !badgeId || !profilePath, 'No member with an earned badge on this site.');
 });
 
 test('J-814 the hero rank label names the selected period', async ({ page }) => {
@@ -71,7 +78,7 @@ test('J-814 the hero rank label names the selected period', async ({ page }) => 
 
 test('J-815 a badge link lands on the badge, and tiles link only where they open', async ({ page }) => {
     await loginAs(page, memberLogin);
-    await page.goto(`/members/${memberLogin}/achievements/#badge-${badgeId}`);
+    await page.goto(`${profilePath}achievements/#badge-${badgeId}`);
     const tile = page.locator(`li#badge-${badgeId}`);
     await expect(tile, 'the badge anchor exists').toHaveCount(1);
     await expect(tile, 'the linked badge is in view').toBeInViewport();
@@ -83,7 +90,7 @@ test('J-815 a badge link lands on the badge, and tiles link only where they open
 
     // A logged-out visitor only gets links for published badges.
     await page.context().clearCookies();
-    await page.goto(`/members/${memberLogin}/achievements/`);
+    await page.goto(`${profilePath}achievements/`);
     await expect(page.locator('li[id^="badge-"]').first()).toBeAttached();
     expect(await page.locator('a.bn-achievements__badge-link').count(), 'visitor: only published badges link').toBe(publishedCount);
 });
