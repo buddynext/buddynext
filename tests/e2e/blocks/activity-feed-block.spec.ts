@@ -4,6 +4,9 @@ import { createPage, deletePage } from '../_fixtures/wp';
 /**
  * J-806 — the Activity Feed block spaces its post cards.
  *
+ * Covers: cap-run-an-activity-feed-members-post-to
+ * Roles: member
+ *
  * The bug: post cards render as direct children of .bn-block-activity-feed, but only
  * .bn-feed-list (the home/profile feed) had the flex+gap treatment, so inside the
  * block the cards sat flush with no vertical rhythm.

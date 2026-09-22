@@ -4,6 +4,13 @@ import { seedLoginUser, LOGIN_PASSWORD, dbSeedingAvailable } from '../_fixtures/
 
 /**
  * J-07-login + J-08-login-with-2fa + J-09-password-reset.
+ *
+ * Covers: cap-register-and-log-in-without-wp-login, cap-require-two-factor
+ * Roles: anon, member
+ *
+ * Note: CAPABILITIES.md lists two-factor as a free YES ("Require two-factor?"),
+ * but the J-08 case below masks itself behind `BN_PRO=1`, treating 2FA as
+ * Pro-only. One of the two is wrong - flagged as friction, not resolved here.
  */
 test.describe('auth / login', () => {
     test('guest is kept off the authenticated feed', async ({ page }) => {

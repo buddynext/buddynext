@@ -4,6 +4,11 @@ import { sel, urls } from '../_fixtures/selectors';
 
 /**
  * J-48 list + J-49 mark read + J-50 mark all read.
+ *
+ * Covers: none - CAPABILITIES.md (free) has no row for in-app notifications;
+ * it jumps straight to "Send push notifications? PRO". Documentation gap,
+ * not a missing test - see FRICTION in the role-coverage report.
+ * Roles: member
  */
 test.describe('notifications / list', () => {
     test('J-48 notifications page renders list or empty state', async ({ authenticatedPage: page }, testInfo) => {

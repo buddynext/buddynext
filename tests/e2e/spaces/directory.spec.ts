@@ -5,6 +5,9 @@ import { createSpaceApi, deleteSpaceApi } from '../_fixtures/spaces-rest';
 
 /**
  * J-37 spaces directory, J-38 category filter, J-39 search.
+ *
+ * Covers: cap-group-content-into-spaces, cap-categorise-spaces, cap-search-members-spaces-and-posts
+ * Roles: admin
  */
 test.describe('spaces / directory', () => {
     // The card name lives in `.bn-sd-card__name` (space-directory-card.php:136).

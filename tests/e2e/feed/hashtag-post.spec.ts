@@ -17,6 +17,9 @@ import { wp } from '../_fixtures/wp';
  * queue, and then the tag page is loaded fresh and asserted to contain the
  * post card. A composer that stores the '#tag' as plain text but never indexes
  * it (so the tag page stays empty) fails here. Post deleted in `finally`.
+ *
+ * Covers: cap-hashtag-and-follow-topics
+ * Roles: admin
  */
 test.describe('feed / composer hashtag', () => {
     test('J-511 a post with #hashtag is listed on that hashtag feed', async ({ authenticatedPage: page }) => {

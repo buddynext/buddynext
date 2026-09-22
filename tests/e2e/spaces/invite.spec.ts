@@ -11,6 +11,9 @@ import {
 /**
  * J-606 — Invite a member (owner).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin, member
+ *
  * Member action: the owner invites a seeded user to a private space
  * (POST /spaces/{id}/invite {identifier}). The endpoint the hero Invite modal and
  * the settings invite form both call.

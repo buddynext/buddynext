@@ -6,6 +6,9 @@ import { wp, ensureUser } from '../_fixtures/wp';
 /**
  * J-807 membership control contract (Pro membership panel) - plan task T-19.
  *
+ * Covers: cap-let-a-member-manage-their-own-subscription
+ * Roles: member
+ *
  * One rule, across every state a membership can be in:
  *
  *   If the panel renders a control, that control works.

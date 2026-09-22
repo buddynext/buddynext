@@ -4,6 +4,13 @@ import { sel, urls } from '../_fixtures/selectors';
 
 /**
  * J-55 admin moderation queue.
+ *
+ * Covers: cap-review-a-queue-of-reports-in-wp-admin
+ * Roles: admin
+ *
+ * Walks the wp-admin queue as a full WP administrator (varundubey via
+ * authenticatedPage), not a scoped BuddyNext moderator-only account, and does
+ * not walk the reporting member's side (cap-let-members-report-content).
  */
 test.describe('moderation / queue', () => {
     test('admin queue page renders', async ({ authenticatedPage: page }, testInfo) => {

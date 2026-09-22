@@ -39,6 +39,16 @@ async function countMemberCards(page: Page): Promise<number> {
 
 /**
  * J-24-directory-members + J-27-directory-follow-from-card + J-28-directory-mute-from-card.
+ *
+ * Covers: cap-follow-people-and-connect-mutually, cap-show-a-member-s-cover-photo-on-their-directory-card
+ * Roles: admin
+ * Note: the base cap-show-a-member-s-cover-photo-on-their-directory-card pin
+ * is a loose fit - J-24 only proves the directory renders cards/empty-state,
+ * not the cover-photo promise specifically; no closer row exists for "browse
+ * the member directory" itself. J-27 (follow from card) is the direct fit for
+ * follow-people-and-connect-mutually. J-28 (mute from card) has no matching
+ * row and is left unpinned. Every test uses the authenticatedPage fixture
+ * (admin owner only) - no member-role viewer of the directory is walked.
  */
 test.describe('directory / members', () => {
     test('members directory renders cards or empty state', async ({ authenticatedPage: page }, testInfo) => {

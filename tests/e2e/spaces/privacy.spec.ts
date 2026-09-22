@@ -4,6 +4,9 @@ import { getSpace, createSpaceApi, deleteSpaceApi, type SpaceRow } from '../_fix
 /**
  * J-601 — Edit space privacy (public <-> private).
  *
+ * Covers: cap-make-a-space-private-or-secret, cap-group-content-into-spaces
+ * Roles: admin
+ *
  * Member action: on the space Settings → Privacy panel, change the "Space
  * visibility" select and save it through the space's native settings POST (the
  * same write the sticky save bar performs).

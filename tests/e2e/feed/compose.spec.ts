@@ -7,6 +7,9 @@ type FeedHome = { items?: Array<{ id: number; type?: string; link_url?: string }
 
 /**
  * J-12 text post, J-13 link post, J-14 poll, J-15 event.
+ *
+ * Covers: cap-post-text-links-images-video-and-polls, cap-show-a-preview-card-for-a-pasted-link
+ * Roles: admin
  */
 test.describe('feed / compose', () => {
     // B1 link/oEmbed preview — scoped selectors, kept out of shared selectors.ts.

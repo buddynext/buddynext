@@ -42,6 +42,9 @@ function findComment(nodes: CommentNode[], pred: (c: CommentNode) => boolean): C
  *
  * Each test soft-skips when no posts exist on the seeded environment;
  * the CI fixtures aren't guaranteed to ship a post on every run.
+ *
+ * Covers: cap-let-members-react-comment-and-reply
+ * Roles: admin
  */
 test.describe('feed / comment threading', () => {
 

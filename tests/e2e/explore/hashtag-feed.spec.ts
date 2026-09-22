@@ -3,6 +3,11 @@ import { sel, urls } from '../_fixtures/selectors';
 
 /**
  * J-23-hashtag-feed.
+ *
+ * Covers: cap-hashtag-and-follow-topics
+ * Roles: admin
+ * Note: uses the authenticatedPage fixture (admin owner only) - no member or
+ * anon viewer of the hashtag feed is walked.
  */
 test.describe('explore / hashtag feed', () => {
     test('hashtag feed page loads and scopes posts to the tag', async ({ authenticatedPage: page }) => {

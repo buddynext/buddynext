@@ -12,6 +12,9 @@ import {
 /**
  * J-605 — Leave a space (member). Counterpart of the existing join spec (J-40).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin, member
+ *
  * A second actor (a seeded member, not the owner) joins an owner-created space,
  * then leaves it through the REAL hero control (the "Joined" button →
  * actions.leaveSpace → confirm modal → POST /spaces/{id}/leave).

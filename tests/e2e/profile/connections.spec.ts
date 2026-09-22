@@ -33,6 +33,13 @@ import {
  * The A↔B connection pair is reset before + after each test so reruns are
  * idempotent; any 1:1 conversation created by J-32 is cleaned up in a finally.
  * Selectors are declared locally (repo rule: never edit the shared selectors.ts).
+ *
+ * Covers: cap-follow-people-and-connect-mutually
+ * Roles: admin
+ * Note: only A (admin) logs in via the browser; B is a target only (never
+ * loginAs'd), so this file does not walk the member role despite acting on a
+ * seeded subscriber. J-32 (message) is not pinned - direct messaging is a
+ * WPMediaVerse-owned surface, not its own CAPABILITIES.md promise.
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';

@@ -6,6 +6,9 @@ import { createPage, deletePage } from '../_fixtures/wp';
  * J-800 / J-801 — Space Directory + Spaces Showcase blocks: Layout=List actually
  * renders as a list, not a grid.
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: member
+ *
  * Proven by EFFECT, not by reading the attribute back: the block writes
  * data-layout="list" onto its .bn-sd-grid, but that was cosmetic until a CSS rule
  * consumed it — the grid stayed a multi-column track. So the assertion is the real

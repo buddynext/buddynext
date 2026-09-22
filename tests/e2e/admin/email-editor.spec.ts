@@ -4,6 +4,9 @@ import { urls } from '../_fixtures/selectors';
 
 /**
  * J-60 email editor.
+ *
+ * Covers: cap-edit-the-emails-it-sends
+ * Roles: admin
  */
 test.describe('admin / email editor', () => {
     test('email editor page renders template list and preview', async ({ authenticatedPage: page }, testInfo) => {

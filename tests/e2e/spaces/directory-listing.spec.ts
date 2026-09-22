@@ -10,6 +10,9 @@ import {
 /**
  * J-640..J-643 — Spaces directory listing controls (C1).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin, member
+ *
  * The Wave-1 matrix left Scope (All/My), Sort, Include-sub-spaces and Pagination
  * MISSING. These drive the REAL list endpoint (GET /spaces) the reactive
  * directory store calls, and assert the LISTING actually changes — not that a

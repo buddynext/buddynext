@@ -12,6 +12,9 @@ import {
 /**
  * J-662 / J-663 — Accept and decline a space invitation (invitee side).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin, member
+ *
  * These are the invitee counterparts of the owner-side Invite (J-606). The owner
  * invites a seeded user to a private space (POST /spaces/{id}/invite), so the
  * invitee's membership_status becomes 'invited'. The invitee then:

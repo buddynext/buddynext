@@ -4,6 +4,13 @@ import { urls } from '../_fixtures/selectors';
 
 /**
  * J-56 suspend user + J-57 restore user.
+ *
+ * Covers: cap-warn-suspend-or-shadow-ban
+ * Roles: admin
+ *
+ * Admin-only: exercises the suspend/restore controls on the wp-admin members
+ * screen. Does not walk the suspended member's own experience (login block,
+ * appeal) - that's cap-let-a-suspended-member-appeal, uncovered here.
  */
 test.describe('moderation / suspend + restore', () => {
     test('admin members page exposes a suspend control', async ({ authenticatedPage: page }, testInfo) => {

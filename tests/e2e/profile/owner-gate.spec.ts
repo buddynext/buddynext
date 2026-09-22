@@ -15,6 +15,14 @@ import { resolveOtherMemberSlug, softSkip } from '../_fixtures/precondition';
  * viewers get Follow / Connect / Message. The owner marker is therefore the
  * edit link inside the bar (`.bn-pf-actions a[href*="/edit/"]`) plus the cover
  * pencil (`.bn-pf-cover__edit`), not a dedicated `.bn-profile-actions-bar`.
+ *
+ * Covers: cap-give-members-a-profile-with-custom-fields
+ * Roles: admin
+ * Note: loose fit - this is the owner-only edit-control gate, not the custom
+ * fields feature itself; no closer CAPABILITIES.md row exists. Both tests use
+ * the authenticatedPage fixture (admin) viewing another member's profile - no
+ * plain-member viewer is walked, so an admin-bypasses-the-gate regression on
+ * a non-admin viewer would not be caught here.
  */
 test.describe('profile / owner gate', () => {
     test('Edit Profile / cover pencil do NOT render on a non-owner profile', async ({ authenticatedPage: page }, testInfo) => {

@@ -5,6 +5,11 @@ import { loginAs } from '../_fixtures/actor';
 /**
  * J-816 setup wizard step rail stays on one row.
  *
+ * Covers: cap-onboard-a-new-member-with-a-wizard (admin side only - the site
+ * setup wizard at admin page buddynext-setup named in that row's How; the
+ * member-facing /me/onboarding flow itself is not walked here)
+ * Roles: admin
+ *
  * Seven labelled steps did not fit the 720px wizard card, so "Done" wrapped onto
  * a second line by itself at every desktop width, and the rail took 3-4 rows on a
  * phone. On every step, at every project viewport, the rail is a single row and

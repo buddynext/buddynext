@@ -40,6 +40,14 @@ import {
  * locally (repo rule: never edit the shared selectors.ts) from
  * templates/parts/profile/{posts,replies}-panel.php, templates/partials/
  * media-tab.php and templates/parts/nav-bar.php.
+ *
+ * Covers: cap-run-an-activity-feed-members-post-to, cap-let-members-react-comment-and-reply, cap-schedule-a-post-to-publish-later
+ * Roles: admin, member
+ * Note: J-730 (Posts tab) covers the feed promise, J-731/J-732 (Replies/Likes)
+ * cover react-comment-reply, J-733 (Scheduled tab, Pro) covers
+ * schedule-a-post-to-publish-later; every one is viewed by B (member) via
+ * loginAs while A (admin) authors through a REST session. J-734 (Media tab
+ * panel) does not map to any current CAPABILITIES.md row and is left unpinned.
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';

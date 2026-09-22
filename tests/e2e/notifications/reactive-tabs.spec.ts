@@ -5,6 +5,10 @@ import { urls } from '../_fixtures/selectors';
 /**
  * J-122-notification-reactive-tabs.
  *
+ * Covers: none - CAPABILITIES.md (free) has no row for in-app notifications -
+ * see FRICTION in the role-coverage report.
+ * Roles: member
+ *
  * Reactive filter tabs (notifications completion Wave A5).
  *
  * Verifies that clicking a tab updates the visible content + URL without

@@ -4,6 +4,9 @@ import { createSpaceApi, deleteSpaceApi, bnApi, getSpace, type SpaceRow } from '
 /**
  * J-630 — Space custom-field value save + clear (C2, counterpart pair).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin
+ *
  * The space settings surface writes registered space-field VALUES through
  * POST /spaces/{id}/fields ({ fields: { key: value } }). This spec sets a value
  * on a writable text-capable field, then clears it — the add/remove counterpart

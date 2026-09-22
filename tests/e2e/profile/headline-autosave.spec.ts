@@ -17,6 +17,12 @@ import { userId } from '../_fixtures/wp';
  * through the same autosave path so reruns start from the value they found.
  *
  * Selectors are declared locally (repo rule) from templates/parts/profile-edit-hero.php.
+ *
+ * Covers: cap-give-members-a-profile-with-custom-fields
+ * Roles: admin
+ * Note: loose fit - the headline is a core hero field, not a custom profile
+ * field, but the edit-and-persist promise is the same PUT /me/profile path;
+ * no closer CAPABILITIES.md row exists for the hero headline specifically.
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';

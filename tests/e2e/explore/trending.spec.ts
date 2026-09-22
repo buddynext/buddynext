@@ -4,6 +4,11 @@ import { sel, urls } from '../_fixtures/selectors';
 
 /**
  * J-21-explore-trending + J-22-hashtag-follow.
+ *
+ * Covers: cap-hashtag-and-follow-topics
+ * Roles: admin
+ * Note: uses the authenticatedPage fixture (admin owner only) - no member or
+ * anon viewer of the explore deck is walked.
  */
 test.describe('explore / trending', () => {
     // The explore page is a discovery DECK, not a post feed, and its trending tags

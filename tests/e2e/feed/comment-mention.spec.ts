@@ -26,6 +26,9 @@ type NotifResponse = { items?: Notif[] };
  * before. A comment that linkifies `@word` in the DOM but never fans out the
  * notification passes a presence check and fails this. The host post (and its
  * comment) is deleted in `finally`.
+ *
+ * Covers: none pinned — CAPABILITIES.md has no @mention/notification promise row.
+ * Roles: admin, member
  */
 test.describe('feed / @mention in comment', () => {
     const submitComment = '[data-wp-on--click="actions.submitComment"]';

@@ -26,6 +26,13 @@ import { softSkip } from '../_fixtures/precondition';
  *
  * Actor: A = varundubey (admin owner; the tabs render on their own profile).
  * Selectors are declared locally (repo rule: never edit the shared selectors.ts).
+ *
+ * Covers: cap-show-a-member-s-forum-job-listing-or-course-activity-on-thei
+ * Roles: admin
+ * Note: only the admin owner's own profile is walked (no member session) - the
+ * Achievements leg is gamification (badges), not itself a forum/job/listing/
+ * course promise; it rides along in this file because all three bridge tabs
+ * share the same degrade pattern.
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';

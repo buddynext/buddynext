@@ -4,6 +4,10 @@ import { createSpaceApi, deleteSpaceApi } from '../_fixtures/spaces-rest';
 /**
  * J-53 — Pro per-space brand override (roadmap P6.2).
  *
+ * Covers: none — test.fixme, does not execute (feature removed from Pro; see
+ * FINDING below). Do not pin a live capability to a spec that never runs.
+ * Roles: none — fixme, does not execute.
+ *
  * FINDING (Wave-4): this feature was REMOVED from Pro before release. The Pro
  * plugin is active on this harness (buddynext-pro + jetonomy + wpmediaverse),
  * yet there is no per-space brand control to drive:

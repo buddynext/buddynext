@@ -19,6 +19,9 @@ import type { Page } from '@playwright/test';
  * total), and the closed-poll gate is proven with a REST POST /vote that must
  * be rejected. Each poll created is deleted in `finally`, so the feed is left
  * as found even on a mid-test failure.
+ *
+ * Covers: cap-post-text-links-images-video-and-polls
+ * Roles: admin
  */
 test.describe('feed / poll', () => {
     const pollWrap = '.bn-post-card__poll';

@@ -4,6 +4,11 @@ import { sel, urls } from '../_fixtures/selectors';
 
 /**
  * J-25-directory-filter-by-type + J-26-directory-search.
+ *
+ * Covers: cap-segment-members-into-types, cap-search-members-spaces-and-posts
+ * Roles: admin
+ * Note: both tests use the authenticatedPage fixture (admin owner only); no
+ * member-role viewer of the directory is walked here.
  */
 test.describe('directory / filter + search', () => {
     test('J-25 clicking a filter chip updates the result list', async ({ authenticatedPage: page }, testInfo) => {

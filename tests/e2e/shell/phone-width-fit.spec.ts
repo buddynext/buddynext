@@ -5,6 +5,11 @@ import { loginAs } from '../_fixtures/actor';
 /**
  * J-817 pages fit a phone screen.
  *
+ * Covers: none - same front-end-shell gap as shell/mobile-nav.spec.ts (no
+ * CAPABILITIES.md row states the app shell itself works on a phone). Also
+ * covers J-819 later in this file (same gap).
+ * Roles: member
+ *
  * At phone width no page scrolls sideways: the document is no wider than the
  * viewport. Covers the main BuddyNext hubs and a plain WordPress page, signed in,
  * so a header or shell element that overflows is caught whichever side (host

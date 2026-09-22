@@ -4,6 +4,14 @@ import { sel, urls } from '../_fixtures/selectors';
 /**
  * J-06-onboarding-wizard.
  *
+ * Covers: cap-onboard-a-new-member-with-a-wizard
+ * Roles: member
+ *
+ * Runs against the already-onboarded admin fixture account, so only the
+ * "already onboarded -> redirect" branch is reliably exercised most runs; a
+ * fresh anon signup -> wizard-completion walk is not covered here (see
+ * auth/signup.spec.ts for the anon -> member signup step).
+ *
  * 4-step wizard: profile basics -> interests -> follow suggestions ->
  * join spaces -> redirected to feed. Wireframe: docs/v2 Plans/v2/onboarding.html.
  *

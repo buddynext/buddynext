@@ -2,6 +2,9 @@ import { test, expect } from '../_fixtures/auth.fixture';
 
 /**
  * J-62 Stripe checkout button (Pro).
+ *
+ * Covers: cap-take-payment-by-card
+ * Roles: member
  */
 test.describe('pro / stripe checkout', () => {
     test.fixme(process.env.BN_PRO !== '1', 'Pro tier page only exists when Pro is active.');

@@ -10,6 +10,9 @@ import {
 /**
  * J-818-settings-restore-defaults (card 9995933507).
  *
+ * Covers: cap-warn-suspend-or-shadow-ban, cap-let-members-report-content
+ * Roles: admin
+ *
  * The owner changes three config settings AND the banned words on the Moderation
  * tab, then clicks "Restore defaults". The confirm dialog must list exactly the
  * three config settings (never the banned words) and, after confirming, those

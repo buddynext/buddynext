@@ -14,6 +14,9 @@ import { readRestNonce, restPost, deletePostRest } from '../_fixtures/feed-wave1
  * permalink route that simply re-renders the whole feed (both posts present)
  * would pass a naive "post visible" check but fails this cross-check. Both posts
  * deleted in `finally`.
+ *
+ * Covers: cap-open-a-post-permalink-with-its-replies-visible
+ * Roles: admin
  */
 test.describe('feed / single-post permalink', () => {
     test('J-520 each permalink renders its own post standalone', async ({ authenticatedPage: page }) => {

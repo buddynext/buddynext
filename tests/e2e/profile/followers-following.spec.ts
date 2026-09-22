@@ -35,6 +35,13 @@ test.beforeAll(async () => {
  * This previously asserted `.bn-pf-people-panel[data-tab-panel="…"]`,
  * `.bn-pf-tabs` and `.bn-pf-pills`, none of which the markup has emitted since
  * the profile was rebuilt — so all five tests failed against a working feature.
+ *
+ * Covers: cap-follow-people-and-connect-mutually
+ * Roles: admin, member
+ * Note: A (admin) views the lists via authenticatedPage; B's follow/unfollow
+ * writes go through a genuine ?autologin=bn_e2e_target REST session
+ * (openMemberSession), so the member role is exercised even though B never
+ * navigates a page.
  */
 /**
  * The list surface INSIDE the profile tab.

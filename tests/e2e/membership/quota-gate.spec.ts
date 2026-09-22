@@ -4,6 +4,13 @@ import type { Page } from '@playwright/test';
 /**
  * J-74 profile-field quota gate — the actor matrix a green admin run hides.
  *
+ * Covers: none - no CAPABILITIES.md row names a plan-based ceiling on the
+ * number of optional profile fields a member may fill. Distinct from "Gate
+ * profile field groups behind a plan/tier?" (that is all-or-nothing group
+ * locking; this is a numeric quota across fields that are not themselves
+ * locked). Flagging as friction rather than overclaiming that row.
+ * Roles: member, admin
+ *
  * Written from two promises: a PLAN-LIMITED member "can fill exactly what the
  * pricing page says, and when I hit the wall I'm told which field and why —
  * not silently dropped"; the OWNER/admin "is never gated by a plan I set for

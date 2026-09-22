@@ -36,6 +36,15 @@ import {
  * Selectors declared locally (repo rule) from templates/parts/profile/*.php,
  * templates/parts/nav-bar.php and templates/profile/edit.php. Every mutation is
  * reverted so reruns are idempotent.
+ *
+ * Covers: cap-give-members-a-profile-with-custom-fields, cap-follow-people-and-connect-mutually
+ * Roles: admin, member
+ * Note: J-720/J-721/J-725 cover the profile-fields/About-tab promise; J-722/
+ * J-723 cover follow-connect (connections tab + pending inbox); J-724 (Media
+ * bridge tab retiring) does not map to any current CAPABILITIES.md row (the
+ * WPMediaVerse Media tab is not the same promise as the forum/job/listing/
+ * course bridge-panels row) and is left unpinned. Both A and B log in via
+ * loginAs() throughout.
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';

@@ -17,6 +17,9 @@ import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-w
  * Media routes through WPMediaVerse; the Image tool is server-gated on the
  * engine being active. If the button is absent the engine is genuinely off, so
  * we softSkip with a clear reason rather than a false pass.
+ *
+ * Covers: cap-post-text-links-images-video-and-polls
+ * Roles: admin
  */
 test.describe('feed / media upload', () => {
     const pickMedia = '.bn-composer__tools .bn-composer__tool[data-wp-on--click="actions.pickMedia"]';

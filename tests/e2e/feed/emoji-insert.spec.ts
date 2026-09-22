@@ -19,6 +19,9 @@ type FeedHome = { items?: Array<{ id: number; content?: string }> };
  * gated by `buddynext_enable_emoji_picker` (default on); when the option is off
  * the button is not rendered and the spec soft-skips on that real precondition.
  * The post is deleted in finally.
+ *
+ * Covers: none pinned — CAPABILITIES.md has no emoji-picker promise row.
+ * Roles: admin
  */
 test.describe('feed / emoji insert', () => {
     const emojiTrigger = '.bn-composer .bn-emoji-trigger';

@@ -14,6 +14,13 @@ import { wp } from '../_fixtures/wp';
  *          the viewer can open it (owner or admin, or a published badge).
  *
  * Needs wb-gamification active; skipped otherwise.
+ *
+ * Covers: (none pinned - leaderboard rank + badge tiles are a wb-gamification
+ * bridge feature; no CAPABILITIES.md row itemizes leaderboards or badges)
+ * Roles: member, anon
+ * Note: memberLogin is deliberately a seeded member (user_id > 1, never the
+ * admin fixture); J-815 also drops to a logged-out visitor to check published-
+ * only badge links.
  */
 
 test.describe.configure({ mode: 'serial' });

@@ -3,6 +3,12 @@ import { sel, urls } from '../_fixtures/selectors';
 
 /**
  * J-29-profile-view-own.
+ *
+ * Covers: cap-give-members-a-profile-with-custom-fields
+ * Roles: admin
+ * Note: loose fit - a smoke check that the profile hero/stats/tabs render at
+ * all, not specifically the custom-fields promise; no closer row exists. Only
+ * the admin owner's own profile is walked (authenticatedPage fixture).
  */
 test.describe('profile / view', () => {
     test('own profile renders hero + stats + tabs', async ({ authenticatedPage: page }) => {

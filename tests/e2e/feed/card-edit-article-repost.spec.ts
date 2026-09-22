@@ -18,6 +18,10 @@ import { wp, ensureUser } from '../_fixtures/wp';
  *
  * Fixtures come from the services over wp-cli and are removed in afterAll; the
  * actions under test (menu, delete) run through the real UI.
+ *
+ * Covers: cap-bookmark-and-reshare-posts (J-813 repost delete/unshare only —
+ * J-811/J-812 edit-gating and article-card refresh have no CAPABILITIES.md row).
+ * Roles: member
  */
 
 test.describe.configure({ mode: 'serial' });

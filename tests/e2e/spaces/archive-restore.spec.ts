@@ -4,6 +4,9 @@ import { createSpaceApi, deleteSpaceApi, bnApi, getSpace, type SpaceRow } from '
 /**
  * J-631 — Archive then restore a space (C2, counterpart pair).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin
+ *
  * The owner archives a space (POST /spaces/{id}/archive) and restores it
  * (DELETE /spaces/{id}/archive).
  *

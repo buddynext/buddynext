@@ -3,6 +3,15 @@ import { sel, urls } from '../_fixtures/selectors';
 
 /**
  * J-30 profile-views widget (Pro P5.3).
+ *
+ * Covers: (none pinned - the who-viewed widget has no dedicated row in either
+ * CAPABILITIES.md; it is a Pro sub-feature of the free Insights/analytics
+ * surface, not itemized on its own)
+ * Roles: admin
+ * Note: the only test that actually runs (widget renders on own profile) uses
+ * the admin authenticatedPage fixture; the two J-30 effect tests are
+ * test.fixme (Pro-gated / needs analytics enabled + a seeded view), so this
+ * file currently proves nothing beyond "the fixme block itself does not error".
  */
 test.describe('profile / who-viewed widget (Pro P5.3)', () => {
     test.fixme(process.env.BN_PRO !== '1', 'Who-viewed widget is a Pro feature. Set BN_PRO=1.');

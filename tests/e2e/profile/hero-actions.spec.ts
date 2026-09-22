@@ -43,6 +43,16 @@ import { sel } from '../_fixtures/selectors';
  * seeded private subscriber viewed BY B. Selectors are declared locally (repo
  * rule: never edit the shared selectors.ts). Every mutation is reverted so
  * reruns are idempotent regardless of how the previous run exited.
+ *
+ * Covers: cap-follow-people-and-connect-mutually, cap-block-another-member,
+ * cap-let-a-member-keep-a-private-profile
+ * Roles: admin, member, anon
+ * Note: J-741 admin+member (A withdraws, B's inbox read via a real session);
+ * J-744 restrict is pinned against block-another-member as the closest
+ * existing promise (no separate "restrict" row exists); J-745 walks anon
+ * (a fresh guest context); J-746 walks member (B is the non-permitted
+ * viewer). J-740/J-742/J-743 (cover upload, share links) do not map to any
+ * current CAPABILITIES.md row and are left unpinned.
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';

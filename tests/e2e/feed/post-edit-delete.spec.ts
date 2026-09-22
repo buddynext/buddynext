@@ -14,6 +14,10 @@ import type { Page } from '@playwright/test';
  * page reload, so a save/delete that 200s client-side but never persists
  * fails here. The post is always deleted at the end, so the feed is left as
  * found even on a mid-test failure.
+ *
+ * Covers: none pinned — CAPABILITIES.md has no edit/delete-own-post promise row,
+ * despite this being one of the most essential post-lifecycle promises.
+ * Roles: admin
  */
 test.describe('feed / post edit + delete', () => {
     const editInput = '.bn-post-card__edit-input';

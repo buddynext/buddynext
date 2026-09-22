@@ -5,6 +5,9 @@ import { urls } from '../_fixtures/selectors';
  * J-76-composer-draft.
  *
  * Wave-2 B: composer drafts persist across page reloads via localStorage.
+ *
+ * Covers: none pinned — CAPABILITIES.md has no composer-draft-persistence promise row.
+ * Roles: admin
  */
 test.describe('feed / composer drafts', () => {
 

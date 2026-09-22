@@ -23,6 +23,9 @@ import { sel, urls } from '../_fixtures/selectors';
  *
  * Mutation check: remove `position: relative` from `.bn-post-card__embed` in
  * assets/css/bn-feed.css and this fails by name.
+ *
+ * Covers: cap-show-a-preview-card-for-a-pasted-link
+ * Roles: admin
  */
 test.describe('feed / oembed fallback containment', () => {
     test('fallback layer stays inside its embed box', async ({ authenticatedPage: page }) => {

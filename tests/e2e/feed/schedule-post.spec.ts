@@ -16,6 +16,9 @@ import { wp, dbScalar, tablePrefix } from '../_fixtures/wp';
  * A composer that ignores the schedule field and publishes immediately (status
  * 'published', card visible now) fails both legs. The row is deleted in
  * `finally` by id so a scheduled post never lingers in the seed.
+ *
+ * Covers: cap-schedule-a-post-to-publish-later
+ * Roles: admin
  */
 test.describe('feed / composer schedule', () => {
     // Composer toolbar schedule tool + its datetime field (partials/composer.php).

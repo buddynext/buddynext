@@ -11,6 +11,9 @@ import {
 /**
  * J-603 — Space cover upload + remove (counterpart pair).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin
+ *
  * Member action: owner uploads a cover image (POST /spaces/{id}/cover), then
  * removes it (DELETE /spaces/{id}/cover) — the create/remove counterpart the
  * cover-remove bug class shipped without.

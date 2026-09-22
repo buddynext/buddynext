@@ -5,6 +5,9 @@ import { resolveOtherMemberSlug } from '../_fixtures/precondition';
 /**
  * J-620 — Shareable space invite link (Spaces 1.2.1).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin, member
+ *
  * Member journey, driven through the REAL UI:
  *   1. The owner opens a PRIVATE space's Settings → Invite link tab and clicks
  *      "Create invite link" (actions.createInviteLink → POST /invite-link). The

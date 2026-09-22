@@ -4,6 +4,9 @@ import { sel, urls } from '../_fixtures/selectors';
 
 /**
  * J-20-ai-smart-reply. Pro P2.4. Requires BN_PRO=1.
+ *
+ * Covers: cap-suggest-an-ai-reply
+ * Roles: admin
  */
 test.describe('feed / AI smart-reply chips (Pro P2.4)', () => {
     test.fixme(process.env.BN_PRO !== '1', 'AI smart-reply chips are a Pro feature. Set BN_PRO=1 to run.');

@@ -20,6 +20,9 @@ import type { Page } from '@playwright/test';
  * flips the DOM but never persists (POST /comments/{id}/pin silently failing)
  * comes back un-pinned after the reload and fails here. The host post is deleted
  * in `finally`, which also clears its comment + pin option.
+ *
+ * Covers: none pinned — CAPABILITIES.md has no comment/post pinning promise row.
+ * Roles: admin
  */
 test.describe('feed / pin comment', () => {
     const submitComment = '[data-wp-on--click="actions.submitComment"]';

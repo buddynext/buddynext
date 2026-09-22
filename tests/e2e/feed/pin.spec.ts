@@ -15,6 +15,9 @@ import type { Page, Locator } from '@playwright/test';
  * reloads to assert it clears. Effect-based: every assertion is after a full
  * reload, so a pin that flips the DOM but never persists (POST /pin silently
  * failing) fails here.
+ *
+ * Covers: none pinned — CAPABILITIES.md has no post-pinning promise row.
+ * Roles: admin
  */
 test.describe('feed / pin + unpin', () => {
     const pinnedClass = /bn-post-card--pinned/;

@@ -16,6 +16,9 @@ import { readRestNonce, openMemberSession, restPost, type MemberSession } from '
  * re-report of the same post must come back 409 already_reported — which proves
  * the first report was actually written (a silently-failed UI report would make
  * the REST call the FIRST report and return 201, failing this).
+ *
+ * Covers: cap-let-members-report-content
+ * Roles: admin
  */
 test.describe('feed / report post', () => {
     const reportItem = '.bn-post-card__options-menu .bn-post-card__menu-item[data-wp-on--click="actions.reportPost"]';

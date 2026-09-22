@@ -16,6 +16,9 @@ import { readRestNonce, restPost, deletePostRest } from '../_fixtures/feed-wave1
  * "Show anyway", and asserts the overlay is then HIDDEN (content revealed). A
  * reveal button wired to nothing would leave the overlay visible and fail. Post
  * deleted in `finally`.
+ *
+ * Covers: none pinned — CAPABILITIES.md has no content-warning/sensitive-content promise row.
+ * Roles: admin
  */
 test.describe('feed / content warning reveal', () => {
     const cwOverlay = '.bn-post-card__cw-overlay';

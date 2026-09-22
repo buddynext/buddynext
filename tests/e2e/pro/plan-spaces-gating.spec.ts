@@ -7,6 +7,15 @@ import { createSpaceApi, deleteSpaceApi, ensureOnboarded } from '../_fixtures/sp
 /**
  * J-821 — one plan opens several spaces; a space is opened by several plans.
  *
+ * Covers: none - no CAPABILITIES.md row names gating a SPACE behind a
+ * membership plan (SpacePlanAccess, the plan-edit "Spaces this plan unlocks"
+ * picker, Paywall per-space overrides). "Gate content behind membership?" names
+ * the [buddynext_members_only] shortcode / Membership\ContentProtection, a
+ * different code path - pinning that cap here would overclaim coverage this
+ * spec does not prove. Flagging as friction: a substantial, well-tested Pro
+ * feature with no owning row.
+ * Roles: admin, member
+ *
  * Card 10167121142. The owner sets, per plan, which spaces it unlocks (Phase 2b's
  * "Spaces this plan unlocks" picker on the plan-edit screen), and access follows:
  * a Basic member enters the space Basic opens but is gated on the Premium-only one,

@@ -5,6 +5,11 @@ import { createPage, deletePage } from '../_fixtures/wp';
  * J-804 — the notification bell renders cleanly via the [buddynext_user_menu]
  * shortcode (outside a block render).
  *
+ * Covers: none - no CAPABILITIES.md row names the in-app notification bell /
+ * [buddynext_user_menu] shortcode; only Pro's mobile-push row exists, a
+ * different feature. Flagging as friction.
+ * Roles: member
+ *
  * The bug: the shared bell template called get_block_wrapper_attributes(), which
  * reads WP_Block_Supports::$block_to_render['attrs'] — null outside a block render
  * — raising "Trying to access array offset on null" and (with display_errors)

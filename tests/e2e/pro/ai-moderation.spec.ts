@@ -3,6 +3,9 @@ import { urls } from '../_fixtures/selectors';
 
 /**
  * J-63 AI moderation toggle (Pro).
+ *
+ * Covers: cap-moderate-with-ai
+ * Roles: admin
  */
 test.describe('pro / ai moderation', () => {
     test.fixme(process.env.BN_PRO !== '1', 'AI moderation lands in Pro only.');

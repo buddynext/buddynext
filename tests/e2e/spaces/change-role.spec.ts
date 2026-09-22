@@ -11,6 +11,9 @@ import {
 /**
  * J-633 — Change a member's role (C3): member -> moderator and back.
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin, member
+ *
  * A second actor joins an open space (role 'member'); the owner promotes them to
  * moderator (PUT /spaces/{id}/members/{uid}/role) then demotes them again.
  *

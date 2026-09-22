@@ -5,6 +5,9 @@ import { setRegistrationMode, dbSeedingAvailable } from '../_fixtures/db.fixture
 /**
  * J-04-signup.
  *
+ * Covers: cap-register-and-log-in-without-wp-login
+ * Roles: anon, member
+ *
  * Submits a fresh registration. We don't actually verify the user — that
  * lands in the dedicated verify spec. Here we only assert the form
  * accepts the submit and lands on either a verify notice or the

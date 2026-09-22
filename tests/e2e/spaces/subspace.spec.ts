@@ -4,6 +4,9 @@ import { createSpaceApi, deleteSpaceApi, bnApi, getSpace, type SpaceRow } from '
 /**
  * J-623 — Create a sub-space (C4).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin
+ *
  * A manager of a parent space creates a child space (POST /spaces with
  * parent_id). SpaceService enforces the two-level depth limit; only a manager of
  * the parent may nest under it.

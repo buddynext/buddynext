@@ -4,6 +4,12 @@ import { seedVerifyToken, getUserMeta, dbSeedingAvailable, VERIFY_PASSWORD } fro
 /**
  * J-05-email-verify.
  *
+ * Covers: cap-verify-email-before-posting
+ * Roles: anon, member
+ *
+ * Member is walked only in the first test (token verify -> login as the now-
+ * verified user); the reuse and invalid-token cases stay anon throughout.
+ *
  * The most costly path in the suite: if the verify link breaks, nobody can finish
  * joining. This asserts EFFECTS, not screen strings - the token is issued by the
  * plugin's own Auth\VerificationService (seedVerifyToken), and success is read as

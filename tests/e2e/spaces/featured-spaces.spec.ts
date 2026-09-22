@@ -4,6 +4,9 @@ import { bnApi, createSpaceApi, deleteSpaceApi, ensureOnboarded } from '../_fixt
 /**
  * J-621 — Featured spaces (Spaces 1.2.1).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin
+ *
  * The site owner curates featured spaces; members see them first. Effect-based:
  *   1. Owner features two spaces (POST /settings/featured-spaces).
  *   2. The directory sidebar "Featured" card lists them in owner order (desktop).

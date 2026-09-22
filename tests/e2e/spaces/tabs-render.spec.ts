@@ -5,6 +5,9 @@ import { createSpaceApi, deleteSpaceApi, bnApi } from '../_fixtures/spaces-rest'
 /**
  * J-690..J-692 — Space TAB RENDER (C4), Wave-4 NEW, effect-based.
  *
+ * Covers: cap-integrate-with-wbcom-plugins, cap-give-a-space-its-own-photo-albums, cap-group-content-into-spaces
+ * Roles: admin
+ *
  * Wave-3 covered the About tab (J-664) and left the bridge/custom tabs as honest
  * gaps. jetonomy + wpmediaverse are active on this harness, so the bridge tabs
  * are now drivable:

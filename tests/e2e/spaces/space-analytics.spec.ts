@@ -4,6 +4,11 @@ import { createSpaceApi, deleteSpaceApi, ensureOnboarded } from '../_fixtures/sp
 /**
  * J-820 — Space-owner "Last 30 days" analytics row.
  *
+ * Covers: cap-show-community-analytics, cap-track-engagement-per-member (approximate — no
+ * CAPABILITIES.md row names a per-space "owner stats" promise specifically; these are the
+ * closest Pro analytics promises this seam is a facet of)
+ * Roles: admin
+ *
  * Free adds the `buddynext_space_admin_after_stats` seam on the space admin page;
  * Pro renders a "Last 30 days" row there, gated by the
  * `buddynextpro_space_owner_stats` setting (off by default). This proves the seam

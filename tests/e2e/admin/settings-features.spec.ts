@@ -4,6 +4,10 @@ import { sel, urls } from '../_fixtures/selectors';
 
 /**
  * J-58 admin features toggle.
+ *
+ * Covers: cap-administer-everything-from-one-menu (presence-level only - asserts
+ * the Settings/Features panel renders; does not flip a toggle and prove an effect)
+ * Roles: admin
  */
 test.describe('admin / settings  -  features', () => {
     test('features panel renders toggles', async ({ authenticatedPage: page }, testInfo) => {
