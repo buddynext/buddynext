@@ -45,27 +45,44 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 |---|---|---|
 | Run an activity feed members post to? | YES | `Feed\PostService`, 9 `/posts` + 9 `/feed` routes, `bn_posts` |
 | Post text, links, images, video and polls? | YES | `PostService::ALLOWED_TYPES`; `bn_poll_options` / `bn_poll_votes` |
+| Choose who can see a post? | YES | `privacy` param (public/followers/connections/private) on `POST`/`PUT /posts`; `PostController::register_routes` args, enforced by `PostService` |
+| Add emoji to a post from the composer? | YES | emoji picker in `templates/partials/composer.php`, gated by the `buddynext_enable_emoji_picker` option (on by default) |
+| Blur a post behind a content warning the reader reveals? | YES | `content_warning` / `content_warning_type` columns (`PostService::update`/`create`); `templates/parts/post-cw-overlay.php` renders the blur + "Show anyway" toggle |
+| Keep a draft in the composer so it isn't lost? | YES | `Feed\ComposerDraftController`; `GET`/`POST`/`DELETE /me/composer-draft` |
 | Show a preview card for a pasted link? | YES | `PostController::link_preview` + `PostService::og_meta`; the scrape runs off the member's request (`buddynext_async_fetch_link_meta`), so a slow or dead link never blocks the post |
 | Open a post permalink with its replies visible? | YES | `templates/feed/single-post.php` seeds `commentsOpen` for `context === 'single'`; paging is the same control as the feed |
+| Edit or delete your own post? | YES | `PostService::update()` / `PostService::delete()`; `PUT`/`DELETE /posts/{id}` |
+| Mention another member with @ and notify them? | YES | `PostService`/`CommentService` parse `@username` and fire `buddynext_user_mentioned`, handled by `Notifications\NotificationListener::on_user_mentioned` |
 | Let members react, comment and reply? | YES | `bn_reactions`, `bn_comments`; 4 `/reactions` + 3 `/comments` routes |
+| Pin a post to a profile, or pin a comment on a post? | YES | `PostService::pin()`/`unpin()` (profile-only, capped by the `buddynext_post_pin_limit` filter, default 1); `CommentController::pin()`/`unpin()` caps one pinned top-level comment per object via `bn_pinned_comment_*` option |
 | Bookmark and reshare posts? | YES | `bn_bookmarks`, `bn_shares`. 1.1.7: Save in the media lightbox bookmarks the POST the photo belongs to, so it lands in the same saved list as Save on the feed card - it previously wrote a WPMediaVerse Pro collection, a different store behind an identical icon. Reactions left in the lightbox likewise apply to the post and are counted once |
 | Follow people, and connect mutually? | YES | `bn_follows` (follow) and `bn_connections` (request/accept) are separate graphs |
 | Block another member? | YES | `bn_blocks`; enforced on feed, comments and DM |
+| Mute a member's posts without blocking them? | YES | `SocialGraph\BlockService::mute()`/`unmute()`; same `bn_blocks` table as Block, distinct `type = 'mute'` row - silences content without notifying the muted member, and never downgrades an existing block |
+| Restrict a member without them knowing? | YES | `SocialGraph\BlockService::restrict()`; `type = 'restrict'` row in `bn_blocks` - the restricted member keeps seeing the restrictor's profile/posts, but the effect is one-way and silent |
 | Group content into spaces? | YES | 32 `/spaces` routes, `bn_spaces` + `bn_space_members` + `bn_space_meta` |
 | Make a space private or secret? | YES | `Spaces\SpaceVisibility`; secret spaces stay out of search and 404 to non-members |
 | Give a space its own photo albums? | YES | 1.1.1. `Media\Galleries` + `SpaceAlbumListener`; needs the space Media tab on |
 | Categorise spaces? | YES | `bn_space_categories`, 2 `/space-categories` routes |
 | Ban a member from one space without site-wide action? | YES | `bn_space_bans` |
+| Invite people to a space with a shareable link? | YES | `Spaces\SpaceInviteLinkService::create()`/`validate()`/`consume()`; expiring, use-capped invite links plus direct member invites via `SpaceMemberService::invite()` |
+| Manage space membership - change a member's role, transfer ownership, or remove someone? | YES | `SpaceMemberService::change_role()` / `remove()`; ownership transfer is its own `SpaceService::transfer_ownership()` (`POST /spaces/{id}/transfer-ownership`), never assigned as a plain role |
+| Archive and restore a space, or create a sub-space under it? | YES | `SpaceService::archive()` (`POST`/`DELETE /spaces/{id}/archive`) toggles `archived_at`; `parent_id` + `GET /spaces/{id}/subspaces` support two-level sub-spaces up to a per-space cap |
+| Set a per-space notification preference? | YES | `SpaceMemberService::set_notification_pref()`/`get_notification_pref()` |
 | Hashtag and follow topics? | YES | `bn_hashtags`, `bn_post_hashtags`, `bn_hashtag_follows`; 7 `/hashtags` routes |
 | Post announcements? | YES | `announcements` feature group (default on) |
 | Search members, spaces and posts? | YES | `bn_search_index`; 3 `/search` routes; visibility-scoped |
 | Search inside one space? | YES | 1.1.5. `?bn_sf_q=` on a space's Feed tab; `scope_space_id` on the search index, paged, gated by the space's own visibility |
+| Work on a phone across the whole front-end, not just admin? | YES | `.bn-app__shell`/`.bn-app__rail` collapse to a `.bn-mobile-nav` 5-item bottom bar under the shell's breakpoint (`assets/css/bn-shell.css`), pinned by `tests/e2e/shell/mobile-nav.spec.ts`. Sibling to the admin-listings mobile row below under Owner administration |
 
 ## Members and profiles
 
 | Can it... | Status | How |
 |---|---|---|
 | Give members a profile with custom fields? | YES | `bn_profile_groups` / `bn_profile_fields` / `bn_profile_values`; admin at `buddynext-members` |
+| Set your own display name, avatar, cover photo and headline? | YES | `ProfileController::update_profile()` writes `display_name` (WP core), `headline` (profile value), plus dedicated `POST`/`DELETE /me/avatar` and `/me/cover` routes |
+| See in-app notifications, mark them read, and set preferences? | YES | `Notifications\NotificationController`; `GET /me/notifications`, `PUT /me/notifications/read-all`, `GET`/`PUT /me/notification-prefs` backed by `NotificationPrefCatalogue` |
+| Get a header user menu and notification bell in any theme? | YES | `buddynext/header-user-menu` and `buddynext/notification-bell` blocks (`Header\HeaderUserSection`) |
 | Show a member's cover photo on their directory card? | YES | `MemberDirectoryController::shape_item()` sends `cover_url` via `buddynext_user_cover_url()`; falls back to a tone gradient when the member has none |
 | Segment members into types? | YES | `bn_member_types` + assignments; 4 `/member-types` routes |
 | Show who is online / last active? | YES | `bn_presence` |
@@ -104,6 +121,8 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Can it... | Status | How |
 |---|---|---|
 | Administer everything from one menu? | YES | `Admin\AdminHub`, top-level `buddynext` menu; sections register through `self::sections()` |
+| Give the owner a front-end community-admin surface, off wp-admin? | YES | `[buddynext_community_admin]` shortcode (`Shortcodes\ShortcodeService::render_community_admin`) |
+| Show a built-in cookie-consent notice? | YES | `Privacy\CookieConsentService`, gated by the `buddynext_cookie_consent` option (off by default); owner-editable text and button labels under Privacy & Data |
 | Work on a phone? | YES | 1.1.1 rebuilt every admin listing to card-stack below 782px; pinned by `tests/e2e/admin/table-layout-contract.spec.ts` |
 | Edit the emails it sends? | YES | `bn_email_templates` + `bn_email_log` |
 | Re-theme without touching CSS? | YES | one `--bn-hue` drives the OKLCH accent ramp via `Theme\TokenService` |
