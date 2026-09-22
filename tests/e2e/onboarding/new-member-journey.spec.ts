@@ -75,10 +75,10 @@ test.describe('onboarding / new member journey', () => {
 
         const usernameInput = page.locator(sel.signupUser).or(page.locator(sel.signupEmail));
         const formVisible = await usernameInput.first().isVisible().catch(() => false);
-        if (!formVisible) {
-            test.fixme(true, 'Registration closed on this site (users_can_register=0) — /login/signup/ renders without the form.');
-            return;
-        }
+        // Conditional fixme (skips only when the signup form is genuinely absent,
+        // e.g. users_can_register=0), not an unconditional fixme(true) - the
+        // journey-tags gate flags the latter, and it would skip the walk always.
+        test.fixme(!formVisible, 'Registration closed on this site (users_can_register=0) — /login/signup/ renders without the form.');
 
         const stamp = Date.now().toString().slice(-8);
         const login = `e2e_j70_${stamp}`;

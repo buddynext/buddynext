@@ -77,6 +77,12 @@ def needed_roles(question):
     later if a promise genuinely serves one role.
     """
     q = question.lower()
+    # Owner-only surfaces: analytics/reporting a site owner reads, with no
+    # member-facing counterpart. The keyword heuristic below would otherwise
+    # force a member leg that cannot exist (there is no member view of
+    # "engagement per member" or "revenue over time").
+    if re.search(r'report revenue|revenue over time|track engagement per member', q):
+        return {'admin'}
     roles = set()
     if re.search(r'admin|setting|menu|email|slug|white ?label|licen|webhook|'
                  r'banned|rate.?limit|configure|enable|manage|owner|dashboard', q):

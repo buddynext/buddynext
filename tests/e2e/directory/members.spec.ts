@@ -14,16 +14,21 @@ const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 // button is a not-yet-followed member exposing a live Follow control.
 const FOLLOWABLE_CARD = '.bn-md-card:has(.bn-md-card__follow[data-state="unfollowed"])';
 
-/**
- * Count member cards, failing loudly when the page rendered neither cards nor an
- * empty state.
- *
- * These specs used to bail with `if (count === 0) softSkip('No member cards
- * seeded')`, which checks the very selector under test. A broken selector was
- * therefore indistinguishable from an empty site, and both reported green — the
- * reason J-27 and J-28 sat passing for so long while asserting nothing. Skipping
- * is only honest when the directory positively says it is empty.
- */
+// Count member cards, failing loudly when the page rendered neither cards nor an
+// empty state.
+//
+// These specs used to bail with `if (count === 0) softSkip('No member cards
+// seeded')`, which checks the very selector under test. A broken selector was
+// therefore indistinguishable from an empty site, and both reported green — the
+// reason J-27 and J-28 sat passing for so long while asserting nothing. Skipping
+// is only honest when the directory positively says it is empty.
+//
+// Kept as `//` line comments rather than a JSDoc block on purpose: the
+// role-coverage checker reads a spec's coverage tags from the first
+// JSDoc-style block comment in the file, not from the one attached to
+// test.describe below. A JSDoc block here shadowed the real journey docblock
+// and its tags, so this whole file read as unpinned even though the tags do
+// exist, below, on the journey docblock that actually proves them.
 async function countMemberCards(page: Page): Promise<number> {
     const cards = await page.locator(sel.memberCard).count();
     if (cards === 0) {
