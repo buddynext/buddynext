@@ -2,7 +2,7 @@
 
 Every member's account and profile can be opened and changed directly from the admin - their display name, email, role, profile URL, avatar and cover photo, and every custom profile field they have (or have not) filled in. This is separate from a member editing their own profile: it needs the WordPress **manage_options** capability, so only administrators can do it, and it works even when the member cannot or will not fix something themselves.
 
-<!-- TODO screenshot: the Edit Member admin view - hero header with avatar, handle, email, role badge, join date and last-login, plus the Account/Save Profile Photo/group tabs -->
+![The wp-admin Edit Member view: the member hero with View Profile, Mark email verified, and Suspend actions, and the Account tab with profile photo, account details, community role, member type, membership, and labels](../images/admin-edit-member.webp)
 
 ## Why use it
 
