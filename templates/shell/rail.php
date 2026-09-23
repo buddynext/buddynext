@@ -46,15 +46,14 @@ if ( $bn_rail_current_user ) {
 	// different hub, and it is the kind of special case that had to be repeated in
 	// every place that asked "am I on Settings?".
 	$bn_settings_active = ( 'settings' === $hub );
-	foreach ( $bn_rail_items as &$bn_ri ) {
+	foreach ( $bn_rail_items as $bn_ri_index => $bn_ri ) {
 		$bn_ri_key = (string) ( $bn_ri['key'] ?? '' );
 		if ( 'bookmarks' === $bn_ri_key ) {
-			$bn_ri['active'] = $bn_bookmarks_active;
+			$bn_rail_items[ $bn_ri_index ]['active'] = $bn_bookmarks_active;
 		} elseif ( 'settings' === $bn_ri_key ) {
-			$bn_ri['active'] = $bn_settings_active;
+			$bn_rail_items[ $bn_ri_index ]['active'] = $bn_settings_active;
 		}
 	}
-	unset( $bn_ri );
 }
 
 /**

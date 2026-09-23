@@ -95,6 +95,22 @@ class GamificationBridge {
 	 * @return string BuddyNext profile URL, or the incoming default if unresolvable.
 	 */
 	public function profile_redirect_url( $url, $user_id ): string {
+		return $this->resolve_profile_redirect( $url, $user_id );
+	}
+
+	/**
+	 * Resolve a member's BuddyNext profile URL for a partner redirect filter,
+	 * falling back to the partner's own default when it cannot be resolved.
+	 *
+	 * Shared by profile_redirect_url() and badge_share_redirect_url(): both
+	 * partner filters answer the same question (send this user to their BN
+	 * profile, else leave the partner default alone) with different @param docs.
+	 *
+	 * @param string $url     The partner's default URL (empty = render own page).
+	 * @param int    $user_id Profile/badge owner.
+	 * @return string BuddyNext profile URL, or the incoming default if unresolvable.
+	 */
+	private function resolve_profile_redirect( $url, $user_id ): string {
 		$uid = (int) $user_id;
 		if ( $uid <= 0 ) {
 			return (string) $url;
@@ -112,13 +128,7 @@ class GamificationBridge {
 	 * @return string BuddyNext profile URL, or the partner default if unresolvable.
 	 */
 	public function badge_share_redirect_url( $url, $user_id ): string {
-		$uid = (int) $user_id;
-		if ( $uid <= 0 ) {
-			return (string) $url;
-		}
-
-		$bn_profile = \BuddyNext\Core\PageRouter::profile_url( $uid );
-		return '' !== $bn_profile ? $bn_profile : (string) $url;
+		return $this->resolve_profile_redirect( $url, $user_id );
 	}
 
 	/**
