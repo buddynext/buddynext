@@ -53,8 +53,6 @@ test.describe('pro / custom reactions', () => {
     const emojiRadio = '.bn-cr-emoji-grid input[type="radio"][name="buddynextpro_slug"]';
     const addSubmit = 'form:has(input[name="action"][value="buddynextpro_add_custom_reaction"]) button[type="submit"]';
     const reactionRow = (slug: string) => `tr:has(code:text-is("${slug}"))`;
-    const removeButton = (slug: string) =>
-        `${reactionRow(slug)} form:has(input[name="action"][value="buddynextpro_remove_custom_reaction"]) button[type="submit"]`;
     const TIER_SLUG = 'bn-e2e-custom-reactions-tier';
 
     test('J-952 an admin-added custom reaction is a real, pickable reaction for a member', async ({ authenticatedPage: page }, testInfo) => {
@@ -146,24 +144,27 @@ test.describe('pro / custom reactions', () => {
                         ` ( new \\BuddyNextPro\\Membership\\MembershipTierService() )->delete_tier( ${tierId} );`,
                 ]).catch(() => undefined);
             }
-            if (slug) {
-                await page.goto(reactionsAdminUrl).catch(() => {});
-                const remove = page.locator(removeButton(slug)).first();
-                if (await remove.isVisible().catch(() => false)) {
-                    // Remove is gated by the shared JS confirm dialog (data-bn-confirm),
-                    // not a native window.confirm — accept it via its own OK button.
-                    // The shared shell dialog (assets/js/shell/dialog.js) renders as
-                    // `.bn-modal-backdrop` with a plain `.bn-btn` OK button (no
-                    // `.bn-dialog-backdrop`/`.bn-dialog__ok` — those classes don't
-                    // exist anywhere in this codebase), so target it by role + the
-                    // confirm label ("Remove") instead.
-                    await remove.click().catch(() => {});
-                    const dialog = page.locator('.bn-modal-backdrop').last();
-                    if (await dialog.isVisible({ timeout: 3_000 }).catch(() => false)) {
-                        await dialog.getByRole('button', { name: 'Remove', exact: true }).click().catch(() => {});
-                    }
-                }
-            }
+            // Purge EVERY leftover J952 reaction server-side, not just this run's
+            // slug and not through the admin "Remove" UI form. The UI path
+            // (navigate -> click -> accept the shared confirm modal) is fragile at
+            // narrow viewports and when a run is interrupted, and every step was
+            // .catch()-swallowed — so failures leaked silently. A retried attempt
+            // also adds a second reaction whose slug the single-slug cleanup never
+            // saw. Leaked reactions accumulate toward the 20-reaction cap, and once
+            // the palette is large the picker overflows at iPad width and the target
+            // chip becomes unclickable, failing THIS test on later runs (observed:
+            // 15 leaked, palette at 18/20, then a slow +1/2-runs leak from retries).
+            // A label-prefix sweep is self-healing: it cannot accumulate regardless
+            // of retries or which emoji slug each attempt happened to pick.
+            await wp([
+                'eval',
+                `$svc = new \\BuddyNextPro\\Reactions\\CustomReactionsService();` +
+                    ` foreach ( $svc->get_custom_reactions() as $r ) {` +
+                    `   if ( 0 === strpos( (string) ( $r['label'] ?? '' ), 'J952 Reaction' ) ) {` +
+                    `     $svc->remove_reaction( (string) $r['slug'] );` +
+                    `   }` +
+                    ` }`,
+            ]).catch(() => undefined);
         }
     });
 });
