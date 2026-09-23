@@ -171,9 +171,35 @@ if ( $bn_render_sections ) {
 	$bn_spaces    = $bn_space_service->search( $bn_search, $bn_query_args );
 	$total_spaces = count( $bn_spaces );
 } else {
-	$bn_listing   = $bn_space_service->list_spaces_with_total( $bn_query_args );
-	$bn_spaces    = $bn_listing['items'];
-	$total_spaces = (int) $bn_listing['total'];
+	// Featured spaces pin to the top of page 1 of the plain, unfiltered "All
+	// Spaces" view — the one thing every new member actually lands on,
+	// regardless of which sort they have chosen (sort still governs the
+	// regular spaces below the pin). Only page 1, no active category/type
+	// filter: a featured space that does not match the filter has no
+	// business appearing in it.
+	//
+	// ponytail: page 2+ do not exclude the pinned ids from their own
+	// (unmodified) query, so a featured space can in principle appear a
+	// second time in its natural rank on a later page — acceptable because a
+	// featured space is, by definition, a low-traffic pick an owner just
+	// curated, so under every sort but "Newest" its natural rank sinks to the
+	// LAST page, not page 2. Upgrade path if that stops holding: thread
+	// exclude_space_ids through every page and shift the offset by the
+	// pinned count, not just page 1.
+	$bn_featured_pinned = array();
+	if ( 1 === $bn_paged && '' === $bn_visibility && '' === $bn_cat_slug ) {
+		$bn_featured_pinned = $bn_space_service->featured_spaces( $current_user_id, 6, 'directory_grid' );
+	}
+
+	$bn_rest_args = $bn_query_args;
+	if ( $bn_featured_pinned ) {
+		$bn_rest_args['exclude_space_ids'] = array_map( static fn( $s ) => (int) $s['id'], $bn_featured_pinned );
+		$bn_rest_args['per_page']          = max( 0, $bn_per_page - count( $bn_featured_pinned ) );
+	}
+
+	$bn_listing   = $bn_space_service->list_spaces_with_total( $bn_rest_args );
+	$bn_spaces    = array_merge( $bn_featured_pinned, $bn_listing['items'] );
+	$total_spaces = (int) $bn_listing['total'] + count( $bn_featured_pinned );
 }
 
 $total_pages = (int) ceil( $total_spaces / $bn_per_page );

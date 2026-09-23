@@ -2133,6 +2133,16 @@ class SpaceService {
 		// placeholders — the clause inlines integer-cast ids.
 		$hidden_sql = $member_id > 0 ? '1=1' : $this->hidden_category_directory_clause();
 
+		// Root-only is an explicit opt-in here, never the ambient default the
+		// non-search list_spaces() path applies — search intentionally still
+		// surfaces sub-spaces for a member typing their way to one (see the
+		// comment on SpaceController::list_spaces()). A caller that genuinely
+		// needs root-only results even while searching (the admin featured-
+		// spaces picker: a featured sub-space is silently dropped by every
+		// front-end featured surface, see featured_spaces()) opts in with
+		// $args['search_roots_only'].
+		$roots_sql = empty( $args['search_roots_only'] ) ? '1=1' : 'parent_id IS NULL';
+
 		// Mine-scope placeholders follow the exclude- and archive-scope ones, before the LIKEs.
 		if ( $member_id > 0 ) {
 			$params[] = $member_id;
@@ -2152,7 +2162,7 @@ class SpaceService {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_spaces
-				 WHERE {$exclude_sql} AND {$archive_sql} AND {$mine_sql} AND {$hidden_sql} AND (name LIKE %s OR description LIKE %s)
+				 WHERE {$exclude_sql} AND {$archive_sql} AND {$mine_sql} AND {$hidden_sql} AND {$roots_sql} AND (name LIKE %s OR description LIKE %s)
 				 ORDER BY member_count DESC, id DESC
 				 LIMIT %d OFFSET %d",
 				...$params
