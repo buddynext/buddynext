@@ -894,11 +894,25 @@ $posts_pct_abs = abs( $posts_pct );
 							// Interactivity context the moderation store's dismiss/removeContent
 							// actions read. data-report-id is the selector they use to drop the
 							// row on success.
+							// Content-warning state for this report (post reports only); the store's
+							// set/clear actions read objectId + cwType from the row context below.
+							$rpt_obj_type = (string) ( $rpt['object_type'] ?? '' );
+							$rpt_obj_id   = (int) ( $rpt['object_id'] ?? 0 );
+							$rpt_cw       = ( 'post' === $rpt_obj_type && $rpt_obj_id > 0 ) ? $bn_ca_mod->get_post_content_warning( $rpt_obj_id ) : null;
+							$rpt_cw_has   = (bool) ( $rpt_cw['has_warning'] ?? false );
+							$rpt_cw_type  = (string) ( $rpt_cw['warning_type'] ?? '' );
+							if ( '' === $rpt_cw_type ) {
+								$rpt_cw_type = 'nsfw';
+							}
 							$rpt_ctx = wp_json_encode(
 								array(
-									'reportId'  => (int) $rpt['id'],
-									'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
-									'restNonce' => wp_create_nonce( 'wp_rest' ),
+									'reportId'     => (int) $rpt['id'],
+									'restUrl'      => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+									'restNonce'    => wp_create_nonce( 'wp_rest' ),
+									'objectId'     => $rpt_obj_id,
+									'objectType'   => $rpt_obj_type,
+									'cwType'       => $rpt_cw_type,
+									'cwHasWarning' => $rpt_cw_has,
 								)
 							);
 							?>
@@ -937,6 +951,19 @@ $posts_pct_abs = abs( $posts_pct );
 										data-size="sm"
 										data-wp-on--click="actions.removeContent"
 									><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+									<?php // Content warning: post-only softer alternative to removal (blur/reveal overlay). Card 10325560448. ?>
+									<?php if ( 'post' === $rpt_obj_type ) : ?>
+									<select class="bn-cw-control__type" aria-label="<?php esc_attr_e( 'Content warning type', 'buddynext' ); ?>" data-wp-on--change="actions.setCwType">
+										<option value="nsfw" <?php selected( $rpt_cw_type, 'nsfw' ); ?>><?php esc_html_e( 'NSFW', 'buddynext' ); ?></option>
+										<option value="spoilers" <?php selected( $rpt_cw_type, 'spoilers' ); ?>><?php esc_html_e( 'Spoilers', 'buddynext' ); ?></option>
+										<option value="violence" <?php selected( $rpt_cw_type, 'violence' ); ?>><?php esc_html_e( 'Violence', 'buddynext' ); ?></option>
+										<option value="language" <?php selected( $rpt_cw_type, 'language' ); ?>><?php esc_html_e( 'Strong language', 'buddynext' ); ?></option>
+									</select>
+									<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-wp-on--click="actions.setContentWarning"><?php echo $rpt_cw_has ? esc_html__( 'Update warning', 'buddynext' ) : esc_html__( 'Add warning', 'buddynext' ); ?></button>
+										<?php if ( $rpt_cw_has ) : ?>
+									<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-wp-on--click="actions.clearContentWarning"><?php esc_html_e( 'Clear warning', 'buddynext' ); ?></button>
+									<?php endif; ?>
+									<?php endif; ?>
 								</div>
 							</div>
 						<?php endforeach; ?>

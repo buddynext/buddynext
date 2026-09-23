@@ -513,6 +513,12 @@ class ModerationQueue {
 					if ( in_array( $object_type, array( 'post', 'comment', 'message' ), true ) && ! $bn_missing ) {
 						$this->report_button( $report_id, 'remove', __( 'Remove content', 'buddynext' ), 'delete', __( 'Remove the reported content? It is hidden, not hard-deleted.', 'buddynext' ) );
 					}
+					// Content warning: a softer alternative to removal, post-only (the
+					// blur/reveal overlay renders on posts). Without this the warning
+					// could only be set via a raw REST call (card 10325560448).
+					if ( 'post' === $object_type && ! $bn_missing ) {
+						$this->content_warning_controls( $report_id, $object_id );
+					}
 					if ( ! $escalated ) {
 						$this->report_button( $report_id, 'escalate', __( 'Escalate', 'buddynext' ), 'secondary' );
 					}
@@ -811,7 +817,7 @@ class ModerationQueue {
 		// an empty field means all actors (card 10264294456).
 		$actor_raw = isset( $_GET['log_actor'] ) ? sanitize_text_field( wp_unslash( $_GET['log_actor'] ) ) : '';
 		$space     = isset( $_GET['log_space'] ) ? absint( wp_unslash( $_GET['log_space'] ) ) : 0;
-		$since  = isset( $_GET['log_since'] ) ? sanitize_text_field( wp_unslash( $_GET['log_since'] ) ) : '';
+		$since     = isset( $_GET['log_since'] ) ? sanitize_text_field( wp_unslash( $_GET['log_since'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		$query = array();
@@ -1116,6 +1122,18 @@ class ModerationQueue {
 			case 'escalate':
 				$result = $service->escalate( $report_id, $actor );
 				break;
+			case 'cw_set':
+			case 'cw_clear':
+				// Apply / clear a content warning on the reported post. The warning
+				// feature is otherwise reachable only by a raw PUT to
+				// /posts/{id}/content-warning; this is the moderator control for it
+				// (card 10325560448). object_id of a post report IS the post id.
+				// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() above.
+				$cw_post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
+				$cw_type    = isset( $_POST['cw_type'] ) ? sanitize_key( wp_unslash( (string) $_POST['cw_type'] ) ) : 'nsfw';
+				// phpcs:enable WordPress.Security.NonceVerification.Missing
+				$result = null !== $service->set_post_content_warning( $cw_post_id, 'cw_set' === $op, $cw_type, $actor );
+				break;
 		}
 
 		$this->redirect_back( 'reports', $result );
@@ -1306,6 +1324,64 @@ class ModerationQueue {
 			$variant,
 			$confirm
 		);
+	}
+
+	/**
+	 * Content-warning controls for a reported post: pick a type and apply, or clear.
+	 *
+	 * The warning blurs the post behind a "Show anyway" overlay for viewers. It was
+	 * fully wired end-to-end (DB + REST + front-end reveal) but had no moderator
+	 * control - a warning could only be set by a raw PUT to
+	 * /posts/{id}/content-warning (card 10325560448). This is that control, on the
+	 * same form-POST pattern as report_button() (dispatched by handle_report_action).
+	 * The type select needs its own form, so it is not routed through action_form().
+	 *
+	 * @param int $report_id The report being actioned (kept so the redirect returns here).
+	 * @param int $post_id   The reported post.
+	 * @return void
+	 */
+	private function content_warning_controls( int $report_id, int $post_id ): void {
+		$types   = array(
+			'nsfw'     => __( 'NSFW', 'buddynext' ),
+			'spoilers' => __( 'Spoilers', 'buddynext' ),
+			'violence' => __( 'Violence', 'buddynext' ),
+			'language' => __( 'Strong language', 'buddynext' ),
+		);
+		$current = ( new ModerationService() )->get_post_content_warning( $post_id );
+		$has     = (bool) ( $current['has_warning'] ?? false );
+		$type    = (string) ( $current['warning_type'] ?? '' );
+		$field   = 'bn-cw-type-' . $report_id;
+		?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form bn-cw-form">
+			<input type="hidden" name="action" value="bn_mod_report_action">
+			<?php wp_nonce_field( 'bn_mod_report_action' ); ?>
+			<input type="hidden" name="report_id" value="<?php echo esc_attr( (string) $report_id ); ?>">
+			<input type="hidden" name="post_id" value="<?php echo esc_attr( (string) $post_id ); ?>">
+			<input type="hidden" name="op" value="cw_set">
+			<label class="screen-reader-text" for="<?php echo esc_attr( $field ); ?>"><?php esc_html_e( 'Content warning type', 'buddynext' ); ?></label>
+			<select name="cw_type" id="<?php echo esc_attr( $field ); ?>" class="bn-cw-form__type">
+				<?php foreach ( $types as $bn_cw_key => $bn_cw_label ) : ?>
+					<option value="<?php echo esc_attr( $bn_cw_key ); ?>" <?php selected( $type, $bn_cw_key ); ?>><?php echo esc_html( $bn_cw_label ); ?></option>
+				<?php endforeach; ?>
+			</select>
+			<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
+				<?php echo $has ? esc_html__( 'Update warning', 'buddynext' ) : esc_html__( 'Add warning', 'buddynext' ); ?>
+			</button>
+		</form>
+		<?php
+		if ( $has ) {
+			$this->action_form(
+				'bn_mod_report_action',
+				array(
+					'report_id' => $report_id,
+					'post_id'   => $post_id,
+					'op'        => 'cw_clear',
+				),
+				__( 'Clear warning', 'buddynext' ),
+				'secondary',
+				''
+			);
+		}
 	}
 
 	/**
