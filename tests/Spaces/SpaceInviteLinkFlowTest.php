@@ -225,14 +225,18 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		$this->enable_onboarding_gate();
 		$link   = $this->make_link();
 		$joiner = self::factory()->user->create();
-		update_user_meta( $joiner, 'bn_pending_space_invite', array( 'space_id' => $this->space_id, 'token' => $link['token'] ) );
+		update_user_meta(
+			$joiner,
+			SpaceInviteLinkService::PENDING_KEY,
+			array( array( 'space_id' => $this->space_id, 'token' => $link['token'], 'primed_at' => time() ) )
+		);
 		wp_set_current_user( $joiner );
 
 		$data = rest_do_request( new WP_REST_Request( 'POST', '/buddynext/v1/me/onboarding/complete' ) )->get_data();
 
-		$this->assertStringContainsString( 'invite=', (string) ( $data['redirect_to'] ?? '' ) );
 		$this->assertStringContainsString( 'invite-space', (string) ( $data['redirect_to'] ?? '' ) );
-		$this->assertSame( '', (string) get_user_meta( $joiner, 'bn_pending_space_invite', true ) );
+		$this->assertSame( 'active', $this->members->get_status( $this->space_id, $joiner ) );
+		$this->assertSame( '', (string) get_user_meta( $joiner, SpaceInviteLinkService::PENDING_KEY, true ) );
 
 		$this->disable_onboarding_gate();
 	}
@@ -247,13 +251,18 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		$record               = get_space_meta( $this->space_id, 'invite_link', true );
 		$record['expires_at'] = gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS );
 		update_space_meta( $this->space_id, 'invite_link', $record );
-		update_user_meta( $joiner, 'bn_pending_space_invite', array( 'space_id' => $this->space_id, 'token' => $link['token'] ) );
+		update_user_meta(
+			$joiner,
+			SpaceInviteLinkService::PENDING_KEY,
+			array( array( 'space_id' => $this->space_id, 'token' => $link['token'], 'primed_at' => time() ) )
+		);
 		wp_set_current_user( $joiner );
 
 		$data = rest_do_request( new WP_REST_Request( 'POST', '/buddynext/v1/me/onboarding/complete' ) )->get_data();
 
-		$this->assertStringNotContainsString( 'invite=', (string) ( $data['redirect_to'] ?? '' ) );
-		$this->assertSame( '', (string) get_user_meta( $joiner, 'bn_pending_space_invite', true ) );
+		$this->assertStringNotContainsString( 'invite-space', (string) ( $data['redirect_to'] ?? '' ) );
+		$this->assertNull( $this->members->get_status( $this->space_id, $joiner ) );
+		$this->assertSame( '', (string) get_user_meta( $joiner, SpaceInviteLinkService::PENDING_KEY, true ) );
 
 		$this->disable_onboarding_gate();
 	}
