@@ -792,6 +792,94 @@
 	border-radius: var(--bn-r-sm);
 }
 
+/* Report row "... More" overflow menu (card 10331285055) — Resolve, Escalate,
+   content warning, Strike, Suspend fold in here so the row keeps only its two
+   primary actions (Dismiss, Remove) inline. Same shape as the profile-actions
+   overflow (templates/parts/profile-actions-overflow.php /
+   .bn-more-menu-wrap in bn-profile.css), namespaced bn-ca- since this surface
+   loads bn-moderation.css, not bn-profile.css. */
+.bn-ca-more-menu-wrap {
+	position: relative;
+	display: inline-block;
+}
+
+.bn-ca-more-trigger {
+	justify-content: center;
+}
+
+.bn-ca-more-menu {
+	display: none;
+	position: absolute;
+	inset-inline-end: 0;
+	top: calc(100% + var(--bn-s1));
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	box-shadow: var(--bn-shadow-md);
+	min-width: 220px;
+	z-index: 20;
+	overflow: hidden;
+}
+
+.bn-ca-more-menu-wrap.is-open .bn-ca-more-menu {
+	display: block;
+}
+
+.bn-ca-more-menu-item {
+	display: block;
+	width: 100%;
+	text-align: start;
+	background: none;
+	border: none;
+	padding: var(--bn-s2) var(--bn-s4);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-1);
+	cursor: pointer;
+	font-family: var(--bn-font-body);
+	line-height: var(--bn-leading-snug);
+}
+
+.bn-ca-more-menu-item:hover {
+	background: var(--bn-bg-hover);
+}
+
+.bn-ca-more-menu-item--danger {
+	color: var(--bn-danger);
+}
+
+.bn-ca-more-menu-item--danger:hover {
+	background: var(--bn-danger-bg);
+}
+
+/* The content-warning control lives in its own item: it is a select + button
+   pair (parts/moderation-cw-control.php), not a single menuitem, so it takes
+   the item's padding rather than the item's own display rules. */
+.bn-ca-more-menu-item--cw {
+	display: flex;
+	align-items: stretch;
+	gap: var(--bn-s1);
+	padding: var(--bn-s2) var(--bn-s4);
+	cursor: default;
+}
+
+.bn-ca-more-menu-item--cw .bn-cw-control__type {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* The Add/Update-warning button must never wrap — the select is the one that
+   shrinks (it already has min-width:0 above). Without this, the button's
+   default flex min-width:auto let it compress to its longest word and wrap
+   "Add warning" onto two lines inside the menu's fixed width. */
+.bn-ca-more-menu-item--cw .bn-btn {
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+
+.bn-ca-more-menu .bn-badge {
+	margin: var(--bn-s1) var(--bn-s4);
+}
+
 /* Appeal review card (community-admin Appeals tab). */
 .bn-ca-appeal {
 	padding: var(--bn-s4);
