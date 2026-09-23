@@ -4303,3 +4303,21 @@ code.bn-ep-code {
 	color: var(--bn-a-text-3);
 	font-size: var(--bn-a-text-xs);
 }
+
+/* Content-warning type picker in the wp-admin moderation queue: match the
+   .bn-btn[data-size="sm"] actions beside it, same approach as the bulk-bar
+   select above (stretch the inline form, collapse the select's own height). */
+.bn-row-actions .bn-cw-form {
+	display: inline-flex;
+	align-items: stretch;
+	gap: var(--bn-s1);
+}
+
+.bn-cw-form__type {
+	box-sizing: border-box;
+	min-height: 0;
+	padding-block: 0;
+	line-height: 1;
+	font-size: var(--bn-text-xs);
+	border-radius: var(--bn-r-sm);
+}

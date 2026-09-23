@@ -130,11 +130,18 @@ $urgent_count = count( array_filter( $reports, static fn( $r ) => (int) ( $r['re
 // batch-resolves it for every report type in one pass (see 'offender_id' below).
 $post_excerpts = array();
 $space_names   = array();
+// Current content-warning state per reported post, resolved in the same
+// pre-pass as excerpts so the render loop stays off per-row queries.
+$post_cw   = array();
+$bn_mod_cw = new \BuddyNext\Moderation\ModerationService();
 foreach ( $reports as $rpt ) {
 	$obj_type = (string) ( $rpt['object_type'] ?? '' );
 	$obj_id   = (int) ( $rpt['object_id'] ?? 0 );
 	if ( $obj_id <= 0 ) {
 		continue;
+	}
+	if ( 'post' === $obj_type && ! isset( $post_cw[ $obj_id ] ) ) {
+		$post_cw[ $obj_id ] = $bn_mod_cw->get_post_content_warning( $obj_id );
 	}
 	if ( in_array( $obj_type, array( 'post', 'comment' ), true ) && ! isset( $post_excerpts[ $obj_id ] ) ) {
 		$bn_mod_post = $bn_posts->get( $obj_id );
@@ -445,7 +452,7 @@ do_action( 'buddynext_moderation_queue_before' );
 					role="listitem"
 					data-severity="<?php echo esc_attr( $severity ); ?>"
 					data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
-					data-wp-context='{"reportId":<?php echo (int) $report_id; ?>,"userId":<?php echo (int) $offender_id; ?>,"spaceId":<?php echo (int) $report_space_id; ?>,"strikes":<?php echo (int) $strikes_count; ?>}'
+					data-wp-context='{"reportId":<?php echo (int) $report_id; ?>,"userId":<?php echo (int) $offender_id; ?>,"spaceId":<?php echo (int) $report_space_id; ?>,"strikes":<?php echo (int) $strikes_count; ?>,"objectId":<?php echo (int) $obj_id; ?>,"objectType":"<?php echo esc_js( $obj_type ); ?>","cwType":"<?php echo esc_js( ( 'post' === $obj_type && ! empty( $post_cw[ $obj_id ]['warning_type'] ) ) ? (string) $post_cw[ $obj_id ]['warning_type'] : 'nsfw' ); ?>","cwHasWarning":<?php echo ( 'post' === $obj_type && ! empty( $post_cw[ $obj_id ]['has_warning'] ) ) ? 'true' : 'false'; ?>}'
 					aria-label="<?php echo esc_attr( sprintf( /* translators: %s: offender name. */ __( 'Report against %s', 'buddynext' ), $offender_name ) ); ?>">
 
 					<div class="bn-report-row__avatar">
@@ -641,6 +648,17 @@ do_action( 'buddynext_moderation_queue_before' );
 									<?php buddynext_icon( 'trash' ); ?>
 									<?php esc_html_e( 'Remove content', 'buddynext' ); ?>
 								</button>
+							<?php endif; ?>
+								<?php if ( 'post' === $obj_type && ! $bn_missing ) : ?>
+									<?php
+									buddynext_get_template(
+										'parts/moderation-cw-control.php',
+										array(
+											'cw_type' => ( ! empty( $post_cw[ $obj_id ]['warning_type'] ) ? (string) $post_cw[ $obj_id ]['warning_type'] : 'nsfw' ),
+											'cw_has'  => ! empty( $post_cw[ $obj_id ]['has_warning'] ),
+										)
+									);
+									?>
 							<?php endif; ?>
 							<?php endif; ?>
 

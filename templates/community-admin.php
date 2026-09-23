@@ -951,18 +951,17 @@ $posts_pct_abs = abs( $posts_pct );
 										data-size="sm"
 										data-wp-on--click="actions.removeContent"
 									><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
-									<?php // Content warning: post-only softer alternative to removal (blur/reveal overlay). Card 10325560448. ?>
+									<?php // Content warning: post-only softer alternative to removal (blur/reveal overlay). Shared control across all moderation surfaces. Card 10325560448. ?>
 									<?php if ( 'post' === $rpt_obj_type ) : ?>
-									<select class="bn-cw-control__type" aria-label="<?php esc_attr_e( 'Content warning type', 'buddynext' ); ?>" data-wp-on--change="actions.setCwType">
-										<option value="nsfw" <?php selected( $rpt_cw_type, 'nsfw' ); ?>><?php esc_html_e( 'NSFW', 'buddynext' ); ?></option>
-										<option value="spoilers" <?php selected( $rpt_cw_type, 'spoilers' ); ?>><?php esc_html_e( 'Spoilers', 'buddynext' ); ?></option>
-										<option value="violence" <?php selected( $rpt_cw_type, 'violence' ); ?>><?php esc_html_e( 'Violence', 'buddynext' ); ?></option>
-										<option value="language" <?php selected( $rpt_cw_type, 'language' ); ?>><?php esc_html_e( 'Strong language', 'buddynext' ); ?></option>
-									</select>
-									<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-wp-on--click="actions.setContentWarning"><?php echo $rpt_cw_has ? esc_html__( 'Update warning', 'buddynext' ) : esc_html__( 'Add warning', 'buddynext' ); ?></button>
-										<?php if ( $rpt_cw_has ) : ?>
-									<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-wp-on--click="actions.clearContentWarning"><?php esc_html_e( 'Clear warning', 'buddynext' ); ?></button>
-									<?php endif; ?>
+										<?php
+										buddynext_get_template(
+											'parts/moderation-cw-control.php',
+											array(
+												'cw_type' => $rpt_cw_type,
+												'cw_has'  => $rpt_cw_has,
+											)
+										);
+										?>
 									<?php endif; ?>
 								</div>
 							</div>

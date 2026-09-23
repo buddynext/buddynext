@@ -279,6 +279,7 @@ $mod_privacy = array(
 							data-wp-interactive="buddynext/moderation"
 							data-wp-context='{"restNonce":"<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>","restUrl":"<?php echo esc_attr( rest_url( 'buddynext/v1/' ) ); ?>"}'
 						>
+						<?php $bn_space_cw = new \BuddyNext\Moderation\ModerationService(); ?>
 						<?php foreach ( $open_reports as $report ) : ?>
 							<?php
 							// The member the row's user-level actions (Warn, Remove from
@@ -299,11 +300,20 @@ $mod_privacy = array(
 							$r_time       = ! empty( $report['created_at'] ) ? bn_time_diff( (string) $report['created_at'] ) : '';
 							$r_tone       = bn_report_priority( $r_count );
 							$r_id         = (int) ( $report['id'] ?? 0 );
+							// Content-warning state (post reports only) for the shared CW control.
+							$r_obj_type = (string) ( $report['object_type'] ?? '' );
+							$r_obj_id   = (int) ( $report['object_id'] ?? 0 );
+							$r_cw       = ( 'post' === $r_obj_type && $r_obj_id > 0 ) ? $bn_space_cw->get_post_content_warning( $r_obj_id ) : null;
+							$r_cw_has   = (bool) ( $r_cw['has_warning'] ?? false );
+							$r_cw_type  = (string) ( $r_cw['warning_type'] ?? '' );
+							if ( '' === $r_cw_type ) {
+								$r_cw_type = 'nsfw';
+							}
 							?>
 							<article
 								class="bn-card bn-space-mod__report"
 								data-tone="<?php echo esc_attr( $r_tone ); ?>"
-								data-wp-context='{"reportId":<?php echo (int) $r_id; ?>,"userId":<?php echo (int) $reported_uid; ?>,"spaceId":<?php echo (int) $space_id; ?>}'
+								data-wp-context='{"reportId":<?php echo (int) $r_id; ?>,"userId":<?php echo (int) $reported_uid; ?>,"spaceId":<?php echo (int) $space_id; ?>,"objectId":<?php echo (int) $r_obj_id; ?>,"objectType":"<?php echo esc_js( $r_obj_type ); ?>","cwType":"<?php echo esc_js( $r_cw_type ); ?>","cwHasWarning":<?php echo $r_cw_has ? 'true' : 'false'; ?>}'
 							>
 								<div class="bn-space-mod__report-head">
 									<span class="bn-avatar" data-size="md" aria-hidden="true">
@@ -423,6 +433,18 @@ $mod_privacy = array(
 											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
 											data-bn-confirm="<?php echo esc_attr( __( 'Remove this content? It will be hidden from the space.', 'buddynext' ) ); ?>"
 										><?php buddynext_icon( 'trash' ); ?> <?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+
+										<?php if ( 'post' === $r_obj_type ) : ?>
+											<?php
+											buddynext_get_template(
+												'parts/moderation-cw-control.php',
+												array(
+													'cw_type' => $r_cw_type,
+													'cw_has'  => $r_cw_has,
+												)
+											);
+											?>
+										<?php endif; ?>
 
 										<?php if ( $reported_uid > 0 ) : ?>
 											<button
