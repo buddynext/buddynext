@@ -12,8 +12,9 @@ re-verified in that pass, and 1.1.6 has since added notification and email-templ
 every row as last checked at 1.1.3 unless it names a later version.
 **Partial update 2026-09-23 (1.2.1):** added the "Apply a content warning to member content during
 review?" row, verified against the shared moderator control shipped in this release (the four
-moderation surfaces + `@buddynext/moderation` store). Manifest rescanned the same day; other rows
-not re-verified in this pass.
+moderation surfaces + `@buddynext/moderation` store). Manifest rescanned the same day, and the
+`buddynext/v1` REST surface was reconciled against the generated OpenAPI spec (every operation
+typed, no field drift) in the same release pass. Other rows not re-verified in this pass.
 **2026-09-13 (1.2.0 re-tag):** the audit manifest was regenerated against the shipped 1.2.0 code
 (REST 225, hooks 1379) and re-committed to the shelf. Two pre-tag fixes landed since the 1.2.0
 capability-matrix freshness pass: a members-only post's body no longer leaks to guests via search
