@@ -4264,6 +4264,16 @@ code.bn-ep-code {
 	max-width: 24rem;
 }
 
+/* .bn-settings-section carries overflow:hidden for its rounded corners (see the
+   note above .bn-ss-body:has(> table.widefat)) — the same clipping trap, this
+   time on a dropdown rather than a table. The results list is position:absolute
+   and can extend past the section's bottom edge, so it was cut off with nothing
+   to scroll. This section has no wide content that needs corner-clipping, so
+   overflow can just be visible here. */
+.bn-settings-section.bn-featured-picker {
+	overflow: visible;
+}
+
 .bn-featured-picker__results {
 	position: absolute;
 	z-index: 5;
@@ -4274,6 +4284,7 @@ code.bn-ep-code {
 	background: var(--bn-a-bg);
 	border: 1px solid var(--bn-a-border);
 	border-radius: var(--bn-a-r-md);
+	box-shadow: var(--bn-a-shadow-sm);
 }
 
 .bn-featured-picker__result {

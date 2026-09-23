@@ -145,6 +145,10 @@ class SpaceController extends BaseRestController {
 				'type'        => 'string',
 				'description' => '1/true/yes to include sub-spaces in the listing.',
 			),
+			'roots_only'        => array(
+				'type'        => 'string',
+				'description' => '1/true/yes to exclude sub-spaces even on the search path (search otherwise always includes them).',
+			),
 		);
 	}
 
@@ -1046,15 +1050,48 @@ class SpaceController extends BaseRestController {
 				? sanitize_text_field( (string) $request->get_param( 'q' ) )
 				: '' );
 
+		// Explicit opt-in only — search() otherwise always surfaces sub-spaces (see
+		// the comment above), and that stays true for every caller except one that
+		// deliberately asks for root-only results while searching (the admin
+		// featured-spaces picker: a featured sub-space renders nowhere on the
+		// front end, see SpaceService::featured_spaces()).
+		if ( in_array( (string) $request->get_param( 'roots_only' ), array( '1', 'true', 'yes' ), true ) ) {
+			$args['search_roots_only'] = true;
+		}
+
 		// Opt-in pagination metadata for the reactive directory: paginate=1 wraps the
 		// rows with a total + total_pages (so the client can rebuild its pager for the
 		// filtered set). Default + the search path stay a bare array (back-compat).
 		$bn_paginate = in_array( (string) $request->get_param( 'paginate' ), array( '1', 'true', 'yes' ), true );
 
 		if ( '' === $search_param && $bn_paginate ) {
-			$result = ( new SpaceService() )->list_spaces_with_total( $args );
-			$items  = $this->enrich_directory_rows( (array) ( $result['items'] ?? array() ), $viewer );
-			$total  = (int) ( $result['total'] ?? 0 );
+			$bn_space_service = new SpaceService();
+
+			// Featured spaces pin to the top of page 1 of the plain, unfiltered
+			// directory — mirrors templates/spaces/directory.php exactly (same
+			// condition, same reasoning) so the reactive sort/filter dropdown,
+			// which re-fetches through THIS endpoint instead of reloading the
+			// page, does not silently drop the pin the SSR page honours.
+			$bn_featured_pinned = array();
+			$bn_is_plain_page1  = 1 === absint( null !== $page_param ? $page_param : 1 )
+				&& ! isset( $args['category_id'] )
+				&& ! isset( $args['type'] )
+				&& ! isset( $args['member'] );
+			if ( $bn_is_plain_page1 ) {
+				$bn_featured_pinned = $bn_space_service->featured_spaces( $viewer, 6, 'directory_grid' );
+			}
+
+			if ( $bn_featured_pinned ) {
+				$args['exclude_space_ids'] = array_map( static fn( $s ) => (int) $s['id'], $bn_featured_pinned );
+				$args['per_page']          = max( 0, $per_page - count( $bn_featured_pinned ) );
+			}
+
+			$result = $bn_space_service->list_spaces_with_total( $args );
+			$items  = $this->enrich_directory_rows(
+				array_merge( $bn_featured_pinned, (array) ( $result['items'] ?? array() ) ),
+				$viewer
+			);
+			$total  = (int) ( $result['total'] ?? 0 ) + count( $bn_featured_pinned );
 
 			return new WP_REST_Response(
 				array(

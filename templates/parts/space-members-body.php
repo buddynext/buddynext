@@ -436,7 +436,7 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 
 						<?php // Owner/moderator/admin-only: flag members who came in via the shareable link. ?>
 						<?php if ( isset( $bn_joined_via_link[ $member_id ] ) ) : ?>
-							<p class="bn-md-card__meta bn-md-card__via-link"><?php buddynext_icon( 'link' ); ?> <?php esc_html_e( 'Joined via invite link', 'buddynext' ); ?></p>
+							<p class="bn-md-card__meta bn-md-card__via-link"><?php buddynext_icon( 'link' ); ?> <?php esc_html_e( 'Via invite link', 'buddynext' ); ?></p>
 						<?php endif; ?>
 
 						<div class="bn-md-card__actions">
