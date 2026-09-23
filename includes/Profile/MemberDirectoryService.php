@@ -252,7 +252,13 @@ class MemberDirectoryService {
 		$connection_status = isset( $filters['connection_status'] ) ? (string) $filters['connection_status'] : 'everyone';
 		$relation          = isset( $filters['relation'] ) ? (string) $filters['relation'] : '';
 		$online_only       = ! empty( $filters['online_only'] );
-		$sort              = isset( $filters['sort'] ) ? (string) $filters['sort'] : 'newest';
+		// Presence is hidden from logged-out visitors (owner decision). "Online
+		// only" narrows the list to currently-online members, which discloses
+		// presence indirectly, so it is ignored for a viewer who can't see it.
+		if ( $online_only && ! PresenceService::visible_to_viewer( (int) $viewer_id ) ) {
+			$online_only = false;
+		}
+		$sort = isset( $filters['sort'] ) ? (string) $filters['sort'] : 'newest';
 
 		/**
 		 * Filter the member-directory query args before the SQL is built.
@@ -470,15 +476,30 @@ class MemberDirectoryService {
 
 				case 'most_active':
 				case 'online':
-					if ( isset( $cursor_data['last_active'], $cursor_data['id'] ) ) {
+					if ( isset( $cursor_data['id'] ) ) {
+						// The cursor carries only the pivot member's id, never their raw
+						// last_active. A card shows presence as a privacy-aware boolean
+						// (is_user_online_at), so putting the exact timestamp in the cursor
+						// leaked a precision the card withholds — and did so even for a
+						// member who has HIDDEN their presence. Resolve the pivot value
+						// server-side from the id instead: a PRIMARY-KEY lookup on
+						// bn_presence (user_id is the PK), not a scan, so no new cost at
+						// scale. A legacy cursor that still carries last_active is honoured
+						// directly so pages in flight during deploy do not break.
+						$pivot_id     = (int) $cursor_data['id'];
+						$pivot_active = isset( $cursor_data['last_active'] )
+							? (int) $cursor_data['last_active']
+							// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+							: (int) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(last_active, 0) FROM {$wpdb->prefix}bn_presence WHERE user_id = %d", $pivot_id ) );
+
 						// COALESCE must mirror the ORDER BY — a user with no bn_presence
 						// row is NULL from the LEFT JOIN, and a NULL comparison yields NULL
 						// (never TRUE), so the row would slip past the cursor and repeat on
 						// every page (infinite loop). COALESCE to 0 keeps the keyset total.
 						$where_clauses[] = '(COALESCE(pres.last_active, 0) < %d OR (COALESCE(pres.last_active, 0) = %d AND u.ID < %d))';
-						$params[]        = (int) $cursor_data['last_active'];
-						$params[]        = (int) $cursor_data['last_active'];
-						$params[]        = (int) $cursor_data['id'];
+						$params[]        = $pivot_active;
+						$params[]        = $pivot_active;
+						$params[]        = $pivot_id;
 					}
 					break;
 
@@ -996,7 +1017,10 @@ class MemberDirectoryService {
 		}
 
 		// Online filter — indexed bn_presence range, EXISTS not a 30-50k IN list.
-		if ( ! empty( $args['online_only'] ) ) {
+		// Skipped for a viewer who can't see presence (logged-out, owner decision),
+		// so the count path matches list_members' own gated online_only and an
+		// anonymous visitor cannot narrow the community to its online members.
+		if ( ! empty( $args['online_only'] ) && PresenceService::visible_to_viewer( $viewer_id ) ) {
 			$online_window = PresenceService::ONLINE_WINDOW;
 			$clauses[]     = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - {$online_window} )";
 		}
@@ -1111,6 +1135,13 @@ class MemberDirectoryService {
 	public function online_among( array $user_ids ): array {
 		global $wpdb;
 
+		// Presence is hidden from logged-out visitors (owner decision). The SSR
+		// member cards and the REST list read their online dot from here, so gate
+		// this batch producer the same as the per-row is_user_online_at() seam.
+		if ( ! PresenceService::visible_to_viewer( get_current_user_id() ) ) {
+			return array();
+		}
+
 		$ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
 		if ( empty( $ids ) ) {
 			return array();
@@ -1213,6 +1244,13 @@ class MemberDirectoryService {
 	 */
 	public function online_now( int $viewer_id = 0, int $limit = 6 ): array {
 		global $wpdb;
+
+		// Presence is hidden from logged-out visitors (owner decision). The sidebar
+		// passes viewer 0 for an anonymous request; return nothing so the provider
+		// drops the "Online now" card entirely rather than exposing who is online.
+		if ( ! PresenceService::visible_to_viewer( $viewer_id ) ) {
+			return array();
+		}
 
 		$limit = max( 1, min( 50, $limit ) );
 
@@ -1492,12 +1530,13 @@ class MemberDirectoryService {
 
 			case 'most_active':
 			case 'online':
-				// last_active comes from the SELECTed bn_presence column (COALESCE'd to
-				// 0 for members with no presence row) — no per-row lookup.
-				$last_active = (string) ( (int) ( $row['last_active'] ?? 0 ) );
-				$data        = array(
-					'last_active' => $last_active,
-					'id'          => (int) $row['ID'],
+				// Only the pivot member's id — NOT their last_active. A cursor is
+				// handed to the client, and the raw presence timestamp is more than a
+				// card reveals (it shows a privacy-aware online dot, not a time), so it
+				// must not travel in the cursor. list_members() resolves the boundary
+				// value from this id by a PRIMARY-KEY lookup on bn_presence.
+				$data = array(
+					'id' => (int) $row['ID'],
 				);
 				break;
 

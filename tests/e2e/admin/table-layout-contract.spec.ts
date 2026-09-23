@@ -3,6 +3,9 @@ import { test, expect } from '../_fixtures/auth.fixture';
 /**
  * J-125 admin table layout contract.
  *
+ * Covers: cap-work-on-a-phone
+ * Roles: admin
+ *
  * The admin table layout contract.
  *
  * Every data table in the BuddyNext admin obeys one rule, whichever markup

@@ -25,6 +25,9 @@ type NewCount = { count: number; newest_id: number };
  * A dead new-count endpoint fails at step 2; a pill wired to nothing fails at
  * step 3; a click that doesn't reload/refresh fails at step 4. The seeded post
  * and the second session are torn down in finally.
+ *
+ * Covers: cap-run-an-activity-feed-members-post-to
+ * Roles: admin
  */
 test.describe('feed / new-posts pill', () => {
     const pill = '.bn-feed-new-pill';

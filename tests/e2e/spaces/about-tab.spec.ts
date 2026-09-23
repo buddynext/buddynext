@@ -2,7 +2,12 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { createSpaceApi, deleteSpaceApi } from '../_fixtures/spaces-rest';
 
 /**
- * J-664 — Space About tab RENDER (C4). Proven by effect, not presence: a space is
+ * J-664 — Space About tab RENDER (C4).
+ *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin
+ *
+ * Proven by effect, not presence: a space is
  * created with a UNIQUE seeded description, and the About tab is asserted to paint
  * exactly that text. A blank panel, a "No description yet." fallback, or the wrong
  * space's copy all fail here.

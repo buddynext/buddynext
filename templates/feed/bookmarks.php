@@ -164,7 +164,7 @@ $bn_bm_rest_nonce = wp_create_nonce( 'wp_rest' );
 				<?php esc_html_e( 'No bookmarks yet', 'buddynext' ); ?>
 			</div>
 			<p class="bn-feed-empty__text">
-				<?php esc_html_e( 'Tap Save on any post to keep it for later. Bookmarks are private — only you can see them.', 'buddynext' ); ?>
+				<?php esc_html_e( 'Tap Save on any post to keep it for later. Bookmarks are private: only you can see them.', 'buddynext' ); ?>
 			</p>
 			<a href="<?php echo esc_url( PageRouter::activity_url() ); ?>" class="bn-btn bn-feed-empty__cta" data-variant="primary">
 				<?php esc_html_e( 'Browse the feed', 'buddynext' ); ?>

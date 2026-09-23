@@ -12,6 +12,9 @@ import {
 /**
  * J-40 join open space + J-41 request to join a private space.
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin, member
+ *
  * UPGRADED to EFFECT-BASED (2026-08-10, Wave-3). The old specs clicked a card
  * button and asserted only that its own innerText flipped — the weakest possible
  * signal, passing even if the REST write silently 500'd while the JS optimistically

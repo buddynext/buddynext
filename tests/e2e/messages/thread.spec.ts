@@ -3,6 +3,12 @@ import { sel, urls } from '../_fixtures/selectors';
 
 /**
  * J-46 new thread + J-47 request accept. Both blocked on WPMediaVerse bridge.
+ *
+ * Covers: cap-integrate-with-wbcom-plugins
+ * Roles: member
+ *
+ * Only runs with BN_WPMEDIAVERSE=1 (fixme otherwise), so this capability is
+ * proven in CI only when that bridge flag is set.
  */
 test.describe('messages / thread', () => {
     test.fixme(

@@ -3,9 +3,9 @@
  *
  * Reveals the [data-bn-cookie-consent] banner (rendered hidden by
  * CookieConsentService::render) and persists acknowledgement in a first-party
- * cookie on accept. The cookie name is read from the banner's data-cookie-name
- * attribute. Enqueued by CookieConsentService::enqueue_assets only when the
- * visitor has not yet acknowledged.
+ * cookie on accept, storing the version acknowledged (data-cookie-version).
+ * The cookie name is read from the banner's data-cookie-name attribute.
+ * Always enqueued while the notice is on, so page caches stay correct.
  */
 ( function () {
 	'use strict';
@@ -16,7 +16,10 @@
 			return;
 		}
 		var name = el.getAttribute( 'data-cookie-name' ) || 'bn_cookie_consent';
-		if ( document.cookie.indexOf( name + '=' ) !== -1 ) {
+		var version = el.getAttribute( 'data-cookie-version' ) || '1';
+		// Hidden only when the visitor acknowledged THIS version; a changed
+		// notice or policy page carries a new version and asks again.
+		if ( ( '; ' + document.cookie + ';' ).indexOf( '; ' + name + '=' + version + ';' ) !== -1 ) {
 			if ( el.parentNode ) {
 				el.parentNode.removeChild( el );
 			}
@@ -26,7 +29,7 @@
 		var btn = el.querySelector( '[data-bn-cookie-accept]' );
 		if ( btn ) {
 			btn.addEventListener( 'click', function () {
-				document.cookie = name + '=1; max-age=' + ( 60 * 60 * 24 * 365 ) + '; path=/; samesite=lax';
+				document.cookie = name + '=' + version + '; max-age=' + ( 60 * 60 * 24 * 365 ) + '; path=/; samesite=lax' + ( 'https:' === window.location.protocol ? '; secure' : '' );
 				if ( el.parentNode ) {
 					el.parentNode.removeChild( el );
 				}

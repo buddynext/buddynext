@@ -78,12 +78,7 @@ foreach ( $bn_categories as $bn_cat_row ) {
 // ── Resolve the active scope/filter into service args ─────────────────────────
 // Mirrors SpaceController::list_spaces() so the SSR grid and the GET /spaces
 // REST route the reactive filter calls return the identical set of spaces.
-$bn_sort_map                           = array(
-	'popular'      => array( 'member_count', 'DESC' ),
-	'active'       => array( 'member_count', 'DESC' ),
-	'newest'       => array( 'created_at', 'DESC' ),
-	'alphabetical' => array( 'name', 'ASC' ),
-);
+$bn_sort_map                           = \BuddyNext\Spaces\SpaceService::sort_map();
 list( $bn_orderby_col, $bn_order_dir ) = $bn_sort_map[ $bn_orderby ] ?? $bn_sort_map['popular'];
 
 $bn_query_args = array(
@@ -254,13 +249,14 @@ do_action( 'buddynext_spaces_directory_before', $current_user_id );
 // spaces — open/private/secret is a creator concern, surfaced on each card and
 // in space settings, never as a directory filter. The chips render from
 // $categories (fetched above); the row is built inline below.
-// "Most active" is intentionally omitted — without a denormalized activity column
-// (deliberately not built: it would need maintenance on every space post) it was just
-// popularity relabeled. All three shown sorts are index-backed (dir_popular / dir_name
-// / dir_recent), filesort-free at scale. The 'active' alias survives in $bn_sort_map
-// only so a stale ?bn_sort=active URL still resolves (to popularity).
+// Every sort is index-backed and filesort-free at scale: dir_popular (member_count),
+// dir_recent (created_at), dir_name (name) and dir_active (last_active_at). "Active"
+// orders by last_active_at — kept current by a new space post AND, throttled, by a new
+// comment on a space post — so the directory can surface where the conversation is
+// happening now, not just where the most members joined.
 $bn_sort_options = array(
 	'popular'      => __( 'Sort: Popular', 'buddynext' ),
+	'active'       => __( 'Active', 'buddynext' ),
 	'newest'       => __( 'Newest', 'buddynext' ),
 	'alphabetical' => __( 'A → Z', 'buddynext' ),
 );
@@ -443,6 +439,55 @@ $bn_subtitle = sprintf(
 			</a>
 		<?php endif; ?>
 	</div>
+
+	<?php
+	// Phone-only Featured strip. The right sidebar (which carries the Featured
+	// card on desktop/tablet) is display:none at <=640px, so mobile gets its own
+	// compact horizontal scroller of the same featured spaces. Hidden above 640px
+	// by CSS. Server-rendered; self-hides when nothing is featured.
+	$bn_sd_featured = ( new \BuddyNext\Spaces\SpaceService() )->featured_spaces( get_current_user_id(), 6, 'directory_mobile' );
+	if ( ! empty( $bn_sd_featured ) ) :
+		?>
+		<section class="bn-sd-featured-strip" aria-label="<?php esc_attr_e( 'Featured spaces', 'buddynext' ); ?>">
+			<h2 class="bn-sd-featured-strip__title"><?php buddynext_icon( 'star' ); ?> <?php esc_html_e( 'Featured spaces', 'buddynext' ); ?></h2>
+			<div class="bn-sd-featured-strip__scroll">
+				<?php
+				foreach ( $bn_sd_featured as $bn_sd_fs ) :
+					$bn_sd_fs_id    = (int) ( $bn_sd_fs['id'] ?? 0 );
+					$bn_sd_fs_count = (int) ( $bn_sd_fs['member_count'] ?? 0 );
+					$bn_sd_fs_av    = (string) ( $bn_sd_fs['avatar_url'] ?? '' );
+					?>
+					<article class="bn-sd-featured-strip__card" data-space-id="<?php echo esc_attr( (string) $bn_sd_fs_id ); ?>">
+						<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::space_url( $bn_sd_fs_id ) ); ?>" class="bn-sd-featured-strip__link">
+							<span class="bn-avatar bn-sd-featured-strip__avatar" data-size="md" aria-hidden="true">
+								<?php if ( '' !== $bn_sd_fs_av ) : ?>
+									<img src="<?php echo esc_url( $bn_sd_fs_av ); ?>" alt="" width="48" height="48" loading="lazy" decoding="async">
+								<?php endif; ?>
+							</span>
+							<span class="bn-sd-featured-strip__name"><?php echo esc_html( (string) ( $bn_sd_fs['name'] ?? '' ) ); ?></span>
+							<span class="bn-sd-featured-strip__count">
+								<?php
+								/* translators: %d: member count. */
+								echo esc_html( sprintf( _n( '%d member', '%d members', $bn_sd_fs_count, 'buddynext' ), $bn_sd_fs_count ) );
+								?>
+							</span>
+						</a>
+						<button
+							type="button"
+							class="bn-btn bn-sd-featured-strip__join"
+							data-variant="primary"
+							data-size="sm"
+							data-current-state="join"
+							data-space-id="<?php echo esc_attr( (string) $bn_sd_fs_id ); ?>"
+							data-wp-on--click="actions.joinSpace"
+						><?php esc_html_e( 'Join', 'buddynext' ); ?></button>
+					</article>
+				<?php endforeach; ?>
+			</div>
+		</section>
+		<?php
+	endif;
+	?>
 
 	<div class="bn-sd-loading" data-bn-loading hidden aria-hidden="true">
 		<?php for ( $bn_skel_i = 0; $bn_skel_i < 6; $bn_skel_i++ ) : ?>
@@ -638,6 +683,19 @@ $bn_subtitle = sprintf(
 
 			<?php foreach ( $bn_spaces as $space ) : ?>
 				<?php
+				// Only the "Active" sort surfaces the activity time on the card, in the
+				// same "%s ago" wording used elsewhere; other sorts leave the card as is.
+				$bn_active_label = '';
+				if ( 'active' === $bn_orderby ) {
+					$bn_last_active  = (string) ( $space['last_active_at'] ?? '' );
+					$bn_active_label = ( '' !== $bn_last_active && '0000-00-00 00:00:00' !== $bn_last_active )
+						? sprintf(
+							/* translators: %s: human-readable time difference, e.g. "2 hours". */
+							__( 'Active %s ago', 'buddynext' ),
+							human_time_diff( (int) strtotime( $bn_last_active . ' UTC' ), time() )
+						)
+						: __( 'No activity yet', 'buddynext' );
+				}
 				buddynext_get_template(
 					'parts/space-directory-card.php',
 					array(
@@ -646,6 +704,7 @@ $bn_subtitle = sprintf(
 						'current_user_id' => $current_user_id,
 						'cat_by_id'       => $bn_cat_by_id,
 						'subspace_count'  => (int) ( $bn_subspace_counts[ (int) $space['id'] ] ?? 0 ),
+						'active_label'    => $bn_active_label,
 					)
 				);
 				?>

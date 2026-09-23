@@ -157,7 +157,7 @@ $bn_csm_title        = null !== $bn_csm_fixed_parent
 						class="bn-select"
 					>
 						<option value="">
-							<?php esc_html_e( '— Select a category —', 'buddynext' ); ?>
+							<?php esc_html_e( '- Select a category -', 'buddynext' ); ?>
 						</option>
 						<?php foreach ( $bn_csm_categories as $bn_csm_cat ) : ?>
 							<option value="<?php echo esc_attr( (string) $bn_csm_cat->id ); ?>">
@@ -191,7 +191,7 @@ $bn_csm_title        = null !== $bn_csm_fixed_parent
 						class="bn-select"
 					>
 						<option value="0">
-							<?php esc_html_e( '— None (top-level space) —', 'buddynext' ); ?>
+							<?php esc_html_e( '- None (top-level space) -', 'buddynext' ); ?>
 						</option>
 						<?php foreach ( $bn_csm_parents as $bn_csm_parent ) : ?>
 							<option value="<?php echo esc_attr( (string) $bn_csm_parent->id ); ?>">

@@ -56,6 +56,7 @@ class Spaces extends AdminPageBase {
 	public function register(): void {
 		add_action( 'admin_post_bn_delete_space', array( $this, 'handle_delete' ) );
 		add_action( 'admin_post_bn_archive_space', array( $this, 'handle_archive' ) );
+		add_action( 'admin_post_bn_feature_space', array( $this, 'handle_feature' ) );
 		add_action( 'admin_post_bn_bulk_spaces', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_post_bn_save_space_category', array( $this, 'handle_save_category' ) );
 		add_action( 'admin_post_bn_delete_space_category', array( $this, 'handle_delete_category' ) );
@@ -247,6 +248,12 @@ class Spaces extends AdminPageBase {
 		$pages  = $data['pages'];
 		$counts = $this->get_type_counts();
 
+		// Featured is owner data (a live option), not a type column — its count
+		// changes on feature/unfeature, not on space CRUD, so it is read here
+		// rather than cached in get_type_counts().
+		$bn_featured_ids   = array_map( 'intval', \BuddyNext\Spaces\FeaturedSpaces::get_ids() );
+		$bn_featured_count = count( $bn_featured_ids );
+
 		$base_url = admin_url( 'admin.php?page=buddynext-spaces' );
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended
@@ -279,6 +286,29 @@ class Spaces extends AdminPageBase {
 		}
 		?>
 
+		<?php
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only notice from a post/redirect.
+		if ( 'limit' === sanitize_key( wp_unslash( $_GET['feature_error'] ?? '' ) ) ) {
+			printf(
+				'<div class="bn-notice bn-notice-warning"><p>%s</p></div>',
+				esc_html(
+					sprintf(
+						/* translators: %d: maximum number of featured spaces. */
+						__( 'You can feature up to %d spaces. Unfeature one first.', 'buddynext' ),
+						\BuddyNext\Spaces\FeaturedSpaces::limit()
+					)
+				)
+			);
+		} elseif ( isset( $_GET['featured'] ) ) {
+			$bn_did_feature = '1' === sanitize_text_field( wp_unslash( $_GET['featured'] ) );
+			printf(
+				'<div class="bn-notice bn-notice-success"><p>%s</p></div>',
+				esc_html( $bn_did_feature ? __( 'Space featured.', 'buddynext' ) : __( 'Space unfeatured.', 'buddynext' ) )
+			);
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		?>
+
 		<div class="bn-stat-grid">
 			<div class="bn-stat">
 				<div class="bn-stat__label"><?php esc_html_e( 'Total Spaces', 'buddynext' ); ?></div>
@@ -295,6 +325,83 @@ class Spaces extends AdminPageBase {
 			<div class="bn-stat">
 				<div class="bn-stat__label"><?php esc_html_e( 'Secret', 'buddynext' ); ?></div>
 				<div class="bn-stat__value"><?php echo esc_html( (string) $counts['secret'] ); ?></div>
+			</div>
+		</div>
+
+		<?php
+		// ── Featured spaces picker ──────────────────────────────────────────
+		// Owner-curated, ordered. Add/remove is also possible from the list below
+		// (row "…" menu); this section owns REORDER + a search-to-add, saved via
+		// POST /settings/featured-spaces. Hydrate the current featured ids in order
+		// (admin sees all types for management).
+		$bn_featured_limit = \BuddyNext\Spaces\FeaturedSpaces::limit();
+		$bn_featured_rows  = array();
+		if ( ! empty( $bn_featured_ids ) ) {
+			$bn_fs_list = ( new \BuddyNext\Spaces\SpaceService() )->list_spaces(
+				array(
+					'include_space_ids' => $bn_featured_ids,
+					'is_admin'          => true,
+					'viewer'            => get_current_user_id(),
+					'per_page'          => count( $bn_featured_ids ),
+				)
+			);
+			$bn_fs_by = array();
+			foreach ( $bn_fs_list as $bn_fs_r ) {
+				$bn_fs_by[ (int) $bn_fs_r['id'] ] = $bn_fs_r;
+			}
+			foreach ( $bn_featured_ids as $bn_fs_id ) {
+				if ( isset( $bn_fs_by[ $bn_fs_id ] ) ) {
+					$bn_featured_rows[] = $bn_fs_by[ $bn_fs_id ];
+				}
+			}
+		}
+		?>
+		<div class="bn-settings-section bn-featured-picker"
+			data-bn-featured-picker
+			data-limit="<?php echo esc_attr( (string) $bn_featured_limit ); ?>"
+			data-rest="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>"
+			data-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Featured spaces', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<p class="bn-field-hint">
+					<?php
+					printf(
+						/* translators: %d: maximum number of featured spaces. */
+						esc_html__( 'Shown first in the Spaces directory sidebar and in new-member onboarding. Private and secret spaces are only shown to people who can see them. Up to %d spaces.', 'buddynext' ),
+						(int) $bn_featured_limit
+					);
+					?>
+				</p>
+				<ol class="bn-featured-picker__list" data-bn-featured-list>
+					<?php foreach ( $bn_featured_rows as $bn_fs_row ) : ?>
+						<li class="bn-featured-picker__item" data-space-id="<?php echo esc_attr( (string) $bn_fs_row['id'] ); ?>" draggable="true">
+							<span class="bn-featured-picker__grip" aria-hidden="true"><?php echo \BuddyNext\Core\IconService::render( 'grip-vertical' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- kses-safe SVG. ?></span>
+							<span class="bn-featured-picker__name"><?php echo esc_html( (string) ( $bn_fs_row['name'] ?? '' ) ); ?></span>
+							<span class="bn-featured-picker__actions">
+								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-bn-featured-up aria-label="<?php esc_attr_e( 'Move up', 'buddynext' ); ?>">&#8593;</button>
+								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-bn-featured-down aria-label="<?php esc_attr_e( 'Move down', 'buddynext' ); ?>">&#8595;</button>
+								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-bn-featured-remove aria-label="<?php esc_attr_e( 'Remove from featured', 'buddynext' ); ?>">&times;</button>
+							</span>
+						</li>
+					<?php endforeach; ?>
+				</ol>
+				<p class="bn-featured-picker__empty" data-bn-featured-empty <?php echo empty( $bn_featured_rows ) ? '' : 'hidden'; ?>>
+					<?php
+					printf(
+						/* translators: %d: maximum number of featured spaces. */
+						esc_html__( 'Feature up to %d spaces to guide new members. Search below, or use the “…” menu on any space in the list.', 'buddynext' ),
+						(int) $bn_featured_limit
+					);
+					?>
+				</p>
+				<div class="bn-featured-picker__add">
+					<label class="screen-reader-text" for="bn-featured-search"><?php esc_html_e( 'Add a space by name', 'buddynext' ); ?></label>
+					<input type="search" id="bn-featured-search" class="bn-input" data-bn-featured-search autocomplete="off" placeholder="<?php esc_attr_e( 'Add a space by name…', 'buddynext' ); ?>">
+					<div class="bn-featured-picker__results" data-bn-featured-results hidden role="listbox"></div>
+				</div>
+				<p class="bn-featured-picker__status" data-bn-featured-status role="status" aria-live="polite"></p>
 			</div>
 		</div>
 
@@ -347,6 +454,13 @@ class Spaces extends AdminPageBase {
 							<span class="bn-segment__count">(<?php echo esc_html( (string) ( $counts[ $t_slug ] ?? 0 ) ); ?>)</span>
 						</a>
 					<?php endforeach; ?>
+						<?php $bn_featured_url = add_query_arg( array( 'type' => 'featured', 's' => $search ), $base_url ); ?>
+						<a href="<?php echo esc_url( $bn_featured_url ); ?>"
+							class="bn-segment__item<?php echo 'featured' === $type ? ' is-active' : ''; ?>"
+							aria-selected="<?php echo 'featured' === $type ? 'true' : 'false'; ?>">
+							<?php esc_html_e( 'Featured', 'buddynext' ); ?>
+							<span class="bn-segment__count">(<?php echo esc_html( (string) $bn_featured_count ); ?>)</span>
+						</a>
 				</div>
 
 			<?php
@@ -366,6 +480,8 @@ class Spaces extends AdminPageBase {
 				<label for="bn-spaces-bulk-action" class="screen-reader-text"><?php esc_html_e( 'Bulk action', 'buddynext' ); ?></label>
 				<select id="bn-spaces-bulk-action" name="bulk_action" class="bn-select" data-size="sm">
 					<option value=""><?php esc_html_e( 'Bulk actions', 'buddynext' ); ?></option>
+					<option value="feature"><?php esc_html_e( 'Feature', 'buddynext' ); ?></option>
+					<option value="unfeature"><?php esc_html_e( 'Unfeature', 'buddynext' ); ?></option>
 					<option value="delete"><?php esc_html_e( 'Delete', 'buddynext' ); ?></option>
 				</select>
 				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Apply', 'buddynext' ); ?></button>
@@ -423,6 +539,9 @@ class Spaces extends AdminPageBase {
 									<td class="column-primary" data-colname="<?php esc_attr_e( 'Space', 'buddynext' ); ?>">
 										<div class="bn-space-row-info">
 											<strong><?php echo esc_html( (string) $space['name'] ); ?></strong>
+											<?php if ( in_array( (int) $space['id'], $bn_featured_ids, true ) ) : ?>
+												<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Featured', 'buddynext' ); ?></span>
+											<?php endif; ?>
 											<?php if ( ! empty( $space['is_archived'] ) ) : ?>
 												<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Archived', 'buddynext' ); ?></span>
 											<?php endif; ?>
@@ -499,6 +618,7 @@ class Spaces extends AdminPageBase {
 											// keeps two inline buttons and never stacks - and only ONE
 											// destructive control (Delete) wears the danger style.
 											$bn_space_archived = ! empty( $space['is_archived'] );
+											$bn_is_featured    = in_array( (int) $space['id'], $bn_featured_ids, true );
 											?>
 											<div class="bn-more-menu" data-space-id="<?php echo absint( $space['id'] ); ?>">
 												<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="
@@ -517,6 +637,15 @@ class Spaces extends AdminPageBase {
 														<input type="hidden" name="archive" value="<?php echo $bn_space_archived ? '0' : '1'; ?>">
 														<button type="submit" class="bn-dropdown-item" role="menuitem">
 															<?php echo $bn_space_archived ? esc_html__( 'Unarchive', 'buddynext' ) : esc_html__( 'Archive', 'buddynext' ); ?>
+														</button>
+													</form>
+													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+														<?php wp_nonce_field( 'bn_feature_space' ); ?>
+														<input type="hidden" name="action" value="bn_feature_space">
+														<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
+														<input type="hidden" name="feature" value="<?php echo $bn_is_featured ? '0' : '1'; ?>">
+														<button type="submit" class="bn-dropdown-item" role="menuitem">
+															<?php echo $bn_is_featured ? esc_html__( 'Unfeature', 'buddynext' ) : esc_html__( 'Feature', 'buddynext' ); ?>
 														</button>
 													</form>
 													<form method="post"
@@ -907,7 +1036,19 @@ class Spaces extends AdminPageBase {
 			$params[]     = '%' . $wpdb->esc_like( $search ) . '%';
 		}
 
-		if ( '' !== $type && in_array( $type, $allowed_types, true ) ) {
+		if ( 'featured' === $type ) {
+			$featured_ids = \BuddyNext\Spaces\FeaturedSpaces::get_ids();
+			if ( empty( $featured_ids ) ) {
+				return array(
+					'spaces' => array(),
+					'total'  => 0,
+					'pages'  => 0,
+				);
+			}
+			$placeholders = implode( ',', array_fill( 0, count( $featured_ids ), '%d' ) );
+			$conditions[] = "id IN ({$placeholders})";
+			$params       = array_merge( $params, array_map( 'intval', $featured_ids ) );
+		} elseif ( '' !== $type && in_array( $type, $allowed_types, true ) ) {
 			$conditions[] = 'type = %s';
 			$params[]     = $type;
 		}
@@ -1069,6 +1210,16 @@ class Spaces extends AdminPageBase {
 				$this->delete_space( $sid );
 				++$done;
 			}
+		} elseif ( 'feature' === $bulk_action && ! empty( $ids ) ) {
+			$current = \BuddyNext\Spaces\FeaturedSpaces::get_ids();
+			$before  = count( $current );
+			// set_ids validates + caps at the limit, so extras beyond the cap drop.
+			\BuddyNext\Spaces\FeaturedSpaces::set_ids( array_merge( $current, $ids ) );
+			$done = max( 0, count( \BuddyNext\Spaces\FeaturedSpaces::get_ids() ) - $before );
+		} elseif ( 'unfeature' === $bulk_action && ! empty( $ids ) ) {
+			$current = \BuddyNext\Spaces\FeaturedSpaces::get_ids();
+			\BuddyNext\Spaces\FeaturedSpaces::set_ids( array_values( array_diff( $current, $ids ) ) );
+			$done = count( array_intersect( $current, $ids ) );
 		}
 
 		wp_safe_redirect(
@@ -1081,6 +1232,47 @@ class Spaces extends AdminPageBase {
 				admin_url( 'admin.php' )
 			)
 		);
+		exit;
+	}
+
+	/**
+	 * Feature or unfeature a space from the Directory list.
+	 *
+	 * Featuring past the cap is refused with a message (the owner unfeatures one
+	 * first), matching the Settings picker's cap.
+	 *
+	 * @return void
+	 */
+	public function handle_feature(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+
+		check_admin_referer( 'bn_feature_space' );
+
+		$space_id = absint( wp_unslash( $_POST['space_id'] ?? 0 ) );
+		$feature  = '1' === sanitize_text_field( wp_unslash( $_POST['feature'] ?? '1' ) );
+		$current  = \BuddyNext\Spaces\FeaturedSpaces::get_ids();
+		$args     = array( 'page' => 'buddynext-spaces' );
+
+		if ( $space_id > 0 ) {
+			if ( $feature ) {
+				if ( ! in_array( $space_id, $current, true ) ) {
+					if ( count( $current ) >= \BuddyNext\Spaces\FeaturedSpaces::limit() ) {
+						$args['feature_error'] = 'limit';
+					} else {
+						$current[]         = $space_id;
+						\BuddyNext\Spaces\FeaturedSpaces::set_ids( $current );
+						$args['featured'] = '1';
+					}
+				}
+			} else {
+				\BuddyNext\Spaces\FeaturedSpaces::set_ids( array_values( array_diff( $current, array( $space_id ) ) ) );
+				$args['featured'] = '0';
+			}
+		}
+
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
 		exit;
 	}
 

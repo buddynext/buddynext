@@ -2,7 +2,7 @@
 
 This is the contract a gamification engine implements to plug into BuddyNext. BuddyNext fires raw write-side actions, exposes recipient-perspective engagement signals and session/streak pulses, offers sidebar/profile data seams, and renders a leaderboard from the engine's public read API. BuddyNext ships **zero** gamification logic - no points, badge, level, or streak computation, and no own `wbg_*` tables. The reference engine is wb-gamification (`wb_gam_*` public API); any plugin that implements the same shape works. This page is for developers building or replacing that engine.
 
-> **Status (1.0.1).** The write-side submission described below is now owned by the engine's own BuddyNext manifest (in wb-gamification, that is `integrations/buddynext.php`), which hooks BuddyNext's raw `buddynext_*` actions and calls `wb_gam_submit_event()`. The BuddyNext-side `GamificationBridge` no longer submits events; its only producer role is posting a credential-badge feed activity on `wb_gam_badge_awarded`. The action catalogue and `fire()` signatures below remain the contract shape, now implemented on the engine side.
+> **Status (1.0.1).** The write-side submission described below is now owned by the engine's own BuddyNext manifest (in wb-gamification, that is `integrations/buddynext.php`), which hooks BuddyNext's raw `buddynext_*` actions and calls `wb_gam_submit_event()`. The BuddyNext-side `GamificationBridge` no longer submits events; its only producer role is posting a credential-badge feed activity on the member's explicit `wb_gam_badge_shared` (withdrawn on `wb_gam_badge_unshared`), never on award. The action catalogue and `fire()` signatures below remain the contract shape, now implemented on the engine side.
 
 ![The admin dashboard whose sidebar and leaderboard data the gamification-engine seam documented here feeds](../images/admin-overview.webp)
 
@@ -15,7 +15,7 @@ The seam has four parts:
 3. **Recipient-perspective engagement events** - mirrors that fire for the *recipient* of engagement (the person whose work was liked/commented/followed), which is who gamification usually awards.
 4. **Read-side rendering** - the leaderboard template and the sidebar/profile data filters consume the engine's public read API only; BuddyNext never reads engine tables.
 
-As of 1.0.1 the BuddyNext-side `GamificationBridge` (`includes/Bridges/GamificationBridge.php`) is consume-only: it posts a credential-badge feed activity on `wb_gam_badge_awarded`. The write-side submissions are owned by the engine's own BuddyNext manifest. The inbound listener is `GamificationBridgeListener`; the profile surface is `BuddyNext\Profile\GamificationAchievements`. These self-guard on the `wb_gam_*` API and are wired on `buddynext_load_bridges` behind the `gamification` feature toggle.
+As of 1.0.1 the BuddyNext-side `GamificationBridge` (`includes/Bridges/GamificationBridge.php`) is consume-only: it posts a credential-badge feed activity on the member's explicit `wb_gam_badge_shared` (never on award - see Inbound below) and withdraws it on `wb_gam_badge_unshared`. The write-side submissions are owned by the engine's own BuddyNext manifest. The inbound listener is `GamificationBridgeListener`; the profile surface is `BuddyNext\Profile\GamificationAchievements`. These self-guard on the `wb_gam_*` API and are wired on `buddynext_load_bridges` behind the `gamification` feature toggle.
 
 ### Engine API BuddyNext calls
 
@@ -156,7 +156,7 @@ As a safety net, Free also backstops the known overlay containers that hold only
 | `wb_gam_badge_awarded` (3: `int $user_id`, `array $def`, `string $badge_id`) | `on_badge_awarded` | `bn.badge_awarded` notification (reads `$def['name']`) |
 | `wb_gam_level_changed` (3: `int $user_id`, `array $new_level`, `array|null $old_level`) | `on_level_changed` | `bn.level_up` notification (reads `id` / `name` / `min_points`) |
 
-Separately, `GamificationBridge::on_badge_awarded_activity` also hooks `wb_gam_badge_awarded` and publishes a **feed activity** (social proof) - but only when `$def['is_credential']` is truthy, so small participation badges never spam the feed. It links to the engine's public badge share page (`gamification/badge/{id}/{uid}/share/`) and is idempotent per share URL.
+Separately, `GamificationBridge` publishes the **feed activity** (social proof) off a different pair of hooks: `on_badge_shared_activity` on `wb_gam_badge_shared( int $user_id, string $badge_id )`, and `on_badge_unshared_activity` on `wb_gam_badge_unshared( int $user_id, string $badge_id )`. The card is gated to `$def['is_credential']` truthy (so small participation badges never spam the feed) and fires only on the member's explicit Share press, never on award - wb-gamification 1.6.4 made badges private until shared, and broadcasting on award would publish a credential before the member consented (card 10303345360). It links to the engine's public badge share page (`gamification/badge/{id}/{uid}/share/`) and is idempotent per share URL: a re-share after an unshare RESTORES the same card (id, date, reactions, comments) via `IntegrationActivity::restore()` rather than minting a new one; an unshare WITHDRAWS it to `draft` via `IntegrationActivity::withdraw()` rather than deleting it.
 
 ## Read side: leaderboard template + endpoint
 

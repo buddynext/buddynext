@@ -249,3 +249,18 @@
 		transition: none !important;
 	}
 }
+
+/* The "what a reset changes" list inside the confirm dialog. */
+.bn-restore-list {
+	margin: var(--bn-s2, 0.5rem) 0;
+	padding-left: var(--bn-s4, 1.2rem);
+	max-height: 40vh;
+	overflow-y: auto;
+}
+.bn-restore-list li {
+	margin-bottom: var(--bn-s1, 0.25rem);
+}
+.bn-restore-owner-note {
+	color: var(--bn-ink-3, #6b7280);
+	font-size: var(--bn-text-xs, 0.8125rem);
+}

@@ -45,6 +45,15 @@ A few details worth knowing:
 - **The score is cached briefly for performance.** On a large community the percentage is held for a few minutes after it is calculated, so the bar may take a moment to reflect a just-saved change.
 - **No fields defined means nothing to complete.** If your community has not defined any standard profile fields yet, completion reads as 0 percent because there is nothing to measure. Define the fields you want members to fill in, and the bar starts measuring against them.
 
+### Completion percentage vs Profile Strength
+
+These are two separate things, and it helps to keep them apart:
+
+- **Profile completion** (this page) is the mechanical share of a member's standard fields that hold a value, shown as a percentage bar with prompt cards. It measures fields.
+- **Profile Strength** is a curated checklist shown only on a member's own profile sidebar (the Profile Strength ring). It highlights a short list of high-value steps to a credible profile - add a photo, write a bio, make a first connection - rather than counting every field, and site owners can tailor its steps with the `buddynext_profile_strength_tasks` filter. Completing the checklist is what a member's Achievements can reward.
+
+Use the completion bar to nudge members to fill their fields, and the Profile Strength ring to point them at the few steps that matter most.
+
 ## Free vs Pro
 
 The profile completion bar is part of BuddyNext free.

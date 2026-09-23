@@ -250,7 +250,8 @@ if ( ! $is_admin && ! $bn_is_unpublished ) {
 		$within_edit_window = $created_ts > 0 && ( time() - $created_ts ) <= $edit_window * MINUTE_IN_SECONDS;
 	}
 }
-$can_edit = ( $is_own_post && $within_edit_window ) || $is_admin;
+$can_edit = ( ( $is_own_post && $within_edit_window ) || $is_admin )
+	&& \BuddyNext\Feed\PostService::has_editable_text( (string) $bn_post_type, (string) ( $bn_post['content'] ?? '' ) );
 // Mirror the server (PostController::delete_post): deleting your own post is
 // always allowed; deleting anyone else's requires buddynext-feed/delete-any-post.
 // buddynext_can() already grants that to WP admins (manage_options bypass) AND
@@ -421,7 +422,18 @@ $privacy_icons  = array(
  * marker on every post overrides this template - it is theme-overridable like
  * every other one, which is why this needs no filter of its own.
  */
-$privacy_label = ( 'public' !== $post_privacy && isset( $privacy_labels[ $post_privacy ] ) )
+
+/*
+ * 'space_members' in an OPEN space is not narrower than the default: an open
+ * space lets anyone read its posts (FeedService::explore_space_where(), owner
+ * decision 2026-09-17, card 10313019984). Showing a lock there is a false
+ * confirmation to the author that they narrowed the audience — they did not — so
+ * suppress the marker in that one case. followers / connections / private stay
+ * genuinely narrower and keep their markers.
+ */
+$bn_space_type      = (string) ( $bn_post['space_type'] ?? '' );
+$bn_privacy_is_open = 'space_members' === $post_privacy && 'open' === $bn_space_type;
+$privacy_label      = ( 'public' !== $post_privacy && ! $bn_privacy_is_open && isset( $privacy_labels[ $post_privacy ] ) )
 	? esc_html( $privacy_labels[ $post_privacy ] )
 	: '';
 // $post_privacy is validated to one of the five keys above, and $privacy_icons
@@ -785,11 +797,16 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 			// READ on its own page — those want opposite things from a long post.
 			'context'           => $context,
 			'link_preview'      => array(
-				'url'    => $link_url,
-				'title'  => $link_title,
-				'desc'   => $link_desc,
-				'thumb'  => $link_thumb,
-				'domain' => $link_domain,
+				'url'      => $link_url,
+				'title'    => $link_title,
+				'desc'     => $link_desc,
+				'thumb'    => $link_thumb,
+				'domain'   => $link_domain,
+				// Carry the bridge media id so WPMediaVerseBridge::hydrate_media_preview()
+				// can run per-viewer media hydration. Without it the hydrator bails at
+				// its media_id <= 0 guard and the bridge card renders verb-only
+				// (regression of 10242691205).
+				'media_id' => (int) ( $link_meta['media_id'] ?? 0 ),
 			),
 			'link_meta'         => $link_meta,
 			'poll_data'         => array(

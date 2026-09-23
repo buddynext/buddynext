@@ -30,6 +30,7 @@ if ( ! defined( 'ABSPATH' ) || ! function_exists( 'rest_get_server' ) ) {
 
 $bn_namespace = 'buddynext/v1';
 $bn_prefix    = '/' . $bn_namespace;
+require dirname( __DIR__, 2 ) . '/bin/openapi-all-routes.php';
 $bn_server    = rest_get_server();
 $bn_routes    = $bn_server->get_routes();
 

@@ -21,6 +21,11 @@ import type { Page } from '@playwright/test';
  * repeater), never a one-shot DOM snapshot — a snapshot read races hydration.
  * Every added row is removed again in the same test, so the account is left
  * exactly as it was found even when an assertion fails mid-way.
+ *
+ * Covers: cap-give-members-a-profile-with-custom-fields
+ * Roles: admin
+ * Note: both tests use the authenticatedPage fixture (admin owner only); no
+ * member session or second viewer is exercised.
  */
 test.describe('profile / repeater lifecycle (Work Experience)', () => {
     const user = process.env.BN_TEST_USER ?? 'varundubey';

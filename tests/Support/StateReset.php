@@ -110,6 +110,10 @@ final class StateReset implements BeforeTestHook {
 		\BuddyNext\Bridges\WPMediaVerseBridge::class      => array( 'suppress_upload_activity' => false ),
 		\BuddyNext\Feed\IntegrationActivity::class        => array( 'system_publish' => false ),
 		\BuddyNext\Outbound\WebhookLog::class             => array( 'in_request' => false ),
+		// Per-REQUEST record of spaces unlocked by opening a valid invite link. Must
+		// not survive a test whose invite/space rows rolled back underneath it, or
+		// one test's unlock leaks into another.
+		\BuddyNext\Spaces\SpaceVisibility::class          => array( 'invite_unlocked' => array() ),
 	);
 
 	/**
@@ -134,6 +138,7 @@ final class StateReset implements BeforeTestHook {
 		'BuddyNext\Admin\AdminHub::tabs'                       => 'Registered from code at boot, not per test.',
 		'BuddyNext\Admin\AdminHub::legacy_pages'               => 'As above.',
 		'BuddyNext\Admin\Settings\SettingsRegistry::pages'     => 'Registered from code at boot, not per test.',
+		'BuddyNext\Admin\Settings\SettingsDriver::booted'      => 'A boot-once guard: resetting it would let boot() add_action() the Restore-defaults admin-post handler a second time, same reason as Plugin::booted.',
 	);
 
 	/**

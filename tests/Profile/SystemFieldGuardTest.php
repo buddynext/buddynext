@@ -57,15 +57,25 @@ class SystemFieldGuardTest extends \WP_UnitTestCase {
 	/**
 	 * The installer flags exactly the code-consumed spine as system fields:
 	 * bio, headline, location (search/directory/hero), interests (the suggestion
-	 * signal added in the interests Phase 0 migration) and pronouns.
+	 * signal added in the interests Phase 0 migration), pronouns, and the four
+	 * Work/Education repeater toggles work_current, work_end_date, edu_current,
+	 * edu_end_year.
 	 *
 	 * pronouns joined the spine in schema v18 and this expectation was not
-	 * updated with it, so the test has been failing ever since — which is worse
+	 * updated with it, so the test had been failing ever since — which is worse
 	 * than useless, because a permanently red guard cannot report the regression
 	 * it exists to catch. The seed is correct: the hero renders pronouns by
 	 * hardcoded key (ProfileService::HERO_IDENTITY_FIELDS), and a template may
 	 * reference a field by name ONLY when that field is guaranteed to exist.
 	 * Leaving it deletable is what made it vanishable.
+	 *
+	 * The four repeater toggles joined the spine for the same reason (card
+	 * 10312499657): the end-date toggle JS pairs them by key (CURRENT_TOGGLE_PAIRS
+	 * in profile/store.js), so deleting one and re-adding a same-labelled field
+	 * mints a new key the JS never rebinds, breaking the toggle unrecoverably. A
+	 * field referenced by hardcoded key must not be deletable — same argument as
+	 * pronouns. This guard is deliberately brittle: re-run it after any change to
+	 * the seeded spine.
 	 *
 	 * @return void
 	 */
@@ -76,7 +86,44 @@ class SystemFieldGuardTest extends \WP_UnitTestCase {
 			"SELECT field_key FROM {$wpdb->prefix}bn_profile_fields WHERE is_system = 1 ORDER BY field_key ASC"
 		);
 
-		$this->assertSame( array( 'bio', 'headline', 'interests', 'location', 'pronouns' ), $system_keys );
+		$this->assertSame(
+			array( 'bio', 'edu_current', 'edu_end_year', 'headline', 'interests', 'location', 'pronouns', 'work_current', 'work_end_date' ),
+			$system_keys
+		);
+	}
+
+	/**
+	 * A pending flag-convergence correction runs even when the schema version is
+	 * already current — it must not depend on an unrelated schema bump to ship.
+	 *
+	 * FLAG_CONVERGENCE exists to ship flag corrections independently of the schema
+	 * version, but converge_seeded_field_flags() lives inside run(), which
+	 * maybe_upgrade() skips when the schema already matches. Card 10312499657's fix
+	 * (locking the four repeater toggles) reached a customer only because an
+	 * unrelated schema bump happened to run run() that release; a flag-only release
+	 * would have been silently dropped. maybe_upgrade() now also proceeds when the
+	 * flag stamp is stale, so this asserts the correction lands with the schema
+	 * already at its current value.
+	 *
+	 * @return void
+	 */
+	public function test_flag_convergence_runs_with_schema_already_current(): void {
+		global $wpdb;
+		$keys = array( 'work_current', 'work_end_date', 'edu_current', 'edu_end_year' );
+
+		// Simulate a site already on the current schema, whose flag correction has
+		// not been applied and whose four toggles are still unlocked.
+		$live_schema = (int) ( new \ReflectionClass( Installer::class ) )->getConstant( 'SCHEMA_VERSION' );
+		update_option( 'buddynext_schema_version', $live_schema );
+		update_option( 'buddynext_profile_flag_convergence', 'stale-stamp' );
+		delete_option( 'buddynext_schema_failure' );
+		$in = "'" . implode( "','", $keys ) . "'";
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET is_system = 0 WHERE field_key IN ($in)" ); // phpcs:ignore WordPress.DB
+
+		Installer::maybe_upgrade();
+
+		$locked = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_profile_fields WHERE field_key IN ($in) AND is_system = 1" ); // phpcs:ignore WordPress.DB
+		$this->assertSame( 4, $locked, 'Flag convergence must run even when the schema version already matches.' );
 	}
 
 	/**

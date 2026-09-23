@@ -189,6 +189,82 @@ class ProfileFieldsManager {
 	}
 
 	/**
+	 * Fields set up in a way members cannot complete, listed at the top of the screen.
+	 *
+	 * A half-configured field does not fail loudly - a Dropdown with no options just
+	 * renders an empty control, and a required one silently blocks every profile save.
+	 * The owner is the one who can fix it, so it is surfaced here rather than to
+	 * members as an error.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param array<int, array<string, mixed>> $groups Group tree from get_fields().
+	 * @return void
+	 */
+	private function render_setup_issues( array $groups ): void {
+		$issues = array();
+		$types  = \BuddyNext\Profile\FieldType::types();
+
+		foreach ( $groups as $group ) {
+			foreach ( (array) ( $group['fields'] ?? array() ) as $field ) {
+				$type = (string) ( $field['type'] ?? '' );
+				if ( ! empty( $types[ $type ]['is_choice'] ) && array() === \BuddyNext\Profile\FieldType::choices( $field ) ) {
+					$issues[] = array(
+						'field_id' => (int) $field['id'],
+						'message'  => empty( $field['is_required'] )
+							? __( 'has no options, so members cannot answer it.', 'buddynext' )
+							: __( 'is required but has no options, so members cannot save their profile.', 'buddynext' ),
+					);
+				}
+			}
+		}
+
+		/**
+		 * Filter the list of profile fields that need the owner's attention.
+		 *
+		 * Add-ons append problems with their own settings on the same fields.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param array<int, array{field_id: int, message: string}> $issues Issues so far.
+		 * @param array<int, array<string, mixed>>                  $groups Group tree.
+		 */
+		$issues = (array) apply_filters( 'buddynext_profile_field_setup_issues', $issues, $groups );
+		if ( array() === $issues ) {
+			return;
+		}
+
+		$labels = array();
+		foreach ( $groups as $group ) {
+			foreach ( (array) ( $group['fields'] ?? array() ) as $field ) {
+				$labels[ (int) $field['id'] ] = (string) $field['label'];
+			}
+		}
+		?>
+		<div class="bn-alert bn-pf-setup-issues" data-tone="warning" role="status">
+			<span class="bn-alert__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
+			<div class="bn-alert__body">
+				<p class="bn-alert__title"><?php esc_html_e( 'Some profile fields need attention', 'buddynext' ); ?></p>
+				<ul class="bn-pf-setup-issues__list">
+					<?php foreach ( $issues as $issue ) : ?>
+						<?php
+						$issue_id = (int) ( $issue['field_id'] ?? 0 );
+						if ( ! isset( $labels[ $issue_id ] ) ) {
+							continue;
+						}
+						?>
+						<li>
+							<span><strong><?php echo esc_html( $labels[ $issue_id ] ); ?></strong> <?php echo esc_html( (string) ( $issue['message'] ?? '' ) ); ?></span>
+							<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-pf-toggle-edit="<?php echo esc_attr( 'bn-ef-row-' . $issue_id ); ?>"><?php esc_html_e( 'Fix', 'buddynext' ); ?></button>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Slugs of field types that need an options editor (select/radio/multiselect).
 	 *
 	 * @since 1.0.0
@@ -221,10 +297,10 @@ class ProfileFieldsManager {
 	 */
 	private static function date_display_choices(): array {
 		return array(
-			'date'       => __( 'Full date — Jan 15, 1990', 'buddynext' ),
-			'month_year' => __( 'Month & Year — Jan 1990', 'buddynext' ),
-			'year'       => __( 'Year only — 1990', 'buddynext' ),
-			'age'        => __( 'Calculated age — 34 years old', 'buddynext' ),
+			'date'       => __( 'Full date: Jan 15, 1990', 'buddynext' ),
+			'month_year' => __( 'Month & Year: Jan 1990', 'buddynext' ),
+			'year'       => __( 'Year only: 1990', 'buddynext' ),
+			'age'        => __( 'Calculated age: 34 years old', 'buddynext' ),
 		);
 	}
 
@@ -560,37 +636,16 @@ class ProfileFieldsManager {
 
 		$created_id = 0;
 		if ( $group_id > 0 && '' !== $field_key && '' !== $label ) {
-			global $wpdb;
+			$service = buddynext_service( 'profiles' );
 
 			// The key derives from the label and is table-wide UNIQUE, but the
 			// LABEL may repeat (e.g. a "Level" field in several groups). Uniquify
 			// the key instead of letting create_field()'s INSERT IGNORE silently
 			// no-op while this screen still reported "saved" — the trap that
 			// taught owners the create-then-rename workaround.
-			$bn_pf_base_key   = $field_key;
-			$bn_pf_key_suffix = 2;
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			while ( (int) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE field_key = %s",
-					$field_key
-				)
-			) > 0 ) {
-				$field_key = $bn_pf_base_key . '_' . $bn_pf_key_suffix;
-				++$bn_pf_key_suffix;
-			}
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$field_key = $service->unique_field_key( $field_key );
 
-			// Append at end: fetch current max sort_order for this group.
-			$max_order  = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->prepare(
-					"SELECT COALESCE(MAX(sort_order), -1) FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d",
-					$group_id
-				)
-			);
-			$sort_order = $max_order + 1;
-
-			$created_id = (int) buddynext_service( 'profiles' )->create_field(
+			$created_id = (int) $service->create_field(
 				array(
 					'group_id'         => $group_id,
 					'field_key'        => $field_key,
@@ -604,7 +659,8 @@ class ProfileFieldsManager {
 					'show_on_register' => $show_on_register,
 					'show_in_header'   => $show_in_header,
 					'visibility'       => $visibility,
-					'sort_order'       => $sort_order,
+					// Append at end of the group.
+					'sort_order'       => $service->next_field_sort_order( $group_id ),
 				)
 			);
 		}
@@ -704,6 +760,20 @@ class ProfileFieldsManager {
 			}
 		}
 
+		/**
+		 * Filter the sanitised per-field add-on options posted under bn_field_options[*].
+		 *
+		 * The loop above only understands scalar values. An add-on that posts
+		 * structured configuration (e.g. a JSON-encoded rule set) sanitises and
+		 * decodes its own keys here. Return null or an empty array for "nothing".
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param array<string, mixed> $out Sanitised options so far.
+		 * @param array<string, mixed> $raw Raw (unslashed) posted bn_field_options.
+		 */
+		$out = (array) apply_filters( 'buddynext_profile_field_options_sanitize', $out, $raw );
+
 		return ! empty( $out ) ? $out : null;
 	}
 
@@ -740,6 +810,16 @@ class ProfileFieldsManager {
 
 			$value = sanitize_text_field( $value );
 			$label = sanitize_text_field( '' !== trim( (string) $label ) ? $label : $value );
+
+			// Multi-value fields store their picks as a comma-joined string, so a
+			// comma inside a choice VALUE splits into two bogus tokens and the
+			// member's selection is dropped/garbled. Slugify a value that carries the
+			// delimiter to a safe token (the LABEL keeps the comma for display).
+			// Comma-free values are left byte-identical, so existing configs re-save
+			// unchanged and no member's stored selection is orphaned.
+			if ( false !== strpos( $value, ',' ) ) {
+				$value = sanitize_title( $value );
+			}
 
 			if ( '' !== $value ) {
 				$choices[] = array(
@@ -854,25 +934,15 @@ class ProfileFieldsManager {
 
 		$notice = 'deleted';
 		if ( $group_id > 0 ) {
-			global $wpdb;
-
 			$service = buddynext_service( 'profiles' );
 
 			// §4.2 impact-confirm: when the group's fields hold stored values,
 			// the delete must arrive with a matching type-to-confirm token (the
 			// group name or DELETE). The admin UI collects it; this server check
 			// is the enforcement, so a hand-crafted POST cannot skip it.
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$group_label = (string) $wpdb->get_var(
-				$wpdb->prepare( "SELECT label FROM {$wpdb->prefix}bn_profile_groups WHERE id = %d", $group_id )
-			);
-			$field_ids   = array_map(
-				'intval',
-				(array) $wpdb->get_col(
-					$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d", $group_id )
-				)
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$group       = $service->get_group( $group_id );
+			$group_label = (string) ( $group['label'] ?? '' );
+			$field_ids   = $service->field_ids_in_group( $group_id );
 
 			$affected = $service->count_users_with_field_values( $field_ids );
 
@@ -920,19 +990,14 @@ class ProfileFieldsManager {
 
 		$notice = 'deleted';
 		if ( $field_id > 0 ) {
-			global $wpdb;
-
 			$service = buddynext_service( 'profiles' );
 
 			// §4.2 impact-confirm: a field with stored member values only deletes
 			// when the request carries a matching type-to-confirm token (the
 			// field name or DELETE). Server-side enforcement — the UI input alone
 			// is not the gate.
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$field_label = (string) $wpdb->get_var(
-				$wpdb->prepare( "SELECT label FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $field_id )
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$field       = $service->get_field( $field_id );
+			$field_label = (string) ( $field['label'] ?? '' );
 
 			$affected = $service->count_users_with_field_values( array( $field_id ) );
 
@@ -1006,7 +1071,6 @@ class ProfileFieldsManager {
 		// so only the submitted attribute is updated — a visibility change must
 		// never clobber the member-type restriction and vice versa.
 		$update = array();
-		$format = array();
 
 		// Rename (the pencil control next to the group name). The group's TYPE
 		// (single vs multiple entries) is deliberately not updatable — converting
@@ -1015,7 +1079,6 @@ class ProfileFieldsManager {
 			$new_label = sanitize_text_field( wp_unslash( $_POST['label'] ) );
 			if ( '' !== $new_label ) {
 				$update['label'] = $new_label;
-				$format[]        = '%s';
 			}
 		}
 
@@ -1025,7 +1088,6 @@ class ProfileFieldsManager {
 				$visibility = 'public';
 			}
 			$update['visibility'] = $visibility;
-			$format[]             = '%s';
 		}
 
 		// G2 (per-member-type profiles): limit the group to one LIVE member
@@ -1035,7 +1097,6 @@ class ProfileFieldsManager {
 			$restriction = sanitize_key( wp_unslash( $_POST['type_restriction'] ) );
 			if ( '' === $restriction ) {
 				$update['type_restriction'] = null;
-				$format[]                   = '%s';
 			} else {
 				$live_slugs = array_map(
 					static fn( $t ) => (string) ( $t['slug'] ?? '' ),
@@ -1043,24 +1104,14 @@ class ProfileFieldsManager {
 				);
 				if ( in_array( $restriction, $live_slugs, true ) ) {
 					$update['type_restriction'] = $restriction;
-					$format[]                   = '%s';
 				}
 			}
 		}
 
+		// Write through ProfileService so the definition caches ('all_groups' /
+		// 'all_fields') are busted in the one place that owns the table.
 		if ( $group_id > 0 && ! empty( $update ) ) {
-			global $wpdb;
-
-			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->prefix . 'bn_profile_groups',
-				$update,
-				array( 'id' => $group_id ),
-				$format,
-				array( '%d' )
-			);
-
-			wp_cache_delete( 'all_groups', 'buddynext_profiles' );
-			wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+			buddynext_service( 'profiles' )->update_group( $group_id, $update );
 		}
 
 		wp_safe_redirect(
@@ -1104,38 +1155,30 @@ class ProfileFieldsManager {
 			exit;
 		}
 
-		$attr = sanitize_key( wp_unslash( $_POST['attr'] ?? '' ) );
-		global $wpdb;
+		$attr    = sanitize_key( wp_unslash( $_POST['attr'] ?? '' ) );
+		$service = buddynext_service( 'profiles' );
+
+		// Route through update_field so the same protected-field rules apply and
+		// the 'all_fields' cache is busted where the table is owned. Changing
+		// visibility here may also clear is_searchable when the new visibility
+		// can no longer back a search index — the service enforces that invariant.
+		$result = true;
 
 		if ( 'is_required' === $attr ) {
-			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->prefix . 'bn_profile_fields',
-				array( 'is_required' => isset( $_POST['is_required'] ) ? 1 : 0 ),
-				array( 'id' => $field_id ),
-				array( '%d' ),
-				array( '%d' )
-			);
+			$result = $service->update_field( $field_id, array( 'is_required' => isset( $_POST['is_required'] ) ? 1 : 0 ) );
 		} elseif ( 'visibility' === $attr ) {
 			$visibility = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
 			if ( in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
-				$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$wpdb->prefix . 'bn_profile_fields',
-					array( 'visibility' => $visibility ),
-					array( 'id' => $field_id ),
-					array( '%s' ),
-					array( '%d' )
-				);
+				$result = $service->update_field( $field_id, array( 'visibility' => $visibility ) );
 			}
 		}
-
-		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
 
 		wp_safe_redirect(
 			add_query_arg(
 				array(
 					'page'         => 'buddynext-members',
 					'tab'          => 'profile-fields',
-					'bn_pf_notice' => 'saved',
+					'bn_pf_notice' => is_wp_error( $result ) ? 'error' : 'saved',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -1171,15 +1214,12 @@ class ProfileFieldsManager {
 			exit;
 		}
 
-		global $wpdb;
+		$service = buddynext_service( 'profiles' );
 
 		// The type this field ALREADY is. Read before anything can overwrite it, because it
 		// is the only place the truth is recorded — nothing else remembers a field's previous
 		// type, so a bad write here is unrecoverable even after the add-on comes back.
-		$stored_row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prepare( "SELECT type, group_id FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $field_id ),
-			ARRAY_A
-		);
+		$stored_row = $service->get_field( $field_id );
 
 		$stored_type     = (string) ( $stored_row['type'] ?? '' );
 		$stored_group_id = (int) ( $stored_row['group_id'] ?? 0 );
@@ -1270,39 +1310,14 @@ class ProfileFieldsManager {
 			exit;
 		}
 
-		// Moving the field to another group. Whether that is safe is ProfileService's
-		// call, not this screen's: this handler writes with its own $wpdb->update()
-		// rather than going through update_field(), so asking the service is what
-		// keeps the two doors to this table agreeing about which moves lose data.
+		// Moving the field to another group. update_field() weighs whether the move
+		// is safe (field_move_blocker) and writes atomically — nothing lands if the
+		// move is refused — so this screen no longer runs its own pre-check.
 		$submitted_group = absint( wp_unslash( $_POST['group_id'] ?? 0 ) );
 		$moving_group    = $submitted_group > 0 && $submitted_group !== $stored_group_id;
 
-		if ( $moving_group ) {
-			$move_error = buddynext_service( 'profiles' )->field_move_blocker( $field_id, $stored_group_id, $submitted_group );
-			if ( null !== $move_error ) {
-				// Nothing is written - not the group, and not the label/type edits
-				// submitted alongside it. A partial save here would be the worst
-				// outcome: the admin is told the move failed while the rest of the
-				// form silently landed.
-				wp_safe_redirect(
-					add_query_arg(
-						array(
-							'page'         => 'buddynext-members',
-							'tab'          => 'profile-fields',
-							'bn_pf_notice' => 'bn_field_move_would_hide_entries' === $move_error->get_error_code()
-								? 'move_entries'
-								: 'move_group',
-						),
-						admin_url( 'admin.php' )
-					)
-				);
-				exit;
-			}
-		}
-
-		$data   = array(
+		$data = array(
 			'label'            => $label,
-			'type'             => $type,
 			'description'      => $description,
 			'placeholder'      => $placeholder,
 			'is_required'      => $is_required,
@@ -1311,51 +1326,51 @@ class ProfileFieldsManager {
 			'show_in_header'   => $show_in_header,
 			'visibility'       => $visibility,
 		);
-		$format = array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s' );
+
+		// Only touch `type` / `options` when this install understands the type. With
+		// the owning add-on inactive, $type is round-tripped to the stored (unknown)
+		// value and Free renders none of that type's option inputs — writing either
+		// would blindly overwrite a definition nobody in this request can see, and
+		// update_field() would reject the unknown type outright. Omitting both leaves
+		// the type and its per-type config intact for when the add-on returns.
+		if ( $type_is_known ) {
+			$data['type']    = $type;
+			$data['options'] = $parsed_opts; // array|null — update_field() encodes it.
+		}
 
 		if ( $moving_group ) {
 			$data['group_id'] = $submitted_group;
-			$format[]         = '%d';
 		}
 
-		// Only write `options` when this install understands the type. With the owning add-on
-		// inactive, Free renders none of that type's option inputs — so $parsed_opts is null,
-		// and writing it would blank the field's entire per-type configuration on a label
-		// edit. Omitting the column leaves the config intact for when the add-on returns.
-		if ( $type_is_known ) {
-			$data['options'] = null !== $parsed_opts ? wp_json_encode( $parsed_opts ) : null;
-			$format[]        = '%s';
+		// Single write through the service: it busts the 'all_fields' cache, migrates
+		// stored values on a type change (convert_field_values), and fires
+		// buddynext_profile_field_updated so search mirrors rebuild — all the steps
+		// this handler used to hand-roll, now owned in one place.
+		$result = $service->update_field( $field_id, $data );
+
+		$notice = 'saved';
+		if ( is_wp_error( $result ) ) {
+			// A refused move writes nothing — surface which refusal it was; any other
+			// error (should not occur: field exists, type pre-resolved to a known one)
+			// falls back to the generic notice.
+			switch ( $result->get_error_code() ) {
+				case 'bn_field_move_would_hide_entries':
+					$notice = 'move_entries';
+					break;
+				case 'bn_group_not_found':
+					$notice = 'move_group';
+					break;
+				default:
+					$notice = 'error';
+			}
 		}
-
-		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prefix . 'bn_profile_fields',
-			$data,
-			array( 'id' => $field_id ),
-			$format,
-			array( '%d' )
-		);
-
-		// The type changed (e.g. a text `location` field upgraded to a map, so it
-		// need not be duplicated) — migrate existing values into the new type's
-		// storage format so they survive the change. No-op for conversions that
-		// need no migration. Only when both types are known: an unknown stored type
-		// is round-tripped above, not really changed.
-		if ( $type_is_known && $stored_type_is_known && $stored_type !== $type ) {
-			buddynext_service( 'profiles' )->convert_field_values( $field_id, $stored_type, $type );
-		}
-
-		// is_searchable changed → ProfileService rebuilds the searchable mirror
-		// for affected users via the searchable_mirror contract.
-		do_action( 'buddynext_profile_field_updated', $field_id );
-
-		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
 
 		wp_safe_redirect(
 			add_query_arg(
 				array(
 					'page'         => 'buddynext-members',
 					'tab'          => 'profile-fields',
-					'bn_pf_notice' => 'saved',
+					'bn_pf_notice' => $notice,
 				),
 				admin_url( 'admin.php' )
 			)
@@ -1378,51 +1393,11 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_reorder_group_' . $group_id );
 
+		// The adjacent-sibling sort_order swap (with the equal-value tie-break) and
+		// the cache bust both live in ProfileService::reorder_group — the one owner
+		// of this table. A boundary move (first up / last down) is a no-op there.
 		if ( $group_id > 0 && in_array( $direction, array( 'up', 'down' ), true ) ) {
-			global $wpdb;
-
-			$all = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				"SELECT id, sort_order FROM {$wpdb->prefix}bn_profile_groups ORDER BY sort_order ASC, id ASC",
-				ARRAY_A
-			);
-
-			$ids = array_column( $all, 'id' );
-			$pos = array_search( (string) $group_id, $ids, true );
-
-			if ( false !== $pos ) {
-				$swap_pos = 'up' === $direction ? $pos - 1 : $pos + 1;
-
-				if ( isset( $ids[ $swap_pos ] ) ) {
-					$a_id    = (int) $ids[ $pos ];
-					$b_id    = (int) $ids[ $swap_pos ];
-					$a_order = (int) $all[ $pos ]['sort_order'];
-					$b_order = (int) $all[ $swap_pos ]['sort_order'];
-
-					// Ensure distinct sort_order values so the swap is meaningful.
-					if ( $a_order === $b_order ) {
-						$a_order = $pos;
-						$b_order = $swap_pos;
-					}
-
-					$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-						$wpdb->prefix . 'bn_profile_groups',
-						array( 'sort_order' => $b_order ),
-						array( 'id' => $a_id ),
-						array( '%d' ),
-						array( '%d' )
-					);
-					$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-						$wpdb->prefix . 'bn_profile_groups',
-						array( 'sort_order' => $a_order ),
-						array( 'id' => $b_id ),
-						array( '%d' ),
-						array( '%d' )
-					);
-
-					wp_cache_delete( 'all_groups', 'buddynext_profiles' );
-					wp_cache_delete( 'all_fields', 'buddynext_profiles' );
-				}
-			}
+			buddynext_service( 'profiles' )->reorder_group( $group_id, $direction );
 		}
 
 		wp_safe_redirect(
@@ -1453,62 +1428,11 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_reorder_field_' . $field_id );
 
+		// reorder_field() reads the field's group, swaps sort_order with the
+		// adjacent sibling in that group (same tie-break), and busts the cache —
+		// one owner for the table. A boundary move is a no-op there.
 		if ( $field_id > 0 && in_array( $direction, array( 'up', 'down' ), true ) ) {
-			global $wpdb;
-
-			// Get the group this field belongs to.
-			$group_id = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->prepare(
-					"SELECT group_id FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d",
-					$field_id
-				)
-			);
-
-			if ( $group_id > 0 ) {
-				$all = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$wpdb->prepare(
-						"SELECT id, sort_order FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d ORDER BY sort_order ASC, id ASC",
-						$group_id
-					),
-					ARRAY_A
-				);
-
-				$ids = array_column( $all, 'id' );
-				$pos = array_search( (string) $field_id, $ids, true );
-
-				if ( false !== $pos ) {
-					$swap_pos = 'up' === $direction ? $pos - 1 : $pos + 1;
-
-					if ( isset( $ids[ $swap_pos ] ) ) {
-						$a_id    = (int) $ids[ $pos ];
-						$b_id    = (int) $ids[ $swap_pos ];
-						$a_order = (int) $all[ $pos ]['sort_order'];
-						$b_order = (int) $all[ $swap_pos ]['sort_order'];
-
-						if ( $a_order === $b_order ) {
-							$a_order = $pos;
-							$b_order = $swap_pos;
-						}
-
-						$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-							$wpdb->prefix . 'bn_profile_fields',
-							array( 'sort_order' => $b_order ),
-							array( 'id' => $a_id ),
-							array( '%d' ),
-							array( '%d' )
-						);
-						$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-							$wpdb->prefix . 'bn_profile_fields',
-							array( 'sort_order' => $a_order ),
-							array( 'id' => $b_id ),
-							array( '%d' ),
-							array( '%d' )
-						);
-
-						wp_cache_delete( 'all_fields', 'buddynext_profiles' );
-					}
-				}
-			}
+			buddynext_service( 'profiles' )->reorder_field( $field_id, $direction );
 		}
 
 		wp_safe_redirect(
@@ -1541,7 +1465,7 @@ class ProfileFieldsManager {
 		} elseif ( 'deleted' === $bn_pf_notice ) {
 			AdminPageBase::render_notice( __( 'Deleted.', 'buddynext' ), 'success' );
 		} elseif ( 'error' === $bn_pf_notice ) {
-			AdminPageBase::render_notice( __( 'Not saved — please check the field name and try again.', 'buddynext' ), 'error' );
+			AdminPageBase::render_notice( __( 'Not saved: please check the field name and try again.', 'buddynext' ), 'error' );
 		} elseif ( 'locked' === $bn_pf_notice ) {
 			AdminPageBase::render_notice( __( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ), 'error' );
 		} elseif ( 'move_entries' === $bn_pf_notice ) {
@@ -1624,6 +1548,8 @@ class ProfileFieldsManager {
 		?>
 
 		<div class="bn-pf-wrap">
+
+		<?php $this->render_setup_issues( $groups ); ?>
 
 		<?php foreach ( $groups as $gi => $group ) : ?>
 			<?php
@@ -1884,7 +1810,20 @@ class ProfileFieldsManager {
 								</td>
 
 								<!-- Field name -->
-								<td><span class="bn-pf-field-name"><?php echo esc_html( $field['label'] ); ?></span></td>
+								<td>
+									<span class="bn-pf-field-name"><?php echo esc_html( $field['label'] ); ?></span>
+									<?php
+									/**
+									 * Fires after a field's name in the field list - for status badges.
+									 *
+									 * @since 1.2.1
+									 *
+									 * @param array<string, mixed> $field Field row.
+									 * @param array<string, mixed> $group Group row.
+									 */
+									do_action( 'buddynext_profile_field_row_badges', $field, $group );
+									?>
+								</td>
 
 								<!-- Type -->
 								<td><span class="bn-badge" data-tone="neutral"><?php echo esc_html( $type_lbl ); ?></span></td>
@@ -2119,7 +2058,7 @@ class ProfileFieldsManager {
 													class="bn-pf-opts-textarea"
 													rows="6"
 													placeholder="<?php esc_attr_e( 'Option 1', 'buddynext' ); ?>"><?php echo esc_textarea( $opts_text ); ?></textarea>
-												<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom — each on its own line.', 'buddynext' ); ?></p>
+												<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom, each on its own line.', 'buddynext' ); ?></p>
 											</div>
 											<?php
 											/**
@@ -2145,6 +2084,23 @@ class ProfileFieldsManager {
 											<table class="bn-pf-hook-rows"><tbody>
 												<?php do_action( 'buddynext_profile_field_type_options', (string) $field['type'], $field ); ?>
 											</tbody></table>
+											<?php
+											/**
+											 * Fires in a field's edit panel for EVERY field type.
+											 *
+											 * Unlike buddynext_profile_field_type_options (per type, table
+											 * rows), this is for settings that apply to any field. Output is
+											 * rendered verbatim inside the form; post values under
+											 * bn_field_options[*] and sanitise them on
+											 * buddynext_profile_field_options_sanitize.
+											 *
+											 * @since 1.2.1
+											 *
+											 * @param array<string, mixed> $field Field row being edited.
+											 * @param array<string, mixed> $group Group the field belongs to.
+											 */
+											do_action( 'buddynext_profile_field_settings', $field, $group );
+											?>
 											<!-- Date display config (shown for date / daterange types) -->
 											<div id="bn-ef-date-<?php echo absint( $fid ); ?>" class="bn-pf-opts-wrap" style="<?php echo $is_date_type ? '' : 'display:none;'; ?>">
 												<label for="bn-ef-date-d-<?php echo absint( $fid ); ?>">
@@ -2271,7 +2227,7 @@ class ProfileFieldsManager {
 								class="bn-pf-opts-textarea"
 								rows="5"
 								placeholder="<?php esc_attr_e( 'Option 1', 'buddynext' ); ?>"></textarea>
-							<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom — each on its own line.', 'buddynext' ); ?></p>
+							<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom, each on its own line.', 'buddynext' ); ?></p>
 						</div>
 						<?php
 						/**
@@ -2292,6 +2248,10 @@ class ProfileFieldsManager {
 						<table class="bn-pf-hook-rows"><tbody>
 							<?php do_action( 'buddynext_profile_field_type_options', '', array() ); ?>
 						</tbody></table>
+						<?php
+						/** This action is documented in the edit panel above. An empty $field means a new field. */
+						do_action( 'buddynext_profile_field_settings', array(), $group );
+						?>
 						<!-- Date display config -->
 						<div id="bn-af-date-<?php echo absint( $gid ); ?>" class="bn-pf-opts-wrap" style="display:none;">
 							<label for="bn-af-date-d-<?php echo absint( $gid ); ?>">

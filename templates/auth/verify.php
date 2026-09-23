@@ -162,7 +162,7 @@ wp_enqueue_style( 'bn-auth' );
 						<?php esc_html_e( 'Verified', 'buddynext' ); ?>
 					</span>
 				</div>
-				<h1 class="bn-auth-title"><?php esc_html_e( 'Email verified — welcome!', 'buddynext' ); ?></h1>
+				<h1 class="bn-auth-title"><?php esc_html_e( 'Email verified: welcome!', 'buddynext' ); ?></h1>
 				<p class="bn-auth-sub">
 					<?php esc_html_e( "You're all set. Let's finish setting up your profile.", 'buddynext' ); ?>
 				</p>

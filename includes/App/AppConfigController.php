@@ -308,7 +308,7 @@ class AppConfigController {
 	 * @return array{app_name:string,accent_color:string,logo_url:string,login_bg_url:string,color_scheme_default:string}
 	 */
 	private function branding(): array {
-		$accent = (string) sanitize_hex_color( (string) get_option( 'buddynext_brand_color', '' ) );
+		$accent = (string) sanitize_hex_color( (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND ) );
 
 		// Appearance's own opt-in rule: empty or the legacy default means the
 		// owner never picked an accent. Pass the absence through rather than
@@ -426,7 +426,10 @@ class AppConfigController {
 		return array(
 			'connect_note_max_length' => (int) apply_filters( 'buddynext_connect_note_max_length', 500 ),
 			'max_connections'         => (int) apply_filters( 'buddynext_max_connections', 5000 ),
-			'max_following'           => (int) apply_filters( 'buddynext_max_following', 7500 ),
+			// Default MUST match FollowService's enforced write cap (same filter,
+			// default 5000) — advertising 7500 here let the app promise a ceiling the
+			// server then refused at 5000.
+			'max_following'           => (int) apply_filters( 'buddynext_max_following', 5000 ),
 			// The batch ceiling on GET /feed/viewer-state. The app chunks on this, so
 			// it reads from the route's own constant — restating the literal here is
 			// how the two drift and the app starts chunking at the wrong size.

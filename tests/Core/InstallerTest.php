@@ -158,4 +158,41 @@ class InstallerTest extends \WP_UnitTestCase {
 			)
 		);
 	}
+
+	/**
+	 * The memory Site Health test is registered and returns a recommendation
+	 * below the floor, good at/above it, and good for an unlimited (-1) limit.
+	 *
+	 * Runs in a separate process: the cases lower memory_limit via ini_set, and
+	 * PHP refuses to set it below the process's current usage - so in the full
+	 * suite (a long-lived process that has grown past 128M) the low cases would
+	 * silently not apply and read as the ambient limit. A fresh process keeps
+	 * ini_set('128M') effective and the test order-independent.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 * @return void
+	 */
+	public function test_site_health_memory_test(): void {
+		$original = ini_get( 'memory_limit' );
+
+		$cases = array(
+			'128M'  => 'recommended',
+			'256M'  => 'recommended',
+			'512M'  => 'good',
+			'1024M' => 'good',
+			'-1'    => 'good',
+		);
+		foreach ( $cases as $limit => $expected ) {
+			@ini_set( 'memory_limit', $limit ); // phpcs:ignore WordPress.PHP.IniSet.memory_limit_Disallowed -- test-only, restored below.
+			$result = Installer::site_health_memory_test();
+			$this->assertSame( $expected, $result['status'], "memory_limit {$limit}" );
+			$this->assertSame( 'buddynext_memory', $result['test'] );
+		}
+
+		@ini_set( 'memory_limit', (string) $original ); // phpcs:ignore WordPress.PHP.IniSet.memory_limit_Disallowed -- restore.
+
+		$tests = apply_filters( 'site_status_tests', array( 'direct' => array() ) );
+		$this->assertArrayHasKey( 'buddynext_memory', $tests['direct'] );
+	}
 }

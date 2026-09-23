@@ -302,7 +302,7 @@ class OnboardingController {
 			return new WP_REST_Response(
 				array(
 					'completed'   => true,
-					'redirect_to' => \BuddyNext\Core\PageRouter::profile_url( $user_id ),
+					'redirect_to' => $this->pending_invite_redirect( $user_id, \BuddyNext\Core\PageRouter::profile_url( $user_id ) ),
 				),
 				200
 			);
@@ -350,7 +350,10 @@ class OnboardingController {
 			$space_members = buddynext_service( 'space_members' );
 			$space_service = buddynext_service( 'spaces' );
 			if ( $space_members && method_exists( $space_members, 'join' ) ) {
-				foreach ( array_map( 'absint', $spaces ) as $space_id ) {
+				// intval, not absint: absint(-5)=5 would pass the <=0 guard below and
+				// join a DIFFERENT real space. intval keeps a negative negative so the
+				// guard rejects it.
+				foreach ( array_map( 'intval', $spaces ) as $space_id ) {
 					if ( $space_id <= 0 ) {
 						continue;
 					}
@@ -376,7 +379,9 @@ class OnboardingController {
 		if ( ! empty( $user_ids ) && function_exists( 'buddynext_service' ) ) {
 			$follows = buddynext_service( 'follows' );
 			if ( $follows && method_exists( $follows, 'follow' ) ) {
-				foreach ( array_map( 'absint', $user_ids ) as $follow_id ) {
+				// intval, not absint: absint(-5)=5 would pass the >0 guard below and
+				// follow a DIFFERENT real member.
+				foreach ( array_map( 'intval', $user_ids ) as $follow_id ) {
 					if ( $follow_id > 0 && $follow_id !== $user_id ) {
 						$follows->follow( $user_id, $follow_id );
 					}
@@ -408,11 +413,49 @@ class OnboardingController {
 					&& trim( $slug ) !== $bn_saved_handle,
 				// Land the new member on their own profile — the thing they just
 				// built in the wizard — rather than the activity feed. Owners can
-				// override the destination in Settings > Registration & Login.
-				'redirect_to'       => \BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ),
+				// override the destination in Settings > Registration & Login. But
+				// if they arrived via a space invite link, that space wins: it is
+				// where they were actually headed.
+				'redirect_to'       => $this->pending_invite_redirect(
+					$user_id,
+					\BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::profile_url( $user_id ) )
+				),
 			),
 			200
 		);
+	}
+
+	/**
+	 * Resolve the post-onboarding redirect, honouring a pending space invite.
+	 *
+	 * When the member opened a valid space invite link before onboarding
+	 * (SpaceInviteLinkService::prime_from_request stored it), completing the
+	 * wizard should return them to that space — where they then click Join — not
+	 * the default profile/feed destination. The pending marker is single-use and
+	 * cleared here regardless; a link that expired in the meantime falls back to
+	 * the normal destination.
+	 *
+	 * @param int    $user_id  Member completing onboarding.
+	 * @param string $fallback The destination to use when there is no valid pending invite.
+	 * @return string
+	 */
+	private function pending_invite_redirect( int $user_id, string $fallback ): string {
+		$pending = get_user_meta( $user_id, 'bn_pending_space_invite', true );
+		if ( ! is_array( $pending ) || empty( $pending['space_id'] ) || empty( $pending['token'] ) ) {
+			return $fallback;
+		}
+
+		$space_id = (int) $pending['space_id'];
+		$token    = (string) $pending['token'];
+
+		// Single-use: clear it whether or not the link is still valid.
+		delete_user_meta( $user_id, 'bn_pending_space_invite' );
+
+		if ( is_wp_error( ( new \BuddyNext\Spaces\SpaceInviteLinkService() )->validate( $space_id, $token ) ) ) {
+			return $fallback;
+		}
+
+		return add_query_arg( 'invite', rawurlencode( $token ), \BuddyNext\Core\PageRouter::space_url( $space_id ) );
 	}
 
 	/**

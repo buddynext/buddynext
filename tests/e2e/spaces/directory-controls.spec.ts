@@ -4,6 +4,9 @@ import { createSpaceApi, deleteSpaceApi } from '../_fixtures/spaces-rest';
 /**
  * J-670..J-672 — Spaces DIRECTORY controls (C1), Wave-4 NEW, effect-based.
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin, anon
+ *
  * These cover the directory's viewer-state and failure surfaces the earlier
  * waves left uncovered:
  *   - J-670: the inline error block + Retry. The directory client-fetches

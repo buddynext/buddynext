@@ -333,6 +333,16 @@ else
 	note "bin/check-schema-authority.php missing"
 fi
 
+if [ -f bin/check-option-defaults.php ]; then
+	if php bin/check-option-defaults.php >/dev/null 2>&1; then
+		ok "option defaults hold — every owner setting declares one default or is marked never-reset"
+	else
+		fail "option-default drift — run: php bin/check-option-defaults.php"
+	fi
+else
+	note "bin/check-option-defaults.php missing"
+fi
+
 if [ -f bin/check-mediaverse-surfaces.php ]; then
 	if php bin/check-mediaverse-surfaces.php >/dev/null 2>&1; then
 		ok "MediaVerse surface ownership holds — no MV assets on BN pages, placeholder avatars stay last, comment controls follow the engine's flags"
@@ -380,6 +390,13 @@ py_gate bin/check-public-hook-docs.py "a hook promised with @since is missing fr
 section "Cookbook hooks resolve"
 py_gate bin/check-cookbook-hooks.py "a cookbook recipe calls a buddynext_* hook/service that exists nowhere in Free or Pro"
 
+# check-tab-url.py gates admin CTA routing: every AdminHub::tab_url('section','tab')
+# must resolve to a tab actually registered + placed in that section, so a moved or
+# renamed subtab is a build failure, not a live owner CTA that lands on the wrong
+# screen (the class behind the monetization 403 — cards 10264294727 / 10264294456).
+section "Admin tab_url() resolves"
+py_gate bin/check-tab-url.py "an AdminHub::tab_url() call points at a tab that is not registered in that section"
+
 # 3b-i-b. Interactivity directive paths — BLOCKING, and green as of this commit.
 #
 # A directive value is resolved as a PROPERTY PATH (optionally prefixed with one "!"), never
@@ -415,6 +432,7 @@ py_gate bin/check-erasure.py "a user-keyed table is not registered for erasure o
 # there (bin/check-journey-coverage.py) reconciles both directions.
 section "Journey tags"
 py_gate bin/check-journey-tags.py "a Playwright spec declares no journey id — add it to the spec's docblock"
+py_gate bin/check-ui-dashes.py "a translatable string contains an em-dash - use a hyphen or plain punctuation"
 
 # 3b-iii-b. Journey EXECUTION — BLOCKING when a site is reachable.
 #

@@ -985,6 +985,23 @@
 }
 .bn-wizard__step[data-state="done"] { color: var(--bn-ink-2); }
 
+/* One spine, one row. Seven labelled steps need ~762px and the card is 720px,
+   so "Done" wrapped onto a line of its own. Only the current step shows its
+   name; the rest show their number or tick, keep the name for screen readers,
+   and show it on hover (title). The rail still wraps as a last resort rather
+   than scrolling behind a hidden scrollbar (see .bn-wizard__steps). */
+.bn-wizard__step:not([data-state="active"]) .bn-wizard__step-name {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
 /* ── Body / form ─────────────────────────────────────────────────────── */
 
 .bn-wizard__body {
@@ -1753,6 +1770,12 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 		justify-content: space-between;
 	}
 	.bn-wizard__btn-continue { flex: 1; }
+	/* Keep the rail on one row on a phone: drop the connector dashes. */
+	.bn-wizard__steps {
+		gap: var(--bn-s2);
+		padding: var(--bn-s3) var(--bn-s4);
+	}
+	.bn-wizard__step + .bn-wizard__step::before { display: none; }
 }
 
 /* ── Reduced motion ──────────────────────────────────────────────────── */

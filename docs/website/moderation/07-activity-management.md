@@ -53,6 +53,16 @@ The list is ordered newest first and paginated at 25 rows a page, with the total
 - **Edit** opens the content in a text area. Save changes rewrites the post body in place; Cancel leaves it untouched. This lets an administrator redact part of a member's post - a phone number, a name, a link - without removing the whole thing, which is often the fairer outcome.
 - **Delete** removes the activity permanently.
 
+### Acting on many rows at once
+
+When a spam wave lands, clearing it one post at a time is slow. Tick the checkbox on each post you want (or the header checkbox to select every post on the page), choose an action from **Bulk actions** above the list, and press **Apply**:
+
+- **Delete** permanently removes the selected posts. It asks you to confirm first ("Delete 12 posts? This cannot be undone.").
+- **Hide** takes the selected posts off the feed and marks them **Under review** - the same state a heavily reported post enters - without deleting anything. It also asks to confirm.
+- **Restore** puts hidden posts back on the feed. Restoring does not touch any open reports, which stay in the moderation queue.
+
+The selection is the current page, so one Apply handles up to 25 posts at once. If some could not be actioned, the notice says so ("10 posts hidden. 2 could not be completed."). Every bulk Hide, Restore and Delete runs the same per-post logic as the single-row action, so counts, search and the moderation log stay correct, and each Hide/Restore is recorded in the moderation log against you.
+
 ## Good to know
 
 - **Delete is permanent, and it cascades.** Removing an activity also removes its comments, reactions, shares, bookmarks, and any poll options and votes attached to it. There is no trash to restore from, so use Edit when redacting is enough.

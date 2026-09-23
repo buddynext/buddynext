@@ -251,3 +251,17 @@ Two rules the client must follow:
 **Do not hardcode the key list.** `media` is the key for WPMediaVerse (not `mediaverse`). Iterate what you receive.
 
 Adding a key here does not bump `contract_version` - it is additive, and a client that predates it simply sees no `integrations` object. Treat a missing block as "no integration information", not as "no integrations".
+
+## App translations: POST /app/strings
+
+`POST /buddynext/v1/app/strings` is public for the same reason as `/app/config`: the app may need to localise its pre-auth sign-in screen, before it has a session. The plugin is already 100% translation-ready (text domain `buddynext`, full `.po`/`.mo` for the supported locales), but `wp_set_script_translations()` only serves enqueued browser scripts - it cannot translate strings baked into a native app binary. This route exposes the same catalogue to the app instead of shipping a second translation pipeline: the app POSTs its bundled English source strings, the server resolves each through the existing `buddynext` text domain for the requested locale, and returns the translated map. A string with no matching `msgid` comes back unchanged (English), which the app already carries as its own fallback.
+
+| Property | Value |
+|---|---|
+| Method | `POST` |
+| Path | `/wp-json/buddynext/v1/app/strings` |
+| Auth | Public - `permission_callback` is `'__return_true'` |
+| Body | `locale` (string, required), `strings` (object, required) - `{ key: "English source" }` |
+| Response | `{ key: "translated" }`, same keys as the request |
+
+A site owner localises or overrides the result the normal way: through the `buddynext` text domain (Loco/.po) or the `buddynext_app_strings` filter.

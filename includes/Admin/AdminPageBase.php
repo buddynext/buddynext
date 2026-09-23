@@ -251,7 +251,7 @@ abstract class AdminPageBase {
 						);
 						break;
 					case 'select':
-						$this->render_select_row( $field->key, $field->label, (string) $value, $field->choices(), $hint );
+						$this->render_select_row( $field->key, $field->label, (string) $value, $field->choices(), $hint, $field->disabled() );
 						break;
 					case 'textarea':
 						$this->render_textarea_row( $field->key, $field->label, (string) $value, $hint );
@@ -830,6 +830,10 @@ abstract class AdminPageBase {
 	 *                                              are valid (e.g. page-ID pickers);
 	 *                                              PHP casts numeric string keys to int.
 	 * @param string                   $hint        Optional hint text beneath the select.
+	 * @param bool                     $disabled    When true, the select is rendered
+	 *                                              disabled (and aria-disabled), so a
+	 *                                              control gated by disabled_callback
+	 *                                              cannot be changed or submitted.
 	 * @return void
 	 */
 	protected function render_select_row(
@@ -837,15 +841,17 @@ abstract class AdminPageBase {
 		string $label,
 		string $value,
 		array $options,
-		string $hint = ''
+		string $hint = '',
+		bool $disabled = false
 	): void {
 		$input_id = 'bn-select-' . sanitize_key( $option_name );
 		?>
-		<div class="bn-field">
+		<div class="bn-field<?php echo $disabled ? ' is-disabled' : ''; ?>">
 			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
 			<select id="<?php echo esc_attr( $input_id ); ?>"
 					name="<?php echo esc_attr( $option_name ); ?>"
-					class="bn-select-input">
+					class="bn-select-input"
+					<?php echo $disabled ? 'disabled aria-disabled="true"' : ''; ?>>
 				<?php foreach ( $options as $opt_value => $opt_label ) : ?>
 					<option value="<?php echo esc_attr( $opt_value ); ?>" <?php selected( $value, $opt_value ); ?>>
 						<?php echo esc_html( $opt_label ); ?>

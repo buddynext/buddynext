@@ -144,6 +144,24 @@ $bn_privacy = array(
 		</div>
 	</div>
 
+	<?php
+	/**
+	 * Fires on the space admin page immediately after the "at a glance" stats row.
+	 *
+	 * A seam for add-ons to append their own stat tiles for the people who manage
+	 * this space (owner, moderators, site admins). BuddyNext Pro uses it to render
+	 * a "Last 30 days" analytics row from data it already computes; with Pro
+	 * inactive the page is unchanged. Anything hooked here must reuse the existing
+	 * .bn-card.bn-space-admin__stat tile markup so the surface stays consistent.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param int $space_id            The space being managed.
+	 * @param int $bn_current_user_id  The viewer (already gate-checked for manage access).
+	 */
+	do_action( 'buddynext_space_admin_after_stats', $space_id, $bn_current_user_id );
+	?>
+
 	<!-- Management surfaces -->
 	<div class="bn-space-admin__nav" role="list" aria-label="<?php esc_attr_e( 'Manage this space', 'buddynext' ); ?>">
 

@@ -6,6 +6,9 @@ import { wp } from '../_fixtures/wp';
  * J-680..J-683 — Feed ACTIONS on a post in space context (C4), Wave-4 NEW,
  * effect-based.
  *
+ * Covers: cap-let-members-react-comment-and-reply, cap-bookmark-and-reshare-posts, cap-let-members-report-content, cap-group-content-into-spaces
+ * Roles: admin, member
+ *
  * The Wave-2 in-space specs covered CREATING and PINNING a space post; these
  * cover ENGAGING with one — react, comment, share, report — through the exact
  * `buddynext/v1` endpoints the post-card store calls (post-card.js), each with

@@ -4,6 +4,9 @@ import { sel, urls } from '../_fixtures/selectors';
 /**
  * J-10-logout.
  *
+ * Covers: cap-register-and-log-in-without-wp-login
+ * Roles: member, anon
+ *
  * The Astra theme exposes the standard WP admin bar to logged-in users,
  * which holds the logout link with a fresh nonce. We click it instead of
  * trying to forge a nonce ourselves.

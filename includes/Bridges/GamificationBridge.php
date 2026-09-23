@@ -38,9 +38,15 @@ class GamificationBridge {
 
 		// Broadcast credential badges to the feed (social proof). The user-facing
 		// notification is handled separately by GamificationBridgeListener; this is
-		// the public engagement surface. Gated to credential badges so tiny
-		// participation badges never spam the feed.
-		add_action( 'wb_gam_badge_awarded', array( $this, 'on_badge_awarded_activity' ), 10, 3 );
+		// the public engagement surface. Broadcast on the member's explicit SHARE, not
+		// on award: wb-gamification 1.6.4 made badges private until the member presses
+		// Share (wb_gam_badge_shared / _unshared). Broadcasting on award published a
+		// credential to the public feed BEFORE the member consented (card 10303345360).
+		// Still gated to credential badges so tiny participation badges never spam the
+		// feed. Unshare WITHDRAWS the card reversibly (draft), so a re-share brings the
+		// same card — id, date, reactions, comments — back rather than minting a new one.
+		add_action( 'wb_gam_badge_shared', array( $this, 'on_badge_shared_activity' ), 10, 2 );
+		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
 
 		// Render the badge feed card through Free's typed-card seam, so it shows the
 		// uniform integration bridge card (icon + "Badge" + linked name) instead of
@@ -66,6 +72,63 @@ class GamificationBridge {
 		// this purpose and nothing was hooking it, so BN was answering a question it
 		// should have been forwarding.
 		add_filter( 'buddynext_user_activity_streak', array( $this, 'canonical_streak' ), 10, 2 );
+
+		// BuddyNext is the master community. When wb-gamification can't show a badge
+		// on its own share page (un-earned / un-published), it would redirect to its
+		// OWN profile page; fill its seam so the visitor lands on the BuddyNext
+		// profile instead. BuddyNext's task lives here in the bridge, not in the
+		// partner — wb-gamification only exposes the filter.
+		add_filter( 'wb_gam_badge_share_redirect_url', array( $this, 'badge_share_redirect_url' ), 10, 2 );
+
+		// Same reasoning for wb-gamification's standalone /u/ member profile: BN
+		// owns the member profile (Achievements / Points / Kudos render there), so
+		// point its /u/ page at the BN profile. wb-gamification exposes the filter;
+		// the bridge fills it.
+		add_filter( 'wb_gam_profile_redirect_url', array( $this, 'profile_redirect_url' ), 10, 2 );
+	}
+
+	/**
+	 * Point wb-gamification's standalone /u/ profile at the BuddyNext profile.
+	 *
+	 * @param string $url     wb-gamification's default (empty = render own page).
+	 * @param int    $user_id Profile owner.
+	 * @return string BuddyNext profile URL, or the incoming default if unresolvable.
+	 */
+	public function profile_redirect_url( $url, $user_id ): string {
+		return $this->resolve_profile_redirect( $url, $user_id );
+	}
+
+	/**
+	 * Resolve a member's BuddyNext profile URL for a partner redirect filter,
+	 * falling back to the partner's own default when it cannot be resolved.
+	 *
+	 * Shared by profile_redirect_url() and badge_share_redirect_url(): both
+	 * partner filters answer the same question (send this user to their BN
+	 * profile, else leave the partner default alone) with different @param docs.
+	 *
+	 * @param string $url     The partner's default URL (empty = render own page).
+	 * @param int    $user_id Profile/badge owner.
+	 * @return string BuddyNext profile URL, or the incoming default if unresolvable.
+	 */
+	private function resolve_profile_redirect( $url, $user_id ): string {
+		$uid = (int) $user_id;
+		if ( $uid <= 0 ) {
+			return (string) $url;
+		}
+
+		$bn_profile = \BuddyNext\Core\PageRouter::profile_url( $uid );
+		return '' !== $bn_profile ? $bn_profile : (string) $url;
+	}
+
+	/**
+	 * Redirect wb-gamification's badge-share fallback to the BuddyNext profile.
+	 *
+	 * @param string $url     wb-gamification's default redirect URL.
+	 * @param int    $user_id Badge owner.
+	 * @return string BuddyNext profile URL, or the partner default if unresolvable.
+	 */
+	public function badge_share_redirect_url( $url, $user_id ): string {
+		return $this->resolve_profile_redirect( $url, $user_id );
 	}
 
 	/**
@@ -158,19 +221,23 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Post a feed activity when a member earns a CREDENTIAL badge.
+	 * Post a feed activity when a member SHARES a credential badge.
 	 *
-	 * Real hook: `wb_gam_badge_awarded( int $user_id, array $def, string $badge_id )`.
-	 * `$def` is the badge definition row (carries `name` + `is_credential`). Links
-	 * to the badge's public share page. Idempotent per share URL via
-	 * IntegrationActivity, so a re-award never duplicates the card.
+	 * Real hook: `wb_gam_badge_shared( int $user_id, string $badge_id )` — fired only
+	 * when the member presses Share, so this never publishes before consent. The badge
+	 * definition (name + is_credential) is resolved from the member's own badges via
+	 * the partner's public getter, since the share hook carries only the id.
 	 *
-	 * @param int    $user_id  Member who earned the badge.
-	 * @param array  $def      Badge definition row.
+	 * Reversible: a card a prior unshare WITHDREW (set to 'draft') is RESTORED here —
+	 * same id, date, reactions and comments — rather than minting a new one, so a
+	 * share -> unshare -> re-share cycle keeps its engagement. Idempotent per share URL.
+	 *
+	 * @param int    $user_id  Member who shared the badge.
 	 * @param string $badge_id Badge slug.
+	 * @return void
 	 */
-	public function on_badge_awarded_activity( int $user_id, array $def, string $badge_id ): void {
-		if ( $user_id <= 0 || empty( $def['is_credential'] ) ) {
+	public function on_badge_shared_activity( int $user_id, string $badge_id ): void {
+		if ( $user_id <= 0 || '' === $badge_id ) {
 			return;
 		}
 		// Owner control: respect the Gamification activity toggle (Integrations).
@@ -178,19 +245,71 @@ class GamificationBridge {
 			return;
 		}
 
+		$def = $this->badge_definition( $user_id, $badge_id );
+		// Gated to credential badges so tiny participation badges never spam the feed.
+		if ( null === $def || empty( $def['is_credential'] ) ) {
+			return;
+		}
 		$name = isset( $def['name'] ) ? (string) $def['name'] : '';
 		if ( '' === $name ) {
 			return;
 		}
 
+		$url = $this->badge_activity_url( $badge_id, $user_id );
+		if ( IntegrationActivity::restore( $url, 'badge' ) ) {
+			return;
+		}
 		IntegrationActivity::publish(
 			$user_id,
 			/* translators: %s: badge name. */
 			sprintf( __( 'earned the %s badge', 'buddynext' ), $name ),
-			$this->badge_share_url( $badge_id, $user_id ),
+			$url,
 			$name,
 			'badge'
 		);
+	}
+
+	/**
+	 * Withdraw a member's shared-badge card when they UNSHARE it.
+	 *
+	 * Real hook: `wb_gam_badge_unshared( int $user_id, string $badge_id )`. Withdraws
+	 * the card reversibly (to 'draft', hidden from every feed but its row, date and
+	 * comments preserved) rather than deleting it, so a later re-share restores this
+	 * exact card. A no-op when no card exists for the badge (a non-credential badge, or
+	 * one shared while the feed toggle was off).
+	 *
+	 * @param int    $user_id  Member who unshared the badge.
+	 * @param string $badge_id Badge slug.
+	 * @return void
+	 */
+	public function on_badge_unshared_activity( int $user_id, string $badge_id ): void {
+		if ( $user_id <= 0 || '' === $badge_id ) {
+			return;
+		}
+		IntegrationActivity::withdraw( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
+	}
+
+	/**
+	 * The member's own row for one badge (carries `name` + `is_credential`), or null.
+	 *
+	 * Resolved through the partner's public getter — never a direct table read — and
+	 * scoped to badges the member actually holds, so it also confirms the share is for
+	 * a real, earned badge.
+	 *
+	 * @param int    $user_id  Member.
+	 * @param string $badge_id Badge slug.
+	 * @return array<string,mixed>|null
+	 */
+	private function badge_definition( int $user_id, string $badge_id ): ?array {
+		if ( ! function_exists( 'wb_gam_get_user_badges' ) ) {
+			return null;
+		}
+		foreach ( (array) wb_gam_get_user_badges( $user_id ) as $badge ) {
+			if ( is_array( $badge ) && isset( $badge['id'] ) && (string) $badge['id'] === $badge_id ) {
+				return $badge;
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -209,19 +328,26 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Public share URL for a badge.
+	 * Feed-card link for an earned badge — the member's own BuddyNext Achievements
+	 * tab, NOT wb-gamification's public share page.
 	 *
-	 * Mirrors WB Gamification's `\WBGam\Engine\BadgeSharePage::get_share_url()` —
-	 * the canonical share-page rewrite (`gamification/badge/{id}/{uid}/share/`).
+	 * The badge already lives on the member's profile here — this IS their
+	 * profile — so BuddyNext needs no separate "share" step to surface it, and
+	 * wb-gamification's share page is gated to publicly-shared badges (an un-shared
+	 * badge there 404s / redirects to the profile anyway). Linking to the
+	 * Achievements tab lands on a surface that always exists at award time
+	 * (the tab shows whenever the member has standing) and that BuddyNext owns.
+	 *
+	 * A per-badge fragment keeps the link unique so IntegrationActivity's
+	 * dedup-on-link_url still stores one card per badge (a bare profile URL would
+	 * collide across every badge and suppress all but the first).
 	 *
 	 * @param string $badge_id Badge slug.
 	 * @param int    $user_id  Member.
 	 * @return string
 	 */
-	private function badge_share_url( string $badge_id, int $user_id ): string {
-		if ( is_callable( array( '\WBGam\Engine\BadgeSharePage', 'get_share_url' ) ) ) {
-			return (string) \WBGam\Engine\BadgeSharePage::get_share_url( $badge_id, $user_id );
-		}
-		return home_url( 'gamification/badge/' . $badge_id . '/' . $user_id . '/share/' ); // bn-route-ok: wb-gam's fixed share rewrite, fallback only.
+	private function badge_activity_url( string $badge_id, int $user_id ): string {
+		$base = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ) . 'achievements/';
+		return $base . '#badge-' . rawurlencode( $badge_id );
 	}
 }

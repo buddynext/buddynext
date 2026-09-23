@@ -157,4 +157,57 @@ class InstallerHubPagesTest extends WP_UnitTestCase {
 			'create_hub_pages() must clear the router sentinel so PageRouter flushes on the next request'
 		);
 	}
+
+	/**
+	 * delete_hub_pages() force-deletes every hub backing page the pointers name -
+	 * the opt-in full-wipe behaviour, so no page with a dead [buddynext_*]
+	 * shortcode is left behind.
+	 *
+	 * @return void
+	 */
+	public function test_delete_hub_pages_removes_the_backing_pages(): void {
+		// Ensure every pointer names a real page (Messages is withheld without the
+		// media engine, so create one directly to prove all pointers are cleared).
+		$ids = array();
+		foreach ( Installer::HUB_PAGE_OPTIONS as $option ) {
+			$page_id = (int) get_option( $option, 0 );
+			if ( 0 === $page_id ) {
+				$page_id = (int) self::factory()->post->create( array( 'post_type' => 'page' ) );
+				update_option( $option, $page_id );
+			}
+			$ids[] = $page_id;
+		}
+
+		Installer::delete_hub_pages();
+
+		foreach ( $ids as $id ) {
+			$this->assertNull( get_post( $id ), "hub backing page {$id} should be force-deleted" );
+		}
+	}
+
+	/**
+	 * Drift guard: HUB_PAGE_OPTIONS must list exactly the page option of every
+	 * hub with backing_page === true, so a new (or retired) backing hub cannot
+	 * silently escape the uninstall wipe. The constant is hardcoded because
+	 * uninstall.php loads Installer without the registry-booting autoloader.
+	 *
+	 * @return void
+	 */
+	public function test_hub_page_options_constant_matches_backing_hubs(): void {
+		$from_registry = array();
+		foreach ( HubRegistry::instance()->all() as $hub ) {
+			if ( $hub->backing_page ) {
+				$from_registry[] = $hub->page_option;
+			}
+		}
+		sort( $from_registry );
+		$constant = Installer::HUB_PAGE_OPTIONS;
+		sort( $constant );
+
+		$this->assertSame(
+			$from_registry,
+			$constant,
+			'HUB_PAGE_OPTIONS must list exactly the backing_page hubs\' page options'
+		);
+	}
 }

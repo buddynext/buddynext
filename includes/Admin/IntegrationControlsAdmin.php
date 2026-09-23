@@ -83,13 +83,55 @@ class IntegrationControlsAdmin {
 					<?php
 					$bn_label   = (string) ( $entry['label'] ?? $key );
 					$bn_subtabs = (array) ( $entry['subtabs'] ?? array() );
+					$bn_version = (string) ( $entry['version'] ?? '' );
+					// Floor and tested-version now come from the bridge's own
+					// registry entry, not a central map here. Below the floor the
+					// bridge's wired seams no-op ("Update needed"); above the
+					// tested version the partner has shipped past what the bridge
+					// was built for, so newer capabilities may not be wired yet
+					// ("Newer partner" — informational, the bridge still works and is due a refresh).
+					$bn_floor  = (string) ( $entry['min_version'] ?? '' );
+					$bn_tested = (string) ( $entry['tested_version'] ?? '' );
+					$bn_stale  = ( '' !== $bn_floor && '' !== $bn_version && version_compare( $bn_version, $bn_floor, '<' ) );
+					$bn_behind = ( ! $bn_stale && '' !== $bn_tested && '' !== $bn_version && version_compare( $bn_version, $bn_tested, '>' ) );
 					?>
 					<div class="bn-settings-section">
 						<div class="bn-ss-header">
 							<span class="bn-ss-title"><?php echo esc_html( $bn_label ); ?></span>
-							<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Connected', 'buddynext' ); ?></span>
+							<?php if ( $bn_stale ) : ?>
+								<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Update needed', 'buddynext' ); ?></span>
+							<?php elseif ( $bn_behind ) : ?>
+								<?php // "Newer partner", not "Update available": the PARTNER is ahead of the bridge, so the owner has nothing to update - it is BuddyNext's bridge that is due a refresh. The old label sent owners to Plugins to update an already-current plugin (card 10320537769). ?>
+								<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Newer partner', 'buddynext' ); ?></span>
+							<?php else : ?>
+								<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
+							<?php endif; ?>
 						</div>
 						<div class="bn-ss-body">
+							<?php if ( '' !== $bn_version ) : ?>
+								<p class="bn-field-hint">
+									<?php
+									if ( $bn_stale ) {
+										printf(
+											/* translators: 1: installed partner version, 2: required minimum version. */
+											esc_html__( 'Version %1$s installed. Update to %2$s or newer to enable every feature this integration offers.', 'buddynext' ),
+											esc_html( $bn_version ),
+											esc_html( $bn_floor )
+										);
+									} elseif ( $bn_behind ) {
+										printf(
+											/* translators: 1: installed partner version, 2: version the bridge was built for. */
+											esc_html__( 'Version %1$s installed. This integration was built for %2$s; the partner is newer, so its latest features may not be wired yet. This bridge is due a refresh.', 'buddynext' ),
+											esc_html( $bn_version ),
+											esc_html( $bn_tested )
+										);
+									} else {
+										/* translators: %s: installed partner version. */
+										printf( esc_html__( 'Version %s installed.', 'buddynext' ), esc_html( $bn_version ) );
+									}
+									?>
+								</p>
+							<?php endif; ?>
 							<?php if ( ! empty( $entry['has_nav'] ) ) : ?>
 								<div class="bn-toggle-row">
 									<div class="bn-toggle-row__copy">
@@ -168,6 +210,49 @@ class IntegrationControlsAdmin {
 			<?php endif; ?>
 		</form>
 		<?php
+		// Family plugins not yet connected — surfaced so the owner can discover and
+		// add them. Sourced from the companion catalog's runtime probe; the whole
+		// block is skipped on a site where every companion is already active.
+		$bn_available = array();
+		if ( class_exists( '\\BuddyNext\\Integrations\\CompanionRegistry' ) ) {
+			foreach ( \BuddyNext\Integrations\CompanionRegistry::all() as $bn_c ) {
+				$bn_detect = $bn_c['detect'] ?? null;
+				if ( ! ( is_callable( $bn_detect ) && (bool) $bn_detect() ) ) {
+					$bn_available[] = $bn_c;
+				}
+			}
+		}
+		if ( ! empty( $bn_available ) ) :
+			?>
+			<div class="bn-settings-section">
+				<div class="bn-ss-header">
+					<span class="bn-ss-title"><?php esc_html_e( 'Available to add', 'buddynext' ); ?></span>
+				</div>
+				<div class="bn-ss-body">
+					<?php
+					foreach ( $bn_available as $bn_c ) :
+						$bn_al = (string) ( $bn_c['label'] ?? '' );
+						$bn_aw = (string) ( $bn_c['why'] ?? ( $bn_c['unlocks'] ?? '' ) );
+						if ( '' === $bn_al ) {
+							continue;
+						}
+						?>
+						<div class="bn-toggle-row">
+							<div class="bn-toggle-row__copy">
+								<span class="bn-toggle-row__label"><?php echo esc_html( $bn_al ); ?></span>
+								<?php if ( '' !== $bn_aw ) : ?>
+									<p class="bn-field-hint"><?php echo esc_html( $bn_aw ); ?></p>
+								<?php endif; ?>
+							</div>
+							<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) ); ?>">
+								<?php esc_html_e( 'Add', 'buddynext' ); ?>
+							</a>
+						</div>
+					<?php endforeach; ?>
+				</div>
+			</div>
+			<?php
+		endif;
 	}
 
 	/**

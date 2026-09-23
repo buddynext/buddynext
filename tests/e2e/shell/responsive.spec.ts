@@ -5,6 +5,10 @@ import { BREAKPOINT } from '../_fixtures/viewports';
 /**
  * J-66-rail-collapse-breakpoints.
  *
+ * Covers: cap-work-on-a-phone-across-the-whole-front-end-not-just-admin
+ * CAPABILITIES.md row states the app shell itself works on a phone/tablet).
+ * Roles: member
+ *
  * At >=1024 the rail labels are visible. At <1024 the rail collapses to
  * icons only. At <768 the rail is hidden entirely and the bottom-bar
  * mobile nav takes over.

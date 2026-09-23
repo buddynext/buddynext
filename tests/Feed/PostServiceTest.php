@@ -306,4 +306,96 @@ class PostServiceTest extends \WP_UnitTestCase {
 			$this->assertNotSame( '', $stored, 'Privacy must never be stored as an empty ENUM value.' );
 		}
 	}
+
+	/**
+	 * Edit is offered only on cards whose text the inline editor can edit.
+	 *
+	 * @return void
+	 */
+	public function test_has_editable_text_matches_what_the_card_renders(): void {
+		$this->assertTrue( PostService::has_editable_text( 'text', '' ) );
+		$this->assertTrue( PostService::has_editable_text( 'announcement', 'Hello' ) );
+
+		foreach ( array( 'photo', 'file', 'link', 'share', 'poll' ) as $type ) {
+			$this->assertTrue( PostService::has_editable_text( $type, 'A caption' ), "$type with a caption is editable" );
+			$this->assertFalse( PostService::has_editable_text( $type, "  \n" ), "$type without a caption has no text to edit" );
+		}
+
+		$this->assertFalse( PostService::has_editable_text( 'discussion', 'Topic' ), 'a forum discussion is edited in the forum' );
+
+		// A typed card drawn by a renderer (blog article, forum discussion) is edited at its source.
+		$renderer = static function () {
+			return '<div>card</div>';
+		};
+		add_filter( 'buddynext_render_post_body_qa_typed', $renderer );
+		$this->assertFalse( PostService::has_editable_text( 'qa_typed', 'Body' ) );
+		remove_filter( 'buddynext_render_post_body_qa_typed', $renderer );
+		$this->assertTrue( PostService::has_editable_text( 'qa_typed', 'Body' ), 'no renderer: plain text body' );
+	}
+
+	/**
+	 * hydrate() carries the space's type, so a card can tell a genuinely narrowed
+	 * audience from one an open space does not enforce (card 10322304407): the lock
+	 * badge for a 'space_members' post in an OPEN space would otherwise lie.
+	 */
+	public function test_hydrate_carries_space_type(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$this->admin,
+			array(
+				'name' => 'Hydrate Type ' . wp_generate_password( 6, false, false ),
+				'slug' => 'hydrate-type-' . strtolower( wp_generate_password( 8, false, false ) ),
+				'type' => 'open',
+			)
+		);
+		$this->assertGreaterThan( 0, $space_id );
+
+		$post_id = $this->service->create(
+			$this->admin,
+			array(
+				'type'     => 'text',
+				'content'  => 'In an open space',
+				'space_id' => $space_id,
+				'privacy'  => 'space_members',
+			)
+		);
+		$this->assertIsInt( $post_id );
+
+		$space_post = $this->service->get( $post_id );
+		$this->assertSame( 'open', $space_post['space_type'], 'a space post should hydrate its space type' );
+
+		// A non-space post reports no space type (the marker logic then never fires).
+		$plain_id   = $this->service->create( $this->admin, array( 'type' => 'text', 'content' => 'No space' ) );
+		$plain_post = $this->service->get( $plain_id );
+		$this->assertSame( '', $plain_post['space_type'], 'a non-space post carries an empty space type' );
+	}
+
+	/**
+	 * A third-party feed card type registers through the filter instead of forking
+	 * PostService (card 10264296011): the type is accepted by create(), the
+	 * built-ins are never dropped even by a filter that returns an empty set.
+	 */
+	public function test_allowed_types_filter_adds_a_type_without_dropping_built_ins(): void {
+		// A custom type is rejected until it is registered.
+		$rejected = $this->service->create( $this->alice, array( 'type' => 'petition', 'content' => 'x' ) );
+		$this->assertWPError( $rejected );
+
+		$add = static function ( array $types ): array {
+			$types[] = 'petition';
+			return $types;
+		};
+		add_filter( 'buddynext_feed_allowed_post_types', $add );
+		$this->assertContains( 'petition', PostService::allowed_types() );
+		$this->assertContains( 'text', PostService::allowed_types(), 'built-ins remain' );
+		$accepted = $this->service->create( $this->alice, array( 'type' => 'petition', 'content' => 'x' ) );
+		$this->assertIsInt( $accepted );
+		remove_filter( 'buddynext_feed_allowed_post_types', $add );
+
+		// A filter that tries to WIPE the set cannot remove the built-ins.
+		$wipe = static function (): array {
+			return array();
+		};
+		add_filter( 'buddynext_feed_allowed_post_types', $wipe );
+		$this->assertContains( 'text', PostService::allowed_types(), 'a filter cannot drop a core type' );
+		remove_filter( 'buddynext_feed_allowed_post_types', $wipe );
+	}
 }

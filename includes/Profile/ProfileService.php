@@ -498,6 +498,133 @@ class ProfileService {
 	}
 
 	/**
+	 * Fetch one profile group row straight from the table.
+	 *
+	 * Unfiltered DB truth (no virtual/registered-field layer): the admin field
+	 * builder needs the stored row before an edit/delete, which the cached,
+	 * filtered get_groups() view cannot give. Null when absent.
+	 *
+	 * @param int $id Profile group id.
+	 * @return array<string,mixed>|null
+	 */
+	public function get_group( int $id ): ?array {
+		if ( $id <= 0 ) {
+			return null;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction FROM {$wpdb->prefix}bn_profile_groups WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $row ) ? $row : null;
+	}
+
+	/**
+	 * Fetch one profile field row straight from the table.
+	 *
+	 * Unfiltered DB truth — used where the admin needs a field's stored type,
+	 * group or label before an edit/delete, which the cached/filtered get_fields()
+	 * view cannot give. Null when absent.
+	 *
+	 * @param int $id Profile field id.
+	 * @return array<string,mixed>|null
+	 */
+	public function get_field( int $id ): ?array {
+		if ( $id <= 0 ) {
+			return null;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, show_in_header, is_system, visibility, sort_order FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $row ) ? $row : null;
+	}
+
+	/**
+	 * Ids of every field in a group.
+	 *
+	 * @param int $group_id Profile group id.
+	 * @return int[]
+	 */
+	public function field_ids_in_group( int $group_id ): array {
+		if ( $group_id <= 0 ) {
+			return array();
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d", $group_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * The next free sort_order for a field appended to a group (MAX + 1, or 0 for
+	 * an empty group).
+	 *
+	 * @param int $group_id Profile group id.
+	 * @return int
+	 */
+	public function next_field_sort_order( int $group_id ): int {
+		if ( $group_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$max = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COALESCE(MAX(sort_order), -1) FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d", $group_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $max + 1;
+	}
+
+	/**
+	 * A table-wide unique field_key derived from a base key.
+	 *
+	 * The field_key column is UNIQUE, but labels repeat (a "Level" field in
+	 * several groups), so a colliding base gets a numeric suffix (_2, _3 …) until
+	 * it is free. This hands create_field() a key its INSERT lands rather than
+	 * IGNORE-ing into a silent no-op.
+	 *
+	 * @param string $base_key Candidate key (sanitised again here).
+	 * @return string Free key (the base itself when already unique); '' for an empty base.
+	 */
+	public function unique_field_key( string $base_key ): string {
+		$base_key = sanitize_key( $base_key );
+		if ( '' === $base_key ) {
+			return '';
+		}
+
+		global $wpdb;
+		$key    = $base_key;
+		$suffix = 2;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		while ( (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE field_key = %s", $key )
+		) > 0 ) {
+			$key = $base_key . '_' . $suffix;
+			++$suffix;
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $key;
+	}
+
+	/**
 	 * Create a new profile group.
 	 *
 	 * @param array $data Group data: group_key, label, type, visibility, sort_order.
@@ -870,7 +997,14 @@ class ProfileService {
 						// sub-field submitted empty is rejected (the stored value is
 						// never cleared) and reported in the error map — every caller
 						// (REST, admin editor, onboarding) gets the same contract.
-						if ( ! empty( $field_def['is_required'] ) && '' === $sanitized_val ) {
+						//
+						// Gated by the SAME predicate the flat branch uses: a sub-field
+						// hidden by conditional logic, or in a group the member's type
+						// excludes, is not theirs to fill and must not be required of them
+						// (the conditional-hidden 422 + Zoho #40859 fixes, which had been
+						// applied to flat fields only).
+						if ( $this->required_rule_active( $field_def, $data, $user_id )
+							&& ! empty( $field_def['is_required'] ) && '' === $sanitized_val ) {
 							$field_errors[ "{$key}[{$entry_index}][{$field_key}]" ] = sprintf(
 								/* translators: %s: field label. */
 								__( '%s is required.', 'buddynext' ),
@@ -1069,24 +1203,10 @@ class ProfileService {
 			// Note this gates the required CHECK only, not the write. An inactive field's
 			// value still persists exactly as it does today on the self-edit path (where
 			// the controller skips validation and save_profile then writes it), so this
-			// removes the spurious 422 without changing what lands in the database.
-			$field_active = (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field, $data, $user_id );
-
-			// A field belonging to a group locked to a member type this member does not hold is not
-			// theirs to fill — it is never rendered for them — so it cannot be required OF them.
-			//
-			// Zoho #40859: set a field required, restrict its group to one member type, and every
-			// member of every other type was told "Birthday is required." for a field that was not
-			// on their screen and never would be. No action available to them cleared it. They
-			// could not save their profile again, ever.
-			//
-			// The REST controller already asked this question. The PERSISTENCE layer — the one the
-			// admin member editor and onboarding call directly — never did, so the same bug was
-			// fixed on one entry point while still shipping on the other two. Both now call the one
-			// predicate.
-			if ( ! $this->field_applies_to_user( $field, $user_id ) ) {
-				$field_active = false;
-			}
+			// removes the spurious 422 without changing what lands in the database. The
+			// repeater sub-field branch above asks the SAME predicate, so the conditional
+			// + member-type skip can never hold on one branch and not the other.
+			$field_active = $this->required_rule_active( $field, $data, $user_id );
 
 			// G3: enforce is_required at the persistence layer (Bugs card
 			// 10055873101). Submitting an empty value for a required field is
@@ -1274,6 +1394,21 @@ class ProfileService {
 		}
 
 		/**
+		 * Fires after a profile save has committed.
+		 *
+		 * Every entry point (member REST save, admin member editor, onboarding,
+		 * registration, importers) funnels through save_profile(), so this is the one
+		 * place an add-on can react to "this member's profile values changed" - e.g.
+		 * to clear answers to questions that no longer apply to them.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param int                  $user_id Member whose profile was saved.
+		 * @param array<string, mixed> $data    The submitted payload, keyed by field_key.
+		 */
+		do_action( 'buddynext_profile_saved', $user_id, $data );
+
+		/**
 		 * Refresh the member's search index entry.
 		 *
 		 * Fired HERE, in the service that performs the write, rather than only in
@@ -1295,6 +1430,24 @@ class ProfileService {
 		do_action( 'buddynext_index_user', $user_id );
 
 		return true;
+	}
+
+	/**
+	 * Field display order: the owner's sort_order, then creation order (id).
+	 *
+	 * The same order the Profile Fields screen lists them in. Sorting on sort_order
+	 * alone left ties in query order, and the query returns a field with no stored
+	 * value (NULL entry_index) before one with a value - so an unanswered field
+	 * jumped above answered ones, and a follow-up question could render above the
+	 * question it depends on.
+	 *
+	 * @param array<string, mixed> $a Field.
+	 * @param array<string, mixed> $b Field.
+	 * @return int
+	 */
+	private static function compare_field_order( array $a, array $b ): int {
+		return array( (int) ( $a['sort_order'] ?? 0 ), (int) ( $a['field_id'] ?? 0 ) )
+			<=> array( (int) ( $b['sort_order'] ?? 0 ), (int) ( $b['field_id'] ?? 0 ) );
 	}
 
 	/**
@@ -1347,24 +1500,35 @@ class ProfileService {
 	}
 
 	/**
-	 * Does this field apply to this member at all?
+	 * Whether a field's is_required rule should be enforced against THIS user and
+	 * submission.
 	 *
+	 * A field hidden by conditional logic (the buddynext_profile_field_is_active seam
+	 * Pro hooks), or belonging to a group the member's type/plan excludes, is not
+	 * theirs to fill and must not be required of them. Both save branches — flat
+	 * fields and repeater sub-fields — ask this ONE predicate, so the
+	 * conditional-hidden 422 fix and Zoho #40859 cannot hold on one branch while the
+	 * other still ships the bug.
+	 *
+	 * @param array<string, mixed> $field_def Field (or repeater sub-field) definition.
+	 * @param array<string, mixed> $data      The full submission (a rule's trigger may live in it).
+	 * @param int                  $user_id   Member whose profile is being saved.
+	 * @return bool Whether the required rule applies to this user + submission.
+	 */
+	private function required_rule_active( array $field_def, array $data, int $user_id ): bool {
+		$active = (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field_def, $data, $user_id );
+
+		if ( ! $this->field_applies_to_user( $field_def, $user_id ) ) {
+			$active = false;
+		}
+
+		return $active;
+	}
+
+	/**
 	 * A profile group can be restricted to a single member type. A member who does not hold that
 	 * type never sees the group, so none of its fields exist for them — and a field that does not
 	 * exist for you cannot be REQUIRED of you.
-	 *
-	 * That was the bug (Zoho #40859): set a field required, restrict its group to one member type,
-	 * and every member of every OTHER type is told "Birthday is required." for a field that is not
-	 * on their screen and never will be. There is no action available to them that clears it. They
-	 * cannot save their profile again — ever. It is the worst shape a validation bug can take,
-	 * because the member cannot even see what they are being blamed for.
-	 *
-	 * This predicate is the single answer to that question, deliberately. The REST controller had
-	 * grown its own copy of the check while the persistence layer — the one the ADMIN member editor
-	 * and onboarding actually call — had none, so the same bug was fixed on one entry point and
-	 * still shipping on the other two. One predicate, three callers, no drift.
-	 *
-	 * An empty restriction means "applies to everyone", which is the default and the common case.
 	 *
 	 * @param array<string, mixed> $field_def Flat field definition (must carry group_type_restriction).
 	 * @param int                  $user_id   Member whose profile is being saved.
@@ -1444,6 +1608,22 @@ class ProfileService {
 	private static function view_value( array $field, $value ) {
 
 		$type = (string) ( $field['type'] ?? '' );
+
+		// A location stores a {address, lat, lng} JSON blob. Like a reduced date, the
+		// exact point must not leave the server in `value`: a member who shares a
+		// location expects others to see their area (the address they chose), not
+		// their cm-precision coordinates. The owner still edits the exact point via
+		// value_raw; everyone else — the About panel, REST, the app — gets the
+		// readable address, and the About panel's map link then points at that area
+		// rather than the pin. Pro's buddynext_field_rest_value shaper is the single
+		// decoder for this (location_display_text); with Pro inactive there is no
+		// location type, so the filter returns null and the value passes through.
+		if ( 'location' === $type ) {
+			$reduced = apply_filters( 'buddynext_field_rest_value', null, $field, $value );
+			if ( null !== $reduced ) {
+				return $reduced;
+			}
+		}
 
 		if ( ! in_array( $type, array( 'date', 'date_extended' ), true ) ) {
 			return $value;
@@ -1867,7 +2047,7 @@ class ProfileService {
 				foreach ( $entries as $entry_fields ) {
 					$entry_fields += $schema;
 					$sorted        = array_values( $entry_fields );
-					usort( $sorted, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
+					usort( $sorted, array( self::class, 'compare_field_order' ) );
 
 					$entry_vis = null;
 					foreach ( $sorted as $sorted_field ) {
@@ -1918,7 +2098,7 @@ class ProfileService {
 				}
 
 				$flat_fields = array_values( $flat_fields );
-				usort( $flat_fields, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
+				usort( $flat_fields, array( self::class, 'compare_field_order' ) );
 				$out['fields'] = $flat_fields;
 			}
 
@@ -2668,6 +2848,15 @@ class ProfileService {
 			$format[]             = '%d';
 		}
 
+		// Which member type (if any) the group is limited to. array_key_exists, not
+		// isset: null is the meaningful "clear the restriction" value. The caller
+		// validates the slug is live; this only sanitises and writes it.
+		if ( array_key_exists( 'type_restriction', $data ) ) {
+			$restriction                = $data['type_restriction'];
+			$update['type_restriction'] = ( null === $restriction || '' === $restriction ) ? null : sanitize_key( (string) $restriction );
+			$format[]                   = '%s';
+		}
+
 		if ( empty( $update ) ) {
 			return;
 		}
@@ -2684,6 +2873,38 @@ class ProfileService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_groups', self::CACHE_GROUP );
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
+	}
+
+	/**
+	 * Re-point every group restricted to one member-type slug at another slug, or
+	 * clear it with null. One statement — used when a member type is renamed
+	 * (slug -> new slug) or deleted (slug -> null), so MemberTypeService writes the
+	 * type_restriction column through the service that owns it rather than raw.
+	 * Flushes the definition cache that column lives in.
+	 *
+	 * @param string|null $from_slug Slug the groups are currently restricted to.
+	 * @param string|null $to_slug   New slug, or null to clear the restriction.
+	 * @return void
+	 */
+	public function reassign_type_restriction( ?string $from_slug, ?string $to_slug ): void {
+		$from_slug = null === $from_slug ? '' : sanitize_key( $from_slug );
+		if ( '' === $from_slug ) {
+			return;
+		}
+		$to_value = ( null === $to_slug || '' === $to_slug ) ? null : sanitize_key( $to_slug );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_profile_groups',
+			array( 'type_restriction' => $to_value ),
+			array( 'type_restriction' => $from_slug ),
+			array( '%s' ),
+			array( '%s' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		self::flush_definition_cache();
 	}
 
 	/**
@@ -2899,8 +3120,8 @@ class ProfileService {
 				$affected
 			),
 			array(
-				'status'            => 409,
-				'affected_members'  => $affected,
+				'status'           => 409,
+				'affected_members' => $affected,
 			)
 		);
 	}
@@ -3244,6 +3465,42 @@ class ProfileService {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+	}
+
+	/**
+	 * Members holding a stored value in any of the given fields, one page at a time.
+	 *
+	 * Keyset-paginated on user_id so a background job can walk every member with an
+	 * answer at any site size without deep OFFSET scans.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param int[] $field_ids     Field ids.
+	 * @param int   $after_user_id Return only user ids greater than this (0 = from the start).
+	 * @param int   $limit         Page size (1-500).
+	 * @return int[] Ascending user ids.
+	 */
+	public function user_ids_with_field_values( array $field_ids, int $after_user_id, int $limit ): array {
+		$field_ids = array_values( array_filter( array_map( 'intval', $field_ids ) ) );
+		if ( empty( $field_ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$limit        = max( 1, min( 500, $limit ) );
+		$placeholders = implode( ', ', array_fill( 0, count( $field_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_profile_values WHERE field_id IN ({$placeholders}) AND user_id > %d ORDER BY user_id ASC LIMIT %d",
+				...array_merge( $field_ids, array( $after_user_id, $limit ) )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**

@@ -123,6 +123,49 @@ const moderationStore = store( 'buddynext/moderation', {
 			}
 		},
 
+		// Content warning: pick a type (setCwType) then apply/clear on the post.
+		// Real route: PUT /posts/{id}/content-warning { content_warning, content_warning_type }.
+		// The moderator control for a feature that was otherwise REST-only (card 10325560448).
+		setCwType( event ) {
+			getContext().cwType = event.target.value;
+		},
+
+		* setContentWarning() {
+			const ctx = getContext();
+			if ( ! ctx.objectId || ! ctx.restNonce ) { return; }
+			const res = yield restFetch( 'posts/' + ctx.objectId + '/content-warning', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'PUT',
+				body: { content_warning: true, content_warning_type: ctx.cwType || 'nsfw' },
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				ctx.cwHasWarning = true;
+				bnToast( t( 'cwAdded', 'Content warning applied.' ), { tone: 'success' } );
+			} else {
+				bnToast( t( 'cwFailed', 'Could not update the content warning. Try again.' ), { tone: 'danger' } );
+			}
+		},
+
+		* clearContentWarning() {
+			const ctx = getContext();
+			if ( ! ctx.objectId || ! ctx.restNonce ) { return; }
+			const res = yield restFetch( 'posts/' + ctx.objectId + '/content-warning', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'PUT',
+				body: { content_warning: false, content_warning_type: ctx.cwType || 'nsfw' },
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				ctx.cwHasWarning = false;
+				bnToast( t( 'cwCleared', 'Content warning cleared.' ), { tone: 'success' } );
+			} else {
+				bnToast( t( 'cwFailed', 'Could not update the content warning. Try again.' ), { tone: 'danger' } );
+			}
+		},
+
 		* warnUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }

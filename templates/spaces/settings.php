@@ -218,6 +218,23 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 					$bn_integration_values['mvs_documents_tab'] = isset( $_POST['mvs_documents_tab'] ) ? '1' : '0';
 				}
 
+				// Events (Eventonomy). Only write when the field is registered — i.e.
+				// the Eventonomy bridge (Pro) is active — so saving this tab with it
+				// absent does not zero the owner's choice, the same guard the toggles
+				// above use for their plugins.
+				if ( null !== $bn_field_registry->get_field( 'events_tab' ) ) {
+					$bn_integration_values['events_tab']     = isset( $_POST['events_tab'] ) ? '1' : '0';
+					$bn_integration_values['event_creators'] = isset( $_POST['event_creators_admins'] ) ? 'admins' : 'members';
+				}
+
+				// Businesses (WB Listora). Only write when the field is registered — i.e.
+				// the Listora space-showcase bridge (Pro) is active — so saving this tab
+				// with it absent does not zero the owner's choice, the same guard the
+				// toggles above use for their plugins.
+				if ( null !== $bn_field_registry->get_field( 'listora_listings_tab' ) ) {
+					$bn_integration_values['listora_listings_tab'] = isset( $_POST['listora_listings_tab'] ) ? '1' : '0';
+				}
+
 				// Report what the registry actually did. Discarding this result is how a
 				// rejected write — can_write(), or a value a sanitiser refused — still
 				// rendered "Saved". The permissions panel below already reads it; this
@@ -298,6 +315,23 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			} else {
 				$save_notice           = 'error';
 				$bn_save_error_message = (string) reset( $bn_brand_result['errors'] );
+			}
+		}
+
+		// "Space opens on" rides the general panel but is a registered field, so it
+		// saves through the registry, which sanitises the tab id, enforces its
+		// owner-only writable_by and rejects a value outside the registered tab set.
+		if ( 'error' !== $save_notice && isset( $_POST['space_default_tab'] ) ) {
+			$bn_default_tab_result = $bn_field_registry->save_for_space(
+				$space_id,
+				array( 'default_tab' => sanitize_key( wp_unslash( (string) $_POST['space_default_tab'] ) ) ),
+				$bn_actor_id
+			);
+			if ( empty( $bn_default_tab_result['errors'] ) ) {
+				$bn_wrote_something = true;
+			} else {
+				$save_notice           = 'error';
+				$bn_save_error_message = (string) reset( $bn_default_tab_result['errors'] );
 			}
 		}
 
@@ -477,6 +511,9 @@ $push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_f
 $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' );
 $mvs_documents_tab     = (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' );
 $album_creators        = (string) buddynext_get_space_field( $space_id, 'album_creators' );
+$events_tab            = (bool) buddynext_get_space_field( $space_id, 'events_tab' );
+$event_creators        = (string) buddynext_get_space_field( $space_id, 'event_creators' );
+$listora_listings_tab  = (bool) buddynext_get_space_field( $space_id, 'listora_listings_tab' );
 $jetonomy_forum_id     = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 
 // Discussion (Jetonomy) status for the opt-in per-Space control. The link picker
@@ -632,6 +669,28 @@ if ( ! empty( \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_custom_field
 				'slug'  => 'fields',
 				'label' => __( 'Custom fields', 'buddynext' ),
 				'icon'  => 'list',
+			),
+		)
+	);
+}
+
+// Invite-link tab — shown only to actors who can invite (owner/mod per the
+// who_can_invite setting, or a site admin), slotted right after Members. The
+// panel itself re-checks can_invite() at the service layer, so this only decides
+// whether the tab is offered.
+$bn_can_invite = ( new \BuddyNext\Spaces\SpaceMemberService() )->can_invite( $space_id, $bn_actor_id );
+if ( $bn_can_invite ) {
+	$bn_members_pos = array_search( 'members', array_column( $builtin_tabs, 'slug' ), true );
+	$bn_invite_at   = false === $bn_members_pos ? count( $builtin_tabs ) - 1 : $bn_members_pos + 1;
+	array_splice(
+		$builtin_tabs,
+		$bn_invite_at,
+		0,
+		array(
+			array(
+				'slug'  => 'invite',
+				'label' => __( 'Invite link', 'buddynext' ),
+				'icon'  => 'link',
 			),
 		)
 	);
@@ -846,6 +905,9 @@ foreach ( $builtin_tabs as $bn_t ) {
 					'mvs_media_tab'         => $mvs_media_tab,
 					'mvs_documents_tab'     => $mvs_documents_tab,
 					'album_creators'        => $album_creators,
+					'events_tab'            => $events_tab,
+					'event_creators'        => $event_creators,
+					'listora_listings_tab'  => $listora_listings_tab,
 					// Owner-only panel. Passed so it can render read-only for a
 					// moderator rather than show controls that would not save — a
 					// control that silently does nothing is worse than no control.
@@ -902,6 +964,18 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'space_id' => $space_id,
 						'members'  => $space_members,
 						'bans'     => $space_bans,
+					),
+				),
+			),
+			'invite'        => array(
+				'parts/space-settings-panel-invite.php',
+				array(
+					'space'           => $space,
+					'invite_settings' => array(
+						'space_id'    => $space_id,
+						// SSR the current link so the panel renders its real state with
+						// no loading flash; create/reset reload the tab to re-render.
+						'invite_link' => ( new \BuddyNext\Spaces\SpaceInviteLinkService() )->get( $space_id ),
 					),
 				),
 			),

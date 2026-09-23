@@ -37,6 +37,12 @@ import {
  *
  * Every test restores the account to the state it found (field value + visibility
  * reset, added repeater entries removed) so reruns are idempotent.
+ *
+ * Covers: cap-let-a-member-keep-a-private-profile
+ * Roles: admin, member, anon
+ * Note: J-710 walks all three (owner sets privacy, then an anon and then a
+ * member viewer); J-711 walks admin (owner) + member (viewer); J-712/J-713 are
+ * admin-only (save hygiene, no second viewer needed).
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';

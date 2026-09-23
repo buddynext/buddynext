@@ -327,9 +327,14 @@ abstract class BaseRestController {
 	 *
 	 * Resolves an (object_type, object_id) engagement target to its owning post and
 	 * asks {@see \BuddyNext\Feed\PostService::visibility_error()} — the one gate
-	 * every surface reads. Targets with no gateable post are treated as visible;
-	 * so is an unavailable service container, because a controller that cannot
-	 * resolve the service must not start refusing traffic it used to serve.
+	 * every surface reads. An unavailable service container is treated as visible,
+	 * because a controller that cannot resolve the service must not start refusing
+	 * traffic it used to serve. But an object type the gate does NOT govern is
+	 * treated as HIDDEN: we cannot prove such a target is public, so a new
+	 * reactable/commentable object added without teaching PostService::resolve_post_id
+	 * about it fails safe rather than silently skipping post-privacy. A governed type
+	 * that simply resolves to no post (a bogus id, a deleted comment) carries no data
+	 * and stays visible.
 	 *
 	 * It lives here because both copies that existed before were on the READ
 	 * endpoints of two controllers, and the write endpoints of five went without.
@@ -350,6 +355,12 @@ abstract class BaseRestController {
 		$posts = buddynext_service( 'post_service' );
 		if ( ! $posts instanceof \BuddyNext\Feed\PostService ) {
 			return false;
+		}
+
+		// A type the post-privacy gate does not govern is hidden by default —
+		// fail safe so a future engageable object cannot skip the gate silently.
+		if ( ! $posts->governs_engagement_type( $object_type ) ) {
+			return true;
 		}
 
 		$post_id = $posts->resolve_post_id( $object_type, $object_id );

@@ -53,8 +53,45 @@ A third-party bridge attaches the same way - hook `buddynext_load_bridges` and w
 | `GamificationBridge` | wb-gamification | `function_exists( 'wb_gam_submit_event' )` | `gamification` | Consumes `wb_gam_badge_awarded` to post a credential-badge feed activity. Point awards for BuddyNext activity are owned by the wb-gamification plugin's own `integrations/buddynext.php` manifest, not this bridge. |
 | `GamificationBridgeListener` | wb-gamification | `function_exists( 'wb_gam_submit_event' )` | `gamification` | `wb_gam_badge_awarded`, `wb_gam_level_changed` (consume) -> BN notifications `bn.badge_awarded` / `bn.level_up` |
 | `CareerBoardBridge` (registered in Pro) | Career Board (`wp-career-board`) | `defined( 'WCB_VERSION' )` guard inside the bridge | `career_board` | `wcb_job_created`, `wcb_job_expired`, `wcbp_resume_published`, `wcb_notification_created` (consume) -> `bn_search_index` (`object_type='job'`) + `bn_notifications`; pure inbound listener |
+| `ListoraBridge` (registered in Pro) | WB Listora (business listings) | `defined( 'WB_LISTORA_VERSION' )` guard inside the bridge | `listora` | `transition_post_status`, `before_delete_post` (consume) -> `bn_search_index` (`object_type='listing'`) + feed `listing` cards via `IntegrationActivity`; no notification mirror yet (Listora has no creation hook to mirror from) |
+| `MemberBlogBridge` | WB Member Blog (front-end publishing) | `defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' )`, checked lazily per surface, not at hook time | `blog` (shares the `feed` aspect Free's `BlogPostListener` already registers) | Merges the `nav` aspect onto the shared `blog` registry entry; adds an "Articles" profile tab + REST via `MemberBlogRestController`; consumes no companion hook - the feed side is generic site tracking, not this bridge |
 | `BuddyXBridge` | BuddyX theme | `'buddyx' === get_template()` | always wired | `buddyx_is_full_width_page` (provide) so plugin pages escape the theme's `.container` wrapper |
 | `PwaService` (PWA, not a companion bridge) | none (first-party) | always wired | n/a | Serves the web-app manifest + service worker; opt-out filter `buddynext_pwa_register_sw` |
+
+## Version floors and the staleness gate
+
+A bridge is written against a specific version of its partner. Two failure modes follow: the partner can be **older** than a seam the bridge needs (the seam silently no-ops), or **newer** than the version the bridge was built for (the bridge may not use the partner's newest capabilities and can drift toward broken). Both are surfaced instead of left to rot.
+
+Each bridge declares two version fields in its `buddynext_integrations` registry entry, both normalized null-safe by `IntegrationRegistry::all()` (Pro suite bridges declare them via `AbstractSuitePanelProvider::integration_min_version()` / `integration_tested_version()`):
+
+- **`min_version`** — the floor below which the bridge's wired seams no-op. Declared per bridge (there is no central map).
+- **`tested_version`** — the partner release the bridge was last built and verified against.
+
+Three surfaces read them:
+
+1. **Integration Settings** (Settings -> Integration Settings) shows one badge per integration: *Active*, *Update needed* (installed `< min_version`), or *Newer partner* (installed `> tested_version` — informational; the partner is ahead of the bridge, which still works and is due a refresh).
+2. **CLI gate** `wp buddynext bridge-status` walks the registry and prints installed / floor / tested / state per bridge. It exits non-zero when any bridge is below its floor; `--strict` also fails when a partner is ahead of `tested_version`. Run it in CI so bridges cannot silently fall behind as partners ship.
+3. Per-bridge deep audits (what the partner offers vs what the bridge consumes) are tracked as Basecamp cards, not in code.
+
+Current declared values (update the row when you re-verify a bridge against a new partner release):
+
+| Integration | Partner constant | `min_version` | `tested_version` |
+|---|---|---|---|
+| `media` | `MVS_VERSION` | 2.4.0 | 2.5.0 |
+| `gamification` | `WB_GAM_VERSION` | 1.6.3 | 1.6.4 |
+| `careerboard` | `WCB_VERSION` | 1.4.3 | 1.6.0 |
+| `learnomy` | `LEARNOMY_VERSION` | 1.9.4 | 1.9.5 |
+| `eventonomy` | `EVENTONOMY_VERSION` | 1.6.0 | 1.6.0 |
+| `jetonomy` | `JETONOMY_VERSION` | (none) | 1.9.7 |
+| `listora` | `WB_LISTORA_VERSION` | (none) | 1.8.0 |
+| `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.1.0 |
+
+## Identity takeover (BuddyNext is master)
+
+Where a partner renders a member's name, @handle, avatar or profile link on a shared surface, BuddyNext owns that identity: one profile link, one name, one mention system across the whole site. A partner exposes filter seams for a host to claim; the bridge fills them so the partner defers to BuddyNext.
+
+- **Jetonomy** fills all five identity seams (`JetonomyBridge`): `jetonomy_profile_url` -> `PageRouter::profile_url`, `jetonomy_user_handle` + `jetonomy_resolve_mention_handles` -> BuddyNext `Handle` (matched emit/resolve pair, incl. custom slug + reserved `user-{id}`), `jetonomy_user_display_name` -> WP `display_name`, and `jetonomy_profile_action_url` -> BuddyNext profile / edit / notification screens (`badges` / `digest` stay on Jetonomy). Avatars come through WP `pre_get_avatar_data` where BuddyNext's `AvatarService` (priority 50/99) already wins.
+- **WPMediaVerse** fills `mvs_user_profile_url` -> BuddyNext profile and reports `mvs_has_custom_avatar`; its display name defaults to WP `display_name` already, and a single-media page redirects to the source BuddyNext activity by default, so identity there is native BuddyNext.
 
 ## JetonomyBridge
 
@@ -166,9 +203,41 @@ This tells WPMediaVerse to suppress its own floating chat panel, standalone mess
 
 `bn_follows` (BuddyNext) and `mvs_follows` (WPMediaVerse) are kept in sync in both directions so a member's follow state is identical on either profile. The bridge listens on `mvs_user_followed/unfollowed` and `buddynext_user_followed/unfollowed`; a re-entrancy guard (`$mirroring_follow`) plus an `is_following()` short-circuit prevent the mirror from looping back on itself.
 
+### Media feed-card lifecycle
+
+A non-photo media upload (video / audio) becomes a `'media'` integration feed card keyed on the media permalink, storing only the media id - title and cover resolve at render, per viewer, so they never go stale or leak. The bridge keeps that card honest across the media's whole lifecycle:
+
+| WPMediaVerse fires | Bridge does |
+| --- | --- |
+| `mvs_media_deleted` (hard delete) | `on_media_deleted` - withdraw the card (and any composer document card by id) |
+| `mvs_media_trashed` (soft delete) | `on_media_trashed` - withdraw the card by permalink (reversible) |
+| `mvs_media_restored` | `on_media_restored` - re-publish the card (reference-only, so it reconstructs exactly; idempotent by URL) |
+| `mvs_media_privacy_changed` | *not hooked* - privacy is resolved at render instead: `hydrate_media_preview()` gates BOTH title and cover behind `PrivacyService::can_view()`, so a viewer who may not see the media gets the coverless, titleless compact card. Per viewer, for every transition - a blunt privacy-change withdrawal would also hide members-scoped media from members who may still see it. |
+
+Documents have their own trash hook (`mvs_document_trashed` -> `on_document_trashed`), which removes the shared document card; photos are native posts, not bridge cards. There is deliberately **no** document-restore mirror: `mvs_document_restored` is left unhooked (owner decision 2026-09-17). Trashing a document removes its share, and a member who wants it back re-shares it - simpler than re-adding a card whose original post text is already gone.
+
 ### Media rail item
 
 `inject_media_nav_item()` adds a "Media" link to the BuddyNext left rail, resolving the engine's mapped Explore page (`mvs_page_explore`) and falling back to `/media/`. This only adds a link on BuddyNext's own pages - it never alters a WPMediaVerse page.
+
+### Space Files: link a file into more than one space
+
+A document has one home drive (`mvs_media_index.drive_type`/`drive_id`). A member can add an existing file to additional spaces without a copy - the same many-to-many model Eventonomy uses for events. The join table `mvs_media_spaces (media_id, space_id, added_by, added_at)` lives in WPMediaVerse (Migrator v33); `MediaRepository::drive_documents()` unions a space drive's own rows with the rows linked in, and `SearchService` unions them into that space's search. Cleanup is automatic - the table is in `MediaRepository::MEDIA_CHILD_TABLES`, so deleting the file drops its links too.
+
+Requires WPMediaVerse + WPMediaVerse Pro 2.5.1 alongside this BuddyNext release.
+
+Authorization reuses the drive-access seam plus one new filter:
+
+| Filter | Answered by BuddyNext with | Governs |
+| --- | --- | --- |
+| `mvs_document_drive_access` | owner -> `own`, moderator/member -> `write`, viewer -> `read` (`space_drive_access`) | Who may **link** (needs `write` on the target space) and read the space drive. |
+| `mvs_document_can_moderate_space` | true for a space owner/moderator or site admin (`space_files_can_moderate`, fail-closed) | Who may **remove another member's** link. A member may always remove their own; the file owner may always remove their file. |
+
+Because both a member and a moderator resolve to drive `write`, moderation cannot be read off the drive level alone - the new filter is what separates them (the same reason Eventonomy added `evnm_user_can_unbind_space`).
+
+Linking grants that space's members **view** access to the file (`PermissionService::permission_from_space_link` returns `view` for anyone who can reach a linked space), exactly as a file uploaded straight into the space is visible - and to nobody outside that space's audience. Home-drive privacy is unchanged everywhere else.
+
+Pro REST (all under `mvs-pro/v1`): `POST /documents/{id}/spaces` and `POST /documents/link` (`{ ref, space_id }`, where `ref` is a URL, slug, or id) attach; `DELETE /documents/{id}/spaces/{space_id}` detaches. The BuddyNext space Files tab renders a "Link a file" control and marks linked rows with a `Linked` badge; a linked row's Remove drops the link (the original file stays put), while a native space file's Remove re-homes it to the owner's drive.
 
 ## GamificationBridge and GamificationBridgeListener
 
@@ -180,9 +249,88 @@ The gamification integration is split into a write-side bridge (BuddyNext events
 
 > **Note:** The conformance record `docs/conformance/contract-gamification-seam.md` describes profile gamification being surfaced via `buddynext_profile_extra_data`. The current implementation surfaces it through the dedicated `GamificationAchievements` profile tab instead (registered on `buddynext_register_nav`); the `profile_extra_data` injection is not present in `GamificationBridge`. Document the Achievements tab as the live surface.
 
+## MemberBlogBridge
+
+Surfaces a member's published WordPress posts as an **Articles** profile tab. Unlike every other bridge on this page it consumes no companion hook - its job is knowing which member wrote a post, which needs nothing beyond `WP_Query` over the tracked post types (`buddynext_site_tracking_post_types`, default `post`). WB Member Blog is what gives a member a front-end way to write one; a post published from wp-admin lands on the same tab identically.
+
+- **Guard:** `MemberBlogBridge::available()` checks `defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' )` - the plugin's own bootstrap constant - evaluated lazily inside each surface (the nav condition, the REST handler), not at `init()`. Hooks attach unconditionally because `plugins_loaded:25` can still run before Member Blog's own late bootstrap on some sites; a presence check at hook time would silently disable the tab where the plugin is in fact present.
+- **The feed side is NOT this bridge.** Free's `Feed\BlogPostListener` already publishes an `article` card on `publish` for every tracked post type, independent of Member Blog. This bridge only adds the profile surface and the owner's route back to Member Blog's dashboard.
+- **Registry entry:** merges the `nav` aspect onto the SAME `blog` integration key `BlogPostListener` already registers for `feed` (`register_integration()` on `buddynext_integrations`, merge not replace, so neither side can silently turn the other off). Reports `version` / `tested_version` (`4.1.0`) only once Member Blog is actually present; while the plugin is absent, site tracking's own `null` version is left untouched.
+- **Surfaces:** an "Articles" profile tab (priority 65, after Discussions) listing the member's posts with pagination and a per-viewer status filter - the owner also sees drafts and pending review, everyone else sees published only. `articles_data()` / `MemberBlogRestController` expose the same list as JSON for the app.
+- **Dashboard link:** `dashboard_url()` prefers Member Blog's own `Member_Blog_Compat::get_dashboard_url()` when it happens to be loaded, falls back to the configured dashboard page option, then to wp-admin for a member who can reach it, and returns `''` (no link rendered) rather than a URL that 404s or bounces off a login wall.
+
 ## Career Board bridge (registered in Pro)
 
-`CareerBoardBridge` was moved Free -> Pro: jobs are an application layer on top of the social core, so Free no longer registers it. Pro wires it on the same `buddynext_load_bridges` seam, gated on the `career_board` feature and self-guarding on `defined( 'WCB_VERSION' )`. It is a pure inbound listener - it consumes Career Board hooks (`wcb_job_created`, `wcb_job_expired`, `wcbp_resume_published`, `wcb_notification_created`), plus WP core `transition_post_status` / `before_delete_post` to keep the index in sync, indexes jobs into `bn_search_index` (`object_type = 'job'`) via `SearchService::index()`, and creates `bn_notifications` off `wcb_notification_created`. It fires no `buddynext_*` hooks of its own and does not index hashtags. The hooks were reconciled against the real `wp-career-board` signatures (`wcb_job_created` passes the job id plus a `WP_REST_Request` the bridge ignores, so title, description and author are read from the job post, with the author resolved from `post_author`).
+Career Board is two Pro files (jobs are an application layer on the social core, so Free registers neither):
+
+- **`CareerBoardBridge`** (event sync) — a pure inbound listener on `buddynext_load_bridges`, gated on the `career_board` feature and `defined( 'WCB_VERSION' )`. It consumes `wcb_job_created`, `wcb_job_updated`, `wcb_job_expired`, `wcbp_resume_published`, `wcb_notification_created`, plus WP core `transition_post_status` / `before_delete_post`. Jobs and (Pro) resumes become uniform `job` / `resume` feed cards via `Feed\IntegrationActivity`, are indexed into `bn_search_index`, and `wcb_notification_created` (fired by WCB's email layer in free and the notifications-bell module in Pro) is mirrored into `bn_notifications`. `wcb_job_created` passes a `WP_REST_Request` the bridge ignores — title/description/author are read from the job post (`post_author`).
+  - **Job-edit sync:** `on_job_updated` (on `wcb_job_updated`) refreshes a published job's card in place via `IntegrationActivity::refresh` (`transition_post_status` ignores a no-status-change edit and `publish()` is idempotent, so a plain edit would otherwise leave a stale card). Resumes already re-fire `wcbp_resume_published` on update.
+- **`CareerBoardSocial`** (`AbstractSuitePanelProvider`) — the member profile Jobs panel (`/wcb/v1/jobs?author=`) and, with Pro (`WCBP_VERSION`), the Resume panel (`/wcb/v1/resumes?author=`). Both render on BuddyNext with BuddyNext identity.
+
+**Identity:** Career Board exposes no profile-URL / display-name / avatar filter (only generic `wcb_rest_prepare_*` REST shapers), so there is no seam to fill the way Jetonomy/MediaVerse are filled. Job/resume cards and profile panels are BuddyNext-rendered and already use BuddyNext identity; WCB's own `/jobs/` board and company pages remain WCB's surface. Whether to also own identity there (by rewriting author/employer fields in `wcb_rest_prepare_*`) is an open owner decision, tracked as a Basecamp card.
+
+## Listora bridge (registered in Pro)
+
+`ListoraBridge` connects WB Listora's directory listings (the `listora_listing` CPT) to the community - the same "business app lives in Pro" pattern as Career Board. Guarded on `defined( 'WB_LISTORA_VERSION' )`.
+
+- **Status-driven, not a dedicated approve hook.** WB Listora has no "listing approved" hook - listings move through post statuses (`pending` / `pending_verification` / `publish`) - so the bridge hooks WP-native `transition_post_status`: a transition INTO `publish` from any other status broadcasts + indexes; a transition OUT of `publish` withdraws the card (reversible - draft/trash, not deleted, so a re-publish restores the exact same card instead of orphaning its comments); `before_delete_post` removes the card permanently, because a hard delete of a published post skips the trash transition entirely.
+- **Card content:** rendered through the shared bridge-card seam (`IntegrationActivity::render_bridge_card`, type `store`) with an excerpt - the author's own excerpt, falling back to the opening of the content - and a featured-image thumbnail when set. Added because the card originally shipped as an icon, a label and a title with no description, the least informative shape the feed can carry for a listing.
+- **Both search and feed are gated on the owner's Integration Settings switches** (`buddynext_integration_enabled( 'listora', 'search' | 'feed' )`); `on_search_disabled()` purges the whole `listing` search-index type when the owner switches Listora's search off, the same behavior every other bridge's search toggle has.
+- **No notification mirror yet.** Listora owns its own dashboard notification center; the bridge only adds feed activity plus the profile Portfolio panel (`Integrations\Listora\ListoraSocial`), until Listora ships a creation hook to mirror from (tracked as a Basecamp card).
+- **Businesses-in-Spaces** - the curated per-space listing showcase members submit to and a space team approves - is a separate class, `ListoraSpaceShowcase` under `Integrations\Listora`, not part of `ListoraBridge` itself. See the Listora integration page for the member/owner-facing walkthrough.
+
+## Learnomy bridge (registered in Pro)
+
+Learnomy is a custom-table LMS. Its Space (B2B team) and cohort models are Pro (`learnomy-pro`). Multiple files:
+
+- **`LearnomyCommunityLink`** — the richest space link in the suite. A BuddyNext Space is linked to a Learnomy **course**, **Learnomy Space**, or **cohort** (link stored in `bn_space_meta`: `learnomy_link_type` / `_id` / `_managed`). Membership flows in one direction (Learnomy → community): `learnomy_student_enrolled`/`_unenrolled`, `learnomy_pro_space_member_added`/`_removed`/**`_suspended`/`_resumed`**, `learnomy_pro_cohort_member_added`/`_removed` add/revoke the member on the linked Space (managed-only, so independent joiners are untouched). Setting a link runs an Action-Scheduler **backfill** to enrol existing members; source deletion (`learnomy_course_deleted` / `_pro_space_deleted` / `_pro_cohort_deleted`) releases the link. Reverse lookup: `linked_bn_spaces( $type, $id )` (public). Suspension mirrors as a revoke so a suspended member loses community access.
+- **`LearnomyBridge`** — outcome activity: `learnomy_course_completed` → "completed a course" card, `learnomy_certificate_issued` → "earned a certificate" card (verify-URL). Enrolment/progress produce no activity (outcomes only). The card is stamped with `linked_space_id( $course_id )`, so a completion in a linked course shows in **both** the member's profile **and** the linked Space's feed; unlinked courses stay profile/main-feed scoped.
+- **`LearnomyLinkController`** (REST `/learnomy-link*`), **`LearnomyMembershipGrant`** (a membership plan grants a Space), **`LearnomyAdminBridge`** (Community tab on the Learnomy-Space admin), **`LearnomySocial`** (profile enrolled / certifications / teaching panels), **`LearnomyFrontendBridge`**.
+
+**Known gaps (carded):** Learnomy-Space **sub-groups** (`lrn_pro_space_groups`) and **learning paths** are not yet linkable to a BuddyNext Space; Learnomy-Space **roles** are not mapped to BuddyNext-Space roles (members join as plain members).
+
+## Eventonomy bridge (registered in Pro)
+
+`EventonomyBridge` connects the Eventonomy events engine (custom `evnm_*` tables, not CPTs). The most complete suite bridge — it needs no host takeover because events are **natively space-aware**: `evnm_events.space_id` links an event to a BuddyNext Space, and the bridge simply reads it.
+
+- **Feed activity, space-scoped:** `evnm_after_create_event` → "scheduled an event", `evnm_after_create_rsvp`/`_update_rsvp` (status `going`) → "is attending". Both `IntegrationActivity::publish(..., (int) $event['space_id'], ...)`, so an event bound to a Space posts to that Space's feed AND the member's profile; unbound events stay profile/main-feed. `evnm_event_status_changed` publishes on → published and removes on cancel; `evnm_after_delete_event` removes.
+- **Edit sync:** `on_event_updated` → `publish_event_surfaces`, which re-indexes search and, when `publish()` dedups an existing card (returns 0), calls `IntegrationActivity::refresh()` to update the card in place. Note the refresh payload must include `title` + `description` alongside `event_card_meta()` (image/date/venue) — the card's headline and preview are `link_meta['title']`/`['description']`, which `event_card_meta` does not carry; passing only the meta refreshed the date/venue but left the headline stale (fixed on 1.2.1).
+- **Surfaces:** profile **Events** tab (Organizing / Going / Interested / Maybe), space **Events** tab (`render_space_events` — a **List / Calendar** toggle + **Create event** button), left-rail item, an upcoming-events sidebar widget, and notification mirroring via `evnm_notification_dispatch`.
+- **Identity:** Eventonomy's `evnm_user_display_names` default is already WP `display_name` (= BuddyNext's), avatars use core `get_avatar()` (BuddyNext's `AvatarService` wins), and event pages are Eventonomy's own surface (linked via `evnm_event_permalink`) — so nothing to take over.
+- **No double activity:** Eventonomy Pro ships its own BuddyPress `ActivityRecorder`, but it is guarded on `function_exists( 'bp_activity_add' )` / `bp_is_active()` and is inert on a BuddyNext (non-BuddyPress) site — only this bridge records activity.
+
+### Space Events module (create-in-space)
+
+Eventonomy's own group-events UX (`GroupEventStamp` + `EventsGroupTab`) binds to classic BuddyPress **groups** (`bp_get_current_group_id`, `groups_*`), which never resolve for a BuddyNext **Space**. `SpaceEventStamp` (`includes/Integrations/Eventonomy/SpaceEventStamp.php`) is the Space-equivalent: it feeds the same three Eventonomy seams so a member can create an event from a Space and have it auto-bound, without picking a space. Without it, nothing writes a Space `space_id` through the UI and the space Events tab has no feeder.
+
+- `evnm_event_editor_fields` — on the create URL carrying `?bn_space={id}`, injects `space_id` (NEW events only) so it rides the editor block's context into `POST /events`. Auto-bind, no picker.
+- `evnm_user_can_bind_space` — authorises a bind to a **real BN space id only** (returns the prior decision otherwise, never vouching for another layer's ids). Re-checked on create AND update, so a forged `?bn_space` is refused server-side.
+- `evnm_available_spaces` — offers the member's own bindable spaces to the editor picker.
+- **Create button** links to `evnm_event_create_link` (the dashboard `/manage-events/?evnm_section=create` URL) + `bn_space`, NOT the Submit Event page — that page 302-redirects and drops query args, so `bn_space` would be lost.
+- **Authorisation** mirrors `Galleries::can_create_space_album`: admin always; space manager/moderator always; any active member unless the owner set the per-space `event_creators` field to `admins`. Also gated on Eventonomy's own `evnm_user_can_create_events`.
+
+**List / Calendar views** (`render_space_events`, view carried in `?bn_eview`):
+
+- **List** (default) — BuddyNext's own `render_event_grid` + pager over `EventBuckets::resolve_space` (matches the hub's card styling), or an inviting empty state.
+- **Calendar** — reuses Eventonomy's own `eventonomy/calendar` block via `render_block( [ 'spaceId' => $space_id ] )`, exactly as Eventonomy Pro's group tab does; the block's `render.php` maps `spaceId` → `space_id` in its range query, so the month grid is scoped to this space. No reimplemented calendar. Verified embedded in the hub: the block's Interactivity region hydrates (month nav works), events link out to their Eventonomy pages, and it is responsive (mobile agenda layout) and dark-mode-cohesive out of the box. The toggle links are ordinary full-load navigations so the block hydrates cleanly; degrades to the list if the block is unregistered.
+
+**Per-space owner controls** (fields registered by the bridge on `buddynext_register_space_fields`, rendered in the space Settings → Integrations panel guarded by `SpaceFieldRegistry::get_field('events_tab')`):
+
+- `events_tab` (boolean, default `0`) — show the Events tab in this space. Mirrors `mvs_media_tab`/`mvs_documents_tab`; the space nav item is gated on it, so the tab is owner-opt-in (shown even when empty, so members can create the first event).
+- `event_creators` (select, default `members`; `members`|`admins`) — who may add events. Editing an event's **content** stays **author-only** (Eventonomy's `Capabilities::user_can_manage_event`, unchanged — a space owner gets no edit rights over a member's event). This setting is the "who may add" door.
+
+**Multi-space linking (an event in several spaces).** An event has one **home** space (`evnm_events.space_id`, set at creation) and any number of **additional** spaces via the many-to-many table `evnm_event_spaces` (Eventonomy `1.7.0`; `PRIMARY KEY(event_id, space_id)`, `KEY(space_id)`). Eventonomy's own space filter in `EventRepository` and `OccurrenceRepository` unions the two — `space_id = X OR EXISTS(a link row for X)` — so an event shows in every space it belongs to, in both the **list and the calendar**, with no per-space duplication of the event.
+
+- **API (Eventonomy `EventService`):** `attach_space()` (authorised via `evnm_user_can_bind_space`), `detach_space()`, `spaces_for($id)` (home + links, de-duped). Links are cleaned up on event delete.
+- **"Link event" (BN):** a button beside Create in the space toolbar (same door as Create — `can_bind_space`; `event_creators=admins` restricts both). Paste an event URL → `SpaceEventStamp::resolve_event_ref()` resolves it (slug via `find_by_slug`, or numeric id) → must be **published + public** → `attach_space`. Rejects bad links and non-public events with a specific notice. No-JS `<details>` + POST, handled on `template_redirect` (PRG). Creation stays single home space (unchanged).
+
+**Organiser moderation — "Remove from space" (unlink).** The removal half of space control: a space owner/manager/moderator (or site admin) can detach any event that belongs to their space, in the space Events **List** view. It never deletes or edits the event. Multi-space aware: if the space is the event's **home**, it clears `space_id`; if it's an **additional link**, it drops that link (`detach_space`) — either way the event stays in every OTHER space it belongs to. Membership is checked against `spaces_for()` (home **and** links), so a linked event can be removed, not only one created there.
+
+- Authority: `SpaceEventStamp::can_moderate_space_events()` (space `buddynext-manage-space`/`buddynext-moderate-space`, or `manage_options`) — a **space** authority, deliberately separate from event authorship. `unbind_from_space()` also verifies the event is currently bound to *that* space, then calls Eventonomy's public `EventService::update( $id, ['space_id'=>0] )` (no table writes). Eventonomy's own `authorize_space_binding` always permits an unbind (`space_id<=0`); the author-gate is only in its REST controller, so BN authorises the organiser itself.
+- Two entry points (portfolio rule): a progressive `<details>` two-step **POST form** on the web (nonce; works without JS; handled on `template_redirect` with a PRG redirect + status notice), and `POST buddynext-pro/v1/spaces/{space_id}/events/{event_id}/unbind` for the app. The control renders only for organisers, only in List view, and never inside the row link.
+- The `on_event_updated` hook then re-syncs surfaces — the space feed card follows `space_id` to 0.
+
+**Visibility:** an event created in a space defaults to Eventonomy's `public` visibility (the creator can change it), and `resolve_space` already queries `visibility='public'`, so the space tab and the global calendar both show it — a private space's events are therefore public unless the creator narrows them.
 
 ## PWA
 
@@ -213,5 +361,5 @@ A theme bridge, always wired because it self-guards on `'buddyx' === get_templat
 - **Bridges never call companion code directly outside a guard.** Every companion class/function reference is wrapped in a `class_exists` / `function_exists` / `method_exists` check, so a partial or older companion build degrades instead of fataling.
 - **Feature toggle vs companion presence are independent gates.** A bridge runs only when both its feature toggle is on (`buddynext_feature_enabled`) and its companion is active. Disabling the toggle removes the bridge even if the companion is installed.
 - **Companion table access is the bridge's job.** Jetonomy `jt_*` reads and the WPMediaVerse follow-graph access live inside the bridge classes; downstream templates and services consume bridge methods (for example `JetonomyBridge::user_discussions()`), never the companion schema.
-- **Free/Pro boundary.** The integration bridges documented on this page (Jetonomy, WPMediaVerse, gamification, BuddyX, PWA) all live in Free and run regardless of Pro. `CareerBoardBridge` was moved to Pro; Pro also registers `ListoraBridge` and `LearnomyBridge` on the same `buddynext_load_bridges` seam (those business-integration bridges are documented separately). Only `CareerBoardBridge` is covered here.
+- **Free/Pro boundary.** `JetonomyBridge` (+ listener), `WPMediaVerseBridge`, `GamificationBridge` (+ listener), `MemberBlogBridge`, `BuddyXBridge` and `PwaService` all live in Free and run regardless of Pro. `CareerBoardBridge`, `EventonomyBridge`, `LearnomyBridge` and `ListoraBridge` are business-application bridges that live in Pro and register on the same `buddynext_load_bridges` seam; all four are documented above. Pro also registers `WooCommerceBridge` and `PmproBridge` on a separate seam (`GrantBridgeRegistrar`, via `buddynextpro_membership_sources`) - those are membership-**grant** bridges for monetization, a different contract (`AbstractGrantBridge`) than a community-surfacing bridge, and are documented on [Membership Grant Bridges](53-membership-grant-bridges.md), not here.
 - **Docblocks may lag code.** `JetonomyBridge`'s own docblock still mentions `jetonomy_show_community_nav`; the live code no longer registers it. When a comment and the source disagree, the source is authoritative.

@@ -86,8 +86,8 @@ The related service seams - `PostService::set_schedule()`, `clear_schedule()`, `
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/posts/(?P<id>[\d]+)/bookmark` | auth | Bookmark a post. Gated by the `buddynext_allow_bookmarks` setting. |
-| DELETE | `/posts/(?P<id>[\d]+)/bookmark` | auth | Remove a bookmark. Gated by `buddynext_allow_bookmarks`. |
+| POST | `/posts/(?P<id>[\d]+)/bookmark` | auth | Bookmark a post. Gated by the `bookmarks` feature flag (`buddynext_feature_enabled( 'bookmarks' )`); returns `bookmarks_disabled` (403) when off. |
+| DELETE | `/posts/(?P<id>[\d]+)/bookmark` | auth | Remove a bookmark. Gated by the same `bookmarks` feature flag. |
 | GET | `/me/bookmarks` | auth | The current user's bookmarks. Accepts `?expand=posts` to hydrate full post objects (default returns IDs), plus `?per_page=`. |
 
 ### Content-warning routes

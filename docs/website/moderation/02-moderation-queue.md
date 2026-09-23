@@ -53,12 +53,9 @@ Each row has an action cluster. The actions available from the queue page are:
 
 Warning, striking, and suspending a member are actions against the person rather than the single item. For how strikes, suspensions, warnings, and appeals work, see User Moderation.
 
-Two more outcomes exist for a report's lifecycle:
+Two more outcomes exist for a report's lifecycle - **Escalate**, which flags a report as needing a more senior decision, and **Resolve**, which explicitly closes a report as handled. Community-page filter tabs (see below) already show Escalated and Resolved as states a report can be in.
 
-- **Escalate** - flags a report as needing a more senior decision, moving it to an escalated state.
-- **Resolve** - explicitly closes a report as handled.
-
-> **Note:** Escalate and Resolve are part of the report workflow, but in the current release they are not yet surfaced as buttons on the queue page. From the page itself, Dismiss and Remove cover the everyday close-out paths.
+> **Note:** On this front-end community page, Escalate and Resolve are not yet surfaced as row buttons - Dismiss and Remove cover the everyday close-out paths here. Both actions ARE available as buttons today from the wp-admin mirror of this queue (**BuddyNext > Moderation > Reports**, see below), which a site administrator can use for the same reports.
 
 ### Every action is logged
 
@@ -72,6 +69,18 @@ The queue's default view is the pending list: items that have been reported and 
 
 When nothing matches the current filter, the queue shows a Nothing to review state confirming there are no pending reports for that filter. This is the normal, healthy state of a well-tended queue, not an error. New reports appear here as members flag content.
 
+## The wp-admin mirror (for site administrators)
+
+The same reports also have a second home in the WordPress admin, under **BuddyNext > Moderation**. It reads and writes the same underlying reports as the community page above, but it is a separate screen, restricted to whoever can manage the site (not to promoted community moderators), and it groups the whole moderation workflow into four tabs:
+
+| Tab | What it shows |
+|---|---|
+| Pending | Posts held for approval before they went live. Empty on almost every site - see Content Safeguards for when this applies. |
+| Reports | The same report queue described on this page, with **Dismiss**, **Resolve**, **Escalate**, and **Remove content** all available as row buttons, plus the strike/suspend actions on the reported member. |
+| Suspensions | Every active suspension, with a one-click lift. See Moderating a Member. |
+| Appeals | Pending appeals awaiting a decision. See Appeals. |
+
+Use this screen when you want Escalate or Resolve without waiting for those buttons to reach the community page, or when you would rather work reports from wp-admin than from inside the community itself. Both surfaces log to the same moderation log, so switching between them mid-session does not create a gap in the record.
 
 ## Good to know
 
@@ -80,6 +89,7 @@ When nothing matches the current filter, the queue shows a Nothing to review sta
 - **Urgency is automatic.** An item crosses into Urgent once three or more different members have reported it. The Urgent tab and the Urgent reports counter both use this threshold.
 - **Privacy on direct messages.** A reported direct message shows a privacy notice in place of its content, so a moderator can act on the report without reading the private message.
 - **Concurrency.** Because the queue is shared, an item another moderator already handled may have already changed state by the time you reach it. Reload the queue to see the current pending list.
+- **The wp-admin mirror needs full admin access, not just moderator permission.** A member promoted to community moderator uses this front-end page. **BuddyNext > Moderation** in wp-admin is gated on the ability to manage the site, so a promoted moderator without wp-admin access will not see that menu at all - only a site administrator can.
 
 ## Free vs Pro
 
@@ -90,4 +100,5 @@ The moderation queue, its filters, the report actions, and the moderation log ar
 - [Reporting Content](01-reporting-content.md) - how items arrive in the queue
 - [Moderating a Member](03-user-moderation.md) - what warn, strike, and suspend do
 - [Community Roles and Moderators](06-community-roles-and-moderators.md) - who may open the queue
+- [Content Warnings](08-content-warnings.md) - a lighter-touch action than removal for a single post
 - [Bulk Moderation](../pro/16-bulk-moderation.md) - acting on many queued items at once in Pro

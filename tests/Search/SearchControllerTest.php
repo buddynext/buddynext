@@ -91,4 +91,82 @@ class SearchControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertArrayHasKey( 'items', $data );
 		$this->assertArrayHasKey( 'next_cursor', $data );
 	}
+
+	/**
+	 * Index a member's searchable content directly, so the test does not depend on
+	 * the indexer's exact field mapping.
+	 *
+	 * @param int    $user_id Member.
+	 * @param string $content Public searchable text.
+	 * @return void
+	 */
+	private function index_member_content( int $user_id, string $content ): void {
+		global $wpdb;
+		$wpdb->replace(
+			$wpdb->prefix . 'bn_search_index',
+			array(
+				'object_type'     => 'user',
+				'object_id'       => $user_id,
+				'title'           => '',
+				'content'         => $content,
+				'content_members' => '',
+			)
+		);
+	}
+
+	/**
+	 * /search/members filters on `q` as well as `search`.
+	 *
+	 * The member typeahead sends `?q=`, but the route declared only `search`, so WP
+	 * dropped the arg and every keystroke returned the same unfiltered first page -
+	 * the search silently did nothing (card 10320545977). `q` is now an accepted
+	 * alias, matching the /search and /search/suggest convention.
+	 *
+	 * @return void
+	 */
+	public function test_search_members_accepts_q_as_an_alias_for_search(): void {
+		$match    = self::factory()->user->create();
+		$this->index_member_content( $match, 'Zqxwvudistinct Persson' );
+		// A second, non-matching member so an unfiltered page is larger than one.
+		$this->index_member_content( self::factory()->user->create(), 'Ordinary Common Member' );
+
+		$by_q = rest_do_request(
+			( function () {
+				$r = new WP_REST_Request( 'GET', '/buddynext/v1/search/members' );
+				$r->set_param( 'q', 'Zqxwvudistinct' );
+				return $r;
+			} )()
+		)->get_data();
+
+		$by_search = rest_do_request(
+			( function () {
+				$r = new WP_REST_Request( 'GET', '/buddynext/v1/search/members' );
+				$r->set_param( 'search', 'Zqxwvudistinct' );
+				return $r;
+			} )()
+		)->get_data();
+
+		$q_ids      = array_map( 'intval', array_column( $by_q['items'], 'user_id' ) );
+		$search_ids = array_map( 'intval', array_column( $by_search['items'], 'user_id' ) );
+
+		$this->assertContains( $match, $q_ids, '?q= must filter to the matching member.' );
+		$this->assertSame( $search_ids, $q_ids, '?q= and ?search= must return the same members.' );
+		$this->assertSame( 1, (int) $by_q['total'], '?q= must actually filter, not return the unfiltered page.' );
+	}
+
+	/**
+	 * The anti-bug guard: before the alias, `?q=` was dropped and a non-matching
+	 * term still returned the full first page. It must now return nothing.
+	 *
+	 * @return void
+	 */
+	public function test_search_members_q_that_matches_nothing_returns_nothing(): void {
+		$this->index_member_content( self::factory()->user->create(), 'Somebody Findable' );
+
+		$request = new WP_REST_Request( 'GET', '/buddynext/v1/search/members' );
+		$request->set_param( 'q', 'zzzznomatchxyz' );
+		$data = rest_do_request( $request )->get_data();
+
+		$this->assertSame( 0, (int) $data['total'], 'a non-matching ?q= must return no members, not the unfiltered page.' );
+	}
 }

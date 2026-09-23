@@ -1057,6 +1057,7 @@ class AssetService {
 					'postReply'                 => __( 'Post reply', 'buddynext' ),
 					'commentDeleted'            => __( 'This comment was deleted.', 'buddynext' ),
 					'commentDeletedToast'       => __( 'Comment deleted', 'buddynext' ),
+					'commentUnderReview'        => __( 'Under review', 'buddynext' ),
 					'commentDeleteFailed'       => __( 'Could not delete comment. Try again.', 'buddynext' ),
 					'commentUpdated'            => __( 'Comment updated', 'buddynext' ),
 					'commentUpdateFailed'       => __( 'Could not update comment. Try again.', 'buddynext' ),
@@ -1166,14 +1167,14 @@ class AssetService {
 					'uploadFailedError'         => __( 'Could not upload %1$s (error %2$d).', 'buddynext' ),
 					'joined'                    => __( 'Joined', 'buddynext' ),
 					'feedEnd'                   => __( "You've reached the end.", 'buddynext' ),
-					'oneNewPost'                => __( '1 new post — refresh to view', 'buddynext' ),
+					'oneNewPost'                => __( '1 new post: refresh to view', 'buddynext' ),
 					/* translators: %d: number of new posts */
-					'manyNewPosts'              => __( '%d new posts — refresh to view', 'buddynext' ),
+					'manyNewPosts'              => __( '%d new posts: refresh to view', 'buddynext' ),
 					/* translators: %d: the display ceiling for the new-posts pill (e.g. "99+ new posts"). */
-					'manyNewPostsCapped'        => __( '%d+ new posts — refresh to view', 'buddynext' ),
-					'oneNewComment'             => __( '1 new comment — show', 'buddynext' ),
+					'manyNewPostsCapped'        => __( '%d+ new posts: refresh to view', 'buddynext' ),
+					'oneNewComment'             => __( '1 new comment: show', 'buddynext' ),
 					/* translators: %d: number of new comments */
-					'manyNewComments'           => __( '%d new comments — show', 'buddynext' ),
+					'manyNewComments'           => __( '%d new comments: show', 'buddynext' ),
 					// Report button + comment loader + poll results + composer validation.
 					// These keys are read by feed/store.js via t() but were never injected,
 					// so they always rendered the English JS fallback regardless of locale.
@@ -1312,6 +1313,14 @@ class AssetService {
 					'paywallBecomeMember'             => __( 'Become a Member', 'buddynext' ),
 					'paywallNotConfigured'            => __( 'Membership purchase is not configured yet. Please check back soon.', 'buddynext' ),
 					'couldNotJoin'                    => __( 'Could not join this space.', 'buddynext' ),
+					// Invite-link panel (space settings).
+					'inviteSaved'                     => __( 'Invite link ready.', 'buddynext' ),
+					'inviteSaveFailed'                => __( 'Could not save the invite link.', 'buddynext' ),
+					'inviteCopied'                    => __( 'Copied', 'buddynext' ),
+					'inviteCopyFailed'                => __( 'Could not copy. Select the link and copy it manually.', 'buddynext' ),
+					'inviteResetTitle'                => __( 'Reset the invite link?', 'buddynext' ),
+					'inviteResetBody'                 => __( 'The current link stops working immediately and a new one is created.', 'buddynext' ),
+					'inviteResetConfirm'              => __( 'Reset link', 'buddynext' ),
 					// requestJoin's failure branch. It suppresses the shared error
 					// toast, so without this a rejected request (a banned member, say)
 					// only flickered the button and said nothing.
@@ -1414,11 +1423,11 @@ class AssetService {
 					// (card 10264295263 round-3).
 					'parentSearchFailed'              => __( 'Could not search spaces. Check your connection and try again.', 'buddynext' ),
 					'parentNoMatch'                   => __( 'No top-level spaces you manage match that name.', 'buddynext' ),
-					'parentMoreExist'                 => __( 'Showing the first matches — keep typing to narrow the list.', 'buddynext' ),
+					'parentMoreExist'                 => __( 'Showing the first matches: keep typing to narrow the list.', 'buddynext' ),
 					// Space feed search + join request. Read by spaces/store.js via
 					// t() but never injected, so they always rendered English.
 					'discussionSearchFailed'          => __( 'Could not search discussions. Check your connection and try again.', 'buddynext' ),
-					'joinRequested'                   => __( 'Request sent — you’ll be notified when it’s approved.', 'buddynext' ),
+					'joinRequested'                   => __( 'Request sent: you’ll be notified when it’s approved.', 'buddynext' ),
 				),
 				// Parent-picker page size, injected so the JS "keep typing to narrow"
 				// affordance (fired when a full page returns) stays in step with the
@@ -1470,7 +1479,7 @@ class AssetService {
 					'sendDeniedBlocked'         => __( 'You can no longer message this person.', 'buddynext' ),
 					'sendDeniedDmsDisabled'     => __( 'This person isn’t accepting messages right now.', 'buddynext' ),
 					'sendDeniedConnectionsOnly' => __( 'This person only accepts messages from their connections.', 'buddynext' ),
-					'sendDeniedRateLimited'     => __( 'You’re sending messages too quickly — please wait a moment.', 'buddynext' ),
+					'sendDeniedRateLimited'     => __( 'You’re sending messages too quickly: please wait a moment.', 'buddynext' ),
 					'sendDeniedTooLong'         => __( 'That message is too long to send.', 'buddynext' ),
 					'sendDeniedNotParticipant'  => __( 'You can no longer post to this conversation.', 'buddynext' ),
 					'sendDeniedGeneric'         => __( 'Your message couldn’t be sent. Please try again.', 'buddynext' ),
@@ -1641,14 +1650,14 @@ class AssetService {
 					'invalidUrl'                       => __( 'Enter a valid URL (https://example.com).', 'buddynext' ),
 					/* translators: %s: field label. */
 					'fieldRequired'                    => __( '%s is required.', 'buddynext' ),
-					'avatarReady'                      => __( 'Avatar ready — click Save changes to keep it', 'buddynext' ),
+					'avatarReady'                      => __( 'Avatar ready: click Save changes to keep it', 'buddynext' ),
 					'couldNotPrepareImage'             => __( 'Could not prepare image. Try again.', 'buddynext' ),
 					'removePhotoTitle'                 => __( 'Remove profile photo?', 'buddynext' ),
 					'removePhotoBody'                  => __( 'Your photo will be replaced with your initials. You can upload a new one any time.', 'buddynext' ),
 					'remove'                           => __( 'Remove', 'buddynext' ),
 					'photoRemoved'                     => __( 'Profile photo removed', 'buddynext' ),
 					'photoRemoveFailed'                => __( 'Could not remove your photo. Try again.', 'buddynext' ),
-					'coverReady'                       => __( 'Cover ready — click Save changes to keep it', 'buddynext' ),
+					'coverReady'                       => __( 'Cover ready: click Save changes to keep it', 'buddynext' ),
 					'followed'                         => __( 'Followed', 'buddynext' ),
 					'couldNotFollow'                   => __( 'Could not follow. Try again.', 'buddynext' ),
 					'unfollowed'                       => __( 'Unfollowed', 'buddynext' ),
@@ -1776,7 +1785,7 @@ class AssetService {
 					'approveAppealTitle'    => __( 'Approve this appeal?', 'buddynext' ),
 					'approveAppealBody'     => __( 'The member’s suspension will be lifted and they will be notified.', 'buddynext' ),
 					'approveLabel'          => __( 'Approve', 'buddynext' ),
-					'appealApproved'        => __( 'Appeal approved — suspension lifted.', 'buddynext' ),
+					'appealApproved'        => __( 'Appeal approved: suspension lifted.', 'buddynext' ),
 					'approveAppealFailed'   => __( 'Could not approve the appeal. Try again.', 'buddynext' ),
 					'denyAppealTitle'       => __( 'Deny this appeal?', 'buddynext' ),
 					'denyAppealBody'        => __( 'The suspension stays in place. The member will be notified of the decision.', 'buddynext' ),
@@ -1892,7 +1901,7 @@ class AssetService {
 					'markAllReadFailed'   => __( 'Could not mark all as read.', 'buddynext' ),
 					'markReadFailed'      => __( 'Could not mark this notification as read.', 'buddynext' ),
 					'dismissFailed'       => __( 'Could not dismiss. Try again.', 'buddynext' ),
-					'inviteAccepted'      => __( 'Invitation accepted — you have joined the space.', 'buddynext' ),
+					'inviteAccepted'      => __( 'Invitation accepted: you have joined the space.', 'buddynext' ),
 					'inviteAcceptFailed'  => __( 'Could not accept the invitation.', 'buddynext' ),
 					'inviteDeclined'      => __( 'Invitation declined.', 'buddynext' ),
 					'inviteDeclineFailed' => __( 'Could not decline the invitation.', 'buddynext' ),
@@ -2090,7 +2099,7 @@ class AssetService {
 				'i18n' => array(
 					/* translators: %s: masked email address the code was sent to */
 					'codeSentTo'         => __( 'Code sent to %s', 'buddynext' ),
-					'codeSentCheckEmail' => __( 'Code sent — check your email', 'buddynext' ),
+					'codeSentCheckEmail' => __( 'Code sent: check your email', 'buddynext' ),
 					'enterEmailPassword' => __( 'Enter your email and password to sign in.', 'buddynext' ),
 					'invalidCredentials' => __( 'Invalid email or password.', 'buddynext' ),
 					'signedIn'           => __( 'Signed in.', 'buddynext' ),

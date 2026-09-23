@@ -33,6 +33,13 @@ import {
  * The A↔B connection pair is reset before + after each test so reruns are
  * idempotent; any 1:1 conversation created by J-32 is cleaned up in a finally.
  * Selectors are declared locally (repo rule: never edit the shared selectors.ts).
+ *
+ * Covers: cap-follow-people-and-connect-mutually
+ * Roles: admin
+ * Note: only A (admin) logs in via the browser; B is a target only (never
+ * loginAs'd), so this file does not walk the member role despite acting on a
+ * seeded subscriber. J-32 (message) is not pinned - direct messaging is a
+ * WPMediaVerse-owned surface, not its own CAPABILITIES.md promise.
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
@@ -44,7 +51,6 @@ const memberUrl = (login: string) => `/members/${login}/`;
 
 const HERO = '.bn-pf-hero';
 const CONNECT_BTN = 'button[data-wp-on--click="actions.connect"]';
-const MESSAGE_LINK = '.bn-pf-actions a[href*="/messages/"]';
 const DM_THREAD = '.bn-dm-thread, .bn-dm-thread-messages, [data-dm-thread]';
 const DM_BLOCKED_NOTICE = '.bn-dm-blocked, .bn-dm-unavailable, .bn-dm-notice';
 
@@ -126,9 +132,22 @@ test.describe('profile / connections + messages (effect-based)', () => {
         await page.goto(memberUrl(B_LOGIN));
         await expect(page.locator(HERO).first()).toBeVisible();
 
-        const msg = page.locator(MESSAGE_LINK).first();
+        // The Message entry point is an inline button on wide viewports, but on
+        // narrow ones it is display:none (.bn-pf-actions__wide-only) and lives in
+        // the "..." overflow menu instead. Click whichever is actually reachable
+        // at this viewport, so the journey holds on phone/tablet, not just desktop.
+        let msg = page.locator(`.bn-pf-actions a.bn-pf-actions__wide-only[href*="/messages/"]`).first();
+        if (!(await msg.isVisible().catch(() => false))) {
+            const moreTrigger = page.locator('.bn-pf-actions .bn-pf-more-trigger').first();
+            if (!(await moreTrigger.count())) {
+                softSkip(testInfo, 'DM bridge entry point (Message) not present — WPMediaVerse DM disabled.');
+                return;
+            }
+            await moreTrigger.click();
+            msg = page.locator('.bn-more-menu a.bn-more-menu-item[href*="/messages/"]').first();
+        }
         if (!(await msg.count())) {
-            softSkip(testInfo, 'DM bridge entry point (Message button) not present — WPMediaVerse DM disabled.');
+            softSkip(testInfo, 'DM bridge entry point (Message) not present — WPMediaVerse DM disabled.');
             return;
         }
 

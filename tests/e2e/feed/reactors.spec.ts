@@ -12,6 +12,9 @@ import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-w
  * the reactors popover, and asserts the current user's display name is in the
  * list. The list is filled from GET /reactions/list, so a name appearing there
  * is server truth that the reaction row was written — not an optimistic class.
+ *
+ * Covers: cap-let-members-react-comment-and-reply
+ * Roles: admin
  */
 test.describe('feed / see reactors', () => {
     const reactorsTrigger = '.bn-post-card__reactors-trigger';

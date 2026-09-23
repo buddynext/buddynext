@@ -5,6 +5,9 @@ import { getSpace, createSpaceApi, deleteSpaceApi } from '../_fixtures/spaces-re
 /**
  * J-610 — Delete a space (owner).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin
+ *
  * Member action: from Settings → Danger zone, open the delete-confirm modal, type
  * the exact space name to arm the button, and delete (actions.deleteSpaceConfirmed
  * → DELETE /spaces/{id} with the X-BN-Confirm-Space-Name header).

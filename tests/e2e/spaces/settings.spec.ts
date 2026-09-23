@@ -13,6 +13,9 @@ import {
  * J-52 space general settings save + J-54 moderation queue — UPGRADED to
  * effect-based (Wave-4).
  *
+ * Covers: cap-group-content-into-spaces, cap-let-members-report-content
+ * Roles: admin, member
+ *
  * The Wave-1 versions only asserted that the settings form / mod tab was
  * VISIBLE on a hard-coded env space (and soft-skipped when the admin didn't own
  * it). Both now seed their own throwaway space and assert a real consequence:

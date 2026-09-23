@@ -239,6 +239,65 @@ class FeedService {
 	}
 
 	/**
+	 * Explore's audience predicate: which posts a public-discovery surface may show.
+	 *
+	 * Space privacy wins over post privacy. A post in a PRIVATE or SECRET space
+	 * never appears on Explore, whatever its own `privacy` value says (this is the
+	 * leak fix: integration/seed rows stamped 'public' inside a private space used
+	 * to surface here). A post in an OPEN space DOES appear, because anyone may
+	 * read an open space - owner decision 2026-09-17, card 10313019984 - as long as
+	 * the author has not narrowed it below member-readable ('public'/'space_members'
+	 * both mean "anyone" in an open space; 'followers'/'connections'/'private' are
+	 * narrower and stay out). A non-space post shows when it is 'public', unchanged.
+	 *
+	 * Bracketed, bare column refs on bn_posts, no params - replaces the old bare
+	 * `privacy = 'public'` on the Explore grid and its matching pulse count.
+	 *
+	 * @return string SQL fragment (a single bracketed boolean expression).
+	 */
+	public function explore_space_where(): string {
+		global $wpdb;
+
+		return "(
+			( ( space_id IS NULL OR space_id = 0 ) AND privacy = 'public' )
+			OR (
+				space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
+				AND privacy IN ( 'public', 'space_members' )
+			)
+		)";
+	}
+
+	/**
+	 * Space-readability guard for a viewer on a semi-public surface (a profile).
+	 *
+	 * Space privacy wins: a post that belongs to a PRIVATE or SECRET space is shown
+	 * only to a member of that space (or its own author); a non-space post or an
+	 * OPEN-space post is readable by anyone. AND-ed on TOP of the post-audience
+	 * privacy clause, so the post's own audience still narrows further - this guard
+	 * only ever removes private/secret-space posts from a viewer who cannot see the
+	 * space. Prefixed with AND; two ordered %d params (both the viewer id).
+	 *
+	 * @param int $viewer_id Viewer user ID (0 = anonymous).
+	 * @return array{0:string,1:array<int>} SQL fragment + ordered params.
+	 */
+	private function readable_space_where( int $viewer_id ): array {
+		global $wpdb;
+
+		$sql = "AND (
+			space_id IS NULL
+			OR space_id = 0
+			OR user_id = %d
+			OR space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
+			OR space_id IN (
+				SELECT space_id FROM {$wpdb->prefix}bn_space_members
+				WHERE user_id = %d AND status = 'active'
+			)
+		)";
+
+		return array( $sql, array( $viewer_id, $viewer_id ) );
+	}
+
+	/**
 	 * Build a SQL fragment that excludes suspended and shadow-banned users.
 	 *
 	 * The fragment is always prefixed with AND so it can be appended directly
@@ -1611,6 +1670,12 @@ class FeedService {
 		$privacy_clause = $this->profile_privacy_clause( $viewer_id, $profile_user_id );
 		$privacy_params = array();
 
+		// Space privacy wins: the owner's post that lives in a PRIVATE/SECRET space
+		// must not surface on their profile to a viewer who is not a member of that
+		// space, whatever the post's own privacy is (card 10312981296). Non-space and
+		// open-space posts are unaffected; the owner still sees their own.
+		[ $space_where, $space_params ] = $this->readable_space_where( $viewer_id );
+
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
 
@@ -1648,13 +1713,14 @@ class FeedService {
 			   AND status = 'published'
 			   AND NOT ( is_pinned = 1 AND space_id IS NULL )
 			   {$privacy_clause}
+			   {$space_where}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
 			   {$hidden_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( array( $profile_user_id ), $privacy_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $profile_user_id ), $privacy_params, $space_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -2043,10 +2109,9 @@ class FeedService {
 			return false;
 		}
 
-		$can_bootstrap = user_can( $viewer_id, 'manage_options' )
-			|| user_can( $viewer_id, 'buddynext_invite_members' );
-
-		if ( ! $can_bootstrap ) {
+		// Only someone who can invite may be told to invite; site invites are an
+		// admin action (InviteController requires manage_options).
+		if ( ! user_can( $viewer_id, 'manage_options' ) ) {
 			return false;
 		}
 
@@ -2112,6 +2177,12 @@ class FeedService {
 		// with nothing to show. See explore_renderable_where().
 		$renderable_where = $this->explore_renderable_where();
 
+		// Space privacy wins: non-space public posts + open-space posts only; a
+		// private/secret space never surfaces on this public grid whatever a row's
+		// own privacy says. Replaces the old bare `privacy = 'public'`. See card
+		// 10312981296 (leak) + 10313019984 (open-space posts belong on Explore).
+		$space_where = $this->explore_space_where();
+
 		/*
 		 * status = 'published' is not decoration - the same note the home and space
 		 * feeds carry. Explore had the scheduled_at window but no status filter at
@@ -2124,7 +2195,7 @@ class FeedService {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
-			 WHERE privacy = 'public'
+			 WHERE {$space_where}
 			   AND status = 'published'
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
@@ -2264,6 +2335,7 @@ class FeedService {
 			$rows = array_slice( $rows, 0, $per_page );
 		}
 
+		BlogPostListener::prime_sources( $rows );
 		$items = array_map(
 			fn( $row ) => $this->post_service->hydrate( $row ),
 			$rows

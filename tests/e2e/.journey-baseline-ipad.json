@@ -1,0 +1,5 @@
+{
+  "_comment": "Specs known to fail because they need external configuration or a feature that ships off. NOT a list of acceptable bugs. Every entry should carry a reason, and the list should only ever shrink. Regenerate with bin/check-journey-run.sh --update and say why in the commit message.",
+  "project": "ipad",
+  "known_failing": []
+}

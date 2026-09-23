@@ -80,6 +80,8 @@ Only the owner or a site admin can delete a space.
 
 A space has exactly one owner. The current owner (or a site admin) can transfer ownership to another member of the space. After the transfer, the new member is the owner and gains the owner's full control over the space; the previous owner stays a member unless they leave. Transfer is the right tool when a founder steps back or hands a space to a new lead.
 
+If an owner's account is deleted or removed from the site (including a GDPR erasure) before they transfer ownership themselves, the space is never left ownerless: it automatically passes to that space's longest-serving active moderator. If the space has no moderator, it falls to a site administrator instead. In the rare case neither is available, the space is flagged internally as needing an owner rather than left pointing at a deleted account; a site administrator can transfer it to a member once one is available, since admins can manage any space regardless of their own role in it.
+
 ### Sub-spaces
 
 A space can contain sub-spaces - child spaces nested one level under a parent. This suits a parent community that needs dedicated rooms, for example a "Design" parent with "UI", "Research", and "Branding" sub-spaces under it. Only someone who manages the parent space can add a sub-space to it. Nesting is limited to two levels (a parent and its direct children); a sub-space cannot itself have sub-spaces. The owner settings below control whether sub-spaces are allowed at all and how many a single parent may have.
@@ -106,6 +108,16 @@ These settings live under the plugin's Spaces settings. They set the platform-wi
 ### Managing spaces in the admin
 
 The admin Spaces page has two sections: a Spaces list and Categories. The Spaces list shows every space with its type, member count, and archived state, and lets you delete spaces (individually or in bulk) and open a space's own settings to manage it. The Categories section is where you build and order the directory categories - see Space Categories.
+
+## Choose which tab a space opens on
+
+By default a space opens on its Feed. You can change the starting tab - the tab bar itself (which tabs, their labels and order) stays the same for every space; only the tab a visitor lands on can differ.
+
+**Site owner (all spaces).** A space opens on the first tab in your **Settings > Navigation > Space Tabs** order that the visitor can see. Move **About** to the top of that list and every space opens on About; the tab bar and the landing tab always agree. There is no separate switch - the Navigation order is the site-wide default.
+
+**Space owner (one space).** In a space's **Settings > General**, the **"Space opens on"** control lets the owner pick a different starting tab for that space alone - Feed, About, Sub-spaces or Media. Leave it on **Site default** to follow the site-wide order. Links to a specific tab or post (for example a shared `/spaces/{slug}/members/` URL or a post permalink) are never affected.
+
+A non-member who opens a private space always lands on **About** - its description, rules and the Join button - rather than a locked Feed.
 
 ## Good to know
 

@@ -67,7 +67,15 @@
 		var title = el( 'h2', { 'class': 'bn-dialog__title', id: 'bn-dialog-title' }, opts.title || __( 'Confirm', 'buddynext' ) );
 		head.appendChild( title );
 
-		var body = el( 'div', { 'class': 'bn-dialog__body' }, opts.message || '' );
+		// message is text by default (textContent, injection-safe). A caller that has
+		// already escaped its dynamic values can pass html:true to render a small
+		// structured body (e.g. a list of what a reset would change).
+		var body = el( 'div', { 'class': 'bn-dialog__body' } );
+		if ( opts.html ) {
+			body.innerHTML = opts.message || '';
+		} else {
+			body.textContent = opts.message || '';
+		}
 
 		// Typed confirmation. When `requireText` is set the dialog grows a text
 		// input and the confirm button stays disabled until the typed value
@@ -96,10 +104,17 @@
 			body.appendChild( field );
 		}
 
-		var foot      = el( 'footer', { 'class': 'bn-dialog__foot' } );
-		var cancelBtn = el( 'button', { type: 'button', 'class': 'bn-dialog__cancel' }, opts.cancelLabel || __( 'Cancel', 'buddynext' ) );
+		var foot = el( 'footer', { 'class': 'bn-dialog__foot' } );
+		// An EXPLICIT empty cancelLabel requests a single-button, dismiss-only dialog
+		// (e.g. a "nothing to do" acknowledgement) — otherwise the empty label fell
+		// through to the default "Cancel" and sat next to an ok button whose label was
+		// also "Cancel", showing two identical buttons (card 10320607233). Omitting
+		// cancelLabel entirely still gives the default Cancel.
+		var cancelBtn = '' === opts.cancelLabel
+			? null
+			: el( 'button', { type: 'button', 'class': 'bn-dialog__cancel' }, opts.cancelLabel || __( 'Cancel', 'buddynext' ) );
 		var okBtn     = el( 'button', { type: 'button', 'class': 'bn-dialog__ok',     'data-tone': tone }, opts.okLabel || __( 'Confirm', 'buddynext' ) );
-		foot.appendChild( cancelBtn );
+		if ( cancelBtn ) { foot.appendChild( cancelBtn ); }
 		foot.appendChild( okBtn );
 
 		dialog.appendChild( head );
@@ -169,7 +184,7 @@
 			m.okBtn.addEventListener( 'click', function () {
 				if ( satisfied() ) { close( true ); }
 			} );
-			m.cancelBtn.addEventListener( 'click', function () { close( false ); } );
+			if ( m.cancelBtn ) { m.cancelBtn.addEventListener( 'click', function () { close( false ); } ); }
 			m.backdrop.addEventListener( 'click', function ( e ) {
 				if ( e.target === m.backdrop ) { close( false ); }
 			} );
@@ -494,7 +509,81 @@
 		} );
 	}
 
+	// ── Restore-defaults: list what changes, then submit ──────────────────
+
+	function restoreDefaults( e ) {
+		var btn = e.target.closest( '[data-bn-restore-defaults]' );
+		if ( ! btn || btn.dataset.bnConfirmed === '1' ) {
+			if ( btn ) { delete btn.dataset.bnConfirmed; }
+			return;
+		}
+		e.preventDefault();
+		e.stopImmediatePropagation();
+
+		var data;
+		try {
+			data = JSON.parse( btn.dataset.bnRestoreDefaults || '{}' );
+		} catch ( err ) {
+			data = { changes: [], i18n: {} };
+		}
+		var t = data.i18n || {};
+
+		// Nothing differs from default — say so and do nothing (no reset submitted).
+		if ( ! data.changes || ! data.changes.length ) {
+			bnConfirm( {
+				title:       t.title || __( 'Restore default settings?', 'buddynext' ),
+				message:     t.noChange || __( 'This tab already uses the default settings.', 'buddynext' ),
+				tone:        'neutral',
+				// One dismiss button. Nothing changes, so this is an acknowledgement,
+				// not a choice — a distinct "Close", never a second "Cancel".
+				okLabel:     t.close || __( 'Close', 'buddynext' ),
+				cancelLabel: '',
+			} );
+			return;
+		}
+
+		// Build the "what changes" list: label, current -> default, for each.
+		var rows = data.changes.map( function ( c ) {
+			return '<li><strong>' + esc( c.label ) + '</strong>: ' +
+				esc( t.current || 'now' ) + ' ' + esc( c.current ) + ' → ' +
+				esc( t.toDefault || 'default' ) + ' ' + esc( c.default ) + '</li>';
+		} ).join( '' );
+		var message = '<p>' + esc( t.intro || 'These settings will return to their defaults:' ) + '</p>' +
+			'<ul class="bn-restore-list">' + rows + '</ul>' +
+			'<p class="bn-restore-owner-note">' + esc( t.ownerNote || '' ) + '</p>';
+
+		bnConfirm( {
+			title:       t.title || __( 'Restore default settings?', 'buddynext' ),
+			message:     message,
+			html:        true,
+			tone:        'warning',
+			okLabel:     t.confirm || __( 'Restore defaults', 'buddynext' ),
+			cancelLabel: t.cancel || __( 'Cancel', 'buddynext' ),
+		} ).then( function ( ok ) {
+			if ( ! ok ) {
+				return;
+			}
+			btn.dataset.bnConfirmed = '1';
+			if ( btn.form ) {
+				btn.form.submit();
+			}
+		} );
+	}
+
+	/**
+	 * Escape a string for safe insertion into the dialog markup.
+	 *
+	 * @param {string} s Raw text.
+	 * @return {string} Escaped text.
+	 */
+	function esc( s ) {
+		var d = document.createElement( 'div' );
+		d.textContent = s == null ? '' : String( s );
+		return d.innerHTML;
+	}
+
 	function init() {
+		document.addEventListener( 'click',  restoreDefaults, true );
 		document.addEventListener( 'click',  delegate, true );
 		document.addEventListener( 'submit', delegate, true );
 

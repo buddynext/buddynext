@@ -71,6 +71,52 @@ class OnboardingService {
 	}
 
 	/**
+	 * Whether the onboarding wizard is REQUIRED for this member right now.
+	 *
+	 * The single source of truth for "would onboarding gate this member",
+	 * shared by the front-end redirect gate (OnboardingListener) and the REST
+	 * join gate, so web and app enforce it identically. Covers the three
+	 * substantive conditions: the feature is enabled, the member has not
+	 * completed onboarding, and the member is not grandfathered (registered
+	 * before onboarding first went live). Navigation-only concerns (loop
+	 * guards, hub exemptions, 2FA holds) stay in the listener.
+	 *
+	 * @param int $user_id WordPress user ID (0 is never required).
+	 * @return bool
+	 */
+	public function is_required_for( int $user_id ): bool {
+		if ( $user_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		if ( ! buddynext_service( 'features' )->is_enabled( 'onboarding' ) ) {
+			return false;
+		}
+
+		if ( $this->is_complete( $user_id ) ) {
+			return false;
+		}
+
+		// Grandfather the existing community: the wizard is for *new* members and
+		// must never retroactively trap members who registered before onboarding
+		// was switched on. Record the moment the gate first goes live and only
+		// require members who registered at or after it.
+		$gate_since = (int) get_option( 'buddynext_onboarding_gate_since', 0 );
+		if ( 0 === $gate_since ) {
+			$gate_since = time();
+			update_option( 'buddynext_onboarding_gate_since', $gate_since );
+		}
+
+		$user_obj   = get_userdata( $user_id );
+		$registered = $user_obj ? (int) strtotime( (string) $user_obj->user_registered . ' UTC' ) : 0;
+		if ( $registered > 0 && $registered < $gate_since ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
 	 * Get the current wizard step for a user (1-based).
 	 *
 	 * Clamped to the number of steps this SITE renders (step_list(), which drops
@@ -131,16 +177,23 @@ class OnboardingService {
 			'icon'  => 'bell',
 		);
 
+		// The core list, kept so a filter that strips everything falls back to a
+		// working wizard rather than an empty shell.
+		$default = $steps;
+
 		/**
 		 * Filter the onboarding wizard's step list.
 		 *
-		 * Lets an addon append its own step(s) - e.g. Pro's membership plan
-		 * step. Appended entries render their section via the
-		 * `buddynext_onboarding_render_extra_steps` action in
-		 * templates/onboarding/index.php; the core steps above are the
-		 * template's own sections and must not be removed or reordered here
-		 * (their markup is position-bound). Entries missing key/label/icon,
-		 * or duplicating an existing key, are dropped.
+		 * Two things are supported: APPENDING an addon step (e.g. Pro's
+		 * membership plan step, whose section renders via the
+		 * `buddynext_onboarding_render_extra_steps` action), and REMOVING any of
+		 * the three OPTIONAL core steps - Interests, Spaces, People (Follows) -
+		 * each of which the template renders behind an isset() position guard.
+		 * Profile and Notifications are identity and delivery choices and are
+		 * expected to stay; if a filter removes every step the core list is used
+		 * instead. REORDERING is not supported: each section's markup and save
+		 * handler pair by position. Entries missing key/label/icon, or
+		 * duplicating an existing key, are dropped.
 		 *
 		 * @since 1.1.0
 		 *
@@ -160,6 +213,13 @@ class OnboardingService {
 			}
 			$seen[ $key ] = true;
 			$clean[]      = $step;
+		}
+
+		// A filter that removed every core step (or left nothing renderable) must
+		// not produce an empty wizard - fall back to the core list. This also
+		// keeps range() below well-formed (range( 1, 0 ) is not a valid 1..N).
+		if ( empty( $clean ) ) {
+			$clean = $default;
 		}
 
 		// 1-based positions — the template binds each section to its position.

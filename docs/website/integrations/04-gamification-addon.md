@@ -73,5 +73,6 @@ The WB Gamification integration ships in BuddyNext free. You need the WB Gamific
 
 - [Integrations Overview](01-overview.md) - how every companion plugin connects.
 - [Gamification](../engagement/01-gamification.md) - the member-facing badges, points, and levels.
+- [Kudos](../engagement/05-kudos.md) - peer recognition members give each other, which also awards points.
 - [Leaderboard](../engagement/02-leaderboard.md) - the community ranking this integration links to.
 - [Activity Feed](../community/01-activity-feed.md) - where credential badges are announced.

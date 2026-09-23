@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { loginAs } from '../_fixtures/actor';
 import {
     userId,
+    ensureUser,
     getUserMeta,
     setUserMeta,
     deleteUserMeta,
@@ -24,13 +25,28 @@ import {
  * upload leaves — and the REMOVE counterpart is then driven end-to-end through
  * the UI and verified in the DB. Remove is the leg the matrix flags as MISSING.
  *
- * Actor: A = varundubey (owner). Self-cleaning: every test restores A's avatar/
- * cover/name meta to empty (or original) so reruns are idempotent.
+ * Actor: A = varundubey (owner, admin). Self-cleaning: every test restores A's
+ * avatar/cover/name meta to empty (or original) so reruns are idempotent.
+ *
+ * A second actor, B = bn_e2e_target (a plain subscriber), repeats the avatar and
+ * cover REMOVE legs on their OWN profile at phone width — the same MISSING legs
+ * the matrix flags, but as a real member, not an admin owner. No CAPABILITIES.md
+ * row distinguishes "own profile as admin" from "own profile as member", so this
+ * closes the (capability, member) cell the role-coverage gate checks for.
  *
  * Selectors are declared locally (repo rule) from templates/parts/profile-edit-hero.php.
+ *
+ * Covers: cap-give-members-a-profile-with-custom-fields, cap-set-your-own-display-name-avatar-cover-photo-and-headline
+ * Roles: admin, member
+ * Note: loose fit - avatar/cover/display-name are core identity fields, not
+ * custom profile fields, but they round-trip through the same /me/profile +
+ * /me/avatar + /me/cover surface; no closer CAPABILITIES.md row exists.
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
+const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
+const B_EMAIL = 'bn_e2e_target@example.com';
+const B_NAME = 'BN E2E Target';
 const SEED_AVATAR = 'http://buddynext-dev.local/wp-content/uploads/bn-e2e-avatar.png';
 const SEED_COVER = 'http://buddynext-dev.local/wp-content/uploads/bn-e2e-cover.jpg';
 
@@ -47,10 +63,14 @@ const SAVE_BTN = '.bn-ep-save-actions button[type="submit"]';
 const CONFIRM_REMOVE = '.bn-modal-backdrop [role="dialog"] button:has-text("Remove")';
 
 let A_ID = 0;
+let B_ID = 0;
 
 test.beforeAll(async () => {
     A_ID = await userId(A_LOGIN);
+    B_ID = await ensureUser(B_LOGIN, B_EMAIL, B_NAME);
     expect(A_ID, `actor "${A_LOGIN}" must exist`).toBeGreaterThan(0);
+    expect(B_ID, `member "${B_LOGIN}" must exist`).toBeGreaterThan(0);
+    await setUserMeta(B_ID, 'bn_onboarding_complete', '1');
 });
 
 test.describe('profile / identity + media actions (effect-based)', () => {
@@ -173,6 +193,88 @@ test.describe('profile / identity + media actions (effect-based)', () => {
             if (now !== original) {
                 await wp(['user', 'update', String(A_ID), `--display_name=${original}`]);
             }
+        }
+    });
+
+    /**
+     * J-707-member — a plain MEMBER (not the admin owner) removes their own
+     * avatar and the effect holds, at phone width. Same DELETE /me/avatar path
+     * as J-707, walked as B (subscriber) on B's own profile.
+     */
+    test('J-707-member a plain member removes their own avatar (mobile 390px)', async ({ page }) => {
+        await setUserMeta(B_ID, 'bn_avatar', SEED_AVATAR);
+        try {
+            await page.setViewportSize({ width: 390, height: 844 });
+            await loginAs(page, B_LOGIN);
+            await page.goto(editUrl(B_LOGIN));
+
+            const remove = page.locator(AVATAR_REMOVE).first();
+            await expect(remove, 'custom avatar must expose the Remove control').toBeVisible();
+
+            await remove.click();
+            await Promise.all([
+                page.waitForResponse(
+                    (r) => /\/avatar\b/.test(r.url()) && r.request().method() === 'DELETE',
+                    { timeout: 10_000 }
+                ),
+                page.locator(CONFIRM_REMOVE).first().click(),
+            ]);
+
+            // Effect: the custom-avatar meta is cleared server-side for the member.
+            expect(
+                await getUserMeta(B_ID, 'bn_avatar'),
+                'remove avatar must clear the bn_avatar meta for a plain member'
+            ).toBe('');
+
+            await expect(page.locator(AVATAR_REMOVE).first()).toBeHidden();
+            await page.reload();
+            await expect(page.locator(AVATAR_REMOVE).first()).toBeHidden();
+        } finally {
+            await deleteUserMeta(B_ID, 'bn_avatar');
+        }
+    });
+
+    /**
+     * J-708-member — a plain MEMBER removes their own cover photo and the public
+     * hero reverts, at phone width. Same DELETE /me/cover path as J-708, walked
+     * as B (subscriber) on B's own profile.
+     */
+    test('J-708-member a plain member removes their own cover photo (mobile 390px)', async ({ page }) => {
+        await setUserMeta(B_ID, 'buddynext_cover_url', SEED_COVER);
+        try {
+            await page.setViewportSize({ width: 390, height: 844 });
+            await loginAs(page, B_LOGIN);
+
+            await page.goto(memberUrl(B_LOGIN));
+            await expect(
+                page.locator('.bn-pf-cover--has-image').first(),
+                'seeded cover must render on the member\'s own public hero'
+            ).toBeVisible();
+
+            await page.goto(editUrl(B_LOGIN));
+            const remove = page.locator(COVER_REMOVE).first();
+            await expect(remove, 'a cover must expose the Remove control').toBeVisible();
+
+            await remove.click();
+            await Promise.all([
+                page.waitForResponse(
+                    (r) => /\/cover\b/.test(r.url()) && r.request().method() === 'DELETE',
+                    { timeout: 10_000 }
+                ),
+                page.locator(CONFIRM_REMOVE).first().click(),
+            ]);
+
+            // Effect: the cover meta is cleared server-side for the member.
+            expect(
+                await getUserMeta(B_ID, 'buddynext_cover_url'),
+                'remove cover must clear the buddynext_cover_url meta for a plain member'
+            ).toBe('');
+
+            await expect(page.locator(COVER_REMOVE).first()).toBeHidden();
+            await page.goto(memberUrl(B_LOGIN));
+            await expect(page.locator('.bn-pf-cover--has-image')).toHaveCount(0);
+        } finally {
+            await deleteUserMeta(B_ID, 'buddynext_cover_url');
         }
     });
 });

@@ -408,7 +408,7 @@ class IconService {
 					__METHOD__,
 					sprintf(
 						/* translators: %s: icon slug that has no SVG file. */
-						esc_html__( 'No icon file for "%s" — it will render as nothing at all.', 'buddynext' ),
+						esc_html__( 'No icon file for "%s": it will render as nothing at all.', 'buddynext' ),
 						esc_html( $name )
 					),
 					'1.1.6'

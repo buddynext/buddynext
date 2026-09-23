@@ -5,6 +5,9 @@ import { postIdOfCard } from '../_fixtures/feed-wave1.helpers';
 
 /**
  * J-11-feed-home-loads, plus the pagination assertions that were missing.
+ *
+ * Covers: cap-run-an-activity-feed-members-post-to
+ * Roles: admin
  */
 test.describe('feed / home', () => {
     /**

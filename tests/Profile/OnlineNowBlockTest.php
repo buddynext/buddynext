@@ -177,24 +177,31 @@ class OnlineNowBlockTest extends \WP_UnitTestCase {
 
 		// Not over-filtered, and self always resolves.
 		$this->assertTrue( $blocks->is_user_online( $other, $blocker ) );
-		$this->assertTrue( $blocks->is_user_online( 0, $blocker ) );
 		$this->assertTrue( $blocks->is_user_online( $blocker, $blocker ) );
+		// Logged-out visitors see no presence at all (owner decision, a57e37f2).
+		$this->assertFalse( $blocks->is_user_online( 0, $blocker ) );
 	}
 
 	/**
-	 * A logged-out viewer still gets the widget.
+	 * Logged-out visitors see nobody online by default; a site that opts in to
+	 * public presence gets the list.
 	 *
-	 * block_exclude_sql() returns an empty fragment for viewer 0; this pins that
-	 * the empty fragment is handled and does not blank the query.
+	 * Presence is hidden from logged-out visitors (owner decision, a57e37f2). The
+	 * opt-in half still pins that block_exclude_sql()'s empty fragment for viewer 0
+	 * is handled and does not blank the query.
 	 *
 	 * @return void
 	 */
-	public function test_logged_out_viewer_still_sees_online_members(): void {
+	public function test_logged_out_viewer_sees_online_members_only_when_the_site_opts_in(): void {
 		$a = self::factory()->user->create();
 		$b = self::factory()->user->create();
 		$this->mark_online( $a );
 		$this->mark_online( $b );
 
-		$this->assertNotEmpty( $this->online_ids( 0 ) );
+		$this->assertSame( array(), $this->online_ids( 0 ), 'hidden from logged-out visitors by default' );
+
+		add_filter( 'buddynext_presence_visible_to_anonymous', '__return_true' );
+		$this->assertNotEmpty( $this->online_ids( 0 ), 'shown when the site makes presence public' );
+		remove_filter( 'buddynext_presence_visible_to_anonymous', '__return_true' );
 	}
 }

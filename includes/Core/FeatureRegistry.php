@@ -418,7 +418,7 @@ class FeatureRegistry {
 		return array(
 			'feed'          => array(
 				'label'       => __( 'Activity feed', 'buddynext' ),
-				'description' => __( 'Posts, comments, reactions, polls, shares — the heart of the community.', 'buddynext' ),
+				'description' => __( 'Posts, comments, reactions, polls, shares: the heart of the community.', 'buddynext' ),
 			),
 			'profile'       => array(
 				'label'       => __( 'Member profiles', 'buddynext' ),
@@ -446,7 +446,7 @@ class FeatureRegistry {
 			),
 			'moderation'    => array(
 				'label'       => __( 'Moderation', 'buddynext' ),
-				'description' => __( 'Reports, strikes, suspensions, appeals — the integrity layer.', 'buddynext' ),
+				'description' => __( 'Reports, strikes, suspensions, appeals: the integrity layer.', 'buddynext' ),
 			),
 			'hashtags'      => array(
 				'label'       => __( 'Hashtags', 'buddynext' ),
@@ -462,7 +462,7 @@ class FeatureRegistry {
 			),
 			'sidebar'       => array(
 				'label'       => __( 'Sidebar widgets', 'buddynext' ),
-				'description' => __( 'Right-column widgets on hub pages — trending topics, suggested people, your spaces.', 'buddynext' ),
+				'description' => __( 'Right-column widgets on hub pages: trending topics, suggested people, your spaces.', 'buddynext' ),
 			),
 			'onboarding'    => array(
 				'label'       => __( 'Member onboarding flow', 'buddynext' ),

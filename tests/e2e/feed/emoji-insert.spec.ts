@@ -1,9 +1,12 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
+import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
 
 type FeedHome = { items?: Array<{ id: number; content?: string }> };
+
+const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
 /**
  * J-540 emoji insert in the composer (B1).
@@ -19,6 +22,9 @@ type FeedHome = { items?: Array<{ id: number; content?: string }> };
  * gated by `buddynext_enable_emoji_picker` (default on); when the option is off
  * the button is not rendered and the spec soft-skips on that real precondition.
  * The post is deleted in finally.
+ *
+ * Covers: cap-add-emoji-to-a-post-from-the-composer
+ * Roles: admin, member
  */
 test.describe('feed / emoji insert', () => {
     const emojiTrigger = '.bn-composer .bn-emoji-trigger';
@@ -78,6 +84,64 @@ test.describe('feed / emoji insert', () => {
             // glyph — BuddyNext staticizes emoji to an <img> on display, so the raw
             // character is absent from the card's text node even though it persisted.
             // The raw `content` field is the stored source of truth.
+            const feed = await restGet<FeedHome>(page.request, nonce, '/feed/home?per_page=20');
+            const stored = (feed.body.items ?? []).find((it) => it.id === createdId);
+            expect(stored, 'created post must be in the REST feed').toBeTruthy();
+            expect(String(stored?.content ?? '')).toContain(emojiChar);
+        } finally {
+            await deletePostRest(page.request, nonce, createdId).catch(() => {});
+        }
+    });
+
+    /**
+     * J-540 member leg. Same round-trip, from an ordinary subscriber's picker:
+     * the glyph must survive into the server-stored body, not just the
+     * optimistic textarea.
+     */
+    test('J-540 member  -  an emoji a member picks lands in their published post body', async ({ page }, testInfo) => {
+        await loginAs(page, MEMBER_LOGIN);
+        let createdId = 0;
+        let nonce = '';
+        const stamp = Date.now().toString().slice(-6);
+        const text = `j540m member emoji ${stamp} `;
+
+        try {
+            await page.goto(urls.feed);
+            const composer = page.locator(sel.composer).first();
+            await expect(composer).toBeVisible();
+            nonce = await readRestNonce(page);
+
+            const trigger = page.locator(emojiTrigger).first();
+            if (!(await trigger.isVisible().catch(() => false))) {
+                softSkip(testInfo, 'Emoji picker disabled (buddynext_enable_emoji_picker off) — no trigger to test.');
+                return;
+            }
+
+            const ta = page.locator(sel.composerTextarea).first();
+            await ta.fill(text);
+
+            await trigger.click();
+            await expect(page.locator(emojiPopover).first()).toBeVisible({ timeout: 5_000 });
+
+            const option = page.locator(emojiOption).first();
+            await expect(option).toBeVisible({ timeout: 5_000 });
+            const glyph = await option.getAttribute('data-emoji-char');
+            expect(glyph, 'emoji option must carry its unicode glyph').toBeTruthy();
+            const emojiChar = glyph as string;
+            await option.click();
+
+            await expect(ta).toHaveValue(new RegExp(`${stamp}.*${escapeRe(emojiChar)}`), { timeout: 5_000 });
+
+            await page.locator(sel.composerSubmit).first().click();
+            await expect(page.locator(sel.postCard).filter({ hasText: `j540m member emoji ${stamp}` }).first())
+                .toBeVisible({ timeout: 10_000 });
+
+            await page.goto(urls.feed);
+            const card = page.locator(sel.postCard).filter({ hasText: `j540m member emoji ${stamp}` }).first();
+            await expect(card).toBeVisible({ timeout: 10_000 });
+            createdId = await postIdOfCard(page, `j540m member emoji ${stamp}`);
+            expect(createdId).toBeGreaterThan(0);
+
             const feed = await restGet<FeedHome>(page.request, nonce, '/feed/home?per_page=20');
             const stored = (feed.body.items ?? []).find((it) => it.id === createdId);
             expect(stored, 'created post must be in the REST feed').toBeTruthy();

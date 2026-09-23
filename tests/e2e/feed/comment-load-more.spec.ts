@@ -16,6 +16,9 @@ import { readRestNonce, postIdOfCard, deletePostRest, restPost } from '../_fixtu
  * GET /comments?page=2). A pager wired to nothing would leave the count at 6
  * and fail. The first-page size is COMMENT_FIRST_PAGE (post-card.js). Post
  * deleted in `finally` (its comments go with it).
+ *
+ * Covers: cap-let-members-react-comment-and-reply
+ * Roles: admin
  */
 test.describe('feed / comment load-more', () => {
     const commentList = '.bn-comment-list';

@@ -104,3 +104,4 @@ The message that carries the confirmation link is a standard BuddyNext email, se
 - [Registration](01-registration.md) - where verification fits in the sign-up flow
 - [New-Member Onboarding Wizard](06-member-onboarding.md) - what happens once a member verifies
 - [Transactional Email System](../messaging-notifications/04-email-system.md) - the branded shell the verification email uses
+- [Editing a Member from the Admin](../members/14-admin-editing-a-member.md) - the Edit Member screen the verify button lives on

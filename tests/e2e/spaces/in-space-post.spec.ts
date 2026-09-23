@@ -4,6 +4,9 @@ import { createSpaceApi, deleteSpaceApi, bnApi } from '../_fixtures/spaces-rest'
 /**
  * J-620 / J-621 — In-space posting (C4).
  *
+ * Covers: cap-run-an-activity-feed-members-post-to, cap-group-content-into-spaces
+ * Roles: admin
+ *
  * Wave-2 effect specs for the SpacePostGuard write path. The Wave-1 matrix left
  * "Post in space" as a pure `.catch(() => {})` swallow (passes even if the card
  * never appears).

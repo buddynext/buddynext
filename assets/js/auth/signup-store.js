@@ -3,7 +3,8 @@
  * Powers templates/auth/signup.php. Submits POST /buddynext/v1/auth/register
  * with email + user_login + password + terms_agreed. On success, redirects
  * to the verify-email page (when verification is enabled) or onboarding.
- * On 422, surfaces per-field errors inline.
+ * On 422, shows each field error under its field (custom profile fields
+ * included) instead of a generic banner.
  */
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
@@ -122,6 +123,79 @@ function collectExtraFields( form, body ) {
 		const name = el.getAttribute( 'name' );
 		if ( ! name ) { return; }
 		body[ name ] = el.value || '';
+	} );
+}
+
+/**
+ * Put each server field error next to its custom registration field.
+ *
+ * The template binds slots for the built-in fields (email, password, name, terms,
+ * challenge). A custom profile field has no slot, so its message ("Company is
+ * required.") used to be dropped and the member saw only a generic banner with no
+ * idea which field was wrong. This writes the message under the field, marks the
+ * control invalid for assistive tech, focuses the first one, and clears each
+ * message as soon as the member edits that field.
+ *
+ * @param {HTMLFormElement|null} form   The submitted form.
+ * @param {Object}               fields Server `fields` map (name => message).
+ * @return {boolean} True when every error was shown at a field.
+ */
+const BUILT_IN_ERROR_KEYS = [ 'name', 'email', 'user_login', 'password', 'terms_agreed', 'challenge' ];
+
+function showFieldErrors( form, fields ) {
+	if ( ! form || ! form.querySelectorAll ) { return false; }
+
+	form.querySelectorAll( '[data-bn-reg-error]' ).forEach( function ( el ) { el.remove(); } );
+	form.querySelectorAll( '[data-bn-reg-field][aria-invalid]' ).forEach( function ( el ) {
+		el.removeAttribute( 'aria-invalid' );
+	} );
+
+	let allPlaced = true;
+	let first = null;
+
+	Object.keys( fields || {} ).forEach( function ( key ) {
+		if ( BUILT_IN_ERROR_KEYS.indexOf( key ) !== -1 ) { return; }
+
+		const control = form.querySelector( '[data-bn-reg-field][name="' + key + '"], [data-bn-reg-field][name="' + key + '[]"]' );
+		const wrapper = control && control.closest( '.bn-auth-field' );
+		if ( ! wrapper ) {
+			allPlaced = false;
+			return;
+		}
+
+		const id = 'bn-reg-error-' + key;
+		const msg = document.createElement( 'span' );
+		msg.className = 'bn-auth-field__msg';
+		msg.id = id;
+		msg.setAttribute( 'data-bn-reg-error', '' );
+		msg.setAttribute( 'role', 'alert' );
+		msg.textContent = String( fields[ key ] );
+		wrapper.appendChild( msg );
+
+		wrapper.querySelectorAll( '[data-bn-reg-field]' ).forEach( function ( el ) {
+			el.setAttribute( 'aria-invalid', 'true' );
+			el.setAttribute( 'aria-describedby', id );
+			el.addEventListener( 'input', clearFieldError, { once: true } );
+			el.addEventListener( 'change', clearFieldError, { once: true } );
+		} );
+
+		if ( ! first ) { first = control; }
+	} );
+
+	if ( first && typeof first.focus === 'function' ) {
+		first.focus();
+	}
+
+	return allPlaced;
+}
+
+function clearFieldError( event ) {
+	const wrapper = event.target && event.target.closest ? event.target.closest( '.bn-auth-field' ) : null;
+	if ( ! wrapper ) { return; }
+	wrapper.querySelectorAll( '[data-bn-reg-error]' ).forEach( function ( el ) { el.remove(); } );
+	wrapper.querySelectorAll( '[data-bn-reg-field]' ).forEach( function ( el ) {
+		el.removeAttribute( 'aria-invalid' );
+		el.removeAttribute( 'aria-describedby' );
 	} );
 }
 
@@ -327,10 +401,15 @@ const signupStore = store( 'buddynext/auth-signup', {
 				// and logged in. Only an explicit success:false on an OK response —
 				// or a non-OK status — is a failure.
 				if ( ! r.ok || ( data && ! data.success ) ) {
-					if ( data && data.data && data.data.fields ) {
-						c.fieldErrors = data.data.fields;
+					const fields = data && data.data && data.data.fields ? data.data.fields : null;
+					if ( fields ) {
+						c.fieldErrors = fields;
 					}
-					c.error = ( data && data.message ) || t( 'createFailed', 'Could not create your account.' );
+					// Field errors are shown at their fields; the banner is only for a
+					// failure no field explains (rate limit, closed registration, ...).
+					c.error = fields && showFieldErrors( regForm, fields )
+						? ''
+						: ( ( data && data.message ) || t( 'createFailed', 'Could not create your account.' ) );
 					c.submitting = false;
 					return;
 				}
@@ -392,10 +471,15 @@ const signupStore = store( 'buddynext/auth-signup', {
 				// Same contract as submit(): an OK response with an unparseable body
 				// (proxy stripped the JSON content-type) is a success, not a failure.
 				if ( ! r.ok || ( data && ! data.success ) ) {
-					if ( data && data.data && data.data.fields ) {
-						c.fieldErrors = data.data.fields;
+					const fields = data && data.data && data.data.fields ? data.data.fields : null;
+					if ( fields ) {
+						c.fieldErrors = fields;
 					}
-					c.error = ( data && data.message ) || t( 'createFailed', 'Could not create your account.' );
+					// Field errors are shown at their fields; the banner is only for a
+					// failure no field explains (rate limit, closed registration, ...).
+					c.error = fields && showFieldErrors( regForm, fields )
+						? ''
+						: ( ( data && data.message ) || t( 'createFailed', 'Could not create your account.' ) );
 					c.submitting = false;
 					return;
 				}

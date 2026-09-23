@@ -5,6 +5,9 @@ import { getSpace, deleteSpaceApi, type SpaceRow } from '../_fixtures/spaces-res
 /**
  * J-600 — Create a space (Spaces wave-1 effect spec).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin
+ *
  * Member action: open the directory create modal, fill name/type/description,
  * submit. Driven through the REAL create UI (actions.submitCreate → POST /spaces).
  *

@@ -13,6 +13,9 @@ import {
  * J-660 — Remove a member (owner). Counterpart of Join (J-40): the owner-driven
  * removal that ends someone else's membership, distinct from a member's own Leave.
  *
+ * Covers: cap-group-content-into-spaces, cap-manage-space-membership-change-a-member-s-role-transfer-owne
+ * Roles: admin, member
+ *
  * A second actor joins an open space and becomes active. The owner resolves their
  * user id from the roster and removes them via DELETE /spaces/{id}/members/{uid}
  * (the exact endpoint the Members panel "Remove" button calls).

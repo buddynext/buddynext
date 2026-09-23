@@ -5,6 +5,9 @@ import { createSpaceApi, deleteSpaceApi, bnApi } from '../_fixtures/spaces-rest'
 /**
  * J-673..J-675 — Per-space INTEGRATION toggles (C2), Wave-4 NEW, effect-based.
  *
+ * Covers: cap-integrate-with-wbcom-plugins, cap-group-content-into-spaces
+ * Roles: admin
+ *
  * The integration switches are persisted as core space fields
  * (CoreSpaceFields.php, section "integrations"):
  *   - `push_to_feed`  — mirror space posts into the site activity feed (default on)

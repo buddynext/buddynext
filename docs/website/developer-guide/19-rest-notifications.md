@@ -23,6 +23,7 @@ In short:
 |---|---|---|---|
 | GET | `/me/notifications` | auth | List the current user's notifications, each enriched with a rendered message, link, icon, tone, and label. Accepts `?cursor=` and `?per_page=` (max 50). |
 | GET | `/me/notifications/unread-count` | auth | Unread count for the bell badge. |
+| PUT | `/me/notifications/seen` | auth | Advance the caller's "last seen" timestamp, clearing the bell/nav badge. Also accepts `POST`. Deliberately separate from read: viewing the list must not flip rows to `is_read=1`, or the Unread tab would empty the instant the page opens and defeat Mark-unread. Per-item read state changes only via an explicit `read`/`unread`/`read-all` call. |
 | PUT | `/me/notifications/read-all` | auth | Mark all of the current user's notifications read. Also accepts `POST`. |
 | PUT | `/me/notifications/(?P<id>[\d]+)/read` | auth | Mark one notification read. Also accepts `POST`. |
 | PUT | `/me/notifications/(?P<id>[\d]+)/unread` | auth | Mark one notification unread. Also accepts `POST`. |

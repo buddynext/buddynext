@@ -218,7 +218,7 @@ class ExploreService {
 		// no authorless rows, nothing blank.
 		$posts = (int) $wpdb->get_var(
 			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-			  WHERE privacy = 'public' AND status = 'published'" . $this->feed->explore_renderable_where()
+			  WHERE " . $this->feed->explore_space_where() . " AND status = 'published'" . $this->feed->explore_renderable_where()
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 

@@ -770,6 +770,40 @@ function refreshSpacePageAfterJoin() {
 
 /* ── Store ─────────────────────────────────────────────────────────── */
 
+/**
+ * POST create/reset of a space's invite link, then reload so the settings tab
+ * re-renders the new state. Shared by the create and reset actions.
+ *
+ * @param {string}      spaceId Space ID.
+ * @param {string}      expires Expiry preset (1d|7d|30d|never).
+ * @param {number}      maxUses Max uses (0 = unlimited).
+ * @param {HTMLElement} trigger The clicked element (its button is disabled while busy).
+ * @return {Promise<void>}
+ */
+async function saveInviteLink( spaceId, expires, maxUses, trigger ) {
+	if ( ! spaceId ) { return; }
+	var btn = trigger && trigger.closest ? trigger.closest( 'button' ) : null;
+	if ( btn ) { btn.disabled = true; }
+	try {
+		var res = await restFetch( '/spaces/' + spaceId + '/invite-link', {
+			method:       'POST',
+			nonce:        resolveNonce(),
+			body:         { expires: expires, max_uses: maxUses },
+			toastOnError: false,
+		} );
+		if ( res.ok && res.data && res.data.invite_link ) {
+			if ( window.bnToast ) { window.bnToast( t( 'inviteSaved', 'Invite link ready.' ), 'success' ); }
+			window.location.reload();
+			return;
+		}
+		if ( btn ) { btn.disabled = false; }
+		if ( window.bnToast ) { window.bnToast( ( res.data && res.data.message ) || t( 'inviteSaveFailed', 'Could not save the invite link.' ), 'danger' ); }
+	} catch ( _e ) {
+		if ( btn ) { btn.disabled = false; }
+		if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
+	}
+}
+
 var storeInstance = store( 'buddynext/spaces', {
 
 	/* ── Reactive UI state (single source) ─────────────────────────────────
@@ -817,11 +851,15 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( btn ) { btn.disabled = true; btn.textContent = '\u2026'; }
 
 			try {
-				var res  = await restFetch( '/spaces/' + spaceId + '/join', {
-					method:  'POST',
-					nonce:   resolveNonce(),
-					toastOnError: false,
-				} );
+				// Carry a shareable invite token (from ?invite= on the space URL) so
+				// the server takes the direct-join path (skips approval / invite-only)
+				// for a valid link. Absent on a normal join.
+				var inviteToken = '';
+				try { inviteToken = new URLSearchParams( window.location.search ).get( 'invite' ) || ''; } catch ( _e ) { inviteToken = ''; }
+				var joinOpts = { method: 'POST', nonce: resolveNonce(), toastOnError: false };
+				if ( inviteToken ) { joinOpts.body = { invite: inviteToken }; }
+
+				var res  = await restFetch( '/spaces/' + spaceId + '/join', joinOpts );
 				var data = res.data || {};
 
 				if ( res.ok && data.joined ) {
@@ -850,6 +888,74 @@ var storeInstance = store( 'buddynext/spaces', {
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
 				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
+			}
+		},
+
+		/**
+		 * Create the space's shareable invite link from the create-form selects,
+		 * then reload the tab so the new link renders.
+		 */
+		createInviteLink: async function ( event ) {
+			var root = event && event.target && event.target.closest( '[data-bn-invite-panel]' );
+			if ( ! root ) { return; }
+			var spaceId = root.getAttribute( 'data-space-id' );
+			var expSel  = root.querySelector( '[data-bn-invite-expires]' );
+			var maxSel  = root.querySelector( '[data-bn-invite-max]' );
+			var expires = expSel ? expSel.value : '7d';
+			var maxUses = parseInt( maxSel ? maxSel.value : '0', 10 ) || 0;
+			await saveInviteLink( spaceId, expires, maxUses, event.target );
+		},
+
+		/**
+		 * Reset (regenerate) the link with the same settings, after a confirm.
+		 * The old link stops working the moment the new one is stored.
+		 */
+		resetInviteLink: async function ( event ) {
+			var root = event && event.target && event.target.closest( '[data-bn-invite-panel]' );
+			if ( ! root ) { return; }
+			if ( window.bnConfirm ) {
+				var ok = await window.bnConfirm( {
+					tone:         'danger',
+					title:        t( 'inviteResetTitle', 'Reset the invite link?' ),
+					body:         t( 'inviteResetBody', 'The current link stops working immediately and a new one is created.' ),
+					confirmLabel: t( 'inviteResetConfirm', 'Reset link' ),
+				} );
+				if ( ! ok ) { return; }
+			}
+			var spaceId = root.getAttribute( 'data-space-id' );
+			var expires = root.getAttribute( 'data-bn-invite-expires-current' ) || '7d';
+			var maxUses = parseInt( root.getAttribute( 'data-bn-invite-max-current' ) || '0', 10 ) || 0;
+			await saveInviteLink( spaceId, expires, maxUses, event.target );
+		},
+
+		/**
+		 * Select the whole invite URL when the read-only field is focused, so a
+		 * keyboard/manual copy grabs the full link. Replaces an inline onfocus
+		 * handler (CSP-friendly).
+		 */
+		selectInviteUrl: function ( event ) {
+			var input = event && event.target;
+			if ( input && typeof input.select === 'function' ) { input.select(); }
+		},
+
+		/**
+		 * Copy the invite link URL to the clipboard with feedback.
+		 */
+		copyInviteLink: async function ( event ) {
+			var root  = event && event.target && event.target.closest( '[data-bn-invite-panel]' );
+			var input = root && root.querySelector( '[data-bn-invite-url]' );
+			var url   = input ? input.value : '';
+			if ( ! url ) { return; }
+			try {
+				if ( navigator.clipboard && navigator.clipboard.writeText ) {
+					await navigator.clipboard.writeText( url );
+				} else if ( input ) {
+					input.select();
+					document.execCommand( 'copy' );
+				}
+				if ( window.bnToast ) { window.bnToast( t( 'inviteCopied', 'Copied' ), 'success' ); }
+			} catch ( _e ) {
+				if ( window.bnToast ) { window.bnToast( t( 'inviteCopyFailed', 'Could not copy. Select the link and copy it manually.' ), 'danger' ); }
 			}
 		},
 
@@ -3257,6 +3363,22 @@ document.addEventListener( 'keydown', function ( event ) {
 	// read ctx.restNonce and wpApiSettings isn't enqueued here — the form
 	// carries a fresh wp_rest nonce we use for every cover/icon REST call.
 	var imageNonce = ( generalForm.getAttribute( 'data-rest-nonce' ) ) || resolveNonce();
+
+	// Brand colour: the picker is live only when "use a custom colour" is ticked,
+	// so an owner never picks a colour the save then discards (an unticked save
+	// stores ''). Owner-only is enforced server-side — when the checkbox itself is
+	// disabled (a non-owner) we leave the picker's server-set disabled untouched.
+	( function () {
+		var enable = generalForm.querySelector( 'input[name="space_brand_color_enabled"]' );
+		var picker = generalForm.querySelector( 'input[name="space_brand_color"]' );
+		if ( ! enable || ! picker ) { return; }
+		function syncBrandPicker() {
+			if ( enable.disabled ) { return; }
+			picker.disabled = ! enable.checked;
+		}
+		enable.addEventListener( 'change', syncBrandPicker );
+		syncBrandPicker();
+	}() );
 
 	// A throwaway file input drives the OS picker; we never keep a value in it.
 	function pickFile( onChosen ) {

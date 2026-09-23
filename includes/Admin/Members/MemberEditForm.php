@@ -21,6 +21,13 @@ use BuddyNext\Admin\Members\MemberDisplay;
 class MemberEditForm {
 
 	/**
+	 * Member whose profile the current render is editing (for field wrapper attributes).
+	 *
+	 * @var int
+	 */
+	private int $editing_user_id = 0;
+
+	/**
 	 * How long a rejected save's field messages survive.
 	 *
 	 * The save is a POST that redirects, so the messages have to cross one request
@@ -66,6 +73,8 @@ class MemberEditForm {
 			AdminPageBase::render_notice( __( 'User not found.', 'buddynext' ), 'error' );
 			return;
 		}
+
+		$this->editing_user_id = $user_id;
 
 		$back_url = admin_url( 'admin.php?page=buddynext-members' );
 		$profile  = buddynext_service( 'profiles' )->get_profile( $user_id, $user_id );
@@ -533,6 +542,7 @@ class MemberEditForm {
 							<?php esc_html_e( '+ Add Entry', 'buddynext' ); ?>
 						</button>
 					<?php else : ?>
+						<div<?php echo \BuddyNext\Profile\FieldType::group_wrapper_attributes( $group, $this->editing_user_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the helper. ?>>
 						<?php
 						$flat_fields = $group['fields'] ?? array();
 						foreach ( $flat_fields as $field ) :
@@ -542,6 +552,7 @@ class MemberEditForm {
 							echo '<p class="bn-edit-empty">' . esc_html__( 'No fields in this group.', 'buddynext' ) . '</p>';
 						endif;
 						?>
+						</div>
 					<?php endif; ?>
 
 					<?php $this->close_section(); ?>
@@ -592,7 +603,7 @@ class MemberEditForm {
 			? ' for="' . esc_attr( \BuddyNext\Profile\FieldType::input_id( $key ) ) . '"'
 			: '';
 		?>
-<div class="bn-field-row">
+<div class="bn-field-row"<?php echo \BuddyNext\Profile\FieldType::field_wrapper_attributes( $field, $this->editing_user_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the helper. ?>>
 	<div class="bn-label">
 		<?php if ( ! $self_labelling ) : ?>
 			<label<?php echo $label_for; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>><?php echo esc_html( $label ); ?></label>

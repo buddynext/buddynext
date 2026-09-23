@@ -204,6 +204,12 @@ class Plugin {
 			// WordPress's own nicename rules.
 			\WP_CLI::add_command( 'buddynext handles', new \BuddyNext\Profile\HandleCommand() );
 
+			// Bridge staleness gate: reports every integration bridge's version
+			// state against its partner (below-floor / partner-ahead-of-tested),
+			// so bridges don't silently rot as partners ship. CI-runnable
+			// (`--strict` fails on a partner newer than the bridge was built for).
+			\WP_CLI::add_command( 'buddynext bridge-status', new \BuddyNext\Integrations\BridgeStatusCommand() );
+
 			// QA fixtures — the ugly states the customer demo must never contain
 			// (expired invites, orphaned space owners, cancelled subscriptions,
 			// rows backdated past the retention windows) plus the big-site scale
@@ -482,6 +488,40 @@ class Plugin {
 
 		// Bust per-viewer space-suggestion caches on membership / follow changes.
 		( new \BuddyNext\Spaces\SpaceSuggestionListener() )->register();
+
+		// Shareable invite links: inspect ?invite= before the onboarding gate
+		// (template_redirect:5) and the space visibility gate (dispatch:10), so a
+		// valid link unlocks the space home for the request and, for a member who
+		// still owes onboarding, is remembered across the wizard.
+		add_action( 'template_redirect', array( \BuddyNext\Spaces\SpaceInviteLinkService::class, 'prime_from_request' ), 4 );
+
+		// Featured spaces get a nudge in feed/explore suggestions (post-cache
+		// reranker, behind the member's strongest personal matches).
+		add_filter( 'buddynext_space_suggestions', array( \BuddyNext\Spaces\FeaturedSpaces::class, 'boost_suggestions' ), 10, 2 );
+
+		// Invite-link cleanup: drop a member's "joined via link" marker when they
+		// leave a space, and across every space on account purge / GDPR erase.
+		// Space deletion already clears all bn_space_meta for the space.
+		add_action(
+			'buddynext_space_member_left',
+			static function ( $space_id, $user_id ): void {
+				( new \BuddyNext\Spaces\SpaceInviteLinkService() )->forget_member( (int) $space_id, (int) $user_id );
+			},
+			10,
+			2
+		);
+		add_action(
+			'buddynext_purge_user_data',
+			static function ( $user_id ): void {
+				( new \BuddyNext\Spaces\SpaceInviteLinkService() )->forget_member_everywhere( (int) $user_id );
+			},
+			10,
+			1
+		);
+
+		// A comment on a space post counts as space activity (directory "Active"
+		// sort), throttled to one write per space per 5 minutes.
+		add_action( 'buddynext_comment_created', array( buddynext_service( 'spaces' ), 'touch_activity_from_comment' ), 10, 4 );
 
 		// Bust per-viewer follow- + space-suggestion caches on interest edits.
 		( new InterestListener() )->register();
@@ -1150,9 +1190,13 @@ class Plugin {
 			return new \WP_Error( 'logo_size', __( 'Logo exceeds the 2MB limit.', 'buddynext' ) );
 		}
 
-		$check   = wp_check_filetype_and_ext( (string) ( $file['tmp_name'] ?? '' ), (string) ( $file['name'] ?? '' ) );
-		$allowed = array( 'image/png', 'image/jpeg', 'image/webp', 'image/svg+xml' );
-		$type    = (string) ( $check['type'] ?: ( $file['type'] ?? '' ) ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found -- SVG often returns empty from fileinfo.
+		$check = wp_check_filetype_and_ext( (string) ( $file['tmp_name'] ?? '' ), (string) ( $file['name'] ?? '' ) );
+		// SVG is deliberately NOT allowed: it is an XML document that can carry a
+		// <script>, so an uploaded logo would be a stored-XSS vector served inline
+		// to every visitor, and BuddyNext ships no SVG sanitizer. Raster formats
+		// only; a site that truly needs an SVG logo can add one through the theme.
+		$allowed = array( 'image/png', 'image/jpeg', 'image/webp' );
+		$type    = (string) $check['type'];
 		if ( ! in_array( $type, $allowed, true ) ) {
 			return new \WP_Error( 'logo_type', __( 'Logo file type not allowed.', 'buddynext' ) );
 		}

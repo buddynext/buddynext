@@ -11,6 +11,9 @@ import {
 /**
  * J-604 — Space avatar upload + remove (counterpart pair).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin
+ *
  * Member action: owner uploads a space avatar (POST /spaces/{id}/avatar), then
  * removes it (DELETE /spaces/{id}/avatar).
  *

@@ -1436,6 +1436,204 @@ class SpaceService {
 	}
 
 	/**
+	 * The canonical directory sort map: alias => [ column, direction ].
+	 *
+	 * ONE source of truth for the sort aliases, read by both the SSR directory
+	 * grid (templates/spaces/directory.php) and the REST list filter
+	 * (SpaceController::list_spaces), so the two can never disagree on what a sort
+	 * means again. 'active' resolves to last_active_at; build_list_scope() gives it
+	 * the NULLs-last, created_at-tie-broken ORDER BY that the dir_active index
+	 * serves. Popular is the default.
+	 *
+	 * @return array<string, array{0:string,1:string}>
+	 */
+	public static function sort_map(): array {
+		return array(
+			'popular'      => array( 'member_count', 'DESC' ),
+			'active'       => array( 'last_active_at', 'DESC' ),
+			'newest'       => array( 'created_at', 'DESC' ),
+			'alphabetical' => array( 'name', 'ASC' ),
+		);
+	}
+
+	/**
+	 * Write-throttle window (seconds) for the comment-driven activity stamp.
+	 *
+	 * @var int
+	 */
+	private const ACTIVITY_THROTTLE_SECONDS = 300;
+
+	/**
+	 * Object-cache group for the per-space activity write throttle.
+	 *
+	 * @var string
+	 */
+	private const ACTIVITY_THROTTLE_GROUP = 'buddynext_space_activity';
+
+	/**
+	 * Bump a space's last_active_at when a comment lands on one of its posts.
+	 *
+	 * A new post already stamps last_active_at (run_post_published_effects); this
+	 * extends the "Active" directory sort to count comments too. A busy thread must
+	 * not write on every reply, so it reuses presence's write-throttle shape -
+	 * object cache first, transient fallback, TTL = the window - to at most one
+	 * write per ACTIVITY_THROTTLE_SECONDS per space. Only comments on a POST count;
+	 * a comment on anything else is ignored. Hooked on buddynext_comment_created.
+	 *
+	 * @param int    $comment_id  New comment id (unused; fixed by the hook signature).
+	 * @param string $object_type What the comment is attached to.
+	 * @param int    $object_id   The commented object's id (a post id when relevant).
+	 * @param int    $user_id     Commenter id (unused; fixed by the hook signature).
+	 * @return void
+	 */
+	public function touch_activity_from_comment( int $comment_id, string $object_type, int $object_id, int $user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $comment_id/$user_id are fixed by the buddynext_comment_created signature.
+		if ( 'post' !== $object_type || $object_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id )
+		);
+		if ( $space_id <= 0 || $this->activity_throttled( $space_id ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_spaces',
+			array( 'last_active_at' => gmdate( 'Y-m-d H:i:s' ) ),
+			array( 'id' => $space_id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+		$this->mark_activity_throttled( $space_id );
+	}
+
+	/**
+	 * Whether this space's activity stamp was written within the throttle window.
+	 *
+	 * @param int $space_id Space id.
+	 * @return bool
+	 */
+	private function activity_throttled( int $space_id ): bool {
+		if ( wp_using_ext_object_cache() ) {
+			return false !== wp_cache_get( 'space_' . $space_id, self::ACTIVITY_THROTTLE_GROUP );
+		}
+		return false !== get_transient( 'bn_space_activity_' . $space_id );
+	}
+
+	/**
+	 * Start the throttle window for a space's activity stamp.
+	 *
+	 * @param int $space_id Space id.
+	 * @return void
+	 */
+	private function mark_activity_throttled( int $space_id ): void {
+		if ( wp_using_ext_object_cache() ) {
+			// The TTL IS the throttle - a write cache with nothing to invalidate.
+			wp_cache_set( 'space_' . $space_id, 1, self::ACTIVITY_THROTTLE_GROUP, self::ACTIVITY_THROTTLE_SECONDS );
+			return;
+		}
+		set_transient( 'bn_space_activity_' . $space_id, 1, self::ACTIVITY_THROTTLE_SECONDS );
+	}
+
+	/**
+	 * Resolve the featured spaces for a viewer — the single source of truth for
+	 * every surface (directory sidebar, mobile strip, onboarding, suggestions).
+	 *
+	 * Order of resolution:
+	 *   1. The owner's curated list (`buddynext_featured_spaces`), in the owner's order.
+	 *   2. If the owner curated nothing, the auto-join-on-signup spaces (no
+	 *      member-type filter), ordered by member_count DESC — still the owner's
+	 *      "everyone belongs here" choice.
+	 *   3. If both are empty, an empty array (surfaces hide their Featured block).
+	 *
+	 * Always visibility- and archive-scoped to the viewer (hydration goes through
+	 * list_spaces with `viewer`, which drops archived/secret spaces they cannot
+	 * see), then re-checked after the surface filter so a filter can never expose
+	 * a hidden space. Rows come back in the resolved order (list_spaces IN() does
+	 * not preserve order, so owner rows are reordered here).
+	 *
+	 * @param int    $viewer_id Viewer user ID (0 = logged out).
+	 * @param int    $limit     Max spaces. 0 = the configured limit.
+	 * @param string $surface   Surface tag for the filter ('sidebar'|'directory_mobile'|'onboarding'|'suggestions').
+	 * @return array[] Hydrated space rows in resolved order.
+	 */
+	public function featured_spaces( int $viewer_id, int $limit = 0, string $surface = 'sidebar' ): array {
+		$limit = $limit > 0 ? $limit : FeaturedSpaces::limit();
+
+		$curated  = true;
+		$ids      = FeaturedSpaces::get_ids();
+		if ( empty( $ids ) ) {
+			$curated = false;
+			$ids     = ( new AutoJoinService() )->spaces_for_signup();
+		}
+		$ids = array_slice( array_values( $ids ), 0, $limit );
+
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+		$rows     = $this->list_spaces(
+			array(
+				'include_space_ids' => $ids,
+				'viewer'            => $viewer_id,
+				'is_admin'          => $is_admin,
+				'roots_only'        => true,
+				'per_page'          => count( $ids ),
+			)
+		);
+
+		// Featured never shows an archived space, even to the owner or an admin
+		// (list_spaces shows THEM their own archived spaces elsewhere by design).
+		$rows = array_values( array_filter( $rows, static fn( $r ) => empty( $r['is_archived'] ) ) );
+
+		if ( $curated ) {
+			// Owner order — list_spaces IN() does not preserve it.
+			$by_id = array();
+			foreach ( $rows as $row ) {
+				$by_id[ (int) $row['id'] ] = $row;
+			}
+			$ordered = array();
+			foreach ( $ids as $id ) {
+				if ( isset( $by_id[ $id ] ) ) {
+					$ordered[] = $by_id[ $id ];
+				}
+			}
+			$rows = $ordered;
+		}
+		// Fallback path keeps list_spaces' member_count DESC order.
+
+		/**
+		 * Filter the final featured-space list for a surface.
+		 *
+		 * Runs after visibility filtering; the result is visibility-filtered again
+		 * below, so a listener can reorder/trim/add but can never expose a space
+		 * the viewer must not see.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param array[] $rows      Hydrated space rows.
+		 * @param int     $viewer_id Viewer user ID.
+		 * @param string  $surface   Surface tag.
+		 */
+		$rows = (array) apply_filters( 'buddynext_featured_spaces', $rows, $viewer_id, $surface );
+
+		// Re-assert visibility on whatever the filter returned.
+		$rows = array_values(
+			array_filter(
+				$rows,
+				static fn( $row ) => is_array( $row ) && SpaceVisibility::can_view_space( $row, $viewer_id )
+			)
+		);
+
+		return array_slice( $rows, 0, $limit );
+	}
+
+	/**
 	 * Return a paginated list of spaces.
 	 *
 	 * Supported args:
@@ -1466,6 +1664,7 @@ class SpaceService {
 		$where_sql       = $scope['where_sql'];
 		$orderby         = $scope['orderby'];
 		$order           = $scope['order'];
+		$order_sql       = $scope['order_sql'];
 		$per_page        = $scope['per_page'];
 		$offset          = $scope['offset'];
 
@@ -1487,7 +1686,7 @@ class SpaceService {
 		if ( $member_id > 0 ) {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT s.*, sm.role AS viewer_role FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'{$member_role_sql} {$where_sql} ORDER BY s.{$orderby} {$order} LIMIT %d OFFSET %d",
+					"SELECT s.*, sm.role AS viewer_role FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'{$member_role_sql} {$where_sql} ORDER BY {$order_sql} LIMIT %d OFFSET %d",
 					$member_id,
 					...$params
 				),
@@ -1496,7 +1695,7 @@ class SpaceService {
 		} else {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d",
+					"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY {$order_sql} LIMIT %d OFFSET %d",
 					...$params
 				),
 				ARRAY_A
@@ -1655,7 +1854,7 @@ class SpaceService {
 	 * its bound params, the validated orderby/order, and the resolved pagination.
 	 *
 	 * @param array<string, mixed> $args Query arguments (see list_spaces()).
-	 * @return array{where_sql: string, params: array<int, mixed>, orderby: string, order: string, per_page: int, offset: int, member_id: int, member_role_sql: string}
+	 * @return array{where_sql: string, params: array<int, mixed>, orderby: string, order: string, order_sql: string, per_page: int, offset: int, member_id: int, member_role_sql: string}
 	 */
 	private function list_query_scope( array $args ): array {
 		global $wpdb;
@@ -1687,10 +1886,30 @@ class SpaceService {
 			$member_role_sql = " AND sm.role = 'member'";
 		}
 
-		$allowed_orderby = array( 'member_count', 'name', 'created_at' );
+		$allowed_orderby = array( 'member_count', 'name', 'created_at', 'last_active_at' );
 		$raw_orderby     = isset( $args['orderby'] ) ? (string) $args['orderby'] : 'member_count';
 		$orderby         = in_array( $raw_orderby, $allowed_orderby, true ) ? $raw_orderby : 'member_count';
 		$order           = isset( $args['order'] ) && 'ASC' === strtoupper( (string) $args['order'] ) ? 'ASC' : 'DESC';
+
+		// The full, whitelisted ORDER BY expression. Every column here lives only on
+		// bn_spaces (bn_space_members has none of them, not even id), so the
+		// expression is unambiguous unqualified in both the member-join and the plain
+		// query. "Active" sort: most-recently-active first; spaces with no activity
+		// yet (last_active_at IS NULL) sort LAST under DESC, tie-broken by created_at,
+		// then by id so pagination is STABLE even when two spaces share a timestamp
+		// (bulk-created spaces share created_at to the second, and the whole no-activity
+		// tail shares NULL). id is the InnoDB PK, appended to dir_active's leaf, so the
+		// full order is still a backward index scan - filesort-free at 30k spaces.
+		//
+		// Popular (member_count), Newest (created_at) and A-Z (name) get the SAME
+		// id tie-break: without it MySQL orders equal-value rows non-deterministically,
+		// so across paginated requests a space can shift pages and be shown twice or
+		// skipped (Popular is the worst - hundreds of spaces can share a member_count).
+		// id matches the primary sort's direction and is the trailing column of the
+		// dir_popular / dir_recent / dir_name indexes, so the scan stays filesort-free.
+		$order_sql = 'last_active_at' === $orderby
+			? 'last_active_at DESC, created_at DESC, id DESC'
+			: $orderby . ' ' . $order . ', id ' . $order;
 
 		$params = array();
 		$where  = array();
@@ -1808,6 +2027,7 @@ class SpaceService {
 			'params'          => $params,
 			'orderby'         => $orderby,
 			'order'           => $order,
+			'order_sql'       => $order_sql,
 			'per_page'        => $per_page,
 			'offset'          => $offset,
 			'member_id'       => $member_id,
@@ -1933,7 +2153,7 @@ class SpaceService {
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_spaces
 				 WHERE {$exclude_sql} AND {$archive_sql} AND {$mine_sql} AND {$hidden_sql} AND (name LIKE %s OR description LIKE %s)
-				 ORDER BY member_count DESC
+				 ORDER BY member_count DESC, id DESC
 				 LIMIT %d OFFSET %d",
 				...$params
 			),
@@ -2130,7 +2350,10 @@ class SpaceService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY member_count DESC, name ASC LIMIT %d OFFSET %d",
+				// id DESC is the final unique tie-break so this paginated rail is STABLE
+				// when two sub-spaces share both member_count and name (same class as the
+				// directory sorts, card 10317488684).
+				"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY member_count DESC, name ASC, id DESC LIMIT %d OFFSET %d",
 				$params
 			),
 			ARRAY_A
@@ -2679,57 +2902,9 @@ class SpaceService {
 	}
 
 	/**
-	 * Return pending join requests for a space, enriched with member identity.
-	 *
-	 * Joins wp_users so the moderation "pending members" tab renders a name and
-	 * email without a per-row lookup. Pagination is mandatory here (the request
-	 * queue is shown in bounded batches). Use count_pending_joins() for the
-	 * matching total. The unbounded user_id-only variant lives on
-	 * {@see SpaceMemberService::get_pending_requests()}.
-	 *
-	 * @param int $space_id Space ID.
-	 * @param int $limit    Max rows to return. Capped at 100.
-	 * @param int $offset   Row offset.
-	 * @return array[] Each item: user_id, display_name, user_email, requested_at.
-	 */
-	public function get_pending_join_requests( int $space_id, int $limit, int $offset ): array {
-		global $wpdb;
-
-		$limit  = max( 1, min( 100, $limit ) );
-		$offset = max( 0, $offset );
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT sm.user_id, sm.joined_at, u.display_name, u.user_email
-				 FROM {$wpdb->prefix}bn_space_members sm
-				 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
-				 WHERE sm.space_id = %d AND sm.status = 'pending'
-				 ORDER BY sm.joined_at ASC
-				 LIMIT %d OFFSET %d",
-				$space_id,
-				$limit,
-				$offset
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return array_map(
-			static fn( $r ) => array(
-				'user_id'      => (int) $r['user_id'],
-				'display_name' => (string) $r['display_name'],
-				'user_email'   => (string) $r['user_email'],
-				'requested_at' => (string) $r['joined_at'],
-			),
-			(array) $rows
-		);
-	}
-
-	/**
 	 * Count pending join requests for a space, without loading the rows.
 	 *
-	 * Matches get_pending_join_requests()'s filter so the count and the page
+	 * Matches get_pending_join_requests_all()'s filter so the count and the page
 	 * never disagree.
 	 *
 	 * @param int $space_id Space ID.
@@ -2772,7 +2947,7 @@ class SpaceService {
 	 * member and space identity in one query so the cross-space admin queue
 	 * renders without a per-row lookup.
 	 *
-	 * The cross-space counterpart to {@see get_pending_join_requests()}; ordered
+	 * The cross-space counterpart to {@see get_pending_join_requests_all()}; ordered
 	 * oldest-first so the longest-waiting request surfaces at the top.
 	 *
 	 * @param int $limit Max rows to return. Capped at 100.
@@ -2835,17 +3010,29 @@ class SpaceService {
 			'cover_image_url'  => $row['cover_image_url'] ?? null,
 			'rules'            => $row['rules'] ?? null,
 			// The Pro entitlement gate on the space (`tier:<slug>`), or null when the
-			// space is ungated. REST already ACCEPTS this on PUT, and Pro admin writes
-			// it — but it was never returned, so no client could tell a space was
-			// paywalled. The native app cannot render a gated space if it cannot see
-			// that the space is gated. It is not a secret: the whole point of a paywall
-			// is that the person outside it is told what would let them in.
+			// space is ungated. DEPRECATED in favour of `gate_plans`: a space can now
+			// be opened by several plans, and this carries only the first for one
+			// release of app back-compat. Prefer `gate_plans` + `is_gated`.
 			'required_ability' => isset( $row['required_ability'] ) && '' !== (string) $row['required_ability']
 				? (string) $row['required_ability']
 				: null,
+			// The plans that open this space, as slugs (many-to-many). Free derives a
+			// single-plan baseline from required_ability; Pro's `buddynext_prepare_space`
+			// listener replaces it with the full list from SpacePlanAccess. Empty = not
+			// plan-gated. `is_gated` is the cheap "is there any paywall?" flag a client
+			// checks before caring which plans.
+			'gate_plans'       => ( isset( $row['required_ability'] ) && 0 === strpos( (string) $row['required_ability'], 'tier:' ) )
+				? array( sanitize_key( substr( (string) $row['required_ability'], 5 ) ) )
+				: array(),
+			'is_gated'         => isset( $row['required_ability'] ) && '' !== (string) $row['required_ability'],
 			'is_archived'      => ! empty( $row['is_archived'] ),
 			'archived_at'      => $row['archived_at'] ?? null,
 			'created_at'       => $row['created_at'] ?? '',
+			// When the space was last active - a new post, or a throttled comment on
+			// one. Powers the directory "Active" sort and its per-card "Active N ago"
+			// label, and lets the app order/label the same way. Null until first
+			// activity ("No activity yet").
+			'last_active_at'   => $row['last_active_at'] ?? null,
 			// Present only on member-scoped lists (the viewer's role in the space:
 			// owner | moderator | member). Null elsewhere. Lets clients group
 			// "spaces you manage" vs "spaces you've joined" without a second query.
@@ -2861,5 +3048,94 @@ class SpaceService {
 		 * @param array<string,mixed> $row   The raw bn_spaces row.
 		 */
 		return (array) apply_filters( 'buddynext_prepare_space', $space, $row );
+	}
+
+	/**
+	 * Which tab a space opens on for this viewer.
+	 *
+	 * One resolver for the template and REST so the two never disagree. Order:
+	 *   1. An explicit tab in the URL (/spaces/{slug}/{tab}/) wins as-is - the
+	 *      caller still runs it through its renderable fallback, exactly as before.
+	 *   2. A viewer who cannot read a private space's content lands on About
+	 *      (public identity: description, rules, Join), never a locked Feed.
+	 *   3. The space's own default_tab setting, when it is still a visible tab.
+	 *   4. Otherwise the first tab in the resolved nav order (the site owner's
+	 *      Settings > Navigation order).
+	 * Steps 2-4 are then passed through the buddynext_space_default_tab filter; an
+	 * explicit URL tab is not.
+	 *
+	 * @param array<string,mixed>               $space     Hydrated/raw space row (needs id).
+	 * @param int                               $viewer_id Current viewer user id.
+	 * @param array<int,\BuddyNext\Nav\NavItem> $nav_items The resolved primary nav items for this viewer.
+	 * @param string                            $url_tab   The tab named in the URL, or '' when none.
+	 * @return string The tab id to open on.
+	 */
+	public function landing_tab( array $space, int $viewer_id, array $nav_items, string $url_tab = '' ): string {
+		// 1. An explicit URL tab wins outright and is not filtered.
+		if ( '' !== $url_tab ) {
+			return $url_tab;
+		}
+
+		$tab = $this->resolve_default_landing_tab( $space, $viewer_id, $nav_items );
+
+		/**
+		 * Filter the tab a space opens on when the URL names none.
+		 *
+		 * Runs for the default (steps 2-4), never for an explicit URL tab. Return
+		 * a tab id; a value the viewer cannot see is caught by the renderable
+		 * fallback, so a bad filter can never blank the space.
+		 *
+		 * @param string              $tab       The resolved default tab id.
+		 * @param array<string,mixed> $space     The space row.
+		 * @param int                 $viewer_id The viewer.
+		 */
+		return (string) apply_filters( 'buddynext_space_default_tab', $tab, $space, $viewer_id );
+	}
+
+	/**
+	 * The default landing tab (steps 2-4 of landing_tab()).
+	 *
+	 * @param array<string,mixed>               $space     Space row (needs id).
+	 * @param int                               $viewer_id Viewer id.
+	 * @param array<int,\BuddyNext\Nav\NavItem> $nav_items Resolved primary nav items.
+	 * @return string
+	 */
+	private function resolve_default_landing_tab( array $space, int $viewer_id, array $nav_items ): string {
+		// 2. A non-member of a private space lands on the public About tab.
+		if ( ! SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
+			return 'about';
+		}
+
+		// The tabs the space home renders INLINE for this viewer, in nav order. A
+		// landing tab has to be one the home template can paint itself; the
+		// dedicated-page tabs (Members, Moderation) have their own URLs and are not
+		// landing targets here (opening a space on those is a separate follow-up).
+		$first      = '';
+		$renderable = array();
+		foreach ( $nav_items as $item ) {
+			if ( ! is_object( $item ) || ! method_exists( $item, 'has_render' ) || ! $item->has_render() ) {
+				continue;
+			}
+			$id                = (string) $item->id;
+			$renderable[ $id ] = true;
+			if ( '' === $first ) {
+				$first = $id;
+			}
+		}
+
+		// 3. The space's own choice, when it is still a visible, inline tab (a
+		// choice later hidden or removed falls through to the site default below).
+		$space_id = (int) ( $space['id'] ?? 0 );
+		$raw      = $space_id > 0 ? get_space_meta( $space_id, 'default_tab', true ) : '';
+		// A stored value that no longer maps to a valid option reads back as a
+		// WP_Error (or non-string); treat that, like a hidden tab, as "unset" and
+		// fall through to the site default.
+		$default = is_string( $raw ) ? sanitize_key( $raw ) : '';
+		if ( '' !== $default && isset( $renderable[ $default ] ) ) {
+			return $default;
+		}
+
+		// 4. The first inline tab in the resolved nav order (the site owner's order).
+		return '' !== $first ? $first : 'feed';
 	}
 }

@@ -306,7 +306,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 					aria-hidden="true"
 				>
 					<?php echo \BuddyNext\Core\IconService::render( 'play' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-					<span><?php esc_html_e( 'Video did not load — watch it on the original site', 'buddynext' ); ?></span>
+					<span><?php esc_html_e( 'Video did not load: watch it on the original site', 'buddynext' ); ?></span>
 				</a>
 				<?php endif; ?>
 				<?php echo $bn_oembed; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress oEmbed HTML from the registered-provider allowlist. ?>

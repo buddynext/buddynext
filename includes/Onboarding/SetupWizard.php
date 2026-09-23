@@ -42,10 +42,11 @@ class SetupWizard {
 	 * @var array<string, callable>
 	 */
 	private const ALLOWED_SETTINGS = array(
-		'site_name'    => 'sanitize_text_field',
-		'brand_color'  => 'sanitize_hex_color',
-		'reg_mode'     => 'sanitize_key',
-		'email_verify' => 'rest_sanitize_boolean',
+		'site_name'         => 'sanitize_text_field',
+		'brand_color'       => 'sanitize_hex_color',
+		'reg_mode'          => 'sanitize_key',
+		'email_verify'      => 'rest_sanitize_boolean',
+		'private_community' => 'rest_sanitize_boolean',
 	);
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
@@ -507,8 +508,9 @@ class SetupWizard {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
 		$this->save_settings(
 			array(
-				'reg_mode'     => sanitize_key( wp_unslash( $_POST['reg_mode'] ?? 'open' ) ),
-				'email_verify' => isset( $_POST['email_verify'] ),
+				'reg_mode'          => sanitize_key( wp_unslash( $_POST['reg_mode'] ?? 'open' ) ),
+				'email_verify'      => isset( $_POST['email_verify'] ),
+				'private_community' => isset( $_POST['private_community'] ),
 			)
 		);
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
@@ -544,6 +546,20 @@ class SetupWizard {
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		$this->create_community_pages( $page_slugs );
+
+		// Front-page opt-in: point the site front page at the Community Feed. Only
+		// when the owner ticked it AND the site is still on the default blog front
+		// — so a homepage set since this step rendered is never clobbered (the
+		// checkbox was only offered while show_on_front was 'posts').
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
+		if ( isset( $_POST['set_front_page'] ) && 'posts' === (string) get_option( 'show_on_front' ) ) {
+			// phpcs:enable WordPress.Security.NonceVerification.Missing
+			$bn_activity_page = (int) get_option( 'buddynext_page_activity', 0 );
+			if ( $bn_activity_page > 0 && 'publish' === get_post_status( $bn_activity_page ) ) {
+				update_option( 'show_on_front', 'page' );
+				update_option( 'page_on_front', $bn_activity_page );
+			}
+		}
 	}
 
 	// ── Render ────────────────────────────────────────────────────────────────
@@ -652,7 +668,7 @@ class SetupWizard {
 							admin_url( 'admin.php' )
 						);
 						?>
-						<li class="bn-wizard__step" data-state="<?php echo esc_attr( $state ); ?>"<?php echo $current_aria; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- value is a fixed literal. ?>>
+						<li class="bn-wizard__step" data-state="<?php echo esc_attr( $state ); ?>" title="<?php echo esc_attr( $label ); ?>"<?php echo $current_aria; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- value is a fixed literal. ?>>
 							<?php if ( $bn_wiz_visitable ) : ?>
 								<a class="bn-wizard__step-link" href="<?php echo esc_url( $bn_wiz_step_url ); ?>">
 							<?php endif; ?>
@@ -763,7 +779,7 @@ class SetupWizard {
 		 * indigo the site is actually using. Nothing is written unless the owner picks
 		 * a colour, so accepting the default still leaves the tokens in charge.
 		 */
-		$brand_color = (string) get_option( 'buddynext_brand_color', '' );
+		$brand_color = (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND );
 		if ( '' === $brand_color || strtolower( $brand_color ) === \BuddyNext\Theme\Appearance::DEFAULT_BRAND ) {
 			$brand_color = \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX;
 		}
@@ -771,7 +787,7 @@ class SetupWizard {
 		$this->render_step_head(
 			__( 'What should your community be called?', 'buddynext' ),
 			__( 'A name and a single brand colour. You can refine the rest of your theme later.', 'buddynext' ),
-			__( 'Editable later in Settings → Branding.', 'buddynext' )
+			__( 'Editable later in Settings → Appearance.', 'buddynext' )
 		);
 		?>
 
@@ -911,6 +927,28 @@ class SetupWizard {
 				<?php esc_html_e( 'Send yourself a test email first', 'buddynext' ); ?>
 			</a>
 		</p>
+
+		<?php
+		// Community visibility (view access), distinct from the registration mode
+		// above (join access). Default OFF = public, the product's opinion for a
+		// community of unknown type; flipping it on requires login to view any
+		// BuddyNext page. Editable later in Settings > Privacy. Folded into this
+		// step rather than adding a wizard step (owner decision 2026-09-15).
+		?>
+		<label class="bn-wizard__switch" for="bn-wiz-private-community">
+			<span class="bn-wizard__switch-text">
+				<span class="bn-wizard__switch-title"><?php esc_html_e( 'Private community', 'buddynext' ); ?></span>
+				<span class="bn-wizard__switch-desc"><?php esc_html_e( 'Require login to view the community. Leave off for a public community anyone can browse.', 'buddynext' ); ?></span>
+			</span>
+			<input
+				type="checkbox"
+				id="bn-wiz-private-community"
+				name="private_community"
+				class="bn-wizard__switch-input"
+				<?php checked( (bool) get_option( 'buddynext_private_community', false ) ); ?>
+			>
+			<span class="bn-wizard__switch-track" aria-hidden="true"></span>
+		</label>
 		<?php
 	}
 
@@ -927,7 +965,7 @@ class SetupWizard {
 
 		$this->render_step_head(
 			__( 'What member profiles include', 'buddynext' ),
-			__( 'These field groups are set up and ready. Add, rename, reorder or remove any of them whenever you like — nothing here is fixed.', 'buddynext' ),
+			__( 'These field groups are set up and ready. Add, rename, reorder or remove any of them whenever you like: nothing here is fixed.', 'buddynext' ),
 			__( 'Manage them in Members → Profile Fields.', 'buddynext' )
 		);
 
@@ -1076,7 +1114,7 @@ class SetupWizard {
 
 		$this->render_step_head(
 			__( 'How should spaces be organised?', 'buddynext' ),
-			__( 'Spaces are themed rooms (Help, Announcements, Off-topic…). Pick some starter categories — your members can suggest more later.', 'buddynext' ),
+			__( 'Spaces are themed rooms (Help, Announcements, Off-topic…). Pick some starter categories: your members can suggest more later.', 'buddynext' ),
 			__( 'Editable later in Spaces → Categories.', 'buddynext' )
 		);
 		?>
@@ -1140,7 +1178,7 @@ class SetupWizard {
 
 		$this->render_step_head(
 			__( 'Set up the pages members will visit', 'buddynext' ),
-			__( 'BuddyNext needs a few core pages to host the feed, member directory, and spaces. We’ll create them with sensible URLs — adjust if you need to.', 'buddynext' ),
+			__( 'BuddyNext needs a few core pages to host the feed, member directory, and spaces. We’ll create them with sensible URLs: adjust if you need to.', 'buddynext' ),
 			__( 'Slugs editable later in Settings → Pages.', 'buddynext' )
 		);
 		?>
@@ -1224,6 +1262,29 @@ class SetupWizard {
 			<?php endforeach; ?>
 		</ul>
 		<?php
+		// Front-page opt-in (owner decision 2026-09-15). Offer to make the
+		// Community Feed the site's front page — ONLY when the site is still on
+		// the default blog front (show_on_front = 'posts'), so we never clobber a
+		// homepage the owner already chose. Opt-in: default unchecked, applied in
+		// save_step_pages(). Folded into this step, no extra wizard step.
+		if ( 'posts' === (string) get_option( 'show_on_front' ) ) :
+			?>
+			<label class="bn-wizard__switch" for="bn-wiz-front-page">
+				<span class="bn-wizard__switch-text">
+					<span class="bn-wizard__switch-title"><?php esc_html_e( 'Make the community feed my home page', 'buddynext' ); ?></span>
+					<span class="bn-wizard__switch-desc"><?php esc_html_e( 'Visitors land on the activity feed instead of the default blog. Change it any time in Settings → Reading.', 'buddynext' ); ?></span>
+				</span>
+				<input
+					type="checkbox"
+					id="bn-wiz-front-page"
+					name="set_front_page"
+					value="1"
+					class="bn-wizard__switch-input"
+				>
+				<span class="bn-wizard__switch-track" aria-hidden="true"></span>
+			</label>
+			<?php
+		endif;
 	}
 
 	/**
@@ -1249,7 +1310,7 @@ class SetupWizard {
 		$this->render_step_head(
 			__( 'What’s powering your community?', 'buddynext' ),
 			$can_install && $pending > 0
-				? __( 'These companion plugins extend BuddyNext. Tick only the ones you want — Continue installs and activates those, and nothing else. You can add the rest any time.', 'buddynext' )
+				? __( 'These companion plugins extend BuddyNext. Tick only the ones you want: Continue installs and activates those, and nothing else. You can add the rest any time.', 'buddynext' )
 				: __( 'These companion plugins extend BuddyNext. Anything already active integrates automatically.', 'buddynext' ),
 			$can_install
 				? __( 'Installs the free editions from wbcomdesigns.com. You can manage them later under Plugins.', 'buddynext' )
@@ -1311,7 +1372,7 @@ class SetupWizard {
 						if ( $bn_active ) {
 							esc_html_e( 'Active', 'buddynext' );
 						} elseif ( 'inactive' === $bn_status ) {
-							esc_html_e( 'Installed — will activate', 'buddynext' );
+							esc_html_e( 'Installed: will activate', 'buddynext' );
 						} else {
 							// What Continue will DO, not what the row currently is. "Not
 							// installed" describes the past; this row's whole risk is that

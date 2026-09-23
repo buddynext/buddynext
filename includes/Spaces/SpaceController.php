@@ -362,6 +362,64 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// Shareable invite link: read the current link, or create/reset it. Both
+		// require login at the route and are gated to can_invite() in the handler
+		// (owner/mod per the who_can_invite space setting).
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/invite-link',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'get_invite_link' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'save_invite_link' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+					'args'                => array(
+						'expires'  => array(
+							'type'    => 'string',
+							'enum'    => array( '1d', '7d', '30d', 'never' ),
+							'default' => '7d',
+						),
+						'max_uses' => array(
+							'type'    => 'integer',
+							'enum'    => array( 0, 1, 10, 100 ),
+							'default' => 0,
+						),
+					),
+				),
+			)
+		);
+
+		// Featured spaces (site owner). Owner-only read + write of the curated,
+		// ordered list; the same option every member-facing surface resolves from.
+		register_rest_route(
+			'buddynext/v1',
+			'/settings/featured-spaces',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'get_featured_spaces' ),
+					'permission_callback' => array( $this, 'require_admin' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'save_featured_spaces' ),
+					'permission_callback' => array( $this, 'require_admin' ),
+					'args'                => array(
+						'ids' => array(
+							'type'     => 'array',
+							'required' => true,
+							'items'    => array( 'type' => 'integer' ),
+						),
+					),
+				),
+			)
+		);
+
 		// Spec-conformant approve/decline endpoints: POST /spaces/{id}/members/{user_id}/approve|decline.
 		register_rest_route(
 			'buddynext/v1',
@@ -918,12 +976,7 @@ class SpaceController extends BaseRestController {
 		$orderby = sanitize_key( (string) ( null !== $orderby_param ? $orderby_param : 'member_count' ) );
 		$order   = sanitize_key( (string) ( null !== $order_param ? $order_param : 'DESC' ) );
 
-		$sort_alias_map = array(
-			'popular'      => array( 'member_count', 'DESC' ),
-			'active'       => array( 'member_count', 'DESC' ),
-			'newest'       => array( 'created_at', 'DESC' ),
-			'alphabetical' => array( 'name', 'ASC' ),
-		);
+		$sort_alias_map = SpaceService::sort_map();
 		if ( isset( $sort_alias_map[ $orderby ] ) ) {
 			list( $orderby, $order ) = $sort_alias_map[ $orderby ];
 		}
@@ -1351,7 +1404,7 @@ class SpaceController extends BaseRestController {
 				array(
 					'status' => 422,
 					'params' => array(
-						'visibility' => __( 'This request asks for two different space types at once — `type` and `visibility` disagree. Send one of them.', 'buddynext' ),
+						'visibility' => __( 'This request asks for two different space types at once: `type` and `visibility` disagree. Send one of them.', 'buddynext' ),
 					),
 				)
 			);
@@ -1526,6 +1579,16 @@ class SpaceController extends BaseRestController {
 		$space['can_invite']     = $viewer_id > 0 && ( new SpaceMemberService() )->can_invite( $bn_space_id, $viewer_id );
 		$space['can_manage']     = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $bn_space_id ) );
 		$space['can_edit_space'] = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-manage-space', array( 'space_id' => $bn_space_id ) );
+
+		// The tab the app should open this space on for the current viewer — the
+		// same resolver the web space page uses, so the two never disagree. A REST
+		// fetch names no URL tab, so this is the resolved default (private-space
+		// non-member → About, the space's own choice, or the first tab). Computed on
+		// the single-space read only; the directory list never builds nav per row.
+		$bn_landing_nav       = buddynext_nav(
+			new \BuddyNext\Nav\NavContext( 'space', $bn_space_id, $viewer_id, (string) $space['membership_role'] )
+		);
+		$space['landing_tab'] = ( new SpaceService() )->landing_tab( $space, $viewer_id, $bn_landing_nav->layer( 'primary' ) );
 
 		return new WP_REST_Response( $space, 200 );
 	}
@@ -2149,6 +2212,68 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
+		// Shareable invite link: a valid token is itself the authorization to join
+		// directly, skipping the space's normal approval / invite-only routing —
+		// the same "invitation = authorization" principle as the standing
+		// invitation below. It still does NOT bypass the ban above, onboarding, or
+		// the paid-space gate (buddynext_can_join_space runs inside join()).
+		$invite_token = (string) ( $request->get_param( 'invite' ) ?? '' );
+		if ( '' !== $invite_token ) {
+			// Already an active member — no-op, and crucially do not consume a use
+			// or set a "joined via link" marker for someone who was already in.
+			if ( 'active' === $members->get_status( $space_id, $user_id ) ) {
+				return new WP_REST_Response( array( 'joined' => true ), 200 );
+			}
+
+			$links = new SpaceInviteLinkService();
+
+			$valid = $links->validate( $space_id, $invite_token );
+			if ( is_wp_error( $valid ) ) {
+				return $valid;
+			}
+
+			// Onboarding is required for everyone; a link never skips it. Apps hit
+			// this gate too, so they cannot bypass the wizard via the token.
+			if ( buddynext_service( 'onboarding' )->is_required_for( $user_id ) ) {
+				return new WP_Error(
+					'onboarding_incomplete',
+					__( 'Please finish setting up your account before joining this space.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+
+			// Reserve a use atomically (the real cap gate under concurrency) before
+			// the join; release it if the join is then refused. Counts DISTINCT
+			// people: reserve_slot re-checks the token (so a reset takes effect at
+			// once) and takes no new use for a member who already holds a slot on
+			// this link (a leave+rejoin cannot burn the cap twice). Already-active
+			// members returned above at the top of this branch, so this path is only
+			// a genuine (re)join.
+			$reserved = $links->reserve_slot( $space_id, $user_id, $invite_token );
+			if ( is_wp_error( $reserved ) ) {
+				return $reserved;
+			}
+
+			$result = $members->join( $space_id, $user_id );
+			if ( is_wp_error( $result ) ) {
+				// Only refund a use we actually took (1); a returning member (0) held
+				// their existing slot, so there is nothing to give back.
+				if ( 1 === $reserved ) {
+					$links->refund( $space_id );
+				}
+				return $this->preserve_status( $result, 400 );
+			}
+
+			// Persist the per-person slot only after a successful join, so a refused
+			// join leaves no phantom slot. Skip when the member already held one.
+			if ( 1 === $reserved ) {
+				$links->mark_slot( $space_id, $user_id );
+			}
+			$links->mark_joined( $space_id, $user_id );
+
+			return new WP_REST_Response( array( 'joined' => true ), 200 );
+		}
+
 		// A standing invitation: accepting it joins directly, regardless of the
 		// space's normal join method. Without this, an invited user on a
 		// request-to-join (private) space would be routed through request_join()
@@ -2268,6 +2393,154 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * Get the space's current shareable invite link (owner/mod only).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_invite_link( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+
+		if ( null === ( new SpaceService() )->get( $space_id ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// The shareable link is a public, direct-join broadcast + reset control, not a
+		// targeted invite, so it is gated on managing the space (owner/mod) — the same
+		// gate as the settings panel that shows it — NOT who_can_invite. Otherwise a
+		// space set to "all members can invite" let any member mint a public join link
+		// into a private/secret space and reset the owner's link, from an API the panel
+		// they cannot see.
+		if ( ! buddynext_can( $user_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $space_id ) ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can manage the invite link.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return new WP_REST_Response(
+			array( 'invite_link' => ( new SpaceInviteLinkService() )->get( $space_id ) ),
+			200
+		);
+	}
+
+	/**
+	 * Create or reset the space's shareable invite link (owner/mod only).
+	 *
+	 * A reset is just another create: the old token is discarded immediately and
+	 * a new one is issued with the submitted settings, and the use counter resets.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function save_invite_link( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+
+		if ( null === ( new SpaceService() )->get( $space_id ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// Gated on managing the space (owner/mod), not who_can_invite — see the note
+		// in get_invite_link(). Minting/resetting the public shareable link is a
+		// manage-settings action, distinct from sending a targeted invite.
+		if ( ! buddynext_can( $user_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $space_id ) ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can manage the invite link.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$link = ( new SpaceInviteLinkService() )->create(
+			$space_id,
+			$user_id,
+			(string) $request->get_param( 'expires' ),
+			(int) $request->get_param( 'max_uses' )
+		);
+
+		return new WP_REST_Response( array( 'invite_link' => $link ), 200 );
+	}
+
+	/**
+	 * GET the site owner's featured spaces — the ordered ids + hydrated rows.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function get_featured_spaces( WP_REST_Request $request ): WP_REST_Response {
+		unset( $request );
+		return new WP_REST_Response( $this->featured_spaces_payload(), 200 );
+	}
+
+	/**
+	 * Replace the featured list with a validated, ordered set (owner only).
+	 *
+	 * @param WP_REST_Request $request Incoming request. Body: `ids` (ordered int[]).
+	 * @return WP_REST_Response
+	 */
+	public function save_featured_spaces( WP_REST_Request $request ): WP_REST_Response {
+		$ids = array_map( 'absint', (array) $request->get_param( 'ids' ) );
+		FeaturedSpaces::set_ids( $ids );
+		return new WP_REST_Response( $this->featured_spaces_payload(), 200 );
+	}
+
+	/**
+	 * Build the featured-spaces admin payload: the stored ids, hydrated rows in
+	 * owner order (admin sees all types for management), and the cap.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function featured_spaces_payload(): array {
+		$ids  = FeaturedSpaces::get_ids();
+		$rows = array();
+
+		if ( ! empty( $ids ) ) {
+			$list  = ( new SpaceService() )->list_spaces(
+				array(
+					'include_space_ids' => $ids,
+					'viewer'            => get_current_user_id(),
+					'is_admin'          => true,
+					'per_page'          => count( $ids ),
+				)
+			);
+			$by_id = array();
+			foreach ( $list as $row ) {
+				$by_id[ (int) $row['id'] ] = $row;
+			}
+			foreach ( $ids as $id ) {
+				if ( isset( $by_id[ $id ] ) ) {
+					$r      = $by_id[ $id ];
+					$rows[] = array(
+						'id'           => (int) $r['id'],
+						'name'         => (string) ( $r['name'] ?? '' ),
+						'slug'         => (string) ( $r['slug'] ?? '' ),
+						'member_count' => (int) ( $r['member_count'] ?? 0 ),
+						'avatar_url'   => (string) ( $r['avatar_url'] ?? '' ),
+						'type'         => (string) ( $r['type'] ?? 'open' ),
+					);
+				}
+			}
+		}
+
+		return array(
+			'ids'    => $ids,
+			'spaces' => $rows,
+			'limit'  => FeaturedSpaces::limit(),
+		);
+	}
+
+	/**
 	 * Invite a user to a space.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -2382,10 +2655,16 @@ class SpaceController extends BaseRestController {
 		$actor_id = get_current_user_id();
 		$decision = (string) $request->get_param( 'decision' );
 
-		$user_ids = array_values( array_unique( array_filter( array_map(
-			'absint',
-			(array) $request->get_param( 'user_ids' )
-		) ) ) );
+		$user_ids = array_values(
+			array_unique(
+				array_filter(
+					array_map(
+						'absint',
+						(array) $request->get_param( 'user_ids' )
+					)
+				)
+			)
+		);
 
 		if ( array() === $user_ids ) {
 			return new WP_Error(
@@ -2418,9 +2697,9 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		$members  = new SpaceMemberService();
-		$done     = array();
-		$failed   = array();
+		$members = new SpaceMemberService();
+		$done    = array();
+		$failed  = array();
 
 		foreach ( $user_ids as $user_id ) {
 			$result = 'approve' === $decision

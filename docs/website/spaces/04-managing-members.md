@@ -42,6 +42,8 @@ If you are an owner or moderator (and in spaces where members are allowed to inv
 
 > **Note:** Who is allowed to send invites is a space setting. By default only moderators and the owner can invite, but the owner can open invites to all members. See Setting it up below.
 
+To bring in many people at once rather than one at a time, share the space's invite link instead. See [Invite people with a link](11-invite-with-a-link.md).
+
 ### Approving and declining join requests
 
 In a private space, every Join click becomes a request that needs a decision. Owners and moderators see these in the pending-requests queue:
@@ -102,6 +104,7 @@ Viewing members, inviting, the pending-requests queue, approving and declining, 
 
 ## Related
 
+- [Invite people with a link](11-invite-with-a-link.md) - one shareable link that lets many people join at once
 - [Roles, Moderators, and Permissions](05-roles-and-moderators.md) - who may approve, invite, and remove
 - [Space Bans](06-space-bans.md) - blocking a removed member from rejoining
 - [Space Types and Privacy](03-space-types-and-privacy.md) - how the type decides the join flow

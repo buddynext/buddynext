@@ -1,6 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
+import { loginAs } from '../_fixtures/actor';
 import { urls } from '../_fixtures/selectors';
 import { resolveOtherMemberSlug, softSkip } from '../_fixtures/precondition';
+import { ensureUser, setUserMeta } from '../_fixtures/wp';
 
 /**
  * J-124-profile-owner-gate.
@@ -15,6 +17,17 @@ import { resolveOtherMemberSlug, softSkip } from '../_fixtures/precondition';
  * viewers get Follow / Connect / Message. The owner marker is therefore the
  * edit link inside the bar (`.bn-pf-actions a[href*="/edit/"]`) plus the cover
  * pencil (`.bn-pf-cover__edit`), not a dedicated `.bn-profile-actions-bar`.
+ *
+ * Covers: cap-give-members-a-profile-with-custom-fields
+ * Roles: admin, member
+ * Note: loose fit - this is the owner-only edit-control gate, not the custom
+ * fields feature itself; no closer CAPABILITIES.md row exists. The first two
+ * tests use the authenticatedPage fixture (admin) viewing another member's
+ * profile. The third test closes the gap those left: a plain MEMBER (B,
+ * subscriber) viewing someone else's profile must not see the owner-only edit
+ * link or cover pencil either — B holds no "edit anyone's profile" capability,
+ * so unlike the admin-viewer test the more-menu Edit item must also be
+ * entirely absent, not merely unscoped-out.
  */
 test.describe('profile / owner gate', () => {
     test('Edit Profile / cover pencil do NOT render on a non-owner profile', async ({ authenticatedPage: page }, testInfo) => {
@@ -52,5 +65,39 @@ test.describe('profile / owner gate', () => {
         await expect(page.locator('.bn-pf-hero').first()).toBeVisible({ timeout: 5_000 });
         await expect(page.locator('.bn-pf-actions').first()).toBeVisible();
         await expect(page.locator('.bn-pf-actions a[href*="/edit/"]').first()).toBeVisible();
+    });
+
+    /**
+     * A plain MEMBER viewer (not admin) must not see the owner-only edit link
+     * or cover pencil on someone else's profile, at phone width. Unlike the
+     * admin-viewer test above, a plain member has no "edit anyone's profile"
+     * capability, so unlike admin-gate the more-menu Edit item must not render
+     * AT ALL for this viewer — the unscoped selector is the correct check here.
+     */
+    test('Edit Profile / cover pencil do NOT render on a non-owner profile for a plain MEMBER viewer (mobile 390px)', async ({ page }) => {
+        const owner = process.env.BN_TEST_USER ?? 'varundubey';
+        const viewerLogin = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
+        const viewerId = await ensureUser(viewerLogin, 'bn_e2e_target@example.com', 'BN E2E Target');
+        expect(viewerId, `member "${viewerLogin}" must exist`).toBeGreaterThan(0);
+        await setUserMeta(viewerId, 'bn_onboarding_complete', '1');
+
+        await page.setViewportSize({ width: 390, height: 844 });
+        await loginAs(page, viewerLogin);
+        await page.goto(urls.member(owner));
+        await expect(
+            page.locator('.bn-pf-hero').first(),
+            `Profile hero did not render for "${owner}" — the gate below never ran.`,
+        ).toBeVisible({ timeout: 5_000 });
+
+        // No owner Edit-profile link in the action bar for a plain member viewer.
+        await expect(page.locator('.bn-pf-actions a[href*="/edit/"]:not(.bn-more-menu-item)')).toHaveCount(0);
+
+        // No cover-edit pencil (owner-only in templates/profile/view.php).
+        await expect(page.locator('.bn-pf-cover__edit')).toHaveCount(0);
+
+        // A plain member holds no "edit anyone's profile" capability, so —
+        // unlike the admin-viewer test — the more-menu Edit item must not
+        // appear at all, not merely fall outside the scoped selector above.
+        await expect(page.locator('.bn-pf-actions a[href*="/edit/"]')).toHaveCount(0);
     });
 });

@@ -21,6 +21,13 @@
  * @var string $album_creators        Optional. 'members' (default) or 'admins' - who may
  *                                    create albums in this space. Uploading INTO an
  *                                    existing album stays open to members either way.
+ * @var bool   $events_tab            Optional. Current value of the Events-tab toggle.
+ * @var string $event_creators        Optional. 'members' (default) or 'admins' - who may
+ *                                    add events to this space. Rows render only when the
+ *                                    Eventonomy bridge (Pro) has registered the field.
+ * @var bool   $listora_listings_tab  Optional. Current value of the Businesses-tab toggle.
+ *                                    Renders only when the Listora space-showcase bridge
+ *                                    (Pro) has registered the field.
  * @var bool   $is_space_owner        Required. Whether the viewer owns the space. This
  *                                    panel is owner-only (it decides whether the space
  *                                    has a discussion, a media tab, and whether its
@@ -51,6 +58,9 @@ $args = array(
 	'mvs_media_tab'         => isset( $mvs_media_tab ) ? (bool) $mvs_media_tab : false,
 	'mvs_documents_tab'     => isset( $mvs_documents_tab ) ? (bool) $mvs_documents_tab : false,
 	'album_creators'        => isset( $album_creators ) ? (string) $album_creators : 'members',
+	'events_tab'            => isset( $events_tab ) ? (bool) $events_tab : false,
+	'event_creators'        => isset( $event_creators ) ? (string) $event_creators : 'members',
+	'listora_listings_tab'  => isset( $listora_listings_tab ) ? (bool) $listora_listings_tab : false,
 	'is_space_owner'        => isset( $is_space_owner ) ? (bool) $is_space_owner : false,
 	'classes'               => isset( $classes ) ? (array) $classes : array(),
 );
@@ -68,6 +78,19 @@ $bn_push_to_feed      = ! empty( $args['integrations_settings']['push_to_feed'] 
 $bn_mvs_media_tab     = (bool) $args['mvs_media_tab'];
 $bn_mvs_documents_tab = (bool) $args['mvs_documents_tab'];
 $bn_documents_ready   = \BuddyNext\Bridges\WPMediaVerseBridge::documents_available();
+
+// Events (Eventonomy) toggles render only when the field is registered — i.e.
+// the Eventonomy bridge (BuddyNext Pro) is active. No hard dependency on Pro:
+// absent the field, the rows simply do not appear, and the composer skips them.
+$bn_events_available = null !== \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_field( 'events_tab' );
+$bn_events_tab       = (bool) $args['events_tab'];
+$bn_event_creators   = (string) $args['event_creators'];
+
+// Businesses (WB Listora). Same shape as Events/Media: the toggle renders only
+// when the field is registered — i.e. the Listora space-showcase bridge (Pro)
+// is active. Absent the field the row does not appear and the composer skips it.
+$bn_biz_available = null !== \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_field( 'listora_listings_tab' );
+$bn_biz_tab       = (bool) $args['listora_listings_tab'];
 
 // Discussion (Jetonomy) — opt-in per Space, never mandatory. A Space owns ONE
 // dedicated discussion for its lifetime: before it exists the owner sees a picker
@@ -111,7 +134,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 <div class="<?php echo esc_attr( $bn_class ); ?>">
 	<header class="bn-space-settings__panel-head">
 		<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Integrations', 'buddynext' ); ?></h2>
-		<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Turn on optional features for this Space.', 'buddynext' ); ?></p>
+		<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Turn on optional features for this space.', 'buddynext' ); ?></p>
 	</header>
 
 	<?php
@@ -132,9 +155,9 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			<div class="bn-toggle-row__desc">
 				<?php
 				if ( $bn_disc_has ) {
-					esc_html_e( 'This Space has its own discussion area for threaded conversations.', 'buddynext' );
+					esc_html_e( 'This space has its own discussion area for threaded conversations.', 'buddynext' );
 				} else {
-					esc_html_e( 'Give this Space its own discussion area. Turn the switch on and a discussion is created for it automatically.', 'buddynext' );
+					esc_html_e( 'Give this space its own discussion area. Turn the switch on and a discussion is created for it automatically.', 'buddynext' );
 				}
 				?>
 			</div>
@@ -181,7 +204,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 							data-bn-discussion-search
 							data-wp-on--input="actions.discussionSearch"
 							data-wp-on--focus="actions.discussionSearch">
-						<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear hidden data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear — create a new discussion instead', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
+						<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear hidden data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear: create a new discussion instead', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
 						<ul id="bn_discussion_results" class="bn-space-settings__discussion-results" data-bn-discussion-results role="listbox" hidden></ul>
 					</div>
 				<?php endif; ?>
@@ -202,7 +225,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
 			<div class="bn-toggle-row__label"><?php esc_html_e( 'Share activity to the main feed', 'buddynext' ); ?></div>
-			<div class="bn-toggle-row__desc"><?php esc_html_e( 'When on, new posts and discussion topics from this Space also appear in the main activity feed. When off, they stay inside this Space.', 'buddynext' ); ?></div>
+			<div class="bn-toggle-row__desc"><?php esc_html_e( 'When on, new posts and discussion topics from this space also appear in the main activity feed. When off, they stay inside this space.', 'buddynext' ); ?></div>
 		</div>
 		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Share activity to the main feed', 'buddynext' ); ?>">
 			<input type="checkbox" class="bn-space-settings__toggle-input" name="push_to_feed" value="1" <?php checked( $bn_push_to_feed ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
@@ -213,7 +236,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
 			<div class="bn-toggle-row__label"><?php esc_html_e( 'Media tab', 'buddynext' ); ?></div>
-			<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Media tab for uploading and sharing files in this space.', 'buddynext' ); ?></div>
+			<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Media tab so members can share photos and videos in this space.', 'buddynext' ); ?></div>
 			<?php if ( ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) : ?>
 				<p class="bn-space-settings__hint">
 					<?php esc_html_e( 'Media sharing is unavailable on this site right now.', 'buddynext' ); ?>
@@ -259,6 +282,53 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Only organisers can create albums', 'buddynext' ); ?>">
 				<input type="checkbox" class="bn-space-settings__toggle-input" name="album_creators_admins" value="1" <?php checked( 'admins' === $args['album_creators'] ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+	<?php endif; ?>
+
+	<?php
+	// Events (Eventonomy). The Events tab is opt-in per Space (default off), the
+	// same shape as Media/Files. "Only organisers can add events" is the space's
+	// moderation lever: because editing an event stays with its author, an owner
+	// who wants a curated calendar controls it at the door instead.
+	?>
+	<?php if ( $bn_events_available ) : ?>
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Events tab', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show an Events tab so members can see and add events for this space.', 'buddynext' ); ?></div>
+			</div>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Events tab', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="events_tab" value="1" <?php checked( $bn_events_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Only organisers can add events', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'When off, any member can add an event to this space. When on, only organisers can.', 'buddynext' ); ?></div>
+			</div>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Only organisers can add events', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="event_creators_admins" value="1" <?php checked( 'admins' === $bn_event_creators ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+	<?php endif; ?>
+
+	<?php
+	// Businesses (WB Listora). Opt-in per Space (default off), same shape as
+	// Media/Files/Events. Members submit a listing they own and the space team
+	// approves it before it shows in the Businesses tab.
+	?>
+	<?php if ( $bn_biz_available ) : ?>
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Businesses tab', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Businesses tab so members can submit a listing they own for the team to approve and showcase.', 'buddynext' ); ?></div>
+			</div>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Businesses tab', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="listora_listings_tab" value="1" <?php checked( $bn_biz_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>

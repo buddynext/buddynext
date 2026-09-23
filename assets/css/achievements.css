@@ -43,7 +43,7 @@
 	height: 36px;
 	margin-bottom: 0.15rem;
 	border-radius: 50%;
-	background: var(--bn-accent-soft);
+	background: var(--bn-accent-50);
 }
 
 .bn-achievements__stat-icon svg {
@@ -117,6 +117,16 @@
 	font-size: var(--bn-text-sm);
 }
 
+/* A badge linked from the feed (#badge-{id}) lands clear of the sticky header. */
+.bn-achievements__badge {
+	scroll-margin-top: calc(var(--bn-shell-chrome, 0px) + var(--bn-s4));
+}
+
+.bn-achievements__badge:target .bn-achievements__badge-link {
+	border-color: var(--bn-accent);
+	box-shadow: 0 0 0 3px var(--bn-accent-100);
+}
+
 /* Badge grid. */
 .bn-achievements__grid {
 	list-style: none;
@@ -156,7 +166,7 @@ a.bn-achievements__badge-link:focus-visible {
 /* Credential badges get a subtle accent ring — they are the real achievements. */
 .bn-achievements__badge.is-credential .bn-achievements__badge-link {
 	border-color: var(--bn-accent-300);
-	background: var(--bn-accent-soft);
+	background: var(--bn-accent-50);
 }
 
 .bn-achievements__badge-medal {
@@ -170,12 +180,12 @@ a.bn-achievements__badge-link:focus-visible {
 	/* A soft theme-accent medallion (OKLCH tokens, not an AI-marker gradient) so
 		even a simple badge SVG reads as a designed medal, not a bare icon in a
 		plain circle. */
-	background: radial-gradient(circle at 50% 32%, var(--bn-accent-soft), var(--bn-surface-soft));
+	background: radial-gradient(circle at 50% 32%, var(--bn-accent-50), var(--bn-sunken));
 	box-shadow: inset 0 0 0 1px var(--bn-border);
 }
 
 .bn-achievements__badge.is-credential .bn-achievements__badge-medal {
-	background: radial-gradient(circle at 50% 32%, var(--bn-accent-200, var(--bn-accent-soft)), var(--bn-accent-soft));
+	background: radial-gradient(circle at 50% 32%, var(--bn-accent-200), var(--bn-accent-50));
 	box-shadow: inset 0 0 0 1px var(--bn-accent-300);
 }
 
@@ -312,7 +322,7 @@ a.bn-achievements__badge-link:focus-visible {
 	border-radius: 50%;
 	align-items: center;
 	justify-content: center;
-	background: var(--bn-accent-soft);
+	background: var(--bn-accent-50);
 	color: var(--bn-accent);
 	flex: none;
 }
@@ -402,7 +412,7 @@ a.bn-achievements__badge-link:focus-visible {
 .bn-gam-earn__pts {
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-accent);
-	background: var(--bn-accent-soft);
+	background: var(--bn-accent-50);
 	border-radius: 999px;
 	padding: 2px 8px;
 	font-size: var(--bn-text-xs);
@@ -490,12 +500,12 @@ a.bn-achievements__badge-link:focus-visible {
 }
 
 .bn-gam-kudos .bn-notice--success {
-	background: var(--bn-accent-soft);
+	background: var(--bn-accent-50);
 	color: var(--bn-accent);
 }
 
 .bn-gam-kudos .bn-notice--error {
-	background: var(--bn-danger-soft, var(--bn-sunken));
+	background: var(--bn-danger-bg);
 	color: var(--bn-danger, var(--bn-ink-2));
 }
 

@@ -2076,6 +2076,26 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	border-radius: var(--bn-r-sm);
 }
 
+/* Under review: a reported comment the author/moderator still sees while it is
+   hidden from everyone else. Muted card + a warning-toned badge, so it reads as
+   held-for-moderation rather than normal content. */
+.bn-comment-card--under-review {
+	opacity: 0.85;
+}
+
+.bn-comment-card--under-review .bn-comment__content {
+	color: var(--bn-ink-2);
+}
+
+.bn-comment__review-badge {
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	color: var(--bn-warning, #8a6d00);
+	background: var(--bn-warning-soft, rgba(180, 130, 0, 0.12));
+	padding: 0 var(--bn-s2);
+	border-radius: var(--bn-r-sm);
+}
+
 .bn-comment__edited {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
@@ -3170,6 +3190,24 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-composer__draft-discard svg { width: 18px; height: 18px; }
 .bn-composer__draft-discard:hover { background: var(--bg-hover); color: var(--bn-danger); }
 .bn-composer__draft-discard[hidden] { display: none; }
+
+/* Phone width: the submit row holds the character count, privacy chip and Post,
+ * and fits on one line — until a restored draft adds the "Draft restored" notice
+ * and its discard button, which pushed the Post button off the right edge and gave
+ * the page 15px of sideways scroll (card 10320487920). The notice is transient
+ * status, not a control, so drop the whole draft cluster to its own line above the
+ * controls: Post stays fully on-screen and the notice stays readable. */
+@media ( max-width: 480px ) {
+	.bn-composer__submit-row {
+		flex-wrap: wrap;
+	}
+	.bn-composer__submit-row .bn-composer__draft {
+		order: -1;
+		flex-basis: 100%;
+		justify-content: flex-end;
+		margin-inline-end: 0;
+	}
+}
 
 .bn-composer__media-preview {
 	display: flex;

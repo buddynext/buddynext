@@ -55,7 +55,7 @@ Every route below operates on `get_current_user_id()` and requires a logged-in c
 | GET | `/me/drafts` | require_auth | List the caller's saved composer drafts |
 | POST | `/me/drafts` | require_auth | Save a new composer draft |
 | DELETE | `/me/drafts` | require_auth | Clear the caller's composer draft |
-| GET | `/me/bookmarks` | require_auth | List the caller's bookmarked posts (gated by `buddynext_allow_bookmarks`) |
+| GET | `/me/bookmarks` | require_auth | List the caller's bookmarked posts (gated by the `bookmarks` feature flag, `buddynext_feature_enabled( 'bookmarks' )`) |
 | GET | `/me/shares` | require_auth | List posts the caller has shared |
 
 ### Blocked, muted, and restricted lists
@@ -72,6 +72,7 @@ These are read-only list views of the caller's own social-graph state. The write
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
+| GET | `/me/onboarding` | require_auth | Read the caller's onboarding wizard state (current step, completion) |
 | POST | `/me/onboarding/step` | require_auth | Persist progress for one onboarding step |
 | POST | `/me/onboarding/skip` | require_auth | Skip the onboarding wizard |
 | POST | `/me/onboarding/complete` | require_auth | Mark onboarding complete (fires `buddynext_onboarding_completed`) |
@@ -152,6 +153,14 @@ Registered by `JetonomyBridge` and present **only when the Jetonomy companion is
 | GET | `/members/{id}/discussions` | public | A member's Discussions credential panel: `{ accepted_answers, reputation, trust_level, discussion_count, discussions: [ { id, title, url, reply_count, vote_score, space_name, created_at }, ... ] }` (up to 20 recent). Returns `404` when the member does not exist. |
 
 The space-scoped Jetonomy bridge routes (`POST /spaces/{id}/forum`, `GET /spaces/{id}/discussion-search`) are documented on the REST: Spaces page.
+
+### Member Blog bridge: articles
+
+Registered by `MemberBlogBridge` / `MemberBlogRestController`, present only when the Member Blog companion is active. Reads the member's published WordPress posts through `WP_Query` (the same posts the profile Articles tab renders) - there are no Member Blog tables or functions involved beyond the one dashboard URL.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/members/{id}/blog` | public, drafts/pending filtered in handler | A member's published articles, paginated (`page`). Drafts and pending posts are visible only to the owner or an editor - the same rule the Articles tab applies. |
 
 ### Moderation actions targeting a user
 

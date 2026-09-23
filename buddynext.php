@@ -3,7 +3,7 @@
  * Plugin Name: BuddyNext
  * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
- * Version:     1.2.0
+ * Version:     1.2.1
  * Author:      Wbcom Designs
  * Author URI:  https://wbcomdesigns.com
  * License:     GPLv2 or later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BUDDYNEXT_VERSION', '1.2.0' );
+define( 'BUDDYNEXT_VERSION', '1.2.1' );
 define( 'BUDDYNEXT_FILE', __FILE__ );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
@@ -188,6 +188,43 @@ if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' )
 		}
 	);
 }
+
+// Version skew, the direction only Free can see. Pro guards Free-older-than-Pro
+// from its own boot; the reverse — Pro OLDER than Free, i.e. the owner updated
+// BuddyNext but not BuddyNext Pro — is invisible to Pro (it cannot know a future
+// Free's version), so Free warns. Checked at admin_notices, by when both plugins
+// are loaded and BUDDYNEXTPRO_VERSION (if Pro is active) is defined. They ship in
+// lockstep, so this stays silent unless a partial update left them mismatched. A
+// warning, not an error: Free still works and Pro degrades gracefully, but the
+// owner should update Pro to match.
+add_action(
+	'admin_notices',
+	static function (): void {
+		// Only people who could actually update the plugin should see this — a
+		// subscriber reaching wp-admin (profile.php) can neither act on it nor make
+		// sense of it, and on an open community it just reads as a broken site.
+		if ( ! current_user_can( 'update_plugins' ) ) {
+			return;
+		}
+		if ( ! defined( 'BUDDYNEXTPRO_VERSION' ) || ! defined( 'BUDDYNEXT_VERSION' ) ) {
+			return;
+		}
+		if ( ! version_compare( BUDDYNEXTPRO_VERSION, BUDDYNEXT_VERSION, '<' ) ) {
+			return;
+		}
+		printf(
+			'<div class="notice notice-warning"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: 1: installed BuddyNext Pro version, 2: installed BuddyNext version */
+					__( 'BuddyNext Pro %1$s is older than BuddyNext %2$s. Update BuddyNext Pro to match, so the two stay in step.', 'buddynext' ),
+					BUDDYNEXTPRO_VERSION,
+					BUDDYNEXT_VERSION
+				)
+			)
+		);
+	}
+);
 
 // Apply pending DB schema upgrades on a plain plugin update (no deactivate/
 // reactivate needed). Cheap no-op once the stored schema revision matches.

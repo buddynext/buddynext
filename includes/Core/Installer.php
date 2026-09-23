@@ -163,6 +163,35 @@ class Installer {
 	);
 
 	/**
+	 * The options pointing at the hub backing pages (published WP pages that
+	 * carry a [buddynext_*] shortcode), one per hub with backing_page === true in
+	 * CoreHubs. delete_hub_pages() removes these pages on an opt-in full-wipe
+	 * uninstall. Hardcoded rather than derived from HubRegistry because uninstall
+	 * loads this class file alone, without the autoloader that would boot the
+	 * registry; HubPageOptionsDriftTest keeps the two in lockstep.
+	 *
+	 * @var string[]
+	 */
+	public const HUB_PAGE_OPTIONS = array(
+		'buddynext_page_activity',
+		'buddynext_page_people',
+		'buddynext_page_spaces',
+		'buddynext_page_messages',
+		'buddynext_page_notifications',
+		'buddynext_page_auth',
+	);
+
+	/**
+	 * Recommended PHP memory floor, in MB. The full family (BuddyNext + Pro +
+	 * WPMediaVerse + the integrations) can exhaust PHP's 128M default and fatal;
+	 * the Site Health memory test recommends at least this much, and the readme /
+	 * docs state the same figure.
+	 *
+	 * @var int
+	 */
+	public const MEMORY_FLOOR_MB = 512;
+
+	/**
 	 * Filename for the mu-plugin that provides front-end plugin isolation.
 	 */
 	private const MU_PLUGIN_SLUG = 'buddynext-isolation.php';
@@ -379,8 +408,33 @@ class Installer {
 	 *  56: data purge only (no schema change) — drop bn_reactions rows whose target
 	 *      object was hard-deleted, so orphaned reactions stop inflating counts
 	 *      (card 10264292715). Runs maybe_purge_orphan_reactions() on upgrade.
+	 *  58: bn_comments gains is_hidden TINYINT(1) NOT NULL DEFAULT 0 — the reversible
+	 *      "Under review" state a reported comment enters at the auto-hide threshold,
+	 *      the comment mirror of a post's status='under_review' (card 10312729096).
+	 *      Distinct from is_deleted (moderator takedown): a hidden comment is dropped
+	 *      for other members and excluded from the post's comment_count, but still
+	 *      shown (labelled) to its author and to moderators, and comes back when the
+	 *      reports are cleared. reply_lookup gains is_hidden so a parent's replies
+	 *      filter on it. dbDelta ADD-COLUMNs it on upgrade; additive, all existing
+	 *      rows correct as 0 (visible), no backfill.
+	 *  59: bn_spaces.dir_name widened from the (parent_id, name(150)) PREFIX to the
+	 *      full (parent_id, name, id). A prefix index cannot satisfy ORDER BY name, so
+	 *      the A-Z directory sort filesorted at scale while the numeric sorts did not
+	 *      (card 10312614032). dbDelta cannot alter an existing index, so
+	 *      maybe_widen_indexes() drops and recreates it on upgrade; read-only index
+	 *      change, no data touched.
+	 *  60: the four bn_spaces directory-sort indexes (dir_popular / dir_name /
+	 *      dir_recent / dir_active) re-led on is_archived instead of parent_id. The
+	 *      directory query the wire actually issues filters on is_archived = 0 (+ a type
+	 *      negation) and only ADDS parent_id IS NULL for the roots-only default; the
+	 *      Include-sub-spaces view drops parent_id entirely, which a parent_id-led index
+	 *      cannot serve, so it filesorted every sort at scale, and roots Newest filesorted
+	 *      too. Leading on the is_archived equality (present in both shapes), then the
+	 *      order column + id, lets ONE index set serve both views filesort-free — a space
+	 *      and a sub-space are the same object (card 10312614032). maybe_widen_indexes()
+	 *      recreates them on upgrade; read-only index change, no data touched.
 	 */
-	private const SCHEMA_VERSION = 56;
+	private const SCHEMA_VERSION = 60;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -393,7 +447,7 @@ class Installer {
 	 *
 	 * @var string
 	 */
-	private const FLAG_CONVERGENCE = '2026-08-header-fields';
+	private const FLAG_CONVERGENCE = '2026-09-repeater-system-fields';
 
 	/**
 	 * Option holding the last applied FLAG_CONVERGENCE stamp.
@@ -448,9 +502,63 @@ class Installer {
 					'label' => __( 'BuddyNext database tables', 'buddynext' ),
 					'test'  => array( self::class, 'site_health_schema_test' ),
 				);
+				$tests['direct']['buddynext_memory'] = array(
+					'label' => __( 'BuddyNext memory limit', 'buddynext' ),
+					'test'  => array( self::class, 'site_health_memory_test' ),
+				);
 
 				return $tests;
 			}
+		);
+	}
+
+	/**
+	 * Site Health: recommend at least MEMORY_FLOOR_MB of PHP memory.
+	 *
+	 * PHP's 128M default can fatal once the whole family is active, so this
+	 * surfaces a "recommended" (not critical - WordPress itself runs below the
+	 * floor) result when memory_limit is under it. An unlimited (-1) or
+	 * unreadable limit is treated as sufficient rather than flagged.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function site_health_memory_test(): array {
+		$floor   = self::MEMORY_FLOOR_MB * MB_IN_BYTES;
+		$current = wp_convert_hr_to_bytes( (string) ini_get( 'memory_limit' ) );
+		$badge   = array(
+			'label' => __( 'BuddyNext', 'buddynext' ),
+			'color' => 'blue',
+		);
+
+		if ( $current <= 0 || $current >= $floor ) {
+			return array(
+				'label'       => __( 'BuddyNext has enough PHP memory', 'buddynext' ),
+				'status'      => 'good',
+				'badge'       => $badge,
+				'description' => '<p>' . sprintf(
+					/* translators: %d: recommended memory floor in MB. */
+					esc_html__( 'PHP memory_limit is at or above the %d MB BuddyNext recommends with the full plugin family active.', 'buddynext' ),
+					self::MEMORY_FLOOR_MB
+				) . '</p>',
+				'test'        => 'buddynext_memory',
+			);
+		}
+
+		return array(
+			'label'       => sprintf(
+				/* translators: %d: recommended memory floor in MB. */
+				__( 'BuddyNext recommends at least %d MB of PHP memory', 'buddynext' ),
+				self::MEMORY_FLOOR_MB
+			),
+			'status'      => 'recommended',
+			'badge'       => $badge,
+			'description' => '<p>' . sprintf(
+				/* translators: 1: current memory_limit (e.g. 128M), 2: recommended floor in MB. */
+				esc_html__( 'PHP memory_limit is %1$s. With BuddyNext, its Pro layer and the media/integration plugins all active, a request can exhaust that and fail with a fatal error. Raise memory_limit to at least %2$d MB in php.ini or wp-config.php.', 'buddynext' ),
+				(string) ini_get( 'memory_limit' ),
+				self::MEMORY_FLOOR_MB
+			) . '</p>',
+			'test'        => 'buddynext_memory',
 		);
 	}
 
@@ -806,12 +914,31 @@ class Installer {
 	}
 
 	/**
+	 * Whether the current one-shot profile-flag correction has already been applied.
+	 *
+	 * FLAG_CONVERGENCE ships flag corrections (e.g. locking a seeded field as
+	 * is_system) independently of the schema version - that is its whole purpose.
+	 * But converge_seeded_field_flags() runs inside run(), and maybe_upgrade() skips
+	 * run() entirely when the schema version already matches. So a flag-only
+	 * correction shipped WITHOUT a schema bump never reached a site whose schema was
+	 * already current (it only landed as a side effect of an unrelated schema bump).
+	 * Gating the early return on this too lets a pending correction run on its own.
+	 * The stamp makes it self-limiting: once applied, this returns true and the early
+	 * return holds again.
+	 *
+	 * @return bool
+	 */
+	private static function profile_flags_converged(): bool {
+		return self::FLAG_CONVERGENCE === get_option( self::FLAG_CONVERGENCE_OPTION, '' );
+	}
+
+	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION,
 	 * or when a table it claims to have created is missing.
 	 *
 	 * Hooked on admin_init so a plain plugin update (no reactivation) still picks
-	 * up column/table changes. Cheap no-op once the versions match and the schema
-	 * is intact.
+	 * up column/table changes. Cheap no-op once the versions match, the schema is
+	 * intact, and no one-shot profile-flag correction is pending.
 	 *
 	 * @return void
 	 */
@@ -822,7 +949,8 @@ class Installer {
 		$bn_stored_schema = (int) get_option( 'buddynext_schema_version', 0 );
 
 		if ( self::SCHEMA_VERSION === $bn_stored_schema
-			&& self::schema_intact() ) {
+			&& self::schema_intact()
+			&& self::profile_flags_converged() ) {
 			return;
 		}
 
@@ -1083,7 +1211,17 @@ class Installer {
 		// opted in is already at the current schema and never reaches this step.
 		self::maybe_clear_unconsented_tracking( $bn_stored_schema );
 
-		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+		// run() is authoritative on the schema version: it stamps it when the schema
+		// is healthy and deliberately WITHHOLDS it when install_schema() recorded a
+		// failure (a missing table/column, or an index widen that did not take).
+		// Re-stamping unconditionally here overrode that withhold, marking a broken
+		// schema as fully upgraded - and because schema_intact() never issues SHOW
+		// INDEX, a failed widen was then never retried on any later request (cards
+		// 10320909157 / 10320514361). So only advance the version when run() left no
+		// failure recorded; otherwise leave it behind so the next pass retries.
+		if ( false === get_option( self::SCHEMA_FAILURE_OPTION, false ) ) {
+			update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+		}
 	}
 
 	/**
@@ -2212,20 +2350,53 @@ class Installer {
 
 			$after = (string) $wpdb->last_error;
 
-			if ( '' !== $after && $after !== $before ) {
+			// A "Duplicate key name" is NOT an install failure: the index already
+			// exists. dbDelta cannot ALTER an index, so when a key's declaration has
+			// widened away from the one already on the table (dir_name / reply_lookup
+			// mid-upgrade), dbDelta re-issues the ADD and MySQL refuses with this
+			// error — while the key is present the whole time. Recording it withheld
+			// the version stamp for an index maybe_widen_indexes() then recreated
+			// correctly in the SAME pass, and armed the one-hour back-off (card
+			// 10320726618). The honesty check after maybe_widen_indexes() re-records a
+			// real failure if a widen we own did not actually take; a genuinely
+			// missing table/column still records here.
+			if ( '' !== $after && $after !== $before && ! self::schema_error_is_benign( $after ) ) {
 				$table            = preg_match( '/CREATE TABLE ([a-z0-9_]+)/i', $sql, $m ) ? $m[1] : '?';
 				$errors[ $table ] = $after;
 			}
 		}
 		$wpdb->suppress_errors( false );
 
-		self::$last_schema_errors = $errors;
-
 		// Idempotent column back-fills for existing installs. dbDelta handles
 		// most additive changes, but enum/charset edge cases on older MySQL can
 		// silently skip new columns — so we guard each add with an
 		// INFORMATION_SCHEMA existence check. Safe to run on every activation.
 		self::maybe_alter_tables( $wpdb->prefix );
+
+		// Widen indexes whose column set changed in a later schema. dbDelta only
+		// CREATES a missing index; it cannot alter one already present, so a widened
+		// index has to be dropped and recreated directly. Runs AFTER the column
+		// back-fills so any column a widened index references already exists.
+		self::maybe_widen_indexes( $wpdb->prefix );
+
+		// Honesty check for the benign "Duplicate key name" filter in the dbDelta
+		// loop above: those errors were dropped because maybe_widen_indexes() owns the
+		// widened indexes and has just recreated them. If a widen it was meant to
+		// apply did NOT take — the index still exists but predates its widening column
+		// — the schema really is wrong, so record it as a genuine failure and let
+		// run() withhold the version stamp. Only fires when the table and column both
+		// exist (an upgrade), so a fresh install whose CREATE TABLE already carries
+		// the full index never trips it.
+		foreach ( self::index_widenings( $wpdb->prefix ) as $bn_widening ) {
+			list( $bn_wtable, $bn_windex, , $bn_wadded ) = $bn_widening;
+			if ( self::index_exists( $bn_wtable, $bn_windex )
+				&& self::column_exists( $bn_wtable, $bn_wadded )
+				&& ! self::index_covers_column( $bn_wtable, $bn_windex, $bn_wadded ) ) {
+				$errors[ $bn_wtable ] = sprintf( "Index '%s' was not widened to cover '%s'", $bn_windex, $bn_wadded );
+			}
+		}
+
+		self::$last_schema_errors = $errors;
 
 		// FULLTEXT index for the search service. Skipped under the PHPUnit harness:
 		// WP_UnitTestCase wraps each test in a transaction that is rolled back, and
@@ -2361,17 +2532,36 @@ class Installer {
 				// v12: the directory browses ROOTS ordered by one of a few sorts
 				// (WHERE parent_id IS NULL ORDER BY <col>). Without a (parent_id,<col>)
 				// composite each sort filesorts every load — fatal at 20-30k
-				// member-created spaces per site. Index the two dominant orders:
-				// popularity (member_count, the default) and alphabetical (name).
-				// "Recently active" sort is intentionally NOT built (it would need a
-				// denormalized activity column maintained on every space post — an
-				// ongoing background cost we chose to skip).
-				'dir_popular'  => 'ADD KEY dir_popular (parent_id, member_count)',
-				'dir_name'     => 'ADD KEY dir_name (parent_id, name(150))',
-				// v13: the "Newest" sort (parent_id IS NULL ORDER BY created_at DESC).
-				// created_at is immutable after insert, so this index is write-once —
-				// a pure read win with no ongoing maintenance.
-				'dir_recent'   => 'ADD KEY dir_recent (parent_id, created_at)',
+				// member-created spaces per site. Index the directory sorts on the shape
+				// the query REALLY has (captured off the wire, card 10312614032):
+				// WHERE is_archived = 0 AND type NOT IN ('secret') [AND parent_id IS NULL]
+				// ORDER BY <col>, id.
+				// The "Include sub-spaces" toggle drops the parent_id predicate, so a
+				// parent_id-led index could not serve that view at all - it filesorted
+				// every sort at scale - and even the roots (parent_id IS NULL) view's
+				// Newest sort filesorted because the optimizer preferred dir_active over
+				// the created_at index. A space and a sub-space are the same object, so
+				// both views must scale. is_archived = 0 is an equality present in BOTH
+				// shapes, so leading with it lets ONE index serve roots and all-spaces
+				// alike: the order column comes next, id is the stable tie-break, and
+				// parent_id IS NULL / the type negation apply as residuals with no
+				// filesort. EXPLAIN at 6k spaces: every sort, both views -> index scan,
+				// no filesort. Redefined from the old (parent_id, ...) form on existing
+				// installs by maybe_widen_indexes(); child (parent_id = X) lookups keep
+				// their own `parent` index.
+				'dir_popular'  => 'ADD KEY dir_popular (is_archived, member_count, id)',
+				// FULL name column + id, never a name(150) PREFIX: a prefix index cannot
+				// satisfy ORDER BY name (MySQL cannot order by a truncated value).
+				'dir_name'     => 'ADD KEY dir_name (is_archived, name, id)',
+				// "Newest": ORDER BY created_at DESC, id DESC. created_at is immutable
+				// after insert, so this index is write-once.
+				'dir_recent'   => 'ADD KEY dir_recent (is_archived, created_at, id)',
+				// "Active": ORDER BY last_active_at DESC, created_at DESC, id DESC.
+				// last_active_at is maintained on a new space post and (throttled to one
+				// write / 5 min / space) on a comment on a space post. created_at + id
+				// trail so the full ORDER BY (incl. the NULLs-last / same-timestamp
+				// tie-break) is a filesort-free index scan at 30k spaces.
+				'dir_active'   => 'ADD KEY dir_active (is_archived, last_active_at, created_at, id)',
 				// The wp-admin Spaces list is a DIFFERENT access pattern from the
 				// front-end directory above: it does not scope by parent_id, so none
 				// of the (parent_id, …) composites can serve it. Its leading column
@@ -2468,6 +2658,112 @@ class Installer {
 	}
 
 	/**
+	 * Recreate indexes whose column set widened in a later schema.
+	 *
+	 * WordPress's dbDelta only ever CREATES a missing index; it cannot alter one
+	 * already present. So when a shipped index gains a column (here
+	 * bn_comments.reply_lookup went from (parent_id, is_deleted) to
+	 * (parent_id, is_deleted, is_hidden) in schema 58), dbDelta on an existing
+	 * install could never apply the change: it
+	 * kept re-issuing the ADD on every maybe_upgrade() — which runs on admin_init —
+	 * and the wider index the reply-visibility query needs was never in place. That
+	 * is both the idempotence failure (dbDelta never converges) and a hot-path cost
+	 * (a failed ALTER every admin request).
+	 *
+	 * Each entry drops the stale index and recreates it in one atomic ALTER, only
+	 * when it exists but does not yet cover the added column. No-op on a fresh
+	 * install (dbDelta creates the index at full width) and on one already widened.
+	 * Runs after {@see maybe_alter_tables()} so the referenced column exists.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	/**
+	 * Whether a dbDelta error is benign — a condition install_schema() must NOT
+	 * record as a schema failure (which would withhold the version stamp and arm
+	 * the one-hour back-off).
+	 *
+	 * "Duplicate key name" is the only such case: it means the index already
+	 * EXISTS, so nothing is missing. dbDelta cannot ALTER an index, so once a key's
+	 * declared columns widen away from the one already on the table (dir_name,
+	 * reply_lookup mid-upgrade) dbDelta re-issues the ADD and MySQL refuses with
+	 * this error — while the key is present throughout, and maybe_widen_indexes()
+	 * recreates it in the SAME pass. A genuinely missing table or column produces a
+	 * different error and stays a real failure. The honesty check after
+	 * maybe_widen_indexes() still catches a widen that did not take (card
+	 * 10320726618).
+	 *
+	 * @param string $error The MySQL error text captured after a dbDelta pass.
+	 * @return bool True when the error must not count as a schema failure.
+	 */
+	private static function schema_error_is_benign( string $error ): bool {
+		return 1 === preg_match( '/Duplicate key name/i', $error );
+	}
+
+	/**
+	 * The indexes whose declared column set widened in a later schema.
+	 *
+	 * One source of truth, shared by maybe_widen_indexes() (which recreates them) and
+	 * install_schema()'s post-pass honesty check (which confirms the recreate took).
+	 * Each entry is [ fully-prefixed table, index name, full column list, the column
+	 * whose late addition widened it ].
+	 *
+	 * @param string $p Table prefix.
+	 * @return array<int,array{0:string,1:string,2:array<int,string>,3:string}>
+	 */
+	private static function index_widenings( string $p ): array {
+		// table => [ index, [columns...], the column whose late addition widened it ].
+		return array(
+			array( $p . 'bn_comments', 'reply_lookup', array( 'parent_id', 'is_deleted', 'is_hidden' ), 'is_hidden' ),
+			// The four directory-sort indexes were re-led on is_archived (from the old
+			// parent_id lead) so ONE index set serves both the roots-only default and the
+			// Include-sub-spaces view of the directory, filesort-free at scale — a space
+			// and a sub-space are the same object (card 10312614032). Recreated on
+			// existing installs here (dbDelta cannot alter an index); detected by the
+			// absence of is_archived from the current index. `id` trails every one for a
+			// stable pagination tie-break.
+			array( $p . 'bn_spaces', 'dir_popular', array( 'is_archived', 'member_count', 'id' ), 'is_archived' ),
+			array( $p . 'bn_spaces', 'dir_name', array( 'is_archived', 'name', 'id' ), 'is_archived' ),
+			array( $p . 'bn_spaces', 'dir_recent', array( 'is_archived', 'created_at', 'id' ), 'is_archived' ),
+			array( $p . 'bn_spaces', 'dir_active', array( 'is_archived', 'last_active_at', 'created_at', 'id' ), 'is_archived' ),
+		);
+	}
+
+	/**
+	 * Recreate any index whose declared column set widened in a later schema.
+	 *
+	 * A widened index has to be dropped and recreated directly, because dbDelta only
+	 * CREATES a missing index and cannot alter one already present. Shares its target
+	 * list with install_schema()'s post-pass honesty check via {@see index_widenings()}.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_widen_indexes( string $p ): void {
+		global $wpdb;
+
+		$widenings = self::index_widenings( $p );
+
+		foreach ( $widenings as $w ) {
+			list( $table, $index, $columns, $added ) = $w;
+
+			// Only act when the index is present but predates the added column, and
+			// the column itself exists (so the recreate cannot reference a missing one).
+			if ( ! self::index_exists( $table, $index )
+				|| ! self::column_exists( $table, $added )
+				|| self::index_covers_column( $table, $index, $added ) ) {
+				continue;
+			}
+
+			// Index/column names are identifiers, not prepare() placeholders; every
+			// part here is a hardcoded constant, so there is no untrusted input.
+			$cols = implode( ', ', $columns );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` DROP INDEX `{$index}`, ADD KEY `{$index}` ({$cols})" );
+		}
+	}
+
+	/**
 	 * Whether an ENUM column already permits a given value.
 	 *
 	 * Reads COLUMN_TYPE (e.g. `enum('published','draft')`) and looks for the
@@ -2551,6 +2847,38 @@ class Installer {
 				DB_NAME,
 				$table,
 				$index
+			)
+		);
+
+		return null !== $found;
+	}
+
+	/**
+	 * Whether a named index on a table already covers a given column.
+	 *
+	 * Lets a fixup tell an index that needs widening (a column added to it in a
+	 * later schema) from one already carrying that column, so the drop-and-recreate
+	 * only fires when it actually has to. dbDelta cannot alter an existing index, so
+	 * widening one on a pre-existing table has to be done directly.
+	 *
+	 * @param string $table  Fully-prefixed table name.
+	 * @param string $index  Index name.
+	 * @param string $column Column the index should include.
+	 * @return bool
+	 */
+	private static function index_covers_column( string $table, string $index, string $column ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND INDEX_NAME = %s AND COLUMN_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$table,
+				$index,
+				$column
 			)
 		);
 
@@ -3501,6 +3829,20 @@ class Installer {
 			    AND is_system = 0"
 		);
 
+		// The built-in work/education repeater fields the "currently working /
+		// attending" end-date toggle is wired to (work_current <-> work_end_date,
+		// edu_current <-> edu_end_year). The toggle JS pairs them by key, so
+		// deleting one and re-adding it (which mints a new key like
+		// currently_working) silently breaks the toggle with no way back from the
+		// admin. Lock them is_system like the bio/headline spine so they cannot be
+		// deleted into that state. See card 10312499657.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_fields`
+			    SET is_system = 1
+			  WHERE field_key IN ('work_current', 'work_end_date', 'edu_current', 'edu_end_year')
+			    AND is_system = 0"
+		);
+
 		// The profile hero's meta row is data-driven now (show_in_header, in
 		// sort_order) instead of a hardcoded key list. Seed the two fields the hero
 		// has always shown in its meta row — location and website — so an upgraded
@@ -3733,9 +4075,10 @@ class Installer {
 				KEY                category (category_id),
 				KEY                parent (parent_id),
 				KEY                is_archived (is_archived),
-				KEY                dir_popular (parent_id, member_count),
-				KEY                dir_name (parent_id, name(150)),
-				KEY                dir_recent (parent_id, created_at),
+				KEY                dir_popular (is_archived, member_count, id),
+				KEY                dir_name (is_archived, name, id),
+				KEY                dir_recent (is_archived, created_at, id),
+				KEY                dir_active (is_archived, last_active_at, created_at, id),
 				KEY                admin_type (type, created_at),
 				KEY                admin_recent (created_at),
 				KEY                admin_active (last_active_at)
@@ -3907,6 +4250,7 @@ class Installer {
 				content TEXT NOT NULL,
 				is_edited TINYINT(1) NOT NULL DEFAULT 0,
 				is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+				is_hidden TINYINT(1) NOT NULL DEFAULT 0,
 				sync_reply_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				media_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -3916,7 +4260,7 @@ class Installer {
 				KEY         user (user_id),
 				KEY         deleted (is_deleted),
 				KEY         sync_reply (sync_reply_id),
-				KEY         reply_lookup (parent_id, is_deleted),
+				KEY         reply_lookup (parent_id, is_deleted, is_hidden),
 				KEY         user_recent (user_id, created_at)
 			) {$cs};",
 
@@ -4358,9 +4702,29 @@ function buddynext_mu_is_bn_request() {
 		return $result;
 	}
 
-	// Parse the bare path from REQUEST_URI and strip the leading slash.
+	// Parse the bare path from REQUEST_URI and strip the leading slash. Decode
+	// percent-encoding first: the slugs and home base are compared as plain text, so
+	// a request for /%61ctivity/ (a browser or client that encoded a normal segment)
+	// would otherwise never match its hub slug and route isolation would silently
+	// skip it (card 10317871293, second path).
 	$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- raw comparison only, never output.
-	$path        = ltrim( strtok( $request_uri, '?' ), '/' );
+	$path        = ltrim( rawurldecode( (string) strtok( $request_uri, '?' ) ), '/' );
+
+	// A WordPress install in a SUBDIRECTORY (home is example.com/community) makes
+	// every REQUEST_URI carry that base, so /community/activity/ has 'community' as
+	// its first segment - never a hub slug - and route isolation would silently
+	// never fire while the toggle shows ON, while the asset layer (rewrite-based)
+	// still isolates: a split brain (card 10317871293). Strip the home base first,
+	// derived at runtime from the options API so it is self-healing if the site
+	// moves, and segment matching then works at root and in a subdirectory alike.
+	$bn_home_path = trim( (string) parse_url( (string) get_option( 'home', '' ), PHP_URL_PATH ), '/' );
+	if ( '' !== $bn_home_path ) {
+		if ( $path === $bn_home_path ) {
+			$path = '';
+		} elseif ( 0 === strpos( $path, $bn_home_path . '/' ) ) {
+			$path = ltrim( substr( $path, strlen( $bn_home_path ) ), '/' );
+		}
+	}
 
 	if ( '' === $path ) {
 		$result = false;
@@ -4502,14 +4866,22 @@ if ( buddynext_mu_is_bn_request() ) {
 			// WooCommerce Subscriptions is the common shape). We read the same registry
 			// core uses to block deactivating a needed parent, so a stale mirror
 			// degrades to "stripped less than asked", never a fatal (card 10296851425).
-			// Per-request static cache: option_active_plugins is filtered many times per
-			// request, so we must not re-read every kept plugin's header each time.
+			// Scan only the THIRD-PARTY kept plugins. Our in-house family (the
+			// $essentials floor) is always kept, and its members only ever require
+			// each other - every Pro plugin requires its own free base, which is
+			// itself in the floor - so a family plugin can never require a strippable
+			// plugin, and reading its header is wasted work. Excluding the floor
+			// shrinks the scan from ~every active plugin to just the third-party
+			// plugins the owner kept, which is what bounds the per-request cost -
+			// no cross-request cache, no front-end write (card 10317874510). The
+			// per-request static still avoids re-reading within a request, since
+			// option_active_plugins is filtered many times.
 			static $bn_required_slugs_cache = array();
-			$kept     = array_values( array_diff( $plugins, $strip ) );
-			$kept_key = md5( implode( '|', $kept ) );
-			if ( ! isset( $bn_required_slugs_cache[ $kept_key ] ) ) {
+			$scan     = array_values( array_diff( array_diff( $plugins, $strip ), $essentials ) );
+			$scan_key = md5( implode( '|', $scan ) );
+			if ( ! isset( $bn_required_slugs_cache[ $scan_key ] ) ) {
 				$required_slugs = array();
-				foreach ( $kept as $kept_file ) {
+				foreach ( $scan as $kept_file ) {
 					$kept_path = WP_PLUGIN_DIR . '/' . $kept_file;
 					if ( ! is_readable( $kept_path ) ) {
 						continue;
@@ -4525,9 +4897,9 @@ if ( buddynext_mu_is_bn_request() ) {
 						}
 					}
 				}
-				$bn_required_slugs_cache[ $kept_key ] = $required_slugs;
+				$bn_required_slugs_cache[ $scan_key ] = $required_slugs;
 			}
-			$required_slugs = $bn_required_slugs_cache[ $kept_key ];
+			$required_slugs = $bn_required_slugs_cache[ $scan_key ];
 			if ( ! empty( $required_slugs ) ) {
 				$strip = array_values(
 					array_filter(
@@ -4663,5 +5035,26 @@ MUPLUGIN;
 		// version still matches). Clearing the sentinel makes PageRouter perform
 		// the complete flush on the next normal request, after the rules exist.
 		delete_option( 'buddynext_router_version' );
+	}
+
+	/**
+	 * Delete the hub backing pages on an opt-in full-wipe uninstall.
+	 *
+	 * The companion to create_hub_pages(): reads each buddynext_page_* pointer
+	 * (HUB_PAGE_OPTIONS) and force-deletes that WP page, so a full wipe does not
+	 * leave published pages carrying dead [buddynext_*] shortcodes behind. Called
+	 * from uninstall.php ONLY on the opt-in path ($bn_delete_data === true) and
+	 * BEFORE the option sweep removes the pointers; the default uninstall path
+	 * leaves owner-visible pages in place, per WordPress convention.
+	 *
+	 * @return void
+	 */
+	public static function delete_hub_pages(): void {
+		foreach ( self::HUB_PAGE_OPTIONS as $option ) {
+			$page_id = (int) get_option( $option, 0 );
+			if ( $page_id > 0 && 'page' === get_post_type( $page_id ) ) {
+				wp_delete_post( $page_id, true );
+			}
+		}
 	}
 }

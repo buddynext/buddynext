@@ -173,4 +173,161 @@
 			}
 		} );
 	}
+
+	// ── Featured-spaces picker: reorder (buttons + drag), remove, search-add,
+	//    save via POST /settings/featured-spaces. Owner data, saved on change. ──
+	( function initFeaturedPicker() {
+		var root = document.querySelector( '[data-bn-featured-picker]' );
+		if ( ! root ) {
+			return;
+		}
+		var rest    = root.getAttribute( 'data-rest' );
+		var nonce   = root.getAttribute( 'data-nonce' );
+		var limit   = parseInt( root.getAttribute( 'data-limit' ), 10 ) || 6;
+		var list    = root.querySelector( '[data-bn-featured-list]' );
+		var empty   = root.querySelector( '[data-bn-featured-empty]' );
+		var search  = root.querySelector( '[data-bn-featured-search]' );
+		var results = root.querySelector( '[data-bn-featured-results]' );
+		var status  = root.querySelector( '[data-bn-featured-status]' );
+
+		function ids() {
+			return Array.prototype.map.call(
+				list.querySelectorAll( 'li[data-space-id]' ),
+				function ( li ) { return parseInt( li.getAttribute( 'data-space-id' ), 10 ); }
+			);
+		}
+		function syncEmpty() {
+			if ( empty ) { empty.hidden = list.children.length > 0; }
+		}
+		function say( msg ) {
+			if ( status ) { status.textContent = msg; }
+		}
+		function save() {
+			say( __( 'Saving…', 'buddynext' ) );
+			fetch( rest + '/settings/featured-spaces', {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+				body: JSON.stringify( { ids: ids() } )
+			} ).then( function ( r ) { return r.ok ? r.json() : Promise.reject( r ); } )
+				.then( function () { say( __( 'Saved.', 'buddynext' ) ); } )
+				.catch( function () { say( __( 'Could not save. Please retry.', 'buddynext' ) ); } );
+		}
+		function makeItem( id, name ) {
+			var li = document.createElement( 'li' );
+			li.className = 'bn-featured-picker__item';
+			li.setAttribute( 'data-space-id', String( id ) );
+			li.setAttribute( 'draggable', 'true' );
+			var nameEl = document.createElement( 'span' );
+			nameEl.className = 'bn-featured-picker__name';
+			nameEl.textContent = name; // user string via textContent — no innerHTML.
+			var actions = document.createElement( 'span' );
+			actions.className = 'bn-featured-picker__actions';
+			[ [ 'up', '↑', __( 'Move up', 'buddynext' ) ], [ 'down', '↓', __( 'Move down', 'buddynext' ) ], [ 'remove', '×', __( 'Remove from featured', 'buddynext' ) ] ].forEach( function ( spec ) {
+				var b = document.createElement( 'button' );
+				b.type = 'button';
+				b.className = 'bn-btn';
+				b.setAttribute( 'data-variant', 'ghost' );
+				b.setAttribute( 'data-size', 'sm' );
+				b.setAttribute( 'data-bn-featured-' + spec[0], '' );
+				b.setAttribute( 'aria-label', spec[2] );
+				b.textContent = spec[1];
+				actions.appendChild( b );
+			} );
+			li.appendChild( nameEl );
+			li.appendChild( actions );
+			return li;
+		}
+
+		// Reorder + remove (event delegation).
+		list.addEventListener( 'click', function ( e ) {
+			var btn = e.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var li = btn.closest( 'li[data-space-id]' );
+			if ( ! li ) { return; }
+			if ( btn.hasAttribute( 'data-bn-featured-up' ) && li.previousElementSibling ) {
+				list.insertBefore( li, li.previousElementSibling );
+				save();
+			} else if ( btn.hasAttribute( 'data-bn-featured-down' ) && li.nextElementSibling ) {
+				list.insertBefore( li.nextElementSibling, li );
+				save();
+			} else if ( btn.hasAttribute( 'data-bn-featured-remove' ) ) {
+				li.remove();
+				syncEmpty();
+				save();
+			}
+		} );
+
+		// Drag reorder.
+		var dragging = null;
+		list.addEventListener( 'dragstart', function ( e ) {
+			dragging = e.target.closest( 'li[data-space-id]' );
+			if ( dragging ) { dragging.classList.add( 'is-dragging' ); }
+		} );
+		list.addEventListener( 'dragover', function ( e ) {
+			e.preventDefault();
+			var over = e.target.closest( 'li[data-space-id]' );
+			if ( ! over || ! dragging || over === dragging ) { return; }
+			var rect = over.getBoundingClientRect();
+			var after = ( e.clientY - rect.top ) / rect.height > 0.5;
+			list.insertBefore( dragging, after ? over.nextElementSibling : over );
+		} );
+		list.addEventListener( 'dragend', function () {
+			if ( dragging ) { dragging.classList.remove( 'is-dragging' ); dragging = null; save(); }
+		} );
+
+		// Search-to-add (debounced).
+		var timer = null;
+		function renderResults( spaces ) {
+			results.textContent = '';
+			if ( ! spaces.length ) { results.hidden = true; return; }
+			spaces.forEach( function ( s ) {
+				var opt = document.createElement( 'button' );
+				opt.type = 'button';
+				opt.className = 'bn-featured-picker__result';
+				opt.setAttribute( 'role', 'option' );
+				opt.setAttribute( 'data-space-id', String( s.id ) );
+				opt.textContent = s.name;
+				opt.addEventListener( 'click', function () {
+					if ( ids().indexOf( parseInt( s.id, 10 ) ) !== -1 ) {
+						say( __( 'That space is already featured.', 'buddynext' ) );
+						return;
+					}
+					if ( list.children.length >= limit ) {
+						say( __( 'You can feature up to', 'buddynext' ) + ' ' + limit + ' ' + __( 'spaces. Remove one first.', 'buddynext' ) );
+						return;
+					}
+					list.appendChild( makeItem( s.id, s.name ) );
+					syncEmpty();
+					results.hidden = true;
+					search.value = '';
+					save();
+				} );
+				results.appendChild( opt );
+			} );
+			results.hidden = false;
+		}
+		if ( search ) {
+			search.addEventListener( 'input', function () {
+				window.clearTimeout( timer );
+				var q = search.value.trim();
+				if ( q.length < 2 ) { results.hidden = true; return; }
+				timer = window.setTimeout( function () {
+					fetch( rest + '/spaces?search=' + encodeURIComponent( q ) + '&per_page=8', {
+						credentials: 'same-origin',
+						headers: { 'X-WP-Nonce': nonce }
+					} ).then( function ( r ) { return r.ok ? r.json() : Promise.reject( r ); } )
+						.then( function ( data ) {
+							// GET /spaces returns a bare array; tolerate an envelope too.
+							var rows = Array.isArray( data ) ? data : ( ( data && ( data.spaces || data.items ) ) || [] );
+							renderResults( rows );
+						} )
+						.catch( function () { results.hidden = true; } );
+				}, 250 );
+			} );
+			document.addEventListener( 'click', function ( e ) {
+				if ( ! root.contains( e.target ) ) { results.hidden = true; }
+			} );
+		}
+	}() );
 }() );

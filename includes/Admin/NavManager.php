@@ -168,7 +168,7 @@ class NavManager extends AdminPageBase {
 		if ( 'pages_saved' === $notice ) {
 			AdminPageBase::render_notice( __( 'Pages & URLs saved.', 'buddynext' ), 'success' );
 		} elseif ( 'pages_conflict' === $notice ) {
-			AdminPageBase::render_notice( __( 'That URL slug is already used by another hub or an existing page. Nothing was saved — change the slug and try again.', 'buddynext' ), 'error' );
+			AdminPageBase::render_notice( __( 'That URL slug is already used by another hub or an existing page. Nothing was saved: change the slug and try again.', 'buddynext' ), 'error' );
 		} elseif ( 'pages_error' === $notice ) {
 			// handle_save_hub_pages() saves the URL slugs first, then attempts any
 			// requested page creation; a failed create is skipped (the hub keeps its
@@ -184,7 +184,7 @@ class NavManager extends AdminPageBase {
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Community hubs', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
 					<p class="bn-field-hint">
-						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Hubs are virtual routes — only assign a WordPress page if you want a page-builder layout, a real menu entry, or page-level SEO for that hub.', 'buddynext' ); ?>
+						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Hubs are virtual routes: only assign a WordPress page if you want a page-builder layout, a real menu entry, or page-level SEO for that hub.', 'buddynext' ); ?>
 					</p>
 					<!--
 					Scroll host on the WRAPPER, never the table (admin table contract, rule 3):
@@ -263,7 +263,7 @@ class NavManager extends AdminPageBase {
 											'name'     => esc_attr( 'bn_hub[' . $hub . '][page_id]' ),
 											'id'       => esc_attr( $field_id . '-page' ),
 											'selected' => absint( $page_val ),
-											'show_option_none' => esc_html__( '— None —', 'buddynext' ),
+											'show_option_none' => esc_html__( 'None', 'buddynext' ),
 											'option_none_value' => '0',
 										)
 									);
@@ -1011,7 +1011,7 @@ class NavManager extends AdminPageBase {
 				'label'       => __( 'Create', 'buddynext' ),
 				'order'       => 30,
 				'icon'        => 'tab-feed',
-				'description' => __( 'Centre compose button — fixed slot, always shown.', 'buddynext' ),
+				'description' => __( 'Centre compose button: fixed slot, always shown.', 'buddynext' ),
 				'capability'  => 'read',
 				'locked'      => true,
 			),
@@ -1028,7 +1028,7 @@ class NavManager extends AdminPageBase {
 				'label'       => __( 'Profile', 'buddynext' ),
 				'order'       => 50,
 				'icon'        => 'tab-people',
-				'description' => __( 'Profile shortcut — fixed slot, always shown.', 'buddynext' ),
+				'description' => __( 'Profile shortcut: fixed slot, always shown.', 'buddynext' ),
 				'capability'  => 'read',
 				'locked'      => true,
 			),
@@ -1104,28 +1104,31 @@ class NavManager extends AdminPageBase {
 
 					<!-- Main Navigation scope panel -->
 					<div class="bn-scope-panel" data-scope-panel="main">
-						<?php $this->render_nav_section( 'main', $main_tabs, __( 'Main Navigation', 'buddynext' ), __( '— Community Nav Bar', 'buddynext' ) ); ?>
+						<?php $this->render_nav_section( 'main', $main_tabs, __( 'Main Navigation', 'buddynext' ), __( '- Community Nav Bar', 'buddynext' ) ); ?>
 					</div>
 
 					<!-- Profile Tabs scope panel -->
 					<div class="bn-scope-panel" data-scope-panel="profile" hidden>
-						<?php $this->render_nav_section( 'profile', $profile_tabs, __( 'Profile Tabs', 'buddynext' ), __( '— Member profile pages', 'buddynext' ) ); ?>
+						<?php $this->render_nav_section( 'profile', $profile_tabs, __( 'Profile Tabs', 'buddynext' ), __( '- Member profile pages', 'buddynext' ) ); ?>
 					</div>
 
 					<!-- Space Tabs scope panel -->
 					<div class="bn-scope-panel" data-scope-panel="space" hidden>
-						<?php $this->render_nav_section( 'space', $space_tabs, __( 'Space Tabs', 'buddynext' ), __( '— Space detail pages', 'buddynext' ) ); ?>
+						<?php $this->render_nav_section( 'space', $space_tabs, __( 'Space Tabs', 'buddynext' ), __( '- Space detail pages', 'buddynext' ) ); ?>
+						<p class="description">
+							<?php esc_html_e( 'Spaces open on the first tab in this list. A space owner can choose a different starting tab in their space settings.', 'buddynext' ); ?>
+						</p>
 					</div>
 
 					<!-- Mobile Bottom Nav scope panel -->
 					<div class="bn-scope-panel" data-scope-panel="mobile" hidden>
-						<?php $this->render_nav_section( 'mobile', $mobile_tabs, __( 'Mobile Bottom Nav', 'buddynext' ), __( '— Bottom navigation bar', 'buddynext' ) ); ?>
+						<?php $this->render_nav_section( 'mobile', $mobile_tabs, __( 'Mobile Bottom Nav', 'buddynext' ), __( '- Bottom navigation bar', 'buddynext' ) ); ?>
 						<?php $this->render_mobile_note(); ?>
 					</div>
 
 					<!-- Account Dropdown scope panel (the header avatar menu) -->
 					<div class="bn-scope-panel" data-scope-panel="account" hidden>
-						<?php $this->render_nav_section( 'account', $account_tabs, __( 'Account Dropdown', 'buddynext' ), __( '— The header avatar menu', 'buddynext' ) ); ?>
+						<?php $this->render_nav_section( 'account', $account_tabs, __( 'Account Dropdown', 'buddynext' ), __( '- The header avatar menu', 'buddynext' ) ); ?>
 					</div>
 
 				</div><!-- /.bn-nav-main-panel -->
@@ -1221,7 +1224,7 @@ class NavManager extends AdminPageBase {
 					<p>
 						<?php
 						echo wp_kses(
-							__( 'Any plugin can inject links into any scope — <code>buddynext_register_nav()</code> / <code>buddynext_nav_items</code> (profile + space tabs and metrics), <code>buddynext_rail_items</code> (left rail), <code>buddynext_context_nav</code> (sub-nav).', 'buddynext' ),
+							__( 'Any plugin can inject links into any scope: <code>buddynext_register_nav()</code> / <code>buddynext_nav_items</code> (profile + space tabs and metrics), <code>buddynext_rail_items</code> (left rail), <code>buddynext_context_nav</code> (sub-nav).', 'buddynext' ),
 							array( 'code' => array() )
 						);
 						?>
@@ -1316,7 +1319,7 @@ class NavManager extends AdminPageBase {
 					<?php
 					printf(
 						/* translators: %s: the buddynext_register_nav hook name, in code formatting. */
-						esc_html__( 'Tabs on this surface are added in code, with %s — which can render real content, show a count badge and gate itself by capability. See the developer guide.', 'buddynext' ),
+						esc_html__( 'Tabs on this surface are added in code, with %s: which can render real content, show a count badge and gate itself by capability. See the developer guide.', 'buddynext' ),
 						'<code>buddynext_register_nav</code>'
 					);
 					?>
@@ -1436,7 +1439,7 @@ class NavManager extends AdminPageBase {
 						echo esc_html(
 							sprintf(
 								/* translators: %s: required plugin name */
-								__( 'Unavailable — install and activate the %s plugin to enable messaging.', 'buddynext' ),
+								__( 'Unavailable: install and activate the %s plugin to enable messaging.', 'buddynext' ),
 								$requires
 							)
 						);
@@ -1699,7 +1702,7 @@ class NavManager extends AdminPageBase {
 							value="<?php echo esc_attr( $capability ); ?>"
 							maxlength="80">
 					<span class="bn-cf-hint">
-						<?php esc_html_e( 'A WordPress capability, e.g. read or edit_posts. Used when Visibility is set to "Custom capability" — members whose role lacks it will not see this item. Leave as read to allow everyone.', 'buddynext' ); ?>
+						<?php esc_html_e( 'A WordPress capability, e.g. read or edit_posts. Used when Visibility is set to "Custom capability": members whose role lacks it will not see this item. Leave as read to allow everyone.', 'buddynext' ); ?>
 					</span>
 				</div>
 			</details>
@@ -1754,7 +1757,7 @@ class NavManager extends AdminPageBase {
 			<div class="bn-cf">
 				<div class="bn-config-note">
 					<strong><?php esc_html_e( 'Core tab', 'buddynext' ); ?></strong>
-					<?php esc_html_e( '— Cannot be removed, only hidden.', 'buddynext' ); ?>
+					<?php esc_html_e( '- Cannot be removed, only hidden.', 'buddynext' ); ?>
 				</div>
 			</div>
 			<?php else : ?>
@@ -1886,17 +1889,17 @@ class NavManager extends AdminPageBase {
 							esc_html_e( 'This tab is added to EVERY space, so the link must point at whichever space the member is viewing. Use a placeholder and it is filled in per space:', 'buddynext' );
 							?>
 							<br>
-							<code>{space_url}</code> — <?php esc_html_e( 'that space\'s address, e.g. /spaces/design-critique/', 'buddynext' ); ?><br>
-							<code>{slug}</code> — <?php esc_html_e( 'that space\'s slug, e.g. design-critique', 'buddynext' ); ?><br>
-							<code>{space_id}</code> — <?php esc_html_e( 'that space\'s numeric ID', 'buddynext' ); ?>
+							<code>{space_url}</code>: <?php esc_html_e( 'that space\'s address, e.g. /spaces/design-critique/', 'buddynext' ); ?><br>
+							<code>{slug}</code>: <?php esc_html_e( 'that space\'s slug, e.g. design-critique', 'buddynext' ); ?><br>
+							<code>{space_id}</code>: <?php esc_html_e( 'that space\'s numeric ID', 'buddynext' ); ?>
 							<?php
 						} elseif ( 'profile' === $scope ) {
 							esc_html_e( 'This tab is added to EVERY profile, so the link points at whichever member is being viewed. Use a placeholder and it is filled in per member:', 'buddynext' );
 							?>
 							<br>
-							<code>{profile_url}</code> — <?php esc_html_e( 'that member\'s profile address', 'buddynext' ); ?><br>
-							<code>{slug}</code> — <?php esc_html_e( 'that member\'s username', 'buddynext' ); ?><br>
-							<code>{user_id}</code> — <?php esc_html_e( 'that member\'s numeric ID', 'buddynext' ); ?>
+							<code>{profile_url}</code>: <?php esc_html_e( 'that member\'s profile address', 'buddynext' ); ?><br>
+							<code>{slug}</code>: <?php esc_html_e( 'that member\'s username', 'buddynext' ); ?><br>
+							<code>{user_id}</code>: <?php esc_html_e( 'that member\'s numeric ID', 'buddynext' ); ?>
 							<?php
 						} else {
 							// Account dropdown / main nav: one link that goes to the same

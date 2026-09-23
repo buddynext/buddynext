@@ -11,6 +11,9 @@ import {
 /**
  * J-632 — Transfer ownership to another member (C2).
  *
+ * Covers: cap-group-content-into-spaces, cap-manage-space-membership-change-a-member-s-role-transfer-owne
+ * Roles: admin, member
+ *
  * A second actor joins an open space; the owner transfers ownership to them
  * (POST /spaces/{id}/transfer-ownership). The new owner must already be an
  * active member (the endpoint 422s otherwise), so the ownership primitive moves

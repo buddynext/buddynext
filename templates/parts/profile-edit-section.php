@@ -28,6 +28,8 @@
  * @var string $footer_html   Optional. Pre-built HTML for the card footer.
  * @var string $footer_action Optional. do_action() hook fired inside the card footer.
  * @var array  $classes       Optional. Extra CSS classes appended to `.bn-card`.
+ * @var string $attributes    Optional. Extra pre-escaped attributes for the `<section>` (leading space),
+ *                            e.g. FieldType::group_wrapper_attributes().
  *
  * Fires:
  *   - do_action( 'buddynext_part_profile_edit_section_before', $args )
@@ -56,6 +58,7 @@ $args = array(
 	'footer_html'   => isset( $footer_html ) ? (string) $footer_html : '',
 	'footer_action' => isset( $footer_action ) ? (string) $footer_action : '',
 	'classes'       => isset( $classes ) ? (array) $classes : array(),
+	'attributes'    => isset( $attributes ) ? (string) $attributes : '',
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -92,7 +95,7 @@ $bn_has_footer = '' !== (string) $args['footer_html'] || '' !== (string) $args['
 
 do_action( 'buddynext_part_profile_edit_section_before', $args );
 ?>
-<section class="<?php echo esc_attr( $bn_class ); ?>"
+<section class="<?php echo esc_attr( $bn_class ); ?>"<?php echo (string) $args['attributes']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- caller supplies escaped attributes. ?>
 	<?php
 	if ( '' !== $bn_section_id ) :
 		?>

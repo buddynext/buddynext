@@ -16,6 +16,9 @@ import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, restPos
  * written (a silently-failed UI report would make the REST call the FIRST report
  * and return 201, failing this). Host post + seeded comment torn down in
  * `finally`.
+ *
+ * Covers: cap-let-members-report-content
+ * Roles: admin
  */
 test.describe('feed / comment report', () => {
     const commentList = '.bn-comment-list';

@@ -4,6 +4,11 @@ import { sel, urls } from '../_fixtures/selectors';
 /**
  * J-65-mobile-bottom-nav.
  *
+ * Covers: cap-work-on-a-phone-across-the-whole-front-end-not-just-admin
+ * scoped to admin listings; no CAPABILITIES.md row states that the front-end
+ * app shell (rail / bottom-nav) itself works on a phone. Flagging as friction.
+ * Roles: member
+ *
  * The 5-item bottom tab bar appears below 768px. Scoped to mobile + ipad
  * projects (we don't bother running it on desktop since the rail is the
  * primary nav there).

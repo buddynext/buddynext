@@ -759,6 +759,40 @@ class CommentService {
 		$is_owner = $viewer_id > 0 && $viewer_id === $post_owner_id;
 		$is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
 
+		// Who may SEE a hidden ("Under review") comment: its own author (handled
+		// per-row below) and moderators. "Moderator" here is the same scope the
+		// report queue uses — a site-wide community moderator/admin anywhere, or a
+		// space owner/moderator within their own space — resolved once for the thread
+		// from the post's space. Everyone else never receives a hidden comment; the
+		// author-visible label and the moderator Restore/Delete are added at the
+		// controller. Post owner is NOT automatically a comment moderator: owning the
+		// post you were commented on does not grant moderation of the commenters.
+		$can_moderate_hidden = false;
+		if ( $viewer_id > 0 && 'post' === $object_type && function_exists( 'buddynext_service' ) ) {
+			global $wpdb;
+			$post_space_id       = (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id )
+			);
+			$can_moderate_hidden = (bool) buddynext_service( 'moderation' )->can_moderate_space_content( $viewer_id, $post_space_id );
+		}
+
+		/**
+		 * Whether a hidden comment must be dropped for this viewer. Never hides a
+		 * comment from its own author, or from a moderator (who sees it labelled).
+		 *
+		 * @param array<string,mixed> $comment Hydrated comment row.
+		 * @return bool
+		 */
+		$hide_under_review = static function ( array $comment ) use ( $viewer_id, $can_moderate_hidden ): bool {
+			if ( empty( $comment['is_hidden'] ) ) {
+				return false;
+			}
+			if ( $viewer_id > 0 && (int) ( $comment['user_id'] ?? 0 ) === $viewer_id ) {
+				return false;
+			}
+			return ! $can_moderate_hidden;
+		};
+
 		// Blocking had no effect on comments at all.
 		//
 		// The restrict gate above is a different, narrower feature - a post owner
@@ -850,9 +884,29 @@ class CommentService {
 		$result['items'] = array_values(
 			array_filter(
 				$result['items'],
-				static fn( array $c ): bool => ! $should_hide( (int) $c['user_id'] )
+				static fn( array $c ): bool => ! $should_hide( (int) $c['user_id'] ) && ! $hide_under_review( $c )
 			)
 		);
+
+		// The paged total counts hidden top-level comments (they are not is_deleted),
+		// so subtract the ones this viewer cannot see — every hidden root except their
+		// own — or the "N comments" label and load-more overcount what renders. One
+		// scoped COUNT, only for a non-moderator; a moderator sees them all and the
+		// raw total is already correct.
+		if ( ! $can_moderate_hidden && (int) ( $result['total'] ?? 0 ) > 0 ) {
+			global $wpdb;
+			$hidden_for_viewer = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments
+					 WHERE object_type = %s AND object_id = %d AND parent_id IS NULL
+					   AND is_hidden = 1 AND is_deleted = 0 AND user_id <> %d",
+					$object_type,
+					$object_id,
+					$viewer_id
+				)
+			);
+			$result['total']   = max( 0, (int) $result['total'] - $hidden_for_viewer );
+		}
 
 		if ( empty( $result['items'] ) ) {
 			return $result;
@@ -909,9 +963,10 @@ class CommentService {
 
 		$children_by_parent = array();
 		foreach ( $descendants as $row ) {
-			if ( $should_hide( (int) $row['user_id'] ) ) {
+			$hydrated_reply = $this->hydrate( $row );
+			if ( $should_hide( (int) $row['user_id'] ) || $hide_under_review( $hydrated_reply ) ) {
 				continue; }
-			$children_by_parent[ (int) $row['parent_id'] ][] = $this->hydrate( $row );
+			$children_by_parent[ (int) $row['parent_id'] ][] = $hydrated_reply;
 		}
 
 		$attach = function ( array &$item, int $depth ) use ( &$attach, &$children_by_parent ): void {
@@ -984,7 +1039,7 @@ class CommentService {
 				if ( null !== $pinned ) {
 					$resolve_blocks( array( (int) ( $pinned['user_id'] ?? 0 ) ) );
 				}
-				if ( null !== $pinned && ! $should_hide( (int) ( $pinned['user_id'] ?? 0 ) ) ) {
+				if ( null !== $pinned && ! $should_hide( (int) ( $pinned['user_id'] ?? 0 ) ) && ! $hide_under_review( $pinned ) ) {
 					$attach( $pinned, 1 );
 					$pinned['pinned'] = true;
 					array_unshift( $result['items'], $pinned );
@@ -1097,7 +1152,7 @@ class CommentService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 			$level_rows = (array) $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, user_id, object_type, object_id, parent_id, content, created_at, updated_at, is_deleted, is_edited
+					"SELECT id, user_id, object_type, object_id, parent_id, content, created_at, updated_at, is_deleted, is_edited, is_hidden
 					   FROM {$wpdb->prefix}bn_comments
 					  WHERE object_type = %s AND object_id = %d
 					    AND parent_id IN ( {$placeholders} )
@@ -1254,6 +1309,7 @@ class CommentService {
 			'content'     => $row['content'],
 			'is_edited'   => (bool) $row['is_edited'],
 			'is_deleted'  => (bool) $row['is_deleted'],
+			'is_hidden'   => (bool) ( $row['is_hidden'] ?? false ),
 			'created_at'  => $row['created_at'],
 			'updated_at'  => $row['updated_at'],
 		);

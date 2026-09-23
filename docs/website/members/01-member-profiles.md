@@ -87,7 +87,7 @@ To remove a default avatar or cover image you previously set, use the remove con
 
 ## Good to know
 
-- **An admin can remove a member's avatar.** Site administrators can delete any member's uploaded avatar. After removal, that member falls back to the site's default avatar style until they upload a new one. Members can always re-upload their own.
+- **An admin can edit a member's whole profile, not just their avatar.** Beyond removing an avatar, administrators can open any member from **BuddyNext > Members** and edit their display name, email, role, handle, avatar and cover photo, and every custom profile field - see [Editing a Member from the Admin](14-admin-editing-a-member.md). After an avatar removal, the member falls back to the site's default avatar style until they upload a new one. Members can always re-upload their own.
 - **Handles are unique across the whole community.** No two members can hold the same handle, and the system-reserved address pattern is protected, so a member cannot claim an address that points to someone else.
 - **Privacy is enforced on read, not just on display.** When a field is set to followers-only or connections-only, it is filtered out for everyone who does not qualify, both on the profile page and in any connected app - so a hidden field is genuinely hidden, not just visually removed.
 - **Empty profiles hide their own detail.** A field group with no filled values does not render, so a brand-new profile looks clean rather than showing a wall of blank rows. This is also why completing your profile matters - filled fields are what make the page worth visiting.
@@ -100,5 +100,6 @@ Everything on this page - viewing profiles, editing display name and bio, avatar
 
 - [Custom Profile Fields](02-profile-fields.md) - the fields that fill out the profile below the header
 - [Profile Completion](03-profile-completion.md) - the bar that nudges members to finish their profile
+- [Editing a Member from the Admin](14-admin-editing-a-member.md) - changing a member's profile and account from wp-admin
 - [Following Members](06-following.md) - the one-way follow relationship the profile buttons trigger
 - [Connecting With Members](07-connections.md) - the two-way connection the profile also offers

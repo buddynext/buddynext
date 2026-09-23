@@ -187,7 +187,11 @@ final class PrivateCommunity {
 			return $result;
 		}
 
-		$route = (string) $request->get_route();
+		// Normalise the route: WordPress dispatches routes case-insensitively, so a
+		// case-sensitive namespace test here read /BuddyNext/v1/Spaces as "not ours"
+		// and let it reach a __return_true controller — the private-community bypass
+		// (Zoho #41763). Matched against lower-cased literals below via the same seam.
+		$route = RestRoute::normalize( $request );
 		// Only our namespaces.
 		if ( ! preg_match( '#^/buddynext(?:-pro)?/v1/#', $route ) ) {
 			return $result;
@@ -221,12 +225,15 @@ final class PrivateCommunity {
 		);
 
 		foreach ( $exempt as $prefix ) {
-			$prefix = (string) $prefix;
+			// Normalise each prefix the same way as the route, so a mixed-case
+			// exempt route (or one an add-on registered in another case) still
+			// resolves as exempt rather than being wrongly gated.
+			$prefix = RestRoute::normalize( (string) $prefix );
 			if ( '' === $prefix ) {
 				continue;
 			}
 			// Match the segment, not a bare prefix, so /pwabogus is still gated.
-			if ( $route === $prefix || 0 === strpos( $route, rtrim( $prefix, '/' ) . '/' ) ) {
+			if ( $route === $prefix || 0 === strpos( $route, $prefix . '/' ) ) {
 				return $result;
 			}
 		}

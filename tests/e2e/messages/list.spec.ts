@@ -4,6 +4,14 @@ import { sel, urls } from '../_fixtures/selectors';
 /**
  * J-45 DM list.
  *
+ * Covers: cap-integrate-with-wbcom-plugins
+ * Roles: member
+ *
+ * No free CAPABILITIES.md row covers in-app messaging itself (the only DM row
+ * is "Run direct messaging on its own? NO"); the nearest verifiable promise is
+ * the WPMediaVerse bridge row under Integrations, which is what this spec
+ * actually proves (bridge-active UI, and clean degrade when inactive).
+ *
  * DM is owned by WPMediaVerse; BuddyNext consumes it through a bridge. So there
  * are two shipping configurations, and the honest test asserts whichever one is
  * actually present rather than demanding the same outcome from both.

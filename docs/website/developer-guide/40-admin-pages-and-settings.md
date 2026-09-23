@@ -145,6 +145,56 @@ Each scope stores the owner's hide / relabel / reorder / capability-gate choices
 
 The page assignments are kept out of the nav-override options on purpose: `handle_save_nav()` only writes display overrides, so `PageRouter` and other services can read a hub's slug without knowing anything about the nav system.
 
+## Defaults and "Restore defaults"
+
+Every owner setting declares ONE default, in the `Field` descriptor, and that single source drives three things: the `register_setting()` default, the value every `get_option()` reads back, and what a tab's "Restore defaults" resets to. A gate (`bin/check-option-defaults.php`, run from `bin/check.sh` in both repos) fails the build if a driver-registered setting has no declared default and no `resettable => false` reason - so a new setting cannot drift in.
+
+### Declare a default
+
+```php
+new Field( array(
+    'key'     => 'myplugin_widget_limit',
+    'type'    => 'number',
+    'label'   => __( 'Widgets per page', 'my-plugin' ),
+    'default' => 20,
+) );
+```
+
+For a default that is genuinely dynamic (it follows another value), declare a `default_callback` instead of `default` - it is resolved once when the option is registered, so `get_option()` still inherits one value:
+
+```php
+'default_callback' => static fn() => get_option( 'posts_per_page', 10 ),
+```
+
+Read the option with NO inline fallback where the Settings API is active (admin), or pass the SAME declared default (a const or helper) everywhere else - never a re-typed literal. The gate flags a `get_option()` whose fallback drifts from the canonical one.
+
+### Mark owner data as never-reset
+
+"Restore defaults" is for CONFIGURATION. Owner DATA - a site name, banned-word list, sender identity, API keys, page mappings, uploaded images - is never reset and needs no default. Mark it:
+
+```php
+new Field( array(
+    'key'        => 'myplugin_api_key',
+    'type'       => 'secret',
+    'label'      => __( 'API key', 'my-plugin' ),
+    'resettable' => false,
+) );
+```
+
+A `resettable => false` field satisfies the gate without a default, never appears in the Restore dialog, and is left exactly as the owner set it.
+
+### What an add-on gets for free
+
+Implement `BuddyNext\Contracts\ProvidesSettings` and call `SettingsRegistry::register( $this )` in your page's `register()`. Your fields then flow through `SettingsDriver` exactly like the first-party ones: `register_setting()` with your declared defaults, ⌘K search, and - for any tab that has resettable fields - the shared **Restore defaults** button, its confirm dialog listing exactly what would change, and the reset itself. React to a reset with:
+
+```php
+add_action( 'buddynext_settings_tab_reset', function ( $tab, $keys, $user_id ) {
+    // Clear a derived cache after the owner restores your tab, etc.
+}, 10, 3 );
+```
+
+Add your tab with `AdminHub::register_tab( '<section>', '<slug>', … )`; register a whole dedicated section for your add-on with the `bn_admin_hub_sections` filter (see "Add a new top-level section" below) if you do not want to sit inside an existing one.
+
 ## Examples
 
 ### Relocate or hide a tab from a mu-plugin
@@ -240,5 +290,18 @@ Core consumers to copy from: `includes/Admin/Spaces.php`, `includes/Admin/Member
 - **Empty sections are hidden, not removed.** A section with no registered tab is skipped during menu build. Pro-only sections (Campaigns, Realtime & Push, Auto-Moderation, Monetization) stay hidden in free for this reason.
 - **Origin section vs final section.** Always register against your tab's domain origin and let the placement map decide the final location. Resolve URLs and active-state through `AdminHub::tab_url()` / `is_tab_active()`, which apply the same placement, so a relocated tab keeps its assets and links.
 - **Per-tab save scope.** Because options are grouped per tab, saving one tab never overwrites another tab's options. Add new settings as `Field` descriptors in the relevant `Settings::fields_*()` method; `SettingsDriver` registers them under `buddynext_{tab}` and runs their sanitizer on save.
+
+## Provider secrets are encrypted at rest (Pro)
+
+Provider credentials — the FCM service-account JSON, the Soketi secret, the Stripe and PayPal secret keys, the AI embedding key — are **encrypted before they are written to the options table**. A plain database export (or a plugin that dumps options) no longer reveals them.
+
+How it works, and its honest limit:
+
+- Encryption is transparent at the option layer: an `option_{key}` filter decrypts on read and a `pre_update_option_{key}` filter encrypts on write, so every `get_option()` / `update_option()` caller keeps working unchanged. The stored value is prefixed `bnpsec:v1:` and uses AES-256-GCM.
+- The key is derived from your site's wp-config **salts** — so it lives outside the database. That defeats the realistic threat, a leaked DB backup, but **not** a full server compromise where `wp-config.php` is readable too. This is defense-in-depth, not a vault.
+- **Salt rotation.** Because the default key comes from the salts, regenerating them makes the stored secrets undecryptable. The plugin fails **closed** — a decrypt miss returns empty, so the feature reads as "needs setup" rather than breaking with a corrupt credential — and you re-enter the key. To make secrets survive salt rotation, define a stable `BUDDYNEXT_SECRETS_KEY` in `wp-config.php`; it is used as the encryption key instead of the salts.
+- Admin fields for secrets render **blank with a "Saved" badge**, never re-emitting the stored value into the page HTML. Leaving a field blank keeps the saved secret; entering a new value replaces it. To clear a secret entirely, use the feature's own remove/disconnect control.
+
+Existing plaintext secrets are migrated to the encrypted form once, automatically, on upgrade.
 
 See also Roles and Capabilities for the `manage_options`-vs-community-role distinction these screens rely on.

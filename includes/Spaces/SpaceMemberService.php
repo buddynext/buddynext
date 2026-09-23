@@ -2367,6 +2367,26 @@ class SpaceMemberService {
 
 		global $wpdb;
 
+		// Invariant: the space owner can NEVER be banned from their own space —
+		// not by a moderator, not by automated/system moderation ($banned_by === 0).
+		// The sibling ban() (members-screen path) refuses target_role === 'owner',
+		// but this REST moderation primitive had only the capability check above, so
+		// a moderator (holding buddynext-moderate-space) could ban the owner. That
+		// then $wpdb->delete()s the owner's bn_space_members row below, and
+		// PermissionService::get_space_role() reads role from that row with no
+		// bn_spaces.owner_id fallback — the owner loses buddynext-own/manage-space
+		// permanently. Guard on the AUTHORITATIVE owner_id, not the deletable role
+		// row, so a stale/missing role row cannot defeat it.
+		$bn_owner_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT owner_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$space_id
+			)
+		);
+		if ( $bn_owner_id > 0 && $bn_owner_id === $user_id ) {
+			return new WP_Error( 'cannot_ban_owner', __( 'The space owner cannot be banned from their own space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'bn_space_bans',

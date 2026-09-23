@@ -19,6 +19,9 @@ import { userId, tablePrefix, dbCount, resetPair } from '../_fixtures/wp';
  * button that flips to "Following" while the REST write 500s would leave the
  * table empty and fail here. The follow + the seeded post are torn down in
  * `finally`.
+ *
+ * Covers: cap-follow-people-and-connect-mutually
+ * Roles: admin
  */
 test.describe('feed / follow from card', () => {
     const followPill = '.bn-post-card__follow .bn-follow-btn';

@@ -5,6 +5,11 @@ import { createPage, deletePage, userId, dbCount, tablePrefix, wp } from '../_fi
  * J-802 / J-803 — Member Directory + Member Card blocks: Follow and the kebab menu
  * actually work when the block is embedded on an ordinary page.
  *
+ * Covers: cap-follow-people-and-connect-mutually (the kebab's Mute/Block/Report
+ * items are proven only to OPEN the menu, not to act - not pinning
+ * cap-block-another-member / cap-let-members-report-content on that basis)
+ * Roles: member
+ *
  * The bug: the card markup carries buddynext/members store directives that resolve
  * against a data-wp-interactive="buddynext/members" ancestor + need the members
  * view module — the blocks provided neither, so every control was inert (no request,

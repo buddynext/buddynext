@@ -704,6 +704,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					}
 
 					$bn_body_html .= '<div class="' . esc_attr( $bn_field_cls ) . '"'
+						. \BuddyNext\Profile\FieldType::field_wrapper_attributes( $bn_field, $user_id )
 						. ' data-wp-class--bn-ep-field--error="context.errors.' . esc_attr( $bn_fkey ) . '">';
 					// `for` must be the id render_input() actually gave the control (see
 					// FieldType::input_id), and is omitted for the group types, which
@@ -730,8 +731,9 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				buddynext_get_template(
 					'parts/profile-edit-section.php',
 					array(
-						'title'     => $bn_glabel,
-						'body_html' => $bn_body_html,
+						'title'      => $bn_glabel,
+						'body_html'  => $bn_body_html,
+						'attributes' => \BuddyNext\Profile\FieldType::group_wrapper_attributes( $bn_group, $user_id ),
 					)
 				);
 			}
@@ -769,7 +771,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					$bn_mt_html = sprintf(
 						'<div class="bn-field-membertype is-set"><span class="bn-membertype-badge">%1$s</span> <span class="bn-field-hint">%2$s</span></div>',
 						esc_html( (string) ( $bn_current_type['name'] ?? $bn_current_slug ) ),
-						esc_html__( 'Set by the community — contact an admin to change it.', 'buddynext' )
+						esc_html__( 'Set by the community: contact an admin to change it.', 'buddynext' )
 					);
 
 					buddynext_get_template(
@@ -783,7 +785,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				} elseif ( ! empty( $bn_self_types ) ) {
 					$bn_mt_html  = '<label class="bn-ep-label bn-sr-only" for="bn-ep-member-type">' . esc_html__( 'Member type', 'buddynext' ) . '</label>';
 					$bn_mt_html .= '<select class="bn-input" id="bn-ep-member-type" data-user-id="' . esc_attr( (string) $user_id ) . '" data-wp-on--change="actions.setMemberType">';
-					$bn_mt_html .= '<option value="">' . esc_html__( '— None —', 'buddynext' ) . '</option>';
+					$bn_mt_html .= '<option value="">' . esc_html__( 'None', 'buddynext' ) . '</option>';
 					foreach ( $bn_self_types as $bn_t ) {
 						$bn_mt_html .= sprintf(
 							'<option value="%s"%s>%s</option>',

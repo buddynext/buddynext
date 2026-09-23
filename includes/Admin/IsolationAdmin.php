@@ -124,9 +124,9 @@ class IsolationAdmin {
 		<p class="bn-field-hint">
 			<?php
 			if ( $bn_isolation_on ) {
-				esc_html_e( 'On BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) other plugins are not loaded. This keeps the community fast on large sites. Anything that has to change what members see on those pages — a translation or terminology override, a consent banner, a tracking script — must be kept active here, or it will simply have no effect on those pages.', 'buddynext' );
+				esc_html_e( 'On BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) other plugins are not loaded. This keeps the community fast on large sites. Anything that has to change what members see on those pages: a translation or terminology override, a consent banner, a tracking script: must be kept active here, or it will simply have no effect on those pages.', 'buddynext' );
 			} else {
-				esc_html_e( 'Route isolation is currently OFF, so every plugin loads on BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) as normal. Turn it on to stop loading the plugins listed below on those pages and keep large communities fast. Anything that must change what members see there — a translation or terminology override, a consent banner, a tracking script — should be kept active here so it keeps working once isolation is on.', 'buddynext' );
+				esc_html_e( 'Route isolation is currently OFF, so every plugin loads on BuddyNext pages (Activity, Members, Spaces, Messages, Notifications, Login) as normal. Turn it on to stop loading the plugins listed below on those pages and keep large communities fast. Anything that must change what members see there: a translation or terminology override, a consent banner, a tracking script: should be kept active here so it keeps working once isolation is on.', 'buddynext' );
 			}
 			?>
 		</p>
@@ -149,9 +149,9 @@ class IsolationAdmin {
 								// wrong starting point. fde88ee5 branched the intro
 								// paragraph but left this string present-tense-on.
 								if ( $bn_isolation_on ) {
-									esc_html_e( 'Route isolation is on. Turn it off only if isolation is causing a problem — large communities load faster with it on.', 'buddynext' );
+									esc_html_e( 'Route isolation is on. Turn it off only if isolation is causing a problem: large communities load faster with it on.', 'buddynext' );
 								} else {
-									esc_html_e( 'Route isolation is off, so every plugin loads on BuddyNext pages as normal. Turn it on to stop loading the plugins listed below there — large communities load faster with it on.', 'buddynext' );
+									esc_html_e( 'Route isolation is off, so every plugin loads on BuddyNext pages as normal. Turn it on to stop loading the plugins listed below there: large communities load faster with it on.', 'buddynext' );
 								}
 								?>
 							</p>
@@ -182,14 +182,31 @@ class IsolationAdmin {
 			ksort( $bn_all );
 			$bn_stripped = $bn_groups['stripped'];
 			?>
-			<div class="bn-settings-section">
+			<div class="bn-settings-section<?php echo $bn_isolation_on ? '' : ' is-inactive'; ?>">
 				<div class="bn-ss-header">
 					<span class="bn-ss-title"><?php esc_html_e( 'Plugins on this site', 'buddynext' ); ?></span>
-					<span class="bn-badge" data-tone="warn"><?php echo esc_html( (string) count( $bn_stripped ) ); ?></span>
+					<?php
+					// The badge counts the plugins TICKED to skip, not the plugins on the
+					// site — a bare number here read as "0 plugins on this site" above a
+					// list of five (card 10320514650). Label what it counts. Off => nothing
+					// is actually skipped yet, so the count stays neutral, not a warning.
+					$bn_skip_count = count( $bn_stripped );
+					?>
+					<span class="bn-badge" data-tone="<?php echo $bn_isolation_on ? 'warn' : 'neutral'; ?>">
+						<?php
+						/* translators: %d: number of plugins the owner has selected to skip on BuddyNext routes. */
+						echo esc_html( sprintf( _n( '%d to skip', '%d to skip', $bn_skip_count, 'buddynext' ), $bn_skip_count ) );
+						?>
+					</span>
 				</div>
 				<div class="bn-ss-body">
+					<?php if ( ! $bn_isolation_on ) : ?>
+						<p class="bn-field-hint bn-field-hint--muted">
+							<?php esc_html_e( 'Route isolation is off, so these choices are not in effect yet. They take effect when route isolation is on. You can still set them up here.', 'buddynext' ); ?>
+						</p>
+					<?php endif; ?>
 					<p class="bn-field-hint">
-						<?php esc_html_e( 'BuddyNext and the Wbcom family are always kept. Every other active plugin is kept on community pages unless you switch it off here — turn off only heavy back-office plugins a community page does not need. Leave security, membership, consent and translation plugins on.', 'buddynext' ); ?>
+						<?php esc_html_e( 'BuddyNext and the Wbcom family are always kept. Every other active plugin is kept on community pages unless you switch it off here: turn off only heavy back-office plugins a community page does not need. Leave security, membership, consent and translation plugins on.', 'buddynext' ); ?>
 					</p>
 					<?php if ( empty( $bn_all ) ) : ?>
 						<div class="bn-empty">
@@ -205,9 +222,9 @@ class IsolationAdmin {
 										<?php
 										echo esc_html( $bn_file );
 										if ( $bn_skipped && $bn_isolation_on ) {
-											echo ' — ' . esc_html__( 'skipped on BuddyNext pages', 'buddynext' );
+											echo ': ' . esc_html__( 'skipped on BuddyNext pages', 'buddynext' );
 										} elseif ( $bn_skipped ) {
-											echo ' — ' . esc_html__( 'will be skipped once isolation is on', 'buddynext' );
+											echo ': ' . esc_html__( 'will be skipped once isolation is on', 'buddynext' );
 										}
 										?>
 									</p>

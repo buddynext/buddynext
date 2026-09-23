@@ -115,7 +115,7 @@ final class SetupChecklist {
 			array(
 				'key'       => 'profiles',
 				'label'     => __( 'Set up member profiles', 'buddynext' ),
-				'desc'      => __( 'Add the profile fields your members fill in — build your own group or edit the starter kit.', 'buddynext' ),
+				'desc'      => __( 'Add the profile fields your members fill in: build your own group or edit the starter kit.', 'buddynext' ),
 				'done'      => self::profiles_configured(),
 				'cta'       => admin_url( 'admin.php?page=buddynext-members&tab=profile-fields' ),
 				'cta_label' => __( 'Build profiles', 'buddynext' ),
@@ -138,6 +138,18 @@ final class SetupChecklist {
 				'cta'       => PageRouter::spaces_url(),
 				'cta_label' => __( 'Create a space', 'buddynext' ),
 				'icon'      => 'users',
+			),
+			array(
+				'key'       => 'featured_spaces',
+				'label'     => __( 'Feature spaces for new members', 'buddynext' ),
+				'desc'      => __( 'Pick the spaces shown first in the directory and onboarding, so new members start where you want them.', 'buddynext' ),
+				// Done once the owner has featured a space OR has an auto-join space
+				// (both are the owner steering where members land).
+				'done'      => array() !== \BuddyNext\Spaces\FeaturedSpaces::get_ids()
+					|| array() !== ( new \BuddyNext\Spaces\AutoJoinService() )->spaces_for_signup(),
+				'cta'       => admin_url( 'admin.php?page=buddynext-spaces' ),
+				'cta_label' => __( 'Feature spaces', 'buddynext' ),
+				'icon'      => 'star',
 			),
 			array(
 				'key'       => 'brand',

@@ -4,6 +4,12 @@ import { sel, urls } from '../_fixtures/selectors';
 /**
  * J-64-theme-chrome-above-below + J-67-no-second-bn-topbar.
  *
+ * Covers: cap-work-on-a-phone-across-the-whole-front-end-not-just-admin
+ * CSS?" name styling and template overrides, not this shell-placement contract
+ * (theme header/footer wrap the app, no duplicate BN topbar). No CAPABILITIES.md
+ * row names the latter. Flagging as friction.
+ * Roles: member
+ *
  * Theme header must be the document chrome above .bn-app. Theme footer
  * must be the chrome below. No `.bn-topbar` is rendered inside `.bn-app`.
  *

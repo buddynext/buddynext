@@ -513,57 +513,55 @@ add_filter( 'buddynext_member_suite_panels', function ( array $panels, int $memb
 
 ---
 
-## Recipe 13 - Keep a cookie-consent (or other must-run) plugin on community pages (1.1.3)
+## Recipe 13 - Keep a plugin (a cookie-consent banner, say) working on community pages (1.2.1)
 
-**Goal:** a plugin that must run on every page - a cookie-consent banner is the canonical case - keeps working on BuddyNext's community routes.
+**Goal:** a plugin that must run on every page keeps working on BuddyNext's community routes.
 
-**Seams:** `buddynext_isolation_whitelist` (plugin loading) and `buddynext_allowed_assets` (its CSS/JS).
+**Seams:** usually none - most cases need no code. For the exceptions: `buddynext_isolation_plugins` and `buddynext_allowed_assets`.
 
-BuddyNext isolates its community routes for speed and a uniform UX, in two layers: plugin isolation loads only the essential plugin family on those routes, and asset isolation dequeues any stylesheet or script that is not core, theme, or BuddyNext. Both are good defaults - a consent banner is the exception, because a MISSING banner is invisible: nobody notices it is gone, and consent-based script gating silently stops on exactly the pages members use most.
+BuddyNext can isolate its community routes for speed: on those routes, plugin isolation loads only the plugins the owner has NOT ticked to skip, and asset isolation dequeues stylesheets and scripts that are not core, theme, or BuddyNext.
 
-Site owners can allow a plugin without code at **Admin > BuddyNext > Plugin isolation**. The code route needs BOTH filters, and the file **must be a mu-plugin** (`wp-content/mu-plugins/`): plugin isolation filters the active-plugins list before regular plugins load, so a normal plugin or theme hooks too late.
+Most of the time you do nothing:
+
+- **Consent, security, membership, backup and translation plugins are kept automatically and can never be stripped.** They sit in the never-strip floor (`PluginIsolation::essentials()`), so an owner is not even offered a switch to strip them - stripping a firewall, a paywall or a cookie banner on the community's front door is a compliance/access incident, not a performance trade-off. The canonical cookie-consent case (WPConsent, CookieYes, Complianz, Cookiebot, and the like) needs **no code at all**.
+- **Every other active plugin is kept by default too.** Isolation strips only the plugins the owner explicitly ticks at **Admin > BuddyNext > Platform > Plugin isolation**. To keep a plugin loaded, the owner simply does not tick it there.
+
+You only reach for code in two cases, and neither needs a mu-plugin:
 
 ```php
-<?php
-/**
- * Plugin Name: Keep consent banner on BuddyNext pages
- * Description: Allows the cookie-consent plugin through BuddyNext's
- *              plugin and asset isolation. Must live in wp-content/mu-plugins/.
- */
-
-// Layer 1: keep the plugin LOADED on BuddyNext routes.
-// buddynext_isolation_whitelist is the filter the generated isolation mu-plugin
-// applies to the active-plugins list (it runs before regular plugins load, which
-// is why this file MUST be a mu-plugin). Do NOT confuse it with
-// buddynext_isolation_plugins — that is the MAIN plugin's filter (and option)
-// that Pro integrations use, applied too late for a plugin the mu-plugin has
-// already unloaded.
+// 1) Force a plugin onto the KEEP list from an add-on (e.g. your integration
+//    depends on it), regardless of the owner's choices, and keep its CSS/JS on
+//    BuddyNext routes. buddynext_isolation_plugins feeds the keep-list BuddyNext
+//    computes and stores; the isolation mu-plugin reads that stored option, so a
+//    normal plugin can hook this - it does NOT have to be a mu-plugin.
 add_filter(
-    'buddynext_isolation_whitelist',
-    static function ( array $whitelist ): array {
-        $whitelist[] = 'wpconsent-cookies-banner-privacy-suite/wpconsent.php';
-        return $whitelist;
+    'buddynext_isolation_plugins',
+    static function ( array $kept ): array {
+        $kept[] = 'my-addon-dependency/my-addon-dependency.php';
+        return $kept;
     }
 );
 
-// Layer 2: keep its CSS/JS ENQUEUED on BuddyNext routes.
+// 2) Keep a kept plugin's CSS/JS ENQUEUED on BuddyNext routes. Asset isolation
+//    dequeues anything that is not core/theme/BuddyNext even for a loaded plugin,
+//    so a plugin that renders its own front-end (a consent banner's script, a
+//    widget's styles) needs its URL prefix allowed through.
 add_filter(
     'buddynext_allowed_assets',
     static function ( array $prefixes ): array {
-        $prefixes[] = plugins_url( '', 'wpconsent-cookies-banner-privacy-suite/wpconsent.php' );
+        $prefixes[] = plugins_url( '', 'my-addon-dependency/my-addon-dependency.php' );
         return $prefixes;
     }
 );
 ```
 
-Swap the basename for your consent plugin: `cookie-law-info/cookie-law-info.php` (CookieYes), `complianz-gdpr/complianz-gpdr.php` (Complianz), `cookiebot/cookiebot.php` (Cookiebot). The same two-filter pattern keeps any must-run plugin alive on community pages - security headers, affiliate tracking the owner has consent for, and so on. Use it sparingly: every plugin allowed through gives up part of the memory saving isolation exists to provide.
+Use these sparingly: every asset allowed through gives up part of the memory and payload saving isolation exists to provide.
 
-Two more isolation seams exist for less common needs:
+One more seam, for a security control BuddyNext does not already recognise:
 
-- `buddynext_isolation_plugins` (string[]) - the MAIN plugin's keep-list filter, applied when BuddyNext computes and stores which plugins survive isolation. This is the seam Pro integrations use, and the one to hook from a normal plugin. It is NOT interchangeable with `buddynext_isolation_whitelist` above: that one is applied inside the isolation mu-plugin before regular plugins load, so it is the only one that can rescue a plugin from a mu-plugin (which is why Recipe 13 uses it); this one is read into the stored keep-list the mu-plugin then honours.
-- `buddynext_isolation_security_plugins` (string[]) - the list of security/access plugins that are *always* kept on community routes, filterable so you can add a security plugin BuddyNext does not recognise (or remove one). Security and access-control plugins are kept by default precisely because silently unloading them on the pages members use most is a safety risk; extend this list rather than the general keep-list when the plugin is a security control.
+- `buddynext_isolation_security_plugins` (string[]) - the list of security/access plugins that are *always* kept on community routes. Add a firewall, login limiter or access-control plugin BuddyNext has not seen, so it joins the never-strip floor rather than the general keep-list. Prefer this over `buddynext_isolation_plugins` when the plugin is a security control, so it is floored like the built-in ones.
 
-There is no runtime filter for the master on/off switch. It is the owner setting under **Platform > Plugin isolation** and nothing else: the plugin-strip enforcer is the isolation mu-plugin, which runs before any plugin loads and so can never see a PHP filter. A former `buddynext_isolation_enabled` filter reached only the asset side, which desynced the two layers, so it was removed. To keep a plugin alive on community routes, use the keep-list filters above (which the mu-plugin honours) rather than trying to force the whole feature off.
+There is no runtime filter for the master on/off switch. It is the owner setting under **Platform > Plugin isolation** and nothing else: the plugin-strip enforcer is the isolation mu-plugin, which runs before any plugin loads and so can never see a PHP filter. A former `buddynext_isolation_enabled` filter reached only the asset side, which desynced the two layers, so it was removed.
 
 ---
 
@@ -603,7 +601,7 @@ $posts = buddynext_service( 'post_service' )->get_many( $post_ids );   // PostSe
 
 ## Recipe 16 - Register a custom profile field type from code
 
-Recipe 9 added a field of an *existing* type. This one adds a brand-new **field type** - the way BuddyNext Pro adds its Location, Conditional, and File types.
+Recipe 9 added a field of an *existing* type. This one adds a brand-new **field type** - the way BuddyNext Pro adds its Location and advanced Number types.
 
 > **Runnable, tested snippet:** a copy-paste, live-verified version of this recipe is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `profile-fields/register-custom-field-type.php`. Drop it in `wp-content/mu-plugins/` and it works as-is. A type is registered in one place (the engine) and given behaviour through a small set of filters; the admin field picker and every render/sanitize path then treat it like a built-in.
 
@@ -685,7 +683,7 @@ add_action( 'plugins_loaded', function () {
 
 Each render/sanitize filter is passed `null` (or the running value) as its first argument and **must return the untouched argument for types that are not yours** - returning your own value unconditionally would hijack every other type. For a type that needs its own options box in the admin (a choice list, a format setting), also hook the `buddynext_profile_field_type_options` action, which fires inside the field editor for the selected type.
 
-**Reference implementation:** BuddyNext Pro's `Profile\AdvancedFieldTypes` (engine registration for Location, Conditional, advanced Number/Multi-select, and an extended Date) and `Admin\AdvancedFieldsAdmin` (the dropdown labels and the per-type options box) are the complete, shipping example of this recipe.
+**Reference implementation:** BuddyNext Pro's `Profile\AdvancedFieldTypes` (engine registration for Location, advanced Number/Multi-select, and an extended Date) and `Admin\AdvancedFieldsAdmin` (the dropdown labels and the per-type options box) are the complete, shipping example of this recipe.
 
 ---
 

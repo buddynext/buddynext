@@ -152,4 +152,51 @@ class ShareServiceTest extends \WP_UnitTestCase {
 		$post = $this->posts->get( $this->post_id );
 		$this->assertSame( 1, $post['share_count'], 'share_count reconciled from bn_shares (S2(c)).' );
 	}
+
+	/**
+	 * The member's repost card of a post.
+	 *
+	 * @param int $user_id Sharer.
+	 * @return int Repost id, 0 when none.
+	 */
+	private function repost_id( int $user_id ): int {
+		global $wpdb;
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'share' AND shared_post_id = %d",
+				$user_id,
+				$this->post_id
+			)
+		);
+	}
+
+	public function test_deleting_the_repost_unshares(): void {
+		$this->service->share( $this->bob, $this->post_id, 'Look at this' );
+		$repost = $this->repost_id( $this->bob );
+		$this->assertGreaterThan( 0, $repost );
+
+		$this->assertTrue( $this->posts->delete( $repost, $this->bob ) );
+
+		$this->assertSame( 0, $this->posts->get( $this->post_id )['share_count'], 'count drops with the repost' );
+		$this->assertNotContains( $this->post_id, $this->shared_post_ids( $this->bob ), 'share record removed' );
+		$this->assertIsInt( $this->service->share( $this->bob, $this->post_id, '' ), 'the member can share it again' );
+	}
+
+	public function test_moderator_deleting_a_repost_unshares_for_its_author(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$this->service->share( $this->bob, $this->post_id, '' );
+
+		$this->assertTrue( $this->posts->delete( $this->repost_id( $this->bob ), $admin ) );
+
+		$this->assertNotContains( $this->post_id, $this->shared_post_ids( $this->bob ) );
+		$this->assertSame( 0, $this->posts->get( $this->post_id )['share_count'] );
+	}
+
+	public function test_unshare_removes_the_repost_card(): void {
+		$this->service->share( $this->bob, $this->post_id, 'Look at this' );
+		$this->service->unshare( $this->bob, $this->post_id );
+
+		$this->assertSame( 0, $this->repost_id( $this->bob ), 'no repost card left in the feed' );
+		$this->assertSame( 0, $this->posts->get( $this->post_id )['share_count'] );
+	}
 }

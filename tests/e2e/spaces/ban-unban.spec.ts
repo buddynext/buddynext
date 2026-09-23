@@ -12,6 +12,9 @@ import {
  * J-609 — Ban then Unban a member (owner). Locks the F1 1.0.7 regression:
  * a space had a Ban action with no Unban counterpart (owner dead-end).
  *
+ * Covers: cap-ban-a-member-from-one-space-without-site-wide-action
+ * Roles: admin, member
+ *
  * A second actor joins an open space; the owner bans them, then unbans them.
  *
  * EFFECT (not presence):

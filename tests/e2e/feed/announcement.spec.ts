@@ -17,6 +17,9 @@ import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, type Me
  * member's composer has NO announcement control at all (the gate removes it,
  * per partials/composer.php current_user_can('manage_options')). Post deleted
  * in `finally`.
+ *
+ * Covers: cap-post-announcements
+ * Roles: admin, member
  */
 test.describe('feed / composer announcement', () => {
     const announceTool = 'button.bn-composer__tool[aria-label="Post as announcement"]';

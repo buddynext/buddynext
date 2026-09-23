@@ -96,6 +96,19 @@ class PageRouter {
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
+
+		// Make a mapped hub page answer is_page()/is_singular() BEFORE
+		// template_redirect runs, so any code that keys on conditional tags at that
+		// point sees the real page. The critical consumer is a membership/access
+		// gate: "redirect non-members to the login page, exempt it via is_page()"
+		// only works if is_page() is true on the login hub. dispatch_hub_template()
+		// (template_redirect) is too late - a gate on the same hook, registered from
+		// an mu-plugin, runs first - so this sits on `wp`, which fires once after the
+		// query is resolved and before any template_redirect handler. Without it a
+		// gate cannot recognise its own login target and redirects it to itself
+		// forever: ERR_TOO_MANY_REDIRECTS (card 10317628894).
+		add_action( 'wp', array( $this, 'align_hub_page_conditionals' ) );
+
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
 
 		// Hub pages render from a virtual WP_Post (ID 0), so core's admin-bar
@@ -217,6 +230,52 @@ class PageRouter {
 	}
 
 	/**
+	 * Align conditional tags with a hub's mapped page, on `wp` (before
+	 * template_redirect).
+	 *
+	 * A hub whose slug maps to a real page IS that page for is_page()/is_singular()
+	 * purposes. The BuddyNext rewrite deliberately blanks pagename and sets
+	 * post__in=[0] so the synthetic hub post renders, which leaves is_page() FALSE.
+	 * dispatch_hub_template() restores the page identity, but only on
+	 * template_redirect - after a membership gate on the same hook (loaded from an
+	 * mu-plugin, so registered first) has already run its is_page() check and failed
+	 * it. Doing it here, on `wp`, means the gate sees the login hub as its own login
+	 * page and exempts it, instead of redirecting it to itself forever
+	 * (ERR_TOO_MANY_REDIRECTS - card 10317628894). Only touches the query
+	 * conditionals; the synthetic post still backs the render.
+	 *
+	 * @return void
+	 */
+	public function align_hub_page_conditionals(): void {
+		if ( is_admin() ) {
+			return;
+		}
+
+		$hub = (string) get_query_var( 'bn_hub', '' );
+		if ( '' === $hub ) {
+			return;
+		}
+
+		$page_id = self::hub_page_id( $hub );
+		if ( $page_id <= 0 ) {
+			return;
+		}
+
+		$page = get_post( $page_id );
+		if ( ! $page instanceof \WP_Post ) {
+			return;
+		}
+
+		global $wp_query;
+		$wp_query->queried_object    = $page;
+		$wp_query->queried_object_id = $page_id;
+		$wp_query->is_page           = true;
+		$wp_query->is_singular       = true;
+		$wp_query->is_home           = false;
+		$wp_query->is_404            = false;
+	}
+
+	/**
 	 * Resolve the BuddyNext hub for this request and queue it for rendering.
 	 *
 	 * Hooked on template_redirect — the stage for gates, redirects and head-meta
@@ -238,6 +297,19 @@ class PageRouter {
 				? sanitize_text_field( wp_unslash( $_GET['q'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 				: '';
 			wp_safe_redirect( self::search_url( $q ), 301 );
+			exit;
+		}
+
+		// Theme search box (core ?s=) finds no community content: members, spaces
+		// and activity live in custom tables, invisible to a core wp_posts query,
+		// so a visitor's search returns an empty theme results page. Route the core
+		// search to BuddyNext's own search, which does cover community content.
+		// Filterable so an owner who prefers the theme's native search can opt out.
+		if ( is_search() && is_main_query()
+			&& '' === (string) get_query_var( 'bn_hub', '' )
+			&& apply_filters( 'buddynext_route_core_search', true )
+		) {
+			wp_safe_redirect( self::search_url( get_search_query() ) );
 			exit;
 		}
 
@@ -371,8 +443,48 @@ class PageRouter {
 		if ( 'auth' === $hub && is_user_logged_in() ) {
 			$auth_action = (string) get_query_var( 'bn_auth_action', '' );
 			if ( ! in_array( $auth_action, array( 'verify', 'connect-app' ), true ) ) {
-				wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
-				exit;
+				// Loop guard. A membership/access gate can redirect a logged-in
+				// non-member TO the login page and then reject the activity feed we
+				// bounce them to, sending them straight back - an infinite auth <->
+				// feed ping-pong that locks the user out (card 10317628894, Loop B).
+				// We cannot see the gate, so we detect our OWN repeated bounce: after
+				// bouncing once we drop a short-lived per-user marker; if the same
+				// user returns to the auth hub while it is still set, we stop bouncing
+				// and let the auth hub render, breaking the loop. A normal signed-in
+				// visitor is bounced exactly once, as before. Filterable so a site can
+				// disable the bounce outright.
+				// ponytail: 15s transient loop-breaker; good enough because the loop
+				// resolves within one round-trip. A gate that bounces slower than 15s
+				// is not a loop a human would hit.
+				$bn_uid        = get_current_user_id();
+				$bn_bounce_key = 'bn_auth_bounce_' . $bn_uid;
+				$bn_looping    = false !== get_transient( $bn_bounce_key );
+
+				/**
+				 * Filter whether a signed-in visitor is redirected off the auth hub.
+				 *
+				 * Default true on the first visit, false once a bounce loop is
+				 * detected. Return false to keep signed-in users on the login/signup
+				 * surface (e.g. a site whose membership gate renders an upgrade
+				 * prompt there).
+				 *
+				 * @since 1.2.1
+				 *
+				 * @param bool $redirect Whether to redirect to the activity feed.
+				 * @param int  $user_id  The signed-in user.
+				 */
+				$bn_should_bounce = (bool) apply_filters( 'buddynext_redirect_logged_in_from_auth', ! $bn_looping, $bn_uid );
+
+				if ( $bn_should_bounce ) {
+					set_transient( $bn_bounce_key, 1, 15 );
+					wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
+					exit;
+				}
+
+				// Loop detected: fall through and let the auth hub render. The marker
+				// is left to expire on its own, so every hit inside the window
+				// resolves to a rendered page instead of re-arming the bounce and
+				// re-entering the loop.
 			}
 		}
 
@@ -558,8 +670,30 @@ class PageRouter {
 		if ( 'spaces' === $hub && ! empty( $context['space_id'] ) ) {
 			$bn_gate_space = ( new \BuddyNext\Spaces\SpaceService() )->get( (int) $context['space_id'] );
 			if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $bn_gate_space, get_current_user_id() ) ) {
-				$this->send_404();
-				return;
+				// A link-bearing URL to a space the viewer still cannot see means the
+				// invite link is invalid, expired, reset, or used up (a valid one is
+				// unlocked by SpaceInviteLinkService::prime_from_request before this
+				// gate). For a PRIVATE space — whose name is already public in the
+				// directory and search — answer with a 200 "no longer valid" page
+				// rather than a dead-end 404, so someone the owner meant to let in can
+				// ask for a fresh link.
+				//
+				// A SECRET space is different: its whole model is non-discoverability,
+				// so an invalid token must behave exactly like no token — a 404 — or
+				// appending any ?invite=x to the URL turns a 404 into a 200 and
+				// confirms the secret slug is a real space (an existence oracle, and
+				// the head meta then named it). A valid token unlocks a secret space
+				// before this gate, so only a genuine invite ever reveals it.
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public shareable invite link (GET navigation), not a state change.
+				$bn_has_invite = '' !== ( isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( $_GET['invite'] ) ) : '' );
+				$bn_is_secret  = is_array( $bn_gate_space )
+					&& \BuddyNext\Spaces\SpaceService::TYPE_SECRET === (string) ( $bn_gate_space['type'] ?? '' );
+				if ( $bn_has_invite && ! $bn_is_secret ) {
+					$template = 'spaces/invite-invalid.php';
+				} else {
+					$this->send_404();
+					return;
+				}
 			}
 		}
 
@@ -744,10 +878,26 @@ class PageRouter {
 			}
 		}
 
-		// Bookmarks hub: override the bare "Activity Feed" title with a
-		// dedicated label so the document <title> reads "Bookmarks · BuddyNext".
-		if ( 'feed' === $hub && 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' ) ) {
-			$hub_title = __( 'Bookmarks', 'buddynext' );
+		// Feed hub sub-surfaces each get their own document title, so the browser
+		// tab, the SEO bot and the screen-reader page announcement name the right
+		// surface instead of the bare "Activity Feed" hub default. Mirrors the
+		// per-action auth titles above and follows the same resolution order as
+		// resolve_feed_template(). 'search' sets its own title from the search
+		// template, and the default (feed/home.php) keeps the "Activity Feed" title.
+		if ( 'feed' === $hub ) {
+			$feed_section = (string) get_query_var( 'bn_feed_section', '' );
+			$feed_action  = (string) get_query_var( 'bn_activity_action', '' );
+			if ( 'bookmarks' === $feed_section ) {
+				$hub_title = __( 'Bookmarks', 'buddynext' );
+			} elseif ( 'account-status' === $feed_section ) {
+				$hub_title = __( 'Account status', 'buddynext' );
+			} elseif ( 'explore' === $feed_action ) {
+				$hub_title = __( 'Explore', 'buddynext' );
+			} elseif ( 'leaderboard' === $feed_action ) {
+				$hub_title = __( 'Leaderboard', 'buddynext' );
+			} elseif ( 'hashtag' === $feed_action ) {
+				$hub_title = __( 'Hashtag', 'buddynext' );
+			}
 		}
 
 		// Specialise the title for per-space surfaces. Mirrors the
@@ -1522,7 +1672,7 @@ class PageRouter {
 				'connectTitle'           => __( 'Add a note', 'buddynext' ),
 				'connectBody'            => __( 'Add a personal message to your connection request, or send it without one.', 'buddynext' ),
 				'connectSubmit'          => __( 'Send request', 'buddynext' ),
-				'connectPlaceholder'     => __( 'e.g. We met at the design meetup — I’d love to stay connected.', 'buddynext' ),
+				'connectPlaceholder'     => __( 'e.g. We met at the design meetup: I’d love to stay connected.', 'buddynext' ),
 				// Generic fallback toast (relation-remove.js).
 				'updateFailed'           => __( 'Could not update. Try again.', 'buddynext' ),
 			),

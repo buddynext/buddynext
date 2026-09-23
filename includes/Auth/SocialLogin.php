@@ -253,7 +253,7 @@ class SocialLogin {
 				'setup_steps'     => array(
 					__( 'In the Apple Developer console, create an App ID with the "Sign in with Apple" capability enabled.', 'buddynext' ),
 					__( 'Create a Services ID (this becomes your Client ID), enable Sign in with Apple on it, and register the redirect link shown below as a Return URL.', 'buddynext' ),
-					__( 'Under Keys, create a new key with "Sign in with Apple" enabled and download the .p8 file — Apple only lets you download it once.', 'buddynext' ),
+					__( 'Under Keys, create a new key with "Sign in with Apple" enabled and download the .p8 file: Apple only lets you download it once.', 'buddynext' ),
 					__( 'Copy the Team ID (top right of the console), the Key ID (on the key you created), and paste the full contents of the .p8 file here.', 'buddynext' ),
 					__( 'Some members will sign in with a private @privaterelay.appleid.com address (Hide My Email). For this site\'s emails to reach them, also register your sending domain under "Certificates → Services → Sign in with Apple for Email Communication" in the Apple console.', 'buddynext' ),
 				),

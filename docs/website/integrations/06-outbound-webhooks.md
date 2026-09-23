@@ -54,6 +54,12 @@ You can subscribe a destination to any of the community events below. If you lea
 
 A separate test event is sent only when you test a destination (see Test a destination).
 
+### What member data leaves your site
+
+Some events carry a member's personal details in the message body, including their email address, so the receiving tool can act on them (for example, adding a new member to your CRM or email list). This is the point of the feature, and it only happens for destinations you add yourself, but it does mean member data leaves your site and travels to whatever address you configure.
+
+Two things follow from that. Send events only to endpoints you trust and control, over `https` so the data is encrypted in transit. And if you are subject to GDPR, CCPA or similar rules, list these destinations in your own records of where member data is shared - BuddyNext hands the data to the address you chose, but what that third party then does with it is between you and them.
+
 ### How the message keeps it secure
 
 Every message BuddyNext sends carries a digital signature based on your signing secret. The receiving tool uses that same secret to confirm two things: the message genuinely came from your site, and nothing in it was changed along the way. Each message also includes the event name and the time it was sent, so your tool always knows what happened and when.

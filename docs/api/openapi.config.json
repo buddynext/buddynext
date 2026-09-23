@@ -9,7 +9,8 @@
       "url": "https://wbcomdesigns.com"
     },
     "license": {
-      "name": "GPL-2.0-or-later"
+      "name": "GPL-2.0-or-later",
+      "identifier": "GPL-2.0-or-later"
     }
   },
   "servers": [
@@ -32,65 +33,257 @@
     }
   },
   "tagRules": [
-    { "prefix": "/auth", "tag": "Auth" },
-    { "prefix": "/account", "tag": "Auth" },
-    { "prefix": "/feed", "tag": "Feed and Posts" },
-    { "prefix": "/posts", "tag": "Feed and Posts" },
-    { "prefix": "/comments", "tag": "Feed and Posts" },
-    { "prefix": "/reactions", "tag": "Feed and Posts" },
-    { "prefix": "/polls", "tag": "Feed and Posts" },
-    { "prefix": "/spaces", "tag": "Spaces" },
-    { "prefix": "/space-categories", "tag": "Spaces" },
-    { "prefix": "/media", "tag": "Media and Albums" },
-    { "prefix": "/albums", "tag": "Media and Albums" },
-    { "prefix": "/me/media", "tag": "Media and Albums" },
-    { "prefix": "/me/albums", "tag": "Media and Albums" },
-    { "prefix": "/members", "tag": "Members and Profiles" },
-    { "prefix": "/users", "tag": "Members and Profiles" },
-    { "prefix": "/me/interests", "tag": "Members and Profiles" },
-    { "prefix": "/me/onboarding", "tag": "Members and Profiles" },
-    { "prefix": "/me/profile", "tag": "Members and Profiles" },
-    { "prefix": "/me/avatar", "tag": "Members and Profiles" },
-    { "prefix": "/me/cover", "tag": "Members and Profiles" },
-    { "prefix": "/me/drafts", "tag": "Members and Profiles" },
-    { "prefix": "/me/bookmarks", "tag": "Members and Profiles" },
-    { "prefix": "/me/shares", "tag": "Members and Profiles" },
-    { "prefix": "/me/presence", "tag": "Members and Profiles" },
-    { "prefix": "/me/data-export", "tag": "Members and Profiles" },
-    { "prefix": "/me/account", "tag": "Members and Profiles" },
-    { "prefix": "/profile-fields", "tag": "Members and Profiles" },
-    { "prefix": "/profile-groups", "tag": "Members and Profiles" },
-    { "prefix": "/member-types", "tag": "Members and Profiles" },
-    { "prefix": "/follow-suggestions", "tag": "Social Graph" },
-    { "prefix": "/kudos", "tag": "Social Graph" },
-    { "prefix": "/me/connections", "tag": "Social Graph" },
-    { "prefix": "/me/connection-requests", "tag": "Social Graph" },
-    { "prefix": "/me/follow-requests", "tag": "Social Graph" },
-    { "prefix": "/me/blocked", "tag": "Social Graph" },
-    { "prefix": "/me/muted", "tag": "Social Graph" },
-    { "prefix": "/me/restricted", "tag": "Social Graph" },
-    { "prefix": "/me/social", "tag": "Social Graph" },
-    { "prefix": "/me/notifications", "tag": "Notifications" },
-    { "prefix": "/me/notification-prefs", "tag": "Notifications" },
-    { "prefix": "/me/notification-channels", "tag": "Notifications" },
-    { "prefix": "/me/space-notification-prefs", "tag": "Notifications" },
-    { "prefix": "/me/appeals", "tag": "Moderation and Trust" },
-    { "prefix": "/appeals", "tag": "Moderation and Trust" },
-    { "prefix": "/me/pending-posts", "tag": "Moderation and Trust" },
-    { "prefix": "/reports", "tag": "Moderation and Trust" },
-    { "prefix": "/moderation", "tag": "Moderation and Trust" },
-    { "prefix": "/search", "tag": "Search and Hashtags" },
-    { "prefix": "/hashtags", "tag": "Search and Hashtags" },
-    { "prefix": "/me/hashtags", "tag": "Search and Hashtags" },
-    { "prefix": "/link-preview", "tag": "Feed and Posts" },
-    { "prefix": "/profile-slug", "tag": "Members and Profiles" },
-    { "prefix": "/invites", "tag": "Members and Profiles" },
-    { "prefix": "/webhooks", "tag": "Webhooks" },
-    { "prefix": "/webhook", "tag": "Webhooks" },
-    { "prefix": "/companions", "tag": "Admin" },
-    { "prefix": "/admin", "tag": "Admin" },
-    { "prefix": "/pwa", "tag": "App Shell" },
-    { "prefix": "/shell-nav", "tag": "App Shell" }
+    {
+      "prefix": "/auth",
+      "tag": "Auth"
+    },
+    {
+      "prefix": "/account",
+      "tag": "Auth"
+    },
+    {
+      "prefix": "/feed",
+      "tag": "Feed and Posts"
+    },
+    {
+      "prefix": "/posts",
+      "tag": "Feed and Posts"
+    },
+    {
+      "prefix": "/comments",
+      "tag": "Feed and Posts"
+    },
+    {
+      "prefix": "/reactions",
+      "tag": "Feed and Posts"
+    },
+    {
+      "prefix": "/polls",
+      "tag": "Feed and Posts"
+    },
+    {
+      "prefix": "/spaces",
+      "tag": "Spaces"
+    },
+    {
+      "prefix": "/space-categories",
+      "tag": "Spaces"
+    },
+    {
+      "prefix": "/media",
+      "tag": "Media and Albums"
+    },
+    {
+      "prefix": "/albums",
+      "tag": "Media and Albums"
+    },
+    {
+      "prefix": "/me/media",
+      "tag": "Media and Albums"
+    },
+    {
+      "prefix": "/me/albums",
+      "tag": "Media and Albums"
+    },
+    {
+      "prefix": "/members",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/users",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/interests",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/onboarding",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/profile",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/avatar",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/cover",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/drafts",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/bookmarks",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/shares",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/presence",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/data-export",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/me/account",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/profile-fields",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/profile-groups",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/member-types",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/follow-suggestions",
+      "tag": "Social Graph"
+    },
+    {
+      "prefix": "/kudos",
+      "tag": "Social Graph"
+    },
+    {
+      "prefix": "/me/connections",
+      "tag": "Social Graph"
+    },
+    {
+      "prefix": "/me/connection-requests",
+      "tag": "Social Graph"
+    },
+    {
+      "prefix": "/me/follow-requests",
+      "tag": "Social Graph"
+    },
+    {
+      "prefix": "/me/blocked",
+      "tag": "Social Graph"
+    },
+    {
+      "prefix": "/me/muted",
+      "tag": "Social Graph"
+    },
+    {
+      "prefix": "/me/restricted",
+      "tag": "Social Graph"
+    },
+    {
+      "prefix": "/me/social",
+      "tag": "Social Graph"
+    },
+    {
+      "prefix": "/me/notifications",
+      "tag": "Notifications"
+    },
+    {
+      "prefix": "/me/notification-prefs",
+      "tag": "Notifications"
+    },
+    {
+      "prefix": "/me/notification-channels",
+      "tag": "Notifications"
+    },
+    {
+      "prefix": "/me/space-notification-prefs",
+      "tag": "Notifications"
+    },
+    {
+      "prefix": "/me/appeals",
+      "tag": "Moderation and Trust"
+    },
+    {
+      "prefix": "/appeals",
+      "tag": "Moderation and Trust"
+    },
+    {
+      "prefix": "/me/pending-posts",
+      "tag": "Moderation and Trust"
+    },
+    {
+      "prefix": "/reports",
+      "tag": "Moderation and Trust"
+    },
+    {
+      "prefix": "/moderation",
+      "tag": "Moderation and Trust"
+    },
+    {
+      "prefix": "/search",
+      "tag": "Search and Hashtags"
+    },
+    {
+      "prefix": "/hashtags",
+      "tag": "Search and Hashtags"
+    },
+    {
+      "prefix": "/me/hashtags",
+      "tag": "Search and Hashtags"
+    },
+    {
+      "prefix": "/link-preview",
+      "tag": "Feed and Posts"
+    },
+    {
+      "prefix": "/profile-slug",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/invites",
+      "tag": "Members and Profiles"
+    },
+    {
+      "prefix": "/webhooks",
+      "tag": "Webhooks"
+    },
+    {
+      "prefix": "/webhook",
+      "tag": "Webhooks"
+    },
+    {
+      "prefix": "/companions",
+      "tag": "Admin"
+    },
+    {
+      "prefix": "/admin",
+      "tag": "Admin"
+    },
+    {
+      "prefix": "/pwa",
+      "tag": "App Shell"
+    },
+    {
+      "prefix": "/shell-nav",
+      "tag": "App Shell"
+    }
   ],
-  "fallbackTag": "Misc"
+  "fallbackTag": "Misc",
+  "tagDescriptions": {
+    "Admin": "Site-owner tools: companions, slug checks and admin-only lookups.",
+    "App Shell": "PWA manifest, service worker, offline page and shell navigation.",
+    "Auth": "Sign-in, registration, verification, app passwords and two-factor settings.",
+    "Feed and Posts": "Activity feeds, posts, comments, reactions, polls and link previews.",
+    "Media and Albums": "Member and space media, albums and media usage.",
+    "Members and Profiles": "Member directory, profiles, profile fields and groups, member types, drafts, bookmarks and account data.",
+    "Misc": "Endpoints not grouped under another tag.",
+    "Moderation and Trust": "Reports, appeals, strikes, suspensions and the moderation log.",
+    "Notifications": "Notifications, notification preferences and channels.",
+    "Search and Hashtags": "Search, suggestions and hashtags.",
+    "Social Graph": "Follows, connections, blocks, mutes, restrictions and kudos.",
+    "Spaces": "Spaces, space categories, members, requests and space feeds.",
+    "Webhooks": "Outbound webhooks and their delivery log."
+  }
 }

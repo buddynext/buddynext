@@ -180,7 +180,21 @@ if ( $bn_sf_is_space ) {
 	$bn_sf_rm_i18n     = (string) wp_json_encode(
 		array(
 			'confirmTitle' => __( 'Remove from this space?', 'buddynext' ),
-			'confirmBody'  => __( 'The file returns to its owner’s own Files — it is not deleted. They can remove it from there.', 'buddynext' ),
+			'confirmBody'  => __( 'The file returns to its owner’s own Files: it is not deleted. They can remove it from there.', 'buddynext' ),
+			'confirm'      => __( 'Remove', 'buddynext' ),
+			'cancel'       => __( 'Cancel', 'buddynext' ),
+			'done'         => __( 'File removed from the space.', 'buddynext' ),
+			'fail'         => __( 'That file could not be removed.', 'buddynext' ),
+		)
+	);
+	// A LINKED file (its home is another drive) is removed differently: only the
+	// link is dropped, its original stays exactly where it lives. Same button,
+	// honest copy — the mechanism differs, the member's outcome ("no longer in
+	// this space, not deleted") does not.
+	$bn_sf_rm_linked_i18n = (string) wp_json_encode(
+		array(
+			'confirmTitle' => __( 'Remove from this space?', 'buddynext' ),
+			'confirmBody'  => __( 'Only the link is removed. The original file stays where it lives and is not deleted.', 'buddynext' ),
 			'confirm'      => __( 'Remove', 'buddynext' ),
 			'cancel'       => __( 'Cancel', 'buddynext' ),
 			'done'         => __( 'File removed from the space.', 'buddynext' ),
@@ -212,43 +226,94 @@ if ( $bn_sf_is_space ) {
 	<?php endif; ?>
 >
 
-	<form class="bn-files__search" method="get" action="<?php echo esc_url( $bn_sf_base_url ); ?>" role="search">
-		<label class="screen-reader-text" for="bn-files-q"><?php echo esc_html( $bn_sf_is_space ? __( 'Search files in this space', 'buddynext' ) : __( 'Search your files', 'buddynext' ) ); ?></label>
-		<input type="search" id="bn-files-q" name="bn_q" class="bn-files__search-input" value="<?php echo esc_attr( $bn_sf_search_q ); ?>" placeholder="<?php esc_attr_e( 'Search files…', 'buddynext' ); ?>" autocomplete="off">
-		<button type="submit" class="bn-files__search-btn"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
-	</form>
+	<?php
+	// Search, Upload and Link a file share ONE compact toolbar strip. On a wide
+	// screen all three sit on one line; when the row is too narrow, search keeps
+	// the top line and Upload + Link drop TOGETHER onto the next line (grouped in
+	// .bn-files__tools) rather than stacking one-per-row with dead space beside
+	// each. Upload is a button; a file can still be dropped on it.
+	$bn_sf_drive_param = ( $bn_sf_is_space ? 'space' : 'user' ) . ':' . (int) $bn_sf_space_id;
+	$bn_sf_has_link    = $bn_sf_is_space && $bn_sf_can_write && ! $bn_sf_is_search;
+	?>
+	<div class="bn-files__toolbar">
+		<form class="bn-files__search" method="get" action="<?php echo esc_url( $bn_sf_base_url ); ?>" role="search">
+			<label class="screen-reader-text" for="bn-files-q"><?php echo esc_html( $bn_sf_is_space ? __( 'Search files in this space', 'buddynext' ) : __( 'Search your files', 'buddynext' ) ); ?></label>
+			<input type="search" id="bn-files-q" name="bn_q" class="bn-files__search-input" value="<?php echo esc_attr( $bn_sf_search_q ); ?>" placeholder="<?php esc_attr_e( 'Search files…', 'buddynext' ); ?>" autocomplete="off">
+			<button type="submit" class="bn-files__search-btn"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
+		</form>
 
-	<?php if ( $bn_sf_can_upload ) : ?>
-		<?php
-		// Upload straight into THIS drive + folder, the same way the Media tab has
-		// its own composer. The engine's document endpoint (/mvs-pro/v1/documents/
-		// upload) takes a `drive` = "type:id" and a `folder`, both carried here so a
-		// file lands where the viewer is looking. A space upload is filed as `space`
-		// privacy so the whole space can see it without a second step.
-		$bn_sf_drive_param = ( $bn_sf_is_space ? 'space' : 'user' ) . ':' . (int) $bn_sf_space_id;
-		?>
-		<div class="bn-files-upload"
-			data-bn-file-upload
-			data-bn-url="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents/upload' ) ); ?>"
-			data-bn-drive="<?php echo esc_attr( $bn_sf_drive_param ); ?>"
-			data-bn-folder="<?php echo esc_attr( (string) $bn_sf_folder ); ?>"
-			data-bn-privacy="<?php echo esc_attr( $bn_sf_is_space ? 'space' : 'private' ); ?>"
-			data-bn-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
-			data-bn-max="<?php echo esc_attr( (string) ( (int) ( $bn_sf_doc_config['max_size'] ?? 0 ) ) ); ?>"
-			data-bn-strings="<?php echo esc_attr( $bn_sf_up_i18n ); ?>">
-			<button type="button" class="bn-files-upload__zone" data-bn-file-upload-trigger>
-				<span class="bn-files-upload__icon" aria-hidden="true"><?php buddynext_icon( 'upload' ); ?></span>
-				<span class="bn-files-upload__title"><?php esc_html_e( 'Drag a file here or click to upload', 'buddynext' ); ?></span>
-				<span class="bn-files-upload__hint">
-					<?php echo esc_html( $bn_sf_is_space ? __( 'Shared with this space', 'buddynext' ) : __( 'Added to your files', 'buddynext' ) ); ?>
-				</span>
-			</button>
-			<input type="file" class="bn-files-upload__input" data-bn-file-upload-input
-				accept="<?php echo esc_attr( (string) ( $bn_sf_doc_config['accept'] ?? '' ) ); ?>" hidden
-				aria-label="<?php esc_attr_e( 'Choose a file to upload', 'buddynext' ); ?>">
-			<p class="bn-files-upload__status" data-bn-file-upload-status role="status" aria-live="polite" hidden></p>
+		<?php if ( $bn_sf_can_upload || $bn_sf_has_link ) : ?>
+		<div class="bn-files__tools">
+
+			<?php if ( $bn_sf_can_upload ) : ?>
+			<div class="bn-files-upload"
+				data-bn-file-upload
+				data-bn-url="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents/upload' ) ); ?>"
+				data-bn-drive="<?php echo esc_attr( $bn_sf_drive_param ); ?>"
+				data-bn-folder="<?php echo esc_attr( (string) $bn_sf_folder ); ?>"
+				data-bn-privacy="<?php echo esc_attr( $bn_sf_is_space ? 'space' : 'private' ); ?>"
+				data-bn-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+				data-bn-max="<?php echo esc_attr( (string) ( (int) ( $bn_sf_doc_config['max_size'] ?? 0 ) ) ); ?>"
+				data-bn-strings="<?php echo esc_attr( $bn_sf_up_i18n ); ?>">
+				<button type="button" class="bn-files__tool-btn" data-bn-file-upload-trigger
+					title="<?php echo esc_attr( $bn_sf_is_space ? __( 'Upload a file to this space (or drop one here)', 'buddynext' ) : __( 'Upload a file (or drop one here)', 'buddynext' ) ); ?>">
+					<span class="bn-files__tool-icon" aria-hidden="true"><?php buddynext_icon( 'upload' ); ?></span>
+					<span><?php esc_html_e( 'Upload', 'buddynext' ); ?></span>
+				</button>
+				<input type="file" class="bn-files-upload__input" data-bn-file-upload-input
+					accept="<?php echo esc_attr( (string) ( $bn_sf_doc_config['accept'] ?? '' ) ); ?>" hidden
+					aria-label="<?php esc_attr_e( 'Choose a file to upload', 'buddynext' ); ?>">
+				<p class="bn-files-upload__status" data-bn-file-upload-status role="status" aria-live="polite" hidden></p>
+			</div>
+		<?php endif; ?>
+
+			<?php if ( $bn_sf_has_link ) : ?>
+				<?php
+				// Link an EXISTING file into this space (secondary to upload). The
+				// member pastes a file's link; the server resolves it, checks they own
+				// it and may write here, and adds it to this space's Files without a
+				// copy. Any member who may contribute here may link; removing others'
+				// links stays a moderator action (checked per row).
+				$bn_sf_link_i18n = (string) wp_json_encode(
+					array(
+						'linking' => __( 'Linking…', 'buddynext' ),
+						'done'    => __( 'File linked to this space.', 'buddynext' ),
+						'empty'   => __( 'Paste a file link first.', 'buddynext' ),
+						'fail'    => __( 'That file could not be linked.', 'buddynext' ),
+					)
+				);
+				?>
+			<details class="bn-files-link">
+				<summary class="bn-files__tool-btn bn-files-link__toggle">
+					<span class="bn-files__tool-icon" aria-hidden="true"><?php buddynext_icon( 'link' ); ?></span>
+					<?php esc_html_e( 'Link a file', 'buddynext' ); ?>
+				</summary>
+				<div class="bn-files-link__pop"
+					data-bn-file-link
+					data-bn-url="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents/link' ) ); ?>"
+					data-bn-space="<?php echo esc_attr( (string) (int) $bn_sf_space_id ); ?>"
+					data-bn-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+					data-bn-strings="<?php echo esc_attr( $bn_sf_link_i18n ); ?>">
+					<label class="bn-files-link__label" for="bn-files-link-input">
+						<?php esc_html_e( 'Paste the link to a file you own', 'buddynext' ); ?>
+					</label>
+					<div class="bn-files-link__row">
+						<input type="url" id="bn-files-link-input" class="bn-files-link__input"
+							data-bn-file-link-input inputmode="url" autocomplete="off"
+							placeholder="<?php esc_attr_e( 'https://…/media/your-file/', 'buddynext' ); ?>">
+						<button type="button" class="bn-files-link__submit" data-bn-file-link-submit>
+							<?php esc_html_e( 'Link', 'buddynext' ); ?>
+						</button>
+					</div>
+					<p class="bn-files-link__status" data-bn-file-link-status role="status" aria-live="polite" hidden></p>
+				</div>
+			</details>
+		<?php endif; ?>
 		</div>
-	<?php elseif ( $bn_sf_show_ro_notice ) : ?>
+		<?php endif; ?>
+	</div>
+
+	<?php if ( ! $bn_sf_can_upload && $bn_sf_show_ro_notice ) : ?>
 		<p class="bn-files__notice" data-bn-files-readonly>
 			<?php
 			echo esc_html(
@@ -382,6 +447,10 @@ if ( $bn_sf_is_space ) {
 				$bn_sf_ddate = isset( $bn_sf_d['created_at'] ) ? (string) $bn_sf_d['created_at'] : '';
 				$bn_sf_daid  = isset( $bn_sf_d['author'] ) ? (int) $bn_sf_d['author'] : 0;
 				$bn_sf_durl  = $bn_sf_dl_url( $bn_sf_d );
+				// A file LINKED into this space (home drive is elsewhere) removes by
+				// dropping the link, not by re-homing — the bridge flags which is
+				// which. Only meaningful on a space drive.
+				$bn_sf_dlinked = $bn_sf_is_space && ! empty( $bn_sf_d['is_linked'] );
 				if ( $bn_sf_did <= 0 ) {
 					continue;
 				}
@@ -406,6 +475,9 @@ if ( $bn_sf_is_space ) {
 						<?php if ( '' !== $bn_sf_owner ) : ?>
 							<span class="bn-files__owner"><?php echo esc_html( $bn_sf_owner ); ?></span>
 						<?php endif; ?>
+						<?php if ( $bn_sf_dlinked ) : ?>
+							<span class="bn-files__badge" title="<?php esc_attr_e( 'Linked from another location', 'buddynext' ); ?>"><?php esc_html_e( 'Linked', 'buddynext' ); ?></span>
+						<?php endif; ?>
 					</span>
 					<span class="bn-files__actions">
 						<?php if ( '' !== $bn_sf_durl ) : ?>
@@ -420,7 +492,13 @@ if ( $bn_sf_is_space ) {
 							</a>
 						<?php endif; ?>
 						<?php if ( $bn_sf_can_remove ) : ?>
-							<button type="button" class="bn-files__remove" data-bn-file-remove data-bn-id="<?php echo esc_attr( (string) $bn_sf_did ); ?>">
+							<button type="button" class="bn-files__remove" data-bn-file-remove data-bn-id="<?php echo esc_attr( (string) $bn_sf_did ); ?>"
+								<?php if ( $bn_sf_dlinked ) : ?>
+								data-bn-action="unlink-space"
+								data-bn-detach="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents/' . $bn_sf_did . '/spaces/' . (int) $bn_sf_space_id ) ); ?>"
+								data-bn-strings="<?php echo esc_attr( $bn_sf_rm_linked_i18n ); ?>"
+								<?php endif; ?>
+							>
 								<?php echo buddynext_icon( 'trash' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?>
 								<span class="screen-reader-text">
 									<?php
@@ -452,7 +530,7 @@ if ( $bn_sf_is_space ) {
 				<span class="bn-files__pager-status">
 					<?php
 					/* translators: 1: current folder page, 2: total folder pages. */
-					echo esc_html( sprintf( __( 'Folders — page %1$s of %2$s', 'buddynext' ), number_format_i18n( $bn_sf_fpage ), number_format_i18n( $bn_sf_fpages ) ) );
+					echo esc_html( sprintf( __( 'Folders: page %1$s of %2$s', 'buddynext' ), number_format_i18n( $bn_sf_fpage ), number_format_i18n( $bn_sf_fpages ) ) );
 					?>
 				</span>
 				<?php if ( $bn_sf_fpage < $bn_sf_fpages ) : ?>

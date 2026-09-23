@@ -335,7 +335,7 @@ class NotificationMessageService {
 				if ( ! empty( $data['near_suspension'] ) && $strike_suspend_at > 0 && $strike_count > 0 ) {
 					return sprintf(
 						/* translators: 1: the member's current active strike count, 2: strikes at which the account is suspended. */
-						__( 'Your account received a strike (%1$d of %2$d). At %2$d strikes your account is suspended — please review the community guidelines.', 'buddynext' ),
+						__( 'Your account received a strike (%1$d of %2$d). At %2$d strikes your account is suspended: please review the community guidelines.', 'buddynext' ),
 						$strike_count,
 						$strike_suspend_at
 					);

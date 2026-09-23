@@ -5,6 +5,11 @@ import { createPage, deletePage } from '../_fixtures/wp';
  * J-805 — [buddynext_community_admin] sidebar tabs stay on the page they are placed
  * on, instead of 404-ing to a hardcoded hub slug.
  *
+ * Covers: cap-give-the-owner-a-front-end-community-admin-surface-off-wp-ad
+ * front-end shortcode; it is a different surface from the wp-admin AdminHub that
+ * "Administer everything from one menu?" names. Flagging as friction.
+ * Roles: admin
+ *
  * The bug: the tabs were add_query_arg( 'bn_admin', ..., buddynext_community_admin_url() )
  * links — the hardcoded bn-community-admin slug — so on any other page every tab but
  * Overview navigated to /bn-community-admin/?bn_admin=... and hit a real 404.

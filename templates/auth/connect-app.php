@@ -106,7 +106,7 @@ $bn_app_label = '' !== $bn_app_name ? $bn_app_name : __( 'the app', 'buddynext' 
 						<?php
 						printf(
 							/* translators: 1: member display name, 2: member login. */
-							esc_html__( 'You are signed in as %1$s (%2$s). The app gets its own access key for this account — you can see and revoke it any time from your device settings.', 'buddynext' ),
+							esc_html__( 'You are signed in as %1$s (%2$s). The app gets its own access key for this account: you can see and revoke it any time from your device settings.', 'buddynext' ),
 							'<strong>' . esc_html( $bn_user->display_name ) . '</strong>',
 							esc_html( $bn_user->user_login )
 						);

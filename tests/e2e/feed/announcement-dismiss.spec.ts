@@ -30,6 +30,9 @@ type AnnouncementList = { announcements?: Array<{ id: number }> };
  * the app/badge reads (`GET /feed/announcements`). A dismiss that flips the DOM
  * but never persists the user_meta re-injects the card on reload and fails here.
  * The announcement post is deleted in `finally`.
+ *
+ * Covers: cap-post-announcements
+ * Roles: admin, member
  */
 test.describe('feed / dismiss announcement', () => {
     const annCard = '.bn-post-card--announcement';

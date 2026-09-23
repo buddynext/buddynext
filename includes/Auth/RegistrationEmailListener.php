@@ -168,7 +168,7 @@ class RegistrationEmailListener {
 		);
 		$member_body = sprintf(
 			/* translators: 1: display name, 2: site name */
-			__( 'Hi %1$s, thanks for registering at %2$s. An administrator needs to review your account before you can sign in — we will email you as soon as it is approved.', 'buddynext' ),
+			__( 'Hi %1$s, thanks for registering at %2$s. An administrator needs to review your account before you can sign in: we will email you as soon as it is approved.', 'buddynext' ),
 			$user->display_name,
 			$site
 		);
@@ -179,7 +179,7 @@ class RegistrationEmailListener {
 		if ( '' !== $admin_email ) {
 			$admin_subject = sprintf(
 				/* translators: %s: site name */
-				__( 'New registration awaiting approval — %s', 'buddynext' ),
+				__( 'New registration awaiting approval: %s', 'buddynext' ),
 				$site
 			);
 			$admin_body = sprintf(
@@ -213,7 +213,7 @@ class RegistrationEmailListener {
 		);
 		$body = sprintf(
 			/* translators: 1: display name, 2: site name, 3: sign-in URL */
-			__( 'Good news, %1$s — your account at %2$s has been approved. You can now sign in: %3$s', 'buddynext' ),
+			__( 'Good news, %1$s: your account at %2$s has been approved. You can now sign in: %3$s', 'buddynext' ),
 			$user->display_name,
 			$site,
 			PageRouter::auth_url()

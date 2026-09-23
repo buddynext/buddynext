@@ -762,7 +762,7 @@ class ModerationListener implements ListenerInterface {
 
 		$message = sprintf(
 			/* translators: 1: object type (post/comment/user), 2: object id */
-			__( 'New report filed on %1$s #%2$d — review the moderation queue.', 'buddynext' ),
+			__( 'New report filed on %1$s #%2$d: review the moderation queue.', 'buddynext' ),
 			$object_type,
 			$object_id
 		);

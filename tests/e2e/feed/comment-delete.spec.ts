@@ -19,6 +19,9 @@ import { dbScalar, tablePrefix } from '../_fixtures/wp';
  * still have live replies) and the DB row is asserted is_deleted=1 (the delete
  * persisted server-side, not just greyed a node client-side). Post deleted in
  * `finally`.
+ *
+ * Covers: cap-let-members-react-comment-and-reply
+ * Roles: admin
  */
 test.describe('feed / comment delete', () => {
     const commentList = '.bn-comment-list';

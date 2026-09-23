@@ -770,9 +770,26 @@
 
 .bn-ca-row__actions {
 	display: inline-flex;
-	align-items: center;
+	/* stretch, not center: the content-warning <select> has taller intrinsic
+	   form-control height than a .bn-btn[data-size="sm"], so centring left it
+	   sitting proud of the buttons. Stretching the row + collapsing the select's
+	   own height (below) makes the two share a baseline by construction, at every
+	   breakpoint, matching the bn-bulk-bar precedent in bn-admin.css. */
+	align-items: stretch;
 	gap: var(--bn-s2);
 	flex-shrink: 0;
+	flex-wrap: wrap;
+}
+
+/* Content-warning type picker: match the sm action buttons beside it. */
+.bn-ca-row__actions .bn-cw-control__type,
+.bn-cw-control__type {
+	box-sizing: border-box;
+	min-height: 0;
+	padding-block: 0;
+	line-height: 1;
+	font-size: var(--bn-text-xs);
+	border-radius: var(--bn-r-sm);
 }
 
 /* Appeal review card (community-admin Appeals tab). */

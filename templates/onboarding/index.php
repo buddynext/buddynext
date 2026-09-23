@@ -109,23 +109,38 @@ $bn_ob_members = buddynext_service( 'space_members' );
 $bn_ob_follows = buddynext_service( 'follows' );
 $bn_ob_explore = new ExploreService();
 
-// Recommended spaces (step 2) — ranked, viewer-aware suggestions (social proof +
-// category + popularity) that exclude spaces the new member is already in, including
-// any auto-joined on signup. Falls back to popularity for a brand-new account.
-// Wizard step 3 promises ONE-CLICK join, so only direct-join (open) spaces
-// belong here - a private space's request-to-join flow needs its own page
-// (found on the 1.0.4 dist-zip journey QA: a new member "joined" a private
-// space from this list with no approval).
-$recommended_spaces = array_values(
-	array_filter(
-		( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $ob_user_id, 6 ),
-		static fn ( array $ob_s ): bool => 'direct' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $ob_s['type'] ?? 'open' ) )
-	)
-);
+// Spaces the user already belongs to (incl. auto-joined) — needed to exclude
+// them from the recommendations AND to prefill Join states.
+$joined_space_ids = array_map( 'intval', (array) $bn_ob_members->spaces_for_user( $ob_user_id ) );
 
-// Spaces the user already belongs to + people they already follow (prefill the
-// Join / Follow button states) via bulk service accessors.
-$joined_space_ids  = $bn_ob_members->spaces_for_user( $ob_user_id );
+// Recommended spaces (step 3) — the owner's FEATURED spaces first, then the
+// ranked personal suggestions (social proof + category + popularity) fill the
+// rest. Wizard step 3 promises ONE-CLICK join, so only direct-join (open) spaces
+// belong here — a private space's request-to-join flow needs its own page (found
+// on the 1.0.4 dist-zip journey QA: a new member "joined" a private space from
+// this list with no approval). Exclude anything the member is already in
+// (auto-joined spaces are NOT shown as "Joined" here), dedupe, cap at 6.
+$bn_ob_featured  = ( new \BuddyNext\Spaces\SpaceService() )->featured_spaces( $ob_user_id, 6, 'onboarding' );
+$bn_ob_suggested = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $ob_user_id, 6 );
+
+$recommended_spaces = array();
+$bn_ob_seen         = array();
+foreach ( array_merge( $bn_ob_featured, $bn_ob_suggested ) as $ob_s ) {
+	$ob_id = (int) ( $ob_s['id'] ?? 0 );
+	if ( $ob_id <= 0 || isset( $bn_ob_seen[ $ob_id ] ) || in_array( $ob_id, $joined_space_ids, true ) ) {
+		continue;
+	}
+	if ( 'direct' !== \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $ob_s['type'] ?? 'open' ) ) ) {
+		continue;
+	}
+	$bn_ob_seen[ $ob_id ]  = true;
+	$recommended_spaces[]  = $ob_s;
+	if ( count( $recommended_spaces ) >= 6 ) {
+		break;
+	}
+}
+
+// People the user already follows (prefill the Follow button states).
 $already_following = $bn_ob_follows->following( $ob_user_id );
 
 // Suggested people to follow — the ranked engine (interest overlap +
@@ -478,6 +493,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		</section>
 		<?php endif; ?>
 
+		<?php if ( isset( $step_pos['spaces'] ) ) : ?>
 		<!-- ── Step <?php echo esc_html( (string) $step_pos['spaces'] ); ?>: Spaces ── -->
 		<section class="bn-ob-step"
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
@@ -572,7 +588,9 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			</div>
 
 		</section>
+		<?php endif; ?>
 
+		<?php if ( isset( $step_pos['people'] ) ) : ?>
 		<!-- ── Step <?php echo esc_html( (string) $step_pos['people'] ); ?>: Follow People ── -->
 		<section class="bn-ob-step"
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
@@ -674,6 +692,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			</div>
 
 		</section>
+		<?php endif; ?>
 
 		<!-- ── Step <?php echo esc_html( (string) $step_pos['notifications'] ); ?>: Notifications ── -->
 		<section class="bn-ob-step"

@@ -232,4 +232,44 @@ class OnboardingServiceTest extends \WP_UnitTestCase {
 		$this->assertNotContains( 'Impostor', array_column( $steps, 'label' ) );
 		$this->assertSame( range( 1, count( $steps ) ), array_keys( $steps ) );
 	}
+
+	/**
+	 * An optional step removed through the filter drops out and the rest renumber
+	 * contiguously — the supported "remove the People step" case.
+	 */
+	public function test_step_list_filter_removes_optional_step(): void {
+		$filter = static function ( array $steps ): array {
+			return array_values(
+				array_filter(
+					$steps,
+					static fn( $s ): bool => 'people' !== ( $s['key'] ?? '' )
+				)
+			);
+		};
+		add_filter( 'buddynext_onboarding_steps', $filter );
+		$steps = $this->service->step_list();
+		remove_filter( 'buddynext_onboarding_steps', $filter );
+
+		$keys = array_column( $steps, 'key' );
+		$this->assertNotContains( 'people', $keys );
+		$this->assertContains( 'profile', $keys );
+		$this->assertContains( 'notifications', $keys );
+		// Positions stay contiguous 1..N with the step gone.
+		$this->assertSame( range( 1, count( $steps ) ), array_keys( $steps ) );
+	}
+
+	/**
+	 * A filter that strips every step must not yield an empty wizard — the core
+	 * list is used instead (also keeps the 1..N renumber well-formed).
+	 */
+	public function test_step_list_filter_removing_all_falls_back_to_default(): void {
+		$filter = static fn( array $steps ): array => array();
+		add_filter( 'buddynext_onboarding_steps', $filter );
+		$steps = $this->service->step_list();
+		remove_filter( 'buddynext_onboarding_steps', $filter );
+
+		$this->assertNotEmpty( $steps );
+		$this->assertContains( 'profile', array_column( $steps, 'key' ) );
+		$this->assertSame( range( 1, count( $steps ) ), array_keys( $steps ) );
+	}
 }

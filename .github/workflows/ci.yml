@@ -113,6 +113,36 @@ jobs:
         if: ${{ env.BN_PRO_TOKEN != '' }}
         run: cd buddynext-pro && python3 bin/check-journey-coverage.py
 
+  docs-gates:
+    name: Docs & admin-routing gates (static)
+    runs-on: ubuntu-latest
+    # Same Pro-token pattern as journey-catalogue: the cookbook gate resolves recipe
+    # hooks/services against Free AND Pro, so it needs a Pro checkout; the tab_url
+    # gate is Free-safe and always runs. (Card 10294664178.)
+    env:
+      BN_PRO_TOKEN: ${{ secrets.BN_PRO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: buddynext
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Checkout Pro (needs BN_PRO_TOKEN secret)
+        if: ${{ env.BN_PRO_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: buddynext/buddynext-pro
+          token: ${{ env.BN_PRO_TOKEN }}
+          path: buddynext-pro
+      # Free-safe: every AdminHub::tab_url() literal must resolve to a registered tab.
+      - name: Admin tab_url() resolution gate
+        run: cd buddynext && python3 bin/check-tab-url.py
+      # Cross-repo: recipes reference Pro hooks/services, so this needs the Pro checkout.
+      - name: Cookbook hook/service resolution gate (needs Pro)
+        if: ${{ env.BN_PRO_TOKEN != '' }}
+        run: cd buddynext && python3 bin/check-cookbook-hooks.py
+
   e2e:
     # Mandatory browser-level gate: stands up a real WordPress with BuddyNext +
     # BuddyX + seeded data, serves it, and runs the effect-based Playwright journeys

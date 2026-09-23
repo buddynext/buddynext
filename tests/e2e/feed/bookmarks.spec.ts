@@ -36,6 +36,9 @@ type BookmarkIds = { ids: number[] };
  * loses attribution, fails at the reload. Copy-link permalink stays covered by
  * `feed/share-permalink.spec.ts` (J-514). The reshare is unshared and the seeded
  * post deleted in `finally`.
+ *
+ * Covers: cap-bookmark-and-reshare-posts
+ * Roles: admin
  */
 test.describe('feed / bookmarks + share', () => {
     const bookmarksOf = async (page: import('@playwright/test').Page, nonce: string): Promise<number[]> =>

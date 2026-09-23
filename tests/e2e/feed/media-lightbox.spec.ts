@@ -24,6 +24,9 @@ import type { Page } from '@playwright/test';
  * logged-out visitor while view + download remain. Every seeded post is deleted
  * in `finally`. Media routes through WPMediaVerse; when the Image tool is absent
  * the engine is off and the spec soft-skips on that real precondition.
+ *
+ * Covers: cap-bookmark-and-reshare-posts, cap-let-members-react-comment-and-reply
+ * Roles: admin, anon
  */
 test.describe('feed / media lightbox', () => {
     // Per-spec selectors (shared selectors.ts is off-limits for parallel agents).

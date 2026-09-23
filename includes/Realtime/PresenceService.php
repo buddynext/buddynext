@@ -248,6 +248,36 @@ class PresenceService {
 	}
 
 	/**
+	 * Whether presence (online dots and the "Online now" lists) may be shown to
+	 * this viewer.
+	 *
+	 * Signed-in members always see presence. Logged-out/anonymous visitors do
+	 * NOT, even on a public community — an owner decision (2026-09-15): exposing
+	 * who is online right now to the open internet is a privacy surprise for a
+	 * community of unknown type. Filterable for owners who want public presence.
+	 *
+	 * Every presence producer (dots via BlockService::is_user_online_at() and
+	 * online_among(); the widget and sidebar "Online now" lists; the directory
+	 * online_only filter) routes its viewer through this one predicate so the
+	 * decision lives in a single place.
+	 *
+	 * @param int $viewer_id Current viewer (0 = anonymous).
+	 * @return bool
+	 */
+	public static function visible_to_viewer( int $viewer_id ): bool {
+		if ( $viewer_id > 0 ) {
+			return true;
+		}
+
+		/**
+		 * Filter whether member online presence is shown to logged-out visitors.
+		 *
+		 * @param bool $visible Default false (presence hidden from anonymous).
+		 */
+		return (bool) apply_filters( 'buddynext_presence_visible_to_anonymous', false );
+	}
+
+	/**
 	 * IDs of users active within the given window — an indexed range scan.
 	 *
 	 * @since 1.0.0

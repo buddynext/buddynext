@@ -238,4 +238,49 @@ class IndexCoverageTest extends WP_UnitTestCase {
 			'following (following_id, status) is the exact leftmost prefix of pending_inbox — it never earned its write cost.'
 		);
 	}
+
+	/**
+	 * Table bn_spaces — the four directory sort indexes lead on is_archived, not
+	 * parent_id, so ONE index set serves both the roots-only default AND the
+	 * Include-sub-spaces view of the directory. The real query filters on
+	 * is_archived = 0 (+ a type negation) and only ADDS parent_id IS NULL for the
+	 * default; the sub-spaces view drops parent_id, which a parent_id-led index
+	 * cannot serve — it filesorted every sort at scale, and roots Newest filesorted
+	 * too. is_archived (equality, in both shapes) leads, the order column follows,
+	 * and id is the stable pagination tie-break (card 10312614032). dir_name must
+	 * also index the FULL name column — a name(150) prefix cannot satisfy ORDER BY
+	 * name.
+	 *
+	 * @return void
+	 */
+	public function test_bn_spaces_directory_indexes_lead_on_is_archived(): void {
+		global $wpdb;
+
+		$idx      = $this->indexes( 'bn_spaces' );
+		$expected = array(
+			'dir_active'  => array( 'is_archived', 'last_active_at', 'created_at', 'id' ),
+			'dir_popular' => array( 'is_archived', 'member_count', 'id' ),
+			'dir_recent'  => array( 'is_archived', 'created_at', 'id' ),
+			'dir_name'    => array( 'is_archived', 'name', 'id' ),
+		);
+		foreach ( $expected as $name => $cols ) {
+			$this->assertSame(
+				$cols,
+				$idx[ $name ] ?? array(),
+				"{$name} must lead on is_archived with its order column + id tie-break, or the directory sort filesorts in one of its two views."
+			);
+		}
+
+		// dir_name.name must be the FULL column, never a prefix (a name(150) prefix
+		// cannot satisfy ORDER BY name and re-breaks the A-Z sort). The column list
+		// above does not reveal a prefix (name(150) still lists as "name"), so assert
+		// SUB_PART IS NULL for the name column directly.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sub_part = $wpdb->get_var(
+			"SELECT SUB_PART FROM information_schema.STATISTICS
+			 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$wpdb->prefix}bn_spaces'
+			   AND INDEX_NAME = 'dir_name' AND COLUMN_NAME = 'name'"
+		);
+		$this->assertNull( $sub_part, 'dir_name.name must index the FULL column (no prefix), or ORDER BY name filesorts.' );
+	}
 }

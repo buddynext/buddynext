@@ -1,26 +1,47 @@
 import { test, expect } from '@playwright/test';
 import { sel, urls } from '../_fixtures/selectors';
+import { setRegistrationMode, dbSeedingAvailable } from '../_fixtures/db.fixture';
 
 /**
  * J-04-signup.
+ *
+ * Covers: cap-register-and-log-in-without-wp-login
+ * Roles: anon, member
  *
  * Submits a fresh registration. We don't actually verify the user — that
  * lands in the dedicated verify spec. Here we only assert the form
  * accepts the submit and lands on either a verify notice or the
  * onboarding wizard.
  *
- * The signup surface is at /signup/ (PageRouter registers `bn_auth_action`
- * with signup as a sub-route; see register_auth_rules()). The page can
- * render empty if `users_can_register=0` — in that case the spec marks
+ * The signup surface is at /login/signup/ (PageRouter registers `bn_auth_action`
+ * with signup as a sub-route of the auth hub; see register_auth_rules()). The
+ * page can render empty if registration is closed — in that case the spec marks
  * the journey fixme rather than asserting against a non-existent form.
  */
 test.describe('auth / signup', () => {
-    test('shows registration form on /signup/', async ({ page }) => {
+    // Open self-registration for the run so the signup form actually renders, then
+    // restore whatever the site had. Without this the specs skip on any site with
+    // users_can_register=0 and the submit path is never exercised. Only when WP-CLI
+    // seeding is available (CI, or BN_WP_PATH locally); otherwise the in-test
+    // form-visibility guard still keeps the run honest.
+    let bnPrevRegistration: 'open' | 'invite' | 'closed' = 'open';
+    test.beforeAll(async () => {
+        if (dbSeedingAvailable()) {
+            bnPrevRegistration = (await setRegistrationMode('open')) as 'open' | 'invite' | 'closed';
+        }
+    });
+    test.afterAll(async () => {
+        if (dbSeedingAvailable()) {
+            await setRegistrationMode(bnPrevRegistration);
+        }
+    });
+
+    test('shows registration form on /login/signup/', async ({ page }) => {
         await page.goto(urls.signup, { waitUntil: 'domcontentloaded' });
 
         // Gate strictly on the SIGNUP form. Falling back to the login field
         // would let this pass when registration is closed (the shared auth hub
-        // shows the login form at /signup/), only to fail on the missing
+        // shows the login form at /login/signup/), only to fail on the missing
         // #bn-signup-email assertion below. Absent signup form => fixme.
         const usernameInput = page.locator(sel.signupUser).or(page.locator(sel.signupEmail));
         const formVisible = await usernameInput.first().isVisible().catch(() => false);
@@ -43,7 +64,7 @@ test.describe('auth / signup', () => {
 
         // Gate strictly on the SIGNUP form. Falling back to the login field
         // would let this pass when registration is closed (the shared auth hub
-        // shows the login form at /signup/), only to fail on the missing
+        // shows the login form at /login/signup/), only to fail on the missing
         // #bn-signup-email assertion below. Absent signup form => fixme.
         const usernameInput = page.locator(sel.signupUser).or(page.locator(sel.signupEmail));
         const formVisible = await usernameInput.first().isVisible().catch(() => false);
@@ -89,14 +110,18 @@ test.describe('auth / signup', () => {
             ]);
         }
 
-        // We assert *something* changed — either we're on the onboarding
-        // page, or a "check your email" notice is visible, or we got an
-        // error banner explaining why the email was rejected. Any of
-        // those proves the form actually submitted.
+        // Assert a real state change proving the form submitted: either we
+        // landed on onboarding (account created + signed in) or a notice is
+        // visible (a "check your email" pending message, or an error banner
+        // explaining why the email/challenge was rejected). Merely still being
+        // on an auth URL is NOT proof - the canonical signup route is
+        // /login/signup/, so a `url.includes('/login')` check would be true
+        // before any submit and make this test a tautology.
         const url = page.url();
-        const onAuth = url.includes('/login') || url.includes('/signup') || url.includes('wp-login.php');
         const onOnboarding = url.includes('/onboarding');
-        const hasNotice = await page.locator('.bn-auth-field__msg, .bn-auth__notice, .message, .login .message').count();
-        expect(onAuth || onOnboarding || hasNotice > 0).toBeTruthy();
+        const hasNotice = await page
+            .locator('.bn-auth-field__msg, .bn-auth__notice, .message, .login .message')
+            .count();
+        expect(onOnboarding || hasNotice > 0).toBeTruthy();
     });
 });

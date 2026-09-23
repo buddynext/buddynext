@@ -4,6 +4,9 @@ import { createSpaceApi, deleteSpaceApi } from '../_fixtures/spaces-rest';
 /**
  * J-602 — Edit space permissions (who can post / who can invite).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin
+ *
  * Member action: on the space Settings → Permissions panel, change the two
  * threshold selects and save via the panel's native settings POST.
  *

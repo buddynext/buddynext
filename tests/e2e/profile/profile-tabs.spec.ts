@@ -36,6 +36,15 @@ import {
  * Selectors declared locally (repo rule) from templates/parts/profile/*.php,
  * templates/parts/nav-bar.php and templates/profile/edit.php. Every mutation is
  * reverted so reruns are idempotent.
+ *
+ * Covers: cap-give-members-a-profile-with-custom-fields, cap-follow-people-and-connect-mutually
+ * Roles: admin, member
+ * Note: J-720/J-721/J-725 cover the profile-fields/About-tab promise; J-722/
+ * J-723 cover follow-connect (connections tab + pending inbox); J-724 (Media
+ * bridge tab retiring) does not map to any current CAPABILITIES.md row (the
+ * WPMediaVerse Media tab is not the same promise as the forum/job/listing/
+ * course bridge-panels row) and is left unpinned. Both A and B log in via
+ * loginAs() throughout.
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
@@ -127,10 +136,18 @@ async function removeCompany(page: Page, value: string): Promise<void> {
     await expect(page.locator(APP)).toBeVisible();
 }
 
+// The Profile Strength ring lives in the right sidebar, which is display:none
+// below 1025px (bn-shell.css .bn-app__right). Below that the hero completeness
+// chip (.bn-pf-completeness, rendered while under 100%) is the canonical
+// percentage. Read whichever the current viewport actually paints, so this
+// journey holds at every shipping width instead of only desktop — on iPad the
+// sidebar ring is present in the DOM but hidden, which is by design, not a bug.
+const COMPLETENESS_PCT = '.bn-pf-completeness__label';
+const strengthLocator = (page: Page) =>
+    page.locator((page.viewportSize()?.width ?? 1280) >= 1025 ? RING_PCT : COMPLETENESS_PCT).first();
+
 const ringPct = (page: Page): Promise<number> =>
-    page
-        .locator(RING_PCT)
-        .first()
+    strengthLocator(page)
         .innerText()
         .then((s) => parseInt(s.replace(/[^\d-]/g, ''), 10) || 0);
 
@@ -141,7 +158,7 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
         try {
             await loginAs(page, B_LOGIN);
             await page.goto(memberUrl(B_LOGIN));
-            await expect(page.locator(RING_PCT).first()).toBeVisible();
+            await expect(strengthLocator(page)).toBeVisible();
             const before = await ringPct(page);
             expect(before, 'a member with no fields starts at 0%').toBe(0);
 
@@ -153,7 +170,7 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
 
             // Reload the profile — the strength ring reflects the new value.
             await page.goto(memberUrl(B_LOGIN));
-            await expect(page.locator(RING_PCT).first()).toBeVisible();
+            await expect(strengthLocator(page)).toBeVisible();
             const after = await ringPct(page);
             expect(after, 'filling a field must raise the strength ring').toBeGreaterThan(before);
         } finally {

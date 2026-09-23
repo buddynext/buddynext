@@ -1,7 +1,10 @@
 import { test, expect } from '../_fixtures/auth.fixture';
+import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, postIdOfCard, deletePostRest, restPost } from '../_fixtures/feed-wave1.helpers';
 import type { Page } from '@playwright/test';
+
+const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
 /**
  * J-500 poll create + vote (B5), J-501 poll results + closed state (B5).
@@ -19,6 +22,9 @@ import type { Page } from '@playwright/test';
  * total), and the closed-poll gate is proven with a REST POST /vote that must
  * be rejected. Each poll created is deleted in `finally`, so the feed is left
  * as found even on a mid-test failure.
+ *
+ * Covers: cap-post-text-links-images-video-and-polls
+ * Roles: admin, member
  */
 test.describe('feed / poll', () => {
     const pollWrap = '.bn-post-card__poll';
@@ -80,6 +86,65 @@ test.describe('feed / poll', () => {
 
             // Persistence: after a full reload the vote is still mine (server sends
             // my_voted_option_id -> is-voted) and the total reflects the one vote.
+            await page.goto(urls.feed);
+            const cardAfter = cardWith(page, question).first();
+            await expect(cardAfter).toBeVisible({ timeout: 10_000 });
+            await expect(cardAfter.locator(`${pollOption}.is-voted`)).toHaveCount(1);
+            await expect(cardAfter.locator(pollTotal)).toContainText('1 vote');
+        } finally {
+            await deletePostRest(page.request, nonce, createdId).catch(() => {});
+        }
+    });
+
+    /**
+     * J-500 member leg. The admin walk above proves the poll write + vote
+     * round-trip works for a site owner; a member is the one actually building
+     * and voting on polls day to day. Same effect bar: options I typed are the
+     * options the poll shows, and my vote survives a full reload.
+     */
+    test('J-500 member  -  a member-created poll renders its options; a member vote persists after reload', async ({ page }) => {
+        await loginAs(page, MEMBER_LOGIN);
+        const stamp = Date.now().toString().slice(-6);
+        const question = `j500m member poll ${stamp}`;
+        const opts = [`Red ${stamp}`, `Blue ${stamp}`, `Green ${stamp}`];
+        let createdId = 0;
+        let nonce = '';
+
+        try {
+            await page.goto(urls.feed);
+            const composer = page.locator(sel.composer).first();
+            await expect(composer).toBeVisible();
+            nonce = await readRestNonce(page);
+
+            await page.locator(sel.composerTextarea).first().fill(question);
+            await page.locator(pollTool).first().click();
+            const panel = page.locator('.bn-composer__poll-options').first();
+            await expect(panel).toBeVisible();
+
+            const inputs = page.locator(pollOptionInput);
+            for (let i = 0; i < opts.length; i++) {
+                await inputs.nth(i).fill(opts[i]);
+            }
+
+            await page.locator(sel.composerSubmit).first().click();
+            await expect(cardWith(page, question).first()).toBeVisible({ timeout: 10_000 });
+
+            // Reload so the card is server-rendered from bn_posts / bn_poll_options.
+            await page.goto(urls.feed);
+            const card = cardWith(page, question).first();
+            await expect(card).toBeVisible({ timeout: 10_000 });
+            createdId = await postIdOfCard(page, question);
+
+            const poll = card.locator(pollWrap).first();
+            await expect(poll).toBeVisible();
+            for (const label of opts) {
+                await expect(poll.locator(pollOption).filter({ hasText: label })).toHaveCount(1);
+            }
+
+            const firstOption = poll.locator(pollOption).first();
+            await firstOption.click();
+            await expect(poll.locator(`${pollOption}.is-voted`)).toHaveCount(1, { timeout: 8_000 });
+
             await page.goto(urls.feed);
             const cardAfter = cardWith(page, question).first();
             await expect(cardAfter).toBeVisible({ timeout: 10_000 });

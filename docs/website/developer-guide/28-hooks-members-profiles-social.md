@@ -51,6 +51,13 @@ These extend the profile field system. The default field types and labels are re
 | `buddynext_profile_field_validate` | filter | Validating a field value before persistence | `true\|WP_Error $result, string $type, mixed $value, array $field, int $user_id` |
 | `buddynext_profile_field_type_options` | action | Rendering per-type config in the admin field builder | `string $type, array $field` |
 | `buddynext_profile_field_updated` | action | A profile field definition is saved in the admin builder | `int $field_id` |
+| `buddynext_profile_field_settings` | action | Rendering a field's Add or Edit panel, for EVERY type (unlike `buddynext_profile_field_type_options`, which is per type) | `array $field, array $group` - `$field` is empty on the Add panel |
+| `buddynext_profile_field_options_sanitize` | filter | Sanitising the per-field add-on options posted as `bn_field_options[*]`. The built-in pass keeps scalars only; decode and sanitise structured values (e.g. JSON) for your own keys here | `array $out, array $raw` |
+| `buddynext_profile_field_row_badges` | action | After a field's name in the admin field list | `array $field, array $group` |
+| `buddynext_profile_field_setup_issues` | filter | Building the "Some profile fields need attention" notice on the Profile Fields screen. Append `array( 'field_id' => int, 'message' => string )`; the message follows the field label | `array $issues, array $groups` |
+| `buddynext_profile_field_wrapper_attributes` | filter | Printing the wrapper of one profile field on any member form: profile edit, signup, complete-profile and the admin member editor. Free always adds `data-bn-field-key` | `string $extra, array $field, int $user_id` - return escaped attributes with a leading space; `$user_id` is `0` on signup |
+| `buddynext_profile_group_wrapper_attributes` | filter | Printing the wrapper of one profile section on forms that render sections (profile edit, admin member editor). Free always adds `data-bn-group-key` | `string $extra, array $group, int $user_id` |
+| `buddynext_profile_saved` | action | After `ProfileService::save_profile()` commits, from every entry point (REST self-edit, admin editor, onboarding, registration, importers) | `int $user_id, array $data` - `$data` is the submitted payload keyed by `field_key` |
 
 Notes:
 
@@ -58,6 +65,9 @@ Notes:
 - `buddynext_profile_field_render` output is wrapped in `wp_kses_post()` by the block before emission, so allowed tags are the WordPress post-content set. `$field` carries `id`, `field_key`, `label`, `type`, `options`, `is_required`, `visibility`, `value`, `group_name`, and related keys.
 - `buddynext_profile_field_validate` returning a `WP_Error` skips persisting that one value; other fields in the same save are unaffected. It fires in the profile save path for both flat and repeater fields.
 - `buddynext_profile_field_type_options` output is rendered verbatim into the admin form. Escape on output.
+- `buddynext_profile_field_settings` output is rendered verbatim inside the field's `<form>`. Post your values under `bn_field_options[your_key]`, then sanitise them on `buddynext_profile_field_options_sanitize`; they are merged into the field's `options` JSON.
+- Updating a field's `options` over `PUT /buddynext/v1/profile-fields/{id}` replaces the choice list but keeps any string-keyed add-on options already stored on the field.
+- `buddynext_profile_saved` is the place to react to "this member's answers changed". Re-entrant saves from inside it are allowed but must guard against recursion. BuddyNext Pro uses it to clear answers to fields that no longer apply to the member (see [Conditional Logic for Profile Fields](../pro/27-conditional-profile-fields.md)).
 
 ## Avatar and cover upload limits
 
@@ -202,9 +212,10 @@ The decision order is: `textarea` maps to `block`, `url` maps to `link`, any typ
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_field_presentation` | filter | Resolving the About-tab layout for a field type | `string $mode, string $type` - return one of `block`, `chips`, `link`, `inline` |
-| `buddynext_field_display_text` | filter | A profile field is rendered as plain text. Return a string to take over rendering for your own field type; return `null` to fall through to the core types | `string\|null $custom, array $field, mixed $value` |
+| `buddynext_field_render_display` | filter | A profile field is rendered as HTML for the profile-view (About tab). Return an escaped string to take over rendering for your own field type; return `null` to fall through to the core types | `string\|null $custom, array $field, mixed $value` |
+| `buddynext_field_display_text` | filter | A profile field is rendered as plain text (no HTML) for app-native rendering, notifications, and exports. Return a string to take over rendering for your own field type; return `null` to fall through to the core types | `string\|null $custom, array $field, mixed $value` |
 | `buddynext_field_rest_value` | filter | A profile field value is shaped for a REST or app payload. Same contract as above - return a value to take over, `null` to fall through | `bool\|int\|float\|string\|array\|null $custom, array $field, mixed $value` |
-| `buddynext_profile_field_is_active` | filter | A profile save decides whether a field is active for this submission. An inactive field is invisible to the member for that save | `bool $active, int $target_user_id` |
+| `buddynext_profile_field_is_active` | filter | A profile save, or the registration requirements check, decides whether a field applies to this submission. An inactive field is not required and not validated. Called with an EMPTY `$data` for a render check (`FieldType::is_profile_field_active()`), where returning `false` renders a locked notice instead of an input | `bool $active, array $field, array $data, int $user_id` - `$data` is keyed by `field_key`; `$user_id` is `0` for a prospect at signup |
 | `buddynext_profile_group_locked` | filter | A profile group is checked for lock state, meaning "not included in their plan". Defaults to `false`, so Free never locks anything | `bool $locked, string $group_key, int $user_id` |
 | `buddynext_relation_list_cap` | filter | A whole-relation list is read (followers, following, connections), bounding how many rows load at once. Raise only if you know the memory is there; the paged reads are the safer route | `int $cap, string $relation, int $user_id` |
 

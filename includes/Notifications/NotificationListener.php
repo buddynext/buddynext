@@ -96,9 +96,10 @@ class NotificationListener implements ListenerInterface {
 		// Async worker — runs inline when Action Scheduler is absent.
 		add_action( 'buddynext_async_space_post_fanout', array( $this, 'async_space_post_fanout' ), 10, 1 );
 
-		// Deliver stage — batched, self-paginating email send for a space post.
-		// Decoupled from the record stage (the fan-out only creates in-app rows);
-		// email is not real-time, so it runs here off the fan-out task.
+		// Deliver stage — batched, self-paginating email send. Decoupled from the
+		// record stage (the fan-out only creates in-app rows); email is not
+		// real-time, so it runs here off the fan-out task. Type-generic: the
+		// announcement fan-out reuses this same stage (passing bn.announcement).
 		add_action( 'buddynext_async_space_post_emails', array( $this, 'async_space_post_emails' ), 10, 1 );
 	}
 
@@ -888,11 +889,16 @@ class NotificationListener implements ListenerInterface {
 	private function fan_out_announcement_batch( int $post_id, int $author_id, int $space_id, int $after_user_id, int $limit ): array {
 		global $wpdb;
 
+		// ── Read stage (batched, keyset) ──────────────────────────────────────
+		// A space announcement reads the space's active members with their per-space
+		// notification_pref; a site-wide announcement reads all users (no per-space
+		// pref, so nobody is suppressed for "none"). Keyset-paged like the space-post
+		// fan-out, so each batch is O(limit) regardless of depth.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( $space_id > 0 ) {
-			$ids = $wpdb->get_col(
+			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT user_id FROM {$wpdb->prefix}bn_space_members
+					"SELECT user_id, notification_pref FROM {$wpdb->prefix}bn_space_members
 					 WHERE space_id = %d AND status = 'active' AND user_id != %d AND user_id > %d
 					 ORDER BY user_id ASC
 					 LIMIT %d",
@@ -900,50 +906,188 @@ class NotificationListener implements ListenerInterface {
 					$author_id,
 					$after_user_id,
 					$limit
-				)
+				),
+				ARRAY_A
 			);
 		} else {
-			$ids = $wpdb->get_col(
+			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT ID FROM {$wpdb->users} WHERE ID != %d AND ID > %d ORDER BY ID ASC LIMIT %d",
+					"SELECT ID AS user_id, NULL AS notification_pref FROM {$wpdb->users}
+					 WHERE ID != %d AND ID > %d
+					 ORDER BY ID ASC
+					 LIMIT %d",
 					$author_id,
 					$after_user_id,
 					$limit
-				)
+				),
+				ARRAY_A
 			);
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( empty( $ids ) ) {
+		if ( empty( $rows ) ) {
 			return array(
 				'count'        => 0,
 				'last_user_id' => $after_user_id,
 			);
 		}
 
-		$svc          = buddynext_service( 'notifications' );
-		$last_user_id = $after_user_id;
+		// 'count' is the number FETCHED (not notified), so the keyset pager keeps
+		// advancing even when an entire page is filtered out.
+		$fetched_count = count( $rows );
+		$last_row      = end( $rows );
+		$last_user_id  = (int) $last_row['user_id'];
 
-		foreach ( $ids as $raw_id ) {
-			$member_id    = (int) $raw_id;
-			$last_user_id = $member_id;
-
-			$svc->create(
-				array(
-					'recipient_id' => $member_id,
-					'sender_id'    => $author_id,
-					'type'         => 'bn.announcement',
-					'object_type'  => 'post',
-					'object_id'    => $post_id,
-					'group_key'    => 'announcement_' . $post_id . '_' . $member_id,
-				)
-			);
+		// Split into the bell audience (space pref not "none") and the full
+		// membership. A legacy null/'' pref normalises to "all".
+		$all_ids = array();
+		$bell    = array();
+		foreach ( $rows as $row ) {
+			$uid = (int) $row['user_id'];
+			if ( $uid <= 0 ) {
+				continue;
+			}
+			$all_ids[] = $uid;
+			$pref      = ( null === $row['notification_pref'] || '' === $row['notification_pref'] )
+				? 'all'
+				: (string) $row['notification_pref'];
+			if ( 'none' !== $pref ) {
+				$bell[] = $uid;
+			}
 		}
 
+		// Blocks/mutes/restricts suppress BOTH the bell and the email.
+		$blocked = $this->blocked_member_ids( $all_ids, $author_id );
+		if ( ! empty( $blocked ) ) {
+			$blocked_map = array_fill_keys( $blocked, true );
+			$keep        = static fn( $id ): bool => empty( $blocked_map[ $id ] );
+			$all_ids     = array_values( array_filter( $all_ids, $keep ) );
+			$bell        = array_values( array_filter( $bell, $keep ) );
+		}
+
+		// ── In-app record stage (bulk, retry-safe) ────────────────────────────
+		// One bell per member per announcement: group_key is unique per (post,
+		// member), so unlike a space new-post there is no 24h merge - rows that
+		// already exist are a retry and are skipped (no duplicate, no re-fired hook).
+		// Members with the space set to "none" get no bell but still see the post in
+		// the space activity.
+		$this->record_announcement_bell( $post_id, $author_id, $bell );
+
+		// ── Email stage (batched) ──────────────────────────────────────────────
+		// The owner's must-know message emails EVERY active member, "none" included,
+		// minus blocks - through the shared batched email stage (respects each
+		// member's email frequency), never one job per member.
+		$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, $all_ids, 'bn.announcement' );
+
 		return array(
-			'count'        => count( $ids ),
+			'count'        => $fetched_count,
 			'last_user_id' => $last_user_id,
 		);
+	}
+
+	/**
+	 * Bulk-record the announcement bell for a batch of members, retry-safely.
+	 *
+	 * One notification per (post, member): the group_key is unique per member for
+	 * this announcement, so a member who already has a row (a retried Action
+	 * Scheduler run) is skipped rather than carded twice, and the per-row
+	 * `buddynext_notification_created` contract hook fires only for the rows this
+	 * call actually inserts - so Pro realtime/push/analytics run exactly once each.
+	 *
+	 * @param int   $post_id    Announcement post id.
+	 * @param int   $author_id  Author (sender).
+	 * @param int[] $member_ids Bell recipients (already pref- and block-filtered).
+	 * @return void
+	 */
+	private function record_announcement_bell( int $post_id, int $author_id, array $member_ids ): void {
+		global $wpdb;
+
+		$member_ids = array_values( array_unique( array_filter( array_map( 'intval', $member_ids ) ) ) );
+		if ( empty( $member_ids ) ) {
+			return;
+		}
+
+		$group_keys = array();
+		foreach ( $member_ids as $rid ) {
+			$group_keys[ $rid ] = 'announcement_' . $post_id . '_' . $rid;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$key_ph        = implode( ', ', array_fill( 0, count( $group_keys ), '%s' ) );
+		$existing_rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT recipient_id FROM {$wpdb->prefix}bn_notifications
+				 WHERE type = 'bn.announcement' AND group_key IN ( {$key_ph} )",
+				array_values( $group_keys )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$already = array();
+		foreach ( (array) $existing_rows as $row ) {
+			$already[ (int) $row['recipient_id'] ] = true;
+		}
+		$new_ids = array_values( array_filter( $member_ids, static fn( $id ): bool => empty( $already[ $id ] ) ) );
+		if ( empty( $new_ids ) ) {
+			return;
+		}
+
+		$now = current_time( 'mysql', true );
+		foreach ( array_chunk( $new_ids, 100 ) as $chunk ) {
+			$row_ph = array();
+			$values = array();
+			foreach ( $chunk as $rid ) {
+				// data is a literal NULL (an announcement carries no JSON payload).
+				$row_ph[] = '(%d, %d, %s, %s, %d, %s, %d, NULL, %d, %s)';
+				array_push( $values, $rid, $author_id, 'bn.announcement', 'post', $post_id, $group_keys[ $rid ], 1, 0, $now );
+			}
+			$rows_sql = implode( ', ', $row_ph );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT INTO {$wpdb->prefix}bn_notifications
+					 (recipient_id, sender_id, type, object_type, object_id, group_key, group_count, data, is_read, created_at)
+					 VALUES {$rows_sql}",
+					$values
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		}
+
+		// Resolve the rows just inserted (pinned to this created_at) and fire the
+		// per-row contract hook once each.
+		$nk_ph    = implode( ', ', array_fill( 0, count( $new_ids ), '%s' ) );
+		$new_keys = array();
+		foreach ( $new_ids as $rid ) {
+			$new_keys[] = $group_keys[ $rid ];
+		}
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$inserted = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT recipient_id, id FROM {$wpdb->prefix}bn_notifications
+				 WHERE type = 'bn.announcement' AND group_key IN ( {$nk_ph} ) AND created_at = %s",
+				array_merge( $new_keys, array( $now ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		foreach ( (array) $inserted as $row ) {
+			$rid      = (int) $row['recipient_id'];
+			$notif_id = (int) $row['id'];
+			wp_cache_delete( "unread_{$rid}", 'buddynext_notifications' );
+			$data = array(
+				'recipient_id' => $rid,
+				'sender_id'    => $author_id,
+				'type'         => 'bn.announcement',
+				'object_type'  => 'post',
+				'object_id'    => $post_id,
+				'group_key'    => $group_keys[ $rid ],
+			);
+			/** This action is documented in includes/Notifications/NotificationService.php */
+			do_action( 'buddynext_notification_created', $notif_id, $rid, $data );
+		}
 	}
 
 	/**
@@ -1264,13 +1408,16 @@ class NotificationListener implements ListenerInterface {
 	/**
 	 * Enqueue (or run inline) the batched email-delivery stage for a space post.
 	 *
-	 * @param int   $post_id    Post ID.
-	 * @param int   $space_id   Space ID.
-	 * @param int   $author_id  Author ID.
-	 * @param int[] $recipients Recipients that received an in-app notification.
+	 * @param int    $post_id    Post ID.
+	 * @param int    $space_id   Space ID.
+	 * @param int    $author_id  Author ID.
+	 * @param int[]  $recipients Recipients to email this batch.
+	 * @param string $type       Notification type the email renders as
+	 *                           (bn.space_new_post default, bn.announcement for the
+	 *                           announcement fan-out). Carried through the AS job.
 	 * @return void
 	 */
-	private function enqueue_space_post_emails( int $post_id, int $space_id, int $author_id, array $recipients ): void {
+	private function enqueue_space_post_emails( int $post_id, int $space_id, int $author_id, array $recipients, string $type = 'bn.space_new_post' ): void {
 		if ( empty( $recipients ) ) {
 			return;
 		}
@@ -1280,6 +1427,7 @@ class NotificationListener implements ListenerInterface {
 			'space_id'   => $space_id,
 			'author_id'  => $author_id,
 			'recipients' => array_values( $recipients ),
+			'type'       => $type,
 		);
 
 		/*
@@ -1338,6 +1486,7 @@ class NotificationListener implements ListenerInterface {
 		$post_id    = (int) ( $args['post_id'] ?? 0 );
 		$author_id  = (int) ( $args['author_id'] ?? 0 );
 		$space_id   = (int) ( $args['space_id'] ?? 0 );
+		$type       = (string) ( $args['type'] ?? 'bn.space_new_post' );
 		$recipients = array_values( array_filter( array_map( 'intval', (array) ( $args['recipients'] ?? array() ) ) ) );
 
 		if ( 0 === $post_id || empty( $recipients ) ) {
@@ -1354,7 +1503,7 @@ class NotificationListener implements ListenerInterface {
 		$remaining  = array_slice( $recipients, $chunk_size );
 
 		$data = array(
-			'type'        => 'bn.space_new_post',
+			'type'        => $type,
 			'sender_id'   => $author_id,
 			'object_type' => 'post',
 			'object_id'   => $post_id,
@@ -1363,11 +1512,11 @@ class NotificationListener implements ListenerInterface {
 		foreach ( $chunk as $member_id ) {
 			// $defer = false: already an async AS worker, so immediate emails send
 			// inline here rather than spawning one sub-action per recipient.
-			$sender->send( $member_id, 'bn.space_new_post', $data, false );
+			$sender->send( $member_id, $type, $data, false );
 		}
 
 		if ( ! empty( $remaining ) ) {
-			$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, $remaining );
+			$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, $remaining, $type );
 		}
 	}
 

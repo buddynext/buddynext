@@ -74,7 +74,8 @@ final class SpaceNav {
 			return $items;
 		}
 
-		// Slot promoted tabs just after About (40), before Moderation (50).
+		// Slot promoted tabs in the content band (after About 28 / the opt-in
+		// content tabs), before Moderation (50).
 		$priority = 41;
 		foreach ( $fields as $field ) {
 			$key        = (string) $field['key'];
@@ -283,7 +284,11 @@ final class SpaceNav {
 				'surface'  => 'space',
 				'layer'    => 'primary',
 				'label'    => __( 'About', 'buddynext' ),
-				'priority' => 40,
+				// Sits with the space-identity group (Feed, Members, Sub-spaces, About)
+				// BEFORE the opt-in content tabs (Media 30, Files 35, Events 40,
+				// Businesses 45), so "what this space is" reads before its contents and
+				// About is not wedged mid-list (it also used to collide with Events at 40).
+				'priority' => 28,
 				'url'      => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'about' ),
 				'render'   => function ( NavContext $c ): void {
 					$this->render_about_panel( $c->subject_id );

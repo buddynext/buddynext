@@ -16,6 +16,9 @@ import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-w
  * SAME post renders standalone there. A modal that shows a share sheet but wires
  * the wrong/empty permalink would fail the navigation leg. Post deleted in
  * `finally`.
+ *
+ * Covers: cap-bookmark-and-reshare-posts, cap-open-a-post-permalink-with-its-replies-visible
+ * Roles: admin
  */
 test.describe('feed / share modal permalink', () => {
     const shareBtn = '[data-wp-on--click="actions.openShare"]';

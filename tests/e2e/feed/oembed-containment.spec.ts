@@ -23,6 +23,9 @@ import { sel, urls } from '../_fixtures/selectors';
  *
  * Mutation check: remove `position: relative` from `.bn-post-card__embed` in
  * assets/css/bn-feed.css and this fails by name.
+ *
+ * Covers: cap-show-a-preview-card-for-a-pasted-link
+ * Roles: admin
  */
 test.describe('feed / oembed fallback containment', () => {
     test('fallback layer stays inside its embed box', async ({ authenticatedPage: page }) => {
@@ -66,7 +69,9 @@ test.describe('feed / oembed fallback containment', () => {
             return out;
         });
 
-        expect(result.error).toBeUndefined();
+        if ('error' in result) {
+            throw new Error(`oembed containment probe could not run: ${result.error}`);
+        }
 
         // The layer is only dangerous while it is absolutely positioned - if the
         // stylesheet ever stops positioning it, there is nothing to contain and

@@ -186,6 +186,19 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		if ( isset( $_GET['settings-updated'] ) && 'true' === sanitize_text_field( wp_unslash( $_GET['settings-updated'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			add_settings_error( 'buddynext_messages', 'buddynext_settings_saved', __( 'Settings saved.', 'buddynext' ), 'updated' );
 		}
+		// Restore-defaults confirmation — the handler redirects back with ?bn_reset=N.
+		if ( isset( $_GET['bn_reset'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$bn_reset_n = (int) $_GET['bn_reset']; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			add_settings_error(
+				'buddynext_messages',
+				'buddynext_settings_reset',
+				$bn_reset_n > 0
+					/* translators: %d: number of settings restored to their default. */
+					? sprintf( _n( '%d setting restored to its default.', '%d settings restored to their defaults.', $bn_reset_n, 'buddynext' ), $bn_reset_n )
+					: __( 'This tab already used the default settings.', 'buddynext' ),
+				'updated'
+			);
+		}
 		settings_errors( 'buddynext_messages' );
 
 		// Tabs with no Settings-API inputs render bare — no options.php form,
@@ -217,6 +230,59 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			<?php $this->render_save_bar(); ?>
 		</form>
 		<?php
+		$this->render_restore_defaults( $slug );
+	}
+
+	/**
+	 * Render the "Restore defaults" footer for a settings tab.
+	 *
+	 * Shown only when the tab has at least one resettable, driver-registered
+	 * setting. It sits below the Save bar, away from Save, and posts to the shared
+	 * SettingsDriver handler. A tiny inline script gates the submit behind the shared
+	 * confirm dialog, which lists exactly which settings would change (and says the
+	 * tab is already at defaults when nothing differs) so the reset is never a
+	 * surprise. Owner-data (resettable => false) is never listed and never reset.
+	 *
+	 * @param string $slug Tab slug.
+	 * @return void
+	 */
+	private function render_restore_defaults( string $slug ): void {
+		$fields = \BuddyNext\Admin\Settings\SettingsDriver::resettable_fields_for_tab( $slug );
+		if ( empty( $fields ) ) {
+			return;
+		}
+
+		$preview = \BuddyNext\Admin\Settings\SettingsDriver::tab_reset_preview( $slug );
+		$payload = wp_json_encode(
+			array(
+				'changes'   => $preview['changes'],
+				'unchanged' => $preview['unchanged'],
+				'i18n'      => array(
+					'title'     => __( 'Restore default settings?', 'buddynext' ),
+					'confirm'   => __( 'Restore defaults', 'buddynext' ),
+					'cancel'    => __( 'Cancel', 'buddynext' ),
+					'close'     => __( 'Close', 'buddynext' ),
+					'intro'     => __( 'These settings on this tab will return to their defaults:', 'buddynext' ),
+					'current'   => __( 'now', 'buddynext' ),
+					'toDefault' => __( 'default', 'buddynext' ),
+					'noChange'  => __( 'This tab already uses the default settings. Nothing to restore.', 'buddynext' ),
+					'ownerNote' => __( 'Your data (names, banned words, keys, page mappings) is never reset.', 'buddynext' ),
+				),
+			)
+		);
+		?>
+		<div class="bn-settings-restore">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-restore__form">
+				<input type="hidden" name="action" value="<?php echo esc_attr( \BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION ); ?>">
+				<input type="hidden" name="tab" value="<?php echo esc_attr( $slug ); ?>">
+				<input type="hidden" name="section" value="settings">
+				<?php wp_nonce_field( \BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION . '_' . $slug ); ?>
+				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-restore-defaults="<?php echo esc_attr( (string) $payload ); ?>">
+					<?php esc_html_e( 'Restore defaults', 'buddynext' ); ?>
+				</button>
+			</form>
+		</div>
+		<?php
 	}
 
 	/**
@@ -247,6 +313,29 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// the transmitted key with no revoke surface on the whole paid install base
 		// (card 10264291915). Defaults off; consent is always visible and revocable.
 		$this->render_tracking_consent_control();
+	}
+
+	/**
+	 * Hint for the cookie notice's link label, naming the page it links to.
+	 *
+	 * The notice reuses the WordPress privacy policy page rather than asking for
+	 * its own link, so the hint says which page that is and where it is set.
+	 *
+	 * @return string
+	 */
+	public static function cookie_policy_link_hint(): string {
+		$page_id = (int) get_option( 'wp_page_for_privacy_policy' );
+		$title   = $page_id > 0 && 'publish' === get_post_status( $page_id ) ? get_the_title( $page_id ) : '';
+
+		if ( '' === $title ) {
+			return __( 'The link goes to the privacy policy page chosen in WordPress Settings > Privacy. No published page is chosen there yet, so the notice shows no link.', 'buddynext' );
+		}
+
+		return sprintf(
+			/* translators: %s: privacy policy page title. */
+			__( 'The link goes to "%s", the privacy policy page chosen in WordPress Settings > Privacy. Change the page there. Leave this blank for the default label ("Privacy policy").', 'buddynext' ),
+			$title
+		);
 	}
 
 	/**
@@ -382,7 +471,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		<div class="bn-card bn-recommended-card">
 			<h2 class="bn-recommended-card__title"><?php esc_html_e( 'Recommended for new communities', 'buddynext' ); ?></h2>
 			<p class="bn-recommended-card__text">
-				<?php esc_html_e( 'Turn on the full community experience in one click — public discovery, direct messaging, polls, reactions, shares, bookmarks, link previews, emoji, default notifications, and baseline spam protection. You can fine-tune everything afterwards.', 'buddynext' ); ?>
+				<?php esc_html_e( 'Turn on the full community experience in one click: public discovery, direct messaging, polls, reactions, shares, bookmarks, link previews, emoji, default notifications, and baseline spam protection. You can fine-tune everything afterwards.', 'buddynext' ); ?>
 			</p>
 			<p class="bn-recommended-card__actions">
 				<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( $apply_url ); ?>"><?php esc_html_e( 'Apply recommended settings', 'buddynext' ); ?></a>
@@ -409,7 +498,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// Comparison rows: label + whether the Free plan already includes it.
 		// Pro includes every row. Sourced from docs/specs/features/FREE-VS-PRO.md.
 		$rows = array(
-			array( __( 'Activity feed — posts, polls, reactions, comments, shares, bookmarks', 'buddynext' ), true ),
+			array( __( 'Activity feed: posts, polls, reactions, comments, shares, bookmarks', 'buddynext' ), true ),
 			array( __( 'Spaces, member directory, profiles, full-text search', 'buddynext' ), true ),
 			array( __( '1:1 direct messages (via WPMediaVerse)', 'buddynext' ), true ),
 			array( __( 'In-app bell + transactional email notifications', 'buddynext' ), true ),
@@ -420,7 +509,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			array( __( 'Broadcast email campaigns + drip welcome sequences', 'buddynext' ), false ),
 			array( __( 'Group DM + real-time delivery, typing, read receipts', 'buddynext' ), false ),
 			array( __( 'Real-time feed updates + online presence', 'buddynext' ), false ),
-			array( __( 'Advanced moderation — keyword/link rules, AI, bulk actions', 'buddynext' ), false ),
+			array( __( 'Advanced moderation: keyword/link rules, AI, bulk actions', 'buddynext' ), false ),
 			array( __( 'Site + per-space analytics with CSV export', 'buddynext' ), false ),
 			array( __( 'Private/gated spaces, post approval, paywall, membership plans', 'buddynext' ), false ),
 			array( __( 'Advanced profile fields + custom member labels', 'buddynext' ), false ),
@@ -478,7 +567,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'general'       => __( 'Brand identity, discovery defaults, and direct messaging baseline.', 'buddynext' ),
 			'features'      => __( 'Pick which features your community uses. Core features always run.', 'buddynext' ),
 			'registration'  => __( 'Control who can sign up and how new accounts are verified.', 'buddynext' ),
-			'social'        => __( 'Follow, connect, and block — the relationships that drive the feed.', 'buddynext' ),
+			'social'        => __( 'Follow, connect, and block: the relationships that drive the feed.', 'buddynext' ),
 			'spaces'        => __( 'Defaults for the Spaces module: who can create, how deep they nest.', 'buddynext' ),
 			'notifications' => __( 'In-app + email notification rules and the events that trigger them.', 'buddynext' ),
 			'email'         => __( 'Sender identity and delivery configuration for outgoing community email.', 'buddynext' ),
@@ -622,7 +711,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				'bn_blocked_ips_self',
 				sprintf(
 					/* translators: %s: the administrator's own IP address. */
-					__( 'Your own address (%s) was removed from the blocked list. Blocking it would have locked you out of your own site — the blocklist refuses sign-in, and it does not make an exception for administrators.', 'buddynext' ),
+					__( 'Your own address (%s) was removed from the blocked list. Blocking it would have locked you out of your own site: the blocklist refuses sign-in, and it does not make an exception for administrators.', 'buddynext' ),
 					$own
 				),
 				'warning'
@@ -682,7 +771,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'     => 'buddynext_private_community',
 							'type'    => 'toggle',
 							'label'   => __( 'Require login to view the community', 'buddynext' ),
-							'hint'    => __( 'When on, every BuddyNext page — feed, members, profiles, spaces, notifications, settings, search — and its REST data require login; logged-out visitors are sent to the login page. Only the login / register / password-reset page stays public. Use this for a fully private, members-only community.', 'buddynext' ),
+							'hint'    => __( 'When on, every BuddyNext page (feed, members, profiles, spaces, notifications, settings, search) and its REST data require login; logged-out visitors are sent to the login page. Only the login / register / password-reset page stays public. Use this for a fully private, members-only community.', 'buddynext' ),
 							'default' => false,
 						)
 					),
@@ -699,9 +788,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'label'   => __( 'Allow search engines to index', 'buddynext' ),
 							'default' => 'public_posts',
 							'choices' => array(
-								'all'          => __( 'Everything — public posts, profiles, and spaces', 'buddynext' ),
+								'all'          => __( 'Everything: public posts, profiles, and spaces', 'buddynext' ),
 								'public_posts' => __( 'Public posts only', 'buddynext' ),
-								'none'         => __( 'Nothing — noindex all community pages', 'buddynext' ),
+								'none'         => __( 'Nothing: noindex all community pages', 'buddynext' ),
 							),
 							'hint'    => __( 'Controls the robots meta tag on BuddyNext front-end pages. Profiles and spaces always respect their own privacy settings regardless of this setting.', 'buddynext' ),
 						)
@@ -741,11 +830,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_cookie_consent_policy_label',
-							'type'    => 'text',
-							'label'   => __( 'Privacy-policy link label', 'buddynext' ),
-							'hint'    => __( 'Text of the link to your privacy policy (shown only when a Privacy Policy page is set in Settings → Privacy). Leave blank for the default ("Privacy policy").', 'buddynext' ),
-							'default' => '',
+							'key'           => 'buddynext_cookie_consent_policy_label',
+							'type'          => 'text',
+							'label'         => __( 'Privacy-policy link label', 'buddynext' ),
+							'hint_callback' => array( self::class, 'cookie_policy_link_hint' ),
+							'default'       => '',
 						)
 					),
 				)
@@ -804,7 +893,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							// these two tables are append-only and are the largest on a big site.
 							'hint'    => sprintf(
 								/* translators: %d: the hard maximum, in days, that unread notifications are kept. */
-								__( 'Permanently deletes READ notifications and email-log entries older than this. Unread notifications are always kept for the full %d days, whatever you choose here, so nothing a member has not seen is removed early. Runs once a day in the background. This cannot be undone — these tables are a log, not member content.', 'buddynext' ),
+								__( 'Permanently deletes READ notifications and email-log entries older than this. Unread notifications are always kept for the full %d days, whatever you choose here, so nothing a member has not seen is removed early. Runs once a day in the background. This cannot be undone: these tables are a log, not member content.', 'buddynext' ),
 								\BuddyNext\Core\LogRetentionService::UNREAD_MAX_DAYS
 							),
 						)
@@ -858,6 +947,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					new Field(
 						array(
 							'key'            => 'buddynext_site_name',
+							'resettable'     => false,
 							'type'           => 'text',
 							'label'          => __( 'Community Name', 'buddynext' ),
 							'hint'           => __( 'Displayed in the site header, emails, and browser title.', 'buddynext' ),
@@ -866,10 +956,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_description',
-							'type'  => 'textarea',
-							'label' => __( 'Community Description', 'buddynext' ),
-							'hint'  => __( 'Short description shown on the community landing page and in meta tags.', 'buddynext' ),
+							'key'        => 'buddynext_description',
+							'resettable' => false,
+							'type'       => 'textarea',
+							'label'      => __( 'Community Description', 'buddynext' ),
+							'hint'       => __( 'Short description shown on the community landing page and in meta tags.', 'buddynext' ),
 						)
 					),
 				)
@@ -898,7 +989,16 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 								'dedicated' => __( 'Open a dedicated media page', 'buddynext' ),
 							),
 							'disabled_callback' => static fn() => ! class_exists( 'WPMediaVerse\\Core\\Plugin' ),
-							'hint'              => __( 'Members post media as activity updates. "Open the activity" keeps every media link inside the feed: its /media/ page redirects to the post it was shared in, so media is not exposed as a separate public URL. "Open a dedicated media page" keeps a standalone page per item, for gallery-style sites.', 'buddynext' ),
+							// Explain WHY the control is greyed out when WPMediaVerse is
+							// inactive, instead of a disabled dropdown with no reason
+							// (card 10245026515).
+							'hint_callback'     => static function (): string {
+								$bn_media_hint = __( 'Members post media as activity updates. "Open the activity" keeps every media link inside the feed: its /media/ page redirects to the post it was shared in, so media is not exposed as a separate public URL. "Open a dedicated media page" keeps a standalone page per item, for gallery-style sites.', 'buddynext' );
+								if ( ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) {
+									return __( 'Needs WPMediaVerse. Activate it to choose how media links open.', 'buddynext' ) . ' ' . $bn_media_hint;
+								}
+								return $bn_media_hint;
+							},
 						)
 					),
 				)
@@ -1177,6 +1277,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					new Field(
 						array(
 							'key'          => 'buddynext_space_max_per_member',
+							'default'      => 0,
 							'type'         => 'optional_limit',
 							'toggle_label' => __( 'Cap how many spaces a member can create', 'buddynext' ),
 							'label'        => __( 'Max spaces per member', 'buddynext' ),
@@ -1197,6 +1298,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					new Field(
 						array(
 							'key'          => 'buddynext_space_max_sub_spaces',
+							'default'      => 0,
 							'type'         => 'optional_limit',
 							'toggle_label' => __( 'Cap sub-spaces per space', 'buddynext' ),
 							'label'        => __( 'Max sub-spaces per space', 'buddynext' ),
@@ -1234,7 +1336,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'default'          => 0,
 							'value_callback'   => static fn() => (string) (int) get_option( 'buddynext_space_default_category', 0 ),
 							'choices_callback' => static function () {
-								$category_options = array( '0' => __( '— None —', 'buddynext' ) );
+								$category_options = array( '0' => __( 'None', 'buddynext' ) );
 								$spaces_service   = function_exists( 'buddynext_service' ) ? buddynext_service( 'spaces' ) : null;
 								if ( is_object( $spaces_service ) && method_exists( $spaces_service, 'get_categories' ) ) {
 									foreach ( $spaces_service->get_categories() as $cat_id => $cat_name ) {
@@ -1358,35 +1460,39 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'   => 'buddynext_banned_words',
-							'type'  => 'textarea',
-							'label' => __( 'Banned words', 'buddynext' ),
-							'hint'  => __( 'One word or phrase per line. A post using any of them is rejected. Whole words only, so "art" does not block "start" or "particle". Add * to catch variants: "spam*" also blocks "spammer".', 'buddynext' ),
+							'key'        => 'buddynext_banned_words',
+							'resettable' => false,
+							'type'       => 'textarea',
+							'label'      => __( 'Banned words', 'buddynext' ),
+							'hint'       => __( 'One word or phrase per line. A post using any of them is rejected. Whole words only, so "art" does not block "start" or "particle". Add * to catch variants: "spam*" also blocks "spammer".', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_banned_hashtags',
-							'type'  => 'textarea',
-							'label' => __( 'Banned hashtags', 'buddynext' ),
-							'hint'  => __( 'One hashtag per line (without the # sign). Posts using these tags are rejected.', 'buddynext' ),
+							'key'        => 'buddynext_banned_hashtags',
+							'resettable' => false,
+							'type'       => 'textarea',
+							'label'      => __( 'Banned hashtags', 'buddynext' ),
+							'hint'       => __( 'One hashtag per line (without the # sign). Posts using these tags are rejected.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_blocked_domains',
-							'type'  => 'textarea',
-							'label' => __( 'Blocked link domains', 'buddynext' ),
-							'hint'  => __( 'One domain per line (e.g. spam.example.com). Posts linking to these domains are rejected.', 'buddynext' ),
+							'key'        => 'buddynext_blocked_domains',
+							'resettable' => false,
+							'type'       => 'textarea',
+							'label'      => __( 'Blocked link domains', 'buddynext' ),
+							'hint'       => __( 'One domain per line (e.g. spam.example.com). Posts linking to these domains are rejected.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'      => 'buddynext_blocked_ips',
-							'type'     => 'textarea',
-							'label'    => __( 'Blocked IP addresses', 'buddynext' ),
-							'sanitize' => array( self::class, 'sanitize_ip_list' ),
-							'hint'     => __( 'One IP address per line (IPv4 or IPv6). These addresses cannot sign in, register, post, or comment - including on accounts they already hold. Your own address cannot be added. Invalid entries are dropped on save.', 'buddynext' ),
+							'key'        => 'buddynext_blocked_ips',
+							'resettable' => false,
+							'type'       => 'textarea',
+							'label'      => __( 'Blocked IP addresses', 'buddynext' ),
+							'sanitize'   => array( self::class, 'sanitize_ip_list' ),
+							'hint'       => __( 'One IP address per line (IPv4 or IPv6). These addresses cannot sign in, register, post, or comment - including on accounts they already hold. Your own address cannot be added. Invalid entries are dropped on save.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1546,7 +1652,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							},
 							'choices'        => array(
 								'weekly' => __( 'Enabled', 'buddynext' ),
-								'never'  => __( 'Disabled — no digest emails', 'buddynext' ),
+								'never'  => __( 'Disabled: no digest emails', 'buddynext' ),
 							),
 							'hint'           => __( 'Whether BuddyNext sends digests of unread notifications at all. Each member chooses daily or weekly in their own notification preferences.', 'buddynext' ),
 						)
@@ -1560,6 +1666,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					new Field(
 						array(
 							'key'            => 'buddynext_admin_alert_email',
+							'resettable'     => false,
 							'type'           => 'text',
 							'label'          => __( 'Admin alert email', 'buddynext' ),
 							'sanitize'       => 'sanitize_email',
@@ -1586,6 +1693,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					new Field(
 						array(
 							'key'            => 'buddynext_email_from_name',
+							'resettable'     => false,
 							'type'           => 'text',
 							'label'          => __( 'From name', 'buddynext' ),
 							'value_callback' => static fn() => \BuddyNext\Notifications\EmailSender::from_name(),
@@ -1595,6 +1703,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					new Field(
 						array(
 							'key'            => 'buddynext_email_from_address',
+							'resettable'     => false,
 							'type'           => 'text',
 							'label'          => __( 'From address', 'buddynext' ),
 							'sanitize'       => 'sanitize_email',
@@ -1604,11 +1713,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'      => 'buddynext_email_reply_to',
-							'type'     => 'text',
-							'label'    => __( 'Reply-To address', 'buddynext' ),
-							'sanitize' => 'sanitize_email',
-							'hint'     => __( 'Optional. If set, replies to community emails go here instead of the From address. Applied to every BuddyNext email.', 'buddynext' ),
+							'key'        => 'buddynext_email_reply_to',
+							'resettable' => false,
+							'type'       => 'text',
+							'label'      => __( 'Reply-To address', 'buddynext' ),
+							'sanitize'   => 'sanitize_email',
+							'hint'       => __( 'Optional. If set, replies to community emails go here instead of the From address. Applied to every BuddyNext email.', 'buddynext' ),
 						)
 					),
 				)
@@ -1619,10 +1729,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'   => 'buddynext_email_footer_text',
-							'type'  => 'textarea',
-							'label' => __( 'Footer text', 'buddynext' ),
-							'hint'  => __( 'Appended to the bottom of every BuddyNext email. Plain text, plus the placeholders {{site_name}}, {{site_url}}, and {{current_year}}.', 'buddynext' ),
+							'key'     => 'buddynext_email_footer_text',
+							'default' => '',
+							'type'    => 'textarea',
+							'label'   => __( 'Footer text', 'buddynext' ),
+							'hint'    => __( 'Appended to the bottom of every BuddyNext email. Plain text, plus the placeholders {{site_name}}, {{site_url}}, and {{current_year}}.', 'buddynext' ),
 						)
 					),
 				)
@@ -1649,58 +1760,65 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'   => 'buddynext_reg_mode',
-							'type'  => 'select',
-							'label' => __( 'Registration Mode', 'buddynext' ),
-							'hint'  => __( 'Controls who can create a new account on your community.', 'buddynext' ),
+							'key'              => 'buddynext_reg_mode',
+							'default_callback' => 'buddynext_default_reg_mode',
+							'type'             => 'select',
+							'label'            => __( 'Registration Mode', 'buddynext' ),
+							'hint'             => __( 'Controls who can create a new account on your community.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_email_verify',
-							'type'  => 'toggle',
-							'label' => __( 'Require email verification', 'buddynext' ),
-							'hint'  => __( 'Ask new members to confirm their email address. Choose how strictly it is enforced below.', 'buddynext' ),
+							'key'     => 'buddynext_email_verify',
+							'default' => false,
+							'type'    => 'toggle',
+							'label'   => __( 'Require email verification', 'buddynext' ),
+							'hint'    => __( 'Ask new members to confirm their email address. Choose how strictly it is enforced below.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_verify_enforcement',
-							'type'  => 'select',
-							'label' => __( 'How strictly to enforce verification', 'buddynext' ),
-							'hint'  => __( 'Restricted (recommended): members can look around but cannot post or comment until they confirm. Full: they cannot use the community at all until they confirm.', 'buddynext' ),
+							'key'     => 'buddynext_verify_enforcement',
+							'default' => 'restricted',
+							'type'    => 'select',
+							'label'   => __( 'How strictly to enforce verification', 'buddynext' ),
+							'hint'    => __( 'Restricted (recommended): members can look around but cannot post or comment until they confirm. Full: they cannot use the community at all until they confirm.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_require_terms',
-							'type'  => 'toggle',
-							'label' => __( 'Require members to accept your terms', 'buddynext' ),
-							'hint'  => __( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
+							'key'              => 'buddynext_require_terms',
+							'default_callback' => array( '\BuddyNext\Auth\RegistrationPolicy', 'terms_default' ),
+							'type'             => 'toggle',
+							'label'            => __( 'Require members to accept your terms', 'buddynext' ),
+							'hint'             => __( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_reg_ask_name',
-							'type'  => 'toggle',
-							'label' => __( 'Ask new members for their name', 'buddynext' ),
-							'hint'  => __( 'On by default. This is the name other members see. Turn it off only if your community wants handles rather than names.', 'buddynext' ),
+							'key'     => 'buddynext_reg_ask_name',
+							'default' => true,
+							'type'    => 'toggle',
+							'label'   => __( 'Ask new members for their name', 'buddynext' ),
+							'hint'    => __( 'On by default. This is the name other members see. Turn it off only if your community wants handles rather than names.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_reg_ask_username',
-							'type'  => 'toggle',
-							'label' => __( 'Let members choose their own username', 'buddynext' ),
-							'hint'  => __( 'Off by default: a username is generated from their email so nobody has to invent one to join, and they can change it later in Settings. Turn this on to ask for one at sign-up.', 'buddynext' ),
+							'key'     => 'buddynext_reg_ask_username',
+							'default' => false,
+							'type'    => 'toggle',
+							'label'   => __( 'Let members choose their own username', 'buddynext' ),
+							'hint'    => __( 'Off by default: a username is generated from their email so nobody has to invent one to join, and they can change it later in Settings. Turn this on to ask for one at sign-up.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_allow_core_registration',
-							'type'  => 'toggle',
-							'label' => __( 'Also allow the WordPress sign-up form', 'buddynext' ),
-							'hint'  => __( 'Off by default: wp-login.php sign-ups are sent to your BuddyNext sign-up page instead. Turn this on if another plugin relies on the WordPress form. It is protected by your settings either way.', 'buddynext' ),
+							'key'     => 'buddynext_allow_core_registration',
+							'default' => false,
+							'type'    => 'toggle',
+							'label'   => __( 'Also allow the WordPress sign-up form', 'buddynext' ),
+							'hint'    => __( 'Off by default: wp-login.php sign-ups are sent to your BuddyNext sign-up page instead. Turn this on if another plugin relies on the WordPress form. It is protected by your settings either way.', 'buddynext' ),
 						)
 					),
 				)
@@ -1711,46 +1829,52 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'   => 'buddynext_auth_panel_show',
-							'type'  => 'toggle',
-							'label' => __( 'Show the branding panel', 'buddynext' ),
-							'hint'  => __( 'Displays a branded side panel next to the login and sign-up forms.', 'buddynext' ),
+							'key'     => 'buddynext_auth_panel_show',
+							'default' => true,
+							'type'    => 'toggle',
+							'label'   => __( 'Show the branding panel', 'buddynext' ),
+							'hint'    => __( 'Displays a branded side panel next to the login and sign-up forms.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_auth_panel_heading',
-							'type'  => 'text',
-							'label' => __( 'Panel heading', 'buddynext' ),
+							'key'     => 'buddynext_auth_panel_heading',
+							'default' => '',
+							'type'    => 'text',
+							'label'   => __( 'Panel heading', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_auth_panel_tagline',
-							'type'  => 'textarea',
-							'label' => __( 'Panel tagline', 'buddynext' ),
+							'key'     => 'buddynext_auth_panel_tagline',
+							'default' => '',
+							'type'    => 'textarea',
+							'label'   => __( 'Panel tagline', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_auth_panel_quote',
-							'type'  => 'textarea',
-							'label' => __( 'Featured quote', 'buddynext' ),
+							'key'     => 'buddynext_auth_panel_quote',
+							'default' => '',
+							'type'    => 'textarea',
+							'label'   => __( 'Featured quote', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_auth_panel_image',
-							'type'  => 'media',
-							'label' => __( 'Panel banner image', 'buddynext' ),
+							'key'        => 'buddynext_auth_panel_image',
+							'resettable' => false,
+							'type'       => 'media',
+							'label'      => __( 'Panel banner image', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_signup_subtitle',
-							'type'  => 'text',
-							'label' => __( 'Sign-up form subtitle', 'buddynext' ),
-							'hint'  => __( 'Shown under "Join the community" on the sign-up form.', 'buddynext' ),
+							'key'     => 'buddynext_signup_subtitle',
+							'default' => '',
+							'type'    => 'text',
+							'label'   => __( 'Sign-up form subtitle', 'buddynext' ),
+							'hint'    => __( 'Shown under "Join the community" on the sign-up form.', 'buddynext' ),
 						)
 					),
 				)
@@ -1761,11 +1885,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'      => 'buddynext_terms_page_id',
-							'type'     => 'select',
-							'label'    => __( 'Terms of Service page', 'buddynext' ),
-							'sanitize' => 'absint',
-							'hint'     => __( 'Linked from the sign-up consent line.', 'buddynext' ),
+							'key'        => 'buddynext_terms_page_id',
+							'resettable' => false,
+							'type'       => 'select',
+							'label'      => __( 'Terms of Service page', 'buddynext' ),
+							'sanitize'   => 'absint',
+							'hint'       => __( 'Linked from the sign-up consent line.', 'buddynext' ),
 						)
 					),
 				)
@@ -1776,31 +1901,35 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'   => 'buddynext_2fa_required',
-							'type'  => 'select',
-							'label' => __( 'Require two-factor authentication', 'buddynext' ),
-							'hint'  => __( 'Members are always free to switch two-factor on themselves. This makes it mandatory for the roles you choose.', 'buddynext' ),
+							'key'     => 'buddynext_2fa_required',
+							'default' => 'none',
+							'type'    => 'select',
+							'label'   => __( 'Require two-factor authentication', 'buddynext' ),
+							'hint'    => __( 'Members are always free to switch two-factor on themselves. This makes it mandatory for the roles you choose.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_reg_spam_protection',
-							'type'  => 'toggle',
-							'label' => __( 'Protect the sign-up form', 'buddynext' ),
-							'hint'  => __( 'In-house rate limit, honeypot, and time-trap. On by default.', 'buddynext' ),
+							'key'     => 'buddynext_reg_spam_protection',
+							'default' => true,
+							'type'    => 'toggle',
+							'label'   => __( 'Protect the sign-up form', 'buddynext' ),
+							'hint'    => __( 'In-house rate limit, honeypot, and time-trap. On by default.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_reg_challenge',
-							'type'  => 'toggle',
-							'label' => __( 'Show a human-verification question', 'buddynext' ),
-							'hint'  => __( 'Adds an accessible verification question to the sign-up form.', 'buddynext' ),
+							'key'     => 'buddynext_reg_challenge',
+							'default' => true,
+							'type'    => 'toggle',
+							'label'   => __( 'Show a human-verification question', 'buddynext' ),
+							'hint'    => __( 'Adds an accessible verification question to the sign-up form.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
 							'key'          => 'buddynext_reg_rate_limit',
+							'default'      => 5,
 							'type'         => 'optional_limit',
 							'toggle_label' => __( 'Rate-limit sign-ups per IP', 'buddynext' ),
 							'label'        => __( 'Sign-ups per hour per IP', 'buddynext' ),
@@ -1817,18 +1946,20 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'   => 'buddynext_allowed_domains',
-							'type'  => 'textarea',
-							'label' => __( 'Allowed email domains', 'buddynext' ),
-							'hint'  => __( 'One domain per line. When set, only these domains can register.', 'buddynext' ),
+							'key'        => 'buddynext_allowed_domains',
+							'resettable' => false,
+							'type'       => 'textarea',
+							'label'      => __( 'Allowed email domains', 'buddynext' ),
+							'hint'       => __( 'One domain per line. When set, only these domains can register.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_blocked_email_domains',
-							'type'  => 'textarea',
-							'label' => __( 'Blocked email domains', 'buddynext' ),
-							'hint'  => __( 'One domain per line. Addresses from these domains cannot register.', 'buddynext' ),
+							'key'        => 'buddynext_blocked_email_domains',
+							'resettable' => false,
+							'type'       => 'textarea',
+							'label'      => __( 'Blocked email domains', 'buddynext' ),
+							'hint'       => __( 'One domain per line. Addresses from these domains cannot register.', 'buddynext' ),
 						)
 					),
 				)
@@ -1839,26 +1970,29 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'   => 'buddynext_login_redirect',
-							'type'  => 'url',
-							'label' => __( 'After login', 'buddynext' ),
-							'hint'  => __( 'Where members go after logging in. Blank = activity feed.', 'buddynext' ),
+							'key'     => 'buddynext_login_redirect',
+							'default' => '',
+							'type'    => 'url',
+							'label'   => __( 'After login', 'buddynext' ),
+							'hint'    => __( 'Where members go after logging in. Blank = activity feed.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_logout_redirect',
-							'type'  => 'url',
-							'label' => __( 'After logout', 'buddynext' ),
-							'hint'  => __( 'Where members go after logging out. Blank = the login page.', 'buddynext' ),
+							'key'     => 'buddynext_logout_redirect',
+							'default' => '',
+							'type'    => 'url',
+							'label'   => __( 'After logout', 'buddynext' ),
+							'hint'    => __( 'Where members go after logging out. Blank = the login page.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'   => 'buddynext_onboarding_redirect',
-							'type'  => 'url',
-							'label' => __( 'After onboarding', 'buddynext' ),
-							'hint'  => __( 'Where new members go after onboarding. Blank = their profile.', 'buddynext' ),
+							'key'     => 'buddynext_onboarding_redirect',
+							'default' => '',
+							'type'    => 'url',
+							'label'   => __( 'After onboarding', 'buddynext' ),
+							'hint'    => __( 'Where new members go after onboarding. Blank = their profile.', 'buddynext' ),
 						)
 					),
 				)
@@ -1899,10 +2033,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'   => self::OPTION_WEBHOOK_SECRET,
-							'type'  => 'secret',
-							'label' => __( 'Shared Secret', 'buddynext' ),
-							'hint'  => __( 'Verifies inbound access requests only. Outgoing webhooks are signed with the per-endpoint secret set under Outbound endpoints.', 'buddynext' ),
+							'key'        => self::OPTION_WEBHOOK_SECRET,
+							'resettable' => false,
+							'type'       => 'secret',
+							'label'      => __( 'Shared Secret', 'buddynext' ),
+							'hint'       => __( 'Verifies inbound access requests only. Outgoing webhooks are signed with the per-endpoint secret set under Outbound endpoints.', 'buddynext' ),
 						)
 					),
 				)
@@ -1919,10 +2054,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					// turns it OFF here to keep accepting the legacy body-only scheme.
 					new Field(
 						array(
-							'key'   => \BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES,
-							'type'  => 'toggle',
-							'label' => __( 'Require replay-proof webhook signatures', 'buddynext' ),
-							'hint'  => __( 'On by default: only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely. Turn this OFF only while migrating a service that still sends body-only signatures, and re-enable it once every caller sends a timestamp.', 'buddynext' ),
+							'key'     => \BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES,
+							'default' => true,
+							'type'    => 'toggle',
+							'label'   => __( 'Require replay-proof webhook signatures', 'buddynext' ),
+							'hint'    => __( 'On by default: only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely. Turn this OFF only while migrating a service that still sends body-only signatures, and re-enable it once every caller sends a timestamp.', 'buddynext' ),
 						)
 					),
 				)
@@ -1998,6 +2134,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// those descriptors. The three array options below are registered
 		// explicitly because they carry bespoke composite UI.
 		SettingsDriver::register_page( $this, 'buddynext' );
+		// Wire the shared "Restore defaults" admin-post handler once (idempotent).
+		SettingsDriver::boot();
 
 		// FeatureRegistry catalog persisted as a single map of slug=>bool.
 		// Mandatory features are filtered out by the registry; only
@@ -2397,7 +2535,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 								<?php
 								printf(
 									/* translators: %s: required plugin name */
-									esc_html__( 'Requires the %s plugin — install and activate it to enable this integration.', 'buddynext' ),
+									esc_html__( 'Requires the %s plugin: install and activate it to enable this integration.', 'buddynext' ),
 									esc_html( $required_plugin )
 								);
 								?>
@@ -2443,7 +2581,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 									value="1"
 									disabled
 									role="switch"
-									aria-label="<?php echo esc_attr( sprintf( /* translators: %s: feature label */ __( '%s (unavailable — required plugin not active)', 'buddynext' ), $feature['label'] ) ); ?>">
+									aria-label="<?php echo esc_attr( sprintf( /* translators: %s: feature label */ __( '%s (unavailable, required plugin not active)', 'buddynext' ), $feature['label'] ) ); ?>">
 								<span class="bn-toggle--inline"></span>
 							</label>
 						<?php else : ?>
@@ -2497,10 +2635,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			__( 'Registration Mode', 'buddynext' ),
 			(string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
 			array(
-				'open'     => __( 'Open — anyone can register', 'buddynext' ),
-				'invite'   => __( 'Invite Only — requires an invitation', 'buddynext' ),
-				'approval' => __( 'Admin Approval — admin reviews each request', 'buddynext' ),
-				'closed'   => __( 'Closed — nobody can create an account', 'buddynext' ),
+				'open'     => __( 'Open: anyone can register', 'buddynext' ),
+				'invite'   => __( 'Invite Only: requires an invitation', 'buddynext' ),
+				'approval' => __( 'Admin Approval: admin reviews each request', 'buddynext' ),
+				'closed'   => __( 'Closed: nobody can create an account', 'buddynext' ),
 			),
 			__( 'Controls who can create a new account on your community.', 'buddynext' )
 		);
@@ -2561,8 +2699,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				__( 'How strictly to enforce verification', 'buddynext' ),
 				\BuddyNext\Auth\VerificationListener::enforcement(),
 				array(
-					'restricted' => __( 'Restricted — they can look around, but cannot post or comment until they confirm', 'buddynext' ),
-					'full'       => __( 'Full — they cannot use the community at all until they confirm', 'buddynext' ),
+					'restricted' => __( 'Restricted: they can look around, but cannot post or comment until they confirm', 'buddynext' ),
+					'full'       => __( 'Full: they cannot use the community at all until they confirm', 'buddynext' ),
 				),
 				__( 'Restricted is recommended: a hard gate costs you sign-ups, because confirmation emails land in spam folders more often than you would like.', 'buddynext' )
 			);
@@ -2637,7 +2775,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// Terms picker so the owner links the sign-up consent to a real page on
 		// their site — no slug guessing, no code. Build the option list from the
 		// site's published pages; "None" leaves the wording unlinked.
-		$bn_legal_page_options = array( '0' => __( '— None —', 'buddynext' ) );
+		$bn_legal_page_options = array( '0' => __( 'None', 'buddynext' ) );
 		foreach ( get_pages( array( 'sort_column' => 'post_title' ) ) as $bn_legal_page ) {
 			$bn_legal_page_options[ (string) $bn_legal_page->ID ] = $bn_legal_page->post_title;
 		}
@@ -2647,7 +2785,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			__( 'Terms of Service page', 'buddynext' ),
 			(string) (int) get_option( 'buddynext_terms_page_id', 0 ),
 			$bn_legal_page_options,
-			__( 'Linked from the "I agree to the Terms of Service" line on the sign-up form. First create a page (Pages → Add New) with your terms, then choose it here — no code, no URL to paste. Leave as None to show the wording without a link.', 'buddynext' )
+			__( 'Linked from the "I agree to the Terms of Service" line on the sign-up form. First create a page (Pages → Add New) with your terms, then choose it here: no code, no URL to paste. Leave as None to show the wording without a link.', 'buddynext' )
 		);
 
 		// Privacy reuses WordPress core's own Privacy Policy page setting rather
@@ -2664,7 +2802,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			// WordPress creates the Privacy Policy page as a draft; warn the owner
 			// so they know to publish it (the sign-up link points to it either way).
 			if ( 'publish' !== get_post_status( $bn_privacy_page_id ) ) {
-				$bn_privacy_status .= ' ' . __( 'That page is not published yet — publish it so members can open the link.', 'buddynext' );
+				$bn_privacy_status .= ' ' . __( 'That page is not published yet: publish it so members can open the link.', 'buddynext' );
 			}
 		}
 		echo '<div class="bn-field"><label>' . esc_html__( 'Privacy Policy page', 'buddynext' ) . '</label>';
@@ -2691,7 +2829,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			__( 'Require two-factor authentication', 'buddynext' ),
 			(string) get_option( 'buddynext_2fa_required', 'none' ),
 			array(
-				'none'   => __( 'Nobody — members can still switch it on themselves', 'buddynext' ),
+				'none'   => __( 'Nobody: members can still switch it on themselves', 'buddynext' ),
 				'admins' => __( 'Administrators', 'buddynext' ),
 				'staff'  => __( 'Administrators and editors', 'buddynext' ),
 				'all'    => __( 'Everyone', 'buddynext' ),
@@ -3189,7 +3327,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$this->open_section( __( 'Inbound access webhook (always active)', 'buddynext' ) );
 		?>
 		<p class="bn-field-hint">
-			<?php esc_html_e( 'These settings secure the inbound POST buddynext/v1/webhook/access endpoint. They stay active whether or not the Webhooks feature is enabled — that toggle governs only the outbound endpoints below.', 'buddynext' ); ?>
+			<?php esc_html_e( 'These settings secure the inbound POST buddynext/v1/webhook/access endpoint. They stay active whether or not the Webhooks feature is enabled: that toggle governs only the outbound endpoints below.', 'buddynext' ); ?>
 		</p>
 		<?php
 		$webhook_secret = (string) get_option( self::OPTION_WEBHOOK_SECRET, '' );

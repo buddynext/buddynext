@@ -240,8 +240,12 @@ class CounterService {
 
 		$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->prepare(
+				// The public tally counts only live comments: a deleted (takedown) or
+				// hidden ("Under review") comment must not inflate it, and this recount
+				// must agree with the nightly reconcile (PostService::reconcile) and the
+				// list total the member sees, or the number and the rendered rows drift.
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments
-				 WHERE object_type = 'post' AND object_id = %d",
+				 WHERE object_type = 'post' AND object_id = %d AND is_deleted = 0 AND is_hidden = 0",
 				$post_id
 			)
 		);

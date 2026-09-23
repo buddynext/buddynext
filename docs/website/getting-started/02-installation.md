@@ -16,10 +16,13 @@ A clean install is what makes BuddyNext work the moment you switch it on. Activa
 |-------------|---------|
 | WordPress | 6.9 or newer |
 | PHP | 8.1 or newer |
+| PHP memory_limit | 512 MB recommended (128 MB can be exhausted with the full family active) |
 | Database | MySQL 5.7+ or MariaDB 10.3+ (standard WordPress) |
 | Permalinks | Pretty permalinks enabled (any setting other than Plain) |
 
 > **Note:** BuddyNext uses pretty-permalink URLs for its community pages. If your site is set to Plain permalinks, switch to any other option under Settings > Permalinks before or right after activation.
+
+> **Memory:** With BuddyNext, its Pro layer and the media/integration plugins all active, PHP's 128 MB default can run out mid-request. Set `memory_limit` to at least 512 MB in `php.ini` or `wp-config.php` (`define( 'WP_MEMORY_LIMIT', '512M' );`). **Tools > Site Health** shows a recommendation when your limit is below this.
 
 ## Steps: install the free plugin
 
@@ -47,7 +50,7 @@ Pro is delivered through a built-in one-click installer, not a manual upload. Yo
 
 ## Optional companion plugins
 
-These companion plugins extend specific BuddyNext features. They are all optional - install only the ones whose features you want. Each installs through the same one-click flow under **BuddyNext > Platform > Add-ons**.
+These companion plugins extend specific BuddyNext features. They are all optional - install only the ones whose features you want. Each installs through the same one-click flow under **BuddyNext > Platform > Add-ons** (the same catalog the setup wizard's Addons step offers).
 
 | Companion | What it adds | Required for |
 |-----------|--------------|--------------|
@@ -55,6 +58,10 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 | **Jetonomy** | Discussions and forums | The optional Forum tab inside spaces |
 | **WB Gamification** | Points, badges, and levels | Member rewards and reputation |
 | **Career Board** | A jobs and applications board | Posting and applying to jobs in your community |
+| **Learnomy** | Courses, lessons, and quizzes (a full LMS) | Completed courses and certificates shown on member profiles |
+| **Listora** | Directory listings members can publish | Member listings surfaced in the feed and on profiles |
+| **Eventonomy** | Events, RSVPs, and calendars | Events as feed cards and attended events on member profiles |
+| **WB Member Blog** | Front-end post publishing without wp-admin | The Articles tab on member profiles and article cards in the feed |
 
 > **Tip:** WPMediaVerse is the one most communities add first, because it powers both private messaging and photo posts. Its free version is enough to get started; the Pro features (group messaging, read receipts, real-time delivery) come bundled with BuddyNext Pro.
 

@@ -18,6 +18,7 @@ The action and filter seams for the activity feed and everything members post in
 |---|---|---|---|
 | `buddynext_hide_dead_reshares` | filter | A reshare is rendered whose original post is gone (deleted, hidden, blocked, or its author suspended). Default `false`: the card collapses to a tombstone so the sharer's action stays legible and the feed does not silently lose posts. Return `true` to drop it from the feed entirely. | `bool $hide, array $post` |
 | `buddynext_post_before_save` | filter | A post is about to be written on create or update, after safeguard checks | `array $data, int $user_id, int\|null $post_id` (`$post_id` is null on create) |
+| `buddynext_feed_allowed_post_types` | filter | The feed resolves which post types it will store and render, so an add-on can register its own card/post type instead of being dropped as unknown | `string[] $types` (defaults to the built-in set) |
 | `buddynext_post_created` | action | A new post goes live (also fired for a share, with `$type = 'share'`) | `int $post_id, int $user_id, string $type` |
 | `buddynext_post_updated` | action | A post is edited | `int $post_id, int $user_id, array $fields` (columns written this update) |
 | `buddynext_post_deleted` | action | A post is deleted by its owner | `int $post_id, int $user_id` |

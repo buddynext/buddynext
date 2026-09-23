@@ -29,6 +29,9 @@ type NotifResponse = { items?: Notif[] };
  * The composer has no typeahead popover (verified in source: it only supports a
  * `?mention=` prefill), so the member action is typing "@handle" into the
  * composer and posting — which is exactly how a mention is authored today.
+ *
+ * Covers: cap-mention-another-member-with-and-notify-them
+ * Roles: admin, member
  */
 test.describe('feed / @mention', () => {
     const mentionAnchor = 'a.bn-mention';

@@ -30,6 +30,15 @@ import {
  * Selectors are declared locally (per repo rule: do not edit shared selectors.ts).
  * These read the LIVE profile-hero markup (templates/parts/profile-hero.php) and
  * its report/block modals (templates/partials/*.php).
+ *
+ * Covers: cap-follow-people-and-connect-mutually, cap-block-another-member, cap-mute-a-member-s-posts-without-blocking-them
+ * cap-let-members-report-content
+ * Roles: admin, member
+ * Note: J-700/J-703 (follow/disconnect) and J-704/J-706 (block/mute) run as
+ * admin only; J-701/J-702 (connection accept/decline) switch to B via
+ * loginAs, exercising member; mute (J-706) is pinned against
+ * block-another-member as the closest existing promise (no separate "mute"
+ * row exists).
  */
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';

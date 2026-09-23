@@ -295,4 +295,51 @@ class SchemaFailureIsNotSuccessTest extends WP_UnitTestCase {
 
 		$this->assertNotEmpty( get_option( 'buddynext_schema_version' ), 'A complete install must record its schema version.' );
 	}
+
+	/**
+	 * A dbDelta "Duplicate key name" is not a schema failure.
+	 *
+	 * dbDelta cannot ALTER an index, so when a key's declared columns have widened
+	 * away from the one already on the table (dir_name, reply_lookup during a 58->59
+	 * upgrade) it re-issues the ADD and MySQL refuses with "Duplicate key name" -
+	 * while the key is present the whole time, and maybe_widen_indexes() recreates it
+	 * in the same pass. Recording it withheld the version stamp and armed the
+	 * one-hour back-off for a schema that was actually correct (card 10320726618). A
+	 * genuinely missing table or column produces a different error and stays a real
+	 * failure.
+	 *
+	 * Drives the classifier directly. The end-to-end upgrade proof - bug reproduced
+	 * then gone, and the honesty check still catching a genuinely un-widened index -
+	 * is against a live server, which this harness cannot provoke (it rewrites CREATE
+	 * TABLE to its TEMPORARY variant; see this file's header).
+	 *
+	 * @covers \BuddyNext\Core\Installer::schema_error_is_benign
+	 * @return void
+	 */
+	public function test_a_duplicate_key_name_is_not_a_schema_failure(): void {
+		$benign = new \ReflectionMethod( Installer::class, 'schema_error_is_benign' );
+
+		foreach ( array(
+			"Duplicate key name 'dir_name'",
+			"Duplicate key name 'reply_lookup'",
+			"Duplicate key name 'status_window'",
+		) as $error ) {
+			$this->assertTrue(
+				$benign->invoke( null, $error ),
+				"A duplicate key ({$error}) means the index already exists - it must not count as a failure."
+			);
+		}
+
+		foreach ( array(
+			"Table 'wp_bn_spaces' doesn't exist",
+			"Unknown column 'is_hidden' in 'wp_bn_comments'",
+			'Specified key was too long; max key length is 767 bytes',
+			'',
+		) as $error ) {
+			$this->assertFalse(
+				$benign->invoke( null, $error ),
+				"A genuinely missing or failed object ({$error}) must still record as a schema failure."
+			);
+		}
+	}
 }

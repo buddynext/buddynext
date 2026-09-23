@@ -697,6 +697,39 @@ class MessagesData {
 	}
 
 	/**
+	 * Whether the viewer may message a member — a PURE check, no side effects.
+	 *
+	 * Unlike open_with_result(), this never creates a conversation: it wraps
+	 * MessagingService::can_message() so a page GET (a "Message" deep-link, the
+	 * New-message picker) can render the composer without materialising an empty
+	 * ghost thread in the recipient's inbox. The thread is created on the first
+	 * send instead (MVS create_conversation, which reuses an existing pair).
+	 * Reason codes mirror can_message()/open_with_result() so the caller's
+	 * reason-aware notice is unchanged; 'unavailable' covers a missing engine or
+	 * a self/invalid target.
+	 *
+	 * @param int $viewer Viewing user ID.
+	 * @param int $other  Target user ID.
+	 * @return array{allowed: bool, reason: string}
+	 */
+	public static function can_message_result( int $viewer, int $other ): array {
+		$svc = self::svc();
+		if ( ! $svc || $other <= 0 || $other === $viewer || ! method_exists( $svc, 'can_message' ) ) {
+			return array(
+				'allowed' => false,
+				'reason'  => 'unavailable',
+			);
+		}
+
+		$res = (array) $svc->can_message( $viewer, $other );
+
+		return array(
+			'allowed' => ! empty( $res['allowed'] ),
+			'reason'  => (string) ( $res['reason'] ?? '' ),
+		);
+	}
+
+	/**
 	 * The helper callables the dm-* partials require.
 	 *
 	 * @param int $viewer Viewing user ID (used to resolve recipient presence).

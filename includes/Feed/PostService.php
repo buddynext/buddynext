@@ -159,6 +159,34 @@ class PostService {
 	);
 
 	/**
+	 * The post types the feed accepts, as an extension point.
+	 *
+	 * The built-in set (ALLOWED_TYPES) is the source of truth for everything BN
+	 * and its first-party bridges ship; an integration that needs its own feed
+	 * card type registers it through the `buddynext_feed_allowed_post_types`
+	 * filter instead of forking the plugin. Only string types are kept, and the
+	 * built-ins can never be removed (a filter may add, not drop, so a misbehaving
+	 * add-on cannot disable a core type). The type still has to be rendered — a
+	 * registered type with no card renderer falls back to the plain text card.
+	 *
+	 * @return string[] The accepted post types.
+	 */
+	public static function allowed_types(): array {
+		/**
+		 * Filter the post types the feed accepts.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param string[] $types The built-in post types.
+		 */
+		$types = (array) apply_filters( 'buddynext_feed_allowed_post_types', self::ALLOWED_TYPES );
+
+		$extra = array_values( array_filter( $types, 'is_string' ) );
+
+		return array_values( array_unique( array_merge( self::ALLOWED_TYPES, $extra ) ) );
+	}
+
+	/**
 	 * Cache group for post data.
 	 */
 	private const CACHE_GROUP = 'buddynext_posts';
@@ -236,7 +264,7 @@ class PostService {
 	public function create( int $user_id, array $data ): int|WP_Error {
 		$type = $data['type'] ?? 'text';
 
-		if ( ! in_array( $type, self::ALLOWED_TYPES, true ) ) {
+		if ( ! in_array( $type, self::allowed_types(), true ) ) {
 			return new WP_Error(
 				'invalid_post_type',
 				/* translators: %s: submitted post type */
@@ -1237,11 +1265,13 @@ class PostService {
 				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
 				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 				 WHERE c.user_id = %d
+				   AND ( c.is_hidden = 0 OR c.user_id = %d )
 				   AND p.status = 'published'
 				   AND ( p.privacy = 'public' OR p.user_id = %d )
 				 ORDER BY c.created_at DESC
 				 LIMIT %d",
 				$user_id,
+				$viewer_id,
 				$viewer_id,
 				$limit
 			),
@@ -1356,6 +1386,39 @@ class PostService {
 	 */
 	public static function is_pre_publication( string $status ): bool {
 		return ! empty( self::STATUSES[ $status ]['pre_publication'] );
+	}
+
+	/**
+	 * Whether a post card renders text the feed's inline editor can edit.
+	 *
+	 * The Edit control and the editor must agree. The editor edits the card's
+	 * text body, and not every card has one: a photo, file, link, poll or share
+	 * with no caption renders none, and a typed card drawn by a bridge renderer
+	 * (a blog article, a forum discussion) is edited at its source, not here.
+	 * Offering Edit on those failed on click with "This post cannot be edited".
+	 *
+	 * Mirrors the branches in templates/parts/post-body.php.
+	 *
+	 * @since 1.2.1
+	 *
+	 * @param string $type    Post type.
+	 * @param string $content Post content.
+	 * @return bool
+	 */
+	public static function has_editable_text( string $type, string $content ): bool {
+		if ( in_array( $type, array( 'text', 'activity', 'announcement' ), true ) ) {
+			return true;
+		}
+		if ( in_array( $type, array( 'photo', 'file', 'link', 'share', 'poll' ), true ) ) {
+			return '' !== trim( $content );
+		}
+		// A forum discussion card shows the topic from its forum; edit it there.
+		if ( 'discussion' === $type ) {
+			return false;
+		}
+		// Any other type: a registered renderer owns the body; without one the
+		// template falls back to the plain text body.
+		return ! has_filter( 'buddynext_render_post_body_' . $type );
 	}
 
 	/**
@@ -1654,6 +1717,10 @@ class PostService {
 			return $object_id;
 		}
 
+		if ( ! $this->governs_engagement_type( $object_type ) ) {
+			return 0;
+		}
+
 		if ( 'comment' === $object_type && function_exists( 'buddynext_service' ) ) {
 			$comments = buddynext_service( 'comments' );
 			if ( $comments instanceof \BuddyNext\Comments\CommentService ) {
@@ -1680,6 +1747,23 @@ class PostService {
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Whether this post-privacy gate governs a given engagement object type.
+	 *
+	 * The engagement read/write gates ({@see \BuddyNext\REST\BaseRestController})
+	 * ask this before trusting {@see self::resolve_post_id()}: a type this gate does
+	 * NOT govern must be treated as hidden by default, not served — so a new
+	 * reactable/commentable object added without teaching the resolver about it
+	 * fails safe instead of silently skipping post-privacy. Keep this set in sync
+	 * with the branches in resolve_post_id() above.
+	 *
+	 * @param string $object_type Engagement object type.
+	 * @return bool True when resolve_post_id() knows how to map this type to a post.
+	 */
+	public function governs_engagement_type( string $object_type ): bool {
+		return in_array( $object_type, array( 'post', 'comment' ), true );
 	}
 
 	/**
@@ -2072,9 +2156,11 @@ class PostService {
 		// row that knew its space_id is gone. Anything caching a per-space aggregate
 		// over posts needs this to invalidate.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$bn_deleted_space_id = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id )
+		$bn_deleted_row      = $wpdb->get_row(
+			$wpdb->prepare( "SELECT space_id, user_id, type, shared_post_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ),
+			ARRAY_A
 		);
+		$bn_deleted_space_id = (int) ( $bn_deleted_row['space_id'] ?? 0 );
 
 		// Cascade every child row keyed to this post (and to its comments), then the
 		// post itself, INSIDE one transaction so the delete is all-or-nothing. The
@@ -2117,6 +2203,14 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		// A repost IS the share. Deleting it un-shares for its author (not the
+		// moderator who may be deleting it): the original's count drops and the
+		// author may share it again, instead of a count that never goes down and
+		// a 409 "already shared" on a share that no longer exists.
+		if ( 'share' === ( $bn_deleted_row['type'] ?? '' ) && (int) ( $bn_deleted_row['shared_post_id'] ?? 0 ) > 0 ) {
+			( new ShareService() )->unshare( (int) $bn_deleted_row['user_id'], (int) $bn_deleted_row['shared_post_id'] );
+		}
 
 		/**
 		 * Fires after a post is deleted.
@@ -2309,9 +2403,19 @@ class PostService {
 	 *
 	 * Used by integration bridges (e.g. Career Board) to remove the feed card
 	 * for an external object — a job posting, listing, etc. — when that object
-	 * is removed or expires upstream. Keeps raw `bn_posts` access inside the
-	 * service layer so bridges (including Pro bridges) never query Free tables
-	 * directly.
+	 * is permanently removed or expires upstream. Keeps raw `bn_posts` access
+	 * inside the service layer so bridges (including Pro bridges) never query
+	 * Free tables directly.
+	 *
+	 * Routes through the shared cascade so a bridge's permanent delete clears
+	 * the card's children (comments and their reactions/notifications/reports,
+	 * plus post-keyed reactions, poll data, shares, bookmarks, hashtags,
+	 * notifications, reports) rather than orphaning them — the URL-keyed twin of
+	 * delete_by_link_meta_int(), which already did this (card 10264292876). A
+	 * bare `DELETE FROM bn_posts` here left every commenter's row dangling on any
+	 * remove() path (media, listing, course, job, resume). Fires
+	 * buddynext_post_deleted per card so the search index and other listeners
+	 * drop it too.
 	 *
 	 * @param string $type     Post type marker (e.g. 'job_post').
 	 * @param string $link_url Canonical link the card points at.
@@ -2324,16 +2428,81 @@ class PostService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$deleted = (int) $wpdb->delete(
-			$wpdb->prefix . 'bn_posts',
-			array(
-				'type'     => $type,
-				'link_url' => $link_url,
+		// Resolve the matching cards FIRST, then route them through the shared
+		// cascade (see delete_by_link_meta_int for the rationale). A single
+		// (type, link_url) usually names one card, but a set is handled the same
+		// way so a duplicate never leaves half its children behind.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s",
+				$type,
+				$link_url
 			),
-			array( '%s', '%s' )
+			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( empty( $rows ) ) {
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			return 0;
+		}
+
+		$post_ids  = array_map( static fn( array $r ): int => (int) $r['id'], $rows );
+		$space_ids = array();
+		foreach ( $rows as $r ) {
+			$sid = (int) $r['space_id'];
+			if ( $sid > 0 ) {
+				$space_ids[ $sid ] = true;
+			}
+		}
+
+		// Clear children, then the card rows, inside one transaction so a
+		// mid-sweep failure rolls back all-or-nothing. Guarded against the test
+		// harness for the same reason delete() is.
+		$bn_use_txn = ! defined( 'WP_TESTS_DOMAIN' );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange -- $in is an absint-mapped id list, injection-safe.
+		if ( $bn_use_txn ) {
+			$wpdb->query( 'START TRANSACTION' );
+		}
+		$bn_swept = $this->cascade_post_children( $post_ids );
+
+		$deleted      = 0;
+		$bn_delete_ok = true;
+		foreach ( array_chunk( $post_ids, self::CASCADE_CHUNK ) as $chunk ) {
+			$in     = implode( ',', array_map( 'absint', $chunk ) );
+			$result = $wpdb->query( "DELETE FROM {$wpdb->prefix}bn_posts WHERE id IN ({$in})" );
+			if ( false === $result ) {
+				$bn_delete_ok = false;
+				break;
+			}
+			$deleted += (int) $result;
+		}
+
+		if ( ! $bn_swept || ! $bn_delete_ok ) {
+			if ( $bn_use_txn ) {
+				$wpdb->query( 'ROLLBACK' );
+			}
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			return 0;
+		}
+		if ( $bn_use_txn ) {
+			$wpdb->query( 'COMMIT' );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+
+		// Bust caches and fire the delete hook per card so listeners (search
+		// index, trending, streaks, webhooks, hashtags, analytics) clean up — a
+		// system delete, so user id 0.
+		foreach ( $post_ids as $pid ) {
+			wp_cache_delete( "post_{$pid}", self::CACHE_GROUP );
+			/** Documented in delete(). */
+			do_action( 'buddynext_post_deleted', $pid, 0 );
+		}
+
+		// One invalidation per affected space (documented in create()).
+		foreach ( array_keys( $space_ids ) as $sid ) {
+			do_action( 'buddynext_space_posts_changed', $sid );
+		}
 
 		return $deleted;
 	}
@@ -2411,6 +2580,96 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return is_int( $updated ) && $updated > 0;
+	}
+
+	/**
+	 * Move an integration card between two statuses, matched by type + external link.
+	 *
+	 * The reversible alternative to delete_by_link() for a partner entity that was
+	 * withdrawn rather than destroyed (a discussion set back to draft, a media item
+	 * trashed): flip the card's status instead of deleting the row, so its id, date,
+	 * reactions and comments survive the round trip. `readable => false` statuses are
+	 * kept out of every feed (feeds filter status='published'), so a 'draft' card is
+	 * hidden exactly as a deleted one was, but comes back on restore.
+	 *
+	 * The transition is guarded on the CURRENT status ($from), which is what keeps it
+	 * from fighting moderation: a card a moderator hid to 'under_review' is neither
+	 * 'published' (so withdraw skips it) nor 'draft' (so restore skips it), and an
+	 * author toggling the source cannot override that hold.
+	 *
+	 * @param string $type     Post type marker (e.g. 'discussion').
+	 * @param string $link_url Canonical link the card points at.
+	 * @param string $from     Status the card must currently be in for the move to apply.
+	 * @param string $to       Status to move it to.
+	 * @return int Rows moved (0 when no card matched in the $from status).
+	 */
+	public function transition_link_status( string $type, string $link_url, string $from, string $to ): int {
+		if ( '' === $type || '' === $link_url || '' === $from || '' === $to ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$moved = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'status' => $to ),
+			array(
+				'type'     => $type,
+				'link_url' => $link_url,
+				'status'   => $from,
+			),
+			array( '%s' ),
+			array( '%s', '%s', '%s' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_int( $moved ) ? $moved : 0;
+	}
+
+	/**
+	 * Move every card of a type between two statuses, matched by an integer field in
+	 * `link_meta` — the by-meta counterpart of transition_link_status(), for a bridge
+	 * whose per-entity cards are keyed by a stamped id (e.g. every card of an event by
+	 * its event_id) rather than by URL.
+	 *
+	 * The reversible alternative to delete_by_link_meta_int(): flip status instead of
+	 * deleting, so a withdrawn set (an event's organizer + attendee cards while it is
+	 * cancelled) survives to be restored when the entity is public again. Guarded on
+	 * the current status ($from) so it never fights moderation.
+	 *
+	 * @param string $type     Post type marker (e.g. 'event').
+	 * @param string $meta_key link_meta field name (e.g. 'event_id').
+	 * @param int    $value    Value to match.
+	 * @param string $from     Status the card must currently be in.
+	 * @param string $to       Status to move it to.
+	 * @return int Rows moved.
+	 */
+	public function transition_link_meta_status( string $type, string $meta_key, int $value, string $from, string $to ): int {
+		if ( '' === $type || '' === $meta_key || '' === $from || '' === $to ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$moved = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET status = %s
+				 WHERE type = %s AND status = %s
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
+				$to,
+				$type,
+				$from,
+				'$.' . $meta_key,
+				$value
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return is_int( $moved ) ? $moved : 0;
 	}
 
 	/**
@@ -2825,6 +3084,7 @@ class PostService {
 			     SELECT object_id, COUNT(*) AS cnt
 			       FROM {$wpdb->prefix}bn_comments
 			      WHERE is_deleted = 0
+			        AND is_hidden = 0
 			        AND object_type = 'post'{$scope_inner}
 			      GROUP BY object_id
 			 ) c ON c.object_id = p.id
@@ -3647,6 +3907,90 @@ class PostService {
 	}
 
 	/**
+	 * Hide a post from the feed, or restore it — the moderator action behind the
+	 * admin Activity screen's bulk Hide/Restore.
+	 *
+	 * Hiding flips a published post to 'under_review', the exact state the feed
+	 * already suppresses and the report auto-hide uses; restoring flips it back.
+	 * Only a published post can be hidden and only an under_review one restored, so
+	 * a post already in the target state (or deleted by someone else) is a no-op
+	 * reported as done, never an error. Busts the post cache, records the action in
+	 * the moderation log with the acting admin, and fires the same
+	 * buddynext_post_auto_hidden / buddynext_post_restored hooks the report path
+	 * uses. Restoring does NOT touch the post's open reports.
+	 *
+	 * @param int  $post_id  Post to hide or restore.
+	 * @param bool $hidden   True to hide (publish → under_review), false to restore.
+	 * @param int  $actor_id The moderator/admin acting.
+	 * @return bool|WP_Error True when done (including a no-op); WP_Error if the
+	 *                       actor may not moderate the post.
+	 */
+	public function set_hidden( int $post_id, bool $hidden, int $actor_id ): bool|WP_Error {
+		if ( ! $this->can_moderate_post( $post_id, $actor_id ) ) {
+			return new WP_Error(
+				'cannot_moderate_post',
+				__( 'You do not have permission to moderate this post.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		global $wpdb;
+
+		$from = $hidden ? 'published' : 'under_review';
+		$to   = $hidden ? 'under_review' : 'published';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$changed = (int) $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET status = %s WHERE id = %d AND status = %s",
+				$to,
+				$post_id,
+				$from
+			)
+		);
+
+		if ( $changed > 0 ) {
+			wp_cache_delete( "post_{$post_id}", 'buddynext_posts' );
+			$this->log_hidden_action( $post_id, $hidden ? 'post_hidden' : 'post_restored', $actor_id );
+
+			if ( $hidden ) {
+				do_action( 'buddynext_post_auto_hidden', $post_id );
+			} else {
+				do_action( 'buddynext_post_restored', $post_id, $actor_id );
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Record a Hide/Restore in the moderation log with the acting admin, scoped to
+	 * the post's space so the space Moderation tab shows it.
+	 *
+	 * @param int    $post_id  Post acted on.
+	 * @param string $action   'post_hidden' or 'post_restored'.
+	 * @param int    $actor_id The acting admin/moderator.
+	 * @return void
+	 */
+	private function log_hidden_action( int $post_id, string $action, int $actor_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id )
+		);
+
+		( new \BuddyNext\Moderation\ModerationLogService() )->log(
+			$actor_id,
+			$action,
+			array(
+				'post_id'  => $post_id,
+				'space_id' => $space_id,
+			)
+		);
+	}
+
+	/**
 	 * Insert poll options for a new poll post.
 	 *
 	 * @param int      $post_id  Post ID.
@@ -3756,8 +4100,30 @@ class PostService {
 			'updated_at'           => $row['updated_at'] ?? null,
 		);
 
+		// The space's type, so a card can tell a genuinely narrowed audience from
+		// one the space does not enforce (an open space treats 'space_members' as
+		// public — owner decision, card 10313019984 — so its lock badge would lie).
+		// Prefer a joined column; otherwise read it from SpaceService::get(), which
+		// is object-cached per space and invalidated when a space is updated — so a
+		// feed spanning several spaces costs one cached lookup each (never one per
+		// post) AND never serves a stale type after an open→private change, which a
+		// process-lifetime static memo would.
+		if ( isset( $row['space_type'] ) ) {
+			$post['space_type'] = (string) $row['space_type'];
+		} elseif ( $post['space_id'] && function_exists( 'buddynext_service' ) ) {
+			$space              = buddynext_service( 'spaces' )->get( (int) $post['space_id'] );
+			$post['space_type'] = is_array( $space ) ? (string) ( $space['type'] ?? '' ) : '';
+		} else {
+			$post['space_type'] = '';
+		}
+
 		if ( 'poll' === ( $row['type'] ?? '' ) ) {
 			$post['poll_options'] = $this->fetch_poll_options( (int) $row['id'] );
+		}
+
+		// A blog article card shows its source post as it is now, not as it was at publish.
+		if ( BlogPostListener::TYPE === $post['type'] && is_array( $post['link_meta'] ) ) {
+			$post['link_meta'] = BlogPostListener::live_link_meta( $post['link_meta'] );
 		}
 
 		return $post;

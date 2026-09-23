@@ -178,6 +178,7 @@ class LogRetentionService {
 			'email_log'     => 0,
 			'webhook_log'   => 0,
 			'presence'      => 0,
+			'invites'       => 0,
 		);
 
 		// Read notifications older than the owner's window.
@@ -219,6 +220,24 @@ class LogRetentionService {
 			(string) ( time() - ( $window * DAY_IN_SECONDS ) )
 		);
 
+		// Email invitations (bn_invites) hold an invited person's email + first
+		// name. Nothing aged these out, so an invitee's PII lingered forever (GDPR
+		// data-minimisation gap). Two terminal cases carry no further purpose:
+		//   - registered/bounced older than the window — the invite is spent, and a
+		//     registered invitee's email now lives on their user account instead.
+		//   - pending past its own expires_at — a dead, unusable token.
+		// The status_expires index covers both predicates. A member's own invite
+		// row (they were invited, then joined) is also cleared on GDPR erase, via
+		// the email-keyed eraser in PrivacyTools.
+		$deleted['invites'] += $this->delete_batched(
+			"DELETE FROM {$wpdb->prefix}bn_invites WHERE status IN ('registered','bounced') AND created_at < %s LIMIT %d",
+			$read_cutoff
+		);
+		$deleted['invites'] += $this->delete_batched(
+			"DELETE FROM {$wpdb->prefix}bn_invites WHERE status = 'pending' AND expires_at < %s LIMIT %d",
+			gmdate( 'Y-m-d H:i:s' )
+		);
+
 		// Orphaned notifications — rows whose target object is GONE. NotificationService
 		// deletes these at the moment of deletion (on buddynext_post_deleted /
 		// _comment_deleted, and SpaceService inline), so this daily pass only drains
@@ -245,7 +264,7 @@ class LogRetentionService {
 		 *
 		 * @since 1.0.8
 		 *
-		 * @param array{notifications:int,email_log:int,webhook_log:int,presence:int,orphaned_notifications:int} $deleted Rows removed per table.
+		 * @param array{notifications:int,email_log:int,webhook_log:int,presence:int,invites:int,orphaned_notifications:int} $deleted Rows removed per table.
 		 * @param int                                    $window  The window used, in days.
 		 */
 		do_action( 'buddynext_logs_purged', $deleted, $window );

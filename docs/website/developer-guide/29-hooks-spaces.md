@@ -20,6 +20,7 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 | `buddynext_space_can_view_roster` | filter | A surface resolves whether a viewer may see a space's member roster | `bool $can_view, int $space_id, int $viewer_id, string $type` |
 | `buddynext_can_view_space_content` | filter | A viewer's access to a space's **content** is resolved, before it is rendered or cached. Return `false` to withhold the space's posts while leaving the space itself visible. Fired from `SpaceVisibility` and again in `FeedService` when building a space feed, so an add-on that gates content only has to answer once. Default `true`. | `bool $can_view, int $space_id, int $viewer_id` |
 | `buddynext_space_files_tab_for_guests` | filter | The space nav decides whether to show the Files tab to a logged-out visitor. Default `false`: WPMediaVerse refuses anonymous document reads, so on a public space the tab could only ever render its empty state. Return `true` if your MediaVerse serves anonymous reads. | `bool $show, int $space_id` |
+| `buddynext_space_default_tab` | filter | Which tab a space opens on when the URL names none (`/spaces/{slug}/`). Runs for the resolved default only - a non-member of a private space gets `about`, then the space's own "Space opens on" setting, then the first inline tab in the site's Navigation order - never for an explicit `/spaces/{slug}/{tab}/`. Return a tab id; a value the viewer cannot see falls back to the first renderable tab, so a bad return can never blank the space. Example: open course spaces on About - `return 'about';`. | `string $tab, array $space, int $viewer_id` |
 
 Default: `true` for open spaces; `false` for private and secret spaces unless the viewer is an active member, a moderator, the space owner, or a site admin. A private space is **listed but gated** — its name, description, house rules, avatar, cover, category, member COUNT, and its owner + moderator list stay public (a stranger needs them to decide whether to request to join), while the full member roster does not.
 
@@ -69,6 +70,9 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | `buddynext_space_join_declined` | action | A pending join request is declined | `int $space_id, int $user_id, int $actor_id` |
 | `buddynext_space_join_request_cancelled` | action | A member cancels their own pending request | `int $space_id, int $user_id` |
 | `buddynext_space_join_denied_data` | filter | A gated join/request is denied, to build the error payload | `array $data, int $space_id, int $user_id, array $space, string $action` |
+| `buddynext_space_joined_via_link` | action | A member joins a space through its shareable invite link (see REST: Spaces, Invite links) | `int $space_id, int $user_id` |
+| `buddynext_space_can_invite` | filter | After the per-space `who_can_invite` gate, whether a user may invite others to a space | `bool $can, int $space_id, int $inviter_id, string $inviter_role` |
+| `buddynext_space_can_post` | filter | After the per-space `who_can_post` gate, whether a user may post in a space. Lets an add-on apply conditional rules, e.g. require an active membership tier to post | `bool $can, int $space_id, int $user_id, string $role` (`role` is `owner`\|`moderator`\|`member`) |
 
 > **Note:** When a request is approved, both `buddynext_space_join_approved` and `buddynext_space_member_joined` fire (in that order). The first is the moderation event; the second is the "this user is now an active member" event, identical to the one fired on a direct join.
 
@@ -84,6 +88,17 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | `buddynext_space_notification_pref_updated` | action | A member changes their per-space notification preference | `int $space_id, int $user_id, string $pref` (`'all'`, `'mentions_only'`, `'none'`) |
 
 > **Warning:** A ban removes the membership, so it fires `buddynext_space_member_removed` and `buddynext_space_user_banned` together. If you maintain a banned-users list, listen to `buddynext_space_user_banned` specifically; if you only need to react to "this user is no longer in the space" (for example, busting a sidebar cache), listen to `buddynext_space_member_removed` and you will cover both removals and bans.
+
+## Ownership succession
+
+Resolved by `SpaceSuccession` when a space's owner is removed (leaves, is removed, or is deleted as a user) and the space needs a new owner. The default heir is the longest-tenured active moderator; a site administrator is the last-resort fallback.
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_space_successor_id` | filter | A heir is being resolved for a space losing its owner. Return `0` to leave the space ownerless (flagged with the `needs_owner` space meta) instead of auto-assigning one | `int $heir, int $space_id, int $outgoing_owner_id` |
+| `buddynext_space_successor_fallback_user_id` | filter | No moderator heir was found, resolving the last-resort site-admin fallback | `int $fallback, int $space_id` |
+
+The outgoing owner is never accepted as a valid heir, and a heir id that does not resolve to a real user is treated as `0` (none), regardless of what either filter returns.
 
 ## Space types
 
@@ -159,6 +174,51 @@ add_action( 'buddynext_space_member_joined', function ( int $space_id, int $user
     my_addon_send_welcome_dm( $user_id, $space_id );
 }, 10, 3 );
 ```
+
+## Featured spaces
+
+Owner-curated spaces shown first in the directory sidebar, the phone strip, and onboarding. Two filters tune them; both are applied by `SpaceService::featured_spaces()`.
+
+```php
+// Raise or lower how many spaces an owner may feature (default 6, clamped 1–12).
+add_filter( 'buddynext_featured_spaces_limit', fn () => 10 );
+
+// Adjust the final featured list PER SURFACE. Runs AFTER visibility filtering and
+// its result is visibility-checked again, so you can reorder/trim/add but can
+// never surface a space the viewer must not see. $surface is one of
+// 'sidebar' | 'directory_mobile' | 'onboarding' | 'suggestions'.
+add_filter( 'buddynext_featured_spaces', function ( array $spaces, int $viewer_id, string $surface ): array {
+    if ( 'onboarding' === $surface ) {
+        // e.g. cap onboarding to the top 3.
+        return array_slice( $spaces, 0, 3 );
+    }
+    return $spaces;
+}, 10, 3 );
+```
+
+- The directory sidebar "Featured" card is registered via `buddynext_sidebar_widgets` with id `spaces-featured` (priority 10) — remove or reorder it there.
+- Featured spaces the member has not joined are boosted in feed/explore suggestions via the existing `buddynext_space_suggestions` filter (behind the member's strongest personal matches).
+- REST: `GET`/`POST /spaces/... ` — see `16-rest-spaces.md` (`/settings/featured-spaces`).
+
+## Space admin page
+
+The space admin page (`/spaces/{slug}/admin/`) renders an "at a glance" stats row (Members, Pending requests, Open reports) and, right after it, an action for add-ons to append their own stat tiles for the people who manage the space.
+
+```php
+// Append a stat tile after the space-admin at-a-glance row.
+// Fires only on a page the viewer can already manage (owner, moderators, admins).
+add_action( 'buddynext_space_admin_after_stats', function ( int $space_id, int $viewer_id ): void {
+    // Reuse the shared tile markup so the surface stays consistent:
+    echo '<div class="bn-space-admin__stats" role="list">';
+    echo '  <div class="bn-card bn-space-admin__stat" role="listitem">';
+    echo '    <span class="bn-space-admin__stat-value">' . esc_html( my_metric( $space_id ) ) . '</span>';
+    echo '    <span class="bn-space-admin__stat-label">' . esc_html__( 'My metric', 'my-plugin' ) . '</span>';
+    echo '  </div>';
+    echo '</div>';
+}, 10, 2 );
+```
+
+BuddyNext Pro uses this seam to render its "Last 30 days" analytics row (new members, left, net growth, posts) for space owners; with Pro inactive the page is unchanged. `$viewer_id` has already passed the manage-space capability gate, so the hook never fires for a member.
 
 ## Notes / gotchas
 

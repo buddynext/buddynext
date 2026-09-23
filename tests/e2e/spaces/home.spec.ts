@@ -7,6 +7,9 @@ import { displayName, userId } from '../_fixtures/wp';
  * J-42 space home + J-43 post in space + J-44 member list — UPGRADED to
  * effect-based (Wave-4).
  *
+ * Covers: cap-run-an-activity-feed-members-post-to, cap-group-content-into-spaces
+ * Roles: admin
+ *
  * The Wave-1 versions asserted only that "the hero OR the space name" appeared,
  * that the composer either posted OR simply cleared (a swallow), and that "a"
  * member card was visible on a hard-coded env space. Each now creates its own

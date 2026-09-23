@@ -64,6 +64,7 @@ A member appeals a moderation action against them. Admins approve or deny.
 | POST | `/appeals/{id}/resolve` | Admin | Mark the appeal resolved. |
 | POST | `/me/appeals` | Auth | File an appeal as the current user. |
 | GET | `/me/appeals` | Auth | The current user's own appeals. |
+| GET | `/me/standing` | Auth | The current user's own trust/moderation standing (active warnings, strikes, suspension, shadow-ban state) - the self-service read behind the account "Standing" panel. |
 
 ## User trust routes
 
@@ -86,6 +87,16 @@ Per-user trust actions. All are site-admin only **except `POST /users/{id}/warn`
 | GET | `/users/{id}/account-type` | Auth | The user's account type (public/private). |
 
 > **Note:** Strikes and shadow-ban use a single path for read and write (GET/POST, plus DELETE for shadow-ban). Suspend likewise pairs POST (suspend) and DELETE (lift) on `/users/{id}/suspend`, with separate GET reads on `/suspension` (current) and `/suspensions` (history).
+
+## Community role assignment
+
+`bn_community_role` (`member` < `moderator` < `admin`) is BuddyNext's own community-wide tier, independent of WordPress roles. It was previously writable only by the inbound access webhook; this is the write path the Community Admin > Members view and the wp-admin Members list both call.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| PUT | `/community-admin/members/{id}/role` | Role manager | Assign a community role. Body: `role`, one of `member`, `moderator`, `admin`. |
+
+A "role manager" is a WordPress administrator (`manage_options`) or a member who already holds the `admin` community role - so an existing community admin can promote/demote others without needing a WordPress role.
 
 ## Space bans
 

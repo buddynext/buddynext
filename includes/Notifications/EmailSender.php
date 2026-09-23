@@ -673,7 +673,7 @@ class EmailSender {
 	public static function brand_wrap( string $body, string $subject = '', string $preheader = '' ): string {
 		$site_name = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 		$site_url  = esc_url( home_url( '/' ) );
-		$brand     = (string) get_option( 'buddynext_brand_color', '#0073aa' );
+		$brand     = (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND );
 		if ( ! preg_match( '/^#[0-9a-fA-F]{3,8}$/', $brand ) ) {
 			$brand = '#0073aa';
 		}

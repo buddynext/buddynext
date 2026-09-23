@@ -197,10 +197,13 @@ final class Dates {
 			return $result;
 		}
 
-		$route = (string) $request->get_route();
+		// Case-insensitive namespace match, via the shared seam: WordPress dispatches
+		// routes case-insensitively, so a mixed-case BuddyNext route would otherwise
+		// miss its `<key>_gmt` timestamp siblings.
+		$route = RestRoute::normalize( $request );
 		$owned = false;
 		foreach ( self::namespaces() as $ns ) {
-			if ( 0 === strpos( $route, (string) $ns ) ) {
+			if ( 0 === strpos( $route, strtolower( (string) $ns ) ) ) {
 				$owned = true;
 				break;
 			}

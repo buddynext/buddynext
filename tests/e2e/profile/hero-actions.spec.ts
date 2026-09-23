@@ -16,6 +16,27 @@ import { sel } from '../_fixtures/selectors';
 /**
  * Wave-4 PROFILE hero actions — EFFECT-BASED (J-740..J-746).
  *
+ * Covers: cap-follow-people-and-connect-mutually, cap-block-another-member, cap-restrict-a-member-without-them-knowing, cap-let-a-member-keep-a-private-profile
+ * Roles: admin, member, anon
+ * Note: J-741 admin+member (A withdraws, B's inbox read via a real session);
+ * J-744 restrict is pinned against block-another-member as the closest
+ * existing promise (no separate "restrict" row exists), walked admin(A)→
+ * member(B); J-744-member repeats the same walk member(B)→member(P), the
+ * actual "member restricts another member" leg cap-restrict-a-member-
+ * without-them-knowing promises; J-745 walks anon (a fresh guest context);
+ * J-746 walks member (B is the non-permitted viewer). J-740/J-742/J-743
+ * (cover upload, share links) do not map to any current CAPABILITIES.md row
+ * and are left unpinned.
+ *
+ * NOTE ON PIN PLACEMENT: check-role-coverage.py only scans the first 2500
+ * chars of each spec for `Covers:`/`Roles:`, and its regexes don't cross
+ * newlines - both lines must sit near the top of this docblock (as above),
+ * on one line each, or the pin is invisible to the coverage report even
+ * though the tests below actually walk it. This block was previously
+ * further down (past the 2500-char cutoff) with the 4th capability wrapped
+ * onto its own line, so cap-restrict-a-member-without-them-knowing[member]
+ * silently reported as a GAP despite J-744-member proving it below.
+ *
  * Closes the last WEAK/MISSING A1 + A4 rows the coverage re-scan flagged on the
  * profile hero (templates/parts/profile-hero.php). Every test asserts the REAL
  * server consequence — a usermeta written, a relationship row created/removed,
@@ -114,10 +135,10 @@ async function pendingCount(requester: number, recipient: number): Promise<numbe
     );
 }
 
-async function restrictCount(): Promise<number> {
+async function restrictCount(blocker: number, blocked: number): Promise<number> {
     const p = await tablePrefix();
     return dbCount(
-        `SELECT COUNT(*) FROM ${p}bn_blocks WHERE blocker_id=${A_ID} AND blocked_id=${B_ID} AND type='restrict'`
+        `SELECT COUNT(*) FROM ${p}bn_blocks WHERE blocker_id=${blocker} AND blocked_id=${blocked} AND type='restrict'`
     );
 }
 
@@ -331,7 +352,7 @@ test.describe('profile / hero actions (effect-based)', () => {
             ]);
 
             // Effect: a restrict row exists in wp_bn_blocks (server truth).
-            expect(await restrictCount(), 'restrict must create a wp_bn_blocks(restrict) row').toBe(1);
+            expect(await restrictCount(A_ID, B_ID), 'restrict must create a wp_bn_blocks(restrict) row').toBe(1);
 
             // Reload — server truth now labels the control "Unrestrict".
             await page.reload();
@@ -339,6 +360,51 @@ test.describe('profile / hero actions (effect-based)', () => {
             await expect(page.locator(RESTRICT_ITEM).first()).toHaveText(/unrestrict/i);
         } finally {
             await resetPair(A_ID, B_ID);
+        }
+    });
+
+    /**
+     * J-744-member — a plain MEMBER (not the admin owner) restricts ANOTHER
+     * member, without the restricted member being notified, at phone width.
+     * B (subscriber) restricts P (subscriber) — neither actor is the admin
+     * owner A, so this exercises the promise member-to-member rather than
+     * admin-to-member as J-744 does.
+     */
+    test('J-744-member a plain member restricts another member (mobile 390px)', async ({ page }) => {
+        await resetPair(B_ID, P_ID);
+        try {
+            await page.setViewportSize({ width: 390, height: 844 });
+            await loginAs(page, B_LOGIN);
+            await page.goto(memberUrl(P_LOGIN));
+            await expect(page.locator(HERO).first()).toBeVisible();
+
+            await openMoreMenu(page);
+            const restrict = page.locator(RESTRICT_ITEM).first();
+            await expect(restrict).toBeVisible();
+            await expect(restrict, 'the control reads Restrict before the action').toHaveText(/restrict/i);
+
+            await Promise.all([
+                page.waitForResponse(
+                    (r) => r.url().includes(`/users/${P_ID}/restrict`) && r.request().method() === 'POST',
+                    { timeout: 10_000 }
+                ),
+                restrict.click(),
+            ]);
+
+            // Effect: a restrict row exists in wp_bn_blocks — written by a member,
+            // targeting a member, silently (no notification round-trip to assert
+            // against — the promise is that none is sent).
+            expect(
+                await restrictCount(B_ID, P_ID),
+                'a member restricting another member must write a wp_bn_blocks(restrict) row'
+            ).toBe(1);
+
+            // Reload — server truth now labels the control "Unrestrict".
+            await page.reload();
+            await openMoreMenu(page);
+            await expect(page.locator(RESTRICT_ITEM).first()).toHaveText(/unrestrict/i);
+        } finally {
+            await resetPair(B_ID, P_ID);
         }
     });
 

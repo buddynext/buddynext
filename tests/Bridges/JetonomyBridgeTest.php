@@ -161,12 +161,64 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame( 1, $activity );
 
-		// Soft-delete removes it (jt_posts/jt_spaces rows still present).
+		// Soft-delete (trash) WITHDRAWS it reversibly: the row is preserved but
+		// moved to 'draft' so it leaves every feed, and a restore brings the same
+		// card back with its comments (card 10320560928). jt_posts/jt_spaces rows
+		// still present, so the URL still resolves.
 		do_action( 'jetonomy_post_deleted', 30, 5, $this->author_id );
-		$after = (int) $wpdb->get_var(
+		$still_there = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE link_url = %s", $expected_url )
 		);
-		$this->assertSame( 0, $after );
+		$published = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE link_url = %s AND status = 'published'", $expected_url )
+		);
+		$this->assertSame( 1, $still_there, 'the card row is preserved on a soft delete (withdrawn, not removed)' );
+		$this->assertSame( 0, $published, 'the withdrawn card leaves every feed' );
+	}
+
+	/**
+	 * A PERMANENT purge (Post::delete fires jetonomy_after_delete_post) removes the
+	 * card outright — the source discussion is gone for good — and cascades the
+	 * comments members left on it, rather than orphaning them. The card is found by
+	 * the post_id stamped in its link_meta, because by the time the action fires the
+	 * jt_posts/jt_spaces rows the URL is built from are already deleted.
+	 *
+	 * @return void
+	 */
+	public function test_hard_delete_purges_the_card_and_its_comments(): void {
+		global $wpdb;
+
+		$this->seed_jt_space( 7, 'purge' );
+		$this->seed_jt_post( 40, $this->author_id, 'Doomed', 'Body', 'doomed-thread' );
+		do_action( 'jetonomy_after_create_post', 40, 7 );
+
+		$card_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, '$.post_id' ) ) AS UNSIGNED ) = %d", 40 )
+		);
+		$this->assertGreaterThan( 0, $card_id, 'the card is stamped with its post_id in link_meta' );
+
+		// A member commented on the card.
+		$commenter = self::factory()->user->create();
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_comments',
+			array( 'object_type' => 'post', 'object_id' => $card_id, 'user_id' => $commenter, 'content' => 'great thread' ),
+			array( '%s', '%d', '%d', '%s' )
+		);
+		$this->assertGreaterThan( 0, (int) $wpdb->insert_id );
+
+		// Simulate the purge: the source row is gone (Post::delete deletes it before
+		// firing), then the hard-delete action fires with only the id.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $wpdb->prefix . 'jt_posts', array( 'id' => 40 ), array( '%d' ) );
+		do_action( 'jetonomy_after_delete_post', 40 );
+
+		$card_left    = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE id = %d", $card_id ) );
+		$comment_left = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id = %d", $card_id ) );
+		$search_left  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id = %d", 40 ) );
+
+		$this->assertSame( 0, $card_left, 'the card is permanently removed on a hard delete' );
+		$this->assertSame( 0, $comment_left, 'the comment is cascaded, not orphaned' );
+		$this->assertSame( 0, $search_left, 'the search entry is dropped' );
 	}
 
 	public function test_discussion_activity_can_be_filtered_off(): void {

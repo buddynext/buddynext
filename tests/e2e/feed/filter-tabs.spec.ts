@@ -17,6 +17,9 @@ import { userId, resetPair } from '../_fixtures/wp';
  * it MUST be absent. Both server-rendered pages are asserted, plus aria-current
  * tracking the active tab. A filter that renders the same set regardless of tab
  * fails the Following leg. Seeded post + follow state torn down in `finally`.
+ *
+ * Covers: cap-run-an-activity-feed-members-post-to
+ * Roles: admin
  */
 test.describe('feed / filter tabs', () => {
     const tab = (slug: string) => `.bn-feed-filter-tab[data-filter="${slug}"]`;

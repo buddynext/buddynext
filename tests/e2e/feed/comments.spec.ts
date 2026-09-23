@@ -5,6 +5,9 @@ import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-w
 
 /**
  * J-17-comment-on-post.
+ *
+ * Covers: cap-let-members-react-comment-and-reply
+ * Roles: admin
  */
 test.describe('feed / comments', () => {
     test('clicking comment surfaces the comment input', async ({ authenticatedPage: page }, testInfo) => {

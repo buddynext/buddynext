@@ -5,9 +5,8 @@
  * Renders the notification bell, a messages icon, and the member's avatar with a
  * profile dropdown (CSS-only) + log out. BuddyNext owns this render so it can be
  * dropped into any theme's header — as the `buddynext/header-user-menu` block /
- * block-based widget, the `[buddynext_user_menu]` shortcode, the
- * `buddynext_header_user_menu()` function, or a thin per-theme auto-place shim
- * (Reign, BuddyX, BuddyX-Pro). One source of truth, controlled centrally from BN.
+ * block-based widget, the `buddynext_header_user_menu()` template function, or the
+ * BuddyX theme's auto-place shim. One source of truth, controlled centrally from BN.
  *
  * No JavaScript: the unread count is server-rendered and the dropdown opens via
  * CSS `:focus-within`.

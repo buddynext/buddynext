@@ -137,6 +137,12 @@ if ( $current_user_id > 0 && ! empty( $bn_lb_user_ids ) ) {
 // Current user stats from the read API.
 $current_user_pts  = $current_user_id ? (int) wb_gam_get_user_points( $current_user_id ) : 0;
 $current_user_rank = 0;
+// Whether the viewer's own row is on the visible page. When it is not (they rank
+// below the window), a pinned "You" row is shown after the list so everyone can
+// see where they stand — the core of the large-community "your position" need.
+$bn_self_in_list = false;
+// The viewer's period-scoped points, for the pinned row (matches the list rows).
+$bn_self_pts = 0;
 
 // Resolve the current user's rank from the returned leaderboard rows first
 // (cheap — already loaded), then fall back to the engine's true rank when the
@@ -146,6 +152,8 @@ if ( $current_user_id ) {
 	foreach ( $leaderboard as $row ) {
 		if ( (int) ( $row['user_id'] ?? 0 ) === $current_user_id ) {
 			$current_user_rank = (int) ( $row['rank'] ?? 0 );
+			$bn_self_pts       = (int) ( $row['points'] ?? 0 );
+			$bn_self_in_list   = true;
 			break;
 		}
 	}
@@ -154,6 +162,7 @@ if ( $current_user_id ) {
 		$rank_data = \WBGam\Engine\LeaderboardEngine::get_user_rank( $current_user_id, $api_period );
 		if ( is_array( $rank_data ) && isset( $rank_data['rank'] ) && $current_user_pts > 0 ) {
 			$current_user_rank = (int) $rank_data['rank'];
+			$bn_self_pts       = (int) ( $rank_data['points'] ?? 0 );
 		}
 	}
 }
@@ -194,19 +203,42 @@ foreach ( $leaderboard as $row ) {
 	$rank_changes[ (int) ( $row['user_id'] ?? 0 ) ] = (int) ( $row['rank_change'] ?? 0 );
 }
 
-// Compute next milestone for current user (next 100-pt boundary).
+// Next 100-point micro-goal — used only by the standalone "Next Milestone"
+// widget below (a small "keep going" nudge, distinct from levels).
 $next_milestone_pts  = $current_user_pts > 0 ? (int) ( ceil( ( $current_user_pts + 1 ) / 100 ) * 100 ) : 100;
-$milestone_progress  = $next_milestone_pts > 0 ? min( 100, (int) ( $current_user_pts % 100 ) ) : 0;
+$milestone_progress  = min( 100, (int) ( $current_user_pts % 100 ) );
 $milestone_remaining = max( 0, $next_milestone_pts - $current_user_pts );
 
-// Current level — use the engine's level so this surface agrees with the
-// Achievements tab. Falls back to a 1-per-500-pts approximation only when the
-// engine helper is unavailable.
+// Current level + the NEXT level, straight from the engine, so this surface
+// agrees with the Achievements tab and shows real level progress (not a made-up
+// 100-point boundary). wb_gam_get_user_level() returns { id, name, min_points },
+// so read the NAME: the old `(int) wb_gam_get_user_level()` cast the array to 1
+// and printed "Lv 1" for everyone — even a Champion.
+$current_level_name = '';
+$current_level_min  = 0;
 if ( function_exists( 'wb_gam_get_user_level' ) ) {
-	$current_level = max( 1, (int) wb_gam_get_user_level( $current_user_id ) );
-} else {
-	$current_level = max( 1, (int) floor( $current_user_pts / 500 ) + 1 );
+	$bn_lv = wb_gam_get_user_level( $current_user_id );
+	if ( is_array( $bn_lv ) ) {
+		$current_level_name = (string) ( $bn_lv['name'] ?? '' );
+		$current_level_min  = (int) ( $bn_lv['min_points'] ?? 0 );
+	}
 }
+
+// Next level (null = the member is already at the top level).
+$bn_next_level = null;
+if ( is_callable( array( '\WBGam\Engine\LevelEngine', 'get_next_level' ) ) ) {
+	$bn_nl         = \WBGam\Engine\LevelEngine::get_next_level( $current_user_id );
+	$bn_next_level = is_array( $bn_nl ) ? $bn_nl : null;
+}
+$next_level_name = $bn_next_level ? (string) ( $bn_next_level['name'] ?? '' ) : '';
+$next_level_min  = $bn_next_level ? (int) ( $bn_next_level['min_points'] ?? 0 ) : 0;
+$is_max_level    = ( null === $bn_next_level );
+
+// Progress WITHIN the current level band (this level's floor → next level's floor).
+$level_span      = max( 1, $next_level_min - $current_level_min );
+$level_into      = max( 0, $current_user_pts - $current_level_min );
+$level_progress  = $is_max_level ? 100 : (int) min( 100, round( $level_into / $level_span * 100 ) );
+$level_remaining = $is_max_level ? 0 : max( 0, $next_level_min - $current_user_pts );
 
 // Rank pill tone for a given rank position.
 $rank_tone = static function ( int $rank ): string {
@@ -275,14 +307,42 @@ $updated_iso = gmdate( 'c' );
 				<div class="bn-stat">
 					<span class="bn-stat__label">
 						<span class="bn-lb-stat__icon" aria-hidden="true"><?php buddynext_icon( 'crown' ); ?></span>
-						<?php esc_html_e( 'Your rank', 'buddynext' ); ?>
+						<?php
+						// The rank comes from the selected tab while the points and level
+						// beside it are all-time, so the rank names its period: "#2" next to
+						// all-time points read as the member's overall standing.
+						if ( 'week' === $period ) {
+							esc_html_e( 'Your rank this week', 'buddynext' );
+						} elseif ( 'month' === $period ) {
+							esc_html_e( 'Your rank this month', 'buddynext' );
+						} else {
+							esc_html_e( 'Your rank all time', 'buddynext' );
+						}
+						?>
 					</span>
 					<span class="bn-stat__value">
 						<?php echo $current_user_rank > 0 ? esc_html( '#' . number_format_i18n( $current_user_rank ) ) : esc_html__( 'Unranked', 'buddynext' ); ?>
 					</span>
-					<span class="bn-stat__delta" data-trend="flat">
+					<?php
+					// Real rank movement for the viewer — the same per-row trend the
+					// list below shows, not a hardcoded "No change". Falls back to flat
+					// only when the viewer isn't in the fetched rows (outside the window).
+					$bn_self_delta = (int) ( $rank_changes[ $current_user_id ] ?? 0 );
+					$bn_self_trend = ( 0 === $bn_self_delta ) ? 'flat' : ( $bn_self_delta > 0 ? 'up' : 'down' );
+					?>
+					<span class="bn-stat__delta" data-trend="<?php echo esc_attr( $bn_self_trend ); ?>">
 						<?php buddynext_icon( 'trending' ); ?>
-						<?php esc_html_e( 'No change', 'buddynext' ); ?>
+						<?php
+						if ( 'flat' === $bn_self_trend ) {
+							esc_html_e( 'No change', 'buddynext' );
+						} elseif ( 'up' === $bn_self_trend ) {
+							/* translators: %d: number of places moved up. */
+							echo esc_html( sprintf( _n( 'Up %d place', 'Up %d places', abs( $bn_self_delta ), 'buddynext' ), abs( $bn_self_delta ) ) );
+						} else {
+							/* translators: %d: number of places moved down. */
+							echo esc_html( sprintf( _n( 'Down %d place', 'Down %d places', abs( $bn_self_delta ), 'buddynext' ), abs( $bn_self_delta ) ) );
+						}
+						?>
 					</span>
 				</div>
 
@@ -311,15 +371,16 @@ $updated_iso = gmdate( 'c' );
 						<?php esc_html_e( 'Level', 'buddynext' ); ?>
 					</span>
 					<span class="bn-stat__value">
-						<?php
-						// translators: %d: current numeric level.
-						echo esc_html( sprintf( __( 'Lv %d', 'buddynext' ), $current_level ) );
-						?>
+						<?php echo esc_html( '' !== $current_level_name ? $current_level_name : __( 'Unranked', 'buddynext' ) ); ?>
 					</span>
 					<span class="bn-stat__delta" data-trend="up">
 						<?php
-						// translators: %d: number of points remaining to next milestone.
-						echo esc_html( sprintf( _n( '%d pt to next', '%d pts to next', $milestone_remaining, 'buddynext' ), $milestone_remaining ) );
+						if ( $is_max_level ) {
+							esc_html_e( 'Top level reached', 'buddynext' );
+						} else {
+							/* translators: 1: points remaining, 2: next level name. */
+							echo esc_html( sprintf( _n( '%1$s pt to %2$s', '%1$s pts to %2$s', $level_remaining, 'buddynext' ), number_format_i18n( $level_remaining ), $next_level_name ) );
+						}
 						?>
 					</span>
 				</div>
@@ -330,22 +391,29 @@ $updated_iso = gmdate( 'c' );
 				<div class="bn-lb-level__head">
 					<span class="bn-lb-level__label">
 						<?php
-						// translators: 1: current level, 2: current points, 3: target milestone points.
-						echo esc_html( sprintf( __( 'Level %1$d — %2$s / %3$s points', 'buddynext' ), $current_level, number_format_i18n( $current_user_pts ), number_format_i18n( $next_milestone_pts ) ) );
+						if ( $is_max_level ) {
+							/* translators: 1: level name, 2: current points. */
+							echo esc_html( sprintf( __( '%1$s · %2$s points (top level)', 'buddynext' ), $current_level_name, number_format_i18n( $current_user_pts ) ) );
+						} else {
+							/* translators: 1: current level name, 2: next level name, 3: current points, 4: next-level points. */
+							echo esc_html( sprintf( __( '%1$s → %2$s: %3$s / %4$s points', 'buddynext' ), $current_level_name, $next_level_name, number_format_i18n( $current_user_pts ), number_format_i18n( $next_level_min ) ) );
+						}
 						?>
 					</span>
 					<span class="bn-lb-level__remaining">
 						<?php
-						// translators: %d: points remaining.
-						echo esc_html( sprintf( _n( '%d pt to go', '%d pts to go', $milestone_remaining, 'buddynext' ), $milestone_remaining ) );
+						if ( ! $is_max_level ) {
+							/* translators: %s: points remaining to the next level. */
+							echo esc_html( sprintf( _n( '%s pt to go', '%s pts to go', $level_remaining, 'buddynext' ), number_format_i18n( $level_remaining ) ) );
+						}
 						?>
 					</span>
 				</div>
 				<div class="bn-progress" data-tone="accent" role="progressbar"
 					aria-valuemin="0"
 					aria-valuemax="100"
-					aria-valuenow="<?php echo esc_attr( (string) $milestone_progress ); ?>">
-					<div class="bn-progress__fill" style="width:<?php echo esc_attr( (string) $milestone_progress ); ?>%;"></div>
+					aria-valuenow="<?php echo esc_attr( (string) $level_progress ); ?>">
+					<div class="bn-progress__fill" style="width:<?php echo esc_attr( (string) $level_progress ); ?>%;"></div>
 				</div>
 			</div>
 		</section>
@@ -584,6 +652,74 @@ $updated_iso = gmdate( 'c' );
 				</li>
 			<?php endforeach; ?>
 		</ol>
+
+		<?php
+		// Your position — pinned when the viewer ranks below the visible page, so a
+		// member at #5,000 still sees where they stand (and can jump to their
+		// profile). Only when they are NOT already listed above.
+		if ( $current_user_id && $current_user_rank > 0 && ! $bn_self_in_list ) :
+			$bn_self_user   = get_userdata( $current_user_id );
+			$bn_self_name   = $bn_self_user ? $bn_self_user->display_name : __( 'You', 'buddynext' );
+			$bn_self_url    = \BuddyNext\Core\PageRouter::profile_url( $current_user_id );
+			$bn_self_avatar = get_avatar(
+				$current_user_id,
+				72,
+				'',
+				$bn_self_name,
+				array(
+					'class'      => 'bn-avatar',
+					'extra_attr' => 'data-size="md"',
+				)
+			);
+			?>
+			<div class="bn-lb-yourpos">
+				<span class="bn-lb-yourpos__label"><?php esc_html_e( 'Your position', 'buddynext' ); ?></span>
+				<ol class="bn-lb-list" start="<?php echo esc_attr( (string) $current_user_rank ); ?>">
+					<li>
+						<article class="bn-card bn-lb-row" data-interactive data-self>
+							<span class="bn-lb-row__rank" data-tone="ink">
+								<?php echo esc_html( '#' . number_format_i18n( $current_user_rank ) ); ?>
+							</span>
+							<div class="bn-lb-row__who">
+								<?php
+								echo wp_kses(
+									$bn_self_avatar,
+									array(
+										'img' => array(
+											'src'       => true,
+											'srcset'    => true,
+											'sizes'     => true,
+											'alt'       => true,
+											'class'     => true,
+											'width'     => true,
+											'height'    => true,
+											'loading'   => true,
+											'decoding'  => true,
+											'data-size' => true,
+										),
+									)
+								);
+								?>
+								<div class="bn-lb-row__id">
+									<a class="bn-lb-row__name" href="<?php echo esc_url( $bn_self_url ); ?>">
+										<?php echo esc_html( $bn_self_name ); ?>
+										<span class="bn-lb-row__self-pill"><?php esc_html_e( 'You', 'buddynext' ); ?></span>
+									</a>
+								</div>
+							</div>
+							<span aria-hidden="true"></span>
+							<div class="bn-lb-row__points">
+								<span class="bn-lb-row__points-val"><?php echo esc_html( number_format_i18n( $bn_self_pts ) ); ?></span>
+								<span class="bn-lb-row__points-unit"><?php esc_html_e( 'pts', 'buddynext' ); ?></span>
+							</div>
+							<span aria-hidden="true"></span>
+						</article>
+					</li>
+				</ol>
+			</div>
+			<?php
+		endif;
+		?>
 
 	<?php endif; // End: leaderboard data check. ?>
 

@@ -293,6 +293,7 @@ class MemberCleanupService {
 			'bn_reports' => 'A report is a case FILED BY someone else about content. Deleting it would let a member erase the complaints against them. (Closed reports age out on their own retention schedule; a report the erased member FILED keeps their reporter_id until then — bn_reports has UNIQUE KEY one_per_reporter, so anonymising to 0 would collide the moment two erased members had reported the same post.)',
 			'bn_mod_log' => 'The moderator audit trail — a record of what a MODERATOR did. Append-only by design (ModerationLogService).',
 			'bn_spaces'  => 'A space is a community asset, not the member\'s data. SpaceSuccession reassigns owner_id to the longest-serving moderator (or a site admin) on the same purge signal, so the space outlives its founder rather than being deleted with them.',
+			'bn_invites' => 'Email-keyed, not id-keyed: an invitee may never have registered, so the id-keyed member purge cannot own this table. It is erased on request by the email-keyed branch in PrivacyTools::erase (a member\'s own invite row, and an invited non-member\'s address) and aged out by LogRetentionService (registered/bounced past the window, pending past expiry). Listed here so the id-keyed registry is complete and the gate can see this email-only table.',
 		);
 
 		/**

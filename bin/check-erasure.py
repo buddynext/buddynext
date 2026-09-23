@@ -82,6 +82,11 @@ USER_COLUMNS = {
     "follower_id", "following_id", "requester_id", "reporter_id", "target_user_id",
     "blocker_id", "blocked_id", "resolved_by", "created_by", "invited_by", "member_id",
     "assigned_to",
+    # Text-keyed PII: a table keyed by an email address (not a user id) names a
+    # person just as much as an *_id column, but the id-keyed member purge cannot
+    # reach it. bn_invites went unregistered for exactly this reason — the gate only
+    # looked at integer id columns. See _tables_in()'s type match, widened to text.
+    "email",
 }
 
 
@@ -96,7 +101,7 @@ def _tables_in(installer: Path) -> dict[str, list[str]]:
     for table, body in re.findall(r"CREATE TABLE \{\$p\}(bn_\w+) \((.*?)\) \{\$cs\}", src, re.S):
         cols = []
         for line in body.splitlines():
-            m = re.match(r"\s*(\w+)\s+(BIGINT|INT|MEDIUMINT)", line, re.I)
+            m = re.match(r"\s*(\w+)\s+(BIGINT|INT|MEDIUMINT|VARCHAR|CHAR)", line, re.I)
             if m and m.group(1).lower() in USER_COLUMNS:
                 cols.append(m.group(1).lower())
         if cols:

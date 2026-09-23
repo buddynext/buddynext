@@ -119,7 +119,11 @@ class MediaUrlResolver {
 		$out = array();
 		foreach ( $media_ids as $mid ) {
 			$d = self::descriptor( (int) $mid );
-			if ( null !== $d ) {
+			// Drop unavailable items: null (unknown/deleted/not visible) AND the
+			// both-empty case — a descriptor with neither a full-file url nor a
+			// thumb has nothing to render and would paint a broken-image tile for
+			// media the viewer may not see. Null-only guarding left those in.
+			if ( null !== $d && ( '' !== (string) ( $d['url'] ?? '' ) || '' !== (string) ( $d['thumb'] ?? '' ) ) ) {
 				$out[] = $d;
 			}
 		}

@@ -48,8 +48,9 @@ All safeguards live under **BuddyNext > Moderation > Controls**. Each one is a s
 | Banned words | Newline-separated list of words and phrases. Matching is case-insensitive and by **whole word**, so `ass` blocks "ass" but not "class", "pass" or "passionate". Append `*` to catch variants deliberately - `spam*` blocks "spam", "spammer" and "spamming". Any post or comment matching an entry is rejected. Runs through the moderation rules pipeline, so Pro keyword and AI rules stack on top of this list. Spaces can also keep their own per-space banned-word list. | Empty (off) |
 | Banned hashtags | Newline-separated list of hashtags that may never be created or attached to posts. Blocked tags never become followable topics. | Empty (off) |
 | Blocked link domains | Newline-separated list of domains. Any post that attaches a link to a listed domain is rejected. Use this to stop known spam, scam, and phishing destinations. | Empty (off) |
-| Blocked IPs | Newline-separated list of IP addresses. A member posting from a listed IP is blocked before any content check runs. | Empty (off) |
+| Blocked IPs | Newline-separated list of IP addresses (IPv4 or IPv6). An address on this list cannot sign in, register, post, or comment - including on accounts it already holds. This is the widest safeguard: it stops a blocked address before any content check runs, not just before posting. Your own address cannot be added. | Empty (off) |
 | Post rate limit | Maximum number of posts one member can publish per minute. Stops bots and burst-flooding. Untick to remove the cap. | 10 |
+| Comment rate limit | Maximum number of comments one member can post per minute. Separate from the post rate limit, so a fast-moving comment thread is not capped by the same number as new posts. Untick to remove the cap. | 30 |
 | Duplicate post window | Number of minutes during which an identical repeat post by the same member is flagged for review. The repeat still publishes, but a report is filed. Untick to allow duplicates. | 0 (off) |
 | New-member post threshold | Number of posts a member must reach before their posts stop being flagged. Until then, each post publishes but is also sent to the moderation queue for review. Untick to let new members post freely. | 0 (off) |
 | Auto-hide threshold | Number of reports a single piece of content can receive before it is automatically hidden pending review. Minimum 1 - auto-hide cannot be switched off from this field. | 5 |
@@ -70,6 +71,8 @@ All safeguards live under **BuddyNext > Moderation > Controls**. Each one is a s
 - **Spaces can extend the banned-word list.** A space can keep its own banned-word list on top of the site-wide one, so a space about, say, finance can ban terms that the rest of the community allows. The space list is checked alongside the global list for posts in that space.
 - **Flagged vs rejected.** The new-member gate and the duplicate-content guard *flag* a post - it still publishes, but a report is filed to the moderation queue for review. Banned words, blocked links, blocked IPs, and the rate limit *reject* the post outright, so it is never saved. Auto-hide *hides* content that has already been posted once it crosses the report threshold.
 - **Moderators and admins are exempt from the rate limit.** Site admins and anyone who can review the moderation queue can post announcements and bulk content without tripping the per-minute cap.
+- **Direct messages go through the same content checks.** Banned words, blocked link domains, and banned hashtags are checked on a direct message exactly as they are on a post - a message using one is rejected outright, and the sender is told why. Only the site-wide list applies (a message is not posted into a space, so no per-space banned-word list is consulted). The rate limit, duplicate window, and new-member gate are post/comment-only and do not apply to messages. See Direct Messaging.
+- **Pre-moderation (hold-before-publish) exists but has no owner setting.** BuddyNext's default and only supported model is reactive: a post goes live immediately, and enforcement happens after the fact through this pipeline. A hold-every-post-for-approval engine still exists in the codebase for sites with a genuine compliance need (schools, healthcare, regulated brands), but as of 1.1.6 it can only be switched on by a developer filter (`buddynext_premod_mode`) - there is no toggle in the admin. When nothing is held, **BuddyNext > Moderation > Pending** simply does not appear; it renders only if a post is actually waiting. An approved or rejected held post is what triggers the "Post approved" / "Post not approved" notifications - see Notifications.
 
 ## Free vs Pro
 
@@ -87,5 +90,7 @@ The free safeguards on this page run first and stack with these Pro tools throug
 
 - [Moderating a Member](03-user-moderation.md) - the strike thresholds these guards feed
 - [Moderation Queue](02-moderation-queue.md) - where flagged content waits for review
+- [Direct Messaging](../messaging-notifications/01-direct-messaging.md) - the same banned-word and blocked-link checks applied to messages
+- [Notifications](../messaging-notifications/02-notifications.md) - the post-approved / post-not-approved events a held post triggers
 - [Auto-Moderation Rules](../pro/14-auto-moderation.md) - the Pro rules that stack on this pipeline
 - [AI Feed and Moderation](../pro/15-ai-feed-and-moderation.md) - Pro automated content scoring

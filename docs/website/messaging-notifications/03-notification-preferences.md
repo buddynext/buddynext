@@ -78,6 +78,7 @@ Every type that is not in the table above ships with its own sensible default bu
 - A type set to email Off still shows on-site if the on-site channel is on; the two channels are independent.
 - The Sound channel is off by default and only plays while the member is actively on the site.
 - A notification type whose underlying feature is not active (for example, direct messages when messaging is disabled) does not appear in the preferences list, so there are no dead toggles.
+- A few types show only an on-site toggle, with no email-frequency selector next to it. These are the types mirrored from a companion plugin - badges, level-ups, media reactions and mentions - which BuddyNext never emails on the partner's behalf. See Notifications.
 
 ## Free vs Pro
 

@@ -420,7 +420,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 										</div>
 										<?php if ( ! $digests_enabled && in_array( (string) $resolved_row['email_freq'], $digest_freqs, true ) ) : ?>
 											<p class="bn-prefs-row__warn">
-												<?php esc_html_e( 'Digests are off — this type is sending no email. Pick Immediate or Off.', 'buddynext' ); ?>
+												<?php esc_html_e( 'Digests are off: this type is sending no email. Pick Immediate or Off.', 'buddynext' ); ?>
 											</p>
 										<?php endif; ?>
 									<?php else : ?>

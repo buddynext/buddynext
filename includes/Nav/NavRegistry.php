@@ -145,7 +145,7 @@ final class NavRegistry {
 					'buddynext_register_nav',
 					sprintf(
 						/* translators: 1: nav item id, 2: layer. */
-						esc_html__( 'Duplicate nav item "%1$s" on layer "%2$s" ignored — ids must be unique within a (surface, layer).', 'buddynext' ),
+						esc_html__( 'Duplicate nav item "%1$s" on layer "%2$s" ignored: ids must be unique within a (surface, layer).', 'buddynext' ),
 						esc_html( $item->id ),
 						esc_html( $item->layer )
 					),

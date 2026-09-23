@@ -106,11 +106,14 @@ class IntegrationActivity {
 					'type'      => $type,
 					'content'   => $content,
 					'space_id'  => $space_id > 0 ? $space_id : null,
-					// Integration activities link OUT to a public partner page (a
-					// public Jetonomy discussion, a job posting, etc.), so they are
-					// inherently public. Set it explicitly rather than inheriting the
-					// site's default-post-privacy option, which may be blank.
-					'privacy'   => 'public',
+					// A card with no space links OUT to a public partner page (a public
+					// Jetonomy discussion, a job posting, etc.) and is inherently public.
+					// A card scoped to a SPACE must inherit the space's privacy instead
+					// of being stamped 'public' - a bare 'public' on a private/secret
+					// space's card leaked it onto Explore and profiles (card 10312981296).
+					// 'space_members' lets the feed's space-readability guard decide:
+					// open space -> everyone, private/secret -> members only.
+					'privacy'   => $space_id > 0 ? 'space_members' : 'public',
 					'link_url'  => $link_url,
 					'link_meta' => self::normalise_link_meta(
 						array_merge(
@@ -207,6 +210,48 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Withdraw a card whose partner entity was UNPUBLISHED, not destroyed.
+	 *
+	 * The reversible counterpart to remove(): a discussion set back to draft, a
+	 * media item trashed. Instead of deleting the row — which drops the card's id,
+	 * date, reactions and every comment members left on it, then forces a brand-new
+	 * card (dated now) if the entity is republished — this flips the card to 'draft',
+	 * which is hidden from every feed but preserved for restore(). Only a currently
+	 * 'published' card is withdrawn, so a moderator's under_review hold is never
+	 * disturbed. Idempotent: a second withdraw is a no-op.
+	 *
+	 * @param string $link_url The partner page the card links to.
+	 * @param string $type     Post type the card was stored as (same as at publish()).
+	 * @return bool True when a live card was withdrawn.
+	 */
+	public static function withdraw( string $link_url, string $type = 'link' ): bool {
+		if ( '' === $link_url ) {
+			return false;
+		}
+		return ( new PostService() )->transition_link_status( '' !== $type ? $type : 'link', $link_url, 'published', 'draft' ) > 0;
+	}
+
+	/**
+	 * Bring back a card withdrawn by withdraw() when its partner entity is republished.
+	 *
+	 * Flips a 'draft' card back to 'published' IN PLACE — same id, same original date,
+	 * same reactions and comments — so a public → draft → public round trip no longer
+	 * resurfaces the thread as new or orphans its replies. Only a 'draft' card is
+	 * restored, so a card a moderator moved to under_review stays hidden. Returns
+	 * false when no withdrawn card matched (the caller then publishes a fresh one).
+	 *
+	 * @param string $link_url The partner page the card links to.
+	 * @param string $type     Post type the card was stored as.
+	 * @return bool True when a withdrawn card was restored.
+	 */
+	public static function restore( string $link_url, string $type = 'link' ): bool {
+		if ( '' === $link_url ) {
+			return false;
+		}
+		return ( new PostService() )->transition_link_status( '' !== $type ? $type : 'link', $link_url, 'draft', 'published' ) > 0;
+	}
+
+	/**
 	 * Re-write the stored snapshot on a card that already exists.
 	 *
 	 * The companion publish() needs — and the reason a bridge cannot simply "publish
@@ -264,6 +309,43 @@ class IntegrationActivity {
 			return 0;
 		}
 		return ( new PostService() )->delete_by_link_meta_int( $type, $meta_key, $value );
+	}
+
+	/**
+	 * Withdraw EVERY card a partner entity stamped with an id (the reversible
+	 * counterpart of remove_by_meta): flip each from 'published' to 'draft', hidden
+	 * from every feed but preserved, so a later restore_by_meta() brings the whole set
+	 * back. For an entity whose per-item cards are keyed by a shared id — an event's
+	 * organizer card plus each attendee's — withdrawn together when the event is
+	 * cancelled and restored together when it is reinstated.
+	 *
+	 * @param string $type     Card post type (e.g. 'event').
+	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
+	 * @param int    $value    The partner id whose cards to withdraw.
+	 * @return int Rows withdrawn.
+	 */
+	public static function withdraw_by_meta( string $type, string $meta_key, int $value ): int {
+		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
+			return 0;
+		}
+		return ( new PostService() )->transition_link_meta_status( $type, $meta_key, $value, 'published', 'draft' );
+	}
+
+	/**
+	 * Bring back every card withdraw_by_meta() withdrew for a partner id — flip each
+	 * 'draft' card back to 'published', same ids/dates/comments. Cards a moderator
+	 * moved to under_review are left alone.
+	 *
+	 * @param string $type     Card post type (e.g. 'event').
+	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
+	 * @param int    $value    The partner id whose cards to restore.
+	 * @return int Rows restored.
+	 */
+	public static function restore_by_meta( string $type, string $meta_key, int $value ): int {
+		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
+			return 0;
+		}
+		return ( new PostService() )->transition_link_meta_status( $type, $meta_key, $value, 'draft', 'published' );
 	}
 
 	/**

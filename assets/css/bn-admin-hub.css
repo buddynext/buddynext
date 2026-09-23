@@ -1154,3 +1154,15 @@
 		grid-template-columns: 1fr;
 	}
 }
+
+/* Plugin isolation: when route isolation is OFF the plugin-skip list is not in
+ * effect yet, so mute the list body to read as inactive (still editable - the
+ * toggles stay live) and set the explanatory note apart. Card 10312981... (10313331932). */
+.bn-settings-section.is-inactive .bn-ss-body {
+	opacity: 0.7;
+}
+.bn-field-hint--muted {
+	color: var(--bn-ink-3, #6b7280);
+	font-style: italic;
+	opacity: 1;
+}

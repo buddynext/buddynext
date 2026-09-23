@@ -23,6 +23,9 @@ type ReactionCount = { count: number; has_reacted?: boolean; emoji?: string };
  * `has_reacted=false` + `count=0`. A dead write path (optimistic flip over a
  * 500) leaves the row absent and fails the poll. The truth read survives a
  * reload, proving persistence rather than a class swap.
+ *
+ * Covers: cap-let-members-react-comment-and-reply
+ * Roles: admin
  */
 test.describe('feed / reactions', () => {
     const reactionPath = (id: number) => `/reactions?object_type=post&object_id=${id}`;

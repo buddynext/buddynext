@@ -13,6 +13,9 @@ import {
  * J-661 — Cancel own join request (requester). Counterpart of Request-to-join
  * (J-41): the requester withdrawing their OWN pending request before a mod acts.
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin, member
+ *
  * A second actor requests to join a private (request-to-join) space and lands in
  * 'pending'. They then cancel via POST /spaces/{id}/join/cancel (the endpoint the
  * "Requested — cancel" control calls).

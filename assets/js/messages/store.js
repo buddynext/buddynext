@@ -776,13 +776,62 @@ const messagesStore = store( 'buddynext/messages', {
 				event.preventDefault();
 			}
 			const ctx     = getContext();
-			const convId  = parseInt( ctx.activeConvId, 10 ) || 0;
+			let convId    = parseInt( ctx.activeConvId, 10 ) || 0;
 			const input   = document.getElementById( 'bn-dm-input' );
 			const text    = input ? input.value.trim() : '';
 			const mediaId = parseInt( ctx.attachmentId, 10 ) || 0;
 			// A message needs either text or an attachment.
-			if ( ! convId || ( '' === text && ! mediaId ) ) {
+			if ( '' === text && ! mediaId ) {
 				return;
+			}
+
+			// Compose-pending: no thread exists yet (a "Message" deep-link or the
+			// New-message picker). Create it on THIS first send, so merely opening a
+			// composer never left an empty ghost thread in the recipient's inbox.
+			// MVS find_or_create reuses the pair's existing thread if there is one.
+			const wasPending = ! convId;
+			if ( ! convId ) {
+				const pendingId = parseInt( ctx.pendingRecipientId, 10 ) || 0;
+				if ( ! pendingId ) {
+					return;
+				}
+				const created = yield restFetch( '/conversations', {
+					base: ctx.mvsRest,
+					nonce: ctx.nonce,
+					method: 'POST',
+					body: { recipient_id: pendingId },
+					toastOnError: false,
+				} );
+				convId = created.ok
+					? ( parseInt( created.data && created.data.conversation && created.data.conversation.id, 10 ) || 0 )
+					: 0;
+				if ( ! convId ) {
+					// Reason-aware deny notice, mirroring the send path's mapping.
+					const dReason = ( created.data && created.data.error ) || '';
+					let dMsg;
+					switch ( dReason ) {
+						case 'blocked':
+							dMsg = t( 'sendDeniedBlocked', 'You can no longer message this person.' );
+							break;
+						case 'dms_disabled':
+							dMsg = t( 'sendDeniedDmsDisabled', 'This person isn’t accepting messages right now.' );
+							break;
+						case 'connections_only':
+						case 'mutual_follow_required':
+							dMsg = t( 'sendDeniedConnectionsOnly', 'This person only accepts messages from their connections.' );
+							break;
+						case 'rate_limited':
+							dMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly — please wait a moment.' );
+							break;
+						default:
+							dMsg = t( 'sendFailed', 'Could not send. Please try again.' );
+							break;
+					}
+					bnToast( dMsg, { tone: 'danger' } );
+					return;
+				}
+				ctx.activeConvId       = convId;
+				ctx.pendingRecipientId = 0;
 			}
 
 			const payload = { content: text };
@@ -831,6 +880,14 @@ const messagesStore = store( 'buddynext/messages', {
 				}
 				// Force scroll: the reader just sent this, so jump them to it.
 					appendMessage( msg, ctx.userId, true );
+				// First message of a brand-new conversation: reload into the
+				// fully-initialised thread (polling, read receipts, rail entry) —
+				// the compose-only pane was never wired for live updates.
+				if ( wasPending ) {
+					const cbase = ctx.messagesUrl || '/messages/';
+					window.location.href = cbase + ( cbase.indexOf( '?' ) === -1 ? '?' : '&' ) + 'conversation=' + convId;
+					return;
+				}
 			}
 
 			if ( ! ok ) {
@@ -1375,8 +1432,14 @@ const messagesStore = store( 'buddynext/messages', {
 					}
 					const opt = e.target.closest( '[data-emoji-char]' );
 					if ( opt ) {
-						insertAtCursor( document.getElementById( 'bn-dm-input' ), opt.dataset.emojiChar );
-						closeEmojiPop( pop );
+						// Keep the picker open for several picks (the close button,
+						// outside-click and Esc still dismiss it); refocus the input so
+						// the caret stays put. (Card 10258511674.)
+						const dmInput = document.getElementById( 'bn-dm-input' );
+						insertAtCursor( dmInput, opt.dataset.emojiChar );
+						if ( dmInput && typeof dmInput.focus === 'function' ) {
+							dmInput.focus();
+						}
 					}
 				} );
 			}

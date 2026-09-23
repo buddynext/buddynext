@@ -4,7 +4,7 @@ Auto-moderation rules let you set conditions that act on content automatically -
 
 ![Content auto-flagged by rules waiting in the moderation queue](../images/moderation-queue.webp)
 
-![The Moderation Tools > Rules admin tab where you define auto-moderation rules and thresholds](../images/admin-automod.webp)
+![The Moderation > Rules admin tab where you define auto-moderation rules and thresholds](../images/admin-automod.webp)
 
 ## Why use it
 
@@ -25,7 +25,7 @@ The community sees the effect - less spam, fewer abusive posts - without any vis
 
 ## Setting it up (for owners)
 
-Auto-moderation rules are managed at **BuddyNext > Moderation Tools > Rules**. BuddyNext ships a set of built-in default rules so the screen is never blank and sensible protection is in place from day one. You can toggle the defaults on or off, adjust their settings, and add your own rules alongside them.
+Auto-moderation rules are managed at **BuddyNext > Moderation > Rules**. BuddyNext ships a set of built-in default rules so the screen is never blank and sensible protection is in place from day one. You can toggle the defaults on or off, adjust their settings, and add your own rules alongside them.
 
 ### Rule types
 

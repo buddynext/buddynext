@@ -79,6 +79,33 @@ class ActivityAdmin implements ListenerInterface {
 
 		add_action( 'admin_post_bn_activity_delete', array( $this, 'handle_delete' ) );
 		add_action( 'admin_post_bn_activity_edit', array( $this, 'handle_edit' ) );
+		add_action( 'admin_post_bn_activity_bulk', array( $this, 'handle_bulk' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+	}
+
+	/**
+	 * Enqueue the shared bulk-select behaviour plus the Activity confirm helper
+	 * on this screen only.
+	 *
+	 * @return void
+	 */
+	public function enqueue_assets(): void {
+		if ( ! AdminHub::is_active( 'engagement', 'activity' ) ) {
+			return;
+		}
+
+		$plugin_url = defined( 'BUDDYNEXT_FILE' )
+			? plugin_dir_url( (string) constant( 'BUDDYNEXT_FILE' ) )
+			: plugins_url( '/', __DIR__ . '/../../buddynext.php' );
+		$version    = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '1.0.0';
+
+		wp_enqueue_script( 'bn-admin-bulk-select', $plugin_url . 'assets/js/admin/bulk-select.js', array( 'wp-i18n' ), $version, true );
+		wp_set_script_translations( 'bn-admin-bulk-select', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+
+		// The bulk Delete/Hide confirm (count + action aware) uses the shared
+		// bnConfirm() modal from bn-admin-dialogs.js, so depend on both it and i18n.
+		wp_enqueue_script( 'bn-activity-bulk', $plugin_url . 'assets/js/admin/activity-bulk.js', array( 'wp-i18n', 'bn-admin-dialogs' ), $version, true );
+		wp_set_script_translations( 'bn-activity-bulk', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 	}
 
 	/**
@@ -100,6 +127,14 @@ class ActivityAdmin implements ListenerInterface {
 		} elseif ( 'error' === $done ) {
 			$msg = isset( $_GET['bn_msg'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_msg'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			AdminPageBase::render_notice( '' !== $msg ? $msg : __( 'That action could not be completed.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'bn_done bn_msg' ) );
+		}
+
+		// Bulk-action result notice (with a partial-failure count when some failed).
+		$bulk = isset( $_GET['bn_bulk'] ) ? sanitize_key( wp_unslash( $_GET['bn_bulk'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( in_array( $bulk, array( 'delete', 'hide', 'restore' ), true ) ) {
+			$bulk_done   = isset( $_GET['bn_bulk_done'] ) ? absint( wp_unslash( $_GET['bn_bulk_done'] ) ) : 0;     // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$bulk_failed = isset( $_GET['bn_bulk_failed'] ) ? absint( wp_unslash( $_GET['bn_bulk_failed'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$this->render_bulk_notice( $bulk, $bulk_done, $bulk_failed );
 		}
 
 		$edit_id = isset( $_GET['edit_post'] ) ? absint( wp_unslash( $_GET['edit_post'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -207,9 +242,24 @@ class ActivityAdmin implements ListenerInterface {
 					<p class="bn-empty__sub"><?php esc_html_e( 'Try a different search, type, status or date range.', 'buddynext' ); ?></p>
 				</div>
 			<?php else : ?>
-				<table class="bn-table">
+				<form id="bn-activity-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar">
+					<input type="hidden" name="action" value="bn_activity_bulk">
+					<?php wp_nonce_field( 'bn_activity_bulk' ); ?>
+					<label for="bn-activity-bulk-action" class="screen-reader-text"><?php esc_html_e( 'Bulk action', 'buddynext' ); ?></label>
+					<select id="bn-activity-bulk-action" name="bulk_action" class="bn-select" data-size="sm">
+						<option value=""><?php esc_html_e( 'Bulk actions', 'buddynext' ); ?></option>
+						<option value="delete"><?php esc_html_e( 'Delete', 'buddynext' ); ?></option>
+						<option value="hide"><?php esc_html_e( 'Hide', 'buddynext' ); ?></option>
+						<option value="restore"><?php esc_html_e( 'Restore', 'buddynext' ); ?></option>
+					</select>
+					<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Apply', 'buddynext' ); ?></button>
+				</form>
+				<table class="bn-table" data-bn-bulk="bn-activity-bulk">
 					<thead>
 						<tr>
+							<th scope="col" class="bn-table__cb" data-align="center">
+								<input type="checkbox" id="bn-activity-cb-all" aria-label="<?php esc_attr_e( 'Select all posts on this page', 'buddynext' ); ?>">
+							</th>
 							<th scope="col" class="column-primary"><?php esc_html_e( 'Author', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Content', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
@@ -228,6 +278,14 @@ class ActivityAdmin implements ListenerInterface {
 							$permalink = PageRouter::post_url( $pid );
 							?>
 							<tr>
+								<td class="bn-table__cb" data-align="center">
+									<input type="checkbox" name="ids[]" form="bn-activity-bulk" value="<?php echo absint( $pid ); ?>" class="bn-bulk-cb" aria-label="
+									<?php
+										/* translators: %s: post author display name. */
+										echo esc_attr( sprintf( __( 'Select post by %s', 'buddynext' ), $author ? $author->display_name : __( '(unknown)', 'buddynext' ) ) );
+									?>
+									">
+								</td>
 								<td class="column-primary" data-colname="<?php esc_attr_e( 'Author', 'buddynext' ); ?>">
 									<div class="bn-activity-author">
 										<?php echo get_avatar( (int) $row['user_id'], 32, '', '', array( 'class' => 'bn-activity-author__avatar' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- get_avatar returns escaped markup. ?>
@@ -397,6 +455,105 @@ class ActivityAdmin implements ListenerInterface {
 		$content = isset( $_POST['content'] ) ? sanitize_textarea_field( wp_unslash( $_POST['content'] ) ) : '';
 		$result  = buddynext_service( 'post_service' )->update( $post_id, get_current_user_id(), array( 'content' => $content ) );
 		$this->redirect_back( is_wp_error( $result ) ? 'error' : 'edited', is_wp_error( $result ) ? $result->get_error_message() : '' );
+	}
+
+	/**
+	 * Apply a bulk action (delete / hide / restore) to the selected posts.
+	 *
+	 * The selection is the current page (<= PER_PAGE), so one request suffices.
+	 * Each id routes through the existing single-post service call - delete() or
+	 * set_hidden() - so counters, hooks, search index and the moderation log all
+	 * stay correct; never a bulk SQL statement. Partial failures are counted and
+	 * surfaced, and a post already gone counts as done, not an error.
+	 *
+	 * @return void
+	 */
+	public function handle_bulk(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+		check_admin_referer( 'bn_activity_bulk' );
+
+		$bulk_action = isset( $_POST['bulk_action'] ) ? sanitize_key( wp_unslash( $_POST['bulk_action'] ) ) : '';
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each id is cast via array_map( 'absint' ) below.
+		$raw_ids = isset( $_POST['ids'] ) ? (array) wp_unslash( $_POST['ids'] ) : array();
+		$ids     = array_values( array_unique( array_filter( array_map( 'absint', $raw_ids ) ) ) );
+
+		$done   = 0;
+		$failed = 0;
+		if ( in_array( $bulk_action, array( 'delete', 'hide', 'restore' ), true ) && ! empty( $ids ) ) {
+			$posts    = buddynext_service( 'post_service' );
+			$actor_id = get_current_user_id();
+			foreach ( $ids as $pid ) {
+				if ( 'delete' === $bulk_action ) {
+					if ( null === $posts->get( $pid ) ) {
+						// Already gone (someone else deleted it) - done, not a failure.
+						++$done;
+						continue;
+					}
+					$result = $posts->delete( $pid, $actor_id );
+				} else {
+					$result = $posts->set_hidden( $pid, 'hide' === $bulk_action, $actor_id );
+				}
+				if ( is_wp_error( $result ) ) {
+					++$failed;
+				} else {
+					++$done;
+				}
+			}
+		}
+
+		// Back to the same page, filters and status tab (the referer), with the
+		// result counts for the notice.
+		$redirect = wp_get_referer();
+		if ( ! is_string( $redirect ) || '' === $redirect ) {
+			$redirect = AdminHub::tab_url( 'engagement', 'activity' );
+		}
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'bn_bulk'        => $bulk_action,
+					'bn_bulk_done'   => $done,
+					'bn_bulk_failed' => $failed,
+				),
+				$redirect
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Render the bulk-action result notice (with a partial-failure count).
+	 *
+	 * @param string $action delete|hide|restore.
+	 * @param int    $done   How many succeeded (or were already in the target state).
+	 * @param int    $failed How many could not be completed.
+	 * @return void
+	 */
+	private function render_bulk_notice( string $action, int $done, int $failed ): void {
+		switch ( $action ) {
+			case 'hide':
+				/* translators: %s: number of posts. */
+				$message = sprintf( _n( '%s post hidden from the feed.', '%s posts hidden from the feed.', $done, 'buddynext' ), number_format_i18n( $done ) );
+				break;
+			case 'restore':
+				/* translators: %s: number of posts. */
+				$message = sprintf( _n( '%s post restored.', '%s posts restored.', $done, 'buddynext' ), number_format_i18n( $done ) );
+				break;
+			default:
+				/* translators: %s: number of posts. */
+				$message = sprintf( _n( '%s post deleted.', '%s posts deleted.', $done, 'buddynext' ), number_format_i18n( $done ) );
+		}
+		if ( $failed > 0 ) {
+			/* translators: %s: number of posts that could not be actioned. */
+			$message .= ' ' . sprintf( _n( '%s could not be completed.', '%s could not be completed.', $failed, 'buddynext' ), number_format_i18n( $failed ) );
+		}
+		AdminPageBase::render_notice(
+			$message,
+			$failed > 0 ? 'warning' : 'success',
+			false,
+			array( 'data-bn-clear-param' => 'bn_bulk bn_bulk_done bn_bulk_failed' )
+		);
 	}
 
 	/**

@@ -1,6 +1,8 @@
 # Advanced Profile Field Types (Pro)
 
-Pro adds five richer profile field types on top of the free profile builder: an enhanced date, a map-based location, an advanced multi-select, an advanced number with units, and a conditional field that appears only when another field has a specific value. You build these the same way you build any profile field, and members fill them in with the matching input control.
+Pro adds four richer profile field types on top of the free profile builder: an enhanced date, a map-based location, an advanced multi-select, and an advanced number with units. You build these the same way you build any profile field, and members fill them in with the matching input control.
+
+To show any field (of any type) only when another answer matches, use [Conditional Logic for Profile Fields](27-conditional-profile-fields.md).
 
 ![A member profile populated with the richer Pro field types](../images/member-profile.webp)
 
@@ -16,9 +18,8 @@ Richer field types pay off in three places:
 
 - Members fill profiles in faster because the control does the work (a date picker, a map search, a units-aware number input) instead of asking them to format a value by hand.
 - The data comes back consistent, so directory filters, member search, and any later segmentation actually work on it.
-- Conditional fields keep the edit form short - a follow-up question only shows up when it is relevant, so members are not scrolling past fields that do not apply to them.
 
-A typical use: a professional network asks every member for their role, then a conditional "Years in management" number field that appears only when role is set to "Manager", and a location field for their city. Two of those three would be plain text boxes without Pro.
+A typical use: a professional network asks for a "Years in management" advanced number with a unit and a sensible range, and a location field for each member's city. Both would be plain text boxes without Pro. Add a condition so the years field only appears when Role is Manager.
 
 ## How it works (for members)
 
@@ -30,7 +31,7 @@ Renders a native date picker. The member picks a day from the calendar control i
 
 ### Location (map)
 
-Renders an address box with a map below it. Whatever the member types is what gets saved - they do not have to pick a suggestion from the lookup for their address to stick. If the lookup does recognise the place, its latitude and longitude are stored alongside the address, so the data is usable for distance or directory work later. If it does not, the address is still saved as the member wrote it.
+Renders an address box with a map below it. Whatever the member types is what gets saved - they do not have to pick a suggestion from the lookup for their address to stick. If the lookup recognises the place, its latitude and longitude are stored so the member's own map pin is preserved when they edit the field. Other members, and every app or API client, only ever see the address the member chose - the area, never the exact coordinates. If the lookup does not recognise the place, the address is still saved as the member wrote it.
 
 A set location can be cleared. The **Remove** control next to the field empties it, in the same way the avatar and cover image can be removed.
 
@@ -43,12 +44,6 @@ Renders the owner-defined list of choices and lets the member select more than o
 ### Number (advanced)
 
 Renders a number input. If you set a unit (for example years or kg), it shows next to the input, and the field enforces any minimum, maximum, and step you configured. The member cannot enter a value outside the allowed range.
-
-### Conditional field
-
-Stays hidden until the field it depends on holds the value the owner set. When the member sets that trigger field to the matching value, the conditional field appears and can be filled in. If the trigger value changes away, the conditional field hides again.
-
-> **Tip:** Conditional fields are the cleanest way to ask a follow-up question. Use them instead of one long form where half the fields do not apply to most members.
 
 ## Setting it up (for owners)
 
@@ -65,7 +60,7 @@ Pro field types appear in the same field builder you use for free fields, under 
 
 | Setting | What it controls | Default |
 |---|---|---|
-| (none) | The location type has no extra options to configure. It renders an address box plus map and stores address with coordinates. | - |
+| (none) | The location type has no extra options to configure. It renders an address box plus map and stores the address with the owner's map coordinates; other members and the API see the address only, never the exact coordinates. | - |
 
 ### Multi-select (advanced)
 
@@ -82,30 +77,23 @@ Pro field types appear in the same field builder you use for free fields, under 
 | Max | The highest value a member may enter. | empty (no maximum) |
 | Step | The increment the input snaps to (for example 1 for whole numbers, 0.5 for halves). | any |
 
-### Conditional field
-
-| Setting | What it controls | Default |
-|---|---|---|
-| Trigger field ID | The ID of the other field this one watches, entered as a number. The conditional field shows only when that field holds the value you set below. | none |
-| Trigger value | The value the watched field must hold for this field to appear. | empty |
-
 ## Good to know
 
 - Pro field types are built on the free field engine, so visibility, required, and ordering work the same as any free field. See Profile Fields for those base behaviours.
-- The location map and conditional show/hide are progressive enhancements layered on the saved value. If scripts do not load, members still get a working text input and the value still saves - the picker UX is the enhancement, not the storage.
+- The location map is a progressive enhancement layered on the saved value. If scripts do not load, members still get a working text input and the value still saves - the picker UX is the enhancement, not the storage.
 - Connected clients save through the same checks as the website, so a value entered through the API is validated and stored exactly like one entered on the site.
 - Empty profiles show nothing for a field a member has not filled in. To preview a field type end to end, fill it in and reopen the profile view.
-- A conditional field watches another field by its field ID. If you delete the watched field, or want it to react to a different field, update the conditional field's Trigger field ID so it keeps reacting to the right field.
 
 ## Free vs Pro
 
 The free plugin ships the core field types (text, textarea, select, checkbox, and the other standard inputs) and the whole field builder, member edit form, and profile view. See Profile Fields for that baseline.
 
-Pro adds the five field types documented here - extended date, location, advanced multi-select, advanced number, and conditional - by extending the free field engine. No free field type changes; Pro only adds to the type list and the per-type options.
+Pro adds the four field types documented here - extended date, location, advanced multi-select, and advanced number - by extending the free field engine. No free field type changes; Pro only adds to the type list and the per-type options.
 > **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Plans.
 
 ## Related
 
 - [Profile Fields](../members/02-profile-fields.md) - the base field builder these types extend.
+- [Conditional Logic for Profile Fields](27-conditional-profile-fields.md) - show a field only when another answer matches.
 - [Member Profiles](../members/01-member-profiles.md) - where the filled-in fields appear.
 - [Membership Plans](01-membership-plans.md) - advanced fields can be a plan perk.

@@ -807,7 +807,7 @@ class FollowService {
 			esc_html( $method ),
 			sprintf(
 				/* translators: 1: cap, 2: the paged method to use instead */
-				esc_html__( 'This member has more relations than the %1$d-row ceiling, so the list was truncated. Use %2$s for anything user-facing — it pages in SQL and does not load the whole set.', 'buddynext' ),
+				esc_html__( 'This member has more relations than the %1$d-row ceiling, so the list was truncated. Use %2$s for anything user-facing: it pages in SQL and does not load the whole set.', 'buddynext' ),
 				(int) $cap,
 				esc_html( $alternative )
 			),

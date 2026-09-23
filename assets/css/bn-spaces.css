@@ -3656,6 +3656,47 @@ a.bn-sh-statpill:focus-visible {
 	}
 }
 
+/* Space-owner "Last 30 days" analytics row (Pro, via
+   buddynext_space_admin_after_stats). Reuses the .bn-space-admin__stat tile, but
+   its own grid modifier because it carries four tiles, not three: 4 columns on
+   desktop, 2 on tablet, 1 on phone. Tokens only, so dark mode + RTL are free. */
+.bn-space-admin__analytics {
+	margin-block-start: var(--bn-s5);
+}
+
+.bn-space-admin__analytics-title {
+	margin: 0 0 var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+}
+
+.bn-space-admin__stats--analytics {
+	grid-template-columns: repeat(4, 1fr);
+	margin-block-start: 0;
+}
+
+.bn-space-admin__analytics-empty {
+	margin: 0;
+	padding: var(--bn-s4);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	background: var(--bn-surface);
+	border-radius: var(--bn-radius-base);
+}
+
+@media (max-width: 900px) {
+	.bn-space-admin__stats--analytics {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+@media (max-width: 640px) {
+	.bn-space-admin__stats--analytics {
+		grid-template-columns: 1fr;
+	}
+}
+
 /* ── Sub-spaces panel (space tab) ─────────────────────────────────────────────
    The viewport-independent home for a space's children. Their only entry point
    used to be the right-sidebar card, which is display:none below 1024px — so on
@@ -3783,4 +3824,161 @@ a.bn-sh-statpill:focus-visible {
 	color: var(--bn-ink-2);
 	font-size: var(--bn-text-sm);
 	font-variant-numeric: tabular-nums;
+}
+
+/* ── Invite-link settings panel ─────────────────────────────────────────────
+   The "Invite link" space-settings tab: create form, link display + copy,
+   reset. Token-driven, so dark mode and RTL follow the shared foundation. */
+.bn-invite-panel__create {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-invite-panel__fields {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s4);
+}
+
+.bn-invite-panel__field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 12rem;
+	flex: 1 1 12rem;
+}
+
+.bn-invite-panel__field-label {
+	font-size: var(--bn-fs-xs);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+}
+
+.bn-invite-panel__link {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	align-items: flex-start;
+}
+
+.bn-invite-panel__url-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	width: 100%;
+}
+
+.bn-invite-panel__url {
+	flex: 1 1 16rem;
+	min-width: 0;
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-fs-xs);
+}
+
+.bn-invite-panel__meta {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	margin: 0;
+}
+
+.bn-invite-panel__status {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+/* Owner/mod-only "Joined via invite link" flag on a member card. */
+.bn-md-card__via-link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-fs-xs);
+}
+
+.bn-md-card__via-link svg {
+	width: 0.9em;
+	height: 0.9em;
+}
+
+@media (max-width: 480px) {
+	.bn-invite-panel__field {
+		flex-basis: 100%;
+	}
+
+	.bn-invite-panel__url-row .bn-btn {
+		flex: 1 1 100%;
+	}
+}
+
+/* ── Phone-only Featured strip (directory) ──────────────────────────────────
+   The sidebar Featured card is display:none <=640px, so mobile shows this
+   compact horizontal scroller instead. Hidden above 640px. */
+.bn-sd-featured-strip {
+	display: none;
+}
+
+@media (max-width: 640px) {
+	.bn-sd-featured-strip {
+		display: block;
+		margin-block-end: var(--bn-s4);
+	}
+
+	.bn-sd-featured-strip__title {
+		display: flex;
+		align-items: center;
+		gap: var(--bn-s1);
+		margin: 0 0 var(--bn-s2);
+		font-size: var(--bn-text-sm);
+		font-weight: var(--bn-fw-semibold);
+		color: var(--bn-ink-2);
+	}
+
+	.bn-sd-featured-strip__scroll {
+		display: flex;
+		gap: var(--bn-s3);
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		-webkit-overflow-scrolling: touch;
+		padding-block-end: var(--bn-s1);
+	}
+
+	.bn-sd-featured-strip__card {
+		flex: 0 0 auto;
+		width: 9.5rem;
+		scroll-snap-align: start;
+		display: flex;
+		flex-direction: column;
+		gap: var(--bn-s2);
+		padding: var(--bn-s3);
+		border: 1px solid var(--bn-border);
+		border-radius: var(--bn-radius, 8px);
+		background: var(--bn-surface, var(--bn-canvas));
+	}
+
+	.bn-sd-featured-strip__link {
+		display: flex;
+		flex-direction: column;
+		gap: var(--bn-s1);
+		text-decoration: none;
+		color: inherit;
+	}
+
+	.bn-sd-featured-strip__name {
+		font-weight: var(--bn-fw-semibold);
+		color: var(--bn-ink-1);
+		font-size: var(--bn-text-sm);
+		line-height: var(--bn-leading-snug);
+	}
+
+	.bn-sd-featured-strip__count {
+		font-size: var(--bn-fs-xs);
+		color: var(--bn-ink-3);
+	}
+
+	.bn-sd-featured-strip__join {
+		width: 100%;
+	}
 }

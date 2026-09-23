@@ -87,23 +87,6 @@ if ( $active_conv_id <= 0 ) {
 // `to` (directory/connections), `recipient` (members REST), and `with` (profile
 // hero) are all in use across the site; accept every alias so every "Message"
 // entry point lands correctly.
-$bn_blocked_recipient = 0;
-$bn_block_reason      = '';
-if ( $active_conv_id <= 0 ) {
-	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-	$bn_to = absint( $_GET['to'] ?? ( $_GET['recipient'] ?? ( $_GET['with'] ?? 0 ) ) );
-	if ( $bn_to > 0 ) {
-		$bn_open        = MessagesData::open_with_result( $viewer, $bn_to );
-		$active_conv_id = (int) $bn_open['conversation_id'];
-		if ( $active_conv_id <= 0 ) {
-			// Messaging this member is not allowed (DM access level, block, or
-			// self) — surface a reason-aware notice instead of a blank thread pane.
-			$bn_blocked_recipient = $bn_to;
-			$bn_block_reason      = (string) $bn_open['reason'];
-		}
-	}
-}
-
 $helpers = MessagesData::helpers( $viewer );
 // Inbox cap grows via the ?convs= param so a member with more than 50 conversations
 // can page the rail (the "Load more" link below bumps it). phpcs:ignore below —
@@ -111,12 +94,48 @@ $helpers = MessagesData::helpers( $viewer );
 $bn_convs_cap = isset( $_GET['convs'] ) ? absint( wp_unslash( $_GET['convs'] ) ) : 50; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $convs        = MessagesData::conversations( $viewer, $active_tab, $bn_convs_cap );
 
+// Resolve ?to AFTER the rail is loaded so an existing thread can be reused
+// without a lookup that creates one.
+$bn_blocked_recipient = 0;
+$bn_block_reason      = '';
+$bn_pending_recipient = 0;
+if ( $active_conv_id <= 0 ) {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_to = absint( $_GET['to'] ?? ( $_GET['recipient'] ?? ( $_GET['with'] ?? 0 ) ) );
+	if ( $bn_to > 0 ) {
+		$bn_can = MessagesData::can_message_result( $viewer, $bn_to );
+		if ( ! $bn_can['allowed'] ) {
+			// Messaging this member is not allowed (DM access level, block, or
+			// self) — surface a reason-aware notice instead of a blank thread pane.
+			$bn_blocked_recipient = $bn_to;
+			$bn_block_reason      = (string) $bn_can['reason'];
+		} else {
+			// Reuse an existing thread with this member if the loaded rail has one
+			// (no new row). Otherwise stay in a compose-pending state: the FIRST
+			// send creates the thread, so merely opening a composer — a "Message"
+			// button or the New-message picker — never leaves an empty ghost
+			// thread in the recipient's inbox (find_or_create reuses the pair).
+			foreach ( array_merge( $convs['pinned'], $convs['recent'] ) as $bn_row ) {
+				if ( empty( $bn_row['is_group'] ) && (int) $bn_row['other_user_id'] === $bn_to ) {
+					$active_conv_id = (int) $bn_row['id'];
+					break;
+				}
+			}
+			if ( $active_conv_id <= 0 ) {
+				$bn_pending_recipient = $bn_to;
+			}
+		}
+	}
+}
+
 // Whether THIS request explicitly asked for a conversation (?conversation / ?to).
 // The mobile single-pane view keys off this: only an explicit open switches the
 // pane to the thread (is-thread-open). An auto-opened default must NOT, or the
 // back button — which navigates to /messages/ with no conversation — would land
 // on the auto-reopened newest thread and trap the member away from the rail.
-$bn_explicit_conv = ( $active_conv_id > 0 );
+// A compose-pending recipient is an explicit open too — the member asked to
+// message someone, so on mobile the composer pane must take over the rail.
+$bn_explicit_conv = ( $active_conv_id > 0 || $bn_pending_recipient > 0 );
 
 // When the inbox is opened with no explicit conversation (and the member is not
 // trying to reach a blocked/unreachable recipient), auto-open the most recent
@@ -126,7 +145,7 @@ $bn_explicit_conv = ( $active_conv_id > 0 );
 // both lists are empty, $active_conv_id stays 0, and the empty state still shows.
 // On DESKTOP this fills the right pane; on MOBILE the rail still shows first
 // (is-thread-open is withheld below because this open was not explicit).
-if ( $active_conv_id <= 0 && 0 === $bn_blocked_recipient ) {
+if ( $active_conv_id <= 0 && 0 === $bn_blocked_recipient && 0 === $bn_pending_recipient ) {
 	$bn_default_conv = (int) ( $convs['pinned'][0]['id'] ?? ( $convs['recent'][0]['id'] ?? 0 ) );
 	if ( $bn_default_conv > 0 ) {
 		$active_conv_id = $bn_default_conv;
@@ -135,6 +154,27 @@ if ( $active_conv_id <= 0 && 0 === $bn_blocked_recipient ) {
 
 $thread       = $active_conv_id > 0 ? MessagesData::thread( $active_conv_id, $viewer ) : null;
 $messages_url = PageRouter::messages_url();
+
+// Compose-pending recipient identity (allowed, but no thread yet). Feeds the
+// composer pane's header and the JS create-on-first-send. Built with the same
+// avatar/tone helpers thread() uses so the pane matches a real thread.
+$bn_pending = null;
+if ( $bn_pending_recipient > 0 && ! $thread ) {
+	$bn_pending_user = get_userdata( $bn_pending_recipient );
+	if ( $bn_pending_user ) {
+		$bn_pending = array(
+			'id'           => $bn_pending_recipient,
+			'display_name' => (string) $bn_pending_user->display_name,
+			'avatar_html'  => get_avatar( $bn_pending_recipient, 40, '', (string) $bn_pending_user->display_name, array( 'force_display' => true ) ),
+			'tone'         => $helpers['tone_fn']( $bn_pending_recipient ),
+			'initials'     => $helpers['initials_fn']( $bn_pending_user->display_name ),
+			'is_online'    => (bool) $helpers['online_fn']( $bn_pending_recipient ),
+			'profile_url'  => PageRouter::profile_url( $bn_pending_recipient ),
+		);
+	} else {
+		$bn_pending_recipient = 0; // Recipient vanished — fall back to the empty state.
+	}
+}
 
 $bn_ctx = wp_json_encode(
 	array(
@@ -150,6 +190,8 @@ $bn_ctx = wp_json_encode(
 		'groupMembers'        => array(),
 		'groupBusy'           => false,
 		'activeConvId'        => $thread ? (int) $thread['conversation_id'] : 0,
+		// Compose-pending: no thread yet; the first send creates it for this user.
+		'pendingRecipientId'  => $bn_pending ? (int) $bn_pending['id'] : 0,
 		'isMuted'             => $thread ? ! empty( $thread['is_muted'] ) : false,
 		'searchOpen'          => false,
 		'activeIsGroup'       => $thread ? ! empty( $thread['is_group'] ) : false,
@@ -161,9 +203,9 @@ $bn_ctx = wp_json_encode(
 		'groupAddOpen'        => false,
 		// Conversation info panel (1:1) — recipient identity + safety actions.
 		'infoPanelOpen'       => false,
-		'recipientId'         => ( $thread && empty( $thread['is_group'] ) ) ? (int) $thread['other_user_id'] : 0,
-		'recipientName'       => $thread ? (string) $thread['display_name'] : '',
-		'recipientUrl'        => ( $thread && ! empty( $thread['other_user_id'] ) ) ? esc_url_raw( PageRouter::profile_url( (int) $thread['other_user_id'] ) ) : '',
+		'recipientId'         => ( $thread && empty( $thread['is_group'] ) ) ? (int) $thread['other_user_id'] : ( $bn_pending ? (int) $bn_pending['id'] : 0 ),
+		'recipientName'       => $thread ? (string) $thread['display_name'] : ( $bn_pending ? (string) $bn_pending['display_name'] : '' ),
+		'recipientUrl'        => ( $thread && ! empty( $thread['other_user_id'] ) ) ? esc_url_raw( PageRouter::profile_url( (int) $thread['other_user_id'] ) ) : ( $bn_pending ? esc_url_raw( (string) $bn_pending['profile_url'] ) : '' ),
 		'infoBusy'            => false,
 		'replyToId'           => 0,
 		'replyToText'         => '',
@@ -178,7 +220,7 @@ $bn_ctx = wp_json_encode(
 		'i18n'                => array(
 			'composeHint'       => __( 'Type a name to find someone to message.', 'buddynext' ),
 			'composeNone'       => __( 'No members found.', 'buddynext' ),
-			'mediaEmpty'        => __( 'No photos yet — upload one to share.', 'buddynext' ),
+			'mediaEmpty'        => __( 'No photos yet: upload one to share.', 'buddynext' ),
 			'composeNewMessage' => __( 'New message', 'buddynext' ),
 			'composeNewGroup'   => __( 'New group', 'buddynext' ),
 			'groupCreateFailed' => __( 'Could not create the group. Please try again.', 'buddynext' ),
@@ -196,7 +238,7 @@ $bn_ctx = wp_json_encode(
 );
 ?>
 <div
-	class="bn-messages-content bn-split bn-dm<?php echo ( $thread && $bn_explicit_conv ) ? ' is-thread-open' : ''; ?>"
+	class="bn-messages-content bn-split bn-dm<?php echo ( ( $thread || $bn_pending ) && $bn_explicit_conv ) ? ' is-thread-open' : ''; ?>"
 	data-bn-main-edge="true"
 	data-wp-interactive="buddynext/messages"
 	data-wp-context='<?php echo esc_attr( (string) $bn_ctx ); ?>'
@@ -273,6 +315,51 @@ $bn_ctx = wp_json_encode(
 						array( 'conversation_id' => (int) $thread['conversation_id'] )
 					);
 				}
+				?>
+			</div>
+		<?php elseif ( $bn_pending ) : ?>
+			<?php
+			// Compose-pending: the member asked to message someone we have no
+			// thread with yet. Render the same header + composer a real thread
+			// shows, but NO conversation is created here — the first send creates
+			// it (store.js sendMessage, via pendingRecipientId). No initThread: there
+			// is no conversation to poll/mark-read yet.
+			?>
+			<div class="bn-dm-thread__inner">
+				<?php
+				buddynext_get_template(
+					'parts/dm-thread-header.php',
+					array(
+						'display_name'  => $bn_pending['display_name'],
+						'other_user_id' => $bn_pending['id'],
+						'is_online'     => $bn_pending['is_online'],
+						'tone'          => $bn_pending['tone'],
+						'initials'      => $bn_pending['initials'],
+						'avatar_html'   => $bn_pending['avatar_html'],
+						'profile_url'   => $bn_pending['profile_url'],
+						'back_url'      => $messages_url,
+						'is_group'      => false,
+						'member_count'  => 0,
+					)
+				);
+
+				buddynext_get_template(
+					'parts/dm-thread-messages.php',
+					array(
+						'messages'           => array(),
+						'current_user_id'    => $viewer,
+						'thread_tone'        => $bn_pending['tone'],
+						'thread_initials'    => $bn_pending['initials'],
+						'thread_avatar_html' => $bn_pending['avatar_html'],
+						'aria_label'         => __( 'Conversation messages', 'buddynext' ),
+					)
+				);
+
+				// conversation_id 0 → the composer's send creates the thread first.
+				buddynext_get_template(
+					'parts/dm-composer.php',
+					array( 'conversation_id' => 0 )
+				);
 				?>
 			</div>
 		<?php elseif ( $bn_blocked_recipient > 0 ) : ?>

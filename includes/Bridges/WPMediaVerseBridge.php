@@ -207,9 +207,36 @@ class WPMediaVerseBridge {
 		add_filter( 'mvs_has_custom_avatar', array( $this, 'profile_avatar_flag' ), 10, 2 );
 
 		add_filter( 'mvs_document_drive_access', array( $this, 'space_drive_access' ), 10, 4 );
+
+		/*
+		 * NOT DEAD CODE, though a sweep will read them that way. These three answer
+		 * live MVS REST seams that BuddyNext's OWN Files tab happens to bypass
+		 * because it renders server-side (drive_view_core), so nothing here calls
+		 * them - but the engine still fires them for the app and any API client:
+		 *
+		 * - drive_visible: the 403-vs-404 refusal on GET a drive
+		 *   (AbstractDocumentController). Without our answer a joinable space drive
+		 *   returns a misleading 404 and the frozen `mvs_drive_forbidden` (403,
+		 *   "exists, join to see") becomes unreachable - a hole in the contract,
+		 *   not a leak (a secret space stays 404 by default).
+		 * - drives_for_user + drive_label: the drive picker / discovery on
+		 *   GET /drives (DocumentController) - how a client lists and names the
+		 *   space drives a member may write to. Our Files tab knows its own drive
+		 *   already, so it never asks; a mobile client has no other way.
+		 *
+		 * Do not remove them because grep finds no in-tree caller.
+		 */
 		add_filter( 'mvs_document_drive_visible', array( $this, 'space_drive_visible' ), 10, 4 );
 		add_filter( 'mvs_document_drives_for_user', array( $this, 'space_drives_for_user' ), 10, 2 );
 		add_filter( 'mvs_document_drive_label', array( $this, 'space_drive_label' ), 10, 3 );
+
+		// Who may MODERATE a space's linked files (remove another member's "Link
+		// file" link). The drive-access ladder above maps BOTH member and
+		// moderator to 'write', so it cannot answer moderation on its own — this
+		// separates a space's moderators/owner from its rank-and-file members,
+		// the same way Eventonomy's evnm_user_can_unbind_space does. A regular
+		// member can still remove their OWN link; Pro checks file ownership too.
+		add_filter( 'mvs_document_can_moderate_space', array( $this, 'space_files_can_moderate' ), 10, 3 );
 
 		// The fifth drive filter (MV Pro froze it in 2.4.0). Documents got a drive
 		// at ingest from day one; media never did, so every upload landed on the
@@ -301,6 +328,21 @@ class WPMediaVerseBridge {
 		// the app + UI and used to fire nothing, so a composer document card would
 		// linger after its document was gone; remove it here by id.
 		add_action( 'mvs_document_trashed', array( $this, 'on_document_trashed' ), 10, 1 );
+
+		// The MEDIA half of the same lifecycle. WPMediaVerse fires mvs_media_trashed
+		// / mvs_media_restored with the SAME three args as mvs_media_deleted, built
+		// so this bridge can withdraw the mirrored 'media' feed card on trash and
+		// re-add it on restore. Trash is the everyday "delete" from the app and its
+		// UI; without this a trashed video or audio upload leaves a feed card that
+		// points at content now in the bin. Restore re-publishes the card - it
+		// stores only a reference to the media (see publish_media_activity), so it
+		// reconstructs exactly, and publish is idempotent by URL. Privacy is NOT
+		// mirrored here: the card resolves per viewer at render (hydrate_media_
+		// preview), which is strictly more correct than a blunt privacy-change
+		// withdrawal that would also hide a members-scoped upload from the members
+		// who may still see it.
+		add_action( 'mvs_media_trashed', array( $this, 'on_media_trashed' ), 10, 3 );
+		add_action( 'mvs_media_restored', array( $this, 'on_media_restored' ), 10, 3 );
 
 		// Media links resolve to the activity the item was posted in, not a
 		// dedicated /media/{slug}/ page — every upload already becomes an activity
@@ -552,6 +594,20 @@ class WPMediaVerseBridge {
 			return $args;
 		}
 
+		// PRIVACY IS RESOLVED HERE, PER VIEWER. If the media's privacy was tightened
+		// after posting (public -> members / private / space), the person reading
+		// the feed may no longer be allowed to see it. The cover is already gated by
+		// get_thumbnail_url_for_viewer() below, but the TITLE was not - so a file
+		// renamed-then-locked still printed its current name to everyone. Gate both
+		// on can_view(): a viewer who may not see the media gets the coverless,
+		// titleless compact card (the generic verb plus the link), never its
+		// contents. Degrades open only when the privacy service is absent.
+		$privacy = MediaClient::privacy();
+		if ( is_object( $privacy ) && method_exists( $privacy, 'can_view' )
+			&& ! $privacy->can_view( $media_id, get_current_user_id() ) ) {
+			return $args;
+		}
+
 		if ( method_exists( $repo, 'get' ) ) {
 			$title = (string) $repo->get( $media_id, 'title' );
 			if ( '' !== $title ) {
@@ -619,6 +675,72 @@ class WPMediaVerseBridge {
 		if ( $media_id > 0 ) {
 			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
 		}
+	}
+
+	/**
+	 * Withdraw the media feed card when its source is TRASHED (soft delete).
+	 *
+	 * Same withdrawal as on_media_deleted's URL path, but reversible: the card
+	 * comes back through on_media_restored(). Only the 'media' card (video /
+	 * audio) is keyed on the permalink - documents are handled by
+	 * on_document_trashed(), and photos are native posts, not bridge cards, so a
+	 * remove() keyed on the media permalink is a no-op for both. The permalink is
+	 * carried on the hook because the row is already trashed by the time it fires.
+	 *
+	 * @param int    $media_id  Trashed media id (unused; the card is keyed on URL).
+	 * @param int    $author_id Author (unused here).
+	 * @param string $permalink The media's public permalink, as posted.
+	 * @return void
+	 */
+	public function on_media_trashed( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		$permalink = (string) $permalink;
+		if ( '' !== $permalink ) {
+			// Withdraw, not delete: trash is reversible (on_media_restored), so the
+			// card goes to 'draft' — hidden from feeds but its id, date, reactions and
+			// comments preserved — and restore brings back the exact same card rather
+			// than orphaning its comments and resurfacing it as new (card 10320560928).
+			IntegrationActivity::withdraw( $permalink, 'media' );
+		}
+	}
+
+	/**
+	 * Re-add the media feed card when its source is RESTORED from the trash.
+	 *
+	 * Undoes on_media_trashed(). publish_media_activity() stores only a reference
+	 * to the media (id + permalink), so re-running it rebuilds the card exactly as
+	 * it was, and it is idempotent by URL (a double restore is a no-op). It also
+	 * re-applies every gate the original publish had - the media/feed toggle, the
+	 * "photos become native posts / documents are not feed material / already
+	 * attached" skips - so nothing is announced now that would not have been then.
+	 *
+	 * @param int    $media_id  Restored media id.
+	 * @param int    $author_id Author user id.
+	 * @param string $permalink The media's permalink (unused; resolved in publish).
+	 * @return void
+	 */
+	public function on_media_restored( $media_id, $author_id = 0, $permalink = '' ): void {
+		$media_id  = (int) $media_id;
+		$author_id = (int) $author_id;
+		if ( $media_id <= 0 || $author_id <= 0 ) {
+			return;
+		}
+
+		// Bring back the exact card on_media_trashed withdrew — same id, date and
+		// comments. Only fall through to a fresh publish when there was no withdrawn
+		// card to restore (e.g. the media/feed toggle was off when it was trashed, so
+		// a card was never created), where publish_media_activity re-applies every
+		// gate the original publish had.
+		$permalink = (string) $permalink;
+		if ( '' !== $permalink && IntegrationActivity::restore( $permalink, 'media' ) ) {
+			return;
+		}
+
+		$repo = MediaClient::repo();
+		$type = ( is_object( $repo ) && method_exists( $repo, 'get' ) )
+			? (string) $repo->get( $media_id, 'media_type' )
+			: '';
+
+		$this->publish_media_activity( $media_id, $author_id, $type );
 	}
 
 	/**
@@ -961,11 +1083,15 @@ class WPMediaVerseBridge {
 	public function register_integration( array $items ): array {
 		if ( MediaClient::available() ) {
 			$items['media'] = array(
-				'label'    => __( 'Media', 'buddynext' ),
-				'version'  => defined( 'MVS_VERSION' ) ? MVS_VERSION : null,
-				'has_nav'  => true,
-				'has_feed' => true,
-				'subtabs'  => array(
+				'label'          => __( 'Media', 'buddynext' ),
+				'version'        => defined( 'MVS_VERSION' ) ? MVS_VERSION : null,
+				// Floor: 2.4.0 added the collections / document-drive / trash seams
+				// the bridge wires. Tested against the current release, 2.5.0.
+				'min_version'    => '2.4.0',
+				'tested_version' => '2.5.0',
+				'has_nav'        => true,
+				'has_feed'       => true,
+				'subtabs'        => array(
 					'albums' => __( 'Albums', 'buddynext' ),
 				),
 			);
@@ -1569,6 +1695,40 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Answer MediaVerse: may this member moderate a space's linked files?
+	 *
+	 * True for the space's owner or a moderator, and for a site admin. False for
+	 * a plain member (they may add files and remove their OWN links, but not
+	 * another member's). Fail-closed: a non-space drive, an unknown space, or a
+	 * signed-out viewer all resolve to false.
+	 *
+	 * @param bool $can      Incoming default (false).
+	 * @param int  $space_id Space id (the space drive's id).
+	 * @param int  $user_id  Viewer.
+	 * @return bool
+	 */
+	public function space_files_can_moderate( $can, $space_id, $user_id ): bool {
+		$space_id = (int) $space_id;
+		$user_id  = (int) $user_id;
+
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return (bool) $can;
+		}
+
+		if ( null === self::drive_space( 'space', $space_id ) ) {
+			return (bool) $can;
+		}
+
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		$role = buddynext_service( 'space_members' )->get_role( $space_id, $user_id );
+
+		return in_array( $role, array( 'owner', 'moderator' ), true );
+	}
+
+	/**
 	 * Answer MVS: which drive does this upload belong on.
 	 *
 	 * Read from an EXPLICIT `space_id` on the write args rather than inferred from
@@ -1861,6 +2021,16 @@ class WPMediaVerseBridge {
 		$doc_headers = $docs_res->get_headers();
 		$fol_headers = $folders_res->get_headers();
 
+		// Mark which documents are LINKED into this space rather than living here.
+		// A space drive lists both its own files (home drive = this space) and
+		// files linked in from elsewhere (mvs_media_spaces). The Files tab removes
+		// them differently — a native file re-homes to its owner's drive, a linked
+		// file just loses the link — so the row needs to know which it is. The REST
+		// item already carries its home drive, so this costs no query.
+		if ( 'space' === $drive_type ) {
+			$documents = self::flag_linked_documents( $documents, $drive_id );
+		}
+
 		// The current viewer's write level on this drive. The Files tab is a
 		// browse/download view, not an uploader — contribution arrives through the
 		// activity composer — so this decides whether the empty state TELLS them
@@ -1903,6 +2073,31 @@ class WPMediaVerseBridge {
 			'folder_page'  => $folder_page,
 			'can_write'    => in_array( $access, array( 'write', 'own' ), true ),
 		);
+	}
+
+	/**
+	 * Flag which listed documents are LINKED into a space rather than living there.
+	 *
+	 * A file whose home drive is NOT this space (its `drive` is a user drive, or a
+	 * different space) got here through mvs_media_spaces, so the Files tab removes
+	 * it by dropping the link, not by re-homing. The REST item carries its home
+	 * drive as `drive => { type, id }`, so this costs no query. Shared by the
+	 * browse and search paths so both mark rows the same way.
+	 *
+	 * @param array<int,array<string,mixed>> $documents REST document items.
+	 * @param int                            $space_id  The space drive being listed.
+	 * @return array<int,array<string,mixed>> The same items, each with `is_linked`.
+	 */
+	private static function flag_linked_documents( array $documents, int $space_id ): array {
+		foreach ( $documents as $i => $doc ) {
+			$drive     = isset( $doc['drive'] ) && is_array( $doc['drive'] ) ? $doc['drive'] : array();
+			$home_type = isset( $drive['type'] ) ? (string) $drive['type'] : '';
+			$home_id   = isset( $drive['id'] ) ? (int) $drive['id'] : 0;
+
+			$documents[ $i ]['is_linked'] = ! ( 'space' === $home_type && $home_id === $space_id );
+		}
+
+		return $documents;
 	}
 
 	/**
@@ -2033,8 +2228,15 @@ class WPMediaVerseBridge {
 		}
 		$data  = (array) $res->get_data();
 		$index = isset( $data['index'] ) && is_array( $data['index'] ) ? $data['index'] : array();
+		$items = isset( $data['items'] ) && is_array( $data['items'] ) ? $data['items'] : array();
+		// Search covers files LINKED into a space too (SearchService unions them),
+		// so mark them the same way the browse listing does — the row's Remove and
+		// badge depend on it.
+		if ( 'space' === $drive_type ) {
+			$items = self::flag_linked_documents( $items, $drive_id );
+		}
 		return array(
-			'items' => isset( $data['items'] ) && is_array( $data['items'] ) ? $data['items'] : array(),
+			'items' => $items,
 			'total' => isset( $data['total'] ) ? (int) $data['total'] : 0,
 			'pages' => isset( $data['pages'] ) ? max( 1, (int) $data['pages'] ) : 1,
 			'page'  => $page,

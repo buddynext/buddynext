@@ -5,6 +5,10 @@ import { urls } from '../_fixtures/selectors';
 /**
  * J-51 notification preferences.
  *
+ * Covers: cap-see-in-app-notifications-mark-them-read-and-set-preferences
+ * preferences - see FRICTION in the role-coverage report.
+ * Roles: member
+ *
  * Smoke-walks /settings/notifications/ and the legacy alias
  * /notifications/preferences/ asserting the four sections render and at
  * least one per-type row is interactive.

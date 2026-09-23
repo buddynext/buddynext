@@ -28,17 +28,20 @@ All paths below are prefixed with `/wp-json/buddynext/v1`.
 | POST | `/auth/lost-password` | Public | Start a password reset for `user_login` (email or username). |
 | POST | `/auth/reset-password` | Public | Complete a reset with `key` + `login` + new `password`. |
 | POST | `/auth/approve/{id}` | Admin | Approve a pending member (manual-approval registration mode). |
+| POST | `/auth/verify` | Public | Complete email verification with a `token` from the verification email/link. |
 | POST | `/auth/verify/resend` | Logged in | Resend the email-verification message for the current user. |
 | GET | `/auth/verify/status` | Logged in | Return the current user's email-verification status. |
+| POST | `/auth/verify/self` | `manage_options` | Admin-only bypass: mark the current (admin) session verified without an email round-trip, for local/staging setup. |
 | POST | `/auth/change-password` | Logged in | Set a new password after verifying `current_password`. Returns 422 with field-keyed errors on failure. |
 | POST | `/auth/change-email` | Logged in | Change the current user's email (`email`). |
 | POST | `/auth/sign-out-everywhere` | Logged in | Destroy all of the current user's sessions on every device. |
 | POST | `/auth/app-password` | Logged in | Mint a WordPress Application Password for the current user (optional `name`). The plaintext password is returned once (201). |
 | GET | `/auth/app-password` | Logged in | List the current user's Application Passwords (metadata only, never the secret). |
 | DELETE | `/auth/app-password/{uuid}` | Logged in | Revoke one of the current user's Application Passwords. |
+| POST | `/auth/app-connect` | Logged in | The connect-app bridge's mint step: the browser-side approve screen (`{auth}/connect-app/`) POSTs here over the member's cookie session and gets back an Application Password credential plus the deep link that returns it to the native app. Body: `scheme`, `bridge_token` (required); `app_name`, `app_id`, `state` (optional). |
 | GET | `/auth/nonce` | Public | Mint a fresh `wp_rest` nonce for the current session (stale-nonce recovery). |
 
-> The login, register, 2FA, lost-password, and reset-password routes register with `permission_callback => __return_true`. They are reachable by anyone, by design, because the caller is pre-session. `/auth/approve/{id}` checks an admin capability in its own callback; the verify/change/sign-out routes check `require_auth` (logged in).
+> The login, register, 2FA, lost-password, reset-password, and verify routes register with `permission_callback => __return_true`. They are reachable by anyone, by design, because the caller is pre-session. `/auth/approve/{id}` checks an admin capability in its own callback; `/auth/verify/self` requires `manage_options`; the remaining verify/change/sign-out/app-password/app-connect routes check `require_auth` (logged in).
 
 ### `GET /auth/register/config` - read this before you register
 

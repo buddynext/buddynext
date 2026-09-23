@@ -260,10 +260,43 @@ class PwaService {
 		$login_path_js = wp_json_encode( '' !== $login_path ? $login_path : '/wp-login.php', JSON_UNESCAPED_SLASHES );
 		$rest_path_js  = wp_json_encode( '' !== $rest_path ? $rest_path : '/wp-json/', JSON_UNESCAPED_SLASHES );
 
+		/**
+		 * Filters extra scripts imported into the service worker via importScripts().
+		 *
+		 * A companion plugin (e.g. Learnomy's offline lesson-progress queue) adds its
+		 * own worker logic here rather than shipping a second service worker, which
+		 * cannot exist for the same scope. Same-origin URLs only: a cross-origin
+		 * import is dropped (a worker may not importScripts across origins, and it
+		 * would be a supply-chain hole). Each import is wrapped so one broken script
+		 * cannot abort worker installation. When empty, the worker bytes are
+		 * unchanged, so no needless re-install is forced.
+		 *
+		 * @since 1.2.1
+		 *
+		 * @param string[] $imports Same-origin absolute or root-relative script URLs.
+		 */
+		$worker_imports = (array) apply_filters( 'buddynext_pwa_worker_imports', array() );
+		$origin_host    = (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST );
+		$import_lines   = array();
+		foreach ( $worker_imports as $import_url ) {
+			$import_url = (string) $import_url;
+			if ( '' === $import_url ) {
+				continue;
+			}
+			// Root-relative (no host) is same-origin; an absolute URL must match the
+			// site host. Anything else is cross-origin and dropped.
+			$host = (string) wp_parse_url( $import_url, PHP_URL_HOST );
+			if ( '' !== $host && $host !== $origin_host ) {
+				continue;
+			}
+			$import_lines[ $import_url ] = 'try { importScripts(' . wp_json_encode( $import_url, JSON_UNESCAPED_SLASHES ) . '); } catch (e) {}';
+		}
+		$imports_js = $import_lines ? ( implode( "\n", array_values( $import_lines ) ) . "\n\n" ) : '';
+
 		return <<<JS
 'use strict';
 
-const SHELL_CACHE = '{$shell_cache}';
+{$imports_js}const SHELL_CACHE = '{$shell_cache}';
 const ASSET_CACHE = '{$asset_cache}';
 const OFFLINE_URL = {$offline_js};
 const SHELL_ASSETS = {$shell};

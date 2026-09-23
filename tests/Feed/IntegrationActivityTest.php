@@ -127,6 +127,113 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * withdraw() then restore() brings back the SAME card — same id, same original
+	 * date — instead of the delete + re-create that resurfaced the thread as new.
+	 *
+	 * This is the core of card 10320560928: an unpublish → republish round trip must
+	 * not mint a new card. withdraw() hides the card ('draft', kept out of feeds);
+	 * restore() brings it back 'published'.
+	 *
+	 * @return void
+	 */
+	public function test_withdraw_then_restore_preserves_the_same_card(): void {
+		global $wpdb;
+
+		$url = 'https://example.test/discussions/221/';
+		$id  = IntegrationActivity::publish( $this->member_id, 'started a discussion', $url, 'Critique thread', 'discussion' );
+		$this->assertGreaterThan( 0, $id );
+
+		$before = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, status, created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		$this->assertSame( 'published', $before['status'] );
+
+		// Unpublish → the card is withdrawn, not deleted: the SAME row survives,
+		// hidden from feeds ('draft').
+		$this->assertTrue( IntegrationActivity::withdraw( $url, 'discussion' ) );
+		$withdrawn = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, status, created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		$this->assertNotNull( $withdrawn, 'the card row is preserved, not deleted' );
+		$this->assertSame( 'draft', $withdrawn['status'], 'a withdrawn card is hidden from every feed' );
+
+		// Republish → the SAME card comes back published, with its original date.
+		$this->assertTrue( IntegrationActivity::restore( $url, 'discussion' ) );
+		$after = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, status, created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		$this->assertSame( (int) $before['id'], (int) $after['id'], 'same card id, not a new one' );
+		$this->assertSame( 'published', $after['status'] );
+		$this->assertSame( $before['created_at'], $after['created_at'], 'the original date is kept — the thread does not resurface as new' );
+	}
+
+	/**
+	 * A comment on the card survives the round trip because the card id — which the
+	 * comment's object_id points at — never changes. The delete + re-create bug left
+	 * comments pointing at a post that no longer existed.
+	 *
+	 * @return void
+	 */
+	public function test_comments_are_not_orphaned_by_a_withdraw_restore_round_trip(): void {
+		global $wpdb;
+
+		$url = 'https://example.test/discussions/222/';
+		$id  = IntegrationActivity::publish( $this->member_id, 'started a discussion', $url, 'Thread with replies', 'discussion' );
+		$this->assertGreaterThan( 0, $id );
+
+		// A member reply on the feed card, keyed on the card id.
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_comments',
+			array(
+				'user_id'     => $this->member_id,
+				'object_type' => 'post',
+				'object_id'   => $id,
+				'content'     => 'a reply',
+			),
+			array( '%d', '%s', '%d', '%s' )
+		);
+
+		IntegrationActivity::withdraw( $url, 'discussion' );
+		IntegrationActivity::restore( $url, 'discussion' );
+
+		$still_valid = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments c
+				 JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id
+				 WHERE c.object_id = %d",
+				$id
+			)
+		);
+		$this->assertSame( 1, $still_valid, 'the reply still points at a card that exists — never orphaned' );
+	}
+
+	/**
+	 * withdraw()/restore() never fight moderation: a card a moderator hid to
+	 * under_review is neither withdrawn (it is not 'published') nor restored (it is
+	 * not 'draft'), so an author toggling the source cannot un-hide reported content.
+	 *
+	 * @return void
+	 */
+	public function test_withdraw_and_restore_leave_a_moderated_card_alone(): void {
+		global $wpdb;
+
+		$url = 'https://example.test/discussions/223/';
+		$id  = IntegrationActivity::publish( $this->member_id, 'started a discussion', $url, 'Reported thread', 'discussion' );
+
+		// A moderator hid it.
+		$wpdb->update( $wpdb->prefix . 'bn_posts', array( 'status' => 'under_review' ), array( 'id' => $id ), array( '%s' ), array( '%d' ) );
+
+		$this->assertFalse( IntegrationActivity::withdraw( $url, 'discussion' ), 'withdraw only touches a published card' );
+		$this->assertFalse( IntegrationActivity::restore( $url, 'discussion' ), 'restore only touches a withdrawn (draft) card' );
+
+		$status = $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ) );
+		$this->assertSame( 'under_review', $status, 'the moderator hold is untouched' );
+	}
+
+	/**
 	 * Builds a linked bridge card from the post-body args.
 	 *
 	 * @return void
@@ -231,5 +338,97 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE type = 'event' AND link_url = %s", 'https://example.test/event/b/' )
 		);
 		$this->assertSame( 1, $survives, 'event 600 is not matched by a 60 removal (exact id, not a LIKE)' );
+	}
+
+	/**
+	 * withdraw_by_meta()/restore_by_meta() move every card for one partner id between
+	 * hidden and live WITHOUT deleting — an event's organizer + attendee cards
+	 * withdrawn together when it is cancelled and restored together when reinstated,
+	 * same ids and comments. A different id sharing a digit prefix is untouched.
+	 *
+	 * @return void
+	 */
+	public function test_withdraw_and_restore_by_meta_move_the_whole_set_reversibly(): void {
+		global $wpdb;
+
+		IntegrationActivity::publish( $this->member_id, 'scheduled an event', 'https://example.test/ev/a/', 'A', 'event', '', 0, array( 'event_id' => 70 ) );
+		IntegrationActivity::publish( $this->member_id, 'is attending', 'https://example.test/ev/a/?bn_rsvp=5', 'A', 'event', '', 0, array( 'event_id' => 70 ) );
+		IntegrationActivity::publish( $this->member_id, 'scheduled an event', 'https://example.test/ev/b/', 'B', 'event', '', 0, array( 'event_id' => 700 ) );
+
+		$published_70 = static function () use ( $wpdb ): int {
+			return (int) $wpdb->get_var(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts p
+				 WHERE type = 'event' AND status = 'published'
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, '$.event_id' ) ) AS UNSIGNED ) = 70"
+			);
+		};
+		$ids_70 = static function () use ( $wpdb ): array {
+			return array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					"SELECT id FROM {$wpdb->prefix}bn_posts
+					 WHERE type = 'event'
+					   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, '$.event_id' ) ) AS UNSIGNED ) = 70
+					 ORDER BY id"
+				)
+			);
+		};
+
+		$this->assertSame( 2, $published_70(), 'both event-70 cards start on the feed' );
+		$before = $ids_70();
+
+		// Withdraw the whole event-70 set.
+		$this->assertSame( 2, IntegrationActivity::withdraw_by_meta( 'event', 'event_id', 70 ) );
+		$this->assertSame( 0, $published_70(), 'both event-70 cards leave the feed' );
+		$this->assertSame( $before, $ids_70(), 'the rows are preserved, not deleted' );
+		// A prefix-sharing id (700) is untouched by a 70 withdrawal.
+		$status_700 = (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$wpdb->prefix}bn_posts WHERE type = 'event' AND link_url = %s", 'https://example.test/ev/b/' ) );
+		$this->assertSame( 'published', $status_700, 'event 700 is not touched by a 70 withdrawal (exact id, not a LIKE)' );
+
+		// Restore the set — same ids, back on the feed.
+		$this->assertSame( 2, IntegrationActivity::restore_by_meta( 'event', 'event_id', 70 ) );
+		$this->assertSame( 2, $published_70(), 'both event-70 cards are back on the feed' );
+		$this->assertSame( $before, $ids_70(), 'the SAME card ids — no duplicates, no orphaned comments' );
+	}
+
+	/**
+	 * remove() (the URL path) cascades the card's comments and their child rows, not
+	 * just the bn_posts row. A permanent bridge delete — a listing/course/event/
+	 * discussion purged upstream — used to drop the card and leave every commenter's
+	 * bn_comments row (and its reactions/notifications/reports) dangling. delete_by_link
+	 * now routes through the same cascade delete_by_link_meta_int already used.
+	 *
+	 * @return void
+	 */
+	public function test_remove_by_link_cascades_the_cards_comments(): void {
+		global $wpdb;
+
+		$url = 'https://example.test/listing/42/';
+		$id  = IntegrationActivity::publish( $this->member_id, 'listed a business', $url, 'Cafe', 'listing' );
+		$this->assertIsInt( $id );
+
+		$other = self::factory()->user->create();
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_comments',
+			array( 'object_type' => 'post', 'object_id' => $id, 'user_id' => $other, 'content' => 'nice' ),
+			array( '%s', '%d', '%d', '%s' )
+		);
+		$comment_id = (int) $wpdb->insert_id;
+		$this->assertGreaterThan( 0, $comment_id );
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_reactions',
+			array( 'object_type' => 'comment', 'object_id' => $comment_id, 'user_id' => $other, 'emoji' => 'like' ),
+			array( '%s', '%d', '%d', '%s' )
+		);
+
+		$this->assertSame( 1, IntegrationActivity::remove( $url, 'listing' ), 'the card is removed' );
+
+		$card_left    = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ) );
+		$comment_left = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id = %d", $id ) );
+		$react_left   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions WHERE object_type = 'comment' AND object_id = %d", $comment_id ) );
+
+		$this->assertSame( 0, $card_left, 'the card row is gone' );
+		$this->assertSame( 0, $comment_left, 'the comment is cascaded, not orphaned' );
+		$this->assertSame( 0, $react_left, 'the comment reaction is cascaded, not orphaned' );
 	}
 }

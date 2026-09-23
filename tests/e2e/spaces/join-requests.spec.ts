@@ -11,6 +11,9 @@ import {
 /**
  * J-607 / J-608 — Approve and decline a join request (owner, private space).
  *
+ * Covers: cap-group-content-into-spaces
+ * Roles: admin, member
+ *
  * A second actor requests to join a private space (POST /spaces/{id}/join →
  * status 'pending'). The owner sees the request in the pending queue and either
  * approves it (POST /members/{uid}/approve) or declines it

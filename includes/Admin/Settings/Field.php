@@ -65,6 +65,17 @@ final class Field {
 	public bool $has_default;
 
 	/**
+	 * Whether "Restore defaults" may reset this setting. Configuration is
+	 * resettable; OWNER DATA is not (site name, banned words, sender identity,
+	 * secrets/keys, page mappings, brand images). A non-resettable field needs no
+	 * declared default — it is never reset and is left exactly as the owner set it.
+	 * Default true. Declare `'resettable' => false` to protect a field.
+	 *
+	 * @var bool
+	 */
+	public bool $resettable;
+
+	/**
 	 * Value => label map for `select`.
 	 *
 	 * @var array<int|string, string>
@@ -120,6 +131,18 @@ final class Field {
 	public $value_callback;
 
 	/**
+	 * Optional callback returning the DEFAULT value at registration time, for a
+	 * setting whose default is genuinely dynamic (e.g. reg_mode follows
+	 * users_can_register; the auth panel heading follows the community identity).
+	 * It is resolved once when the driver registers the option, so get_option()
+	 * still inherits one declared default. Null = use the static $default. Counts as
+	 * a declared default for the resettable/gate rules.
+	 *
+	 * @var callable|null
+	 */
+	public $default_callback;
+
+	/**
 	 * Optional callback returning the hint text at render time (for hints that
 	 * change with runtime state, e.g. "requires plugin X" when X is inactive).
 	 * Null = use the static $hint.
@@ -150,7 +173,7 @@ final class Field {
 	/**
 	 * Build a field from an associative descriptor.
 	 *
-	 * @param array{key:string,type:string,label?:string,hint?:string,default?:mixed,choices?:array<int|string,string>,min?:int,max?:int,sanitize?:callable|string} $args Descriptor.
+	 * @param array{key:string,type:string,label?:string,hint?:string,default?:mixed,resettable?:bool,choices?:array<int|string,string>,min?:int,max?:int,sanitize?:callable|string} $args Descriptor.
 	 */
 	public function __construct( array $args ) {
 		$this->key               = (string) $args['key'];
@@ -158,7 +181,9 @@ final class Field {
 		$this->label             = (string) ( $args['label'] ?? '' );
 		$this->hint              = (string) ( $args['hint'] ?? '' );
 		$this->default           = $args['default'] ?? '';
-		$this->has_default       = array_key_exists( 'default', $args );
+		$this->default_callback  = $args['default_callback'] ?? null;
+		$this->has_default       = array_key_exists( 'default', $args ) || null !== $this->default_callback;
+		$this->resettable        = (bool) ( $args['resettable'] ?? true );
 		$this->choices           = (array) ( $args['choices'] ?? array() );
 		$this->toggle_label      = (string) ( $args['toggle_label'] ?? '' );
 		$this->min               = isset( $args['min'] ) ? (int) $args['min'] : null;
@@ -205,6 +230,20 @@ final class Field {
 			return (array) call_user_func( $this->choices_callback );
 		}
 		return $this->choices;
+	}
+
+	/**
+	 * Resolve the declared default — the dynamic callback if set, else the static
+	 * default. This is the ONE default the driver registers and the "Restore
+	 * defaults" handler resets to.
+	 *
+	 * @return mixed
+	 */
+	public function resolve_default() {
+		if ( null !== $this->default_callback ) {
+			return call_user_func( $this->default_callback );
+		}
+		return $this->default;
 	}
 
 	/**

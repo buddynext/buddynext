@@ -27,6 +27,18 @@ All routes live under the `buddynext/v1` namespace. They follow the shared respo
 
 The create route's permission callback is `require_space_creation_role`: the caller must be logged in and hold a role permitted to create spaces (configured on the Roles and Capabilities tab). Update and delete enforce owner/manage checks inside the service layer.
 
+### Plan gating fields (Pro)
+
+When BuddyNext Pro is active, a space payload (`GET /spaces` and `GET /spaces/{id}`) carries which membership plans open it, so a client can render its own paywall without re-deriving the rule:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `gate_plans` | `string[]` | Slugs of every plan that opens this space (many-to-many). Empty when the space is not plan-gated. A member holding any of these plans - or a plan with the all-access `spaces.gated_access` entitlement - may enter. |
+| `is_gated` | `bool` | `true` when the space is gated by at least one plan. |
+| `required_ability` | `string` | **Deprecated.** The legacy single-plan gate (`tier:{slug}`), carried for one release as the first of `gate_plans`. Read `gate_plans`/`is_gated` instead; do not write it. |
+
+The gating is authored from the Monetization admin (either the Paywall tab's space gate or a plan's "Spaces this plan unlocks" field) - both write the same relationship. Access itself is always decided server-side, so these fields are for display only; a join is still checked on `POST /spaces/{id}/join`.
+
 ## Membership and roles
 
 | Method | Path | Auth | Purpose |
@@ -35,6 +47,7 @@ The create route's permission callback is `require_space_creation_role`: the cal
 | GET | `/spaces/{id}/pending-requests` | Auth (owner/mod) | List pending join requests (paginated). |
 | POST | `/spaces/{id}/members/{user_id}/approve` | Auth (owner/mod) | Approve a pending join request. |
 | POST | `/spaces/{id}/members/{user_id}/decline` | Auth (owner/mod) | Decline a pending join request. |
+| POST | `/spaces/{id}/members/decide-bulk` | Auth (owner/mod) | Approve or decline several pending requests in one call. Body: `user_ids` (int[], required), `decision` (`approve` or `decline`, required). |
 | POST | `/spaces/{id}/approve-request` | Auth (owner/mod) | Legacy approve route (kept for backwards compatibility). |
 | PUT | `/spaces/{id}/members/{user_id}/role` | Auth (owner/mod) | Change a member's role within the space. |
 | DELETE | `/spaces/{id}/members/{user_id}` | Auth (owner/mod) | Remove a member from the space. |
@@ -48,7 +61,7 @@ The create route's permission callback is `require_space_creation_role`: the cal
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/spaces/{id}/join` | Auth | Join (open) or request to join (private); invite-only for secret. |
+| POST | `/spaces/{id}/join` | Auth | Join (open) or request to join (private); invite-only for secret. Accepts an optional `invite` token (see Invite links). |
 | DELETE | `/spaces/{id}/join` | Auth | Leave the space (same handler as the leave route). |
 | POST | `/spaces/{id}/leave` | Auth | Leave the space. |
 | POST | `/spaces/{id}/join/cancel` | Auth | Withdraw a pending join request. |
@@ -58,6 +71,59 @@ Join outcomes by space type:
 - **Open** - membership becomes active immediately. Response: `{"joined": true}`.
 - **Private** - a pending request is created. Response: `{"requested": true}`.
 - **Secret** - `403` unless the caller already has a pending `invited` status, in which case the invite is accepted and the response is `{"joined": true}`.
+
+**Invite token (`invite`).** When the body carries a valid `invite` token for this space, the join takes the direct path regardless of type - membership becomes active immediately (`{"joined": true}`) with no approval and no invite-only check. A valid token does NOT bypass a space ban, the paid-space gate (`buddynext_can_join_space`), or onboarding: a member who still owes onboarding gets `403 onboarding_incomplete`. An invalid, expired, reset, or used-up token returns `403 invite_link_invalid`.
+
+## Invite links
+
+One shareable invite link per space, managed by anyone who passes `SpaceMemberService::can_invite()` (owner/moderator per the `who_can_invite` setting, or a site admin). Stored in `bn_space_meta` (no dedicated table). See the user guide, "Invite people with a link".
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/spaces/{id}/invite-link` | Auth (can_invite) | Return the current link, or `{"invite_link": null}` when none exists. |
+| POST | `/spaces/{id}/invite-link` | Auth (can_invite) | Create or reset the link (a reset issues a fresh token, killing the old one). Body: `expires` (`1d`\|`7d`\|`30d`\|`never`, default `7d`), `max_uses` (`0`\|`1`\|`10`\|`100`, `0` = unlimited). |
+
+Both routes use the `require_auth` permission callback; the `can_invite()` check is enforced inside the handler, so a non-inviter receives a `403`. The link object is:
+
+```json
+{
+  "invite_link": {
+    "url": "https://example.com/spaces/book-club/?invite=…",
+    "token": "…32 chars…",
+    "expires": "7d",
+    "expires_at": "2026-10-01 12:00:00",
+    "max_uses": 0,
+    "uses": 3,
+    "status": "active",
+    "created_at": "2026-09-24 12:00:00"
+  }
+}
+```
+
+`status` is `active`, `expired`, or `limit_reached`. Timestamps are GMT; the REST layer also adds ISO-8601 `*_gmt` variants. A visitor joins by opening `url` and calling `POST /spaces/{id}/join` with the `invite` token (above).
+
+## Featured spaces
+
+Owner-curated, ordered spaces shown first in the directory sidebar, the phone strip and onboarding. Managed by a site admin; the same option every member-facing surface resolves from via `SpaceService::featured_spaces()`.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/settings/featured-spaces` | Auth (`manage_options`) | Current featured ids + hydrated rows in owner order + the cap. |
+| POST | `/settings/featured-spaces` | Auth (`manage_options`) | Replace with a validated, ordered set. Body: `ids` (ordered int[]); missing/archived ids are dropped, de-duplicated, capped at `buddynext_featured_spaces_limit` (default 6, 1–12). |
+
+Response shape:
+
+```json
+{
+  "ids": [12, 8],
+  "spaces": [
+    { "id": 12, "name": "…", "slug": "…", "member_count": 34, "avatar_url": "…", "type": "open" }
+  ],
+  "limit": 6
+}
+```
+
+Non-admins receive `403`. The resolver/filters are documented in `29-hooks-spaces.md`.
 
 ## Bans
 
@@ -100,6 +166,8 @@ Served by `FeedController`.
 |---|---|---|---|
 | GET | `/spaces/{id}/feed` | Public | Return the activity feed for a space. |
 
+Space-scoped media and albums (`GET /spaces/{id}/media`, `GET /spaces/{id}/albums`, `POST /spaces/{id}/media/{media_id}/unlink`, `GET /media/{media_id}/space-context`) are registered here in `SpaceController` but documented on the REST: Media and Albums page, alongside the member-level media routes they mirror.
+
 ## Discovery and structure
 
 Served by `SpaceController`. These read routes power the directory's suggested-spaces rail and sub-space navigation.
@@ -108,6 +176,7 @@ Served by `SpaceController`. These read routes power the directory's suggested-s
 |---|---|---|---|
 | GET | `/spaces/suggestions` | Auth | Ranked suggested spaces for the current viewer. Query: `limit` (default 6, capped at 24). Returns directory-shaped rows (category, membership state, sub-space count, cover tone) - the same card the directory renders. |
 | GET | `/spaces/{id}/subspaces` | Public | Visibility-scoped child spaces of a parent. Query: `page` (default 1), `per_page` (default 24, capped at 50). Returns `{ subspaces, total, page, per_page }`. A secret parent returns `404`; a private parent returns `403` to non-members. |
+| GET | `/spaces/{id}/eligible-parents` | Auth | Candidate parent spaces for the "move this space" picker - spaces the caller manages (`buddynext-own-space`) that are not archived, not already a sub-space at the max-depth limit, and not the space itself. Query: `q` (search, optional). |
 
 > `/spaces/suggestions` and `/spaces/fields` are registered **before** the `/spaces/{id}` route so their literal path segments are matched unambiguously; because the `{id}` pattern is `[\d]+`, the words `suggestions` and `fields` can never collide with it.
 

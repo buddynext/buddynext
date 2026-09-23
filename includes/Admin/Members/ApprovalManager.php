@@ -162,6 +162,57 @@ class ApprovalManager {
 	}
 
 	/**
+	 * The sign-up fields a pending member submitted, in registration order.
+	 *
+	 * Read as the MEMBER themselves (viewer === owner) so nothing is withheld by
+	 * field visibility: read as the admin, a 'private' field's answer is filtered
+	 * out, and a screen whose whole job is showing what someone submitted would then
+	 * lie by omission. Access to the Pending tab is already gated on the
+	 * members-management capability, which is the only gate on this read. Only the
+	 * fields the owner set to appear at registration are returned. (Card 10218111458.)
+	 *
+	 * @param int $user_id Pending member.
+	 * @return array<int,array{label:string,value:string}> Label + display value per field.
+	 */
+	private function submitted_fields( int $user_id ): array {
+		$profiles = buddynext_service( 'profiles' );
+		if ( ! is_object( $profiles ) || ! method_exists( $profiles, 'get_registration_fields' ) ) {
+			return array();
+		}
+
+		$reg = (array) $profiles->get_registration_fields();
+		if ( empty( $reg ) ) {
+			return array();
+		}
+
+		$profile = $profiles->get_profile( $user_id, $user_id );
+		$by_key  = array();
+		foreach ( (array) ( $profile['groups'] ?? array() ) as $group ) {
+			foreach ( (array) ( $group['fields'] ?? array() ) as $field ) {
+				if ( isset( $field['field_key'] ) ) {
+					$by_key[ (string) $field['field_key'] ] = $field;
+				}
+			}
+		}
+
+		$out = array();
+		foreach ( $reg as $field ) {
+			$key = (string) ( $field['key'] ?? $field['field_key'] ?? '' );
+			if ( '' === $key ) {
+				continue;
+			}
+			$entry   = $by_key[ $key ] ?? null;
+			$display = $entry ? trim( (string) ( $entry['value_display'] ?? $entry['value'] ?? '' ) ) : '';
+			$out[]   = array(
+				'label' => (string) ( $field['label'] ?? $key ),
+				'value' => '' !== $display ? $display : __( 'Not answered', 'buddynext' ),
+			);
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Render the Pending Approvals tab.
 	 *
 	 * @return void
@@ -206,7 +257,7 @@ class ApprovalManager {
 				<?php
 				switch ( $notice ) {
 					case 'approved':
-						esc_html_e( 'Member approved — they can now sign in.', 'buddynext' );
+						esc_html_e( 'Member approved: they can now sign in.', 'buddynext' );
 						break;
 					case 'rejected':
 						esc_html_e( 'Pending member rejected and removed.', 'buddynext' );
@@ -245,7 +296,7 @@ class ApprovalManager {
 					<tbody>
 					<?php foreach ( $pending as $user ) : ?>
 						<?php
-						$approve_url = wp_nonce_url(
+						$approve_url  = wp_nonce_url(
 							add_query_arg(
 								array(
 									'action'  => 'bn_approve_member',
@@ -255,7 +306,7 @@ class ApprovalManager {
 							),
 							'bn_approve_member_' . $user->ID
 						);
-						$reject_url  = wp_nonce_url(
+						$reject_url   = wp_nonce_url(
 							add_query_arg(
 								array(
 									'action'  => 'bn_reject_member',
@@ -265,6 +316,7 @@ class ApprovalManager {
 							),
 							'bn_reject_member_' . $user->ID
 						);
+						$bn_submitted = $this->submitted_fields( $user->ID );
 						?>
 						<tr>
 							<td class="column-primary" data-colname="<?php esc_attr_e( 'Member', 'buddynext' ); ?>">
@@ -277,9 +329,47 @@ class ApprovalManager {
 							<td data-colname="<?php esc_attr_e( 'Email', 'buddynext' ); ?>"><?php echo esc_html( $user->user_email ); ?></td>
 							<td data-colname="<?php esc_attr_e( 'Registered', 'buddynext' ); ?>"><?php echo esc_html( $user->user_registered ); ?></td>
 							<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
+								<?php if ( ! empty( $bn_submitted ) ) : ?>
+									<button type="button" class="button-link" data-bn-approval-view="<?php echo esc_attr( (string) $user->ID ); ?>"><?php esc_html_e( 'View submitted data', 'buddynext' ); ?></button>
+									&nbsp;|&nbsp;
+								<?php endif; ?>
 								<a href="<?php echo esc_url( $approve_url ); ?>"><?php esc_html_e( 'Approve', 'buddynext' ); ?></a>
 								&nbsp;|&nbsp;
 								<a href="<?php echo esc_url( $reject_url ); ?>" class="bn-text-danger" data-bn-confirm="<?php esc_attr_e( 'Reject and permanently delete this pending account?', 'buddynext' ); ?>" data-bn-confirm-tone="danger"><?php esc_html_e( 'Reject', 'buddynext' ); ?></a>
+								<?php if ( ! empty( $bn_submitted ) ) : ?>
+									<?php // What the member submitted at sign-up. A native <dialog> (its own top layer, backdrop, Esc, focus trap); members.js opens it. ?>
+									<dialog class="bn-approval-details" id="bn-approval-details-<?php echo esc_attr( (string) $user->ID ); ?>">
+										<div class="bn-approval-details__panel">
+											<header class="bn-approval-details__head">
+												<div class="bn-approval-details__heading">
+													<h2 class="bn-approval-details__title"><?php echo esc_html( $user->display_name ); ?></h2>
+													<p class="bn-approval-details__sub">
+														<?php
+														printf(
+															/* translators: %s: member email address. */
+															esc_html__( 'Sign-up details - %s', 'buddynext' ),
+															esc_html( $user->user_email )
+														);
+														?>
+													</p>
+												</div>
+												<button type="button" class="bn-approval-details__close" data-bn-approval-close aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>">
+													<?php buddynext_icon( 'x' ); ?>
+												</button>
+											</header>
+											<div class="bn-approval-details__body">
+												<dl class="bn-approval-details__list">
+													<?php foreach ( $bn_submitted as $bn_field ) : ?>
+														<div class="bn-approval-details__item">
+															<dt class="bn-approval-details__label"><?php echo esc_html( $bn_field['label'] ); ?></dt>
+															<dd class="bn-approval-details__value"><?php echo esc_html( $bn_field['value'] ); ?></dd>
+														</div>
+													<?php endforeach; ?>
+												</dl>
+											</div>
+										</div>
+									</dialog>
+								<?php endif; ?>
 							</td>
 						</tr>
 					<?php endforeach; ?>
