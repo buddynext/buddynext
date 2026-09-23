@@ -10,6 +10,10 @@ moved, so the header claimed a 1.1.3 review of content that already described 1.
 **Still outstanding:** the manifests were fully rescanned on 2026-08-21, but this file was not
 re-verified in that pass, and 1.1.6 has since added notification and email-template work. Treat
 every row as last checked at 1.1.3 unless it names a later version.
+**Partial update 2026-09-23 (1.2.1):** added the "Apply a content warning to member content during
+review?" row, verified against the shared moderator control shipped in this release (the four
+moderation surfaces + `@buddynext/moderation` store). Manifest rescanned the same day; other rows
+not re-verified in this pass.
 **2026-09-13 (1.2.0 re-tag):** the audit manifest was regenerated against the shipped 1.2.0 code
 (REST 225, hooks 1379) and re-committed to the shelf. Two pre-tag fixes landed since the 1.2.0
 capability-matrix freshness pass: a members-only post's body no longer leaks to guests via search
@@ -114,6 +118,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Rate-limit abuse? | PARTIAL | `bn_rate_limits` table backs it on every site; the fast object-cache path needs Redis or Memcached |
 | Filter banned words / safeguards? | YES | `Moderation\SafeguardService` |
 | Review a queue of reports in wp-admin? | YES | moderation screens under the `buddynext` hub |
+| Apply a content warning to member content during review? | YES | moderator add/update/clear NSFW/spoiler/violence/language warning from every moderation surface (wp-admin, community-admin, `/moderation/`, space-level) via the shared `templates/parts/moderation-cw-control.php` + `@buddynext/moderation` store; writes the same `content_warning`/`content_warning_type` columns the reader-facing blur reads |
 | Auto-moderate with rules or AI? | PRO | `bn_mod_rules`, AI moderation - see BuddyNext Pro |
 
 ## Owner administration
