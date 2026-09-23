@@ -163,6 +163,14 @@ class InstallerTest extends \WP_UnitTestCase {
 	 * The memory Site Health test is registered and returns a recommendation
 	 * below the floor, good at/above it, and good for an unlimited (-1) limit.
 	 *
+	 * Runs in a separate process: the cases lower memory_limit via ini_set, and
+	 * PHP refuses to set it below the process's current usage - so in the full
+	 * suite (a long-lived process that has grown past 128M) the low cases would
+	 * silently not apply and read as the ambient limit. A fresh process keeps
+	 * ini_set('128M') effective and the test order-independent.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
 	 * @return void
 	 */
 	public function test_site_health_memory_test(): void {

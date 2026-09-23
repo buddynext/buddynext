@@ -37,6 +37,9 @@ class MembersSidebarProviderTest extends WP_UnitTestCase {
 	public function test_online_now_is_a_titled_card_when_a_member_is_present(): void {
 		$online_user = self::factory()->user->create( array( 'display_name' => 'Online Olive' ) );
 		PresenceService::write( $online_user, time() );
+		// Presence is hidden from logged-out visitors, so view as a logged-in
+		// member - the context the online-now card is actually shown in.
+		wp_set_current_user( self::factory()->user->create() );
 
 		$widgets = ( new MembersSidebarProvider() )->widgets( array(), 'members' );
 

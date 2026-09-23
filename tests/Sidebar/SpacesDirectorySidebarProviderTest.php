@@ -53,7 +53,7 @@ class SpacesDirectorySidebarProviderTest extends WP_UnitTestCase {
 		foreach ( $widgets as $widget ) {
 			$by_id[ $widget['id'] ] = $widget;
 		}
-		$this->assertSame( 'Popular this week', $by_id['spaces-popular']['title'] );
+		$this->assertSame( 'Popular spaces', $by_id['spaces-popular']['title'] );
 		$this->assertSame( 'star', $by_id['spaces-popular']['icon'] );
 
 		// Titled cards using the registry's DEFAULT chrome — never chrome => false.

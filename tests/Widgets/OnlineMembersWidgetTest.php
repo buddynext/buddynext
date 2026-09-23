@@ -29,6 +29,10 @@ class OnlineMembersWidgetTest extends WP_UnitTestCase {
 		parent::set_up();
 		\BuddyNext\Core\Installer::run();
 		wp_cache_flush();
+		// The widget hides presence from logged-out visitors
+		// (PresenceService::visible_to_viewer), so render as a logged-in member -
+		// the context the widget is actually shown in.
+		wp_set_current_user( self::factory()->user->create() );
 	}
 
 	private function render( int $limit = 5 ): string {
