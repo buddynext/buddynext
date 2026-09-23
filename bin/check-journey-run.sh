@@ -220,6 +220,24 @@ if ! printf '%s' "$bn_boot_probe" | grep -q BN_BOOT_OK; then
 fi
 echo "journey run: wp boots OK (memory_limit raised to ${BN_JOURNEY_PHP_MEMORY} for the active stack)"
 
+# The effect-based specs verify state with `wp db query` (DB confirms after an
+# action), which shells out to the `mysql` CLIENT binary — a different dependency
+# from PHP's mysqli that `wp eval` uses. If mysql is not on PATH, or cannot reach
+# the DB, EVERY DB-confirm spec fails on "env: mysql: No such file or directory"
+# / "Failed to get current SQL modes" — which reads as dozens of product/theme
+# failures (observed: a Reign iPad run showed 32 red, all this one cause) and
+# would poison an --update baseline. Prove it works before running any spec.
+if ! wp --path="$BN_WP_PATH" db query "SELECT 1;" >/dev/null 2>&1; then
+	echo "journey run SKIPPED — 'wp db query' cannot reach the database." >&2
+	echo "  The effect-based specs confirm state via wp db query, which needs the" >&2
+	echo "  mysql CLIENT binary on PATH and able to connect (separate from the php" >&2
+	echo "  mysqli that wp eval uses). Without it every DB-confirm spec fails on a" >&2
+	echo "  missing binary and looks like a product/theme regression." >&2
+	echo "  Fix: put mysql on PATH (Local bundles it under lightning-services/mysql-*/" >&2
+	echo "  bin), or point it at the right socket." >&2
+	exit 2
+fi
+
 # Resolve BN_TEST_USER to the login of user ID 1 — the account the auth fixture
 # logs in as via ?autologin=1. The profile/owner specs navigate to
 # urls.member(BN_TEST_USER) as "own profile", so BN_TEST_USER MUST be that same
