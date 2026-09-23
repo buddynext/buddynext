@@ -73,6 +73,7 @@ Featured spaces and shareable invite links to grow a community, an admin menu re
 * Improve  - Integration feed cards are withdrawn and restored when a partner item is unpublished or reinstated, instead of being deleted.
 * Improve  - Member search accepts "q" as well as "search" on the members endpoint.
 * Improve  - The onboarding wizard no longer reloads a step until the change has saved.
+* Improve  - The moderation report row folds Resolve, Escalate, content warning and Strike/Suspend into a "..." menu, keeping only Dismiss and Remove inline, on both the wp-admin queue and the community admin panel.
 * Fix      - A location profile field shows the address or area to other members and the API, never the member's exact coordinates.
 * Fix      - Reported comments are auto-hidden the same way reported posts are.
 * Fix      - A multi-select choice value that contains a comma is stored safely.

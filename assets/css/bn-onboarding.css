@@ -463,28 +463,21 @@
 	margin: 0;
 }
 
-/* ── Spaces grid (spaces step) ────────────────────────────────────────── */
+/* ── Spaces list (spaces step) ────────────────────────────────────────── */
 
 .bn-ob-spaces {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: var(--bn-s2);
-}
-.bn-ob-space-card {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s2);
+}
+.bn-ob-space {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
 	padding: var(--bn-s3);
 	background: var(--bn-canvas);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-md);
-	transition: border-color var(--bn-dur-fast) var(--bn-ease);
-}
-.bn-ob-space-card:hover { border-color: var(--bn-accent); }
-.bn-ob-space-card__head {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s2);
 }
 .bn-ob-space-avatar {
 	width: 36px;
@@ -502,48 +495,22 @@
 	font-size: 16px;
 	flex-shrink: 0;
 }
-.bn-ob-space-card__name {
+.bn-ob-space__info { flex: 1; min-width: 0; }
+.bn-ob-space__name {
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
 	line-height: 1.2;
+	margin: 0;
 }
-/*
- * Layout only. This block used to set font-family: mono, font-size and color —
- * typography intended for the member count below it. But __meta WRAPS the space
- * NAME as well, and the <h3> sets no family of its own, so every space name
- * inherited the mono: "Coffee First" and "Hiking & Trails" rendered like code
- * while their descriptions rendered in Inter.
- *
- * The size and color were already dead here — both children override them — so
- * only the family ever escaped, onto the one child that should never have had
- * it. Typography now sits on the leaf that wants it.
- */
-.bn-ob-space-card__meta {
-	margin-top: 2px;
-}
-.bn-ob-space-card__members {
+.bn-ob-space__meta {
 	font-family: var(--bn-font-mono, var(--bn-font-ui));
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
+	margin-top: 2px;
 }
-.bn-ob-space-card__desc {
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-2);
-	line-height: 1.45;
-	margin: 0;
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
-}
-.bn-ob-space-card__cta {
-	margin-top: auto;
-	align-self: flex-start;
-}
-
-@media (max-width: 768px) {
-	.bn-ob-spaces { grid-template-columns: 1fr; }
+.bn-ob-space__cta {
+	flex-shrink: 0;
 }
 
 /* ── Channels (notifications step) ────────────────────────────────────── */

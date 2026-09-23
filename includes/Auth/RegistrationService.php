@@ -16,6 +16,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Auth;
 
 use BuddyNext\Onboarding\InviteService;
+use BuddyNext\Spaces\SpaceInviteLinkService;
 use BuddyNext\Spaces\SpaceMemberService;
 use WP_Error;
 
@@ -188,6 +189,7 @@ class RegistrationService {
 		$user_id = (int) $user_id;
 
 		$this->redeem_invite( $user_id, $invite );
+		$this->redeem_pending_space_invites( $user_id );
 
 		// Reuse the canonical seeder rather than duplicating the audience list.
 		AuthController::seed_default_dm_access( $user_id );
@@ -333,6 +335,31 @@ class RegistrationService {
 				do_action( 'buddynext_invite_space_join_failed', $user_id, (int) $invite['space_id'], $joined );
 			}
 		}
+	}
+
+	/**
+	 * Carry a guest's shareable space invite link(s) across the account boundary.
+	 *
+	 * A logged-out visitor who opened one or more space invite links
+	 * (SpaceInviteLinkService::prime_from_request()) had nothing to attach that
+	 * to — no account existed yet, so it was stashed in a short-lived cookie
+	 * instead. Claim it here, the moment an account DOES exist, and hand it to
+	 * onboarding the same way an already-signed-in member's pending invite
+	 * already travels: as usermeta, joined once the wizard completes
+	 * (OnboardingController::pending_invite_redirect()). A link never skips
+	 * onboarding — new members always owe it — so this seeds the pending list
+	 * rather than joining immediately.
+	 *
+	 * @param int $user_id New member id.
+	 * @return void
+	 */
+	private function redeem_pending_space_invites( int $user_id ): void {
+		$pending = SpaceInviteLinkService::claim_guest_pending();
+		if ( empty( $pending ) ) {
+			return;
+		}
+
+		update_user_meta( $user_id, SpaceInviteLinkService::PENDING_KEY, $pending );
 	}
 
 	/**

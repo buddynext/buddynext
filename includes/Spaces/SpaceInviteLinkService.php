@@ -56,6 +56,29 @@ class SpaceInviteLinkService {
 	private const SLOT_PREFIX = 'invite_slot_';
 
 	/**
+	 * Key for the pending-invite list — a guest cookie before an account exists,
+	 * the same-shaped usermeta once one does.
+	 *
+	 * A member can open more than one space's invite link before finishing
+	 * signup (a coworker's three team-space links, say), so this holds a LIST of
+	 * distinct spaces — array<int, array{space_id:int,token:string,primed_at:int}>
+	 * — deduped by space_id, capped at PENDING_MAX. See prime_from_request(),
+	 * claim_guest_pending() and join_all_pending().
+	 */
+	public const PENDING_KEY = 'bn_pending_space_invites';
+
+	/**
+	 * Max distinct spaces carried in one pending-invite list. Oldest dropped
+	 * first — this is a courtesy cap against runaway growth, not a product limit.
+	 */
+	private const PENDING_MAX = 10;
+
+	/**
+	 * How long the guest pending-invite cookie survives before signup.
+	 */
+	private const GUEST_COOKIE_TTL = DAY_IN_SECONDS;
+
+	/**
 	 * WordPress metadata object-cache group for meta_type 'bn_space'.
 	 */
 	private const META_CACHE_GROUP = 'bn_space_meta';
@@ -95,6 +118,13 @@ class SpaceInviteLinkService {
 	 * URL). An invalid/expired/used-up token is ignored here; the visibility gate
 	 * then shows the "no longer valid" page (200, never 404) for hidden spaces.
 	 *
+	 * Persists for a GUEST too now (a short-lived cookie, since there is no
+	 * user yet to attach usermeta to) — claim_guest_pending() reads it once,
+	 * from RegistrationService::create() right after the account is inserted.
+	 * Both the guest and the already-signed-in branch below write the SAME
+	 * list shape, so OnboardingController::pending_invite_redirect() has one
+	 * completion step regardless of which path primed it.
+	 *
 	 * @return void
 	 */
 	public static function prime_from_request(): void {
@@ -132,19 +162,203 @@ class SpaceInviteLinkService {
 		SpaceVisibility::unlock_via_invite( $space_id );
 
 		$user_id = get_current_user_id();
-		if ( $user_id > 0
-			&& function_exists( 'buddynext_service' )
-			&& buddynext_service( 'onboarding' )->is_required_for( $user_id )
-		) {
-			update_user_meta(
-				$user_id,
-				'bn_pending_space_invite',
-				array(
-					'space_id' => $space_id,
-					'token'    => $token,
-				)
-			);
+
+		if ( $user_id > 0 ) {
+			if ( function_exists( 'buddynext_service' ) && buddynext_service( 'onboarding' )->is_required_for( $user_id ) ) {
+				update_user_meta(
+					$user_id,
+					self::PENDING_KEY,
+					self::add_pending( get_user_meta( $user_id, self::PENDING_KEY, true ), $space_id, $token )
+				);
+			}
+			return;
 		}
+
+		// Guest: nothing to attach usermeta to yet. A cookie is the only carrier
+		// that survives the login/register page hop — the two links that used to
+		// silently drop ?invite= (the "Log in to join" / "Register" CTAs) no
+		// longer need to forward anything, because nothing depends on the query
+		// string surviving the hop any more.
+		if ( ! headers_sent() ) {
+			self::write_guest_cookie( self::add_pending( self::read_guest_cookie(), $space_id, $token ) );
+		}
+	}
+
+	/**
+	 * Add (or refresh) one space in a pending-invite list, deduped and capped.
+	 *
+	 * Re-opening the same space's link — e.g. the owner reset it — replaces the
+	 * stored token rather than appending a duplicate entry.
+	 *
+	 * @param mixed  $existing Prior list (usermeta or cookie value); anything
+	 *                         non-array is treated as empty.
+	 * @param int    $space_id Space to add/refresh.
+	 * @param string $token    Token presented for that space.
+	 * @return array<int, array{space_id:int,token:string,primed_at:int}>
+	 */
+	private static function add_pending( $existing, int $space_id, string $token ): array {
+		$list = is_array( $existing ) ? $existing : array();
+
+		$list = array_values(
+			array_filter(
+				$list,
+				static function ( $entry ) use ( $space_id ) {
+					return is_array( $entry ) && (int) ( $entry['space_id'] ?? 0 ) !== $space_id;
+				}
+			)
+		);
+
+		$list[] = array(
+			'space_id'  => $space_id,
+			'token'     => $token,
+			'primed_at' => time(),
+		);
+
+		if ( count( $list ) > self::PENDING_MAX ) {
+			$list = array_slice( $list, -self::PENDING_MAX );
+		}
+
+		return $list;
+	}
+
+	/**
+	 * Read the guest pending-invite cookie, if any.
+	 *
+	 * @return array<int, array{space_id:int,token:string,primed_at:int}>
+	 */
+	private static function read_guest_cookie(): array {
+		if ( ! isset( $_COOKIE[ self::PENDING_KEY ] ) ) {
+			return array();
+		}
+
+		// Cookie transport, not obfuscation: base64 keeps the JSON payload (space
+		// ids + random tokens, nothing sensitive) safe for a cookie value.
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- decoded + type-checked below, not used raw.
+		$decoded = base64_decode( (string) wp_unslash( $_COOKIE[ self::PENDING_KEY ] ), true );
+		if ( false === $decoded ) {
+			return array();
+		}
+
+		$decoded_list = json_decode( $decoded, true );
+		return is_array( $decoded_list ) ? $decoded_list : array();
+	}
+
+	/**
+	 * Write the guest pending-invite cookie.
+	 *
+	 * HTTP-only + Lax: nothing on the page needs to read this client-side, and
+	 * it only ever needs to ride a same-site GET (opening the invite link, then
+	 * navigating to login/register on the same site).
+	 *
+	 * @param array<int, array{space_id:int,token:string,primed_at:int}> $entries List to store.
+	 * @return void
+	 */
+	private static function write_guest_cookie( array $entries ): void {
+		setcookie(
+			self::PENDING_KEY,
+			// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- cookie transport for a JSON payload, not obfuscation.
+			base64_encode( (string) wp_json_encode( $entries ) ),
+			array(
+				'expires'  => time() + self::GUEST_COOKIE_TTL,
+				'path'     => defined( 'COOKIEPATH' ) && COOKIEPATH ? COOKIEPATH : '/',
+				'domain'   => defined( 'COOKIE_DOMAIN' ) && COOKIE_DOMAIN ? COOKIE_DOMAIN : '',
+				'secure'   => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			)
+		);
+	}
+
+	/**
+	 * Read and clear the guest pending-invite cookie in one call.
+	 *
+	 * Called once, from RegistrationService::create() immediately after the new
+	 * account is inserted — single-use, mirroring the already-signed-in usermeta
+	 * path's single-use clear in OnboardingController::pending_invite_redirect().
+	 *
+	 * @return array<int, array{space_id:int,token:string,primed_at:int}>
+	 */
+	public static function claim_guest_pending(): array {
+		$list = self::read_guest_cookie();
+		if ( empty( $list ) || headers_sent() ) {
+			return $list;
+		}
+
+		setcookie(
+			self::PENDING_KEY,
+			'',
+			array(
+				'expires'  => time() - HOUR_IN_SECONDS,
+				'path'     => defined( 'COOKIEPATH' ) && COOKIEPATH ? COOKIEPATH : '/',
+				'domain'   => defined( 'COOKIE_DOMAIN' ) && COOKIE_DOMAIN ? COOKIE_DOMAIN : '',
+				'secure'   => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			)
+		);
+
+		return $list;
+	}
+
+	/**
+	 * Join a member to every still-valid space in a pending-invite list.
+	 *
+	 * Called once, when onboarding completes (OnboardingController::pending_invite_redirect()).
+	 * Each entry is re-validated independently — a link may have expired or been
+	 * reset since it was primed, which just drops that one entry rather than
+	 * failing the whole batch. Mirrors the REST join path's reserve/join/mark
+	 * sequence (SpaceController::join_space()) exactly, entry by entry.
+	 *
+	 * @param int                                                        $user_id Member completing onboarding.
+	 * @param array<int, array{space_id:int,token:string,primed_at:int}> $pending Pending list.
+	 * @return int[] Space ids the member is now an active member of.
+	 */
+	public function join_all_pending( int $user_id, array $pending ): array {
+		$joined_ids = array();
+		$members    = new SpaceMemberService();
+
+		foreach ( $pending as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+
+			$space_id = (int) ( $entry['space_id'] ?? 0 );
+			$token    = (string) ( $entry['token'] ?? '' );
+			if ( $space_id <= 0 || '' === $token ) {
+				continue;
+			}
+
+			if ( 'active' === $members->get_status( $space_id, $user_id ) ) {
+				$joined_ids[] = $space_id;
+				continue;
+			}
+
+			if ( is_wp_error( $this->validate( $space_id, $token ) ) ) {
+				continue;
+			}
+
+			$reserved = $this->reserve_slot( $space_id, $user_id, $token );
+			if ( is_wp_error( $reserved ) ) {
+				continue;
+			}
+
+			$result = $members->join( $space_id, $user_id );
+			if ( is_wp_error( $result ) ) {
+				if ( 1 === $reserved ) {
+					$this->refund( $space_id );
+				}
+				continue;
+			}
+
+			if ( 1 === $reserved ) {
+				$this->mark_slot( $space_id, $user_id );
+			}
+			$this->mark_joined( $space_id, $user_id );
+
+			$joined_ids[] = $space_id;
+		}
+
+		return $joined_ids;
 	}
 
 	/**

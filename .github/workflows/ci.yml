@@ -215,19 +215,15 @@ jobs:
           BN_TEST_USER: admin
           BN_TEST_PASS: password
           BN_TEST_OTHER_USER: bn_e2e_other
-      # INFORMATIONAL for now: the full member/admin suite. Some specs need Pro,
-      # external services or feature toggles that ship off, so it needs a CI-specific
-      # baseline (bin/check-journey-run.sh) captured from a first run before it can
-      # block. Runs non-blocking and uploads its report so that baseline can be taken,
-      # then this flips to the blocking gate.
-      - name: Full member/admin suite (informational until CI baseline captured)
-        continue-on-error: true
-        run: npx playwright test --project=desktop --reporter=line
-        env:
-          BN_WP_PATH: ${{ runner.temp }}/wp
-          BN_TEST_USER: admin
-          BN_TEST_PASS: password
-          BN_TEST_OTHER_USER: bn_e2e_other
+      # The full member/admin suite (admin, spaces, moderation, membership, pro,
+      # etc.) ran here too, non-blocking (continue-on-error), duplicating the
+      # Docker-based journey pipeline (bn-docker-smoke-*, wp-plugin-smoke) that
+      # already runs the same suite against a properly seeded container before
+      # every release. It never blocked a merge (the "CI baseline" it was
+      # waiting on to flip to blocking was never captured) and cost most of
+      # this job's ~20min runtime just spinning up a second throwaway WP to
+      # run it non-blocking. Dropped; the Docker pipeline is that suite's real
+      # home. tests/e2e/blocks above stays as the actual CI gate.
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4

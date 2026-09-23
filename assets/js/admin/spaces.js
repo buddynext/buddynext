@@ -313,7 +313,10 @@
 				var q = search.value.trim();
 				if ( q.length < 2 ) { results.hidden = true; return; }
 				timer = window.setTimeout( function () {
-					fetch( rest + '/spaces?search=' + encodeURIComponent( q ) + '&per_page=8', {
+					// roots_only=1: a featured sub-space renders on no front-end featured
+					// surface (SpaceService::featured_spaces() is root-only), so do not
+					// offer one here to be picked and silently ignored.
+					fetch( rest + '/spaces?search=' + encodeURIComponent( q ) + '&per_page=8&roots_only=1', {
 						credentials: 'same-origin',
 						headers: { 'X-WP-Nonce': nonce }
 					} ).then( function ( r ) { return r.ok ? r.json() : Promise.reject( r ); } )
