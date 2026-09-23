@@ -88,7 +88,23 @@ Each run auto-detects the site, the WP path, user 1, and seeds `alice`, then run
 the suite **one test folder at a time** (never the whole suite in one process -
 that OOM-reaps on a laptop; observed killed at 309/312) at **workers=1** (memory-
 safe and free of the shared-site state collisions that auth/membership option
-specs hit at higher concurrency). It gates each viewport against its own
+specs hit at higher concurrency).
+
+**wp boot memory (why the runner raises it).** The specs shell out to `wp` for
+fixtures, and a journey site legitimately runs the whole family stack so the
+integration bridges (Learnomy, Listora, gamification, MediaVerse, ...) are
+exercised. That stack boots at ~230M, well over the common 128M CLI
+`memory_limit`, so a bare `wp` call fatals mid-`plugins_loaded` (WordPress only
+raises memory later, in `wp_raise_memory_limit()`). The fatal then surfaces
+INSIDE a fixture as a "critical error" / DB-connection-looking failure and, under
+`--update`, bakes phantom failures into the baseline - a class of crash that was
+misread as flaky MySQL for weeks. BuddyNext itself is clean (24M over core); the
+cost is the aggregate stack. The runner therefore wraps the php `wp` uses (via
+the honored `WP_CLI_PHP` knob, preserving that php's ini/extensions/socket) and
+adds `-d memory_limit=$BN_JOURNEY_PHP_MEMORY` (default 512M), then does a
+preflight boot probe that SKIPS with a clear fix if `wp` still cannot boot.
+Overrides: `BN_JOURNEY_PHP_MEMORY=768M` to raise it, `BN_JOURNEY_NO_MEM_WRAP=1`
+to disable the wrap (e.g. a php.ini that already sets enough). It gates each viewport against its own
 baseline (`.journey-baseline.json` for desktop, `.journey-baseline-<project>.json`
 for the rest): a spec failing that is NOT baselined is a regression (fail); a
 baselined spec that now passes must be removed from the baseline (fail). Seed the

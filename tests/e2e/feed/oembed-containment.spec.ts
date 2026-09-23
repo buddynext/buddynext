@@ -69,7 +69,9 @@ test.describe('feed / oembed fallback containment', () => {
             return out;
         });
 
-        expect(result.error).toBeUndefined();
+        if ('error' in result) {
+            throw new Error(`oembed containment probe could not run: ${result.error}`);
+        }
 
         // The layer is only dangerous while it is absolutely positioned - if the
         // stylesheet ever stops positioning it, there is nothing to contain and

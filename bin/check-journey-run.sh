@@ -36,6 +36,9 @@
 #   BN_TEST_OTHER_USER  a second, non-owner member for owner-gate specs
 #   BN_PRO=1            include Pro specs
 #   BN_JOURNEY_PROJECT  playwright project (default: desktop)
+#   BN_JOURNEY_PHP_MEMORY  memory_limit for wp subprocesses (default: 512M — the
+#                       family stack boots at ~230M, over the 128M CLI default)
+#   BN_JOURNEY_NO_MEM_WRAP=1  skip the wp memory wrap (php.ini already sufficient)
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -169,6 +172,54 @@ if [ ! -d node_modules/@playwright ] && ! command -v npx >/dev/null 2>&1; then
 	exit 2
 fi
 
+# Guarantee every wp subprocess (this script AND the specs' child_process wp
+# calls, which inherit our env) has enough memory to BOOT the active plugin set.
+#
+# A journey site legitimately runs the whole family stack so integration
+# bridges (Learnomy, Listora, gamification, MediaVerse, ...) are exercised, and
+# that stack boots at ~230M. The CLI php.ini default is commonly 128M, and
+# WordPress only raises memory in wp_raise_memory_limit() — which runs AFTER
+# plugins_loaded, too late: the boot fatals mid-plugins_loaded first. The fatal
+# then surfaces INSIDE a fixture as "critical error" / DB-looking noise and,
+# under --update, bakes phantom failures into the baseline. This is not
+# hypothetical: a 17-plugin dev site fatalled at 128M and the crash was misread
+# for weeks as flaky MySQL / "database connection" errors. BuddyNext itself is
+# clean (24M over core) — the cost is the aggregate stack.
+#
+# WP_CLI_PHP_ARGS is not honored by every wp launcher, but WP_CLI_PHP is, so we
+# wrap the SAME php wp would already use (preserving its ini/extensions/socket)
+# and only add -d memory_limit. Escape hatch: BN_JOURNEY_NO_MEM_WRAP=1.
+BN_JOURNEY_PHP_MEMORY="${BN_JOURNEY_PHP_MEMORY:-512M}"
+if [ -z "${BN_JOURNEY_NO_MEM_WRAP:-}" ]; then
+	BN_MEM_WRAP_DIR="$(mktemp -d -t bn-journey-php-XXXXXX)"
+	cat > "$BN_MEM_WRAP_DIR/php-mem" <<WRAP
+#!/bin/sh
+exec "${WP_CLI_PHP:-php}" -d memory_limit=$BN_JOURNEY_PHP_MEMORY "\$@"
+WRAP
+	chmod +x "$BN_MEM_WRAP_DIR/php-mem"
+	export WP_CLI_PHP="$BN_MEM_WRAP_DIR/php-mem"
+fi
+
+# Preflight: prove wp actually BOOTS this site before running any spec. An
+# honest stop with the fix beats a suite that fails confusingly (or a poisoned
+# --update baseline). A memory fatal here means our raise did not take (a wp
+# launcher that ignores WP_CLI_PHP) — say so and how to fix it.
+bn_boot_probe="$(wp --path="$BN_WP_PATH" eval 'echo "BN_BOOT_OK";' 2>&1 || true)"
+if ! printf '%s' "$bn_boot_probe" | grep -q BN_BOOT_OK; then
+	echo "journey run SKIPPED — wp cannot boot $BN_WP_PATH." >&2
+	if printf '%s' "$bn_boot_probe" | grep -qi "Allowed memory size"; then
+		echo "  Cause: PHP exhausted memory booting the active plugin set below" >&2
+		echo "  ${BN_JOURNEY_PHP_MEMORY}. The run tried to raise it via WP_CLI_PHP, but your wp" >&2
+		echo "  launcher appears to ignore it." >&2
+		echo "  Fix: raise the CLI memory_limit in php.ini, or set BN_JOURNEY_PHP_MEMORY" >&2
+		echo "  higher, or trim inactive plugins on the test site." >&2
+	else
+		echo "  wp said: $(printf '%s' "$bn_boot_probe" | grep -viE 'deprecated|warning' | tail -3)" >&2
+	fi
+	exit 2
+fi
+echo "journey run: wp boots OK (memory_limit raised to ${BN_JOURNEY_PHP_MEMORY} for the active stack)"
+
 # Resolve BN_TEST_USER to the login of user ID 1 — the account the auth fixture
 # logs in as via ?autologin=1. The profile/owner specs navigate to
 # urls.member(BN_TEST_USER) as "own profile", so BN_TEST_USER MUST be that same
@@ -222,7 +273,7 @@ fi
 
 REPORT="$(mktemp -t bn-journey-XXXXXX.json)"
 REPORTDIR="$(mktemp -d -t bn-journey-XXXXXX)"
-trap 'rm -f "$REPORT"; rm -rf "$REPORTDIR"' EXIT
+trap 'rm -f "$REPORT"; rm -rf "$REPORTDIR" "${BN_MEM_WRAP_DIR:-}"' EXIT
 
 # Run ONE TEST FOLDER AT A TIME, not the whole suite in a single process.
 #
