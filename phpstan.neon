@@ -32,4 +32,7 @@ parameters:
     bootstrapFiles:
         - vendor/szepeviktor/phpstan-wordpress/bootstrap.php
         - phpstan-bootstrap.php
+        # Stubs for runtime-only externals: WP-CLI namespaced helpers + the
+        # optional wb-gamification engine (called only behind a callable guard).
+        - phpstan-stubs.php
     treatPhpDocTypesAsCertain: false

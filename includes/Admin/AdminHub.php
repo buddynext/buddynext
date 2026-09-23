@@ -1531,7 +1531,7 @@ class AdminHub {
 		foreach ( self::RETIRED_SECTION_SLUGS as $bn_retired_slug => $bn_retired_dest ) {
 			$bn_dest = (string) $bn_retired_dest;
 			add_submenu_page(
-				null,
+				'', // No parent: a hidden page, registered only to own its slug for the redirect below.
 				'',
 				'',
 				'manage_options',

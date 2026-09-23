@@ -1586,7 +1586,7 @@ class SpaceController extends BaseRestController {
 		// non-member → About, the space's own choice, or the first tab). Computed on
 		// the single-space read only; the directory list never builds nav per row.
 		$bn_landing_nav       = buddynext_nav(
-			new \BuddyNext\Nav\NavContext( 'space', $bn_space_id, $viewer_id, (string) ( $space['membership_role'] ?? '' ) )
+			new \BuddyNext\Nav\NavContext( 'space', $bn_space_id, $viewer_id, (string) $space['membership_role'] )
 		);
 		$space['landing_tab'] = ( new SpaceService() )->landing_tab( $space, $viewer_id, $bn_landing_nav->layer( 'primary' ) );
 

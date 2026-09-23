@@ -492,7 +492,7 @@ class SpaceInviteLinkService {
 	private function to_public( int $space_id, array $record, int $uses ): array {
 		$token   = (string) ( $record['token'] ?? '' );
 		$max     = (int) ( $record['max_uses'] ?? 0 );
-		$expires = isset( $record['expires_at'] ) ? ( null === $record['expires_at'] ? null : (string) $record['expires_at'] ) : null;
+		$expires = isset( $record['expires_at'] ) ? (string) $record['expires_at'] : null;
 
 		$status = 'active';
 		if ( null !== $expires && strtotime( $expires . ' UTC' ) < time() ) {

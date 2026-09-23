@@ -125,7 +125,8 @@ class BridgeStatusCommand {
 			);
 		}
 
-		if ( 0 === $below_floor && 0 === $behind ) {
+		// $below_floor is 0 here - a non-zero count returned via WP_CLI::error above.
+		if ( 0 === $behind ) {
 			WP_CLI::success( 'Every integration bridge is current with its partner.' );
 		}
 	}

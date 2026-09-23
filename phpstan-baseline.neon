@@ -18,11 +18,6 @@ parameters:
 			count: 1
 			path: includes/Admin/RolesTab.php
 
-		-
-			message: '#^Call to static method get_share_url\(\) on an unknown class WBGam\\Engine\\BadgeSharePage\.$#'
-			identifier: class.notFound
-			count: 1
-			path: includes/Bridges/GamificationBridge.php
 
 
 
