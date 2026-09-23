@@ -15,6 +15,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Onboarding;
 
+use BuddyNext\Core\PageRouter;
+use BuddyNext\Spaces\SpaceInviteLinkService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -426,36 +428,45 @@ class OnboardingController {
 	}
 
 	/**
-	 * Resolve the post-onboarding redirect, honouring a pending space invite.
+	 * Join every space the member holds a pending invite for, and resolve the
+	 * post-onboarding redirect.
 	 *
-	 * When the member opened a valid space invite link before onboarding
-	 * (SpaceInviteLinkService::prime_from_request stored it), completing the
-	 * wizard should return them to that space — where they then click Join — not
-	 * the default profile/feed destination. The pending marker is single-use and
-	 * cleared here regardless; a link that expired in the meantime falls back to
-	 * the normal destination.
+	 * A member accumulates one pending entry per DISTINCT space they opened a
+	 * valid invite link for — before registering (a guest who then signed up;
+	 * see RegistrationService::redeem_pending_space_invites()) or during
+	 * onboarding itself (SpaceInviteLinkService::prime_from_request(), the
+	 * already-signed-in case). Completing the wizard is what actually joins
+	 * them now — not a deep-link they then have to click Join on again — so
+	 * "share one link that lets people join this space directly" holds even for
+	 * a brand-new member, and holds for every space they opened a link for, not
+	 * just the last one.
+	 *
+	 * Each entry is re-validated inside join_all_pending(): a link may have
+	 * expired or been reset since it was primed, which just drops that one
+	 * entry rather than failing the batch. The list is single-use and cleared
+	 * here regardless of how many entries turned out to still be valid.
 	 *
 	 * @param int    $user_id  Member completing onboarding.
-	 * @param string $fallback The destination to use when there is no valid pending invite.
+	 * @param string $fallback Destination when there is no pending invite, or none is still valid.
 	 * @return string
 	 */
 	private function pending_invite_redirect( int $user_id, string $fallback ): string {
-		$pending = get_user_meta( $user_id, 'bn_pending_space_invite', true );
-		if ( ! is_array( $pending ) || empty( $pending['space_id'] ) || empty( $pending['token'] ) ) {
+		$pending = get_user_meta( $user_id, SpaceInviteLinkService::PENDING_KEY, true );
+		if ( ! is_array( $pending ) || empty( $pending ) ) {
 			return $fallback;
 		}
 
-		$space_id = (int) $pending['space_id'];
-		$token    = (string) $pending['token'];
+		// Single-use: clear it whether or not any entry is still valid.
+		delete_user_meta( $user_id, SpaceInviteLinkService::PENDING_KEY );
 
-		// Single-use: clear it whether or not the link is still valid.
-		delete_user_meta( $user_id, 'bn_pending_space_invite' );
-
-		if ( is_wp_error( ( new \BuddyNext\Spaces\SpaceInviteLinkService() )->validate( $space_id, $token ) ) ) {
+		$joined_ids = ( new SpaceInviteLinkService() )->join_all_pending( $user_id, $pending );
+		if ( empty( $joined_ids ) ) {
 			return $fallback;
 		}
 
-		return add_query_arg( 'invite', rawurlencode( $token ), \BuddyNext\Core\PageRouter::space_url( $space_id ) );
+		// Land them in the space they opened LAST — the one most likely still top
+		// of mind — while any others joined silently alongside it.
+		return PageRouter::space_url( (int) end( $joined_ids ) );
 	}
 
 	/**
