@@ -445,6 +445,21 @@
       "id": "hook-consumed-never-fired:buddynext_pro_learnomy_backfill_chunk",
       "reason": "Pro-side hook, surfaced here only because the paired scan (--pair=../buddynext-pro) walks Pro's tree against FREE's baseline. Async continuation dispatched via as_enqueue_async_action( self::BACKFILL_HOOK, ... ) at buddynext-pro LearnomyCommunityLink.php:1154 and fired by Action Scheduler, not by plugin code. Suppressed in Pro's own baseline too; this duplicate exists so the paired run from either side is green.",
       "severity": "error"
+    },
+    {
+      "id": "option-read-never-written:buddynext_log_retention_days",
+      "reason": "Persisted via the WordPress Settings API — a Field keyed off LogRetentionService::OPTION (Settings.php ~L881), written by core options.php on the 'buddynext' group. Scanner cannot resolve the const on the write side, and the read site (LogRetentionService.php:159) also uses the const. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "option-read-never-written:buddynext_report_rate_limit",
+      "reason": "Intentional advanced tunable with a safe default (10 reports/2min; 0 disables) — ModerationService.php:356. No admin control by design (BN defaults-first: the default is the product's opinion; owners/hosts override via update_option/wp-cli). Read always getting the default is the correct, documented behavior, not a missing write.",
+      "severity": "error"
+    },
+    {
+      "id": "option-read-never-written:buddynext_isolation_keep",
+      "reason": "Advanced owner/host keep-alive allow-list merged into the front-end isolation whitelist (PluginIsolation::owner_keep_list, consumed at :461/:596/:628). Safe empty default — security plugins are always kept via active_security_kept(), so nothing breaks when unset. Sibling IsolationAdmin persists OPTION_STRIP/OPTION_ENABLED but has no keep-list field yet; set via update_option/wp-cli today. Known gap tracked on Basecamp for a keep-list admin control — not a wrong key or crash.",
+      "severity": "error"
     }
   ]
 }
