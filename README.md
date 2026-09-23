@@ -46,6 +46,8 @@ Learn more at [buddynext.com](https://buddynext.com/). Built and maintained by [
 - **Per-space feeds**, space moderation, settings, and categories.
 - **Search inside a space** - a space's Feed tab has its own search box, scoped to that space and respecting its privacy.
 - **Sub-spaces** for communities that need a second level.
+- **Featured spaces** - owners can feature spaces so new members see them first, across the directory, setup checklist, onboarding wizard and a phone-only strip.
+- **Shareable invite links** - one link lets people join a space directly, with a per-person single-use cap and an expiry.
 
 ### Members & profiles
 - **Rich profiles** with customizable field groups (basic info, social links, work, education, skills, and custom groups).
@@ -61,7 +63,8 @@ Learn more at [buddynext.com](https://buddynext.com/). Built and maintained by [
 
 ### Moderation
 - **Reporting** from any post, a **review queue**, **strikes**, **suspensions**, and an **appeals** flow.
-- **Shadow-ban**, content warnings, and an auto-hide threshold.
+- **Shadow-ban** and an auto-hide threshold.
+- **Content warnings** - a moderator can add, change or clear an NSFW/spoiler/violence/language warning on reported content from any moderation surface; readers see a blur with a "Show anyway" toggle.
 - Every action is written to an **immutable audit log**.
 - **Community Admin** - a front-end hub so moderators can work the community without a wp-admin account.
 - **Banned words, hashtags, link domains and IPs**, with whole-word matching and a `*` wildcard for variants.
