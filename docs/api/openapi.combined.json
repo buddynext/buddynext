@@ -3,7 +3,7 @@
     "info": {
         "title": "BuddyNext REST API (Free + Pro)",
         "description": "The complete REST surface of BuddyNext: the Free plugin under `buddynext/v1` and BuddyNext Pro under `buddynext-pro/v1` (membership, payments, AI, analytics, email, push, moderation). Generated from the live route registry by bin/gen-openapi.php; do not hand-edit. The narrative reference lives in the Developer Guide.",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "contact": {
             "name": "Wbcom Designs",
             "url": "https://wbcomdesigns.com"
@@ -215,7 +215,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PlanSpaceSearch"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -4599,7 +4606,14 @@
                 "summary": "GET /buddynext-pro/v1/membership/checkout-nonce",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CheckoutNonce"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -16852,7 +16866,14 @@
                 "summary": "GET /buddynext/v1/settings/featured-spaces",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FeaturedSpaces"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -23081,6 +23102,12 @@
                             "null"
                         ]
                     },
+                    "space_type": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "shared_post_id": {
                         "type": [
                             "integer",
@@ -23403,6 +23430,12 @@
                         "type": "integer"
                     },
                     "space_id": {},
+                    "space_type": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "shared_post_id": {},
                     "type": {
                         "type": "string"
@@ -24586,6 +24619,19 @@
                     "viewer_role": {
                         "type": "string"
                     },
+                    "last_active_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "last_active_at_gmt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "category_name": {
                         "type": "string"
                     },
@@ -25034,6 +25080,47 @@
                                 "description": "ISO 8601 UTC form of created_at; present when created_at is set."
                             }
                         }
+                    }
+                }
+            },
+            "FeaturedSpaces": {
+                "type": "object",
+                "properties": {
+                    "ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "spaces": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "slug": {
+                                    "type": "string"
+                                },
+                                "member_count": {
+                                    "type": "integer"
+                                },
+                                "avatar_url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                },
+                                "type": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "limit": {
+                        "type": "integer"
                     }
                 }
             },
@@ -28187,6 +28274,14 @@
                     }
                 }
             },
+            "CheckoutNonce": {
+                "type": "object",
+                "properties": {
+                    "nonce": {
+                        "type": "string"
+                    }
+                }
+            },
             "ProProfileConditions": {
                 "type": "object",
                 "properties": {
@@ -28444,6 +28539,31 @@
                             "array",
                             "object"
                         ]
+                    }
+                }
+            },
+            "PlanSpaceSearch": {
+                "type": "object",
+                "properties": {
+                    "spaces": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "type": {
+                                    "type": "string"
+                                },
+                                "is_gated": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
                     }
                 }
             },

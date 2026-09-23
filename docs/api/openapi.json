@@ -11,7 +11,7 @@
             "name": "GPL-2.0-or-later",
             "identifier": "GPL-2.0-or-later"
         },
-        "version": "1.2.0"
+        "version": "1.2.1"
     },
     "servers": [
         {
@@ -10278,7 +10278,14 @@
                 "summary": "GET /buddynext/v1/settings/featured-spaces",
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FeaturedSpaces"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Not authenticated."
@@ -16507,6 +16514,12 @@
                             "null"
                         ]
                     },
+                    "space_type": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "shared_post_id": {
                         "type": [
                             "integer",
@@ -16829,6 +16842,12 @@
                         "type": "integer"
                     },
                     "space_id": {},
+                    "space_type": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "shared_post_id": {},
                     "type": {
                         "type": "string"
@@ -18012,6 +18031,19 @@
                     "viewer_role": {
                         "type": "string"
                     },
+                    "last_active_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "last_active_at_gmt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "category_name": {
                         "type": "string"
                     },
@@ -18460,6 +18492,47 @@
                                 "description": "ISO 8601 UTC form of created_at; present when created_at is set."
                             }
                         }
+                    }
+                }
+            },
+            "FeaturedSpaces": {
+                "type": "object",
+                "properties": {
+                    "ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "spaces": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "slug": {
+                                    "type": "string"
+                                },
+                                "member_count": {
+                                    "type": "integer"
+                                },
+                                "avatar_url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                },
+                                "type": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "limit": {
+                        "type": "integer"
                     }
                 }
             },

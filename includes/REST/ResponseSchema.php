@@ -727,6 +727,12 @@ final class ResponseSchema {
 				'resource' => 'webhooks_log',
 				'shape'    => 'paginated',
 			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/settings/featured-spaces',
+				'resource' => 'featured_spaces',
+				'shape'    => 'item',
+			),
 		);
 	}
 
@@ -748,6 +754,44 @@ final class ResponseSchema {
 			'type'                 => 'object',
 			'description'          => 'Result of a write operation. The fields depend on the operation.',
 			'additionalProperties' => true,
+		);
+	}
+
+	/**
+	 * The featured-spaces admin payload (GET /settings/featured-spaces): the
+	 * stored space ids, hydrated summary rows in owner order, and the cap.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function featured_spaces(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'featured-spaces',
+			'type'       => 'object',
+			'properties' => array(
+				'ids'    => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'integer' ),
+				),
+				'spaces' => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'id'           => array( 'type' => 'integer' ),
+							'name'         => array( 'type' => 'string' ),
+							'slug'         => array( 'type' => 'string' ),
+							'member_count' => array( 'type' => 'integer' ),
+							'avatar_url'   => array(
+								'type'   => 'string',
+								'format' => 'uri',
+							),
+							'type'         => array( 'type' => 'string' ),
+						),
+					),
+				),
+				'limit'  => array( 'type' => 'integer' ),
+			),
 		);
 	}
 
@@ -944,6 +988,11 @@ final class ResponseSchema {
 					'format' => 'date-time',
 				),
 				'viewer_role'       => array( 'type' => 'string' ),
+				'last_active_at'     => array( 'type' => array( 'string', 'null' ) ),
+				'last_active_at_gmt' => array(
+					'type'   => array( 'string', 'null' ),
+					'format' => 'date-time',
+				),
 				'category_name'     => array( 'type' => 'string' ),
 				'category_slug'     => array( 'type' => 'string' ),
 				'subspace_count'    => array( 'type' => 'integer' ),
@@ -976,6 +1025,7 @@ final class ResponseSchema {
 				'id'                   => array( 'type' => 'integer' ),
 				'user_id'              => array( 'type' => 'integer' ),
 				'space_id'             => array( 'type' => array( 'integer', 'null' ) ),
+				'space_type'           => array( 'type' => array( 'string', 'null' ) ),
 				'shared_post_id'       => array( 'type' => array( 'integer', 'null' ) ),
 				'type'                 => array( 'type' => 'string' ),
 				'content'              => array( 'type' => 'string' ),
@@ -1895,6 +1945,7 @@ final class ResponseSchema {
 					'type' => 'integer',
 				),
 				'space_id'             => array(),
+				'space_type'           => array( 'type' => array( 'string', 'null' ) ),
 				'shared_post_id'       => array(),
 				'type'                 => array(
 					'type' => 'string',
