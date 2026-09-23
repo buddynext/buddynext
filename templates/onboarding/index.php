@@ -508,15 +508,15 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 				<p class="bn-ob-step__sub"><?php esc_html_e( 'Spaces are topic-focused communities. Join the ones that interest you.', 'buddynext' ); ?></p>
 			</header>
 
-			<div class="bn-ob-spaces">
+			<div class="bn-ob-card">
 				<?php if ( $recommended_spaces ) : ?>
-					<?php foreach ( $recommended_spaces as $space ) : ?>
-						<?php
-						$space_id  = (int) $space['id'];
-						$is_joined = in_array( $space_id, $joined_space_ids, true );
-						?>
-						<div class="bn-ob-space-card">
-							<div class="bn-ob-space-card__head">
+					<ul class="bn-ob-spaces" role="list">
+						<?php foreach ( $recommended_spaces as $space ) : ?>
+							<?php
+							$space_id  = (int) $space['id'];
+							$is_joined = in_array( $space_id, $joined_space_ids, true );
+							?>
+							<li class="bn-ob-space">
 								<span class="bn-avatar bn-ob-space-avatar"
 									data-size="md"
 									aria-hidden="true">
@@ -527,9 +527,9 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 										<?php buddynext_icon( 'home' ); ?>
 									<?php endif; ?>
 								</span>
-								<div class="bn-ob-space-card__meta">
-									<h3 class="bn-ob-space-card__name"><?php echo esc_html( (string) $space['name'] ); ?></h3>
-									<p class="bn-ob-space-card__members">
+								<div class="bn-ob-space__info">
+									<p class="bn-ob-space__name"><?php echo esc_html( (string) $space['name'] ); ?></p>
+									<p class="bn-ob-space__meta">
 										<?php
 										echo esc_html(
 											sprintf(
@@ -541,21 +541,18 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 										?>
 									</p>
 								</div>
-							</div>
-							<?php if ( ! empty( $space['description'] ) ) : ?>
-								<p class="bn-ob-space-card__desc"><?php echo esc_html( wp_trim_words( (string) $space['description'], 14 ) ); ?></p>
-							<?php endif; ?>
-							<button class="bn-btn bn-ob-space-card__cta"
-								type="button"
-								data-variant="<?php echo $is_joined ? 'secondary' : 'primary'; ?>"
-								data-size="sm"
-								data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-								aria-pressed="<?php echo $is_joined ? 'true' : 'false'; ?>"
-								data-wp-on--click="actions.joinSuggestedSpace">
-								<?php echo $is_joined ? esc_html__( 'Joined', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
-							</button>
-						</div>
-					<?php endforeach; ?>
+								<button class="bn-btn bn-ob-space__cta"
+									type="button"
+									data-variant="<?php echo $is_joined ? 'secondary' : 'primary'; ?>"
+									data-size="sm"
+									data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+									aria-pressed="<?php echo $is_joined ? 'true' : 'false'; ?>"
+									data-wp-on--click="actions.joinSuggestedSpace">
+									<?php echo $is_joined ? esc_html__( 'Joined', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
+								</button>
+							</li>
+						<?php endforeach; ?>
+					</ul>
 				<?php else : ?>
 					<p class="bn-ob-empty">
 						<?php esc_html_e( 'No spaces available yet. You can explore spaces after setup.', 'buddynext' ); ?>
