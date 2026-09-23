@@ -187,6 +187,10 @@ $bn_ca_queue = $bn_ca_mod->get_queue(
 	array(
 		'per_page' => 10,
 		'page'     => 1,
+		// Batches the offender lookup (post/comment/message author, or the
+		// reported user directly) plus their strike count and suspension state
+		// in one pass — the row actions below need offender_id for Strike/Suspend.
+		'enrich'   => true,
 	)
 );
 $report_rows = $bn_ca_queue['items'];
@@ -341,9 +345,21 @@ $posts_pct_abs = abs( $posts_pct );
 				$bn_ca_routed = ( 'community_admin' === (string) get_query_var( 'bn_hub' ) );
 				foreach ( $nav_items as $key => $item ) :
 					$is_active = ( $admin_section === $key );
-					$tab_href  = $bn_ca_routed
-						? ( 'overview' === $key ? $admin_base : trailingslashit( $admin_base . $key ) )
-						: add_query_arg( 'bn_admin', $key, $admin_base );
+					if ( 'reports' === $key ) {
+						// This panel has no distinct in-page "reports" section — every
+						// $admin_section value that is not members/spaces/settings/invites
+						// falls through to the same overview dashboard, so this link used
+						// to loop back to the very capped 5-row card it was meant to escape
+						// (card 10331285055 follow-up: "View all" on a >5-report queue went
+						// nowhere). wp-admin's Moderation > Reports tab is the real full,
+						// paginated, filterable list — reuse it instead of building a second
+						// one here.
+						$tab_href = \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' );
+					} else {
+						$tab_href = $bn_ca_routed
+							? ( 'overview' === $key ? $admin_base : trailingslashit( $admin_base . $key ) )
+							: add_query_arg( 'bn_admin', $key, $admin_base );
+					}
 					?>
 					<a
 						href="<?php echo esc_url( $tab_href ); ?>"
@@ -866,7 +882,7 @@ $posts_pct_abs = abs( $posts_pct );
 							<?php esc_html_e( 'Open reports', 'buddynext' ); ?>
 							<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $open_reports ) ); ?></span>
 						</span>
-						<a href="<?php echo esc_url( add_query_arg( 'bn_admin', 'reports', $admin_base ) ); ?>" class="bn-ca-card__link">
+						<a href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' ) ); ?>" class="bn-ca-card__link">
 							<?php esc_html_e( 'View all', 'buddynext' ); ?>
 						</a>
 					</header>
@@ -904,7 +920,15 @@ $posts_pct_abs = abs( $posts_pct );
 							if ( '' === $rpt_cw_type ) {
 								$rpt_cw_type = 'nsfw';
 							}
-							$rpt_ctx = wp_json_encode(
+							// "Remove content" (removes the object + resolves the report) only
+							// applies to removable object types — remove_object() returns a 422
+							// (bn_removal_unsupported) for user/space reports, same gate the
+							// wp-admin queue uses (includes/Admin/ModerationQueue.php).
+							$rpt_removable = in_array( $rpt_obj_type, array( 'post', 'comment', 'message' ), true );
+							$rpt_escalated = 'escalated' === (string) ( $rpt['status'] ?? '' );
+							$rpt_offender  = (int) ( $rpt['offender_id'] ?? 0 );
+							$rpt_suspended = ! empty( $rpt['offender_suspended'] );
+							$rpt_ctx       = wp_json_encode(
 								array(
 									'reportId'     => (int) $rpt['id'],
 									'restUrl'      => esc_url_raw( rest_url( 'buddynext/v1' ) ),
@@ -913,6 +937,10 @@ $posts_pct_abs = abs( $posts_pct );
 									'objectType'   => $rpt_obj_type,
 									'cwType'       => $rpt_cw_type,
 									'cwHasWarning' => $rpt_cw_has,
+									'escalated'    => $rpt_escalated,
+									'userId'       => $rpt_offender,
+									'strikes'      => (int) ( $rpt['strikes_count'] ?? 0 ),
+									'moreMenuOpen' => false,
 								)
 							);
 							?>
@@ -937,6 +965,11 @@ $posts_pct_abs = abs( $posts_pct );
 									<time class="bn-ca-row__time" datetime="<?php echo esc_attr( $rpt_iso ); ?>"><?php echo esc_html( $rpt_time ); ?></time>
 								<?php endif; ?>
 								<div class="bn-ca-row__actions">
+									<?php
+									// Primary, inline: the two actions reached for most. Everything
+									// else (card 10331285055) folds into the "... More" overflow —
+									// same split as the wp-admin queue.
+									?>
 									<button
 										type="button"
 										class="bn-btn"
@@ -944,31 +977,71 @@ $posts_pct_abs = abs( $posts_pct );
 										data-size="sm"
 										data-wp-on--click="actions.dismiss"
 									><?php esc_html_e( 'Dismiss', 'buddynext' ); ?></button>
-									<button
-										type="button"
-										class="bn-btn"
-										data-variant="danger"
-										data-size="sm"
-										data-wp-on--click="actions.removeContent"
-									><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
-									<?php // Content warning: post-only softer alternative to removal (blur/reveal overlay). Shared control across all moderation surfaces. Card 10325560448. ?>
-									<?php if ( 'post' === $rpt_obj_type ) : ?>
-										<?php
-										buddynext_get_template(
-											'parts/moderation-cw-control.php',
-											array(
-												'cw_type' => $rpt_cw_type,
-												'cw_has'  => $rpt_cw_has,
-											)
-										);
-										?>
+									<?php if ( $rpt_removable ) : ?>
+										<button
+											type="button"
+											class="bn-btn"
+											data-variant="danger"
+											data-size="sm"
+											data-wp-on--click="actions.removeContent"
+										><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
 									<?php endif; ?>
+									<div class="bn-ca-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen" data-wp-on-document--click="actions.closeMoreMenuOnOutside">
+										<button
+											type="button"
+											class="bn-btn bn-ca-more-trigger"
+											data-variant="secondary"
+											data-size="sm"
+											aria-haspopup="menu"
+											aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>"
+											data-wp-on--click="actions.toggleMoreMenu"
+											data-wp-bind--aria-expanded="context.moreMenuOpen"
+										>
+											<?php buddynext_icon( 'more-horizontal' ); ?>
+										</button>
+										<div class="bn-ca-more-menu" role="menu">
+											<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.resolveReport">
+												<?php esc_html_e( 'Resolve', 'buddynext' ); ?>
+											</button>
+											<?php if ( ! $rpt_escalated ) : ?>
+												<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.escalateReport">
+													<?php esc_html_e( 'Escalate', 'buddynext' ); ?>
+												</button>
+											<?php endif; ?>
+											<?php // Content warning: post-only softer alternative to removal (blur/reveal overlay). Shared control across all moderation surfaces. Card 10325560448. ?>
+											<?php if ( 'post' === $rpt_obj_type ) : ?>
+												<div class="bn-ca-more-menu-item bn-ca-more-menu-item--cw">
+													<?php
+													buddynext_get_template(
+														'parts/moderation-cw-control.php',
+														array(
+															'cw_type' => $rpt_cw_type,
+															'cw_has'  => $rpt_cw_has,
+														)
+													);
+													?>
+												</div>
+											<?php endif; ?>
+											<?php if ( $rpt_offender > 0 && 'user' !== $rpt_obj_type ) : ?>
+												<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.strikeUser">
+													<?php esc_html_e( 'Strike author', 'buddynext' ); ?>
+												</button>
+												<?php if ( $rpt_suspended ) : ?>
+													<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Already suspended', 'buddynext' ); ?></span>
+												<?php else : ?>
+													<button type="button" class="bn-ca-more-menu-item bn-ca-more-menu-item--danger" role="menuitem" data-wp-on--click="actions.suspendUser">
+														<?php esc_html_e( 'Suspend author', 'buddynext' ); ?>
+													</button>
+												<?php endif; ?>
+											<?php endif; ?>
+										</div>
+									</div>
 								</div>
 							</div>
 						<?php endforeach; ?>
 
 						<?php if ( $extra_count > 0 ) : ?>
-							<a href="<?php echo esc_url( add_query_arg( 'bn_admin', 'reports', $admin_base ) ); ?>" class="bn-ca-card__more">
+							<a href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' ) ); ?>" class="bn-ca-card__more">
 								<?php
 								printf(
 									/* translators: %s: number of additional reports. */
@@ -1213,7 +1286,7 @@ $posts_pct_abs = abs( $posts_pct );
 									<?php if ( $act_report ) : ?>
 										<div class="bn-ca-activity-row__action">
 											<a
-												href="<?php echo esc_url( add_query_arg( 'bn_admin', 'reports', $admin_base ) ); ?>"
+												href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' ) ); ?>"
 												class="bn-btn"
 												data-variant="secondary"
 												data-size="sm"

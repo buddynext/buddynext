@@ -4304,20 +4304,44 @@ code.bn-ep-code {
 	font-size: var(--bn-a-text-xs);
 }
 
-/* Content-warning type picker in the wp-admin moderation queue: match the
-   .bn-btn[data-size="sm"] actions beside it, same approach as the bulk-bar
-   select above (stretch the inline form, collapse the select's own height). */
-.bn-row-actions .bn-cw-form {
-	display: inline-flex;
+/* Content-warning type picker: lives in the row's "... More" overflow menu
+   (card 10331285055), not inline beside the row buttons — same select +
+   submit shape as before, laid out inside a dropdown item's padding. */
+.bn-more-dropdown .bn-cw-form {
+	padding: var(--bn-a-s2) var(--bn-a-s4);
+}
+
+.bn-cw-form__row {
+	display: flex;
 	align-items: stretch;
-	gap: var(--bn-s1);
+	gap: var(--bn-a-s1);
 }
 
 .bn-cw-form__type {
+	flex: 1 1 auto;
 	box-sizing: border-box;
+	min-width: 0;
 	min-height: 0;
 	padding-block: 0;
 	line-height: 1;
-	font-size: var(--bn-text-xs);
-	border-radius: var(--bn-r-sm);
+	font-size: var(--bn-a-text-xs);
+	border-radius: var(--bn-a-r-sm);
+}
+
+/* width: auto overrides .bn-dropdown-item's own `width: 100%` — without it the
+   submit button's flex-basis resolved to the full row width (100%) and its
+   flex-shrink: 0 then refused to give any of that space back to the select,
+   which was left with only its min-width: 0 leftover (a few px, arrow only,
+   no visible option text). */
+.bn-cw-form__submit {
+	flex: 0 0 auto;
+	width: auto;
+	white-space: nowrap;
+	padding-inline: var(--bn-a-s2);
+}
+
+/* "Already suspended" badge, shown in place of the Suspend action when the
+   row's overflow menu already covers a suspended author. */
+.bn-more-dropdown .bn-badge {
+	margin: var(--bn-a-s1) var(--bn-a-s4);
 }

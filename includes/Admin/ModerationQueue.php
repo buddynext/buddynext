@@ -39,6 +39,7 @@ class ModerationQueue {
 	 * @return void
 	 */
 	public function register(): void {
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_bn_mod_report_action', array( $this, 'handle_report_action' ) );
 		add_action( 'admin_post_bn_mod_user_action', array( $this, 'handle_user_action' ) );
 		add_action( 'admin_post_bn_mod_appeal_action', array( $this, 'handle_appeal_action' ) );
@@ -66,6 +67,31 @@ class ModerationQueue {
 		AdminHub::register_tab( 'moderation', 'suspensions', __( 'Suspensions', 'buddynext' ), array( $this, 'render_suspensions' ), array( 'position' => 20 ) );
 		AdminHub::register_tab( 'moderation', 'appeals', __( 'Appeals', 'buddynext' ), array( $this, 'render_appeals' ), array( 'position' => 30 ) );
 		AdminHub::register_tab( 'moderation', 'log', __( 'Moderation Log', 'buddynext' ), array( $this, 'render_log' ), array( 'position' => 40 ) );
+	}
+
+	/**
+	 * Enqueue the shared row "more" (kebab) dropdown wiring on the Moderation
+	 * page only — the Reports tab's row-actions overflow menu depends on it
+	 * (same component as Members/Spaces, see assets/js/admin/more-menu.js).
+	 *
+	 * @param string $hook_suffix Current admin page hook suffix.
+	 * @return void
+	 */
+	public function enqueue_assets( string $hook_suffix ): void {
+		if ( false === strpos( $hook_suffix, 'buddynext-moderation' ) ) {
+			return;
+		}
+
+		$plugin_url = defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL : plugin_dir_url( dirname( __DIR__, 2 ) . '/buddynext.php' );
+		$version    = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : '1.0.0';
+
+		wp_enqueue_script(
+			'bn-admin-more-menu',
+			$plugin_url . 'assets/js/admin/more-menu.js',
+			array(),
+			$version,
+			true
+		);
 	}
 
 	// ── Renderers ───────────────────────────────────────────────────────────
@@ -497,8 +523,11 @@ class ModerationQueue {
 			<td>
 				<div class="bn-row-actions">
 					<?php
+					// Primary, inline: the two actions a moderator reaches for most —
+					// dismiss the report, or take the content down. Everything else
+					// (card 10331285055: 8-10 flat buttons was unscannable) folds into
+					// the row's "... More" overflow below.
 					$this->report_button( $report_id, 'dismiss', __( 'Dismiss', 'buddynext' ), 'secondary' );
-					$this->report_button( $report_id, 'resolve', __( 'Resolve', 'buddynext' ), 'secondary' );
 					// "Remove content" only applies to removable objects — remove_object()
 					// returns a 422 (bn_removal_unsupported) for user/space reports. Gate
 					// the button on the same object types the frontend queue does
@@ -513,21 +542,31 @@ class ModerationQueue {
 					if ( in_array( $object_type, array( 'post', 'comment', 'message' ), true ) && ! $bn_missing ) {
 						$this->report_button( $report_id, 'remove', __( 'Remove content', 'buddynext' ), 'delete', __( 'Remove the reported content? It is hidden, not hard-deleted.', 'buddynext' ) );
 					}
-					// Content warning: a softer alternative to removal, post-only (the
-					// blur/reveal overlay renders on posts). Without this the warning
-					// could only be set via a raw REST call (card 10325560448).
-					if ( 'post' === $object_type && ! $bn_missing ) {
-						$this->content_warning_controls( $report_id, $object_id );
-					}
-					if ( ! $escalated ) {
-						$this->report_button( $report_id, 'escalate', __( 'Escalate', 'buddynext' ), 'secondary' );
-					}
-					if ( $author_id > 0 && 'user' !== $object_type ) {
-						$this->user_inline_actions( $author_id );
-					} elseif ( 'user' === $object_type && $object_id > 0 ) {
-						$this->user_inline_actions( $object_id );
-					}
 					?>
+					<div class="bn-more-menu" data-uid="<?php echo absint( $report_id ); ?>">
+						<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="<?php /* translators: %d: report id. */ echo esc_attr( sprintf( __( 'More actions for report #%d', 'buddynext' ), $report_id ) ); ?>">
+							<?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+						</button>
+						<div class="bn-more-dropdown" role="menu">
+							<?php
+							$this->report_button( $report_id, 'resolve', __( 'Resolve', 'buddynext' ), 'secondary', '', true );
+							// Content warning: a softer alternative to removal, post-only (the
+							// blur/reveal overlay renders on posts). Without this the warning
+							// could only be set via a raw REST call (card 10325560448).
+							if ( 'post' === $object_type && ! $bn_missing ) {
+								$this->content_warning_controls( $report_id, $object_id );
+							}
+							if ( ! $escalated ) {
+								$this->report_button( $report_id, 'escalate', __( 'Escalate', 'buddynext' ), 'secondary', '', true );
+							}
+							if ( $author_id > 0 && 'user' !== $object_type ) {
+								$this->user_inline_actions( $author_id );
+							} elseif ( 'user' === $object_type && $object_id > 0 ) {
+								$this->user_inline_actions( $object_id );
+							}
+							?>
+						</div>
+					</div>
 				</div>
 			</td>
 		</tr>
@@ -1306,14 +1345,16 @@ class ModerationQueue {
 	/**
 	 * Render a single-button report-action form.
 	 *
-	 * @param int    $report_id Report ID.
-	 * @param string $op        Operation key.
-	 * @param string $label     Button label.
-	 * @param string $variant   WP button class hint (secondary|delete|primary).
-	 * @param string $confirm   Optional confirm() prompt.
+	 * @param int    $report_id  Report ID.
+	 * @param string $op         Operation key.
+	 * @param string $label      Button label.
+	 * @param string $variant    WP button class hint (secondary|delete|primary).
+	 * @param string $confirm    Optional confirm() prompt.
+	 * @param bool   $in_dropdown Render as a `.bn-dropdown-item` for the row's overflow
+	 *                            menu instead of an inline `.bn-btn`.
 	 * @return void
 	 */
-	private function report_button( int $report_id, string $op, string $label, string $variant, string $confirm = '' ): void {
+	private function report_button( int $report_id, string $op, string $label, string $variant, string $confirm = '', bool $in_dropdown = false ): void {
 		$this->action_form(
 			'bn_mod_report_action',
 			array(
@@ -1322,7 +1363,8 @@ class ModerationQueue {
 			),
 			$label,
 			$variant,
-			$confirm
+			$confirm,
+			$in_dropdown
 		);
 	}
 
@@ -1335,6 +1377,7 @@ class ModerationQueue {
 	 * /posts/{id}/content-warning (card 10325560448). This is that control, on the
 	 * same form-POST pattern as report_button() (dispatched by handle_report_action).
 	 * The type select needs its own form, so it is not routed through action_form().
+	 * Lives in the row's overflow menu (card 10331285055), not inline.
 	 *
 	 * @param int $report_id The report being actioned (kept so the redirect returns here).
 	 * @param int $post_id   The reported post.
@@ -1352,21 +1395,23 @@ class ModerationQueue {
 		$type    = (string) ( $current['warning_type'] ?? '' );
 		$field   = 'bn-cw-type-' . $report_id;
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form bn-cw-form">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-dropdown-item-form bn-cw-form">
 			<input type="hidden" name="action" value="bn_mod_report_action">
 			<?php wp_nonce_field( 'bn_mod_report_action' ); ?>
 			<input type="hidden" name="report_id" value="<?php echo esc_attr( (string) $report_id ); ?>">
 			<input type="hidden" name="post_id" value="<?php echo esc_attr( (string) $post_id ); ?>">
 			<input type="hidden" name="op" value="cw_set">
 			<label class="screen-reader-text" for="<?php echo esc_attr( $field ); ?>"><?php esc_html_e( 'Content warning type', 'buddynext' ); ?></label>
-			<select name="cw_type" id="<?php echo esc_attr( $field ); ?>" class="bn-cw-form__type">
-				<?php foreach ( $types as $bn_cw_key => $bn_cw_label ) : ?>
-					<option value="<?php echo esc_attr( $bn_cw_key ); ?>" <?php selected( $type, $bn_cw_key ); ?>><?php echo esc_html( $bn_cw_label ); ?></option>
-				<?php endforeach; ?>
-			</select>
-			<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
-				<?php echo $has ? esc_html__( 'Update warning', 'buddynext' ) : esc_html__( 'Add warning', 'buddynext' ); ?>
-			</button>
+			<div class="bn-cw-form__row">
+				<select name="cw_type" id="<?php echo esc_attr( $field ); ?>" class="bn-cw-form__type">
+					<?php foreach ( $types as $bn_cw_key => $bn_cw_label ) : ?>
+						<option value="<?php echo esc_attr( $bn_cw_key ); ?>" <?php selected( $type, $bn_cw_key ); ?>><?php echo esc_html( $bn_cw_label ); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<button type="submit" class="bn-dropdown-item bn-cw-form__submit" role="menuitem">
+					<?php echo $has ? esc_html__( 'Update warning', 'buddynext' ) : esc_html__( 'Add warning', 'buddynext' ); ?>
+				</button>
+			</div>
 		</form>
 		<?php
 		if ( $has ) {
@@ -1379,7 +1424,8 @@ class ModerationQueue {
 				),
 				__( 'Clear warning', 'buddynext' ),
 				'secondary',
-				''
+				'',
+				true
 			);
 		}
 	}
@@ -1391,7 +1437,7 @@ class ModerationQueue {
 	 * @return void
 	 */
 	private function user_inline_actions( int $user_id ): void {
-		$this->user_button( $user_id, 'strike', __( 'Strike author', 'buddynext' ), 'secondary' );
+		$this->user_button( $user_id, 'strike', __( 'Strike author', 'buddynext' ), 'secondary', '', true );
 
 		// Already suspended: show the state, not a Suspend button. Re-suspending is
 		// a server-side no-op (suspend_user() returns the existing active
@@ -1403,20 +1449,22 @@ class ModerationQueue {
 			return;
 		}
 
-		$this->user_button( $user_id, 'suspend', __( 'Suspend author', 'buddynext' ), 'delete', __( 'Suspend this member?', 'buddynext' ) );
+		$this->user_button( $user_id, 'suspend', __( 'Suspend author', 'buddynext' ), 'delete', __( 'Suspend this member?', 'buddynext' ), true );
 	}
 
 	/**
 	 * Render a single-button user-action form.
 	 *
-	 * @param int    $user_id User ID.
-	 * @param string $op      Operation key.
-	 * @param string $label   Button label.
-	 * @param string $variant Button class hint.
-	 * @param string $confirm Optional confirm() prompt.
+	 * @param int    $user_id     User ID.
+	 * @param string $op          Operation key.
+	 * @param string $label       Button label.
+	 * @param string $variant     Button class hint.
+	 * @param string $confirm     Optional confirm() prompt.
+	 * @param bool   $in_dropdown Render as a `.bn-dropdown-item` for the row's overflow
+	 *                            menu instead of an inline `.bn-btn`.
 	 * @return void
 	 */
-	private function user_button( int $user_id, string $op, string $label, string $variant, string $confirm = '' ): void {
+	private function user_button( int $user_id, string $op, string $label, string $variant, string $confirm = '', bool $in_dropdown = false ): void {
 		$this->action_form(
 			'bn_mod_user_action',
 			array(
@@ -1426,7 +1474,8 @@ class ModerationQueue {
 			),
 			$label,
 			$variant,
-			$confirm
+			$confirm,
+			$in_dropdown
 		);
 	}
 
@@ -1455,14 +1504,18 @@ class ModerationQueue {
 	/**
 	 * Render a tiny inline admin-post form carrying one action.
 	 *
-	 * @param string              $action  admin-post action (also the nonce).
-	 * @param array<string,mixed> $fields  Hidden field name => value.
-	 * @param string              $label   Button label.
-	 * @param string              $variant Button class hint.
-	 * @param string              $confirm Optional confirm() prompt.
+	 * @param string              $action      admin-post action (also the nonce).
+	 * @param array<string,mixed> $fields      Hidden field name => value.
+	 * @param string              $label       Button label.
+	 * @param string              $variant     Button class hint.
+	 * @param string              $confirm     Optional confirm() prompt.
+	 * @param bool                $in_dropdown Render the submit as a `.bn-dropdown-item`
+	 *                                         (for a `.bn-more-dropdown` overflow menu,
+	 *                                         see assets/js/admin/more-menu.js) instead
+	 *                                         of an inline `.bn-btn`.
 	 * @return void
 	 */
-	private function action_form( string $action, array $fields, string $label, string $variant, string $confirm ): void {
+	private function action_form( string $action, array $fields, string $label, string $variant, string $confirm, bool $in_dropdown = false ): void {
 		$data_variant = 'secondary';
 		if ( 'primary' === $variant ) {
 			$data_variant = 'primary';
@@ -1470,7 +1523,7 @@ class ModerationQueue {
 			$data_variant = 'danger';
 		}
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form"
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="<?php echo esc_attr( $in_dropdown ? 'bn-dropdown-item-form' : 'bn-row-actions__form' ); ?>"
 			<?php
 			// Declarative confirm via the shared bn-admin-dialogs modal (enqueued on
 			// every buddynext-* admin page); replaces the native browser confirm().
@@ -1482,7 +1535,11 @@ class ModerationQueue {
 			<?php foreach ( $fields as $name => $value ) : ?>
 				<input type="hidden" name="<?php echo esc_attr( (string) $name ); ?>" value="<?php echo esc_attr( (string) $value ); ?>">
 			<?php endforeach; ?>
-			<button type="submit" class="bn-btn" data-variant="<?php echo esc_attr( $data_variant ); ?>" data-size="sm"><?php echo esc_html( $label ); ?></button>
+			<?php if ( $in_dropdown ) : ?>
+				<button type="submit" class="bn-dropdown-item<?php echo 'delete' === $variant ? ' bn-dropdown-danger' : ''; ?>" role="menuitem"><?php echo esc_html( $label ); ?></button>
+			<?php else : ?>
+				<button type="submit" class="bn-btn" data-variant="<?php echo esc_attr( $data_variant ); ?>" data-size="sm"><?php echo esc_html( $label ); ?></button>
+			<?php endif; ?>
 		</form>
 		<?php
 	}

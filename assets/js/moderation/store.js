@@ -3,7 +3,7 @@
  * Powers both the site-wide moderation queue (moderation/queue.php) and
  * space-level moderation panel (spaces/moderation.php).
  */
-import { store, getContext } from '@wordpress/interactivity';
+import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 
@@ -120,6 +120,70 @@ const moderationStore = store( 'buddynext/moderation', {
 				bnToast( t( 'contentRemoved', 'Content removed.' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'removeContentFailed', 'Could not remove the content. Try again.' ), { tone: 'danger' } );
+			}
+		},
+
+		/* Resolve without removing the content — the report was reviewed and needs
+		 * no further action (mirrors the wp-admin queue's Resolve button). */
+		* resolveReport() {
+			const ctx = getContext();
+			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
+			const res = yield restFetch( 'reports/' + ctx.reportId + '/resolve', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
+				if ( row ) { row.remove(); }
+				bnToast( t( 'reportResolved', 'Report resolved.' ), { tone: 'success' } );
+			} else {
+				bnToast( t( 'resolveFailed', 'Could not resolve the report. Try again.' ), { tone: 'danger' } );
+			}
+		},
+
+		/* Escalate for a second-line reviewer — the row stays in the queue,
+		 * flagged, rather than disappearing like dismiss/resolve/remove. */
+		* escalateReport() {
+			const ctx = getContext();
+			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
+			const res = yield restFetch( 'reports/' + ctx.reportId + '/escalate', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				ctx.escalated      = true;
+				ctx.moreMenuOpen   = false;
+				bnToast( t( 'reportEscalated', 'Report escalated.' ), { tone: 'success' } );
+			} else {
+				bnToast( t( 'escalateFailed', 'Could not escalate the report. Try again.' ), { tone: 'danger' } );
+			}
+		},
+
+		/* -- Report row "... More" menu ------------------------------ */
+
+		toggleMoreMenu() {
+			const ctx = getContext();
+			ctx.moreMenuOpen = ! ctx.moreMenuOpen;
+		},
+
+		/**
+		 * Close a report row's overflow menu when a click lands outside it.
+		 * Bound directly on .bn-ca-more-menu-wrap via data-wp-on-document--click,
+		 * so getElement().ref IS the wrap and getContext() resolves to that row.
+		 * Mirrors profile/store.js closeMenusOnOutside().
+		 *
+		 * @param {MouseEvent} event The document click event.
+		 */
+		closeMoreMenuOnOutside( event ) {
+			const ctx = getContext();
+			if ( ! ctx || ! ctx.moreMenuOpen ) { return; }
+			const ref = getElement() && getElement().ref;
+			if ( ref && ! ref.contains( event.target ) ) {
+				ctx.moreMenuOpen = false;
 			}
 		},
 
