@@ -411,6 +411,56 @@
 	flex-shrink: 0;
 }
 
+/*
+ * Defeat host-theme button min-width bleed on the header's ghost icon buttons.
+ * A theme (e.g. one that ships WooCommerce button styles) can apply a global
+ * button min-width that BN's padding-token lock does not cover; with 4-5 of them
+ * in the row that inflation eats the header. Not the whole story on its own (see
+ * the container query below), but a cheap, theme-proof floor either way.
+ */
+.bn-dm-pane__actions .bn-btn,
+.bn-dm-pane__back {
+	min-inline-size: 0;
+	flex-shrink: 0;
+}
+
+/*
+ * Tighten the thread header by the THREAD PANE's own width, not the viewport.
+ *
+ * The header (avatar + contact name + a 4-5 button toolbar) only fits when the
+ * thread pane is wide enough. The mobile layout below tightens it via
+ * @media (max-width: 768px) — but that keys off the VIEWPORT, and the pane can
+ * be narrow at a wide viewport: on the iPad-gen-7 width (810px) the two-column
+ * grid stays active, and a theme that gives the app a narrower content area
+ * (Reign renders it ~660px, so the thread column is ~340px) leaves no room —
+ * .bn-dm-pane__identity-text collapses to zero width, the name clips to nothing,
+ * and the status overlaps it. BuddyX gives the app more width, so it was fine and
+ * the viewport media query never caught this. Keying the tighten to the pane via
+ * a container query fixes it for ANY theme/embed that constrains the width, at
+ * any viewport, and still covers the phone case (there the pane is full-width and
+ * also narrow). container-type: inline-size is safe here — the pane's width comes
+ * from the grid track, never its contents, and block-axis scrolling is untouched.
+ */
+.bn-dm-thread {
+	container-type: inline-size;
+	container-name: bn-dm-thread;
+}
+
+@container bn-dm-thread (max-width: 480px) {
+	.bn-dm-pane__head {
+		gap: var(--bn-s1);
+		padding-inline: var(--bn-s3);
+	}
+
+	.bn-dm-pane__actions {
+		gap: 0;
+	}
+
+	.bn-dm-pane__actions .bn-btn {
+		--bn-btn-px: var(--bn-s2);
+	}
+}
+
 .bn-dm-pane__body {
 	flex: 1;
 	overflow-y: auto;
