@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 import { loginAs } from '../_fixtures/actor';
-import { wp, ensureUser } from '../_fixtures/wp';
+import { wp, ensureUser, userId } from '../_fixtures/wp';
 
 /**
  * J-978 admin assigns a member label (VIP) from the edit-member screen, and it
@@ -121,6 +121,19 @@ test('J-978 admin assigns the VIP label from the member edit screen', async ({ p
 });
 
 test("J-978 the label shows as a badge on the member's own public profile", async ({ page }, testInfo) => {
+    if (!ids) {
+        return;
+    }
+    // Self-provision the assignment so this render check stands alone. The
+    // admin-UI assignment test above is desktop-only (test.skip on other
+    // projects), so on an iPad/mobile-only run the label would never be
+    // assigned and this would fail on a missing precondition, not a real bug.
+    // This test's promise is that the label RENDERS on the profile, not how it
+    // was assigned — assigning server-side (idempotent) is the correct fixture.
+    await php(
+        `( new \\BuddyNextPro\\Members\\LabelAssignmentService( new \\BuddyNextPro\\Members\\LabelService() ) )->assign_label( ${memberId}, ${ids.labelId}, ${await userId(ADMIN)} );`
+    );
+
     await loginAs(page, MEMBER);
     await page.goto(`/members/${MEMBER}/`, { waitUntil: 'domcontentloaded' });
 
