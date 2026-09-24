@@ -200,7 +200,10 @@ final class SpaceFieldRegistry {
 				'single'            => (bool) $field['single'],
 				'show_in_rest'      => (bool) $field['show_in_rest'],
 				'sanitize_callback' => static function ( $value ) use ( $field ) {
-					return FieldType::sanitize( $field, $value );
+					// WP stores whatever this returns, so an invalid value (WP_Error)
+					// becomes '' (unset → field default), never a serialized error.
+					$clean = FieldType::sanitize( $field, $value );
+					return is_wp_error( $clean ) ? '' : $clean;
 				},
 				'auth_callback'     => static function ( $allowed, $meta_key, $object_id, $user_id ) {
 					// Only someone who manages the space may write its fields.

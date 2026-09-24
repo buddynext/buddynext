@@ -79,6 +79,9 @@ Featured spaces and shareable invite links to grow a community, an admin menu re
 * Fix      - A multi-select choice value that contains a comma is stored safely.
 * Fix      - Repeater required sub-fields respect conditional logic and member-type visibility.
 * Fix      - An open space no longer shows a lock badge on a members-only post.
+* Fix      - An invalid space field value written through an import, WP-CLI or another plugin is stored as empty instead of breaking the space page.
+* Fix      - The space feed leaves room between the post composer and the first post.
+* Fix      - The community admin panel's Members, Spaces and Invites lists have styled page navigation, and the panel shows a proper browser tab title.
 * Security - REST route matching is case-normalised so the private-community gate cannot be bypassed with a different-cased URL.
 * Security - An invite record's email can be erased and ages out on its own, for GDPR.
 * Security - An invalid invite to a secret space no longer confirms the space exists or names it.
