@@ -179,11 +179,11 @@ Fixes from a full audit of 1.1.6: the media lightbox now acts on the post a phot
 
 Documents come to Spaces and profiles, the media lightbox is rebuilt, and pinning, announcements, notifications and privacy all get sharper. Lockstep with BuddyNext Pro 1.1.6 - install and test both together.
 
-* New      - Space Files tab: a space has its own document drive members can browse, search, preview and download, with a built-in reader for PDFs and inline previews for other file types.
-* New      - Profile Files tab: each member gets a Files tab that shows their own documents inside BuddyNext's own interface.
+* New      - Space Files tab (requires WPMediaVerse Pro): a space has its own document drive members can browse, search, preview and download, with a built-in reader for PDFs and inline previews for other file types.
+* New      - Profile Files tab (requires WPMediaVerse Pro): each member gets a Files tab that shows their own documents inside BuddyNext's own interface.
 * New      - Space Media tab: photos uploaded to a space are filed to that space and honour per-viewer visibility, and a moderator can remove one from the space without deleting the member's own copy.
-* New      - Share a document with specific members at a chosen permission, or with anyone through a link, from its page in the Files tab.
-* New      - Attach a document to a post from the composer, shown as a document card in the feed.
+* New      - Share a document with specific members at a chosen permission, or with anyone through a link, from its page in the Files tab (requires WPMediaVerse Pro).
+* New      - Attach a document to a post from the composer, shown as a document card in the feed (requires WPMediaVerse Pro).
 * New      - Choose which profile fields appear in the profile header, and in what order, from the field editor.
 * New      - Change a profile field's type in place, for example a text location into an interactive map, without losing what members already entered.
 * New      - The members directory can filter by member type with chips, matching Spaces.
