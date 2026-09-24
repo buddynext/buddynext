@@ -220,6 +220,90 @@ add_action( 'buddynext_space_admin_after_stats', function ( int $space_id, int $
 
 BuddyNext Pro uses this seam to render its "Last 30 days" analytics row (new members, left, net growth, posts) for space owners; with Pro inactive the page is unchanged. `$viewer_id` has already passed the manage-space capability gate, so the hook never fires for a member.
 
+## Space settings tabs
+
+**Start with space fields.** If your add-on only needs a few per-space values, register them with `buddynext_register_space_field()` on the `buddynext_register_space_fields` action. They appear in the space's **Custom fields** settings tab, save over REST with validation and a write permission, and need no form or save handler (snippet: [`settings/add-space-settings-fields.php`](https://github.com/buddynext/buddynext-snippets/blob/master/settings/add-space-settings-fields.php)). Add a whole tab only when you need your own layout.
+
+The settings page (`/spaces/{slug}/settings/`) builds its tab strip from a registry you can extend with the `buddynext_part_space_settings_tabs_args` filter. The active tab comes from the `?bn_stab=<slug>` query var.
+
+| Key in `$args` | Type | Meaning |
+|---|---|---|
+| `space_id` | int | The space being edited. |
+| `active_tab` | string | The current `bn_stab` slug. |
+| `tabs` | array | The tab rows. Append yours. |
+| `base_url`, `classes` | string, array | Present only on the second call (see below). |
+
+Each tab row:
+
+| Key | Required | Meaning |
+|---|---|---|
+| `slug` | yes | The `bn_stab` value. Prefix it with your plugin's name so it cannot clash. |
+| `label` | yes | Translated tab label. |
+| `icon` | no | An icon slug from `assets/icons/`. |
+| `cap` | no | A site capability for `current_user_can()`. When it fails, the tab link is hidden. |
+| `panel` | no | A callable `( string $slug, array $args )`, or a template path relative to `templates/`. `$args` holds `space` (the space row) and `space_id`. With no `panel`, the General panel renders. |
+
+```php
+// 1. Add the tab. The filter runs twice per request, so guard against a duplicate.
+add_filter( 'buddynext_part_space_settings_tabs_args', function ( array $args ): array {
+    if ( in_array( 'my-webhook', array_column( $args['tabs'] ?? array(), 'slug' ), true ) ) {
+        return $args;
+    }
+    $args['tabs'][] = array(
+        'slug'  => 'my-webhook',
+        'label' => __( 'Webhook', 'my-plugin' ),
+        'icon'  => 'link',
+        'panel' => 'my_plugin_render_webhook_tab',
+    );
+    return $args;
+} );
+
+// 2. Render the panel. It is NOT wrapped in BuddyNext's settings form: bring your own.
+function my_plugin_render_webhook_tab( string $slug, array $args ): void {
+    $space_id = (int) $args['space_id'];
+    // ?bn_stab=my-webhook reaches this panel even when the tab link is hidden,
+    // so check permission here. Owner-only in this example.
+    if ( ! buddynext_can( get_current_user_id(), 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
+        echo '<p>' . esc_html__( 'Only the space owner can change this.', 'my-plugin' ) . '</p>';
+        return;
+    }
+    ?>
+    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-card" style="padding: var(--bn-s4);">
+        <input type="hidden" name="action" value="my_plugin_save_webhook" />
+        <input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space_id ); ?>" />
+        <?php wp_nonce_field( 'my_plugin_webhook_' . $space_id ); ?>
+        <label for="my-webhook-url"><?php esc_html_e( 'Webhook URL', 'my-plugin' ); ?></label>
+        <input type="url" id="my-webhook-url" name="webhook_url" class="bn-input"
+            value="<?php echo esc_attr( (string) get_space_meta( $space_id, 'my_webhook_url', true ) ); ?>" />
+        <button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save', 'my-plugin' ); ?></button>
+    </form>
+    <?php
+}
+
+// 3. Save: nonce, the same permission check, then back to the tab.
+add_action( 'admin_post_my_plugin_save_webhook', function (): void {
+    $space_id = isset( $_POST['space_id'] ) ? absint( $_POST['space_id'] ) : 0;
+    check_admin_referer( 'my_plugin_webhook_' . $space_id );
+    if ( ! buddynext_can( get_current_user_id(), 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
+        wp_die( esc_html__( 'You cannot change this space.', 'my-plugin' ), '', array( 'response' => 403 ) );
+    }
+    update_space_meta( $space_id, 'my_webhook_url', esc_url_raw( wp_unslash( $_POST['webhook_url'] ?? '' ) ) );
+    $space = buddynext_service( 'spaces' )->get( $space_id ); // An array.
+    wp_safe_redirect( add_query_arg( 'bn_stab', 'my-webhook', buddynext_space_settings_url( (string) ( $space['slug'] ?? '' ) ) ) );
+    exit;
+} );
+```
+
+Things to know:
+
+- **The filter runs twice per request.** It runs once in `templates/spaces/settings.php`, so your slug counts as a valid `bn_stab` value, and once in `templates/parts/space-settings-tabs.php`, which draws the strip. Always check that your slug is not already in `$args['tabs']` before appending.
+- **`cap` only hides the link.** The page itself needs the `buddynext-spaces/manage-settings` ability (space owners, space moderators and site admins). Beyond that, any registered slug is reachable by URL. Check permission inside your panel and in your save handler. Use `buddynext-own-space` for owner-only settings.
+- **You own the form and the save.** Only BuddyNext's own General, Privacy and Integrations tabs sit inside the settings form, and the sticky save bar does not track your inputs. Post to your own handler (`admin-post.php` as above, or your own REST route with a permission callback).
+- **Store per-space values in `bn_space_meta`** with `get_space_meta()` / `update_space_meta()`. Don't create a table or an option per space.
+- **`buddynext_service( 'spaces' )->get()` returns an array**, so read the slug as `$space['slug']`.
+
+Tested on BuddyNext 1.2.1: the tab appears once at the end of the strip, the panel renders, a save redirects back to the tab with the new value, and the owner check refuses a non-owner.
+
 ## Notes / gotchas
 
 - **Free vs Pro.** Every hook here is fired by Free. `buddynext_can_join_space` plus `buddynext_space_join_denied_data` are the documented gated-spaces / paywall seam that Pro builds on; `buddynext_space_types` is the extension point for new space kinds.
