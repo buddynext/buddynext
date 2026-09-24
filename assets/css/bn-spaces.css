@@ -3750,6 +3750,12 @@ a.bn-sh-statpill:focus-visible {
 	margin-block-end: var(--bn-s4);
 }
 
+/* The panel is a plain block, so the composer needs the same bottom rhythm as
+   the search bar above it, or the first post sits flush against it. */
+.bn-space-feed-panel > .bn-composer {
+	margin-block-end: var(--bn-s4);
+}
+
 .bn-space-search__icon {
 	display: inline-flex;
 	flex: 0 0 auto;

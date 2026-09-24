@@ -496,7 +496,7 @@ $posts_pct_abs = abs( $posts_pct );
 				</div>
 
 				<?php if ( (int) $bn_ca_members['pages'] > 1 ) : ?>
-					<nav class="bn-ca-pagination" aria-label="<?php esc_attr_e( 'Members pages', 'buddynext' ); ?>">
+					<nav class="bn-pagination bn-ca-pagination" aria-label="<?php esc_attr_e( 'Members pages', 'buddynext' ); ?>">
 						<?php
 						$bn_ca_pg_args = array();
 						if ( '' !== $bn_ca_m_search ) {
@@ -580,7 +580,7 @@ $posts_pct_abs = abs( $posts_pct );
 				if ( $bn_ca_sp_pages > 1 ) :
 					$bn_ca_sp_base = $bn_ca_routed ? trailingslashit( $admin_base . 'spaces' ) : add_query_arg( 'bn_admin', 'spaces', $admin_base );
 					?>
-					<nav class="bn-ca-pagination" aria-label="<?php esc_attr_e( 'Spaces pages', 'buddynext' ); ?>">
+					<nav class="bn-pagination bn-ca-pagination" aria-label="<?php esc_attr_e( 'Spaces pages', 'buddynext' ); ?>">
 						<?php if ( $bn_ca_sp_page > 1 ) : ?>
 							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_sp_page - 1, $bn_ca_sp_base ) ); ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
 						<?php endif; ?>
@@ -729,7 +729,7 @@ $posts_pct_abs = abs( $posts_pct );
 				if ( $bn_ca_inv_pages > 1 ) :
 					$bn_ca_inv_base = $bn_ca_routed ? trailingslashit( $admin_base . 'invites' ) : add_query_arg( 'bn_admin', 'invites', $admin_base );
 					?>
-					<nav class="bn-ca-pagination" aria-label="<?php esc_attr_e( 'Invite pages', 'buddynext' ); ?>">
+					<nav class="bn-pagination bn-ca-pagination" aria-label="<?php esc_attr_e( 'Invite pages', 'buddynext' ); ?>">
 						<?php if ( $bn_ca_inv_page > 1 ) : ?>
 							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_inv_page - 1, $bn_ca_inv_base ) ); ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
 						<?php endif; ?>

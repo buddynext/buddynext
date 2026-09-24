@@ -852,14 +852,15 @@ class PageRouter {
 
 		// Set the document <title> via the standard wp_title parts filter.
 		$hub_titles = array(
-			'feed'          => __( 'Activity Feed', 'buddynext' ),
-			'post'          => __( 'Post', 'buddynext' ),
-			'people'        => __( 'Members', 'buddynext' ),
-			'spaces'        => __( 'Spaces', 'buddynext' ),
-			'messages'      => __( 'Messages', 'buddynext' ),
-			'notifications' => __( 'Notifications', 'buddynext' ),
-			'auth'          => __( 'Login', 'buddynext' ),
-			'onboarding'    => __( 'Get Started', 'buddynext' ),
+			'feed'            => __( 'Activity Feed', 'buddynext' ),
+			'post'            => __( 'Post', 'buddynext' ),
+			'people'          => __( 'Members', 'buddynext' ),
+			'spaces'          => __( 'Spaces', 'buddynext' ),
+			'messages'        => __( 'Messages', 'buddynext' ),
+			'notifications'   => __( 'Notifications', 'buddynext' ),
+			'auth'            => __( 'Login', 'buddynext' ),
+			'onboarding'      => __( 'Get Started', 'buddynext' ),
+			'community_admin' => __( 'Community Admin', 'buddynext' ),
 		);
 
 		$hub_title = $hub_titles[ $hub ] ?? ucfirst( $hub );
