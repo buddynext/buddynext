@@ -2016,7 +2016,7 @@ class WPMediaVerseBridge {
 			return null;
 		}
 
-		$folders     = (array) $folders_res->get_data();
+		$folders     = self::with_folder_counts( (array) $folders_res->get_data() );
 		$documents   = (array) $docs_res->get_data();
 		$doc_headers = $docs_res->get_headers();
 		$fol_headers = $folders_res->get_headers();
@@ -2072,6 +2072,63 @@ class WPMediaVerseBridge {
 			'folder_pages' => isset( $fol_headers['X-WP-TotalPages'] ) ? (int) $fol_headers['X-WP-TotalPages'] : 1,
 			'folder_page'  => $folder_page,
 			'can_write'    => in_array( $access, array( 'write', 'own' ), true ),
+		);
+	}
+
+	/**
+	 * Add each folder row's direct `file_count` / `folder_count`: two GROUP BY
+	 * queries per page (MediaVerse's own batched counters), never one per row.
+	 * The Delete confirm names what moves to the trash with the folder.
+	 *
+	 * @param array<int,array<string,mixed>> $folders Folder rows from /mvs-pro/v1/folders.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private static function with_folder_counts( array $folders ): array {
+		$ids = array_filter( array_map( static fn( $f ): int => (int) ( $f['id'] ?? 0 ), $folders ) );
+		if ( ! $ids || ! class_exists( '\\WPMediaVersePro\\Documents\\FolderService' ) || ! class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
+			return $folders;
+		}
+		$files = (array) \WPMediaVerse\Core\Plugin::container()->get( 'media_repository' )->count_documents_in_folders( $ids );
+		$subs  = (array) ( new \WPMediaVersePro\Documents\FolderService() )->count_children_in( $ids );
+		foreach ( $folders as &$f ) {
+			$fid               = (int) ( $f['id'] ?? 0 );
+			$f['file_count']   = (int) ( $files[ $fid ] ?? 0 );
+			$f['folder_count'] = (int) ( $subs[ $fid ] ?? 0 );
+		}
+		unset( $f );
+		return $folders;
+	}
+
+	/**
+	 * A drive's trashed folders (the restorable subtree roots), newest first.
+	 *
+	 * @param string $drive_type 'space' or 'user'.
+	 * @param int    $drive_id   Drive id.
+	 * @param int    $page       1-based page.
+	 * @return array{items: array<int,array<string,mixed>>, page: int, pages: int}|null Null when the viewer may not see the drive.
+	 */
+	public static function drive_trash( string $drive_type, int $drive_id, int $page = 1 ): ?array {
+		if ( ! self::documents_available() ) {
+			return null;
+		}
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/folders' );
+		$req->set_query_params(
+			array(
+				'drive'    => $drive_type . ':' . $drive_id,
+				'status'   => 'trashed',
+				'per_page' => 50,
+				'page'     => max( 1, $page ),
+			)
+		);
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return null;
+		}
+		$headers = $res->get_headers();
+		return array(
+			'items' => (array) $res->get_data(),
+			'page'  => max( 1, $page ),
+			'pages' => isset( $headers['X-WP-TotalPages'] ) ? (int) $headers['X-WP-TotalPages'] : 1,
 		);
 	}
 

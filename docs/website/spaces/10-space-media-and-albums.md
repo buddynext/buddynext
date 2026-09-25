@@ -69,6 +69,16 @@ A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and ot
 
 Files behave like Media on a space drive: any contributor can upload a document to the space, and **Remove** on a space Files tab is the same *unlink* as above - the document returns to the owner's own Files as private, it is not deleted. (On a member's *own* Files tab, Remove **deletes** the document, with WPMediaVerse's 30-day restore window.)
 
+### Organising files into folders
+
+The space owner and moderators can shape the Files tab's folders (on a member's own Files tab, the member can):
+
+- **New folder** in the toolbar creates a folder in the folder you are looking at.
+- Each folder row has **Rename** and **Move to trash**. The confirm says what goes with it ("It holds 12 files and 2 folders"): everything inside moves to the trash too.
+- **Trash** in the toolbar lists trashed folders. **Restore** brings a folder back with everything that was inside it.
+
+Other members see the folders and browse them, but not these controls. They need WPMediaVerse Pro's documents feature with a valid license; without one, only site administrators can change folders.
+
 ## Privacy
 
 A space album's audience is the space. That is the whole rule, and it is worth being precise about because it is not the same as a personal album's privacy setting.

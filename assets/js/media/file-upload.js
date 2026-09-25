@@ -22,7 +22,7 @@
  */
 
 import { onNavReady } from '@buddynext/nav-init';
-import { bnConfirm, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnPrompt, bnToast } from '@buddynext/shell-dialog';
 
 function parseStrings( root ) {
 	try {
@@ -327,7 +327,106 @@ function bindLink( box ) {
 	} );
 }
 
+/**
+ * Wire the folder controls a drive's managers see: New folder, Rename and Move to
+ * trash on the Files list, Restore in its Trash view. All call MediaVerse's folder
+ * REST routes; the list reloads on success. Endpoint, drive, parent folder, nonce
+ * and copy live once on the `[data-bn-folder-manage]` root.
+ *
+ * @param {HTMLElement} root The Files root.
+ */
+function bindFolders( root ) {
+	if ( root._bnFoldersBound ) {
+		return;
+	}
+	root._bnFoldersBound = true;
+
+	const base  = ( root.getAttribute( 'data-bn-folder-endpoint' ) || '' ).replace( /\/$/, '' );
+	const nonce = root.getAttribute( 'data-bn-nonce' ) || '';
+	let t       = {};
+	try {
+		t = JSON.parse( root.getAttribute( 'data-bn-folder-strings' ) || '{}' );
+	} catch ( e ) {
+		t = {};
+	}
+	const fmt = ( tpl, ...vals ) => { let i = 0; return String( tpl || '' ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); };
+
+	async function call( path, method, body, done, btn ) {
+		if ( btn ) { btn.disabled = true; }
+		try {
+			const res = await fetch( base + path, {
+				method,
+				credentials: 'same-origin',
+				headers:     Object.assign( { 'X-WP-Nonce': nonce }, body ? { 'Content-Type': 'application/json' } : {} ),
+				body:        body ? JSON.stringify( body ) : undefined,
+			} );
+			if ( res.ok ) {
+				bnToast( done, { tone: 'success' } );
+				window.location.reload();
+				return;
+			}
+			const data = await res.json().catch( () => ( {} ) );
+			bnToast( data.message || t.failed || 'That did not work.', { tone: 'error' } );
+		} catch ( e ) {
+			bnToast( t.failed || 'That did not work.', { tone: 'error' } );
+		}
+		if ( btn ) { btn.disabled = false; }
+	}
+
+	async function askName( title, confirmLabel, current ) {
+		const name = await bnPrompt( { title, confirmLabel, cancelLabel: t.cancel, inputType: 'text', placeholder: t.placeholder, defaultValue: current || '' } );
+		if ( null === name ) {
+			return null;
+		}
+		if ( '' === name.trim() ) {
+			bnToast( t.nameRequired || 'Enter a folder name.', { tone: 'error' } );
+			return null;
+		}
+		return name.trim();
+	}
+
+	root.querySelectorAll( '[data-bn-folder-new]' ).forEach( ( btn ) => btn.addEventListener( 'click', async () => {
+		const name = await askName( t.newTitle, t.newConfirm );
+		if ( name ) {
+			const parent = parseInt( root.getAttribute( 'data-bn-parent' ) || '0', 10 ) || 0;
+			call( '', 'POST', { name, drive: root.getAttribute( 'data-bn-drive' ), parent }, t.created, btn );
+		}
+	} ) );
+
+	root.querySelectorAll( '[data-bn-folder-rename]' ).forEach( ( btn ) => btn.addEventListener( 'click', async () => {
+		const current = btn.getAttribute( 'data-bn-name' ) || '';
+		const name    = await askName( t.renameTitle, t.renameOk, current );
+		if ( name && name !== current ) {
+			call( '/' + btn.getAttribute( 'data-bn-id' ), 'PATCH', { name }, t.renamed, btn );
+		}
+	} ) );
+
+	root.querySelectorAll( '[data-bn-folder-delete]' ).forEach( ( btn ) => btn.addEventListener( 'click', async () => {
+		const files   = parseInt( btn.getAttribute( 'data-bn-files' ) || '0', 10 ) || 0;
+		const folders = parseInt( btn.getAttribute( 'data-bn-folders' ) || '0', 10 ) || 0;
+		const parts   = [];
+		if ( files ) { parts.push( fmt( 1 === files ? t.fileOne : t.fileMany, files ) ); }
+		if ( folders ) { parts.push( fmt( 1 === folders ? t.folderOne : t.folderMany, folders ) ); }
+		const holds = 2 === parts.length ? fmt( t.andJoin, parts[ 0 ], parts[ 1 ] ) : ( parts[ 0 ] || '' );
+		const ok    = await bnConfirm( {
+			title:        fmt( t.trashTitle, btn.getAttribute( 'data-bn-name' ) || '' ),
+			body:         holds ? fmt( t.trashBody, holds ) : t.trashEmpty,
+			confirmLabel: t.trashConfirm,
+			cancelLabel:  t.cancel,
+			tone:         'danger',
+		} );
+		if ( ok ) {
+			call( '/' + btn.getAttribute( 'data-bn-id' ), 'DELETE', null, t.trashed, btn );
+		}
+	} ) );
+
+	root.querySelectorAll( '[data-bn-folder-restore]' ).forEach( ( btn ) => btn.addEventListener( 'click', () => {
+		call( '/' + btn.getAttribute( 'data-bn-id' ) + '/restore', 'POST', null, t.restored, btn );
+	} ) );
+}
+
 onNavReady( function () {
+	document.querySelectorAll( '[data-bn-folder-manage]' ).forEach( bindFolders );
 	document.querySelectorAll( '[data-bn-file-upload]' ).forEach( bind );
 	document.querySelectorAll( '[data-bn-files-actions]' ).forEach( bindActions );
 	document.querySelectorAll( '[data-bn-file-link]' ).forEach( bindLink );

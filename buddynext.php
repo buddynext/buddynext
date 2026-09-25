@@ -1140,6 +1140,47 @@ function buddynext_space_moderation_url( string $slug ): string {
 }
 
 /**
+ * Copy for the Files UI's folder controls (New folder, Rename, Trash, Restore),
+ * shared by the Files list and its Trash view and read by media/file-upload.js.
+ *
+ * @since 1.2.2
+ *
+ * @return array<string,string>
+ */
+function buddynext_drive_folder_strings(): array {
+	return array(
+		'newTitle'     => __( 'New folder', 'buddynext' ),
+		'newConfirm'   => __( 'Create', 'buddynext' ),
+		'placeholder'  => __( 'Folder name', 'buddynext' ),
+		'renameTitle'  => __( 'Rename folder', 'buddynext' ),
+		'renameOk'     => __( 'Save', 'buddynext' ),
+		/* translators: %s: folder name. */
+		'trashTitle'   => __( 'Move “%s” to trash?', 'buddynext' ),
+		'trashEmpty'   => __( 'It is empty. You can restore it from Trash.', 'buddynext' ),
+		/* translators: %s: what the folder holds, e.g. "12 files and 2 folders". */
+		'trashBody'    => __( 'It holds %s. Everything inside moves to the trash with it, and you can restore it from Trash.', 'buddynext' ),
+		/* translators: %d: number of files. */
+		'fileOne'      => __( '%d file', 'buddynext' ),
+		/* translators: %d: number of files. */
+		'fileMany'     => __( '%d files', 'buddynext' ),
+		/* translators: %d: number of folders. */
+		'folderOne'    => __( '%d folder', 'buddynext' ),
+		/* translators: %d: number of folders. */
+		'folderMany'   => __( '%d folders', 'buddynext' ),
+		/* translators: 1: file count, 2: folder count. */
+		'andJoin'      => __( '%1$s and %2$s', 'buddynext' ),
+		'trashConfirm' => __( 'Move to trash', 'buddynext' ),
+		'cancel'       => __( 'Cancel', 'buddynext' ),
+		'created'      => __( 'Folder created.', 'buddynext' ),
+		'renamed'      => __( 'Folder renamed.', 'buddynext' ),
+		'trashed'      => __( 'Folder moved to trash.', 'buddynext' ),
+		'restored'     => __( 'Folder restored.', 'buddynext' ),
+		'nameRequired' => __( 'Enter a folder name.', 'buddynext' ),
+		'failed'       => __( 'That did not work. Try again.', 'buddynext' ),
+	);
+}
+
+/**
  * Render a document drive's Files UI anywhere: the same browse / folders /
  * search / upload / single-file UI as a space's or member's Files tab.
  *

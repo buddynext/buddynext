@@ -54,6 +54,8 @@ $bn_sf_is_space    = 'user' !== ( isset( $bn_sf_drive_type ) ? (string) $bn_sf_d
 // write level; defaulting false keeps the "how to add one" line off a view that
 // cannot know whether the viewer may contribute.
 $bn_sf_can_write = isset( $bn_sf_can_write ) ? (bool) $bn_sf_can_write : false;
+// New folder / Rename / Trash / Restore: the drive's managers only (RendersDriveFiles).
+$bn_sf_can_manage_folders = ! empty( $bn_sf_can_manage_folders );
 
 // Document-upload config (enabled / accept / max_size). The Files-tab uploader is
 // offered only to a contributor (can_write) when documents are enabled + writable.
@@ -219,6 +221,13 @@ if ( $bn_sf_is_space ) {
 }
 ?>
 <div class="bn-space-files"
+	<?php if ( $bn_sf_can_manage_folders ) : ?>
+	data-bn-folder-manage
+	data-bn-folder-endpoint="<?php echo esc_url( rest_url( 'mvs-pro/v1/folders' ) ); ?>"
+	data-bn-drive="<?php echo esc_attr( ( $bn_sf_is_space ? 'space' : 'user' ) . ':' . (int) $bn_sf_space_id ); ?>"
+	data-bn-parent="<?php echo esc_attr( (string) $bn_sf_folder ); ?>"
+	data-bn-folder-strings="<?php echo esc_attr( (string) wp_json_encode( buddynext_drive_folder_strings() ) ); ?>"
+	<?php endif; ?>
 	<?php if ( $bn_sf_viewer > 0 ) : ?>
 	data-bn-files-actions
 	data-bn-action="<?php echo esc_attr( $bn_sf_rm_action ); ?>"
@@ -244,8 +253,19 @@ if ( $bn_sf_is_space ) {
 			<button type="submit" class="bn-files__search-btn"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
 		</form>
 
-		<?php if ( $bn_sf_can_upload || $bn_sf_has_link ) : ?>
+		<?php if ( $bn_sf_can_upload || $bn_sf_has_link || ( $bn_sf_can_manage_folders && ! $bn_sf_is_search ) ) : ?>
 		<div class="bn-files__tools">
+
+			<?php if ( $bn_sf_can_manage_folders && ! $bn_sf_is_search ) : ?>
+				<button type="button" class="bn-files__tool-btn" data-bn-folder-new>
+					<span class="bn-files__tool-icon" aria-hidden="true"><?php buddynext_icon( 'folder-plus' ); ?></span>
+					<?php esc_html_e( 'New folder', 'buddynext' ); ?>
+				</button>
+				<a class="bn-files__tool-btn" href="<?php echo esc_url( add_query_arg( 'bn_trash', 1, $bn_sf_base_url ) ); ?>">
+					<span class="bn-files__tool-icon" aria-hidden="true"><?php buddynext_icon( 'trash' ); ?></span>
+					<?php esc_html_e( 'Trash', 'buddynext' ); ?>
+				</a>
+			<?php endif; ?>
 
 			<?php if ( $bn_sf_can_upload ) : ?>
 			<div class="bn-files-upload"
@@ -436,7 +456,17 @@ if ( $bn_sf_is_space ) {
 						<span class="bn-files__size"><?php esc_html_e( 'Folder', 'buddynext' ); ?></span>
 						<span class="bn-files__date"><?php echo esc_html( '' !== $bn_sf_fdate ? mysql2date( $bn_sf_date_fmt, $bn_sf_fdate ) : '' ); ?></span>
 					</span>
-					<span class="bn-files__actions" aria-hidden="true"><?php echo buddynext_icon( 'chevron-right' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?></span>
+					<?php if ( $bn_sf_can_manage_folders ) : ?>
+						<span class="bn-files__actions">
+							<button type="button" class="bn-files__icon-btn" data-bn-folder-rename data-bn-id="<?php echo esc_attr( (string) $bn_sf_fid ); ?>" data-bn-name="<?php echo esc_attr( $bn_sf_fname ); ?>"
+								aria-label="<?php echo esc_attr( sprintf( /* translators: %s: folder name. */ __( 'Rename %s', 'buddynext' ), $bn_sf_fname ) ); ?>"><?php buddynext_icon( 'edit' ); ?></button>
+							<button type="button" class="bn-files__remove" data-bn-folder-delete data-bn-id="<?php echo esc_attr( (string) $bn_sf_fid ); ?>" data-bn-name="<?php echo esc_attr( $bn_sf_fname ); ?>"
+								data-bn-files="<?php echo esc_attr( (string) (int) ( $bn_sf_f['file_count'] ?? 0 ) ); ?>" data-bn-folders="<?php echo esc_attr( (string) (int) ( $bn_sf_f['folder_count'] ?? 0 ) ); ?>"
+								aria-label="<?php echo esc_attr( sprintf( /* translators: %s: folder name. */ __( 'Move %s to trash', 'buddynext' ), $bn_sf_fname ) ); ?>"><?php buddynext_icon( 'trash' ); ?></button>
+						</span>
+					<?php else : ?>
+						<span class="bn-files__actions" aria-hidden="true"><?php echo buddynext_icon( 'chevron-right' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?></span>
+					<?php endif; ?>
 				</li>
 			<?php endforeach; ?>
 

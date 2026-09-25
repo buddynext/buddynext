@@ -295,7 +295,8 @@ a.bn-files__name:focus-visible {
 }
 
 .bn-files__download,
-.bn-files__remove {
+.bn-files__remove,
+.bn-files__icon-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -305,8 +306,9 @@ a.bn-files__name:focus-visible {
 	color: var(--bn-ink-3);
 }
 
-/* Remove is a <button>: strip the UA chrome so it reads as an icon action. */
-.bn-files__remove {
+/* Remove / folder tools are <button>s: strip the UA chrome so they read as icon actions. */
+.bn-files__remove,
+.bn-files__icon-btn {
 	padding: 0;
 	border: 0;
 	background: transparent;
@@ -314,7 +316,9 @@ a.bn-files__name:focus-visible {
 }
 
 .bn-files__download:hover,
-.bn-files__download:focus-visible {
+.bn-files__download:focus-visible,
+.bn-files__icon-btn:hover,
+.bn-files__icon-btn:focus-visible {
 	background: var(--bn-accent-bg);
 	color: var(--bn-accent);
 }
@@ -325,13 +329,15 @@ a.bn-files__name:focus-visible {
 	color: var(--bn-danger);
 }
 
-.bn-files__remove[disabled] {
+.bn-files__remove[disabled],
+.bn-files__icon-btn[disabled] {
 	opacity: 0.5;
 	cursor: default;
 }
 
 .bn-files__download svg,
 .bn-files__remove svg,
+.bn-files__icon-btn svg,
 .bn-files__actions > svg {
 	width: var(--bn-s5);
 	height: var(--bn-s5);

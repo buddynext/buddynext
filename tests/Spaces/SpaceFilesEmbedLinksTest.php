@@ -1,7 +1,8 @@
 <?php
 /**
- * The Files UI links a file by clean path on its own tab and by ?bn_doc= when
- * embedded on any other page (buddynext_render_drive_files, card 10339911241).
+ * Files UI template contract: file links (clean path on the tab, ?bn_doc= when
+ * embedded - card 10339911241) and the folder controls, which only a drive
+ * manager gets (card 10339911255).
  *
  * @package BuddyNext\Tests\Spaces
  */
@@ -38,5 +39,37 @@ class SpaceFilesEmbedLinksTest extends \WP_UnitTestCase {
 		$html = $this->render( true );
 		$this->assertStringContainsString( 'http://example.org/landing/?bn_doc=884', $html );
 		$this->assertStringNotContainsString( 'landing/884/', $html );
+	}
+
+	private function render_folders( bool $manager ): string {
+		ob_start();
+		buddynext_get_template(
+			'partials/space-files-tab.php',
+			array(
+				'bn_sf_space_id'           => 7,
+				'bn_sf_drive_type'         => 'space',
+				'bn_sf_base_url'           => 'http://example.org/landing/',
+				'bn_sf_folders'            => array( array( 'id' => 5, 'name' => 'Worksheets', 'file_count' => 12, 'folder_count' => 2 ) ),
+				'bn_sf_can_write'          => true,
+				'bn_sf_can_manage_folders' => $manager,
+			)
+		);
+		return (string) ob_get_clean();
+	}
+
+	public function test_manager_gets_folder_controls_with_counts(): void {
+		wp_set_current_user( self::factory()->user->create() );
+		$html = $this->render_folders( true );
+		$this->assertStringContainsString( 'data-bn-folder-manage', $html );
+		$this->assertStringContainsString( 'data-bn-folder-new', $html );
+		$this->assertStringContainsString( 'bn_trash=1', $html );
+		$this->assertMatchesRegularExpression( '/data-bn-folder-delete[^>]*data-bn-files="12"[^>]*data-bn-folders="2"/', $html );
+	}
+
+	public function test_non_manager_gets_no_folder_controls(): void {
+		wp_set_current_user( self::factory()->user->create() );
+		$html = $this->render_folders( false );
+		$this->assertStringNotContainsString( 'data-bn-folder-', $html );
+		$this->assertStringNotContainsString( 'bn_trash=1', $html );
 	}
 }

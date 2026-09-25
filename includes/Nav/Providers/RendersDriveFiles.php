@@ -110,6 +110,33 @@ trait RendersDriveFiles {
 			return;
 		}
 
+		// Folder structure (new / rename / trash / restore) is shared, so it belongs
+		// to whoever manages the drive: the space's owner and moderators, or the
+		// member on their own drive - and only where MediaVerse allows writing.
+		$can_write          = $view['can_write'] && ( ! isset( $args['can_write'] ) || (bool) $args['can_write'] );
+		// The folder routes also enforce MediaVerse's license (an unlicensed site
+		// lets only administrators write); ask the same rule so no control is dead.
+		$can_manage_folders = $can_write
+			&& ( 'space' === $drive_type ? $can_moderate : get_current_user_id() === $drive_id )
+			&& class_exists( '\\WPMediaVersePro\\Documents\\DocumentLicense' )
+			&& \WPMediaVersePro\Documents\DocumentLicense::can_write( get_current_user_id() );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view switch.
+		if ( $can_manage_folders && ! empty( $_GET['bn_trash'] ) ) {
+			$trash = WPMediaVerseBridge::drive_trash( $drive_type, $drive_id, $page );
+			buddynext_get_template(
+				'partials/space-files-trash.php',
+				array(
+					'bn_sft_drive'    => $drive_type . ':' . $drive_id,
+					'bn_sft_base_url' => $base_url,
+					'bn_sft_items'    => null === $trash ? array() : $trash['items'],
+					'bn_sft_page'     => null === $trash ? 1 : $trash['page'],
+					'bn_sft_pages'    => null === $trash ? 1 : $trash['pages'],
+				)
+			);
+			return;
+		}
+
 		// Document upload config (enabled/accept/max_size). `enabled` folds in the
 		// per-viewer write capability: it is false when documents are read-only
 		// for this viewer (unlicensed MVS Pro, where writes 403). Capture it once
@@ -135,7 +162,8 @@ trait RendersDriveFiles {
 				'bn_sf_folder_pages'   => $view['folder_pages'],
 				'bn_sf_folder_total'   => $view['folder_total'],
 				// An embed may hide the write controls; it can never grant them.
-				'bn_sf_can_write'      => $view['can_write'] && ( ! isset( $args['can_write'] ) || (bool) $args['can_write'] ),
+				'bn_sf_can_write'      => $can_write,
+				'bn_sf_can_manage_folders' => $can_manage_folders,
 				'bn_sf_doc_query'      => $doc_query_links,
 				'bn_sf_can_moderate'   => $can_moderate,
 				// Drives the Files-tab uploader the same way the activity composer's
