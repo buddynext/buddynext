@@ -108,6 +108,7 @@ class PageRouter {
 		// gate cannot recognise its own login target and redirects it to itself
 		// forever: ERR_TOO_MANY_REDIRECTS (card 10317628894).
 		add_action( 'wp', array( $this, 'align_hub_page_conditionals' ) );
+		add_filter( 'redirect_canonical', array( $this, 'keep_front_hub_subroutes' ) );
 
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
 
@@ -273,6 +274,33 @@ class PageRouter {
 		$wp_query->is_singular       = true;
 		$wp_query->is_home           = false;
 		$wp_query->is_404            = false;
+	}
+
+	/**
+	 * Stop core sending a front-page hub's deeper routes to "/".
+	 *
+	 * align_hub_page_conditionals() gives every route of a hub its mapped page as
+	 * the queried object. When that page is the static front page, core's
+	 * redirect_canonical() then treats /activity/leaderboard/, /activity/explore/
+	 * and /me/account-status/ as the front page and 301s them to "/". Only the
+	 * hub root itself (/activity/) is the front page, so only it keeps that redirect.
+	 *
+	 * @param string|false $redirect_url Where core would redirect.
+	 * @return string|false
+	 */
+	public function keep_front_hub_subroutes( $redirect_url ) {
+		$hub = (string) get_query_var( 'bn_hub', '' );
+		if ( ! is_string( $redirect_url ) || '' === $hub
+			|| untrailingslashit( $redirect_url ) !== untrailingslashit( home_url( '/' ) )
+			|| get_queried_object_id() !== (int) get_option( 'page_on_front' ) ) {
+			return $redirect_url;
+		}
+
+		$descriptor = HubRegistry::instance()->get( $hub );
+		$root       = $descriptor instanceof HubDescriptor ? self::hub_slug( $descriptor->slug_option, $descriptor->default_slug ) : '';
+
+		global $wp;
+		return trim( (string) $wp->request, '/' ) === $root ? $redirect_url : false;
 	}
 
 	/**

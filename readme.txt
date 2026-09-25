@@ -64,6 +64,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Improve  - Community Admin moderation now pages through every open report, filters by type and sorts by most reported, so moderators without wp-admin access can work the whole queue.
 * Improve  - Report rows show the first line of what was reported, and the More menu adds View reported item, Warn author and Reverse last strike.
 * Improve  - The standalone /moderation/ page is retired; Community Admin is the front-end moderation home and each space keeps its own Moderation tab.
+* Fix      - When a community page is the site's front page, its deeper pages (Leaderboard, Explore, Account status, member profiles) open instead of redirecting to the home page.
 * Fix      - A message sent or received while a conversation is open now shows the same time as after a reload, in the site's timezone and time format.
 * Fix      - Community Admin report rows stack on phones, and the row's More menu is no longer cut off by the card or the screen edge.
 * Fix      - A space that stored an invalid field value before 1.2.1 no longer breaks its About tab or the space API; the update removes the bad value.
