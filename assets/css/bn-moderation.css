@@ -825,9 +825,16 @@
 	display: block;
 }
 
+/* The card clips its rows to its rounded corners; an open menu must escape it,
+   or a row near the card's bottom edge shows only the top of its menu. */
+.bn-ca-card:has(.bn-ca-more-menu-wrap.is-open) {
+	overflow: visible;
+}
+
 .bn-ca-more-menu-item {
 	display: block;
 	width: 100%;
+	min-height: var(--bn-tap);
 	text-align: start;
 	background: none;
 	border: none;
@@ -1407,6 +1414,25 @@
 	.bn-report-row__actions > .bn-btn {
 		width: 100%;
 		justify-content: center;
+	}
+
+	/* Community-admin report row: the body takes its own line, actions below.
+	   The time column repeats the meta line's "N ago", so it goes. */
+	.bn-ca-report-row {
+		flex-wrap: wrap;
+	}
+
+	.bn-ca-report-row__body {
+		flex-basis: 100%;
+	}
+
+	.bn-ca-report-row > .bn-ca-row__time {
+		display: none;
+	}
+
+	/* Keep the actions (and the end-anchored menu) on the inline-end edge. */
+	.bn-ca-report-row > .bn-ca-row__actions {
+		margin-inline-start: auto;
 	}
 
 	.bn-ca-two-col {

@@ -61,6 +61,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 = 1.2.2 - In development =
 
+* Fix      - Community Admin report rows stack on phones, and the row's More menu is no longer cut off by the card or the screen edge.
 * Fix      - A space that stored an invalid field value before 1.2.1 no longer breaks its About tab or the space API; the update removes the bad value.
 
 = 1.2.1 - September 2026 =
