@@ -52,11 +52,14 @@ class FrontHubCanonicalTest extends WP_UnitTestCase {
 		$home = home_url( '/' );
 		$this->assertFalse( $this->filter( 'activity/leaderboard', $home ) );
 		$this->assertFalse( $this->filter( 'me/account-status', $home ) );
+		// Core carries the query string onto the redirect target.
+		$this->assertFalse( $this->filter( 'activity/search', add_query_arg( 'q', 'yoga', $home ) ) );
 	}
 
 	public function test_the_hub_root_still_canonicalises_to_home(): void {
 		$home = home_url( '/' );
 		$this->assertSame( $home, $this->filter( 'activity', $home ) );
+		$this->assertSame( add_query_arg( 'tab', 'x', $home ), $this->filter( 'activity', add_query_arg( 'tab', 'x', $home ) ) );
 	}
 
 	public function test_other_redirects_pass_through(): void {

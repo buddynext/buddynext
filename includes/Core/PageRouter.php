@@ -291,7 +291,7 @@ class PageRouter {
 	public function keep_front_hub_subroutes( $redirect_url ) {
 		$hub = (string) get_query_var( 'bn_hub', '' );
 		if ( ! is_string( $redirect_url ) || '' === $hub
-			|| untrailingslashit( $redirect_url ) !== untrailingslashit( home_url( '/' ) )
+			|| untrailingslashit( strtok( $redirect_url, '?#' ) ) !== untrailingslashit( home_url( '/' ) )
 			|| get_queried_object_id() !== (int) get_option( 'page_on_front' ) ) {
 			return $redirect_url;
 		}
