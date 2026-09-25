@@ -2458,6 +2458,12 @@ a.bn-sh-statpill:focus-visible {
 	flex-wrap: wrap;
 }
 
+/* The "More" menu opens from its trigger's end edge; keeping the trigger on the
+   row's end means the menu always opens inward, at any width. */
+.bn-space-mod__report-actions > .bn-ca-more-menu-wrap {
+	margin-inline-start: auto;
+}
+
 .bn-space-mod__report-note {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);

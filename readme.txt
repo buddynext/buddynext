@@ -65,6 +65,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * New      - Space owners and moderators can create, rename and trash folders in a space's Files tab, and restore them from a new Trash view.
 * Improve  - Community Admin moderation now pages through every open report, filters by type and sorts by most reported, so moderators without wp-admin access can work the whole queue.
 * Improve  - Report rows show the first line of what was reported, and the More menu adds View reported item, Warn author and Reverse last strike.
+* Improve  - A space's Moderation tab keeps Dismiss and Remove on each report and moves the rest into a More menu, with a working View reported item link.
 * Improve  - The standalone /moderation/ page is retired; Community Admin is the front-end moderation home and each space keeps its own Moderation tab.
 * Fix      - When a community page is the site's front page, its deeper pages (Leaderboard, Explore, Account status, member profiles) open instead of redirecting to the home page.
 * Fix      - A full search reindex now includes spaces' searchable custom fields, as saving a space already did.

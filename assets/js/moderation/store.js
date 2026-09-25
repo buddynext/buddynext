@@ -401,11 +401,6 @@ const moderationStore = store( 'buddynext/moderation', {
 
 		/* ── Space moderation actions ──────────────────────────────── */
 
-		viewReportedPost() {
-			const ctx = getContext();
-			window.open( ctx.postUrl || '#', '_blank' );
-		},
-
 		/* Every action below opts out of restFetch's default error toast
 		 * (toastOnError: false) because it owns its own feedback. Each one MUST
 		 * therefore report both outcomes itself — an unreported failure (a 403,
