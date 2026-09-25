@@ -519,9 +519,6 @@ function buddynext_get_space_field( int $space_id, string $key ): mixed {
 	if ( null === $field ) {
 		return $value; // Not a registered field — return the raw stored value.
 	}
-	if ( is_object( $value ) ) {
-		$value = ''; // A row corrupted before 1.2.1 (serialized WP_Error) reads as unset.
-	}
 	if ( '' === (string) $value && '' !== (string) $field['default'] ) {
 		$value = $field['default'];
 	}

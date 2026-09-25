@@ -433,8 +433,13 @@ class Installer {
 	 *      order column + id, lets ONE index set serve both views filesort-free — a space
 	 *      and a sub-space are the same object (card 10312614032). maybe_widen_indexes()
 	 *      recreates them on upgrade; read-only index change, no data touched.
+	 *  61: delete bn_space_meta rows holding a serialized WP_Error. Before 1.2.1 a
+	 *      space field's register_meta sanitize_callback returned the WP_Error for an
+	 *      invalid value and WordPress stored the object; every reader that cast it to
+	 *      string then fataled (card 10335421251). 1.2.1 fixed the write; this removes
+	 *      the rows already written, so no reader needs its own guard.
 	 */
-	private const SCHEMA_VERSION = 60;
+	private const SCHEMA_VERSION = 61;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -1197,6 +1202,9 @@ class Installer {
 		// v45: retire the media cards that should never have been published.
 		self::purge_retired_media_cards( $wpdb->prefix );
 
+		// v61: drop space-field rows that stored a WP_Error (unset -> field default).
+		self::purge_error_space_meta( $wpdb->prefix );
+
 		// v49: plugin isolation now ships OFF. Preserve ON for a site that was
 		// already running the previous default-ON build and had configured it.
 		self::maybe_preserve_isolation_state();
@@ -1296,6 +1304,20 @@ class Installer {
 
 		$data['allowed'] = false;
 		update_option( $option, $data );
+	}
+
+	/**
+	 * Delete bn_space_meta rows that hold a serialized WP_Error (v61).
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function purge_error_space_meta( string $prefix ): void {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $wpdb->query( "DELETE FROM {$prefix}bn_space_meta WHERE meta_value LIKE 'O:8:\"WP_Error\"%'" ) ) {
+			wp_cache_flush(); // One-shot; the meta cache still holds the deleted objects.
+		}
 	}
 
 	/**

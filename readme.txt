@@ -59,6 +59,10 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
+= 1.2.2 - In development =
+
+* Fix      - A space that stored an invalid field value before 1.2.1 no longer breaks its About tab or the space API; the update removes the bad value.
+
 = 1.2.1 - September 2026 =
 
 Featured spaces and shareable invite links to grow a community, an admin menu reorganised around the owner's journey, stronger privacy and security, and a broad reliability sweep. Lockstep with BuddyNext Pro 1.2.1 - install and test both together.
