@@ -25,8 +25,29 @@ The action and filter seams for unified search, the hashtag system, the search i
 | `buddynext_search_entitled_space_limit` | filter | How many entitled-but-unjoined spaces a single search will verify. Each costs a space fetch and an ability check, so the list is cut rather than allowed to grow. Default `200` | `int $limit, int $viewer_id` |
 | `buddynext_search_member_meta_html` | filter | A member row in the results renders its meta line | `string $html, ...` |
 | `buddynext_search_before` / `buddynext_search_after` | action | Around the search results page body | - |
+| `buddynext_search_space_object_type` | filter | A space is (re)indexed. Return another slug to list that space in its own search section and tab instead of Spaces (since 1.2.2) | `string $type = 'space', array $space_row` |
+| `buddynext_search_type_labels` | filter | The search page names its extra-type sections and tabs | `array<string,string> $labels` (type slug => plural label) |
 
 > **Note:** `buddynext_search_query_args` is where the `member_label`, `tier_slug`, `space_id`, and `joined_after` keys enter the query. BuddyNext Free reads any of those keys if present, but only BuddyNext Pro populates them (and populates `buddynext_search_filter_options` so the controls appear). The page degrades cleanly with Pro inactive: no provider, no control.
+
+### Your own search section for some spaces
+
+BuddyNext lists every space under **Spaces**. A plugin that treats some spaces as its own product (a "Circles" category, say) can list them under their own heading and tab instead. Everything else about them stays a space: the link is the space's page, and private and secret spaces keep their visibility rules.
+
+```php
+// File spaces in category 12 under "circle".
+add_filter( 'buddynext_search_space_object_type', function ( string $type, array $space ): string {
+    return 12 === (int) $space['category_id'] ? 'circle' : $type;
+}, 10, 2 );
+
+// Name the section and tab.
+add_filter( 'buddynext_search_type_labels', function ( array $labels ): array {
+    $labels['circle'] = __( 'Circles', 'my-plugin' );
+    return $labels;
+} );
+```
+
+The type applies when a space is next indexed: on save, or run **Tools > Rebuild search index** once after adding the filter. A space shows under one type only, and moving it back to `space` removes the old row.
 
 ### `scope_space_id` - search inside one space
 

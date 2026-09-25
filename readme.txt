@@ -66,9 +66,11 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Improve  - Report rows show the first line of what was reported, and the More menu adds View reported item, Warn author and Reverse last strike.
 * Improve  - The standalone /moderation/ page is retired; Community Admin is the front-end moderation home and each space keeps its own Moderation tab.
 * Fix      - When a community page is the site's front page, its deeper pages (Leaderboard, Explore, Account status, member profiles) open instead of redirecting to the home page.
+* Fix      - A full search reindex now includes spaces' searchable custom fields, as saving a space already did.
 * Fix      - A message sent or received while a conversation is open now shows the same time as after a reload, in the site's timezone and time format.
 * Fix      - Community Admin report rows stack on phones, and the row's More menu is no longer cut off by the card or the screen edge.
 * Fix      - A space that stored an invalid field value before 1.2.1 no longer breaks its About tab or the space API; the update removes the bad value.
+* Dev      - New buddynext_search_space_object_type filter lets a plugin list some spaces under their own search section and tab.
 * Dev      - Removed the buddynext_mod_queue_columns filter with the retired page; buddynext_mod_queue_row_actions and buddynext_moderation_queue_before now fire in Community Admin.
 
 = 1.2.1 - September 2026 =

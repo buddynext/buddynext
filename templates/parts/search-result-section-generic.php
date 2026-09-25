@@ -96,7 +96,7 @@ $bn_item_badge = ucfirst( str_replace( array( '-', '_' ), ' ', $bn_type ) );
 				$bn_title = sprintf( /* translators: %d: object id. */ __( 'Item #%d', 'buddynext' ), $bn_oid );
 			}
 			$bn_body = (string) ( $bn_item['content'] ?? '' );
-			$bn_url  = (string) get_permalink( $bn_oid );
+			$bn_url  = buddynext_service( 'search' )->resolve_item_url( $bn_type, $bn_oid );
 			$bn_snip = ( null !== $bn_hl )
 				? (string) $bn_hl( '' !== $bn_body ? $bn_body : $bn_title, $bn_query )
 				: esc_html( $bn_body );

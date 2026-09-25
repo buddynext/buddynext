@@ -570,7 +570,11 @@ class SearchService {
 	 * @param int    $object_id Object ID within its type.
 	 * @return string Absolute URL, or '' when the type has no known route.
 	 */
-	private function resolve_item_url( string $type, int $object_id ): string {
+	public function resolve_item_url( string $type, int $object_id ): string {
+		// A space filed under an add-on's own type is still a space.
+		if ( in_array( $type, self::space_object_types(), true ) ) {
+			$type = 'space';
+		}
 		switch ( $type ) {
 			case 'user':
 			case 'member':
@@ -651,6 +655,32 @@ class SearchService {
 		wp_cache_set( 'bn_search_index_rows', $count, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $count;
+	}
+
+	/**
+	 * Every object_type a space's own index row may carry: 'space', plus each
+	 * type an add-on has filed a space under via buddynext_search_space_object_type
+	 * (recorded by remember_space_type(), so removal and member visibility can
+	 * find the row after the space itself is gone).
+	 *
+	 * @return string[]
+	 */
+	public static function space_object_types(): array {
+		return array_values( array_unique( array_merge( array( 'space' ), (array) get_option( 'buddynext_search_space_types', array() ) ) ) );
+	}
+
+	/**
+	 * Record a non-default type a space was indexed under.
+	 *
+	 * @param string $type Sanitized object_type.
+	 * @return void
+	 */
+	public static function remember_space_type( string $type ): void {
+		$types = self::space_object_types();
+		if ( ! in_array( $type, $types, true ) ) {
+			$types[] = $type;
+			update_option( 'buddynext_search_space_types', array_values( array_diff( $types, array( 'space' ) ) ), true );
+		}
 	}
 
 	/**
@@ -1050,7 +1080,8 @@ class SearchService {
 
 		// Visibility gate. Guests and the default path see only public rows. A
 		// logged-in viewer additionally sees content in spaces they belong to: the
-		// private space itself (space rows store their id in object_id, space_id 0)
+		// private space itself (space rows store their id in object_id, space_id 0,
+		// under 'space' or an add-on's own space type - see space_object_types())
 		// and any content whose space_id is one of their spaces. Space ids are cast
 		// to int and embedded directly (an all-integer IN() list is injection-safe),
 		// so the four search queries below need no extra prepared params.
@@ -1060,7 +1091,7 @@ class SearchService {
 			if ( ! empty( $viewer_spaces ) ) {
 				$space_in         = implode( ',', array_map( 'absint', $viewer_spaces ) );
 				$visibility_where = "( si.visibility = 'public'"
-					. " OR ( si.object_type = 'space' AND si.object_id IN ({$space_in}) )"
+					. " OR ( si.object_type IN ('" . implode( "','", array_map( 'sanitize_key', self::space_object_types() ) ) . "') AND si.object_id IN ({$space_in}) )"
 					. " OR ( si.space_id IN ({$space_in}) ) )";
 			}
 		}
