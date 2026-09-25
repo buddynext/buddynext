@@ -771,28 +771,24 @@ function refreshSpacePageAfterJoin() {
 /* ── Store ─────────────────────────────────────────────────────────── */
 
 /**
- * POST create/reset of a space's invite link, then reload so the settings tab
- * re-renders the new state. Shared by the create and reset actions.
+ * Create/reset (POST) or revoke (DELETE) a space's invite link, then reload so
+ * the settings tab re-renders the new state. Shared by all three actions.
  *
  * @param {string}      spaceId Space ID.
- * @param {string}      expires Expiry preset (1d|7d|30d|never).
- * @param {number}      maxUses Max uses (0 = unlimited).
+ * @param {Object|null} body    { expires, max_uses } to create/reset; null to revoke.
  * @param {HTMLElement} trigger The clicked element (its button is disabled while busy).
  * @return {Promise<void>}
  */
-async function saveInviteLink( spaceId, expires, maxUses, trigger ) {
+async function saveInviteLink( spaceId, body, trigger ) {
 	if ( ! spaceId ) { return; }
 	var btn = trigger && trigger.closest ? trigger.closest( 'button' ) : null;
 	if ( btn ) { btn.disabled = true; }
 	try {
-		var res = await restFetch( '/spaces/' + spaceId + '/invite-link', {
-			method:       'POST',
-			nonce:        resolveNonce(),
-			body:         { expires: expires, max_uses: maxUses },
-			toastOnError: false,
-		} );
-		if ( res.ok && res.data && res.data.invite_link ) {
-			if ( window.bnToast ) { window.bnToast( t( 'inviteSaved', 'Invite link ready.' ), 'success' ); }
+		var opts = { method: body ? 'POST' : 'DELETE', nonce: resolveNonce(), toastOnError: false };
+		if ( body ) { opts.body = body; }
+		var res = await restFetch( '/spaces/' + spaceId + '/invite-link', opts );
+		if ( res.ok && res.data && ( body ? res.data.invite_link : null === res.data.invite_link ) ) {
+			if ( window.bnToast ) { window.bnToast( body ? t( 'inviteSaved', 'Invite link ready.' ) : t( 'inviteRevoked', 'Invite link turned off.' ), 'success' ); }
 			window.location.reload();
 			return;
 		}
@@ -903,7 +899,7 @@ var storeInstance = store( 'buddynext/spaces', {
 			var maxSel  = root.querySelector( '[data-bn-invite-max]' );
 			var expires = expSel ? expSel.value : '7d';
 			var maxUses = parseInt( maxSel ? maxSel.value : '0', 10 ) || 0;
-			await saveInviteLink( spaceId, expires, maxUses, event.target );
+			await saveInviteLink( spaceId, { expires: expires, max_uses: maxUses }, event.target );
 		},
 
 		/**
@@ -925,7 +921,26 @@ var storeInstance = store( 'buddynext/spaces', {
 			var spaceId = root.getAttribute( 'data-space-id' );
 			var expires = root.getAttribute( 'data-bn-invite-expires-current' ) || '7d';
 			var maxUses = parseInt( root.getAttribute( 'data-bn-invite-max-current' ) || '0', 10 ) || 0;
-			await saveInviteLink( spaceId, expires, maxUses, event.target );
+			await saveInviteLink( spaceId, { expires: expires, max_uses: maxUses }, event.target );
+		},
+
+		/**
+		 * Revoke the link after a confirm: the old URL stops working and no new
+		 * link is issued; the panel returns to its create form.
+		 */
+		revokeInviteLink: async function ( event ) {
+			var root = event && event.target && event.target.closest( '[data-bn-invite-panel]' );
+			if ( ! root ) { return; }
+			if ( window.bnConfirm ) {
+				var ok = await window.bnConfirm( {
+					tone:         'danger',
+					title:        t( 'inviteRevokeTitle', 'Turn off the invite link?' ),
+					body:         t( 'inviteRevokeBody', 'The current link stops working immediately and can’t be restored. People who already joined stay members.' ),
+					confirmLabel: t( 'inviteRevokeConfirm', 'Revoke link' ),
+				} );
+				if ( ! ok ) { return; }
+			}
+			await saveInviteLink( root.getAttribute( 'data-space-id' ), null, event.target );
 		},
 
 		/**

@@ -61,6 +61,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 = 1.2.2 - In development =
 
+* New      - Space owners and moderators can revoke a space's invite link, turning it off without issuing a new one.
 * Improve  - Community Admin moderation now pages through every open report, filters by type and sorts by most reported, so moderators without wp-admin access can work the whole queue.
 * Improve  - Report rows show the first line of what was reported, and the More menu adds View reported item, Warn author and Reverse last strike.
 * Improve  - The standalone /moderation/ page is retired; Community Admin is the front-end moderation home and each space keeps its own Moderation tab.

@@ -397,6 +397,33 @@ class SpaceInviteLinkService {
 		// A reset issues a new token and a fresh cap, so the per-person "slot held"
 		// markers from the OLD link must go — otherwise everyone who used the old
 		// link would be treated as already-counted on the new one.
+		$this->purge_slots( $space_id );
+
+		return $this->to_public( $space_id, $record, 0 );
+	}
+
+	/**
+	 * Turn the space's invite link off without issuing a new one.
+	 *
+	 * The old URL then fails validate() like an expired link. Members who already
+	 * joined through it stay members; their joined-via-link markers are kept.
+	 *
+	 * @param int $space_id Space whose link is revoked.
+	 * @return void
+	 */
+	public function revoke( int $space_id ): void {
+		delete_space_meta( $space_id, self::META_LINK );
+		delete_space_meta( $space_id, self::META_USES );
+		$this->purge_slots( $space_id );
+	}
+
+	/**
+	 * Drop the per-person "slot held" markers of the current link.
+	 *
+	 * @param int $space_id Space.
+	 * @return void
+	 */
+	private function purge_slots( int $space_id ): void {
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
@@ -407,8 +434,6 @@ class SpaceInviteLinkService {
 			)
 		);
 		wp_cache_delete( $space_id, self::META_CACHE_GROUP );
-
-		return $this->to_public( $space_id, $record, 0 );
 	}
 
 	/**

@@ -1321,6 +1321,10 @@ class AssetService {
 					'inviteResetTitle'                => __( 'Reset the invite link?', 'buddynext' ),
 					'inviteResetBody'                 => __( 'The current link stops working immediately and a new one is created.', 'buddynext' ),
 					'inviteResetConfirm'              => __( 'Reset link', 'buddynext' ),
+					'inviteRevokeTitle'               => __( 'Turn off the invite link?', 'buddynext' ),
+					'inviteRevokeBody'                => __( 'The current link stops working immediately and can’t be restored. People who already joined stay members.', 'buddynext' ),
+					'inviteRevokeConfirm'             => __( 'Revoke link', 'buddynext' ),
+					'inviteRevoked'                   => __( 'Invite link turned off.', 'buddynext' ),
 					// requestJoin's failure branch. It suppresses the shared error
 					// toast, so without this a rejected request (a banned member, say)
 					// only flickered the button and said nothing.

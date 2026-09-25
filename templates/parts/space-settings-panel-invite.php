@@ -98,7 +98,7 @@ do_action( 'buddynext_part_space_settings_panel_invite_before', $args );
 >
 	<header class="bn-space-settings__panel-head">
 		<h2 class="bn-space-settings__panel-title"><?php buddynext_icon( 'link' ); ?> <?php esc_html_e( 'Invite link', 'buddynext' ); ?></h2>
-		<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Share one link that lets people join this space directly. Reset it any time to turn the old link off.', 'buddynext' ); ?></p>
+		<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Share one link that lets people join this space directly. Reset it for a new link, or revoke it to turn it off.', 'buddynext' ); ?></p>
 	</header>
 
 	<?php if ( null === $bn_inv_link ) : ?>
@@ -160,13 +160,23 @@ do_action( 'buddynext_part_space_settings_panel_invite_before', $args );
 				<span class="bn-invite-panel__status"><?php echo esc_html( $bn_status_line ); ?></span>
 			</p>
 
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="ghost"
-				data-size="md"
-				data-wp-on--click="actions.resetInviteLink"
-			><?php buddynext_icon( 'refresh-cw' ); ?> <?php esc_html_e( 'Reset link', 'buddynext' ); ?></button>
+			<div class="bn-invite-panel__actions">
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="md"
+					data-wp-on--click="actions.resetInviteLink"
+				><?php buddynext_icon( 'rotate-ccw' ); ?> <?php esc_html_e( 'Reset link', 'buddynext' ); ?></button>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="md"
+					data-tone="danger"
+					data-wp-on--click="actions.revokeInviteLink"
+				><?php buddynext_icon( 'x-circle' ); ?> <?php esc_html_e( 'Revoke link', 'buddynext' ); ?></button>
+			</div>
 		</div>
 	<?php endif; ?>
 </div>

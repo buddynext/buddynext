@@ -29,6 +29,7 @@ use WP_REST_Request;
  * @covers \BuddyNext\Spaces\SpaceController::join_space
  * @covers \BuddyNext\Spaces\SpaceController::get_invite_link
  * @covers \BuddyNext\Spaces\SpaceController::save_invite_link
+ * @covers \BuddyNext\Spaces\SpaceController::revoke_invite_link
  */
 class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 
@@ -68,6 +69,19 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		$this->assertNotSame( $first['token'], $second['token'] );
 		$this->assertWPError( $this->links->validate( $this->space_id, $first['token'] ) );
 		$this->assertTrue( $this->links->validate( $this->space_id, $second['token'] ) );
+	}
+
+	/** Revoke turns the link off without issuing a new one (card 10331990056). */
+	public function test_revoke_removes_link_and_rejects_old_token(): void {
+		$link = $this->make_link();
+		wp_set_current_user( $this->owner_id );
+
+		$res = rest_do_request( new WP_REST_Request( 'DELETE', '/buddynext/v1/spaces/' . $this->space_id . '/invite-link' ) );
+
+		$this->assertSame( 200, $res->get_status() );
+		$this->assertNull( $res->get_data()['invite_link'] );
+		$this->assertNull( $this->links->get( $this->space_id ) );
+		$this->assertWPError( $this->links->validate( $this->space_id, $link['token'] ) );
 	}
 
 	/** @covers Plan item: expiry is enforced. */
@@ -184,6 +198,11 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		$post = new WP_REST_Request( 'POST', '/buddynext/v1/spaces/' . $this->space_id . '/invite-link' );
 		$post->set_body_params( array( 'expires' => '7d', 'max_uses' => 0 ) );
 		$this->assertSame( 403, rest_do_request( $post )->get_status() );
+
+		$this->make_link();
+		$delete = rest_do_request( new WP_REST_Request( 'DELETE', '/buddynext/v1/spaces/' . $this->space_id . '/invite-link' ) );
+		$this->assertSame( 403, $delete->get_status() );
+		$this->assertNotNull( $this->links->get( $this->space_id ), 'an outsider must not revoke the link' );
 	}
 
 	/** @covers Plan item: a secret space's content is not exposed on an invalid link. */

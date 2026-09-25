@@ -3882,6 +3882,12 @@ a.bn-sh-statpill:focus-visible {
 	font-size: var(--bn-fs-xs);
 }
 
+.bn-invite-panel__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+}
+
 .bn-invite-panel__meta {
 	display: flex;
 	align-items: center;

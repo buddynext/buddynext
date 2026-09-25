@@ -395,6 +395,11 @@ class SpaceController extends BaseRestController {
 						),
 					),
 				),
+				array(
+					'methods'             => 'DELETE',
+					'callback'            => array( $this, 'revoke_invite_link' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
 			)
 		);
 
@@ -2437,28 +2442,9 @@ class SpaceController extends BaseRestController {
 	 */
 	public function get_invite_link( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$space_id = (int) $request->get_param( 'id' );
-		$user_id  = get_current_user_id();
-
-		if ( null === ( new SpaceService() )->get( $space_id ) ) {
-			return new WP_Error(
-				'space_not_found',
-				__( 'Space not found.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
-		}
-
-		// The shareable link is a public, direct-join broadcast + reset control, not a
-		// targeted invite, so it is gated on managing the space (owner/mod) — the same
-		// gate as the settings panel that shows it — NOT who_can_invite. Otherwise a
-		// space set to "all members can invite" let any member mint a public join link
-		// into a private/secret space and reset the owner's link, from an API the panel
-		// they cannot see.
-		if ( ! buddynext_can( $user_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $space_id ) ) ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Only the space owner or a moderator can manage the invite link.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+		$denied   = $this->invite_link_denied( $space_id );
+		if ( null !== $denied ) {
+			return $denied;
 		}
 
 		return new WP_REST_Response(
@@ -2478,35 +2464,59 @@ class SpaceController extends BaseRestController {
 	 */
 	public function save_invite_link( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$space_id = (int) $request->get_param( 'id' );
-		$user_id  = get_current_user_id();
-
-		if ( null === ( new SpaceService() )->get( $space_id ) ) {
-			return new WP_Error(
-				'space_not_found',
-				__( 'Space not found.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
-		}
-
-		// Gated on managing the space (owner/mod), not who_can_invite — see the note
-		// in get_invite_link(). Minting/resetting the public shareable link is a
-		// manage-settings action, distinct from sending a targeted invite.
-		if ( ! buddynext_can( $user_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $space_id ) ) ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Only the space owner or a moderator can manage the invite link.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+		$denied   = $this->invite_link_denied( $space_id );
+		if ( null !== $denied ) {
+			return $denied;
 		}
 
 		$link = ( new SpaceInviteLinkService() )->create(
 			$space_id,
-			$user_id,
+			get_current_user_id(),
 			(string) $request->get_param( 'expires' ),
 			(int) $request->get_param( 'max_uses' )
 		);
 
 		return new WP_REST_Response( array( 'invite_link' => $link ), 200 );
+	}
+
+	/**
+	 * Revoke the space's shareable invite link without issuing a new one (owner/mod only).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function revoke_invite_link( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$denied   = $this->invite_link_denied( $space_id );
+		if ( null !== $denied ) {
+			return $denied;
+		}
+
+		( new SpaceInviteLinkService() )->revoke( $space_id );
+
+		return new WP_REST_Response( array( 'invite_link' => null ), 200 );
+	}
+
+	/**
+	 * The one gate for reading, creating, resetting and revoking the invite link.
+	 *
+	 * The shareable link is a public, direct-join broadcast, not a targeted invite,
+	 * so it is gated on managing the space (owner/mod) - the same gate as the
+	 * settings panel that shows it - NOT who_can_invite. Otherwise a space set to
+	 * "all members can invite" let any member mint a public join link into a
+	 * private/secret space, or reset/revoke the owner's link, through the API.
+	 *
+	 * @param int $space_id Space.
+	 * @return WP_Error|null Error to return, or null when the current user may manage it.
+	 */
+	private function invite_link_denied( int $space_id ): ?WP_Error {
+		if ( null === ( new SpaceService() )->get( $space_id ) ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings', array( 'space_id' => $space_id ) ) ) {
+			return new WP_Error( 'forbidden', __( 'Only the space owner or a moderator can manage the invite link.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+		return null;
 	}
 
 	/**

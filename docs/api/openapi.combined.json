@@ -17497,6 +17497,15 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "roots_only",
+                        "in": "query",
+                        "required": false,
+                        "description": "1/true/yes to exclude sub-spaces even on the search path (search otherwise always includes them).",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -18878,6 +18887,52 @@
                         }
                     }
                 }
+            },
+            "delete": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "delete_buddynext_v1_spaces_id_invite_link",
+                "summary": "DELETE /buddynext/v1/spaces/{id}/invite-link",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/buddynext/v1/spaces/{id}/join": {

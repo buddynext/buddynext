@@ -2699,6 +2699,10 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink-2);
 }
 .bn-btn[data-variant="ghost"]:hover { background: var(--bn-sunken); color: var(--bn-ink); }
+/* Quiet destructive action (e.g. Revoke next to Reset): ghost weight, danger ink. */
+.bn-btn[data-variant="ghost"][data-tone="danger"],
+.bn-btn[data-variant="ghost"][data-tone="danger"]:hover { color: var(--bn-danger); }
+.bn-btn[data-variant="ghost"][data-tone="danger"]:hover { background: var(--bn-danger-bg); }
 
 .bn-btn[data-variant="danger"] {
 	background: var(--bn-danger);
