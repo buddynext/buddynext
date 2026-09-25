@@ -1447,7 +1447,13 @@ class AssetService {
 		wp_interactivity_state(
 			'buddynext/messages',
 			array(
-				'i18n' => array(
+				// Live-drawn bubbles print their clock like the server ones
+				// (templates/parts/dm-message.php: wp_date( time_format ) in the site zone).
+				'clock' => array(
+					'offset' => (int) timezone_offset_get( wp_timezone(), new \DateTime( 'now', new \DateTimeZone( 'UTC' ) ) ),
+					'format' => (string) get_option( 'time_format', 'g:i A' ),
+				),
+				'i18n'  => array(
 					'composeNewGroup'           => __( 'New group', 'buddynext' ),
 					'composeNewMessage'         => __( 'New message', 'buddynext' ),
 					'composeHint'               => __( 'Search for a person to message.', 'buddynext' ),

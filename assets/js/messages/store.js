@@ -342,6 +342,52 @@ function normalizeMedia( msg ) {
 }
 
 /**
+ * Server timestamps are UTC. created_at is a bare MySQL datetime ("2026-09-25 00:52:00"),
+ * which Date() would read as browser-local, so it gets a Z; epoch seconds and ISO strings
+ * pass through.
+ *
+ * @param {string|number} raw Server timestamp.
+ * @return {Date} The instant.
+ */
+function parseServerDate( raw ) {
+	if ( ! raw ) {
+		return new Date();
+	}
+	const str = String( raw );
+	if ( /^\d+$/.test( str ) ) {
+		return new Date( Number( str ) * 1000 );
+	}
+	return new Date( /[zZ]$|[+-]\d\d:?\d\d$/.test( str ) ? str : str.replace( ' ', 'T' ) + 'Z' );
+}
+
+/**
+ * The bubble clock exactly as the server prints it: WP's time_format in the site zone.
+ * Handles the tokens a time_format uses (g G h H i s a A) and backslash escapes.
+ * ponytail: offset is today's; a message from across a DST switch reads 1h off until reload.
+ * ponytail: am/pm is English, wp_date() localizes it; map through i18n if a locale asks.
+ *
+ * @param {Date} date Instant to print.
+ * @return {string} Formatted clock.
+ */
+function siteClock( date ) {
+	const clock = ( messagesStore.state && messagesStore.state.clock ) || {};
+	const d     = new Date( date.getTime() + ( clock.offset || 0 ) * 1000 );
+	const h     = d.getUTCHours();
+	const pad   = ( n ) => String( n ).padStart( 2, '0' );
+	const map   = {
+		g: h % 12 || 12,
+		G: h,
+		h: pad( h % 12 || 12 ),
+		H: pad( h ),
+		i: pad( d.getUTCMinutes() ),
+		s: pad( d.getUTCSeconds() ),
+		a: h < 12 ? 'am' : 'pm',
+		A: h < 12 ? 'AM' : 'PM',
+	};
+	return String( clock.format || 'g:i A' ).replace( /\\?./g, ( ch ) => ( ch.length > 1 ? ch[ 1 ] : String( ch in map ? map[ ch ] : ch ) ) );
+}
+
+/**
  * Render a message bubble matching templates/parts/dm-message.php.
  *
  * @param {Object} msg    Message row { id, sender_id, content|body, created_at }.
@@ -438,10 +484,9 @@ function buildMessageNode( msg, viewer ) {
 	meta.className = 'bn-dm-msg__meta';
 	const time = document.createElement( 'time' );
 	time.className = 'bn-dm-msg__time';
-	const stamp = /^\d+$/.test( String( msg.created_at ) ) ? Number( msg.created_at ) * 1000 : msg.created_at;
-	const ts    = msg.created_at ? new Date( stamp ) : new Date();
+	const ts = parseServerDate( msg.created_at_gmt || msg.created_at );
 	time.dateTime = ts.toISOString();
-	time.textContent = ts.toLocaleTimeString( [], { hour: 'numeric', minute: '2-digit' } );
+	time.textContent = siteClock( ts );
 	meta.appendChild( time );
 	content.appendChild( meta );
 
